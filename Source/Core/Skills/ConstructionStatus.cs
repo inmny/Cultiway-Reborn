@@ -2,9 +2,21 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using Newtonsoft.Json;
 using Cultiway.Core.Libraries;
 
 namespace Cultiway.Core.Skills;
+
+/// <summary>同类状态的合并规则，由状态系统维护，不另建更新循环。</summary>
+public enum ConstructionStatusApplication
+{
+    /// <summary>同类保留最强属性状态，沿用正式首版的缺省含义。</summary>
+    Strongest = 0,
+    /// <summary>每次真实接触独立加入一份状态。</summary>
+    Stack = 1,
+    /// <summary>刷新最早加入的同类状态，并采用本次来源及实际时长。</summary>
+    Refresh = 2
+}
 
 /// <summary>真实接触附带的已登记属性状态，可与伤害、恢复和其他状态自由组合。</summary>
 public sealed class ConstructionStatus
@@ -17,6 +29,12 @@ public sealed class ConstructionStatus
     public float Potency;
     /// <summary>原版或模组已登记的属性编号及本次加成，允许明确负值。</summary>
     public Dictionary<string, float> Stats;
+    /// <summary>同类合并方式；叠加或刷新时允许省略属性，使用状态自身属性及控制标记。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public ConstructionStatusApplication Application;
+    /// <summary>成功施加后等待抗性结算所得的真实时长，供短暂硬直等状态使用。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool WaitForDuration;
 }
 
 /// <summary>在编译边界解析并复制的状态资料，数值计算线程不施加游戏状态。</summary>
@@ -30,6 +48,10 @@ public sealed class CompiledConstructionStatus
     public float Potency { get; }
     /// <summary>独立只读的属性值，不持有可编辑字典。</summary>
     public IReadOnlyDictionary<string, float> Stats { get; }
+    /// <summary>已经检查的同类合并方式。</summary>
+    public ConstructionStatusApplication Application { get; }
+    /// <summary>是否使用抗性结算后的真实时长等待。</summary>
+    public bool WaitForDuration { get; }
 
     /// <summary>只在用户资料进入执行前检查编号、范围与状态能力。</summary>
     /// <param name="source">可保存的作用资料。</param><param name="path">资料错误位置。</param>
@@ -37,20 +59,24 @@ public sealed class CompiledConstructionStatus
     {
         if (source == null || string.IsNullOrEmpty(source.Id) || !Finite(source.Duration) || source.Duration <= 0f ||
             source.Duration > 3600f || !Finite(source.Potency) || source.Potency < 0f || source.Potency > 1000000f ||
-            source.Stats == null || source.Stats.Count == 0 || source.Stats.Count > 64)
-            throw new InvalidDataException(path + "：状态需要稳定编号、0至3600内的正时长、0至一百万的强度及1至64项属性");
+            !Enum.IsDefined(typeof(ConstructionStatusApplication), source.Application) ||
+            source.Application == ConstructionStatusApplication.Strongest && (source.Stats == null || source.Stats.Count == 0) ||
+            source.Stats?.Count > 64)
+            throw new InvalidDataException(path + "：状态需要稳定编号、0至3600内的正时长、0至一百万的强度、有效合并方式及最多64项属性；最强规则必须明确属性");
         Asset = ModClass.L.StatusEffectLibrary.get(source.Id);
-        if (Asset == null || !Asset.SupportsStatOverwrite)
-            throw new InvalidDataException(path + "：未登记或不支持属性覆盖的共享状态：" + source.Id);
+        if (Asset == null || source.Application == ConstructionStatusApplication.Strongest && !Asset.SupportsStatOverwrite)
+            throw new InvalidDataException(path + "：未登记或不支持所选合并方式的共享状态：" + source.Id);
         var stats = new Dictionary<string, float>(StringComparer.Ordinal);
-        foreach (var pair in source.Stats)
+        foreach (var pair in source.Stats ?? new Dictionary<string, float>())
         {
             if (string.IsNullOrEmpty(pair.Key) || !Finite(pair.Value) || Math.Abs(pair.Value) > 1000000f ||
                 AssetManager.base_stats_library.get(pair.Key) is not { ignore: false })
                 throw new InvalidDataException(path + "/Stats：属性需要已登记的有效编号及正负一百万内的有限值：" + pair.Key);
             stats.Add(pair.Key, pair.Value);
         }
-        Stats = new ReadOnlyDictionary<string, float>(stats);
+        Stats = source.Stats == null ? null : new ReadOnlyDictionary<string, float>(stats);
+        Application = source.Application;
+        WaitForDuration = source.WaitForDuration;
         Duration = source.Duration;
         Potency = source.Potency;
     }

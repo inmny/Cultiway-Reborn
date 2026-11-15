@@ -3,6 +3,7 @@ using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Core.Components;
+using Cultiway.Core.Skills;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Utils.Extension;
@@ -207,6 +208,29 @@ public static class CombatStatusEffects
         status.GetComponent<StatusComponent>().SourcePowerLevel = sourcePowerLevel;
     }, effect?.stats, sourcePowerLevel, true);
 
+    /// <summary>已确认接触沿用状态的叠加或同类刷新，不重新读取来源当前倍率。</summary>
+    /// <param name="target">实际目标。</param><param name="effect">已登记状态。</param>
+    /// <param name="duration">本次声明时长。</param><param name="source">本次真实来源。</param>
+    /// <param name="sourcePowerLevel">施放时固定的境界。</param><param name="application">已检查的叠加或刷新。</param>
+    /// <param name="stats">可选覆盖属性；空值沿用状态自身属性。</param>
+    internal static Entity ApplyContactStatus(Actor target, StatusEffectAsset effect, float duration, Actor source,
+        float sourcePowerLevel, ConstructionStatusApplication application, BaseStats stats)
+    {
+        return ApplyConfiguredStatus(target, effect, duration, source, (status, resolved) =>
+        {
+            ConfigureStatusHeader(status, resolved, source);
+            status.GetComponent<StatusComponent>().SourcePowerLevel = sourcePowerLevel;
+            if (stats == null)
+            {
+                status.RemoveComponent<StatusOverwriteStats>();
+                return;
+            }
+            if (!status.HasComponent<StatusOverwriteStats>()) status.AddComponent(new StatusOverwriteStats());
+            status.GetComponent<StatusOverwriteStats>().stats = stats;
+        }, sourcePowerLevel: sourcePowerLevel, independent: application == ConstructionStatusApplication.Stack,
+            matchAnySource: application == ConstructionStatusApplication.Refresh);
+    }
+
     /// <summary>
     /// 施加或刷新带自定义运行时组件的共享状态。
     /// 配置委托在通用持续时间和来源信息写入后执行。
@@ -310,23 +334,24 @@ public static class CombatStatusEffects
     /// <param name="duration">原始秒数。</param><param name="source">来源人物。</param>
     /// <param name="configure">写入实际运行资料。</param><param name="defaultStats">需要恢复的默认属性。</param>
     /// <param name="sourcePowerLevel">可选的已固定来源境界。</param><param name="keepLonger">同源刷新是否保留较长剩余时间。</param>
+    /// <param name="independent">每次接触独立加入状态。</param><param name="matchAnySource">刷新同类状态时允许改由本次来源接管。</param>
     private static Entity ApplyConfiguredStatus(
         Actor target,
         StatusEffectAsset effect,
         float duration,
         Actor source,
         Action<Entity, float> configure,
-        BaseStats defaultStats = null, float? sourcePowerLevel = null, bool keepLonger = false)
+        BaseStats defaultStats = null, float? sourcePowerLevel = null, bool keepLonger = false, bool independent = false, bool matchAnySource = false)
     {
         if (target == null || target.isRekt() || effect == null ||
             source == null && !sourcePowerLevel.HasValue || source != null && source.isRekt()) return default;
         ActorExtend targetExtend = target.GetExtend();
         var relations = targetExtend.E.GetRelations<StatusRelation>();
-        for (var i = 0; i < relations.Length; i++)
+        for (var i = 0; !independent && i < relations.Length; i++)
         {
             Entity status = relations[i].status;
             StatusComponent component = status.GetComponent<StatusComponent>();
-            if (component.Type != effect || component.Source != source) continue;
+            if (component.Type != effect || !matchAnySource && component.Source != source) continue;
             if (!StatusEffectSuppression.TryResolveDuration(
                     targetExtend, effect, duration, source, sourcePowerLevel,
                     out float resolvedDuration)) return default;

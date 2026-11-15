@@ -1023,9 +1023,22 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (!owner.IsLive) return;
         foreach (CompiledConstructionStatus effect in effects)
         {
-            var stats = new BaseStats();
-            foreach (var pair in effect.Stats) stats[pair.Key] = pair.Value;
-            CombatStatusEffects.ApplyStrongestStatus(target, effect.Asset, effect.Duration, effect.Potency, owner.Actor, stats);
+            BaseStats stats = null;
+            if (effect.Stats != null)
+            {
+                stats = new BaseStats();
+                foreach (var pair in effect.Stats) stats[pair.Key] = pair.Value;
+            }
+            if (effect.Application == ConstructionStatusApplication.Strongest)
+            {
+                bool applied = CombatStatusEffects.ApplyStrongestStatus(target, effect.Asset, effect.Duration, effect.Potency, owner.Actor, stats);
+                if (effect.WaitForDuration && applied && CombatStatusEffects.TryGetStatus(target, effect.Asset, null, out var strongest))
+                    target.makeWait(strongest.GetComponent<Core.Components.AliveTimeLimit>().value);
+                continue;
+            }
+            var status = CombatStatusEffects.ApplyContactStatus(target, effect.Asset, effect.Duration, owner.Actor,
+                owner.Damage.AttackerPowerLevel ?? 0f, effect.Application, stats);
+            if (effect.WaitForDuration && !status.IsNull) target.makeWait(status.GetComponent<Core.Components.AliveTimeLimit>().value);
         }
     }
 

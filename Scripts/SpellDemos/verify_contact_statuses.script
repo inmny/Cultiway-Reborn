@@ -1,0 +1,161 @@
+// B32：三个原接触状态，复用既有世界与人物，不扩大来源实机矩阵。
+const string section="all";
+var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var allCasts=new List<AbilityCast>();
+var emissions=new List<object>();int oldExecutions=0;bool invalidate=false,scopeValid=true;
+SkillEmissionResult? lastResult=null;SkillEntityAsset current=SkillEntities.SpiritBolt;
+Actor source=Make(64),target=Make(70),outside=Make(70),wolf=Make(12,"wolf");
+target.setKingdom(wolf.kingdom);outside.setKingdom(wolf.kingdom);Place(outside,70,78);
+var owner=source.GetExtend();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=0;
+owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();await Advance(.2f);
+var statusTypes=new[]{StatusEffects.Slow,StatusEffects.Freeze,StatusEffects.Daze};
+IReadOnlyList<Entity> Learned()=>(IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(owner,null);
+/// <summary>使用原容器和学习入口，三个词条均保留原参数。</summary>
+Entity Build(bool contact=true)
+{
+    var builder=new SkillContainerBuilder(current).UseAnimation(0);
+    builder.AddModifier(new SlowModifier{Duration=3f,Strength=.35f});
+    builder.AddModifier(new FreezeModifier{Duration=2f});
+    builder.AddModifier(new DazeModifier{Duration=1.2f});
+    Entity made=builder.Build(SkillContainerBuildMode.RuleOnly);
+    if(!contact)made.AddComponent(new SkillSettings{Duration=2.4f,PowerMultiplier=1,AreaMultiplier=1,ContactEnabled=false});
+    string signature=SkillContainerSignature.Build(made);owner.LearnSkillV3(made);return Learned().First(s=>SkillContainerSignature.Build(s)==signature);
+}
+/// <summary>读取真实来源的普通转换资料，不直接受理替代施放。</summary>
+AbilityDefinition Convert(Entity skill,string migration,float scale=1f)
+{
+    var method=service.Assembly.GetType("Cultiway.Content.Skills."+migration+"ConstructionMigration").GetMethod("Convert",F);
+    var emission=new SkillEmission{Source=source,SpatialSource=source,SkillContainer=skill,Target=target,
+        SourcePos=new Vector3(64,72,.3f),TargetPos=new Vector3(70,72,.3f),Strength=40,PowerLevel=0,
+        RuntimeData=new SkillCastRuntimeData{EffectScale=scale}};
+    object[] args=method.GetParameters().Length==3?new object[]{emission,default(GetHitEvent),default(Vector3)}:new object[]{emission,default(GetHitEvent)};
+    return (AbilityDefinition)method.Invoke(null,args);
+}
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    yield return node;if(node.Children!=null)foreach(var child in node.Children)foreach(var nested in Nodes(child))yield return nested;
+}
+Entity[] States(Actor actor,Cultiway.Core.Libraries.StatusEffectAsset type)=>actor.GetExtend().GetStatuses().Where(s=>s.GetComponent<StatusComponent>().Type==type).ToArray();
+void ClearStates(Actor actor){foreach(var type in statusTypes)CombatStatusEffects.RemoveStatus(actor,type);actor.updateStats();}
+void ResetPeople()
+{
+    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();oldExecutions=0;
+    Ready(source);Place(source,64);Place(target,70);Place(outside,70,78);ClearStates(target);ClearStates(outside);
+    target.GetExtend().SetPowerLevel(0);owner.SetPowerLevel(0);
+    owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
+    foreach(var actor in new[]{source,target,outside})ConstructedAbilityService.NotifyActorChanged(actor);
+}
+/// <summary>真实已学施放，保持原费用；来源请求后静止，不受按键输入带动。</summary>
+bool Use(Entity skill,ConstructionWorldScope scope=null)
+{
+    bool used=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",skill),new ActiveAbilityTarget(target,target.GetSimPos(),
+        selectionArea:new SkillTargetSelectionArea(true,target.GetSimPos(),.1f),worldScope:scope),ActiveAbilityUseOrigin.Script);
+    source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();ControllableUnit.clear(false);return used;
+}
+/// <summary>只等真实目标新增一次接触，避免按固定飞行时间推测状态时点。</summary>
+async Task WaitContact(int before)
+{
+    for(int i=0;i<40;i++)
+    {
+        await Advance(.05f);
+        if(contacts.Count(c=>c.TargetId==target.id)>before)return;
+    }
+    throw new InvalidOperationException("实际目标未在两秒内接触");
+}
+void Started(ConstructedCastStarted fact){if(fact.SourceId==source.id)starts.Add(fact);}
+void Old(Entity entity){if(entity.GetComponent<SkillContext>().SourceObj==source)oldExecutions++;}
+ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+try
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        if(request.Source!=source)return original(request);if(invalidate)scopeValid=false;
+        var result=original(request);lastResult=result;
+        if(result==SkillEmissionResult.Accepted)
+        {
+            var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==starts.Last().CastId);
+            var cast=(AbilityCast)Field(running,"Cast");accepted.Add(cast);allCasts.Add(cast);
+        }
+        emissions.Add(new{request.Strength,request.PowerLevel,result=result.ToString(),asset=request.SkillContainer.GetComponent<SkillContainer>().Asset.id});return result;
+    };
+    if(section!="runtime")
+    {
+        foreach(var entry in new[]{(Asset:SkillEntities.SpiritBolt,Migration:"Projectile"),(Asset:SkillEntities.GroundSpike,Migration:"GroundSpike"),(Asset:SkillEntities.Rift,Migration:"Rift"),
+            (Asset:SkillEntities.YinField,Migration:"Field"),(Asset:SkillEntities.FireWall,Migration:"Barrier"),(Asset:SkillEntities.SpiritBeam,Migration:"Beam"),(Asset:SkillEntities.ChainLightning,Migration:"Chain"),(Asset:SkillEntities.Fireball,Migration:"Projectile"),(Asset:SkillEntities.WindWall,Migration:"Barrier")})
+        {
+            current=entry.Asset;var skill=Build();var definition=Convert(skill,entry.Migration,.5f);
+            Check(definition!=null,entry.Asset.id+"三个词条不退回旧执行");
+            var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));AbilityCompiler.Compile(restored,false);
+            var attack=Nodes(restored.Root).Where(n=>n.Impact?.Statuses?.Length>0).ToArray();
+            Check(attack.Length>0&&attack.All(n=>n.Impact.Statuses.Length==3&&n.Impact.Statuses[0].Application==ConstructionStatusApplication.Stack&&
+                Math.Abs(n.Impact.Statuses[0].Duration-3f)<.001f&&Math.Abs(n.Impact.Statuses[0].Stats[S.multiplier_speed]+.175f)<.001f&&
+                Math.Abs(n.Impact.Statuses[1].Duration-1f)<.001f&&n.Impact.Statuses[1].Stats==null&&
+                n.Impact.Statuses[2].Application==ConstructionStatusApplication.Refresh&&n.Impact.Statuses[2].WaitForDuration&&Math.Abs(n.Impact.Statuses[2].Duration-.6f)<.001f),entry.Asset.id+"保留倍率、叠加和刷新资料且可保存编译");
+            if(entry.Asset==SkillEntities.Fireball)Check(restored.Root.Impact.Statuses==null&&restored.Root.Children[0].Impact.Statuses.Length==3,"爆发在真实爆发面施加状态，飞行载体不提前施加");
+            if(entry.Asset==SkillEntities.WindWall)Check(restored.Root.Impact.DamageScale==0f&&restored.Root.Impact.Statuses.Length==3,"零人物伤害的推力风墙仍保留三个接触状态");
+            File.WriteAllText(Path.Combine(folder,entry.Asset.id+".json"),JsonConvert.SerializeObject(definition,Formatting.Indented));
+        }
+        current=SkillEntities.SpiritBolt;var d=Convert(Build(),"Projectile");var status=d.Root.Impact.Statuses[0];
+        status.Application=(ConstructionStatusApplication)999;bool refused=false;try{AbilityCompiler.Compile(d,false);}catch(InvalidDataException){refused=true;}
+        Check(refused,"非法状态合并方式在编译边界拒绝");
+        d=Convert(Build(),"Projectile");d.Root.Impact.Statuses=new[]{new ConstructionStatus{Id=StatusEffects.BattleBlessing.id,Duration=1,Potency=2,Stats=new Dictionary<string,float>{{S.damage,3}}}};
+        var oldJson=JObject.Parse(JsonConvert.SerializeObject(d));Check(!oldJson.ToString().Contains("Application"),"既有最强状态缺省资料不增加字段");
+        AbilityCompiler.Compile(oldJson.ToObject<AbilityDefinition>(),false);Check(d.Root.Impact.Statuses[0].Application==ConstructionStatusApplication.Strongest,"既有缺省最强属性状态仍可编译");
+        var statusCtor=typeof(CompiledConstructionStatus).GetConstructors(F).Single();
+        var editable=new ConstructionStatus{Id=StatusEffects.Slow.id,Duration=1,Application=ConstructionStatusApplication.Refresh,WaitForDuration=true,Stats=new Dictionary<string,float>{{S.multiplier_speed,-.2f}}};
+        var compiled=(CompiledConstructionStatus)statusCtor.Invoke(new object[]{editable,"复制检查"});
+        editable.Application=ConstructionStatusApplication.Stack;editable.WaitForDuration=false;editable.Stats[S.multiplier_speed]=-.7f;
+        Check(compiled.Application==ConstructionStatusApplication.Refresh&&compiled.WaitForDuration&&Math.Abs(compiled.Stats[S.multiplier_speed]+.2f)<.001f,"编译状态独立复制合并方式、等待及属性，不持有草稿");
+        var apply=typeof(CombatStatusEffects).GetMethod("ApplyContactStatus",F);
+        CombatStatusEffects.ApplyStatus(target,StatusEffects.Daze,1,S.damage,-1,source);
+        var refreshed=(Entity)apply.Invoke(null,new object[]{target,StatusEffects.Daze,1f,source,0f,ConstructionStatusApplication.Refresh,null});
+        target.updateStats();Check(!refreshed.HasComponent<StatusOverwriteStats>()&&States(target,StatusEffects.Daze).Length==1,"刷新为空属性时恢复状态模板，不遗留前次覆盖");ClearStates(target);
+
+    }
+    if(section!="definitions")
+    {
+        current=SkillEntities.SpiritBolt;ResetPeople();var skill=Build();float balance=owner.GetCultisys<Xian>().wakan;
+        var plan=SkillCastPlanner.CreatePlan(owner,skill,target,SkillCastCost.GetAffordableStepLimit(owner,skill),explicitTargetsOnly:true);
+        Check(Use(skill),"带三个接触词条的原灵弹受理");await WaitContact(0);
+        Check(starts.Count==1&&oldExecutions==0&&contacts.Any(c=>c.TargetId==target.id),"实际新主体命中，没有旧执行");
+        Check(statusTypes.All(t=>States(target,t).Length==1)&&statusTypes.All(t=>States(outside,t).Length==0),"真实目标获得三个原状态，侧外人物没有状态");
+        var firstDaze=States(target,StatusEffects.Daze).Single();var dazeId=firstDaze.Id;
+        Check(Math.Abs(States(target,StatusEffects.Slow).Single().GetComponent<StatusOverwriteStats>().stats[S.multiplier_speed]+.35f)<.001f&&
+            statusTypes.All(t=>States(target,t).Single().GetComponent<StatusComponent>().Source==source&&States(target,t).Single().GetComponent<StatusComponent>().SourcePowerLevel==0),"原减速强度和本次固定来源境界写入真实状态");
+        CombatStatusEffects.RemoveStatus(target,hold);target.updateStats();
+        Check(target.stats.hasTag("frozen_ai")&&target.stats.hasTag("immovable"),"移除场景固定后，真实冻结状态仍限制行动");
+        Ready(source);int beforeAgain=contacts.Count(c=>c.TargetId==target.id);Check(Use(skill),"同一灵弹再次施放");await WaitContact(beforeAgain);
+        var secondDaze=States(target,StatusEffects.Daze).Single();
+        Check(States(target,StatusEffects.Slow).Length==2&&States(target,StatusEffects.Freeze).Length==2&&secondDaze.Id==dazeId&&secondDaze.GetComponent<AliveTimer>().value<.55f,"减速和冰冻独立叠加，硬直刷新原同类而非新增");
+        double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculatePlanDemand(skill,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
+        Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-2*cost)<.001f,"两次施放只支付原逐发费用",new{cost});
+        await Advance(3.5f);target.updateStats();Check(statusTypes.All(t=>States(target,t).Length==0)&&!target.stats.hasTag("frozen_ai")&&!target.stats.hasTag("immovable")&&accepted.All(c=>c.Finished),"三个状态到期恢复行动标记，新主体正常结束");
+        CombatStatusEffects.ApplyStatus(target,hold,10000,target);target.updateStats();
+        current=SkillEntities.YinField;ResetPeople();var field=Build();Check(Use(field),"带状态的原领域受理");await Advance(1f);
+        int fieldHits=contacts.Count(c=>c.TargetId==target.id);
+        Check(fieldHits>=2&&States(target,StatusEffects.Slow).Length==fieldHits&&States(target,StatusEffects.Freeze).Length==fieldHits&&States(target,StatusEffects.Daze).Length==1&&oldExecutions==0,"领域每次真实间隔接触叠加两种状态并刷新一次硬直",new{fieldHits});
+        await Advance(5f);Check(statusTypes.All(t=>States(target,t).Length==0)&&accepted.All(c=>c.Finished),"领域结束后状态自然到期，无残留");
+        ResetPeople();var harmless=Build(false);Check(Use(harmless),"关闭人物作用仍受理领域");await Advance(2.7f);
+        Check(statusTypes.All(t=>States(target,t).Length==0)&&accepted.All(c=>c.Finished),"关闭人物作用不施加任何接触状态");
+        ResetPeople();float before=owner.GetCultisys<Xian>().wakan;invalidate=true;
+        Check(Use(field,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排带状态来源的真实受理失败");await Advance(.3f);invalidate=false;
+        Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==0&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f&&statusTypes.All(t=>States(target,t).Length==0),"实际拒绝后原值退款，没有施放或状态残留");
+        scopeValid=true;ResetPeople();Check(Use(field),"失败后同一来源恢复");await Advance(.45f);Check(statusTypes.All(t=>States(target,t).Length>0),"恢复后真实状态重新生效");
+        foreach(var cast in accepted)cast.Cancel();await Advance(3.5f);ClearStates(target);
+        current=SkillEntities.SpiritBolt;ResetPeople();target.GetExtend().SetPowerLevel(.2f);var resisted=Build();
+        Check(Use(resisted),"有抗性的目标仍接受正常攻击");await WaitContact(0);
+        float ratio=Mathf.Pow(.001f,.2f);
+        Check(statusTypes.All(t=>States(target,t).Length==1)&&Math.Abs(States(target,StatusEffects.Freeze).Single().GetComponent<AliveTimeLimit>().value-2f*ratio)<.001f&&
+            Math.Abs(States(target,StatusEffects.Daze).Single().GetComponent<AliveTimeLimit>().value-1.2f*ratio)<.001f&&target.timer_action<=1.2f*ratio+.01f&&target.timer_action>0f,"真实冻结与硬直时长经过原境界抗性",new{ratio});
+        await Advance(1.5f);Check(statusTypes.All(t=>States(target,t).Length==0),"抗性状态按真实时长到期");
+    }
+    return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
+    foreach(var cast in allCasts)cast.Cancel();ClearStates(target);ClearStates(outside);owner.SetPowerLevel(0);target.GetExtend().SetPowerLevel(0);
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    ControllableUnit.clear(false);Config.paused=true;
+}

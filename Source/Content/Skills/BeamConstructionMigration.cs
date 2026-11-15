@@ -61,7 +61,7 @@ internal static class BeamConstructionMigration
         foreach (Type type in skill.GetComponentTypes())
         {
             if (!typeof(IModifier).IsAssignableFrom(type)) continue;
-            if (!supported.Contains(type)) return null;
+            if (!supported.Contains(type) && !ContactStatusMigration.Supports(type)) return null;
             var modifier = (IModifier)skill.GetComponent(type);
             if (modifier.ModifierAsset.OnSetup != null) callbacks.AddRange(modifier.ModifierAsset.OnSetup.GetInvocationList());
         }
@@ -69,7 +69,7 @@ internal static class BeamConstructionMigration
         if (setup.Length != callbacks.Count) return null;
         foreach (Delegate callback in setup) if (!callbacks.Contains(callback)) return null;
         if (container.Asset.Effects.Count != 0 || container.EffectPipeline?.Effects.Count > 0 ||
-            container.OnTravel != null || container.OnEffectObj != null) return null;
+            container.OnTravel != null || !ContactStatusMigration.MatchesCallbacks(skill)) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
 
@@ -92,7 +92,7 @@ internal static class BeamConstructionMigration
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin
         };
         damage.BindAttacker(emission.Source);
-        return new AbilityDefinition
+        return ContactStatusMigration.Bind(new AbilityDefinition
         {
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(),
             Lifetime = lifetime, Resource = "none", Cost = 0f, Cooldown = 0f, Power = 1f, TargetRange = 10000f,
@@ -110,7 +110,7 @@ internal static class BeamConstructionMigration
                 Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Ray,
                     Ray = new ConstructionRay { Length = 10000f, FollowTarget = follow, TurnRate = 0f } } }
             }
-        };
+        }, skill, emission.RuntimeData.ResolveEffectScale());
     }
 
     /// <summary>只接管本批已经保留全部实际作用的两个原光束。</summary>

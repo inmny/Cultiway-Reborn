@@ -1343,3 +1343,13 @@ python3 Scripts/SpellDemos/verify_remaining_fields.py
 复用既有独立游戏、世界、人物和拍摄入口，两种来源分别核对普通/强化资料、原已学受理、各自形体、真实推进或固定、同一姿态的显示与接触、原间隔伤害、侧外安全、逐发费用及结束清理。共享段只核对一个既有毒潭、强化龙卷、玄阴改跟随、关闭人物作用及一次受理失败退款恢复，不扩充身体装备样本。
 
 加`--section sources/common/visuals`可分别只验证来源、共用路径或补拍主体。输入、实际发射、资料、前后主体图及结果保存到`artifacts/skill_rebuild/trajectories/remaining-fields/`，分段结果保存到同名子目录；失败输入与结果保留。完整编辑、自主创作、正式保存冷启动及集中连续录像继续5.05 C，最终流派质感继续9.02。
+
+
+```bash
+# 5.05 B32：减速、冰冻、硬直随新主体真实接触
+python3 Scripts/SpellDemos/verify_contact_statuses.py
+```
+
+复用现有独立游戏、世界和人物。资料段核对七条攻击转换及爆发作用面的声明保存、倍率和回调映射；实机只用一个灵弹核对三个词条的真实命中、叠加/刷新、原费用、抗性时长及到期恢复，再用一个玄阴领域核对间隔接触。关闭人物作用及一次真实受理失败退款恢复走共同路径，不扩大身体、装备和全部来源矩阵。
+
+`--section definitions/runtime`可只运行资料段或实机段。完整输入、来源定义、实际发射和结果写入`artifacts/skill_rebuild/trajectories/contact-statuses/`，分段写入同名子目录。完整修改表单、自主创作、正式存档冷启动及集中连续录像继续5.05 C。

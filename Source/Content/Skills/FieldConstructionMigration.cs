@@ -64,7 +64,7 @@ internal static class FieldConstructionMigration
         foreach (Type type in skill.GetComponentTypes())
         {
             if (!typeof(IModifier).IsAssignableFrom(type)) continue;
-            if (!supported.Contains(type)) return null;
+            if (!supported.Contains(type) && !ContactStatusMigration.Supports(type)) return null;
             var modifier = (IModifier)skill.GetComponent(type);
             if (modifier.ModifierAsset.OnSetup != null) callbacks.AddRange(modifier.ModifierAsset.OnSetup.GetInvocationList());
         }
@@ -72,7 +72,7 @@ internal static class FieldConstructionMigration
         if (setup.Length != callbacks.Count) return null;
         foreach (Delegate callback in setup) if (!callbacks.Contains(callback)) return null;
         if (container.Asset.Effects.Count != 0 || container.EffectPipeline?.Effects.Count > 0 ||
-            container.OnTravel != null || container.OnEffectObj != null) return null;
+            container.OnTravel != null || !ContactStatusMigration.MatchesCallbacks(skill)) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
 
@@ -127,7 +127,7 @@ internal static class FieldConstructionMigration
         }
         bool entropy = container.Asset == SkillEntities.EntropyField;
         bool wind = container.Asset == SkillEntities.Tornado, yin = container.Asset == SkillEntities.YinField;
-        return new AbilityDefinition
+        return ContactStatusMigration.Bind(new AbilityDefinition
         {
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(),
             Lifetime = lifetime, ConcurrentLimit = container.Asset.ImpactProfile.PersistentLimit,
@@ -147,7 +147,7 @@ internal static class FieldConstructionMigration
                 ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
                 Operations = operations.ToArray()
             }
-        };
+        }, skill, emission.RuntimeData.ResolveEffectScale());
     }
 
     /// <summary>只接管五种没有额外人物状态的原领域，不按名字臆造毒状态或解构作用。</summary>
