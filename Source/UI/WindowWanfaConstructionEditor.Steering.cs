@@ -21,6 +21,7 @@ public sealed partial class WindowWanfaConstructionEditor
         }
         Number("SteeringSide", goal.Steering.Side, value => goal.Steering.Side = value);
         Number("SteeringLift", goal.Steering.Lift, value => goal.Steering.Lift = value);
+        Number("SteeringDecay", goal.Steering.Decay, value => goal.Steering.Decay = value);
         ActionRow("RemoveSteering", T("SteeringHint"), () => Change(() => { goal.Steering = null; steeringCurve = false; }));
     }
 

@@ -20,18 +20,13 @@ public sealed partial class AbilityCast
         Vector3 side = Vector3.Cross(Vector3.forward, forward);
         side = side.sqrMagnitude > 1e-8f ? side.normalized : Vector3.right;
         Vector3 lift = Vector3.Cross(forward, side).normalized;
-        Vector2 bias = steering.Bias;
-        if (steering.Path != null)
-        {
-            steering.Path.Sample(SteeringTime(in state, seconds), out Vector3 change, out _);
-            bias += new Vector2(change.x, change.y);
-        }
+        Vector2 bias = steering.Sample(SteeringTime(in state, seconds));
         return centre + (forward + side * bias.x + lift * bias.y).normalized * delta.magnitude;
     }
 
     /// <summary>方向曲线采用自己的时间或路程进度，不借用位置曲线的周期。</summary>
     /// <param name="state">本次独占飞行状态。</param><param name="seconds">已进入步末时回到步初的时长。</param>
-    private float SteeringTime(in NodeState state, float seconds = 0f) => state.Flight.Goal.Steering.Path.DistancePerSecond > 0f
+    private float SteeringTime(in NodeState state, float seconds = 0f) => state.Flight.Goal.Steering.Path?.DistancePerSecond > 0f
         ? (float)state.SteeringProgress : Mathf.Max(0f, Age - seconds - state.FlightStartedAt);
 
     /// <summary>中心完成转向后累计实际路程，方向与位置曲线使用同一真实中心运动。</summary>

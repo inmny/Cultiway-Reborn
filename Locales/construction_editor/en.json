@@ -713,5 +713,6 @@
   "Cultiway.Construction.SteeringPathRules": "Steering curve rules",
   "Cultiway.Construction.AddSteeringPath": "Add steering curve",
   "Cultiway.Construction.RemoveSteeringPath": "Remove steering curve",
-  "Cultiway.Construction.SteeringPathHint": "Curve values add to lateral and vertical bias. Advance by time or actual centre travel."
+  "Cultiway.Construction.SteeringPathHint": "Curve values add to lateral and vertical bias. Advance by time or actual centre travel.",
+  "Cultiway.Construction.SteeringDecay": "Steering decay rate"
 }

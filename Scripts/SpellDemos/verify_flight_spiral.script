@@ -1,0 +1,74 @@
+// B5：循环只保存一周，整体衰减采用完整实际进度，不按帧累加高度。
+AbilityDefinition DampedDefinition(float speed = 4, float distance = 4, float decay = .75f)
+{
+    var curve = ConstructionPathCurves.Spiral(1, .25f, Vector3.right * .7f, Vector3.up * .028f, phase: .7f);
+    curve.Forward = null; curve.DistancePerSecond = distance;
+    return new AbilityDefinition
+    {
+        Id = "test.spiral." + Guid.NewGuid().ToString("N"), Name = "循环偏转与完整衰减", Resource = "none", Cost = 0, Cooldown = 0, Lifetime = 8,
+        Root = new ConstructionNode { Id = "sword", Form = "sword", Scale = .2f,
+            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, WorldVelocity = true,
+                InheritVelocity = false, Vector = new[] { speed, 0f, 0f }, TurnRate = 720,
+                Goal = new ConstructionFlightGoal { Follow = true, Arrival = ConstructionFlightArrival.None,
+                    Steering = new ConstructionFlightSteering { Side = Mathf.Sin(.7f) * .7f, Lift = Mathf.Cos(.7f) * .028f,
+                        Decay = decay, Path = curve } } } } }
+    };
+}
+AbilityCast DampedCast(AbilityDefinition definition) => new(AbilityCompiler.Compile(definition, cache: false), Matrix4x4.identity,
+    inputs: new AbilityInputs(Vector3.zero, new Vector3(100, 0, 0), Vector3.right, 1));
+double DampedProgress(AbilityCast cast) => (double)Field(State(cast), "SteeringProgress");
+object SteeringData(AbilityCast cast) => Field(Field(Field(State(cast), "Flight"), "Goal"), "Steering");
+Vector2 SampleDamped(AbilityCast cast, float time)
+{
+    object steering = SteeringData(cast);
+    return (Vector2)steering.GetType().GetMethod("Sample", F).Invoke(steering, new object[] { time });
+}
+var dampedDefinition = DampedDefinition(); var damped = DampedCast(dampedDefinition);
+float maximumError = 0;
+foreach (float time in new[] { 0f, .013f, .071f, .21f, .25f, 1.013f, 3.7526f, 7.9f })
+{
+    double angle = .7d + time * 8d * Math.PI;
+    var expected = new Vector2((float)Math.Sin(angle) * .7f, (float)Math.Cos(angle) * .028f) * (float)Math.Exp(-.75d * time);
+    maximumError = Mathf.Max(maximumError, Vector2.Distance(expected, SampleDamped(damped, time)));
+}
+Check(maximumError < .001f && dampedDefinition.Root.Operations[0].Goal.Steering.Path.Keys.Length == 9 && dampedDefinition.Lifetime == 8,
+    "完整寿命的周期偏转保留原频率及指数衰减，只保存一周控制点，跨周不重新放大", maximumError);
+var undecayedDefinition = DampedDefinition(decay: 0); var undecayed = DampedCast(undecayedDefinition);
+Check(Vector2.Distance(SampleDamped(undecayed, .013f), SampleDamped(undecayed, 2.013f)) < .00001f &&
+    !JsonConvert.SerializeObject(undecayedDefinition).Contains("\"Decay\""), "缺省无衰减继续原周期偏转及保存行为");
+var constantDefinition = DampedDefinition(distance: 0); constantDefinition.Root.Operations[0].Goal.Steering.Path = null;
+var constant = DampedCast(constantDefinition); constant.Advance(.2f, new Vector3(100, 0, 0));
+Check(Position(constant).y > 0 && Mathf.Abs(SampleDamped(constant, 2).magnitude / SampleDamped(constant, 0).magnitude - Mathf.Exp(-1.5f)) < .00001f,
+    "固定横偏及离地偏转也可按时间整体衰减，无需伪造一条位置路径");
+var fastDamped = DampedCast(DampedDefinition(speed: 8)); damped.Advance(.4f, new Vector3(100, 0, 0)); fastDamped.Advance(.2f, new Vector3(100, 0, 0));
+Check(Math.Abs(DampedProgress(damped) - DampedProgress(fastDamped)) < .00001 &&
+    Vector2.Distance(SampleDamped(damped, (float)DampedProgress(damped)), SampleDamped(fastDamped, (float)DampedProgress(fastDamped))) < .00001f,
+    "不同速度飞过同一路程时，周期和衰减均取得相同进度");
+var oneDamped = DampedCast(DampedDefinition()); var splitDamped = DampedCast(DampedDefinition());
+oneDamped.Advance(.5f, new Vector3(100, 2, 1));
+for (int i = 0; i < 30; i++) splitDamped.Advance(1f / 60f, new Vector3(100, 2, 1));
+Check(Mathf.Abs(Position(oneDamped).z - Position(splitDamped).z) < .0001f && Math.Abs(DampedProgress(oneDamped) - DampedProgress(splitDamped)) < .00001,
+    "离地偏转随真实运动积分，大帧与分帧的高度及路程进度一致，不再每帧直接累加", new { one = XYZ(Position(oneDamped)), split = XYZ(Position(splitDamped)) });
+var saveDamped = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+var restoreDamped = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+saveDamped(damped); Vector3 storedDamped = Position(damped); double storedDampedProgress = DampedProgress(damped);
+damped.Advance(.2f, Vector3.zero); restoreDamped(damped);
+Check(Position(damped) == storedDamped && DampedProgress(damped) == storedDampedProgress,
+    "预测回退恢复周期与完整衰减的共同前态");
+string savedDamped = JsonConvert.SerializeObject(dampedDefinition);
+var loadedDamped = DampedCast(JsonConvert.DeserializeObject<AbilityDefinition>(savedDamped)); loadedDamped.Advance(.4f, new Vector3(100, 0, 0));
+Check(Vector3.Distance(Position(loadedDamped), Position(damped)) < .00001f, "完整资料读回相同的偏转、衰减与实际运动");
+foreach (float bad in new[] { -1f, float.PositiveInfinity })
+{
+    var definition = DampedDefinition(decay: bad); string before = JsonConvert.SerializeObject(definition); bool rejected = false;
+    try { AbilityCompiler.Compile(definition, cache: false); } catch (InvalidDataException e) { rejected = e.Message.Contains("Steering"); }
+    Check(rejected && JsonConvert.SerializeObject(definition) == before, "非法衰减在资料边界拒绝，原输入不被修改");
+}
+foreach (var definition in definitions)
+{
+    var operation = definition.Root.Operations[0]; var steering = operation.Goal.Steering;
+    Check(steering != null && steering.Path.Loop && steering.Path.Keys.Length == 9 && steering.Path.DistancePerSecond == 30 &&
+        steering.Path.Keys.Last().At == .25f && steering.Decay == .75f && operation.Goal.Follow &&
+        Mathf.Abs(operation.TurnRate - samples[0].GetComponent<SkillContainer>().MotionProfile.TurnRate * .7f) < .001f,
+        "旧螺旋来源保留真实追踪、每30格四周、衰减和追踪比例，不逐寿命复制控制点");
+}

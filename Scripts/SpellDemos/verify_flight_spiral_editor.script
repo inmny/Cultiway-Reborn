@@ -1,0 +1,30 @@
+// B5只核对新增的衰减输入、拒绝、撤销和完整保存，复用现有窗口与世界。
+var editableDamped = DampedDefinition(); ConstructedAbilityService.Register(editableDamped);
+WindowWanfaConstructionEditor.Open(editableDamped.Id, source); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+var dampedEditor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+try
+{
+    void ClickDamped(string key) => dampedEditor.GetComponentsInChildren<Button>(false).First(button => button.name == key).onClick.Invoke();
+    void SetDamped(string text) { var field = dampedEditor.GetComponentsInChildren<InputField>(false).Single(input => input.name == "SteeringDecay"); field.text = text; field.onEndEdit.Invoke(text); }
+    ConstructionEditSession DampedSession() => (ConstructionEditSession)Field(dampedEditor, "session");
+    async Task ShotDamped(string name)
+    {
+        World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+        var pane = dampedEditor.GetComponentsInChildren<ScrollRect>(false).First(scroll => scroll.name == "Parameters");
+        var row = dampedEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(item => ((Text)Field(item, "_title")).text == LocalizedTextManager.getText("Cultiway.Construction.SteeringDecay"));
+        Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(pane.content, row.transform);
+        pane.verticalNormalizedPosition = 1f - Mathf.Clamp01((pane.content.rect.yMax - bounds.max.y) / (pane.content.rect.height - pane.viewport.rect.height));
+        await Game.NextFrame(); string shot = Path.Combine(folder, name + ".png"); File.Delete(shot); Screen.Capture(shot); await Game.WaitUntil(() => File.Exists(shot), 600);
+    }
+    ClickDamped("Page1"); SetDamped(".5"); SetDamped("-1");
+    Check(!(bool)Field(dampedEditor, "valid"), "实际窗口拒绝负衰减"); ClickDamped("Undo");
+    Check((bool)Field(dampedEditor, "valid") && DampedSession().Draft.Root.Operations[0].Goal.Steering.Decay == .5f,
+        "撤销非法输入后恢复本次有效衰减，周期曲线保持可编辑");
+    await ShotDamped("decay-cz"); LocalizedTextManager.instance.setLanguage("en"); ClickDamped("Page1"); await ShotDamped("decay-en");
+    LocalizedTextManager.instance.setLanguage("cz"); ClickDamped("Page1"); ClickDamped("LearnCopy");
+    var finalDamped = ConstructionEditing.Access.Read(DampedSession().SourceId);
+    Check(ConstructedAbilityService.Knows(owner, finalDamped.Id) && finalDamped.Root.Operations[0].Goal.Steering.Decay == .5f &&
+        finalDamped.Root.Operations[0].Goal.Steering.Path.Loop && finalDamped.Root.Operations[0].Goal.Steering.Path.DistancePerSecond == 4,
+        "正式保存和学习保留完整衰减、循环及路程参数");
+}
+finally { LocalizedTextManager.instance.setLanguage("cz"); typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(dampedEditor, null); }

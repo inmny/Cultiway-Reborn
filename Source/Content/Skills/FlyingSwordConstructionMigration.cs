@@ -74,8 +74,9 @@ internal static class FlyingSwordConstructionMigration
         bool towardsPosition = trajectory == SkillTrajectories.TowardsPosition.id;
         bool towardsTarget = trajectory == SkillTrajectories.TowardsTarget.id;
         bool drift = trajectory == SkillTrajectories.DriftHoming.id;
+        bool spiral = trajectory == SkillTrajectories.SpiralHoming.id;
         bool wave = trajectory == SkillTrajectories.SineWave.id, zigzag = trajectory == SkillTrajectories.Zigzag.id;
-        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift) return null;
+        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
@@ -87,7 +88,7 @@ internal static class FlyingSwordConstructionMigration
         float haste = skill.TryGetComponent(out HasteModifier h) ? Mathf.Clamp(1f + h.SpeedMultiplier, .1f, 10f) : 1f;
         var motion = container.MotionProfile;
         float speed = motion.ResolveSpeed(Vector2.Distance(emission.SourcePos, emission.TargetPos)) * haste;
-        float turn = motion.TurnRate * haste;
+        float turn = motion.TurnRate * haste * (spiral ? .7f : 1f);
         float ramp = Mathf.Max(0f, motion.RampDuration), launch = motion.LaunchMultiplier, cruise = motion.CruiseMultiplier;
         // 保留当前未能完整表达的超预算来源，不缩小原术来让转换通过。
         if (scale <= 0f || scale > 64f || lifetime <= 0f || lifetime > 3600f ||
@@ -98,7 +99,7 @@ internal static class FlyingSwordConstructionMigration
         var goal = noRotation || wave || zigzag ? null : new ConstructionFlightGoal
         {
             Anchor = towardsDirection ? ConstructionFlightAnchor.Direction : ConstructionFlightAnchor.Target,
-            Follow = towardsTarget || drift,
+            Follow = towardsTarget || drift || spiral,
             Arrival = towardsDirection ? ConstructionFlightArrival.None : ConstructionFlightArrival.End,
             Radius = .01f
         };
@@ -115,6 +116,16 @@ internal static class FlyingSwordConstructionMigration
                     new ConstructionPathKey { Out = XYZ(Vector3.left * (bias / 3f)) },
                     new ConstructionPathKey { At = .75f, Point = XYZ(Vector3.left * bias), In = XYZ(Vector3.right * (bias / 3f)) }
                 } }
+            };
+        }
+        if (spiral)
+        {
+            float phase = (float)(new System.Random(seed).NextDouble() * Math.PI * 2d);
+            ConstructionPath direction = ConstructionPathCurves.Spiral(1f, .25f, Vector3.right * .7f, Vector3.up * (.7f * .04f), phase: phase);
+            direction.DistancePerSecond = 30f; direction.Forward = null;
+            goal.Steering = new ConstructionFlightSteering
+            {
+                Side = Mathf.Sin(phase) * .7f, Lift = Mathf.Cos(phase) * (.7f * .04f), Decay = .75f, Path = direction
             };
         }
         // 相位只在资料准备阶段确定并展开，运行和预测不重新取随机数。
@@ -153,7 +164,7 @@ internal static class FlyingSwordConstructionMigration
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(), Seed = seed,
             Lifetime = lifetime, Resource = "none", Cost = 0f, Cooldown = 0, Power = 1, TargetRange = 10000,
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat | ActiveAbilityChannel.World,
-                Target = towardsTarget || drift ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },
+                Target = towardsTarget || drift || spiral ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
             Root = new ConstructionNode
             {
