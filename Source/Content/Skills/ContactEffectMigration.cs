@@ -18,12 +18,28 @@ internal static class ContactEffectMigration
     /// <param name="type">原容器中的词条类型。</param>
     internal static bool Supports(Type type) => type == typeof(SlowModifier) || type == typeof(FreezeModifier) || type == typeof(DazeModifier) ||
         type == typeof(WeakenModifier) || type == typeof(ArmorBreakModifier) || type == typeof(SilenceModifier) ||
-        type == typeof(BurnModifier) || type == typeof(PoisonModifier) || type == typeof(EternalCurseModifier) || type == typeof(MercyModifier);
+        type == typeof(BurnModifier) || type == typeof(PoisonModifier) || type == typeof(EternalCurseModifier) || type == typeof(MercyModifier) || type == typeof(ChaosModifier);
 
-    /// <summary>慈悲的本体减强只在来源转换时应用一次，接触恢复不再重复降低。</summary>
+    /// <summary>在真实逐发转换时一次确定原设置词条，运行及预测只读取已经展开的数值。</summary>
     /// <param name="skill">真实原容器。</param>
-    internal static float SetupStrengthScale(Entity skill) => skill.TryGetComponent(out MercyModifier mercy)
-        ? Mathf.Clamp(mercy.DamageMultiplier, .05f, 1f) : 1f;
+    /// <param name="angle">本次初始朝向的额外偏角，不改写原目标方向。</param>
+    /// <param name="speed">本次运动速度倍率，不改变转向速度。</param>
+    internal static float SetupStrengthScale(Entity skill, out float angle, out float speed)
+    {
+        float strength = skill.TryGetComponent(out MercyModifier mercy) ? Mathf.Clamp(mercy.DamageMultiplier, .05f, 1f) : 1f;
+        angle = 0f; speed = 1f;
+        if (skill.TryGetComponent(out ChaosModifier chaos))
+        {
+            // 沿用原抽取顺序及下限；没有作用的速度和偏角不会被固定形式强行使用。
+            float damageVariance = Mathf.Clamp(chaos.DamageVariance, 0f, 2f);
+            float angleVariance = Mathf.Clamp(chaos.AngleVariance, 0f, 90f);
+            float speedVariance = Mathf.Clamp(chaos.SpeedVariance, 0f, 2f);
+            strength *= Mathf.Max(.05f, 1f + Randy.randomFloat(-damageVariance, damageVariance));
+            if (angleVariance > 0f) angle = Randy.randomFloat(-angleVariance, angleVariance);
+            if (speedVariance > 0f) speed = Mathf.Max(.1f, 1f + Randy.randomFloat(-speedVariance, speedVariance));
+        }
+        return strength;
+    }
 
     /// <summary>核对真实接触回调全部来自已映射词条，额外回调继续原入口。</summary>
     /// <param name="skill">实际原容器。</param>

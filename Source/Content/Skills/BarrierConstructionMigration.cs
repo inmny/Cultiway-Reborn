@@ -89,6 +89,7 @@ internal static class BarrierConstructionMigration
         if (configured && settings.NatureId != null) return null;
 
         // 固定墙体不因加速词条改变寿命；范围和容量仍从真实原发射计算。
+        float setupScale = ContactEffectMigration.SetupStrengthScale(skill, out _, out _);
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
             container.Asset.ImpactProfile.Lifetime * container.Asset.ImpactTuning.LifetimeMultiplier);
         if (configured && settings.Duration > 0f) lifetime = settings.Duration;
@@ -96,7 +97,7 @@ internal static class BarrierConstructionMigration
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
         if (scale <= 0f || scale > 100f) return null;
-        float strength = ContactEffectMigration.SetupStrengthScale(skill) * emission.Strength;
+        float strength = setupScale * emission.Strength;
         if (configured) strength *= settings.PowerMultiplier;
         if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
         if (skill.TryGetComponent(out ComboModifier combo)) strength *= Mathf.Clamp(combo.DamageMultiplier, .05f, 2f);

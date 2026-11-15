@@ -1393,3 +1393,13 @@ python3 Scripts/SpellDemos/verify_contact_mercy.py
 `--section definitions/runtime/edge/common/carrier`分别检查资料、正常命中、关闭接触和零值、余力与领域及退款恢复、合法命魂的共享恢复服务。复用既有世界、人物和调试通道，不展开全部来源、身体和装备矩阵。恢复观察只记录实际服务输入及同次生命变化，不把人物自身回血算作法术治疗。命魂段通过正式神游建立载体，只验证共享服务恢复完整度且不治疗原主，不冒充原主与载体分离的旧施法已转换。
 
 输入、来源定义、发射及实际恢复记录位于`artifacts/skill_rebuild/trajectories/contact-mercy/`；交付以`delivery.json`引用的已通过正常前段及分段结果为准，初次脚本编译错误和人物自身回血干扰的记录分别保存在`initial-script-compile/`及`initial-background-heal/`。完整表单、创作、正式冷启动及集中录像继续5.05 C。
+
+
+```bash
+# 5.05 B37：混沌逐发强度、初始偏角与速度波动
+python3 Scripts/SpellDemos/verify_chaos_setup.py
+```
+
+复用现有世界、人物和独立游戏。资料段核对七条攻击转换、保存及重复编译不重抽、慈悲组合和原强度/速度下限；实机只用一个已学投射来源检查各发独立、本体与初始运动、真实命中、费用及结束，再用一个推进领域检查实际三维运动，并走一次边界失败退款及恢复。实际发数读取原人物预算，不把连发词条数值当作固定发数，不扩大身体装备或全部轨迹矩阵。
+
+`--section definitions/runtime/common`可只运行相应段。输入、检查、展开资料、真实发射和结果保存在`artifacts/skill_rebuild/trajectories/chaos-setup/`及对应分段目录，最终依据见`delivery.json`；失败记录保留，已有通过段不重复执行。完整编辑、自主创作、正式冷启动及集中连续录像继续5.05 C，最终美术继续9.02。

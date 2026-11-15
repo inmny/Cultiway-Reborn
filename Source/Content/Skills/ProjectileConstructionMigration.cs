@@ -131,6 +131,7 @@ internal static class ProjectileConstructionMigration
         }
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
+        float setupScale = ContactEffectMigration.SetupStrengthScale(skill, out float initialAngle, out float speedScale);
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
             container.Asset.ImpactProfile.Lifetime * container.Asset.ImpactTuning.LifetimeMultiplier);
         if (configured && settings.Duration > 0) lifetime = settings.Duration;
@@ -140,7 +141,7 @@ internal static class ProjectileConstructionMigration
         if (configured) scale *= settings.AreaMultiplier;
         float haste = skill.TryGetComponent(out HasteModifier h) ? Mathf.Clamp(1f + h.SpeedMultiplier, .1f, 10f) : 1f;
         var motion = container.MotionProfile;
-        float speed = motion.ResolveSpeed(Vector2.Distance(emission.SourcePos, emission.TargetPos)) * haste;
+        float speed = motion.ResolveSpeed(Vector2.Distance(emission.SourcePos, emission.TargetPos)) * haste * speedScale;
         if (orbit) speed *= 1.35f;
         float turn = motion.TurnRate * haste * (spiral ? .7f : 1f);
         float ramp = Mathf.Max(0f, motion.RampDuration), launch = motion.LaunchMultiplier, cruise = motion.CruiseMultiplier;
@@ -157,7 +158,7 @@ internal static class ProjectileConstructionMigration
         // 保留当前未能完整表达的超预算来源，不缩小原术来让转换通过。
         if (scale <= 0f || scale > 64f || lifetime <= 0f || lifetime > 3600f ||
             speed * Mathf.Max(launch, cruise) > 10000f || turn > 7200f) return null;
-        Vector3 initial = Quaternion.AngleAxis(emission.InitialAngleOffsetDegrees, Vector3.forward) * forward;
+        Vector3 initial = Quaternion.AngleAxis(emission.InitialAngleOffsetDegrees + initialAngle, Vector3.forward) * forward;
         // 下落剑尖对齐实际落点；抛弧沿出生切线摆剑，避免水平长剑先扫中途人物。
         Vector3 heading = descent ? Vector3.back : arc ? (forward + Vector3.forward * (4f * Mathf.PI / arcDistance)).normalized : initial;
         Quaternion facing = Quaternion.LookRotation(heading,
@@ -302,7 +303,7 @@ internal static class ProjectileConstructionMigration
             Goal = new ConstructionFlightGoal { Anchor = ConstructionFlightAnchor.Source, Follow = true,
                 Arrival = ConstructionFlightArrival.End, Radius = .01f, DirectArrival = true }
         } : null;
-        float strength = ContactEffectMigration.SetupStrengthScale(skill) * emission.Strength * emission.RuntimeData.ResolveEffectScale();
+        float strength = setupScale * emission.Strength * emission.RuntimeData.ResolveEffectScale();
         if (configured) strength *= settings.PowerMultiplier;
         if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
         if (skill.TryGetComponent(out VolleyModifier volley)) strength *= Mathf.Clamp(volley.DamageMultiplier, .05f, 2f);

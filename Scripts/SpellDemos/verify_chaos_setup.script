@@ -1,0 +1,191 @@
+// B37：每次发射只抽一次，运行只使用普通运动及本体数值。
+const string section="all";
+var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var allCasts=new List<AbilityCast>();
+var emissions=new List<object>();var samples=new List<(float Force,float Speed,float Angle)>();var damageEvents=new List<GetHitEvent>();
+var definitions=new List<AbilityDefinition>();var observations=new List<(bool Passed,string Name,object Data)>();int oldExecutions=0;bool invalidate=false,scopeValid=true;
+SkillEmissionResult? lastResult=null;SkillEntityAsset current=SkillEntities.SpiritBolt;
+Actor source=Make(64),target=Make(70),outside=Make(70),wolf=Make(12,"wolf");
+target.setKingdom(wolf.kingdom);outside.setKingdom(wolf.kingdom);Place(outside,70,78);
+var owner=source.GetExtend();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=0;
+owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();await Advance(.2f);
+var randomField=typeof(Randy).GetField("rand",F);
+IReadOnlyList<Entity> Learned()=>(IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(owner,null);
+/// <summary>每次真实发射的三个原随机值；重放只用于比较，不改写施放结果。</summary>
+(float Force,float Angle,float Speed) Expected(Entity skill)
+{
+    object before=randomField.GetValue(null);
+    try
+    {
+        var chaos=skill.GetComponent<ChaosModifier>();float d=Mathf.Clamp(chaos.DamageVariance,0,2),a=Mathf.Clamp(chaos.AngleVariance,0,90),s=Mathf.Clamp(chaos.SpeedVariance,0,2);
+        float force=Mathf.Max(.05f,1+Randy.randomFloat(-d,d));
+        float angle=a>0?Randy.randomFloat(-a,a):0;float speed=s>0?Mathf.Max(.1f,1+Randy.randomFloat(-s,s)):1;
+        return(force,angle,speed);
+    }
+    finally{randomField.SetValue(null,before);}
+}
+Entity Build(float damage=.5f,float angle=12f,float speed=.4f,bool salvo=false,bool mercy=false)
+{
+    var builder=new SkillContainerBuilder(current).UseAnimation(0);
+    builder.AddModifier(new ChaosModifier{DamageVariance=damage,AngleVariance=angle,SpeedVariance=speed});
+    if(salvo)builder.AddModifier(new SalvoCount{Value=3});
+    if(mercy){builder.AddModifier(new MercyModifier{DamageMultiplier=.6f,HealRatio=.25f});builder.AddModifier(new BurnModifier{DamageRatio=.3f,Duration=3});}
+    Entity made=builder.Build(SkillContainerBuildMode.RuleOnly);string signature=SkillContainerSignature.Build(made);owner.LearnSkillV3(made);
+    return Learned().First(x=>SkillContainerSignature.Build(x)==signature);
+}
+(AbilityDefinition Definition,GetHitEvent Damage) Convert(Entity skill,string migration)
+{
+    var method=service.Assembly.GetType("Cultiway.Content.Skills."+migration+"ConstructionMigration").GetMethod("Convert",F);
+    var emission=new SkillEmission{Source=source,SpatialSource=source,SkillContainer=skill,Target=target,
+        SourcePos=new Vector3(64,72,.3f),TargetPos=new Vector3(70,72,.3f),Strength=40,PowerLevel=0,RuntimeData=new SkillCastRuntimeData{EffectScale=1f}};
+    object[] args=method.GetParameters().Length==3?new object[]{emission,default(GetHitEvent),default(Vector3)}:new object[]{emission,default(GetHitEvent)};
+    return ((AbilityDefinition)method.Invoke(null,args),(GetHitEvent)args[1]);
+}
+Vector3 Vector(float[] value)=>new(value[0],value[1],value[2]);
+void ResetPeople()
+{
+    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();definitions.Clear();samples.Clear();damageEvents.Clear();oldExecutions=0;
+    Ready(source);Place(source,64);Place(target,70);Place(outside,70,78);target.GetExtend().SetPowerLevel(0);owner.SetPowerLevel(0);
+    owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
+    target.setHealth(target.getMaxHealth());foreach(var actor in new[]{source,target,outside})ConstructedAbilityService.NotifyActorChanged(actor);
+}
+bool Use(Entity skill,ConstructionWorldScope scope=null)
+{
+    bool used=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",skill),new ActiveAbilityTarget(target,target.GetSimPos(),
+        selectionArea:new SkillTargetSelectionArea(true,target.GetSimPos(),.1f),worldScope:scope),ActiveAbilityUseOrigin.Script);
+    source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();ControllableUnit.clear(false);return used;
+}
+void Observe(bool ok,string name,object data=null)=>observations.Add((ok,name,data));
+async Task WaitCasts(int count)
+{
+    for(int i=0;i<80;i++)
+    {
+        await Advance(.025f);
+        var pending=observations.ToArray();observations.Clear();
+        foreach(var observation in pending)Check(observation.Passed,observation.Name,observation.Data);
+        if(accepted.Count>=count)return;
+    }
+    throw new InvalidOperationException("两秒内未出现约定的真实发射");
+}
+void Started(ConstructedCastStarted fact){if(fact.SourceId==source.id)starts.Add(fact);}
+void Old(Entity entity){if(entity.GetComponent<SkillContext>().SourceObj==source)oldExecutions++;}
+ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+var hook=new HarmonyLib.Harmony("Cultiway.Verify.ChaosSetup");
+ChaosSetupProbe.Before=definition=>definitions.Add(JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition)));
+ChaosSetupProbe.Damage=e=>{if(e.AttackerID==source.id)damageEvents.Add(e);};
+hook.Patch(service.GetMethod("StartPrepaid",F),prefix:new HarmonyLib.HarmonyMethod(typeof(ChaosSetupProbe).GetMethod("Prefix")));
+hook.Patch(typeof(Cultiway.Core.EventSystem.Systems.GetHitEventSystem).GetMethod("Resolve",F),postfix:new HarmonyLib.HarmonyMethod(typeof(ChaosSetupProbe).GetMethod("Postfix")));
+try
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        if(request.Source!=source)return original(request);if(invalidate)scopeValid=false;
+        var expected=Expected(request.SkillContainer);var result=original(request);lastResult=result;
+        if(result==SkillEmissionResult.Accepted)
+        {
+            var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==starts.Last().CastId);
+            var cast=(AbilityCast)Field(running,"Cast");accepted.Add(cast);allCasts.Add(cast);samples.Add((cast.RemainingForce(0),expected.Speed,expected.Angle));
+            float multiplier=current.ImpactProfile.IsField?1:current.ImpactProfile.DamageMultiplier*current.ImpactTuning.DamageMultiplier;
+            Observe(Math.Abs(cast.RemainingForce(0)-request.Strength*expected.Force*multiplier)<.001f,"真实逐发本体等于本次唯一随机抽取",new{request.Strength,expected.Force,actual=cast.RemainingForce(0)});
+            var fly=definitions.Last().Root.Operations.First(o=>o.Kind==ConstructionOperationKind.Fly);
+            var motion=request.SkillContainer.GetComponent<SkillContainer>().MotionProfile;
+            float speed=motion.ResolveSpeed(Vector2.Distance(request.SourcePos,request.TargetPos))*expected.Speed;
+            if(current.ImpactProfile.IsField)speed*=.25f;
+            speed*=motion.RampDuration>.001f?motion.LaunchMultiplier:motion.CruiseMultiplier;
+            Vector3 forward=(request.TargetPos-request.SourcePos).normalized;
+            Vector3 desired=Quaternion.AngleAxis(request.InitialAngleOffsetDegrees+expected.Angle,Vector3.forward)*forward*speed;
+            Observe((Vector(fly.Vector)-desired).magnitude<.001f,"真实初始速度及偏角只采本次值且保留原目标",new{expected.Angle,expected.Speed,actual=fly.Vector,desired=new[]{desired.x,desired.y,desired.z}});
+        }
+        emissions.Add(new{request.Strength,result=result.ToString(),expected.Force,expected.Angle,expected.Speed});return result;
+    };
+    if(section is "all" or "definitions")
+    {
+        foreach(var entry in new[]{(Asset:SkillEntities.SpiritBolt,Migration:"Projectile"),(Asset:SkillEntities.GroundSpike,Migration:"GroundSpike"),(Asset:SkillEntities.Rift,Migration:"Rift"),
+            (Asset:SkillEntities.YinField,Migration:"Field"),(Asset:SkillEntities.FireWall,Migration:"Barrier"),(Asset:SkillEntities.SpiritBeam,Migration:"Beam"),(Asset:SkillEntities.ChainLightning,Migration:"Chain")})
+        {
+            current=entry.Asset;var skill=Build();var expected=Expected(skill);var pair=Convert(skill,entry.Migration);
+            Check(pair.Definition!=null,entry.Asset.id+"混沌完整转换而不退回旧执行");
+            float multiplier=entry.Migration is "Projectile" or "GroundSpike" or "Rift" or "Beam" or "Chain"?current.ImpactProfile.DamageMultiplier*current.ImpactTuning.DamageMultiplier:1;
+            Check(Math.Abs(pair.Damage.Damage-40*expected.Force*multiplier)<.001f,entry.Asset.id+"强度只乘一次原随机值");
+            string text=JsonConvert.SerializeObject(pair.Definition);var restored=JsonConvert.DeserializeObject<AbilityDefinition>(text);
+            object state=randomField.GetValue(null);AbilityCompiler.Compile(restored,false);AbilityCompiler.Compile(restored,false);
+            Check(randomField.GetValue(null).Equals(state)&&text==JsonConvert.SerializeObject(restored),entry.Asset.id+"保存及重复编译不重新随机");
+            if(entry.Migration!="Projectile")
+            {
+                var zero=Convert(Build(angle:0,speed:0),entry.Migration).Definition;
+                Check(JsonConvert.SerializeObject(pair.Definition.Root)==JsonConvert.SerializeObject(zero.Root),entry.Asset.id+"固定或直接形式不强行使用飞行偏角速度");
+            }
+            File.WriteAllText(Path.Combine(folder,entry.Asset.id+".json"),JsonConvert.SerializeObject(restored,Formatting.Indented));
+        }
+        current=SkillEntities.SpiritBolt;var mixed=Build(mercy:true);var expectedMixed=Expected(mixed);var combo=Convert(mixed,"Projectile");
+        Check(Math.Abs(combo.Damage.Damage-40*.6f*expectedMixed.Force)<.001f&&combo.Definition.Root.Impact.Restoration.HealthPerForce==.25f&&combo.Definition.Root.Impact.Statuses.Length==1,"混沌与慈悲及周期声明组合仍只修正一次本体");
+        var extreme=Build(2,90,2);bool forceFloor=false,speedFloor=false;
+        object originalRandom=randomField.GetValue(null);
+        try
+        {
+            randomField.SetValue(null,new Unity.Mathematics.Random(123u));
+            for(int i=0;i<32&&! (forceFloor&&speedFloor);i++)
+            {
+                var expected=Expected(extreme);var pair=Convert(extreme,"Projectile");var fly=pair.Definition.Root.Operations.First(o=>o.Kind==ConstructionOperationKind.Fly);
+                Check(Math.Abs(pair.Damage.Damage-40*expected.Force)<.001f&&expected.Force>=.05f&&expected.Speed>=.1f,"上限波动仍按原下限与本次抽取展开");
+                forceFloor|=expected.Force==.05f;speedFloor|=expected.Speed==.1f;
+            }
+            Check(forceFloor&&speedFloor,"固定随机输入实际覆盖强度和速度下限");
+        }
+        finally{randomField.SetValue(null,originalRandom);}
+        var none=Convert(Build(0,0,0),"Projectile");Check(Math.Abs(none.Damage.Damage-40)<.001f,"零波动保留原强度");
+    }
+    if(section is "all" or "runtime")
+    {
+        current=SkillEntities.SpiritBolt;ResetPeople();var skill=Build(salvo:true);float balance=owner.GetCultisys<Xian>().wakan;int hp=target.data.health;
+        double cost=0;int expectedCount=0;
+        for(int use=0;use<3&&expectedCount<3;use++)
+        {
+            Ready(source);
+            var plan=SkillCastPlanner.CreatePlan(owner,skill,target,SkillCastCost.GetAffordableStepLimit(owner,skill),explicitTargetsOnly:true);
+            Check(plan.Steps.Count>0,"按人物原预算取得实际发数",new{use,count=plan.Steps.Count});
+            cost+=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculatePlanDemand(skill,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
+            expectedCount+=plan.Steps.Count;
+            Check(Use(skill),"已学混沌按实际预算正式受理");await WaitCasts(expectedCount);await Advance(.15f);
+        }
+        await Advance(.7f);
+        Check(accepted.Count==expectedCount&&expectedCount>=3&&starts.Count==expectedCount&&oldExecutions==0&&samples.Select(x=>x.Force).Distinct().Count()>=3&&samples.Select(x=>x.Speed).Distinct().Count()>=3,"各发分别抽取且没有旧执行");
+        Check(contacts.Any(c=>c.TargetId==target.id)&&damageEvents.Any(e=>e.TargetID==target.id)&&target.data.health<hp&&!contacts.Any(c=>c.TargetId==outside.id),"波动后的新主体真实命中且侧外安全");
+        Check(damageEvents.All(e=>samples.Any(s=>Math.Abs(s.Force-e.Damage)<.001f)),"伤害直接使用各发已经确定的本体量");
+        Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f,"逐发随机不改变原计划费用",new{cost});
+        await Advance(5.2f);Check(accepted.All(c=>c.Finished),"真实命中或寿命结束后全部回收");
+    }
+    if(section is "all" or "common")
+    {
+        current=SkillEntities.Tornado;ResetPeople();Check(Use(Build()),"推进领域携带混沌正式受理");await WaitCasts(1);
+        var cast=accepted.Single();Vector3 before=cast.ContactOrigin(0);await Advance(.3f);Vector3 after=cast.ContactOrigin(0);
+        Check((after-before).sqrMagnitude>.01f&&cast.RemainingForce(0)>0&&oldExecutions==0,"推进领域按抽取速度偏角实际运动",new{before=new[]{before.x,before.y,before.z},after=new[]{after.x,after.y,after.z}});
+        cast.Cancel();ResetPeople();current=SkillEntities.SpiritBolt;float balance=owner.GetCultisys<Xian>().wakan;invalidate=true;
+        Check(Use(Build(),new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排发射时真实边界失效");await Advance(.3f);invalidate=false;
+        Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==0&&Math.Abs(owner.GetCultisys<Xian>().wakan-balance)<.001f&&damageEvents.Count==0,"拒绝后原值退款且无随机残留伤害");
+        scopeValid=true;ResetPeople();Check(Use(Build()),"失败后同一来源重新受理");await WaitCasts(1);await Advance(.7f);
+        Check(contacts.Any(c=>c.TargetId==target.id)&&oldExecutions==0,"恢复后新主体正常命中");
+    }
+    return new{passed=true,section,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder,"actual-definitions.json"),JsonConvert.SerializeObject(definitions,Formatting.Indented));
+    foreach(var cast in allCasts)cast.Cancel();ChaosSetupProbe.Before=null;ChaosSetupProbe.Damage=null;hook.UnpatchSelf();
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    ControllableUnit.clear(false);Config.paused=true;
+}
+/// <summary>只记录真实受理资料与标准伤害，不改写随机值或规则。</summary>
+public static class ChaosSetupProbe
+{
+    /// <summary>受理前已经展开的普通构造。</summary>
+    public static Action<AbilityDefinition> Before;
+    /// <summary>已进入标准结算的真实伤害。</summary>
+    public static Action<GetHitEvent> Damage;
+    /// <summary>观察正式受理入口。</summary>
+    public static void Prefix(AbilityDefinition __1)=>Before?.Invoke(__1);
+    /// <summary>观察标准结算后的伤害输入。</summary>
+    public static void Postfix(GetHitEvent __0)=>Damage?.Invoke(__0);
+}

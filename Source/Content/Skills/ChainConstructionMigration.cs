@@ -73,12 +73,13 @@ internal static class ChainConstructionMigration
         if (configured && settings.NatureId != null) return null;
 
         // 原连锁命中立即结束旧实体，连接只显示0.14秒；显式持续时间仍采用已保存设置。
+        float setupScale = ContactEffectMigration.SetupStrengthScale(skill, out _, out _);
         float lifetime = configured && settings.Duration > 0f ? settings.Duration : .14f;
         float scale = emission.RuntimeData.ResolveEffectScale() * SkillEffectRadius.ResolveCasterGrowth(emission.Source.a.GetExtend(), skill);
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
         if (scale <= 0f || scale > 100f) return null;
-        float strength = ContactEffectMigration.SetupStrengthScale(skill) * emission.Strength * emission.RuntimeData.ResolveEffectScale();
+        float strength = setupScale * emission.Strength * emission.RuntimeData.ResolveEffectScale();
         if (configured) strength *= settings.PowerMultiplier;
         if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
         if (skill.TryGetComponent(out VolleyModifier volley)) strength *= Mathf.Clamp(volley.DamageMultiplier, .05f, 2f);

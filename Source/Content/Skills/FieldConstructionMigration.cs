@@ -77,6 +77,7 @@ internal static class FieldConstructionMigration
         if (configured && settings.NatureId != null) return null;
 
         // 固定及跟随场不因加速改变寿命；推进场保留真实出生点、方向和起步至巡航速度。
+        float setupScale = ContactEffectMigration.SetupStrengthScale(skill, out float initialAngle, out float speedScale);
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
             container.Asset.ImpactProfile.Lifetime * container.Asset.ImpactTuning.LifetimeMultiplier);
         if (configured && settings.Duration > 0f) lifetime = settings.Duration;
@@ -84,7 +85,7 @@ internal static class FieldConstructionMigration
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
         if (scale <= 0f || scale > 100f) return null;
-        float strength = ContactEffectMigration.SetupStrengthScale(skill) * emission.Strength * emission.RuntimeData.ResolveEffectScale();
+        float strength = setupScale * emission.Strength * emission.RuntimeData.ResolveEffectScale();
         if (configured) strength *= settings.PowerMultiplier;
         if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
         if (skill.TryGetComponent(out VolleyModifier volley)) strength *= Mathf.Clamp(volley.DamageMultiplier, .05f, 2f);
@@ -104,11 +105,11 @@ internal static class FieldConstructionMigration
         {
             float haste = skill.TryGetComponent(out HasteModifier h) ? Mathf.Clamp(1f + h.SpeedMultiplier, .1f, 10f) : 1f;
             var motion = container.MotionProfile;
-            float speed = motion.ResolveSpeed(Vector2.Distance(emission.SourcePos, emission.TargetPos)) * haste * .25f;
+            float speed = motion.ResolveSpeed(Vector2.Distance(emission.SourcePos, emission.TargetPos)) * haste * speedScale * .25f;
             float ramp = Mathf.Max(0f, motion.RampDuration), launch = motion.LaunchMultiplier, cruise = motion.CruiseMultiplier;
             Vector3 direction = emission.TargetPos - emission.SourcePos;
             direction = direction.sqrMagnitude > .000001f ? direction.normalized : Vector3.right;
-            direction = Quaternion.AngleAxis(emission.InitialAngleOffsetDegrees, Vector3.forward) * direction;
+            direction = Quaternion.AngleAxis(emission.InitialAngleOffsetDegrees + initialAngle, Vector3.forward) * direction;
             operations.Add(new ConstructionOperation
             {
                 Kind = ConstructionOperationKind.Fly, WorldVelocity = true, InheritVelocity = false,
