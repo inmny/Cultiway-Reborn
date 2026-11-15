@@ -49,7 +49,7 @@ try
         AbilityDefinition definition = Convert(skill, out GetHitEvent damage);
         Check(definition != null && definition.ConcurrentLimit == 2 && definition.Root.Contact.Mode == ConstructionContactMode.Interval &&
             Mathf.Abs(definition.Root.Contact.Interval - .4f) < .00001f && damage.Element.Equals(skill.GetComponent<SkillContainer>().Asset.Element) &&
-            damage.AttackerPowerLevel == 1.25f && Mathf.Abs(damage.Damage - (skill == enhanced ? 13 : 10)) < .001,
+            damage.AttackerPowerLevel == 1.25f && Mathf.Abs(damage.Damage - (skill == enhanced ? 52 : 40)) < .001 && Mathf.Abs(definition.Root.Impact.DamageScale - .25f) < .00001f,
             "原领域保留间隔、并存上限、元素、强度、境界及强化", new { definition?.Id, damage.Damage });
         string file = definition.Root.Form + (skill == enhanced ? "-enhanced" : "") + ".json";
         File.WriteAllText(Path.Combine(folder, file), JsonConvert.SerializeObject(definition, Formatting.Indented));

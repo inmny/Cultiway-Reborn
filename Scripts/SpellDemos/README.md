@@ -1333,3 +1333,13 @@ python3 Scripts/SpellDemos/verify_ground_waves.py
 复用现有独立游戏、世界和人物。三种来源分别核对普通/强化资料、实际材料、前后动作、显示与接触的同一姿态、实际底部贴地、前后和偏轴敌人每人一次、侧外安全及一次费用。共享部分只检查强化费用与原地面波单发预算、出手后追踪移动目标、关闭人物作用，以及一个受理失败退款和恢复。加`--section sources`、`--section common`或`--section visuals`只运行对应段；证据独立写入`artifacts/skill_rebuild/trajectories/ground-waves/`及其分段子目录。最终质感继续9.02；正式冷启动、完整编辑创作和集中连续录像继续5.05 C。
 
 B30的后方与侧外人物按原地面摇摆的真实离开方向放置，分别位于前方2格/偏轴0.35格、前方2格/偏轴3.5格；不假定摇摆后仍沿原始直线前进。`common`同时覆盖共同直达后继续的无效混用拒绝及现有中英字段开关。最终证据索引为`artifacts/skill_rebuild/trajectories/ground-waves/delivery.json`。
+
+
+```bash
+# 5.05 B31：龙卷与玄阴的原领域、间隔伤害与独立本体量
+python3 Scripts/SpellDemos/verify_remaining_fields.py
+```
+
+复用既有独立游戏、世界、人物和拍摄入口，两种来源分别核对普通/强化资料、原已学受理、各自形体、真实推进或固定、同一姿态的显示与接触、原间隔伤害、侧外安全、逐发费用及结束清理。共享段只核对一个既有毒潭、强化龙卷、玄阴改跟随、关闭人物作用及一次受理失败退款恢复，不扩充身体装备样本。
+
+加`--section sources/common/visuals`可分别只验证来源、共用路径或补拍主体。输入、实际发射、资料、前后主体图及结果保存到`artifacts/skill_rebuild/trajectories/remaining-fields/`，分段结果保存到同名子目录；失败输入与结果保留。完整编辑、自主创作、正式保存冷启动及集中连续录像继续5.05 C，最终流派质感继续9.02。

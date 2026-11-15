@@ -88,7 +88,8 @@ internal static class FieldConstructionMigration
         if (configured) strength *= settings.PowerMultiplier;
         if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
         if (skill.TryGetComponent(out VolleyModifier volley)) strength *= Mathf.Clamp(volley.DamageMultiplier, .05f, 2f);
-        strength *= container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier;
+        if (skill.TryGetComponent(out ComboModifier combo)) strength *= Mathf.Clamp(combo.DamageMultiplier, .05f, 2f);
+        float damageMultiplier = container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier;
         damage = new GetHitEvent
         {
             Damage = strength, Element = container.Asset.Element, AttackType = AttackType.Other,
@@ -125,6 +126,7 @@ internal static class FieldConstructionMigration
                 }
         }
         bool entropy = container.Asset == SkillEntities.EntropyField;
+        bool wind = container.Asset == SkillEntities.Tornado, yin = container.Asset == SkillEntities.YinField;
         return new AbilityDefinition
         {
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(),
@@ -136,8 +138,10 @@ internal static class FieldConstructionMigration
                 Follow = follow, ContactAtDestination = follow, Height = advance || follow ? 0f : -emission.TargetPos.z },
             Root = new ConstructionNode
             {
-                Id = "field", Form = entropy ? "entropy_field" : container.Asset == SkillEntities.PoisonPool ? "poison_pool" : "poison_mist",
-                Matter = entropy ? "entropy" : "poison", State = entropy ? "energy" : container.Asset == SkillEntities.PoisonPool ? "liquid" : "gas", Scale = scale,
+                Id = "field", Form = wind ? "wind_vortex" : yin ? "yin_field" : entropy ? "entropy_field" : container.Asset == SkillEntities.PoisonPool ? "poison_pool" : "poison_mist",
+                Matter = wind ? "wind" : yin ? "yin" : entropy ? "entropy" : "poison",
+                State = wind || yin || entropy ? "energy" : container.Asset == SkillEntities.PoisonPool ? "liquid" : "gas", Scale = scale,
+                Impact = configured && !settings.ContactEnabled ? null : new ConstructionImpact { DamageScale = damageMultiplier },
                 Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval,
                     Interval = container.Asset.ImpactProfile.RepeatHitInterval },
                 ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
@@ -146,8 +150,9 @@ internal static class FieldConstructionMigration
         };
     }
 
-    /// <summary>本批只接管三种没有额外人物状态的原领域，不按名字臆造毒状态或解构作用。</summary>
+    /// <summary>只接管五种没有额外人物状态的原领域，不按名字臆造毒状态或解构作用。</summary>
     /// <param name="asset">真实原来源。</param>
     private static bool IsField(SkillEntityAsset asset) => asset == SkillEntities.PoisonPool ||
-        asset == SkillEntities.PoisonMist || asset == SkillEntities.EntropyField;
+        asset == SkillEntities.PoisonMist || asset == SkillEntities.EntropyField ||
+        asset == SkillEntities.Tornado || asset == SkillEntities.YinField;
 }

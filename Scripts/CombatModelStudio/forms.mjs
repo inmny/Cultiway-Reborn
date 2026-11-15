@@ -24,6 +24,7 @@ import {makeProjectileForms} from './forms_projectiles.mjs';
 import {makeBladeForms} from './forms_blades.mjs';
 import {makeImpactForms} from './forms_impacts.mjs';
 import {makeGroundWaves} from './forms_ground_waves.mjs';
+import {makeRemainingFields} from './forms_remaining_fields.mjs';
 import {makeSupport} from './forms_support.mjs';
 
 makeHorn();
@@ -52,6 +53,7 @@ makeProjectileForms();
 makeBladeForms();
 makeImpactForms();
 makeGroundWaves();
+makeRemainingFields();
 
 // 剑刃由脊、刃面、窄边和逐段收尖构成；各面保留自己的表面方向。
 const positions = [], uv = [], triangles = [];

@@ -96,3 +96,6 @@ Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官�
 
 
 `forms_ground_waves.mjs`制作原地面推进的`earth_ridge`、`tidal_wave`、`creeping_vine`。土脊由稳定石床与错落封闭石锋组成；潮浪沿连续厚水曲面前翻；灵藤由共根的三条低伏厚根组成。普通`travel`动作的骨架同时驱动网格和接触，实际底部由共用地面投送承托。原0.9秒寿命、0.8人物倍率及逐人一次在普通构造保留；到达目标后持续前行。运行`python3 Scripts/SpellDemos/verify_ground_waves.py`复现；`--section sources/common/visuals`可定向续验，完整编辑创作、正式冷启动与集中录像继续5.05 C，最终质感继续9.02。
+
+
+`forms_remaining_fields.mjs`制作`wind_vortex`与`yin_field`，制作前向Y、上向Z，声明地下遮挡。龙卷是封闭旋体、宽底和融入表面的宽曲脊，由普通`run`动作整圈旋转；玄阴是五项控制共同带动的连续低伏暗面，边缘小幅起伏。底部横向接触芯位于可见主体内，玄阴接触端点使用与表面相同的混合权重。复现入口为`python3 Scripts/SpellDemos/verify_remaining_fields.py`；实际推进或固定由原投送决定，不另加吸力或禁锢。最终风、阴质感继续9.02。

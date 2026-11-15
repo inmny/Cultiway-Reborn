@@ -1,0 +1,3691 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "surface",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_remaining_fields.mjs",
+            "Entry": "yin",
+            "Parameters": [
+                {
+                    "Id": "radius",
+                    "Values": [
+                        2.5
+                    ]
+                },
+                {
+                    "Id": "height",
+                    "Values": [
+                        0.45500001311302187
+                    ]
+                },
+                {
+                    "Id": "cycle",
+                    "Values": [
+                        2.4000000953674318
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material",
+            "motion"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "yin_field",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/yin_field_yin_surface_mid.asset",
+                "Assets/Cultiway/Forms/yin_field_yin_surface_far.asset"
+            ],
+            "Roles": [
+                "yin.surface",
+                "field.body"
+            ],
+            "Id": "yin_surface",
+            "Surface": "yin_depth",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/yin_field_yin_surface.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_0",
+            "Part": 0,
+            "A": [
+                -0.9301351308822632,
+                -2.240000009536743,
+                0.17000000178813935
+            ],
+            "B": [
+                0.9301351308822632,
+                -2.240000009536743,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.05875978246331215
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.2358342856168747
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.7054059505462647
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.05875978246331215
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.7054059505462647
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.2358342856168747
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_1",
+            "Part": 0,
+            "A": [
+                -1.2069391012191773,
+                -2.0799999237060549,
+                0.17000000178813935
+            ],
+            "B": [
+                1.2069391012191773,
+                -2.0799999237060549,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.07470369338989258
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.3097156286239624
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.615580677986145
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.07470369338989258
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.615580677986145
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.3097156286239624
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_2",
+            "Part": 0,
+            "A": [
+                -1.4211245775222779,
+                -1.9199999570846558,
+                0.17000000178813935
+            ],
+            "B": [
+                1.4211245775222779,
+                -1.9199999570846558,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.08704077452421189
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.37033379077911379
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.5426254272460938
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.08704077452421189
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.5426254272460938
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.37033379077911379
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_3",
+            "Part": 0,
+            "A": [
+                -1.595499873161316,
+                -1.7599999904632569,
+                0.17000000178813935
+            ],
+            "B": [
+                1.595499873161316,
+                -1.7599999904632569,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.09708479791879654
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.42330047488212588
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.4796147346496582
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.09708479791879654
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.4796147346496582
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.42330047488212588
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_4",
+            "Part": 0,
+            "A": [
+                -1.7409372329711915,
+                -1.600000023841858,
+                0.17000000178813935
+            ],
+            "B": [
+                1.7409372329711915,
+                -1.600000023841858,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.105461984872818
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.47127828001976015
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.4232597351074219
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.105461984872818
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.4232597351074219
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.47127828001976015
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_5",
+            "Part": 0,
+            "A": [
+                -1.8636242151260377,
+                -1.440000057220459,
+                0.17000000178813935
+            ],
+            "B": [
+                1.8636242151260377,
+                -1.440000057220459,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.11252875626087189
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.5157901048660278
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.3716811537742615
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.11252875626087189
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.3716811537742615
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.5157901048660278
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_6",
+            "Part": 0,
+            "A": [
+                -1.9674636125564576,
+                -1.2799999713897706,
+                0.17000000178813935
+            ],
+            "B": [
+                1.9674636125564576,
+                -1.2799999713897706,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.11850990355014801
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.5578130483627319
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.32367706298828127
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.11850990355014801
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.32367706298828127
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.5578130483627319
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_7",
+            "Part": 0,
+            "A": [
+                -2.055083990097046,
+                -1.1200000047683716,
+                0.17000000178813935
+            ],
+            "B": [
+                2.055083990097046,
+                -1.1200000047683716,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.12355682998895645
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.5980269908905029
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.2784161865711212
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.12355682998895645
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.2784161865711212
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.5980269908905029
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_8",
+            "Part": 0,
+            "A": [
+                -2.1283326148986818,
+                -0.9599999785423279,
+                0.17000000178813935
+            ],
+            "B": [
+                2.1283326148986818,
+                -0.9599999785423279,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.12777596712112428
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.6369357705116272
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.23528827726840974
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.12777596712112428
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.23528827726840974
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.6369357705116272
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_9",
+            "Part": 0,
+            "A": [
+                -2.1885437965393068,
+                -0.800000011920929,
+                0.17000000178813935
+            ],
+            "B": [
+                2.1885437965393068,
+                -0.800000011920929,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13124412298202516
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.6749328374862671
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.19382302463054658
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13124412298202516
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.19382302463054658
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.6749328374862671
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_10",
+            "Part": 0,
+            "A": [
+                -2.236691951751709,
+                -0.6399999856948853,
+                0.17000000178813935
+            ],
+            "B": [
+                2.236691951751709,
+                -0.6399999856948853,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.1340174525976181
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.7123401165008545
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.15364240109920503
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.1340174525976181
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.15364240109920503
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.7123401165008545
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_11",
+            "Part": 0,
+            "A": [
+                -2.2734873294830324,
+                -0.47999998927116396,
+                0.17000000178813935
+            ],
+            "B": [
+                2.2734873294830324,
+                -0.47999998927116396,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13613687455654145
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.7494325637817383
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.11443058401346207
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13613687455654145
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.11443058401346207
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.7494325637817383
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_12",
+            "Part": 0,
+            "A": [
+                -2.2994353771209719,
+                -0.3199999928474426,
+                0.17000000178813935
+            ],
+            "B": [
+                2.2994353771209719,
+                -0.3199999928474426,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13763147592544557
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.7864546179771423
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.0759139209985733
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13763147592544557
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.0759139209985733
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.7864546179771423
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_13",
+            "Part": 0,
+            "A": [
+                -2.3148746490478517,
+                -0.1599999964237213,
+                0.17000000178813935
+            ],
+            "B": [
+                2.3148746490478517,
+                -0.1599999964237213,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13852079212665559
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.8236325979232788
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.037846632301807407
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13852079212665559
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.037846632301807407
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.8236325979232788
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_14",
+            "Part": 0,
+            "A": [
+                -2.319999933242798,
+                0.0,
+                0.17000000178813935
+            ],
+            "B": [
+                2.319999933242798,
+                0.0,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.1388159990310669
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.8611840009689331
+                },
+                {
+                    "Control": "rim_3",
+                    "Weight": 0.0
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.1388159990310669
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.8611840009689331
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.0
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_15",
+            "Part": 0,
+            "A": [
+                -2.3148746490478517,
+                0.1599999964237213,
+                0.17000000178813935
+            ],
+            "B": [
+                2.3148746490478517,
+                0.1599999964237213,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13852079212665559
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.037846632301807407
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.8236325979232788
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13852079212665559
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.8236325979232788
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.037846632301807407
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_16",
+            "Part": 0,
+            "A": [
+                -2.2994353771209719,
+                0.3199999928474426,
+                0.17000000178813935
+            ],
+            "B": [
+                2.2994353771209719,
+                0.3199999928474426,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13763147592544557
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.0759139209985733
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.7864546179771423
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13763147592544557
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.7864546179771423
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.0759139209985733
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_17",
+            "Part": 0,
+            "A": [
+                -2.2734873294830324,
+                0.47999998927116396,
+                0.17000000178813935
+            ],
+            "B": [
+                2.2734873294830324,
+                0.47999998927116396,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13613687455654145
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.11443058401346207
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.7494325637817383
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13613687455654145
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.7494325637817383
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.11443058401346207
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_18",
+            "Part": 0,
+            "A": [
+                -2.236691951751709,
+                0.6399999856948853,
+                0.17000000178813935
+            ],
+            "B": [
+                2.236691951751709,
+                0.6399999856948853,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.1340174525976181
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.15364240109920503
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.7123401165008545
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.1340174525976181
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.7123401165008545
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.15364240109920503
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_19",
+            "Part": 0,
+            "A": [
+                -2.1885437965393068,
+                0.800000011920929,
+                0.17000000178813935
+            ],
+            "B": [
+                2.1885437965393068,
+                0.800000011920929,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13124412298202516
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.19382302463054658
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.6749328374862671
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.13124412298202516
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.6749328374862671
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.19382302463054658
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_20",
+            "Part": 0,
+            "A": [
+                -2.1283326148986818,
+                0.9599999785423279,
+                0.17000000178813935
+            ],
+            "B": [
+                2.1283326148986818,
+                0.9599999785423279,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.12777596712112428
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.23528827726840974
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.6369357705116272
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.12777596712112428
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.6369357705116272
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.23528827726840974
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_21",
+            "Part": 0,
+            "A": [
+                -2.055083990097046,
+                1.1200000047683716,
+                0.17000000178813935
+            ],
+            "B": [
+                2.055083990097046,
+                1.1200000047683716,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.12355682998895645
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.2784161865711212
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.5980269908905029
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.12355682998895645
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.5980269908905029
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.2784161865711212
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_22",
+            "Part": 0,
+            "A": [
+                -1.9674636125564576,
+                1.2799999713897706,
+                0.17000000178813935
+            ],
+            "B": [
+                1.9674636125564576,
+                1.2799999713897706,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.11850990355014801
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.32367706298828127
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.5578130483627319
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.11850990355014801
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.5578130483627319
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.32367706298828127
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_23",
+            "Part": 0,
+            "A": [
+                -1.8636242151260377,
+                1.440000057220459,
+                0.17000000178813935
+            ],
+            "B": [
+                1.8636242151260377,
+                1.440000057220459,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.11252875626087189
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.3716811537742615
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.5157901048660278
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.11252875626087189
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.5157901048660278
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.3716811537742615
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_24",
+            "Part": 0,
+            "A": [
+                -1.7409372329711915,
+                1.600000023841858,
+                0.17000000178813935
+            ],
+            "B": [
+                1.7409372329711915,
+                1.600000023841858,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.105461984872818
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.4232597351074219
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.47127828001976015
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.105461984872818
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.47127828001976015
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.4232597351074219
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_25",
+            "Part": 0,
+            "A": [
+                -1.595499873161316,
+                1.7599999904632569,
+                0.17000000178813935
+            ],
+            "B": [
+                1.595499873161316,
+                1.7599999904632569,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.09708479791879654
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.4796147346496582
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.42330047488212588
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.09708479791879654
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.42330047488212588
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.4796147346496582
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_26",
+            "Part": 0,
+            "A": [
+                -1.4211245775222779,
+                1.9199999570846558,
+                0.17000000178813935
+            ],
+            "B": [
+                1.4211245775222779,
+                1.9199999570846558,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.08704077452421189
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.5426254272460938
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.37033379077911379
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.08704077452421189
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.37033379077911379
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.5426254272460938
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_27",
+            "Part": 0,
+            "A": [
+                -1.2069391012191773,
+                2.0799999237060549,
+                0.17000000178813935
+            ],
+            "B": [
+                1.2069391012191773,
+                2.0799999237060549,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.07470369338989258
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.615580677986145
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.3097156286239624
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.07470369338989258
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.3097156286239624
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.615580677986145
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "floor_28",
+            "Part": 0,
+            "A": [
+                -0.9301351308822632,
+                2.240000009536743,
+                0.17000000178813935
+            ],
+            "B": [
+                0.9301351308822632,
+                2.240000009536743,
+                0.17000000178813935
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.05875978246331215
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.7054059505462647
+                },
+                {
+                    "Control": "rim_2",
+                    "Weight": 0.2358342856168747
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "centre",
+                    "Weight": 0.05875978246331215
+                },
+                {
+                    "Control": "rim_0",
+                    "Weight": 0.2358342856168747
+                },
+                {
+                    "Control": "rim_1",
+                    "Weight": 0.7054059505462647
+                }
+            ]
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "centre",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -2.25,
+                -2.25,
+                0.019999999552965165
+            ],
+            "Maximum": [
+                2.25,
+                2.25,
+                0.4445500075817108
+            ]
+        },
+        {
+            "Id": "rim_0",
+            "Parent": "",
+            "Position": [
+                2.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                0.22053900361061097,
+                -2.487962007522583,
+                0.019999999552965165
+            ],
+            "Maximum": [
+                2.5,
+                2.487962007522583,
+                0.4445500075817108
+            ]
+        },
+        {
+            "Id": "rim_1",
+            "Parent": "",
+            "Position": [
+                1.2246468525851679e-16,
+                2.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -2.487962007522583,
+                0.22053900361061097,
+                0.019999999552965165
+            ],
+            "Maximum": [
+                2.487962007522583,
+                2.5,
+                0.444335013628006
+            ]
+        },
+        {
+            "Id": "rim_2",
+            "Parent": "",
+            "Position": [
+                -2.0,
+                2.4492937051703359e-16,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -2.5,
+                -2.487962007522583,
+                0.019999999552965165
+            ],
+            "Maximum": [
+                -0.22053900361061097,
+                2.487962007522583,
+                0.444335013628006
+            ]
+        },
+        {
+            "Id": "rim_3",
+            "Parent": "",
+            "Position": [
+                -3.6739402930577077e-16,
+                -2.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -2.487962007522583,
+                -2.5,
+                0.019999999552965165
+            ],
+            "Maximum": [
+                2.487962007522583,
+                -0.22053900361061097,
+                0.444335013628006
+            ]
+        }
+    ],
+    "Motions": [
+        {
+            "Id": "run",
+            "Duration": 2.4000000953674318,
+            "Loop": true,
+            "Keys": [
+                {
+                    "Build": 1.0,
+                    "At": 0.0,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.012621999718248845,
+                        0.0,
+                        2.0,
+                        0.013639000244438649,
+                        -2.0,
+                        0.0,
+                        0.0021170000545680525,
+                        0.0,
+                        -2.0,
+                        -0.011351999826729298
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.05000000074505806,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.013571999967098236,
+                        0.0,
+                        2.0,
+                        0.012707999907433987,
+                        -2.0,
+                        0.0,
+                        0.00015999999595806003,
+                        0.0,
+                        -2.0,
+                        -0.01253500021994114
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.10000000149011612,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.014290000312030316,
+                        0.0,
+                        2.0,
+                        0.011559000238776207,
+                        -2.0,
+                        0.0,
+                        -0.0017989999614655972,
+                        0.0,
+                        -2.0,
+                        -0.013503000140190125
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.15000000596046449,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.014763000421226025,
+                        0.0,
+                        2.0,
+                        0.010212000459432602,
+                        -2.0,
+                        0.0,
+                        -0.0037269999738782646,
+                        0.0,
+                        -2.0,
+                        -0.014240000396966935
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.20000000298023225,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.014983000233769417,
+                        0.0,
+                        2.0,
+                        0.008690999820828438,
+                        -2.0,
+                        0.0,
+                        -0.00559200020506978,
+                        0.0,
+                        -2.0,
+                        -0.014732999727129937
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.25,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.014946999959647656,
+                        0.0,
+                        2.0,
+                        0.007021000143140554,
+                        -2.0,
+                        0.0,
+                        -0.007360999938100576,
+                        0.0,
+                        -2.0,
+                        -0.01497500017285347
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.30000001192092898,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.014655999839305878,
+                        0.0,
+                        2.0,
+                        0.005231000017374754,
+                        -2.0,
+                        0.0,
+                        -0.009003999643027783,
+                        0.0,
+                        -2.0,
+                        -0.014960000291466713
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.3499999940395355,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.014113999903202057,
+                        0.0,
+                        2.0,
+                        0.003350999904796481,
+                        -2.0,
+                        0.0,
+                        -0.010493000037968159,
+                        0.0,
+                        -2.0,
+                        -0.014689000323414803
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.4000000059604645,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.013330000452697277,
+                        0.0,
+                        2.0,
+                        0.0014140000566840172,
+                        -2.0,
+                        0.0,
+                        -0.011801999993622303,
+                        0.0,
+                        -2.0,
+                        -0.014166999608278275
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.44999998807907107,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.012318000197410584,
+                        0.0,
+                        2.0,
+                        -0.0005469999741762877,
+                        -2.0,
+                        0.0,
+                        -0.012908999808132649,
+                        0.0,
+                        -2.0,
+                        -0.013403000310063362
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.5,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.011095000430941582,
+                        0.0,
+                        2.0,
+                        -0.002498999936506152,
+                        -2.0,
+                        0.0,
+                        -0.013795999810099602,
+                        0.0,
+                        -2.0,
+                        -0.012408999726176262
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.550000011920929,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.009682999923825264,
+                        0.0,
+                        2.0,
+                        -0.004408000037074089,
+                        -2.0,
+                        0.0,
+                        -0.014446999877691269,
+                        0.0,
+                        -2.0,
+                        -0.011203000321984291
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.6000000238418579,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.008104999549686909,
+                        0.0,
+                        2.0,
+                        -0.0062420000322163109,
+                        -2.0,
+                        0.0,
+                        -0.01484999991953373,
+                        0.0,
+                        -2.0,
+                        -0.009805000387132168
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.6499999761581421,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.006388000212609768,
+                        0.0,
+                        2.0,
+                        -0.00796900037676096,
+                        -2.0,
+                        0.0,
+                        -0.01499900035560131,
+                        0.0,
+                        -2.0,
+                        -0.008239000104367733
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.699999988079071,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.004561999812722206,
+                        0.0,
+                        2.0,
+                        -0.009560000151395798,
+                        -2.0,
+                        0.0,
+                        -0.014891999773681164,
+                        0.0,
+                        -2.0,
+                        -0.006531999912112951
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.75,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.0026569999754428865,
+                        0.0,
+                        2.0,
+                        -0.010986999608576298,
+                        -2.0,
+                        0.0,
+                        -0.014530000276863575,
+                        0.0,
+                        -2.0,
+                        -0.004714000038802624
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.800000011920929,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.000707999977748841,
+                        0.0,
+                        2.0,
+                        -0.012226000428199768,
+                        -2.0,
+                        0.0,
+                        -0.013918999582529068,
+                        0.0,
+                        -2.0,
+                        -0.0028150000143796207
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.8500000238418579,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.0012540000025182963,
+                        0.0,
+                        2.0,
+                        -0.013255000114440918,
+                        -2.0,
+                        0.0,
+                        -0.01307000033557415,
+                        0.0,
+                        -2.0,
+                        -0.0008679999737069011
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.8999999761581421,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.003194000106304884,
+                        0.0,
+                        2.0,
+                        -0.014058000408113003,
+                        -2.0,
+                        0.0,
+                        -0.011997000314295292,
+                        0.0,
+                        -2.0,
+                        0.0010939999483525754
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.949999988079071,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.005080000031739473,
+                        0.0,
+                        2.0,
+                        -0.014620999805629254,
+                        -2.0,
+                        0.0,
+                        -0.010719000361859799,
+                        0.0,
+                        -2.0,
+                        0.003037000074982643
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.0,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.0068789999932050709,
+                        0.0,
+                        2.0,
+                        -0.014933000318706036,
+                        -2.0,
+                        0.0,
+                        -0.009258000180125237,
+                        0.0,
+                        -2.0,
+                        0.004929000046104193
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.0499999523162842,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.008559999987483025,
+                        0.0,
+                        2.0,
+                        -0.014990000054240227,
+                        -2.0,
+                        0.0,
+                        -0.007637999951839447,
+                        0.0,
+                        -2.0,
+                        0.006736000068485737
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.100000023841858,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.010094000026583672,
+                        0.0,
+                        2.0,
+                        -0.014790000393986702,
+                        -2.0,
+                        0.0,
+                        -0.005888000130653381,
+                        0.0,
+                        -2.0,
+                        0.008427999913692475
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.149999976158142,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.011455999687314034,
+                        0.0,
+                        2.0,
+                        -0.014337999746203423,
+                        -2.0,
+                        0.0,
+                        -0.004036999773234129,
+                        0.0,
+                        -2.0,
+                        0.009975000284612179
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.2000000476837159,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.012621999718248845,
+                        0.0,
+                        2.0,
+                        -0.013639000244438649,
+                        -2.0,
+                        0.0,
+                        -0.0021170000545680525,
+                        0.0,
+                        -2.0,
+                        0.011351999826729298
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.25,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.013571999967098236,
+                        0.0,
+                        2.0,
+                        -0.012707999907433987,
+                        -2.0,
+                        0.0,
+                        -0.00015999999595806003,
+                        0.0,
+                        -2.0,
+                        0.01253500021994114
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.2999999523162842,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.014290000312030316,
+                        0.0,
+                        2.0,
+                        -0.011559000238776207,
+                        -2.0,
+                        0.0,
+                        0.0017989999614655972,
+                        0.0,
+                        -2.0,
+                        0.013503000140190125
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.350000023841858,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.014763000421226025,
+                        0.0,
+                        2.0,
+                        -0.010212000459432602,
+                        -2.0,
+                        0.0,
+                        0.0037269999738782646,
+                        0.0,
+                        -2.0,
+                        0.014240000396966935
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.399999976158142,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.014983000233769417,
+                        0.0,
+                        2.0,
+                        -0.008690999820828438,
+                        -2.0,
+                        0.0,
+                        0.00559200020506978,
+                        0.0,
+                        -2.0,
+                        0.014732999727129937
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.4500000476837159,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.014946999959647656,
+                        0.0,
+                        2.0,
+                        -0.007021000143140554,
+                        -2.0,
+                        0.0,
+                        0.007360999938100576,
+                        0.0,
+                        -2.0,
+                        0.01497500017285347
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.5,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.014655999839305878,
+                        0.0,
+                        2.0,
+                        -0.005231000017374754,
+                        -2.0,
+                        0.0,
+                        0.009003999643027783,
+                        0.0,
+                        -2.0,
+                        0.014960000291466713
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.5499999523162842,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.014113999903202057,
+                        0.0,
+                        2.0,
+                        -0.003350999904796481,
+                        -2.0,
+                        0.0,
+                        0.010493000037968159,
+                        0.0,
+                        -2.0,
+                        0.014689000323414803
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.600000023841858,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.013330000452697277,
+                        0.0,
+                        2.0,
+                        -0.0014140000566840172,
+                        -2.0,
+                        0.0,
+                        0.011801999993622303,
+                        0.0,
+                        -2.0,
+                        0.014166999608278275
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.649999976158142,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.012318000197410584,
+                        0.0,
+                        2.0,
+                        0.0005469999741762877,
+                        -2.0,
+                        0.0,
+                        0.012908999808132649,
+                        0.0,
+                        -2.0,
+                        0.013403000310063362
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.7000000476837159,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.011095000430941582,
+                        0.0,
+                        2.0,
+                        0.002498999936506152,
+                        -2.0,
+                        0.0,
+                        0.013795999810099602,
+                        0.0,
+                        -2.0,
+                        0.012408999726176262
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.75,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.009682999923825264,
+                        0.0,
+                        2.0,
+                        0.004408000037074089,
+                        -2.0,
+                        0.0,
+                        0.014446999877691269,
+                        0.0,
+                        -2.0,
+                        0.011203000321984291
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.7999999523162842,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.008104999549686909,
+                        0.0,
+                        2.0,
+                        0.0062420000322163109,
+                        -2.0,
+                        0.0,
+                        0.01484999991953373,
+                        0.0,
+                        -2.0,
+                        0.009805000387132168
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.850000023841858,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.006388000212609768,
+                        0.0,
+                        2.0,
+                        0.00796900037676096,
+                        -2.0,
+                        0.0,
+                        0.01499900035560131,
+                        0.0,
+                        -2.0,
+                        0.008239000104367733
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.899999976158142,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.004561999812722206,
+                        0.0,
+                        2.0,
+                        0.009560000151395798,
+                        -2.0,
+                        0.0,
+                        0.014891999773681164,
+                        0.0,
+                        -2.0,
+                        0.006531999912112951
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.9500000476837159,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.0026569999754428865,
+                        0.0,
+                        2.0,
+                        0.010986999608576298,
+                        -2.0,
+                        0.0,
+                        0.014530000276863575,
+                        0.0,
+                        -2.0,
+                        0.004714000038802624
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 2.0,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        -0.000707999977748841,
+                        0.0,
+                        2.0,
+                        0.012226000428199768,
+                        -2.0,
+                        0.0,
+                        0.013918999582529068,
+                        0.0,
+                        -2.0,
+                        0.0028150000143796207
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 2.049999952316284,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.0012540000025182963,
+                        0.0,
+                        2.0,
+                        0.013255000114440918,
+                        -2.0,
+                        0.0,
+                        0.01307000033557415,
+                        0.0,
+                        -2.0,
+                        0.0008679999737069011
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 2.0999999046325685,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.003194000106304884,
+                        0.0,
+                        2.0,
+                        0.014058000408113003,
+                        -2.0,
+                        0.0,
+                        0.011997000314295292,
+                        0.0,
+                        -2.0,
+                        -0.0010939999483525754
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 2.1500000953674318,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.005080000031739473,
+                        0.0,
+                        2.0,
+                        0.014620999805629254,
+                        -2.0,
+                        0.0,
+                        0.010719000361859799,
+                        0.0,
+                        -2.0,
+                        -0.003037000074982643
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 2.200000047683716,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.0068789999932050709,
+                        0.0,
+                        2.0,
+                        0.014933000318706036,
+                        -2.0,
+                        0.0,
+                        0.009258000180125237,
+                        0.0,
+                        -2.0,
+                        -0.004929000046104193
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 2.25,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.008559999987483025,
+                        0.0,
+                        2.0,
+                        0.014990000054240227,
+                        -2.0,
+                        0.0,
+                        0.007637999951839447,
+                        0.0,
+                        -2.0,
+                        -0.006736000068485737
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 2.299999952316284,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.010094000026583672,
+                        0.0,
+                        2.0,
+                        0.014790000393986702,
+                        -2.0,
+                        0.0,
+                        0.005888000130653381,
+                        0.0,
+                        -2.0,
+                        -0.008427999913692475
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 2.3499999046325685,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.011455999687314034,
+                        0.0,
+                        2.0,
+                        0.014337999746203423,
+                        -2.0,
+                        0.0,
+                        0.004036999773234129,
+                        0.0,
+                        -2.0,
+                        -0.009975000284612179
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 2.4000000953674318,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.0,
+                        0.0,
+                        0.012621999718248845,
+                        0.0,
+                        2.0,
+                        0.013639000244438649,
+                        -2.0,
+                        0.0,
+                        0.0021170000545680525,
+                        0.0,
+                        -2.0,
+                        -0.011351999826729298
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                }
+            ],
+            "Markers": []
+        }
+    ]
+}
