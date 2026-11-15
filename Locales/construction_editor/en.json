@@ -763,5 +763,14 @@
   "Cultiway.Construction.Material.spirit.energy": "Spirit energy",
   "Cultiway.Construction.Material.lightning.energy": "Lightning energy",
   "Cultiway.Construction.Material.yang.energy": "Yang energy",
-  "Cultiway.Construction.Form.water_curtain": "Water curtain"
+  "Cultiway.Construction.Form.water_curtain": "Water curtain",
+  "Cultiway.Construction.Form.golden_needle": "Golden needle",
+  "Cultiway.Construction.Form.poison_needle": "Poison needle",
+  "Cultiway.Construction.Form.stone_cone": "Stone cone",
+  "Cultiway.Construction.Form.ice_lance": "Ice lance",
+  "Cultiway.Construction.Form.lightning_spear": "Lightning spear",
+  "Cultiway.Construction.Form.water_arrow": "Water arrow",
+  "Cultiway.Construction.Form.wood_spear": "Wood spear",
+  "Cultiway.Construction.Material.earth.solid": "Earth and stone",
+  "Cultiway.Construction.Material.gold.solid": "Gold"
 }

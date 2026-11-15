@@ -1288,3 +1288,11 @@ python3 Scripts/SpellDemos/verify_wall_migration.py --section water-curtain
 ```
 
 该入口与`--section solid-walls`共用`verify_passive_walls.script`，分别传入本批实际来源及预期材料，不重复搭建场景。水幕核对液态资料、普通及强化已学来源、逐发支付、真实石锥拦截和容量、墙外通过、同来源替换、一个失败退款及结束恢复；未映射附加作用仍留原入口。完整输入、结果、普通及强化JSON和主体图写入`artifacts/skill_rebuild/trajectories/water-curtain/`，不覆盖既有墙体证据。完整编辑、创作、正式冷启动及集中连续录像继续5.05 C，最终水法美术及Worldfall继续对应交付点。
+
+
+```bash
+# 5.05 B26：七种原贯穿投射的真实贯穿、伤害与逐发支付
+python3 Scripts/SpellDemos/verify_piercing.py
+```
+
+复用飞剑与墙体的独立游戏、世界、人物和拍摄入口，各来源只核对自身普通/强化资料、独立主体、穿过两名敌人且每人一次、原0.85伤害倍率及一次收费。强化合击和齐射后的两发支付、真正出手后改目标位置的追踪、实际受理失败退款及恢复走共用金针检查；原飞剑只做一次正常命中对照。完整输入、普通及强化JSON、结果和七张主体图在`artifacts/skill_rebuild/trajectories/piercing/`。本体交锋量与人物伤害倍率分离，未映射作用继续原来源。正式保存冷启动、完整编辑、自主创作及集中录像继续5.05 C。加`--section common`只重验共享段，结果单独保存到`common/`；初次来源通过与后来共享段的分段交付依据见`delivery.json`，保留初次失败记录。

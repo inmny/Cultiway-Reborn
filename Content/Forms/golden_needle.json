@@ -1,0 +1,189 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_piercing.mjs",
+            "Entry": "makePiercingForms",
+            "Parameters": [
+                {
+                    "Id": "golden",
+                    "Values": [
+                        -0.03999999910593033,
+                        0.004999999888241291,
+                        0.10000000149011612,
+                        0.07500000298023224,
+                        0.3199999928474426,
+                        0.09000000357627869,
+                        1.4500000476837159,
+                        0.07000000029802323,
+                        1.8799999952316285,
+                        0.02500000037252903,
+                        2.119999885559082,
+                        0.0020000000949949028
+                    ]
+                },
+                {
+                    "Id": "sides",
+                    "Values": [
+                        10.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "golden_needle",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "piercing.core"
+            ],
+            "Id": "metal_needle",
+            "Surface": "gold",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/golden_needle_metal_needle.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "tip",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                2.119999885559082
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.15000000596046449
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.399999976158142
+            ],
+            "Radius": 0.054999999701976779,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_1",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                1.399999976158142
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.8300000429153443
+            ],
+            "Radius": 0.02500000037252903,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.09000000357627869,
+                -0.08559499680995941,
+                -0.03999999910593033
+            ],
+            "Maximum": [
+                0.09000000357627869,
+                0.08559499680995941,
+                2.119999885559082
+            ]
+        }
+    ],
+    "Motions": []
+}

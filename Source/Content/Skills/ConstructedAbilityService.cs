@@ -76,7 +76,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         Core.SkillLibV3.Manager.ConstructionEmission = emission =>
         {
             SkillEmissionResult result = UtilityConstructionMigration.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = FlyingSwordConstructionMigration.Emit(emission);
+            if (result == SkillEmissionResult.Unhandled) result = ProjectileConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = GroundSpikeConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = RiftConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = FieldConstructionMigration.Emit(emission);
@@ -666,6 +666,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     private static ElementComposition Composition(string matter) => matter switch
     {
         "physical" => ElementComposition.Static.empty,
+        "earth" => ElementComposition.Static.Earth,
         "entropy" => new ElementComposition(entropy: 1f),
         "yang" => new ElementComposition(pos: 1f),
         "lightning" => ElementComposition.Static.Lightning,

@@ -1,0 +1,210 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_piercing.mjs",
+            "Entry": "makePiercingForms",
+            "Parameters": [
+                {
+                    "Id": "ice",
+                    "Values": [
+                        -0.029999999329447748,
+                        0.07999999821186066,
+                        0.20000000298023225,
+                        0.15000000596046449,
+                        1.2999999523162842,
+                        0.18000000715255738,
+                        1.6799999475479127,
+                        0.27000001072883608,
+                        1.9800000190734864,
+                        0.23000000417232514,
+                        2.5999999046325685,
+                        0.0020000000949949028
+                    ]
+                },
+                {
+                    "Id": "sides",
+                    "Values": [
+                        6.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "ice_lance",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "piercing.core"
+            ],
+            "Id": "prismatic_lance",
+            "Surface": "ice",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ice_lance_prismatic_lance.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "tip",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                2.5999999046325685
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.18000000715255738
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.2999999523162842
+            ],
+            "Radius": 0.10000000149011612,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_1",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                1.350000023841858
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.8799999952316285
+            ],
+            "Radius": 0.14000000059604646,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_2",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                1.899999976158142
+            ],
+            "B": [
+                0.0,
+                0.0,
+                2.319999933242798
+            ],
+            "Radius": 0.04500000178813934,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.27000001072883608,
+                -0.18706099689006806,
+                -0.029999999329447748
+            ],
+            "Maximum": [
+                0.27000001072883608,
+                0.18706099689006806,
+                2.5999999046325685
+            ]
+        }
+    ],
+    "Motions": []
+}

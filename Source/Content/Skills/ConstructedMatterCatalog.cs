@@ -9,6 +9,8 @@ internal static class ConstructedMatterCatalog
     internal static void Initialize()
     {
         AbilityMatters.Register(new AbilityMatter("physical", "solid", "physical"));
+        AbilityMatters.Register(new AbilityMatter("earth", "solid", "earth", "stone"));
+        AbilityMatters.Register(new AbilityMatter("gold", "solid", "iron", "gold"));
         AbilityMatters.Register(new AbilityMatter("vitality", "energy", "physical"));
         AbilityMatters.Register(new AbilityMatter("spirit", "energy", "physical"));
         AbilityMatters.Register(new AbilityMatter("yang", "energy", "yang"));

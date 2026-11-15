@@ -1,0 +1,231 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_piercing.mjs",
+            "Entry": "makePiercingForms",
+            "Parameters": [
+                {
+                    "Id": "stone",
+                    "Values": [
+                        -0.05999999865889549,
+                        0.3700000047683716,
+                        0.1599999964237213,
+                        0.47999998927116396,
+                        0.5799999833106995,
+                        0.4300000071525574,
+                        1.100000023841858,
+                        0.30000001192092898,
+                        1.5199999809265137,
+                        0.15000000596046449,
+                        1.9600000381469727,
+                        0.00800000037997961
+                    ]
+                },
+                {
+                    "Id": "sides",
+                    "Values": [
+                        7.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "stone_cone",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "piercing.core"
+            ],
+            "Id": "rock_core",
+            "Surface": "stone",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/stone_cone_rock_core.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "tip",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                1.9600000381469727
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.20000000298023225
+            ],
+            "B": [
+                0.0,
+                0.0,
+                0.5199999809265137
+            ],
+            "Radius": 0.30000001192092898,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_1",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.5199999809265137
+            ],
+            "B": [
+                0.0,
+                0.0,
+                0.9599999785423279
+            ],
+            "Radius": 0.23999999463558198,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_2",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.9599999785423279
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.2999999523162842
+            ],
+            "Radius": 0.14000000059604646,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_3",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                1.2999999523162842
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.6799999475479127
+            ],
+            "Radius": 0.054999999701976779,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.4699380099773407,
+                -0.41530001163482668,
+                -0.05999999865889549
+            ],
+            "Maximum": [
+                0.5171070098876953,
+                0.41352200508117678,
+                1.9600000381469727
+            ]
+        }
+    ],
+    "Motions": []
+}

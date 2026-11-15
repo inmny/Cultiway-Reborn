@@ -1,0 +1,242 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_piercing.mjs",
+            "Entry": "makePiercingForms",
+            "Parameters": [
+                {
+                    "Id": "shaft",
+                    "Values": [
+                        -0.03999999910593033,
+                        0.10000000149011612,
+                        0.11999999731779099,
+                        0.14000000059604646,
+                        1.5,
+                        0.11500000208616257,
+                        1.8200000524520875,
+                        0.10000000149011612
+                    ]
+                },
+                {
+                    "Id": "head",
+                    "Values": [
+                        1.399999976158142,
+                        0.07999999821186066,
+                        1.649999976158142,
+                        0.3100000023841858,
+                        1.9600000381469727,
+                        0.2199999988079071,
+                        2.440000057220459,
+                        0.0020000000949949028
+                    ]
+                },
+                {
+                    "Id": "sides",
+                    "Values": [
+                        12.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "wood_spear",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wood_spear_wood_shaft_mid.asset",
+                "Assets/Cultiway/Forms/wood_spear_wood_shaft_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "piercing.core"
+            ],
+            "Id": "wood_shaft",
+            "Surface": "wood",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wood_spear_wood_shaft.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "piercing.core"
+            ],
+            "Id": "leaf_point",
+            "Surface": "wood",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wood_spear_leaf_point.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "tip",
+            "Part": 1,
+            "Position": [
+                0.0,
+                0.0,
+                2.440000057220459
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.12999999523162843
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.4500000476837159
+            ],
+            "Radius": 0.07999999821186066,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_1",
+            "Part": 1,
+            "A": [
+                0.0,
+                0.0,
+                1.5800000429153443
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.9199999570846558
+            ],
+            "Radius": 0.07500000298023224,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_2",
+            "Part": 1,
+            "A": [
+                0.0,
+                0.0,
+                1.9600000381469727
+            ],
+            "B": [
+                0.0,
+                0.0,
+                2.259999990463257
+            ],
+            "Radius": 0.02500000037252903,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.3100000023841858,
+                -0.1453700065612793,
+                -0.03999999910593033
+            ],
+            "Maximum": [
+                0.3100000023841858,
+                0.14454899728298188,
+                2.440000057220459
+            ]
+        }
+    ],
+    "Motions": []
+}

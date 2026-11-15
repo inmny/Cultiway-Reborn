@@ -1,0 +1,249 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_piercing.mjs",
+            "Entry": "makePiercingForms",
+            "Parameters": [
+                {
+                    "Id": "water",
+                    "Values": [
+                        -0.029999999329447748,
+                        0.029999999329447748,
+                        0.2199999988079071,
+                        0.11999999731779099,
+                        1.2000000476837159,
+                        0.12999999523162843,
+                        1.5,
+                        0.3400000035762787,
+                        1.899999976158142,
+                        0.25999999046325686,
+                        2.4200000762939455,
+                        0.003000000026077032
+                    ]
+                },
+                {
+                    "Id": "tail",
+                    "Values": [
+                        -0.02500000037252903,
+                        0.009999999776482582,
+                        0.15000000596046449,
+                        0.3199999928474426,
+                        0.46000000834465029,
+                        0.20000000298023225,
+                        0.6800000071525574,
+                        0.03999999910593033
+                    ]
+                },
+                {
+                    "Id": "sides",
+                    "Values": [
+                        20.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "water_arrow",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/water_arrow_water_shaft_mid.asset",
+                "Assets/Cultiway/Forms/water_arrow_water_shaft_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "piercing.core"
+            ],
+            "Id": "water_shaft",
+            "Surface": "water",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/water_arrow_water_shaft.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/water_arrow_flow_vanes_mid.asset",
+                "Assets/Cultiway/Forms/water_arrow_flow_vanes_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "piercing.core"
+            ],
+            "Id": "flow_vanes",
+            "Surface": "water",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/water_arrow_flow_vanes.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "tip",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                2.4200000762939455
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.18000000715255738
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.2300000190734864
+            ],
+            "Radius": 0.07000000029802323,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_1",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                1.2999999523162842
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.8600000143051148
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_2",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                1.899999976158142
+            ],
+            "B": [
+                0.0,
+                0.0,
+                2.200000047683716
+            ],
+            "Radius": 0.03999999910593033,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.3400000035762787,
+                -0.23800000548362733,
+                -0.029999999329447748
+            ],
+            "Maximum": [
+                0.3400000035762787,
+                0.23800000548362733,
+                2.4200000762939455
+            ]
+        }
+    ],
+    "Motions": []
+}

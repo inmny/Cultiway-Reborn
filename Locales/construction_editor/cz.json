@@ -758,5 +758,14 @@
   "Cultiway.Construction.Material.spirit.energy": "灵质",
   "Cultiway.Construction.Material.lightning.energy": "雷质",
   "Cultiway.Construction.Material.yang.energy": "阳质",
-  "Cultiway.Construction.Form.water_curtain": "水幕"
+  "Cultiway.Construction.Form.water_curtain": "水幕",
+  "Cultiway.Construction.Form.golden_needle": "金针",
+  "Cultiway.Construction.Form.poison_needle": "毒针",
+  "Cultiway.Construction.Form.stone_cone": "石锥",
+  "Cultiway.Construction.Form.ice_lance": "冰枪",
+  "Cultiway.Construction.Form.lightning_spear": "雷枪",
+  "Cultiway.Construction.Form.water_arrow": "水箭",
+  "Cultiway.Construction.Form.wood_spear": "木枪",
+  "Cultiway.Construction.Material.earth.solid": "土石",
+  "Cultiway.Construction.Material.gold.solid": "金质"
 }

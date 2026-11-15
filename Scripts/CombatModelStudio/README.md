@@ -75,3 +75,8 @@ Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官�
 
 
 `forms_water_curtain.mjs`提供`water_curtain`：封闭厚水层、宽水脚和轻微向前翻曲的顶沿。十七列地表控制同时带动显示、挂点和实际接触芯，使用现有水表面的厚度与泡沫通道，表面坐标向下展开。原来源为`water/liquid`屏障，维持时不声明自由流散或人物伤害。运行`python3 Scripts/SpellDemos/verify_wall_migration.py --section water-curtain`复用原墙学习、支付和拦截入口；最终水法美术继续对应后项。
+
+
+### 七种贯穿主体
+
+`forms_piercing.mjs`为金针、毒针、石锥、冰枪、雷枪、水箭和木枪分别制作封闭主体与内部接触芯。七种资源沿Z前向、Y上向，显示与实际接触共用`root`控制，`tip`挂点归属实际尖端部件。金针使用金属金质，毒针和水箭保留厚度通道；岩锥、晶枪、厚雷枪和木枪各自有独立截面。运行`python3 Scripts/SpellDemos/verify_piercing.py`复用正式已学入口和共同轨迹验证；不增加来源专用运动循环，不添加名字暗示但原规则没有的状态。最终流派美术和完整创作、保存冷启动仍归对应后项。

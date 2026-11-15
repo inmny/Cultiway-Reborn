@@ -1,0 +1,236 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_piercing.mjs",
+            "Entry": "makePiercingForms",
+            "Parameters": [
+                {
+                    "Id": "poison",
+                    "Values": [
+                        -0.03999999910593033,
+                        0.012000000104308129,
+                        0.18000000715255738,
+                        0.07999999821186066,
+                        0.47999998927116396,
+                        0.17000000178813935,
+                        0.8199999928474426,
+                        0.18000000715255738,
+                        1.2000000476837159,
+                        0.10999999940395355,
+                        1.6699999570846558,
+                        0.04500000178813934,
+                        1.940000057220459,
+                        0.0020000000949949028
+                    ]
+                },
+                {
+                    "Id": "sides",
+                    "Values": [
+                        16.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "poison_needle",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/poison_needle_venom_spindle_mid.asset",
+                "Assets/Cultiway/Forms/poison_needle_venom_spindle_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "piercing.core"
+            ],
+            "Id": "venom_spindle",
+            "Surface": "poison_liquid",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/poison_needle_venom_spindle.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "tip",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                1.940000057220459
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.2199999988079071
+            ],
+            "B": [
+                0.0,
+                0.0,
+                0.4000000059604645
+            ],
+            "Radius": 0.054999999701976779,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_1",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.44999998807907107
+            ],
+            "B": [
+                0.0,
+                0.0,
+                0.8999999761581421
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_2",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.8999999761581421
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.350000023841858
+            ],
+            "Radius": 0.06499999761581421,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_3",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                1.350000023841858
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.7200000286102296
+            ],
+            "Radius": 0.02500000037252903,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.18000000715255738,
+                -0.18000000715255738,
+                -0.03999999910593033
+            ],
+            "Maximum": [
+                0.18000000715255738,
+                0.18000000715255738,
+                1.940000057220459
+            ]
+        }
+    ],
+    "Motions": []
+}

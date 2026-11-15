@@ -17,8 +17,8 @@ using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>飞剑基础轨迹的真实旧来源接入，发射后只保留普通构造，不建立旧执行实体。</summary>
-internal static class FlyingSwordConstructionMigration
+/// <summary>飞剑及贯穿投射共用真实旧来源转换；发射后只保留普通构造，不建立旧执行实体。</summary>
+internal static class ProjectileConstructionMigration
 {
     /// <summary>本批已经逐项转换的词条，其他附加作用继续原入口并保持待迁移。</summary>
     private static readonly HashSet<Type> supported = new()
@@ -27,13 +27,25 @@ internal static class FlyingSwordConstructionMigration
         typeof(ProficiencyModifier), typeof(BurstCount), typeof(SalvoCount), typeof(ComboModifier), typeof(VolleyModifier)
     };
 
+    /// <summary>来源只选择实际形体和材料，所有运动及命中继续共同执行。</summary>
+    /// <param name="asset">原已学来源登记。</param>
+    private static (string Form, string Matter, string State) SourceForm(SkillEntityAsset asset) =>
+        asset == SkillEntities.FlyingSword ? ("sword", "iron", "solid") :
+        asset == SkillEntities.GoldenNeedle ? ("golden_needle", "gold", "solid") :
+        asset == SkillEntities.PoisonNeedle ? ("poison_needle", "poison", "liquid") :
+        asset == SkillEntities.StoneCone ? ("stone_cone", "earth", "solid") :
+        asset == SkillEntities.IceLance ? ("ice_lance", "ice", "solid") :
+        asset == SkillEntities.LightningSpear ? ("lightning_spear", "lightning", "energy") :
+        asset == SkillEntities.WaterArrow ? ("water_arrow", "water", "liquid") :
+        asset == SkillEntities.WoodSpear ? ("wood_spear", "wood", "solid") : default;
+
     /// <summary>检查完整能力后只接管一次；真实受理失败不再落回旧发射。</summary>
     /// <param name="emission">原来源已经确定并到达时点的逐发步骤。</param>
     internal static SkillEmissionResult Emit(SkillEmission emission)
     {
         Entity skill = emission.SkillContainer;
         if (emission.Sourceless || emission.Source?.isActor() != true ||
-            skill.GetComponent<SkillContainer>().SkillEntityAssetID != SkillEntities.FlyingSword.id)
+            SourceForm(skill.GetComponent<SkillContainer>().Asset).Form == null)
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
@@ -56,6 +68,9 @@ internal static class FlyingSwordConstructionMigration
         damage = default; forward = emission.TargetPos - emission.SourcePos;
         forward = forward.sqrMagnitude > .0001f ? forward.normalized : Vector3.right;
         Entity skill = emission.SkillContainer; var container = skill.GetComponent<SkillContainer>();
+        var sourceForm = SourceForm(container.Asset);
+        if (sourceForm.Form == null) return null;
+        bool piercing = container.Asset.ImpactProfile.Kind == Core.SkillLibV3.Impacts.SkillImpactKind.Piercing;
         var setup = new List<Delegate>();
         foreach (Type type in skill.GetComponentTypes())
         {
@@ -122,7 +137,7 @@ internal static class FlyingSwordConstructionMigration
         Vector3 heading = descent ? Vector3.back : arc ? (forward + Vector3.forward * (4f * Mathf.PI / arcDistance)).normalized : initial;
         Quaternion facing = Quaternion.LookRotation(heading,
             Mathf.Abs(Vector3.Dot(heading, Vector3.forward)) > .999f ? Vector3.up : Vector3.forward);
-        float descentHeight = descent ? DescentHeight(facing, scale, falling ? 7f : 8f) : 0f;
+        float descentHeight = descent ? DescentHeight(sourceForm.Form, facing, scale, falling ? 7f : 8f) : 0f;
         var goal = noRotation || wave || zigzag || vortex || rain ? null : new ConstructionFlightGoal
         {
             Anchor = towardsDirection || boomerang ? ConstructionFlightAnchor.Direction : ConstructionFlightAnchor.Target,
@@ -259,7 +274,10 @@ internal static class FlyingSwordConstructionMigration
         if (configured) strength *= settings.PowerMultiplier;
         if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
         if (skill.TryGetComponent(out VolleyModifier volley)) strength *= Mathf.Clamp(volley.DamageMultiplier, .05f, 2f);
-        strength *= container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier;
+        if (skill.TryGetComponent(out ComboModifier combo)) strength *= Mathf.Clamp(combo.DamageMultiplier, .05f, 2f);
+        float damageMultiplier = container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier;
+        // 防御量保留实际本体强度，贯穿伤害倍率单独交给人物作用；命中不会凭空消耗本体。
+        if (!piercing) strength *= damageMultiplier;
         damage = new GetHitEvent { Damage = strength, Element = container.Asset.Element, AttackType = AttackType.Other,
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin };
         damage.BindAttacker(emission.Source);
@@ -277,20 +295,24 @@ internal static class FlyingSwordConstructionMigration
             },
             Root = new ConstructionNode
             {
-                Id = "sword", Form = "sword", Matter = "iron", Scale = scale, Rotation = XYZ(facing.eulerAngles), Offset = XYZ(spawnOffset),
-                OnContact = ConstructionContactResponse.End,
+                Id = piercing ? "projectile" : "sword", Form = sourceForm.Form, Matter = sourceForm.Matter, State = sourceForm.State,
+                Scale = scale, Rotation = XYZ(facing.eulerAngles), Offset = XYZ(spawnOffset),
+                OnContact = piercing ? ConstructionContactResponse.Continue : ConstructionContactResponse.End,
+                Contact = piercing ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 } : null,
+                Impact = piercing && (!configured || settings.ContactEnabled) ? new ConstructionImpact { DamageScale = damageMultiplier } : null,
                 ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
                 Operations = operations.ToArray()
             }
         };
     }
 
-    /// <summary>保留基准生成高度；放大的真实剑身过长时抬高出生点，不让剑尖出生即穿地。</summary>
+    /// <summary>保留基准生成高度；按真实主体底部抬高出生点，不让放大后的尖端出生即穿地。</summary>
+    /// <param name="form">实际主体资源。</param>
     /// <param name="facing">真实剑身朝向。</param><param name="scale">原词条给出的实际尺寸。</param>
     /// <param name="height">原轨迹的基准生成高度。</param>
-    private static float DescentHeight(Quaternion facing, float scale, float height)
+    private static float DescentHeight(string form, Quaternion facing, float scale, float height)
     {
-        FormResource resource = FormResources.Load("sword"); var pose = resource.Rig.CreatePose();
+        FormResource resource = FormResources.Load(form); var pose = resource.Rig.CreatePose();
         float bottom = 0f;
         foreach (FormSurfaceVertex vertex in resource.GroundPoints()) bottom = Mathf.Min(bottom, (facing * vertex.Sample(pose)).z);
         foreach (FormContactBinding contact in resource.Contacts)
