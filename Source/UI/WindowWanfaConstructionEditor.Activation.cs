@@ -21,7 +21,7 @@ public sealed partial class WindowWanfaConstructionEditor
                 Select = () => Change(() =>
                 {
                     condition.Trigger = trigger;
-                    if (condition is ConstructionActivation activation && trigger != ConstructionChangeTrigger.End) activation.InheritRemainder = false;
+                    if (condition is ConstructionActivation activation && trigger != ConstructionChangeTrigger.End) { activation.InheritRemainder = false; activation.ResetContacts = false; }
                     if (trigger != ConstructionChangeTrigger.MatterChanged) { condition.Matter = null; condition.State = null; }
                     condition.Threshold = trigger == ConstructionChangeTrigger.ForceBelow ? .5f : trigger == ConstructionChangeTrigger.SizeAbove ? 1f : trigger == ConstructionChangeTrigger.SizeBelow ? .5f : trigger == ConstructionChangeTrigger.DistanceFromFlightStart ? 5f : null;
                 })
@@ -51,10 +51,13 @@ public sealed partial class WindowWanfaConstructionEditor
             Enum.GetValues(typeof(ConstructionEventPlacement)).Cast<ConstructionEventPlacement>().Select(placement => new UiOptionMenuOption
             {
                 Label = T("EventPlacement." + placement), Selected = gate.Placement == placement,
-                Select = () => Change(() => { gate.Placement = placement; if (placement != ConstructionEventPlacement.Event) gate.InheritRemainder = false; })
+                Select = () => Change(() => { gate.Placement = placement; if (placement != ConstructionEventPlacement.Event) { gate.InheritRemainder = false; gate.ResetContacts = false; } })
             }).ToArray()));
         if (gate.Trigger == ConstructionChangeTrigger.End && gate.Placement == ConstructionEventPlacement.Event)
-            Toggle("InheritRemainder", gate.InheritRemainder, value => gate.InheritRemainder = value);
+        {
+            Toggle("InheritRemainder", gate.InheritRemainder, value => { gate.InheritRemainder = value; if (!value) gate.ResetContacts = false; });
+            if (gate.InheritRemainder) Toggle("ResetContacts", gate.ResetContacts, value => gate.ResetContacts = value);
+        }
         if (gate.Trigger != ConstructionChangeTrigger.MatterChanged) return;
         Toggle("EventMaterialFilter", gate.Matter != null, value => { gate.Matter = value ? "ice" : null; gate.State = null; });
         if (gate.Matter == null) return;

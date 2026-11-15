@@ -14,6 +14,9 @@ public sealed class ConstructionActivation : ConstructionCondition
     /// <summary>来源结束时按权重交接实际余力、材料及控制身份，不重新使用初始威力。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool InheritRemainder;
+    /// <summary>余量交接后明确开始新的接触组；默认仍继承来源已命中的记录。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool ResetContacts;
     /// <summary>人物接触后在其附近选择尚未命中过的目标；空值沿用本次原目标。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionContactTarget Target;
@@ -37,6 +40,8 @@ internal sealed class CompiledConstructionActivation : CompiledConstructionCondi
     internal readonly ConstructionEventPlacement Placement;
     /// <summary>是否接受来源结束时的真实剩余状态。</summary>
     internal readonly bool InheritRemainder;
+    /// <summary>余量交接后是否明确开始新接触组。</summary>
+    internal readonly bool ResetContacts;
     /// <summary>可选的真实接触后选敌规则。</summary>
     internal readonly CompiledContactTarget Target;
 
@@ -46,8 +51,10 @@ internal sealed class CompiledConstructionActivation : CompiledConstructionCondi
     /// <param name="path">具体错误位置。</param>
     internal CompiledConstructionActivation(ConstructionActivation source, float lifetime, string path) : base(source, lifetime, path)
     {
-        Placement = source.Placement; InheritRemainder = source.InheritRemainder;
+        Placement = source.Placement; InheritRemainder = source.InheritRemainder; ResetContacts = source.ResetContacts;
         Target = source.Target == null ? null : new CompiledContactTarget(source.Target, path + "/Target");
+        if (ResetContacts && !InheritRemainder)
+            throw new InvalidDataException(path + "：开始新接触组需要明确继承来源剩余力量，不能凭空重建强度");
         if (Target != null && (Trigger != ConstructionChangeTrigger.ActorContact || Placement != ConstructionEventPlacement.Event || InheritRemainder))
             throw new InvalidDataException(path + "：附近选敌需要人物接触及事件处独立开始，不能同时接受结束余量");
         if (!Enum.IsDefined(typeof(ConstructionEventPlacement), Placement)) throw new InvalidDataException(path + "：事件放置无效");

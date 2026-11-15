@@ -39,7 +39,7 @@ public static partial class AbilityCompiler
             CompiledForm node = nodes[index];
             int source = node.FragmentSource >= 0 ? node.FragmentSource : node.RemainderRoot < 0 ? -1 :
                 node.RemainderRoot == index ? node.Activation.Source : node.RemainderRoot;
-            if (source < 0) return;
+            if (source < 0 || node.Activation?.ResetContacts == true) return;
             LinkContact(source);
             node.ContactKey = nodes[source].ContactKey;
             node.ContactPolicy ??= nodes[source].ContactPolicy;

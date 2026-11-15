@@ -17,7 +17,7 @@ using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>飞剑、贯穿、刃形波及普通投射共用真实旧来源转换；发射后只保留普通构造，不建立旧执行实体。</summary>
+/// <summary>飞剑、贯穿、刃形波、范围爆发及普通投射共用真实旧来源转换；发射后只保留普通构造，不建立旧执行实体。</summary>
 internal static class ProjectileConstructionMigration
 {
     /// <summary>本批已经逐项转换的词条，其他附加作用继续原入口并保持待迁移。</summary>
@@ -49,7 +49,15 @@ internal static class ProjectileConstructionMigration
         asset == SkillEntities.WindBlade ? ("wind_blade", "wind", "energy") :
         asset == SkillEntities.WaterBlade ? ("water_blade", "water", "liquid") :
         asset == SkillEntities.FireBlade ? ("fire_blade", "fire", "energy") :
-        asset == SkillEntities.YinBlade ? ("yin_blade", "yin", "energy") : default;
+        asset == SkillEntities.YinBlade ? ("yin_blade", "yin", "energy") :
+        asset == SkillEntities.Fireball ? ("fireball", "fire", "energy") :
+        asset == SkillEntities.ThunderOrb ? ("thunder_orb", "lightning", "energy") :
+        asset == SkillEntities.ChaosOrb ? ("chaos_orb", "entropy", "energy") :
+        asset == SkillEntities.FlameMeteor ? ("flame_meteor", "fire", "energy") :
+        asset == SkillEntities.FallingRock ? ("falling_rock", "earth", "solid") :
+        asset == SkillEntities.FallingTimber ? ("falling_timber", "wood", "solid") :
+        asset == SkillEntities.LightningStrike ? ("lightning_strike", "lightning", "energy") :
+        asset == SkillEntities.Icefall ? ("icefall", "ice", "solid") : default;
 
     /// <summary>检查完整能力后只接管一次；真实受理失败不再落回旧发射。</summary>
     /// <param name="emission">原来源已经确定并到达时点的逐发步骤。</param>
@@ -82,6 +90,7 @@ internal static class ProjectileConstructionMigration
         Entity skill = emission.SkillContainer; var container = skill.GetComponent<SkillContainer>();
         var sourceForm = SourceForm(container.Asset);
         if (sourceForm.Form == null) return null;
+        bool blast = container.Asset.ImpactProfile.Kind is Core.SkillLibV3.Impacts.SkillImpactKind.Explosion or Core.SkillLibV3.Impacts.SkillImpactKind.HeavySkyfall;
         bool continues = container.Asset.ImpactProfile.ContinueAfterHit;
         bool once = container.Asset.ImpactProfile.HitOncePerTarget;
         var setup = new List<Delegate>();
@@ -290,11 +299,11 @@ internal static class ProjectileConstructionMigration
         if (skill.TryGetComponent(out ComboModifier combo)) strength *= Mathf.Clamp(combo.DamageMultiplier, .05f, 2f);
         float damageMultiplier = container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier;
         // 防御量保留实际本体强度，持续投射的伤害倍率单独交给人物作用；命中不会凭空消耗本体。
-        if (!continues) strength *= damageMultiplier;
+        if (!continues && !blast) strength *= damageMultiplier;
         damage = new GetHitEvent { Damage = strength, Element = container.Asset.Element, AttackType = AttackType.Other,
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin };
         damage.BindAttacker(emission.Source);
-        return new AbilityDefinition
+        var definition = new AbilityDefinition
         {
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(), Seed = seed,
             Lifetime = lifetime, Resource = "none", Cost = 0f, Cooldown = 0, Power = 1, TargetRange = 10000,
@@ -312,11 +321,30 @@ internal static class ProjectileConstructionMigration
                 Scale = scale, Rotation = XYZ(facing.eulerAngles), Offset = XYZ(spawnOffset),
                 OnContact = continues ? ConstructionContactResponse.Continue : ConstructionContactResponse.End,
                 Contact = once ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 } : null,
-                Impact = continues && (!configured || settings.ContactEnabled) ? new ConstructionImpact { DamageScale = damageMultiplier } : null,
+                Impact = blast ? new ConstructionImpact { DamageScale = 0f } :
+                    continues && (!configured || settings.ContactEnabled) ? new ConstructionImpact { DamageScale = damageMultiplier } : null,
                 ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
                 Operations = operations.ToArray()
             }
         };
+        if (blast)
+        {
+            bool contact = !configured || settings.ContactEnabled;
+            definition.Root.Children = new[] { new ConstructionNode
+            {
+                Id = "burst", Form = sourceForm.Matter + "_burst", Matter = sourceForm.Matter, State = sourceForm.State,
+                Scale = scale * container.Asset.ImpactProfile.EffectRadius * container.Asset.ImpactTuning.EffectRadiusMultiplier / .9f,
+                DisappearAt = Mathf.Min(.22f, lifetime), ActiveUntil = Mathf.Min(.025f, lifetime),
+                Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End,
+                    Placement = ConstructionEventPlacement.Event, InheritRemainder = contact, ResetContacts = contact },
+                Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 },
+                Impact = new ConstructionImpact { DamageScale = damageMultiplier },
+                ContactRole = contact ? ConstructionContactRole.Attack : ConstructionContactRole.Decoration,
+                Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Stop,
+                    When = new ConstructionCondition { Source = "..", Trigger = ConstructionChangeTrigger.End } } }
+            } };
+        }
+        return definition;
     }
 
     /// <summary>保留基准生成高度；按真实主体底部抬高出生点，不让放大后的尖端出生即穿地。</summary>

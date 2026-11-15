@@ -1,0 +1,242 @@
+// B29：原投射及坠落爆发，飞行接触无直接伤害，真实余力在结束处交接。
+const string section="all";
+var manager=Cultiway.ModClass.I.SkillV3;var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var activeCasts=new List<AbilityCast>();
+var emissions=new List<object>();var damageEvents=new List<GetHitEvent>();var forceAfterHit=new List<float>();
+SkillEntityAsset currentAsset=SkillEntities.Fireball;bool invalidate=false,scopeValid=true,moveOnEmission=false;
+SkillEmissionResult? lastResult=null;int oldExecutions=0;
+Actor source=Make(64),target=Make(70),other=Make(74),outside=Make(71),wolf=Make(12,"wolf");
+foreach(var actor in new[]{target,other,outside})actor.setKingdom(wolf.kingdom);
+// 使用初阶修士：原规则普通单发，显式连发词条提供第二发；不修改游戏的发射预算。
+var owner=source.GetExtend();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=0;
+owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();await Advance(.2f);
+/// <summary>读取原学习关系中的真实容器。</summary>
+IReadOnlyList<Entity> Learned()=>(IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(owner,null);
+/// <summary>用原学习入口保留来源、词条和可选追踪改造。</summary><param name="boost">强化、范围、加速及两次逐发。</param><param name="extra">未映射附加作用。</param><param name="homing">改为普通目标追踪。</param>
+Entity Build(bool boost=false,bool extra=false,bool homing=false,float duration=0f)
+{
+    var builder=new SkillContainerBuilder(currentAsset).UseAnimation(0);
+    if(boost)
+    {
+        builder.AddModifier(new HugeModifier{Value=1.4f});builder.AddModifier(new EmpowerModifier{SetupBonus=.3f});
+        builder.AddModifier(new HasteModifier{SpeedMultiplier=.5f});builder.AddModifier(new ProficiencyModifier{CostReduction=.2f});
+        builder.AddModifier(new SalvoCount{Value=2});builder.AddModifier(new ComboModifier{DamageMultiplier=.8f,SalvoBonus=1});
+        builder.AddModifier(new VolleyModifier{DamageMultiplier=.9f});
+    }
+    if(extra)builder.AddModifier(new BurnModifier{Duration=1,DamageRatio=.1f});
+    if(homing)builder.AddModifier(new Trajectory{ID=SkillTrajectories.TowardsTarget.id});
+    Entity made=builder.Build(SkillContainerBuildMode.RuleOnly);if(duration>0)made.AddComponent(new SkillSettings{Duration=duration,AreaMultiplier=1,PowerMultiplier=1,ContactEnabled=true});string signature=SkillContainerSignature.Build(made);
+    owner.LearnSkillV3(made);return Learned().First(s=>SkillContainerSignature.Build(s)==signature);
+}
+var converter=service.Assembly.GetType("Cultiway.Content.Skills.ProjectileConstructionMigration").GetMethod("Convert",F);
+/// <summary>读取实际发射将转换的自足资料。</summary><param name="skill">原已学来源。</param><param name="damage">原本体力量及境界。</param>
+AbilityDefinition Convert(Entity skill,out GetHitEvent damage)
+{
+    object[] args={new SkillEmission{Source=source,SpatialSource=source,SkillContainer=skill,Target=target,
+        SourcePos=new Vector3(64,72,.3f),TargetPos=new Vector3(70,72,.3f),Strength=40,PowerLevel=1.25f},default(GetHitEvent),Vector3.zero};
+    var result=(AbilityDefinition)converter.Invoke(null,args);damage=(GetHitEvent)args[1];return result;
+}
+/// <summary>记录本批真正开始的来源。</summary><param name="fact">正式受理事实。</param>
+void Started(ConstructedCastStarted fact){if(fact.AbilityId==currentAsset.id)starts.Add(fact);}
+/// <summary>任何旧执行体都表示本批双执行缺陷。</summary><param name="entity">原实例。</param>
+void Old(Entity entity){if(entity.GetComponent<SkillEntity>().Asset==currentAsset)oldExecutions++;}
+/// <summary>在真实接触之后记录仍可用于防御的本体量。</summary><param name="contact">已经结算的真实接触。</param>
+void AfterContact(ConstructedContact contact){if(contact.AbilityId==currentAsset.id&&contact.Node==1)forceAfterHit.Add(accepted.Last().RemainingForce(1));}
+/// <summary>复用原人物、位置和资源准备，不放宽实际来源规则。</summary>
+void ResetPeople()
+{
+    Ready(source);Place(source,64);Place(target,70);Place(other,70.3f,72.7f);Place(outside,70,78);
+    owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
+    foreach(var actor in new[]{source,target,other,outside})ConstructedAbilityService.NotifyActorChanged(actor);
+}
+/// <summary>原已学施放入口。</summary><param name="skill">真实容器。</param><param name="scope">可选实际世界边界。</param>
+bool Use(Entity skill,ConstructionWorldScope scope=null)
+{
+    bool used=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",skill),
+        new ActiveAbilityTarget(target,target.GetSimPos(),selectionArea:new SkillTargetSelectionArea(true,target.GetSimPos(),.1f),worldScope:scope),ActiveAbilityUseOrigin.Script);
+    source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();return used;
+}
+/// <summary>读取同一实际显示。</summary><param name="cast">真实施放。</param>
+List<FormVisualInstance> Views(AbilityCast cast){var views=new List<FormVisualInstance>();cast.AppendVisuals(views);return views;}
+/// <summary>读取同一实际接触。</summary><param name="cast">真实施放。</param>
+List<AbilityCapsule> Shapes(AbilityCast cast){var shapes=new List<AbilityCapsule>();cast.AppendContacts(shapes);return shapes;}
+ConstructedAbilityService.CastStarted+=Started;ConstructedAbilityService.ContactConfirmed+=AfterContact;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+var hook=new HarmonyLib.Harmony("Cultiway.Verify.Impacts");
+ImpactDamage.AfterDamage=e=>{if(e.AttackerID==source.id)damageEvents.Add(e);};
+hook.Patch(typeof(Cultiway.Core.EventSystem.Systems.GetHitEventSystem).GetMethod("Resolve",F),
+    postfix:new HarmonyLib.HarmonyMethod(typeof(ImpactDamage).GetMethod("Postfix")));
+/// <summary>等到真实爆发已经形成后立刻暂停，不把预定时点当作已经命中。</summary>
+async Task Burst(AbilityCast cast)
+{
+    Config.paused=false;await Game.WaitUntil(()=>cast.NodeAge(1)>=0||cast.Finished,900);Config.paused=true;
+    await Game.WaitUntil(Boundary,900);
+    Check(cast.NodeAge(1)>=0&&cast.NodeAge(1)<.20f,"真实爆发已形成且仍可观察",new{age=cast.Age,burstAge=cast.NodeAge(1)});
+}
+var clashes=new List<ConstructedClash>();
+void Clash(ConstructedClash c){if(c.LeftSource==source.id||c.RightSource==source.id)clashes.Add(c);}
+ConstructedAbilityService.ClashConfirmed+=Clash;
+try
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        if(request.Source!=source||request.SkillContainer.GetComponent<SkillContainer>().Asset!=currentAsset)return original(request);
+        if(invalidate)scopeValid=false;var result=original(request);lastResult=result;
+        if(result==SkillEmissionResult.Accepted)
+        {
+            var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==starts.Last().CastId);
+            var cast=(AbilityCast)Field(running,"Cast");accepted.Add(cast);activeCasts.Add(cast);
+            if(moveOnEmission){Place(target,74,76);ConstructedAbilityService.NotifyActorChanged(target);}
+        }
+        emissions.Add(new{asset=currentAsset.id,result=result.ToString(),request.Strength,request.PowerLevel,request.InitialAngleOffsetDegrees,skill=request.SkillContainer.Id});return result;
+    };
+    if(section=="all"||section=="sources"||section=="visuals")
+    foreach(var entry in new[]{(Asset:SkillEntities.Fireball,Form:"fireball",Matter:"fire",State:"energy",Radius:2f,Multiplier:1f),
+        (Asset:SkillEntities.ThunderOrb,Form:"thunder_orb",Matter:"lightning",State:"energy",Radius:2f,Multiplier:1f),
+        (Asset:SkillEntities.ChaosOrb,Form:"chaos_orb",Matter:"entropy",State:"energy",Radius:2f,Multiplier:1f),
+        (Asset:SkillEntities.FlameMeteor,Form:"flame_meteor",Matter:"fire",State:"energy",Radius:2.5f,Multiplier:1.2f),
+        (Asset:SkillEntities.FallingRock,Form:"falling_rock",Matter:"earth",State:"solid",Radius:2.5f,Multiplier:1.2f),
+        (Asset:SkillEntities.FallingTimber,Form:"falling_timber",Matter:"wood",State:"solid",Radius:2.5f,Multiplier:1.2f),
+        (Asset:SkillEntities.LightningStrike,Form:"lightning_strike",Matter:"lightning",State:"energy",Radius:2.5f,Multiplier:1.2f),
+        (Asset:SkillEntities.Icefall,Form:"icefall",Matter:"ice",State:"solid",Radius:2.5f,Multiplier:1.2f)})
+    {
+        currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
+        var normal=Build();
+        if(section!="visuals")foreach(var skill in new[]{normal,Build(true)})
+        {
+            var d=Convert(skill,out GetHitEvent damage);var burst=d.Root.Children.Single();
+            var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
+            var plan=AbilityCompiler.Compile(restored,cache:false);bool boost=skill.HasComponent<HugeModifier>();
+            Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.State==entry.State&&
+                d.Root.OnContact==ConstructionContactResponse.End&&d.Root.Impact.DamageScale==0&&
+                burst.Form==entry.Matter+"_burst"&&burst.Activation.InheritRemainder&&burst.Activation.ResetContacts&&
+                burst.Activation.Trigger==ConstructionChangeTrigger.End&&burst.ActiveUntil==.025f&&burst.DisappearAt==.22f&&
+                Math.Abs(burst.Scale-(boost?1.4f:1f)*entry.Radius/.9f)<.001f&&Math.Abs(burst.Impact.DamageScale-entry.Multiplier)<.0001f&&
+                Math.Abs(damage.Damage-(boost?37.44f:40f))<.001f&&damage.AttackerPowerLevel==1.25f&&damage.Element.Equals(entry.Asset.Element),
+                entry.Form+"保留本体强度、原倍率与半径，并以普通余量交接产生爆发");
+            File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
+        }
+        if(section!="visuals")Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射作用保留原入口");
+        ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;int hp=target.data.health,hp2=other.data.health;
+        Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.08f);var live=accepted.Single();
+        Check(starts.Count==1&&oldExecutions==0&&Views(live).Single().Resource.Description.Id==entry.Form&&live.NodeAge(1)<0,
+            entry.Form+"只有飞行主体，爆发未提前形成");await Shot(entry.Form+"-flight");
+        await Burst(live);var burstView=Views(live).Single(v=>v.Resource.Description.Id==entry.Matter+"_burst");
+        Vector3 centre=burstView.Transform.GetColumn(3);await Shot(entry.Form+"-burst");
+        await Advance(.08f);var afterView=Views(live).Single(v=>v.Resource.Description.Id==entry.Matter+"_burst");
+        Check(Vector3.Distance(centre,afterView.Transform.GetColumn(3))<.001f&&Shapes(live).Count==0,
+            entry.Form+"爆发停在真实结束点，显示收势不继续攻击",new{centre=new[]{centre.x,centre.y,centre.z}});
+        await Advance(.4f);
+        if(section!="visuals")
+        {
+            double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(normal)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,normal)));
+            Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f,entry.Form+"飞行与爆发只支付一次",new{cost});
+            Check(damageEvents.Count==2&&damageEvents.Count(e=>e.TargetID==target.id)==1&&damageEvents.Count(e=>e.TargetID==other.id)==1&&
+                damageEvents.All(e=>Math.Abs(e.Damage-100*entry.Multiplier)<.01f&&e.Element.Equals(entry.Asset.Element))&&
+                contacts.Where(c=>c.Node==0).All(c=>!c.DamageAttempted)&&contacts.All(c=>c.TargetId!=outside.id)&&
+                target.data.health<hp&&other.data.health<hp2&&forceAfterHit.All(f=>Math.Abs(f-100)<.01f),
+                entry.Form+"首次接触者与附近敌人只受一次真实爆发，外侧安全且本体只交接一次",
+                new{hits=damageEvents.Select(e=>new{e.TargetID,e.Damage}).ToArray(),force=forceAfterHit.ToArray()});
+        }
+        Check(live.Finished&&Views(live).Count==0&&Shapes(live).Count==0&&!BodyControlState.IsBusy(source.id),entry.Form+"结束后显示、接触和控制恢复");
+    }
+    if(section=="all"||section=="common"||section=="lifecycle")
+    {
+        currentAsset=SkillEntities.Fireball;
+        if(section!="lifecycle")
+        {
+        starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
+        owner.GetCultisys<Xian>().level=1;owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();ResetPeople();
+        // 原释放规则按敌方威胁决定实际发数；同一既有人物设为同阶对手，不改发射预算。
+        target.GetExtend().SetPowerLevel(owner.GetPowerLevel());
+        var enhanced=Build(true);float balance=owner.GetCultisys<Xian>().wakan;
+        var emissionPlan=SkillCastPlanner.CreatePlan(owner,enhanced,target,SkillCastCost.GetAffordableStepLimit(owner,enhanced),explicitTargetsOnly:true);
+        Check(emissionPlan.Steps.Count==2,"原规则和真实连发词条形成两次发射",new{steps=emissionPlan.Steps.Count});Check(Use(enhanced),"强化两发爆发受理");await Advance(1.8f);
+        double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(enhanced)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,enhanced)));
+        Check(starts.Count==2&&oldExecutions==0&&accepted.All(c=>c.Finished)&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-2*cost)<.001f&&
+            damageEvents.Count==4&&damageEvents.All(e=>Math.Abs(e.Damage-93.6f)<.01f),"强化合击齐射、两次爆发和逐发费用保留",new{casts=starts.Count,oldExecutions,finished=accepted.All(c=>c.Finished),spent=balance-owner.GetCultisys<Xian>().wakan,cost,damages=damageEvents.Select(e=>e.Damage).ToArray()});
+        target.GetExtend().SetPowerLevel(0);owner.GetCultisys<Xian>().level=0;owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();
+        starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();ResetPeople();Place(target,74);Place(other,12);moveOnEmission=true;
+        var homing=Build(homing:true);Check(Use(homing),"火球改追踪受理");await Advance(1.2f);moveOnEmission=false;
+        Check(damageEvents.Count==1&&damageEvents[0].TargetID==target.id&&contacts.Any(c=>c.Node==1&&c.Position.y>74f)&&accepted.All(c=>c.Finished),"火球实际转向移到74,76的目标后爆发");
+        ResetPeople();starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();clashes.Clear();
+        var ward=new AbilityDefinition{Id="test.impact.ward",Resource="none",Cost=0,Cooldown=0,Power=.2f,Lifetime=1.4f,TargetRange=1000,
+            Use=new ConstructionUse{Channels=ActiveAbilityChannel.World,Target=ActiveAbilityTargetMode.Point},
+            Binding=new ConstructionBinding{Anchor=AbilityAnchor.Target},
+            Root=new ConstructionNode{Id="wall",Form="rock_projectile",Matter="earth",Scale=2,ContactRole=ConstructionContactRole.Barrier}};
+        await Fire(ward,other,source,aim:new Vector3(67,72,.3f),aggro:false);Check(Use(Build()),"火球穿过低容量实际屏障");await Advance(1.3f);
+        Check(clashes.Count>0&&forceAfterHit.Count==2&&forceAfterHit.All(f=>f>0&&f<100)&&damageEvents.Count==2&&
+            damageEvents.All(e=>Math.Abs(e.Damage-forceAfterHit[0])<.01f),"交锋后爆发只继承真实余力，不重建初始强度",
+            new{force=forceAfterHit.ToArray(),damages=damageEvents.Select(e=>e.Damage).ToArray()});
+        ResetPeople();starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();
+        Check(Use(Build(duration:.06f)),"短原寿命的实际来源受理");await Advance(.3f);
+        Check(accepted.Single().Finished&&accepted.Single().NodeAge(1)<0&&damageEvents.Count==0,"原寿命耗尽不凭空产生爆发");
+        }
+        ResetPeople();starts.Clear();accepted.Clear();damageEvents.Clear();Check(Use(Build()),"待取消来源受理");await Advance(.02f);accepted.Single().Cancel();await Advance(.3f);
+        Check(accepted.Single().Finished&&accepted.Single().NodeAge(1)<0&&damageEvents.Count==0,"整次取消不爆发且清理后恢复");
+        ResetPeople();var failed=Build();int count=starts.Count;float before=owner.GetCultisys<Xian>().wakan;invalidate=true;
+        Check(Use(failed,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排爆发来源实际受理失败");await Advance(.25f);invalidate=false;
+        Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f&&oldExecutions==0,
+            "实际受理失败原值退款且无新旧残留");scopeValid=true;ResetPeople();Check(Use(failed),"失败后同一来源恢复");await Advance(1f);Check(accepted.All(c=>c.Finished),"恢复后正常结束");
+        var originalGroup=Convert(Build(),out _);originalGroup.Root.Children[0].Activation.ResetContacts=false;
+        var ordinary=new AbilityCast(AbilityCompiler.Compile(originalGroup,false),Matrix4x4.identity,inputs:new AbilityInputs(Vector3.zero,Vector3.right*16,Vector3.right,1),force:20);
+        Check(ordinary.ContactGroup(0)==ordinary.ContactGroup(1),"旧余量交接缺省仍共用接触记录");ordinary.Cancel();
+        var bad=ConstructionEditing.Copy(originalGroup);bad.Root.Children[0].Activation.InheritRemainder=false;bad.Root.Children[0].Activation.ResetContacts=true;
+        bool rejected=false;try{AbilityCompiler.Compile(bad,false);}catch(InvalidDataException){rejected=true;}Check(rejected,"没有余量交接不能单独重开接触次数");
+    }
+    if(section=="all"||section=="ui")
+    {
+        currentAsset=SkillEntities.Fireball;var definition=Convert(Build(),out _);definition.Id="test.impact.editor";
+        ConstructedAbilityService.Register(definition);ConstructedAbilityService.Learn(owner,definition.Id);
+        LocalizedTextManager.instance.setLanguage("cz");WindowWanfaConstructionEditor.Open(definition.Id,source);
+        for(int i=0;i<5;i++)await Game.NextFrame();
+        var editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",F).GetValue(null);
+        Button B(string name)=>editor.GetComponentsInChildren<Button>(false).First(b=>b.name==name);
+        void Click(string name){Check(B(name).interactable,"按钮可用："+name);B(name).onClick.Invoke();}
+        ConstructionEditSession Session()=>(ConstructionEditSession)Field(editor,"session");
+        Toggle T(string key)=>editor.GetComponentsInChildren<Toggle>(false).Single(t=>t.name==key);
+        typeof(WindowWanfaConstructionEditor).GetField("part",F).SetValue(editor,1);Click("Page4");
+        Check(T("ResetContacts").isOn,"爆发部位表单读回明确的新接触组");
+        T("ResetContacts").isOn=false;Check(!Session().Draft.Root.Children[0].Activation.ResetContacts,"实际表单可关闭新接触组");
+        T("ResetContacts").isOn=true;Check(Session().Draft.Root.Children[0].Activation.ResetContacts,"实际表单可恢复新接触组");
+        T("InheritRemainder").isOn=false;
+        Check(!Session().Draft.Root.Children[0].Activation.ResetContacts&&!editor.GetComponentsInChildren<Toggle>(false).Any(t=>t.name=="ResetContacts"),"关闭余力交接同时清除不适用的接触选项");
+        Click("Undo");Check(T("InheritRemainder").isOn&&T("ResetContacts").isOn,"撤销恢复余力交接及新接触组");
+        foreach(string language in new[]{"cz","en"})
+        {
+            LocalizedTextManager.instance.setLanguage(language);Click("Page4");
+            for(int i=0;i<5;i++)await Game.NextFrame();
+            var scroll=editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters");Canvas.ForceUpdateCanvases();
+            var location=RectTransformUtility.CalculateRelativeRectTransformBounds(scroll.viewport,T("ResetContacts").transform);
+            scroll.verticalNormalizedPosition=Mathf.Clamp01(scroll.verticalNormalizedPosition+(location.center.y-scroll.viewport.rect.center.y)/Mathf.Max(1,scroll.content.rect.height-scroll.viewport.rect.height));
+            World.world.console.Hide();Tooltip.hideTooltipNow();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);
+            for(int i=0;i<5;i++)await Game.NextFrame();
+            ScrollWindow.get("debug_toolbox")?.gameObject.SetActive(false);
+            Screen.Capture(Path.Combine(folder,"impact-editor-"+language+".png"));await Game.NextFrame();
+        }
+        Click("Replace");string id=Session().SourceId;Click("Close");
+        await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive()&&!editor.gameObject.activeInHierarchy,900);
+        WindowWanfaConstructionEditor.Open(id,source);await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive()&&Field(editor,"session")!=null,900);
+        typeof(WindowWanfaConstructionEditor).GetField("part",F).SetValue(editor,1);Click("Page4");
+        Check(T("InheritRemainder").isOn&&T("ResetContacts").isOn,"保存并重新打开后恢复实际接触选项");
+        Click("Close");LocalizedTextManager.instance.setLanguage("cz");
+    }
+    return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
+    foreach(var cast in activeCasts)cast.Cancel();ImpactDamage.AfterDamage=null;hook.UnpatchSelf();
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=AfterContact;
+    ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;ConstructedAbilityService.ClashConfirmed-=Clash;
+    ScrollWindow.get(WindowWanfaConstructionEditor.Id)?.gameObject.SetActive(false);
+    LocalizedTextManager.instance.setLanguage("cz");ControllableUnit.clear(false);Config.paused=true;
+}
+public static class ImpactDamage
+{
+    /// <summary>只记录实际经过标准伤害结算的输入。</summary>
+    public static Action<GetHitEvent> AfterDamage;
+    /// <summary>不替换伤害结算。</summary><param name="__0">已经结算的实际输入。</param>
+    public static void Postfix(GetHitEvent __0)=>AfterDamage?.Invoke(__0);
+}

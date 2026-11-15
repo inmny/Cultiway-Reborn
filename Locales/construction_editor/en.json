@@ -785,5 +785,20 @@
   "Cultiway.Construction.Form.wind_blade": "Wind blade",
   "Cultiway.Construction.Form.water_blade": "Water blade",
   "Cultiway.Construction.Form.fire_blade": "Fire blade",
-  "Cultiway.Construction.Form.yin_blade": "Yin blade"
+  "Cultiway.Construction.Form.yin_blade": "Yin blade",
+  "Cultiway.Construction.ResetContacts": "Start a new contact group after transfer",
+  "Cultiway.Construction.Form.fireball": "Fireball",
+  "Cultiway.Construction.Form.thunder_orb": "Thunder orb",
+  "Cultiway.Construction.Form.chaos_orb": "Chaos orb",
+  "Cultiway.Construction.Form.flame_meteor": "Flame meteor",
+  "Cultiway.Construction.Form.falling_rock": "Falling rock",
+  "Cultiway.Construction.Form.falling_timber": "Falling timber",
+  "Cultiway.Construction.Form.lightning_strike": "Lightning strike",
+  "Cultiway.Construction.Form.icefall": "Icefall",
+  "Cultiway.Construction.Form.fire_burst": "Flame burst",
+  "Cultiway.Construction.Form.lightning_burst": "Lightning burst",
+  "Cultiway.Construction.Form.entropy_burst": "Entropy burst",
+  "Cultiway.Construction.Form.earth_burst": "Rock burst",
+  "Cultiway.Construction.Form.wood_burst": "Timber burst",
+  "Cultiway.Construction.Form.ice_burst": "Ice burst"
 }

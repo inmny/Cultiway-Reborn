@@ -780,5 +780,20 @@
   "Cultiway.Construction.Form.wind_blade": "风刃",
   "Cultiway.Construction.Form.water_blade": "水刃",
   "Cultiway.Construction.Form.fire_blade": "火刃",
-  "Cultiway.Construction.Form.yin_blade": "阴刃"
+  "Cultiway.Construction.Form.yin_blade": "阴刃",
+  "Cultiway.Construction.ResetContacts": "交接后开始新的接触次数",
+  "Cultiway.Construction.Form.fireball": "火球",
+  "Cultiway.Construction.Form.thunder_orb": "雷球",
+  "Cultiway.Construction.Form.chaos_orb": "混沌球",
+  "Cultiway.Construction.Form.flame_meteor": "炎陨",
+  "Cultiway.Construction.Form.falling_rock": "落石",
+  "Cultiway.Construction.Form.falling_timber": "落木",
+  "Cultiway.Construction.Form.lightning_strike": "落雷",
+  "Cultiway.Construction.Form.icefall": "冰落",
+  "Cultiway.Construction.Form.fire_burst": "焰爆",
+  "Cultiway.Construction.Form.lightning_burst": "雷爆",
+  "Cultiway.Construction.Form.entropy_burst": "混沌迸发",
+  "Cultiway.Construction.Form.earth_burst": "碎岩爆发",
+  "Cultiway.Construction.Form.wood_burst": "崩木爆发",
+  "Cultiway.Construction.Form.ice_burst": "冰晶爆发"
 }

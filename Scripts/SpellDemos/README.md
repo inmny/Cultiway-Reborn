@@ -1313,3 +1313,13 @@ python3 Scripts/SpellDemos/verify_projectiles.py
 `python3 Scripts/SpellDemos/verify_blades.py`复用现成世界和原已学入口，验证剑气、风刃、水刃、火刃、阴刃的独立主体、真实前后扫敌、每人一次、0.9人物倍率与本体量分离、逐发费用和结束。共用部分只验一次强化两发、改追踪、失败退款与恢复，以及受影响的原飞剑对照。
 
 `--section sources`只运行五种来源，`--section common`只运行共用部分，`--section visuals`只补拍五种主体及结束，不重复整套伤害检查。输入、转换资料、实际发射、主体图及结果写入`artifacts/skill_rebuild/trajectories/blades/`，分段运行写入同名子目录。完整连续录像仍集中到5.05 C，不以本入口替代。
+
+
+```bash
+# 5.05 B29：投射与坠落在真实结束位置交接余力爆发
+python3 Scripts/SpellDemos/verify_impacts.py
+```
+
+八种原已学来源分别验证自身普通/强化资料、飞行与爆发主体、实际接触后范围伤害、一次费用及结束清理；本体强度与人物倍率分开，首次接触者仍可接受一次爆发。共享部分只运行强化两发、出手后追踪移动目标、部分交锋后的余力、寿命耗尽、取消、受理失败退款恢复以及默认接触组规则。编辑器仅验证本次新增的新接触组选项、关闭继承时清理、撤销及保存重开，并保留中英界面图。
+
+加`--section sources`、`--section common`、`--section lifecycle`、`--section ui`分别只运行对应段，`--section visuals`只补拍飞行和爆发主体。证据在`artifacts/skill_rebuild/trajectories/impacts/`，分段运行写入同名子目录；失败原始输入另留，不用后一次通过覆盖失败事实。正式存档冷启动、完整编辑、自主创作和集中连续录像继续5.05 C。
