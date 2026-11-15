@@ -144,7 +144,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
         session = new ConstructionEditSession(access.Read(pendingId));
         learner = pendingActor; learnerId = learner?.data?.id ?? 0;
         pendingId = null; pendingActor = null;
-        undo.Clear(); redo.Clear(); part = page = handle = bodyHandle = 0; steeringCurve = false; closingApproved = false; Refresh();
+        undo.Clear(); redo.Clear(); part = page = handle = bodyHandle = 0; steeringCurve = false; curveLayer = 0; closingApproved = false; Refresh();
     }
 
     /// <summary>保留原版窗口关闭流程，未保存时在下一帧恢复并显示确认。</summary>

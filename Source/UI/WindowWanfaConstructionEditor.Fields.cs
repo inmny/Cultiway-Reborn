@@ -270,13 +270,34 @@ public sealed partial class WindowWanfaConstructionEditor
             }
         }
         else Row("DistributionPathRules", T("DistributionPathHint"));
-        Toggle("Loop", path.Loop, value =>
-        {
-            path.Loop = value;
-            if (value) path.Keys[path.Keys.Length - 1].Point = (float[])path.Keys[0].Point.Clone();
-        });
         if (!steering) Toggle("FacePath", path.Forward != null, value => path.Forward = value ? new[] { 0f, 0f, 1f } : null);
         if (path.Forward != null && !layout && !steering) Number("TurnRate", path.TurnRate, value => path.TurnRate = value);
+        ConstructionPathTerm addition = layout ? null : CurveLayerRows(path);
+        ConstructionPathKey[] keys = addition?.Keys ?? path.Keys;
+        bool loop = addition?.Loop ?? path.Loop;
+        int otherSegments = path.Keys.Length - 1 + (path.Additions?.Sum(item => item.Keys.Length - 1) ?? 0) - (keys.Length - 1);
+        CurveKeysRows(keys, loop, value =>
+        {
+            if (addition == null) path.Loop = value; else addition.Loop = value;
+        }, value =>
+        {
+            if (addition == null) path.Keys = value; else addition.Keys = value;
+        }, 65 - otherSegments, layout, steering);
+    }
+
+    /// <summary>主曲线和附加曲线共用同一控制点表单，不复制另一套编辑规则。</summary>
+    /// <param name="keys">当前独占的控制点。</param><param name="loop">是否闭合循环。</param>
+    /// <param name="setLoop">写回当前曲线的循环规则。</param><param name="setKeys">写回当前曲线的控制点。</param>
+    /// <param name="maximumKeys">扣除其他曲线后允许的关键点数量。</param>
+    /// <param name="layout">是否静态排布。</param><param name="steering">是否只使用方向偏转两轴。</param>
+    private void CurveKeysRows(ConstructionPathKey[] keys, bool loop, Action<bool> setLoop,
+        Action<ConstructionPathKey[]> setKeys, int maximumKeys, bool layout, bool steering)
+    {
+        Toggle("Loop", loop, value =>
+        {
+            setLoop(value);
+            if (value) keys[keys.Length - 1].Point = (float[])keys[0].Point.Clone();
+        });
         Choice("Handles", T(new[] { "Point", "InHandle", "OutHandle" }[handle]), () => menu.Show(T("Handles"),
             Enumerable.Range(0, 3).Select(index => new UiOptionMenuOption
             {
@@ -288,14 +309,14 @@ public sealed partial class WindowWanfaConstructionEditor
                     Refresh();
                 }
             }).ToArray()));
-        for (int i = 0; i < path.Keys.Length; i++)
+        for (int i = 0; i < keys.Length; i++)
         {
             int index = i;
-            ConstructionPathKey key = path.Keys[i];
+            ConstructionPathKey key = keys[i];
             WanfaEditorRow row = rows.GetNext();
             row.Setup(string.Format(T("Key"), i + 1), "", T("RemovePoint"), true,
-                i > 0 && path.Keys.Length > 2
-                    ? () => Change(() => path.Keys = path.Keys.Where((_, n) => n != index).ToArray())
+                i > 0 && keys.Length > 2
+                    ? () => Change(() => setKeys(keys.Where((_, n) => n != index).ToArray()))
                     : null, UiIcons.Delete);
             Transform controls = row.UseInlineControls(260f);
             FloatInput(controls, layout ? "DistributionParameter" : "At", key.At, value => key.At = value, i != 0, 56f);
@@ -304,16 +325,16 @@ public sealed partial class WindowWanfaConstructionEditor
             {
                 int coordinate = axis;
                 FloatInput(controls, new[] { "X", "Y", "Z" }[axis], vector[axis], value => vector[coordinate] = value,
-                    handle != 0 || i != 0 && (!path.Loop || i != path.Keys.Length - 1), 56f);
+                    handle != 0 || i != 0 && (!loop || i != keys.Length - 1), 56f);
             }
         }
 
-        if (path.Keys.Length < 65)
+        if (keys.Length < maximumKeys)
             ActionRow("AddPoint", T("AddPointHint"), () => Change(() =>
             {
-                ConstructionPathKey last = path.Keys[path.Keys.Length - 1];
-                path.Keys = path.Keys.Concat(new[]
-                    { new ConstructionPathKey { At = last.At + .25f, Point = (float[])last.Point.Clone() } }).ToArray();
+                ConstructionPathKey last = keys[keys.Length - 1];
+                setKeys(keys.Concat(new[]
+                    { new ConstructionPathKey { At = last.At + .25f, Point = (float[])last.Point.Clone() } }).ToArray());
             }));
     }
 

@@ -714,5 +714,13 @@
   "Cultiway.Construction.AddSteeringPath": "Add steering curve",
   "Cultiway.Construction.RemoveSteeringPath": "Remove steering curve",
   "Cultiway.Construction.SteeringPathHint": "Curve values add to lateral and vertical bias. Advance by time or actual centre travel.",
-  "Cultiway.Construction.SteeringDecay": "Steering decay rate"
+  "Cultiway.Construction.SteeringDecay": "Steering decay rate",
+  "Cultiway.Construction.CurveLayer": "Curve layer to edit",
+  "Cultiway.Construction.CurveLayer.Base": "Base curve",
+  "Cultiway.Construction.CurveLayer.Addition": "Added curve {0}",
+  "Cultiway.Construction.CurveLayerRules": "Curve addition rules",
+  "Cultiway.Construction.CurveLayerHint": "Offsets add together. All curves share time or actual centre travel, and each curve loops independently.",
+  "Cultiway.Construction.AddCurveLayer": "Add curve layer",
+  "Cultiway.Construction.RemoveCurveLayer": "Remove this curve layer",
+  "Cultiway.Construction.Choose": "Choose"
 }

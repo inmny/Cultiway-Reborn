@@ -28,6 +28,10 @@ public sealed class ConstructionPath
     /// <summary>完整走完后是否循环；循环路径必须闭合。</summary>
     public bool Loop;
 
+    /// <summary>与本曲线相加的有限曲线，各自保留周期，参照与进度由本路径统一提供。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionPathTerm[] Additions;
+
     /// <summary>每推进一秒曲线需要的中心路程；零仍按世界时间，正数按实际中心运动推进。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public float DistancePerSecond;
@@ -57,7 +61,7 @@ public sealed class ConstructionPathKey
 }
 
 /// <summary>完成检查与多项式预计算的不可变路径，工作线程只读取数值。</summary>
-internal sealed class CompiledConstructionPath
+internal sealed partial class CompiledConstructionPath
 {
     /// <summary>目标相对坐标的明确最大跨度，覆盖当前地图与世界级构造。</summary>
     internal const float MaximumTargetSpan = 10000f;
@@ -87,7 +91,7 @@ internal sealed class CompiledConstructionPath
     internal readonly Vector3 AccelerationBound;
 
     /// <summary>曲段数，用于批量任务估量。</summary>
-    internal int Count => segments.Length;
+    internal int Count => segments.Length + additions.Sum(item => item.Count);
 
     /// <summary>在资料边界一次核对并复制全部必要数值。</summary>
     /// <param name="source">可编辑的原始路径。</param>
@@ -137,6 +141,8 @@ internal sealed class CompiledConstructionPath
             bound = Vector3.Max(bound, segments[i].AccelerationBound);
         }
 
+        additions = CompileAdditions(source, path, layout);
+        foreach (CompiledConstructionPath addition in additions) bound += addition.AccelerationBound;
         float maximumAcceleration = bound.x * (Space == ConstructionPathSpace.TargetLine ? MaximumTargetSpan : 1f) +
                                     bound.y + bound.z;
         if (!Finite(maximumAcceleration) || !layout && maximumAcceleration > 80000f)
@@ -163,12 +169,18 @@ internal sealed class CompiledConstructionPath
         {
             segments[segments.Length - 1].Sample(Duration, out position, out _);
             velocity = Vector3.zero;
-            return;
         }
-
-        float time = Loop ? Mathf.Repeat(age, Duration) : Mathf.Max(0f, age);
-        if (Loop && time >= Duration) time = 0f;
-        segments[Find(time)].Sample(time, out position, out velocity);
+        else
+        {
+            float time = Loop ? Mathf.Repeat(age, Duration) : Mathf.Max(0f, age);
+            if (Loop && time >= Duration) time = 0f;
+            segments[Find(time)].Sample(time, out position, out velocity);
+        }
+        foreach (CompiledConstructionPath addition in additions)
+        {
+            addition.Sample(age, out Vector3 offset, out Vector3 derivative);
+            position += offset; velocity += derivative;
+        }
     }
 
     /// <summary>按实际采用的时长求曲线控制多边形的路程上界，循环只预留真实可能运行的圈数。</summary>
@@ -181,23 +193,23 @@ internal sealed class CompiledConstructionPath
         float span = Space == ConstructionPathSpace.TargetLine ? targetSpan : 1f;
         return cycles * segments.Sum(segment =>
             segment.DistanceBound(Duration, span, Space == ConstructionPathSpace.TargetLine)) + segments.Sum(segment =>
-            segment.DistanceBound(rest, span, Space == ConstructionPathSpace.TargetLine));
+            segment.DistanceBound(rest, span, Space == ConstructionPathSpace.TargetLine)) + additions.Sum(item => item.TravelBudget(seconds, targetSpan));
     }
 
     /// <summary>三次曲线导数的控制多边形给出瞬时速度上界，供真正脱落后的速度继承。</summary>
     /// <param name="targetSpan">本次声明的目标轴跨度。</param>
     internal float SpeedBudget(float targetSpan) => segments.Max(segment =>
         segment.SpeedBound(Space == ConstructionPathSpace.TargetLine ? targetSpan : 1f,
-            Space == ConstructionPathSpace.TargetLine));
+            Space == ConstructionPathSpace.TargetLine)) + additions.Sum(item => item.SpeedBudget(targetSpan));
 
     /// <summary>局部曲线在指定时点前离起点的包络，不把绕行或返程路程当作触达半径。</summary>
     /// <param name="until">实际使用到的局部时间。</param>
-    internal float ExtentBudget(float until) => segments.Max(segment => segment.ExtentBound(until));
+    internal float ExtentBudget(float until) => segments.Max(segment => segment.ExtentBound(until)) + additions.Sum(item => item.ExtentBudget(until));
 
     /// <summary>下一段拐点或循环边界之前允许推进的秒数。</summary>
     /// <param name="age">当前施放秒数。</param>
     /// <param name="startedAt">开始飞行的施放时点。</param>
-    internal float UntilBoundary(float age, float startedAt)
+    private float UntilOwnBoundary(float age, float startedAt)
     {
         double local = Math.Max(0d, (double)age - startedAt);
         if (!Loop && local >= Duration) return float.PositiveInfinity;

@@ -1,0 +1,127 @@
+// B6：独立周期相加与真实位置、速度、边界及预算；只用已有世界和共用执行。
+ConstructionPath CompositeCurve(float distance = 10)
+{
+    var path = ConstructionPathCurves.PulsingSpiral(360f / 520f, .5f, Vector3.up * .225f, Vector3.right * .9f, .25f / .9f, .7f);
+    path.Forward = null; path.DistancePerSecond = distance; return path;
+}
+AbilityDefinition CompositeDefinition(float speed = 10) => new()
+{
+    Id = "test.vortex." + Guid.NewGuid().ToString("N"), Name = "独立周期叠加", Resource = "none", Cost = 0, Cooldown = 0, Lifetime = 12,
+    Root = new ConstructionNode { Id = "sword", Form = "sword", Scale = .2f,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, WorldVelocity = true,
+            InheritVelocity = false, Vector = new[] { speed, 0f, 0f }, Path = CompositeCurve() } } }
+};
+AbilityCast CompositeCast(AbilityDefinition definition) => new(AbilityCompiler.Compile(definition, cache: false), Matrix4x4.identity,
+    inputs: new AbilityInputs(Vector3.zero, new Vector3(100, 0, 0), Vector3.right, 1));
+double CompositeProgress(AbilityCast cast) => (double)Field(State(cast), "PathProgress");
+object CompiledComposite(AbilityCast cast) => Field(Field(State(cast), "Flight"), "Path");
+(Vector3 Position, Vector3 Velocity) SampleComposite(AbilityCast cast, float time)
+{
+    object curve = CompiledComposite(cast); object[] args = { time, Vector3.zero, Vector3.zero };
+    curve.GetType().GetMethod("Sample", F).Invoke(curve, args); return ((Vector3)args[1], (Vector3)args[2]);
+}
+Vector3 AnalyticVortex(float time, float phase, bool sourceAxes = false, bool velocity = false)
+{
+    double angle = phase + time * (520d * Math.PI / 180d), pulse = phase + time * Math.PI * 4d;
+    double radius = .9d + .25d * Math.Sin(pulse), rate = Math.PI * Math.Cos(pulse), omega = 520d * Math.PI / 180d;
+    float side = velocity ? (float)(-Math.Sin(angle) * omega * radius + Math.Cos(angle) * rate) : (float)(Math.Cos(angle) * radius);
+    float forward = velocity ? (float)((Math.Cos(angle) * omega * radius + Math.Sin(angle) * rate) * .25d) : (float)(Math.Sin(angle) * radius * .25d);
+    return sourceAxes ? new Vector3(side, 0, forward) : new Vector3(side, forward, 0);
+}
+var compositeDefinition = CompositeDefinition(); var composite = CompositeCast(compositeDefinition);
+float positionError = 0, velocityError = 0;
+foreach (float time in new[] { 0f, .017f, .2f, .5f, .6923f, 1.125f, 3.221f, 9f, 11.85f })
+{
+    var sample = SampleComposite(composite, time);
+    positionError = Mathf.Max(positionError, Vector3.Distance(sample.Position, AnalyticVortex(time, .7f) - AnalyticVortex(0, .7f)));
+    velocityError = Mathf.Max(velocityError, Vector3.Distance(sample.Velocity, AnalyticVortex(time, .7f, velocity: true)));
+}
+Check(positionError < .0025f && velocityError < .04f && composite.Plan.Budget.PathSegments == 24,
+    "三条普通曲线保留不同旋转及脉动周期，完整寿命不复制合成周期，位置与解析速度符合原参数", new { positionError, velocityError });
+var compiledCurve = CompiledComposite(composite); var curveType = compiledCurve.GetType();
+float speedBudget = (float)curveType.GetMethod("SpeedBudget", F).Invoke(compiledCurve, new object[] { 1f });
+float extentBudget = (float)curveType.GetMethod("ExtentBudget", F).Invoke(compiledCurve, new object[] { 12f });
+Check(Enumerable.Range(0, 100).All(i => { var sample = SampleComposite(composite, i * .12f); return sample.Velocity.magnitude <= speedBudget && sample.Position.magnitude <= extentBudget; }),
+    "实际速度与位置包络的共同预算包含所有附加曲线");
+var boundaryDefinition = CompositeDefinition();
+boundaryDefinition.Root.Operations[0].Path = new ConstructionPath { Forward = null,
+    Keys = new[] { new ConstructionPathKey(), new ConstructionPathKey { At = .5f } },
+    Additions = new[] { new ConstructionPathTerm { Loop = true, Keys = new[] { new ConstructionPathKey(),
+        new ConstructionPathKey { At = .1f, Point = new[] { .1f, 0f, 0f } }, new ConstructionPathKey { At = .2f } } } } };
+var boundaryCast = CompositeCast(boundaryDefinition); object boundaryCurve = CompiledComposite(boundaryCast);
+float until = (float)curveType.GetMethod("UntilBoundary", F).Invoke(boundaryCurve, new object[] { .05f, 0f });
+var afterBaseEnd = SampleComposite(boundaryCast, .55f);
+Check(Mathf.Abs(until - .05f) < .000001f && afterBaseEnd.Position.x > .04f && afterBaseEnd.Velocity.x < 0,
+    "最先抵达的附加曲线边界参与共同步长，主曲线结束后附加循环继续实际运动");
+var fasterComposite = CompositeCast(CompositeDefinition(20)); composite.Advance(.4f, Vector3.zero); fasterComposite.Advance(.2f, Vector3.zero);
+Check(Math.Abs(CompositeProgress(composite) - CompositeProgress(fasterComposite)) < .00001 &&
+    Vector3.Distance(Position(composite), Position(fasterComposite)) < .0001f, "不同速度飞过同一路程时，所有曲线保留各自相位与完整叠加位置");
+var pausingCompositeDefinition = CompositeDefinition(); pausingCompositeDefinition.Root.Operations = pausingCompositeDefinition.Root.Operations.Concat(new[] {
+    new ConstructionOperation { Kind = ConstructionOperationKind.ChangeSpeed, At = .2f, Speed = 0 },
+    new ConstructionOperation { Kind = ConstructionOperationKind.ChangeSpeed, At = .4f, Speed = 10 } }).ToArray();
+var pausingComposite = CompositeCast(pausingCompositeDefinition); pausingComposite.Advance(.3f, Vector3.zero); Vector3 stoppedComposite = Position(pausingComposite);
+pausingComposite.Advance(.05f, Vector3.zero);
+Check(Position(pausingComposite) == stoppedComposite && Math.Abs(CompositeProgress(pausingComposite) - .2d) < .00001,
+    "中心停止时所有按路程叠加的曲线一起暂停");
+pausingComposite.Advance(.15f, Vector3.zero);
+Check(Math.Abs(CompositeProgress(pausingComposite) - .3d) < .00001, "恢复后所有附加曲线继续原进度");
+var saveComposite = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+var restoreComposite = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+var reflectedComposite = CompositeCast(CompositeDefinition()); reflectedComposite.Advance(.17f, Vector3.zero); saveComposite(reflectedComposite);
+Vector3 beforeReflection = Position(reflectedComposite); double beforeProgress = CompositeProgress(reflectedComposite);
+typeof(AbilityCast).GetMethod("Reflect", F).Invoke(reflectedComposite, new object[] { 0, Vector3.right, Vector3.zero, Vector3.zero }); reflectedComposite.Advance(.11f, Vector3.zero);
+var unreflectedComposite = CompositeCast(CompositeDefinition()); unreflectedComposite.Advance(.28f, Vector3.zero);
+Check(Vector3.Distance(Position(reflectedComposite) - beforeReflection, Vector3.Reflect(Position(unreflectedComposite) - beforeReflection, Vector3.right)) < .0001f,
+    "真实反射后所有附加曲线继续原相位，并沿同一反射参照运动");
+restoreComposite(reflectedComposite);
+Check(Position(reflectedComposite) == beforeReflection && CompositeProgress(reflectedComposite) == beforeProgress && reflectedComposite.Reflections(0) == 0,
+    "预测回退恢复全部叠加曲线的共同进度与参照");
+string savedComposite = JsonConvert.SerializeObject(compositeDefinition);
+var loadedComposite = CompositeCast(JsonConvert.DeserializeObject<AbilityDefinition>(savedComposite)); loadedComposite.Advance(.4f, Vector3.zero);
+Check(Vector3.Distance(Position(loadedComposite), Position(composite)) < .00001f, "完整资料读回相同的独立周期和叠加运动");
+var withSteeringComposite = CompositeDefinition(); withSteeringComposite.Root.Operations[0].Goal = new ConstructionFlightGoal
+{
+    Arrival = ConstructionFlightArrival.None, Steering = new ConstructionFlightSteering { Path = CompositeCurve() }
+};
+var doublePlan = AbilityCompiler.Compile(withSteeringComposite, cache: false);
+Check(doublePlan.Budget.PathSegments == 48 && doublePlan.WorkSize > composite.Plan.WorkSize,
+    "位置与方向的全部附加曲线共同计入曲段及并行工作预算");
+withSteeringComposite.Root.Operations[0].Goal.Steering.Path.Additions[0].Keys[1].Point[2] = .1f;
+bool rejectedZ = false;
+try { AbilityCompiler.Compile(withSteeringComposite, cache: false); } catch (InvalidDataException e) { rejectedZ = e.Message.Contains("Steering"); }
+Check(rejectedZ, "方向附加曲线仍只接受横偏和离地两轴，不通过叠加绕过边界");
+var fullCurve = ConstructionPathCurves.Wave(.5f, Vector3.up * .1f); fullCurve.Forward = null;
+fullCurve.Additions = Enumerable.Range(0, 7).Select(_ => new ConstructionPathTerm { Keys = ConstructionPathCurves.Wave(.5f, Vector3.right * .01f).Keys, Loop = true }).ToArray();
+var fullDefinition = CompositeDefinition(); fullDefinition.Root.Operations[0].Path = fullCurve;
+Check(AbilityCompiler.Compile(fullDefinition, cache: false).Budget.PathSegments == 64, "合计64曲段可用，循环不展开额外副本");
+fullCurve.Keys = fullCurve.Keys.Concat(new[] { new ConstructionPathKey { At = .6f } }).ToArray();
+string beforeReject = JsonConvert.SerializeObject(fullDefinition); bool rejectedCount = false;
+try { AbilityCompiler.Compile(fullDefinition, cache: false); } catch (InvalidDataException e) { rejectedCount = e.Message.Contains("64"); }
+Check(rejectedCount && JsonConvert.SerializeObject(fullDefinition) == beforeReject, "合计超过64曲段明确拒绝，原资料不被截断或修改");
+bool rejectedLayout = false;
+try { curveType.GetConstructors(F).Single().Invoke(new object[] { CompositeCurve(0), "layout", true }); }
+catch (TargetInvocationException e) { rejectedLayout = e.InnerException is InvalidDataException; }
+Check(rejectedLayout, "静态排布明确拒绝当前飞行叠加资料");
+var stepTypeComposite = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityStep");
+var stepConstructorComposite = stepTypeComposite.GetConstructors(F).Single();
+var batchComposite = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityBatch").GetMethod("Advance", F);
+var batchCastsComposite = Enumerable.Range(0, 4).Select(i => CompositeCast(CompositeDefinition(10 + i))).ToArray();
+Array compositeSteps = Array.CreateInstance(stepTypeComposite, batchCastsComposite.Length);
+string CompositeSnapshot(AbilityCast cast) => JsonConvert.SerializeObject(new { point = XYZ(Position(cast)), velocity = XYZ(cast.Velocity(0)), progress = CompositeProgress(cast) });
+for (int i = 0; i < batchCastsComposite.Length; i++)
+{
+    saveComposite(batchCastsComposite[i]); compositeSteps.SetValue(stepConstructorComposite.Invoke(new object[] { batchCastsComposite[i],
+        new AbilityInputs(Vector3.zero, new Vector3(100, 0, 0), Vector3.right, 1), null, Vector3.zero, .4f, false }), i);
+}
+batchComposite.Invoke(null, new object[] { compositeSteps, false }); string[] sequentialComposite = batchCastsComposite.Select(CompositeSnapshot).ToArray();
+foreach (var cast in batchCastsComposite) restoreComposite(cast); batchComposite.Invoke(null, new object[] { compositeSteps, true });
+Check(batchCastsComposite.Select(CompositeSnapshot).SequenceEqual(sequentialComposite), "共用工作池顺序与并行得到相同的叠加位置、速度与进度");
+foreach (var definition in definitions)
+{
+    var path = definition.Root.Operations[0].Path; var cast = Numeric(definition, new GetHitEvent { Damage = 37 });
+    float phase = (float)(new System.Random(definition.Seed).NextDouble() * Math.PI * 2d); float sourceError = 0;
+    foreach (float time in new[] { 0f, .19f, .51f, 1.73f, 3.7f })
+        sourceError = Mathf.Max(sourceError, Vector3.Distance(SampleComposite(cast, time).Position, AnalyticVortex(time, phase, true) - AnalyticVortex(0, phase, true)));
+    Check(path.DistancePerSecond == 28 && path.Additions.Length == 2 && path.Keys.Length == 9 && sourceError < .0025f,
+        "旧慢涡旋保留旋转、脉动、前向比例及空间频率，从实际出生点连续开始", sourceError);
+}

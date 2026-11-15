@@ -1,0 +1,70 @@
+// B6只检查曲线选择、独立修改、增删、撤销及保存；复用同一窗口。
+var editableComposite = CompositeDefinition();
+editableComposite.Root.Operations[0].Goal = new ConstructionFlightGoal
+{
+    Arrival = ConstructionFlightArrival.None, Steering = new ConstructionFlightSteering { Path = CompositeCurve() }
+};
+ConstructedAbilityService.Register(editableComposite);
+WindowWanfaConstructionEditor.Open(editableComposite.Id, source); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+var compositeEditor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+try
+{
+    string TComposite(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+    void ClickComposite(string key)
+    {
+        Button button = compositeEditor.GetComponentsInChildren<Button>(false).FirstOrDefault(item => item.name == key);
+        if (button == null)
+            button = compositeEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(row => ((Text)Field(row, "_title")).text == TComposite(key))
+                .transform.Find("Header/Action").GetComponent<Button>();
+        button.onClick.Invoke();
+    }
+    ConstructionEditSession CompositeSession() => (ConstructionEditSession)Field(compositeEditor, "session");
+    void ChooseComposite(string key, string label)
+    {
+        compositeEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(row => ((Text)Field(row, "_title")).text == TComposite(key))
+            .transform.Find("Header/Action").GetComponent<Button>().onClick.Invoke();
+        Resources.FindObjectsOfTypeAll<Button>().First(button => button.gameObject.activeInHierarchy && button.interactable &&
+            button.GetComponentsInChildren<Text>().Any(text => text.text == label)).onClick.Invoke();
+    }
+    void SetCompositeEnd(string text)
+    {
+        var field = compositeEditor.GetComponentsInChildren<InputField>(false).Last(input => input.name == "At" && input.interactable);
+        field.text = text; field.onEndEdit.Invoke(text);
+    }
+    async Task ShotComposite(string name)
+    {
+        World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+        var pane = compositeEditor.GetComponentsInChildren<ScrollRect>(false).First(scroll => scroll.name == "Parameters");
+        var row = compositeEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(item => ((Text)Field(item, "_title")).text == TComposite("CurveLayer"));
+        Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(pane.content, row.transform);
+        pane.verticalNormalizedPosition = 1f - Mathf.Clamp01((pane.content.rect.yMax - bounds.max.y) / (pane.content.rect.height - pane.viewport.rect.height));
+        await Game.NextFrame(); string shot = Path.Combine(folder, name + ".png"); File.Delete(shot); Screen.Capture(shot); await Game.WaitUntil(() => File.Exists(shot), 600);
+    }
+    ClickComposite("Page1"); ChooseComposite("CurveLayer", string.Format(TComposite("CurveLayer.Addition"), 1)); SetCompositeEnd(".31");
+    var flightComposite = CompositeSession().Draft.Root.Operations[0];
+    Check((bool)Field(compositeEditor, "valid") && flightComposite.Path.Additions[0].Keys.Last().At == .31f &&
+        flightComposite.Path.Keys.Last().At == editableComposite.Root.Operations[0].Path.Keys.Last().At &&
+        flightComposite.Goal.Steering.Path.Additions[0].Keys.Last().At != .31f,
+        "所选位置附加曲线独立修改周期，主曲线和方向曲线保持各自资料");
+    SetCompositeEnd("-1"); Check(!(bool)Field(compositeEditor, "valid"), "实际窗口拒绝附加曲线的非法时点"); ClickComposite("Undo");
+    ChooseComposite("CurvePurpose", TComposite("CurvePurpose.Steering"));
+    ChooseComposite("CurveLayer", string.Format(TComposite("CurveLayer.Addition"), 1)); SetCompositeEnd(".33");
+    flightComposite = CompositeSession().Draft.Root.Operations[0];
+    Check((bool)Field(compositeEditor, "valid") && flightComposite.Goal.Steering.Path.Additions[0].Keys.Last().At == .33f &&
+        flightComposite.Path.Additions[0].Keys.Last().At == .31f && !compositeEditor.GetComponentsInChildren<InputField>(false).Any(field => field.name == "Z"),
+        "方向附加曲线仍只编辑两轴，不覆盖实际位置的附加曲线");
+    ClickComposite("AddCurveLayer");
+    Check(CompositeSession().Draft.Root.Operations[0].Goal.Steering.Path.Additions.Length == 3, "实际窗口可增加普通附加曲线");
+    ClickComposite("RemoveCurveLayer");
+    Check(CompositeSession().Draft.Root.Operations[0].Goal.Steering.Path.Additions.Length == 2, "实际窗口删除所选附加曲线");
+    ClickComposite("Undo");
+    Check(CompositeSession().Draft.Root.Operations[0].Goal.Steering.Path.Additions.Length == 3, "撤销恢复完整附加曲线及原控制点");
+    ChooseComposite("CurveLayer", string.Format(TComposite("CurveLayer.Addition"), 1));
+    await ShotComposite("layers-cz"); LocalizedTextManager.instance.setLanguage("en"); ClickComposite("Page1"); await ShotComposite("layers-en");
+    LocalizedTextManager.instance.setLanguage("cz"); ClickComposite("Page1"); ClickComposite("LearnCopy");
+    var finalComposite = ConstructionEditing.Access.Read(CompositeSession().SourceId).Root.Operations[0];
+    Check(ConstructedAbilityService.Knows(owner, CompositeSession().SourceId) && finalComposite.Path.Additions[0].Keys.Last().At == .31f &&
+        finalComposite.Goal.Steering.Path.Additions[0].Keys.Last().At == .33f && finalComposite.Goal.Steering.Path.Additions.Length == 3,
+        "正式保存和学习保留独立的位置及方向叠加曲线");
+}
+finally { LocalizedTextManager.instance.setLanguage("cz"); typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(compositeEditor, null); }

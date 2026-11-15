@@ -40,7 +40,8 @@ internal sealed class CompiledFlightSteering
         if (source.Path == null) return;
         Path = new CompiledConstructionPath(source.Path, path + "/Path");
         if (source.Path.Space != ConstructionPathSpace.Local || source.Path.Forward != null ||
-            source.Path.Keys.Any(key => key.Point[2] != 0f || key.In[2] != 0f || key.Out[2] != 0f))
+            source.Path.Keys.Concat(source.Path.Additions?.SelectMany(term => term.Keys) ?? Enumerable.Empty<ConstructionPathKey>())
+                .Any(key => key.Point[2] != 0f || key.In[2] != 0f || key.Out[2] != 0f))
             throw new InvalidDataException(path + "/Path：方向曲线只用横向和离地两个轴，不采用位置参照或模型朝向");
     }
 

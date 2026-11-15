@@ -75,8 +75,9 @@ internal static class FlyingSwordConstructionMigration
         bool towardsTarget = trajectory == SkillTrajectories.TowardsTarget.id;
         bool drift = trajectory == SkillTrajectories.DriftHoming.id;
         bool spiral = trajectory == SkillTrajectories.SpiralHoming.id;
+        bool vortex = trajectory == SkillTrajectories.SlowVortex.id;
         bool wave = trajectory == SkillTrajectories.SineWave.id, zigzag = trajectory == SkillTrajectories.Zigzag.id;
-        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral) return null;
+        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral && !vortex) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
@@ -96,7 +97,7 @@ internal static class FlyingSwordConstructionMigration
         Vector3 initial = Quaternion.AngleAxis(emission.InitialAngleOffsetDegrees, Vector3.forward) * forward;
         Quaternion facing = Quaternion.LookRotation(initial,
             Mathf.Abs(Vector3.Dot(initial, Vector3.forward)) > .999f ? Vector3.up : Vector3.forward);
-        var goal = noRotation || wave || zigzag ? null : new ConstructionFlightGoal
+        var goal = noRotation || wave || zigzag || vortex ? null : new ConstructionFlightGoal
         {
             Anchor = towardsDirection ? ConstructionFlightAnchor.Direction : ConstructionFlightAnchor.Target,
             Follow = towardsTarget || drift || spiral,
@@ -132,7 +133,10 @@ internal static class FlyingSwordConstructionMigration
         ConstructionPath path = wave ? ConstructionPathCurves.Wave(1f / 3.2f, Vector3.right * .65f,
             (float)(new System.Random(seed).NextDouble() * Math.PI * 4d - Math.PI * 2d)) :
             zigzag ? ConstructionPathCurves.Zigzag(.24f, Vector3.right * .75f, -Mathf.PI * .5f) : null;
-        if (path != null) path.DistancePerSecond = wave ? 30f : 34f;
+        if (vortex)
+            path = ConstructionPathCurves.PulsingSpiral(360f / 520f, .5f, Vector3.forward * (.9f * .25f),
+                Vector3.right * .9f, .25f / .9f, (float)(new System.Random(seed).NextDouble() * Math.PI * 2d));
+        if (path != null) path.DistancePerSecond = vortex ? 28f : wave ? 30f : 34f;
         var operations = new List<ConstructionOperation>
         {
             new()

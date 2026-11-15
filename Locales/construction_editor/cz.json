@@ -709,5 +709,13 @@
   "Cultiway.Construction.AddSteeringPath": "添加方向变化曲线",
   "Cultiway.Construction.RemoveSteeringPath": "移除方向变化曲线",
   "Cultiway.Construction.SteeringPathHint": "曲线数值叠加在横偏和离地偏转上；可按时间或实际中心路程推进。",
-  "Cultiway.Construction.SteeringDecay": "方向偏转衰减率"
+  "Cultiway.Construction.SteeringDecay": "方向偏转衰减率",
+  "Cultiway.Construction.CurveLayer": "正在编辑的叠加曲线",
+  "Cultiway.Construction.CurveLayer.Base": "主曲线",
+  "Cultiway.Construction.CurveLayer.Addition": "附加曲线 {0}",
+  "Cultiway.Construction.CurveLayerRules": "叠加规则",
+  "Cultiway.Construction.CurveLayerHint": "各条曲线的偏移相加，共用时间或实际中心路程；每条曲线各自循环。",
+  "Cultiway.Construction.AddCurveLayer": "添加叠加曲线",
+  "Cultiway.Construction.RemoveCurveLayer": "移除此附加曲线",
+  "Cultiway.Construction.Choose": "选择"
 }
