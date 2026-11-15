@@ -8,6 +8,9 @@ namespace Cultiway.Content.Skills;
 /// <summary>只接管新构造真正施加的受力；原版与其他玩法仍保留各自运动。</summary>
 internal static partial class ConstructedActorImpulse
 {
+    /// <summary>共同受力采用完整三维前后态查墙；读取原地形时不重复套用平面人物入口。</summary>
+    internal static bool CheckingTerrain { get; private set; }
+
     /// <summary>弱引用不延长人物寿命；每个人物的原版更新只访问自己的运动。</summary>
     private static ConcurrentDictionary<long, Motion> motions = new();
 
@@ -341,7 +344,17 @@ internal static partial class ConstructedActorImpulse
             actor.position_height =
                 Mathf.Max(0f, (sliding ? previous.z : position.z) - Ground(motion.Terrain, position));
             actor.velocity.z = motion.MassGravity == 0f ? motion.ExpectedVelocity.z : speed.z / motion.MassGravity;
-            Vector2 requested = position, allowed = actor.checkVelocityAgainstBlock(requested);
+            Vector2 requested = position, allowed;
+            CheckingTerrain = true;
+            try { allowed = actor.checkVelocityAgainstBlock(requested); }
+            finally { CheckingTerrain = false; }
+            var barrierTarget = new Vector3(allowed.x, allowed.y, position.z);
+            if (!ConstructedAbilityService.GroundMovementAllowed(actor, previous, barrierTarget, bodyHeight))
+            {
+                allowed = previous;
+                speed.x = speed.y = 0f;
+                actor.velocity.x = actor.velocity.y = 0f;
+            }
             if (!sliding && allowed != requested)
             {
                 float ground = Ground(motion.Terrain, allowed);

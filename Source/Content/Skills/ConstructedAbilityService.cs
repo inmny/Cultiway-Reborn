@@ -34,7 +34,7 @@ public struct ConstructedKnowledge : IComponent
 }
 
 /// <summary>接入首批构造的学习、支付、施放、实际接触和正式保存。</summary>
-public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbilityProvider
+public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbilityProvider, ISkillBarrierBridge
 {
     /// <summary>正式能力来源的稳定编号。</summary>
     private const string ProviderId = "content.constructed";
@@ -80,6 +80,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (result == SkillEmissionResult.Unhandled) result = GroundSpikeConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = RiftConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = FieldConstructionMigration.Emit(emission);
+            if (result == SkillEmissionResult.Unhandled) result = WallConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = SupportConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = BeamConstructionMigration.Emit(emission);
             return result == SkillEmissionResult.Unhandled ? ChainConstructionMigration.Emit(emission) : result;
@@ -90,6 +91,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         var service = new ConstructedAbilityService();
         ConstructionEditing.Access = service;
         simulation = service;
+        Core.SkillLibV3.Manager.Barriers = service;
         ModClass.I.GeneralLogicSystems.Add(service);
         ActiveAbilityService.Register(service);
         FormResources.ValidatingReload += ValidateReloadedResources;
@@ -551,6 +553,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (payment != null && !payment.IsCommitted) payment.Commit();
             accepted = true;
             ReplaceExcessInstances(running);
+            PublishBarriers();
             TrackWorldRecovery(running, true);
             if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
             RecordInspirationUse(caster, plan);

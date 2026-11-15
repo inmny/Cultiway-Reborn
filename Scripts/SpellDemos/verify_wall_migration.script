@@ -1,0 +1,208 @@
+// B21：只覆盖土墙迁移及本批实际交互，复用原世界与人物准备。
+var manager=Cultiway.ModClass.I.SkillV3;
+var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();
+var emissions=new List<object>();bool invalidate=false,scopeValid=true;int oldWalls=0;
+SkillEmissionResult? lastResult=null;
+Actor source=Make(70),target=Make(64),friend=Make(64),wolf=Make(12,"wolf");target.setKingdom(wolf.kingdom);
+var owner=source.GetExtend();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=2;
+owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();await Advance(.2f);
+/// <summary>读取本轮实际已学容器。</summary>
+IReadOnlyList<Entity> Learned()=>(IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(owner,null);
+/// <summary>通过原学习入口保留真实词条和来源身份。</summary><param name="boost">原强度及范围词条。</param><param name="extra">未知附加作用。</param>
+Entity Build(bool boost=false,bool extra=false)
+{
+    var builder=new SkillContainerBuilder(SkillEntities.EarthWall).UseAnimation(0);
+    if(boost){builder.AddModifier(new HugeModifier{Value=1.4f});builder.AddModifier(new EmpowerModifier{SetupBonus=.3f});builder.AddModifier(new HasteModifier{SpeedMultiplier=.5f});}
+    if(extra)builder.AddModifier(new BurnModifier{Duration=1,DamageRatio=.1f});
+    Entity e=builder.Build(SkillContainerBuildMode.RuleOnly);string signature=SkillContainerSignature.Build(e);
+    owner.LearnSkillV3(e);return Learned().First(s=>SkillContainerSignature.Build(s)==signature);
+}
+var converter=service.Assembly.GetType("Cultiway.Content.Skills.WallConstructionMigration").GetMethod("Convert",F);
+/// <summary>读取真正会交给新执行的可保存资料。</summary><param name="skill">原来源。</param><param name="damage">保留的原力量与境界。</param>
+AbilityDefinition Convert(Entity skill,out GetHitEvent damage)
+{
+    object[] args={new SkillEmission{Source=source,SpatialSource=source,SkillContainer=skill,Target=target,
+        SourcePos=new Vector3(70,72,0),TargetPos=new Vector3(64,72,0),Strength=40,PowerLevel=1.25f},default(GetHitEvent)};
+    var d=(AbilityDefinition)converter.Invoke(null,args);damage=(GetHitEvent)args[1];return d;
+}
+/// <summary>只记录本批原土墙正式运行。</summary><param name="fact">实际施放。</param>
+void Started(ConstructedCastStarted fact){if(fact.AbilityId==SkillEntities.EarthWall.id)starts.Add(fact);}
+/// <summary>原土墙一旦生成旧执行体即为双执行缺陷。</summary><param name="e">原实例。</param>
+void Old(Entity e){if(e.GetComponent<SkillEntity>().Asset==SkillEntities.EarthWall)oldWalls++;}
+ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+/// <summary>复用现有位置和支付准备。</summary>
+void ResetPeople()
+{
+    Ready(source);Place(source,70);Place(target,64);Place(friend,64,75);
+    owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
+    foreach(var a in new[]{source,target,friend})ConstructedAbilityService.NotifyActorChanged(a);
+}
+/// <summary>原已学施放和原点选，不直接调用迁移入口。</summary><param name="skill">原容器。</param><param name="scope">正式边界。</param>
+bool Use(Entity skill,ConstructionWorldScope scope=null)
+{
+    bool used=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",skill),
+        new ActiveAbilityTarget(target,target.GetSimPos(),selectionArea:new SkillTargetSelectionArea(true,target.GetSimPos(),.1f),worldScope:scope),ActiveAbilityUseOrigin.Script);
+    source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();return used;
+}
+/// <summary>保留实际墙面供结束和破墙检查。</summary><param name="cast">真实运行。</param>
+List<AbilityCapsule> Shapes(AbilityCast cast){var shapes=new List<AbilityCapsule>();cast.AppendContacts(shapes);return shapes;}
+/// <summary>同一显示。</summary><param name="cast">真实运行。</param>
+List<FormVisualInstance> Views(AbilityCast cast){var views=new List<FormVisualInstance>();cast.AppendVisuals(views);return views;}
+/// <summary>墙根位置。</summary><param name="cast">真实运行。</param>
+Vector3 Center(AbilityCast cast)=>Views(cast).Single().Transform.GetColumn(3);
+/// <summary>只保存本批主体画面。</summary><param name="name">文件名。</param>
+async Task Shot(string name)
+{
+    await Game.NextFrame();Camera camera=World.world.camera;var oldTarget=camera.targetTexture;var oldPosition=camera.transform.position;float oldSize=camera.orthographicSize;
+    var active=RenderTexture.active;var texture=new RenderTexture(960,540,24,RenderTextureFormat.ARGB32);texture.Create();var pixels=new Texture2D(960,540,TextureFormat.RGBA32,false);
+    try{camera.transform.position=new Vector3(68,74,oldPosition.z);camera.orthographicSize=9;camera.targetTexture=texture;camera.Render();RenderTexture.active=texture;
+        pixels.ReadPixels(new Rect(0,0,960,540),0,0);pixels.Apply();File.WriteAllBytes(Path.Combine(folder,name+".png"),pixels.EncodeToPNG());}
+    finally{camera.targetTexture=oldTarget;camera.transform.position=oldPosition;camera.orthographicSize=oldSize;RenderTexture.active=active;texture.Release();UnityEngine.Object.Destroy(texture);UnityEngine.Object.Destroy(pixels);}
+}
+var activeCasts=new List<AbilityCast>();
+try
+{
+    var normal=Build();var boosted=Build(true);
+    foreach(var skill in new[]{normal,boosted})
+    {
+        var d=Convert(skill,out GetHitEvent damage);bool boost=skill.HasComponent<HugeModifier>();
+        var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
+        var plan=AbilityCompiler.Compile(restored,cache:false);
+        Check(d.Root.BlocksGroundActors&&restored.Root.BlocksGroundActors&&d.Binding.Anchor==AbilityAnchor.Between&&
+            Math.Abs(d.Binding.Fraction.Value-.6f)<.0001f&&d.Root.Strength==5&&d.ConcurrentLimit==1&&
+            Math.Abs(damage.Damage-(boost?52:40))<.001f&&damage.AttackerPowerLevel==1.25f&&
+            damage.Element.Equals(Cultiway.Core.ElementComposition.Static.Earth),"原强度、境界、五倍容量、范围词条和地面阻挡保存在普通构造",new{damage.Damage,d.Root.Scale,d.Lifetime});
+        File.WriteAllText(Path.Combine(folder,boost?"enhanced.json":"normal.json"),JsonConvert.SerializeObject(d,Formatting.Indented));
+    }
+    var bad=Convert(normal,out _);bad.Root.ContactRole=ConstructionContactRole.Attack;bool rejected=false;
+    try{AbilityCompiler.Compile(bad,cache:false);}catch(InvalidDataException){rejected=true;}
+    Check(rejected&&Convert(Build(extra:true),out _)==null,"非屏障阻挡声明拒绝，未知附加作用保留原执行");
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        if(request.SkillContainer.GetComponent<SkillContainer>().Asset!=SkillEntities.EarthWall)return original(request);
+        if(invalidate)scopeValid=false;var result=original(request);lastResult=result;
+        if(result==SkillEmissionResult.Accepted)
+        {
+            var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==starts.Last().CastId);
+            var live=(AbilityCast)Field(running,"Cast");accepted.Add(live);activeCasts.Add(live);
+        }
+        emissions.Add(new{result=result.ToString(),request.Strength,request.PowerLevel});return result;
+    };
+    ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;
+    Check(Use(normal),"原已学土墙正式受理");await Advance(.25f);
+    var live=accepted.Last();float initial=live.RemainingForce(0);Vector3 center=Center(live);
+    double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(normal)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,normal)));
+    Check(oldWalls==0&&starts.Count>0&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost*starts.Count)<.001&&
+        Math.Abs(center.x-66.4f)<.03f&&Shapes(live).Count>0&&!BodyControlState.IsBusy(source.id),
+        "真实原入口只运行新墙，逐发支付一次并在两点间建立",new{initial,center=new[]{center.x,center.y,center.z},cost});
+    await Shot("migrated-wall");
+    int hp=source.data.health;
+    // 原版真实运动入口：不依赖等待下一轮人物位置历史。
+    var checkMove=typeof(Actor).GetMethod("checkVelocityAgainstBlock",F);
+    Vector2 Block(Actor a,Vector2 to)=>(Vector2)checkMove.Invoke(a,new object[]{to});
+    Place(target,64);Vector2 blocked=Block(target,new Vector2(70,72));
+    Place(friend,64);Vector2 friendly=Block(friend,new Vector2(70,72));
+    var flying=typeof(Actor).GetField("_flying",F);flying.SetValue(target,true);Vector2 airborne=Block(target,new Vector2(70,72));flying.SetValue(target,false);
+    target.position_height=8;Vector2 high=Block(target,new Vector2(70,72));target.position_height=0;
+    Check(blocked.x==64&&friendly.x==70&&airborne.x==70&&high.x==70&&Math.Abs(live.RemainingForce(0)-initial)<.001f,
+        "敌方地面位移受阻，友方、飞行和墙顶以上可通过；通行预测不消耗容量");
+    Place(friend,64,76);
+    typeof(Actor).GetMethod("precalcMovementSpeed",F).Invoke(target,new object[]{true});target.next_step_position=new Vector2(70,72);
+    typeof(Actor).GetMethod("updateMovement",F).Invoke(target,new object[]{2f,0f});
+    Check(target.current_position.x<66.4f,"原版真实步行当段不能越墙");Place(target,64);
+    // 共用步法用真实人形与真实墙，不扩大身体和装备样本。
+    float bodyHeight=(float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height",F).Invoke(null,new object[]{target});
+    float stepStart=center.x-Shapes(live).Max(s=>s.Radius)-bodyHeight*.24f-.3f;
+    Place(target,stepStart);var dmove=Moving("wall-step",Vector3.right,walk:true);
+    dmove.Cooldown=0;dmove.Resource="none";dmove.Cost=0;
+    Ready(target);await Fire(dmove,target,source);target.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(1.2f);
+    Check(target.current_position.x>stepStart+.01f&&target.current_position.x<66.4f,"共用步法在真实墙前截停",new{x=target.current_position.x,stepStart,bodyHeight});
+    foreach(object run in ((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().ToArray())
+        if(((AbilityCast)Field(run,"Cast")).Plan.Id==dmove.Id)((AbilityCast)Field(run,"Cast")).Cancel();
+    await Advance(.05f);Place(target,64);
+    var impulse=service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+    var terrain=service.GetField("terrain",F).GetValue(service.GetField("simulation",F).GetValue(null));
+    Ready(target);
+    impulse.GetMethod("BeginDirected",F).Invoke(null,new object[]{target,new Vector3(20,0,0),.35f,terrain});
+    await Advance(.4f);Check(target.current_position.x>64&&target.current_position.x<66.4f&&!BodyControlState.IsBusy(target.id),"真实受力贴地位移也不能穿墙，并正常归还控制",new{x=target.current_position.x});Place(target,64);CombatStatusEffects.ApplyStatus(target,hold,10000,target);target.updateStats();
+    // 旧飞行实体仍经原轨迹和原伤害系统，本批桥接必须在其伤害前回收。
+    Entity legacyMade=new SkillContainerBuilder(SkillEntities.StoneCone).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+    string legacySignature=SkillContainerSignature.Build(legacyMade);var legacyOwner=target.GetExtend();legacyOwner.LearnSkillV3(legacyMade);
+    Entity legacyContainer=((IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(legacyOwner,null)).First(s=>SkillContainerSignature.Build(s)==legacySignature);
+    float beforeLegacy=live.RemainingForce(0);
+    Entity legacy=manager.SpawnSkillAtPosition(legacyContainer,target,new Vector3(64,72,.6f),source,new Vector3(70,72,.6f),13,0);
+    await Advance(.45f);
+    Check((legacy.IsNull||legacy.Tags.Has<TagRecycle>()||legacy.Tags.Has<TagSkillAnimationNoCollision>()&&legacy.Tags.Has<TagSkillAnimationNoMovement>())&&source.data.health==hp&&Math.Abs(live.RemainingForce(0)-(beforeLegacy-13))<.01f,
+        "旧飞行实体在实际墙面退出，后方人物无伤且容量消费一次",new{beforeLegacy,after=live.RemainingForce(0),hp,health=source.data.health,legacy=legacy.IsNull?null:new {tags=legacy.Tags.ToString(),position=legacy.GetComponent<Position>().value.ToString(),trajectory=legacy.GetComponent<Trajectory>().ID,config=legacy.GetComponent<ColliderConfig>().Enabled}});
+    // 原版弹丸单步跨墙：保留真实碰撞和落点回调，记录其实际落点。
+    var positionField=typeof(Projectile).GetField("_current_position_3d",F);var velocityField=typeof(Projectile).GetField("_velocity",F);
+    var projectileMove=typeof(Projectile).GetMethod("updateVelocity",F);Vector2? impact=null;
+    var projectileAsset=AssetManager.projectiles.get("freeze_orb");var oldImpact=projectileAsset.impact_actions;
+    bool Record(BaseSimObject a,BaseSimObject b,WorldTile tile){impact=(Vector2)tile.posV3;return true;}
+    projectileAsset.impact_actions+=Record;
+    try
+    {
+        float beforeProjectile=live.RemainingForce(0);
+        var projectile=World.world.projectiles.spawn(target,source,"freeze_orb",new Vector3(64,72,0),new Vector3(70,72,0),.7f,.7f);
+        positionField.SetValue(projectile,new Vector3(64,72,.7f));velocityField.SetValue(projectile,new Vector3(8,0,SimGlobals.m.gravity));
+        projectileMove.Invoke(projectile,new object[]{1f});Vector3 hit=(Vector3)positionField.GetValue(projectile);
+        Check(projectile.isTargetReached()&&impact.HasValue&&impact.Value.x==Mathf.Floor(hit.x)+.5f&&hit.x>64&&hit.x<66.4f&&
+            Math.Abs(live.RemainingForce(0)-(beforeProjectile-Mathf.Max(1,projectileAsset.mass*10)))<.01f&&source.data.health==hp,
+            "原版弹丸在伤害前截住，原落点回调发生在真实墙前撞点",new{beforeProjectile,after=live.RemainingForce(0),reached=projectile.isTargetReached(),hit=new[]{hit.x,hit.y,hit.z},impact=impact.HasValue?new[]{impact.Value.x,impact.Value.y}:null});
+        float after=live.RemainingForce(0);await Advance(.05f);
+        Check(Math.Abs(live.RemainingForce(0)-after)<.001f,"下一共同预测不恢复已消费容量");
+        impact=null;
+        var over=World.world.projectiles.spawn(target,null,"freeze_orb",new Vector3(64,72,0),new Vector3(72,72,0),8f,8f);
+        positionField.SetValue(over,new Vector3(64,72,8));velocityField.SetValue(over,new Vector3(8,0,SimGlobals.m.gravity));
+        projectileMove.Invoke(over,new object[]{1f});
+        Check(over.getCurrentPosition().x>66.4f&&impact==null&&Math.Abs(live.RemainingForce(0)-after)<.001f,"原版弹丸越过墙顶，不被隐藏平面拦截");
+    }
+    finally{projectileAsset.impact_actions=oldImpact;}
+    await Shot("wall-after-interception");
+    // 两墙同段接触：近墙后登记，仍由实际路径选最近者；随后实际耗尽近墙。
+    var nearDefinition=Convert(normal,out _);nearDefinition.Id="test.body-footwork.near-wall";nearDefinition.Binding.Fraction=.2f;
+    nearDefinition.ConcurrentLimit=0;nearDefinition.Resource="none";nearDefinition.Cost=0;
+    ResetPeople();await Fire(nearDefinition,source,target);owner.E.RemoveComponent<ConstructedKnowledge>();
+    CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();await Advance(.03f);
+    var nearRun=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>((AbilityCast)Field(r,"Cast")).Plan.Id==nearDefinition.Id);
+    var nearWall=(AbilityCast)Field(nearRun,"Cast");activeCasts.Add(nearWall);
+    var bridge=service.Assembly.GetType("Cultiway.Core.SkillLibV3.ISkillBarrierBridge").GetMethod("Intercept");
+    var simulation=service.GetField("simulation",F).GetValue(null);
+    Entity Crossing(float strength)
+    {
+        Entity e=manager.SpawnSkillAtPosition(legacyContainer,target,new Vector3(72,72,.6f),source,new Vector3(64,72,.6f),strength,0);
+        e.GetComponent<PrevPosition>().Value=new Vector2(72,72);e.GetComponent<PrevPosition>().Height=.6f;
+        e.GetComponent<Position>().value=new Vector3(64,72,.6f);bridge.Invoke(simulation,new object[]{e});return e;
+    }
+    float farBefore=live.RemainingForce(0),nearBefore=nearWall.RemainingForce(0);Crossing(11);
+    Check(Math.Abs(nearWall.RemainingForce(0)-(nearBefore-11))<.001f&&Math.Abs(live.RemainingForce(0)-farBefore)<.001f,
+        "同一跨墙路径按最近墙处理，登记先后不改变结果",new{nearBefore,nearAfter=nearWall.RemainingForce(0),farBefore,farAfter=live.RemainingForce(0)});
+    Crossing(nearWall.RemainingForce(0)+1);Place(target,72);
+    Check(nearWall.RemainingForce(0)==0&&Block(target,new Vector2(68,72)).x==68&&Math.Abs(live.RemainingForce(0)-farBefore)<.001f,
+        "过量来袭仍由原拦截规则退出，近墙耗尽后不留下隐藏阻挡");
+    await Advance(.05f);Check(nearWall.RemainingForce(0)==0,"破墙后下一共同预测不会恢复容量");
+    // 同容器再次施放只替换旧墙；不用费用失败来挤掉尚可使用的墙。
+    ResetPeople();int previous=starts.Count;Check(Use(normal),"同来源再次建立土墙");await Advance(.25f);
+    Check(live.Finished&&starts.Count>previous&&accepted.Count(c=>!c.Finished)==1,"同来源仅一个土墙，成功受理后替换原墙");
+    var secondWall=accepted.Last();await Advance(4.1f);
+    Check(secondWall.Finished&&Shapes(secondWall).Count==0&&Views(secondWall).Count==0,"原寿命结束后墙面及作用清理");
+    Place(target,64);Check(Block(target,new Vector2(70,72)).x==70,"自然结束后人物正常通过，没有隐藏阻挡");
+    ResetPeople();int count=starts.Count;float beforeFailure=owner.GetCultisys<Xian>().wakan;invalidate=true;
+    Check(Use(normal,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排真实受理边界失效的土墙");await Advance(.25f);invalidate=false;
+    Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-beforeFailure)<.001f&&oldWalls==0,
+        "受理失败撤销本发费用，不产生新旧墙",new{beforeFailure,after=owner.GetCultisys<Xian>().wakan});
+    scopeValid=true;ResetPeople();Check(Use(boosted),"失败恢复后带词条的原土墙正常受理");await Advance(.25f);
+    Check(accepted.Last().RemainingForce(0)>0&&oldWalls==0,"带范围与强度词条的真实原墙运行");await Advance(4.1f);
+    Check(accepted.All(c=>c.Finished)&&!BodyControlState.IsBusy(source.id)&&!BodyControlState.IsBusy(target.id),"自然退出并恢复人物控制");
+    return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
+    foreach(var cast in activeCasts)cast.Cancel();
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    ControllableUnit.clear(false);Config.paused=true;
+}

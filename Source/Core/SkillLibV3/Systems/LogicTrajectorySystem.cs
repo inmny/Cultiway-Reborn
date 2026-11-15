@@ -27,6 +27,7 @@ public class LogicTrajectorySystem : QuerySystem<SkillContext, PrevPosition, Pos
 
                 // 在轨迹更新前记录上一帧位置，供扫掠碰撞做线段检测
                 prevPos.Value = position.v2;
+                prevPos.Height = position.z;
 
                 trajectory.Asset.Action(ref context, ref position, ref rotation, entities.EntityAt(i), dt);
             }

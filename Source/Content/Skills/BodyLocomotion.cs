@@ -269,7 +269,8 @@ internal sealed partial class BodyLocomotion
     /// <param name="terrain">实际地表。</param>
     private bool Allowed(in State from, in State to, AbilityHeightField terrain)
     {
-        if (!CanTranslate(from.Root, to.Root, to.Height, terrain)) return false;
+        if (!CanTranslate(from.Root, to.Root, to.Height, terrain) ||
+            !ConstructedAbilityService.GroundMovementAllowed(actor, from.Root, to.Root, to.Height)) return false;
         WorldTile start = World.world.GetTileSimple((int)from.Root.x, (int)from.Root.y),
             end = World.world.GetTileSimple((int)to.Root.x, (int)to.Root.y);
         float rise = to.Root.z - Ground(terrain, to.Root);

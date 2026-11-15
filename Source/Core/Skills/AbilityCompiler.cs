@@ -415,6 +415,9 @@ internal sealed class CompiledForm
     /// <summary>明确的攻击、屏障或装饰用途。</summary>
     internal ConstructionContactRole ContactRole;
 
+    /// <summary>按真实形状阻止敌方地面人物穿过。</summary>
+    internal bool BlocksGroundActors;
+
     /// <summary>本部位初始作用强度倍率。</summary>
     internal float Strength;
 
@@ -694,6 +697,8 @@ public static partial class AbilityCompiler
         if (!Enum.IsDefined(typeof(ConstructionContactRole), node.ContactRole) || !Finite(node.Strength) ||
             node.Strength <= 0f)
             Fail(path, "作用用途或强度无效");
+        if (node.BlocksGroundActors && node.ContactRole != ConstructionContactRole.Barrier)
+            Fail(path + "/BlocksGroundActors", "只有屏障能阻挡地面人物");
         if (node.Impact != null && node.ContactRole != ConstructionContactRole.Attack)
             Fail(path, "装饰及屏障不对人物结算接触作用，请移除部位作用覆盖");
         if (!Enum.IsDefined(typeof(ConstructionInterception), node.Interception) || node.ReflectionLimit < 0 ||
@@ -753,6 +758,7 @@ public static partial class AbilityCompiler
             Impact = node.Impact == null ? null : new CompiledConstructionImpact(node.Impact, path + "/Impact"),
             OnContact = node.OnContact,
             ContactRole = node.ContactRole,
+            BlocksGroundActors = node.BlocksGroundActors,
             Strength = node.Strength,
             Interception = node.Interception,
             ReflectionLimit = node.ReflectionLimit,

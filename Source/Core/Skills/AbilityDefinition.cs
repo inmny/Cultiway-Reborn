@@ -189,6 +189,10 @@ public sealed class ConstructionNode
     /// <summary>实际交锋用途；装饰不提供作用形状，屏障只拦截敌对形体。</summary>
     public ConstructionContactRole ContactRole;
 
+    /// <summary>实体屏障是否阻止敌方地面人物穿过；友方及飞行人物仍可通行。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool BlocksGroundActors;
+
     /// <summary>相对于本次基础作用量的初始强度；抵消后余量继续参与交锋及伤害。</summary>
     public float Strength = 1f;
 

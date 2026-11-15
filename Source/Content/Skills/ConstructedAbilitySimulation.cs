@@ -153,6 +153,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     terrainNeedsRefresh = false;
                 }
 
+                PublishBarriers();
                 Predict(clock, step);
                 ContactChoice? hit = FindFirst(clock, step);
                 RefineBodyContact(clock, ref step, ref hit);
@@ -276,6 +277,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
         AppendSteamVisuals(now);
         ConfirmedWorldTime = now;
+        PublishBarriers();
         PublishPresentation(now);
         if (casts.Count == 0 && !HasBodyFlights) ResetSimulation();
     }
@@ -417,6 +419,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             pending = null;
         }
 
+        barrierIndex.Clear();
+        barriers.Clear();
         confirmingContact = false;
         actorsSampled = false;
         changedActors.Clear();

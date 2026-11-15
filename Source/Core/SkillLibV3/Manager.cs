@@ -32,6 +32,9 @@ public class Manager
     /// <summary>已完成原收费和步骤安排后的构造执行入口；返回真表示已经接管，不再生成旧执行体。</summary>
     public static Func<SkillEmission, SkillEmissionResult> ConstructionEmission;
 
+    /// <summary>新构造提供的真实屏障边界；旧技能在伤害前统一查询。</summary>
+    internal static ISkillBarrierBridge Barriers;
+
     /// <summary>清世界后旧请求及旧发射不能进入新世界。</summary>
     private int castGeneration;
 
@@ -74,6 +77,7 @@ public class Manager
         SkillLogicSystemGroup.Add(new SkillCooldownSystem());
         SkillLogicSystemGroup.Add(new LogicSkillAnimationLifecycleSystem());
         SkillLogicSystemGroup.Add(new LogicTrajectorySystem());
+        SkillLogicSystemGroup.Add(new LogicSkillBarrierSystem());
         SkillLogicSystemGroup.Add(new LogicSkillPositionImpactSystem());
         SkillLogicSystemGroup.Add(new LogicSkillPeriodicEffectSystem());
         SkillLogicSystemGroup.Add(new LogicSkillExecutionBodySyncSystem());
@@ -757,6 +761,7 @@ public class Manager
         {
             ref var prevPosition = ref entity.GetComponent<PrevPosition>();
             prevPosition.Value = planePos;
+            prevPosition.Height = sourcePos.z;
         }
 
         if (entity.HasComponent<SkillGroundFxState>())

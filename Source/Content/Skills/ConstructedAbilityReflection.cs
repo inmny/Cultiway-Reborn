@@ -134,7 +134,13 @@ public sealed partial class ConstructedAbilityService
         }
 
         /// <summary>双方独立存续时也按真实保存的阵营和个人敌意参与交锋。</summary>
-        /// <param name="other">另一部位当前控制者。</param>
+        /// <param name="other">来袭时确定的阵营。</param><param name="actorId">来袭人物的稳定编号，非人物为零。</param>
+        internal bool IsHostileTo(Kingdom other, long actorId) => Id != actorId &&
+            (actorId > 0 && hostileIds.Contains(actorId) || other != null &&
+            World.world.kingdoms.get(kingdomId)?.isEnemy(other) == true);
+
+        /// <summary>双方独立存续时仍保留真实敌我关系。</summary>
+        /// <param name="other">另一施放的稳定来源。</param>
         internal bool IsHostileTo(CastAuthority other)
         {
             if (other.IsLive) return Matches(SkillUseTargetRelation.Hostile, other.Actor);

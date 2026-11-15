@@ -501,7 +501,7 @@ public class SkillEntityAsset : Asset
         var pos = entity.HasComponent<Position>() ? entity.GetComponent<Position>().value : Vector3.zero;
 
         // 扫掠碰撞：记录上一帧位置
-        entity.AddComponent(new PrevPosition { Value = new Vector2(pos.x, pos.y) });
+        entity.AddComponent(new PrevPosition { Value = new Vector2(pos.x, pos.y), Height = pos.z });
 
         // 地面影响距离节流
         entity.AddComponent(new SkillGroundFxState

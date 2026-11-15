@@ -8,5 +8,9 @@ namespace Cultiway.Core.Components;
 /// </summary>
 public struct PrevPosition : IComponent
 {
+    /// <summary>上次轨迹更新前的地图位置。</summary>
     public Vector2 Value;
+
+    /// <summary>与平面位置同时记录的相对地表高度。</summary>
+    public float Height;
 }
