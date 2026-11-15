@@ -308,7 +308,7 @@ Shader "Cultiway/FormSurface"
                 base *= .85+.15*diffuse;
                 base += float3(.45,.14,.02)*rim + specular*.24;
             }
-            else
+            else if(_Kind < 7.5)
             {
                 // 镜面按真实表面法向反射环境方向；没有读取场景颜色或假称物件倒影。
                 float3 reflected = reflect(-eye,n);
@@ -318,6 +318,20 @@ Shader "Cultiway/FormSurface"
                 environment += horizon*float3(.11,.12,.12);
                 base = lerp(base*(.26*ambient+.22*diffuse*direct),environment*environmentLight,.82);
                 base += specular*.85*direct;
+            }
+            else if(_Kind < 8.5)
+            {
+                // 裂口内部保留深暗体量；流动附着在形体表面，不模拟尚未实现的空间扭曲。
+                float folds = volumeNoise(i.material*2.2+float3(.018,-.025,.06)*_WorldTime);
+                float deep = smoothstep(.25,.8,folds);
+                base = base*(.24+.65*deep)+float3(.025,.008,.045)*rim;
+            }
+            else
+            {
+                // 厚裂唇的宽面受光与有限内辉，避免依赖单根发光轮廓线。
+                float strata = volumeNoise(i.material*4+float3(0,0,-.1)*_WorldTime);
+                base *= (.34+.3*strata)*ambient+.5*diffuse*direct;
+                base += tint.rgb*(.10+.14*strata)+specular*.16*direct;
             }
             float contact = formFeedback(i);
             base += (base*.24 + float3(.035,.045,.05)*environmentLight)*contact;

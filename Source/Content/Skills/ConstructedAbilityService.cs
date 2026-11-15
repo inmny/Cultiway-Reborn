@@ -77,7 +77,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         {
             SkillEmissionResult result = UtilityConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = FlyingSwordConstructionMigration.Emit(emission);
-            return result == SkillEmissionResult.Unhandled ? GroundSpikeConstructionMigration.Emit(emission) : result;
+            if (result == SkillEmissionResult.Unhandled) result = GroundSpikeConstructionMigration.Emit(emission);
+            return result == SkillEmissionResult.Unhandled ? RiftConstructionMigration.Emit(emission) : result;
         };
         ConstructedRainClouds.Initialize();
         ConstructedMatterCatalog.Initialize();
@@ -654,6 +655,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     private static ElementComposition Composition(string matter) => matter switch
     {
         "physical" => ElementComposition.Static.empty,
+        "entropy" => new ElementComposition(entropy: 1f),
         "fire" => ElementComposition.Static.Fire,
         "wood" => ElementComposition.Static.Wood,
         "iron" => ElementComposition.Static.Iron,

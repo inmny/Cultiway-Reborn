@@ -1,0 +1,169 @@
+// B14：真实已学裂隙、混沌伤害、固定落点与开合期间的实际接触。
+var manager = Cultiway.ModClass.I.SkillV3;
+var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts = new List<ConstructedCastStarted>(); var casts = new List<AbilityCast>(); var emissions = new List<object>();
+var old = new List<int>(); bool invalidate = false, scopeValid = true;
+SkillEmissionResult? lastResult = null;
+Actor source = Make(64), target = Make(70), edge = Make(71), outside = Make(74), gap = Make(73), wolf = Make(12, "wolf");
+foreach (Actor actor in new[] { target, edge, outside, gap }) actor.setKingdom(wolf.kingdom);
+var resistanceStats = new BaseStats();
+resistanceStats[Cultiway.WorldboxGame.BaseStats.EntropyArmor.id] = 1000;
+resistanceStats[Cultiway.WorldboxGame.BaseStats.EntropyMaster.id] = 1000;
+var resistance = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Rift.Resistance")
+    .SetStats(resistanceStats).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(edge, resistance, 10000, edge); edge.updateStats();
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+IReadOnlyList<Entity> Learned() => (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+Entity Build(bool boosted = false, bool extra = false)
+{
+    var builder = new SkillContainerBuilder(SkillEntities.Rift).UseAnimation(0);
+    if (boosted)
+    {
+        builder.AddModifier(new HugeModifier { Value = 1.5f });
+        builder.AddModifier(new HasteModifier { SpeedMultiplier = .5f });
+        builder.AddModifier(new EmpowerModifier { SetupBonus = .3f });
+        builder.AddModifier(new ProficiencyModifier { CostReduction = .2f, SalvoIntervalReduction = .2f });
+        builder.AddModifier(new SalvoCount { Value = 2 });
+    }
+    if (extra) builder.AddModifier(new BurnModifier { Duration = 1, DamageRatio = .1f });
+    Entity skill = builder.Build(SkillContainerBuildMode.RuleOnly);
+    string signature = SkillContainerSignature.Build(skill);
+    owner.LearnSkillV3(skill); return Learned().First(s => SkillContainerSignature.Build(s) == signature);
+}
+var converter = service.Assembly.GetType("Cultiway.Content.Skills.RiftConstructionMigration").GetMethod("Convert", F);
+AbilityDefinition Convert(Entity skill, out GetHitEvent damage)
+{
+    object[] args = { new SkillEmission { Source = source, SpatialSource = source, SkillContainer = skill,
+        Target = target, SourcePos = new Vector3(64, 72, .3f), TargetPos = new Vector3(70, 72, .3f), Strength = 37, PowerLevel = 1.25f }, default(GetHitEvent) };
+    var d = (AbilityDefinition)converter.Invoke(null, args); damage = (GetHitEvent)args[1]; return d;
+}
+float[] XYZ(Vector3 point) => new[] { point.x, point.y, point.z };
+AbilityCast Numeric(AbilityDefinition d) => new(AbilityCompiler.Compile(d, cache: false), Matrix4x4.identity,
+    inputs: new AbilityInputs(new Vector3(64, 72, .3f), new Vector3(70, 72, .3f), Vector3.right, .8f), force: 37);
+void Started(ConstructedCastStarted fact) { if (fact.AbilityId == SkillEntities.Rift.id) starts.Add(fact); }
+void Old(Entity execution) { if (execution.GetComponent<SkillEntity>().Asset == SkillEntities.Rift) old.Add(execution.Id); }
+ConstructedAbilityService.CastStarted += Started; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+try
+{
+    Entity ordinary = Build(), boosted = Build(true), extra = Build(extra: true);
+    AbilityDefinition definition = Convert(ordinary, out GetHitEvent damage);
+    Check(definition != null && definition.Root.Form == "rift_opening" && definition.Root.Matter == "entropy" &&
+        definition.Binding.Anchor == AbilityAnchor.Target && !definition.Binding.Follow && definition.Root.Operations.Single(op => op.Kind == ConstructionOperationKind.Animate).Clip == "open" &&
+        damage.Element.entropy == 1 && damage.Element.Equals(SkillEntities.Rift.Element) && damage.Damage == 37 && damage.AttackerPowerLevel == 1.25f,
+        "原裂隙转换为固定目标、独立开合形体，保留混沌成分、强度和境界");
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    var restored = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
+    var numeric = Numeric(restored); var shapes = new List<AbilityCapsule>(); numeric.AppendContacts(shapes);
+    Check(shapes.Count == 0, "开口尚未完全张开时不提供人物接触");
+    numeric.Advance(definition.Lifetime * .02f, Vector3.zero);
+    var openingViews = new List<FormVisualInstance>(); numeric.AppendVisuals(openingViews);
+    Check(openingViews.Count == 0 || openingViews.All(v => v.Transform.MultiplyVector(Vector3.up).magnitude < definition.Root.Scale * .08f),
+        "初现时共同体量仍小，不留下完整高度的黑线");
+    numeric.Advance(definition.Lifetime * .3f, new Vector3(80, 75, 6)); numeric.AppendContacts(shapes);
+    var views = new List<FormVisualInstance>(); numeric.AppendVisuals(views);
+    Check(shapes.Count > 0 && views.Count == 1 && views[0].PartCount == 3 &&
+        shapes.All(s => Mathf.Abs(s.A.x - 70) < definition.Root.Scale && Mathf.Abs(s.A.y - 72) < .001f) &&
+        numeric.Matter(0).DamageKind == "entropy", "张开后内部实际接触与混沌材料生效，目标移动不拖走裂隙");
+    var save = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+    var restore = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+    string Snapshot(AbilityCast cast)
+    {
+        var cs = new List<AbilityCapsule>(); cast.AppendContacts(cs);
+        var vs = new List<FormVisualInstance>(); cast.AppendVisuals(vs);
+        return JsonConvert.SerializeObject(new { cast.Age, cast.Finished, shapes = cs.Select(s => new { a = XYZ(s.A), b = XYZ(s.B), s.Radius }),
+            parts = vs.SelectMany(v => Enumerable.Range(0, v.PartCount).Select(i => XYZ(v.PartTransform(i).MultiplyPoint3x4(Vector3.zero)))) });
+    }
+    save(numeric); numeric.Advance(definition.Lifetime * .53f, Vector3.zero); string predicted = Snapshot(numeric);
+    restore(numeric); numeric.Advance(definition.Lifetime * .53f, Vector3.zero);
+    Check(predicted == Snapshot(numeric), "资料读回和前态恢复保留固定位置、动作、真实接触与结束状态");
+    shapes.Clear(); numeric.AppendContacts(shapes); Check(shapes.Count == 0, "合拢阶段不继续制造新伤害");
+    numeric.Advance(definition.Lifetime * .13f, Vector3.zero); views.Clear(); numeric.AppendVisuals(views);
+    Check(views.Count == 0 || views.All(v => v.Transform.MultiplyVector(Vector3.up).magnitude < definition.Root.Scale * .03f),
+        "闭合末端共同体量收尽，不保持完整高度的细缝");
+    numeric.Advance(definition.Lifetime, Vector3.zero); views.Clear(); numeric.AppendVisuals(views);
+    Check(numeric.Finished && views.Count == 0, "自然结束清理裂隙显示与接触");
+    Check(Convert(extra, out _) == null, "未映射附加作用明确留在原来源，不静默丢失");
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
+    {
+        if (request.SkillContainer.GetComponent<SkillContainer>().Asset != SkillEntities.Rift) return original(request);
+        if (invalidate) scopeValid = false;
+        SkillEmissionResult result = original(request); lastResult = result;
+        if (result == SkillEmissionResult.Accepted)
+        {
+            object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+                .Single(r => (long)Field(r, "Id") == starts.Last().CastId);
+            var cast = (AbilityCast)Field(running, "Cast"); casts.Add(cast);
+            var initialDamage = (GetHitEvent)Field(Field(running, "InitialOwner"), "Damage");
+            Check(initialDamage.Element.entropy == 1 && cast.Matter(0).DamageKind == "entropy", "真实受理和实际接触材料均保留混沌伤害");
+        }
+        emissions.Add(new { result = result.ToString(), request.Strength, request.PowerLevel, request.RuntimeData.CorrelationId,
+            origin = request.RuntimeData.Origin.ToString(), point = XYZ(request.TargetPos) }); return result;
+    };
+    SkillCastPlan Plan(Entity skill) => SkillCastPlanner.CreatePlan(owner, skill, target, SkillCastCost.GetAffordableStepLimit(owner, skill), explicitTargetsOnly: true);
+    double Cost(Entity skill, SkillCastPlan plan) => SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculatePlanDemand(skill, plan) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    bool Use(Entity skill, Vector3? empty = null)
+    {
+        Vector3 point = empty ?? target.GetSimPos();
+        bool used = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+            new ActiveAbilityTarget(empty.HasValue ? null : target, point, selectionArea: new SkillTargetSelectionArea(true, point, .1f),
+                runtimeData: new SkillCastRuntimeData { CorrelationId = 932 }), ActiveAbilityUseOrigin.Script);
+        source.attack_timer = 999; CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats(); return used;
+    }
+    foreach (Entity skill in new[] { ordinary, boosted })
+    {
+        AbilityDefinition actualDefinition = Convert(skill, out _); float scale = actualDefinition.Root.Scale;
+        Ready(source); Place(source, 64); Place(target, 70); Place(edge, 70 + .12f * scale, 72 + .08f * scale);
+        Place(outside, 70 + 1.35f * scale); Place(gap, 70, 72 + .85f * scale);
+        contacts.Clear(); endings.Clear(); int first = starts.Count, known = Learned().Count;
+        int hp = target.data.health, edgeHp = edge.data.health, outsideHp = outside.data.health, gapHp = gap.data.health;
+        float balance = owner.GetCultisys<Xian>().wakan; var plan = Plan(skill); double cost = Cost(skill, plan);
+        Check(Use(skill), "原已学裂隙正式受理"); await Advance(actualDefinition.Lifetime + .7f);
+        var actual = starts.Skip(first).ToArray();
+        Check(actual.Length == plan.Steps.Count && old.Count == 0 && Learned().Count == known &&
+            Math.Abs(balance - owner.GetCultisys<Xian>().wakan - cost) < .001,
+            "普通及词条裂隙逐发只生成新构造并支付一次", new { plan.Steps.Count, actual = actual.Length, cost, balance, after = owner.GetCultisys<Xian>().wakan });
+        Check(target.data.health < hp && edge.data.health < edgeHp && edgeHp - edge.data.health < hp - target.data.health &&
+            outside.data.health == outsideHp && gap.data.health == gapHp &&
+            actual.All(s => contacts.Any(c => c.CastId == s.CastId && c.TargetId == target.id)) &&
+            contacts.GroupBy(c => (c.CastId, c.TargetId)).All(g => g.Count() == 1),
+            "内部真实命中并经过混沌抗性，外侧和前后无隐藏圆区，同人每次只结算一次", new { hp, after = target.data.health, edgeHp, edgeAfter = edge.data.health,
+                outsideHp, outsideAfter = outside.data.health, gapHp, gapAfter = gap.data.health, contacts = contacts.Select(c => new { c.CastId, c.TargetId, c.Age }).ToArray() });
+        Check(casts.All(c => c.Finished) && actual.All(s => endings.Any(e => e.Fact.CastId == s.CastId && !e.Fact.Cancelled)), "命中后完成闭合并自然结束");
+    }
+    Ready(source); Place(source, 64); Place(target, 70);
+    int initial = starts.Count; float before = owner.GetCultisys<Xian>().wakan;
+    scopeValid = true; invalidate = true; var scope = new ConstructionWorldScope(() => scopeValid, (_, _) => true);
+    bool queued = manager.StartSkillSequence(owner, ordinary, Plan(ordinary), SkillContext.DefaultStrength, owner.GetPowerLevel(),
+        runtime_data: new SkillCastRuntimeData { CorrelationId = 932, WorldScope = scope },
+        options: new SkillCastSequenceOptions { PaymentTiming = SkillCastPaymentTiming.PerEmission });
+    await Advance(.1f); invalidate = false;
+    Check(queued && lastResult == SkillEmissionResult.Rejected && starts.Count == initial && old.Count == 0 &&
+        Mathf.Abs(before - owner.GetCultisys<Xian>().wakan) < .001f, "逐发受理失效撤销支付，不生成旧执行体", new { queued, lastResult, before, after = owner.GetCultisys<Xian>().wakan });
+    scopeValid = true; Ready(source); Place(source, 64);
+    Check(Use(ordinary, new Vector3(73, 76, 0)), "失败后原来源可在空地点独立显现"); await Advance(definition.Lifetime + .2f);
+    Check(starts.Count > initial && casts.All(c => c.Finished), "空地施放不依赖先碰到人物，仍自然结束并归还控制");
+    Ready(source); Place(source, 64); Place(target, 70); Place(edge, 76); Place(outside, 76); Place(gap, 76);
+    Check(Use(boosted), "实机画面使用真实已学裂隙入口"); await Advance(.03f);
+    ControllableUnit.clear(false); World.world.console.Hide();
+    World.world.camera.transform.position = new Vector3(70, 72, 0); MoveCamera.instance.forceZoom(12);
+    async Task Shot(string name)
+    {
+        Config.paused = true; await Game.NextFrame(); string file = Path.Combine(folder, name + ".png");
+        File.Delete(file); Screen.Capture(file); await Game.WaitUntil(() => File.Exists(file), 600);
+    }
+    await Shot("rift-closed"); await Advance(definition.Lifetime * .07f); await Shot("rift-opening");
+    await Advance(definition.Lifetime * .22f); await Shot("rift-open"); await Advance(definition.Lifetime * .55f); await Shot("rift-closing");
+    await Advance(definition.Lifetime * .4f);
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder, "emissions.json"), JsonConvert.SerializeObject(emissions, Formatting.Indented));
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
+    ConstructedAbilityService.CastStarted -= Started; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}
