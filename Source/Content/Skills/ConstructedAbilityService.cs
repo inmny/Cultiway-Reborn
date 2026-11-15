@@ -80,7 +80,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (result == SkillEmissionResult.Unhandled) result = GroundSpikeConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = RiftConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = FieldConstructionMigration.Emit(emission);
-            return result == SkillEmissionResult.Unhandled ? SupportConstructionMigration.Emit(emission) : result;
+            if (result == SkillEmissionResult.Unhandled) result = SupportConstructionMigration.Emit(emission);
+            return result == SkillEmissionResult.Unhandled ? BeamConstructionMigration.Emit(emission) : result;
         };
         ConstructedRainClouds.Initialize();
         ConstructedMatterCatalog.Initialize();
@@ -662,6 +663,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         "physical" => ElementComposition.Static.empty,
         "entropy" => new ElementComposition(entropy: 1f),
+        "yang" => new ElementComposition(pos: 1f),
         "poison" => ElementComposition.Static.Poison,
         "fire" => ElementComposition.Static.Fire,
         "wood" => ElementComposition.Static.Wood,

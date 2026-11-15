@@ -54,3 +54,6 @@ Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官�
 
 
 `forms_support.mjs`还制作三种独立祝福载体：赤铜厚结`battle_knot`、六角厚印`guard_seal`、宽厚圆端翼片`haste_vanes`。守护印仅投送原护甲属性，不登记实体格挡面；三者接触只取实际主体或核心，不借旧圆区扩大作用。骨架只保存位置和旋转，原轨迹继续通过普通追踪和速度步骤表达。运行`python3 Scripts/SpellDemos/verify_support.py --section blessings`单独验证本批；不带分段参数时顺序运行恢复净化与祝福两部分。正式保存冷启动、完整编辑接入和连续录像继续5.05的C。
+
+
+`forms_ray.mjs`的`makeSourceRays()`提供`spirit_ray`与`solar_ray`：前者是独立玉白厚光柱，后者由三道相接的金色厚光脊组成，均有圆端。两者沿用`origin/extent`末端控制与明确`span`能力，网格和实际作用胶囊共同伸展；多个相接胶囊仍归同一接触组，不多收伤害。原已学来源验证使用`python3 Scripts/SpellDemos/verify_beams.py`。仅交付基础独立形体，最终流派美术继续后项。

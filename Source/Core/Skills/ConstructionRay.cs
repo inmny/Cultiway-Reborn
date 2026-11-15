@@ -12,7 +12,7 @@ public sealed class ConstructionRay
     public float Length = 8f;
     /// <summary>启动后是否继续读取本次目标的当前位置。</summary>
     public bool FollowTarget = true;
-    /// <summary>每世界秒允许改变指向的角度，启动时直接采用实际目标方向。</summary>
+    /// <summary>每世界秒允许改变指向的角度，零表示直接指向实际目标；启动时始终直接采用目标方向。</summary>
     public float TurnRate = 360f;
 }
 
@@ -33,7 +33,7 @@ internal sealed class CompiledRay
         Span = resource.Span;
         if (source == null || Span == null) throw new InvalidDataException(path + "：射线需要明确参数及支持伸展的实际模型");
         if (float.IsNaN(source.Length) || float.IsInfinity(source.Length) || source.Length <= Span.Radius * 2f || source.Length > 10000f ||
-            float.IsNaN(source.TurnRate) || float.IsInfinity(source.TurnRate) || source.TurnRate <= 0f || source.TurnRate > 7200f)
+            float.IsNaN(source.TurnRate) || float.IsInfinity(source.TurnRate) || source.TurnRate < 0f || source.TurnRate > 7200f)
             throw new InvalidDataException(path + "：射线长度须容纳实际两端且不超过一万，角速度须在0至7200之间");
         Length = source.Length; FollowTarget = source.FollowTarget; TurnRate = source.TurnRate;
     }

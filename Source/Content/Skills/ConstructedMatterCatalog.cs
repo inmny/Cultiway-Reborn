@@ -10,6 +10,8 @@ internal static class ConstructedMatterCatalog
     {
         AbilityMatters.Register(new AbilityMatter("physical", "solid", "physical"));
         AbilityMatters.Register(new AbilityMatter("vitality", "energy", "physical"));
+        AbilityMatters.Register(new AbilityMatter("spirit", "energy", "physical"));
+        AbilityMatters.Register(new AbilityMatter("yang", "energy", "yang"));
         AbilityMatters.Register(new AbilityMatter("poison", "liquid", "poison"));
         AbilityMatters.Register(new AbilityMatter("poison", "gas", "poison", isDefault: false));
         AbilityMatters.Register(new AbilityMatter("entropy", "energy", "entropy"));

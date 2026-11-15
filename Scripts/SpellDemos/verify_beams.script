@@ -1,0 +1,142 @@
+// B18：仅验证两种原光束的端点、实际伤害和退出；不重跑共用格挡及身体装备矩阵。
+var manager = Cultiway.ModClass.I.SkillV3;
+var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts = new List<ConstructedCastStarted>();
+var accepted = new List<AbilityCast>();
+var emissions = new List<object>();
+int old = 0; bool invalidate = false, scopeValid = true;
+SkillEmissionResult? lastResult = null;
+Actor source = Make(64), target = Make(70), along = Make(67), outside = Make(67), wolf = Make(12,"wolf");
+foreach (Actor a in new[] { target, along, outside }) a.setKingdom(wolf.kingdom);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+/// <summary>本批实际来源。</summary><param name="asset">真实资产。</param>
+bool Ours(SkillEntityAsset asset) => asset == SkillEntities.SpiritBeam || asset == SkillEntities.SolarBeam;
+/// <summary>实际已学容器。</summary>
+IReadOnlyList<Entity> Learned() => (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(owner,null);
+/// <summary>真实学习，不直接调用迁移发射。</summary><param name="asset">原来源。</param><param name="boosted">真实词条。</param><param name="extra">未映射作用。</param>
+Entity Build(SkillEntityAsset asset, bool boosted=false, bool extra=false)
+{
+    var builder = new SkillContainerBuilder(asset).UseAnimation(0);
+    if (boosted)
+    {
+        builder.AddModifier(new HugeModifier { Value=1.4f });
+        builder.AddModifier(new EmpowerModifier { SetupBonus=.3f });
+        builder.AddModifier(new HasteModifier { SpeedMultiplier=.5f });
+    }
+    if (extra) builder.AddModifier(new BurnModifier { Duration=1f, DamageRatio=.1f });
+    Entity made=builder.Build(SkillContainerBuildMode.RuleOnly);string signature=SkillContainerSignature.Build(made);
+    owner.LearnSkillV3(made);return Learned().First(s=>SkillContainerSignature.Build(s)==signature);
+}
+var converter=service.Assembly.GetType("Cultiway.Content.Skills.BeamConstructionMigration").GetMethod("Convert",F);
+/// <summary>读取可保存的普通定义及原绝对伤害。</summary><param name="skill">原容器。</param><param name="damage">转换结果。</param>
+AbilityDefinition Convert(Entity skill,out GetHitEvent damage)
+{
+    object[] args={new SkillEmission {Source=source,SpatialSource=source,SkillContainer=skill,Target=target,
+        SourcePos=new Vector3(64,72,.3f),TargetPos=new Vector3(70,72,.3f),Strength=40f,PowerLevel=1.25f},default(GetHitEvent)};
+    var result=(AbilityDefinition)converter.Invoke(null,args);damage=(GetHitEvent)args[1];return result;
+}
+/// <summary>记录有限坐标，避免序列化Unity向量的派生属性。</summary><param name="point">实际坐标。</param>
+float[] XYZ(Vector3 point)=>new[]{point.x,point.y,point.z};
+/// <summary>同一实际形状。</summary><param name="cast">本次运行。</param>
+List<AbilityCapsule> Shapes(AbilityCast cast){var result=new List<AbilityCapsule>();cast.AppendContacts(result);return result;}
+/// <summary>同一显示。</summary><param name="cast">本次运行。</param>
+List<FormVisualInstance> Views(AbilityCast cast){var result=new List<FormVisualInstance>();cast.AppendVisuals(result);return result;}
+/// <summary>只记录本批正式开始。</summary><param name="fact">真实事件。</param>
+void Started(ConstructedCastStarted fact){if(Ours(manager.SkillLib.get(fact.AbilityId)))starts.Add(fact);}
+/// <summary>发现旧执行就是双执行缺陷。</summary><param name="execution">旧实例。</param>
+void Old(Entity execution){if(Ours(execution.GetComponent<SkillEntity>().Asset))old++;}
+ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+/// <summary>复用同一场景，远处人物不作为范围内样本。</summary>
+void ResetPeople()
+{
+    Ready(source);Place(source,64);Place(target,70);Place(along,67);Place(outside,67,75);
+    owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;contacts.Clear();
+}
+/// <summary>真实已学入口和真实选区，不由脚本绕过支付。</summary><param name="skill">已学容器。</param><param name="scope">真实失效边界。</param>
+bool Use(Entity skill,ConstructionWorldScope scope=null)
+{
+    bool used=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",skill),
+        new ActiveAbilityTarget(target,target.GetSimPos(),selectionArea:new SkillTargetSelectionArea(true,target.GetSimPos(),.1f),worldScope:scope),ActiveAbilityUseOrigin.Script);
+    source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();return used;
+}
+/// <summary>保存当前实机主体，不延长法术寿命。</summary><param name="name">图片名。</param>
+async Task Shot(string name)
+{
+    ControllableUnit.clear(false);World.world.console.Hide();World.world.camera.transform.position=new Vector3(67,72,0);MoveCamera.instance.forceZoom(12);
+    Config.paused=true;await Game.NextFrame();string file=Path.Combine(folder,name+".png");File.Delete(file);Screen.Capture(file);await Game.WaitUntil(()=>File.Exists(file),600);
+}
+try
+{
+    var skills=new[]{Build(SkillEntities.SpiritBeam),Build(SkillEntities.SolarBeam),Build(SkillEntities.SpiritBeam,true),Build(SkillEntities.SolarBeam,true)};
+    foreach(Entity skill in skills)
+    {
+        var d=Convert(skill,out GetHitEvent damage);bool solar=skill.GetComponent<SkillContainer>().Asset==SkillEntities.SolarBeam;
+        bool boosted=skill.HasComponent<HugeModifier>();
+        Check(d!=null&&d.Binding.Follow==solar&&d.Root.Operations.Single().Ray.FollowTarget==solar&&d.Root.Operations.Single().Ray.TurnRate==0f&&
+            d.Root.Contact.Mode==(solar?ConstructionContactMode.Interval:ConstructionContactMode.Once)&&
+            Math.Abs(damage.Damage-(solar?8f:40f)*(boosted?1.3f:1f))<.001&&damage.AttackerPowerLevel==1.25f&&
+            damage.Element.Equals(skill.GetComponent<SkillContainer>().Asset.Element),"原光束完整转换端点规则、命中频率、强度、元素与境界",new{d?.Id,damage.Damage});
+        string name=d.Root.Form+(boosted?"-enhanced":"");File.WriteAllText(Path.Combine(folder,name+".json"),JsonConvert.SerializeObject(d,Formatting.Indented));
+        var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
+        var numeric=new AbilityCast(AbilityCompiler.Compile(restored,cache:false),Matrix4x4.identity,
+            inputs:new AbilityInputs(new Vector3(64,72,.3f),new Vector3(70,72,.3f),Vector3.right,.8f));
+        numeric.Advance(.01f,new Vector3(70,72,.3f));var before=Shapes(numeric);float radius=before[0].Radius;
+        numeric.UpdateInputs(new AbilityInputs(new Vector3(65,71,.3f),new Vector3(65,78,.3f),Vector3.up,.8f));numeric.Advance(.02f,new Vector3(65,78,.3f));
+        var after=Shapes(numeric);Vector3 axis=(after[0].B-after[0].A).normalized;
+        Check(Views(numeric).Count==1&&after.Count==(solar?3:1)&&Math.Abs(after[0].Radius-radius)<.0001&&
+            (solar?Vector3.Dot(axis,Vector3.up)>.9999f:Vector3.Distance(before[0].A,after[0].A)<.0001f&&Vector3.Distance(before[0].B,after[0].B)<.0001f),
+            "JSON读回保留厚度，瞬发固定两端、追踪更新两端且直接转向",new{d.Root.Form,radius,axis=XYZ(axis)});
+    }
+    var invalid=Convert(skills[0],out _);invalid.Root.Operations[0].Ray.TurnRate=-1f;bool rejected=false;
+    try{AbilityCompiler.Compile(invalid,cache:false);}catch(InvalidDataException){rejected=true;}
+    Check(rejected&&Convert(Build(SkillEntities.SpiritBeam,extra:true),out _)==null,"非法转向拒绝，未映射附加伤害保留原入口");
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        if(!Ours(request.SkillContainer.GetComponent<SkillContainer>().Asset))return original(request);
+        if(invalidate)scopeValid=false;var result=original(request);lastResult=result;
+        if(result==SkillEmissionResult.Accepted)
+        {
+            object running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==starts.Last().CastId);
+            accepted.Add((AbilityCast)Field(running,"Cast"));
+        }
+        emissions.Add(new{result=result.ToString(),request.Strength,request.PowerLevel,id=request.SkillContainer.GetComponent<SkillContainer>().SkillEntityAssetID});return result;
+    };
+    for(int i=0;i<skills.Length;i++)
+    {
+        ResetPeople();Entity skill=skills[i];bool solar=i%2==1;int hp=target.data.health,alongHp=along.data.health,outsideHp=outside.data.health;
+        int count=starts.Count,known=Learned().Count;float balance=owner.GetCultisys<Xian>().wakan;var d=Convert(skill,out _);
+        Check(Use(skill),"原已学光束正式受理",d.Id);await Advance(.035f);AbilityCast live=accepted.Last();var before=Shapes(live);
+        await Shot(d.Root.Form+(i>=2?"-enhanced":""));
+        if(i<2)
+        {
+            Place(source,65,71);Place(target,70,73);ConstructedAbilityService.NotifyActorChanged(source);ConstructedAbilityService.NotifyActorChanged(target);await Advance(.035f);
+            var after=Shapes(live);
+            Check(after.Count>0&&(solar?Vector3.Distance(before[0].A,after[0].A)>.5f&&Vector3.Distance(before[0].B,after[0].B)>.5f:
+                Vector3.Distance(before[0].A,after[0].A)<.001f&&Vector3.Distance(before[0].B,after[0].B)<.001f),
+                solar?"持续光束两端随真实移动，不生成另一个弹丸":"瞬发光束不被后来移动拖走",new{beforeA=XYZ(before[0].A),afterA=XYZ(after[0].A),beforeB=XYZ(before[0].B),afterB=XYZ(after[0].B)});
+        }
+        await Advance(d.Lifetime+.3f);var actual=starts.Skip(count).ToArray();var hits=contacts.Where(c=>actual.Any(s=>s.CastId==c.CastId)).ToArray();
+        var targetHits=hits.Where(c=>c.TargetId==target.id).ToArray();var alongHits=hits.Where(c=>c.TargetId==along.id).ToArray();
+        Check(target.data.health<hp&&along.data.health<alongHp&&outside.data.health==outsideHp&&hits.All(c=>c.TargetId==target.id||c.TargetId==along.id)&&
+            (solar?(i==1||targetHits.Length>=3)&&targetHits.Zip(targetHits.Skip(1),(a,b)=>b.Age-a.Age).All(t=>t>=.119f):targetHits.Length==1&&alongHits.Length==1),
+            "真实沿线人物受伤、外侧无伤，单次或原间隔不被多片模型重复结算",new{targetLoss=hp-target.data.health,alongLoss=alongHp-along.data.health,outsideLoss=outsideHp-outside.data.health,times=targetHits.Select(c=>c.Age).ToArray()});
+        double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(skill)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
+        Check(actual.Length==1&&old==0&&known==Learned().Count&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&live.Finished&&Views(live).Count==0&&Shapes(live).Count==0&&
+            actual.All(s=>endings.Any(e=>e.Fact.CastId==s.CastId&&!e.Fact.Cancelled)),"仅新执行、收费一次，原寿命自然结束清理",new{cost,balance,after=owner.GetCultisys<Xian>().wakan});
+    }
+    ResetPeople();int initialStarts=starts.Count;float beforeFailure=owner.GetCultisys<Xian>().wakan;invalidate=true;
+    Check(Use(skills[0],new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排真实受理边界失效的光束");await Advance(.2f);invalidate=false;
+    Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==initialStarts&&Math.Abs(owner.GetCultisys<Xian>().wakan-beforeFailure)<.001f,"受理失败没有新旧执行并撤销本发费用",new{beforeFailure,after=owner.GetCultisys<Xian>().wakan,lastResult});
+    scopeValid=true;ResetPeople();Check(Use(skills[1]),"失效恢复后可重新使用原光束");await Advance(1f);
+    Check(accepted.All(c=>c.Finished)&&old==0&&!BodyControlState.IsBusy(source.id),"恢复后有限结束且人物控制正常");
+    return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
+    ConstructedAbilityService.CastStarted-=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    Config.paused=true;ControllableUnit.clear(false);
+}

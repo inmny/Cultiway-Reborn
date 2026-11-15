@@ -63,7 +63,7 @@ public sealed partial class AbilityCast
                 Quaternion previous = state.RayInitialized ? state.RayRotation : state.Transform.rotation;
                 Vector3 direction = previous * ray.Span.Axis;
                 Quaternion turn = Quaternion.FromToRotation(direction, aim.normalized);
-                if (state.RayInitialized) turn = Quaternion.RotateTowards(Quaternion.identity, turn, ray.TurnRate * step);
+                if (state.RayInitialized && ray.TurnRate > 0f) turn = Quaternion.RotateTowards(Quaternion.identity, turn, ray.TurnRate * step);
                 state.RayRotation = turn * previous;
             }
             else state.RayRotation = state.Transform.rotation;
