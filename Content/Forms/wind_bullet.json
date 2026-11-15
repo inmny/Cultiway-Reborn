@@ -1,0 +1,189 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_projectiles.mjs",
+            "Entry": "makeProjectileForms",
+            "Parameters": [
+                {
+                    "Id": "radius",
+                    "Values": [
+                        0.45500001311302187
+                    ]
+                },
+                {
+                    "Id": "loops",
+                    "Values": [
+                        2.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "wind_bullet",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wind_bullet_heart_mid.asset",
+                "Assets/Cultiway/Forms/wind_bullet_heart_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "heart",
+            "Surface": "wind",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wind_bullet_heart.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wind_bullet_flow_0_mid.asset",
+                "Assets/Cultiway/Forms/wind_bullet_flow_0_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "flow_0",
+            "Surface": "wind",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wind_bullet_flow_0.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wind_bullet_flow_1_mid.asset",
+                "Assets/Cultiway/Forms/wind_bullet_flow_1_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "flow_1",
+            "Surface": "wind",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wind_bullet_flow_1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                -0.11999999731779099
+            ],
+            "B": [
+                0.0,
+                0.0,
+                0.11999999731779099
+            ],
+            "Radius": 0.20999999344348908,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.45500001311302187,
+                -0.45500001311302187,
+                -0.4120369851589203
+            ],
+            "Maximum": [
+                0.45500001311302187,
+                0.45500001311302187,
+                0.4120369851589203
+            ]
+        }
+    ],
+    "Motions": []
+}

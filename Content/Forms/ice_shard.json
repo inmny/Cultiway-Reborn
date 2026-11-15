@@ -1,0 +1,172 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_projectiles.mjs",
+            "Entry": "makeProjectileForms",
+            "Parameters": [
+                {
+                    "Id": "profile",
+                    "Values": [
+                        -0.47999998927116396,
+                        0.03999999910593033,
+                        -0.10000000149011612,
+                        -0.18000000715255738,
+                        0.3400000035762787,
+                        0.0,
+                        0.27000001072883608,
+                        0.3100000023841858,
+                        0.07000000029802323,
+                        0.9399999976158142,
+                        0.004000000189989805,
+                        0.17000000178813935
+                    ]
+                },
+                {
+                    "Id": "sides",
+                    "Values": [
+                        3.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "ice_shard",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "shard",
+            "Surface": "ice",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ice_shard_shard.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                -0.11999999731779099
+            ],
+            "B": [
+                0.05000000074505806,
+                0.0,
+                0.2199999988079071
+            ],
+            "Radius": 0.10000000149011612,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_1",
+            "Part": 0,
+            "A": [
+                0.07999999821186066,
+                0.0,
+                0.25
+            ],
+            "B": [
+                0.12999999523162843,
+                0.0,
+                0.6200000047683716
+            ],
+            "Radius": 0.03999999910593033,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.17000000178813935,
+                -0.21200299263000489,
+                -0.47999998927116396
+            ],
+            "Maximum": [
+                0.3799999952316284,
+                0.21200299263000489,
+                0.9399999976158142
+            ]
+        }
+    ],
+    "Motions": []
+}

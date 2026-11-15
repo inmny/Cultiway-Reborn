@@ -17,7 +17,7 @@ using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>飞剑及贯穿投射共用真实旧来源转换；发射后只保留普通构造，不建立旧执行实体。</summary>
+/// <summary>飞剑、贯穿及普通投射共用真实旧来源转换；发射后只保留普通构造，不建立旧执行实体。</summary>
 internal static class ProjectileConstructionMigration
 {
     /// <summary>本批已经逐项转换的词条，其他附加作用继续原入口并保持待迁移。</summary>
@@ -37,7 +37,14 @@ internal static class ProjectileConstructionMigration
         asset == SkillEntities.IceLance ? ("ice_lance", "ice", "solid") :
         asset == SkillEntities.LightningSpear ? ("lightning_spear", "lightning", "energy") :
         asset == SkillEntities.WaterArrow ? ("water_arrow", "water", "liquid") :
-        asset == SkillEntities.WoodSpear ? ("wood_spear", "wood", "solid") : default;
+        asset == SkillEntities.WoodSpear ? ("wood_spear", "wood", "solid") :
+        asset == SkillEntities.SpiritBolt ? ("spirit_bolt", "spirit", "energy") :
+        asset == SkillEntities.WindBullet ? ("wind_bullet", "wind", "energy") :
+        asset == SkillEntities.WaterOrb ? ("water_orb", "water", "liquid") :
+        asset == SkillEntities.RockProjectile ? ("rock_projectile", "earth", "solid") :
+        asset == SkillEntities.YinBolt ? ("yin_bolt", "yin", "energy") :
+        asset == SkillEntities.YangBolt ? ("yang_bolt", "yang", "energy") :
+        asset == SkillEntities.IceShard ? ("ice_shard", "ice", "solid") : default;
 
     /// <summary>检查完整能力后只接管一次；真实受理失败不再落回旧发射。</summary>
     /// <param name="emission">原来源已经确定并到达时点的逐发步骤。</param>
@@ -295,7 +302,7 @@ internal static class ProjectileConstructionMigration
             },
             Root = new ConstructionNode
             {
-                Id = piercing ? "projectile" : "sword", Form = sourceForm.Form, Matter = sourceForm.Matter, State = sourceForm.State,
+                Id = container.Asset == SkillEntities.FlyingSword ? "sword" : "projectile", Form = sourceForm.Form, Matter = sourceForm.Matter, State = sourceForm.State,
                 Scale = scale, Rotation = XYZ(facing.eulerAngles), Offset = XYZ(spawnOffset),
                 OnContact = piercing ? ConstructionContactResponse.Continue : ConstructionContactResponse.End,
                 Contact = piercing ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 } : null,

@@ -12,7 +12,8 @@ internal static class ConstructedMatterCatalog
         AbilityMatters.Register(new AbilityMatter("earth", "solid", "earth", "stone"));
         AbilityMatters.Register(new AbilityMatter("gold", "solid", "iron", "gold"));
         AbilityMatters.Register(new AbilityMatter("vitality", "energy", "physical"));
-        AbilityMatters.Register(new AbilityMatter("spirit", "energy", "physical"));
+        AbilityMatters.Register(new AbilityMatter("spirit", "energy", "spirit"));
+        AbilityMatters.Register(new AbilityMatter("yin", "energy", "yin"));
         AbilityMatters.Register(new AbilityMatter("yang", "energy", "yang"));
         AbilityMatters.Register(new AbilityMatter("lightning", "energy", "lightning"));
         AbilityMatters.Register(new AbilityMatter("poison", "liquid", "poison"));

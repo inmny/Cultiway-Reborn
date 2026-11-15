@@ -666,8 +666,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     private static ElementComposition Composition(string matter) => matter switch
     {
         "physical" => ElementComposition.Static.empty,
+        "spirit" => new ElementComposition(),
         "earth" => ElementComposition.Static.Earth,
         "entropy" => new ElementComposition(entropy: 1f),
+        "yin" => new ElementComposition(neg: 1f),
         "yang" => new ElementComposition(pos: 1f),
         "lightning" => ElementComposition.Static.Lightning,
         "poison" => ElementComposition.Static.Poison,

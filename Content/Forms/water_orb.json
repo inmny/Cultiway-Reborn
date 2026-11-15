@@ -1,0 +1,149 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_projectiles.mjs",
+            "Entry": "makeProjectileForms",
+            "Parameters": [
+                {
+                    "Id": "width",
+                    "Values": [
+                        0.5199999809265137
+                    ]
+                },
+                {
+                    "Id": "height",
+                    "Values": [
+                        0.46000000834465029
+                    ]
+                },
+                {
+                    "Id": "tail",
+                    "Values": [
+                        0.800000011920929
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "water_orb",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/water_orb_drop_mid.asset",
+                "Assets/Cultiway/Forms/water_orb_drop_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "drop",
+            "Surface": "water",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/water_orb_drop.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                -0.14000000059604646
+            ],
+            "B": [
+                0.0,
+                0.0,
+                0.11999999731779099
+            ],
+            "Radius": 0.28999999165534975,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.44022199511528017,
+                -0.3891820013523102,
+                -0.800000011920929
+            ],
+            "Maximum": [
+                0.44022199511528017,
+                0.3891820013523102,
+                0.5600000023841858
+            ]
+        }
+    ],
+    "Motions": []
+}

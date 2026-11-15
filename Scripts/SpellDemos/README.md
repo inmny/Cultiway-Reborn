@@ -1296,3 +1296,13 @@ python3 Scripts/SpellDemos/verify_piercing.py
 ```
 
 复用飞剑与墙体的独立游戏、世界、人物和拍摄入口，各来源只核对自身普通/强化资料、独立主体、穿过两名敌人且每人一次、原0.85伤害倍率及一次收费。强化合击和齐射后的两发支付、真正出手后改目标位置的追踪、实际受理失败退款及恢复走共用金针检查；原飞剑只做一次正常命中对照。完整输入、普通及强化JSON、结果和七张主体图在`artifacts/skill_rebuild/trajectories/piercing/`。本体交锋量与人物伤害倍率分离，未映射作用继续原来源。正式保存冷启动、完整编辑、自主创作及集中录像继续5.05 C。加`--section common`只重验共享段，结果单独保存到`common/`；初次来源通过与后来共享段的分段交付依据见`delivery.json`，保留初次失败记录。
+
+
+```bash
+# 5.05 B27：七种普通投射的默认轨迹、真实首击结束、费用和土材料
+python3 Scripts/SpellDemos/verify_projectiles.py
+```
+
+七种原已学来源分别检查自身普通/强化资料、实际主体、默认追踪/直射/抛弧、首次100伤害后结束及一次支付。强化连发、受灵材料修正影响的一次原灵光束对照、一次直射改追踪和受理失败退款恢复用共享段验证，不重新跑飞剑所有轨迹。另仅核对地刺与土墙的土材料转换及一次地刺真实土系伤害。加`--section sources`、`--section common`或`--section soil`分别只运行对应段，结果独立写入`artifacts/skill_rebuild/trajectories/projectiles/<分段>/`；不带参数写入该目录根。完整编辑、自主创作、正式冷启动和集中连续录像继续5.05 C。
+
+`--section polarity-visuals`仅补拍阴弹、阳弹的模型朝向，不重跑已通过的伤害、词条或费用流程；结果和两张图保存在`projectiles/polarity-visuals/`，原行为证据保留在根目录。

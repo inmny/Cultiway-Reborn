@@ -1,0 +1,140 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_projectiles.mjs",
+            "Entry": "makeProjectileForms",
+            "Parameters": [
+                {
+                    "Id": "radius",
+                    "Values": [
+                        0.5899999737739563
+                    ]
+                },
+                {
+                    "Id": "facets",
+                    "Values": [
+                        80.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "rock_projectile",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "boulder",
+            "Surface": "stone",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/rock_projectile_boulder.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                -0.07999999821186066
+            ],
+            "B": [
+                0.0,
+                0.0,
+                0.07999999821186066
+            ],
+            "Radius": 0.3400000035762787,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.531374990940094,
+                -0.510528028011322,
+                -0.6099889874458313
+            ],
+            "Maximum": [
+                0.6596050262451172,
+                0.4452719986438751,
+                0.640811026096344
+            ]
+        }
+    ],
+    "Motions": []
+}

@@ -1,0 +1,235 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_projectiles.mjs",
+            "Entry": "makeProjectileForms",
+            "Parameters": [
+                {
+                    "Id": "radius",
+                    "Values": [
+                        0.36000001430511477
+                    ]
+                },
+                {
+                    "Id": "lobes",
+                    "Values": [
+                        4.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "spirit_bolt",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_bolt_pearl_mid.asset",
+                "Assets/Cultiway/Forms/spirit_bolt_pearl_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "pearl",
+            "Surface": "spirit_core",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/spirit_bolt_pearl.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_bolt_lobe_0_mid.asset",
+                "Assets/Cultiway/Forms/spirit_bolt_lobe_0_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "lobe_0",
+            "Surface": "spirit_pearl",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/spirit_bolt_lobe_0.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_bolt_lobe_1_mid.asset",
+                "Assets/Cultiway/Forms/spirit_bolt_lobe_1_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "lobe_1",
+            "Surface": "spirit_pearl",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/spirit_bolt_lobe_1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_bolt_lobe_2_mid.asset",
+                "Assets/Cultiway/Forms/spirit_bolt_lobe_2_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "lobe_2",
+            "Surface": "spirit_pearl",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/spirit_bolt_lobe_2.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_bolt_lobe_3_mid.asset",
+                "Assets/Cultiway/Forms/spirit_bolt_lobe_3_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "lobe_3",
+            "Surface": "spirit_pearl",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/spirit_bolt_lobe_3.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "B": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Radius": 0.3100000023841858,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.4375999867916107,
+                -0.4375999867916107,
+                -0.5230000019073486
+            ],
+            "Maximum": [
+                0.4375999867916107,
+                0.4375999867916107,
+                0.36000001430511477
+            ]
+        }
+    ],
+    "Motions": []
+}

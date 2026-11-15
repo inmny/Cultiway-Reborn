@@ -100,7 +100,7 @@ internal static class GroundSpikeConstructionMigration
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = -emission.TargetPos.z },
             Root = new ConstructionNode
             {
-                Id = "spires", Form = "earth_spikes", Matter = "physical", Scale = scale,
+                Id = "spires", Form = "earth_spikes", Matter = "earth", Scale = scale,
                 ActiveFromMarker = "strike", ActiveUntilMarker = "withdraw",
                 ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
                 Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate,

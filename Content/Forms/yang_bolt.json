@@ -1,0 +1,281 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_projectiles.mjs",
+            "Entry": "makeProjectileForms",
+            "Parameters": [
+                {
+                    "Id": "petals",
+                    "Values": [
+                        6.0
+                    ]
+                },
+                {
+                    "Id": "radius",
+                    "Values": [
+                        0.5600000023841858
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "yang_bolt",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/yang_bolt_heart_mid.asset",
+                "Assets/Cultiway/Forms/yang_bolt_heart_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "heart",
+            "Surface": "aegis_solar",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/yang_bolt_heart.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/yang_bolt_petal_0_mid.asset",
+                "Assets/Cultiway/Forms/yang_bolt_petal_0_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "petal_0",
+            "Surface": "solar_light",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/yang_bolt_petal_0.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/yang_bolt_petal_1_mid.asset",
+                "Assets/Cultiway/Forms/yang_bolt_petal_1_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "petal_1",
+            "Surface": "solar_light",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/yang_bolt_petal_1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/yang_bolt_petal_2_mid.asset",
+                "Assets/Cultiway/Forms/yang_bolt_petal_2_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "petal_2",
+            "Surface": "solar_light",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/yang_bolt_petal_2.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/yang_bolt_petal_3_mid.asset",
+                "Assets/Cultiway/Forms/yang_bolt_petal_3_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "petal_3",
+            "Surface": "solar_light",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/yang_bolt_petal_3.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/yang_bolt_petal_4_mid.asset",
+                "Assets/Cultiway/Forms/yang_bolt_petal_4_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "petal_4",
+            "Surface": "solar_light",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/yang_bolt_petal_4.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/yang_bolt_petal_5_mid.asset",
+                "Assets/Cultiway/Forms/yang_bolt_petal_5_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "petal_5",
+            "Surface": "solar_light",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/yang_bolt_petal_5.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "B": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Radius": 0.2800000011920929,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.4941610097885132,
+                -0.3199999928474426,
+                -0.5612000226974487
+            ],
+            "Maximum": [
+                0.4941610097885132,
+                0.3199999928474426,
+                0.5612000226974487
+            ]
+        }
+    ],
+    "Motions": []
+}

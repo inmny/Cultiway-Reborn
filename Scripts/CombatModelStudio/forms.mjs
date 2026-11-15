@@ -20,6 +20,7 @@ import {makeFireWall,makeWindWall,makeSwordCurtain} from './forms_contact_walls.
 import {makeAegises} from './forms_aegises.mjs';
 import {makeWaterCurtain} from './forms_water_curtain.mjs';
 import {makePiercingForms} from './forms_piercing.mjs';
+import {makeProjectileForms} from './forms_projectiles.mjs';
 import {makeSupport} from './forms_support.mjs';
 
 makeHorn();
@@ -44,6 +45,7 @@ makeSupport();
 makeAegises();
 makeWaterCurtain();
 makePiercingForms();
+makeProjectileForms();
 
 // 剑刃由脊、刃面、窄边和逐段收尖构成；各面保留自己的表面方向。
 const positions = [], uv = [], triangles = [];

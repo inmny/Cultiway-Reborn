@@ -122,7 +122,7 @@ internal static class BarrierConstructionMigration
         } : null;
         string matter = form switch { "ice_wall" => "ice", "wood_wall" => "wood", "fire_wall" => "fire",
             "wind_wall" or "wind_aegis" => "wind", "sword_curtain" => "iron", "flame_aegis" => "fire",
-            "water_curtain" => "water",
+            "water_curtain" => "water", "earth_wall" => "earth",
             "spirit_aegis" => "spirit", "lightning_aegis" => "lightning", "solar_aegis" => "yang", _ => "physical" };
         Vector3 angles = shield ? Vector3.zero : FormResource.ReadFacing(new[] {0f, 1f, 0f}, new[] {0f, 0f, 1f}, form).eulerAngles;
         return new AbilityDefinition

@@ -772,5 +772,13 @@
   "Cultiway.Construction.Form.water_arrow": "Water arrow",
   "Cultiway.Construction.Form.wood_spear": "Wood spear",
   "Cultiway.Construction.Material.earth.solid": "Earth and stone",
-  "Cultiway.Construction.Material.gold.solid": "Gold"
+  "Cultiway.Construction.Material.gold.solid": "Gold",
+  "Cultiway.Construction.Form.spirit_bolt": "Spirit bolt",
+  "Cultiway.Construction.Form.wind_bullet": "Wind bullet",
+  "Cultiway.Construction.Form.water_orb": "Water orb",
+  "Cultiway.Construction.Form.rock_projectile": "Rock projectile",
+  "Cultiway.Construction.Form.yin_bolt": "Yin bolt",
+  "Cultiway.Construction.Form.yang_bolt": "Yang bolt",
+  "Cultiway.Construction.Form.ice_shard": "Ice shard",
+  "Cultiway.Construction.Material.yin.energy": "Yin energy"
 }

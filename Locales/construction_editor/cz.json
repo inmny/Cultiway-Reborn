@@ -767,5 +767,13 @@
   "Cultiway.Construction.Form.water_arrow": "水箭",
   "Cultiway.Construction.Form.wood_spear": "木枪",
   "Cultiway.Construction.Material.earth.solid": "土石",
-  "Cultiway.Construction.Material.gold.solid": "金质"
+  "Cultiway.Construction.Material.gold.solid": "金质",
+  "Cultiway.Construction.Form.spirit_bolt": "灵弹",
+  "Cultiway.Construction.Form.wind_bullet": "风弹",
+  "Cultiway.Construction.Form.water_orb": "水球",
+  "Cultiway.Construction.Form.rock_projectile": "飞石",
+  "Cultiway.Construction.Form.yin_bolt": "阴弹",
+  "Cultiway.Construction.Form.yang_bolt": "阳弹",
+  "Cultiway.Construction.Form.ice_shard": "冰片",
+  "Cultiway.Construction.Material.yin.energy": "阴质"
 }
