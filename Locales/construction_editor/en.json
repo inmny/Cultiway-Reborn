@@ -722,5 +722,18 @@
   "Cultiway.Construction.CurveLayerHint": "Offsets add together. All curves share time or actual centre travel, and each curve loops independently.",
   "Cultiway.Construction.AddCurveLayer": "Add curve layer",
   "Cultiway.Construction.RemoveCurveLayer": "Remove this curve layer",
-  "Cultiway.Construction.Choose": "Choose"
+  "Cultiway.Construction.Choose": "Choose",
+  "Cultiway.Construction.FlightApproach": "Approach within speed limit",
+  "Cultiway.Construction.FlightApproachRules": "Approach rules",
+  "Cultiway.Construction.FlightApproachHint": "Move directly to the chase point and wait there. Speed can change; vector acceleration cannot be combined.",
+  "Cultiway.Construction.AddFlightOffset": "Add chase point offset",
+  "Cultiway.Construction.RemoveFlightOffset": "Remove chase point offset",
+  "Cultiway.Construction.FlightOffsetX": "Chase point map X",
+  "Cultiway.Construction.FlightOffsetY": "Chase point map Y",
+  "Cultiway.Construction.FlightOffsetZ": "Chase point map height",
+  "Cultiway.Construction.CurvePurpose.Offset": "Chase point offset",
+  "Cultiway.Construction.OffsetPathRules": "Chase point curve rules",
+  "Cultiway.Construction.OffsetPathHint": "Map axes and world time move the chase point. The form still flies there; arrival uses the actual target.",
+  "Cultiway.Construction.AddOffsetPath": "Add chase point curve",
+  "Cultiway.Construction.RemoveOffsetPath": "Remove chase point curve"
 }

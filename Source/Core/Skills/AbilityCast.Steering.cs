@@ -11,6 +11,16 @@ public sealed partial class AbilityCast
     private Vector3 SteeringAim(in NodeState state, Vector3 target, float seconds)
     {
         Vector3 aim = FlightAim(in state, target);
+        CompiledFlightGoal goal = state.Flight?.Goal;
+        if (goal != null)
+        {
+            aim += goal.Offset;
+            if (goal.OffsetPath != null)
+            {
+                goal.OffsetPath.Sample(Mathf.Max(0f, Age - state.FlightStartedAt), out Vector3 offset, out _);
+                aim += offset;
+            }
+        }
         CompiledFlightSteering steering = state.Flight?.Goal?.Steering;
         if (steering == null) return aim;
         Vector3 centre = state.Flight.Path == null ? state.Position : state.PathCentre;

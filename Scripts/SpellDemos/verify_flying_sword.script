@@ -1,4 +1,4 @@
-// B2—B6：共用真实旧已学来源、普通构造接管和原逐发支付；周期模式另外检查路径。
+// B2—B7：共用真实旧已学来源、普通构造接管和原逐发支付；周期模式另外检查路径。
 var manager = Cultiway.ModClass.I.SkillV3;
 var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var oldExecutions = new List<int>(); var starts = new List<ConstructedCastStarted>(); var observed = new List<object>();
@@ -11,7 +11,7 @@ try
     owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
     owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
     IReadOnlyList<Entity> Learned() => (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
-    Entity Build(string trajectory, int animation = 0, bool boosted = false, bool burn = false)
+    Entity Build(string trajectory, int animation = 0, bool boosted = false, bool burn = false, float duration = 0f)
     {
         var builder = new SkillContainerBuilder(SkillEntities.FlyingSword).UseAnimation(animation);
         builder.AddModifier(new Trajectory { ID = trajectory });
@@ -24,7 +24,9 @@ try
             builder.AddModifier(new SalvoCount { Value = 2 });
         }
         if (burn) builder.AddModifier(new BurnModifier { Duration = 1, DamageRatio = .1f });
-        Entity result = builder.Build(SkillContainerBuildMode.RuleOnly); string signature = SkillContainerSignature.Build(result);
+        Entity result = builder.Build(SkillContainerBuildMode.RuleOnly);
+        if (duration > 0f) result.AddComponent(new SkillSettings { Duration = duration, AreaMultiplier = 1f, PowerMultiplier = 1f, ContactEnabled = true });
+        string signature = SkillContainerSignature.Build(result);
         owner.LearnSkillV3(result); return Learned().First(skill => SkillContainerSignature.Build(skill) == signature);
     }
     var converter = service.Assembly.GetType("Cultiway.Content.Skills.FlyingSwordConstructionMigration").GetMethod("Convert", F);
@@ -41,7 +43,7 @@ try
     object State(AbilityCast cast) => ((Array)Field(cast, "nodes")).GetValue(0);
     Vector3 Position(AbilityCast cast) => (Vector3)Field(State(cast), "Position");
     float[] XYZ(Vector3 value) => new[] { value.x, value.y, value.z };
-    var trajectories = vortexMode ? new[] { SkillTrajectories.SlowVortex, SkillTrajectories.SlowVortex } : spiralMode ? new[] { SkillTrajectories.SpiralHoming, SkillTrajectories.SpiralHoming } : steeringMode ? new[] { SkillTrajectories.DriftHoming, SkillTrajectories.DriftHoming } : periodicMode ? new[] { SkillTrajectories.SineWave, SkillTrajectories.Zigzag } : new[] { SkillTrajectories.TowardsDirection, SkillTrajectories.TowardsDirectionNoRot,
+    var trajectories = orbitMode ? new[] { SkillTrajectories.OrbitTarget, SkillTrajectories.OrbitTarget } : vortexMode ? new[] { SkillTrajectories.SlowVortex, SkillTrajectories.SlowVortex } : spiralMode ? new[] { SkillTrajectories.SpiralHoming, SkillTrajectories.SpiralHoming } : steeringMode ? new[] { SkillTrajectories.DriftHoming, SkillTrajectories.DriftHoming } : periodicMode ? new[] { SkillTrajectories.SineWave, SkillTrajectories.Zigzag } : new[] { SkillTrajectories.TowardsDirection, SkillTrajectories.TowardsDirectionNoRot,
         SkillTrajectories.TowardsPosition, SkillTrajectories.TowardsTarget };
     var samples = trajectories.Select((trajectory, i) => Build(trajectory.id, i % 2)).ToArray();
     var definitions = new List<AbilityDefinition>();
@@ -53,7 +55,7 @@ try
         definitions.Add(definition);
         File.WriteAllText(Path.Combine(folder, "trajectory-" + i + ".json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
     }
-    if (!periodicMode && !steeringMode && !spiralMode && !vortexMode)
+    if (!periodicMode && !steeringMode && !spiralMode && !vortexMode && !orbitMode)
     {
     var direct = Numeric(definitions[0], new GetHitEvent { Damage = 37 }); direct.Advance(.25f, new Vector3(70, 72, .3f));
     Check(!direct.Finished && Position(direct).x > 70f && Vector3.Dot(direct.Velocity(0).normalized, Vector3.right) > .999f,
@@ -88,6 +90,7 @@ try
 
     }
     // PERIODIC_NUMERIC
+    // ORBIT_NUMERIC
     // VORTEX_NUMERIC
     // SPIRAL_NUMERIC
     // STEERING_NUMERIC
@@ -143,13 +146,17 @@ try
         foreach (Entity sample in samples)
         {
             Entity skill = periodicMode && SkillBlueprintTrajectory.ResolveEffectiveId(sample) == SkillTrajectories.Zigzag.id
-                ? Build(SkillTrajectories.Zigzag.id, animation: 1, boosted: true) : (steeringMode || spiralMode || vortexMode) && sample.GetComponent<SkillContainer>().AnimationIndex == 1
-                    ? Build(vortexMode ? SkillTrajectories.SlowVortex.id : spiralMode ? SkillTrajectories.SpiralHoming.id : SkillTrajectories.DriftHoming.id, animation: 1, boosted: true) : sample;
+                ? Build(SkillTrajectories.Zigzag.id, animation: 1, boosted: true) : (steeringMode || spiralMode || vortexMode || orbitMode) && sample.GetComponent<SkillContainer>().AnimationIndex == 1
+                    ? Build(orbitMode ? SkillTrajectories.OrbitTarget.id : vortexMode ? SkillTrajectories.SlowVortex.id : spiralMode ? SkillTrajectories.SpiralHoming.id : SkillTrajectories.DriftHoming.id, animation: 1, boosted: true) : sample;
             Ready(source); Place(source, 64); Place(target, 70); contacts.Clear(); endings.Clear(); int first = starts.Count;
             float before = owner.GetCultisys<Xian>().wakan; int hp = target.data.health + (periodicMode || vortexMode ? pathTarget.data.health : 0); int knownBefore = Learned().Count; var expectedPlan = Plan(skill); double expected = Cost(skill, expectedPlan);
             Check(Use(skill), "原已学能力正式使用");
             Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - expected) < .001, "原报价只扣一次，不再支付新构造费用");
-            await Advance(.7f);
+            if (orbitMode && sample.GetComponent<SkillContainer>().AnimationIndex == 1)
+            {
+                await Advance(.04f); Place(target, 72, 74);
+            }
+            await Advance(orbitMode ? 1.6f : .7f);
             var actual = starts.Skip(first).ToArray();
             Check(actual.Length == expectedPlan.Steps.Count && actual.All(fact => fact.CorrelationId == 930 &&
                 contacts.Count(contact => contact.CastId == fact.CastId && (contact.TargetId == target.id || contact.TargetId == pathTarget.id)) == 1 &&
@@ -161,7 +168,7 @@ try
                     hits = contacts.Where(contact => contact.TargetId == target.id || contact.TargetId == pathTarget.id).Select(contact => new { contact.CastId, contact.AbilityId }).ToArray(),
                     ended = endings.Select(end => new { end.Fact.CastId, end.Fact.AbilityId }).ToArray(), legacy = oldExecutions.ToArray() });
         }
-        if (!periodicMode && !steeringMode && !spiralMode && !vortexMode)
+        if (!periodicMode && !steeringMode && !spiralMode && !vortexMode && !orbitMode)
         {
         Entity boosted = Build(SkillTrajectories.TowardsTarget.id, boosted: true); Ready(source); Place(source, 64); Place(target, 70);
         int boostedInitial = starts.Count, known = Learned().Count; float boostedBalance = owner.GetCultisys<Xian>().wakan;
@@ -174,7 +181,7 @@ try
         Check(starts.Count == boostedInitial && oldExecutions.Count > 0, "未映射效果明确保留旧执行，不在新构造中静默丢弃");
         }
         int initial = starts.Count, oldCount = oldExecutions.Count; float balance = owner.GetCultisys<Xian>().wakan;
-        Entity rejected = Build(vortexMode ? SkillTrajectories.SlowVortex.id : spiralMode ? SkillTrajectories.SpiralHoming.id : steeringMode ? SkillTrajectories.DriftHoming.id : periodicMode ? SkillTrajectories.SineWave.id : SkillTrajectories.TowardsPosition.id, animation: 1); Ready(source); Place(source, 64); Place(target, 70);
+        Entity rejected = Build(orbitMode ? SkillTrajectories.OrbitTarget.id : vortexMode ? SkillTrajectories.SlowVortex.id : spiralMode ? SkillTrajectories.SpiralHoming.id : steeringMode ? SkillTrajectories.DriftHoming.id : periodicMode ? SkillTrajectories.SineWave.id : SkillTrajectories.TowardsPosition.id, animation: 1); Ready(source); Place(source, 64); Place(target, 70);
         initial = starts.Count; oldCount = oldExecutions.Count; balance = owner.GetCultisys<Xian>().wakan;
         scopeValid = true; invalidate = true; var scope = new ConstructionWorldScope(() => scopeValid, (_, _) => true);
         bool queued = manager.StartSkillSequence(owner, rejected, Plan(rejected), SkillContext.DefaultStrength,
@@ -187,11 +194,12 @@ try
             new { queued, scopeValid, starts = starts.Count - initial, legacy = oldExecutions.Count - oldCount,
                 before = balance, after = owner.GetCultisys<Xian>().wakan, emission = observed.Last() });
         scopeValid = true; Ready(source); Place(source, 64); Place(target, 70);
-        Check(Use(rejected), "拒绝后原来源释放占用，可重新施放"); await Advance(.7f);
+        Check(Use(rejected), "拒绝后原来源释放占用，可重新施放"); await Advance(orbitMode ? 1.6f : .7f);
         Check(starts.Count - initial == Plan(rejected).Steps.Count && oldExecutions.Count == oldCount &&
             starts.Skip(initial).All(fact => endings.Any(end => end.Fact.CastId == fact.CastId)),
             "拒绝后重新施放正常结束，没有旧执行体残留");
         // PERIODIC_EDITOR
+        // ORBIT_EDITOR
         // VORTEX_EDITOR
         // SPIRAL_EDITOR
     // STEERING_EDITOR

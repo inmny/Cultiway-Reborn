@@ -39,6 +39,15 @@ public sealed class ConstructionFlightGoal
     public ConstructionFlightArrival Arrival = ConstructionFlightArrival.Stop;
     /// <summary>部位运动中心进入此距离即到达，不参与伤害范围计算。</summary>
     public float Radius = .05f;
+    /// <summary>直接限速接近当前追逐点，到点后等待；关闭时继续原有转向飞行。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool Approach;
+    /// <summary>目标旁的地图三轴位置偏移，仅移动追逐点，不平移实际主体。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float[] Offset;
+    /// <summary>目标旁偏移随世界时间的普通曲线，地图三轴且不控制模型朝向。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionPath OffsetPath;
     /// <summary>可选的追踪方向偏转，不改变真实到达位置。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionFlightSteering Steering;
@@ -55,6 +64,12 @@ internal sealed class CompiledFlightGoal
     internal readonly ConstructionFlightArrival Arrival;
     /// <summary>明确的行程到达距离。</summary>
     internal readonly float Radius;
+    /// <summary>直接限速接近，保留到点后的巡航能力。</summary>
+    internal readonly bool Approach;
+    /// <summary>地图三轴的固定追逐点偏移。</summary>
+    internal readonly UnityEngine.Vector3 Offset;
+    /// <summary>只按世界时间推进的地图三轴曲线。</summary>
+    internal readonly CompiledConstructionPath OffsetPath;
     /// <summary>可选的完整数值偏转规则。</summary>
     internal readonly CompiledFlightSteering Steering;
 
@@ -67,6 +82,21 @@ internal sealed class CompiledFlightGoal
             float.IsNaN(source.Radius) || float.IsInfinity(source.Radius) || source.Radius < .01f || source.Radius > 10000f ||
             source.Anchor == ConstructionFlightAnchor.Direction && (source.Follow || source.Arrival != ConstructionFlightArrival.None))
             throw new InvalidDataException(path + "：飞行目标、到达处理或0.01至一万格内的距离无效");
+        Approach = source.Approach;
+        if (source.Offset != null)
+        {
+            if (source.Offset.Length != 3) throw new InvalidDataException(path + "/Offset：位置偏移需要三个坐标");
+            Offset = new UnityEngine.Vector3(source.Offset[0], source.Offset[1], source.Offset[2]);
+            if (float.IsNaN(Offset.sqrMagnitude) || float.IsInfinity(Offset.sqrMagnitude) || Offset.magnitude > 10000f)
+                throw new InvalidDataException(path + "/Offset：位置偏移须为一万格内的有限坐标");
+        }
+        if (source.OffsetPath != null)
+        {
+            OffsetPath = new CompiledConstructionPath(source.OffsetPath, path + "/OffsetPath");
+            if (source.OffsetPath.Space != ConstructionPathSpace.Local || source.OffsetPath.Forward != null ||
+                source.OffsetPath.DistancePerSecond != 0f)
+                throw new InvalidDataException(path + "/OffsetPath：追逐点曲线采用地图三轴和世界时间，不采用目标比例、路程时钟或模型朝向");
+        }
         if (source.Steering != null) Steering = new CompiledFlightSteering(source.Steering, path + "/Steering");
         Anchor = source.Anchor; Follow = source.Follow; Arrival = source.Arrival; Radius = source.Radius;
     }

@@ -13,6 +13,7 @@ public sealed partial class AbilityCast
         if (!state.Exists || !state.Free || !state.Flying || state.MovementStopped) return false;
         Vector3 before = state.Flight.Path == null ? state.Velocity : state.PathVelocity;
         if (before.sqrMagnitude > 1e-8f) state.FlightDirection = before.normalized;
+        state.ApproachSpeed = speed;
         Vector3 after = state.FlightDirection * speed;
         if (state.Flight.Path == null) state.Velocity = after;
         else
@@ -50,7 +51,16 @@ public sealed partial class AbilityCast
         if (distance <= FlightGoalPrecision(in state)) return Mathf.Min(maximum, minimum);
         float acceleration = (state.Flight.Path == null ? state.Acceleration.magnitude : PathAcceleration(in state, maximum)) + state.Flight.TurnRate * Mathf.Deg2Rad *
             (state.Flight.Path == null ? state.Velocity.magnitude : state.PathVelocity.magnitude);
-        float speed = state.Velocity.magnitude + acceleration * maximum;
+        float speed = state.Velocity.magnitude;
+        if (goal.Approach)
+        {
+            speed = state.ApproachSpeed;
+            var path = state.Flight.Path;
+            if (path != null)
+                speed += path.SpeedBudget(path.Space == ConstructionPathSpace.TargetLine ? state.PathX.magnitude : 1f) *
+                    (path.DistancePerSecond > 0f ? state.ApproachSpeed / path.DistancePerSecond : 1f);
+        }
+        speed += acceleration * maximum;
         return speed > 0f ? Mathf.Min(maximum, Mathf.Max(minimum, distance / speed)) : maximum;
     }
 

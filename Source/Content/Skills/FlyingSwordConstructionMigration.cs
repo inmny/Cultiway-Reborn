@@ -76,8 +76,9 @@ internal static class FlyingSwordConstructionMigration
         bool drift = trajectory == SkillTrajectories.DriftHoming.id;
         bool spiral = trajectory == SkillTrajectories.SpiralHoming.id;
         bool vortex = trajectory == SkillTrajectories.SlowVortex.id;
+        bool orbit = trajectory == SkillTrajectories.OrbitTarget.id;
         bool wave = trajectory == SkillTrajectories.SineWave.id, zigzag = trajectory == SkillTrajectories.Zigzag.id;
-        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral && !vortex) return null;
+        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral && !vortex && !orbit) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
@@ -89,6 +90,7 @@ internal static class FlyingSwordConstructionMigration
         float haste = skill.TryGetComponent(out HasteModifier h) ? Mathf.Clamp(1f + h.SpeedMultiplier, .1f, 10f) : 1f;
         var motion = container.MotionProfile;
         float speed = motion.ResolveSpeed(Vector2.Distance(emission.SourcePos, emission.TargetPos)) * haste;
+        if (orbit) speed *= 1.35f;
         float turn = motion.TurnRate * haste * (spiral ? .7f : 1f);
         float ramp = Mathf.Max(0f, motion.RampDuration), launch = motion.LaunchMultiplier, cruise = motion.CruiseMultiplier;
         // 保留当前未能完整表达的超预算来源，不缩小原术来让转换通过。
@@ -100,12 +102,21 @@ internal static class FlyingSwordConstructionMigration
         var goal = noRotation || wave || zigzag || vortex ? null : new ConstructionFlightGoal
         {
             Anchor = towardsDirection ? ConstructionFlightAnchor.Direction : ConstructionFlightAnchor.Target,
-            Follow = towardsTarget || drift || spiral,
+            Follow = towardsTarget || drift || spiral || orbit,
             Arrival = towardsDirection ? ConstructionFlightArrival.None : ConstructionFlightArrival.End,
-            Radius = .01f
+            Radius = .01f, Approach = orbit
         };
         int seed = unchecked((int)emission.Source.id * 397 ^ skill.Id ^ (int)emission.RuntimeData.CorrelationId ^
                              emission.InitialAngleOffsetDegrees.GetHashCode());
+        const float orbitEnd = (2.2f - .2f) / 1.8f;
+        if (orbit)
+        {
+            float phase = (float)(new System.Random(seed).NextDouble() * Math.PI * 4d - Math.PI * 2d);
+            goal.Arrival = ConstructionFlightArrival.None;
+            goal.Offset = XYZ(new Vector3(Mathf.Cos(phase), Mathf.Sin(phase), 0f) * 2.2f);
+            goal.OffsetPath = ConstructionPathCurves.ContractingSpiral(orbitEnd, .75f,
+                Vector3.up * 2.2f, Vector3.right * 2.2f, 1.8f / 2.2f, phase);
+        }
         if (drift)
         {
             float bias = new System.Random(seed).Next(2) == 0 ? -.65f : .65f;
@@ -155,6 +166,19 @@ internal static class FlyingSwordConstructionMigration
                 operations.Add(new ConstructionOperation { Kind = ConstructionOperationKind.ChangeSpeed, At = at,
                     Speed = speed * (cruise + (launch - cruise) * remaining * remaining) });
             }
+        ConstructionOperation finishOrbit = null;
+        if (orbit && orbitEnd < lifetime)
+        {
+            // 在原有0.2格阈值换向目标；仍是同一部位、同一身份和命中记录，不重新支付。
+            float remaining = ramp > .001f ? 1f - Mathf.Min(8f, Mathf.Floor(orbitEnd / ramp * 8f)) / 8f : 0f;
+            finishOrbit = new ConstructionOperation
+            {
+                Kind = ConstructionOperationKind.Fly, At = orbitEnd, WorldVelocity = true,
+                Vector = XYZ(initial * (speed * (cruise + (launch - cruise) * remaining * remaining))),
+                InheritVelocity = false, TurnRate = turn,
+                Goal = new ConstructionFlightGoal { Approach = true, Follow = true, Radius = .01f, Arrival = ConstructionFlightArrival.End }
+            };
+        }
         float strength = emission.Strength * emission.RuntimeData.ResolveEffectScale();
         if (configured) strength *= settings.PowerMultiplier;
         if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
@@ -168,8 +192,13 @@ internal static class FlyingSwordConstructionMigration
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(), Seed = seed,
             Lifetime = lifetime, Resource = "none", Cost = 0f, Cooldown = 0, Power = 1, TargetRange = 10000,
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat | ActiveAbilityChannel.World,
-                Target = towardsTarget || drift || spiral ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },
+                Target = towardsTarget || drift || spiral || orbit ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+            Steps = finishOrbit == null ? Array.Empty<ConstructionStep>() : new[]
+            {
+                new ConstructionStep { Id = "approach_target", Inputs = new Dictionary<string, ConstructionOutputReference>
+                    { ["part"] = new() { Node = "root" } }, Operation = finishOrbit }
+            },
             Root = new ConstructionNode
             {
                 Id = "sword", Form = "sword", Matter = "iron", Scale = scale, Rotation = XYZ(facing.eulerAngles),

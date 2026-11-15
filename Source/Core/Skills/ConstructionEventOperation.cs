@@ -49,6 +49,8 @@ internal sealed class CompiledFlight
             !Enum.IsDefined(typeof(ConstructionGroundResponse), Ground)) throw new InvalidDataException(path + "：加速度、转向或地面响应超出预算");
         if (source.Path != null) Path = new CompiledConstructionPath(source.Path, path + "/Path");
         if (source.Goal != null) Goal = new CompiledFlightGoal(source.Goal, path + "/Goal");
+        if (Goal?.Approach == true && Acceleration != Vector3.zero)
+            throw new InvalidDataException(path + "：限速接近通过速度调整改变快慢，不与向量加速度混用");
     }
 }
 

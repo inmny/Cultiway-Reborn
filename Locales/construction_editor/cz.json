@@ -717,5 +717,18 @@
   "Cultiway.Construction.CurveLayerHint": "各条曲线的偏移相加，共用时间或实际中心路程；每条曲线各自循环。",
   "Cultiway.Construction.AddCurveLayer": "添加叠加曲线",
   "Cultiway.Construction.RemoveCurveLayer": "移除此附加曲线",
-  "Cultiway.Construction.Choose": "选择"
+  "Cultiway.Construction.Choose": "选择",
+  "Cultiway.Construction.FlightApproach": "限速接近追逐点",
+  "Cultiway.Construction.FlightApproachRules": "接近方式",
+  "Cultiway.Construction.FlightApproachHint": "直接朝追逐点运动，到点后等待；可调整速度，不与向量加速度混用。",
+  "Cultiway.Construction.AddFlightOffset": "添加目标旁追逐点",
+  "Cultiway.Construction.RemoveFlightOffset": "移除目标旁追逐点",
+  "Cultiway.Construction.FlightOffsetX": "追逐点地图横偏",
+  "Cultiway.Construction.FlightOffsetY": "追逐点地图纵偏",
+  "Cultiway.Construction.FlightOffsetZ": "追逐点离地偏移",
+  "Cultiway.Construction.CurvePurpose.Offset": "目标旁追逐点",
+  "Cultiway.Construction.OffsetPathRules": "追逐点曲线规则",
+  "Cultiway.Construction.OffsetPathHint": "偏移采用地图三轴和世界时间，只改变追逐点；剑身仍实际飞过去，到达判定采用真实目标。",
+  "Cultiway.Construction.AddOffsetPath": "添加追逐点曲线",
+  "Cultiway.Construction.RemoveOffsetPath": "移除追逐点曲线"
 }

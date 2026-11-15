@@ -42,8 +42,8 @@ public sealed class ConstructionBudget
     {
         Forms = plan.FormCount; Steps = plan.Steps.Length; Work = plan.WorkSize;
         Operations = plan.Nodes.Sum(node => node.Operations.Length);
-        PathSegments = plan.Nodes.Sum(node => (node.FlightPath?.Count ?? 0) + (node.Flight?.Goal?.Steering?.Path?.Count ?? 0) + node.EventOperations.Sum(operation =>
-            (operation.Flight?.Path?.Count ?? 0) + (operation.Flight?.Goal?.Steering?.Path?.Count ?? 0)));
+        PathSegments = plan.Nodes.Sum(node => (node.FlightPath?.Count ?? 0) + (node.Flight?.Goal?.Steering?.Path?.Count ?? 0) + (node.Flight?.Goal?.OffsetPath?.Count ?? 0) + node.EventOperations.Sum(operation =>
+            (operation.Flight?.Path?.Count ?? 0) + (operation.Flight?.Goal?.Steering?.Path?.Count ?? 0) + (operation.Flight?.Goal?.OffsetPath?.Count ?? 0)));
         FlowCells = plan.Nodes.Sum(node => node.FlowSettings == null ? 0 : node.FlowSettings.Cells * node.FlowSettings.Cells);
         ContactShapes = plan.Nodes.Sum(node => node.FlowSettings == null ? node.Resource.Contacts.Length : node.FlowSettings.Cells * node.FlowSettings.Cells * 4);
         ContactShapes += plan.EventOperations.Where(operation => operation.Propagation != null).Sum(operation => operation.Propagation.MaximumCells);

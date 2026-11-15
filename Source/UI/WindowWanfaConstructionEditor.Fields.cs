@@ -231,7 +231,7 @@ public sealed partial class WindowWanfaConstructionEditor
         FlightGoalRows(fly);
         FlightPhysicsRows(fly, "");
         Toggle("InheritVelocity", fly.InheritVelocity, value => fly.InheritVelocity = value);
-        if (SteeringCurveRows(fly)) return;
+        if (FlightCurveRows(fly)) return;
         CurveBuilderRows(fly);
         if (fly.Path == null)
         {
@@ -245,9 +245,10 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <summary>飞行与普通分布共用同一曲线表单，静态排布只编辑实际几何。</summary>
     /// <param name="path">当前草稿独占的曲线。</param><param name="layout">是否只用于分布。</param>
     /// <param name="steering">是否修改目标方向的两轴偏转。</param>
-    private void CurveRows(ConstructionPath path, bool layout = false, bool steering = false)
+    /// <param name="offset">是否采用地图三轴和世界时间修改追逐点。</param>
+    private void CurveRows(ConstructionPath path, bool layout = false, bool steering = false, bool offset = false)
     {
-        if (!layout)
+        if (!layout && !offset)
         {
             if (!steering)
             {
@@ -269,9 +270,9 @@ public sealed partial class WindowWanfaConstructionEditor
                 Row("PathDistanceRules", T("PathDistanceHint"));
             }
         }
-        else Row("DistributionPathRules", T("DistributionPathHint"));
-        if (!steering) Toggle("FacePath", path.Forward != null, value => path.Forward = value ? new[] { 0f, 0f, 1f } : null);
-        if (path.Forward != null && !layout && !steering) Number("TurnRate", path.TurnRate, value => path.TurnRate = value);
+        else if (layout) Row("DistributionPathRules", T("DistributionPathHint"));
+        if (!steering && !offset) Toggle("FacePath", path.Forward != null, value => path.Forward = value ? new[] { 0f, 0f, 1f } : null);
+        if (path.Forward != null && !layout && !steering && !offset) Number("TurnRate", path.TurnRate, value => path.TurnRate = value);
         ConstructionPathTerm addition = layout ? null : CurveLayerRows(path);
         ConstructionPathKey[] keys = addition?.Keys ?? path.Keys;
         bool loop = addition?.Loop ?? path.Loop;

@@ -1,0 +1,106 @@
+// B7：追逐点、限速接近及原环绕资料；只核对本批共同变化。
+AbilityDefinition ChaseDefinition(float speed = 3) => new()
+{
+    Id = "test.orbit." + Guid.NewGuid().ToString("N"), Name = "限速追逐点", Lifetime = 4, Resource = "none", Cost = 0, Cooldown = 0,
+    Root = new ConstructionNode { Id = "sword", Form = "sword", Scale = .2f, Operations = new[]
+    {
+        new ConstructionOperation { Kind = ConstructionOperationKind.Fly, WorldVelocity = true, InheritVelocity = false,
+            Vector = new[] { speed, 0f, 0f }, Goal = new ConstructionFlightGoal { Approach = true, Arrival = ConstructionFlightArrival.None } }
+    } }
+};
+AbilityCast ChaseCast(AbilityDefinition definition, Vector3? aim = null) => new(AbilityCompiler.Compile(definition, cache: false), Matrix4x4.identity,
+    inputs: new AbilityInputs(Vector3.zero, aim ?? new Vector3(2, 0, 0), Vector3.right, 1));
+var simpleChase = ChaseCast(ChaseDefinition());
+simpleChase.Advance(.4f, new Vector3(2, 0, 0));
+Check(Vector3.Distance(Position(simpleChase), new Vector3(1.2f, 0, 0)) < .0001f, "限速接近从实际出生点逐步运动，不瞬移到目标或圆周");
+simpleChase.Advance(.7f, new Vector3(2, 0, 0)); simpleChase.Advance(.2f, new Vector3(2, 0, 0));
+Check(Vector3.Distance(Position(simpleChase), new Vector3(2, 0, 0)) < .0001f && simpleChase.Velocity(0).sqrMagnitude < .00001f,
+    "到达追逐点后真实停留，不越过追逐点来回穿梭");
+simpleChase.Advance(.5f, new Vector3(5, 0, 0));
+Check(Vector3.Distance(Position(simpleChase), new Vector3(3.5f, 0, 0)) < .0001f, "到点后目标继续移动，保留巡航速度重新跟上");
+var adjustChase = typeof(AbilityCast).GetMethod("ChangeFlightSpeed", F);
+adjustChase.Invoke(simpleChase, new object[] { 0, 0f }); Vector3 beforePauseChase = Position(simpleChase);
+simpleChase.Advance(.1f, new Vector3(6, 0, 0));
+Check(Position(simpleChase) == beforePauseChase, "限速接近调到零速后保持实际位置");
+adjustChase.Invoke(simpleChase, new object[] { 0, 2f }); simpleChase.Advance(.1f, new Vector3(6, 0, 0));
+Check(Mathf.Abs(Position(simpleChase).x - beforePauseChase.x - .2f) < .0001f, "恢复速度后继续原目标及行程");
+var arrivalOffset = ChaseDefinition(); arrivalOffset.Root.Operations[0].Goal.Offset = new[] { 0f, 2f, 0f };
+arrivalOffset.Root.Operations[0].Goal.Arrival = ConstructionFlightArrival.End;
+var arrivalOffsetCast = ChaseCast(arrivalOffset); arrivalOffsetCast.Advance(1.5f, new Vector3(2, 0, 0));
+Check(!arrivalOffsetCast.Finished && Vector3.Distance(Position(arrivalOffsetCast), new Vector3(2, 2, 0)) < .0001f,
+    "到达追逐点不冒充抵达真实目标，到达规则仍读取实际目标");
+var invalidChase = ChaseDefinition(); invalidChase.Root.Operations[0].Acceleration = new[] { 1f, 0f, 0f };
+string invalidInput = JsonConvert.SerializeObject(invalidChase); bool rejectedAcceleration = false;
+try { AbilityCompiler.Compile(invalidChase, cache: false); } catch (InvalidDataException e) { rejectedAcceleration = e.Message.Contains("加速度"); }
+Check(rejectedAcceleration && JsonConvert.SerializeObject(invalidChase) == invalidInput, "限速接近明确拒绝向量加速度且保留原输入");
+const float shrinkEnd = (2.2f - .2f) / 1.8f;
+var goalDefinition = ChaseDefinition(12); var chaseGoal = goalDefinition.Root.Operations[0].Goal;
+chaseGoal.Offset = new[] { 2.2f * Mathf.Cos(.7f), 2.2f * Mathf.Sin(.7f), 0f };
+chaseGoal.OffsetPath = ConstructionPathCurves.ContractingSpiral(shrinkEnd, .75f, Vector3.up * 2.2f, Vector3.right * 2.2f, 1.8f / 2.2f, .7f);
+var curveCast = ChaseCast(goalDefinition, new Vector3(8, 0, 0));
+object GoalCurve(AbilityCast cast) => Field(Field(Field(State(cast), "Flight"), "Goal"), "OffsetPath");
+(Vector3 Position, Vector3 Velocity) ChaseSample(AbilityCast cast, float time)
+{
+    object curve = GoalCurve(cast); object[] args = { time, Vector3.zero, Vector3.zero };
+    curve.GetType().GetMethod("Sample", F).Invoke(curve, args); return ((Vector3)args[1], (Vector3)args[2]);
+}
+float curveError = 0, derivativeError = 0;
+for (int i = 0; i < 80; i++)
+{
+    float time = shrinkEnd * i / 80f, angle = .7f + time * Mathf.PI * 2f / .75f, radius = 2.2f - 1.8f * time;
+    var sample = ChaseSample(curveCast, time); Vector3 point = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0) * radius;
+    Vector3 derivative = new Vector3(-Mathf.Sin(angle), Mathf.Cos(angle), 0) * (radius * Mathf.PI * 2f / .75f) - new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0) * 1.8f;
+    curveError = Mathf.Max(curveError, Vector3.Distance(sample.Position + new Vector3(chaseGoal.Offset[0], chaseGoal.Offset[1], 0), point));
+    derivativeError = Mathf.Max(derivativeError, Vector3.Distance(sample.Velocity, derivative));
+}
+Check(curveError < .0025f && derivativeError < .04f && curveCast.Plan.Budget.PathSegments == chaseGoal.OffsetPath.Keys.Length - 1,
+    "普通追逐点曲线保留480度旋转及线性收缩，解析速度与曲段工作量完整", new { curveError, derivativeError });
+var saveChase = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+var restoreChase = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+curveCast.Advance(.3f, new Vector3(8, 0, 0)); saveChase(curveCast); curveCast.Advance(.4f, new Vector3(8, 3, 0));
+Vector3 expectedChase = Position(curveCast); restoreChase(curveCast); curveCast.Advance(.4f, new Vector3(8, 3, 0));
+Check(Vector3.Distance(Position(curveCast), expectedChase) < .00001f && (float)Field(State(curveCast), "ApproachSpeed") == 12,
+    "移动目标与曲线共用实际运动，预测回退恢复巡航速度及完整进度");
+var restoredDefinition = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(goalDefinition));
+var restoredChase = ChaseCast(restoredDefinition, new Vector3(8, 0, 0)); restoredChase.Advance(.3f, new Vector3(8, 0, 0)); restoredChase.Advance(.4f, new Vector3(8, 3, 0));
+Check(Vector3.Distance(Position(restoredChase), expectedChase) < .00001f, "完整资料读回相同的追逐点偏移、曲线与接近方式");
+var mixedChase = ChaseDefinition(10); mixedChase.Root.Operations[0].Goal = ConstructionEditing.Copy(goalDefinition).Root.Operations[0].Goal;
+mixedChase.Root.Operations[0].Path = ConstructionPathCurves.Wave(.5f, Vector3.right * .2f); mixedChase.Root.Operations[0].Path.DistancePerSecond = 10;
+mixedChase.Root.Operations[0].Goal.Steering = new ConstructionFlightSteering { Side = .1f };
+var stepTypeChase = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityStep"); var stepConstructorChase = stepTypeChase.GetConstructors(F).Single();
+var batchChase = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityBatch").GetMethod("Advance", F);
+var chaseCasts = Enumerable.Range(0, 4).Select(_ => ChaseCast(ConstructionEditing.Copy(mixedChase), new Vector3(8, 0, 0))).ToArray();
+Array chaseSteps = Array.CreateInstance(stepTypeChase, chaseCasts.Length);
+string ChaseSnapshot(AbilityCast cast) => JsonConvert.SerializeObject(new { point = XYZ(Position(cast)), velocity = XYZ(cast.Velocity(0)), cruise = Field(State(cast), "ApproachSpeed"), progress = Field(State(cast), "PathProgress") });
+for (int i = 0; i < chaseCasts.Length; i++)
+{
+    saveChase(chaseCasts[i]); chaseSteps.SetValue(stepConstructorChase.Invoke(new object[] { chaseCasts[i],
+        new AbilityInputs(Vector3.zero, new Vector3(8, 3, 0), Vector3.right, 1), null, Vector3.zero, .7f, false }), i);
+}
+batchChase.Invoke(null, new object[] { chaseSteps, false }); string[] sequentialChase = chaseCasts.Select(ChaseSnapshot).ToArray();
+foreach (var cast in chaseCasts) restoreChase(cast); batchChase.Invoke(null, new object[] { chaseSteps, true });
+Check(chaseCasts.Select(ChaseSnapshot).SequenceEqual(sequentialChase), "追逐点、方向偏转与实际位置曲线组合时，共用工作池顺序及并行一致");
+foreach (var definition in definitions)
+{
+    AbilityCompiler.Compile(definition, cache: false);
+    var operation = definition.Root.Operations.First(item => item.Kind == ConstructionOperationKind.Fly);
+    var returnOperation = definition.Steps.Select(item => item.Operation).SingleOrDefault(item => item.Kind == ConstructionOperationKind.Fly);
+    Check(operation.Goal.Approach && operation.Goal.Follow && operation.Goal.Arrival == ConstructionFlightArrival.None &&
+        Mathf.Abs(new Vector3(operation.Goal.Offset[0], operation.Goal.Offset[1], operation.Goal.Offset[2]).magnitude - 2.2f) < .0001f &&
+        Mathf.Abs(operation.Goal.OffsetPath.Keys.Last().At - shrinkEnd) < .00001f &&
+        (definition.Lifetime <= shrinkEnd || returnOperation != null && returnOperation.Goal.OffsetPath == null && returnOperation.Goal.Arrival == ConstructionFlightArrival.End && Mathf.Abs(returnOperation.At - shrinkEnd) < .00001f),
+        "旧环绕展开为普通目标旁曲线及阈值换向，不改变原寿命");
+}
+
+Entity extendedOrbit = Build(SkillTrajectories.OrbitTarget.id, duration: 2f);
+AbilityDefinition extendedOrbitDefinition = Convert(extendedOrbit, out var extendedDamage);
+var finishOrbit = extendedOrbitDefinition.Steps.Single().Operation;
+Check(extendedOrbitDefinition.Lifetime == 2f && Mathf.Abs(finishOrbit.At - shrinkEnd) < .00001f && finishOrbit.Goal.OffsetPath == null,
+    "合法延长存续的原来源保留完整收缩，在0.2格阈值通过普通定时飞行换向");
+var extendedOrbitCast = Numeric(extendedOrbitDefinition, extendedDamage);
+extendedOrbitCast.Advance(1.1f, new Vector3(100, 75, .3f)); Vector3 beforeSwitchOrbit = Position(extendedOrbitCast);
+extendedOrbitCast.Advance(.03f, new Vector3(100, 75, .3f));
+Check((float)Field(State(extendedOrbitCast), "FlightStartedAt") >= shrinkEnd - .00001f &&
+    Field(Field(State(extendedOrbitCast), "Flight"), "Goal") is object switchedGoal && Field(switchedGoal, "OffsetPath") == null &&
+    Vector3.Distance(Position(extendedOrbitCast), beforeSwitchOrbit) < extendedOrbitDefinition.Root.Operations.Where(item => item.Kind == ConstructionOperationKind.ChangeSpeed).Select(item => item.Speed).DefaultIfEmpty(new Vector3(finishOrbit.Vector[0], finishOrbit.Vector[1], finishOrbit.Vector[2]).magnitude).Max() * .0301f,
+    "收缩换向继续同一剑身的真实位移，不把剑身瞬移到目标");

@@ -40,14 +40,25 @@ public sealed partial class AbilityCast
     private void MovePath(CompiledForm form, ref NodeState state, float seconds, Vector3 target)
     {
         Vector3 centre = state.PathCentre;
-        if (!state.FlightArrived && state.Flight.TurnRate > 0f && state.PathVelocity.sqrMagnitude > 1e-8f && (target - centre).sqrMagnitude > 1e-8f)
-            state.PathVelocity = Vector3.RotateTowards(state.PathVelocity, (target - centre).normalized * state.PathVelocity.magnitude,
-                state.Flight.TurnRate * Mathf.Deg2Rad * seconds, 0f);
-        AdvanceSteering(ref state, state.PathVelocity, seconds);
-        if (state.Flight.Path.DistancePerSecond > 0f)
-            state.PathProgress += CentreDistance(state.PathVelocity, state.Acceleration, seconds) / state.Flight.Path.DistancePerSecond;
-        state.PathCentre += state.PathVelocity * seconds + state.Acceleration * (.5f * seconds * seconds);
-        state.PathVelocity += state.Acceleration * seconds;
+        if (!state.FlightArrived && state.Flight.Goal?.Approach == true)
+        {
+            state.PathCentre = ApproachPoint(ref state, centre, target, seconds, out Vector3 actual);
+            state.PathVelocity = actual;
+            AdvanceSteering(ref state, actual, seconds);
+            if (state.Flight.Path.DistancePerSecond > 0f)
+                state.PathProgress += (double)actual.magnitude * seconds / state.Flight.Path.DistancePerSecond;
+        }
+        else
+        {
+            if (!state.FlightArrived && state.Flight.TurnRate > 0f && state.PathVelocity.sqrMagnitude > 1e-8f && (target - centre).sqrMagnitude > 1e-8f)
+                state.PathVelocity = Vector3.RotateTowards(state.PathVelocity, (target - centre).normalized * state.PathVelocity.magnitude,
+                    state.Flight.TurnRate * Mathf.Deg2Rad * seconds, 0f);
+            AdvanceSteering(ref state, state.PathVelocity, seconds);
+            if (state.Flight.Path.DistancePerSecond > 0f)
+                state.PathProgress += CentreDistance(state.PathVelocity, state.Acceleration, seconds) / state.Flight.Path.DistancePerSecond;
+            state.PathCentre += state.PathVelocity * seconds + state.Acceleration * (.5f * seconds * seconds);
+            state.PathVelocity += state.Acceleration * seconds;
+        }
         state.Flight.Path.Sample(PathTime(in state), out Vector3 after, out Vector3 derivative);
         state.Position = state.PathCentre + PathVector(in state, after);
         state.Velocity = state.PathVelocity + PathVector(in state, derivative) * PathRate(in state);
@@ -83,7 +94,8 @@ public sealed partial class AbilityCast
         float shape = state.PathX.magnitude * bound.x + state.PathY.magnitude * bound.y + state.PathZ.magnitude * bound.z;
         float acceleration = state.Acceleration.magnitude;
         if (path.DistancePerSecond == 0f) return shape + acceleration;
-        float rate = (state.PathVelocity.magnitude + acceleration * seconds) / path.DistancePerSecond;
+        float centreSpeed = Mathf.Max(state.PathVelocity.magnitude, state.Flight.Goal?.Approach == true ? state.ApproachSpeed : 0f);
+        float rate = (centreSpeed + acceleration * seconds) / path.DistancePerSecond;
         if (acceleration == 0f) return shape * rate * rate;
         float span = path.Space == ConstructionPathSpace.TargetLine ? state.PathX.magnitude : 1f;
         return shape * rate * rate + path.SpeedBudget(span) * acceleration / path.DistancePerSecond + acceleration;
@@ -120,8 +132,9 @@ public sealed partial class AbilityCast
     {
         if (!state.Flying || state.Flight.Path == null || state.MovementStopped) return maximum;
         var path = state.Flight.Path;
+        float centreSpeed = Mathf.Max(state.PathVelocity.magnitude, state.Flight.Goal?.Approach == true ? state.ApproachSpeed : 0f);
         float rate = path.DistancePerSecond == 0f ? 1f :
-            (state.PathVelocity.magnitude + state.Acceleration.magnitude * maximum) / path.DistancePerSecond;
+            (centreSpeed + state.Acceleration.magnitude * maximum) / path.DistancePerSecond;
         float step;
         if (path.DistancePerSecond == 0f)
             step = Mathf.Min(maximum, path.UntilBoundary(Age, state.FlightStartedAt));

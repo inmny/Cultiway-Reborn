@@ -29,6 +29,22 @@ public sealed partial class WindowWanfaConstructionEditor
                         { goal.Follow = false; goal.Arrival = ConstructionFlightArrival.None; }
                     })
                 }).ToArray()));
+        Toggle("FlightApproach", goal.Approach, value => goal.Approach = value);
+        Row("FlightApproachRules", T("FlightApproachHint"));
+        if (goal.Offset == null && goal.OffsetPath == null)
+            ActionRow("AddFlightOffset", T("OffsetPathHint"), () => Change(() =>
+            { goal.Offset = new float[3]; curvePurpose = 2; curveLayer = 0; }));
+        else
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                int axis = i;
+                Number(new[] { "FlightOffsetX", "FlightOffsetY", "FlightOffsetZ" }[i], goal.Offset?[i] ?? 0f,
+                    value => { goal.Offset ??= new float[3]; goal.Offset[axis] = value; });
+            }
+            ActionRow("RemoveFlightOffset", T("OffsetPathHint"), () => Change(() =>
+            { goal.Offset = null; goal.OffsetPath = null; curvePurpose = 0; }));
+        }
         SteeringRows(goal);
         if (goal.Anchor == ConstructionFlightAnchor.Direction)
         {

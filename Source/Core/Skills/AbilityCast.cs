@@ -459,6 +459,7 @@ public sealed partial class AbilityCast
                 Include(Age + Mathf.Max(0f, wave.NextBoundary - wave.Age));
             step = PathStep(form, in state, step);
             step = SteeringStep(in state, step);
+            step = ChasePointStep(in state, step);
             step = FlightGoalStep(in state, target, step);
             if (gathers != null && !state.Free)
             {
@@ -790,6 +791,15 @@ public sealed partial class AbilityCast
             {
                 Vector3 aim = SteeringAim(in state, target, flightStep);
                 if (state.Flying && state.Flight.Path != null) MovePath(form, ref state, flightStep, aim);
+                else if (state.Flying && !state.FlightArrived && state.Flight.Goal?.Approach == true)
+                {
+                    Vector3 before = state.Velocity;
+                    state.Position = ApproachPoint(ref state, state.Position, aim, flightStep, out Vector3 actual);
+                    AdvanceSteering(ref state, actual, flightStep);
+                    state.Velocity = actual;
+                    if (actual.sqrMagnitude > 1e-8f)
+                        state.Rotation = Quaternion.FromToRotation(before.sqrMagnitude > 1e-8f ? before : state.Rotation * Vector3.forward, actual) * state.Rotation;
+                }
                 else
                 {
                     if (state.Flying && !state.FlightArrived && state.Flight.TurnRate > 0f && state.Velocity.sqrMagnitude > 1e-8f &&
@@ -1350,6 +1360,8 @@ public sealed partial class AbilityCast
         ref NodeState state = ref nodes[node];
         Vector3 previousVelocity = state.Velocity;
         state.Velocity = surfaceVelocity + Vector3.Reflect(state.Velocity - surfaceVelocity, normal);
+        if (state.Flight?.Goal?.Approach == true)
+            state.ApproachSpeed = (surfaceVelocity + Vector3.Reflect(state.FlightDirection * state.ApproachSpeed - surfaceVelocity, normal)).magnitude;
         state.FlightDirection = Vector3.Reflect(state.FlightDirection, normal);
         if (state.Flight?.Goal?.Anchor == ConstructionFlightAnchor.Direction)
             state.FlightTarget = Vector3.Reflect(state.FlightTarget, normal);
@@ -1700,6 +1712,8 @@ public sealed partial class AbilityCast
 
         /// <summary>调速归零前的实际飞行方向，恢复速度时沿用，不借用模型朝向。</summary>
         internal Vector3 FlightDirection;
+        /// <summary>限速接近保留的巡航速度，到点静止不丢失再次跟随能力。</summary>
+        internal float ApproachSpeed;
 
         /// <summary>脱落后的朝向。</summary>
         internal Quaternion Rotation;

@@ -22,6 +22,38 @@ public static class ConstructionPathCurves
     public static ConstructionPath Spiral(float seconds, float period, Vector3 first, Vector3 second,
         float decay = 0f, float phase = 0f) => Harmonic(seconds, period, first, second, decay, phase);
 
+    /// <summary>半径按时间线性收缩的普通盘旋曲线，只展开完整有限行程，仍可逐点修改。</summary>
+    /// <param name="seconds">收缩行程的完整世界秒数。</param><param name="period">旋转一周的世界秒数。</param>
+    /// <param name="first">正弦方向与初始半径。</param><param name="second">余弦方向与初始半径。</param>
+    /// <param name="shrink">每秒减少的初始半径比例。</param><param name="phase">初始相位，单位为弧度。</param>
+    public static ConstructionPath ContractingSpiral(float seconds, float period, Vector3 first, Vector3 second, float shrink, float phase = 0f)
+    {
+        Check(seconds, first); Check(period, second);
+        if (!Finite(shrink) || shrink < 0f || shrink * seconds > 1.000001f || !Finite(phase))
+            throw new InvalidDataException("线性收缩率须非负，行程不能越过零半径，相位须有限");
+        double count = Math.Ceiling((double)seconds / period * 16d);
+        if (count > 64d) throw new InvalidDataException("收缩盘旋超过64曲段，请延长周期或缩短行程");
+        int segments = Math.Max(16, (int)count);
+        if (seconds / segments < .001f) throw new InvalidDataException("曲线关键点相邻至少需要0.001秒");
+        float omega = Mathf.PI * 2f / period;
+        Vector3 origin = first * Mathf.Sin(phase) + second * Mathf.Cos(phase);
+        var keys = new ConstructionPathKey[segments + 1];
+        for (int i = 0; i <= segments; i++)
+        {
+            float at = seconds * i / segments, angle = omega * at + phase, radius = Mathf.Max(0f, 1f - shrink * at);
+            Vector3 harmonic = first * Mathf.Sin(angle) + second * Mathf.Cos(angle);
+            Vector3 tangent = (first * Mathf.Cos(angle) - second * Mathf.Sin(angle)) * (omega * radius) - harmonic * shrink;
+            float left = i == 0 ? 0f : at - keys[i - 1].At;
+            float right = i == segments ? 0f : seconds * (i + 1) / segments - at;
+            keys[i] = new ConstructionPathKey
+            {
+                At = at, Point = i == 0 ? new float[3] : Array(harmonic * radius - origin),
+                In = Array(-tangent * (left / 3f)), Out = Array(tangent * (right / 3f))
+            };
+        }
+        return new ConstructionPath { Forward = null, Keys = keys };
+    }
+
     /// <summary>半径脉动的盘旋，展开成三条不同周期的普通曲线，不展开完整合成周期。</summary>
     /// <param name="period">旋转一周的进度。</param><param name="pulsePeriod">半径脉动一周的进度。</param>
     /// <param name="first">正弦方向及半径。</param><param name="second">余弦方向及半径。</param>

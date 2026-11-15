@@ -1,0 +1,58 @@
+// B7：现有窗口编辑追逐点，其他曲线和原输入仍各自独立。
+var editableChase = ConstructionEditing.Copy(mixedChase); editableChase.Name = "目标旁环绕";
+ConstructedAbilityService.Register(editableChase);
+WindowWanfaConstructionEditor.Open(editableChase.Id, source); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+var chaseEditor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+try
+{
+    string TChase(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+    void ClickChase(string key)
+    {
+        Button button = chaseEditor.GetComponentsInChildren<Button>(false).FirstOrDefault(item => item.name == key);
+        if (button == null) button = chaseEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(row => ((Text)Field(row, "_title")).text == TChase(key))
+            .transform.Find("Header/Action").GetComponent<Button>();
+        button.onClick.Invoke();
+    }
+    ConstructionEditSession ChaseSession() => (ConstructionEditSession)Field(chaseEditor, "session");
+    void ChooseChase(string key, string label)
+    {
+        ClickChase(key);
+        Resources.FindObjectsOfTypeAll<Button>().First(button => button.gameObject.activeInHierarchy && button.interactable &&
+            button.GetComponentsInChildren<Text>().Any(text => text.text == label)).onClick.Invoke();
+    }
+    void SetChaseNumber(string name, string value)
+    {
+        InputField field = chaseEditor.GetComponentsInChildren<InputField>(false).Last(input => input.name == name && input.interactable);
+        field.text = value; field.onEndEdit.Invoke(value);
+    }
+    async Task ShotChase(string name)
+    {
+        World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+        var pane = chaseEditor.GetComponentsInChildren<ScrollRect>(false).First(scroll => scroll.name == "Parameters");
+        var row = chaseEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(item => ((Text)Field(item, "_title")).text == TChase("CurvePurpose"));
+        Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(pane.content, row.transform);
+        pane.verticalNormalizedPosition = 1f - Mathf.Clamp01((pane.content.rect.yMax - bounds.max.y) / (pane.content.rect.height - pane.viewport.rect.height));
+        await Game.NextFrame(); string shot = Path.Combine(folder, name + ".png"); File.Delete(shot); Screen.Capture(shot); await Game.WaitUntil(() => File.Exists(shot), 600);
+    }
+    ClickChase("Page1");
+    var approachToggle = chaseEditor.GetComponentsInChildren<Toggle>(false).Single(item => item.name == "FlightApproach"); approachToggle.isOn = false;
+    Check(!ChaseSession().Draft.Root.Operations[0].Goal.Approach, "现有窗口可切换普通转向与限速接近");
+    chaseEditor.GetComponentsInChildren<Toggle>(false).Single(item => item.name == "FlightApproach").isOn = true;
+    SetChaseNumber("FlightOffsetZ", ".15"); ChooseChase("CurvePurpose", TChase("CurvePurpose.Offset")); SetChaseNumber("At", "1.2");
+    var flightChase = ChaseSession().Draft.Root.Operations[0];
+    Check((bool)Field(chaseEditor, "valid") && flightChase.Goal.Offset[2] == .15f && flightChase.Goal.OffsetPath.Keys.Last().At == 1.2f &&
+        flightChase.Path.Keys.Last().At == mixedChase.Root.Operations[0].Path.Keys.Last().At,
+        "地图追逐点三轴及曲线可独立修改，不覆盖实际位置路径");
+    SetChaseNumber("At", "-1"); Check(!(bool)Field(chaseEditor, "valid"), "实际窗口拒绝追逐点曲线的非法时点"); ClickChase("Undo");
+    ChooseChase("CurvePurpose", TChase("CurvePurpose.Steering")); ClickChase("AddSteeringPath");
+    Check(!chaseEditor.GetComponentsInChildren<InputField>(false).Any(field => field.name == "Z") && ChaseSession().Draft.Root.Operations[0].Goal.OffsetPath.Keys.Last().At == 1.2f,
+        "共用曲线选择仍保留方向两轴规则，追逐点资料独立");
+    ChooseChase("CurvePurpose", TChase("CurvePurpose.Offset"));
+    await ShotChase("chase-cz"); LocalizedTextManager.instance.setLanguage("en"); ClickChase("Page1"); await ShotChase("chase-en");
+    LocalizedTextManager.instance.setLanguage("cz"); ClickChase("Page1"); ClickChase("LearnCopy");
+    var savedChase = ConstructionEditing.Access.Read(ChaseSession().SourceId).Root.Operations[0];
+    Check(ConstructedAbilityService.Knows(owner, ChaseSession().SourceId) && savedChase.Goal.Approach && savedChase.Goal.Offset[2] == .15f &&
+        savedChase.Goal.OffsetPath.Keys.Last().At == 1.2f && savedChase.Path != null && savedChase.Goal.Steering.Path != null,
+        "正式保存学习保留接近方式、三轴偏移及三种独立曲线");
+}
+finally { LocalizedTextManager.instance.setLanguage("cz"); typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(chaseEditor, null); }

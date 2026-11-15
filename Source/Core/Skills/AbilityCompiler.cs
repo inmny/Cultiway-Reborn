@@ -239,8 +239,8 @@ public sealed class CompiledAbility
             nodes.Sum(node =>
                 1 + (node.FlowSettings == null ? 0 : node.FlowSettings.Cells * node.FlowSettings.Cells * 4) +
                 node.Resource.Rig.Count + node.Changes.Length +
-                node.EventOperations.Sum(op => 1 + (op.Flight?.Path?.Count ?? 0) + (op.Flight?.Goal?.Steering?.Path?.Count ?? 0) +
-                    (op.Propagation?.MaximumCells ?? 0)) + (node.FlightPath?.Count ?? 0) + (node.Flight?.Goal?.Steering?.Path?.Count ?? 0)) +
+                node.EventOperations.Sum(op => 1 + (op.Flight?.Path?.Count ?? 0) + (op.Flight?.Goal?.Steering?.Path?.Count ?? 0) + (op.Flight?.Goal?.OffsetPath?.Count ?? 0) +
+                    (op.Propagation?.MaximumCells ?? 0)) + (node.FlightPath?.Count ?? 0) + (node.Flight?.Goal?.Steering?.Path?.Count ?? 0) + (node.Flight?.Goal?.OffsetPath?.Count ?? 0)) +
             (body == null ? 0 : 1));
         NeedsPathTarget = nodes.Any(node =>
             node.FlightPath?.Space == ConstructionPathSpace.TargetLine ||
