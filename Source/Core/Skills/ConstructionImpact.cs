@@ -174,7 +174,7 @@ public sealed class CompiledConstructionImpact
         WorldEffects = effects == null || effects.Length == 0
             ? Array.Empty<CompiledConstructionWorldEffect>()
             : Array.AsReadOnly(effects);
-        if (source?.Statuses?.Length > 8) throw new InvalidDataException(path + "：每个作用面最多声明八种属性状态");
+        if (source?.Statuses?.Length > 16) throw new InvalidDataException(path + "：每个作用面最多声明十六种属性状态");
         Statuses = source?.Statuses == null ? Array.Empty<CompiledConstructionStatus>() :
             Array.AsReadOnly(source.Statuses.Select((status, index) => new CompiledConstructionStatus(status, path + "/Statuses/" + index)).ToArray());
         SelectedTargetOnly = source?.SelectedTargetOnly == true;

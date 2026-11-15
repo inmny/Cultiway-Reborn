@@ -1039,7 +1039,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     float fixedValue = effect.Stats != null && effect.Stats.TryGetValue(pair.Key, out float value) ? value : 0f;
                     stats[pair.Key] = fixedValue + Mathf.Max(0f, target.stats[pair.Key]) * pair.Value;
                 }
-                if (!stats.hasStats() && !stats.hasTags()) continue;
+                // 空属性不能吞掉同一声明的周期作用；明确刷新还需能清除原来的值。
+                if (!stats.hasStats() && !stats.hasTags() && effect.Tick == null &&
+                    (effect.Application != ConstructionStatusApplication.Refresh ||
+                     !CombatStatusEffects.TryGetStatus(target, effect.Asset, null, out _))) continue;
             }
             if (effect.Application == ConstructionStatusApplication.Strongest)
             {

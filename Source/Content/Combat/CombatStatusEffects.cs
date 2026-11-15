@@ -217,14 +217,14 @@ public static class CombatStatusEffects
         float sourcePowerLevel, ConstructionStatusApplication application, BaseStats stats) =>
         ApplyContactStatusValues(target, effect, duration, source, sourcePowerLevel, application, stats);
 
-    /// <summary>普通接触声明复用共享合并和周期，不新建运行容器。</summary>
+    /// <summary>普通接触声明复用共享合并和周期；省略周期时恢复模板的零周期量，不遗留前次值。</summary>
     /// <param name="target">真实目标。</param><param name="effect">已经编译的状态。</param>
     /// <param name="source">本次真实来源。</param><param name="sourcePowerLevel">固定来源境界。</param>
     /// <param name="stats">本次已计算的属性。</param><param name="tickValue">按真实余力计算的每秒量。</param>
     internal static Entity ApplyStatusDeclaration(Actor target, CompiledConstructionStatus effect, Actor source,
         float sourcePowerLevel, BaseStats stats, float tickValue) =>
         ApplyContactStatusValues(target, effect.Asset, effect.Duration, source, sourcePowerLevel, effect.Application, stats,
-            effect.StackLimit, effect.Tick == null ? null : tickValue, effect.Tick?.Element ?? default);
+            effect.StackLimit, effect.Tick != null || effect.Asset.SupportsTickValue ? tickValue : null, effect.Tick?.Element ?? default);
 
     /// <summary>统一配置来源、属性及可选周期值；叠加只改变已有状态的选择规则。</summary>
     /// <param name="target">真实目标。</param><param name="effect">共享状态。</param><param name="duration">未过抗性的时长。</param>

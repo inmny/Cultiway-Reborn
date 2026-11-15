@@ -1373,3 +1373,13 @@ python3 Scripts/SpellDemos/verify_contact_ticks.py
 复用现有世界和人物。资料段检查七条攻击转换、爆发和零伤害推力面，核对效果及人物倍率只换算一次。实机只用一个灵弹验证周期掉血、燃烧刷新、同源毒层上限、不同来源分别计数、原费用及到期停伤，再用一个领域验证间隔接触。收尾检查失败退款恢复、抗性时长，并定量消耗本体后核对每秒量随余力变化，不扩大身体装备矩阵。
 
 `--section definitions/runtime/recovery`可只跑受影响段；`recovery`含边界失败恢复、抗性和余力。证据存入`artifacts/skill_rebuild/trajectories/contact-ticks/`及同名分段目录。完整编辑、创作、正式冷启动与集中录像继续5.05 C。
+
+
+```bash
+# 5.05 B35：永恒诅咒的周期与属性组合、刷新及自然恢复
+python3 Scripts/SpellDemos/verify_compound_curse.py
+```
+
+沿用独立游戏、既有世界和人物。资料段快速核对七条攻击转换、爆发和零伤害推力面的声明，原九种接触状态一起保存编译，以及十六项的有限上限。实机只用一个已学灵弹检查周期与削弱同时生效、切换单类作用时清除旧值、原费用、侧外安全和自然恢复；同一人物的真实零移动倍率与普通组合只核对周期不被吞掉。一个领域验证间隔刷新，共用一次边界失败退款恢复及抗性时长，不扩大身体装备矩阵。
+
+`--section definitions/runtime/edge/common`可只跑受影响段。输入、来源定义、实际发射及结果存入`artifacts/skill_rebuild/trajectories/compound-curse/`及相应分段目录。完整编辑、创作、正式冷启动和集中录像继续5.05 C。

@@ -18,7 +18,7 @@ internal static class ContactStatusMigration
     /// <param name="type">原容器中的词条类型。</param>
     internal static bool Supports(Type type) => type == typeof(SlowModifier) || type == typeof(FreezeModifier) || type == typeof(DazeModifier) ||
         type == typeof(WeakenModifier) || type == typeof(ArmorBreakModifier) || type == typeof(SilenceModifier) ||
-        type == typeof(BurnModifier) || type == typeof(PoisonModifier);
+        type == typeof(BurnModifier) || type == typeof(PoisonModifier) || type == typeof(EternalCurseModifier);
 
     /// <summary>核对真实接触回调全部来自已映射词条，额外回调继续原入口。</summary>
     /// <param name="skill">实际原容器。</param>
@@ -80,6 +80,25 @@ internal static class ContactStatusMigration
         if (skill.TryGetComponent(out PoisonModifier poison))
             AddTick(statuses, StatusEffects.Poison.id, poison.Duration, Mathf.Clamp01(poison.DamageRatio) * tickForceScale,
                 Core.ElementComposition.Static.Poison, Mathf.Clamp(poison.MaxStacks, 1, 99));
+        if (skill.TryGetComponent(out EternalCurseModifier curse))
+        {
+            float duration = Mathf.Clamp(curse.Duration, 0f, 999f);
+            if (duration > 0f)
+            {
+                float reduction = Mathf.Clamp01(curse.DebuffRatio * effectScale);
+                float damageRatio = Mathf.Clamp(curse.DamageRatio, 0f, 20f) * tickForceScale;
+                statuses.Add(new ConstructionStatus
+                {
+                    Id = StatusEffects.EternalCurse.id, Duration = duration, Application = ConstructionStatusApplication.Refresh,
+                    TargetStatRatios = reduction > 0f ? new Dictionary<string, float> { [S.damage] = -reduction, [S.armor] = -reduction } : null,
+                    Tick = damageRatio > 0f ? new ConstructionStatusTick
+                    {
+                        ForcePerSecond = damageRatio / duration,
+                        Element = new Core.ElementComposition(neg: .5f, entropy: .5f)
+                    } : null
+                });
+            }
+        }
         if (statuses.Count > 0) BindNode(definition.Root, statuses.ToArray(), includeRoot);
         return definition;
     }
