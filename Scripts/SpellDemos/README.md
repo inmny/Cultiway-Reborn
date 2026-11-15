@@ -1306,3 +1306,10 @@ python3 Scripts/SpellDemos/verify_projectiles.py
 七种原已学来源分别检查自身普通/强化资料、实际主体、默认追踪/直射/抛弧、首次100伤害后结束及一次支付。强化连发、受灵材料修正影响的一次原灵光束对照、一次直射改追踪和受理失败退款恢复用共享段验证，不重新跑飞剑所有轨迹。另仅核对地刺与土墙的土材料转换及一次地刺真实土系伤害。加`--section sources`、`--section common`或`--section soil`分别只运行对应段，结果独立写入`artifacts/skill_rebuild/trajectories/projectiles/<分段>/`；不带参数写入该目录根。完整编辑、自主创作、正式冷启动和集中连续录像继续5.05 C。
 
 `--section polarity-visuals`仅补拍阴弹、阳弹的模型朝向，不重跑已通过的伤害、词条或费用流程；结果和两张图保存在`projectiles/polarity-visuals/`，原行为证据保留在根目录。
+
+
+## 五种原刃波的接入验证
+
+`python3 Scripts/SpellDemos/verify_blades.py`复用现成世界和原已学入口，验证剑气、风刃、水刃、火刃、阴刃的独立主体、真实前后扫敌、每人一次、0.9人物倍率与本体量分离、逐发费用和结束。共用部分只验一次强化两发、改追踪、失败退款与恢复，以及受影响的原飞剑对照。
+
+`--section sources`只运行五种来源，`--section common`只运行共用部分，`--section visuals`只补拍五种主体及结束，不重复整套伤害检查。输入、转换资料、实际发射、主体图及结果写入`artifacts/skill_rebuild/trajectories/blades/`，分段运行写入同名子目录。完整连续录像仍集中到5.05 C，不以本入口替代。

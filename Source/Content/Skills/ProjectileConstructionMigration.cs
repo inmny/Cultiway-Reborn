@@ -17,7 +17,7 @@ using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>飞剑、贯穿及普通投射共用真实旧来源转换；发射后只保留普通构造，不建立旧执行实体。</summary>
+/// <summary>飞剑、贯穿、刃形波及普通投射共用真实旧来源转换；发射后只保留普通构造，不建立旧执行实体。</summary>
 internal static class ProjectileConstructionMigration
 {
     /// <summary>本批已经逐项转换的词条，其他附加作用继续原入口并保持待迁移。</summary>
@@ -44,7 +44,12 @@ internal static class ProjectileConstructionMigration
         asset == SkillEntities.RockProjectile ? ("rock_projectile", "earth", "solid") :
         asset == SkillEntities.YinBolt ? ("yin_bolt", "yin", "energy") :
         asset == SkillEntities.YangBolt ? ("yang_bolt", "yang", "energy") :
-        asset == SkillEntities.IceShard ? ("ice_shard", "ice", "solid") : default;
+        asset == SkillEntities.IceShard ? ("ice_shard", "ice", "solid") :
+        asset == SkillEntities.SwordQi ? ("sword_qi", "iron", "solid") :
+        asset == SkillEntities.WindBlade ? ("wind_blade", "wind", "energy") :
+        asset == SkillEntities.WaterBlade ? ("water_blade", "water", "liquid") :
+        asset == SkillEntities.FireBlade ? ("fire_blade", "fire", "energy") :
+        asset == SkillEntities.YinBlade ? ("yin_blade", "yin", "energy") : default;
 
     /// <summary>检查完整能力后只接管一次；真实受理失败不再落回旧发射。</summary>
     /// <param name="emission">原来源已经确定并到达时点的逐发步骤。</param>
@@ -77,7 +82,8 @@ internal static class ProjectileConstructionMigration
         Entity skill = emission.SkillContainer; var container = skill.GetComponent<SkillContainer>();
         var sourceForm = SourceForm(container.Asset);
         if (sourceForm.Form == null) return null;
-        bool piercing = container.Asset.ImpactProfile.Kind == Core.SkillLibV3.Impacts.SkillImpactKind.Piercing;
+        bool continues = container.Asset.ImpactProfile.ContinueAfterHit;
+        bool once = container.Asset.ImpactProfile.HitOncePerTarget;
         var setup = new List<Delegate>();
         foreach (Type type in skill.GetComponentTypes())
         {
@@ -283,8 +289,8 @@ internal static class ProjectileConstructionMigration
         if (skill.TryGetComponent(out VolleyModifier volley)) strength *= Mathf.Clamp(volley.DamageMultiplier, .05f, 2f);
         if (skill.TryGetComponent(out ComboModifier combo)) strength *= Mathf.Clamp(combo.DamageMultiplier, .05f, 2f);
         float damageMultiplier = container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier;
-        // 防御量保留实际本体强度，贯穿伤害倍率单独交给人物作用；命中不会凭空消耗本体。
-        if (!piercing) strength *= damageMultiplier;
+        // 防御量保留实际本体强度，持续投射的伤害倍率单独交给人物作用；命中不会凭空消耗本体。
+        if (!continues) strength *= damageMultiplier;
         damage = new GetHitEvent { Damage = strength, Element = container.Asset.Element, AttackType = AttackType.Other,
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin };
         damage.BindAttacker(emission.Source);
@@ -304,9 +310,9 @@ internal static class ProjectileConstructionMigration
             {
                 Id = container.Asset == SkillEntities.FlyingSword ? "sword" : "projectile", Form = sourceForm.Form, Matter = sourceForm.Matter, State = sourceForm.State,
                 Scale = scale, Rotation = XYZ(facing.eulerAngles), Offset = XYZ(spawnOffset),
-                OnContact = piercing ? ConstructionContactResponse.Continue : ConstructionContactResponse.End,
-                Contact = piercing ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 } : null,
-                Impact = piercing && (!configured || settings.ContactEnabled) ? new ConstructionImpact { DamageScale = damageMultiplier } : null,
+                OnContact = continues ? ConstructionContactResponse.Continue : ConstructionContactResponse.End,
+                Contact = once ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 } : null,
+                Impact = continues && (!configured || settings.ContactEnabled) ? new ConstructionImpact { DamageScale = damageMultiplier } : null,
                 ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
                 Operations = operations.ToArray()
             }

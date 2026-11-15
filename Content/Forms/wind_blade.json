@@ -1,0 +1,510 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_blades.mjs",
+            "Entry": "makeBladeForms",
+            "Parameters": [
+                {
+                    "Id": "span",
+                    "Values": [
+                        3.5
+                    ]
+                },
+                {
+                    "Id": "layers",
+                    "Values": [
+                        3.0
+                    ]
+                },
+                {
+                    "Id": "depth",
+                    "Values": [
+                        0.23999999463558198
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "wind_blade",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wind_blade_front_mid.asset",
+                "Assets/Cultiway/Forms/wind_blade_front_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.edge"
+            ],
+            "Id": "front",
+            "Surface": "wind",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wind_blade_front.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wind_blade_flow_-1_mid.asset",
+                "Assets/Cultiway/Forms/wind_blade_flow_-1_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.edge"
+            ],
+            "Id": "flow_-1",
+            "Surface": "wind",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wind_blade_flow_-1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wind_blade_flow_1_mid.asset",
+                "Assets/Cultiway/Forms/wind_blade_flow_1_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.edge"
+            ],
+            "Id": "flow_1",
+            "Surface": "wind",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wind_blade_flow_1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_0",
+            "Part": 0,
+            "A": [
+                -1.5750000476837159,
+                0.0,
+                -0.08320000022649765
+            ],
+            "B": [
+                -1.3781249523162842,
+                0.0,
+                0.05348749831318855
+            ],
+            "Radius": 0.03691919147968292,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_1",
+            "Part": 0,
+            "A": [
+                -1.3781249523162842,
+                0.0,
+                0.05348749831318855
+            ],
+            "B": [
+                -1.181249976158142,
+                0.0,
+                0.17194999754428864
+            ],
+            "Radius": 0.055945221334695819,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_2",
+            "Part": 0,
+            "A": [
+                -1.181249976158142,
+                0.0,
+                0.17194999754428864
+            ],
+            "B": [
+                -0.984375,
+                0.0,
+                0.2721875011920929
+            ],
+            "Radius": 0.06942868232727051,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_3",
+            "Part": 0,
+            "A": [
+                -0.984375,
+                0.0,
+                0.2721875011920929
+            ],
+            "B": [
+                -0.7875000238418579,
+                0.0,
+                0.35420000553131106
+            ],
+            "Radius": 0.079593725502491,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_4",
+            "Part": 0,
+            "A": [
+                -0.7875000238418579,
+                0.0,
+                0.35420000553131106
+            ],
+            "B": [
+                -0.590624988079071,
+                0.0,
+                0.41798749566078188
+            ],
+            "Radius": 0.08730486035346985,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_5",
+            "Part": 0,
+            "A": [
+                -0.590624988079071,
+                0.0,
+                0.41798749566078188
+            ],
+            "B": [
+                -0.39375001192092898,
+                0.0,
+                0.46355000138282778
+            ],
+            "Radius": 0.09300103783607483,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_6",
+            "Part": 0,
+            "A": [
+                -0.39375001192092898,
+                0.0,
+                0.46355000138282778
+            ],
+            "B": [
+                -0.19687500596046449,
+                0.0,
+                0.49088749289512637
+            ],
+            "Radius": 0.09693099558353424,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_7",
+            "Part": 0,
+            "A": [
+                -0.19687500596046449,
+                0.0,
+                0.49088749289512637
+            ],
+            "B": [
+                0.0,
+                0.0,
+                0.5
+            ],
+            "Radius": 0.09923869371414185,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_8",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.5
+            ],
+            "B": [
+                0.19687500596046449,
+                0.0,
+                0.49088749289512637
+            ],
+            "Radius": 0.09923869371414185,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_9",
+            "Part": 0,
+            "A": [
+                0.19687500596046449,
+                0.0,
+                0.49088749289512637
+            ],
+            "B": [
+                0.39375001192092898,
+                0.0,
+                0.46355000138282778
+            ],
+            "Radius": 0.09693099558353424,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_10",
+            "Part": 0,
+            "A": [
+                0.39375001192092898,
+                0.0,
+                0.46355000138282778
+            ],
+            "B": [
+                0.590624988079071,
+                0.0,
+                0.41798749566078188
+            ],
+            "Radius": 0.09300103783607483,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_11",
+            "Part": 0,
+            "A": [
+                0.590624988079071,
+                0.0,
+                0.41798749566078188
+            ],
+            "B": [
+                0.7875000238418579,
+                0.0,
+                0.35420000553131106
+            ],
+            "Radius": 0.08730486035346985,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_12",
+            "Part": 0,
+            "A": [
+                0.7875000238418579,
+                0.0,
+                0.35420000553131106
+            ],
+            "B": [
+                0.984375,
+                0.0,
+                0.2721875011920929
+            ],
+            "Radius": 0.079593725502491,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_13",
+            "Part": 0,
+            "A": [
+                0.984375,
+                0.0,
+                0.2721875011920929
+            ],
+            "B": [
+                1.181249976158142,
+                0.0,
+                0.17194999754428864
+            ],
+            "Radius": 0.06942868232727051,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_14",
+            "Part": 0,
+            "A": [
+                1.181249976158142,
+                0.0,
+                0.17194999754428864
+            ],
+            "B": [
+                1.3781249523162842,
+                0.0,
+                0.05348749831318855
+            ],
+            "Radius": 0.055945221334695819,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_15",
+            "Part": 0,
+            "A": [
+                1.3781249523162842,
+                0.0,
+                0.05348749831318855
+            ],
+            "B": [
+                1.5750000476837159,
+                0.0,
+                -0.08320000022649765
+            ],
+            "Radius": 0.03691919147968292,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -1.75,
+                -0.20000000298023225,
+                -0.5178509950637817
+            ],
+            "Maximum": [
+                1.75,
+                0.20000000298023225,
+                0.7400000095367432
+            ]
+        }
+    ],
+    "Motions": []
+}

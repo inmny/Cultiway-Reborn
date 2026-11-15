@@ -780,5 +780,10 @@
   "Cultiway.Construction.Form.yin_bolt": "Yin bolt",
   "Cultiway.Construction.Form.yang_bolt": "Yang bolt",
   "Cultiway.Construction.Form.ice_shard": "Ice shard",
-  "Cultiway.Construction.Material.yin.energy": "Yin energy"
+  "Cultiway.Construction.Material.yin.energy": "Yin energy",
+  "Cultiway.Construction.Form.sword_qi": "Sword qi",
+  "Cultiway.Construction.Form.wind_blade": "Wind blade",
+  "Cultiway.Construction.Form.water_blade": "Water blade",
+  "Cultiway.Construction.Form.fire_blade": "Fire blade",
+  "Cultiway.Construction.Form.yin_blade": "Yin blade"
 }

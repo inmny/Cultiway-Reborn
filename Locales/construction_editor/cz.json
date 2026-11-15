@@ -775,5 +775,10 @@
   "Cultiway.Construction.Form.yin_bolt": "阴弹",
   "Cultiway.Construction.Form.yang_bolt": "阳弹",
   "Cultiway.Construction.Form.ice_shard": "冰片",
-  "Cultiway.Construction.Material.yin.energy": "阴质"
+  "Cultiway.Construction.Material.yin.energy": "阴质",
+  "Cultiway.Construction.Form.sword_qi": "剑气",
+  "Cultiway.Construction.Form.wind_blade": "风刃",
+  "Cultiway.Construction.Form.water_blade": "水刃",
+  "Cultiway.Construction.Form.fire_blade": "火刃",
+  "Cultiway.Construction.Form.yin_blade": "阴刃"
 }
