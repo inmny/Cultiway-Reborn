@@ -60,6 +60,9 @@ internal sealed class CompiledFlight
             if (Path != null || Acceleration != Vector3.zero)
                 throw new InvalidDataException(path + "：间隔转移不同时采用连续位置曲线或加速度，可使用方向曲线和调速");
         }
+        if (Goal?.DirectArrival == true && Goal.Arrival == ConstructionFlightArrival.Continue &&
+            (Path != null || Acceleration != Vector3.zero))
+            throw new InvalidDataException(path + "：直达后继续采用中心飞行，不同时叠加位置曲线或加速度");
         if (Goal?.Approach == true && Acceleration != Vector3.zero)
             throw new InvalidDataException(path + "：限速接近通过速度调整改变快慢，不与向量加速度混用");
     }

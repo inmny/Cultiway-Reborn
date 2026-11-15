@@ -93,3 +93,6 @@ Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官�
 
 
 `forms_impacts.mjs`制作火球、雷球、混沌球、炎陨、落石、落木、落雷、冰落八种主体和六种对应材料爆发。主体均为有厚度的封闭几何；爆发包含封闭中心及自身厚瓣/碎片，实际作用芯半径0.9，由普通构造缩放到原2/2.5格半径。主体声明地下遮挡，前向Z、上向Y，不通过贴图烟雾补主体。普通根部以零人物倍率确认飞行接触，结束后真实余力进入`burst`子部位；子部位在来源结束事件停止，作用窗口0.025秒，收势0.22秒。复现入口为`python3 Scripts/SpellDemos/verify_impacts.py`，最后质感继续9.02，完整编辑创作、正式冷启动和集中录像继续5.05 C。
+
+
+`forms_ground_waves.mjs`制作原地面推进的`earth_ridge`、`tidal_wave`、`creeping_vine`。土脊由稳定石床与错落封闭石锋组成；潮浪沿连续厚水曲面前翻；灵藤由共根的三条低伏厚根组成。普通`travel`动作的骨架同时驱动网格和接触，实际底部由共用地面投送承托。原0.9秒寿命、0.8人物倍率及逐人一次在普通构造保留；到达目标后持续前行。运行`python3 Scripts/SpellDemos/verify_ground_waves.py`复现；`--section sources/common/visuals`可定向续验，完整编辑创作、正式冷启动与集中录像继续5.05 C，最终质感继续9.02。

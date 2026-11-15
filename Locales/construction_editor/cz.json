@@ -736,7 +736,7 @@
   "Cultiway.Construction.ActivationFlightDistanceThreshold": "起点距离（格）",
   "Cultiway.Construction.FlightDirectArrival": "最后一步可达时直达",
   "Cultiway.Construction.FlightDirectArrivalRules": "最后一步",
-  "Cultiway.Construction.FlightDirectArrivalHint": "之前仍遵守转速；本步路程足够时沿真实线段到达实际目标并停止或结束。",
+  "Cultiway.Construction.FlightDirectArrivalHint": "之前仍遵守转速；本步路程足够时沿真实线段到达实际目标，随后停止、结束或沿抵达方向继续。直达后继续使用中心飞行，不叠加位置曲线或加速度。",
   "Cultiway.Construction.MotionFlightDistanceThreshold": "起点距离（格）",
   "Cultiway.Construction.FlightTransfer": "间隔转移",
   "Cultiway.Construction.FlightTransferRules": "转移规则",
@@ -795,5 +795,8 @@
   "Cultiway.Construction.Form.entropy_burst": "混沌迸发",
   "Cultiway.Construction.Form.earth_burst": "碎岩爆发",
   "Cultiway.Construction.Form.wood_burst": "崩木爆发",
-  "Cultiway.Construction.Form.ice_burst": "冰晶爆发"
+  "Cultiway.Construction.Form.ice_burst": "冰晶爆发",
+  "Cultiway.Construction.Form.earth_ridge": "推进土脊",
+  "Cultiway.Construction.Form.tidal_wave": "推进潮浪",
+  "Cultiway.Construction.Form.creeping_vine": "低伏灵藤"
 }

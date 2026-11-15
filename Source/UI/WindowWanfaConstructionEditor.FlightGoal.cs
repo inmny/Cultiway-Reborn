@@ -76,10 +76,10 @@ public sealed partial class WindowWanfaConstructionEditor
                     Select = () => Change(() =>
                     {
                         goal.Arrival = arrival;
-                        if (arrival is not (ConstructionFlightArrival.Stop or ConstructionFlightArrival.End)) goal.DirectArrival = false;
+                        if (arrival is not (ConstructionFlightArrival.Continue or ConstructionFlightArrival.Stop or ConstructionFlightArrival.End)) goal.DirectArrival = false;
                     })
                 }).ToArray()));
-        if (goal.Arrival is ConstructionFlightArrival.Stop or ConstructionFlightArrival.End)
+        if (goal.Arrival is ConstructionFlightArrival.Continue or ConstructionFlightArrival.Stop or ConstructionFlightArrival.End)
         {
             Toggle("FlightDirectArrival", goal.DirectArrival, value => goal.DirectArrival = value);
             Row("FlightDirectArrivalRules", T("FlightDirectArrivalHint"));

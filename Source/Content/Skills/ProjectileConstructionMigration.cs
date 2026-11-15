@@ -17,7 +17,7 @@ using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>飞剑、贯穿、刃形波、范围爆发及普通投射共用真实旧来源转换；发射后只保留普通构造，不建立旧执行实体。</summary>
+/// <summary>飞剑、贯穿、刃形波、范围爆发、地面推进及普通投射共用真实旧来源转换；发射后只保留普通构造，不建立旧执行实体。</summary>
 internal static class ProjectileConstructionMigration
 {
     /// <summary>本批已经逐项转换的词条，其他附加作用继续原入口并保持待迁移。</summary>
@@ -57,7 +57,10 @@ internal static class ProjectileConstructionMigration
         asset == SkillEntities.FallingRock ? ("falling_rock", "earth", "solid") :
         asset == SkillEntities.FallingTimber ? ("falling_timber", "wood", "solid") :
         asset == SkillEntities.LightningStrike ? ("lightning_strike", "lightning", "energy") :
-        asset == SkillEntities.Icefall ? ("icefall", "ice", "solid") : default;
+        asset == SkillEntities.Icefall ? ("icefall", "ice", "solid") :
+        asset == SkillEntities.EarthRidge ? ("earth_ridge", "earth", "solid") :
+        asset == SkillEntities.TidalWave ? ("tidal_wave", "water", "liquid") :
+        asset == SkillEntities.SpiritVine ? ("creeping_vine", "wood", "solid") : default;
 
     /// <summary>检查完整能力后只接管一次；真实受理失败不再落回旧发射。</summary>
     /// <param name="emission">原来源已经确定并到达时点的逐发步骤。</param>
@@ -167,7 +170,11 @@ internal static class ProjectileConstructionMigration
             Arrival = towardsDirection || boomerang ? ConstructionFlightArrival.None : ConstructionFlightArrival.End,
             Radius = .01f, Approach = orbit
         };
-        if (ground) goal.DirectArrival = true;
+        if (ground)
+        {
+            goal.DirectArrival = true;
+            goal.Arrival = continues ? ConstructionFlightArrival.Continue : ConstructionFlightArrival.End;
+        }
         if (snap) goal.Arrival = ConstructionFlightArrival.Stop;
         if (falling)
         {
@@ -262,6 +269,9 @@ internal static class ProjectileConstructionMigration
                 Ground = descent ? ConstructionGroundResponse.End : ground ? ConstructionGroundResponse.Follow : ConstructionGroundResponse.Ignore
             }
         };
+        // 地面推进的自身动作与投送分开，改成其他轨迹仍保留主体及其真实接触变形。
+        if (sourceForm.Form is "earth_ridge" or "tidal_wave" or "creeping_vine")
+            operations.Add(new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "travel", Seconds = lifetime });
         // 起步曲线使用八个确定时点，调整速度不重新开始飞行，也不重置目标和接触记录。
         if (!descent && ramp > .001f)
             for (int i = 1; i <= 8; i++)

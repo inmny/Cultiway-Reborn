@@ -1323,3 +1323,13 @@ python3 Scripts/SpellDemos/verify_impacts.py
 八种原已学来源分别验证自身普通/强化资料、飞行与爆发主体、实际接触后范围伤害、一次费用及结束清理；本体强度与人物倍率分开，首次接触者仍可接受一次爆发。共享部分只运行强化两发、出手后追踪移动目标、部分交锋后的余力、寿命耗尽、取消、受理失败退款恢复以及默认接触组规则。编辑器仅验证本次新增的新接触组选项、关闭继承时清理、撤销及保存重开，并保留中英界面图。
 
 加`--section sources`、`--section common`、`--section lifecycle`、`--section ui`分别只运行对应段，`--section visuals`只补拍飞行和爆发主体。证据在`artifacts/skill_rebuild/trajectories/impacts/`，分段运行写入同名子目录；失败原始输入另留，不用后一次通过覆盖失败事实。正式存档冷启动、完整编辑、自主创作和集中连续录像继续5.05 C。
+
+
+```bash
+# 5.05 B30：土脊、潮浪和灵藤的原来源、真实贴地及越过目标扫敌
+python3 Scripts/SpellDemos/verify_ground_waves.py
+```
+
+复用现有独立游戏、世界和人物。三种来源分别核对普通/强化资料、实际材料、前后动作、显示与接触的同一姿态、实际底部贴地、前后和偏轴敌人每人一次、侧外安全及一次费用。共享部分只检查强化费用与原地面波单发预算、出手后追踪移动目标、关闭人物作用，以及一个受理失败退款和恢复。加`--section sources`、`--section common`或`--section visuals`只运行对应段；证据独立写入`artifacts/skill_rebuild/trajectories/ground-waves/`及其分段子目录。最终质感继续9.02；正式冷启动、完整编辑创作和集中连续录像继续5.05 C。
+
+B30的后方与侧外人物按原地面摇摆的真实离开方向放置，分别位于前方2格/偏轴0.35格、前方2格/偏轴3.5格；不假定摇摆后仍沿原始直线前进。`common`同时覆盖共同直达后继续的无效混用拒绝及现有中英字段开关。最终证据索引为`artifacts/skill_rebuild/trajectories/ground-waves/delivery.json`。

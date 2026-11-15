@@ -49,8 +49,14 @@ public sealed partial class AbilityCast
         CompiledFlightGoal goal = state.Flight?.Goal;
         if (!state.Free || !state.Flying || state.MovementStopped || state.FlightArrived || goal == null ||
             goal.Arrival == ConstructionFlightArrival.None || state.Flight.Transfer != null) return maximum;
-        if (goal.DirectArrival) return maximum;
         float minimum = Mathf.Max(.000001f, Age * .0000001f);
+        if (goal.DirectArrival)
+        {
+            if (goal.Arrival != ConstructionFlightArrival.Continue || state.Velocity.sqrMagnitude < 1e-8f) return maximum;
+            // 抵达时点单独收步，余下时间沿抵达方向继续，不吞掉路程或绕目标盘旋。
+            return Mathf.Min(maximum, Mathf.Max(minimum,
+                Vector3.Distance(state.Position, FlightAim(in state, target)) / state.Velocity.magnitude));
+        }
         float distance = Vector3.Distance(state.Position, FlightAim(in state, target)) - goal.Radius;
         if (distance <= FlightGoalPrecision(in state)) return Mathf.Min(maximum, minimum);
         float acceleration = (state.Flight.Path == null ? state.Acceleration.magnitude : PathAcceleration(in state, maximum)) + state.Flight.TurnRate * Mathf.Deg2Rad *
@@ -71,13 +77,22 @@ public sealed partial class AbilityCast
     /// <summary>只在最后一步可达时沿真实线段到达，姿态和速度交给原接触流程继续采样。</summary>
     /// <param name="state">当前真实状态。</param><param name="target">真实到达点，不采用方向或旁侧偏移。</param>
     /// <param name="seconds">本步实际时长。</param>
-    private static bool FinishDirectFlight(ref NodeState state, Vector3 target, float seconds)
+    private bool FinishDirectFlight(ref NodeState state, Vector3 target, float seconds)
     {
         if (!state.Flying || state.FlightArrived || state.Flight.Goal?.DirectArrival != true || seconds <= 0f) return false;
         Vector3 delta = target - state.Position;
-        if (delta.magnitude > state.Velocity.magnitude * seconds) return false;
+        bool continues = state.Flight.Goal.Arrival == ConstructionFlightArrival.Continue;
+        float precision = continues ? FlightGoalPrecision(in state) : 0f;
+        if (delta.magnitude > state.Velocity.magnitude * seconds + precision) return false;
         Vector3 before = state.Velocity;
-        state.Velocity = delta / seconds;
+        state.Velocity = continues
+            ? (delta.sqrMagnitude > 1e-8f ? delta.normalized * before.magnitude : before)
+            : delta / seconds;
+        if (continues)
+        {
+            AdvanceSteering(ref state, state.Velocity, seconds);
+            state.FlightArrived = true;
+        }
         if (delta.sqrMagnitude > 1e-8f)
             state.Rotation = Quaternion.FromToRotation(before.sqrMagnitude > 1e-8f ? before : state.Rotation * Vector3.forward, delta) * state.Rotation;
         state.Position = target;

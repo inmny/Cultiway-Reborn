@@ -741,7 +741,7 @@
   "Cultiway.Construction.ActivationFlightDistanceThreshold": "Distance from start (tiles)",
   "Cultiway.Construction.FlightDirectArrival": "Finish directly when reachable",
   "Cultiway.Construction.FlightDirectArrivalRules": "Final step",
-  "Cultiway.Construction.FlightDirectArrivalHint": "Keep the turn rate until the actual goal is reachable this step, then travel the last segment and stop or end.",
+  "Cultiway.Construction.FlightDirectArrivalHint": "Keep the turn rate until the actual goal is reachable, then travel the final segment and stop, end, or continue in the arrival direction. Direct continuation uses centre flight without a position curve or acceleration.",
   "Cultiway.Construction.MotionFlightDistanceThreshold": "Distance from start (tiles)",
   "Cultiway.Construction.FlightTransfer": "Move in intervals",
   "Cultiway.Construction.FlightTransferRules": "Transfer rules",
@@ -800,5 +800,8 @@
   "Cultiway.Construction.Form.entropy_burst": "Entropy burst",
   "Cultiway.Construction.Form.earth_burst": "Rock burst",
   "Cultiway.Construction.Form.wood_burst": "Timber burst",
-  "Cultiway.Construction.Form.ice_burst": "Ice burst"
+  "Cultiway.Construction.Form.ice_burst": "Ice burst",
+  "Cultiway.Construction.Form.earth_ridge": "Crawling earth ridge",
+  "Cultiway.Construction.Form.tidal_wave": "Crawling tidal wave",
+  "Cultiway.Construction.Form.creeping_vine": "Creeping spirit vine"
 }
