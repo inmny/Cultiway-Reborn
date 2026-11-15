@@ -66,3 +66,6 @@ Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官�
 
 
 `forms_solid_walls.mjs`分别制作`ice_wall`与`wood_wall`：前者为相接的封闭晶柱及错落尖冠，后者为粗根干及交错厚盘根，不使用土墙换色。各自地表控制、网格及实际作用共用姿态，材料分别为`ice/solid`和`wood/solid`。运行`python3 Scripts/SpellDemos/verify_wall_migration.py --section solid-walls`检查两种原已学来源、支付、真实墙面、容量及结束恢复，结果独立写入`artifacts/skill_rebuild/trajectories/solid-walls/`，不覆盖B21证据。火墙、风墙、剑幕的附加接触作用及护盾继续各自迁移。
+
+
+`forms_contact_walls.mjs`制作`fire_wall`、`wind_wall`与`sword_curtain`：厚火舌、五层宽流面和十五柄真实悬剑各自保留地表控制、动作及接触，屏障与人物作用共用主体。风使用独立流面材质，不借用冰霜、水波或烟团。`forms_solid_walls.mjs`导出的`wallPart/column`仅复用封闭几何与正面顺序，剑幕复用本轮制作的完整剑资源。运行`python3 Scripts/SpellDemos/verify_wall_migration.py --section contact-walls`复现原来源、独立伤害及容量、风推力、失败恢复与主体截图；最终火焰及流派质感留后续美术验收。

@@ -159,7 +159,7 @@ public sealed class ConstructionMeasure
             foreach (var change in node.Changes)
                 if (change.WorldMatter != null)
                     work += change.WorldMatter.MaximumVolume * .1d;
-            if (node.ContactRole == ConstructionContactRole.Attack)
+            if (node.AffectsActors)
             {
                 double from = Math.Max(node.Presence.x, node.Active.x), until = Math.Min(node.Presence.y, node.Active.y);
                 if (node.ContactGroup == plan.Nodes.Length && plan.Body != null)
@@ -173,7 +173,7 @@ public sealed class ConstructionMeasure
                 else AddGroup(node.ContactGroup, from, until, node.Impact ?? plan.Impact, node.Strength);
             }
             if (node.ContactRole == ConstructionContactRole.Barrier) work += power * node.Strength;
-            if (node.ContactRole == ConstructionContactRole.Attack)
+            if (node.AffectsActors)
                 foreach (var effect in (node.Impact ?? plan.Impact).WorldEffects)
                     work += Math.Min(effect.MaximumTiles, area > 0 ? Math.Ceiling(area) : effect.MaximumTiles) * .001d *
                             (1d + effect.Duration * .1d) * Repeat(effect.Contact, span);

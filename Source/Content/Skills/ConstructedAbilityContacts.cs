@@ -45,7 +45,7 @@ public sealed partial class ConstructedAbilityService
             Sample(actor, clock, out Vector3 foot, out float height);
             AbilityCapsule target = ActorContact(foot, height, actor.Body?.BodyControlled == true ? actor.Body.Cast.BodyPose.Value.Torso : Vector3.zero);
             foreach (AbilityCapsule shape in running.Before)
-                if (running.Cast.Role(shape.Node) == ConstructionContactRole.Attack &&
+                if (running.Cast.AffectsActors(shape.Node) &&
                     running.HitKey(shape.Node, actor.Id) == pair.Key && AbilityPairSweep.Find(shape, shape, target, target, out _, out _, out _))
                 {
                     if (shape.Node < 0 && running.BeforeJoint != null && !BodySurfacePose.Find(running.BeforeJoint.Contact,
@@ -126,7 +126,7 @@ public sealed partial class ConstructedAbilityService
         foreach (ShapeMotion shape in shapes)
         {
             if (shape.Running != running || (onlyNode == int.MinValue
-                    ? running.Cast.Role(shape.To.Node) != ConstructionContactRole.Attack ||
+                    ? !running.Cast.AffectsActors(shape.To.Node) ||
                       (bodyStage < 0 ? running.HitKey(shape.To.Node, key.Item4) : running.HitKeyAtStage(shape.To.Node, key.Item4, bodyStage)) != key
                     : shape.To.Node != onlyNode)) continue;
             AbilityCapsule start = shape.Continuous ? shape.From : shape.To;

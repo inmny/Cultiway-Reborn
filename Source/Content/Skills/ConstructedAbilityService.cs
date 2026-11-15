@@ -671,6 +671,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         "lightning" => ElementComposition.Static.Lightning,
         "poison" => ElementComposition.Static.Poison,
         "fire" => ElementComposition.Static.Fire,
+        "wind" => ElementComposition.Static.Wind,
         "wood" => ElementComposition.Static.Wood,
         "iron" => ElementComposition.Static.Iron,
         "molten_iron" => ElementComposition.Static.IronFire,

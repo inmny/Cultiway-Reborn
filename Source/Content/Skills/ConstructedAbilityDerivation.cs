@@ -90,7 +90,8 @@ public sealed partial class ConstructedAbilityService
                 return draft;
             }
             ));
-        ConstructionNode[] growers = nodes.Where(n => n.ContactRole == ConstructionContactRole.Attack &&
+        ConstructionNode[] growers = nodes.Where(n => (n.ContactRole == ConstructionContactRole.Attack ||
+                                                       n.ContactRole == ConstructionContactRole.Barrier && n.Impact != null) &&
                                                       n.Children.All(c => c.Id != "contact_growth")).ToArray();
         if (growers.Length > 0 && draft.Lifetime >= 1.2f && plan.FormCount < AbilityCompiler.MaxForms / 2)
             choices.Add(("触生", () =>

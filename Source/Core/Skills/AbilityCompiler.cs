@@ -188,7 +188,7 @@ public sealed class CompiledAbility
             : new CompiledConstructionImpact(definition.Impact, "构造/Impact");
         Use = new CompiledConstructionUse(definition.Use, Impact.Targets);
         CompiledConstructionImpact[] impacts = nodes
-            .Where(node => node.ContactRole == ConstructionContactRole.Attack || node.Conduction != null ||
+            .Where(node => node.AffectsActors || node.Conduction != null ||
                            node.EventOperations.Any(op => op.Conduction != null))
             .SelectMany(node => node.BodyWindow && node.Impact == null
                 ? body.Stages.Select(stage => stage.Impact ?? Impact)
@@ -414,6 +414,10 @@ internal sealed class CompiledForm
 
     /// <summary>明确的攻击、屏障或装饰用途。</summary>
     internal ConstructionContactRole ContactRole;
+
+    /// <summary>攻击形体沿用默认作用；屏障只有明确声明作用才接触人物。</summary>
+    internal bool AffectsActors => ContactRole == ConstructionContactRole.Attack ||
+        ContactRole == ConstructionContactRole.Barrier && Impact != null;
 
     /// <summary>按真实形状阻止敌方地面人物穿过。</summary>
     internal bool BlocksGroundActors;
@@ -699,8 +703,8 @@ public static partial class AbilityCompiler
             Fail(path, "作用用途或强度无效");
         if (node.BlocksGroundActors && node.ContactRole != ConstructionContactRole.Barrier)
             Fail(path + "/BlocksGroundActors", "只有屏障能阻挡地面人物");
-        if (node.Impact != null && node.ContactRole != ConstructionContactRole.Attack)
-            Fail(path, "装饰及屏障不对人物结算接触作用，请移除部位作用覆盖");
+        if (node.Impact != null && node.ContactRole == ConstructionContactRole.Decoration)
+            Fail(path, "装饰不对人物结算接触作用，请移除部位作用覆盖");
         if (!Enum.IsDefined(typeof(ConstructionInterception), node.Interception) || node.ReflectionLimit < 0 ||
             node.ReflectionLimit > 32 ||
             node.Interception == ConstructionInterception.Reflect &&

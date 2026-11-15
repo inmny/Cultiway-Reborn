@@ -353,7 +353,7 @@ Shader "Cultiway/FormSurface"
                 // 体积前后两侧的光程相同；不能让原版投影的双面方向把整个体积裁成透明。
                 alpha*=pow(abs(dot(n,eye)),.7)*(.42+.58*density);
             }
-            else
+            else if (_Kind < 12.5)
             {
                 // 不规则混沌体积的暗腔与宽层次；不是尚未实现的空间折射。
                 float fold=volumeNoise(i.material*2.1+float3(.02,-.015,.04)*_WorldTime);
@@ -361,6 +361,15 @@ Shader "Cultiway/FormSurface"
                 base*=.30+.75*fold;
                 base+=tint.rgb*deep*.2;
                 alpha*=pow(abs(dot(n,eye)),.45)*(.65+.35*fold);
+            }
+            else
+            {
+                // 风保留宽流面的体量和流向，明暗随材料坐标平移，不借用冰霜、海浪或烟雾。
+                float band=.5+.5*sin(i.material.x*2.1+i.material.z*3.4-_WorldTime*5.8);
+                float broad=smoothstep(.1,.9,band);
+                base*=.50*ambient+(.22+.22*broad)*direct;
+                base+=tint.rgb*pow(1-facing,2)*.18*environmentLight;
+                alpha*=.68+.25*broad;
             }
             float contact = formFeedback(i);
             base += (base*.24 + float3(.035,.045,.05)*environmentLight)*contact;

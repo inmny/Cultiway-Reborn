@@ -750,5 +750,9 @@
   "Cultiway.Construction.TransferDistance": "Minimum step distance",
   "Cultiway.Construction.TransferArrivalSlack": "Arrival allowance",
   "Cultiway.Construction.TransferSideJitter": "Maximum sideways offset",
-  "Cultiway.Construction.TransferSeed": "Offset seed"
+  "Cultiway.Construction.TransferSeed": "Offset seed",
+  "Cultiway.Construction.Form.fire_wall": "Fire wall",
+  "Cultiway.Construction.Form.wind_wall": "Wind wall",
+  "Cultiway.Construction.Form.sword_curtain": "Sword curtain",
+  "Cultiway.Construction.Material.wind.energy": "Wind energy"
 }

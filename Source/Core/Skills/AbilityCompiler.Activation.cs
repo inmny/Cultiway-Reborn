@@ -96,7 +96,7 @@ public static partial class AbilityCompiler
             }
             CompiledForm source = nodes[condition.Source];
             if (condition.Trigger == ConstructionChangeTrigger.WorldContact && source.ContactRole == ConstructionContactRole.Decoration ||
-                condition.Trigger == ConstructionChangeTrigger.ActorContact && source.ContactRole != ConstructionContactRole.Attack ||
+                condition.Trigger == ConstructionChangeTrigger.ActorContact && !source.AffectsActors ||
                 condition.Trigger == ConstructionChangeTrigger.Clash && source.ContactRole == ConstructionContactRole.Decoration ||
                 condition.Trigger == ConstructionChangeTrigger.MatterChanged && source.Changes.Length == 0 && !source.EventOperations.Any(op => op.Matter != null))
                 Fail(condition.Path, "来源" + source.Path + "不能产生所选事件：" + condition.Trigger);

@@ -16,6 +16,7 @@ internal static class ConstructedMatterCatalog
         AbilityMatters.Register(new AbilityMatter("poison", "liquid", "poison"));
         AbilityMatters.Register(new AbilityMatter("poison", "gas", "poison", isDefault: false));
         AbilityMatters.Register(new AbilityMatter("entropy", "energy", "entropy"));
+        AbilityMatters.Register(new AbilityMatter("wind", "energy", "wind", "wind"));
         AbilityMatters.Register(new AbilityMatter("fire", "energy", "fire", "flame"));
         AbilityMatters.Register(new AbilityMatter("wood", "solid", "wood", "wood", combustible: true));
         AbilityMatters.Register(new AbilityMatter("iron", "solid", "iron", "metal"));

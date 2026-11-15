@@ -1258,6 +1258,15 @@ public sealed partial class AbilityCast
     internal ConstructionContactRole Role(int node) =>
         node < 0 ? ConstructionContactRole.Attack : Plan.Nodes[node].ContactRole;
 
+    /// <summary>实际人物接触资格与防御角色分别判断。</summary>
+    /// <param name="node">展开部位，负一为身体。</param>
+    internal bool AffectsActors(int node) => node < 0 || Plan.Nodes[node].AffectsActors;
+
+    /// <summary>按明确规则取得伤害强度，不改变实际交锋容量。</summary>
+    /// <param name="node">生成部位。</param>
+    internal float DamageForce(int node) => Impact(node).DamageBasis == ConstructionDamageBasis.InitialForce
+        ? nodes[node].InitialForce : nodes[node].Force;
+
     /// <summary>相互消耗后仍可继续传递的实际作用量。</summary>
     /// <param name="node">生成部位。</param>
     public float RemainingForce(int node) => nodes[node].Force;

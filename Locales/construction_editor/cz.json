@@ -745,5 +745,9 @@
   "Cultiway.Construction.TransferDistance": "最低步距",
   "Cultiway.Construction.TransferArrivalSlack": "直接到达余量",
   "Cultiway.Construction.TransferSideJitter": "最大横向偏移",
-  "Cultiway.Construction.TransferSeed": "偏移种子"
+  "Cultiway.Construction.TransferSeed": "偏移种子",
+  "Cultiway.Construction.Form.fire_wall": "火墙",
+  "Cultiway.Construction.Form.wind_wall": "风墙",
+  "Cultiway.Construction.Form.sword_curtain": "剑幕",
+  "Cultiway.Construction.Material.wind.energy": "风质"
 }

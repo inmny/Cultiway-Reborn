@@ -138,7 +138,7 @@ public static class ConstructionPresentation
         if (plan.Body != null) lines.Add(F("Body", plan.Body.ActiveFrom, plan.Body.ActiveUntil));
         if (plan.ContactDamageScale > 0f)
             lines.Add(F("Damage", string.Join("、",
-                plan.Nodes.Where(n => n.ContactRole == ConstructionContactRole.Attack || n.Conduction != null ||
+                plan.Nodes.Where(n => n.AffectsActors || n.Conduction != null ||
                                       n.EventOperations.Any(operation => operation.Conduction != null))
                     .Select(n => (n.Impact ?? plan.Impact).Targets).Concat(plan.Body == null
                         ? Array.Empty<SkillLibV3.Usage.SkillUseTargetRelation>()

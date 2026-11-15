@@ -1,0 +1,136 @@
+// B23：复用正式墙来源，只核对本批人物作用、容量独立、失败恢复及实际主体。
+var activeCasts=new List<AbilityCast>();
+var checkMove=typeof(Actor).GetMethod("checkVelocityAgainstBlock",F);
+/// <summary>原版行走的实际阻挡入口。</summary><param name="actor">人物。</param><param name="to">目标位置。</param>
+Vector2 Block(Actor actor,Vector2 to)=>(Vector2)checkMove.Invoke(actor,new object[]{to});
+var damageEvents=new List<GetHitEvent>();var hook=new HarmonyLib.Harmony("Cultiway.Verify.ContactWalls");
+ContactWallDamage.AfterDamage=e=>{if(e.AttackerID==source.id&&e.TargetID==target.id)damageEvents.Add(e);};
+hook.Patch(typeof(Cultiway.Core.EventSystem.Systems.GetHitEventSystem).GetMethod("Resolve",F),
+    postfix:new HarmonyLib.HarmonyMethod(typeof(ContactWallDamage).GetMethod("Postfix")));
+var frozenStats=new BaseStats();frozenStats.addTag("frozen_ai");
+var frozen=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ContactWalls.Frozen")
+    .SetStats(frozenStats).SetDuration(10000).Build();
+try
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        if(request.SkillContainer.GetComponent<SkillContainer>().Asset!=wallAsset)return original(request);
+        if(invalidate)scopeValid=false;var result=original(request);lastResult=result;
+        if(result==SkillEmissionResult.Accepted)
+        {
+            var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==starts.Last().CastId);
+            var cast=(AbilityCast)Field(running,"Cast");accepted.Add(cast);activeCasts.Add(cast);
+        }
+        emissions.Add(new{asset=wallAsset.id,result=result.ToString(),request.Strength,request.PowerLevel});return result;
+    };
+    foreach(var entry in new[]{(Asset:SkillEntities.FireWall,Form:"fire_wall",Matter:"fire",Push:false),
+        (Asset:SkillEntities.WindWall,Form:"wind_wall",Matter:"wind",Push:true),
+        (Asset:SkillEntities.SwordCurtain,Form:"sword_curtain",Matter:"iron",Push:false)})
+    {
+        wallAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();oldWalls=0;
+        var normal=Build();var boosted=Build(true);
+        foreach(var skill in new[]{normal,boosted})
+        {
+            var d=Convert(skill,out GetHitEvent damage);bool boost=skill.HasComponent<HugeModifier>();
+            var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
+            var plan=AbilityCompiler.Compile(restored,cache:false);
+            Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.ContactRole==ConstructionContactRole.Barrier&&
+                restored.Root.Impact.DamageBasis==ConstructionDamageBasis.InitialForce&&d.Root.BlocksGroundActors&&
+                d.Root.Strength==5&&d.Lifetime==4&&d.ConcurrentLimit==1&&
+                Math.Abs(damage.Damage-(boost?52:40))<.001f&&damage.AttackerPowerLevel==1.25f&&
+                Math.Abs(d.Root.Contact.Interval-.35f)<.0001f&&
+                (entry.Push?plan.ContactForce==2&&d.Root.Impact.DamageScale==0:Math.Abs(plan.ContactDamageScale-.04f)<.0001f),
+                entry.Form+"原强度、词条、间隔和独立伤害规则可保存及编译",new{damage.Damage,d.Root.Scale,d.Lifetime,plan.ContactDamageScale,plan.ContactForce});
+            File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
+        }
+        Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射附加作用保留原入口");
+        ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;
+        Check(Use(normal),entry.Form+"真实已学来源受理");await Advance(.25f);
+        var live=accepted.Last();float initial=live.RemainingForce(0);Vector3 center=Center(live);
+        double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(normal)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,normal)));
+        Check(oldWalls==0&&starts.Count==1&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001&&
+            Math.Abs(center.x-66.4f)<.03f&&Views(live).Single().Resource.Description.Id==entry.Form,
+            entry.Form+"只生成自身新主体并支付一次",new{initial,cost});
+        await Shot(entry.Form);
+        int outsideHp=target.data.health;await Advance(.4f);
+        Check(damageEvents.Count==0&&contacts.All(c=>c.TargetId!=target.id)&&target.data.health==outsideHp,
+            entry.Form+"墙外无人物作用");
+        if(entry.Push)
+        {
+            Ready(target);CombatStatusEffects.ApplyStatus(target,frozen,10000,target);target.updateStats();
+            Place(target,65.9f);ConstructedAbilityService.NotifyActorChanged(target);Vector2 before=target.current_position;
+            await Advance(.30f);
+            var hits=contacts.Where(c=>c.CastId==starts.Last().CastId&&c.TargetId==target.id).ToArray();
+            Check(hits.Any(c=>c.ForceApplied&&c.VelocityChange.x<0f)&&target.current_position.x<before.x-.05f&&
+                target.data.health==outsideHp&&damageEvents.Count==0,
+                "风墙只按实际接触向外推开，无伤害或凭空抛飞",new{before=before.ToString(),after=target.current_position.ToString(),height=target.position_height,hits=hits.Select(c=>new{c.Age,c.ForceApplied,velocity=c.VelocityChange.ToString()})});
+            CombatStatusEffects.RemoveStatus(target,frozen);CombatStatusEffects.ApplyStatus(target,hold,10000,target);target.updateStats();
+        }
+        else
+        {
+            Place(target,66.2f);ConstructedAbilityService.NotifyActorChanged(target);int hp=target.data.health;
+            await Advance(.8f);
+            var hits=contacts.Where(c=>c.CastId==starts.Last().CastId&&c.TargetId==target.id).ToArray();
+            var damage=damageEvents.ToArray();
+            Check(hits.Length>=2&&damage.Length==hits.Length&&damage.All(e=>Math.Abs(e.Damage-initial*.04f)<.001f)&&
+                hits.Skip(1).Select((c,i)=>c.Age-hits[i].Age).All(gap=>Math.Abs(gap-.35f)<.025f)&&target.data.health<hp,
+                entry.Form+"同一真实屏障按原间隔伤害且实际扣血",new{hp,after=target.data.health,ages=hits.Select(c=>c.Age).ToArray(),damage=damage.Select(e=>e.Damage).ToArray()});
+            // 容量损耗走原石锥拦截；不直接改运行时字段制造结果。
+            Place(target,64);ConstructedAbilityService.NotifyActorChanged(target);
+            Entity made=new SkillContainerBuilder(SkillEntities.StoneCone).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+            string signature=SkillContainerSignature.Build(made);var enemy=target.GetExtend();enemy.LearnSkillV3(made);
+            Entity stoneSkill=((IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(enemy,null)).First(s=>SkillContainerSignature.Build(s)==signature);
+            Entity stone=manager.SpawnSkillAtPosition(stoneSkill,target,new Vector3(64,72,.6f),source,new Vector3(70,72,.6f),13,0);
+            await Advance(.45f);float remaining=live.RemainingForce(0);
+            Check(Math.Abs(remaining-(initial-13))<.01f,entry.Form+"仍由自身形体防御且消耗真实容量",new{initial,remaining});
+            damageEvents.Clear();Place(target,66.2f);ConstructedAbilityService.NotifyActorChanged(target);await Advance(.65f);
+            Check(damageEvents.Count>0&&damageEvents.All(e=>Math.Abs(e.Damage-initial*.04f)<.001f)&&
+                Math.Abs(live.RemainingForce(0)-remaining)<.01f,
+                entry.Form+"容量受损后接触伤害保持原值，命中不额外扣容量",new{remaining,damage=damageEvents.Select(e=>e.Damage).ToArray()});
+        }
+        Place(target,64);ConstructedAbilityService.NotifyActorChanged(target);await Advance(4.1f);
+        Check(live.Finished&&Views(live).Count==0&&Shapes(live).Count==0&&Block(target,new Vector2(70,72)).x==70&&
+            !BodyControlState.IsBusy(source.id)&&!BodyControlState.IsBusy(target.id),entry.Form+"结束后显示、作用、通行和控制一同恢复");
+        // 斜向主体画面只补外观，不重复已通过的伤害和防御流程。
+        ResetPeople();Place(target,64,68);ConstructedAbilityService.NotifyActorChanged(target);
+        Check(Use(normal),entry.Form+"斜向主体正式施放");await Advance(.25f);
+        await Shot(entry.Form+"-angled");await Advance(.3f);await Shot(entry.Form+"-angled-later");
+        accepted.Last().Cancel();ResetPeople();await Advance(.1f);
+        if(entry.Asset==SkillEntities.FireWall)
+        {
+            ResetPeople();var disabled=Build(contactEnabled:false);Check(Use(disabled),"关闭人物作用的原墙正式受理");await Advance(.25f);
+            var passive=accepted.Last();int damageCount=damageEvents.Count,contactCount=contacts.Count;outsideHp=target.data.health;
+            Place(target,66.2f);ConstructedAbilityService.NotifyActorChanged(target);await Advance(.6f);
+            Check(damageEvents.Count==damageCount&&contacts.Count==contactCount&&target.data.health==outsideHp&&
+                Block(target,new Vector2(70,72)).x!=70,"关闭接触作用只保留屏障，不继承默认人物伤害");
+            passive.Cancel();Place(target,64);ConstructedAbilityService.NotifyActorChanged(target);await Advance(.1f);
+        }
+    }
+    // 共同资料边界和支付路径各覆盖一次，不逐墙重复完整矩阵。
+    var bad=Convert(Build(),out _);bad.Root.Impact.DamageBasis=(ConstructionDamageBasis)999;bool rejected=false;
+    try{AbilityCompiler.Compile(bad,cache:false);}catch(InvalidDataException){rejected=true;}
+    Check(rejected,"未知伤害强度规则在资料边界拒绝");
+    ResetPeople();var failed=Build();int count=starts.Count;float beforeBalance=owner.GetCultisys<Xian>().wakan;invalidate=true;
+    Check(Use(failed,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排一次实际受理边界失效");await Advance(.25f);invalidate=false;
+    Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-beforeBalance)<.001f&&oldWalls==0,
+        "受理失败退款，无新旧残墙");
+    scopeValid=true;ResetPeople();Check(Use(failed),"失败后同来源恢复");await Advance(.25f);await Advance(4.1f);
+    Check(accepted.All(c=>c.Finished),"恢复后正常施放和结束");
+    return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
+    foreach(var cast in activeCasts)cast.Cancel();
+    ContactWallDamage.AfterDamage=null;hook.UnpatchSelf();
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    ControllableUnit.clear(false);Config.paused=true;
+}
+public static class ContactWallDamage
+{
+    /// <summary>只在本轮读取已执行的实际伤害，不替换结算。</summary>
+    public static Action<GetHitEvent> AfterDamage;
+    /// <summary>记录标准伤害入口的原始参数。</summary><param name="__0">已执行伤害。</param>
+    public static void Postfix(GetHitEvent __0)=>AfterDamage?.Invoke(__0);
+}

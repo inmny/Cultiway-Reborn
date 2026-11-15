@@ -17,7 +17,7 @@ using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>原土墙、冰墙与木壁使用各自真实墙面、两点间放置及共同容量；逐发支付和并存上限沿用正式受理。</summary>
+/// <summary>原墙体使用各自真实墙面、明确接触作用、两点间放置及共同容量；逐发支付和并存上限沿用正式受理。</summary>
 internal static class WallConstructionMigration
 {
     /// <summary>已经完整映射的原词条；额外作用不静默丢弃。</summary>
@@ -47,10 +47,12 @@ internal static class WallConstructionMigration
             emission.SourcePos, emission.Payment, damage, sourceInstance: skill.Id) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
-    /// <summary>原无附加接触作用的实体墙分别提供自身形体和实际材料。</summary>
+    /// <summary>已完整映射的原墙分别提供自身形体和实际材料。</summary>
     /// <param name="asset">原来源登记。</param>
     private static string Form(SkillEntityAsset asset) => asset == SkillEntities.EarthWall ? "earth_wall" :
-        asset == SkillEntities.IceWall ? "ice_wall" : asset == SkillEntities.WoodWall ? "wood_wall" : null;
+        asset == SkillEntities.IceWall ? "ice_wall" : asset == SkillEntities.WoodWall ? "wood_wall" :
+        asset == SkillEntities.FireWall ? "fire_wall" : asset == SkillEntities.WindWall ? "wind_wall" :
+        asset == SkillEntities.SwordCurtain ? "sword_curtain" : null;
 
     /// <summary>先核对附加作用，再将实际强度、尺寸、寿命和固定目标展开为可保存资料。</summary>
     /// <param name="emission">原来源的本次发射输入。</param>
@@ -64,7 +66,6 @@ internal static class WallConstructionMigration
         if (form == null) return null;
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
         if (trajectory != SkillTrajectories.WallBetweenCasterAndTarget.id ||
-            container.Asset.ImpactTuning.ContactDamage == true || container.Asset.ImpactTuning.ContactForce != 0f ||
             container.Asset.ImpactTuning.BarrierLengthMultiplier != 1f) return null;
         var callbacks = new List<Delegate>();
         foreach (Type type in skill.GetComponentTypes())
@@ -101,6 +102,21 @@ internal static class WallConstructionMigration
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin
         };
         damage.BindAttacker(emission.Source);
+        var profile = container.Asset.ImpactProfile;
+        var tuning = container.Asset.ImpactTuning;
+        bool contact = (!configured || settings.ContactEnabled) && (profile.ContactDamage || tuning.ContactDamage || tuning.ContactForce != 0f);
+        ConstructionImpact impact = contact ? new ConstructionImpact
+        {
+            DamageScale = profile.ContactDamage || tuning.ContactDamage
+                ? profile.DamageMultiplier * tuning.DamageMultiplier * emission.RuntimeData.ResolveEffectScale() / profile.DurabilityMultiplier : 0f,
+            DamageBasis = ConstructionDamageBasis.InitialForce,
+            Force = tuning.ContactForce, Lift = 0f,
+            // 原墙只有水平推力；明确沿地持续到下一次接触，不凭空加上抛飞。
+            SlideSeconds = tuning.ContactForce != 0f ? profile.RepeatHitInterval : 0f,
+            Origin = ConstructionForceOrigin.Shape
+        } : null;
+        string matter = form switch { "ice_wall" => "ice", "wood_wall" => "wood", "fire_wall" => "fire",
+            "wind_wall" => "wind", "sword_curtain" => "iron", _ => "physical" };
         Vector3 angles = FormResource.ReadFacing(new[] {0f, 1f, 0f}, new[] {0f, 0f, 1f}, form).eulerAngles;
         return new AbilityDefinition
         {
@@ -112,8 +128,11 @@ internal static class WallConstructionMigration
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Between, Fraction = .6f, FaceTarget = true },
             Root = new ConstructionNode
             {
-                Id = "wall", Form = form, Matter = form == "ice_wall" ? "ice" : form == "wood_wall" ? "wood" : "physical",
-                State = "solid", Scale = scale,
+                Id = "wall", Form = form, Matter = matter,
+                State = matter is "fire" or "wind" ? "energy" : "solid", Scale = scale,
+                Impact = impact,
+                Contact = contact ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval,
+                    Interval = profile.RepeatHitInterval } : null,
                 Rotation = new[] { angles.x, angles.y, angles.z },
                 ContactRole = ConstructionContactRole.Barrier, BlocksGroundActors = true,
                 Strength = container.Asset.ImpactProfile.DurabilityMultiplier,

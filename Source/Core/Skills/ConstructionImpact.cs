@@ -29,6 +29,10 @@ public sealed class ConstructionImpact
     /// <summary>真实伤害倍率；零表示只接触和推拉，不调用伤害或近战攻击。</summary>
     public float DamageScale = 1f;
 
+    /// <summary>伤害采用当前剩余量或本次部位的初始量；防御容量仍单独消耗。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public ConstructionDamageBasis DamageBasis;
+
     /// <summary>同一实际接触面附带的世界操作；不额外扩大成圆形作用区。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionWorldEffect[] WorldEffects;
@@ -75,6 +79,16 @@ public sealed class ConstructionImpact
     public ConstructionForceOrigin Origin;
 }
 
+/// <summary>接触伤害的强度来源，不改变屏障容量或交锋损耗。</summary>
+public enum ConstructionDamageBasis
+{
+    /// <summary>随交锋后剩余作用量衰减，沿用已有资料。</summary>
+    RemainingForce = 0,
+
+    /// <summary>采用本部位本次生成时的作用量，容量受损不降低伤害。</summary>
+    InitialForce = 1
+}
+
 /// <summary>实际推拉的中心，不根据画面或材料推测。</summary>
 public enum ConstructionForceOrigin
 {
@@ -108,6 +122,9 @@ public sealed class CompiledConstructionImpact
 
     /// <summary>真实伤害倍率。</summary>
     public float DamageScale { get; }
+
+    /// <summary>已检查的伤害强度来源。</summary>
+    public ConstructionDamageBasis DamageBasis { get; }
 
     /// <summary>已检查的有向推拉力。</summary>
     public float Force { get; }
@@ -164,6 +181,9 @@ public sealed class CompiledConstructionImpact
         if (source?.Restoration != null) Restoration = new CompiledConstructionRestoration(source.Restoration, path + "/Restoration");
         Targets = source?.Targets ?? SkillUseTargetRelation.Hostile;
         DamageScale = source?.DamageScale ?? 1f;
+        DamageBasis = source?.DamageBasis ?? ConstructionDamageBasis.RemainingForce;
+        if (!Enum.IsDefined(typeof(ConstructionDamageBasis), DamageBasis))
+            throw new InvalidDataException(path + "/DamageBasis：伤害必须采用剩余或初始作用量");
         Force = source?.Force ?? 0f;
         if (source?.Impulse != null)
         {

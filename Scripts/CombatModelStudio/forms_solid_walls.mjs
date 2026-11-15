@@ -3,7 +3,7 @@ import * as T from 'three';
 import {part, write, structure, skin} from './form_export.mjs';
 
 /** Three.js 的朝外几何转为 Unity 正面顺序。 */
-function wallPart(...args) {
+export function wallPart(...args) {
   const body=part(...args);
   for(let i=0;i<body.Triangles.length;i+=3)
     [body.Triangles[i],body.Triangles[i+2]]=[body.Triangles[i+2],body.Triangles[i]];
@@ -11,7 +11,7 @@ function wallPart(...args) {
 }
 
 /** 封闭多层截面，不用平面贴图代替冰晶或树根的厚度。 */
-function column(rings,sides) {
+export function column(rings,sides) {
   const positions=[],uv=[],triangles=[];
   for(let row=0;row<rings.length-1;row++)for(let side=0;side<sides;side++) {
     const start=positions.length/3;

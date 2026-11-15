@@ -628,6 +628,7 @@ internal sealed partial class FormResourceGeneration
             "rift_lip" => (9f, new Color(.37f, .10f, .61f), .55f),
             "mirror" => (7f, new Color(.72f, .81f, .84f), .045f),
             "molten_iron" => (6f, new Color(1f, .31f, .035f), .28f),
+            "wind" => (13f, new Color(.55f, .81f, .86f, .57f), .32f),
             "flame" => (6f, new Color(1f, .31f, .035f), .8f),
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),

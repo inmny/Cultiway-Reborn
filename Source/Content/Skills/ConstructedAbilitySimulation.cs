@@ -778,7 +778,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 }
             }
 
-            if (!powered || running.Cast.Role(shape.To.Node) != ConstructionContactRole.Attack) continue;
+            if (!powered || !running.Cast.AffectsActors(shape.To.Node)) continue;
             // 已被真实器物接触抵住的兵器不能仅因进入伤害时段而穿透补伤；独立法术和其他肢体继续运行。
             if (shape.To.Node < 0 && (running.WeaponConstraint?.Active == true ||
                                     running.Connection?.Active == true && running.Connection.WeaponOnly)) continue;
@@ -970,7 +970,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         {
             var damage = running.Owner(node).Damage;
             damage.TargetID = actor.Id;
-            damage.Damage = running.Cast.RemainingForce(node) * impact.DamageScale *
+            damage.Damage = running.Cast.DamageForce(node) * impact.DamageScale *
                 running.Cast.ContactAttenuation(node, hit.Left.To.Shape);
             damage.Element = Composition(beforeMatter.DamageKind);
             GetHitEventSystem.Resolve(damage);

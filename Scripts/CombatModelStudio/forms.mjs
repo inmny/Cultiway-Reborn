@@ -16,6 +16,7 @@ import {makeEarthSpikes,makeEarthWall} from './forms_earth.mjs';
 import {makeRift} from './forms_rift.mjs';
 import {makeFields} from './forms_fields.mjs';
 import {makeIceWall,makeWoodWall} from './forms_solid_walls.mjs';
+import {makeFireWall,makeWindWall,makeSwordCurtain} from './forms_contact_walls.mjs';
 import {makeSupport} from './forms_support.mjs';
 
 makeHorn();
@@ -32,6 +33,8 @@ makeEarthSpikes();
 makeEarthWall();
 makeIceWall();
 makeWoodWall();
+makeFireWall();
+makeWindWall();
 makeRift();
 makeFields();
 makeSupport();
@@ -68,7 +71,7 @@ const guard = new T.ExtrudeGeometry(guardShape, {depth: .08, bevelEnabled: true,
 guard.rotateX(Math.PI / 2); guard.translate(0, .04, -.035);
 const grip = new T.CylinderGeometry(.055, .065, .55, 12, 6).rotateX(Math.PI / 2).translate(0, 0, -.35);
 const pommel = new T.LatheGeometry([[0, -.78], [.045, -.775], [.08, -.73], [.075, -.675], [.04, -.64]].map(point => new T.Vector2(...point)), 16).rotateX(Math.PI / 2);
-write('sword', [part('blade', blade, 'metal'), part('guard', guard, 'metal'), part('grip', grip, 'leather'), part('pommel', pommel, 'metal')],
+const swordForm=write('sword', [part('blade', blade, 'metal'), part('guard', guard, 'metal'), part('grip', grip, 'leather'), part('pommel', pommel, 'metal')],
   [{Id: 'grip', Part: 2, Position: [0, 0, -.34], Direction: [0, 0, 1]},
     {Id: 'choke', Part: 2, Position: [0, 0, -.14], Direction: [0, 0, 1]},
     {Id: 'edge', Part: 0, Position: [.13, 0, 1.3], Direction: [1, 0, 0]},
@@ -82,6 +85,8 @@ write('sword', [part('blade', blade, 'metal'), part('guard', guard, 'metal'), pa
     [['grip','guard',[0,0,-.035]],['guard','blade',[0,0,0]],['grip','pommel',[0,0,-.64]]]),
   [{Id:'grip',Anchor:'grip',Up:[0,1,0],Diameter:.13,Scale:[.2,.6]},
     {Id:'choke',Anchor:'choke',Up:[0,1,0],Diameter:.12,Scale:[.2,.6]}], [], {Groups:['sword'],Scale:.42});
+
+makeSwordCurtain(swordForm);
 
 // 分枝以独立部件输出，保留连接枢轴与末梢；生长及附着使用相同部位。
 const branchParts = [], tips = [], roots = [];
