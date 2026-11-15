@@ -1383,3 +1383,13 @@ python3 Scripts/SpellDemos/verify_compound_curse.py
 沿用独立游戏、既有世界和人物。资料段快速核对七条攻击转换、爆发和零伤害推力面的声明，原九种接触状态一起保存编译，以及十六项的有限上限。实机只用一个已学灵弹检查周期与削弱同时生效、切换单类作用时清除旧值、原费用、侧外安全和自然恢复；同一人物的真实零移动倍率与普通组合只核对周期不被吞掉。一个领域验证间隔刷新，共用一次边界失败退款恢复及抗性时长，不扩大身体装备矩阵。
 
 `--section definitions/runtime/edge/common`可只跑受影响段。输入、来源定义、实际发射及结果存入`artifacts/skill_rebuild/trajectories/compound-curse/`及相应分段目录。完整编辑、创作、正式冷启动和集中录像继续5.05 C。
+
+
+```bash
+# 5.05 B36：慈悲的本体减强、命中自愈、余力及失败恢复
+python3 Scripts/SpellDemos/verify_contact_mercy.py
+```
+
+`--section definitions/runtime/edge/common/carrier`分别检查资料、正常命中、关闭接触和零值、余力与领域及退款恢复、合法命魂的共享恢复服务。复用既有世界、人物和调试通道，不展开全部来源、身体和装备矩阵。恢复观察只记录实际服务输入及同次生命变化，不把人物自身回血算作法术治疗。命魂段通过正式神游建立载体，只验证共享服务恢复完整度且不治疗原主，不冒充原主与载体分离的旧施法已转换。
+
+输入、来源定义、发射及实际恢复记录位于`artifacts/skill_rebuild/trajectories/contact-mercy/`；交付以`delivery.json`引用的已通过正常前段及分段结果为准，初次脚本编译错误和人物自身回血干扰的记录分别保存在`initial-script-compile/`及`initial-background-heal/`。完整表单、创作、正式冷启动及集中录像继续5.05 C。

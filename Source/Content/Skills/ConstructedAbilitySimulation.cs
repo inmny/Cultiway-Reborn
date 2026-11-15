@@ -976,7 +976,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             GetHitEventSystem.Resolve(damage);
         }
 
-        ApplyRestoration(running, node, actor.Actor, impact.Restoration);
+        ApplyRestoration(running, node, actor.Actor, impact.Restoration, running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
         ConstructedTargetResponse response = ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
             priorVelocity: priorVelocity, forceReceiver: forceReceiver,
             strength: running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
@@ -998,14 +998,21 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             response.BindSeconds, response.StrainSeconds, response.ExposureSeconds));
     }
 
-    /// <summary>已确认的真实接触复用共享恢复和负状态规则，不使用攻击力推算效果量。</summary>
+    /// <summary>已确认接触复用共享恢复规则；可按接触余力恢复当前控制人物，不重新读取攻击力。</summary>
     /// <param name="running">实际施放。</param><param name="node">实际部位。</param>
     /// <param name="target">已确认的人物。</param><param name="effect">可选恢复资料。</param>
-    private static void ApplyRestoration(RunningCast running, int node, Actor target, CompiledConstructionRestoration effect)
+    /// <param name="attenuation">接触位置给出的实际传播衰减。</param>
+    private static void ApplyRestoration(RunningCast running, int node, Actor target, CompiledConstructionRestoration effect, float attenuation = 1f)
     {
         if (effect == null) return;
-        if (effect.Health > 0f) CombatResourceEffects.RestoreHealth(target, effect.Health);
         CastAuthority owner = running.Owner(node);
+        if (effect.Target == ConstructionRestorationTarget.Controller)
+        {
+            if (!owner.IsLive) return;
+            target = owner.Actor;
+        }
+        float amount = effect.Health + Mathf.RoundToInt((node < 0 ? running.Power : running.Cast.RemainingForce(node)) * attenuation * effect.HealthPerForce);
+        if (amount > 0f) CombatResourceEffects.RestoreHealth(target, amount);
         if (effect.HealthPerSecond > 0f && target.data.health < target.getMaxHealth() && owner.IsLive)
             CombatStatusEffects.ApplyStrongestTickingStatus(target, StatusEffects.Rejuvenating, effect.Duration,
                 effect.HealthPerSecond, effect.HealthPerSecond, owner.Damage.Element, owner.Actor);

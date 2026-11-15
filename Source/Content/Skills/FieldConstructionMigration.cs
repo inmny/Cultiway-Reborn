@@ -64,7 +64,7 @@ internal static class FieldConstructionMigration
         foreach (Type type in skill.GetComponentTypes())
         {
             if (!typeof(IModifier).IsAssignableFrom(type)) continue;
-            if (!supported.Contains(type) && !ContactStatusMigration.Supports(type)) return null;
+            if (!supported.Contains(type) && !ContactEffectMigration.Supports(type)) return null;
             var modifier = (IModifier)skill.GetComponent(type);
             if (modifier.ModifierAsset.OnSetup != null) callbacks.AddRange(modifier.ModifierAsset.OnSetup.GetInvocationList());
         }
@@ -72,7 +72,7 @@ internal static class FieldConstructionMigration
         if (setup.Length != callbacks.Count) return null;
         foreach (Delegate callback in setup) if (!callbacks.Contains(callback)) return null;
         if (container.Asset.Effects.Count != 0 || container.EffectPipeline?.Effects.Count > 0 ||
-            container.OnTravel != null || !ContactStatusMigration.MatchesCallbacks(skill)) return null;
+            container.OnTravel != null || !ContactEffectMigration.MatchesCallbacks(skill)) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
 
@@ -84,7 +84,7 @@ internal static class FieldConstructionMigration
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
         if (scale <= 0f || scale > 100f) return null;
-        float strength = emission.Strength * emission.RuntimeData.ResolveEffectScale();
+        float strength = ContactEffectMigration.SetupStrengthScale(skill) * emission.Strength * emission.RuntimeData.ResolveEffectScale();
         if (configured) strength *= settings.PowerMultiplier;
         if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
         if (skill.TryGetComponent(out VolleyModifier volley)) strength *= Mathf.Clamp(volley.DamageMultiplier, .05f, 2f);
@@ -127,7 +127,7 @@ internal static class FieldConstructionMigration
         }
         bool entropy = container.Asset == SkillEntities.EntropyField;
         bool wind = container.Asset == SkillEntities.Tornado, yin = container.Asset == SkillEntities.YinField;
-        return ContactStatusMigration.Bind(new AbilityDefinition
+        return ContactEffectMigration.Bind(new AbilityDefinition
         {
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(),
             Lifetime = lifetime, ConcurrentLimit = container.Asset.ImpactProfile.PersistentLimit,

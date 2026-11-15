@@ -11,14 +11,19 @@ using strings;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>原接触词条只展开为普通状态资料，不保留旧执行实体或运行回调。</summary>
-internal static class ContactStatusMigration
+/// <summary>原接触词条只展开为普通状态和恢复资料，不保留旧执行实体或运行回调。</summary>
+internal static class ContactEffectMigration
 {
-    /// <summary>已经完整接管的原接触状态词条。</summary>
+    /// <summary>已经完整接管的原接触附加词条。</summary>
     /// <param name="type">原容器中的词条类型。</param>
     internal static bool Supports(Type type) => type == typeof(SlowModifier) || type == typeof(FreezeModifier) || type == typeof(DazeModifier) ||
         type == typeof(WeakenModifier) || type == typeof(ArmorBreakModifier) || type == typeof(SilenceModifier) ||
-        type == typeof(BurnModifier) || type == typeof(PoisonModifier) || type == typeof(EternalCurseModifier);
+        type == typeof(BurnModifier) || type == typeof(PoisonModifier) || type == typeof(EternalCurseModifier) || type == typeof(MercyModifier);
+
+    /// <summary>慈悲的本体减强只在来源转换时应用一次，接触恢复不再重复降低。</summary>
+    /// <param name="skill">真实原容器。</param>
+    internal static float SetupStrengthScale(Entity skill) => skill.TryGetComponent(out MercyModifier mercy)
+        ? Mathf.Clamp(mercy.DamageMultiplier, .05f, 1f) : 1f;
 
     /// <summary>核对真实接触回调全部来自已映射词条，额外回调继续原入口。</summary>
     /// <param name="skill">实际原容器。</param>
@@ -36,12 +41,12 @@ internal static class ContactStatusMigration
         return expected.Count == 0;
     }
 
-    /// <summary>在真实攻击面附加状态；飞行中的零伤害爆发载体及纯防御面不提前施加。</summary>
+    /// <summary>在真实攻击面附加状态和恢复；飞行中的零伤害爆发载体及纯防御面不提前施加。</summary>
     /// <param name="definition">已经转换的普通构造。</param><param name="skill">原容器。</param>
     /// <param name="effectScale">本次固定效果倍率。</param>
-    /// <param name="tickForceScale">本体量换回原附加作用强度的比例，不重复乘来源效果倍率。</param>
+    /// <param name="contactForceScale">本体量换回原附加作用强度的比例，不重复乘来源效果倍率。</param>
     /// <param name="includeRoot">本体是否已经是实际作用面，爆发载体在后段作用。</param>
-    internal static AbilityDefinition Bind(AbilityDefinition definition, Entity skill, float effectScale, bool includeRoot = true, float tickForceScale = 1f)
+    internal static AbilityDefinition Bind(AbilityDefinition definition, Entity skill, float effectScale, bool includeRoot = true, float contactForceScale = 1f)
     {
         var statuses = new List<ConstructionStatus>();
         if (skill.TryGetComponent(out SlowModifier slow))
@@ -76,9 +81,9 @@ internal static class ContactStatusMigration
         if (skill.TryGetComponent(out SilenceModifier silence))
             AddReduction(statuses, StatusEffects.Silence.id, silence.Duration, S.damage, silence.DamageReduction * effectScale);
         if (skill.TryGetComponent(out BurnModifier burn))
-            AddTick(statuses, StatusEffects.Burn.id, burn.Duration, Mathf.Clamp01(burn.DamageRatio) * tickForceScale, Core.ElementComposition.Static.Fire);
+            AddTick(statuses, StatusEffects.Burn.id, burn.Duration, Mathf.Clamp01(burn.DamageRatio) * contactForceScale, Core.ElementComposition.Static.Fire);
         if (skill.TryGetComponent(out PoisonModifier poison))
-            AddTick(statuses, StatusEffects.Poison.id, poison.Duration, Mathf.Clamp01(poison.DamageRatio) * tickForceScale,
+            AddTick(statuses, StatusEffects.Poison.id, poison.Duration, Mathf.Clamp01(poison.DamageRatio) * contactForceScale,
                 Core.ElementComposition.Static.Poison, Mathf.Clamp(poison.MaxStacks, 1, 99));
         if (skill.TryGetComponent(out EternalCurseModifier curse))
         {
@@ -86,7 +91,7 @@ internal static class ContactStatusMigration
             if (duration > 0f)
             {
                 float reduction = Mathf.Clamp01(curse.DebuffRatio * effectScale);
-                float damageRatio = Mathf.Clamp(curse.DamageRatio, 0f, 20f) * tickForceScale;
+                float damageRatio = Mathf.Clamp(curse.DamageRatio, 0f, 20f) * contactForceScale;
                 statuses.Add(new ConstructionStatus
                 {
                     Id = StatusEffects.EternalCurse.id, Duration = duration, Application = ConstructionStatusApplication.Refresh,
@@ -99,7 +104,9 @@ internal static class ContactStatusMigration
                 });
             }
         }
-        if (statuses.Count > 0) BindNode(definition.Root, statuses.ToArray(), includeRoot);
+        float healing = skill.TryGetComponent(out MercyModifier mercy)
+            ? Mathf.Clamp(mercy.HealRatio, 0f, 5f) * contactForceScale : 0f;
+        if (statuses.Count > 0 || healing > 0f) BindNode(definition.Root, statuses.ToArray(), healing, includeRoot);
         return definition;
     }
 
@@ -136,15 +143,22 @@ internal static class ContactStatusMigration
 
     /// <summary>复用原接触关系、窗口和次数，不另造扩大作用区。</summary>
     /// <param name="node">实际部位。</param><param name="statuses">本次待编译的状态资料。</param>
+    /// <param name="healing">本体量换回原恢复基准后的比例。</param>
     /// <param name="include">是否在本部位的接触时点施加。</param>
-    private static void BindNode(ConstructionNode node, ConstructionStatus[] statuses, bool include = true)
+    private static void BindNode(ConstructionNode node, ConstructionStatus[] statuses, float healing, bool include = true)
     {
         if (include && (node.ContactRole == ConstructionContactRole.Attack || node.ContactRole == ConstructionContactRole.Barrier && node.Impact != null))
         {
             if (node.Impact == null) node.Impact = new ConstructionImpact();
-            node.Impact.Statuses = statuses;
+            if (statuses.Length > 0) node.Impact.Statuses = statuses;
+            if (healing > 0f) node.Impact.Restoration = new ConstructionRestoration
+            {
+                Target = ConstructionRestorationTarget.Controller,
+                // 屏障容量包含耐久倍率，恢复仍按原术强度；余力受损比例继续保留。
+                HealthPerForce = healing / node.Strength
+            };
         }
         if (node.Children == null) return;
-        foreach (ConstructionNode child in node.Children) BindNode(child, statuses);
+        foreach (ConstructionNode child in node.Children) BindNode(child, statuses, healing);
     }
 }

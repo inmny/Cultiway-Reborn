@@ -100,7 +100,7 @@ internal static class ProjectileConstructionMigration
         foreach (Type type in skill.GetComponentTypes())
         {
             if (!typeof(IModifier).IsAssignableFrom(type)) continue;
-            if (!supported.Contains(type) && !ContactStatusMigration.Supports(type)) return null;
+            if (!supported.Contains(type) && !ContactEffectMigration.Supports(type)) return null;
             var modifier = (IModifier)skill.GetComponent(type);
             if (modifier.ModifierAsset.OnSetup != null) setup.AddRange(modifier.ModifierAsset.OnSetup.GetInvocationList());
         }
@@ -108,7 +108,7 @@ internal static class ProjectileConstructionMigration
         if (actualSetup.Length != setup.Count) return null;
         foreach (Delegate callback in actualSetup) if (!setup.Contains(callback)) return null;
         if (container.Asset.Effects.Count != 0 || container.EffectPipeline?.Effects.Count > 0 ||
-            container.OnTravel != null || !ContactStatusMigration.MatchesCallbacks(skill)) return null;
+            container.OnTravel != null || !ContactEffectMigration.MatchesCallbacks(skill)) return null;
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
         bool towardsDirection = trajectory == SkillTrajectories.TowardsDirection.id;
         bool noRotation = trajectory == SkillTrajectories.TowardsDirectionNoRot.id;
@@ -302,7 +302,7 @@ internal static class ProjectileConstructionMigration
             Goal = new ConstructionFlightGoal { Anchor = ConstructionFlightAnchor.Source, Follow = true,
                 Arrival = ConstructionFlightArrival.End, Radius = .01f, DirectArrival = true }
         } : null;
-        float strength = emission.Strength * emission.RuntimeData.ResolveEffectScale();
+        float strength = ContactEffectMigration.SetupStrengthScale(skill) * emission.Strength * emission.RuntimeData.ResolveEffectScale();
         if (configured) strength *= settings.PowerMultiplier;
         if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
         if (skill.TryGetComponent(out VolleyModifier volley)) strength *= Mathf.Clamp(volley.DamageMultiplier, .05f, 2f);
@@ -354,7 +354,7 @@ internal static class ProjectileConstructionMigration
                     When = new ConstructionCondition { Source = "..", Trigger = ConstructionChangeTrigger.End } } }
             } };
         }
-        return ContactStatusMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, tickForceScale: !continues && !blast ? 1f / damageMultiplier : 1f);
+        return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, contactForceScale: !continues && !blast ? 1f / damageMultiplier : 1f);
     }
 
     /// <summary>保留基准生成高度；按真实主体底部抬高出生点，不让放大后的尖端出生即穿地。</summary>

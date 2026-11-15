@@ -169,6 +169,7 @@ public sealed partial class ConstructedAbilityService
                 }
 
                 if (epoch != worldGeneration) return null;
+                ApplyRestoration(running, node, actor.Actor, impact.Restoration);
                 responses.Add(ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, ApplyAttackState.Hit,
                     (shape.A + shape.B) * .5f, priorVelocity, forceReceiver));
                 ids.Add(actor.Id);

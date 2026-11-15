@@ -1,0 +1,203 @@
+// B36：只验证慈悲的真实接触与共用恢复，不扩充身体、装备和全部来源实机场景。
+const string section="all";
+var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var allCasts=new List<AbilityCast>();
+var restorations=new List<(long Target,float Amount,int Before,int After)>();
+var emissions=new List<object>();int oldExecutions=0;bool invalidate=false,scopeValid=true;
+SkillEmissionResult? lastResult=null;SkillEntityAsset current=SkillEntities.SpiritBolt;
+Actor source=Make(64),target=Make(70),outside=Make(70),wolf=Make(12,"wolf");
+target.setKingdom(wolf.kingdom);outside.setKingdom(wolf.kingdom);Place(outside,70,78);
+var owner=source.GetExtend();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=0;
+owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();await Advance(.2f);
+Actor soulCarrier=null;
+IReadOnlyList<Entity> Learned()=>(IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(owner,null);
+/// <summary>真实已学原容器；默认慈悲降低至六成并恢复四分之一。</summary>
+Entity Build(float damage=.6f,float heal=.25f,bool burning=false,bool contact=true)
+{
+    var builder=new SkillContainerBuilder(current).UseAnimation(0);
+    builder.AddModifier(new MercyModifier{DamageMultiplier=damage,HealRatio=heal});
+    if(burning)builder.AddModifier(new BurnModifier{Duration=3,DamageRatio=.3f});
+    Entity made=builder.Build(SkillContainerBuildMode.RuleOnly);
+    if(!contact)made.AddComponent(new SkillSettings{Duration=2.4f,PowerMultiplier=1,AreaMultiplier=1,ContactEnabled=false});
+    string signature=SkillContainerSignature.Build(made);owner.LearnSkillV3(made);
+    return Learned().First(x=>SkillContainerSignature.Build(x)==signature);
+}
+/// <summary>检查七条来源的资料换算，实际战斗只选一个灵弹和一个领域。</summary>
+(AbilityDefinition Definition,GetHitEvent Damage) Convert(Entity skill,string migration,float scale=1f)
+{
+    var method=service.Assembly.GetType("Cultiway.Content.Skills."+migration+"ConstructionMigration").GetMethod("Convert",F);
+    var emission=new SkillEmission{Source=source,SpatialSource=source,SkillContainer=skill,Target=target,
+        SourcePos=new Vector3(64,72,.3f),TargetPos=new Vector3(70,72,.3f),Strength=40,PowerLevel=0,
+        RuntimeData=new SkillCastRuntimeData{EffectScale=scale}};
+    object[] args=method.GetParameters().Length==3?new object[]{emission,default(GetHitEvent),default(Vector3)}:new object[]{emission,default(GetHitEvent)};
+    return ((AbilityDefinition)method.Invoke(null,args),(GetHitEvent)args[1]);
+}
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    yield return node;if(node.Children!=null)foreach(var child in node.Children)foreach(var nested in Nodes(child))yield return nested;
+}
+/// <summary>读取已编译的首部位作用，不向游戏公开调试接口。</summary>
+CompiledConstructionImpact FirstImpact(CompiledAbility plan)
+{
+    object node=((Array)typeof(CompiledAbility).GetProperty("Nodes",F).GetValue(plan)).GetValue(0);
+    return (CompiledConstructionImpact)node.GetType().GetField("Impact",F).GetValue(node);
+}
+void ResetPeople()
+{
+    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();oldExecutions=0;
+    restorations.Clear();Ready(source);Place(source,64);Place(target,70);Place(outside,70,78);
+    target.GetExtend().SetPowerLevel(0);owner.SetPowerLevel(0);
+    owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
+    source.setHealth(source.getMaxHealth()-2000);target.setHealth(target.getMaxHealth()-100);outside.setHealth(outside.getMaxHealth()-100);
+    foreach(var actor in new[]{source,target,outside})ConstructedAbilityService.NotifyActorChanged(actor);
+}
+/// <summary>正式已学施放，仍由原来源报价和支付。</summary>
+bool Use(Entity skill,ConstructionWorldScope scope=null)
+{
+    bool used=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",skill),new ActiveAbilityTarget(target,target.GetSimPos(),
+        selectionArea:new SkillTargetSelectionArea(true,target.GetSimPos(),.1f),worldScope:scope),ActiveAbilityUseOrigin.Script);
+    source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();ControllableUnit.clear(false);return used;
+}
+async Task WaitContact(int before)
+{
+    for(int i=0;i<80;i++){await Advance(.025f);if(contacts.Count(c=>c.TargetId==target.id)>before)return;}
+    throw new InvalidOperationException("实际目标未在两秒内接触");
+}
+void Started(ConstructedCastStarted fact){if(fact.SourceId==source.id)starts.Add(fact);}
+void Old(Entity entity){if(entity.GetComponent<SkillContext>().SourceObj==source)oldExecutions++;}
+ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+var hook=new HarmonyLib.Harmony("Cultiway.Verify.ContactMercy");
+MercyRestorationProbe.After=(actor,amount,before)=>{if(actor==source||actor==target||actor==soulCarrier)restorations.Add((actor.id,amount,before,actor.data.health));};
+hook.Patch(typeof(CombatResourceEffects).GetMethod("RestoreHealth"),
+    prefix:new HarmonyLib.HarmonyMethod(typeof(MercyRestorationProbe).GetMethod("Prefix")),
+    postfix:new HarmonyLib.HarmonyMethod(typeof(MercyRestorationProbe).GetMethod("Postfix")));
+try
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        if(request.Source!=source)return original(request);if(invalidate)scopeValid=false;
+        var result=original(request);lastResult=result;
+        if(result==SkillEmissionResult.Accepted)
+        {
+            var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==starts.Last().CastId);
+            var cast=(AbilityCast)Field(running,"Cast");accepted.Add(cast);allCasts.Add(cast);
+        }
+        emissions.Add(new{request.Strength,request.PowerLevel,result=result.ToString(),asset=request.SkillContainer.GetComponent<SkillContainer>().Asset.id});return result;
+    };
+    if(section is "all" or "definitions")
+    {
+        foreach(var entry in new[]{(Asset:SkillEntities.SpiritBolt,Migration:"Projectile"),(Asset:SkillEntities.GroundSpike,Migration:"GroundSpike"),
+            (Asset:SkillEntities.Rift,Migration:"Rift"),(Asset:SkillEntities.YinField,Migration:"Field"),(Asset:SkillEntities.FireWall,Migration:"Barrier"),
+            (Asset:SkillEntities.SpiritBeam,Migration:"Beam"),(Asset:SkillEntities.ChainLightning,Migration:"Chain"),
+            (Asset:SkillEntities.Fireball,Migration:"Projectile"),(Asset:SkillEntities.SpiritShield,Migration:"Barrier")})
+        {
+            current=entry.Asset;var pair=Convert(Build(),entry.Migration,.5f);var definition=pair.Definition;
+            Check(definition!=null,entry.Asset.id+"慈悲不退回旧执行");
+            var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));var plan=AbilityCompiler.Compile(restored,false);
+            var healing=Nodes(restored.Root).Where(n=>n.Impact?.Restoration!=null).ToArray();
+            bool pure=entry.Asset==SkillEntities.SpiritShield;
+            Check(pure?healing.Length==0:healing.Length>0&&healing.All(n=>n.Impact.Restoration.Target==ConstructionRestorationTarget.Controller&&
+                Math.Abs(pair.Damage.Damage*n.Strength*n.Impact.Restoration.HealthPerForce-40*.6f*.5f*.25f)<.001f),
+                entry.Asset.id+"保存编译后保留原恢复量，纯防御面无治疗",new{force=pair.Damage.Damage,pure});
+            float expected=40*.6f*(entry.Migration=="Barrier"?1f:.5f);
+            if(entry.Migration is "GroundSpike" or "Rift" or "Beam" or "Chain"||entry.Asset==SkillEntities.SpiritBolt)
+                expected*=entry.Asset.ImpactProfile.DamageMultiplier*entry.Asset.ImpactTuning.DamageMultiplier;
+            Check(Math.Abs(pair.Damage.Damage-expected)<.001f,entry.Asset.id+"原本体只减强一次");
+            if(entry.Asset==SkillEntities.Fireball)Check(restored.Root.Impact.Restoration==null&&restored.Root.Children[0].Impact.Restoration!=null,"只在真实爆发面恢复");
+            File.WriteAllText(Path.Combine(folder,entry.Asset.id+".json"),JsonConvert.SerializeObject(definition,Formatting.Indented));
+        }
+        current=SkillEntities.SpiritBolt;var combo=Convert(Build(burning:true),"Projectile");var compiled=AbilityCompiler.Compile(combo.Definition,false);
+        Check(Math.Abs(combo.Damage.Damage*FirstImpact(compiled).Statuses.Single().Tick.ForcePerSecond-40*.6f*.3f/3)<.001f,"周期附加作用也只用慈悲减强后的本体");
+        var sourceRestoration=combo.Definition.Root.Impact.Restoration;var snapshot=FirstImpact(compiled).Restoration;
+        sourceRestoration.HealthPerForce=2;sourceRestoration.Target=ConstructionRestorationTarget.Contact;
+        Check(snapshot.Target==ConstructionRestorationTarget.Controller&&snapshot.HealthPerForce!=2&&snapshot.HasEffect,"编译独立复制恢复对象及比例");
+        var legacy=JsonConvert.DeserializeObject<ConstructionRestoration>("{\"Health\":12}");
+        combo.Definition.Root.Impact.Restoration=legacy;var legacyPlan=AbilityCompiler.Compile(combo.Definition,false);
+        Check(FirstImpact(legacyPlan).Restoration.Target==ConstructionRestorationTarget.Contact&&FirstImpact(legacyPlan).Restoration.HealthPerForce==0&&FirstImpact(legacyPlan).Restoration.Health==12,"省略字段仍是固定目标恢复");
+        legacy.Target=(ConstructionRestorationTarget)99;bool rejected=false;
+        try{AbilityCompiler.Compile(combo.Definition,false);}catch(InvalidDataException){rejected=true;}Check(rejected,"未知恢复对象在编译边界拒绝");
+        legacy.Target=ConstructionRestorationTarget.Contact;legacy.HealthPerForce=-1;rejected=false;
+        try{AbilityCompiler.Compile(combo.Definition,false);}catch(InvalidDataException){rejected=true;}Check(rejected,"负恢复比例在编译边界拒绝");
+    }
+    if(section is "all" or "runtime")
+    {
+        current=SkillEntities.SpiritBolt;ResetPeople();var skill=Build();float balance=owner.GetCultisys<Xian>().wakan;
+        int hp=source.data.health,victim=target.data.health,side=outside.data.health;
+        var plan=SkillCastPlanner.CreatePlan(owner,skill,target,SkillCastCost.GetAffordableStepLimit(owner,skill),explicitTargetsOnly:true);
+        Check(Use(skill),"已学慈悲灵弹正式受理");await Advance(.025f);
+        Check(contacts.Count==0&&restorations.Count==0,"发射但尚未接触不提前恢复");
+        float initial=accepted.Single().RemainingForce(0);float raw=JObject.FromObject(emissions.Last())["Strength"].Value<float>();
+        Check(Math.Abs(initial-raw*.6f*current.ImpactProfile.DamageMultiplier*current.ImpactTuning.DamageMultiplier)<.001f,"真实本体只减强一次",new{raw,initial});
+        await WaitContact(0);int expected=Mathf.RoundToInt(raw*.6f*.25f);
+        Check(restorations.Count==1&&restorations[0].Target==source.id&&restorations[0].After-restorations[0].Before==expected&&target.data.health<victim&&outside.data.health==side&&oldExecutions==0&&starts.Count==1,
+            "真实命中治疗施法者而非目标，侧外安全且无旧执行",new{before=hp,after=source.data.health,expected,victimAfter=target.data.health});
+        double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculatePlanDemand(skill,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
+        Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f,"慈悲仅支付原逐发费用",new{cost});
+        await Advance(.3f);Check(accepted.Single().Finished,"单次真实接触后正常结束");int count=restorations.Count;await Advance(.4f);Check(restorations.Count==count,"结束后不继续治疗");
+    }
+    if(section is "all" or "edge")
+    {
+        current=SkillEntities.SpiritBolt;ResetPeople();int hp=source.data.health;Check(Use(Build(contact:false)),"关闭接触仍能施放");await Advance(.3f);
+        Check(contacts.Count==0&&restorations.Count==0,"经过人物但无实际作用时不调用治疗",new{hp,after=source.data.health,contacts=contacts.Count,restorations=restorations.Count});foreach(var cast in accepted)cast.Cancel();
+        ResetPeople();hp=source.data.health;Check(Use(Build(heal:.00001f)),"极小比例慈悲正式施放");await WaitContact(0);
+        Check(restorations.Count==0,"按原规则取整为零时不凭空治疗一点",new{hp,after=source.data.health});
+    }
+    if(section is "all" or "common")
+    {
+        current=SkillEntities.SpiritBolt;ResetPeople();int hp=source.data.health;Check(Use(Build()),"余力验证正常受理");await Advance(.025f);
+        var cast=accepted.Single();float before=cast.RemainingForce(0);typeof(AbilityCast).GetMethod("ConsumeForce",F).Invoke(cast,new object[]{0,before*.5f});float remaining=cast.RemainingForce(0);
+        float ratio=cast.Impact(0).Restoration.HealthPerForce;await WaitContact(0);
+        Check(restorations.Count==1&&restorations[0].Target==source.id&&restorations[0].After-restorations[0].Before==Mathf.RoundToInt(remaining*ratio)&&restorations[0].Amount<Mathf.RoundToInt(before*ratio),"真实余力减半后只按余力恢复",new{before,remaining,ratio,restored=source.data.health-hp});
+        current=SkillEntities.YinField;ResetPeople();hp=source.data.health;Check(Use(Build()),"领域慈悲正式受理");await Advance(1.3f);
+        int hits=contacts.Count(c=>c.TargetId==target.id);float raw=JObject.FromObject(emissions.Last())["Strength"].Value<float>();
+        Check(hits>=2&&restorations.Count==hits&&restorations.All(x=>x.Target==source.id&&x.After-x.Before==Mathf.RoundToInt(raw*.6f*.25f))&&oldExecutions==0,"领域只随真实间隔接触恢复",new{hits,restored=source.data.health-hp});
+        foreach(var c in accepted)c.Cancel();int count=restorations.Count;await Advance(.7f);Check(restorations.Count==count,"领域取消后停止恢复");
+        ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;hp=source.data.health;invalidate=true;
+        Check(Use(Build(),new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排发射受理时的真实边界失效");await Advance(.3f);invalidate=false;
+        Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==0&&Math.Abs(owner.GetCultisys<Xian>().wakan-balance)<.001f&&restorations.Count==0,"受理失败原值退款且不恢复");
+        scopeValid=true;ResetPeople();hp=source.data.health;Check(Use(Build()),"失败后同一来源重新受理");await WaitContact(0);Check(restorations.Any(x=>x.Target==source.id&&x.After>x.Before),"恢复后命中自愈正常");
+    }
+    if(section is "all" or "carrier")
+    {
+        // 只检查本批复用的共享恢复服务，不宣称原主和空间载体分离的旧来源已经转换。
+        foreach(var cast in accepted)cast.Cancel();ResetPeople();
+        var formation=new CoreFormationSnapshot{version=CoreFormationSnapshot.CurrentVersion,signature="test.contact-mercy.soul",canonical_name="恢复验证元神",
+            finalized=true,realm=CoreFormationRealm.Yuanshen,strength=4,refinement=9,quality=new ItemLevel{Stage=2,Level=3},quality_score=.6f,
+            atoms=new[]{new CoreFormationAtomState{atom_id=CoreFormationAtoms.ManifestSpiritPlatform.id,weight=1,awakening_stage=0}},
+            stats=Array.Empty<CoreFormationStatValue>(),semantics=Array.Empty<SemanticContribution>(),composition=ElementComposition.Static.Fire};
+        owner.GetCultisys<Xian>().level=4;owner.AddComponent(new Yuanshen{formation=formation,original_body=new PhysicalBodySnapshot{actor_asset_id="human"}});
+        var boost=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ContactMercy.Mind")
+            .SetStats(new BaseStats{[BaseStatses.MaxWakan.id]=10000,[nameof(WorldboxGame.BaseStats.DivineSense)]=10000}).SetDuration(10000).Build();
+        CombatStatusEffects.ApplyStatus(source,boost,10000,source);owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.9f;
+        Check(YuanshenTravelService.TryTravelTo(owner,new Vector3(66,72),YuanshenTravelStance.Balanced)&&YuanshenTravelService.TryGetSoulCarrier(owner,out soulCarrier),"正式神游建立有效命魂载体");
+        var state=soulCarrier.GetExtend().GetComponent<YuanshenSoulCarrierState>();state.current_integrity=state.maximum_integrity*.5f;soulCarrier.GetExtend().E.AddComponent(state);
+        YuanshenTravelService.SynchronizeCarrierHealth(soulCarrier,in state);int ownerHp=source.data.health;float integrity=state.current_integrity;
+        CombatResourceEffects.RestoreHealth(soulCarrier,17f);var after=soulCarrier.GetExtend().GetComponent<YuanshenSoulCarrierState>();
+        Check(Math.Abs(after.current_integrity-Math.Min(after.maximum_integrity,integrity+17f))<.001f&&source.data.health==ownerHp,"复用服务恢复命魂完整度且不治疗原主",new{integrity,after=after.current_integrity,ownerHp});
+        Check(YuanshenTravelService.RequestReturn(owner)&&YuanshenTravelService.CompleteReturn(owner,soulCarrier)&&!YuanshenTravelService.TryGetSoulCarrier(owner,out _),"命魂按原规则正常归返");soulCarrier=null;
+        CombatStatusEffects.RemoveStatus(source,boost);
+    }
+    return new{passed=true,section,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder,"restorations.json"),JsonConvert.SerializeObject(restorations.Select(x=>new{x.Target,x.Amount,x.Before,x.After}),Formatting.Indented));
+    MercyRestorationProbe.After=null;hook.UnpatchSelf();
+    foreach(var cast in allCasts)cast.Cancel();
+    if(soulCarrier!=null)YuanshenTravelService.CompleteReturn(owner,soulCarrier);
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    ControllableUnit.clear(false);Config.paused=true;
+}
+
+/// <summary>只观察本批共享恢复输入和实际生命变化，不拦截或改变恢复。</summary>
+public static class MercyRestorationProbe
+{
+    /// <summary>恢复完成后的实际人物、输入量及恢复前生命。</summary>
+    public static Action<Actor,float,int> After;
+    /// <summary>在同次调用内记录原生命，不受人物自身周期回血影响。</summary>
+    public static void Prefix(Actor __0,out int __state)=>__state=__0?.data?.health??0;
+    /// <summary>报告已经由正式服务完成的实际恢复。</summary>
+    public static void Postfix(Actor __0,float __1,int __state)=>After?.Invoke(__0,__1,__state);
+}

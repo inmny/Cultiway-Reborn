@@ -76,7 +76,7 @@ internal static class BarrierConstructionMigration
         foreach (Type type in skill.GetComponentTypes())
         {
             if (!typeof(IModifier).IsAssignableFrom(type)) continue;
-            if (!supported.Contains(type) && !ContactStatusMigration.Supports(type)) return null;
+            if (!supported.Contains(type) && !ContactEffectMigration.Supports(type)) return null;
             var modifier = (IModifier)skill.GetComponent(type);
             if (modifier.ModifierAsset.OnSetup != null) callbacks.AddRange(modifier.ModifierAsset.OnSetup.GetInvocationList());
         }
@@ -84,7 +84,7 @@ internal static class BarrierConstructionMigration
         if (setup.Length != callbacks.Count) return null;
         foreach (Delegate callback in setup) if (!callbacks.Contains(callback)) return null;
         if (container.Asset.Effects.Count != 0 || container.EffectPipeline?.Effects.Count > 0 ||
-            container.OnTravel != null || !ContactStatusMigration.MatchesCallbacks(skill)) return null;
+            container.OnTravel != null || !ContactEffectMigration.MatchesCallbacks(skill)) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
 
@@ -96,7 +96,7 @@ internal static class BarrierConstructionMigration
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
         if (scale <= 0f || scale > 100f) return null;
-        float strength = emission.Strength;
+        float strength = ContactEffectMigration.SetupStrengthScale(skill) * emission.Strength;
         if (configured) strength *= settings.PowerMultiplier;
         if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
         if (skill.TryGetComponent(out ComboModifier combo)) strength *= Mathf.Clamp(combo.DamageMultiplier, .05f, 2f);
@@ -125,7 +125,7 @@ internal static class BarrierConstructionMigration
             "water_curtain" => "water", "earth_wall" => "earth",
             "spirit_aegis" => "spirit", "lightning_aegis" => "lightning", "solar_aegis" => "yang", _ => "physical" };
         Vector3 angles = shield ? Vector3.zero : FormResource.ReadFacing(new[] {0f, 1f, 0f}, new[] {0f, 0f, 1f}, form).eulerAngles;
-        return ContactStatusMigration.Bind(new AbilityDefinition
+        return ContactEffectMigration.Bind(new AbilityDefinition
         {
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(),
             Lifetime = lifetime, ConcurrentLimit = container.Asset.ImpactProfile.PersistentLimit,
@@ -149,7 +149,7 @@ internal static class BarrierConstructionMigration
                     Vector = new float[3], WorldVelocity = true, Ground = ConstructionGroundResponse.Follow } }
 
             }
-        }, skill, emission.RuntimeData.ResolveEffectScale(), tickForceScale: emission.RuntimeData.ResolveEffectScale());
+        }, skill, emission.RuntimeData.ResolveEffectScale(), contactForceScale: emission.RuntimeData.ResolveEffectScale());
     }
 
 }

@@ -61,7 +61,7 @@ internal static class BeamConstructionMigration
         foreach (Type type in skill.GetComponentTypes())
         {
             if (!typeof(IModifier).IsAssignableFrom(type)) continue;
-            if (!supported.Contains(type) && !ContactStatusMigration.Supports(type)) return null;
+            if (!supported.Contains(type) && !ContactEffectMigration.Supports(type)) return null;
             var modifier = (IModifier)skill.GetComponent(type);
             if (modifier.ModifierAsset.OnSetup != null) callbacks.AddRange(modifier.ModifierAsset.OnSetup.GetInvocationList());
         }
@@ -69,7 +69,7 @@ internal static class BeamConstructionMigration
         if (setup.Length != callbacks.Count) return null;
         foreach (Delegate callback in setup) if (!callbacks.Contains(callback)) return null;
         if (container.Asset.Effects.Count != 0 || container.EffectPipeline?.Effects.Count > 0 ||
-            container.OnTravel != null || !ContactStatusMigration.MatchesCallbacks(skill)) return null;
+            container.OnTravel != null || !ContactEffectMigration.MatchesCallbacks(skill)) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
 
@@ -81,7 +81,7 @@ internal static class BeamConstructionMigration
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
         if (scale <= 0f || scale > 100f) return null;
-        float strength = emission.Strength * emission.RuntimeData.ResolveEffectScale();
+        float strength = ContactEffectMigration.SetupStrengthScale(skill) * emission.Strength * emission.RuntimeData.ResolveEffectScale();
         if (configured) strength *= settings.PowerMultiplier;
         if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
         if (skill.TryGetComponent(out VolleyModifier volley)) strength *= Mathf.Clamp(volley.DamageMultiplier, .05f, 2f);
@@ -92,7 +92,7 @@ internal static class BeamConstructionMigration
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin
         };
         damage.BindAttacker(emission.Source);
-        return ContactStatusMigration.Bind(new AbilityDefinition
+        return ContactEffectMigration.Bind(new AbilityDefinition
         {
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(),
             Lifetime = lifetime, Resource = "none", Cost = 0f, Cooldown = 0f, Power = 1f, TargetRange = 10000f,
@@ -110,7 +110,7 @@ internal static class BeamConstructionMigration
                 Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Ray,
                     Ray = new ConstructionRay { Length = 10000f, FollowTarget = follow, TurnRate = 0f } } }
             }
-        }, skill, emission.RuntimeData.ResolveEffectScale(), tickForceScale: 1f / (container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier));
+        }, skill, emission.RuntimeData.ResolveEffectScale(), contactForceScale: 1f / (container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier));
     }
 
     /// <summary>只接管本批已经保留全部实际作用的两个原光束。</summary>
