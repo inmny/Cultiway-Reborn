@@ -439,6 +439,8 @@ public sealed partial class AbilityCast
     {
         float step = Mathf.Min(maximum, 1f / 60f, Mathf.Max(0f, CastUntil - Age));
         Include(Plan.Lifetime);
+        foreach (float interval in Plan.PulseIntervals)
+            Include((Mathf.Floor((Age + .000001f) / interval) + 1f) * interval);
         for (int i = 0; i < nodes.Length; i++)
         {
             CompiledForm form = Plan.Nodes[i];

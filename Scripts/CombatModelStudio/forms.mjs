@@ -15,6 +15,7 @@ import {makeRay} from './forms_ray.mjs';
 import {makeEarthSpikes} from './forms_earth.mjs';
 import {makeRift} from './forms_rift.mjs';
 import {makeFields} from './forms_fields.mjs';
+import {makeSupport} from './forms_support.mjs';
 
 makeHorn();
 makeOrganForms();
@@ -27,6 +28,7 @@ makeRay();
 makeEarthSpikes();
 makeRift();
 makeFields();
+makeSupport();
 
 // 剑刃由脊、刃面、窄边和逐段收尖构成；各面保留自己的表面方向。
 const positions = [], uv = [], triangles = [];

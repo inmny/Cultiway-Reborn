@@ -73,13 +73,17 @@ public sealed partial class ConstructedAbilityService
     /// <param name="to">目标在共同末端的作用形状。</param>
     /// <param name="step">共同世界步长。</param>
     /// <param name="stage">本次需要确认的身体作用实例。</param>
-    private float ContactFraction(in ShapeMotion shape, in ActorMotion actor, in AbilityCapsule from, in AbilityCapsule to, float step, int stage)
+    /// <param name="earliest">作用窗口内最早允许的路径进度。</param>
+    private float ContactFraction(in ShapeMotion shape, in ActorMotion actor, in AbilityCapsule from, in AbilityCapsule to, float step, int stage, float earliest = 0f)
     {
         RunningCast running = shape.Running;
         var key = running.HitKeyAtStage(shape.To.Node, actor.Id, stage);
-        if (!running.Hits.TryGetValue(key, out ContactMemory memory)) return 0f;
         CompiledContactPolicy policy = running.Cast.Plan.ContactPolicies[key.Item1];
-        if (policy.MaximumPerTarget > 0 && memory.Count >= policy.MaximumPerTarget) return float.PositiveInfinity;
+        running.Hits.TryGetValue(key, out ContactMemory memory);
+        if (policy.MaximumPerTarget > 0 && memory?.Count >= policy.MaximumPerTarget) return float.PositiveInfinity;
+        if (policy.Mode == ConstructionContactMode.Pulse)
+            return PulseFraction(policy.Interval, memory, running.Cast.Age - step, step, earliest);
+        if (memory == null) return 0f;
         switch (policy.Mode)
         {
             case ConstructionContactMode.Once: return float.PositiveInfinity;
@@ -95,6 +99,17 @@ public sealed partial class ConstructedAbilityService
                 return memory.Fraction;
             default: throw new InvalidOperationException("编译后的接触方式无效");
         }
+    }
+
+    /// <summary>同一次施放的定时脉冲不随进入时间重排；已确认的整点不能再次消费。</summary>
+    /// <param name="interval">共同间隔。</param><param name="memory">已确认接触。</param>
+    /// <param name="start">本步施放年龄。</param><param name="step">共同步长。</param>
+    /// <param name="earliest">作用窗口的最早进度。</param>
+    private static float PulseFraction(float interval, ContactMemory memory, float start, float step, float earliest)
+    {
+        float tick = Mathf.Max(1f, Mathf.Ceil((start + earliest * step - .000001f) / interval));
+        if (memory != null) tick = Mathf.Max(tick, Mathf.Floor((memory.Age + .000001f) / interval) + 1f);
+        return Mathf.Max(0f, (tick * interval - start) / step);
     }
 
     /// <summary>合并同组覆盖区间，只允许真实离开后的下一段进入；分离部位之间的空隙也有效。</summary>

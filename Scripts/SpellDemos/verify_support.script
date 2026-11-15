@@ -1,0 +1,204 @@
+// B16：三种真实支持来源、共同定时恢复及优先级净化，不扩展身体装备矩阵。
+var manager = Cultiway.ModClass.I.SkillV3;
+var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts = new List<ConstructedCastStarted>(); var accepted = new List<object>(); var emissions = new List<object>();
+var old = new List<int>(); bool invalidate = false, scopeValid = true; int rejectAfterStarts = int.MaxValue;
+SkillEmissionResult? lastResult = null;
+Actor source = Make(64), target = Make(70), edge = Make(65), outside = Make(79), late = Make(84), enemy = Make(70, "wolf");
+foreach (Actor a in new[] { target, edge, outside, late }) a.setKingdom(source.kingdom);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Magic);
+source.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("white_staff"), pActor: source), source);
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f); source.setMana(source.getMaxMana());
+IReadOnlyList<Entity> Learned() => (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+bool IsObserved(SkillEntityAsset a) => a == SkillEntities.HealingLight || a == SkillEntities.RejuvenationField || a == SkillEntities.PurificationWave || a == SkillEntities.FlyingSword;
+Entity Build(SkillEntityAsset asset, bool boosted = false, bool extra = false)
+{
+    var builder = new SkillContainerBuilder(asset).UseAnimation(0);
+    if (asset == SkillEntities.HealingLight) builder.AddModifier(new HealingModifier { Amount = boosted ? 60f : 35f });
+    if (asset == SkillEntities.RejuvenationField) builder.AddModifier(new RejuvenationModifier { Duration = 3.5f, HealPerSecond = boosted ? 24f : 8f });
+    if (asset == SkillEntities.PurificationWave) builder.AddModifier(new PurificationModifier { MaxStatuses = boosted ? 2 : 1 });
+    if (boosted)
+    {
+        builder.AddModifier(new HugeModifier { Value = 1.4f });
+        builder.AddModifier(new HasteModifier { SpeedMultiplier = .5f });
+        builder.AddModifier(new EmpowerModifier { SetupBonus = .3f });
+        builder.AddModifier(new ProficiencyModifier { CostReduction = .2f, SalvoIntervalReduction = .2f });
+    }
+    if (extra) builder.AddModifier(new BurnModifier { Duration = 1, DamageRatio = .1f });
+    Entity skill = builder.Build(SkillContainerBuildMode.RuleOnly);
+    string signature = SkillContainerSignature.Build(skill);
+    owner.LearnSkillV3(skill); return Learned().First(s => SkillContainerSignature.Build(s) == signature);
+}
+var converter = service.Assembly.GetType("Cultiway.Content.Skills.SupportConstructionMigration").GetMethod("Convert", F);
+AbilityDefinition Convert(Entity skill, float scale = 1f) => (AbilityDefinition)converter.Invoke(null, new object[]
+{
+    new SkillEmission { Source = source, SpatialSource = source, SkillContainer = skill, Target = target,
+        SourcePos = new Vector3(64,72,.3f), TargetPos = new Vector3(70,72,.3f), Strength = 4000f, PowerLevel = 1.25f,
+        RuntimeData = new SkillCastRuntimeData { EffectScale = scale } }
+});
+AbilityCast Cast(object running) => (AbilityCast)Field(running, "Cast");
+void Started(ConstructedCastStarted fact) { if (IsObserved(manager.SkillLib.get(fact.AbilityId))) starts.Add(fact); }
+void Old(Entity execution) { if (IsObserved(execution.GetComponent<SkillEntity>().Asset)) old.Add(execution.Id); }
+ConstructedAbilityService.CastStarted += Started; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+try
+{
+    Entity healing = Build(SkillEntities.HealingLight), enhanced = Build(SkillEntities.HealingLight, true);
+    Entity bloom = Build(SkillEntities.RejuvenationField), strong = Build(SkillEntities.RejuvenationField, true);
+    Entity wave = Build(SkillEntities.PurificationWave), waveTwo = Build(SkillEntities.PurificationWave, true);
+    foreach (Entity skill in new[] { healing, enhanced, bloom, wave, waveTwo })
+    {
+        AbilityDefinition d = Convert(skill); Check(d != null && d.Impact.DamageScale == 0f, "支持来源完整转换且不附带人物伤害", d?.Id);
+        File.WriteAllText(Path.Combine(folder, d.Root.Form + (skill == enhanced || skill == waveTwo ? "-enhanced" : "") + ".json"), JsonConvert.SerializeObject(d, Formatting.Indented));
+        var read = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
+        var plan = AbilityCompiler.Compile(read, cache:false);
+        var numeric = new AbilityCast(plan, Matrix4x4.identity, inputs:new AbilityInputs(new Vector3(64,72,.3f),new Vector3(70,72,.3f),Vector3.right,.8f));
+        numeric.Advance(.1f, new Vector3(70, 72, .3f));
+        var views = new List<FormVisualInstance>(); numeric.AppendVisuals(views); var shapes = new List<AbilityCapsule>(); numeric.AppendContacts(shapes);
+        Check(plan.Impact.Restoration.HasEffect && plan.Impact.SelectedTargetOnly == d.Impact.SelectedTargetOnly && views.Count == 1 && shapes.Count > 0,
+            "资料读回保留支持作用、目标限制及独立形体", new { d.Root.Form, views[0].PartCount, contacts = shapes.Count });
+    }
+    var scaled = Convert(healing,2f);
+    Check(scaled.Impact.Restoration.Health == 70f && Convert(enhanced).Impact.Restoration.Health == 60f && Convert(bloom).Root.Contact.Mode == ConstructionContactMode.Pulse,
+        "恢复量来自实际词条和效果倍率，强化及攻击力不偷改回血量");
+    bool rejected = false; scaled.Impact.Restoration.Health = float.NaN;
+    try { AbilityCompiler.Compile(scaled,cache:false); } catch(System.IO.InvalidDataException) { rejected=true; }
+    Check(rejected && Convert(Build(SkillEntities.HealingLight, extra:true)) == null,
+        "非法恢复资料拒绝，未知额外作用明确留在原入口");
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
+    {
+        if (!IsObserved(request.SkillContainer.GetComponent<SkillContainer>().Asset)) return original(request);
+        if (invalidate || starts.Count >= rejectAfterStarts) scopeValid=false;
+        SkillEmissionResult result=original(request);lastResult=result;
+        if (result==SkillEmissionResult.Accepted)
+            accepted.Add(((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==starts.Last().CastId));
+        emissions.Add(new { result=result.ToString(), id=request.SkillContainer.GetComponent<SkillContainer>().SkillEntityAssetID, request.Strength, request.PowerLevel });
+        return result;
+    };
+    bool Use(Entity skill, Vector3? point=null)
+    {
+        bool used=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",skill),
+            new ActiveAbilityTarget(point.HasValue?null:target,point??target.GetSimPos(),
+                selectionArea:new SkillTargetSelectionArea(true,point??target.GetSimPos(),.1f),runtimeData:new SkillCastRuntimeData {CorrelationId=934}),ActiveAbilityUseOrigin.Script);
+        source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();return used;
+    }
+    void ResetPeople()
+    {
+        Ready(source);source.setMana(source.getMaxMana());Place(source,64);Place(target,70);Place(edge,65);Place(outside,79);Place(late,84);Place(enemy,70.3f);
+        foreach(Actor a in new[]{source,target,edge,outside,late,enemy}) { CombatStatusEffects.RemoveStatus(a,StatusEffects.Rejuvenating);a.data.health=a.getMaxHealth()-600; }
+    }
+    async Task Shot(string name)
+    {
+        ControllableUnit.clear(false);World.world.console.Hide();
+        World.world.camera.transform.position=new Vector3(70,72,0);MoveCamera.instance.forceZoom(12);
+        Config.paused=true;await Game.NextFrame();string file=Path.Combine(folder,name+".png");File.Delete(file);Screen.Capture(file);await Game.WaitUntil(()=>File.Exists(file),600);
+    }
+    if (section == "visuals")
+    {
+        foreach (var sample in new[] { (healing, "healing", .06f), (enhanced, "healing-enhanced", .06f), (bloom, "rejuvenation", 1.1f) })
+        {
+            ResetPeople(); Check(Use(sample.Item1), "重新拍摄实际支持来源");
+            await Advance(sample.Item3); await Shot(sample.Item2); await Advance(4f);
+        }
+        Check(accepted.All(r => Cast(r).Finished), "画面样本均正常结束");
+        return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
+    if (section == "all")
+    {
+    foreach(Entity skill in new[]{healing,enhanced})
+    {
+        ResetPeople();contacts.Clear();int hp=target.data.health,other=edge.data.health,hostile=enemy.data.health,own=source.data.health;
+        int balance=source.getMana(),first=starts.Count;
+        var plan=SkillCastPlanner.CreatePlan(owner,skill,target,SkillCastCost.GetAffordableStepLimit(owner,skill),explicitTargetsOnly:true);
+        double cost=SkillCastResources.Mana.Quote(owner,SkillCastCost.CalculatePlanDemand(skill,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
+        Check(Use(skill),"治疗光由真实已学入口受理");await Advance(.06f);await Shot(skill==enhanced?"healing-enhanced":"healing");
+        Place(target,71);ConstructedAbilityService.NotifyActorChanged(target);await Advance(1.2f);
+        var facts=starts.Skip(first).ToArray();var hits=contacts.Where(c=>facts.Any(s=>s.CastId==c.CastId)).ToArray();
+        Check(target.data.health-hp==(skill==enhanced?60:35)&&edge.data.health==other&&enemy.data.health==hostile&&source.data.health==own&&hits.All(c=>c.TargetId==target.id&&!c.DamageAttempted),
+            "治疗光追踪移动友军且只恢复选中对象，沿途友军、本人和敌人没有额外作用",new{hp,after=target.data.health,hits=hits.Select(h=>new{h.TargetId,h.Age}).ToArray()});
+        Check(facts.Length==plan.Steps.Count&&old.Count==0&&balance-source.getMana()==cost&&accepted.All(r=>Cast(r).Finished),
+            "原治疗只执行新构造、逐发收费一次并结束",new{balance,after=source.getMana(),cost});
+    }
+    ResetPeople();Place(edge,70.8f);contacts.Clear();int regenHp=target.data.health,enemyHp=enemy.data.health,outsideHp=outside.data.health;
+    Check(Use(bloom),"持续恢复领域由真实已学入口受理");await Advance(.55f);
+    object field=accepted.Last();long fieldId=(long)Field(field,"Id");
+    Check(!CombatStatusEffects.HasStatus(target,StatusEffects.Rejuvenating)&&target.data.health==regenHp,"第一个整秒以前不提前恢复");
+    Place(late,70.1f);ConstructedAbilityService.NotifyActorChanged(late);await Advance(.25f);
+    Check(!CombatStatusEffects.HasStatus(late,StatusEffects.Rejuvenating),"中途进入不能把共同定时偷换成立即刷新");
+    await Advance(.35f);await Shot("rejuvenation");
+    Check(CombatStatusEffects.HasStatus(target,StatusEffects.Rejuvenating)&&CombatStatusEffects.HasStatus(late,StatusEffects.Rejuvenating)&&
+        !CombatStatusEffects.HasStatus(enemy,StatusEffects.Rejuvenating)&&!CombatStatusEffects.HasStatus(outside,StatusEffects.Rejuvenating),"整秒只刷新真实接触的受伤友军");
+    CombatStatusEffects.ApplyStrongestTickingStatus(target,StatusEffects.Rejuvenating,4f,32f,32f,new Cultiway.Core.ElementComposition(),source);
+    await Advance(1.1f);
+    var healingStates=target.GetExtend().GetStatuses().Where(s=>s.GetComponent<Cultiway.Core.Components.StatusComponent>().Type==StatusEffects.Rejuvenating).ToArray();
+    Check(healingStates.Length==1&&healingStates[0].GetComponent<Cultiway.Core.Components.StatusTickState>().Value==32f&&target.data.health>regenHp&&enemy.data.health==enemyHp&&outside.data.health==outsideHp,
+        "领域复用同类最强状态且没有额外伤害或恢复叠加",new{regenHp,after=target.data.health,states=healingStates.Length});
+    CombatStatusEffects.RemoveStatus(target,StatusEffects.Rejuvenating);Place(target,80);ConstructedAbilityService.NotifyActorChanged(target);
+    await Advance(1.6f);
+    var pulses=contacts.Where(c=>c.CastId==fieldId).ToArray();
+    Check(Cast(field).Finished&&pulses.Length>0&&pulses.All(c=>Mathf.Abs(c.Age-Mathf.Round(c.Age))<.0001f&&c.Age>=.9999f)&&
+        pulses.GroupBy(c=>new{c.TargetId,tick=Mathf.Round(c.Age)}).All(g=>g.Count()==1),
+        "持续领域只在共同整秒刷新，多个叶面同组不重复消费，按原寿命结束",pulses.Select(c=>new{c.TargetId,c.Age}).ToArray());
+    await Advance(1.5f);Check(!CombatStatusEffects.HasStatus(late,StatusEffects.Rejuvenating),"离开领域结束后恢复状态有限清理");
+    }
+    if (section == "all" || section == "purification")
+    {
+    foreach(Entity skill in new[]{wave,waveTwo})
+    {
+        ResetPeople();Place(edge,72);Place(enemy,70.3f);contacts.Clear();
+        foreach(Actor a in new[]{target,edge,outside,enemy})
+        {
+            CombatStatusEffects.ApplyStatus(a,StatusEffects.Freeze,12f,source);
+            a.addStatusEffect(Cultiway.WorldboxGame.StatusEffects.SpellSilence,12f);
+        }
+        int hp=target.data.health;
+        Check(Use(skill),"净化波由真实已学入口受理");await Advance(.35f);await Shot(skill==waveTwo?"purification-two":"purification");await Advance(.8f);
+        Check(!CombatStatusEffects.HasStatus(target,StatusEffects.Freeze)&&target.hasStatus(Cultiway.WorldboxGame.StatusEffects.SpellSilence.id)==(skill==wave)&&
+            !CombatStatusEffects.HasStatus(edge,StatusEffects.Freeze)&&CombatStatusEffects.HasStatus(outside,StatusEffects.Freeze)&&CombatStatusEffects.HasStatus(enemy,StatusEffects.Freeze)&&target.data.health==hp,
+            "实际波面按统一优先级清除指定数量的共享和原版负状态，范围外和敌人保留状态",new{two=skill==waveTwo,hp,after=target.data.health,priority=CombatStatusEffects.ResolveHighestNegativePriority(target),
+                edgeFrozen=CombatStatusEffects.HasStatus(edge,StatusEffects.Freeze),outsideFrozen=CombatStatusEffects.HasStatus(outside,StatusEffects.Freeze),enemyFrozen=CombatStatusEffects.HasStatus(enemy,StatusEffects.Freeze),
+                hits=contacts.Select(c=>new{c.TargetId,c.Age}).ToArray()});
+        foreach(Actor a in new[]{target,edge,outside,enemy}){CombatStatusEffects.RemoveStatus(a,StatusEffects.Freeze);a.finishStatusEffect(Cultiway.WorldboxGame.StatusEffects.SpellSilence.id);}
+    }
+    }
+    ResetPeople();invalidate=true;int beforeFailure=source.getMana(),beforeStarts=starts.Count;
+    var scope=new ConstructionWorldScope(()=>scopeValid,(_,_)=>true);
+    bool queued=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",healing),
+        new ActiveAbilityTarget(target,target.GetSimPos(),worldScope:scope),ActiveAbilityUseOrigin.Script);
+    source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);await Advance(.15f);invalidate=false;
+    Check(queued&&lastResult==SkillEmissionResult.Rejected&&starts.Count==beforeStarts&&source.getMana()==beforeFailure,
+        "受理边界失效撤销费用且不生成半份支持法术",new{queued,lastResult,beforeFailure,after=source.getMana()});
+    // 治疗来源本来就是单发；多发只复用已迁移飞剑和同一个人物，不放宽原来源规则。
+    scopeValid=true;ResetPeople();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=2;
+    owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();await Advance(.2f);
+    owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;target.setKingdom(enemy.kingdom);
+    var repeatedBuilder=new SkillContainerBuilder(SkillEntities.FlyingSword).UseAnimation(0);
+    repeatedBuilder.AddModifier(new SalvoCount{Value=2});Entity made=repeatedBuilder.Build(SkillContainerBuildMode.RuleOnly);
+    string repeatedSignature=SkillContainerSignature.Build(made);owner.LearnSkillV3(made);
+    Entity repeatedSkill=Learned().First(s=>SkillContainerSignature.Build(s)==repeatedSignature);
+    double stepCost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(repeatedSkill)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,repeatedSkill)));
+    float beforeRepeated=owner.GetCultisys<Xian>().wakan;int firstRepeated=starts.Count;
+    int repeatedSteps=SkillCastPlanner.CreatePlan(owner,repeatedSkill,target,SkillCastCost.GetAffordableStepLimit(owner,repeatedSkill),explicitTargetsOnly:true).Steps.Count;
+    Check(Use(repeatedSkill),"真实已学多发正常受理");await Advance(1.5f);
+    Check(repeatedSteps>1&&starts.Count-firstRepeated==repeatedSteps&&Math.Abs(owner.GetCultisys<Xian>().wakan-(beforeRepeated-stepCost*repeatedSteps))<.001,
+        "正常多发按实际发数收费，没有重复收费",new{beforeRepeated,after=owner.GetCultisys<Xian>().wakan,stepCost,repeatedSteps});
+    ResetPeople();owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
+    float beforePartial=owner.GetCultisys<Xian>().wakan;int firstPartial=starts.Count; rejectAfterStarts=firstPartial+1;
+    bool partial=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",repeatedSkill),
+        new ActiveAbilityTarget(target,target.GetSimPos(),selectionArea:new SkillTargetSelectionArea(true,target.GetSimPos(),.1f),worldScope:scope),ActiveAbilityUseOrigin.Script);
+    source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);await Advance(1.5f);rejectAfterStarts=int.MaxValue;
+    Check(partial&&lastResult==SkillEmissionResult.Rejected&&starts.Count==firstPartial+1&&Math.Abs(owner.GetCultisys<Xian>().wakan-(beforePartial-stepCost))<.001,
+        "真实已学多发首发受理、后发拒绝时只收首发费用",new{partial,beforePartial,after=owner.GetCultisys<Xian>().wakan,stepCost,started=starts.Count-firstPartial});
+    scopeValid=true;target.setKingdom(source.kingdom);ResetPeople();int beforeRetry=source.getMana();Check(Use(healing),"失败后可重新正常施放");await Advance(1.5f);
+    double retryCost=SkillCastResources.Mana.Quote(owner,SkillCastCost.CalculateStepDemand(healing)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,healing)));
+    Check(source.getMana()==beforeRetry-retryCost,"恢复后正常单发只收费一次",new{beforeRetry,after=source.getMana(),retryCost});
+    Check(accepted.All(r=>Cast(r).Finished)&&old.Count==0&&!BodyControlState.IsBusy(source.id),"所有支持法术结束并归还控制，没有新旧双执行");
+    return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
+    ConstructedAbilityService.CastStarted-=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    Config.paused=true;ControllableUnit.clear(false);
+}

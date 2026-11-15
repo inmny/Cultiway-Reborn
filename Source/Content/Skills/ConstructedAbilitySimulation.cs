@@ -811,10 +811,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 /// <param name="endpointOnly">只接受新边界起点。</param>
                 void AtStage(int stage, bool oldScope, bool endpointOnly)
                 {
-                    if (!owner.Matches(running.Cast.ImpactAtStage(shape.To.Node, stage).Targets, actor.Actor) ||
+                    CompiledConstructionImpact effect = running.Cast.ImpactAtStage(shape.To.Node, stage);
+                    if (effect.SelectedTargetOnly && running.TargetId != actor.Id || !owner.Matches(effect.Targets, actor.Actor) ||
                         !running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until)) return;
-                    float earliest = Mathf.Max(from, ContactFraction(shape, actor, b0, b1, step, stage));
+                    float earliest = Mathf.Max(from, ContactFraction(shape, actor, b0, b1, step, stage, from));
                     if (earliest > 1f || earliest > until) return;
+                    bool pulse = running.Cast.Plan.ContactPolicies[running.Cast.ContactGroup(shape.To.Node)].Mode == ConstructionContactMode.Pulse;
+                    if (pulse && (!shape.Continuous || endpointOnly) && earliest < 1f - .000001f) return;
                     if (!shape.Continuous || endpointOnly) earliest = 1f;
                     AbilityCapsule a0 = Slice(shape.From, shape.To, earliest), target0 = Slice(b0, b1, earliest);
                     float at; Vector3 point, normal;
@@ -822,10 +825,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     {
                         BodySurfacePose end = running.Cast.BodyPose.Value.Joint.Contact;
                         BodySurfacePose start = BodySurfacePose.Lerp(running.BeforeJoint.Contact, end, earliest);
-                        if (!BodySurfacePose.Find(start, end, target0, b1, "surface", out at, out var anchor, out normal)) return;
+                        if (pulse) end = start;
+                        if (!BodySurfacePose.Find(start, end, target0, pulse ? target0 : b1, "surface", out at, out var anchor, out normal)) return;
                         point = anchor.Point(BodySurfacePose.Lerp(start, end, at)); normal = -normal;
                     }
-                    else if (!AbilityPairSweep.Find(a0, shape.To, target0, b1, out at, out point, out normal)) return;
+                    else if (!AbilityPairSweep.Find(a0, pulse ? a0 : shape.To, target0, pulse ? target0 : b1, out at, out point, out normal)) return;
                     float fraction = Mathf.Lerp(earliest, 1f, at);
                     if (fraction > until || oldScope && fraction >= 1f) return;
                     Include(new ContactChoice(shape, actor, null, fraction, point, normal, step,
@@ -968,6 +972,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             GetHitEventSystem.Resolve(damage);
         }
 
+        ApplyRestoration(running, node, actor.Actor, impact.Restoration);
         ConstructedTargetResponse response = ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
             priorVelocity: priorVelocity, forceReceiver: forceReceiver,
             strength: running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
@@ -986,6 +991,21 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             afterMatter?.Id, afterMatter?.State,
             impact.DamageScale > 0f, response.VelocityChange, response.ForceApplied, response.StaggerSeconds,
             response.BindSeconds, response.StrainSeconds, response.ExposureSeconds));
+    }
+
+    /// <summary>已确认的真实接触复用共享恢复和负状态规则，不使用攻击力推算效果量。</summary>
+    /// <param name="running">实际施放。</param><param name="node">实际部位。</param>
+    /// <param name="target">已确认的人物。</param><param name="effect">可选恢复资料。</param>
+    private static void ApplyRestoration(RunningCast running, int node, Actor target, CompiledConstructionRestoration effect)
+    {
+        if (effect == null) return;
+        if (effect.Health > 0f) CombatResourceEffects.RestoreHealth(target, effect.Health);
+        CastAuthority owner = running.Owner(node);
+        if (effect.HealthPerSecond > 0f && target.data.health < target.getMaxHealth() && owner.IsLive)
+            CombatStatusEffects.ApplyStrongestTickingStatus(target, StatusEffects.Rejuvenating, effect.Duration,
+                effect.HealthPerSecond, effect.HealthPerSecond, owner.Damage.Element, owner.Actor);
+        for (int i = 0; i < effect.CleanseCount; i++)
+            if (!CombatStatusEffects.CleanseHighestPriorityNegativeStatus(target)) break;
     }
 
     /// <summary>直接接触和真实水路等传播都从这一入口应用目标响应。</summary>

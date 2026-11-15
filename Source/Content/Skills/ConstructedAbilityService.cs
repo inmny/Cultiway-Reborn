@@ -79,7 +79,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (result == SkillEmissionResult.Unhandled) result = FlyingSwordConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = GroundSpikeConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = RiftConstructionMigration.Emit(emission);
-            return result == SkillEmissionResult.Unhandled ? FieldConstructionMigration.Emit(emission) : result;
+            if (result == SkillEmissionResult.Unhandled) result = FieldConstructionMigration.Emit(emission);
+            return result == SkillEmissionResult.Unhandled ? SupportConstructionMigration.Emit(emission) : result;
         };
         ConstructedRainClouds.Initialize();
         ConstructedMatterCatalog.Initialize();

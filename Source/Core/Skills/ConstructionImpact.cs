@@ -14,6 +14,14 @@ public sealed class ConstructionImpact
     /// <summary>接触允许作用的人物关系；友方包含本人。</summary>
     public SkillUseTargetRelation Targets;
 
+    /// <summary>仅作用于本次明确选中的人物，仍需真实接触及关系匹配。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool SelectedTargetOnly;
+
+    /// <summary>真实接触附带的即时恢复、持续恢复及净化。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionRestoration Restoration;
+
     /// <summary>真实伤害倍率；零表示只接触和推拉，不调用伤害或近战攻击。</summary>
     public float DamageScale = 1f;
 
@@ -85,6 +93,12 @@ public sealed class CompiledConstructionImpact
     /// <summary>已解析的有限世界操作。</summary>
     public IReadOnlyList<CompiledConstructionWorldEffect> WorldEffects { get; }
 
+    /// <summary>是否只接受本次选中人物。</summary>
+    public bool SelectedTargetOnly { get; }
+
+    /// <summary>已检查并复制的恢复与净化资料。</summary>
+    public CompiledConstructionRestoration Restoration { get; }
+
     /// <summary>真实伤害倍率。</summary>
     public float DamageScale { get; }
 
@@ -119,7 +133,7 @@ public sealed class CompiledConstructionImpact
     public float ExposureSeconds { get; }
 
     /// <summary>伤害、移动或行动限制中至少有一项真实人物作用。</summary>
-    public bool HasActorEffect => DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f ||
+    public bool HasActorEffect => Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f ||
                                   StaggerSeconds > 0f || BindSeconds > 0f || StrainSeconds > 0f || ExposureSeconds > 0f;
 
     /// <summary>实际推拉中心。</summary>
@@ -136,6 +150,8 @@ public sealed class CompiledConstructionImpact
         WorldEffects = effects == null || effects.Length == 0
             ? Array.Empty<CompiledConstructionWorldEffect>()
             : Array.AsReadOnly(effects);
+        SelectedTargetOnly = source?.SelectedTargetOnly == true;
+        if (source?.Restoration != null) Restoration = new CompiledConstructionRestoration(source.Restoration, path + "/Restoration");
         Targets = source?.Targets ?? SkillUseTargetRelation.Hostile;
         DamageScale = source?.DamageScale ?? 1f;
         Force = source?.Force ?? 0f;

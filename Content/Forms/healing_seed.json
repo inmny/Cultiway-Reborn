@@ -1,0 +1,700 @@
+{
+    "Structure": {
+        "Kind": "articulated",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_support.mjs",
+            "Entry": "makeSeed",
+            "Parameters": [
+                {
+                    "Id": "leaves",
+                    "Values": [
+                        3.0
+                    ]
+                },
+                {
+                    "Id": "length",
+                    "Values": [
+                        0.47999998927116396
+                    ]
+                },
+                {
+                    "Id": "width",
+                    "Values": [
+                        0.1599999964237213
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "motion"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "healing_seed",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/healing_seed_leaf_0_mid.asset",
+                "Assets/Cultiway/Forms/healing_seed_leaf_0_far.asset"
+            ],
+            "Roles": [
+                "support.carrier"
+            ],
+            "Id": "leaf_0",
+            "Surface": "restoration_jade",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/healing_seed_leaf_0.asset",
+            "Control": "bud",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/healing_seed_leaf_1_mid.asset",
+                "Assets/Cultiway/Forms/healing_seed_leaf_1_far.asset"
+            ],
+            "Roles": [
+                "support.carrier"
+            ],
+            "Id": "leaf_1",
+            "Surface": "restoration_jade",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/healing_seed_leaf_1.asset",
+            "Control": "bud",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/healing_seed_leaf_2_mid.asset",
+                "Assets/Cultiway/Forms/healing_seed_leaf_2_far.asset"
+            ],
+            "Roles": [
+                "support.carrier"
+            ],
+            "Id": "leaf_2",
+            "Surface": "restoration_jade",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/healing_seed_leaf_2.asset",
+            "Control": "bud",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/healing_seed_seed_mid.asset",
+                "Assets/Cultiway/Forms/healing_seed_seed_far.asset"
+            ],
+            "Roles": [
+                "support.carrier"
+            ],
+            "Id": "seed",
+            "Surface": "purification_pearl",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/healing_seed_seed.asset",
+            "Control": "bud",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "bud",
+            "Part": 3,
+            "A": [
+                0.0,
+                0.0,
+                -0.14000000059604646
+            ],
+            "B": [
+                0.0,
+                0.0,
+                0.14000000059604646
+            ],
+            "Radius": 0.17000000178813935,
+            "AControl": "bud",
+            "BControl": "bud",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "bud",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.4232580065727234,
+                -0.47999998927116396,
+                -0.27000001072883608
+            ],
+            "Maximum": [
+                0.4232580065727234,
+                0.47999998927116396,
+                0.27000001072883608
+            ]
+        }
+    ],
+    "Motions": [
+        {
+            "Id": "run",
+            "Duration": 1.2000000476837159,
+            "Loop": true,
+            "Keys": [
+                {
+                    "Build": 1.0,
+                    "At": 0.0,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.03750000149011612,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0039019999094307424
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.07500000298023224,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.007654000073671341
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.11249999701976776,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.011110999621450901
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.15000000596046449,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.014142000116407872
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.1875,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.016628999263048173
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.22499999403953553,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.018478000536561014
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.26249998807907107,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.01961600035429001
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.30000001192092898,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.019999999552965165
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.3375000059604645,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.01961600035429001
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.375,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.018478000536561014
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.4124999940395355,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.016628999263048173
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.44999998807907107,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.014142000116407872
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.48750001192092898,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.011110999621450901
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.5249999761581421,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.007654000073671341
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.5625,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0039019999094307424
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.6000000238418579,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.637499988079071,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.0039019999094307424
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.675000011920929,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.007654000073671341
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.7124999761581421,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.011110999621450901
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.75,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.014142000116407872
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.7875000238418579,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.016628999263048173
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.824999988079071,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.018478000536561014
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.862500011920929,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.01961600035429001
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.8999999761581421,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.019999999552965165
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.9375,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.01961600035429001
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.9750000238418579,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.018478000536561014
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.0125000476837159,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.016628999263048173
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.0499999523162842,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.014142000116407872
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.087499976158142,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.011110999621450901
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.125,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.007654000073671341
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.162500023841858,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.0039019999094307424
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.2000000476837159,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                }
+            ],
+            "Markers": []
+        }
+    ]
+}

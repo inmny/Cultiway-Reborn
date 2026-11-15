@@ -273,6 +273,8 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
             caster.GetPowerLevel(),
             SkillCastFundingSource.CasterResources,
             target.AttackKingdom,
-            runtime);
+            runtime,
+            // 已学入口在实际发射受理后逐发支付，取消或被拒绝的后续步骤不预扣。
+            options: new SkillCastSequenceOptions { PaymentTiming = SkillCastPaymentTiming.PerEmission });
     }
 }

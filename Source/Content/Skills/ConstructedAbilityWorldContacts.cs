@@ -133,16 +133,18 @@ public sealed partial class ConstructedAbilityService
                 if (worldQueryBudget == 0) return;
                 if (worldQueryBudget > 0) worldQueryBudget--;
                 CompiledConstructionWorldEffect rule = effects[effect];
-                float earliest = Mathf.Max(from, WorldContactFraction(running, shape.To.Node, effect, x + y * MapBox.width, rule, step, stage));
+                float earliest = Mathf.Max(from, WorldContactFraction(running, shape.To.Node, effect, x + y * MapBox.width, rule, step, stage, from));
                 if (earliest > 1 || earliest > until) continue;
                 // 中心作用仍经过真实扫掠；粗筛先排除作用范围外的邻格，已作用过的地块也不再读取地面。
                 if (rule.TileCentreOnly && (x + .5f < shape.Bounds.min.x || x + .5f > shape.Bounds.max.x ||
                     y + .5f < shape.Bounds.min.y || y + .5f > shape.Bounds.max.y)) continue;
                 if (!rule.Action.CanApply(tile) || !WorldOperationAllowed(running, rule, tile)) continue;
                 AbilityCapsule surface = WorldTileShape(tile, rule.TileCentreOnly);
+                bool pulse = rule.Contact.Mode == ConstructionContactMode.Pulse;
+                if (pulse && (!shape.Continuous || endpointOnly) && earliest < 1f - .000001f) continue;
                 if (!shape.Continuous || endpointOnly) earliest = 1;
                 AbilityCapsule start = Slice(shape.From, shape.To, earliest);
-                if (!AbilityPairSweep.Find(start, shape.To, surface, surface, out float at,
+                if (!AbilityPairSweep.Find(start, pulse ? start : shape.To, surface, surface, out float at,
                         out Vector3 point, out Vector3 normal)) continue;
                 float fraction = Mathf.Lerp(earliest, 1, at);
                 if (fraction > until || oldScope && fraction >= 1f) continue;
@@ -157,8 +159,9 @@ public sealed partial class ConstructedAbilityService
     /// <param name="effect">该作用面的操作序号。</param><param name="tile">稳定地块编号。</param>
     /// <param name="rule">实际频率和容量。</param><param name="step">共同预测步长。</param>
     /// <param name="bodyStage">预测中需要确认的身体作用实例。</param>
+    /// <param name="earliest">作用窗口内最早允许的路径进度。</param>
     private float WorldContactFraction(RunningCast running, int node, int effect, int tile,
-        CompiledConstructionWorldEffect rule, float step, int bodyStage)
+        CompiledConstructionWorldEffect rule, float step, int bodyStage, float earliest)
     {
         long owner = running.Owner(node).Id;
         int reflection = running.Cast.Reflections(node);
@@ -167,10 +170,12 @@ public sealed partial class ConstructedAbilityService
         running.WorldTotals.TryGetValue(key, out WorldContactTotals totals);
         if (rule.Contact.MaximumTotal > 0 && totals?.Attempts >= rule.Contact.MaximumTotal)
             return float.PositiveInfinity;
-        if (!running.WorldHits.TryGetValue((node, stage, effect, tile, owner, reflection), out ContactMemory memory))
-            return totals?.Tiles >= rule.MaximumTiles ? float.PositiveInfinity : 0;
-        if (rule.Contact.MaximumPerTarget > 0 && memory.Count >= rule.Contact.MaximumPerTarget)
-            return float.PositiveInfinity;
+        running.WorldHits.TryGetValue((node, stage, effect, tile, owner, reflection), out ContactMemory memory);
+        if (memory == null && totals?.Tiles >= rule.MaximumTiles) return float.PositiveInfinity;
+        if (rule.Contact.MaximumPerTarget > 0 && memory?.Count >= rule.Contact.MaximumPerTarget) return float.PositiveInfinity;
+        if (rule.Contact.Mode == ConstructionContactMode.Pulse)
+            return PulseFraction(rule.Contact.Interval, memory, running.Cast.Age - step, step, earliest);
+        if (memory == null) return 0;
         return rule.Contact.Mode switch
         {
             ConstructionContactMode.Once => float.PositiveInfinity,

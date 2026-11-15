@@ -125,6 +125,9 @@ public sealed class CompiledAbility
     /// <summary>各接触组已经统一的频率和次数规则，最后一组为身体。</summary>
     internal CompiledContactPolicy[] ContactPolicies { get; }
 
+    /// <summary>人物和地块共同定时作用的间隔，只在真实时点拆步。</summary>
+    internal float[] PulseIntervals { get; }
+
     /// <summary>未采用重新进入规则时不扫描已接触记录。</summary>
     internal bool HasReentry { get; }
 
@@ -201,6 +204,8 @@ public sealed class CompiledAbility
                 ? Array.Empty<CompiledConstructionImpact>()
                 : body.Stages.Select(stage => stage.Impact ?? Impact))
             .SelectMany(impact => impact.WorldEffects).ToArray();
+        PulseIntervals = contacts.Concat(worldEffects.Select(effect => effect.Contact))
+            .Where(policy => policy.Mode == ConstructionContactMode.Pulse).Select(policy => policy.Interval).Distinct().ToArray();
         HasWorldEffects = worldEffects.Length > 0;
         HasWorldReentry = worldEffects.Any(effect => effect.Contact.Mode == ConstructionContactMode.Reentry);
         ContactDamageScale = impacts.Select(impact => impact.DamageScale).DefaultIfEmpty(0f).Max();

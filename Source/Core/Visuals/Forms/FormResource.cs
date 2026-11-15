@@ -608,6 +608,8 @@ internal sealed partial class FormResourceGeneration
         (float kind, Color color, float roughness) = surface switch
         {
             "metal" => (0f, new Color(.53f, .64f, .70f), .23f),
+            "restoration_jade" => (2f, new Color(.22f, .76f, .45f), .38f),
+            "purification_pearl" => (2f, new Color(.75f, .94f, .84f), .27f),
             "bronze" => (0f, new Color(.52f, .31f, .12f), .30f),
             "poison_liquid" => (10f, new Color(.17f, .36f, .035f, .9f), .23f),
             "poison_vapor" => (11f, new Color(.31f, .53f, .07f, .48f), .9f),

@@ -13,7 +13,10 @@ public enum ConstructionContactMode
     Interval = 1,
 
     /// <summary>离开全部同组攻击作用面后，再次进入才能重新作用。</summary>
-    Reentry = 2
+    Reentry = 2,
+
+    /// <summary>从第一个间隔开始，在施放共同整点只作用于当时实际接触的目标。</summary>
+    Pulse = 3
 }
 
 /// <summary>可保存的接触频率与次数限制；接触组内只保留一份规则。</summary>
@@ -48,10 +51,10 @@ internal sealed class CompiledContactPolicy
     {
         if (source == null) return;
         if (!Enum.IsDefined(typeof(ConstructionContactMode), source.Mode) || float.IsNaN(source.Interval) ||
-            float.IsInfinity(source.Interval) || source.Mode == ConstructionContactMode.Interval && source.Interval < 1f / 120f ||
+            float.IsInfinity(source.Interval) || source.Mode is ConstructionContactMode.Interval or ConstructionContactMode.Pulse && source.Interval < 1f / 120f ||
             source.MaximumPerTarget < 0 || source.MaximumTotal < 0)
             throw new InvalidDataException(path + "：接触方式、间隔或次数无效");
-        Mode = source.Mode; Interval = Mode == ConstructionContactMode.Interval ? source.Interval : 0f;
+        Mode = source.Mode; Interval = Mode is ConstructionContactMode.Interval or ConstructionContactMode.Pulse ? source.Interval : 0f;
         MaximumPerTarget = source.MaximumPerTarget; MaximumTotal = source.MaximumTotal;
     }
 
