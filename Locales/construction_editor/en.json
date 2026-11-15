@@ -754,5 +754,13 @@
   "Cultiway.Construction.Form.fire_wall": "Fire wall",
   "Cultiway.Construction.Form.wind_wall": "Wind wall",
   "Cultiway.Construction.Form.sword_curtain": "Sword curtain",
-  "Cultiway.Construction.Material.wind.energy": "Wind energy"
+  "Cultiway.Construction.Material.wind.energy": "Wind energy",
+  "Cultiway.Construction.Form.spirit_aegis": "Spirit aegis",
+  "Cultiway.Construction.Form.flame_aegis": "Flame aegis",
+  "Cultiway.Construction.Form.wind_aegis": "Wind aegis",
+  "Cultiway.Construction.Form.lightning_aegis": "Lightning aegis",
+  "Cultiway.Construction.Form.solar_aegis": "Solar aegis",
+  "Cultiway.Construction.Material.spirit.energy": "Spirit energy",
+  "Cultiway.Construction.Material.lightning.energy": "Lightning energy",
+  "Cultiway.Construction.Material.yang.energy": "Yang energy"
 }

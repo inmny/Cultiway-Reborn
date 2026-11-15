@@ -1,0 +1,103 @@
+// B24：五种原护盾的正式来源与真实壳面；随动、结束和失败路径只做共用覆盖。
+var activeCasts=new List<AbilityCast>();
+var checkMove=typeof(Actor).GetMethod("checkVelocityAgainstBlock",F);
+/// <summary>经过原版行走的阻挡入口。</summary><param name="actor">人物。</param><param name="to">目标位置。</param>
+Vector2 Block(Actor actor,Vector2 to)=>(Vector2)checkMove.Invoke(actor,new object[]{to});
+try
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        if(request.SkillContainer.GetComponent<SkillContainer>().Asset!=wallAsset)return original(request);
+        if(invalidate)scopeValid=false;var result=original(request);lastResult=result;
+        if(result==SkillEmissionResult.Accepted)
+        {
+            var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==starts.Last().CastId);
+            var cast=(AbilityCast)Field(running,"Cast");accepted.Add(cast);activeCasts.Add(cast);
+        }
+        emissions.Add(new{asset=wallAsset.id,result=result.ToString(),request.Strength,request.PowerLevel});return result;
+    };
+    foreach(var entry in new[]{(Asset:SkillEntities.SpiritShield,Form:"spirit_aegis",Matter:"spirit"),
+        (Asset:SkillEntities.FlameShield,Form:"flame_aegis",Matter:"fire"),
+        (Asset:SkillEntities.WindShield,Form:"wind_aegis",Matter:"wind"),
+        (Asset:SkillEntities.LightningShield,Form:"lightning_aegis",Matter:"lightning"),
+        (Asset:SkillEntities.YangShield,Form:"solar_aegis",Matter:"yang")})
+    {
+        wallAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();oldWalls=0;
+        var normal=Build();var boosted=Build(true);
+        foreach(var skill in new[]{normal,boosted})
+        {
+            var d=Convert(skill,out GetHitEvent damage);bool boost=skill.HasComponent<HugeModifier>();
+            var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
+            var plan=AbilityCompiler.Compile(restored,cache:false);
+            Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.State=="energy"&&
+                d.Binding.Anchor==AbilityAnchor.Source&&d.Binding.Follow&&d.Binding.ContactAtDestination&&
+                !d.Root.BlocksGroundActors&&d.Root.Impact==null&&restored.Root.SourceLoss==ConstructionSourceLoss.End&&
+                d.Root.Strength==3&&d.Lifetime==3&&d.ConcurrentLimit==1&&plan.HasBarrier&&plan.ContactDamageScale==0&&
+                Math.Abs(damage.Damage-(boost?52:40))<.001f&&damage.AttackerPowerLevel==1.25f,
+                entry.Form+"来源连接、原容量、词条与纯防御资料可保存编译",new{damage.Damage,d.Root.Scale,d.Lifetime});
+            File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
+        }
+        Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射附加作用留原入口");
+        ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;int hp=source.data.health;
+        Check(Use(normal),entry.Form+"原已学自用入口受理");await Advance(.25f);
+        var live=accepted.Last();float initial=live.RemainingForce(0);Vector3 center=Center(live);
+        double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(normal)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,normal)));
+        Check(oldWalls==0&&starts.Count==1&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001&&
+            Math.Abs(center.x-source.current_position.x)<.01f&&Math.Abs(center.y-source.current_position.y)<.01f&&
+            Math.Abs(initial-300)<.001f&&Views(live).Single().Resource.Description.Id==entry.Form,
+            entry.Form+"只生成自身新壳体并支付一次",new{initial,cost,center=center.ToString()});
+        await Shot(entry.Form);
+        Entity made=new SkillContainerBuilder(SkillEntities.StoneCone).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+        string signature=SkillContainerSignature.Build(made);var enemy=target.GetExtend();enemy.LearnSkillV3(made);
+        Entity stoneSkill=((IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(enemy,null)).First(s=>SkillContainerSignature.Build(s)==signature);
+        Entity stone=manager.SpawnSkillAtPosition(stoneSkill,target,new Vector3(64,72,.6f),source,new Vector3(70,72,.6f),13,0);
+        await Advance(.45f);
+        Check((stone.IsNull||stone.Tags.Has<TagRecycle>()||stone.Tags.Has<TagSkillAnimationNoCollision>())&&
+            Math.Abs(live.RemainingForce(0)-(initial-13))<.01f&&source.data.health==hp&&
+            contacts.All(c=>c.CastId!=starts.Last().CastId),entry.Form+"在实际壳面拦截且仅损耗一次容量，没有反伤",new{initial,remaining=live.RemainingForce(0),hp,after=source.data.health});
+        Check(Block(target,new Vector2(70,72)).x==70,entry.Form+"护盾保留不阻挡人物行走的规则");
+        if(entry.Asset==SkillEntities.SpiritShield)
+        {
+            Place(source,78);ConstructedAbilityService.NotifyActorChanged(source);await Advance(.15f);
+            Vector3 moved=Center(live);var actual=Shapes(live);
+            Check(Math.Abs(moved.x-78)<.01f&&actual.Count>0&&actual.All(s=>Mathf.Min(s.A.x,s.B.x)-s.Radius>71),
+                "护盾来源移动后壳面与实际作用一起跟随，原位置无残盾",new{before=center.ToString(),after=moved.ToString()});
+            // 来源真实受力腾起；只读取实际高度，不替换身体、装备或地形规则。
+            Ready(source);Check(owner.TryGetForce(source,0,0,2),"护盾来源的原版腾起受理");source.attack_timer=999;
+            await Advance(.08f);Vector3 lifted=Center(live);
+            Check(source.position_height>0f&&Math.Abs(lifted.z-moved.z-source.position_height)<.03f,
+                "护盾跟随人物实际离地高度",new{height=source.position_height,before=moved.ToString(),after=lifted.ToString()});
+            source.stopForce();CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();
+            ConstructedAbilityService.NotifyActorChanged(source);await Advance(3.1f);
+            Check(live.Finished&&Shapes(live).Count==0&&Views(live).Count==0&&!BodyControlState.IsBusy(source.id),
+                "原3秒寿命结束后显示、防御和控制恢复");
+        }
+        else
+        {
+            live.Cancel();await Advance(.1f);
+            Check(Shapes(live).Count==0&&Views(live).Count==0,entry.Form+"取消后壳面与作用同时退出");
+        }
+    }
+    // 同容器替换、真实失败退款和来源失效都走共同路径，仅用同一灵盾覆盖。
+    wallAsset=SkillEntities.SpiritShield;ResetPeople();var common=Build();
+    Check(Use(common),"共用同来源替换的首盾受理");await Advance(.25f);var previous=accepted.Last();
+    Check(Use(common),"同一已学容器再次受理");await Advance(.25f);
+    Check(previous.Finished&&accepted.Count(c=>!c.Finished)==1,"同一来源只保留一份护盾容量");accepted.Last().Cancel();await Advance(.1f);
+    ResetPeople();int count=starts.Count;float before=owner.GetCultisys<Xian>().wakan;invalidate=true;
+    Check(Use(common,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排一次护盾实际受理失败");await Advance(.25f);invalidate=false;
+    Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f&&oldWalls==0,
+        "护盾受理失败退款且无新旧残盾");
+    scopeValid=true;ResetPeople();Check(Use(common),"失败后同一来源恢复施放");await Advance(.25f);var dependent=accepted.Last();
+    ControllableUnit.clear(false);typeof(Actor).GetMethod("die",F).Invoke(source,new object[]{false,AttackType.Other,true,false});await Advance(.2f);
+    Check(!source.isAlive()&&dependent.Finished&&Shapes(dependent).Count==0&&Views(dependent).Count==0&&!BodyControlState.IsBusy(source.id),
+        "来源实际死亡后随身护盾结束，无悬空防御或控制残留");
+    return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
+    foreach(var cast in activeCasts)cast.Cancel();
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    ControllableUnit.clear(false);Config.paused=true;
+}

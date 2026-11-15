@@ -749,5 +749,13 @@
   "Cultiway.Construction.Form.fire_wall": "火墙",
   "Cultiway.Construction.Form.wind_wall": "风墙",
   "Cultiway.Construction.Form.sword_curtain": "剑幕",
-  "Cultiway.Construction.Material.wind.energy": "风质"
+  "Cultiway.Construction.Material.wind.energy": "风质",
+  "Cultiway.Construction.Form.spirit_aegis": "灵盾",
+  "Cultiway.Construction.Form.flame_aegis": "炎盾",
+  "Cultiway.Construction.Form.wind_aegis": "风盾",
+  "Cultiway.Construction.Form.lightning_aegis": "雷盾",
+  "Cultiway.Construction.Form.solar_aegis": "阳盾",
+  "Cultiway.Construction.Material.spirit.energy": "灵质",
+  "Cultiway.Construction.Material.lightning.energy": "雷质",
+  "Cultiway.Construction.Material.yang.energy": "阳质"
 }

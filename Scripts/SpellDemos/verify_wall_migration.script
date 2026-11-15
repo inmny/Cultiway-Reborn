@@ -18,7 +18,7 @@ Entity Build(bool boost=false,bool extra=false)
     Entity e=builder.Build(SkillContainerBuildMode.RuleOnly);string signature=SkillContainerSignature.Build(e);
     owner.LearnSkillV3(e);return Learned().First(s=>SkillContainerSignature.Build(s)==signature);
 }
-var converter=service.Assembly.GetType("Cultiway.Content.Skills.WallConstructionMigration").GetMethod("Convert",F);
+var converter=service.Assembly.GetType("Cultiway.Content.Skills.BarrierConstructionMigration").GetMethod("Convert",F);
 /// <summary>读取真正会交给新执行的可保存资料。</summary><param name="skill">原来源。</param><param name="damage">保留的原力量与境界。</param>
 AbilityDefinition Convert(Entity skill,out GetHitEvent damage)
 {

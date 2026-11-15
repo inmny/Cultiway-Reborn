@@ -362,7 +362,7 @@ Shader "Cultiway/FormSurface"
                 base+=tint.rgb*deep*.2;
                 alpha*=pow(abs(dot(n,eye)),.45)*(.65+.35*fold);
             }
-            else
+            else if (_Kind < 13.5)
             {
                 // 风保留宽流面的体量和流向，明暗随材料坐标平移，不借用冰霜、海浪或烟雾。
                 float band=.5+.5*sin(i.material.x*2.1+i.material.z*3.4-_WorldTime*5.8);
@@ -370,6 +370,15 @@ Shader "Cultiway/FormSurface"
                 base*=.50*ambient+(.22+.22*broad)*direct;
                 base+=tint.rgb*pow(1-facing,2)*.18*environmentLight;
                 alpha*=.68+.25*broad;
+            }
+            else
+            {
+                // 护盾通过宽面明暗和侧缘光泽呈现能量厚度，不借用水波或画满细线。
+                float energy=.5+.5*sin(i.material.z*2.4+sin(i.material.x*1.7)*.6-_WorldTime*2.5);
+                float edge=pow(1-facing,2);
+                base*=.56*ambient+(.25+.15*energy)*direct;
+                base+=tint.rgb*(edge*.26+energy*.10)*environmentLight;
+                alpha*=.55+.30*edge+.15*energy;
             }
             float contact = formFeedback(i);
             base += (base*.24 + float3(.035,.045,.05)*environmentLight)*contact;

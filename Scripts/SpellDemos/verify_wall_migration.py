@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""5.05 B21/B22/B23：验证原实体墙迁移及与旧法术、原版弹丸、人物运动的实际交互。"""
+"""5.05 B21至B24：验证原实体墙迁移及与旧法术、原版弹丸、人物运动的实际交互。"""
 import argparse
 import json
 import os
@@ -11,8 +11,8 @@ from common import PROJECT, version_stamp, write_json
 def main():
     """复用已有世界、人物准备和调试通道，分别保存本批输入及实际结果。"""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('earth', 'solid-walls', 'contact-walls'), default='earth',
-                        help='土墙完整交互、冰墙木壁来源，或火墙风墙剑幕接触作用')
+    parser.add_argument('--section', choices=('earth', 'solid-walls', 'contact-walls', 'shields'), default='earth',
+                        help='土墙完整交互、实体墙、接触墙或随身护盾')
     section = parser.parse_args().section
     install = PROJECT / 'artifacts/skill_rebuild/performance-baseline/cultiway'
     os.environ['CULTIWAY_BASELINE_ROOT'] = str(install)
@@ -37,10 +37,14 @@ def main():
     helpers += '\nAbilityDefinition Motion(' + motion
     script = folder / 'input.script'
     body = Path(__file__).with_suffix('.script').read_text()
-    if section in ('solid-walls', 'contact-walls'):
+    if section in ('solid-walls', 'contact-walls', 'shields'):
         shared = body.split('var activeCasts', 1)[0].replace('SkillEntities.EarthWall', 'wallAsset')
         shared = shared.replace('camera.orthographicSize=9', 'camera.orthographicSize=12')
         shared = shared.replace('new Vector3(68,74,', 'new Vector3(68,72,')
+        if section == 'shields':
+            helpers = helpers.replace('x <= 75', 'x <= 85')
+            shared = shared.replace('new ActiveAbilityTarget(target,target.GetSimPos(),selectionArea:new SkillTargetSelectionArea(true,target.GetSimPos(),.1f),worldScope:scope)',
+                                    'new ActiveAbilityTarget(source,source.GetSimPos(),worldScope:scope)')
         if section == 'contact-walls':
             shared = shared.replace('Entity Build(bool boost=false,bool extra=false)',
                                     'Entity Build(bool boost=false,bool extra=false,bool contactEnabled=true)')

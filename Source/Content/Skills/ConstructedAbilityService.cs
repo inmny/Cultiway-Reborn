@@ -80,7 +80,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (result == SkillEmissionResult.Unhandled) result = GroundSpikeConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = RiftConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = FieldConstructionMigration.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = WallConstructionMigration.Emit(emission);
+            if (result == SkillEmissionResult.Unhandled) result = BarrierConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = SupportConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = BeamConstructionMigration.Emit(emission);
             return result == SkillEmissionResult.Unhandled ? ChainConstructionMigration.Emit(emission) : result;

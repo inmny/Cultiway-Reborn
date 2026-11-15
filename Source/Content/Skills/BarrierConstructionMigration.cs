@@ -17,8 +17,8 @@ using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>原墙体使用各自真实墙面、明确接触作用、两点间放置及共同容量；逐发支付和并存上限沿用正式受理。</summary>
-internal static class WallConstructionMigration
+/// <summary>原墙与护盾共用真实形体、明确接触作用、来源连接及防御容量；逐发支付和并存上限沿用正式受理。</summary>
+internal static class BarrierConstructionMigration
 {
     /// <summary>已经完整映射的原词条；额外作用不静默丢弃。</summary>
     private static readonly HashSet<Type> supported = new()
@@ -47,12 +47,15 @@ internal static class WallConstructionMigration
             emission.SourcePos, emission.Payment, damage, sourceInstance: skill.Id) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
-    /// <summary>已完整映射的原墙分别提供自身形体和实际材料。</summary>
+    /// <summary>已完整映射的原墙与护盾分别提供自身形体和实际材料。</summary>
     /// <param name="asset">原来源登记。</param>
     private static string Form(SkillEntityAsset asset) => asset == SkillEntities.EarthWall ? "earth_wall" :
         asset == SkillEntities.IceWall ? "ice_wall" : asset == SkillEntities.WoodWall ? "wood_wall" :
         asset == SkillEntities.FireWall ? "fire_wall" : asset == SkillEntities.WindWall ? "wind_wall" :
-        asset == SkillEntities.SwordCurtain ? "sword_curtain" : null;
+        asset == SkillEntities.SwordCurtain ? "sword_curtain" :
+        asset == SkillEntities.SpiritShield ? "spirit_aegis" : asset == SkillEntities.FlameShield ? "flame_aegis" :
+        asset == SkillEntities.WindShield ? "wind_aegis" : asset == SkillEntities.LightningShield ? "lightning_aegis" :
+        asset == SkillEntities.YangShield ? "solar_aegis" : null;
 
     /// <summary>先核对附加作用，再将实际强度、尺寸、寿命和固定目标展开为可保存资料。</summary>
     /// <param name="emission">原来源的本次发射输入。</param>
@@ -64,8 +67,9 @@ internal static class WallConstructionMigration
         var container = skill.GetComponent<SkillContainer>();
         string form = Form(container.Asset);
         if (form == null) return null;
+        bool shield = container.Asset.ImpactProfile.Kind == Core.SkillLibV3.Impacts.SkillImpactKind.Shield;
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
-        if (trajectory != SkillTrajectories.WallBetweenCasterAndTarget.id ||
+        if (trajectory != (shield ? SkillTrajectories.ShieldOnCaster.id : SkillTrajectories.WallBetweenCasterAndTarget.id) ||
             container.Asset.ImpactTuning.BarrierLengthMultiplier != 1f) return null;
         var callbacks = new List<Delegate>();
         foreach (Type type in skill.GetComponentTypes())
@@ -116,28 +120,30 @@ internal static class WallConstructionMigration
             Origin = ConstructionForceOrigin.Shape
         } : null;
         string matter = form switch { "ice_wall" => "ice", "wood_wall" => "wood", "fire_wall" => "fire",
-            "wind_wall" => "wind", "sword_curtain" => "iron", _ => "physical" };
-        Vector3 angles = FormResource.ReadFacing(new[] {0f, 1f, 0f}, new[] {0f, 0f, 1f}, form).eulerAngles;
+            "wind_wall" or "wind_aegis" => "wind", "sword_curtain" => "iron", "flame_aegis" => "fire",
+            "spirit_aegis" => "spirit", "lightning_aegis" => "lightning", "solar_aegis" => "yang", _ => "physical" };
+        Vector3 angles = shield ? Vector3.zero : FormResource.ReadFacing(new[] {0f, 1f, 0f}, new[] {0f, 0f, 1f}, form).eulerAngles;
         return new AbilityDefinition
         {
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(),
             Lifetime = lifetime, ConcurrentLimit = container.Asset.ImpactProfile.PersistentLimit,
             Resource = "none", Cost = 0f, Cooldown = 0f, Power = 1f, TargetRange = 10000f,
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat | ActiveAbilityChannel.World,
-                Target = ActiveAbilityTargetMode.Point },
-            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Between, Fraction = .6f, FaceTarget = true },
+                Target = shield ? ActiveAbilityTargetMode.Self : ActiveAbilityTargetMode.Point },
+            Binding = shield ? new ConstructionBinding { Anchor = AbilityAnchor.Source, Follow = true, ContactAtDestination = true } :
+                new ConstructionBinding { Anchor = AbilityAnchor.Between, Fraction = .6f, FaceTarget = true },
             Root = new ConstructionNode
             {
-                Id = "wall", Form = form, Matter = matter,
-                State = matter is "fire" or "wind" ? "energy" : "solid", Scale = scale,
+                Id = shield ? "shield" : "wall", Form = form, Matter = matter,
+                State = shield || matter is "fire" or "wind" ? "energy" : "solid", Scale = scale,
                 Impact = impact,
                 Contact = contact ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval,
                     Interval = profile.RepeatHitInterval } : null,
                 Rotation = new[] { angles.x, angles.y, angles.z },
-                ContactRole = ConstructionContactRole.Barrier, BlocksGroundActors = true,
+                ContactRole = ConstructionContactRole.Barrier, BlocksGroundActors = !shield,
                 Strength = container.Asset.ImpactProfile.DurabilityMultiplier,
-                SourceLoss = ConstructionSourceLoss.Continue,
-                Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+                SourceLoss = shield ? ConstructionSourceLoss.End : ConstructionSourceLoss.Continue,
+                Operations = shield ? Array.Empty<ConstructionOperation>() : new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
                     Vector = new float[3], WorldVelocity = true, Ground = ConstructionGroundResponse.Follow } }
 
             }

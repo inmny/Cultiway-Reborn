@@ -69,3 +69,6 @@ Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官�
 
 
 `forms_contact_walls.mjs`制作`fire_wall`、`wind_wall`与`sword_curtain`：厚火舌、五层宽流面和十五柄真实悬剑各自保留地表控制、动作及接触，屏障与人物作用共用主体。风使用独立流面材质，不借用冰霜、水波或烟团。`forms_solid_walls.mjs`导出的`wallPart/column`仅复用封闭几何与正面顺序，剑幕复用本轮制作的完整剑资源。运行`python3 Scripts/SpellDemos/verify_wall_migration.py --section contact-walls`复现原来源、独立伤害及容量、风推力、失败恢复与主体截图；最终火焰及流派质感留后续美术验收。
+
+
+`forms_aegises.mjs`提供五种随身中空厚壳：`spirit_aegis`厚弧片、`flame_aegis`焰瓣、`wind_aegis`宽流带、`lightning_aegis`分面能量壳及`solar_aegis`阳轮。内外面和侧缘封闭，接触位于厚面内部，网格及接触共用控制；制作前向Y、上向Z，地下隐藏但不按地表变形。灵、雷、阳使用半透明能量表面，表面不提供伤害。运行`python3 Scripts/SpellDemos/verify_wall_migration.py --section shields`复用既有入口核对原来源、实际防御和随动；这些是功能基础体，灵雷轮廓区分、火焰质感及最终美术继续9.02。

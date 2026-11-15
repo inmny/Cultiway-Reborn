@@ -1272,3 +1272,11 @@ python3 Scripts/SpellDemos/verify_wall_migration.py --section contact-walls
 ```
 
 复用墙体场景、正式已学入口和支付准备，火墙及剑幕检查实际0.35秒伤害、真实容量损耗后伤害不下降；风墙检查真实水平推力且无伤害。共同覆盖墙外无作用、关闭人物作用仍防御、一个资料失败、一次受理失败退款与结束恢复，不重跑身体装备矩阵。主体正侧和斜向截图随同三种普通及带词条JSON保存在`artifacts/skill_rebuild/trajectories/contact-walls/`，原行为结果与单独补拍记录分别保留。此处是基础来源交付，最终流派美术、完整编辑及创作、正式冷启动和集中录像仍归对应后项。
+
+
+```bash
+# 5.05 B24：五种原护盾的随身壳面、真实防御及来源失效结束
+python3 Scripts/SpellDemos/verify_wall_migration.py --section shields
+```
+
+复用墙体场景、人物和正式学习及支付入口，各来源只核对自身普通/强化资料、实际已学自用受理、一次石锥拦截及无隐藏人物伤害。随位置和真实腾起高度跟随、同来源替换、自然结束、一次受理失败退款和来源实际死亡结束共用灵盾验证，不按身体或装备重跑。完整输入、结果、五种普通及强化JSON和主体图在`artifacts/skill_rebuild/trajectories/shields/`。开发构建、NML实机编译及Linux原版运行通过；三平台仅资源构建，最终美术、Worldfall、完整编辑与自主创作、正式冷启动和集中录像仍归对应后项。
