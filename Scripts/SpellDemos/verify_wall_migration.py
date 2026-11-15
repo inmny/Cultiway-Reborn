@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""5.05 B21至B24：验证原实体墙迁移及与旧法术、原版弹丸、人物运动的实际交互。"""
+"""5.05 B21至B25：验证原实体墙迁移及与旧法术、原版弹丸、人物运动的实际交互。"""
 import argparse
 import json
 import os
@@ -11,8 +11,8 @@ from common import PROJECT, version_stamp, write_json
 def main():
     """复用已有世界、人物准备和调试通道，分别保存本批输入及实际结果。"""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('earth', 'solid-walls', 'contact-walls', 'shields'), default='earth',
-                        help='土墙完整交互、实体墙、接触墙或随身护盾')
+    parser.add_argument('--section', choices=('earth', 'solid-walls', 'contact-walls', 'shields', 'water-curtain'), default='earth',
+                        help='土墙完整交互、实体墙、接触墙、随身护盾或水幕')
     section = parser.parse_args().section
     install = PROJECT / 'artifacts/skill_rebuild/performance-baseline/cultiway'
     os.environ['CULTIWAY_BASELINE_ROOT'] = str(install)
@@ -37,7 +37,7 @@ def main():
     helpers += '\nAbilityDefinition Motion(' + motion
     script = folder / 'input.script'
     body = Path(__file__).with_suffix('.script').read_text()
-    if section in ('solid-walls', 'contact-walls', 'shields'):
+    if section in ('solid-walls', 'contact-walls', 'shields', 'water-curtain'):
         shared = body.split('var activeCasts', 1)[0].replace('SkillEntities.EarthWall', 'wallAsset')
         shared = shared.replace('camera.orthographicSize=9', 'camera.orthographicSize=12')
         shared = shared.replace('new Vector3(68,74,', 'new Vector3(68,72,')
@@ -50,8 +50,15 @@ def main():
                                     'Entity Build(bool boost=false,bool extra=false,bool contactEnabled=true)')
             shared = shared.replace('string signature=SkillContainerSignature.Build(e);',
                                     'if(!contactEnabled)e.AddComponent(new SkillSettings{AreaMultiplier=1,PowerMultiplier=1,ContactEnabled=false});string signature=SkillContainerSignature.Build(e);')
-        body = ('SkillEntityAsset wallAsset=SkillEntities.IceWall;\n' + shared +
-                Path(__file__).with_name('verify_' + section.replace('-', '_') + '.script').read_text())
+        if section in ('solid-walls', 'water-curtain'):
+            sources = ('new[]{(Asset:SkillEntities.IceWall,Form:"ice_wall",Matter:"ice",State:"solid"),'
+                       '(Asset:SkillEntities.WoodWall,Form:"wood_wall",Matter:"wood",State:"solid")}'
+                       if section == 'solid-walls' else
+                       'new[]{(Asset:SkillEntities.WaterCurtain,Form:"water_curtain",Matter:"water",State:"liquid")}')
+            suffix = 'var wallSources=' + sources + ';\n' + Path(__file__).with_name('verify_passive_walls.script').read_text()
+        else:
+            suffix = Path(__file__).with_name('verify_' + section.replace('-', '_') + '.script').read_text()
+        body = 'SkillEntityAsset wallAsset=SkillEntities.IceWall;\n' + shared + suffix
     script.write_text(imports + helpers + '\n' + body)
     write_json(folder / 'metadata.json', dict(version=version_stamp()[0], connection=connected))
     write_json(folder / 'result.json', dict(passed=False, status='running'))

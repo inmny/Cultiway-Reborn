@@ -1,4 +1,4 @@
-// B22：复用原墙场景、学习、支付和接触准备，只验证新来源及各自发布的真实形体。
+// B22/B25：复用原墙场景、学习、支付和接触准备，只验证新来源及各自发布的真实形体。
 var activeCasts=new List<AbilityCast>();
 var checkMove=typeof(Actor).GetMethod("checkVelocityAgainstBlock",F);
 /// <summary>经过原版受力及移动的同一正式阻挡入口。</summary><param name="actor">实际人物。</param><param name="to">目标位置。</param>
@@ -16,8 +16,7 @@ try
         }
         emissions.Add(new{asset=wallAsset.id,result=result.ToString(),request.Strength,request.PowerLevel});return result;
     };
-    foreach(var entry in new[]{(Asset:SkillEntities.IceWall,Form:"ice_wall",Matter:"ice"),
-        (Asset:SkillEntities.WoodWall,Form:"wood_wall",Matter:"wood")})
+    foreach(var entry in wallSources)
     {
         wallAsset=entry.Asset;starts.Clear();accepted.Clear();oldWalls=0;
         var normal=Build();var boosted=Build(true);
@@ -26,7 +25,8 @@ try
             var d=Convert(skill,out GetHitEvent damage);bool boost=skill.HasComponent<HugeModifier>();
             var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
             var plan=AbilityCompiler.Compile(restored,cache:false);
-            Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.BlocksGroundActors&&
+            Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.State==entry.State&&d.Root.BlocksGroundActors&&
+                d.Root.Impact==null&&
                 restored.Root.Form==entry.Form&&d.Binding.Anchor==AbilityAnchor.Between&&
                 Math.Abs(d.Binding.Fraction.Value-.6f)<.0001f&&d.Root.Strength==5&&d.ConcurrentLimit==1&&
                 Math.Abs(damage.Damage-(boost?52:40))<.001f&&damage.AttackerPowerLevel==1.25f&&damage.Element.Equals(entry.Asset.Element),
@@ -65,8 +65,13 @@ try
         Check(enhanced.Finished&&Shapes(enhanced).Count==0&&Views(enhanced).Count==0&&
             Block(target,new Vector2(70,72)).x==70&&!BodyControlState.IsBusy(source.id)&&!BodyControlState.IsBusy(target.id),
             entry.Form+"原寿命结束后显示、作用及通行一起恢复");
+        // 正侧面之外补一次真实斜向施放，只看水面或实体主体，不重跑防御检查。
+        ResetPeople();Place(target,64,68);ConstructedAbilityService.NotifyActorChanged(target);
+        Check(Use(normal),entry.Form+"斜向主体正式施放");await Advance(.25f);
+        await Shot(entry.Form+"-angled");await Advance(.3f);await Shot(entry.Form+"-angled-later");
+        accepted.Last().Cancel();ResetPeople();await Advance(.1f);
     }
-    // 两来源共用同一受理和退款路径，只做一次真实边界失效及恢复。
+    // 本批来源共用同一受理和退款路径，只做一次真实边界失效及恢复。
     ResetPeople();var failed=Build();int count=starts.Count;float before=owner.GetCultisys<Xian>().wakan;invalidate=true;
     Check(Use(failed,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排原墙真实受理边界失效");await Advance(.25f);invalidate=false;
     Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f&&oldWalls==0,

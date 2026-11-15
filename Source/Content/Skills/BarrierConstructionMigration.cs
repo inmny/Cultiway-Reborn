@@ -53,6 +53,7 @@ internal static class BarrierConstructionMigration
         asset == SkillEntities.IceWall ? "ice_wall" : asset == SkillEntities.WoodWall ? "wood_wall" :
         asset == SkillEntities.FireWall ? "fire_wall" : asset == SkillEntities.WindWall ? "wind_wall" :
         asset == SkillEntities.SwordCurtain ? "sword_curtain" :
+        asset == SkillEntities.WaterCurtain ? "water_curtain" :
         asset == SkillEntities.SpiritShield ? "spirit_aegis" : asset == SkillEntities.FlameShield ? "flame_aegis" :
         asset == SkillEntities.WindShield ? "wind_aegis" : asset == SkillEntities.LightningShield ? "lightning_aegis" :
         asset == SkillEntities.YangShield ? "solar_aegis" : null;
@@ -121,6 +122,7 @@ internal static class BarrierConstructionMigration
         } : null;
         string matter = form switch { "ice_wall" => "ice", "wood_wall" => "wood", "fire_wall" => "fire",
             "wind_wall" or "wind_aegis" => "wind", "sword_curtain" => "iron", "flame_aegis" => "fire",
+            "water_curtain" => "water",
             "spirit_aegis" => "spirit", "lightning_aegis" => "lightning", "solar_aegis" => "yang", _ => "physical" };
         Vector3 angles = shield ? Vector3.zero : FormResource.ReadFacing(new[] {0f, 1f, 0f}, new[] {0f, 0f, 1f}, form).eulerAngles;
         return new AbilityDefinition
@@ -135,7 +137,7 @@ internal static class BarrierConstructionMigration
             Root = new ConstructionNode
             {
                 Id = shield ? "shield" : "wall", Form = form, Matter = matter,
-                State = shield || matter is "fire" or "wind" ? "energy" : "solid", Scale = scale,
+                State = matter == "water" ? "liquid" : shield || matter is "fire" or "wind" ? "energy" : "solid", Scale = scale,
                 Impact = impact,
                 Contact = contact ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval,
                     Interval = profile.RepeatHitInterval } : null,

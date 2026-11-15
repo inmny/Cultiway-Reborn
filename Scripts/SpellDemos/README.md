@@ -1280,3 +1280,11 @@ python3 Scripts/SpellDemos/verify_wall_migration.py --section shields
 ```
 
 复用墙体场景、人物和正式学习及支付入口，各来源只核对自身普通/强化资料、实际已学自用受理、一次石锥拦截及无隐藏人物伤害。随位置和真实腾起高度跟随、同来源替换、自然结束、一次受理失败退款和来源实际死亡结束共用灵盾验证，不按身体或装备重跑。完整输入、结果、五种普通及强化JSON和主体图在`artifacts/skill_rebuild/trajectories/shields/`。开发构建、NML实机编译及Linux原版运行通过；三平台仅资源构建，最终美术、Worldfall、完整编辑与自主创作、正式冷启动和集中录像仍归对应后项。
+
+
+```bash
+# 5.05 B25：原水幕的液态厚面防御、正式来源及结束恢复
+python3 Scripts/SpellDemos/verify_wall_migration.py --section water-curtain
+```
+
+该入口与`--section solid-walls`共用`verify_passive_walls.script`，分别传入本批实际来源及预期材料，不重复搭建场景。水幕核对液态资料、普通及强化已学来源、逐发支付、真实石锥拦截和容量、墙外通过、同来源替换、一个失败退款及结束恢复；未映射附加作用仍留原入口。完整输入、结果、普通及强化JSON和主体图写入`artifacts/skill_rebuild/trajectories/water-curtain/`，不覆盖既有墙体证据。完整编辑、创作、正式冷启动及集中连续录像继续5.05 C，最终水法美术及Worldfall继续对应交付点。

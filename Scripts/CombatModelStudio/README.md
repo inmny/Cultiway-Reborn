@@ -72,3 +72,6 @@ Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官�
 
 
 `forms_aegises.mjs`提供五种随身中空厚壳：`spirit_aegis`厚弧片、`flame_aegis`焰瓣、`wind_aegis`宽流带、`lightning_aegis`分面能量壳及`solar_aegis`阳轮。内外面和侧缘封闭，接触位于厚面内部，网格及接触共用控制；制作前向Y、上向Z，地下隐藏但不按地表变形。灵、雷、阳使用半透明能量表面，表面不提供伤害。运行`python3 Scripts/SpellDemos/verify_wall_migration.py --section shields`复用既有入口核对原来源、实际防御和随动；这些是功能基础体，灵雷轮廓区分、火焰质感及最终美术继续9.02。
+
+
+`forms_water_curtain.mjs`提供`water_curtain`：封闭厚水层、宽水脚和轻微向前翻曲的顶沿。十七列地表控制同时带动显示、挂点和实际接触芯，使用现有水表面的厚度与泡沫通道，表面坐标向下展开。原来源为`water/liquid`屏障，维持时不声明自由流散或人物伤害。运行`python3 Scripts/SpellDemos/verify_wall_migration.py --section water-curtain`复用原墙学习、支付和拦截入口；最终水法美术继续对应后项。
