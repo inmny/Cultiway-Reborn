@@ -77,13 +77,15 @@ internal static class FlyingSwordConstructionMigration
         bool spiral = trajectory == SkillTrajectories.SpiralHoming.id;
         bool vortex = trajectory == SkillTrajectories.SlowVortex.id;
         bool orbit = trajectory == SkillTrajectories.OrbitTarget.id;
+        bool boomerang = trajectory == SkillTrajectories.Boomerang.id;
         bool wave = trajectory == SkillTrajectories.SineWave.id, zigzag = trajectory == SkillTrajectories.Zigzag.id;
-        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral && !vortex && !orbit) return null;
+        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral && !vortex && !orbit && !boomerang) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
             container.Asset.ImpactProfile.Lifetime * container.Asset.ImpactTuning.LifetimeMultiplier);
         if (configured && settings.Duration > 0) lifetime = settings.Duration;
+        if (boomerang) lifetime = Mathf.Min(lifetime, 1.2f);
         float scale = emission.RuntimeData.ResolveEffectScale() * SkillEffectRadius.ResolveCasterGrowth(emission.Source.a.GetExtend(), skill);
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
@@ -101,14 +103,23 @@ internal static class FlyingSwordConstructionMigration
             Mathf.Abs(Vector3.Dot(initial, Vector3.forward)) > .999f ? Vector3.up : Vector3.forward);
         var goal = noRotation || wave || zigzag || vortex ? null : new ConstructionFlightGoal
         {
-            Anchor = towardsDirection ? ConstructionFlightAnchor.Direction : ConstructionFlightAnchor.Target,
+            Anchor = towardsDirection || boomerang ? ConstructionFlightAnchor.Direction : ConstructionFlightAnchor.Target,
             Follow = towardsTarget || drift || spiral || orbit,
-            Arrival = towardsDirection ? ConstructionFlightArrival.None : ConstructionFlightArrival.End,
+            Arrival = towardsDirection || boomerang ? ConstructionFlightArrival.None : ConstructionFlightArrival.End,
             Radius = .01f, Approach = orbit
         };
         int seed = unchecked((int)emission.Source.id * 397 ^ skill.Id ^ (int)emission.RuntimeData.CorrelationId ^
                              emission.InitialAngleOffsetDegrees.GetHashCode());
         const float orbitEnd = (2.2f - .2f) / 1.8f;
+        if (boomerang)
+        {
+            float phase = (float)(new System.Random(seed).NextDouble() * Math.PI * 4d - Math.PI * 2d);
+            if (Mathf.Abs(phase) < .1f) phase = phase < 0f ? -.1f : .1f;
+            Vector3 plane = new(initial.x, initial.y, 0f);
+            plane = plane.sqrMagnitude < .0001f ? Vector3.right : plane.normalized;
+            Vector3 desired = (initial + new Vector3(-plane.y, plane.x, 0f) * (phase * .15f)).normalized;
+            goal.Offset = XYZ(desired - forward);
+        }
         if (orbit)
         {
             float phase = (float)(new System.Random(seed).NextDouble() * Math.PI * 4d - Math.PI * 2d);
@@ -179,6 +190,13 @@ internal static class FlyingSwordConstructionMigration
                 Goal = new ConstructionFlightGoal { Approach = true, Follow = true, Radius = .01f, Arrival = ConstructionFlightArrival.End }
             };
         }
+        ConstructionOperation returnSource = boomerang ? new ConstructionOperation
+        {
+            Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = new float[3], InheritVelocity = true, TurnRate = 520f,
+            When = new ConstructionCondition { Source = "root", Trigger = ConstructionChangeTrigger.DistanceFromFlightStart, Threshold = 5f },
+            Goal = new ConstructionFlightGoal { Anchor = ConstructionFlightAnchor.Source, Follow = true,
+                Arrival = ConstructionFlightArrival.End, Radius = .01f, DirectArrival = true }
+        } : null;
         float strength = emission.Strength * emission.RuntimeData.ResolveEffectScale();
         if (configured) strength *= settings.PowerMultiplier;
         if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
@@ -194,10 +212,10 @@ internal static class FlyingSwordConstructionMigration
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat | ActiveAbilityChannel.World,
                 Target = towardsTarget || drift || spiral || orbit ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
-            Steps = finishOrbit == null ? Array.Empty<ConstructionStep>() : new[]
+            Steps = finishOrbit == null && returnSource == null ? Array.Empty<ConstructionStep>() : new[]
             {
-                new ConstructionStep { Id = "approach_target", Inputs = new Dictionary<string, ConstructionOutputReference>
-                    { ["part"] = new() { Node = "root" } }, Operation = finishOrbit }
+                new ConstructionStep { Id = boomerang ? "return_source" : "approach_target", Inputs = new Dictionary<string, ConstructionOutputReference>
+                    { ["part"] = new() { Node = "root" } }, Operation = returnSource ?? finishOrbit }
             },
             Root = new ConstructionNode
             {

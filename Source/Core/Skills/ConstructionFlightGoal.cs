@@ -42,6 +42,9 @@ public sealed class ConstructionFlightGoal
     /// <summary>直接限速接近当前追逐点，到点后等待；关闭时继续原有转向飞行。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool Approach;
+    /// <summary>本步路程足以到达真实目标时直接走完最后一段，之前仍遵守转速；只用于停止或结束。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool DirectArrival;
     /// <summary>目标旁的地图三轴位置偏移，仅移动追逐点，不平移实际主体。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float[] Offset;
@@ -66,6 +69,8 @@ internal sealed class CompiledFlightGoal
     internal readonly float Radius;
     /// <summary>直接限速接近，保留到点后的巡航能力。</summary>
     internal readonly bool Approach;
+    /// <summary>最后一步可达时沿真实线段收束，不提前改变转向。</summary>
+    internal readonly bool DirectArrival;
     /// <summary>地图三轴的固定追逐点偏移。</summary>
     internal readonly UnityEngine.Vector3 Offset;
     /// <summary>只按世界时间推进的地图三轴曲线。</summary>
@@ -82,6 +87,9 @@ internal sealed class CompiledFlightGoal
             float.IsNaN(source.Radius) || float.IsInfinity(source.Radius) || source.Radius < .01f || source.Radius > 10000f ||
             source.Anchor == ConstructionFlightAnchor.Direction && (source.Follow || source.Arrival != ConstructionFlightArrival.None))
             throw new InvalidDataException(path + "：飞行目标、到达处理或0.01至一万格内的距离无效");
+        if (source.DirectArrival && source.Arrival is not (ConstructionFlightArrival.Stop or ConstructionFlightArrival.End))
+            throw new InvalidDataException(path + "：最后一步直达只用于停止或结束的到达规则");
+        DirectArrival = source.DirectArrival;
         Approach = source.Approach;
         if (source.Offset != null)
         {

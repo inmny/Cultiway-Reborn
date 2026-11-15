@@ -105,7 +105,10 @@ public enum ConstructionChangeTrigger
     SizeBelow = 7,
 
     /// <summary>实际作用面触及地块，不要求改变地形或命中人物。</summary>
-    WorldContact = 8
+    WorldContact = 8,
+
+    /// <summary>距本次飞行起点的实际空间距离向外达到阈值。</summary>
+    DistanceFromFlightStart = 9
 }
 
 /// <summary>已经解析的有限物态变化；每次施放每项最多执行一次。</summary>

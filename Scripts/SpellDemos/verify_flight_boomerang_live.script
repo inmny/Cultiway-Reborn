@@ -1,0 +1,28 @@
+// B8：合法关闭接触的旧来源用于观察完整返程，不放宽碰撞或寿命规则。
+Entity returnSkill = Build(SkillTrajectories.Boomerang.id, duration: 1.2f);
+var returnSettings = returnSkill.GetComponent<SkillSettings>(); returnSettings.ContactEnabled = false; returnSkill.AddComponent(returnSettings);
+Ready(source); Place(source, 64); Place(target, 70); endings.Clear(); contacts.Clear();
+int returnStart = starts.Count; float returnBalance = owner.GetCultisys<Xian>().wakan;
+var returnPlan = Plan(returnSkill); double returnCost = Cost(returnSkill, returnPlan);
+Check(Use(returnSkill), "原来源的完整回旋返程受理");
+await Advance(.3f);
+var actualReturns = starts.Skip(returnStart).Select(fact => (AbilityCast)Field(((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Single(live => (long)Field(live, "Id") == fact.CastId), "Cast")).ToArray();
+Place(source, 64, 73); await Advance(1.3f);
+var actualReturnRecords = actualReturns.Select(cast => new
+{
+    cast.Age, cast.Finished, returned = (bool)Field(State(cast), "FlightEnded"),
+    from = XYZ((Vector3)Field(State(cast), "FlightOrigin")), point = XYZ(Position(cast)), goal = XYZ(((AbilityInputs)Field(cast, "inputs")).Source)
+}).ToArray();
+File.WriteAllText(Path.Combine(folder, "return-live.json"), JsonConvert.SerializeObject(actualReturnRecords, Formatting.Indented));
+Check(actualReturns.Length == returnPlan.Steps.Count && actualReturns.All(cast => cast.Finished && (bool)Field(State(cast), "FlightEnded") &&
+        Vector3.Distance(Position(cast), ((AbilityInputs)Field(cast, "inputs")).Source) < .0001f &&
+        Mathf.Abs(((AbilityInputs)Field(cast, "inputs")).Source.y - 73f) < .0001f) &&
+    Mathf.Abs(returnBalance - owner.GetCultisys<Xian>().wakan - (float)returnCost) < .001f && oldExecutions.Count == 0 && contacts.Count == 0,
+    "真实旧来源追随移动施法者返回，保留支付且没有旧执行或额外接触", actualReturnRecords);
+// 无法在寿命内返回时应自然结束，不延长法术来通过验证。
+var lifetimeDefinition = Convert(returnSkill, out var lifetimeDamage); var lifetimeCast = Numeric(lifetimeDefinition, lifetimeDamage);
+lifetimeCast.UpdateInputs(new AbilityInputs(new Vector3(-1000, 72, .3f), new Vector3(70, 72, .3f), Vector3.right, .8f));
+lifetimeCast.Advance(2f, new Vector3(70, 72, .3f));
+Check(lifetimeCast.Finished && !(bool)Field(State(lifetimeCast), "FlightEnded") && Mathf.Abs(lifetimeCast.Age - 1.2f) < .00001f,
+    "来源过远时按1.2秒自然寿命结束，不强行延长或假报返回");

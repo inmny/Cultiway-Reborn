@@ -735,5 +735,11 @@
   "Cultiway.Construction.OffsetPathRules": "Chase point curve rules",
   "Cultiway.Construction.OffsetPathHint": "Map axes and world time move the chase point. The form still flies there; arrival uses the actual target.",
   "Cultiway.Construction.AddOffsetPath": "Add chase point curve",
-  "Cultiway.Construction.RemoveOffsetPath": "Remove chase point curve"
+  "Cultiway.Construction.RemoveOffsetPath": "Remove chase point curve",
+  "Cultiway.Construction.Event.DistanceFromFlightStart": "Reached distance from flight start",
+  "Cultiway.Construction.ActivationFlightDistanceThreshold": "Distance from start (tiles)",
+  "Cultiway.Construction.FlightDirectArrival": "Finish directly when reachable",
+  "Cultiway.Construction.FlightDirectArrivalRules": "Final step",
+  "Cultiway.Construction.FlightDirectArrivalHint": "Keep the turn rate until the actual goal is reachable this step, then travel the last segment and stop or end.",
+  "Cultiway.Construction.MotionFlightDistanceThreshold": "Distance from start (tiles)"
 }

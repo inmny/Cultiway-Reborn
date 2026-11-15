@@ -46,6 +46,7 @@ public sealed partial class AbilityCast
         CompiledFlightGoal goal = state.Flight?.Goal;
         if (!state.Free || !state.Flying || state.MovementStopped || state.FlightArrived || goal == null ||
             goal.Arrival == ConstructionFlightArrival.None) return maximum;
+        if (goal.DirectArrival) return maximum;
         float minimum = Mathf.Max(.000001f, Age * .0000001f);
         float distance = Vector3.Distance(state.Position, FlightAim(in state, target)) - goal.Radius;
         if (distance <= FlightGoalPrecision(in state)) return Mathf.Min(maximum, minimum);
@@ -64,6 +65,22 @@ public sealed partial class AbilityCast
         return speed > 0f ? Mathf.Min(maximum, Mathf.Max(minimum, distance / speed)) : maximum;
     }
 
+    /// <summary>只在最后一步可达时沿真实线段到达，姿态和速度交给原接触流程继续采样。</summary>
+    /// <param name="state">当前真实状态。</param><param name="target">真实到达点，不采用方向或旁侧偏移。</param>
+    /// <param name="seconds">本步实际时长。</param>
+    private static bool FinishDirectFlight(ref NodeState state, Vector3 target, float seconds)
+    {
+        if (!state.Flying || state.FlightArrived || state.Flight.Goal?.DirectArrival != true || seconds <= 0f) return false;
+        Vector3 delta = target - state.Position;
+        if (delta.magnitude > state.Velocity.magnitude * seconds) return false;
+        Vector3 before = state.Velocity;
+        state.Velocity = delta / seconds;
+        if (delta.sqrMagnitude > 1e-8f)
+            state.Rotation = Quaternion.FromToRotation(before.sqrMagnitude > 1e-8f ? before : state.Rotation * Vector3.forward, delta) * state.Rotation;
+        state.Position = target;
+        return true;
+    }
+
     /// <summary>以浮点时间能够表达的最小位移容差确认到达，不改变实际姿态。</summary>
     /// <param name="state">本次实际速度。</param>
     private float FlightGoalPrecision(in NodeState state)
@@ -77,7 +94,7 @@ public sealed partial class AbilityCast
         CompiledFlightGoal goal = state.Flight?.Goal;
         if (!state.Exists || !state.Flying || state.FlightArrived || state.MovementStopped || goal == null ||
             goal.Arrival == ConstructionFlightArrival.None ||
-            Vector3.Distance(state.Position, FlightAim(in state, target)) > goal.Radius + FlightGoalPrecision(in state)) return;
+            Vector3.Distance(state.Position, FlightAim(in state, target)) > (goal.DirectArrival ? 0f : goal.Radius) + FlightGoalPrecision(in state)) return;
         state.FlightArrived = true;
         if (goal.Arrival == ConstructionFlightArrival.Continue) return;
         state.MovementStopped = true;

@@ -23,12 +23,12 @@ public sealed partial class WindowWanfaConstructionEditor
                     condition.Trigger = trigger;
                     if (condition is ConstructionActivation activation && trigger != ConstructionChangeTrigger.End) activation.InheritRemainder = false;
                     if (trigger != ConstructionChangeTrigger.MatterChanged) { condition.Matter = null; condition.State = null; }
-                    condition.Threshold = trigger == ConstructionChangeTrigger.ForceBelow ? .5f : trigger == ConstructionChangeTrigger.SizeAbove ? 1f : trigger == ConstructionChangeTrigger.SizeBelow ? .5f : null;
+                    condition.Threshold = trigger == ConstructionChangeTrigger.ForceBelow ? .5f : trigger == ConstructionChangeTrigger.SizeAbove ? 1f : trigger == ConstructionChangeTrigger.SizeBelow ? .5f : trigger == ConstructionChangeTrigger.DistanceFromFlightStart ? 5f : null;
                 })
             }).ToArray()));
         if (condition.Threshold.HasValue)
         {
-            string key = prefix + (condition.Trigger == ConstructionChangeTrigger.ForceBelow ? "ForceThreshold" : "SizeThreshold");
+            string key = prefix + (condition.Trigger == ConstructionChangeTrigger.ForceBelow ? "ForceThreshold" : condition.Trigger == ConstructionChangeTrigger.DistanceFromFlightStart ? "FlightDistanceThreshold" : "SizeThreshold");
             Number(key, condition.Threshold.Value, value => condition.Threshold = value);
         }
     }

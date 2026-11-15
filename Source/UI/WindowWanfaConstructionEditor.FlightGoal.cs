@@ -26,7 +26,7 @@ public sealed partial class WindowWanfaConstructionEditor
                     {
                         goal.Anchor = anchor;
                         if (anchor == ConstructionFlightAnchor.Direction)
-                        { goal.Follow = false; goal.Arrival = ConstructionFlightArrival.None; }
+                        { goal.Follow = false; goal.Arrival = ConstructionFlightArrival.None; goal.DirectArrival = false; }
                     })
                 }).ToArray()));
         Toggle("FlightApproach", goal.Approach, value => goal.Approach = value);
@@ -58,9 +58,18 @@ public sealed partial class WindowWanfaConstructionEditor
                 .Select(arrival => new UiOptionMenuOption
                 {
                     Label = T("FlightArrival." + arrival), Selected = goal.Arrival == arrival,
-                    Select = () => Change(() => goal.Arrival = arrival)
+                    Select = () => Change(() =>
+                    {
+                        goal.Arrival = arrival;
+                        if (arrival is not (ConstructionFlightArrival.Stop or ConstructionFlightArrival.End)) goal.DirectArrival = false;
+                    })
                 }).ToArray()));
-        Number("FlightGoalRadius", goal.Radius, value => goal.Radius = value);
+        if (goal.Arrival is ConstructionFlightArrival.Stop or ConstructionFlightArrival.End)
+        {
+            Toggle("FlightDirectArrival", goal.DirectArrival, value => goal.DirectArrival = value);
+            Row("FlightDirectArrivalRules", T("FlightDirectArrivalHint"));
+        }
+        if (!goal.DirectArrival) Number("FlightGoalRadius", goal.Radius, value => goal.Radius = value);
         Row("FlightGoalRules", T("FlightGoalHint"));
         ActionRow("RemoveFlightGoal", T("RemoveFlightGoalHint"), () => Change(() => flight.Goal = null));
     }

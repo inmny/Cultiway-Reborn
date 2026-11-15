@@ -1,0 +1,50 @@
+// B8：当前窗口编辑条件和普通到达规则，命名步骤完整表单仍属C。
+var editableDistance = ConstructionEditing.Copy(returnDistance); editableDistance.Name = "外投后返回";
+// 窗口先在初始飞行检查最后一步规则，再在同一部位修改条件。
+editableDistance.Root.Operations[0].Goal = new ConstructionFlightGoal { Anchor = ConstructionFlightAnchor.Source, Arrival = ConstructionFlightArrival.End, DirectArrival = true };
+ConstructedAbilityService.Register(editableDistance);
+WindowWanfaConstructionEditor.Open(editableDistance.Id, source); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+var distanceEditor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+try
+{
+    string TDistance(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+    ConstructionEditSession DistanceSession() => (ConstructionEditSession)Field(distanceEditor, "session");
+    void ClickDistance(string key)
+    {
+        Button button = distanceEditor.GetComponentsInChildren<Button>(false).FirstOrDefault(item => item.name == key);
+        if (button == null) button = distanceEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(row => ((Text)Field(row, "_title")).text == TDistance(key))
+            .transform.Find("Header/Action").GetComponent<Button>();
+        button.onClick.Invoke();
+    }
+    void SetDistanceNumber(string name, string value)
+    {
+        InputField field = distanceEditor.GetComponentsInChildren<InputField>(false).Last(input => input.name == name && input.interactable);
+        field.text = value; field.onEndEdit.Invoke(value);
+    }
+    async Task ShotDistance(string name, string key)
+    {
+        World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+        var pane = distanceEditor.GetComponentsInChildren<ScrollRect>(false).First(scroll => scroll.name == "Parameters");
+        var row = distanceEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(item => ((Text)Field(item, "_title")).text == TDistance(key));
+        Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(pane.content, row.transform);
+        pane.verticalNormalizedPosition = 1f - Mathf.Clamp01((pane.content.rect.yMax - bounds.max.y) / (pane.content.rect.height - pane.viewport.rect.height));
+        await Game.NextFrame(); string shot = Path.Combine(folder, name + ".png"); File.Delete(shot); Screen.Capture(shot); await Game.WaitUntil(() => File.Exists(shot), 600);
+    }
+    ClickDistance("Page1");
+    distanceEditor.GetComponentsInChildren<Toggle>(false).Single(toggle => toggle.name == "FlightDirectArrival").isOn = false;
+    Check(!DistanceSession().Draft.Root.Operations[0].Goal.DirectArrival, "窗口可关闭最后一步直达，恢复普通到达距离");
+    distanceEditor.GetComponentsInChildren<Toggle>(false).Single(toggle => toggle.name == "FlightDirectArrival").isOn = true;
+    await ShotDistance("arrival-cz", "FlightDirectArrival");
+    ClickDistance("Page4"); SetDistanceNumber("MotionFlightDistanceThreshold", "4.5");
+    Check((bool)Field(distanceEditor, "valid") && DistanceSession().Draft.Root.Operations[1].When.Threshold == 4.5f,
+        "窗口可编辑真实飞行起点距离，保持普通返程操作");
+    SetDistanceNumber("MotionFlightDistanceThreshold", "0"); Check(!(bool)Field(distanceEditor, "valid"), "窗口拒绝零距离且不替换有效资料"); ClickDistance("Undo");
+    await ShotDistance("distance-cz", "MotionFlightDistanceThreshold");
+    LocalizedTextManager.instance.setLanguage("en"); ClickDistance("Page4"); await ShotDistance("distance-en", "MotionFlightDistanceThreshold");
+    LocalizedTextManager.instance.setLanguage("cz"); ClickDistance("Page4"); ClickDistance("LearnCopy");
+    var storedDistance = ConstructionEditing.Access.Read(DistanceSession().SourceId);
+    Check(ConstructedAbilityService.Knows(owner, DistanceSession().SourceId) && storedDistance.Root.Operations[0].Goal.DirectArrival &&
+        storedDistance.Root.Operations[1].When.Trigger == ConstructionChangeTrigger.DistanceFromFlightStart && storedDistance.Root.Operations[1].When.Threshold == 4.5f,
+        "正式保存学习保留距离条件和最后一步规则");
+}
+finally { LocalizedTextManager.instance.setLanguage("cz"); typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(distanceEditor, null); }

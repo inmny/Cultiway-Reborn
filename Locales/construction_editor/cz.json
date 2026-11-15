@@ -730,5 +730,11 @@
   "Cultiway.Construction.OffsetPathRules": "追逐点曲线规则",
   "Cultiway.Construction.OffsetPathHint": "偏移采用地图三轴和世界时间，只改变追逐点；剑身仍实际飞过去，到达判定采用真实目标。",
   "Cultiway.Construction.AddOffsetPath": "添加追逐点曲线",
-  "Cultiway.Construction.RemoveOffsetPath": "移除追逐点曲线"
+  "Cultiway.Construction.RemoveOffsetPath": "移除追逐点曲线",
+  "Cultiway.Construction.Event.DistanceFromFlightStart": "距飞行起点向外达到指定距离",
+  "Cultiway.Construction.ActivationFlightDistanceThreshold": "起点距离（格）",
+  "Cultiway.Construction.FlightDirectArrival": "最后一步可达时直达",
+  "Cultiway.Construction.FlightDirectArrivalRules": "最后一步",
+  "Cultiway.Construction.FlightDirectArrivalHint": "之前仍遵守转速；本步路程足够时沿真实线段到达实际目标并停止或结束。",
+  "Cultiway.Construction.MotionFlightDistanceThreshold": "起点距离（格）"
 }

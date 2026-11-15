@@ -461,6 +461,7 @@ public sealed partial class AbilityCast
             step = SteeringStep(in state, step);
             step = ChasePointStep(in state, step);
             step = FlightGoalStep(in state, target, step);
+            step = FlightDistanceStep(i, step);
             if (gathers != null && !state.Free)
             {
                 GatherState gather = gathers[i];
@@ -790,32 +791,35 @@ public sealed partial class AbilityCast
             if (!state.MovementStopped && flows?[i]?.Started != true)
             {
                 Vector3 aim = SteeringAim(in state, target, flightStep);
-                if (state.Flying && state.Flight.Path != null) MovePath(form, ref state, flightStep, aim);
-                else if (state.Flying && !state.FlightArrived && state.Flight.Goal?.Approach == true)
+                if (!FinishDirectFlight(ref state, FlightAim(in state, target), flightStep))
                 {
-                    Vector3 before = state.Velocity;
-                    state.Position = ApproachPoint(ref state, state.Position, aim, flightStep, out Vector3 actual);
-                    AdvanceSteering(ref state, actual, flightStep);
-                    state.Velocity = actual;
-                    if (actual.sqrMagnitude > 1e-8f)
-                        state.Rotation = Quaternion.FromToRotation(before.sqrMagnitude > 1e-8f ? before : state.Rotation * Vector3.forward, actual) * state.Rotation;
-                }
-                else
-                {
-                    if (state.Flying && !state.FlightArrived && state.Flight.TurnRate > 0f && state.Velocity.sqrMagnitude > 1e-8f &&
-                        (aim - state.Position).sqrMagnitude > 1e-8f)
+                    if (state.Flying && state.Flight.Path != null) MovePath(form, ref state, flightStep, aim);
+                    else if (state.Flying && !state.FlightArrived && state.Flight.Goal?.Approach == true)
                     {
                         Vector3 before = state.Velocity;
-                        state.Velocity = Vector3.RotateTowards(before,
-                            (aim - state.Position).normalized * before.magnitude,
-                            state.Flight.TurnRate * Mathf.Deg2Rad * flightStep, 0f);
-                        state.Rotation = Quaternion.FromToRotation(before, state.Velocity) * state.Rotation;
+                        state.Position = ApproachPoint(ref state, state.Position, aim, flightStep, out Vector3 actual);
+                        AdvanceSteering(ref state, actual, flightStep);
+                        state.Velocity = actual;
+                        if (actual.sqrMagnitude > 1e-8f)
+                            state.Rotation = Quaternion.FromToRotation(before.sqrMagnitude > 1e-8f ? before : state.Rotation * Vector3.forward, actual) * state.Rotation;
                     }
+                    else
+                    {
+                        if (state.Flying && !state.FlightArrived && state.Flight.TurnRate > 0f && state.Velocity.sqrMagnitude > 1e-8f &&
+                            (aim - state.Position).sqrMagnitude > 1e-8f)
+                        {
+                            Vector3 before = state.Velocity;
+                            state.Velocity = Vector3.RotateTowards(before,
+                                (aim - state.Position).normalized * before.magnitude,
+                                state.Flight.TurnRate * Mathf.Deg2Rad * flightStep, 0f);
+                            state.Rotation = Quaternion.FromToRotation(before, state.Velocity) * state.Rotation;
+                        }
 
-                    AdvanceSteering(ref state, state.Velocity, flightStep);
-                    state.Position += state.Velocity * flightStep +
-                                      state.Acceleration * (.5f * flightStep * flightStep);
-                    state.Velocity += state.Acceleration * flightStep;
+                        AdvanceSteering(ref state, state.Velocity, flightStep);
+                        state.Position += state.Velocity * flightStep +
+                                          state.Acceleration * (.5f * flightStep * flightStep);
+                        state.Velocity += state.Acceleration * flightStep;
+                    }
                 }
             }
 
@@ -925,6 +929,7 @@ public sealed partial class AbilityCast
 
         if (!state.Exists) return;
         if (!began) SignalSizeChange(i);
+        SignalFlightDistance(i);
         CompleteFlightGoal(i, target);
         if (!state.Exists) return;
         if (age >= form.Presence.y) SignalEnd(i, state.Transform.GetColumn(3));
@@ -1544,6 +1549,12 @@ public sealed partial class AbilityCast
 
         /// <summary>本次飞行启动时固定的目标，不受后续镜头或输入移动影响。</summary>
         internal Vector3 FlightTarget;
+
+        /// <summary>这次实际飞行的出生点，不随来源移动。</summary>
+        internal Vector3 FlightOrigin;
+
+        /// <summary>上次采样的起点距离，随预测前态一起恢复。</summary>
+        internal float FlightDistance;
 
         /// <summary>到达已经发生以及是否因此结束；随预测前态一起恢复。</summary>
         internal bool FlightArrived, FlightEnded;

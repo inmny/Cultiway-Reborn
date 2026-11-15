@@ -1,0 +1,77 @@
+// B8：实际径向距离、共同返回、预测及工作池；不重复身体装备共用场景。
+AbilityDefinition DistanceDefinition() => new()
+{
+    Id = "test.boomerang." + Guid.NewGuid().ToString("N"), Name = "飞行距离", Lifetime = 3f, Resource = "none", Cost = 0f, Cooldown = 0f,
+    Root = new ConstructionNode { Id = "sword", Form = "sword", Scale = .2f, Operations = new[]
+    {
+        new ConstructionOperation { Kind = ConstructionOperationKind.Fly, WorldVelocity = true, InheritVelocity = false, Vector = new[] { 10f, 0f, 0f } },
+        new ConstructionOperation { Kind = ConstructionOperationKind.ChangeSpeed, Speed = 0f,
+            When = new ConstructionCondition { Source = "root", Trigger = ConstructionChangeTrigger.DistanceFromFlightStart, Threshold = 5f } }
+    } }
+};
+AbilityCast DistanceCast(AbilityDefinition definition) => new(AbilityCompiler.Compile(definition, cache: false), Matrix4x4.identity,
+    inputs: new AbilityInputs(Vector3.zero, Vector3.right * 20f, Vector3.right, 1f));
+var distanceDefinition = DistanceDefinition(); var distanceCast = DistanceCast(distanceDefinition);
+distanceCast.Advance(.3f, Vector3.right * 20f);
+var saveDistance = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+var restoreDistance = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+saveDistance(distanceCast); distanceCast.Advance(.6f, Vector3.right * 20f);
+Check(Mathf.Abs(Position(distanceCast).x - 5f) < .0001f && distanceCast.Velocity(0).sqrMagnitude < .00001f,
+    "真实五格边界触发普通调速，不整帧越界再按时间猜测", XYZ(Position(distanceCast)));
+restoreDistance(distanceCast); distanceCast.Advance(.6f, Vector3.right * 20f);
+Check(Mathf.Abs(Position(distanceCast).x - 5f) < .0001f && distanceCast.Velocity(0).sqrMagnitude < .00001f,
+    "预测回退恢复起点、距离及条件消费状态");
+var closedDistance = DistanceDefinition(); closedDistance.Root.Operations[0].Vector = new float[3];
+closedDistance.Root.Operations[0].Path = ConstructionPathCurves.Wave(.15f, Vector3.right); closedDistance.Root.Operations[0].Path.Forward = null;
+var closedCast = DistanceCast(closedDistance); closedCast.Advance(1f, Vector3.right * 20f);
+Check((float)Field(State(closedCast), "FlightDistance") < 2.01f && closedCast.Velocity(0).sqrMagnitude > .01f,
+    "往复累计路程超过五格仍不误触发：比较起点距离，不是累计路程");
+var invalidDistance = ConstructionEditing.Copy(distanceDefinition); invalidDistance.Root.Operations[1].When.Threshold = 0f;
+string invalidDistanceInput = JsonConvert.SerializeObject(invalidDistance); bool invalidDistanceRejected = false;
+try { AbilityCompiler.Compile(invalidDistance, cache: false); } catch (InvalidDataException) { invalidDistanceRejected = true; }
+Check(invalidDistanceRejected && JsonConvert.SerializeObject(invalidDistance) == invalidDistanceInput,
+    "无效距离在资料入口拒绝，保留原输入");
+var returnDistance = DistanceDefinition(); returnDistance.Root.Operations[1] = new ConstructionOperation
+{
+    Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = new float[3], InheritVelocity = true, TurnRate = 520f,
+    When = new ConstructionCondition { Source = "root", Trigger = ConstructionChangeTrigger.DistanceFromFlightStart, Threshold = 5f },
+    Goal = new ConstructionFlightGoal { Anchor = ConstructionFlightAnchor.Source, Arrival = ConstructionFlightArrival.End, DirectArrival = true }
+};
+var returnDistanceCast = DistanceCast(returnDistance); returnDistanceCast.Advance(.54f, Vector3.right * 20f);
+Check((float)Field(State(returnDistanceCast), "FlightStartedAt") > .4999f && Mathf.Abs(((Vector3)Field(State(returnDistanceCast), "FlightOrigin")).x - 5f) < .0001f &&
+    returnDistanceCast.Velocity(0).x > 0f,
+    "达到五格后普通飞行接管并重置自己的起点，返程初段仍遵守520度转速");
+Vector3 beforeReturnMove = Position(returnDistanceCast);
+returnDistanceCast.UpdateInputs(new AbilityInputs(new Vector3(0, 1, 0), Vector3.right * 20f, Vector3.right, 1f));
+returnDistanceCast.Advance(2f, Vector3.right * 20f);
+Check(returnDistanceCast.Finished && (bool)Field(State(returnDistanceCast), "FlightEnded") && Vector3.Distance(Position(returnDistanceCast), new Vector3(0, 1, 0)) < .0001f,
+    "同一部位返回移动来源，最后一步确实到达真实点并结束", XYZ(Position(returnDistanceCast)));
+var readDistance = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(returnDistance));
+var readDistanceCast = DistanceCast(readDistance); readDistanceCast.Advance(.54f, Vector3.right * 20f);
+Check(Vector3.Distance(Position(readDistanceCast), beforeReturnMove) < .00001f &&
+    readDistance.Root.Operations[1].Goal.DirectArrival && readDistance.Root.Operations[1].When.Threshold == 5f,
+    "JSON读回保留新距离条件和最后一步规则");
+var distanceBatchType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityStep");
+var distanceBatchConstructor = distanceBatchType.GetConstructors(F).Single();
+var distanceBatch = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityBatch").GetMethod("Advance", F);
+var distanceCasts = Enumerable.Range(0, 4).Select(_ => DistanceCast(ConstructionEditing.Copy(returnDistance))).ToArray();
+Array distanceSteps = Array.CreateInstance(distanceBatchType, distanceCasts.Length);
+string DistanceSnapshot(AbilityCast cast) => JsonConvert.SerializeObject(new { position = XYZ(Position(cast)), velocity = XYZ(cast.Velocity(0)), origin = XYZ((Vector3)Field(State(cast), "FlightOrigin")), distance = Field(State(cast), "FlightDistance") });
+for (int i = 0; i < distanceCasts.Length; i++)
+{
+    saveDistance(distanceCasts[i]); distanceSteps.SetValue(distanceBatchConstructor.Invoke(new object[] { distanceCasts[i],
+        new AbilityInputs(Vector3.zero, Vector3.right * 20f, Vector3.right, 1), null, Vector3.zero, 1.6f, false }), i);
+}
+distanceBatch.Invoke(null, new object[] { distanceSteps, false }); string[] distanceSequential = distanceCasts.Select(DistanceSnapshot).ToArray();
+foreach (var cast in distanceCasts) restoreDistance(cast); distanceBatch.Invoke(null, new object[] { distanceSteps, true });
+Check(distanceCasts.Select(DistanceSnapshot).SequenceEqual(distanceSequential), "起点距离与返程共用工作池顺序、并行结果一致");
+foreach (var definition in definitions)
+{
+    var returned = definition.Steps.Single().Operation; var outward = definition.Root.Operations.First(op => op.Kind == ConstructionOperationKind.Fly);
+    Check(definition.Lifetime <= 1.2f && returned.When.Trigger == ConstructionChangeTrigger.DistanceFromFlightStart && returned.When.Threshold == 5f &&
+        returned.TurnRate == 520f && returned.InheritVelocity && returned.Goal.Anchor == ConstructionFlightAnchor.Source && returned.Goal.Follow && returned.Goal.DirectArrival &&
+        outward.Goal.Anchor == ConstructionFlightAnchor.Direction && !outward.Goal.Follow,
+        "原回旋保留五格外投、520度返程、来源更新和原寿命上限");
+}
+var longBoomerang = Convert(Build(SkillTrajectories.Boomerang.id, duration: 3f), out var longBoomerangDamage);
+Check(longBoomerang.Lifetime == 1.2f, "原来源延长存续仍遵守回旋自身1.2秒上限");
