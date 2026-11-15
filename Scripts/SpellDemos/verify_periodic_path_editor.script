@@ -1,0 +1,32 @@
+// 只验证新增字段，复用同一修改窗口，不重开既有编辑流程矩阵。
+var editable = PathDefinition(Wave()); ConstructedAbilityService.Register(editable);
+WindowWanfaConstructionEditor.Open(editable.Id, source); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+try
+{
+    string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+    void Click(string key) => editor.GetComponentsInChildren<Button>(false).First(button => button.name == key).onClick.Invoke();
+    void Set(string key, string text) { var input = editor.GetComponentsInChildren<InputField>(false).Single(field => field.name == key); input.text = text; input.onEndEdit.Invoke(text); }
+    ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+    Click("Page1"); Set("PathDistancePerSecond", "34"); Set("PathDistancePerSecond", "-1");
+    Check(!(bool)Field(editor, "valid"), "实际表单拒绝非法路程时钟"); Click("Undo");
+    Check(Session().Draft.Root.Operations[0].Path.DistancePerSecond == 34 && (bool)Field(editor, "valid"), "撤销恢复路程参数及可保存状态");
+    editor.GetComponentsInChildren<Toggle>(false).Single(toggle => toggle.name == "PathByDistance").isOn = false;
+    Check(Session().Draft.Root.Operations[0].Path.DistancePerSecond == 0, "实际表单可以切回原世界时间语义"); Click("Undo");
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+    var pane = editor.GetComponentsInChildren<ScrollRect>(false).First(scroll => scroll.name == "Parameters");
+    var row = editor.GetComponentsInChildren<WanfaEditorRow>(false).First(item => ((Text)Field(item, "_title")).text == T("PathByDistance"));
+    Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(pane.content, row.transform);
+    pane.verticalNormalizedPosition = 1f - Mathf.Clamp01((pane.content.rect.yMax - bounds.max.y) / (pane.content.rect.height - pane.viewport.rect.height));
+    await Game.NextFrame(); string shot = Path.Combine(folder, "editor-cz.png"); File.Delete(shot); Screen.Capture(shot); await Game.WaitUntil(() => File.Exists(shot), 600);
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page1"); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+    pane = editor.GetComponentsInChildren<ScrollRect>(false).First(scroll => scroll.name == "Parameters");
+    row = editor.GetComponentsInChildren<WanfaEditorRow>(false).First(item => ((Text)Field(item, "_title")).text == T("PathByDistance"));
+    bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(pane.content, row.transform);
+    pane.verticalNormalizedPosition = 1f - Mathf.Clamp01((pane.content.rect.yMax - bounds.max.y) / (pane.content.rect.height - pane.viewport.rect.height));
+    await Game.NextFrame(); shot = Path.Combine(folder, "editor-en.png"); File.Delete(shot); Screen.Capture(shot); await Game.WaitUntil(() => File.Exists(shot), 600);
+    LocalizedTextManager.instance.setLanguage("cz"); Click("Page1");
+    Click("LearnCopy"); var final = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(ConstructedAbilityService.Knows(owner, final.Id) && final.Root.Operations[0].Path.DistancePerSecond == 34, "实际保存与学习保留完整路程路径");
+}
+finally { LocalizedTextManager.instance.setLanguage("cz"); typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null); }

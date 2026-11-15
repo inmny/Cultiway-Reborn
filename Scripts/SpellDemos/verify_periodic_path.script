@@ -1,0 +1,82 @@
+// B3：同一普通路径随真实路程推进，复用真实来源和世界夹具。
+ConstructionPath Wave() { var p = ConstructionPathCurves.Wave(.5f, Vector3.up * .3f, .7f); p.DistancePerSecond = 10; p.Forward = null; return p; }
+AbilityDefinition PathDefinition(ConstructionPath path, float speed = 10f, float acceleration = 0f) => new()
+{
+    Id = "test.periodic." + Guid.NewGuid().ToString("N"), Name = "路程曲线", Resource = "none", Cost = 0, Lifetime = 5,
+    Root = new ConstructionNode { Id = "sword", Form = "sword", Scale = .2f,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, WorldVelocity = true,
+            InheritVelocity = false, Vector = new[] { speed, 0f, 0f }, Acceleration = new[] { acceleration, 0f, 0f }, Path = path } } }
+};
+AbilityCast PathCast(AbilityDefinition d) => new(AbilityCompiler.Compile(d, cache: false), Matrix4x4.identity);
+double Progress(AbilityCast c) => (double)Field(State(c), "PathProgress");
+void RejectPath(float distance)
+{
+    var p = Wave(); p.DistancePerSecond = distance; var d = PathDefinition(p);
+    string before = JsonConvert.SerializeObject(d); bool rejected = false;
+    try { AbilityCompiler.Compile(d, cache: false); } catch (InvalidDataException e) { rejected = e.Message.Contains("Path"); }
+    Check(rejected && before == JsonConvert.SerializeObject(d), "非法路程时钟在资料边界拒绝并保留原输入", new { distance });
+}
+var normal = PathCast(PathDefinition(Wave())); var fast = PathCast(PathDefinition(Wave(), 25));
+normal.Advance(.37f, Vector3.zero); fast.Advance(.148f, Vector3.zero);
+Check(Vector3.Distance(Position(normal), Position(fast)) < .00003f && Math.Abs(Progress(normal) - Progress(fast)) < .000003,
+    "不同速度飞过相同中心路程时，波形位置与进度一致");
+var changing = PathDefinition(Wave()); changing.Root.Operations = changing.Root.Operations.Concat(new[] {
+    new ConstructionOperation { Kind = ConstructionOperationKind.ChangeSpeed, At = .2f, Speed = 25 },
+    new ConstructionOperation { Kind = ConstructionOperationKind.ChangeSpeed, At = .4f, Speed = 0 },
+    new ConstructionOperation { Kind = ConstructionOperationKind.ChangeSpeed, At = .7f, Speed = 10 } }).ToArray();
+var changed = PathCast(changing); changed.Advance(.5f, Vector3.zero); Vector3 stopped = Position(changed); double pausedProgress = Progress(changed);
+Check(Math.Abs(pausedProgress - .7d) < .00001 && changed.Velocity(0).sqrMagnitude == 0, "中途调速不重启曲线，停止后保留累计路程");
+changed.Advance(.15f, Vector3.zero); Check(Position(changed) == stopped && Progress(changed) == pausedProgress, "中心零速时波形不自行空转");
+changed.Advance(.25f, Vector3.zero); var expectedPath = PathCast(PathDefinition(Wave())); expectedPath.Advance(.9f, Vector3.zero);
+Check(Vector3.Distance(Position(changed), Position(expectedPath)) < .00005f, "恢复速度后从暂停位置继续原空间波形");
+var accelerated = PathDefinition(Wave(), 10, -20); var one = PathCast(accelerated); var split = PathCast(accelerated);
+one.Advance(1, Vector3.zero); for (int i = 0; i < 100; i++) split.Advance(.01f, Vector3.zero);
+Check(Math.Abs(Progress(one) - .5d) < .00001 && Math.Abs(Progress(one) - Progress(split)) < .00002 &&
+    Vector3.Distance(Position(one), Position(split)) < .0001f, "匀加速穿过零速反向后累计往返路程，一次与分步一致");
+var zigPath = ConstructionPathCurves.Zigzag(.24f, Vector3.up * .75f, -Mathf.PI * .5f); zigPath.DistancePerSecond = 34; zigPath.Forward = null;
+var zigDefinition = PathDefinition(zigPath, 34); var zig = PathCast(zigDefinition); zig.Advance(.12f, Vector3.zero);
+Check(Mathf.Abs(Position(zig).y - 1.5f) < .00003f && zig.Velocity(0).y < 0 && Position(PathCast(zigDefinition)) == Vector3.zero,
+    "旧折线从出生点连续出发，抵达真实尖折后采用下一段速度");
+var stepped = PathCast(zigDefinition); bool landedCorner = false, crossedCorner = false; int steps = 0;
+while (stepped.Age < .2399f && steps++ < 2000)
+{
+    float priorAge = stepped.Age, dt = stepped.NextStep(.24f - stepped.Age); stepped.Advance(dt, Vector3.zero);
+    crossedCorner |= priorAge < .11999f && stepped.Age > .12001f;
+    if (Mathf.Abs(stepped.Age - .12f) < .00001f) landedCorner = true;
+}
+Check(landedCorner && !crossedCorner && steps < 2000, "正常有限步数抵达折点与周期末端");
+var delayedPath = PathDefinition(zigPath, 34); delayedPath.Root.Operations[0].At = .5f;
+var delayedCast = PathCast(delayedPath); delayedCast.Advance(.74f, Vector3.zero);
+Check(Math.Abs(Progress(delayedCast) - .24d) < .00001 && Mathf.Abs(Position(delayedCast).x - 8.16f) < .0001f,
+    "延后出手的路程路径正常越过折点与循环边界，不停在同一世界时刻");
+var savePath = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+var restorePath = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+var reflectedPath = PathCast(PathDefinition(Wave())); reflectedPath.Advance(.17f, Vector3.zero); savePath(reflectedPath);
+Vector3 savedPoint = Position(reflectedPath), savedVelocity = reflectedPath.Velocity(0); double savedProgress = Progress(reflectedPath);
+typeof(AbilityCast).GetMethod("Reflect", F).Invoke(reflectedPath, new object[] { 0, Vector3.right, Vector3.zero, Vector3.zero });
+reflectedPath.Advance(.11f, Vector3.zero); var unreflectedPath = PathCast(PathDefinition(Wave())); unreflectedPath.Advance(.28f, Vector3.zero);
+Check(Vector3.Distance(Position(reflectedPath) - savedPoint, Vector3.Reflect(Position(unreflectedPath) - savedPoint, Vector3.right)) < .00005f,
+    "路程曲线反射后继续原进度，余下实际路径整体镜像");
+var deflecting = PathDefinition(Wave()); deflecting.Root.Operations = deflecting.Root.Operations.Concat(new[] {
+    new ConstructionOperation { Kind = ConstructionOperationKind.Deflect, At = .17f, Vector = new[] { 0f, 0f, 90f }, WorldVelocity = true } }).ToArray();
+var turned = PathCast(deflecting); turned.Advance(.28f, Vector3.zero);
+Check(Vector3.Distance(Position(turned) - savedPoint, Quaternion.Euler(0, 0, 90) * (Position(unreflectedPath) - savedPoint)) < .00005f,
+    "确定时点转折沿当前路程继续，不回到按时间取样的旧相位");
+var integrate = typeof(AbilityCast).GetMethod("CentreDistance", F);
+double diagonal = (double)integrate.Invoke(null, new object[] { Vector3.right, Vector3.up, 1f });
+Check(Math.Abs(diagonal - .5d * (Math.Sqrt(2d) + Math.Log(1d + Math.Sqrt(2d)))) < .0000001d,
+    "与初速度不同方向的匀加速也积分真实路程");
+restorePath(reflectedPath);
+Check(Position(reflectedPath) == savedPoint && reflectedPath.Velocity(0) == savedVelocity && Progress(reflectedPath) == savedProgress && reflectedPath.Reflections(0) == 0,
+    "预测回退同时恢复路程、速度、位置和曲线参照");
+var definitionJson = JsonConvert.SerializeObject(changing); var loaded = JsonConvert.DeserializeObject<AbilityDefinition>(definitionJson);
+var loadedCast = PathCast(loaded); loadedCast.Advance(.9f, Vector3.zero);
+Check(JsonConvert.SerializeObject(loaded) == definitionJson && Vector3.Distance(Position(loadedCast), Position(changed)) < .00005f,
+    "完整路径存取保留路程参数及调速后的实际结果");
+RejectPath(-1); RejectPath(.001f); RejectPath(float.NaN);
+foreach (var definition in definitions)
+{
+    var probe = Numeric(definition, new GetHitEvent { Damage = 37 }); Vector3 start = Position(probe);
+    probe.Advance(.00001f, Vector3.zero);
+    Check(Vector3.Distance(Position(probe), start) < .002f, "旧周期轨迹出手不发生首帧横向瞬移", new { definition.Id });
+}

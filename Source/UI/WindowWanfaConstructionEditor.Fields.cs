@@ -256,6 +256,13 @@ public sealed partial class WindowWanfaConstructionEditor
                             Selected = path.Space == space, Select = () => Change(() => path.Space = space)
                         }).ToArray()));
             Row("Coordinates", T(path.Space == ConstructionPathSpace.Local ? "LocalHint" : "TargetLineHint"));
+            Toggle("PathByDistance", path.DistancePerSecond > 0f,
+                value => path.DistancePerSecond = value ? 30f : 0f);
+            if (path.DistancePerSecond > 0f)
+            {
+                Number("PathDistancePerSecond", path.DistancePerSecond, value => path.DistancePerSecond = value);
+                Row("PathDistanceRules", T("PathDistanceHint"));
+            }
         }
         else Row("DistributionPathRules", T("DistributionPathHint"));
         Toggle("Loop", path.Loop, value =>

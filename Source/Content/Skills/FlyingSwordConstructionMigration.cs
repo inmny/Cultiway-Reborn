@@ -73,7 +73,8 @@ internal static class FlyingSwordConstructionMigration
         bool noRotation = trajectory == SkillTrajectories.TowardsDirectionNoRot.id;
         bool towardsPosition = trajectory == SkillTrajectories.TowardsPosition.id;
         bool towardsTarget = trajectory == SkillTrajectories.TowardsTarget.id;
-        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget) return null;
+        bool wave = trajectory == SkillTrajectories.SineWave.id, zigzag = trajectory == SkillTrajectories.Zigzag.id;
+        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
@@ -93,19 +94,26 @@ internal static class FlyingSwordConstructionMigration
         Vector3 initial = Quaternion.AngleAxis(emission.InitialAngleOffsetDegrees, Vector3.forward) * forward;
         Quaternion facing = Quaternion.LookRotation(initial,
             Mathf.Abs(Vector3.Dot(initial, Vector3.forward)) > .999f ? Vector3.up : Vector3.forward);
-        var goal = noRotation ? null : new ConstructionFlightGoal
+        var goal = noRotation || wave || zigzag ? null : new ConstructionFlightGoal
         {
             Anchor = towardsDirection ? ConstructionFlightAnchor.Direction : ConstructionFlightAnchor.Target,
             Follow = towardsTarget,
             Arrival = towardsDirection ? ConstructionFlightArrival.None : ConstructionFlightArrival.End,
             Radius = .01f
         };
+        int seed = unchecked((int)emission.Source.id * 397 ^ skill.Id ^ (int)emission.RuntimeData.CorrelationId ^
+                             emission.InitialAngleOffsetDegrees.GetHashCode());
+        // 相位只在资料准备阶段确定并展开，运行和预测不重新取随机数。
+        ConstructionPath path = wave ? ConstructionPathCurves.Wave(1f / 3.2f, Vector3.right * .65f,
+            (float)(new System.Random(seed).NextDouble() * Math.PI * 4d - Math.PI * 2d)) :
+            zigzag ? ConstructionPathCurves.Zigzag(.24f, Vector3.right * .75f, -Mathf.PI * .5f) : null;
+        if (path != null) path.DistancePerSecond = wave ? 30f : 34f;
         var operations = new List<ConstructionOperation>
         {
             new()
             {
                 Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = XYZ(initial * speed * (ramp > .001f ? launch : cruise)),
-                TurnRate = noRotation ? 0f : turn, InheritVelocity = false, Goal = goal
+                TurnRate = noRotation || path != null ? 0f : turn, InheritVelocity = false, Goal = goal, Path = path
             }
         };
         // 起步曲线使用八个确定时点，调整速度不重新开始飞行，也不重置目标和接触记录。
@@ -128,7 +136,7 @@ internal static class FlyingSwordConstructionMigration
         damage.BindAttacker(emission.Source);
         return new AbilityDefinition
         {
-            Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(),
+            Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(), Seed = seed,
             Lifetime = lifetime, Resource = "none", Cost = 0f, Cooldown = 0, Power = 1, TargetRange = 10000,
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat | ActiveAbilityChannel.World,
                 Target = towardsTarget ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },

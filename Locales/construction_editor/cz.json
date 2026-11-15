@@ -692,5 +692,9 @@
   "Cultiway.Construction.RemoveFlightGoal": "移除明确目标规则",
   "Cultiway.Construction.RemoveFlightGoalHint": "恢复原有持续追踪，保留其他飞行参数。",
   "Cultiway.Construction.FlightGoalAnchor.Direction": "固定出手方向",
-  "Cultiway.Construction.FlightDirectionHint": "沿这次飞行启动时的出手方向前进，不会经过目标点后掉头；反射同时改变该方向。"
+  "Cultiway.Construction.FlightDirectionHint": "沿这次飞行启动时的出手方向前进，不会经过目标点后掉头；反射同时改变该方向。",
+  "Cultiway.Construction.PathByDistance": "按实际路程推进曲线",
+  "Cultiway.Construction.PathDistancePerSecond": "每秒曲线所需路程",
+  "Cultiway.Construction.PathDistanceRules": "路程与曲线",
+  "Cultiway.Construction.PathDistanceHint": "曲线推进一秒需要中心飞过多少格；加速后波长保持不变，中心停下时曲线也暂停。"
 }

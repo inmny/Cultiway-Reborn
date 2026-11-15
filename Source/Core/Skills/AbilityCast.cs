@@ -1348,6 +1348,7 @@ public sealed partial class AbilityCast
         ref NodeState state = ref nodes[node];
         Vector3 previousVelocity = state.Velocity;
         state.Velocity = surfaceVelocity + Vector3.Reflect(state.Velocity - surfaceVelocity, normal);
+        state.FlightDirection = Vector3.Reflect(state.FlightDirection, normal);
         if (state.Flight?.Goal?.Anchor == ConstructionFlightAnchor.Direction)
             state.FlightTarget = Vector3.Reflect(state.FlightTarget, normal);
         AdjustFragmentVelocity(node, previousVelocity);
@@ -1359,7 +1360,7 @@ public sealed partial class AbilityCast
             state.PathX = Vector3.Reflect(state.PathX, normal);
             state.PathY = Vector3.Reflect(state.PathY, normal);
             state.PathZ = Vector3.Reflect(state.PathZ, normal);
-            state.Flight.Path.Sample(Mathf.Max(0f, Age - state.FlightStartedAt), out Vector3 offset, out _);
+            state.Flight.Path.Sample(PathTime(in state), out Vector3 offset, out _);
             state.PathCentre = state.Position - PathVector(in state, offset);
         }
 
@@ -1688,6 +1689,12 @@ public sealed partial class AbilityCast
 
         /// <summary>曲线中心速度及释放时确定的三个实际参照方向。</summary>
         internal Vector3 PathCentre, PathVelocity, PathX, PathY, PathZ;
+
+        /// <summary>按中心实际路程累计的曲线进度，随共同前态保存，时间路径不使用。</summary>
+        internal double PathProgress;
+
+        /// <summary>调速归零前的实际飞行方向，恢复速度时沿用，不借用模型朝向。</summary>
+        internal Vector3 FlightDirection;
 
         /// <summary>脱落后的朝向。</summary>
         internal Quaternion Rotation;

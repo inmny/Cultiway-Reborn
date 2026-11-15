@@ -41,11 +41,12 @@ public sealed partial class AbilityCast
         Vector3 previous = state.Velocity;
         state.Velocity = rotation * state.Velocity; state.Acceleration = rotation * state.Acceleration;
         state.Rotation = rotation * state.Rotation;
+        state.FlightDirection = rotation * state.FlightDirection;
         if (state.Flying && state.Flight.Path != null)
         {
             state.PathVelocity = rotation * state.PathVelocity;
             state.PathX = rotation * state.PathX; state.PathY = rotation * state.PathY; state.PathZ = rotation * state.PathZ;
-            state.Flight.Path.Sample(Mathf.Max(0f, Age - state.FlightStartedAt), out Vector3 offset, out _);
+            state.Flight.Path.Sample(PathTime(in state), out Vector3 offset, out _);
             state.PathCentre = state.Position - PathVector(in state, offset);
         }
         Matrix4x4 turn = Matrix4x4.TRS(state.Position, rotation, Vector3.one) * Matrix4x4.Translate(-state.Position);

@@ -128,19 +128,27 @@ public sealed class ConstructionReach
             }
 
             float until = Mathf.Min(node.Presence.y, node.Active.y);
+            float changedSpeed = node.EventOperations.Where(operation => operation.Kind == ConstructionOperationKind.ChangeSpeed)
+                .Select(operation => (float)operation.Parameters).DefaultIfEmpty(0f).Max();
             float totalSpeed = flights.Sum(flight =>
-                FlightSpeed(flight.Flight, Mathf.Max(0f, until - Mathf.Max(0f, flight.At))));
+                FlightSpeed(flight.Flight, Mathf.Max(0f, until - Mathf.Max(0f, flight.At)), changedSpeed));
             speeds[i] = attached + new Vector2(0f, totalSpeed);
             foreach (var flight in flights)
             {
                 float seconds = Mathf.Max(0f, until - Mathf.Max(0f, flight.At));
-                float ownSpeed = FlightSpeed(flight.Flight, seconds);
+                float ownSpeed = FlightSpeed(flight.Flight, seconds, changedSpeed);
                 if (flight.Flight.InheritVelocity)
                     travel[i] += (attached + new Vector2(0f, Mathf.Max(0f, totalSpeed - ownSpeed))) * seconds;
-                travel[i].y += flight.Flight.Velocity.magnitude * seconds +
+                travel[i].y += Mathf.Max(flight.Flight.Velocity.magnitude, changedSpeed) * seconds +
                                flight.Flight.Acceleration.magnitude * seconds * seconds * .5f;
                 if (flight.Flight.Path != null)
-                    travel[i].y += (float)flight.Flight.Path.TravelBudget(seconds, declared ?? 12f);
+                {
+                    var curve = flight.Flight.Path;
+                    float rate = curve.DistancePerSecond == 0f ? 1f :
+                        (Mathf.Max(flight.Flight.Velocity.magnitude, changedSpeed) + flight.Flight.Acceleration.magnitude * seconds +
+                         (flight.Flight.InheritVelocity ? attached.x + attached.y + totalSpeed - ownSpeed : 0f)) / curve.DistancePerSecond;
+                    travel[i].y += (float)curve.TravelBudget(seconds * rate, declared ?? 12f);
+                }
             }
 
             float release = node.Detach;
@@ -165,9 +173,12 @@ public sealed class ConstructionReach
             done[i] = true;
         }
 
-        float FlightSpeed(CompiledFlight flight, float seconds) => flight.Velocity.magnitude +
-                                                                   flight.Acceleration.magnitude * seconds +
-                                                                   (flight.Path?.SpeedBudget(declared ?? 12f) ?? 0f);
+        float FlightSpeed(CompiledFlight flight, float seconds, float changed)
+        {
+            float centre = Mathf.Max(flight.Velocity.magnitude, changed) + flight.Acceleration.magnitude * seconds;
+            float rate = flight.Path?.DistancePerSecond > 0f ? centre / flight.Path.DistancePerSecond : 1f;
+            return centre + (flight.Path?.SpeedBudget(declared ?? 12f) ?? 0f) * rate;
+        }
     }
 
     /// <summary>实际体高只缩放对应布局与继承速度，独立世界速度不再次缩放。</summary>

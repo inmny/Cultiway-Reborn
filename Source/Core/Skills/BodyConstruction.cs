@@ -328,7 +328,7 @@ public sealed class CompiledBodyConstruction
 
         if (source?.Footwork != null)
         {
-            if (source.Footwork.Space != ConstructionPathSpace.Local || source.Footwork.Loop)
+            if (source.Footwork.Space != ConstructionPathSpace.Local || source.Footwork.Loop || source.Footwork.DistancePerSecond != 0f)
                 throw new InvalidDataException("Body/Construction/Footwork：本体步法需要有限局部曲线");
             if (source.Footwork.Forward != null)
                 throw new InvalidDataException("Body/Construction/Footwork：完整身体朝向使用Heading，平面位移曲线的Forward须为空");

@@ -28,6 +28,10 @@ public sealed class ConstructionPath
     /// <summary>完整走完后是否循环；循环路径必须闭合。</summary>
     public bool Loop;
 
+    /// <summary>每推进一秒曲线需要的中心路程；零仍按世界时间，正数按实际中心运动推进。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float DistancePerSecond;
+
     /// <summary>形体朝向实际速度时采用的局部前向；空值表示保留作者旋转。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Include, DefaultValueHandling = DefaultValueHandling.Include)]
     public float[] Forward = { 0f, 0f, 1f };
@@ -70,6 +74,9 @@ internal sealed class CompiledConstructionPath
     /// <summary>是否闭合循环。</summary>
     internal readonly bool Loop;
 
+    /// <summary>正数表示以中心路程换算曲线进度，零使用原世界时间。</summary>
+    internal readonly float DistancePerSecond;
+
     /// <summary>局部前向，零表示不改变作者朝向。</summary>
     internal readonly Vector3 Forward;
 
@@ -90,10 +97,14 @@ internal sealed class CompiledConstructionPath
     {
         if (!Enum.IsDefined(typeof(ConstructionPathSpace), source.Space) || source.Keys == null ||
             source.Keys.Length < 2 || source.Keys.Length > 65 ||
-            !Finite(source.TurnRate) || source.TurnRate < 0f || source.TurnRate > 7200f)
+            !Finite(source.TurnRate) || source.TurnRate < 0f || source.TurnRate > 7200f ||
+            !Finite(source.DistancePerSecond) || source.DistancePerSecond != 0f &&
+            (source.DistancePerSecond < .01f || source.DistancePerSecond > 10000f) ||
+            layout && source.DistancePerSecond != 0f)
             throw new InvalidDataException(path + "：路径需要2至65个有序关键点及有效参照和转向预算");
         Space = source.Space;
         Loop = source.Loop;
+        DistancePerSecond = source.DistancePerSecond;
         TurnRate = source.TurnRate;
         Forward = source.Forward == null ? Vector3.zero : Vector(source.Forward, path + "/Forward");
         if (source.Forward != null &&

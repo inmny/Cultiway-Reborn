@@ -697,5 +697,9 @@
   "Cultiway.Construction.RemoveFlightGoal": "Remove goal rule",
   "Cultiway.Construction.RemoveFlightGoalHint": "Restore the original homing behavior and keep other flight settings.",
   "Cultiway.Construction.FlightGoalAnchor.Direction": "Fixed launch direction",
-  "Cultiway.Construction.FlightDirectionHint": "Use the launch direction without turning back at a finite target point. Reflection also redirects this direction."
+  "Cultiway.Construction.FlightDirectionHint": "Use the launch direction without turning back at a finite target point. Reflection also redirects this direction.",
+  "Cultiway.Construction.PathByDistance": "Advance curve by distance",
+  "Cultiway.Construction.PathDistancePerSecond": "Distance per curve second",
+  "Cultiway.Construction.PathDistanceRules": "Distance and curve",
+  "Cultiway.Construction.PathDistanceHint": "Map centre travel in tiles to one second of curve progress. Speed changes keep the wavelength; a stopped centre pauses the curve."
 }

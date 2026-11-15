@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -23,16 +24,20 @@ public static class ConstructionPathCurves
 
     /// <summary>建立有明确折点的往复运动，首尾位置连续，不用圆滑曲线掩盖实际转折。</summary>
     /// <param name="period">完整往复的世界秒数。</param><param name="amplitude">三轴折返幅度。</param>
-    public static ConstructionPath Zigzag(float period, Vector3 amplitude)
+    /// <param name="phase">初始相位，单位为弧度，不造成首帧跳跃。</param>
+    public static ConstructionPath Zigzag(float period, Vector3 amplitude, float phase = 0f)
     {
         Check(period, amplitude);
-        var keys = new[]
-        {
-            new ConstructionPathKey(),
-            new ConstructionPathKey { At = period * .25f, Point = Array(amplitude) },
-            new ConstructionPathKey { At = period * .75f, Point = Array(-amplitude) },
-            new ConstructionPathKey { At = period }
-        };
+        if (!Finite(phase)) throw new InvalidDataException("折线相位必须为有限数字");
+        float cycle = Mathf.Repeat(phase / (2f * Mathf.PI), 1f);
+        float origin = Triangle(cycle);
+        var points = new List<ConstructionPathKey> { new() };
+        for (float corner = .25f; corner < cycle + 1f; corner += .5f)
+            if (corner > cycle)
+                points.Add(new ConstructionPathKey { At = (corner - cycle) * period,
+                    Point = Array(amplitude * (Triangle(corner) - origin)) });
+        points.Add(new ConstructionPathKey { At = period });
+        var keys = points.ToArray();
         for (int i = 0; i < keys.Length - 1; i++)
         {
             Vector3 delta = (new Vector3(keys[i + 1].Point[0], keys[i + 1].Point[1], keys[i + 1].Point[2]) -
@@ -41,6 +46,8 @@ public static class ConstructionPathCurves
             keys[i + 1].In = Array(-delta);
         }
         return new ConstructionPath { Loop = true, Keys = keys };
+
+        float Triangle(float value) => 1f - 4f * Mathf.Abs(Mathf.Repeat(value + .25f, 1f) - .5f);
     }
 
     /// <summary>目标相对弧线，经过指定真实弧顶高度，抵达后保持末端。</summary>

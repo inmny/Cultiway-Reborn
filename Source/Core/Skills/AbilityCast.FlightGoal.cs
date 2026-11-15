@@ -12,9 +12,15 @@ public sealed partial class AbilityCast
         ref NodeState state = ref nodes[node];
         if (!state.Exists || !state.Free || !state.Flying || state.MovementStopped) return false;
         Vector3 before = state.Flight.Path == null ? state.Velocity : state.PathVelocity;
-        Vector3 after = (before.sqrMagnitude > 1e-8f ? before.normalized : state.Rotation * Vector3.forward) * speed;
+        if (before.sqrMagnitude > 1e-8f) state.FlightDirection = before.normalized;
+        Vector3 after = state.FlightDirection * speed;
         if (state.Flight.Path == null) state.Velocity = after;
-        else { state.PathVelocity = after; state.Velocity += after - before; }
+        else
+        {
+            state.PathVelocity = after;
+            state.Flight.Path.Sample(PathTime(in state), out _, out Vector3 derivative);
+            state.Velocity = after + PathVector(in state, derivative) * PathRate(in state);
+        }
         state.Revision++;
         return true;
     }
@@ -25,7 +31,8 @@ public sealed partial class AbilityCast
     {
         CompiledFlightGoal goal = state.Flight?.Goal;
         if (goal == null) return state.HasTarget ? state.Target : target;
-        if (goal.Anchor == ConstructionFlightAnchor.Direction) return state.Position + state.FlightTarget;
+        if (goal.Anchor == ConstructionFlightAnchor.Direction)
+            return (state.Flight.Path == null ? state.Position : state.PathCentre) + state.FlightTarget;
         if (!goal.Follow) return state.FlightTarget;
         return goal.Anchor == ConstructionFlightAnchor.Source ? inputs.Source : state.HasTarget ? state.Target : target;
     }
@@ -41,13 +48,8 @@ public sealed partial class AbilityCast
         float minimum = Mathf.Max(.000001f, Age * .0000001f);
         float distance = Vector3.Distance(state.Position, FlightAim(in state, target)) - goal.Radius;
         if (distance <= FlightGoalPrecision(in state)) return Mathf.Min(maximum, minimum);
-        float acceleration = state.Acceleration.magnitude + state.Flight.TurnRate * Mathf.Deg2Rad *
+        float acceleration = (state.Flight.Path == null ? state.Acceleration.magnitude : PathAcceleration(in state, maximum)) + state.Flight.TurnRate * Mathf.Deg2Rad *
             (state.Flight.Path == null ? state.Velocity.magnitude : state.PathVelocity.magnitude);
-        if (state.Flight.Path != null)
-        {
-            Vector3 bound = state.Flight.Path.AccelerationBound;
-            acceleration += state.PathX.magnitude * bound.x + state.PathY.magnitude * bound.y + state.PathZ.magnitude * bound.z;
-        }
         float speed = state.Velocity.magnitude + acceleration * maximum;
         return speed > 0f ? Mathf.Min(maximum, Mathf.Max(minimum, distance / speed)) : maximum;
     }
