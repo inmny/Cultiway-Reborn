@@ -1,0 +1,85 @@
+// B22：复用原墙场景、学习、支付和接触准备，只验证新来源及各自发布的真实形体。
+var activeCasts=new List<AbilityCast>();
+var checkMove=typeof(Actor).GetMethod("checkVelocityAgainstBlock",F);
+/// <summary>经过原版受力及移动的同一正式阻挡入口。</summary><param name="actor">实际人物。</param><param name="to">目标位置。</param>
+Vector2 Block(Actor actor,Vector2 to)=>(Vector2)checkMove.Invoke(actor,new object[]{to});
+try
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        if(request.SkillContainer.GetComponent<SkillContainer>().Asset!=wallAsset)return original(request);
+        if(invalidate)scopeValid=false;var result=original(request);lastResult=result;
+        if(result==SkillEmissionResult.Accepted)
+        {
+            var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==starts.Last().CastId);
+            var cast=(AbilityCast)Field(running,"Cast");accepted.Add(cast);activeCasts.Add(cast);
+        }
+        emissions.Add(new{asset=wallAsset.id,result=result.ToString(),request.Strength,request.PowerLevel});return result;
+    };
+    foreach(var entry in new[]{(Asset:SkillEntities.IceWall,Form:"ice_wall",Matter:"ice"),
+        (Asset:SkillEntities.WoodWall,Form:"wood_wall",Matter:"wood")})
+    {
+        wallAsset=entry.Asset;starts.Clear();accepted.Clear();oldWalls=0;
+        var normal=Build();var boosted=Build(true);
+        foreach(var skill in new[]{normal,boosted})
+        {
+            var d=Convert(skill,out GetHitEvent damage);bool boost=skill.HasComponent<HugeModifier>();
+            var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
+            var plan=AbilityCompiler.Compile(restored,cache:false);
+            Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.BlocksGroundActors&&
+                restored.Root.Form==entry.Form&&d.Binding.Anchor==AbilityAnchor.Between&&
+                Math.Abs(d.Binding.Fraction.Value-.6f)<.0001f&&d.Root.Strength==5&&d.ConcurrentLimit==1&&
+                Math.Abs(damage.Damage-(boost?52:40))<.001f&&damage.AttackerPowerLevel==1.25f&&damage.Element.Equals(entry.Asset.Element),
+                entry.Form+"独立形体、实际材料、原强度及词条完整进入可保存构造",new{damage.Damage,d.Root.Scale,d.Lifetime});
+            File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
+        }
+        Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射附加作用仍留原入口");
+        ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;
+        Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.25f);
+        var live=accepted.Last();float initial=live.RemainingForce(0);Vector3 center=Center(live);
+        double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(normal)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,normal)));
+        Check(oldWalls==0&&starts.Count>0&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost*starts.Count)<.001&&
+            Math.Abs(center.x-66.4f)<.03f&&Shapes(live).Count>0&&Views(live).Single().Resource.Description.Id==entry.Form,
+            entry.Form+"只运行新墙并逐发支付一次",new{initial,cost,center=new[]{center.x,center.y,center.z}});
+        await Shot(entry.Form);
+        Place(target,64);Vector2 blocked=Block(target,new Vector2(70,72));Vector2 outside=Block(target,new Vector2(70,100));
+        Check(blocked.x==64&&outside.x==70&&Math.Abs(live.RemainingForce(0)-initial)<.001f,
+            entry.Form+"实际墙体阻挡且墙外可通过，没有无限隐藏墙");
+        int hp=source.data.health;
+        Entity made=new SkillContainerBuilder(SkillEntities.StoneCone).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+        string signature=SkillContainerSignature.Build(made);var enemy=target.GetExtend();enemy.LearnSkillV3(made);
+        Entity originalStone=((IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(enemy,null)).First(s=>SkillContainerSignature.Build(s)==signature);
+        Entity stone=manager.SpawnSkillAtPosition(originalStone,target,new Vector3(64,72,.6f),source,new Vector3(70,72,.6f),13,0);
+        await Advance(.45f);
+        Check((stone.IsNull||stone.Tags.Has<TagRecycle>()||stone.Tags.Has<TagSkillAnimationNoCollision>())&&
+            source.data.health==hp&&Math.Abs(live.RemainingForce(0)-(initial-13))<.01f,
+            entry.Form+"在自身实体墙面拦截原石锥且容量只消费一次",new{initial,remaining=live.RemainingForce(0),live.Finished,live.Age,hp,health=source.data.health,war=source.kingdom.isEnemy(target.kingdom),hostile=SkillTargetRelationResolver.IsHostile(source,target),stone=stone.IsNull?null:new{tags=stone.Tags.ToString(),p=stone.GetComponent<Position>().value.ToString()}});
+        ResetPeople();int previous=starts.Count;Check(Use(normal),entry.Form+"同一已学来源再次受理");await Advance(.25f);
+        Check(live.Finished&&starts.Count>previous&&accepted.Count(c=>!c.Finished)==1,
+            entry.Form+"同一容器只留一个并替换原墙");
+        // 带词条容器是另一来源，不把两份独立知识误当同一并存计数。
+        accepted.Last().Cancel();ResetPeople();Check(Use(boosted),entry.Form+"带词条已学来源受理");await Advance(.25f);
+        var enhanced=accepted.Last();Check(Views(enhanced).Single().Resource.Description.Id==entry.Form&&oldWalls==0,
+            entry.Form+"带词条独立主体继续运行且无旧实体");
+        await Shot(entry.Form+"-enhanced");await Advance(4.1f);
+        Check(enhanced.Finished&&Shapes(enhanced).Count==0&&Views(enhanced).Count==0&&
+            Block(target,new Vector2(70,72)).x==70&&!BodyControlState.IsBusy(source.id)&&!BodyControlState.IsBusy(target.id),
+            entry.Form+"原寿命结束后显示、作用及通行一起恢复");
+    }
+    // 两来源共用同一受理和退款路径，只做一次真实边界失效及恢复。
+    ResetPeople();var failed=Build();int count=starts.Count;float before=owner.GetCultisys<Xian>().wakan;invalidate=true;
+    Check(Use(failed,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排原墙真实受理边界失效");await Advance(.25f);invalidate=false;
+    Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f&&oldWalls==0,
+        "共用受理失败退款且无新旧残墙",new{before,after=owner.GetCultisys<Xian>().wakan});
+    scopeValid=true;ResetPeople();Check(Use(failed),"失败后同一已学来源恢复");await Advance(.25f);await Advance(4.1f);
+    Check(accepted.All(c=>c.Finished),"恢复施放正常结束");
+    return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
+    foreach(var cast in activeCasts)cast.Cancel();
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    ControllableUnit.clear(false);Config.paused=true;
+}

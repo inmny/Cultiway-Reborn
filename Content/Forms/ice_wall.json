@@ -1,0 +1,886 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "surface",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_solid_walls.mjs",
+            "Entry": "makeIceWall",
+            "Parameters": [
+                {
+                    "Id": "count",
+                    "Values": [
+                        11.0
+                    ]
+                },
+                {
+                    "Id": "spacing",
+                    "Values": [
+                        0.4399999976158142
+                    ]
+                },
+                {
+                    "Id": "sides",
+                    "Values": [
+                        8.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material",
+            "ground"
+        ]
+    },
+    "ConformToGround": true,
+    "Version": 8,
+    "Id": "ice_wall",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ice_wall_crystal_0_mid.asset",
+                "Assets/Cultiway/Forms/ice_wall_crystal_0_far.asset"
+            ],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "crystal.body"
+            ],
+            "Id": "crystal_0",
+            "Surface": "ice",
+            "Pivot": [
+                -2.200000047683716,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ice_wall_crystal_0.asset",
+            "Control": "crystal_0",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ice_wall_crystal_1_mid.asset",
+                "Assets/Cultiway/Forms/ice_wall_crystal_1_far.asset"
+            ],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "crystal.body"
+            ],
+            "Id": "crystal_1",
+            "Surface": "ice",
+            "Pivot": [
+                -1.7599999904632569,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ice_wall_crystal_1.asset",
+            "Control": "crystal_1",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ice_wall_crystal_2_mid.asset",
+                "Assets/Cultiway/Forms/ice_wall_crystal_2_far.asset"
+            ],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "crystal.body"
+            ],
+            "Id": "crystal_2",
+            "Surface": "ice",
+            "Pivot": [
+                -1.3200000524520875,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ice_wall_crystal_2.asset",
+            "Control": "crystal_2",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ice_wall_crystal_3_mid.asset",
+                "Assets/Cultiway/Forms/ice_wall_crystal_3_far.asset"
+            ],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "crystal.body"
+            ],
+            "Id": "crystal_3",
+            "Surface": "ice",
+            "Pivot": [
+                -0.8799999952316284,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ice_wall_crystal_3.asset",
+            "Control": "crystal_3",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ice_wall_crystal_4_mid.asset",
+                "Assets/Cultiway/Forms/ice_wall_crystal_4_far.asset"
+            ],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "crystal.body"
+            ],
+            "Id": "crystal_4",
+            "Surface": "ice",
+            "Pivot": [
+                -0.4399999976158142,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ice_wall_crystal_4.asset",
+            "Control": "crystal_4",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ice_wall_crystal_5_mid.asset",
+                "Assets/Cultiway/Forms/ice_wall_crystal_5_far.asset"
+            ],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "crystal.body"
+            ],
+            "Id": "crystal_5",
+            "Surface": "ice",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ice_wall_crystal_5.asset",
+            "Control": "crystal_5",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ice_wall_crystal_6_mid.asset",
+                "Assets/Cultiway/Forms/ice_wall_crystal_6_far.asset"
+            ],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "crystal.body"
+            ],
+            "Id": "crystal_6",
+            "Surface": "ice",
+            "Pivot": [
+                0.4399999976158142,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ice_wall_crystal_6.asset",
+            "Control": "crystal_6",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ice_wall_crystal_7_mid.asset",
+                "Assets/Cultiway/Forms/ice_wall_crystal_7_far.asset"
+            ],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "crystal.body"
+            ],
+            "Id": "crystal_7",
+            "Surface": "ice",
+            "Pivot": [
+                0.8799999952316284,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ice_wall_crystal_7.asset",
+            "Control": "crystal_7",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ice_wall_crystal_8_mid.asset",
+                "Assets/Cultiway/Forms/ice_wall_crystal_8_far.asset"
+            ],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "crystal.body"
+            ],
+            "Id": "crystal_8",
+            "Surface": "ice",
+            "Pivot": [
+                1.3200000524520875,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ice_wall_crystal_8.asset",
+            "Control": "crystal_8",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ice_wall_crystal_9_mid.asset",
+                "Assets/Cultiway/Forms/ice_wall_crystal_9_far.asset"
+            ],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "crystal.body"
+            ],
+            "Id": "crystal_9",
+            "Surface": "ice",
+            "Pivot": [
+                1.7599999904632569,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ice_wall_crystal_9.asset",
+            "Control": "crystal_9",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ice_wall_crystal_10_mid.asset",
+                "Assets/Cultiway/Forms/ice_wall_crystal_10_far.asset"
+            ],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "crystal.body"
+            ],
+            "Id": "crystal_10",
+            "Surface": "ice",
+            "Pivot": [
+                2.200000047683716,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ice_wall_crystal_10.asset",
+            "Control": "crystal_10",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "left",
+            "Part": 0,
+            "Position": [
+                -2.200000047683716,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "crystal_0",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "right",
+            "Part": 10,
+            "Position": [
+                2.200000047683716,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "crystal_10",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "crest",
+            "Part": 5,
+            "Position": [
+                0.0,
+                0.0,
+                2.0999999046325685
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "crystal_5",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "crystal_0",
+            "Part": 0,
+            "A": [
+                -2.190000057220459,
+                0.0,
+                0.25
+            ],
+            "B": [
+                -2.200000047683716,
+                0.0,
+                1.3179112672805787
+            ],
+            "Radius": 0.26499998569488528,
+            "AControl": "crystal_0",
+            "BControl": "crystal_0",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "crystal_1",
+            "Part": 1,
+            "A": [
+                -1.75,
+                0.0,
+                0.25
+            ],
+            "B": [
+                -1.6664831638336182,
+                0.0,
+                1.383109450340271
+            ],
+            "Radius": 0.26499998569488528,
+            "AControl": "crystal_1",
+            "BControl": "crystal_1",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "crystal_2",
+            "Part": 2,
+            "A": [
+                -1.309999942779541,
+                0.0,
+                0.25
+            ],
+            "B": [
+                -1.339156150817871,
+                0.0,
+                1.0994558334350587
+            ],
+            "Radius": 0.26499998569488528,
+            "AControl": "crystal_2",
+            "BControl": "crystal_2",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "crystal_3",
+            "Part": 3,
+            "A": [
+                -0.8700000047683716,
+                0.0,
+                0.25
+            ],
+            "B": [
+                -0.9633650183677673,
+                0.0,
+                1.3206604719161988
+            ],
+            "Radius": 0.26499998569488528,
+            "AControl": "crystal_3",
+            "BControl": "crystal_3",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "crystal_4",
+            "Part": 4,
+            "A": [
+                -0.4300000071525574,
+                0.0,
+                0.25
+            ],
+            "B": [
+                -0.39347589015960696,
+                0.0,
+                1.3809654712677003
+            ],
+            "Radius": 0.26499998569488528,
+            "AControl": "crystal_4",
+            "BControl": "crystal_4",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "crystal_5",
+            "Part": 5,
+            "A": [
+                0.009999999776482582,
+                0.0,
+                0.25
+            ],
+            "B": [
+                0.05982508510351181,
+                0.0,
+                1.0988713502883912
+            ],
+            "Radius": 0.26499998569488528,
+            "AControl": "crystal_5",
+            "BControl": "crystal_5",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "crystal_6",
+            "Part": 6,
+            "A": [
+                0.44999998807907107,
+                0.0,
+                0.25
+            ],
+            "B": [
+                0.37684929370880129,
+                0.0,
+                1.3233946561813355
+            ],
+            "Radius": 0.26499998569488528,
+            "AControl": "crystal_6",
+            "BControl": "crystal_6",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "crystal_7",
+            "Part": 7,
+            "A": [
+                0.8899999856948853,
+                0.0,
+                0.25
+            ],
+            "B": [
+                0.8218899369239807,
+                0.0,
+                1.3787894248962403
+            ],
+            "Radius": 0.26499998569488528,
+            "AControl": "crystal_7",
+            "BControl": "crystal_7",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "crystal_8",
+            "Part": 8,
+            "A": [
+                1.3300000429153443,
+                0.0,
+                0.25
+            ],
+            "B": [
+                1.3843395709991456,
+                0.0,
+                1.0983344316482545
+            ],
+            "Radius": 0.26499998569488528,
+            "AControl": "crystal_8",
+            "BControl": "crystal_8",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "crystal_9",
+            "Part": 9,
+            "A": [
+                1.7699999809265137,
+                0.0,
+                0.25
+            ],
+            "B": [
+                1.7958719730377198,
+                0.0,
+                1.3261128664016724
+            ],
+            "Radius": 0.26499998569488528,
+            "AControl": "crystal_9",
+            "BControl": "crystal_9",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "crystal_10",
+            "Part": 10,
+            "A": [
+                2.2100000381469728,
+                0.0,
+                0.25
+            ],
+            "B": [
+                2.1097652912139894,
+                0.0,
+                1.3765816688537598
+            ],
+            "Radius": 0.26499998569488528,
+            "AControl": "crystal_10",
+            "BControl": "crystal_10",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "crystal_0",
+            "Parent": "",
+            "Position": [
+                -2.200000047683716,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -2.559999942779541,
+                -0.34200000762939455,
+                -0.05999999865889549
+            ],
+            "Maximum": [
+                -1.840000033378601,
+                0.34200000762939455,
+                1.9968349933624268
+            ]
+        },
+        {
+            "Id": "crystal_1",
+            "Parent": "",
+            "Position": [
+                -1.7599999904632569,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -2.1178479194641115,
+                -0.33995598554611208,
+                -0.05999999865889549
+            ],
+            "Maximum": [
+                -1.399137020111084,
+                0.33995598554611208,
+                2.0956199169158937
+            ]
+        },
+        {
+            "Id": "crystal_2",
+            "Parent": "",
+            "Position": [
+                -1.3200000524520875,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -1.6774879693984986,
+                -0.3396129906177521,
+                -0.05999999865889549
+            ],
+            "Maximum": [
+                -0.9625120162963867,
+                0.3396129906177521,
+                1.665842056274414
+            ]
+        },
+        {
+            "Id": "crystal_3",
+            "Parent": "",
+            "Position": [
+                -0.8799999952316284,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -1.2399389743804932,
+                -0.3419420123100281,
+                -0.05999999865889549
+            ],
+            "Maximum": [
+                -0.5200610160827637,
+                0.3419420123100281,
+                2.0010008811950685
+            ]
+        },
+        {
+            "Id": "crystal_4",
+            "Parent": "",
+            "Position": [
+                -0.4399999976158142,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.7982590198516846,
+                -0.34034600853919985,
+                -0.05999999865889549
+            ],
+            "Maximum": [
+                -0.08174099773168564,
+                0.34034600853919985,
+                2.092371940612793
+            ]
+        },
+        {
+            "Id": "crystal_5",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.35720598697662356,
+                -0.3393459916114807,
+                -0.05999999865889549
+            ],
+            "Maximum": [
+                0.35720598697662356,
+                0.3393459916114807,
+                1.664957046508789
+            ]
+        },
+        {
+            "Id": "crystal_6",
+            "Parent": "",
+            "Position": [
+                0.4399999976158142,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                0.0802370011806488,
+                -0.34177398681640627,
+                -0.05999999865889549
+            ],
+            "Maximum": [
+                0.799763023853302,
+                0.34177398681640627,
+                2.0051429271698
+            ]
+        },
+        {
+            "Id": "crystal_7",
+            "Parent": "",
+            "Position": [
+                0.8799999952316284,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                0.5213119983673096,
+                -0.3407529890537262,
+                -0.05999999865889549
+            ],
+            "Maximum": [
+                1.2386879920959473,
+                0.3407529890537262,
+                2.0890750885009767
+            ]
+        },
+        {
+            "Id": "crystal_8",
+            "Parent": "",
+            "Position": [
+                1.3200000524520875,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                0.9629729986190796,
+                -0.3391749858856201,
+                -0.05999999865889549
+            ],
+            "Maximum": [
+                1.6770269870758057,
+                0.3391749858856201,
+                1.6641429662704468
+            ]
+        },
+        {
+            "Id": "crystal_9",
+            "Parent": "",
+            "Position": [
+                1.7599999904632569,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                1.4005169868469239,
+                -0.34150901436805727,
+                -0.05999999865889549
+            ],
+            "Maximum": [
+                2.11948299407959,
+                0.34150901436805727,
+                2.0092620849609377
+            ]
+        },
+        {
+            "Id": "crystal_10",
+            "Parent": "",
+            "Position": [
+                2.200000047683716,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                1.840293049812317,
+                -0.34114500880241396,
+                -0.05999999865889549
+            ],
+            "Maximum": [
+                2.5590999126434328,
+                0.34114500880241396,
+                2.0857300758361818
+            ]
+        }
+    ],
+    "Motions": []
+}

@@ -1,0 +1,1369 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "surface",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_solid_walls.mjs",
+            "Entry": "makeWoodWall",
+            "Parameters": [
+                {
+                    "Id": "count",
+                    "Values": [
+                        11.0
+                    ]
+                },
+                {
+                    "Id": "spacing",
+                    "Values": [
+                        0.4399999976158142
+                    ]
+                },
+                {
+                    "Id": "sides",
+                    "Values": [
+                        12.0
+                    ]
+                },
+                {
+                    "Id": "bindings",
+                    "Values": [
+                        2.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material",
+            "ground"
+        ]
+    },
+    "ConformToGround": true,
+    "Version": 8,
+    "Id": "wood_wall",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "root.body"
+            ],
+            "Id": "root_0",
+            "Surface": "wood",
+            "Pivot": [
+                -2.200000047683716,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wood_wall_root_0.asset",
+            "Control": "root_0",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "root.body"
+            ],
+            "Id": "root_1",
+            "Surface": "wood",
+            "Pivot": [
+                -1.7599999904632569,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wood_wall_root_1.asset",
+            "Control": "root_1",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "root.body"
+            ],
+            "Id": "root_2",
+            "Surface": "wood",
+            "Pivot": [
+                -1.3200000524520875,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wood_wall_root_2.asset",
+            "Control": "root_2",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "root.body"
+            ],
+            "Id": "root_3",
+            "Surface": "wood",
+            "Pivot": [
+                -0.8799999952316284,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wood_wall_root_3.asset",
+            "Control": "root_3",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "root.body"
+            ],
+            "Id": "root_4",
+            "Surface": "wood",
+            "Pivot": [
+                -0.4399999976158142,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wood_wall_root_4.asset",
+            "Control": "root_4",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "root.body"
+            ],
+            "Id": "root_5",
+            "Surface": "wood",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wood_wall_root_5.asset",
+            "Control": "root_5",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "root.body"
+            ],
+            "Id": "root_6",
+            "Surface": "wood",
+            "Pivot": [
+                0.4399999976158142,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wood_wall_root_6.asset",
+            "Control": "root_6",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "root.body"
+            ],
+            "Id": "root_7",
+            "Surface": "wood",
+            "Pivot": [
+                0.8799999952316284,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wood_wall_root_7.asset",
+            "Control": "root_7",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "root.body"
+            ],
+            "Id": "root_8",
+            "Surface": "wood",
+            "Pivot": [
+                1.3200000524520875,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wood_wall_root_8.asset",
+            "Control": "root_8",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "root.body"
+            ],
+            "Id": "root_9",
+            "Surface": "wood",
+            "Pivot": [
+                1.7599999904632569,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wood_wall_root_9.asset",
+            "Control": "root_9",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "root.body"
+            ],
+            "Id": "root_10",
+            "Surface": "wood",
+            "Pivot": [
+                2.200000047683716,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wood_wall_root_10.asset",
+            "Control": "root_10",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wood_wall_binding_0_mid.asset",
+                "Assets/Cultiway/Forms/wood_wall_binding_0_far.asset"
+            ],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "root.body"
+            ],
+            "Id": "binding_0",
+            "Surface": "wood",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wood_wall_binding_0.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wood_wall_binding_1_mid.asset",
+                "Assets/Cultiway/Forms/wood_wall_binding_1_far.asset"
+            ],
+            "Roles": [
+                "terrain.wall",
+                "barrier.face",
+                "root.body"
+            ],
+            "Id": "binding_1",
+            "Surface": "wood",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wood_wall_binding_1.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "left",
+            "Part": 0,
+            "Position": [
+                -2.200000047683716,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root_0",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "right",
+            "Part": 10,
+            "Position": [
+                2.200000047683716,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root_10",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "crest",
+            "Part": 5,
+            "Position": [
+                0.08662331849336624,
+                0.061395976692438129,
+                1.926472783088684
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root_5",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_0_0",
+            "Part": 0,
+            "A": [
+                -2.194911241531372,
+                0.03107636794447899,
+                0.23000000417232514
+            ],
+            "B": [
+                -2.1612548828125,
+                0.06955146044492722,
+                0.7287655472755432
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_0",
+            "BControl": "root_0",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_0_1",
+            "Part": 0,
+            "A": [
+                -2.1612548828125,
+                0.06955146044492722,
+                0.7287655472755432
+            ],
+            "B": [
+                -2.1457972526550295,
+                0.044370029121637347,
+                1.2275310754776
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_0",
+            "BControl": "root_0",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_0_2",
+            "Part": 0,
+            "A": [
+                -2.1457972526550295,
+                0.044370029121637347,
+                1.2275310754776
+            ],
+            "B": [
+                -2.1967477798461916,
+                -0.021420793607831,
+                1.7262965440750123
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_0",
+            "BControl": "root_0",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_1_0",
+            "Part": 1,
+            "A": [
+                -1.7475051879882813,
+                0.06417621672153473,
+                0.23000000417232514
+            ],
+            "B": [
+                -1.7305864095687867,
+                0.057024791836738589,
+                0.7447423338890076
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_1",
+            "BControl": "root_1",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_1_1",
+            "Part": 1,
+            "A": [
+                -1.7305864095687867,
+                0.057024791836738589,
+                0.7447423338890076
+            ],
+            "B": [
+                -1.7686693668365479,
+                -0.005410958547145128,
+                1.2594846487045289
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_1",
+            "BControl": "root_1",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_1_2",
+            "Part": 1,
+            "A": [
+                -1.7686693668365479,
+                -0.005410958547145128,
+                1.2594846487045289
+            ],
+            "B": [
+                -1.844743013381958,
+                -0.06260090321302414,
+                1.7742269039154053
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_1",
+            "BControl": "root_1",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_2_0",
+            "Part": 2,
+            "A": [
+                -1.311586856842041,
+                0.06709299236536026,
+                0.23000000417232514
+            ],
+            "B": [
+                -1.3210750818252564,
+                0.02980220317840576,
+                0.6509033441543579
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_2",
+            "BControl": "root_2",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_2_1",
+            "Part": 2,
+            "A": [
+                -1.3210750818252564,
+                0.02980220317840576,
+                0.6509033441543579
+            ],
+            "B": [
+                -1.361777663230896,
+                -0.027389520779252054,
+                1.071806788444519
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_2",
+            "BControl": "root_2",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_2_2",
+            "Part": 2,
+            "A": [
+                -1.361777663230896,
+                -0.027389520779252054,
+                1.071806788444519
+            ],
+            "B": [
+                -1.4020723104476929,
+                -0.06629141420125961,
+                1.4927101135253907
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_2",
+            "BControl": "root_2",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_3_0",
+            "Part": 3,
+            "A": [
+                -0.883403480052948,
+                0.03845487907528877,
+                0.23000000417232514
+            ],
+            "B": [
+                -0.9128325581550598,
+                -0.0215901006013155,
+                0.6775674223899841
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_3",
+            "BControl": "root_3",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_3_1",
+            "Part": 3,
+            "A": [
+                -0.9128325581550598,
+                -0.0215901006013155,
+                0.6775674223899841
+            ],
+            "B": [
+                -0.93887859582901,
+                -0.06546036899089813,
+                1.125134825706482
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_3",
+            "BControl": "root_3",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_3_2",
+            "Part": 3,
+            "A": [
+                -0.93887859582901,
+                -0.06546036899089813,
+                1.125134825706482
+            ],
+            "B": [
+                -0.9178045988082886,
+                -0.06028951331973076,
+                1.572702169418335
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_3",
+            "BControl": "root_3",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_4_0",
+            "Part": 4,
+            "A": [
+                -0.4520910084247589,
+                -0.00826916005462408,
+                0.23000000417232514
+            ],
+            "B": [
+                -0.473135381937027,
+                -0.0646418035030365,
+                0.7592900991439819
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_4",
+            "BControl": "root_4",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_4_1",
+            "Part": 4,
+            "A": [
+                -0.473135381937027,
+                -0.0646418035030365,
+                0.7592900991439819
+            ],
+            "B": [
+                -0.43743082880973818,
+                -0.055094048380851749,
+                1.2885801792144776
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_4",
+            "BControl": "root_4",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_4_2",
+            "Part": 4,
+            "A": [
+                -0.43743082880973818,
+                -0.055094048380851749,
+                1.2885801792144776
+            ],
+            "B": [
+                -0.35646766424179079,
+                0.01063749473541975,
+                1.8178702592849732
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_4",
+            "BControl": "root_4",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_5_0",
+            "Part": 5,
+            "A": [
+                -0.009662112221121788,
+                -0.05110408365726471,
+                0.23000000417232514
+            ],
+            "B": [
+                -0.001197154400870204,
+                -0.06888662278652191,
+                0.6954909563064575
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_5",
+            "BControl": "root_5",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_5_1",
+            "Part": 5,
+            "A": [
+                -0.001197154400870204,
+                -0.06888662278652191,
+                0.6954909563064575
+            ],
+            "B": [
+                0.046097882091999057,
+                -0.031152965500950815,
+                1.1609818935394288
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_5",
+            "BControl": "root_5",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_5_2",
+            "Part": 5,
+            "A": [
+                0.046097882091999057,
+                -0.031152965500950815,
+                1.1609818935394288
+            ],
+            "B": [
+                0.08921336382627487,
+                0.03168707713484764,
+                1.6264728307724
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_5",
+            "BControl": "root_5",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_6_0",
+            "Part": 6,
+            "A": [
+                0.4416500926017761,
+                -0.06990396231412888,
+                0.23000000417232514
+            ],
+            "B": [
+                0.46710634231567385,
+                -0.05010104179382324,
+                0.642758846282959
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_6",
+            "BControl": "root_6",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_6_1",
+            "Part": 6,
+            "A": [
+                0.46710634231567385,
+                -0.05010104179382324,
+                0.642758846282959
+            ],
+            "B": [
+                0.4979921877384186,
+                0.001949253142811358,
+                1.0555176734924317
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_6",
+            "BControl": "root_6",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_6_2",
+            "Part": 6,
+            "A": [
+                0.4979921877384186,
+                0.001949253142811358,
+                1.0555176734924317
+            ],
+            "B": [
+                0.49690133333206179,
+                0.05274491757154465,
+                1.4682765007019044
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_6",
+            "BControl": "root_6",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_7_0",
+            "Part": 7,
+            "A": [
+                0.8914452195167542,
+                -0.055826909840106967,
+                0.23000000417232514
+            ],
+            "B": [
+                0.915985107421875,
+                0.00544428126886487,
+                0.730519711971283
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_7",
+            "BControl": "root_7",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_7_1",
+            "Part": 7,
+            "A": [
+                0.915985107421875,
+                0.00544428126886487,
+                0.730519711971283
+            ],
+            "B": [
+                0.8940418362617493,
+                0.061700500547885898,
+                1.2310394048690797
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_7",
+            "BControl": "root_7",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_7_2",
+            "Part": 7,
+            "A": [
+                0.8940418362617493,
+                0.061700500547885898,
+                1.2310394048690797
+            ],
+            "B": [
+                0.8192300200462341,
+                0.06112160161137581,
+                1.7315590381622315
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_7",
+            "BControl": "root_7",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_8_0",
+            "Part": 8,
+            "A": [
+                1.33071768283844,
+                -0.01549359317868948,
+                0.23000000417232514
+            ],
+            "B": [
+                1.3235405683517457,
+                0.05038825049996376,
+                0.7433728575706482
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_8",
+            "BControl": "root_8",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_8_1",
+            "Part": 8,
+            "A": [
+                1.3235405683517457,
+                0.05038825049996376,
+                0.7433728575706482
+            ],
+            "B": [
+                1.2686512470245362,
+                0.06765610724687576,
+                1.2567458152770997
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_8",
+            "BControl": "root_8",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_8_2",
+            "Part": 8,
+            "A": [
+                1.2686512470245362,
+                0.06765610724687576,
+                1.2567458152770997
+            ],
+            "B": [
+                1.2244071960449219,
+                0.019650163128972055,
+                1.7701185941696168
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_8",
+            "BControl": "root_8",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_9_0",
+            "Part": 9,
+            "A": [
+                1.760136365890503,
+                0.03212660551071167,
+                0.23000000417232514
+            ],
+            "B": [
+                1.7357759475708008,
+                0.06774633377790451,
+                0.649771511554718
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_9",
+            "BControl": "root_9",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_9_1",
+            "Part": 9,
+            "A": [
+                1.7357759475708008,
+                0.06774633377790451,
+                0.649771511554718
+            ],
+            "B": [
+                1.7013208866119385,
+                0.05835581198334694,
+                1.0695430040359498
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_9",
+            "BControl": "root_9",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_9_2",
+            "Part": 9,
+            "A": [
+                1.7013208866119385,
+                0.05835581198334694,
+                1.0695430040359498
+            ],
+            "B": [
+                1.6965755224227906,
+                0.010194049216806889,
+                1.4893144369125367
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_9",
+            "BControl": "root_9",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_10_0",
+            "Part": 10,
+            "A": [
+                2.189429759979248,
+                0.06463715434074402,
+                0.23000000417232514
+            ],
+            "B": [
+                2.163592576980591,
+                0.061264898627996448,
+                0.6794511675834656
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_10",
+            "BControl": "root_10",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_10_1",
+            "Part": 10,
+            "A": [
+                2.163592576980591,
+                0.061264898627996448,
+                0.6794511675834656
+            ],
+            "B": [
+                2.168379068374634,
+                0.01163389626890421,
+                1.1289023160934449
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_10",
+            "BControl": "root_10",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "root_10_2",
+            "Part": 10,
+            "A": [
+                2.168379068374634,
+                0.01163389626890421,
+                1.1289023160934449
+            ],
+            "B": [
+                2.2235448360443117,
+                -0.04678140953183174,
+                1.5783535242080689
+            ],
+            "Radius": 0.24500000476837159,
+            "AControl": "root_10",
+            "BControl": "root_10",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root_0",
+            "Parent": "",
+            "Position": [
+                -2.200000047683716,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -2.572391986846924,
+                -0.408486008644104,
+                -0.07000000029802323
+            ],
+            "Maximum": [
+                -1.7673280239105225,
+                0.3980810046195984,
+                2.095712900161743
+            ]
+        },
+        {
+            "Id": "root_1",
+            "Parent": "",
+            "Position": [
+                -1.7599999904632569,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -2.196784019470215,
+                -0.414900004863739,
+                -0.07000000029802323
+            ],
+            "Maximum": [
+                -1.3257449865341187,
+                0.4080069959163666,
+                2.144124984741211
+            ]
+        },
+        {
+            "Id": "root_2",
+            "Parent": "",
+            "Position": [
+                -1.3200000524520875,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -1.756397008895874,
+                -0.414900004863739,
+                -0.07000000029802323
+            ],
+            "Maximum": [
+                -0.8849430084228516,
+                0.4080069959163666,
+                1.8607510328292847
+            ]
+        },
+        {
+            "Id": "root_3",
+            "Parent": "",
+            "Position": [
+                -0.8799999952316284,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -1.31345796585083,
+                -0.4045880138874054,
+                -0.07000000029802323
+            ],
+            "Maximum": [
+                -0.4414770007133484,
+                0.4031650125980377,
+                1.940593957901001
+            ]
+        },
+        {
+            "Id": "root_4",
+            "Parent": "",
+            "Position": [
+                -0.4399999976158142,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.8794429898262024,
+                -0.3845759928226471,
+                -0.07000000029802323
+            ],
+            "Maximum": [
+                -0.0029360000044107439,
+                0.377716988325119,
+                2.187731981277466
+            ]
+        },
+        {
+            "Id": "root_5",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.41898199915885928,
+                -0.4120129942893982,
+                -0.07000000029802323
+            ],
+            "Maximum": [
+                0.41898199915885928,
+                0.4060859978199005,
+                1.9959659576416016
+            ]
+        },
+        {
+            "Id": "root_6",
+            "Parent": "",
+            "Position": [
+                0.4399999976158142,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                0.0029360000044107439,
+                -0.41461798548698428,
+                -0.07000000029802323
+            ],
+            "Maximum": [
+                0.8794429898262024,
+                0.40798598527908327,
+                1.837448000907898
+            ]
+        },
+        {
+            "Id": "root_7",
+            "Parent": "",
+            "Position": [
+                0.8799999952316284,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                0.4414770007133484,
+                -0.41461798548698428,
+                -0.07000000029802323
+            ],
+            "Maximum": [
+                1.31345796585083,
+                0.40798598527908327,
+                2.100433111190796
+            ]
+        },
+        {
+            "Id": "root_8",
+            "Parent": "",
+            "Position": [
+                1.3200000524520875,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                0.8849430084228516,
+                -0.3987649977207184,
+                -0.07000000029802323
+            ],
+            "Maximum": [
+                1.756397008895874,
+                0.3910050094127655,
+                2.140117883682251
+            ]
+        },
+        {
+            "Id": "root_9",
+            "Parent": "",
+            "Position": [
+                1.7599999904632569,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                1.3257449865341187,
+                -0.3907429873943329,
+                -0.07000000029802323
+            ],
+            "Maximum": [
+                2.196784019470215,
+                0.38253501057624819,
+                1.8592660427093506
+            ]
+        },
+        {
+            "Id": "root_10",
+            "Parent": "",
+            "Position": [
+                2.200000047683716,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                1.7673280239105225,
+                -0.405443012714386,
+                -0.07000000029802323
+            ],
+            "Maximum": [
+                2.5508999824523927,
+                0.39852699637413027,
+                1.9466609954833985
+            ]
+        }
+    ],
+    "Motions": []
+}

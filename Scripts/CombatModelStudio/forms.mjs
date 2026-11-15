@@ -15,6 +15,7 @@ import {makeRay,makeSourceRays,makeThunderChannel} from './forms_ray.mjs';
 import {makeEarthSpikes,makeEarthWall} from './forms_earth.mjs';
 import {makeRift} from './forms_rift.mjs';
 import {makeFields} from './forms_fields.mjs';
+import {makeIceWall,makeWoodWall} from './forms_solid_walls.mjs';
 import {makeSupport} from './forms_support.mjs';
 
 makeHorn();
@@ -29,6 +30,8 @@ makeSourceRays();
 makeThunderChannel();
 makeEarthSpikes();
 makeEarthWall();
+makeIceWall();
+makeWoodWall();
 makeRift();
 makeFields();
 makeSupport();

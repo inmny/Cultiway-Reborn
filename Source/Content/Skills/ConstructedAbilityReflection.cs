@@ -117,7 +117,8 @@ public sealed partial class ConstructedAbilityService
         {
             if (IsLive) return SkillTargetRelationResolver.Matches(relation, Actor, target);
             if (target.data.id == Id) return relation != SkillUseTargetRelation.Hostile;
-            Kingdom kingdom = World.world.kingdoms.get(kingdomId);
+            // 原版野外阵营使用负编号，与文明国家分库存放。
+            Kingdom kingdom = World.world.kingdoms.getCivOrWildViaID(kingdomId);
             bool hostile = kingdom?.isEnemy(target.kingdom) == true || target.hasStatusTantrum() ||
                            hostileIds.Contains(target.data.id);
             return relation switch
@@ -137,7 +138,7 @@ public sealed partial class ConstructedAbilityService
         /// <param name="other">来袭时确定的阵营。</param><param name="actorId">来袭人物的稳定编号，非人物为零。</param>
         internal bool IsHostileTo(Kingdom other, long actorId) => Id != actorId &&
             (actorId > 0 && hostileIds.Contains(actorId) || other != null &&
-            World.world.kingdoms.get(kingdomId)?.isEnemy(other) == true);
+            World.world.kingdoms.getCivOrWildViaID(kingdomId)?.isEnemy(other) == true);
 
         /// <summary>双方独立存续时仍保留真实敌我关系。</summary>
         /// <param name="other">另一施放的稳定来源。</param>
@@ -145,8 +146,8 @@ public sealed partial class ConstructedAbilityService
         {
             if (other.IsLive) return Matches(SkillUseTargetRelation.Hostile, other.Actor);
             return Id != other.Id && canFight && (hostileIds.Contains(other.Id) || other.tantrum ||
-                                                  World.world.kingdoms.get(kingdomId)
-                                                      ?.isEnemy(World.world.kingdoms.get(other.kingdomId)) == true);
+                                                  World.world.kingdoms.getCivOrWildViaID(kingdomId)
+                                                      ?.isEnemy(World.world.kingdoms.getCivOrWildViaID(other.kingdomId)) == true);
         }
     }
 
