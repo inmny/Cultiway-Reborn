@@ -1,0 +1,55 @@
+// 只核对新增地表遮挡：未声明资源、上下边界、逐件与批量，以及三维保留真实遮挡。
+{
+    var batchType = typeof(FormResource).Assembly.GetType("Cultiway.Core.Visuals.Forms.FormDrawBatch");
+    var itemType = typeof(FormResource).Assembly.GetType("Cultiway.Core.Visuals.Forms.FormDrawItem");
+    object batch = Activator.CreateInstance(batchType, true);
+    object Call(object value, string name, params object[] args) => value.GetType().GetMethod(name, F).Invoke(value, args);
+    void Set(object value, string name, object input) => value.GetType().GetField(name, F).SetValue(value, input);
+    var cameraObject = new GameObject("Cultiway.GroundOcclusionProbe"); var camera = cameraObject.AddComponent<Camera>(); camera.enabled = false;
+    camera.orthographic = true; camera.orthographicSize = 3; camera.aspect = 1; camera.nearClipPlane = .1f; camera.farClipPlane = 100;
+    camera.transform.position = new Vector3(0, 0, -10);
+    const int size = 96;
+    var texture = new RenderTexture(size, size, 24, RenderTextureFormat.ARGBFloat); texture.Create();
+    var pixels = new Texture2D(size, size, TextureFormat.RGBAFloat, false, true);
+    var ground = new Texture2D(1, 1, TextureFormat.RFloat, false, true); ground.SetPixelData(new[] { .25f }, 0); ground.Apply();
+    var mesh = new Mesh { vertices = new[] { new Vector3(-.8f, -.8f, 0), new Vector3(.8f, -.8f, 0), new Vector3(.8f, .8f, 0), new Vector3(-.8f, .8f, 0) },
+        normals = Enumerable.Repeat(Vector3.back, 4).ToArray(), uv = new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }, triangles = new[] { 0, 2, 1, 0, 3, 2 } };
+    mesh.RecalculateBounds(); var command = new UnityEngine.Rendering.CommandBuffer(); var previous = RenderTexture.active;
+    Matrix4x4 oldVP = Shader.GetGlobalMatrix("_FP_VP");
+    Color[] Render(bool hide, float height, bool instanced, bool native = true)
+    {
+        command.Clear(); var projection = GL.GetGPUProjectionMatrix(camera.projectionMatrix, true);
+        command.SetViewProjectionMatrices(camera.worldToCameraMatrix, projection);
+        command.SetGlobalMatrix("_FP_VP", projection * camera.worldToCameraMatrix);
+        command.SetRenderTarget(texture); command.ClearRenderTarget(true, true, Color.clear);
+        Call(batch, "Begin"); Set(batch, "UseInstancing", instanced);
+        object item = Activator.CreateInstance(itemType); var resource = FormResources.Load(hide ? "earth_spikes" : "sword");
+        var transform = Matrix4x4.Translate(Vector3.forward * height);
+        Set(item, "Resource", resource); Set(item, "Mesh", mesh); Set(item, "Material", resource.Surface("stone", native));
+        Set(item, "Transform", transform); Set(item, "Normal", transform.inverse.transpose);
+        Set(item, "Tint", Color.white); Set(item, "Dye", Color.white); Set(item, "Build", new Vector4(1, .04f, 0, 0));
+        Set(item, "ClosedVolume", true); Set(item, "Terrain", ground); Set(item, "TerrainSize", new Vector4(16, 16, .25f, 0));
+        int pass = native ? 0 : 2;
+        Call(batch, "Add", item, pass); Call(batch, "Upload"); Call(batch, "Draw", command, pass, .1f, 0f);
+        Graphics.ExecuteCommandBuffer(command); RenderTexture.active = texture;
+        pixels.ReadPixels(new Rect(0, 0, size, size), 0, 0); pixels.Apply(); return pixels.GetPixels();
+    }
+    int Visible(Color[] data) => data.Count(pixel => pixel.a > .5f);
+    float Error(Color[] a, Color[] b) => a.Zip(b, (x, y) => Mathf.Max(Mathf.Abs(x.r-y.r), Mathf.Abs(x.g-y.g), Mathf.Abs(x.b-y.b), Mathf.Abs(x.a-y.a))).Max();
+    try
+    {
+        var originalPixels = Render(false, -.1f, true); var hidden = Render(true, -.1f, true); var single = Render(true, -.1f, false);
+        Check(Visible(originalPixels) > 50 && Visible(hidden) == 0 && Error(hidden, single) < .0001f,
+            "原版只遮住明确声明的地下表面，逐件与批量一致", new { original = Visible(originalPixels), hidden = Visible(hidden), error = Error(hidden, single) });
+        var above = Render(true, .6f, true); var aboveSingle = Render(true, .6f, false);
+        Check(Visible(above) > 50 && Error(above, aboveSingle) < .0001f, "实际地表以上仍显示，逐件和批量一致");
+        var world = Render(true, -.1f, true, false); var originalWorld = Render(false, -.1f, true, false);
+        Check(Visible(world) > 50 && Error(world, originalWorld) < .0001f, "三维仍依赖真实场景地形深度，不套用原版投影裁切");
+    }
+    finally
+    {
+        Call(batch, "Clear"); RenderTexture.active = previous; command.Release(); texture.Release();
+        Shader.SetGlobalMatrix("_FP_VP", oldVP);
+        UnityEngine.Object.Destroy(texture); UnityEngine.Object.Destroy(pixels); UnityEngine.Object.Destroy(ground); UnityEngine.Object.Destroy(mesh); UnityEngine.Object.Destroy(cameraObject);
+    }
+}

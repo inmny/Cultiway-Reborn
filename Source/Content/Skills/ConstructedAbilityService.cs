@@ -76,7 +76,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         Core.SkillLibV3.Manager.ConstructionEmission = emission =>
         {
             SkillEmissionResult result = UtilityConstructionMigration.Emit(emission);
-            return result == SkillEmissionResult.Unhandled ? FlyingSwordConstructionMigration.Emit(emission) : result;
+            if (result == SkillEmissionResult.Unhandled) result = FlyingSwordConstructionMigration.Emit(emission);
+            return result == SkillEmissionResult.Unhandled ? GroundSpikeConstructionMigration.Emit(emission) : result;
         };
         ConstructedRainClouds.Initialize();
         ConstructedMatterCatalog.Initialize();

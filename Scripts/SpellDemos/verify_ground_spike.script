@@ -1,0 +1,155 @@
+// B13：只验证原地刺的真实来源、露出作用、固定落点和结束恢复。
+var manager = Cultiway.ModClass.I.SkillV3;
+var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts = new List<ConstructedCastStarted>(); var casts = new List<AbilityCast>(); var emissions = new List<object>();
+var old = new List<int>(); bool invalidate = false, scopeValid = true;
+SkillEmissionResult? lastResult = null;
+Actor source = Make(64), target = Make(70), edge = Make(71), outside = Make(74), gap = Make(73), wolf = Make(12, "wolf");
+target.setKingdom(wolf.kingdom); edge.setKingdom(wolf.kingdom); outside.setKingdom(wolf.kingdom); gap.setKingdom(wolf.kingdom);
+Place(edge, 70.87f, 72.17f);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+IReadOnlyList<Entity> Learned() => (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+Entity Build(bool boosted = false, bool extra = false)
+{
+    var builder = new SkillContainerBuilder(SkillEntities.GroundSpike).UseAnimation(boosted ? 2 : 0);
+    if (boosted)
+    {
+        builder.AddModifier(new HugeModifier { Value = 1.5f });
+        builder.AddModifier(new HasteModifier { SpeedMultiplier = .5f });
+        builder.AddModifier(new EmpowerModifier { SetupBonus = .3f });
+        builder.AddModifier(new ProficiencyModifier { CostReduction = .2f, SalvoIntervalReduction = .2f });
+        builder.AddModifier(new SalvoCount { Value = 2 });
+    }
+    if (extra) builder.AddModifier(new BurnModifier { Duration = 1, DamageRatio = .1f });
+    Entity skill = builder.Build(SkillContainerBuildMode.RuleOnly);
+    string signature = SkillContainerSignature.Build(skill);
+    owner.LearnSkillV3(skill); return Learned().First(s => SkillContainerSignature.Build(s) == signature);
+}
+var converter = service.Assembly.GetType("Cultiway.Content.Skills.GroundSpikeConstructionMigration").GetMethod("Convert", F);
+AbilityDefinition Convert(Entity skill, out GetHitEvent damage)
+{
+    object[] args = { new SkillEmission { Source = source, SpatialSource = source, SkillContainer = skill,
+        Target = target, SourcePos = new Vector3(64, 72, .3f), TargetPos = new Vector3(70, 72, .3f), Strength = 37, PowerLevel = 1.25f }, default(GetHitEvent) };
+    var d = (AbilityDefinition)converter.Invoke(null, args); damage = (GetHitEvent)args[1]; return d;
+}
+float[] XYZ(Vector3 point) => new[] { point.x, point.y, point.z };
+AbilityCast Numeric(AbilityDefinition d) => new(AbilityCompiler.Compile(d, cache: false), Matrix4x4.identity,
+    inputs: new AbilityInputs(new Vector3(64, 72, .3f), new Vector3(70, 72, .3f), Vector3.right, .8f), force: 37);
+void Started(ConstructedCastStarted fact) { if (fact.AbilityId == SkillEntities.GroundSpike.id) starts.Add(fact); }
+void Old(Entity execution) { if (execution.GetComponent<SkillEntity>().Asset == SkillEntities.GroundSpike) old.Add(execution.Id); }
+ConstructedAbilityService.CastStarted += Started; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+try
+{
+    // GROUND_SURFACE
+    Entity ordinary = Build(), boosted = Build(true), extra = Build(extra: true);
+    AbilityDefinition definition = Convert(ordinary, out GetHitEvent damage);
+    Check(definition != null && definition.Root.Form == "earth_spikes" && definition.Binding.Anchor == AbilityAnchor.Target &&
+        !definition.Binding.Follow && definition.Root.Operations.Single().Clip == "erupt" && damage.Element.Equals(SkillEntities.GroundSpike.Element),
+        "地刺转换为固定目标连接、独立岩石形体及普通动作，保留原伤害来源");
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    var restored = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
+    var numeric = Numeric(restored); var shapes = new List<AbilityCapsule>(); numeric.AppendContacts(shapes);
+    Check(shapes.Count == 0, "预备时点未露出石体不提供人物接触");
+    numeric.Advance(definition.Lifetime * .3f, new Vector3(80, 75, 6)); shapes.Clear(); numeric.AppendContacts(shapes);
+    var views = new List<FormVisualInstance>(); numeric.AppendVisuals(views);
+    Check(shapes.Count == 42 && views.Count == 1 && views[0].PartCount == 7 && shapes.All(s => Mathf.Abs(s.A.x - 70) < definition.Root.Scale * 1.5f && Mathf.Abs(s.B.x - 70) < definition.Root.Scale * 1.5f) &&
+        Mathf.Abs(views[0].PartTransform(0).MultiplyPoint3x4(new Vector3(0, 0, 2.4f)).z - 2.4f * definition.Root.Scale) < .0001f,
+        "完整露出后显示与作用共同升起，后来的目标输入不拖走石体", shapes.Select(s => new { a = XYZ(s.A), b = XYZ(s.B), s.Radius }).ToArray());
+    var save = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+    var restore = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+    string Snapshot(AbilityCast cast)
+    {
+        var cs = new List<AbilityCapsule>(); cast.AppendContacts(cs);
+        var vs = new List<FormVisualInstance>(); cast.AppendVisuals(vs);
+        return JsonConvert.SerializeObject(new { cast.Age, cast.Finished, shapes = cs.Select(s => new { a = XYZ(s.A), b = XYZ(s.B), s.Radius }),
+            parts = vs.SelectMany(v => Enumerable.Range(0, v.PartCount).Select(i => XYZ(v.PartTransform(i).MultiplyPoint3x4(Vector3.zero)))) });
+    }
+    save(numeric); numeric.Advance(definition.Lifetime * .53f, Vector3.zero); string predicted = Snapshot(numeric);
+    restore(numeric); numeric.Advance(definition.Lifetime * .53f, Vector3.zero);
+    Check(predicted == Snapshot(numeric), "动作、真实作用和收势随共用前态恢复，资料读回保持原行为");
+    shapes.Clear(); numeric.AppendContacts(shapes); Check(shapes.Count == 0, "回收阶段不继续制造新伤害");
+    numeric.Advance(definition.Lifetime, Vector3.zero); views.Clear(); numeric.AppendVisuals(views);
+    Check(numeric.Finished && views.Count == 0, "自然结束清理全部石体显示与接触");
+    Check(Convert(extra, out _) == null, "未映射附加作用明确留在原来源，不静默丢失");
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
+    {
+        if (request.SkillContainer.GetComponent<SkillContainer>().Asset != SkillEntities.GroundSpike) return original(request);
+        if (invalidate) scopeValid = false;
+        SkillEmissionResult result = original(request); lastResult = result;
+        if (result == SkillEmissionResult.Accepted)
+        {
+            object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+                .Single(r => (long)Field(r, "Id") == starts.Last().CastId);
+            casts.Add((AbilityCast)Field(running, "Cast"));
+        }
+        emissions.Add(new { result = result.ToString(), request.Strength, request.PowerLevel, request.RuntimeData.CorrelationId, origin = request.RuntimeData.Origin.ToString(), point = XYZ(request.TargetPos) }); return result;
+    };
+    SkillCastPlan Plan(Entity skill) => SkillCastPlanner.CreatePlan(owner, skill, target, SkillCastCost.GetAffordableStepLimit(owner, skill), explicitTargetsOnly: true);
+    double Cost(Entity skill, SkillCastPlan plan) => SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculatePlanDemand(skill, plan) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    bool Use(Entity skill)
+    {
+        bool used = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+            new ActiveAbilityTarget(target, target.GetSimPos(), selectionArea: new SkillTargetSelectionArea(true, target.GetSimPos(), .1f),
+                runtimeData: new SkillCastRuntimeData { CorrelationId = 931 }), ActiveAbilityUseOrigin.Script);
+        source.attack_timer = 999; CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats(); return used;
+    }
+    foreach (Entity skill in new[] { ordinary, boosted })
+    {
+        float actualScale = Convert(skill, out _).Root.Scale;
+        Ready(source); Place(source, 64); Place(target, 70); Place(edge, 70 + .864164f * actualScale, 72 + .166196f * actualScale); Place(outside, 76); Place(gap, 70 + .8468f * actualScale, 72 + .7330f * actualScale);
+        contacts.Clear(); endings.Clear(); int first = starts.Count, known = Learned().Count;
+        int hp = target.data.health, edgeHp = edge.data.health, outsideHp = outside.data.health, gapHp = gap.data.health;
+        float balance = owner.GetCultisys<Xian>().wakan; var plan = Plan(skill); double cost = Cost(skill, plan);
+        Check(Use(skill), "原已学地刺正式受理"); await Advance(1.5f);
+        var actual = starts.Skip(first).ToArray();
+        Check(actual.Length == plan.Steps.Count && old.Count == 0 && Learned().Count == known &&
+            Math.Abs(balance - owner.GetCultisys<Xian>().wakan - cost) < .001,
+            "原普通及词条地刺逐发只生成新构造并支付一次", new { plan.Steps.Count, actual = actual.Length, cost, balance, after = owner.GetCultisys<Xian>().wakan });
+        Check(target.data.health < hp && edge.data.health < edgeHp && outside.data.health == outsideHp && gap.data.health == gapHp &&
+            actual.All(s => contacts.Any(c => c.CastId == s.CastId && c.TargetId == target.id)) &&
+            contacts.GroupBy(c => (c.CastId, c.TargetId)).All(g => g.Count() == 1),
+            "中央及侧石锋真实命中，石锋之间及范围外不误伤，同人每次只结算一次", new { hp, after = target.data.health, edgeHp, edgeAfter = edge.data.health, outsideHp, outsideAfter = outside.data.health, gapHp, gapAfter = gap.data.health,
+                contacts = contacts.Select(c => new { c.CastId, c.TargetId, c.Age }).ToArray() });
+        Check(casts.All(c => c.Finished) && actual.All(s => endings.Any(e => e.Fact.CastId == s.CastId && !e.Fact.Cancelled)),
+            "命中后石体继续完成收势并自然结束");
+    }
+    Ready(source); Place(source, 64); Place(target, 70);
+    int initial = starts.Count; float before = owner.GetCultisys<Xian>().wakan;
+    scopeValid = true; invalidate = true; var scope = new ConstructionWorldScope(() => scopeValid, (_, _) => true);
+    bool queued = manager.StartSkillSequence(owner, ordinary, Plan(ordinary), SkillContext.DefaultStrength, owner.GetPowerLevel(),
+        runtime_data: new SkillCastRuntimeData { CorrelationId = 931, WorldScope = scope },
+        options: new SkillCastSequenceOptions { PaymentTiming = SkillCastPaymentTiming.PerEmission });
+    await Advance(.1f); invalidate = false;
+    Check(queued && lastResult == SkillEmissionResult.Rejected && starts.Count == initial && old.Count == 0 &&
+        Mathf.Abs(before - owner.GetCultisys<Xian>().wakan) < .001f,
+        "逐发受理失效撤销支付，不生成旧执行体", new { queued, lastResult, before, after = owner.GetCultisys<Xian>().wakan });
+    scopeValid = true; Ready(source); Place(source, 64); Place(target, 70);
+    Check(Use(ordinary), "失败后原来源可再次正常施放"); await Advance(1.1f);
+    Check(starts.Count > initial && casts.All(c => c.Finished), "恢复施放自然结束并归还控制");
+    // 使用实际普通入口施放放大地刺，在动作完全露出时拍摄游戏画面。
+    Ready(source); Place(source, 64); Place(target, 70);
+    Check(Use(boosted), "实机画面使用真实已学地刺入口");
+    ControllableUnit.clear(false); World.world.console.Hide();
+    World.world.camera.transform.position = new Vector3(70, 72, 0); MoveCamera.instance.forceZoom(12);
+    async Task Shot(string name)
+    {
+        Config.paused = true; await Game.NextFrame(); string file = Path.Combine(folder, name + ".png");
+        File.Delete(file); Screen.Capture(file); await Game.WaitUntil(() => File.Exists(file), 600);
+    }
+    await Shot("ground-spike-buried"); await Advance(.04f); await Shot("ground-spike-rising");
+    await Advance(.22f); await Shot("ground-spike"); await Advance(.53f); await Shot("ground-spike-withdrawing");
+    await Advance(.7f);
+    File.WriteAllText(Path.Combine(folder, "emissions.json"), JsonConvert.SerializeObject(emissions, Formatting.Indented));
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder, "emissions.json"), JsonConvert.SerializeObject(emissions, Formatting.Indented));
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
+    ConstructedAbilityService.CastStarted -= Started; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

@@ -33,7 +33,7 @@ Shader "Cultiway/FormSurface"
         float4 _TerrainSize;
         float4 _TerrainAnchor;
         float4 _FormBuild, _FormContact;
-        float _FormClosedVolume;
+        float _FormClosedVolume, _FormHideBelowGround;
         float4x4 _FormBones[32];
         float4 _FP_Eye, _FP_LightDir, _FP_LightCol, _FP_AmbCol, _FP_View, _FP_Cam, _FP_CamF;
         #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
@@ -104,7 +104,7 @@ Shader "Cultiway/FormSurface"
         float formClosed(Varying i)
         {
             #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
-            return formData(i.instance,11).z;
+            return fmod(formData(i.instance,11).z,2);
             #else
             return _FormClosedVolume;
             #endif
@@ -212,6 +212,20 @@ Shader "Cultiway/FormSurface"
         {
             float4 build=formBuild(i),tint=formTint(i),dye=formDye(i);
             if (build.z > .5) clip(build.x-i.buildAt-.000001);
+            // 原版没有真实地形深度；显式地面模型按同一高度图隐藏尚在地下的表面。
+            #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+            float4 anchor=formData(i.instance,11); float hideBelow=step(1.5,anchor.z);
+            #else
+            float4 anchor=_TerrainAnchor; float hideBelow=_FormHideBelowGround;
+            #endif
+            if (!worldfall && hideBelow>.5)
+            {
+                float ground=0;
+                if (_TerrainEnabled>.5) ground=anchor.y>.5?anchor.x:
+                    any(i.world.xy<0)||any(i.world.xy>=_TerrainSize.xy)?_TerrainSize.z:
+                    tex2D(_TerrainHeights,i.world.xy/_TerrainSize.xy).r;
+                clip(i.world.z-ground+.00001);
+            }
             float3 n = normalize(i.normal), eye = normalize(i.eye), light = normalize(i.light);
             float facing = saturate(dot(n,eye)), diffuse = saturate(dot(n,light));
             float rim = pow(1-facing,3);

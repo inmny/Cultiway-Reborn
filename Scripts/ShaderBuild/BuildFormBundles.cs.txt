@@ -136,7 +136,7 @@ namespace CultiwayAssets.Editor
                     part.MeshAsset = path;
                 }
 
-                File.WriteAllText(Path.Combine(manifest, form.Id + ".json"), JsonUtility.ToJson(new FormManifest
+                string description = JsonUtility.ToJson(new FormManifest
                 {
                     Version = form.Version,
                     Id = form.Id,
@@ -159,7 +159,10 @@ namespace CultiwayAssets.Editor
                     Controls = form.Controls,
                     Motions = form.Motions,
                     ConformToGround = form.ConformToGround
-                }, true));
+                }, true);
+                // 可选地表遮挡只写给明确声明的资源，既有说明不增加无效字段。
+                if (form.HideBelowGround) description = description.Insert(1, "\n    \"HideBelowGround\": true,");
+                File.WriteAllText(Path.Combine(manifest, form.Id + ".json"), description);
             }
 
             string texturePath = "Assets/Cultiway/Forms/surface_detail.asset";
@@ -215,6 +218,9 @@ namespace CultiwayAssets.Editor
 
             /// <summary>柔性表面允许按地表挠曲。</summary>
             public bool ConformToGround;
+
+            /// <summary>原版投影是否隐藏地表以下的真实表面。</summary>
+            public bool HideBelowGround;
 
             /// <summary>资料版本。</summary>
             public int Version;

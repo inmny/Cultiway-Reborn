@@ -40,3 +40,5 @@ Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官�
 
 
 `forms_ray.mjs`制作`energy_ray`：封闭胶囊体及`origin`、`extent`控制，两端保持实际厚度，中段按顶点权重伸展。结构明确声明`span`与制作长度、半径，根端及末端挂点、作用端点与网格同控。经现有`forms.mjs`和三平台构建入口发布，实机入口为`verify_ray.py`；最终流派造型和材质继续对应美术任务。
+
+`forms_earth.mjs`制作独立`earth_spikes`：中央岩锋与六片侧岩锋使用封闭错落截面，各块整石分别沿共用动作升起、停留和收回；显示与作用端点读取同一控制，不把旧圆形范围继续当作隐藏伤害。`erupt`的命名阶段可在普通构造中继续调整；资源明确声明`HideBelowGround`，原版隐藏地下表面，三维使用真实地形深度。运行`python3 Scripts/SpellDemos/verify_ground_spike.py`验证原已学地刺的实际接管、伤害、一次支付、失败恢复及自然结束，证据位于`artifacts/skill_rebuild/trajectories/ground-spike/`；各流派最终美术与完整连续录像仍按内容交付阶段完成。

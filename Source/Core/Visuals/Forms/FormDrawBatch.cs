@@ -112,7 +112,8 @@ internal sealed class FormDrawBatch
                     build.w = contact + 1;
                 }
                 data.Add(item.Tint); data.Add(item.Dye); data.Add(build);
-                data.Add(new Vector4(item.Anchor.x, item.Anchor.y, item.ClosedVolume ? 1f : 0f, pose));
+                // 第三分量低位保留封闭体标记，高位声明原版的地下遮挡。
+                data.Add(new Vector4(item.Anchor.x, item.Anchor.y, (item.ClosedVolume ? 1f : 0f) + (item.Resource?.Description.HideBelowGround == true ? 2f : 0f), pose));
             }
         }
         if (poses.Count == 0) poses.Add(Vector4.zero);
@@ -146,6 +147,7 @@ internal sealed class FormDrawBatch
                     properties.SetColor("_Color", item.Tint); properties.SetColor("_Dye", item.Dye); properties.SetVector("_FormBuild", item.Build);
                     properties.SetVector("_FormContact", item.Contact);
                     properties.SetVector("_TerrainAnchor", item.Anchor); properties.SetFloat("_FormClosedVolume", item.ClosedVolume ? 1f : 0f);
+                    properties.SetFloat("_FormHideBelowGround", item.Resource?.Description.HideBelowGround == true ? 1f : 0f);
                     properties.SetFloat("_UseSkinning", item.Skin == null ? 0f : 1f);
                     if (item.Skin != null) properties.SetMatrixArray("_FormBones", item.Skin);
                     commands.DrawMesh(item.Mesh, item.Transform, item.Material, 0, pass, properties); DrawCount++;

@@ -55,6 +55,10 @@ public sealed class FormDescription
     /// <summary>此柔性曲面可由共同地表挠曲，刚性资源不声明此项。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool ConformToGround;
+
+    /// <summary>原版投影隐藏实际地表以下的表面；三维继续由真实场景地形遮挡。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool HideBelowGround;
 }
 
 /// <summary>一个部件的资源和控制枢轴。</summary>
