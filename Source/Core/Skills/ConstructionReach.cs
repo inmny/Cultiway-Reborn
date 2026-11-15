@@ -139,8 +139,9 @@ public sealed class ConstructionReach
                 float ownSpeed = FlightSpeed(flight.Flight, seconds, changedSpeed);
                 if (flight.Flight.InheritVelocity)
                     travel[i] += (attached + new Vector2(0f, Mathf.Max(0f, totalSpeed - ownSpeed))) * seconds;
-                travel[i].y += Mathf.Max(flight.Flight.Velocity.magnitude, changedSpeed) * seconds +
-                               flight.Flight.Acceleration.magnitude * seconds * seconds * .5f;
+                travel[i].y += flight.Flight.Transfer == null
+                    ? Mathf.Max(flight.Flight.Velocity.magnitude, changedSpeed) * seconds + flight.Flight.Acceleration.magnitude * seconds * seconds * .5f
+                    : FlightSpeed(flight.Flight, seconds, changedSpeed) * seconds + flight.Flight.Transfer.ArrivalSlack;
                 if (flight.Flight.Path != null)
                 {
                     var curve = flight.Flight.Path;
@@ -176,6 +177,8 @@ public sealed class ConstructionReach
         float FlightSpeed(CompiledFlight flight, float seconds, float changed)
         {
             float centre = Mathf.Max(flight.Velocity.magnitude, changed) + flight.Acceleration.magnitude * seconds;
+            if (flight.Transfer != null)
+                return Mathf.Max(centre, flight.Transfer.Distance / flight.Transfer.Interval) + flight.Transfer.SideJitter / flight.Transfer.Interval;
             float rate = flight.Path?.DistancePerSecond > 0f ? centre / flight.Path.DistancePerSecond : 1f;
             return centre + (flight.Path?.SpeedBudget(declared ?? 12f) ?? 0f) * rate;
         }

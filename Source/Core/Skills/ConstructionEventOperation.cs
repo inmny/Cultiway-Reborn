@@ -34,6 +34,8 @@ internal sealed class CompiledFlight
     internal readonly CompiledConstructionPath Path;
     /// <summary>明确目标及实际到达规则，空值保留原行为。</summary>
     internal readonly CompiledFlightGoal Goal;
+    /// <summary>可选的同主体间隔转移。</summary>
+    internal readonly CompiledFlightTransfer Transfer;
     /// <summary>真实地面响应。</summary>
     internal readonly ConstructionGroundResponse Ground;
     /// <summary>检查并复制完整参数。</summary>
@@ -52,6 +54,12 @@ internal sealed class CompiledFlight
             !Enum.IsDefined(typeof(ConstructionGroundResponse), Ground)) throw new InvalidDataException(path + "：加速度、转向或地面响应超出预算");
         if (source.Path != null) Path = new CompiledConstructionPath(source.Path, path + "/Path");
         if (source.Goal != null) Goal = new CompiledFlightGoal(source.Goal, path + "/Goal");
+        if (source.Transfer != null)
+        {
+            Transfer = new CompiledFlightTransfer(source.Transfer, path + "/Transfer");
+            if (Path != null || Acceleration != Vector3.zero)
+                throw new InvalidDataException(path + "：间隔转移不同时采用连续位置曲线或加速度，可使用方向曲线和调速");
+        }
         if (Goal?.Approach == true && Acceleration != Vector3.zero)
             throw new InvalidDataException(path + "：限速接近通过速度调整改变快慢，不与向量加速度混用");
     }

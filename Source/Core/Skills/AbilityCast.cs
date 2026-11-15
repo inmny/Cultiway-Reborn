@@ -460,6 +460,7 @@ public sealed partial class AbilityCast
             step = PathStep(form, in state, step);
             step = SteeringStep(in state, step);
             step = ChasePointStep(in state, step);
+            step = TransferStep(in state, step);
             step = FlightGoalStep(in state, target, step);
             step = FlightDistanceStep(i, step);
             if (gathers != null && !state.Free)
@@ -796,7 +797,7 @@ public sealed partial class AbilityCast
                     state.Velocity.z = state.PathVelocity.z = 0f;
                 }
                 Vector3 aim = SteeringAim(in state, target, flightStep);
-                if (!FinishDirectFlight(ref state, FlightAim(in state, target), flightStep))
+                if (!MoveTransfer(i, ref state, target, aim, growth) && !FinishDirectFlight(ref state, FlightAim(in state, target), flightStep))
                 {
                     if (state.Flying && state.Flight.Path != null) MovePath(form, ref state, flightStep, aim);
                     else if (state.Flying && !state.FlightArrived && state.Flight.Goal?.Approach == true)
@@ -1560,6 +1561,15 @@ public sealed partial class AbilityCast
 
         /// <summary>上次采样的起点距离，随预测前态一起恢复。</summary>
         internal float FlightDistance;
+
+        /// <summary>本次飞行已经完成的转移步号；随预测前态一起恢复。</summary>
+        internal int TransferCount;
+
+        /// <summary>累计空间转移次数，不随同一主体开始另一段飞行重置。</summary>
+        internal int TransferRevision;
+
+        /// <summary>最近一次转移前的真实根变换，用于离开前的接触。</summary>
+        internal Matrix4x4 TransferDeparture;
 
         /// <summary>到达已经发生以及是否因此结束；随预测前态一起恢复。</summary>
         internal bool FlightArrived, FlightEnded;

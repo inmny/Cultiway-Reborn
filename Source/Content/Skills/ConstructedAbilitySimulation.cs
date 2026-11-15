@@ -469,6 +469,21 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             foreach (AbilityCapsule shape in running.After)
             {
                 bool continuous = previousShapes.TryGetValue((shape.Node, shape.Shape), out AbilityCapsule from);
+                if (running.Cast.TryTransferDeparture(shape.Node, out Matrix4x4 departure))
+                {
+                    if (continuous)
+                    {
+                        Vector3 half = shape.HalfExtents;
+                        Vector3 departedHalf = new(
+                            Mathf.Abs(departure.m00) * half.x + Mathf.Abs(departure.m01) * half.y + Mathf.Abs(departure.m02) * half.z,
+                            Mathf.Abs(departure.m10) * half.x + Mathf.Abs(departure.m11) * half.y + Mathf.Abs(departure.m12) * half.z,
+                            Mathf.Abs(departure.m20) * half.x + Mathf.Abs(departure.m21) * half.y + Mathf.Abs(departure.m22) * half.z);
+                        var departed = new AbilityCapsule(shape.Node, departure.MultiplyPoint3x4(shape.A), departure.MultiplyPoint3x4(shape.B),
+                            shape.Radius, shape.Matter, shape.Shape, shape.Revision, shape.Material, departedHalf, .99999994f);
+                        shapes.Add(new ShapeMotion(running, from, departed, true));
+                    }
+                    continuous = false;
+                }
                 if (!continuous) from = shape;
                 var motion = new ShapeMotion(running, from, shape, continuous);
                 shapes.Add(motion);

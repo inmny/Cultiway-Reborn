@@ -7,6 +7,21 @@ namespace Cultiway.UI;
 /// <summary>目标与到达使用原运动页、撤销和保存，不另建返程法术类型。</summary>
 public sealed partial class WindowWanfaConstructionEditor
 {
+    /// <summary>同一飞行的间隔转移参数，仍通过现有撤销和完整保存。</summary>
+    /// <param name="flight">所选飞行。</param>
+    private void FlightTransferRows(ConstructionOperation flight)
+    {
+        Toggle("FlightTransfer", flight.Transfer != null, value => flight.Transfer = value ? new ConstructionFlightTransfer() : null);
+        if (flight.Transfer == null) return;
+        ConstructionFlightTransfer transfer = flight.Transfer;
+        Row("FlightTransferRules", T("FlightTransferHint"));
+        Number("TransferInterval", transfer.Interval, value => transfer.Interval = value);
+        Number("TransferDistance", transfer.Distance, value => transfer.Distance = value);
+        Number("TransferArrivalSlack", transfer.ArrivalSlack, value => transfer.ArrivalSlack = value);
+        Number("TransferSideJitter", transfer.SideJitter, value => transfer.SideJitter = value);
+        Number("TransferSeed", transfer.Seed, value => transfer.Seed = UnityEngine.Mathf.RoundToInt(value));
+    }
+
     /// <summary>为当前飞行明确选择来源或目标、是否更新及实际到达处理。</summary>
     /// <param name="flight">所选部位的这一次飞行。</param>
     private void FlightGoalRows(ConstructionOperation flight)

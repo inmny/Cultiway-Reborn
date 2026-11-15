@@ -228,6 +228,7 @@ public sealed partial class WindowWanfaConstructionEditor
             fly.Vector = new[] { next.x, next.y, next.z };
         });
         Number("Homing", fly.TurnRate, value => fly.TurnRate = value);
+        FlightTransferRows(fly);
         FlightGoalRows(fly);
         FlightPhysicsRows(fly, "");
         Toggle("InheritVelocity", fly.InheritVelocity, value => fly.InheritVelocity = value);

@@ -1,0 +1,42 @@
+// B12：在已有世界使用一个小主体，区分空隙和落点；不改实际人物规则。
+var gapSpell = ConstructionEditing.Copy(snapControl); gapSpell.Id = "test.flight-transfer.gap"; gapSpell.Name = "间隔转移接触";
+gapSpell.Resource = "none"; gapSpell.Cost = 0f; gapSpell.Cooldown = 0f; gapSpell.TargetRange = 100f;
+gapSpell.Root.OnContact = ConstructionContactResponse.End; gapSpell.Impact = new ConstructionImpact { DamageScale = 1f };
+Ready(source); Place(source, 64); Place(pathTarget, 68); Place(target, 80); contacts.Clear(); endings.Clear();
+pathTarget.setKingdom(target.kingdom);
+int gapHealth = pathTarget.data.health, arrivalHealth = target.data.health;
+await Fire(gapSpell, source, target);
+await Advance(.3f);
+Check(pathTarget.data.health == gapHealth && contacts.All(hit => hit.TargetId != pathTarget.id) &&
+    target.data.health < arrivalHealth && contacts.Any(hit => hit.TargetId == target.id && hit.AbilityId == gapSpell.Id),
+    "转移空隙没有人物伤害，新落点发生真实命中", new { gapHealth, afterGap = pathTarget.data.health, arrivalHealth, afterArrival = target.data.health,
+        hits = contacts.Select(hit => new { hit.AbilityId, hit.TargetId, hit.Age }).ToArray() });
+// 最短间隔小于共同默认步长，首段预测会跨到转移边界，必须保留离开前的真实接触。
+var departureSpell = ConstructionEditing.Copy(gapSpell); departureSpell.Id = "test.flight-transfer.departure";
+departureSpell.Root.Operations[0].Transfer.Interval = .01f;
+Ready(source); Place(source, 64); Place(target, 80); Place(pathTarget, 64.25f); contacts.Clear(); endings.Clear();
+int departureHealth = pathTarget.data.health;
+await Fire(departureSpell, source, target); await Advance(.03f);
+Check(pathTarget.data.health < departureHealth && contacts.Any(hit => hit.AbilityId == departureSpell.Id && hit.TargetId == pathTarget.id && hit.Age < .01f),
+    "转移前停留的真实剑身仍可命中，不因出现新落点而漏掉原位置", new { departureHealth, after = pathTarget.data.health,
+        hits = contacts.Select(hit => new { hit.AbilityId, hit.TargetId, hit.Age }).ToArray() });
+// 原来源的合法无接触设定继续沿用，用同一个人物检查到达及寿命。
+var snapLive = new List<object>();
+foreach (bool expire in new[] { false, true })
+{
+    Entity skill = Build(SkillTrajectories.LightningSnap.id, duration: expire ? .04f : 1f);
+    var settings = skill.GetComponent<SkillSettings>(); settings.ContactEnabled = false; skill.AddComponent(settings);
+    Ready(source); Place(source, 64); Place(target, 82); Place(pathTarget, 12); contacts.Clear(); endings.Clear(); int before = snapObserved.Count;
+    float snapBalance = owner.GetCultisys<Xian>().wakan; var plan = Plan(skill); double cost = Cost(skill, plan);
+    Check(Use(skill), "原折线闪击无人物接触时正式受理");
+    if (!expire) { await Advance(.03f); Place(target, 80, 74); }
+    await Advance(1.1f);
+    var actual = snapObserved.Skip(before).ToArray();
+    var values = actual.Select(cast => new { cast.Age, cast.Finished, point = XYZ(Position(cast)), arrived = Field(State(cast), "FlightArrived"), steps = Field(State(cast), "TransferCount") }).ToArray();
+    Check(actual.Length == plan.Steps.Count && actual.All(cast => cast.Finished && (expire ? !(bool)Field(State(cast), "FlightArrived") :
+        (bool)Field(State(cast), "FlightArrived") && Vector2.Distance(Position(cast), target.current_position) < .0001f)) && contacts.Count == 0 &&
+        Math.Abs(snapBalance - owner.GetCultisys<Xian>().wakan - cost) < .001,
+        expire ? "未抵达时按原寿命结束且只支付一次" : "实际来源继续追踪移动目标，到达后停止并按寿命结束", values);
+    snapLive.Add(new { expire, values });
+}
+File.WriteAllText(Path.Combine(folder, "transfer-live.json"), JsonConvert.SerializeObject(snapLive, Formatting.Indented));

@@ -56,20 +56,30 @@ public sealed partial class AbilityCast
         if (!state.Flying || state.MovementStopped && state.Spin.sqrMagnitude < .000001f || state.Flight.Ground is not (ConstructionGroundResponse.Stop or ConstructionGroundResponse.End)) return;
         FormPose previousPose = groundPoses[node];
         float beforeRadius = MaximumScale(state.PreviousTransform), radius = MaximumScale(state.Transform), first = 2f;
-        foreach (FormContactBinding contact in form.Resource.Contacts)
+        // 转移空隙没有实体经过，地面停止或结束只能发生在新落点，不能沿两端插值拉回。
+        bool transferred = state.Flight.Transfer != null && state.TransferCount > 0 &&
+            Mathf.Abs(Age - (state.FlightStartedAt + state.TransferCount * state.Flight.Transfer.Interval)) <= Mathf.Max(.0000001f, Age * .0000001f);
+        if (transferred)
         {
-            Vector3 beforeA = state.PreviousTransform.MultiplyPoint3x4(contact.ABlend.Point(contact.A, previousPose));
-            Vector3 beforeB = state.PreviousTransform.MultiplyPoint3x4(contact.BBlend.Point(contact.B, previousPose));
-            Vector3 a = state.Transform.MultiplyPoint3x4(contact.ABlend.Point(contact.A, poses[node]));
-            Vector3 b = state.Transform.MultiplyPoint3x4(contact.BBlend.Point(contact.B, poses[node]));
-            Include(beforeA.z - TerrainHeight(beforeA) - beforeRadius * contact.Radius, a.z - TerrainHeight(a) - radius * contact.Radius);
-            Include(beforeB.z - TerrainHeight(beforeB) - beforeRadius * contact.Radius, b.z - TerrainHeight(b) - radius * contact.Radius);
+            if (MinimumHeight(node, state.Transform, poses[node]) <= .00001f) first = 1f;
         }
-        if (form.FragmentSource >= 0 && form.Resource.Contacts.Length == 0)
-            Include(MinimumHeight(node, state.PreviousTransform, previousPose), MinimumHeight(node, state.Transform, poses[node]));
-        else if (terrain != null || form.GroundPoints != null)
-            Include(MinimumHeight(node, state.PreviousTransform, previousPose), MinimumHeight(node, state.Transform, poses[node]));
-        if (state.LastStep == 0f && MinimumHeight(node, state.Transform, poses[node]) <= 0f) first = 0f;
+        else
+        {
+            foreach (FormContactBinding contact in form.Resource.Contacts)
+            {
+                Vector3 beforeA = state.PreviousTransform.MultiplyPoint3x4(contact.ABlend.Point(contact.A, previousPose));
+                Vector3 beforeB = state.PreviousTransform.MultiplyPoint3x4(contact.BBlend.Point(contact.B, previousPose));
+                Vector3 a = state.Transform.MultiplyPoint3x4(contact.ABlend.Point(contact.A, poses[node]));
+                Vector3 b = state.Transform.MultiplyPoint3x4(contact.BBlend.Point(contact.B, poses[node]));
+                Include(beforeA.z - TerrainHeight(beforeA) - beforeRadius * contact.Radius, a.z - TerrainHeight(a) - radius * contact.Radius);
+                Include(beforeB.z - TerrainHeight(beforeB) - beforeRadius * contact.Radius, b.z - TerrainHeight(b) - radius * contact.Radius);
+            }
+            if (form.FragmentSource >= 0 && form.Resource.Contacts.Length == 0)
+                Include(MinimumHeight(node, state.PreviousTransform, previousPose), MinimumHeight(node, state.Transform, poses[node]));
+            else if (terrain != null || form.GroundPoints != null)
+                Include(MinimumHeight(node, state.PreviousTransform, previousPose), MinimumHeight(node, state.Transform, poses[node]));
+            if (state.LastStep == 0f && MinimumHeight(node, state.Transform, poses[node]) <= 0f) first = 0f;
+        }
         if (first > 1f) return;
         StopNode(node, first);
         float lift = -MinimumHeight(node, state.Transform, poses[node]);

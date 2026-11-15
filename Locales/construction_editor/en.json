@@ -742,5 +742,13 @@
   "Cultiway.Construction.FlightDirectArrival": "Finish directly when reachable",
   "Cultiway.Construction.FlightDirectArrivalRules": "Final step",
   "Cultiway.Construction.FlightDirectArrivalHint": "Keep the turn rate until the actual goal is reachable this step, then travel the last segment and stop or end.",
-  "Cultiway.Construction.MotionFlightDistanceThreshold": "Distance from start (tiles)"
+  "Cultiway.Construction.MotionFlightDistanceThreshold": "Distance from start (tiles)",
+  "Cultiway.Construction.FlightTransfer": "Move in intervals",
+  "Cultiway.Construction.FlightTransferRules": "Transfer rules",
+  "Cultiway.Construction.FlightTransferHint": "Remain in place between transfers. Contact uses the departing shape and arrival point; the gap does no damage. Remove continuous position curves and acceleration first.",
+  "Cultiway.Construction.TransferInterval": "Transfer interval (seconds)",
+  "Cultiway.Construction.TransferDistance": "Minimum step distance",
+  "Cultiway.Construction.TransferArrivalSlack": "Arrival allowance",
+  "Cultiway.Construction.TransferSideJitter": "Maximum sideways offset",
+  "Cultiway.Construction.TransferSeed": "Offset seed"
 }

@@ -1,0 +1,66 @@
+// B12：间隔转移的真实停留、确定偏移、回退及共同数值工作池。
+var snapSave = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+var snapRestore = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+foreach (var definition in definitions)
+{
+    var flight = definition.Root.Operations[0];
+    Check(definition.Use.Target == ActiveAbilityTargetMode.ObjectOrPoint && flight.Goal.Follow && flight.Goal.Arrival == ConstructionFlightArrival.Stop &&
+        flight.Transfer.Interval == .025f && flight.Transfer.Distance == 2.5f && flight.Transfer.SideJitter == .45f && flight.Transfer.ArrivalSlack == 1.2f,
+        "原折线闪击展开为同主体间隔转移、确定横偏及移动目标到达停止");
+}
+var snapControl = ConstructionEditing.Copy(definitions[0]); snapControl.Lifetime = 1f; snapControl.Root.Scale = .25f;
+var snapFlight = snapControl.Root.Operations[0]; snapControl.Root.Operations = new[] { snapFlight };
+snapFlight.Vector = new[] { 4f, 0f, 0f }; snapFlight.Transfer = new ConstructionFlightTransfer { Interval = .1f, Distance = 8f, SideJitter = 0f, ArrivalSlack = 0f, Seed = 42 };
+var snapInput = new AbilityInputs(new Vector3(64, 72, .3f), new Vector3(84, 72, .3f), Vector3.right, .8f);
+AbilityCast SnapCast(AbilityDefinition definition) => new(AbilityCompiler.Compile(definition, cache: false), Matrix4x4.identity, inputs: snapInput, force: 37f);
+var snapCast = SnapCast(snapControl); snapCast.Advance(.099f, snapInput.Target);
+Check(Vector3.Distance(Position(snapCast), snapInput.Source) < .00001f && snapCast.Velocity(0) == Vector3.zero,
+    "转移间隔内真实停留，不用高速直线移动冒充");
+snapSave(snapCast); snapCast.Advance(.001f, snapInput.Target); Vector3 firstSnap = Position(snapCast);
+var departing = typeof(AbilityCast).GetMethod("TryTransferDeparture", F); object[] departureArgs = { 0, Matrix4x4.identity };
+Check(Mathf.Abs(firstSnap.x - 72f) < .0001f && (bool)departing.Invoke(snapCast, departureArgs) &&
+    Vector3.Distance(((Matrix4x4)departureArgs[1]).MultiplyPoint3x4(firstSnap), snapInput.Source) < .0001f,
+    "到明确时点才转移，保留可独立检查的离开前真实位置");
+snapRestore(snapCast); snapCast.Advance(.001f, snapInput.Target);
+Check(Vector3.Distance(Position(snapCast), firstSnap) < .00001f && (int)Field(State(snapCast), "TransferCount") == 1,
+    "预测回退同时恢复步号、位置和离开前姿态，不多走一步");
+Vector3 movingSnapTarget = new(88, 76, .3f); snapCast.Advance(.6f, movingSnapTarget);
+Check((bool)Field(State(snapCast), "FlightArrived") && !snapCast.Finished && Vector3.Distance(Position(snapCast), movingSnapTarget) < .0001f,
+    "后续转移追踪移动目标并到达停止，仍由同一寿命管理");
+snapCast.Advance(.4f, movingSnapTarget); Check(snapCast.Finished, "到达停止的主体按原寿命自然结束");
+// 落点在地表下时只修正落点高度，不沿不存在的空隙提前停在旧位置附近。
+foreach (var response in new[] { ConstructionGroundResponse.Stop, ConstructionGroundResponse.End })
+{
+    var landing = ConstructionEditing.Copy(snapControl); landing.Root.Operations[0].Ground = response;
+    Vector3 below = new(72, 72, -4f); var landed = SnapCast(landing); snapSave(landed); landed.Advance(.1f, below);
+    float expectedX = snapInput.Source.x + (below - snapInput.Source).normalized.x * 8f;
+    Check(Mathf.Abs(Position(landed).x - expectedX) < .0001f && Position(landed).z >= 0f &&
+        (bool)Field(State(landed), "MovementStopped") && landed.Finished == (response == ConstructionGroundResponse.End),
+        "转移的地面停止及结束只发生于真实落点，不沿空隙插值截断", new { response, point = XYZ(Position(landed)), expectedX });
+}
+var snapRandom = ConstructionEditing.Copy(snapControl); snapRandom.Root.Operations[0].Transfer.SideJitter = .45f;
+var snapRead = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(snapRandom));
+var snapOne = SnapCast(snapRandom); var snapTwo = SnapCast(snapRead); var snapPath = new List<object>();
+for (int index = 0; index < 3; index++)
+{
+    snapOne.Advance(.1f, movingSnapTarget); snapTwo.Advance(.1f, movingSnapTarget);
+    Check(Vector3.Distance(Position(snapOne), Position(snapTwo)) < .00001f, "完整JSON读回保持同一步号的确定偏移");
+    snapPath.Add(new { snapOne.Age, point = XYZ(Position(snapOne)), step = Field(State(snapOne), "TransferCount") });
+}
+File.WriteAllText(Path.Combine(folder, "transfer-motion.json"), JsonConvert.SerializeObject(snapPath, Formatting.Indented));
+var snapInvalid = ConstructionEditing.Copy(snapControl); snapInvalid.Root.Operations[0].Transfer.Interval = 0f;
+bool invalidSnap = false; try { AbilityCompiler.Compile(snapInvalid, cache: false); } catch (System.IO.InvalidDataException) { invalidSnap = true; }
+Check(invalidSnap && snapInvalid.Root.Operations[0].Transfer.Interval == 0f, "非法转移间隔在资料入口拒绝，保留原输入");
+var snapPoolPlan = AbilityCompiler.Compile(snapRandom, cache: false);
+var snapStepType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityStep"); var snapStepCtor = snapStepType.GetConstructors(F).Single();
+var snapBatch = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityBatch").GetMethod("Advance", F);
+var snapPool = Enumerable.Range(0, 64).Select(_ => new AbilityCast(snapPoolPlan, Matrix4x4.identity, inputs: snapInput, force: 37f)).ToArray();
+Array snapSteps = Array.CreateInstance(snapStepType, snapPool.Length);
+for (int i = 0; i < snapPool.Length; i++)
+{
+    snapSave(snapPool[i]); snapSteps.SetValue(snapStepCtor.Invoke(new object[] { snapPool[i], snapInput, null, movingSnapTarget, .3f, false }), i);
+}
+string SnapSnapshot(AbilityCast cast) => JsonConvert.SerializeObject(new { cast.Age, position = XYZ(Position(cast)), steps = Field(State(cast), "TransferCount"), revision = Field(State(cast), "TransferRevision") });
+snapBatch.Invoke(null, new object[] { snapSteps, false }); string[] snapSequence = snapPool.Select(SnapSnapshot).ToArray();
+foreach (var cast in snapPool) snapRestore(cast); snapBatch.Invoke(null, new object[] { snapSteps, true });
+Check(snapPool.Select(SnapSnapshot).SequenceEqual(snapSequence), "共用工作池顺序和并行保留相同转移落点及步号");

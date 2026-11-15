@@ -81,9 +81,9 @@ internal static class FlyingSwordConstructionMigration
         bool boomerang = trajectory == SkillTrajectories.Boomerang.id;
         bool arc = trajectory == SkillTrajectories.ArcToPosition.id;
         bool falling = trajectory == SkillTrajectories.FallingStrike.id, rain = trajectory == SkillTrajectories.RainFall.id;
-        bool descent = falling || rain, ground = trajectory == SkillTrajectories.GroundCrawl.id;
+        bool descent = falling || rain, ground = trajectory == SkillTrajectories.GroundCrawl.id, snap = trajectory == SkillTrajectories.LightningSnap.id;
         bool wave = trajectory == SkillTrajectories.SineWave.id, zigzag = trajectory == SkillTrajectories.Zigzag.id;
-        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral && !vortex && !orbit && !boomerang && !arc && !descent && !ground) return null;
+        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral && !vortex && !orbit && !boomerang && !arc && !descent && !ground && !snap) return null;
         if (ground)
         {
             forward.z = 0f;
@@ -126,11 +126,12 @@ internal static class FlyingSwordConstructionMigration
         var goal = noRotation || wave || zigzag || vortex || rain ? null : new ConstructionFlightGoal
         {
             Anchor = towardsDirection || boomerang ? ConstructionFlightAnchor.Direction : ConstructionFlightAnchor.Target,
-            Follow = towardsTarget || drift || spiral || orbit || ground,
+            Follow = towardsTarget || drift || spiral || orbit || ground || snap,
             Arrival = towardsDirection || boomerang ? ConstructionFlightArrival.None : ConstructionFlightArrival.End,
             Radius = .01f, Approach = orbit
         };
         if (ground) goal.DirectArrival = true;
+        if (snap) goal.Arrival = ConstructionFlightArrival.Stop;
         if (falling)
         {
             goal.Follow = true; goal.Arrival = ConstructionFlightArrival.None;
@@ -220,7 +221,7 @@ internal static class FlyingSwordConstructionMigration
             new()
             {
                 Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = XYZ(descent ? Vector3.right * (falling ? 7f : 0f) : (arc ? forward : initial) * speed * (ramp > .001f ? launch : cruise)),
-                TurnRate = noRotation || path != null ? 0f : turn, InheritVelocity = false, Goal = goal, Path = path,
+                TurnRate = noRotation || path != null || snap ? 0f : turn, Transfer = snap ? new ConstructionFlightTransfer { Seed = seed } : null, InheritVelocity = false, Goal = goal, Path = path,
                 Ground = descent ? ConstructionGroundResponse.End : ground ? ConstructionGroundResponse.Follow : ConstructionGroundResponse.Ignore
             }
         };
@@ -267,7 +268,7 @@ internal static class FlyingSwordConstructionMigration
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(), Seed = seed,
             Lifetime = lifetime, Resource = "none", Cost = 0f, Cooldown = 0, Power = 1, TargetRange = 10000,
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat | ActiveAbilityChannel.World,
-                Target = towardsTarget || drift || spiral || orbit || falling || ground ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },
+                Target = towardsTarget || drift || spiral || orbit || falling || ground || snap ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },
             Binding = new ConstructionBinding { Anchor = descent ? AbilityAnchor.Target : AbilityAnchor.Source, Height = descentHeight },
             Steps = finishOrbit == null && returnSource == null ? Array.Empty<ConstructionStep>() : new[]
             {

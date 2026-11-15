@@ -1,0 +1,34 @@
+// B12：现有窗口改造间隔转移，仍保存普通飞行参数。
+var editableSnap = ConstructionEditing.Copy(definitions[0]); editableSnap.Name = "折线闪击"; ConstructedAbilityService.Register(editableSnap);
+WindowWanfaConstructionEditor.Open(editableSnap.Id, source); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+var snapEditor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+try
+{
+    string TG(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+    ConstructionEditSession GS() => (ConstructionEditSession)Field(snapEditor, "session");
+    void GC(string key)
+    {
+        var button = snapEditor.GetComponentsInChildren<Button>(false).FirstOrDefault(b => b.name == key);
+        if (button == null) button = snapEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(r => ((Text)Field(r, "_title")).text == TG(key)).transform.Find("Header/Action").GetComponent<Button>();
+        button.onClick.Invoke();
+    }
+    void GN(string key, string value) { var input = snapEditor.GetComponentsInChildren<InputField>(false).Last(f => f.name == key && f.interactable); input.text = value; input.onEndEdit.Invoke(value); }
+    async Task GShot(string name)
+    {
+        World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+        var pane = snapEditor.GetComponentsInChildren<ScrollRect>(false).First(scroll => scroll.name == "Parameters");
+        var row = snapEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(r => ((Text)Field(r, "_title")).text == TG("FlightTransfer"));
+        Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(pane.content, row.transform);
+        pane.verticalNormalizedPosition = 1f - Mathf.Clamp01((pane.content.rect.yMax - bounds.max.y) / (pane.content.rect.height - pane.viewport.rect.height));
+        await Game.NextFrame(); string file = Path.Combine(folder, name + ".png"); File.Delete(file); Screen.Capture(file); await Game.WaitUntil(() => File.Exists(file), 600);
+    }
+    GC("Page1"); GC("FlightTransfer"); GC("FlightTransfer"); GN("TransferInterval", ".06"); GN("TransferDistance", "3.2"); GN("TransferSeed", "42");
+    Check((bool)Field(snapEditor, "valid") && GS().Draft.Root.Operations[0].Transfer.Interval == .06f, "普通窗口可继续改造同主体间隔转移");
+    GN("TransferInterval", "0"); Check(!(bool)Field(snapEditor, "valid"), "窗口拒绝非法转移间隔"); GC("Undo");
+    await GShot("snap-cz"); LocalizedTextManager.instance.setLanguage("en"); GC("Page1"); await GShot("snap-en");
+    LocalizedTextManager.instance.setLanguage("cz"); GC("Page1"); GC("LearnCopy"); var storedSnap = ConstructionEditing.Access.Read(GS().SourceId);
+    Check(ConstructedAbilityService.Knows(owner, GS().SourceId) && storedSnap.Root.Operations[0].Transfer.Interval == .06f &&
+        storedSnap.Root.Operations[0].Transfer.Distance == 3.2f && storedSnap.Root.Operations[0].Transfer.Seed == 42,
+        "正式保存学习保留转移间隔、距离及明确种子");
+}
+finally { LocalizedTextManager.instance.setLanguage("cz"); typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(snapEditor, null); }

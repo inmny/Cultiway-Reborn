@@ -94,7 +94,7 @@ public static class ConstructionOperations
         Add(ConstructionOperationKind.Fly, new[] { part, new ConstructionOperationPort("target", Value.Position, false) },
             new[] { part, Port("flight", Value.Process) }, State.Pose | State.Connection | State.Momentum, Resource.None, Effect.Movement | Effect.Connection,
             new[] { nameof(ConstructionOperation.Vector), nameof(ConstructionOperation.TurnRate), nameof(ConstructionOperation.Acceleration),
-                nameof(ConstructionOperation.WorldVelocity), nameof(ConstructionOperation.Ground), nameof(ConstructionOperation.Path), nameof(ConstructionOperation.Goal), nameof(ConstructionOperation.InheritVelocity) });
+                nameof(ConstructionOperation.WorldVelocity), nameof(ConstructionOperation.Ground), nameof(ConstructionOperation.Path), nameof(ConstructionOperation.Goal), nameof(ConstructionOperation.Transfer), nameof(ConstructionOperation.InheritVelocity) });
         Add(ConstructionOperationKind.ChangeSpeed, new[] { part }, new[] { part, Port("speed", Value.Result) },
             State.Momentum, Resource.None, Effect.Movement, new[] { nameof(ConstructionOperation.Speed) });
         Add(ConstructionOperationKind.Animate, new[] { part }, new[] { part, Port("animation", Value.Process) },

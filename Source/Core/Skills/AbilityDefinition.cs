@@ -400,6 +400,10 @@ public sealed class ConstructionOperation
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionFlightGoal Goal;
 
+    /// <summary>可选的间隔转移，空值保持连续飞行。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionFlightTransfer Transfer;
+
     /// <summary>调整速度操作的实际中心速度，零停止中心前进但不停止曲线偏移。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public float Speed;

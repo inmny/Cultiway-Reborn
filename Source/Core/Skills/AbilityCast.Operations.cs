@@ -145,7 +145,7 @@ public sealed partial class AbilityCast
     {
         state.Flight = flight; state.FlightStartedAt = at; state.Flying = true; state.MovementStopped = false;
         state.FlightArrived = state.FlightEnded = false;
-        state.SteeringProgress = 0d;
+        state.SteeringProgress = 0d; state.TransferCount = 0;
         state.FlightOrigin = state.Position;
         state.FlightDistance = 0f;
         state.FlightTarget = flight.Goal?.Anchor == ConstructionFlightAnchor.Direction ? inputs.Forward.normalized :
@@ -156,6 +156,7 @@ public sealed partial class AbilityCast
         state.ApproachSpeed = state.Velocity.magnitude;
         state.Acceleration = flight.WorldVelocity ? flight.Acceleration : state.Rotation * flight.Acceleration;
         if (flight.Path != null) StartPath(ref state);
+        if (flight.Transfer != null) state.Velocity = Vector3.zero;
     }
 
     /// <summary>保持实际接触姿态；恢复整体运动不会让形变和尺寸突然跳到未来阶段。</summary>

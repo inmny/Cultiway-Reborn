@@ -737,5 +737,13 @@
   "Cultiway.Construction.FlightDirectArrival": "最后一步可达时直达",
   "Cultiway.Construction.FlightDirectArrivalRules": "最后一步",
   "Cultiway.Construction.FlightDirectArrivalHint": "之前仍遵守转速；本步路程足够时沿真实线段到达实际目标并停止或结束。",
-  "Cultiway.Construction.MotionFlightDistanceThreshold": "起点距离（格）"
+  "Cultiway.Construction.MotionFlightDistanceThreshold": "起点距离（格）",
+  "Cultiway.Construction.FlightTransfer": "间隔转移",
+  "Cultiway.Construction.FlightTransferRules": "转移规则",
+  "Cultiway.Construction.FlightTransferHint": "间隔内停留，到时转移至新位置。只在离开前的形体和新落点发生接触，空隙不造成伤害。连续位置曲线及加速度需要先移除。",
+  "Cultiway.Construction.TransferInterval": "转移间隔（秒）",
+  "Cultiway.Construction.TransferDistance": "最低步距",
+  "Cultiway.Construction.TransferArrivalSlack": "直接到达余量",
+  "Cultiway.Construction.TransferSideJitter": "最大横向偏移",
+  "Cultiway.Construction.TransferSeed": "偏移种子"
 }

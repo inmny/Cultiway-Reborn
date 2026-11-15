@@ -93,6 +93,7 @@ public sealed partial class WindowWanfaConstructionEditor
         if (operation.Kind != ConstructionOperationKind.Fly) return;
         Number("MotionHoming", operation.TurnRate, value => operation.TurnRate = value);
         Toggle("MotionInheritVelocity", operation.InheritVelocity, value => operation.InheritVelocity = value);
+        FlightTransferRows(operation);
         FlightPhysicsRows(operation, "Motion");
         ActionRow("MotionPath", T("MotionPathHint"), () => { flightChoice = node.Operations.Where(o => o.Kind == ConstructionOperationKind.Fly).ToList().IndexOf(operation); page = 1; Refresh(); });
     }

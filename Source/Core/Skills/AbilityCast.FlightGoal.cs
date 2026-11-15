@@ -15,7 +15,7 @@ public sealed partial class AbilityCast
         if (before.sqrMagnitude > 1e-8f) state.FlightDirection = before.normalized;
         state.ApproachSpeed = speed;
         Vector3 after = state.FlightDirection * speed;
-        if (state.Flight.Path == null) state.Velocity = after;
+        if (state.Flight.Path == null) state.Velocity = state.Flight.Transfer == null ? after : Vector3.zero;
         else
         {
             state.PathVelocity = after;
@@ -48,7 +48,7 @@ public sealed partial class AbilityCast
     {
         CompiledFlightGoal goal = state.Flight?.Goal;
         if (!state.Free || !state.Flying || state.MovementStopped || state.FlightArrived || goal == null ||
-            goal.Arrival == ConstructionFlightArrival.None) return maximum;
+            goal.Arrival == ConstructionFlightArrival.None || state.Flight.Transfer != null) return maximum;
         if (goal.DirectArrival) return maximum;
         float minimum = Mathf.Max(.000001f, Age * .0000001f);
         float distance = Vector3.Distance(state.Position, FlightAim(in state, target)) - goal.Radius;
