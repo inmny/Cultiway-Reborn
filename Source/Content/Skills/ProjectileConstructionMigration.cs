@@ -354,7 +354,7 @@ internal static class ProjectileConstructionMigration
                     When = new ConstructionCondition { Source = "..", Trigger = ConstructionChangeTrigger.End } } }
             } };
         }
-        return ContactStatusMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast);
+        return ContactStatusMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, tickForceScale: !continues && !blast ? 1f / damageMultiplier : 1f);
     }
 
     /// <summary>保留基准生成高度；按真实主体底部抬高出生点，不让放大后的尖端出生即穿地。</summary>

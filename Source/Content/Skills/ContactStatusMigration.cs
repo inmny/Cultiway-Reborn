@@ -17,7 +17,8 @@ internal static class ContactStatusMigration
     /// <summary>已经完整接管的原接触状态词条。</summary>
     /// <param name="type">原容器中的词条类型。</param>
     internal static bool Supports(Type type) => type == typeof(SlowModifier) || type == typeof(FreezeModifier) || type == typeof(DazeModifier) ||
-        type == typeof(WeakenModifier) || type == typeof(ArmorBreakModifier) || type == typeof(SilenceModifier);
+        type == typeof(WeakenModifier) || type == typeof(ArmorBreakModifier) || type == typeof(SilenceModifier) ||
+        type == typeof(BurnModifier) || type == typeof(PoisonModifier);
 
     /// <summary>核对真实接触回调全部来自已映射词条，额外回调继续原入口。</summary>
     /// <param name="skill">实际原容器。</param>
@@ -38,8 +39,9 @@ internal static class ContactStatusMigration
     /// <summary>在真实攻击面附加状态；飞行中的零伤害爆发载体及纯防御面不提前施加。</summary>
     /// <param name="definition">已经转换的普通构造。</param><param name="skill">原容器。</param>
     /// <param name="effectScale">本次固定效果倍率。</param>
+    /// <param name="tickForceScale">本体量换回原附加作用强度的比例，不重复乘来源效果倍率。</param>
     /// <param name="includeRoot">本体是否已经是实际作用面，爆发载体在后段作用。</param>
-    internal static AbilityDefinition Bind(AbilityDefinition definition, Entity skill, float effectScale, bool includeRoot = true)
+    internal static AbilityDefinition Bind(AbilityDefinition definition, Entity skill, float effectScale, bool includeRoot = true, float tickForceScale = 1f)
     {
         var statuses = new List<ConstructionStatus>();
         if (skill.TryGetComponent(out SlowModifier slow))
@@ -73,8 +75,28 @@ internal static class ContactStatusMigration
             AddReduction(statuses, StatusEffects.ArmorBreak.id, armorBreak.Duration, S.armor, armorBreak.ArmorReduction * effectScale);
         if (skill.TryGetComponent(out SilenceModifier silence))
             AddReduction(statuses, StatusEffects.Silence.id, silence.Duration, S.damage, silence.DamageReduction * effectScale);
+        if (skill.TryGetComponent(out BurnModifier burn))
+            AddTick(statuses, StatusEffects.Burn.id, burn.Duration, Mathf.Clamp01(burn.DamageRatio) * tickForceScale, Core.ElementComposition.Static.Fire);
+        if (skill.TryGetComponent(out PoisonModifier poison))
+            AddTick(statuses, StatusEffects.Poison.id, poison.Duration, Mathf.Clamp01(poison.DamageRatio) * tickForceScale,
+                Core.ElementComposition.Static.Poison, Mathf.Clamp(poison.MaxStacks, 1, 99));
         if (statuses.Count > 0) BindNode(definition.Root, statuses.ToArray(), includeRoot);
         return definition;
+    }
+
+    /// <summary>持续伤害沿用原共享状态，真实接触时才按余力写入每秒量。</summary>
+    /// <param name="statuses">本次接触声明。</param><param name="id">共享状态编号。</param>
+    /// <param name="duration">原持续世界秒。</param><param name="ratio">已经换算本体基准的总伤害比例。</param>
+    /// <param name="element">原周期伤害元素。</param><param name="stackLimit">毒伤同源层数，零表示同类刷新。</param>
+    private static void AddTick(List<ConstructionStatus> statuses, string id, float duration, float ratio, Core.ElementComposition element, int stackLimit = 0)
+    {
+        duration = Mathf.Clamp(duration, 0f, 999f);
+        if (duration <= 0f || ratio <= 0f) return;
+        statuses.Add(new ConstructionStatus
+        {
+            Id = id, Duration = duration, Application = stackLimit > 0 ? ConstructionStatusApplication.SourceStack : ConstructionStatusApplication.Refresh,
+            StackLimit = stackLimit, Tick = new ConstructionStatusTick { ForcePerSecond = ratio / duration, Element = element }
+        });
     }
 
     /// <summary>比例削弱在命中时取目标属性，同类刷新并沿用状态模板中的控制标记。</summary>

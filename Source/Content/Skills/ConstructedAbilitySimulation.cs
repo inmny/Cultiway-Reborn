@@ -1016,7 +1016,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <summary>在已确认接触处计算目标比例并沿用共享状态规则，不创建第二套状态更新。</summary>
     /// <param name="running">实际施放。</param><param name="node">实际部位。</param>
     /// <param name="target">已确认的人物。</param><param name="effects">已编译属性状态。</param>
-    private static void ApplyStatuses(RunningCast running, int node, Actor target, IReadOnlyList<CompiledConstructionStatus> effects)
+    /// <param name="attenuation">真实接触位置或传播路程给出的本体强度倍率。</param>
+    private static void ApplyStatuses(RunningCast running, int node, Actor target, IReadOnlyList<CompiledConstructionStatus> effects, float attenuation = 1f)
     {
         if (effects.Count == 0) return;
         CastAuthority owner = running.Owner(node);
@@ -1047,8 +1048,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     target.makeWait(strongest.GetComponent<Core.Components.AliveTimeLimit>().value);
                 continue;
             }
-            var status = CombatStatusEffects.ApplyContactStatus(target, effect.Asset, effect.Duration, owner.Actor,
-                owner.Damage.AttackerPowerLevel ?? 0f, effect.Application, stats);
+            float tickValue = effect.Tick == null ? 0f : (node < 0 ? running.Power : running.Cast.RemainingForce(node)) * attenuation * effect.Tick.ForcePerSecond;
+            if (effect.Tick != null && tickValue <= 0f) continue;
+            var status = CombatStatusEffects.ApplyStatusDeclaration(target, effect, owner.Actor,
+                owner.Damage.AttackerPowerLevel ?? 0f, stats, tickValue);
             if (effect.WaitForDuration && !status.IsNull) target.makeWait(status.GetComponent<Core.Components.AliveTimeLimit>().value);
         }
     }
@@ -1068,7 +1071,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         if (target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
             return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);
-        ApplyStatuses(running, node, target, impact.Statuses);
+        ApplyStatuses(running, node, target, impact.Statuses, strength);
         ApplyContactReactions(target, impact, running.Owner(node), result, out float stagger, out float bound,
             out float strain, out float exposure);
         Vector3 velocity = ApplyContactForce(running, node, target, impact, result, out bool force, origin,

@@ -15,7 +15,9 @@ public enum ConstructionStatusApplication
     /// <summary>每次真实接触独立加入一份状态。</summary>
     Stack = 1,
     /// <summary>刷新最早加入的同类状态，并采用本次来源及实际时长。</summary>
-    Refresh = 2
+    Refresh = 2,
+    /// <summary>同一来源分别计数，未满上限时独立加入，满层刷新流逝时间最少的一层。</summary>
+    SourceStack = 3
 }
 
 /// <summary>真实接触附带的已登记属性状态，可与伤害、恢复和其他状态自由组合。</summary>
@@ -38,6 +40,12 @@ public sealed class ConstructionStatus
     /// <summary>成功施加后等待抗性结算所得的真实时长，供短暂硬直等状态使用。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool WaitForDuration;
+    /// <summary>同源有限叠加的最多层数，其他合并方式省略。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public int StackLimit;
+    /// <summary>可选周期伤害的本体量比例及元素构成，由原共享状态维护周期。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionStatusTick Tick;
 }
 
 /// <summary>在编译边界解析并复制的状态资料，数值计算线程不施加游戏状态。</summary>
@@ -57,6 +65,10 @@ public sealed class CompiledConstructionStatus
     public ConstructionStatusApplication Application { get; }
     /// <summary>是否使用抗性结算后的真实时长等待。</summary>
     public bool WaitForDuration { get; }
+    /// <summary>已检查的同源层数上限。</summary>
+    public int StackLimit { get; }
+    /// <summary>独立编译的周期伤害声明。</summary>
+    public CompiledConstructionStatusTick Tick { get; }
 
     /// <summary>只在用户资料进入执行前检查编号、范围与状态能力。</summary>
     /// <param name="source">可保存的作用资料。</param><param name="path">资料错误位置。</param>
@@ -92,6 +104,15 @@ public sealed class CompiledConstructionStatus
             }
             TargetStatRatios = new ReadOnlyDictionary<string, float>(ratios);
         }
+        if (source.Application == ConstructionStatusApplication.SourceStack ? source.StackLimit < 1 || source.StackLimit > 99 : source.StackLimit != 0)
+            throw new InvalidDataException(path + "/StackLimit：同源有限叠加需要1至99层，其他方式不声明层数");
+        if (source.Tick != null)
+        {
+            if (source.Application == ConstructionStatusApplication.Strongest || !Asset.SupportsTickValue)
+                throw new InvalidDataException(path + "/Tick：周期声明需要已登记的周期状态和明确叠加或刷新方式");
+            Tick = new CompiledConstructionStatusTick(source.Tick, path + "/Tick");
+        }
+        StackLimit = source.StackLimit;
         Application = source.Application;
         WaitForDuration = source.WaitForDuration;
         Duration = source.Duration;
@@ -100,4 +121,43 @@ public sealed class CompiledConstructionStatus
 
     /// <summary>只在资料边界拒绝非有限数值。</summary><param name="value">实际输入。</param>
     private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+}
+
+
+/// <summary>每秒量取真实接触时本体余力的比例，不提前保存目标伤害结果。</summary>
+public sealed class ConstructionStatusTick
+{
+    /// <summary>本体余力每秒转为持续伤害的比例，包含原参数和来源换算。</summary>
+    public float ForcePerSecond;
+    /// <summary>本次周期伤害的八类元素权重。</summary>
+    public ElementComposition Element;
+}
+
+/// <summary>只在资料边界检查和复制的周期伤害。</summary>
+public sealed class CompiledConstructionStatusTick
+{
+    /// <summary>已检查的每秒本体量比例。</summary>
+    public float ForcePerSecond { get; }
+    /// <summary>独立值类型的伤害元素。</summary>
+    public ElementComposition Element { get; }
+    /// <summary>核对正每秒比例和有效非负元素，不读取人物或世界。</summary>
+    /// <param name="source">可保存声明。</param><param name="path">错误位置。</param>
+    internal CompiledConstructionStatusTick(ConstructionStatusTick source, string path)
+    {
+        if (float.IsNaN(source.ForcePerSecond) || float.IsInfinity(source.ForcePerSecond) || source.ForcePerSecond <= 0f || source.ForcePerSecond > 1000000f)
+            throw new InvalidDataException(path + "：每秒本体比例需要正一百万内的有限值");
+        float total = 0f;
+        for (int i = 0; i < 8; i++)
+        {
+            float value = source.Element[i];
+            if (float.IsNaN(value) || float.IsInfinity(value) || value < 0f || value > 1f)
+                throw new InvalidDataException(path + "/Element：元素权重需要零至一内的有限值");
+            total += value;
+        }
+        if (total <= 0f) throw new InvalidDataException(path + "/Element：元素构成不能全为零");
+        ForcePerSecond = source.ForcePerSecond;
+        var element = source.Element;
+        element.Normalize();
+        Element = element;
+    }
 }

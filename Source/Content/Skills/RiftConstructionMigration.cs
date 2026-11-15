@@ -123,6 +123,6 @@ internal static class RiftConstructionMigration
                     { ["part"] = new ConstructionOutputReference { Node = "root" } }
                 }
             }
-        }, skill, emission.RuntimeData.ResolveEffectScale());
+        }, skill, emission.RuntimeData.ResolveEffectScale(), tickForceScale: 1f / (container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier));
     }
 }

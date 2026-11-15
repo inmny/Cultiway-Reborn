@@ -214,21 +214,45 @@ public static class CombatStatusEffects
     /// <param name="sourcePowerLevel">施放时固定的境界。</param><param name="application">已检查的叠加或刷新。</param>
     /// <param name="stats">可选覆盖属性；空值沿用状态自身属性。</param>
     internal static Entity ApplyContactStatus(Actor target, StatusEffectAsset effect, float duration, Actor source,
-        float sourcePowerLevel, ConstructionStatusApplication application, BaseStats stats)
+        float sourcePowerLevel, ConstructionStatusApplication application, BaseStats stats) =>
+        ApplyContactStatusValues(target, effect, duration, source, sourcePowerLevel, application, stats);
+
+    /// <summary>普通接触声明复用共享合并和周期，不新建运行容器。</summary>
+    /// <param name="target">真实目标。</param><param name="effect">已经编译的状态。</param>
+    /// <param name="source">本次真实来源。</param><param name="sourcePowerLevel">固定来源境界。</param>
+    /// <param name="stats">本次已计算的属性。</param><param name="tickValue">按真实余力计算的每秒量。</param>
+    internal static Entity ApplyStatusDeclaration(Actor target, CompiledConstructionStatus effect, Actor source,
+        float sourcePowerLevel, BaseStats stats, float tickValue) =>
+        ApplyContactStatusValues(target, effect.Asset, effect.Duration, source, sourcePowerLevel, effect.Application, stats,
+            effect.StackLimit, effect.Tick == null ? null : tickValue, effect.Tick?.Element ?? default);
+
+    /// <summary>统一配置来源、属性及可选周期值；叠加只改变已有状态的选择规则。</summary>
+    /// <param name="target">真实目标。</param><param name="effect">共享状态。</param><param name="duration">未过抗性的时长。</param>
+    /// <param name="source">本次来源。</param><param name="sourcePowerLevel">固定境界。</param><param name="application">合并方式。</param>
+    /// <param name="stats">覆盖属性。</param><param name="stackLimit">同源有限层数。</param>
+    /// <param name="tickValue">可选每秒量。</param><param name="tickElement">周期伤害元素。</param>
+    private static Entity ApplyContactStatusValues(Actor target, StatusEffectAsset effect, float duration, Actor source,
+        float sourcePowerLevel, ConstructionStatusApplication application, BaseStats stats, int stackLimit = 0,
+        float? tickValue = null, ElementComposition tickElement = default)
     {
         return ApplyConfiguredStatus(target, effect, duration, source, (status, resolved) =>
         {
             ConfigureStatusHeader(status, resolved, source);
             status.GetComponent<StatusComponent>().SourcePowerLevel = sourcePowerLevel;
-            if (stats == null)
+            if (tickValue.HasValue)
             {
-                status.RemoveComponent<StatusOverwriteStats>();
-                return;
+                ref var tick = ref status.GetComponent<StatusTickState>();
+                tick.Value = tickValue.Value;
+                tick.Element = tickElement;
             }
-            if (!status.HasComponent<StatusOverwriteStats>()) status.AddComponent(new StatusOverwriteStats());
-            status.GetComponent<StatusOverwriteStats>().stats = stats;
-        }, sourcePowerLevel: sourcePowerLevel, independent: application == ConstructionStatusApplication.Stack,
-            matchAnySource: application == ConstructionStatusApplication.Refresh);
+            if (stats == null) status.RemoveComponent<StatusOverwriteStats>();
+            else
+            {
+                if (!status.HasComponent<StatusOverwriteStats>()) status.AddComponent(new StatusOverwriteStats());
+                status.GetComponent<StatusOverwriteStats>().stats = stats;
+            }
+        }, sourcePowerLevel: sourcePowerLevel, independent: application is ConstructionStatusApplication.Stack or ConstructionStatusApplication.SourceStack,
+            matchAnySource: application == ConstructionStatusApplication.Refresh, sourceStackLimit: stackLimit);
     }
 
     /// <summary>
@@ -341,15 +365,35 @@ public static class CombatStatusEffects
         float duration,
         Actor source,
         Action<Entity, float> configure,
-        BaseStats defaultStats = null, float? sourcePowerLevel = null, bool keepLonger = false, bool independent = false, bool matchAnySource = false)
+        BaseStats defaultStats = null, float? sourcePowerLevel = null, bool keepLonger = false, bool independent = false, bool matchAnySource = false, int sourceStackLimit = 0)
     {
         if (target == null || target.isRekt() || effect == null ||
             source == null && !sourcePowerLevel.HasValue || source != null && source.isRekt()) return default;
         ActorExtend targetExtend = target.GetExtend();
         var relations = targetExtend.E.GetRelations<StatusRelation>();
+        Entity capped = default;
+        if (sourceStackLimit > 0)
+        {
+            // 原有限毒层选择流逝时间最少的一份；不改变周期计时，避免刷新重置每秒触发。
+            int count = 0;
+            float leastElapsed = float.MaxValue;
+            for (int i = 0; i < relations.Length; i++)
+            {
+                Entity candidate = relations[i].status;
+                StatusComponent component = candidate.GetComponent<StatusComponent>();
+                if (component.Type != effect || component.Source != source) continue;
+                count++;
+                float elapsed = candidate.GetComponent<AliveTimer>().value;
+                if (elapsed >= leastElapsed) continue;
+                leastElapsed = elapsed;
+                capped = candidate;
+            }
+            independent = count < sourceStackLimit;
+        }
         for (var i = 0; !independent && i < relations.Length; i++)
         {
             Entity status = relations[i].status;
+            if (!capped.IsNull && status != capped) continue;
             StatusComponent component = status.GetComponent<StatusComponent>();
             if (component.Type != effect || !matchAnySource && component.Source != source) continue;
             if (!StatusEffectSuppression.TryResolveDuration(

@@ -149,7 +149,7 @@ internal static class BarrierConstructionMigration
                     Vector = new float[3], WorldVelocity = true, Ground = ConstructionGroundResponse.Follow } }
 
             }
-        }, skill, emission.RuntimeData.ResolveEffectScale());
+        }, skill, emission.RuntimeData.ResolveEffectScale(), tickForceScale: emission.RuntimeData.ResolveEffectScale());
     }
 
 }

@@ -118,6 +118,6 @@ internal static class ChainConstructionMigration
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat | ActiveAbilityChannel.World,
                 Target = ActiveAbilityTargetMode.ObjectOrPoint },
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Follow = false }, Root = root
-        }, skill, emission.RuntimeData.ResolveEffectScale());
+        }, skill, emission.RuntimeData.ResolveEffectScale(), tickForceScale: 1f / (container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier));
     }
 }

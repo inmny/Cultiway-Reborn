@@ -1363,3 +1363,13 @@ python3 Scripts/SpellDemos/verify_contact_reductions.py
 复用既有独立游戏、世界和人物。资料段快速核对七条攻击转换、爆发及零伤害推力面的保存编译；实机只用一个已学灵弹核对三状态的真实削弱、禁止施法、再次接触刷新、侧外安全、原费用、抗性及到期恢复，一个玄阴领域核对间隔刷新，并走一次边界失败退款恢复。不扩大身体装备及全部来源实机矩阵。
 
 `--section definitions/runtime`可单跑受影响段。输入、来源定义、实际发射及结果保存到`artifacts/skill_rebuild/trajectories/contact-reductions/`，分段存入同名子目录。完整编辑、创作、正式存档冷启动和集中录像继续5.05 C。
+
+
+```bash
+# 5.05 B34：燃烧、毒伤、同源限层及真实周期掉血
+python3 Scripts/SpellDemos/verify_contact_ticks.py
+```
+
+复用现有世界和人物。资料段检查七条攻击转换、爆发和零伤害推力面，核对效果及人物倍率只换算一次。实机只用一个灵弹验证周期掉血、燃烧刷新、同源毒层上限、不同来源分别计数、原费用及到期停伤，再用一个领域验证间隔接触。收尾检查失败退款恢复、抗性时长，并定量消耗本体后核对每秒量随余力变化，不扩大身体装备矩阵。
+
+`--section definitions/runtime/recovery`可只跑受影响段；`recovery`含边界失败恢复、抗性和余力。证据存入`artifacts/skill_rebuild/trajectories/contact-ticks/`及同名分段目录。完整编辑、创作、正式冷启动与集中录像继续5.05 C。

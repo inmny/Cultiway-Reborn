@@ -76,6 +76,9 @@ public class StatusEffectAsset : Asset
     /// <summary>该已登记状态是否提供同类强度与可覆盖属性，供构造资料边界核对。</summary>
     internal bool SupportsStatOverwrite => !_prefab.IsNull && _prefab.HasComponent<StatusPotency>() && _prefab.HasComponent<StatusOverwriteStats>();
 
+    /// <summary>周期值声明只用于已有周期动作及运行组件的共享状态。</summary>
+    internal bool SupportsTickValue => TickSettings.enabled && TickSettings.Action != null && !_prefab.IsNull && _prefab.HasComponent<StatusTickState>();
+
     private Entity _prefab;
     private EntityStore _world;
     public StatusEffectAsset()

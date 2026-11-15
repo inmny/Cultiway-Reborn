@@ -110,7 +110,7 @@ internal static class BeamConstructionMigration
                 Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Ray,
                     Ray = new ConstructionRay { Length = 10000f, FollowTarget = follow, TurnRate = 0f } } }
             }
-        }, skill, emission.RuntimeData.ResolveEffectScale());
+        }, skill, emission.RuntimeData.ResolveEffectScale(), tickForceScale: 1f / (container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier));
     }
 
     /// <summary>只接管本批已经保留全部实际作用的两个原光束。</summary>

@@ -106,6 +106,6 @@ internal static class GroundSpikeConstructionMigration
                 Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate,
                     Clip = "erupt", Seconds = lifetime } }
             }
-        }, skill, emission.RuntimeData.ResolveEffectScale());
+        }, skill, emission.RuntimeData.ResolveEffectScale(), tickForceScale: 1f / (container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier));
     }
 }
