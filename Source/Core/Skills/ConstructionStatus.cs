@@ -29,6 +29,9 @@ public sealed class ConstructionStatus
     public float Potency;
     /// <summary>原版或模组已登记的属性编号及本次加成，允许明确负值。</summary>
     public Dictionary<string, float> Stats;
+    /// <summary>真实接触时取目标当前非负同名属性的比例，范围正负一；同名固定值作为额外加成，省略固定表时保留模板的其他属性及控制标记。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public Dictionary<string, float> TargetStatRatios;
     /// <summary>同类合并方式；叠加或刷新时允许省略属性，使用状态自身属性及控制标记。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public ConstructionStatusApplication Application;
@@ -48,6 +51,8 @@ public sealed class CompiledConstructionStatus
     public float Potency { get; }
     /// <summary>独立只读的属性值，不持有可编辑字典。</summary>
     public IReadOnlyDictionary<string, float> Stats { get; }
+    /// <summary>独立只读的目标属性比例，只在主线程确认真实接触后取值。</summary>
+    public IReadOnlyDictionary<string, float> TargetStatRatios { get; }
     /// <summary>已经检查的同类合并方式。</summary>
     public ConstructionStatusApplication Application { get; }
     /// <summary>是否使用抗性结算后的真实时长等待。</summary>
@@ -60,9 +65,9 @@ public sealed class CompiledConstructionStatus
         if (source == null || string.IsNullOrEmpty(source.Id) || !Finite(source.Duration) || source.Duration <= 0f ||
             source.Duration > 3600f || !Finite(source.Potency) || source.Potency < 0f || source.Potency > 1000000f ||
             !Enum.IsDefined(typeof(ConstructionStatusApplication), source.Application) ||
-            source.Application == ConstructionStatusApplication.Strongest && (source.Stats == null || source.Stats.Count == 0) ||
-            source.Stats?.Count > 64)
-            throw new InvalidDataException(path + "：状态需要稳定编号、0至3600内的正时长、0至一百万的强度、有效合并方式及最多64项属性；最强规则必须明确属性");
+            source.Application == ConstructionStatusApplication.Strongest && (source.Stats == null || source.Stats.Count == 0) && (source.TargetStatRatios == null || source.TargetStatRatios.Count == 0) ||
+            (source.Stats?.Count ?? 0) + (source.TargetStatRatios?.Count ?? 0) > 64)
+            throw new InvalidDataException(path + "：状态需要稳定编号、0至3600内的正时长、0至一百万的强度、有效合并方式及合计最多64项属性；最强规则必须明确固定值或目标比例");
         Asset = ModClass.L.StatusEffectLibrary.get(source.Id);
         if (Asset == null || source.Application == ConstructionStatusApplication.Strongest && !Asset.SupportsStatOverwrite)
             throw new InvalidDataException(path + "：未登记或不支持所选合并方式的共享状态：" + source.Id);
@@ -75,6 +80,18 @@ public sealed class CompiledConstructionStatus
             stats.Add(pair.Key, pair.Value);
         }
         Stats = source.Stats == null ? null : new ReadOnlyDictionary<string, float>(stats);
+        if (source.TargetStatRatios != null)
+        {
+            var ratios = new Dictionary<string, float>(StringComparer.Ordinal);
+            foreach (var pair in source.TargetStatRatios)
+            {
+                if (string.IsNullOrEmpty(pair.Key) || !Finite(pair.Value) || Math.Abs(pair.Value) > 1f ||
+                    AssetManager.base_stats_library.get(pair.Key) is not { ignore: false })
+                    throw new InvalidDataException(path + "/TargetStatRatios：比例需要已登记的有效属性及正负一内的有限值：" + pair.Key);
+                ratios.Add(pair.Key, pair.Value);
+            }
+            TargetStatRatios = new ReadOnlyDictionary<string, float>(ratios);
+        }
         Application = source.Application;
         WaitForDuration = source.WaitForDuration;
         Duration = source.Duration;

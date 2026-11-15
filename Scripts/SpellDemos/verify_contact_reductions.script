@@ -1,0 +1,163 @@
+// B33：虚弱、破甲与禁言的命中比例，复用既有世界与人物，不扩大来源实机矩阵。
+const string section="all";
+var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var allCasts=new List<AbilityCast>();
+var emissions=new List<object>();int oldExecutions=0;bool invalidate=false,scopeValid=true;
+SkillEmissionResult? lastResult=null;SkillEntityAsset current=SkillEntities.SpiritBolt;
+Actor source=Make(64),target=Make(70),outside=Make(70),wolf=Make(12,"wolf");
+target.setKingdom(wolf.kingdom);outside.setKingdom(wolf.kingdom);Place(outside,70,78);
+var owner=source.GetExtend();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=0;
+owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();await Advance(.2f);
+var statusTypes=new[]{StatusEffects.Weaken,StatusEffects.ArmorBreak,StatusEffects.Silence};
+IReadOnlyList<Entity> Learned()=>(IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(owner,null);
+var targetBuff=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ContactReduction.Base")
+    .SetStats(new BaseStats{[S.damage]=80,[S.armor]=45}).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(target,targetBuff,10000,target);target.updateStats();
+var recipient=target.GetExtend();recipient.NewCultisys(Cultisyses.Xian);recipient.GetCultisys<Xian>().level=0;
+recipient.MarkCultiwayStatsDirty();target.setStatsDirty();target.updateStats();
+recipient.GetCultisys<Xian>().wakan=target.stats[BaseStatses.MaxWakan.id]*.8f;
+/// <summary>使用原容器和学习入口，三个词条均保留原参数。</summary>
+Entity Build(bool contact=true)
+{
+    var builder=new SkillContainerBuilder(current).UseAnimation(0);
+    builder.AddModifier(new WeakenModifier{Duration=3f,AttackReduction=.25f});
+    builder.AddModifier(new ArmorBreakModifier{Duration=3f,ArmorReduction=.3f});
+    builder.AddModifier(new SilenceModifier{Duration=3f,DamageReduction=.2f});
+    Entity made=builder.Build(SkillContainerBuildMode.RuleOnly);
+    if(!contact)made.AddComponent(new SkillSettings{Duration=2.4f,PowerMultiplier=1,AreaMultiplier=1,ContactEnabled=false});
+    string signature=SkillContainerSignature.Build(made);owner.LearnSkillV3(made);return Learned().First(s=>SkillContainerSignature.Build(s)==signature);
+}
+/// <summary>读取真实来源的普通转换资料，不直接受理替代施放。</summary>
+AbilityDefinition Convert(Entity skill,string migration,float scale=1f)
+{
+    var method=service.Assembly.GetType("Cultiway.Content.Skills."+migration+"ConstructionMigration").GetMethod("Convert",F);
+    var emission=new SkillEmission{Source=source,SpatialSource=source,SkillContainer=skill,Target=target,
+        SourcePos=new Vector3(64,72,.3f),TargetPos=new Vector3(70,72,.3f),Strength=40,PowerLevel=0,
+        RuntimeData=new SkillCastRuntimeData{EffectScale=scale}};
+    object[] args=method.GetParameters().Length==3?new object[]{emission,default(GetHitEvent),default(Vector3)}:new object[]{emission,default(GetHitEvent)};
+    return (AbilityDefinition)method.Invoke(null,args);
+}
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    yield return node;if(node.Children!=null)foreach(var child in node.Children)foreach(var nested in Nodes(child))yield return nested;
+}
+Entity[] States(Actor actor,Cultiway.Core.Libraries.StatusEffectAsset type)=>actor.GetExtend().GetStatuses().Where(s=>s.GetComponent<StatusComponent>().Type==type).ToArray();
+void ClearStates(Actor actor){foreach(var type in statusTypes)CombatStatusEffects.RemoveStatus(actor,type);actor.updateStats();}
+void ResetPeople()
+{
+    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();oldExecutions=0;
+    Ready(source);Place(source,64);Place(target,70);Place(outside,70,78);ClearStates(target);ClearStates(outside);
+    target.GetExtend().SetPowerLevel(0);owner.SetPowerLevel(0);
+    owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
+    foreach(var actor in new[]{source,target,outside})ConstructedAbilityService.NotifyActorChanged(actor);
+}
+/// <summary>真实已学施放，保持原费用；来源请求后静止，不受按键输入带动。</summary>
+bool Use(Entity skill,ConstructionWorldScope scope=null)
+{
+    bool used=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",skill),new ActiveAbilityTarget(target,target.GetSimPos(),
+        selectionArea:new SkillTargetSelectionArea(true,target.GetSimPos(),.1f),worldScope:scope),ActiveAbilityUseOrigin.Script);
+    source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();ControllableUnit.clear(false);return used;
+}
+/// <summary>只等真实目标新增一次接触，避免按固定飞行时间推测状态时点。</summary>
+async Task WaitContact(int before)
+{
+    for(int i=0;i<40;i++)
+    {
+        await Advance(.05f);
+        if(contacts.Count(c=>c.TargetId==target.id)>before)return;
+    }
+    throw new InvalidOperationException("实际目标未在两秒内接触");
+}
+void Started(ConstructedCastStarted fact){if(fact.SourceId==source.id)starts.Add(fact);}
+void Old(Entity entity){if(entity.GetComponent<SkillContext>().SourceObj==source)oldExecutions++;}
+ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+try
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        if(request.Source!=source)return original(request);if(invalidate)scopeValid=false;
+        var result=original(request);lastResult=result;
+        if(result==SkillEmissionResult.Accepted)
+        {
+            var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==starts.Last().CastId);
+            var cast=(AbilityCast)Field(running,"Cast");accepted.Add(cast);allCasts.Add(cast);
+        }
+        emissions.Add(new{request.Strength,request.PowerLevel,result=result.ToString(),asset=request.SkillContainer.GetComponent<SkillContainer>().Asset.id});return result;
+    };
+    if(section!="runtime")
+    {
+        foreach(var entry in new[]{(Asset:SkillEntities.SpiritBolt,Migration:"Projectile"),(Asset:SkillEntities.GroundSpike,Migration:"GroundSpike"),(Asset:SkillEntities.Rift,Migration:"Rift"),
+            (Asset:SkillEntities.YinField,Migration:"Field"),(Asset:SkillEntities.FireWall,Migration:"Barrier"),(Asset:SkillEntities.SpiritBeam,Migration:"Beam"),(Asset:SkillEntities.ChainLightning,Migration:"Chain"),
+            (Asset:SkillEntities.Fireball,Migration:"Projectile"),(Asset:SkillEntities.WindWall,Migration:"Barrier")})
+        {
+            current=entry.Asset;var definition=Convert(Build(),entry.Migration,.5f);
+            Check(definition!=null,entry.Asset.id+"比例词条不退回旧执行");
+            var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));AbilityCompiler.Compile(restored,false);
+            var attack=Nodes(restored.Root).Where(n=>n.Impact?.Statuses?.Length>0).ToArray();
+            Check(attack.Length>0&&attack.All(n=>n.Impact.Statuses.Length==3&&n.Impact.Statuses.All(s=>s.Application==ConstructionStatusApplication.Refresh&&s.Duration==3f&&s.Stats==null)&&
+                Math.Abs(n.Impact.Statuses[0].TargetStatRatios[S.damage]+.125f)<.001f&&
+                Math.Abs(n.Impact.Statuses[1].TargetStatRatios[S.armor]+.15f)<.001f&&Math.Abs(n.Impact.Statuses[2].TargetStatRatios[S.damage]+.1f)<.001f),entry.Asset.id+"保存编译后保留比例、原时长和刷新规则");
+            if(entry.Asset==SkillEntities.Fireball)Check(restored.Root.Impact.Statuses==null&&restored.Root.Children[0].Impact.Statuses.Length==3,"爆发仍只在后段真实攻击面削弱");
+            if(entry.Asset==SkillEntities.WindWall)Check(restored.Root.Impact.DamageScale==0&&restored.Root.Impact.Statuses.Length==3,"零伤害推力面仍携带比例状态");
+            File.WriteAllText(Path.Combine(folder,entry.Asset.id+".json"),JsonConvert.SerializeObject(definition,Formatting.Indented));
+        }
+        current=SkillEntities.SpiritBolt;var definition2=Convert(Build(),"Projectile");
+        var ratioStatus=definition2.Root.Impact.Statuses[0];ratioStatus.TargetStatRatios[S.damage]=-1.1f;
+        bool refused=false;try{AbilityCompiler.Compile(definition2,false);}catch(InvalidDataException){refused=true;}Check(refused,"越界比例在编译边界拒绝");
+        ratioStatus.TargetStatRatios.Clear();ratioStatus.TargetStatRatios["missing.stat"]=.1f;refused=false;
+        try{AbilityCompiler.Compile(definition2,false);}catch(InvalidDataException){refused=true;}Check(refused,"未知属性在编译边界拒绝");
+        var ctor=typeof(CompiledConstructionStatus).GetConstructors(F).Single();
+        var editable=new ConstructionStatus{Id=StatusEffects.Weaken.id,Duration=1,Application=ConstructionStatusApplication.Refresh,TargetStatRatios=new Dictionary<string,float>{{S.damage,-.25f}}};
+        var compiled=(CompiledConstructionStatus)ctor.Invoke(new object[]{editable,"独立比例"});editable.TargetStatRatios[S.damage]=-.8f;
+        Check(Math.Abs(compiled.TargetStatRatios[S.damage]+.25f)<.001f,"编译比例不随草稿修改");
+        var legacy=new ConstructionStatus{Id=StatusEffects.BattleBlessing.id,Duration=1,Potency=2,Stats=new Dictionary<string,float>{{S.damage,3}}};
+        Check(!JsonConvert.SerializeObject(legacy).Contains("TargetStatRatios"),"既有状态不增写可选比例字段");
+        ctor.Invoke(new object[]{legacy,"既有最强状态"});
+    }
+    if(section!="definitions")
+    {
+        current=SkillEntities.SpiritBolt;ResetPeople();var skill=Build();float balance=owner.GetCultisys<Xian>().wakan;
+        float damageBefore=target.stats[S.damage],armorBefore=target.stats[S.armor];
+        Check(damageBefore>0&&armorBefore>0&&recipient.CanPrepareSkillContainer(skill,source),"复用目标有真实攻防及正常施法资格");
+        var plan=SkillCastPlanner.CreatePlan(owner,skill,target,SkillCastCost.GetAffordableStepLimit(owner,skill),explicitTargetsOnly:true);
+        Check(Use(skill),"带三个比例词条的已学灵弹受理");await WaitContact(0);target.updateStats();
+        Check(starts.Count==1&&oldExecutions==0&&statusTypes.All(t=>States(target,t).Length==1)&&statusTypes.All(t=>States(outside,t).Length==0),"真实新主体命中并施加三状态，侧外人物无状态");
+        var ids=statusTypes.Select(t=>States(target,t).Single().Id).ToArray();
+        Check(Math.Abs(States(target,StatusEffects.Weaken).Single().GetComponent<StatusOverwriteStats>().stats[S.damage]+damageBefore*.25f)<.001f&&
+            Math.Abs(States(target,StatusEffects.ArmorBreak).Single().GetComponent<StatusOverwriteStats>().stats[S.armor]+armorBefore*.3f)<.001f&&
+            Math.Abs(States(target,StatusEffects.Silence).Single().GetComponent<StatusOverwriteStats>().stats[S.damage]+damageBefore*.2f)<.001f&&
+            target.stats[S.damage]<damageBefore&&target.stats[S.armor]<armorBefore,"命中时取真实当前攻防，属性确实降低",new{damageBefore,armorBefore,damageAfter=target.stats[S.damage],armorAfter=target.stats[S.armor]});
+        Check(target.stats.hasTag(ActorControlTags.Silenced)&&!recipient.CanPrepareSkillContainer(skill,source),"禁言保留模板标记并实际阻止施法");
+        float currentDamage=target.stats[S.damage],currentArmor=target.stats[S.armor];
+        Ready(source);int beforeAgain=contacts.Count(c=>c.TargetId==target.id);Check(Use(skill),"同来源再次施放");await WaitContact(beforeAgain);target.updateStats();
+        Check(statusTypes.Select((t,i)=>States(target,t).Length==1&&States(target,t).Single().Id==ids[i]).All(x=>x)&&
+            Math.Abs(States(target,StatusEffects.Weaken).Single().GetComponent<StatusOverwriteStats>().stats[S.damage]+currentDamage*.25f)<.001f&&
+            Math.Abs(States(target,StatusEffects.ArmorBreak).Single().GetComponent<StatusOverwriteStats>().stats[S.armor]+currentArmor*.3f)<.001f,"同类复用原实体并按再次命中前属性刷新");
+        double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculatePlanDemand(skill,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
+        Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-2*cost)<.001f,"两个新主体只支付原逐发费用",new{cost});
+        await Advance(3.5f);target.updateStats();
+        Check(statusTypes.All(t=>States(target,t).Length==0)&&Math.Abs(target.stats[S.damage]-damageBefore)<.001f&&Math.Abs(target.stats[S.armor]-armorBefore)<.001f&&
+            !target.stats.hasTag(ActorControlTags.Silenced)&&recipient.CanPrepareSkillContainer(skill,source),"到期恢复攻防并归还真实施法资格");
+        current=SkillEntities.YinField;ResetPeople();var field=Build();Check(Use(field),"既有领域携带三个比例词条");await Advance(.45f);
+        var fieldIds=statusTypes.Select(t=>States(target,t).Single().Id).ToArray();await Advance(.85f);
+        Check(contacts.Count(c=>c.TargetId==target.id)>=2&&statusTypes.Select((t,i)=>States(target,t).Length==1&&States(target,t).Single().Id==fieldIds[i]&&States(target,t).Single().GetComponent<AliveTimer>().value<.55f).All(x=>x),"领域多次真实接触刷新同一份比例状态");
+        foreach(var cast in accepted)cast.Cancel();ClearStates(target);ResetPeople();float before=owner.GetCultisys<Xian>().wakan;
+        var scope=new ConstructionWorldScope(()=>scopeValid,(_,_)=>true);invalidate=true;Check(Use(field,scope),"安排真实受理边界失效");await Advance(.3f);invalidate=false;
+        Check(lastResult==SkillEmissionResult.Rejected&&accepted.Count==0&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f&&statusTypes.All(t=>States(target,t).Length==0),"实际边界拒绝后原值退款且无状态残留");
+        scopeValid=true;ResetPeople();Check(Use(field),"失败后同一来源恢复");await Advance(.45f);Check(statusTypes.All(t=>States(target,t).Length==1),"恢复后比例状态重新生效");
+        foreach(var cast in accepted)cast.Cancel();ClearStates(target);ResetPeople();current=SkillEntities.SpiritBolt;
+        recipient.SetPowerLevel(.2f);Check(Use(Build()),"有抗性的目标接受正常攻击");await WaitContact(0);float resistance=Mathf.Pow(.001f,.2f);
+        Check(statusTypes.All(t=>States(target,t).Length==1&&Math.Abs(States(target,t).Single().GetComponent<AliveTimeLimit>().value-3f*resistance)<.001f&&States(target,t).Single().GetComponent<StatusComponent>().SourcePowerLevel==0),"三状态使用受理时固定境界并经过共享时长抗性");
+        await Advance(1.2f);target.updateStats();Check(statusTypes.All(t=>States(target,t).Length==0)&&!target.stats.hasTag(ActorControlTags.Silenced),"按抗性后的真实时长到期");
+    }
+    return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
+    foreach(var cast in allCasts)cast.Cancel();ClearStates(target);ClearStates(outside);owner.SetPowerLevel(0);recipient.SetPowerLevel(0);
+    CombatStatusEffects.RemoveStatus(target,targetBuff);
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    ControllableUnit.clear(false);Config.paused=true;
+}

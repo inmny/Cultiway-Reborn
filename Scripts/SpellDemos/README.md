@@ -1353,3 +1353,13 @@ python3 Scripts/SpellDemos/verify_contact_statuses.py
 复用现有独立游戏、世界和人物。资料段核对七条攻击转换及爆发作用面的声明保存、倍率和回调映射；实机只用一个灵弹核对三个词条的真实命中、叠加/刷新、原费用、抗性时长及到期恢复，再用一个玄阴领域核对间隔接触。关闭人物作用及一次真实受理失败退款恢复走共同路径，不扩大身体、装备和全部来源矩阵。
 
 `--section definitions/runtime`可只运行资料段或实机段。完整输入、来源定义、实际发射和结果写入`artifacts/skill_rebuild/trajectories/contact-statuses/`，分段写入同名子目录。完整修改表单、自主创作、正式存档冷启动及集中连续录像继续5.05 C。
+
+
+```bash
+# 5.05 B33：虚弱、破甲、禁言随真实接触按目标攻防计算
+python3 Scripts/SpellDemos/verify_contact_reductions.py
+```
+
+复用既有独立游戏、世界和人物。资料段快速核对七条攻击转换、爆发及零伤害推力面的保存编译；实机只用一个已学灵弹核对三状态的真实削弱、禁止施法、再次接触刷新、侧外安全、原费用、抗性及到期恢复，一个玄阴领域核对间隔刷新，并走一次边界失败退款恢复。不扩大身体装备及全部来源实机矩阵。
+
+`--section definitions/runtime`可单跑受影响段。输入、来源定义、实际发射及结果保存到`artifacts/skill_rebuild/trajectories/contact-reductions/`，分段存入同名子目录。完整编辑、创作、正式存档冷启动和集中录像继续5.05 C。

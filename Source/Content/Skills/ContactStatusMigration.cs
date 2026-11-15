@@ -14,9 +14,10 @@ namespace Cultiway.Content.Skills;
 /// <summary>原接触词条只展开为普通状态资料，不保留旧执行实体或运行回调。</summary>
 internal static class ContactStatusMigration
 {
-    /// <summary>本批能够完整保留的三个原状态词条。</summary>
+    /// <summary>已经完整接管的原接触状态词条。</summary>
     /// <param name="type">原容器中的词条类型。</param>
-    internal static bool Supports(Type type) => type == typeof(SlowModifier) || type == typeof(FreezeModifier) || type == typeof(DazeModifier);
+    internal static bool Supports(Type type) => type == typeof(SlowModifier) || type == typeof(FreezeModifier) || type == typeof(DazeModifier) ||
+        type == typeof(WeakenModifier) || type == typeof(ArmorBreakModifier) || type == typeof(SilenceModifier);
 
     /// <summary>核对真实接触回调全部来自已映射词条，额外回调继续原入口。</summary>
     /// <param name="skill">实际原容器。</param>
@@ -66,8 +67,30 @@ internal static class ContactStatusMigration
                 Id = StatusEffects.Daze.id, Duration = duration, Application = ConstructionStatusApplication.Refresh, WaitForDuration = true
             });
         }
+        if (skill.TryGetComponent(out WeakenModifier weaken))
+            AddReduction(statuses, StatusEffects.Weaken.id, weaken.Duration, S.damage, weaken.AttackReduction * effectScale);
+        if (skill.TryGetComponent(out ArmorBreakModifier armorBreak))
+            AddReduction(statuses, StatusEffects.ArmorBreak.id, armorBreak.Duration, S.armor, armorBreak.ArmorReduction * effectScale);
+        if (skill.TryGetComponent(out SilenceModifier silence))
+            AddReduction(statuses, StatusEffects.Silence.id, silence.Duration, S.damage, silence.DamageReduction * effectScale);
         if (statuses.Count > 0) BindNode(definition.Root, statuses.ToArray(), includeRoot);
         return definition;
+    }
+
+    /// <summary>比例削弱在命中时取目标属性，同类刷新并沿用状态模板中的控制标记。</summary>
+    /// <param name="statuses">本次接触声明。</param><param name="id">共享状态编号。</param>
+    /// <param name="duration">原持续世界秒。</param><param name="stat">受影响的同名属性。</param>
+    /// <param name="reduction">已经包含本次效果倍率的削弱比例。</param>
+    private static void AddReduction(List<ConstructionStatus> statuses, string id, float duration, string stat, float reduction)
+    {
+        duration = Mathf.Clamp(duration, 0f, 999f);
+        reduction = Mathf.Clamp01(reduction);
+        if (duration <= 0f || reduction <= 0f) return;
+        statuses.Add(new ConstructionStatus
+        {
+            Id = id, Duration = duration, Application = ConstructionStatusApplication.Refresh,
+            TargetStatRatios = new Dictionary<string, float> { [stat] = -reduction }
+        });
     }
 
     /// <summary>复用原接触关系、窗口和次数，不另造扩大作用区。</summary>

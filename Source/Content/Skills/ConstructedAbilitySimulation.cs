@@ -1013,7 +1013,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (!CombatStatusEffects.CleanseHighestPriorityNegativeStatus(target)) break;
     }
 
-    /// <summary>在已确认接触处沿用共享同类最强属性状态，不创建第二套状态更新。</summary>
+    /// <summary>在已确认接触处计算目标比例并沿用共享状态规则，不创建第二套状态更新。</summary>
     /// <param name="running">实际施放。</param><param name="node">实际部位。</param>
     /// <param name="target">已确认的人物。</param><param name="effects">已编译属性状态。</param>
     private static void ApplyStatuses(RunningCast running, int node, Actor target, IReadOnlyList<CompiledConstructionStatus> effects)
@@ -1028,6 +1028,17 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 stats = new BaseStats();
                 foreach (var pair in effect.Stats) stats[pair.Key] = pair.Value;
+            }
+            if (effect.TargetStatRatios?.Count > 0)
+            {
+                // 未指定固定表时保留模板标记，比例项替换模板同名值；明确固定值则与比例相加。
+                stats ??= (BaseStats)effect.Asset.stats.Clone();
+                foreach (var pair in effect.TargetStatRatios)
+                {
+                    float fixedValue = effect.Stats != null && effect.Stats.TryGetValue(pair.Key, out float value) ? value : 0f;
+                    stats[pair.Key] = fixedValue + Mathf.Max(0f, target.stats[pair.Key]) * pair.Value;
+                }
+                if (!stats.hasStats() && !stats.hasTags()) continue;
             }
             if (effect.Application == ConstructionStatusApplication.Strongest)
             {
