@@ -47,6 +47,10 @@ public sealed class AbilityDefinition
     /// <summary>独立施放之间的最短世界秒数。</summary>
     public float Cooldown = 2f;
 
+    /// <summary>同一人物同一能力最多并存几次；零表示不额外限制，成功受理后替换最老施放。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public int ConcurrentLimit;
+
     /// <summary>自动计算尚未取整的基准，避免连续整数资源改造反复向上取整；旧资料没有此项。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionCalculatedValues Calculation;

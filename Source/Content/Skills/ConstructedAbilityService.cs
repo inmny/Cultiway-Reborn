@@ -78,7 +78,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             SkillEmissionResult result = UtilityConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = FlyingSwordConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = GroundSpikeConstructionMigration.Emit(emission);
-            return result == SkillEmissionResult.Unhandled ? RiftConstructionMigration.Emit(emission) : result;
+            if (result == SkillEmissionResult.Unhandled) result = RiftConstructionMigration.Emit(emission);
+            return result == SkillEmissionResult.Unhandled ? FieldConstructionMigration.Emit(emission) : result;
         };
         ConstructedRainClouds.Initialize();
         ConstructedMatterCatalog.Initialize();
@@ -369,11 +370,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="target">已经确定的目标及任务边界。</param><param name="sourcePosition">真实出生位置。</param>
     /// <param name="payment">原来源本次实际支付。</param><param name="damage">来源已经确定的绝对伤害及功率。</param>
     /// <param name="direction">来源确定的完整出手方向，空值保留普通身体的水平朝向。</param>
+    /// <param name="sourceInstance">原来源的运行容器编号，仅用于本世界并存计数，不写入能力资料。</param>
     internal static bool StartPrepaid(ActorExtend caster, AbilityDefinition definition,
         in ActiveAbilityTarget target, Vector3 sourcePosition, SkillCastPayment payment = null,
-        GetHitEvent? damage = null, Vector3? direction = null) =>
+        GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0) =>
         Start(caster, definition, ValidateDefinition(definition), target, target.RuntimeData.Origin, sourcePosition,
-            true, payment, sourceDamage: damage, sourceDirection: direction);
+            true, payment, sourceDamage: damage, sourceDirection: direction, sourceInstance: sourceInstance);
 
     /// <summary>普通已学构造和已经收费的来源共用创建、接触、结束及清理。</summary>
     /// <param name="caster">实际归属人物。</param><param name="definition">当前完整资料。</param>
@@ -382,10 +384,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="prepaid">是否沿用原来源的支付。</param><param name="sourcePayment">原来源这次发射的交易。</param>
     /// <param name="carrierSource">实际借用的持物。</param><param name="sourceDamage">原来源确定的绝对伤害与功率。</param>
     /// <param name="sourceDirection">原来源确定的完整方向，空值保留普通身体的水平朝向。</param>
+    /// <param name="sourceInstance">原运行容器的并存分组，普通构造为零。</param>
     private static bool Start(ActorExtend caster, AbilityDefinition definition, CompiledAbility plan,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, Vector3? sourcePosition = null,
         bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
-        GetHitEvent? sourceDamage = null, Vector3? sourceDirection = null)
+        GetHitEvent? sourceDamage = null, Vector3? sourceDirection = null, int sourceInstance = 0)
     {
         string id = definition.Id;
         if (!TryResolveUseTarget(caster, plan, target, out Actor targetActor, out Vector3 point,
@@ -506,6 +509,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             var running = new RunningCast
             {
                 Id = ++nextCastId,
+                SourceInstance = sourceInstance,
                 Funding = funding,
                 Credits = new MaterialRecoveryBook(),
                 ReservedResidues = plan.ResidueCount,
@@ -543,6 +547,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (movement != null) Cultiway.Content.Persistence.ActorPositionSaveService.Remember(caster);
             if (payment != null && !payment.IsCommitted) payment.Commit();
             accepted = true;
+            ReplaceExcessInstances(running);
             TrackWorldRecovery(running, true);
             if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
             RecordInspirationUse(caster, plan);
@@ -656,6 +661,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         "physical" => ElementComposition.Static.empty,
         "entropy" => new ElementComposition(entropy: 1f),
+        "poison" => ElementComposition.Static.Poison,
         "fire" => ElementComposition.Static.Fire,
         "wood" => ElementComposition.Static.Wood,
         "iron" => ElementComposition.Static.Iron,
@@ -726,6 +732,25 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             cancelled, running.WorldChanges));
     }
 
+    /// <summary>新施放成功受理后，按同人、同能力、同来源替换最老实例；标记不随预测回退撤销。</summary>
+    /// <param name="accepted">已经成功受理的本次施放。</param>
+    private static void ReplaceExcessInstances(RunningCast accepted)
+    {
+        int limit = accepted.Cast.Plan.ConcurrentLimit;
+        if (limit == 0) return;
+        int count = 0;
+        for (int i = casts.Count - 1; i >= 0; i--)
+        {
+            RunningCast running = casts[i];
+            if (running.Replaced || running.Cast.Finished || running.SourceId != accepted.SourceId ||
+                running.SourceInstance != accepted.SourceInstance || running.Cast.Plan.Id != accepted.Cast.Plan.Id) continue;
+            if (++count <= limit) continue;
+            running.Replaced = true;
+            running.Cast.Cancel();
+            ReleaseBody(running);
+        }
+    }
+
     /// <summary>身体收势或中断只释放本次身体控制，已经离手的形体继续运行。</summary>
     /// <param name="running">本次施放。</param>
     private static void ReleaseBody(RunningCast running)
@@ -770,6 +795,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <summary>单次施放的主线程对象绑定与去重记录。</summary>
     private sealed class RunningCast
     {
+        /// <summary>原已学容器的临时并存分组；不进入长期资料。</summary>
+        internal int SourceInstance;
+
+        /// <summary>已被后一次成功施放替换，预测回退不能恢复其作用。</summary>
+        internal bool Replaced;
+
         /// <summary>本次已发布的实际烧损累计，纯数值恢复不发布旧结果。</summary>
         internal double[] ReportedBurned;
 

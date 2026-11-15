@@ -201,7 +201,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 UpdateBodyConnections(clock);
                 if (generation != worldGeneration) yield break;
                 foreach (RunningCast running in active)
-                    if (running.WorldScope != null)
+                    if (running.WorldScope != null || running.Replaced)
                         ValidateSource(running);
                 for (int i = 0; i < active.Count; i++)
                 {
@@ -219,7 +219,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
                 foreach (RunningCast running in active)
                 {
-                    if (running.WorldScope != null && running.Cast.Phase == AbilityCastPhase.Interrupted) continue;
+                    if (running.Replaced || running.WorldScope != null && running.Cast.Phase == AbilityCastPhase.Interrupted) continue;
                     ConfirmRecovery(running);
                     if (generation != worldGeneration) yield break;
                     ConfirmWorldMaterial(running, clock);
@@ -284,6 +284,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="running">本次施放。</param>
     private static void ValidateSource(RunningCast running)
     {
+        if (running.Replaced)
+        {
+            running.Cast.Cancel();
+            ReleaseBody(running);
+            return;
+        }
         // 已确认的自然结束不再被来源后来失效改写成中断。
         if (running.Cast.Finished) return;
         if (running.Carrier != null && (!running.Cast.IsInputAttached || !running.Carrier.IsValid))
@@ -484,6 +490,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     }
                     continuous = false;
                 }
+                if (running.Cast.ContactAtDestination(shape.Node)) continuous = false;
                 if (!continuous) from = shape;
                 var motion = new ShapeMotion(running, from, shape, continuous);
                 shapes.Add(motion);
@@ -861,6 +868,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         {
             ConstructedActorImpulse.ContactBody(hit.Flight, hit.Carrying.Value, simulation.contactTime);
             return;
+        }
+        ValidateSource(hit.Left.Running);
+        if (hit.Left.Running.Replaced) return;
+        if (hit.Right.HasValue)
+        {
+            ValidateSource(hit.Right.Value.Running);
+            if (hit.Right.Value.Running.Replaced) return;
         }
         if (hit.Carrying.HasValue)
         {

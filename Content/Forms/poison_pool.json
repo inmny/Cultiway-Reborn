@@ -1,0 +1,4032 @@
+{
+    "Structure": {
+        "Kind": "surface",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_fields.mjs",
+            "Entry": "makePool",
+            "Parameters": [
+                {
+                    "Id": "radius",
+                    "Values": [
+                        2.5,
+                        2.200000047683716
+                    ]
+                },
+                {
+                    "Id": "height",
+                    "Values": [
+                        0.29499998688697817
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "motion",
+            "ground"
+        ]
+    },
+    "ConformToGround": true,
+    "Version": 8,
+    "Id": "poison_pool",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/poison_pool_liquid_mid.asset",
+                "Assets/Cultiway/Forms/poison_pool_liquid_far.asset"
+            ],
+            "Roles": [
+                "fluid.body"
+            ],
+            "Id": "liquid",
+            "Surface": "poison_liquid",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/poison_pool_liquid.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_0",
+            "Part": 0,
+            "A": [
+                -0.9994941353797913,
+                -1.9199999570846558,
+                0.15000000596046449
+            ],
+            "B": [
+                0.9994941353797913,
+                -1.9199999570846558,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_0_0",
+                    "Weight": 0.34891432523727419
+                },
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.5238129496574402
+                },
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.05088333785533905
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.0763893872499466
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.5238129496574402
+                },
+                {
+                    "Control": "bed_0_2",
+                    "Weight": 0.34891432523727419
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.0763893872499466
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.05088333785533905
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_1",
+            "Part": 0,
+            "A": [
+                -1.2649999856948853,
+                -1.7599999904632569,
+                0.15000000596046449
+            ],
+            "B": [
+                1.2649999856948853,
+                -1.7599999904632569,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_0_0",
+                    "Weight": 0.40479999780654909
+                },
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.3952000141143799
+                },
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.10119999945163727
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.09880000352859497
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.3952000141143799
+                },
+                {
+                    "Control": "bed_0_2",
+                    "Weight": 0.40479999780654909
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.09880000352859497
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.10119999945163727
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_2",
+            "Part": 0,
+            "A": [
+                -1.4700778722763062,
+                -1.600000023841858,
+                0.15000000596046449
+            ],
+            "B": [
+                1.4700778722763062,
+                -1.600000023841858,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_0_0",
+                    "Weight": 0.4276590347290039
+                },
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.29961371421813967
+                },
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.16037213802337647
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.11235514283180237
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.29961371421813967
+                },
+                {
+                    "Control": "bed_0_2",
+                    "Weight": 0.4276590347290039
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.11235514283180237
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.16037213802337647
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_3",
+            "Part": 0,
+            "A": [
+                -1.6355538368225098,
+                -1.440000057220459,
+                0.15000000596046449
+            ],
+            "B": [
+                1.6355538368225098,
+                -1.440000057220459,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_0_0",
+                    "Weight": 0.42821770906448367
+                },
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.22632773220539094
+                },
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.22600379586219788
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.11945074796676636
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.22632773220539094
+                },
+                {
+                    "Control": "bed_0_2",
+                    "Weight": 0.42821770906448367
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.11945074796676636
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.22600379586219788
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_4",
+            "Part": 0,
+            "A": [
+                -1.7716323137283326,
+                -1.2799999713897706,
+                0.15000000596046449
+            ],
+            "B": [
+                1.7716323137283326,
+                -1.2799999713897706,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_0_0",
+                    "Weight": 0.41230717301368716
+                },
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.16951102018356324
+                },
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.2963457703590393
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.12183604389429093
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.16951102018356324
+                },
+                {
+                    "Control": "bed_0_2",
+                    "Weight": 0.41230717301368716
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.12183604389429093
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.2963457703590393
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_5",
+            "Part": 0,
+            "A": [
+                -1.8841928243637086,
+                -1.1200000047683716,
+                0.15000000596046449
+            ],
+            "B": [
+                1.8841928243637086,
+                -1.1200000047683716,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_0_0",
+                    "Weight": 0.3836901783943176
+                },
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.12540073692798615
+                },
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.36998695135116579
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.12092214077711106
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.12540073692798615
+                },
+                {
+                    "Control": "bed_0_2",
+                    "Weight": 0.3836901783943176
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.12092214077711106
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.36998695135116579
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_6",
+            "Part": 0,
+            "A": [
+                -1.976954698562622,
+                -0.9599999785423279,
+                0.15000000596046449
+            ],
+            "B": [
+                1.976954698562622,
+                -0.9599999785423279,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_0_0",
+                    "Weight": 0.34506845474243166
+                },
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.09129517525434494
+                },
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.44571343064308169
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.11792293936014176
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.09129517525434494
+                },
+                {
+                    "Control": "bed_0_2",
+                    "Weight": 0.34506845474243166
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.11792293936014176
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.44571343064308169
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_7",
+            "Part": 0,
+            "A": [
+                -2.0524098873138429,
+                -0.800000011920929,
+                0.15000000596046449
+            ],
+            "B": [
+                2.0524098873138429,
+                -0.800000011920929,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_0_0",
+                    "Weight": 0.2985323369503021
+                },
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.06510402262210846
+                },
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.5224316120147705
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.1139320433139801
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.06510402262210846
+                },
+                {
+                    "Control": "bed_0_2",
+                    "Weight": 0.2985323369503021
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.1139320433139801
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.5224316120147705
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_8",
+            "Part": 0,
+            "A": [
+                -2.1122829914093019,
+                -0.6399999856948853,
+                0.15000000596046449
+            ],
+            "B": [
+                2.1122829914093019,
+                -0.6399999856948853,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_0_0",
+                    "Weight": 0.2457929253578186
+                },
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.04511617124080658
+                },
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.5991202592849731
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10997066646814347
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.04511617124080658
+                },
+                {
+                    "Control": "bed_0_2",
+                    "Weight": 0.2457929253578186
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10997066646814347
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.5991202592849731
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_9",
+            "Part": 0,
+            "A": [
+                -2.1577818393707277,
+                -0.47999998927116396,
+                0.15000000596046449
+            ],
+            "B": [
+                2.1577818393707277,
+                -0.47999998927116396,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_0_0",
+                    "Weight": 0.1883155107498169
+                },
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.029866313561797143
+                },
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.6747972369194031
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10702095925807953
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.029866313561797143
+                },
+                {
+                    "Control": "bed_0_2",
+                    "Weight": 0.1883155107498169
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10702095925807953
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.6747972369194031
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_10",
+            "Part": 0,
+            "A": [
+                -2.189741611480713,
+                -0.3199999928474426,
+                0.15000000596046449
+            ],
+            "B": [
+                2.189741611480713,
+                -0.3199999928474426,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_0_0",
+                    "Weight": 0.1274031549692154
+                },
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.01805139146745205
+                },
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.7484935522079468
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10605192184448242
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.01805139146745205
+                },
+                {
+                    "Control": "bed_0_2",
+                    "Weight": 0.1274031549692154
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10605192184448242
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.7484935522079468
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_11",
+            "Part": 0,
+            "A": [
+                -2.2087106704711916,
+                -0.1599999964237213,
+                0.15000000596046449
+            ],
+            "B": [
+                2.2087106704711916,
+                -0.1599999964237213,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_0_0",
+                    "Weight": 0.06425340473651886
+                },
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.008473871275782586
+                },
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.819230854511261
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10804186016321182
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_0_1",
+                    "Weight": 0.008473871275782586
+                },
+                {
+                    "Control": "bed_0_2",
+                    "Weight": 0.06425340473651886
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10804186016321182
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.819230854511261
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_12",
+            "Part": 0,
+            "A": [
+                -2.2149999141693117,
+                0.0,
+                0.15000000596046449
+            ],
+            "B": [
+                2.2149999141693117,
+                0.0,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.8859999775886536
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.11400000005960465
+                },
+                {
+                    "Control": "bed_2_0",
+                    "Weight": 0.0
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.0
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.11400000005960465
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.8859999775886536
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.0
+                },
+                {
+                    "Control": "bed_2_2",
+                    "Weight": 0.0
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_13",
+            "Part": 0,
+            "A": [
+                -2.2087106704711916,
+                0.1599999964237213,
+                0.15000000596046449
+            ],
+            "B": [
+                2.2087106704711916,
+                0.1599999964237213,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.819230854511261
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10804186016321182
+                },
+                {
+                    "Control": "bed_2_0",
+                    "Weight": 0.06425340473651886
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.008473871275782586
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10804186016321182
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.819230854511261
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.008473871275782586
+                },
+                {
+                    "Control": "bed_2_2",
+                    "Weight": 0.06425340473651886
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_14",
+            "Part": 0,
+            "A": [
+                -2.189741611480713,
+                0.3199999928474426,
+                0.15000000596046449
+            ],
+            "B": [
+                2.189741611480713,
+                0.3199999928474426,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.7484935522079468
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10605192184448242
+                },
+                {
+                    "Control": "bed_2_0",
+                    "Weight": 0.1274031549692154
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.01805139146745205
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10605192184448242
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.7484935522079468
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.01805139146745205
+                },
+                {
+                    "Control": "bed_2_2",
+                    "Weight": 0.1274031549692154
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_15",
+            "Part": 0,
+            "A": [
+                -2.1577818393707277,
+                0.47999998927116396,
+                0.15000000596046449
+            ],
+            "B": [
+                2.1577818393707277,
+                0.47999998927116396,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.6747972369194031
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10702095925807953
+                },
+                {
+                    "Control": "bed_2_0",
+                    "Weight": 0.1883155107498169
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.029866313561797143
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10702095925807953
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.6747972369194031
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.029866313561797143
+                },
+                {
+                    "Control": "bed_2_2",
+                    "Weight": 0.1883155107498169
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_16",
+            "Part": 0,
+            "A": [
+                -2.1122829914093019,
+                0.6399999856948853,
+                0.15000000596046449
+            ],
+            "B": [
+                2.1122829914093019,
+                0.6399999856948853,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.5991202592849731
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10997066646814347
+                },
+                {
+                    "Control": "bed_2_0",
+                    "Weight": 0.2457929253578186
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.04511617124080658
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.10997066646814347
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.5991202592849731
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.04511617124080658
+                },
+                {
+                    "Control": "bed_2_2",
+                    "Weight": 0.2457929253578186
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_17",
+            "Part": 0,
+            "A": [
+                -2.0524098873138429,
+                0.800000011920929,
+                0.15000000596046449
+            ],
+            "B": [
+                2.0524098873138429,
+                0.800000011920929,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.5224316120147705
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.1139320433139801
+                },
+                {
+                    "Control": "bed_2_0",
+                    "Weight": 0.2985323369503021
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.06510402262210846
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.1139320433139801
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.5224316120147705
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.06510402262210846
+                },
+                {
+                    "Control": "bed_2_2",
+                    "Weight": 0.2985323369503021
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_18",
+            "Part": 0,
+            "A": [
+                -1.976954698562622,
+                0.9599999785423279,
+                0.15000000596046449
+            ],
+            "B": [
+                1.976954698562622,
+                0.9599999785423279,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.44571343064308169
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.11792293936014176
+                },
+                {
+                    "Control": "bed_2_0",
+                    "Weight": 0.34506845474243166
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.09129517525434494
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.11792293936014176
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.44571343064308169
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.09129517525434494
+                },
+                {
+                    "Control": "bed_2_2",
+                    "Weight": 0.34506845474243166
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_19",
+            "Part": 0,
+            "A": [
+                -1.8841928243637086,
+                1.1200000047683716,
+                0.15000000596046449
+            ],
+            "B": [
+                1.8841928243637086,
+                1.1200000047683716,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.36998695135116579
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.12092214077711106
+                },
+                {
+                    "Control": "bed_2_0",
+                    "Weight": 0.3836901783943176
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.12540073692798615
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.12092214077711106
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.36998695135116579
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.12540073692798615
+                },
+                {
+                    "Control": "bed_2_2",
+                    "Weight": 0.3836901783943176
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_20",
+            "Part": 0,
+            "A": [
+                -1.7716323137283326,
+                1.2799999713897706,
+                0.15000000596046449
+            ],
+            "B": [
+                1.7716323137283326,
+                1.2799999713897706,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.2963457703590393
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.12183604389429093
+                },
+                {
+                    "Control": "bed_2_0",
+                    "Weight": 0.41230717301368716
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.16951102018356324
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.12183604389429093
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.2963457703590393
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.16951102018356324
+                },
+                {
+                    "Control": "bed_2_2",
+                    "Weight": 0.41230717301368716
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_21",
+            "Part": 0,
+            "A": [
+                -1.6355538368225098,
+                1.440000057220459,
+                0.15000000596046449
+            ],
+            "B": [
+                1.6355538368225098,
+                1.440000057220459,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.22600379586219788
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.11945074796676636
+                },
+                {
+                    "Control": "bed_2_0",
+                    "Weight": 0.42821770906448367
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.22632773220539094
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.11945074796676636
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.22600379586219788
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.22632773220539094
+                },
+                {
+                    "Control": "bed_2_2",
+                    "Weight": 0.42821770906448367
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_22",
+            "Part": 0,
+            "A": [
+                -1.4700778722763062,
+                1.600000023841858,
+                0.15000000596046449
+            ],
+            "B": [
+                1.4700778722763062,
+                1.600000023841858,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.16037213802337647
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.11235514283180237
+                },
+                {
+                    "Control": "bed_2_0",
+                    "Weight": 0.4276590347290039
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.29961371421813967
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.11235514283180237
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.16037213802337647
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.29961371421813967
+                },
+                {
+                    "Control": "bed_2_2",
+                    "Weight": 0.4276590347290039
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_23",
+            "Part": 0,
+            "A": [
+                -1.2649999856948853,
+                1.7599999904632569,
+                0.15000000596046449
+            ],
+            "B": [
+                1.2649999856948853,
+                1.7599999904632569,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.10119999945163727
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.09880000352859497
+                },
+                {
+                    "Control": "bed_2_0",
+                    "Weight": 0.40479999780654909
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.3952000141143799
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.09880000352859497
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.10119999945163727
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.3952000141143799
+                },
+                {
+                    "Control": "bed_2_2",
+                    "Weight": 0.40479999780654909
+                }
+            ]
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "liquid_24",
+            "Part": 0,
+            "A": [
+                -0.9994941353797913,
+                1.9199999570846558,
+                0.15000000596046449
+            ],
+            "B": [
+                0.9994941353797913,
+                1.9199999570846558,
+                0.15000000596046449
+            ],
+            "Radius": 0.14499999582767487,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [
+                {
+                    "Control": "bed_1_0",
+                    "Weight": 0.05088333785533905
+                },
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.0763893872499466
+                },
+                {
+                    "Control": "bed_2_0",
+                    "Weight": 0.34891432523727419
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.5238129496574402
+                }
+            ],
+            "BInfluences": [
+                {
+                    "Control": "bed_1_1",
+                    "Weight": 0.0763893872499466
+                },
+                {
+                    "Control": "bed_1_2",
+                    "Weight": 0.05088333785533905
+                },
+                {
+                    "Control": "bed_2_1",
+                    "Weight": 0.5238129496574402
+                },
+                {
+                    "Control": "bed_2_2",
+                    "Weight": 0.34891432523727419
+                }
+            ]
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "bed_0_0",
+            "Parent": "",
+            "Position": [
+                -2.5,
+                -2.200000047683716,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -2.3227291107177736,
+                -2.254154920578003,
+                0.007786000147461891
+            ],
+            "Maximum": [
+                -0.06579100340604782,
+                -0.05249800160527229,
+                0.2922140061855316
+            ]
+        },
+        {
+            "Id": "bed_0_1",
+            "Parent": "",
+            "Position": [
+                0.0,
+                -2.200000047683716,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -2.3227291107177736,
+                -2.3199679851531984,
+                0.007786000147461891
+            ],
+            "Maximum": [
+                2.486112117767334,
+                -0.05249800160527229,
+                0.2922140061855316
+            ]
+        },
+        {
+            "Id": "bed_0_2",
+            "Parent": "",
+            "Position": [
+                2.5,
+                -2.200000047683716,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                0.06771200150251389,
+                -2.3199679851531984,
+                0.007786000147461891
+            ],
+            "Maximum": [
+                2.534817934036255,
+                -0.05729199945926666,
+                0.2922140061855316
+            ]
+        },
+        {
+            "Id": "bed_1_0",
+            "Parent": "",
+            "Position": [
+                -2.5,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -2.4549059867858888,
+                -2.1565709114074709,
+                0.007786000147461891
+            ],
+            "Maximum": [
+                -0.05961000174283981,
+                2.042388916015625,
+                0.2922140061855316
+            ]
+        },
+        {
+            "Id": "bed_1_1",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -2.4549059867858888,
+                -2.1565709114074709,
+                0.004999999888241291
+            ],
+            "Maximum": [
+                2.486112117767334,
+                2.1082029342651369,
+                0.29499998688697817
+            ]
+        },
+        {
+            "Id": "bed_1_2",
+            "Parent": "",
+            "Position": [
+                2.5,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                0.06153099983930588,
+                -2.143371105194092,
+                0.007786000147461891
+            ],
+            "Maximum": [
+                2.6344950199127199,
+                2.1082029342651369,
+                0.2922140061855316
+            ]
+        },
+        {
+            "Id": "bed_2_0",
+            "Parent": "",
+            "Position": [
+                -2.5,
+                2.200000047683716,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -2.4549059867858888,
+                0.05475100129842758,
+                0.007786000147461891
+            ],
+            "Maximum": [
+                -0.05961000174283981,
+                2.042388916015625,
+                0.2922140061855316
+            ]
+        },
+        {
+            "Id": "bed_2_1",
+            "Parent": "",
+            "Position": [
+                0.0,
+                2.200000047683716,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -2.4549059867858888,
+                0.05475100129842758,
+                0.007786000147461891
+            ],
+            "Maximum": [
+                2.4339559078216554,
+                2.1082029342651369,
+                0.2922140061855316
+            ]
+        },
+        {
+            "Id": "bed_2_2",
+            "Parent": "",
+            "Position": [
+                2.5,
+                2.200000047683716,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                0.06153099983930588,
+                0.05954499915242195,
+                0.007786000147461891
+            ],
+            "Maximum": [
+                2.6344950199127199,
+                2.1082029342651369,
+                0.2922140061855316
+            ]
+        }
+    ],
+    "Motions": [
+        {
+            "Id": "run",
+            "Duration": 1.600000023841858,
+            "Loop": true,
+            "Keys": [
+                {
+                    "Build": 1.0,
+                    "At": 0.0,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.0,
+                        0.0,
+                        -2.200000047683716,
+                        0.00838799960911274,
+                        2.5,
+                        -2.200000047683716,
+                        0.0060789999552071098,
+                        -2.5,
+                        0.0,
+                        -0.003982999827712774,
+                        0.0,
+                        0.0,
+                        -0.008964999578893185,
+                        2.5,
+                        0.0,
+                        -0.002515000058338046,
+                        -2.5,
+                        2.200000047683716,
+                        0.007143000140786171,
+                        0.0,
+                        2.200000047683716,
+                        0.007691000122576952,
+                        2.5,
+                        2.200000047683716,
+                        -0.0015689999563619495
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.05000000074505806,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.0017559999832883478,
+                        0.0,
+                        -2.200000047683716,
+                        0.008863000199198723,
+                        2.5,
+                        -2.200000047683716,
+                        0.004668000154197216,
+                        -2.5,
+                        0.0,
+                        -0.005481000058352947,
+                        0.0,
+                        0.0,
+                        -0.00863999966531992,
+                        2.5,
+                        0.0,
+                        -0.0007810000097379088,
+                        -2.5,
+                        2.200000047683716,
+                        0.008073999546468258,
+                        0.0,
+                        2.200000047683716,
+                        0.006632000207901001,
+                        2.5,
+                        2.200000047683716,
+                        -0.0032679999712854625
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.10000000149011612,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.0034439999144524338,
+                        0.0,
+                        -2.200000047683716,
+                        0.00899800006300211,
+                        2.5,
+                        -2.200000047683716,
+                        0.0030769999139010908,
+                        -2.5,
+                        0.0,
+                        -0.006767999846488237,
+                        0.0,
+                        0.0,
+                        -0.007981999777257443,
+                        2.5,
+                        0.0,
+                        0.0009840000420808793,
+                        -2.5,
+                        2.200000047683716,
+                        0.008694999851286412,
+                        0.0,
+                        2.200000047683716,
+                        0.0053170002065598969,
+                        2.5,
+                        2.200000047683716,
+                        -0.0048409998416900639
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.15000000596046449,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.004999999888241291,
+                        0.0,
+                        -2.200000047683716,
+                        0.008786000311374665,
+                        2.5,
+                        -2.200000047683716,
+                        0.0013680000556632877,
+                        -2.5,
+                        0.0,
+                        -0.007794999983161688,
+                        0.0,
+                        0.0,
+                        -0.007017000112682581,
+                        2.5,
+                        0.0,
+                        0.0027099999133497478,
+                        -2.5,
+                        2.200000047683716,
+                        0.008980999700725079,
+                        0.0,
+                        2.200000047683716,
+                        0.0037990000564604999,
+                        2.5,
+                        2.200000047683716,
+                        -0.006227999925613403
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.20000000298023225,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.006364000029861927,
+                        0.0,
+                        -2.200000047683716,
+                        0.008236999623477459,
+                        2.5,
+                        -2.200000047683716,
+                        -0.00039400000241585076,
+                        -2.5,
+                        0.0,
+                        -0.008523000404238701,
+                        0.0,
+                        0.0,
+                        -0.0057830000296235088,
+                        2.5,
+                        0.0,
+                        0.00433199992403388,
+                        -2.5,
+                        2.200000047683716,
+                        0.008922000415623188,
+                        0.0,
+                        2.200000047683716,
+                        0.002133999951183796,
+                        2.5,
+                        2.200000047683716,
+                        -0.007375999819487333
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.25,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.007482999935746193,
+                        0.0,
+                        -2.200000047683716,
+                        0.00737199978902936,
+                        2.5,
+                        -2.200000047683716,
+                        -0.0021410000044852497,
+                        -2.5,
+                        0.0,
+                        -0.00892299972474575,
+                        0.0,
+                        0.0,
+                        -0.00432599987834692,
+                        2.5,
+                        0.0,
+                        0.005787999834865332,
+                        -2.5,
+                        2.200000047683716,
+                        0.008520999923348427,
+                        0.0,
+                        2.200000047683716,
+                        0.0003870000073220581,
+                        2.5,
+                        2.200000047683716,
+                        -0.00824000034481287
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.30000001192092898,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.008314999751746655,
+                        0.0,
+                        -2.200000047683716,
+                        0.00622300012037158,
+                        2.5,
+                        -2.200000047683716,
+                        -0.00380500010214746,
+                        -2.5,
+                        0.0,
+                        -0.008980999700725079,
+                        0.0,
+                        0.0,
+                        -0.0027030000928789379,
+                        2.5,
+                        0.0,
+                        0.007021000143140554,
+                        -2.5,
+                        2.200000047683716,
+                        0.007792000193148851,
+                        0.0,
+                        2.200000047683716,
+                        -0.001373999984934926,
+                        2.5,
+                        2.200000047683716,
+                        -0.008787999860942364
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.3499999940395355,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.008826999925076962,
+                        0.0,
+                        -2.200000047683716,
+                        0.004834999796003103,
+                        2.5,
+                        -2.200000047683716,
+                        -0.005322999786585569,
+                        -2.5,
+                        0.0,
+                        -0.008693000301718712,
+                        0.0,
+                        0.0,
+                        -0.0009769999887794257,
+                        2.5,
+                        0.0,
+                        0.007984999567270279,
+                        -2.5,
+                        2.200000047683716,
+                        0.006763000041246414,
+                        0.0,
+                        2.200000047683716,
+                        -0.003082999959588051,
+                        2.5,
+                        2.200000047683716,
+                        -0.00899800006300211
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.4000000059604645,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.008999999612569809,
+                        0.0,
+                        -2.200000047683716,
+                        0.003260999917984009,
+                        2.5,
+                        -2.200000047683716,
+                        -0.006637000013142824,
+                        -2.5,
+                        0.0,
+                        -0.008070999756455422,
+                        0.0,
+                        0.0,
+                        0.0007869999972172082,
+                        2.5,
+                        0.0,
+                        0.008642000146210194,
+                        -2.5,
+                        2.200000047683716,
+                        0.005475000012665987,
+                        0.0,
+                        2.200000047683716,
+                        -0.004674000199884176,
+                        2.5,
+                        2.200000047683716,
+                        -0.008861999958753586
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.44999998807907107,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.008826999925076962,
+                        0.0,
+                        -2.200000047683716,
+                        0.0015620000194758177,
+                        2.5,
+                        -2.200000047683716,
+                        -0.0076950001530349258,
+                        -2.5,
+                        0.0,
+                        -0.0071390001103281979,
+                        0.0,
+                        0.0,
+                        0.0025210001040250065,
+                        2.5,
+                        0.0,
+                        0.008965999819338322,
+                        -2.5,
+                        2.200000047683716,
+                        0.003976000007241964,
+                        0.0,
+                        2.200000047683716,
+                        -0.00608400022611022,
+                        2.5,
+                        2.200000047683716,
+                        -0.00838600005954504
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.5,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.008314999751746655,
+                        0.0,
+                        -2.200000047683716,
+                        -0.00019700000120792538,
+                        2.5,
+                        -2.200000047683716,
+                        -0.008457999676465989,
+                        -2.5,
+                        0.0,
+                        -0.005932000000029802,
+                        0.0,
+                        0.0,
+                        0.004157999996095896,
+                        2.5,
+                        0.0,
+                        0.008945999667048455,
+                        -2.5,
+                        2.200000047683716,
+                        0.0023250000085681679,
+                        0.0,
+                        2.200000047683716,
+                        -0.007261000107973814,
+                        2.5,
+                        2.200000047683716,
+                        -0.007586999796330929
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.550000011920929,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.007482999935746193,
+                        0.0,
+                        -2.200000047683716,
+                        -0.0019490000559017063,
+                        2.5,
+                        -2.200000047683716,
+                        -0.00889500044286251,
+                        -2.5,
+                        0.0,
+                        -0.004497999791055918,
+                        0.0,
+                        0.0,
+                        0.005636000074446201,
+                        2.5,
+                        0.0,
+                        0.008581999689340592,
+                        -2.5,
+                        2.200000047683716,
+                        0.0005840000230818987,
+                        0.0,
+                        2.200000047683716,
+                        -0.008159000426530838,
+                        2.5,
+                        2.200000047683716,
+                        -0.006496999878436327
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.6000000238418579,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.006364000029861927,
+                        0.0,
+                        -2.200000047683716,
+                        -0.0036249998956918718,
+                        2.5,
+                        -2.200000047683716,
+                        -0.0089910002425313,
+                        -2.5,
+                        0.0,
+                        -0.0028909998945891859,
+                        0.0,
+                        0.0,
+                        0.006895999889820814,
+                        2.5,
+                        0.0,
+                        0.00788899976760149,
+                        -2.5,
+                        2.200000047683716,
+                        -0.0011790000135079027,
+                        0.0,
+                        2.200000047683716,
+                        -0.008743000216782093,
+                        2.5,
+                        2.200000047683716,
+                        -0.005156999919563532
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.6499999761581421,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.004999999888241291,
+                        0.0,
+                        -2.200000047683716,
+                        -0.005162999965250492,
+                        2.5,
+                        -2.200000047683716,
+                        -0.008741999976336956,
+                        -2.5,
+                        0.0,
+                        -0.001171999960206449,
+                        0.0,
+                        0.0,
+                        0.007891999557614327,
+                        2.5,
+                        0.0,
+                        0.006891999859362841,
+                        -2.5,
+                        2.200000047683716,
+                        -0.002896999940276146,
+                        0.0,
+                        2.200000047683716,
+                        -0.008991999551653862,
+                        2.5,
+                        2.200000047683716,
+                        -0.003619000082835555
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.699999988079071,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.0034439999144524338,
+                        0.0,
+                        -2.200000047683716,
+                        -0.0065020001493394379,
+                        2.5,
+                        -2.200000047683716,
+                        -0.008155999705195427,
+                        -2.5,
+                        0.0,
+                        0.0005910000181756914,
+                        0.0,
+                        0.0,
+                        0.008584000170230866,
+                        2.5,
+                        0.0,
+                        0.005630000028759241,
+                        -2.5,
+                        2.200000047683716,
+                        -0.004503999836742878,
+                        0.0,
+                        2.200000047683716,
+                        -0.008894000202417374,
+                        2.5,
+                        2.200000047683716,
+                        -0.0019420000026002527
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.75,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.0017559999832883478,
+                        0.0,
+                        -2.200000047683716,
+                        -0.007590999826788902,
+                        2.5,
+                        -2.200000047683716,
+                        -0.0072570000775158409,
+                        -2.5,
+                        0.0,
+                        0.0023320000618696214,
+                        0.0,
+                        0.0,
+                        0.008946999907493592,
+                        2.5,
+                        0.0,
+                        0.0041519999504089359,
+                        -2.5,
+                        2.200000047683716,
+                        -0.0059380000457167629,
+                        0.0,
+                        2.200000047683716,
+                        -0.008454999886453152,
+                        2.5,
+                        2.200000047683716,
+                        -0.0001900000061141327
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.800000011920929,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.0,
+                        0.0,
+                        -2.200000047683716,
+                        -0.00838799960911274,
+                        2.5,
+                        -2.200000047683716,
+                        -0.0060789999552071098,
+                        -2.5,
+                        0.0,
+                        0.003982999827712774,
+                        0.0,
+                        0.0,
+                        0.008964999578893185,
+                        2.5,
+                        0.0,
+                        0.002515000058338046,
+                        -2.5,
+                        2.200000047683716,
+                        -0.007143000140786171,
+                        0.0,
+                        2.200000047683716,
+                        -0.007691000122576952,
+                        2.5,
+                        2.200000047683716,
+                        0.0015689999563619495
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.8500000238418579,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        -0.0017559999832883478,
+                        0.0,
+                        -2.200000047683716,
+                        -0.008863000199198723,
+                        2.5,
+                        -2.200000047683716,
+                        -0.004668000154197216,
+                        -2.5,
+                        0.0,
+                        0.005481000058352947,
+                        0.0,
+                        0.0,
+                        0.00863999966531992,
+                        2.5,
+                        0.0,
+                        0.0007810000097379088,
+                        -2.5,
+                        2.200000047683716,
+                        -0.008073999546468258,
+                        0.0,
+                        2.200000047683716,
+                        -0.006632000207901001,
+                        2.5,
+                        2.200000047683716,
+                        0.0032679999712854625
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.8999999761581421,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        -0.0034439999144524338,
+                        0.0,
+                        -2.200000047683716,
+                        -0.00899800006300211,
+                        2.5,
+                        -2.200000047683716,
+                        -0.0030769999139010908,
+                        -2.5,
+                        0.0,
+                        0.006767999846488237,
+                        0.0,
+                        0.0,
+                        0.007981999777257443,
+                        2.5,
+                        0.0,
+                        -0.0009840000420808793,
+                        -2.5,
+                        2.200000047683716,
+                        -0.008694999851286412,
+                        0.0,
+                        2.200000047683716,
+                        -0.0053170002065598969,
+                        2.5,
+                        2.200000047683716,
+                        0.0048409998416900639
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 0.949999988079071,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        -0.004999999888241291,
+                        0.0,
+                        -2.200000047683716,
+                        -0.008786000311374665,
+                        2.5,
+                        -2.200000047683716,
+                        -0.0013680000556632877,
+                        -2.5,
+                        0.0,
+                        0.007794999983161688,
+                        0.0,
+                        0.0,
+                        0.007017000112682581,
+                        2.5,
+                        0.0,
+                        -0.0027099999133497478,
+                        -2.5,
+                        2.200000047683716,
+                        -0.008980999700725079,
+                        0.0,
+                        2.200000047683716,
+                        -0.0037990000564604999,
+                        2.5,
+                        2.200000047683716,
+                        0.006227999925613403
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.0,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        -0.006364000029861927,
+                        0.0,
+                        -2.200000047683716,
+                        -0.008236999623477459,
+                        2.5,
+                        -2.200000047683716,
+                        0.00039400000241585076,
+                        -2.5,
+                        0.0,
+                        0.008523000404238701,
+                        0.0,
+                        0.0,
+                        0.0057830000296235088,
+                        2.5,
+                        0.0,
+                        -0.00433199992403388,
+                        -2.5,
+                        2.200000047683716,
+                        -0.008922000415623188,
+                        0.0,
+                        2.200000047683716,
+                        -0.002133999951183796,
+                        2.5,
+                        2.200000047683716,
+                        0.007375999819487333
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.0499999523162842,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        -0.007482999935746193,
+                        0.0,
+                        -2.200000047683716,
+                        -0.00737199978902936,
+                        2.5,
+                        -2.200000047683716,
+                        0.0021410000044852497,
+                        -2.5,
+                        0.0,
+                        0.00892299972474575,
+                        0.0,
+                        0.0,
+                        0.00432599987834692,
+                        2.5,
+                        0.0,
+                        -0.005787999834865332,
+                        -2.5,
+                        2.200000047683716,
+                        -0.008520999923348427,
+                        0.0,
+                        2.200000047683716,
+                        -0.0003870000073220581,
+                        2.5,
+                        2.200000047683716,
+                        0.00824000034481287
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.100000023841858,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        -0.008314999751746655,
+                        0.0,
+                        -2.200000047683716,
+                        -0.00622300012037158,
+                        2.5,
+                        -2.200000047683716,
+                        0.00380500010214746,
+                        -2.5,
+                        0.0,
+                        0.008980999700725079,
+                        0.0,
+                        0.0,
+                        0.0027030000928789379,
+                        2.5,
+                        0.0,
+                        -0.007021000143140554,
+                        -2.5,
+                        2.200000047683716,
+                        -0.007792000193148851,
+                        0.0,
+                        2.200000047683716,
+                        0.001373999984934926,
+                        2.5,
+                        2.200000047683716,
+                        0.008787999860942364
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.149999976158142,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        -0.008826999925076962,
+                        0.0,
+                        -2.200000047683716,
+                        -0.004834999796003103,
+                        2.5,
+                        -2.200000047683716,
+                        0.005322999786585569,
+                        -2.5,
+                        0.0,
+                        0.008693000301718712,
+                        0.0,
+                        0.0,
+                        0.0009769999887794257,
+                        2.5,
+                        0.0,
+                        -0.007984999567270279,
+                        -2.5,
+                        2.200000047683716,
+                        -0.006763000041246414,
+                        0.0,
+                        2.200000047683716,
+                        0.003082999959588051,
+                        2.5,
+                        2.200000047683716,
+                        0.00899800006300211
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.2000000476837159,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        -0.008999999612569809,
+                        0.0,
+                        -2.200000047683716,
+                        -0.003260999917984009,
+                        2.5,
+                        -2.200000047683716,
+                        0.006637000013142824,
+                        -2.5,
+                        0.0,
+                        0.008070999756455422,
+                        0.0,
+                        0.0,
+                        -0.0007869999972172082,
+                        2.5,
+                        0.0,
+                        -0.008642000146210194,
+                        -2.5,
+                        2.200000047683716,
+                        -0.005475000012665987,
+                        0.0,
+                        2.200000047683716,
+                        0.004674000199884176,
+                        2.5,
+                        2.200000047683716,
+                        0.008861999958753586
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.25,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        -0.008826999925076962,
+                        0.0,
+                        -2.200000047683716,
+                        -0.0015620000194758177,
+                        2.5,
+                        -2.200000047683716,
+                        0.0076950001530349258,
+                        -2.5,
+                        0.0,
+                        0.0071390001103281979,
+                        0.0,
+                        0.0,
+                        -0.0025210001040250065,
+                        2.5,
+                        0.0,
+                        -0.008965999819338322,
+                        -2.5,
+                        2.200000047683716,
+                        -0.003976000007241964,
+                        0.0,
+                        2.200000047683716,
+                        0.00608400022611022,
+                        2.5,
+                        2.200000047683716,
+                        0.00838600005954504
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.2999999523162842,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        -0.008314999751746655,
+                        0.0,
+                        -2.200000047683716,
+                        0.00019700000120792538,
+                        2.5,
+                        -2.200000047683716,
+                        0.008457999676465989,
+                        -2.5,
+                        0.0,
+                        0.005932000000029802,
+                        0.0,
+                        0.0,
+                        -0.004157999996095896,
+                        2.5,
+                        0.0,
+                        -0.008945999667048455,
+                        -2.5,
+                        2.200000047683716,
+                        -0.0023250000085681679,
+                        0.0,
+                        2.200000047683716,
+                        0.007261000107973814,
+                        2.5,
+                        2.200000047683716,
+                        0.007586999796330929
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.350000023841858,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        -0.007482999935746193,
+                        0.0,
+                        -2.200000047683716,
+                        0.0019490000559017063,
+                        2.5,
+                        -2.200000047683716,
+                        0.00889500044286251,
+                        -2.5,
+                        0.0,
+                        0.004497999791055918,
+                        0.0,
+                        0.0,
+                        -0.005636000074446201,
+                        2.5,
+                        0.0,
+                        -0.008581999689340592,
+                        -2.5,
+                        2.200000047683716,
+                        -0.0005840000230818987,
+                        0.0,
+                        2.200000047683716,
+                        0.008159000426530838,
+                        2.5,
+                        2.200000047683716,
+                        0.006496999878436327
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.399999976158142,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        -0.006364000029861927,
+                        0.0,
+                        -2.200000047683716,
+                        0.0036249998956918718,
+                        2.5,
+                        -2.200000047683716,
+                        0.0089910002425313,
+                        -2.5,
+                        0.0,
+                        0.0028909998945891859,
+                        0.0,
+                        0.0,
+                        -0.006895999889820814,
+                        2.5,
+                        0.0,
+                        -0.00788899976760149,
+                        -2.5,
+                        2.200000047683716,
+                        0.0011790000135079027,
+                        0.0,
+                        2.200000047683716,
+                        0.008743000216782093,
+                        2.5,
+                        2.200000047683716,
+                        0.005156999919563532
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.4500000476837159,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        -0.004999999888241291,
+                        0.0,
+                        -2.200000047683716,
+                        0.005162999965250492,
+                        2.5,
+                        -2.200000047683716,
+                        0.008741999976336956,
+                        -2.5,
+                        0.0,
+                        0.001171999960206449,
+                        0.0,
+                        0.0,
+                        -0.007891999557614327,
+                        2.5,
+                        0.0,
+                        -0.006891999859362841,
+                        -2.5,
+                        2.200000047683716,
+                        0.002896999940276146,
+                        0.0,
+                        2.200000047683716,
+                        0.008991999551653862,
+                        2.5,
+                        2.200000047683716,
+                        0.003619000082835555
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.5,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        -0.0034439999144524338,
+                        0.0,
+                        -2.200000047683716,
+                        0.0065020001493394379,
+                        2.5,
+                        -2.200000047683716,
+                        0.008155999705195427,
+                        -2.5,
+                        0.0,
+                        -0.0005910000181756914,
+                        0.0,
+                        0.0,
+                        -0.008584000170230866,
+                        2.5,
+                        0.0,
+                        -0.005630000028759241,
+                        -2.5,
+                        2.200000047683716,
+                        0.004503999836742878,
+                        0.0,
+                        2.200000047683716,
+                        0.008894000202417374,
+                        2.5,
+                        2.200000047683716,
+                        0.0019420000026002527
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.5499999523162842,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        -0.0017559999832883478,
+                        0.0,
+                        -2.200000047683716,
+                        0.007590999826788902,
+                        2.5,
+                        -2.200000047683716,
+                        0.0072570000775158409,
+                        -2.5,
+                        0.0,
+                        -0.0023320000618696214,
+                        0.0,
+                        0.0,
+                        -0.008946999907493592,
+                        2.5,
+                        0.0,
+                        -0.0041519999504089359,
+                        -2.5,
+                        2.200000047683716,
+                        0.0059380000457167629,
+                        0.0,
+                        2.200000047683716,
+                        0.008454999886453152,
+                        2.5,
+                        2.200000047683716,
+                        0.0001900000061141327
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "At": 1.600000023841858,
+                    "Positions": [
+                        -2.5,
+                        -2.200000047683716,
+                        0.0,
+                        0.0,
+                        -2.200000047683716,
+                        0.00838799960911274,
+                        2.5,
+                        -2.200000047683716,
+                        0.0060789999552071098,
+                        -2.5,
+                        0.0,
+                        -0.003982999827712774,
+                        0.0,
+                        0.0,
+                        -0.008964999578893185,
+                        2.5,
+                        0.0,
+                        -0.002515000058338046,
+                        -2.5,
+                        2.200000047683716,
+                        0.007143000140786171,
+                        0.0,
+                        2.200000047683716,
+                        0.007691000122576952,
+                        2.5,
+                        2.200000047683716,
+                        -0.0015689999563619495
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                }
+            ],
+            "Markers": []
+        }
+    ]
+}

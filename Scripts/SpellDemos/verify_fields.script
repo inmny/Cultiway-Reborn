@@ -1,0 +1,204 @@
+// B15：原已学领域、真实持续作用、固定/推进/跟随，以及同来源并存上限。
+var manager = Cultiway.ModClass.I.SkillV3;
+var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts = new List<ConstructedCastStarted>(); var accepted = new List<object>(); var emissions = new List<object>();
+var old = new List<int>(); bool invalidate = false, scopeValid = true;
+SkillEmissionResult? lastResult = null;
+Actor source = Make(64), target = Make(70), edge = Make(71), outside = Make(78), gap = Make(74), wolf = Make(12, "wolf");
+foreach (Actor actor in new[] { target, edge, outside, gap }) actor.setKingdom(wolf.kingdom);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+IReadOnlyList<Entity> Learned() => (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+bool IsField(SkillEntityAsset a) => a == SkillEntities.PoisonPool || a == SkillEntities.PoisonMist || a == SkillEntities.EntropyField;
+Entity Build(SkillEntityAsset asset, bool boosted = false, bool extra = false)
+{
+    var builder = new SkillContainerBuilder(asset).UseAnimation(0);
+    if (boosted)
+    {
+        builder.AddModifier(new HugeModifier { Value = 1.5f });
+        builder.AddModifier(new HasteModifier { SpeedMultiplier = .5f });
+        builder.AddModifier(new EmpowerModifier { SetupBonus = .3f });
+        builder.AddModifier(new ProficiencyModifier { CostReduction = .2f, SalvoIntervalReduction = .2f });
+    }
+    if (extra) builder.AddModifier(new BurnModifier { Duration = 1, DamageRatio = .1f });
+    Entity skill = builder.Build(SkillContainerBuildMode.RuleOnly);
+    string signature = SkillContainerSignature.Build(skill);
+    owner.LearnSkillV3(skill); return Learned().First(s => SkillContainerSignature.Build(s) == signature);
+}
+var converter = service.Assembly.GetType("Cultiway.Content.Skills.FieldConstructionMigration").GetMethod("Convert", F);
+AbilityDefinition Convert(Entity skill, out GetHitEvent damage)
+{
+    object[] args = { new SkillEmission { Source = source, SpatialSource = source, SkillContainer = skill,
+        Target = target, SourcePos = new Vector3(64, 72, .3f), TargetPos = new Vector3(70, 72, .3f), Strength = 40, PowerLevel = 1.25f }, default(GetHitEvent) };
+    var d = (AbilityDefinition)converter.Invoke(null, args); damage = (GetHitEvent)args[1]; return d;
+}
+float[] XYZ(Vector3 point) => new[] { point.x, point.y, point.z };
+AbilityCast Numeric(AbilityDefinition d) => new(AbilityCompiler.Compile(d, cache: false), Matrix4x4.identity,
+    inputs: new AbilityInputs(new Vector3(64, 72, .3f), new Vector3(70, 72, .3f), Vector3.right, .8f), force: 40);
+AbilityCast Cast(object running) => (AbilityCast)Field(running, "Cast");
+void Started(ConstructedCastStarted fact) { if (IsField(manager.SkillLib.get(fact.AbilityId))) starts.Add(fact); }
+void Old(Entity execution) { if (IsField(execution.GetComponent<SkillEntity>().Asset)) old.Add(execution.Id); }
+ConstructedAbilityService.CastStarted += Started; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+try
+{
+    Entity pool = Build(SkillEntities.PoisonPool), enhanced = Build(SkillEntities.PoisonPool, true);
+    Entity mist = Build(SkillEntities.PoisonMist), chaos = Build(SkillEntities.EntropyField), extra = Build(SkillEntities.PoisonPool, extra: true);
+    foreach (Entity skill in new[] { pool, enhanced, mist, chaos })
+    {
+        AbilityDefinition definition = Convert(skill, out GetHitEvent damage);
+        Check(definition != null && definition.ConcurrentLimit == 2 && definition.Root.Contact.Mode == ConstructionContactMode.Interval &&
+            Mathf.Abs(definition.Root.Contact.Interval - .4f) < .00001f && damage.Element.Equals(skill.GetComponent<SkillContainer>().Asset.Element) &&
+            damage.AttackerPowerLevel == 1.25f && Mathf.Abs(damage.Damage - (skill == enhanced ? 13 : 10)) < .001,
+            "原领域保留间隔、并存上限、元素、强度、境界及强化", new { definition?.Id, damage.Damage });
+        string file = definition.Root.Form + (skill == enhanced ? "-enhanced" : "") + ".json";
+        File.WriteAllText(Path.Combine(folder, file), JsonConvert.SerializeObject(definition, Formatting.Indented));
+        var restored = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
+        var numeric = Numeric(restored); var views = new List<FormVisualInstance>(); numeric.AppendVisuals(views);
+        var shapes = new List<AbilityCapsule>(); numeric.AppendContacts(shapes);
+        Check(views.Count == 1 && views[0].PartCount > 0 && shapes.Count > 0 && numeric.Plan.ConcurrentLimit == 2,
+            "独立领域资源与真实接触成功加载，纯资料读回保留上限", new { definition.Root.Form, parts = views[0].PartCount, contacts = shapes.Count });
+        var save = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+        var restore = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+        string Snapshot()
+        {
+            var cs = new List<AbilityCapsule>(); numeric.AppendContacts(cs);
+            var vs = new List<FormVisualInstance>(); numeric.AppendVisuals(vs);
+            return JsonConvert.SerializeObject(new { numeric.Age, numeric.Finished,
+                shapes = cs.Select(s => new { a = XYZ(s.A), b = XYZ(s.B), s.Radius }),
+                parts = vs.SelectMany(v => Enumerable.Range(0, v.PartCount).Select(i => XYZ(v.PartTransform(i).MultiplyPoint3x4(Vector3.zero)))) });
+        }
+        save(numeric); numeric.Advance(.7f, new Vector3(80, 72, 0)); string predicted = Snapshot();
+        restore(numeric); numeric.Advance(.7f, new Vector3(80, 72, 0));
+        Check(predicted == Snapshot(), "领域姿态、运动与接触在预测恢复后保持一致");
+        numeric.UpdateInputs(new AbilityInputs(new Vector3(60, 72, .3f), new Vector3(82, 72, .3f), Vector3.right, .8f));
+        numeric.Advance(.01f, new Vector3(82, 72, .3f));
+        views.Clear(); numeric.AppendVisuals(views); float rootX = ((Vector3)views[0].Transform.GetColumn(3)).x;
+        if (definition.Binding.Anchor == AbilityAnchor.Target)
+            Check(Mathf.Abs(rootX - (definition.Binding.Follow ? 82 : 70)) < .01f,
+                "更新真实输入后，固定场保留原位、跟随场立即使用新位置", new { definition.Root.Form, rootX });
+        numeric.Advance(definition.Lifetime + .1f, Vector3.zero); views.Clear(); numeric.AppendVisuals(views);
+        Check(numeric.Finished && views.Count == 0, "纯数值领域在有限寿命后结束");
+    }
+    Check(Convert(extra, out _) == null, "未映射的额外作用明确留在原来源");
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
+    {
+        if (!IsField(request.SkillContainer.GetComponent<SkillContainer>().Asset)) return original(request);
+        if (invalidate) scopeValid = false;
+        SkillEmissionResult result = original(request); lastResult = result;
+        if (result == SkillEmissionResult.Accepted)
+        {
+            object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+                .Single(r => (long)Field(r, "Id") == starts.Last().CastId);
+            accepted.Add(running);
+        }
+        emissions.Add(new { result = result.ToString(), request.Strength, request.PowerLevel, request.RuntimeData.CorrelationId,
+            id = request.SkillContainer.GetComponent<SkillContainer>().SkillEntityAssetID, point = XYZ(request.TargetPos) }); return result;
+    };
+    SkillCastPlan Plan(Entity skill) => SkillCastPlanner.CreatePlan(owner, skill, target, SkillCastCost.GetAffordableStepLimit(owner, skill), explicitTargetsOnly: true);
+    double Cost(Entity skill, SkillCastPlan plan) => SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculatePlanDemand(skill, plan) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    bool Use(Entity skill, Vector3? point = null)
+    {
+        bool used = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+            new ActiveAbilityTarget(point.HasValue ? null : target, point ?? target.GetSimPos(),
+                selectionArea: new SkillTargetSelectionArea(true, point ?? target.GetSimPos(), .1f),
+                runtimeData: new SkillCastRuntimeData { CorrelationId = 933 }), ActiveAbilityUseOrigin.Script);
+        source.attack_timer = 999; CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats(); return used;
+    }
+    void ResetPeople()
+    {
+        Ready(source); Place(source, 64); Place(target, 70); Place(edge, 70.5f); Place(outside, 88); Place(gap, 84);
+    }
+    async Task Shot(string name)
+    {
+        ControllableUnit.clear(false); World.world.console.Hide();
+        object current = accepted.Last();
+        var shown = new List<FormVisualInstance>(); Cast(current).AppendVisuals(shown);
+        Vector3 centre = shown[0].Transform.GetColumn(3); centre.z = 0;
+        World.world.camera.transform.position = centre; MoveCamera.instance.forceZoom(12);
+        Config.paused = true; await Game.NextFrame(); string file = Path.Combine(folder, name + ".png");
+        File.Delete(file); Screen.Capture(file); await Game.WaitUntil(() => File.Exists(file), 600);
+    }
+    foreach (Entity skill in new[] { pool, enhanced })
+    {
+        ResetPeople(); var definition = Convert(skill, out _); float scale = definition.Root.Scale;
+        Place(outside, 70 + 3.6f * scale); Place(gap, 70, 72 + 3.4f * scale);
+        contacts.Clear(); int first = starts.Count, known = Learned().Count;
+        int hp = target.data.health, outsideHp = outside.data.health, gapHp = gap.data.health;
+        float balance = owner.GetCultisys<Xian>().wakan; var plan = Plan(skill); double cost = Cost(skill, plan);
+        Check(Use(skill), "固定毒潭由真实已学入口受理"); await Advance(.25f);
+        var cast = Cast(accepted.Last()); var initialViews = new List<FormVisualInstance>(); cast.AppendVisuals(initialViews);
+        Vector3 initial = initialViews[0].Transform.GetColumn(3);
+        await Shot(skill == enhanced ? "poison-pool-enhanced" : "poison-pool");
+        Place(edge, 80); ConstructedAbilityService.NotifyActorChanged(edge);
+        await Advance(definition.Lifetime + .3f);
+        var actual = starts.Skip(first).ToArray(); var hits = contacts.Where(c => actual.Any(s => s.CastId == c.CastId) && c.TargetId == target.id).ToArray();
+        Check(actual.Length == plan.Steps.Count && old.Count == 0 && Learned().Count == known &&
+            Math.Abs(balance - owner.GetCultisys<Xian>().wakan - cost) < .001,
+            "领域只产生新构造且逐发收费一次", new { count = actual.Length, cost, balance, after = owner.GetCultisys<Xian>().wakan });
+        Check(target.data.health < hp && outside.data.health == outsideHp && gap.data.health == gapHp && hits.Length >= 3 &&
+            hits.Zip(hits.Skip(1), (a, b) => b.Age - a.Age).All(t => t >= .399f),
+            "可见毒潭内部按间隔持续伤害，外侧和旧圆区外不受伤", new { hp, after = target.data.health, outsideHp, outsideAfter = outside.data.health,
+                gapHp, gapAfter = gap.data.health, times = hits.Select(c => c.Age).ToArray(), initial = XYZ(initial) });
+        Check(cast.Finished && actual.All(s => endings.Any(e => e.Fact.CastId == s.CastId && !e.Fact.Cancelled)), "固定毒潭自然结束并清理");
+    }
+    ResetPeople(); Place(target, 66); Place(edge, 90); Place(outside, 92); Place(gap, 94);
+    contacts.Clear(); int mistHp = target.data.health;
+    Check(Use(mist, new Vector3(80, 72, 0)), "推进毒雾在空地点方向受理"); await Advance(.1f);
+    object moving = accepted.Last(); var movingCast = Cast(moving); var beforeViews = new List<FormVisualInstance>(); movingCast.AppendVisuals(beforeViews);
+    Vector3 beforePoint = beforeViews[0].Transform.GetColumn(3);
+    await Shot("poison-mist"); await Advance(.6f); var afterViews = new List<FormVisualInstance>(); movingCast.AppendVisuals(afterViews);
+    Vector3 afterPoint = afterViews[0].Transform.GetColumn(3);
+    Check(beforePoint.x < 68 && afterPoint.x > beforePoint.x + .1f && afterPoint.x < 80 && target.data.health < mistHp,
+        "毒雾从来源真实出生点推进，沿途真实接触而非在目标处出生", new { before = XYZ(beforePoint), after = XYZ(afterPoint), mistHp, hp = target.data.health });
+    await Advance(3f); Check(movingCast.Finished, "推进毒雾自然结束");
+    ResetPeople(); Place(edge, 90); Place(gap, 76); Place(outside, 92); int gapBefore = gap.data.health;
+    contacts.Clear(); Check(Use(chaos), "随目标混沌场由原已学入口受理"); await Advance(.3f);
+    var following = Cast(accepted.Last()); int chaosHp = target.data.health;
+    Place(target, 82); ConstructedAbilityService.NotifyActorChanged(target);
+    await Advance(.5f); var followed = new List<FormVisualInstance>(); following.AppendVisuals(followed);
+    Check(Mathf.Abs(((Vector3)followed[0].Transform.GetColumn(3)).x - 82) < .01f && target.data.health < chaosHp && gap.data.health == gapBefore,
+        "混沌场跟随实际目标，仍按间隔伤害，转移空隙不扫伤", new { chaosHp, hp = target.data.health, gapBefore, gapAfter = gap.data.health });
+    await Shot("entropy-field");
+    target.dieAndDestroy(AttackType.Other);
+    await Advance(3f); Check(following.Finished, "目标失效后场不报错、不重选目标，有限寿命后清理");
+    target = Make(70); target.setKingdom(wolf.kingdom);
+    ResetPeople(); Place(edge, 90); Place(gap, 92); Place(outside, 94);
+    var sameGroup = new List<object>();
+    for (int i = 0; i < 2; i++) { Ready(source); Check(Use(pool), "上限测试受理原毒潭"); await Advance(.08f); sameGroup.Add(accepted.Last()); }
+    float beforeFailure = owner.GetCultisys<Xian>().wakan; int initialStarts = starts.Count;
+    scopeValid = true; invalidate = true; var scope = new ConstructionWorldScope(() => scopeValid, (_, _) => true);
+    Ready(source);
+    bool queued = manager.StartSkillSequence(owner, pool, Plan(pool), SkillContext.DefaultStrength, owner.GetPowerLevel(),
+        runtime_data: new SkillCastRuntimeData { CorrelationId = 933, WorldScope = scope },
+        options: new SkillCastSequenceOptions { PaymentTiming = SkillCastPaymentTiming.PerEmission });
+    await Advance(.08f); invalidate = false;
+    Check(queued && lastResult == SkillEmissionResult.Rejected && starts.Count == initialStarts && sameGroup.All(r => !Cast(r).Finished) &&
+        Mathf.Abs(beforeFailure - owner.GetCultisys<Xian>().wakan) < .001f,
+        "新领域受理失败撤销费用，保留原两份领域", new { queued, lastResult, beforeFailure, after = owner.GetCultisys<Xian>().wakan });
+    scopeValid = true; Ready(source); Check(Use(enhanced), "另一已学毒潭变体独立受理"); await Advance(.08f); var otherGroup = accepted.Last();
+    Check(sameGroup.All(r => !Cast(r).Finished) && !Cast(otherGroup).Finished, "同一人物不同已学容器分别计数");
+    typeof(AbilityCast).GetMethod("SaveStep", F).Invoke(Cast(sameGroup[0]), null);
+    Ready(source); Check(Use(pool), "失败后第三次原领域仍可正常受理"); await Advance(.08f); sameGroup.Add(accepted.Last());
+    Check(Cast(sameGroup[0]).Finished && Cast(sameGroup[0]).Phase == AbilityCastPhase.Interrupted &&
+        !Cast(sameGroup[1]).Finished && !Cast(sameGroup[2]).Finished && !Cast(otherGroup).Finished,
+        "同来源超限只替换最老领域，不误删别的变体");
+    typeof(AbilityCast).GetMethod("RestoreStep", F).Invoke(Cast(sameGroup[0]), null);
+    service.GetMethod("ValidateSource", F).Invoke(null, new[] { sameGroup[0] });
+    Check(Cast(sameGroup[0]).Finished && Cast(sameGroup[0]).Phase == AbilityCastPhase.Interrupted,
+        "共用预测恢复不能撤销已经发生的数量替换");
+    long retired = (long)Field(sameGroup[0], "Id"); int retiredContacts = contacts.Count(c => c.CastId == retired);
+    await Advance(.8f);
+    Check(contacts.Count(c => c.CastId == retired) == retiredContacts, "被替换领域不再从预测或后续步骤产生伤害");
+    await Advance(4f); Check(accepted.All(r => Cast(r).Finished), "所有领域最终清理，没有遗留执行或身体控制");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder, "emissions.json"), JsonConvert.SerializeObject(emissions, Formatting.Indented));
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
+    ConstructedAbilityService.CastStarted -= Started; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

@@ -326,12 +326,41 @@ Shader "Cultiway/FormSurface"
                 float deep = smoothstep(.25,.8,folds);
                 base = base*(.24+.65*deep)+float3(.025,.008,.045)*rim;
             }
-            else
+            else if(_Kind < 9.5)
             {
                 // 厚裂唇的宽面受光与有限内辉，避免依赖单根发光轮廓线。
                 float strata = volumeNoise(i.material*4+float3(0,0,-.1)*_WorldTime);
                 base *= (.34+.3*strata)*ambient+.5*diffuse*direct;
                 base += tint.rgb*(.10+.14*strata)+specular*.16*direct;
+            }
+            else if(_Kind < 10.5)
+            {
+                // 毒液保留黏稠宽面和深色积液，不沿用海水的蓝色反射与白沫。
+                float flow=volumeNoise(i.material*2.4+float3(.025,-.04,.015)*_WorldTime);
+                float thickness=max(.035,i.surface.x);
+                float depth=1-exp(-thickness*4);
+                base=lerp(base*1.35,base*.42,depth)*(.62*ambient+.33*diffuse*direct);
+                base+=tint.rgb*(.06+.10*flow)+specular*.15*direct;
+                alpha=saturate(alpha*(.55+.4*depth));
+            }
+            else if(_Kind < 11.5)
+            {
+                // 透明边缘和内部密度只改变雾的明暗，不画球壳轮廓。
+                float density=volumeNoise(i.material*1.6+float3(.025,-.03,.055)*_WorldTime);
+                float detail=volumeNoise(i.material*4.5+float3(-.018,.02,.025)*_WorldTime);
+                base*=((.42+.32*density)*ambient+.24*diffuse*direct);
+                base+=tint.rgb*detail*.09;
+                // 体积前后两侧的光程相同；不能让原版投影的双面方向把整个体积裁成透明。
+                alpha*=pow(abs(dot(n,eye)),.7)*(.42+.58*density);
+            }
+            else
+            {
+                // 不规则混沌体积的暗腔与宽层次；不是尚未实现的空间折射。
+                float fold=volumeNoise(i.material*2.1+float3(.02,-.015,.04)*_WorldTime);
+                float deep=volumeNoise(i.material*.8+float3(-.01,.025,.012)*_WorldTime);
+                base*=.30+.75*fold;
+                base+=tint.rgb*deep*.2;
+                alpha*=pow(abs(dot(n,eye)),.45)*(.65+.35*fold);
             }
             float contact = formFeedback(i);
             base += (base*.24 + float3(.035,.045,.05)*environmentLight)*contact;

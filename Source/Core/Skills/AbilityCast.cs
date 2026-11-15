@@ -993,6 +993,17 @@ public sealed partial class AbilityCast
     /// <summary>根形体尚未解除本次输入连接，已脱离的作用不再占用载体。</summary>
     internal bool IsInputAttached => Plan.Binding?.Follow == true && nodes.Length > 0 && !nodes[0].Free && !Finished;
 
+    /// <summary>输入转移只影响仍连接根部的形体；已经离手或事件生成的独立主体继续使用自己的真实路径。</summary>
+    /// <param name="node">实际展开部位。</param>
+    internal bool ContactAtDestination(int node)
+    {
+        if (node < 0 || Plan.Binding?.Follow != true || !Plan.Binding.ContactAtDestination) return false;
+        for (int i = node; i >= 0; i = Plan.Nodes[i].Parent)
+            if (nodes[i].Free || nodes[i].EventPlaced) return false;
+        return true;
+    }
+
+
     /// <summary>只有明确允许且不再依赖来源连接的部位，才能在控制者失效后继续。</summary>
     /// <param name="node">实际部位。</param>
     internal bool CanContinueWithoutSource(int node)

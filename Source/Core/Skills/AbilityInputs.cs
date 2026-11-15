@@ -30,6 +30,9 @@ public sealed class ConstructionBinding
     /// <summary>解除前是否跟随实际连接对象。</summary>
     public bool Follow;
 
+    /// <summary>跟随时只在新位置接触，不把两次输入之间的空隙当成飞行路径。</summary>
+    public bool ContactAtDestination;
+
     /// <summary>来源或目标根朝向实际出手方向；手部始终使用共同手姿态。</summary>
     public bool FaceTarget;
 
@@ -106,6 +109,9 @@ internal sealed class CompiledBinding
     /// <summary>是否跟随。</summary>
     internal readonly bool Follow;
 
+    /// <summary>是否只在跟随后的位置接触。</summary>
+    internal readonly bool ContactAtDestination;
+
     /// <summary>是否使用出手朝向。</summary>
     internal readonly bool FaceTarget;
 
@@ -121,6 +127,7 @@ internal sealed class CompiledBinding
     {
         Anchor = source.Anchor;
         Follow = source.Follow;
+        ContactAtDestination = source.ContactAtDestination;
         FaceTarget = source.FaceTarget;
         ScaleByBody = source.ScaleByBody;
         Height = source.Height;

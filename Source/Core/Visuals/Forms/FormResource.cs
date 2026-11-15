@@ -609,6 +609,11 @@ internal sealed partial class FormResourceGeneration
         {
             "metal" => (0f, new Color(.53f, .64f, .70f), .23f),
             "bronze" => (0f, new Color(.52f, .31f, .12f), .30f),
+            "poison_liquid" => (10f, new Color(.17f, .36f, .035f, .9f), .23f),
+            "poison_vapor" => (11f, new Color(.31f, .53f, .07f, .48f), .9f),
+            "poison_core" => (11f, new Color(.13f, .25f, .025f, .55f), .9f),
+            "entropy_veil" => (12f, new Color(.30f, .10f, .46f, .55f), .9f),
+            "entropy_depth" => (12f, new Color(.045f, .02f, .07f, .78f), .9f),
             "rift_core" => (8f, new Color(.055f, .018f, .095f), .9f),
             "rift_lip" => (9f, new Color(.37f, .10f, .61f), .55f),
             "mirror" => (7f, new Color(.72f, .81f, .84f), .045f),
@@ -641,7 +646,7 @@ internal sealed partial class FormResourceGeneration
         found.SetColor("_Color", color);
         found.SetFloat("_Kind", kind);
         found.SetFloat("_Roughness", roughness);
-        found.SetFloat("_ZWrite", !transparent && (kind < 3f || kind >= 6f) ? 1f : 0f);
+        found.SetFloat("_ZWrite", !transparent && (kind < 3f || kind >= 6f && kind < 10f) ? 1f : 0f);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfall" : "Always", false);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfallTransparent" : "CultiwayNativeTransparent", false);
         if (native) found.SetShaderPassEnabled("CultiwayWorldfallSolid", false);

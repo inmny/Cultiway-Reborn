@@ -23,6 +23,9 @@ public sealed class CompiledAbility
     /// <summary>最大持续时间。</summary>
     public float Lifetime { get; }
 
+    /// <summary>同一人物同一来源的并存上限；零表示不限。</summary>
+    public int ConcurrentLimit { get; }
+
     /// <summary>作者明确提供的目标选择距离，不作为实际命中半径。</summary>
     public float? TargetRange { get; }
 
@@ -171,6 +174,7 @@ public sealed class CompiledAbility
         Id = definition.Id;
         Revision = definition.Revision;
         Lifetime = definition.Lifetime;
+        ConcurrentLimit = definition.ConcurrentLimit;
         TargetRange = definition.TargetRange;
         Nodes = nodes;
         Operations = Array.AsReadOnly(nodes.SelectMany(node => node.Operations).ToArray());
@@ -525,6 +529,8 @@ public static partial class AbilityCompiler
         if (definition.Root == null && definition.Body == null) Fail("Root / Body", "至少需要生成主体或实际身体动作");
         if (!Finite(definition.Lifetime) || definition.Lifetime <= 0f || definition.Lifetime > 3600f)
             Fail("Lifetime", "持续时间须大于零且不超过3600世界秒");
+        if (definition.ConcurrentLimit < 0 || definition.ConcurrentLimit > 1024)
+            Fail("ConcurrentLimit", "并存上限须为零至1024，零表示不限");
         if (!Finite(definition.Cost) || definition.Cost < 0) Fail("Cost", "费用须为非负有限数");
         if (definition.AdditionalResources == null || definition.AdditionalResources.Length > 15 ||
             !Enum.IsDefined(typeof(Cultiway.Core.SkillLibV3.SkillCastResourceRequirementMode),
@@ -560,6 +566,9 @@ public static partial class AbilityCompiler
             if (definition.Root == null) Fail("Binding", "根连接缺少Root生成主体");
             if (!Enum.IsDefined(typeof(AbilityAnchor), definition.Binding.Anchor))
                 Fail("Binding/Anchor", "未知连接对象：" + definition.Binding.Anchor);
+            if (definition.Binding.ContactAtDestination && (!definition.Binding.Follow ||
+                definition.Binding.Anchor is not (AbilityAnchor.Target or AbilityAnchor.Source)))
+                Fail("Binding/ContactAtDestination", "仅来源或目标的跟随连接能够只在新位置接触");
             if (!Finite(definition.Binding.Height)) Fail("Binding/Height", "离地高度须为有限数");
             if ((definition.Binding.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) && definition.Body == null)
                 Fail("Binding/Anchor", "手部连接缺少Body实际身体动作");

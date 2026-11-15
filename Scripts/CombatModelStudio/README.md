@@ -45,3 +45,6 @@ Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官�
 
 
 `forms_rift.mjs`制作独立`rift_opening`：连续暗腔与两侧厚裂唇共同张开、维持和闭合；左右权重控制网格，静止轴明确声明自身范围并承载内部接触，只有完全张开至开始合拢之间可生效。来源定义同时使用普通生长和命名收缩步骤，让初现及闭合末端的整体体量收尽，不留下完整高度的黑线。资源保留`rift_core`与`rift_lip`两种表面，混沌伤害独立登记，不按表面颜色猜元素。运行`python3 Scripts/SpellDemos/verify_rift.py`验证原已学裂隙、实际内部伤害、混沌抗性、费用及失败恢复，证据位于`artifacts/skill_rebuild/trajectories/rift/`。该来源当前只造成原有混沌伤害；空间解构、卷入去向及最终归墟美术继续对应后项。
+
+
+`forms_fields.mjs`制作三种独立持续领域：`poison_pool`为低矮积液，共用九点地表承托；`poison_mist`保留内外密度和低频起伏；`entropy_field`使用不规则暗腔和紫色体积层次。每个实际作用面与对应网格共用控制。构造的`ConcurrentLimit`在成功受理后替换同来源最老实例，原容器编号只用于本世界计数，不写入长期资料。跟随连接的`ContactAtDestination`明确只在新位置接触，不扫过输入转移空隙；独立离手部位继续保留自己的路径。运行`python3 Scripts/SpellDemos/verify_fields.py`验证本批实际来源、间隔伤害、边界、数量上限、失败恢复及自然结束，证据位于`artifacts/skill_rebuild/trajectories/fields/`。治疗净化、空间扭曲、最终流派美术与集中连续录像仍对应后项。
