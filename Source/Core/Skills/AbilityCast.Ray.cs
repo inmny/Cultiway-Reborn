@@ -16,7 +16,7 @@ public sealed partial class AbilityCast
             (cast, action, parameters) =>
             {
                 ref NodeState state = ref cast.nodes[action.Node];
-                state.Ray = parameters; state.RayTarget = cast.samplingTarget;
+                state.Ray = parameters; state.RayTarget = state.HasTarget ? state.Target : cast.samplingTarget;
                 state.RayInitialized = false; state.RayClipped = false; state.MovementStopped = false;
                 cast.SampleRay(action.Node, 0f, cast.samplingTarget);
                 foreach (int child in cast.Plan.Nodes[action.Node].Children) cast.QueueBirth(child);
@@ -54,7 +54,7 @@ public sealed partial class AbilityCast
     {
         ref NodeState state = ref nodes[node]; CompiledRay ray = state.Ray;
         if (ray == null) return;
-        Vector3 start = state.Transform.GetColumn(3), aim = (ray.FollowTarget ? target : state.RayTarget) - start;
+        Vector3 start = state.Transform.GetColumn(3), aim = (ray.FollowTarget ? state.HasTarget ? state.Target : target : state.RayTarget) - start;
         float scale = MaximumScale(state.Transform), minimum = ray.Span.Radius * 2f;
         if (!state.MovementStopped)
         {

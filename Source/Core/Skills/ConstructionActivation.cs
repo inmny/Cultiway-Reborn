@@ -14,6 +14,10 @@ public sealed class ConstructionActivation : ConstructionCondition
     /// <summary>来源结束时按权重交接实际余力、材料及控制身份，不重新使用初始威力。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool InheritRemainder;
+    /// <summary>人物接触后在其附近选择尚未命中过的目标；空值沿用本次原目标。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionContactTarget Target;
+
 }
 
 /// <summary>真实事件带来的新部位放置。</summary>
@@ -33,6 +37,9 @@ internal sealed class CompiledConstructionActivation : CompiledConstructionCondi
     internal readonly ConstructionEventPlacement Placement;
     /// <summary>是否接受来源结束时的真实剩余状态。</summary>
     internal readonly bool InheritRemainder;
+    /// <summary>可选的真实接触后选敌规则。</summary>
+    internal readonly CompiledContactTarget Target;
+
     /// <summary>检查共同条件和放置。</summary>
     /// <param name="source">明确条件。</param>
     /// <param name="lifetime">整次上限。</param>
@@ -40,6 +47,9 @@ internal sealed class CompiledConstructionActivation : CompiledConstructionCondi
     internal CompiledConstructionActivation(ConstructionActivation source, float lifetime, string path) : base(source, lifetime, path)
     {
         Placement = source.Placement; InheritRemainder = source.InheritRemainder;
+        Target = source.Target == null ? null : new CompiledContactTarget(source.Target, path + "/Target");
+        if (Target != null && (Trigger != ConstructionChangeTrigger.ActorContact || Placement != ConstructionEventPlacement.Event || InheritRemainder))
+            throw new InvalidDataException(path + "：附近选敌需要人物接触及事件处独立开始，不能同时接受结束余量");
         if (!Enum.IsDefined(typeof(ConstructionEventPlacement), Placement)) throw new InvalidDataException(path + "：事件放置无效");
         if (InheritRemainder && (Trigger != ConstructionChangeTrigger.End || Placement != ConstructionEventPlacement.Event))
             throw new InvalidDataException(path + "：余量交接需要来源结束事件及事件处独立开始");

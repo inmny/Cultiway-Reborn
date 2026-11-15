@@ -87,6 +87,17 @@ public sealed partial class ConstructedAbilityService
             relationsFrame = controller.relationsFrame;
         }
 
+        /// <summary>只改变后续部位的目标，保留原稳定归属和已经采集的关系。</summary>
+        /// <param name="source">真实来源部位的控制者。</param><param name="target">已在主线程选中的人物。</param>
+        internal CastAuthority(CastAuthority source, Actor target)
+        {
+            Actor = source.Actor; Id = source.Id; Damage = source.Damage;
+            Target = target; TargetId = target.data.id;
+            kingdomId = source.kingdomId; canFight = source.canFight; tantrum = source.tantrum;
+            LastFoot = source.LastFoot; relationsFrame = source.relationsFrame;
+            hostileIds.UnionWith(source.hostileIds);
+        }
+
         /// <summary>活着时保留最后有效关系；失效或对象池换人后不再读取该对象。</summary>
         internal void RefreshRelations()
         {

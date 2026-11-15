@@ -134,6 +134,7 @@ public sealed partial class AbilityCast
         NodeState state = nodes[index];
         CompiledForm form = Plan.Nodes[index];
         return state.Exists && !state.Started && state.BirthAt <= Age &&
+               (form.Activation?.Target == null || state.HasTarget) &&
                (form.RemainderRoot < 0 || form.RemainderRoot == index || nodes[form.RemainderRoot].Started) &&
                (state.Free || form.Parent < 0 ||
                 nodes[form.Parent].Started && nodes[form.Parent].Exists && AnchorBuilt(index));

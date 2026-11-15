@@ -23,6 +23,8 @@ internal sealed class AbilityContactIndex
     private int[] visited = Array.Empty<int>();
     /// <summary>当前查询编号。</summary>
     private int stamp;
+    /// <summary>本轮实际登记的高度范围，平面查询只覆盖真实高度，不展开任意大空区。</summary>
+    private float minimumZ = float.PositiveInfinity, maximumZ = float.NegativeInfinity;
 
     /// <summary>人物形状沿用八格，模型三角面采用更细的共同索引。</summary>
     /// <param name="cellSize">实际格边长。</param>
@@ -33,6 +35,7 @@ internal sealed class AbilityContactIndex
     {
         foreach (List<int> list in cells.Values) { list.Clear(); pool.Push(list); }
         cells.Clear(); bounds.Clear(); large.Clear();
+        minimumZ = float.PositiveInfinity; maximumZ = float.NegativeInfinity;
     }
 
     /// <summary>插入实际扫掠范围；返回值与本轮插入顺序一致。</summary>
@@ -54,6 +57,7 @@ internal sealed class AbilityContactIndex
     /// <param name="value">当前范围。</param>
     private void Insert(int id, Bounds value)
     {
+        minimumZ = Mathf.Min(minimumZ, value.min.z); maximumZ = Mathf.Max(maximumZ, value.max.z);
         if (!Cells(value, out Vector3Int min, out Vector3Int max)) { large.Add(id); return; }
         for (int x = min.x; x <= max.x; x++) for (int y = min.y; y <= max.y; y++) for (int z = min.z; z <= max.z; z++)
                 {
@@ -84,6 +88,15 @@ internal sealed class AbilityContactIndex
             visited[id] = stamp;
             if (bounds[id].Intersects(value)) output.Add(id);
         }
+    }
+
+    /// <summary>按地图平面搜索，实际登记的高度决定查询范围，复用同一空间格和去重记录。</summary>
+    /// <param name="centre">地图平面中心。</param><param name="radius">平面搜索半径。</param><param name="output">复用结果。</param>
+    internal void QueryPlane(Vector2 centre, float radius, List<int> output)
+    {
+        if (bounds.Count == 0) { output.Clear(); return; }
+        Query(new Bounds(new Vector3(centre.x, centre.y, (minimumZ + maximumZ) * .5f),
+            new Vector3(radius * 2f, radius * 2f, maximumZ - minimumZ)), output);
     }
 
     /// <summary>实际双端胶囊扫过的包围范围，保留接触距离计算的微小数值容差。</summary>

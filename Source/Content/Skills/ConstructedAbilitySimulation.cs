@@ -812,7 +812,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 void AtStage(int stage, bool oldScope, bool endpointOnly)
                 {
                     CompiledConstructionImpact effect = running.Cast.ImpactAtStage(shape.To.Node, stage);
-                    if (effect.SelectedTargetOnly && running.TargetId != actor.Id || !owner.Matches(effect.Targets, actor.Actor) ||
+                    if (effect.SelectedTargetOnly && owner.TargetId != actor.Id || !owner.Matches(effect.Targets, actor.Actor) ||
                         !running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until)) return;
                     float earliest = Mathf.Max(from, ContactFraction(shape, actor, b0, b1, step, stage, from));
                     if (earliest > 1f || earliest > until) return;
@@ -978,6 +978,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             strength: running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
         running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id,
             hit.LeftRayLength >= 0f ? hit.LeftRayLength : null);
+        simulation.SelectContactTargets(running, node, actor);
         if (node < 0) ConfirmBodyFeedback(running, hit.Point);
         if (running.Cast.UsesBodyWindow(node) && result == ApplyAttackState.Hit) RespondToBodyResult(running, BodyActionResult.Contact);
         else if (running.Cast.UsesBodyWindow(node) && result is ApplyAttackState.Block or ApplyAttackState.Deflect)

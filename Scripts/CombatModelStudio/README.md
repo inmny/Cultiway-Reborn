@@ -57,3 +57,6 @@ Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官�
 
 
 `forms_ray.mjs`的`makeSourceRays()`提供`spirit_ray`与`solar_ray`：前者是独立玉白厚光柱，后者由三道相接的金色厚光脊组成，均有圆端。两者沿用`origin/extent`末端控制与明确`span`能力，网格和实际作用胶囊共同伸展；多个相接胶囊仍归同一接触组，不多收伤害。原已学来源验证使用`python3 Scripts/SpellDemos/verify_beams.py`。仅交付基础独立形体，最终流派美术继续后项。
+
+
+`forms_ray.mjs`的`makeThunderChannel()`提供独立`thunder_channel`雷体：封闭扭转截面采用亮色与蓝紫色外表面分区，顶点和真实作用共用末端伸展控制，亮区不增加第二次伤害。原连锁由有限四个普通部位构成，后续部位通过`ConstructionActivation.Target`在真实接触后选择附近未访问目标，并使用上一段实际余力乘声明倍率。原已学入口及失败恢复验证使用`python3 Scripts/SpellDemos/verify_chain.py`，复用现成世界和人物；原自动连发照常逐发验证和收费。最终流派美术、完整编辑和自主创作、正式冷启动及集中连续录像仍按总计划后续交付。

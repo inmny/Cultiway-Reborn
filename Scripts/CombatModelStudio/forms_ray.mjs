@@ -46,3 +46,38 @@ export function makeSourceRays() {
       structure('volume','forms_ray.mjs','makeSourceRays',{'span.length':length,'span.radius':radius},roles,[],['span']));
   }
 }
+
+/** 连锁使用有厚度的扭转雷体；亮芯位于外层内部，不额外增加作用次数。 */
+export function makeThunderChannel() {
+  const radius=.12,length=2,parts=[],roles={};
+  const controls=['origin','extent'].map(Id=>({Id,Parent:null,Position:[0,0,0],Rotation:[0,0,0,1]}));
+  for(const [name,r,surface] of [['body',radius,'thunder_body'],['core',radius,'thunder_core']]) {
+    const geometry=new T.CapsuleGeometry(r,length-r*2,8,18).rotateX(Math.PI/2).translate(0,0,length*.5);
+    const position=geometry.getAttribute('position');
+    for(let i=0;i<position.count;i++) {
+      const x=position.getX(i),y=position.getY(i),z=position.getZ(i),angle=Math.atan2(y,x);
+      const fold=.87+.13*Math.cos(angle*3+z*4.2),turn=z*.8;
+      position.setXYZ(i,(x*Math.cos(turn)-y*Math.sin(turn))*fold,(x*Math.sin(turn)+y*Math.cos(turn))*fold,z);
+    }
+    const selected=[],indices=geometry.index.array;
+    for(let i=0;i<indices.length;i+=3) {
+      const middle=new T.Vector3();
+      for(let j=0;j<3;j++)middle.add(new T.Vector3().fromBufferAttribute(position,indices[i+j]));
+      middle.multiplyScalar(1/3);
+      const bright=Math.cos(Math.atan2(middle.y,middle.x)*3-middle.z*.2)>.2;
+      if(bright===(name==='core'))selected.push(indices[i],indices[i+1],indices[i+2]);
+    }
+    geometry.setIndex(selected);
+    const mesh=skin(geometry,p=>{const t=T.MathUtils.clamp((p.z-radius)/(length-radius*2),0,1);return [[0,1-t],[1,t]];});
+    const item=part(name,mesh,surface);item.UseMatterSurface=false;
+    for(let k=0;k<item.Triangles.length;k+=3)
+      [item.Triangles[k],item.Triangles[k+2]]=[item.Triangles[k+2],item.Triangles[k]];
+    parts.push(item);roles[name]=['channel.body','channel.surface'];
+  }
+  write('thunder_channel',parts,
+    [{Id:'start',Part:0,Position:[0,0,0],Direction:[0,0,-1],Control:'origin'},
+      {Id:'end',Part:0,Position:[0,0,length],Direction:[0,0,1],Control:'extent'}],
+    [{Id:'channel',Part:0,A:[0,0,radius],B:[0,0,length-radius],Radius:radius,AControl:'origin',BControl:'extent'}],
+    controls,[],false,{Forward:[0,0,1],Up:[0,1,0]},
+    structure('volume','forms_ray.mjs','makeThunderChannel',{'span.length':length,'span.radius':radius},roles,[],['span']));
+}

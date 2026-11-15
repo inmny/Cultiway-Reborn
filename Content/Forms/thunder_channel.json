@@ -1,0 +1,208 @@
+{
+    "Structure": {
+        "Kind": "volume",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_ray.mjs",
+            "Entry": "makeThunderChannel",
+            "Parameters": [
+                {
+                    "Id": "span.length",
+                    "Values": [
+                        2.0
+                    ]
+                },
+                {
+                    "Id": "span.radius",
+                    "Values": [
+                        0.11999999731779099
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "span"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "thunder_channel",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/thunder_channel_body_mid.asset",
+                "Assets/Cultiway/Forms/thunder_channel_body_far.asset"
+            ],
+            "Roles": [
+                "channel.body",
+                "channel.surface"
+            ],
+            "Id": "body",
+            "Surface": "thunder_body",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/thunder_channel_body.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/thunder_channel_core_mid.asset",
+                "Assets/Cultiway/Forms/thunder_channel_core_far.asset"
+            ],
+            "Roles": [
+                "channel.body",
+                "channel.surface"
+            ],
+            "Id": "core",
+            "Surface": "thunder_core",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/thunder_channel_core.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "start",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                -1.0
+            ],
+            "Control": "origin",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "end",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                2.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "extent",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "channel",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.11999999731779099
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.8799999952316285
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "origin",
+            "BControl": "extent",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "origin",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.09395399689674378,
+                -0.10743100196123123,
+                0.0
+            ],
+            "Maximum": [
+                0.11751700192689896,
+                0.11347199976444245,
+                0.11999999731779099
+            ]
+        },
+        {
+            "Id": "extent",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.11688899993896485,
+                -0.11354699730873108,
+                1.8799999952316285
+            ],
+            "Maximum": [
+                0.09428399801254273,
+                0.1075500026345253,
+                2.0
+            ]
+        }
+    ],
+    "Motions": []
+}

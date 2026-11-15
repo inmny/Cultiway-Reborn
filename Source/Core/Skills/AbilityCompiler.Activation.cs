@@ -30,6 +30,8 @@ public static partial class AbilityCompiler
             CompiledConstructionActivation gate = node.Activation;
             if (gate == null) continue;
             ResolveCondition(i, gate);
+            if (gate.Target != null && gate.Source < 0)
+                Fail(node.Path, "附近选敌的余力需要真实生成主体，不能从身体取得额外力量");
             if (gate.InheritRemainder && (gate.Source < 0 || nodes[gate.Source].ContactRole == ConstructionContactRole.Decoration))
                 Fail(node.Path, "余量交接需要具有真实作用量的生成主体，不能从身体或装饰取得额外力量");
             if (gate.Trigger == ConstructionChangeTrigger.End && gate.Placement == ConstructionEventPlacement.Attached)
