@@ -1,0 +1,142 @@
+// B20：只覆盖两点间连接和基础墙体，不冒充旧墙三类拦截已迁移。
+/// <summary>按资源声明将制作坐标转入根连接坐标。</summary>
+float[] WallFacing()
+{
+    Vector3 angles=FormResource.ReadFacing(new[]{0f,1f,0f},new[]{0f,0f,1f},"earth_wall").eulerAngles;
+    return new[]{angles.x,angles.y,angles.z};
+}
+/// <summary>本批正式资料，地表承托继续使用普通零速飞行。</summary><param name="suffix">本次独立编号。</param>
+AbilityDefinition Wall(string suffix) => new()
+{
+    Id="test.body-footwork.wall."+suffix,Name="两点间土墙",Lifetime=1.6f,Cost=7,Cooldown=0,Power=20,
+    Use=new ConstructionUse {Channels=ActiveAbilityChannel.World|ActiveAbilityChannel.Combat,Target=ActiveAbilityTargetMode.ObjectOrPoint},
+    Binding=new ConstructionBinding {Anchor=AbilityAnchor.Between,Fraction=.6f,FaceTarget=true},
+    Root=new ConstructionNode {Id="wall",Form="earth_wall",Rotation=WallFacing(),Matter="physical",ContactRole=ConstructionContactRole.Barrier,
+        SourceLoss=ConstructionSourceLoss.Continue,
+        Operations=new[] {new ConstructionOperation {Kind=ConstructionOperationKind.Fly,Vector=new float[3],WorldVelocity=true,Ground=ConstructionGroundResponse.Follow}}}
+};
+/// <summary>同一实际显示。</summary><param name="cast">运行。</param>
+List<FormVisualInstance> Views(AbilityCast cast){var result=new List<FormVisualInstance>();cast.AppendVisuals(result);return result;}
+/// <summary>同一实际作用面。</summary><param name="cast">运行。</param>
+List<AbilityCapsule> Shapes(AbilityCast cast){var result=new List<AbilityCapsule>();cast.AppendContacts(result);return result;}
+/// <summary>正式入口建立的运行。</summary><param name="id">编号。</param>
+AbilityCast Live(string id)=>((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Select(r=>(AbilityCast)Field(r,"Cast")).Single(c=>c.Plan.Id==id);
+/// <summary>比较实际坐标。</summary><param name="a">实际值。</param><param name="b">期待值。</param>
+bool Close(Vector3 a,Vector3 b)=>(a-b).sqrMagnitude<.00001f;
+/// <summary>取得实际模型根。</summary><param name="cast">运行。</param>
+Vector3 Position(AbilityCast cast)=>Views(cast).Single().Transform.GetColumn(3);
+/// <summary>纯数值输入，无人物替代。</summary><param name="source">来源。</param><param name="target">目标。</param>
+AbilityInputs Input(Vector3 source,Vector3 target)=>new(source,target,Vector3.right,1f);
+var input=Input(new Vector3(10,20,3),new Vector3(20,30,5));
+var original=Wall("original");
+var fixedDefinition=ConstructionPlacementEdits.Between(original,.6f);
+fixedDefinition.Binding.Height=.3f;
+var fixedPlan=AbilityCompiler.Compile(fixedDefinition,cache:false);
+var fixedCast=new AbilityCast(fixedPlan,Matrix4x4.identity,inputs:input);
+Check(Close(Position(fixedCast),new Vector3(16,26,4.5f)),"两点间0.6比例及独立高度正确");
+Vector3 line=new Vector3(1,1,0).normalized;
+Check(Math.Abs(Vector3.Dot(Views(fixedCast).Single().Transform.MultiplyVector(Vector3.right).normalized,line))<.0001f,
+    "墙长轴垂直水平连线");
+var changed=Input(new Vector3(12,20,3),new Vector3(12,32,5));
+fixedCast.UpdateInputs(changed);fixedCast.Advance(.05f,changed.Target);
+Check(Close(Position(fixedCast),new Vector3(16,26,4.5f)),"固定根在两端移动后保留原位置与朝向");
+var following=ConstructionPlacementEdits.Between(original,.6f,true);following.Binding.Height=.3f;
+var followingPlan=AbilityCompiler.Compile(following,cache:false);
+var followingCast=new AbilityCast(followingPlan,Matrix4x4.identity,inputs:input);
+followingCast.UpdateInputs(changed);
+var save=typeof(AbilityCast).GetMethod("SaveStep",F);var restore=typeof(AbilityCast).GetMethod("RestoreStep",F);
+save.Invoke(followingCast,null);followingCast.Advance(.1f,changed.Target);var first=Views(followingCast).Single();
+restore.Invoke(followingCast,null);followingCast.Advance(.1f,changed.Target);var second=Views(followingCast).Single();
+Check(Close(Position(followingCast),new Vector3(12,27.2f,4.5f))&&first.Transform==second.Transform&&first.Skin.SequenceEqual(second.Skin),
+    "跟随根重新取得两端位置及朝向，预测回退没有累加");
+Check(Math.Abs(Vector3.Dot(second.Transform.MultiplyVector(Vector3.right).normalized,Vector3.up))<.0001f,"跟随后长轴仍垂直新连线");
+followingCast.UpdateInputs(Input(new Vector3(12,32,5),new Vector3(12,32,5)));followingCast.Advance(.01f,new Vector3(12,32,5));
+Check(Close(Position(followingCast),new Vector3(12,32,5.3f))&&Vector3.Dot(Views(followingCast).Single().Transform.MultiplyVector(Vector3.up).normalized,Vector3.right)>.999f,
+    "两点重合使用明确出手朝向，保留竖直墙面");
+string before=JsonConvert.SerializeObject(original);bool rejected=false;
+try{ConstructionPlacementEdits.Between(original,1.1f);}catch(InvalidDataException){rejected=true;}
+Check(rejected&&JsonConvert.SerializeObject(original)==before,"非法比例拒绝且原稿不变");
+var roundtrip=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(following));
+AbilityCompiler.Compile(roundtrip,cache:false);
+Check(roundtrip.Binding.Anchor==AbilityAnchor.Between&&roundtrip.Binding.Fraction==.6f&&roundtrip.Binding.Follow&&
+    roundtrip.Root.Form==original.Root.Form&&roundtrip.Root.Matter==original.Root.Matter&&roundtrip.Root.ContactRole==ConstructionContactRole.Barrier,
+    "JSON读回保留连接、材料、主体及屏障用途");
+var sourceLoss=typeof(AbilityCast).GetMethod("CanContinueWithoutSource",F);
+Check((bool)sourceLoss.Invoke(fixedCast,new object[]{0})&&!(bool)sourceLoss.Invoke(followingCast,new object[]{0}),
+    "固定墙允许来源失效后独立存续，依赖两端的跟随墙继续要求来源");
+bool invalidUpdate=false;try{followingCast.UpdateInputs(Input(new Vector3(float.NaN,0,0),Vector3.zero));}catch(ArgumentException){invalidUpdate=true;}
+Check(invalidUpdate,"跟随输入包含非数时在数值边界拒绝");
+// 用同一墙面和控制点核对非平地承托，不创建第三方地形场景。
+var heights=new float[64*64];for(int y=0;y<64;y++)for(int x=0;x<64;x++)heights[y*64+x]=x*.06f;
+var ground=new AbilityHeightField(64,64,new Vector2(64,64),heights);
+var terrainCast=new AbilityCast(AbilityCompiler.Compile(original,cache:false),Matrix4x4.identity,inputs:input,terrain:ground);
+terrainCast.Advance(.02f,input.Target);
+var surfaces=Shapes(terrainCast);
+Check(surfaces.Count>0&&surfaces.All(c=>Math.Abs(c.A.z-c.Radius-ground.Sample(c.A.x,c.A.y))<.035f),
+    "墙面每个接触底部随相同控制承托地形，没有悬空扩大作用",surfaces.Select(c=>new{ground=ground.Sample(c.A.x,c.A.y),bottom=c.A.z-c.Radius}).ToArray());
+File.WriteAllText(Path.Combine(folder,"wall-definition.json"),JsonConvert.SerializeObject(original,Formatting.Indented));
+File.WriteAllText(Path.Combine(folder,"following-definition.json"),JsonConvert.SerializeObject(following,Formatting.Indented));
+// 正式已学入口：同一来源、敌人和现成世界，不扩身体或装备样本。
+Actor guardian=Make(70),attacker=Make(64),wolf=Make(12,"wolf");attacker.setKingdom(wolf.kingdom);
+var owner=guardian.GetExtend();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=2;
+owner.MarkCultiwayStatsDirty();guardian.setStatsDirty();guardian.updateStats();
+owner.GetCultisys<Xian>().wakan=guardian.stats[BaseStatses.MaxWakan.id]*.8f;
+var clashes=new List<ConstructedClash>();
+/// <summary>记录真实抵挡。</summary><param name="clash">实际接触。</param>
+void Clash(ConstructedClash clash){clashes.Add(clash);}
+ConstructedAbilityService.ClashConfirmed+=Clash;
+var liveCasts=new List<AbilityCast>();
+/// <summary>复用原版相机保存本批画面。</summary><param name="name">文件名。</param>
+async Task Shot(string name)
+{
+    await Game.NextFrame();Camera camera=World.world.camera;var oldTarget=camera.targetTexture;var oldPosition=camera.transform.position;float oldSize=camera.orthographicSize;
+    var active=RenderTexture.active;var texture=new RenderTexture(960,540,24,RenderTextureFormat.ARGB32);texture.Create();var pixels=new Texture2D(960,540,TextureFormat.RGBA32,false);
+    try{camera.transform.position=new Vector3(68,74,oldPosition.z);camera.orthographicSize=5f;camera.targetTexture=texture;camera.Render();RenderTexture.active=texture;
+        pixels.ReadPixels(new Rect(0,0,960,540),0,0);pixels.Apply();File.WriteAllBytes(Path.Combine(folder,name+".png"),pixels.EncodeToPNG());}
+    finally{camera.targetTexture=oldTarget;camera.transform.position=oldPosition;camera.orthographicSize=oldSize;RenderTexture.active=active;texture.Release();UnityEngine.Object.Destroy(texture);UnityEngine.Object.Destroy(pixels);}
+}
+try
+{
+    Ready(guardian);float balance=owner.GetCultisys<Xian>().wakan;
+    var wall=Wall("live");await Fire(wall,guardian,attacker);owner.E.RemoveComponent<ConstructedKnowledge>();
+    CombatStatusEffects.ApplyStatus(guardian,hold,10000,guardian);guardian.updateStats();
+    await Advance(.05f);var live=Live(wall.Id);liveCasts.Add(live);float capacity=live.RemainingForce(0);
+    var center=Position(live);
+    Check(Math.Abs(center.x-66.4f)<.02f&&Math.Abs(center.y-72)<.02f&&capacity>0&&Shapes(live).Count>0,
+        "正式入口在两点间建立真实土墙",new{center=new[]{center.x,center.y,center.z},capacity});
+    Check(owner.GetCultisys<Xian>().wakan<balance&&!BodyControlState.IsBusy(guardian.id),"沿用正常支付，不占用人物动作控制");
+    await Shot("wall");
+    int hp=guardian.data.health;
+    var ray=new AbilityDefinition {Id="test.body-footwork.wall.incoming",Name="来袭光束",Resource="none",Cost=0,Cooldown=0,Lifetime=.65f,Power=3,
+        Use=new ConstructionUse{Channels=ActiveAbilityChannel.World,Target=ActiveAbilityTargetMode.ObjectOrPoint},
+        Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source,Height=.45f},
+        Root=new ConstructionNode{Id="beam",Form="spirit_ray",Matter="physical",Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Ray,Ray=new ConstructionRay{Length=8}}}}};
+    Ready(attacker);await Fire(ray,attacker,guardian);attacker.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    CombatStatusEffects.ApplyStatus(attacker,hold,10000,attacker);attacker.updateStats();
+    var beam=Live(ray.Id);liveCasts.Add(beam);float force=attacker.stats["damage"]*ray.Power;
+    await Advance(.15f);
+    Check(clashes.Count==1&&guardian.data.health==hp&&Math.Abs(live.RemainingForce(0)-(capacity-force))<.01f&&beam.RemainingForce(0)==0,
+        "实际墙面抵挡来袭光束并消耗同一容量，后方人物不受伤",new{capacity,force,remaining=live.RemainingForce(0),clashes=clashes.Count});
+    await Shot("wall-blocking");
+    Place(guardian,71);Place(attacker,65,74);await Advance(.05f);
+    Check(Close(Position(live),center),"正式固定墙在人物移动后保留原位置");
+    await Advance(1.7f);
+    Check(Views(live).Count==0&&Shapes(live).Count==0&&!BodyControlState.IsBusy(guardian.id),"自然结束清理显示和作用并归还控制");
+    // 跟随是普通连接，去除普通投送操作后即可在同一正式入口使用。
+    Place(guardian,70);Place(attacker,64);var follow=ConstructionPlacementEdits.Between(Wall("live-follow"),.6f,true);
+    Ready(guardian);await Fire(follow,guardian,attacker);owner.E.RemoveComponent<ConstructedKnowledge>();CombatStatusEffects.ApplyStatus(guardian,hold,10000,guardian);guardian.updateStats();
+    await Advance(.03f);var moved=Live(follow.Id);liveCasts.Add(moved);
+    Place(attacker,68,74);await Advance(.05f);
+    var view=Views(moved).Single();Vector3 forward=new Vector3(-2,2,0).normalized;
+    Check(Math.Abs(Position(moved).x-68.8f)<.02f&&Math.Abs(Position(moved).y-73.2f)<.02f&&Math.Abs(Vector3.Dot(view.Transform.MultiplyVector(Vector3.right).normalized,forward))<.001f,
+        "恢复后正式跟随构造更新位置和朝向",new{position=new[]{Position(moved).x,Position(moved).y,Position(moved).z}});
+    await Shot("wall-following");await Advance(1.7f);
+    Check(Views(moved).Count==0&&Shapes(moved).Count==0&&!BodyControlState.IsBusy(guardian.id),"跟随墙自然结束，恢复使用正常");
+    return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    foreach(var cast in liveCasts)cast.Cancel();
+    ConstructedAbilityService.ClashConfirmed-=Clash;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    ControllableUnit.clear(false);Config.paused=true;
+}

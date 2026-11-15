@@ -1,3 +1,4 @@
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Cultiway.Core.Skills;
@@ -18,7 +19,10 @@ public enum AbilityAnchor
     Effector = 3,
 
     /// <summary>本次施放实际取得控制的外部载体，由来源玩法提供数值姿态。</summary>
-    Carrier = 4
+    Carrier = 4,
+
+    /// <summary>来源与目标之间按明确比例取得的位置。</summary>
+    Between = 5
 }
 
 /// <summary>可保存的根连接，后续形体继续使用普通父子挂点。</summary>
@@ -27,13 +31,17 @@ public sealed class ConstructionBinding
     /// <summary>本次输入的连接对象。</summary>
     public AbilityAnchor Anchor;
 
+    /// <summary>两点间从来源走向目标的比例，空值为一半；范围为零至一。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float? Fraction;
+
     /// <summary>解除前是否跟随实际连接对象。</summary>
     public bool Follow;
 
     /// <summary>跟随时只在新位置接触，不把两次输入之间的空隙当成飞行路径。</summary>
     public bool ContactAtDestination;
 
-    /// <summary>来源或目标根朝向实际出手方向；手部始终使用共同手姿态。</summary>
+    /// <summary>普通根朝向实际出手方向，两点间根朝向水平连线；手部始终使用共同手姿态。</summary>
     public bool FaceTarget;
 
     /// <summary>局部尺寸及偏移按实际来源体高缩放。</summary>
@@ -79,17 +87,24 @@ public readonly struct AbilityInputs
     /// <param name="body">同一步身体姿态。</param>
     internal Matrix4x4 Resolve(CompiledBinding binding, BodyPose? body)
     {
-        Vector3 position = binding.Anchor == AbilityAnchor.Carrier ? (Vector3)Carrier.Value.GetColumn(3) :
+        Vector3 position = binding.Anchor == AbilityAnchor.Between ? Vector3.LerpUnclamped(Source, Target, binding.Fraction) :
+            binding.Anchor == AbilityAnchor.Carrier ? (Vector3)Carrier.Value.GetColumn(3) :
             binding.Anchor == AbilityAnchor.Effector ? body.Value.EffectorPoint :
             binding.Anchor == AbilityAnchor.Hand ? body.Value.Hand :
             binding.Anchor == AbilityAnchor.Source ? Source : Target;
         Vector3 aim = Forward;
-        if (binding.Anchor == AbilityAnchor.Carrier)
+        if (binding.Anchor == AbilityAnchor.Between)
+        {
+            aim = Target - Source;
+            aim.z = 0f;
+            if (aim.sqrMagnitude < 1e-8f) aim = Forward;
+        }
+        else if (binding.Anchor == AbilityAnchor.Carrier)
         {
             aim = Target - position;
             if (aim.sqrMagnitude < 1e-8f) aim = Forward;
         }
-        Vector3 up = binding.Anchor == AbilityAnchor.Carrier && Mathf.Abs(Vector3.Dot(aim.normalized, Vector3.forward)) > .999f
+        Vector3 up = (binding.Anchor is AbilityAnchor.Carrier or AbilityAnchor.Between) && Mathf.Abs(Vector3.Dot(aim.normalized, Vector3.forward)) > .999f
             ? Vector3.up : Vector3.forward;
         Quaternion rotation = binding.Anchor == AbilityAnchor.Effector ? body.Value.EffectorRotation :
             binding.Anchor == AbilityAnchor.Hand ? body.Value.Rotation :
@@ -105,6 +120,9 @@ internal sealed class CompiledBinding
 {
     /// <summary>实际连接对象。</summary>
     internal readonly AbilityAnchor Anchor;
+
+    /// <summary>已核对并复制的两点间比例。</summary>
+    internal readonly float Fraction;
 
     /// <summary>是否跟随。</summary>
     internal readonly bool Follow;
@@ -126,6 +144,7 @@ internal sealed class CompiledBinding
     internal CompiledBinding(ConstructionBinding source)
     {
         Anchor = source.Anchor;
+        Fraction = source.Fraction ?? .5f;
         Follow = source.Follow;
         ContactAtDestination = source.ContactAtDestination;
         FaceTarget = source.FaceTarget;

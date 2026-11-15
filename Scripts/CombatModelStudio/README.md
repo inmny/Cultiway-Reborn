@@ -60,3 +60,6 @@ Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官�
 
 
 `forms_ray.mjs`的`makeThunderChannel()`提供独立`thunder_channel`雷体：封闭扭转截面采用亮色与蓝紫色外表面分区，顶点和真实作用共用末端伸展控制，亮区不增加第二次伤害。原连锁由有限四个普通部位构成，后续部位通过`ConstructionActivation.Target`在真实接触后选择附近未访问目标，并使用上一段实际余力乘声明倍率。原已学入口及失败恢复验证使用`python3 Scripts/SpellDemos/verify_chain.py`，复用现成世界和人物；原自动连发照常逐发验证和收费。最终流派美术、完整编辑和自主创作、正式冷启动及集中连续录像仍按总计划后续交付。
+
+
+`forms_earth.mjs`还制作`earth_wall`：封闭厚墙、错落顶缘、两端封口及长轴控制，实际地表承托同时改变显示与接触。使用`AbilityAnchor.Between`和`Binding.Fraction`在来源及目标之间放置，`ConstructionPlacementEdits.Between`可在固定和跟随之间改造；模型制作前上向要按资源声明转换。运行`python3 Scripts/SpellDemos/verify_wall.py`验证正式构造施放、比例/朝向、容量抵挡、结束及恢复，证据在`artifacts/skill_rebuild/trajectories/wall-binding/`。旧墙来源仍保留原交互入口；完整旧墙迁移、玩家表单、自主创作及最终土法美术继续后项。

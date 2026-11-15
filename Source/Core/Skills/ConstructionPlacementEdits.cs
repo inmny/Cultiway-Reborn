@@ -17,6 +17,20 @@ public static class ConstructionPlacementEdits
         return result;
     }
 
+    /// <summary>将同一主体放到来源与目标之间，内部变化及实际作用保持；普通根旋转可继续改变长轴方向。</summary>
+    /// <param name="source">已有生成结构。</param><param name="fraction">从来源到目标的零至一比例。</param>
+    /// <param name="follow">是否随实际两点继续更新位置与水平朝向。</param>
+    public static AbilityDefinition Between(AbilityDefinition source, float fraction, bool follow = false)
+    {
+        AbilityDefinition result = Follow(source, AbilityAnchor.Between);
+        result.Binding.Fraction = fraction;
+        result.Binding.FaceTarget = true;
+        result.Binding.Follow = follow;
+        result.Binding.ContactAtDestination &= follow;
+        AbilityCompiler.Compile(result, cache: false);
+        return result;
+    }
+
     /// <summary>将原主体改为跟随实际来源或目标，不增加作用、次数、消耗或持续时间。</summary>
     /// <param name="source">带有实际生成主体的原法术。</param>
     /// <param name="anchor">来源、目标或已有身体的末端。</param>

@@ -269,9 +269,9 @@ public sealed partial class AbilityCast
         if (inputs.HasValue)
         {
             AbilityInputs value = inputs.Value;
-            if ((plan.NeedsPathTarget || plan.NeedsRayTarget || plan.NeedsFlightTarget || plan.Binding?.Anchor == AbilityAnchor.Target) && !FiniteInput(value.Target))
+            if ((plan.NeedsPathTarget || plan.NeedsRayTarget || plan.NeedsFlightTarget || plan.Binding?.Anchor is AbilityAnchor.Target or AbilityAnchor.Between) && !FiniteInput(value.Target))
                 throw new ArgumentException("inputs/Target：目标位置需要三个有限地图坐标", nameof(inputs));
-            if ((plan.NeedsFlightSource || plan.Binding?.Anchor == AbilityAnchor.Source) && !FiniteInput(value.Source))
+            if ((plan.NeedsFlightSource || plan.Binding?.Anchor is AbilityAnchor.Source or AbilityAnchor.Between) && !FiniteInput(value.Source))
                 throw new ArgumentException("inputs/Source：来源位置需要三个有限地图坐标", nameof(inputs));
             if ((plan.NeedsFlightDirection || plan.Binding is { FaceTarget: true } &&
                 plan.Binding.Anchor is not (AbilityAnchor.Hand or AbilityAnchor.Effector)) &&
@@ -954,8 +954,13 @@ public sealed partial class AbilityCast
     /// <param name="frame">本步实际来源及目标。</param>
     public void UpdateInputs(in AbilityInputs frame)
     {
-        if (Plan.NeedsFlightSource && !FiniteInput(frame.Source)) throw new ArgumentException("Fly/Goal：来源位置须为有限三维坐标", nameof(frame));
-        if (Plan.NeedsFlightTarget && !FiniteInput(frame.Target)) throw new ArgumentException("Fly/Goal：目标位置须为有限三维坐标", nameof(frame));
+        if ((Plan.NeedsFlightSource || Plan.Binding is { Follow: true, Anchor: AbilityAnchor.Between }) && !FiniteInput(frame.Source))
+            throw new ArgumentException("inputs/Source：来源位置须为有限三维坐标", nameof(frame));
+        if ((Plan.NeedsFlightTarget || Plan.Binding is { Follow: true, Anchor: AbilityAnchor.Between }) && !FiniteInput(frame.Target))
+            throw new ArgumentException("inputs/Target：目标位置须为有限三维坐标", nameof(frame));
+        if (Plan.Binding is { Follow: true, Anchor: AbilityAnchor.Between, FaceTarget: true } &&
+            (!FiniteInput(frame.Forward) || frame.Forward.sqrMagnitude < 1e-8f))
+            throw new ArgumentException("inputs/Forward：两点重合时需要非零且有限的实际出手方向", nameof(frame));
         inputs = frame;
     }
 

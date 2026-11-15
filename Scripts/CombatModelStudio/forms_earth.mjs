@@ -1,6 +1,6 @@
 /** 独立岩刺：封闭的不规则岩层、错落石锋和同一控制下的真实涌出。 */
 import * as T from 'three';
-import {part, write, structure, motion} from './form_export.mjs';
+import {part, write, structure, motion, skin} from './form_export.mjs';
 
 /** 每条石锋保留偏斜岩层及截面切面，接触段收在实际石体内部。 */
 function shard(index, centre, radius, height) {
@@ -55,4 +55,51 @@ export function makeEarthSpikes() {
   ], shards.flatMap(s => s.contacts), controls, [erupt], false, {Forward: [0, 1, 0], Up: [0, 0, 1], HideBelowGround: true},
   structure('articulated', 'forms_earth.mjs', 'makeEarthSpikes', {specs, duration, sides: 9},
     Object.fromEntries(shards.map(s => [s.item.Id, ['terrain.spire', 'weapon.point']])), []));
+}
+
+
+/** 连续封闭墙面保留错落顶缘，横向控制共同承托显示、挂点和实际接触。 */
+export function makeEarthWall() {
+  const count=13,length=5,halfThickness=.3,positions=[],uv=[],triangles=[];
+  const crest=x=>2.05+.12*Math.sin(x*3.1+.4)+.08*Math.cos(x*5.3);
+  const controls=Array.from({length:count},(_,i)=>({Id:`bed_${i}`,Position:[-length/2+length*i/(count-1),0,0],Rotation:[0,0,0,1]}));
+  const weights=p=>{
+    const at=T.MathUtils.clamp((p.x/length+.5)*(count-1),0,count-1),i=Math.min(count-2,Math.floor(at)),u=at-i;
+    return [[i,1-u],[i+1,u]];
+  };
+  const bind=p=>weights(p).filter(([,weight])=>weight>0).map(([i,Weight])=>({Control:controls[i].Id,Weight}));
+  const ring=i=>{
+    const x=controls[i].Position[0],h=crest(x),bend=.025*Math.sin(x*4.3);
+    return [[x,-.18,-.03],[x,-halfThickness,.12],[x,-halfThickness+bend,h-.14],[x,-.14,h],
+      [x,.13,h+.025],[x,halfThickness+bend,h-.10],[x,.27,.08],[x,.18,-.03]];
+  };
+  for(let i=0;i<count-1;i++)for(let side=0;side<8;side++){
+    const a=ring(i),b=ring(i+1),next=(side+1)%8,start=positions.length/3;
+    for(const [p,u,v] of [[a[side],0,side/8],[b[side],1,side/8],[b[next],1,(side+1)/8],[a[next],0,(side+1)/8]]){
+      positions.push(...p);uv.push((i+u)/(count-1),v);
+    }
+    triangles.push(start,start+1,start+2,start,start+2,start+3);
+  }
+  for(const end of [0,count-1]){
+    const edge=ring(end),start=positions.length/3;
+    positions.push(controls[end].Position[0],0,crest(controls[end].Position[0])*.5);uv.push(.5,.5);
+    for(let side=0;side<8;side++){positions.push(...edge[side]);uv.push((edge[side][1]/halfThickness+1)*.5,edge[side][2]/2.3);}
+    for(let side=0;side<8;side++){
+      const a=start+1+side,b=start+1+(side+1)%8;
+      triangles.push(start,...(end===0?[a,b]:[b,a]));
+    }
+  }
+  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));
+  geometry.setAttribute('uv',new T.Float32BufferAttribute(uv,2));geometry.setIndex(triangles);skin(geometry,weights);
+  const body=part('wall',geometry,'stone');
+  // 本函数直接构造朝外的几何，发布时换为Unity正面顺序。
+  for(let i=0;i<body.Triangles.length;i+=3)[body.Triangles[i],body.Triangles[i+2]]=[body.Triangles[i+2],body.Triangles[i]];
+  const contacts=Array.from({length:11},(_,i)=>{
+    const x=-2.25+i*.45,a=new T.Vector3(x,0,.245),b=new T.Vector3(x,0,crest(x)-.27);
+    return {Id:`face_${i}`,Part:0,A:a.toArray(),B:b.toArray(),Radius:.245,AInfluences:bind(a),BInfluences:bind(b)};
+  });
+  const anchors=[['left',new T.Vector3(-2.5,0,0)],['right',new T.Vector3(2.5,0,0)],['crest',new T.Vector3(0,0,crest(0))]]
+    .map(([Id,p])=>({Id,Part:0,Position:p.toArray(),Direction:[0,0,1],Influences:bind(p)}));
+  write('earth_wall',[body],anchors,contacts,controls,[],true,{Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
+    structure('surface','forms_earth.mjs','makeEarthWall',{length,halfThickness,controls:count}, {wall:['terrain.wall','barrier.face']},[]));
 }

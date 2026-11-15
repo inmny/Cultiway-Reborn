@@ -572,8 +572,11 @@ public static partial class AbilityCompiler
             if (!Enum.IsDefined(typeof(AbilityAnchor), definition.Binding.Anchor))
                 Fail("Binding/Anchor", "未知连接对象：" + definition.Binding.Anchor);
             if (definition.Binding.ContactAtDestination && (!definition.Binding.Follow ||
-                definition.Binding.Anchor is not (AbilityAnchor.Target or AbilityAnchor.Source)))
-                Fail("Binding/ContactAtDestination", "仅来源或目标的跟随连接能够只在新位置接触");
+                definition.Binding.Anchor is not (AbilityAnchor.Target or AbilityAnchor.Source or AbilityAnchor.Between)))
+                Fail("Binding/ContactAtDestination", "仅来源、目标或两点间的跟随连接能够只在新位置接触");
+            if (definition.Binding.Fraction.HasValue && (!Finite(definition.Binding.Fraction.Value) ||
+                definition.Binding.Fraction.Value < 0f || definition.Binding.Fraction.Value > 1f))
+                Fail("Binding/Fraction", "两点间比例需要零至一的有限数");
             if (!Finite(definition.Binding.Height)) Fail("Binding/Height", "离地高度须为有限数");
             if ((definition.Binding.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) && definition.Body == null)
                 Fail("Binding/Anchor", "手部连接缺少Body实际身体动作");

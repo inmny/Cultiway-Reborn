@@ -38,7 +38,7 @@ public sealed class ConstructionReach
         body = plan.Body?.ContactReach ?? 0f;
         bodyTravel = plan.Body?.FootworkExtent(plan.Body.ActiveUntil) ?? 0f;
         float movement = plan.Body?.FootworkExtent(plan.Body.Duration) ?? 0f;
-        targetPlaced = plan.FormCount > 0 && (plan.Binding == null || plan.Binding.Anchor == AbilityAnchor.Target);
+        targetPlaced = plan.FormCount > 0 && (plan.Binding == null || plan.Binding.Anchor is AbilityAnchor.Target or AbilityAnchor.Between);
         targetPath = plan.NeedsPathTarget;
         parts = new Vector2[plan.FormCount];
         var offsets = new Vector2[plan.FormCount];
@@ -84,7 +84,7 @@ public sealed class ConstructionReach
             if (source < 0 && (placed || (plan.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector)))
                 offsets[i].x += body;
             if (source < 0 && (placed || plan.Binding?.Follow == true &&
-                    plan.Binding.Anchor is AbilityAnchor.Source or AbilityAnchor.Hand or AbilityAnchor.Effector))
+                    plan.Binding.Anchor is AbilityAnchor.Source or AbilityAnchor.Hand or AbilityAnchor.Effector or AbilityAnchor.Between))
                 offsets[i].x += movement;
             if (placed && source >= 0) offsets[i] += Units(radii[source] * scales[source], scaled[source]);
             offsets[i] += Units((anchor + layout) * inherited, scaled[i]);
