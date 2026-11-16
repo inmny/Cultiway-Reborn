@@ -1,0 +1,32 @@
+// C10：同一成品的共享次数、真实间隔、伤害及结束恢复。
+Actor source = Make(64), first = Make(68, "wolf"), second = Make(68, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/trajectories/actor-contact-creation/ui/saved-definition.json")));
+try
+{
+    await Advance(.2f); Ready(source); Place(source, 64); Place(first, 68); Place(second, 68);
+    source.addAggro(second); second.addAggro(source); first.attack_timer = second.attack_timer = 999;
+    int firstBefore = first.data.health, secondBefore = second.data.health; float before = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, first); float paid = before - owner.GetCultisys<Xian>().wakan;
+    owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(definition.Lifetime + .2f);
+    var hits = contacts.Where(hit => hit.AbilityId == definition.Id).ToArray();
+    Check(Math.Abs(paid - definition.Cost) < .001f, "实际成品一次施放只支付一次费用", new { paid, definition.Cost });
+    Check(hits.Length == 3 && hits.Select(hit => hit.TargetId).Distinct().Count() == 2 && hits.GroupBy(hit => hit.TargetId).All(group => group.Count() <= 2), "重叠的两个部位共用每人两次与整组三次限制", ContactRows(hits));
+    Check(hits.GroupBy(hit => hit.TargetId).All(group => group.Count() == 1 || group.Max(hit => hit.Age) - group.Min(hit => hit.Age) >= .099f), "同一人物再次命中遵守真实间隔而非每帧结算");
+    Check(first.data.health < firstBefore && second.data.health < secondBefore, "共享规则命中实际产生人物伤害", new { firstBefore, firstAfter = first.data.health, secondBefore, secondAfter = second.data.health });
+    Check(endings.Any(item => item.Fact.AbilityId == definition.Id), "总次数耗尽后成品正常退出");
+    int previous = hits.Length; await Advance(.15f); ConstructedAbilityService.Learn(owner, definition.Id);
+    await Fire(definition, source, first); owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(definition.Lifetime + .2f);
+    Check(contacts.Count(hit => hit.AbilityId == definition.Id) == previous + 3, "结束及冷却后再次施放，接触次数不会残留");
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(ContactRows(contacts.Where(hit => hit.AbilityId == definition.Id)), Formatting.Indented));
+    return new { passed = true, closed = "实际共享间隔命中及次数恢复", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+    File.WriteAllText(Path.Combine(folder, "partial.json"), JsonConvert.SerializeObject(new
+    {
+        contacts = ContactRows(contacts), endings = endings.Select(item => item.Fact)
+    }, Formatting.Indented));
+}

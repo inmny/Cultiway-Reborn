@@ -1,0 +1,53 @@
+// C10：有限输入检查独立创作及原术派生，不重新选择真实失败。
+Actor source = Make(64); var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+var inspiration = ConstructedAbilityService.ReadInspiration(owner);
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node) { if (node == null) yield break; yield return node; foreach (var child in node.Children) foreach (var nested in Nodes(child)) yield return nested; }
+JObject Canon(AbilityDefinition d) { var value = JObject.FromObject(d); value.Remove("Id"); value.Remove("Creator"); return value; }
+var capture = service.GetMethod("CaptureCreationResources", F); var attempts = new List<object>();
+try
+{
+    Check(inspiration.Rules == 18, "新受理创作使用第十八版规则");
+    AbilityDefinition independent = null; int independentSeed = -1;
+    for (int seed = 0; seed < 32 && independent == null; seed++)
+    {
+        var resources = (SynthesisResources)capture.Invoke(null, new object[] { owner, seed, inspiration });
+        try
+        {
+            var generated = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: resources);
+            if (Nodes(generated.Root).Any(node => node.Contact != null) || generated.Body?.Contact != null)
+            {
+                independent = generated; independentSeed = seed;
+                Check(JToken.DeepEquals(Canon(generated), Canon(ConstructedAbilityService.Generate(owner, seed, inspiration, resources: resources))), "同一冻结输入保持完整接触频率及费用");
+            }
+            attempts.Add(new { seed, generated.Id, generated.Cost });
+        }
+        catch (InvalidDataException error) { attempts.Add(new { seed, rejected = error.Message }); }
+        await Game.NextFrame();
+    }
+    Check(independent != null, "独立自主创作产生明确的人物接触规则", new { independentSeed });
+    File.WriteAllText(Path.Combine(folder, "independent.json"), JsonConvert.SerializeObject(independent, Formatting.Indented));
+    var basis = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/trajectories/actor-contact-creation/ui/saved-definition.json")));
+    string original = JsonConvert.SerializeObject(basis); AbilityDefinition derived = null; int derivedSeed = -1;
+    for (int seed = 0; seed < 64 && derived == null; seed++)
+    {
+        var resources = (SynthesisResources)capture.Invoke(null, new object[] { owner, seed, inspiration });
+        try
+        {
+            var generated = ConstructedAbilityService.Generate(owner, seed, inspiration, basis, resources);
+            if (generated.Parent.Change == "接触频率") { derived = generated; derivedSeed = seed; }
+        }
+        catch (InvalidDataException error) { attempts.Add(new { seed, derivedRejected = error.Message }); }
+        await Game.NextFrame();
+    }
+    Check(derived != null && JsonConvert.SerializeObject(basis) == original, "已学原术可以派生接触频率，原资料保持", new { derivedSeed });
+    Check(JToken.DeepEquals(JToken.FromObject(derived.Root.Contact), JToken.FromObject(derived.Root.Children[0].Contact)), "自主改造保持实际共享组规则一致");
+    Check(JToken.DeepEquals(JToken.FromObject(derived.Root.Operations), JToken.FromObject(basis.Root.Operations)), "人物接触派生保留原运动");
+    var unlimited = ConstructionEditing.Copy(basis); unlimited.Root.Contact = unlimited.Root.Children[0].Contact = null;
+    Check(AbilityCompiler.Compile(basis,false).Measure.Work >= AbilityCompiler.Compile(unlimited,false).Measure.Work, "实际接触重复沿用共同工作量计算");
+    File.WriteAllText(Path.Combine(folder, "derived.json"), JsonConvert.SerializeObject(derived, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "selected.json"), JsonConvert.SerializeObject(new { seed = derivedSeed }, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "attempts.json"), JsonConvert.SerializeObject(attempts, Formatting.Indented));
+    return new { passed = true, closed = "人物接触规则独立创作与派生", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false); }

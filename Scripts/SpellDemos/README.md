@@ -1599,3 +1599,10 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 `python3 Scripts/SpellDemos/verify_world_contact_creation.py --section ui|cast|creation|save|all`。共用既有窗口、世界和接地形体，覆盖地块操作的真实表单、范围和次数、独立创作及派生、新规则17与正式区段18存读。旧样例`fixtures/world-contact-creation-rule16.json`直接提取C8正式等待存档并带来源校验值，不用当前生成结果重造旧预期。
 
 `placement|cast-tail`只用于同一进程中保留失败后的续接；正常all不加入这些段。C9首次演示的沿地表剑形体以模型最低处贴地，刃面实际悬空；placement经真实运动表单改明确高度，cast-tail补地块范围和结束恢复。原失败和观察记录保留，窗口、自主创作及存档已通过部分没有重跑。交付索引为`artifacts/skill_rebuild/trajectories/world-contact-creation/delivery.json`；本批实际为分段通过，不声称一次all整体通过。中英窗口截图在ui，真实作用结果在cast-tail，正式新旧请求及成品存档在save。软件渲染只验证功能和窗口。
+
+
+### 5.05 C10：人物接触频率、共用组和命中收势
+
+`python3 Scripts/SpellDemos/verify_actor_contact_creation.py --section ui|cast|creation|save|all`。复用既有窗口、世界和共享剑形体，验证身体/部位接触规则、同组同步、非法候选拒绝、撤销和保存再打开，中英窗口、真实共享次数及间隔、实际伤害、结束后再次施放，以及规则18创作与正式人物区段19存读。旧样例`fixtures/actor-contact-creation-rule17.json`直接来自C9正式等待存档和当时完整预期，保留来源校验值。
+
+`--section cast-tail`只在同一人物的原施放段失败后补伤害及恢复，不加入正常all。交付索引`artifacts/skill_rebuild/trajectories/actor-contact-creation/delivery.json`保留根路径缺陷、日志记录、初次伤害和续接脚本的原失败，以及分别通过的结果。本次实际交付为分段通过，不声称一次all整体通过。截图位于ui，初次已通过的组次数在cast，伤害与恢复在cast-tail，正式新旧存档在save。正式冷启动与集中录像仍在5.05 C交付点完成，软件渲染仅用于功能及窗口。

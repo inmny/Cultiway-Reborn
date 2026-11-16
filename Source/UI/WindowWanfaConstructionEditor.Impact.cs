@@ -25,6 +25,7 @@ public sealed partial class WindowWanfaConstructionEditor
                     JsonConvert.SerializeObject(session.Draft.Impact ?? new ConstructionImpact()))
                 : null);
             if (session.Draft.Body.Impact != null) ImpactRows(session.Draft.Body.Impact, "Body");
+            ContactPolicyRows(session.Draft.Body.Contact, null, "Body");
             BodyForceResponseRows(session.Draft.Body);
             BodyStageImpact(session.Draft.Body);
         }
@@ -39,6 +40,9 @@ public sealed partial class WindowWanfaConstructionEditor
             return;
         }
 
+        ConnectionText("NodeContactGroup", node.ContactGroup ?? "", value => node.ContactGroup = string.IsNullOrWhiteSpace(value) ? null : value);
+        ContactPolicyRows(node.Contact, node, "Node");
+        ImpactOption("Node", "OnContact", node.OnContact, value => node.OnContact = value);
         Toggle("NodeImpact", node.Impact != null, value =>
         {
             ConstructionImpact basis = session.Draft.Impact ?? new ConstructionImpact();

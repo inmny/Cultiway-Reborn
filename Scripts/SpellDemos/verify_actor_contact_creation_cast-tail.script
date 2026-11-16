@@ -1,0 +1,30 @@
+// C10：沿用已通过组次数的同一人物，只补实际伤害与结束后的再次施放。
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/trajectories/actor-contact-creation/ui/saved-definition.json")));
+Actor source = World.world.units.get(56), first = World.world.units.get(57), second = World.world.units.get(58);
+var owner = source.GetExtend(); var health = new List<object>();
+void Health(ConstructedContact hit)
+{
+    if (hit.AbilityId == definition.Id) health.Add(new { hit.CastId, hit.TargetId, hit.Age, hit.DamageAttempted, hit.Result,
+        health = World.world.units.get(hit.TargetId).data.health, invincible = World.world.units.get(hit.TargetId).hasStatus("invincible") });
+}
+ConstructedAbilityService.ContactConfirmed += Health;
+try
+{
+    await Advance(.2f); Ready(source); Place(source, 64); Place(first, 68); Place(second, 68);
+    int firstBefore = first.data.health, secondBefore = second.data.health;
+    await Fire(definition, source, first); owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(definition.Lifetime + .2f);
+    File.WriteAllText(Path.Combine(folder, "health.json"), JsonConvert.SerializeObject(health, Formatting.Indented));
+    Check(first.data.health < firstBefore && second.data.health < secondBefore, "同一正式成品实际伤害两个目标", new { firstBefore, firstAfter = first.data.health, secondBefore, secondAfter = second.data.health });
+    Check(endings.Any(item => item.Fact.AbilityId == definition.Id), "总次数耗尽后成品正常退出");
+    int previous = contacts.Count; await Advance(.15f); ConstructedAbilityService.Learn(owner, definition.Id);
+    await Fire(definition, source, first); owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(definition.Lifetime + .2f);
+    Check(contacts.Count(hit => hit.AbilityId == definition.Id) == previous + 3, "结束及冷却后再次施放，接触次数不会残留");
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(ContactRows(contacts), Formatting.Indented));
+    return new { passed = true, closed = "同人物成品实际伤害与次数恢复续接", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Health; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+    File.WriteAllText(Path.Combine(folder, "partial.json"), JsonConvert.SerializeObject(new { contacts = ContactRows(contacts), health, endings = endings.Select(item => item.Fact) }, Formatting.Indented));
+}

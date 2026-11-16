@@ -166,7 +166,8 @@ public sealed partial class WindowWanfaConstructionEditor
 
     /// <summary>计数不能把小数悄悄截断；范围仍交给正式编译器判断。</summary>
     /// <param name="key">字段及本地化名。</param><param name="value">当前计数。</param><param name="set">草稿写入。</param>
-    private void ContactInteger(string key, int value, Action<int> set)
+    /// <param name="draftChange">直接写草稿，或交给完整候选命令处理。</param>
+    private void ContactInteger(string key, int value, Action<int> set, bool draftChange = true)
     {
         WanfaEditorRow row = Row(key);
         FloatInput(row.UseInlineControls(104f), key, value, next =>
@@ -176,7 +177,8 @@ public sealed partial class WindowWanfaConstructionEditor
                 state.text = T("ContactIntegerRequired");
                 return;
             }
-            Change(() => set((int)next));
+            if (draftChange) Change(() => set((int)next));
+            else set((int)next);
         }, true, 100f, false);
     }
 }

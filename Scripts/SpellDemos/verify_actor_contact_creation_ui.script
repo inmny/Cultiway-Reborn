@@ -1,0 +1,90 @@
+// C10：人物共用接触规则、候选拒绝及完整保存。
+Actor source = Make(64), target = Make(72, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+var definition = new AbilityDefinition
+{
+    Id = "test.actor-contact-creation.editor", Name = "共用接触组编辑", Resource = "wakan", Cost = 3, Cooldown = .1f,
+    Lifetime = .65f, TargetRange = 100, Power = 20f / source.stats["damage"],
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+    Root = new ConstructionNode
+    {
+        Id = "blade", Form = "sword", Matter = "iron", Offset = new[] { 4f, 0f, 0f }, ContactGroup = "shared",
+        Children = new[] { new ConstructionNode { Id = "second", Form = "sword", Matter = "iron", ContactGroup = "shared" } }
+    }
+};
+ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(definition.Id, source);
+async Task Frames(int count = 3) { for (int i = 0; i < count; i++) await Game.NextFrame(); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300); Canvas.ForceUpdateCanvases(); }
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+Button B(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+void Click(string name) { if (!B(name).interactable) throw new InvalidOperationException("按钮不可用：" + name); B(name).onClick.Invoke(); }
+WanfaEditorRow Row(string key)
+{
+    IEnumerable<WanfaEditorRow> found = editor.GetComponentsInChildren<WanfaEditorRow>(false);
+    foreach (string group in new[] { "StatusStats", "StatusRatios" })
+    {
+        int at = key.IndexOf(group, StringComparison.Ordinal);
+        if (at >= 0 && key.Length > at + group.Length)
+            found = found.SkipWhile(r => ((Text)Field(r, "_title")).text != T(key.Substring(0, at + group.Length))).Skip(1);
+    }
+    return found.First(r => ((Text)Field(r, "_title")).text == T(key));
+}
+void Action(string key) => ((Button)Field(Row(key), "_action")).onClick.Invoke();
+void Set(string key, string value) { var input = editor.GetComponentsInChildren<InputField>(false).First(f => f.name == key); input.text = value; input.onEndEdit.Invoke(value); }
+void ToggleValue(string key, bool value) => Row(key).GetComponentsInChildren<Toggle>(false).Single().isOn = value;
+void Choose(string key, string text) { Action(key); editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && b.GetComponentInChildren<Text>().text == text).onClick.Invoke(); }
+async Task ShotRow(string key, string name)
+{
+    await Frames(); var row = (RectTransform)Row(key).transform; var scroll = row.GetComponentInParent<ScrollRect>();
+    Vector3 local = scroll.content.InverseTransformPoint(row.TransformPoint(row.rect.center));
+    float offset = scroll.content.rect.yMax - local.y - scroll.viewport.rect.height * .5f;
+    scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(offset / Mathf.Max(1f, scroll.content.rect.height - scroll.viewport.rect.height));
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(4); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+void SaveCase(string name)
+{
+    Click("LearnCopy"); var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    File.WriteAllText(Path.Combine(folder, name + "-definition.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+}
+try
+{
+    Click("Page4"); ToggleValue("NodeActorContactPolicy", true);
+    Choose("NodeActorContactMode", T("ActorContactMode.Interval")); Set("NodeActorContactInterval", ".1");
+    Set("NodeActorContactPerTarget", "2"); Set("NodeActorContactTotal", "3");
+    Check(Session().Draft.Root.Contact.MaximumPerTarget == 2 && Session().Draft.Root.Children[0].Contact.MaximumPerTarget == 2 && !ReferenceEquals(Session().Draft.Root.Contact, Session().Draft.Root.Children[0].Contact), "同一组同步参数但声明持有独立副本");
+    string valid = JsonConvert.SerializeObject(Session().Draft);
+    Set("NodeActorContactInterval", "0");
+    Check(JsonConvert.SerializeObject(Session().Draft) == valid && ((Text)Field(editor, "state")).text.Contains("编辑接触规则"), "非法间隔拒绝整个候选且原草稿保持");
+    Choose("NodeOnContact", T("OnContact.Stop")); Check(Session().Draft.Root.OnContact == ConstructionContactResponse.Stop, "命中驻留进入真实部位资料");
+    Click("Undo"); Check(Session().Draft.Root.OnContact == ConstructionContactResponse.Continue, "撤销恢复原命中收势及完整同组规则");
+    await ShotRow("NodeActorContactMode", "actor-contact-cz");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page4"); await Frames(); await ShotRow("NodeActorContactMode", "actor-contact-en");
+    string expected = JsonConvert.SerializeObject(Session().Draft.Root);
+    Click("Replace"); var complete = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(JsonConvert.SerializeObject(complete.Root) == expected, "正式保存包含完整共用组与次数");
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), JsonConvert.SerializeObject(complete, Formatting.Indented));
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(complete.Id, source); await Frames(); Click("Page4");
+    Check(JsonConvert.SerializeObject(Session().Draft.Root) == expected, "关闭再打开保持完整规则");
+    ToggleValue("NodeActorContactPolicy", false); Check(Session().Draft.Root.Contact == null && Session().Draft.Root.Children[0].Contact == null, "关闭自定规则恢复同组缺省");
+    Click("Undo"); Check(Session().Draft.Root.Contact.MaximumTotal == 3, "撤销恢复整组明确次数"); Click("Close"); await Frames();
+    var resources = (SynthesisResources)service.GetMethod("CaptureSynthesisResources", F).Invoke(null, new object[] { true });
+    var body = ConstructionEditing.Copy(resources.Bodies[0]); body.Id = "test.actor-contact-creation.body"; body.Resource = "wakan";
+    ConstructedAbilityService.Register(body); ConstructedAbilityService.Learn(owner, body.Id);
+    WindowWanfaConstructionEditor.Open(body.Id, source); await Frames(); Click("Page4"); ToggleValue("BodyActorContactPolicy", true);
+    Choose("BodyActorContactMode", T("ActorContactMode.Pulse")); Set("BodyActorContactInterval", ".15"); Set("BodyActorContactTotal", "1");
+    Check(Session().Draft.Body.Contact.Mode == ConstructionContactMode.Pulse && Session().Draft.Body.Contact.MaximumTotal == 1 && B("LearnCopy").interactable, "身体入口使用同一有效接触规则");
+    Click("Replace"); File.WriteAllText(Path.Combine(folder,"body-definition.json"),JsonConvert.SerializeObject(ConstructionEditing.Access.Read(Session().SourceId),Formatting.Indented)); Click("Close"); await Frames();
+    return new { passed = true, closed = "人物共用接触规则及收势真实表单", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}

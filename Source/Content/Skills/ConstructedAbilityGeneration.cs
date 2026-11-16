@@ -70,6 +70,7 @@ public sealed partial class ConstructedAbilityService
         if (inspiration.Rules >= 14) result = GenerateContactResults(result, seed, inspiration);
         if (inspiration.Rules >= 15) result = GenerateContactSpreads(result, seed, inspiration);
         if (inspiration.Rules >= 17) result = GenerateWorldContacts(result, seed, resources);
+        if (inspiration.Rules >= 18) result = GenerateContactPolicy(result, seed);
         return inspiration.Rules >= 3 ? ConstructionPricing.Price(result, contactRules: inspiration.Rules) : result;
     }
 
