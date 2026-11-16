@@ -205,7 +205,8 @@ public sealed class CompiledAbility
                 : body.Stages.Select(stage => stage.Impact ?? Impact))
             .SelectMany(impact => impact.WorldEffects).ToArray();
         PulseIntervals = contacts.Concat(worldEffects.Select(effect => effect.Contact))
-            .Where(policy => policy.Mode == ConstructionContactMode.Pulse).Select(policy => policy.Interval).Distinct().ToArray();
+            .Where(policy => policy.Mode == ConstructionContactMode.Pulse).Select(policy => policy.Interval)
+            .Concat(nodes.Where(node => node.RadialMotion != null && node.RadialMotion.Speed != 0f).Select(node => node.RadialMotion.Interval)).Distinct().ToArray();
         HasWorldEffects = worldEffects.Length > 0;
         HasWorldReentry = worldEffects.Any(effect => effect.Contact.Mode == ConstructionContactMode.Reentry);
         ContactDamageScale = impacts.Select(impact => impact.DamageScale).DefaultIfEmpty(0f).Max();
@@ -408,6 +409,9 @@ internal sealed class CompiledForm
 
     /// <summary>本部位的明确接触作用覆盖，空值采用整招默认。</summary>
     internal CompiledConstructionImpact Impact;
+
+    /// <summary>独立的有限范围运动，空值不分配相关运行记录。</summary>
+    internal CompiledConstructionRadialMotion RadialMotion;
 
     /// <summary>实际接触后的过程变化。</summary>
     internal ConstructionContactResponse OnContact;
@@ -760,6 +764,7 @@ public static partial class AbilityCompiler
             BodyWindow = node.BodyWindow,
             ContactPolicy = node.Contact == null ? null : new CompiledContactPolicy(node.Contact, path),
             Impact = node.Impact == null ? null : new CompiledConstructionImpact(node.Impact, path + "/Impact"),
+            RadialMotion = node.RadialMotion == null ? null : new CompiledConstructionRadialMotion(node.RadialMotion, path + "/RadialMotion"),
             OnContact = node.OnContact,
             ContactRole = node.ContactRole,
             BlocksGroundActors = node.BlocksGroundActors,

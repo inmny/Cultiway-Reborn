@@ -183,6 +183,10 @@ public sealed class ConstructionNode
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionImpact Impact;
 
+    /// <summary>围绕本部位真实中心的持续水平范围运动，不改变接触面、伤害或屏障容量。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionRadialMotion RadialMotion;
+
     /// <summary>实际接触后怎样继续，默认保留穿过并对每个目标首次作用的行为。</summary>
     public ConstructionContactResponse OnContact;
 

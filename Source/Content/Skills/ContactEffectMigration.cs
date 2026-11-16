@@ -18,7 +18,7 @@ internal static class ContactEffectMigration
     /// <param name="type">原容器中的词条类型。</param>
     internal static bool Supports(Type type) => type == typeof(SlowModifier) || type == typeof(FreezeModifier) || type == typeof(DazeModifier) ||
         type == typeof(WeakenModifier) || type == typeof(ArmorBreakModifier) || type == typeof(SilenceModifier) ||
-        type == typeof(BurnModifier) || type == typeof(PoisonModifier) || type == typeof(EternalCurseModifier) || type == typeof(MercyModifier) || type == typeof(ChaosModifier) || type == typeof(KnockbackModifier);
+        type == typeof(BurnModifier) || type == typeof(PoisonModifier) || type == typeof(EternalCurseModifier) || type == typeof(MercyModifier) || type == typeof(ChaosModifier) || type == typeof(KnockbackModifier) || type == typeof(GravityModifier);
 
     /// <summary>在真实逐发转换时一次确定原设置词条，运行及预测只读取已经展开的数值。</summary>
     /// <param name="skill">真实原容器。</param>
@@ -57,12 +57,29 @@ internal static class ContactEffectMigration
         return expected.Count == 0;
     }
 
+    /// <summary>完整核对已登记的旅行回调，不接管未知附加行为。</summary>
+    /// <param name="skill">真实原容器。</param>
+    internal static bool MatchesTravelCallbacks(Entity skill)
+    {
+        var expected = new List<Delegate>();
+        foreach (Type type in skill.GetComponentTypes())
+        {
+            if (!Supports(type)) continue;
+            var modifier = (IModifier)skill.GetComponent(type);
+            if (modifier.ModifierAsset.OnTravel != null) expected.AddRange(modifier.ModifierAsset.OnTravel.GetInvocationList());
+        }
+        foreach (Delegate callback in skill.GetComponent<SkillContainer>().OnTravel?.GetInvocationList() ?? Array.Empty<Delegate>())
+            if (!expected.Remove(callback)) return false;
+        return expected.Count == 0;
+    }
+
     /// <summary>在真实攻击面附加状态和恢复；飞行中的零伤害爆发载体及纯防御面不提前施加。</summary>
     /// <param name="definition">已经转换的普通构造。</param><param name="skill">原容器。</param>
     /// <param name="effectScale">本次固定效果倍率。</param>
     /// <param name="contactForceScale">本体量换回原附加作用强度的比例，不重复乘来源效果倍率。</param>
     /// <param name="includeRoot">本体是否已经是实际作用面，爆发载体在后段作用。</param>
-    internal static AbilityDefinition Bind(AbilityDefinition definition, Entity skill, float effectScale, bool includeRoot = true, float contactForceScale = 1f)
+    /// <param name="caster">本次真实施法者，仅在资料展开时读取范围成长。</param>
+    internal static AbilityDefinition Bind(AbilityDefinition definition, Entity skill, float effectScale, bool includeRoot = true, float contactForceScale = 1f, Core.ActorExtend caster = null)
     {
         var statuses = new List<ConstructionStatus>();
         if (skill.TryGetComponent(out SlowModifier slow))
@@ -129,6 +146,19 @@ internal static class ContactEffectMigration
             if (distance > 0f || height > 0f) knockback = new ConstructionKnockback { Distance = distance, Height = height };
         }
         if (statuses.Count > 0 || healing > 0f || knockback != null) BindNode(definition.Root, statuses.ToArray(), healing, knockback, includeRoot);
+        if (skill.TryGetComponent(out GravityModifier gravity))
+        {
+            float original = Core.SkillLibV3.Utils.SkillEffectRadius.ResolveContainer(skill, 1f);
+            var asset = skill.GetComponent<SkillContainer>().Asset;
+            float growth = Core.SkillLibV3.Utils.SkillEffectRadius.ResolveCasterGrowth(caster, skill);
+            float basis = Mathf.Max(asset.ImpactProfile.EffectRadius, asset.ImpactProfile.CollisionRadius);
+            if (basis > 0f) growth = Mathf.Max(1f, Mathf.Min(growth, 32f / (basis * original)));
+            definition.Root.RadialMotion = new ConstructionRadialMotion
+            {
+                Radius = Mathf.Clamp(gravity.Radius, .5f, 10f) * original * growth,
+                Speed = -Mathf.Clamp(gravity.Strength * effectScale, 0f, 10f)
+            };
+        }
         return definition;
     }
 

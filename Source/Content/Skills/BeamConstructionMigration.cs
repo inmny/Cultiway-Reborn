@@ -69,7 +69,7 @@ internal static class BeamConstructionMigration
         if (setup.Length != callbacks.Count) return null;
         foreach (Delegate callback in setup) if (!callbacks.Contains(callback)) return null;
         if (container.Asset.Effects.Count != 0 || container.EffectPipeline?.Effects.Count > 0 ||
-            container.OnTravel != null || !ContactEffectMigration.MatchesCallbacks(skill)) return null;
+            !ContactEffectMigration.MatchesTravelCallbacks(skill) || !ContactEffectMigration.MatchesCallbacks(skill)) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
 
@@ -111,7 +111,7 @@ internal static class BeamConstructionMigration
                 Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Ray,
                     Ray = new ConstructionRay { Length = 10000f, FollowTarget = follow, TurnRate = 0f } } }
             }
-        }, skill, emission.RuntimeData.ResolveEffectScale(), contactForceScale: 1f / (container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier));
+        }, skill, emission.RuntimeData.ResolveEffectScale(), contactForceScale: 1f / (container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier), caster: emission.Source.a.GetExtend());
     }
 
     /// <summary>只接管本批已经保留全部实际作用的两个原光束。</summary>

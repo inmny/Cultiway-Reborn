@@ -170,6 +170,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 CommitBodyCarrying(clock);
                 CommitPassiveWeapons(clock);
                 CommitBodyFlights(clock);
+                ConstructedActorImpulse.CommitRadial(clock);
                 if (generation != worldGeneration) yield break;
                 if (hit.HasValue && hit.Value.WorldRecord > 0)
                 {
@@ -204,6 +205,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 foreach (RunningCast running in active)
                     if (running.WorldScope != null || running.Replaced)
                         ValidateSource(running);
+                ConfirmRadialMotions(clock);
+                if (generation != worldGeneration) yield break;
                 for (int i = 0; i < active.Count; i++)
                 {
                     PublishActionEvents(active[i]);
@@ -609,6 +612,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             : 1f;
         foot = Vector3.Lerp(motion.From, motion.To, at);
         height = Mathf.Lerp(motion.FromHeight, motion.Height, at);
+        if (ConstructedActorImpulse.TryRadialFoot(motion.Id, time, out Vector3 radialFoot))
+        { foot = radialFoot; return; }
         if (ConstructedActorImpulse.TryBody(motion.Id, out var flying))
         { foot = flying.At(time).Foot; return; }
         BodyConnection carrying = Carrying(motion.Id);

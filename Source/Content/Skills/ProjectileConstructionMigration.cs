@@ -108,7 +108,7 @@ internal static class ProjectileConstructionMigration
         if (actualSetup.Length != setup.Count) return null;
         foreach (Delegate callback in actualSetup) if (!setup.Contains(callback)) return null;
         if (container.Asset.Effects.Count != 0 || container.EffectPipeline?.Effects.Count > 0 ||
-            container.OnTravel != null || !ContactEffectMigration.MatchesCallbacks(skill)) return null;
+            !ContactEffectMigration.MatchesTravelCallbacks(skill) || !ContactEffectMigration.MatchesCallbacks(skill)) return null;
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
         bool towardsDirection = trajectory == SkillTrajectories.TowardsDirection.id;
         bool noRotation = trajectory == SkillTrajectories.TowardsDirectionNoRot.id;
@@ -355,7 +355,7 @@ internal static class ProjectileConstructionMigration
                     When = new ConstructionCondition { Source = "..", Trigger = ConstructionChangeTrigger.End } } }
             } };
         }
-        return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, contactForceScale: !continues && !blast ? 1f / damageMultiplier : 1f);
+        return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, contactForceScale: !continues && !blast ? 1f / damageMultiplier : 1f, caster: emission.Source.a.GetExtend());
     }
 
     /// <summary>保留基准生成高度；按真实主体底部抬高出生点，不让放大后的尖端出生即穿地。</summary>

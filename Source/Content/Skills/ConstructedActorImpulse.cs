@@ -50,6 +50,9 @@ internal static partial class ConstructedActorImpulse
         /// <summary>实际离手身体，空值沿用原直立受力。</summary>
         internal BodyFlight Body;
 
+        /// <summary>范围运动由共同步骤推进，原版回调不能先走到本帧终点。</summary>
+        internal bool Radial;
+
         /// <summary>已经落在模型表面，沿用同一运动记录维护承托，走出边缘后再下落。</summary>
         internal bool Supported;
 
@@ -88,7 +91,8 @@ internal static partial class ConstructedActorImpulse
     /// <param name="actor">真实人物。</param><param name="velocity">世界速度。</param>
     /// <param name="seconds">贴地时长。</param><param name="terrain">共同地表。</param>
     /// <param name="recoverBody">是否来自已经受理的正式攻击。</param>
-    private static void BeginDirectedMotion(Actor actor, Vector3 velocity, float seconds, AbilityHeightField terrain, bool recoverBody)
+    /// <param name="at">范围运动的共同确认时间；空值保持原受力时点。</param>
+    private static void BeginDirectedMotion(Actor actor, Vector3 velocity, float seconds, AbilityHeightField terrain, bool recoverBody, double? at = null)
     {
         float massGravity = Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
         Vector3 position = new(actor.current_position.x, actor.current_position.y,
@@ -101,7 +105,7 @@ internal static partial class ConstructedActorImpulse
         actor.velocity_speed = 1f;
         actor.velocity = new Vector3(velocity.x, velocity.y, massGravity == 0f ? 0f : velocity.z / massGravity);
         actor.under_forces = true;
-        BeginMotion(actor, terrain, seconds, velocity, recoverBody);
+        BeginMotion(actor, terrain, seconds, velocity, recoverBody, at);
     }
 
     /// <summary>同一受力的实际世界速度，叠加新作用时不丢掉已经存在的腾起或下落。</summary>
@@ -121,19 +125,20 @@ internal static partial class ConstructedActorImpulse
     /// <param name="seconds">大于零时沿地运动，否则腾起。</param>
     /// <param name="worldVelocity">明确的世界速度；空值沿用原版速度换算。</param>
     /// <param name="recoverBody">正式攻击才可接续原身体。</param>
+    /// <param name="at">范围运动的共同确认时间；空值采用当前世界时间。</param>
     private static void BeginMotion(Actor actor, AbilityHeightField terrain, float seconds,
-        Vector3? worldVelocity = null, bool recoverBody = false)
+        Vector3? worldVelocity = null, bool recoverBody = false, double? at = null)
     {
         actor.stopMovement();
         if (seconds > 0f) actor.velocity_speed = 1f;
         float massGravity = seconds > 0f ? 0f : Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
-        double now = World.world.getCurWorldTime();
+        double now = at ?? World.world.getCurWorldTime();
         motions.TryGetValue(actor.id, out Motion prior);
         var motion = new Motion
         {
             Actor = new WeakReference<Actor>(actor), ActorId = actor.id, Terrain = terrain, StartedAt = now,
             SampledAt = now,
-            SlideUntil = seconds > 0f ? now + seconds : 0d,
+            SlideUntil = seconds > 0f ? now + seconds : 0d, Radial = at.HasValue,
             SpeedScale = actor.velocity_speed, MassGravity = massGravity, ExpectedVelocity = actor.velocity,
             ExpectedHeight = actor.position_height, ExpectedPosition = actor.current_position,
             Arc = new ImpulseArc(new Vector3(actor.current_position.x, actor.current_position.y,
@@ -256,6 +261,15 @@ internal static partial class ConstructedActorImpulse
     /// <returns>是否已经处理，应跳过原版受力。</returns>
     internal static bool Update(Actor actor)
     {
+        if (ConstructedAbilityService.DrivesRadialMotions && motions.TryGetValue(actor.id, out Motion motion) && motion.Radial)
+            return true;
+        return UpdateAt(actor, World.world.getCurWorldTime());
+    }
+
+    /// <summary>共用同一阻挡和结束过程，只让范围运动采用已经确认的共同时间。</summary>
+    /// <param name="actor">实际人物。</param><param name="now">本次推进到的世界时间。</param>
+    private static bool UpdateAt(Actor actor, double now)
+    {
         // 先核对当前控制，再处理束缚与时间，最后逐段推进并发布真实位置。
         if (!motions.TryGetValue(actor.id, out Motion motion)) return false;
         if (!Matches(actor, motion) || !actor.isAlive())
@@ -277,7 +291,6 @@ internal static partial class ConstructedActorImpulse
             if (!actor.under_forces) return true;
         }
 
-        double now = World.world.getCurWorldTime();
         if (now <= motion.SampledAt) return true;
 
         // 先按共同时间求位置；穿越地图格时分段检查原版阻挡，下降时截在真实地表。

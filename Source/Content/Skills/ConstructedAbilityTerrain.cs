@@ -67,7 +67,14 @@ public sealed partial class ConstructedAbilityService
             for (int i = 0; i < running.Cast.Plan.FormCount; i++)
                 if (running.Cast.NodeAge(i) >= 0)
                 {
-                    Include(running.Cast.ContactOrigin(i));
+                    Vector3 centre = running.Cast.ContactOrigin(i);
+                    Include(centre);
+                    CompiledConstructionRadialMotion field = running.Cast.Plan.Nodes[i].RadialMotion;
+                    if (field != null)
+                    {
+                        Include(centre - new Vector3(field.Radius, field.Radius, 0f));
+                        Include(centre + new Vector3(field.Radius, field.Radius, 0f));
+                    }
                     Rect? flow = running.Cast.FlowBounds(i);
                     if (flow.HasValue)
                     {

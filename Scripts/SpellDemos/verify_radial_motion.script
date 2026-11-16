@@ -1,0 +1,175 @@
+// B39：只覆盖持续范围牵引，不重复身体装备或全部来源实机。
+const string section="all";
+var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var allCasts=new List<AbilityCast>();
+var emissions=new List<object>();var forces=new List<(long Target,Vector3 Force,float Slide,double Time,Vector2 Position,Vector3 Centre,float Scale)>();
+int oldExecutions=0;bool invalidate=false,scopeValid=true;SkillEmissionResult? lastResult=null;
+SkillEntityAsset current=SkillEntities.SpiritBolt;
+Actor source=Make(64),target=Make(70),outside=Make(70),wolf=Make(12,"wolf");
+target.setKingdom(wolf.kingdom);outside.setKingdom(wolf.kingdom);Place(outside,70,78);
+var owner=source.GetExtend();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=0;
+owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();await Advance(.2f);
+var stillStats=new BaseStats();stillStats.addTag("frozen_ai");
+var still=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.RadialMotion.Still").SetStats(stillStats).SetDuration(10000).Build();
+CombatStatusEffects.RemoveStatus(target,hold);CombatStatusEffects.ApplyStatus(target,still,10000,source);target.updateStats();
+IReadOnlyList<Entity> Learned()=>(IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(owner,null);
+Entity Build(float radius=6f,float speed=3f,bool contact=true,bool huge=false)
+{
+    var builder=new SkillContainerBuilder(current).UseAnimation(0);
+    builder.AddModifier(new GravityModifier{Radius=radius,Strength=speed});
+    if(huge)builder.AddModifier(new HugeModifier{Value=2f});
+    Entity made=builder.Build(SkillContainerBuildMode.RuleOnly);
+    made.AddComponent(new SkillSettings{Duration=2.4f,PowerMultiplier=1,AreaMultiplier=1,ContactEnabled=contact});
+    string signature=SkillContainerSignature.Build(made);owner.LearnSkillV3(made);
+    return Learned().First(x=>SkillContainerSignature.Build(x)==signature);
+}
+(AbilityDefinition Definition,GetHitEvent Damage) Convert(Entity skill,string migration,float scale=1f)
+{
+    var method=service.Assembly.GetType("Cultiway.Content.Skills."+migration+"ConstructionMigration").GetMethod("Convert",F);
+    var emission=new SkillEmission{Source=source,SpatialSource=source,SkillContainer=skill,Target=target,
+        SourcePos=new Vector3(64,72,.3f),TargetPos=new Vector3(70,72,.3f),Strength=40,PowerLevel=0,RuntimeData=new SkillCastRuntimeData{EffectScale=scale}};
+    object[] args=method.GetParameters().Length==3?new object[]{emission,default(GetHitEvent),default(Vector3)}:new object[]{emission,default(GetHitEvent)};
+    return ((AbilityDefinition)method.Invoke(null,args),(GetHitEvent)args[1]);
+}
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    yield return node;if(node.Children!=null)foreach(var child in node.Children)foreach(var nested in Nodes(child))yield return nested;
+}
+CompiledConstructionRadialMotion FirstField(CompiledAbility plan)
+{
+    object node=((Array)typeof(CompiledAbility).GetProperty("Nodes",F).GetValue(plan)).GetValue(0);
+    return (CompiledConstructionRadialMotion)node.GetType().GetField("RadialMotion",F).GetValue(node);
+}
+void ResetPeople()
+{
+    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();forces.Clear();oldExecutions=0;
+    Ready(source);Place(source,64);Place(target,70);Place(outside,70,78);target.GetExtend().SetPowerLevel(0);owner.SetPowerLevel(0);
+    owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;target.setHealth(target.getMaxHealth());
+    foreach(var actor in new[]{source,target,outside})ConstructedAbilityService.NotifyActorChanged(actor);
+}
+bool Use(Entity skill,ConstructionWorldScope scope=null)
+{
+    bool used=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",skill),new ActiveAbilityTarget(target,target.GetSimPos(),
+        selectionArea:new SkillTargetSelectionArea(true,target.GetSimPos(),.1f),worldScope:scope),ActiveAbilityUseOrigin.Script);
+    source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();ControllableUnit.clear(false);return used;
+}
+async Task WaitStart()
+{
+    for(int i=0;i<25;i++){if(accepted.Count>0)return;await Advance(.01f);}
+    throw new InvalidOperationException("正式发射未在四分之一世界秒内受理");
+}
+async Task EndMotion()
+{
+    foreach(var cast in accepted)cast.Cancel();
+    await Advance(.2f);
+    Check(!target.under_forces&&target.position_height<=.0001f&&!BodyControlState.IsBusy(target.id),"来源结束后最后有限运动自然结束并归还控制");
+    var position=target.current_position;int count=forces.Count;await Advance(.15f);
+    Check(forces.Count==count&&(target.current_position-position).magnitude<.0001f,"结束后不再施加牵引且人物不继续滑动");
+}
+void Started(ConstructedCastStarted fact){if(fact.SourceId==source.id)starts.Add(fact);}
+void Old(Entity entity){if(entity.GetComponent<SkillContext>().SourceObj==source)oldExecutions++;}
+ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+Actor friend=Make(70),air=Make(71),fixedTarget=Make(69);
+friend.setKingdom(source.kingdom);air.setKingdom(wolf.kingdom);fixedTarget.setKingdom(wolf.kingdom);
+foreach(var actor in new[]{outside,friend,air}){CombatStatusEffects.RemoveStatus(actor,hold);CombatStatusEffects.ApplyStatus(actor,still,10000,source);actor.updateStats();}
+var hook=new HarmonyLib.Harmony("Cultiway.Verify.RadialMotion");
+RadialMotionProbe.Applied=(actor,velocity,slide,at)=>
+{
+    if(accepted.Count==0)return;
+    forces.Add((actor.id,velocity,slide,at,actor.current_position,accepted.Last().ContactOrigin(0),actor.GetExtend().ForceResponseScale(source,owner.GetPowerLevel())));
+};
+var motionType=service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+hook.Patch(motionType.GetMethod("BeginRadial",F),postfix:new HarmonyLib.HarmonyMethod(typeof(RadialMotionProbe).GetMethod("Postfix")));
+try
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        if(request.Source!=source)return original(request);if(invalidate)scopeValid=false;
+        var result=original(request);lastResult=result;
+        if(result==SkillEmissionResult.Accepted)
+        {
+            var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==starts.Last().CastId);
+            var cast=(AbilityCast)Field(running,"Cast");accepted.Add(cast);allCasts.Add(cast);
+        }
+        emissions.Add(new{request.Strength,result=result.ToString()});return result;
+    };
+    if(section is "all" or "definitions")
+    {
+        foreach(var entry in new[]{(Asset:SkillEntities.SpiritBolt,Migration:"Projectile"),(Asset:SkillEntities.GroundSpike,Migration:"GroundSpike"),
+            (Asset:SkillEntities.Rift,Migration:"Rift"),(Asset:SkillEntities.YinField,Migration:"Field"),(Asset:SkillEntities.FireWall,Migration:"Barrier"),
+            (Asset:SkillEntities.SpiritBeam,Migration:"Beam"),(Asset:SkillEntities.ChainLightning,Migration:"Chain"),
+            (Asset:SkillEntities.Fireball,Migration:"Projectile"),(Asset:SkillEntities.SpiritShield,Migration:"Barrier")})
+        {
+            current=entry.Asset;var pair=Convert(Build(6,4),entry.Migration,.5f);Check(pair.Definition!=null,entry.Asset.id+"原持续引力完整转换");
+            var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(pair.Definition));var compiled=AbilityCompiler.Compile(restored,false);
+            var fields=Nodes(restored.Root).Where(n=>n.RadialMotion!=null).ToArray();
+            Check(fields.Length==1&&fields[0]==restored.Root&&restored.Root.RadialMotion.Radius==6&&restored.Root.RadialMotion.Speed==-2f&&FirstField(compiled).Interval==.1f,
+                entry.Asset.id+"只在原旅行中心保留范围及一次效果倍率");
+            File.WriteAllText(Path.Combine(folder,entry.Asset.id+".json"),JsonConvert.SerializeObject(restored,Formatting.Indented));
+        }
+        current=SkillEntities.SpiritBolt;var skill=Build(huge:true);
+        skill.GetComponent<SkillSettings>().AreaMultiplier=1.5f;
+        var grown=Convert(skill,"Projectile").Definition;float expected=SkillEffectRadius.ResolveForCaster(owner,skill,6f);
+        Check(Math.Abs(grown.Root.RadialMotion.Radius-expected)<.0001f,"范围保留原巨大和范围设置且不重复缩放",new{expected,actual=grown.Root.RadialMotion.Radius});
+        var definition=Convert(Build(),"Projectile").Definition;var originalField=FirstField(AbilityCompiler.Compile(definition,false));
+        definition.Root.RadialMotion.Speed=-7f;Check(originalField.Speed==-3f,"编译独立复制范围运动");
+        definition.Root.RadialMotion.Radius=-1f;bool invalidRadius=false;try{AbilityCompiler.Compile(definition,false);}catch(InvalidDataException){invalidRadius=true;}Check(invalidRadius,"非法范围在编译入口拒绝");
+        definition.Root.RadialMotion.Radius=6f;definition.Root.RadialMotion.Interval=0;bool invalidInterval=false;try{AbilityCompiler.Compile(definition,false);}catch(InvalidDataException){invalidInterval=true;}Check(invalidInterval,"零间隔在编译入口拒绝");
+        definition.Root.RadialMotion.Interval=.1f;definition.Root.RadialMotion.Speed=float.NaN;bool invalidSpeed=false;try{AbilityCompiler.Compile(definition,false);}catch(InvalidDataException){invalidSpeed=true;}Check(invalidSpeed,"非有限速度在编译入口拒绝");
+        var extra=Build();TravelAction unknown=_=>{};extra.GetComponent<SkillContainer>().OnTravel+=unknown;
+        try{Check(Convert(extra,"Projectile").Definition==null,"未知旅行回调明确保留旧入口");}finally{extra.GetComponent<SkillContainer>().OnTravel-=unknown;}
+        definition.Root.RadialMotion=null;Check(FirstField(AbilityCompiler.Compile(definition,false))==null,"旧普通资料缺省不增加范围运动");
+    }
+    if(section is "all" or "runtime")
+    {
+        current=SkillEntities.YinField;ResetPeople();var skill=Build(contact:false);float balance=owner.GetCultisys<Xian>().wakan;
+        var plan=SkillCastPlanner.CreatePlan(owner,skill,target,SkillCastCost.GetAffordableStepLimit(owner,skill),explicitTargetsOnly:true);
+        Check(Use(skill),"原已学领域及持续引力正式受理");await WaitStart();Place(target,72);Place(friend,72,73);Place(air,72,71);air.position_height=100f;Place(fixedTarget,71);
+        foreach(var actor in new[]{target,friend,air,fixedTarget})ConstructedAbilityService.NotifyActorChanged(actor);
+        float before=target.current_position.x;await Advance(.42f);var actual=forces.Where(f=>f.Target==target.id).ToArray();
+        Check(actual.Length>=3&&target.current_position.x<before&&target.position_height==0&&actual.All(f=>f.Force.z==0&&f.Force.x<0),"范围内敌人真实沿地牵引且没有意外腾起",new{before,after=target.current_position.x,ticks=actual.Length});
+        var first=actual[0];float fade=1f-Vector3.Distance(new Vector3(first.Position.x,first.Position.y,0),first.Centre)/6f;
+        Check(Math.Abs(first.Force.magnitude-3f*fade*first.Scale)<.0001f,"真实速度按世界距离线性衰减",new{expected=3f*fade*first.Scale,actual=first.Force.magnitude});
+        Check(!forces.Any(f=>f.Target==outside.id||f.Target==friend.id||f.Target==air.id||f.Target==fixedTarget.id||f.Target==source.id),"侧外友方离地与不能移动人物不受牵引");
+        Check(actual.Zip(actual.Skip(1),(a,b)=>Math.Abs(b.Time-a.Time-.1d)<.00002d).All(x=>x)&&actual.All(f=>Math.Abs(f.Slide-.1f)<.000001f),"实际运动按固定世界间隔重新受理而不按帧叠速");
+        double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculatePlanDemand(skill,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
+        Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&oldExecutions==0,"牵引保留原逐发费用且没有旧旅行执行体",new{cost,oldExecutions});
+        await EndMotion();
+        current=SkillEntities.PoisonMist;ResetPeople();Check(Use(Build(contact:false)),"移动领域及持续引力正式受理");await WaitStart();await Advance(.5f);
+        actual=forces.Where(f=>f.Target==target.id).ToArray();
+        Check(actual.Length>=2&&(actual.Last().Centre-actual.First().Centre).magnitude>.1f&&actual.All(f=>Vector2.Dot(f.Force,(Vector2)f.Centre-f.Position)>0),"移动主体带动实际牵引中心且方向一致",new{count=actual.Length});
+        await EndMotion();
+        current=SkillEntities.YinField;ResetPeople();Check(Use(Build(contact:false)),"共同世界时间牵引受理");await WaitStart();Place(target,72);ConstructedAbilityService.NotifyActorChanged(target);
+        int pausedCount=forces.Count;for(int i=0;i<4;i++)await Game.NextFrame();Check(forces.Count==pausedCount,"暂停不触发范围作用");
+        Config.setWorldSpeed("x5",false);await Advance(2.7f);Config.setWorldSpeed("x1",false);actual=forces.Where(f=>f.Target==target.id).ToArray();
+        Check(actual.Length>=20&&actual.All(f=>f.Force.magnitude<=3.001f)&&actual.Zip(actual.Skip(1),(a,b)=>Math.Abs(b.Time-a.Time-.1d)<.00002d).All(x=>x),"倍速沿用固定世界整点且不会累计速度",new{ticks=actual.Length});
+        Check(accepted.All(c=>c.Finished)&&!target.under_forces&&target.position_height==0,"自然到期后有限范围运动结束恢复");
+    }
+    if(section is "all" or "common")
+    {
+        current=SkillEntities.YinField;ResetPeople();Check(Use(Build(speed:0,contact:false)),"零强度来源正常受理");await WaitStart();Place(target,72);ConstructedAbilityService.NotifyActorChanged(target);await Advance(.3f);
+        Check(forces.Count==0&&!target.under_forces,"零强度不创建运动控制");
+        ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;invalidate=true;Check(Use(Build(),new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排真实发射边界失败");await Advance(.3f);invalidate=false;
+        Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==0&&forces.Count==0&&Math.Abs(owner.GetCultisys<Xian>().wakan-balance)<.001f,"边界拒绝没有范围作用并按原值退款");
+        scopeValid=true;ResetPeople();Check(Use(Build(contact:false)),"失败恢复后同一来源重新受理");await WaitStart();Place(target,72);ConstructedAbilityService.NotifyActorChanged(target);await Advance(.25f);
+        Check(forces.Any(f=>f.Target==target.id)&&oldExecutions==0,"恢复后普通范围运动正常执行");await EndMotion();
+    }
+    return new{passed=true,section,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    foreach(var cast in allCasts)cast.Cancel();RadialMotionProbe.Applied=null;hook.UnpatchSelf();
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    ControllableUnit.clear(false);Config.setWorldSpeed("x1",false);Config.paused=true;
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder,"forces.json"),JsonConvert.SerializeObject(forces.Select(f=>new{f.Target,Force=new[]{f.Force.x,f.Force.y,f.Force.z},f.Slide,f.Time,Position=new[]{f.Position.x,f.Position.y},Centre=new[]{f.Centre.x,f.Centre.y,f.Centre.z},f.Scale}),Formatting.Indented));
+}
+/// <summary>观察正式范围运动输入，不替换目标筛选、抗性或位移规则。</summary>
+public static class RadialMotionProbe
+{
+    /// <summary>实际速度、时长和共同确认时间。</summary>
+    public static Action<Actor,Vector3,float,double> Applied;
+    /// <summary>记录共同受力入口的真实输入。</summary>
+    public static void Postfix(Actor __0,Vector3 __1,float __2,double __3)=>Applied?.Invoke(__0,__1,__2,__3);
+}

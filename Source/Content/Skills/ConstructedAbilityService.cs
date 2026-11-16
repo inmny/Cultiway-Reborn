@@ -899,6 +899,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         /// <summary>上次完整推进的实际世界时间；不使用可能未包含加速倍率的调度步长。</summary>
         internal double LastWorldTime;
 
+        /// <summary>范围运动已经处理的共同整点；只有实际声明范围运动的施放才分配。</summary>
+        internal int[] RadialTicks;
+
         /// <summary>本次实际受理的世界时间，动作事实采用同一原点。</summary>
         internal double StartedAt;
 
