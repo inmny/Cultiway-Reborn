@@ -1,0 +1,23 @@
+name: 开发环境检查
+
+on:
+  pull_request:
+    paths:
+      - '.agents/skills/develop/**'
+      - '.github/workflows/dev-environment.yml'
+  push:
+    branches: [master]
+    paths:
+      - '.agents/skills/develop/**'
+      - '.github/workflows/dev-environment.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  environment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 检查环境隔离与回收
+        run: python3 -m unittest discover -s .agents/skills/develop/scripts -p test_dev.py -v

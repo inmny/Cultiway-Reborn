@@ -11,8 +11,8 @@ import time
 from common import CLIENT, PROJECT, version_stamp, write_json
 
 ROOT = Path(os.environ.get("CULTIWAY_BASELINE_ROOT", PROJECT / "artifacts/skill_rebuild/baseline")).resolve()
-PROFILE = ROOT / "profile"
-TEMP = ROOT / "temp"
+PROFILE = Path(os.environ["CULTIWAY_DEV_PROFILE"]) if os.environ.get("CULTIWAY_DEV_ACTIVE") else ROOT / "profile"
+TEMP = Path(os.environ["TMPDIR"]) if os.environ.get("CULTIWAY_DEV_ACTIVE") else ROOT / "temp"
 ENV = dict(os.environ, XDG_CONFIG_HOME=str(PROFILE), TMPDIR=str(TEMP),
            CULTIWAY_BASELINE_ROOT=str(ROOT))
 CONFIG = Path(__file__).with_name("baseline_scenarios.json")
@@ -44,6 +44,16 @@ def call(*args):
 
 def connect(launch, validate_runtime=True):
     """只连接本配置；就绪超时保留原进程，下一次继续观察同一会话。"""
+    if os.environ.get("CULTIWAY_DEV_ACTIVE"):
+        # 开发入口已核对快照和进程，并持有整个验证命令的独占权；不再创建嵌套游戏。
+        ROOT.mkdir(parents=True, exist_ok=True)
+        response = call("eval", 'return new { pid = System.Diagnostics.Process.GetCurrentProcess().Id, '
+                        'profile = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME"), '
+                        'data = UnityEngine.Application.persistentDataPath, ready = !SmoothLoader.isLoading() };')
+        if (response["pid"] != int(os.environ["CULTIWAY_DEV_PID"]) or
+                response["profile"] != str(PROFILE) or not Path(response["data"]).is_relative_to(PROFILE)):
+            raise RuntimeError("开发环境连接身份不匹配，停止操作")
+        return response
     ROOT.mkdir(parents=True, exist_ok=True)
     PROFILE.mkdir(exist_ok=True)
     TEMP.mkdir(exist_ok=True)

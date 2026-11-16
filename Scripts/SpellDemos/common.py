@@ -14,8 +14,8 @@ import time
 import zipfile
 
 PROJECT = Path(__file__).resolve().parents[2]
-CONTROL = PROJECT / "artifacts/spell_demo"
-CLIENT = PROJECT.parent / "DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll"
+CONTROL = Path(os.environ.get("CULTIWAY_DEMO_CONTROL", PROJECT / "artifacts/spell_demo"))
+CLIENT = Path(os.environ.get("CULTIWAY_DEBUG_CLIENT", PROJECT.parent / "DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll"))
 LABELS = {"base": "原始效果", "modifiers": "添加词条", "trajectory": "改变轨迹", "combined": "词条与轨迹"}
 
 
@@ -95,7 +95,7 @@ def connect(launch):
     """连接当前游戏；需要时用独立配置启动本机游戏。"""
     if not CLIENT.exists():
         raise RuntimeError("请先构建 DebugToolbox 客户端，见本目录 README.md")
-    if launch:
+    if launch and not os.environ.get("CULTIWAY_DEV_ACTIVE"):
         # 握手成功就复用；连接失败且明确要求启动时才启动独立游戏。
         hello = subprocess.run(["dotnet", str(CLIENT), "hello"], capture_output=True, cwd=PROJECT)
         if hello.returncode:

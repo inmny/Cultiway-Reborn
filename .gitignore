@@ -432,3 +432,7 @@ Content/PreparedLLMResults/*
 
 # .gitattributes 需要被跟踪（统一行尾策略）
 !.gitattributes
+
+# 团队共用的 PR 模板和开发环境检查。
+!.github/
+!.github/**

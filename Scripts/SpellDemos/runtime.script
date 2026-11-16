@@ -165,7 +165,8 @@ private const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic 
 /// <summary>导出游戏中当前实际注册的技能与兼容项目。</summary>
 public void Install()
 {
-    Root = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath, "artifacts/spell_demo");
+    Root = Environment.GetEnvironmentVariable("CULTIWAY_DEMO_CONTROL") ??
+        Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath, "artifacts/spell_demo");
     Directory.CreateDirectory(Root);
     string selection = Path.Combine(Root, "request.json");
     handled = File.Exists(selection) ? (string)JObject.Parse(File.ReadAllText(selection))["id"] : null;
