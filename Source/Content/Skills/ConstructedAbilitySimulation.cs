@@ -318,7 +318,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             return;
         }
 
-        bool sourceLive = running.InitialOwner.IsLive, spatialLive = running.SpatialSourceLive;
+        bool sourceLive = running.InitialOwner.WorldSource || running.InitialOwner.IsLive,
+            spatialLive = running.InitialOwner.WorldSource || running.SpatialSourceLive;
         running.InitialOwner.RefreshRelations();
         if (!sourceLive)
         {
@@ -332,7 +333,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 CastAuthority owner = running.Owner(i);
                 owner.RefreshRelations();
-                if ((!owner.IsLive || !spatialLive && ReferenceEquals(owner, running.InitialOwner)) && !running.Cast.CanContinueWithoutSource(i))
+                if ((!owner.WorldSource && !owner.IsLive || !spatialLive && ReferenceEquals(owner, running.InitialOwner)) && !running.Cast.CanContinueWithoutSource(i))
                     running.Cast.EndNode(i, true);
             }
 

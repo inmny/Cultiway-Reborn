@@ -355,7 +355,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ActiveAbilityUseOrigin origin)
     {
         if (!CanUse(caster, handle, target)) return false;
-        return Start(caster, definitions[handle.EntryId], PlanFor(handle.EntryId), target, origin,
+        return Start(caster, definitions[handle.EntryId], PlanFor(handle.EntryId), target, origin, out _,
             carrierSource: handle.Source);
     }
 
@@ -367,7 +367,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     internal static bool Start(ActorExtend caster, string id, in ActiveAbilityTarget target,
         ActiveAbilityUseOrigin origin)
     {
-        return Start(caster, definitions[id], PlanFor(id), target, origin);
+        return Start(caster, definitions[id], PlanFor(id), target, origin, out _);
     }
 
     /// <summary>已经由实际来源收费的功能步骤直接进入共同执行，不授予另一份知识或再次支付。</summary>
@@ -382,14 +382,37 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0, BaseSimObject spatialSource = null)
     {
         if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
-        return Start(caster, definition, ValidateDefinition(definition), target, target.RuntimeData.Origin, sourcePosition,
+        return Start(caster, definition, ValidateDefinition(definition), target, target.RuntimeData.Origin, out _, sourcePosition,
             true, payment, sourceDamage: damage, sourceDirection: direction, sourceInstance: sourceInstance,
             spatialSource: spatialSource?.a);
+    }
+
+    /// <summary>固定环境位置直接进入共同执行，零编号表示未受理，不借人物提供身份或资源。</summary>
+    /// <param name="definition">环境发出的普通构造。</param><param name="target">实际指定的人物或地点。</param>
+    /// <param name="position">环境出生位置。</param><param name="damage">已经确定的无攻击者伤害及境界。</param>
+    internal static long StartWorld(AbilityDefinition definition, in ActiveAbilityTarget target,
+        Vector3 position, GetHitEvent damage)
+    {
+        CompiledAbility plan = ValidateDefinition(definition);
+        if (plan.Body != null || plan.Binding?.Anchor == AbilityAnchor.Carrier || damage.HasAttacker) return 0;
+        return Start(null, definition, plan, target, target.RuntimeData.Origin, out long castId,
+            position, prepaid: true, sourceDamage: damage) ? castId : 0;
+    }
+
+    /// <summary>发起来源主动撤销自己保存的施放；实际退出和额度归还仍由共同推进完成。</summary>
+    /// <param name="castId">本次受理返回的编号。</param>
+    internal static void Cancel(long castId)
+    {
+        RunningCast running = casts.Find(cast => cast.Id == castId);
+        if (running == null) return;
+        running.Cast.Cancel();
+        ReleaseBody(running);
     }
 
     /// <summary>普通已学构造和已经收费的来源共用创建、接触、结束及清理。</summary>
     /// <param name="caster">实际归属人物。</param><param name="definition">当前完整资料。</param>
     /// <param name="plan">本次已编译计划。</param><param name="target">实际目标及边界。</param>
+    /// <param name="castId">成功受理的实际施放编号。</param>
     /// <param name="origin">实际调用方式。</param><param name="sourcePosition">来源明确提供的出生点，空值读取实际身体。</param>
     /// <param name="prepaid">是否沿用原来源的支付。</param><param name="sourcePayment">原来源这次发射的交易。</param>
     /// <param name="carrierSource">实际借用的持物。</param><param name="sourceDamage">原来源确定的绝对伤害与功率。</param>
@@ -397,19 +420,22 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="sourceInstance">原运行容器的并存分组，普通构造为零。</param>
     /// <param name="spatialSource">本次真实人物载体，与资源及伤害归属分开保存。</param>
     private static bool Start(ActorExtend caster, AbilityDefinition definition, CompiledAbility plan,
-        in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, Vector3? sourcePosition = null,
+        in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, out long castId, Vector3? sourcePosition = null,
         bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
         GetHitEvent? sourceDamage = null, Vector3? sourceDirection = null, int sourceInstance = 0, Actor spatialSource = null)
     {
-        spatialSource ??= caster.Base;
-        if (!spatialSource.isAlive() || !spatialSource.hasHealth()) return false;
+        castId = 0;
+        Actor sourceActor = caster?.Base;
+        spatialSource ??= sourceActor;
+        if (spatialSource != null && (!spatialSource.isAlive() || !spatialSource.hasHealth())) return false;
         string id = definition.Id;
         if (!TryResolveUseTarget(caster, plan, target, out Actor targetActor, out Vector3 point,
-                out float targetHeight) ||
-            StartingDistance(spatialSource, point) > Range(caster, plan, targetActor, carrierSource)) return false;
+                out float targetHeight)) return false;
+        if (caster != null && StartingDistance(spatialSource, point) > Range(caster, plan, targetActor, carrierSource) ||
+            caster == null && Vector2.Distance(sourcePosition.Value, point) > (plan.TargetRange ?? 10000f)) return false;
         if (plan.Body?.Construction.HasControlRelations == true && (targetActor == null || targetActor == caster.Base))
             return false;
-        if (!BodyReady(caster, plan) ||
+        if (caster != null && !BodyReady(caster, plan) ||
             target.WorldScope != null && !target.WorldScope.IsValid() ||
             !WorldMaterialService.CanReserve(plan)) return false;
         Vector2 from = sourcePosition ?? spatialSource.GetSimPos(), to = point;
@@ -421,7 +447,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (targetActor == null) point.z += simulation.terrain?.Sample(point.x, point.y) ?? 0f;
         else StartingPose(targetActor, out point, out targetHeight);
         double startedAt = LogicTime;
-        StartingPose(spatialSource, out Vector3 source, out float sourceHeight);
+        Vector3 source = sourcePosition.GetValueOrDefault();
+        float sourceHeight = 0f;
+        if (spatialSource != null) StartingPose(spatialSource, out source, out sourceHeight);
         if (sourcePosition.HasValue)
         {
             source = sourcePosition.Value;
@@ -452,7 +480,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         var inputs = new AbilityInputs(source, point, direction, sourceHeight);
         GetHitEvent damage = sourceDamage ?? CombatDamageEffects.PrepareDamage(caster.Base,
             caster.Base.stats["damage"] * definition.Power, ElementComposition.Static.empty);
-        long sourceId = caster.Base.id, generation = worldGeneration;
+        long sourceId = sourceActor?.id ?? 0, generation = worldGeneration;
         BodyControlLease bodyLease =
             plan.Body == null
                 ? null
@@ -472,7 +500,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             }
             using var ownPayment = prepaid ? null : ConstructionResources.TryBegin(caster, definition);
             SkillCastPayment payment = sourcePayment ?? ownPayment;
-            if (!prepaid && payment == null || caster.Base.isRekt() || caster.Base.id != sourceId ||
+            if (!prepaid && payment == null || sourceActor != null && (sourceActor.isRekt() || sourceActor.id != sourceId) ||
                 generation != worldGeneration) return false;
             if (plan.Body?.Construction.HasControlRelations == true)
             {
@@ -532,10 +560,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 CorrelationId = target.RuntimeData.CorrelationId,
                 WorldHits = plan.HasWorldEffects ? new() : null,
                 WorldTotals = plan.HasWorldEffects ? new() : null,
-                Source = caster.Base,
-                SourceId = caster.Base.id,
+                Source = sourceActor,
+                SourceId = sourceId,
                 SpatialSource = spatialSource,
-                SpatialSourceId = spatialSource.id,
+                SpatialSourceId = spatialSource?.id ?? 0,
                 Target = targetActor,
                 TargetId = targetActor?.id ?? 0,
                 LastTarget = point + Vector3.forward * targetHeight * .5f,
@@ -552,7 +580,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 LastWorldTime = startedAt,
                 StartedAt = startedAt
             };
-            running.InitialOwner = new CastAuthority(caster.Base, damage, targetActor, target.AttackKingdom, spatialSource.id);
+            running.InitialOwner = new CastAuthority(sourceActor, damage, targetActor, target.AttackKingdom, spatialSource?.id ?? 0);
+            if (sourceActor == null) running.InitialOwner.LastFoot = inputs.Source;
             running.Owners = new CastAuthority[plan.FormCount];
             for (int i = 0; i < running.Owners.Length; i++) running.Owners[i] = running.InitialOwner;
             running.LastSourceFoot = inputs.Source;
@@ -566,8 +595,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             PublishBarriers();
             TrackWorldRecovery(running, true);
             if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
-            RecordInspirationUse(caster, plan);
-            if (definition.Cooldown > 0f) cooldowns[(caster.Base.id, id)] = startedAt + definition.Cooldown;
+            if (caster != null) RecordInspirationUse(caster, plan);
+            if (caster != null && definition.Cooldown > 0f) cooldowns[(sourceId, id)] = startedAt + definition.Cooldown;
             if (plan.Body?.ControlsStance == true)
             {
                 caster.Base.lookTowardsPosition(caster.Base.current_position + (Vector2)body.Direction);
@@ -575,7 +604,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 caster.Base.attack_timer = Mathf.Max(caster.Base.attack_timer, plan.Body.Duration);
             }
 
-            CastStarted?.Invoke(new ConstructedCastStarted(running.Id, id, caster.Base.id, origin, startedAt,
+            castId = running.Id;
+            CastStarted?.Invoke(new ConstructedCastStarted(running.Id, id, sourceId, origin, startedAt,
                 running.CorrelationId));
             if (generation == worldGeneration) PublishActionEvents(running);
             return true;
@@ -871,7 +901,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         internal long SpatialSourceId;
 
         /// <summary>实际载体仍是原人物且能够提供位置。</summary>
-        internal bool SpatialSourceLive => SpatialSource.data?.id == SpatialSourceId && SpatialSource.isAlive() && SpatialSource.hasHealth();
+        internal bool SpatialSourceLive => SpatialSource != null && SpatialSource.data?.id == SpatialSourceId && SpatialSource.isAlive() && SpatialSource.hasHealth();
 
         /// <summary>借用实际身体和器物的绑定，非身体能力为空。</summary>
         internal BodyActionBinding Body;

@@ -3,20 +3,18 @@ using System.Threading;
 using System.Linq;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
-using Cultiway.Core.Components;
-using Cultiway.Core.SkillLibV3;
-using Cultiway.Core.SkillLibV3.Components;
-using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.EventSystem.Events;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
-using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Content;
 
-/// <summary>用一个无施法者序列驱动煞风劫的生成、命中与清理。</summary>
+/// <summary>以固定环境来源驱动煞风劫，所有风柱及劫风使用共同构造执行。</summary>
 internal static class BalefulWindTribulationSkillService
 {
     private const int TotalWaves = 9;
@@ -26,37 +24,24 @@ internal static class BalefulWindTribulationSkillService
     private const float WaveSpawnRadius = 10f;
     private const float BaseDamageRatio = 0.15f;
     private const float DamageGrowthPerWave = 0.01f;
-    private const int TotalEmissionCount = TotalWaves * (TotalWaves + 1) / 2;
 
     private static readonly Dictionary<long, TribulationSequenceSession> sessionsByActor = new();
-    private static readonly Dictionary<long, TribulationSequenceSession> sessionsByCorrelation = new();
+    /// <summary>由实际施放编号找到劫程，接触与结束事件不借旧实体转发。</summary>
+    private static readonly Dictionary<long, TribulationSequenceSession> sessionsByCast = new();
     private static readonly List<TribulationSequenceSession> sessionsToUpdate = new();
-    private static Entity centerContainer;
-    private static Entity waveContainer;
+    /// <summary>共同接触和结束事件只登记一次。</summary>
+    private static bool constructionHooksRegistered;
     private static long nextCorrelationId;
     private static bool deathHookRegistered;
     private static bool worldClearHookRegistered;
 
     public static void Initialize()
     {
-        if (centerContainer.IsNull)
+        if (!constructionHooksRegistered)
         {
-            centerContainer = new SkillContainerBuilder(SkillEntities.BalefulWindTribulationCenter)
-                .UseAnimation(0)
-                .Build(SkillContainerBuildMode.SourceGranted);
-            SkillContainer container = centerContainer.GetComponent<SkillContainer>();
-            container.OnSetup += PrepareCenterEntity;
-            container.OnTravel += PinActorFromCenter;
-            centerContainer.GetComponent<SkillContainer>() = container;
-        }
-        if (waveContainer.IsNull)
-        {
-            waveContainer = new SkillContainerBuilder(SkillEntities.BalefulWindTribulationWave)
-                .UseAnimation(0)
-                .Build(SkillContainerBuildMode.SourceGranted);
-            SkillContainer container = waveContainer.GetComponent<SkillContainer>();
-            container.OnSetup += RegisterWindEntity;
-            waveContainer.GetComponent<SkillContainer>() = container;
+            ConstructedAbilityService.ContactConfirmed += OnContact;
+            ConstructedAbilityService.CastEnded += OnEnded;
+            constructionHooksRegistered = true;
         }
         if (!deathHookRegistered)
         {
@@ -93,25 +78,16 @@ internal static class BalefulWindTribulationSkillService
             sessionsByActor.Add(actor.Base.data.id, session);
             return true;
         }
-        SkillCastPlan plan = session.CreatePlan();
-        SkillCastRuntimeData runtimeData = SkillCastRuntimeData.Create(1f, DamageOrigin.Primary);
-        runtimeData.CorrelationId = correlationId;
-        Entity sequence = ModClass.I.SkillV3.StartSourcelessSkillSequence(
-            actor,
-            waveContainer,
-            plan,
-            1f,
-            GetHuashenPowerLevel(),
-            runtime_data: runtimeData,
-            options: new SkillCastSequenceOptions
-            {
-                Hooks = session,
-                MaxEmitPerTick = 1
-            });
-        if (sequence.IsNull) return false;
-
-        session.BindSequence(sequence);
-        return true;
+        if (!IsEligibleBody(actor.Base)) return false;
+        sessionsByActor.Add(actor.Base.data.id, session);
+        session.PrepareWinds();
+        if (session.SpawnCenter())
+        {
+            session.PinActor();
+            return true;
+        }
+        session.Close();
+        return false;
     }
 
     public static bool IsInProgress(ActorExtend actor)
@@ -196,17 +172,21 @@ internal static class BalefulWindTribulationSkillService
         }
     }
 
-    internal static bool ResolveWaveImpact(ref SkillContext context, Entity skillContainer, Entity skillEntity,
-        BaseSimObject target)
+    /// <summary>只有共同接触已经提交实际伤害后才登记该股劫风的结果。</summary>
+    /// <param name="contact">实际接触事实。</param>
+    private static void OnContact(ConstructedContact contact)
     {
-        if (!sessionsByCorrelation.TryGetValue(
-                context.RuntimeData.CorrelationId,
-                out TribulationSequenceSession session))
-        {
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(skillEntity.Id);
-            return false;
-        }
-        return session.ResolveImpact(ref context, skillContainer, skillEntity, target);
+        if (sessionsByCast.TryGetValue(contact.CastId, out TribulationSequenceSession session))
+            session.ResolveImpact(contact);
+    }
+
+    /// <summary>未接触就结束的劫风判为失败；风柱正常到期仍可按原规则重新生成。</summary>
+    /// <param name="ended">已经退出共同执行的施放。</param>
+    private static void OnEnded(ConstructedCastEnded ended)
+    {
+        if (!sessionsByCast.TryGetValue(ended.CastId, out TribulationSequenceSession session)) return;
+        sessionsByCast.Remove(ended.CastId);
+        session.OnEnded(ended.CastId);
     }
 
     public static void Fail(Actor actor)
@@ -241,35 +221,8 @@ internal static class BalefulWindTribulationSkillService
     private static void ClearWorldState()
     {
         sessionsToUpdate.Clear();
-        sessionsByCorrelation.Clear();
+        sessionsByCast.Clear();
         sessionsByActor.Clear();
-    }
-
-    private static void PrepareCenterEntity(Entity skillEntity)
-    {
-        if (!skillEntity.Tags.Has<TagHasOnTravel>()) skillEntity.AddTag<TagHasOnTravel>();
-    }
-
-    private static void PinActorFromCenter(Entity skillEntity)
-    {
-        SkillContext context = skillEntity.GetComponent<SkillContext>();
-        if (sessionsByCorrelation.TryGetValue(
-                context.RuntimeData.CorrelationId,
-                out TribulationSequenceSession session))
-            session.PinActor();
-    }
-
-    private static void RegisterWindEntity(Entity skillEntity)
-    {
-        SkillContext context = skillEntity.GetComponent<SkillContext>();
-        if (!sessionsByCorrelation.TryGetValue(
-                context.RuntimeData.CorrelationId,
-                out TribulationSequenceSession session))
-        {
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(skillEntity.Id);
-            return;
-        }
-        session.RegisterWind(skillEntity);
     }
 
     private static void OnActorDeath(ActorExtend actor)
@@ -301,19 +254,21 @@ internal static class BalefulWindTribulationSkillService
         EffectsLibrary.spawnAt("fx_cast_ground_blue", actor.current_position, scale * 1.4f);
     }
 
-    private sealed class TribulationSequenceSession : ISkillCastSequenceHooks
+    private sealed class TribulationSequenceSession
     {
         private readonly Actor actor;
         private readonly Vector3 anchor;
         private readonly long correlationId;
-        private readonly Dictionary<Entity, int> pendingWinds = new();
-        private readonly List<Entity> staleWinds = new();
+        /// <summary>每股尚未承受的实际构造编号及所属波次。</summary>
+        private readonly Dictionary<long, int> pendingWinds = new();
         private readonly int[] resolvedByWave = new int[TotalWaves + 1];
         private readonly float[] damagePerWind = new float[TotalWaves + 1];
-        private Entity sequence;
-        private Entity center;
+        /// <summary>当前中央风柱编号，零表示尚未生成或已经退出。</summary>
+        private long center;
+        /// <summary>下股劫风的实际世界发射时间。</summary>
+        private double nextEmissionAt;
         /// <summary>本次实际需要重新发出的剩余劫风所属波次。</summary>
-        private readonly List<int> plannedWaves = new();
+        private readonly List<(int Wave, Vector3 Source)> plannedWaves = new();
         private int assignedEmissionCount;
         private int wavesSurvived;
         private bool emissionsEnded;
@@ -348,16 +303,10 @@ internal static class BalefulWindTribulationSkillService
             completed = record.Completed;
         }
 
-        public void BindSequence(Entity sequenceEntity)
+        /// <summary>只安排尚未结算的劫风，保持原出生角度及逐股间隔。</summary>
+        public void PrepareWinds()
         {
-            sequence = sequenceEntity;
-        }
-
-        public SkillCastPlan CreatePlan()
-        {
-            var plan = new SkillCastPlan();
-            plannedWaves.Clear();
-            float delay = InitialDelay;
+            nextEmissionAt = World.world.getCurWorldTime() + InitialDelay;
             int actorAngle = (int)(actor.data.id % 360L);
             for (int wave = 1; wave <= TotalWaves; wave++)
             {
@@ -366,103 +315,68 @@ internal static class BalefulWindTribulationSkillService
                 for (int index = resolvedByWave[wave]; index < wave; index++)
                 {
                     float angle = angleOffset + index * angleStep;
-                    Vector3 source = anchor + new Vector3(Mathf.Cos(angle), Mathf.Sin(angle)) * WaveSpawnRadius;
-                    plannedWaves.Add(wave);
-                    plan.Steps.Add(SkillCastStep.FromSource(source, actor, anchor, delay));
-                    delay += EmissionInterval;
+                    plannedWaves.Add((wave, anchor + new Vector3(Mathf.Cos(angle), Mathf.Sin(angle)) * WaveSpawnRadius));
                 }
             }
-            return plan;
+            emissionsEnded = plannedWaves.Count == 0;
         }
 
-        public bool CanStart(in SkillCastSequenceStartContext context)
+        /// <summary>同一更新至多发出一股；每波伤害在该波第一次发出时按真实最大生命确定。</summary>
+        private void EmitNext()
         {
-            return !aborted && IsActorInProgress() && !sessionsByActor.ContainsKey(actor.data.id);
-        }
-
-        public void OnStarted(in SkillCastSequenceStartContext context)
-        {
-            sessionsByActor.Add(actor.data.id, this);
-            sessionsByCorrelation.Add(correlationId, this);
-            SpawnCenter();
-            PinActor();
-        }
-
-        public SkillCastStepDecision PrepareStep(
-            in SkillCastSequenceStepContext context,
-            in SkillCastStep scheduledStep)
-        {
-            return aborted || !IsActorInProgress()
-                ? SkillCastStepDecision.Cancel()
-                : SkillCastStepDecision.Emit(scheduledStep);
-        }
-
-        public void OnEnded(in SkillCastSequenceResult result)
-        {
-            if (aborted) return;
-            if (result.Reason != SkillCastSequenceEndReason.Completed)
-            {
-                Fail(actor);
-                return;
-            }
-            emissionsEnded = true;
-            TryComplete();
-        }
-
-        public void RegisterWind(Entity skillEntity)
-        {
-            if (aborted || assignedEmissionCount >= plannedWaves.Count)
-            {
-                ModClass.I.CommandBuffer.AddTag<TagRecycle>(skillEntity.Id);
-                return;
-            }
-
-            int wave = plannedWaves[assignedEmissionCount++];
+            if (emissionsEnded || World.world.getCurWorldTime() < nextEmissionAt) return;
+            var planned = plannedWaves[assignedEmissionCount];
+            int wave = planned.Wave;
             if (damagePerWind[wave] <= 0f)
             {
                 float ratio = BaseDamageRatio + (wave - 1) * DamageGrowthPerWave;
                 damagePerWind[wave] = Mathf.Max(1f, actor.getMaxHealth() * ratio) / wave;
             }
-            skillEntity.GetComponent<SkillContext>().Strength = damagePerWind[wave];
-            pendingWinds.Add(skillEntity, wave);
+            var target = new ActiveAbilityTarget(actor, anchor,
+                runtimeData: new Core.SkillLibV3.Components.SkillCastRuntimeData { CorrelationId = correlationId });
+            long wind = ConstructedAbilityService.StartWorld(BalefulWindConstruction.Wave((anchor - planned.Source).normalized), target,
+                planned.Source, Damage(damagePerWind[wave]));
+            if (wind == 0) { Fail(actor); return; }
+            pendingWinds.Add(wind, wave);
+            sessionsByCast.Add(wind, this);
+            assignedEmissionCount++;
+            nextEmissionAt += EmissionInterval;
+            emissionsEnded = assignedEmissionCount == plannedWaves.Count;
         }
 
-        public bool ResolveImpact(ref SkillContext context, Entity skillContainer, Entity skillEntity,
-            BaseSimObject target)
+        /// <summary>真实命中只推进本股一次；人物已经死亡或失去渡劫资格时不能领取成功。</summary>
+        /// <param name="contact">已经完成的共同伤害结算。</param>
+        public void ResolveImpact(ConstructedContact contact)
         {
-            if (aborted || target?.isActor() != true || target.a != actor ||
-                !pendingWinds.TryGetValue(skillEntity, out int wave) || !IsActorInProgress())
-            {
-                RemoveWind(skillEntity, false);
-                ModClass.I.CommandBuffer.AddTag<TagRecycle>(skillEntity.Id);
-                return false;
-            }
-
-            bool continueAfterHit = SkillHitResolver.ResolveProfile(
-                ref context, skillContainer, skillEntity, target);
-            SkillEntityAsset asset = skillEntity.GetComponent<SkillEntity>().Asset;
-            float damage = context.Strength * context.EffectScale *
-                           asset.ImpactProfile.DamageMultiplier * asset.ImpactTuning.DamageMultiplier;
-            if (damage > 0f)
-            {
-                ElementComposition element = context.ResolveElement(asset.Element);
-                actor.GetExtend().GetHit(
-                    damage,
-                    ref element,
-                    null,
-                    AttackType.Other,
-                    attacker_power_level_override: context.PowerLevel);
-            }
-
-            if (!IsActorInProgress())
+            if (!pendingWinds.TryGetValue(contact.CastId, out int wave)) return;
+            if (contact.TargetId != actor.id || !contact.DamageAttempted || !IsActorInProgress())
             {
                 Fail(actor);
-                return continueAfterHit;
+                return;
             }
-
-            ResolveWind(skillEntity, wave);
-            return continueAfterHit;
+            pendingWinds.Remove(contact.CastId);
+            sessionsByCast.Remove(contact.CastId);
+            resolvedByWave[wave]++;
+            AdvanceWaves();
+            TryComplete();
         }
+
+        /// <summary>风柱自然结束后重新生成；未能真实命中的劫风结束会中止当前劫程。</summary>
+        /// <param name="castId">已经退出的真实构造编号。</param>
+        public void OnEnded(long castId)
+        {
+            if (castId == center) center = 0;
+            else if (pendingWinds.ContainsKey(castId)) Fail(actor);
+        }
+
+        /// <summary>环境伤害不绑定攻击人物，保留化神境界和完整混合元素。</summary>
+        /// <param name="amount">该波冻结的单股伤害。</param>
+        private static GetHitEvent Damage(float amount) => new()
+        {
+            Damage = amount, Element = BalefulWindConstruction.Element,
+            AttackType = AttackType.Other, AttackerPowerLevel = GetHuashenPowerLevel(),
+            DamageOrigin = DamageOrigin.Primary
+        };
 
         public void PinActor()
         {
@@ -484,19 +398,8 @@ internal static class BalefulWindTribulationSkillService
                 return;
             }
             PinActor();
-            if (!IsCenterOperational()) SpawnCenter();
-            staleWinds.Clear();
-            foreach (KeyValuePair<Entity, int> entry in pendingWinds)
-            {
-                Entity wind = entry.Key;
-                if (wind.IsNull || wind.Tags.Has<TagRecycle>()) staleWinds.Add(wind);
-            }
-            for (int i = 0; i < staleWinds.Count; i++)
-            {
-                if (!pendingWinds.ContainsKey(staleWinds[i])) continue;
-                Fail(actor);
-                return;
-            }
+            if (center == 0 && !SpawnCenter()) { Fail(actor); return; }
+            EmitNext();
             TryComplete();
         }
 
@@ -504,51 +407,20 @@ internal static class BalefulWindTribulationSkillService
         {
             if (aborted) return;
             aborted = true;
-            Recycle(sequence);
-            Recycle(center);
-            foreach (Entity wind in pendingWinds.Keys)
-            {
-                Recycle(wind);
-            }
+            Cancel(center);
+            foreach (long wind in pendingWinds.Keys) Cancel(wind);
             pendingWinds.Clear();
             Unregister();
         }
 
-        private void SpawnCenter()
+        /// <summary>固定地点直接生成普通无伤风柱，不创建旧容器或回调占位实体。</summary>
+        public bool SpawnCenter()
         {
-            Recycle(center);
-            SkillCastRuntimeData centerRuntimeData = SkillCastRuntimeData.Create(1f, DamageOrigin.Primary);
-            centerRuntimeData.CorrelationId = correlationId;
-            center = ModClass.I.SkillV3.SpawnSourcelessSkill(
-                centerContainer,
-                anchor,
-                null,
-                anchor,
-                0f,
-                GetHuashenPowerLevel(),
-                runtime_data: centerRuntimeData);
-            center.GetComponent<AliveTimeLimit>().value = float.MaxValue;
-        }
-
-        private bool IsCenterOperational()
-        {
-            if (center.IsNull || center.Tags.Has<TagRecycle>()) return false;
-            if (!center.TryGetComponent(out SkillAnimationLifecycleState lifecycle)) return true;
-            return lifecycle.Phase is SkillAnimationPhase.Appearance or SkillAnimationPhase.Runtime;
-        }
-
-        private void ResolveWind(Entity skillEntity, int wave)
-        {
-            RemoveWind(skillEntity, true);
-            resolvedByWave[wave]++;
-            AdvanceWaves();
-            TryComplete();
-        }
-
-        private void RemoveWind(Entity skillEntity, bool recycle)
-        {
-            pendingWinds.Remove(skillEntity);
-            if (recycle) Recycle(skillEntity);
+            var target = new ActiveAbilityTarget(null, anchor,
+                runtimeData: new Core.SkillLibV3.Components.SkillCastRuntimeData { CorrelationId = correlationId });
+            center = ConstructedAbilityService.StartWorld(BalefulWindConstruction.Center, target, anchor, Damage(0f));
+            if (center != 0) sessionsByCast.Add(center, this);
+            return center != 0;
         }
 
         private void AdvanceWaves()
@@ -566,8 +438,7 @@ internal static class BalefulWindTribulationSkillService
                 wavesSurvived < TotalWaves) return;
 
             completed = true;
-            Recycle(center);
-            UnregisterCorrelation();
+            Cancel(center);
             WorldLogUtils.LogBalefulWindTribulationSurvived(actor);
             ShowCompletion(actor);
         }
@@ -582,30 +453,15 @@ internal static class BalefulWindTribulationSkillService
             if (sessionsByActor.TryGetValue(actor.data.id, out TribulationSequenceSession actorSession) &&
                 ReferenceEquals(actorSession, this))
                 sessionsByActor.Remove(actor.data.id);
-            UnregisterCorrelation();
+
         }
 
-        private void UnregisterCorrelation()
+        /// <summary>先解除劫程关联再取消；共同结束事件不能把主动清理误当失败。</summary>
+        /// <param name="castId">本劫程保存的真实施放编号。</param>
+        private static void Cancel(long castId)
         {
-            if (sessionsByCorrelation.TryGetValue(correlationId, out TribulationSequenceSession correlationSession) &&
-                ReferenceEquals(correlationSession, this))
-                sessionsByCorrelation.Remove(correlationId);
-        }
-
-        private static int ResolveWave(int emissionIndex)
-        {
-            int remaining = emissionIndex;
-            for (int wave = 1; wave <= TotalWaves; wave++)
-            {
-                if (remaining < wave) return wave;
-                remaining -= wave;
-            }
-            return TotalWaves;
-        }
-
-        private static void Recycle(Entity entity)
-        {
-            if (!entity.IsNull && !entity.Tags.Has<TagRecycle>()) entity.AddTag<TagRecycle>();
+            sessionsByCast.Remove(castId);
+            if (castId != 0) ConstructedAbilityService.Cancel(castId);
         }
     }
 }

@@ -276,10 +276,10 @@ ROUTES["raw"] = {
 }
 
 ROUTES["tribulation"] = dict(LEARNED,
-    learning=at("赑风劫阶段建立来源容器，不由人物学习。", CONTENT + "BalefulWindTribulationSkillService.cs"),
-    casting=at("世界规则以 StartSourcelessSkillSequence 发出中心和风浪，人物只用于失效判断。",
-               CONTENT + "BalefulWindTribulationSkillService.cs::StartSourcelessSkillSequence"),
-    payment=at("无施法者序列使用 Prepaid，不扣渡劫人物普通施法资源。", SKILL + "Manager.cs::public Entity StartSourcelessSkillSequence"),
+    learning=at("赑风劫阶段提供固定环境构造，不由人物学习。", CONTENT + "BalefulWindTribulationSkillService.cs"),
+    casting=at("世界规则通过 StartWorld 发出普通风柱和劫风，人物只作受击目标及资格判断。",
+               CONTENT + "BalefulWindTribulationSkillService.cs::EmitNext"),
+    payment=at("固定环境来源使用已经确定的无攻击者伤害，不扣渡劫人物普通施法资源。", CONTENT + "Skills/ConstructedAbilityService.cs::StartWorld"),
     manual=at("不是可选主动法术，只随渡劫阶段出现。", CONTENT + "BalefulWindTribulationStage.cs"),
     autonomous=at("渡劫系统推进，不经过修士普通抽招。", CONTENT + "Systems/Logic/BalefulWindTribulationSystem.cs"),
     persistence=at("baleful-tribulation 保存劫过程；短时中心和风浪实体不存，读档重建当前过程所需表现。",

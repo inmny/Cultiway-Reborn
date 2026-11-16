@@ -29,7 +29,6 @@ public partial class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntiti
         ConfigureEarth();
         ConfigureYinYangEntropy();
         ConfigureWind();
-        ConfigureBalefulWindTribulation();
         ConfigureLightning();
         ConfigureSupport();
         ConfigureUtility();

@@ -58,8 +58,11 @@ public sealed partial class ConstructedAbilityService
         /// <summary>追踪目标的稳定编号。</summary>
         internal readonly long TargetId;
 
-        /// <summary>当前维持来源是否仍有效。</summary>
-        internal bool IsLive => Actor.data?.id == Id && Actor.isAlive() && Actor.hasHealth();
+        /// <summary>固定环境来源不拥有或借用人物。</summary>
+        internal bool WorldSource => Actor == null;
+
+        /// <summary>当前人物来源是否仍有效；环境的存续由发起过程负责。</summary>
+        internal bool IsLive => Actor != null && Actor.data?.id == Id && Actor.isAlive() && Actor.hasHealth();
 
         /// <summary>介质只能借给同一实际阵营，来源失效后使用已经冻结的阵营身份。</summary>
         /// <param name="other">另一实际控制者。</param>
@@ -73,7 +76,7 @@ public sealed partial class ConstructedAbilityService
         internal CastAuthority(Actor actor, GetHitEvent damage, Actor target, Kingdom attackKingdom = null, long spatialSourceId = 0)
         {
             Actor = actor;
-            Id = actor.data.id;
+            Id = actor?.data.id ?? 0;
             spatialId = spatialSourceId == 0 ? Id : spatialSourceId;
             Damage = damage;
             Target = target;
@@ -131,6 +134,9 @@ public sealed partial class ConstructedAbilityService
         /// <param name="relation">真实作用所需关系。</param><param name="target">当前有效目标。</param>
         internal bool Matches(SkillUseTargetRelation relation, Actor target)
         {
+            if (WorldSource) return relation == SkillUseTargetRelation.Hostile && target.id == TargetId &&
+                target.asset.can_be_killed_by_stuff && !target.isInsideSomething() &&
+                target.ai.action?.special_prevent_can_be_attacked != true && !target.isInMagnet();
             if (target.data.id == spatialId) return relation is SkillUseTargetRelation.Friendly or SkillUseTargetRelation.Self;
             if (IsLive) return SkillTargetRelationResolver.Matches(relation, Actor, target,
                 fixedKingdom ? World.world.kingdoms.getCivOrWildViaID(kingdomId) : null);
@@ -154,7 +160,7 @@ public sealed partial class ConstructedAbilityService
 
         /// <summary>双方独立存续时也按真实保存的阵营和个人敌意参与交锋。</summary>
         /// <param name="other">来袭时确定的阵营。</param><param name="actorId">来袭人物的稳定编号，非人物为零。</param>
-        internal bool IsHostileTo(Kingdom other, long actorId) => Id != actorId && spatialId != actorId &&
+        internal bool IsHostileTo(Kingdom other, long actorId) => WorldSource ? actorId != 0 && actorId == TargetId : Id != actorId && spatialId != actorId &&
             (actorId > 0 && hostileIds.Contains(actorId) || other != null &&
             World.world.kingdoms.getCivOrWildViaID(kingdomId)?.isEnemy(other) == true);
 
@@ -162,6 +168,8 @@ public sealed partial class ConstructedAbilityService
         /// <param name="other">另一施放的稳定来源。</param>
         internal bool IsHostileTo(CastAuthority other)
         {
+            if (WorldSource) return other.Id != 0 && other.Id == TargetId;
+            if (other.WorldSource) return Id != 0 && Id == other.TargetId;
             if (!other.fixedKingdom && other.IsLive) return Matches(SkillUseTargetRelation.Hostile, other.Actor);
             return Id != other.Id && spatialId != other.Id && canFight && (hostileIds.Contains(other.Id) || other.tantrum ||
                                                   World.world.kingdoms.getCivOrWildViaID(kingdomId)

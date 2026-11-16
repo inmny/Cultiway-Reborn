@@ -1,0 +1,174 @@
+// B48：只覆盖无主风柱、九波承伤、正式续接以及失败和换世界清理。
+var windType = typeof(ActorExtend).Assembly.GetType("Cultiway.Content.BalefulWindTribulationSkillService");
+var startWind = windType.GetMethod("Start", F, null, new[] { typeof(ActorExtend) }, null);
+var cleanupWind = windType.GetMethod("Cleanup", F, null, new[] { typeof(ActorExtend) }, null);
+var inProgress = windType.GetMethod("IsInProgress", F);
+var passedWind = windType.GetMethod("IsPassed", F);
+var captureWind = windType.GetMethod("CaptureWorldSave", F);
+const string centerId = "Cultiway.Tribulation.BalefulWind.Center", waveId = "Cultiway.Tribulation.BalefulWind.Wave";
+var windHits = new List<ConstructedContact>();
+var startedWinds = new List<ConstructedCastStarted>();
+var healthAtHit = new List<object>();
+long watchedActor = 0;
+var spends = new List<float>();
+var mutationField = typeof(WakanResourceService).GetField("mutationCommitted", F);
+var oldMutation = mutationField.GetValue(null);
+void Paid(ActorExtend a, in WakanMutation mutation)
+{
+    if (a.Base.id == watchedActor && mutation.Kind == WakanMutationKind.Spend) spends.Add(-mutation.Delta);
+}
+WakanResourceService.RegisterMutationCommitted(Paid);
+IList Running() => (IList)service.GetField("casts", F).GetValue(null);
+object[] WindCasts() => Running().Cast<object>().Where(c => ((AbilityCast)Field(c, "Cast")).Plan.Id.StartsWith("Cultiway.Tribulation.BalefulWind.")).ToArray();
+object Record(long actor) => ((IEnumerable)Field(captureWind.Invoke(null, null), "Sessions")).Cast<object>().Single(s => (long)Field(s, "Actor") == actor);
+int[] Resolved(long actor) => (int[])Field(Record(actor), "Resolved");
+bool IsPassed(Actor a) => (bool)passedWind.Invoke(null, new object[] { a.GetExtend() });
+bool IsProgress(Actor a) => (bool)inProgress.Invoke(null, new object[] { a.GetExtend() });
+bool StartWind(Actor a) => (bool)startWind.Invoke(null, new object[] { a.GetExtend() });
+Actor Trial(float x)
+{
+    Actor a = Make(x);
+    a.GetExtend().AddComponent(new Xian { level = 3, wakan = 9000 });
+    a.GetExtend().AddComponent(new Yuanying { formation = new CoreFormationSnapshot { refinement = 9 } });
+    a.GetExtend().MarkCultiwayStatsDirty();
+    a.setStatsDirty(); a.updateStats(); a.restoreHealth(a.getMaxHealth());
+    return a;
+}
+void WindStarted(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId == centerId || fact.AbilityId == waveId) startedWinds.Add(fact);
+}
+void WindHit(ConstructedContact fact)
+{
+    if (fact.AbilityId != waveId) return;
+    windHits.Add(fact);
+    Actor a = World.world.units.get(fact.TargetId);
+    healthAtHit.Add(new { fact.CastId, health = a.data.health, maximum = a.getMaxHealth() });
+}
+async Task RunWind(Actor a, float seconds, bool untilPassed = false)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() =>
+    {
+        a.restoreHealth(a.getMaxHealth());
+        return (untilPassed && IsPassed(a) || World.world.getCurWorldTime() >= until) &&
+               (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null) >= World.world.getCurWorldTime() - .08;
+    }, 3600);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+ConstructedAbilityService.CastStarted += WindStarted;
+ConstructedAbilityService.ContactConfirmed += WindHit;
+try
+{
+    Actor trial = Trial(68), spectator = Make(69);
+    float spectatorHealth = spectator.data.health;
+    watchedActor = trial.id;
+    Check(StartWind(trial) && !StartWind(trial), "正式劫程开始一次，重复开始拒绝");
+    Check(WindCasts().Length == 1 && (long)Field(WindCasts()[0], "SourceId") == 0 &&
+        Field(WindCasts()[0], "Source") == null, "中央风柱是固定环境构造，没有人物施法者");
+    await RunWind(trial, 2.5f);
+    var winds = WindCasts();
+    foreach (object running in winds)
+    {
+        var authority = Field(running, "InitialOwner");
+        var damage = (Cultiway.Core.EventSystem.Events.GetHitEvent)Field(authority, "Damage");
+        Check((long)Field(running, "SourceId") == 0 && !damage.HasAttacker && damage.AttackerPowerLevel.HasValue,
+            "环境构造保留无攻击者与原境界", new { ability = ((AbilityCast)Field(running, "Cast")).Plan.Id });
+    }
+    Check(IsProgress(trial), "劫风沿真实出生方向前进，未因偏离目标提前失效",
+        new { hits = windHits.Count, started = startedWinds.Count, running = winds.Length });
+    int[] savedResolved = (int[])Resolved(trial.id).Clone();
+    float[] savedDamage = (float[])((float[])Field(Record(trial.id), "Damage")).Clone();
+    Check(savedResolved.Sum() > 0 && savedResolved.Sum() < 45 && winds.Length > 0,
+        "中途已承伤且仍有真实风柱或劫风", new { savedResolved, savedDamage, contacts = windHits.Count });
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    World.world.camera.transform.position = new Vector3(trial.current_position.x, trial.current_position.y + .5f, 0f);
+    MoveCamera.instance.forceZoom(1.5f);
+    for (int frame = 0; frame < 3; frame++) await Game.NextFrame();
+    Screen.Capture(Path.Combine(folder, "wind-in-progress.png"));
+    await Game.NextFrame();
+    long actorId = trial.id, spectatorId = spectator.id;
+    long[] oldCasts = winds.Select(c => (long)Field(c, "Id")).ToArray();
+    var before = windHits.ToArray();
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "save"));
+    World.world.save_manager.loadWorld(Path.Combine(folder, "save"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    trial = World.world.units.get(actorId); spectator = World.world.units.get(spectatorId);
+    Check(IsProgress(trial) && Resolved(actorId).SequenceEqual(savedResolved) &&
+        ((float[])Field(Record(actorId), "Damage")).SequenceEqual(savedDamage) &&
+        !WindCasts().Any(c => oldCasts.Contains((long)Field(c, "Id"))),
+        "正式世界读取只续接未结算劫风，旧执行已清理，承伤及冻结伤害保持");
+    Check(Cultiway.ModClass.I.WorldSaves.LastReport.Skipped.Count == 0,
+        "正式风劫资料恢复未发生局部丢弃");
+    int resumedAt = windHits.Count;
+    await RunWind(trial, 30f, untilPassed: true);
+    int[] finalResolved = Resolved(actorId);
+    Check(IsPassed(trial) && (int)Field(Record(actorId), "Survived") == 9 &&
+        finalResolved.SequenceEqual(Enumerable.Range(0, 10)) &&
+        windHits.Count - resumedAt == 45 - savedResolved.Sum(),
+        "真实系统完成九波四十五股，恢复后不重复已结算伤害",
+        new { finalResolved, resumedContacts = windHits.Count - resumedAt, healthAtHit });
+    Check(windHits.All(c => c.SourceId == 0 && c.TargetId == actorId && c.DamageAttempted) &&
+        spectator.data.health == spectatorHealth && spends.Count == 0,
+        "劫风只作用指定渡劫者，不误伤旁人或扣渡劫者施法资源");
+    await Advance(.3f);
+    Check(WindCasts().Length == 0 && !BodyControlState.IsBusy(actorId), "成功后全部风柱及劫风退出，身体没有被借用");
+    cleanupWind.Invoke(null, new object[] { trial.GetExtend() });
+    Check(!IsPassed(trial) && !IsProgress(trial), "正式领取清除成功记录");
+    Actor rejected = Make(73);
+    Check(!StartWind(rejected) && !IsProgress(rejected) && WindCasts().Length == 0,
+        "不合格人物不能启动风劫，不留下风柱或运行");
+    Actor failed = Trial(68);
+    Check(StartWind(failed), "实际失败场景开始");
+    await RunWind(failed, 1.1f);
+    failed.GetExtend().GetComponent<Xian>().level = 2;
+    await Advance(.3f);
+    Check(!IsProgress(failed) && !IsPassed(failed) && WindCasts().Length == 0,
+        "人物失去资格后中止，中央风柱及在途劫风共同清理");
+    Place(failed, 71);
+    await Advance(.2f);
+    Check(Mathf.Abs(failed.current_position.x - 71f) < .2f, "失败后原锚点停止锁位");
+    // TAIL_BEGIN
+    Actor ordinary = Make(64), target = Make(66, "wolf");
+    var normal = new AbilityDefinition
+    {
+        Id = "test.baleful-wind.normal", Name = "人物来源回归", Lifetime = .3f, Resource = "none", Cost = 0f, Power = 1f,
+        TargetRange = 10f, Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Object },
+        Root = new ConstructionNode { Id = "wind", Form = "wind_vortex", Matter = "wind", Scale = .5f,
+            Impact = new ConstructionImpact { SelectedTargetOnly = true } }
+    };
+    await Fire(normal, ordinary, target);
+    await Advance(.5f);
+    Check(contacts.Any(c => c.AbilityId == normal.Id && c.SourceId == ordinary.id && c.TargetId == target.id),
+        "人物来源仍按真实敌对、人物身份与共同接触结算");
+    Actor clearing = Trial(68);
+    Check(StartWind(clearing), "换世界前有实际无主风劫");
+    await RunWind(clearing, 1.1f);
+    Check(WindCasts().Length > 1, "换世界时同时存在风柱与在途劫风");
+    World.world.save_manager.loadWorld(fixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check(WindCasts().Length == 0 && ((IEnumerable)Field(captureWind.Invoke(null, null), "Sessions")).Cast<object>().Count() == 0,
+        "换世界同时清除环境构造和劫程关联");
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(new
+    {
+        starts = startedWinds.Select(c => new { c.CastId, c.AbilityId, c.SourceId, c.CorrelationId, c.WorldTime }),
+        contacts = windHits.Select(c => new { c.CastId, c.SourceId, c.TargetId, c.DamageAttempted, c.Age })
+    }, Formatting.Indented));
+    return new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    mutationField.SetValue(null, oldMutation);
+    ConstructedAbilityService.CastStarted -= WindStarted;
+    ConstructedAbilityService.ContactConfirmed -= WindHit;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

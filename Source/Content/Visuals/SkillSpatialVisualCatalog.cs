@@ -74,14 +74,14 @@ internal static class SkillSpatialVisualCatalog
         Add(SkillSpatialForm.Blade, SkillEntities.SwordQi, SkillEntities.FireBlade, SkillEntities.WaterBlade, SkillEntities.WindBlade, SkillEntities.YinBlade);
         Add(SkillSpatialForm.Fire, SkillEntities.Fireball, SkillEntities.FlameMeteor, SkillEntities.YangBolt);
         Add(SkillSpatialForm.Water, SkillEntities.WaterOrb);
-        Add(SkillSpatialForm.Wind, SkillEntities.WindBullet, SkillEntities.BalefulWindTribulationWave);
+        Add(SkillSpatialForm.Wind, SkillEntities.WindBullet);
         Add(SkillSpatialForm.Spirit, SkillEntities.SpiritBolt, SkillEntities.YinBolt, SkillEntities.ChaosOrb, SkillEntities.ThunderOrb);
         Add(SkillSpatialForm.Beam, SkillEntities.SpiritBeam, SkillEntities.SolarBeam);
         Add(SkillSpatialForm.Chain, SkillEntities.ChainLightning);
         Add(SkillSpatialForm.Wave, SkillEntities.TidalWave, SkillEntities.EarthRidge);
         Add(SkillSpatialForm.Vine, SkillEntities.SpiritVine);
         Add(SkillSpatialForm.Timber, SkillEntities.WoodSpear, SkillEntities.FallingTimber);
-        Add(SkillSpatialForm.Tornado, SkillEntities.Tornado, SkillEntities.BalefulWindTribulationCenter);
+        Add(SkillSpatialForm.Tornado, SkillEntities.Tornado);
         Add(SkillSpatialForm.Field, SkillEntities.PoisonMist, SkillEntities.PoisonPool, SkillEntities.YinField, SkillEntities.EntropyField,
             SkillEntities.RejuvenationField, SkillEntities.NatureGrowthField, SkillEntities.CleanLandField);
         Add(SkillSpatialForm.Wall, SkillEntities.EarthWall, SkillEntities.WoodWall, SkillEntities.FireWall, SkillEntities.IceWall,
@@ -100,7 +100,7 @@ internal static class SkillSpatialVisualCatalog
         RestrictNature("wood", SkillEntities.SpiritVine, SkillEntities.WoodSpear, SkillEntities.FallingTimber, SkillEntities.WoodWall);
         RestrictNature("water", SkillEntities.TidalWave, SkillEntities.WaterCurtain);
         RestrictNature("ice", SkillEntities.IceShard, SkillEntities.IceLance, SkillEntities.Icefall, SkillEntities.IceWall);
-        RestrictNature("wind", SkillEntities.Tornado, SkillEntities.WindWall, SkillEntities.BalefulWindTribulationCenter);
+        RestrictNature("wind", SkillEntities.Tornado, SkillEntities.WindWall);
         RestrictNature("fire", SkillEntities.FireWall);
         RestrictNature("metal", SkillEntities.SwordCurtain);
         RestrictNature("chaos", SkillEntities.Rift);

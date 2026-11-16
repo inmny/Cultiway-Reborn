@@ -27,15 +27,17 @@ public sealed partial class ConstructedAbilityService
         ActiveAbilityTargetMode mode = plan.Use.Target;
         if (mode == ActiveAbilityTargetMode.Self)
         {
+            if (caster == null) return false;
             actor = caster.Base;
         }
         else if (mode == ActiveAbilityTargetMode.Object ||
                  mode == ActiveAbilityTargetMode.ObjectOrPoint && target.Object != null)
         {
-            if (target.Object.isRekt() || !target.Object.isActor()) return false;
+            if (target.Object == null || target.Object.isRekt() || !target.Object.isActor()) return false;
             actor = target.Object.a;
             if (!actor.isAlive() || !actor.hasHealth() ||
-                !SkillTargetRelationResolver.Matches(plan.Impact.Targets, caster.Base, actor, target.AttackKingdom)) return false;
+                (caster != null && !SkillTargetRelationResolver.Matches(plan.Impact.Targets, caster.Base, actor, target.AttackKingdom) ||
+                 caster == null && !plan.Impact.SelectedTargetOnly)) return false;
         }
 
         if (actor != null)
