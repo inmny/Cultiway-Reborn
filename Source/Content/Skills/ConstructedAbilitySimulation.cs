@@ -1097,23 +1097,33 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         bool additionalDamage = false;
         if (result == ApplyAttackState.Hit)
         {
-            bool valid = ApplyAdditionalDamage(running, node, target, targetId, impact.AdditionalDamage, strength, out bool direct);
+            bool valid = ApplyAdditionalDamage(running, node, target, targetId, impact.AdditionalDamage, strength, out bool direct, out _);
             additionalDamage = direct;
             if (valid && outcome != null)
             {
-                valid = ApplyAdditionalDamage(running, node, target, targetId, outcome.Damage, strength, out bool chosen);
+                valid = ApplyAdditionalDamage(running, node, target, targetId, outcome.Damage, strength, out bool chosen, out _);
                 additionalDamage |= chosen;
             }
             if (!valid) return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, additionalDamage: additionalDamage);
         }
         ApplyStatuses(running, node, target, impact.Statuses, strength);
-        if (outcome != null) ApplyStatuses(running, node, target, outcome.Statuses, strength);
+        if (outcome != null)
+        {
+            ApplyStatuses(running, node, target, outcome.Statuses, strength);
+            ApplyRestoration(running, node, target, outcome.Restoration, strength);
+        }
+        ConstructedTargetResponse conditional = result == ApplyAttackState.Hit ? ApplyConditionalContacts(running, node, target, targetId,
+            impact.ConditionalContacts, origin, strength) : default;
+        additionalDamage |= conditional.AdditionalDamageAttempted;
+        if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
+            return new ConstructedTargetResponse(targetId, conditional.VelocityChange, conditional.ForceApplied, 0f, 0f, additionalDamage: additionalDamage);
         ApplyContactReactions(target, impact, running.Owner(node), result, out float stagger, out float bound,
             out float strain, out float exposure);
         Vector3 velocity = ApplyContactForce(running, node, target, impact, result, out bool force, origin,
             priorVelocity, forceReceiver, strength);
         velocity += ApplyContactKnockback(running, node, target, impact.Knockback, result, out bool knocked, origin, strength);
-        force |= knocked;
+        velocity += conditional.VelocityChange;
+        force |= knocked || conditional.ForceApplied;
         if (outcome?.Knockback != null)
         {
             velocity += ApplyContactKnockback(running, node, target, outcome.Knockback, result, out bool chosenForce, origin, strength);

@@ -1,0 +1,212 @@
+// B42：只验证真实生命及伤害分支，不重复身体装备矩阵。
+const string section = "all";
+var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var allCasts = new List<AbilityCast>();
+var damageEvents = new List<(long Target, long Attacker, float Amount, ElementComposition Element, bool Ignore, int Before, int After, bool Alive)>();
+var emissions = new List<object>();
+int oldExecutions = 0;
+float conversionForce = 0;
+SkillEntityAsset current = SkillEntities.SpiritBolt;
+Actor source = Make(64), target = Make(70), outside = Make(70), wolf = Make(12, "wolf");
+target.setKingdom(wolf.kingdom); outside.setKingdom(wolf.kingdom); Place(outside, 70, 78);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 0;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+var guard = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Conditional.Armor")
+    .SetStats(new BaseStats { [S.armor] = 10000 }).SetDuration(10000).Build();
+IReadOnlyList<Entity> Learned() => (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+Entity Build(bool sentence = false, bool trial = false, bool zero = false)
+{
+    var builder = new SkillContainerBuilder(current).UseAnimation(0);
+    if (sentence) builder.AddModifier(new DeathSentenceModifier { ExecuteHealthRatio = .12f, BonusDamageRatio = .5f });
+    if (trial) builder.AddModifier(new ReincarnationTrialModifier { DamageRatio = zero ? 0f : .8f, BacklashRatio = .15f, HealRatio = .3f });
+    Entity made = builder.Build(SkillContainerBuildMode.RuleOnly);
+    string signature = SkillContainerSignature.Build(made); owner.LearnSkillV3(made);
+    return Learned().First(x => SkillContainerSignature.Build(x) == signature);
+}
+AbilityDefinition Convert(Entity skill, string migration, float scale = 1f)
+{
+    var method = service.Assembly.GetType("Cultiway.Content.Skills." + migration + "ConstructionMigration").GetMethod("Convert", F);
+    var emission = new SkillEmission { Source = source, SpatialSource = source, SkillContainer = skill, Target = target,
+        SourcePos = new Vector3(64, 72, .3f), TargetPos = new Vector3(70, 72, .3f), Strength = 40, PowerLevel = 0,
+        RuntimeData = new SkillCastRuntimeData { EffectScale = scale } };
+    object[] args = method.GetParameters().Length == 3 ? new object[] { emission, default(GetHitEvent), default(Vector3) } : new object[] { emission, default(GetHitEvent) };
+    var definition = (AbilityDefinition)method.Invoke(null, args); conversionForce = ((GetHitEvent)args[1]).Damage; return definition;
+}
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    yield return node;
+    if (node.Children != null) foreach (var child in node.Children) foreach (var nested in Nodes(child)) yield return nested;
+}
+CompiledConstructionImpact FirstImpact(CompiledAbility plan)
+{
+    object node = ((Array)typeof(CompiledAbility).GetProperty("Nodes", F).GetValue(plan)).GetValue(0);
+    return (CompiledConstructionImpact)node.GetType().GetField("Impact", F).GetValue(node);
+}
+void ResetPeople()
+{
+    foreach (var cast in allCasts) cast.Cancel(); contacts.Clear(); damageEvents.Clear(); oldExecutions = 0;
+    Ready(source); Place(source, 64); Place(target, 70); Place(outside, 70, 78);
+    CombatStatusEffects.RemoveStatus(target, StatusEffects.DeathSentence); CombatStatusEffects.RemoveStatus(target, guard);
+    target.updateStats(); target.setHealth(target.getMaxHealth()); source.setHealth(source.getMaxHealth() - 500);
+    target.GetExtend().SetPowerLevel(0); owner.SetPowerLevel(0);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    foreach (var actor in new[] { source, target, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+}
+bool Use(Entity skill)
+{
+    bool used = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(target, target.GetSimPos(), selectionArea: new SkillTargetSelectionArea(true, target.GetSimPos(), .1f)), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999; CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+    ControllableUnit.clear(false); source.stopForce(); source.batch.c_action_landed.Remove(source); return used;
+}
+async Task WaitContact()
+{
+    for (int i = 0; i < 80; i++) { await Advance(.025f); if (contacts.Any(c => c.TargetId == target.id)) return; }
+    throw new InvalidOperationException("实际目标未在两秒内接触");
+}
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(r => (long)Field(r, "Id") == fact.CastId);
+    allCasts.Add((AbilityCast)Field(running, "Cast"));
+}
+void Old(Entity entity) { if (entity.GetComponent<SkillContext>().SourceObj == source) oldExecutions++; }
+ConstructedAbilityService.CastStarted += Started; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+ConditionalContactProbe.Damaged = (damage, before) =>
+{
+    if (damage.TargetID != target.id && damage.TargetID != source.id) return;
+    Actor recipient = damage.TargetID == target.id ? target : source;
+    damageEvents.Add((damage.TargetID, damage.AttackerID, damage.Damage, damage.Element, damage.IgnoreDamageReduction, before, recipient.data.health, recipient.isAlive()));
+};
+var hook = new HarmonyLib.Harmony("Cultiway.Verify.ConditionalContact");
+var damageType = typeof(GetHitEvent).Assembly.GetType("Cultiway.Core.EventSystem.Systems.GetHitEventSystem");
+hook.Patch(damageType.GetMethod("Resolve", F), prefix: new HarmonyLib.HarmonyMethod(typeof(ConditionalContactProbe).GetMethod("DamagePrefix")),
+    postfix: new HarmonyLib.HarmonyMethod(typeof(ConditionalContactProbe).GetMethod("DamagePostfix")));
+try
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
+    {
+        if (request.Source != source) return original(request);
+        var result = original(request); emissions.Add(new { request.Strength, result = result.ToString() }); return result;
+    };
+    if (section is "all" or "definitions")
+    {
+        foreach (var entry in new[] { (Asset: SkillEntities.SpiritBolt, Migration: "Projectile"), (Asset: SkillEntities.GroundSpike, Migration: "GroundSpike"),
+            (Asset: SkillEntities.Rift, Migration: "Rift"), (Asset: SkillEntities.YinField, Migration: "Field"), (Asset: SkillEntities.FireWall, Migration: "Barrier"),
+            (Asset: SkillEntities.SpiritBeam, Migration: "Beam"), (Asset: SkillEntities.ChainLightning, Migration: "Chain"),
+            (Asset: SkillEntities.Fireball, Migration: "Projectile"), (Asset: SkillEntities.SpiritShield, Migration: "Barrier") })
+        {
+            current = entry.Asset;
+            var definition = Convert(Build(sentence: true, trial: true), entry.Migration, .5f);
+            Check(definition != null, entry.Asset.id + "完整转换生命及伤害分支");
+            var restored = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition)); AbilityCompiler.Compile(restored, false);
+            var attack = Nodes(restored.Root).Where(n => n.Impact?.ConditionalContacts != null).ToArray();
+            Check(entry.Asset == SkillEntities.SpiritShield ? attack.Length == 0 : attack.Length > 0 && attack.All(n =>
+                n.Impact.ConditionalContacts.Length == 2 && n.Impact.Statuses.Any(x => x.Id == StatusEffects.DeathSentence.id && x.Duration == 1.5f) &&
+                n.Impact.ConditionalContacts[0].MaximumHealthRatio == .12f && n.Impact.ConditionalContacts[0].Outcome.Damage[0].PerHealth == .5f &&
+                n.Impact.ConditionalContacts[0].Outcome.Damage[0].PerMaxHealth == .01f && n.Impact.ConditionalContacts[0].Outcome.Damage[0].MinimumBonus == .5f &&
+                n.Impact.ConditionalContacts[0].Outcome.Damage[0].IgnoreDamageReduction &&
+                Math.Abs(n.Impact.ConditionalContacts[0].Otherwise.Damage[0].PerForce * conversionForce - 10f) < .001f &&
+                Math.Abs(n.Impact.ConditionalContacts[1].Outcome.Damage[0].PerForce * conversionForce - 16f) < .001f &&
+                Math.Abs(n.Impact.ConditionalContacts[1].OnKill.Restoration.HealthPerForce * conversionForce - 4.8f) < .001f &&
+                Math.Abs(n.Impact.ConditionalContacts[1].OnSurvive.Damage[0].PerForce * conversionForce - 2.4f) < .001f &&
+                n.Impact.ConditionalContacts[1].OnSurvive.Damage[0].Target == ConstructionContactActor.Controller &&
+                n.Impact.ConditionalContacts[1].OnSurvive.Damage[0].Source == ConstructionContactActor.Contact), entry.Asset.id + "保存编译保留阈值和一次倍率");
+            if (entry.Asset == SkillEntities.Fireball) Check(restored.Root.Impact?.ConditionalContacts == null && restored.Root.Children[0].Impact.ConditionalContacts != null, "爆发只在后段执行分支");
+            File.WriteAllText(Path.Combine(folder, entry.Asset.id + ".json"), JsonConvert.SerializeObject(restored, Formatting.Indented));
+        }
+        current = SkillEntities.SpiritBolt; var editable = Convert(Build(sentence: true, trial: true), "Projectile");
+        var compiled = FirstImpact(AbilityCompiler.Compile(editable, false));
+        editable.Root.Impact.ConditionalContacts[0].MaximumHealthRatio = .9f;
+        editable.Root.Impact.ConditionalContacts[0].Outcome.Damage[0].PerHealth = 10;
+        editable.Root.Impact.ConditionalContacts[1].OnKill.Restoration.HealthPerForce = 10;
+        Check(compiled.ConditionalContacts[0].MaximumHealthRatio == .12f && compiled.ConditionalContacts[0].Outcome.Damage[0].PerHealth == 1f &&
+            Math.Abs(compiled.ConditionalContacts[1].OnKill.Restoration.HealthPerForce - .24f) < .00001f, "编译独立复制全部嵌套分支和恢复");
+        for (int i = 0; i < 9; i++)
+        {
+            var bad = Convert(Build(sentence: true, trial: true), "Projectile");
+            switch (i)
+            {
+                case 0: bad.Root.Impact.ConditionalContacts[0].MaximumHealthRatio = float.NaN; break;
+                case 1: bad.Root.Impact.ConditionalContacts[0].MaximumHealthRatio = 1.1f; break;
+                case 2: bad.Root.Impact.ConditionalContacts = new ConstructionConditionalContact[9]; break;
+                case 3: bad.Root.Impact.ConditionalContacts[0] = null; break;
+                case 4: bad.Root.Impact.ConditionalContacts[0].Outcome.Damage[0].Target = (ConstructionContactActor)9; break;
+                case 5: bad.Root.Impact.ConditionalContacts[0].Outcome.Damage[0].Source = (ConstructionContactActor)9; break;
+                case 6: bad.Root.Impact.ConditionalContacts[0].Outcome.Damage[0].PerHealth = -1f; break;
+                case 7: bad.Root.Impact.ConditionalContacts[0].Outcome.Damage[0].MinimumBonus = float.PositiveInfinity; break;
+                case 8: bad.Root.Impact.ConditionalContacts[1].OnKill.Restoration.HealthPerForce = -1f; break;
+            }
+            bool refused = false; try { AbilityCompiler.Compile(bad, false); } catch (InvalidDataException) { refused = true; }
+            Check(refused, "非法条件伤害或恢复在编译边界拒绝");
+        }
+        Check(Convert(Build(trial: true, zero: true), "Projectile").Root.Impact?.ConditionalContacts == null, "零试练不增加分支");
+    }
+    if (section is "all" or "sentence" or "sentence-edge")
+    {
+        current = SkillEntities.SpiritBolt; ResetPeople(); var skill = Build(sentence: true);
+        if (section != "sentence-edge")
+        {
+        Check(Use(skill), "已学终焉灵弹受理"); await WaitContact();
+        Check(target.isAlive() && damageEvents.Count == 2 && Math.Abs(damageEvents[1].Amount - 50f) < .001f && damageEvents[1].Element.entropy == 1f && !damageEvents[1].Ignore &&
+            CombatStatusEffects.TryGetStatus(target, StatusEffects.DeathSentence, null, out _), "高生命追加混沌伤害与有限终焉标记");
+        }
+        ResetPeople(); CombatStatusEffects.ApplyStatus(target, guard, 10000, source); target.updateStats(); target.setHealth(50);
+        Check(Use(skill), "同一已学灵弹低生命分支受理"); await WaitContact();
+        for (int i = 0; i < 20 && target.isAlive(); i++) await Advance(.025f);
+        var execute = damageEvents.Single(d => d.Ignore);
+        Check(!target.isAlive() && execute.Attacker == source.id && execute.Amount >= execute.Before + 1f && execute.Element.entropy == 1f && oldExecutions == 0,
+            "低生命按真实生命忽略减伤执行且归属正确", new { execute.Amount, execute.Before, execute.After });
+        foreach (var cast in allCasts) cast.Cancel(); int count = damageEvents.Count; await Advance(.3f);
+        Check(damageEvents.Count == count, "结束后不补发条件伤害");
+    }
+    if (section is "all" or "trial")
+    {
+        if (!target.isAlive()) { target = Make(70); target.setKingdom(wolf.kingdom); }
+        current = SkillEntities.SpiritBolt; ResetPeople(); var skill = Build(trial: true);
+        CombatStatusEffects.ApplyStatus(target, guard, 10000, source); target.updateStats(); target.setHealth(50);
+        int health = source.data.health;
+        Check(Use(skill), "已学轮回灵弹受理"); await WaitContact();
+        var trial = damageEvents.Single(d => d.Target == target.id && Math.Abs(d.Amount - 80f) < .001f);
+        var backlash = damageEvents.Single(d => d.Target == source.id);
+        Check(target.isAlive() && trial.Before <= trial.Amount && trial.After > 0 && backlash.Attacker == target.id && Math.Abs(backlash.Amount - 12f) < .001f &&
+            Math.Abs(backlash.Element.pos - .35f) < .00001f && Math.Abs(backlash.Element.neg - .35f) < .00001f && source.data.health < health,
+            "真实减伤使试练未杀时反噬而不误返生", new { trial.Before, trial.After, trial.Amount, backlash = backlash.Amount });
+        ResetPeople(); target.setHealth(130); health = source.data.health;
+        Check(Use(skill), "同一已学轮回灵弹实际击杀受理"); await WaitContact();
+        for (int i = 0; i < 20 && target.isAlive(); i++) await Advance(.025f);
+        Check(!target.isAlive() && damageEvents.Count == 2 && damageEvents.All(d => d.Target == target.id && d.Attacker == source.id) && source.data.health - health == 24 && oldExecutions == 0,
+            "本条试练真正击杀才返生且不再反噬", new { recovered = source.data.health - health });
+        foreach (var cast in allCasts) cast.Cancel(); int count = damageEvents.Count; await Advance(.3f);
+        Check(damageEvents.Count == count && !contacts.Any(c => c.TargetId == outside.id), "结束后不重复试练且侧外人物安全");
+    }
+    if (section is "all" or "common")
+    {
+        if (!target.isAlive()) { target = Make(70); target.setKingdom(wolf.kingdom); }
+        current = SkillEntities.SpiritBolt; ResetPeople(); var skill = Build(trial: true, zero: true); int health = source.data.health;
+        Check(Use(skill), "零试练的已学来源正常受理"); await WaitContact();
+        Check(damageEvents.Count == 1 && damageEvents[0].Target == target.id && source.data.health == health, "零量仅保留本体伤害，无反噬返生");
+        foreach (var cast in allCasts) cast.Cancel(); int count = damageEvents.Count; await Advance(.3f);
+        Check(damageEvents.Count == count, "零量结束后无额外结算");
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    foreach (var cast in allCasts) cast.Cancel(); hook.UnpatchSelf(); ConditionalContactProbe.Damaged = null;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
+    ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false); Config.setWorldSpeed("x1", false); Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "emissions.json"), JsonConvert.SerializeObject(emissions, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "damage.json"), JsonConvert.SerializeObject(damageEvents.Select(d => new { d.Target, d.Attacker, d.Amount, d.Element, d.Ignore, d.Before, d.After, d.Alive }), Formatting.Indented));
+}
+/// <summary>仅记录标准受击的输入和实际生命变化，不改变伤害或分支。</summary>
+public static class ConditionalContactProbe
+{
+    /// <summary>实际伤害及结算前生命值。</summary>
+    public static Action<GetHitEvent, int> Damaged;
+    /// <summary>记录真实结算前生命。</summary>
+    public static void DamagePrefix(GetHitEvent __0, out int __state) => __state = World.world.units.get(__0.TargetID)?.data.health ?? 0;
+    /// <summary>记录真实结算后结果。</summary>
+    public static void DamagePostfix(GetHitEvent __0, int __state) => Damaged?.Invoke(__0, __state);
+}

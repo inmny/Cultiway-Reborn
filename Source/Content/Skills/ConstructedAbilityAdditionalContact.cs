@@ -19,23 +19,34 @@ public sealed partial class ConstructedAbilityService
     /// <param name="target">真实人物。</param><param name="targetId">接触时确认的人物编号。</param>
     /// <param name="effects">已经编译的伤害资料。</param><param name="strength">接触位置或传播路程的余力倍率。</param>
     /// <param name="attempted">是否实际向共同受击入口提交了至少一份伤害。</param>
+    /// <param name="contactDamage">是否向本次接触人物提交了伤害，用于真实致死后续作用。</param>
     private static bool ApplyAdditionalDamage(RunningCast running, int node, Actor target, long targetId,
-        IReadOnlyList<CompiledConstructionContactDamage> effects, float strength, out bool attempted)
+        IReadOnlyList<CompiledConstructionContactDamage> effects, float strength, out bool attempted, out bool contactDamage)
     {
-        attempted = false;
+        attempted = contactDamage = false;
         if (effects == null || effects.Count == 0) return true;
         float force = (node < 0 ? running.Power : running.Cast.RemainingForce(node)) * strength;
-        if (force <= 0f) return true;
+        if (strength <= 0f) return true;
         long generation = worldGeneration;
+        bool targetWasAlive = target.isAlive() && target.hasHealth();
         foreach (CompiledConstructionContactDamage effect in effects)
         {
-            var damage = running.Owner(node).Damage;
-            damage.TargetID = targetId;
-            damage.Damage = force * effect.PerForce;
+            CastAuthority owner = running.Owner(node);
+            Actor receiver = effect.Target == ConstructionContactActor.Contact ? targetWasAlive ? target : null : owner.IsLive ? owner.Actor : null;
+            if (receiver == null) continue;
+            float amount = force * effect.PerForce + strength * (receiver.getHealth() * effect.PerHealth +
+                UnityEngine.Mathf.Max(effect.MinimumBonus, receiver.getMaxHealth() * effect.PerMaxHealth));
+            if (amount <= 0f) continue;
+            var damage = owner.Damage;
+            damage.TargetID = receiver.data.id;
+            damage.Damage = amount;
             damage.Element = effect.Element;
+            damage.IgnoreDamageReduction = effect.IgnoreDamageReduction;
+            if (effect.Source == ConstructionContactActor.Contact) damage.BindAttacker(target, targetId);
             attempted = true;
+            contactDamage |= damage.TargetID == targetId;
             GetHitEventSystem.Resolve(damage);
-            if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth()) return false;
+            if (generation != worldGeneration || target.data?.id != targetId || targetWasAlive && (!target.isAlive() || !target.hasHealth())) return false;
         }
         return true;
     }

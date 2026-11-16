@@ -1443,3 +1443,15 @@ python3 Scripts/SpellDemos/verify_additional_contact.py
 `--section definitions/runtime/recovery`分别运行资料转换与保存编译、一个实际已学灵弹的真实随机选择和燃尽、零概率零作用及首份追加伤害致死后停止。观察只记录实际选择与共同伤害，不替换随机数或结算。使用已选中的实际候选验证对应作用，不遍历身体装备或重复已有状态受力矩阵。原逐发费用、伤害归属、侧外安全和结束后停效在同一场景确认。
 
 完整输入、展开资料、实际选择、伤害及结果保存在`artifacts/skill_rebuild/trajectories/additional-contact/`及对应分段目录；最终依据见`delivery.json`。新字段完整表单、自主创作、正式冷启动与集中连续录像继续5.05 C。
+
+
+```bash
+# 5.05 B42：生命阈值、实际击杀返生与未杀反噬
+python3 Scripts/SpellDemos/verify_conditional_contact.py
+```
+
+`--section definitions/sentence/trial/common`分别运行保存编译与来源转换、同一已学终焉灵弹的高低生命分支、同一已学轮回灵弹在真实减伤后未杀反噬及实际击杀返生、零量与结束停效。观察仅记录标准伤害输入及结算前后生命，不改变伤害或分支；减伤通过现有护甲状态提供。最后一次致死后不继续复用该死亡目标准备下一项。资料入口不采样世界，不重复身体装备及费用退款矩阵。
+
+输入、展开资料、伤害归属、真实生命变化和结果保存在`artifacts/skill_rebuild/trajectories/conditional-contact/`及对应分段目录；最终依据见`delivery.json`。完整编辑、自主创作、正式冷启动和集中连续录像继续5.05 C。
+
+`--section sentence-edge`仅补低生命执行和死亡收尾；原版死亡标记可晚于生命归零，入口在真实世界继续推进后确认死亡，不改变伤害规则。首次高生命前段与失败低生命观察保留于`initial-death-flag/`，交付索引只采用其中已通过的高生命前段。

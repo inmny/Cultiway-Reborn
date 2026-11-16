@@ -27,6 +27,10 @@ public sealed class ConstructionContactOutcome
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionContactDamage[] Damage;
 
+    /// <summary>结果附带的普通恢复，可以明确作用于仍有效的控制人物。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionRestoration Restoration;
+
     /// <summary>选中结果附带的普通击退和腾起。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionKnockback Knockback;
@@ -67,11 +71,14 @@ public sealed class CompiledConstructionContactOutcome
     /// <summary>已经独立编译的伤害。</summary>
     public IReadOnlyList<CompiledConstructionContactDamage> Damage { get; }
 
+    /// <summary>已经独立编译的恢复。</summary>
+    public CompiledConstructionRestoration Restoration { get; }
+
     /// <summary>已经独立编译的击退。</summary>
     public CompiledConstructionKnockback Knockback { get; }
 
     /// <summary>本候选是否声明实际作用，允许明确的空候选作为落空。</summary>
-    public bool HasEffect => Statuses.Count > 0 || Damage.Count > 0 || Knockback?.HasEffect == true;
+    public bool HasEffect => Statuses.Count > 0 || Damage.Count > 0 || Restoration?.HasEffect == true || Knockback?.HasEffect == true;
 
     /// <summary>候选共享普通作用的编译边界，不允许无限嵌套。</summary>
     /// <param name="source">可保存的单个候选。</param><param name="path">错误资料位置。</param>
@@ -82,7 +89,8 @@ public sealed class CompiledConstructionContactOutcome
         Statuses = source.Statuses == null ? Array.Empty<CompiledConstructionStatus>() :
             Array.AsReadOnly(source.Statuses.Select((status, index) => new CompiledConstructionStatus(status, path + "/Statuses/" + index)).ToArray());
         Damage = source.Damage == null ? Array.Empty<CompiledConstructionContactDamage>() :
-            Array.AsReadOnly(source.Damage.Select((damage, index) => new CompiledConstructionContactDamage(damage, path + "/Damage/" + index)).Where(damage => damage.PerForce > 0f).ToArray());
+            Array.AsReadOnly(source.Damage.Select((damage, index) => new CompiledConstructionContactDamage(damage, path + "/Damage/" + index)).Where(damage => damage.HasEffect).ToArray());
+        if (source.Restoration != null) Restoration = new CompiledConstructionRestoration(source.Restoration, path + "/Restoration");
         if (source.Knockback != null) Knockback = new CompiledConstructionKnockback(source.Knockback, path + "/Knockback");
     }
 }
