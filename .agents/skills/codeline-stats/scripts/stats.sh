@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export LC_ALL=C
 
 MODE="${1:-all}"
 CULTIWAY_ROOT="Source"
