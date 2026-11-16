@@ -1,0 +1,168 @@
+// B38：只覆盖本次接触击退及共同受力，不扩大身体装备样本。
+const string section="all";
+var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var allCasts=new List<AbilityCast>();
+var emissions=new List<object>();var forces=new List<(long Target,Vector3 Force,bool Applied,float Mass,float Scale,double Time,Vector2 Position)>();
+int oldExecutions=0;bool invalidate=false,scopeValid=true;SkillEmissionResult? lastResult=null;
+SkillEntityAsset current=SkillEntities.SpiritBolt;
+Actor source=Make(64),target=Make(70),outside=Make(70),wolf=Make(12,"wolf");
+target.setKingdom(wolf.kingdom);outside.setKingdom(wolf.kingdom);Place(outside,70,78);
+var owner=source.GetExtend();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=0;
+owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();await Advance(.2f);
+var stillStats=new BaseStats();stillStats.addTag("frozen_ai");
+var still=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Knockback.Still").SetStats(stillStats).SetDuration(10000).Build();
+CombatStatusEffects.RemoveStatus(target,hold);CombatStatusEffects.ApplyStatus(target,still,10000,source);target.updateStats();
+IReadOnlyList<Entity> Learned()=>(IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(owner,null);
+Entity Build(float distance=1f,float height=1f,bool mixed=false,bool contact=true)
+{
+    var builder=new SkillContainerBuilder(current).UseAnimation(0);
+    builder.AddModifier(new KnockbackModifier{Distance=distance,Height=height});
+    if(mixed){builder.AddModifier(new SlowModifier{Strength=.2f,Duration=2});builder.AddModifier(new MercyModifier{DamageMultiplier=.6f,HealRatio=.25f});}
+    Entity made=builder.Build(SkillContainerBuildMode.RuleOnly);
+    if(!contact)made.AddComponent(new SkillSettings{Duration=2.4f,PowerMultiplier=1,AreaMultiplier=1,ContactEnabled=false});
+    string signature=SkillContainerSignature.Build(made);owner.LearnSkillV3(made);
+    return Learned().First(x=>SkillContainerSignature.Build(x)==signature);
+}
+(AbilityDefinition Definition,GetHitEvent Damage) Convert(Entity skill,string migration,float scale=1f)
+{
+    var method=service.Assembly.GetType("Cultiway.Content.Skills."+migration+"ConstructionMigration").GetMethod("Convert",F);
+    var emission=new SkillEmission{Source=source,SpatialSource=source,SkillContainer=skill,Target=target,
+        SourcePos=new Vector3(64,72,.3f),TargetPos=new Vector3(70,72,.3f),Strength=40,PowerLevel=0,RuntimeData=new SkillCastRuntimeData{EffectScale=scale}};
+    object[] args=method.GetParameters().Length==3?new object[]{emission,default(GetHitEvent),default(Vector3)}:new object[]{emission,default(GetHitEvent)};
+    return ((AbilityDefinition)method.Invoke(null,args),(GetHitEvent)args[1]);
+}
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    yield return node;if(node.Children!=null)foreach(var child in node.Children)foreach(var nested in Nodes(child))yield return nested;
+}
+CompiledConstructionImpact FirstImpact(CompiledAbility plan)
+{
+    object node=((Array)typeof(CompiledAbility).GetProperty("Nodes",F).GetValue(plan)).GetValue(0);
+    return (CompiledConstructionImpact)node.GetType().GetField("Impact",F).GetValue(node);
+}
+void ResetPeople()
+{
+    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();forces.Clear();oldExecutions=0;
+    Ready(source);Place(source,64);Place(target,70);Place(outside,70,78);target.GetExtend().SetPowerLevel(0);owner.SetPowerLevel(0);
+    owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;target.setHealth(target.getMaxHealth());
+    foreach(var actor in new[]{source,target,outside})ConstructedAbilityService.NotifyActorChanged(actor);
+}
+bool Use(Entity skill,ConstructionWorldScope scope=null)
+{
+    bool used=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",skill),new ActiveAbilityTarget(target,target.GetSimPos(),
+        selectionArea:new SkillTargetSelectionArea(true,target.GetSimPos(),.1f),worldScope:scope),ActiveAbilityUseOrigin.Script);
+    source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();ControllableUnit.clear(false);return used;
+}
+async Task WaitContact()
+{
+    for(int i=0;i<80;i++){await Advance(.025f);if(contacts.Any(c=>c.TargetId==target.id))return;}
+    throw new InvalidOperationException("实际目标未在两秒内接触");
+}
+async Task Land()
+{
+    Config.setWorldSpeed("x5",false);
+    try{for(int i=0;i<40;i++){await Advance(.3f);if(!target.under_forces&&target.position_height<=.0001f)return;}}
+    finally{Config.setWorldSpeed("x1",false);}
+    throw new InvalidOperationException("共同受力未在十二世界秒内落地恢复");
+}
+void Started(ConstructedCastStarted fact){if(fact.SourceId==source.id)starts.Add(fact);}
+void Old(Entity entity){if(entity.GetComponent<SkillContext>().SourceObj==source)oldExecutions++;}
+ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+var hook=new HarmonyLib.Harmony("Cultiway.Verify.ContactKnockback");
+ContactKnockbackProbe.Applied=(actor,velocity,slide)=>
+{if(actor==target)forces.Add((target.id,velocity,true,target.stats["mass"],target.GetExtend().ForceResponseScale(source,owner.GetPowerLevel()),World.world.getCurWorldTime(),target.current_position));};
+var motionType=service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+hook.Patch(motionType.GetMethod("BeginCombatDirected",F),postfix:new HarmonyLib.HarmonyMethod(typeof(ContactKnockbackProbe).GetMethod("Postfix")));
+try
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        if(request.Source!=source)return original(request);if(invalidate)scopeValid=false;
+        var result=original(request);lastResult=result;
+        if(result==SkillEmissionResult.Accepted)
+        {
+            var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==starts.Last().CastId);
+            var cast=(AbilityCast)Field(running,"Cast");accepted.Add(cast);allCasts.Add(cast);
+        }
+        emissions.Add(new{request.Strength,result=result.ToString()});return result;
+    };
+    if(section is "all" or "definitions")
+    {
+        foreach(var entry in new[]{(Asset:SkillEntities.SpiritBolt,Migration:"Projectile"),(Asset:SkillEntities.GroundSpike,Migration:"GroundSpike"),
+            (Asset:SkillEntities.Rift,Migration:"Rift"),(Asset:SkillEntities.YinField,Migration:"Field"),(Asset:SkillEntities.FireWall,Migration:"Barrier"),
+            (Asset:SkillEntities.SpiritBeam,Migration:"Beam"),(Asset:SkillEntities.ChainLightning,Migration:"Chain"),
+            (Asset:SkillEntities.Fireball,Migration:"Projectile"),(Asset:SkillEntities.SpiritShield,Migration:"Barrier")})
+        {
+            current=entry.Asset;var pair=Convert(Build(8,3),entry.Migration,.5f);Check(pair.Definition!=null,entry.Asset.id+"原击退完整转换");
+            var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(pair.Definition));AbilityCompiler.Compile(restored,false);
+            var pushes=Nodes(restored.Root).Where(n=>n.Impact?.Knockback!=null).ToArray();bool pure=entry.Asset==SkillEntities.SpiritShield;
+            Check(pure?pushes.Length==0:pushes.Length>0&&pushes.All(n=>n.Impact.Knockback.Distance==4&&n.Impact.Knockback.Height==1.5f),entry.Asset.id+"保存编译保留一次倍率且纯防御面无击退");
+            if(entry.Asset==SkillEntities.Fireball)Check(restored.Root.Impact.Knockback==null&&restored.Root.Children[0].Impact.Knockback!=null,"爆发只在后段击退");
+            File.WriteAllText(Path.Combine(folder,entry.Asset.id+".json"),JsonConvert.SerializeObject(restored,Formatting.Indented));
+        }
+        current=SkillEntities.WindWall;var wall=Convert(Build(mixed:true),"Barrier").Definition;
+        Check(wall.Root.Impact.Force!=0&&wall.Root.Impact.Knockback!=null&&wall.Root.Impact.Restoration!=null&&wall.Root.Impact.Statuses.Length==1,"原墙面推力与击退状态恢复共同保留");
+        current=SkillEntities.SpiritBolt;var definition=Convert(Build(200,100),"Projectile").Definition;var compiled=FirstImpact(AbilityCompiler.Compile(definition,false));
+        Check(compiled.Knockback.Distance==10&&compiled.Knockback.Height==5,"原词条参数沿用十与五的上限");
+        definition.Root.Impact.Knockback.Distance=1;Check(compiled.Knockback.Distance==10,"编译独立复制击退资料");
+        foreach(float bad in new[]{-1f,float.NaN,float.PositiveInfinity,1001f})
+        {
+            definition.Root.Impact.Knockback.Distance=bad;bool rejected=false;try{AbilityCompiler.Compile(definition,false);}catch(InvalidDataException){rejected=true;}
+            Check(rejected,"非法击退幅度在编译边界拒绝");
+        }
+        definition.Root.Impact.Knockback.Distance=1;definition.Root.Impact.Knockback.Height=-1;bool heightRejected=false;
+        try{AbilityCompiler.Compile(definition,false);}catch(InvalidDataException){heightRejected=true;}Check(heightRejected,"非法高度在编译边界拒绝");
+        definition.Root.Impact.Knockback.Height=float.Epsilon;bool speedRejected=false;
+        try{AbilityCompiler.Compile(definition,false);}catch(InvalidDataException){speedRejected=true;}Check(speedRejected,"极小高度导致过大速度时在编译边界拒绝");
+        definition.Root.Impact.Knockback=null;Check(FirstImpact(AbilityCompiler.Compile(definition,false)).Knockback==null,"缺省旧资料仍无新增击退");
+    }
+    if(section is "all" or "runtime")
+    {
+        current=SkillEntities.SpiritBolt;ResetPeople();var skill=Build();float balance=owner.GetCultisys<Xian>().wakan;Vector2 before=target.current_position;int hp=target.data.health;
+        var plan=SkillCastPlanner.CreatePlan(owner,skill,target,SkillCastCost.GetAffordableStepLimit(owner,skill),explicitTargetsOnly:true);
+        Check(Use(skill),"已学击退灵弹正式受理");await WaitContact();var force=forces.First(f=>f.Applied&&f.Force.z>0);float a=Mathf.Min(force.Mass*SimGlobals.m.gravity,20f),gravity=.3f*a*a;
+        float expected=Mathf.Sqrt(2f*gravity)*force.Scale;float expectedHorizontal=gravity/(2f*Mathf.Sqrt(2f*gravity))*force.Scale;
+        Check(Math.Abs(force.Force.z-expected)<.0001f&&Math.Abs(new Vector2(force.Force.x,force.Force.y).magnitude-expectedHorizontal)<.0001f,"真实命中按共同重力反求世界速度",new{actual=new[]{force.Force.x,force.Force.y,force.Force.z},gravity,expected,expectedHorizontal});
+        await Advance(.06f);
+        Check(contacts.Any(c=>c.TargetId==target.id&&c.ForceApplied)&&target.data.health<hp&&target.position_height>0&&!contacts.Any(c=>c.TargetId==outside.id)&&oldExecutions==0,"新主体真实伤害与击飞且侧外安全",new{hp,before=new[]{before.x,before.y},hpAfter=target.data.health,height=target.position_height,oldExecutions});
+        double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculatePlanDemand(skill,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
+        Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f,"新增击退保留原计划费用",new{cost});
+        double peak=force.Time+expected/gravity;
+        if(World.world.getCurWorldTime()<peak)await Advance((float)(peak-World.world.getCurWorldTime()));
+        float measuredHeight=target.position_height,expectedHeight=force.Scale*force.Scale;
+        Check(Math.Abs(measuredHeight-expectedHeight)<.08f,"实际最高点符合声明高度及抗性",new{measuredHeight,expectedHeight});
+        foreach(var cast in accepted)cast.Cancel();await Land();float measuredDistance=(target.current_position-force.Position).magnitude;
+        Check(target.position_height<=.0001f&&!target.under_forces&&!BodyControlState.IsBusy(target.id)&&Math.Abs(measuredDistance-force.Scale*force.Scale)<.03f,"来源结束后按声明距离落地并恢复控制",new{measuredDistance,expectedDistance=force.Scale*force.Scale});
+    }
+    if(section is "all" or "common")
+    {
+        current=SkillEntities.SpiritBolt;ResetPeople();var before=target.current_position;Check(Use(Build(1,0)),"零高度击退正式受理");await WaitContact();await Advance(.4f);
+        Check(forces.Any(f=>f.Applied&&f.Force.z==0&&f.Force.sqrMagnitude<1000)&&target.position_height<=.0001f&&!target.under_forces&&(target.current_position-before).magnitude>.1f,"零高度有限沿地运动并结束",new{before=new[]{before.x,before.y},after=new[]{target.current_position.x,target.current_position.y}});
+        ResetPeople();Check(Use(Build(0,1f)),"零距离独立腾起正式受理");await WaitContact();await Advance(.06f);
+        Check(forces.Any(f=>f.Applied&&Math.Abs(f.Force.x)<.00001f&&Math.Abs(f.Force.y)<.00001f&&f.Force.z>0)&&target.position_height>0,"只升高不产生横向无穷速度");
+        foreach(var cast in accepted)cast.Cancel();await Land();ResetPeople();Check(Use(Build(0,0)),"零幅度正式受理");await WaitContact();
+        Check(!contacts.Any(c=>c.TargetId==target.id&&c.ForceApplied),"零幅度不凭空附带离地作用");
+        ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;invalidate=true;Check(Use(Build(),new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排发射时真实边界失效");await Advance(.3f);invalidate=false;
+        Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==0&&forces.Count==0&&Math.Abs(owner.GetCultisys<Xian>().wakan-balance)<.001f,"拒绝后无击退且原值退款");
+        scopeValid=true;ResetPeople();Check(Use(Build(1,0)),"边界恢复后同一来源重新受理");await WaitContact();await Advance(.4f);
+        Check(contacts.Any(c=>c.TargetId==target.id&&c.ForceApplied)&&!target.under_forces&&oldExecutions==0,"恢复后新主体正常击退并结束");
+    }
+    return new{passed=true,section,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    foreach(var cast in allCasts)cast.Cancel();ContactKnockbackProbe.Applied=null;hook.UnpatchSelf();
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    ControllableUnit.clear(false);Config.setWorldSpeed("x1",false);Config.paused=true;
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder,"forces.json"),JsonConvert.SerializeObject(forces.Select(f=>new{f.Target,Force=new[]{f.Force.x,f.Force.y,f.Force.z},f.Applied,f.Mass,f.Scale,f.Time,Position=new[]{f.Position.x,f.Position.y}}),Formatting.Indented));
+}
+/// <summary>只记录正式受力的输入与受理结果，不替换伤害或运动规则。</summary>
+public static class ContactKnockbackProbe
+{
+    /// <summary>正式受力的实际输入和结果。</summary>
+    public static Action<Actor,Vector3,float> Applied;
+    /// <summary>观察共享受力入口完成后的实际结果。</summary>
+    public static void Postfix(Actor __0,Vector3 __1,float __2)=>Applied?.Invoke(__0,__1,__2);
+}

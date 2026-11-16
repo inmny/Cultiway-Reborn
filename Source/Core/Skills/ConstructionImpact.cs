@@ -40,6 +40,10 @@ public sealed class ConstructionImpact
     /// <summary>向外的实际受力，负值为牵引；沿用境界和抗击退等规则。</summary>
     public float Force;
 
+    /// <summary>按真实接触中心和目标当前质量换算的击退与腾起，空值表示没有此作用。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionKnockback Knockback;
+
     /// <summary>精确定向速度变化：依次为离开作用中心、侧向和向上；负值用于回拉、下压。空值使用原版推力。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float[] Impulse;
@@ -129,6 +133,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>已检查的有向推拉力。</summary>
     public float Force { get; }
 
+    /// <summary>已独立复制的击退与腾起幅度。</summary>
+    public CompiledConstructionKnockback Knockback { get; }
+
     /// <summary>已复制的三向世界速度变化，不持有可编辑数组。</summary>
     public Vector3? Impulse { get; }
 
@@ -157,7 +164,7 @@ public sealed class CompiledConstructionImpact
     public float ExposureSeconds { get; }
 
     /// <summary>伤害、移动或行动限制中至少有一项真实人物作用。</summary>
-    public bool HasActorEffect => Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f ||
+    public bool HasActorEffect => Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true ||
                                   StaggerSeconds > 0f || BindSeconds > 0f || StrainSeconds > 0f || ExposureSeconds > 0f;
 
     /// <summary>实际推拉中心。</summary>
@@ -185,6 +192,7 @@ public sealed class CompiledConstructionImpact
         if (!Enum.IsDefined(typeof(ConstructionDamageBasis), DamageBasis))
             throw new InvalidDataException(path + "/DamageBasis：伤害必须采用剩余或初始作用量");
         Force = source?.Force ?? 0f;
+        if (source?.Knockback != null) Knockback = new CompiledConstructionKnockback(source.Knockback, path + "/Knockback");
         if (source?.Impulse != null)
         {
             if (source.Impulse.Length != 3 || source.Impulse.Any(value =>

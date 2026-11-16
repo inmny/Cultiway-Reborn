@@ -18,7 +18,7 @@ internal static class ContactEffectMigration
     /// <param name="type">原容器中的词条类型。</param>
     internal static bool Supports(Type type) => type == typeof(SlowModifier) || type == typeof(FreezeModifier) || type == typeof(DazeModifier) ||
         type == typeof(WeakenModifier) || type == typeof(ArmorBreakModifier) || type == typeof(SilenceModifier) ||
-        type == typeof(BurnModifier) || type == typeof(PoisonModifier) || type == typeof(EternalCurseModifier) || type == typeof(MercyModifier) || type == typeof(ChaosModifier);
+        type == typeof(BurnModifier) || type == typeof(PoisonModifier) || type == typeof(EternalCurseModifier) || type == typeof(MercyModifier) || type == typeof(ChaosModifier) || type == typeof(KnockbackModifier);
 
     /// <summary>在真实逐发转换时一次确定原设置词条，运行及预测只读取已经展开的数值。</summary>
     /// <param name="skill">真实原容器。</param>
@@ -122,7 +122,13 @@ internal static class ContactEffectMigration
         }
         float healing = skill.TryGetComponent(out MercyModifier mercy)
             ? Mathf.Clamp(mercy.HealRatio, 0f, 5f) * contactForceScale : 0f;
-        if (statuses.Count > 0 || healing > 0f) BindNode(definition.Root, statuses.ToArray(), healing, includeRoot);
+        ConstructionKnockback knockback = null;
+        if (skill.TryGetComponent(out KnockbackModifier push))
+        {
+            float distance = Mathf.Clamp(push.Distance * effectScale, 0f, 10f), height = Mathf.Clamp(push.Height * effectScale, 0f, 5f);
+            if (distance > 0f || height > 0f) knockback = new ConstructionKnockback { Distance = distance, Height = height };
+        }
+        if (statuses.Count > 0 || healing > 0f || knockback != null) BindNode(definition.Root, statuses.ToArray(), healing, knockback, includeRoot);
         return definition;
     }
 
@@ -160,13 +166,15 @@ internal static class ContactEffectMigration
     /// <summary>复用原接触关系、窗口和次数，不另造扩大作用区。</summary>
     /// <param name="node">实际部位。</param><param name="statuses">本次待编译的状态资料。</param>
     /// <param name="healing">本体量换回原恢复基准后的比例。</param>
+    /// <param name="knockback">本次接触的击退与腾起幅度。</param>
     /// <param name="include">是否在本部位的接触时点施加。</param>
-    private static void BindNode(ConstructionNode node, ConstructionStatus[] statuses, float healing, bool include = true)
+    private static void BindNode(ConstructionNode node, ConstructionStatus[] statuses, float healing, ConstructionKnockback knockback, bool include = true)
     {
         if (include && (node.ContactRole == ConstructionContactRole.Attack || node.ContactRole == ConstructionContactRole.Barrier && node.Impact != null))
         {
             if (node.Impact == null) node.Impact = new ConstructionImpact();
             if (statuses.Length > 0) node.Impact.Statuses = statuses;
+            if (knockback != null) node.Impact.Knockback = new ConstructionKnockback { Distance = knockback.Distance, Height = knockback.Height };
             if (healing > 0f) node.Impact.Restoration = new ConstructionRestoration
             {
                 Target = ConstructionRestorationTarget.Controller,
@@ -175,6 +183,6 @@ internal static class ContactEffectMigration
             };
         }
         if (node.Children == null) return;
-        foreach (ConstructionNode child in node.Children) BindNode(child, statuses, healing);
+        foreach (ConstructionNode child in node.Children) BindNode(child, statuses, healing, knockback);
     }
 }

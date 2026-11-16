@@ -1086,6 +1086,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             out float strain, out float exposure);
         Vector3 velocity = ApplyContactForce(running, node, target, impact, result, out bool force, origin,
             priorVelocity, forceReceiver, strength);
+        velocity += ApplyContactKnockback(running, node, target, impact.Knockback, result, out bool knocked, origin, strength);
+        force |= knocked;
         if (force) InterruptContactBody(target);
         else if (stagger > 0f || bound > 0f) InterruptContactBody(target, Mathf.Max(stagger, bound));
         return new ConstructedTargetResponse(targetId, velocity, force, stagger, bound, strain, exposure);
