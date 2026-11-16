@@ -1,0 +1,187 @@
+// 5.05 C2：只检查新增创作选择、共用飞行实际运动及新旧请求正式保存。
+var access = ConstructionEditing.Access;
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    if (node == null) yield break;
+    yield return node;
+    foreach (var child in node.Children) foreach (var value in Nodes(child)) yield return value;
+}
+JObject Canon(AbilityDefinition definition)
+{
+    var value = JObject.Parse(JsonConvert.SerializeObject(definition));
+    value.Remove("Id"); value.Remove("Creator"); return value;
+}
+ConstructionOperation Flight() => new() { Kind = ConstructionOperationKind.Fly, Id = "outward", Vector = new[] { 0f, 0f, 7f }, InheritVelocity = false };
+AbilityDefinition Definition(ConstructionOperation flight) => new()
+{
+    Id = "test.flight-creation.motion." + Guid.NewGuid().ToString("N"), Resource = "none", Cost = 0f, Lifetime = 5f,
+    Root = new ConstructionNode { Id = "body", Form = "sword", Scale = .3f, Operations = new[] { flight } }
+};
+AbilityCast Probe(AbilityDefinition definition) => new(AbilityCompiler.Compile(definition, false),
+    Matrix4x4.TRS(new Vector3(0f, 0f, 1f), Quaternion.FromToRotation(Vector3.forward, Vector3.right), Vector3.one),
+    inputs: new AbilityInputs(new Vector3(0f, 0f, 1f), new Vector3(10f, 0f, 1f), Vector3.right, 1));
+Vector3 Position(AbilityCast cast)
+{
+    var output = new List<FormVisualInstance>(); cast.AppendVisuals(output);
+    return output[0].Transform.MultiplyPoint3x4(Vector3.zero);
+}
+Actor source = Make(64), legacySource = Make(62), enemy = Make(73, "wolf"), invalidOwner = Make(61);
+foreach (Actor actor in new[] { source, legacySource, invalidOwner })
+{
+    actor.GetExtend().NewCultisys(Cultisyses.Xian);
+    actor.GetExtend().GetCultisys<Xian>().level = 2;
+    actor.GetExtend().MarkCultiwayStatsDirty(); actor.setStatsDirty(); actor.updateStats();
+    actor.GetExtend().GetCultisys<Xian>().wakan = 10000f;
+}
+var owner = source.GetExtend();
+var inspiration = ConstructedAbilityService.ReadInspiration(owner);
+var savedInputs = new List<object>();
+try
+{
+    Check(inspiration.Rules == 11, "真实新活动使用第十一版创法规则");
+    var pathMethod = service.GetMethod("GenerateFlightPath", F);
+    var goalMethod = service.GetMethod("GenerateFlightGoal", F);
+    var returnMethod = service.GetMethod("ReturnFlight", F);
+    ConstructionOperation wave = null, arc = null;
+    var representatives = new Dictionary<string, AbilityDefinition>();
+    for (int seed = 0; seed < 24 && (wave == null || arc == null); seed++)
+    {
+        ConstructionOperation flight = Flight(); pathMethod.Invoke(null, new object[] { flight, new System.Random(seed) });
+        if (flight.Path?.Space == ConstructionPathSpace.TargetLine) arc ??= flight;
+        else if (flight.Path?.Loop == true) wave ??= flight;
+    }
+    Check(wave != null && arc != null, "固定输入能产生普通循环偏移及有限目标弧线");
+    var waveDefinition = Definition(wave); var waveCast = Probe(waveDefinition);
+    Vector3 first = Position(waveCast); waveCast.Advance(.4f, new Vector3(10, 0, 1)); Vector3 later = Position(waveCast);
+    Check(Vector3.Distance(first, later) > 1f && new Vector2(later.y, later.z - 1f).magnitude > .02f,
+        "生成曲线改变真实主体位置，未用独立轨迹线替代运动", new[] { later.x, later.y, later.z });
+    waveCast.Advance(5f, new Vector3(10, 0, 1));
+    Check(waveCast.Finished, "曲线主体在原寿命内正常退出"); representatives.Add("wave", waveDefinition);
+    var arcDefinition = Definition(arc); var arcCast = Probe(arcDefinition);
+    float duration = arc.Path.Keys.Last().At;
+    arcCast.Advance(duration / 2f, new Vector3(10, 0, 1)); Vector3 apex = Position(arcCast);
+    arcCast.Advance(duration / 2f, new Vector3(10, 0, 1)); Vector3 end = Position(arcCast);
+    Check(apex.z > 1.5f && Vector3.Distance(end, new Vector3(10, 0, 1)) < .001f,
+        "目标弧线离地后抵达实际终点，没有叠加中心前进", new { apex = new[] { apex.x, apex.y, apex.z }, end = new[] { end.x, end.y, end.z } });
+    representatives.Add("arc", arcDefinition);
+    ConstructionOperation outward = Flight();
+    outward.Goal = new ConstructionFlightGoal { Anchor = ConstructionFlightAnchor.Direction, Follow = false, Arrival = ConstructionFlightArrival.None };
+    var back = (ConstructionOperation)returnMethod.Invoke(null, new object[] { outward, new System.Random(9) });
+    var returnDefinition = Definition(outward); returnDefinition.Root.Operations = new[] { outward, back };
+    var returning = Probe(returnDefinition);
+    returning.Advance(back.When.Threshold.Value / 7f, new Vector3(10, 0, 1));
+    float farthest = Vector3.Distance(Position(returning), new Vector3(0, 0, 1)), lastDistance = farthest;
+    Check(Math.Abs(farthest - back.When.Threshold.Value) < .001f && !returning.Finished,
+        "在真实离开距离边界记录同一主体，没有出生即返回", new { farthest, threshold = back.When.Threshold.Value });
+    for (int i = 0; i < 90 && !returning.Finished; i++)
+    {
+        lastDistance = Vector3.Distance(Position(returning), new Vector3(0, 0, 1));
+        farthest = Math.Max(farthest, lastDistance); returning.Advance(.04f, new Vector3(10, 0, 1));
+    }
+    Check(farthest >= back.When.Threshold.Value - .01f && returning.Finished && returning.Age < 3.6f && lastDistance < .4f,
+        "真实投出后才转向来源，返回结束原主体", new { farthest, lastDistance, age = returning.Age });
+    representatives.Add("return", returnDefinition);
+
+    // 名称、条件和输出依赖必须仍指向同一个操作；两条创作选择都由正式派生入口触达。
+    var named = Definition(Flight()); named.Resource = "wakan"; named.Cost = 4f; named.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Id = "grow", Seconds = .2f } };
+    named.Steps = new[] { new ConstructionStep { Id = "launch", Operation = Flight(), Inputs = new Dictionary<string, ConstructionOutputReference> {
+        ["part"] = new() { Node = "root" }, ["after"] = new() { Node = "root", Operation = "grow", Output = "growth" }
+    } } }; named.Steps[0].Operation.Id = null;
+    named.Steps[0].Operation.At = .1f;
+    var variants = new Dictionary<string, AbilityDefinition>();
+    for (int seed = 0; seed < 32 && variants.Count < 2; seed++)
+    {
+        var changed = ConstructedAbilityService.Generate(owner, seed, inspiration, named);
+        if (changed.Parent.Change is "飞行曲线" or "飞行目标") variants[changed.Parent.Change] = changed;
+        await Game.NextFrame();
+    }
+    Check(variants.Count == 2 && variants.Values.All(value => value.Steps.Length == 1 && value.Steps[0].Id == "launch" &&
+        value.Steps[0].Operation.Id == null && value.Steps[0].Operation.At == .1f &&
+        JToken.DeepEquals(JObject.FromObject(value.Steps[0].Inputs), JObject.FromObject(named.Steps[0].Inputs))),
+        "正式派生覆盖命名步骤的曲线和目标选择，保留名称、时点及真实输出引用");
+    File.WriteAllText(Path.Combine(folder, "derived.json"), JsonConvert.SerializeObject(variants, Formatting.Indented));
+
+    int selectedSeed = -1; AbilityDefinition predicted = null;
+    for (int seed = 0; seed < 24 && selectedSeed < 0; seed++)
+    {
+        try
+        {
+            var candidate = ConstructedAbilityService.Generate(owner, seed);
+            if (candidate.Cost < source.stats[BaseStatses.MaxWakan.id] * .7f && candidate.Body == null && Nodes(candidate.Root).Any(node => node.Operations.Any(operation => operation.Path != null)))
+            { selectedSeed = seed; predicted = candidate; }
+        }
+        catch (InvalidDataException error) { savedInputs.Add(new { seed, rejected = error.Message }); }
+        await Game.NextFrame();
+    }
+    Check(selectedSeed >= 0 && JToken.DeepEquals(Canon(predicted), Canon(ConstructedAbilityService.Generate(owner, selectedSeed))),
+        "完整自主创作在相同输入下重复得到同一普通结构及曲线", new { selectedSeed });
+    Check(ConstructedAbilityService.TryQueueCreation(owner, selectedSeed), "实际人物受理新规则完整创作请求");
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    predicted = ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources);
+    var saves = Cultiway.ModClass.I.WorldSaves;
+    var envelope = JObject.Parse(saves.Actors.Capture(owner, "flight-creation"));
+    Check((int)envelope["sections"]["ability_creation"]["version"] == 12, "新请求进入第十二版正式人物区段");
+    var broken = (JObject)envelope.DeepClone(); broken["sections"]["ability_creation"]["data"]["Inspiration"]["Rules"] = 99;
+    var report = new SaveLoadReport();
+    saves.Actors.Restore(invalidOwner.GetExtend(), broken.ToString(), report, "flight-creation-invalid", section => section.Id == "ability_creation", false);
+    Check(report.Skipped.Count == 1 && !invalidOwner.GetExtend().E.TryGetComponent(out ConstructedCreationState invalidState),
+        "未知规则仅丢弃受影响请求，不改变人物已有资料或登记新法术");
+
+    // 直接复用上一版保存的真实输入和完整预期结果，不生成一份伪造的“旧期望”。
+    var oldEvidence = JObject.Parse(File.ReadAllText(Path.Combine(root, "Scripts/SpellDemos/Fixtures/flight-creation-rule10.json")));
+    var oldInput = oldEvidence["queued"].ToObject<ConstructedCreationState>();
+    var oldEnvelope = JObject.Parse(saves.Actors.Capture(legacySource.GetExtend(), "flight-creation-old"));
+    oldEnvelope["sections"]["ability_creation"] = new JObject { ["version"] = 11, ["data"] = JObject.FromObject(new {
+        Remaining = 0d, oldInput.Sequence, oldInput.Pending, oldInput.Seed, oldInput.Origin,
+        oldInput.LastAbility, oldInput.LastFailure, oldInput.Inspiration, oldInput.Source, oldInput.Resources }) };
+    report = new SaveLoadReport();
+    saves.Actors.Restore(legacySource.GetExtend(), oldEnvelope.ToString(), report, "flight-creation-old", section => section.Id == "ability_creation", false);
+    var restoredOld = legacySource.GetExtend().GetComponent<ConstructedCreationState>();
+    var expectedOld = Canon(oldEvidence["newContent"].ToObject<AbilityDefinition>());
+    var oldResult = ConstructedAbilityService.Generate(legacySource.GetExtend(), restoredOld.Seed, restoredOld.Inspiration, restoredOld.Source, restoredOld.Resources);
+    Check(report.Upgraded == 1 && report.Skipped.Count == 0 && restoredOld.Inspiration.Rules == 10 &&
+        JToken.DeepEquals(Canon(oldResult), expectedOld), "上一正式版本的真实待完成请求升级后仍生成原定完整结果", new { report.Upgraded, skipped = report.Skipped.Count, rules = restoredOld.Inspiration.Rules });
+    long authorId = source.id, oldId = legacySource.id, targetId = enemy.id;
+    string savePath = Path.Combine(folder, "save"); SaveManager.saveWorldToDirectory(savePath);
+    World.world.save_manager.loadWorld(savePath); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    source = World.world.units.get(authorId); legacySource = World.world.units.get(oldId); enemy = World.world.units.get(targetId); owner = source.GetExtend();
+    var reloaded = owner.GetComponent<ConstructedCreationState>();
+    Check(reloaded.Pending && reloaded.Inspiration.Rules == 11 &&
+        JToken.DeepEquals(JObject.FromObject(reloaded.Resources), JObject.FromObject(pending.Resources)) &&
+        JToken.DeepEquals(Canon(ConstructedAbilityService.Generate(owner, reloaded.Seed, reloaded.Inspiration, reloaded.Source, reloaded.Resources)), Canon(predicted)),
+        "正式保存读取保留新请求的种子、资源及完整预计结果");
+    await Advance(.2f);
+    var completed = owner.GetComponent<ConstructedCreationState>(); var completedOld = legacySource.GetExtend().GetComponent<ConstructedCreationState>();
+    Check(!completed.Pending && completed.LastFailure == null && completed.LastAbility != null &&
+        JToken.DeepEquals(Canon(access.Read(completed.LastAbility)), Canon(predicted)) &&
+        !completedOld.Pending && completedOld.LastFailure == null && JToken.DeepEquals(Canon(access.Read(completedOld.LastAbility)), expectedOld),
+        "真实逻辑边界分别授予一次新旧结果，不替旧请求重抽");
+    var learned = access.Read(completed.LastAbility); int known = access.List(owner).Count;
+    await Advance(.2f); Check(access.List(owner).Count == known, "完成请求后不重复授予");
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    Ready(source); await Fire(learned, source, enemy);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.3f);
+    Check(((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Any(value => ((AbilityCast)Field(value, "Cast")).Plan.Id == learned.Id),
+        "真实创出的普通曲线构造经正式已学入口执行");
+    Screen.Capture(Path.Combine(folder, "created-flight.png"));
+    await Advance(learned.Lifetime + .3f);
+    Check(!((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Any(value => ((AbilityCast)Field(value, "Cast")).Plan.Id == learned.Id),
+        "实际创作施放结束清理，无残留运行实例");
+    ConstructedAbilityService.Learn(owner, learned.Id);
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+    World.world.save_manager.loadWorld(Path.Combine(folder, "completed-save")); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    Check(JToken.DeepEquals(Canon(access.Read(learned.Id)), Canon(learned)) && ConstructedAbilityService.Knows(World.world.units.get(authorId).GetExtend(), learned.Id),
+        "完成后的新构造原样保存读取，模型与运动参数不重新生成");
+    File.WriteAllText(Path.Combine(folder, "representatives.json"), JsonConvert.SerializeObject(representatives, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "created-definition.json"), JsonConvert.SerializeObject(learned, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "attempts.json"), JsonConvert.SerializeObject(savedInputs, Formatting.Indented));
+    return new { passed = true, closed = "自主飞行创作与正式新旧请求保存", seed = selectedSeed, ability = learned.Id, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

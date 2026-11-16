@@ -235,7 +235,16 @@ public sealed partial class ConstructedAbilityService
                     flight.WorldVelocity = true; flight.TurnRate = 0f; flight.Ground = ConstructionGroundResponse.Stop;
                 }
                 else if (inspiration.Rules >= 10 && !flow && Chance(.3f)) flight.Ground = ConstructionGroundResponse.Follow;
-                if (!flow && !falling && Chance(.25f))
+                if (!flow && !falling && inspiration.Rules >= 11)
+                {
+                    GenerateFlightPath(flight, random);
+                    if (flight.Path?.Space != ConstructionPathSpace.TargetLine)
+                    {
+                        GenerateFlightGoal(flight, random);
+                        if (Chance(.2f)) operations.Add(ReturnFlight(flight, random));
+                    }
+                }
+                else if (!flow && !falling && Chance(.25f))
                     flight.Path = new ConstructionPath
                     {
                         Keys = new[]

@@ -47,6 +47,23 @@ public sealed partial class ConstructedAbilityService
         var random = new Random(seed);
         var choices = new List<(string Name, Func<AbilityDefinition> Apply)>();
         ConstructionNode[] nodes = DerivationNodes(draft.Root).ToArray();
+        if (inspiration.Rules >= 11)
+        {
+            ConstructionOperation[] flights = CreationFlights(draft, plan);
+            if (flights.Length > 0)
+                choices.Add(("飞行曲线", () =>
+                {
+                    GenerateFlightPath(flights[random.Next(flights.Length)], random);
+                    return draft;
+                }));
+            ConstructionOperation[] goals = flights.Where(flight => flight.Path?.Space != ConstructionPathSpace.TargetLine).ToArray();
+            if (goals.Length > 0)
+                choices.Add(("飞行目标", () =>
+                {
+                    GenerateFlightGoal(goals[random.Next(goals.Length)], random);
+                    return draft;
+                }));
+        }
         if (inspiration.Rules >= 10 && nodes.SelectMany(node => node.Operations).Concat(draft.Steps.Select(step => step.Operation)).Any(operation => operation.Ray != null))
             choices.Add(("射线变化", () => VaryRay(draft, random)));
         if (inspiration.Rules >= 10 && draft.Root != null && draft.Body == null && !plan.Nodes[0].HasRay)

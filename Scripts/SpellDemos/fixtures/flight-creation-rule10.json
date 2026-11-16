@@ -1,0 +1,752 @@
+{
+  "origin": "artifacts/skill_rebuild/delivery/save/restart-expected.json；上一正式规则的实际输入和既有预期，未重新生成",
+  "queued": {
+    "NextOpportunity": 0.0,
+    "Sequence": 0,
+    "Pending": true,
+    "Seed": 17,
+    "Origin": 2,
+    "LastAbility": null,
+    "LastFailure": null,
+    "Inspiration": {
+      "Elements": {
+        "iron": 0.332401723,
+        "wood": 0.039658282,
+        "water": 0.102770239,
+        "fire": 0.343179643,
+        "earth": 0.048225686,
+        "neg": 0.0408064425,
+        "pos": 0.07986586,
+        "entropy": 0.0130921509
+      },
+      "Aggression": 0.0,
+      "Control": 0.5,
+      "CanProject": true,
+      "Rules": 10
+    },
+    "Source": {
+      "Version": 1,
+      "Id": "test.body-footwork.delivery-gate.ray",
+      "Revision": 1,
+      "Name": "ray",
+      "Creator": 0,
+      "Seed": 0,
+      "Lifetime": 2.8,
+      "Cost": 7.0,
+      "Resource": "wakan",
+      "AdditionalResources": [],
+      "ResourceMode": 0,
+      "Cooldown": 0.0,
+      "Power": 8.0,
+      "TargetRange": 12.0,
+      "Use": {
+        "Channels": 2,
+        "Target": 3
+      },
+      "Root": {
+        "Id": "subject",
+        "Form": "energy_ray",
+        "Surface": null,
+        "Matter": "ice",
+        "State": null,
+        "Tint": null,
+        "Anchor": null,
+        "Offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": 1.0,
+        "ActiveFrom": 0.0,
+        "ActiveUntil": -1.0,
+        "ActiveFromMarker": null,
+        "ActiveUntilMarker": null,
+        "ContactGroup": null,
+        "Contact": null,
+        "OnContact": 0,
+        "ContactRole": 0,
+        "Strength": 1.0,
+        "Interception": 0,
+        "ReflectionLimit": 8,
+        "Operations": [
+          {
+            "Clip": null,
+            "Kind": 15,
+            "At": 0.0,
+            "Seconds": 0.0,
+            "Vector": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "TurnRate": 0.0,
+            "Ray": {
+              "Length": 8.0,
+              "FollowTarget": true,
+              "TurnRate": 120.0
+            },
+            "Matter": null,
+            "State": null,
+            "Trigger": 0,
+            "Path": null,
+            "InheritVelocity": true
+          }
+        ],
+        "Children": [
+          {
+            "Id": "tip",
+            "Form": "sword",
+            "Surface": null,
+            "Matter": "physical",
+            "State": null,
+            "Tint": null,
+            "Anchor": "end",
+            "Offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Scale": 0.15,
+            "ActiveFrom": 0.0,
+            "ActiveUntil": -1.0,
+            "ActiveFromMarker": null,
+            "ActiveUntilMarker": null,
+            "ContactGroup": null,
+            "Contact": null,
+            "OnContact": 0,
+            "ContactRole": 2,
+            "Strength": 1.0,
+            "Interception": 0,
+            "ReflectionLimit": 8,
+            "Operations": [],
+            "Children": []
+          }
+        ]
+      },
+      "Body": null,
+      "Binding": {
+        "Anchor": 1,
+        "Follow": true,
+        "FaceTarget": false,
+        "ScaleByBody": false,
+        "Height": 0.4
+      },
+      "Steps": []
+    },
+    "Resources": {
+      "Forms": [
+        {
+          "Id": "sword",
+          "Size": 3.40193129,
+          "Forward": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "Up": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "Anchors": [
+            "grip",
+            "choke",
+            "edge",
+            "tip"
+          ],
+          "Motions": [],
+          "Parts": [
+            "blade",
+            "guard",
+            "grip",
+            "pommel"
+          ]
+        },
+        {
+          "Id": "hand",
+          "Size": 0.203301832,
+          "Forward": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "Up": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "Anchors": [
+            "finger_0",
+            "finger_1",
+            "finger_2",
+            "finger_3",
+            "finger_4",
+            "wrist",
+            "grip"
+          ],
+          "Motions": [],
+          "Parts": [
+            "palm",
+            "finger_0_0",
+            "finger_0_1",
+            "finger_1_0",
+            "finger_1_1",
+            "finger_2_0",
+            "finger_2_1",
+            "finger_3_0",
+            "finger_3_1",
+            "finger_4_0",
+            "finger_4_1"
+          ]
+        },
+        {
+          "Id": "branch",
+          "Size": 2.09982157,
+          "Forward": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "Up": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "Anchors": [
+            "tip_0",
+            "tip_1",
+            "tip_2"
+          ],
+          "Motions": [],
+          "Parts": [
+            "trunk",
+            "branch_1",
+            "branch_2"
+          ]
+        },
+        {
+          "Id": "water_wave",
+          "Size": 16.3118477,
+          "Forward": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "Up": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "Anchors": [
+            "surface_0",
+            "surface_1",
+            "surface_2",
+            "surface_3"
+          ],
+          "Motions": [
+            "form",
+            "break",
+            "recede"
+          ],
+          "Parts": [
+            "water_body",
+            "aerated_lip"
+          ]
+        },
+        {
+          "Id": "water_flow",
+          "Size": 10.2758875,
+          "Forward": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "Up": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "Anchors": [
+            "surface_0",
+            "surface_1",
+            "surface_2",
+            "surface_3",
+            "surface_4",
+            "surface_5",
+            "surface_6",
+            "surface_7",
+            "surface_8",
+            "surface_9",
+            "surface_10",
+            "surface_11",
+            "surface_12",
+            "surface_13",
+            "surface_14",
+            "surface_15",
+            "surface_16",
+            "surface_17",
+            "surface_18",
+            "surface_19",
+            "surface_20",
+            "surface_21",
+            "surface_22",
+            "surface_23",
+            "surface_24",
+            "surface_25",
+            "surface_26",
+            "surface_27",
+            "surface_28",
+            "surface_29"
+          ],
+          "Motions": [
+            "run",
+            "form"
+          ],
+          "Parts": [
+            "water_layer",
+            "broken_foam"
+          ]
+        },
+        {
+          "Id": "water_whale",
+          "Size": 16.8817425,
+          "Forward": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "Up": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "Anchors": [
+            "front",
+            "tail_tip",
+            "fin_left",
+            "fin_right"
+          ],
+          "Motions": [
+            "swim",
+            "tail_sweep"
+          ],
+          "Parts": [
+            "body",
+            "fin_left",
+            "fin_right",
+            "flukes",
+            "dorsal",
+            "eye_right",
+            "eye_left"
+          ]
+        },
+        {
+          "Id": "fire_body",
+          "Size": 1.97926927,
+          "Forward": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "Up": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "Anchors": [],
+          "Motions": [],
+          "Parts": [
+            "body"
+          ]
+        },
+        {
+          "Id": "energy_ray",
+          "Size": 1.05603027,
+          "Forward": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "Up": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "Anchors": [
+            "start",
+            "end"
+          ],
+          "Motions": [],
+          "Parts": [
+            "channel"
+          ],
+          "SpanRadius": 0.12
+        }
+      ],
+      "Bodies": [
+        {
+          "Version": 1,
+          "Id": "Cultiway.Creation.BodyInput",
+          "Revision": 1,
+          "Name": "实际足底发力",
+          "Creator": 0,
+          "Seed": 0,
+          "Lifetime": 1.25727916,
+          "Cost": 0.0,
+          "Resource": "stamina",
+          "AdditionalResources": [],
+          "ResourceMode": 0,
+          "Cooldown": 1.25727916,
+          "Power": 1.0,
+          "Root": null,
+          "Body": {
+            "Effector": "foot.right",
+            "WeaponForm": null,
+            "Grip": "grip",
+            "MatchDistance": false,
+            "ReleaseAt": 0.377183765,
+            "ActiveFrom": 0.477766067,
+            "ActiveUntil": 0.8800954,
+            "Stages": [],
+            "Occupancy": 0,
+            "Impact": {
+              "Targets": 0,
+              "DamageScale": 0.0,
+              "Force": 0.0,
+              "Lift": 0.5,
+              "Origin": 0
+            },
+            "Contact": null,
+            "RecoilSeconds": 0.07,
+            "Keys": [
+              {
+                "Id": "pose.0",
+                "At": 0.0,
+                "Hand": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "Foot": [
+                  0.1,
+                  0.1,
+                  0.0
+                ],
+                "Torso": [
+                  0.0,
+                  0.0,
+                  -0.12
+                ],
+                "Turn": 0.0,
+                "Heading": 0.0,
+                "Rotation": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "Id": "pose.1",
+                "At": 0.33946538,
+                "Hand": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "Foot": [
+                  0.1,
+                  0.09900001,
+                  0.0
+                ],
+                "Torso": [
+                  0.0,
+                  0.0,
+                  -0.12
+                ],
+                "Turn": 0.0,
+                "Heading": 0.0,
+                "Rotation": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "Id": "strike",
+                "At": 0.5783484,
+                "Hand": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "Foot": [
+                  0.1,
+                  0.0829673856,
+                  0.0
+                ],
+                "Torso": [
+                  0.0,
+                  0.0,
+                  -0.12
+                ],
+                "Turn": 0.0,
+                "Heading": 0.0,
+                "Rotation": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "Id": "pose.3",
+                "At": 0.854949832,
+                "Hand": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "Foot": [
+                  0.1,
+                  0.0829673856,
+                  0.0
+                ],
+                "Torso": [
+                  0.0,
+                  0.0,
+                  -0.12
+                ],
+                "Turn": 0.0,
+                "Heading": 0.0,
+                "Rotation": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "Id": "rest",
+                "At": 1.25727916,
+                "Hand": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "Foot": [
+                  0.1,
+                  0.1,
+                  0.0
+                ],
+                "Torso": [
+                  0.0,
+                  0.0,
+                  -0.12
+                ],
+                "Turn": 0.0,
+                "Heading": 0.0,
+                "Rotation": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          },
+          "Binding": null,
+          "Steps": []
+        }
+      ],
+      "Resource": "wakan"
+    }
+  },
+  "newContent": {
+    "Version": 1,
+    "Revision": 1,
+    "Name": "冰贯光诀",
+    "Creator": 56,
+    "Seed": 17,
+    "Parent": {
+      "Id": "test.body-footwork.delivery-gate.ray",
+      "Revision": 1,
+      "Creator": 0,
+      "Change": "环绕"
+    },
+    "Lifetime": 2.8,
+    "Cost": 7.0,
+    "Resource": "wakan",
+    "AdditionalResources": [],
+    "ResourceMode": 0,
+    "Cooldown": 0.0,
+    "Calculation": {
+      "Resource": "wakan",
+      "Demand": 7.0,
+      "Recovery": 0.0
+    },
+    "Power": 8.0,
+    "TargetRange": 12.0,
+    "Use": {
+      "Channels": 2,
+      "Target": 3
+    },
+    "Root": {
+      "Id": "orbit_origin",
+      "Form": "pivot",
+      "Surface": null,
+      "Matter": "physical",
+      "State": null,
+      "Tint": null,
+      "Anchor": null,
+      "Offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Scale": 1.0,
+      "ActiveFrom": 0.0,
+      "ActiveUntil": -1.0,
+      "ActiveFromMarker": null,
+      "ActiveUntilMarker": null,
+      "ContactGroup": null,
+      "Contact": null,
+      "OnContact": 0,
+      "ContactRole": 2,
+      "Strength": 1.0,
+      "Interception": 0,
+      "ReflectionLimit": 8,
+      "Operations": [
+        {
+          "Clip": null,
+          "Kind": 1,
+          "At": 0.0,
+          "Seconds": 0.0,
+          "Vector": [
+            0.0,
+            0.0,
+            91.08262
+          ],
+          "TurnRate": 0.0,
+          "Matter": null,
+          "State": null,
+          "Trigger": 0,
+          "Path": null,
+          "InheritVelocity": true
+        }
+      ],
+      "Children": [
+        {
+          "Id": "subject",
+          "Form": "energy_ray",
+          "Surface": null,
+          "Matter": "ice",
+          "State": null,
+          "Tint": null,
+          "Anchor": null,
+          "Offset": [
+            3.11088371,
+            0.0,
+            0.0
+          ],
+          "Rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Scale": 1.0,
+          "ActiveFrom": 0.0,
+          "ActiveUntil": -1.0,
+          "ActiveFromMarker": null,
+          "ActiveUntilMarker": null,
+          "ContactGroup": null,
+          "Contact": null,
+          "OnContact": 0,
+          "ContactRole": 0,
+          "Strength": 1.0,
+          "Interception": 0,
+          "ReflectionLimit": 8,
+          "Operations": [
+            {
+              "Clip": null,
+              "Kind": 15,
+              "At": 0.0,
+              "Seconds": 0.0,
+              "Vector": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "TurnRate": 0.0,
+              "Ray": {
+                "Length": 8.0,
+                "FollowTarget": true,
+                "TurnRate": 120.0
+              },
+              "Matter": null,
+              "State": null,
+              "Trigger": 0,
+              "Path": null,
+              "InheritVelocity": true
+            }
+          ],
+          "Children": [
+            {
+              "Id": "tip",
+              "Form": "sword",
+              "Surface": null,
+              "Matter": "physical",
+              "State": null,
+              "Tint": null,
+              "Anchor": "end",
+              "Offset": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "Rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "Scale": 0.15,
+              "ActiveFrom": 0.0,
+              "ActiveUntil": -1.0,
+              "ActiveFromMarker": null,
+              "ActiveUntilMarker": null,
+              "ContactGroup": null,
+              "Contact": null,
+              "OnContact": 0,
+              "ContactRole": 2,
+              "Strength": 1.0,
+              "Interception": 0,
+              "ReflectionLimit": 8,
+              "Operations": [],
+              "Children": []
+            }
+          ]
+        }
+      ]
+    },
+    "Body": null,
+    "Binding": {
+      "Anchor": 1,
+      "Follow": true,
+      "FaceTarget": false,
+      "ScaleByBody": false,
+      "Height": 0.4
+    },
+    "Steps": []
+  }
+}

@@ -84,7 +84,7 @@ public sealed partial class ConstructedAbilityService
     {
         ProgressionLifecycle.RegisterCommitted(OnCreationProgression);
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, CreationSave>("ability_creation", "创法机会与请求",
-            11,
+            12,
             actor => actor.E.TryGetComponent(out ConstructedCreationState state)
                 ? new CreationSave
                 {
@@ -133,7 +133,7 @@ public sealed partial class ConstructedAbilityService
                         throw new InvalidDataException("旧创法请求需要原有两份身体动作快照");
                     foreach (AbilityDefinition body in data.Resources.Bodies) ValidateDefinition(body, cache: false);
                 }
-            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3(), new CreationV3ToV4(), new CreationV4ToV5(), new CreationV5ToV6(), new CreationV6ToV7(), new CreationV7ToV8(), new CreationV8ToV9(), new CreationV9ToV10(), new CreationV10ToV11() }));
+            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3(), new CreationV3ToV4(), new CreationV4ToV5(), new CreationV5ToV6(), new CreationV6ToV7(), new CreationV7ToV8(), new CreationV8ToV9(), new CreationV9ToV10(), new CreationV10ToV11(), new CreationV11ToV12() }));
         InitializeInspiration();
     }
 

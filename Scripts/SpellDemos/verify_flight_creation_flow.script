@@ -1,0 +1,35 @@
+// 命名步骤和直接操作使用同一实际流散判断，只补验本次候选筛选。
+try
+{
+    var choices = service.GetMethod("CreationFlights", F);
+    ConstructionStep Step(string id, string part, ConstructionOperation operation) => new()
+    {
+        Id = id, Operation = operation,
+        Inputs = new Dictionary<string, ConstructionOutputReference> { ["part"] = new() { Node = part } }
+    };
+    ConstructionOperation flow = new() { Kind = ConstructionOperationKind.Flow, At = .5f, Flow = new ConstructionFlow() };
+    ConstructionOperation flight = Flight(); flight.Vector = new[] { 0f, 1f, 0f };
+    AbilityDefinition d = Definition(flight); d.Root.Form = "water_flow"; d.Root.Matter = "water"; d.Root.Volume = 8f;
+    d.Steps = new[] { Step("flow", "root", flow) };
+    ConstructionOperation[] Candidates(AbilityDefinition value) => (ConstructionOperation[])choices.Invoke(null, new object[] { value, AbilityCompiler.Compile(value, false) });
+    Check(Candidates(d).Length == 0, "命名步骤声明水流时，原部位飞行不被改成三维位置曲线");
+    d.Root.Operations = new[] { flow }; flight.Id = null;
+    d.Steps = new[] { Step("flight", "root", flight) };
+    Check(Candidates(d).Length == 0, "原操作声明水流时，命名飞行同样保留浅层投送原理");
+    d.Root.Operations = Array.Empty<ConstructionOperation>(); d.Steps = new[] { Step("flow", "root", flow), Step("flight", "root", flight) };
+    Check(Candidates(d).Length == 0, "同一实际部位的命名水流与命名飞行共用判断");
+    ConstructionNode pool = d.Root; pool.Id = "pool";
+    ConstructionOperation normal = Flight(); var mixed = Definition(normal); mixed.Root.Children = new[] { pool };
+    mixed.Steps = new[] { Step("flow", "root/pool", flow), Step("flight", "root/pool", flight) };
+    var accepted = Candidates(mixed);
+    Check(accepted.Length == 1 && ReferenceEquals(accepted[0], normal), "水流分支只排除自身，其他普通部位仍可自由改变曲线");
+    var named = Definition(Flight()); var namedFlight = named.Root.Operations[0]; namedFlight.Id = null;
+    named.Root.Operations = Array.Empty<ConstructionOperation>(); named.Steps = new[] { Step("launch", "root", namedFlight) };
+    Check(Candidates(named).Length == 1 && ReferenceEquals(Candidates(named)[0], namedFlight), "普通命名飞行仍进入同一候选集合");
+    return new { passed = true, closed = "命名水流及普通飞行的实际部位筛选", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

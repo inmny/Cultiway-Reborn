@@ -1484,3 +1484,12 @@ python3 Scripts/SpellDemos/verify_nature_selection.py --section runtime
 资料段核对十二种性质及八条转换分支：明确材料、物态、实际表面、保存编译、形状轨迹、一次强度倍率和独立附加元素；同材料保留原物态，不扩大原资产的性质限制。实机段复用一枚已学水性质灵弹，核对真实水伤害、表面、原费用、侧外安全、关闭接触、取消停效和同来源恢复，不扩身体装备样本。指定性质优先于本次动态元素；可导电水域及无指定性质的动态覆盖继续原入口，留给后续独立迁移。
 
 输入、展开资料、实际伤害与画面保存在`artifacts/skill_rebuild/trajectories/nature-selection/`及相应分段目录；最终依据见`delivery.json`。完整编辑、自主创作、正式冷启动及集中连续录像继续5.05 C。
+
+
+## 自主飞行创作与新旧请求保存
+
+`python3 Scripts/SpellDemos/verify_flight_creation.py`复用独立安装、现成世界及人物辅助，检查规则11的普通曲线和目标弧线、真实距离触发返回、命名步骤派生、固定输入、新旧请求正式升级及存读、实际收费使用与成品保存。主流程只选择当前人物能承担费用的曲线结果，不修改收费或资源容量规则；上一正式规则10的实际输入与既有预期保存在`Fixtures/flight-creation-rule10.json`，读取旧预期时使用普通资料缺省字段。
+
+`--section cast`只补一份可支付的实际创作、正式施放、退出及成品保存；`--section flow`只核对原操作／命名步骤的真实水流排除和其他普通部位继续可选。初次交付的分段补验还支持`tail`、`requests`与`save`，分别跳过已经通过的运动前段、全部运动段、运动及命名派生段；运行范围以实际输入及`checks.json`为准，不把这些结果视为一次全段成功。
+
+证据索引为`artifacts/skill_rebuild/trajectories/flight-creation/delivery.json`。若系统硬件图形上下文不可用，本机可用`env __GLX_VENDOR_LIBRARY_NAME=mesa LIBGL_ALWAYS_SOFTWARE=1`作为命令前缀完成定向功能验证，不能据此验收性能或最终美术。统一演示批量输入、其余作用字段、正式冷启动及集中连续录像继续5.05 C，不扩大身体装备样本。
