@@ -63,7 +63,7 @@ public sealed partial class WindowWanfaConstructionEditor
                 }).ToArray()));
         Number(prefix + "DamageScale", impact.DamageScale, value => impact.DamageScale = value);
         ContactEffectRows(impact, prefix);
-        ContactDisplacementRows(impact, prefix);
+        ContactResultRows(impact, prefix);
         Toggle(prefix + "DirectedImpulse", impact.Impulse != null, value =>
         {
             impact.Impulse = value ? new float[3] : null;

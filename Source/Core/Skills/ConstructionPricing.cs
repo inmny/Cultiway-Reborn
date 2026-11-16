@@ -49,6 +49,9 @@ public sealed class ConstructionMeasure
     /// <summary>接触击退与换位的独立需求；第十三版起显式计入。</summary>
     public double ContactDisplacementWork { get; }
 
+    /// <summary>附加伤害及有限随机、条件结果的需求，第十四版起计入。</summary>
+    public double ContactResultsWork { get; }
+
     /// <summary>按当前规模给出的默认恢复世界秒数；不替代真实身体收势。</summary>
     public float DefaultCooldown { get; }
 
@@ -66,6 +69,7 @@ public sealed class ConstructionMeasure
         var groups = new Dictionary<int, (double From, double Until, double Force)>();
         var contactEffects = new Dictionary<int, double>();
         var contactDisplacement = new Dictionary<int, double>();
+        var contactResults = new Dictionary<int, double>();
         double work = plan.Body == null ? 0 : .5d + plan.Body.Duration * .25d;
         work += plan.Body?.MovementWork ?? 0d;
         if (plan.Body != null)
@@ -210,6 +214,7 @@ public sealed class ConstructionMeasure
             ContactWork += group.Value.Force * repeat;
             ContactEffectsWork += contactEffects[group.Key] * repeat;
             ContactDisplacementWork += contactDisplacement[group.Key] * repeat;
+            ContactResultsWork += contactResults[group.Key] * repeat;
         }
         ContactGroups = groups.Keys.Select(id => id >= plan.Nodes.Length ? plan.Nodes.Length : id).Distinct().Count();
         // 选取距离与作用形状分别维护；更远投送保留相应控制预算，不扩大接触面。
@@ -219,6 +224,7 @@ public sealed class ConstructionMeasure
         Work = (work + ContactWork) * (1d + range / 120d);
         ContactEffectsWork *= 1d + range / 120d;
         ContactDisplacementWork *= 1d + range / 120d;
+        ContactResultsWork *= 1d + range / 120d;
         if (double.IsNaN(Work) || double.IsInfinity(Work) || Work > float.MaxValue)
             throw new InvalidDataException("构造规模：材料、持续或作用预算超出可表示资源范围");
         DefaultCooldown = Math.Max(plan.Body?.Duration ?? 0f, (float)Math.Sqrt(Work) * .25f);
@@ -250,12 +256,41 @@ public sealed class ConstructionMeasure
                 impact.Knockback.Distance * .25d + impact.Knockback.Height * .5d;
             if (impact.Exchange != null)
                 displacement += impact.Exchange.Chance * (1d + impact.Exchange.WaitSeconds + plan.Reach.Selection() * .05d);
+            double results = DamageWork(impact.AdditionalDamage, power, strength);
+            if (impact.RandomContact != null) results += impact.RandomContact.Chance * impact.RandomContact.Outcomes.Max(outcome => OutcomeWork(outcome, power, strength));
+            foreach (var rule in impact.ConditionalContacts)
+                results += Math.Max(OutcomeWork(rule.Outcome, power, strength), OutcomeWork(rule.Otherwise, power, strength)) +
+                    Math.Max(OutcomeWork(rule.OnKill, power, strength), OutcomeWork(rule.OnSurvive, power, strength));
+            contactResults[id] = Math.Max(contactResults.TryGetValue(id, out double previousResults) ? previousResults : 0d, results);
             contactDisplacement[id] = Math.Max(contactDisplacement.TryGetValue(id, out double previousDisplacement) ? previousDisplacement : 0d, displacement);
             contactEffects[id] = Math.Max(contactEffects.TryGetValue(id, out double previousEffects) ? previousEffects : 0d, effects);
             if (groups.TryGetValue(id, out var old))
                 groups[id] = (Math.Min(old.From, from), Math.Max(old.Until, until), Math.Max(old.Force, force));
             else groups.Add(id, (from, until, force));
         }
+    }
+
+    /// <summary>人物生命比例以本次本体量作参考预算；实际伤害仍在命中时读取人物生命。</summary>
+    /// <param name="damage">实际编译伤害。</param><param name="power">整招量。</param><param name="strength">部位倍率。</param>
+    private static double DamageWork(IReadOnlyList<CompiledConstructionContactDamage> damage, float power, float strength) =>
+        damage.Sum(item => (power * strength * (item.PerForce + item.PerHealth + item.PerMaxHealth) + item.MinimumBonus) * .1d *
+            (item.IgnoreDamageReduction ? 1.5d : 1d));
+
+    /// <summary>结果使用普通作用的预算；互斥分支取较大结果，不把候选数当作实际命中次数。</summary>
+    /// <param name="outcome">可空的普通结果。</param><param name="power">整招量。</param><param name="strength">部位倍率。</param>
+    private static double OutcomeWork(CompiledConstructionContactOutcome outcome, float power, float strength)
+    {
+        if (outcome == null) return 0d;
+        double work = DamageWork(outcome.Damage, power, strength);
+        foreach (var status in outcome.Statuses)
+            work += status.Duration * (.25d + (status.Stats?.Values.Sum(value => Math.Abs((double)value)) ?? 0d) * .1d +
+                (status.TargetStatRatios?.Values.Sum(value => Math.Abs((double)value)) ?? 0d) * power * strength +
+                (status.Tick?.ForcePerSecond ?? 0f) * power * strength);
+        if (outcome.Restoration != null)
+            work += (outcome.Restoration.Health + outcome.Restoration.HealthPerForce * power * strength +
+                outcome.Restoration.HealthPerSecond * outcome.Restoration.Duration) * .1d + outcome.Restoration.CleanseCount * .5d;
+        if (outcome.Knockback != null) work += outcome.Knockback.Distance * .25d + outcome.Knockback.Height * .5d;
+        return work;
     }
 
     /// <summary>按明确间隔和次数上限定预算，重入仍由真实离开与进入决定。</summary>
@@ -280,11 +315,12 @@ public static class ConstructionPricing
     /// <summary>按已冻结规则合并真实接触需求，不改变旧请求的计算。</summary>
     /// <param name="measure">已编译的实际规模。</param><param name="rules">本次创作版本。</param>
     private static double Demand(ConstructionMeasure measure, int rules) => measure.Work +
-        (rules >= 12 ? measure.ContactEffectsWork : 0d) + (rules >= 13 ? measure.ContactDisplacementWork : 0d);
+        (rules >= 12 ? measure.ContactEffectsWork : 0d) + (rules >= 13 ? measure.ContactDisplacementWork : 0d) +
+        (rules >= 14 ? measure.ContactResultsWork : 0d);
 
     /// <summary>以当前实际构造计算新创作的默认费用与恢复时间。</summary>
     /// <param name="definition">本次独占的新创作。</param><param name="cost">是否补费用。</param><param name="cooldown">是否补恢复时间。</param>
-    /// <param name="contactRules">创作规则版本；十二版计状态及恢复，十三版再计接触位移，省略沿原计算。</param>
+    /// <param name="contactRules">创作规则版本；十二版计状态及恢复，十三版计位移，十四版计附加与分支结果，省略沿原计算。</param>
     public static AbilityDefinition Price(AbilityDefinition definition, bool cost = true, bool cooldown = true, int contactRules = 0)
     {
         CompiledAbility plan = AbilityCompiler.Compile(definition, false);

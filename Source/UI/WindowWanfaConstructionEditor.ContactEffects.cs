@@ -27,11 +27,16 @@ public sealed partial class WindowWanfaConstructionEditor
         Toggle(prefix + "ExplicitDamageElement", impact.Element.HasValue,
             v => impact.Element = v ? new ElementComposition { iron = 1f } : null);
         if (impact.Element.HasValue) ContactElementRows(prefix, "DamageElement", impact.Element.Value, v => impact.Element = v);
-        Toggle(prefix + "Restoration", impact.Restoration != null,
-            v => impact.Restoration = v ? new ConstructionRestoration { Health = 1f } : null);
-        if (impact.Restoration != null)
+    }
+
+    /// <summary>普通接触与有限结果共用恢复表单，不转换成临时作用对象。</summary>
+    /// <param name="restoration">当前恢复。</param><param name="set">替换声明。</param><param name="prefix">作用所属。</param>
+    private void ContactRestorationRows(ConstructionRestoration restoration, Action<ConstructionRestoration> set, string prefix)
+    {
+        Toggle(prefix + "Restoration", restoration != null,
+            v => set(v ? new ConstructionRestoration { Health = 1f } : null));
+        if (restoration != null)
         {
-            ConstructionRestoration restoration = impact.Restoration;
             ImpactOption(prefix, "RestorationTarget", restoration.Target, v => restoration.Target = v);
             Number(prefix + "RestoreHealth", restoration.Health, v => restoration.Health = v);
             Number(prefix + "RestorePerForce", restoration.HealthPerForce, v => restoration.HealthPerForce = v);
@@ -40,7 +45,13 @@ public sealed partial class WindowWanfaConstructionEditor
             ContactInteger(prefix + "CleanseCount", restoration.CleanseCount, v => restoration.CleanseCount = v);
         }
 
-        ConstructionStatus[] statuses = impact.Statuses ?? Array.Empty<ConstructionStatus>();
+    }
+
+    /// <summary>普通接触与有限结果共用状态列表、属性及周期伤害。</summary>
+    /// <param name="statuses">当前状态数组。</param><param name="set">替换数组。</param><param name="prefix">作用所属。</param>
+    private void ContactStatusRows(ConstructionStatus[] statuses, Action<ConstructionStatus[]> set, string prefix)
+    {
+        statuses ??= Array.Empty<ConstructionStatus>();
         if (statuses.Length < 16)
             ActionRow(prefix + "AddContactStatus", T("ContactStatusHint"), () => menu.Show(T(prefix + "AddContactStatus"),
                 ModClass.L.StatusEffectLibrary.list.OrderBy(asset => asset.id, StringComparer.Ordinal).Select(asset =>
@@ -49,10 +60,10 @@ public sealed partial class WindowWanfaConstructionEditor
                         Label = asset.GetName(), SearchText = asset.id + " " + asset.GetDescription(),
                         Select = () => Change(() =>
                         {
-                            impact.Statuses = statuses.Concat(new[] { new ConstructionStatus
+                            set(statuses.Concat(new[] { new ConstructionStatus
                             {
                                 Id = asset.id, Duration = 2f, Application = ConstructionStatusApplication.Refresh
-                            } }).ToArray();
+                            } }).ToArray());
                             contactStatusSelection = statuses.Length;
                         })
                     }).ToArray()));
@@ -67,7 +78,7 @@ public sealed partial class WindowWanfaConstructionEditor
                 Select = () => { contactStatusSelection = index; Refresh(); }
             }).ToArray()));
         ActionRow(prefix + "RemoveContactStatus", "", () => Change(() =>
-            impact.Statuses = statuses.Where((_, index) => index != contactStatusSelection).ToArray()));
+            set(statuses.Where((_, index) => index != contactStatusSelection).ToArray())));
         Number(prefix + "StatusDuration", status.Duration, v => status.Duration = v);
         Number(prefix + "StatusPotency", status.Potency, v => status.Potency = v);
         ImpactOption(prefix, "StatusApplication", status.Application, v =>

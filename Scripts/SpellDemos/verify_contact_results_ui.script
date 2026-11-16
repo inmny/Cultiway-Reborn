@@ -1,0 +1,101 @@
+// C6：真实作用页复用普通结果表单，独立保存各实际运行输入。
+Actor source = Make(64), target = Make(72, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Scripts/SpellDemos/fixtures/construction-batch/01-charge.json")));
+definition.Id = "test.contact-results.editor"; definition.Name = "附加伤害与接触结果编辑"; definition.Resource = "wakan";
+ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(definition.Id, source);
+async Task Frames(int count = 3) { for (int i = 0; i < count; i++) await Game.NextFrame(); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300); Canvas.ForceUpdateCanvases(); }
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+Button B(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+void Click(string name) { if (!B(name).interactable) throw new InvalidOperationException("按钮不可用：" + name); B(name).onClick.Invoke(); }
+WanfaEditorRow Row(string key)
+{
+    IEnumerable<WanfaEditorRow> found = editor.GetComponentsInChildren<WanfaEditorRow>(false);
+    foreach (string group in new[] { "StatusStats", "StatusRatios" })
+    {
+        int at = key.IndexOf(group, StringComparison.Ordinal);
+        if (at >= 0 && key.Length > at + group.Length)
+            found = found.SkipWhile(r => ((Text)Field(r, "_title")).text != T(key.Substring(0, at + group.Length))).Skip(1);
+    }
+    return found.First(r => ((Text)Field(r, "_title")).text == T(key));
+}
+void Action(string key) => ((Button)Field(Row(key), "_action")).onClick.Invoke();
+void Set(string key, string value) { var input = editor.GetComponentsInChildren<InputField>(false).First(f => f.name == key); input.text = value; input.onEndEdit.Invoke(value); }
+void ToggleValue(string key, bool value) => Row(key).GetComponentsInChildren<Toggle>(false).Single().isOn = value;
+void Choose(string key, string text) { Action(key); editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && b.GetComponentInChildren<Text>().text == text).onClick.Invoke(); }
+async Task ShotRow(string key, string name)
+{
+    await Frames(); var row = (RectTransform)Row(key).transform; var scroll = row.GetComponentInParent<ScrollRect>();
+    Vector3 local = scroll.content.InverseTransformPoint(row.TransformPoint(row.rect.center));
+    float offset = scroll.content.rect.yMax - local.y - scroll.viewport.rect.height * .5f;
+    scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(offset / Mathf.Max(1f, scroll.content.rect.height - scroll.viewport.rect.height));
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(4); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+void SaveCase(string name)
+{
+    Click("LearnCopy"); var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    File.WriteAllText(Path.Combine(folder, name + "-definition.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+}
+try
+{
+    Click("Page4"); ToggleValue("CustomImpact", true); Set("DamageScale", "0");
+    Action("AddContactDamage"); Choose("ContactDamageTarget", T("ContactDamageTarget.Contact")); Choose("ContactDamageSource", T("ContactDamageSource.Controller"));
+    Set("ContactDamagePerForce", "0.25"); Set("ContactDamagePerHealth", "0.001"); Set("ContactDamagePerMaxHealth", "0.002"); Set("ContactDamageMinimum", "3"); ToggleValue("ContactDamageIgnoreReduction", true);
+    Set("ContactDamageElement3", "0.6"); Set("ContactDamageElement4", "0.4");
+    Set("ContactDamagePerHealth", "-1"); Check(!B("LearnCopy").interactable, "非法伤害比例拒绝保存"); Click("Undo"); Check(B("LearnCopy").interactable, "撤销恢复合法伤害");
+    await ShotRow("ContactDamagePerHealth", "damage-cz"); SaveCase("direct"); Action("RemoveContactDamage");
+    Choose("ContactPanel", T("ContactPanel.1")); ToggleValue("RandomContact", true); Set("RandomChance", "1");
+    Action("AddContactDamage"); Set("ContactDamagePerForce", "0.5"); ToggleValue("ContactDamageIgnoreReduction", true); Set("ContactDamageElement3", "1");
+    ToggleValue("Restoration", true); Choose("RestorationTarget", T("RestorationTarget.Controller")); Set("RestoreHealth", "7");
+    Choose("AddContactStatus", StatusEffects.Weaken.GetName()); Set("StatusDuration", "0.3");
+    Action("AddRandomOutcome"); Action("AddContactDamage"); Set("ContactDamagePerForce", "0.75"); ToggleValue("ContactDamageIgnoreReduction", true); Set("ContactDamageElement2", "1");
+    ToggleValue("Restoration", true); Choose("RestorationTarget", T("RestorationTarget.Controller")); Set("RestoreHealth", "9");
+    Choose("AddContactStatus", StatusEffects.Poison.GetName()); Set("StatusDuration", "0.5");
+    Action("RemoveRandomOutcome"); Check(Session().Draft.Impact.RandomContact.Outcomes.Length == 1, "随机候选可移除"); Click("Undo");
+    Set("RandomChance", "2"); Check(!B("LearnCopy").interactable, "超界随机概率拒绝保存"); Click("Undo");
+    Check(Session().Draft.Impact.RandomContact.Outcomes.Length == 2 && Session().Draft.Impact.RandomContact.Outcomes[0].Damage[0].PerForce == .5f && Session().Draft.Impact.RandomContact.Outcomes[1].Restoration.Health == 9f, "候选独立保留伤害、状态与恢复");
+    await ShotRow("RandomOutcome", "random-cz"); SaveCase("random"); ToggleValue("RandomContact", false);
+    Choose("ContactPanel", T("ContactPanel.2")); Action("AddConditionalContact"); Set("ContactHealthRatio", "0.5");
+    Action("AddContactDamage"); Set("ContactDamagePerForce", "0"); Set("ContactDamageMinimum", "1000000"); ToggleValue("ContactDamageIgnoreReduction", true); Set("ContactDamageElement7", "1");
+    Choose("ConditionalResult", T("ConditionalResult.1")); ToggleValue("ConditionalResultEnabled", true);
+    Action("AddContactDamage"); Set("ContactDamagePerForce", "0"); Set("ContactDamageMinimum", "7"); ToggleValue("ContactDamageIgnoreReduction", true); Set("ContactDamageElement4", "1");
+    foreach (int branch in new[] { 2, 3 })
+    {
+        Choose("ConditionalResult", T("ConditionalResult." + branch)); ToggleValue("ConditionalResultEnabled", true);
+        ToggleValue("Restoration", true); Choose("RestorationTarget", T("RestorationTarget.Controller")); Set("RestoreHealth", branch == 2 ? "17" : "11");
+    }
+    Set("ContactHealthRatio", "-0.1"); Check(!B("LearnCopy").interactable, "非法生命条件拒绝保存"); Click("Undo");
+    Action("RemoveConditionalContact"); Check(Session().Draft.Impact.ConditionalContacts.Length == 0, "条件条目可移除"); Click("Undo");
+    var rule = Session().Draft.Impact.ConditionalContacts[0]; Check(rule.Outcome.Damage[0].MinimumBonus == 1000000 && rule.Otherwise.Damage[0].MinimumBonus == 7 && rule.OnKill.Restoration.Health == 17 && rule.OnSurvive.Restoration.Health == 11, "四种条件结果独立保留");
+    await ShotRow("ConditionalResult", "conditional-cz"); SaveCase("conditional");
+    Choose("ContactPanel", T("ContactPanel.0")); Action("AddContactDamage"); Set("ContactDamagePerForce", "0.25");
+    Choose("ContactPanel", T("ContactPanel.1")); ToggleValue("RandomContact", true); Action("AddContactDamage"); Set("ContactDamagePerForce", "0.5");
+    ToggleValue("NodeImpact", true); Choose("NodeContactPanel", T("ContactPanel.2")); Set("NodeContactHealthRatio", "0.3");
+    Choose("NodeConditionalResult", T("ConditionalResult.2")); Set("NodeRestoreHealth", "19");
+    Check(Session().Draft.Impact.ConditionalContacts[0].MaximumHealthRatio == .5f && Session().Draft.Root.Impact.ConditionalContacts[0].MaximumHealthRatio == .3f && Session().Draft.Impact.ConditionalContacts[0].OnKill.Restoration.Health == 17f && Session().Draft.Root.Impact.ConditionalContacts[0].OnKill.Restoration.Health == 19f, "部位深拷贝所有嵌套结果，独立修改不影响整招");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page4");
+    Choose("ContactPanel", T("ContactPanel.0")); await ShotRow("ContactDamagePerForce", "damage-en");
+    Choose("ContactPanel", T("ContactPanel.1")); await ShotRow("RandomOutcome", "random-en"); await ShotRow("NodeConditionalResult", "part-conditional-en");
+    Check(((Text)Field(Row("NodeConditionalResult"), "_title")).text == "Part: Edit conditional outcome", "条件表单有真实英文文本");
+    LocalizedTextManager.instance.setLanguage("cz"); Click("Page4");
+    string expected = JsonConvert.SerializeObject(new { Session().Draft.Impact, Session().Draft.Root });
+    Click("Replace"); var complete = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(JsonConvert.SerializeObject(new { complete.Impact, complete.Root }) == expected, "正式保存完整嵌套接触结果");
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), JsonConvert.SerializeObject(complete, Formatting.Indented));
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(complete.Id, source); await Frames(); Click("Page4");
+    Check(JsonConvert.SerializeObject(new { Session().Draft.Impact, Session().Draft.Root }) == expected && B("LearnCopy").interactable, "关闭再打开恢复完整伤害、随机和条件资料"); Click("Close"); await Frames();
+    return new { passed = true, closed = "附加伤害与有限接触结果编辑保存", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}

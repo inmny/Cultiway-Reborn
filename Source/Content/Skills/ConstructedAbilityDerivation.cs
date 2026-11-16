@@ -47,6 +47,8 @@ public sealed partial class ConstructedAbilityService
         var random = new Random(seed);
         var choices = new List<(string Name, Func<AbilityDefinition> Apply)>();
         ConstructionNode[] nodes = DerivationNodes(draft.Root).ToArray();
+        if (inspiration.Rules >= 14 && CreationContactSites(draft).Any(site => site.Impact.Targets != Core.SkillLibV3.Usage.SkillUseTargetRelation.Self))
+            choices.Add(("接触结果", () => VaryContactResults(draft, random, inspiration)));
         if (inspiration.Rules >= 13 && CreationContactSites(draft).Any(site => site.Impact.Targets != Core.SkillLibV3.Usage.SkillUseTargetRelation.Self))
             choices.Add(("接触位移", () => VaryContactDisplacement(draft, random)));
         if (inspiration.Rules >= 12 && CreationContactSites(draft).Count > 0)

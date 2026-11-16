@@ -1551,3 +1551,21 @@ python3 Scripts/SpellDemos/verify_contact_displacement.py --section save
 `ui`沿真实作用页修改击退距离、高度、换位概率及停步，验证非法值拒绝、撤销、部位独立覆盖、正式保存再打开，并留下中英截图。`cast`直接施放窗口保存的成品，只观察正式换位及击退调用、实际支付命中和结束后的再次施放；不替换受力、概率或控制规则。`creation`检查第十三版独立生成、保留命名引用的接触位移派生及对应需求。`save`复用创作段的实际原术和种子，验证新旧等待请求正式世界存读、分别完成一次及成品使用保存。
 
 `fixtures/contact-displacement-rule12.json`截取自C4真实正式人物区段13及当时固定的预期，保留规则12的完整输入和原费用。旧期望不重新生成。证据位于`artifacts/skill_rebuild/trajectories/contact-displacement/`；重新执行失败段前会将原输入、结果及截图保留到`failures/`。入口复用独立安装和现成世界，不扩大身体装备样本。图形环境不可用时可加前述软件渲染环境变量完成本批功能验证；最终美术、性能及集中录像仍归对应交付点。
+
+## 5.05 C6：附加伤害、随机与条件接触结果
+
+```bash
+python3 Scripts/SpellDemos/verify_contact_results.py
+python3 Scripts/SpellDemos/verify_contact_results.py --section ui
+python3 Scripts/SpellDemos/verify_contact_results.py --section cast
+python3 Scripts/SpellDemos/verify_contact_results.py --section creation
+python3 Scripts/SpellDemos/verify_contact_results.py --section save
+```
+
+窗口按“普通作用与附加伤害／随机接触结果／条件接触结果”展示，结果中的状态、恢复、伤害和击退使用同一套普通参数。`ui`从真实窗口操作，分别经正式入口保存直接、随机、条件成品及完整嵌套资料，验证非法值、撤销、增删、部位独立覆盖和重新打开，并留中英截图。`cast`直接使用这些成品，观察标准受击、恢复及真实候选选择；检查生命比例伤害、候选配套结果、生命条件两分支，以及伤害真正致死或存活后的对应作用和结束恢复。
+
+`creation`以固定有限输入检查规则14的附加伤害、随机与条件生成及接触结果派生，完整运动、命名和引用继续保留。需求使用真实接触组和重复预算；候选与互斥分支按较大结果计，不将候选数量当作多次命中，整数资源仍按真实取整。`save`检查正式人物区段15、新旧等待请求正式世界存读、各完成一次，以及新成品使用和保存。
+
+旧样例`fixtures/contact-results-rule13.json`直接截取C5正式区段14和当时的完整预期，验证旧规则13结果及费用未改。证据保存在`artifacts/skill_rebuild/trajectories/contact-results/`，重跑失败段前自动保留旧输入和结果。入口复用现成世界、同一个普通部位和独立安装，不扩大身体装备矩阵；软件渲染只用于功能和窗口验证。正式冷启动、集中录像及最终美术与性能仍归对应交付点。
+
+C6实际验收采用分段续接，没有重跑已经通过的部分：`ui-tail`从直接伤害成品继续随机及条件编辑；`cast-tail`从随机开始，`cast-conditions`从生命条件开始，`cast-kill`从真实击杀开始并核对再次施放。原始失败、各前段通过项及剩余补段由`delivery.json`明确列出，不将前段通过改写成整段成功。施放准备先重新接管再归位，避开原版解除操控施加的随机推力；每次记录真实位置及形状，漏命中时保留现场。

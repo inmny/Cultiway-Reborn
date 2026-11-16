@@ -144,6 +144,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
         session = new ConstructionEditSession(access.Read(pendingId));
         learner = pendingActor; learnerId = learner?.data?.id ?? 0;
         pendingId = null; pendingActor = null;
+        contactPanels.Clear();
         undo.Clear(); redo.Clear(); part = page = handle = bodyHandle = stepChoice = nativeChoice = operationScope = 0; curvePurpose = 0; curveLayer = 0; closingApproved = false; Refresh();
     }
 

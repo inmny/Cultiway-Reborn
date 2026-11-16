@@ -1,0 +1,108 @@
+// C6：同一普通接触部位施放真实表单成品，仅观察标准结算及选取。
+Actor source = Make(64), target = Make(72, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.05f);
+owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+string inputs = Path.Combine(root, "artifacts/skill_rebuild/trajectories/contact-results/ui");
+AbilityDefinition ReadCase(string name)
+{
+    string file = Path.Combine(inputs,name+"-definition.json");
+    if (!File.Exists(file)) file = Path.Combine(root,"artifacts/skill_rebuild/trajectories/contact-results/ui-tail",name+"-definition.json");
+    return JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(file));
+}
+var damages = new List<(long Target,long Attacker,float Amount,int Before,int After,int Maximum,ElementComposition Element)>();
+float contactForce = 0f;
+var choices = new List<int>(); var heals = new List<float>(); var records = new List<object>();
+var hook = new HarmonyLib.Harmony("Cultiway.ContactResults.Probe");
+ContactResultsProbe.Damaged = (damage,before) =>
+{
+    if (damage.AttackerID == source.id && damage.TargetID == target.id && damage.Damage > 0f)
+        damages.Add((damage.TargetID,damage.AttackerID,damage.Damage,before,target.data.health,target.getMaxHealth(),damage.Element));
+};
+ContactResultsProbe.Selected = (random,outcome) =>
+{
+    if (random != null) choices.Add(outcome == null ? -1 : Enumerable.Range(0, random.Outcomes.Count).Single(index => ReferenceEquals(random.Outcomes[index], outcome)));
+};
+ContactResultsProbe.Additional = (running,node,strength) => contactForce = ((AbilityCast)Field(running,"Cast")).RemainingForce(node) * strength;
+ContactResultsProbe.Restored = (actor, amount, before) => { if (actor == source && actor.data.health > before) heals.Add(amount); };
+hook.Patch(typeof(Cultiway.Core.EventSystem.Systems.GetHitEventSystem).GetMethod("Resolve",F), prefix: new HarmonyLib.HarmonyMethod(typeof(ContactResultsProbe).GetMethod("BeforeDamage")), postfix: new HarmonyLib.HarmonyMethod(typeof(ContactResultsProbe).GetMethod("AfterDamage")));
+hook.Patch(service.GetMethod("ApplyAdditionalDamage",F), prefix: new HarmonyLib.HarmonyMethod(typeof(ContactResultsProbe).GetMethod("BeforeAdditional")));
+hook.Patch(service.GetMethod("SelectContactOutcome",F), postfix: new HarmonyLib.HarmonyMethod(typeof(ContactResultsProbe).GetMethod("AfterSelect")));
+hook.Patch(typeof(CombatResourceEffects).GetMethod("RestoreHealth"), prefix: new HarmonyLib.HarmonyMethod(typeof(ContactResultsProbe).GetMethod("BeforeRestore")), postfix: new HarmonyLib.HarmonyMethod(typeof(ContactResultsProbe).GetMethod("AfterRestore")));
+async Task Use(AbilityDefinition definition, float healthRatio)
+{
+    // 解除上次操控本身会施加原版随机推力，先重新接管，再按现成场景归位。
+    Ready(source); target.attack_timer = 999;
+    Place(source,64); Place(target,72); ConstructedAbilityService.NotifyActorChanged(source); ConstructedAbilityService.NotifyActorChanged(target);
+    await Advance(.05f); source.setHealth(source.getMaxHealth() - 1000); target.setHealth((int)(target.getMaxHealth() * healthRatio));
+    damages.Clear(); choices.Clear(); heals.Clear(); contacts.Clear();
+    float before = owner.GetCultisys<Xian>().wakan; await Fire(definition, source, target);
+    float paid = before - owner.GetCultisys<Xian>().wakan;
+    owner.E.RemoveComponent<ConstructedKnowledge>(); CombatStatusEffects.ApplyStatus(source,hold,10000,source); source.updateStats();
+    var samples = new List<object>();
+    for (int i=0; i<80 && !contacts.Any(c => c.AbilityId == definition.Id && c.TargetId == target.id); i++)
+    {
+        foreach (object running in (IEnumerable)service.GetField("casts",F).GetValue(null))
+        {
+            var cast = (AbilityCast)Field(running,"Cast");
+            if (cast.Plan.Id != definition.Id) continue;
+            var shapes = new List<AbilityCapsule>(); cast.AppendContacts(shapes);
+            samples.Add(new { cast.Age, shapes=shapes.Select(c => new { c.Node, a=new[]{c.A.x,c.A.y,c.A.z}, b=new[]{c.B.x,c.B.y,c.B.z}, c.Radius }).ToArray(), sourceFoot=new[]{source.current_position.x,source.current_position.y,source.position_height}, targetFoot=new[]{target.current_position.x,target.current_position.y,target.position_height} });
+        }
+        await Advance(.025f);
+    }
+    records.Add(new { definition.Id, healthRatio, paid, contactForce, source = new { source.id, x=source.current_position.x, y=source.current_position.y, height=source.getHeight(), health=source.data.health }, target = new { target.id, x=target.current_position.x, y=target.current_position.y, height=target.getHeight(), health=target.data.health }, samples, contacts=contacts.Select(c=>new { c.AbilityId,c.SourceId,c.TargetId,c.Age,c.Result }).ToArray(), endings=endings.Select(e=>e.Fact).ToArray(), damages = damages.Select(d => new { d.Target,d.Attacker,d.Amount,d.Before,d.After,d.Maximum,d.Element }).ToArray(), choices = choices.ToArray(), heals = heals.ToArray() });
+    Check(Math.Abs(paid - definition.Cost) < .001f && contacts.Any(c => c.AbilityId == definition.Id && c.TargetId == target.id), "成品实际支付并命中：" + definition.Id, new { paid });
+}
+async Task Finish(AbilityDefinition definition)
+{
+    await Advance(definition.Lifetime + .6f);
+    Check(endings.Any(e => e.Fact.AbilityId == definition.Id) && !BodyControlState.IsBusy(source.id), "成品自然退出并归还控制：" + definition.Id);
+}
+try
+{
+    var direct = ReadCase("direct"); await Use(direct,1f);
+    Check(damages.Count == 1, "只有一份正式追加伤害"); var hit = damages[0];
+    var detail = direct.Impact.AdditionalDamage[0]; float expected = contactForce * detail.PerForce + hit.Before * detail.PerHealth + Math.Max(detail.MinimumBonus,hit.Maximum * detail.PerMaxHealth);
+    Check(Math.Abs(hit.Amount - expected) < .01f && hit.After < hit.Before && Math.Abs(hit.Element.fire-.6f)<.0001f && Math.Abs(hit.Element.earth-.4f)<.0001f, "追加伤害按接触时生命、余力和元素真实结算", new { hit.Amount, expected, hit.Before, hit.After }); await Finish(direct);
+    var random = ReadCase("random"); await Use(random,1f);
+    Check(choices.Count == 1 && choices[0] >= 0 && damages.Count == 1 && Math.Abs(damages[0].Amount - contactForce * random.Impact.RandomContact.Outcomes[choices[0]].Damage[0].PerForce)<.001f && heals.SequenceEqual(new[] { random.Impact.RandomContact.Outcomes[choices[0]].Restoration.Health }), "真实随机只选一项且配套伤害与恢复一致"); await Finish(random);
+    var conditional = ReadCase("conditional"); await Use(conditional,.9f);
+    Check(damages.Count == 1 && Math.Abs(damages[0].Amount-7f)<.001f && target.isAlive() && heals.SequenceEqual(new[] { 11f }), "生命条件不成立使用备选，实际存活才触发存活结果"); await Finish(conditional);
+    await Use(conditional,.001f); for(int i=0; i<20 && target.isAlive(); i++) await Advance(.025f);
+    Check(damages.Count == 1 && Math.Abs(damages[0].Amount-1000000f)<.1f && !target.hasHealth() && heals.SequenceEqual(new[] { 17f }), "生命条件成立且真实伤害击杀才触发击杀结果"); await Finish(conditional);
+    await Advance(.3f); Check(heals.Count == 1 && damages.Count == 1, "退出后不重复结算伤害或恢复");
+    target = Make(72,"wolf"); await Use(random,1f); await Finish(random);
+    Check(choices.Count == 1 && damages.Count == 1, "结束后同一控制人物能再次受理随机结果");
+    return new { passed = true, closed = "真实附加伤害、随机与生命/伤害结果分支", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    hook.UnpatchSelf(); ContactResultsProbe.Damaged = null; ContactResultsProbe.Selected = null; ContactResultsProbe.Restored = null; ContactResultsProbe.Additional = null;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+    File.WriteAllText(Path.Combine(folder,"contacts.json"),JsonConvert.SerializeObject(records,Formatting.Indented));
+}
+/// <summary>只观察正式伤害、恢复和候选返回，不修改规则或随机结果。</summary>
+public static class ContactResultsProbe
+{
+    /// <summary>真实接触时本部位余力，仅用于核对编辑系数。</summary>
+    public static Action<object,int,float> Additional;
+    /// <summary>读取正式接触输入，不改变资料。</summary>
+    public static void BeforeAdditional(object __0,int __1,float __5) => Additional?.Invoke(__0,__1,__5);
+    /// <summary>正式伤害与原生命。</summary>
+    public static Action<GetHitEvent,int> Damaged;
+    /// <summary>正式候选选择。</summary>
+    public static Action<CompiledConstructionRandomContact,CompiledConstructionContactOutcome> Selected;
+    /// <summary>正式恢复与原生命。</summary>
+    public static Action<Actor,float,int> Restored;
+    /// <summary>记录受击前生命。</summary>
+    public static void BeforeDamage(GetHitEvent __0,out int __state) => __state = World.world.units.get(__0.TargetID)?.data.health ?? 0;
+    /// <summary>观察受击后结果。</summary>
+    public static void AfterDamage(GetHitEvent __0,int __state) => Damaged?.Invoke(__0,__state);
+    /// <summary>观察实际候选。</summary>
+    public static void AfterSelect(CompiledConstructionRandomContact __0,CompiledConstructionContactOutcome __result) => Selected?.Invoke(__0,__result);
+    /// <summary>记录恢复前生命。</summary>
+    public static void BeforeRestore(Actor __0,out int __state) => __state = __0.data.health;
+    /// <summary>观察实际恢复。</summary>
+    public static void AfterRestore(Actor __0,float __1,int __state) => Restored?.Invoke(__0,__1,__state);
+}

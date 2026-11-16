@@ -9,19 +9,25 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <param name="impact">当前草稿的实际作用。</param><param name="prefix">整招、身体或部位的行前缀。</param>
     private void ContactDisplacementRows(ConstructionImpact impact, string prefix)
     {
-        Toggle(prefix + "ContactKnockback", impact.Knockback != null,
-            value => impact.Knockback = value ? new ConstructionKnockback { Distance = 3f } : null);
-        if (impact.Knockback != null)
-        {
-            Number(prefix + "KnockbackDistance", impact.Knockback.Distance, value => impact.Knockback.Distance = value);
-            Number(prefix + "KnockbackHeight", impact.Knockback.Height, value => impact.Knockback.Height = value);
-        }
+        ContactKnockbackRows(impact.Knockback, value => impact.Knockback = value, prefix);
         Toggle(prefix + "ContactExchange", impact.Exchange != null,
             value => impact.Exchange = value ? new ConstructionExchange() : null);
         if (impact.Exchange != null)
         {
             Number(prefix + "ExchangeChance", impact.Exchange.Chance, value => impact.Exchange.Chance = value);
             Number(prefix + "ExchangeWait", impact.Exchange.WaitSeconds, value => impact.Exchange.WaitSeconds = value);
+        }
+    }
+    /// <summary>有限候选和普通接触使用同样的距离及高度字段。</summary>
+    /// <param name="knockback">当前击退。</param><param name="set">替换声明。</param><param name="prefix">作用所属。</param>
+    private void ContactKnockbackRows(ConstructionKnockback knockback, System.Action<ConstructionKnockback> set, string prefix)
+    {
+        Toggle(prefix + "ContactKnockback", knockback != null,
+            value => set(value ? new ConstructionKnockback { Distance = 3f } : null));
+        if (knockback != null)
+        {
+            Number(prefix + "KnockbackDistance", knockback.Distance, value => knockback.Distance = value);
+            Number(prefix + "KnockbackHeight", knockback.Height, value => knockback.Height = value);
         }
     }
 }
