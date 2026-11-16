@@ -71,8 +71,7 @@ internal static class ProjectileConstructionMigration
             SourceForm(skill.GetComponent<SkillContainer>().Asset).Form == null)
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
-        if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
-            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom)
+        if (emission.SpatialSource != null && !emission.SpatialSource.isActor())
             return SkillEmissionResult.Unhandled;
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage, out Vector3 forward);
         if (definition == null) return SkillEmissionResult.Unhandled;
@@ -80,7 +79,7 @@ internal static class ProjectileConstructionMigration
             emission.TargetPos, attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData,
             worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
-            emission.SourcePos, emission.Payment, damage, forward) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+            emission.SourcePos, emission.Payment, damage, forward, spatialSource: emission.SpatialSource) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>先明确是否能够完整转换，再展开运动、尺寸、强度和寿命；不调用旧运行委托。</summary>

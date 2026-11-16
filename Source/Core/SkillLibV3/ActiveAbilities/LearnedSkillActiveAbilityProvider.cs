@@ -110,7 +110,8 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
             if (!SkillTargetRelationResolver.Matches(
                     useProfile.TargetRelation,
                     caster.Base,
-                    target.Object)) return false;
+                    target.Object,
+                    target.AttackKingdom)) return false;
             float targetRange = ResolveRange(caster, handle, target.Object) + target.Object.stats[strings.S.size];
             Vector3 castOrigin = ResolveCastOrigin(caster, skill);
             if (Toolbox.SquaredDistVec2Float(castOrigin, target.Object.current_position) >

@@ -36,15 +36,14 @@ internal static class BarrierConstructionMigration
             Form(skill.GetComponent<SkillContainer>().Asset) == null)
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
-        if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
-            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom)
+        if (emission.SpatialSource != null && !emission.SpatialSource.isActor())
             return SkillEmissionResult.Unhandled;
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage);
         if (definition == null) return SkillEmissionResult.Unhandled;
         var target = new ActiveAbilityTarget(null, emission.TargetPos, attackKingdom: emission.AttackKingdom,
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
-            emission.SourcePos, emission.Payment, damage, sourceInstance: skill.Id) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+            emission.SourcePos, emission.Payment, damage, sourceInstance: skill.Id, spatialSource: emission.SpatialSource) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>已完整映射的原墙与护盾分别提供自身形体和实际材料。</summary>

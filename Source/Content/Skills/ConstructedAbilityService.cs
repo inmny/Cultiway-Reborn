@@ -376,11 +376,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="payment">原来源本次实际支付。</param><param name="damage">来源已经确定的绝对伤害及功率。</param>
     /// <param name="direction">来源确定的完整出手方向，空值保留普通身体的水平朝向。</param>
     /// <param name="sourceInstance">原来源的运行容器编号，仅用于本世界并存计数，不写入能力资料。</param>
+    /// <param name="spatialSource">实际提供出生及随动位置的人物载体，省略时使用归属人物。</param>
     internal static bool StartPrepaid(ActorExtend caster, AbilityDefinition definition,
         in ActiveAbilityTarget target, Vector3 sourcePosition, SkillCastPayment payment = null,
-        GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0) =>
-        Start(caster, definition, ValidateDefinition(definition), target, target.RuntimeData.Origin, sourcePosition,
-            true, payment, sourceDamage: damage, sourceDirection: direction, sourceInstance: sourceInstance);
+        GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0, BaseSimObject spatialSource = null)
+    {
+        if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
+        return Start(caster, definition, ValidateDefinition(definition), target, target.RuntimeData.Origin, sourcePosition,
+            true, payment, sourceDamage: damage, sourceDirection: direction, sourceInstance: sourceInstance,
+            spatialSource: spatialSource?.a);
+    }
 
     /// <summary>普通已学构造和已经收费的来源共用创建、接触、结束及清理。</summary>
     /// <param name="caster">实际归属人物。</param><param name="definition">当前完整资料。</param>
@@ -390,21 +395,24 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="carrierSource">实际借用的持物。</param><param name="sourceDamage">原来源确定的绝对伤害与功率。</param>
     /// <param name="sourceDirection">原来源确定的完整方向，空值保留普通身体的水平朝向。</param>
     /// <param name="sourceInstance">原运行容器的并存分组，普通构造为零。</param>
+    /// <param name="spatialSource">本次真实人物载体，与资源及伤害归属分开保存。</param>
     private static bool Start(ActorExtend caster, AbilityDefinition definition, CompiledAbility plan,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, Vector3? sourcePosition = null,
         bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
-        GetHitEvent? sourceDamage = null, Vector3? sourceDirection = null, int sourceInstance = 0)
+        GetHitEvent? sourceDamage = null, Vector3? sourceDirection = null, int sourceInstance = 0, Actor spatialSource = null)
     {
+        spatialSource ??= caster.Base;
+        if (!spatialSource.isAlive() || !spatialSource.hasHealth()) return false;
         string id = definition.Id;
         if (!TryResolveUseTarget(caster, plan, target, out Actor targetActor, out Vector3 point,
                 out float targetHeight) ||
-            StartingDistance(caster.Base, point) > Range(caster, plan, targetActor, carrierSource)) return false;
+            StartingDistance(spatialSource, point) > Range(caster, plan, targetActor, carrierSource)) return false;
         if (plan.Body?.Construction.HasControlRelations == true && (targetActor == null || targetActor == caster.Base))
             return false;
         if (!BodyReady(caster, plan) ||
             target.WorldScope != null && !target.WorldScope.IsValid() ||
             !WorldMaterialService.CanReserve(plan)) return false;
-        Vector2 from = caster.Base.current_position, to = point;
+        Vector2 from = sourcePosition ?? spatialSource.GetSimPos(), to = point;
         float propagationRange = plan.EventOperations.Where(operation => operation.Propagation != null)
             .Select(operation => operation.Propagation.Range * plan.Nodes[operation.Node].Scale).DefaultIfEmpty(0f).Max();
         if (simulation.pending == null)
@@ -413,7 +421,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (targetActor == null) point.z += simulation.terrain?.Sample(point.x, point.y) ?? 0f;
         else StartingPose(targetActor, out point, out targetHeight);
         double startedAt = LogicTime;
-        StartingPose(caster.Base, out Vector3 source, out float sourceHeight);
+        StartingPose(spatialSource, out Vector3 source, out float sourceHeight);
         if (sourcePosition.HasValue)
         {
             source = sourcePosition.Value;
@@ -526,6 +534,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 WorldTotals = plan.HasWorldEffects ? new() : null,
                 Source = caster.Base,
                 SourceId = caster.Base.id,
+                SpatialSource = spatialSource,
+                SpatialSourceId = spatialSource.id,
                 Target = targetActor,
                 TargetId = targetActor?.id ?? 0,
                 LastTarget = point + Vector3.forward * targetHeight * .5f,
@@ -542,7 +552,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 LastWorldTime = startedAt,
                 StartedAt = startedAt
             };
-            running.InitialOwner = new CastAuthority(caster.Base, damage, targetActor);
+            running.InitialOwner = new CastAuthority(caster.Base, damage, targetActor, target.AttackKingdom, spatialSource.id);
             running.Owners = new CastAuthority[plan.FormCount];
             for (int i = 0; i < running.Owners.Length; i++) running.Owners[i] = running.InitialOwner;
             running.LastSourceFoot = inputs.Source;
@@ -853,6 +863,15 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>对象池重用人物对象时仍能识别原始归属和目标。</summary>
         internal long SourceId, TargetId;
+
+        /// <summary>实际采样位置的稳定人物载体，不代替归属人物。</summary>
+        internal Actor SpatialSource;
+
+        /// <summary>载体原身份，防止对象池替身接续随动。</summary>
+        internal long SpatialSourceId;
+
+        /// <summary>实际载体仍是原人物且能够提供位置。</summary>
+        internal bool SpatialSourceLive => SpatialSource.data?.id == SpatialSourceId && SpatialSource.isAlive() && SpatialSource.hasHealth();
 
         /// <summary>借用实际身体和器物的绑定，非身体能力为空。</summary>
         internal BodyActionBinding Body;

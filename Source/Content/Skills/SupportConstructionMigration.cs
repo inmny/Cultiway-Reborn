@@ -40,8 +40,7 @@ internal static class SupportConstructionMigration
             asset != SkillEntities.BattleBlessing && asset != SkillEntities.GuardBlessing && asset != SkillEntities.HasteBlessing)
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
-        if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
-            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom)
+        if (emission.SpatialSource != null && !emission.SpatialSource.isActor())
             return SkillEmissionResult.Unhandled;
         AbilityDefinition definition = Convert(emission);
         if (definition == null) return SkillEmissionResult.Unhandled;
@@ -52,7 +51,7 @@ internal static class SupportConstructionMigration
             AttackType = AttackType.Other, DamageOrigin = emission.RuntimeData.DamageOrigin };
         carrier.BindAttacker(emission.Source);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
-            emission.SourcePos, emission.Payment, carrier, sourceInstance: emission.SkillContainer.Id)
+            emission.SourcePos, emission.Payment, carrier, sourceInstance: emission.SkillContainer.Id, spatialSource: emission.SpatialSource)
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 

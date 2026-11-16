@@ -52,7 +52,7 @@ internal static class UtilityConstructionMigration
             emission.TargetPos, attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData,
             worldScope: emission.RuntimeData.WorldScope);
         // 边界失效或人物已无法执行时，这个已受理步骤结束，不能再落回旧执行制造副作用。
-        return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target, emission.SourcePos, emission.Payment)
+        return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target, emission.SourcePos, emission.Payment, spatialSource: emission.SpatialSource)
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 

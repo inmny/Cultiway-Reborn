@@ -173,7 +173,7 @@ public sealed partial class ConstructedAbilityService
             if (!BarrierLive(b) || ground && !b.Running.Cast.Plan.Nodes[b.Shape.Node].BlocksGroundActors) continue;
             CastAuthority owner = b.Running.Owner(b.Shape.Node);
             owner.RefreshRelations();
-            bool hostile = actor != null ? owner.Matches(Core.SkillLibV3.Usage.SkillUseTargetRelation.Hostile, actor)
+            bool hostile = actor != null && (kingdom == null || kingdom == actor.kingdom) ? owner.Matches(Core.SkillLibV3.Usage.SkillUseTargetRelation.Hostile, actor)
                 : owner.IsHostileTo(kingdom, actorId);
             if (!hostile || !AbilityPairSweep.Find(from, to, b.Shape, b.Shape, out float at,
                 out Vector3 contact, out Vector3 normal)) continue;

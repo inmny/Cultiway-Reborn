@@ -35,15 +35,14 @@ internal static class ChainConstructionMigration
             skill.GetComponent<SkillContainer>().Asset != SkillEntities.ChainLightning)
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
-        if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
-            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom)
+        if (emission.SpatialSource != null && !emission.SpatialSource.isActor())
             return SkillEmissionResult.Unhandled;
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage);
         if (definition == null) return SkillEmissionResult.Unhandled;
         var target = new ActiveAbilityTarget(emission.Target, emission.TargetPos, attackKingdom: emission.AttackKingdom,
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
-            emission.Source.GetSimPos(), emission.Payment, damage) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+            emission.SourcePos, emission.Payment, damage, spatialSource: emission.SpatialSource) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>核对附加作用后，将原跳转上限有限展开为真实接触开始的普通部位。</summary>

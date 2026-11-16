@@ -318,7 +318,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             return;
         }
 
-        bool sourceLive = running.InitialOwner.IsLive;
+        bool sourceLive = running.InitialOwner.IsLive, spatialLive = running.SpatialSourceLive;
         running.InitialOwner.RefreshRelations();
         if (!sourceLive)
         {
@@ -326,13 +326,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ReleaseBody(running);
         }
 
-        if (!sourceLive || running.HasTransfers)
+        if (!sourceLive || !spatialLive || running.HasTransfers)
         {
             for (int i = 0; i < running.Owners.Length; i++)
             {
                 CastAuthority owner = running.Owner(i);
                 owner.RefreshRelations();
-                if (!owner.IsLive && !running.Cast.CanContinueWithoutSource(i))
+                if ((!owner.IsLive || !spatialLive && ReferenceEquals(owner, running.InitialOwner)) && !running.Cast.CanContinueWithoutSource(i))
                     running.Cast.EndNode(i, true);
             }
 
@@ -524,12 +524,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         foreach (RunningCast running in active)
         {
             if (refresh && !terrainNeedsRefresh && !changedActors.ContainsKey(running.SourceId) &&
-                !changedActors.ContainsKey(running.TargetId) &&
+                !changedActors.ContainsKey(running.TargetId) && !changedActors.ContainsKey(running.SpatialSourceId) &&
                 !(running.WeaponConstraint?.Active == true &&
                   changedActors.ContainsKey(running.WeaponConstraint.Owner.SourceId))) continue;
             Vector3 foot = running.LastSourceFoot;
             float height = running.LastSourceHeight;
-            if (running.InitialOwner.IsLive && actorIndices.TryGetValue(running.SourceId, out int sourceIndex))
+            if (running.SpatialSourceLive && actorIndices.TryGetValue(running.SpatialSourceId, out int sourceIndex))
                 Sample(actors[sourceIndex], time, out foot, out height);
             running.LastSourceFoot = foot;
             running.LastSourceHeight = height;

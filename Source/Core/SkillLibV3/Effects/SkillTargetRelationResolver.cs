@@ -6,15 +6,16 @@ namespace Cultiway.Core.SkillLibV3.Effects;
 public static class SkillTargetRelationResolver
 {
     /// <summary>判断目标是否属于施法者本人，或不存在战斗敌意的同国、同联盟单位。</summary>
-    public static bool IsFriendly(BaseSimObject source, BaseSimObject target)
+    public static bool IsFriendly(BaseSimObject source, BaseSimObject target, Kingdom attackKingdom = null)
     {
         if (source == null || target == null || source.isRekt() || target.isRekt()) return false;
         if (source == target) return true;
         if (!target.isActor()) return false;
-        if (HasHostileRelation(source, target)) return false;
-        if (source.kingdom == null || target.kingdom == null) return false;
-        if (source.kingdom == target.kingdom) return true;
-        var sourceAlliance = source.kingdom.getAlliance();
+        if (HasHostileRelation(source, target, attackKingdom)) return false;
+        Kingdom sourceKingdom = attackKingdom ?? source.kingdom;
+        if (sourceKingdom == null || target.kingdom == null) return false;
+        if (sourceKingdom == target.kingdom) return true;
+        var sourceAlliance = sourceKingdom.getAlliance();
         return sourceAlliance != null && sourceAlliance == target.kingdom.getAlliance();
     }
 
@@ -70,7 +71,7 @@ public static class SkillTargetRelationResolver
         return relation switch
         {
             SkillEffectTargetRelation.Hostile => IsHostile(source, target, attackKingdom),
-            SkillEffectTargetRelation.Friendly => IsFriendly(source, target),
+            SkillEffectTargetRelation.Friendly => IsFriendly(source, target, attackKingdom),
             SkillEffectTargetRelation.Self => source == target,
             _ => false,
         };
@@ -86,7 +87,7 @@ public static class SkillTargetRelationResolver
         return relation switch
         {
             SkillUseTargetRelation.Hostile => IsHostile(source, target, attackKingdom),
-            SkillUseTargetRelation.Friendly => IsFriendly(source, target),
+            SkillUseTargetRelation.Friendly => IsFriendly(source, target, attackKingdom),
             SkillUseTargetRelation.Self => source == target,
             _ => false,
         };

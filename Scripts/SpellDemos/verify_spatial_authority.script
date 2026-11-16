@@ -1,0 +1,198 @@
+// B47：共用独立人物载体与明确攻击阵营，不扩身体和装备矩阵。
+const string section = "all";
+var allCasts = new List<AbilityCast>();
+var runningCasts = new List<object>();
+var damages = new List<object>();
+var positions = new List<object>();
+string phase = "definitions";
+int oldExecutions = 0;
+Actor source = Make(64), carrier = Make(64), target = Make(70), friendly = Make(72, "wolf");
+Place(source, 62, 76); Place(friendly, 72, 75);
+target.setKingdom(source.kingdom);
+var attackKingdom = friendly.kingdom;
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 0;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+IReadOnlyList<Entity> Learned() => (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+Entity Build(SkillEntityAsset asset)
+{
+    var builder = new SkillContainerBuilder(asset).UseAnimation(0);
+    if (asset == SkillEntities.HealingLight) builder.AddModifier(new HealingModifier { Amount = 30 });
+    Entity made = builder.Build(SkillContainerBuildMode.RuleOnly);
+    string signature = SkillContainerSignature.Build(made); owner.LearnSkillV3(made);
+    return Learned().First(x => SkillContainerSignature.Build(x) == signature);
+}
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(r => (long)Field(r, "Id") == fact.CastId);
+    runningCasts.Add(running); allCasts.Add((AbilityCast)Field(running, "Cast"));
+}
+void Old(Entity entity) { if (entity.GetComponent<SkillContext>().SourceObj == source) oldExecutions++; }
+ConstructedAbilityService.CastStarted += Started;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+SpatialAuthorityProbe.Damaged = (damage, before) =>
+{
+    if (damage.AttackerID == source.id)
+        damages.Add(new { phase, damage.TargetID, damage.AttackerID, damage.Damage, before, after = World.world.units.get(damage.TargetID)?.data.health ?? 0 });
+};
+var hook = new HarmonyLib.Harmony("Cultiway.Verify.SpatialAuthority");
+var damageType = typeof(GetHitEvent).Assembly.GetType("Cultiway.Core.EventSystem.Systems.GetHitEventSystem");
+hook.Patch(damageType.GetMethod("Resolve", F), prefix: new HarmonyLib.HarmonyMethod(typeof(SpatialAuthorityProbe).GetMethod("DamagePrefix")), postfix: new HarmonyLib.HarmonyMethod(typeof(SpatialAuthorityProbe).GetMethod("DamagePostfix")));
+async Task<AbilityCast> Use(Entity skill, Actor selected, Kingdom kingdom, bool expected = true)
+{
+    Ready(source); source.setHealth(source.getMaxHealth());
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    bool mana = skill.GetComponent<SkillContainer>().Asset == SkillEntities.HealingLight;
+    if (mana) source.setMana(source.getMaxMana());
+    double beforeWakan = mana ? source.getMana() : owner.GetCultisys<Xian>().wakan;
+    int before = allCasts.Count;
+    bool used;
+    var context = new SkillCasterContext(owner, carrier.GetExtend());
+    using (SkillCasterContextService.Enter(in context))
+        used = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+            new ActiveAbilityTarget(selected, selected.GetSimPos(), attackKingdom: kingdom,
+                selectionArea: new SkillTargetSelectionArea(true, selected.GetSimPos(), .1f)), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999; CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+    ControllableUnit.clear(false); source.stopForce(); source.batch.c_action_landed.Remove(source);
+    Check(used == expected, phase + "已学入口按本次阵营判定", new { used, expected });
+    if (!expected)
+    {
+        await Advance(.05f);
+        Check(allCasts.Count == before && Math.Abs(owner.GetCultisys<Xian>().wakan - beforeWakan) < .001, "未指定敌对阵营时拒绝且不扣费");
+        return null;
+    }
+    for (int i = 0; i < 40 && allCasts.Count == before; i++) await Advance(.01f);
+    Check(allCasts.Count == before + 1, phase + "实际仅发射一次");
+    double cost = (mana ? SkillCastResources.Mana : SkillCastResources.Wakan).Quote(owner, SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    Check(Math.Abs(beforeWakan - (mana ? source.getMana() : owner.GetCultisys<Xian>().wakan) - cost) < .01f, phase + "只从归属人物支付一次", cost);
+    return allCasts.Last();
+}
+async Task StopAll()
+{
+    foreach (var cast in allCasts) cast.Cancel();
+    await Advance(.1f);
+}
+try
+{
+    if (section is "all" or "definitions")
+    {
+        foreach (var entry in new[] { (SkillEntities.SpiritBolt, "Projectile"), (SkillEntities.GroundSpike, "GroundSpike"), (SkillEntities.Rift, "Rift"),
+            (SkillEntities.YinField, "Field"), (SkillEntities.SpiritShield, "Barrier"), (SkillEntities.SpiritBeam, "Beam"),
+            (SkillEntities.ChainLightning, "Chain"), (SkillEntities.HealingLight, "Support") })
+        {
+            Entity skill = Build(entry.Item1);
+            var selected = entry.Item2 == "Support" ? friendly : target;
+            var emission = new SkillEmission { Source = source, SpatialSource = carrier, SkillContainer = skill, Target = selected,
+                SourcePos = carrier.GetSimPos(), TargetPos = selected.GetSimPos(), AttackKingdom = attackKingdom, Strength = 40, PowerLevel = 0 };
+            var method = service.Assembly.GetType("Cultiway.Content.Skills." + entry.Item2 + "ConstructionMigration").GetMethod("Emit", F);
+            var result = (SkillEmissionResult)method.Invoke(null, new object[] { emission });
+            Check(result == SkillEmissionResult.Accepted, entry.Item2 + "独立载体及明确阵营由新执行受理", result.ToString());
+            object running = runningCasts.Last();
+            Check((long)Field(running, "SourceId") == source.id && (long)Field(running, "SpatialSourceId") == carrier.id, entry.Item2 + "归属与位置身份分开保存");
+            await StopAll();
+        }
+        Check(oldExecutions == 0, "八条已转换来源不产生旧执行体");
+    }
+    if (section is "all" or "runtime" or "runtime-tail")
+    {
+        Entity bolt = Build(SkillEntities.SpiritBolt);
+        int before;
+        AbilityCast cast;
+        if (section != "runtime-tail")
+        {
+        phase = "rejected"; await Use(bolt, target, null, false);
+        phase = "projectile";
+        before = damages.Count;
+        cast = await Use(bolt, target, attackKingdom);
+        object authority = Field(runningCasts.Last(), "InitialOwner");
+        Type authorityType = authority.GetType();
+        bool Matches(object value, SkillUseTargetRelation relation, Actor other) => (bool)authorityType.GetMethod("Matches", F).Invoke(value, new object[] { relation, other });
+        Check(!Matches(authority, SkillUseTargetRelation.Hostile, source) && !Matches(authority, SkillUseTargetRelation.Hostile, carrier) && Matches(authority, SkillUseTargetRelation.Hostile, target) && Matches(authority, SkillUseTargetRelation.Friendly, friendly), "同一实际归属排除肉身和载体，并按明确阵营区分敌友");
+        object retargeted = authorityType.GetConstructor(F, null, new[] { authorityType, typeof(Actor) }, null).Invoke(new[] { authority, target });
+        Check(Matches(retargeted, SkillUseTargetRelation.Hostile, target) && !Matches(retargeted, SkillUseTargetRelation.Hostile, carrier) && (bool)authorityType.GetMethod("SameKingdom", F).Invoke(retargeted, new[] { authority }), "后续选敌继承明确阵营与载体身份");
+        object reflected = authorityType.GetConstructor(F, null, new[] { authorityType, typeof(GetHitEvent), authorityType }, null).Invoke(new object[] { authority, default(GetHitEvent), retargeted });
+        Check(Matches(reflected, SkillUseTargetRelation.Hostile, target) && !Matches(reflected, SkillUseTargetRelation.Hostile, carrier), "交接归属复制本次阵营及自身排除");
+        Vector3 origin = cast.ContactOrigin(0);
+        Check(Math.Abs(origin.x - carrier.current_position.x) < 1f && Math.Abs(origin.y - carrier.current_position.y) < 1f && Vector2.Distance(origin, source.current_position) > 2f, "独立载体真实出生与肉身分开", new { origin.x, origin.y });
+        for (int i = 0; i < 80 && damages.Count == before; i++) await Advance(.025f);
+        Check(damages.Count == before + 1 && contacts.Last().TargetId == target.id && oldExecutions == 0, "实际伤及本次敌人且归属原人物", damages.LastOrDefault());
+        await StopAll();
+        }
+        phase = "friendly";
+        owner.NewCultisys(Cultisyses.Magic); owner.GetCultisys<Magic>().level = 0;
+        source.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("white_staff"), pActor: source), source);
+        owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+        friendly.setHealth(friendly.getMaxHealth() - 100); int health = friendly.data.health; before = damages.Count;
+        await Use(Build(SkillEntities.HealingLight), friendly, attackKingdom);
+        for (int i = 0; i < 80 && friendly.data.health <= health; i++) await Advance(.025f);
+        Check(friendly.data.health > health && damages.Count == before, "本次阵营友方恢复且没有攻击伤害", new { before = health, after = friendly.data.health });
+        await StopAll();
+        phase = "beam";
+        Place(carrier, 64); Place(target, 70);
+        cast = await Use(Build(SkillEntities.SolarBeam), target, attackKingdom);
+        await Advance(.03f); Vector3 initial = cast.ContactOrigin(0);
+        Place(carrier, 65, 73); await Advance(.06f); Vector3 moved = cast.ContactOrigin(0);
+        positions.Add(new { phase, initial = new[] { initial.x, initial.y, initial.z }, moved = new[] { moved.x, moved.y, moved.z } });
+        Check(!cast.Finished && Math.Abs(moved.x - initial.x - 1f) < .02f && Math.Abs(moved.y - initial.y - 1f) < .02f, "随动光束实际跟随载体而非肉身", positions.Last());
+        long stableId = carrier.data.id;
+        try
+        {
+            carrier.data.id = stableId + 10000000;
+            Place(carrier, 68, 76); await Advance(.06f);
+            Check(cast.Finished, "载体身份失效后依赖部位结束，不读取对象池替身");
+        }
+        finally { carrier.data.id = stableId; Place(carrier, 64); }
+        await StopAll();
+        phase = "recovery"; before = damages.Count;
+        await Use(bolt, target, attackKingdom);
+        for (int i = 0; i < 80 && damages.Count == before; i++) await Advance(.025f);
+        Check(damages.Count == before + 1 && !BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(carrier.id) && oldExecutions == 0, "原载体恢复后可再次正常施放且没有控制遗留");
+        await StopAll();
+    }
+    if (section is "all" or "detached")
+    {
+        phase = "detached";
+        var emission = new SkillEmission { Source = source, SpatialSource = carrier, SkillContainer = Build(SkillEntities.SpiritBolt), Target = target,
+            SourcePos = carrier.GetSimPos(), TargetPos = target.GetSimPos(), AttackKingdom = attackKingdom, Strength = 40, PowerLevel = 0 };
+        object[] args = { emission, default(GetHitEvent), default(Vector3) };
+        var convert = service.Assembly.GetType("Cultiway.Content.Skills.ProjectileConstructionMigration").GetMethod("Convert", F);
+        var definition = (AbilityDefinition)convert.Invoke(null, args);
+        definition.Id = "test.spatial-authority.detached"; definition.Root.SourceLoss = ConstructionSourceLoss.Continue;
+        var choice = new ActiveAbilityTarget(target, target.GetSimPos(), attackKingdom: attackKingdom);
+        bool used = (bool)service.GetMethod("StartPrepaid", F).Invoke(null, new object[] { owner, definition, choice, carrier.GetSimPos(), null, args[1], args[2], 0, carrier });
+        Check(used, "明确独立存续的普通部位受理");
+        object authority = Field(runningCasts.Last(), "InitialOwner");
+        long identity = carrier.data.id; Kingdom originalKingdom = source.kingdom; int before = damages.Count;
+        try
+        {
+            carrier.data.id = identity + 10000000; Place(carrier, 68, 76);
+            source.setKingdom(attackKingdom); await Advance(.01f);
+            source.setKingdom(originalKingdom); await Advance(.01f);
+            for (int i = 0; i < 80 && damages.Count == before; i++) await Advance(.025f);
+            Check(damages.Count == before + 1 && contacts.Last().TargetId == target.id, "载体身份失效后明确独立部位仍按原出生点完成真实接触", damages.LastOrDefault());
+            Check((long)Field(authority, "kingdomId") == attackKingdom.data.id, "归属人物转属后明确攻击阵营保持本次身份");
+        }
+        finally { carrier.data.id = identity; source.setKingdom(originalKingdom); Place(carrier, 64); }
+        await StopAll();
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    foreach (var cast in allCasts) cast.Cancel(); hook.UnpatchSelf(); SpatialAuthorityProbe.Damaged = null;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old; ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false); Config.setWorldSpeed("x1", false); Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "damage.json"), JsonConvert.SerializeObject(damages, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "positions.json"), JsonConvert.SerializeObject(positions, Formatting.Indented));
+}
+/// <summary>只观察真实共同伤害，不改变受伤规则。</summary>
+public static class SpatialAuthorityProbe
+{
+    /// <summary>真实伤害及结算前生命。</summary>
+    public static Action<GetHitEvent, int> Damaged;
+    /// <summary>保留受击前生命。</summary>
+    public static void DamagePrefix(GetHitEvent __0, out int __state) => __state = World.world.units.get(__0.TargetID)?.data.health ?? 0;
+    /// <summary>观察共同结算后的实际结果。</summary>
+    public static void DamagePostfix(GetHitEvent __0, int __state) => Damaged?.Invoke(__0, __state);
+}

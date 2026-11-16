@@ -35,7 +35,7 @@ public sealed partial class ConstructedAbilityService
             if (target.Object.isRekt() || !target.Object.isActor()) return false;
             actor = target.Object.a;
             if (!actor.isAlive() || !actor.hasHealth() ||
-                !SkillTargetRelationResolver.Matches(plan.Impact.Targets, caster.Base, actor)) return false;
+                !SkillTargetRelationResolver.Matches(plan.Impact.Targets, caster.Base, actor, target.AttackKingdom)) return false;
         }
 
         if (actor != null)
