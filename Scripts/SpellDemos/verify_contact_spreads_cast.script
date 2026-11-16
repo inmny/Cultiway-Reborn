@@ -1,0 +1,69 @@
+// C7：同一现成场景只补编辑成品的范围内外和介质人数限制。
+Actor source = Make(64), target = Make(72,"wolf"), near = Make(73,"wolf"), second = Make(12,"wolf"), extra = Make(12,"wolf"), outside = Make(76,"wolf");
+Place(near,73,73); Place(outside,76,76);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.05f);
+owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+var spreads = new List<ConstructedSpread>(); var media = new List<ConstructedMediumSpread>(); var active = new List<AbilityCast>();
+var damage = new List<(long Target,float Amount)>(); var records = new List<object>();
+void Spread(ConstructedSpread value) => spreads.Add(value);
+void Medium(ConstructedMediumSpread value) => media.Add(value);
+void Started(ConstructedCastStarted value)
+{
+    if (value.SourceId != source.id) return;
+    foreach(object running in (IEnumerable)service.GetField("casts",F).GetValue(null))
+        if ((long)Field(running,"Id") == value.CastId) active.Add((AbilityCast)Field(running,"Cast"));
+}
+var hook = new HarmonyLib.Harmony("Cultiway.ContactSpreads.Probe");
+ContactSpreadsProbe.Damaged = hit => { if(hit.AttackerID==source.id && hit.Damage>0) damage.Add((hit.TargetID,hit.Damage)); };
+hook.Patch(typeof(Cultiway.Core.EventSystem.Systems.GetHitEventSystem).GetMethod("Resolve",F),postfix:new HarmonyLib.HarmonyMethod(typeof(ContactSpreadsProbe).GetMethod("AfterDamage")));
+ConstructedAbilityService.SpreadConfirmed += Spread; ConstructedAbilityService.MediumSpreadConfirmed += Medium; ConstructedAbilityService.CastStarted += Started;
+AbilityDefinition Read(string name) => JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"artifacts/skill_rebuild/trajectories/contact-spreads/ui",name+"-definition.json")));
+async Task Use(AbilityDefinition definition)
+{
+    File.WriteAllText(Path.Combine(folder,definition.Parent==null ? "active-definition.json" : "edited-definition-"+definition.Id+".json"),JsonConvert.SerializeObject(definition,Formatting.Indented));
+    Ready(source); Place(source,64); Place(target,72); target.attack_timer=999;
+    ConstructedAbilityService.NotifyActorChanged(source); ConstructedAbilityService.NotifyActorChanged(target);
+    damage.Clear(); contacts.Clear(); float before=owner.GetCultisys<Xian>().wakan;
+    await Fire(definition,source,target); float paid=before-owner.GetCultisys<Xian>().wakan;
+    owner.E.RemoveComponent<ConstructedKnowledge>(); CombatStatusEffects.ApplyStatus(source,hold,10000,source); source.updateStats();
+    for(int i=0;i<80 && !contacts.Any(c=>c.AbilityId==definition.Id && c.TargetId==target.id);i++) await Advance(.025f);
+    records.Add(new { definition.Id,paid,sourceFoot=new[]{source.current_position.x,source.current_position.y,source.position_height},targetFoot=new[]{target.current_position.x,target.current_position.y,target.position_height},castStates=active.Select(c=>new{c.Plan.Id,c.Age,c.Finished,remaining=c.RemainingForce(0)}).ToArray(),hits=contacts.Select(c=>new{c.AbilityId,c.TargetId,c.Age}).ToArray(),damage=damage.Select(d=>new{d.Target,d.Amount}).ToArray() });
+    Check(Math.Abs(paid-definition.Cost)<.001f && contacts.Any(c=>c.AbilityId==definition.Id && c.TargetId==target.id),"编辑成品正式支付并真实接触："+definition.Id,new{paid});
+}
+try
+{
+    var sphere=Read("sphere"); await Use(sphere);
+    Check(spreads.Count==1 && spreads[0].Radius==2.5f && spreads[0].Actors.OrderBy(v=>v).SequenceEqual(new[]{target.id,near.id}.OrderBy(v=>v)),"编辑半径与实际分送一致，球形外人物安全",new{spreads[0].Radius,spreads[0].Actors});
+    Check(damage.Count==2 && damage.All(d=>d.Amount==7f) && damage.All(d=>d.Target!=outside.id),"范围接收者只各结算一份编辑的7点伤害");
+    await Advance(sphere.Lifetime+.5f); Check(endings.Any(e=>e.Fact.AbilityId==sphere.Id) && !BodyControlState.IsBusy(source.id),"球形分送成品结束恢复");
+    Place(near,72,72.7f); Place(second,72.8f,73); Place(extra,73.4f,73);
+    var water=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Scripts/SpellDemos/fixtures/contact-spreads-medium.json")));
+    File.WriteAllText(Path.Combine(folder,"medium-fixture.json"),JsonConvert.SerializeObject(water,Formatting.Indented));
+    Ready(source); Place(source,64); await Fire(water,source,target,aim:new Vector3(72,72,0)); owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(.1f);
+    var medium=Read("medium"); await Use(medium);
+    Check(media.Count==1 && media[0].Channel=="c7.water" && media[0].Targets.SequenceEqual(new[]{near.id,second.id}) && media[0].MediumCastId!=media[0].CastId,"编辑通道使用现存连通水体，只传给两个额外人物",new{media[0].Targets,media[0].Channel});
+    Check(damage.Count==2 && damage.All(d=>d.Amount==7f) && damage.All(d=>d.Target!=target.id && d.Target!=extra.id && d.Target!=outside.id),"介质人数上限与普通结果生效，原触发者和第三人未额外受伤");
+    await Advance(medium.Lifetime+.5f); Check(endings.Any(e=>e.Fact.AbilityId==medium.Id) && !BodyControlState.IsBusy(source.id),"介质成品结束恢复");
+    foreach(var cast in active) cast.Cancel(); await Advance(.6f);
+    Check(!FormVisualScene.Instances.Any(v=>v.Resource.Description.Id=="thunder_channel"),"结束后连接按世界时间清理");
+    int prior=media.Count; await Use(medium); await Advance(medium.Lifetime+.5f);
+    Check(media.Count==prior && damage.Count==0,"移除实际介质后仍可再次施放，未凭空传播结果");
+    return new { passed=true,closed="编辑成品球形范围、介质连通和结束恢复",checks,process=System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    hook.UnpatchSelf(); ContactSpreadsProbe.Damaged=null;
+    ConstructedAbilityService.SpreadConfirmed-=Spread; ConstructedAbilityService.MediumSpreadConfirmed-=Medium; ConstructedAbilityService.CastStarted-=Started;
+    ConstructedAbilityService.ContactConfirmed-=Hit; ConstructedAbilityService.CastEnded-=Ended;
+    foreach(var cast in active) cast.Cancel(); Config.paused=true; ControllableUnit.clear(false);
+    File.WriteAllText(Path.Combine(folder,"observations.json"),JsonConvert.SerializeObject(new{records,spreads=spreads.Select(s=>new{s.CastId,s.ContactId,s.Radius,s.Actors,s.Buildings}),media=media.Select(s=>new{s.CastId,s.ContactId,s.MediumCastId,s.Channel,s.Targets,s.Buildings,points=s.Points.Select(p=>new[]{p.x,p.y,p.z}).ToArray()})},Formatting.Indented));
+}
+/// <summary>仅观察正式受击事件，不修改伤害。</summary>
+public static class ContactSpreadsProbe
+{
+    /// <summary>真实结算回调。</summary>
+    public static Action<GetHitEvent> Damaged;
+    /// <summary>保存实际结算。</summary>
+    public static void AfterDamage(GetHitEvent __0)=>Damaged?.Invoke(__0);
+}

@@ -1569,3 +1569,19 @@ python3 Scripts/SpellDemos/verify_contact_results.py --section save
 旧样例`fixtures/contact-results-rule13.json`直接截取C5正式区段14和当时的完整预期，验证旧规则13结果及费用未改。证据保存在`artifacts/skill_rebuild/trajectories/contact-results/`，重跑失败段前自动保留旧输入和结果。入口复用现成世界、同一个普通部位和独立安装，不扩大身体装备矩阵；软件渲染只用于功能和窗口验证。正式冷启动、集中录像及最终美术与性能仍归对应交付点。
 
 C6实际验收采用分段续接，没有重跑已经通过的部分：`ui-tail`从直接伤害成品继续随机及条件编辑；`cast-tail`从随机开始，`cast-conditions`从生命条件开始，`cast-kill`从真实击杀开始并核对再次施放。原始失败、各前段通过项及剩余补段由`delivery.json`明确列出，不将前段通过改写成整段成功。施放准备先重新接管再归位，避开原版解除操控施加的随机推力；每次记录真实位置及形状，漏命中时保留现场。
+
+## 5.05 C7：范围与介质分送的编辑及自主创作
+
+```bash
+python3 Scripts/SpellDemos/verify_contact_spreads.py
+python3 Scripts/SpellDemos/verify_contact_spreads.py --section ui
+python3 Scripts/SpellDemos/verify_contact_spreads.py --section cast
+python3 Scripts/SpellDemos/verify_contact_spreads.py --section creation
+python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
+```
+
+同一接触页新增“范围与介质分送”，复用普通伤害、状态、恢复与击退结果。`ui`从真实窗口编辑球形半径、建筑比例和显示时间，再编辑介质通道、实际材料物态、接收者上限、同通道一次、继承原作用及连接反馈，检查非法值不能保存、撤销、部位深拷贝、正式替换和再打开，并留下中英截图。部位与性质页可声明实际介质通道。
+
+`cast`使用窗口正式保存的成品，核对球形范围内外及每人一份结果，再复用既有薄水域验证真实介质连通、两人上限、结束清理及移除介质后再次施放。原始火弹与水体会实际交锋并消耗水体，保留其失败输入和观测；用于介质分送的成品经真实窗口改为雷法，不修改碰撞或材料规则。`ui-tail`只补中英文和正式保存，`ui-medium`可从已存成品通过真实表单调整材料，`cast-tail`只补未完成介质段。完整输入、分段结果、原始失败及输入快照位于`artifacts/skill_rebuild/trajectories/contact-spreads/`。
+
+`creation`验证规则15独立创作与接触分送派生、冻结输入重现、运动及命名引用保留、新费用及范围/重复次数预算；`save`验证正式人物区段16、新旧等待请求各完成一次、真实收费施放及成品再次存读。旧样例`fixtures/contact-spreads-rule14.json`取自C6正式世界的区段15与当时固定预期；薄水域`fixtures/contact-spreads-medium.json`复用B45已通过资料，只替换测试编号与通道。不重跑已通过的身体装备或介质形状矩阵，正式冷启动和连续录像仍集中在C交付点。

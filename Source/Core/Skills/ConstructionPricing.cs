@@ -52,6 +52,9 @@ public sealed class ConstructionMeasure
     /// <summary>附加伤害及有限随机、条件结果的需求，第十四版起计入。</summary>
     public double ContactResultsWork { get; }
 
+    /// <summary>球形范围与介质接收者的分送需求，第十五版起计入。</summary>
+    public double ContactSpreadWork { get; }
+
     /// <summary>按当前规模给出的默认恢复世界秒数；不替代真实身体收势。</summary>
     public float DefaultCooldown { get; }
 
@@ -70,6 +73,8 @@ public sealed class ConstructionMeasure
         var contactEffects = new Dictionary<int, double>();
         var contactDisplacement = new Dictionary<int, double>();
         var contactResults = new Dictionary<int, double>();
+        var contactSpreads = new Dictionary<int, double>();
+        var onceSpreadChannels = new Dictionary<string, double>(StringComparer.Ordinal);
         double work = plan.Body == null ? 0 : .5d + plan.Body.Duration * .25d;
         work += plan.Body?.MovementWork ?? 0d;
         if (plan.Body != null)
@@ -215,7 +220,9 @@ public sealed class ConstructionMeasure
             ContactEffectsWork += contactEffects[group.Key] * repeat;
             ContactDisplacementWork += contactDisplacement[group.Key] * repeat;
             ContactResultsWork += contactResults[group.Key] * repeat;
+            ContactSpreadWork += contactSpreads[group.Key] * repeat;
         }
+        ContactSpreadWork += onceSpreadChannels.Values.Sum();
         ContactGroups = groups.Keys.Select(id => id >= plan.Nodes.Length ? plan.Nodes.Length : id).Distinct().Count();
         // 选取距离与作用形状分别维护；更远投送保留相应控制预算，不扩大接触面。
         float range = plan.Use.Target == SkillLibV3.ActiveAbilities.ActiveAbilityTargetMode.Self
@@ -225,6 +232,7 @@ public sealed class ConstructionMeasure
         ContactEffectsWork *= 1d + range / 120d;
         ContactDisplacementWork *= 1d + range / 120d;
         ContactResultsWork *= 1d + range / 120d;
+        ContactSpreadWork *= 1d + range / 120d;
         if (double.IsNaN(Work) || double.IsInfinity(Work) || Work > float.MaxValue)
             throw new InvalidDataException("构造规模：材料、持续或作用预算超出可表示资源范围");
         DefaultCooldown = Math.Max(plan.Body?.Duration ?? 0f, (float)Math.Sqrt(Work) * .25f);
@@ -261,6 +269,23 @@ public sealed class ConstructionMeasure
             foreach (var rule in impact.ConditionalContacts)
                 results += Math.Max(OutcomeWork(rule.Outcome, power, strength), OutcomeWork(rule.Otherwise, power, strength)) +
                     Math.Max(OutcomeWork(rule.OnKill, power, strength), OutcomeWork(rule.OnSurvive, power, strength));
+            // 球形按平面覆盖预算，介质按明确接收者上限；同施放通道一次的需求单独合并。
+            double sphereWork = impact.Spreads.Where(spread => spread.HasEffect && spread.Medium == null).Sum(spread =>
+                Math.Max(1d, Math.PI * spread.Radius * spread.Radius / 4d) *
+                (OutcomeWork(spread.Outcome, power, strength) + spread.BuildingDamagePerForce * power * strength * .1d));
+            double spreading = sphereWork;
+            foreach (var spread in impact.Spreads.Where(spread => spread.HasEffect && spread.Medium != null))
+            {
+                var medium = spread.Medium;
+                double inherited = medium.InheritContactEffects ? effects + displacement + results +
+                    Math.Max(0d, force - power * strength * impact.DamageScale) + sphereWork : 0d;
+                double mediumWork = medium.MaximumTargets * Math.Max(OutcomeWork(spread.Outcome, power, strength) + inherited,
+                    spread.BuildingDamagePerForce * power * strength * .1d + (medium.InheritContactEffects ? sphereWork : 0d));
+                if (medium.OncePerCast)
+                    onceSpreadChannels[medium.Channel] = Math.Max(onceSpreadChannels.TryGetValue(medium.Channel, out double oldMedium) ? oldMedium : 0d, mediumWork);
+                else spreading += mediumWork;
+            }
+            contactSpreads[id] = Math.Max(contactSpreads.TryGetValue(id, out double previousSpreading) ? previousSpreading : 0d, spreading);
             contactResults[id] = Math.Max(contactResults.TryGetValue(id, out double previousResults) ? previousResults : 0d, results);
             contactDisplacement[id] = Math.Max(contactDisplacement.TryGetValue(id, out double previousDisplacement) ? previousDisplacement : 0d, displacement);
             contactEffects[id] = Math.Max(contactEffects.TryGetValue(id, out double previousEffects) ? previousEffects : 0d, effects);
@@ -316,11 +341,11 @@ public static class ConstructionPricing
     /// <param name="measure">已编译的实际规模。</param><param name="rules">本次创作版本。</param>
     private static double Demand(ConstructionMeasure measure, int rules) => measure.Work +
         (rules >= 12 ? measure.ContactEffectsWork : 0d) + (rules >= 13 ? measure.ContactDisplacementWork : 0d) +
-        (rules >= 14 ? measure.ContactResultsWork : 0d);
+        (rules >= 14 ? measure.ContactResultsWork : 0d) + (rules >= 15 ? measure.ContactSpreadWork : 0d);
 
     /// <summary>以当前实际构造计算新创作的默认费用与恢复时间。</summary>
     /// <param name="definition">本次独占的新创作。</param><param name="cost">是否补费用。</param><param name="cooldown">是否补恢复时间。</param>
-    /// <param name="contactRules">创作规则版本；十二版计状态及恢复，十三版计位移，十四版计附加与分支结果，省略沿原计算。</param>
+    /// <param name="contactRules">创作规则版本；十二版计状态及恢复，十三版计位移，十四版计附加与分支结果，十五版计范围和介质分送，省略沿原计算。</param>
     public static AbilityDefinition Price(AbilityDefinition definition, bool cost = true, bool cooldown = true, int contactRules = 0)
     {
         CompiledAbility plan = AbilityCompiler.Compile(definition, false);

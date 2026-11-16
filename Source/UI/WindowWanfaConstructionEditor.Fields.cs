@@ -52,6 +52,7 @@ public sealed partial class WindowWanfaConstructionEditor
                         Selected = node.Form == id,
                         Select = () => Change(() => node.Form = id)
                     }).ToArray(), true));
+        ConnectionText("MediumChannel", node.MediumChannel ?? "", value => node.MediumChannel = string.IsNullOrEmpty(value) ? null : value);
         Number("Scale", node.Scale, value => node.Scale = value);
         Toggle("ExplicitVolume", node.Volume.HasValue, value => node.Volume = value ? 1f : (float?)null);
         if (node.Volume.HasValue) Number("Volume", node.Volume.Value, value => node.Volume = value);

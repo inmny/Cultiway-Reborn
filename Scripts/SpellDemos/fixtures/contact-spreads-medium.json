@@ -1,0 +1,88 @@
+{
+  "Version": 1,
+  "Id": "test.contact-spreads.medium",
+  "Revision": 1,
+  "Name": "玄阴域",
+  "Creator": 0,
+  "Seed": 0,
+  "Lifetime": 15.0,
+  "Cost": 0.0,
+  "Resource": "none",
+  "AdditionalResources": [],
+  "ResourceMode": 0,
+  "Cooldown": 0.0,
+  "ConcurrentLimit": 2,
+  "Power": 1.0,
+  "TargetRange": 10000.0,
+  "Use": {
+    "Channels": 3,
+    "Target": 3
+  },
+  "Root": {
+    "Id": "field",
+    "Form": "yin_field",
+    "Surface": null,
+    "Matter": "water",
+    "State": "liquid",
+    "MediumChannel": "c7.water",
+    "Tint": null,
+    "Anchor": null,
+    "Offset": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Rotation": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Scale": 1.0,
+    "ActiveFrom": 0.0,
+    "ActiveUntil": -1.0,
+    "ActiveFromMarker": null,
+    "ActiveUntilMarker": null,
+    "ContactGroup": null,
+    "Contact": {
+      "Mode": 1,
+      "Interval": 0.4,
+      "MaximumPerTarget": 0,
+      "MaximumTotal": 0
+    },
+    "OnContact": 0,
+    "ContactRole": 2,
+    "Strength": 1.0,
+    "Interception": 0,
+    "ReflectionLimit": 8,
+    "Operations": [
+      {
+        "Clip": "run",
+        "Kind": 4,
+        "At": 0.0,
+        "Seconds": 0.0,
+        "Vector": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "TurnRate": 0.0,
+        "Matter": null,
+        "State": null,
+        "Trigger": 0,
+        "Path": null,
+        "InheritVelocity": true
+      }
+    ],
+    "Children": []
+  },
+  "Body": null,
+  "Binding": {
+    "Anchor": 0,
+    "Follow": false,
+    "ContactAtDestination": false,
+    "FaceTarget": false,
+    "ScaleByBody": false,
+    "Height": 0.0
+  },
+  "Steps": []
+}

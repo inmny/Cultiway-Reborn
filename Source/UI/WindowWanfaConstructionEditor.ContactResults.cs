@@ -19,7 +19,7 @@ public sealed partial class WindowWanfaConstructionEditor
     {
         int selected = contactPanels.TryGetValue(prefix, out int value) ? value : 0;
         Choice(prefix + "ContactPanel", T("ContactPanel." + selected), () => menu.Show(T(prefix + "ContactPanel"),
-            Enumerable.Range(0, 3).Select(index => new UiOptionMenuOption
+            Enumerable.Range(0, 4).Select(index => new UiOptionMenuOption
             {
                 Label = T("ContactPanel." + index), Selected = index == selected,
                 Select = () => { contactPanels[prefix] = index; Refresh(); }
@@ -32,7 +32,8 @@ public sealed partial class WindowWanfaConstructionEditor
             ContactDamageRows(impact.AdditionalDamage, next => impact.AdditionalDamage = next, prefix);
         }
         else if (selected == 1) RandomContactRows(impact, prefix);
-        else ConditionalContactRows(impact, prefix);
+        else if (selected == 2) ConditionalContactRows(impact, prefix);
+        else ContactSpreadRows(impact, prefix);
     }
 
     /// <summary>选择和增删独立伤害，受伤者与攻击归属分别保存。</summary>

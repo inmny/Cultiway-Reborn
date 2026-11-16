@@ -14,22 +14,22 @@ public sealed partial class ConstructedAbilityService
 {
     /// <summary>列出真实攻击部位和身体接触窗口；纯装饰及纯防御面不接受人物作用。</summary>
     /// <param name="definition">当前独立构造。</param>
-    private static List<(ConstructionImpact Impact, Action<ConstructionImpact> Set)> CreationContactSites(AbilityDefinition definition)
+    private static List<(ConstructionImpact Impact, Action<ConstructionImpact> Set, ConstructionNode Node)> CreationContactSites(AbilityDefinition definition)
     {
-        var sites = new List<(ConstructionImpact, Action<ConstructionImpact>)>();
+        var sites = new List<(ConstructionImpact, Action<ConstructionImpact>, ConstructionNode)>();
         CompiledAbility plan = ValidateDefinition(definition, cache: false);
         if (plan.Body?.Construction?.MayContact == true)
         {
-            sites.Add((definition.Body.Impact ?? definition.Impact ?? new ConstructionImpact(), value => definition.Body.Impact = value));
+            sites.Add((definition.Body.Impact ?? definition.Impact ?? new ConstructionImpact(), value => definition.Body.Impact = value, null));
             foreach (BodyActionStage stage in definition.Body.Stages ?? Array.Empty<BodyActionStage>())
-                sites.Add((stage.Impact ?? definition.Body.Impact ?? definition.Impact ?? new ConstructionImpact(), value => stage.Impact = value));
+                sites.Add((stage.Impact ?? definition.Body.Impact ?? definition.Impact ?? new ConstructionImpact(), value => stage.Impact = value, null));
         }
         foreach (string path in plan.Nodes.Where(node => node.AffectsActors && node.Resource.Contacts.Length > 0 && node.DeclarationPath != null)
                      .Select(node => node.DeclarationPath).Distinct(StringComparer.Ordinal))
         {
             ConstructionNode node = definition.Root;
             foreach (string id in path.Split('/').Skip(1)) node = node.Children.Single(child => child.Id == id);
-            sites.Add((node.Impact ?? definition.Impact ?? new ConstructionImpact(), value => node.Impact = value));
+            sites.Add((node.Impact ?? definition.Impact ?? new ConstructionImpact(), value => node.Impact = value, node));
         }
         return sites;
     }

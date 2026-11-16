@@ -21,7 +21,7 @@ def main():
     if any(p.stat().st_mtime > started for p in (PROJECT / 'Source').rglob('*.cs')):
         raise RuntimeError('当前游戏未加载本轮代码，请先正常退出再验证')
     base = PROJECT / 'artifacts/skill_rebuild/trajectories/contact-results'
-    for part in (('ui', 'cast', 'cast-tail', 'cast-conditions', 'cast-kill', 'creation', 'save') if section == 'all' else (section,)):
+    for part in (('ui', 'cast', 'creation', 'save') if section == 'all' else (section,)):
         folder = base / part
         folder.mkdir(parents=True, exist_ok=True)
         if (folder / 'result.json').exists():

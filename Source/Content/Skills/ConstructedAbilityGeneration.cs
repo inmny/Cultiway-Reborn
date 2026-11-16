@@ -63,6 +63,7 @@ public sealed partial class ConstructedAbilityService
         if (inspiration.Rules >= 12) result = GenerateContactEffects(result, seed, inspiration);
         if (inspiration.Rules >= 13) result = GenerateContactDisplacement(result, seed);
         if (inspiration.Rules >= 14) result = GenerateContactResults(result, seed, inspiration);
+        if (inspiration.Rules >= 15) result = GenerateContactSpreads(result, seed, inspiration);
         return inspiration.Rules >= 3 ? ConstructionPricing.Price(result, contactRules: inspiration.Rules) : result;
     }
 

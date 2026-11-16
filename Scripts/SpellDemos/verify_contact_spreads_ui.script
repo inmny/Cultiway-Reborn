@@ -1,0 +1,80 @@
+// C7：球形与介质分送共用表单，真实保存运行资料。
+Actor source = Make(64), target = Make(72, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Scripts/SpellDemos/fixtures/construction-batch/01-charge.json")));
+definition.Id = "test.contact-spreads.editor"; definition.Name = "范围与介质分送编辑"; definition.Resource = "wakan";
+ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(definition.Id, source);
+async Task Frames(int count = 3) { for (int i = 0; i < count; i++) await Game.NextFrame(); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300); Canvas.ForceUpdateCanvases(); }
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+Button B(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+void Click(string name) { if (!B(name).interactable) throw new InvalidOperationException("按钮不可用：" + name); B(name).onClick.Invoke(); }
+WanfaEditorRow Row(string key)
+{
+    IEnumerable<WanfaEditorRow> found = editor.GetComponentsInChildren<WanfaEditorRow>(false);
+    foreach (string group in new[] { "StatusStats", "StatusRatios" })
+    {
+        int at = key.IndexOf(group, StringComparison.Ordinal);
+        if (at >= 0 && key.Length > at + group.Length)
+            found = found.SkipWhile(r => ((Text)Field(r, "_title")).text != T(key.Substring(0, at + group.Length))).Skip(1);
+    }
+    return found.First(r => ((Text)Field(r, "_title")).text == T(key));
+}
+void Action(string key) => ((Button)Field(Row(key), "_action")).onClick.Invoke();
+void Set(string key, string value) { var input = editor.GetComponentsInChildren<InputField>(false).First(f => f.name == key); input.text = value; input.onEndEdit.Invoke(value); }
+void ToggleValue(string key, bool value) => Row(key).GetComponentsInChildren<Toggle>(false).Single().isOn = value;
+void Choose(string key, string text) { Action(key); editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && b.GetComponentInChildren<Text>().text == text).onClick.Invoke(); }
+async Task ShotRow(string key, string name)
+{
+    await Frames(); var row = (RectTransform)Row(key).transform; var scroll = row.GetComponentInParent<ScrollRect>();
+    Vector3 local = scroll.content.InverseTransformPoint(row.TransformPoint(row.rect.center));
+    float offset = scroll.content.rect.yMax - local.y - scroll.viewport.rect.height * .5f;
+    scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(offset / Mathf.Max(1f, scroll.content.rect.height - scroll.viewport.rect.height));
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(4); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+void SaveCase(string name)
+{
+    Click("LearnCopy"); var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    File.WriteAllText(Path.Combine(folder, name + "-definition.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+}
+try
+{
+    Click("Page4"); ToggleValue("CustomImpact", true); Set("DamageScale", "0");
+    Choose("ContactPanel", T("ContactPanel.3")); Action("AddContactSpread");
+    Set("SpreadRadius", "-1"); Check(!B("LearnCopy").interactable, "非法范围被正式编译拒绝保存");
+    Set("SpreadRadius", "2.5"); Set("SpreadBuildingDamage", ".2"); Set("SpreadVisualSeconds", ".4");
+    Action("AddContactDamage"); Set("ContactDamagePerForce", "0"); Set("ContactDamageMinimum", "7"); ToggleValue("ContactDamageIgnoreReduction", true);
+    Check(Session().Draft.Impact.Spreads[0].Outcome.Damage[0].MinimumBonus == 7f, "分送复用普通伤害表单");
+    Action("AddContactSpread"); Check(Session().Draft.Impact.Spreads.Length == 2, "分送条目可增加与独立选择");
+    Click("Undo"); Check(Session().Draft.Impact.Spreads.Length == 1 && Session().Draft.Impact.Spreads[0].Radius == 2.5f, "撤销保留原独立结果");
+    await ShotRow("SpreadRadius", "sphere-cz"); SaveCase("sphere");
+    ToggleValue("SpreadMedium", true); Set("SpreadChannel", "c7.water"); Set("SpreadTargets", "0");
+    Check(!B("LearnCopy").interactable, "非法介质接收人数拒绝保存"); Set("SpreadTargets", "2");
+    ToggleValue("SpreadMatterFilter", true); Choose("SpreadMatter", LocalizedTextManager.getText("Cultiway.Construction.Material.water.liquid"));
+    ToggleValue("SpreadInherit", true); ToggleValue("SpreadLink", true); Choose("SpreadLinkForm", "thunder_channel"); Set("SpreadLinkRadius", ".12");
+    Click("Page0"); Choose("Material", LocalizedTextManager.getText("Cultiway.Construction.Material.lightning.energy")); Set("MediumChannel", "c7.water"); Click("Page4");
+    Choose("ContactPanel", T("ContactPanel.3")); await ShotRow("SpreadChannel", "medium-cz"); SaveCase("medium");
+    ToggleValue("NodeImpact", true); Choose("NodeContactPanel", T("ContactPanel.3")); Set("NodeSpreadTargets", "4");
+    Check(Session().Draft.Root.Impact.Spreads[0].Medium.MaximumTargets == 4 && Session().Draft.Impact.Spreads[0].Medium.MaximumTargets == 2, "部位覆盖深拷贝完整分送，独立编辑不改整招");
+    ToggleValue("NodeImpact", false);
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page4"); await Frames(); Choose("ContactPanel", T("ContactPanel.3")); await ShotRow("SpreadLinkForm", "medium-en");
+    string expected = JsonConvert.SerializeObject(new { Session().Draft.Impact, Session().Draft.Root });
+    Click("Replace"); var complete = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(JsonConvert.SerializeObject(new { complete.Impact, complete.Root }) == expected, "正式替换保存完整介质与分送结果");
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), JsonConvert.SerializeObject(complete, Formatting.Indented));
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(complete.Id, source); await Frames(); Click("Page4");
+    Check(JsonConvert.SerializeObject(new { Session().Draft.Impact, Session().Draft.Root }) == expected && B("LearnCopy").interactable, "关闭再打开保留完整分送与部位通道"); Click("Close"); await Frames();
+    return new { passed = true, closed = "球形及介质分送真实编辑保存", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}
