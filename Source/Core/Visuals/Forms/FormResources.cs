@@ -27,6 +27,9 @@ public static class FormResources
     /// <summary>当前版本的纯显示蒸散曲面。</summary>
     internal static FormResource Steam => Current.Steam;
 
+    /// <summary>当前资源版本的真实范围反馈球体。</summary>
+    internal static FormResource ContactVolume => Current.ContactVolume;
+
     /// <summary>新资源检查通过并已发布，目录、预览和来源缓存可更新。</summary>
     public static event Action<int> Reloaded;
     /// <summary>提交前用新资源检查已经登记的正式构造，失败时整组回退。</summary>

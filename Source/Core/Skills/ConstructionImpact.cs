@@ -60,6 +60,10 @@ public sealed class ConstructionImpact
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionConditionalContact[] ConditionalContacts;
 
+    /// <summary>每次真实命中后在当时位置分送的有限球形作用，不递归触发本体词条。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionContactSpread[] Spreads;
+
     /// <summary>精确定向速度变化：依次为离开作用中心、侧向和向上；负值用于回拉、下压。空值使用原版推力。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float[] Impulse;
@@ -164,6 +168,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>已经独立编译的有限条件作用。</summary>
     public IReadOnlyList<CompiledConstructionConditionalContact> ConditionalContacts { get; }
 
+    /// <summary>已检查并独立复制的球形范围作用。</summary>
+    public IReadOnlyList<CompiledConstructionContactSpread> Spreads { get; }
+
     /// <summary>已复制的三向世界速度变化，不持有可编辑数组。</summary>
     public Vector3? Impulse { get; }
 
@@ -192,7 +199,7 @@ public sealed class CompiledConstructionImpact
     public float ExposureSeconds { get; }
 
     /// <summary>伤害、移动或行动限制中至少有一项真实人物作用。</summary>
-    public bool HasActorEffect => Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) ||
+    public bool HasActorEffect => Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) || Spreads.Any(spread => spread.HasEffect) ||
                                   StaggerSeconds > 0f || BindSeconds > 0f || StrainSeconds > 0f || ExposureSeconds > 0f;
 
     /// <summary>实际推拉中心。</summary>
@@ -229,6 +236,9 @@ public sealed class CompiledConstructionImpact
         if (source?.ConditionalContacts?.Length > 8) throw new InvalidDataException(path + "：每个作用面最多八条条件作用");
         ConditionalContacts = source?.ConditionalContacts == null ? Array.Empty<CompiledConstructionConditionalContact>() :
             Array.AsReadOnly(source.ConditionalContacts.Select((rule, index) => new CompiledConstructionConditionalContact(rule, path + "/ConditionalContacts/" + index)).ToArray());
+        if (source?.Spreads?.Length > 8) throw new InvalidDataException(path + "：每个作用面最多八份范围分送");
+        Spreads = source?.Spreads == null ? Array.Empty<CompiledConstructionContactSpread>() :
+            Array.AsReadOnly(source.Spreads.Select((spread, index) => new CompiledConstructionContactSpread(spread, path + "/Spreads/" + index)).ToArray());
         if (source?.Impulse != null)
         {
             if (source.Impulse.Length != 3 || source.Impulse.Any(value =>

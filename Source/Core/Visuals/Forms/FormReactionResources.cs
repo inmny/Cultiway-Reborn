@@ -13,6 +13,7 @@ internal sealed partial class FormResourceGeneration
     /// <summary>在资源组发布前建立可复用的反应形体，不在碰撞或工作线程创建网格。</summary>
     internal void CreateReactionForms()
     {
+        CreateContactVolume();
         CreateReactionForm("fire_body", "flame", true);
         CreateReactionForm("reaction_steam", "foam", false);
     }

@@ -1,0 +1,211 @@
+// B43：只覆盖本次范围作用，不重跑身体装备及状态受力矩阵。
+const string section = "all";
+var allCasts = new List<AbilityCast>();
+var spreads = new List<ConstructedSpread>();
+var damageEvents = new List<(long Target, long Attacker, float Amount, int Before, int After)>();
+int oldExecutions = 0;
+float conversionForce = 0;
+Actor source = Make(64), target = Make(70), neighbor = Make(70), outside = Make(70), friendly = Make(70), high = Make(70), wolf = Make(12, "wolf");
+foreach (var a in new[] { target, neighbor, outside, high }) a.setKingdom(wolf.kingdom);
+friendly.setKingdom(source.kingdom);
+Place(neighbor, 70, 73.6f); Place(outside, 70, 77); Place(friendly, 70, 73); Place(high, 70, 72); high.position_height = 20; high.updatePos();
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 0;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+var enemyTile = World.world.GetTileSimple(71, 73); if (enemyTile.building != null) enemyTile.building.removeBuildingFinal();
+var building = World.world.buildings.addBuilding("beehive", enemyTile); building.setKingdom(World.world.kingdoms_wild.get("demon"));
+var friendsTile = World.world.GetTileSimple(68, 70); if (friendsTile.building != null) friendsTile.building.removeBuildingFinal();
+var friendBuilding = World.world.buildings.addBuilding("beehive", friendsTile); friendBuilding.setKingdom(source.kingdom);
+await Advance(.1f);
+SkillEntityAsset current = SkillEntities.SpiritBolt;
+IReadOnlyList<Entity> Learned() => (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+Entity Build(float ratio = .5f, bool daze = false)
+{
+    var builder = new SkillContainerBuilder(current).UseAnimation(0);
+    builder.AddModifier(new ExplosionModifier { Radius = 3, DamageRatio = ratio });
+    if (daze) builder.AddModifier(new DazeModifier { Duration = .5f });
+    Entity made = builder.Build(SkillContainerBuildMode.RuleOnly); string signature = SkillContainerSignature.Build(made); owner.LearnSkillV3(made);
+    return Learned().First(x => SkillContainerSignature.Build(x) == signature);
+}
+AbilityDefinition Convert(Entity skill, string migration, float scale = 1f)
+{
+    var method = service.Assembly.GetType("Cultiway.Content.Skills." + migration + "ConstructionMigration").GetMethod("Convert", F);
+    var emission = new SkillEmission { Source = source, SpatialSource = source, SkillContainer = skill, Target = target,
+        SourcePos = new Vector3(64, 72, .3f), TargetPos = new Vector3(70, 72, .3f), Strength = 40, PowerLevel = 0,
+        RuntimeData = new SkillCastRuntimeData { EffectScale = scale } };
+    object[] args = method.GetParameters().Length == 3 ? new object[] { emission, default(GetHitEvent), default(Vector3) } : new object[] { emission, default(GetHitEvent) };
+    var definition = (AbilityDefinition)method.Invoke(null, args); conversionForce = ((GetHitEvent)args[1]).Damage; return definition;
+}
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    yield return node;
+    if (node.Children != null) foreach (var child in node.Children) foreach (var nested in Nodes(child)) yield return nested;
+}
+CompiledConstructionImpact FirstImpact(CompiledAbility plan)
+{
+    object node = ((Array)typeof(CompiledAbility).GetProperty("Nodes", F).GetValue(plan)).GetValue(0);
+    return (CompiledConstructionImpact)node.GetType().GetField("Impact", F).GetValue(node);
+}
+bool Use(Entity skill)
+{
+    Ready(source); source.setHealth(source.getMaxHealth()); owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    bool used = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(target, target.GetSimPos(), selectionArea: new SkillTargetSelectionArea(true, target.GetSimPos(), .1f)), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999; CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+    ControllableUnit.clear(false); source.stopForce(); source.batch.c_action_landed.Remove(source); return used;
+}
+async Task WaitSpread()
+{
+    for (int i = 0; i < 80; i++) { await Advance(.025f); if (spreads.Count > 0) return; }
+    throw new InvalidOperationException("实际目标未在两秒内触发范围分送");
+}
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(r => (long)Field(r, "Id") == fact.CastId);
+    allCasts.Add((AbilityCast)Field(running, "Cast"));
+}
+void Old(Entity entity) { if (entity.GetComponent<SkillContext>().SourceObj == source) oldExecutions++; }
+void Spread(ConstructedSpread fact) { if (fact.OwnerId == source.id) spreads.Add(fact); }
+ConstructedAbilityService.CastStarted += Started; ConstructedAbilityService.SpreadConfirmed += Spread;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+SpreadProbe.Damaged = (damage, before) =>
+{
+    if (damage.AttackerID != source.id) return;
+    damageEvents.Add((damage.TargetID, damage.AttackerID, damage.Damage, before, World.world.units.get(damage.TargetID)?.data.health ?? 0));
+};
+var hook = new HarmonyLib.Harmony("Cultiway.Verify.ContactSpread");
+var damageType = typeof(GetHitEvent).Assembly.GetType("Cultiway.Core.EventSystem.Systems.GetHitEventSystem");
+hook.Patch(damageType.GetMethod("Resolve", F), prefix: new HarmonyLib.HarmonyMethod(typeof(SpreadProbe).GetMethod("DamagePrefix")),
+    postfix: new HarmonyLib.HarmonyMethod(typeof(SpreadProbe).GetMethod("DamagePostfix")));
+try
+{
+    if (section is "all" or "definitions")
+    {
+        foreach (var entry in new[] { (Asset: SkillEntities.SpiritBolt, Migration: "Projectile"), (Asset: SkillEntities.GroundSpike, Migration: "GroundSpike"),
+            (Asset: SkillEntities.Rift, Migration: "Rift"), (Asset: SkillEntities.YinField, Migration: "Field"), (Asset: SkillEntities.FireWall, Migration: "Barrier"),
+            (Asset: SkillEntities.SpiritBeam, Migration: "Beam"), (Asset: SkillEntities.ChainLightning, Migration: "Chain"),
+            (Asset: SkillEntities.Fireball, Migration: "Projectile"), (Asset: SkillEntities.SpiritShield, Migration: "Barrier") })
+        {
+            current = entry.Asset; var skill = Build(daze: true); var definition = Convert(skill, entry.Migration, .5f);
+            Check(definition != null, entry.Asset.id + "完整转换原爆炸");
+            var restored = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition)); AbilityCompiler.Compile(restored, false);
+            var attack = Nodes(restored.Root).Where(n => n.Impact?.Spreads != null).ToArray();
+            float radius = SkillEffectRadius.ResolveForCaster(owner, skill, 3f);
+            Check(entry.Asset == SkillEntities.SpiritShield ? attack.Length == 0 : attack.Length > 0 && attack.All(n =>
+                n.Impact.Spreads.Length == 1 && Math.Abs(n.Impact.Spreads[0].Radius - radius) < .001f &&
+                Math.Abs(n.Impact.Spreads[0].Outcome.Damage[0].PerForce * conversionForce - 10f) < .001f &&
+                n.Impact.Spreads[0].Outcome.Damage[0].Element.ToString() == entry.Asset.Element.ToString() &&
+                n.Impact.Spreads[0].BuildingDamagePerForce == n.Impact.Spreads[0].Outcome.Damage[0].PerForce &&
+                n.Impact.Statuses.Length == 1 && n.Impact.Spreads[0].Outcome.Statuses == null), entry.Asset.id + "保存编译保留原范围和一次倍率且不扩散其他词条");
+            if (entry.Asset == SkillEntities.Fireball) Check(restored.Root.Impact?.Spreads == null && restored.Root.Children[0].Impact.Spreads != null, "爆发只在后段分送");
+            File.WriteAllText(Path.Combine(folder, entry.Asset.id + ".json"), JsonConvert.SerializeObject(restored, Formatting.Indented));
+        }
+        var priorForm = FormResources.Load("spirit_bolt");
+        var priorVolume = (FormResource)typeof(FormResource).GetField("ContactVolume", F).GetValue(priorForm);
+        FormResources.Reload();
+        Check(priorVolume != null && priorVolume.Version == priorForm.Version && FormResources.Version != priorForm.Version &&
+            ReferenceEquals(priorVolume, typeof(FormResource).GetField("ContactVolume", F).GetValue(priorForm)), "重载保留旧来源所属作用球，新的范围读取新版本");
+        current = SkillEntities.SpiritBolt;
+        var editable = Convert(Build(), "Projectile"); var compiled = FirstImpact(AbilityCompiler.Compile(editable, false));
+        editable.Root.Impact.Spreads[0].Radius = 10; editable.Root.Impact.Spreads[0].Outcome.Damage[0].PerForce = 9;
+        Check(compiled.Spreads[0].Radius == 3 && compiled.Spreads[0].Outcome.Damage[0].PerForce == .5f, "编译独立复制范围及嵌套普通结果");
+        foreach (int invalid in Enumerable.Range(0, 6))
+        {
+            var bad = Convert(Build(), "Projectile"); var spread = bad.Root.Impact.Spreads[0];
+            switch (invalid)
+            {
+                case 0: spread.Radius = float.NaN; break;
+                case 1: spread.BuildingDamagePerForce = -1; break;
+                case 2: spread.VisualSeconds = float.PositiveInfinity; break;
+                case 3: bad.Root.Impact.Spreads = new ConstructionContactSpread[9]; break;
+                case 4: bad.Root.Impact.Spreads[0] = null; break;
+                case 5: spread.Outcome.Damage = new ConstructionContactDamage[9]; break;
+            }
+            bool refused = false; try { AbilityCompiler.Compile(bad, false); } catch (InvalidDataException) { refused = true; }
+            Check(refused, "非法范围或结果在共同边界拒绝");
+        }
+        Check(Convert(Build(0), "Projectile").Root.Impact?.Spreads == null, "原零爆炸不增加作用");
+    }
+    if (section is "all" or "runtime" or "runtime-edge")
+    {
+        current = SkillEntities.SpiritBolt; var skill = Build(daze: true);
+        int hp = neighbor.data.health, safe = outside.data.health, friendHp = friendly.data.health, sky = high.data.health;
+        Check(building.isAlive() && friendBuilding.isAlive() && source.kingdom.isEnemy(building.kingdom) && friendBuilding.kingdom == source.kingdom,
+            "合法敌方与友方建筑已就绪", new { enemy = building.asset.id, owner = building.kingdom.id, friendly = friendBuilding.kingdom.id });
+        int buildingHp = building.getHealth(), friendBuildingHp = friendBuilding.getHealth();
+        target.setHealth(1); high.position_height = 20; high.updatePos(); ConstructedAbilityService.NotifyActorChanged(high);
+        Check(Use(skill), "已学爆炸灵弹正常受理"); await WaitSpread();
+        var spread = spreads.Single();
+        if (section != "runtime-edge")
+        {
+        Check(!target.hasHealth() && spread.ContactId == target.id && spread.Actors.Contains(neighbor.id) && !spread.Actors.Contains(target.id),
+            "主伤害致死仍向真实近邻分送", new { spread.ContactId, actors = spread.Actors, health = target.data.health });
+        Check(neighbor.data.health < hp && damageEvents.Single(d => d.Target == neighbor.id).Amount == 50 && spread.OwnerId == source.id && oldExecutions == 0,
+            "近邻承受实际50伤害并保留来源且没有旧执行体", new { hp, after = neighbor.data.health });
+        Check(outside.data.health == safe && friendly.data.health == friendHp && high.data.health == sky && !spread.Actors.Contains(high.id),
+            "范围外和友方安全且高空身体不被平面投影误伤", new { high.position_height, spread.Radius });
+        }
+        Check(building.getHealth() < buildingHp && spread.Buildings.Count(id => id == building.id) == 1 && friendBuilding.getHealth() == friendBuildingHp,
+            "敌方建筑真实受击且跨格去重，友方建筑安全", new { buildingHp, after = building.getHealth(), buildings = spread.Buildings });
+        var visual = FormVisualScene.Instances.Single(v => v.Resource.Description.Id == "contact_volume");
+        Check(Vector3.Distance(visual.Transform.MultiplyPoint3x4(Vector3.zero), spread.Center) < .0001f &&
+            Math.Abs(visual.Transform.MultiplyVector(Vector3.right).magnitude - spread.Radius) < .0001f &&
+            Math.Abs(visual.Resource.Meshes[0].bounds.size.z - 2f) < .0001f, "发布的共同球形显示与实际中心半径一致");
+        World.world.camera.transform.position = new Vector3(spread.Center.x, spread.Center.y + .5f, 0);
+        MoveCamera.instance.forceZoom(5f); World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame();
+        Screen.Capture(Path.Combine(folder, "native.png"));
+        int count = spreads.Count; foreach (var cast in allCasts) cast.Cancel(); await Advance(.5f);
+        Check(spreads.Count == count && !FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "contact_volume"), "结束后不新分送且共同世界时钟使反馈到期");
+    }
+    if (section is "all" or "common")
+    {
+        if (!target.isAlive() || !target.hasHealth()) { target = Make(70); target.setKingdom(wolf.kingdom); }
+        foreach (var cast in allCasts) cast.Cancel(); await Advance(.5f); contacts.Clear(); spreads.Clear(); damageEvents.Clear();
+        // 普通小球只接触选中人物，分送范围独立覆盖近邻；每次接触仍沿原次数与间隔。
+        var definition = new AbilityDefinition
+        {
+            Id = "test.contact-spread.repeat", Name = "范围分送重复", Lifetime = 2, Resource = "none", Cost = 0, Cooldown = 0, Power = 100, TargetRange = 100,
+            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+            Root = new ConstructionNode
+            {
+                Id = "root", Form = "spirit_bolt", Matter = "spirit", Scale = .3f, OnContact = ConstructionContactResponse.Continue,
+                Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval, Interval = .2f, MaximumPerTarget = 3 },
+                Impact = new ConstructionImpact { DamageScale = 0, SelectedTargetOnly = true, Spreads = new[] { new ConstructionContactSpread
+                { Radius = 3, BuildingDamagePerForce = 0, VisualSeconds = .3f, Outcome = new ConstructionContactOutcome
+                { Damage = new[] { new ConstructionContactDamage { PerForce = .1f } } } } } }
+            }
+        };
+        await Fire(definition, source, target); await Advance(.5f);
+        Check(spreads.Count == 3 && contacts.Count(c => c.TargetId == target.id) == 3 && spreads.All(s => s.Actors.Contains(neighbor.id)) && damageEvents.Count(d => d.Target == neighbor.id) == 3,
+            "普通间隔每次真实命中各分送一次，不递归增加接触", new { spreads = spreads.Count, contacts = contacts.Count, damage = damageEvents.Count });
+        foreach (var cast in allCasts) cast.Cancel(); int count = spreads.Count; await Advance(.4f);
+        Check(spreads.Count == count && !FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "contact_volume"), "取消后停止新范围且已有显示正常收尾");
+        // 一次接触后仍有短暂反馈时换世界，核对服务与共同场景一起清空。
+        spreads.Clear(); await Fire(definition, source, target); await Advance(.03f);
+        Check(spreads.Count > 0 && FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "contact_volume"), "换世界前存在已确认范围显示");
+        World.world.save_manager.loadWorld(fixture); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        Check(((ICollection)service.GetField("contactVolumes", F).GetValue(null)).Count == 0 && !FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "contact_volume"),
+            "换世界清空范围反馈，不携带旧施放或旧人物");
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    foreach (var cast in allCasts) cast.Cancel(); hook.UnpatchSelf(); SpreadProbe.Damaged = null;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old; ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.SpreadConfirmed -= Spread; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false); Config.setWorldSpeed("x1", false); Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "spreads.json"), JsonConvert.SerializeObject(spreads.Select(s => new { s.CastId, s.ContactId, s.OwnerId, s.Node, s.Index, Center = new[] { s.Center.x, s.Center.y, s.Center.z }, s.Radius, s.WorldTime, s.Actors, s.Buildings }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "damage.json"), JsonConvert.SerializeObject(damageEvents.Select(d => new { d.Target, d.Attacker, d.Amount, d.Before, d.After }), Formatting.Indented));
+}
+/// <summary>观察真实伤害入口，不改变结算或范围规则。</summary>
+public static class SpreadProbe
+{
+    /// <summary>真实伤害结果观察入口。</summary>
+    public static Action<GetHitEvent, int> Damaged;
+    /// <summary>保存结算前生命。</summary>
+    public static void DamagePrefix(GetHitEvent __0, out int __state) => __state = World.world.units.get(__0.TargetID)?.data.health ?? 0;
+    /// <summary>观察结算后生命。</summary>
+    public static void DamagePostfix(GetHitEvent __0, int __state) => Damaged?.Invoke(__0, __state);
+}

@@ -1455,3 +1455,16 @@ python3 Scripts/SpellDemos/verify_conditional_contact.py
 输入、展开资料、伤害归属、真实生命变化和结果保存在`artifacts/skill_rebuild/trajectories/conditional-contact/`及对应分段目录；最终依据见`delivery.json`。完整编辑、自主创作、正式冷启动和集中连续录像继续5.05 C。
 
 `--section sentence-edge`仅补低生命执行和死亡收尾；原版死亡标记可晚于生命归零，入口在真实世界继续推进后确认死亡，不改变伤害规则。首次高生命前段与失败低生命观察保留于`initial-death-flag/`，交付索引只采用其中已通过的高生命前段。
+
+```bash
+# 5.05 B43：真实命中后的球形范围分送与原爆炸转换
+python3 Scripts/SpellDemos/verify_contact_spread.py
+# 只复现本批的一段，已有通过段无须重复
+python3 Scripts/SpellDemos/verify_contact_spread.py --section definitions
+python3 Scripts/SpellDemos/verify_contact_spread.py --section runtime
+python3 Scripts/SpellDemos/verify_contact_spread.py --section common
+```
+
+`definitions`核对七条攻击转换、爆发后段、纯防御面、原范围与一次倍率、普通结果隔离、保存编译、非法资料及资源重载版本。`runtime`复用已学灵弹，核对主伤害致死后仍分送、真实近邻、范围外/友方/高空边界、建筑去重及共同球形显示。`common`只覆盖普通间隔的重复分送、取消停发、反馈到期与换世界清理。证据位于`artifacts/skill_rebuild/trajectories/contact-spread/`；完整编辑、自主创作、正式冷启动及集中录像继续5.05 C。
+
+若仅需补建筑及显示尾段，可用`--section runtime-edge`；交付索引保留原已通过人物段，不要求重跑共用规则。

@@ -279,6 +279,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
 
         AppendSteamVisuals(now);
+        AppendContactVolumes(now);
         ConfirmedWorldTime = now;
         PublishBarriers();
         PublishPresentation(now);
@@ -956,6 +957,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         long contactGeneration = worldGeneration;
         ActorMotion actor = hit.Actor;
         if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) return;
+        simulation.Sample(actor, simulation.contactTime, out Vector3 spreadCenter, out _);
         ContactMemory memory = RememberContact(running, node, actor.Id);
         AbilityMatter beforeMatter = node < 0 ? null : running.Cast.Matter(node);
         CompiledConstructionImpact impact = running.Cast.Impact(node);
@@ -987,6 +989,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ConstructedTargetResponse response = ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
             priorVelocity: priorVelocity, forceReceiver: forceReceiver,
             strength: running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
+        if (contactGeneration != worldGeneration) return;
+        if (result == ApplyAttackState.Hit)
+            ApplyContactSpreads(running, node, actor.Id, impact, spreadCenter, simulation.contactTime, running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
         if (contactGeneration != worldGeneration) return;
         running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id,
             hit.LeftRayLength >= 0f ? hit.LeftRayLength : null);

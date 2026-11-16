@@ -230,6 +230,9 @@ public sealed partial class FormResource
     /// <summary>本次运行内的资源版本，不写入正式存档。</summary>
     public int Version => whole == null ? Generation.Version : whole.Version;
 
+    /// <summary>保留本版本的范围反馈球，退休后仍能为已有施放建立显示。</summary>
+    internal readonly FormResource ContactVolume;
+
     /// <summary>从同一版本取得显示材质，旧施放不会混用新材质。</summary>
     /// <param name="surface">实际表面。</param>
     /// <param name="native">是否原版投影。</param>
@@ -338,6 +341,7 @@ public sealed partial class FormResource
     internal FormResource(FormDescription description, Mesh[] meshes, FormResourceGeneration generation)
     {
         Generation = generation;
+        ContactVolume = generation.ContactVolume;
         Description = description;
         Builds = description.Parts.Any(part => part.HasBuildData);
         Facing = ReadFacing(description.Forward, description.Up, description.Id);
@@ -517,6 +521,7 @@ internal sealed partial class FormResourceGeneration
     {
         forms.Clear();
         Steam = null;
+        ContactVolume = null;
         CloseBundle();
     }
 

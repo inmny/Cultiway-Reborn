@@ -173,6 +173,8 @@ public sealed partial class ConstructedAbilityService
                 responses.Add(ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, ApplyAttackState.Hit,
                     (shape.A + shape.B) * .5f, priorVelocity, forceReceiver));
                 if (epoch != worldGeneration) return null;
+                ApplyContactSpreads(running, node, actor.Id, impact, foot, clock);
+                if (epoch != worldGeneration) return null;
                 ids.Add(actor.Id);
                 before.Add(hp);
                 after.Add(actor.Actor.data?.id == actor.Id ? actor.Actor.data.health : 0);
