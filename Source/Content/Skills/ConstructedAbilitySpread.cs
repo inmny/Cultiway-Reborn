@@ -47,7 +47,7 @@ public sealed partial class ConstructedAbilityService
     /// <param name="running">真实施放。</param><param name="node">真实部位。</param><param name="contactId">触发人物身份。</param>
     /// <param name="impact">本体实际接触规则。</param><param name="center">主伤害及换位前固定的真实中心。</param>
     /// <param name="time">接触共同世界时点。</param><param name="strength">本次接触的实际余力倍率。</param>
-    private static void ApplyContactSpreads(RunningCast running, int node, long contactId, CompiledConstructionImpact impact, Vector3 center, double time, float strength = 1f)
+    private static void ApplyContactSpreads(RunningCast running, int node, long contactId, CompiledConstructionImpact impact, Vector3 center, double time, float strength = 1f, bool allowMedium = true)
     {
         if (impact.Spreads.Count == 0 || strength <= 0f || running.Cast.Finished) return;
         long generation = worldGeneration;
@@ -55,6 +55,12 @@ public sealed partial class ConstructedAbilityService
         {
             var spread = impact.Spreads[index];
             if (!spread.HasEffect) continue;
+            if (spread.Medium != null)
+            {
+                if (allowMedium) ApplyMediumSpread(running, node, contactId, impact, spread, center, time, strength);
+                if (generation != worldGeneration) return;
+                continue;
+            }
             CastAuthority owner = running.Owner(node);
             var shape = new AbilityCapsule(node, center, center, spread.Radius, "physical");
             var recipients = new List<long>();

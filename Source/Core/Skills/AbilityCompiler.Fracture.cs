@@ -28,7 +28,7 @@ public static partial class AbilityCompiler
                 Anchor = Matrix4x4.identity, Rotation = Quaternion.identity, Scale = 1f,
                 Presence = new Vector2(0f, fracture.Seconds), Active = new Vector2(0f, fracture.Seconds),
                 Hold = new CompiledConstructionHold(null, lifetime, source.Path + "/碎片维持"),
-                Surface = source.Surface, Matter = source.Matter, Dye = source.Dye,
+                Surface = source.Surface, Matter = source.Matter, Dye = source.Dye, MediumChannel = source.MediumChannel,
                 ContactKey = source.ContactKey, ContactPolicy = source.ContactPolicy, Impact = source.Impact,
                 ContactRole = fracture.Active[part] ? source.ContactRole : ConstructionContactRole.Decoration,
                 Strength = fracture.Active[part] ? source.Strength / fracture.ActiveCount : 0f,

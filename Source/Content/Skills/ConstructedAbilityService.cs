@@ -692,6 +692,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         worldGeneration++;
         steam.Clear();
         contactVolumes.Clear();
+        mediumLinks.Clear();
         quenchingShapes.Clear();
         evaporatedSources.Clear();
         simulation?.ResetSimulation(cancel: true);
@@ -919,6 +920,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>整次施放每组的总次数，不因反射重置。</summary>
         internal readonly Dictionary<int, int> GroupHits = new();
+
+        /// <summary>实际已使用的介质通道，预测回退及反射不会重置。</summary>
+        internal readonly HashSet<string> UsedMediumChannels = new();
 
         /// <summary>最初身份及各部位当前控制者，仍附着的部位共享交接。</summary>
         internal CastAuthority InitialOwner;

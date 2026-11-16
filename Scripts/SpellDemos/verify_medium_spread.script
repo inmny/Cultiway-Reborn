@@ -1,0 +1,206 @@
+// B45：资料与纯数值连通合并验证，实机复用一块水域及一个已学雷法。
+const string section = "all";
+var allCasts = new List<AbilityCast>();
+var relays = new List<ConstructedMediumSpread>();
+var damages = new List<(long Target, float Amount, string Element)>();
+int oldExecutions = 0;
+Actor source = Make(64), target = Make(70), first = Make(70), second = Make(71), third = Make(71), fourth = Make(72),
+    friendly = Make(69), outside = Make(74), high = Make(70), wolf = Make(12, "wolf");
+foreach (var actor in new[] { target, first, second, third, fourth, outside, high }) actor.setKingdom(wolf.kingdom);
+friendly.setKingdom(source.kingdom);
+Place(first, 70, 72.7f); Place(second, 70.8f, 73); Place(third, 71.4f, 73); Place(fourth, 71.7f, 73.5f);
+Place(friendly, 69.8f, 72.5f); Place(outside, 74, 77); Place(high, 70, 73); high.position_height = 20; high.updatePos();
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 0;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+IReadOnlyList<Entity> Learned() => (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+Entity Build(SkillEntityAsset asset, string nature, bool conductive = false, bool contact = true, bool daze = false)
+{
+    var builder = new SkillContainerBuilder(asset).UseAnimation(0);
+    if (asset == SkillEntities.RejuvenationField) builder.AddModifier(new RejuvenationModifier { Duration = 3, HealPerSecond = 10 });
+    if (daze) builder.AddModifier(new DazeModifier { Duration = 1.5f });
+    Entity made = builder.Build(SkillContainerBuildMode.RuleOnly);
+    SkillSettingsCompiler.Attach(made, new SkillBlueprint { EntityAssetId = asset.id, NatureId = nature, ContactEnabled = contact, ConductiveWater = conductive, Duration = 15 });
+    string signature = SkillContainerSignature.Build(made); owner.LearnSkillV3(made);
+    return Learned().First(x => SkillContainerSignature.Build(x) == signature);
+}
+AbilityDefinition Convert(Entity skill, string migration)
+{
+    var method = service.Assembly.GetType("Cultiway.Content.Skills." + migration + "ConstructionMigration").GetMethod("Convert", F);
+    var emission = new SkillEmission { Source = source, SpatialSource = source, SkillContainer = skill, Target = target,
+        SourcePos = new Vector3(64, 72, .3f), TargetPos = new Vector3(70, 72, .3f), Strength = 40, PowerLevel = 0,
+        RuntimeData = new SkillCastRuntimeData { EffectScale = 1 } };
+    object[] args = method.GetParameters().Length == 3 ? new object[] { emission, default(GetHitEvent), default(Vector3) } :
+        method.GetParameters().Length == 2 ? new object[] { emission, default(GetHitEvent) } : new object[] { emission };
+    return (AbilityDefinition)method.Invoke(null, args);
+}
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    yield return node;
+    if (node.Children != null) foreach (var child in node.Children) foreach (var nested in Nodes(child)) yield return nested;
+}
+AbilityDefinition Water()
+{
+    var definition = Convert(Build(SkillEntities.YinField, "water", true, false), "Field");
+    definition.Id = "test.medium-spread.water"; definition.Lifetime = 15; definition.Binding.Height = 0; return definition;
+}
+async Task<AbilityCast> StartWater(AbilityDefinition definition = null, Actor caster = null)
+{
+    int count = allCasts.Count; await Fire(definition ?? Water(), caster ?? source, target, aim: new Vector3(70, 72, 0));
+    for (int i = 0; i < 40 && allCasts.Count == count; i++) await Advance(.01f);
+    Check(allCasts.Count == count + 1, "活动介质已进入真实施放"); await Advance(.05f); return allCasts.Last();
+}
+async Task<AbilityCast> Use(Entity skill)
+{
+    int count = allCasts.Count;
+    Ready(source); source.setHealth(source.getMaxHealth()); owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    bool used = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill), new ActiveAbilityTarget(target, target.GetSimPos(),
+        selectionArea: new SkillTargetSelectionArea(true, target.GetSimPos(), .1f)), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999; CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+    ControllableUnit.clear(false); source.stopForce(); source.batch.c_action_landed.Remove(source);
+    Check(used, "真实已学雷法受理");
+    for (int i = 0; i < 40 && allCasts.Count == count; i++) await Advance(.01f);
+    Check(allCasts.Count == count + 1, "等待真实逐发发射后开始观察"); return allCasts.Last();
+}
+async Task WaitRelay(int count)
+{
+    for (int i = 0; i < 80 && relays.Count == count; i++) await Advance(.025f);
+    Check(relays.Count == count + 1, "实际接触完成一次介质分送");
+}
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id && fact.SourceId != wolf.id) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(r => (long)Field(r, "Id") == fact.CastId);
+    allCasts.Add((AbilityCast)Field(running, "Cast"));
+}
+void Old(Entity entity) { if (entity.GetComponent<SkillContext>().SourceObj == source) oldExecutions++; }
+void Relay(ConstructedMediumSpread fact) { if (fact.OwnerId == source.id) relays.Add(fact); }
+ConstructedAbilityService.CastStarted += Started; ConstructedAbilityService.MediumSpreadConfirmed += Relay;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+MediumProbe.Damaged = damage => { if (damage.AttackerID == source.id) damages.Add((damage.TargetID, damage.Damage, damage.Element.ToString())); };
+var hook = new HarmonyLib.Harmony("Cultiway.Verify.MediumSpread");
+var damageType = typeof(GetHitEvent).Assembly.GetType("Cultiway.Core.EventSystem.Systems.GetHitEventSystem");
+hook.Patch(damageType.GetMethod("Resolve", F), postfix: new HarmonyLib.HarmonyMethod(typeof(MediumProbe).GetMethod("DamagePostfix")));
+try
+{
+    if (section is "all" or "definitions")
+    {
+        foreach (var entry in new[] { (Asset: SkillEntities.SpiritBolt, Migration: "Projectile"), (SkillEntities.Fireball, "Projectile"),
+            (SkillEntities.SpiritBeam, "Beam"), (SkillEntities.ChainLightning, "Chain"), (SkillEntities.YinField, "Field") })
+        {
+            var definition = Convert(Build(entry.Item1, "lightning", daze: true), entry.Item2);
+            Check(definition != null && Nodes(definition.Root).Any(n => n.Impact?.Spreads?.Any(s => s.Medium?.Channel == "water.conductive") == true), entry.Item1.id + "实际攻击面展开有限水域分送");
+            var copy = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition)); var plan = AbilityCompiler.Compile(copy, false);
+            var spreads = Nodes(copy.Root).SelectMany(n => n.Impact?.Spreads ?? Array.Empty<ConstructionContactSpread>()).Where(s => s.Medium != null).ToArray();
+            Check(spreads.All(spread => spread.Medium.MaximumTargets == 3 && spread.Medium.InheritContactEffects && spread.Medium.OncePerCast && spread.Outcome.Damage.Single().PerForce == .25f),
+                entry.Item1.id + "保存独立编译保留上限、一次机会、四分之一及原附加作用");
+            if (entry.Item1 == SkillEntities.Fireball) Check(copy.Root.Impact?.Spreads?.Any(s => s.Medium != null) != true, "爆发载体不提前分送");
+        }
+        Check(Convert(Build(SkillEntities.SpiritShield, "lightning"), "Barrier").Root.Impact?.Spreads?.Any(s => s.Medium != null) != true, "纯防御面不冒充雷法攻击");
+        Check(Convert(Build(SkillEntities.GroundSpike, "lightning"), "GroundSpike") == null && Convert(Build(SkillEntities.Rift, "lightning"), "Rift") == null, "不放宽土刺与裂隙的原性质限制");
+        var water = Water(); Check(water.Root.MediumChannel == "water.conductive" && water.Root.Matter == "water" && water.Root.State == "liquid", "关闭伤害的原水域仍声明真实液态介质");
+        Check(Convert(Build(SkillEntities.RejuvenationField, "water", true), "Support").Root.MediumChannel == "water.conductive", "回春水域也复用同一介质通道");
+        var basis = Convert(Build(SkillEntities.SpiritBolt, "lightning", daze: true), "Projectile");
+        ConstructionContactSpread Spread(AbilityDefinition d) => d.Root.Impact.Spreads.Single(s => s.Medium != null);
+        var compiled = AbilityCompiler.Compile(basis, false);
+        object compiledNode = ((Array)typeof(CompiledAbility).GetProperty("Nodes", F).GetValue(compiled)).GetValue(0);
+        var original = ((CompiledConstructionImpact)Field(compiledNode, "Impact")).Spreads.Single();
+        Spread(basis).Medium.MaximumTargets = 17;
+        Check(original.Medium.MaximumTargets == 3, "编译资料不共享可编辑介质对象");
+        foreach (var invalid in new Action<ConstructionContactSpread>[] { s => s.Medium.Channel = " ", s => s.Medium.Channel = new string('x', 129),
+            s => s.Medium.MaximumTargets = 0, s => s.Medium.MaximumTargets = 65, s => s.Medium.LinkRadius = float.NaN,
+            s => s.Medium.LinkRadius = 0, s => s.Radius = 1, s => s.Medium.Matter = null,
+            s => s.Medium.State = "missing-state", s => s.Medium.LinkForm = "spirit_bolt" })
+        {
+            var changed = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(basis)); invalid(Spread(changed));
+            bool rejected = false; try { AbilityCompiler.Compile(changed, false); } catch (Exception) { rejected = true; }
+            Check(rejected, "资料边界拒绝非法介质参数");
+        }
+        var inheritance = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(basis));
+        Spread(inheritance).Outcome = null; Spread(inheritance).BuildingDamagePerForce = 0;
+        var inheritedPlan = AbilityCompiler.Compile(inheritance, false);
+        var inheritedNode = ((Array)typeof(CompiledAbility).GetProperty("Nodes", F).GetValue(inheritedPlan)).GetValue(0);
+        Check(((CompiledConstructionImpact)Field(inheritedNode, "Impact")).Spreads.Single().HasEffect, "只继承接触结果的介质仍有效");
+        AbilityCapsule Capsule(float x, float z = 0) => (AbilityCapsule)Activator.CreateInstance(typeof(AbilityCapsule), F, null,
+            new object[] { 0, new Vector3(x, 0, z), new Vector3(x + .5f, 0, z), .2f, "water", 0, 0, null, Vector3.zero, 1f }, null);
+        var regionType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityMediumRegion");
+        var shapes = new List<AbilityCapsule> { Capsule(0), Capsule(.7f), Capsule(4) };
+        var region = Activator.CreateInstance(regionType, F, null, new object[] { shapes, Capsule(0) }, null);
+        bool Contains(AbilityCapsule body) => (bool)regionType.GetMethod("Contains", F).Invoke(region, new object[] { body });
+        Check(Contains(Capsule(.7f)) && !Contains(Capsule(4)) && !Contains(Capsule(0, 5)), "纯数值连通不跨真实空隙或高空");
+        File.WriteAllText(Path.Combine(folder, "water.json"), JsonConvert.SerializeObject(water, Formatting.Indented));
+        File.WriteAllText(Path.Combine(folder, "lightning.json"), JsonConvert.SerializeObject(basis, Formatting.Indented));
+    }
+    if (section is "all" or "runtime")
+    {
+        var water = await StartWater(); var skill = Build(SkillEntities.SpiritBolt, "lightning", daze: true);
+        var cast = await Use(skill); float force = cast.RemainingForce(0);
+        double expected = SkillCastResources.Wakan.Quote(owner, SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+        Check(Math.Abs(source.stats[BaseStatses.MaxWakan.id] * .8f - owner.GetCultisys<Xian>().wakan - expected) < .01f, "已学雷法仍只扣一次原逐发费用", expected);
+        await WaitRelay(0); var relay = relays.Single();
+        Check(relay.Targets.SequenceEqual(new[] { first.id, second.id, third.id }) && relay.MediumCastId != relay.CastId && relay.Points.Length == 4,
+            "同一连通水域按逐端距离选三个额外敌人", new { relay.Targets, expected = new[] { first.id, second.id, third.id } });
+        Check(damages.Single(d => d.Target == target.id).Amount == force && damages.Where(d => relay.Targets.Contains(d.Target)).All(d => Math.Abs(d.Amount - force * .25f) < .01f) &&
+            relay.Targets.All(id => damages.Count(d => d.Target == id) == 1) && damages.All(d => d.Element == SkillSettingsCompiler.Element("lightning").ToString()),
+            "真实本体及额外四分之一雷伤各结算一次", damages.Select(d => new { d.Target, d.Amount, d.Element }).ToArray());
+        Check(new[] { first, second, third }.All(a => CombatStatusEffects.HasStatus(a, Cultiway.Content.StatusEffects.Daze)), "介质接收者继承原眩晕附加作用");
+        Check(new[] { fourth, friendly, outside, high }.All(a => damages.All(d => d.Target != a.id)) && oldExecutions == 0, "第四目标、友方、范围外和高空安全，没有旧执行体");
+        Check(FormVisualScene.Instances.Count(v => v.Resource.Description.Id == "thunder_channel") == 3, "共同画面发布三个实际端点雷通道");
+        World.world.camera.transform.position = new Vector3(70, 72.8f, 0); MoveCamera.instance.forceZoom(4f); World.world.console.Hide(); Tooltip.hideTooltipNow();
+        await Game.NextFrame(); Screen.Capture(Path.Combine(folder, "native.png"));
+        water.Cancel(); cast.Cancel(); await Advance(.4f);
+        Check(!FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "thunder_channel"), "结束后有限连接到期清理");
+        int before = relays.Count; Place(source, 64); Place(target, 70); await Use(skill); await Advance(1f);
+        Check(relays.Count == before, "介质移除后同一已学雷法不再传递");
+        foreach (var active in allCasts) active.Cancel(); await Advance(.1f);
+        Place(source, 64); Place(target, 70); await StartWater(); await Use(skill); await WaitRelay(before);
+        Check(oldExecutions == 0, "取消后重建介质及已学雷法可恢复正常分送");
+    }
+    if (section is "all" or "common")
+    {
+        foreach (var active in allCasts) active.Cancel(); await Advance(.4f); relays.Clear(); damages.Clear();
+        foreach (var actor in new[] { first, second, third, fourth, high, friendly }) Place(actor, 12, 12);
+        var tile = World.world.GetTileSimple(71, 72); if (tile.building != null) tile.building.removeBuildingFinal();
+        var building = World.world.buildings.addBuilding("beehive", tile); int buildingHp = building.data.health; building.setKingdom(World.world.kingdoms_wild.get("demon")); await Advance(.1f);
+        // 建筑沿实际地面点接触；用已有水球的真实体积覆盖，不把悬空薄面当成地面。
+        var volumeWater = Water(); volumeWater.Root.Form = "water_orb"; volumeWater.Root.Operations = Array.Empty<ConstructionOperation>(); volumeWater.Root.Scale = 5f;
+        await Advance(.5f); buildingHp = building.data.health; await StartWater(volumeWater);
+        var interval = Convert(Build(SkillEntities.YinField, "lightning", daze: true), "Field"); interval.Id = "test.medium-spread.interval"; interval.Lifetime = 3; interval.Power = 2; interval.Binding.Height = 0;
+        await Fire(interval, source, target, aim: new Vector3(70, 72, 0)); await WaitRelay(0);
+        Check(relays[0].Targets.SequenceEqual(new[] { building.data.id }) && relays[0].Buildings.SequenceEqual(new[] { true }) && building.data.health < buildingHp, "实际建筑受到伤害且只占一个额外接收位置", new { relays[0].Targets, relays[0].Buildings, building.data.health, buildingHp, force = allCasts.Last().RemainingForce(0), animation = building.animation_state.ToString() });
+        await Advance(1.5f);
+        Check(relays.Count == 1 && contacts.Count(c => c.TargetId == target.id) >= 2, "同一施放重复接触仍只使用一次介质通道", new { relays = relays.Count, direct = contacts.Count });
+        foreach (var active in allCasts) active.Cancel(); await Advance(.4f); relays.Clear(); building.removeBuildingFinal();
+        var wrong = Water(); wrong.Root.Matter = "ice";
+        wrong.Root.State = "solid";
+        bool rejected = false; try { AbilityCompiler.Compile(wrong, false); } catch (Exception) { rejected = true; }
+        if (!rejected) { await StartWater(wrong); await Use(Build(SkillEntities.SpiritBolt, "lightning")); await Advance(1f); Check(relays.Count == 0, "非液态水不能冒充所选介质"); }
+        else Check(true, "不存在的水物态已在编译边界拒绝");
+        foreach (var active in allCasts) active.Cancel(); await Advance(.4f); relays.Clear();
+        await StartWater(caster: wolf); await Use(Build(SkillEntities.SpiritBolt, "lightning")); await Advance(1f);
+        Check(relays.Count == 0, "敌方活动水域不能借给当前雷法");
+        foreach (var active in allCasts) active.Cancel(); await Advance(.4f);
+        await StartWater();
+        // 换世界沿正式清理入口，覆盖介质、连接和整次施放机会记忆。
+        await Use(Build(SkillEntities.SpiritBolt, "lightning")); await WaitRelay(0);
+        World.world.save_manager.loadWorld(fixture); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true;
+        Check(((ICollection)service.GetField("mediumLinks", F).GetValue(null)).Count == 0 && !FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "thunder_channel"), "换世界清理连接及介质事实");
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    foreach (var cast in allCasts) cast.Cancel(); hook.UnpatchSelf(); MediumProbe.Damaged = null;
+    ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.MediumSpreadConfirmed -= Relay;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false); Config.setWorldSpeed("x1", false); Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "relays.json"), JsonConvert.SerializeObject(relays.Select(r => new { r.CastId, r.ContactId, r.OwnerId, r.MediumCastId, r.Node, r.MediumNode, r.Channel, r.WorldTime, r.Targets, r.Buildings, Points = r.Points.Select(p => new { p.x, p.y, p.z }).ToArray() }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "damage.json"), JsonConvert.SerializeObject(damages.Select(d => new { d.Target, d.Amount, d.Element }), Formatting.Indented));
+}
+/// <summary>只观察真实伤害，不改变规则。</summary>
+public static class MediumProbe
+{
+    /// <summary>实际共同伤害。</summary>
+    public static Action<GetHitEvent> Damaged;
+    /// <summary>结算后记录已发生的伤害。</summary>
+    public static void DamagePostfix(GetHitEvent __0) => Damaged?.Invoke(__0);
+}

@@ -28,14 +28,15 @@ internal static class NatureConstructionMigration
     /// <param name="skill">实际原容器。</param>
     internal static bool HasNature(Entity skill) => skill.TryGetComponent(out SkillSettings settings) && settings.NatureId != null;
 
-    /// <summary>只接管原资产允许的性质；旧导电水域随后独立迁移。</summary>
+    /// <summary>只接管原资产允许的性质及明确有效的可导电水设置。</summary>
     /// <param name="skill">已经通过原设置入口的实际容器。</param>
     internal static bool Supports(Entity skill)
     {
         if (!skill.TryGetComponent(out SkillSettings settings)) return true;
-        if (settings.ConductiveWater) return false;
-        if (settings.NatureId == null) return true;
         var asset = skill.GetComponent<SkillContainer>().Asset;
+        if (settings.ConductiveWater && (!SkillNatureCatalog.Natures.TryGetValue(settings.NatureId ?? "", out var nature) ||
+            !nature.CanConduct || !asset.ImpactProfile.IsField)) return false;
+        if (settings.NatureId == null) return true;
         return materials.ContainsKey(settings.NatureId) && SkillNatureCatalog.Natures.ContainsKey(settings.NatureId) &&
             asset.CarrierRequirement != SkillCarrierRequirement.PhysicalBody && asset.SupportsNature(settings.NatureId);
     }

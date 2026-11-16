@@ -386,6 +386,9 @@ internal sealed class CompiledForm
     /// <summary>不从显示颜色推测的实际材料。</summary>
     internal AbilityMatter Matter;
 
+    /// <summary>部位明确提供的实际介质通道。</summary>
+    internal string MediumChannel;
+
     /// <summary>只影响显示的染色倍率。</summary>
     internal Color? Dye;
 
@@ -729,6 +732,7 @@ public static partial class AbilityCompiler
         if (node.Surface != null)
             ConstructionReferences.Resolve(path + "/Surface", () => FormResources.Surface(node.Surface, true));
         AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, path + "/Matter");
+        CompiledSpreadMedium.ValidateChannel(node.MediumChannel, path + "/MediumChannel");
         if (matter.Surface != null)
             ConstructionReferences.Resolve(path + "/Matter/Surface", () => FormResources.Surface(matter.Surface, true));
         Color? dye = null;
@@ -759,6 +763,7 @@ public static partial class AbilityCompiler
             Hold = new CompiledConstructionHold(node.Hold, lifetime, path + "/Hold"),
             Surface = node.Surface,
             Matter = matter,
+            MediumChannel = node.MediumChannel,
             Dye = dye,
             ContactKey = node.ContactGroup ?? path,
             BodyWindow = node.BodyWindow,

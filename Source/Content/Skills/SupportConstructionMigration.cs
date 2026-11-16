@@ -131,7 +131,7 @@ internal static class SupportConstructionMigration
                         Speed = speed * (motion.CruiseMultiplier + (motion.LaunchMultiplier - motion.CruiseMultiplier) * remaining * remaining) });
                 }
         }
-        return NatureConstructionMigration.Bind(new AbilityDefinition
+        return MediumContactMigration.Bind(NatureConstructionMigration.Bind(new AbilityDefinition
         {
             Id = asset.id, Name = skill.HasName ? skill.Name.value : asset.id.Localize(), Lifetime = lifetime,
             ConcurrentLimit = asset.ImpactProfile.PersistentLimit, Resource = "none", Cost = 0f, Cooldown = 0f, Power = 1f, TargetRange = 10000f,
@@ -149,7 +149,7 @@ internal static class SupportConstructionMigration
                 Contact = rejuvenation ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Pulse, Interval = 1f } : null,
                 OnContact = targeted ? ConstructionContactResponse.End : ConstructionContactResponse.Continue, Operations = operations.ToArray()
             }
-        }, skill);
+        }, skill), skill);
     }
 
     /// <summary>将原祝福词条展开为普通属性状态，时长不乘效果或伤害倍率。</summary>

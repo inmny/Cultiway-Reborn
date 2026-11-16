@@ -1477,7 +1477,7 @@ public sealed partial class AbilityCast
                          Impact(i).WorldEffects.Count > 0;
             bool water = includeMaterials && state.Volume > 0 &&
                          (state.Matter.Id == "water" && state.Matter.State == "liquid" ||
-                          AbilityBurning.CanBurn(state.Matter));
+                          AbilityBurning.CanBurn(state.Matter) || form.MediumChannel != null);
             if ((state.Recovering && !water || state.Leaving) && !ending || !state.Visible && !ending ||
                 !includeEnd && age >= form.Presence.y ||
                 form.ContactRole == ConstructionContactRole.Decoration && !water ||

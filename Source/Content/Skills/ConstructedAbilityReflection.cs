@@ -55,6 +55,10 @@ public sealed partial class ConstructedAbilityService
         /// <summary>当前维持来源是否仍有效。</summary>
         internal bool IsLive => Actor.data?.id == Id && Actor.isAlive() && Actor.hasHealth();
 
+        /// <summary>介质只能借给同一实际阵营，来源失效后使用已经冻结的阵营身份。</summary>
+        /// <param name="other">另一实际控制者。</param>
+        internal bool SameKingdom(CastAuthority other) => kingdomId != 0 && kingdomId == other.kingdomId;
+
         /// <summary>保留当前实际控制者与已冻结模板。</summary>
         /// <param name="actor">当前控制者。</param>
         /// <param name="damage">当前伤害归属。</param>

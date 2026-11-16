@@ -104,7 +104,7 @@ try
         Check(Convert(invalidNature, "Projectile") == null &&
             Convert(Build(SkillEntities.GroundSpike, "water"), "GroundSpike") == null, "未知性质和原资产不允许的跨材料不转为新执行");
         var conductive = Build(SkillEntities.YinField, "water"); conductive.GetComponent<SkillSettings>().ConductiveWater = true;
-        Check(Convert(conductive, "Field") == null, "尚未迁移的可导电水域明确留原入口，不丢失旧交互");
+        Check(Convert(conductive, "Field")?.Root.MediumChannel == "water.conductive", "可导电水域沿后续B45的普通介质规则转换，不丢失交互");
         var plain = Build(SkillEntities.SpiritBolt, null);
         var emit = service.Assembly.GetType("Cultiway.Content.Skills.ProjectileConstructionMigration").GetMethod("Emit", F);
         Check((SkillEmissionResult)emit.Invoke(null, new object[] { Emission(plain, true) }) == SkillEmissionResult.Unhandled,

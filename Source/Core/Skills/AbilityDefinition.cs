@@ -118,6 +118,10 @@ public sealed class ConstructionNode
     /// <summary>明确物态，空值使用实际材料的默认规则。</summary>
     public string State;
 
+    /// <summary>实际部位作为接触介质时提供的通道，空值不参与介质分送。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public string MediumChannel;
+
     /// <summary>仅作用于显示的三个染色倍率，不改变实际材料和物态。</summary>
     public float[] Tint;
 

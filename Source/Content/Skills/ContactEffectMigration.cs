@@ -171,7 +171,7 @@ internal static partial class ContactEffectMigration
                 Speed = -Mathf.Clamp(gravity.Strength * effectScale, 0f, 10f)
             };
         }
-        return NatureConstructionMigration.Bind(definition, skill);
+        return MediumContactMigration.Bind(NatureConstructionMigration.Bind(definition, skill), skill, contactForceScale, includeRoot);
     }
 
     /// <summary>持续伤害沿用原共享状态，真实接触时才按余力写入每秒量。</summary>
