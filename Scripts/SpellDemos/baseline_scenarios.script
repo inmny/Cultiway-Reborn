@@ -28,7 +28,8 @@ string profile = (string)request["profile"];
 if (Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") != profile ||
     !Application.persistentDataPath.StartsWith(profile + Path.DirectorySeparatorChar, StringComparison.Ordinal))
     throw new InvalidOperationException("实际游戏配置/存档目录没有隔离，拒绝加载测试世界");
-var config = JObject.Parse(File.ReadAllText(Path.Combine(root, "Scripts/SpellDemos/baseline_scenarios.json")));
+var config = JObject.Parse(File.ReadAllText((string)request["configPath"] ??
+    Path.Combine(root, "Scripts/SpellDemos/baseline_scenarios.json")));
 string id = (string)request["scenario"];
 var scenario = config["scenarios"].Single(s => (string)s["id"] == id);
 if ((int)scenario["realm"] > 0 && (float)scenario["power"] < Cultisyses.Xian.PowerLevels[(int)scenario["realm"]])
@@ -187,7 +188,8 @@ try
             }
             if (id == "apex")
             {
-                var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/构造输入/掌击改追踪飞掌.json")));
+                var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(
+                    (string)request["definitionPath"] ?? Path.Combine(root, "Doc/技能系统全面重构/构造输入/掌击改追踪飞掌.json")));
                 definition.Id = "test.baseline.apex.palm";
                 definition.Name = "基线高阶飞掌";
                 definition.Root.Scale *= 2;

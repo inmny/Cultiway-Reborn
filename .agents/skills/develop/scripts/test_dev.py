@@ -190,6 +190,18 @@ class EnvironmentTests(unittest.TestCase):
                 self.environment.rpc(state, "hello")
             call.assert_not_called()
 
+    def test_loading_world_does_not_accept_validation(self):
+        """通道已经可用但世界未加载时，不执行验证命令。"""
+        state = self.setup_environment()
+        self.environment.snapshot(state)
+        self.environment.save(state)
+        with patch.object(self.environment, "check_process", return_value=True), \
+                patch.object(self.environment, "probe", return_value={"ready": False}), \
+                patch.object(dev.subprocess, "run") as run:
+            with self.assertRaises(dev.DevError):
+                self.environment.execute(["should-not-run"])
+            run.assert_not_called()
+
     def test_cleanup_rejects_symlink_and_outside_directory(self):
         """不能借环境内符号链接删除外部资料。"""
         self.setup_environment()

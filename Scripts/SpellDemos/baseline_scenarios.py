@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import time
 
@@ -161,11 +162,19 @@ def main():
         return
     selected = list(choices) if args.scenario == "all" else [args.scenario]
     version, _ = version_stamp()
+    # 测试输入也冻结到所属环境，游戏快照不需要携带整套开发脚本和文档。
+    input_folder = ROOT / "inputs" / str(time.time_ns())
+    input_folder.mkdir(parents=True)
+    config_path = input_folder / "scenarios.json"
+    write_json(config_path, config)
+    definition = input_folder / "definition.json"
+    shutil.copy2(PROJECT / "Doc/技能系统全面重构/构造输入/掌击改追踪飞掌.json", definition)
+    context = {"configPath": str(config_path), "definitionPath": str(definition)}
     if args.action == "prepare":
         base_metadata = ROOT / "base/baseline-source.json"
         if not base_metadata.exists() or json.loads(base_metadata.read_text())["version"]["sha256"] != version["sha256"]:
             write_json(ROOT / "request.json", {"action": "base", "scenario": "none",
-                                               "profile": str(PROFILE), "version": version})
+                                               "profile": str(PROFILE), "version": version, **context})
             call("run", str(SCRIPT), "120000")
             print("干净基底世界已通过原版生成与正式保存入口建立", flush=True)
     inputs = {}
@@ -174,9 +183,8 @@ def main():
         raise RuntimeError("基底世界尚未准备，请先执行prepare")
     for path in sorted(fixture.iterdir()):
         if path.is_file():
-            inputs[str(path.relative_to(PROJECT))] = hashlib.sha256(path.read_bytes()).hexdigest()
-    definition = PROJECT / "Doc/技能系统全面重构/构造输入/掌击改追踪飞掌.json"
-    inputs[str(definition.relative_to(PROJECT))] = hashlib.sha256(definition.read_bytes()).hexdigest()
+            inputs[str(path.relative_to(ROOT))] = hashlib.sha256(path.read_bytes()).hexdigest()
+    inputs["definition.json"] = hashlib.sha256(definition.read_bytes()).hexdigest()
     stamp = time.strftime("%Y%m%d-%H%M%S")
     output = ROOT / "runs" / stamp
     output.mkdir(parents=True, exist_ok=True)
@@ -185,7 +193,7 @@ def main():
     for repeat in range(args.repeat):
         for scenario in selected:
             request = {"action": args.action, "scenario": scenario, "repeat": repeat,
-                       "profile": str(PROFILE), "output": str(output), "version": version, "inputs": inputs}
+                       "profile": str(PROFILE), "output": str(output), "version": version, "inputs": inputs, **context}
             write_json(ROOT / "request.json", request)
             try:
                 result = call("run", str(SCRIPT), "120000")

@@ -377,13 +377,20 @@ class Environment:
             raise DevError("本环境游戏尚未运行，请先 start")
         if mod_inputs(self.worktree)["sha256"] != state["inputs"]["sha256"]:
             raise DevError("开发代码或资源已改变，请先 stop，再 start 准备新快照")
-        return self.probe(state)
+        identity = self.probe(state)
+        if not identity["ready"]:
+            raise DevError("本环境仍在加载，请稍后重试；不会创建另一个游戏")
+        return identity
 
     def start(self, timeout=240):
         """启动独立游戏；超时保留同一进程和日志，供 status 或 stop 处理。"""
         state = self.load()
         if self.check_process(state):
-            self.require_current(state)
+            if state["status"] == "uncertain":
+                raise DevError("上次命令状态不确定，请先 stop 再 start")
+            identity = self.require_current(state)
+            state.update(status="running", identity=identity)
+            self.save(state)
             return self.status(state)
         if not self.game.exists():
             raise DevError("游戏环境已回收，请先 setup")
@@ -525,6 +532,9 @@ class Environment:
         if state["status"] == "delivered":
             if pr != state["pr"] or not Path(state["evidence"]).is_dir():
                 raise DevError("交付记录不完整或 PR 不同，保留现有文件")
+            if (git(self.worktree, "rev-parse", "HEAD") != state["deliveredHead"] or
+                    git(self.worktree, "status", "--porcelain")):
+                raise DevError("交付后已有新修改，请重新 setup、验证和交付")
             for name in ("game", "profile", "control", "runs"):
                 remove_owned(self.directory / name, self.directory)
             return self.status(state)
@@ -588,7 +598,7 @@ class Environment:
         if not remove_worktree:
             return {"eligible": True, "worktree": str(self.worktree), "evidence": state["evidence"],
                     "next": "应用管理的 worktree 请使用应用归档；普通 Git worktree 可加 --remove-worktree"}
-        if self.worktree.is_relative_to(Path.home() / ".codex/worktrees"):
+        if self.worktree.is_relative_to(Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")) / "worktrees"):
             raise DevError("这是应用管理的 worktree，请使用应用归档工具")
         command(["git", "--git-dir", common, "worktree", "remove", self.worktree], cwd=self.root)
         state["status"] = "merged"
