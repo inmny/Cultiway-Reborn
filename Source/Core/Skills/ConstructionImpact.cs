@@ -48,6 +48,14 @@ public sealed class ConstructionImpact
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionExchange Exchange;
 
+    /// <summary>同一次真实命中后按顺序追加的独立元素伤害。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionContactDamage[] AdditionalDamage;
+
+    /// <summary>真实命中后至多抽取一个的有限候选作用。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionRandomContact RandomContact;
+
     /// <summary>精确定向速度变化：依次为离开作用中心、侧向和向上；负值用于回拉、下压。空值使用原版推力。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float[] Impulse;
@@ -143,6 +151,12 @@ public sealed class CompiledConstructionImpact
     /// <summary>实际接触后的双方地面换位资料。</summary>
     public CompiledConstructionExchange Exchange { get; }
 
+    /// <summary>已经检查并独立复制的追加伤害。</summary>
+    public IReadOnlyList<CompiledConstructionContactDamage> AdditionalDamage { get; }
+
+    /// <summary>已经独立编译的有限随机接触候选。</summary>
+    public CompiledConstructionRandomContact RandomContact { get; }
+
     /// <summary>已复制的三向世界速度变化，不持有可编辑数组。</summary>
     public Vector3? Impulse { get; }
 
@@ -171,7 +185,7 @@ public sealed class CompiledConstructionImpact
     public float ExposureSeconds { get; }
 
     /// <summary>伤害、移动或行动限制中至少有一项真实人物作用。</summary>
-    public bool HasActorEffect => Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f ||
+    public bool HasActorEffect => Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true ||
                                   StaggerSeconds > 0f || BindSeconds > 0f || StrainSeconds > 0f || ExposureSeconds > 0f;
 
     /// <summary>实际推拉中心。</summary>
@@ -201,6 +215,10 @@ public sealed class CompiledConstructionImpact
         Force = source?.Force ?? 0f;
         if (source?.Knockback != null) Knockback = new CompiledConstructionKnockback(source.Knockback, path + "/Knockback");
         if (source?.Exchange != null) Exchange = new CompiledConstructionExchange(source.Exchange, path + "/Exchange");
+        if (source?.AdditionalDamage?.Length > 8) throw new InvalidDataException(path + "：每个作用面最多八份追加伤害");
+        AdditionalDamage = source?.AdditionalDamage == null ? Array.Empty<CompiledConstructionContactDamage>() :
+            Array.AsReadOnly(source.AdditionalDamage.Select((damage, index) => new CompiledConstructionContactDamage(damage, path + "/AdditionalDamage/" + index)).Where(damage => damage.PerForce > 0f).ToArray());
+        if (source?.RandomContact != null) RandomContact = new CompiledConstructionRandomContact(source.RandomContact, path + "/RandomContact");
         if (source?.Impulse != null)
         {
             if (source.Impulse.Length != 3 || source.Impulse.Any(value =>

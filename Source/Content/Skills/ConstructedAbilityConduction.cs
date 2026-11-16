@@ -172,6 +172,7 @@ public sealed partial class ConstructedAbilityService
                 ApplyRestoration(running, node, actor.Actor, impact.Restoration);
                 responses.Add(ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, ApplyAttackState.Hit,
                     (shape.A + shape.B) * .5f, priorVelocity, forceReceiver));
+                if (epoch != worldGeneration) return null;
                 ids.Add(actor.Id);
                 before.Add(hp);
                 after.Add(actor.Actor.data?.id == actor.Id ? actor.Actor.data.health : 0);

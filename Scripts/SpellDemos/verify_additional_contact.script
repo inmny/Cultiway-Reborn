@@ -1,0 +1,179 @@
+// B41：只检查追加伤害与候选选择，共用状态、受力和身体矩阵不重跑。
+const string section="all";
+var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts=new List<ConstructedCastStarted>();var allCasts=new List<AbilityCast>();var emissions=new List<object>();
+var choices=new List<(float Chance,int Count,int Selected)>();
+var damageEvents=new List<(long Target,long Attacker,float Amount,ElementComposition Element,int Before,int After,bool Alive)>();
+int oldExecutions=0;float conversionForce=0;SkillEntityAsset current=SkillEntities.SpiritBolt;
+Actor source=Make(64),target=Make(70),outside=Make(70),wolf=Make(12,"wolf");
+target.setKingdom(wolf.kingdom);outside.setKingdom(wolf.kingdom);Place(outside,70,78);
+var owner=source.GetExtend();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=0;
+owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();await Advance(.2f);
+var statusTypes=new[]{StatusEffects.Daze,StatusEffects.Burn,StatusEffects.Poison,StatusEffects.ArmorBreak};
+var stillStats=new BaseStats();stillStats.addTag("frozen_ai");
+var still=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Additional.Still").SetStats(stillStats).SetDuration(10000).Build();
+CombatStatusEffects.RemoveStatus(target,hold);CombatStatusEffects.ApplyStatus(target,still,10000,source);target.updateStats();
+IReadOnlyList<Entity> Learned()=>(IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(owner,null);
+Entity Build(float chance=1f,bool burnout=true,bool random=true,bool zero=false,bool mixed=false)
+{
+    var builder=new SkillContainerBuilder(current).UseAnimation(0);
+    if(random)builder.AddModifier(new RandomAffixModifier{Chance=chance,EffectPower=2f});
+    if(burnout)builder.AddModifier(new BurnoutModifier{DamageRatio=zero?0:.35f,BurnDuration=2f,BurnDamageRatio=zero?0:.2f});
+    if(mixed){builder.AddModifier(new SlowModifier{Strength=.2f,Duration=2});builder.AddModifier(new MercyModifier{DamageMultiplier=.6f,HealRatio=.25f});}
+    Entity made=builder.Build(SkillContainerBuildMode.RuleOnly);string signature=SkillContainerSignature.Build(made);owner.LearnSkillV3(made);
+    return Learned().First(x=>SkillContainerSignature.Build(x)==signature);
+}
+AbilityDefinition Convert(Entity skill,string migration,float scale=1f)
+{
+    var method=service.Assembly.GetType("Cultiway.Content.Skills."+migration+"ConstructionMigration").GetMethod("Convert",F);
+    var emission=new SkillEmission{Source=source,SpatialSource=source,SkillContainer=skill,Target=target,
+        SourcePos=new Vector3(64,72,.3f),TargetPos=new Vector3(70,72,.3f),Strength=40,PowerLevel=0,RuntimeData=new SkillCastRuntimeData{EffectScale=scale}};
+    object[] args=method.GetParameters().Length==3?new object[]{emission,default(GetHitEvent),default(Vector3)}:new object[]{emission,default(GetHitEvent)};
+    var definition=(AbilityDefinition)method.Invoke(null,args);conversionForce=((GetHitEvent)args[1]).Damage;return definition;
+}
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    yield return node;if(node.Children!=null)foreach(var child in node.Children)foreach(var nested in Nodes(child))yield return nested;
+}
+CompiledConstructionImpact FirstImpact(CompiledAbility plan)
+{
+    object node=((Array)typeof(CompiledAbility).GetProperty("Nodes",F).GetValue(plan)).GetValue(0);
+    return (CompiledConstructionImpact)node.GetType().GetField("Impact",F).GetValue(node);
+}
+Entity[] States(Cultiway.Core.Libraries.StatusEffectAsset type)=>target.GetExtend().GetStatuses().Where(s=>s.GetComponent<StatusComponent>().Type==type).ToArray();
+void ResetPeople()
+{
+    foreach(var cast in allCasts)cast.Cancel();starts.Clear();contacts.Clear();choices.Clear();damageEvents.Clear();oldExecutions=0;
+    Ready(source);Place(source,64);Place(target,70);Place(outside,70,78);target.setHealth(target.getMaxHealth());
+    foreach(var type in statusTypes)CombatStatusEffects.RemoveStatus(target,type);target.updateStats();target.GetExtend().SetPowerLevel(0);owner.SetPowerLevel(0);
+    owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
+    foreach(var actor in new[]{source,target,outside})ConstructedAbilityService.NotifyActorChanged(actor);
+}
+bool Use(Entity skill)
+{
+    bool used=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",skill),new ActiveAbilityTarget(target,target.GetSimPos(),
+        selectionArea:new SkillTargetSelectionArea(true,target.GetSimPos(),.1f)),ActiveAbilityUseOrigin.Script);
+    source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();ControllableUnit.clear(false);source.stopForce();source.batch.c_action_landed.Remove(source);return used;
+}
+async Task WaitContact()
+{
+    for(int i=0;i<80;i++){await Advance(.025f);if(contacts.Any(c=>c.TargetId==target.id))return;}
+    throw new InvalidOperationException("实际目标未在两秒内接触");
+}
+void Started(ConstructedCastStarted fact)
+{
+    if(fact.SourceId!=source.id)return;starts.Add(fact);
+    var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==fact.CastId);
+    allCasts.Add((AbilityCast)Field(running,"Cast"));
+}
+void Old(Entity entity){if(entity.GetComponent<SkillContext>().SourceObj==source)oldExecutions++;}
+ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+var hook=new HarmonyLib.Harmony("Cultiway.Verify.AdditionalContact");
+AdditionalContactProbe.Selected=(group,outcome)=>{if(group!=null)choices.Add((group.Chance,group.Outcomes.Count,outcome==null?-1:Enumerable.Range(0,group.Outcomes.Count).Single(i=>ReferenceEquals(group.Outcomes[i],outcome))));};
+AdditionalContactProbe.Damaged=(damage,before)=>{if(damage.TargetID!=target.id||damage.AttackerID!=source.id)return;damageEvents.Add((damage.TargetID,damage.AttackerID,damage.Damage,damage.Element,before,target.data.health,target.isAlive()));};
+hook.Patch(service.GetMethod("SelectContactOutcome",F),postfix:new HarmonyLib.HarmonyMethod(typeof(AdditionalContactProbe).GetMethod("SelectionPostfix")));
+var damageType=typeof(GetHitEvent).Assembly.GetType("Cultiway.Core.EventSystem.Systems.GetHitEventSystem");
+hook.Patch(damageType.GetMethod("Resolve",F),prefix:new HarmonyLib.HarmonyMethod(typeof(AdditionalContactProbe).GetMethod("DamagePrefix")),postfix:new HarmonyLib.HarmonyMethod(typeof(AdditionalContactProbe).GetMethod("DamagePostfix")));
+try
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        if(request.Source!=source)return original(request);var result=original(request);
+        emissions.Add(new{request.Strength,result=result.ToString()});return result;
+    };
+    if(section is "all" or "definitions")
+    {
+        foreach(var entry in new[]{(Asset:SkillEntities.SpiritBolt,Migration:"Projectile"),(Asset:SkillEntities.GroundSpike,Migration:"GroundSpike"),
+            (Asset:SkillEntities.Rift,Migration:"Rift"),(Asset:SkillEntities.YinField,Migration:"Field"),(Asset:SkillEntities.FireWall,Migration:"Barrier"),
+            (Asset:SkillEntities.SpiritBeam,Migration:"Beam"),(Asset:SkillEntities.ChainLightning,Migration:"Chain"),
+            (Asset:SkillEntities.Fireball,Migration:"Projectile"),(Asset:SkillEntities.SpiritShield,Migration:"Barrier")})
+        {
+            current=entry.Asset;var definition=Convert(Build(.8f),entry.Migration,.5f);Check(definition!=null,entry.Asset.id+"随机附加与燃尽完整转换");
+            var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));AbilityCompiler.Compile(restored,false);
+            var attack=Nodes(restored.Root).Where(n=>n.Impact?.RandomContact!=null).ToArray();bool pure=entry.Asset==SkillEntities.SpiritShield;
+            Check(pure?attack.Length==0:attack.Length>0&&attack.All(n=>Math.Abs(n.Impact.RandomContact.Chance-.8f)<.00001f&&n.Impact.RandomContact.Outcomes.Length==6&&
+                Math.Abs(n.Impact.AdditionalDamage[0].PerForce*conversionForce-20f*.35f)<.001f&&
+                Math.Abs(n.Impact.Statuses.Single(x=>x.Tick!=null).Tick.ForcePerSecond*conversionForce-20f*.2f/2f)<.001f&&
+                Math.Abs(n.Impact.RandomContact.Outcomes[0].Statuses[0].Duration-.275f)<.00001f&&
+                Math.Abs(n.Impact.RandomContact.Outcomes[3].Damage[0].PerForce*conversionForce-20f*.2f)<.001f&&
+                n.Impact.RandomContact.Outcomes[5].Knockback.Distance==.9f&&n.Impact.RandomContact.Outcomes[5].Knockback.Height==.4f),entry.Asset.id+"保存编译保留六候选原概率和一次作用倍率");
+            if(entry.Asset==SkillEntities.Fireball)Check(restored.Root.Impact?.RandomContact==null&&restored.Root.Children[0].Impact.RandomContact!=null,"爆发只在后段追加作用");
+            File.WriteAllText(Path.Combine(folder,entry.Asset.id+".json"),JsonConvert.SerializeObject(restored,Formatting.Indented));
+        }
+        current=SkillEntities.SpiritBolt;var mixed=Convert(Build(mixed:true),"Projectile");Check(mixed.Root.Impact.Restoration!=null&&mixed.Root.Impact.Statuses.Length==2&&mixed.Root.Impact.RandomContact!=null&&mixed.Root.Impact.AdditionalDamage.Length==1,"原状态恢复与随机追加伤害共同保留");
+        var editable=Convert(Build(),"Projectile");var compiled=FirstImpact(AbilityCompiler.Compile(editable,false));
+        editable.Root.Impact.RandomContact.Chance=.1f;editable.Root.Impact.RandomContact.Outcomes[0].Statuses[0].Duration=9f;editable.Root.Impact.AdditionalDamage[0].PerForce=8;
+        Check(compiled.RandomContact.Chance==1&&compiled.RandomContact.Outcomes[0].Statuses[0].Duration==.55f&&Math.Abs(compiled.AdditionalDamage[0].PerForce-.35f)<.00001f,"编译独立复制候选嵌套状态和追加比例");
+        Check(choices.Count==0,"转换保存及重复编译不抽取随机接触");
+        foreach(int invalid in Enumerable.Range(0,8))
+        {
+            var bad=Convert(Build(),"Projectile");
+            switch(invalid)
+            {
+                case 0:bad.Root.Impact.RandomContact.Chance=float.NaN;break;
+                case 1:bad.Root.Impact.RandomContact.Chance=1.1f;break;
+                case 2:bad.Root.Impact.RandomContact.Outcomes=Array.Empty<ConstructionContactOutcome>();break;
+                case 3:bad.Root.Impact.RandomContact.Outcomes=new ConstructionContactOutcome[17];break;
+                case 4:bad.Root.Impact.RandomContact.Outcomes[0]=null;break;
+                case 5:bad.Root.Impact.AdditionalDamage[0].PerForce=-1;break;
+                case 6:bad.Root.Impact.AdditionalDamage[0].Element=new ElementComposition(fire:float.PositiveInfinity);break;
+                case 7:bad.Root.Impact.RandomContact.Outcomes[3].Damage=new ConstructionContactDamage[9];break;
+            }
+            bool refused=false;try{AbilityCompiler.Compile(bad,false);}catch(InvalidDataException){refused=true;}Check(refused,"非法候选或伤害在编译边界拒绝");
+        }
+        var zero=Convert(Build(0,zero:true),"Projectile");Check(zero.Root.Impact?.RandomContact==null&&zero.Root.Impact?.AdditionalDamage==null,"原零概率与零燃尽不增加作用");
+    }
+    if(section is "all" or "runtime")
+    {
+        current=SkillEntities.SpiritBolt;ResetPeople();var skill=Build();float balance=owner.GetCultisys<Xian>().wakan;
+        var plan=SkillCastPlanner.CreatePlan(owner,skill,target,SkillCastCost.GetAffordableStepLimit(owner,skill),explicitTargetsOnly:true);
+        Check(Use(skill),"实际已学随机燃尽灵弹受理");await WaitContact();
+        Check(choices.Count==1&&choices[0].Count==6&&choices[0].Selected>=0&&choices[0].Selected<6,"一次真实接触只选原六候选中的一个",new{selected=choices[0].Selected});
+        Check(damageEvents.Any(d=>Math.Abs(d.Amount-35f)<.001f&&d.Element.fire==1&&d.After<d.Before)&&States(StatusEffects.Burn).Length==1,"同次追加火伤真实扣血并进入共享燃烧",
+            new{damage=damageEvents.Select(d=>new{d.Amount,d.Before,d.After,fire=d.Element.fire}).ToArray()});
+        int chosen=choices[0].Selected;
+        Check(chosen switch{0=>States(StatusEffects.Daze).Length==1,1=>States(StatusEffects.Burn).Length==1,2=>States(StatusEffects.Poison).Length==1,
+            3=>damageEvents.Any(d=>Math.Abs(d.Amount-20)<.001f),4=>States(StatusEffects.ArmorBreak).Length==1,5=>contacts.Any(c=>c.TargetId==target.id&&c.ForceApplied),_=>false},"选中结果复用实际状态伤害或受力");
+        double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculatePlanDemand(skill,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
+        Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&oldExecutions==0&&!contacts.Any(c=>c.TargetId==outside.id),"原逐发费用归属及侧外安全保留",new{cost});
+        foreach(var cast in allCasts)cast.Cancel();int draws=choices.Count;await Advance(4.2f);
+        Check(choices.Count==draws&&!target.under_forces&&!BodyControlState.IsBusy(target.id),"取消后不再抽取且有限运动归还控制");
+    }
+    if(section is "all" or "recovery")
+    {
+        current=SkillEntities.SpiritBolt;ResetPeople();Check(Use(Build(0,zero:true)),"零概率零燃尽的实际已学来源受理");await WaitContact();
+        Check(choices.Count==0&&damageEvents.Count==1&&statusTypes.All(t=>States(t).Length==0),"零概率与零作用正常命中但不追加");
+        ResetPeople();var lethal=Convert(Build(0,zero:true),"Projectile");lethal.Id="test.additional-contact.lethal";lethal.Root.Impact=new ConstructionImpact{DamageScale=0,
+            AdditionalDamage=new[]{new ConstructionContactDamage{PerForce=1000,Element=ElementComposition.Static.Fire},new ConstructionContactDamage{PerForce=1000,Element=ElementComposition.Static.Poison}},
+            Statuses=new[]{new ConstructionStatus{Id=StatusEffects.Slow.id,Duration=2,Application=ConstructionStatusApplication.Refresh}}};
+        target.setHealth(1);Ready(source);await Fire(lethal,source,target,aggro:false);ControllableUnit.clear(false);source.stopForce();source.batch.c_action_landed.Remove(source);
+        CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();await WaitContact();
+        Check(!target.isAlive()&&damageEvents.Count==1&&damageEvents[0].Element.fire==1&&contacts.Single(c=>c.TargetId==target.id).DamageAttempted,"首份追加伤害致死后停止后续伤害并如实记录攻击");
+        foreach(var cast in allCasts)cast.Cancel();await Advance(.3f);Check(damageEvents.Count==1,"结束后不对死亡人物追加第二份伤害");
+    }
+    return new{passed=true,section,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    foreach(var cast in allCasts)cast.Cancel();hook.UnpatchSelf();AdditionalContactProbe.Selected=null;AdditionalContactProbe.Damaged=null;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    ControllableUnit.clear(false);Config.setWorldSpeed("x1",false);Config.paused=true;
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder,"choices.json"),JsonConvert.SerializeObject(choices.Select(x=>new{x.Chance,x.Count,x.Selected}),Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder,"damage.json"),JsonConvert.SerializeObject(damageEvents.Select(d=>new{d.Target,d.Attacker,d.Amount,d.Element,d.Before,d.After,d.Alive}),Formatting.Indented));
+}
+/// <summary>仅观察真实选择和伤害，不替换随机数或结算规则。</summary>
+public static class AdditionalContactProbe
+{
+    /// <summary>原候选和实际返回的单个结果。</summary>
+    public static Action<CompiledConstructionRandomContact,CompiledConstructionContactOutcome> Selected;
+    /// <summary>真实受击入口的输入及前后生命值。</summary>
+    public static Action<GetHitEvent,int> Damaged;
+    /// <summary>记录命中时的实际选择。</summary>
+    public static void SelectionPostfix(CompiledConstructionRandomContact __0,CompiledConstructionContactOutcome __result)=>Selected?.Invoke(__0,__result);
+    /// <summary>记录原版伤害结算前的生命值。</summary>
+    public static void DamagePrefix(GetHitEvent __0,out int __state)=>__state=World.world.units.get(__0.TargetID)?.data.health??0;
+    /// <summary>记录伤害结算后的实际结果。</summary>
+    public static void DamagePostfix(GetHitEvent __0,int __state)=>Damaged?.Invoke(__0,__state);
+}

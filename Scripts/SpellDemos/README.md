@@ -1433,3 +1433,13 @@ python3 Scripts/SpellDemos/verify_contact_exchange.py
 `--section definitions/runtime/recovery`分别运行资料、已学灵弹正常换位及零概率/离地/真实掌击归还。`definitions-zero`、`recovery-edge`、`recovery-body`仅补对应未通过段；不重复已通过的前段。入口复用既有世界和人物，核对连续坐标、原费用、精确位置保存标记、旧身体释放、换位先于同次击退、中间空隙不形成攻击路径，以及旧动作寿命结束后的控制归还。准备时清除退出手动控制自带的随机弹飞，不修改换位地面限制；真实腾起用于离地拒绝，掌击使用合法的近身地点选择。
 
 完整输入、展开资料、实际接触限制、双方放置坐标及控制归还记录在`artifacts/skill_rebuild/trajectories/contact-exchange/`；最终依据见`delivery.json`。失败记录保留，仅采用索引明确指出的通过前段和补齐结果。完整编辑、自主创作、正式存档冷启动与集中连续录像继续5.05 C；最终美术继续对应后项。
+
+
+```bash
+# 5.05 B41：追加伤害、随机接触候选与原燃尽
+python3 Scripts/SpellDemos/verify_additional_contact.py
+```
+
+`--section definitions/runtime/recovery`分别运行资料转换与保存编译、一个实际已学灵弹的真实随机选择和燃尽、零概率零作用及首份追加伤害致死后停止。观察只记录实际选择与共同伤害，不替换随机数或结算。使用已选中的实际候选验证对应作用，不遍历身体装备或重复已有状态受力矩阵。原逐发费用、伤害归属、侧外安全和结束后停效在同一场景确认。
+
+完整输入、展开资料、实际选择、伤害及结果保存在`artifacts/skill_rebuild/trajectories/additional-contact/`及对应分段目录；最终依据见`delivery.json`。新字段完整表单、自主创作、正式冷启动与集中连续录像继续5.05 C。

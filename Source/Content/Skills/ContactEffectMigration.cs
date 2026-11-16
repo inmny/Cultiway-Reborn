@@ -12,13 +12,13 @@ using strings;
 namespace Cultiway.Content.Skills;
 
 /// <summary>原接触词条只展开为普通状态和恢复资料，不保留旧执行实体或运行回调。</summary>
-internal static class ContactEffectMigration
+internal static partial class ContactEffectMigration
 {
     /// <summary>已经完整接管的原接触附加词条。</summary>
     /// <param name="type">原容器中的词条类型。</param>
     internal static bool Supports(Type type) => type == typeof(SlowModifier) || type == typeof(FreezeModifier) || type == typeof(DazeModifier) ||
         type == typeof(WeakenModifier) || type == typeof(ArmorBreakModifier) || type == typeof(SilenceModifier) ||
-        type == typeof(BurnModifier) || type == typeof(PoisonModifier) || type == typeof(EternalCurseModifier) || type == typeof(MercyModifier) || type == typeof(ChaosModifier) || type == typeof(KnockbackModifier) || type == typeof(GravityModifier) || type == typeof(SwapModifier);
+        type == typeof(BurnModifier) || type == typeof(PoisonModifier) || type == typeof(EternalCurseModifier) || type == typeof(MercyModifier) || type == typeof(ChaosModifier) || type == typeof(KnockbackModifier) || type == typeof(GravityModifier) || type == typeof(SwapModifier) || type == typeof(RandomAffixModifier) || type == typeof(BurnoutModifier);
 
     /// <summary>在真实逐发转换时一次确定原设置词条，运行及预测只读取已经展开的数值。</summary>
     /// <param name="skill">真实原容器。</param>
@@ -82,6 +82,7 @@ internal static class ContactEffectMigration
     internal static AbilityDefinition Bind(AbilityDefinition definition, Entity skill, float effectScale, bool includeRoot = true, float contactForceScale = 1f, Core.ActorExtend caster = null)
     {
         var statuses = new List<ConstructionStatus>();
+        var additionalDamage = new List<ConstructionContactDamage>();
         if (skill.TryGetComponent(out SlowModifier slow))
         {
             float duration = Mathf.Clamp(slow.Duration, 0f, 999f), strength = Mathf.Clamp01(slow.Strength * effectScale);
@@ -151,8 +152,10 @@ internal static class ContactEffectMigration
             float chance = Mathf.Clamp01(swap.Chance * effectScale);
             if (chance > 0f) exchange = new ConstructionExchange { Chance = chance };
         }
-        if (statuses.Count > 0 || healing > 0f || knockback != null || exchange != null)
-            BindNode(definition.Root, statuses.ToArray(), healing, knockback, exchange, includeRoot);
+        AddBurnout(skill, contactForceScale, statuses, additionalDamage);
+        ConstructionRandomContact randomContact = RandomContact(skill, effectScale, contactForceScale);
+        if (statuses.Count > 0 || healing > 0f || knockback != null || exchange != null || additionalDamage.Count > 0 || randomContact != null)
+            BindNode(definition.Root, statuses.ToArray(), healing, knockback, exchange, additionalDamage.ToArray(), randomContact, includeRoot);
         if (skill.TryGetComponent(out GravityModifier gravity))
         {
             float original = Core.SkillLibV3.Utils.SkillEffectRadius.ResolveContainer(skill, 1f);
@@ -205,8 +208,10 @@ internal static class ContactEffectMigration
     /// <param name="healing">本体量换回原恢复基准后的比例。</param>
     /// <param name="knockback">本次接触的击退与腾起幅度。</param>
     /// <param name="exchange">真实接触后的换位概率及停步。</param>
+    /// <param name="additionalDamage">同次追加的独立元素伤害。</param>
+    /// <param name="randomContact">真实接触时才抽取的普通候选。</param>
     /// <param name="include">是否在本部位的接触时点施加。</param>
-    private static void BindNode(ConstructionNode node, ConstructionStatus[] statuses, float healing, ConstructionKnockback knockback, ConstructionExchange exchange, bool include = true)
+    private static void BindNode(ConstructionNode node, ConstructionStatus[] statuses, float healing, ConstructionKnockback knockback, ConstructionExchange exchange, ConstructionContactDamage[] additionalDamage, ConstructionRandomContact randomContact, bool include = true)
     {
         if (include && (node.ContactRole == ConstructionContactRole.Attack || node.ContactRole == ConstructionContactRole.Barrier && node.Impact != null))
         {
@@ -214,6 +219,8 @@ internal static class ContactEffectMigration
             if (statuses.Length > 0) node.Impact.Statuses = statuses;
             if (knockback != null) node.Impact.Knockback = new ConstructionKnockback { Distance = knockback.Distance, Height = knockback.Height };
             if (exchange != null) node.Impact.Exchange = new ConstructionExchange { Chance = exchange.Chance, WaitSeconds = exchange.WaitSeconds };
+            if (additionalDamage.Length > 0) node.Impact.AdditionalDamage = additionalDamage;
+            if (randomContact != null) node.Impact.RandomContact = randomContact;
             if (healing > 0f) node.Impact.Restoration = new ConstructionRestoration
             {
                 Target = ConstructionRestorationTarget.Controller,
@@ -222,6 +229,6 @@ internal static class ContactEffectMigration
             };
         }
         if (node.Children == null) return;
-        foreach (ConstructionNode child in node.Children) BindNode(child, statuses, healing, knockback, exchange);
+        foreach (ConstructionNode child in node.Children) BindNode(child, statuses, healing, knockback, exchange, additionalDamage, randomContact);
     }
 }

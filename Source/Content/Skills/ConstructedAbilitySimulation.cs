@@ -953,6 +953,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             return;
         }
 
+        long contactGeneration = worldGeneration;
         ActorMotion actor = hit.Actor;
         if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) return;
         ContactMemory memory = RememberContact(running, node, actor.Id);
@@ -981,10 +982,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             GetHitEventSystem.Resolve(damage);
         }
 
+        if (contactGeneration != worldGeneration) return;
         ApplyRestoration(running, node, actor.Actor, impact.Restoration, running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
         ConstructedTargetResponse response = ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
             priorVelocity: priorVelocity, forceReceiver: forceReceiver,
             strength: running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
+        if (contactGeneration != worldGeneration) return;
         running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id,
             hit.LeftRayLength >= 0f ? hit.LeftRayLength : null);
         simulation.SelectContactTargets(running, node, actor);
@@ -999,7 +1002,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             node, hit.Point, hit.Normal, running.Cast.Age, result, running.SourceId, running.Cast.Reflections(node),
             memory.Count, running.GroupHits[running.Cast.ContactGroup(node)], beforeMatter?.Id, beforeMatter?.State,
             afterMatter?.Id, afterMatter?.State,
-            impact.DamageScale > 0f, response.VelocityChange, response.ForceApplied, response.StaggerSeconds,
+            impact.DamageScale > 0f || response.AdditionalDamageAttempted, response.VelocityChange, response.ForceApplied, response.StaggerSeconds,
             response.BindSeconds, response.StrainSeconds, response.ExposureSeconds));
     }
 
@@ -1090,16 +1093,35 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ApplyContactExchange(running.Owner(node), target, impact.Exchange, result, strength);
         if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
             return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);
+        CompiledConstructionContactOutcome outcome = SelectContactOutcome(impact.RandomContact, result);
+        bool additionalDamage = false;
+        if (result == ApplyAttackState.Hit)
+        {
+            bool valid = ApplyAdditionalDamage(running, node, target, targetId, impact.AdditionalDamage, strength, out bool direct);
+            additionalDamage = direct;
+            if (valid && outcome != null)
+            {
+                valid = ApplyAdditionalDamage(running, node, target, targetId, outcome.Damage, strength, out bool chosen);
+                additionalDamage |= chosen;
+            }
+            if (!valid) return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, additionalDamage: additionalDamage);
+        }
         ApplyStatuses(running, node, target, impact.Statuses, strength);
+        if (outcome != null) ApplyStatuses(running, node, target, outcome.Statuses, strength);
         ApplyContactReactions(target, impact, running.Owner(node), result, out float stagger, out float bound,
             out float strain, out float exposure);
         Vector3 velocity = ApplyContactForce(running, node, target, impact, result, out bool force, origin,
             priorVelocity, forceReceiver, strength);
         velocity += ApplyContactKnockback(running, node, target, impact.Knockback, result, out bool knocked, origin, strength);
         force |= knocked;
+        if (outcome?.Knockback != null)
+        {
+            velocity += ApplyContactKnockback(running, node, target, outcome.Knockback, result, out bool chosenForce, origin, strength);
+            force |= chosenForce;
+        }
         if (force) InterruptContactBody(target);
         else if (stagger > 0f || bound > 0f) InterruptContactBody(target, Mathf.Max(stagger, bound));
-        return new ConstructedTargetResponse(targetId, velocity, force, stagger, bound, strain, exposure);
+        return new ConstructedTargetResponse(targetId, velocity, force, stagger, bound, strain, exposure, additionalDamage);
     }
 
     /// <summary>先确认共享状态，再限制实际行动；受力仍单独经过原有抗击退规则。</summary>

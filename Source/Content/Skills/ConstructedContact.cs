@@ -9,6 +9,9 @@ public readonly struct ConstructedTargetResponse
     /// <summary>真正被作用的人物。</summary>
     public readonly long TargetId;
 
+    /// <summary>是否实际提交了接触附带的追加伤害。</summary>
+    public readonly bool AdditionalDamageAttempted;
+
     /// <summary>实际受理后的速度变化。</summary>
     public readonly Vector3 VelocityChange;
 
@@ -25,10 +28,12 @@ public readonly struct ConstructedTargetResponse
     /// <param name="target">实际人物。</param><param name="velocity">实际速度差。</param>
     /// <param name="force">受力是否受理。</param><param name="stagger">停顿秒数。</param><param name="bound">束缚秒数。</param>
     /// <param name="strain">实际扭伤秒数。</param><param name="exposure">实际破甲秒数。</param>
+    /// <param name="additionalDamage">是否实际提交了追加伤害。</param>
     internal ConstructedTargetResponse(long target, Vector3 velocity, bool force, float stagger, float bound,
-        float strain = 0f, float exposure = 0f)
+        float strain = 0f, float exposure = 0f, bool additionalDamage = false)
     {
         TargetId = target;
+        AdditionalDamageAttempted = additionalDamage;
         VelocityChange = velocity;
         ForceApplied = force;
         StaggerSeconds = stagger;
