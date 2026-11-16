@@ -1,0 +1,205 @@
+// B40：真实接触换位，只取一个已学来源和一个真实身体动作。
+const string section="all";
+var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var allCasts=new List<AbilityCast>();
+var emissions=new List<object>();var placements=new List<(long Actor,Vector2 Before,Vector2 Destination,Vector2 After,float Wait)>();
+var attempts=new List<object>();
+var releases=new List<(long Actor,bool BusyBefore,bool BusyAfter,bool Released)>();var order=new List<string>();
+int oldExecutions=0;SkillEntityAsset current=SkillEntities.SpiritBolt;
+Actor source=Make(64),target=Make(70),middle=Make(67),wolf=Make(12,"wolf");
+target.setKingdom(wolf.kingdom);
+var owner=source.GetExtend();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=0;
+owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();await Advance(.2f);
+var stillStats=new BaseStats();stillStats.addTag("frozen_ai");
+var still=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Exchange.Still").SetStats(stillStats).SetDuration(10000).Build();
+IReadOnlyList<Entity> Learned()=>(IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(owner,null);
+Entity Build(float chance=1f,bool mixed=false)
+{
+    var builder=new SkillContainerBuilder(current).UseAnimation(0);builder.AddModifier(new SwapModifier{Chance=chance});
+    if(mixed){builder.AddModifier(new SlowModifier{Strength=.2f,Duration=2});builder.AddModifier(new MercyModifier{DamageMultiplier=.6f,HealRatio=.25f});
+        builder.AddModifier(new KnockbackModifier{Distance=1f,Height=0});builder.AddModifier(new GravityModifier{Radius=2,Strength=1});}
+    Entity made=builder.Build(SkillContainerBuildMode.RuleOnly);string signature=SkillContainerSignature.Build(made);owner.LearnSkillV3(made);
+    return Learned().First(x=>SkillContainerSignature.Build(x)==signature);
+}
+(AbilityDefinition Definition,GetHitEvent Damage) Convert(Entity skill,string migration,float scale=1f)
+{
+    var method=service.Assembly.GetType("Cultiway.Content.Skills."+migration+"ConstructionMigration").GetMethod("Convert",F);
+    var emission=new SkillEmission{Source=source,SpatialSource=source,SkillContainer=skill,Target=target,
+        SourcePos=source.GetSimPos(),TargetPos=target.GetSimPos(),Strength=40,PowerLevel=0,RuntimeData=new SkillCastRuntimeData{EffectScale=scale}};
+    object[] args=method.GetParameters().Length==3?new object[]{emission,default(GetHitEvent),default(Vector3)}:new object[]{emission,default(GetHitEvent)};
+    return ((AbilityDefinition)method.Invoke(null,args),(GetHitEvent)args[1]);
+}
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    yield return node;if(node.Children!=null)foreach(var child in node.Children)foreach(var nested in Nodes(child))yield return nested;
+}
+CompiledConstructionImpact FirstImpact(CompiledAbility plan)
+{
+    object node=((Array)typeof(CompiledAbility).GetProperty("Nodes",F).GetValue(plan)).GetValue(0);
+    return (CompiledConstructionImpact)node.GetType().GetField("Impact",F).GetValue(node);
+}
+void ResetPeople()
+{
+    foreach(var cast in allCasts)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();placements.Clear();releases.Clear();order.Clear();oldExecutions=0;
+    Ready(source);Place(source,64.2f,72.3f);Place(target,70.65f,72.4f);Place(middle,67.4f,72.35f);
+    target.setHealth(target.getMaxHealth());target.GetExtend().SetPowerLevel(0);owner.SetPowerLevel(0);
+    owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
+    foreach(var actor in new[]{source,target,middle})ConstructedAbilityService.NotifyActorChanged(actor);
+}
+bool Use(Entity skill)
+{
+    bool used=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",skill),new ActiveAbilityTarget(target,target.GetSimPos(),
+        selectionArea:new SkillTargetSelectionArea(true,target.GetSimPos(),.1f)),ActiveAbilityUseOrigin.Script);
+    source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();ControllableUnit.clear(false);source.stopForce();source.batch.c_action_landed.Remove(source);return used;
+}
+async Task WaitContact()
+{
+    for(int i=0;i<80;i++){await Advance(.025f);if(contacts.Any(c=>c.TargetId==target.id))return;}
+    throw new InvalidOperationException("实际目标未在两秒内接触");
+}
+void Started(ConstructedCastStarted fact)
+{
+    if(fact.SourceId!=source.id&&fact.SourceId!=target.id)return;
+    if(fact.SourceId==source.id)starts.Add(fact);
+    var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==fact.CastId);
+    allCasts.Add((AbilityCast)Field(running,"Cast"));
+}
+void Old(Entity entity){if(entity.GetComponent<SkillContext>().SourceObj==source)oldExecutions++;}
+ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+var hook=new HarmonyLib.Harmony("Cultiway.Verify.ContactExchange");
+ContactExchangeProbe.Attempted=(controller,actor,exchange,result,strength)=>{var caster=(Actor)Field(controller,"Actor");attempts.Add(new{source=caster.id,target=actor.id,sourceHeight=caster.position_height,targetHeight=actor.position_height,sourcePosition=new[]{caster.current_position.x,caster.current_position.y},targetPosition=new[]{actor.current_position.x,actor.current_position.y},exchange?.Chance,result=result.ToString(),strength,sourceAlive=caster.isAlive(),targetAlive=actor.isAlive(),sameTile=caster.current_tile==actor.current_tile});};
+hook.Patch(service.GetMethod("ApplyContactExchange",F),prefix:new HarmonyLib.HarmonyMethod(typeof(ContactExchangeProbe).GetMethod("AttemptPrefix")));
+ContactExchangeProbe.Placed=(actor,before,destination,wait)=>{placements.Add((actor.id,before,destination,actor.current_position,wait));order.Add("place:"+actor.id);};
+ContactExchangeProbe.Released=(actor,busy,released)=>releases.Add((actor.id,busy,BodyControlState.IsBusy(actor.id),released));
+ContactExchangeProbe.Forced=actor=>order.Add("force:"+actor.id);
+hook.Patch(service.GetMethod("PlaceAfterExchange",F),prefix:new HarmonyLib.HarmonyMethod(typeof(ContactExchangeProbe).GetMethod("PlacePrefix")),postfix:new HarmonyLib.HarmonyMethod(typeof(ContactExchangeProbe).GetMethod("PlacePostfix")));
+hook.Patch(service.GetMethod("ReleaseForExchange",F),prefix:new HarmonyLib.HarmonyMethod(typeof(ContactExchangeProbe).GetMethod("ReleasePrefix")),postfix:new HarmonyLib.HarmonyMethod(typeof(ContactExchangeProbe).GetMethod("ReleasePostfix")));
+var motionType=service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+hook.Patch(motionType.GetMethod("BeginCombatDirected",F),postfix:new HarmonyLib.HarmonyMethod(typeof(ContactExchangeProbe).GetMethod("ForcePostfix")));
+try
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        if(request.Source!=source)return original(request);var result=original(request);
+        if(result==SkillEmissionResult.Accepted)
+        {
+            var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==starts.Last().CastId);
+            var cast=(AbilityCast)Field(running,"Cast");accepted.Add(cast);
+        }
+        emissions.Add(new{request.Strength,result=result.ToString()});return result;
+    };
+    if(section is "all" or "definitions")
+    {
+        foreach(var entry in new[]{(Asset:SkillEntities.SpiritBolt,Migration:"Projectile"),(Asset:SkillEntities.GroundSpike,Migration:"GroundSpike"),
+            (Asset:SkillEntities.Rift,Migration:"Rift"),(Asset:SkillEntities.YinField,Migration:"Field"),(Asset:SkillEntities.FireWall,Migration:"Barrier"),
+            (Asset:SkillEntities.SpiritBeam,Migration:"Beam"),(Asset:SkillEntities.ChainLightning,Migration:"Chain"),
+            (Asset:SkillEntities.Fireball,Migration:"Projectile"),(Asset:SkillEntities.SpiritShield,Migration:"Barrier")})
+        {
+            current=entry.Asset;var pair=Convert(Build(.8f),entry.Migration,.5f);Check(pair.Definition!=null,entry.Asset.id+"原换位完整转换");
+            var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(pair.Definition));AbilityCompiler.Compile(restored,false);
+            var exchanged=Nodes(restored.Root).Where(n=>n.Impact?.Exchange!=null).ToArray();bool pure=entry.Asset==SkillEntities.SpiritShield;
+            Check(pure?exchanged.Length==0:exchanged.Length>0&&exchanged.All(n=>Math.Abs(n.Impact.Exchange.Chance-.4f)<.00001f&&n.Impact.Exchange.WaitSeconds==.2f),entry.Asset.id+"保存编译保留一次倍率且纯防御无换位");
+            if(entry.Asset==SkillEntities.Fireball)Check(restored.Root.Impact.Exchange==null&&restored.Root.Children[0].Impact.Exchange!=null,"爆发只在后段换位");
+            File.WriteAllText(Path.Combine(folder,entry.Asset.id+".json"),JsonConvert.SerializeObject(restored,Formatting.Indented));
+        }
+        current=SkillEntities.SpiritBolt;var mixed=Convert(Build(mixed:true),"Projectile").Definition;
+        Check(mixed.Root.Impact.Exchange!=null&&mixed.Root.Impact.Knockback!=null&&mixed.Root.Impact.Restoration!=null&&mixed.Root.Impact.Statuses.Length==1&&mixed.Root.RadialMotion!=null,"换位与状态恢复击退及旅行引力共存");
+        var definition=Convert(Build(),"Projectile").Definition;var compiled=FirstImpact(AbilityCompiler.Compile(definition,false));
+        definition.Root.Impact.Exchange.Chance=.1f;definition.Root.Impact.Exchange.WaitSeconds=2;
+        Check(compiled.Exchange.Chance==1&&compiled.Exchange.WaitSeconds==.2f,"编译独立复制概率和停步时间");
+        foreach(var bad in new[]{new ConstructionExchange{Chance=-.1f},new ConstructionExchange{Chance=1.1f},new ConstructionExchange{Chance=float.NaN},
+            new ConstructionExchange{WaitSeconds=-1},new ConstructionExchange{WaitSeconds=3601},new ConstructionExchange{WaitSeconds=float.PositiveInfinity}})
+        {
+            definition.Root.Impact.Exchange=bad;bool rejected=false;try{AbilityCompiler.Compile(definition,false);}catch(InvalidDataException){rejected=true;}
+            Check(rejected,"非法换位参数在编译边界拒绝");
+        }
+
+    }
+    if(section is "all" or "definitions" or "definitions-zero")
+    {
+        current=SkillEntities.SpiritBolt;var zero=Convert(Build(0),"Projectile").Definition;
+        Check(zero!=null&&zero.Root.Impact?.Exchange==null,"零概率不增加换位作用");
+    }
+    if(section is "all" or "runtime")
+    {
+        current=SkillEntities.SpiritBolt;ResetPeople();Entity skill=Build();var plan=SkillCastPlanner.CreatePlan(owner,skill,target,SkillCastCost.GetAffordableStepLimit(owner,skill),explicitTargetsOnly:true);
+        Vector2 beforeSource=source.current_position,beforeTarget=target.current_position;float hp=target.data.health,balance=owner.GetCultisys<Xian>().wakan;
+        Check(Use(skill),"实际已学换位灵弹正式受理");await WaitContact();
+        Check(placements.Count==2&&placements.All(p=>(p.After-p.Destination).sqrMagnitude<.000001f&&p.Wait==.2f)&&
+            (source.current_position-beforeTarget).sqrMagnitude<.000001f&&(target.current_position-beforeSource).sqrMagnitude<.000001f,"真实接触完整交换双方连续位置并短暂停步",
+            new{source=new[]{source.current_position.x,source.current_position.y},target=new[]{target.current_position.x,target.current_position.y}});
+        double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculatePlanDemand(skill,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
+        Check(target.data.health<hp&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&oldExecutions==0,"换位保留原费用及实际伤害且无旧执行体",new{cost,hp,hpAfter=target.data.health});
+        Check(source.GetExtend().E.HasComponent<Cultiway.Content.Components.PreciseActorPosition>()&&target.GetExtend().E.HasComponent<Cultiway.Content.Components.PreciseActorPosition>(),"双方位置沿用正式精确坐标保存标记");
+        foreach(var cast in accepted)cast.Cancel();await Advance(.35f);
+        Check((source.current_position-beforeTarget).sqrMagnitude<.000001f&&(target.current_position-beforeSource).sqrMagnitude<.000001f&&!BodyControlState.IsBusy(source.id)&&!BodyControlState.IsBusy(target.id),"结束后旧行动不拉回双方且控制归还");
+    }
+    if(section is "all" or "recovery")
+    {
+        current=SkillEntities.SpiritBolt;ResetPeople();Vector2 beforeSource=source.current_position,beforeTarget=target.current_position;
+        Check(Use(Build(0)),"零概率已学来源正式受理");await WaitContact();
+        Check(placements.Count==0&&(source.current_position-beforeSource).sqrMagnitude<.000001f&&(target.current_position-beforeTarget).sqrMagnitude<.000001f,"零概率真实命中不换位");
+    }
+    if(section is "all" or "recovery" or "recovery-edge")
+    {
+        current=SkillEntities.SpiritBolt;ResetPeople();ControllableUnit.clear(false);source.stopForce();source.batch.c_action_landed.Remove(source);
+        target.addForce(0f,0f,2f);await Advance(.04f);Ready(source);ConstructedAbilityService.NotifyActorChanged(target);
+        Check(Use(Build()),"目标离地时已学来源仍正常施放");await WaitContact();
+        Check(placements.Count==0,"离地目标真实命中但双方不换位");
+    }
+    if(section is "all" or "recovery" or "recovery-body")
+    {
+        current=SkillEntities.SpiritBolt;ResetPeople();CombatStatusEffects.RemoveStatus(target,hold);target.updateStats();target.attack_timer=0;
+        var action=BodyActionCatalog.Create("test.contact-exchange.body","换位前的真实掌击",new BodyActionRequest{Kind=BodyActionKind.Slap,Effector="hand.right",Seconds=4});
+        ControllableUnit.clear(false);source.stopForce();source.batch.c_action_landed.Remove(source);
+        action.Use=new ConstructionUse{Target=ActiveAbilityTargetMode.Point};
+        CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();
+        await Fire(action,target,source,aim:target.GetSimPos()+new Vector3(-.25f,0f,0f),aggro:false);
+        await Advance(1.6f);
+        Check(BodyControlState.IsBusy(target.id),"实际人物已取得正式身体控制");
+        Ready(source);var exchange=Convert(Build(),"Projectile").Definition;exchange.Id="test.contact-exchange.recovery";
+        exchange.Root.Impact.DamageScale=0;exchange.Root.Impact.Knockback=new ConstructionKnockback{Distance=.4f,Height=0};
+        float middleHealth=middle.data.health;await Fire(exchange,source,target,aggro:false);ControllableUnit.clear(false);source.stopForce();source.batch.c_action_landed.Remove(source);CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();await WaitContact();CombatStatusEffects.ApplyStatus(target,still,10000,target);target.updateStats();await Advance(.5f);
+        Check(placements.Count==2&&releases.Any(r=>r.Actor==target.id&&r.BusyBefore&&!r.BusyAfter&&r.Released)&&!BodyControlState.IsBusy(target.id),"地面恢复后换位归还真实身体控制");
+        Check(order.FindIndex(x=>x=="force:"+target.id)>order.FindLastIndex(x=>x.StartsWith("place:"))&&contacts.Any(c=>c.TargetId==target.id&&c.ForceApplied),"双方先换位然后受理同次击退",new{order=order.ToArray()});
+        Check(middle.data.health==middleHealth&&!contacts.Any(c=>c.TargetId==middle.id),"中间人物不受旧身体跨越路径误伤");
+        await Advance(4f);
+        Check(!target.under_forces&&!BodyControlState.IsBusy(target.id)&&(target.current_position-new Vector2(64.2f,72.3f)).magnitude<1.2f,"旧动作结束后不拉回原位且新运动有限结束",new{position=new[]{target.current_position.x,target.current_position.y},target.under_forces,busy=BodyControlState.IsBusy(target.id)});
+    }
+    return new{passed=true,section,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    foreach(var cast in allCasts)cast.Cancel();hook.UnpatchSelf();ContactExchangeProbe.Attempted=null;ContactExchangeProbe.Placed=null;ContactExchangeProbe.Released=null;ContactExchangeProbe.Forced=null;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    ControllableUnit.clear(false);Config.setWorldSpeed("x1",false);Config.paused=true;
+    File.WriteAllText(Path.Combine(folder,"attempts.json"),JsonConvert.SerializeObject(attempts,Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder,"placements.json"),JsonConvert.SerializeObject(placements.Select(p=>new{p.Actor,Before=new[]{p.Before.x,p.Before.y},Destination=new[]{p.Destination.x,p.Destination.y},After=new[]{p.After.x,p.After.y},p.Wait}),Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder,"releases.json"),JsonConvert.SerializeObject(releases.Select(r=>new{r.Actor,r.BusyBefore,r.BusyAfter,r.Released}),Formatting.Indented));
+}
+/// <summary>只观察真实换位及受力顺序，不替换玩法规则。</summary>
+public static class ContactExchangeProbe
+{
+    /// <summary>只观察实际接触时的双方限制。</summary>
+    public static Action<object,Actor,CompiledConstructionExchange,ApplyAttackState,float> Attempted;
+    /// <summary>记录真实接触的资料，不改变概率。</summary>
+    public static void AttemptPrefix(object __0,Actor __1,CompiledConstructionExchange __2,ApplyAttackState __3,float __4)=>Attempted?.Invoke(__0,__1,__2,__3,__4);
+    /// <summary>放置完成后的实际坐标。</summary>
+    public static Action<Actor,Vector2,Vector2,float> Placed;
+    /// <summary>真实控制释放前后。</summary>
+    public static Action<Actor,bool,bool> Released;
+    /// <summary>同次实际受力时点。</summary>
+    public static Action<Actor> Forced;
+    /// <summary>记录放置前的连续位置。</summary>
+    public static void PlacePrefix(Actor __0,out Vector2 __state)=>__state=__0.current_position;
+    /// <summary>放置完成后观察实际终点。</summary>
+    public static void PlacePostfix(Actor __0,Vector2 __1,float __2,Vector2 __state)=>Placed?.Invoke(__0,__state,__1,__2);
+    /// <summary>记录真实身体控制。</summary>
+    public static void ReleasePrefix(Actor __0,out bool __state)=>__state=BodyControlState.IsBusy(__0.id);
+    /// <summary>观察控制归还。</summary>
+    public static void ReleasePostfix(Actor __0,bool __result,bool __state)=>Released?.Invoke(__0,__state,__result);
+    /// <summary>观察已受理的共同受力。</summary>
+    public static void ForcePostfix(Actor __0)=>Forced?.Invoke(__0);
+}

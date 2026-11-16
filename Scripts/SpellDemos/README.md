@@ -1423,3 +1423,13 @@ python3 Scripts/SpellDemos/verify_radial_motion.py
 `--section definitions/runtime/common`分别运行资料、实际范围与移动中心、零值及失败退款恢复。资料段合并核对七条攻击转换的保存编译、范围与一次强度倍率、独立复制及未知回调；实机复用现成世界，只用一个固定领域和一个移动领域检查真实沿地牵引、距离衰减、范围内外、敌我及离地/不能移动边界、原费用、固定世界整点、暂停/倍速、取消和自然结束。共同段走一次真实拒绝退款及恢复，不重复身体装备或全部来源实机。
 
 输入、展开资料、发射、实际世界速度、共同时间及结果保存在`artifacts/skill_rebuild/trajectories/radial-motion/`及相应分段目录；最终依据见`delivery.json`。失败证据保留，通过段不重复执行。新字段完整表单、自主创作、正式冷启动及集中连续录像继续5.05 C，范围提示与最终美术继续对应后项。
+
+
+```bash
+# 5.05 B40：真实接触换位、身体控制归还及同次击退
+python3 Scripts/SpellDemos/verify_contact_exchange.py
+```
+
+`--section definitions/runtime/recovery`分别运行资料、已学灵弹正常换位及零概率/离地/真实掌击归还。`definitions-zero`、`recovery-edge`、`recovery-body`仅补对应未通过段；不重复已通过的前段。入口复用既有世界和人物，核对连续坐标、原费用、精确位置保存标记、旧身体释放、换位先于同次击退、中间空隙不形成攻击路径，以及旧动作寿命结束后的控制归还。准备时清除退出手动控制自带的随机弹飞，不修改换位地面限制；真实腾起用于离地拒绝，掌击使用合法的近身地点选择。
+
+完整输入、展开资料、实际接触限制、双方放置坐标及控制归还记录在`artifacts/skill_rebuild/trajectories/contact-exchange/`；最终依据见`delivery.json`。失败记录保留，仅采用索引明确指出的通过前段和补齐结果。完整编辑、自主创作、正式存档冷启动与集中连续录像继续5.05 C；最终美术继续对应后项。

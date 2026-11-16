@@ -44,6 +44,10 @@ public sealed class ConstructionImpact
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionKnockback Knockback;
 
+    /// <summary>真实接触后与当前控制人物交换地面位置，空值不改变位置。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionExchange Exchange;
+
     /// <summary>精确定向速度变化：依次为离开作用中心、侧向和向上；负值用于回拉、下压。空值使用原版推力。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float[] Impulse;
@@ -136,6 +140,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>已独立复制的击退与腾起幅度。</summary>
     public CompiledConstructionKnockback Knockback { get; }
 
+    /// <summary>实际接触后的双方地面换位资料。</summary>
+    public CompiledConstructionExchange Exchange { get; }
+
     /// <summary>已复制的三向世界速度变化，不持有可编辑数组。</summary>
     public Vector3? Impulse { get; }
 
@@ -164,7 +171,7 @@ public sealed class CompiledConstructionImpact
     public float ExposureSeconds { get; }
 
     /// <summary>伤害、移动或行动限制中至少有一项真实人物作用。</summary>
-    public bool HasActorEffect => Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true ||
+    public bool HasActorEffect => Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f ||
                                   StaggerSeconds > 0f || BindSeconds > 0f || StrainSeconds > 0f || ExposureSeconds > 0f;
 
     /// <summary>实际推拉中心。</summary>
@@ -193,6 +200,7 @@ public sealed class CompiledConstructionImpact
             throw new InvalidDataException(path + "/DamageBasis：伤害必须采用剩余或初始作用量");
         Force = source?.Force ?? 0f;
         if (source?.Knockback != null) Knockback = new CompiledConstructionKnockback(source.Knockback, path + "/Knockback");
+        if (source?.Exchange != null) Exchange = new CompiledConstructionExchange(source.Exchange, path + "/Exchange");
         if (source?.Impulse != null)
         {
             if (source.Impulse.Length != 3 || source.Impulse.Any(value =>

@@ -18,7 +18,7 @@ internal static class ContactEffectMigration
     /// <param name="type">原容器中的词条类型。</param>
     internal static bool Supports(Type type) => type == typeof(SlowModifier) || type == typeof(FreezeModifier) || type == typeof(DazeModifier) ||
         type == typeof(WeakenModifier) || type == typeof(ArmorBreakModifier) || type == typeof(SilenceModifier) ||
-        type == typeof(BurnModifier) || type == typeof(PoisonModifier) || type == typeof(EternalCurseModifier) || type == typeof(MercyModifier) || type == typeof(ChaosModifier) || type == typeof(KnockbackModifier) || type == typeof(GravityModifier);
+        type == typeof(BurnModifier) || type == typeof(PoisonModifier) || type == typeof(EternalCurseModifier) || type == typeof(MercyModifier) || type == typeof(ChaosModifier) || type == typeof(KnockbackModifier) || type == typeof(GravityModifier) || type == typeof(SwapModifier);
 
     /// <summary>在真实逐发转换时一次确定原设置词条，运行及预测只读取已经展开的数值。</summary>
     /// <param name="skill">真实原容器。</param>
@@ -145,7 +145,14 @@ internal static class ContactEffectMigration
             float distance = Mathf.Clamp(push.Distance * effectScale, 0f, 10f), height = Mathf.Clamp(push.Height * effectScale, 0f, 5f);
             if (distance > 0f || height > 0f) knockback = new ConstructionKnockback { Distance = distance, Height = height };
         }
-        if (statuses.Count > 0 || healing > 0f || knockback != null) BindNode(definition.Root, statuses.ToArray(), healing, knockback, includeRoot);
+        ConstructionExchange exchange = null;
+        if (skill.TryGetComponent(out SwapModifier swap))
+        {
+            float chance = Mathf.Clamp01(swap.Chance * effectScale);
+            if (chance > 0f) exchange = new ConstructionExchange { Chance = chance };
+        }
+        if (statuses.Count > 0 || healing > 0f || knockback != null || exchange != null)
+            BindNode(definition.Root, statuses.ToArray(), healing, knockback, exchange, includeRoot);
         if (skill.TryGetComponent(out GravityModifier gravity))
         {
             float original = Core.SkillLibV3.Utils.SkillEffectRadius.ResolveContainer(skill, 1f);
@@ -197,14 +204,16 @@ internal static class ContactEffectMigration
     /// <param name="node">实际部位。</param><param name="statuses">本次待编译的状态资料。</param>
     /// <param name="healing">本体量换回原恢复基准后的比例。</param>
     /// <param name="knockback">本次接触的击退与腾起幅度。</param>
+    /// <param name="exchange">真实接触后的换位概率及停步。</param>
     /// <param name="include">是否在本部位的接触时点施加。</param>
-    private static void BindNode(ConstructionNode node, ConstructionStatus[] statuses, float healing, ConstructionKnockback knockback, bool include = true)
+    private static void BindNode(ConstructionNode node, ConstructionStatus[] statuses, float healing, ConstructionKnockback knockback, ConstructionExchange exchange, bool include = true)
     {
         if (include && (node.ContactRole == ConstructionContactRole.Attack || node.ContactRole == ConstructionContactRole.Barrier && node.Impact != null))
         {
             if (node.Impact == null) node.Impact = new ConstructionImpact();
             if (statuses.Length > 0) node.Impact.Statuses = statuses;
             if (knockback != null) node.Impact.Knockback = new ConstructionKnockback { Distance = knockback.Distance, Height = knockback.Height };
+            if (exchange != null) node.Impact.Exchange = new ConstructionExchange { Chance = exchange.Chance, WaitSeconds = exchange.WaitSeconds };
             if (healing > 0f) node.Impact.Restoration = new ConstructionRestoration
             {
                 Target = ConstructionRestorationTarget.Controller,
@@ -213,6 +222,6 @@ internal static class ContactEffectMigration
             };
         }
         if (node.Children == null) return;
-        foreach (ConstructionNode child in node.Children) BindNode(child, statuses, healing, knockback);
+        foreach (ConstructionNode child in node.Children) BindNode(child, statuses, healing, knockback, exchange);
     }
 }

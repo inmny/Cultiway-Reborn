@@ -1086,6 +1086,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         if (target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
             return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);
+        long generation = worldGeneration;
+        ApplyContactExchange(running.Owner(node), target, impact.Exchange, result, strength);
+        if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
+            return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);
         ApplyStatuses(running, node, target, impact.Statuses, strength);
         ApplyContactReactions(target, impact, running.Owner(node), result, out float stagger, out float bound,
             out float strain, out float exposure);
