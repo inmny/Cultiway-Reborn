@@ -1488,7 +1488,7 @@ python3 Scripts/SpellDemos/verify_nature_selection.py --section runtime
 
 ## 自主飞行创作与新旧请求保存
 
-`python3 Scripts/SpellDemos/verify_flight_creation.py`复用独立安装、现成世界及人物辅助，检查规则11的普通曲线和目标弧线、真实距离触发返回、命名步骤派生、固定输入、新旧请求正式升级及存读、实际收费使用与成品保存。主流程只选择当前人物能承担费用的曲线结果，不修改收费或资源容量规则；上一正式规则10的实际输入与既有预期保存在`Fixtures/flight-creation-rule10.json`，读取旧预期时使用普通资料缺省字段。
+`python3 Scripts/SpellDemos/verify_flight_creation.py`复用独立安装、现成世界及人物辅助，检查规则11的普通曲线和目标弧线、真实距离触发返回、命名步骤派生、固定输入、新旧请求正式升级及存读、实际收费使用与成品保存。主流程只选择当前人物能承担费用的曲线结果，不修改收费或资源容量规则；上一正式规则10的实际输入与既有预期保存在`fixtures/flight-creation-rule10.json`，读取旧预期时使用普通资料缺省字段。
 
 `--section cast`只补一份可支付的实际创作、正式施放、退出及成品保存；`--section flow`只核对原操作／命名步骤的真实水流排除和其他普通部位继续可选。初次交付的分段补验还支持`tail`、`requests`与`save`，分别跳过已经通过的运动前段、全部运动段、运动及命名派生段；运行范围以实际输入及`checks.json`为准，不把这些结果视为一次全段成功。
 

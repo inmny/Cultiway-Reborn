@@ -128,7 +128,7 @@ try
         "未知规则仅丢弃受影响请求，不改变人物已有资料或登记新法术");
 
     // 直接复用上一版保存的真实输入和完整预期结果，不生成一份伪造的“旧期望”。
-    var oldEvidence = JObject.Parse(File.ReadAllText(Path.Combine(root, "Scripts/SpellDemos/Fixtures/flight-creation-rule10.json")));
+    var oldEvidence = JObject.Parse(File.ReadAllText(Path.Combine(root, "Scripts/SpellDemos/fixtures/flight-creation-rule10.json")));
     var oldInput = oldEvidence["queued"].ToObject<ConstructedCreationState>();
     var oldEnvelope = JObject.Parse(saves.Actors.Capture(legacySource.GetExtend(), "flight-creation-old"));
     oldEnvelope["sections"]["ability_creation"] = new JObject { ["version"] = 11, ["data"] = JObject.FromObject(new {
