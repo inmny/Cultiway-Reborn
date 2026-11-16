@@ -1585,3 +1585,10 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 `cast`使用窗口正式保存的成品，核对球形范围内外及每人一份结果，再复用既有薄水域验证真实介质连通、两人上限、结束清理及移除介质后再次施放。原始火弹与水体会实际交锋并消耗水体，保留其失败输入和观测；用于介质分送的成品经真实窗口改为雷法，不修改碰撞或材料规则。`ui-tail`只补中英文和正式保存，`ui-medium`可从已存成品通过真实表单调整材料，`cast-tail`只补未完成介质段。完整输入、分段结果、原始失败及输入快照位于`artifacts/skill_rebuild/trajectories/contact-spreads/`。
 
 `creation`验证规则15独立创作与接触分送派生、冻结输入重现、运动及命名引用保留、新费用及范围/重复次数预算；`save`验证正式人物区段16、新旧等待请求各完成一次、真实收费施放及成品再次存读。旧样例`fixtures/contact-spreads-rule14.json`取自C6正式世界的区段15与当时固定预期；薄水域`fixtures/contact-spreads-medium.json`复用B45已通过资料，只替换测试编号与通道。不重跑已通过的身体装备或介质形状矩阵，正式冷启动和连续录像仍集中在C交付点。
+
+
+### 5.05 C8：放置改造的命名运动引用
+
+`python3 Scripts/SpellDemos/verify_placement_references.py --section behavior`复用固定世界，检查随身、直接/两点放置和环绕在移除根部飞行或脱离时保留后续命名步骤与时点，验证明确不能转换的完成依赖，以及正式付费、实际随动旋转和结束恢复。`--section save`承接behavior保存的原术及选中种子，验证新规则16/人物区段17与C7正式规则15/区段16请求的迁移、各完成一次和成品再次保存；旧样例在`fixtures/placement-references-rule15.json`。
+
+`all`按顺序只执行behavior和save。首轮已通过部分不重跑：`recovery`仅续接behavior结束后的同一人物，在实际冷却到期后再次施放；`save-tail`仅续接save完成请求后的同一成品，补退出与再次保存。两个续接入口需要对应前段及同一游戏进程，正常整套运行无需调用。原始失败及完整输入保留于证据目录，索引为`artifacts/skill_rebuild/trajectories/placement-references/delivery.json`。软件渲染只用于功能验证。

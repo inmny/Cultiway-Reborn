@@ -47,6 +47,9 @@ public sealed partial class ConstructedAbilityService
         var random = new Random(seed);
         var choices = new List<(string Name, Func<AbilityDefinition> Apply)>();
         ConstructionNode[] nodes = DerivationNodes(draft.Root).ToArray();
+        bool preserveReferences = inspiration.Rules >= 16;
+        bool placementAvailable = !preserveReferences || draft.Root != null &&
+            ConstructionPlacementReferences.Rewrite(draft, plan, false) == null;
         if (inspiration.Rules >= 15 && CreationContactSites(draft).Any(site => site.Impact.Targets != Core.SkillLibV3.Usage.SkillUseTargetRelation.Self))
             choices.Add(("接触分送", () => VaryContactSpreads(draft, random, inspiration)));
         if (inspiration.Rules >= 14 && CreationContactSites(draft).Any(site => site.Impact.Targets != Core.SkillLibV3.Usage.SkillUseTargetRelation.Self))
@@ -74,8 +77,8 @@ public sealed partial class ConstructedAbilityService
         }
         if (inspiration.Rules >= 10 && nodes.SelectMany(node => node.Operations).Concat(draft.Steps.Select(step => step.Operation)).Any(operation => operation.Ray != null))
             choices.Add(("射线变化", () => VaryRay(draft, random)));
-        if (inspiration.Rules >= 10 && draft.Root != null && draft.Body == null && !plan.Nodes[0].HasRay)
-            choices.Add(("直接放置", () => ConstructionPlacementEdits.Place(draft, AbilityAnchor.Target)));
+        if (inspiration.Rules >= 10 && draft.Root != null && draft.Body == null && !plan.Nodes[0].HasRay && placementAvailable)
+            choices.Add(("直接放置", () => ConstructionPlacementEdits.Place(draft, AbilityAnchor.Target, preserveReferences)));
         if (inspiration.Rules >= 8 && nodes.Any(n => n.Operations.Any(o => o.Kind == ConstructionOperationKind.Propagate)))
             choices.Add(("传力变化", () => VaryGroundPropagation(draft, random)));
         if (inspiration.Rules >= 9 && nodes.Any(node => node.Distribution != null))
@@ -127,13 +130,13 @@ public sealed partial class ConstructedAbilityService
             ));
         if (draft.Root != null)
         {
-            if (draft.Binding?.Anchor != AbilityAnchor.Source || !draft.Binding.Follow ||
+            if (placementAvailable && (draft.Binding?.Anchor != AbilityAnchor.Source || !draft.Binding.Follow ||
                 draft.Root.Operations.Any(o =>
-                    o.Kind is ConstructionOperationKind.Fly or ConstructionOperationKind.Detach))
-                choices.Add(("随身", () => ConstructionPlacementEdits.Follow(draft, AbilityAnchor.Source)));
-            if (plan.FormCount < AbilityCompiler.MaxForms - 1)
+                    o.Kind is ConstructionOperationKind.Fly or ConstructionOperationKind.Detach)))
+                choices.Add(("随身", () => ConstructionPlacementEdits.Follow(draft, AbilityAnchor.Source, preserveReferences)));
+            if (placementAvailable && plan.FormCount < AbilityCompiler.MaxForms - 1)
                 choices.Add(("环绕", () => ConstructionPlacementEdits.Orbit(draft, AbilityAnchor.Source,
-                    1.5f + (float)random.NextDouble() * 2f, 2f + (float)random.NextDouble() * 3f)));
+                    1.5f + (float)random.NextDouble() * 2f, 2f + (float)random.NextDouble() * 3f, preserveReferences)));
             if (plan.FormCount < AbilityCompiler.MaxForms / 2)
                 choices.Add(("复生", () => ConstructionMagnitudeEdits.Repeat(draft, 2,
                     1f + (float)random.NextDouble(), .2f + (float)random.NextDouble() * .4f, reprice: inspiration.Rules >= 3)));

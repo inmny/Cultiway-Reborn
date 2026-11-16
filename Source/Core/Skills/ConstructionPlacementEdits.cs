@@ -10,9 +10,10 @@ public static class ConstructionPlacementEdits
 {
     /// <summary>原主体直接建立在指定位置，不扫过来源到该处的连线；后代继续各自的明确运动。</summary>
     /// <param name="source">已有生成结构。</param><param name="anchor">实际放置的来源或目标。</param>
-    public static AbilityDefinition Place(AbilityDefinition source, AbilityAnchor anchor)
+    /// <param name="preserveReferences">修复开始依赖；仅旧正式等待请求使用原改造结果。</param>
+    public static AbilityDefinition Place(AbilityDefinition source, AbilityAnchor anchor, bool preserveReferences = true)
     {
-        AbilityDefinition result = Follow(source, anchor);
+        AbilityDefinition result = Follow(source, anchor, preserveReferences);
         result.Binding.Follow = false;
         return result;
     }
@@ -34,11 +35,17 @@ public static class ConstructionPlacementEdits
     /// <summary>将原主体改为跟随实际来源或目标，不增加作用、次数、消耗或持续时间。</summary>
     /// <param name="source">带有实际生成主体的原法术。</param>
     /// <param name="anchor">来源、目标或已有身体的末端。</param>
-    public static AbilityDefinition Follow(AbilityDefinition source, AbilityAnchor anchor)
+    /// <param name="preserveReferences">修复开始依赖；仅旧正式等待请求使用原改造结果。</param>
+    public static AbilityDefinition Follow(AbilityDefinition source, AbilityAnchor anchor, bool preserveReferences = true)
     {
         if (source?.Root == null) throw new InvalidDataException("随动改造需要已有生成主体");
         CompiledAbility plan = AbilityCompiler.Compile(source, cache: false);
         var result = ConstructionEditing.Copy(source);
+        if (preserveReferences)
+        {
+            string error = ConstructionPlacementReferences.Rewrite(result, plan, true);
+            if (error != null) throw new InvalidDataException(error);
+        }
         result.Binding ??= new ConstructionBinding();
         // 手部始终采用实际手姿态；转换为人物连接时保留原有模型坐标约定。
         if (((result.Binding.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) ||
@@ -62,12 +69,13 @@ public static class ConstructionPlacementEdits
     /// <param name="anchor">实际随动中心。</param>
     /// <param name="radius">现有根坐标中的环绕半径，保留原有高度。</param>
     /// <param name="seconds">完成一周的世界秒数，正数顺转、负数逆转。</param>
-    public static AbilityDefinition Orbit(AbilityDefinition source, AbilityAnchor anchor, float radius, float seconds)
+    /// <param name="preserveReferences">修复开始依赖；仅旧正式等待请求使用原改造结果。</param>
+    public static AbilityDefinition Orbit(AbilityDefinition source, AbilityAnchor anchor, float radius, float seconds, bool preserveReferences = true)
     {
         if (float.IsNaN(radius) || float.IsInfinity(radius) || radius <= 0f || radius > 10000f ||
             float.IsNaN(seconds) || float.IsInfinity(seconds) || Mathf.Abs(seconds) < .05f)
             throw new InvalidDataException("环绕需要0至一万格内的半径，每周至少0.05秒");
-        AbilityDefinition result = Follow(source, anchor);
+        AbilityDefinition result = Follow(source, anchor, preserveReferences);
         ConstructionNode subject = result.Root;
         ConstructionEditing.RebaseReferences(result, "root/" + subject.Id);
         bool bodyAxes = result.Binding.FaceTarget || (anchor is AbilityAnchor.Hand or AbilityAnchor.Effector);

@@ -1,0 +1,23 @@
+// 首轮通过部分保持原样，只续接同一进程、同一人物的冷却后再次施放。
+var previous = JObject.Parse(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/trajectories/placement-references/behavior/checks.json")));
+long sourceId = (long)previous["checks"].First(row => (string)row["name"] == "test.placement-references.follow正式施放受理")["data"]["id"];
+Actor source = World.world.units.get(sourceId);
+Actor enemy = World.world.units.getSimpleList().First(a => a.asset.id == "wolf" && Vector2.Distance(a.current_position, new Vector2(72,72)) < .1f);
+var owner = source.GetExtend();
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/trajectories/placement-references/behavior/follow.json")));
+definition.Id = "test.placement-references.follow";
+try
+{
+    Check(source.isAlive() && ControllableUnit.getControllableUnit() == null, "复用首轮同一实际人物，原操作已退出");
+    ControllableUnit.setControllableCreature(source);
+    ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+    var state = new ConstructedAbilityService().ResolveControlState(owner, new ActiveAbilityHandle("content.constructed", owner.E, definition.Id));
+    File.WriteAllText(Path.Combine(folder,"cooldown.json"), JsonConvert.SerializeObject(new { sourceId, reason=state.BlockReason.ToString(), state.CooldownRemaining, resource=owner.GetCultisys<Xian>().wakan }, Formatting.Indented));
+    Check(state.BlockReason == ActiveAbilityControlBlockReason.Cooldown, "原失败确实来自正常冷却", new { state.CooldownRemaining });
+    await Advance(state.CooldownRemaining + .05f);
+    float before = owner.GetCultisys<Xian>().wakan; await Fire(definition,source,enemy); float paid = before - owner.GetCultisys<Xian>().wakan;
+    owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(definition.Lifetime + .2f);
+    Check(Math.Abs(paid-definition.Cost)<.001f && endings.Any(e=>e.Fact.AbilityId==definition.Id) && !BodyControlState.IsBusy(source.id), "正常等待冷却后，同一人物再次付费施放并结束", new { paid });
+    return new { passed=true, closed="同一人物冷却后的再次施放恢复", checks, process=System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused=true; ControllableUnit.clear(false); }

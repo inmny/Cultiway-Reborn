@@ -1,0 +1,69 @@
+// C8：同一真实根部的开始依赖与定时，保留不能等价转换的失败。
+Actor source = Make(64), enemy = Make(72, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+var basis = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Scripts/SpellDemos/fixtures/construction-batch/01-charge.json")));
+basis.Id = "test.placement-references.original"; basis.Resource = "wakan"; basis.Root.Operations[0].Id = "outward";
+basis.Steps = new[] { new ConstructionStep { Id = "spin", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0f, 90f } }, Inputs = new Dictionary<string, ConstructionOutputReference> { ["part"] = new() { Node = "root" }, ["after"] = new() { Node = "root", Operation = "outward", Output = "flight", Stage = ConstructionOutputStage.Started } } } };
+JObject Canon(AbilityDefinition definition) { var value = JObject.FromObject(definition); value.Remove("Id"); value.Remove("Creator"); return value; }
+void Save(string name, object value) => File.WriteAllText(Path.Combine(folder, name + ".json"), JsonConvert.SerializeObject(value, Formatting.Indented));
+var original = JObject.FromObject(basis); var attempts = new List<object>(); var changes = new Dictionary<string, int>();
+var active = new List<AbilityCast>();
+void Started(ConstructedCastStarted value) { if (value.SourceId == source.id) foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null)) if ((long)Field(running, "Id") == value.CastId) active.Add((AbilityCast)Field(running, "Cast")); }
+ConstructedAbilityService.CastStarted += Started;
+var views = new List<FormVisualInstance>();
+Matrix4x4 Pose(AbilityCast cast) { views.Clear(); cast.AppendVisuals(views); return views.Single().Transform; }
+try
+{
+    AbilityCompiler.Compile(basis, false); Save("source", basis);
+    var transforms = new Dictionary<string, AbilityDefinition> { ["follow"] = ConstructionPlacementEdits.Follow(basis, AbilityAnchor.Source), ["placed"] = ConstructionPlacementEdits.Place(basis, AbilityAnchor.Target), ["between"] = ConstructionPlacementEdits.Between(basis, .5f), ["orbit"] = ConstructionPlacementEdits.Orbit(basis, AbilityAnchor.Source, 3, 4) };
+    foreach (var item in transforms) { var plan = AbilityCompiler.Compile(item.Value, false); Check(item.Value.Steps.Single().Id == "spin" && item.Value.Steps.Single().Operation.Kind == ConstructionOperationKind.Spin && !item.Value.Steps.Single().Inputs.ContainsKey("after"), "共同放置改造保留后续命名旋转：" + item.Key); Save(item.Key, item.Value); }
+    Check(JToken.DeepEquals(original, JObject.FromObject(basis)), "全部改造不修改原术");
+    var delayed = ConstructionEditing.Copy(basis); delayed.Root.Operations[0].At = .25f;
+    var timed = ConstructionPlacementEdits.Follow(delayed, AbilityAnchor.Source);
+    var input = new AbilityInputs(new Vector3(64,72,0), new Vector3(72,72,0), Vector3.right, 1);
+    var cast = new AbilityCast(AbilityCompiler.Compile(timed, false), Matrix4x4.identity, inputs: input);
+    cast.Advance(.1f, input.Target); Check(cast.StepStateOf("spin") == ConstructionStepState.Waiting, "飞行开始时点继续约束旋转，不提前触发");
+    cast.Advance(.2f, input.Target); Check(cast.StepStateOf("spin") == ConstructionStepState.Running, "原飞行时点到达后真实旋转启动");
+    var named = ConstructionEditing.Copy(basis); var flight = named.Root.Operations[0]; flight.Id = null; flight.At = .25f; named.Root.Operations = Array.Empty<ConstructionOperation>();
+    named.Steps = new[] { new ConstructionStep { Id = "travel", Operation = flight, Inputs = new() { ["part"] = new() { Node = "root" } } }, named.Steps[0] };
+    named.Steps[1].Inputs["after"] = new() { Step = "travel", Output = "flight", Stage = ConstructionOutputStage.Started };
+    var namedFollow = ConstructionPlacementEdits.Follow(named, AbilityAnchor.Source);
+    Check(namedFollow.Steps.Length == 1 && namedFollow.Steps[0].Id == "spin" && namedFollow.Steps[0].Operation.At == .25f, "独立命名飞行使用相同改造，后续名字与时点保持"); Save("named-source", named); Save("named-follow", namedFollow);
+    var released = ConstructionEditing.Copy(basis); released.Binding.Follow = true;
+    released.Root.Operations[0] = new() { Id = "outward", Kind = ConstructionOperationKind.Detach };
+    released.Steps[0].Inputs["after"].Output = "released";
+    Check(ConstructionPlacementEdits.Follow(released, AbilityAnchor.Source).Steps.Single().Id == "spin", "根部脱离的明确开始依赖使用共用转换");
+    var part = ConstructionEditing.Copy(basis); part.Steps[0].Inputs["part"] = new() { Node = "root", Operation = "outward", Output = "part", Stage = ConstructionOutputStage.Started };
+    var partFollow = ConstructionPlacementEdits.Follow(part, AbilityAnchor.Source);
+    Check(partFollow.Steps[0].Inputs["part"].Node == "root" && partFollow.Steps[0].Inputs["part"].Operation == null, "实际部位输出改指同一根部，没有删除后续步骤");
+    var unsupported = ConstructionEditing.Copy(basis); unsupported.Steps[0].Inputs["after"].Stage = ConstructionOutputStage.Completed;
+    var before = JObject.FromObject(unsupported); string refused = null;
+    try { ConstructionPlacementEdits.Follow(unsupported, AbilityAnchor.Source); } catch (InvalidDataException error) { refused = error.Message; }
+    Check(refused != null && refused.Contains("Steps/spin/Inputs/after") && refused.Contains("运动完成") && JToken.DeepEquals(before, JObject.FromObject(unsupported)), "真实完成依赖明确拒绝且原术保持可用", refused); Save("unsupported", unsupported);
+    var inspiration = ConstructedAbilityService.ReadInspiration(owner); Check(inspiration.Rules == 16, "新请求冻结第十六版改造规则");
+    for (int seed = 0; seed < 64 && changes.Count < 3; seed++)
+    {
+        try { var derived = ConstructedAbilityService.Generate(owner, seed, inspiration, basis); if (derived.Parent.Change is "随身" or "环绕" or "直接放置") { changes[derived.Parent.Change] = seed; Check(derived.Steps.Single().Id == "spin", "自主派生保留后续旋转：" + derived.Parent.Change); Save("derived-" + derived.Parent.Change, derived); } attempts.Add(new { seed, derived.Parent.Change }); }
+        catch (InvalidDataException error) { attempts.Add(new { seed, rejected = error.Message }); if (error.Message.Contains("不存在已命名的原部位操作")) throw; }
+        await Game.NextFrame();
+    }
+    Check(changes.Count == 3, "自主创法完成随身、环绕和直接放置的命名引用转换", changes);
+    Save("selected", new { seed = changes["随身"], inspiration });
+    for (int seed = 0; seed < 12; seed++)
+    { var derived = ConstructedAbilityService.Generate(owner, seed, inspiration, unsupported); Check(derived.Parent.Change is not ("随身" or "环绕" or "直接放置"), "新请求只从语义成立的改造中抽取 " + seed); }
+    var follow = transforms["follow"]; follow.Id = "test.placement-references.follow";
+    Ready(source); Place(source,64); Place(enemy,72); ConstructedAbilityService.NotifyActorChanged(source); owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    float wakan = owner.GetCultisys<Xian>().wakan; await Fire(follow, source, enemy); float paid = wakan - owner.GetCultisys<Xian>().wakan; owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.15f); var live = active.Last(); var pose = Pose(live);
+    Check(live.StepStateOf("spin") == ConstructionStepState.Running && Math.Abs(paid - follow.Cost) < .001f, "正式施放实际支付，保留的旋转真实启动", new { paid, state = live.StepStateOf("spin").ToString() });
+    Vector2 from = source.current_position; Place(source,from.x + .5f,from.y); ConstructedAbilityService.NotifyActorChanged(source); await Advance(.1f); var moved = Pose(live);
+    Check(Math.Abs((moved.m03 - pose.m03) - .5f) < .04f && Quaternion.Angle(pose.rotation, moved.rotation) > 2f, "同一主体跟随真实人物并持续旋转", new { first = new[] { pose.m03,pose.m13,pose.m23 }, next = new[] { moved.m03,moved.m13,moved.m23 }, turn = Quaternion.Angle(pose.rotation,moved.rotation) });
+    await Advance(follow.Lifetime + .2f); Check(live.Finished && endings.Any(e => e.Fact.AbilityId == follow.Id) && !BodyControlState.IsBusy(source.id), "改造成品结束并归还控制");
+    ConstructedAbilityService.Learn(owner, follow.Id);
+    var state = new ConstructedAbilityService().ResolveControlState(owner, new ActiveAbilityHandle("content.constructed", owner.E, follow.Id));
+    if (state.BlockReason == ActiveAbilityControlBlockReason.Cooldown) await Advance(state.CooldownRemaining + .05f);
+    await Fire(follow,source,enemy); owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(follow.Lifetime + .2f); Check(active.Last().Finished, "结束后同一人物可再次正式施放");
+    return new { passed = true, closed = "共同放置及命名开始引用、明确失败与实际随动旋转恢复", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { Save("attempts", attempts); ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false); }
