@@ -72,7 +72,7 @@ internal static class ProjectileConstructionMigration
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
-            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom || (emission.RuntimeData.HasElementOverride && !NatureConstructionMigration.HasNature(skill)))
+            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom)
             return SkillEmissionResult.Unhandled;
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage, out Vector3 forward);
         if (definition == null) return SkillEmissionResult.Unhandled;
@@ -311,7 +311,7 @@ internal static class ProjectileConstructionMigration
         float damageMultiplier = container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier;
         // 防御量保留实际本体强度，持续投射的伤害倍率单独交给人物作用；命中不会凭空消耗本体。
         if (!continues && !blast) strength *= damageMultiplier;
-        damage = new GetHitEvent { Damage = strength, Element = NatureConstructionMigration.Element(skill), AttackType = AttackType.Other,
+        damage = new GetHitEvent { Damage = strength, Element = NatureConstructionMigration.Element(skill, emission.RuntimeData), AttackType = AttackType.Other,
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin };
         damage.BindAttacker(emission.Source);
         var definition = new AbilityDefinition
@@ -355,7 +355,7 @@ internal static class ProjectileConstructionMigration
                     When = new ConstructionCondition { Source = "..", Trigger = ConstructionChangeTrigger.End } } }
             } };
         }
-        return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, contactForceScale: !continues && !blast ? 1f / damageMultiplier : 1f, caster: emission.Source.a.GetExtend());
+        return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, contactForceScale: !continues && !blast ? 1f / damageMultiplier : 1f, caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
     }
 
     /// <summary>保留基准生成高度；按真实主体底部抬高出生点，不让放大后的尖端出生即穿地。</summary>

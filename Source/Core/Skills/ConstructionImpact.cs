@@ -29,6 +29,10 @@ public sealed class ConstructionImpact
     /// <summary>真实伤害倍率；零表示只接触和推拉，不调用伤害或近战攻击。</summary>
     public float DamageScale = 1f;
 
+    /// <summary>可选的明确本体伤害组成；省略时随当时实际材料，零组成表示通用伤害。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ElementComposition? Element;
+
     /// <summary>伤害采用当前剩余量或本次部位的初始量；防御容量仍单独消耗。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public ConstructionDamageBasis DamageBasis;
@@ -147,6 +151,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>真实伤害倍率。</summary>
     public float DamageScale { get; }
 
+    /// <summary>已经独立复制的明确组成；空值继续读取接触当时的真实材料。</summary>
+    public ElementComposition? Element { get; }
+
     /// <summary>已检查的伤害强度来源。</summary>
     public ConstructionDamageBasis DamageBasis { get; }
 
@@ -223,6 +230,8 @@ public sealed class CompiledConstructionImpact
         if (source?.Restoration != null) Restoration = new CompiledConstructionRestoration(source.Restoration, path + "/Restoration");
         Targets = source?.Targets ?? SkillUseTargetRelation.Hostile;
         DamageScale = source?.DamageScale ?? 1f;
+        Element = source?.Element;
+        if (Element.HasValue) CompiledConstructionContactDamage.ValidateElement(Element.Value, path + "/Element");
         DamageBasis = source?.DamageBasis ?? ConstructionDamageBasis.RemainingForce;
         if (!Enum.IsDefined(typeof(ConstructionDamageBasis), DamageBasis))
             throw new InvalidDataException(path + "/DamageBasis：伤害必须采用剩余或初始作用量");

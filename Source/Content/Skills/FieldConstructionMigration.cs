@@ -36,7 +36,7 @@ internal static class FieldConstructionMigration
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
-            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom || (emission.RuntimeData.HasElementOverride && !NatureConstructionMigration.HasNature(skill)))
+            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom)
             return SkillEmissionResult.Unhandled;
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage);
         if (definition == null) return SkillEmissionResult.Unhandled;
@@ -93,7 +93,7 @@ internal static class FieldConstructionMigration
         float damageMultiplier = container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier;
         damage = new GetHitEvent
         {
-            Damage = strength, Element = NatureConstructionMigration.Element(skill), AttackType = AttackType.Other,
+            Damage = strength, Element = NatureConstructionMigration.Element(skill, emission.RuntimeData), AttackType = AttackType.Other,
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin
         };
         damage.BindAttacker(emission.Source);
@@ -148,7 +148,7 @@ internal static class FieldConstructionMigration
                 ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
                 Operations = operations.ToArray()
             }
-        }, skill, emission.RuntimeData.ResolveEffectScale(), caster: emission.Source.a.GetExtend());
+        }, skill, emission.RuntimeData.ResolveEffectScale(), caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
     }
 
     /// <summary>只接管五种没有额外人物状态的原领域，不按名字臆造毒状态或解构作用。</summary>

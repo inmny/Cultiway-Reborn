@@ -79,7 +79,8 @@ internal static partial class ContactEffectMigration
     /// <param name="contactForceScale">本体量换回原附加作用强度的比例，不重复乘来源效果倍率。</param>
     /// <param name="includeRoot">本体是否已经是实际作用面，爆发载体在后段作用。</param>
     /// <param name="caster">本次真实施法者，仅在资料展开时读取范围成长。</param>
-    internal static AbilityDefinition Bind(AbilityDefinition definition, Entity skill, float effectScale, bool includeRoot = true, float contactForceScale = 1f, Core.ActorExtend caster = null)
+    /// <param name="runtimeData">本次发射的动态元素，独立附加作用仍用自身声明。</param>
+    internal static AbilityDefinition Bind(AbilityDefinition definition, Entity skill, float effectScale, bool includeRoot = true, float contactForceScale = 1f, Core.ActorExtend caster = null, SkillCastRuntimeData runtimeData = default)
     {
         var statuses = new List<ConstructionStatus>();
         var additionalDamage = new List<ConstructionContactDamage>();
@@ -171,7 +172,7 @@ internal static partial class ContactEffectMigration
                 Speed = -Mathf.Clamp(gravity.Strength * effectScale, 0f, 10f)
             };
         }
-        return MediumContactMigration.Bind(NatureConstructionMigration.Bind(definition, skill), skill, contactForceScale, includeRoot);
+        return NatureConstructionMigration.Bind(MediumContactMigration.Bind(definition, skill, contactForceScale, includeRoot, runtimeData), skill, runtimeData);
     }
 
     /// <summary>持续伤害沿用原共享状态，真实接触时才按余力写入每秒量。</summary>

@@ -1,0 +1,191 @@
+// B46：原八条转换合并资料检查，实机只复用一个已学灵弹和一个水域。
+const string section = "all";
+var allCasts = new List<AbilityCast>();
+var relays = new List<ConstructedMediumSpread>();
+var damages = new List<(string Phase, long Target, float Amount, float[] Element, int Before, int After)>();
+string phase = "definitions";
+int oldExecutions = 0;
+Actor source = Make(64), target = Make(70), neighbor = Make(70), safe = Make(74), wolf = Make(12, "wolf");
+target.setKingdom(wolf.kingdom); neighbor.setKingdom(wolf.kingdom); safe.setKingdom(source.kingdom);
+Place(neighbor, 70, 72.7f); Place(safe, 74, 77);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 0;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+GetHitEvent conversionDamage = default;
+IReadOnlyList<Entity> Learned() => (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+Entity Build(SkillEntityAsset asset, string nature = null, bool contact = true, bool extra = false, bool conductive = false)
+{
+    var builder = new SkillContainerBuilder(asset).UseAnimation(0);
+    if (asset == SkillEntities.HealingLight) builder.AddModifier(new HealingModifier { Amount = 30 });
+    if (extra) { builder.AddModifier(new BurnModifier { Duration = 1, DamageRatio = .1f }); builder.AddModifier(new ExplosionModifier { Radius = 2, DamageRatio = .3f }); }
+    Entity made = builder.Build(SkillContainerBuildMode.RuleOnly);
+    SkillSettingsCompiler.Attach(made, new SkillBlueprint { EntityAssetId = asset.id, NatureId = nature, PowerMultiplier = 1.5f, ContactEnabled = contact, ConductiveWater = conductive });
+    string signature = SkillContainerSignature.Build(made); owner.LearnSkillV3(made);
+    return Learned().First(x => SkillContainerSignature.Build(x) == signature);
+}
+SkillCastRuntimeData Runtime(ElementComposition element) => new SkillCastRuntimeData { EffectScale = .5f, HasElementOverride = true, ElementOverride = element };
+AbilityDefinition Convert(Entity skill, string migration, ElementComposition element, bool hasOverride = true)
+{
+    var method = service.Assembly.GetType("Cultiway.Content.Skills." + migration + "ConstructionMigration").GetMethod("Convert", F);
+    var runtime = Runtime(element); runtime.HasElementOverride = hasOverride;
+    var emission = new SkillEmission { Source = source, SpatialSource = source, SkillContainer = skill, Target = target,
+        SourcePos = new Vector3(64, 72, .3f), TargetPos = new Vector3(70, 72, .3f), Strength = 40, PowerLevel = 0, RuntimeData = runtime };
+    object[] args = method.GetParameters().Length == 3 ? new object[] { emission, default(GetHitEvent), default(Vector3) } :
+        method.GetParameters().Length == 2 ? new object[] { emission, default(GetHitEvent) } : new object[] { emission };
+    var definition = (AbilityDefinition)method.Invoke(null, args);
+    conversionDamage = args.Length > 1 ? (GetHitEvent)args[1] : default; return definition;
+}
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    yield return node;
+    if (node.Children != null) foreach (var child in node.Children) foreach (var nested in Nodes(child)) yield return nested;
+}
+async Task<AbilityCast> Use(Entity skill, ElementComposition element)
+{
+    int before = allCasts.Count; Place(source, 64); Place(target, 70);
+    Ready(source); source.setHealth(source.getMaxHealth()); owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    bool used = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(target, target.GetSimPos(), runtimeData: Runtime(element), selectionArea: new SkillTargetSelectionArea(true, target.GetSimPos(), .1f)), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999; CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+    ControllableUnit.clear(false); source.stopForce(); source.batch.c_action_landed.Remove(source);
+    Check(used, phase + "实际已学来源受理");
+    for (int i = 0; i < 40 && allCasts.Count == before; i++) await Advance(.01f);
+    Check(allCasts.Count == before + 1, phase + "真实发射一次");
+    double cost = SkillCastResources.Wakan.Quote(owner, SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    Check(Math.Abs(source.stats[BaseStatses.MaxWakan.id] * .8f - owner.GetCultisys<Xian>().wakan - cost) < .01f, phase + "原逐发费用只扣一次", cost);
+    return allCasts.Last();
+}
+async Task WaitHit(int before)
+{
+    for (int i = 0; i < 80 && damages.Count == before; i++) await Advance(.025f);
+    Check(damages.Count > before, phase + "实际命中已经发生");
+}
+bool Same(ElementComposition element, ElementComposition expected) => element.AsArray().SequenceEqual(expected.AsArray());
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(r => (long)Field(r, "Id") == fact.CastId);
+    allCasts.Add((AbilityCast)Field(running, "Cast"));
+}
+void Old(Entity entity) { if (entity.GetComponent<SkillContext>().SourceObj == source) oldExecutions++; }
+void Relay(ConstructedMediumSpread fact) { if (fact.OwnerId == source.id) relays.Add(fact); }
+ConstructedAbilityService.CastStarted += Started; ConstructedAbilityService.MediumSpreadConfirmed += Relay;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+DynamicProbe.Damaged = (damage, before) => { if (damage.AttackerID == source.id) damages.Add((phase, damage.TargetID, damage.Damage, damage.Element.AsArray(), before, World.world.units.get(damage.TargetID)?.data.health ?? 0)); };
+var hook = new HarmonyLib.Harmony("Cultiway.Verify.DynamicElements");
+var damageType = typeof(GetHitEvent).Assembly.GetType("Cultiway.Core.EventSystem.Systems.GetHitEventSystem");
+hook.Patch(damageType.GetMethod("Resolve", F), prefix: new HarmonyLib.HarmonyMethod(typeof(DynamicProbe).GetMethod("DamagePrefix")), postfix: new HarmonyLib.HarmonyMethod(typeof(DynamicProbe).GetMethod("DamagePostfix")));
+try
+{
+    if (section is "all" or "definitions")
+    {
+        var expected = new Dictionary<string, string> { ["metal"] = "iron", ["wood"] = "wood", ["water"] = "water", ["fire"] = "fire", ["earth"] = "earth", ["yin"] = "yin", ["yang"] = "yang", ["chaos"] = "entropy", ["lightning"] = "lightning", ["ice"] = "ice", ["wind"] = "wind", ["poison"] = "poison" };
+        var plain = Build(SkillEntities.SpiritBolt); var original = Convert(plain, "Projectile", default, false);
+        foreach (var pair in expected)
+        {
+            var element = SkillSettingsCompiler.Element(pair.Key); var definition = Convert(plain, "Projectile", element);
+            Check(definition != null && definition.Root.Matter == pair.Value && Same(conversionDamage.Element, element) && definition.Impact.Element.HasValue && Same(definition.Impact.Element.Value, element), pair.Key + "动态组成对应真实材料且不丢失次要权重");
+            var copy = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition)); var plan = AbilityCompiler.Compile(copy, false);
+            Check(Same(plan.Impact.Element.Value, element) && copy.Root.Form == original.Root.Form && JsonConvert.SerializeObject(copy.Root.Operations) == JsonConvert.SerializeObject(original.Root.Operations), pair.Key + "保存编译保留完整组成、形状和轨迹");
+        }
+        var mixed = new ElementComposition(fire: .8f, water: .6f);
+        foreach (var entry in new[] { (SkillEntities.SpiritBolt, "Projectile"), (SkillEntities.GroundSpike, "GroundSpike"), (SkillEntities.Rift, "Rift"), (SkillEntities.YinField, "Field"),
+            (SkillEntities.SpiritShield, "Barrier"), (SkillEntities.SpiritBeam, "Beam"), (SkillEntities.ChainLightning, "Chain"), (SkillEntities.HealingLight, "Support") })
+        {
+            var definition = Convert(Build(entry.Item1), entry.Item2, mixed);
+            Check(definition != null && Nodes(definition.Root).All(n => n.Matter == "fire" && (n.Impact == null || Same(n.Impact.Element.Value, mixed))), entry.Item2 + "本次混合覆盖展开到实际部位与后段");
+            var plan = AbilityCompiler.Compile(JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition)), false);
+            Check(Same(plan.Impact.Element.Value, mixed), entry.Item2 + "保存编译不归一化明确权重");
+            if (entry.Item2 == "Support") Check(definition.Impact.DamageScale == 0 && definition.Impact.Restoration.Health == 15, "支持类保持恢复且不增加本体伤害");
+        }
+        var zero = Convert(plain, "Projectile", default);
+        Check(zero.Root.Matter == original.Root.Matter && zero.Impact.Element.Value.AsArray().All(v => v == 0), "零动态组成保留原材料和明确通用伤害");
+        Check(original.Impact?.Element == null, "没有覆盖时继续按实际材料伤害");
+        var fixedNature = Convert(Build(SkillEntities.SpiritBolt, "water"), "Projectile", ElementComposition.Static.Fire);
+        Check(fixedNature.Root.Matter == "water" && Same(conversionDamage.Element, ElementComposition.Static.Water) && fixedNature.Impact?.Element == null, "指定性质仍优先于动态覆盖");
+        var extra = Convert(Build(SkillEntities.SpiritBolt, extra: true), "Projectile", mixed);
+        Check(extra.Root.Impact.Statuses.Single().Tick.Element.ToString() == ElementComposition.Static.Fire.ToString() && extra.Root.Impact.Spreads.Single().Outcome.Damage.Single().Element.ToString() == SkillEntities.SpiritBolt.Element.ToString(), "独立燃烧与爆炸保持自己的元素");
+        var lightningHalf = new ElementComposition(iron: .125f, pos: .25f, entropy: .125f);
+        var dynamicThunder = Convert(plain, "Projectile", lightningHalf);
+        var relay = dynamicThunder.Root.Impact.Spreads.Single(s => s.Medium != null);
+        var thunderPlan = AbilityCompiler.Compile(dynamicThunder, false);
+        Check(Same(dynamicThunder.Root.Impact.Element.Value, lightningHalf), "介质转换新建的本体接触也保留完整组成");
+        foreach (string nature in new string[] { null, "lightning" })
+        {
+            var support = Convert(Build(SkillEntities.HealingLight, nature), "Support", lightningHalf);
+            Check(support.Impact.DamageScale == 0 && support.Root.Impact == null && support.Root.Matter == "lightning", "固定及动态雷支持法术不变成攻击或介质分送");
+            AbilityCompiler.Compile(support, false);
+        }
+        var node = ((Array)typeof(CompiledAbility).GetProperty("Nodes", F).GetValue(thunderPlan)).GetValue(0);
+        Check(dynamicThunder.Root.Matter == "lightning" && Same(((CompiledConstructionImpact)Field(node, "Impact")).Spreads.Single().Outcome.Damage.Single().Element, lightningHalf), "按比例识别动态雷，介质追加伤害也不缩改权重");
+        var snapshot = AbilityCompiler.Compile(extra, false); var oldElement = snapshot.Impact.Element.Value;
+        extra.Impact.Element = ElementComposition.Static.Earth;
+        Check(Same(snapshot.Impact.Element.Value, oldElement), "编译组成不共享可编辑资料");
+        foreach (float invalid in new[] { float.NaN, float.PositiveInfinity, -.1f, 1.1f })
+        {
+            var changed = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(zero)); changed.Impact.Element = new ElementComposition(fire: invalid);
+            bool rejected = false; try { AbilityCompiler.Compile(changed, false); } catch (Exception) { rejected = true; }
+            Check(rejected, "资料边界拒绝非法主伤害权重");
+        }
+        File.WriteAllText(Path.Combine(folder, "mixed.json"), JsonConvert.SerializeObject(Convert(plain, "Projectile", mixed), Formatting.Indented));
+        File.WriteAllText(Path.Combine(folder, "lightning.json"), JsonConvert.SerializeObject(dynamicThunder, Formatting.Indented));
+    }
+    if (section is "all" or "runtime" or "runtime-lightning")
+    {
+        var skill = Build(SkillEntities.SpiritBolt); var originalVisual = skill.GetComponent<SkillContainer>().VfxElement;
+        var mixed = new ElementComposition(fire: .8f, water: .6f);
+        if (section != "runtime-lightning")
+        foreach (var sample in new[] { (Id: "water", Element: ElementComposition.Static.Water), (Id: "mixed", Element: mixed) })
+        {
+            phase = sample.Id; int before = damages.Count; var cast = await Use(skill, sample.Element); float force = cast.RemainingForce(0);
+            await Advance(.025f);
+            string matter = sample.Id == "water" ? "water" : "fire";
+            var visual = FormVisualScene.Instances.Single(v => v.Resource.Description.Id == "spirit_bolt");
+            Check(cast.Matter(0).Id == matter && visual.Matter.Id == matter && visual.SurfaceFor(0) == (matter == "fire" ? "flame" : matter), phase + "共同显示与实际主体材料一致");
+            World.world.camera.transform.position = new Vector3(67, 72.5f, 0); MoveCamera.instance.forceZoom(4f); World.world.console.Hide(); Tooltip.hideTooltipNow();
+            await Game.NextFrame(); Screen.Capture(Path.Combine(folder, phase + "-native.png"));
+            await WaitHit(before); var damage = damages.Last();
+            Check(damage.Target == target.id && Math.Abs(damage.Amount - force) < .01f && damage.Element.SequenceEqual(sample.Element.AsArray()) && damage.After < damage.Before && oldExecutions == 0, phase + "真实命中保留完整权重及一次本体量", new { damage.Target, damage.Amount, damage.Element, damage.Before, damage.After });
+            cast.Cancel(); await Advance(.3f);
+        }
+        Check(skill.GetComponent<SkillSettings>().NatureId == null && skill.GetComponent<SkillContainer>().VfxElement == originalVisual, "连续改本次元素不写回已学容器性质或固定表现");
+        phase = "dynamic-lightning";
+        var water = Convert(Build(SkillEntities.YinField, "water", contact: false, conductive: true), "Field", default, false);
+        water.Id = "test.dynamic-elements.water"; water.Lifetime = 10; water.Binding.Height = 0;
+        await Fire(water, source, target, aim: new Vector3(70, 72, 0)); await Advance(.08f);
+        var element = new ElementComposition(iron: .125f, pos: .25f, entropy: .125f);
+        int start = damages.Count; var thunder = await Use(skill, element); float thunderForce = thunder.RemainingForce(0); await WaitHit(start);
+        Check(damages.Single(d => d.Phase == phase && d.Target == target.id).Element.SequenceEqual(element.AsArray()), "动态雷本体伤害也逐项保留本次完整权重");
+        for (int i = 0; i < 40 && relays.Count == 0; i++) await Advance(.01f);
+        Check(relays.Count == 1 && relays[0].Targets.SequenceEqual(new[] { neighbor.id }) && damages.Last().Target == neighbor.id && Math.Abs(damages.Last().Amount - thunderForce * .25f) < .01f && damages.Last().Element.SequenceEqual(element.AsArray()), "动态雷借既有水域传递四分之一并保留完整权重");
+        foreach (var cast in allCasts) cast.Cancel(); await Advance(.4f); int count = damages.Count;
+        Check(!FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "thunder_channel"), "取消后实际连接到期清理");
+        if (section != "runtime-lightning")
+        {
+        phase = "disabled"; await Use(Build(SkillEntities.SpiritBolt, contact: false), mixed); await Advance(1f);
+        Check(damages.Count == count && oldExecutions == 0, "关闭接触时动态覆盖只改变显示");
+        foreach (var cast in allCasts) cast.Cancel(); await Advance(.1f);
+        phase = "recovery"; await Use(skill, ElementComposition.Static.Water); await WaitHit(count);
+        Check(damages.Last().Element.SequenceEqual(ElementComposition.Static.Water.AsArray()) && damages.All(d => d.Target != safe.id), "同一来源恢复后采用本次水组成且侧外安全");
+        }
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    foreach (var cast in allCasts) cast.Cancel(); hook.UnpatchSelf(); DynamicProbe.Damaged = null;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old; ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.MediumSpreadConfirmed -= Relay;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false); Config.setWorldSpeed("x1", false); Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "damage.json"), JsonConvert.SerializeObject(damages.Select(d => new { d.Phase, d.Target, d.Amount, d.Element, d.Before, d.After }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "relays.json"), JsonConvert.SerializeObject(relays.Select(r => new { r.CastId, r.ContactId, r.Targets, Points = r.Points.Select(p => new { p.x, p.y, p.z }).ToArray() }), Formatting.Indented));
+}
+/// <summary>只观察共同伤害，不改变原结算。</summary>
+public static class DynamicProbe
+{
+    /// <summary>实际伤害与接触前生命。</summary>
+    public static Action<GetHitEvent, int> Damaged;
+    /// <summary>记录真实受击前生命。</summary>
+    public static void DamagePrefix(GetHitEvent __0, out int __state) => __state = World.world.units.get(__0.TargetID)?.data.health ?? 0;
+    /// <summary>读取相同结算后的实际结果。</summary>
+    public static void DamagePostfix(GetHitEvent __0, int __state) => Damaged?.Invoke(__0, __state);
+}

@@ -41,14 +41,14 @@ internal static class SupportConstructionMigration
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
-            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom || (emission.RuntimeData.HasElementOverride && !NatureConstructionMigration.HasNature(skill)))
+            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom)
             return SkillEmissionResult.Unhandled;
         AbilityDefinition definition = Convert(emission);
         if (definition == null) return SkillEmissionResult.Unhandled;
         var target = new ActiveAbilityTarget(definition.Use.Target == ActiveAbilityTargetMode.Object ? emission.Target : null,
             emission.TargetPos, attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         // 载体有明确交锋余量，人物伤害始终为零；恢复量独立保存，不拿攻击力驱动治疗。
-        var carrier = new GetHitEvent { Damage = 1f, Element = NatureConstructionMigration.Element(skill), AttackerPowerLevel = emission.PowerLevel,
+        var carrier = new GetHitEvent { Damage = 1f, Element = NatureConstructionMigration.Element(skill, emission.RuntimeData), AttackerPowerLevel = emission.PowerLevel,
             AttackType = AttackType.Other, DamageOrigin = emission.RuntimeData.DamageOrigin };
         carrier.BindAttacker(emission.Source);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
@@ -131,7 +131,7 @@ internal static class SupportConstructionMigration
                         Speed = speed * (motion.CruiseMultiplier + (motion.LaunchMultiplier - motion.CruiseMultiplier) * remaining * remaining) });
                 }
         }
-        return MediumContactMigration.Bind(NatureConstructionMigration.Bind(new AbilityDefinition
+        return NatureConstructionMigration.Bind(MediumContactMigration.Bind(new AbilityDefinition
         {
             Id = asset.id, Name = skill.HasName ? skill.Name.value : asset.id.Localize(), Lifetime = lifetime,
             ConcurrentLimit = asset.ImpactProfile.PersistentLimit, Resource = "none", Cost = 0f, Cooldown = 0f, Power = 1f, TargetRange = 10000f,
@@ -149,7 +149,7 @@ internal static class SupportConstructionMigration
                 Contact = rejuvenation ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Pulse, Interval = 1f } : null,
                 OnContact = targeted ? ConstructionContactResponse.End : ConstructionContactResponse.Continue, Operations = operations.ToArray()
             }
-        }, skill), skill);
+        }, skill, runtimeData: emission.RuntimeData), skill, emission.RuntimeData);
     }
 
     /// <summary>将原祝福词条展开为普通属性状态，时长不乘效果或伤害倍率。</summary>

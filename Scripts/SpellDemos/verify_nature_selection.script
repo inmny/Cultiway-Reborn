@@ -106,9 +106,9 @@ try
         var conductive = Build(SkillEntities.YinField, "water"); conductive.GetComponent<SkillSettings>().ConductiveWater = true;
         Check(Convert(conductive, "Field")?.Root.MediumChannel == "water.conductive", "可导电水域沿后续B45的普通介质规则转换，不丢失交互");
         var plain = Build(SkillEntities.SpiritBolt, null);
-        var emit = service.Assembly.GetType("Cultiway.Content.Skills.ProjectileConstructionMigration").GetMethod("Emit", F);
-        Check((SkillEmissionResult)emit.Invoke(null, new object[] { Emission(plain, true) }) == SkillEmissionResult.Unhandled,
-            "没有指定性质的动态覆盖继续原入口，不误当固定材料");
+        var dynamicDefinition = Convert(plain, "Projectile", true);
+        Check(dynamicDefinition?.Root.Matter == "fire" && dynamicDefinition.Impact.Element.HasValue,
+            "没有指定性质的动态覆盖沿后续B46展开实际材料及明确组成");
     }
     if (section is "all" or "runtime")
     {

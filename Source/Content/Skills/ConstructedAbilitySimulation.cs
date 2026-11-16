@@ -981,7 +981,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             damage.TargetID = actor.Id;
             damage.Damage = running.Cast.DamageForce(node) * impact.DamageScale *
                 running.Cast.ContactAttenuation(node, hit.Left.To.Shape);
-            damage.Element = Composition(beforeMatter.DamageKind);
+            damage.Element = impact.Element ?? Composition(beforeMatter.DamageKind);
             GetHitEventSystem.Resolve(damage);
         }
 

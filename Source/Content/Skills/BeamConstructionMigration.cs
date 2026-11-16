@@ -36,7 +36,7 @@ internal static class BeamConstructionMigration
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
-            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom || (emission.RuntimeData.HasElementOverride && !NatureConstructionMigration.HasNature(skill)))
+            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom)
             return SkillEmissionResult.Unhandled;
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage);
         if (definition == null) return SkillEmissionResult.Unhandled;
@@ -89,7 +89,7 @@ internal static class BeamConstructionMigration
         strength *= container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier;
         damage = new GetHitEvent
         {
-            Damage = strength, Element = NatureConstructionMigration.Element(skill), AttackType = AttackType.Other,
+            Damage = strength, Element = NatureConstructionMigration.Element(skill, emission.RuntimeData), AttackType = AttackType.Other,
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin
         };
         damage.BindAttacker(emission.Source);
@@ -111,7 +111,7 @@ internal static class BeamConstructionMigration
                 Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Ray,
                     Ray = new ConstructionRay { Length = 10000f, FollowTarget = follow, TurnRate = 0f } } }
             }
-        }, skill, emission.RuntimeData.ResolveEffectScale(), contactForceScale: 1f / (container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier), caster: emission.Source.a.GetExtend());
+        }, skill, emission.RuntimeData.ResolveEffectScale(), contactForceScale: 1f / (container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier), caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
     }
 
     /// <summary>只接管本批已经保留全部实际作用的两个原光束。</summary>

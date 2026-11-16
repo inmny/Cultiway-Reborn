@@ -37,7 +37,7 @@ internal static class BarrierConstructionMigration
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
-            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom || (emission.RuntimeData.HasElementOverride && !NatureConstructionMigration.HasNature(skill)))
+            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom)
             return SkillEmissionResult.Unhandled;
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage);
         if (definition == null) return SkillEmissionResult.Unhandled;
@@ -104,7 +104,7 @@ internal static class BarrierConstructionMigration
         if (skill.TryGetComponent(out VolleyModifier volley)) strength *= Mathf.Clamp(volley.DamageMultiplier, .05f, 2f);
         damage = new GetHitEvent
         {
-            Damage = strength, Element = NatureConstructionMigration.Element(skill), AttackType = AttackType.Other,
+            Damage = strength, Element = NatureConstructionMigration.Element(skill, emission.RuntimeData), AttackType = AttackType.Other,
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin
         };
         damage.BindAttacker(emission.Source);
@@ -150,7 +150,7 @@ internal static class BarrierConstructionMigration
                     Vector = new float[3], WorldVelocity = true, Ground = ConstructionGroundResponse.Follow } }
 
             }
-        }, skill, emission.RuntimeData.ResolveEffectScale(), contactForceScale: emission.RuntimeData.ResolveEffectScale(), caster: emission.Source.a.GetExtend());
+        }, skill, emission.RuntimeData.ResolveEffectScale(), contactForceScale: emission.RuntimeData.ResolveEffectScale(), caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
     }
 
 }

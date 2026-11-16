@@ -83,21 +83,21 @@ public sealed class CompiledConstructionContactDamage
         if (source == null || !Amount(source.PerForce) || !Amount(source.PerHealth) || !Amount(source.PerMaxHealth) || !Amount(source.MinimumBonus) ||
             !Enum.IsDefined(typeof(ConstructionContactActor), source.Target) || !Enum.IsDefined(typeof(ConstructionContactActor), source.Source))
             throw new InvalidDataException(path + "：追加伤害需要有效受伤者与来源，比例及最低附加量为零至一百万内的有限值");
-        float total = 0f;
-        for (int i = 0; i < 8; i++)
-        {
-            float value = source.Element[i];
-            if (float.IsNaN(value) || float.IsInfinity(value) || value < 0f || value > 1f)
-                throw new InvalidDataException(path + "/Element：元素权重需要零至一内的有限值");
-            total += value;
-        }
+        ValidateElement(source.Element, path + "/Element");
         PerForce = source.PerForce;
         Target = source.Target; Source = source.Source;
         PerHealth = source.PerHealth; PerMaxHealth = source.PerMaxHealth; MinimumBonus = source.MinimumBonus;
         IgnoreDamageReduction = source.IgnoreDamageReduction;
-        var element = source.Element;
-        if (total > 0f) element.Normalize();
-        Element = element;
+        Element = source.Element;
+    }
+
+    /// <summary>普通本体与追加伤害共用元素资料边界，不改写已经明确的权重。</summary>
+    /// <param name="element">八项实际伤害组成。</param><param name="path">准确资料位置。</param>
+    internal static void ValidateElement(ElementComposition element, string path)
+    {
+        for (int i = 0; i < 8; i++)
+            if (float.IsNaN(element[i]) || float.IsInfinity(element[i]) || element[i] < 0f || element[i] > 1f)
+                throw new InvalidDataException(path + "：元素权重需要零至一内的有限值");
     }
 
     /// <summary>只在外部资料边界检查非负有限数值。</summary>
