@@ -36,7 +36,7 @@ internal static class GroundSpikeConstructionMigration
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
-            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom || emission.RuntimeData.HasElementOverride)
+            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom || (emission.RuntimeData.HasElementOverride && !NatureConstructionMigration.HasNature(skill)))
             return SkillEmissionResult.Unhandled;
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage);
         if (definition == null) return SkillEmissionResult.Unhandled;
@@ -69,7 +69,7 @@ internal static class GroundSpikeConstructionMigration
         if (container.Asset.Effects.Count != 0 || container.EffectPipeline?.Effects.Count > 0 ||
             !ContactEffectMigration.MatchesTravelCallbacks(skill) || !ContactEffectMigration.MatchesCallbacks(skill)) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
-        if (configured && settings.NatureId != null) return null;
+        if (!NatureConstructionMigration.Supports(skill)) return null;
 
         // 原地涌出没有飞行，故加速词条仍不额外缩短寿命或改变伤害时点。
         float setupScale = ContactEffectMigration.SetupStrengthScale(skill, out _, out _);
@@ -87,7 +87,7 @@ internal static class GroundSpikeConstructionMigration
         strength *= container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier;
         damage = new GetHitEvent
         {
-            Damage = strength, Element = container.Asset.Element, AttackType = AttackType.Other,
+            Damage = strength, Element = NatureConstructionMigration.Element(skill), AttackType = AttackType.Other,
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin
         };
         damage.BindAttacker(emission.Source);

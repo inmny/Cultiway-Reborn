@@ -37,7 +37,7 @@ internal static class BarrierConstructionMigration
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
-            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom || emission.RuntimeData.HasElementOverride)
+            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom || (emission.RuntimeData.HasElementOverride && !NatureConstructionMigration.HasNature(skill)))
             return SkillEmissionResult.Unhandled;
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage);
         if (definition == null) return SkillEmissionResult.Unhandled;
@@ -86,7 +86,7 @@ internal static class BarrierConstructionMigration
         if (container.Asset.Effects.Count != 0 || container.EffectPipeline?.Effects.Count > 0 ||
             !ContactEffectMigration.MatchesTravelCallbacks(skill) || !ContactEffectMigration.MatchesCallbacks(skill)) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
-        if (configured && settings.NatureId != null) return null;
+        if (!NatureConstructionMigration.Supports(skill)) return null;
 
         // 固定墙体不因加速词条改变寿命；范围和容量仍从真实原发射计算。
         float setupScale = ContactEffectMigration.SetupStrengthScale(skill, out _, out _);
@@ -104,7 +104,7 @@ internal static class BarrierConstructionMigration
         if (skill.TryGetComponent(out VolleyModifier volley)) strength *= Mathf.Clamp(volley.DamageMultiplier, .05f, 2f);
         damage = new GetHitEvent
         {
-            Damage = strength, Element = container.Asset.Element, AttackType = AttackType.Other,
+            Damage = strength, Element = NatureConstructionMigration.Element(skill), AttackType = AttackType.Other,
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin
         };
         damage.BindAttacker(emission.Source);

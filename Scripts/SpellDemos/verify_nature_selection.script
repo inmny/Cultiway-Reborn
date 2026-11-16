@@ -1,0 +1,162 @@
+// B44：资料覆盖共用分支，实机只复用同一枚已学灵弹。
+const string section = "all";
+var allCasts = new List<AbilityCast>();
+var damageEvents = new List<(long Target, float Amount, string Element, int Before, int After)>();
+int oldExecutions = 0;
+Actor source = Make(64), target = Make(70), safe = Make(74), wolf = Make(12, "wolf");
+target.setKingdom(wolf.kingdom); safe.setKingdom(wolf.kingdom); Place(safe, 74, 77);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 0;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+GetHitEvent conversionDamage = default;
+IReadOnlyList<Entity> Learned() => (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+Entity Build(SkillEntityAsset asset, string nature, bool contact = true, bool extra = false)
+{
+    var builder = new SkillContainerBuilder(asset).UseAnimation(0);
+    if (asset == SkillEntities.HealingLight) builder.AddModifier(new HealingModifier { Amount = 30 });
+    if (extra) { builder.AddModifier(new BurnModifier { Duration = 1, DamageRatio = .1f }); builder.AddModifier(new ExplosionModifier { Radius = 2, DamageRatio = .3f }); }
+    Entity made = builder.Build(SkillContainerBuildMode.RuleOnly);
+    SkillSettingsCompiler.Attach(made, new SkillBlueprint { EntityAssetId = asset.id, NatureId = nature, PowerMultiplier = 1.5f, ContactEnabled = contact });
+    string signature = SkillContainerSignature.Build(made); owner.LearnSkillV3(made);
+    return Learned().First(x => SkillContainerSignature.Build(x) == signature);
+}
+SkillEmission Emission(Entity skill, bool dynamic = false) => new SkillEmission
+{
+    Source = source, SpatialSource = source, SkillContainer = skill, Target = target,
+    SourcePos = new Vector3(64, 72, .3f), TargetPos = new Vector3(70, 72, .3f), Strength = 40, PowerLevel = 0,
+    RuntimeData = new SkillCastRuntimeData { EffectScale = .5f, HasElementOverride = dynamic, ElementOverride = ElementComposition.Static.Fire }
+};
+AbilityDefinition Convert(Entity skill, string migration, bool dynamic = false)
+{
+    var method = service.Assembly.GetType("Cultiway.Content.Skills." + migration + "ConstructionMigration").GetMethod("Convert", F);
+    var emission = Emission(skill, dynamic);
+    object[] args = method.GetParameters().Length == 3 ? new object[] { emission, default(GetHitEvent), default(Vector3) } :
+        method.GetParameters().Length == 2 ? new object[] { emission, default(GetHitEvent) } : new object[] { emission };
+    var definition = (AbilityDefinition)method.Invoke(null, args);
+    conversionDamage = args.Length > 1 ? (GetHitEvent)args[1] : default; return definition;
+}
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    yield return node;
+    if (node.Children != null) foreach (var child in node.Children) foreach (var nested in Nodes(child)) yield return nested;
+}
+bool Use(Entity skill)
+{
+    Ready(source); source.setHealth(source.getMaxHealth()); owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    bool used = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(target, target.GetSimPos(), runtimeData: new SkillCastRuntimeData { EffectScale = .5f,
+            HasElementOverride = true, ElementOverride = ElementComposition.Static.Fire },
+            selectionArea: new SkillTargetSelectionArea(true, target.GetSimPos(), .1f)), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999; CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+    ControllableUnit.clear(false); source.stopForce(); source.batch.c_action_landed.Remove(source); return used;
+}
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(r => (long)Field(r, "Id") == fact.CastId);
+    allCasts.Add((AbilityCast)Field(running, "Cast"));
+}
+void Old(Entity entity) { if (entity.GetComponent<SkillContext>().SourceObj == source) oldExecutions++; }
+ConstructedAbilityService.CastStarted += Started; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+NatureProbe.Damaged = (damage, before) =>
+{
+    if (damage.AttackerID == source.id) damageEvents.Add((damage.TargetID, damage.Damage, damage.Element.ToString(), before,
+        World.world.units.get(damage.TargetID)?.data.health ?? 0));
+};
+var hook = new HarmonyLib.Harmony("Cultiway.Verify.NatureSelection");
+var damageType = typeof(GetHitEvent).Assembly.GetType("Cultiway.Core.EventSystem.Systems.GetHitEventSystem");
+hook.Patch(damageType.GetMethod("Resolve", F), prefix: new HarmonyLib.HarmonyMethod(typeof(NatureProbe).GetMethod("DamagePrefix")),
+    postfix: new HarmonyLib.HarmonyMethod(typeof(NatureProbe).GetMethod("DamagePostfix")));
+try
+{
+    if (section is "all" or "definitions")
+    {
+        var expected = new Dictionary<string, string> { ["metal"] = "iron", ["wood"] = "wood", ["water"] = "water", ["fire"] = "fire", ["earth"] = "earth",
+            ["yin"] = "yin", ["yang"] = "yang", ["chaos"] = "entropy", ["lightning"] = "lightning", ["ice"] = "ice", ["wind"] = "wind", ["poison"] = "poison" };
+        var original = Convert(Build(SkillEntities.SpiritBolt, null), "Projectile");
+        foreach (var nature in expected)
+        {
+            var skill = Build(SkillEntities.SpiritBolt, nature.Key, extra: true); var definition = Convert(skill, "Projectile", true);
+            Check(definition != null && definition.Root.Matter == nature.Value, nature.Key + "明确对应实际材料，指定性质优先于动态火元素");
+            var restored = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition)); AbilityCompiler.Compile(restored, false);
+            var matter = AbilityMatters.Resolve(restored.Root.Matter, restored.Root.State, "test");
+            Check(conversionDamage.Element.ToString() == SkillSettingsCompiler.Element(nature.Key).ToString() &&
+                Math.Abs(conversionDamage.Damage - 40f * .5f * 1.5f * SkillEntities.SpiritBolt.ImpactProfile.DamageMultiplier * SkillEntities.SpiritBolt.ImpactTuning.DamageMultiplier) < .001f &&
+                restored.Root.Form == original.Root.Form && JsonConvert.SerializeObject(restored.Root.Operations) == JsonConvert.SerializeObject(original.Root.Operations) &&
+                (restored.Root.Surface != null || matter.Surface != null), nature.Key + "保存编译保留形状轨迹、一次倍率及实际表面");
+            Check(restored.Root.Impact.Statuses.Single().Tick.Element.ToString() == ElementComposition.Static.Fire.ToString() &&
+                restored.Root.Impact.Spreads.Single().Outcome.Damage.Single().Element.ToString() == SkillEntities.SpiritBolt.Element.ToString(), nature.Key + "不改变燃烧和独立爆炸的元素");
+            File.WriteAllText(Path.Combine(folder, nature.Key + ".json"), JsonConvert.SerializeObject(restored, Formatting.Indented));
+        }
+        foreach (var entry in new[] { (Asset: SkillEntities.GroundSpike, Migration: "GroundSpike", Nature: "earth"),
+            (Asset: SkillEntities.Rift, Migration: "Rift", Nature: "chaos"), (Asset: SkillEntities.YinField, Migration: "Field", Nature: "water"),
+            (Asset: SkillEntities.SpiritShield, Migration: "Barrier", Nature: "water"), (Asset: SkillEntities.HealingLight, Migration: "Support", Nature: "fire"),
+            (Asset: SkillEntities.SpiritBeam, Migration: "Beam", Nature: "lightning"), (Asset: SkillEntities.ChainLightning, Migration: "Chain", Nature: "lightning"),
+            (Asset: SkillEntities.Fireball, Migration: "Projectile", Nature: "water"), (Asset: SkillEntities.PoisonMist, Migration: "Field", Nature: "poison") })
+        {
+            var definition = Convert(Build(entry.Asset, entry.Nature), entry.Migration, true);
+            Check(definition != null && Nodes(definition.Root).All(n => n.Matter == expected[entry.Nature]), entry.Migration + "所有本体及后段共享性质转换");
+            AbilityCompiler.Compile(JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition)), false);
+            if (entry.Asset == SkillEntities.PoisonMist) Check(definition.Root.State == "gas" && definition.Root.Surface == null, "相同毒材料保留原气态及雾体细节");
+            if (entry.Asset == SkillEntities.HealingLight) Check(definition.Impact.DamageScale == 0 && definition.Impact.Restoration.Health != 0 && definition.Root.Surface == "flame", "支持形体实际换表面，恢复保持独立且不增加伤害");
+        }
+        var invalidNature = new SkillContainerBuilder(SkillEntities.SpiritBolt).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+        invalidNature.AddComponent(new SkillSettings { NatureId = "missing.nature", AreaMultiplier = 1, PowerMultiplier = 1, ContactEnabled = true });
+        Check(Convert(invalidNature, "Projectile") == null &&
+            Convert(Build(SkillEntities.GroundSpike, "water"), "GroundSpike") == null, "未知性质和原资产不允许的跨材料不转为新执行");
+        var conductive = Build(SkillEntities.YinField, "water"); conductive.GetComponent<SkillSettings>().ConductiveWater = true;
+        Check(Convert(conductive, "Field") == null, "尚未迁移的可导电水域明确留原入口，不丢失旧交互");
+        var plain = Build(SkillEntities.SpiritBolt, null);
+        var emit = service.Assembly.GetType("Cultiway.Content.Skills.ProjectileConstructionMigration").GetMethod("Emit", F);
+        Check((SkillEmissionResult)emit.Invoke(null, new object[] { Emission(plain, true) }) == SkillEmissionResult.Unhandled,
+            "没有指定性质的动态覆盖继续原入口，不误当固定材料");
+    }
+    if (section is "all" or "runtime")
+    {
+        var skill = Build(SkillEntities.SpiritBolt, "water"); int safeHp = safe.data.health;
+        Check(Use(skill), "实际已学水性质灵弹受理");
+        for (int i = 0; i < 40 && allCasts.Count == 0; i++) await Advance(.01f);
+        Check(allCasts.Count == 1, "真实逐发步骤已经发射一次");
+        var cast = allCasts.Last(); float initialWakan = owner.GetCultisys<Xian>().wakan; float initialForce = cast.RemainingForce(0);
+        Check(cast.Matter(0).Id == "water" && cast.Matter(0).State == "liquid" && oldExecutions == 0, "实际材料为液态水且没有旧执行体");
+        double expectedCost = SkillCastResources.Wakan.Quote(owner, SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+        Check(Math.Abs(source.stats[BaseStatses.MaxWakan.id] * .8f - initialWakan - expectedCost) < .01f, "原逐发费用只提交一次", new { expectedCost, initialWakan });
+        await Advance(.025f);
+        var visual = FormVisualScene.Instances.Single(v => v.Resource.Description.Id == "spirit_bolt");
+        Check(visual.Matter.Id == "water" && visual.SurfaceFor(0) == "water", "共同显示使用真实水材料表面");
+        World.world.camera.transform.position = new Vector3(67, 72.5f, 0); MoveCamera.instance.forceZoom(4f); World.world.console.Hide(); Tooltip.hideTooltipNow();
+        await Game.NextFrame(); Screen.Capture(Path.Combine(folder, "native.png"));
+        for (int i = 0; i < 80 && !damageEvents.Any(d => d.Target == target.id); i++) await Advance(.025f);
+        var damage = damageEvents.Single(d => d.Target == target.id);
+        Check(damage.Element == ElementComposition.Static.Water.ToString() && damage.After < damage.Before &&
+            Math.Abs(damage.Amount - initialForce) < .01f && safe.data.health == safeHp && oldExecutions == 0,
+            "真实命中使用水伤害和一次本体量，侧外安全", new { damage.Amount, damage.Before, damage.After, damage.Element });
+        foreach (var active in allCasts) active.Cancel(); await Advance(.1f); int count = damageEvents.Count;
+        await Advance(.3f); Check(damageEvents.Count == count && !FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "spirit_bolt"), "取消后停伤并清理显示");
+        var disabled = Build(SkillEntities.SpiritBolt, "water", false);
+        Check(Use(disabled), "关闭接触的同性质来源仍可正常施放"); await Advance(1f);
+        Check(damageEvents.Count == count && oldExecutions == 0, "关闭接触保留纯显示，不提交伤害");
+        foreach (var active in allCasts) active.Cancel(); await Advance(.1f);
+        Place(source, 64); Place(target, 70); Check(Use(skill), "结束后同一已学来源恢复施放");
+        for (int i = 0; i < 80 && damageEvents.Count == count; i++) await Advance(.025f);
+        Check(damageEvents.Count == count + 1 && damageEvents.Last().Element == ElementComposition.Static.Water.ToString(), "恢复后仍只沿新材料结算一次");
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    foreach (var cast in allCasts) cast.Cancel(); hook.UnpatchSelf(); NatureProbe.Damaged = null;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old; ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false); Config.setWorldSpeed("x1", false); Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "damage.json"), JsonConvert.SerializeObject(damageEvents.Select(d => new { d.Target, d.Amount, d.Element, d.Before, d.After }), Formatting.Indented));
+}
+/// <summary>只观察实际共同伤害，不改写游戏规则。</summary>
+public static class NatureProbe
+{
+    /// <summary>实际伤害及受击前生命。</summary>
+    public static Action<GetHitEvent, int> Damaged;
+    /// <summary>记录受击前生命。</summary>
+    public static void DamagePrefix(GetHitEvent __0, out int __state) => __state = World.world.units.get(__0.TargetID)?.data.health ?? 0;
+    /// <summary>记录受击后结果。</summary>
+    public static void DamagePostfix(GetHitEvent __0, int __state) => Damaged?.Invoke(__0, __state);
+}

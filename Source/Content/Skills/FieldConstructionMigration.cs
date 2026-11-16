@@ -36,7 +36,7 @@ internal static class FieldConstructionMigration
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
-            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom || emission.RuntimeData.HasElementOverride)
+            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom || (emission.RuntimeData.HasElementOverride && !NatureConstructionMigration.HasNature(skill)))
             return SkillEmissionResult.Unhandled;
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage);
         if (definition == null) return SkillEmissionResult.Unhandled;
@@ -74,7 +74,7 @@ internal static class FieldConstructionMigration
         if (container.Asset.Effects.Count != 0 || container.EffectPipeline?.Effects.Count > 0 ||
             !ContactEffectMigration.MatchesTravelCallbacks(skill) || !ContactEffectMigration.MatchesCallbacks(skill)) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
-        if (configured && settings.NatureId != null) return null;
+        if (!NatureConstructionMigration.Supports(skill)) return null;
 
         // 固定及跟随场不因加速改变寿命；推进场保留真实出生点、方向和起步至巡航速度。
         float setupScale = ContactEffectMigration.SetupStrengthScale(skill, out float initialAngle, out float speedScale);
@@ -93,7 +93,7 @@ internal static class FieldConstructionMigration
         float damageMultiplier = container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier;
         damage = new GetHitEvent
         {
-            Damage = strength, Element = container.Asset.Element, AttackType = AttackType.Other,
+            Damage = strength, Element = NatureConstructionMigration.Element(skill), AttackType = AttackType.Other,
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin
         };
         damage.BindAttacker(emission.Source);

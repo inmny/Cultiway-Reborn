@@ -1468,3 +1468,14 @@ python3 Scripts/SpellDemos/verify_contact_spread.py --section common
 `definitions`核对七条攻击转换、爆发后段、纯防御面、原范围与一次倍率、普通结果隔离、保存编译、非法资料及资源重载版本。`runtime`复用已学灵弹，核对主伤害致死后仍分送、真实近邻、范围外/友方/高空边界、建筑去重及共同球形显示。`common`只覆盖普通间隔的重复分送、取消停发、反馈到期与换世界清理。证据位于`artifacts/skill_rebuild/trajectories/contact-spread/`；完整编辑、自主创作、正式冷启动及集中录像继续5.05 C。
 
 若仅需补建筑及显示尾段，可用`--section runtime-edge`；交付索引保留原已通过人物段，不要求重跑共用规则。
+
+```bash
+# 5.05 B44：指定性质的实际材料、显示和已学来源
+python3 Scripts/SpellDemos/verify_nature_selection.py
+python3 Scripts/SpellDemos/verify_nature_selection.py --section definitions
+python3 Scripts/SpellDemos/verify_nature_selection.py --section runtime
+```
+
+资料段核对十二种性质及八条转换分支：明确材料、物态、实际表面、保存编译、形状轨迹、一次强度倍率和独立附加元素；同材料保留原物态，不扩大原资产的性质限制。实机段复用一枚已学水性质灵弹，核对真实水伤害、表面、原费用、侧外安全、关闭接触、取消停效和同来源恢复，不扩身体装备样本。指定性质优先于本次动态元素；可导电水域及无指定性质的动态覆盖继续原入口，留给后续独立迁移。
+
+输入、展开资料、实际伤害与画面保存在`artifacts/skill_rebuild/trajectories/nature-selection/`及相应分段目录；最终依据见`delivery.json`。完整编辑、自主创作、正式冷启动及集中连续录像继续5.05 C。

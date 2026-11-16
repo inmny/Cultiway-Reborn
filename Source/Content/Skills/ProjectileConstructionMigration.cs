@@ -72,7 +72,7 @@ internal static class ProjectileConstructionMigration
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
-            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom || emission.RuntimeData.HasElementOverride)
+            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom || (emission.RuntimeData.HasElementOverride && !NatureConstructionMigration.HasNature(skill)))
             return SkillEmissionResult.Unhandled;
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage, out Vector3 forward);
         if (definition == null) return SkillEmissionResult.Unhandled;
@@ -130,7 +130,7 @@ internal static class ProjectileConstructionMigration
             forward = forward.sqrMagnitude > .0001f ? forward.normalized : Vector3.right;
         }
         bool configured = skill.TryGetComponent(out SkillSettings settings);
-        if (configured && settings.NatureId != null) return null;
+        if (!NatureConstructionMigration.Supports(skill)) return null;
         float setupScale = ContactEffectMigration.SetupStrengthScale(skill, out float initialAngle, out float speedScale);
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
             container.Asset.ImpactProfile.Lifetime * container.Asset.ImpactTuning.LifetimeMultiplier);
@@ -311,7 +311,7 @@ internal static class ProjectileConstructionMigration
         float damageMultiplier = container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier;
         // 防御量保留实际本体强度，持续投射的伤害倍率单独交给人物作用；命中不会凭空消耗本体。
         if (!continues && !blast) strength *= damageMultiplier;
-        damage = new GetHitEvent { Damage = strength, Element = container.Asset.Element, AttackType = AttackType.Other,
+        damage = new GetHitEvent { Damage = strength, Element = NatureConstructionMigration.Element(skill), AttackType = AttackType.Other,
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin };
         damage.BindAttacker(emission.Source);
         var definition = new AbilityDefinition

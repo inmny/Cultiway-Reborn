@@ -33,21 +33,22 @@ internal static class SupportConstructionMigration
     /// <param name="emission">到达真实发射时点的已学来源。</param>
     internal static SkillEmissionResult Emit(SkillEmission emission)
     {
-        var asset = emission.SkillContainer.GetComponent<SkillContainer>().Asset;
+        Entity skill = emission.SkillContainer;
+        var asset = skill.GetComponent<SkillContainer>().Asset;
         if (emission.Sourceless || emission.Source?.isActor() != true ||
             asset != SkillEntities.HealingLight && asset != SkillEntities.RejuvenationField && asset != SkillEntities.PurificationWave &&
             asset != SkillEntities.BattleBlessing && asset != SkillEntities.GuardBlessing && asset != SkillEntities.HasteBlessing)
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
-            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom || emission.RuntimeData.HasElementOverride)
+            emission.AttackKingdom != null && emission.AttackKingdom != emission.Source.kingdom || (emission.RuntimeData.HasElementOverride && !NatureConstructionMigration.HasNature(skill)))
             return SkillEmissionResult.Unhandled;
         AbilityDefinition definition = Convert(emission);
         if (definition == null) return SkillEmissionResult.Unhandled;
         var target = new ActiveAbilityTarget(definition.Use.Target == ActiveAbilityTargetMode.Object ? emission.Target : null,
             emission.TargetPos, attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         // 载体有明确交锋余量，人物伤害始终为零；恢复量独立保存，不拿攻击力驱动治疗。
-        var carrier = new GetHitEvent { Damage = 1f, Element = asset.Element, AttackerPowerLevel = emission.PowerLevel,
+        var carrier = new GetHitEvent { Damage = 1f, Element = NatureConstructionMigration.Element(skill), AttackerPowerLevel = emission.PowerLevel,
             AttackType = AttackType.Other, DamageOrigin = emission.RuntimeData.DamageOrigin };
         carrier.BindAttacker(emission.Source);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
@@ -89,7 +90,7 @@ internal static class SupportConstructionMigration
             container.OnTravel != null || container.OnEffectObj != null || asset.Effects.Count != 0 ||
             container.EffectPipeline == null || !container.EffectPipeline.Effects.SequenceEqual(modifierAsset.Effects)) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
-        if (configured && settings.NatureId != null) return null;
+        if (!NatureConstructionMigration.Supports(skill)) return null;
         float lifetime = asset.ResolveRuntimeLifetime(skill, asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier);
         if (configured && settings.Duration > 0f) lifetime = settings.Duration;
         float effectScale = emission.RuntimeData.ResolveEffectScale();
@@ -130,7 +131,7 @@ internal static class SupportConstructionMigration
                         Speed = speed * (motion.CruiseMultiplier + (motion.LaunchMultiplier - motion.CruiseMultiplier) * remaining * remaining) });
                 }
         }
-        return new AbilityDefinition
+        return NatureConstructionMigration.Bind(new AbilityDefinition
         {
             Id = asset.id, Name = skill.HasName ? skill.Name.value : asset.id.Localize(), Lifetime = lifetime,
             ConcurrentLimit = asset.ImpactProfile.PersistentLimit, Resource = "none", Cost = 0f, Cooldown = 0f, Power = 1f, TargetRange = 10000f,
@@ -148,7 +149,7 @@ internal static class SupportConstructionMigration
                 Contact = rejuvenation ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Pulse, Interval = 1f } : null,
                 OnContact = targeted ? ConstructionContactResponse.End : ConstructionContactResponse.Continue, Operations = operations.ToArray()
             }
-        };
+        }, skill);
     }
 
     /// <summary>将原祝福词条展开为普通属性状态，时长不乘效果或伤害倍率。</summary>
