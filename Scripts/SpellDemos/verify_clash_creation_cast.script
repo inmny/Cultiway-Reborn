@@ -1,0 +1,43 @@
+// 复用已通过的正面反射场景，只验证编辑成品接入及结束恢复。
+Actor source = Make(64), enemy = Make(72, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+var ward = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/trajectories/clash-creation/ui/saved-definition.json")));
+var reflections = new List<ConstructedReflection>();
+void Reflected(ConstructedReflection fact) => reflections.Add(fact);
+ConstructedAbilityService.ReflectionConfirmed += Reflected;
+var shot = new AbilityDefinition
+{
+    Id = "test.clash-creation.shot", Name = "交锋测试投射", Resource = "none", Cost = 0, Cooldown = 0,
+    Lifetime = 1, TargetRange = 100, Power = 20f / enemy.stats["damage"],
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+    Root = new ConstructionNode { Id = "shot", Form = "sword", OnContact = ConstructionContactResponse.End,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { -60f, 0f, 0f }, WorldVelocity = true } } }
+};
+try
+{
+    Ready(source); Place(source, 64); Place(enemy, 72);
+    float before = owner.GetCultisys<Xian>().wakan;
+    await Fire(ward, source, enemy);
+    float paid = before - owner.GetCultisys<Xian>().wakan;
+    owner.E.RemoveComponent<ConstructedKnowledge>(); CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    Ready(enemy); Place(source, 64); Place(enemy, 72); await Fire(shot, enemy, source); enemy.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.3f);
+    Check(Math.Abs(paid - ward.Cost) < .001f && reflections.Count == 1, "表单成品只付一次费用并实际反射敌方投射", new { paid, ward.Cost, count = reflections.Count });
+    var reflected = reflections.Single();
+    Check(reflected.OriginalSource == enemy.id && reflected.PreviousOwner == enemy.id && reflected.Owner == source.id && reflected.Count == 1, "实际反射沿共同路径交接归属");
+    Check(reflected.Force > 0 && reflected.BarrierRemaining > 0 && !contacts.Any(item => item.AbilityId == ward.Id), "纯防御屏障保留实际余量且不接触伤害人物");
+    await Advance(ward.Lifetime + .2f);
+    Check(endings.Any(item => item.Fact.AbilityId == ward.Id) && !BodyControlState.IsBusy(source.id), "屏障自然结束且不残留身体控制");
+    Place(source, 64); Place(enemy, 72); int previous = reflections.Count;
+    await Fire(shot, enemy, source); enemy.GetExtend().E.RemoveComponent<ConstructedKnowledge>(); await Advance(.3f);
+    Check(reflections.Count == previous, "到期屏障不再反射后续投射");
+    Ready(source); Place(source, 64); Place(enemy, 72); await Fire(ward, source, enemy); owner.E.RemoveComponent<ConstructedKnowledge>();
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); Ready(enemy); Place(source, 64); Place(enemy, 72);
+    await Fire(shot, enemy, source); enemy.GetExtend().E.RemoveComponent<ConstructedKnowledge>(); await Advance(.3f);
+    Check(reflections.Count == previous + 1, "结束后再次施放恢复真实反射");
+    await Advance(ward.Lifetime + .2f);
+    File.WriteAllText(Path.Combine(folder, "reflections.json"), JsonConvert.SerializeObject(reflections.Select(item => new { item.AbilityId, item.OriginalSource, item.PreviousOwner, item.Owner, item.Count, item.Force, item.BarrierRemaining, position = new[] { item.Position.x, item.Position.y, item.Position.z } }), Formatting.Indented));
+    return new { passed = true, closed = "编辑屏障实际反射、归属与结束恢复", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { ConstructedAbilityService.ReflectionConfirmed -= Reflected; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false); }

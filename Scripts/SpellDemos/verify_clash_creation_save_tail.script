@@ -1,0 +1,24 @@
+// 只续接同进程已完成新旧请求、已支付施放后的存档段，避免重跑已通过部分。
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/trajectories/clash-creation/save/pending-expected.json")));
+Actor source = World.world.units.get((long)expected["sourceId"]);
+var owner = source.GetExtend(); var access = ConstructionEditing.Access;
+var completed = owner.GetComponent<ConstructedCreationState>();
+var learned = access.Read(completed.LastAbility);
+JObject Canon(AbilityDefinition definition) { var value = JObject.FromObject(definition); value.Remove("Id"); value.Remove("Creator"); return value; }
+try
+{
+    Check(!completed.Pending && JToken.DeepEquals(Canon(learned), Canon(expected["predicted"].ToObject<AbilityDefinition>())) && !ConstructedAbilityService.Knows(owner, learned.Id), "沿用已完成并已施放的同一成品和人物");
+    float paid = source.stats[BaseStatses.MaxWakan.id] * .9f - owner.GetCultisys<Xian>().wakan;
+    var plan = AbilityCompiler.Compile(learned, false);
+    object compiledNode = ((Array)plan.GetType().GetProperty("Nodes", F).GetValue(plan)).GetValue(0);
+    Check(Math.Abs(paid - learned.Cost) < .001f && plan.HasBarrier && (ConstructionInterception)Field(compiledNode, "Interception") == learned.Root.Interception && (bool)Field(compiledNode, "BlocksGroundActors") == learned.Root.BlocksGroundActors, "正式授予的交锋成品实际收费并使用同一完整屏障规则", new { paid, learned.Cost, learned.Root.ContactRole, learned.Root.Interception, learned.Root.BlocksGroundActors, learned.Root.ReflectionLimit });
+    await Advance(learned.Lifetime + .25f);
+    Check(endings.Any(item => item.Fact.AbilityId == learned.Id) && !BodyControlState.IsBusy(source.id), "新屏障自然结束后无控制残留");
+    long sourceId = source.id; ConstructedAbilityService.Learn(owner, learned.Id);
+    string completedSave = Path.Combine(folder, "completed-save"); SaveManager.saveWorldToDirectory(completedSave);
+    World.world.save_manager.loadWorld(completedSave); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    Check(JToken.DeepEquals(Canon(access.Read(learned.Id)), Canon(learned)) && ConstructedAbilityService.Knows(World.world.units.get(sourceId).GetExtend(), learned.Id), "完成后的交锋规则及已学资料正式存读保持");
+    File.WriteAllText(Path.Combine(folder, "created-definition.json"), JsonConvert.SerializeObject(learned, Formatting.Indented));
+    return new { passed = true, closed = "沿原存读成品补实际使用、结束和再次保存", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false); }

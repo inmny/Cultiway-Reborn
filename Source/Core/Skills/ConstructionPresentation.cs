@@ -229,6 +229,7 @@ public static class ConstructionPresentation
         "直接放置" => "Placed",
         "射线变化" => "Ray",
         "范围推拉" => "RadialMotion",
+        "交锋规则" => "ClashRules",
         "复生" => "Repeat",
         "显化" => "Project",
         "改造" => "Edit",

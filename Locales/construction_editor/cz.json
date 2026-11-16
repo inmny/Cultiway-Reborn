@@ -1284,5 +1284,17 @@
   "Cultiway.Construction.RadialRadius": "范围半径（世界距离）",
   "Cultiway.Construction.RadialSpeed": "中心速度（正推、负拉）",
   "Cultiway.Construction.RadialInterval": "重新选人间隔秒数",
-  "Cultiway.Construction.RadialTargets": "范围运动影响的人物"
+  "Cultiway.Construction.RadialTargets": "范围运动影响的人物",
+  "Cultiway.Construction.ClashRules": "交锋规则",
+  "Cultiway.Construction.ClashRulesHint": "攻击会接触人物并参与交锋；屏障消耗实际容量拦截敌方攻击，另设部位作用时仍可影响人物。切换用途不会删除原作用，冲突需先明确调整。",
+  "Cultiway.Construction.ClashRole": "部位用途",
+  "Cultiway.Construction.ClashRole.Attack": "攻击",
+  "Cultiway.Construction.ClashRole.Barrier": "屏障",
+  "Cultiway.Construction.ClashRole.Decoration": "装饰",
+  "Cultiway.Construction.ClashInterception": "屏障拦截",
+  "Cultiway.Construction.ClashInterception.Absorb": "吸收抵消",
+  "Cultiway.Construction.ClashInterception.Reflect": "足够容量时反射",
+  "Cultiway.Construction.ClashGroundBlock": "阻挡地面人物",
+  "Cultiway.Construction.ClashGroundBlockHint": "阻止敌方可移动地面人物穿过。友方和飞行人物仍按原规则通行，不增加作用面。",
+  "Cultiway.Construction.ClashReflectionLimit": "本部位反射次数上限"
 }

@@ -1289,5 +1289,17 @@
   "Cultiway.Construction.RadialRadius": "Radius (world distance)",
   "Cultiway.Construction.RadialSpeed": "Centre speed (+push, -pull)",
   "Cultiway.Construction.RadialInterval": "Retarget interval (seconds)",
-  "Cultiway.Construction.RadialTargets": "Actors affected by radial motion"
+  "Cultiway.Construction.RadialTargets": "Actors affected by radial motion",
+  "Cultiway.Construction.ClashRules": "Clash rules",
+  "Cultiway.Construction.ClashRulesHint": "Attacks affect actors and clash. Barriers intercept hostile attacks with actual capacity; explicit part effects can still affect actors. Changing role keeps existing effects; resolve conflicts explicitly.",
+  "Cultiway.Construction.ClashRole": "Part role",
+  "Cultiway.Construction.ClashRole.Attack": "Attack",
+  "Cultiway.Construction.ClashRole.Barrier": "Barrier",
+  "Cultiway.Construction.ClashRole.Decoration": "Decoration",
+  "Cultiway.Construction.ClashInterception": "Barrier interception",
+  "Cultiway.Construction.ClashInterception.Absorb": "Absorb",
+  "Cultiway.Construction.ClashInterception.Reflect": "Reflect with enough capacity",
+  "Cultiway.Construction.ClashGroundBlock": "Block ground actors",
+  "Cultiway.Construction.ClashGroundBlockHint": "Blocks movable hostile ground actors. Friendly and flying actors keep existing passage rules. Uses the actual part surface.",
+  "Cultiway.Construction.ClashReflectionLimit": "Reflection limit for this part"
 }

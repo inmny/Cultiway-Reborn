@@ -35,6 +35,7 @@ public sealed partial class WindowWanfaConstructionEditor
         ActivationRows(node);
         MotionRows(node);
         RadialMotionRows(node);
+        ClashRows(node);
         if (node.ContactRole == ConstructionContactRole.Decoration)
         {
             Row("NoActorImpact", T("NoActorImpactHint"));

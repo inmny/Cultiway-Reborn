@@ -53,6 +53,25 @@ public static class ConstructionContactEdits
         return result;
     }
 
+    /// <summary>独立候选通过完整编译才交付；切换用途不删除原作用或改变共享组。</summary>
+    /// <param name="source">完整原资料。</param><param name="node">本资料中的实际声明。</param>
+    /// <param name="role">攻击、屏障或装饰用途。</param><param name="interception">屏障的吸收或反射。</param>
+    /// <param name="blocksGroundActors">是否阻挡敌方地面人物。</param><param name="reflectionLimit">本部位允许反射的次数。</param>
+    public static AbilityDefinition SetClash(AbilityDefinition source, ConstructionNode node,
+        ConstructionContactRole role, ConstructionInterception interception, bool blocksGroundActors, int reflectionLimit)
+    {
+        string path = Parts(source.Root).Where(part => ReferenceEquals(part.Node, node)).Select(part => part.Path).SingleOrDefault();
+        if (path == null) throw new InvalidDataException("交锋规则找不到本资料中的实际部位");
+        AbilityDefinition result = ConstructionEditing.Copy(source);
+        ConstructionNode target = Parts(result.Root).Single(part => part.Path == path).Node;
+        target.ContactRole = role;
+        target.Interception = interception;
+        target.BlocksGroundActors = blocksGroundActors;
+        target.ReflectionLimit = reflectionLimit;
+        AbilityCompiler.Compile(result, false);
+        return result;
+    }
+
     /// <summary>只接受本资料里的实际声明，不以重复的局部名字猜测目标。</summary>
     /// <param name="source">完整资料。</param><param name="plan">同份资料的编译结果。</param>
     /// <param name="node">当前声明，空值表示身体。</param>

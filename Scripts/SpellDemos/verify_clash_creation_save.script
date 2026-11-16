@@ -1,0 +1,51 @@
+// 正式区段升级和正式世界存读；新旧等待请求各授予一次，不用伪造旧预期。
+Actor source = Make(64), legacy = Make(62), enemy = Make(72, "wolf");
+foreach (Actor a in new[] { source, legacy }) { var e = a.GetExtend(); e.NewCultisys(Cultisyses.Xian); e.GetCultisys<Xian>().level = 2; e.MarkCultiwayStatsDirty(); a.setStatsDirty(); a.updateStats(); e.GetCultisys<Xian>().wakan = 10000; }
+for (int frame = 0; frame < 3; frame++) await Game.NextFrame();
+var owner = source.GetExtend(); var saves = Cultiway.ModClass.I.WorldSaves; var access = ConstructionEditing.Access;
+JObject Canon(AbilityDefinition definition) { var value = JObject.FromObject(definition); value.Remove("Id"); value.Remove("Creator"); return value; }
+try
+{
+    var basis = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/trajectories/clash-creation/ui/saved-definition.json")));
+    int seed = (int)JObject.Parse(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/trajectories/clash-creation/creation/selected.json")))["seed"];
+    ConstructedAbilityService.Register(basis); ConstructedAbilityService.Learn(owner, basis.Id);
+    Check(ConstructedAbilityService.TryQueueCreation(owner, seed, basis.Id), "实际人物受理明确原术的新规则创作请求");
+    var pending = owner.GetComponent<ConstructedCreationState>(); var predicted = ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources);
+    Check(pending.Inspiration.Rules == 20 && predicted.Parent.Change == "交锋规则", "新请求冻结真实原术及交锋规则派生选择");
+    var envelope = JObject.Parse(saves.Actors.Capture(owner, "clash-creation"));
+    Check((int)envelope["sections"]["ability_creation"]["version"] == 21, "新请求使用正式第二十一版人物区段");
+    var old = JObject.Parse(File.ReadAllText(Path.Combine(root, "Scripts/SpellDemos/fixtures/clash-creation-rule19.json")));
+    var oldEnvelope = JObject.Parse(saves.Actors.Capture(legacy.GetExtend(), "clash-creation-old")); oldEnvelope["sections"]["ability_creation"] = old["section"].DeepClone();
+    var report = new SaveLoadReport(); saves.Actors.Restore(legacy.GetExtend(), oldEnvelope.ToString(), report, "clash-creation-old", section => section.Id == "ability_creation", false);
+    var restored = legacy.GetExtend().GetComponent<ConstructedCreationState>(); var expectedOld = Canon(old["expected"].ToObject<AbilityDefinition>());
+    Check(report.Upgraded == 1 && report.Skipped.Count == 0 && restored.Inspiration.Rules == 19 && JToken.DeepEquals(Canon(ConstructedAbilityService.Generate(legacy.GetExtend(), restored.Seed, restored.Inspiration, restored.Source, restored.Resources)), expectedOld), "真实第二十版等待请求升级后仍得到原完整结果及费用");
+    long sourceId = source.id, legacyId = legacy.id, enemyId = enemy.id;
+    Check(World.world.units.ToArray().Contains(source) && World.world.units.ToArray().Contains(legacy), "新人物已进入原版正式存档遍历集合");
+    File.WriteAllText(Path.Combine(folder, "pending-expected.json"), JsonConvert.SerializeObject(new { sourceId, legacyId, enemyId, predicted, expectedOld, pending }, Formatting.Indented));
+    string save = Path.Combine(folder, "pending-save"); SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    source = World.world.units.get(sourceId); legacy = World.world.units.get(legacyId); enemy = World.world.units.get(enemyId); owner = source.GetExtend();
+    var loaded = owner.GetComponent<ConstructedCreationState>();
+    Check(loaded.Pending && loaded.Inspiration.Rules == 20 && JToken.DeepEquals(JObject.FromObject(loaded.Resources), JObject.FromObject(pending.Resources)) && JToken.DeepEquals(Canon(ConstructedAbilityService.Generate(owner, loaded.Seed, loaded.Inspiration, loaded.Source, loaded.Resources)), Canon(predicted)), "正式世界保存读取保留新请求完整作用及冻结生成输入");
+    await Advance(.2f);
+    var completed = owner.GetComponent<ConstructedCreationState>(); var completedOld = legacy.GetExtend().GetComponent<ConstructedCreationState>();
+    Check(!completed.Pending && completed.LastFailure == null && completed.LastAbility != null && JToken.DeepEquals(Canon(access.Read(completed.LastAbility)), Canon(predicted)) && !completedOld.Pending && completedOld.LastFailure == null && completedOld.LastAbility != null && JToken.DeepEquals(Canon(access.Read(completedOld.LastAbility)), expectedOld), "真实逻辑边界分别授予完整新旧结果，不重抽旧请求");
+    int known = access.List(owner).Count; await Advance(.2f); Check(access.List(owner).Count == known, "已完成请求不重复授予");
+    var learned = access.Read(completed.LastAbility); owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    Check(learned.Cost <= owner.GetCultisys<Xian>().wakan, "交锋规则新成品在真实资源容量内可支付", new { learned.Cost, capacity = source.stats[BaseStatses.MaxWakan.id] });
+    Ready(source); Place(source, 64); Place(enemy, 72);
+    float before = owner.GetCultisys<Xian>().wakan;
+    await Fire(learned, source, enemy); float paid = before - owner.GetCultisys<Xian>().wakan;
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    var plan = AbilityCompiler.Compile(learned, false);
+    object compiledNode = ((Array)plan.GetType().GetProperty("Nodes", F).GetValue(plan)).GetValue(0);
+    Check(Math.Abs(paid - learned.Cost) < .001f && plan.HasBarrier && (ConstructionInterception)Field(compiledNode, "Interception") == learned.Root.Interception && (bool)Field(compiledNode, "BlocksGroundActors") == learned.Root.BlocksGroundActors, "正式授予的交锋成品实际收费并使用同一完整屏障规则", new { paid, learned.Root.ContactRole, learned.Root.Interception, learned.Root.BlocksGroundActors, learned.Root.ReflectionLimit });
+    await Advance(learned.Lifetime + .25f);
+    Check(endings.Any(item => item.Fact.AbilityId == learned.Id) && !BodyControlState.IsBusy(source.id), "新屏障自然结束后无控制残留");
+    ConstructedAbilityService.Learn(owner, learned.Id); SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+    World.world.save_manager.loadWorld(Path.Combine(folder, "completed-save")); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    Check(JToken.DeepEquals(Canon(access.Read(learned.Id)), Canon(learned)) && ConstructedAbilityService.Knows(World.world.units.get(sourceId).GetExtend(), learned.Id), "完成后的交锋规则及已学资料正式存读保持");
+    File.WriteAllText(Path.Combine(folder, "created-definition.json"), JsonConvert.SerializeObject(learned, Formatting.Indented));
+    return new { passed = true, closed = "新旧请求迁移、实际使用及正式保存", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false); }

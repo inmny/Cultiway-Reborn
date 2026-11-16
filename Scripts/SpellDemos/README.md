@@ -1613,3 +1613,10 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 `python3 Scripts/SpellDemos/verify_radial_motion_creation.py --section ui|cast|creation|save|all`。复用既有窗口、世界和一个剑形部位，验证世界半径、推拉速度、重新选人间隔及人物关系的真实表单，零半径拒绝、撤销和保存再打开，中英窗口、范围内外实际移动、结束归还及再次施放，规则19独立创作与派生、正式人物区段20新旧请求存读。旧样例`fixtures/radial-motion-creation-rule18.json`直接来自C10正式等待存档与当时完整预期，保留来源校验值。
 
 证据索引为`artifacts/skill_rebuild/trajectories/radial-motion-creation/delivery.json`。本批窗口、施放、创作、存读四段在同一进程分别通过，没有执行一次完整all；没有原始失败。中英窗口图位于ui，实际位移在cast和save的motion.json，正式等待及完成存档在save。正式冷启动与集中录像仍在C交付点完成，软件渲染仅用于功能和窗口。
+
+
+### 5.05 C12：交锋用途及屏障规则编辑与自主创作
+
+`python3 Scripts/SpellDemos/verify_clash_creation.py --section ui|cast|creation|save|all`。复用现成世界和剑形主体，覆盖攻击/屏障/装饰用途、吸收/反射、地面人物阻挡与反射次数的真实表单、非法候选拒绝、撤销和保存再打开，中英窗口、表单成品真实反射及归属交接、到期退出及再次施放，规则20独立创作与派生、正式人物区段21新旧请求存读。旧样例`fixtures/clash-creation-rule19.json`来自C11正式等待存档和当时完整预期，保留来源校验值。
+
+`--section save-tail`只续接保存段已完成请求及实际施放后的同一人物，不重建世界，不加入正常all。证据索引`artifacts/skill_rebuild/trajectories/clash-creation/delivery.json`保留首次投射方向、内部计划读取和续接脚本的原失败，明确分段通过。中英图在ui，反射记录在cast，正式等待存档及存读前段在save，实际成品及完成存档在save-tail。已有未受影响的身体、装备及反射角度矩阵没有重跑；正式冷启动及集中录像仍归C交付点，软件渲染仅用于功能及窗口。

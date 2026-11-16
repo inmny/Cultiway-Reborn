@@ -75,5 +75,6 @@
   "Cultiway.ConstructionText.Change.Placed": "Placed",
   "Cultiway.ConstructionText.Change.Ray": "Ray change",
   "Cultiway.ConstructionText.RadialMotion": "Within world radius {1:0.##} of {0}, moves {4} horizontally at centre speed {2:0.##} tiles/s (+outward, -inward), retargeting every {3:0.###}s. Fades to zero at the edge, independent of contact shape.",
-  "Cultiway.ConstructionText.Change.RadialMotion": "Radial motion"
+  "Cultiway.ConstructionText.Change.RadialMotion": "Radial motion",
+  "Cultiway.ConstructionText.Change.ClashRules": "Clash rules"
 }
