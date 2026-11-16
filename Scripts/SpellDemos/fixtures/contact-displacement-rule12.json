@@ -1,0 +1,675 @@
+{
+  "provenance": "C4正式世界保存：contact-creation/save/pending-save/map.wbox；期待结果来自同批pending-expected.json，未经重新生成。",
+  "section": {
+    "version": 13,
+    "data": {
+      "Remaining": 0.0,
+      "Sequence": 0,
+      "Pending": true,
+      "Seed": 14,
+      "Origin": 2,
+      "Inspiration": {
+        "Elements": {
+          "iron": 0.0,
+          "wood": 0.0,
+          "water": 0.0,
+          "fire": 1.0,
+          "earth": 0.0,
+          "neg": 0.0,
+          "pos": 0.0,
+          "entropy": 0.0
+        },
+        "Aggression": 0.0,
+        "Control": 0.5,
+        "CanProject": true,
+        "Rules": 12
+      },
+      "Source": {
+        "Version": 1,
+        "Id": "test.contact-creation.original",
+        "Revision": 1,
+        "Name": "批量斗气",
+        "Creator": 0,
+        "Seed": 0,
+        "Lifetime": 1.5,
+        "Cost": 3.0,
+        "Resource": "wakan",
+        "AdditionalResources": [],
+        "ResourceMode": 0,
+        "Cooldown": 2.0,
+        "Power": 8.0,
+        "TargetRange": 12.0,
+        "Root": {
+          "Id": "subject",
+          "Form": "spirit_bolt",
+          "Matter": "fire",
+          "Offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Scale": 0.6,
+          "ActiveFrom": 0.0,
+          "ActiveUntil": -1.0,
+          "OnContact": 0,
+          "ContactRole": 0,
+          "Strength": 1.0,
+          "Interception": 0,
+          "ReflectionLimit": 8,
+          "Operations": [
+            {
+              "Id": "outward",
+              "Kind": 3,
+              "At": 0.0,
+              "Seconds": 0.0,
+              "Vector": [
+                0.0,
+                0.0,
+                8.0
+              ],
+              "TurnRate": 0.0,
+              "Trigger": 0,
+              "InheritVelocity": false
+            }
+          ],
+          "Children": []
+        },
+        "Binding": {
+          "Anchor": 1,
+          "Follow": false,
+          "ContactAtDestination": false,
+          "FaceTarget": true,
+          "ScaleByBody": false,
+          "Height": 0.3
+        },
+        "Steps": [
+          {
+            "Id": "spin",
+            "Operation": {
+              "Kind": 1,
+              "At": 0.0,
+              "Seconds": 0.0,
+              "Vector": [
+                0.0,
+                0.0,
+                90.0
+              ],
+              "TurnRate": 0.0,
+              "Trigger": 0,
+              "InheritVelocity": true
+            },
+            "Inputs": {
+              "part": {
+                "Node": "root",
+                "Stage": 0
+              },
+              "after": {
+                "Node": "root",
+                "Operation": "outward",
+                "Output": "flight",
+                "Stage": 1
+              }
+            }
+          }
+        ]
+      },
+      "Resources": {
+        "Forms": [
+          {
+            "Id": "sword",
+            "Size": 3.40193129,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "grip",
+              "choke",
+              "edge",
+              "tip"
+            ],
+            "Motions": [],
+            "Parts": [
+              "blade",
+              "guard",
+              "grip",
+              "pommel"
+            ]
+          },
+          {
+            "Id": "hand",
+            "Size": 0.203301832,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "finger_0",
+              "finger_1",
+              "finger_2",
+              "finger_3",
+              "finger_4",
+              "wrist",
+              "grip"
+            ],
+            "Motions": [],
+            "Parts": [
+              "palm",
+              "finger_0_0",
+              "finger_0_1",
+              "finger_1_0",
+              "finger_1_1",
+              "finger_2_0",
+              "finger_2_1",
+              "finger_3_0",
+              "finger_3_1",
+              "finger_4_0",
+              "finger_4_1"
+            ]
+          },
+          {
+            "Id": "branch",
+            "Size": 2.09982157,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "tip_0",
+              "tip_1",
+              "tip_2"
+            ],
+            "Motions": [],
+            "Parts": [
+              "trunk",
+              "branch_1",
+              "branch_2"
+            ]
+          },
+          {
+            "Id": "water_wave",
+            "Size": 16.3118477,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "surface_0",
+              "surface_1",
+              "surface_2",
+              "surface_3"
+            ],
+            "Motions": [
+              "form",
+              "break",
+              "recede"
+            ],
+            "Parts": [
+              "water_body",
+              "aerated_lip"
+            ]
+          },
+          {
+            "Id": "water_flow",
+            "Size": 10.2758875,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "surface_0",
+              "surface_1",
+              "surface_2",
+              "surface_3",
+              "surface_4",
+              "surface_5",
+              "surface_6",
+              "surface_7",
+              "surface_8",
+              "surface_9",
+              "surface_10",
+              "surface_11",
+              "surface_12",
+              "surface_13",
+              "surface_14",
+              "surface_15",
+              "surface_16",
+              "surface_17",
+              "surface_18",
+              "surface_19",
+              "surface_20",
+              "surface_21",
+              "surface_22",
+              "surface_23",
+              "surface_24",
+              "surface_25",
+              "surface_26",
+              "surface_27",
+              "surface_28",
+              "surface_29"
+            ],
+            "Motions": [
+              "run",
+              "form"
+            ],
+            "Parts": [
+              "water_layer",
+              "broken_foam"
+            ]
+          },
+          {
+            "Id": "water_whale",
+            "Size": 16.8817425,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "front",
+              "tail_tip",
+              "fin_left",
+              "fin_right"
+            ],
+            "Motions": [
+              "swim",
+              "tail_sweep"
+            ],
+            "Parts": [
+              "body",
+              "fin_left",
+              "fin_right",
+              "flukes",
+              "dorsal",
+              "eye_right",
+              "eye_left"
+            ]
+          },
+          {
+            "Id": "fire_body",
+            "Size": 1.97926927,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [],
+            "Motions": [],
+            "Parts": [
+              "body"
+            ]
+          },
+          {
+            "Id": "energy_ray",
+            "Size": 1.05603027,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "start",
+              "end"
+            ],
+            "Motions": [],
+            "Parts": [
+              "channel"
+            ],
+            "SpanRadius": 0.12
+          }
+        ],
+        "Bodies": [
+          {
+            "Version": 1,
+            "Id": "Cultiway.PalmStrike",
+            "Revision": 4,
+            "Name": "掌击",
+            "Creator": 0,
+            "Seed": 0,
+            "Lifetime": 0.48,
+            "Cost": 0.0,
+            "Resource": "stamina",
+            "AdditionalResources": [],
+            "ResourceMode": 0,
+            "Cooldown": 0.48,
+            "Power": 1.0,
+            "Body": {
+              "Effector": "hand.right",
+              "Grip": "grip",
+              "MatchDistance": false,
+              "ActiveFrom": 0.15,
+              "ActiveUntil": 0.255,
+              "Occupancy": 5,
+              "Responses": [
+                {
+                  "Result": 0,
+                  "RecoverFrom": "rest",
+                  "Seconds": 0.12
+                },
+                {
+                  "Result": 1,
+                  "RecoverFrom": "rest",
+                  "Seconds": 0.08
+                },
+                {
+                  "Result": 2,
+                  "RecoverFrom": "rest",
+                  "Seconds": 0.16
+                }
+              ],
+              "ImpactRecoil": 0.035,
+              "RecoilSeconds": 0.09,
+              "Keys": [
+                {
+                  "At": 0.0,
+                  "Hand": [
+                    0.22,
+                    0.2,
+                    0.52
+                  ],
+                  "Torso": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "Turn": 0.0,
+                  "Heading": 0.0,
+                  "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                },
+                {
+                  "At": 0.12,
+                  "Hand": [
+                    0.12,
+                    0.25,
+                    0.57
+                  ],
+                  "Torso": [
+                    -0.025,
+                    0.0,
+                    0.0
+                  ],
+                  "Turn": -13.0,
+                  "Heading": 0.0,
+                  "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                },
+                {
+                  "At": 0.205,
+                  "Hand": [
+                    0.55,
+                    0.12,
+                    0.62
+                  ],
+                  "Torso": [
+                    0.045,
+                    -0.01,
+                    -0.015
+                  ],
+                  "Turn": 12.0,
+                  "Heading": 0.0,
+                  "Rotation": [
+                    0.0,
+                    25.0,
+                    0.0
+                  ]
+                },
+                {
+                  "At": 0.25,
+                  "Hand": [
+                    0.53,
+                    0.12,
+                    0.62
+                  ],
+                  "Torso": [
+                    0.04,
+                    -0.01,
+                    -0.015
+                  ],
+                  "Turn": 10.0,
+                  "Heading": 0.0,
+                  "Rotation": [
+                    0.0,
+                    25.0,
+                    0.0
+                  ]
+                },
+                {
+                  "Id": "rest",
+                  "At": 0.48,
+                  "Hand": [
+                    0.22,
+                    0.2,
+                    0.52
+                  ],
+                  "Torso": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "Turn": 0.0,
+                  "Heading": 0.0,
+                  "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              ]
+            },
+            "Steps": []
+          }
+        ],
+        "Resource": "wakan"
+      }
+    }
+  },
+  "expected": {
+    "Version": 1,
+    "Id": "Cultiway.Created.b7619b5602564286b351188e8fef061e",
+    "Revision": 1,
+    "Name": "火行形诀",
+    "Creator": 56,
+    "Seed": 14,
+    "Parent": {
+      "Id": "test.contact-creation.original",
+      "Revision": 1,
+      "Creator": 0,
+      "Change": "接触作用"
+    },
+    "Lifetime": 1.5,
+    "Cost": 5.81000566,
+    "Resource": "wakan",
+    "AdditionalResources": [],
+    "ResourceMode": 0,
+    "Cooldown": 2.78328466,
+    "Calculation": {
+      "Resource": "wakan",
+      "Demand": 5.810005542051499,
+      "Recovery": 2.783284760147381
+    },
+    "Power": 8.0,
+    "TargetRange": 12.0,
+    "Root": {
+      "Id": "subject",
+      "Form": "spirit_bolt",
+      "Surface": null,
+      "Matter": "fire",
+      "State": null,
+      "Tint": null,
+      "Anchor": null,
+      "Offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Scale": 0.6,
+      "ActiveFrom": 0.0,
+      "ActiveUntil": -1.0,
+      "ActiveFromMarker": null,
+      "ActiveUntilMarker": null,
+      "ContactGroup": null,
+      "Contact": null,
+      "Impact": {
+        "Targets": 0,
+        "Restoration": {
+          "Target": 1,
+          "HealthPerForce": 0.143151909,
+          "Health": 0.0,
+          "HealthPerSecond": 0.0,
+          "Duration": 1.25,
+          "CleanseCount": 0
+        },
+        "Statuses": [
+          {
+            "Id": "ArmorBreak",
+            "Duration": 3.438491,
+            "Potency": 0.0,
+            "Stats": null,
+            "TargetStatRatios": {
+              "armor": -0.258690834
+            },
+            "Application": 2
+          }
+        ],
+        "DamageScale": 1.0,
+        "Force": 0.0,
+        "Lift": 0.5,
+        "Origin": 0
+      },
+      "OnContact": 0,
+      "ContactRole": 0,
+      "Strength": 1.0,
+      "Interception": 0,
+      "ReflectionLimit": 8,
+      "Operations": [
+        {
+          "Id": "outward",
+          "Clip": null,
+          "Kind": 3,
+          "At": 0.0,
+          "Seconds": 0.0,
+          "Vector": [
+            0.0,
+            0.0,
+            8.0
+          ],
+          "TurnRate": 0.0,
+          "Matter": null,
+          "State": null,
+          "Trigger": 0,
+          "Path": null,
+          "InheritVelocity": false
+        }
+      ],
+      "Children": []
+    },
+    "Body": null,
+    "Binding": {
+      "Anchor": 1,
+      "Follow": false,
+      "ContactAtDestination": false,
+      "FaceTarget": true,
+      "ScaleByBody": false,
+      "Height": 0.3
+    },
+    "Steps": [
+      {
+        "Id": "spin",
+        "Operation": {
+          "Clip": null,
+          "Kind": 1,
+          "At": 0.0,
+          "Seconds": 0.0,
+          "Vector": [
+            0.0,
+            0.0,
+            90.0
+          ],
+          "TurnRate": 0.0,
+          "Matter": null,
+          "State": null,
+          "Trigger": 0,
+          "Path": null,
+          "InheritVelocity": true
+        },
+        "Inputs": {
+          "part": {
+            "Node": "root",
+            "Step": null,
+            "Output": null,
+            "Stage": 0
+          },
+          "after": {
+            "Node": "root",
+            "Operation": "outward",
+            "Step": null,
+            "Output": "flight",
+            "Stage": 1
+          }
+        }
+      }
+    ]
+  }
+}

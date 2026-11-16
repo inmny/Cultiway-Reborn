@@ -1,0 +1,57 @@
+// C5：直接施放真实编辑结果，观察命中后的换位和击退，沿原规则归还控制。
+Actor source = Make(64), target = Make(72, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+var saved = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/trajectories/contact-displacement/ui/saved-definition.json")));
+var stillStats = new BaseStats(); stillStats.addTag("frozen_ai");
+var still = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Displacement.Still").SetStats(stillStats).SetDuration(10000).Build();
+CombatStatusEffects.RemoveStatus(target, hold); CombatStatusEffects.ApplyStatus(target, still, 10000, source); target.updateStats();
+var placements = new List<object>(); var forceLog = new List<object>(); int swapped = 0, pushed = 0;
+var hook = new HarmonyLib.Harmony("Cultiway.ContactDisplacement.Probe");
+ContactDisplacementProbe.Placed = (a, before, destination, wait) =>
+{
+    placements.Add(new { a.id, before = new[] { before.x, before.y }, destination = new[] { destination.x, destination.y }, actual = new[] { a.current_position.x, a.current_position.y }, wait });
+    if ((a == source || a == target) && (a.current_position - destination).sqrMagnitude < .0001f && wait == .4f) swapped++;
+};
+ContactDisplacementProbe.Pushed = (a, displacement, force, applied) =>
+{
+    if (displacement == null) return;
+    forceLog.Add(new { a.id, displacement.Distance, displacement.Height, force = new[] { force.x, force.y, force.z }, applied });
+    if (a == target && displacement.Distance == 4f && applied && force.sqrMagnitude > 0) pushed++;
+};
+hook.Patch(service.GetMethod("PlaceAfterExchange", F), prefix: new HarmonyLib.HarmonyMethod(typeof(ContactDisplacementProbe).GetMethod("BeforePlace")), postfix: new HarmonyLib.HarmonyMethod(typeof(ContactDisplacementProbe).GetMethod("AfterPlace")));
+hook.Patch(service.GetMethod("ApplyContactKnockback", F), postfix: new HarmonyLib.HarmonyMethod(typeof(ContactDisplacementProbe).GetMethod("AfterPush")));
+try
+{
+    Ready(source); float resourceBefore = owner.GetCultisys<Xian>().wakan;
+    await Fire(saved, source, target); float paid = resourceBefore - owner.GetCultisys<Xian>().wakan;
+    owner.E.RemoveComponent<ConstructedKnowledge>(); CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+    await Advance(2f);
+    Check(Math.Abs(paid - saved.Cost) < .001f && contacts.Any(c => c.AbilityId == saved.Id && c.TargetId == target.id), "真实编辑结果从已学入口支付并命中", new { paid });
+    Check(swapped == 2 && pushed > 0 && (target.current_position - new Vector2(64,72)).sqrMagnitude > .1f, "同次真实接触按编辑资料换位并击退", new { swapped, pushed, position = new[] { target.current_position.x, target.current_position.y } });
+    Check(endings.Any(e => e.Fact.AbilityId == saved.Id) && !BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id) && !target.under_forces && target.position_height <= 0f, "施放与击退结束后归还控制");
+    Place(source,64); Place(target,72); ConstructedAbilityService.NotifyActorChanged(source); ConstructedAbilityService.NotifyActorChanged(target);
+    Ready(source); await Fire(saved, source, target); owner.E.RemoveComponent<ConstructedKnowledge>(); CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats(); await Advance(2f);
+    Check(contacts.Count(c => c.AbilityId == saved.Id && c.TargetId == target.id) >= 2 && swapped == 4 && pushed >= 2, "结束后可再次施放和产生接触位移");
+    return new { passed = true, closed = "编辑成品真实位移及结束恢复", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    hook.UnpatchSelf(); ContactDisplacementProbe.Placed = null; ContactDisplacementProbe.Pushed = null;
+    File.WriteAllText(Path.Combine(folder, "placements.json"), JsonConvert.SerializeObject(placements, Formatting.Indented)); File.WriteAllText(Path.Combine(folder, "forces.json"), JsonConvert.SerializeObject(forceLog, Formatting.Indented));
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+}
+/// <summary>只观察同次正式调用，不修改受力、位置或概率。</summary>
+public static class ContactDisplacementProbe
+{
+    /// <summary>实际换位前后。</summary>
+    public static Action<Actor,Vector2,Vector2,float> Placed;
+    /// <summary>实际击退受理及返回速度。</summary>
+    public static Action<Actor,CompiledConstructionKnockback,Vector3,bool> Pushed;
+    /// <summary>保存原位置。</summary>
+    public static void BeforePlace(Actor __0, out Vector2 __state) => __state = __0.current_position;
+    /// <summary>观察真实终点。</summary>
+    public static void AfterPlace(Actor __0, Vector2 __1, float __2, Vector2 __state) => Placed?.Invoke(__0,__state,__1,__2);
+    /// <summary>观察正式击退结果。</summary>
+    public static void AfterPush(Actor __2, CompiledConstructionKnockback __3, bool __5, Vector3 __result) => Pushed?.Invoke(__2,__3,__result,__5);
+}

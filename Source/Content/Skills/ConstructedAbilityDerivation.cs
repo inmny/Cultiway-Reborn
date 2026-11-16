@@ -47,6 +47,8 @@ public sealed partial class ConstructedAbilityService
         var random = new Random(seed);
         var choices = new List<(string Name, Func<AbilityDefinition> Apply)>();
         ConstructionNode[] nodes = DerivationNodes(draft.Root).ToArray();
+        if (inspiration.Rules >= 13 && CreationContactSites(draft).Any(site => site.Impact.Targets != Core.SkillLibV3.Usage.SkillUseTargetRelation.Self))
+            choices.Add(("接触位移", () => VaryContactDisplacement(draft, random)));
         if (inspiration.Rules >= 12 && CreationContactSites(draft).Count > 0)
             choices.Add(("接触作用", () => VaryContactEffects(draft, random, inspiration)));
         if (inspiration.Rules >= 11)
@@ -161,7 +163,7 @@ public sealed partial class ConstructedAbilityService
         var selected = choices[random.Next(choices.Count)];
         AbilityDefinition result = ConstructionDefinitionLayers.FromSource(source, selected.Apply());
         if (inspiration.Rules >= 3)
-            ConstructionPricing.Reprice(source, result, cost: result.Resource == source.Resource && result.Cost == source.Cost, cooldown: result.Cooldown == source.Cooldown, contactEffects: inspiration.Rules >= 12);
+            ConstructionPricing.Reprice(source, result, cost: result.Resource == source.Resource && result.Cost == source.Cost, cooldown: result.Cooldown == source.Cooldown, contactRules: inspiration.Rules);
         result.Id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
         result.Revision = 1;
         result.Creator = actor.Base.id;

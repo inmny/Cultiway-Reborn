@@ -1,14 +1,15 @@
 // 固定有限种子覆盖新接触创作；沿用原模型及运动，不扩身体装备。
 Actor source = Make(64); var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
 owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
-var inspiration = ConstructedAbilityService.ReadInspiration(owner);
+var current = ConstructedAbilityService.ReadInspiration(owner);
+var inspiration = new ConstructionInspiration(current.Elements, current.Aggression, current.Control, current.CanProject, 12);
 JObject Canon(AbilityDefinition definition) { var value = JObject.FromObject(definition); value.Remove("Id"); value.Remove("Creator"); return value; }
 IEnumerable<ConstructionNode> Nodes(ConstructionNode node) { if (node == null) yield break; yield return node; foreach (var child in node.Children) foreach (var nested in Nodes(child)) yield return nested; }
 var representatives = new Dictionary<string, AbilityDefinition>(); var attempts = new List<object>();
 var capture = service.GetMethod("CaptureCreationResources", F);
 try
 {
-    Check(inspiration.Rules == 12, "实际新创作采用第十二版规则");
+    Check(inspiration.Rules == 12, "复现已交付的第十二版规则");
     for (int seed = 0; seed < 24 && (!representatives.ContainsKey("hostile") || !representatives.ContainsKey("support")); seed++)
     {
         try
@@ -41,8 +42,8 @@ try
         await Game.NextFrame();
     }
     Check(derived != null && JToken.DeepEquals(JArray.FromObject(basis.Steps), JArray.FromObject(derived.Steps)) && JToken.DeepEquals(JArray.FromObject(basis.Root.Operations), JArray.FromObject(derived.Root.Operations)), "正式接触派生保留其他运动、时点、命名步骤及输出引用", new { chosenSeed });
-    var plan = AbilityCompiler.Compile(derived, false); var oldPrice = ConstructionPricing.Price(ConstructionEditing.Copy(derived)); var newPrice = ConstructionPricing.Price(ConstructionEditing.Copy(derived), contactEffects: true);
-    var expectedPrice = ConstructionPricing.Reprice(basis, ConstructionEditing.Copy(derived), contactEffects: true);
+    var plan = AbilityCompiler.Compile(derived, false); var oldPrice = ConstructionPricing.Price(ConstructionEditing.Copy(derived)); var newPrice = ConstructionPricing.Price(ConstructionEditing.Copy(derived), contactRules: 12);
+    var expectedPrice = ConstructionPricing.Reprice(basis, ConstructionEditing.Copy(derived), contactRules: 12);
     Check(plan.Measure.ContactEffectsWork > 0 && newPrice.Cost > oldPrice.Cost && derived.Cost == expectedPrice.Cost && derived.Cost > basis.Cost, "新状态和恢复计入真实创作费用，原计算仍可重现", new { plan.Measure.Work, plan.Measure.ContactEffectsWork, oldCost = oldPrice.Cost, newCost = newPrice.Cost });
     File.WriteAllText(Path.Combine(folder, "derivation-attempts.json"), JsonConvert.SerializeObject(attempts, Formatting.Indented));
     File.WriteAllText(Path.Combine(folder, "source.json"), JsonConvert.SerializeObject(basis, Formatting.Indented));

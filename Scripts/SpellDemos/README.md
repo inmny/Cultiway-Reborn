@@ -1536,3 +1536,18 @@ python3 Scripts/SpellDemos/verify_contact_creation.py --section capture
 `fixtures/contact-generation-rule11.json`来自此前C2的真实正式存档及其既有结果，保留完整第十二版区段和规则11的原预期，验证时不重新制造旧期望。证据写入`artifacts/skill_rebuild/trajectories/contact-creation/`，最终以`delivery.json`列出的实际通过段为准。图形环境不可用时，本机可加`env __GLX_VENDOR_LIBRARY_NAME=mesa LIBGL_ALWAYS_SOFTWARE=1`执行功能验证；最终美术、性能、正式冷启动和集中连续录像仍在对应交付点执行。
 
 C4补段中，`derivation`只复用已经选定的种子14补接触派生，不重跑独立创作；`capture`只补已保存资料的中英状态名称画面。首次其他派生产生非法命名引用的拒绝如实保留并归后续C处理；测试不会放宽引用规则。
+
+## 5.05 C5：接触击退和换位的编辑与创作
+
+```bash
+python3 Scripts/SpellDemos/verify_contact_displacement.py
+# 已通过部分不用重跑，直接补受影响的一段
+python3 Scripts/SpellDemos/verify_contact_displacement.py --section ui
+python3 Scripts/SpellDemos/verify_contact_displacement.py --section cast
+python3 Scripts/SpellDemos/verify_contact_displacement.py --section creation
+python3 Scripts/SpellDemos/verify_contact_displacement.py --section save
+```
+
+`ui`沿真实作用页修改击退距离、高度、换位概率及停步，验证非法值拒绝、撤销、部位独立覆盖、正式保存再打开，并留下中英截图。`cast`直接施放窗口保存的成品，只观察正式换位及击退调用、实际支付命中和结束后的再次施放；不替换受力、概率或控制规则。`creation`检查第十三版独立生成、保留命名引用的接触位移派生及对应需求。`save`复用创作段的实际原术和种子，验证新旧等待请求正式世界存读、分别完成一次及成品使用保存。
+
+`fixtures/contact-displacement-rule12.json`截取自C4真实正式人物区段13及当时固定的预期，保留规则12的完整输入和原费用。旧期望不重新生成。证据位于`artifacts/skill_rebuild/trajectories/contact-displacement/`；重新执行失败段前会将原输入、结果及截图保留到`failures/`。入口复用独立安装和现成世界，不扩大身体装备样本。图形环境不可用时可加前述软件渲染环境变量完成本批功能验证；最终美术、性能及集中录像仍归对应交付点。

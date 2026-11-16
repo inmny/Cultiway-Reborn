@@ -61,7 +61,8 @@ public sealed partial class ConstructedAbilityService
             ? GenerateLegacyDraft(actor, seed, inspiration)
             : Synthesize(actor, seed, inspiration, resources ?? CaptureCreationResources(actor, seed, inspiration));
         if (inspiration.Rules >= 12) result = GenerateContactEffects(result, seed, inspiration);
-        return inspiration.Rules >= 3 ? ConstructionPricing.Price(result, contactEffects: inspiration.Rules >= 12) : result;
+        if (inspiration.Rules >= 13) result = GenerateContactDisplacement(result, seed);
+        return inspiration.Rules >= 3 ? ConstructionPricing.Price(result, contactRules: inspiration.Rules) : result;
     }
 
     /// <summary>仅为正式旧档中未完成的请求保留当时规则，当前活动不再进入三类预设骨架。</summary>
