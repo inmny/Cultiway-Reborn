@@ -1592,3 +1592,10 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 `python3 Scripts/SpellDemos/verify_placement_references.py --section behavior`复用固定世界，检查随身、直接/两点放置和环绕在移除根部飞行或脱离时保留后续命名步骤与时点，验证明确不能转换的完成依赖，以及正式付费、实际随动旋转和结束恢复。`--section save`承接behavior保存的原术及选中种子，验证新规则16/人物区段17与C7正式规则15/区段16请求的迁移、各完成一次和成品再次保存；旧样例在`fixtures/placement-references-rule15.json`。
 
 `all`按顺序只执行behavior和save。首轮已通过部分不重跑：`recovery`仅续接behavior结束后的同一人物，在实际冷却到期后再次施放；`save-tail`仅续接save完成请求后的同一成品，补退出与再次保存。两个续接入口需要对应前段及同一游戏进程，正常整套运行无需调用。原始失败及完整输入保留于证据目录，索引为`artifacts/skill_rebuild/trajectories/placement-references/delivery.json`。软件渲染只用于功能验证。
+
+
+### 5.05 C9：世界接触作用编辑与创作
+
+`python3 Scripts/SpellDemos/verify_world_contact_creation.py --section ui|cast|creation|save|all`。共用既有窗口、世界和接地形体，覆盖地块操作的真实表单、范围和次数、独立创作及派生、新规则17与正式区段18存读。旧样例`fixtures/world-contact-creation-rule16.json`直接提取C8正式等待存档并带来源校验值，不用当前生成结果重造旧预期。
+
+`placement|cast-tail`只用于同一进程中保留失败后的续接；正常all不加入这些段。C9首次演示的沿地表剑形体以模型最低处贴地，刃面实际悬空；placement经真实运动表单改明确高度，cast-tail补地块范围和结束恢复。原失败和观察记录保留，窗口、自主创作及存档已通过部分没有重跑。交付索引为`artifacts/skill_rebuild/trajectories/world-contact-creation/delivery.json`；本批实际为分段通过，不声称一次all整体通过。中英窗口截图在ui，真实作用结果在cast-tail，正式新旧请求及成品存档在save。软件渲染只验证功能和窗口。

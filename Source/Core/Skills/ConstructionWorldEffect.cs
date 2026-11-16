@@ -73,7 +73,7 @@ public sealed class ConstructionWorldAction
     internal readonly Func<ConstructionWorldContext, SkillEffectResult> Apply;
 
     /// <summary>原理默认的持续秒数；零表示不接受持续参数。</summary>
-    internal readonly float DefaultDuration;
+    public readonly float DefaultDuration;
 
     /// <summary>登记一个实际操作，不登记整招。</summary>
     /// <param name="id">稳定编号。</param><param name="canApply">只读实际预检。</param>
@@ -105,6 +105,9 @@ public static class ConstructionWorldActions
 {
     /// <summary>进程内的稳定操作目录，世界清理不删除规则。</summary>
     private static readonly Dictionary<string, ConstructionWorldAction> actions = new(StringComparer.Ordinal);
+
+    /// <summary>只读登记目录，供编辑和受理时采集稳定输入。</summary>
+    public static IEnumerable<ConstructionWorldAction> All => actions.Values;
 
     /// <summary>新增一种原理供任意构造组合，不替换已经运行的规则。</summary>
     /// <param name="action">实际规则。</param>

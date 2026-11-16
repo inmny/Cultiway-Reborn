@@ -55,6 +55,11 @@ public sealed partial class ConstructedAbilityService
     private static AbilityDefinition GenerateDraft(ActorExtend actor, int seed, ConstructionInspiration inspiration,
         AbilityDefinition source, SynthesisResources resources)
     {
+        if (inspiration.Rules >= 17)
+        {
+            resources ??= CaptureCreationResources(actor, seed, inspiration);
+            if (resources.WorldActions == null) throw new ArgumentException("新创法请求缺少受理时的世界操作输入", nameof(resources));
+        }
         if (source != null) return Derive(actor, source, seed, inspiration,
             resources ?? (inspiration.Rules >= 7 ? CaptureCreationResources(actor, seed, inspiration) : null));
         AbilityDefinition result = inspiration.Rules == 1
@@ -64,6 +69,7 @@ public sealed partial class ConstructedAbilityService
         if (inspiration.Rules >= 13) result = GenerateContactDisplacement(result, seed);
         if (inspiration.Rules >= 14) result = GenerateContactResults(result, seed, inspiration);
         if (inspiration.Rules >= 15) result = GenerateContactSpreads(result, seed, inspiration);
+        if (inspiration.Rules >= 17) result = GenerateWorldContacts(result, seed, resources);
         return inspiration.Rules >= 3 ? ConstructionPricing.Price(result, contactRules: inspiration.Rules) : result;
     }
 

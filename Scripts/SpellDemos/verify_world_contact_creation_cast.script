@@ -1,0 +1,29 @@
+// C9：只补编辑成品的真实地块作用、范围与次数和结束恢复。
+Actor source = Make(60), target = Make(74, "wolf"); var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "__WORLD_CONTACT_BASIS__")));
+var world = new List<ConstructedWorldContact>();
+void WorldHit(ConstructedWorldContact fact) { if (fact.AbilityId == definition.Id) world.Add(fact); }
+ConstructedAbilityService.WorldContactConfirmed += WorldHit;
+try
+{
+    Ready(source); Place(source, 60); Place(target, 74);
+    float before = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, target, aim: new Vector3(64.5f, 72.5f, 0), aggro: false);
+    float paid = before - owner.GetCultisys<Xian>().wakan;
+    owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(definition.Lifetime + .2f);
+    var actual = world.Where(fact => fact.Result.Changed).ToArray();
+    Check(Math.Abs(paid - definition.Cost) < .001f, "编辑成品真实支付一次费用", new { paid, definition.Cost });
+    Check(actual.Length == 2 && actual.All(fact => fact.Action == "terrain.raise" && fact.Y == 72 && fact.X >= 64 && fact.X <= 67), "真实接地形状内改变两块地形并遵守不同地块上限", actual);
+    Check(world.GroupBy(fact => (fact.X, fact.Y)).All(group => group.Count() == 1), "持续接触仍受每块一次和总次数限制");
+    Check(actual.All(fact => World.world.GetTileSimple(fact.X, fact.Y).main_type == TileLibrary.soil_high), "成功事件对应原版真实地形升高");
+    Check(World.world.GetTileSimple(68, 72).main_type == TileLibrary.soil_low && World.world.GetTileSimple(65, 73).main_type == TileLibrary.soil_low, "形状外的真实地块不受影响");
+    Check(endings.Any(item => item.Fact.AbilityId == definition.Id), "地块作用的成品自然结束并交还运行资源");
+    ConstructedAbilityService.Learn(owner, definition.Id); await Advance(.15f);
+    await Fire(definition, source, target, aim: new Vector3(64.5f, 75.5f, 0), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(definition.Lifetime + .2f);
+    Check(world.Any(fact => fact.Result.Changed && fact.Y == 75), "结束与冷却后可再次施放，同一次数限制不会残留到新施放");
+    File.WriteAllText(Path.Combine(folder, "world-contacts.json"), JsonConvert.SerializeObject(world, Formatting.Indented));
+    return new { passed = true, closed = "编辑成品实际地块范围、次数与结束恢复", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { ConstructedAbilityService.WorldContactConfirmed -= WorldHit; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false); }

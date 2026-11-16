@@ -50,6 +50,8 @@ public sealed partial class ConstructedAbilityService
         bool preserveReferences = inspiration.Rules >= 16;
         bool placementAvailable = !preserveReferences || draft.Root != null &&
             ConstructionPlacementReferences.Rewrite(draft, plan, false) == null;
+        if (inspiration.Rules >= 17 && resources.WorldActions.Length > 0 && CreationContactSites(draft).Count > 0)
+            choices.Add(("世界接触", () => VaryWorldContacts(draft, random, resources)));
         if (inspiration.Rules >= 15 && CreationContactSites(draft).Any(site => site.Impact.Targets != Core.SkillLibV3.Usage.SkillUseTargetRelation.Self))
             choices.Add(("接触分送", () => VaryContactSpreads(draft, random, inspiration)));
         if (inspiration.Rules >= 14 && CreationContactSites(draft).Any(site => site.Impact.Targets != Core.SkillLibV3.Usage.SkillUseTargetRelation.Self))
