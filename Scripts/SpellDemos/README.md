@@ -1517,3 +1517,22 @@ python3 Scripts/SpellDemos/demo_spell.py --construction /绝对路径/法术.jso
 每份构造开始时载入同一个现成测试世界，避免人物职业、冷却、持续材料与前一招串场；结束、取消或失败后再次恢复夹具，清除演示人物与临时构造，归还控制并恢复界面。`status.json`的`sceneRestored`标明这一步是否实际完成。失败时保留当前输入、已完成片段与错误，确认收尾后再运行下一批，不需要重启游戏。
 
 定向验证入口是`python3 Scripts/SpellDemos/verify_construction_batch.py`：只使用两份固定的普通资料，覆盖斗气直行→真元曲线的遍历、名称指定、一次非法模型拒绝与后续恢复，以及相同输入续录。使用独立安装、现成世界和同一进程；图形环境不可用时，可加`env __GLX_VENDOR_LIBRARY_NAME=mesa LIBGL_ALWAYS_SOFTWARE=1`完成此功能验证。证据在`artifacts/skill_rebuild/trajectories/construction-batch/`。这些是演示工具的功能录像，流派最终美术与性能不在本批验收范围。
+
+## 5.05 C4：接触状态、恢复和伤害性质的编辑与创作
+
+```bash
+python3 Scripts/SpellDemos/verify_contact_creation.py
+# 只补受影响的一段，已通过段不重跑
+python3 Scripts/SpellDemos/verify_contact_creation.py --section ui
+python3 Scripts/SpellDemos/verify_contact_creation.py --section cast
+python3 Scripts/SpellDemos/verify_contact_creation.py --section creation
+python3 Scripts/SpellDemos/verify_contact_creation.py --section derivation
+python3 Scripts/SpellDemos/verify_contact_creation.py --section save
+python3 Scripts/SpellDemos/verify_contact_creation.py --section capture
+```
+
+入口复用独立安装、现成世界及普通飞行部位，不建立身体或装备矩阵。`ui`通过真实窗口修改整招及部位的目标限制、伤害依据和元素、恢复及净化、状态合并和层数、固定属性、目标属性比例和周期伤害；检查非法输入、撤销、正式保存再打开；`cast`只复用已保存结果检查实际支付、命中、作用和结束恢复。`creation`以有限固定输入检查第十二版独立创作及原术派生，保留原运动、命名和引用，新生成费用明确包含状态及恢复。`save`复用创作段的实际原术和种子，检查正式第十三版人物区段、新旧等待请求存读、各授予一次、真实使用和成品保存。
+
+`fixtures/contact-generation-rule11.json`来自此前C2的真实正式存档及其既有结果，保留完整第十二版区段和规则11的原预期，验证时不重新制造旧期望。证据写入`artifacts/skill_rebuild/trajectories/contact-creation/`，最终以`delivery.json`列出的实际通过段为准。图形环境不可用时，本机可加`env __GLX_VENDOR_LIBRARY_NAME=mesa LIBGL_ALWAYS_SOFTWARE=1`执行功能验证；最终美术、性能、正式冷启动和集中连续录像仍在对应交付点执行。
+
+C4补段中，`derivation`只复用已经选定的种子14补接触派生，不重跑独立创作；`capture`只补已保存资料的中英状态名称画面。首次其他派生产生非法命名引用的拒绝如实保留并归后续C处理；测试不会放宽引用规则。

@@ -1,0 +1,86 @@
+// 同一普通部位覆盖完整新表单，已有身体/状态结算不重跑。
+Actor source = Make(64), target = Make(72, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Scripts/SpellDemos/fixtures/construction-batch/01-charge.json")));
+definition.Id = "test.contact-creation.editor"; definition.Name = "接触状态与恢复编辑"; definition.Resource = "wakan";
+ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(definition.Id, source);
+async Task Frames(int count = 3) { for (int i = 0; i < count; i++) await Game.NextFrame(); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300); Canvas.ForceUpdateCanvases(); }
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+Button B(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+void Click(string name) { if (!B(name).interactable) throw new InvalidOperationException("按钮不可用：" + name); B(name).onClick.Invoke(); }
+WanfaEditorRow Row(string key)
+{
+    IEnumerable<WanfaEditorRow> found = editor.GetComponentsInChildren<WanfaEditorRow>(false);
+    foreach (string group in new[] { "StatusStats", "StatusRatios" })
+    {
+        int at = key.IndexOf(group, StringComparison.Ordinal);
+        if (at >= 0 && key.Length > at + group.Length)
+            found = found.SkipWhile(r => ((Text)Field(r, "_title")).text != T(key.Substring(0, at + group.Length))).Skip(1);
+    }
+    return found.First(r => ((Text)Field(r, "_title")).text == T(key));
+}
+void Action(string key) => ((Button)Field(Row(key), "_action")).onClick.Invoke();
+void Set(string key, string value) { var input = editor.GetComponentsInChildren<InputField>(false).First(f => f.name == key); input.text = value; input.onEndEdit.Invoke(value); }
+void ToggleValue(string key, bool value) => Row(key).GetComponentsInChildren<Toggle>(false).Single().isOn = value;
+void Choose(string key, string text) { Action(key); editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && b.GetComponentInChildren<Text>().text == text).onClick.Invoke(); }
+async Task ShotRow(string key, string name)
+{
+    await Frames(); var row = (RectTransform)Row(key).transform; var scroll = row.GetComponentInParent<ScrollRect>();
+    Vector3 local = scroll.content.InverseTransformPoint(row.TransformPoint(row.rect.center));
+    float offset = scroll.content.rect.yMax - local.y - scroll.viewport.rect.height * .5f;
+    scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(offset / Mathf.Max(1f, scroll.content.rect.height - scroll.viewport.rect.height));
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(4); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+try
+{
+    Click("Page4"); ToggleValue("CustomImpact", true); ToggleValue("SelectedTargetOnly", true);
+    Choose("DamageBasis", T("DamageBasis.InitialForce")); ToggleValue("ExplicitDamageElement", true);
+    Set("DamageElement0", "0.4"); Set("DamageElement3", "0.6");
+    ToggleValue("Restoration", true); Choose("RestorationTarget", T("RestorationTarget.Controller"));
+    Set("RestoreHealth", "12"); Set("RestorePerForce", "0.1"); Set("RestorePerSecond", "2"); Set("RestoreDuration", "1"); Set("CleanseCount", "1");
+    Choose("AddContactStatus", StatusEffects.Weaken.GetName()); Set("StatusDuration", "2"); Set("StatusPotency", "0.25");
+    ToggleValue("StatusStats", true); Choose("StatusStatsAdd", LocalizedTextManager.getText(AssetManager.base_stats_library.get("damage").getLocaleID()) + " · damage"); Set("StatusStatsValue", "-1");
+    ToggleValue("StatusRatios", true); Choose("StatusRatiosAdd", LocalizedTextManager.getText(AssetManager.base_stats_library.get("damage").getLocaleID()) + " · damage"); Set("StatusRatiosValue", "-0.1");
+    Check(Session().Draft.Impact.Statuses[0].Stats["damage"] == -1 && Session().Draft.Impact.Statuses[0].TargetStatRatios["damage"] == -.1f, "真实表单独立保存固定属性及目标属性比例");
+    Action("StatusStatsRemove"); Check(Session().Draft.Impact.Statuses[0].Stats.Count == 0, "属性可移除"); Click("Undo");
+    Choose("AddContactStatus", StatusEffects.Poison.GetName()); Choose("StatusApplication", T("StatusApplication.SourceStack")); Set("StatusStackLimit", "2");
+    int history = ((IList)Field(editor, "undo")).Count; Set("StatusStackLimit", "2.5");
+    Check(Session().Draft.Impact.Statuses[1].StackLimit == 2 && ((IList)Field(editor, "undo")).Count == history, "非整数层数拒绝且不改草稿和撤销历史");
+    ToggleValue("StatusWait", true); ToggleValue("StatusTick", true); Set("TickPerForce", "0.04");
+    Set("TickElement3", "0"); Set("TickElement7", "1");
+    Set("TickPerForce", "-1"); Check(!B("LearnCopy").interactable, "非法负周期作用由正式编译器拒绝保存"); Click("Undo"); Check(B("LearnCopy").interactable, "撤销非法作用恢复正式保存");
+    Action("RemoveContactStatus"); Check(Session().Draft.Impact.Statuses.Length == 1, "状态可移除"); Click("Undo");
+    Choose("ContactStatus", "1. " + StatusEffects.Weaken.GetName());
+    Check(Session().Draft.Impact.Statuses.Length == 2 && B("LearnCopy").interactable, "两组状态可选择且完整通过编译");
+    await ShotRow("RestoreHealth", "restoration-cz"); await ShotRow("StatusStatsValue", "status-attributes-cz");
+    ToggleValue("NodeImpact", true); Set("NodeRestoreHealth", "15");
+    Choose("NodeContactStatus", "2. " + StatusEffects.Poison.GetName()); Set("NodeStatusStackLimit", "3");
+    Check(Session().Draft.Impact.Restoration.Health == 12 && Session().Draft.Root.Impact.Restoration.Health == 15 && Session().Draft.Impact.Statuses[1].StackLimit == 2 && Session().Draft.Root.Impact.Statuses[1].StackLimit == 3, "部位覆盖深拷贝状态和恢复，不连带修改整招");
+    ToggleValue("NodeImpact", false); Check(Session().Draft.Root.Impact == null, "关闭部位覆盖恢复整招继承"); Click("Undo");
+    await ShotRow("NodeTickPerForce", "part-status-cz");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page4");
+    await ShotRow("RestoreHealth", "restoration-en"); await ShotRow("NodeTickPerForce", "part-status-en");
+    Check(((Text)Field(Row("NodeStatusStackLimit"), "_title")).text == "Part: Maximum layers per source", "新表单使用真实英文文本");
+    LocalizedTextManager.instance.setLanguage("cz"); Click("Page4");
+    string expected = JsonConvert.SerializeObject(new { Session().Draft.Impact, Session().Draft.Root });
+    Click("Replace"); var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(JsonConvert.SerializeObject(new { saved.Impact, saved.Root }) == expected, "正式替换保存完整状态、恢复和伤害性质");
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(saved.Id, source); await Frames(); Click("Page4");
+    Check(JsonConvert.SerializeObject(new { Session().Draft.Impact, Session().Draft.Root }) == expected && B("LearnCopy").interactable, "关闭再打开从正式资料恢复完整声明");
+    Click("Close"); await Frames();
+    return new { passed = true, closed = "接触作用编辑及正式保存", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}

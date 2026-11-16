@@ -43,6 +43,9 @@ public sealed class ConstructionMeasure
     /// <summary>身体、材料、运动、作用和世界过程合成的资源需求权重。</summary>
     public double Work { get; }
 
+    /// <summary>状态及恢复的独立需求；旧请求仍使用原Work，新规则明确加上此项。</summary>
+    public double ContactEffectsWork { get; }
+
     /// <summary>按当前规模给出的默认恢复世界秒数；不替代真实身体收势。</summary>
     public float DefaultCooldown { get; }
 
@@ -58,6 +61,7 @@ public sealed class ConstructionMeasure
             ? Matrix4x4.Rotate(Quaternion.LookRotation(Vector3.right, Vector3.forward))
             : Matrix4x4.identity;
         var groups = new Dictionary<int, (double From, double Until, double Force)>();
+        var contactEffects = new Dictionary<int, double>();
         double work = plan.Body == null ? 0 : .5d + plan.Body.Duration * .25d;
         work += plan.Body?.MovementWork ?? 0d;
         if (plan.Body != null)
@@ -197,14 +201,18 @@ public sealed class ConstructionMeasure
         }
 
         foreach (var group in groups)
-            ContactWork += group.Value.Force *
-                           Repeat(plan.ContactPolicies[group.Key], group.Value.Until - group.Value.From);
+        {
+            double repeat = Repeat(plan.ContactPolicies[group.Key], group.Value.Until - group.Value.From);
+            ContactWork += group.Value.Force * repeat;
+            ContactEffectsWork += contactEffects[group.Key] * repeat;
+        }
         ContactGroups = groups.Keys.Select(id => id >= plan.Nodes.Length ? plan.Nodes.Length : id).Distinct().Count();
         // 选取距离与作用形状分别维护；更远投送保留相应控制预算，不扩大接触面。
         float range = plan.Use.Target == SkillLibV3.ActiveAbilities.ActiveAbilityTargetMode.Self
             ? 0f
             : plan.Reach.Selection();
         Work = (work + ContactWork) * (1d + range / 120d);
+        ContactEffectsWork *= 1d + range / 120d;
         if (double.IsNaN(Work) || double.IsInfinity(Work) || Work > float.MaxValue)
             throw new InvalidDataException("构造规模：材料、持续或作用预算超出可表示资源范围");
         DefaultCooldown = Math.Max(plan.Body?.Duration ?? 0f, (float)Math.Sqrt(Work) * .25f);
@@ -220,6 +228,19 @@ public sealed class ConstructionMeasure
                                                impact.BindSeconds + impact.StrainSeconds + impact.ExposureSeconds +
                                                (impact.Impulse?.magnitude ?? 0f) * .1d *
                                                (impact.SlideSeconds > 0 ? impact.SlideSeconds : 1d));
+            double effects = 0d;
+            foreach (CompiledConstructionStatus status in impact.Statuses)
+                effects += status.Duration * (.25d +
+                    (status.Stats?.Values.Sum(value => Math.Abs((double)value)) ?? 0d) * .1d +
+                    (status.TargetStatRatios?.Values.Sum(value => Math.Abs((double)value)) ?? 0d) * power * strength +
+                    (status.Tick?.ForcePerSecond ?? 0f) * power * strength);
+            if (impact.Restoration != null)
+            {
+                CompiledConstructionRestoration restoration = impact.Restoration;
+                effects += (restoration.Health + restoration.HealthPerForce * power * strength +
+                            restoration.HealthPerSecond * restoration.Duration) * .1d + restoration.CleanseCount * .5d;
+            }
+            contactEffects[id] = Math.Max(contactEffects.TryGetValue(id, out double previousEffects) ? previousEffects : 0d, effects);
             if (groups.TryGetValue(id, out var old))
                 groups[id] = (Math.Min(old.From, from), Math.Max(old.Until, until), Math.Max(old.Force, force));
             else groups.Add(id, (from, until, force));
@@ -247,15 +268,20 @@ public static class ConstructionPricing
 {
     /// <summary>以当前实际构造计算新创作的默认费用与恢复时间。</summary>
     /// <param name="definition">本次独占的新创作。</param><param name="cost">是否补费用。</param><param name="cooldown">是否补恢复时间。</param>
-    public static AbilityDefinition Price(AbilityDefinition definition, bool cost = true, bool cooldown = true)
+    /// <param name="contactEffects">新规则把状态及恢复计入需求；旧请求明确保留原计算。</param>
+    public static AbilityDefinition Price(AbilityDefinition definition, bool cost = true, bool cooldown = true, bool contactEffects = false)
     {
-        ConstructionMeasure measure = AbilityCompiler.Compile(definition, false).Measure;
-        if (cost) definition.Cost = definition.Resource == "none" ? 0f : Normalize(definition.Resource, measure.Work);
-        if (cooldown) definition.Cooldown = measure.DefaultCooldown;
+        CompiledAbility plan = AbilityCompiler.Compile(definition, false);
+        ConstructionMeasure measure = plan.Measure;
+        double work = measure.Work + (contactEffects ? measure.ContactEffectsWork : 0d);
+        if (cost) definition.Cost = definition.Resource == "none" ? 0f : Normalize(definition.Resource, work);
+        if (cooldown) definition.Cooldown = contactEffects
+            ? Math.Max(plan.Body?.Duration ?? 0f, (float)Math.Sqrt(work) * .25f)
+            : measure.DefaultCooldown;
         definition.Calculation = new ConstructionCalculatedValues
         {
             Resource = definition.Resource,
-            Demand = cost && definition.Resource != "none" ? measure.Work : definition.Cost,
+            Demand = cost && definition.Resource != "none" ? work : definition.Cost,
             Recovery = definition.Cooldown
         };
         return definition;
@@ -264,11 +290,14 @@ public static class ConstructionPricing
     /// <summary>改造命令依据前后实际权重调整需求；明确免费与零冷却保持为零。</summary>
     /// <param name="source">没有被修改的完整原构造。</param><param name="changed">本次独占的改造结果。</param>
     /// <param name="cost">是否计算费用，明确另行选择的费用可以保留。</param><param name="cooldown">是否计算恢复时间。</param>
+    /// <param name="contactEffects">本次新改造是否计入接触状态及恢复，旧请求沿原规则。</param>
     public static AbilityDefinition Reprice(AbilityDefinition source, AbilityDefinition changed, bool cost = true,
-        bool cooldown = true)
+        bool cooldown = true, bool contactEffects = false)
     {
-        double before = AbilityCompiler.Compile(source, false).Measure.Work;
-        double after = AbilityCompiler.Compile(changed, false).Measure.Work;
+        ConstructionMeasure original = AbilityCompiler.Compile(source, false).Measure;
+        ConstructionMeasure modified = AbilityCompiler.Compile(changed, false).Measure;
+        double before = original.Work + (contactEffects ? original.ContactEffectsWork : 0d);
+        double after = modified.Work + (contactEffects ? modified.ContactEffectsWork : 0d);
         double ratio = before > 0 ? after / before : 1d;
         double demand = source.Calculation != null && source.Calculation.Resource == source.Resource &&
                         Normalize(source.Resource, source.Calculation.Demand) == source.Cost

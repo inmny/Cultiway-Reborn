@@ -1,50 +1,49 @@
-key,cz
-Cultiway.Enlighten,悟道
-Cultiway.Enlighten.Description,临时提升悟性，助修士参透玄奥之机
-Cultiway.Slow,减速
-Cultiway.Slow.Description,临时降低速度，使其行动迟缓
-Cultiway.Burn,灼烧
-Cultiway.Burn.Description,附加火焰灼伤，持续掉血
-Cultiway.Poison,中毒
-Cultiway.Poison.Description,附加剧毒，定时掉血且可叠加多层
-Cultiway.Freeze,冰冻
-Cultiway.Freeze.Description,暂时无法行动
-Cultiway.Weaken,衰弱
-Cultiway.Weaken.Description,临时降低攻击能力
-Cultiway.ArmorBreak,破甲
-Cultiway.ArmorBreak.Description,临时降低护甲
-Cultiway.Daze,懵逼
-Cultiway.Daze.Description,短暂硬直，无法行动
-Cultiway.Silence,封印
-Cultiway.Silence.Description,临时封禁法术、技能与法器主动能力
-Cultiway.Concealed,隐匿
-Cultiway.Concealed.Description,隐藏自身气息，使普通敌人无法锁定为攻击目标
-Cultiway.Imprisoned,禁锢
-Cultiway.Imprisoned.Description,被法器镇住实体，暂时无法移动或行动
-Cultiway.LayeredWard,层界护障
-Cultiway.LayeredWard.Description,由重叠空间形成的临时防护屏障
-Cultiway.DeathSentence,终焉死亡
-Cultiway.DeathSentence.Description,被终焉标记，生命垂危时更容易被斩杀
-Cultiway.EternalCurse,永世诅咒
-Cultiway.EternalCurse.Description,持续受到诅咒伤害并被削弱攻防
-Cultiway.Rejuvenating,回春
-Cultiway.Rejuvenating.Description,每秒恢复生命，较强的回春效果会覆盖较弱效果
-Cultiway.BattleBlessingStatus,战意祝福
-Cultiway.BattleBlessingStatus.Description,暂时提高造成的伤害
-Cultiway.GuardBlessingStatus,守护祝福
-Cultiway.GuardBlessingStatus.Description,暂时提高护甲
-Cultiway.HasteBlessingStatus,迅捷祝福
-Cultiway.HasteBlessingStatus.Description,暂时提高移动速度和攻击速度
-Cultiway.YuanyingEscape,元婴出逃
-Cultiway.YuanyingEscape.Description,肉身已毁，元婴必须在消散前找到合适宿主
-Cultiway.BodyDisharmony,肉身不合
-Cultiway.BodyDisharmony.Description,神魂尚未适应新肉身，速度、伤害与神识降低，期间无法再次元婴出逃
-Cultiway.SoulTrauma,神魂创伤
-Cultiway.SoulTrauma.Description,抵御夺舍留下的神魂损伤，暂时降低神魂与神识上限
-Cultiway.BodyReconstructionWeakness,塑体虚弱
-Cultiway.BodyReconstructionWeakness.Description,本相肉身刚刚重塑，速度、伤害与神魂承载暂时降低
-
-Cultiway.BodyStrain,扭伤
-Cultiway.BodyStrain.Description,接触扭劲损伤攻击能力，持续结束后恢复
-Cultiway.BodyExposure,破甲
-Cultiway.BodyExposure.Description,穿刺命中后降低实际护甲，持续结束后恢复
+key,cz,en
+Cultiway.Enlighten,悟道,Enlightenment
+Cultiway.Enlighten.Description,临时提升悟性，助修士参透玄奥之机,Temporarily improves insight and aids understanding.
+Cultiway.Slow,减速,Slowed
+Cultiway.Slow.Description,临时降低速度，使其行动迟缓,Temporarily reduces movement speed.
+Cultiway.Burn,灼烧,Burning
+Cultiway.Burn.Description,附加火焰灼伤，持续掉血,Takes fire damage over time.
+Cultiway.Poison,中毒,Poisoned
+Cultiway.Poison.Description,附加剧毒，定时掉血且可叠加多层,Takes poison damage over time. Multiple layers can coexist.
+Cultiway.Freeze,冰冻,Frozen
+Cultiway.Freeze.Description,暂时无法行动,Temporarily unable to act.
+Cultiway.Weaken,衰弱,Weakened
+Cultiway.Weaken.Description,临时降低攻击能力,Temporarily reduces attack power.
+Cultiway.ArmorBreak,破甲,Armor broken
+Cultiway.ArmorBreak.Description,临时降低护甲,Temporarily reduces armor.
+Cultiway.Daze,懵逼,Dazed
+Cultiway.Daze.Description,短暂硬直，无法行动,Briefly staggered and unable to act.
+Cultiway.Silence,封印,Sealed
+Cultiway.Silence.Description,临时封禁法术、技能与法器主动能力,Temporarily blocks spells and skills as well as active artifact abilities.
+Cultiway.Concealed,隐匿,Concealed
+Cultiway.Concealed.Description,隐藏自身气息，使普通敌人无法锁定为攻击目标,Hides the actor from ordinary enemy targeting.
+Cultiway.Imprisoned,禁锢,Imprisoned
+Cultiway.Imprisoned.Description,被法器镇住实体，暂时无法移动或行动,Held by an artifact and temporarily unable to move or act.
+Cultiway.LayeredWard,层界护障,Layered ward
+Cultiway.LayeredWard.Description,由重叠空间形成的临时防护屏障,A temporary barrier formed from overlapping space.
+Cultiway.DeathSentence,终焉死亡,Death sentence
+Cultiway.DeathSentence.Description,被终焉标记，生命垂危时更容易被斩杀,A mark that makes a critically wounded actor easier to execute.
+Cultiway.EternalCurse,永世诅咒,Eternal curse
+Cultiway.EternalCurse.Description,持续受到诅咒伤害并被削弱攻防,Takes curse damage over time and loses attack and defense.
+Cultiway.Rejuvenating,回春,Rejuvenating
+Cultiway.Rejuvenating.Description,每秒恢复生命，较强的回春效果会覆盖较弱效果,Recovers health each second. A stronger effect replaces a weaker one.
+Cultiway.BattleBlessingStatus,战意祝福,Battle blessing
+Cultiway.BattleBlessingStatus.Description,暂时提高造成的伤害,Temporarily increases damage dealt.
+Cultiway.GuardBlessingStatus,守护祝福,Guard blessing
+Cultiway.GuardBlessingStatus.Description,暂时提高护甲,Temporarily increases armor.
+Cultiway.HasteBlessingStatus,迅捷祝福,Haste blessing
+Cultiway.HasteBlessingStatus.Description,暂时提高移动速度和攻击速度,Temporarily increases movement and attack speed.
+Cultiway.YuanyingEscape,元婴出逃,Escaping soul
+Cultiway.YuanyingEscape.Description,肉身已毁，元婴必须在消散前找到合适宿主,The body is destroyed. The nascent soul must find a host before it fades.
+Cultiway.BodyDisharmony,肉身不合,Body disharmony
+Cultiway.BodyDisharmony.Description,神魂尚未适应新肉身，速度、伤害与神识降低，期间无法再次元婴出逃,The soul is adapting to a new body. Speed and damage are reduced along with spiritual sense. Another soul escape is blocked.
+Cultiway.SoulTrauma,神魂创伤,Soul trauma
+Cultiway.SoulTrauma.Description,抵御夺舍留下的神魂损伤，暂时降低神魂与神识上限,Resisting possession temporarily reduces soul strength and spiritual sense capacity.
+Cultiway.BodyReconstructionWeakness,塑体虚弱,Reconstruction weakness
+Cultiway.BodyReconstructionWeakness.Description,本相肉身刚刚重塑，速度、伤害与神魂承载暂时降低,A newly rebuilt body temporarily has reduced speed and damage as well as soul capacity.
+Cultiway.BodyStrain,扭伤,Strained
+Cultiway.BodyStrain.Description,接触扭劲损伤攻击能力，持续结束后恢复,Contact strain reduces attack power until the effect ends.
+Cultiway.BodyExposure,破甲,Armor exposed
+Cultiway.BodyExposure.Description,穿刺命中后降低实际护甲，持续结束后恢复,A piercing hit reduces actual armor until the effect ends.

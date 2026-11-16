@@ -1,0 +1,41 @@
+// 复用已通过真实表单保存的完整资料，仅补实际执行尾段。
+Actor source = Make(64), target = Make(72, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+var saved = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/trajectories/contact-creation/ui/saved-definition.json")));
+ConstructedAbilityService.Register(saved); ConstructedAbilityService.Learn(owner, saved.Id);
+var restorations = new List<object>(); bool restoredController = false;
+var hook = new HarmonyLib.Harmony("Cultiway.ContactCreation.RestorationProbe");
+ContactCreationRestorationProbe.After = (a, amount, before) =>
+{
+    restorations.Add(new { target = a.id, amount, before, after = a.data.health });
+    if (a == source && amount >= saved.Root.Impact.Restoration.Health && a.data.health > before) restoredController = true;
+};
+hook.Patch(typeof(CombatResourceEffects).GetMethod("RestoreHealth"), prefix: new HarmonyLib.HarmonyMethod(typeof(ContactCreationRestorationProbe).GetMethod("Prefix")), postfix: new HarmonyLib.HarmonyMethod(typeof(ContactCreationRestorationProbe).GetMethod("Postfix")));
+try
+{
+Ready(source); await Advance(.05f); source.setHealth(source.getMaxHealth() - 2000);
+    int healthBefore = source.data.health; float resourceBefore = owner.GetCultisys<Xian>().wakan;
+    await Fire(saved, source, target); float paid = resourceBefore - owner.GetCultisys<Xian>().wakan;
+    owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(1.2f);
+    string[] statuses = target.GetExtend().GetStatuses().Select(s => s.GetComponent<StatusComponent>().Type.id).ToArray();
+    Check(Math.Abs(paid - saved.Cost) < .001f && contacts.Any(c => c.AbilityId == saved.Id && c.TargetId == target.id), "已保存结果经已学入口实际支付并命中", new { paid, hits = contacts.Count });
+    Check(statuses.Contains(StatusEffects.Weaken.id) && statuses.Contains(StatusEffects.Poison.id) && restoredController, "真实接触施加已编辑状态，并恢复控制人物生命", new { statuses, healthBefore, after = source.data.health, restorations });
+    await Advance(3f);
+    Check(endings.Any(e => e.Fact.AbilityId == saved.Id) && !BodyControlState.IsBusy(source.id) && !target.GetExtend().GetStatuses().Any(s => s.GetComponent<StatusComponent>().Type == StatusEffects.Weaken || s.GetComponent<StatusComponent>().Type == StatusEffects.Poison), "施放和状态自然结束，身体控制恢复");
+    ConstructedAbilityService.Learn(owner, saved.Id); await Fire(saved, source, target); await Advance(1.8f);
+    Check(contacts.Count(c => c.AbilityId == saved.Id && c.TargetId == target.id) >= 2, "结束后同一人物能再次受理并命中");
+    return new { passed = true, closed = "接触作用编辑、保存及实际使用", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { ContactCreationRestorationProbe.After = null; hook.UnpatchSelf(); File.WriteAllText(Path.Combine(folder, "restorations.json"), JsonConvert.SerializeObject(restorations, Formatting.Indented)); ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false); }
+
+/// <summary>只观察正式恢复前后生命，不改变游戏结算。</summary>
+public static class ContactCreationRestorationProbe
+{
+    /// <summary>完成后的真实人物、输入量及原生命。</summary>
+    public static Action<Actor, float, int> After;
+    /// <summary>记录同次调用的原生命。</summary>
+    public static void Prefix(Actor __0, out int __state) => __state = __0?.data?.health ?? 0;
+    /// <summary>报告已实际执行的恢复。</summary>
+    public static void Postfix(Actor __0, float __1, int __state) => After?.Invoke(__0, __1, __state);
+}

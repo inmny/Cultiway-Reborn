@@ -1,0 +1,58 @@
+// 同一普通部位覆盖完整新表单，已有身体/状态结算不重跑。
+Actor source = Make(64), target = Make(72, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/trajectories/contact-creation/ui/saved-definition.json")));
+definition.Name = "接触状态与恢复编辑";
+ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+typeof(Cultiway.ModClass).GetMethod("LoadLocales", F).Invoke(Cultiway.ModClass.I, null);
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(definition.Id, source);
+async Task Frames(int count = 3) { for (int i = 0; i < count; i++) await Game.NextFrame(); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300); Canvas.ForceUpdateCanvases(); }
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+Button B(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+void Click(string name) { if (!B(name).interactable) throw new InvalidOperationException("按钮不可用：" + name); B(name).onClick.Invoke(); }
+WanfaEditorRow Row(string key)
+{
+    IEnumerable<WanfaEditorRow> found = editor.GetComponentsInChildren<WanfaEditorRow>(false);
+    foreach (string group in new[] { "StatusStats", "StatusRatios" })
+    {
+        int at = key.IndexOf(group, StringComparison.Ordinal);
+        if (at >= 0 && key.Length > at + group.Length)
+            found = found.SkipWhile(r => ((Text)Field(r, "_title")).text != T(key.Substring(0, at + group.Length))).Skip(1);
+    }
+    return found.First(r => ((Text)Field(r, "_title")).text == T(key));
+}
+void Action(string key) => ((Button)Field(Row(key), "_action")).onClick.Invoke();
+void Set(string key, string value) { var input = editor.GetComponentsInChildren<InputField>(false).First(f => f.name == key); input.text = value; input.onEndEdit.Invoke(value); }
+void ToggleValue(string key, bool value) => Row(key).GetComponentsInChildren<Toggle>(false).Single().isOn = value;
+void Choose(string key, string text) { Action(key); editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && b.GetComponentInChildren<Text>().text == text).onClick.Invoke(); }
+async Task ShotRow(string key, string name)
+{
+    await Frames(); var row = (RectTransform)Row(key).transform; var scroll = row.GetComponentInParent<ScrollRect>();
+    Vector3 local = scroll.content.InverseTransformPoint(row.TransformPoint(row.rect.center));
+    float offset = scroll.content.rect.yMax - local.y - scroll.viewport.rect.height * .5f;
+    scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(offset / Mathf.Max(1f, scroll.content.rect.height - scroll.viewport.rect.height));
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(4); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+try
+{
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page4");
+    Check(StatusEffects.Weaken.GetName() == "Weakened" && StatusEffects.Poison.GetName() == "Poisoned", "新菜单所用状态名称有实际英文文本");
+    await ShotRow("ContactStatus", "status-selection-en");
+    Choose("ContactStatus", "2. " + StatusEffects.Poison.GetName());
+    await ShotRow("StatusStackLimit", "status-settings-en");
+    LocalizedTextManager.instance.setLanguage("cz"); Click("Page4");
+    await ShotRow("ContactStatus", "status-selection-cz");
+    return new { passed = true, closed = "状态名称中英画面", checks };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}

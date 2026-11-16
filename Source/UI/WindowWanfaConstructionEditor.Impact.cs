@@ -33,7 +33,7 @@ public sealed partial class WindowWanfaConstructionEditor
         ConstructionNode node = parts[part];
         ActivationRows(node);
         MotionRows(node);
-        if (node.ContactRole != ConstructionContactRole.Attack)
+        if (node.ContactRole == ConstructionContactRole.Decoration)
         {
             Row("NoActorImpact", T("NoActorImpactHint"));
             return;
@@ -62,6 +62,7 @@ public sealed partial class WindowWanfaConstructionEditor
                     Select = () => Change(() => impact.Targets = relation)
                 }).ToArray()));
         Number(prefix + "DamageScale", impact.DamageScale, value => impact.DamageScale = value);
+        ContactEffectRows(impact, prefix);
         Toggle(prefix + "DirectedImpulse", impact.Impulse != null, value =>
         {
             impact.Impulse = value ? new float[3] : null;
