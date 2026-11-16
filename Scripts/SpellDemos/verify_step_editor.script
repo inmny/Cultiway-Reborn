@@ -1,0 +1,121 @@
+// C1：使用真实行、菜单和正式保存，随后检查有依赖的实际执行。
+Actor source = Make(64), target = Make(73);
+var owner = source.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/构造输入/原操作生长后投送.json")));
+definition.Id = "test.step-editor.dependencies"; definition.Name = "命名步骤编辑验证";
+ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(definition.Id, source);
+async Task Frames(int count = 3)
+{
+    for (int i = 0; i < count; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300); Canvas.ForceUpdateCanvases();
+}
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+Button B(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+void Click(string name) { if (!B(name).interactable) throw new InvalidOperationException("按钮不可用：" + name); B(name).onClick.Invoke(); }
+InputField Input(string key) => editor.GetComponentsInChildren<InputField>(false).First(f => f.name == key);
+void Set(string key, string value) { InputField field = Input(key); field.text = value; field.onEndEdit.Invoke(value); }
+WanfaEditorRow Row(string key) => editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r => ((Text)Field(r, "_title")).text == T(key));
+void Action(string key) => ((Button)Field(Row(key), "_action")).onClick.Invoke();
+void Choose(string key, Func<string, bool> match)
+{
+    Action(key);
+    editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && match(b.GetComponentInChildren<Text>().text)).onClick.Invoke();
+}
+async Task Shot(string name)
+{
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(4); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+AbilityCast cast = null;
+string SessionId = null;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != SessionId) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(value => (long)Field(value, "Id") == fact.CastId);
+    cast = (AbilityCast)Field(running, "Cast");
+}
+try
+{
+    Click("Page5");
+    Set("OperationName", "forming");
+    Check(Session().Draft.Root.Operations[0].Id == "forming" && Session().Draft.Steps[0].Inputs.Values.All(reference => reference.Operation == "forming"), "部位操作改名同时更新全部真实引用");
+    int history = ((IList)Field(editor, "undo")).Count;
+    Set("OperationName", "");
+    Check(Session().Draft.Root.Operations[0].Id == "forming" && ((IList)Field(editor, "undo")).Count == history && B("LearnCopy").interactable, "被引用名称不能清空，拒绝时草稿及撤销记录不变");
+    Set("ProcessSeconds", "0.3");
+    Action("AddNativeOperation");
+    editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && b.GetComponentInChildren<Text>().text == T("MotionKind.Spin")).onClick.Invoke();
+    Set("OperationName", "turning"); Set("MotionVectorY", "90");
+    Check(Session().Draft.Root.Operations.Length == 2 && Session().Draft.Root.Operations[1].Vector[1] == 90 && B("LearnCopy").interactable, "同部位定时旋转与生长、后续飞行共存并通过正式编译");
+    await Shot("native-operations-cz");
+    Choose("StepScope", text => text == T("StepScope.Named"));
+    Set("StepName", "launching");
+    Set("VelocityX", "6");
+    Action("CurveBuilder");
+    Set("CurveAmplitude", "0.15"); Action("BuildCurve");
+    Check(Session().Draft.Steps[0].Operation.Path != null && Session().Draft.Steps[0].Operation.Vector[0] == 6 && B("LearnCopy").interactable, "命名飞行直接复用完整控制点和曲线展开表单");
+    Action("AddStep");
+    editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && b.GetComponentInChildren<Text>().text == T("MotionKind.ChangeSpeed")).onClick.Invoke();
+    Set("StepName", "accelerating"); Set("OperationSpeed", "8");
+    Choose("StepInput.after", text => text.Contains("launching") && text.EndsWith(T("StepOutput.flight")));
+    Choose("StepInputStage.after", text => text == T("StepStage.Started"));
+    Check(Session().Draft.Steps[1].Inputs["after"].Step == "launching" && Session().Draft.Steps[1].Inputs["after"].Stage == ConstructionOutputStage.Started && B("LearnCopy").interactable, "选择实际步骤输出并明确在开始后衔接，不等待无限飞行假完成");
+    Choose("StepChoice", text => text.StartsWith("launching ·")); Set("StepName", "flying");
+    Check(Session().Draft.Steps[1].Inputs["after"].Step == "flying", "步骤改名同步更新依赖，仍使用同一部位");
+    Choose("StepInput.part", text => text.StartsWith("accelerating ·") && text.EndsWith(T("StepOutput.part")));
+    Check(!B("LearnCopy").interactable && ((Text)Field(editor, "state")).text.Contains("循环"), "通过真实菜单制造依赖循环时共用编译明确拒绝保存");
+    Click("Undo"); Check(B("LearnCopy").interactable, "撤销引用恢复合法构造");
+    Click("Redo"); Check(!B("LearnCopy").interactable, "重做恢复实际循环而非绕过校验");
+    Click("Undo");
+    Choose("StepChoice", text => text.StartsWith("accelerating ·"));
+    Set("StepName", "flying"); Check(Session().Draft.Steps[1].Id == "accelerating", "重复步骤名不破坏原草稿");
+    var pane = editor.GetComponentsInChildren<ScrollRect>(false).First(item => item.name == "Parameters");
+    pane.verticalNormalizedPosition = .55f; await Shot("named-inputs-cz");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page5");
+    pane.verticalNormalizedPosition = .55f; await Shot("named-inputs-en");
+    Check(((Text)Field(Row("StepInput.after"), "_title")).text == "Wait for process or result", "新表单沿用实际中英本地化");
+    int width = UnityEngine.Screen.width, height = UnityEngine.Screen.height; bool fullscreen = UnityEngine.Screen.fullScreen;
+    UnityEngine.Screen.SetResolution(1024, 768, false); await Frames(8); pane.verticalNormalizedPosition = 1; await Shot("steps-en-1024");
+    var corners = new Vector3[4]; ((RectTransform)editor.transform.Find("Background")).GetWorldCorners(corners);
+    Check(corners.All(point => point.x >= 0 && point.y >= 0 && point.x <= UnityEngine.Screen.width && point.y <= UnityEngine.Screen.height), "新增步骤页继续使用原窗口与滚动框，小分辨率没有越界");
+    UnityEngine.Screen.SetResolution(width, height, fullscreen); LocalizedTextManager.instance.setLanguage("cz"); Click("Page5"); await Frames(8);
+    string expected = JsonConvert.SerializeObject(Session().Draft.Steps);
+    Click("Replace"); SessionId = Session().SourceId;
+    var saved = ConstructionEditing.Access.Read(SessionId);
+    Check(JsonConvert.SerializeObject(saved.Steps) == expected && saved.Root.Operations[0].Id == "forming" && saved.Root.Operations[1].Vector[1] == 90, "正式替换保存完整命名输入、曲线及同部位混合操作");
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    Click("Close"); await Frames(); Check(Field(editor, "session") == null, "关闭释放草稿与人物绑定");
+    WindowWanfaConstructionEditor.Open(SessionId, source); await Frames(); Click("Page5");
+    Choose("StepScope", text => text == T("StepScope.Named"));
+    Check(JsonConvert.SerializeObject(Session().Draft.Steps) == expected && B("LearnCopy").interactable, "重新打开从正式资料恢复完整步骤而非仅保留界面状态");
+    File.WriteAllText(Path.Combine(folder, "ui-result.json"), JsonConvert.SerializeObject(new { passed = true, checks }, Formatting.Indented));
+    Click("Close"); await Frames();
+    Ready(source); ConstructedAbilityService.CastStarted += Started;
+    await Fire(saved, source, target);
+    Check(cast != null, "正式人物施放入口执行本次已保存改造");
+    await Advance(.15f);
+    Check(cast.StepStateOf("flying") == ConstructionStepState.Waiting && cast.StepStateOf("accelerating") == ConstructionStepState.Waiting && cast.Velocity(0).sqrMagnitude < .0001f, "生长尚未真实完成时依赖飞行与变速都保持等待");
+    await Advance(.4f);
+    bool flyingStarted = cast.TryGetOutput("flying", "flight", out var flight, ConstructionOutputStage.Started);
+    bool speedChanged = cast.TryGetOutput("accelerating", "speed", out var speed);
+    Check(flyingStarted && speedChanged && speed.At >= flight.At && flight.At >= .399f, "实际生长完成后才启动飞行，并由开始输出驱动下一步变速", new { flyingAt = flight.At, speedAt = speed.At, velocity = new[] { cast.Velocity(0).x, cast.Velocity(0).y, cast.Velocity(0).z } });
+    await Advance(2f);
+    Check(cast.Finished && !BodyControlState.IsBusy(source.id), "自然结束释放运行与控制");
+    var result = new { passed = true, checks, id = SessionId };
+    File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
+    return result;
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    if (cast != null && !cast.Finished) cast.Cancel();
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    Config.paused = true; ControllableUnit.clear(false);
+}

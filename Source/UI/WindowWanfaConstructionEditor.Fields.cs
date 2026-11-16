@@ -214,6 +214,14 @@ public sealed partial class WindowWanfaConstructionEditor
         if (fly.When != null) Row("ConditionalFlight", T("ConditionalFlightHint"));
         ActionRow("RemoveFlight", T("RemoveFlightHint"), () => Change(() => node.Operations = node.Operations.Where(operation => operation != fly).ToArray()));
         Number("FlyAt", fly.At, value => fly.At = value);
+        if (fly.Path == null) ActionRow("AddPath", T("AddPathHint"), () => AddPath(node));
+        FlightParameters(fly);
+    }
+
+    /// <summary>命名步骤与原路径页共同编辑同一份完整飞行参数。</summary>
+    /// <param name="fly">本次明确选择的操作。</param>
+    private void FlightParameters(ConstructionOperation fly)
+    {
         for (int i = 0; i < 3; i++)
         {
             int axis = i;
@@ -234,13 +242,7 @@ public sealed partial class WindowWanfaConstructionEditor
         Toggle("InheritVelocity", fly.InheritVelocity, value => fly.InheritVelocity = value);
         if (FlightCurveRows(fly)) return;
         CurveBuilderRows(fly);
-        if (fly.Path == null)
-        {
-            ActionRow("AddPath", T("AddPathHint"), () => AddPath(node));
-            return;
-        }
-
-        CurveRows(fly.Path);
+        if (fly.Path != null) CurveRows(fly.Path);
     }
 
     /// <summary>飞行与普通分布共用同一曲线表单，静态排布只编辑实际几何。</summary>

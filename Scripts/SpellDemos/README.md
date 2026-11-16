@@ -2,6 +2,8 @@
 
 两个入口共用一套临时游戏内工具。读取运行中模组的实际清单，通过正式技能序列、主动能力与装备入口施放，按游戏世界时间录制。新增法术正常注册后，会自动进入清单，不需要再维护录像名单。
 
+命名步骤与同部位混合操作的修改窗口使用 `python3 Scripts/SpellDemos/verify_step_editor.py`：复用既有测试世界，通过真实行和选择菜单编辑名称、输出引用、阶段及飞行曲线，检查非法循环、撤销恢复、正式保存再打开及依赖的实际执行。结果与中英窗口图写入 `artifacts/skill_rebuild/trajectories/step-editor/`。加 `--section runtime` 只补由表单已保存资料的实际运行与结束，不重跑编辑流程；`--section capture`只补已保存资料的正常输入画面。此入口不重跑身体装备或旧材料矩阵，正式世界冷启动与集中录像在5.05 C交付点执行。
+
 ## 使用前
 
 - 本机需要 Python 3.10 以上、ffmpeg，以及 WorldBox/NML 和已启用的 DebugToolbox。

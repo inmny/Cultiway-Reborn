@@ -46,12 +46,21 @@ public sealed partial class WindowWanfaConstructionEditor
             choices.Select((item, index) => new UiOptionMenuOption { Label = string.Format(T("MotionChoiceName"), index + 1, T("MotionKind." + item.Kind)), Selected = item == operation,
                 Select = () => { motionChoice = index; Refresh(); } }).ToArray()));
         ActionRow("RemoveMotion", "", () => Change(() => node.Operations = node.Operations.Where(o => o != operation).ToArray()));
+        Number("MotionEarliest", operation.At, value => operation.At = value);
+        OperationConditionRows(operation);
+        OperationParameters(node, operation);
+    }
+
+    /// <summary>命名、定时和条件操作共用真实事件表单。</summary>
+    /// <param name="operation">当前独立草稿的操作。</param>
+    private void OperationConditionRows(ConstructionOperation operation)
+    {
         ConstructionCondition condition = operation.When;
+        if (condition == null) return;
         string sourceName = condition.Source == "." ? T("EventSelf") : condition.Source == ".." ? T("ActivationParent") : condition.Source == "body" ? T("BodyOnly") :
             previewPlan?.Nodes.Select((source, index) => new { source.Path, Label = EventPartName(source, index) }).FirstOrDefault(source => source.Path == condition.Source)?.Label ?? T("ActivationUnknownSource");
         Choice("MotionSource", sourceName, () => ChooseActivationSource(condition));
         ConditionTriggerRows(condition, "Motion");
-        Number("MotionEarliest", operation.At, value => operation.At = value);
         Number("MotionDelay", condition.Delay, value => condition.Delay = value);
         if (condition.Trigger == ConstructionChangeTrigger.MatterChanged)
         {
@@ -61,6 +70,18 @@ public sealed partial class WindowWanfaConstructionEditor
                     Select = () => Change(() => { condition.Matter = matter.Id; condition.State = matter.State; }) }).ToArray(), true));
         }
 
+    }
+
+    /// <summary>不同声明方式共用操作参数，不另建一份简化的执行资料。</summary>
+    /// <param name="node">提供形体和制作动作的实际部位。</param>
+    /// <param name="operation">当前选择的同一份操作。</param>
+    private void OperationParameters(ConstructionNode node, ConstructionOperation operation)
+    {
+        bool triggered = operation.When != null || session.Draft.Steps.Any(step => step.Operation == operation);
+        if (operation.Kind == ConstructionOperationKind.Fly)
+        { FlightParameters(operation); return; }
+        if (operation.Kind == ConstructionOperationKind.ChangeSpeed)
+            Number("OperationSpeed", operation.Speed, value => operation.Speed = value);
         if (operation.Kind == ConstructionOperationKind.Flow) FlowParameters(operation.Flow);
         if (operation.Kind == ConstructionOperationKind.Ray) RayParameters(operation.Ray);
         if (operation.Kind == ConstructionOperationKind.Propagate)
@@ -74,7 +95,7 @@ public sealed partial class WindowWanfaConstructionEditor
         if (operation.Kind == ConstructionOperationKind.Grow)
         {
             Number("ProcessSeconds", operation.Seconds, value => operation.Seconds = value);
-            Number("ProcessTargetScale", operation.TargetScale ?? 1f, value => operation.TargetScale = value);
+            if (triggered) Number("ProcessTargetScale", operation.TargetScale ?? 1f, value => operation.TargetScale = value);
         }
         if (operation.Kind == ConstructionOperationKind.Animate)
         {
@@ -82,20 +103,22 @@ public sealed partial class WindowWanfaConstructionEditor
                 Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Description.Motions.Select(motion => new UiOptionMenuOption
                 { Label = ProcessClipName(node, motion.Id), Selected = operation.Clip == motion.Id, Select = () => Change(() => operation.Clip = motion.Id) }).ToArray()));
             Number("ProcessSeconds", operation.Seconds, value => operation.Seconds = value);
-            Number("ProcessBlendSeconds", operation.BlendSeconds ?? .15f, value => operation.BlendSeconds = value);
+            if (triggered) Number("ProcessBlendSeconds", operation.BlendSeconds ?? .15f, value => operation.BlendSeconds = value);
+            Toggle("OperationHold", operation.Hold != null, value => operation.Hold = value ? new ConstructionHold { Seconds = .25f } : null);
+            if (operation.Hold != null)
+            {
+                Number("HoldAt", operation.Hold.At, value => operation.Hold.At = value);
+                Number("HoldSeconds", operation.Hold.Seconds, value => operation.Hold.Seconds = value);
+            }
         }
 
         if (operation.Kind == ConstructionOperationKind.ConvertMatter)
             MatterConversionParameters(operation);
-        if (operation.Kind is not (ConstructionOperationKind.Fly or ConstructionOperationKind.Spin)) return;
+        if (operation.Kind is not (ConstructionOperationKind.Deflect or ConstructionOperationKind.Spin)) return;
         for (int axis = 0; axis < 3; axis++)
         { int component = axis; Number("MotionVector" + new[] { "X", "Y", "Z" }[axis], operation.Vector[axis], value => operation.Vector[component] = value); }
-        if (operation.Kind != ConstructionOperationKind.Fly) return;
-        Number("MotionHoming", operation.TurnRate, value => operation.TurnRate = value);
-        Toggle("MotionInheritVelocity", operation.InheritVelocity, value => operation.InheritVelocity = value);
-        FlightTransferRows(operation);
-        FlightPhysicsRows(operation, "Motion");
-        ActionRow("MotionPath", T("MotionPathHint"), () => { flightChoice = node.Operations.Where(o => o.Kind == ConstructionOperationKind.Fly).ToList().IndexOf(operation); page = 1; Refresh(); });
+        if (operation.Kind == ConstructionOperationKind.Deflect)
+            Toggle("MotionWorldVelocity", operation.WorldVelocity, value => operation.WorldVelocity = value);
     }
 
     /// <summary>动作在界面显示普通名称，缺少专用翻译时显示实际顺序。</summary>

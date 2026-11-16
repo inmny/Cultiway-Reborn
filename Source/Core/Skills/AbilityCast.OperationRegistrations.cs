@@ -17,7 +17,7 @@ public sealed partial class AbilityCast
                 if (float.IsNaN(speed) || float.IsInfinity(speed) || speed < 0f || speed > 10000f)
                     throw new InvalidDataException(context.Path + "：中心速度须为零至一万格每秒的有限数字");
                 return speed;
-            }, (cast, action, speed) => cast.ChangeFlightSpeed(action.Node, speed));
+            }, (cast, action, speed) => cast.ChangeFlightSpeed(action.Node, speed), immediate: speed => true);
         ConstructionOperations.Register(ConstructionOperationKind.Fly, c => new CompiledFlight(c.Source, c.Vector, c.Path),
             (cast, action, p) => { cast.StartFlight(action.Node, p, cast.Age); return true; },
             (cast, action, p, native) => new ConstructionOperationProgress(

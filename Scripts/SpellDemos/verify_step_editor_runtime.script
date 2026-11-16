@@ -1,0 +1,61 @@
+// C1只补实际运行尾段，直接读取已由真实表单正式保存的完整资料，不重跑界面。
+Actor source = Make(64), target = Make(73);
+var owner = source.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/trajectories/step-editor/saved-definition.json")));
+AbilityCast cast = null;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != definition.Id) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(value => (long)Field(value, "Id") == fact.CastId);
+    cast = (AbilityCast)Field(running, "Cast");
+}
+ConstructedAbilityService.CastStarted += Started;
+try
+{
+    Ready(source);
+    await Fire(definition, source, target);
+    Check(cast != null, "正式人物施放已由真实表单保存的构造资料");
+    await Advance(.15f);
+    Check(cast.StepStateOf("flying") == ConstructionStepState.Waiting && cast.StepStateOf("accelerating") == ConstructionStepState.Waiting && cast.Velocity(0).sqrMagnitude < .0001f, "生长未完成时飞行及变速保持等待");
+    await Advance(.4f);
+    bool flyingStarted = cast.TryGetOutput("flying", "flight", out var flight, ConstructionOutputStage.Started);
+    bool speedChanged = cast.TryGetOutput("accelerating", "speed", out var speed);
+    Check(flyingStarted && speedChanged && speed.At >= flight.At && flight.At >= .399f, "实际生长完成后启动飞行，真实开始输出再驱动变速", new
+    {
+        flyingAt = flight.At, speedAt = speed.At,
+        velocity = new[] { cast.Velocity(0).x, cast.Velocity(0).y, cast.Velocity(0).z }
+    });
+    await Advance(2f);
+    Check(cast.Finished && !BodyControlState.IsBusy(source.id), "自然结束释放运行与控制");
+    // UI_CAPTURE_BEGIN
+    // 只补一张正常保存后的输入画面，已通过的编辑与保存流程不重跑。
+    WindowWanfaConstructionEditor.Open(definition.Id, source);
+    for (int frame = 0; frame < 5; frame++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+    editor.GetComponentsInChildren<Button>(false).First(button => button.name == "Page5").onClick.Invoke();
+    typeof(WindowWanfaConstructionEditor).GetField("operationScope", F).SetValue(editor, 1);
+    typeof(WindowWanfaConstructionEditor).GetField("stepChoice", F).SetValue(editor, 1);
+    typeof(WindowWanfaConstructionEditor).GetMethod("Refresh", F).Invoke(editor, null);
+    for (int frame = 0; frame < 4; frame++) await Game.NextFrame();
+    Canvas.ForceUpdateCanvases();
+    var pane = editor.GetComponentsInChildren<ScrollRect>(false).First(item => item.name == "Parameters");
+    pane.verticalNormalizedPosition = .3f;
+    for (int frame = 0; frame < 4; frame++) await Game.NextFrame();
+    pane.verticalNormalizedPosition = .3f;
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    for (int frame = 0; frame < 4; frame++) await Game.NextFrame();
+    Screen.Capture(Path.Combine(folder, "saved-inputs-cz.png"));
+    for (int frame = 0; frame < 4; frame++) await Game.NextFrame();
+    typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    // UI_CAPTURE_END
+    return new { passed = true, checks, definition.Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    if (cast != null && !cast.Finished) cast.Cancel();
+    Config.paused = true; ControllableUnit.clear(false);
+}

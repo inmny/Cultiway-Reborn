@@ -87,11 +87,11 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
         nameInput.onEndEdit.AddListener(value => { if (!refreshing) Change(() => session.Draft.Name = value); });
         learnerButton = UiElements.CreateIconTextButton(header.transform, "Learner", UiIcons.Select, T("ChooseLearner"), 248f, 24f, ChooseLearner);
         GameObject navigation = UiLayout.Create(root.transform, "Pages", true, 520f, 22f, 4f);
-        string[] pages = { "Properties", "Path", "BodyMotion", "Placement", "ImpactPage" };
+        string[] pages = { "Properties", "Path", "BodyMotion", "Placement", "ImpactPage", "StepsPage" };
         for (int i = 0; i < pages.Length; i++)
         {
             int index = i;
-            Button button = UiElements.CreateButton(navigation.transform, "Page" + i, T(pages[i]), 100f, 22f,
+            Button button = UiElements.CreateButton(navigation.transform, "Page" + i, T(pages[i]), (520f - 4f * (pages.Length - 1)) / pages.Length, 22f,
                 () => { page = index; Refresh(); });
             tabs.Add(button);
             BindText(button.GetComponentInChildren<Text>(), pages[i]);
@@ -144,7 +144,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
         session = new ConstructionEditSession(access.Read(pendingId));
         learner = pendingActor; learnerId = learner?.data?.id ?? 0;
         pendingId = null; pendingActor = null;
-        undo.Clear(); redo.Clear(); part = page = handle = bodyHandle = 0; curvePurpose = 0; curveLayer = 0; closingApproved = false; Refresh();
+        undo.Clear(); redo.Clear(); part = page = handle = bodyHandle = stepChoice = nativeChoice = operationScope = 0; curvePurpose = 0; curveLayer = 0; closingApproved = false; Refresh();
     }
 
     /// <summary>保留原版窗口关闭流程，未保存时在下一帧恢复并显示确认。</summary>
@@ -199,7 +199,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
             copyButton.interactable = valid && HasLearner;
             replaceButton.interactable = copyButton.interactable && access.List(learner.GetExtend()).Any(e => e.Id == session.SourceId);
             rows.Clear(); tabs.SetSelected(page);
-            if (page == 0) Properties(); else if (page == 1) PathPage(); else if (page == 2) BodyPage(); else if (page == 3) PlacementPage(); else ImpactPage();
+            if (page == 0) Properties(); else if (page == 1) PathPage(); else if (page == 2) BodyPage(); else if (page == 3) PlacementPage(); else if (page == 4) ImpactPage(); else StepsPage();
         }
         finally { refreshing = false; }
 
