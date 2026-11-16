@@ -1278,5 +1278,11 @@
   "Cultiway.Construction.OnContact.End": "结束本体及未脱离后代",
   "Cultiway.Construction.NodeOnContact": "部位·命中后收势",
   "Cultiway.Construction.NodeContactGroup": "部位·共用接触组（留空独立）",
-  "Cultiway.Construction.ActorContactPolicyHint": "修改会同时影响同一接触组及同一声明展开的部位；关闭后恢复每人一次。身体每个有效阶段沿用同一规则。"
+  "Cultiway.Construction.ActorContactPolicyHint": "修改会同时影响同一接触组及同一声明展开的部位；关闭后恢复每人一次。身体每个有效阶段沿用同一规则。",
+  "Cultiway.Construction.RadialMotion": "部位·持续范围推拉",
+  "Cultiway.Construction.RadialMotionHint": "围绕部位真实中心，以世界距离确定范围；正速度向外推，负速度向内拉，边缘衰减为零。只推动可移动的地面人物，不改变主体接触面或伤害。",
+  "Cultiway.Construction.RadialRadius": "范围半径（世界距离）",
+  "Cultiway.Construction.RadialSpeed": "中心速度（正推、负拉）",
+  "Cultiway.Construction.RadialInterval": "重新选人间隔秒数",
+  "Cultiway.Construction.RadialTargets": "范围运动影响的人物"
 }

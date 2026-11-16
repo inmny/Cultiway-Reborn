@@ -1606,3 +1606,10 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 `python3 Scripts/SpellDemos/verify_actor_contact_creation.py --section ui|cast|creation|save|all`。复用既有窗口、世界和共享剑形体，验证身体/部位接触规则、同组同步、非法候选拒绝、撤销和保存再打开，中英窗口、真实共享次数及间隔、实际伤害、结束后再次施放，以及规则18创作与正式人物区段19存读。旧样例`fixtures/actor-contact-creation-rule17.json`直接来自C9正式等待存档和当时完整预期，保留来源校验值。
 
 `--section cast-tail`只在同一人物的原施放段失败后补伤害及恢复，不加入正常all。交付索引`artifacts/skill_rebuild/trajectories/actor-contact-creation/delivery.json`保留根路径缺陷、日志记录、初次伤害和续接脚本的原失败，以及分别通过的结果。本次实际交付为分段通过，不声称一次all整体通过。截图位于ui，初次已通过的组次数在cast，伤害与恢复在cast-tail，正式新旧存档在save。正式冷启动与集中录像仍在5.05 C交付点完成，软件渲染仅用于功能及窗口。
+
+
+### 5.05 C11：范围推拉编辑与自主创作
+
+`python3 Scripts/SpellDemos/verify_radial_motion_creation.py --section ui|cast|creation|save|all`。复用既有窗口、世界和一个剑形部位，验证世界半径、推拉速度、重新选人间隔及人物关系的真实表单，零半径拒绝、撤销和保存再打开，中英窗口、范围内外实际移动、结束归还及再次施放，规则19独立创作与派生、正式人物区段20新旧请求存读。旧样例`fixtures/radial-motion-creation-rule18.json`直接来自C10正式等待存档与当时完整预期，保留来源校验值。
+
+证据索引为`artifacts/skill_rebuild/trajectories/radial-motion-creation/delivery.json`。本批窗口、施放、创作、存读四段在同一进程分别通过，没有执行一次完整all；没有原始失败。中英窗口图位于ui，实际位移在cast和save的motion.json，正式等待及完成存档在save。正式冷启动与集中录像仍在C交付点完成，软件渲染仅用于功能和窗口。

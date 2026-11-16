@@ -1283,5 +1283,11 @@
   "Cultiway.Construction.OnContact.End": "End part and attached descendants",
   "Cultiway.Construction.NodeOnContact": "Part · After contact",
   "Cultiway.Construction.NodeContactGroup": "Part · Shared contact group (blank: separate)",
-  "Cultiway.Construction.ActorContactPolicyHint": "Edits apply to shared contact groups and outputs of the same declaration. Disable to restore once per actor. Body stages use the same rules."
+  "Cultiway.Construction.ActorContactPolicyHint": "Edits apply to shared contact groups and outputs of the same declaration. Disable to restore once per actor. Body stages use the same rules.",
+  "Cultiway.Construction.RadialMotion": "Part · Continuous radial motion",
+  "Cultiway.Construction.RadialMotionHint": "Uses world distance from the real part centre. Positive speed pushes outward; negative speed pulls inward, fading to zero at the edge. Moves movable ground actors without changing contact shape or damage.",
+  "Cultiway.Construction.RadialRadius": "Radius (world distance)",
+  "Cultiway.Construction.RadialSpeed": "Centre speed (+push, -pull)",
+  "Cultiway.Construction.RadialInterval": "Retarget interval (seconds)",
+  "Cultiway.Construction.RadialTargets": "Actors affected by radial motion"
 }

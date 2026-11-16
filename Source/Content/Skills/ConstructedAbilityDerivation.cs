@@ -50,6 +50,8 @@ public sealed partial class ConstructedAbilityService
         bool preserveReferences = inspiration.Rules >= 16;
         bool placementAvailable = !preserveReferences || draft.Root != null &&
             ConstructionPlacementReferences.Rewrite(draft, plan, false) == null;
+        if (inspiration.Rules >= 19 && nodes.Any(node => !string.IsNullOrEmpty(node.Form)))
+            choices.Add(("范围推拉", () => VaryRadialMotion(draft, random)));
         if (inspiration.Rules >= 18 && CreationContactSites(draft).Count > 0)
             choices.Add(("接触频率", () => VaryContactPolicy(draft, random)));
         if (inspiration.Rules >= 17 && resources.WorldActions.Length > 0 && CreationContactSites(draft).Count > 0)

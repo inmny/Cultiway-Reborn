@@ -73,5 +73,7 @@
   "Cultiway.ConstructionText.Falling": "按世界重力下落，真实底部着地后停止",
   "Cultiway.ConstructionText.DirectPlacement": "主体直接建立在选定位置，不经过来源到该处的连线。",
   "Cultiway.ConstructionText.Change.Placed": "固定放置",
-  "Cultiway.ConstructionText.Change.Ray": "射线变化"
+  "Cultiway.ConstructionText.Change.Ray": "射线变化",
+  "Cultiway.ConstructionText.RadialMotion": "{0}中心的世界半径{1:0.##}内，对{4}施加水平推拉，中心速度{2:0.##}格/秒（正推负拉），每{3:0.###}秒重新选人；边缘衰减为零，独立于接触面。",
+  "Cultiway.ConstructionText.Change.RadialMotion": "范围推拉"
 }

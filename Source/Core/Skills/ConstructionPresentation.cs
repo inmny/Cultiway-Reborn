@@ -144,6 +144,9 @@ public static class ConstructionPresentation
                         ? Array.Empty<SkillLibV3.Usage.SkillUseTargetRelation>()
                         : new[] { (plan.Body.Impact ?? plan.Impact).Targets })
                     .Distinct().Select(relation => T("Target." + relation))), plan.ContactDamageScale));
+        lines.AddRange(plan.Nodes.Where(node => node.RadialMotion != null).Select(node =>
+            F("RadialMotion", Form(node.Resource.Description.Id), node.RadialMotion.Radius,
+                node.RadialMotion.Speed, node.RadialMotion.Interval, T("Target." + node.RadialMotion.Targets))).Distinct());
         if (plan.ContactForce > 0f) lines.Add(F("Force", plan.ContactForce));
         if (plan.ContactStagger > 0f) lines.Add(F("Stagger", plan.ContactStagger));
         if (plan.ContactBind > 0f) lines.Add(F("Bind", plan.ContactBind));
@@ -225,6 +228,7 @@ public static class ConstructionPresentation
         "环绕" => "Orbit",
         "直接放置" => "Placed",
         "射线变化" => "Ray",
+        "范围推拉" => "RadialMotion",
         "复生" => "Repeat",
         "显化" => "Project",
         "改造" => "Edit",

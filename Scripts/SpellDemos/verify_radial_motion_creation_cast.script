@@ -1,0 +1,35 @@
+// C11：同一表单成品的真实范围、归还及再次施放。
+Actor source = Make(64), target = Make(70, "wolf"), outside = Make(74, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+var stillStats = new BaseStats(); stillStats.addTag("frozen_ai");
+var still = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.RadialCreation.Still").SetStats(stillStats).SetDuration(10000).Build();
+foreach (var actor in new[] { target, outside })
+{
+    CombatStatusEffects.RemoveStatus(actor, hold); CombatStatusEffects.ApplyStatus(actor, still, 10000, source); actor.updateStats();
+}
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/trajectories/radial-motion-creation/ui/saved-definition.json")));
+try
+{
+    await Advance(.2f); Ready(source); Place(source, 64); Place(target, 70); Place(outside, 74);
+    source.addAggro(outside); outside.addAggro(source);
+    Vector2 start = target.current_position, outer = outside.current_position; float before = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, target); float paid = before - owner.GetCultisys<Xian>().wakan;
+    owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(.35f);
+    Vector2 moved = target.current_position;
+    Check(Math.Abs(paid - definition.Cost) < .001f, "范围运动成品只支付一次正式费用", new { paid, definition.Cost });
+    Check(moved.x < start.x - .01f && Math.Abs(moved.y - start.y) < .001f && target.position_height == 0f, "真实范围内的地面人物向中心移动", new { from = new[] { start.x, start.y }, to = new[] { moved.x, moved.y } });
+    Check((outside.current_position - outer).magnitude < .001f && !outside.under_forces, "世界半径外人物不被推拉");
+    Check(contacts.All(hit => hit.AbilityId != definition.Id), "范围运动独立于剑身接触伤害");
+    await Advance(definition.Lifetime + .25f);
+    Check(endings.Any(item => item.Fact.AbilityId == definition.Id) && !target.under_forces && !BodyControlState.IsBusy(target.id), "过程结束后最后有限运动结束并归还控制");
+    Vector2 stopped = target.current_position; await Advance(.15f);
+    Check((target.current_position - stopped).magnitude < .001f, "结束后不残留滑动");
+    ConstructedAbilityService.Learn(owner, definition.Id); await Fire(definition, source, target);
+    owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(.35f);
+    Check(target.current_position.x < stopped.x - .01f, "结束和冷却后再次施放可重新推动人物");
+    await Advance(definition.Lifetime + .25f);
+    File.WriteAllText(Path.Combine(folder, "motion.json"), JsonConvert.SerializeObject(new { start = new[] { start.x, start.y }, moved = new[] { moved.x, moved.y }, stopped = new[] { stopped.x, stopped.y }, final = new[] { target.current_position.x, target.current_position.y }, paid }, Formatting.Indented));
+    return new { passed = true, closed = "实际范围移动、范围外及结束恢复", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false); }

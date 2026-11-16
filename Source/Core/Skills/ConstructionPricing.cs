@@ -55,6 +55,9 @@ public sealed class ConstructionMeasure
     /// <summary>球形范围与介质接收者的分送需求，第十五版起计入。</summary>
     public double ContactSpreadWork { get; }
 
+    /// <summary>范围推拉按世界半径面积、速度及存在时间计算的需求；第十九版起计入。</summary>
+    public double RadialMotionWork { get; }
+
     /// <summary>按当前规模给出的默认恢复世界秒数；不替代真实身体收势。</summary>
     public float DefaultCooldown { get; }
 
@@ -114,6 +117,9 @@ public sealed class ConstructionMeasure
                              : basis) *
                          Matrix4x4.TRS(node.Offset, node.Rotation, Vector3.one * (float)(node.Scale * growth));
             double span = Math.Max(0, node.Presence.y - node.Presence.x);
+            if (node.RadialMotion != null)
+                RadialMotionWork += Math.PI * node.RadialMotion.Radius * node.RadialMotion.Radius *
+                                    Math.Abs(node.RadialMotion.Speed) * span * .1d;
             bool material = node.FragmentSource < 0 && node.RemainderRoot < 0 && node.Resource.Meshes.Length > 0;
             double volume = material ? node.Volume * scales[i] : 0d;
             if (material) Materials++;
@@ -341,11 +347,12 @@ public static class ConstructionPricing
     /// <param name="measure">已编译的实际规模。</param><param name="rules">本次创作版本。</param>
     private static double Demand(ConstructionMeasure measure, int rules) => measure.Work +
         (rules >= 12 ? measure.ContactEffectsWork : 0d) + (rules >= 13 ? measure.ContactDisplacementWork : 0d) +
-        (rules >= 14 ? measure.ContactResultsWork : 0d) + (rules >= 15 ? measure.ContactSpreadWork : 0d);
+        (rules >= 14 ? measure.ContactResultsWork : 0d) + (rules >= 15 ? measure.ContactSpreadWork : 0d) +
+        (rules >= 19 ? measure.RadialMotionWork : 0d);
 
     /// <summary>以当前实际构造计算新创作的默认费用与恢复时间。</summary>
     /// <param name="definition">本次独占的新创作。</param><param name="cost">是否补费用。</param><param name="cooldown">是否补恢复时间。</param>
-    /// <param name="contactRules">创作规则版本；十二版计状态及恢复，十三版计位移，十四版计附加与分支结果，十五版计范围和介质分送，省略沿原计算。</param>
+    /// <param name="contactRules">创作规则版本；十二版计状态及恢复，十三版计位移，十四版计附加与分支结果，十五版计范围和介质分送，十九版计范围推拉，省略沿原计算。</param>
     public static AbilityDefinition Price(AbilityDefinition definition, bool cost = true, bool cooldown = true, int contactRules = 0)
     {
         CompiledAbility plan = AbilityCompiler.Compile(definition, false);

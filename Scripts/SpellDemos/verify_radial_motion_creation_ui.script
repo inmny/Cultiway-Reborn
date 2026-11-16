@@ -1,0 +1,79 @@
+// C11：真实表单编辑持续范围推拉，不改变剑形接触面。
+Actor source = Make(64), target = Make(72, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+var definition = new AbilityDefinition
+{
+    Id = "test.radial-motion-creation.editor", Name = "范围推拉编辑", Resource = "wakan", Cost = 3, Cooldown = .1f,
+    Lifetime = 1f, TargetRange = 100, Power = 1,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+    Root = new ConstructionNode
+    {
+        Id = "blade", Form = "sword", Matter = "iron", Offset = new[] { 4f, 0f, 0f },
+        ContactRole = ConstructionContactRole.Decoration
+    }
+};
+ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(definition.Id, source);
+async Task Frames(int count = 3) { for (int i = 0; i < count; i++) await Game.NextFrame(); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300); Canvas.ForceUpdateCanvases(); }
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+Button B(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+void Click(string name) { if (!B(name).interactable) throw new InvalidOperationException("按钮不可用：" + name); B(name).onClick.Invoke(); }
+WanfaEditorRow Row(string key)
+{
+    IEnumerable<WanfaEditorRow> found = editor.GetComponentsInChildren<WanfaEditorRow>(false);
+    foreach (string group in new[] { "StatusStats", "StatusRatios" })
+    {
+        int at = key.IndexOf(group, StringComparison.Ordinal);
+        if (at >= 0 && key.Length > at + group.Length)
+            found = found.SkipWhile(r => ((Text)Field(r, "_title")).text != T(key.Substring(0, at + group.Length))).Skip(1);
+    }
+    return found.First(r => ((Text)Field(r, "_title")).text == T(key));
+}
+void Action(string key) => ((Button)Field(Row(key), "_action")).onClick.Invoke();
+void Set(string key, string value) { var input = editor.GetComponentsInChildren<InputField>(false).First(f => f.name == key); input.text = value; input.onEndEdit.Invoke(value); }
+void ToggleValue(string key, bool value) => Row(key).GetComponentsInChildren<Toggle>(false).Single().isOn = value;
+void Choose(string key, string text) { Action(key); editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && b.GetComponentInChildren<Text>().text == text).onClick.Invoke(); }
+async Task ShotRow(string key, string name)
+{
+    await Frames(); var row = (RectTransform)Row(key).transform; var scroll = row.GetComponentInParent<ScrollRect>();
+    Vector3 local = scroll.content.InverseTransformPoint(row.TransformPoint(row.rect.center));
+    float offset = scroll.content.rect.yMax - local.y - scroll.viewport.rect.height * .5f;
+    scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(offset / Mathf.Max(1f, scroll.content.rect.height - scroll.viewport.rect.height));
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(4); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+try
+{
+    Click("Page4"); ToggleValue("RadialMotion", true);
+    Set("RadialRadius", "4"); Set("RadialSpeed", "-2"); Set("RadialInterval", ".1");
+    Choose("RadialTargets", T("Relation.Hostile"));
+    Check(Session().Draft.Root.RadialMotion.Radius == 4f && Session().Draft.Root.RadialMotion.Speed == -2f, "真实部位保存世界半径及有方向的速度");
+    string valid = JsonConvert.SerializeObject(Session().Draft);
+    Set("RadialRadius", "0");
+    Check(JsonConvert.SerializeObject(Session().Draft) == valid && ((Text)Field(editor, "state")).text.Contains("编辑范围推拉"), "零半径拒绝且完整原草稿保持");
+    Set("RadialSpeed", "2"); Click("Undo");
+    Check(Session().Draft.Root.RadialMotion.Speed == -2f, "推拉符号可以修改并经撤销恢复");
+    await ShotRow("RadialRadius", "radial-motion-cz");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page4"); await Frames(); await ShotRow("RadialRadius", "radial-motion-en");
+    string expected = JsonConvert.SerializeObject(Session().Draft.Root);
+    Click("Replace"); var complete = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(JsonConvert.SerializeObject(complete.Root) == expected, "正式保存保留完整范围运动参数");
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), JsonConvert.SerializeObject(complete, Formatting.Indented));
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(complete.Id, source); await Frames(); Click("Page4");
+    Check(JsonConvert.SerializeObject(Session().Draft.Root) == expected, "关闭再打开保持范围运动及原主体");
+    ToggleValue("RadialMotion", false); Check(Session().Draft.Root.RadialMotion == null, "关闭范围推拉只移除这项作用");
+    Click("Undo"); Check(Session().Draft.Root.RadialMotion.Radius == 4f, "撤销恢复完整范围运动");
+    Check(AbilityCompiler.Compile(Session().Draft, false).Measure.RadialMotionWork > 0d, "同一编译计划提供实际范围运动需求");
+    return new { passed = true, closed = "范围推拉真实表单与正式保存", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}
