@@ -576,7 +576,7 @@ private void Update()
     ConstructedAbilityService.ContactConfirmed += OnConstructedContact;
     ConstructedAbilityService.ClashConfirmed += OnConstructedClash;
     StartCoroutine(Guarded((string)request["action"] == "resources" ? ProbeFormResources() :
-        (string)request["action"] == "construction" ? RecordConstruction() : Run()));
+        (string)request["action"] == "construction" ? RecordConstructions() : Run()));
 }
 
 /// <summary>在请求边界记录错误，保证暂停、界面和事件订阅有明确收尾。</summary>
@@ -602,9 +602,36 @@ private IEnumerator Guarded(IEnumerator steps)
     }
 
     Config.paused = true;
-    Config.ui_main_hidden = previousHidden;
     CleanExecutions();
     ControllableUnit.clear(false);
+    bool sceneRestored = false;
+    if ((string)request["action"] == "construction")
+    {
+        // 每批结束及失败都回到同一个现成夹具，清除临时已学、材料和未结束动作。
+        var restoring = LoadFixture();
+        while (true)
+        {
+            bool more;
+            try
+            {
+                more = restoring.MoveNext();
+            }
+            catch (Exception error)
+            {
+                failure = failure == null ? error.ToString() : failure + "\n恢复场景失败：" + error;
+                break;
+            }
+
+            if (!more)
+            {
+                sceneRestored = true;
+                break;
+            }
+            yield return restoring.Current;
+        }
+    }
+    Config.paused = true;
+    Config.ui_main_hidden = previousHidden;
     foreach (var canvas in canvases)
         if (canvas.Key != null)
             canvas.Key.enabled = canvas.Value;
@@ -625,7 +652,7 @@ private IEnumerator Guarded(IEnumerator steps)
     ConstructedAbilityService.ClashConfirmed -= OnConstructedClash;
     FormVisualScene.Clear();
     Write(Path.Combine(output, "status.json"),
-        new { done = true, current = currentCase, error = failure, errors });
+        new { done = true, current = currentCase, error = failure, sceneRestored, errors });
     busy = false;
 }
 
@@ -742,11 +769,30 @@ private void OnConstructedClash(ConstructedClash clash) => clashesLog.Add(new
     point = new[] { clash.Position.x, clash.Position.y, clash.Position.z }
 });
 
-private IEnumerator RecordConstruction()
+/// <summary>每份构造重用同一个现成世界，避免上一份的职业、冷却和材料影响下一份。</summary>
+private IEnumerator RecordConstructions()
+{
+    int index = 0;
+    foreach (JObject item in (JArray)request["cases"])
+    {
+        errors.Clear();
+        currentCase = (string)item["id"];
+        string folder = Path.Combine(output, (string)item["key"]);
+        Directory.CreateDirectory(folder);
+        Write(Path.Combine(folder, "definition.json"), item["construction"]);
+        Write(Path.Combine(output, "status.json"),
+            new { done = false, index = ++index, current = item["key"], stage = "准备构造" });
+        var recording = RecordConstruction(item);
+        while (recording.MoveNext()) yield return recording.Current;
+    }
+}
+
+/// <summary>通过正式学习和施放入口录制当前资料。</summary>
+/// <param name="item">当前构造及其录制编号。</param>
+private IEnumerator RecordConstruction(JObject item)
 {
     var loading = LoadScene();
     while (loading.MoveNext()) yield return loading.Current;
-    JObject item = (JObject)((JArray)request["cases"])[0];
     currentCase = (string)item["id"];
     Prepare(item);
     Place(caster, 60, 72);
@@ -755,7 +801,7 @@ private IEnumerator RecordConstruction()
     double settledAt = World.world.getCurWorldTime() + 1d;
     while (World.world.getCurWorldTime() < settledAt) yield return null;
     Config.paused = true;
-    AbilityDefinition definition = request["construction"].ToObject<AbilityDefinition>();
+    AbilityDefinition definition = item["construction"].ToObject<AbilityDefinition>();
     ConstructedAbilityService.Register(definition);
     var owner = caster.GetExtend();
     ConstructedAbilityService.Learn(owner, definition.Id);
@@ -1228,7 +1274,7 @@ private IEnumerator Run()
 }
 
 /// <summary>仅加载仓库中的测试夹具，不保存或覆盖玩家世界。</summary>
-private IEnumerator LoadScene()
+private IEnumerator LoadFixture()
 {
     if (SmoothLoader.isLoading()) throw new InvalidOperationException("游戏仍在加载，请稍后运行");
     Config.paused = true;
@@ -1252,6 +1298,19 @@ private IEnumerator LoadScene()
     while (SmoothLoader.isLoading()) yield return null;
     Config.paused = true;
     World.world.console.Hide();
+}
+
+/// <summary>复用夹具后只准备当前段的演示人物与观察条件。</summary>
+private IEnumerator LoadScene()
+{
+    var loading = LoadFixture();
+    while (loading.MoveNext()) yield return loading.Current;
+    enemies.Clear();
+    isolated.Clear();
+    var external = AppDomain.CurrentDomain.GetAssemblies()
+        .Select(assembly => assembly.GetType("FirstPerson.WorldBoxMod", false))
+        .FirstOrDefault(type => type != null);
+
     float slope = (float?)request["terrainSlope"] ?? 0f;
     if (slope != 0f)
         for (int y = 60; y <= 84; y++)
@@ -1302,7 +1361,7 @@ private IEnumerator LoadScene()
     Config.ui_main_hidden = true;
     foreach (var canvas in Resources.FindObjectsOfTypeAll<Canvas>())
     {
-        canvases[canvas] = canvas.enabled;
+        if (!canvases.ContainsKey(canvas)) canvases[canvas] = canvas.enabled;
         canvas.enabled = false;
     }
 

@@ -1,0 +1,33 @@
+{
+  "Version": 1,
+  "Id": "test.construction-batch.charge",
+  "Name": "批量斗气",
+  "Lifetime": 1.5,
+  "Cost": 3,
+  "Resource": "vigor",
+  "Power": 8,
+  "TargetRange": 12,
+  "Binding": {
+    "Anchor": 1,
+    "Follow": false,
+    "FaceTarget": true,
+    "Height": 0.3
+  },
+  "Root": {
+    "Id": "subject",
+    "Form": "spirit_bolt",
+    "Matter": "fire",
+    "Scale": 0.6,
+    "Operations": [
+      {
+        "Kind": "Fly",
+        "Vector": [
+          0,
+          0,
+          8
+        ],
+        "InheritVelocity": false
+      }
+    ]
+  }
+}

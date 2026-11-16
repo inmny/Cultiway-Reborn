@@ -134,6 +134,32 @@ def resolve(entries, name):
     return matches[0]
 
 
+def read_constructions(path):
+    """在文件入口读取完整资料；目录按相对路径排序，重复编号直接拒绝。"""
+    files = sorted(path.rglob("*.json")) if path.is_dir() else [path]
+    if not files:
+        raise ValueError(f"构造目录没有 JSON 文件：{path}")
+    entries, identifiers = [], set()
+    for file in files:
+        definition = json.loads(file.read_text(encoding="utf-8"))
+        if not isinstance(definition, dict) or not isinstance(definition.get("Id"), str) or not definition["Id"].strip():
+            raise ValueError(f"构造资料须为带非空 Id 的对象：{file}；完整规则由游戏内编译器检查")
+        identifier = definition["Id"]
+        if identifier in identifiers:
+            raise ValueError(f"构造编号重复：{identifier}；文件：{file}")
+        identifiers.add(identifier)
+        entries.append(dict(id=identifier, name=definition.get("Name") or identifier, group="新构造验证",
+                            construction=definition, constructionSource=file.relative_to(path).as_posix() if path.is_dir() else file.name))
+    return entries
+
+
+def construction_cases(entries, single_file):
+    """每段携带自己的完整输入，继续共用录制、续录和目录生成。"""
+    return [dict(entry, key="construction" if single_file else f"construction-{index:04d}",
+                 label="真实施放", variant=0, modifiers=[], trajectory="构造资料")
+            for index, entry in enumerate(entries, 1)]
+
+
 def modifier_spec(text, catalog):
     """词条写作 巨化:Value=1.8，省略参数则使用游戏默认值。"""
     name, _, parameters = text.partition(":")
@@ -305,7 +331,7 @@ def main(all_spells):
     parser.add_argument("--list", action="store_true", help="列出游戏中的法术、词条与轨迹")
     parser.add_argument("--inventory", action="store_true", help="导出全部登记、法宝被动事件、器官引用及迁移清单，不施法或录像")
     parser.add_argument("--resource-probe", action="store_true", help="验证共用形体、材质和连续姿态，单独标记为开发资源验证")
-    parser.add_argument("--construction", type=Path, help="通过正式已学能力入口演示指定的新构造资料，不要求预先登记")
+    parser.add_argument("--construction", type=Path, help="构造 JSON 文件或目录；目录递归遍历，单招入口可按名称或编号选择")
     parser.add_argument("--opponent-construction", type=Path, help="构造演示中让敌方目标经正式入口同时施放另一份构造，用于交锋和损耗验证")
     parser.add_argument("--isolate-target", action="store_true", help="构造演示只保留主目标在交锋区域，其他测试人物移到远处")
     parser.add_argument("--launch", action="store_true", help="没有运行中的游戏时，用独立配置启动")
@@ -349,6 +375,31 @@ def main(all_spells):
     CONTROL.mkdir(parents=True, exist_ok=True)
     recording_requested = False
     try:
+        constructions = read_constructions(args.construction) if args.construction else None
+        if constructions is not None:
+            if args.resource_probe or args.inventory or args.scene != "single":
+                raise ValueError("构造演示请使用单招场景，不与资源探针或清单导出同时运行")
+            if args.modifier or args.trajectory or args.variant or args.variants != "first" or args.cases not in {"base", "base,modifiers,trajectory"}:
+                raise ValueError("构造的词条和轨迹变化请写入各自资料；旧词条、轨迹和动画变体参数只用于旧法术")
+            if args.list:
+                for entry in constructions:
+                    print(f"{entry['name']}\t{entry['id']}\t{entry['constructionSource']}")
+                return
+            if not all_spells:
+                if args.spell:
+                    constructions = [resolve(constructions, args.spell)]
+                elif args.construction.is_dir():
+                    raise ValueError("请指定目录中的构造名称或编号，或用 demo_all.py 遍历整个目录")
+            if args.filter:
+                needles = args.filter.casefold().split(",")
+                constructions = [entry for entry in constructions if any(needle in (entry["id"] + entry["name"]).casefold() for needle in needles)]
+            if not constructions:
+                raise ValueError("筛选后没有构造资料")
+        opponent = read_constructions(args.opponent_construction) if args.opponent_construction else None
+        if opponent is not None:
+            if len(opponent) != 1 or any(entry["id"] == opponent[0]["id"] for entry in constructions):
+                raise ValueError("对手构造需要独立的单份资料，编号不能与本批任何主构造重复")
+            opponent = opponent[0]["construction"]
         starting_version, _ = version_stamp()
         catalog = connect(args.launch)
         if args.inventory:
@@ -362,16 +413,8 @@ def main(all_spells):
                 for entry in catalog[category]:
                     print(entry["name"], entry["id"], entry.get("parameters", ""))
             return
-        construction = json.loads(args.construction.read_text(encoding="utf-8")) if args.construction else None
-        if args.construction and (not isinstance(construction, dict) or not isinstance(construction.get("Id"), str) or not construction["Id"].strip()):
-            raise ValueError("构造资料必须是带有非空 Id 的对象，完整规则由游戏内编译器检查")
-        opponent = json.loads(args.opponent_construction.read_text(encoding="utf-8")) if args.opponent_construction else None
-        if opponent is not None and (not isinstance(opponent, dict) or not isinstance(opponent.get("Id"), str) or not opponent["Id"].strip() or opponent["Id"] == construction["Id"]):
-            raise ValueError("对手构造需要独立且非空的编号，不能覆盖主构造")
-        if args.construction and (args.resource_probe or args.scene != "single"):
-            parser.error("指定构造请使用单招场景，不与资源探针同时运行")
-        if construction:
-            spells = [dict(id=construction["Id"], name=construction.get("Name") or construction["Id"], group="新构造验证")]
+        if constructions is not None:
+            spells = constructions
         elif args.resource_probe:
             spells = [dict(id="Cultiway.ResourceProbe", name="形体资源接入验证", group="开发资源验证")]
         elif all_spells:
@@ -387,9 +430,8 @@ def main(all_spells):
             spells = [resolve(catalog["spells"], args.spell)]
         if not spells:
             parser.error("筛选后没有法术")
-        if construction:
-            cases, skipped = [dict(key="construction", id=spells[0]["id"], name=spells[0]["name"],
-                group="新构造验证", label="真实施放", variant=0, modifiers=[], trajectory="构造资料")], []
+        if constructions is not None:
+            cases, skipped = construction_cases(constructions, args.construction.is_file()), []
         elif args.resource_probe:
             cases, skipped = [dict(key="resource-probe", id="Cultiway.ResourceProbe", name="形体资源接入验证",
                 group="开发资源验证", label="模型与材质", variant=0, modifiers=[], trajectory="共同姿态")], []
@@ -414,12 +456,11 @@ def main(all_spells):
         if latest > catalog["processStarted"]:
             raise ValueError("游戏启动后代码或资源发生了修改，请重启游戏再录制，避免把旧程序录为新效果")
         manifest = dict(version=version, cases=cases, skipped=skipped, duration=args.duration, fps=args.fps, power=args.power, realm=args.realm, zoom=args.zoom, view=args.view, lighting=args.lighting, scene=args.scene, diagnostics=args.diagnostics, speed=args.speed, battleArtifact=battle_artifact)
-        if construction:
+        if constructions is not None:
             manifest["casterWalk"] = args.caster_walk
             manifest["targetOffset"] = args.target_offset
             manifest["isolateTarget"] = args.isolate_target
             manifest["terrainSlope"] = args.terrain_slope
-            manifest["construction"] = construction
             if opponent is not None:
                 manifest["opponentConstruction"] = opponent
         if (output / "manifest.json").exists():
@@ -447,7 +488,7 @@ def main(all_spells):
         remaining = [case for case in cases if not (args.resume and (output / case["key"] / "demo.mp4").exists())]
         for case in remaining:
             (output / case["key"] / "result.json").unlink(missing_ok=True)
-        request = dict(manifest, id=str(time.time_ns()), action="construction" if construction else "resources" if args.resource_probe else "record", output=str(output), cases=remaining)
+        request = dict(manifest, id=str(time.time_ns()), action="construction" if constructions is not None else "resources" if args.resource_probe else "record", output=str(output), cases=remaining)
         write_json(CONTROL / "request.json", request)
         recording_requested = True
         print(f"开始：{len(spells)} 个演示项目，{len(remaining)} 段待录；输出 {output}", flush=True)
@@ -501,7 +542,7 @@ def main(all_spells):
         if recording_requested:
             (CONTROL / "cancel").touch()
         parser.exit(130, "已请求游戏结束演示并恢复界面。\n")
-    except (RuntimeError, ValueError, subprocess.CalledProcessError) as error:
+    except (OSError, RuntimeError, ValueError, subprocess.CalledProcessError) as error:
         if recording_requested:
             (CONTROL / "cancel").touch()
         parser.exit(1, str(error) + "\n")

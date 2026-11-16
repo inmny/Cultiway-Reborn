@@ -1493,3 +1493,27 @@ python3 Scripts/SpellDemos/verify_nature_selection.py --section runtime
 `--section cast`只补一份可支付的实际创作、正式施放、退出及成品保存；`--section flow`只核对原操作／命名步骤的真实水流排除和其他普通部位继续可选。初次交付的分段补验还支持`tail`、`requests`与`save`，分别跳过已经通过的运动前段、全部运动段、运动及命名派生段；运行范围以实际输入及`checks.json`为准，不把这些结果视为一次全段成功。
 
 证据索引为`artifacts/skill_rebuild/trajectories/flight-creation/delivery.json`。若系统硬件图形上下文不可用，本机可用`env __GLX_VENDOR_LIBRARY_NAME=mesa LIBGL_ALWAYS_SOFTWARE=1`作为命令前缀完成定向功能验证，不能据此验收性能或最终美术。统一演示批量输入、其余作用字段、正式冷启动及集中连续录像继续5.05 C，不扩大身体装备样本。
+
+## 5.05 C3：目录遍历与单份构造演示
+
+`--construction`现在接受单个构造JSON或一个目录。目录递归读取全部`*.json`，按相对文件路径排序；每份必须是独立的`AbilityDefinition`对象，不能混入清单或结果文件。文件缺少编号、编号重复、目录为空时，在发送游戏请求之前拒绝。完整的形体、作用和资源规则仍由正式编译器检查。
+
+```bash
+# 列出目录，不连接游戏
+python3 Scripts/SpellDemos/demo_all.py --construction Scripts/SpellDemos/fixtures/construction-batch --list
+
+# 逐份正式学习、施放、录制，生成各段录像与合并总览
+python3 Scripts/SpellDemos/demo_all.py --construction /绝对路径/构造目录 --output /绝对路径/录像目录
+
+# 在目录中指定一份；支持中文名、完整编号或编号末段
+python3 Scripts/SpellDemos/demo_spell.py 批量曲线 --construction Scripts/SpellDemos/fixtures/construction-batch --target-offset 8 0 --output /绝对路径/单份录像
+
+# 单文件入口继续可用
+python3 Scripts/SpellDemos/demo_spell.py --construction /绝对路径/法术.json --output /绝对路径/单份录像
+```
+
+目录遍历支持`--filter`与`--resume`；续录比较每份资料的完整内容，修改输入须用新目录或重新录制。每段的`definition.json`、`result.json`和`demo.mp4`分别保存输入、正式施放事实和录像，批次的`manifest.json`包含完整选择与参数。构造的变化写入各份资料，旧法术的词条、轨迹和动画变体参数不能用于构造演示。构造仍需适合选定目标及场景；需要环境条件的招式应准备对应条件，不能把施放被拒绝或没有实际作用当作通过。
+
+每份构造开始时载入同一个现成测试世界，避免人物职业、冷却、持续材料与前一招串场；结束、取消或失败后再次恢复夹具，清除演示人物与临时构造，归还控制并恢复界面。`status.json`的`sceneRestored`标明这一步是否实际完成。失败时保留当前输入、已完成片段与错误，确认收尾后再运行下一批，不需要重启游戏。
+
+定向验证入口是`python3 Scripts/SpellDemos/verify_construction_batch.py`：只使用两份固定的普通资料，覆盖斗气直行→真元曲线的遍历、名称指定、一次非法模型拒绝与后续恢复，以及相同输入续录。使用独立安装、现成世界和同一进程；图形环境不可用时，可加`env __GLX_VENDOR_LIBRARY_NAME=mesa LIBGL_ALWAYS_SOFTWARE=1`完成此功能验证。证据在`artifacts/skill_rebuild/trajectories/construction-batch/`。这些是演示工具的功能录像，流派最终美术与性能不在本批验收范围。
