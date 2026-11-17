@@ -1,0 +1,160 @@
+// 5.06真实支付和接触，分枝、曲面与停止分别运行，不重跑身体装备矩阵。
+Actor source = Make(64), enemy = Make(72, "wolf");
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+string model = scenario == "surface" ? "water_wave" : "root_network";
+var definition = new AbilityDefinition
+{
+    Id = "test.progressive-formation." + scenario, Name = "逐段成形实际作用", Cost = 3, Cooldown = .1f,
+    Power = 10, Lifetime = 4.5f, TargetRange = 100,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = true, Height = .02f },
+    Root = new ConstructionNode
+    {
+        Id = "growing", Form = model, Matter = model == "water_wave" ? "water" : "wood",
+        Scale = model == "water_wave" ? .1f : .8f,
+        // 浪体在身前建立，避免近身人物挤压把待测目标推出未来作用面。
+        Offset = model == "water_wave" ? new[] { 0f, 0f, 2f } : new float[3],
+        Operations = new[] { new ConstructionOperation { Id = "formation", Kind = ConstructionOperationKind.Animate, Clip = "form", Seconds = 2 } },
+        Children = new[] { new ConstructionNode { Id = "tip", Form = "sword", Matter = "iron", Scale = .12f,
+            Anchor = model == "water_wave" ? "surface_3" : "tip_2", ContactRole = ConstructionContactRole.Decoration } }
+    },
+    Steps = new[] { new ConstructionStep
+    {
+        Id = "after_formation", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "iron" },
+        Inputs = new Dictionary<string, ConstructionOutputReference>
+        {
+            ["part"] = new() { Node = "root" },
+            ["after"] = new() { Node = "root", Operation = "formation", Output = "animation", Stage = ConstructionOutputStage.Completed }
+        }
+    } }
+};
+// 分枝与浪体使用各自公布的前向和上向，先将模型坐标转入连接的出手坐标。
+var description = FormResources.Load(model).Description;
+Vector3 modelForward = new Vector3(description.Forward[0], description.Forward[1], description.Forward[2]);
+Vector3 modelUp = new Vector3(description.Up[0], description.Up[1], description.Up[2]);
+Vector3 localAngles = Quaternion.Inverse(Quaternion.LookRotation(modelForward, modelUp)).eulerAngles;
+definition.Root.Rotation = new[] { localAngles.x, localAngles.y, localAngles.z };
+if (scenario == "stopped") definition.Root.OnContact = ConstructionContactResponse.Stop;
+var plan = AbilityCompiler.Compile(definition, false);
+File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+var active = new List<AbilityCast>();
+void Started(ConstructedCastStarted value)
+{
+    if (value.SourceId != source.id || value.AbilityId != definition.Id) return;
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == value.CastId) active.Add((AbilityCast)Field(running, "Cast"));
+}
+ConstructedAbilityService.CastStarted += Started;
+List<FormVisualInstance> Views(AbilityCast cast) { var values = new List<FormVisualInstance>(); cast.AppendVisuals(values); return values; }
+List<AbilityCapsule> Shapes(AbilityCast cast) { var values = new List<AbilityCapsule>(); cast.AppendContacts(values); return values; }
+float[] V(Vector3 value) => new[] { value.x, value.y, value.z };
+async Task Shot(string name)
+{
+    World.world.camera.transform.position = new Vector3(67, 72, 0); MoveCamera.instance.forceZoom(12);
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    for (int i = 0; i < 3; i++) await Game.NextFrame();
+    Screen.Capture(Path.Combine(folder, name + ".png")); await Game.NextFrame();
+}
+try
+{
+    Ready(source); await Advance(.2f); Place(source, 64); Place(enemy, 72);
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, enemy); owner.E.RemoveComponent<ConstructedKnowledge>();
+    float paid = balance - owner.GetCultisys<Xian>().wakan;
+    await Advance(.12f); var live = active.Single();
+    Check(Math.Abs(paid - definition.Cost) < .001f && Views(live).Single().BuildProgress < .2f,
+        "成形招式正式受理并按原费用支付，实际进度从未成形开始", new { paid, live.Age });
+    if (scenario == "stopped")
+    {
+        await Advance(.5f);
+        var earlyShape = Shapes(live).First(shape => shape.Node == 0);
+        Vector3 touch = (earlyShape.A + earlyShape.B) * .5f;
+        Place(enemy, touch.x, touch.y);
+        await Advance(.3f); float stopped = Views(live).Single().BuildProgress;
+        Check(contacts.Any(contact => contact.AbilityId == definition.Id && contact.TargetId == enemy.id) &&
+            stopped > .2f && stopped < .5f && live.NodeAge(1) < 0,
+            "真实接触使分枝停止在半成形阶段，末端子体继续等待", new { stopped, target = V(touch) });
+        await Advance(1.5f);
+        Check(Math.Abs(Views(live).Single().BuildProgress - stopped) < .0001f &&
+            live.StepStateOf("after_formation") == ConstructionStepState.Interrupted && live.NodeAge(1) < 0 && live.Matter(0).Id == "wood",
+            "经过原完成时点后保留中断事实，换材和末端附属均不提前执行",
+            new { state = live.StepStateOf("after_formation").ToString(), progress = Views(live).Single().BuildProgress });
+        await Shot("stopped");
+    }
+    else
+    {
+        var input = (AbilityInputs)Field(live, "inputs");
+        AbilityCast Sample(float age)
+        {
+            var cast = new AbilityCast(plan, Matrix4x4.identity, inputs: input); cast.Advance(age, input.Target); return cast;
+        }
+        var full = Shapes(Sample(2.01f)).Where(shape => shape.Node == 0).ToArray();
+        var early = new[] { .2f, .4f, .6f, .8f }.SelectMany(age => Shapes(Sample(age))).Where(shape => shape.Node == 0).ToArray();
+        object Shape(AbilityCapsule value) => new { value.Shape, a = V(value.A), b = V(value.B), value.Radius };
+        File.WriteAllText(Path.Combine(folder, "sampled-shapes.json"), JsonConvert.SerializeObject(new
+        { source = V(input.Source), target = V(input.Target), full = full.Select(Shape), early = early.Select(Shape) }, Formatting.Indented));
+        var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+        float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { enemy });
+        var bodyMethod = service.GetMethod("ActorContact", F);
+        var sweep = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityPairSweep").GetMethod("Find", F);
+        bool Touch(AbilityCapsule shape, AbilityCapsule body) => (bool)sweep.Invoke(null,
+            new object[] { shape, shape, body, body, 0f, Vector3.zero, Vector3.zero });
+        Vector3? selected = null; int shapeIndex = -1;
+        foreach (var shape in full.OrderByDescending(value => value.Shape))
+        {
+            foreach (float along in new[] { .5f, .15f, .85f })
+            {
+                Vector3 point = Vector3.Lerp(shape.A, shape.B, along);
+                Vector3 foot = new Vector3(point.x, point.y, input.Source.z);
+                var body = (AbilityCapsule)bodyMethod.Invoke(null, new object[] { foot, height, Vector3.zero });
+                if (Touch(shape, body) && !early.Any(value => Touch(value, body))) { selected = foot; shapeIndex = shape.Shape; break; }
+            }
+            if (selected.HasValue) break;
+        }
+        Check(selected.HasValue, "从实际最终作用形状选取未形成区域，目标身体与早期形状保持分离",
+            new { height, shapeIndex, selected = selected.HasValue ? V(selected.Value) : null });
+        Place(enemy, selected.Value.x, selected.Value.y); int hp = enemy.data.health;
+        await Advance(.6f);
+        Check(enemy.data.health == hp && !contacts.Any(contact => contact.AbilityId == definition.Id && contact.TargetId == enemy.id) &&
+            Vector2.Distance(enemy.current_position, new Vector2(selected.Value.x, selected.Value.y)) < .02f &&
+            live.NodeAge(1) < 0 && live.StepStateOf("after_formation") == ConstructionStepState.Waiting,
+            "目标仍在未来作用面，未形成区域无伤害且末端与完成后换材等待", new
+            { hp, after = enemy.data.health, live.Age, position = new[] { enemy.current_position.x, enemy.current_position.y }, progress = Views(live).Single().BuildProgress });
+        await Shot("unformed");
+        await Advance(1.5f);
+        await Game.NextFrame();
+        File.WriteAllText(Path.Combine(folder, "runtime-sample.json"), JsonConvert.SerializeObject(new
+        {
+            targetId = enemy.id, position = new[] { enemy.current_position.x, enemy.current_position.y, enemy.position_height },
+            sourceDamage = source.stats["damage"], shapes = Shapes(live).Select(Shape),
+            contacts = contacts.Select(contact => new { contact.AbilityId, contact.TargetId, contact.Node, contact.Age, contact.DamageAttempted })
+        }, Formatting.Indented));
+        Check(enemy.data.health < hp && contacts.Any(contact => contact.AbilityId == definition.Id && contact.TargetId == enemy.id) &&
+            live.NodeAge(1) >= 0 && live.StepStateOf("after_formation") == ConstructionStepState.Completed &&
+            live.Matter(0).Id == "iron", "同一区域形成后真实命中，实际完成再启动末端与换材", new
+            {
+                hp, after = enemy.data.health, live.Age, tipAge = live.NodeAge(1), matter = live.Matter(0).Id,
+                state = live.StepStateOf("after_formation").ToString(), progress = Views(live).First().BuildProgress,
+                animationCompleted = live.TryGetOperationOutput("root", "formation", "animation", out var animation),
+                animationAt = animation.At
+            });
+        await Shot("formed");
+    }
+    await Advance(definition.Lifetime + .2f);
+    Check(live.Finished && endings.Any(value => value.Fact.AbilityId == definition.Id && !value.Fact.Cancelled) &&
+        !BodyControlState.IsBusy(source.id), "成形过程自然结束并无控制残留");
+    Place(source, 64); Place(enemy, 72); balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, enemy); owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(active.Count == 2 && Math.Abs(balance - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f,
+        "结束后同一成品可再次实际支付和施放");
+    await Advance(definition.Lifetime + .2f);
+    Check(active.Last().Finished, "再次施放也能自然结束");
+    return new { passed = true, closed = scenario + "逐段成形的真实作用与过程衔接", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+}

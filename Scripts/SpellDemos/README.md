@@ -1669,8 +1669,16 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 此交付入口默认使用普通独立安装，Worldfall组会正常退出当前游戏，再复用已有`artifacts/skill_rebuild/view-switch/environment/cultiway`兼容安装。`--installation`可明确指定独立安装根目录，续接时选择原记录的同一安装。原版掌击近景使用普通安装，三维组使用兼容安装，各组保留实际版本。
 
 
-### 5.06　逐段成形的创作接入
+### 5.06　逐段成形的限定复验
 
-通过develop的独立环境执行`python3 .agents/skills/develop/scripts/dev.py exec -- python3 Scripts/SpellDemos/verify_progressive_formation.py`。默认all检查实际成形输入、分枝与曲面的独立创作、原术衍生、固定输入重现、尺寸和旧规则22请求恢复。`--section creation`只检查新版创作，`--section legacy`只补旧请求段。
+通过develop的独立环境执行`python3 .agents/skills/develop/scripts/dev.py exec -- python3 Scripts/SpellDemos/verify_progressive_formation.py`。默认all按顺序执行普通分段。日常只执行受本次修改影响的分段，已经通过的内容保留原结果。
 
-入口显式将现成世界和真实旧样例传到本次独立输出，结果位于`CULTIWAY_DEV_OUTPUT/progressive-formation/<section>`，开发工具同时保留命令、实际输入与原始响应。此阶段不表示5.06整项完成，实际运行、窗口及正式冷启动和录像继续该项的固定交付条件。
+- `--section creation`检查实际成形输入、分枝与曲面独立创作、原术衍生、固定输入重现及尺寸。
+- `--section legacy`检查真实规则22等待请求升级后的完整结果和费用。
+- `--section ui`通过原窗口控件选择模型、动作与历时，编辑完成依赖，验证拒绝、撤销及保存再打开，并保存中英文截图。
+- `--section branch`和`--section surface`分别检查真实施放中的未来区域、形成后命中、末端等待、完成换材、支付及结束恢复。
+- `--section stopped`检查真实接触使半成形分枝停止、后续中断、末端继续等待，以及结束后再次施放。
+- `--section save`生成正式新旧等待世界，验证保存读取、各授予一次、新成品实际使用，再保存完成世界。
+- `--section cold --state <上次save输出目录>`在同一环境停止再启动后单独执行，核对磁盘等待输入与跨进程恢复。载入帧可以已完成请求，仍须保持完整结果和各授予一次，并核对完成世界去重。
+
+入口显式将现成世界和真实旧样例传到本次独立输出，结果位于`CULTIWAY_DEV_OUTPUT/progressive-formation/<section>`，开发工具同时保留命令、实际输入与原始响应。cold会复制上次保存资料并提取实际地图中的等待区段。此阶段5.06整项仍未完成，集中录像继续该项的固定交付条件。

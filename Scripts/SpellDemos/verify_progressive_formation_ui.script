@@ -1,0 +1,100 @@
+// 5.06只验证成形资源、真实动作和完成依赖的现有窗口入口。
+Actor source = Make(64);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var definition = new AbilityDefinition
+{
+    Id = "test.progressive-formation.editor", Name = "逐段成形编辑", Cost = 3, Cooldown = .1f,
+    Lifetime = 5, TargetRange = 100,
+    Root = new ConstructionNode { Id = "stem", Form = "branch", Matter = "wood", Scale = .4f }
+};
+ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+LocalizedTextManager.instance.setLanguage("cz"); WindowWanfaConstructionEditor.Open(definition.Id, source);
+async Task Frames(int count = 3)
+{
+    for (int i = 0; i < count; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300); Canvas.ForceUpdateCanvases();
+}
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+Button B(string name) => editor.GetComponentsInChildren<Button>(false).First(button => button.name == name);
+void Click(string name)
+{
+    if (!B(name).interactable) throw new InvalidOperationException("按钮不可用：" + name);
+    B(name).onClick.Invoke();
+}
+WanfaEditorRow Row(string key) => editor.GetComponentsInChildren<WanfaEditorRow>(false)
+    .First(row => ((Text)Field(row, "_title")).text == T(key));
+void Action(string key) => ((Button)Field(Row(key), "_action")).onClick.Invoke();
+void Set(string key, string value)
+{
+    var input = editor.GetComponentsInChildren<InputField>(false).First(field => field.name == key);
+    input.text = value; input.onEndEdit.Invoke(value);
+}
+void Choose(string key, Func<string, bool> match)
+{
+    Action(key);
+    editor.GetComponentsInChildren<Button>(false).Single(button => button.name.StartsWith("Option") &&
+        match(button.GetComponentInChildren<Text>().text)).onClick.Invoke();
+}
+void Option(string key, string value) => Choose(key, text => text == T(value));
+async Task ShotRow(string key, string name)
+{
+    await Frames(); var row = (RectTransform)Row(key).transform; var scroll = row.GetComponentInParent<ScrollRect>();
+    Vector3 local = scroll.content.InverseTransformPoint(row.TransformPoint(row.rect.center));
+    float offset = scroll.content.rect.yMax - local.y - scroll.viewport.rect.height * .5f;
+    scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(offset / Mathf.Max(1f, scroll.content.rect.height - scroll.viewport.rect.height));
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(4); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+try
+{
+    Click("Page0"); Option("Form", "Form.root_network");
+    Click("Page5"); Option("AddNativeOperation", "MotionKind.Animate");
+    Set("OperationName", "formation");
+    int clipIndex = Array.FindIndex(FormResources.Load("root_network").Description.Motions, motion => motion.Id == "form");
+    Action("ProcessClip");
+    editor.GetComponentsInChildren<Button>(false).Single(button => button.name == "Option" + clipIndex).onClick.Invoke();
+    Set("ProcessSeconds", "1.2");
+    Check(Session().Draft.Root.Form == "root_network" && Session().Draft.Root.Operations.Single().Clip == "form" &&
+        Session().Draft.Root.Operations.Single().Seconds == 1.2f, "分枝模型、真实成形动作和历时可由原窗口选用");
+    await ShotRow("ProcessClip", "formation-cz");
+    Option("StepScope", "StepScope.Named"); Option("AddStep", "MotionKind.ConvertMatter");
+    Set("StepName", "after_formation");
+    Choose("StepInput.after", text => text.Contains(" / formation") && text.EndsWith(" · " + T("StepOutput.animation")));
+    Option("StepInputStage.after", "StepStage.Started");
+    Option("StepInputStage.after", "StepStage.Completed");
+    Click("Undo");
+    Check(Session().Draft.Steps.Single().Inputs["after"].Stage == ConstructionOutputStage.Started, "完成依赖可撤销回真实开始阶段");
+    Click("Redo");
+    Check(Session().Draft.Steps.Single().Inputs["after"].Stage == ConstructionOutputStage.Completed, "重做恢复真实动作完成门槛");
+    await ShotRow("StepInputStage.after", "completion-cz");
+    Click("Page0"); Option("Form", "Form.water_wave");
+    Check(B("Replace").interactable && Session().Draft.Root.Operations.Single().Clip == "form", "曲面模型沿用实际同名成形动作和原完成引用");
+    Option("Form", "Form.branch");
+    Check(!B("Replace").interactable && !B("LearnCopy").interactable && ((Text)Field(editor, "state")).text.Length > 0,
+        "没有成形动作的模型明确报错并阻止正式保存");
+    Click("Undo");
+    Check(B("Replace").interactable && Session().Draft.Root.Form == "water_wave", "撤销误选后恢复可保存的成形结构");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page5");
+    Option("StepScope", "StepScope.Native"); await ShotRow("ProcessClip", "formation-en");
+    Option("StepScope", "StepScope.Named"); await ShotRow("StepInputStage.after", "completion-en");
+    Click("Replace"); var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(saved.Root.Form == "water_wave" && saved.Root.Operations.Single().Seconds == 1.2f &&
+        saved.Steps.Single().Inputs["after"].Stage == ConstructionOutputStage.Completed, "正式覆盖保留模型、历时和完成依赖");
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    string savedJson = JsonConvert.SerializeObject(saved);
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(saved.Id, source); await Frames();
+    Check(JsonConvert.SerializeObject(Session().Draft) == savedJson, "关闭再打开保持完整正式成品");
+    return new { passed = true, closed = "逐段成形窗口选择、依赖编辑和保存恢复", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}

@@ -1,0 +1,69 @@
+// 必须读取不同进程保存的正式世界，保留等待输入及完成后的去重。
+string state = Path.Combine(folder, "input-state");
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(state, "pending-expected.json")));
+Check((int)expected["process"] != System.Diagnostics.Process.GetCurrentProcess().Id, "当前进程与保存等待世界的进程不同");
+long sourceId = (long)expected["sourceId"], legacyId = (long)expected["legacyId"];
+var access = ConstructionEditing.Access;
+JObject Canon(AbilityDefinition value) { var json = JObject.FromObject(value); json.Remove("Id"); json.Remove("Creator"); return json; }
+async Task Load(string directory)
+{
+    World.world.save_manager.loadWorld(Path.Combine(state, directory));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+}
+try
+{
+    var stored = JObject.Parse(File.ReadAllText(Path.Combine(folder, "pending-inputs.json")));
+    var storedCurrent = stored["current"]["data"]; var storedOld = stored["old"]["data"];
+    var oldFixture = JObject.Parse(File.ReadAllText(Path.Combine(folder, "rule22.json")))["section"]["data"];
+    var expectedResources = expected["pending"]["Resources"].ToObject<SynthesisResources>();
+    Check((int)stored["current"]["version"] == 24 && (bool)storedCurrent["Pending"] && (bool)storedOld["Pending"] &&
+        (int)storedCurrent["Inspiration"]["Rules"] == 23 && (int)storedOld["Inspiration"]["Rules"] == 22 &&
+        (int)storedCurrent["Seed"] == (int)expected["pending"]["Seed"] &&
+        JToken.DeepEquals(JObject.FromObject(storedCurrent["Inspiration"].ToObject<ConstructionInspiration>()), JObject.FromObject(expected["pending"]["Inspiration"].ToObject<ConstructionInspiration>())) &&
+        JToken.DeepEquals(JObject.FromObject(storedCurrent["Resources"].ToObject<SynthesisResources>()), JObject.FromObject(expectedResources)) &&
+        JToken.DeepEquals(Canon(storedCurrent["Source"].ToObject<AbilityDefinition>()), Canon(expected["pending"]["Source"].ToObject<AbilityDefinition>())) &&
+        (int)storedOld["Seed"] == (int)oldFixture["Seed"] &&
+        JToken.DeepEquals(JObject.FromObject(storedOld["Inspiration"].ToObject<ConstructionInspiration>()), JObject.FromObject(oldFixture["Inspiration"].ToObject<ConstructionInspiration>())) &&
+        JToken.DeepEquals(JObject.FromObject(storedOld["Resources"].ToObject<SynthesisResources>()), JObject.FromObject(oldFixture["Resources"].ToObject<SynthesisResources>())),
+        "实际磁盘世界保留新旧等待种子、原术及完整冻结模型输入");
+    await Load("pending-save");
+    var source = World.world.units.get(sourceId); var legacy = World.world.units.get(legacyId); var owner = source.GetExtend();
+    var pending = owner.GetComponent<ConstructedCreationState>(); var old = legacy.GetExtend().GetComponent<ConstructedCreationState>();
+    // 载入帧本身会处理队列，读取真实等待状态或已经授予的同一完整成品。
+    AbilityDefinition Result(Cultiway.Core.ActorExtend actor, ConstructedCreationState request) => request.Pending
+        ? ConstructedAbilityService.Generate(actor, request.Seed, request.Inspiration, request.Source, request.Resources)
+        : access.Read(request.LastAbility);
+    Check(pending.Inspiration.Rules == 23 && old.Inspiration.Rules == 22 && pending.LastFailure == null && old.LastFailure == null &&
+        JToken.DeepEquals(Canon(Result(owner, pending)), Canon(expected["predicted"].ToObject<AbilityDefinition>())) &&
+        JToken.DeepEquals(Canon(Result(legacy.GetExtend(), old)), Canon(expected["expectedOld"].ToObject<AbilityDefinition>())),
+        "真正冷启动恢复新旧等待输入、完整结果及费用", new
+        { currentPending = pending.Pending, currentRules = pending.Inspiration.Rules, oldPending = old.Pending, oldRules = old.Inspiration.Rules });
+    await Advance(.2f);
+    var completed = owner.GetComponent<ConstructedCreationState>(); var oldCompleted = legacy.GetExtend().GetComponent<ConstructedCreationState>();
+    Check(!completed.Pending && !oldCompleted.Pending && completed.LastFailure == null && oldCompleted.LastFailure == null &&
+        JToken.DeepEquals(Canon(access.Read(completed.LastAbility)), Canon(expected["predicted"].ToObject<AbilityDefinition>())) &&
+        JToken.DeepEquals(Canon(access.Read(oldCompleted.LastAbility)), Canon(expected["expectedOld"].ToObject<AbilityDefinition>())),
+        "跨进程后分别授予完整新旧成品");
+    await Advance(.2f);
+    Check(access.List(owner).Count == (int)expected["known"] + 1 && access.List(legacy.GetExtend()).Count == (int)expected["oldKnown"] + 1,
+        "冷启动恢复的等待请求各授予一次");
+    var finished = JObject.Parse(File.ReadAllText(Path.Combine(state, "completed-expected.json")));
+    await Load("completed-save");
+    source = World.world.units.get(sourceId); legacy = World.world.units.get(legacyId); owner = source.GetExtend();
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.setStatsDirty(); source.updateStats();
+    var learned = finished["learned"].ToObject<AbilityDefinition>(); var oldLearned = finished["oldLearned"].ToObject<AbilityDefinition>();
+    Check(ConstructedAbilityService.Knows(owner, learned.Id) && JToken.DeepEquals(Canon(access.Read(learned.Id)), Canon(learned)) &&
+        ConstructedAbilityService.Knows(legacy.GetExtend(), oldLearned.Id) && JToken.DeepEquals(Canon(access.Read(oldLearned.Id)), Canon(oldLearned)),
+        "完成世界冷启动保留完整成品、旧结果和人物掌握关系");
+    await Advance(.3f);
+    Check(!owner.GetComponent<ConstructedCreationState>().Pending && !legacy.GetExtend().GetComponent<ConstructedCreationState>().Pending &&
+        access.List(owner).Count == (int)finished["known"] && access.List(legacy.GetExtend()).Count == (int)finished["oldKnown"],
+        "完成世界载入后不恢复过期请求或重复授予");
+    File.WriteAllText(Path.Combine(folder, "loaded-definition.json"), JsonConvert.SerializeObject(access.Read(learned.Id), Formatting.Indented));
+    return new { passed = true, closed = "逐段成形正式等待与完成世界的跨进程恢复", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}
