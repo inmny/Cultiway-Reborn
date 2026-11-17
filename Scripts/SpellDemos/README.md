@@ -1758,3 +1758,5 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 正常退出后再次启动，执行`--section completed --state <上次ending-cold输出或合并归档>`。入口拒绝同一进程依据，核对三个完成世界各成品及原术关系、重复授予去重，再读取中途回收世界，检查原进度和已确认入账，仅继续剩余份额，保留未选中材料和原版永久地块。
 
 分段输出在`CULTIWAY_DEV_OUTPUT/ending-cold/<分段>/<组>`。分次通过时将同名通过组复制到一个归档根目录，再作为`--state`传入，原运行和失败记录继续保留。坐标与浮点资料按保存时的实际类型或相同JSON形式比较。最终连续双端录像继续C3b。
+
+C3a已交付，证据索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-cold/delivery.json`。原失败、各次分段通过以及正常退出后封存的日志一并保留，原版与Worldfall连续画面继续C3b。
