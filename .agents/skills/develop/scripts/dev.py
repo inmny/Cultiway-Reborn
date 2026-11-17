@@ -503,7 +503,8 @@ class Environment:
                     try:
                         stdout, stderr = process.communicate(timeout=timeout)
                     except BaseException:
-                        stop_validation_group(process)
+                        if process.returncode is None:
+                            stop_validation_group(process)
                         raise
                 (case / "stdout.log").write_text(stdout, encoding="utf-8")
                 (case / "stderr.log").write_text(stderr, encoding="utf-8")
