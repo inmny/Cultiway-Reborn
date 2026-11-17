@@ -1,0 +1,27 @@
+try
+{
+    Click("Page1"); Choose("GroundResponse", T("Ground.Ignore"));
+    Click("Page4"); ToggleValue("CustomImpact", true); Set("DamageScale", "0");
+    Choose("ContactPanel", T("ContactPanel.4")); Action("AddWorldContact");
+    Choose("WorldAction", T("WorldAction.terrain.raise")); Set("WorldMaximumTiles", "2");
+    Set("WorldMaterialVolume", "0.5");
+    Check(Session().Draft.Impact.WorldEffects.Single().MaterialVolume == .5f && B("Replace").interactable,
+        "原窗口设置每块真正改变所需的生成体积");
+    Set("WorldMaterialVolume", "-1"); Check(!B("Replace").interactable, "负数体积拒绝保存");
+    Click("Undo"); Check(Session().Draft.Impact.WorldEffects.Single().MaterialVolume == .5f && B("Replace").interactable,
+        "撤销恢复合法体积和保存状态");
+    await ShotRow("WorldMaterialVolume", "material-cz");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page0"); Click("Page4"); await ShotRow("WorldMaterialVolume", "material-en");
+    Click("Replace"); var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    string expected = JsonConvert.SerializeObject(saved);
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(saved.Id, source); await Frames();
+    Check(JsonConvert.SerializeObject(Session().Draft) == expected, "正式保存再打开保持材料交出与余量留置");
+    return new { passed = true, closed = "材料交出窗口、错误拒绝和正式保存重开", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    LocalizedTextManager.instance.setLanguage("cz"); Config.paused = true; ControllableUnit.clear(false);
+}

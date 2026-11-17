@@ -26,6 +26,10 @@ public sealed class ConstructionWorldEffect
 
     /// <summary>本部位此操作最多接受的不同地块数，达到后不再接受新地块。</summary>
     public int MaximumTiles = 4096;
+
+    /// <summary>每次真正改变地块时交出的生成体积，零沿用原有力或规则作用。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float MaterialVolume;
 }
 
 /// <summary>已经确认接触的实际世界操作，只在主线程提交，不进入长期资料。</summary>
@@ -140,6 +144,9 @@ public sealed class CompiledConstructionWorldEffect
     /// <summary>从原资料或原理默认值解析的持续秒数。</summary>
     public float Duration { get; }
 
+    /// <summary>本次成功必须交出的真实生成材料体积。</summary>
+    public double MaterialVolume { get; }
+
     /// <summary>沿用共同接触规则的数值副本。</summary>
     internal readonly CompiledContactPolicy Contact;
 
@@ -149,6 +156,10 @@ public sealed class CompiledConstructionWorldEffect
     {
         if (source == null || source.MaximumTiles < 1 || source.MaximumTiles > 1048576)
             throw new InvalidDataException(path + "：世界接触需要1至1048576个明确地块上限");
+        if (float.IsNaN(source.MaterialVolume) || float.IsInfinity(source.MaterialVolume) ||
+            source.MaterialVolume < 0 || source.MaterialVolume > 1e9f)
+            throw new InvalidDataException(path + "：每块所需生成体积须为0至十亿地图立方格");
+        MaterialVolume = source.MaterialVolume;
         Action = ConstructionWorldActions.Resolve(source.Action, path);
         if (source.Duration.HasValue && (Action.DefaultDuration == 0 ||
                                          float.IsNaN(source.Duration.Value) ||

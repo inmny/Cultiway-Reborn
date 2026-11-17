@@ -1345,5 +1345,12 @@
   "Cultiway.Construction.InventoryUseRules": "消耗确认",
   "Cultiway.Construction.InventoryUseRulesHint": "完成输出来自实际扣除，后续步骤可等待该结果。",
   "Cultiway.Construction.MotionKind.ConsumeInventory": "消耗库存材料",
-  "Cultiway.Construction.StepOutput.consumed": "材料已实际消耗"
+  "Cultiway.Construction.StepOutput.consumed": "材料已实际消耗",
+  "Cultiway.Construction.WorldMaterialVolume": "每块交出生成体积",
+  "Cultiway.Construction.WorldMaterialRules": "材料交出",
+  "Cultiway.Construction.NodeWorldMaterialVolume": "每块交出生成体积",
+  "Cultiway.Construction.NodeWorldMaterialRules": "材料交出",
+  "Cultiway.Construction.BodyWorldMaterialVolume": "每块交出生成体积",
+  "Cultiway.Construction.BodyWorldMaterialRules": "材料交出",
+  "Cultiway.Construction.WorldMaterialHint": "成功改变地块后才交出实际生成材料。体积不足时不执行，余量仍可留置或回收。0沿用原规则。"
 }

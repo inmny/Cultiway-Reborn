@@ -38,6 +38,8 @@ public sealed partial class WindowWanfaConstructionEditor
         }).ToArray()));
         Toggle(prefix + "WorldTileCentre", effect.TileCentreOnly, next => effect.TileCentreOnly = next);
         ContactInteger(prefix + "WorldMaximumTiles", effect.MaximumTiles, next => effect.MaximumTiles = next);
+        Number(prefix + "WorldMaterialVolume", effect.MaterialVolume, next => effect.MaterialVolume = next);
+        Row(prefix + "WorldMaterialRules", T("WorldMaterialHint"));
         if (actions.Any(action => action.Id == effect.Action && action.DefaultDuration > 0f))
         {
             float duration = actions.Single(action => action.Id == effect.Action).DefaultDuration;

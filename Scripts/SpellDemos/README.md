@@ -1731,3 +1731,11 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 `runtime`读取已通过窗口成品，由另一位修士真实支付及扣料，确认完成后生长、缺料不扣费、补料恢复及自然结束。可用`--ui <已通过ui目录>`复用输入。`legacy`检查真实旧规则25完整结果与费用。`save`使用已通过的创作输入，正式保存和读取新旧等待请求，各授予一次，新成品实际使用后再次保存。可用`--creation <已通过creation目录>`复用输入。
 
 六段分别通过，证据索引为`/home/inmny/.local/state/cultiway-dev/evidence/inventory-creation/delivery.json`。B关闭，5.11 C继续永久世界结果、真正冷启动和集中连续双端录像。
+
+### 5.11 C1　生成材料交给原版永久结果
+
+通过develop执行`python3 Scripts/SpellDemos/verify_material_transfer.py --section ui|runtime|save|precision|all`。`ui`从原窗口设置每次成功改变地块所需的体积，检查非法值、撤销、中英文及正式保存再打开。`runtime`读取窗口成品，验证真实抬地、有限水格填入原版水地块、实际扣除及余量留置，以及世界用途预估、体积不足、原版确认失败和再次使用。`save`正式读取已经成功保存的原版结果和剩余材料，核对身份、来源、体积、未耗支付份额及去重，再保存恢复世界。`precision`核对实体和水格的极小份额拒绝、正常扣除及预测回退，以及真实身体的材料限制。
+
+`runtime --ui <已通过ui目录>`和`save --state <已通过runtime目录>`可复用原输入。各段输出在`CULTIWAY_DEV_OUTPUT/material-transfer/<分段>`。同段失败的原运行保留，仅补尚未关闭的缺口。真正冷启动及双端连续录像集中于C3。
+
+`precision`同样支持`--ui`。C1各分段通过，证据索引为`/home/inmny/.local/state/cultiway-dev/evidence/material-transfer/delivery.json`。旧世界收益清空整份本金与新按体积扣除的冲突已修正，所有准备错误及实际分段结果保留。C2继续自主创作，5.11保持未完成。

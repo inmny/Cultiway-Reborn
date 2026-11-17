@@ -1,0 +1,33 @@
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "saved-expected.json")));
+var world = new List<ConstructedWorldContact>(); var materials = new List<WorldMaterialChange>();
+void WorldHit(ConstructedWorldContact fact) => world.Add(fact);
+void Material(WorldMaterialChange fact) => materials.Add(fact);
+ConstructedAbilityService.WorldContactConfirmed += WorldHit; WorldMaterialService.Changed += Material;
+try
+{
+    World.world.save_manager.loadWorld(Path.Combine(folder, "successful-save"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    var tiles = (JArray)expected["tiles"];
+    Check(tiles.All(tile => World.world.GetTileSimple((int)tile["X"], (int)tile["Y"]).main_type.id == (string)tile["main"]),
+        "正式世界保留已交出的原版抬地及水地块");
+    JArray Records() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "material-transfer-save"))["sections"]["world_materials"]["data"]["Records"];
+    var records = Records(); var before = (JArray)expected["records"];
+    Check(records.Count == before.Count && before.All(old => records.Any(row => (long)row["Id"] == (long)old["Id"] &&
+        (long)row["Provider"] == (long)old["Provider"] && (long)row["Identity"] == (long)old["Identity"] &&
+        Math.Abs((double)row["Material"]["Volume"] - (double)old["Material"]["Volume"]) < .00001 &&
+        Math.Abs((double)row["Material"]["Resource"] - (double)old["Material"]["Resource"]) < .00001)),
+        "正式恢复保留独立余量身份、来源、体积和未耗支付份额");
+    await Advance(.3f);
+    Check(world.Count == 0 && materials.All(fact => fact.Kind != "leave" && fact.Kind != "credit"),
+        "旧施放不重放原版操作，不补发已转交材料或回收本金");
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "restored-save"));
+    File.WriteAllText(Path.Combine(folder, "restored-records.json"), Records().ToString());
+    return new { passed = true, closed = "原版永久结果与实际余量正式存读去重", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.WorldContactConfirmed -= WorldHit; WorldMaterialService.Changed -= Material;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(new { world, materials }, Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}

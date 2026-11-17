@@ -110,7 +110,9 @@ public sealed partial class ConstructedAbilityService
 
             int node = hit.Left.To.Node;
             RecordWorldAttempt(running, node, hit.WorldEffect, hit.Tile);
-            string action = cast.Impact(node).WorldEffects[hit.WorldEffect].Action.Id;
+            var rule = cast.Impact(node).WorldEffects[hit.WorldEffect];
+            cast.UseWorldMaterial(node, hit.Left.To.Shape, rule.MaterialVolume, hit.Point, out _);
+            string action = rule.Action.Id;
             if (!result.Tiles.TryGetValue(action, out var ids)) result.Tiles.Add(action, ids = new());
             ids.Add(hit.Tile.tile_id);
 

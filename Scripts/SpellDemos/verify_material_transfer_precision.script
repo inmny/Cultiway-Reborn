@@ -1,0 +1,43 @@
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "saved-definition.json")));
+definition.Root.Operations = definition.Root.Operations.Where(operation => operation.Kind != ConstructionOperationKind.Leave).ToArray();
+var canUse = typeof(AbilityCast).GetMethod("CanUseWorldMaterial", F);
+var use = typeof(AbilityCast).GetMethod("UseWorldMaterial", F);
+var save = typeof(AbilityCast).GetMethod("SaveStep", F); var restore = typeof(AbilityCast).GetMethod("RestoreStep", F);
+bool Can(AbilityCast cast, int node, int shape, double amount) => (bool)canUse.Invoke(cast, new object[] { node, shape, amount });
+var point = new Vector3(64.5f, 72.5f, 0);
+AbilityCast NewCast() => new AbilityCast(AbilityCompiler.Compile(definition, false), Matrix4x4.TRS(point, Quaternion.identity, Vector3.one),
+    inputs: new AbilityInputs(new Vector3(60, 72, 0), point, Vector3.right, 1));
+try
+{
+    var cast = NewCast(); cast.Advance(.2f, point);
+    Check(Can(cast, 0, 0, .5) && !Can(cast, 0, 0, 1e-30) && !Can(cast, -1, 0, .5) && Can(cast, -1, 0, 0),
+        "实体正常份额可交出，无法实际扣除的极小体积和真实身体拒绝，旧零体积规则保持");
+    double before = cast.RemainingVolume(0); save.Invoke(cast, null);
+    object[] args = { 0, 0, .5, point, 0d };
+    double removed = (double)use.Invoke(cast, args);
+    Check(Math.Abs(before - cast.RemainingVolume(0) - removed) < .000001, "实体交出实际扣除且不复制材料");
+    restore.Invoke(cast, null); Check(cast.RemainingVolume(0) == before && Can(cast, 0, 0, .5), "实体预测回退恢复原体积和可用量");
+
+    definition.Root.Form = "water_wave"; definition.Root.Matter = "water"; definition.Root.Rotation = new float[3];
+    definition.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow,
+        Flow = new ConstructionFlow { Cells = 16, Size = 4, Gravity = 0, Drag = 0, Evaporation = 0, OpenBoundary = false } } };
+    cast = NewCast(); cast.Advance(.2f, point);
+    var shapes = new List<AbilityCapsule>(); cast.AppendContacts(shapes);
+    var shape = shapes.OrderByDescending(value => value.HalfExtents.z).First();
+    var flow = ((Array)typeof(AbilityCast).GetField("flows", F).GetValue(cast)).GetValue(0);
+    double available = shape.HalfExtents.z * 2d * Math.Pow((float)Field(flow, "Cell"), 2), portion = available * .25;
+    Check(Can(cast, 0, shape.Shape, portion) && !Can(cast, 0, shape.Shape, 1e-30), "水格正常份额可交出，舍入后水深不变的极小体积拒绝");
+    before = cast.RemainingVolume(0); save.Invoke(cast, null);
+    args = new object[] { 0, shape.Shape, portion, point, 0d }; removed = (double)use.Invoke(cast, args);
+    Check(removed > 0 && Math.Abs(before - cast.RemainingVolume(0) - removed) < .000001 && (double)Field(flow, "Transferred") > 0,
+        "水格交出实际降低局部水量并记录去向");
+    restore.Invoke(cast, null);
+    Check(cast.RemainingVolume(0) == before && (double)Field(flow, "Transferred") == 0 && Can(cast, 0, shape.Shape, portion),
+        "水格预测回退恢复材料、去向及可用量");
+    return new { passed = true, closed = "实体与局部水格的实际扣除精度及预测回退", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

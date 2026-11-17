@@ -30,13 +30,18 @@ public readonly struct ConstructedWorldContact
     /// <summary>本地块已尝试次数。</summary>
     public readonly int Attempts;
 
+    /// <summary>本次真正交给永久结果的生成体积及其原支付份额，失败为零。</summary>
+    public readonly double MaterialVolume, MaterialResource;
+
     /// <summary>只在主线程已经提交后创建。</summary>
     /// <param name="runningId">施放编号。</param><param name="source">原来源。</param><param name="owner">当前归属。</param>
     /// <param name="ability">构造编号。</param><param name="action">实际操作。</param><param name="node">实际部位。</param>
     /// <param name="x">地块横坐标。</param><param name="y">地块纵坐标。</param><param name="time">世界时间。</param>
     /// <param name="age">施放年龄。</param><param name="result">实际结果。</param><param name="attempts">已尝试次数。</param>
+    /// <param name="materialVolume">真正交出的体积。</param><param name="materialResource">随材料退出的支付份额。</param>
     internal ConstructedWorldContact(long runningId, long source, long owner, string ability, string action,
-        int node, int x, int y, double time, float age, SkillEffectResult result, int attempts)
+        int node, int x, int y, double time, float age, SkillEffectResult result, int attempts,
+        double materialVolume, double materialResource)
     {
         CastId = runningId;
         SourceId = source;
@@ -50,6 +55,8 @@ public readonly struct ConstructedWorldContact
         Age = age;
         Result = result;
         Attempts = attempts;
+        MaterialVolume = materialVolume;
+        MaterialResource = materialResource;
     }
 }
 
@@ -138,7 +145,7 @@ public sealed partial class ConstructedAbilityService
                 // 中心作用仍经过真实扫掠；粗筛先排除作用范围外的邻格，已作用过的地块也不再读取地面。
                 if (rule.TileCentreOnly && (x + .5f < shape.Bounds.min.x || x + .5f > shape.Bounds.max.x ||
                     y + .5f < shape.Bounds.min.y || y + .5f > shape.Bounds.max.y)) continue;
-                if (!rule.Action.CanApply(tile) || !WorldOperationAllowed(running, rule, tile)) continue;
+                if (!rule.Action.CanApply(tile) || !WorldOperationAllowed(running, shape.To.Node, shape.To.Shape, rule, tile)) continue;
                 AbilityCapsule surface = WorldTileShape(tile, rule.TileCentreOnly);
                 bool pulse = rule.Contact.Mode == ConstructionContactMode.Pulse;
                 if (pulse && (!shape.Continuous || endpointOnly) && earliest < 1f - .000001f) continue;
@@ -245,7 +252,7 @@ public sealed partial class ConstructedAbilityService
             return;
         }
         CompiledConstructionWorldEffect rule = running.Cast.Impact(node).WorldEffects[effect];
-        if (!rule.Action.CanApply(hit.Tile) || !WorldOperationAllowed(running, rule, hit.Tile)) return;
+        if (!rule.Action.CanApply(hit.Tile) || !WorldOperationAllowed(running, node, hit.Left.To.Shape, rule, hit.Tile)) return;
         long owner = running.Owner(node).Id;
         ContactMemory memory = RecordWorldAttempt(running, node, effect, hit.Tile);
         long generation = worldGeneration;
@@ -256,14 +263,18 @@ public sealed partial class ConstructedAbilityService
             rule.Action.Apply(new ConstructionWorldContext(hit.Tile, owner, running.Cast.Plan.Id, rule.Duration,
                 LogicTime));
         if (generation != worldGeneration) return;
+        double materialVolume = 0, materialResource = 0;
+        if (result.Changed)
+            materialVolume = running.Cast.UseWorldMaterial(node, hit.Left.To.Shape, rule.MaterialVolume,
+                hit.Point, out materialResource);
         if (previousMain != hit.Tile.main_type || previousTop != hit.Tile.top_type || previousHeight != hit.Tile.Height)
             simulation.RefreshTerrainAt(hit.Tile);
-        running.Cast.ConfirmWorldEffect(node, result.Changed);
+        if (rule.MaterialVolume == 0) running.Cast.ConfirmWorldEffect(node, result.Changed);
         running.Cast.RecordActionContact(node, hit.Point, AbilityActionContactKind.World);
         if (result.Changed) running.WorldChanges++;
         WorldContactConfirmed?.Invoke(new ConstructedWorldContact(running.Id, running.SourceId, owner,
             running.Cast.Plan.Id, rule.Action.Id, node, hit.Tile.pos.x, hit.Tile.pos.y,
-            LogicTime, running.Cast.Age, result, memory.Count));
+            LogicTime, running.Cast.Age, result, memory.Count, materialVolume, materialResource));
     }
 
     /// <summary>预估与正式提交共用同一接触次数、间隔和不同地块预算，不在这里改变世界。</summary>
@@ -290,9 +301,10 @@ public sealed partial class ConstructedAbilityService
     }
 
     /// <summary>查询和实际提交均检查当前任务，前一个结果可能已经改变城市或保护条件。</summary>
-    /// <param name="running">本次施放。</param><param name="rule">实际原理。</param>
+    /// <param name="running">本次施放。</param><param name="node">真实部位。</param><param name="shape">真实接触形状。</param>
+    /// <param name="rule">实际原理。</param>
     /// <param name="tile">当前地块。</param>
-    private static bool WorldOperationAllowed(RunningCast running, CompiledConstructionWorldEffect rule, WorldTile tile)
-        => running.WorldScope == null ||
-           running.WorldScope.IsValid() && running.WorldScope.Allows(rule.Action.Id, tile);
+    private static bool WorldOperationAllowed(RunningCast running, int node, int shape, CompiledConstructionWorldEffect rule, WorldTile tile)
+        => running.Cast.CanUseWorldMaterial(node, shape, rule.MaterialVolume) &&
+           (running.WorldScope == null || running.WorldScope.IsValid() && running.WorldScope.Allows(rule.Action.Id, tile));
 }

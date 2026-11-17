@@ -1350,5 +1350,12 @@
   "Cultiway.Construction.InventoryUseRules": "Consumption confirmation",
   "Cultiway.Construction.InventoryUseRulesHint": "Completion follows actual consumption. Later steps can wait for that result.",
   "Cultiway.Construction.MotionKind.ConsumeInventory": "Consume inventory material",
-  "Cultiway.Construction.StepOutput.consumed": "Materials actually consumed"
+  "Cultiway.Construction.StepOutput.consumed": "Materials actually consumed",
+  "Cultiway.Construction.WorldMaterialVolume": "Generated volume per tile",
+  "Cultiway.Construction.WorldMaterialRules": "Material transfer",
+  "Cultiway.Construction.NodeWorldMaterialVolume": "Generated volume per tile",
+  "Cultiway.Construction.NodeWorldMaterialRules": "Material transfer",
+  "Cultiway.Construction.BodyWorldMaterialVolume": "Generated volume per tile",
+  "Cultiway.Construction.BodyWorldMaterialRules": "Material transfer",
+  "Cultiway.Construction.WorldMaterialHint": "Successful tile changes consume actual generated material. Insufficient volume prevents the action. Remainders can be left or recovered. Zero uses the existing rule."
 }
