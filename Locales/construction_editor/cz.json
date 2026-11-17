@@ -1314,5 +1314,21 @@
   "Cultiway.Construction.ConcurrentLimit": "同招并存上限",
   "Cultiway.Construction.MotionKind.Ready": "等待就绪",
   "Cultiway.Construction.StepOutput.ready": "就绪确认",
-  "Cultiway.Construction.Clip.form": "逐段成形"
+  "Cultiway.Construction.Clip.form": "逐段成形",
+  "Cultiway.Construction.MotionKind.Deform": "结构形变",
+  "Cultiway.Construction.StepOutput.deformation": "形变过程",
+  "Cultiway.Construction.DeformationRules": "结构控制",
+  "Cultiway.Construction.DeformationRulesHint": "从当前实际姿态连续到达目标。间距按模型坐标改变控制位置，局部偏移与旋转叠加在绑定姿态上。间距全部为1且没有局部改动时恢复展开。半成形比例保持，定型材料继续保持当前形状。",
+  "Cultiway.Construction.DeformationSpacingX": "控制间距 X",
+  "Cultiway.Construction.DeformationSpacingY": "控制间距 Y",
+  "Cultiway.Construction.DeformationSpacingZ": "控制间距 Z",
+  "Cultiway.Construction.AddDeformationControl": "添加局部控制",
+  "Cultiway.Construction.DeformationControl": "当前局部控制",
+  "Cultiway.Construction.RemoveDeformationControl": "移除局部改动",
+  "Cultiway.Construction.DeformationOffsetX": "局部偏移 X",
+  "Cultiway.Construction.DeformationOffsetY": "局部偏移 Y",
+  "Cultiway.Construction.DeformationOffsetZ": "局部偏移 Z",
+  "Cultiway.Construction.DeformationRotationX": "局部角度 X",
+  "Cultiway.Construction.DeformationRotationY": "局部角度 Y",
+  "Cultiway.Construction.DeformationRotationZ": "局部角度 Z"
 }

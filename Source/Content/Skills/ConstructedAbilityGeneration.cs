@@ -62,6 +62,8 @@ public sealed partial class ConstructedAbilityService
             if (inspiration.Rules >= 23 && (resources.Forms.Any(form => form.Formations == null) ||
                 !resources.Forms.Any(form => form.Formations.Length > 0)))
                 throw new ArgumentException("新创法请求缺少受理时的逐段成形动作输入", nameof(resources));
+            if (inspiration.Rules >= 24 && (resources.DeformationForms == null || resources.Forms.Any(form => form.Controls == null)))
+                throw new ArgumentException("新创法请求缺少受理时的结构与真实控制输入", nameof(resources));
         }
         if (source != null) return Derive(actor, source, seed, inspiration,
             resources ?? (inspiration.Rules >= 7 ? CaptureCreationResources(actor, seed, inspiration) : null));
@@ -78,6 +80,7 @@ public sealed partial class ConstructedAbilityService
         if (inspiration.Rules >= 20) result = GenerateClash(result, seed);
         if (inspiration.Rules >= 21) result = GeneratePersistence(result, seed, inspiration.Rules);
         if (inspiration.Rules >= 23) result = GenerateFormation(result, seed, resources);
+        if (inspiration.Rules >= 24) result = GenerateDeformation(result, seed, resources);
         return inspiration.Rules >= 3 ? ConstructionPricing.Price(result, contactRules: inspiration.Rules) : result;
     }
 

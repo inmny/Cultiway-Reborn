@@ -1319,5 +1319,21 @@
   "Cultiway.Construction.ConcurrentLimit": "Concurrent limit",
   "Cultiway.Construction.MotionKind.Ready": "Wait for readiness",
   "Cultiway.Construction.StepOutput.ready": "Readiness confirmation",
-  "Cultiway.Construction.Clip.form": "Progressive formation"
+  "Cultiway.Construction.Clip.form": "Progressive formation",
+  "Cultiway.Construction.MotionKind.Deform": "Deform structure",
+  "Cultiway.Construction.StepOutput.deformation": "Deformation process",
+  "Cultiway.Construction.DeformationRules": "Structure controls",
+  "Cultiway.Construction.DeformationRulesHint": "Move continuously from the actual pose to the target. Spacing changes control positions in model coordinates. Local offsets and rotations are added to the bind pose. Spacing of 1 with no local changes restores the bind pose. Existing formation progress and material shape holding are preserved.",
+  "Cultiway.Construction.DeformationSpacingX": "Control spacing X",
+  "Cultiway.Construction.DeformationSpacingY": "Control spacing Y",
+  "Cultiway.Construction.DeformationSpacingZ": "Control spacing Z",
+  "Cultiway.Construction.AddDeformationControl": "Add local control",
+  "Cultiway.Construction.DeformationControl": "Current local control",
+  "Cultiway.Construction.RemoveDeformationControl": "Remove local change",
+  "Cultiway.Construction.DeformationOffsetX": "Local offset X",
+  "Cultiway.Construction.DeformationOffsetY": "Local offset Y",
+  "Cultiway.Construction.DeformationOffsetZ": "Local offset Z",
+  "Cultiway.Construction.DeformationRotationX": "Local angle X",
+  "Cultiway.Construction.DeformationRotationY": "Local angle Y",
+  "Cultiway.Construction.DeformationRotationZ": "Local angle Z"
 }

@@ -1,0 +1,19 @@
+// 真实规则23请求直接取自上一批正式世界，完整预期来自当时记录。
+Actor source = Make(64); var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+JObject Canon(AbilityDefinition value) { var json = JObject.FromObject(value); json.Remove("Id"); json.Remove("Creator"); return json; }
+try
+{
+    var old = JObject.Parse(File.ReadAllText(Path.Combine(folder, "rule23.json")));
+    var saves = Cultiway.ModClass.I.WorldSaves; var envelope = JObject.Parse(saves.Actors.Capture(owner, "deformation-old"));
+    envelope["sections"]["ability_creation"] = old["section"].DeepClone();
+    var report = new SaveLoadReport(); saves.Actors.Restore(owner, envelope.ToString(), report, "deformation-old", section => section.Id == "ability_creation", false);
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    Check(report.Upgraded == 1 && report.Skipped.Count == 0 && pending.Pending && pending.Inspiration.Rules == 23 &&
+        JToken.DeepEquals(Canon(ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources)), Canon(old["expected"].ToObject<AbilityDefinition>())),
+        "真实第二十四版等待区段原样升级，规则23完整结果和费用保持");
+    return new { passed = true, closed = "旧规则23请求的完整结果保持", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+}

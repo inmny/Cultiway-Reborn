@@ -1,0 +1,38 @@
+try
+{
+    Click("Page0"); Option("Form", "Form.root_network");
+    Click("Page5"); Option("StepScope", "StepScope.Native"); Option("AddNativeOperation", "MotionKind.Deform");
+    Set("OperationName", "fold"); Set("ProcessSeconds", "1.2"); Set("DeformationSpacingY", "0.25");
+    string control = FormResources.Load("root_network").Description.Controls.First().Id;
+    Choose("AddDeformationControl", text => text == control); Set("DeformationOffsetX", "0.2"); Set("DeformationRotationZ", "20");
+    var operation = Session().Draft.Root.Operations.Single();
+    Check(operation.Kind == ConstructionOperationKind.Deform && operation.Seconds == 1.2f && operation.Deformation.Spacing[1] == .25f &&
+        operation.Deformation.Controls.Single().Control == control && operation.Deformation.Controls[0].Offset[0] == .2f &&
+        operation.Deformation.Controls[0].Rotation[2] == 20, "原窗口完整编辑形变历时、控制间距、真实控制的偏移与旋转");
+    await ShotRow("DeformationSpacingY", "spacing-cz"); await ShotRow("DeformationRotationZ", "control-cz");
+    Set("DeformationSpacingY", "0");
+    Check(!B("Replace").interactable && !B("LearnCopy").interactable, "非法形变间距明确阻止正式保存");
+    Click("Undo"); Check(B("Replace").interactable && Session().Draft.Root.Operations.Single().Deformation.Spacing[1] == .25f, "撤销恢复原间距和可保存状态");
+    Option("StepScope", "StepScope.Named"); Option("AddStep", "MotionKind.Deform"); Set("StepName", "unfold");
+    Choose("StepInput.after", text => text.Contains(" / fold") && text.EndsWith(" · " + T("StepOutput.deformation")));
+    Option("StepInputStage.after", "StepStage.Completed");
+    Check(Session().Draft.Steps.Single().Inputs["after"].Stage == ConstructionOutputStage.Completed &&
+        Session().Draft.Steps.Single().Operation.Deformation.Spacing.All(value => value == 1f), "还原目标使用同一参数表并等待实际形变完成");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page5");
+    Option("StepScope", "StepScope.Native"); await ShotRow("DeformationRotationZ", "control-en");
+    Option("StepScope", "StepScope.Named"); await ShotRow("StepInputStage.after", "completion-en");
+    Click("Replace"); var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(saved.Root.Operations.Single().Deformation.Controls.Single().Rotation[2] == 20 && saved.Steps.Single().Inputs["after"].Output == "deformation",
+        "正式覆盖保持完整控制参数和完成引用");
+    string expected = JsonConvert.SerializeObject(saved);
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(saved.Id, source); await Frames();
+    Check(JsonConvert.SerializeObject(Session().Draft) == expected, "关闭再打开完整恢复同一正式形变成品");
+    return new { passed = true, closed = "自由形变原窗口编辑、完成依赖与保存", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}

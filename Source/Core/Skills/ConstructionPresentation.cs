@@ -238,6 +238,7 @@ public static class ConstructionPresentation
         "存续规则" => "Persistence",
         "两点连接" => "Between",
         "逐段成形" => "Formation",
+        "结构形变" => "Deformation",
         "复生" => "Repeat",
         "显化" => "Project",
         "改造" => "Edit",

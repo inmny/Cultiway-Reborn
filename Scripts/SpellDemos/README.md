@@ -1691,4 +1691,6 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 
 通过develop执行`python3 Scripts/SpellDemos/verify_deformation.py`。`--section core`检查控制收拢、展开、命名完成、连续替换、预测恢复、停止、半成形保持、局部曲面及刚性边界。`--section inheritance`检查变化中挂点脱离和定型材料。`--section cast`使用一位来源及目标，确认收拢后原位置安全、展开后实际命中、支付、自然结束及再次使用。
 
-`--section pricing`用于单独复验共同需求。默认all执行core、inheritance和cast，core内包含费用检查。日常仅补受影响的分段。每段复制现成世界到所属开发输出，实际输入、检查和结果位于`CULTIWAY_DEV_OUTPUT/deformation/<section>`。本批仅完成执行能力，5.09的窗口、创作、正式存读与集中录像继续固定交付条件。
+`--section pricing`用于单独复验共同需求。`--section ui`通过原控件检查历时、间距、指定控制的偏移旋转、完成引用、错误拒绝、撤销及正式保存再打开，并保存中英文截图。`--section creation`检查冻结控制输入、独立创作、其他模型原术衍生、成形完成衔接和原资料保持。`--section legacy`恢复真实规则23等待请求并核对原完整结果与费用。
+
+`--section save`读取本进程已通过的creation结果，保存正式新旧等待世界、各授予一次、实际支付使用和完成世界。可用`--creation <已有creation目录>`指定已通过的原输入。默认all按顺序执行普通分段，core内包含费用检查。日常仅补受影响段，每段复制现成世界到所属开发输出，实际输入、检查和结果位于`CULTIWAY_DEV_OUTPUT/deformation/<section>`。5.09剩余跨进程恢复和集中连续录像继续固定交付条件。

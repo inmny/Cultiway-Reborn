@@ -47,6 +47,8 @@ public sealed partial class ConstructedAbilityService
         var random = new Random(seed);
         var choices = new List<(string Name, Func<AbilityDefinition> Apply)>();
         ConstructionNode[] nodes = DerivationNodes(draft.Root).ToArray();
+        if (inspiration.Rules >= 24 && CanVaryDeformation(draft, resources, plan))
+            choices.Add(("结构形变", () => VaryDeformation(draft, random, resources, plan)));
         if (inspiration.Rules >= 23)
         {
             var parents = FormationParents(draft, plan);
@@ -127,7 +129,7 @@ public sealed partial class ConstructedAbilityService
             ));
         ConstructionNode[] replaceable = materialNodes.Where(n => n.Children.Length == 0 && n.Hold == null &&
                                                                   n.Operations.All(o =>
-                                                                      o.Kind is not (ConstructionOperationKind.Animate
+                                                                      o.Kind is not (ConstructionOperationKind.Animate or ConstructionOperationKind.Deform
                                                                           or ConstructionOperationKind.Fracture)) &&
                                                                   n.Form is "sword" or "branch" or "hand").ToArray();
         if (replaceable.Length > 0)

@@ -19,7 +19,7 @@ public sealed partial class WindowWanfaConstructionEditor
             new[]
                 {
                     ConstructionOperationKind.Ready, ConstructionOperationKind.Stop, ConstructionOperationKind.Detach, ConstructionOperationKind.Fly,
-                    ConstructionOperationKind.Spin, ConstructionOperationKind.Grow, ConstructionOperationKind.Animate,
+                    ConstructionOperationKind.Spin, ConstructionOperationKind.Grow, ConstructionOperationKind.Animate, ConstructionOperationKind.Deform,
                     ConstructionOperationKind.ConvertMatter, ConstructionOperationKind.Gather,
                     ConstructionOperationKind.Fracture, ConstructionOperationKind.Flow,
                     ConstructionOperationKind.Recover,
@@ -30,7 +30,8 @@ public sealed partial class WindowWanfaConstructionEditor
                 .Where(kind => kind != ConstructionOperationKind.Gather || part > 0).Where(kind =>
                     kind != ConstructionOperationKind.Fracture ||
                     Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Meshes.Length > 1 &&
-                    !node.Operations.Any(o => o.Kind == kind)).Select(kind => new UiOptionMenuOption
+                    !node.Operations.Any(o => o.Kind == kind))
+                .Where(kind => kind != ConstructionOperationKind.Deform || Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Deformable).Select(kind => new UiOptionMenuOption
                 {
                     Label = T("MotionKind." + kind), Select = () => Change(() =>
                     {
@@ -82,6 +83,7 @@ public sealed partial class WindowWanfaConstructionEditor
         { FlightParameters(operation); return; }
         if (operation.Kind == ConstructionOperationKind.ChangeSpeed)
             Number("OperationSpeed", operation.Speed, value => operation.Speed = value);
+        if (operation.Kind == ConstructionOperationKind.Deform) DeformationParameters(node, operation);
         if (operation.Kind == ConstructionOperationKind.Flow) FlowParameters(operation.Flow);
         if (operation.Kind == ConstructionOperationKind.Ray) RayParameters(operation.Ray);
         if (operation.Kind == ConstructionOperationKind.Propagate)
@@ -140,6 +142,7 @@ public sealed partial class WindowWanfaConstructionEditor
         return new ConstructionOperation
         {
             Kind = kind,
+            Deformation = kind == ConstructionOperationKind.Deform ? new ConstructionDeformation() : null,
             Ray = kind == ConstructionOperationKind.Ray ? new ConstructionRay() : null,
             Residue = kind == ConstructionOperationKind.Leave ? new ConstructionResidue() : null,
             Conduction = kind == ConstructionOperationKind.Conduct ? new ConstructionConduction() : null,
@@ -152,7 +155,7 @@ public sealed partial class WindowWanfaConstructionEditor
                 : kind == ConstructionOperationKind.Propagate
                     ? new ConstructionCondition { Trigger = ConstructionChangeTrigger.WorldContact }
                     : new ConstructionCondition(),
-            Seconds = kind is ConstructionOperationKind.Grow or ConstructionOperationKind.Gather ? 1f :
+            Seconds = kind is ConstructionOperationKind.Grow or ConstructionOperationKind.Gather or ConstructionOperationKind.Deform ? 1f :
                 kind == ConstructionOperationKind.Recover ? .6f : 0f,
             TargetScale = kind == ConstructionOperationKind.Grow ? 2f : null,
             Matter = kind == ConstructionOperationKind.ConvertMatter ? "ice" : null,

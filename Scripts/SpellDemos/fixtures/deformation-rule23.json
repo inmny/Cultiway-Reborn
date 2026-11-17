@@ -1,0 +1,732 @@
+{
+  "source": {
+    "map": "/home/inmny/.local/state/cultiway-dev/evidence/skill-growth-editor-runtime/runs/20261117T055226.858813Z-5100e974/output/save/pending-save/map.wbox",
+    "sha256": "63b11c8b38f9538826f211b8c49765d4996bd4090e8353b332c0c1d70ef3e660",
+    "expected": "/home/inmny/.local/state/cultiway-dev/evidence/skill-growth-editor-runtime/runs/20261117T055226.858813Z-5100e974/output/save/pending-expected.json",
+    "expectedSha256": "3d9b9096edca93728e7cd0a3d307a847a6508fd5a688ec85ab89ce6a858cb7a4"
+  },
+  "section": {
+    "version": 24,
+    "data": {
+      "Remaining": 0.0,
+      "Sequence": 0,
+      "Pending": true,
+      "Seed": 14,
+      "Origin": 2,
+      "Inspiration": {
+        "Elements": {
+          "iron": 0.0,
+          "wood": 1.0,
+          "water": 0.0,
+          "fire": 0.0,
+          "earth": 0.0,
+          "neg": 0.0,
+          "pos": 0.0,
+          "entropy": 0.0
+        },
+        "Aggression": 0.0,
+        "Control": 0.5,
+        "CanProject": true,
+        "Rules": 23
+      },
+      "Source": {
+        "Version": 1,
+        "Id": "test.progressive-formation.basis",
+        "Revision": 1,
+        "Name": "原枝术",
+        "Creator": 0,
+        "Seed": 0,
+        "Lifetime": 5.0,
+        "Cost": 3.0,
+        "Resource": "wakan",
+        "AdditionalResources": [],
+        "ResourceMode": 0,
+        "Cooldown": 0.1,
+        "Power": 1.0,
+        "TargetRange": 100.0,
+        "Root": {
+          "Id": "stem",
+          "Form": "branch",
+          "Matter": "wood",
+          "Offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Scale": 0.4,
+          "ActiveFrom": 0.0,
+          "ActiveUntil": -1.0,
+          "OnContact": 0,
+          "ContactRole": 0,
+          "Strength": 1.0,
+          "Interception": 0,
+          "ReflectionLimit": 8,
+          "Operations": [],
+          "Children": []
+        },
+        "Steps": []
+      },
+      "Resources": {
+        "Forms": [
+          {
+            "Id": "sword",
+            "Size": 3.40193129,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "grip",
+              "choke",
+              "edge",
+              "tip"
+            ],
+            "Motions": [],
+            "Parts": [
+              "blade",
+              "guard",
+              "grip",
+              "pommel"
+            ],
+            "Formations": []
+          },
+          {
+            "Id": "hand",
+            "Size": 0.203301832,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "finger_0",
+              "finger_1",
+              "finger_2",
+              "finger_3",
+              "finger_4",
+              "wrist",
+              "grip"
+            ],
+            "Motions": [],
+            "Parts": [
+              "palm",
+              "finger_0_0",
+              "finger_0_1",
+              "finger_1_0",
+              "finger_1_1",
+              "finger_2_0",
+              "finger_2_1",
+              "finger_3_0",
+              "finger_3_1",
+              "finger_4_0",
+              "finger_4_1"
+            ],
+            "Formations": []
+          },
+          {
+            "Id": "branch",
+            "Size": 2.09982157,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "tip_0",
+              "tip_1",
+              "tip_2"
+            ],
+            "Motions": [],
+            "Parts": [
+              "trunk",
+              "branch_1",
+              "branch_2"
+            ],
+            "Formations": []
+          },
+          {
+            "Id": "water_wave",
+            "Size": 16.3118477,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "surface_0",
+              "surface_1",
+              "surface_2",
+              "surface_3"
+            ],
+            "Motions": [
+              "form",
+              "break",
+              "recede"
+            ],
+            "Parts": [
+              "water_body",
+              "aerated_lip"
+            ],
+            "Formations": [
+              "form"
+            ]
+          },
+          {
+            "Id": "water_flow",
+            "Size": 10.2758875,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "surface_0",
+              "surface_1",
+              "surface_2",
+              "surface_3",
+              "surface_4",
+              "surface_5",
+              "surface_6",
+              "surface_7",
+              "surface_8",
+              "surface_9",
+              "surface_10",
+              "surface_11",
+              "surface_12",
+              "surface_13",
+              "surface_14",
+              "surface_15",
+              "surface_16",
+              "surface_17",
+              "surface_18",
+              "surface_19",
+              "surface_20",
+              "surface_21",
+              "surface_22",
+              "surface_23",
+              "surface_24",
+              "surface_25",
+              "surface_26",
+              "surface_27",
+              "surface_28",
+              "surface_29"
+            ],
+            "Motions": [
+              "run",
+              "form"
+            ],
+            "Parts": [
+              "water_layer",
+              "broken_foam"
+            ],
+            "Formations": [
+              "form"
+            ]
+          },
+          {
+            "Id": "water_whale",
+            "Size": 16.8817425,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "front",
+              "tail_tip",
+              "fin_left",
+              "fin_right"
+            ],
+            "Motions": [
+              "swim",
+              "tail_sweep"
+            ],
+            "Parts": [
+              "body",
+              "fin_left",
+              "fin_right",
+              "flukes",
+              "dorsal",
+              "eye_right",
+              "eye_left"
+            ],
+            "Formations": []
+          },
+          {
+            "Id": "fire_body",
+            "Size": 1.97926927,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [],
+            "Motions": [],
+            "Parts": [
+              "body"
+            ],
+            "Formations": []
+          },
+          {
+            "Id": "energy_ray",
+            "Size": 1.05603027,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "start",
+              "end"
+            ],
+            "Motions": [],
+            "Parts": [
+              "channel"
+            ],
+            "SpanRadius": 0.12,
+            "Formations": []
+          },
+          {
+            "Id": "root_network",
+            "Size": 9.180242,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "tip_0",
+              "tip_1",
+              "tip_2"
+            ],
+            "Motions": [
+              "form",
+              "bend"
+            ],
+            "Parts": [
+              "trunk",
+              "lateral_1",
+              "lateral_2"
+            ],
+            "Formations": [
+              "form"
+            ]
+          },
+          {
+            "Id": "spirit_vine",
+            "Size": 6.430032,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "tip_0"
+            ],
+            "Motions": [
+              "form",
+              "bend"
+            ],
+            "Parts": [
+              "trunk"
+            ],
+            "Formations": [
+              "form"
+            ]
+          }
+        ],
+        "Bodies": [
+          {
+            "Version": 1,
+            "Id": "Cultiway.PalmStrike",
+            "Revision": 4,
+            "Name": "掌击",
+            "Creator": 0,
+            "Seed": 0,
+            "Lifetime": 0.48,
+            "Cost": 0.0,
+            "Resource": "stamina",
+            "AdditionalResources": [],
+            "ResourceMode": 0,
+            "Cooldown": 0.48,
+            "Power": 1.0,
+            "Body": {
+              "Effector": "hand.right",
+              "Grip": "grip",
+              "MatchDistance": false,
+              "ActiveFrom": 0.15,
+              "ActiveUntil": 0.255,
+              "Occupancy": 5,
+              "Responses": [
+                {
+                  "Result": 0,
+                  "RecoverFrom": "rest",
+                  "Seconds": 0.12
+                },
+                {
+                  "Result": 1,
+                  "RecoverFrom": "rest",
+                  "Seconds": 0.08
+                },
+                {
+                  "Result": 2,
+                  "RecoverFrom": "rest",
+                  "Seconds": 0.16
+                }
+              ],
+              "ImpactRecoil": 0.035,
+              "RecoilSeconds": 0.09,
+              "Keys": [
+                {
+                  "At": 0.0,
+                  "Hand": [
+                    0.22,
+                    0.2,
+                    0.52
+                  ],
+                  "Torso": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "Turn": 0.0,
+                  "Heading": 0.0,
+                  "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                },
+                {
+                  "At": 0.12,
+                  "Hand": [
+                    0.12,
+                    0.25,
+                    0.57
+                  ],
+                  "Torso": [
+                    -0.025,
+                    0.0,
+                    0.0
+                  ],
+                  "Turn": -13.0,
+                  "Heading": 0.0,
+                  "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                },
+                {
+                  "At": 0.205,
+                  "Hand": [
+                    0.55,
+                    0.12,
+                    0.62
+                  ],
+                  "Torso": [
+                    0.045,
+                    -0.01,
+                    -0.015
+                  ],
+                  "Turn": 12.0,
+                  "Heading": 0.0,
+                  "Rotation": [
+                    0.0,
+                    25.0,
+                    0.0
+                  ]
+                },
+                {
+                  "At": 0.25,
+                  "Hand": [
+                    0.53,
+                    0.12,
+                    0.62
+                  ],
+                  "Torso": [
+                    0.04,
+                    -0.01,
+                    -0.015
+                  ],
+                  "Turn": 10.0,
+                  "Heading": 0.0,
+                  "Rotation": [
+                    0.0,
+                    25.0,
+                    0.0
+                  ]
+                },
+                {
+                  "Id": "rest",
+                  "At": 0.48,
+                  "Hand": [
+                    0.22,
+                    0.2,
+                    0.52
+                  ],
+                  "Torso": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "Turn": 0.0,
+                  "Heading": 0.0,
+                  "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              ]
+            },
+            "Steps": []
+          }
+        ],
+        "Resource": "wakan",
+        "WorldActions": [
+          {
+            "Id": "crop.mature",
+            "DefaultDuration": 0.0
+          },
+          {
+            "Id": "land.cleanse",
+            "DefaultDuration": 0.0
+          },
+          {
+            "Id": "nature.grow",
+            "DefaultDuration": 0.0
+          },
+          {
+            "Id": "terrain.lower",
+            "DefaultDuration": 0.0
+          },
+          {
+            "Id": "terrain.raise",
+            "DefaultDuration": 0.0
+          },
+          {
+            "Id": "water.drain",
+            "DefaultDuration": 0.0
+          },
+          {
+            "Id": "water.fill",
+            "DefaultDuration": 0.0
+          },
+          {
+            "Id": "weather.rain",
+            "DefaultDuration": 12.0
+          }
+        ]
+      }
+    }
+  },
+  "expected": {
+    "Version": 1,
+    "Id": "Cultiway.Created.e02842a0a4684e30ba6a4a47a89551a8",
+    "Revision": 1,
+    "Name": "木行枝诀",
+    "Creator": 56,
+    "Seed": 14,
+    "Parent": {
+      "Id": "test.progressive-formation.basis",
+      "Revision": 1,
+      "Creator": 0,
+      "Change": "逐段成形"
+    },
+    "Lifetime": 5.0,
+    "Cost": 5.79917336,
+    "Resource": "wakan",
+    "AdditionalResources": [],
+    "ResourceMode": 0,
+    "Cooldown": 0.13903445,
+    "Calculation": {
+      "Resource": "wakan",
+      "Demand": 5.799173566330712,
+      "Recovery": 0.13903445303424558
+    },
+    "Power": 1.0,
+    "TargetRange": 100.0,
+    "Root": {
+      "Id": "stem",
+      "Form": "branch",
+      "Surface": null,
+      "Matter": "wood",
+      "State": null,
+      "Tint": null,
+      "Anchor": null,
+      "Offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Scale": 0.4,
+      "ActiveFrom": 0.0,
+      "ActiveUntil": -1.0,
+      "ActiveFromMarker": null,
+      "ActiveUntilMarker": null,
+      "ContactGroup": null,
+      "Contact": null,
+      "OnContact": 0,
+      "ContactRole": 0,
+      "Strength": 1.0,
+      "Interception": 0,
+      "ReflectionLimit": 8,
+      "Operations": [],
+      "Children": [
+        {
+          "Id": "forming_0",
+          "Form": "root_network",
+          "Surface": null,
+          "Matter": "wood",
+          "State": null,
+          "Tint": null,
+          "Anchor": null,
+          "Offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Scale": 0.249476045,
+          "ActiveFrom": 0.0,
+          "ActiveUntil": -1.0,
+          "ActiveFromMarker": null,
+          "ActiveUntilMarker": null,
+          "ContactGroup": null,
+          "Contact": null,
+          "OnContact": 0,
+          "ContactRole": 0,
+          "Strength": 1.0,
+          "Interception": 0,
+          "ReflectionLimit": 8,
+          "Operations": [
+            {
+              "Id": "formation",
+              "Clip": "form",
+              "Kind": 4,
+              "At": 0.0,
+              "Seconds": 1.1463623,
+              "Vector": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "TurnRate": 0.0,
+              "Matter": null,
+              "State": null,
+              "Trigger": 0,
+              "Path": null,
+              "InheritVelocity": true
+            }
+          ],
+          "Children": []
+        }
+      ]
+    },
+    "Body": null,
+    "Binding": null,
+    "Steps": [
+      {
+        "Id": "forming_0_continue",
+        "Operation": {
+          "Clip": null,
+          "Kind": 1,
+          "At": 0.0,
+          "Seconds": 0.0,
+          "Vector": [
+            0.0,
+            0.0,
+            93.8625259
+          ],
+          "TurnRate": 0.0,
+          "Matter": null,
+          "State": null,
+          "Trigger": 0,
+          "Path": null,
+          "InheritVelocity": true
+        },
+        "Inputs": {
+          "part": {
+            "Node": "root/forming_0",
+            "Step": null,
+            "Output": null,
+            "Stage": 0
+          },
+          "after": {
+            "Node": "root/forming_0",
+            "Operation": "formation",
+            "Step": null,
+            "Output": "animation",
+            "Stage": 2
+          }
+        }
+      }
+    ]
+  }
+}

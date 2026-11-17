@@ -91,6 +91,7 @@ public sealed partial class WindowWanfaConstructionEditor
     private void ChooseOperationKind(ConstructionNode node, Action<ConstructionOperationKind> select)
         => menu.Show(T("OperationKind"), ConstructionOperations.All.Where(contract =>
             (contract.Kind != ConstructionOperationKind.Animate || FormResources.Load(node.Form).Description.Motions.Length > 0) &&
+            (contract.Kind != ConstructionOperationKind.Deform || FormResources.Load(node.Form).Deformable) &&
             (contract.Kind != ConstructionOperationKind.Ray || FormResources.Load(node.Form).Span != null) &&
             (contract.Kind != ConstructionOperationKind.Fracture || FormResources.Load(node.Form).Meshes.Length > 1))
             .Select(contract => new UiOptionMenuOption { Label = T("MotionKind." + contract.Kind), Select = () => select(contract.Kind) }).ToArray());
