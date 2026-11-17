@@ -1,0 +1,33 @@
+Actor source = Make(60); var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+try
+{
+    var inspiration = ConstructedAbilityService.ReadInspiration(owner); int selected = -1;
+    for (int seed = 0; seed < 128 && selected < 0; seed++)
+    {
+        var resources = (SynthesisResources)service.GetMethod("CaptureCreationResources", F).Invoke(null, new object[] { owner, seed, inspiration });
+        try
+        {
+            var made = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: resources);
+            if (Nodes(made.Root).Any(node => (node.Impact ?? made.Impact)?.WorldEffects?.Any(effect => effect.MaterialVolume > 0) == true)) selected = seed;
+        }
+        catch (InvalidDataException) { }
+        await Game.NextFrame();
+    }
+    Check(selected >= 0 && ConstructionEditing.Access.List(owner).Count == 0 && ConstructedAbilityService.TryQueueCreation(owner, selected),
+        "无原术修士通过正式队列受理材料交出的独立创作");
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    var expected = ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources);
+    await Advance(.2f);
+    var completed = owner.GetComponent<ConstructedCreationState>(); var learned = ConstructionEditing.Access.Read(completed.LastAbility);
+    Check(!completed.Pending && completed.LastFailure == null && JToken.DeepEquals(Canon(learned), Canon(expected)) &&
+        Nodes(learned.Root).Any(node => (node.Impact ?? learned.Impact)?.WorldEffects?.Any(effect => effect.MaterialVolume > 0) == true),
+        "正式独立队列授予与冻结输入一致的完整材料交出成品");
+    await Advance(.2f); Check(ConstructionEditing.Access.List(owner).Count == 1, "独立材料交出只授予一次");
+    File.WriteAllText(Path.Combine(folder, "created-definition.json"), JsonConvert.SerializeObject(learned, Formatting.Indented));
+    return new { passed = true, closed = "材料交出的正式独立创作及一次授予", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+}

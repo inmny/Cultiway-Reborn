@@ -47,6 +47,8 @@ public sealed partial class ConstructedAbilityService
         var random = new Random(seed);
         var choices = new List<(string Name, Func<AbilityDefinition> Apply)>();
         ConstructionNode[] nodes = DerivationNodes(draft.Root).ToArray();
+        if (inspiration.Rules >= 27 && MaterialTransferSites(draft, plan).Length > 0)
+            choices.Add(("材料交出", () => VaryMaterialTransfer(draft, random, plan)));
         if (inspiration.Rules >= 26 && CanVaryInventory(draft, resources, plan))
             choices.Add(("库存材料", () => VaryInventory(draft, random, resources, plan)));
         if (inspiration.Rules >= 25)

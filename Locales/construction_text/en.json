@@ -93,5 +93,7 @@
   "Cultiway.ConstructionText.Change.Residue": "world retention",
   "Cultiway.ConstructionText.Operation.ConsumeInventory": "consume reserved inventory material",
   "Cultiway.ConstructionText.Change.Inventory": "inventory materials",
-  "Cultiway.ConstructionText.InventoryInput": "Input {0} requires {2} {1} items"
+  "Cultiway.ConstructionText.InventoryInput": "Input {0} requires {2} {1} items",
+  "Cultiway.ConstructionText.Change.MaterialTransfer": "Material transfer",
+  "Cultiway.ConstructionText.WorldMaterial": "{0} supplies {2:G4} generated volume for each successful {1}."
 }

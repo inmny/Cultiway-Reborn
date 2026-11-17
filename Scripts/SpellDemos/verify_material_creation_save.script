@@ -1,0 +1,86 @@
+Actor source = Make(60), legacy = Make(62), enemy = Make(74, "wolf");
+foreach (Actor actor in new[] { source, legacy })
+{
+    var extend = actor.GetExtend(); extend.NewCultisys(Cultisyses.Xian); extend.GetCultisys<Xian>().level = 2;
+    extend.MarkCultiwayStatsDirty(); actor.setStatsDirty(); actor.updateStats(); extend.GetCultisys<Xian>().wakan = 10000;
+}
+for (int i = 0; i < 3; i++) await Game.NextFrame();
+var owner = source.GetExtend(); var saves = Cultiway.ModClass.I.WorldSaves; var access = ConstructionEditing.Access;
+var active = new List<AbilityCast>(); var world = new List<ConstructedWorldContact>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == fact.CastId) active.Add((AbilityCast)Field(running, "Cast"));
+}
+void WorldHit(ConstructedWorldContact fact) { if (fact.SourceId == source.id) world.Add(fact); }
+ConstructedAbilityService.CastStarted += Started; ConstructedAbilityService.WorldContactConfirmed += WorldHit;
+try
+{
+    var basis = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "input-creation", "basis.json")));
+    int seed = (int)JObject.Parse(File.ReadAllText(Path.Combine(folder, "input-creation", "derived.json")))["Seed"];
+    ConstructedAbilityService.Register(basis); ConstructedAbilityService.Learn(owner, basis.Id);
+    Check(ConstructedAbilityService.TryQueueCreation(owner, seed, basis.Id), "真实人物受理规则27的材料交出原术请求");
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    var predicted = ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources);
+    Check(pending.Inspiration.Rules == 27 && predicted.Parent.Change == "材料交出" && predicted.Root.Impact.WorldEffects.Any(effect => effect.MaterialVolume > 0),
+        "新请求冻结已有世界原理、原术及材料交出结果");
+    Check((int)JObject.Parse(saves.Actors.Capture(owner, "material-creation"))["sections"]["ability_creation"]["version"] == 28,
+        "新请求使用正式第二十八版人物区段");
+    var old = JObject.Parse(File.ReadAllText(Path.Combine(folder, "rule26.json")));
+    var envelope = JObject.Parse(saves.Actors.Capture(legacy.GetExtend(), "material-creation-old")); envelope["sections"]["ability_creation"] = old["section"].DeepClone();
+    var report = new SaveLoadReport(); saves.Actors.Restore(legacy.GetExtend(), envelope.ToString(), report, "material-creation-old", section => section.Id == "ability_creation", false);
+    Check(report.Upgraded == 1 && report.Skipped.Count == 0, "旧正式区段27原样升级");
+    var expectedOld = old["expected"].ToObject<AbilityDefinition>();
+    long sourceId = source.id, legacyId = legacy.id, enemyId = enemy.id;
+    int known = access.List(owner).Count, oldKnown = access.List(legacy.GetExtend()).Count;
+    File.WriteAllText(Path.Combine(folder, "pending-expected.json"), JsonConvert.SerializeObject(new
+    { sourceId, legacyId, enemyId, predicted, expectedOld, pending, known, oldKnown, process = System.Diagnostics.Process.GetCurrentProcess().Id }, Formatting.Indented));
+    string save = Path.Combine(folder, "pending-save"); SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    source = World.world.units.get(sourceId); legacy = World.world.units.get(legacyId); enemy = World.world.units.get(enemyId); owner = source.GetExtend();
+    var loaded = owner.GetComponent<ConstructedCreationState>();
+    Check(loaded.Pending
+        ? JToken.DeepEquals(JObject.FromObject(loaded.Resources), JObject.FromObject(pending.Resources)) &&
+            JToken.DeepEquals(Canon(ConstructedAbilityService.Generate(owner, loaded.Seed, loaded.Inspiration, loaded.Source, loaded.Resources)), Canon(predicted))
+        : JToken.DeepEquals(Canon(access.Read(loaded.LastAbility)), Canon(predicted)),
+        "正式世界恢复完整冻结输入或已完成结果，原材料交出数量及费用保持");
+    await Advance(.2f);
+    var completed = owner.GetComponent<ConstructedCreationState>(); var oldCompleted = legacy.GetExtend().GetComponent<ConstructedCreationState>();
+    var learned = access.Read(completed.LastAbility); var oldLearned = access.Read(oldCompleted.LastAbility);
+    Check(!completed.Pending && !oldCompleted.Pending && completed.LastFailure == null && oldCompleted.LastFailure == null &&
+        JToken.DeepEquals(Canon(learned), Canon(predicted)) && JToken.DeepEquals(Canon(oldLearned), Canon(expectedOld)),
+        "新旧请求实际授予完整结果，旧库存材料输入和原费用保持");
+    await Advance(.2f);
+    Check(access.List(owner).Count == known + 1 && access.List(legacy.GetExtend()).Count == oldKnown + 1,
+        "正式恢复的新旧请求各授予一次");
+    string[] learnedIds = owner.GetComponent<ConstructedKnowledge>().Ids.ToArray();
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    Ready(source); Place(source, 60); Place(enemy, 74); float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(learned, source, enemy, aim: new Vector3(64.5f, 72.5f, 0), aggro: false);
+    float paid = balance - owner.GetCultisys<Xian>().wakan; owner.E.RemoveComponent<ConstructedKnowledge>();
+    var live = active.Last(); double volume = live.RemainingVolume(0), principal = live.RemainingResource(0);
+    await Advance(.4f); var actual = world.Where(fact => fact.AbilityId == learned.Id && fact.Result.Changed).ToArray();
+    Check(Math.Abs(paid - learned.Cost) < .001f && actual.Length == 2 && actual.All(fact => fact.MaterialVolume > 0 &&
+        World.world.GetTileSimple(fact.X, fact.Y).main_type == TileLibrary.soil_high) &&
+        Math.Abs(live.RemainingVolume(0) + actual.Sum(fact => fact.MaterialVolume) - volume) < .00001 &&
+        Math.Abs(live.RemainingResource(0) + actual.Sum(fact => fact.MaterialResource) - principal) < .00001,
+        "正式恢复的新成品按原报价支付，实际交出并形成永久地形，余量及支付守恒");
+    await Advance(learned.Lifetime + .2f);
+    Check(live.Finished && !BodyControlState.IsBusy(source.id), "正式成品自然结束并归还控制");
+    foreach (string id in learnedIds) ConstructedAbilityService.Learn(owner, id);
+    File.WriteAllText(Path.Combine(folder, "completed-expected.json"), JsonConvert.SerializeObject(new
+    { sourceId, legacyId, learned, oldLearned, known = access.List(owner).Count, oldKnown = access.List(legacy.GetExtend()).Count,
+      tiles = actual.Select(fact => new { fact.X, fact.Y, main = World.world.GetTileSimple(fact.X, fact.Y).main_type.id }).ToArray() }, Formatting.Indented));
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+    File.WriteAllText(Path.Combine(folder, "created-definition.json"), JsonConvert.SerializeObject(learned, Formatting.Indented));
+    return new { passed = true, closed = "材料交出新旧请求正式存读、一次授予及实际使用", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.WorldContactConfirmed -= WorldHit;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "world-events.json"), JsonConvert.SerializeObject(world, Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}

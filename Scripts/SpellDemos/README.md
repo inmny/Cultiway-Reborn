@@ -1739,3 +1739,12 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 `runtime --ui <已通过ui目录>`和`save --state <已通过runtime目录>`可复用原输入。各段输出在`CULTIWAY_DEV_OUTPUT/material-transfer/<分段>`。同段失败的原运行保留，仅补尚未关闭的缺口。真正冷启动及双端连续录像集中于C3。
 
 `precision`同样支持`--ui`。C1各分段通过，证据索引为`/home/inmny/.local/state/cultiway-dev/evidence/material-transfer/delivery.json`。旧世界收益清空整份本金与新按体积扣除的冲突已修正，所有准备错误及实际分段结果保留。C2继续自主创作，5.11保持未完成。
+
+
+### 5.11 C2　生成材料交出的修士自主创作
+
+通过develop执行`python3 Scripts/SpellDemos/verify_material_creation.py --section creation|independent|runtime|legacy|save|all`。`creation`需通过`--basis <C1已通过窗口保存的正式成品>`传入真实原术，检查规则27独立生成、材料交出衍生、完整输入重现、原资料和步骤保持及中英文说明。`independent`通过无原术人物的正式队列完成独立创作并核对一次授予。
+
+`runtime`和`save`可用`--creation <已通过creation目录>`复用原输入。前者验证真实支付、原版地形、材料与支付守恒、余量留置、失败及恢复后再次使用。`legacy`使用真实规则26等待样例核对原完整结果与费用。`save`正式保存和读取新旧请求，各授予一次，新成品实际使用并保存完成世界，同时恢复原术与新成品的已学关系。
+
+结果位于`CULTIWAY_DEV_OUTPUT/material-creation/<分段>`。五段分别首次通过，索引为`/home/inmny/.local/state/cultiway-dev/evidence/material-creation/delivery.json`。C2关闭，真正冷启动和集中双端连续影片继续C3。

@@ -93,5 +93,7 @@
   "Cultiway.ConstructionText.Change.Residue": "世界留置",
   "Cultiway.ConstructionText.Operation.ConsumeInventory": "消耗真实库存材料",
   "Cultiway.ConstructionText.Change.Inventory": "库存材料",
-  "Cultiway.ConstructionText.InventoryInput": "材料{0}需要{2}件{1}"
+  "Cultiway.ConstructionText.InventoryInput": "材料{0}需要{2}件{1}",
+  "Cultiway.ConstructionText.Change.MaterialTransfer": "材料交出",
+  "Cultiway.ConstructionText.WorldMaterial": "{0}的{1}每次成功交出{2:G4}体积的生成材料。"
 }

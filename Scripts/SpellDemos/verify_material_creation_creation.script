@@ -1,0 +1,56 @@
+Actor source = Make(60); var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var attempts = new List<object>();
+bool HasTransfer(AbilityDefinition definition) => Nodes(definition.Root).Any(node =>
+    (node.Impact ?? definition.Impact)?.WorldEffects?.Any(effect => effect.MaterialVolume > 0) == true);
+try
+{
+    var inspiration = ConstructedAbilityService.ReadInspiration(owner); Check(inspiration.Rules == 27, "新创作使用材料交出规则27");
+    var resources = (SynthesisResources)service.GetMethod("CaptureCreationResources", F).Invoke(null, new object[] { owner, 0, inspiration });
+    AbilityDefinition independent = null;
+    for (int seed = 0; seed < 128 && independent == null; seed++)
+    {
+        try
+        {
+            var made = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: resources);
+            attempts.Add(new { seed, material = HasTransfer(made) });
+            if (HasTransfer(made)) independent = made;
+        }
+        catch (InvalidDataException error) { attempts.Add(new { seed, rejected = error.Message }); }
+        await Game.NextFrame();
+    }
+    Check(independent != null && JToken.DeepEquals(Canon(independent), Canon(ConstructedAbilityService.Generate(owner, independent.Seed, inspiration, resources: resources))),
+        "独立创作自然组合已有世界作用与有限材料要求，完整结构和费用可重现");
+    var basis = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "input-definition.json")));
+    basis.Id = "test.material-creation.basis"; basis.Name = "有限生成材料原术"; basis.Impact.WorldEffects.Single().MaterialVolume = 0;
+    string original = JsonConvert.SerializeObject(basis); AbilityDefinition derived = null;
+    for (int seed = 0; seed < 128 && derived == null; seed++)
+    {
+        var made = ConstructedAbilityService.Generate(owner, seed, inspiration, basis, resources);
+        if (made.Parent.Change == "材料交出") derived = made;
+        await Game.NextFrame();
+    }
+    Check(derived != null && HasTransfer(derived) && JsonConvert.SerializeObject(basis) == original &&
+        JToken.DeepEquals(JArray.FromObject(derived.Root.Operations), JArray.FromObject(basis.Root.Operations)) &&
+        JToken.DeepEquals(JArray.FromObject(derived.Steps), JArray.FromObject(basis.Steps)),
+        "原术衍生只加入材料交出要求，原资料、运动及全部步骤保持");
+    var effect = derived.Root.Impact.WorldEffects.Single(); float requirement = effect.MaterialVolume;
+    var unchanged = JsonConvert.DeserializeObject<ConstructionImpact>(JsonConvert.SerializeObject(derived.Root.Impact)); unchanged.WorldEffects.Single().MaterialVolume = 0;
+    Check(requirement > 0 && requirement < basis.Root.Volume / 2 &&
+        JToken.DeepEquals(JObject.FromObject(unchanged), JObject.FromObject(basis.Impact)),
+        "每块需求有限且保留原世界原理、次数及其余作用");
+    LocalizedTextManager.instance.setLanguage("cz"); string cz = ConstructionPresentation.Explain(derived, AbilityCompiler.Compile(derived, false));
+    LocalizedTextManager.instance.setLanguage("en"); string en = ConstructionPresentation.Explain(derived, AbilityCompiler.Compile(derived, false));
+    Check(cz.Contains("生成材料") && en.Contains("generated volume"), "中英文说明展示实际世界操作及每块材料要求");
+    File.WriteAllText(Path.Combine(folder, "descriptions.json"), JsonConvert.SerializeObject(new { cz, en }, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "independent.json"), JsonConvert.SerializeObject(independent, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "basis.json"), JsonConvert.SerializeObject(basis, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "derived.json"), JsonConvert.SerializeObject(derived, Formatting.Indented));
+    return new { passed = true, closed = "材料交出的独立创作、原术衍生和完整输入重现", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder, "attempts.json"), JsonConvert.SerializeObject(attempts, Formatting.Indented));
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    LocalizedTextManager.instance.setLanguage("cz"); Config.paused = true; ControllableUnit.clear(false);
+}

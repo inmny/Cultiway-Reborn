@@ -1,0 +1,48 @@
+Actor source = Make(60), enemy = Make(74, "wolf"); var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "input-creation", "derived.json")));
+var active = new List<AbilityCast>(); var world = new List<ConstructedWorldContact>(); var materials = new List<WorldMaterialChange>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == fact.CastId) active.Add((AbilityCast)Field(running, "Cast"));
+}
+void WorldHit(ConstructedWorldContact fact) { if (fact.AbilityId == definition.Id) world.Add(fact); }
+void Material(WorldMaterialChange fact) { if (fact.AbilityId == definition.Id) materials.Add(fact); }
+ConstructedAbilityService.CastStarted += Started; ConstructedAbilityService.WorldContactConfirmed += WorldHit; WorldMaterialService.Changed += Material;
+try
+{
+    Ready(source); await Advance(.15f); Place(source, 60); Place(enemy, 74);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f; float before = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, enemy, aim: new Vector3(64.5f, 72.5f, 0), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>(); var live = active.Last(); double volume = live.RemainingVolume(0), principal = live.RemainingResource(0);
+    Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f, "修士原术衍生成品实际支付原报价");
+    await Advance(.4f);
+    var facts = world.Where(fact => fact.Result.Changed).ToArray();
+    Check(facts.Length == 2 && facts.All(fact => fact.MaterialVolume > 0 &&
+        World.world.GetTileSimple(fact.X, fact.Y).main_type == TileLibrary.soil_high) &&
+        Math.Abs(live.RemainingVolume(0) + facts.Sum(fact => fact.MaterialVolume) - volume) < .00001 &&
+        Math.Abs(live.RemainingResource(0) + facts.Sum(fact => fact.MaterialResource) - principal) < .00001,
+        "真实创作成品通过共同地块接触改变原版地形，并守恒交出材料和支付份额");
+    await Advance(1);
+    var leave = materials.Single(fact => fact.Kind == "leave");
+    Check(live.Finished && !BodyControlState.IsBusy(source.id) && Math.Abs(leave.Volume + facts.Sum(fact => fact.MaterialVolume) - volume) < .00001,
+        "创作成品只留置实际余量，原施放正常结束");
+    ConstructedAbilityService.Learn(owner, definition.Id); owner.GetCultisys<Xian>().wakan = 0; int count = active.Count;
+    Check(!ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.constructed", owner.E, definition.Id),
+        new ActiveAbilityTarget(null, new Vector3(64.5f, 75.5f, 0)), ActiveAbilityUseOrigin.Script) && active.Count == count && owner.GetCultisys<Xian>().wakan == 0,
+        "余额不足拒绝且不产生材料和重复施放");
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    Ready(source); Place(source, 60); await Fire(definition, source, enemy, aim: new Vector3(64.5f, 75.5f, 0), aggro: false); owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(1.5f);
+    Check(active.Last().Finished && world.Any(fact => fact.Result.Changed && fact.Y == 75), "恢复资源后同一成品再次正常交出并结束");
+    return new { passed = true, closed = "材料交出创作成品的原版结果、实际余量及失败恢复", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.WorldContactConfirmed -= WorldHit; WorldMaterialService.Changed -= Material;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(new { world, materials }, Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}
