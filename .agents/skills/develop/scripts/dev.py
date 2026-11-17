@@ -132,7 +132,7 @@ def stop_validation_group(process):
 
 
 def interrupt_validation(signum, _frame):
-    """让系统的终止请求经过验证命令的收尾流程。"""
+    """让中断和终止请求经过验证命令的收尾流程。"""
     raise SystemExit(128 + signum)
 
 
@@ -702,6 +702,8 @@ def main():
         raise DevError("请使用 Python 3.11 或更新版本")
     os.umask(0o077)
     if args.action in ("run", "exec"):
+        # 避免 communicate 在 Ctrl+C 时先回收主命令，跳过进程组清理。
+        signal.signal(signal.SIGINT, interrupt_validation)
         signal.signal(signal.SIGTERM, interrupt_validation)
     environment = Environment(args.worktree, args.root, args.name)
     if args.action == "status":

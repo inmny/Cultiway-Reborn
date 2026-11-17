@@ -221,6 +221,35 @@ class EnvironmentTests(unittest.TestCase):
         self.assertIsNone(dev.process_identity(int(child_pid.read_text())))
         self.assertEqual(self.environment.load()["status"], "uncertain")
 
+    def test_exec_interrupt_reaps_group_when_parent_already_exited(self):
+        """主命令先退出时，Ctrl+C 仍会结束持有输出管道的子进程。"""
+        state = self.setup_environment()
+        state.update(launch={"id": "sample", "pid": 0}, inputs={"sha256": "sample"})
+        self.environment.save(state)
+        child_pid = self.base / "child.pid"
+        child = """
+import os, signal, sys, time
+while os.getppid() == int(sys.argv[1]):
+    time.sleep(0.01)
+os.kill(int(sys.argv[2]), signal.SIGINT)
+time.sleep(5)
+"""
+        spawn = """
+import os, subprocess, sys
+from pathlib import Path
+child = subprocess.Popen([sys.executable, "-c", sys.argv[1], str(os.getpid()), str(os.getppid())])
+Path(sys.argv[2]).write_text(str(child.pid))
+"""
+        entry = "import dev; dev.Environment.require_current = lambda *_: None; dev.main()"
+        result = subprocess.run(
+            [sys.executable, "-c", entry, "--worktree", str(self.worktree), "--root", str(self.root),
+             "exec", "--timeout", "3", "--", sys.executable, "-c", spawn, child, str(child_pid)],
+            cwd=Path(__file__).parent, capture_output=True, text=True, timeout=8,
+        )
+        self.assertIsNone(dev.process_identity(int(child_pid.read_text())))
+        self.assertEqual(result.returncode, 130, result.stderr)
+        self.assertEqual(self.environment.load()["status"], "uncertain")
+
     def test_cleanup_rejects_symlink_and_outside_directory(self):
         """不能借环境内符号链接删除外部资料。"""
         self.setup_environment()
