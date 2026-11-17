@@ -1845,3 +1845,12 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 `save`恢复真实规则27旧请求，人物区段28原样升级29，旧作者、名称、完整结果及费用保持，与新规则28请求一起正式保存和读取，各授予一次。新成品实际使用，完成世界再次读取保持原年龄和完整新旧结果。旧样例`fixtures/erosion-creation-rule27.json`来自5.11 C2真实等待世界及当时完整预期。保存前沿用现成入口等待三帧，使新人物进入原版保存枚举。
 
 后段通过`--creation`复用已通过的生成目录，输出在`CULTIWAY_DEV_OUTPUT/erosion-creation/<分段>`。首轮前三段通过，首轮存读因场景人物尚未进入保存列表失败，修正准备后仅补存读段，按分段验收。索引为`/home/inmny/.local/state/cultiway-dev/evidence/erosion-creation/delivery.json`。C2关闭，真正冷启动及原版、Worldfall连续影片继续C3。
+
+
+### 5.13 C3a　侵蚀老化的集中真正冷启动
+
+通过develop执行`python3 Scripts/SpellDemos/verify_erosion_delivery.py --section resume`，依次读取C2新旧等待及使用后、A2b2局部材料、B2a磨损与破损、B2b部分及到期库存的真实交付世界。各组拒绝原进程，核对完整结果、作者及费用、真实年龄、原物件和关系、有限寿命及到期、局部材料的剩余侵蚀与体积和支付守恒。每组保存本进程的完成世界及当时完整预期。
+
+正常停止并确认进程退出，再次启动后执行`--section completed --state <上次erosion-cold/resume目录>`。逐组读取前次完成世界，核对完整原结果、原关系及一次授予，额外损耗和旧施放不重放。原人物仍按出生时刻及原年龄增量计算，原库存只按真实世界时间推进。
+
+可用`--family requests|materials|equipment|inventory`只补受影响组，默认all依次运行四组。`--evidence`切换既有证据根目录，输出位于`CULTIWAY_DEV_OUTPUT/erosion-cold/<分段>/<组>`。两条集中命令分别首次通过，输入、响应、完成世界及正常退出日志均在`/home/inmny/.local/state/cultiway-dev/evidence/erosion-cold/delivery.json`索引。C3a关闭，原版及Worldfall连续影片继续C3b。

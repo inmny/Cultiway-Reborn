@@ -1,0 +1,36 @@
+var saved = JObject.Parse(File.ReadAllText(Path.Combine(inputFolder, "completed-expected.json")));
+expected = (JObject)saved["expected"];
+var ages = new List<ConstructedAging>(); var wear = new List<ConstructedEquipmentErosion>(); var aging = new List<ConstructedInventoryAging>();
+void Age(ConstructedAging fact) => ages.Add(fact);
+void Wear(ConstructedEquipmentErosion fact) => wear.Add(fact);
+void Aging(ConstructedInventoryAging fact) => aging.Add(fact);
+ConstructedAbilityService.AgingConfirmed += Age; ConstructedAbilityService.EquipmentErosionConfirmed += Wear; ConstructedAbilityService.InventoryAgingConfirmed += Aging;
+try
+{
+    foreach (var row in (JArray)saved["cases"])
+    {
+        string stage = (string)row["stage"];
+        await LoadWorld(Path.Combine(inputFolder, (string)row["save"])); FreezePeople();
+        JToken actual = family == "inventory" ? InventoryState(restoredInventory) : Current(stage);
+        Check(JToken.DeepEquals(actual, row["state"]), "第二次真正重启保持完整身份、原结果和原关系 " + family + "/" + stage);
+        double before = World.world.getCurWorldTime();
+        var life = family == "inventory" ? World.world.units.get((long)expected["target"]).GetExtend().GetItems().Where(item => item.HasComponent<AliveTimer>())
+            .ToDictionary(Stable, item => item.GetComponent<AliveTimer>().value) : null;
+        await Advance(.3f);
+        if (family == "inventory")
+        {
+            double elapsed = World.world.getCurWorldTime() - before;
+            Check(World.world.units.get((long)expected["target"]).GetExtend().GetItems().Where(item => item.HasComponent<AliveTimer>()).All(item =>
+                Math.Abs(item.GetComponent<AliveTimer>().value - life[Stable(item)] - elapsed) < .00001), "第二次重启后原寿命只按实际世界时间推进 " + stage);
+        }
+        else Check(JToken.DeepEquals(Current(stage), row["state"]), "完成结果不再次结算或授予 " + family + "/" + stage);
+        Check(ages.Count == 0 && wear.Count == 0 && aging.Count == 0 && ((ICollection)service.GetField("casts", F).GetValue(null)).Count == 0,
+            "原施放与已确认人物物件损耗不重放 " + family + "/" + stage);
+    }
+    return new { passed = true, closed = "第二次真正冷启动完整保持与一次结果 " + family, process };
+}
+finally
+{
+    ConstructedAbilityService.AgingConfirmed -= Age; ConstructedAbilityService.EquipmentErosionConfirmed -= Wear; ConstructedAbilityService.InventoryAgingConfirmed -= Aging;
+    Cultiway.ModClass.I.WorldSaves.WorldRestored -= Restored; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+}

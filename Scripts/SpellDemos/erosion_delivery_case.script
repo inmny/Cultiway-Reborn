@@ -1,0 +1,64 @@
+// 仅在本交付点集中恢复真实保存，原人物及世界资料采用原类型比较。
+string inputFolder = Path.Combine(folder, "input-state");
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+JObject origin = JObject.Parse(File.ReadAllText(Path.Combine(folder, "origin.json")));
+Check((int)origin["process"] != process, "原正式世界来自正常退出后的另一进程 " + family);
+var access = ConstructionEditing.Access;
+JToken Json(object value) => JToken.Parse(JsonConvert.SerializeObject(value));
+JToken Complete(AbilityDefinition value) { var token = (JObject)Json(value); token.Remove("Id"); return token; }
+JObject expected = null;
+JArray restoredInventory = null;
+double restoredAt = 0;
+JObject ItemRecord(Entity item) => (JObject)((JArray)WorldObjects()["Objects"]).Single(row => (string)row["Id"] == Stable(item));
+JToken InventoryState(JArray records) => new JArray(records.OrderBy(row => (string)row["Id"], StringComparer.Ordinal).Select(row =>
+{
+    var copy = (JObject)row.DeepClone(); copy["Parts"] = JObject.Parse((string)copy["Parts"]); return copy;
+}));
+JArray InventoryRecords() => new(World.world.units.get((long)expected["target"]).GetExtend().GetItems().Select(ItemRecord));
+void Restored()
+{
+    Config.paused = true; restoredAt = World.world.getCurWorldTime();
+    if (family == "inventory") restoredInventory = InventoryRecords();
+}
+Cultiway.ModClass.I.WorldSaves.WorldRestored += Restored;
+async Task LoadWorld(string path)
+{
+    Config.paused = true; World.world.save_manager.loadWorld(path);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+}
+JObject MaterialSection() => (JObject)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "erosion-cold"))["sections"]["world_materials"];
+JToken MaterialState(JObject section)
+{
+    var data = (JObject)section["data"].DeepClone();
+    data["Records"] = new JArray(((JArray)data["Records"]).OrderBy(row => (long)row["Id"]).Select(row =>
+    {
+        var typed = (JObject)Json(row.ToObject<WorldMaterialData>()); typed.Remove("Clock"); return typed;
+    }));
+    return data;
+}
+JToken Current(string stage)
+{
+    if (family == "materials") return MaterialState(MaterialSection());
+    if (family == "inventory") return InventoryState(InventoryRecords());
+    if (family == "equipment")
+    {
+        var input = expected[stage == "worn" ? "partial" : "broken"];
+        Item armor = World.world.items.get((long)input["armor"]), weapon = World.world.items.get((long)input["weapon"]);
+        Actor target = World.world.units.get((long)expected["target"]);
+        return Json(new { armor = armor.id, weapon = weapon.id, armorDurability = armor.getDurabilityCurrent(),
+            weaponDurability = weapon.getDurabilityCurrent(), armorValue = target.stats["armor"],
+            armorOwner = armor.getActor().id, weaponOwner = weapon.getActor().id,
+            armorSlot = target.equipment.armor.getItem().id, weaponSlot = target.getWeapon().id });
+    }
+    Actor source = World.world.units.get((long)expected["sourceId"]), legacy = World.world.units.get((long)expected["legacyId"]), subject = World.world.units.get((long)expected["targetId"]);
+    var current = source.GetExtend().GetComponent<ConstructedCreationState>(); var old = legacy.GetExtend().GetComponent<ConstructedCreationState>();
+    return Json(new { source = source.id, legacy = legacy.id, target = subject.id, ageOvergrowth = subject.data.age_overgrowth, createdTime = subject.data.created_time,
+        learned = access.Read(current.LastAbility), oldLearned = access.Read(old.LastAbility),
+        known = source.GetExtend().GetComponent<ConstructedKnowledge>().Ids.OrderBy(id => id).ToArray(),
+        oldKnown = legacy.GetExtend().GetComponent<ConstructedKnowledge>().Ids.OrderBy(id => id).ToArray(),
+        current.Pending, oldPending = old.Pending });
+}
+void FreezePeople()
+{
+    foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+}

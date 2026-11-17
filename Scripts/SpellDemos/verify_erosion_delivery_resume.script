@@ -1,0 +1,93 @@
+var output = new List<object>();
+var ages = new List<ConstructedAging>(); var wear = new List<ConstructedEquipmentErosion>(); var aging = new List<ConstructedInventoryAging>();
+void Age(ConstructedAging fact) => ages.Add(fact);
+void Wear(ConstructedEquipmentErosion fact) => wear.Add(fact);
+void Aging(ConstructedInventoryAging fact) => aging.Add(fact);
+ConstructedAbilityService.AgingConfirmed += Age; ConstructedAbilityService.EquipmentErosionConfirmed += Wear; ConstructedAbilityService.InventoryAgingConfirmed += Aging;
+try
+{
+    expected = JObject.Parse(File.ReadAllText(Path.Combine(inputFolder, family == "requests" ? "pending-expected.json" : "expected.json")));
+    string[] stages = family switch { "requests" => new[] { "pending", "used" }, "materials" => new[] { "partial" }, "equipment" => new[] { "worn", "broken" }, _ => new[] { "aged", "expired" } };
+    foreach (string stage in stages)
+    {
+        await LoadWorld(Path.Combine(inputFolder, stage switch { "used" => "completed-save", "partial" => "pending-save", _ => stage + "-save" }));
+        FreezePeople();
+        if (family == "requests")
+        {
+            var source = World.world.units.get((long)expected["sourceId"]); var legacy = World.world.units.get((long)expected["legacyId"]);
+            var current = source.GetExtend().GetComponent<ConstructedCreationState>(); var old = legacy.GetExtend().GetComponent<ConstructedCreationState>();
+            AbilityDefinition Result(Actor actor, ConstructedCreationState state) => state.Pending
+                ? ConstructedAbilityService.Generate(actor.GetExtend(), state.Seed, state.Inspiration, state.Source, state.Resources) : access.Read(state.LastAbility);
+            Check(JToken.DeepEquals(Complete(Result(source, current)), Complete(expected["predicted"].ToObject<AbilityDefinition>())) &&
+                JToken.DeepEquals(Complete(Result(legacy, old)), Complete(expected["expectedOld"].ToObject<AbilityDefinition>())),
+                "真正新进程保留完整新旧结果、作者、名称和原费用 " + stage);
+            if (current.Pending) Check(JToken.DeepEquals(Json(current.Resources), Json(expected["pending"]["Resources"].ToObject<SynthesisResources>())), "新等待请求完整侵蚀目录保持");
+            if (stage == "used")
+            {
+                var used = JObject.Parse(File.ReadAllText(Path.Combine(inputFolder, "completed-expected.json")));
+                Check(World.world.units.get((long)expected["targetId"]).getAge() == (int)used["age"] && ages.Count == 0, "真正冷启动保持实际老化后的原人物年龄且不重放");
+            }
+            await Advance(.4f);
+            current = source.GetExtend().GetComponent<ConstructedCreationState>(); old = legacy.GetExtend().GetComponent<ConstructedCreationState>();
+            Check(!current.Pending && !old.Pending && current.LastFailure == null && old.LastFailure == null &&
+                access.List(source.GetExtend()).Count == (int)expected["known"] + 1 && access.List(legacy.GetExtend()).Count == (int)expected["oldKnown"] + 1,
+                "冷启动后正常完成或保持完成，新旧请求各授予一次 " + stage);
+        }
+        else if (family == "materials")
+        {
+            Check(JToken.DeepEquals(MaterialState(MaterialSection()), MaterialState((JObject)expected["section"])), "冷启动保留实际局部表面、原归属、阶段、损耗及原过程");
+            var before = ((JArray)MaterialSection()["data"]["Records"]).Select(row => row["Material"].ToObject<AbilityMaterialData>()).ToArray();
+            var finals = before.Select(value =>
+            {
+                double loss = value.Erosion?.Active == true ? value.Erosion.Value.Fraction * AbilityMatters.Resolve(value.Matter, value.State, "cold").ErosionFactor : 0;
+                double ratio = value.Erosion?.Active == true ? (1 - loss) / (1 - loss * value.Erosion.Value.Progress) : 1;
+                return new { volume = value.Volume * ratio, resource = value.Resource * ratio };
+            }).ToArray();
+            await Advance(10f);
+            var after = ((JArray)MaterialSection()["data"]["Records"]).Select(row => row["Material"].ToObject<AbilityMaterialData>()).ToArray();
+            Check(after.All(value => value.Erosion?.Active != true) && Math.Abs(after.Sum(value => value.Volume) - finals.Sum(value => value.volume)) < .00005 &&
+                Math.Abs(after.Sum(value => value.Resource) - finals.Sum(value => value.resource)) < .00005 &&
+                Math.Abs(after.Sum(value => value.Volume + (value.Weathering?.LostVolume ?? 0)) - (double)expected["initialVolume"]) < .00005 &&
+                Math.Abs(after.Sum(value => value.Resource + (value.Weathering?.SpentResource ?? 0)) - (double)expected["initialResource"]) < .00005,
+                "新进程只完成真实剩余份额，体积及原支付去向守恒");
+        }
+        else if (family == "equipment")
+        {
+            var original = expected[stage == "worn" ? "partial" : "broken"]; var actual = Current(stage);
+            Check((long)actual["armorOwner"] == (long)expected["target"] && (long)actual["weaponOwner"] == (long)expected["target"] &&
+                (long)actual["armorSlot"] == (long)original["armor"] && (long)actual["weaponSlot"] == (long)original["weapon"] &&
+                (int)actual["armorDurability"] == (int)original["armorDurability"] && (int)actual["weaponDurability"] == (int)original["weaponDurability"] &&
+                Math.Abs((float)actual["armorValue"] - (float)original["armorValue"]) < .0001f,
+                "真正冷启动保持原装备身份、栏位、归属、耐久及破损属性 " + stage);
+            await Advance(.3f); Check(JToken.DeepEquals(actual, Current(stage)) && wear.Count == 0, "原磨损不重放 " + stage);
+        }
+        else
+        {
+            JArray original = (JArray)expected[stage == "aged" ? "partial" : "expired"];
+            Check(restoredInventory.Count == original.Count && original.All(row => restoredInventory.Any(actual => (string)actual["Id"] == (string)row["Id"] &&
+                JToken.DeepEquals(JObject.Parse((string)actual["Parts"]), JObject.Parse((string)row["Parts"])))), "真正冷启动保留原库存身份、来源、品阶与有限寿命 " + stage);
+            double now = World.world.getCurWorldTime(); var before = World.world.units.get((long)expected["target"]).GetExtend().GetItems()
+                .Where(item => item.HasComponent<AliveTimer>()).ToDictionary(Stable, item => item.GetComponent<AliveTimer>().value);
+            await Advance(.3f); double elapsed = World.world.getCurWorldTime() - now;
+            var inventory = World.world.units.get((long)expected["target"]).GetExtend();
+            Check(aging.Count == 0 && inventory.GetItems().Where(item => item.HasComponent<AliveTimer>()).All(item =>
+                Math.Abs(item.GetComponent<AliveTimer>().value - before[Stable(item)] - elapsed) < .00001), "只继续原自然寿命，额外推进不重放 " + stage);
+            if (stage == "expired") Check(!inventory.GetItems().Any(item => Stable(item) == (string)expected["firstId"]) && inventory.GetItems().All(item => item.IsAvailable()), "到期物件保持退出，旧借用归还");
+        }
+        if (family is "inventory" or "equipment")
+        {
+            var input = expected["definition"].ToObject<AbilityDefinition>(); var actor = World.world.units.get((long)expected["source"]).GetExtend();
+            Check(JToken.DeepEquals(Json(access.Read(input.Id)), Json(input)) && actor.GetComponent<ConstructedKnowledge>().Ids.Contains(input.Id), "完整构造及已学关系保持 " + family + "/" + stage);
+        }
+        string name = stage + "-cold-save"; SaveManager.saveWorldToDirectory(Path.Combine(folder, name));
+        output.Add(new { stage, save = name, state = Current(stage) });
+    }
+    File.WriteAllText(Path.Combine(folder, "completed-expected.json"), JsonConvert.SerializeObject(new { process, family, expected, cases = output }, Formatting.Indented));
+    return new { passed = true, closed = "侵蚀老化真实冷启动与剩余过程 " + family, process };
+}
+finally
+{
+    ConstructedAbilityService.AgingConfirmed -= Age; ConstructedAbilityService.EquipmentErosionConfirmed -= Wear; ConstructedAbilityService.InventoryAgingConfirmed -= Aging;
+    Cultiway.ModClass.I.WorldSaves.WorldRestored -= Restored; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(new { ages, wear, aging }, Formatting.Indented)); Config.paused = true; ControllableUnit.clear(false);
+}
