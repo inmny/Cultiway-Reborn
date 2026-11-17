@@ -50,6 +50,9 @@ public sealed class CompiledAbility
     /// <summary>实际参与人物接触的独立作用，身体阶段及部位覆盖已经展开。</summary>
     public IReadOnlyList<CompiledConstructionImpact> ActorImpacts { get; }
 
+    /// <summary>是否有实际人物对应，普通构造无需额外实例记录。</summary>
+    public bool HasCorrespondences { get; }
+
     /// <summary>实际攻击部位及身体采用的最大推拉力绝对值，供自主决策估算。</summary>
     public float ContactForce { get; }
 
@@ -190,6 +193,7 @@ public sealed class CompiledAbility
         ConcurrentLimit = definition.ConcurrentLimit;
         TargetRange = definition.TargetRange;
         Nodes = nodes;
+        HasCorrespondences = nodes.Any(node => node.Correspondence != null);
         Operations = Array.AsReadOnly(nodes.SelectMany(node => node.Operations).ToArray());
         OperationResources = Operations.Aggregate(ConstructionOperationResource.None,
             (current, operation) => current | operation.Resources);
@@ -432,6 +436,9 @@ internal sealed class CompiledForm
 
     /// <summary>明确的攻击、屏障或装饰用途。</summary>
     internal ConstructionContactRole ContactRole;
+
+    /// <summary>本真实部位与受理时原人物的不可变对应。</summary>
+    internal CompiledCorrespondence Correspondence;
 
     /// <summary>攻击形体沿用默认作用；屏障只有明确声明作用才接触人物。</summary>
     internal bool AffectsActors => ContactRole == ConstructionContactRole.Attack ||
@@ -743,6 +750,8 @@ public static partial class AbilityCompiler
         if (node.Surface != null)
             ConstructionReferences.Resolve(path + "/Surface", () => FormResources.Surface(node.Surface, true));
         AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, path + "/Matter");
+        if (node.Correspondence != null && node.ContactRole == ConstructionContactRole.Decoration)
+            Fail(path + "/Correspondence", "装饰部位没有真实交锋形状，不能承接受击传伤");
         CompiledSpreadMedium.ValidateChannel(node.MediumChannel, path + "/MediumChannel");
         if (matter.Surface != null)
             ConstructionReferences.Resolve(path + "/Matter/Surface", () => FormResources.Surface(matter.Surface, true));
@@ -781,6 +790,7 @@ public static partial class AbilityCompiler
             ContactPolicy = node.Contact == null ? null : new CompiledContactPolicy(node.Contact, path),
             Impact = node.Impact == null ? null : new CompiledConstructionImpact(node.Impact, path + "/Impact"),
             RadialMotion = node.RadialMotion == null ? null : new CompiledConstructionRadialMotion(node.RadialMotion, path + "/RadialMotion"),
+            Correspondence = node.Correspondence == null ? null : new CompiledCorrespondence(node.Correspondence, path + "/Correspondence"),
             OnContact = node.OnContact,
             ContactRole = node.ContactRole,
             BlocksGroundActors = node.BlocksGroundActors,

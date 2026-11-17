@@ -1,0 +1,67 @@
+var facts = new List<ConstructedCorrespondenceDamage>();
+/// <summary>捕获读档和换世界后意外重放的伤害。</summary>
+/// <param name="fact">实际结果。</param>
+void Mapped(ConstructedCorrespondenceDamage fact) => facts.Add(fact);
+ConstructedAbilityService.CorrespondenceDamageConfirmed += Mapped;
+
+/// <summary>按同一正式读档入口切换世界并等待共同逻辑边界。</summary>
+/// <param name="name">本批已归档的正式世界。</param>
+async Task Load(string name)
+{
+    Config.paused = true;
+    World.world.save_manager.loadWorld(Path.Combine(folder, name));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+try
+{
+    var legacy = JObject.Parse(File.ReadAllText(Path.Combine(folder, "legacy-definition.json")));
+    await Load("legacy-save");
+    var definitions = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    foreach (var saved in (JArray)legacy["data"]["Definitions"])
+    {
+        var old = saved.ToObject<AbilityDefinition>();
+        var actual = (AbilityDefinition)definitions[old.Id];
+        Check(actual != null && JToken.DeepEquals(JObject.FromObject(old), JObject.FromObject(actual)),
+            "真实旧12原样升级，完整构造保持 " + old.Id);
+    }
+    Check(facts.Count == 0, "旧世界升级不补写映像传伤");
+
+    var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "expected.json")));
+    await Load("completed-save");
+    var source = World.world.units.get((long)expected["source"]);
+    var target = World.world.units.get((long)expected["target"]);
+    definitions = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    var definition = (AbilityDefinition)definitions[(string)expected["definition"]["Id"]];
+    Check(source != null && target != null && target.data.health == (int)expected["health"] &&
+        JToken.DeepEquals(JObject.FromObject(definition), JObject.FromObject(expected["definition"].ToObject<AbilityDefinition>())) &&
+        source.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids.Contains(definition.Id),
+        "正式存读保持原身份、完整对应、已学关系及真实生命结果");
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.3f);
+    Check(facts.Count == 0 && ((ICollection)service.GetField("casts", F).GetValue(null)).Count == 0,
+        "恢复后不重放对应伤害和旧施放");
+    ConstructedAbilityService.Learn(source.GetExtend(), definition.Id);
+    int health = target.data.health;
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "restored-save"));
+    await Load("restored-save");
+    source = World.world.units.get((long)expected["source"]);
+    target = World.world.units.get((long)expected["target"]);
+    Check(target.data.health == health && source.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids.Contains(definition.Id),
+        "完成世界再次读取保持原结果及一次已学关系");
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.3f);
+    await Load("input-world"); await Advance(.3f);
+    Check(facts.Count == 0 && ((ICollection)service.GetField("casts", F).GetValue(null)).Count == 0,
+        "换世界后旧对应和旧伤害全部退出");
+    return new { passed = true, closed = "真实旧12原样升级、新对应与原生命保存、重复读取和换世界去重", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CorrespondenceDamageConfirmed -= Mapped;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

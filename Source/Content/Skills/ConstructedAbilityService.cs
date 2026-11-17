@@ -106,7 +106,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         BodyRecoveryFloor.Height = (field, point, maximum, radius) => BodyLocomotion.Floor(field, point, maximum, radius);
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
         ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, DefinitionSave>("ability_constructions", "自创能力构造",
-                12,
+                13,
                 _ => new DefinitionSave { Definitions = definitions.Values.ToArray() }, (_, data) =>
                 {
                     foreach (AbilityDefinition definition in data.Definitions)
@@ -127,7 +127,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 migrations: new ISaveMigration[]
                 {
                     new ConstructionsV1ToV2(), new ConstructionsV2ToV3(), new ConstructionsV3ToV4(),
-                    new ConstructionsV4ToV5(), new ConstructionsV5ToV6(), new ConstructionsV6ToV7(), new ConstructionsV7ToV8(), new ConstructionsV8ToV9(), new ConstructionsV9ToV10(), new ConstructionsV10ToV11(), new ConstructionsV11ToV12()
+                    new ConstructionsV4ToV5(), new ConstructionsV5ToV6(), new ConstructionsV6ToV7(), new ConstructionsV7ToV8(), new ConstructionsV8ToV9(), new ConstructionsV9ToV10(), new ConstructionsV10ToV11(), new ConstructionsV11ToV12(), new ConstructionsV12ToV13()
                 })
             { BeforeActors = true });
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, KnowledgeSave>("ability_knowledge", "自创能力掌握",
@@ -440,6 +440,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         string id = definition.Id;
         if (!TryResolveUseTarget(caster, plan, target, out Actor targetActor, out Vector3 point,
                 out float targetHeight)) return false;
+        if (plan.HasCorrespondences && plan.Nodes.Any(node => node.Correspondence != null &&
+            (node.Correspondence.Target == ConstructionCorrespondenceTarget.Source ? sourceActor : targetActor) == null)) return false;
         if (caster != null && StartingDistance(spatialSource, point) > Range(caster, plan, targetActor, carrierSource) ||
             caster == null && Vector2.Distance(sourcePosition.Value, point) > (plan.TargetRange ?? 10000f)) return false;
         if (plan.Body?.Construction.HasControlRelations == true && (targetActor == null || targetActor == caster.Base))
@@ -571,6 +573,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 ReservedResidues = plan.ResidueCount,
                 ReservedMaterialCells = plan.ResidueCells,
                 Cast = cast,
+                CorrespondenceEnded = plan.HasCorrespondences ? new bool[plan.FormCount] : null,
                 WorldScope = target.WorldScope,
                 CorrelationId = target.RuntimeData.CorrelationId,
                 WorldHits = plan.HasWorldEffects ? new() : null,
@@ -912,6 +915,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>实际归属及目标。</summary>
         internal Actor Source, Target;
+
+        /// <summary>原人物失效后该部位的对应终止，不借用复活或对象池替身重新接续。</summary>
+        internal bool[] CorrespondenceEnded;
 
         /// <summary>本次已计入世界回收的占用，结束时只移除一次。</summary>
         internal bool WorldRecoveryTracked;

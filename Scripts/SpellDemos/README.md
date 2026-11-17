@@ -1863,3 +1863,12 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 已加载Worldfall的独立环境加`--worldfall`，入口核对实际模式。`--case material|aging`只补对应场景。每帧保留实际世界时间、位置、接触与结果，暂停只等待当前时点绘制，沿实际时间差编码常速原片及视角合集。`--encode-only --output <已有视角目录>`可重编已有帧，兼容画面同时加`--worldfall`。
 
 输出位于`CULTIWAY_DEV_OUTPUT/erosion-films/native|worldfall`，每组包含输入世界、原始及实际定义、实际脚本、逐帧画面、时刻和事件、结果与影片。原版原片沿首次通过结果。Worldfall先前取景中的旧建筑遮挡，通过将原清理移至原版枚举初始化后、调整斜向近景解决，仅补兼容两段。取景原片和诊断脚本失败均保留，按分段验收。索引为`/home/inmny/.local/state/cultiway-dev/evidence/erosion-films/delivery.json`。软件渲染用于功能与双端对应观察，最终美术与性能继续对应工作包。
+
+
+### 5.14 A　映像对应与真实交锋传伤
+
+通过develop执行`python3 Scripts/SpellDemos/verify_correspondence.py --section core|runtime|save|all`。边界段检查普通部位的明确原人物、具名对应和传伤份额、完整编译复制与非法声明拒绝。实机段复用现成世界、一个来源和两个目标，沿普通学习与付费使用，观察近处映像受击、远处原人物真实受伤、原攻击归属和有限交锋消耗。多个独立映像和直接人物接触共用攻击次数，补充自身资格拒绝、端点真实死亡、缺少原人物不收费及结束再用。
+
+保存段用`--state <已通过的runtime目录>`复用正式完成世界，`--legacy <真实旧12世界>`可指定旧来源。默认旧样例来自5.13 C2已交付的真实完成世界，入口核对正式区段12并保存校验值及原资料。完整旧构造原样升级，新13对应、原人物和生命结果及已学关系保持，重复读取及换世界不重放。
+
+输出位于`CULTIWAY_DEV_OUTPUT/correspondence/<分段>`。原all的边界段通过，实机事件坐标直接序列化失败，改为纯数值后仅补实机及存读，按分段验收。完整输入、事件、世界和退出记录位于`/home/inmny/.local/state/cultiway-dev/evidence/correspondence-damage/delivery.json`。A关闭，其他作用、时序、身体与持物接触、编辑及自主创作、集中双端影片继续5.14后批。

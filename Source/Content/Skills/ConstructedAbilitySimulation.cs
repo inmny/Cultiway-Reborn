@@ -301,6 +301,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
         // 已确认的自然结束不再被来源后来失效改写成中断。
         if (running.Cast.Finished) return;
+        ValidateCorrespondences(running);
         if (running.Inventory != null && !running.Inventory.IsValid)
         {
             running.Cast.Cancel(); running.Inventory.Dispose(); ReleaseBody(running); return;
@@ -766,7 +767,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                              running.Cast.Role(shape.To.Node) == ConstructionContactRole.Barrier &&
                              right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Barrier ||
                              !owner.IsHostileTo(right.Running.Owner(right.To.Node)) &&
-                             !right.Running.Owner(right.To.Node).IsHostileTo(owner))) continue;
+                             !right.Running.Owner(right.To.Node).IsHostileTo(owner) &&
+                             !CorrespondenceAllows(shape, right) && !CorrespondenceAllows(right, shape))) continue;
                         bool continuous = shape.Continuous && right.Continuous &&
                                           (reaction != ThermalReaction.Ignite || running.Cast.StartHeat(shape.To.Node) > 0);
                         AbilityCapsule leftFrom = continuous ? shape.From : shape.To,
@@ -943,6 +945,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         {
             if (TryReflect(in hit)) return;
             ShapeMotion right = hit.Right.Value;
+            Actor leftReceiver = CorrespondenceReceiver(running, node);
+            Actor rightReceiver = CorrespondenceReceiver(right.Running, right.To.Node);
             float absorbed = Mathf.Min(running.Cast.RemainingForce(node),
                 right.Running.Cast.RemainingForce(right.To.Node));
             if (hit.LeftRayLength >= 0f && absorbed >= running.Cast.RemainingForce(node))
@@ -955,6 +959,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             right.Running.Cast.ConfirmClash(right.To.Node, hit.Point, absorbed);
             running.Cast.ConsumeForce(node, absorbed);
             right.Running.Cast.ConsumeForce(right.To.Node, absorbed);
+            long clashGeneration = worldGeneration;
+            ApplyCorrespondenceDamage(right, hit.Left, leftReceiver, absorbed, hit.Point);
+            if (clashGeneration != worldGeneration) return;
+            ApplyCorrespondenceDamage(hit.Left, right, rightReceiver, absorbed, hit.Point);
+            if (clashGeneration != worldGeneration) return;
             ClashConfirmed?.Invoke(new ConstructedClash(running.Id, right.Running.Id, running.Owner(node).Id,
                 right.Running.Owner(right.To.Node).Id,
                 node, right.To.Node, hit.Point, hit.Normal, running.Cast.Age, right.Running.Cast.Age, absorbed,

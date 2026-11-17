@@ -1,0 +1,34 @@
+/// <summary>同一普通部位形成原人物的映像，物理容量继续使用原形体。</summary>
+AbilityDefinition ImageDefinition() => new AbilityDefinition
+{
+    Id = "test.correspondence.image", Name = "原人物映像", Power = .25f, Cost = 3, Cooldown = .1f,
+    Lifetime = 1f, TargetRange = 40,
+    Impact = new ConstructionImpact { DamageScale = 0 },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Height = .6f },
+    Root = new ConstructionNode
+    {
+        Id = "image", Form = "fireball", Matter = "physical", Scale = .75f,
+        Offset = new[] { 2f, 0f, 0f }, ContactRole = ConstructionContactRole.Barrier,
+        Correspondence = new ConstructionCorrespondence { Id = "original", DamageFraction = .5f }
+    }
+};
+
+/// <summary>沿原投送与实际交锋击中映像，飞行距离触不到远处原人物。</summary>
+AbilityDefinition AttackDefinition() => new AbilityDefinition
+{
+    Id = "test.correspondence.attack", Name = "映像实际受击", Power = 3f, Cost = 2, Cooldown = .1f,
+    Lifetime = .6f, TargetRange = 40,
+    Impact = new ConstructionImpact { DamageScale = 1 },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Height = .6f },
+    Root = new ConstructionNode
+    {
+        Id = "strike", Form = "fireball", Matter = "physical", Scale = .3f,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+            Vector = new[] { 10f, 0f, 0f }, WorldVelocity = true } }
+    }
+};
+
+/// <summary>保存完整实际声明供分段复验。</summary>
+/// <param name="definition">实际使用的构造。</param><param name="name">本批文件名。</param>
+void Input(AbilityDefinition definition, string name) => File.WriteAllText(Path.Combine(folder, name + ".json"),
+    JsonConvert.SerializeObject(definition, Formatting.Indented));

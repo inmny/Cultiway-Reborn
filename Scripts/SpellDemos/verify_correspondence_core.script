@@ -1,0 +1,37 @@
+try
+{
+    var definition = ImageDefinition();
+    var plan = AbilityCompiler.Compile(definition, false);
+    Check(plan.HasCorrespondences, "普通部位编译真实人物对应");
+    object compiled = ((Array)plan.GetType().GetProperty("Nodes", F).GetValue(plan)).GetValue(0);
+    var relation = (CompiledCorrespondence)Field(compiled, "Correspondence");
+    definition.Root.Correspondence.DamageFraction = .2f;
+    Check(relation.Id == "original" && relation.Target == ConstructionCorrespondenceTarget.Target && relation.DamageFraction == .5f,
+        "完整编译复制原对应，不读取随后编辑");
+    var copy = ConstructionEditing.Copy(definition);
+    copy.Root.Correspondence.Target = ConstructionCorrespondenceTarget.Source;
+    Check(definition.Root.Correspondence.Target == ConstructionCorrespondenceTarget.Target &&
+        AbilityCompiler.Compile(copy, false).HasCorrespondences, "来源端点与完整复制相互独立");
+    foreach (int invalid in new[] { 0, 1, 2, 3 })
+    {
+        var bad = ImageDefinition();
+        if (invalid == 0) bad.Root.Correspondence.Id = "../other";
+        if (invalid == 1) bad.Root.Correspondence.DamageFraction = float.NaN;
+        if (invalid == 2) bad.Root.Correspondence.DamageFraction = 1.1f;
+        if (invalid == 3) bad.Root.ContactRole = ConstructionContactRole.Decoration;
+        bool refused = false;
+        try { AbilityCompiler.Compile(bad, false); }
+        catch (InvalidDataException) { refused = true; }
+        Check(refused, "对应边界拒绝非法声明 " + invalid);
+    }
+    var old = ImageDefinition(); old.Root.Correspondence = null;
+    Check(!AbilityCompiler.Compile(old, false).HasCorrespondences && !JsonConvert.SerializeObject(old).Contains("Correspondence"),
+        "旧构造不补写对应且沿原计划");
+    return new { passed = true, closed = "明确对应、编译复制及边界", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

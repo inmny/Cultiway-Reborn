@@ -195,6 +195,10 @@ public sealed class ConstructionNode
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionRadialMotion RadialMotion;
 
+    /// <summary>本部位对应的原人物及明确允许的作用；空值沿原交锋规则。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionCorrespondence Correspondence;
+
     /// <summary>实际接触后怎样继续，默认保留穿过并对每个目标首次作用的行为。</summary>
     public ConstructionContactResponse OnContact;
 
