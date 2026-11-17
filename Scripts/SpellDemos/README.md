@@ -1636,3 +1636,10 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 `python3 Scripts/SpellDemos/verify_legacy_trajectory_save.py`复用现成世界，注入第一版真实曲线及一份故意缺失模型的独立定义，经正式加载核对完整曲线、费用、原档自动副本和局部报告；再恢复第六版真实命名步骤，核对命名输入与未取整基准，按真实目标规则、范围与冷却使用两份旧成品，验证实际作用、结束、再次使用及成品和已学关系再次正式存读。样例`fixtures/legacy-trajectory-save.json`附真实历史来源校验值；历史文件存在时会核对，固定样例可独立用于复现。
 
 `--section runtime`仅用于读取前段已完成、首次正式施放尚未受理后的同一进程续接，不重新建立世界，不加入正常all。索引`artifacts/skill_rebuild/trajectories/legacy-trajectory-save/delivery.json`明确保留纯地点目标未受理及已有冷却的两次失败，以及分别通过的读取前段、运行和保存后段，不声称一次all完整通过。本批不重跑已有身体、装备或等待创作请求矩阵；正式冷启动与连续录像仍集中于C交付点。
+
+
+### 5.05 C15：放置改造的真实开始条件
+
+`python3 Scripts/SpellDemos/verify_placement_starts.py --section ui|behavior|save|all`。`ui`通过真实随身命令保留同名就绪步骤，编辑和撤销事件延迟，覆盖再打开并保存中英窗口；`behavior`复用一剑形主体，核对四种放置的共同转换、前序与事件延迟、早事件晚执行、未触发等待、预测回退、原部位命名输出、无法等价完成及行程条件的明确失败、新规则22自主派生、实际付费接触和结束恢复；`save`验证世界构造区段12、人物请求区段23、新旧等待请求各完成一次、完整旧结果及费用保持，以及当前成品使用和再次正式存读。
+
+原术样例为`fixtures/placement-starts.json`，旧请求`fixtures/placement-starts-rule21.json`直接来自C13真实等待世界与当时预期。索引`artifacts/skill_rebuild/trajectories/placement-starts/delivery.json`记录同一进程三段分别通过，未运行一次完整all，没有实机段失败。正式冷启动和连续录像仍集中于C交付点，不重跑身体装备矩阵。新增就绪操作复用共同数值推进，不新增特效资源或游戏设置。

@@ -82,5 +82,6 @@
   "Cultiway.ConstructionText.ConcurrentLimit": "同一来源的此术最多并存{0}次，新施放替换最老实例，每次仍正常支付。",
   "Cultiway.ConstructionText.BetweenFraction": "放置在来源到目标的{0:P0}位置。",
   "Cultiway.ConstructionText.DestinationOnly": "跟随时只接触新位置，不扫过转移空隙。",
-  "Cultiway.ConstructionText.IndependentSourceLoss": "允许不再依赖来源的部分沿已付资源、余量和寿命继续；仍依赖来源连接或身体的部分会结束。"
+  "Cultiway.ConstructionText.IndependentSourceLoss": "允许不再依赖来源的部分沿已付资源、余量和寿命继续；仍依赖来源连接或身体的部分会结束。",
+  "Cultiway.ConstructionText.Operation.Ready": "等待实际就绪"
 }

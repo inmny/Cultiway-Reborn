@@ -308,7 +308,9 @@ public enum ConstructionOperationKind
     /// <summary>以实际立体厚度连接来源与有限目标方向。</summary>
     Ray = 15,
     /// <summary>改变独立运动的中心速度，保留目标、曲线、材料及命中记录。</summary>
-    ChangeSpeed = 16
+    ChangeSpeed = 16,
+    /// <summary>等待实际部位、前序、时点和条件就绪后确认一次，不改变主体。</summary>
+    Ready = 17
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>

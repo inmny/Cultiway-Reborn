@@ -81,6 +81,8 @@ public static class ConstructionOperations
         var part = new ConstructionOperationPort("part", Value.Part);
         var material = new ConstructionOperationPort("material", Value.Material);
         var world = new ConstructionOperationPort("worldMaterials", Value.Material, false, true, true);
+        Add(ConstructionOperationKind.Ready, new[] { part, new ConstructionOperationPort("connection", Value.Relation, false) }, new[] { part, Port("ready", Value.Result) },
+            State.Event, Resource.None, Effect.None, Array.Empty<string>());
         Add(ConstructionOperationKind.Grow, new[] { part }, new[] { part, Port("growth", Value.Process) },
             State.Pose | State.Growth, Resource.None, Effect.Pose | Effect.Shape,
             new[] { nameof(ConstructionOperation.Seconds), nameof(ConstructionOperation.TargetScale) },

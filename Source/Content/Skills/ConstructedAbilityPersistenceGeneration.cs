@@ -10,16 +10,16 @@ namespace Cultiway.Content.Skills;
 public sealed partial class ConstructedAbilityService
 {
     /// <summary>第二十一版以独立随机源选择，不影响原有创作序列。</summary>
-    /// <param name="definition">本次独立草稿。</param><param name="seed">受理时冻结的种子。</param>
-    private static AbilityDefinition GeneratePersistence(AbilityDefinition definition, int seed)
+    /// <param name="definition">本次独立草稿。</param><param name="seed">受理时冻结的种子。</param><param name="rules">受理时冻结的规则。</param>
+    private static AbilityDefinition GeneratePersistence(AbilityDefinition definition, int seed, int rules)
     {
         var random = new Random(unchecked(seed ^ 0x713fa621));
         if (random.NextDouble() < .35d) definition = VaryPersistence(definition, random);
         if (random.NextDouble() < .25d && definition.Root != null && definition.Body == null)
         {
             CompiledAbility plan = AbilityCompiler.Compile(definition, false);
-            if (!plan.Nodes[0].HasRay && ConstructionPlacementReferences.Rewrite(definition, plan, false) == null)
-                definition = VaryBetween(definition, random);
+            if (!plan.Nodes[0].HasRay && ConstructionPlacementReferences.Rewrite(definition, plan, false, rules >= 22) == null)
+                definition = VaryBetween(definition, random, rules >= 22);
         }
         return definition;
     }
@@ -37,10 +37,11 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>两点改造继续共同引用检查及真实比例，不制造运动完成事实。</summary>
     /// <param name="definition">已确认可以改造的独立草稿。</param><param name="random">本次固定选择。</param>
-    private static AbilityDefinition VaryBetween(AbilityDefinition definition, Random random)
+    /// <param name="preserveStarts">新请求保留完整开始条件。</param>
+    private static AbilityDefinition VaryBetween(AbilityDefinition definition, Random random, bool preserveStarts)
     {
         bool follow = random.Next(2) == 0;
-        AbilityDefinition result = ConstructionPlacementEdits.Between(definition, .2f + (float)random.NextDouble() * .6f, follow);
+        AbilityDefinition result = ConstructionPlacementEdits.Between(definition, .2f + (float)random.NextDouble() * .6f, follow, preserveStarts);
         result.Binding.ContactAtDestination = follow && random.Next(2) == 0;
         return result;
     }

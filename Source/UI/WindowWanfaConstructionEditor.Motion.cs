@@ -18,7 +18,7 @@ public sealed partial class WindowWanfaConstructionEditor
         ActionRow("AddMotion", T("AddMotionHint"), () => menu.Show(T("AddMotion"),
             new[]
                 {
-                    ConstructionOperationKind.Stop, ConstructionOperationKind.Detach, ConstructionOperationKind.Fly,
+                    ConstructionOperationKind.Ready, ConstructionOperationKind.Stop, ConstructionOperationKind.Detach, ConstructionOperationKind.Fly,
                     ConstructionOperationKind.Spin, ConstructionOperationKind.Grow, ConstructionOperationKind.Animate,
                     ConstructionOperationKind.ConvertMatter, ConstructionOperationKind.Gather,
                     ConstructionOperationKind.Fracture, ConstructionOperationKind.Flow,

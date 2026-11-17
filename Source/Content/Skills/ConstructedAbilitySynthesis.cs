@@ -122,11 +122,11 @@ public sealed partial class ConstructedAbilityService
                 definition.Binding.Height = Range(3f, 7f);
             }
             else if (inspiration.Rules >= 10 && !definition.Root.Operations.Any(o => o.Ray != null) && Chance(.2f))
-                definition = ConstructionPlacementEdits.Place(definition, AbilityAnchor.Target);
+                definition = ConstructionPlacementEdits.Place(definition, AbilityAnchor.Target, preserveStarts: inspiration.Rules >= 22);
             else if (Chance(inspiration.Control * .6f))
                 definition = ConstructionPlacementEdits.Orbit(definition, AbilityAnchor.Source,
-                    Range(2f, 4f), Range(2f, 5f));
-            else if (Chance(.35f)) definition = ConstructionPlacementEdits.Follow(definition, AbilityAnchor.Source);
+                    Range(2f, 4f), Range(2f, 5f), preserveStarts: inspiration.Rules >= 22);
+            else if (Chance(.35f)) definition = ConstructionPlacementEdits.Follow(definition, AbilityAnchor.Source, preserveStarts: inspiration.Rules >= 22);
             if (inspiration.Rules >= 10 && definition.Root.Operations.Any(o => o.Ray != null))
             {
                 definition.Binding.Follow = true;

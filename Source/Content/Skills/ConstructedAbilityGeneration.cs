@@ -73,7 +73,7 @@ public sealed partial class ConstructedAbilityService
         if (inspiration.Rules >= 18) result = GenerateContactPolicy(result, seed);
         if (inspiration.Rules >= 19) result = GenerateRadialMotion(result, seed);
         if (inspiration.Rules >= 20) result = GenerateClash(result, seed);
-        if (inspiration.Rules >= 21) result = GeneratePersistence(result, seed);
+        if (inspiration.Rules >= 21) result = GeneratePersistence(result, seed, inspiration.Rules);
         return inspiration.Rules >= 3 ? ConstructionPricing.Price(result, contactRules: inspiration.Rules) : result;
     }
 
@@ -190,10 +190,10 @@ public sealed partial class ConstructedAbilityService
             foreach (ConstructionNode child in definition.Root.Children)
                 AddFracture(child);
         int placement = random.NextDouble() < inspiration.Control * .6f ? 2 : random.Next(2);
-        if (placement == 1) definition = ConstructionPlacementEdits.Follow(definition, AbilityAnchor.Source);
+        if (placement == 1) definition = ConstructionPlacementEdits.Follow(definition, AbilityAnchor.Source, preserveStarts: inspiration.Rules >= 22);
         if (placement == 2)
             definition = ConstructionPlacementEdits.Orbit(definition, AbilityAnchor.Source,
-                1.5f + (float)random.NextDouble() * 2f, 3f + (float)random.NextDouble() * 2f);
+                1.5f + (float)random.NextDouble() * 2f, 3f + (float)random.NextDouble() * 2f, preserveStarts: inspiration.Rules >= 22);
         definition = ConstructionMagnitudeEdits.Resize(definition, .8f + (float)random.NextDouble() * .6f, reprice: false);
         definition = ConstructionMagnitudeEdits.Haste(definition, .8f + (float)random.NextDouble() * .8f, reprice: false);
         definition = ConstructionMagnitudeEdits.Duration(definition, .8f + (float)random.NextDouble() * .6f, reprice: false);

@@ -1,0 +1,85 @@
+{
+  "Version": 1,
+  "Id": "test.placement-starts.original",
+  "Name": "等待接触的投送与旋转",
+  "Lifetime": 1.5,
+  "Cost": 3,
+  "Resource": "wakan",
+  "Cooldown": 0.1,
+  "Power": 1,
+  "TargetRange": 100,
+  "Binding": {
+    "Anchor": 1,
+    "Follow": false
+  },
+  "Root": {
+    "Id": "blade",
+    "Form": "sword",
+    "Matter": "iron"
+  },
+  "Steps": [
+    {
+      "Id": "prepare",
+      "Operation": {
+        "Kind": 0,
+        "Seconds": 0.25,
+        "TargetScale": 1.1
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root",
+          "Output": "part"
+        }
+      }
+    },
+    {
+      "Id": "outward",
+      "Operation": {
+        "Kind": 3,
+        "Vector": [
+          0,
+          0,
+          2
+        ],
+        "When": {
+          "Source": ".",
+          "Trigger": 1,
+          "Delay": 0.1
+        }
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root",
+          "Output": "part"
+        },
+        "after": {
+          "Step": "prepare",
+          "Output": "growth"
+        }
+      }
+    },
+    {
+      "Id": "spin",
+      "Operation": {
+        "Kind": 1,
+        "At": 0.7,
+        "Vector": [
+          0,
+          0,
+          90
+        ]
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root",
+          "Output": "part"
+        },
+        "after": {
+          "Step": "outward",
+          "Output": "flight",
+          "Stage": 1
+        }
+      }
+    }
+  ]
+}

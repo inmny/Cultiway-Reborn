@@ -1316,5 +1316,7 @@
   "Cultiway.Construction.SourceLoss.Continue": "Allow independent parts to continue",
   "Cultiway.Construction.ConcurrentRules": "Concurrent instances",
   "Cultiway.Construction.ConcurrentRulesHint": "0 is unlimited. A successful paid cast replaces the oldest instance above the limit for this actor, source and spell. Different spells do not replace each other. Old costs are not refunded.",
-  "Cultiway.Construction.ConcurrentLimit": "Concurrent limit"
+  "Cultiway.Construction.ConcurrentLimit": "Concurrent limit",
+  "Cultiway.Construction.MotionKind.Ready": "Wait for readiness",
+  "Cultiway.Construction.StepOutput.ready": "Readiness confirmation"
 }

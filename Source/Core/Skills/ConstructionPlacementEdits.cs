@@ -10,10 +10,11 @@ public static class ConstructionPlacementEdits
 {
     /// <summary>原主体直接建立在指定位置，不扫过来源到该处的连线；后代继续各自的明确运动。</summary>
     /// <param name="source">已有生成结构。</param><param name="anchor">实际放置的来源或目标。</param>
+    /// <param name="preserveStarts">保留实际事件及前序就绪；旧正式请求保持原规则。</param>
     /// <param name="preserveReferences">修复开始依赖；仅旧正式等待请求使用原改造结果。</param>
-    public static AbilityDefinition Place(AbilityDefinition source, AbilityAnchor anchor, bool preserveReferences = true)
+    public static AbilityDefinition Place(AbilityDefinition source, AbilityAnchor anchor, bool preserveReferences = true, bool preserveStarts = true)
     {
-        AbilityDefinition result = Follow(source, anchor, preserveReferences);
+        AbilityDefinition result = Follow(source, anchor, preserveReferences, preserveStarts);
         result.Binding.Follow = false;
         return result;
     }
@@ -21,9 +22,10 @@ public static class ConstructionPlacementEdits
     /// <summary>将同一主体放到来源与目标之间，内部变化及实际作用保持；普通根旋转可继续改变长轴方向。</summary>
     /// <param name="source">已有生成结构。</param><param name="fraction">从来源到目标的零至一比例。</param>
     /// <param name="follow">是否随实际两点继续更新位置与水平朝向。</param>
-    public static AbilityDefinition Between(AbilityDefinition source, float fraction, bool follow = false)
+    /// <param name="preserveStarts">是否保留完整开始要求，旧请求使用原规则。</param>
+    public static AbilityDefinition Between(AbilityDefinition source, float fraction, bool follow = false, bool preserveStarts = true)
     {
-        AbilityDefinition result = Follow(source, AbilityAnchor.Between);
+        AbilityDefinition result = Follow(source, AbilityAnchor.Between, preserveStarts: preserveStarts);
         result.Binding.Fraction = fraction;
         result.Binding.FaceTarget = true;
         result.Binding.Follow = follow;
@@ -35,15 +37,16 @@ public static class ConstructionPlacementEdits
     /// <summary>将原主体改为跟随实际来源或目标，不增加作用、次数、消耗或持续时间。</summary>
     /// <param name="source">带有实际生成主体的原法术。</param>
     /// <param name="anchor">来源、目标或已有身体的末端。</param>
+    /// <param name="preserveStarts">保留实际事件及前序就绪；旧正式请求保持原规则。</param>
     /// <param name="preserveReferences">修复开始依赖；仅旧正式等待请求使用原改造结果。</param>
-    public static AbilityDefinition Follow(AbilityDefinition source, AbilityAnchor anchor, bool preserveReferences = true)
+    public static AbilityDefinition Follow(AbilityDefinition source, AbilityAnchor anchor, bool preserveReferences = true, bool preserveStarts = true)
     {
         if (source?.Root == null) throw new InvalidDataException("随动改造需要已有生成主体");
         CompiledAbility plan = AbilityCompiler.Compile(source, cache: false);
         var result = ConstructionEditing.Copy(source);
         if (preserveReferences)
         {
-            string error = ConstructionPlacementReferences.Rewrite(result, plan, true);
+            string error = ConstructionPlacementReferences.Rewrite(result, plan, true, preserveStarts);
             if (error != null) throw new InvalidDataException(error);
         }
         result.Binding ??= new ConstructionBinding();
@@ -69,13 +72,14 @@ public static class ConstructionPlacementEdits
     /// <param name="anchor">实际随动中心。</param>
     /// <param name="radius">现有根坐标中的环绕半径，保留原有高度。</param>
     /// <param name="seconds">完成一周的世界秒数，正数顺转、负数逆转。</param>
+    /// <param name="preserveStarts">保留实际事件及前序就绪；旧正式请求保持原规则。</param>
     /// <param name="preserveReferences">修复开始依赖；仅旧正式等待请求使用原改造结果。</param>
-    public static AbilityDefinition Orbit(AbilityDefinition source, AbilityAnchor anchor, float radius, float seconds, bool preserveReferences = true)
+    public static AbilityDefinition Orbit(AbilityDefinition source, AbilityAnchor anchor, float radius, float seconds, bool preserveReferences = true, bool preserveStarts = true)
     {
         if (float.IsNaN(radius) || float.IsInfinity(radius) || radius <= 0f || radius > 10000f ||
             float.IsNaN(seconds) || float.IsInfinity(seconds) || Mathf.Abs(seconds) < .05f)
             throw new InvalidDataException("环绕需要0至一万格内的半径，每周至少0.05秒");
-        AbilityDefinition result = Follow(source, anchor, preserveReferences);
+        AbilityDefinition result = Follow(source, anchor, preserveReferences, preserveStarts);
         ConstructionNode subject = result.Root;
         ConstructionEditing.RebaseReferences(result, "root/" + subject.Id);
         bool bodyAxes = result.Binding.FaceTarget || (anchor is AbilityAnchor.Hand or AbilityAnchor.Effector);

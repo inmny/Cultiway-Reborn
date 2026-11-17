@@ -82,5 +82,6 @@
   "Cultiway.ConstructionText.ConcurrentLimit": "At most {0} instances from this source; a new paid cast replaces the oldest.",
   "Cultiway.ConstructionText.BetweenFraction": "Placed {0:P0} of the way from source to target.",
   "Cultiway.ConstructionText.DestinationOnly": "Following contacts the new position without sweeping the gap.",
-  "Cultiway.ConstructionText.IndependentSourceLoss": "Independent parts may continue with paid resources, remaining force and lifetime. Parts dependent on the source or body still end."
+  "Cultiway.ConstructionText.IndependentSourceLoss": "Independent parts may continue with paid resources, remaining force and lifetime. Parts dependent on the source or body still end.",
+  "Cultiway.ConstructionText.Operation.Ready": "Wait for actual readiness"
 }

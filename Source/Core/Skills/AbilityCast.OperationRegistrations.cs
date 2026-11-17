@@ -11,6 +11,8 @@ public sealed partial class AbilityCast
     /// <summary>旧专用定时入口保持原实现；所有条件及命名执行共用同一登记表。</summary>
     internal static void RegisterOperationImplementations()
     {
+        ConstructionOperations.Register<object>(ConstructionOperationKind.Ready, context => null,
+            (cast, action, value) => true, immediate: value => true);
         ConstructionOperations.Register<float>(ConstructionOperationKind.ChangeSpeed, context =>
             {
                 float speed = context.Source.Speed;

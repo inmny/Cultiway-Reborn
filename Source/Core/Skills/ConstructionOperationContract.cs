@@ -89,6 +89,8 @@ public enum ConstructionOperationResource
 [Flags]
 public enum ConstructionOperationEffect
 {
+    /// <summary>只确认就绪，不改变主体或世界。</summary>
+    None = 0,
     /// <summary>改变实际姿态及由姿态带动的作用区。</summary>
     Pose = 1,
     /// <summary>改变运动与路径。</summary>

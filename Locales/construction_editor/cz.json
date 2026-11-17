@@ -1311,5 +1311,7 @@
   "Cultiway.Construction.SourceLoss.Continue": "允许独立部分继续",
   "Cultiway.Construction.ConcurrentRules": "同招并存",
   "Cultiway.Construction.ConcurrentRulesHint": "0表示不限。同一人物、同一来源、同一法术超出上限时，新施放受理并收费后替换最老实例；不同法术不相互替换，不退回旧费用。",
-  "Cultiway.Construction.ConcurrentLimit": "同招并存上限"
+  "Cultiway.Construction.ConcurrentLimit": "同招并存上限",
+  "Cultiway.Construction.MotionKind.Ready": "等待就绪",
+  "Cultiway.Construction.StepOutput.ready": "就绪确认"
 }
