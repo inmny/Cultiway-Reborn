@@ -50,6 +50,12 @@ public sealed partial class ConstructedAbilityService
         bool preserveReferences = inspiration.Rules >= 16;
         bool placementAvailable = !preserveReferences || draft.Root != null &&
             ConstructionPlacementReferences.Rewrite(draft, plan, false) == null;
+        if (inspiration.Rules >= 21)
+        {
+            choices.Add(("存续规则", () => VaryPersistence(draft, random)));
+            if (placementAvailable && draft.Root != null && draft.Body == null && !plan.Nodes[0].HasRay)
+                choices.Add(("两点连接", () => VaryBetween(draft, random)));
+        }
         if (inspiration.Rules >= 20 && ClashCandidates(draft).Length > 0)
             choices.Add(("交锋规则", () => VaryClash(draft, random)));
         if (inspiration.Rules >= 19 && nodes.Any(node => !string.IsNullOrEmpty(node.Form)))

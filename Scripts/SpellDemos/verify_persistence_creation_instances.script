@@ -1,0 +1,43 @@
+var active = new List<(long Id, long Source, AbilityCast Cast)>();
+void Started(ConstructedCastStarted value)
+{
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == value.CastId) active.Add((value.CastId, value.SourceId, (AbilityCast)Field(running, "Cast")));
+}
+ConstructedAbilityService.CastStarted += Started;
+var views = new List<FormVisualInstance>();
+Matrix4x4 Pose(AbilityCast cast) { views.Clear(); cast.AppendVisuals(views); return views.Single().Transform; }
+void Cultivate(Actor a)
+{
+    var e = a.GetExtend(); e.NewCultisys(Cultisyses.Xian); e.GetCultisys<Xian>().level = 2;
+    e.MarkCultiwayStatsDirty(); a.setStatsDirty(); a.updateStats(); e.GetCultisys<Xian>().wakan = 10000;
+}
+// C13：同招同来源超限只替换最老，逐次支付并可自然结束再施放。
+Actor source=Make(64), other=Make(62), target=Make(72,"wolf"); Cultivate(source); Cultivate(other);
+var d=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"artifacts/skill_rebuild/trajectories/persistence-creation/ui/saved-definition.json")));
+async Task Paid(Actor a)
+{
+    Ready(a); Place(source,64); Place(other,62); Place(target,72);
+    float before=a.GetExtend().GetCultisys<Xian>().wakan; await Fire(d,a,target);
+    float paid=before-a.GetExtend().GetCultisys<Xian>().wakan; a.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(paid-d.Cost)<.001f,"每次实际受理仍支付完整费用",new {a.id,paid,d.Cost});
+}
+try
+{
+    await Paid(source); await Advance(.12f); var first=active.Last();
+    CombatStatusEffects.ApplyStatus(source,hold,10000,source);
+    await Paid(other); await Advance(.12f); var unrelated=active.Last();
+    CombatStatusEffects.ApplyStatus(other,hold,10000,other);
+    await Paid(source); await Advance(.12f); var newest=active.Last();
+    Check(first.Cast.Finished && !unrelated.Cast.Finished && !newest.Cast.Finished && endings.Any(e=>e.Fact.CastId==first.Id && e.Fact.Cancelled),"超限替换最老同源实例，其他来源和最新实例继续",new {first.Id,other=unrelated.Id,newest=newest.Id});
+    await Advance(d.Lifetime+.2f);
+    Check(endings.Any(e=>e.Fact.CastId==newest.Id && !e.Fact.Cancelled) && endings.Any(e=>e.Fact.CastId==unrelated.Id && !e.Fact.Cancelled) && !BodyControlState.IsBusy(source.id),"剩余实例按自身寿命正常结束并无控制残留");
+    await Paid(source); await Advance(d.Lifetime+.2f); var again=active.Last();
+    Check(again.Cast.Finished && endings.Any(e=>e.Fact.CastId==again.Id && !e.Fact.Cancelled),"自然结束后同一人物再次施放和结束");
+    return new {passed=true,closed="最老同源替换、逐发支付与结束恢复",checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+}

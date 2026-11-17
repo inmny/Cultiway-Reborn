@@ -76,5 +76,11 @@
   "Cultiway.ConstructionText.Change.Ray": "射线变化",
   "Cultiway.ConstructionText.RadialMotion": "{0}中心的世界半径{1:0.##}内，对{4}施加水平推拉，中心速度{2:0.##}格/秒（正推负拉），每{3:0.###}秒重新选人；边缘衰减为零，独立于接触面。",
   "Cultiway.ConstructionText.Change.RadialMotion": "范围推拉",
-  "Cultiway.ConstructionText.Change.ClashRules": "交锋规则"
+  "Cultiway.ConstructionText.Change.ClashRules": "交锋规则",
+  "Cultiway.ConstructionText.Change.Persistence": "存续规则",
+  "Cultiway.ConstructionText.Change.Between": "两点连接",
+  "Cultiway.ConstructionText.ConcurrentLimit": "同一来源的此术最多并存{0}次，新施放替换最老实例，每次仍正常支付。",
+  "Cultiway.ConstructionText.BetweenFraction": "放置在来源到目标的{0:P0}位置。",
+  "Cultiway.ConstructionText.DestinationOnly": "跟随时只接触新位置，不扫过转移空隙。",
+  "Cultiway.ConstructionText.IndependentSourceLoss": "允许不再依赖来源的部分沿已付资源、余量和寿命继续；仍依赖来源连接或身体的部分会结束。"
 }

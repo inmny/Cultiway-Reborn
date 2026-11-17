@@ -1,0 +1,57 @@
+// C13：独立创作和原术派生自然使用普通连接及存续规则。
+Actor source=Make(64); var owner=source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level=2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan=10000;
+var inspiration=ConstructedAbilityService.ReadInspiration(owner);
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node) { if(node==null) yield break; yield return node; foreach(var child in node.Children) foreach(var nested in Nodes(child)) yield return nested; }
+JObject Canon(AbilityDefinition d) { var value=JObject.FromObject(d); value.Remove("Id"); value.Remove("Creator"); return value; }
+var capture=service.GetMethod("CaptureCreationResources",F); var attempts=new List<object>();
+try
+{
+    Check(inspiration.Rules==21,"新受理请求使用第二十一版创作规则");
+    AbilityDefinition between=null, persistence=null; int betweenSeed=-1,persistenceSeed=-1;
+    for(int seed=0;seed<96 && (between==null||persistence==null);seed++)
+    {
+        var resources=(SynthesisResources)capture.Invoke(null,new object[]{owner,seed,inspiration});
+        try
+        {
+            var generated=ConstructedAbilityService.Generate(owner,seed,inspiration,resources:resources);
+            if(between==null && generated.Binding?.Anchor==AbilityAnchor.Between) { between=generated; betweenSeed=seed; }
+            if(persistence==null && generated.ConcurrentLimit is >=1 and <=3 && Nodes(generated.Root).Any(n=>n.SourceLoss==ConstructionSourceLoss.Continue)) { persistence=generated; persistenceSeed=seed; }
+            if(ReferenceEquals(generated,between)||ReferenceEquals(generated,persistence))
+                Check(JToken.DeepEquals(Canon(generated),Canon(ConstructedAbilityService.Generate(owner,seed,inspiration,resources:resources))),"冻结输入保持完整新规则结果和费用",new{seed});
+            attempts.Add(new{seed,generated.Id,generated.Cost});
+        }
+        catch(InvalidDataException error){attempts.Add(new{seed,rejected=error.Message});}
+        await Game.NextFrame();
+    }
+    Check(between!=null && persistence!=null,"独立自主创作产生实际两点连接、并存和独立存续",new{betweenSeed,persistenceSeed});
+    File.WriteAllText(Path.Combine(folder,"independent-between.json"),JsonConvert.SerializeObject(between,Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder,"independent-persistence.json"),JsonConvert.SerializeObject(persistence,Formatting.Indented));
+    var basis=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"artifacts/skill_rebuild/trajectories/persistence-creation/ui/saved-definition.json")));
+    string original=JsonConvert.SerializeObject(basis); AbilityDefinition derived=null,betweenDerived=null; int derivedSeed=-1,betweenDerivedSeed=-1;
+    for(int seed=0;seed<96 && (derived==null||betweenDerived==null);seed++)
+    {
+        var resources=(SynthesisResources)capture.Invoke(null,new object[]{owner,seed,inspiration});
+        try
+        {
+            var generated=ConstructedAbilityService.Generate(owner,seed,inspiration,basis,resources);
+            if(generated.Parent.Change=="存续规则" && generated.Root.SourceLoss==ConstructionSourceLoss.Continue) { derived=generated; derivedSeed=seed; }
+            if(generated.Parent.Change=="两点连接") { betweenDerived=generated; betweenDerivedSeed=seed; }
+        }
+        catch(InvalidDataException error){attempts.Add(new{seed,derivedRejected=error.Message});}
+        await Game.NextFrame();
+    }
+    Check(derived!=null && betweenDerived!=null && JsonConvert.SerializeObject(basis)==original,"原术可派生存续和两点连接且原资料保持",new{derivedSeed,betweenDerivedSeed});
+    Check(JToken.DeepEquals(JToken.FromObject(derived.Root.Operations),JToken.FromObject(basis.Root.Operations)) && JToken.DeepEquals(JToken.FromObject(derived.Binding),JToken.FromObject(basis.Binding)) && JToken.DeepEquals(JToken.FromObject(derived.Steps),JToken.FromObject(basis.Steps)),"存续派生保留原连接、运动及命名步骤");
+    Check(betweenDerived.Binding.Anchor==AbilityAnchor.Between && betweenDerived.Binding.Fraction is >=0 and <=1 && betweenDerived.Root.Form==basis.Root.Form && betweenDerived.ConcurrentLimit==basis.ConcurrentLimit && betweenDerived.Root.SourceLoss==basis.Root.SourceLoss,"两点派生使用真实比例并保留主体与原存续规则");
+    Check(derived.Cost==basis.Cost && AbilityCompiler.Compile(derived,false).Measure.Work==AbilityCompiler.Compile(basis,false).Measure.Work,"存续不重复收取主体或每发原需求");
+    File.WriteAllText(Path.Combine(folder,"derived.json"),JsonConvert.SerializeObject(derived,Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder,"derived-between.json"),JsonConvert.SerializeObject(betweenDerived,Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder,"selected.json"),JsonConvert.SerializeObject(new{seed=derivedSeed,betweenSeed=betweenDerivedSeed},Formatting.Indented));
+    return new{passed=true,closed="连接和存续的独立创作、原术派生及冻结结果",checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder,"attempts.json"),JsonConvert.SerializeObject(attempts,Formatting.Indented));
+    ConstructedAbilityService.ContactConfirmed-=Hit; ConstructedAbilityService.CastEnded-=Ended; Config.paused=true; ControllableUnit.clear(false);
+}

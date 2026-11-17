@@ -1,0 +1,38 @@
+var active = new List<(long Id, long Source, AbilityCast Cast)>();
+void Started(ConstructedCastStarted value)
+{
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == value.CastId) active.Add((value.CastId, value.SourceId, (AbilityCast)Field(running, "Cast")));
+}
+ConstructedAbilityService.CastStarted += Started;
+var views = new List<FormVisualInstance>();
+Matrix4x4 Pose(AbilityCast cast) { views.Clear(); cast.AppendVisuals(views); return views.Single().Transform; }
+void Cultivate(Actor a)
+{
+    var e = a.GetExtend(); e.NewCultisys(Cultisyses.Xian); e.GetCultisys<Xian>().level = 2;
+    e.MarkCultiwayStatsDirty(); a.setStatsDirty(); a.updateStats(); e.GetCultisys<Xian>().wakan = 10000;
+}
+// C13：实际两点位置、随动空隙以及仍依赖来源的结束。
+Actor source = Make(64), target = Make(72, "wolf"), gap = Make(67.5f, "wolf"), destination = Make(69, "wolf");
+Cultivate(source); source.addAggro(gap); gap.addAggro(source); source.addAggro(destination); destination.addAggro(source);
+var d = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/trajectories/persistence-creation/ui/binding-definition.json")));
+try
+{
+    Ready(source); Place(source,64); Place(target,72); Place(gap,67.5f); Place(destination,69);
+    float before = source.GetExtend().GetCultisys<Xian>().wakan; await Fire(d,source,target);
+    float paid = before - source.GetExtend().GetCultisys<Xian>().wakan; source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.12f); var live = active.Single().Cast; var first = Pose(live);
+    Check(Math.Abs(first.m03 - 66f) < .04f && Math.Abs(first.m13 - 72f) < .04f && Math.Abs(paid-d.Cost)<.001f, "正式支付的主体位于真实两点四分之一处", new { paid, position = new[] {first.m03,first.m13,first.m23}, source = new[]{source.current_position.x,source.current_position.y} });
+    int gapHp = gap.data.health, destinationHp = destination.data.health;
+    Place(source,68); ConstructedAbilityService.NotifyActorChanged(source); await Advance(.15f); var moved = Pose(live);
+    Check(Math.Abs(moved.m03-69f)<.04f && contacts.Any(c=>c.TargetId==destination.id) && destination.data.health<destinationHp, "真实随动到达新位置且该处仍能实际伤害", new { position = new[]{moved.m03,moved.m13,moved.m23}, before=destinationHp,after=destination.data.health });
+    Check(gap.data.health==gapHp && !contacts.Any(c=>c.TargetId==gap.id), "仅新位置接触不会扫伤两次位置间的空隙", new { before=gapHp,after=gap.data.health });
+    long id=source.id; source.dieAndDestroy(AttackType.None); await Game.NextFrame(); await Advance(.15f);
+    Check(live.Finished && endings.Any(e=>e.Fact.SourceId==id && e.Fact.Cancelled), "允许独立继续仍不能保留依赖来源的两点跟随连接");
+    return new { passed=true, closed="真实两点随动、新位置接触及来源依赖结束", checks, process=System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+}

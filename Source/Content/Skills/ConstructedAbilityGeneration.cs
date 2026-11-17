@@ -73,6 +73,7 @@ public sealed partial class ConstructedAbilityService
         if (inspiration.Rules >= 18) result = GenerateContactPolicy(result, seed);
         if (inspiration.Rules >= 19) result = GenerateRadialMotion(result, seed);
         if (inspiration.Rules >= 20) result = GenerateClash(result, seed);
+        if (inspiration.Rules >= 21) result = GeneratePersistence(result, seed);
         return inspiration.Rules >= 3 ? ConstructionPricing.Price(result, contactRules: inspiration.Rules) : result;
     }
 

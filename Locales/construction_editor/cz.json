@@ -1296,5 +1296,20 @@
   "Cultiway.Construction.ClashInterception.Reflect": "足够容量时反射",
   "Cultiway.Construction.ClashGroundBlock": "阻挡地面人物",
   "Cultiway.Construction.ClashGroundBlockHint": "阻止敌方可移动地面人物穿过。友方和飞行人物仍按原规则通行，不增加作用面。",
-  "Cultiway.Construction.ClashReflectionLimit": "本部位反射次数上限"
+  "Cultiway.Construction.ClashReflectionLimit": "本部位反射次数上限",
+  "Cultiway.Construction.Anchor.Between": "来源与目标之间",
+  "Cultiway.Construction.BetweenRules": "两点位置",
+  "Cultiway.Construction.BetweenRulesHint": "比例0在来源，1在目标，0.5为中点。跟随时使用两点的实际位置；原运动操作仍会继续影响部位，直接放置改造才会明确移除根部投送。",
+  "Cultiway.Construction.BetweenFraction": "来源到目标的比例",
+  "Cultiway.Construction.DestinationContactRules": "跟随接触规则",
+  "Cultiway.Construction.DestinationContactHint": "仅在新位置检查接触，不扫过跟随转移的空隙。关闭跟随前先关闭此项；真实飞行和脱离仍按自身路径执行。",
+  "Cultiway.Construction.DestinationContact": "只在跟随的新位置接触",
+  "Cultiway.Construction.SourceLossRules": "来源失效后的存续",
+  "Cultiway.Construction.SourceLossHint": "结束会停止该部位。允许独立继续时，已经离手或固定在世界中的部分沿已付资源、剩余作用量和寿命继续；仍跟随来源或依赖真实身体的部分仍会结束。",
+  "Cultiway.Construction.SourceLoss": "来源失效策略",
+  "Cultiway.Construction.SourceLoss.End": "结束该部位",
+  "Cultiway.Construction.SourceLoss.Continue": "允许独立部分继续",
+  "Cultiway.Construction.ConcurrentRules": "同招并存",
+  "Cultiway.Construction.ConcurrentRulesHint": "0表示不限。同一人物、同一来源、同一法术超出上限时，新施放受理并收费后替换最老实例；不同法术不相互替换，不退回旧费用。",
+  "Cultiway.Construction.ConcurrentLimit": "同招并存上限"
 }

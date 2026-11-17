@@ -19,6 +19,14 @@ public sealed partial class WindowWanfaConstructionEditor
         Number("Power", session.Draft.Power, value => session.Draft.Power = value);
         Number("Lifetime", session.Draft.Lifetime, value => session.Draft.Lifetime = value);
         Number("Cooldown", session.Draft.Cooldown, value => session.Draft.Cooldown = value);
+        Row("ConcurrentRules", T("ConcurrentRulesHint"));
+        ContactInteger("ConcurrentLimit", session.Draft.ConcurrentLimit, value => ApplyConstructionEdit(() =>
+        {
+            AbilityDefinition candidate = ConstructionEditing.Copy(session.Draft);
+            candidate.ConcurrentLimit = value;
+            AbilityCompiler.Compile(candidate, false);
+            return candidate;
+        }), draftChange: false);
         Choice("Resource", T("Resource." + session.Draft.Resource), () => menu.Show(T("Resource"),
             new[] { "none", "wakan", "vigor", "mana", "stamina", "yao_power" }.Select(resource => new UiOptionMenuOption
             {

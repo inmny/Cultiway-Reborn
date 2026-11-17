@@ -1,0 +1,80 @@
+// C13：真实连接、存续及并存表单，完整候选拒绝无效组合。
+Actor source = Make(64), target = Make(72, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+var definition = new AbilityDefinition
+{
+    Id = "test.persistence-creation.editor", Name = "两点存续编辑", Resource = "wakan", Cost = 3, Cooldown = .1f,
+    Lifetime = 2f, TargetRange = 100, Power = 200f / source.stats["damage"],
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+    Root = new ConstructionNode { Id = "blade", Form = "sword", Matter = "iron", Offset = new[] { 0f, 0f, 0f } }
+};
+ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(definition.Id, source);
+async Task Frames(int count = 3) { for (int i = 0; i < count; i++) await Game.NextFrame(); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300); Canvas.ForceUpdateCanvases(); }
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+Button B(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+void Click(string name) { if (!B(name).interactable) throw new InvalidOperationException("按钮不可用：" + name); B(name).onClick.Invoke(); }
+WanfaEditorRow Row(string key)
+{
+    IEnumerable<WanfaEditorRow> found = editor.GetComponentsInChildren<WanfaEditorRow>(false);
+    foreach (string group in new[] { "StatusStats", "StatusRatios" })
+    {
+        int at = key.IndexOf(group, StringComparison.Ordinal);
+        if (at >= 0 && key.Length > at + group.Length)
+            found = found.SkipWhile(r => ((Text)Field(r, "_title")).text != T(key.Substring(0, at + group.Length))).Skip(1);
+    }
+    return found.First(r => ((Text)Field(r, "_title")).text == T(key));
+}
+void Action(string key) => ((Button)Field(Row(key), "_action")).onClick.Invoke();
+void Set(string key, string value) { var input = editor.GetComponentsInChildren<InputField>(false).First(f => f.name == key); input.text = value; input.onEndEdit.Invoke(value); }
+void ToggleValue(string key, bool value) => Row(key).GetComponentsInChildren<Toggle>(false).Single().isOn = value;
+void Choose(string key, string text) { Action(key); editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && b.GetComponentInChildren<Text>().text == text).onClick.Invoke(); }
+async Task ShotRow(string key, string name)
+{
+    await Frames(); var row = (RectTransform)Row(key).transform; var scroll = row.GetComponentInParent<ScrollRect>();
+    Vector3 local = scroll.content.InverseTransformPoint(row.TransformPoint(row.rect.center));
+    float offset = scroll.content.rect.yMax - local.y - scroll.viewport.rect.height * .5f;
+    scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(offset / Mathf.Max(1f, scroll.content.rect.height - scroll.viewport.rect.height));
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(4); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+try
+{
+    Click("Page0"); Set("ConcurrentLimit", "1");
+    Check(Session().Draft.ConcurrentLimit == 1, "真实属性表单设置同招并存上限");
+    string valid = JsonConvert.SerializeObject(Session().Draft); Set("ConcurrentLimit", "-1");
+    Check(JsonConvert.SerializeObject(Session().Draft) == valid, "非法并存上限拒绝且草稿保持");
+    Set("ConcurrentLimit", "2"); Click("Undo"); Check(Session().Draft.ConcurrentLimit == 1, "并存上限可撤销恢复");
+    await ShotRow("ConcurrentLimit", "concurrent-cz");
+    Click("Page3"); Choose("Anchor", T("Anchor.Between")); Set("BetweenFraction", "0.25");
+    ToggleValue("Follow", true); ToggleValue("DestinationContact", true);
+    Choose("SourceLoss", T("SourceLoss.Continue"));
+    Check(Session().Draft.Binding.Anchor == AbilityAnchor.Between && Session().Draft.Binding.Fraction == .25f && Session().Draft.Binding.Follow && Session().Draft.Binding.ContactAtDestination && Session().Draft.Root.SourceLoss == ConstructionSourceLoss.Continue, "真实连接页设置两点比例、新位置接触和独立存续");
+    valid = JsonConvert.SerializeObject(Session().Draft); Set("BetweenFraction", "1.2");
+    Check(JsonConvert.SerializeObject(Session().Draft) == valid, "超出零至一的比例拒绝且草稿保持");
+    ToggleValue("Follow", false); Check(JsonConvert.SerializeObject(Session().Draft) == valid, "新位置接触仍开启时不能静默关闭跟随");
+    Set("BetweenFraction", "0.5"); Click("Undo"); Check(Session().Draft.Binding.Fraction == .25f, "完整连接候选可撤销");
+    await ShotRow("BetweenFraction", "binding-cz"); await ShotRow("SourceLoss", "source-loss-cz");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page0"); await ShotRow("ConcurrentLimit", "concurrent-en");
+    Click("Page3"); await ShotRow("BetweenFraction", "binding-en"); await ShotRow("SourceLoss", "source-loss-en");
+    File.WriteAllText(Path.Combine(folder, "binding-definition.json"), JsonConvert.SerializeObject(Session().Draft, Formatting.Indented));
+    ToggleValue("DestinationContact", false); ToggleValue("Follow", false);
+    string expected = JsonConvert.SerializeObject(Session().Draft.Binding);
+    Click("Replace"); var complete = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(JsonConvert.SerializeObject(complete.Binding) == expected && complete.ConcurrentLimit == 1 && complete.Root.SourceLoss == ConstructionSourceLoss.Continue, "正式覆盖保存完整连接、并存和来源规则");
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), JsonConvert.SerializeObject(complete, Formatting.Indented));
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(complete.Id, source); await Frames(); Click("Page3");
+    Check(JsonConvert.SerializeObject(Session().Draft.Binding) == expected && Session().Draft.Root.SourceLoss == ConstructionSourceLoss.Continue && Session().Draft.ConcurrentLimit == 1, "关闭再打开保持本批完整规则与原主体");
+    return new { passed = true, closed = "连接、来源存续与并存的真实编辑和保存", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}

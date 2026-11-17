@@ -20,39 +20,7 @@ public sealed partial class WindowWanfaConstructionEditor
 
         ConstructionBinding binding = session.Draft.Binding;
         AbilityAnchor anchor = binding?.Anchor ?? AbilityAnchor.Target;
-        Choice("Anchor", T("Anchor." + anchor), () => menu.Show(T("Anchor"),
-            new[] { AbilityAnchor.Source, AbilityAnchor.Target, AbilityAnchor.Hand, AbilityAnchor.Effector, AbilityAnchor.Carrier }
-                .Where(value =>
-                    value is not (AbilityAnchor.Hand or AbilityAnchor.Effector) || session.Draft.Body != null)
-                .Select(value => new UiOptionMenuOption
-                {
-                    Label = T("Anchor." + value), Selected = anchor == value,
-                    Select = () => Change(() =>
-                    {
-                        session.Draft.Binding ??= new ConstructionBinding();
-                        session.Draft.Binding.Anchor = value;
-                    })
-                }).ToArray()));
-        Toggle("Follow", binding?.Follow ?? false, value =>
-        {
-            session.Draft.Binding ??= new ConstructionBinding { Anchor = anchor };
-            session.Draft.Binding.Follow = value;
-        });
-        Toggle("FaceTarget", binding?.FaceTarget ?? false, value =>
-        {
-            session.Draft.Binding ??= new ConstructionBinding { Anchor = anchor };
-            session.Draft.Binding.FaceTarget = value;
-        });
-        Toggle("ScaleByBody", binding?.ScaleByBody ?? false, value =>
-        {
-            session.Draft.Binding ??= new ConstructionBinding { Anchor = anchor };
-            session.Draft.Binding.ScaleByBody = value;
-        });
-        Number("BindingHeight", binding?.Height ?? 0f, value =>
-        {
-            session.Draft.Binding ??= new ConstructionBinding { Anchor = anchor };
-            session.Draft.Binding.Height = value;
-        });
+        BindingRows();
         Row("PlacementRules", T("PlacementRulesHint"));
         ActionRow("MakePlaced", T("MakePlacedHint"),
             () => ApplyConstructionEdit(() => ConstructionPlacementEdits.Place(session.Draft, anchor)));
@@ -61,6 +29,8 @@ public sealed partial class WindowWanfaConstructionEditor
         ActionRow("MakeOrbit", T("MakeOrbitHint"),
             () => ApplyConstructionEdit(() => ConstructionPlacementEdits.Orbit(session.Draft, anchor, 3f, 4f)));
         ConstructionNode node = parts[part];
+        Row("SourceLossRules", T("SourceLossHint"));
+        ImpactOption("", "SourceLoss", node.SourceLoss, value => node.SourceLoss = value);
         for (int i = 0; i < 3; i++)
         {
             int axis = i;

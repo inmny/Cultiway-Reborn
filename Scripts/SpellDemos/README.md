@@ -1620,3 +1620,12 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 `python3 Scripts/SpellDemos/verify_clash_creation.py --section ui|cast|creation|save|all`。复用现成世界和剑形主体，覆盖攻击/屏障/装饰用途、吸收/反射、地面人物阻挡与反射次数的真实表单、非法候选拒绝、撤销和保存再打开，中英窗口、表单成品真实反射及归属交接、到期退出及再次施放，规则20独立创作与派生、正式人物区段21新旧请求存读。旧样例`fixtures/clash-creation-rule19.json`来自C11正式等待存档和当时完整预期，保留来源校验值。
 
 `--section save-tail`只续接保存段已完成请求及实际施放后的同一人物，不重建世界，不加入正常all。证据索引`artifacts/skill_rebuild/trajectories/clash-creation/delivery.json`保留首次投射方向、内部计划读取和续接脚本的原失败，明确分段通过。中英图在ui，反射记录在cast，正式等待存档及存读前段在save，实际成品及完成存档在save-tail。已有未受影响的身体、装备及反射角度矩阵没有重跑；正式冷启动及集中录像仍归C交付点，软件渲染仅用于功能及窗口。
+
+
+### 5.05 C13：连接、来源存续和同招并存的编辑与自主创作
+
+`python3 Scripts/SpellDemos/verify_persistence_creation.py --section ui|binding|instances|survival|creation|save|all`。`ui`操作真实窗口并保存两份连接成品、中英截图，检查非法比例和并存值、完整候选拒绝、撤销、覆盖和再打开；`binding`使用表单成品检查真实两点位置、新位置有伤而转移空隙无伤，以及仍依赖来源的跟随结束；`instances`检查最老同源替换、其他来源保持、逐次支付、到期及再次施放；`survival`检查固定独立主体在来源真实死亡后继续、原归属及自然结束。上述共用已通过的身体、装备和来源失效矩阵不重复。
+
+`creation`验证规则21独立创作与存续/两点连接派生、冻结输入重现及原资料保持；`save`验证正式人物区段22、新旧等待请求各授予一次、旧结果和费用保持，新成品实际支付、结束及完成后再次正式存读。旧样例`fixtures/persistence-creation-rule20.json`直接来自C12真实等待存档及当时完整预期，附来源校验值。
+
+证据索引为`artifacts/skill_rebuild/trajectories/persistence-creation/delivery.json`。本批六段在同一进程分别通过，没有执行一次完整all；首次存读脚本的内部资料访问编译失败保留于`failures/save-1`，修正后只重跑未执行的存读段。正式冷启动和连续录像仍集中于C交付点，软件渲染仅用于功能及窗口。

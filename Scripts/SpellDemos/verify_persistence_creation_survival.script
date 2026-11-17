@@ -1,0 +1,35 @@
+var active = new List<(long Id, long Source, AbilityCast Cast)>();
+void Started(ConstructedCastStarted value)
+{
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == value.CastId) active.Add((value.CastId, value.SourceId, (AbilityCast)Field(running, "Cast")));
+}
+ConstructedAbilityService.CastStarted += Started;
+var views = new List<FormVisualInstance>();
+Matrix4x4 Pose(AbilityCast cast) { views.Clear(); cast.AppendVisuals(views); return views.Single().Transform; }
+void Cultivate(Actor a)
+{
+    var e = a.GetExtend(); e.NewCultisys(Cultisyses.Xian); e.GetCultisys<Xian>().level = 2;
+    e.MarkCultiwayStatsDirty(); a.setStatsDirty(); a.updateStats(); e.GetCultisys<Xian>().wakan = 10000;
+}
+// C13：真实编辑的固定主体在来源死亡后沿原归属继续。
+Actor source=Make(64), target=Make(72,"wolf"); Cultivate(source);
+var d=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"artifacts/skill_rebuild/trajectories/persistence-creation/ui/saved-definition.json")));
+try
+{
+    Ready(source); Place(source,64); Place(target,72); await Fire(d,source,target); source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.12f); var live=active.Single().Cast; var first=Pose(live); long original=source.id;
+    source.dieAndDestroy(AttackType.None); await Game.NextFrame(); await Advance(.12f);
+    Check(!live.Finished && Math.Abs(Pose(live).m03-first.m03)<.001f,"来源真实死亡后固定独立主体继续且位置不变");
+    int hp=target.data.health; Place(target,first.m03,first.m13); await Advance(.15f);
+    Check(target.data.health<hp && contacts.Any(c=>c.SourceId==original && c.OriginalSourceId==original && c.TargetId==target.id),"已付独立主体在来源死亡后仍实际伤害并保留原归属",new {original,hp,after=target.data.health});
+    await Advance(d.Lifetime+.2f); int endedHp=target.data.health;
+    Check(live.Finished && endings.Any(e=>e.Fact.SourceId==original && !e.Fact.Cancelled),"独立主体按自身寿命自然结束");
+    await Advance(.2f); Check(target.data.health==endedHp,"自然结束后停止作用");
+    return new {passed=true,closed="固定独立主体来源死亡后继续、归属和自然结束",checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+}

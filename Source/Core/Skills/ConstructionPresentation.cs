@@ -155,6 +155,11 @@ public static class ConstructionPresentation
         if (definition.Binding != null)
             lines.Add(F("Placement", L("Cultiway.Construction.Anchor." + definition.Binding.Anchor),
                 T(definition.Binding.Follow ? "Following" : "Fixed")));
+        if (plan.ConcurrentLimit > 0) lines.Add(F("ConcurrentLimit", plan.ConcurrentLimit));
+        if (definition.Binding?.Anchor == AbilityAnchor.Between)
+            lines.Add(F("BetweenFraction", definition.Binding.Fraction ?? .5f));
+        if (definition.Binding?.ContactAtDestination == true) lines.Add(T("DestinationOnly"));
+        if (plan.Nodes.Any(node => node.SourceLoss == ConstructionSourceLoss.Continue)) lines.Add(T("IndependentSourceLoss"));
         if (definition.Binding?.Anchor == AbilityAnchor.Target && !definition.Binding.Follow &&
             definition.Root != null && !definition.Root.Operations.Any(operation => operation.Kind is ConstructionOperationKind.Fly or ConstructionOperationKind.Ray))
             lines.Add(T("DirectPlacement"));
@@ -230,6 +235,8 @@ public static class ConstructionPresentation
         "射线变化" => "Ray",
         "范围推拉" => "RadialMotion",
         "交锋规则" => "ClashRules",
+        "存续规则" => "Persistence",
+        "两点连接" => "Between",
         "复生" => "Repeat",
         "显化" => "Project",
         "改造" => "Edit",
