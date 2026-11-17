@@ -1,0 +1,36 @@
+else
+{
+    float delay = scenario == "branch" ? 1.1f : .5f;
+    await Advance(delay);
+    var active = Live();
+    Check(active != null, "移动目标前仍为同次真实施放");
+    AbilityCast placement = active;
+    if (scenario == "branch")
+    {
+        var plain = ConstructionEditing.Copy(definition);
+        plain.Root.Operations = Array.Empty<ConstructionOperation>(); plain.Steps = Array.Empty<ConstructionStep>();
+        placement = new AbilityCast(AbilityCompiler.Compile(plain, false), Matrix4x4.identity,
+            inputs: (AbilityInputs)Field(active, "inputs"));
+    }
+    var current = new List<AbilityCapsule>(); placement.AppendContacts(current);
+    var available = current.Where(value => value.Node == 0);
+    var shape = scenario != "branch"
+        ? available.OrderBy(value => Mathf.Min(value.A.z, value.B.z) - value.Radius).First()
+        : available.OrderByDescending(value => value.Shape).First();
+    Vector3 point = (shape.A + shape.B) * .5f;
+    Place(target, point.x, point.y);
+    int atArrival = target.data.health;
+    if (scenario == "branch")
+    {
+        await Advance(.2f);
+        Check(hitCount == 0 && target.data.health == atArrival && active.StepStateOf("unfold") == ConstructionStepState.Waiting,
+            "原位置在收拢期间实际无伤", new { atArrival, point = new[] { point.x, point.y, point.z } });
+    }
+    if (scenario == "stopped")
+    {
+        await Advance(.3f);
+        Check(hitCount > 0 && active.StepStateOf("unfold") == ConstructionStepState.Interrupted,
+            "接触后中途形变停止，后续保留中断");
+    }
+    await Advance(Math.Max(.05f, definition.Lifetime - active.Age + .35f));
+}

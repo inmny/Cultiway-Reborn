@@ -1693,4 +1693,9 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 
 `--section pricing`用于单独复验共同需求。`--section ui`通过原控件检查历时、间距、指定控制的偏移旋转、完成引用、错误拒绝、撤销及正式保存再打开，并保存中英文截图。`--section creation`检查冻结控制输入、独立创作、其他模型原术衍生、成形完成衔接和原资料保持。`--section legacy`恢复真实规则23等待请求并核对原完整结果与费用。
 
-`--section save`读取本进程已通过的creation结果，保存正式新旧等待世界、各授予一次、实际支付使用和完成世界。可用`--creation <已有creation目录>`指定已通过的原输入。默认all按顺序执行普通分段，core内包含费用检查。日常仅补受影响段，每段复制现成世界到所属开发输出，实际输入、检查和结果位于`CULTIWAY_DEV_OUTPUT/deformation/<section>`。5.09剩余跨进程恢复和集中连续录像继续固定交付条件。
+`--section save`读取本进程已通过的creation结果，保存正式新旧等待世界、各授予一次、实际支付使用和完成世界。可用`--creation <已有creation目录>`指定已通过的原输入。默认all按顺序执行普通分段，core内包含费用检查。日常仅补受影响段，每段复制现成世界到所属开发输出，实际输入、检查和结果位于`CULTIWAY_DEV_OUTPUT/deformation/<section>`。跨进程恢复通过`--section cold --state <上次save输出目录>`在同一环境正常停止再启动后执行，核对真实磁盘等待输入、完整结果与费用、各授予一次以及完成世界去重。
+
+
+集中录像通过同一开发入口执行`python3 Scripts/SpellDemos/record_deformation.py --state <已通过的cast目录>`，录制枝体收展、曲面弯折及接触中止。`--case branch|surface|stopped`可只录受影响的一段，Worldfall环境加`--worldfall`。入口读取正式成品，曲面只更换已有模型、真实控制参数及适当尺寸，停止样本使用共同接触停止规则。目标从同次真实作用形状选点，收拢段另确认原位置无伤，三段均保留真实支付、接触和自然结束。
+
+录像保留真实世界时刻，暂停仅等待发布，沿既有编码入口按世界时间差生成常速片段。`--encode-only --output <已有deformation-films/native或worldfall目录>`只编码已有原始帧，Worldfall同时加`--worldfall`。输出为`CULTIWAY_DEV_OUTPUT/deformation-films/<视角>`，最终证据索引位于`/home/inmny/.local/state/cultiway-dev/evidence/deformation-films/delivery.json`。失败与各次分段结果分别归档，软件渲染画面用于功能观察。

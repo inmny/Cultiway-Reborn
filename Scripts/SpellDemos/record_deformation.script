@@ -1,0 +1,17 @@
+// 原正式收展成品，曲面和停止只改本次需要展示的已有参数。
+definition.Id = "test.deformation.film." + scenario;
+if (scenario == "surface")
+{
+    definition.Root.Form = "water_wave"; definition.Root.Matter = "water"; definition.Root.Scale = .16f;
+    definition.Root.Children[0].Anchor = "surface_3";
+    definition.Root.Operations[0].Deformation = new ConstructionDeformation { Controls = new[]
+    {
+        new ConstructionControlTarget { Control = FormResources.Load("water_wave").Description.Controls.Last().Id,
+            Offset = new[] { 0f, .4f, .3f }, Rotation = new[] { 0f, 0f, 45f } }
+    } };
+}
+if (scenario == "stopped") definition.Root.OnContact = ConstructionContactResponse.Stop;
+var description = FormResources.Load(definition.Root.Form).Description;
+var angles = Quaternion.Inverse(Quaternion.LookRotation(new Vector3(description.Forward[0], description.Forward[1], description.Forward[2]),
+    new Vector3(description.Up[0], description.Up[1], description.Up[2]))).eulerAngles;
+definition.Root.Rotation = new[] { angles.x, angles.y, angles.z };
