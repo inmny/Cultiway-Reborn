@@ -237,6 +237,7 @@ public static class ConstructionPresentation
         "交锋规则" => "ClashRules",
         "存续规则" => "Persistence",
         "两点连接" => "Between",
+        "逐段成形" => "Formation",
         "复生" => "Repeat",
         "显化" => "Project",
         "改造" => "Edit",

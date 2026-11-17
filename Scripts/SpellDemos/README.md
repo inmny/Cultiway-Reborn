@@ -1667,3 +1667,10 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 迁移后的墙和护盾使用正式构造交锋记录核对吸收量与余量，普通演示结果保留`clashesLog`。自然结束不算作容量被消耗。仍走旧入口的法宝等来源继续读取自身真实耐久。
 
 此交付入口默认使用普通独立安装，Worldfall组会正常退出当前游戏，再复用已有`artifacts/skill_rebuild/view-switch/environment/cultiway`兼容安装。`--installation`可明确指定独立安装根目录，续接时选择原记录的同一安装。原版掌击近景使用普通安装，三维组使用兼容安装，各组保留实际版本。
+
+
+### 5.06　逐段成形的创作接入
+
+通过develop的独立环境执行`python3 .agents/skills/develop/scripts/dev.py exec -- python3 Scripts/SpellDemos/verify_progressive_formation.py`。默认all检查实际成形输入、分枝与曲面的独立创作、原术衍生、固定输入重现、尺寸和旧规则22请求恢复。`--section creation`只检查新版创作，`--section legacy`只补旧请求段。
+
+入口显式将现成世界和真实旧样例传到本次独立输出，结果位于`CULTIWAY_DEV_OUTPUT/progressive-formation/<section>`，开发工具同时保留命令、实际输入与原始响应。此阶段不表示5.06整项完成，实际运行、窗口及正式冷启动和录像继续该项的固定交付条件。

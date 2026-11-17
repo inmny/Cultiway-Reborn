@@ -90,13 +90,15 @@ public static class ConstructionContactEdits
 
     /// <summary>按完整声明路径遍历，不展开运行时实例。</summary>
     /// <param name="node">当前声明。</param><param name="parent">父声明路径。</param>
-    private static IEnumerable<(ConstructionNode Node, string Path)> Parts(ConstructionNode node, string parent = null)
+    /// <param name="parentScale">父层累计声明尺寸。</param>
+    internal static IEnumerable<(ConstructionNode Node, string Path, float Scale)> Parts(ConstructionNode node, string parent = null, float parentScale = 1f)
     {
         if (node == null) yield break;
         string path = parent == null ? "root" : parent + "/" + node.Id;
-        yield return (node, path);
+        float scale = parentScale * node.Scale;
+        yield return (node, path, scale);
         foreach (ConstructionNode child in node.Children)
-            foreach (var part in Parts(child, path)) yield return part;
+            foreach (var part in Parts(child, path, scale)) yield return part;
     }
 
     /// <summary>多个声明不持有同一个可编辑对象。</summary><param name="policy">允许恢复缺省的规则。</param>

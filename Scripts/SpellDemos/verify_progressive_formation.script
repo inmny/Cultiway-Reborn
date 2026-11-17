@@ -1,0 +1,103 @@
+// 仅核对本批冻结输入、独立创作、衍生与旧请求，不重跑已通过的共用成形矩阵。
+Actor source=Make(64),legacy=Make(62);
+var owner=source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level=2;
+owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();
+var attempts=new List<object>();
+JObject Canon(AbilityDefinition definition)
+{
+    var json=JObject.FromObject(definition);json.Remove("Id");json.Remove("Creator");return json;
+}
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    if(node==null)yield break;
+    yield return node;
+    foreach(var child in node.Children)
+        foreach(var descendant in Nodes(child))yield return descendant;
+}
+try
+{
+    var inspiration=ConstructedAbilityService.ReadInspiration(owner);
+    Check(inspiration.Rules==23,"新请求使用逐段成形规则23");
+    var capture=service.GetMethod("CaptureCreationResources",F);
+    var resources=(SynthesisResources)capture.Invoke(null,new object[]{owner,0,inspiration});
+    string[] forming=resources.Forms.Where(form=>form.Formations?.Length>0).Select(form=>form.Id).ToArray();
+    Check(new[]{"root_network","spirit_vine","water_wave","water_flow"}.All(forming.Contains),"实际分枝、藤体和曲面成形进入冻结输入",forming);
+    var oldInput=new ConstructionInspiration(inspiration.Elements,inspiration.Aggression,inspiration.Control,inspiration.CanProject,22);
+    var oldResources=(SynthesisResources)capture.Invoke(null,new object[]{owner,0,oldInput});
+    Check(!oldResources.Forms.Any(form=>form.Id=="root_network" || form.Id=="spirit_vine"),"旧规则的当前采集仍保留原模型选择范围");
+    var sample=resources.Forms.First(form=>form.Formations.Length>0);
+    string rejected=null;
+    try
+    {
+        _=new SynthesisForm(sample.Id,sample.Size,sample.Forward,sample.Up,sample.Anchors,sample.Motions,sample.Parts,sample.SpanRadius,new[]{"missing.formation"});
+    }
+    catch(ArgumentException error){rejected=error.Message;}
+    Check(rejected!=null,"不属于实际动作输入的成形名称明确拒绝");
+
+    AbilityDefinition branch=null,surface=null;
+    for(int seed=0;seed<96 && (branch==null || surface==null);seed++)
+    {
+        try
+        {
+            var made=ConstructedAbilityService.Generate(owner,seed,inspiration,resources:resources);
+            var additions=Nodes(made.Root).Where(node=>node.Id.StartsWith("forming_")).ToArray();
+            attempts.Add(new{seed,formations=additions.Select(node=>node.Form).ToArray()});
+            if(additions.Any(node=>node.Form=="root_network" || node.Form=="spirit_vine"))branch??=made;
+            if(additions.Any(node=>node.Form=="water_wave" || node.Form=="water_flow"))surface??=made;
+            if(additions.Length>0)
+                Check(JToken.DeepEquals(Canon(made),Canon(ConstructedAbilityService.Generate(owner,seed,inspiration,resources:resources))),"冻结输入可重现完整成形结构、后续依赖与费用",new{seed});
+        }
+        catch(InvalidDataException error){attempts.Add(new{seed,rejected=error.Message});}
+        await Game.NextFrame();
+    }
+    Check(branch!=null && surface!=null,"修士独立创作实际产生分枝与曲面逐段成形");
+    var basis=new AbilityDefinition
+    {
+        Id="test.progressive-formation.basis",Name="原枝术",Lifetime=5,Cost=3,Cooldown=.1f,TargetRange=100,
+        Root=new ConstructionNode{Id="stem",Form="branch",Matter="wood",Scale=.4f}
+    };
+    string original=JsonConvert.SerializeObject(basis);AbilityDefinition derived=null;
+    for(int seed=0;seed<96 && derived==null;seed++)
+    {
+        var made=ConstructedAbilityService.Generate(owner,seed,inspiration,basis,resources);
+        if(made.Parent.Change=="逐段成形")derived=made;
+        await Game.NextFrame();
+    }
+    Check(derived!=null && JsonConvert.SerializeObject(basis)==original &&
+        derived.Steps.Any(step=>step.Inputs.TryGetValue("after",out var input) && input.Output=="animation" && input.Stage==ConstructionOutputStage.Completed),
+        "原术衍生保留原结构并通过真实成形完成输出衔接后段");
+    var larger=ConstructionEditing.Copy(basis);larger.Root.Scale=2.5f;
+    var largerDerived=ConstructedAbilityService.Generate(owner,derived.Seed,inspiration,larger,resources);
+    float Extent(AbilityDefinition value,float parentScale)
+    {
+        var node=Nodes(value.Root).Single(part=>part.Id.StartsWith("forming_"));
+        float inherited=node.Activation?.Placement==ConstructionEventPlacement.Event?1f:parentScale;
+        return node.Scale*resources.Forms.Single(form=>form.Id==node.Form).Size*inherited;
+    }
+    float small=Extent(derived,basis.Root.Scale),large=Extent(largerDerived,larger.Root.Scale);
+    Check(small>=.5999f && small<=1.2001f && Math.Abs(small-large)<.0001f,
+        "成形体沿用明确地图尺寸，父层声明缩放不会令它再次缩小",new{small,large});
+    File.WriteAllText(Path.Combine(folder,"branch.json"),JsonConvert.SerializeObject(branch,Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder,"surface.json"),JsonConvert.SerializeObject(surface,Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder,"derived.json"),JsonConvert.SerializeObject(derived,Formatting.Indented));
+
+    var saved=JObject.Parse(File.ReadAllText(Path.Combine(root,"Scripts/SpellDemos/fixtures/formation-rule22.json")));
+    var legacyOwner=legacy.GetExtend();legacyOwner.NewCultisys(Cultisyses.Xian);legacyOwner.GetCultisys<Xian>().level=2;
+    var envelope=JObject.Parse(Cultiway.ModClass.I.WorldSaves.Actors.Capture(legacyOwner,"formation-old"));
+    envelope["sections"]["ability_creation"]=saved["section"].DeepClone();
+    var report=new SaveLoadReport();
+    Cultiway.ModClass.I.WorldSaves.Actors.Restore(legacyOwner,envelope.ToString(),report,"formation-old",section=>section.Id=="ability_creation",false);
+    var pending=legacyOwner.GetComponent<ConstructedCreationState>();
+    Check(report.Upgraded==1 && report.Skipped.Count==0 && pending.Pending && pending.Inspiration.Rules==22 &&
+        JToken.DeepEquals(Canon(ConstructedAbilityService.Generate(legacyOwner,pending.Seed,pending.Inspiration,pending.Source,pending.Resources)),Canon(saved["expected"].ToObject<AbilityDefinition>())),
+        "真实旧规则22等待请求升级后仍得到原完整结果与费用");
+    return new{passed=true,closed="逐段成形的冻结输入、独立创作与衍生接入",process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder,"attempts.json"),JsonConvert.SerializeObject(attempts,Formatting.Indented));
+    ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    Config.paused=true;ControllableUnit.clear(false);
+}

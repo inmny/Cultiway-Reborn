@@ -84,7 +84,7 @@ public sealed partial class ConstructedAbilityService
     {
         ProgressionLifecycle.RegisterCommitted(OnCreationProgression);
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, CreationSave>("ability_creation", "创法机会与请求",
-            23,
+            24,
             actor => actor.E.TryGetComponent(out ConstructedCreationState state)
                 ? new CreationSave
                 {
@@ -131,11 +131,14 @@ public sealed partial class ConstructedAbilityService
                         throw new InvalidDataException("新投送请求缺少受理时的真实伸展模型");
                     if (data.Inspiration.Rules >= 17 && data.Resources.WorldActions == null)
                         throw new InvalidDataException("新创法请求缺少受理时的世界操作输入");
+                    if (data.Inspiration.Rules >= 23 && (data.Resources.Forms.Any(form => form.Formations == null) ||
+                        !data.Resources.Forms.Any(form => form.Formations.Length > 0)))
+                        throw new InvalidDataException("新创法请求缺少受理时的逐段成形动作输入");
                     if (data.Inspiration.Rules <= 6 && data.Resources.Bodies.Length != 2)
                         throw new InvalidDataException("旧创法请求需要原有两份身体动作快照");
                     foreach (AbilityDefinition body in data.Resources.Bodies) ValidateDefinition(body, cache: false);
                 }
-            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3(), new CreationV3ToV4(), new CreationV4ToV5(), new CreationV5ToV6(), new CreationV6ToV7(), new CreationV7ToV8(), new CreationV8ToV9(), new CreationV9ToV10(), new CreationV10ToV11(), new CreationV11ToV12(), new CreationV12ToV13(), new CreationV13ToV14(), new CreationV14ToV15(), new CreationV15ToV16(), new CreationV16ToV17(), new CreationV17ToV18(), new CreationV18ToV19(), new CreationV19ToV20(), new CreationV20ToV21(), new CreationV21ToV22(), new CreationV22ToV23() }));
+            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3(), new CreationV3ToV4(), new CreationV4ToV5(), new CreationV5ToV6(), new CreationV6ToV7(), new CreationV7ToV8(), new CreationV8ToV9(), new CreationV9ToV10(), new CreationV10ToV11(), new CreationV11ToV12(), new CreationV12ToV13(), new CreationV13ToV14(), new CreationV14ToV15(), new CreationV15ToV16(), new CreationV16ToV17(), new CreationV17ToV18(), new CreationV18ToV19(), new CreationV19ToV20(), new CreationV20ToV21(), new CreationV21ToV22(), new CreationV22ToV23(), new CreationV23ToV24() }));
         InitializeInspiration();
     }
 

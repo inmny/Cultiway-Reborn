@@ -47,6 +47,12 @@ public sealed partial class ConstructedAbilityService
         var random = new Random(seed);
         var choices = new List<(string Name, Func<AbilityDefinition> Apply)>();
         ConstructionNode[] nodes = DerivationNodes(draft.Root).ToArray();
+        if (inspiration.Rules >= 23)
+        {
+            var parents = FormationParents(draft, plan);
+            if (parents.Length > 0)
+                choices.Add(("逐段成形", () => VaryFormation(draft, random, resources, parents)));
+        }
         bool preserveReferences = inspiration.Rules >= 16;
         bool preserveStarts = inspiration.Rules >= 22;
         bool placementAvailable = !preserveReferences || draft.Root != null &&

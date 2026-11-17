@@ -67,7 +67,8 @@ public sealed class SynthesisResources
     /// <summary>每个已受理请求独占可保存数组，编辑一个请求不能改写其他等待输入。</summary>
     internal SynthesisResources Copy() => new(Forms.Select(form => new SynthesisForm(form.Id, form.Size,
         (float[])form.Forward.Clone(), (float[])form.Up.Clone(), (string[])form.Anchors.Clone(),
-        (string[])form.Motions.Clone(), (string[])form.Parts.Clone(), form.SpanRadius)).ToArray(), Bodies.Select(ConstructionEditing.Copy).ToArray(), Resource,
+        (string[])form.Motions.Clone(), (string[])form.Parts.Clone(), form.SpanRadius,
+        form.Formations == null ? null : (string[])form.Formations.Clone())).ToArray(), Bodies.Select(ConstructionEditing.Copy).ToArray(), Resource,
         WorldActions?.Select(action => new SynthesisWorldAction(action.Id, action.DefaultDuration)).ToArray());
 }
 
@@ -106,6 +107,10 @@ public sealed class SynthesisForm
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public readonly float? SpanRadius;
 
+    /// <summary>受理时确实逐段建立几何的动作，旧请求保持为空。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public readonly string[] Formations;
+
     /// <summary>从固定数值计算的制作朝向，不作为另一份长期数据保存。</summary>
     [JsonIgnore] internal readonly Quaternion Facing;
 
@@ -118,8 +123,9 @@ public sealed class SynthesisForm
     /// <param name="motions">实际动作编号。</param>
     /// <param name="parts">第九版固定的真实部件名称，旧规则为空集合。</param>
     /// <param name="spanRadius">第十版固定的实际伸展能力。</param>
+    /// <param name="formations">第二十三版固定的逐段成形动作。</param>
     [JsonConstructor]
-    public SynthesisForm(string id, float size, float[] forward, float[] up, string[] anchors, string[] motions, string[] parts = null, float? spanRadius = null)
+    public SynthesisForm(string id, float size, float[] forward, float[] up, string[] anchors, string[] motions, string[] parts = null, float? spanRadius = null, string[] formations = null)
     {
         bool Names(string[] values, int maximum) => values != null && values.Length <= maximum &&
                                                     values.All(value => !string.IsNullOrWhiteSpace(value)) &&
@@ -132,6 +138,9 @@ public sealed class SynthesisForm
         if (spanRadius.HasValue && (float.IsNaN(spanRadius.Value) || float.IsInfinity(spanRadius.Value) || spanRadius <= 0f))
             throw new ArgumentException("创作伸展半径须为正的有限数值");
         SpanRadius = spanRadius;
+        if (formations != null && (!Names(formations, 64) || formations.Any(clip => !motions.Contains(clip))))
+            throw new ArgumentException("逐段成形动作需要来自同一份实际动作输入");
+        Formations = formations;
         Parts = parts;
         Facing = FormResource.ReadFacing(forward, up, id);
         Id = id;
@@ -158,14 +167,15 @@ public sealed partial class ConstructedAbilityService
     {
         if (synthesisResourceVersion == FormResources.Version)
             return independent ? synthesisResources.Copy() : synthesisResources;
-        synthesisResources = new SynthesisResources(SynthesisResources.RequiredForms.Concat(new[] { "energy_ray" }).Select(id =>
+        synthesisResources = new SynthesisResources(SynthesisResources.RequiredForms.Concat(new[] { "energy_ray", "root_network", "spirit_vine" }).Select(id =>
         {
             FormResource resource = FormResources.Load(id);
             return new SynthesisForm(id, resource.RestSize, (float[])resource.Description.Forward.Clone(),
                 (float[])resource.Description.Up.Clone(),
                 resource.Description.Anchors.Select(anchor => anchor.Id).ToArray(),
                 resource.Description.Motions.Select(motion => motion.Id).ToArray(),
-                resource.Description.Parts.Select(part => part.Id).ToArray(), resource.Span?.Radius);
+                resource.Description.Parts.Select(part => part.Id).ToArray(), resource.Span?.Radius,
+                resource.Builds ? resource.Description.Motions.Where(motion => motion.Keys[0].Build < motion.Keys[motion.Keys.Length - 1].Build).Select(motion => motion.Id).ToArray() : Array.Empty<string>());
         }).ToArray(), BodyActionCatalog.All.Take(2).Select(ConstructionEditing.Copy).ToArray());
         synthesisResourceVersion = FormResources.Version;
         return independent ? synthesisResources.Copy() : synthesisResources;
