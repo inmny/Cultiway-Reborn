@@ -1650,3 +1650,20 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 `python3 Scripts/SpellDemos/verify_trajectory_coverage.py`读取真实轨迹登记、基础来源默认以及当前编辑器允许且能编译的改轨，逐份转换、保存读回及共同编译。它只建立临时容器，不逐份发射。清单为`artifacts/skill_rebuild/trajectories/trajectory-coverage/coverage.json`，休眠近身登记明确单列。修炼专属、法宝和器官完整来源迁移归第10包。
 
 `python3 Scripts/SpellDemos/verify_trajectory_edges.py`只检查新增辅助路径、水平涡旋领域和灵藤显现的实际已学入口、原支付、作用及结束恢复。`--section continuation`只用于同进程原人物的费用观察及未完成后段，不重建世界。`--section vine`只验证灵藤分支。交付索引`trajectory-coverage/delivery.json`保留原失败及分别通过的结果，没有一次完整all通过的声明。截图用于功能观察，最终质感归9.02，正式冷启动和集中录像随后集中完成。
+
+
+### 5.05 C17　正式冷启动和集中交付
+
+`python3 Scripts/SpellDemos/verify_trajectory_delivery.py`依次执行两次真正重启及集中录像。`--section pending`使用C15真实正式等待世界，核对新旧请求完整输入、原结果与费用、各授予一次，以及恢复成品的实际支付、接触、后续步骤和结束，再保存完成世界。`--section completed`真正退出并重启后读取该完成世界，核对完整定义、原费用、命名引用、已学关系及请求完成状态，不重新授予。
+
+`--section videos`复用统一演示入口集中录制不同原理，按已完成的同版本片段续录。正式存读结果在`artifacts/skill_rebuild/trajectories/trajectory-delivery/pending`和`completed`，画面在`videos`各分组目录。单段`demo.mp4`为连续原片，各组保留实际结果和总览。此入口只操作已有独立测试游戏，重启前确认原进程结束。软件渲染用于轨迹和功能观察，最终流派美术及性能分别按后续工作包交付。
+
+`--section pending-tail`仅续接第一次冷启动已恢复的同一进程和世界，保留加载期间正常完成的请求，不重造等待状态，也不加入正常all。加载完成时请求可能仍在等待，也可能已经正式授予，两个状态分别核对完整输入或原完整成品。集中录像的总目录为`videos/index.html`，总览为`videos/全部法术-总览.mp4`，原版和Worldfall各有合集。
+
+`--section completed-tail`仅续接第二次冷启动的同一完成世界，核对正式保存的完成状态及剩余机会时间。保存按剩余时间恢复，因此不把已经过期的绝对时刻作为应逐字相等的资料。两个tail均用于原失败后的分段补齐，不加入正常all，也不冒充完整all通过。
+
+`--video-groups curve,shield,palm,worldfall`可只补所列未完成组，已完成原片保留，各组原始版本分别记录。普通法术演示按实际施放清理、界面和控制恢复核对收尾，构造演示的整世界恢复标志不用于普通演示。
+
+迁移后的墙和护盾使用正式构造交锋记录核对吸收量与余量，普通演示结果保留`clashesLog`。自然结束不算作容量被消耗。仍走旧入口的法宝等来源继续读取自身真实耐久。
+
+此交付入口默认使用普通独立安装，Worldfall组会正常退出当前游戏，再复用已有`artifacts/skill_rebuild/view-switch/environment/cultiway`兼容安装。`--installation`可明确指定独立安装根目录，续接时选择原记录的同一安装。原版掌击近景使用普通安装，三维组使用兼容安装，各组保留实际版本。

@@ -149,6 +149,9 @@ private readonly List<(ActorExtend Owner, Entity Skill)> learnedForBattle = new(
 private Entity incomingSkill;
 private bool probeUsed;
 private float barrierBefore, barrierLowest;
+
+/// <summary>本段已经受理的构造屏障，只从真实交锋读取其容量损耗。</summary>
+private readonly HashSet<long> observedBarriers = new();
 private Type externalView;
 private object externalViewInstance;
 
@@ -761,14 +764,23 @@ private readonly List<object> worldMaterialsLog = new();
 
 /// <summary>记录已经确认的共同交锋、剩余作用量和实际位置。</summary>
 /// <param name="clash">正式确认的交锋事实。</param>
-private void OnConstructedClash(ConstructedClash clash) => clashesLog.Add(new
+private void OnConstructedClash(ConstructedClash clash)
 {
-    leftCast = clash.LeftCast, rightCast = clash.RightCast, leftSource = clash.LeftSource,
-    rightSource = clash.RightSource,
-    leftNode = clash.LeftNode, rightNode = clash.RightNode, leftAge = clash.LeftAge, rightAge = clash.RightAge,
-    absorbed = clash.Absorbed, leftRemaining = clash.LeftRemaining, rightRemaining = clash.RightRemaining,
-    point = new[] { clash.Position.x, clash.Position.y, clash.Position.z }
-});
+    clashesLog.Add(new
+    {
+        leftCast = clash.LeftCast, rightCast = clash.RightCast, leftSource = clash.LeftSource,
+        rightSource = clash.RightSource,
+        leftNode = clash.LeftNode, rightNode = clash.RightNode, leftAge = clash.LeftAge, rightAge = clash.RightAge,
+        absorbed = clash.Absorbed, leftRemaining = clash.LeftRemaining, rightRemaining = clash.RightRemaining,
+        point = new[] { clash.Position.x, clash.Position.y, clash.Position.z }
+    });
+    if (!probeUsed || clash.Absorbed <= 0 ||
+        !observedBarriers.Contains(clash.LeftCast) && !observedBarriers.Contains(clash.RightCast)) return;
+    float remaining = observedBarriers.Contains(clash.LeftCast) ? clash.LeftRemaining : clash.RightRemaining;
+    // 首次真实交锋给出扣除量及余额，不把自然到期的消失当作成功拦截。
+    if (barrierBefore == 0) barrierBefore = barrierLowest = remaining + clash.Absorbed;
+    barrierLowest = Mathf.Min(barrierLowest, remaining);
+}
 
 /// <summary>每份构造重用同一个现成世界，避免上一份的职业、冷却和材料影响下一份。</summary>
 private IEnumerator RecordConstructions()
@@ -1743,6 +1755,15 @@ private IEnumerator Record(JObject item, string folder)
         enemies[0].updatePos();
     }
 
+    if (id == "Cultiway.PalmStrike")
+    {
+        // 暂停状态先稳定近景，首帧即可同时看到施法者和接触对象。
+        Camera();
+        yield return null;
+        Camera();
+        yield return null;
+    }
+
     bool used;
     if (dedicated)
     {
@@ -1844,7 +1865,7 @@ private IEnumerator Record(JObject item, string folder)
         view = (string)request["view"], lighting = (string)request["lighting"] ?? "day",
         lightingState = LightingState(), scene = (string)request["scene"], executionLog, contactsLog,
         worldContactsLog, areasLog,
-        barrierLog, footprints = footprints.Values.ToArray(), yellowObjects,
+        barrierLog, clashesLog, footprints = footprints.Values.ToArray(), yellowObjects,
         assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(),
         shield = new { probeUsed, barrierBefore, barrierLowest, absorbed = barrierLowest < barrierBefore },
         validation = "仅验证施放和运行错误；美术、范围与防御效果需另外验收", wakanBefore, wakanAfter = owner.GetCultisys<Xian>().wakan,
@@ -1926,6 +1947,7 @@ private void CleanExecutions()
     if (!temporarySkill.IsNull) retiringSkills.Add(temporarySkill);
     temporarySkill = default;
     observed = default;
+    observedBarriers.Clear();
     var referenced = new HashSet<Entity>(mod.W.Query<SkillEntity>().Entities
         .Where(entity => !entity.Tags.Has<TagPrefab>())
         .Select(entity => entity.GetComponent<SkillEntity>().SkillContainer));
@@ -1963,7 +1985,12 @@ private void OnConstructedStart(ConstructedCastStarted started)
 {
     if (!observed.IsNull && observed.HasComponent<SkillContainer>() && caster != null &&
         started.SourceId == caster.id &&
-        started.AbilityId == observed.GetComponent<SkillContainer>().SkillEntityAssetID) spawned++;
+        started.AbilityId == observed.GetComponent<SkillContainer>().SkillEntityAssetID)
+    {
+        spawned++;
+        if (observed.GetComponent<SkillContainer>().Asset.ImpactProfile.IsBarrier)
+            observedBarriers.Add(started.CastId);
+    }
     executionLog.Add(new
     {
         time = started.WorldTime, id = started.AbilityId, source = started.SourceId,
@@ -2169,15 +2196,18 @@ private void OnArea(Entity entity, Vector3 position, float radius)
 /// <summary>从外部实际发射石弹，让护盾耐久变化证明拦截；不直接扣护盾。</summary>
 private void ProbeShield(double elapsed)
 {
-    var barriers = Cultiway.ModClass.I.W.Query<SkillEntity, SkillPersistentState>().Entities
-        .Where(entity => !entity.Tags.Has<TagPrefab>() && !entity.Tags.Has<TagRecycle>() &&
-                         entity.GetComponent<SkillEntity>().SkillContainer == observed).ToArray();
-    float current = barriers.Length > 0 ? barriers[0].GetComponent<SkillPersistentState>().Durability : 0;
-    if (!artifact.IsNull && artifact.TryGetComponent(out ArtifactAbilityRuntime runtime))
-        current = runtime.abilities.First(entry => entry.instance_id == ability.EntryId)
-            .GetNumber("shield_current");
-    if (barrierBefore == 0 && current > 0) barrierBefore = barrierLowest = current;
-    if (probeUsed && elapsed < 2.5) barrierLowest = Mathf.Min(barrierLowest, current);
+    if (observedBarriers.Count == 0)
+    {
+        var barriers = Cultiway.ModClass.I.W.Query<SkillEntity, SkillPersistentState>().Entities
+            .Where(entity => !entity.Tags.Has<TagPrefab>() && !entity.Tags.Has<TagRecycle>() &&
+                             entity.GetComponent<SkillEntity>().SkillContainer == observed).ToArray();
+        float current = barriers.Length > 0 ? barriers[0].GetComponent<SkillPersistentState>().Durability : 0;
+        if (!artifact.IsNull && artifact.TryGetComponent(out ArtifactAbilityRuntime runtime))
+            current = runtime.abilities.First(entry => entry.instance_id == ability.EntryId)
+                .GetNumber("shield_current");
+        if (barrierBefore == 0 && current > 0) barrierBefore = barrierLowest = current;
+        if (probeUsed && elapsed < 2.5) barrierLowest = Mathf.Min(barrierLowest, current);
+    }
     if (probeUsed || elapsed < .45) return;
     var enemy = enemies[0].GetExtend();
     if (!enemy.HasCultisys<Xian>()) enemy.AddComponent(new Xian { level = 0, wakan = 10000 });
@@ -2313,9 +2343,13 @@ private void Camera()
     if (body && externalView != null && (float?)request["zoom"] < 10f &&
         (bool)externalView.GetProperty("GodShown", Flags).GetValue(externalViewInstance)) return;
     bool placement = request["construction"] is JObject && request["targetOffset"] is JArray;
-    World.world.camera.transform.position = new Vector3(
-        placement ? caster.current_position.x : body ? 66.5f : 67,
-        placement ? caster.current_position.y : body ? 72.5f : 73, World.world.camera.transform.position.z);
+    if (currentCase == "Cultiway.PalmStrike")
+        World.world.camera.transform.position = new Vector3(caster.current_position.x + .3f,
+            caster.current_position.y + .5f, World.world.camera.transform.position.z);
+    else
+        World.world.camera.transform.position = new Vector3(
+            placement ? caster.current_position.x : body ? 66.5f : 67,
+            placement ? caster.current_position.y : body ? 72.5f : 73, World.world.camera.transform.position.z);
     float zoom = (float?)request["zoom"] ?? 22;
     MoveCamera.instance.forceZoom(zoom);
     // 原版滚轮最小为10；开发指定的更近取景不改游戏配置，只覆盖当前测试相机。
