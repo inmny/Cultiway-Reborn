@@ -210,26 +210,31 @@ public sealed class ConstructionSimilarity
 
     /// <summary>采用实际编译后的作用，缺省和明确写出同一规则具有相同含义。</summary>
     /// <param name="impact">实际作用。</param>
-    private static JObject Impact(CompiledConstructionImpact impact) => new()
+    private static JObject Impact(CompiledConstructionImpact impact)
     {
-        ["Targets"] = (int)impact.Targets, ["DamageScale"] = impact.DamageScale,
-        ["Force"] = impact.Force, ["Lift"] = impact.Impulse.HasValue || impact.SlideSeconds > 0 ? 0f : impact.Lift,
-        ["Origin"] = (int)impact.Origin,
-        ["Impulse"] = impact.Impulse.HasValue
-            ? new JArray(impact.Impulse.Value.x, impact.Impulse.Value.y, impact.Impulse.Value.z)
-            : JValue.CreateNull(),
-        ["Launch"] = impact.Force == 0 && impact.Launch,
-        ["SlideSeconds"] = impact.Force == 0 && (impact.Impulse?.sqrMagnitude ?? 0f) == 0f ? 0f : impact.SlideSeconds,
-        ["StaggerSeconds"] = impact.StaggerSeconds, ["BindSeconds"] = impact.BindSeconds,
-        ["StrainSeconds"] = impact.StrainSeconds, ["ExposureSeconds"] = impact.ExposureSeconds,
-        ["ForceRouting"] = Routing(impact.ForceRouting),
-        ["WorldEffects"] = new JArray(impact.WorldEffects.Select(effect => new JObject
+        var result = new JObject
         {
-            ["Action"] = effect.Action.Id, ["MaximumTiles"] = effect.MaximumTiles, ["Duration"] = effect.Duration,
-            ["TileCentreOnly"] = effect.TileCentreOnly,
-            ["Contact"] = Contact(effect.Contact)
-        }))
-    };
+            ["Targets"] = (int)impact.Targets, ["DamageScale"] = impact.DamageScale,
+            ["Force"] = impact.Force, ["Lift"] = impact.Impulse.HasValue || impact.SlideSeconds > 0 ? 0f : impact.Lift,
+            ["Origin"] = (int)impact.Origin,
+            ["Impulse"] = impact.Impulse.HasValue
+                ? new JArray(impact.Impulse.Value.x, impact.Impulse.Value.y, impact.Impulse.Value.z)
+                : JValue.CreateNull(),
+            ["Launch"] = impact.Force == 0 && impact.Launch,
+            ["SlideSeconds"] = impact.Force == 0 && (impact.Impulse?.sqrMagnitude ?? 0f) == 0f ? 0f : impact.SlideSeconds,
+            ["StaggerSeconds"] = impact.StaggerSeconds, ["BindSeconds"] = impact.BindSeconds,
+            ["StrainSeconds"] = impact.StrainSeconds, ["ExposureSeconds"] = impact.ExposureSeconds,
+            ["ForceRouting"] = Routing(impact.ForceRouting),
+            ["WorldEffects"] = new JArray(impact.WorldEffects.Select(effect => new JObject
+            {
+                ["Action"] = effect.Action.Id, ["MaximumTiles"] = effect.MaximumTiles, ["Duration"] = effect.Duration,
+                ["TileCentreOnly"] = effect.TileCentreOnly,
+                ["Contact"] = Contact(effect.Contact)
+            }))
+        };
+        if (impact.AgeYears > 0) result["AgeYears"] = impact.AgeYears;
+        return result;
+    }
 
     /// <summary>用实际归一的方向和份额比较传力规则。</summary><param name="routing">已编译规则。</param>
     private static JToken Routing(CompiledForceRouting routing) => routing == null

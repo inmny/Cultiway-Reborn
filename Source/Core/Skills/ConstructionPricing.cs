@@ -262,7 +262,7 @@ public sealed class ConstructionMeasure
                                                impact.BindSeconds + impact.StrainSeconds + impact.ExposureSeconds +
                                                (impact.Impulse?.magnitude ?? 0f) * .1d *
                                                (impact.SlideSeconds > 0 ? impact.SlideSeconds : 1d));
-            double effects = 0d;
+            double effects = impact.AgeYears * (double)strength;
             foreach (CompiledConstructionStatus status in impact.Statuses)
                 effects += status.Duration * (.25d +
                     (status.Stats?.Values.Sum(value => Math.Abs((double)value)) ?? 0d) * .1d +

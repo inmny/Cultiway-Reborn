@@ -1800,3 +1800,12 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 `save`读取已通过的world中途世界，验证完整身份、冻结底面、历史及各自过程、仅续接剩余过程、完成后去重、坏过程编号局部恢复、实际旧7升级和换世界清理。可用`--state <已通过world目录>`复用原输入。旧7资料位于`fixtures/erosion-world-v7.json`，取自A2a的真实正式世界，保留原路径、校验值和实现提交。
 
 各段输出位于`CULTIWAY_DEV_OUTPUT/partial-erosion/<分段>`。三段各自首次通过，证据索引位于`/home/inmny/.local/state/cultiway-dev/evidence/erosion-partial/delivery.json`。A2关闭，真正冷启动和连续双端画面集中5.13 C。
+
+
+### 5.13 B1　生灵接触老化与原版生命结果
+
+通过develop执行`python3 Scripts/SpellDemos/verify_aging.py --section core|runtime|save|all`。`core`核对零参数的旧序列化与结构、编译副本、共同年数需求、非法年数以及格挡和偏转入口。`runtime`复用现成世界、一个来源和一个目标，通过正常学习与支付施放，验证1岁至21岁的实际成长、作用面外人物、共同频率和次数、原版寿终法则及不老特性、真实寿终和结束后再次使用。
+
+`save`读取已通过实机输出，核对原人物身份、年龄和年龄增量、完整构造、已学关系、完成世界再次存读及换世界清理。可用`--state <已通过runtime目录>`复用原世界。输出位于`CULTIWAY_DEV_OUTPUT/aging/<分段>`，实际事件记录前后年龄、真实接触时点及原版寿终结果。
+
+各段独立验收，首次脚本名称及数值比较失败保留，仅补对应段。索引位于`/home/inmny/.local/state/cultiway-dev/evidence/aging-actors/delivery.json`。原物件继续B2，窗口与自主创作、真正冷启动和集中双端画面继续C。

@@ -1,0 +1,40 @@
+var facts = new List<ConstructedAging>();
+void Aged(ConstructedAging fact) { facts.Add(fact); }
+ConstructedAbilityService.AgingConfirmed += Aged;
+async Task Load(string name)
+{
+    Config.paused = true; World.world.save_manager.loadWorld(Path.Combine(folder, name));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+}
+try
+{
+    var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "expected.json")));
+    await Load("aged-save");
+    var source = World.world.units.get((long)expected["source"]);
+    var target = World.world.units.get((long)expected["target"]);
+    var definition = (AbilityDefinition)((IDictionary)service.GetField("definitions", F).GetValue(null))[(string)expected["definition"]["Id"]];
+    bool sameDefinition = JToken.DeepEquals(JObject.Parse(JsonConvert.SerializeObject(definition)),
+        JObject.Parse(JsonConvert.SerializeObject(expected["definition"].ToObject<AbilityDefinition>())));
+    Check(source != null && target != null && target.getAge() == (int)expected["age"] &&
+        target.data.age_overgrowth == (int)expected["overgrowth"] && target.hasTrait("immortal") &&
+        sameDefinition &&
+        source.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids.Contains(definition.Id),
+        "正式存读恢复原身份、年龄、完整构造与已学关系", new { source = source?.id, target = target?.id,
+            age = target?.getAge(), overgrowth = target?.data.age_overgrowth, sameDefinition });
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.3f);
+    Check(facts.Count == 0 && target.getAge() == (int)expected["age"], "读取后已发生的老化保持一次结果");
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "restored-save")); await Load("restored-save"); await Advance(.3f);
+    target = World.world.units.get((long)expected["target"]);
+    Check(target.getAge() == (int)expected["age"] && facts.Count == 0, "完成世界再次存读及推进保持原年龄");
+    await Load("input-world"); await Advance(.3f);
+    Check(facts.Count == 0 && ((ICollection)service.GetField("casts", F).GetValue(null)).Count == 0,
+        "换世界后旧施放与老化接触全部退出");
+    return new { passed = true, closed = "原年龄正式保存、完整成品及已学关系、重复读取与换世界", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.AgingConfirmed -= Aged;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

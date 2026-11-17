@@ -1,0 +1,76 @@
+Actor source = Make(64), target = Make(68);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var facts = new List<ConstructedAging>();
+void Aged(ConstructedAging fact) { if (fact.SourceId == source.id) facts.Add(fact); }
+ConstructedAbilityService.AgingConfirmed += Aged;
+var definition = AgingDefinition();
+bool oldLaw = WorldLawLibrary.world_law_old_age.isEnabled();
+async Task Use(AbilityDefinition input)
+{
+    Ready(source); await Advance(.15f); Place(source, 64); Place(target, 68);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(input, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - input.Cost) < .001f, "实际施放逐次支付 " + input.Id);
+}
+void SetAge(int age)
+{
+    target.data.age_overgrowth = age - Date.getYearsSince(target.data.created_time);
+    target.setStatsDirty(); target.updateStats(); target.finishScale(); target.checkAnimationContainer();
+    ConstructedAbilityService.NotifyActorChanged(target);
+}
+try
+{
+    WorldLawLibrary.world_law_old_age.toggle(false);
+    SetAge(1); Check(target.isBaby(), "原版幼年状态作为真实成长起点");
+    AgingInput(definition, "definition"); await Use(definition); await Advance(.8f);
+    Check(facts.Count == 1 && facts[0].Before == 1 && facts[0].After == 21 && target.getAge() == 21 && !target.isBaby() &&
+        facts[0].TargetId == target.id && facts[0].OwnerId == source.id && !facts[0].NaturalDeath,
+        "真实接触只推进一次年龄并更新原版成长阶段", facts.ToArray());
+    Check(endings.Any(value => value.Fact.AbilityId == definition.Id) && !BodyControlState.IsBusy(source.id),
+        "施放自然结束并归还运行控制");
+
+    var missed = AgingDefinition(); missed.Id += ".miss"; missed.Root.Offset = new[] { 0f, 8f, 0f }; AgingInput(missed, "miss");
+    int before = target.getAge(); await Use(missed); await Advance(.8f);
+    Check(target.getAge() == before && !facts.Any(value => value.AbilityId == missed.Id), "真实作用面外人物保持原年龄");
+
+    var repeated = AgingDefinition(); repeated.Id += ".interval";
+    repeated.Root.Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval, Interval = .12f, MaximumPerTarget = 3 };
+    AgingInput(repeated, "interval"); await Use(repeated); await Advance(.8f);
+    var repeatedFacts = facts.Where(value => value.AbilityId == repeated.Id).ToArray();
+    Check(repeatedFacts.Length == 3 && target.getAge() == before + 60 &&
+        repeatedFacts.Zip(repeatedFacts.Skip(1), (a, b) => b.WorldTime - a.WorldTime).All(delta => delta >= .1199),
+        "重复老化遵守共同间隔和次数上限", repeatedFacts);
+
+    var old = AgingDefinition(); old.Id += ".old"; old.Impact.AgeYears = 1000;
+    AgingInput(old, "old"); await Use(old); await Advance(.8f);
+    Check(target.isAlive() && target.getAge() > target.stats["lifespan"] && !facts.Last().NaturalDeath,
+        "关闭寿终法则时原人物可保留超过寿命的实际年龄");
+    WorldLawLibrary.world_law_old_age.toggle(true); target.addTrait("immortal"); target.updateStats();
+    await Use(old); await Advance(.8f);
+    Check(target.isAlive() && !facts.Last().NaturalDeath, "不老特性沿原版寿终规则生效");
+
+    ConstructedAbilityService.Learn(owner, definition.Id);
+    var expected = new { source = source.id, target = target.id, age = target.getAge(), overgrowth = target.data.age_overgrowth,
+        definition = (AbilityDefinition)((IDictionary)service.GetField("definitions", F).GetValue(null))[definition.Id] };
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(expected, Formatting.Indented));
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "aged-save")); owner.E.RemoveComponent<ConstructedKnowledge>();
+    target.removeTrait("immortal"); target.updateStats();
+    for (int attempt = 0; attempt < 32 && target.isAlive() && target.hasHealth(); attempt++)
+    {
+        await Use(old); await Advance(.8f);
+    }
+    Check(facts.Any(value => value.NaturalDeath) && !target.hasHealth(), "超过寿命后的真实接触由原版确认寿终", facts.Last());
+    await Advance(.3f);
+    Check(!BodyControlState.IsBusy(source.id), "寿终后施放正常退出");
+    return new { passed = true, closed = "真实年龄、成长、范围与频率、原寿终规则及结束恢复", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    WorldLawLibrary.world_law_old_age.toggle(oldLaw);
+    ConstructedAbilityService.AgingConfirmed -= Aged;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(facts, Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}

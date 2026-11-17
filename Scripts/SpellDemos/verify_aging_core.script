@@ -1,0 +1,33 @@
+try
+{
+    var original = AgingDefinition(); original.Impact.AgeYears = 0;
+    var oldPlan = AbilityCompiler.Compile(original, cache: false);
+    var oldKey = ConstructionSimilarity.Describe(original);
+    var copy = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(original));
+    Check(!JObject.Parse(JsonConvert.SerializeObject(original))["Impact"].Children<JProperty>().Any(p => p.Name == "AgeYears") &&
+        ConstructionSimilarity.Describe(copy).Shape == oldKey.Shape && ConstructionSimilarity.Describe(copy).Bucket == oldKey.Bucket,
+        "零老化保留旧序列化及结构索引");
+    var definition = AgingDefinition(); var plan = AbilityCompiler.Compile(definition, cache: false);
+    definition.Impact.AgeYears = 40;
+    Check(plan.Impact.AgeYears == 20 && plan.Impact.HasActorEffect &&
+        plan.Measure.ContactEffectsWork > oldPlan.Measure.ContactEffectsWork &&
+        ConstructionSimilarity.Describe(definition).Shape != oldKey.Shape,
+        "编译副本固定实际年数，共同需求和结构识别真实老化");
+    foreach (int value in new[] { -1, 1000001 })
+    {
+        definition.Impact.AgeYears = value; bool rejected = false;
+        try { AbilityCompiler.Compile(definition, cache: false); }
+        catch (InvalidDataException error) { rejected = error.Message.Contains("AgeYears"); }
+        Check(rejected, "非法老化年数在资料入口拒绝 " + value);
+    }
+    var apply = service.GetMethod("ApplyContactAging", F);
+    foreach (var result in new[] { ApplyAttackState.Block, ApplyAttackState.Deflect })
+        Check((bool)apply.Invoke(null, new object[] { null, 0, null, 20, result, 1f }),
+            "真实格挡或偏转跳过老化 " + result);
+    return new { passed = true, closed = "老化编译边界、冻结副本、共同需求及格挡入口", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

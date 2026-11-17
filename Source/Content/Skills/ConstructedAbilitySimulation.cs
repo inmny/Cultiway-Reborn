@@ -1130,6 +1130,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         additionalDamage |= conditional.AdditionalDamageAttempted;
         if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
             return new ConstructedTargetResponse(targetId, conditional.VelocityChange, conditional.ForceApplied, 0f, 0f, additionalDamage: additionalDamage);
+        if (!ApplyContactAging(running, node, target, impact.AgeYears, result, strength))
+            return new ConstructedTargetResponse(targetId, conditional.VelocityChange, conditional.ForceApplied, 0f, 0f, additionalDamage: additionalDamage);
         ApplyContactReactions(target, impact, running.Owner(node), result, out float stagger, out float bound,
             out float strain, out float exposure);
         Vector3 velocity = ApplyContactForce(running, node, target, impact, result, out bool force, origin,

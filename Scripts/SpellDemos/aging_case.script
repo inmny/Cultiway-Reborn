@@ -1,0 +1,11 @@
+// B1只增加实际接触的生命过程参数，使用同一份正常构造资料。
+AbilityDefinition AgingDefinition() => new AbilityDefinition
+{
+    Id = "test.aging.contact", Name = "接触催老", Power = 1, Cost = 3, Cooldown = .1f,
+    Lifetime = .6f, TargetRange = 30,
+    Impact = new ConstructionImpact { DamageScale = 0, AgeYears = 20, SelectedTargetOnly = true },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = .6f },
+    Root = new ConstructionNode { Id = "touch", Form = "fireball", Matter = "physical", Scale = .75f }
+};
+void AgingInput(AbilityDefinition definition, string name) => File.WriteAllText(Path.Combine(folder, name + ".json"),
+    JsonConvert.SerializeObject(definition, Formatting.Indented));
