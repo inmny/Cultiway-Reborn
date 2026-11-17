@@ -1,0 +1,16 @@
+// 同一来源、同一目标及现成木质主体，窗口和使用共同保留正式作者费用。
+Actor source = Make(64), target = Make(68);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+var definition = new AbilityDefinition
+{
+    Id = "test.aging-editor.contact", Name = "木形催朽", Resource = "wakan", Cost = 3, Cooldown = .2f,
+    Lifetime = 1.2f, TargetRange = 30, Power = 1,
+    Impact = new ConstructionImpact { DamageScale = 0, SelectedTargetOnly = true },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = .6f },
+    Root = new ConstructionNode { Id = "surface", Form = "sword", Matter = "wood", Volume = 8,
+        Rotation = new[] { 0f, 90f, 0f }, Scale = .75f }
+};
+AbilityDefinition Read(string name) => JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, name + "-definition.json")));
+void Write(string name, AbilityDefinition input) => File.WriteAllText(Path.Combine(folder, name + "-definition.json"), JsonConvert.SerializeObject(input, Formatting.Indented));

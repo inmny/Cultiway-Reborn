@@ -1,0 +1,39 @@
+var input = Read("contact");
+var aged = new List<ConstructedAging>(); var worn = new List<ConstructedEquipmentErosion>(); var inventory = new List<ConstructedInventoryAging>();
+void Age(ConstructedAging fact) { if (fact.SourceId == source.id) aged.Add(fact); }
+void Wear(ConstructedEquipmentErosion fact) { if (fact.SourceId == source.id) worn.Add(fact); }
+void Life(ConstructedInventoryAging fact) { if (fact.SourceId == source.id) inventory.Add(fact); }
+ConstructedAbilityService.AgingConfirmed += Age; ConstructedAbilityService.EquipmentErosionConfirmed += Wear; ConstructedAbilityService.InventoryAgingConfirmed += Life;
+bool law = WorldLawLibrary.world_law_old_age.isEnabled();
+Item armor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: target);
+target.equipment.setItem(armor, target); target.setStatsDirty(); target.updateStats();
+var item = SpecialItemUtils.StartBuild(ItemShapes.Wood, World.world.getCurWorldTime(), "原库存来源", 120f / TimeScales.SecPerYear, "human").Build();
+target.GetExtend().AddSpecialItem(item);
+async Task Use(AbilityDefinition value)
+{
+    Ready(source); await Advance(.15f); Place(source, 64); Place(target, 68);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f; float before = owner.GetCultisys<Xian>().wakan;
+    await Fire(value, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - value.Cost) < .001f, "窗口成品实际支付作者费用");
+    await Advance(value.Lifetime + .2f);
+}
+try
+{
+    WorldLawLibrary.world_law_old_age.toggle(false); int age = target.getAge(), durability = armor.getDurabilityCurrent();
+    await Use(input);
+    Check(aged.Count == 1 && worn.Count == 1 && inventory.Count == 1 && target.getAge() == age + 2 && armor.getDurabilityCurrent() < durability &&
+        inventory[0].After - inventory[0].Before > 19.999f, "原窗口成品真实命中后同时推进声明的三类原资料", new { aged, worn, inventory });
+    Check(endings.Any(value => value.Fact.AbilityId == input.Id) && !BodyControlState.IsBusy(source.id), "成品自然结束并归还运行控制");
+    var missed = ConstructionEditing.Copy(input); missed.Id += ".miss"; missed.Root.Offset = new[] { 0f, 8f, 0f };
+    int count = aged.Count; age = target.getAge(); durability = armor.getDurabilityCurrent(); await Use(missed);
+    Check(aged.Count == count && target.getAge() == age && armor.getDurabilityCurrent() == durability && !inventory.Any(value => value.AbilityId == missed.Id), "作用面外三类资料均没有额外损耗");
+    await Use(input);
+    Check(aged.Count == count + 1 && target.getAge() == age + 2 && worn.Count == 2 && inventory.Count == 2 && !BodyControlState.IsBusy(source.id), "结束后同一成品再次支付并产生实际作用");
+    return new { passed = true, closed = "窗口成品实际支付、三类真实损耗、范围失败及结束再用", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    WorldLawLibrary.world_law_old_age.toggle(law); ConstructedAbilityService.AgingConfirmed -= Age; ConstructedAbilityService.EquipmentErosionConfirmed -= Wear; ConstructedAbilityService.InventoryAgingConfirmed -= Life;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(new { aged, worn, inventory }, Formatting.Indented));
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+}

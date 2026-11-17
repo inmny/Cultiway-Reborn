@@ -27,19 +27,26 @@ public sealed partial class WindowWanfaConstructionEditor
             enabled => operation.WorldMatter =
                 enabled ? new ConstructionWorldMatter { FromMatter = "water", FromState = "liquid" } : null);
         if (operation.WorldMatter == null) return;
-        ConstructionWorldMatter selection = operation.WorldMatter;
+        WorldMatterParameters(operation.WorldMatter);
+    }
+
+    /// <summary>转换及侵蚀共用实际世界材料筛选，侵蚀候选使用已登记耐受。</summary>
+    /// <param name="selection">当前草稿的真实筛选。</param><param name="erosion">是否只选择提供侵蚀耐受的材料。</param>
+    private void WorldMatterParameters(ConstructionWorldMatter selection, bool erosion = false)
+    {
+        var materials = AbilityMatters.All.Where(matter => !erosion || matter.ErosionFactor > 0).ToArray();
         Row("WorldMatterHint", T("WorldMatterHintText"));
         Toggle("WorldMatterFilter", selection.FromMatter != null, enabled =>
         {
-            selection.FromMatter = enabled ? "water" : null;
-            selection.FromState = enabled ? "liquid" : null;
+            selection.FromMatter = enabled ? erosion ? "wood" : "water" : null;
+            selection.FromState = enabled ? erosion ? "solid" : "liquid" : null;
         });
         if (selection.FromMatter != null)
         {
             Choice("WorldMatterFrom",
                 MaterialName(AbilityMatters.Resolve(selection.FromMatter, selection.FromState, "来源筛选")), () =>
                     menu.Show(T("WorldMatterFrom"),
-                        AbilityMatters.All.Select(matter => new UiOptionMenuOption
+                        materials.Select(matter => new UiOptionMenuOption
                         {
                             Label = MaterialName(matter),
                             Selected = selection.FromMatter == matter.Id &&

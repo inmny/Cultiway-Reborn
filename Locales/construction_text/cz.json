@@ -95,5 +95,18 @@
   "Cultiway.ConstructionText.Change.Inventory": "库存材料",
   "Cultiway.ConstructionText.InventoryInput": "材料{0}需要{2}件{1}",
   "Cultiway.ConstructionText.Change.MaterialTransfer": "材料交出",
-  "Cultiway.ConstructionText.WorldMaterial": "{0}的{1}每次成功交出{2:G4}体积的生成材料。"
+  "Cultiway.ConstructionText.WorldMaterial": "{0}的{1}每次成功交出{2:G4}体积的生成材料。",
+  "Cultiway.ConstructionText.AgingActors": "实际命中{0}后增加{1}整数年，成长及寿终继续遵守原寿命、世界法则和不老特性。",
+  "Cultiway.ConstructionText.AgingEquipment": "实际命中{0}后腐蚀原装备的{1}，投入最大耐久的{2:0.##}份额，再按真实材料耐受及接触倍率向下取整。不老装备遵守原规则。",
+  "Cultiway.ConstructionText.AgingInventory": "实际命中{0}后，每件库存有限物件额外推进至多{1:0.##}世界秒，每次至多{2}件，筛选为{3}。到期即退出原库存并归还借用。",
+  "Cultiway.ConstructionText.AllInventoryShapes": "全部形状",
+  "Cultiway.ConstructionText.SelfErosion": "在{0:0.##}世界秒内侵蚀本主体，投入份额{1:0.##}，实际损耗由当前材料耐受决定",
+  "Cultiway.ConstructionText.WorldErosion": "选择真实范围内的{2}，至多{3:0.##}立方格，{4}，在{0:0.##}世界秒内独立侵蚀，投入份额{1:0.##}",
+  "Cultiway.ConstructionText.ResidueErosion": "真实交出后在{0:0.##}世界秒内独立侵蚀，投入份额{1:0.##}",
+  "Cultiway.ConstructionText.AllWorldMaterials": "全部已登记材料",
+  "Cultiway.ConstructionText.AllMaterialStates": "{0}的所有已登记物态",
+  "Cultiway.ConstructionText.OwnWorldMaterials": "仅限当前控制者原支付的材料",
+  "Cultiway.ConstructionText.AnyWorldMaterials": "允许其他支付者的材料",
+  "Cultiway.ConstructionText.NamedProcess": "命名步骤“{0}”执行{1}。",
+  "Cultiway.ConstructionText.Operation.Erode": "侵蚀材料"
 }

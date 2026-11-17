@@ -1,0 +1,25 @@
+// 补世界材料筛选的实际正式保存，原窗口其他字段与保存前段沿已有证据。
+try
+{
+    Click("Page5"); Choose("StepScope", T("StepScope.Native"));
+    Action("NativeOperation"); editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && b.GetComponentInChildren<Text>().text.StartsWith("weather · ")).onClick.Invoke();
+    ToggleValue("ErosionWorldMaterials", true); Set("WorldMatterMaximum", "8"); ToggleValue("WorldMatterOwned", true);
+    ToggleValue("WorldMatterAnyState", true);
+    var selection = Session().Draft.Root.Operations.Single(op => op.Kind == ConstructionOperationKind.Erode).WorldMatter;
+    Check(selection.FromMatter == "wood" && selection.FromState == null && selection.MaximumVolume == 8 && selection.OwnedOnly,
+        "原窗口保留明确世界容量、木料筛选、全部物态及原支付者限制");
+    string expected = JsonConvert.SerializeObject(new { Session().Draft.Root, Session().Draft.Steps }); Click("Replace"); var saved = ConstructionEditing.Access.Read(Session().SourceId); Write("world", saved);
+    Check(JsonConvert.SerializeObject(new { saved.Root, saved.Steps }) == expected, "正式覆盖完整保留世界选择及命名完成引用");
+    expected = JsonConvert.SerializeObject(saved); Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(saved.Id, source); await Frames();
+    Check(JsonConvert.SerializeObject(Session().Draft) == expected && B("Replace").interactable, "世界侵蚀成品正式保存再打开完整保持");
+    string explanation = ConstructionPresentation.Explain(saved, AbilityCompiler.Compile(saved, false));
+    Check(!explanation.Contains("Cultiway.") && !explanation.Contains("。。"), "当前世界侵蚀说明无缺失名称或重复标点");
+    File.WriteAllText(Path.Combine(folder, "explanation-cz.txt"), explanation);
+    return new { passed = true, closed = "世界材料侵蚀筛选正式保存再开", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}

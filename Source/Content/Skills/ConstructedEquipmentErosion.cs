@@ -56,11 +56,8 @@ public sealed partial class ConstructedAbilityService
             Item item = target.equipment.getSlot(slot).getItem();
             if (item == null || !item.isAlive() || item.getActor() != target || item.isBroken()) continue;
             string matter = item.getAsset().material;
-            string rule = matter == "stone" ? "earth" : matter;
-            float factor = AbilityMatters.All.FirstOrDefault(value => value.Id == rule && value.State == "solid")?.ErosionFactor ?? 0f;
             int before = item.getDurabilityCurrent();
-            int damage = (int)Math.Floor(Math.Min(before,
-                item.getDurabilityMax() * (double)effect.Fraction * factor * strength));
+            int damage = EquipmentErosionDamage(item, effect.Fraction, strength);
             if (damage <= 0) continue;
             item.getDamaged(damage);
             int after = item.getDurabilityCurrent();
@@ -72,5 +69,17 @@ public sealed partial class ConstructedAbilityService
             if (epoch != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth()) return false;
         }
         return true;
+    }
+
+    /// <summary>实际提交与自主估算使用相同材料和整数损耗。</summary>
+    /// <param name="item">当前原物品。</param><param name="fraction">明确份额。</param>
+    /// <param name="strength">实际接触倍率，自主估算采用一。</param>
+    private static int EquipmentErosionDamage(Item item, float fraction, float strength)
+    {
+        string matter = item.getAsset().material;
+        string rule = matter == "stone" ? "earth" : matter;
+        float factor = AbilityMatters.All.FirstOrDefault(value => value.Id == rule && value.State == "solid")?.ErosionFactor ?? 0f;
+        return (int)Math.Floor(Math.Min(item.getDurabilityCurrent(),
+            item.getDurabilityMax() * (double)fraction * factor * strength));
     }
 }

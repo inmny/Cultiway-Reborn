@@ -1,0 +1,54 @@
+var input = Read("contact"); ConstructedAbilityService.Register(input); ConstructedAbilityService.Learn(owner, input.Id);
+var handle = new ActiveAbilityHandle("content.constructed", owner.E, input.Id);
+var provider = new ConstructedAbilityService();
+var starts = new List<ConstructedCastStarted>(); var worn = new List<ConstructedEquipmentErosion>();
+void Started(ConstructedCastStarted fact) { if (fact.SourceId == source.id && fact.AbilityId == input.Id) starts.Add(fact); }
+void Worn(ConstructedEquipmentErosion fact) { if (fact.SourceId == source.id) worn.Add(fact); }
+ConstructedAbilityService.CastStarted += Started; ConstructedAbilityService.EquipmentErosionConfirmed += Worn;
+bool law = WorldLawLibrary.world_law_old_age.isEnabled();
+try
+{
+    source.addAggro(target); target.addAggro(source);
+    WorldLawLibrary.world_law_old_age.toggle(false);
+    Check(provider.ResolveAiWeight(owner, handle, target) == 0 && provider.ResolveTacticalProfile(owner, handle, target).Power == 0,
+        "无可老化生命、装备或有限库存时，纯损耗不给自主用途");
+    WorldLawLibrary.world_law_old_age.toggle(true);
+    Check(provider.ResolveAiWeight(owner, handle, target) == 12 && provider.ResolveTacticalProfile(owner, handle, target).Offensive > 0, "真实可老化生命获得战斗用途");
+    target.addTrait("immortal"); target.setStatsDirty(); target.updateStats();
+    Check(provider.ResolveAiWeight(owner, handle, target) == 0, "不老目标没有年龄攻击用途");
+    Item armor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: target);
+    target.equipment.setItem(armor, target); target.setStatsDirty(); target.updateStats();
+    Check(provider.ResolveAiWeight(owner, handle, target) == 12 && provider.ResolveTacticalProfile(owner, handle, target).Power > 0, "当前真实铁甲可损耗时恢复普通自主选择");
+    var mixed = ConstructionEditing.Copy(input); mixed.Id += ".mixed"; mixed.Impact.DamageScale = 1;
+    ConstructedAbilityService.Register(mixed); ConstructedAbilityService.Learn(owner, mixed.Id);
+    Check(provider.ResolveAiWeight(owner, new ActiveAbilityHandle("content.constructed", owner.E, mixed.Id), target) == 12, "混合原伤害用途保持原自主权重");
+    owner.E.RemoveComponent<ConstructedKnowledge>(); ConstructedAbilityService.Learn(owner, input.Id);
+    var handles = new List<ActiveAbilityHandle>(); var weights = new List<int>();
+    CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh(); Place(source, 64); Place(target, 68);
+    source.addAggro(target); target.addAggro(source); source.attack_timer = 0;
+    int total = ActiveAbilityService.CollectAiCandidates(owner, target, handles, weights);
+    Check(total > 0 && handles.Any(value => value.EntryId == input.Id), "普通自主候选入口接受已学纯损耗成品", new
+    {
+        total, entries = handles.Select(value => value.EntryId).ToArray(), weights,
+        control = ActiveAbilityService.ResolveControlState(owner, handle).BlockReason.ToString(),
+        prepare = ActiveAbilityService.CanPrepare(owner, handle, target),
+        use = ActiveAbilityService.CanUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos())),
+        known = owner.GetComponent<ConstructedKnowledge>().Ids, wakan = owner.GetCultisys<Xian>().wakan,
+        frozen = source.stats.hasTag("frozen_ai"), flying = source.isFlying()
+    });
+    CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh();
+    source.addAggro(target); target.addAggro(source); source.setAttackTarget(target); source.attack_timer = 0; source.data.stamina = 100;
+    await Advance(4f);
+    Check(starts.Any(value => value.Origin == ActiveAbilityUseOrigin.Autonomous) && worn.Count > 0,
+        "实际游戏AI自主释放纯损耗成品并腐蚀当前原装备", new { starts, worn, target = source.attack_target?.id });
+    owner.E.RemoveComponent<ConstructedKnowledge>(); Ready(source); source.finishAngryStatus(); source.clearAttackTarget(); source.cancelAllBeh(); Place(target, 75);
+    await Advance(input.Lifetime + .2f);
+    Check(!BodyControlState.IsBusy(source.id) && starts.All(start => endings.Any(end => end.Fact.CastId == start.CastId)), "停止自主接续后当前施放自然结束");
+    return new { passed = true, closed = "目标实时用途、原混合权重、普通候选和真实AI释放", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    WorldLawLibrary.world_law_old_age.toggle(law); ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.EquipmentErosionConfirmed -= Worn;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(new { starts, worn }, Formatting.Indented));
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+}

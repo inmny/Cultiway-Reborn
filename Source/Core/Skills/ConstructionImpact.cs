@@ -227,7 +227,13 @@ public sealed class CompiledConstructionImpact
     public float ExposureSeconds { get; }
 
     /// <summary>伤害、恢复、老化、物件损耗、移动或行动限制中至少一种实际人物作用。</summary>
-    public bool HasActorEffect => InventoryAging != null || EquipmentErosion != null || AgeYears > 0 || Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) || Spreads.Any(spread => spread.HasEffect) ||
+    public bool HasActorEffect => HasAgingEffect || HasOtherActorEffect;
+
+    /// <summary>明确推进年龄、原装备耐久或原库存寿命。</summary>
+    public bool HasAgingEffect => InventoryAging != null || EquipmentErosion != null || AgeYears > 0;
+
+    /// <summary>沿用原自主用途，不因新增损耗当前无效而屏蔽混合作用。</summary>
+    public bool HasOtherActorEffect => Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) || Spreads.Any(spread => spread.HasEffect) ||
                                   StaggerSeconds > 0f || BindSeconds > 0f || StrainSeconds > 0f || ExposureSeconds > 0f;
 
     /// <summary>实际推拉中心。</summary>

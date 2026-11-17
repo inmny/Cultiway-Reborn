@@ -1,0 +1,46 @@
+try
+{
+    var saved = Read("saved");
+    var native = ConstructionEditing.Copy(saved); native.Steps = Array.Empty<ConstructionStep>();
+    native.Root.Operations = native.Root.Operations.Where(op => op.Kind == ConstructionOperationKind.Erode).ToArray();
+    var named = ConstructionEditing.Copy(native); var erosion = named.Root.Operations.Single(); erosion.Id = null; named.Root.Operations = Array.Empty<ConstructionOperation>();
+    named.Steps = new[] { new ConstructionStep { Id = "erosion", Operation = erosion, Inputs = new() { ["part"] = new() { Node = "root" } } } };
+    var a = AbilityCompiler.Compile(native, false); var b = AbilityCompiler.Compile(named, false);
+    double expected = a.Measure.Volume * .5d * 1.04d;
+    Check(Math.Abs(a.Measure.ErosionWork - expected) < .000001 && Math.Abs(a.Measure.ErosionWork - b.Measure.ErosionWork) < .000001,
+        "原部位与独立命名侵蚀按同一实际体积、份额和历时计费且没有重复", new { a = a.Measure.ErosionWork, b = b.Measure.ErosionWork, expected });
+    var all = AbilityCompiler.Compile(saved, false);
+    Check(Math.Abs(all.Measure.ErosionWork - all.Measure.Volume * (.5d * 1.04d + .25d * 1.02d + .25d * 1.4d)) < .000001,
+        "原部位名称别名不重复收费，命名侵蚀与留置独立过程各计一次", all.Measure.ErosionWork);
+    native.Root.Operations[0].WorldMatter = new ConstructionWorldMatter { MaximumVolume = 7, FromMatter = "wood" };
+    var world = AbilityCompiler.Compile(native, false);
+    Check(Math.Abs(world.Measure.ErosionWork - 7d * .5d * 1.04d) < .000001, "世界侵蚀按明确容量计费，不借主体体积冒充选择量");
+    foreach (var input in new[] { saved, native, named })
+    {
+        var plan = AbilityCompiler.Compile(input, false); var m = plan.Measure;
+        double legacy = m.Work + m.ContactEffectsWork + m.ContactDisplacementWork + m.ContactResultsWork + m.ContactSpreadWork + m.RadialMotionWork;
+        var old = ConstructionPricing.Price(ConstructionEditing.Copy(input), contactRules: 27);
+        var current = ConstructionPricing.Price(ConstructionEditing.Copy(input), contactRules: 28);
+        Check(old.Calculation.Demand == legacy && Math.Abs(current.Calculation.Demand - legacy - m.ErosionWork) < .000001,
+            "旧规则保留完整需求，新规则只增加独立侵蚀需求", new { old = old.Calculation.Demand, current = current.Calculation.Demand, m.ErosionWork });
+    }
+    var contact = Read("contact"); var impact = AbilityCompiler.Compile(contact, false);
+    Check(impact.ActorImpacts.Count == 1 && impact.ActorImpacts.Single().HasAgingEffect && !impact.ActorImpacts.Single().HasOtherActorEffect,
+        "自主评价读取真正参与人物接触的只读作用集合");
+    var nodeOverride = ConstructionEditing.Copy(contact); nodeOverride.Root.Impact = new ConstructionImpact { DamageScale = 0, AgeYears = 9 };
+    Check(AbilityCompiler.Compile(nodeOverride, false).ActorImpacts.Single().AgeYears == 9, "部位覆盖不会误读整招默认作用");
+    foreach (string language in new[] { "cz", "en" })
+    {
+        LocalizedTextManager.instance.setLanguage(language);
+        string text = ConstructionPresentation.Explain(saved, all) + "\n" + ConstructionPresentation.Explain(native, world);
+        Check(!text.Contains("Cultiway.") && text.Contains("weather") && text.Contains("0.5"), "说明完整读取接触、原主体、世界选择、留置及命名步骤 " + language);
+        File.WriteAllText(Path.Combine(folder, "explanation-" + language + ".txt"), text);
+    }
+    Check(contact.Cost == 3 && contact.Cooldown == .2f && saved.Cost == 3, "实际窗口成品的作者费用保持原值");
+    return new { passed = true, closed = "实际作用索引、旧新需求、部位命名共同统计和中英说明", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    LocalizedTextManager.instance.setLanguage("cz"); ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

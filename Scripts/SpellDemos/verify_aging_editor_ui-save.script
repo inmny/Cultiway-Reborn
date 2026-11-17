@@ -1,0 +1,33 @@
+// 首次窗口操作和正式覆盖已执行，只补修订资料的准确对照、保存再开和新输出名称画面。
+void Option(string key, string label) => Choose(key, T(label));
+void Pick(string key, Func<string, bool> match)
+{
+    Action(key); editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && match(b.GetComponentInChildren<Text>().text)).onClick.Invoke();
+}
+try
+{
+    string previous = JsonConvert.SerializeObject(definition);
+    Check(JsonConvert.SerializeObject(Session().Draft) == previous && B("Replace").interactable, "首次正式覆盖的完整声明可正常打开");
+    Click("Page5"); Option("StepScope", "StepScope.Named");
+    Check(Session().Draft.Steps.Single().Inputs["after"].Output == "erosion" &&
+        Session().Draft.Steps.Single().Inputs["after"].Stage == ConstructionOutputStage.Completed &&
+        Session().Draft.Root.Operations.Single(op => op.Kind == ConstructionOperationKind.Leave).Residue.ErosionSeconds == 4,
+        "首次正式保存实际保留命名完成引用及留置独立侵蚀");
+    await ShotRow("ErosionFraction", "erosion-named-cz");
+    Set("ErosionFraction", ".6"); Click("Undo");
+    Check(JsonConvert.SerializeObject(Session().Draft) == previous, "同一正式成品编辑撤销后完整保持");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page5"); await ShotRow("ErosionFraction", "erosion-named-en");
+    string expected = JsonConvert.SerializeObject(new { Session().Draft.Root, Session().Draft.Impact, Session().Draft.Steps, Session().Draft.Cost, Session().Draft.Cooldown });
+    Click("Replace"); var saved = ConstructionEditing.Access.Read(Session().SourceId); Write("saved", saved);
+    Check(JsonConvert.SerializeObject(new { saved.Root, saved.Impact, saved.Steps, saved.Cost, saved.Cooldown }) == expected &&
+        saved.Parent.Id == definition.Id && saved.Revision == definition.Revision + 1, "正式覆盖保持全部声明，同时产生原规则的新身份与修订");
+    expected = JsonConvert.SerializeObject(saved); Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(saved.Id, source); await Frames();
+    Check(JsonConvert.SerializeObject(Session().Draft) == expected && B("Replace").interactable, "关闭再打开保持正式资料的完整结果");
+    return new { passed = true, closed = "首轮窗口尾段的正式覆盖与再开，原前段证据单独保留", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}

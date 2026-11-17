@@ -317,7 +317,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
     /// <param name="target">当前目标。</param>
-    public int ResolveAiWeight(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) => 12;
+    public int ResolveAiWeight(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
+    {
+        CompiledAbility plan = PlanFor(handle.EntryId);
+        return IsPureAging(plan) && AgingCombatValue(caster, plan, target) <= 0f ? 0 : 12;
+    }
 
     /// <summary>向既有决策报告威力与实际消耗。</summary>
     /// <param name="caster">持有者。</param>
@@ -327,12 +331,14 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         BaseSimObject target)
     {
         CompiledAbility plan = PlanFor(handle.EntryId);
+        float aging = AgingCombatValue(caster, plan, target);
+        if (IsPureAging(plan) && aging <= 0f) return new(0f, 0f, 0f, 0f, 0f, definitions[handle.EntryId].Cost, 1f);
         bool hostile = plan.Impact.Targets == SkillUseTargetRelation.Hostile;
-        return new(hostile && plan.ContactDamageScale > 0f ? 1f : 0f, plan.HasBarrier ? 1f : 0f, hostile ? 0f : 1f,
+        return new(hostile && (plan.ContactDamageScale > 0f || aging > 0f) ? 1f : 0f, plan.HasBarrier ? 1f : 0f, hostile ? 0f : 1f,
             plan.ContactControl > 0f ? 1f : 0f,
             Mathf.Max(
                 caster.Base.stats["damage"] * definitions[handle.EntryId].Power *
-                Mathf.Max(plan.ContactDamageScale, plan.HasBarrier ? 1f : 0f), plan.ContactControl),
+                Mathf.Max(plan.ContactDamageScale, plan.HasBarrier ? 1f : 0f), Mathf.Max(plan.ContactControl, aging)),
             definitions[handle.EntryId].Cost, 1f);
     }
 

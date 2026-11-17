@@ -1827,3 +1827,12 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 `runtime`保存`aged-save`及`expired-save`，事件保留原物件稳定身份、真实前后进度、原寿命、到期交接和世界时点。`save`在正式世界恢复回调取原资料，随后按实际世界时间核对额外进度，验证部分进度及原身份、来源、品阶、归属、完整构造和已学关系，到期世界再次存读保持一次结果，旧施放和借用不重放，换世界清理。可用`--state <已通过runtime目录>`复用原输入。
 
 输出位于`CULTIWAY_DEV_OUTPUT/inventory-aging/<分段>`。首轮core及runtime通过，save脚本包装错误与真实暂停缺陷分别定位，源头修正后仅补受影响实机和保存。原all失败、字段差异及临时只读调用记录保留，正式脚本只保留恢复边界和实际时间对照。证据索引位于`/home/inmny/.local/state/cultiway-dev/evidence/aging-inventory/delivery.json`。B关闭，窗口与创作、旧请求保持、真正冷启动及双端画面继续C。
+
+
+### 5.13 C1　侵蚀老化原窗口及当前目标自主用途
+
+通过develop执行`python3 Scripts/SpellDemos/verify_aging_editor.py --section ui|pricing|runtime|ai|all`。`ui`使用原控件编辑人物年龄、装备腐蚀、有限库存寿命、世界及原主体侵蚀、留置独立侵蚀和真实命名完成依赖，保留错误拒绝、撤销、正式替换、再开及中英截图。`pricing`对照实际作用覆盖、原部位与命名步骤计费、原名称别名去重、明确世界容量、旧规则27和新规则28及完整说明。作者填写的费用沿原入口。
+
+`runtime`通过窗口成品的正常学习与支付入口观察原年龄、原装备耐久与原库存寿命，验证作用面外保持及结束再用。`ai`从未被接管的场景人物开始，观察当前目标是否有真实损耗用途、原混合用途、普通候选及实际游戏AI自主释放。停止接续后确认每个实际施放均已结束。原版解除接管会添加眩晕和困惑，自主验证不引入这一额外场景。
+
+后段可用`--ui`指定已通过窗口目录，输出在`CULTIWAY_DEV_OUTPUT/aging-editor/<分段>`。`ui-save`是首次窗口已覆盖后的准确比对与再开续验，允许从该次未通过的尾段输出继续；`ui-world`补世界筛选的正式保存再开，需要已通过窗口输出。两者不加入正常all。原all、命名测试输入和接管准备失败分别保留，实际按分段交付。证据索引为`/home/inmny/.local/state/cultiway-dev/evidence/aging-editor/delivery.json`。C1关闭，新旧等待创作及正式存读继续C2，集中冷启动和原版及Worldfall连续画面继续C3。

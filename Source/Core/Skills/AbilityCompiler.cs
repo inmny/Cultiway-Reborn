@@ -47,6 +47,9 @@ public sealed class CompiledAbility
     /// <summary>实际攻击部位及身体采用的最大伤害倍率，供自主决策估算。</summary>
     public float ContactDamageScale { get; }
 
+    /// <summary>实际参与人物接触的独立作用，身体阶段及部位覆盖已经展开。</summary>
+    public IReadOnlyList<CompiledConstructionImpact> ActorImpacts { get; }
+
     /// <summary>实际攻击部位及身体采用的最大推拉力绝对值，供自主决策估算。</summary>
     public float ContactForce { get; }
 
@@ -203,7 +206,8 @@ public sealed class CompiledAbility
             .Concat(body?.Construction.MayContact != true
                 ? Array.Empty<CompiledConstructionImpact>()
                 : body.Stages.Select(stage => stage.Impact ?? Impact))
-            .ToArray();
+            .Distinct().ToArray();
+        ActorImpacts = Array.AsReadOnly(impacts);
         var worldEffects = nodes.SelectMany(node => node.BodyWindow && node.Impact == null
                 ? body.Stages.Select(stage => stage.Impact ?? Impact)
                 : new[] { node.Impact ?? Impact })

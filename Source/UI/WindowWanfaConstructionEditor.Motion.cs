@@ -22,7 +22,7 @@ public sealed partial class WindowWanfaConstructionEditor
                     ConstructionOperationKind.Spin, ConstructionOperationKind.Grow, ConstructionOperationKind.Animate, ConstructionOperationKind.Deform,
                     ConstructionOperationKind.ConvertMatter, ConstructionOperationKind.Gather,
                     ConstructionOperationKind.Fracture, ConstructionOperationKind.Flow,
-                    ConstructionOperationKind.Recover,
+                    ConstructionOperationKind.Recover, ConstructionOperationKind.Erode,
                     ConstructionOperationKind.Leave, ConstructionOperationKind.Conduct, ConstructionOperationKind.Propagate, ConstructionOperationKind.Ray
                 }.Where(kind => kind != ConstructionOperationKind.Leave || !node.Operations.Any(o => o.Kind == kind))
                 .Where(kind => kind != ConstructionOperationKind.Ray ||
@@ -93,6 +93,7 @@ public sealed partial class WindowWanfaConstructionEditor
             ConductionParameters(operation.Conduction ??= new ConstructionConduction());
         if (operation.Kind == ConstructionOperationKind.Leave) ResidueParameters(operation);
         if (operation.Kind == ConstructionOperationKind.Recover) RecoveryParameters(operation);
+        if (operation.Kind == ConstructionOperationKind.Erode) ErosionParameters(operation);
         if (operation.Kind == ConstructionOperationKind.Fracture) FractureParameters(node, operation.Fracture);
         if (operation.Kind == ConstructionOperationKind.Gather) GatherParameters(node, operation);
         if (operation.Kind == ConstructionOperationKind.Grow)
@@ -150,6 +151,7 @@ public sealed partial class WindowWanfaConstructionEditor
             Conduction = kind == ConstructionOperationKind.Conduct ? new ConstructionConduction() : null,
             Propagation = kind == ConstructionOperationKind.Propagate ? new ConstructionPropagation() : null,
             Recovery = kind == ConstructionOperationKind.Recover ? new ConstructionRecovery() : null,
+            Erosion = kind == ConstructionOperationKind.Erode ? new ConstructionErosion() : null,
             Flow = kind == ConstructionOperationKind.Flow ? new ConstructionFlow() : null,
             Fracture = kind == ConstructionOperationKind.Fracture ? NewFracture(node, lifetime) : null,
             When = kind == ConstructionOperationKind.Fracture
@@ -158,7 +160,7 @@ public sealed partial class WindowWanfaConstructionEditor
                     ? new ConstructionCondition { Trigger = ConstructionChangeTrigger.WorldContact }
                     : new ConstructionCondition(),
             Seconds = kind is ConstructionOperationKind.Grow or ConstructionOperationKind.Gather or ConstructionOperationKind.Deform ? 1f :
-                kind == ConstructionOperationKind.Recover ? .6f : 0f,
+                kind == ConstructionOperationKind.Recover ? .6f : kind == ConstructionOperationKind.Erode ? Math.Min(1f, lifetime) : 0f,
             TargetScale = kind == ConstructionOperationKind.Grow ? 2f : null,
             Matter = kind == ConstructionOperationKind.ConvertMatter ? "ice" : null,
             Clip = kind == ConstructionOperationKind.Animate

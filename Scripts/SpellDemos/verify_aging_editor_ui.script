@@ -1,0 +1,61 @@
+void Option(string key, string label) => Choose(key, T(label));
+void Pick(string key, Func<string, bool> match)
+{
+    Action(key); editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && match(b.GetComponentInChildren<Text>().text)).onClick.Invoke();
+}
+try
+{
+    Click("Page4"); ToggleValue("CustomImpact", true); Option("ContactPanel", "ContactPanel.5");
+    Set("AgeYears", "2"); ToggleValue("EquipmentErosion", true); Set("EquipmentErosionFraction", ".5");
+    Option("EquipmentErosionAddSlot", "EquipmentSlot.Weapon"); Action("EquipmentErosionRemoveSlot");
+    Check(Session().Draft.Impact.EquipmentErosion.Slots.Single() == EquipmentType.Armor, "装备栏增删仍保留明确唯一原栏位");
+    Set("AgeYears", "-1"); Check(!B("Replace").interactable, "负年龄拒绝正式保存"); Click("Undo");
+    Check(Session().Draft.Impact.AgeYears == 2 && B("Replace").interactable, "撤销恢复合法年龄和保存状态");
+    await ShotRow("EquipmentErosionFraction", "aging-equipment-cz");
+    ToggleValue("InventoryAging", true); Set("InventoryAgingSeconds", "20"); Set("InventoryAgingMaximum", "1"); ToggleValue("InventoryAgingFilter", true);
+    string Shape(string id) => LMTools.GetOrFallback(id, id.Substring(id.LastIndexOf('.') + 1));
+    Choose("InventoryAgingChangeShape", Shape(ItemShapes.Wood.id));
+    Choose("InventoryAgingAddShape", Shape(ItemShapes.Bone.id)); Action("InventoryAgingRemoveShape");
+    Check(Session().Draft.Impact.InventoryAging.Shapes.Single() == ItemShapes.Wood.id, "库存形状来自真实目录，互异增删后保持明确木料筛选");
+    Set("InventoryAgingMaximum", "0"); Check(!B("Replace").interactable, "零件数拒绝保存"); Click("Undo");
+    ToggleValue("NodeImpact", true); Option("NodeContactPanel", "ContactPanel.5"); Set("NodeAgeYears", "4");
+    Check(Session().Draft.Root.Impact.AgeYears == 4 && Session().Draft.Impact.AgeYears == 2, "部位覆盖使用同一表单且与整招独立"); ToggleValue("NodeImpact", false);
+    await ShotRow("InventoryAgingSeconds", "aging-inventory-cz");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page0"); Click("Page4"); await ShotRow("EquipmentErosionFraction", "aging-equipment-en"); await ShotRow("InventoryAgingSeconds", "aging-inventory-en");
+    Click("Replace"); Write("contact", ConstructionEditing.Access.Read(Session().SourceId));
+    Check(Session().Draft.Cost == 3 && Session().Draft.Cooldown == .2f, "作者明确填写的费用与恢复保持");
+
+    LocalizedTextManager.instance.setLanguage("cz"); Click("Page5"); Option("StepScope", "StepScope.Native"); Option("AddNativeOperation", "MotionKind.Erode");
+    Set("OperationName", "weather"); Set("ErosionSeconds", ".4"); Set("ErosionFraction", ".5");
+    ToggleValue("ErosionWorldMaterials", true); Set("WorldMatterMaximum", "8"); ToggleValue("WorldMatterOwned", true);
+    ToggleValue("WorldMatterAnyState", true); Check(Session().Draft.Root.Operations.Single().WorldMatter.FromState == null, "可选择同一材料全部登记物态"); ToggleValue("WorldMatterAnyState", false);
+    ToggleValue("WorldMatterFilter", false); Check(Session().Draft.Root.Operations.Single().WorldMatter.FromMatter == null, "可选择全部世界材料"); ToggleValue("WorldMatterFilter", true);
+    Set("ErosionFraction", "1.1"); Check(!B("Replace").interactable, "超额侵蚀份额拒绝保存"); Click("Undo");
+    await ShotRow("ErosionWorldMaterials", "erosion-world-cz");
+    Click("Replace"); Write("world", ConstructionEditing.Access.Read(Session().SourceId));
+    ToggleValue("ErosionWorldMaterials", false);
+    Option("AddNativeOperation", "MotionKind.Leave"); Set("OperationAt", ".8"); ToggleValue("ResidueErosion", true); Set("ResidueErosionSeconds", "4"); Set("ResidueErosionFraction", ".25");
+    await ShotRow("ResidueErosionSeconds", "erosion-residue-cz");
+    Option("StepScope", "StepScope.Named"); Option("AddStep", "MotionKind.Erode"); Set("StepName", "later_weather");
+    Set("ErosionSeconds", ".2"); Set("ErosionFraction", ".25");
+    Pick("StepInput.after", text => text.Contains(" / weather") && text.EndsWith(" · " + T("StepOutput.erosion")));
+    Option("StepInputStage.after", "StepStage.Completed");
+    Check(Session().Draft.Steps.Single().Inputs["after"].Stage == ConstructionOutputStage.Completed && B("Replace").interactable,
+        "命名侵蚀沿真实完成输出衔接，完整草稿通过共同编译");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page5"); await ShotRow("ErosionFraction", "erosion-named-en");
+    Option("StepScope", "StepScope.Native"); await ShotRow("ResidueErosionSeconds", "erosion-residue-en");
+    Pick("NativeOperation", text => text.StartsWith("weather · ")); ToggleValue("ErosionWorldMaterials", true); Set("WorldMatterMaximum", "8"); ToggleValue("WorldMatterOwned", true);
+    await ShotRow("ErosionWorldMaterials", "erosion-world-en"); ToggleValue("ErosionWorldMaterials", false);
+    string expected = JsonConvert.SerializeObject(new { Session().Draft.Root, Session().Draft.Impact, Session().Draft.Steps, Session().Draft.Cost, Session().Draft.Cooldown }); Click("Replace"); var saved = ConstructionEditing.Access.Read(Session().SourceId); Write("saved", saved);
+    Check(JsonConvert.SerializeObject(new { saved.Root, saved.Impact, saved.Steps, saved.Cost, saved.Cooldown }) == expected, "正式覆盖保持全部侵蚀、留置、损耗与真实完成引用");
+    expected = JsonConvert.SerializeObject(saved); Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(saved.Id, source); await Frames();
+    Check(JsonConvert.SerializeObject(Session().Draft) == expected && B("Replace").interactable, "关闭再开完整恢复且仍可保存");
+    File.WriteAllText(Path.Combine(folder, "explanation.txt"), ConstructionPresentation.Explain(saved, AbilityCompiler.Compile(saved, false)));
+    return new { passed = true, closed = "侵蚀老化窗口编辑、拒绝撤销、正式保存再开及中英画面", checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}

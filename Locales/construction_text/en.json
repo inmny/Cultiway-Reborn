@@ -95,5 +95,18 @@
   "Cultiway.ConstructionText.Change.Inventory": "inventory materials",
   "Cultiway.ConstructionText.InventoryInput": "Input {0} requires {2} {1} items",
   "Cultiway.ConstructionText.Change.MaterialTransfer": "Material transfer",
-  "Cultiway.ConstructionText.WorldMaterial": "{0} supplies {2:G4} generated volume for each successful {1}."
+  "Cultiway.ConstructionText.WorldMaterial": "{0} supplies {2:G4} generated volume for each successful {1}.",
+  "Cultiway.ConstructionText.AgingActors": "An accepted hit adds {1} whole years to {0}. Growth and natural death follow native lifespan, world laws and immortality.",
+  "Cultiway.ConstructionText.AgingEquipment": "An accepted hit corrodes {1} worn by {0}, using {2:0.##} of maximum durability before actual material resistance, contact strength and integer rounding. Eternal items follow native rules.",
+  "Cultiway.ConstructionText.AgingInventory": "An accepted hit advances finite inventory lifetimes of {0} by up to {1:0.##} world seconds per item, at most {2} items per hit, matching {3}. Expiry removes the original item and releases borrowing.",
+  "Cultiway.ConstructionText.AllInventoryShapes": "all shapes",
+  "Cultiway.ConstructionText.SelfErosion": "erodes this form over {0:0.##} world seconds with fraction {1:0.##}, subject to actual material resistance",
+  "Cultiway.ConstructionText.WorldErosion": "selects {2} within the real shape, up to {3:0.##} cubic tiles, {4}, and erodes independently over {0:0.##} world seconds with fraction {1:0.##}",
+  "Cultiway.ConstructionText.ResidueErosion": "After actual transfer, erodes independently over {0:0.##} world seconds with fraction {1:0.##}",
+  "Cultiway.ConstructionText.AllWorldMaterials": "all registered materials",
+  "Cultiway.ConstructionText.AllMaterialStates": "all registered states of {0}",
+  "Cultiway.ConstructionText.OwnWorldMaterials": "restricted to material originally paid by the current controller",
+  "Cultiway.ConstructionText.AnyWorldMaterials": "including material paid by others",
+  "Cultiway.ConstructionText.NamedProcess": "Named step “{0}” executes {1}.",
+  "Cultiway.ConstructionText.Operation.Erode": "erodes material"
 }

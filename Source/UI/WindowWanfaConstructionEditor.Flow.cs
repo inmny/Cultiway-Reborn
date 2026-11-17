@@ -28,6 +28,34 @@ public sealed partial class WindowWanfaConstructionEditor
         {
             operation.Residue ??= new ConstructionResidue();
             operation.Residue.Lifetime = value; });
+        Toggle("ResidueErosion", operation.Residue?.Erosion != null, value =>
+        {
+            operation.Residue ??= new ConstructionResidue();
+            operation.Residue.Erosion = value ? new ConstructionErosion() : null;
+            operation.Residue.ErosionSeconds = value ? 4f : 0f;
+        });
+        if (operation.Residue?.Erosion != null)
+        {
+            Number("ResidueErosionSeconds", operation.Residue.ErosionSeconds, value => operation.Residue.ErosionSeconds = value);
+            Number("ResidueErosionFraction", operation.Residue.Erosion.Fraction, value => operation.Residue.Erosion.Fraction = value);
+        }
+    }
+
+    /// <summary>普通部位和命名步骤共用侵蚀历时、份额及世界材料选择。</summary>
+    /// <param name="operation">当前独立草稿中的操作。</param>
+    private void ErosionParameters(ConstructionOperation operation)
+    {
+        Row("ErosionRules", T("ErosionRulesHint"));
+        Number("ErosionSeconds", operation.Seconds, value => operation.Seconds = value);
+        Number("ErosionFraction", operation.Erosion?.Fraction ?? .75f, value =>
+        {
+            operation.Erosion ??= new ConstructionErosion();
+            operation.Erosion.Fraction = value;
+        });
+        Toggle("ErosionWorldMaterials", operation.WorldMatter != null, value => operation.WorldMatter = value
+            ? new ConstructionWorldMatter { FromMatter = "wood", FromState = "solid" }
+            : null);
+        if (operation.WorldMatter != null) WorldMatterParameters(operation.WorldMatter, true);
     }
 
     /// <summary>只绑定实际参与数值计算的参数。</summary>

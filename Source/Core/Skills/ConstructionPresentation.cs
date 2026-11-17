@@ -156,6 +156,19 @@ public static class ConstructionPresentation
         if (plan.ContactStagger > 0f) lines.Add(F("Stagger", plan.ContactStagger));
         if (plan.ContactBind > 0f) lines.Add(F("Bind", plan.ContactBind));
         if (plan.ContactLaunch > 0f) lines.Add(F("Launch", plan.ContactLaunch));
+        foreach (var impact in plan.ActorImpacts)
+        {
+            string targets = T("Target." + impact.Targets);
+            if (impact.AgeYears > 0) lines.Add(F("AgingActors", targets, impact.AgeYears));
+            if (impact.EquipmentErosion != null)
+                lines.Add(F("AgingEquipment", targets, string.Join("、", impact.EquipmentErosion.Slots.Select(slot =>
+                    L("Cultiway.Construction.EquipmentSlot." + slot))), impact.EquipmentErosion.Fraction));
+            if (impact.InventoryAging != null)
+                lines.Add(F("AgingInventory", targets, impact.InventoryAging.Seconds,
+                    impact.InventoryAging.MaximumItems, impact.InventoryAging.Shapes.Count == 0 ? T("AllInventoryShapes") :
+                    string.Join("、", impact.InventoryAging.Shapes.Select(shape => LMTools.GetOrFallback(shape,
+                        shape.Substring(shape.LastIndexOf('.') + 1))))));
+        }
         if (plan.HasBarrier) lines.Add(T("Barrier"));
         if (definition.Binding != null)
             lines.Add(F("Placement", L("Cultiway.Construction.Anchor." + definition.Binding.Anchor),
@@ -183,9 +196,8 @@ public static class ConstructionPresentation
                 if (operation.Kind == ConstructionOperationKind.Fly && operation.WorldVelocity && operation.Acceleration?[2] < 0f) action = T("Falling");
                 if (operation.Ray != null) action = RayDescription(operation.Ray);
                 if (operation.Kind == ConstructionOperationKind.Leave)
-                    action = operation.Residue?.Lifetime > 0f
-                        ? F("Residue", operation.Residue.Lifetime)
-                        : T("ResiduePermanent");
+                    action = ResidueDescription(operation.Residue);
+                if (operation.Kind == ConstructionOperationKind.Erode) action = ErosionDescription(operation);
                 string when = operation.When != null
                     ? Condition(operation.When)
                     : operation.Trigger != ConstructionChangeTrigger.Time
@@ -203,12 +215,40 @@ public static class ConstructionPresentation
             processes.Add(F("Process", when, Form(plan.Nodes[plan.Steps.Single(value => value.Id == step.Id).Node].Resource.Description.Id), RayDescription(operation.Ray)));
         }
 
+        foreach (ConstructionStep step in definition.Steps.Where(step => step.Operation.Kind == ConstructionOperationKind.Erode ||
+                     step.Operation.Kind == ConstructionOperationKind.Leave && step.Operation.Residue?.Erosion != null))
+            processes.Add(F("NamedProcess", step.Id, step.Operation.Kind == ConstructionOperationKind.Erode
+                ? ErosionDescription(step.Operation) : ResidueDescription(step.Operation.Residue)));
+
         string[] unique = processes.Distinct().ToArray();
         lines.AddRange(unique.Take(12));
         if (unique.Length > 12) lines.Add(F("More", unique.Length - 12));
         if (definition.Parent != null)
             lines.Add(F("Parent", ChangeName(definition.Parent.Change), definition.Parent.Revision));
         return string.Join("\n", lines);
+    }
+
+    /// <summary>留置后的侵蚀独立于原施放容器，与普通留置时长分别说明。</summary>
+    /// <param name="residue">真实留置声明。</param>
+    private static string ResidueDescription(ConstructionResidue residue)
+    {
+        string text = residue?.Lifetime > 0f ? F("Residue", residue.Lifetime) : T("ResiduePermanent");
+        return residue?.Erosion == null ? text : text + " " +
+            F("ResidueErosion", residue.ErosionSeconds, residue.Erosion.Fraction);
+    }
+
+    /// <summary>区分原主体和真实世界选择，份额仍要经过实际材料耐受。</summary>
+    /// <param name="operation">完整已校验操作。</param>
+    private static string ErosionDescription(ConstructionOperation operation)
+    {
+        float fraction = operation.Erosion?.Fraction ?? .75f;
+        if (operation.WorldMatter == null) return F("SelfErosion", operation.Seconds, fraction);
+        ConstructionWorldMatter selection = operation.WorldMatter;
+        string filter = selection.FromMatter == null ? T("AllWorldMaterials") :
+            selection.FromState == null ? F("AllMaterialStates", Material(AbilityMatters.Resolve(selection.FromMatter, null, "侵蚀说明"))) :
+            Material(AbilityMatters.Resolve(selection.FromMatter, selection.FromState, "侵蚀说明"));
+        return F("WorldErosion", operation.Seconds, fraction, filter, selection.MaximumVolume,
+            T(selection.OwnedOnly ? "OwnWorldMaterials" : "AnyWorldMaterials"));
     }
 
     /// <summary>条件说明与真实时钟、阈值和额外等待一致。</summary>

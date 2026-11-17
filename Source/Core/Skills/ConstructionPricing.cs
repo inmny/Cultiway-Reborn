@@ -58,6 +58,9 @@ public sealed class ConstructionMeasure
     /// <summary>范围推拉按世界半径面积、速度及存在时间计算的需求；第十九版起计入。</summary>
     public double RadialMotionWork { get; }
 
+    /// <summary>主体、明确世界容量及留置后侵蚀的独立需求，第二十八版起计入。</summary>
+    public double ErosionWork { get; }
+
     /// <summary>按当前规模给出的默认恢复世界秒数；不替代真实身体收势。</summary>
     public float DefaultCooldown { get; }
 
@@ -126,6 +129,11 @@ public sealed class ConstructionMeasure
             Volume += volume;
             VolumeSeconds += volume * span;
             work += volume * (1d + span * .25d);
+            foreach (var operation in node.EventOperations)
+                if (operation.Parameters is CompiledErosion erosion)
+                    ErosionWork += ErosionDemand(erosion, volume);
+            if (node.Residue?.Erosion != null)
+                ErosionWork += ErosionDemand(node.Residue.Erosion, volume);
             if (node.Resource.Meshes.Length == 0 && node.Resource.Contacts.Length == 0) continue;
             double area = 0;
             if (node.Resource.Meshes.Length == 0)
@@ -314,6 +322,11 @@ public sealed class ConstructionMeasure
         }
     }
 
+    /// <summary>按实际主体规模或明确世界容量计算投入，不承诺材料必然接受。</summary>
+    /// <param name="erosion">已编译过程。</param><param name="volume">实际主体体积。</param>
+    private static double ErosionDemand(CompiledErosion erosion, double volume) =>
+        (erosion.World?.MaximumVolume ?? volume) * erosion.Fraction * (1d + erosion.Seconds * .1d);
+
     /// <summary>人物生命比例以本次本体量作参考预算；实际伤害仍在命中时读取人物生命。</summary>
     /// <param name="damage">实际编译伤害。</param><param name="power">整招量。</param><param name="strength">部位倍率。</param>
     private static double DamageWork(IReadOnlyList<CompiledConstructionContactDamage> damage, float power, float strength) =>
@@ -361,7 +374,7 @@ public static class ConstructionPricing
     private static double Demand(ConstructionMeasure measure, int rules) => measure.Work +
         (rules >= 12 ? measure.ContactEffectsWork : 0d) + (rules >= 13 ? measure.ContactDisplacementWork : 0d) +
         (rules >= 14 ? measure.ContactResultsWork : 0d) + (rules >= 15 ? measure.ContactSpreadWork : 0d) +
-        (rules >= 19 ? measure.RadialMotionWork : 0d);
+        (rules >= 19 ? measure.RadialMotionWork : 0d) + (rules >= 28 ? measure.ErosionWork : 0d);
 
     /// <summary>以当前实际构造计算新创作的默认费用与恢复时间。</summary>
     /// <param name="definition">本次独占的新创作。</param><param name="cost">是否补费用。</param><param name="cooldown">是否补恢复时间。</param>
