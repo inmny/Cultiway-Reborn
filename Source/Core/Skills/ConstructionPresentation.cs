@@ -132,6 +132,8 @@ public static class ConstructionPresentation
                         .Select(n => Material(n.Matter) + " " + Form(n.Resource.Description.Id)).Distinct()))
                 : T("BodyOnly")
         };
+        foreach (var input in definition.Inventory ?? Array.Empty<ConstructionInventoryInput>())
+            lines.Add(F("InventoryInput", input.Id, LMTools.GetOrFallback(input.Shape, input.Shape.Substring(input.Shape.LastIndexOf('.') + 1)), input.Count));
         string[] distributions = Nodes(definition.Root).Where(node => node.Distribution != null)
             .Select(node => L("Cultiway.Construction.DistributionSource." + node.Distribution.Source)).Distinct().ToArray();
         if (distributions.Length > 0) lines.Add(F("Distributions", string.Join("、", distributions)));
@@ -239,6 +241,7 @@ public static class ConstructionPresentation
         "两点连接" => "Between",
         "逐段成形" => "Formation",
         "结构形变" => "Deformation",
+        "库存材料" => "Inventory",
         "余量续形" => "Remainder",
         "液态流散" => "Flow",
         "收束回能" => "Recovery",

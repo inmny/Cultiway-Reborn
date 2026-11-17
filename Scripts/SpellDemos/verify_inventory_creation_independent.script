@@ -1,0 +1,34 @@
+Actor source = Make(64), holder = Make(62); var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+for (int i = 0; i < 3; i++) Material(owner, ItemShapes.Wood, "独立木料" + i, 2 + i);
+for (int i = 0; i < 2; i++) Material(owner, ItemShapes.Bone, "独立骨料" + i, 3 + i);
+try
+{
+    var inspiration = ConstructedAbilityService.ReadInspiration(owner); int selected = -1;
+    for (int seed = 0; seed < 64 && selected < 0; seed++)
+    {
+        var resources = (SynthesisResources)service.GetMethod("CaptureCreationResources", F).Invoke(null, new object[] { owner, seed, inspiration });
+        try { if (ConstructedAbilityService.Generate(owner, seed, inspiration, resources: resources).Inventory?.Length > 0) selected = seed; }
+        catch (InvalidDataException) { }
+        await Game.NextFrame();
+    }
+    Check(selected >= 0 && ConstructionEditing.Access.List(owner).Count == 0 && ConstructedAbilityService.TryQueueCreation(owner, selected),
+        "无原术人物通过正式入口受理实际材料独立创作");
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    var expected = ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources);
+    foreach (Entity item in owner.GetItems().ToArray()) holder.GetExtend().AddSpecialItem(item);
+    Check(owner.GetItems().Count() == 0 && JToken.DeepEquals(Canon(expected), Canon(ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources))),
+        "等待期间移走实际材料，冻结的完整结果及费用仍保持");
+    await Advance(.2f);
+    var completed = owner.GetComponent<ConstructedCreationState>(); var learned = ConstructionEditing.Access.Read(completed.LastAbility);
+    Check(!completed.Pending && completed.LastFailure == null && JToken.DeepEquals(Canon(learned), Canon(expected)) &&
+        learned.Inventory.Length > 0 && holder.GetExtend().GetItems().Count() == 5, "正式独立队列授予冻结材料成品，创作只产生知识");
+    await Advance(.2f); Check(ConstructionEditing.Access.List(owner).Count == 1, "独立材料创作只授予一次");
+    File.WriteAllText(Path.Combine(folder, "created-definition.json"), JsonConvert.SerializeObject(learned, Formatting.Indented));
+    return new { passed = true, closed = "正式独立创作和等待材料输入保持", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

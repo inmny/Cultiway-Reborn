@@ -1,0 +1,45 @@
+try
+{
+    string Shape(string id) => Cultiway.Utils.Extension.LMTools.GetOrFallback(id, id.Substring(id.LastIndexOf('.') + 1));
+    Click("Page0"); Choose("AddInventoryInput", text => text == Shape(ItemShapes.Wood.id));
+    Set("InventoryName", "fuel"); Set("InventoryCount", "3");
+    Choose("AddInventoryInput", text => text == Shape(ItemShapes.Bone.id)); Set("InventoryName", "catalyst");
+    Check(Session().Draft.Inventory.Length == 2 && Session().Draft.Inventory[0].Count == 3 && Session().Draft.Inventory[1].Shape == ItemShapes.Bone.id,
+        "原窗口声明两种真实材料、输入名称及借用件数");
+    Click("Page5"); Option("StepScope", "StepScope.Named"); Option("AddStep", "MotionKind.ConsumeInventory");
+    Set("StepName", "feed"); Set("InventoryUseCount", "2"); Set("OperationAt", "0.25");
+    Check(Session().Draft.Steps.Single().Operation.InventoryUse.Input == "fuel" && Session().Draft.Steps.Single().Operation.InventoryUse.Count == 2,
+        "原步骤页选用真实材料声明并编辑消耗件数与时点");
+    Set("InventoryUseCount", "4"); Check(!B("Replace").interactable, "消耗超出声明数量阻止保存");
+    Click("Undo"); Check(Session().Draft.Steps.Single().Operation.InventoryUse.Count == 2 && B("Replace").interactable,
+        "撤销恢复原消耗及保存状态");
+    Option("AddStep", "MotionKind.Grow"); Set("StepName", "after_feed"); Set("ProcessSeconds", "0.3");
+    Choose("StepInput.after", text => text.Contains("feed") && text.EndsWith(" · " + T("StepOutput.consumed")));
+    Option("StepInputStage.after", "StepStage.Completed");
+    Click("Page0"); Choose("InventoryInput", text => text.StartsWith("fuel · ")); Set("InventoryName", "wood_source");
+    Check(Session().Draft.Steps[0].Operation.InventoryUse.Input == "wood_source" && Session().Draft.Inventory[0].Id == "wood_source",
+        "材料改名同时更新原消耗引用");
+    Set("InventoryCount", "1"); Action("RemoveInventoryInput"); Set("InventoryName", "catalyst");
+    Check(Session().Draft.Inventory.Length == 2 && Session().Draft.Inventory[0].Count == 3 && Session().Draft.Inventory[0].Id == "wood_source" &&
+        Session().Draft.Steps.Length == 2 && B("Replace").interactable,
+        "降低到消耗数量以下、删除已用声明及重名均拒绝，原草稿保持");
+    await ShotRow("InventoryCount", "materials-cz");
+    Click("Page5"); Choose("StepChoice", text => text.Contains("feed") && !text.Contains("after_feed")); await ShotRow("InventoryUseCount", "consume-cz");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page0"); await ShotRow("InventoryCount", "materials-en");
+    Click("Page5"); await ShotRow("InventoryUseCount", "consume-en");
+    Click("Replace"); var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(saved.Inventory[0].Id == "wood_source" && saved.Steps[1].Inputs["after"].Step == "feed" &&
+        saved.Steps[1].Inputs["after"].Output == "consumed" && saved.Steps[1].Inputs["after"].Stage == ConstructionOutputStage.Completed,
+        "正式覆盖保持材料、实际消耗和完成依赖");
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    string expected = JsonConvert.SerializeObject(saved);
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(saved.Id, source); await Frames();
+    Check(JsonConvert.SerializeObject(Session().Draft) == expected, "关闭再打开完整恢复正式材料成品");
+    return new { passed = true, closed = "原窗口材料声明、步骤消耗及完成依赖", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}

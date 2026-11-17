@@ -1721,3 +1721,13 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 `save`在部分使用且其余材料仍借用时写出正式世界。核对已用物件退出、短时占用排除及原有炼制占用保留，读取后完整恢复物件身份、来源、品阶、数量、归属、构造和已学关系，旧施放及延迟消耗不重放，再保存完成世界。`world`在实际借用中加载另一世界，确认旧借用清理、新世界取用及取消恢复，旧操作没有接管新物件。
 
 三段分别通过，索引位于`/home/inmny/.local/state/cultiway-dev/evidence/inventory-inputs/delivery.json`，实际输入、命令、正式世界和结果一并归档。B2继续原窗口及自主创作接入，5.11最终冷启动及连续录像集中在C完成。
+
+### 5.11 B2　库存材料编辑与自主创作
+
+通过develop执行`python3 Scripts/SpellDemos/verify_inventory_creation.py --section ui|creation|independent|runtime|legacy|save|all`。日常只执行受影响分段。入口复用现成世界及真实旧规则25样例，各段资料位于`CULTIWAY_DEV_OUTPUT/inventory-creation/<分段>`。
+
+`ui`通过原控件编辑两种材料的名称、形状和件数，建立真实消耗与完成依赖，检查错误拒绝、撤销、正式替换再打开和中英文窗口。`creation`检查冻结材料输入、独立创作及库存衍生、完整重现和原资料保持。`independent`通过正式人物队列创作，等待期间移走材料，核对结果及费用保持且只授予一次。
+
+`runtime`读取已通过窗口成品，由另一位修士真实支付及扣料，确认完成后生长、缺料不扣费、补料恢复及自然结束。可用`--ui <已通过ui目录>`复用输入。`legacy`检查真实旧规则25完整结果与费用。`save`使用已通过的创作输入，正式保存和读取新旧等待请求，各授予一次，新成品实际使用后再次保存。可用`--creation <已通过creation目录>`复用输入。
+
+六段分别通过，证据索引为`/home/inmny/.local/state/cultiway-dev/evidence/inventory-creation/delivery.json`。B关闭，5.11 C继续永久世界结果、真正冷启动和集中连续双端录像。

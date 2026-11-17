@@ -91,5 +91,7 @@
   "Cultiway.ConstructionText.Change.Flow": "liquid flow",
   "Cultiway.ConstructionText.Change.Recovery": "recovery of unspent payment",
   "Cultiway.ConstructionText.Change.Residue": "world retention",
-  "Cultiway.ConstructionText.Operation.ConsumeInventory": "consume reserved inventory material"
+  "Cultiway.ConstructionText.Operation.ConsumeInventory": "consume reserved inventory material",
+  "Cultiway.ConstructionText.Change.Inventory": "inventory materials",
+  "Cultiway.ConstructionText.InventoryInput": "Input {0} requires {2} {1} items"
 }

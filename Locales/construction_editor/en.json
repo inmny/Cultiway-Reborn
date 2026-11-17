@@ -1335,5 +1335,20 @@
   "Cultiway.Construction.DeformationOffsetZ": "Local offset Z",
   "Cultiway.Construction.DeformationRotationX": "Local angle X",
   "Cultiway.Construction.DeformationRotationY": "Local angle Y",
-  "Cultiway.Construction.DeformationRotationZ": "Local angle Z"
+  "Cultiway.Construction.DeformationRotationZ": "Local angle Z",
+  "Cultiway.Construction.InventoryRules": "Inventory materials",
+  "Cultiway.Construction.InventoryRulesHint": "Reserve original materials before casting. Consumption steps use them and ending releases the unused items.",
+  "Cultiway.Construction.AddInventoryInput": "Add material input",
+  "Cultiway.Construction.InventoryInput": "Material input",
+  "Cultiway.Construction.InventoryName": "Input name",
+  "Cultiway.Construction.InventoryShape": "Item shape",
+  "Cultiway.Construction.InventoryCount": "Reserved items",
+  "Cultiway.Construction.RemoveInventoryInput": "Remove material input",
+  "Cultiway.Construction.InventoryRemoveHint": "Inputs used by steps must be retained.",
+  "Cultiway.Construction.InventoryUseInput": "Material to consume",
+  "Cultiway.Construction.InventoryUseCount": "Items consumed",
+  "Cultiway.Construction.InventoryUseRules": "Consumption confirmation",
+  "Cultiway.Construction.InventoryUseRulesHint": "Completion follows actual consumption. Later steps can wait for that result.",
+  "Cultiway.Construction.MotionKind.ConsumeInventory": "Consume inventory material",
+  "Cultiway.Construction.StepOutput.consumed": "Materials actually consumed"
 }

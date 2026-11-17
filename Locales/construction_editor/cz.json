@@ -1330,5 +1330,20 @@
   "Cultiway.Construction.DeformationOffsetZ": "局部偏移 Z",
   "Cultiway.Construction.DeformationRotationX": "局部角度 X",
   "Cultiway.Construction.DeformationRotationY": "局部角度 Y",
-  "Cultiway.Construction.DeformationRotationZ": "局部角度 Z"
+  "Cultiway.Construction.DeformationRotationZ": "局部角度 Z",
+  "Cultiway.Construction.InventoryRules": "库存原材料",
+  "Cultiway.Construction.InventoryRulesHint": "施放前借用所需原材料，消耗步骤执行后扣除，结束时释放未用部分。",
+  "Cultiway.Construction.AddInventoryInput": "添加材料声明",
+  "Cultiway.Construction.InventoryInput": "当前材料声明",
+  "Cultiway.Construction.InventoryName": "材料名称",
+  "Cultiway.Construction.InventoryShape": "物品形状",
+  "Cultiway.Construction.InventoryCount": "借用件数",
+  "Cultiway.Construction.RemoveInventoryInput": "删除材料声明",
+  "Cultiway.Construction.InventoryRemoveHint": "仍有步骤使用时会拒绝删除。",
+  "Cultiway.Construction.InventoryUseInput": "消耗哪项材料",
+  "Cultiway.Construction.InventoryUseCount": "本步消耗件数",
+  "Cultiway.Construction.InventoryUseRules": "消耗确认",
+  "Cultiway.Construction.InventoryUseRulesHint": "完成输出来自实际扣除，后续步骤可等待该结果。",
+  "Cultiway.Construction.MotionKind.ConsumeInventory": "消耗库存材料",
+  "Cultiway.Construction.StepOutput.consumed": "材料已实际消耗"
 }

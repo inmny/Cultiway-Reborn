@@ -35,6 +35,10 @@ public sealed class SynthesisResources
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public readonly SynthesisForm[] DeformationForms;
 
+    /// <summary>当前作者实际可用的材料种类和件数，旧请求保持为空。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public readonly SynthesisInventoryMaterial[] InventoryMaterials;
+
     /// <summary>只为当前输入建立的查找，不保存运行时对象。</summary>
     private readonly Dictionary<string, SynthesisForm> forms;
 
@@ -44,9 +48,10 @@ public sealed class SynthesisResources
     /// <param name="resource">受理时实际采用的法力通道。</param>
     /// <param name="worldActions">受理时的世界操作编号和默认持续时间。</param>
     /// <param name="deformationForms">基础模型以外的实际可变模型。</param>
+    /// <param name="inventoryMaterials">受理时真实可用的材料。</param>
     [JsonConstructor]
     public SynthesisResources(SynthesisForm[] forms, AbilityDefinition[] bodies, string resource = "wakan",
-        SynthesisWorldAction[] worldActions = null, SynthesisForm[] deformationForms = null)
+        SynthesisWorldAction[] worldActions = null, SynthesisForm[] deformationForms = null, SynthesisInventoryMaterial[] inventoryMaterials = null)
     {
         if (forms == null || forms.Length > 16 || forms.Any(form => form == null) ||
             forms.Select(form => form.Id).Distinct(StringComparer.Ordinal).Count() != forms.Length ||
@@ -63,6 +68,10 @@ public sealed class SynthesisResources
             deformationForms.Select(form => form.Id).Distinct(StringComparer.Ordinal).Count() != deformationForms.Length ||
             deformationForms.Any(form => forms.Any(basis => basis.Id == form.Id))))
             throw new ArgumentException("其他形变模型输入重复、无真实控制或超过预算");
+        if (inventoryMaterials != null && (inventoryMaterials.Length > 128 || inventoryMaterials.Any(material => material == null) ||
+            inventoryMaterials.Select(material => material.Shape).Distinct(StringComparer.Ordinal).Count() != inventoryMaterials.Length))
+            throw new ArgumentException("创作库存材料缺失、重复或超过预算");
+        InventoryMaterials = inventoryMaterials;
         DeformationForms = deformationForms;
         Forms = forms;
         Bodies = bodies;
@@ -78,7 +87,8 @@ public sealed class SynthesisResources
     /// <summary>每个已受理请求独占可保存数组，编辑一个请求不能改写其他等待输入。</summary>
     internal SynthesisResources Copy() => new(Forms.Select(CopyForm).ToArray(), Bodies.Select(ConstructionEditing.Copy).ToArray(), Resource,
         WorldActions?.Select(action => new SynthesisWorldAction(action.Id, action.DefaultDuration)).ToArray(),
-        DeformationForms?.Select(CopyForm).ToArray());
+        DeformationForms?.Select(CopyForm).ToArray(),
+        InventoryMaterials?.Select(material => new SynthesisInventoryMaterial(material.Shape, material.Count)).ToArray());
 
     /// <summary>两类模型输入共用逐数组复制，避免请求之间共享可编辑控制名称。</summary>
     /// <param name="form">已检查的冻结资料。</param>

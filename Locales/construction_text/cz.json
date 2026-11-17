@@ -91,5 +91,7 @@
   "Cultiway.ConstructionText.Change.Flow": "液态流散",
   "Cultiway.ConstructionText.Change.Recovery": "收束回能",
   "Cultiway.ConstructionText.Change.Residue": "世界留置",
-  "Cultiway.ConstructionText.Operation.ConsumeInventory": "消耗真实库存材料"
+  "Cultiway.ConstructionText.Operation.ConsumeInventory": "消耗真实库存材料",
+  "Cultiway.ConstructionText.Change.Inventory": "库存材料",
+  "Cultiway.ConstructionText.InventoryInput": "材料{0}需要{2}件{1}"
 }

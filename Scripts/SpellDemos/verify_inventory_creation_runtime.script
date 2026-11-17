@@ -1,0 +1,42 @@
+Actor author = Make(60), source = Make(64), enemy = Make(72, "wolf"); var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2; owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "saved-definition.json")));
+Check(definition.Creator != source.id, "当前施术者与窗口成品作者身份不同");
+for (int i = 0; i < 3; i++) Material(owner, ItemShapes.Wood, "施术木料" + i, 4 + i);
+Material(owner, ItemShapes.Bone, "施术骨料", 6);
+var active = new List<AbilityCast>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    foreach (object run in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(run, "Id") == fact.CastId) active.Add((AbilityCast)Field(run, "Cast"));
+}
+ConstructedAbilityService.CastStarted += Started;
+try
+{
+    Ready(source); await Advance(.15f); Place(source, 64); Place(enemy, 72);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f; float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, enemy); float paid = balance - owner.GetCultisys<Xian>().wakan; owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.7f); var live = active.Single(); var receipts = new List<ConstructionWorldReceipt>(); live.AppendStepReceipts("feed", receipts);
+    Check(Math.Abs(paid - definition.Cost) < .001f && receipts.Count == 1 && receipts[0].ItemCount == 2 && owner.GetItems().Count() == 2 &&
+        live.StepStateOf("feed") == ConstructionStepState.Completed && live.StepStateOf("after_feed") == ConstructionStepState.Completed,
+        "其他修士按正常入口支付，从自己的库存实际消耗两件后完成后续生长");
+    await Advance(definition.Lifetime + .2f);
+    Check(live.Finished && owner.GetItems().All(item => item.IsAvailable()) && !BodyControlState.IsBusy(source.id),
+        "窗口成品结束后未用原材料归还且无控制残留");
+    ConstructedAbilityService.Learn(owner, definition.Id); balance = owner.GetCultisys<Xian>().wakan;
+    bool used = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.constructed", owner.E, definition.Id),
+        new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script);
+    Check(!used && active.Count == 1 && Math.Abs(balance - owner.GetCultisys<Xian>().wakan) < .001f, "材料不足时拒绝再次受理并保持余额");
+    for (int i = 0; i < 2; i++) Material(owner, ItemShapes.Wood, "恢复木料" + i, 3);
+    Ready(source); Place(source, 64); await Fire(definition, source, enemy); owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(definition.Lifetime + .2f);
+    Check(active.Count == 2 && active.Last().Finished && owner.GetItems().All(item => item.IsAvailable()), "补足材料后同一窗口成品可再次使用并正常结束");
+    File.WriteAllText(Path.Combine(folder, "receipts.json"), JsonConvert.SerializeObject(receipts, Formatting.Indented));
+    return new { passed = true, closed = "窗口材料成品由其他修士实际使用、失败及恢复", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

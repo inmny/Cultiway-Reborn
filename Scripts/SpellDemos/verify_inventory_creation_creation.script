@@ -1,0 +1,53 @@
+Actor source = Make(64); var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+for (int i = 0; i < 3; i++) Material(owner, ItemShapes.Wood, "创作木料" + i, 3 + i);
+for (int i = 0; i < 2; i++) Material(owner, ItemShapes.Bone, "创作骨料" + i, 5 + i);
+var attempts = new List<object>();
+bool HasInventory(AbilityDefinition definition) => definition.Inventory?.Length > 0 &&
+    definition.Steps.Any(step => step.Operation.Kind == ConstructionOperationKind.ConsumeInventory);
+try
+{
+    var inspiration = ConstructedAbilityService.ReadInspiration(owner); Check(inspiration.Rules == 26, "新创作采用真实材料规则26");
+    var resources = (SynthesisResources)service.GetMethod("CaptureCreationResources", F).Invoke(null, new object[] { owner, 0, inspiration });
+    Check(resources.InventoryMaterials.Length == 2 && resources.InventoryMaterials.Single(material => material.Shape == ItemShapes.Wood.id).Count == 3 &&
+        resources.InventoryMaterials.Single(material => material.Shape == ItemShapes.Bone.id).Count == 2, "真实可用材料种类和件数进入冻结输入");
+    var copy = (SynthesisResources)typeof(SynthesisResources).GetMethod("Copy", F).Invoke(resources, null);
+    string shape = resources.InventoryMaterials[0].Shape;
+    copy.InventoryMaterials[0] = new SynthesisInventoryMaterial("changed.copy", 1);
+    Check(resources.InventoryMaterials[0].Shape == shape, "复制后的材料列表不改写原等待输入");
+    AbilityDefinition independent = null;
+    for (int seed = 0; seed < 96 && independent == null; seed++)
+    {
+        try
+        {
+            var made = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: resources);
+            attempts.Add(new { seed, materials = HasInventory(made) });
+            if (HasInventory(made)) independent = made;
+        }
+        catch (InvalidDataException error) { attempts.Add(new { seed, rejected = error.Message }); }
+        await Game.NextFrame();
+    }
+    Check(independent != null && independent.Inventory.All(input => resources.InventoryMaterials.Any(material => material.Shape == input.Shape && material.Count >= input.Count)) &&
+        JToken.DeepEquals(Canon(independent), Canon(ConstructedAbilityService.Generate(owner, independent.Seed, inspiration, resources: resources))),
+        "独立创作使用真实冻结材料，完整结构及费用可以重现");
+    var basis = Definition(); basis.Id = "test.inventory-creation.basis"; basis.Inventory = null; basis.Steps = Array.Empty<ConstructionStep>();
+    string original = JsonConvert.SerializeObject(basis); AbilityDefinition derived = null;
+    for (int seed = 0; seed < 128 && derived == null; seed++)
+    {
+        var made = ConstructedAbilityService.Generate(owner, seed, inspiration, basis, resources);
+        if (made.Parent.Change == "库存材料") derived = made;
+        await Game.NextFrame();
+    }
+    Check(derived != null && HasInventory(derived) && JToken.DeepEquals(JObject.FromObject(derived.Root), JObject.FromObject(basis.Root)) &&
+        JsonConvert.SerializeObject(basis) == original, "原术衍生保留原部位和原资料，添加普通材料声明及消耗步骤");
+    File.WriteAllText(Path.Combine(folder, "independent.json"), JsonConvert.SerializeObject(independent, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "basis.json"), JsonConvert.SerializeObject(basis, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "derived.json"), JsonConvert.SerializeObject(derived, Formatting.Indented));
+    return new { passed = true, closed = "冻结材料输入、独立创作和原术衍生", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder, "attempts.json"), JsonConvert.SerializeObject(attempts, Formatting.Indented));
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

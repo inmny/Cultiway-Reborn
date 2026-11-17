@@ -57,6 +57,11 @@ internal sealed class ConstructedInventoryInputs : IDisposable
                 throw new ArgumentException("Inventory：物品形状不存在：" + input.Shape);
     }
 
+    /// <summary>当前可作为原材料的真实物件，创作采集与实际取用共用。</summary>
+    /// <param name="item">库存原物件。</param>
+    internal static bool IsMaterial(Entity item) => item.IsAvailable() && item.Tags.Has<TagIngredient>() && item.HasComponent<ItemShape>() &&
+        !item.HasComponent<SkillExecutionBodyLease>() && item.GetIncomingLinks<CraftOccupyingRelation>().Entities.Count == 0;
+
     /// <summary>同一套选择用于可用性和启动，重复材料声明不能复用同一件物品。</summary>
     /// <param name="owner">当前库存人物。</param><param name="requirements">已编译的实际要求。</param>
     /// <param name="selected">按名称分组的原物件。</param>
@@ -69,8 +74,8 @@ internal sealed class ConstructedInventoryInputs : IDisposable
         int left = requirements.Sum(requirement => requirement.Count);
         foreach (Entity item in owner.GetItems())
         {
-            if (!item.IsAvailable() || !item.Tags.Has<TagIngredient>() || !item.TryGetComponent(out ItemShape shape) ||
-                item.HasComponent<SkillExecutionBodyLease>() || item.GetIncomingLinks<CraftOccupyingRelation>().Entities.Count > 0) continue;
+            if (!IsMaterial(item)) continue;
+            ItemShape shape = item.GetComponent<ItemShape>();
             foreach (var requirement in requirements)
             {
                 var group = selected[requirement.Id];

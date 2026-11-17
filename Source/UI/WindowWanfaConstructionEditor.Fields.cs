@@ -43,6 +43,7 @@ public sealed partial class WindowWanfaConstructionEditor
         if (session.Draft.TargetRange.HasValue)
             Number("TargetRange", session.Draft.TargetRange.Value, value => session.Draft.TargetRange = value);
         Row("SelectionRange", T("SelectionRangeHint"));
+        InventoryRows();
         MagnitudeRows();
         if (parts.Count == 0)
         {

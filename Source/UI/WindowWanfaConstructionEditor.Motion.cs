@@ -84,6 +84,7 @@ public sealed partial class WindowWanfaConstructionEditor
         if (operation.Kind == ConstructionOperationKind.ChangeSpeed)
             Number("OperationSpeed", operation.Speed, value => operation.Speed = value);
         if (operation.Kind == ConstructionOperationKind.Deform) DeformationParameters(node, operation);
+        if (operation.Kind == ConstructionOperationKind.ConsumeInventory) InventoryUseParameters(operation);
         if (operation.Kind == ConstructionOperationKind.Flow) FlowParameters(operation.Flow);
         if (operation.Kind == ConstructionOperationKind.Ray) RayParameters(operation.Ray);
         if (operation.Kind == ConstructionOperationKind.Propagate)
@@ -137,11 +138,12 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <param name="node">实际资源部位。</param>
     /// <param name="kind">新增的过程。</param>
     /// <param name="lifetime">整次存在上限。</param>
-    private static ConstructionOperation NewProcessOperation(ConstructionNode node, ConstructionOperationKind kind, float lifetime)
+    private ConstructionOperation NewProcessOperation(ConstructionNode node, ConstructionOperationKind kind, float lifetime)
     {
         return new ConstructionOperation
         {
             Kind = kind,
+            InventoryUse = kind == ConstructionOperationKind.ConsumeInventory ? new ConstructionInventoryUse { Input = session.Draft.Inventory?.FirstOrDefault()?.Id } : null,
             Deformation = kind == ConstructionOperationKind.Deform ? new ConstructionDeformation() : null,
             Ray = kind == ConstructionOperationKind.Ray ? new ConstructionRay() : null,
             Residue = kind == ConstructionOperationKind.Leave ? new ConstructionResidue() : null,
