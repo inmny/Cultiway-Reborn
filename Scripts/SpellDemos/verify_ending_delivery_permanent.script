@@ -1,0 +1,51 @@
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "expected.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check((int)expected["process"] != process, "永久结果及独立余量来自另一进程");
+var changes = new List<WorldMaterialChange>(); var world = new List<ConstructedWorldContact>();
+void Material(WorldMaterialChange fact) => changes.Add(fact);
+void WorldHit(ConstructedWorldContact fact) => world.Add(fact);
+WorldMaterialService.Changed += Material; ConstructedAbilityService.WorldContactConfirmed += WorldHit;
+JArray Records() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "ending-cold"))["sections"]["world_materials"]["data"]["Records"];
+try
+{
+    World.world.save_manager.loadWorld(Path.Combine(folder, "save")); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    var source = World.world.units.get((long)expected["sourceId"]); var owner = source.GetExtend();
+    foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+    var tiles = (JArray)expected["tiles"]; var before = (JArray)expected["records"]; var after = Records();
+    Check(tiles.All(tile => World.world.GetTileSimple((int)tile["X"], (int)tile["Y"]).main_type.id == (string)tile["main"]),
+        "真正冷启动恢复原版永久抬地及水地块");
+    Check(after.Count == before.Count && before.All(old => after.Any(row => (long)row["Id"] == (long)old["Id"] &&
+        (long)row["Provider"] == (long)old["Provider"] && (long)row["Identity"] == (long)old["Identity"] &&
+        JToken.DeepEquals(row["Material"], old["Material"]) && JToken.DeepEquals(row["Funding"], old["Funding"]))),
+        "独立余量的姿态、水格、动量、身份、来源及未耗支付原样恢复");
+    Check(world.Count == 0 && changes.All(fact => fact.Kind != "leave" && fact.Kind != "credit"), "冷启动没有重做原版操作、转交或入账");
+    double initialResource = before.Sum(row => (double)row["Material"]["Resource"]);
+    var recall = new AbilityDefinition { Id = "test.ending-cold.recall", Name = "余量收回", Resource = "none", Cost = 0, Cooldown = .1f,
+        Lifetime = 2.5f, TargetRange = 100, Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, FaceTarget = false },
+        Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+        Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Self, DamageScale = 0 },
+        Root = new ConstructionNode { Id = "selector", Form = "water_flow", Matter = "water", Volume = 0, Scale = 12,
+            ContactRole = ConstructionContactRole.Decoration, Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Recover,
+                At = .1f, Seconds = 2, Recovery = new ConstructionRecovery { WorldMaterials = true, Efficiency = 1 } } } } };
+    Ready(source); Place(source, 60); owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .3f;
+    await Fire(recall, source, source, aim: new Vector3(64.5f, 74.5f, 0), aggro: false); owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.6f); after = Records();
+    double granted = changes.Where(fact => fact.Kind == "credit").Sum(fact => fact.Granted);
+    var selected = after.Where(row => (bool)row["Recovering"]).ToArray();
+    double maximum = selected.Sum(row => (double)row["InitialResource"] * (double)row["Efficiency"]);
+    Check(selected.Length > 0 && selected.All(row => (double)row["Progress"] > 0 && (double)row["Progress"] < 1) &&
+        granted > 0 && granted < maximum && Math.Abs(after.Sum(row => (double)row["Material"]["Resource"]) + granted - initialResource) < .001,
+        "实际选中部分进入共同回收，未选中余量保持，原支付份额守恒");
+    File.WriteAllText(Path.Combine(folder, "recovery-expected.json"), JsonConvert.SerializeObject(new
+        { process, sourceId = source.id, tiles, records = after, maximum, granted, remaining = maximum - granted, untouched = after.Where(row => !(bool)row["Recovering"]).ToArray() }, Formatting.Indented));
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "recovery-save"));
+    return new { passed = true, closed = "永久结果冷启动、余量恢复及中途回收入账保存", process };
+}
+finally
+{
+    WorldMaterialService.Changed -= Material; ConstructedAbilityService.WorldContactConfirmed -= WorldHit;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(new { world, changes }, Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}

@@ -1,0 +1,57 @@
+string stateFolder = Path.Combine(folder, "input-state"); int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+var access = ConstructionEditing.Access; var changes = new List<WorldMaterialChange>(); var world = new List<ConstructedWorldContact>();
+void Material(WorldMaterialChange fact) => changes.Add(fact);
+void WorldHit(ConstructedWorldContact fact) => world.Add(fact);
+WorldMaterialService.Changed += Material; ConstructedAbilityService.WorldContactConfirmed += WorldHit;
+try
+{
+    foreach (string family in new[] { "ending", "inventory", "material" })
+    {
+        string input = Path.Combine(stateFolder, "pending", family);
+        var expected = JObject.Parse(File.ReadAllText(Path.Combine(input, "completed-expected.json")));
+        Check((int)expected["process"] != process, "完成世界来自再次退出后的另一进程 " + family);
+        World.world.save_manager.loadWorld(Path.Combine(input, "completed-save")); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+        Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+        var source = World.world.units.get((long)expected["sourceId"]); var legacy = World.world.units.get((long)expected["legacyId"]);
+        foreach (Actor actor in new[] { source, legacy }) CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+        var owner = source.GetExtend(); var oldOwner = legacy.GetExtend(); var current = owner.GetComponent<ConstructedCreationState>(); var old = oldOwner.GetComponent<ConstructedCreationState>();
+        Check(!current.Pending && !old.Pending && JToken.DeepEquals(JObject.FromObject(access.Read(current.LastAbility)), JObject.FromObject(expected["learned"].ToObject<AbilityDefinition>())) &&
+            JToken.DeepEquals(JObject.FromObject(access.Read(old.LastAbility)), JObject.FromObject(expected["oldLearned"].ToObject<AbilityDefinition>())),
+            "真正再次重启保持完整成品及完成状态 " + family);
+        await Advance(.3f);
+        Check(access.List(owner).Count == (int)expected["known"] && access.List(oldOwner).Count == (int)expected["oldKnown"],
+            "完成世界没有重复授予且原术关系保持 " + family);
+    }
+    string recoveryFolder = Path.Combine(stateFolder, "permanent", "permanent");
+    var recovery = JObject.Parse(File.ReadAllText(Path.Combine(recoveryFolder, "recovery-expected.json")));
+    Check((int)recovery["process"] != process, "中途回收来自真正退出前的另一进程");
+    changes.Clear(); world.Clear();
+    World.world.save_manager.loadWorld(Path.Combine(recoveryFolder, "recovery-save")); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    JArray Records() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "ending-cold-resume"))["sections"]["world_materials"]["data"]["Records"];
+    var before = (JArray)recovery["records"]; var after = Records();
+    Check(after.Count == before.Count && before.All(old => after.Any(row => (long)row["Id"] == (long)old["Id"] &&
+        JToken.DeepEquals(row["Material"], old["Material"]) && JToken.DeepEquals(row["Credits"], old["Credits"]) &&
+        JToken.DeepEquals(row["Progress"], old["Progress"]))), "再次重启保留余量、回收进度及已确认入账");
+    Check(changes.All(fact => fact.Kind != "leave" && fact.Kind != "credit") && world.Count == 0,
+        "加载不重发已确认入账或已交出原版结果");
+    var recoverySource = World.world.units.get((long)recovery["sourceId"]); CombatStatusEffects.ApplyStatus(recoverySource, hold, 10000, recoverySource);
+    await Advance(2.2f);
+    double granted = changes.Where(fact => fact.Kind == "credit").Sum(fact => fact.Granted);
+    var remaining = Records(); var untouched = (JArray)recovery["untouched"];
+    Check(granted > 0 && Math.Abs(granted - (double)recovery["remaining"]) < .001 && remaining.Count == untouched.Count &&
+        untouched.All(old => remaining.Any(row => (long)row["Id"] == (long)old["Id"] &&
+            JToken.DeepEquals(row["Material"], old["Material"]))),
+        "只完成尚未确认的份额，回收材料退出，未选中余量保持", new { granted, expected = (double)recovery["remaining"] });
+    Check(((JArray)recovery["tiles"]).All(tile => World.world.GetTileSimple((int)tile["X"], (int)tile["Y"]).main_type.id == (string)tile["main"]),
+        "回收只取剩余生成材料，原版永久地块继续存在");
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "recovery-completed-save"));
+    return new { passed = true, closed = "完成世界再次冷启动去重与剩余回收入账", process };
+}
+finally
+{
+    WorldMaterialService.Changed -= Material; ConstructedAbilityService.WorldContactConfirmed -= WorldHit;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(new { world, changes }, Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}

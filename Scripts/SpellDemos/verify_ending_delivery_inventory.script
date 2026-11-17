@@ -1,0 +1,34 @@
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "expected.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check((int)expected["process"] != process, "部分消耗的原库存来自另一进程");
+try
+{
+    World.world.save_manager.loadWorld(Path.Combine(folder, "save")); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    var source = World.world.units.get((long)expected["sourceId"]); var owner = source.GetExtend();
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    Entity Loaded(string id) => owner.GetItems().Single(item => Stable(item) == id);
+    var wood = Loaded((string)expected["woodId"]); var bone = Loaded((string)expected["boneId"]); var busy = Loaded((string)expected["busyId"]);
+    Check(owner.GetItems().Count() == 3 && wood.IsAvailable() && bone.IsAvailable() && busy.Tags.Has<TagOccupied>() &&
+        JToken.DeepEquals(JObject.Parse(Original(wood).ToString()), expected["beforeWood"]) && JToken.DeepEquals(JObject.Parse(Original(bone).ToString()), expected["beforeBone"]) &&
+        owner.GetItems().All(item => Stable(item) != (string)expected["usedId"]),
+        "冷启动恢复物件身份、来源、品阶、归属及原有占用，已用材料退出且短时借用归还");
+    var definition = expected["definition"].ToObject<AbilityDefinition>(); var plain = expected["plain"].ToObject<AbilityDefinition>();
+    Check(JToken.DeepEquals(JObject.FromObject(ConstructionEditing.Access.Read(definition.Id)), JObject.FromObject(definition)) &&
+        ConstructionEditing.Access.Read(plain.Id).Inventory == null, "新旧构造及材料消耗、完成引用原样恢复");
+    string[] known = owner.GetComponent<ConstructedKnowledge>().Ids.ToArray(); owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(6.2f);
+    Check(owner.GetItems().Count() == 3 && wood.IsAvailable() && bone.IsAvailable() &&
+        owner.GetItems().All(item => Stable(item) != (string)expected["usedId"]) &&
+        !((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Any(),
+        "跨进程不重放旧施放或延迟消耗，原库存余额保持");
+    foreach (string id in known) ConstructedAbilityService.Learn(owner, id);
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+    File.WriteAllText(Path.Combine(folder, "objects.json"), WorldObjects().ToString(Formatting.Indented));
+    return new { passed = true, closed = "部分消耗库存的真正冷启动及占用归还", process };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

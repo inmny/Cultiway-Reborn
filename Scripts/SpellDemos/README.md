@@ -1748,3 +1748,13 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 `runtime`和`save`可用`--creation <已通过creation目录>`复用原输入。前者验证真实支付、原版地形、材料与支付守恒、余量留置、失败及恢复后再次使用。`legacy`使用真实规则26等待样例核对原完整结果与费用。`save`正式保存和读取新旧请求，各授予一次，新成品实际使用并保存完成世界，同时恢复原术与新成品的已学关系。
 
 结果位于`CULTIWAY_DEV_OUTPUT/material-creation/<分段>`。五段分别首次通过，索引为`/home/inmny/.local/state/cultiway-dev/evidence/material-creation/delivery.json`。C2关闭，真正冷启动和集中双端连续影片继续C3。
+
+### 5.11 C3a　结束去向的集中冷启动
+
+通过develop执行`python3 Scripts/SpellDemos/verify_ending_delivery.py --section pending`，依次读取A、B2、C2已有正式等待世界，核对不同进程、完整结果和原费用、各授予一次及完成世界。`--family ending|inventory|material`只补指定一组，已通过组保留原依据。`--evidence <已有证据根目录>`可更换正式输入位置。
+
+`--section inventory`读取B1真实部分消耗世界，恢复原物件身份、来源、品阶及库存归属，保留原炼制占用并归还短时借用，旧施放和延迟消耗不重放。`--section permanent`读取C1真实永久地块及长期材料，按实际形状选择余量，保存选中部分的回收进度、已确认入账及未选中余量。
+
+正常退出后再次启动，执行`--section completed --state <上次ending-cold输出或合并归档>`。入口拒绝同一进程依据，核对三个完成世界各成品及原术关系、重复授予去重，再读取中途回收世界，检查原进度和已确认入账，仅继续剩余份额，保留未选中材料和原版永久地块。
+
+分段输出在`CULTIWAY_DEV_OUTPUT/ending-cold/<分段>/<组>`。分次通过时将同名通过组复制到一个归档根目录，再作为`--state`传入，原运行和失败记录继续保留。坐标与浮点资料按保存时的实际类型或相同JSON形式比较。最终连续双端录像继续C3b。

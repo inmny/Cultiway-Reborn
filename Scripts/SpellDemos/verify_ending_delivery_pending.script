@@ -1,0 +1,41 @@
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "expected.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check((int)expected["process"] != process, "实际世界来自正常退出后的另一进程");
+var access = ConstructionEditing.Access;
+try
+{
+    World.world.save_manager.loadWorld(Path.Combine(folder, "save")); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    var source = World.world.units.get((long)expected["sourceId"]); var legacy = World.world.units.get((long)expected["legacyId"]);
+    foreach (var actor in new[] { source, legacy }) CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+    var owner = source.GetExtend(); var oldOwner = legacy.GetExtend();
+    var predicted = expected["predicted"].ToObject<AbilityDefinition>(); var oldPredicted = expected["expectedOld"].ToObject<AbilityDefinition>();
+    var state = owner.GetComponent<ConstructedCreationState>(); var oldState = oldOwner.GetComponent<ConstructedCreationState>();
+    AbilityDefinition Result(ActorExtend actor, ConstructedCreationState pending) => pending.Pending
+        ? ConstructedAbilityService.Generate(actor, pending.Seed, pending.Inspiration, pending.Source, pending.Resources)
+        : access.Read(pending.LastAbility);
+    Check(JToken.DeepEquals(Canon(Result(owner, state)), Canon(predicted)) &&
+        JToken.DeepEquals(Canon(Result(oldOwner, oldState)), Canon(oldPredicted)),
+        "真正新进程保留新旧完整冻结结果及原费用，加载期间已完成同样核对");
+    if (state.Pending)
+        Check(JToken.DeepEquals(JObject.FromObject(state.Resources), JObject.FromObject(expected["pending"]["Resources"].ToObject<SynthesisResources>())), "尚在等待的新请求保留全部冻结输入");
+    await Advance(.2f);
+    state = owner.GetComponent<ConstructedCreationState>(); oldState = oldOwner.GetComponent<ConstructedCreationState>();
+    var learned = access.Read(state.LastAbility); var oldLearned = access.Read(oldState.LastAbility);
+    Check(!state.Pending && !oldState.Pending && state.LastFailure == null && oldState.LastFailure == null &&
+        JToken.DeepEquals(Canon(learned), Canon(predicted)) && JToken.DeepEquals(Canon(oldLearned), Canon(oldPredicted)),
+        "冷启动后正常完成两份请求，完整资料及原费用保持");
+    await Advance(.2f);
+    Check(access.List(owner).Count == (int)expected["known"] + 1 && access.List(oldOwner).Count == (int)expected["oldKnown"] + 1,
+        "冷启动新旧请求各授予一次，原术关系保持");
+    var output = new { process, sourceId = source.id, legacyId = legacy.id, learned, oldLearned,
+        known = access.List(owner).Count, oldKnown = access.List(oldOwner).Count };
+    File.WriteAllText(Path.Combine(folder, "completed-expected.json"), JsonConvert.SerializeObject(output, Formatting.Indented));
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+    return new { passed = true, closed = "旧新请求跨进程完整恢复、一次授予及完成世界", process };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}
