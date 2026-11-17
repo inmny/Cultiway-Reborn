@@ -39,6 +39,10 @@ public sealed class SynthesisResources
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public readonly SynthesisInventoryMaterial[] InventoryMaterials;
 
+    /// <summary>受理时支持侵蚀的材料与物态，旧请求保持为空。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public readonly SynthesisErosionMaterial[] ErosionMaterials;
+
     /// <summary>只为当前输入建立的查找，不保存运行时对象。</summary>
     private readonly Dictionary<string, SynthesisForm> forms;
 
@@ -49,9 +53,11 @@ public sealed class SynthesisResources
     /// <param name="worldActions">受理时的世界操作编号和默认持续时间。</param>
     /// <param name="deformationForms">基础模型以外的实际可变模型。</param>
     /// <param name="inventoryMaterials">受理时真实可用的材料。</param>
+    /// <param name="erosionMaterials">受理时可接受侵蚀的材料目录。</param>
     [JsonConstructor]
     public SynthesisResources(SynthesisForm[] forms, AbilityDefinition[] bodies, string resource = "wakan",
-        SynthesisWorldAction[] worldActions = null, SynthesisForm[] deformationForms = null, SynthesisInventoryMaterial[] inventoryMaterials = null)
+        SynthesisWorldAction[] worldActions = null, SynthesisForm[] deformationForms = null, SynthesisInventoryMaterial[] inventoryMaterials = null,
+        SynthesisErosionMaterial[] erosionMaterials = null)
     {
         if (forms == null || forms.Length > 16 || forms.Any(form => form == null) ||
             forms.Select(form => form.Id).Distinct(StringComparer.Ordinal).Count() != forms.Length ||
@@ -72,6 +78,10 @@ public sealed class SynthesisResources
             inventoryMaterials.Select(material => material.Shape).Distinct(StringComparer.Ordinal).Count() != inventoryMaterials.Length))
             throw new ArgumentException("创作库存材料缺失、重复或超过预算");
         InventoryMaterials = inventoryMaterials;
+        if (erosionMaterials != null && (erosionMaterials.Length > 128 || erosionMaterials.Any(material => material == null) ||
+            erosionMaterials.Select(material => (material.Matter, material.State)).Distinct().Count() != erosionMaterials.Length))
+            throw new ArgumentException("创作侵蚀材料缺失、重复或超过预算");
+        ErosionMaterials = erosionMaterials;
         DeformationForms = deformationForms;
         Forms = forms;
         Bodies = bodies;
@@ -88,7 +98,8 @@ public sealed class SynthesisResources
     internal SynthesisResources Copy() => new(Forms.Select(CopyForm).ToArray(), Bodies.Select(ConstructionEditing.Copy).ToArray(), Resource,
         WorldActions?.Select(action => new SynthesisWorldAction(action.Id, action.DefaultDuration)).ToArray(),
         DeformationForms?.Select(CopyForm).ToArray(),
-        InventoryMaterials?.Select(material => new SynthesisInventoryMaterial(material.Shape, material.Count)).ToArray());
+        InventoryMaterials?.Select(material => new SynthesisInventoryMaterial(material.Shape, material.Count)).ToArray(),
+        ErosionMaterials?.Select(material => new SynthesisErosionMaterial(material.Matter, material.State)).ToArray());
 
     /// <summary>两类模型输入共用逐数组复制，避免请求之间共享可编辑控制名称。</summary>
     /// <param name="form">已检查的冻结资料。</param>

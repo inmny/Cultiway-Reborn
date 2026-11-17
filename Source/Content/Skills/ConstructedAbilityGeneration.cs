@@ -64,6 +64,8 @@ public sealed partial class ConstructedAbilityService
                 throw new ArgumentException("新创法请求缺少受理时的逐段成形动作输入", nameof(resources));
             if (inspiration.Rules >= 26 && resources.InventoryMaterials == null)
                 throw new ArgumentException("新创法请求缺少受理时的实际库存材料输入", nameof(resources));
+            if (inspiration.Rules >= 28 && resources.ErosionMaterials == null)
+                throw new ArgumentException("新创法请求缺少受理时的侵蚀材料输入", nameof(resources));
             if (inspiration.Rules >= 24 && (resources.DeformationForms == null || resources.Forms.Any(form => form.Controls == null)))
                 throw new ArgumentException("新创法请求缺少受理时的结构与真实控制输入", nameof(resources));
         }
@@ -86,6 +88,7 @@ public sealed partial class ConstructedAbilityService
         if (inspiration.Rules >= 25) result = GenerateRemainder(result, seed);
         if (inspiration.Rules >= 26) result = GenerateInventory(result, seed, resources);
         if (inspiration.Rules >= 27) result = GenerateMaterialTransfer(result, seed);
+        if (inspiration.Rules >= 28) result = GenerateErosionAndAging(result, seed, resources);
         return inspiration.Rules >= 3 ? ConstructionPricing.Price(result, contactRules: inspiration.Rules) : result;
     }
 

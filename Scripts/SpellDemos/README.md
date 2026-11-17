@@ -1836,3 +1836,12 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 `runtime`通过窗口成品的正常学习与支付入口观察原年龄、原装备耐久与原库存寿命，验证作用面外保持及结束再用。`ai`从未被接管的场景人物开始，观察当前目标是否有真实损耗用途、原混合用途、普通候选及实际游戏AI自主释放。停止接续后确认每个实际施放均已结束。原版解除接管会添加眩晕和困惑，自主验证不引入这一额外场景。
 
 后段可用`--ui`指定已通过窗口目录，输出在`CULTIWAY_DEV_OUTPUT/aging-editor/<分段>`。`ui-save`是首次窗口已覆盖后的准确比对与再开续验，允许从该次未通过的尾段输出继续；`ui-world`补世界筛选的正式保存再开，需要已通过窗口输出。两者不加入正常all。原all、命名测试输入和接管准备失败分别保留，实际按分段交付。证据索引为`/home/inmny/.local/state/cultiway-dev/evidence/aging-editor/delivery.json`。C1关闭，新旧等待创作及正式存读继续C2，集中冷启动和原版及Worldfall连续画面继续C3。
+
+
+### 5.13 C2　侵蚀老化创作及新旧正式请求
+
+通过develop执行`python3 Scripts/SpellDemos/verify_erosion_creation.py --section creation|independent|runtime|save|all`。`creation`需要`--basis`指向C1已通过窗口的`saved-definition.json`，有限种子覆盖原主体、世界范围及留置独立侵蚀、人物老化、装备腐蚀和库存寿命的独立生成及原术衍生，核对冻结输入、原术和实际引用。`independent`使用无已学原术人物的正常队列，确认完整成品和一次授予。`runtime`使用实际衍生成品，观察原报价支付、真实年龄及结束恢复。
+
+`save`恢复真实规则27旧请求，人物区段28原样升级29，旧作者、名称、完整结果及费用保持，与新规则28请求一起正式保存和读取，各授予一次。新成品实际使用，完成世界再次读取保持原年龄和完整新旧结果。旧样例`fixtures/erosion-creation-rule27.json`来自5.11 C2真实等待世界及当时完整预期。保存前沿用现成入口等待三帧，使新人物进入原版保存枚举。
+
+后段通过`--creation`复用已通过的生成目录，输出在`CULTIWAY_DEV_OUTPUT/erosion-creation/<分段>`。首轮前三段通过，首轮存读因场景人物尚未进入保存列表失败，修正准备后仅补存读段，按分段验收。索引为`/home/inmny/.local/state/cultiway-dev/evidence/erosion-creation/delivery.json`。C2关闭，真正冷启动及原版、Worldfall连续影片继续C3。

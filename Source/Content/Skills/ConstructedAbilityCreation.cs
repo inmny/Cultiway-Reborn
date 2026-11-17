@@ -84,7 +84,7 @@ public sealed partial class ConstructedAbilityService
     {
         ProgressionLifecycle.RegisterCommitted(OnCreationProgression);
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, CreationSave>("ability_creation", "创法机会与请求",
-            28,
+            29,
             actor => actor.E.TryGetComponent(out ConstructedCreationState state)
                 ? new CreationSave
                 {
@@ -136,13 +136,15 @@ public sealed partial class ConstructedAbilityService
                         throw new InvalidDataException("新创法请求缺少受理时的逐段成形动作输入");
                     if (data.Inspiration.Rules >= 26 && data.Resources.InventoryMaterials == null)
                         throw new InvalidDataException("新创法请求缺少受理时的实际库存材料输入");
+                    if (data.Inspiration.Rules >= 28 && data.Resources.ErosionMaterials == null)
+                        throw new InvalidDataException("新创法请求缺少受理时的侵蚀材料输入");
                     if (data.Inspiration.Rules >= 24 && (data.Resources.DeformationForms == null || data.Resources.Forms.Any(form => form.Controls == null)))
                         throw new InvalidDataException("新创法请求缺少受理时的结构与真实控制输入");
                     if (data.Inspiration.Rules <= 6 && data.Resources.Bodies.Length != 2)
                         throw new InvalidDataException("旧创法请求需要原有两份身体动作快照");
                     foreach (AbilityDefinition body in data.Resources.Bodies) ValidateDefinition(body, cache: false);
                 }
-            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3(), new CreationV3ToV4(), new CreationV4ToV5(), new CreationV5ToV6(), new CreationV6ToV7(), new CreationV7ToV8(), new CreationV8ToV9(), new CreationV9ToV10(), new CreationV10ToV11(), new CreationV11ToV12(), new CreationV12ToV13(), new CreationV13ToV14(), new CreationV14ToV15(), new CreationV15ToV16(), new CreationV16ToV17(), new CreationV17ToV18(), new CreationV18ToV19(), new CreationV19ToV20(), new CreationV20ToV21(), new CreationV21ToV22(), new CreationV22ToV23(), new CreationV23ToV24(), new CreationV24ToV25(), new CreationV25ToV26(), new CreationV26ToV27(), new CreationV27ToV28() }));
+            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3(), new CreationV3ToV4(), new CreationV4ToV5(), new CreationV5ToV6(), new CreationV6ToV7(), new CreationV7ToV8(), new CreationV8ToV9(), new CreationV9ToV10(), new CreationV10ToV11(), new CreationV11ToV12(), new CreationV12ToV13(), new CreationV13ToV14(), new CreationV14ToV15(), new CreationV15ToV16(), new CreationV16ToV17(), new CreationV17ToV18(), new CreationV18ToV19(), new CreationV19ToV20(), new CreationV20ToV21(), new CreationV21ToV22(), new CreationV22ToV23(), new CreationV23ToV24(), new CreationV24ToV25(), new CreationV25ToV26(), new CreationV26ToV27(), new CreationV27ToV28(), new CreationV28ToV29() }));
         InitializeInspiration();
     }
 

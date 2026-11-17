@@ -27,6 +27,9 @@ public sealed partial class ConstructedAbilityService
                 .Select(action => new SynthesisWorldAction(action.Id, action.DefaultDuration)).ToArray()
             : null;
         var materials = inspiration.Rules >= 26 ? CaptureInventoryMaterials(actor) : null;
+        var erosion = inspiration.Rules >= 28 ? AbilityMatters.All.Where(matter => matter.ErosionFactor > 0)
+            .OrderBy(matter => matter.Id, StringComparer.Ordinal).ThenBy(matter => matter.State, StringComparer.Ordinal)
+            .Select(matter => new SynthesisErosionMaterial(matter.Id, matter.State)).ToArray() : null;
         var choices = BodyPartChoices(actor);
         int palms = inspiration.CanProject ? common.Bodies.Length : 0;
         var random = new Random(unchecked(seed ^ 0x431f29b));
@@ -36,7 +39,7 @@ public sealed partial class ConstructedAbilityService
             // 从实际能接管的腿链生成触地动作；接管失败继续使用已有真实部位选择。
             AbilityDefinition foot = CaptureGroundBody(actor, random);
             if (foot != null) return new SynthesisResources(common.Forms, new[] { foot }, resource, worldActions,
-                inspiration.Rules >= 24 ? common.DeformationForms : null, materials);
+                inspiration.Rules >= 24 ? common.DeformationForms : null, materials, erosion);
         }
         AbilityDefinition[] bodies = Array.Empty<AbilityDefinition>();
         if (palms + choices.Effectors.Length > 0)
@@ -60,7 +63,7 @@ public sealed partial class ConstructedAbilityService
             bodies = new[] { body };
         }
         return new SynthesisResources(common.Forms, bodies, resource, worldActions,
-            inspiration.Rules >= 24 ? common.DeformationForms : null, materials);
+            inspiration.Rules >= 24 ? common.DeformationForms : null, materials, erosion);
     }
 }
 

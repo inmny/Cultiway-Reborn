@@ -108,5 +108,11 @@
   "Cultiway.ConstructionText.OwnWorldMaterials": "restricted to material originally paid by the current controller",
   "Cultiway.ConstructionText.AnyWorldMaterials": "including material paid by others",
   "Cultiway.ConstructionText.NamedProcess": "Named step “{0}” executes {1}.",
-  "Cultiway.ConstructionText.Operation.Erode": "erodes material"
+  "Cultiway.ConstructionText.Operation.Erode": "erodes material",
+  "Cultiway.ConstructionText.Change.SelfErosion": "self erosion",
+  "Cultiway.ConstructionText.Change.WorldErosion": "world erosion",
+  "Cultiway.ConstructionText.Change.ResidueErosion": "independent residue erosion",
+  "Cultiway.ConstructionText.Change.AgingActors": "actor aging",
+  "Cultiway.ConstructionText.Change.AgingEquipment": "equipment corrosion",
+  "Cultiway.ConstructionText.Change.AgingInventory": "inventory aging"
 }

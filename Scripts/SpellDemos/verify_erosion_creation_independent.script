@@ -1,0 +1,30 @@
+Actor source = Make(64); Cultivate(source); var owner = source.GetExtend();
+try
+{
+    var inspiration = ConstructedAbilityService.ReadInspiration(owner); int selected = -1;
+    for (int seed = 0; seed < 128 && selected < 0; seed++)
+    {
+        var resources = Capture(owner, seed, inspiration);
+        try
+        {
+            var made = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: resources);
+            if (HasLoss(made, "生灵老化")) selected = seed;
+        }
+        catch (InvalidDataException) { }
+        if (seed % 4 == 0) await Game.NextFrame();
+    }
+    Check(selected >= 0 && ConstructionEditing.Access.List(owner).Count == 0 && ConstructedAbilityService.TryQueueCreation(owner, selected), "无已学原术人物从正常队列受理独立老化创作");
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    var predicted = ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources);
+    File.WriteAllText(Path.Combine(folder, "pending.json"), JsonConvert.SerializeObject(pending, Formatting.Indented));
+    await Advance(.2f); var completed = owner.GetComponent<ConstructedCreationState>();
+    Check(!completed.Pending && completed.LastFailure == null && HasLoss(ConstructionEditing.Access.Read(completed.LastAbility), "生灵老化") &&
+        JToken.DeepEquals(Complete(predicted), Complete(ConstructionEditing.Access.Read(completed.LastAbility))), "正式独立队列按冻结输入授予完整老化成品");
+    await Advance(.2f); Check(ConstructionEditing.Access.List(owner).Count == 1, "独立请求只授予一次");
+    File.WriteAllText(Path.Combine(folder, "created-definition.json"), JsonConvert.SerializeObject(ConstructionEditing.Access.Read(completed.LastAbility), Formatting.Indented));
+    return new { passed = true, closed = "正常独立请求完成完整老化成品且一次授予", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+}

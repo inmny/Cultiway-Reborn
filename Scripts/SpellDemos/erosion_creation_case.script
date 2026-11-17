@@ -1,0 +1,24 @@
+// 原完整资料仅排除本次正式登记产生的新编号，真实作者保持比较。
+JObject Complete(AbilityDefinition definition) { var value = JObject.Parse(JsonConvert.SerializeObject(definition)); value.Remove("Id"); return value; }
+string[] LossKinds = { "主体侵蚀", "世界侵蚀", "留置侵蚀", "生灵老化", "装备腐蚀", "库存催朽" };
+IEnumerable<ConstructionOperation> Operations(AbilityDefinition definition) => Nodes(definition.Root).SelectMany(node => node.Operations).Concat(definition.Steps.Select(step => step.Operation));
+bool HasLoss(AbilityDefinition definition, string kind)
+{
+    var plan = AbilityCompiler.Compile(definition, false);
+    return kind switch
+    {
+        "主体侵蚀" => Operations(definition).Any(operation => operation.Kind == ConstructionOperationKind.Erode && operation.WorldMatter == null),
+        "世界侵蚀" => Operations(definition).Any(operation => operation.Kind == ConstructionOperationKind.Erode && operation.WorldMatter != null),
+        "留置侵蚀" => Operations(definition).Any(operation => operation.Residue?.Erosion != null),
+        "生灵老化" => plan.ActorImpacts.Any(impact => impact.AgeYears > 0),
+        "装备腐蚀" => plan.ActorImpacts.Any(impact => impact.EquipmentErosion != null),
+        _ => plan.ActorImpacts.Any(impact => impact.InventoryAging != null)
+    };
+}
+void Cultivate(Actor actor)
+{
+    var owner = actor.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); actor.setStatsDirty(); actor.updateStats(); owner.GetCultisys<Xian>().wakan = actor.stats[BaseStatses.MaxWakan.id] * .9f;
+}
+SynthesisResources Capture(ActorExtend owner, int seed, ConstructionInspiration inspiration) =>
+    (SynthesisResources)service.GetMethod("CaptureCreationResources", F).Invoke(null, new object[] { owner, seed, inspiration });

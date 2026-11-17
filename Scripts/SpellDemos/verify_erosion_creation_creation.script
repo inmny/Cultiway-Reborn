@@ -1,0 +1,57 @@
+Actor source = Make(64); Cultivate(source); var owner = source.GetExtend();
+var independent = new Dictionary<string, AbilityDefinition>(); var derived = new Dictionary<string, AbilityDefinition>(); var attempts = new List<object>();
+try
+{
+    var inspiration = ConstructedAbilityService.ReadInspiration(owner); Check(inspiration.Rules == 28, "当前侵蚀老化创作使用规则28");
+    var resources = Capture(owner, 0, inspiration);
+    Check(resources.ErosionMaterials.Length > 0 && resources.ErosionMaterials.Any(material => material.Matter == "wood" && material.State == "solid"), "受理时冻结真实支持侵蚀的材料与物态");
+    var copied = JsonConvert.DeserializeObject<SynthesisResources>(JsonConvert.SerializeObject(resources));
+    Check(JToken.DeepEquals(JObject.FromObject(copied), JObject.FromObject(resources)), "冻结目录经正式类型序列化完整保持");
+    var missing = JObject.FromObject(resources); missing.Remove("ErosionMaterials"); bool rejected = false;
+    try { ConstructedAbilityService.Generate(owner, 0, inspiration, resources: missing.ToObject<SynthesisResources>()); }
+    catch (ArgumentException error) { rejected = error.Message.Contains("侵蚀材料"); }
+    Check(rejected, "新规则缺少受理目录时在创建边界拒绝");
+    var basis = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "input-definition.json")));
+    string original = JsonConvert.SerializeObject(basis);
+    for (int seed = 0; seed < 384 && (independent.Count < LossKinds.Length || derived.Count < LossKinds.Length); seed++)
+    {
+        if (independent.Count < LossKinds.Length)
+            try
+            {
+                var made = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: resources);
+                foreach (string kind in LossKinds.Where(kind => !independent.ContainsKey(kind) && HasLoss(made, kind)))
+                {
+                    independent.Add(kind, made);
+                    Check(JToken.DeepEquals(Complete(made), Complete(ConstructedAbilityService.Generate(owner, seed, inspiration, resources: copied))), "独立完整输入重现 " + kind);
+                }
+            }
+            catch (InvalidDataException error) { attempts.Add(new { seed, family = "independent", error = error.Message }); }
+        if (derived.Count < LossKinds.Length)
+        {
+            var made = ConstructedAbilityService.Generate(owner, seed, inspiration, basis, resources);
+            if (LossKinds.Contains(made.Parent.Change) && !derived.ContainsKey(made.Parent.Change))
+            {
+                derived.Add(made.Parent.Change, made);
+                Check(HasLoss(made, made.Parent.Change) && JsonConvert.SerializeObject(basis) == original &&
+                    JToken.DeepEquals(Complete(made), Complete(ConstructedAbilityService.Generate(owner, seed, inspiration, basis, copied))),
+                    "原术保持且完整输入可重现 " + made.Parent.Change);
+                Check(JToken.DeepEquals(JArray.FromObject(made.Steps.Select(step => step.Inputs)), JArray.FromObject(basis.Steps.Select(step => step.Inputs))) &&
+                    made.Root.Operations.Where(operation => operation.Kind != ConstructionOperationKind.Erode && operation.Kind != ConstructionOperationKind.Leave)
+                        .Select(JsonConvert.SerializeObject).SequenceEqual(basis.Root.Operations.Where(operation => operation.Kind != ConstructionOperationKind.Erode && operation.Kind != ConstructionOperationKind.Leave).Select(JsonConvert.SerializeObject)),
+                    "真实完成引用及非选中运动保持 " + made.Parent.Change);
+            }
+        }
+        if (seed % 4 == 0) await Game.NextFrame();
+    }
+    Check(independent.Count == LossKinds.Length && derived.Count == LossKinds.Length, "独立和衍生创作覆盖全部六种实际过程", new { independent = independent.Keys.ToArray(), derived = derived.Keys.ToArray() });
+    File.WriteAllText(Path.Combine(folder, "resources.json"), JsonConvert.SerializeObject(resources, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "basis.json"), JsonConvert.SerializeObject(basis, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "independent.json"), JsonConvert.SerializeObject(independent, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "derived.json"), JsonConvert.SerializeObject(derived, Formatting.Indented));
+    return new { passed = true, closed = "六类侵蚀老化独立创作、衍生、输入冻结和引用保持", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder, "attempts.json"), JsonConvert.SerializeObject(attempts, Formatting.Indented));
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+}

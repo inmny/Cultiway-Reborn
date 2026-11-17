@@ -1,0 +1,76 @@
+Actor legacy = Make(60), source = Make(64), target = Make(68); Cultivate(legacy); Cultivate(source);
+for (int frame = 0; frame < 3; frame++) await Game.NextFrame();
+var owner = source.GetExtend(); var saves = Cultiway.ModClass.I.WorldSaves; var access = ConstructionEditing.Access;
+var facts = new List<ConstructedAging>();
+void Aged(ConstructedAging fact) { if (fact.SourceId == source.id) facts.Add(fact); }
+ConstructedAbilityService.AgingConfirmed += Aged;
+bool law = WorldLawLibrary.world_law_old_age.isEnabled();
+try
+{
+    var basis = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "input-creation", "basis.json")));
+    var choices = JsonConvert.DeserializeObject<Dictionary<string, AbilityDefinition>>(File.ReadAllText(Path.Combine(folder, "input-creation", "derived.json")));
+    ConstructedAbilityService.Register(basis); ConstructedAbilityService.Learn(owner, basis.Id);
+    Check(ConstructedAbilityService.TryQueueCreation(owner, choices["生灵老化"].Seed, basis.Id), "正常已学原术受理新规则28的老化请求");
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    var predicted = ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources);
+    Check(pending.Inspiration.Rules == 28 && predicted.Parent.Change == "生灵老化" && pending.Resources.ErosionMaterials.Length > 0 &&
+        (int)JObject.Parse(saves.Actors.Capture(owner, "erosion-creation"))["sections"]["ability_creation"]["version"] == 29,
+        "新正式区段29保留完整原术和侵蚀目录，按规则28产生原费用");
+    var old = JObject.Parse(File.ReadAllText(Path.Combine(folder, "rule27.json")));
+    Check(legacy.id == (long)old["source"]["actorId"], "旧请求恢复到原正式人物身份");
+    var oldEnvelope = JObject.Parse(saves.Actors.Capture(legacy.GetExtend(), "erosion-old")); oldEnvelope["sections"]["ability_creation"] = old["section"].DeepClone();
+    string original = old.ToString(); var report = new SaveLoadReport();
+    saves.Actors.Restore(legacy.GetExtend(), oldEnvelope.ToString(), report, "erosion-old", section => section.Id == "ability_creation", false);
+    var oldPending = legacy.GetExtend().GetComponent<ConstructedCreationState>();
+    var expectedOld = old["expected"].ToObject<AbilityDefinition>();
+    Check(report.Upgraded == 1 && report.Skipped.Count == 0 && oldPending.Pending && oldPending.Inspiration.Rules == 27 && oldPending.Resources.ErosionMaterials == null &&
+        JToken.DeepEquals(Complete(ConstructedAbilityService.Generate(legacy.GetExtend(), oldPending.Seed, oldPending.Inspiration, oldPending.Source, oldPending.Resources)), Complete(expectedOld)) && old.ToString() == original,
+        "真实旧区段28原样升级，完整规则27结果、作者、名称和费用保持");
+    long sourceId = source.id, legacyId = legacy.id, targetId = target.id;
+    int known = access.List(owner).Count, oldKnown = access.List(legacy.GetExtend()).Count;
+    File.WriteAllText(Path.Combine(folder, "pending-expected.json"), JsonConvert.SerializeObject(new
+    { sourceId, legacyId, targetId, predicted, expectedOld, pending, oldPending, known, oldKnown, process = System.Diagnostics.Process.GetCurrentProcess().Id }, Formatting.Indented));
+    string save = Path.Combine(folder, "pending-save"); SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    source = World.world.units.get(sourceId); legacy = World.world.units.get(legacyId); target = World.world.units.get(targetId); owner = source.GetExtend();
+    var loaded = owner.GetComponent<ConstructedCreationState>();
+    Check(loaded.Pending
+        ? JToken.DeepEquals(JObject.Parse(JsonConvert.SerializeObject(loaded.Resources)), JObject.Parse(JsonConvert.SerializeObject(pending.Resources))) &&
+          JToken.DeepEquals(Complete(ConstructedAbilityService.Generate(owner, loaded.Seed, loaded.Inspiration, loaded.Source, loaded.Resources)), Complete(predicted))
+        : JToken.DeepEquals(Complete(access.Read(loaded.LastAbility)), Complete(predicted)), "正式等待世界恢复完整冻结输入或同一完整结果");
+    await Advance(.2f);
+    var completed = owner.GetComponent<ConstructedCreationState>(); var oldCompleted = legacy.GetExtend().GetComponent<ConstructedCreationState>();
+    var learned = access.Read(completed.LastAbility); var oldLearned = access.Read(oldCompleted.LastAbility);
+    Check(!completed.Pending && !oldCompleted.Pending && completed.LastFailure == null && oldCompleted.LastFailure == null &&
+        JToken.DeepEquals(Complete(learned), Complete(predicted)) && JToken.DeepEquals(Complete(oldLearned), Complete(expectedOld)),
+        "新旧正式请求授予完整结果，旧完整费用和作者保持");
+    await Advance(.2f);
+    Check(access.List(owner).Count == known + 1 && access.List(legacy.GetExtend()).Count == oldKnown + 1, "新旧正式请求各授予一次");
+    var learnedIds = owner.GetComponent<ConstructedKnowledge>().Ids.ToArray();
+    Ready(source); await Advance(.15f); Place(source, 64); Place(target, 68);
+    WorldLawLibrary.world_law_old_age.toggle(false); int age = target.getAge();
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f; float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(learned, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - learned.Cost) < .001f, "正式恢复的新成品逐次按原报价支付");
+    await Advance(learned.Lifetime + .2f);
+    Check(facts.Count == 1 && target.getAge() == age + AbilityCompiler.Compile(learned, false).ActorImpacts.Single().AgeYears &&
+        endings.Any(value => value.Fact.AbilityId == learned.Id) && !BodyControlState.IsBusy(source.id), "正式恢复成品真实推进原年龄并自然结束", facts);
+    foreach (string id in learnedIds) ConstructedAbilityService.Learn(owner, id);
+    int finalAge = target.getAge();
+    File.WriteAllText(Path.Combine(folder, "completed-expected.json"), JsonConvert.SerializeObject(new
+    { sourceId, legacyId, targetId, learned, oldLearned, age = finalAge, known = access.List(owner).Count, oldKnown = access.List(legacy.GetExtend()).Count }, Formatting.Indented));
+    string completedSave = Path.Combine(folder, "completed-save"); SaveManager.saveWorldToDirectory(completedSave);
+    World.world.save_manager.loadWorld(completedSave); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    source = World.world.units.get(sourceId); legacy = World.world.units.get(legacyId); target = World.world.units.get(targetId); owner = source.GetExtend();
+    Check(JToken.DeepEquals(Complete(access.Read(learned.Id)), Complete(learned)) && JToken.DeepEquals(Complete(access.Read(oldLearned.Id)), Complete(oldLearned)) &&
+        target.getAge() == finalAge && access.List(owner).Count == known + 1 && access.List(legacy.GetExtend()).Count == oldKnown + 1,
+        "完成世界再次读取保持新旧完整成品、原年龄及一次授予");
+    File.WriteAllText(Path.Combine(folder, "created-definition.json"), JsonConvert.SerializeObject(learned, Formatting.Indented));
+    return new { passed = true, closed = "规则28新旧正式请求、完整结果与费用保持、一次授予及真实使用", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    WorldLawLibrary.world_law_old_age.toggle(law); ConstructedAbilityService.AgingConfirmed -= Aged;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(facts, Formatting.Indented));
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+}

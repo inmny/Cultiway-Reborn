@@ -1,0 +1,24 @@
+Actor source = Make(64), target = Make(68); Cultivate(source); var owner = source.GetExtend();
+var input = JsonConvert.DeserializeObject<Dictionary<string, AbilityDefinition>>(File.ReadAllText(Path.Combine(folder, "input-creation", "derived.json")))["生灵老化"];
+var facts = new List<ConstructedAging>();
+void Aged(ConstructedAging fact) { if (fact.SourceId == source.id) facts.Add(fact); }
+ConstructedAbilityService.AgingConfirmed += Aged; bool law = WorldLawLibrary.world_law_old_age.isEnabled();
+try
+{
+    WorldLawLibrary.world_law_old_age.toggle(false);
+    Ready(source); await Advance(.15f); Place(source, 64); Place(target, 68);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f; float before = owner.GetCultisys<Xian>().wakan;
+    await Fire(input, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - input.Cost) < .001f, "衍生成品实际按规则28原报价支付");
+    await Advance(input.Lifetime + .2f);
+    Check(facts.Count == 1 && facts[0].After - facts[0].Before == AbilityCompiler.Compile(input, false).ActorImpacts.Single().AgeYears &&
+        endings.Any(value => value.Fact.AbilityId == input.Id) && !BodyControlState.IsBusy(source.id), "衍生成品真实接触按新年数推进原人物并自然结束", facts);
+    File.WriteAllText(Path.Combine(folder, "created-definition.json"), JsonConvert.SerializeObject(input, Formatting.Indented));
+    return new { passed = true, closed = "衍生成品按原报价支付、真实老化及结束恢复", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    WorldLawLibrary.world_law_old_age.toggle(law); ConstructedAbilityService.AgingConfirmed -= Aged;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(facts, Formatting.Indented));
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+}
