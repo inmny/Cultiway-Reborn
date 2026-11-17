@@ -160,6 +160,15 @@ public sealed partial class ConstructedAbilityService
         for (int i = 0; i < casts.Count; i++)
         {
             RunningCast running = casts[i];
+            // 地点输入保留原离地高度，随地表更新，避免随动主体仍连接旧地面。
+            if (running.Target == null && running.TargetId == 0)
+            {
+                Vector3 point = running.LastTargetFoot;
+                float difference = (current?.Sample(point.x, point.y) ?? 0f) -
+                                   (prior?.Sample(point.x, point.y) ?? 0f);
+                running.LastTargetFoot.z += difference;
+                running.LastTarget.z += difference;
+            }
             BodyConnection connection = running.Connection;
             if (connection != null &&
                 (Moved(running.Cast.BodyPose.Value.Foot) || Moved(connection.TargetFoot)))
