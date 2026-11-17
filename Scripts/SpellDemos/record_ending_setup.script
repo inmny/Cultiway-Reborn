@@ -1,0 +1,30 @@
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "input-definition.json")));
+definition.Id = "test.ending-film." + scenario; definition.Name = scenario == "solid" ? "实体交出与余量留置" : "水层交出与余量回收";
+definition.Lifetime = 3.2f; definition.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, FaceTarget = false };
+if (scenario == "solid")
+{
+    definition.Binding.Follow = true; definition.Binding.ContactAtDestination = true;
+    definition.Root.Operations = definition.Root.Operations.Where(operation => operation.Kind != ConstructionOperationKind.Fly).ToArray();
+}
+definition.Root.ActiveFrom = .6f; definition.Root.Scale = 1; definition.Root.Volume = 8;
+var worldEffect = definition.Root.Impact.WorldEffects.Single(); worldEffect.MaximumTiles = scenario == "solid" ? 1 : 2;
+worldEffect.MaterialVolume = scenario == "solid" ? 4f : .01f;
+definition.Root.Operations.Single(operation => operation.Kind == ConstructionOperationKind.Leave).At = 2.1f;
+if (scenario == "water")
+{
+    definition.Root.Form = "water_wave"; definition.Root.Matter = "water"; definition.Root.Rotation = new float[3];
+    definition.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow,
+        Flow = new ConstructionFlow { Cells = 16, Size = 4, Gravity = 0, Drag = 0, Evaporation = 0, OpenBoundary = false } },
+        new ConstructionOperation { Kind = ConstructionOperationKind.Leave, At = 2.1f, Residue = new ConstructionResidue() } };
+    worldEffect.Action = "water.fill";
+    for (int x = 62; x <= 69; x++) for (int y = 70; y <= 75; y++)
+        World.world.GetTileSimple(x, y).setTileTypes(TileLibrary.pit_shallow_waters, null);
+}
+definition = ConstructionPricing.Price(definition, contactRules: 27);
+var recall = new AbilityDefinition { Id = "test.ending-film.recall", Name = "余量收回", Resource = "none", Cost = 0, Cooldown = .1f,
+    Lifetime = 1.8f, TargetRange = 100, Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, FaceTarget = false },
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Self, DamageScale = 0 },
+    Root = new ConstructionNode { Id = "selector", Form = "water_flow", Matter = "water", Volume = 0, Scale = .35f, Tint = new[] { .15f, .35f, .55f },
+        ContactRole = ConstructionContactRole.Decoration, Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Recover,
+            At = .1f, Seconds = 1.3f, Recovery = new ConstructionRecovery { WorldMaterials = true, Efficiency = 1 } } } } };

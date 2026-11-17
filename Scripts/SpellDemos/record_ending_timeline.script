@@ -1,0 +1,11 @@
+else if (scenario == "water")
+{
+    await Advance(2.5f); recalling = true;
+    if (mod == null) Ready(source);
+    else { CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); }
+    Place(source, 64);
+    await Fire(recall, source, target, aim: new Vector3(64.5f, 72.5f, 0), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(1.9f);
+}
+else await Advance(definition.Lifetime + .35f);

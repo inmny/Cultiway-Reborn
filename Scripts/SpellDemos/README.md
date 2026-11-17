@@ -1760,3 +1760,13 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 分段输出在`CULTIWAY_DEV_OUTPUT/ending-cold/<分段>/<组>`。分次通过时将同名通过组复制到一个归档根目录，再作为`--state`传入，原运行和失败记录继续保留。坐标与浮点资料按保存时的实际类型或相同JSON形式比较。最终连续双端录像继续C3b。
 
 C3a已交付，证据索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-cold/delivery.json`。原失败、各次分段通过以及正常退出后封存的日志一并保留，原版与Worldfall连续画面继续C3b。
+
+### 5.11 C3b　材料交出与独立余量连续录像
+
+通过develop执行`python3 Scripts/SpellDemos/record_ending.py --state <C2已通过的creation目录>`，录制实体交出与余量留置、水层交出与余量回收。兼容环境加载Worldfall后加`--worldfall`，入口先核对实际加载模式。`--case solid|water`只补对应组，原运行及失败保留。
+
+录像读取真实衍生成品的副本，延长存在窗口以看清过程，实体组提高交出比例，使用目标随动和只在新位置接触来跟随地块更新。水层组改用已有浪体及有限流散，回收由现有真实选择入口执行。完整修改后定义和原输入一并保存，按实际参数重新报价及支付。各帧保留真实世界时刻、部位位置和阶段，事件保留实际地块改变、交出体积、支付份额、留置、回收与入账。
+
+每组沿共同相机和按世界时间编码入口产生连续原片。`--encode-only --output <已有ending-films/native或worldfall目录>`只编码已有原始帧，三维同时加`--worldfall`。不同运行的通过组可复制到同一个对应视角目录再统一编码，保留原运行索引。输出位于`CULTIWAY_DEV_OUTPUT/ending-films/<视角>`。软件渲染画面用于功能与对应显示观察，流派最终美术及性能继续对应工作包。
+
+C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-films/delivery.json`，对应视角的`all.mp4`为两组常速合集。地点连接高度修正后仅补受影响实体组，水层原通过段及所有失败记录继续保留。5.11关闭，最终流派美术和遮挡继续第9工作包。

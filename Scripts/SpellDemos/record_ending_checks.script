@@ -1,0 +1,18 @@
+var actual = worldFacts.Where(fact => fact.Result.Changed).ToArray();
+Check(paid && finished && !cancelled && actual.Length == (scenario == "solid" ? 1 : 2) && actual.All(fact => fact.MaterialVolume > 0) &&
+    materialFacts.Any(fact => fact.Kind == "leave" && fact.Volume > 0) && Live() == null && !BodyControlState.IsBusy(source.id),
+    "同次正式支付、真实地块材料交出、余量留置及原施放结束", new { paid, changes = actual.Length, transferred = actual.Sum(fact => fact.MaterialVolume) });
+if (scenario == "water")
+{
+    double granted = materialFacts.Where(fact => fact.Kind == "credit").Sum(fact => fact.Granted);
+    Check(granted > 0 && granted <= definition.Cost - actual.Sum(fact => fact.MaterialResource) + .001 &&
+        !((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Any(run => ((AbilityCast)Field(run, "Cast")).Plan.Id == recall.Id),
+        "独立余量实际回收，入账受未耗原支付限制且回收施放正常结束", new { granted });
+}
+
+if (scenario == "solid" && mod != null)
+{
+    var heights = JArray.FromObject(frames).Where(frame => frame["positions"].HasValues).Select(frame => (float)frame["positions"][0][2]).ToArray();
+    Check(heights.Length > 0 && heights.Max() - heights.First() > .01f,
+        "实际抬地后地点连接跟随新地面，余量位置与更新后的地形一致", new { from = heights.First(), highest = heights.Max() });
+}

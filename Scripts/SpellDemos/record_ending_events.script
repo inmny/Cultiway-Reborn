@@ -1,0 +1,12 @@
+var worldFacts = new List<ConstructedWorldContact>(); var materialFacts = new List<WorldMaterialChange>(); bool recalling = false;
+void WorldHit(ConstructedWorldContact fact)
+{
+    if (fact.AbilityId != definition.Id || fact.SourceId != source.id) return;
+    worldFacts.Add(fact); events.Add(new { kind = "world", fact.WorldTime, fact.X, fact.Y, fact.Action, changed = fact.Result.Changed, fact.MaterialVolume, fact.MaterialResource });
+}
+void Material(WorldMaterialChange fact)
+{
+    if (fact.Provider != source.id) return;
+    materialFacts.Add(fact); events.Add(new { kind = fact.Kind, time = World.world.getCurWorldTime(), fact.Id, fact.Volume, fact.Granted, fact.ConvertedVolume });
+}
+ConstructedAbilityService.WorldContactConfirmed += WorldHit; WorldMaterialService.Changed += Material;
