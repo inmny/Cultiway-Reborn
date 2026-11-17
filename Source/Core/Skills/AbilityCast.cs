@@ -417,11 +417,12 @@ public sealed partial class AbilityCast
         {
             float step = NextStepForTarget(until - Age, target);
             Age += step;
+            bool materialChanged = AdvanceErosion();
             Sample(step, target);
-            bool burned = AdvanceBurning(step);
-            if (burned) Sample(0, target);
+            materialChanged |= AdvanceBurning(step);
+            if (materialChanged) Sample(0, target);
             for (int node = 0; node < nodes.Length; node++)
-                nodes[node].ShrinkVelocity = burned && !nodes[node].Free && step >= .00001f
+                nodes[node].ShrinkVelocity = materialChanged && !nodes[node].Free && step >= .00001f
                     ? ((Vector3)nodes[node].Transform.GetColumn(3) -
                        (Vector3)nodes[node].PreviousTransform.GetColumn(3)) / step
                     : Vector3.zero;
@@ -583,6 +584,7 @@ public sealed partial class AbilityCast
             }
 
             IncludeNode(form.LeaveAt);
+            if (state.Erosion != null && state.ErosionProgress < 1) Include(state.ErosionAt + state.Erosion.Seconds);
             if (state.Recovering) Include(state.RecoveryAt + state.Recovery.Seconds);
             if (form.ShapeActiveFrom && state.Motion == null) IncludeShape(form.Active.x);
             else IncludeNode(form.Active.x);
@@ -1319,6 +1321,7 @@ public sealed partial class AbilityCast
     internal void EndNode(int node, bool interrupted = false)
     {
         if (!nodes[node].Exists) return;
+        InterruptErosion(node);
         if (nodes[node].Started)
             RecordActionStage(node,
                 interrupted ? AbilityActionEventKind.Interrupted : AbilityActionEventKind.Completed);
@@ -1513,6 +1516,15 @@ public sealed partial class AbilityCast
     /// <summary>一个独立形体的必要可变状态。</summary>
     private struct NodeState
     {
+        /// <summary>当前侵蚀操作的身份，替换不复用旧过程。</summary>
+        internal CompiledEventOperation ErosionOperation;
+        /// <summary>当前过程的固定历时与投入份额。</summary>
+        internal CompiledErosion Erosion;
+        /// <summary>本过程的开始年龄及已经实际扣除到的比例。</summary>
+        internal float ErosionAt, ErosionProgress;
+        /// <summary>累计实际侵蚀阶段、体积和已耗支付，预测随部位一起回退。</summary>
+        internal AbilityErosion Weathering;
+
         /// <summary>当前动作已经经过的阶段；随数值预测一起保存和恢复。</summary>
         internal byte ActionStages;
 

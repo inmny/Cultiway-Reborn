@@ -319,7 +319,10 @@ public enum ConstructionOperationKind
     Deform = 18,
 
     /// <summary>从本次借用的真实库存中消耗明确的材料。</summary>
-    ConsumeInventory = 19
+    ConsumeInventory = 19,
+
+    /// <summary>按当前材料耐受连续侵蚀真实生成实体。</summary>
+    Erode = 20
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
@@ -339,6 +342,10 @@ public sealed class ConstructionOperation
     /// <summary>本次真实库存消耗的输入与件数。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionInventoryUse InventoryUse;
+
+    /// <summary>实际侵蚀份额，未配置时使用普通份额。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionErosion Erosion;
 
     /// <summary>操作种类。</summary>
     public ConstructionOperationKind Kind;

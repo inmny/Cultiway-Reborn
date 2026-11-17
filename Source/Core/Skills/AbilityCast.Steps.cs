@@ -173,7 +173,7 @@ public sealed partial class AbilityCast
                 {
                     ConstructionOperationProgress progress = action.Implementation.Progress(this, action, plan.Native);
                     bool completed = step.WorldComplete || progress.Completed, interrupted = !node.Exists || progress.Interrupted;
-                    if (completed && (node.Exists || action.Fracture != null || action.Flow != null || step.WorldComplete))
+                    if (completed && (node.Exists || action.Fracture != null || action.Flow != null || action.Kind == ConstructionOperationKind.Erode || step.WorldComplete))
                     {
                         step.Completed = StepFact(plan.Node, step.Receipts); step.State = ConstructionStepState.Completed; changed = true;
                         if (action.Fracture != null)

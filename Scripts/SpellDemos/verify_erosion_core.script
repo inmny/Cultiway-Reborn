@@ -1,0 +1,81 @@
+AbilityCast Numeric(AbilityDefinition definition) => new AbilityCast(AbilityCompiler.Compile(definition, false), Matrix4x4.identity, force: 10, paidResource: 3);
+void Reject(AbilityDefinition definition, string name)
+{
+    string reason = null;
+    try { AbilityCompiler.Compile(definition, false); } catch (InvalidDataException error) { reason = error.Message; }
+    Check(reason != null, name, reason);
+}
+try
+{
+    var wood = Numeric(Definition()); var iron = Numeric(Definition("iron"));
+    wood.Advance(.5f, Vector3.zero); iron.Advance(.5f, Vector3.zero);
+    Check(Math.Abs(wood.RemainingVolume(0) - 5) < .0001 && Math.Abs(iron.RemainingVolume(0) - 7.25) < .0001 &&
+        wood.Erosion(0).Stage == MaterialErosionStage.Weathered && !wood.TryGetOperationOutput("root", "weather", "erosion", out _),
+        "同一份额按实际木铁耐受产生不同损耗，半程不提供完成输出");
+    var before = new { volume = wood.RemainingVolume(0), resource = wood.RemainingResource(0), force = wood.RemainingForce(0), erosion = wood.Erosion(0), transform = Views(wood).Single().Transform };
+    typeof(AbilityCast).GetMethod("SaveStep", F).Invoke(wood, null);
+    wood.Advance(.55f, Vector3.zero);
+    Check(wood.Erosion(0).Stage == MaterialErosionStage.Weakened && wood.TryGetOperationOutput("root", "weather", "erosion", out _), "真实完成产生阶段及完成输出");
+    typeof(AbilityCast).GetMethod("RestoreStep", F).Invoke(wood, null);
+    Check(Math.Abs(wood.RemainingVolume(0) - before.volume) < .000001 && Math.Abs(wood.RemainingResource(0) - before.resource) < .000001 &&
+        wood.RemainingForce(0) == before.force && JsonConvert.SerializeObject(wood.Erosion(0)) == JsonConvert.SerializeObject(before.erosion) &&
+        Views(wood).Single().Transform == before.transform && !wood.TryGetOperationOutput("root", "weather", "erosion", out _),
+        "预测回退恢复体积、支付、作用量、阶段、几何及等待状态");
+    // 在同一份额扣除入口模拟其他已确认损耗，剩余侵蚀不能恢复该份材料。
+    object[] use = { 0, 0, 1d, Vector3.zero, 0d };
+    typeof(AbilityCast).GetMethod("UseWorldMaterial", F).Invoke(wood, use);
+    wood.Advance(.55f, Vector3.zero); iron.Advance(.55f, Vector3.zero);
+    Check(Math.Abs(wood.RemainingVolume(0) - 1.6) < .0001 && Math.Abs(iron.RemainingVolume(0) - 6.5) < .0001 &&
+        Math.Abs(wood.RemainingResource(0) + wood.Erosion(0).SpentResource + (double)use[4] - 3) < .00001 &&
+        iron.Erosion(0).Stage == MaterialErosionStage.Weathered, "其他已扣损耗不会恢复，耐受差异同时影响实际阶段及份额");
+
+    var replacement = Definition(); replacement.Root.Operations = replacement.Root.Operations.Concat(new[]
+    { new ConstructionOperation { Id = "replacement", Kind = ConstructionOperationKind.Erode, At = .5f, Seconds = 1, Erosion = new ConstructionErosion { Fraction = .5f } } }).ToArray();
+    Input(replacement, "replacement"); var replaced = Numeric(replacement); replaced.Advance(1.6f, Vector3.zero);
+    Check(replaced.OperationStateOf("root", "weather") == ConstructionStepState.Interrupted &&
+        replaced.OperationStateOf("root", "replacement") == ConstructionStepState.Completed && Math.Abs(replaced.RemainingVolume(0) - 2.5) < .0001,
+        "到点替换先结算此前损耗，原过程明确中断，新过程从真实余量完成");
+
+    var conversion = Definition(); conversion.Root.Operations = conversion.Root.Operations.Concat(new[]
+    { new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = .3f, Matter = "water" },
+      new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = .4f, Matter = "wood" } }).ToArray();
+    Input(conversion, "conversion"); var changed = Numeric(conversion); changed.Advance(1.5f, Vector3.zero);
+    Check(changed.OperationStateOf("root", "weather") == ConstructionStepState.Interrupted && Math.Abs(changed.RemainingVolume(0) - 6.2) < .0001,
+        "不适用物态中断侵蚀，变回木料不会偷偷恢复过程");
+    var supported = Definition(); supported.Root.Operations = supported.Root.Operations.Concat(new[]
+    { new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = .5f, Matter = "iron" } }).ToArray();
+    var current = Numeric(supported); current.Advance(1.1f, Vector3.zero);
+    Check(Math.Abs(current.RemainingVolume(0) - 5d * .8125 / .90625) < .0001 && current.OperationStateOf("root", "weather") == ConstructionStepState.Completed,
+        "有效材料变化从当前余量按新耐受继续，不重建体积");
+
+    var recovery = Definition(); recovery.Root.Operations = recovery.Root.Operations.Concat(new[]
+    { new ConstructionOperation { Id = "recover", Kind = ConstructionOperationKind.Recover, At = .5f, Seconds = .5f } }).ToArray();
+    var recovered = Numeric(recovery); recovered.Advance(1.2f, Vector3.zero);
+    Check(recovered.Finished && recovered.OperationStateOf("root", "weather") == ConstructionStepState.Interrupted &&
+        Math.Abs(recovered.RecoveredVolume + recovered.Erosion(0).LostVolume - 8) < .00001 &&
+        recovered.RecoveredResource + recovered.Erosion(0).SpentResource <= 3.00001,
+        "收束中断侵蚀，只转换剩余本金，已蚀部分不记回能");
+    var full = Definition(); full.Root.Operations[0].Erosion.Fraction = 1;
+    var spent = Numeric(full); spent.Advance(1.1f, Vector3.zero);
+    Check(spent.Finished && spent.OperationStateOf("root", "weather") == ConstructionStepState.Completed && spent.Erosion(0).Stage == MaterialErosionStage.Spent &&
+        Math.Abs(spent.Erosion(0).LostVolume - 8) < .00001 && Math.Abs(spent.Erosion(0).SpentResource - 3) < .00001,
+        "实际耗尽的过程仍记录完成与耗蚀阶段，没有剩余本金");
+    var ended = Definition(); ended.Root.DisappearAt = .4f; var interrupted = Numeric(ended); interrupted.Advance(.8f, Vector3.zero);
+    Check(interrupted.Finished && interrupted.OperationStateOf("root", "weather") == ConstructionStepState.Interrupted, "主体提前结束不会伪造过程完成");
+
+    var unsupported = Numeric(Definition("water")); unsupported.Advance(.2f, Vector3.zero);
+    Check(unsupported.OperationStateOf("root", "weather") == ConstructionStepState.Interrupted && unsupported.RemainingVolume(0) == 8, "未登记材料拒绝执行且不扣份额");
+    var empty = Definition(); empty.Root.Volume = 0; var noMaterial = Numeric(empty); noMaterial.Advance(.2f, Vector3.zero);
+    Check(noMaterial.OperationStateOf("root", "weather") == ConstructionStepState.Interrupted && noMaterial.Erosion(0).Exposure == 0,
+        "零体积声明没有可侵蚀实体，明确拒绝且阶段保持有效");
+    var invalid = Definition(); invalid.Root.Operations[0].Erosion.Fraction = 1.1f; Reject(invalid, "超额侵蚀份额在入口拒绝");
+    invalid = Definition(); invalid.Root.Operations[0].Seconds = 0; Reject(invalid, "无效历时在入口拒绝");
+    invalid = Definition(); invalid.Root.Operations = invalid.Root.Operations.Concat(new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow, Flow = new ConstructionFlow() } }).ToArray();
+    Reject(invalid, "动态流散使用后批自己的侵蚀入口，不能误扣整体份额");
+    return new { passed = true, closed = "材料差异、共同份额、完成、中断及预测回退", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

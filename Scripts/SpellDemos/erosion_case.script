@@ -1,0 +1,18 @@
+// A1各段使用同一份实际输入，不增加身体、装备和世界样本。
+AbilityDefinition Definition(string matter = "wood") => new AbilityDefinition
+{
+    Id = "test.erosion." + matter, Name = "实体侵蚀", Power = 10, Cost = 3, Cooldown = .1f,
+    Lifetime = 3, TargetRange = 100,
+    Root = new ConstructionNode
+    {
+        Id = "material", Form = matter == "wood" ? "root_network" : "sword", Matter = matter, Volume = 8,
+        Operations = new[] { new ConstructionOperation
+        {
+            Id = "weather", Kind = ConstructionOperationKind.Erode, Seconds = 1,
+            Erosion = new ConstructionErosion { Fraction = .75f }
+        } }
+    }
+};
+List<FormVisualInstance> Views(AbilityCast cast) { var values = new List<FormVisualInstance>(); cast.AppendVisuals(values); return values; }
+List<AbilityCapsule> Shapes(AbilityCast cast) { var values = new List<AbilityCapsule>(); cast.AppendContacts(values); return values; }
+void Input(AbilityDefinition definition, string name) => File.WriteAllText(Path.Combine(folder, name + ".json"), JsonConvert.SerializeObject(definition, Formatting.Indented));

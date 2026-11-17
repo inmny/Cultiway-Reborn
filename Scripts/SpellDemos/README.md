@@ -1770,3 +1770,10 @@ C3a已交付，证据索引为`/home/inmny/.local/state/cultiway-dev/evidence/en
 每组沿共同相机和按世界时间编码入口产生连续原片。`--encode-only --output <已有ending-films/native或worldfall目录>`只编码已有原始帧，三维同时加`--worldfall`。不同运行的通过组可复制到同一个对应视角目录再统一编码，保留原运行索引。输出位于`CULTIWAY_DEV_OUTPUT/ending-films/<视角>`。软件渲染画面用于功能与对应显示观察，流派最终美术及性能继续对应工作包。
 
 C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-films/delivery.json`，对应视角的`all.mp4`为两组常速合集。地点连接高度修正后仅补受影响实体组，水层原通过段及所有失败记录继续保留。5.11关闭，最终流派美术和遮挡继续第9工作包。
+
+
+### 5.13 A1　生成实体侵蚀及实际余量
+
+通过develop执行`python3 Scripts/SpellDemos/verify_erosion.py --section core|runtime|all`。`core`检查木铁耐受、实际阶段、共同份额、替换、材料转换、收束及主体结束、完全耗尽、预测回退、非法参数、零体积与动态流散入口限制。`runtime`复用同一现成世界和来源，通过正常学习、支付和施放，比较枝体及剑体的实际缩小、作用量及本金减少，等待真实完成后留置，并验证不适用材料的失败结束及再次使用。
+
+本批最终数值段通过，实机行为完成。首次地点演示漏写选取声明，修正测试输入后补齐实机段；末尾日志包含结束坐标，序列化失败。导出已改为纯数值材料事件，实际留置事件从原落盘检查恢复并与原材料记录核对。各段按各自原调用状态交付，原始失败保留，索引位于`/home/inmny/.local/state/cultiway-dev/evidence/erosion-generated/delivery.json`。A1关闭，独立材料过程与保存、原物件及生灵、窗口与创作和集中双端影片继续5.13后批。

@@ -41,6 +41,7 @@ public sealed partial class AbilityCast
         ref NodeState state = ref nodes[node]; AbilityMatter previous = state.Matter;
         if (ReferenceEquals(previous, matter)) return;
         state.Matter = matter;
+        if (matter.ErosionFactor <= 0) InterruptErosion(node);
         if (!AbilityBurning.CanBurn(matter)) state.Burning.Extinguish();
         state.ShapeHeld = matter.HoldsShape ||
                           matter.State == "solid" && (previous.State == "liquid" || state.ShapeHeld);

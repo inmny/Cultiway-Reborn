@@ -45,6 +45,7 @@ public sealed partial class AbilityCast
     {
         ref NodeState state = ref nodes[node];
         if (state.Recovering || !state.Exists) return;
+        InterruptErosion(node);
         state.Burning.Extinguish();
         ReleaseNode(node);
         for (int child = node + 1; child < nodes.Length; child++)

@@ -1,0 +1,67 @@
+Actor source = Make(60), enemy = Make(74, "wolf"); var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var active = new List<AbilityCast>(); var materials = new List<WorldMaterialChange>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == fact.CastId) active.Add((AbilityCast)Field(running, "Cast"));
+}
+void Material(WorldMaterialChange fact) { if (fact.Provider == source.id) materials.Add(fact); }
+ConstructedAbilityService.CastStarted += Started; WorldMaterialService.Changed += Material;
+JArray Records() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "erosion"))["sections"]["world_materials"]["data"]["Records"];
+async Task<AbilityCast> Cast(AbilityDefinition definition, float row)
+{
+    Ready(source); await Advance(.15f); Place(source, 60); Place(enemy, 74);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, enemy, aim: new Vector3(66, row, 2), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f, "正常施放实际支付原报价 " + definition.Id);
+    return active.Last();
+}
+try
+{
+    foreach (string matter in new[] { "wood", "iron" })
+    {
+        var definition = Definition(matter); definition.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point };
+        definition.Steps = new[] { new ConstructionStep { Id = "residue", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Leave, Residue = new ConstructionResidue() },
+            Inputs = new Dictionary<string, ConstructionOutputReference> {
+                ["part"] = new() { Node = "root" }, ["after"] = new() { Node = "root", Operation = "weather", Output = "erosion" } } } };
+        Input(definition, matter);
+        var live = await Cast(definition, matter == "wood" ? 70 : 76);
+        double initial = live.RemainingVolume(0), principal = live.RemainingResource(0); float force = live.RemainingForce(0);
+        await Advance(.4f); double remaining = live.RemainingVolume(0); double ratio = remaining / initial;
+        var views = Views(live); var shapes = Shapes(live);
+        Check(remaining < initial && remaining > 0 && Math.Abs(live.RemainingResource(0) / principal - ratio) < .00001 &&
+            Math.Abs(live.RemainingForce(0) / force - ratio) < .00001 && Math.Abs(Math.Pow(views.Single().Transform.lossyScale.x, 3) - ratio) < .0001 &&
+            shapes.Count > 0 && live.StepStateOf("residue") == ConstructionStepState.Waiting,
+            "实际施放的体积、几何、作用量与本金共同减少，完成前不留置 " + matter, new { initial, remaining, principal, force, age = live.Age, erosion = live.Erosion(0) });
+        await Advance(1); var leave = materials.Single(fact => fact.AbilityId == definition.Id && fact.Kind == "leave");
+        double expected = initial * (1 - .75 * live.Matter(0).ErosionFactor);
+        var record = Records().Single(value => (long)value["Id"] == leave.Id);
+        Check(live.Finished && live.OperationStateOf("root", "weather") == ConstructionStepState.Completed &&
+            live.StepStateOf("residue") == ConstructionStepState.Completed && Math.Abs(leave.Volume - expected) < .0001 &&
+            Math.Abs(leave.Volume + live.Erosion(0).LostVolume - initial) < .0001 && live.RemainingVolume(0) == 0 && live.RemainingResource(0) == 0 &&
+            Math.Abs((double)record["Material"]["Resource"] + live.Erosion(0).SpentResource - principal) < .0001,
+            "真实完成后只留置实际余量，原主体清零且未补生本金 " + matter, new { leave, expected, record, erosion = live.Erosion(0) });
+    }
+    var failed = Definition("water"); failed.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point }; Input(failed, "unsupported"); var rejected = await Cast(failed, 72);
+    await Advance(.3f);
+    Check(rejected.OperationStateOf("root", "weather") == ConstructionStepState.Interrupted && rejected.RemainingVolume(0) == 8 && rejected.Erosion(0).LostVolume == 0,
+        "实际未支持材料明确中断，未产生侵蚀损耗");
+    await Advance(3); Check(rejected.Finished && !BodyControlState.IsBusy(source.id), "失败施放自然结束并归还运行资源");
+    var again = Definition(); again.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point }; again.Id += ".again"; Input(again, "again"); var reused = await Cast(again, 72); await Advance(3.2f);
+    Check(reused.Finished && reused.OperationStateOf("root", "weather") == ConstructionStepState.Completed && Math.Abs(reused.Erosion(0).LostVolume - 6) < .0001,
+        "失败结束后原路径可以再次实际施放并完成");
+    File.WriteAllText(Path.Combine(folder, "records.json"), Records().ToString(Formatting.Indented));
+    return new { passed = true, closed = "真实木铁侵蚀、完成留置、本金守恒与失败恢复", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started; WorldMaterialService.Changed -= Material;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(new { materials }, Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}

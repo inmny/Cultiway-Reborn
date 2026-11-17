@@ -21,6 +21,9 @@ public sealed class AbilityMatter
     /// <summary>此材料明确提供有限燃烧规则，显示染色不能改变它。</summary>
     public readonly bool Combustible;
 
+    /// <summary>已登记的实体侵蚀系数，零表示尚不提供此规则。</summary>
+    public readonly float ErosionFactor;
+
     /// <summary>是否作为该材料未指定物态时的默认值。</summary>
     internal readonly bool IsDefault;
 
@@ -32,9 +35,12 @@ public sealed class AbilityMatter
     /// <param name="holdsShape">是否保持内部形状。</param>
     /// <param name="isDefault">是否为材料默认物态。</param>
     /// <param name="combustible">是否明确可燃。</param>
+    /// <param name="erosionFactor">已实现的实体侵蚀系数。</param>
     public AbilityMatter(string id, string state, string damageKind, string surface = null, bool holdsShape = false,
-        bool isDefault = true, bool combustible = false)
+        bool isDefault = true, bool combustible = false, float erosionFactor = 0)
     {
+        if (float.IsNaN(erosionFactor) || float.IsInfinity(erosionFactor) || erosionFactor < 0 || erosionFactor > 1)
+            throw new ArgumentOutOfRangeException(nameof(erosionFactor));
         Id = id;
         State = state;
         DamageKind = damageKind;
@@ -42,6 +48,7 @@ public sealed class AbilityMatter
         HoldsShape = holdsShape;
         IsDefault = isDefault;
         Combustible = combustible;
+        ErosionFactor = erosionFactor;
     }
 }
 
