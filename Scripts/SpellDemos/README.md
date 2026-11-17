@@ -1681,4 +1681,8 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 - `--section save`生成正式新旧等待世界，验证保存读取、各授予一次、新成品实际使用，再保存完成世界。
 - `--section cold --state <上次save输出目录>`在同一环境停止再启动后单独执行，核对磁盘等待输入与跨进程恢复。载入帧可以已完成请求，仍须保持完整结果和各授予一次，并核对完成世界去重。
 
-入口显式将现成世界和真实旧样例传到本次独立输出，结果位于`CULTIWAY_DEV_OUTPUT/progressive-formation/<section>`，开发工具同时保留命令、实际输入与原始响应。cold会复制上次保存资料并提取实际地图中的等待区段。此阶段5.06整项仍未完成，集中录像继续该项的固定交付条件。
+入口显式将现成世界和真实旧样例传到本次独立输出，结果位于`CULTIWAY_DEV_OUTPUT/progressive-formation/<section>`，开发工具同时保留命令、实际输入与原始响应。cold会复制上次保存资料并提取实际地图中的等待区段。
+
+集中录像通过同一开发入口执行`python3 Scripts/SpellDemos/record_progressive_formation.py --state <已通过的复验输出或交付归档>`，录制分枝、曲面和中途停止。`--case branch|surface|stopped`可指定一段。兼容环境加载Worldfall后加`--worldfall`，入口先核对实际加载模式。兼容模组放在私有游戏目录，开发代码或资源快照重建后需重新准备。
+
+录像复用`record_delivery.script`及已有按世界时间编码入口，保留正式支付、命中、成形或中断、自然结束和原始帧。结果位于`CULTIWAY_DEV_OUTPUT/formation-films/native`或`worldfall`。`--encode-only --output <已有录像目录>`只编码已有帧，三维同时提供`--worldfall`。5.06交付索引位于`/home/inmny/.local/state/cultiway-dev/evidence/skill-growth-films/delivery.json`。
