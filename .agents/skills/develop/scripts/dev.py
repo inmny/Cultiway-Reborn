@@ -90,13 +90,50 @@ def locked(path):
             fcntl.flock(handle, fcntl.LOCK_UN)
 
 
-def process_identity(pid):
-    """读取 Linux 进程开始标记，退出和僵尸进程均返回空。"""
+def process_stat(pid):
+    """读取 Linux 进程状态，进程已经消失时返回空。"""
     try:
-        fields = (Path("/proc") / str(pid) / "stat").read_text().rsplit(")", 1)[1].split()
-    except FileNotFoundError:
+        return (Path("/proc") / str(pid) / "stat").read_bytes().rsplit(b")", 1)[1].split()
+    except (FileNotFoundError, ProcessLookupError):
         return None
-    return None if fields[0] == "Z" else fields[19]
+
+
+def process_identity(pid):
+    """读取进程开始标记，退出和僵尸进程均返回空。"""
+    fields = process_stat(pid)
+    return fields[19].decode() if fields and fields[0] not in (b"Z", b"X") else None
+
+
+def group_running(group):
+    """检查组内是否还有能运行的进程，忽略已经退出的进程。"""
+    for entry in Path("/proc").glob("[0-9]*"):
+        try:
+            fields = process_stat(entry.name)
+        except PermissionError:
+            continue
+        if fields and int(fields[2]) == group and fields[0] not in (b"Z", b"X"):
+            return True
+    return False
+
+
+def stop_validation_group(process):
+    """停止验证命令及同组子进程，全部退出后再结束本次验证。"""
+    signals = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM})
+    try:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        while group_running(process.pid):
+            time.sleep(0.02)
+        process.wait()
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, signals)
+
+
+def interrupt_validation(signum, _frame):
+    """让系统的终止请求经过验证命令的收尾流程。"""
+    raise SystemExit(128 + signum)
 
 
 def file_digest(paths, root):
@@ -151,6 +188,8 @@ class Environment:
         state = read_json(self.record)
         if state.get("worktree") != str(self.worktree) or state.get("id") != self.id:
             raise DevError("环境登记与当前 worktree 不匹配")
+        if state["status"] == "uncertain":
+            state["validationFailed"] = True
         return state
 
     def save(self, state):
@@ -447,7 +486,7 @@ class Environment:
         self.require_current(state)
         case = self.directory / "runs" / state["launch"]["id"] / "cases" / (stamp() + "-" + uuid.uuid4().hex[:8])
         case.mkdir(parents=True)
-        state["status"] = "uncertain"
+        state.update(status="uncertain", validationFailed=True)
         self.save(state)
         write_json(case / "request.json", {"arguments": arguments, "script": script,
                                            "input": state["inputs"]["sha256"], "started": stamp()})
@@ -459,17 +498,22 @@ class Environment:
                 write_json(case / "result.json", result)
             else:
                 env = dict(self.child_environment(state), CULTIWAY_DEV_ACTIVE="1")
-                result = subprocess.run(arguments, cwd=self.worktree, env=env, timeout=timeout,
-                                        capture_output=True, text=True)
-                (case / "stdout.log").write_text(result.stdout, encoding="utf-8")
-                (case / "stderr.log").write_text(result.stderr, encoding="utf-8")
-                if result.returncode:
+                with subprocess.Popen(arguments, cwd=self.worktree, env=env, start_new_session=True,
+                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
+                    try:
+                        stdout, stderr = process.communicate(timeout=timeout)
+                    except BaseException:
+                        stop_validation_group(process)
+                        raise
+                (case / "stdout.log").write_text(stdout, encoding="utf-8")
+                (case / "stderr.log").write_text(stderr, encoding="utf-8")
+                if process.returncode:
                     raise DevError(f"验证命令失败，输出保存在 {case}")
                 result = {"exitCode": 0, "stdout": str(case / "stdout.log"), "stderr": str(case / "stderr.log")}
         except BaseException as error:
             write_json(case / "failure.json", {"error": str(error), "uncertain": True})
             raise
-        state["status"] = "running"
+        state.update(status="running", validationFailed=False)
         self.save(state)
         return {"evidence": str(case), "result": result}
 
@@ -529,15 +573,15 @@ class Environment:
     def finish(self, pr):
         """核对 PR 和提交后归档证据，再回收游戏；分支和 worktree 保留。"""
         state = self.load()
+        if state.get("validationFailed"):
+            raise DevError("上次验证未成功，请先 stop，再 start 并重新完成验证")
         if state["status"] == "delivered":
-            if pr != state["pr"] or not Path(state["evidence"]).is_dir():
-                raise DevError("交付记录不完整或 PR 不同，保留现有文件")
+            if pr != state["pr"]:
+                raise DevError("PR 与交付记录不同，保留现有文件")
             if (git(self.worktree, "rev-parse", "HEAD") != state["deliveredHead"] or
                     git(self.worktree, "status", "--porcelain")):
                 raise DevError("交付后已有新修改，请重新 setup、验证和交付")
-            for name in ("game", "profile", "control", "runs"):
-                remove_owned(self.directory / name, self.directory)
-            return self.status(state)
+            return self.remove_runtime(state)
         info = pr_info(self.worktree, pr)
         head = git(self.worktree, "rev-parse", "HEAD")
         if (info["state"] not in ("OPEN", "MERGED") or info["headRefOid"] != head or
@@ -552,8 +596,8 @@ class Environment:
     def archive(self, outcome, **metadata):
         """正式交付或结束试用时，先保留完整证据再回收所属运行文件。"""
         previous = self.load()
-        if previous["status"] in ("delivered", "cleaned") and not self.game.exists():
-            return self.status(previous)
+        if previous["status"] in ("delivered", "cleaned") and not self.check_process(previous):
+            return self.remove_runtime(previous)
         self.stop()
         state = self.load()
         archive = self.root / "evidence" / self.id / stamp()
@@ -578,6 +622,13 @@ class Environment:
                 shutil.copy2(path, archive / path.name)
         state.update(metadata, status=outcome, evidence=str(archive))
         self.save(state)
+        return self.remove_runtime(state)
+
+    def remove_runtime(self, state):
+        """复用已经保存的归档，清理可能仍有残留的运行目录。"""
+        evidence = state.get("evidence")
+        if not evidence or not Path(evidence).is_dir():
+            raise DevError("找不到归档证据，保留剩余运行目录")
         for name in ("game", "profile", "control", "runs"):
             remove_owned(self.directory / name, self.directory)
         return self.status(state)
@@ -649,6 +700,8 @@ def main():
     if sys.version_info < (3, 11):
         raise DevError("请使用 Python 3.11 或更新版本")
     os.umask(0o077)
+    if args.action in ("run", "exec"):
+        signal.signal(signal.SIGTERM, interrupt_validation)
     environment = Environment(args.worktree, args.root, args.name)
     if args.action == "status":
         print(json.dumps(environment.status(), ensure_ascii=False, indent=2))

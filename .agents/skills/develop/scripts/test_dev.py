@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -202,6 +203,24 @@ class EnvironmentTests(unittest.TestCase):
                 self.environment.execute(["should-not-run"])
             run.assert_not_called()
 
+    def test_exec_timeout_waits_for_the_whole_group(self):
+        """即使子进程改用独立的输出位置，超时返回前也要等它退出。"""
+        state = self.setup_environment()
+        state.update(launch={"id": "sample", "pid": 0}, inputs={"sha256": "sample"})
+        self.environment.save(state)
+        child_pid = self.base / "child.pid"
+        spawn = (
+            "import subprocess, sys, time; from pathlib import Path; "
+            "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(5)'], "
+            "stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); "
+            "Path(sys.argv[1]).write_text(str(child.pid)); time.sleep(5)"
+        )
+        with patch.object(self.environment, "require_current"):
+            with self.assertRaises(subprocess.TimeoutExpired):
+                self.environment.execute([sys.executable, "-c", spawn, str(child_pid)], timeout=1)
+        self.assertIsNone(dev.process_identity(int(child_pid.read_text())))
+        self.assertEqual(self.environment.load()["status"], "uncertain")
+
     def test_cleanup_rejects_symlink_and_outside_directory(self):
         """不能借环境内符号链接删除外部资料。"""
         self.setup_environment()
@@ -239,6 +258,56 @@ class EnvironmentTests(unittest.TestCase):
                 self.environment.finish(info["url"])
         self.assertTrue(self.environment.game.exists())
         self.assertTrue(self.environment.profile.exists())
+
+    def test_failed_validation_blocks_delivery_until_success(self):
+        """验证失败及随后退出游戏都不能绕过交付检查。"""
+        info = self.prepare_delivery()
+        state = self.environment.load()
+        state["launch"] = {"id": "sample", "pid": 0}
+        self.environment.save(state)
+        with patch.object(dev, "pr_info", return_value=info), patch.object(self.environment, "require_current"):
+            with self.assertRaisesRegex(dev.DevError, "验证命令失败"):
+                self.environment.execute([sys.executable, "-c", "raise SystemExit(1)"])
+            with self.assertRaisesRegex(dev.DevError, "重新完成验证"):
+                self.environment.finish(info["url"])
+            self.assertTrue(self.environment.game.exists())
+
+            # 旧版留下的 uncertain 状态也要在退出游戏后继续阻止交付。
+            state = self.environment.load()
+            state.pop("validationFailed")
+            self.environment.save(state)
+            self.environment.stop()
+            with self.assertRaisesRegex(dev.DevError, "重新完成验证"):
+                self.environment.finish(info["url"])
+            self.environment.execute([sys.executable, "-c", "print('验证完成')"])
+            self.assertEqual(self.environment.finish(info["url"])["status"], "delivered")
+
+    def test_clean_retries_partial_removal_without_rearchiving(self):
+        """回收中断后继续清理剩余目录，保留同一份证据。"""
+        self.prepare_delivery()
+        directory = self.environment.directory
+        self.put(directory / "control/marker", "saved")
+        remove = dev.remove_owned
+
+        def fail_at_profile(path, owner):
+            """模拟游戏已经删除，但清理资料时磁盘报错。"""
+            if path == self.environment.profile:
+                raise OSError("无法清理资料")
+            remove(path, owner)
+
+        with patch.object(dev, "remove_owned", side_effect=fail_at_profile):
+            with self.assertRaisesRegex(OSError, "无法清理资料"):
+                self.environment.archive("cleaned")
+        archive = self.environment.load()["evidence"]
+        self.assertFalse(self.environment.game.exists())
+        self.assertTrue(self.environment.profile.exists())
+
+        result = self.environment.archive("cleaned")
+        self.assertEqual(result["evidence"], archive)
+        self.assertEqual(result["status"], "cleaned")
+        for name in ("game", "profile", "control", "runs"):
+            self.assertFalse((directory / name).exists())
+        self.assertTrue((Path(archive) / "runs/sample/result.json").is_file())
 
     def test_delivery_rejects_unpushed_or_uncommitted_changes(self):
         """PR 不包含当前提交或本地仍有修改时，不能当作已交付。"""
