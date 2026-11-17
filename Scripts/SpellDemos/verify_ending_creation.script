@@ -1,0 +1,57 @@
+Actor source = Make(64); var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var attempts = new List<object>();
+string[] changes = { "余量续形", "液态流散", "收束回能", "世界留置" };
+bool Has(AbilityDefinition value, string kind) => kind == "余量续形"
+    ? Nodes(value.Root).Any(node => node.Activation?.InheritRemainder == true)
+    : Nodes(value.Root).SelectMany(node => node.Operations).Any(operation => operation.Kind == (kind == "液态流散"
+        ? ConstructionOperationKind.Flow : kind == "收束回能" ? ConstructionOperationKind.Recover : ConstructionOperationKind.Leave));
+try
+{
+    var inspiration = ConstructedAbilityService.ReadInspiration(owner);
+    Check(inspiration.Rules == 25, "新创作采用完整结束去向规则25");
+    var resources = (SynthesisResources)service.GetMethod("CaptureCreationResources", F).Invoke(null, new object[] { owner, 0, inspiration });
+    var independent = new Dictionary<string, AbilityDefinition>(); var derived = new Dictionary<string, AbilityDefinition>();
+    var basis = Definition(); string original = JsonConvert.SerializeObject(basis);
+    for (int seed = 0; seed < 128 && (independent.Count < changes.Length || derived.Count < changes.Length); seed++)
+    {
+        if (independent.Count < changes.Length)
+            try
+            {
+                var made = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: resources);
+                foreach (string change in changes.Where(change => !independent.ContainsKey(change) && Has(made, change))) independent.Add(change, made);
+                attempts.Add(new { kind = "independent", seed });
+            }
+            catch (InvalidDataException error) { attempts.Add(new { kind = "independent", seed, rejected = error.Message }); }
+        if (derived.Count < changes.Length)
+        {
+            var made = ConstructedAbilityService.Generate(owner, seed, inspiration, basis, resources);
+            if (changes.Contains(made.Parent.Change) && !derived.ContainsKey(made.Parent.Change)) derived.Add(made.Parent.Change, made);
+        }
+        await Game.NextFrame();
+    }
+    Check(independent.Count == changes.Length && independent.All(pair => JToken.DeepEquals(Canon(pair.Value),
+        Canon(ConstructedAbilityService.Generate(owner, pair.Value.Seed, inspiration, resources: resources)))),
+        "独立创作实际覆盖余量后段、流散、收束与留置，固定输入重现完整成品及费用", independent.Keys.ToArray());
+    Check(derived.Count == changes.Length && derived.All(pair => Has(pair.Value, pair.Key)) &&
+        JsonConvert.SerializeObject(basis) == original && derived.All(pair =>
+            JToken.DeepEquals(JArray.FromObject(pair.Value.Steps), JArray.FromObject(basis.Steps)) &&
+            JObject.FromObject(pair.Value.Root.Operations[0]).ToString() == JObject.FromObject(basis.Root.Operations[0]).ToString()),
+        "四类原术衍生保留原资料、原部位操作及命名完成依赖", derived.Keys.ToArray());
+    var body = ConstructionEditing.Copy(BodyActionCatalog.Palm);
+    var bodyPlan = AbilityCompiler.Compile(body, false);
+    foreach (string method in new[] { "EndingSites", "RemainderSites", "FlowCreationSites" })
+        Check(((Array)service.GetMethod(method, F).Invoke(null, new object[] { body, bodyPlan })).Length == 0,
+            "真实借用身体不提供生成材料改造 " + method);
+    foreach (var pair in independent) File.WriteAllText(Path.Combine(folder, "independent-" + Array.IndexOf(changes, pair.Key) + ".json"), JsonConvert.SerializeObject(pair.Value, Formatting.Indented));
+    foreach (var pair in derived) File.WriteAllText(Path.Combine(folder, "derived-" + Array.IndexOf(changes, pair.Key) + ".json"), JsonConvert.SerializeObject(pair.Value, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "basis.json"), JsonConvert.SerializeObject(basis, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "derived.json"), JsonConvert.SerializeObject(derived["余量续形"], Formatting.Indented));
+    return new { passed = true, closed = "当前独立创作及原术衍生的四类结束去向", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder, "attempts.json"), JsonConvert.SerializeObject(attempts, Formatting.Indented));
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

@@ -1,0 +1,38 @@
+Actor source = Make(64); var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+try
+{
+    var inspiration = ConstructedAbilityService.ReadInspiration(owner); int selected = -1;
+    for (int seed = 0; seed < 64 && selected < 0; seed++)
+    {
+        var resources = (SynthesisResources)service.GetMethod("CaptureCreationResources", F).Invoke(null, new object[] { owner, seed, inspiration });
+        try
+        {
+            var candidate = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: resources);
+            if (Nodes(candidate.Root).Any(node => node.Activation?.InheritRemainder == true)) selected = seed;
+        }
+        catch (InvalidDataException) { }
+        await Game.NextFrame();
+    }
+    Check(selected >= 0 && ConstructionEditing.Access.List(owner).Count == 0,
+        "从当前真实输入选择可复现的独立余量创作，人物没有已学原术");
+    Check(ConstructedAbilityService.TryQueueCreation(owner, selected), "人物通过正式入口受理独立创作请求");
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    Check(pending.Pending && pending.Source == null && pending.Inspiration.Rules == 25, "正式独立请求使用新规则且未借用任何原术");
+    var expected = ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources);
+    File.WriteAllText(Path.Combine(folder, "pending-input.json"), JsonConvert.SerializeObject(pending, Formatting.Indented));
+    await Advance(.2f);
+    var completed = owner.GetComponent<ConstructedCreationState>(); var learned = ConstructionEditing.Access.Read(completed.LastAbility);
+    Check(!completed.Pending && completed.LastFailure == null && JToken.DeepEquals(Canon(expected), Canon(learned)) &&
+        Nodes(learned.Root).Any(node => node.Activation?.InheritRemainder == true),
+        "正式独立队列授予真实余量成品，完整冻结结果与费用一致");
+    await Advance(.2f);
+    Check(ConstructionEditing.Access.List(owner).Count == 1, "独立完成只授予一次");
+    File.WriteAllText(Path.Combine(folder, "created-definition.json"), JsonConvert.SerializeObject(learned, Formatting.Indented));
+    return new { passed = true, closed = "无原术人物的正式独立创作与一次授予", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

@@ -81,6 +81,7 @@ public sealed partial class ConstructedAbilityService
         if (inspiration.Rules >= 21) result = GeneratePersistence(result, seed, inspiration.Rules);
         if (inspiration.Rules >= 23) result = GenerateFormation(result, seed, resources);
         if (inspiration.Rules >= 24) result = GenerateDeformation(result, seed, resources);
+        if (inspiration.Rules >= 25) result = GenerateRemainder(result, seed);
         return inspiration.Rules >= 3 ? ConstructionPricing.Price(result, contactRules: inspiration.Rules) : result;
     }
 

@@ -47,6 +47,18 @@ public sealed partial class ConstructedAbilityService
         var random = new Random(seed);
         var choices = new List<(string Name, Func<AbilityDefinition> Apply)>();
         ConstructionNode[] nodes = DerivationNodes(draft.Root).ToArray();
+        if (inspiration.Rules >= 25)
+        {
+            if (RemainderSites(draft, plan).Length > 0)
+                choices.Add(("余量续形", () => VaryRemainder(draft, random, plan)));
+            if (FlowCreationSites(draft, plan).Length > 0)
+                choices.Add(("液态流散", () => VaryEnding(draft, random, plan, ConstructionOperationKind.Flow)));
+            if (EndingSites(draft, plan).Length > 0)
+            {
+                choices.Add(("收束回能", () => VaryEnding(draft, random, plan, ConstructionOperationKind.Recover)));
+                choices.Add(("世界留置", () => VaryEnding(draft, random, plan, ConstructionOperationKind.Leave)));
+            }
+        }
         if (inspiration.Rules >= 24 && CanVaryDeformation(draft, resources, plan))
             choices.Add(("结构形变", () => VaryDeformation(draft, random, resources, plan)));
         if (inspiration.Rules >= 23)

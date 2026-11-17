@@ -1,0 +1,26 @@
+AbilityDefinition Definition() => new AbilityDefinition
+{
+    Id = "test.ending.creation.basis", Name = "余势去向", Power = 10, Cost = 3, Cooldown = .1f,
+    Lifetime = 4.5f, TargetRange = 100,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = true, Height = .02f },
+    Root = new ConstructionNode
+    {
+        Id = "main", Form = "branch", Matter = "wood", Scale = .6f,
+        Operations = new[] { new ConstructionOperation { Id = "settle", Kind = ConstructionOperationKind.Grow,
+            Seconds = .2f } }
+    },
+    Steps = new[] { new ConstructionStep
+    {
+        Id = "settled", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "wood" },
+        Inputs = new() { ["part"] = new() { Node = "root" },
+            ["after"] = new() { Node = "root", Operation = "settle", Output = "growth", Stage = ConstructionOutputStage.Completed } }
+    } }
+};
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    if (node == null) yield break;
+    yield return node;
+    foreach (var child in node.Children) foreach (var nested in Nodes(child)) yield return nested;
+}
+JObject Canon(AbilityDefinition value) { var json = JObject.FromObject(value); json.Remove("Id"); json.Remove("Creator"); return json; }
+List<AbilityCapsule> Shapes(AbilityCast cast) { var result = new List<AbilityCapsule>(); cast.AppendContacts(result); return result; }

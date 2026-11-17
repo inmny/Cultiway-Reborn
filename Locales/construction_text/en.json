@@ -86,5 +86,9 @@
   "Cultiway.ConstructionText.Operation.Ready": "Wait for actual readiness",
   "Cultiway.ConstructionText.Change.Formation": "progressive formation",
   "Cultiway.ConstructionText.Operation.Deform": "Deform controlled structure",
-  "Cultiway.ConstructionText.Change.Deformation": "structural deformation"
+  "Cultiway.ConstructionText.Change.Deformation": "structural deformation",
+  "Cultiway.ConstructionText.Change.Remainder": "continuation from the actual remainder",
+  "Cultiway.ConstructionText.Change.Flow": "liquid flow",
+  "Cultiway.ConstructionText.Change.Recovery": "recovery of unspent payment",
+  "Cultiway.ConstructionText.Change.Residue": "world retention"
 }

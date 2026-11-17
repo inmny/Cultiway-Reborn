@@ -1699,3 +1699,14 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 集中录像通过同一开发入口执行`python3 Scripts/SpellDemos/record_deformation.py --state <已通过的cast目录>`，录制枝体收展、曲面弯折及接触中止。`--case branch|surface|stopped`可只录受影响的一段，Worldfall环境加`--worldfall`。入口读取正式成品，曲面只更换已有模型、真实控制参数及适当尺寸，停止样本使用共同接触停止规则。目标从同次真实作用形状选点，收拢段另确认原位置无伤，三段均保留真实支付、接触和自然结束。
 
 录像保留真实世界时刻，暂停仅等待发布，沿既有编码入口按世界时间差生成常速片段。`--encode-only --output <已有deformation-films/native或worldfall目录>`只编码已有原始帧，Worldfall同时加`--worldfall`。输出为`CULTIWAY_DEV_OUTPUT/deformation-films/<视角>`，最终证据索引位于`/home/inmny/.local/state/cultiway-dev/evidence/deformation-films/delivery.json`。失败与各次分段结果分别归档，软件渲染画面用于功能观察。
+
+
+### 5.11 A　结束去向的当前自主创作
+
+通过develop执行`python3 Scripts/SpellDemos/verify_ending.py`。限定分段为`creation|independent|runtime|legacy|save|all`，日常只补本次受影响分段，旧身体及装备矩阵保留原依据。
+
+`creation`验证规则25独立生成及余量续形、液态流散、收束回能和世界留置四类衍生、固定输入重现、原术与命名依赖保持，以及没有实际生成材料的身体输入。`independent`让无已学原术的人物通过正式独立队列完成新成品，并核对完整冻结结果及一次授予。
+
+`runtime`读取已通过的创作成品，通过正常入口支付，确认来源结束才守恒交接、真实后段接触、水层与有限体积、实际回能、原施放结束后独立留置、余额不足拒绝及恢复后再次使用。`legacy`恢复真实旧规则24等待请求并核对完整结果和费用。`save`正式保存新旧等待世界、读取后各授予一次、新成品实际使用及完成世界。`runtime`和`save`可用`--creation <已有creation目录>`复用已通过输入。
+
+每段将现成世界和真实旧样例显式传入开发环境。旧样例`fixtures/ending-rule24.json`来自5.09正式等待世界与当时完整预期。结果位于`CULTIWAY_DEV_OUTPUT/ending/<分段>`。本批索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-creation/delivery.json`，原失败及各次分别通过的事实保留。真正冷启动和连续双端录像集中于5.11最终交付。
