@@ -1,5 +1,21 @@
 # 游戏内调试：DebugToolbox 远程脚本通道
 
+## 独立 worktree 开发
+
+新开发任务使用仓库 [develop 技能](../.agents/skills/develop/SKILL.md)准备独立游戏环境。它统一设置游戏、客户端、配置和临时目录，避免多个任务读取同一个 `session.json`。
+
+在目标 worktree 中，首次执行：
+
+```bash
+python3 .agents/skills/develop/scripts/dev.py setup --game <游戏目录> --toolbox <DebugToolbox目录>
+python3 .agents/skills/develop/scripts/dev.py start
+python3 .agents/skills/develop/scripts/dev.py run <脚本.script>
+```
+
+已有验证命令通过 `exec -- <命令>`继承该环境；`stop`退出游戏并保留存档，`finish --pr <PR地址>`在正式交付后归档证据、回收游戏副本。代码或资源改变后先 stop/start，再验证。第一版支持 Linux 原生游戏，需要 Python 3.11 以上、.NET SDK 和已安装的游戏及 DebugToolbox。
+
+以下为调试通道本身的说明。并行任务的启动与会话选择以 develop 技能为准。
+
 调试本模组时，推荐通过 DebugToolbox 在**运行中的游戏**里直接执行 C#：脚本在 Unity 主线程上编译运行，返回值以 JSON 直接传回，编译错误也带行号结构化返回。旧的「打开游戏内 C# Console → 模拟粘贴 → 点运行 → 翻 Player.log」流程已废弃。
 
 获取安装、启动连接、命令与脚本写法等全部操作步骤见 debug 技能（[`.agents/skills/debug/SKILL.md`](../.agents/skills/debug/SKILL.md)）；本文只讲背景与约束。

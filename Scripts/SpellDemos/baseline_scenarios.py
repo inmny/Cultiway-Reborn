@@ -5,14 +5,15 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import time
 
 from common import CLIENT, PROJECT, version_stamp, write_json
 
 ROOT = Path(os.environ.get("CULTIWAY_BASELINE_ROOT", PROJECT / "artifacts/skill_rebuild/baseline")).resolve()
-PROFILE = ROOT / "profile"
-TEMP = ROOT / "temp"
+PROFILE = Path(os.environ["CULTIWAY_DEV_PROFILE"]) if os.environ.get("CULTIWAY_DEV_ACTIVE") else ROOT / "profile"
+TEMP = Path(os.environ["TMPDIR"]) if os.environ.get("CULTIWAY_DEV_ACTIVE") else ROOT / "temp"
 ENV = dict(os.environ, XDG_CONFIG_HOME=str(PROFILE), TMPDIR=str(TEMP),
            CULTIWAY_BASELINE_ROOT=str(ROOT))
 CONFIG = Path(__file__).with_name("baseline_scenarios.json")
@@ -44,6 +45,16 @@ def call(*args):
 
 def connect(launch, validate_runtime=True):
     """只连接本配置；就绪超时保留原进程，下一次继续观察同一会话。"""
+    if os.environ.get("CULTIWAY_DEV_ACTIVE"):
+        # 开发入口已核对快照和进程，并持有整个验证命令的独占权；不再创建嵌套游戏。
+        ROOT.mkdir(parents=True, exist_ok=True)
+        response = call("eval", 'return new { pid = System.Diagnostics.Process.GetCurrentProcess().Id, '
+                        'profile = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME"), '
+                        'data = UnityEngine.Application.persistentDataPath, ready = !SmoothLoader.isLoading() };')
+        if (response["pid"] != int(os.environ["CULTIWAY_DEV_PID"]) or
+                response["profile"] != str(PROFILE) or not Path(response["data"]).is_relative_to(PROFILE)):
+            raise RuntimeError("开发环境连接身份不匹配，停止操作")
+        return response
     ROOT.mkdir(parents=True, exist_ok=True)
     PROFILE.mkdir(exist_ok=True)
     TEMP.mkdir(exist_ok=True)
@@ -151,11 +162,19 @@ def main():
         return
     selected = list(choices) if args.scenario == "all" else [args.scenario]
     version, _ = version_stamp()
+    # 测试输入也冻结到所属环境，游戏快照不需要携带整套开发脚本和文档。
+    input_folder = ROOT / "inputs" / str(time.time_ns())
+    input_folder.mkdir(parents=True)
+    config_path = input_folder / "scenarios.json"
+    write_json(config_path, config)
+    definition = input_folder / "definition.json"
+    shutil.copy2(PROJECT / "Doc/技能系统全面重构/构造输入/掌击改追踪飞掌.json", definition)
+    context = {"configPath": str(config_path), "definitionPath": str(definition)}
     if args.action == "prepare":
         base_metadata = ROOT / "base/baseline-source.json"
         if not base_metadata.exists() or json.loads(base_metadata.read_text())["version"]["sha256"] != version["sha256"]:
             write_json(ROOT / "request.json", {"action": "base", "scenario": "none",
-                                               "profile": str(PROFILE), "version": version})
+                                               "profile": str(PROFILE), "version": version, **context})
             call("run", str(SCRIPT), "120000")
             print("干净基底世界已通过原版生成与正式保存入口建立", flush=True)
     inputs = {}
@@ -164,9 +183,8 @@ def main():
         raise RuntimeError("基底世界尚未准备，请先执行prepare")
     for path in sorted(fixture.iterdir()):
         if path.is_file():
-            inputs[str(path.relative_to(PROJECT))] = hashlib.sha256(path.read_bytes()).hexdigest()
-    definition = PROJECT / "Doc/技能系统全面重构/构造输入/掌击改追踪飞掌.json"
-    inputs[str(definition.relative_to(PROJECT))] = hashlib.sha256(definition.read_bytes()).hexdigest()
+            inputs[str(path.relative_to(ROOT))] = hashlib.sha256(path.read_bytes()).hexdigest()
+    inputs["definition.json"] = hashlib.sha256(definition.read_bytes()).hexdigest()
     stamp = time.strftime("%Y%m%d-%H%M%S")
     output = ROOT / "runs" / stamp
     output.mkdir(parents=True, exist_ok=True)
@@ -175,7 +193,7 @@ def main():
     for repeat in range(args.repeat):
         for scenario in selected:
             request = {"action": args.action, "scenario": scenario, "repeat": repeat,
-                       "profile": str(PROFILE), "output": str(output), "version": version, "inputs": inputs}
+                       "profile": str(PROFILE), "output": str(output), "version": version, "inputs": inputs, **context}
             write_json(ROOT / "request.json", request)
             try:
                 result = call("run", str(SCRIPT), "120000")

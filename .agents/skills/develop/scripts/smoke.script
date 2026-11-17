@@ -1,0 +1,36 @@
+// 验证环境归属和日志位置，并保留用于真实重启检查的资料。
+using System;
+using System.IO;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+
+var profile = Application.persistentDataPath;
+var run = Environment.GetEnvironmentVariable("CULTIWAY_DEV_RUN");
+var output = Environment.GetEnvironmentVariable("CULTIWAY_DEV_OUTPUT");
+if (string.IsNullOrEmpty(run) || string.IsNullOrEmpty(output))
+    throw new InvalidOperationException("请通过 develop 环境入口运行此检查");
+var marker = new JObject
+{
+    ["pid"] = System.Diagnostics.Process.GetCurrentProcess().Id,
+    ["run"] = run,
+    ["profile"] = profile,
+    ["module"] = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString()
+};
+File.WriteAllText(Path.Combine(profile, "cultiway-dev-smoke.json"), marker.ToString());
+Cultiway.Core.Logging.CultiLog.SetDiskEnabled(true);
+Cultiway.Core.Logging.CultiLog.General.Info("独立开发环境检查：" + run);
+Debug.Log("cultiway-dev-smoke:" + run);
+File.WriteAllText(Path.Combine(Environment.CurrentDirectory, "isolation-smoke.log"), run);
+Directory.CreateDirectory(output);
+await Game.NextFrame();
+Screen.Capture(Path.Combine(output, "environment.png"));
+await Game.NextFrame();
+Game.Pause();
+return new JObject
+{
+    ["passed"] = true,
+    ["identity"] = marker,
+    ["mod"] = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    ["log"] = Cultiway.Core.Logging.CultiLog.GetDiskFilePath(),
+    ["output"] = output
+};
