@@ -1,5 +1,7 @@
 key,cz
 GeneralSettings,一般设置
+LIMIT_PLANT_NATURAL_SPAWN,限制植物生物自然生成
+LIMIT_PLANT_NATURAL_SPAWN Description,开启后群系不再自然生成新的植物生物；已有植物生物和神力手动放置不受影响，普通树木、花草和灌木照常生长
 SPAWN_ELEMENT_ROOT_NATURALLY,自然诞生灵根概率
 SPAWN_ELEMENT_ROOT_NATURALLY Description,自然诞生灵根的概率，0为禁用，1为100%
 ENABLE_GEO_SYSTEMS,启用地理演化
