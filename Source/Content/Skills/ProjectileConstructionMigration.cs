@@ -18,7 +18,7 @@ using UnityEngine;
 namespace Cultiway.Content.Skills;
 
 /// <summary>飞剑、贯穿、刃形波、范围爆发、地面推进及普通投射共用真实旧来源转换；发射后只保留普通构造，不建立旧执行实体。</summary>
-internal static class ProjectileConstructionMigration
+internal static partial class ProjectileConstructionMigration
 {
     /// <summary>本批已经逐项转换的词条，其他附加作用继续原入口并保持待迁移。</summary>
     private static readonly HashSet<Type> supported = new()
@@ -108,200 +108,19 @@ internal static class ProjectileConstructionMigration
         foreach (Delegate callback in actualSetup) if (!setup.Contains(callback)) return null;
         if (container.Asset.Effects.Count != 0 || container.EffectPipeline?.Effects.Count > 0 ||
             !ContactEffectMigration.MatchesTravelCallbacks(skill) || !ContactEffectMigration.MatchesCallbacks(skill)) return null;
-        string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
-        bool towardsDirection = trajectory == SkillTrajectories.TowardsDirection.id;
-        bool noRotation = trajectory == SkillTrajectories.TowardsDirectionNoRot.id;
-        bool towardsPosition = trajectory == SkillTrajectories.TowardsPosition.id;
-        bool towardsTarget = trajectory == SkillTrajectories.TowardsTarget.id;
-        bool drift = trajectory == SkillTrajectories.DriftHoming.id;
-        bool spiral = trajectory == SkillTrajectories.SpiralHoming.id;
-        bool vortex = trajectory == SkillTrajectories.SlowVortex.id;
-        bool orbit = trajectory == SkillTrajectories.OrbitTarget.id;
-        bool boomerang = trajectory == SkillTrajectories.Boomerang.id;
-        bool arc = trajectory == SkillTrajectories.ArcToPosition.id;
-        bool falling = trajectory == SkillTrajectories.FallingStrike.id, rain = trajectory == SkillTrajectories.RainFall.id;
-        bool descent = falling || rain, ground = trajectory == SkillTrajectories.GroundCrawl.id, snap = trajectory == SkillTrajectories.LightningSnap.id;
-        bool wave = trajectory == SkillTrajectories.SineWave.id, zigzag = trajectory == SkillTrajectories.Zigzag.id;
-        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral && !vortex && !orbit && !boomerang && !arc && !descent && !ground && !snap) return null;
-        if (ground)
-        {
-            forward.z = 0f;
-            forward = forward.sqrMagnitude > .0001f ? forward.normalized : Vector3.right;
-        }
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (!NatureConstructionMigration.Supports(skill)) return null;
         float setupScale = ContactEffectMigration.SetupStrengthScale(skill, out float initialAngle, out float speedScale);
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
             container.Asset.ImpactProfile.Lifetime * container.Asset.ImpactTuning.LifetimeMultiplier);
         if (configured && settings.Duration > 0) lifetime = settings.Duration;
-        if (boomerang) lifetime = Mathf.Min(lifetime, 1.2f);
         float scale = emission.RuntimeData.ResolveEffectScale() * SkillEffectRadius.ResolveCasterGrowth(emission.Source.a.GetExtend(), skill);
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
-        float haste = skill.TryGetComponent(out HasteModifier h) ? Mathf.Clamp(1f + h.SpeedMultiplier, .1f, 10f) : 1f;
-        var motion = container.MotionProfile;
-        float speed = motion.ResolveSpeed(Vector2.Distance(emission.SourcePos, emission.TargetPos)) * haste * speedScale;
-        if (orbit) speed *= 1.35f;
-        float turn = motion.TurnRate * haste * (spiral ? .7f : 1f);
-        float ramp = Mathf.Max(0f, motion.RampDuration), launch = motion.LaunchMultiplier, cruise = motion.CruiseMultiplier;
-        float arcDistance = arc ? Vector3.Distance(emission.SourcePos, emission.TargetPos) : 0f;
-        if (arc)
-        {
-            if (arcDistance < .01f || arcDistance > 10000f) return null;
-            // 原术半秒超时会跳到终点；现在预先连续赶上，不在末帧瞬移。
-            speed *= arcDistance / Mathf.Max(.1f, arcDistance);
-            float travel = PlannedDistance(speed, launch, cruise, ramp, .5f);
-            if (travel <= 0f) return null;
-            speed *= Mathf.Max(1f, arcDistance / travel);
-        }
-        // 保留当前未能完整表达的超预算来源，不缩小原术来让转换通过。
-        if (scale <= 0f || scale > 64f || lifetime <= 0f || lifetime > 3600f ||
-            speed * Mathf.Max(launch, cruise) > 10000f || turn > 7200f) return null;
-        Vector3 initial = Quaternion.AngleAxis(emission.InitialAngleOffsetDegrees + initialAngle, Vector3.forward) * forward;
-        // 下落剑尖对齐实际落点；抛弧沿出生切线摆剑，避免水平长剑先扫中途人物。
-        Vector3 heading = descent ? Vector3.back : arc ? (forward + Vector3.forward * (4f * Mathf.PI / arcDistance)).normalized : initial;
-        Quaternion facing = Quaternion.LookRotation(heading,
-            Mathf.Abs(Vector3.Dot(heading, Vector3.forward)) > .999f ? Vector3.up : Vector3.forward);
-        float descentHeight = descent ? DescentHeight(sourceForm.Form, facing, scale, falling ? 7f : 8f) : 0f;
-        var goal = noRotation || wave || zigzag || vortex || rain ? null : new ConstructionFlightGoal
-        {
-            Anchor = towardsDirection || boomerang ? ConstructionFlightAnchor.Direction : ConstructionFlightAnchor.Target,
-            Follow = towardsTarget || drift || spiral || orbit || ground || snap,
-            Arrival = towardsDirection || boomerang ? ConstructionFlightArrival.None : ConstructionFlightArrival.End,
-            Radius = .01f, Approach = orbit
-        };
-        if (ground)
-        {
-            goal.DirectArrival = true;
-            goal.Arrival = continues ? ConstructionFlightArrival.Continue : ConstructionFlightArrival.End;
-        }
-        if (snap) goal.Arrival = ConstructionFlightArrival.Stop;
-        if (falling)
-        {
-            goal.Follow = true; goal.Arrival = ConstructionFlightArrival.None;
-            goal.Approach = true; goal.Offset = new[] { 0f, 0f, descentHeight };
-        }
-        int seed = unchecked((int)emission.Source.id * 397 ^ skill.Id ^ (int)emission.RuntimeData.CorrelationId ^
-                             emission.InitialAngleOffsetDegrees.GetHashCode());
-        const float orbitEnd = (2.2f - .2f) / 1.8f;
-        if (boomerang)
-        {
-            float phase = (float)(new System.Random(seed).NextDouble() * Math.PI * 4d - Math.PI * 2d);
-            if (Mathf.Abs(phase) < .1f) phase = phase < 0f ? -.1f : .1f;
-            Vector3 plane = new(initial.x, initial.y, 0f);
-            plane = plane.sqrMagnitude < .0001f ? Vector3.right : plane.normalized;
-            Vector3 desired = (initial + new Vector3(-plane.y, plane.x, 0f) * (phase * .15f)).normalized;
-            goal.Offset = XYZ(desired - forward);
-        }
-        if (orbit)
-        {
-            float phase = (float)(new System.Random(seed).NextDouble() * Math.PI * 4d - Math.PI * 2d);
-            goal.Arrival = ConstructionFlightArrival.None;
-            goal.Offset = XYZ(new Vector3(Mathf.Cos(phase), Mathf.Sin(phase), 0f) * 2.2f);
-            goal.OffsetPath = ConstructionPathCurves.ContractingSpiral(orbitEnd, .75f,
-                Vector3.up * 2.2f, Vector3.right * 2.2f, 1.8f / 2.2f, phase);
-        }
-        if (drift)
-        {
-            float bias = new System.Random(seed).Next(2) == 0 ? -.65f : .65f;
-            goal.Steering = new ConstructionFlightSteering
-            {
-                Side = bias,
-                Path = new ConstructionPath { Forward = null, Keys = new[]
-                {
-                    new ConstructionPathKey { Out = XYZ(Vector3.left * (bias / 3f)) },
-                    new ConstructionPathKey { At = .75f, Point = XYZ(Vector3.left * bias), In = XYZ(Vector3.right * (bias / 3f)) }
-                } }
-            };
-        }
-        if (ground)
-        {
-            float phase = (float)(new System.Random(seed).NextDouble() * Math.PI * 4d - Math.PI * 2d);
-            goal.Steering = new ConstructionFlightSteering
-            {
-                Side = Mathf.Sin(phase) * .2f,
-                Path = ConstructionPathCurves.Wave(1f / 2.2f, Vector3.right * .2f, phase)
-            };
-            goal.Steering.Path.Forward = null;
-        }
-        if (spiral)
-        {
-            float phase = (float)(new System.Random(seed).NextDouble() * Math.PI * 2d);
-            ConstructionPath direction = ConstructionPathCurves.Spiral(1f, .25f, Vector3.right * .7f, Vector3.up * (.7f * .04f), phase: phase);
-            direction.DistancePerSecond = 30f; direction.Forward = null;
-            goal.Steering = new ConstructionFlightSteering
-            {
-                Side = Mathf.Sin(phase) * .7f, Lift = Mathf.Cos(phase) * (.7f * .04f), Decay = .75f, Path = direction
-            };
-        }
-        // 相位只在资料准备阶段确定并展开，运行和预测不重新取随机数。
-        ConstructionPath path = wave ? ConstructionPathCurves.Wave(1f / 3.2f, Vector3.right * .65f,
-            (float)(new System.Random(seed).NextDouble() * Math.PI * 4d - Math.PI * 2d)) :
-            zigzag ? ConstructionPathCurves.Zigzag(.24f, Vector3.right * .75f, -Mathf.PI * .5f) : null;
-        if (vortex)
-            path = ConstructionPathCurves.PulsingSpiral(360f / 520f, .5f, Vector3.forward * (.9f * .25f),
-                Vector3.right * .9f, .25f / .9f, (float)(new System.Random(seed).NextDouble() * Math.PI * 2d));
-        if (path != null) path.DistancePerSecond = vortex ? 28f : wave ? 30f : 34f;
-        if (arc)
-        {
-            path = ConstructionPathCurves.WaveSpan(1f, 2f, Quaternion.Inverse(facing) * (Vector3.forward * 4f));
-            path.DistancePerSecond = arcDistance;
-        }
-        Vector3 spawnOffset = Vector3.zero;
-        if (descent)
-        {
-            path = DescentPath(lifetime, speed, launch, cruise, ramp, falling ? 28f : 32f, facing);
-            if (path == null) return null;
-            if (rain)
-            {
-                var random = new System.Random(seed);
-                double angle = random.NextDouble() * Math.PI * 2d;
-                float radius = Mathf.Sqrt((float)random.NextDouble()) * 1.4f;
-                spawnOffset = new Vector3(Mathf.Cos((float)angle), Mathf.Sin((float)angle), 0f) * radius;
-            }
-        }
-        var operations = new List<ConstructionOperation>
-        {
-            new()
-            {
-                Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = XYZ(descent ? Vector3.right * (falling ? 7f : 0f) : (arc ? forward : initial) * speed * (ramp > .001f ? launch : cruise)),
-                TurnRate = noRotation || path != null || snap ? 0f : turn, Transfer = snap ? new ConstructionFlightTransfer { Seed = seed } : null, InheritVelocity = false, Goal = goal, Path = path,
-                Ground = descent ? ConstructionGroundResponse.End : ground ? ConstructionGroundResponse.Follow : ConstructionGroundResponse.Ignore
-            }
-        };
-        // 地面推进的自身动作与投送分开，改成其他轨迹仍保留主体及其真实接触变形。
-        if (sourceForm.Form is "earth_ridge" or "tidal_wave" or "creeping_vine")
-            operations.Add(new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "travel", Seconds = lifetime });
-        // 起步曲线使用八个确定时点，调整速度不重新开始飞行，也不重置目标和接触记录。
-        if (!descent && ramp > .001f)
-            for (int i = 1; i <= 8; i++)
-            {
-                float at = ramp * i / 8f;
-                if (at >= lifetime) break;
-                float remaining = 1f - i / 8f;
-                operations.Add(new ConstructionOperation { Kind = ConstructionOperationKind.ChangeSpeed, At = at,
-                    Speed = speed * (cruise + (launch - cruise) * remaining * remaining) });
-            }
-        ConstructionOperation finishOrbit = null;
-        if (orbit && orbitEnd < lifetime)
-        {
-            // 在原有0.2格阈值换向目标；仍是同一部位、同一身份和命中记录，不重新支付。
-            float remaining = ramp > .001f ? 1f - Mathf.Min(8f, Mathf.Floor(orbitEnd / ramp * 8f)) / 8f : 0f;
-            finishOrbit = new ConstructionOperation
-            {
-                Kind = ConstructionOperationKind.Fly, At = orbitEnd, WorldVelocity = true,
-                Vector = XYZ(initial * (speed * (cruise + (launch - cruise) * remaining * remaining))),
-                InheritVelocity = false, TurnRate = turn,
-                Goal = new ConstructionFlightGoal { Approach = true, Follow = true, Radius = .01f, Arrival = ConstructionFlightArrival.End }
-            };
-        }
-        ConstructionOperation returnSource = boomerang ? new ConstructionOperation
-        {
-            Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = new float[3], InheritVelocity = true, TurnRate = 520f,
-            When = new ConstructionCondition { Source = "root", Trigger = ConstructionChangeTrigger.DistanceFromFlightStart, Threshold = 5f },
-            Goal = new ConstructionFlightGoal { Anchor = ConstructionFlightAnchor.Source, Follow = true,
-                Arrival = ConstructionFlightArrival.End, Radius = .01f, DirectArrival = true }
-        } : null;
+        if (scale <= 0f || scale > 64f || lifetime <= 0f || lifetime > 3600f) return null;
+        AbilityDefinition definition = Motion(emission, sourceForm.Form, scale, continues, lifetime, initialAngle, speedScale, out forward);
+        if (definition == null) return null;
+        lifetime = definition.Lifetime;
         float strength = setupScale * emission.Strength * emission.RuntimeData.ResolveEffectScale();
         if (configured) strength *= settings.PowerMultiplier;
         if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
@@ -313,30 +132,13 @@ internal static class ProjectileConstructionMigration
         damage = new GetHitEvent { Damage = strength, Element = NatureConstructionMigration.Element(skill, emission.RuntimeData), AttackType = AttackType.Other,
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin };
         damage.BindAttacker(emission.Source);
-        var definition = new AbilityDefinition
-        {
-            Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(), Seed = seed,
-            Lifetime = lifetime, Resource = "none", Cost = 0f, Cooldown = 0, Power = 1, TargetRange = 10000,
-            Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat | ActiveAbilityChannel.World,
-                Target = towardsTarget || drift || spiral || orbit || falling || ground || snap ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },
-            Binding = new ConstructionBinding { Anchor = descent ? AbilityAnchor.Target : AbilityAnchor.Source, Height = descentHeight },
-            Steps = finishOrbit == null && returnSource == null ? Array.Empty<ConstructionStep>() : new[]
-            {
-                new ConstructionStep { Id = boomerang ? "return_source" : "approach_target", Inputs = new Dictionary<string, ConstructionOutputReference>
-                    { ["part"] = new() { Node = "root" } }, Operation = returnSource ?? finishOrbit }
-            },
-            Root = new ConstructionNode
-            {
-                Id = container.Asset == SkillEntities.FlyingSword ? "sword" : "projectile", Form = sourceForm.Form, Matter = sourceForm.Matter, State = sourceForm.State,
-                Scale = scale, Rotation = XYZ(facing.eulerAngles), Offset = XYZ(spawnOffset),
-                OnContact = continues ? ConstructionContactResponse.Continue : ConstructionContactResponse.End,
-                Contact = once ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 } : null,
-                Impact = blast ? new ConstructionImpact { DamageScale = 0f } :
-                    continues && (!configured || settings.ContactEnabled) ? new ConstructionImpact { DamageScale = damageMultiplier } : null,
-                ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
-                Operations = operations.ToArray()
-            }
-        };
+        definition.Root.Matter = sourceForm.Matter;
+        definition.Root.State = sourceForm.State;
+        definition.Root.OnContact = continues ? ConstructionContactResponse.Continue : ConstructionContactResponse.End;
+        definition.Root.Contact = once ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 } : null;
+        definition.Root.Impact = blast ? new ConstructionImpact { DamageScale = 0f } :
+            continues && (!configured || settings.ContactEnabled) ? new ConstructionImpact { DamageScale = damageMultiplier } : null;
+        definition.Root.ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack;
         if (blast)
         {
             bool contact = !configured || settings.ContactEnabled;

@@ -66,7 +66,7 @@ internal static class SupportConstructionMigration
         bool blessing = asset == SkillEntities.BattleBlessing || asset == SkillEntities.GuardBlessing || asset == SkillEntities.HasteBlessing;
         bool targeted = healing || blessing;
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
-        if (trajectory != (targeted ? SkillTrajectories.TowardsTarget.id : rejuvenation ? SkillTrajectories.FieldAtTarget.id : SkillTrajectories.AppearAtTarget.id) ||
+        if (!targeted && trajectory != (rejuvenation ? SkillTrajectories.FieldAtTarget.id : SkillTrajectories.AppearAtTarget.id) ||
             targeted && emission.Target?.isActor() != true) return null;
         (Type required, SkillModifierAsset modifierAsset, string form) = healing ? (typeof(HealingModifier), SkillModifiers.Healing, "healing_seed") :
             rejuvenation ? (typeof(RejuvenationModifier), SkillModifiers.Rejuvenation, "rejuvenation_bloom") :
@@ -105,7 +105,7 @@ internal static class SupportConstructionMigration
         // 整体展开使用普通生长步骤，网格和接触端点共享尺寸，不向骨架动作写入未支持的缩放。
         if (!targeted && !rejuvenation)
             operations.Add(new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = lifetime });
-        if (targeted)
+        if (targeted && trajectory == SkillTrajectories.TowardsTarget.id)
         {
             var motion = container.MotionProfile;
             float haste = skill.TryGetComponent(out HasteModifier h) ? Mathf.Clamp(1f + h.SpeedMultiplier, .1f, 10f) : 1f;
@@ -130,7 +130,7 @@ internal static class SupportConstructionMigration
                         Speed = speed * (motion.CruiseMultiplier + (motion.LaunchMultiplier - motion.CruiseMultiplier) * remaining * remaining) });
                 }
         }
-        return NatureConstructionMigration.Bind(MediumContactMigration.Bind(new AbilityDefinition
+        var definition = new AbilityDefinition
         {
             Id = asset.id, Name = skill.HasName ? skill.Name.value : asset.id.Localize(), Lifetime = lifetime,
             ConcurrentLimit = asset.ImpactProfile.PersistentLimit, Resource = "none", Cost = 0f, Cooldown = 0f, Power = 1f, TargetRange = 10000f,
@@ -148,7 +148,14 @@ internal static class SupportConstructionMigration
                 Contact = rejuvenation ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Pulse, Interval = 1f } : null,
                 OnContact = targeted ? ConstructionContactResponse.End : ConstructionContactResponse.Continue, Operations = operations.ToArray()
             }
-        }, skill, runtimeData: emission.RuntimeData), skill, emission.RuntimeData);
+        };
+        if (targeted && trajectory != SkillTrajectories.TowardsTarget.id)
+        {
+            AbilityDefinition motion = ProjectileConstructionMigration.Motion(emission, form, scale, false, lifetime, 0f, 1f, out _);
+            if (motion == null) return null;
+            ProjectileConstructionMigration.BindMotion(definition, motion);
+        }
+        return NatureConstructionMigration.Bind(MediumContactMigration.Bind(definition, skill, runtimeData: emission.RuntimeData), skill, emission.RuntimeData);
     }
 
     /// <summary>将原祝福词条展开为普通属性状态，时长不乘效果或伤害倍率。</summary>

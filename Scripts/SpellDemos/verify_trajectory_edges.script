@@ -1,0 +1,101 @@
+// C16：辅助路径、水平涡旋与原地灵藤，复用同一来源和现成世界。
+Actor source=Make(64),enemy=Make(70,"wolf"),friend=Make(70),along=Make(67);
+var owner=source.GetExtend();owner.NewCultisys(Cultisyses.Magic);owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=0;
+source.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("white_staff"),pActor:source),source);
+owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();await Advance(.2f);
+File.WriteAllText(Path.Combine(folder,"people.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,source=source.id,enemy=enemy.id,friend=friend.id,along=along.id}));
+IReadOnlyList<Entity> Learned()=>(IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(owner,null);
+Entity Build(SkillEntityAsset asset,TrajectoryAsset trajectory)
+{
+    var builder=new SkillContainerBuilder(asset).UseAnimation(0); builder.AddModifier(new Trajectory{ID=trajectory.id});
+    if(asset==SkillEntities.HealingLight)builder.AddModifier(new HealingModifier{Amount=35});
+    Entity skill=builder.Build(SkillContainerBuildMode.RuleOnly);string signature=SkillContainerSignature.Build(skill);owner.LearnSkillV3(skill);return Learned().First(s=>SkillContainerSignature.Build(s)==signature);
+}
+var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var active=new List<(long Id,string Ability,AbilityCast Cast)>();var emitted=new List<object>();int old=0;
+var payments=new List<(Entity Skill,SkillCastPayment Payment)>();
+SkillEntityAsset current=SkillEntities.HealingLight;
+void Started(ConstructedCastStarted fact)
+{
+    if(fact.SourceId!=source.id)return;
+    foreach(object running in (IEnumerable)service.GetField("casts",F).GetValue(null))if((long)Field(running,"Id")==fact.CastId)active.Add((fact.CastId,fact.AbilityId,(AbilityCast)Field(running,"Cast")));
+}
+void Old(Entity execution){if(execution.GetComponent<SkillEntity>().Asset==current)old++;}
+ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+var views=new List<FormVisualInstance>();Matrix4x4 Pose(AbilityCast c){views.Clear();c.AppendVisuals(views);return views[0].Transform;}
+void Reset(Actor target)
+{
+    Ready(source);Place(source,64);Place(enemy,70);Place(friend,70);Place(along,67);
+    source.setMana(source.getMaxMana());owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
+    foreach(var a in new[]{source,enemy,friend,along})ConstructedAbilityService.NotifyActorChanged(a);
+}
+async Task Shot(string name)
+{
+    World.world.console.Hide();World.world.camera.transform.position=new Vector3(67,72,0);MoveCamera.instance.forceZoom(12);Tooltip.hideTooltipNow();
+    foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);
+    for(int frame=0;frame<3;frame++)await Game.NextFrame();Screen.Capture(Path.Combine(folder,name+".png"));
+}
+bool Use(Entity skill,Actor target)
+{
+    bool used=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",skill),new ActiveAbilityTarget(target,target.GetSimPos(),selectionArea:new SkillTargetSelectionArea(true,target.GetSimPos(),.1f)),ActiveAbilityUseOrigin.Script);
+    source.attack_timer=999;return used;
+}
+void Paid(Entity skill,SkillCastResourceAsset resource,int before)
+{
+    var rows=payments.Skip(before).Where(p=>p.Skill==skill).ToArray();
+    double cost=resource.Quote(owner,SkillCastCost.CalculateStepDemand(skill)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
+    Check(rows.Length==1 && rows[0].Payment.IsCommitted && rows[0].Payment.Entries.Count==1 &&
+        rows[0].Payment.Entries.All(e=>e.Resource==resource && Math.Abs(e.Cost-cost)<.001 && Math.Abs(e.Spent-cost)<.001),
+        "本次发射只提交一次原通道的真实扣费",new{asset=skill.GetComponent<SkillContainer>().SkillEntityAssetID,cost,
+            payments=rows.Select(p=>new{p.Payment.IsCommitted,entries=p.Payment.Entries.Select(e=>new{resource=e.Resource.id,e.Cost,e.Spent}).ToArray()}).ToArray()});
+}
+try
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        var result=original(request);
+        if(request.Source==source)
+        {
+            var payment=(SkillCastPayment)Field(request,"Payment");
+            emitted.Add(new{id=request.SkillContainer.GetComponent<SkillContainer>().SkillEntityAssetID,result=result.ToString(),request.Strength,
+                entries=payment?.Entries.Select(e=>new{resource=e.Resource.id,e.Cost,e.Spent}).ToArray()});
+            if(result==SkillEmissionResult.Accepted)payments.Add((request.SkillContainer,payment));
+        }
+        return result;
+    };
+    var healing=Build(SkillEntities.HealingLight,SkillTrajectories.TowardsPosition);Reset(friend);friend.data.health-=100;along.data.health-=100;
+    int friendHp=friend.data.health,alongHp=along.data.health;float mana=source.data.mana;
+    Check(Use(healing,friend),"非默认辅助路径经原已学入口受理");await Advance(.15f);var seed=active.Last();var start=Pose(seed.Cast);
+    Check(seed.Ability==SkillEntities.HealingLight.id && start.m03>64 && start.m03<70 && old==0,"辅助主体实际沿固定目标路径前进，没有旧执行体",new{position=new[]{start.m03,start.m13,start.m23}});
+    await Shot("support-path");
+    await Advance(seed.Cast.Plan.Lifetime+.25f);
+    Check(friend.data.health>friendHp && along.data.health==alongHp,"实际恢复仅指定友军，沿途友军不误恢复",new{friendHp,after=friend.data.health,alongHp,alongAfter=along.data.health});
+    Paid(healing,SkillCastResources.Mana,0);
+    Check(seed.Cast.Finished && endings.Any(e=>e.Fact.CastId==seed.Id && !e.Fact.Cancelled),"辅助改轨后按真实寿命结束");
+    Reset(friend);mana=source.data.mana;int starts=active.Count;
+    Check(!Use(healing,enemy) && source.data.mana==mana && active.Count==starts,"友方辅助仍拒绝敌方目标且不收费");
+    Reset(friend);friend.data.health-=50;friendHp=friend.data.health;int paid=payments.Count;Check(Use(healing,friend),"拒绝后同一辅助来源可再次施放");
+    await Advance(.1f);var repeated=active.Last();await Advance(repeated.Cast.Plan.Lifetime+.25f);
+    Paid(healing,SkillCastResources.Mana,paid);
+    Check(friend.data.health>friendHp && repeated.Cast.Finished && endings.Any(e=>e.Fact.CastId==repeated.Id && !e.Fact.Cancelled),"再次施放恢复原辅助作用并自然结束");
+    current=SkillEntities.PoisonMist;var vortex=Build(current,SkillTrajectories.SlowVortex);Reset(enemy);Place(friend,70,77);Place(along,67,77);source.addAggro(enemy);enemy.addAggro(source);
+    int hp=enemy.data.health;paid=payments.Count;Check(Use(vortex,enemy),"原移动领域可正式选择慢涡旋");await Advance(.1f);var field=active.Last();var first=Pose(field.Cast);await Advance(.2f);var moved=Pose(field.Cast);
+    Check(field.Ability==current.id && Vector2.Distance(new Vector2(first.m03,first.m13),new Vector2(moved.m03,moved.m13))>.1f && Math.Abs(moved.m23-first.m23)<.02f,"领域保持原主体姿态，在实际水平面涡旋前进",new{before=new[]{first.m03,first.m13,first.m23},after=new[]{moved.m03,moved.m13,moved.m23}});
+    await Shot("field-vortex");
+    await Advance(field.Cast.Plan.Lifetime+.25f);Paid(vortex,SkillCastResources.Wakan,paid);
+    Check(contacts.Any(c=>c.AbilityId==current.id && c.TargetId==enemy.id) && enemy.data.health<hp && old==0,"涡旋领域真实间隔接触、原伤害保持",new{hp,after=enemy.data.health,hits=contacts.Where(c=>c.CastId==field.Id).Select(c=>new{c.TargetId,c.Age}).ToArray()});
+    Check(field.Cast.Finished && endings.Any(e=>e.Fact.CastId==field.Id && !e.Fact.Cancelled),"涡旋领域自然结束");
+    current=SkillEntities.SpiritVine;var vine=Build(current,SkillTrajectories.GroundEruptAtTarget);Reset(enemy);Place(friend,70,77);Place(along,67,77);hp=enemy.data.health;paid=payments.Count;
+    Check(Use(vine,enemy),"灵藤原地显现经原已学入口受理");await Advance(.1f);var growth=active.Last();var site=Pose(growth.Cast);
+    Check(Math.Abs(site.m03-enemy.current_position.x)<.05f && Math.Abs(site.m13-enemy.current_position.y)<.05f && old==0,"原主体在真实目标地面显现，未变成途中飞行",new{position=new[]{site.m03,site.m13,site.m23}});
+    await Shot("vine-manifest");
+    await Advance(growth.Cast.Plan.Lifetime+.25f);Paid(vine,SkillCastResources.Wakan,paid);
+    Check(enemy.data.health<hp && contacts.Any(c=>c.AbilityId==current.id && c.TargetId==enemy.id) && growth.Cast.Finished && !BodyControlState.IsBusy(source.id),"灵藤保持真实接触与结束恢复",new{hp,after=enemy.data.health});
+    return new{passed=true,closed="新增基础来源轨迹的实际辅助、领域与显现",checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emitted,Formatting.Indented));
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;ConstructedAbilityService.CastStarted-=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;Config.paused=true;ControllableUnit.clear(false);
+}

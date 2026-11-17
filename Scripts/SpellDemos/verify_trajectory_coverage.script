@@ -1,0 +1,64 @@
+// C16：资料覆盖导出，实际来源只建容器、不发射，不重跑伤害和身体矩阵。
+Actor source=Make(64),target=Make(70,"wolf"); var owner=source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level=0;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var entries=new List<object>(); var missing=new List<object>(); var defaults=new List<object>(); var inventory=new List<object>();
+var trajectories=typeof(SkillTrajectories).GetProperties(F).Where(p=>p.PropertyType==typeof(TrajectoryAsset)).Select(p=>(Name:p.Name,Asset:(TrajectoryAsset)p.GetValue(null))).ToArray();
+var assets=typeof(SkillEntities).GetProperties(F).Where(p=>p.PropertyType==typeof(SkillEntityAsset)).Select(p=>(Name:p.Name,Asset:(SkillEntityAsset)p.GetValue(null))).ToArray();
+var builderExporter=new SkillBlueprintExporter(); var compiler=new SkillBlueprintCompiler();
+var fields=new HashSet<string>{"PoisonPool","PoisonMist","EntropyField","Tornado","YinField"};
+var barriers=new HashSet<string>{"EarthWall","FireWall","FlameShield","SpiritShield","IceWall","LightningShield","SwordCurtain","WaterCurtain","WindWall","WindShield","WoodWall","YangShield"};
+var support=new HashSet<string>{"HealingLight","RejuvenationField","PurificationWave","BattleBlessing","GuardBlessing","HasteBlessing"};
+var utility=new HashSet<string>{"RaiseTerrain","LowerTerrain","FillWater","DrainWater","NatureGrowthField","CleanLandField","SummonRainCloud","Fertilize"};
+AbilityDefinition Convert(string name,Entity skill,out string implementation)
+{
+    implementation=barriers.Contains(name)?"Barrier":fields.Contains(name)?"Field":support.Contains(name)?"Support":utility.Contains(name)?"Utility":name=="GroundSpike"?"GroundSpike":name=="Rift"?"Rift":name is "SpiritBeam" or "SolarBeam"?"Beam":name=="ChainLightning"?"Chain":"Projectile";
+    var method=service.Assembly.GetType("Cultiway.Content.Skills."+implementation+"ConstructionMigration").GetMethod("Convert",F);
+    var request=new SkillEmission{Source=source,SpatialSource=source,SkillContainer=skill,Target=target,SourcePos=new Vector3(64,72,.3f),TargetPos=new Vector3(70,72,.3f),Strength=40,PowerLevel=1.25f};
+    object[] args=method.GetParameters().Length==3?new object[]{request,default(GetHitEvent),Vector3.zero}:method.GetParameters().Length==2?new object[]{request,default(GetHitEvent)}:new object[]{request};
+    return (AbilityDefinition)method.Invoke(null,args);
+}
+void Audit(string name,Entity skill,string trajectory,bool isDefault)
+{
+    string implementation="",reason=null; AbilityDefinition definition=null;
+    try
+    {
+        definition=Convert(name,skill,out implementation);
+        if(definition==null) reason="未接管";
+        else { var read=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition)); AbilityCompiler.Compile(read,false); }
+    }
+    catch(TargetInvocationException error){reason=error.InnerException?.Message??error.Message;}
+    catch(InvalidDataException error){reason=error.Message;}
+    var row=new{asset=name,trajectory,isDefault,implementation,converted=definition!=null,valid=reason==null,reason};
+    entries.Add(row); if(isDefault) defaults.Add(row); if(reason!=null) missing.Add(row);
+}
+try
+{
+    foreach(var item in assets)
+    {
+        Entity normal=new SkillContainerBuilder(item.Asset).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+        try
+        {
+            string initial=SkillBlueprintTrajectory.ResolveEffectiveId(normal); Audit(item.Name,normal,initial,true);
+            var blueprint=builderExporter.Export(normal).Blueprint;
+            if(blueprint==null) throw new InvalidOperationException("正常容器不能导出："+item.Name);
+            foreach(var entry in trajectories)
+            {
+                if(entry.Asset.id==initial || !SkillTrajectoryCompatibility.IsCompatible(item.Asset,entry.Asset) || !entry.Asset.EditorSelectable && !entry.Asset.EditorPersistWhenHidden) continue;
+                var candidate=blueprint.DeepClone(); candidate.TrajectoryAssetId=entry.Asset.id;
+                var made=compiler.Compile(candidate,SkillBlueprintCompileMode.Preview);
+                if(!made.Success) continue;
+                try{Audit(item.Name,made.Container,entry.Asset.id,false);}finally{made.Container.DeleteEntity();}
+            }
+        }
+        finally{normal.DeleteEntity();}
+        await Game.NextFrame();
+    }
+    foreach(var trajectory in trajectories)
+    {
+        var used=assets.Where(a=>a.Asset.PrefabEntity.TryGetComponent(out Trajectory value) && value.ID==trajectory.Asset.id).Select(a=>a.Name).ToArray();
+        inventory.Add(new{trajectory.Name,trajectory.Asset.id,trajectory.Asset.EditorSelectable,trajectory.Asset.EditorPersistWhenHidden,domains=trajectory.Asset.Domains.ToString(),defaultSources=used});
+    }
+    File.WriteAllText(Path.Combine(folder,"coverage.json"),JsonConvert.SerializeObject(new{inventory,defaults,entries,missing},Formatting.Indented));
+    return new{passed=missing.Count==0,closed=missing.Count==0?"基础来源和轨迹资料覆盖":"已导出真实覆盖缺口",missing,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally{ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;Config.paused=true;ControllableUnit.clear(false);}

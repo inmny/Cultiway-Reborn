@@ -1643,3 +1643,10 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 `python3 Scripts/SpellDemos/verify_placement_starts.py --section ui|behavior|save|all`。`ui`通过真实随身命令保留同名就绪步骤，编辑和撤销事件延迟，覆盖再打开并保存中英窗口；`behavior`复用一剑形主体，核对四种放置的共同转换、前序与事件延迟、早事件晚执行、未触发等待、预测回退、原部位命名输出、无法等价完成及行程条件的明确失败、新规则22自主派生、实际付费接触和结束恢复；`save`验证世界构造区段12、人物请求区段23、新旧等待请求各完成一次、完整旧结果及费用保持，以及当前成品使用和再次正式存读。
 
 原术样例为`fixtures/placement-starts.json`，旧请求`fixtures/placement-starts-rule21.json`直接来自C13真实等待世界与当时预期。索引`artifacts/skill_rebuild/trajectories/placement-starts/delivery.json`记录同一进程三段分别通过，未运行一次完整all，没有实机段失败。正式冷启动和连续录像仍集中于C交付点，不重跑身体装备矩阵。新增就绪操作复用共同数值推进，不新增特效资源或游戏设置。
+
+
+### 5.05 C16　基础来源的轨迹覆盖
+
+`python3 Scripts/SpellDemos/verify_trajectory_coverage.py`读取真实轨迹登记、基础来源默认以及当前编辑器允许且能编译的改轨，逐份转换、保存读回及共同编译。它只建立临时容器，不逐份发射。清单为`artifacts/skill_rebuild/trajectories/trajectory-coverage/coverage.json`，休眠近身登记明确单列。修炼专属、法宝和器官完整来源迁移归第10包。
+
+`python3 Scripts/SpellDemos/verify_trajectory_edges.py`只检查新增辅助路径、水平涡旋领域和灵藤显现的实际已学入口、原支付、作用及结束恢复。`--section continuation`只用于同进程原人物的费用观察及未完成后段，不重建世界。`--section vine`只验证灵藤分支。交付索引`trajectory-coverage/delivery.json`保留原失败及分别通过的结果，没有一次完整all通过的声明。截图用于功能观察，最终质感归9.02，正式冷启动和集中录像随后集中完成。

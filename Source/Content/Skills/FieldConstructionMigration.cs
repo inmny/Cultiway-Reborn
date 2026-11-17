@@ -56,9 +56,10 @@ internal static class FieldConstructionMigration
         var container = skill.GetComponent<SkillContainer>();
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
         bool advance = trajectory == SkillTrajectories.FieldAdvance.id;
+        bool vortex = trajectory == SkillTrajectories.SlowVortex.id;
         bool follow = trajectory == SkillTrajectories.FieldFollowTarget.id && emission.Target?.isActor() == true;
         if (trajectory != SkillTrajectories.FieldAtTarget.id && trajectory != SkillTrajectories.FieldAdvance.id &&
-            trajectory != SkillTrajectories.FieldFollowTarget.id) return null;
+            trajectory != SkillTrajectories.FieldFollowTarget.id && !vortex) return null;
         var callbacks = new List<Delegate>();
         foreach (Type type in skill.GetComponentTypes())
         {
@@ -127,7 +128,7 @@ internal static class FieldConstructionMigration
         }
         bool entropy = container.Asset == SkillEntities.EntropyField;
         bool wind = container.Asset == SkillEntities.Tornado, yin = container.Asset == SkillEntities.YinField;
-        return ContactEffectMigration.Bind(new AbilityDefinition
+        var definition = new AbilityDefinition
         {
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(),
             Lifetime = lifetime, ConcurrentLimit = container.Asset.ImpactProfile.PersistentLimit,
@@ -147,7 +148,14 @@ internal static class FieldConstructionMigration
                 ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
                 Operations = operations.ToArray()
             }
-        }, skill, emission.RuntimeData.ResolveEffectScale(), caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
+        };
+        if (vortex)
+        {
+            AbilityDefinition motion = ProjectileConstructionMigration.Motion(emission, definition.Root.Form, scale, true, lifetime, initialAngle, speedScale, out _);
+            if (motion == null) return null;
+            ProjectileConstructionMigration.BindMotion(definition, motion);
+        }
+        return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
     }
 
     /// <summary>只接管五种没有额外人物状态的原领域，不按名字臆造毒状态或解构作用。</summary>
