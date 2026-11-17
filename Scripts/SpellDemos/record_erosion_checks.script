@@ -1,0 +1,11 @@
+Check(paid && finished && !cancelled && casts.Count == accepted && casts.All(cast => cast.Finished) && !BodyControlState.IsBusy(source.id),
+    "正常支付、真实过程及全部施放自然结束", new { paid, accepted, finished });
+if (scenario == "material")
+{
+    var rows = WorldRows();
+    Check(materialFacts.Any(fact => fact.Kind == "leave") && materialFacts.Any(fact => fact.Kind == "erode") &&
+        rows.Length > 0 && rows.All(row => row.Material.Erosion?.Active != true) && rows.Sum(row => row.Material.Weathering?.LostVolume ?? 0) > 0,
+        "原主体损耗、独立侵蚀、跨施放选择和实际剩余材料均被连续记录", rows);
+}
+else Check(ages.Count == 5 && target.getAge() > 1 && armor.isBroken() && wear.Count >= 4 && inventory.Count == 2 && inventory.Last().Expired && wood.IsNull,
+    "连续真实接触推进原年龄、腐蚀至破损、库存先部分推进再到期退出", new { ages, wear, inventory });

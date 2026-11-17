@@ -1,0 +1,39 @@
+var variants = JsonConvert.DeserializeObject<Dictionary<string, AbilityDefinition>>(File.ReadAllText(Path.Combine(folder, "input-definition.json")));
+var original = variants[scenario == "material" ? "主体侵蚀" : "生灵老化"];
+var definition = ConstructionEditing.Copy(original);
+definition.Id = "test.erosion-film." + scenario;
+definition.Name = scenario == "material" ? "木质主体与独立侵蚀" : "生灵与原物件催朽";
+var worldOriginal = variants["世界侵蚀"];
+var request = worldOriginal.Root.Operations.First(operation => operation.Kind == ConstructionOperationKind.Erode && operation.WorldMatter != null);
+var worldErosion = new AbilityDefinition
+{
+    Id = "test.erosion-film.world", Name = "范围侵蚀余量", Resource = definition.Resource, Cost = worldOriginal.Cost,
+    Lifetime = 2f, Cooldown = .2f, TargetRange = 30,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = .05f },
+    Impact = new ConstructionImpact { DamageScale = 0, SelectedTargetOnly = true },
+    Root = new ConstructionNode { Id = "selector", Form = "sword", Matter = "spirit", Volume = 1,
+        Scale = 1, Rotation = new[] { 0f, 90f, 0f }, Tint = new[] { .32f, .28f, .18f },
+        ContactRole = ConstructionContactRole.Decoration, Operations = new[] { JsonConvert.DeserializeObject<ConstructionOperation>(JsonConvert.SerializeObject(request)) } }
+};
+worldErosion.Root.Operations[0].Id = "range_erosion"; worldErosion.Root.Operations[0].At = 0;
+worldErosion.Root.Operations[0].Seconds = 1.4f; worldErosion.Root.Operations[0].Erosion.Fraction = .75f;
+worldErosion.Root.Operations[0].WorldMatter = new ConstructionWorldMatter { FromMatter = "wood", FromState = "solid", MaximumVolume = 16, OwnedOnly = true };
+worldErosion = ConstructionPricing.Reprice(worldOriginal, worldErosion, contactRules: 28);
+if (scenario == "material")
+{
+    definition.Lifetime = 4.4f; definition.Root.Form = "root_network"; definition.Root.Rotation = new float[3]; definition.Root.Scale = .65f;
+    definition.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = .02f };
+    var self = definition.Root.Operations.Single(operation => operation.Kind == ConstructionOperationKind.Erode);
+    self.Seconds = 1.4f; self.Erosion.Fraction = .5f;
+    var leave = definition.Root.Operations.Single(operation => operation.Kind == ConstructionOperationKind.Leave);
+    leave.At = 2.4f; leave.Residue.ErosionSeconds = 3; leave.Residue.Erosion.Fraction = .5f;
+    definition.Steps.Single().Operation.Seconds = .6f; definition.Steps.Single().Operation.Erosion.Fraction = .25f;
+    definition.Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point };
+}
+else
+{
+    definition.Binding.Height = .15f; definition.Root.Form = "fireball";
+    definition.Root.Impact.EquipmentErosion.Fraction = 1f;
+}
+definition = ConstructionPricing.Reprice(original, definition, contactRules: 28);

@@ -1,0 +1,16 @@
+if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetType("FirstPerson.WorldBoxMod", false) != null))
+    foreach (Actor other in World.world.units.getSimpleList().Where(actor => actor != source && actor != target).ToArray()) Place(other, 112, 112);
+Place(source, 64); Place(target, scenario == "material" ? 65 : 66, scenario == "material" ? 74 : 72);
+Item armor = null; Entity wood = default;
+bool oldAgeLaw = WorldLawLibrary.world_law_old_age.isEnabled();
+WorldLawLibrary.world_law_old_age.toggle(false);
+if (scenario == "aging")
+{
+    target.data.age_overgrowth = 1 - Date.getYearsSince(target.data.created_time);
+    target.setStatsDirty(); target.updateStats(); target.finishScale(); target.checkAnimationContainer();
+    ConstructedAbilityService.NotifyActorChanged(target);
+    armor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: target);
+    target.equipment.setItem(armor, target); target.setStatsDirty(); target.updateStats();
+    wood = SpecialItemUtils.StartBuild(ItemShapes.Wood, World.world.getCurWorldTime(), "原库存来源", 30f / TimeScales.SecPerYear, "human").Build();
+    target.GetExtend().AddSpecialItem(wood);
+}

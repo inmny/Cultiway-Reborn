@@ -1,0 +1,24 @@
+else if (scenario == "material")
+{
+    await Advance(3.2f);
+    Check(materialFacts.Any(fact => fact.Kind == "leave") && WorldRows().Any(row => row.Material.Erosion?.Active == true), "原施放结束后余量实际独立侵蚀");
+    CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.attack_timer = 0;
+    float secondBalance = owner.GetCultisys<Xian>().wakan;
+    await Fire(worldErosion, source, target, aim: new Vector3(64.5f, 72.5f, 0), aggro: false);
+    Check(Math.Abs(secondBalance - owner.GetCultisys<Xian>().wakan - worldErosion.Cost) < .001f, "另一正常施放实际支付并选择原世界材料");
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(3f);
+}
+else
+{
+    for (int shot = 1; shot < 5; shot++)
+    {
+        await Advance(1.4f);
+        CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.attack_timer = 0;
+        float nextBalance = owner.GetCultisys<Xian>().wakan;
+        await Fire(definition, source, target);
+        Check(Math.Abs(nextBalance - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f, "再次实际支付 " + shot);
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+    }
+    await Advance(1.6f);
+}

@@ -1,0 +1,93 @@
+var ages = new List<ConstructedAging>();
+var wear = new List<ConstructedEquipmentErosion>();
+var inventory = new List<ConstructedInventoryAging>();
+var materialFacts = new List<WorldMaterialChange>();
+var casts = new List<AbilityCast>();
+int accepted = 0;
+
+/// <summary>记录同一来源的实际受理并保留原施放。</summary>
+/// <param name="fact">正式受理结果。</param>
+void Track(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    accepted++;
+    foreach (object value in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(value, "Id") == fact.CastId)
+            casts.Add((AbilityCast)Field(value, "Cast"));
+}
+
+/// <summary>保留原人物的实际年龄变化。</summary>
+/// <param name="fact">真实接触产生的结果。</param>
+void Aged(ConstructedAging fact)
+{
+    if (fact.SourceId == source.id)
+    {
+        ages.Add(fact);
+        events.Add(new { kind = "aging", fact.WorldTime, fact.Before, fact.After, fact.TargetId });
+    }
+}
+
+/// <summary>保留原装备的实际耐久与破损。</summary>
+/// <param name="fact">真实腐蚀结果。</param>
+void Worn(ConstructedEquipmentErosion fact)
+{
+    if (fact.SourceId == source.id)
+    {
+        wear.Add(fact);
+        events.Add(new { kind = "equipment", fact.WorldTime, fact.ItemId, fact.Before, fact.After, fact.Broken });
+    }
+}
+
+/// <summary>保留有限库存物件的实际寿命变化。</summary>
+/// <param name="fact">部分推进或到期结果。</param>
+void InventoryAged(ConstructedInventoryAging fact)
+{
+    if (fact.SourceId == source.id)
+    {
+        inventory.Add(fact);
+        events.Add(new { kind = "inventory", fact.WorldTime, fact.ItemId, fact.Before, fact.After, fact.Lifetime, fact.Expired });
+    }
+}
+
+/// <summary>保留这一来源交出的真实世界材料事件。</summary>
+/// <param name="fact">世界材料变化。</param>
+void Material(WorldMaterialChange fact)
+{
+    if (fact.Provider == source.id)
+    {
+        materialFacts.Add(fact);
+        events.Add(new { kind = fact.Kind, time = World.world.getCurWorldTime(), fact.Id, fact.Volume, fact.CastId });
+    }
+}
+
+/// <summary>读取当前真实材料，取景时避免序列化整个世界。</summary>
+WorldMaterialData[] WorldRows() => ((IDictionary)typeof(WorldMaterialService).GetField("rows", F).GetValue(null)).Values.Cast<object>()
+    .Where(row => (long)Field(row, "Provider") == source.id)
+    .Select(row => (WorldMaterialData)row.GetType().GetMethod("Capture", F).Invoke(row, null)).ToArray();
+
+/// <summary>读取同一时点的实际材料、年龄、装备及库存。</summary>
+object Measure()
+{
+    var rows = WorldRows();
+    var live = Live();
+    double volume = (live?.RemainingVolume(0) ?? 0) + rows.Sum(row => row.Material.Volume);
+    double lost = live != null ? live.Erosion(0).LostVolume : rows.Sum(row => row.Material.Weathering?.LostVolume ?? 0);
+    float life = wood.IsNull ? 0 : Math.Max(0, wood.GetComponent<AliveTimeLimit>().value - wood.GetComponent<AliveTimer>().value);
+    return new { volume, lost, ageYears = target.getAge(), durability = armor?.getDurabilityCurrent() ?? 0, itemLife = life, inventoryPresent = !wood.IsNull };
+}
+
+/// <summary>字幕采用当前真实结果。</summary>
+string Stage()
+{
+    var data = JObject.FromObject(Measure());
+    if (scenario == "aging")
+        return "接触催朽  年龄" + data["ageYears"] + "  铁甲" + data["durability"] + "  木料" + ((float)data["itemLife"]).ToString("0.0") + "秒";
+    return (castId == 0 ? "正式受理前" : materialFacts.Any(fact => fact.Kind == "erode") ? "范围侵蚀余量" : finished ? "独立材料继续侵蚀" : "主体实际侵蚀") +
+        "  体积" + ((double)data["volume"]).ToString("0.00") + "  累计损耗" + ((double)data["lost"]).ToString("0.00");
+}
+
+ConstructedAbilityService.CastStarted += Track;
+ConstructedAbilityService.AgingConfirmed += Aged;
+ConstructedAbilityService.EquipmentErosionConfirmed += Worn;
+ConstructedAbilityService.InventoryAgingConfirmed += InventoryAged;
+WorldMaterialService.Changed += Material;

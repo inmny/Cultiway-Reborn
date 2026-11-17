@@ -1854,3 +1854,12 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 正常停止并确认进程退出，再次启动后执行`--section completed --state <上次erosion-cold/resume目录>`。逐组读取前次完成世界，核对完整原结果、原关系及一次授予，额外损耗和旧施放不重放。原人物仍按出生时刻及原年龄增量计算，原库存只按真实世界时间推进。
 
 可用`--family requests|materials|equipment|inventory`只补受影响组，默认all依次运行四组。`--evidence`切换既有证据根目录，输出位于`CULTIWAY_DEV_OUTPUT/erosion-cold/<分段>/<组>`。两条集中命令分别首次通过，输入、响应、完成世界及正常退出日志均在`/home/inmny/.local/state/cultiway-dev/evidence/erosion-cold/delivery.json`索引。C3a关闭，原版及Worldfall连续影片继续C3b。
+
+
+### 5.13 C3b　侵蚀老化的双端连续画面
+
+通过develop执行`python3 Scripts/SpellDemos/record_erosion.py --state <C2已通过的creation目录>`，连续录制主体损耗、余量独立侵蚀及另一正常施放选择世界材料，另录连续真实接触推进人物年龄、原铁甲破损及有限库存部分推进至到期。输入复用C2实际衍生成品，采用已有模型与可编辑参数，并沿规则28重新报价，原输入及实际定义保留。
+
+已加载Worldfall的独立环境加`--worldfall`，入口核对实际模式。`--case material|aging`只补对应场景。每帧保留实际世界时间、位置、接触与结果，暂停只等待当前时点绘制，沿实际时间差编码常速原片及视角合集。`--encode-only --output <已有视角目录>`可重编已有帧，兼容画面同时加`--worldfall`。
+
+输出位于`CULTIWAY_DEV_OUTPUT/erosion-films/native|worldfall`，每组包含输入世界、原始及实际定义、实际脚本、逐帧画面、时刻和事件、结果与影片。原版原片沿首次通过结果。Worldfall先前取景中的旧建筑遮挡，通过将原清理移至原版枚举初始化后、调整斜向近景解决，仅补兼容两段。取景原片和诊断脚本失败均保留，按分段验收。索引为`/home/inmny/.local/state/cultiway-dev/evidence/erosion-films/delivery.json`。软件渲染用于功能与双端对应观察，最终美术与性能继续对应工作包。
