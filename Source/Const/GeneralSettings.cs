@@ -6,6 +6,12 @@ namespace Cultiway.Const;
 public static class GeneralSettings
 {
     public static float SpawnNaturally { get; private set; } = 0.1f;
+
+    /// <summary>
+    ///     限制植物生物通过群系随机生成。
+    /// </summary>
+    public static bool LimitPlantNaturalSpawn { get; private set; }
+
     /// <summary>
     /// 地理演化
     /// </summary>
@@ -62,6 +68,16 @@ public static class GeneralSettings
     public static void SetElementRootSpawnNaturally(float value)
     {
         SpawnNaturally = value;
+    }
+
+    /// <summary>
+    ///     切换植物生物自然生成限制，并更新群系候选名单。
+    /// </summary>
+    /// <param name="value">是否限制自然生成。</param>
+    public static void SwitchPlantNaturalSpawnLimit(bool value)
+    {
+        LimitPlantNaturalSpawn = value;
+        Actors.RefreshPlantNaturalSpawn();
     }
 
     public static void SwitchGeoSystems(bool value)
