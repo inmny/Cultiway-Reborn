@@ -103,6 +103,10 @@ public static class ConstructionOperations
             State.Pose | State.Motion, Resource.Motion, Effect.Pose | Effect.Shape,
             new[] { nameof(ConstructionOperation.Clip), nameof(ConstructionOperation.Seconds), nameof(ConstructionOperation.BlendSeconds), nameof(ConstructionOperation.Hold) },
             new[] { nameof(ConstructionOperation.Clip) }, new[] { nameof(ConstructionOperation.BlendSeconds) });
+        Add(ConstructionOperationKind.Deform, new[] { part }, new[] { part, Port("deformation", Value.Process) },
+            State.Pose | State.Motion, Resource.Geometry, Effect.Pose | Effect.Shape,
+            new[] { nameof(ConstructionOperation.Deformation), nameof(ConstructionOperation.Seconds) },
+            new[] { nameof(ConstructionOperation.Deformation), nameof(ConstructionOperation.Seconds) });
         Add(ConstructionOperationKind.ConvertMatter, new[] { part, world }, new[] { material, Port("converted", Value.Result) },
             State.Pose | State.Matter, Resource.Matter, Effect.Matter,
             new[] { nameof(ConstructionOperation.Matter), nameof(ConstructionOperation.State), nameof(ConstructionOperation.Trigger), nameof(ConstructionOperation.WorldMatter) },

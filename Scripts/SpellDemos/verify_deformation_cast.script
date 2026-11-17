@@ -1,0 +1,55 @@
+// 一个来源和目标，收拢后将目标放到原作用面，展开后才真正接触。
+Actor source = Make(64), enemy = Make(72, "wolf"); var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan = 10000;
+var definition = Definition(); definition.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = true, Height = .02f };
+var description = FormResources.Load("root_network").Description;
+var angles = Quaternion.Inverse(Quaternion.LookRotation(new Vector3(description.Forward[0], description.Forward[1], description.Forward[2]),
+    new Vector3(description.Up[0], description.Up[1], description.Up[2]))).eulerAngles;
+definition.Root.Rotation = V(angles);
+var active = new List<AbilityCast>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != definition.Id) return;
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == fact.CastId) active.Add((AbilityCast)Field(running, "Cast"));
+}
+ConstructedAbilityService.CastStarted += Started;
+try
+{
+    Ready(source); await Advance(.2f); Place(source, 64); Place(enemy, 72);
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, enemy); owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f, "形变招式通过正式入口受理并按原报价支付");
+    await Advance(1.1f); var live = active.Single();
+    var input = (AbilityInputs)Field(live, "inputs");
+    var plain = ConstructionEditing.Copy(definition); plain.Root.Operations = Array.Empty<ConstructionOperation>(); plain.Steps = Array.Empty<ConstructionStep>();
+    var expanded = new AbilityCast(AbilityCompiler.Compile(plain, false), Matrix4x4.identity, inputs: input);
+    var last = Shapes(expanded).Where(shape => shape.Node == 0).OrderByDescending(shape => shape.Shape).First();
+    Vector3 point = (last.A + last.B) * .5f;
+    Place(enemy, point.x, point.y); int hp = enemy.data.health;
+    await Advance(.2f);
+    Check(enemy.data.health == hp && !contacts.Any(contact => contact.AbilityId == definition.Id && contact.TargetId == enemy.id) &&
+        Vector2.Distance(enemy.current_position, new Vector2(point.x, point.y)) < .02f &&
+        live.StepStateOf("unfold") == ConstructionStepState.Waiting, "收拢后原位置失去作用，目标保持在原面且实际无伤", new { hp, point = V(point) });
+    await Advance(1.4f);
+    Check(contacts.Any(contact => contact.AbilityId == definition.Id && contact.TargetId == enemy.id) && enemy.data.health < hp &&
+        live.StepStateOf("unfold") == ConstructionStepState.Completed, "展开到真实原面后命中并扣血，按实际完成衔接", new { hp, after = enemy.data.health, live.Age });
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "target.json"), JsonConvert.SerializeObject(V(point)));
+    await Advance(definition.Lifetime + .2f);
+    Check(live.Finished && endings.Any(value => value.Fact.AbilityId == definition.Id && !value.Fact.Cancelled) && !BodyControlState.IsBusy(source.id),
+        "形变主体自然结束并无控制残留");
+    Place(source, 64); Place(enemy, 72); balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, enemy); owner.E.RemoveComponent<ConstructedKnowledge>();
+    float paidAgain = balance - owner.GetCultisys<Xian>().wakan;
+    await Advance(definition.Lifetime + .2f);
+    Check(active.Last().Finished && active.Count == 2 && Math.Abs(paidAgain - definition.Cost) < .001f,
+        "结束后同一成品可再次支付和完成");
+    return new { passed = true, closed = "形变成品的实际收拢、展开、支付与结束恢复", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+}

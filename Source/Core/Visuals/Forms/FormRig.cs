@@ -407,6 +407,30 @@ public sealed class FormRig
         }
     }
 
+    /// <summary>自由目标可从已用动作的任一实际姿态开始，为挂点运动和需求保留完整过渡上界。</summary>
+    /// <param name="target">常量目标局部姿态。</param><param name="used">同部位实际使用的全部动作。</param>
+    /// <param name="seconds">从实际姿态到目标的秒数。</param>
+    internal (float Angular, float Linear) TransitionRates(FormMotion target, FormMotion[] used, float seconds)
+    {
+        float angular = 0f, linear = 0f;
+        for (int control = 0; control < Count; control++)
+        {
+            Vector3 position = target.Positions[0][control];
+            Quaternion rotation = target.Rotations[0][control];
+            float distance = Vector3.Distance(positions[control], position);
+            float angle = Quaternion.Angle(rotations[control], rotation);
+            foreach (FormMotion motion in used)
+            for (int key = 0; key < motion.Times.Length; key++)
+            {
+                distance = Mathf.Max(distance, Vector3.Distance(motion.Positions[key][control], position));
+                angle = Mathf.Max(angle, Quaternion.Angle(motion.Rotations[key][control], rotation));
+            }
+            linear += distance * 1.5f / seconds;
+            angular += angle * 1.5f / seconds;
+        }
+        return (angular, linear);
+    }
+
     /// <summary>资源数字必须有限。</summary>
     /// <param name="value">外部数字。</param>
     internal static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);

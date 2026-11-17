@@ -1,0 +1,25 @@
+// 控制结构运动中，已有脱离操作继续继承实际挂点速度。
+try
+{
+    var definition = Definition(); definition.Steps = Array.Empty<ConstructionStep>();
+    definition.Root.Children[0].Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Detach, At = .5f } };
+    var cast = new AbilityCast(AbilityCompiler.Compile(definition, false), Matrix4x4.identity);
+    cast.Advance(.5f, Vector3.zero);
+    Vector3 released = Views(cast).Single(view => view.Resource.Description.Id == "sword").Transform.GetColumn(3);
+    cast.Advance(.1f, Vector3.zero);
+    Vector3 later = Views(cast).Single(view => view.Resource.Description.Id == "sword").Transform.GetColumn(3);
+    Check(Vector3.Distance(released, later) > .05f && later.y < released.y,
+        "变化中的末端实际脱离并继承收拢方向的运动，控制过渡预算没有将速度归零", new { released = V(released), later = V(later) });
+    var frozen = Definition(); frozen.Root.Matter = "ice"; frozen.Steps = Array.Empty<ConstructionStep>();
+    var fixedShape = new AbilityCast(AbilityCompiler.Compile(frozen, false), Matrix4x4.identity);
+    Vector3 fixedTip = Views(fixedShape).Single(view => view.Resource.Description.Id == "sword").Transform.GetColumn(3);
+    fixedShape.Advance(1.2f, Vector3.zero);
+    Check(Vector3.Distance(fixedTip, Views(fixedShape).Single(view => view.Resource.Description.Id == "sword").Transform.GetColumn(3)) < .0001f &&
+        !fixedShape.TryGetOperationOutput("root", "fold", "deformation", out _),
+        "定型材料保持实际形状，经过原时长仍不假造形变完成");
+    return new { passed = true, closed = "形变挂点的真实脱离运动", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true;
+}

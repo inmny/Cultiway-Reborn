@@ -1686,3 +1686,9 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 集中录像通过同一开发入口执行`python3 Scripts/SpellDemos/record_progressive_formation.py --state <已通过的复验输出或交付归档>`，录制分枝、曲面和中途停止。`--case branch|surface|stopped`可指定一段。兼容环境加载Worldfall后加`--worldfall`，入口先核对实际加载模式。兼容模组放在私有游戏目录，开发代码或资源快照重建后需重新准备。
 
 录像复用`record_delivery.script`及已有按世界时间编码入口，保留正式支付、命中、成形或中断、自然结束和原始帧。结果位于`CULTIWAY_DEV_OUTPUT/formation-films/native`或`worldfall`。`--encode-only --output <已有录像目录>`只编码已有帧，三维同时提供`--worldfall`。5.06交付索引位于`/home/inmny/.local/state/cultiway-dev/evidence/skill-growth-films/delivery.json`。
+
+### 5.09　结构形变的执行复验
+
+通过develop执行`python3 Scripts/SpellDemos/verify_deformation.py`。`--section core`检查控制收拢、展开、命名完成、连续替换、预测恢复、停止、半成形保持、局部曲面及刚性边界。`--section inheritance`检查变化中挂点脱离和定型材料。`--section cast`使用一位来源及目标，确认收拢后原位置安全、展开后实际命中、支付、自然结束及再次使用。
+
+`--section pricing`用于单独复验共同需求。默认all执行core、inheritance和cast，core内包含费用检查。日常仅补受影响的分段。每段复制现成世界到所属开发输出，实际输入、检查和结果位于`CULTIWAY_DEV_OUTPUT/deformation/<section>`。本批仅完成执行能力，5.09的窗口、创作、正式存读与集中录像继续固定交付条件。

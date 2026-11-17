@@ -1,0 +1,84 @@
+// 只检查新控制操作与受影响的共同姿态路径，不扩展身体装备样本。
+AbilityCast Numeric(AbilityDefinition definition) => new AbilityCast(AbilityCompiler.Compile(definition, false), Matrix4x4.identity);
+float ReachY(AbilityCast cast) => Shapes(cast).Where(shape => shape.Node == 0).Max(shape => Mathf.Max(shape.A.y, shape.B.y) + shape.Radius);
+Vector3 Tip(AbilityCast cast) => Views(cast).Single(view => view.Resource.Description.Id == "sword").Transform.GetColumn(3);
+void Reject(AbilityDefinition definition, string name)
+{
+    string rejected = null;
+    try { AbilityCompiler.Compile(definition, false); } catch (InvalidDataException error) { rejected = error.Message; }
+    Check(rejected != null, name, rejected);
+}
+try
+{
+    var original = Definition(); var plain = ConstructionEditing.Copy(original); plain.Root.Operations = Array.Empty<ConstructionOperation>(); plain.Steps = Array.Empty<ConstructionStep>();
+    var rest = Numeric(plain); float full = ReachY(rest); Vector3 restTip = Tip(rest);
+    var definition = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(original));
+    var cast = Numeric(definition); cast.Advance(1.1f, Vector3.zero);
+    bool folded = cast.TryGetOperationOutput("root", "fold", "deformation", out var completed);
+    Check(ReachY(cast) < full * .5f && folded &&
+        cast.StepStateOf("unfold") == ConstructionStepState.Waiting,
+        "保存的控制间距真实收拢作用区，完成输出只在实际到达后产生", new { full, folded = ReachY(cast), completed.At });
+    Check(Vector3.Distance(Tip(cast), restTip) > 2f, "末端附属随同一骨架收拢到实际位置");
+    typeof(AbilityCast).GetMethod("SaveStep", F).Invoke(cast, null);
+    float saved = ReachY(cast); cast.Advance(.8f, Vector3.zero); float advancing = ReachY(cast);
+    typeof(AbilityCast).GetMethod("RestoreStep", F).Invoke(cast, null);
+    Check(Math.Abs(ReachY(cast) - saved) < .0001f && advancing > saved && cast.StepStateOf("unfold") == ConstructionStepState.Waiting,
+        "预测回退同时恢复真实形状、挂点和后续等待状态");
+    cast.Advance(1.6f, Vector3.zero);
+    Check(Math.Abs(ReachY(cast) - full) < .0001f && Vector3.Distance(Tip(cast), restTip) < .0001f &&
+        cast.StepStateOf("unfold") == ConstructionStepState.Completed, "完成依赖驱动展开，实际作用与末端恢复绑定姿态");
+
+    var replacement = ConstructionEditing.Copy(original);
+    replacement.Steps[0].Inputs.Remove("after"); replacement.Steps[0].Operation.At = .5f;
+    var continuous = Numeric(replacement); continuous.Advance(.499f, Vector3.zero); float before = ReachY(continuous);
+    continuous.Advance(.001f, Vector3.zero);
+    Check(Math.Abs(ReachY(continuous) - before) < .02f && !continuous.TryGetOperationOutput("root", "fold", "deformation", out _),
+        "未完成时替换从当前真实姿态开始，不跳回绑定位置或假造前序完成");
+    continuous.Advance(1.1f, Vector3.zero);
+    Check(Math.Abs(ReachY(continuous) - full) < .0001f && continuous.StepStateOf("unfold") == ConstructionStepState.Completed,
+        "替换后的展开过程能正常完成");
+
+    var stopped = ConstructionEditing.Copy(original); stopped.Root.OnContact = ConstructionContactResponse.Stop;
+    var held = Numeric(stopped); held.Advance(.5f, Vector3.zero); held.ConfirmContact(0, 1); float heldReach = ReachY(held);
+    held.Advance(2.2f, Vector3.zero);
+    Check(Math.Abs(ReachY(held) - heldReach) < .0001f && held.StepStateOf("unfold") == ConstructionStepState.Interrupted,
+        "真实停止保持中途形状，完成依赖保留中断事实");
+
+    var partial = Definition(); partial.Steps = Array.Empty<ConstructionStep>();
+    partial.Root.Operations = new[]
+    {
+        new ConstructionOperation { Id = "formation", Kind = ConstructionOperationKind.Animate, Clip = "form", Seconds = 2 },
+        new ConstructionOperation { Id = "fold", Kind = ConstructionOperationKind.Deform, At = .5f, Seconds = 1,
+            Deformation = new ConstructionDeformation { Spacing = new[] { 1f, .5f, 1f } } }
+    };
+    var forming = Numeric(partial); forming.Advance(.6f, Vector3.zero); float built = Views(forming).Single().BuildProgress;
+    forming.Advance(1.2f, Vector3.zero);
+    Check(Math.Abs(Views(forming).Single().BuildProgress - built) < .0001f && built > 0 && built < .4f && forming.NodeAge(1) < 0,
+        "半成形主体只改变已建立的结构，未来部分及末端不会因形变生成", new { built });
+    var surface = Definition(); surface.Root.Form = "water_wave"; surface.Root.Children[0].Anchor = "surface_3"; surface.Steps = Array.Empty<ConstructionStep>();
+    surface.Root.Operations[0].Deformation = new ConstructionDeformation { Controls = new[]
+    {
+        new ConstructionControlTarget { Control = FormResources.Load("water_wave").Description.Controls.Last().Id,
+            Offset = new[] { 0f, .4f, .3f }, Rotation = new[] { 0f, 0f, 45f } }
+    } };
+    var surfaceRest = ConstructionEditing.Copy(surface); surfaceRest.Root.Operations = Array.Empty<ConstructionOperation>();
+    var beforeSurface = Numeric(surfaceRest); var afterSurface = Numeric(surface); afterSurface.Advance(1.1f, Vector3.zero);
+    Check(Vector3.Distance(Shapes(beforeSurface).Last(shape => shape.Node == 0).B, Shapes(afterSurface).Last(shape => shape.Node == 0).B) > .1f &&
+        Vector3.Distance(Tip(beforeSurface), Tip(afterSurface)) > .1f,
+        "实际命名控制的偏移和旋转改变曲面作用端点，表面附属同步移动");
+    var rigid = Definition(); rigid.Root.Form = "sword"; rigid.Root.Children = Array.Empty<ConstructionNode>();
+    Reject(rigid, "刚性模型明确拒绝内部控制形变");
+    var missing = Definition(); missing.Root.Operations[0].Deformation.Controls = new[] { new ConstructionControlTarget { Control = "missing.control" } };
+    Reject(missing, "缺失控制明确指出输入位置");
+    var invalid = Definition(); invalid.Root.Operations[0].Deformation.Spacing[1] = 0;
+    Reject(invalid, "无法表示的零控制间距在编译边界拒绝");
+    Check(AbilityCompiler.Compile(original, false).Measure.Work > AbilityCompiler.Compile(plain, false).Measure.Work,
+        "控制变化沿共同实际结构计算需求，完整还原也计入变化预算");
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(original, Formatting.Indented));
+    return new { passed = true, closed = "控制形变、还原、完成、中断及共同姿态", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

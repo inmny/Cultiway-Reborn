@@ -96,6 +96,8 @@ public sealed partial class AbilityCast
         else
             form.Resource.Rig.Sample(state.MotionData.Motion, motionAge, poses[node], transitionPoses[node],
                 Mathf.SmoothStep(0f, 1f, blendAge / state.MotionData.Blend));
+        if (state.MotionData?.PreserveBuild == true)
+            poses[node].BuildProgress = transitionPoses[node].BuildProgress;
         if (state.Motion == null && motionAge < 0f && form.Motion?.FormsOverTime == true)
             poses[node].BuildProgress = form.Motion.Builds[0];
     }

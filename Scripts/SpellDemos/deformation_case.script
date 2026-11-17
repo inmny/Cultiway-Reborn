@@ -1,0 +1,30 @@
+// 共同实际构造，后续窗口、创法及录像继续读取同一形变语义。
+AbilityDefinition Definition() => new AbilityDefinition
+{
+    Id = "test.deformation.structure", Name = "枝体收展", Power = 10, Cost = 3, Cooldown = .1f,
+    Lifetime = 4.5f, TargetRange = 100,
+    Root = new ConstructionNode
+    {
+        Id = "growing", Form = "root_network", Matter = "wood", Scale = .8f,
+        Operations = new[] { new ConstructionOperation
+        {
+            Id = "fold", Kind = ConstructionOperationKind.Deform, Seconds = 1,
+            Deformation = new ConstructionDeformation { Spacing = new[] { 1f, .25f, 1f } }
+        } },
+        Children = new[] { new ConstructionNode { Id = "tip", Form = "sword", Matter = "iron", Scale = .12f,
+            Anchor = "tip_2", ContactRole = ConstructionContactRole.Decoration } }
+    },
+    Steps = new[] { new ConstructionStep
+    {
+        Id = "unfold", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Deform, At = 1.5f, Seconds = 1,
+            Deformation = new ConstructionDeformation() },
+        Inputs = new Dictionary<string, ConstructionOutputReference>
+        {
+            ["part"] = new() { Node = "root" },
+            ["after"] = new() { Node = "root", Operation = "fold", Output = "deformation", Stage = ConstructionOutputStage.Completed }
+        }
+    } }
+};
+List<FormVisualInstance> Views(AbilityCast cast) { var values = new List<FormVisualInstance>(); cast.AppendVisuals(values); return values; }
+List<AbilityCapsule> Shapes(AbilityCast cast) { var values = new List<AbilityCapsule>(); cast.AppendContacts(values); return values; }
+float[] V(Vector3 value) => new[] { value.x, value.y, value.z };

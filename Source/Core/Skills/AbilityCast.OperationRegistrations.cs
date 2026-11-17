@@ -29,6 +29,14 @@ public sealed partial class AbilityCast
         ConstructionOperations.Register(ConstructionOperationKind.Animate, CompileMotion,
             (cast, action, p) => { cast.StartMotion(action.Node, action, p); return true; },
             (cast, action, p, native) => cast.MotionProgress(action, p, native), direct: true);
+        ConstructionOperations.Register(ConstructionOperationKind.Deform, CompileDeformation,
+            (cast, action, p) => { cast.StartMotion(action.Node, action, p); return true; },
+            (cast, action, p, native) => cast.MotionProgress(action, p, native),
+            validate: (form, parameters, path) =>
+            {
+                if (form.FlowSettings != null)
+                    throw new InvalidDataException(path + "：自由形变用于骨架主体，动态流散使用自己的实际曲面控制");
+            });
         ConstructionOperations.Register(ConstructionOperationKind.Grow, c =>
             {
                 float scale = c.Source.TargetScale ?? 1f;

@@ -310,7 +310,9 @@ public enum ConstructionOperationKind
     /// <summary>改变独立运动的中心速度，保留目标、曲线、材料及命中记录。</summary>
     ChangeSpeed = 16,
     /// <summary>等待实际部位、前序、时点和条件就绪后确认一次，不改变主体。</summary>
-    Ready = 17
+    Ready = 17,
+    /// <summary>通过已有控制结构收拢、展开或弯折主体，保持真实部位身份。</summary>
+    Deform = 18
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
@@ -322,6 +324,10 @@ public sealed class ConstructionOperation
 
     /// <summary>骨架动作名称，其他操作不使用。</summary>
     public string Clip;
+
+    /// <summary>对实际控制结构的间距、偏移和旋转目标。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionDeformation Deformation;
 
     /// <summary>操作种类。</summary>
     public ConstructionOperationKind Kind;

@@ -1,0 +1,13 @@
+// 只补费用读取修正，已通过的控制姿态和中断检查保留原记录。
+try
+{
+    var definition = Definition(); var plain = ConstructionEditing.Copy(definition);
+    plain.Root.Operations = Array.Empty<ConstructionOperation>(); plain.Steps = Array.Empty<ConstructionStep>();
+    double actual = AbilityCompiler.Compile(definition, false).Measure.Work, baseline = AbilityCompiler.Compile(plain, false).Measure.Work;
+    Check(actual > baseline, "控制变化及完整还原按实际过渡历时计入共同需求", new { actual, baseline });
+    return new { passed = true, closed = "形变需求计费", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true;
+}

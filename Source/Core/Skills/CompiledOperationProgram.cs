@@ -51,10 +51,13 @@ internal sealed class CompiledMotionParameters
     internal readonly float Speed, Blend, From, Until;
     /// <summary>动作自身的维持。</summary>
     internal readonly CompiledConstructionHold Hold;
+    /// <summary>自由形变保留开始时已建立的比例，控制变化不生成未来部位。</summary>
+    internal readonly bool PreserveBuild;
     /// <summary>保存已检查的同一套动作参数。</summary>
     /// <param name="motion">实际资源。</param><param name="speed">速度。</param><param name="blend">过渡。</param><param name="hold">维持。</param><param name="from">有效开始。</param><param name="until">有效结束。</param>
-    internal CompiledMotionParameters(Cultiway.Core.Visuals.Forms.FormMotion motion, float speed, float blend, CompiledConstructionHold hold, float from, float until)
-    { Motion = motion; Speed = speed; Blend = blend; Hold = hold; From = from; Until = until; }
+    /// <param name="preserveBuild">是否保留实际已经建立的比例。</param>
+    internal CompiledMotionParameters(Cultiway.Core.Visuals.Forms.FormMotion motion, float speed, float blend, CompiledConstructionHold hold, float from, float until, bool preserveBuild = false)
+    { Motion = motion; Speed = speed; Blend = blend; Hold = hold; From = from; Until = until; PreserveBuild = preserveBuild; }
 }
 
 /// <summary>本次物态输出和可选世界选择共用，不保留原始描述。</summary>

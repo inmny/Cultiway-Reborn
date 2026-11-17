@@ -176,6 +176,14 @@ public sealed class ConstructionMeasure
                 if (operation.Kind == ConstructionOperationKind.Spin)
                     work += control * operation.Vector.magnitude *
                         Math.Max(0, node.Presence.y - Math.Max(node.Presence.x, operation.At)) / 360d;
+                if (operation.Kind == ConstructionOperationKind.Deform)
+                {
+                    var motions = node.EventOperations.Select(action => action.Motion).Append(node.Motion)
+                        .Where(motion => motion != null).ToArray();
+                    var transition = node.Resource.Rig.TransitionRates(operation.Motion, motions, operation.BlendSeconds);
+                    work += control * operation.BlendSeconds * (transition.Angular / 360d +
+                        transition.Linear * Math.Pow(scales[i], 1d / 3d) * .1d);
+                }
                 if (operation.WorldMatter != null) work += operation.WorldMatter.MaximumVolume * .1d;
             }
 

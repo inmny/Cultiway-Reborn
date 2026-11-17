@@ -97,6 +97,14 @@ public sealed class ConstructionReach
             {
                 motionRate += operation.Motion.MaximumAngularRate * operation.MotionSpeed;
                 linear[i] += operation.Motion.MaximumTranslationRate * operation.MotionSpeed;
+                if (operation.MotionData.PreserveBuild)
+                {
+                    var transition = node.Resource.Rig.TransitionRates(operation.Motion, motions[i], operation.BlendSeconds);
+                    if (transition.Angular > 7200f)
+                        throw new InvalidDataException(node.Path + "：自由形变过渡超过每秒7200度的共同控制预算，请增加历时");
+                    motionRate += transition.Angular;
+                    linear[i] += transition.Linear;
+                }
             }
 
             angular[i] = (source < 0 ? 0f : angular[source]) + (spin + motionRate * 1.5f) * Mathf.Deg2Rad;

@@ -252,6 +252,9 @@ public sealed partial class FormResource
     /// <summary>资源包含明确的逐段成形顶点资料。</summary>
     public readonly bool Builds;
 
+    /// <summary>实际具有可改变结构的控制，刚性器物和空支点不接受内部形变。</summary>
+    public bool Deformable => Rig.Count > 0 && Meshes.Length > 0 && Structure.Kind is not ("rigid" or "anchor");
+
     /// <summary>完整保留表面坐标和法向的共享网格。</summary>
     public readonly Mesh[] Meshes;
 
