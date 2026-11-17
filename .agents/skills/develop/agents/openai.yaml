@@ -1,0 +1,3 @@
+interface:
+  display_name: "独立开发与调试"
+  short_description: "用独立工作目录和游戏环境完成开发、PR 交付与收尾"

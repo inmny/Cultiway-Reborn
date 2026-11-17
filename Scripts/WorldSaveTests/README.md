@@ -2,6 +2,8 @@
 
 先在仓库根执行开发构建，再检查纯数据转换：
 
+独立 worktree 先按 develop 技能执行 setup，检查项目与主项目共用生成的游戏引用位置，不再依赖主构建碰巧复制出的 Newtonsoft.Json。
+
 ```bash
 dotnet build Cultiway.csproj -c Debug
 dotnet run --project Scripts/WorldSaveTests/WorldSaveTests.csproj
