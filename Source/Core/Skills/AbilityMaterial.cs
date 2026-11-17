@@ -339,9 +339,11 @@ public sealed partial class AbilityMaterial
         Burning.Retain(1 - burningShare);
         var weathering = Weathering.Share(burningShare);
         Weathering = Weathering.Share(1 - burningShare);
+        var erosion = Erosion.Share(burningShare);
+        Erosion = Erosion.Share(1 - burningShare);
         return new AbilityMaterial(Form, Matter, Transform, Skin, PoseBounds, System.Array.Empty<AbilityCapsule>(),
             Surface, Dye, taken.Volume, resource, taken, burning, ShapeHeld, BuildProgress)
-        { Weathering = weathering, Erosion = Erosion };
+        { Weathering = weathering, Erosion = erosion };
     }
 
     /// <summary>真实材料变化保留归属和体积；保持态停止流动，刚性液态输出建立实际流散。</summary>
@@ -417,7 +419,7 @@ public sealed partial class AbilityMaterial
         burning.Retain(Volume > 0 ? Math.Min(1, flow.Volume / Volume) : 0);
         return new AbilityMaterial(Form, Matter, Transform, Skin, PoseBounds,
             Array.Empty<AbilityCapsule>(), Surface, Dye, flow.Volume, flow.Resource, flow, burning, ShapeHeld, BuildProgress)
-        { Weathering = Weathering.Share(Volume > 0 ? Math.Min(1, flow.Volume / Volume) : 0), Erosion = Erosion };
+        { Weathering = Weathering.Share(Volume > 0 ? Math.Min(1, flow.Volume / Volume) : 0), Erosion = Erosion.Share(Volume > 0 ? Math.Min(1, flow.Volume / Volume) : 0) };
     }
 
     /// <summary>保存只包含稳定资源名与数值，不把显示和工作区对象序列化。</summary>

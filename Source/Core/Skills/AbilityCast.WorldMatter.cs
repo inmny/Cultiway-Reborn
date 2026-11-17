@@ -31,9 +31,14 @@ public sealed partial class AbilityCast
             if (operations[index].WorldRequested)
             {
                 var command = Plan.Program.Commands[Plan.Program.EventCommands[index]];
-                var matter = Plan.Program.Parameter<CompiledMatterParameters>(command);
                 operations[index].WorldRequested = false;
-                output.Add(new AbilityWorldMatterRequest(command.Node, matter.Matter, matter.World, command.Step));
+                if (Plan.Program.Groups[command.Group].Kind == ConstructionOperationKind.Erode)
+                    output.Add(new AbilityWorldMatterRequest(command.Node, Plan.Program.Parameter<CompiledErosion>(command), command.Step));
+                else
+                {
+                    var matter = Plan.Program.Parameter<CompiledMatterParameters>(command);
+                    output.Add(new AbilityWorldMatterRequest(command.Node, matter.Matter, matter.World, command.Step));
+                }
                 if (command.Step >= 0) stepStates[command.Step].WorldPending = true;
             }
 

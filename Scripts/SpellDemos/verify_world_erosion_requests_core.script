@@ -1,0 +1,39 @@
+try
+{
+    var definition = RequestDefinition("core"); Input(definition, "definition");
+    var plan = AbilityCompiler.Compile(definition, false); var cast = new AbilityCast(plan, Matrix4x4.identity, paidResource: 1);
+    Check((bool)plan.GetType().GetProperty("HasWorldMaterials", F).GetValue(plan) && cast.OperationStateOf("root", "erode") == ConstructionStepState.Running,
+        "侵蚀声明世界选择后进入共同请求，不要求假造输出材料");
+    var type = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityWorldMatterRequest");
+    var requests = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(type));
+    typeof(AbilityCast).GetMethod("SaveStep", F).Invoke(cast, null);
+    typeof(AbilityCast).GetMethod("TakeWorldMatterRequests", F).Invoke(cast, new object[] { requests });
+    Check(requests.Count == 1 && Field(requests[0], "Erosion") != null && Field(requests[0], "Matter") == null,
+        "已执行入口提交实际独立侵蚀参数，未改选择主体材料");
+    typeof(AbilityCast).GetMethod("AwaitWorldErosion", F).Invoke(cast, new object[] { 0 });
+    cast.Advance(1, Vector3.zero);
+    Check(cast.OperationStateOf("root", "erode") == ConstructionStepState.Running && cast.StepStateOf("after") == ConstructionStepState.Waiting &&
+        cast.RemainingVolume(0) == 1 && cast.RemainingResource(0) == 1 && cast.Erosion(0).LostVolume == 0,
+        "时间超过配置历时仍等待世界真实结果，选择主体的体积和本金保持");
+    typeof(AbilityCast).GetMethod("RestoreStep", F).Invoke(cast, null);
+    typeof(AbilityCast).GetMethod("TakeWorldMatterRequests", F).Invoke(cast, new object[] { requests });
+    Check(requests.Count == 1 && cast.Age == 0 && cast.StepStateOf("after") == ConstructionStepState.Waiting,
+        "预测回退恢复实际请求和完成等待，不把领取视作提交");
+    typeof(AbilityCast).GetMethod("AwaitWorldErosion", F).Invoke(cast, new object[] { 0 }); cast.Advance(4, Vector3.zero);
+    Check(cast.Finished && cast.OperationStateOf("root", "erode") == ConstructionStepState.Interrupted && cast.StepStateOf("after") == ConstructionStepState.Interrupted,
+        "来源提前结束按真实状态中断等待，没有伪造完成");
+    var lasting = RequestDefinition("lasting", 5); lasting.Lifetime = 1;
+    Check(AbilityCompiler.Compile(lasting, false) != null, "独立世界过程允许超过原施放历时");
+    var bound = RequestDefinition("bound");
+    var follow = JsonConvert.DeserializeObject<ConstructionOperation>(JsonConvert.SerializeObject(bound.Root.Operations[0])); follow.Id = null;
+    bound.Steps[0] = new ConstructionStep { Id = "bound", Operation = follow,
+        Inputs = new Dictionary<string, ConstructionOutputReference> { ["part"] = new() { Node = "root" },
+            ["worldMaterials"] = new() { Node = "root", Operation = "erode", Output = "material", Mode = ConstructionInputMode.All } } };
+    Check(AbilityCompiler.Compile(bound, false) != null, "世界侵蚀的真实材料输出可以继续绑定后续操作");
+    return new { passed = true, closed = "共同世界请求、真实完成等待、预测回退及命名材料输入", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

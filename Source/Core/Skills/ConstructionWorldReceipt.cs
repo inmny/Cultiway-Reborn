@@ -15,7 +15,9 @@ public enum ConstructionWorldResultKind
     /// <summary>原支付通道已经处理资源返还。</summary>
     Recovery,
     /// <summary>真实库存物料已经消耗。</summary>
-    Inventory
+    Inventory,
+    /// <summary>世界材料的独立侵蚀已经得到实际结果。</summary>
+    Erosion
 }
 
 /// <summary>一次确认的不可变回执，空选择也保留真实的零结果。</summary>
@@ -35,10 +37,14 @@ public sealed class ConstructionWorldReceipt
     public IReadOnlyList<long> MaterialIdentities { get; }
     /// <summary>实际进入伤害接口的目标编号。</summary>
     public IReadOnlyList<long> Targets { get; }
-    /// <summary>实际转交或转换的体积。</summary>
+    /// <summary>实际输出材料的体积，侵蚀输出为尚存余量。</summary>
     public double Volume { get; }
-    /// <summary>被转交的支付份额。</summary>
+    /// <summary>输出材料尚持有的支付份额。</summary>
     public double Resource { get; }
+    /// <summary>本次独立侵蚀已经移除的真实体积。</summary>
+    public double ErodedVolume { get; }
+    /// <summary>本次侵蚀随材料退出的原本金。</summary>
+    public double ErodedResource { get; }
     /// <summary>原资源的本次返还请求量及实际入账量。</summary>
     public double Requested { get; }
     /// <summary>原资源通道实际接受的数量。</summary>
@@ -61,15 +67,17 @@ public sealed class ConstructionWorldReceipt
     /// <param name="sequence">同轮序号。</param><param name="materials">实际世界记录。</param><param name="targets">实际目标。</param>
     /// <param name="volume">实际体积。</param><param name="resource">转交支付份额。</param><param name="requested">返还请求。</param><param name="granted">实际入账。</param>
     /// <param name="cells">到达水格。</param><param name="spent">真实消耗。</param><param name="remaining">当前余力。</param><param name="previous">已确认前项。</param>
+    /// <param name="erodedVolume">本段侵蚀的实际体积损失。</param><param name="erodedResource">本段侵蚀退出的本金。</param>
     /// <param name="materialIdentities">整份材料身份，留置时与首次记录编号相同。</param>
     internal ConstructionWorldReceipt(ConstructionWorldResultKind kind, int node, double clock, int sequence = 1, long[] materials = null, long[] targets = null,
-        double volume = 0, double resource = 0, double requested = 0, double granted = 0, int cells = 0, float spent = 0, float remaining = 0, ConstructionWorldReceipt previous = null, long[] materialIdentities = null, string[] items = null)
+        double volume = 0, double resource = 0, double requested = 0, double granted = 0, int cells = 0, float spent = 0, float remaining = 0, ConstructionWorldReceipt previous = null, long[] materialIdentities = null, string[] items = null, double erodedVolume = 0, double erodedResource = 0)
     {
         Kind = kind; Node = node; WorldTime = clock; Sequence = sequence;
         Items = Array.AsReadOnly(items == null ? Array.Empty<string>() : (string[])items.Clone());
         Materials = Array.AsReadOnly(materials == null ? Array.Empty<long>() : (long[])materials.Clone());
         MaterialIdentities = Array.AsReadOnly((long[])(materialIdentities ?? materials ?? Array.Empty<long>()).Clone());
         Targets = Array.AsReadOnly(targets == null ? Array.Empty<long>() : (long[])targets.Clone());
+        ErodedVolume = erodedVolume; ErodedResource = erodedResource;
         Volume = volume; Resource = resource; Requested = requested; Granted = granted; Cells = cells; Spent = spent; Remaining = remaining; Previous = previous;
     }
 
@@ -78,7 +86,7 @@ public sealed class ConstructionWorldReceipt
     /// <param name="node">需要补充的实际部位，负一保留原值。</param>
     internal ConstructionWorldReceipt(ConstructionWorldReceipt source, ConstructionWorldReceipt previous, int node = -1)
     {
-        Items = source.Items;
+        Items = source.Items; ErodedVolume = source.ErodedVolume; ErodedResource = source.ErodedResource;
         Kind = source.Kind; Node = node < 0 ? source.Node : node; WorldTime = source.WorldTime; Sequence = source.Sequence;
         Materials = source.Materials; MaterialIdentities = source.MaterialIdentities; Targets = source.Targets; Volume = source.Volume; Resource = source.Resource;
         Requested = source.Requested; Granted = source.Granted; Cells = source.Cells; Spent = source.Spent; Remaining = source.Remaining; Previous = previous;

@@ -81,9 +81,9 @@ public static class ConstructionOperations
         var part = new ConstructionOperationPort("part", Value.Part);
         var material = new ConstructionOperationPort("material", Value.Material);
         var world = new ConstructionOperationPort("worldMaterials", Value.Material, false, true, true);
-        Add(ConstructionOperationKind.Erode, new[] { part }, new[] { part, Port("erosion", Value.Process) },
-            State.Pose | State.Matter | State.Event, Resource.Geometry | Resource.Payment, Effect.Shape,
-            new[] { nameof(ConstructionOperation.Seconds), nameof(ConstructionOperation.Erosion) }, new[] { nameof(ConstructionOperation.Seconds) });
+        Add(ConstructionOperationKind.Erode, new[] { part, world }, new[] { part, Port("erosion", Value.Process), material },
+            State.Pose | State.Matter | State.Event, Resource.Geometry | Resource.Payment | Resource.WorldMaterials, Effect.Shape | Effect.World,
+            new[] { nameof(ConstructionOperation.Seconds), nameof(ConstructionOperation.Erosion), nameof(ConstructionOperation.WorldMatter) }, new[] { nameof(ConstructionOperation.Seconds) });
         Add(ConstructionOperationKind.ConsumeInventory, new[] { part }, new[] { Port("consumed", Value.Result) },
             State.Event, Resource.Inventory, Effect.World, new[] { nameof(ConstructionOperation.InventoryUse) },
             new[] { nameof(ConstructionOperation.InventoryUse) });

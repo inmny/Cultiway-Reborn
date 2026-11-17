@@ -812,8 +812,8 @@ public static partial class AbilityCompiler
             {
                 if (resource.Meshes.Length == 0)
                     Fail(path, "世界材料选择只用于真实生成主体的材料转换");
-                AbilityMatter worldOutput = AbilityMatters.Resolve(operation.Matter, operation.State, path);
-                if (worldOutput.State is not ("liquid" or "solid")) Fail(path, "世界材料转换需要明确的液态或固态输出");
+                if (operation.Kind == ConstructionOperationKind.ConvertMatter && AbilityMatters.Resolve(operation.Matter, operation.State, path).State is not ("liquid" or "solid"))
+                    Fail(path, "世界材料转换需要明确的液态或固态输出");
             }
 
             if (operation.Kind == ConstructionOperationKind.Leave)

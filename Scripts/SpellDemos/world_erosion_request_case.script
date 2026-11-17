@@ -1,0 +1,12 @@
+AbilityDefinition RequestDefinition(string suffix, float seconds = .6f, float capacity = 8)
+{
+    var definition = Definition(); definition.Id = "test.world-erosion-request." + suffix; definition.Name = "范围侵蚀";
+    definition.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point }; definition.Power = 0; definition.Cost = 1;
+    definition.Root.Form = "sword"; definition.Root.Matter = "spirit"; definition.Root.Volume = 1;
+    definition.Root.Operations = new[] { new ConstructionOperation { Id = "erode", Kind = ConstructionOperationKind.Erode, Seconds = seconds,
+        Erosion = new ConstructionErosion { Fraction = .5f }, WorldMatter = new ConstructionWorldMatter { FromMatter = "wood", MaximumVolume = capacity, OwnedOnly = true } } };
+    definition.Steps = new[] { new ConstructionStep { Id = "after", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "iron" },
+        Inputs = new Dictionary<string, ConstructionOutputReference> { ["part"] = new() { Node = "root" },
+            ["after"] = new() { Node = "root", Operation = "erode", Output = "erosion" } } } };
+    return definition;
+}

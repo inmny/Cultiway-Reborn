@@ -6,6 +6,25 @@ namespace Cultiway.Core.Skills;
 /// <summary>世界回执只在正式确认后进入步骤，不从预测进度制造入账或命中。</summary>
 public sealed partial class AbilityCast
 {
+    /// <summary>世界已接受独立侵蚀，后续按真实结果等待，来源结束仍可中断步骤。</summary>
+    /// <param name="index">实际步骤，未命名时为负一。</param>
+    internal void AwaitWorldErosion(int index)
+    {
+        if (index < 0 || cancelled) return;
+        stepStates[index].WorldPending = false;
+        UpdateSteps();
+    }
+
+    /// <summary>保留已发生的部分结果，再让依赖完成的后续停止。</summary>
+    /// <param name="index">真实步骤。</param><param name="receipt">实际世界结果。</param>
+    internal void InterruptStepWorld(int index, ConstructionWorldReceipt receipt)
+    {
+        ConfirmStepWorld(index, receipt, false);
+        if (index < 0 || cancelled) return;
+        stepStates[index].WorldPending = false;
+        if (stepStates[index].State == ConstructionStepState.Running) stepStates[index].State = ConstructionStepState.Interrupted;
+        UpdateSteps();
+    }
     /// <summary>读取明确输入的整份材料身份；返回真且集合为空时，后端仍须保持空选择。</summary>
     /// <param name="step">当前步骤，负一表示未绑定。</param><param name="output">本次提交复用的编号集合。</param>
     internal bool ReadWorldMaterialInputs(int step, List<long> output)

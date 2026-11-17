@@ -12,12 +12,12 @@ public sealed partial class AbilityCast
     internal static void RegisterOperationImplementations()
     {
         ConstructionOperations.Register(ConstructionOperationKind.Erode,
-            context => new CompiledErosion(context.Source, context.Lifetime, context.Path),
+            context => new CompiledErosion(context.Source, context.Lifetime, context.Path, context.Order),
             (cast, action, settings) => cast.StartErosion(action, settings),
-            (cast, action, settings, native) => cast.ErosionProgress(action),
+            (cast, action, settings, native) => settings.World == null ? cast.ErosionProgress(action) : default,
             validate: (form, settings, path) =>
             {
-                if (form.BodyWindow || form.FlowSettings != null || form.Resource.Meshes.Length == 0)
+                if (form.BodyWindow || settings.World == null && form.FlowSettings != null || form.Resource.Meshes.Length == 0)
                     throw new InvalidDataException(path + "：本批侵蚀用于真实生成实体，身体及动态流散由对应入口维护");
             });
         ConstructionOperations.Register(ConstructionOperationKind.ConsumeInventory,

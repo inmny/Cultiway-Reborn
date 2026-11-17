@@ -17,10 +17,13 @@ internal sealed class CompiledErosion
     internal readonly float Seconds;
     /// <summary>未乘材料耐受的投入份额。</summary>
     internal readonly float Fraction;
+    /// <summary>可选的世界材料筛选，空值仍侵蚀操作自身。</summary>
+    internal readonly CompiledWorldMatter World;
     /// <summary>解析实际参数，非法声明停在资料边界。</summary>
     /// <param name="source">原始操作。</param><param name="lifetime">整次上限。</param><param name="path">资料位置。</param>
-    internal CompiledErosion(ConstructionOperation source, float lifetime, string path)
-        : this(source.Seconds, source.Erosion, lifetime, path) { }
+    internal CompiledErosion(ConstructionOperation source, float lifetime, string path, int order = 0)
+        : this(source.Seconds, source.Erosion, source.WorldMatter == null ? lifetime : 1000000000, path)
+    { if (source.WorldMatter != null) World = new CompiledWorldMatter(source.WorldMatter, path + "/WorldMatter", order); }
 
     /// <summary>主体与独立材料共用一次参数核对。</summary>
     /// <param name="seconds">实际历时。</param><param name="source">明确份额。</param>

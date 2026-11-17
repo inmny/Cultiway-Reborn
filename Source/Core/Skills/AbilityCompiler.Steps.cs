@@ -91,7 +91,7 @@ public static partial class AbilityCompiler
                 if (node.EventOperations.Length >= ConstructionBudget.MaximumEventOperations || sorted.Count >= ConstructionBudget.MaximumSteps) Fail(path, "单部位操作超过16项或展开步骤超过128项");
                 if ((operation.Kind is ConstructionOperationKind.Recover or ConstructionOperationKind.Leave or ConstructionOperationKind.Conduct || operation.WorldMatter != null) && node.Resource.Meshes.Length == 0)
                     Fail(path, "世界操作需要实际生成主体，空支点不能制造材料或回能");
-                if (operation.WorldMatter != null && AbilityMatters.Resolve(operation.Matter, operation.State, path).State is not ("liquid" or "solid"))
+                if (operation.WorldMatter != null && operation.Kind == ConstructionOperationKind.ConvertMatter && AbilityMatters.Resolve(operation.Matter, operation.State, path).State is not ("liquid" or "solid"))
                     Fail(path, "世界材料转换需要明确的液态或固态输出");
                 if (operation.Kind == ConstructionOperationKind.Recover && (node.Recovery != null || node.EventOperations.Any(op => op.Recovery != null))) Fail(path, "同一部位只能声明一套真实收束");
                 if (operation.Kind == ConstructionOperationKind.Leave)

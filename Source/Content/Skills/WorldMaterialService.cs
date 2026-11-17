@@ -77,7 +77,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         instance = new WorldMaterialService();
         ModClass.I.GeneralLogicSystems.Add(instance);
         PatchMapBox.RegisterActionOnClearWorld(instance.Clear);
-        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("world_materials", "世界生成材料", 7,
+        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("world_materials", "世界生成材料", 8,
             _ => new Archive
             {
                 Next = nextId,
@@ -91,7 +91,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                     data.RecoveryGroups.Count > MaximumRecords) throw new InvalidDataException("世界材料集合或稳定编号超过保存范围");
             },
             migrations: new ISaveMigration[]
-                { new WorldMaterialsV1ToV2(), new WorldMaterialsV2ToV3(), new WorldMaterialsV3ToV4(), new WorldMaterialsV4ToV5(), new WorldMaterialsV5ToV6(), new WorldMaterialsV6ToV7() }));
+                { new WorldMaterialsV1ToV2(), new WorldMaterialsV2ToV3(), new WorldMaterialsV3ToV4(), new WorldMaterialsV4ToV5(), new WorldMaterialsV5ToV6(), new WorldMaterialsV6ToV7(), new WorldMaterialsV7ToV8() }));
     }
 
     /// <summary>世界保存的独立容器，条目逐个解释，坏条目不拖垮整个部分。</summary>
@@ -369,6 +369,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                 if (epoch != generation) yield break;
                 foreach (var row in ordinary)
                     row.Clock = until;
+                UpdateErosionWatches(until);
                 ConfirmWorldCredits();
 
                 if (epoch != generation) yield break;
@@ -394,6 +395,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         {
             if (row.Finished)
             {
+                CarryErosionResult(row);
                 rows.Remove(row.Id);
                 RetireRecovery(row);
                 cells -= row.Material.Cells * row.Material.Cells;
@@ -439,6 +441,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         pending?.Dispose();
         pending = null;
         rows.Clear();
+        erosionWatches.Clear();
         materialParts.Clear();
         temporaryByProvider.Clear();
         recoveryGroups.Clear();
@@ -493,6 +496,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                                              group.Provider != d.Provider))
                     throw new InvalidDataException("世界材料共同回收归属缺失或不符");
                 AbilityMaterial material = AbilityMaterial.Restore(d.Material);
+                if (material.Erosion.Id >= archive.Next) throw new InvalidDataException("世界材料侵蚀过程编号超出保存范围");
                 if (d.Lineage <= 0 || d.Identity <= 0 || d.Identity >= archive.Next) throw new InvalidDataException("世界材料缺少稳定来源链或有效材料身份");
                 if (d.WorldGrid && (material.Flow == null || material.Flow.Budget == null ||
                                     material.Cells != AbilityWorldWater.Side ||

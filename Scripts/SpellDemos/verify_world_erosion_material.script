@@ -45,11 +45,14 @@ try
     Check(Math.Abs(layer.Volume + part.Volume - beforeSplit.Volume) < .00001 && Math.Abs(layer.Resource + part.Resource - beforeSplit.Resource) < .00001 &&
         Math.Abs(layer.Weathering.LostVolume + part.Weathering.LostVolume - beforeSplit.Weathering.Value.LostVolume) < .00001 &&
         Math.Abs(layer.Weathering.SpentResource + part.Weathering.SpentResource - beforeSplit.Weathering.Value.SpentResource) < .00001 &&
+        Math.Abs(layer.Erosion.LostVolume + part.Erosion.LostVolume - beforeSplit.Erosion.Value.LostVolume) < .00001 &&
+        Math.Abs(layer.Erosion.SpentResource + part.Erosion.SpentResource - beforeSplit.Erosion.Value.SpentResource) < .00001 &&
         layer.Erosion.Progress == part.Erosion.Progress && layer.Weathering.Exposure == part.Weathering.Exposure,
         "局部交接分配真实余量和累计损耗，阶段及已推进时间随各自余量继承");
     Tick(layer, .5f); Tick(part, .5f); Tick(full, .5f);
     Check(Math.Abs(layer.Volume + part.Volume - full.Volume) < .00001 && Math.Abs(layer.Resource + part.Resource - full.Resource) < .00001 &&
-        Math.Abs(layer.Weathering.LostVolume + part.Weathering.LostVolume - full.Weathering.LostVolume) < .00001,
+        Math.Abs(layer.Weathering.LostVolume + part.Weathering.LostVolume - full.Weathering.LostVolume) < .00001 &&
+        Math.Abs(layer.Erosion.LostVolume + part.Erosion.LostVolume - full.Erosion.LostVolume) < .00001,
         "分开维护和完整维护得到同一总份额，独立过程没有重复本金");
 
     var invalid = Data(material); invalid.Erosion = new MaterialErosionProcess { Seconds = 4, Fraction = .75f, Elapsed = 1, Progress = 2 };

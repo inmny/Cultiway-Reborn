@@ -15,6 +15,11 @@ public sealed partial class AbilityCast
     private bool StartErosion(CompiledEventOperation action, CompiledErosion settings)
     {
         ref NodeState state = ref nodes[action.Node];
+        if (settings.World != null)
+        {
+            operations[action.Index].WorldRequested = true;
+            return true;
+        }
         if (!state.Exists || state.Leaving || state.Recovering || state.Volume <= 0 || state.Matter.ErosionFactor <= 0 ||
             !CanUseWorldMaterial(action.Node, 0, state.Volume * settings.Fraction * state.Matter.ErosionFactor)) return false;
         state.ErosionOperation = action;

@@ -7,6 +7,11 @@ namespace Cultiway.Core.Skills;
 /// <summary>独立材料可保存的有限侵蚀过程，经过时间不依赖原施放。</summary>
 public struct MaterialErosionProcess
 {
+    /// <summary>世界内的稳定过程编号，零为没有等待关系的原过程。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public long Id;
+    /// <summary>本段已经记录的实际损耗，旧过程从升级后计数。</summary>
+    public double LostVolume, SpentResource;
     /// <summary>原定历时和投入份额。</summary>
     public float Seconds, Fraction;
     /// <summary>实际经过的世界秒数及已经扣除到的进度。</summary>
@@ -20,17 +25,28 @@ public struct MaterialErosionProcess
     /// <summary>从边界已经核对的配置开始。</summary>
     /// <param name="settings">真实留置配置。</param>
     internal MaterialErosionProcess(CompiledErosion settings)
-    { Seconds = settings.Seconds; Fraction = settings.Fraction; Elapsed = Progress = 0; Interrupted = false; }
+    { Seconds = settings.Seconds; Fraction = settings.Fraction; Elapsed = Progress = LostVolume = SpentResource = 0; Id = 0; Interrupted = false; }
 
     /// <summary>只在正式资料读取边界检查进度，不用旧世界绝对时点补算。</summary>
     /// <param name="matter">保存时的实际材料。</param><param name="volume">实际余量。</param>
     internal void Validate(AbilityMatter matter, double volume)
     {
         bool Finite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
-        if (!Finite(Seconds) || Seconds <= 0 || Seconds > 1000000000 || !Finite(Fraction) || Fraction <= 0 || Fraction > 1 ||
+        if (Id < 0 || !Finite(LostVolume) || LostVolume < 0 || !Finite(SpentResource) || SpentResource < 0 || !Finite(Seconds) || Seconds <= 0 || Seconds > 1000000000 || !Finite(Fraction) || Fraction <= 0 || Fraction > 1 ||
             !Finite(Elapsed) || Elapsed < 0 || Elapsed > Seconds || !Finite(Progress) || Progress < 0 || Progress > 1 ||
             Progress > Elapsed / Seconds + 1e-9 || Active && (matter.ErosionFactor <= 0 || volume <= 0))
             throw new InvalidDataException("世界材料的侵蚀历时、进度或实际材料无效");
+    }
+
+    /// <summary>随真实材料分开记录，空接收层不重复继承过程。</summary>
+    /// <param name="fraction">交接的实际比例。</param>
+    internal MaterialErosionProcess Share(double fraction)
+    {
+        if (fraction == 0) return default;
+        var result = this;
+        result.LostVolume *= fraction;
+        result.SpentResource *= fraction;
+        return result;
     }
 }
 
@@ -73,6 +89,8 @@ public sealed partial class AbilityMaterial
         double before = Volume, resource = Resource;
         Retain(retained, recovery: false);
         Weathering.Add(before, before - Volume, resource - Resource);
+        Erosion.LostVolume += before - Volume;
+        Erosion.SpentResource += resource - Resource;
         Erosion.Progress = progress;
     }
 }

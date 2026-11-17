@@ -51,8 +51,10 @@ internal sealed class CompiledWorldMatter
 
     /// <summary>不凭颜色猜测匹配，已经相同的输出也不重复转换。</summary>
     /// <param name="source">真实来源材料。</param><param name="target">明确输出。</param>
-    internal bool Matches(AbilityMatter source, AbilityMatter target) => !ReferenceEquals(source, target) &&
-                                                                         (FromMatter == null ||
+    internal bool Matches(AbilityMatter source, AbilityMatter target) => !ReferenceEquals(source, target) && Matches(source);
+    /// <summary>侵蚀直接按来源筛选，不需要假造输出材料。</summary>
+    /// <param name="source">真实来源材料。</param>
+    internal bool Matches(AbilityMatter source) => (FromMatter == null ||
                                                                           source.Id == FromMatter &&
                                                                           (FromState == null ||
                                                                            source.State == FromState));
@@ -72,6 +74,8 @@ internal readonly struct AbilityWorldMatterRequest
 
     /// <summary>可选的实际材料网络导电。</summary>
     internal readonly CompiledConduction Conduction;
+    /// <summary>可选的独立世界侵蚀，其他请求为空。</summary>
+    internal readonly CompiledErosion Erosion;
 
     /// <summary>导电在同一轮中的波序号；材料转换为零。</summary>
     internal readonly int Pulse;
@@ -90,6 +94,7 @@ internal readonly struct AbilityWorldMatterRequest
         Matter = matter;
         Selection = selection;
         Conduction = null;
+        Erosion = null;
         Pulse = 0;
         Step = step;
     }
@@ -104,7 +109,14 @@ internal readonly struct AbilityWorldMatterRequest
         Matter = null;
         Selection = null;
         Conduction = conduction;
+        Erosion = null;
         Pulse = pulse;
         Step = step;
     }
+
+    /// <summary>从已执行操作领取真实侵蚀请求。</summary>
+    /// <param name="node">真实选择部位。</param><param name="erosion">有限过程及材料筛选。</param>
+    /// <param name="step">对应步骤。</param>
+    internal AbilityWorldMatterRequest(int node, CompiledErosion erosion, int step)
+    { Node = node; Matter = null; Selection = erosion.World; Conduction = null; Erosion = erosion; Pulse = 0; Step = step; }
 }

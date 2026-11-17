@@ -886,6 +886,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         /// <summary>已经实际改变世界的提交次数，不是不同地块数或预估收益。</summary>
         internal int WorldChanges;
 
+        /// <summary>本次施放等待的真实世界侵蚀，只保存运行关系。</summary>
+        internal List<WorldErosionWatch> ErosionWatches;
+
         /// <summary>已经受理但尚未交给世界的记录与水格额度。</summary>
         internal int ReservedResidues, ReservedMaterialCells;
 

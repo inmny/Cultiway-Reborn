@@ -1,0 +1,129 @@
+Actor source = Make(60), enemy = Make(74, "wolf"); var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var active = new List<AbilityCast>(); var materials = new List<WorldMaterialChange>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == fact.CastId) active.Add((AbilityCast)Field(running, "Cast"));
+}
+void Material(WorldMaterialChange fact) { if (fact.Provider == source.id) materials.Add(fact); }
+ConstructedAbilityService.CastStarted += Started; WorldMaterialService.Changed += Material;
+JArray Records() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "world-erosion-requests"))["sections"]["world_materials"]["data"]["Records"];
+JToken Row(long id) => Records().Single(value => (long)value["Id"] == id);
+int Waiting() => ((IDictionary)typeof(WorldMaterialService).GetField("erosionWatches", F).GetValue(null)).Count;
+async Task<AbilityCast> Cast(AbilityDefinition definition)
+{
+    Input(definition, definition.Id.Split('.').Last());
+    Ready(source); await Advance(.15f); Place(source, 60); Place(enemy, 74);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f; float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, enemy, aim: new Vector3(66, 72, 2), aggro: false); owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f, "正常施放按原报价支付 " + definition.Id);
+    return active.Last();
+}
+async Task<long> Target(string suffix)
+{
+    var definition = RequestDefinition(suffix); definition.Cost = 3; definition.Root.Matter = "wood"; definition.Root.Volume = 8; definition.Steps = Array.Empty<ConstructionStep>();
+    definition.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Leave, At = .05f, Residue = new ConstructionResidue() } };
+    await Cast(definition); await Advance(.15f);
+    return materials.Single(value => value.AbilityId == definition.Id && value.Kind == "leave").Id;
+}
+ConstructionWorldReceipt Receipt(AbilityCast cast)
+{
+    var receipts = new List<ConstructionWorldReceipt>(); cast.AppendOperationReceipts("root", "erode", receipts); return receipts.Single();
+}
+try
+{
+    long id = await Target("target");
+    if (Part != "boundaries")
+    {
+    var definition = RequestDefinition("normal"); definition.Root.Operations[0].Erosion.Fraction = .75f; var live = await Cast(definition); await Advance(.25f);
+    Check(live.OperationStateOf("root", "erode") == ConstructionStepState.Running && live.StepStateOf("after") == ConstructionStepState.Waiting &&
+        (long)Row(id)["Material"]["Erosion"]["Id"] > 0 && (double)Row(id)["Material"]["Volume"] < 8 && live.RemainingVolume(0) == 1 && live.RemainingResource(0) == 1,
+        "真实选中已有材料并独立侵蚀，半程等待且选择主体没有交出本金");
+    await Advance(.7f); var receipt = Receipt(live);
+    Check(live.TryGetOperationOutput("root", "erode", "material", out var output) &&
+        live.OperationStateOf("root", "erode") == ConstructionStepState.Completed && live.StepStateOf("after") == ConstructionStepState.Completed &&
+        live.Matter(0).Id == "iron" && Math.Abs(receipt.ErodedVolume - 6) < .0001 && Math.Abs(receipt.ErodedResource - 2.25) < .0001 &&
+        Math.Abs(receipt.Volume - 2) < .0001 && Math.Abs(receipt.Resource - .75) < .0001 &&
+        output.Volume == receipt.Volume && output.Resource == receipt.Resource && receipt.Materials.Contains(id) &&
+        output.Volume == (double)Row(id)["Material"]["Volume"],
+        "真实完成才衔接后续，回执记录本段损耗及真实剩余材料", receipt);
+    await Advance(3); Check(live.Finished && Waiting() == 0, "施放结束释放等待关系，独立材料保持真实余量");
+    if (Part == "normal") return new { passed = true, closed = "正常范围侵蚀与实际完成衔接", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
+    double stable = (double)Row(id)["Material"]["Volume"];
+    if (Part != "receipts")
+    {
+    var rows = (IDictionary)typeof(WorldMaterialService).GetField("rows", F).GetValue(null);
+    var material = (AbilityMaterial)Field(rows[id], "Material"); var selection = new List<AbilityCapsule>();
+    typeof(AbilityMaterial).GetMethod("Contacts", F).Invoke(material, new object[] { selection });
+    var settingsType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.CompiledErosion");
+    object settings = Activator.CreateInstance(settingsType, F, null, new object[] { RequestDefinition("ownership").Root.Operations[0], 3f, "ownership", 0 }, null);
+    string ownedBefore = Records().ToString(Formatting.None);
+    object denied = typeof(WorldMaterialService).GetMethod("Erode", F).Invoke(null,
+        new object[] { enemy.id, selection, settings, World.world.getCurWorldTime(), 0L, "test.ownership", -1, null });
+    Check((ConstructionStepState)Field(denied, "State") == ConstructionStepState.Interrupted &&
+        ((ConstructionWorldReceipt)Field(denied, "Receipt")).Volume == 0 && Records().ToString(Formatting.None) == ownedBefore,
+        "同一真实范围内的其他控制者被原支付者限制拒绝，材料及过程保持");
+
+
+    var insufficient = RequestDefinition("insufficient", capacity: (float)(stable * .5)); var failed = await Cast(insufficient); await Advance(.2f);
+    Check(failed.OperationStateOf("root", "erode") == ConstructionStepState.Interrupted && failed.StepStateOf("after") == ConstructionStepState.Interrupted &&
+        Receipt(failed).Volume == 0 && Receipt(failed).Materials.Count == 0 && (double)Row(id)["Material"]["Volume"] == stable,
+        "完整实体超过容量时保持原材料，空结果中断完成依赖");
+
+    var empty = RequestDefinition("empty"); var erosion = empty.Root.Operations[0]; erosion.Id = null; empty.Root.Operations = Array.Empty<ConstructionOperation>();
+    empty.Steps = new[] {
+        new ConstructionStep { Id = "none", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "iron",
+            WorldMatter = new ConstructionWorldMatter { FromMatter = "gold" } }, Inputs = new Dictionary<string, ConstructionOutputReference> { ["part"] = new() { Node = "root" } } },
+        new ConstructionStep { Id = "erode", Operation = erosion, Inputs = new Dictionary<string, ConstructionOutputReference> { ["part"] = new() { Node = "root" },
+            ["worldMaterials"] = new() { Step = "none", Output = "material", Mode = ConstructionInputMode.All } } } };
+    var none = await Cast(empty); await Advance(.2f);
+    Check(none.StepStateOf("erode") == ConstructionStepState.Interrupted && (double)Row(id)["Material"]["Volume"] == stable,
+        "明确空材料输入保持空选择，范围内其他材料没有被重新选取");
+
+    }
+    double before = (double)Row(id)["Material"]["Volume"];
+    var first = await Cast(RequestDefinition("replaced", 1.2f)); await Advance(.2f);
+    var second = await Cast(RequestDefinition("replacement", .6f)); await Advance(.15f);
+    Check(first.OperationStateOf("root", "erode") == ConstructionStepState.Interrupted && first.StepStateOf("after") == ConstructionStepState.Interrupted,
+        "同一材料的后一次侵蚀替换前过程，旧完成依赖真实中断");
+    await Advance(.8f);
+    Check(second.OperationStateOf("root", "erode") == ConstructionStepState.Completed &&
+        Math.Abs(Receipt(first).ErodedVolume + Receipt(second).ErodedVolume + (double)Row(id)["Material"]["Volume"] - before) < .0001,
+        "替换与新过程的实际损耗合计对应原余量，没有重算本金");
+
+    if (Part == "receipts")
+    {
+        await Advance(3); Check(Waiting() == 0, "数量回执补验结束后正常释放等待");
+        return new { passed = true, closed = "实际剩余材料输出、本段损耗及替换累计回执", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
+
+    var interrupted = await Cast(RequestDefinition("recovery-interrupted", 1.2f)); await Advance(.2f);
+    var recovery = RequestDefinition("recover"); recovery.Steps = Array.Empty<ConstructionStep>();
+    recovery.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Recover, Seconds = .5f,
+        Recovery = new ConstructionRecovery { WorldMaterials = true, Efficiency = 1 } } };
+    await Cast(recovery); await Advance(.2f);
+    Check(interrupted.OperationStateOf("root", "erode") == ConstructionStepState.Interrupted && interrupted.StepStateOf("after") == ConstructionStepState.Interrupted,
+        "实际世界收束中断侵蚀等待，不能通过配置历时放行后续");
+    await Advance(3); Check(!Records().Any(value => (long)value["Id"] == id) && Waiting() == 0, "回收及原施放结束后释放等待与实际材料");
+
+    id = await Target("lasting-target"); var lasting = RequestDefinition("lasting", 2); lasting.Lifetime = .7f;
+    var ended = await Cast(lasting); await Advance(.9f);
+    Check(ended.Finished && ended.OperationStateOf("root", "erode") == ConstructionStepState.Interrupted && Waiting() == 0 &&
+        Row(id)["Material"]["Erosion"].ToObject<MaterialErosionProcess>().Active, "原施放先结束只解除等待，实际世界侵蚀继续");
+    await Advance(1.5f);
+    Check(Math.Abs((double)Row(id)["Material"]["Volume"] - 4) < .0001 && !Row(id)["Material"]["Erosion"].ToObject<MaterialErosionProcess>().Active,
+        "再次使用的独立过程在原施放退出后按原份额正常完成");
+    File.WriteAllText(Path.Combine(folder, "records.json"), Records().ToString(Formatting.Indented));
+    return new { passed = true, closed = Part == "boundaries" ? "容量及明确空输入、替换与回收中断和结束释放" : "范围侵蚀、真实完成、容量及空输入、替换与回收中断和等待释放", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started; WorldMaterialService.Changed -= Material;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(new { materials }, Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}

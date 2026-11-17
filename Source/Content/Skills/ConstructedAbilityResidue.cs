@@ -20,12 +20,35 @@ public sealed partial class ConstructedAbilityService
     {
         if (!running.Cast.Plan.HasWorldMaterials) return;
         long epoch = worldGeneration;
+        if (running.ErosionWatches != null)
+            for (int i = running.ErosionWatches.Count - 1; i >= 0; i--)
+            {
+                var watch = running.ErosionWatches[i];
+                if (watch.State == ConstructionStepState.Running) continue;
+                if (watch.State == ConstructionStepState.Completed) running.Cast.ConfirmStepWorld(watch.Step, watch.Receipt);
+                else running.Cast.InterruptStepWorld(watch.Step, watch.Receipt);
+                if (epoch != worldGeneration) return;
+                WorldMaterialService.ReleaseErosion(watch); running.ErosionWatches.RemoveAt(i);
+            }
         running.Cast.TakeWorldMatterRequests(simulation.materialChanges);
         foreach (var request in simulation.materialChanges)
         {
             simulation.materialSelection.Clear();
             running.Cast.MaterialSelection(request.Node, simulation.materialSelection);
             var identities = running.Cast.ReadWorldMaterialInputs(request.Step, simulation.materialInputs) ? simulation.materialInputs : null;
+            if (request.Erosion != null)
+            {
+                var watch = WorldMaterialService.Erode(running.Owner(request.Node).Id, simulation.materialSelection,
+                    request.Erosion, clock, running.Id, running.Cast.Plan.Id, request.Step, identities);
+                if (epoch != worldGeneration) return;
+                if (watch.State == ConstructionStepState.Interrupted) running.Cast.InterruptStepWorld(request.Step, watch.Receipt);
+                else
+                {
+                    (running.ErosionWatches ??= new List<WorldErosionWatch>()).Add(watch);
+                    running.Cast.AwaitWorldErosion(request.Step);
+                }
+                continue;
+            }
             if (request.Conduction != null)
             {
                 bool confirming = simulation.confirmingContact;
@@ -87,6 +110,11 @@ public sealed partial class ConstructedAbilityService
     private static void ReleaseMaterialReservation(RunningCast running)
     {
         TrackWorldRecovery(running, false);
+        if (running.ErosionWatches != null)
+        {
+            foreach (var watch in running.ErosionWatches) WorldMaterialService.ReleaseErosion(watch);
+            running.ErosionWatches = null;
+        }
         WorldMaterialService.Release(running.ReservedResidues, running.ReservedMaterialCells);
         running.ReservedResidues = running.ReservedMaterialCells = 0;
     }

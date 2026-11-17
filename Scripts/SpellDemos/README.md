@@ -1784,3 +1784,10 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 通过develop执行`python3 Scripts/SpellDemos/verify_world_erosion.py --section material|world|save|all`。`material`检查真实阶段交接、独立几何及本金扣除、数值恢复、材料转换、局部分割后的份额与进度、非法资料。`world`复用同一现成世界及来源，正常学习、支付和施放，验证普通留置继承损耗、独立过程、失败结束、真实范围收束中断、再次使用及来源死亡后继续，并保存中途世界。`save`读取该中途世界，验证原身份、阶段和进度、剩余过程、完成后的再次存读、坏条目局部报告与保留其他材料、旧6区段升级及换世界。
 
 单独运行`save`可通过`--state`指定已通过的`world`输出目录。旧6资料固定在`fixtures/erosion-world-v6.json`，由既有正式世界提取，含来源文件及校验值。复验将该原区段嵌入现成世界，另从本批实际中途存档生成非法进度副本。各段分别通过，证据索引为`/home/inmny/.local/state/cultiway-dev/evidence/erosion-world-materials/delivery.json`。A2a关闭，范围侵蚀、局部选择及完成衔接继续A2b，整体5.13继续推进。
+
+
+### 5.13 A2b1　完整实体范围侵蚀与真实完成
+
+通过develop执行`python3 Scripts/SpellDemos/verify_world_erosion_requests.py --section core|world|all`。`core`检查共同请求、实际完成等待、选择主体保持、预测回退、来源结束和命名材料输入。`world`正常学习、支付和施放，验证实际选择、完成后续、容量与明确空输入、原支付者限制、替换与收束中断、结束释放及再次使用。可用`--part normal|boundaries|receipts|all`分别验证正常过程、边界和数量回执。`receipts`使用8份侵蚀6份、输出剩余2份，并检查替换累计，覆盖实际损耗和余量的区别。
+
+原材料分割入口另以`verify_world_erosion.py --section material`补验新分段计数。正常及数量、边界、其他控制者限制分别验收，原始测试资料、材料输出形式和理想数值断言的失败保留，索引位于`/home/inmny/.local/state/cultiway-dev/evidence/erosion-world-requests/delivery.json`。A2b1关闭，曲面局部选择与共同显示、正式区段8的新旧存读继续A2b2。
