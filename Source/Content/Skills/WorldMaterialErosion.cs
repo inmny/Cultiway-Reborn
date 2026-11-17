@@ -69,7 +69,7 @@ public sealed partial class WorldMaterialService
     /// <summary>只维护仍被活动施放等待的过程，结束时释放。</summary>
     private static readonly Dictionary<long, WorldErosionWatch> erosionWatches = new();
 
-    /// <summary>完整实体按实际形状、归属及容量参与，曲面局部分割继续后批。</summary>
+    /// <summary>按真实范围及容量选择，定形曲面分开选中部分，实际接受后开始过程。</summary>
     /// <param name="controller">本次控制者。</param><param name="selection">真实选择形状。</param>
     /// <param name="settings">已编译过程。</param><param name="clock">确认时点。</param>
     /// <param name="cast">此次施放。</param><param name="ability">实际构造。</param>
@@ -89,12 +89,23 @@ public sealed partial class WorldMaterialService
         double remaining = settings.World.MaximumVolume;
         foreach (long id in targets.OrderBy(id => id))
         {
+            if (remaining <= 0) break;
             var row = rows[id]; var material = row.Material;
             if (row.Finished || row.Recovering || identities != null && !identities.Contains(row.Identity) ||
                 settings.World.OwnedOnly && row.Provider != controller || !settings.World.Matches(material.Matter) ||
-                material.Volume > remaining || !settings.CanAffect(material.Matter, material.Volume)) continue;
-            bool selected = row.WorldGrid ? material.SelectShared(selection, instance.picked, instance.waterColumns[WaterKey(row)]) : material.Select(selection, instance.picked);
-            if (!selected || material.Flow != null && instance.picked.Count != material.Flow.Water.Count(water => water.x > 0)) continue;
+                !settings.CanAffect(material.Matter, material.Volume)) continue;
+            if (!instance.SelectMaterial(row, selection, instance.picked)) continue;
+            if (material.Flow == null)
+            {
+                if (material.Volume > remaining) continue;
+            }
+            else if (material.Volume > remaining || instance.picked.Count != material.Flow.Water.Count(water => water.x > 0))
+            {
+                if (!material.ShapeHeld) continue;
+                var selected = ExtractErosion(row, remaining, clock);
+                if (selected == null) continue;
+                row = selected; material = row.Material;
+            }
             if (erosionWatches.TryGetValue(material.Erosion.Id, out var previous) && previous.State == ConstructionStepState.Running) previous.Interrupt(clock);
             if (watch.Process == 0) watch.Process = nextId++;
             material.BeginErosion(settings); material.Erosion.Id = watch.Process;
@@ -104,6 +115,7 @@ public sealed partial class WorldMaterialService
         {
             watch.Prepare(); watch.Resolve(clock); return watch;
         }
+        instance.indexDirty = true;
         erosionWatches.Add(watch.Process, watch);
         UpdateErosionWatches(clock);
         long epoch = instance.generation;
@@ -113,6 +125,44 @@ public sealed partial class WorldMaterialService
             if (epoch != instance.generation) return null;
         }
         return watch;
+    }
+
+    /// <summary>先保留记录额度，再按实际可表示厚度转交局部份额。</summary>
+    /// <param name="source">被选中的真实材料。</param><param name="maximum">本次剩余容量。</param><param name="clock">确认时点。</param>
+    private static WorldMaterialRecord ExtractErosion(WorldMaterialRecord source, double maximum, double clock)
+    {
+        var material = source.Material; var flow = material.Flow;
+        if (rows.Count + reservedRows >= MaximumRecords || cells + reservedCells + flow.Water.Length > MaximumCells) return null;
+        var ratios = new double[flow.Water.Length]; double amount = 0, area = flow.Cell * (double)flow.Cell;
+        foreach (int i in instance.picked)
+        {
+            float depth = flow.Water[i].x;
+            if (depth <= 0 || amount >= maximum) continue;
+            float fraction = ErosionFraction(depth, maximum - amount, area);
+            ratios[i] = fraction;
+            amount += depth * fraction * area;
+        }
+        if (amount <= 0) return null;
+        var taken = material.Extract(instance.picked, 1, ratios);
+        var row = new WorldMaterialRecord { Id = nextId++, Lineage = source.Lineage, WorldGrid = source.WorldGrid,
+            Provider = source.Provider, Controller = source.Controller, Funding = source.Funding,
+            Clock = clock, Expires = source.Expires, Material = taken };
+        row.Identity = row.Id;
+        rows.Add(row.Id, row); cells += flow.Water.Length;
+        return row;
+    }
+
+    /// <summary>末格向下取可表示比例，实际交出体积始终在容量内。</summary>
+    /// <param name="depth">当前实际厚度。</param><param name="maximum">剩余体积。</param><param name="area">真实格面积。</param>
+    private static unsafe float ErosionFraction(float depth, double maximum, double area)
+    {
+        float fraction = (float)Math.Min(1, maximum / (depth * area));
+        while (depth * fraction * area > maximum)
+        {
+            int bits = *(int*)&fraction - 1;
+            fraction = *(float*)&bits;
+        }
+        return fraction;
     }
 
     /// <summary>每次共同材料时间片只合计一次，避免每个施放反复扫世界。</summary>

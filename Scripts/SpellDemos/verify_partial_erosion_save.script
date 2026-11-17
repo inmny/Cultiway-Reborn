@@ -1,0 +1,64 @@
+JObject Section() => (JObject)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "partial-erosion"))["sections"]["world_materials"];
+JArray Records() => (JArray)Section()["data"]["Records"];
+JToken Canonical(JObject section)
+{
+    var data = (JObject)section["data"].DeepClone(); var rows = new JArray();
+    foreach (var token in ((JArray)data["Records"]).OrderBy(value => (long)value["Id"]))
+    {
+        var row = JObject.Parse(JsonConvert.SerializeObject(token.ToObject<WorldMaterialData>())); row.Remove("Clock"); rows.Add(row);
+    }
+    data["Records"] = rows; return data;
+}
+async Task Load(string name)
+{
+    Config.paused = true; World.world.save_manager.loadWorld(Path.Combine(folder, name));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+}
+try
+{
+    var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "expected.json"))); long id = (long)expected["active"];
+    Check(WorldMaterialService.Count == 0 && ((IDictionary)typeof(WorldMaterialService).GetField("erosionWatches", F).GetValue(null)).Count == 0,
+        "换世界清理旧材料和等待关系");
+    await Load("pending-save"); var section = Section();
+    Check((int)section["version"] == 8 && JToken.DeepEquals(Canonical(section), Canonical((JObject)expected["section"])),
+        "正式保存恢复局部身份、原支付归属、冻结地表、历史及各自过程");
+    var before = Records().Select(value => value["Material"].ToObject<AbilityMaterialData>()).ToArray();
+    var finals = before.Select(value =>
+    {
+        double ratio = value.Erosion?.Active == true ? (1 - value.Erosion.Value.Fraction * AbilityMatters.Resolve(value.Matter, value.State, "saved").ErosionFactor) /
+            (1 - value.Erosion.Value.Fraction * AbilityMatters.Resolve(value.Matter, value.State, "saved").ErosionFactor * value.Erosion.Value.Progress) : 1;
+        return new { volume = value.Volume * ratio, resource = value.Resource * ratio };
+    }).ToArray();
+    double left = (double)Records().Single(value => (long)value["Id"] == id)["Material"]["Volume"];
+    await Advance(.3f);
+    Check((double)Records().Single(value => (long)value["Id"] == id)["Material"]["Volume"] < left &&
+        ((IDictionary)typeof(WorldMaterialService).GetField("erosionWatches", F).GetValue(null)).Count == 0,
+        "恢复只续接各材料剩余过程，旧施放等待不重新建立");
+    await Advance(10); var completed = Records().Select(value => value["Material"].ToObject<AbilityMaterialData>()).ToArray();
+    Check(completed.All(value => value.Erosion?.Active != true) && Math.Abs(completed.Sum(value => value.Volume) - finals.Sum(value => value.volume)) < .00005 &&
+        Math.Abs(completed.Sum(value => value.Resource) - finals.Sum(value => value.resource)) < .00005 &&
+        Math.Abs(completed.Sum(value => value.Volume + (value.Weathering?.LostVolume ?? 0)) - (double)expected["initialVolume"]) < .00005 &&
+        Math.Abs(completed.Sum(value => value.Resource + (value.Weathering?.SpentResource ?? 0)) - (double)expected["initialResource"]) < .00005,
+        "部分替换后的各过程按原份额完成，所有体积与本金去向守恒");
+    var finished = Section(); File.WriteAllText(Path.Combine(folder, "completed.json"), finished.ToString(Formatting.Indented));
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save")); await Load("completed-save"); await Advance(.3f);
+    Check(JToken.DeepEquals(Canonical(Section()), Canonical(finished)), "完成后再次正式存读及推进保持一次结果");
+    await Load("bad-world");
+    Check(!Records().Any(value => (long)value["Id"] == id) && Records().Count == ((JArray)expected["section"]["data"]["Records"]).Count - 1 &&
+        Cultiway.ModClass.I.WorldSaves.LastReport.Skipped.Any(value => value.Contains("侵蚀过程编号")),
+        "坏过程编号只丢弃对应部分，其他份额继续恢复并报告");
+    var legacy = JObject.Parse(File.ReadAllText(Path.Combine(folder, "legacy.json"))); await Load("legacy-world");
+    Check((int)Section()["version"] == 8 && JToken.DeepEquals(Canonical(Section()), Canonical((JObject)legacy["section"])),
+        "实际旧7资料保留原进度、阶段、总损耗及本金，新计数使用缺省值");
+    double total = Records().Sum(value => (double)value["Material"]["Volume"]);
+    await Advance(.3f);
+    Check(Records().Sum(value => (double)value["Material"]["Volume"]) < total,
+        "旧过程升级后继续剩余侵蚀，原世界资料可正常推进");
+    File.WriteAllText(Path.Combine(folder, "legacy-loaded.json"), Section().ToString(Formatting.Indented));
+    return new { passed = true, closed = "局部侵蚀正式恢复、完成去重、旧7升级、坏编号局部恢复及换世界", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

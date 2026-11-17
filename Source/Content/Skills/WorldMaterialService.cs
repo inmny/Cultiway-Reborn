@@ -187,9 +187,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
             if (!rows.TryGetValue(id, out WorldMaterialRecord row) || row.Provider != controller || row.Recovering ||
                 row.Finished || recovery.TemporaryOnly && row.Expires <= 0) continue;
             if (identities != null && !identities.Contains(row.Identity)) continue;
-            if (!(row.WorldGrid
-                    ? row.Material.SelectShared(selection, instance.picked, instance.waterColumns[WaterKey(row)])
-                    : row.Material.Select(selection, instance.picked))) continue;
+            if (!instance.SelectMaterial(row, selection, instance.picked)) continue;
             bool shared = row.WorldGrid;
             if (row.Material.Flow != null)
             {
@@ -242,6 +240,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         materialParts.Clear();
         temporaryByProvider.Clear();
         UpdateWaterColumns();
+        UpdateSolidColumns();
         foreach (WorldMaterialRecord row in rows.Values)
         {
             if (row.Finished) continue;
@@ -265,9 +264,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
     private Bounds BoundsOf(WorldMaterialRecord row)
     {
         shapes.Clear();
-        if (row.WorldGrid && !row.Recovering && waterColumns.TryGetValue(WaterKey(row), out var heights))
-            row.Material.SharedContacts(shapes, heights);
-        else row.Material.Contacts(shapes);
+        MaterialContacts(row, shapes);
         Bounds bounds = new(row.Material.Transform.GetColumn(3), Vector3.zero);
         bool first = true;
         foreach (AbilityCapsule shape in shapes)
@@ -443,6 +440,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         rows.Clear();
         erosionWatches.Clear();
         materialParts.Clear();
+        solidColumns.Clear(); solidLayers.Clear();
         temporaryByProvider.Clear();
         recoveryGroups.Clear();
         reservedRows = reservedCells = cells = 0;

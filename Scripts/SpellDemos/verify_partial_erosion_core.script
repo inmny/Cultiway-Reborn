@@ -1,0 +1,17 @@
+try
+{
+    var method = typeof(WorldMaterialService).GetMethod("ErosionFraction", F);
+    foreach (double capacity in new[] { .013, .03125, 1e-50 })
+    {
+        float fraction = (float)method.Invoke(null, new object[] { .5f, capacity, .0625d });
+        double actual = .5f * fraction * .0625d;
+        Check(actual <= capacity && fraction >= 0 && fraction <= 1 && (capacity < 1e-40 || actual > 0),
+            "实际格子厚度向下取可表示值，体积不超过容量", new { capacity, actual, fraction });
+    }
+    return new { passed = true, closed = "单格部分厚度的精确容量及不可表示份额", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

@@ -243,12 +243,12 @@ public sealed partial class AbilityMaterial
     }
 
     /// <summary>实际水柱，不以平面宽度扩大高度。</summary>
-    /// <param name="index">格子编号。</param>
-    private AbilityCapsule CellShape(int index, float? height = null)
+    /// <param name="index">格子编号。</param><param name="height">可选的共同厚度。</param><param name="ground">可选的当前共同基底。</param>
+    private AbilityCapsule CellShape(int index, float? height = null, float? ground = null)
     {
         float depth = height ?? Flow.Water[index].x;
         var centre = new Vector3(Flow.Origin.x + (index % Cells + .5f) * Flow.Cell,
-            Flow.Origin.y + (index / Cells + .5f) * Flow.Cell, Flow.Ground[index] + depth * .5f);
+            Flow.Origin.y + (index / Cells + .5f) * Flow.Cell, (ground ?? Flow.Ground[index]) + depth * .5f);
         return new AbilityCapsule(0, centre, centre, 0, Matter.Id, index, material: Matter,
             halfExtents: new Vector3(Flow.Cell * .5f, Flow.Cell * .5f, depth * .5f));
     }
@@ -277,24 +277,24 @@ public sealed partial class AbilityMaterial
     }
 
     /// <summary>混流水柱内的来源按共同高度选择，只提取自己的局部实际水量。</summary>
-    /// <param name="selection">真实选择形状。</param><param name="picked">接收选中格。</param><param name="heights">共同水柱高度。</param>
-    internal bool SelectShared(IReadOnlyList<AbilityCapsule> selection, List<int> picked, float[] heights)
+    /// <param name="selection">真实选择形状。</param><param name="picked">接收选中格。</param><param name="heights">共同水柱高度。</param><param name="ground">可选的当前共同基底。</param>
+    internal bool SelectShared(IReadOnlyList<AbilityCapsule> selection, List<int> picked, float[] heights, float[] ground = null)
     {
         picked.Clear();
         for (int i = 0; i < Flow.Water.Length; i++)
             if (Flow.Water[i].x > 0 && heights[i] > 0 &&
-                Selected(CellShape(i, heights[i]), selection))
+                Selected(CellShape(i, heights[i], ground?[i]), selection))
                 picked.Add(i);
         return picked.Count > 0;
     }
 
     /// <summary>空间筛选也按共同水柱，不将某一来源压在整池底部。</summary>
-    /// <param name="output">实际空间缓冲。</param><param name="heights">共同水深。</param>
-    internal void SharedContacts(List<AbilityCapsule> output, float[] heights)
+    /// <param name="output">实际空间缓冲。</param><param name="heights">共同水深。</param><param name="ground">可选的当前共同基底。</param>
+    internal void SharedContacts(List<AbilityCapsule> output, float[] heights, float[] ground = null)
     {
         for (int i = 0; i < Flow.Water.Length; i++)
             if (Flow.Water[i].x > 0 && heights[i] > 0)
-                output.Add(CellShape(i, heights[i]));
+                output.Add(CellShape(i, heights[i], ground?[i]));
     }
 
     /// <summary>已接受的部分水格转交新记录，按真实体积分配支付余量。</summary>

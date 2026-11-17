@@ -68,13 +68,15 @@ public sealed partial class WorldMaterialService
             else
             {
                 group = new[] { row };
-                heights = row.Material.Flow.Water.Select(w => w.x).ToArray();
+                heights = instance.solidColumns.TryGetValue(row.Id, out var column) ? column.Height : row.Material.Flow.Water.Select(w => w.x).ToArray();
             }
 
             var chosen = new HashSet<int>();
             foreach (var source in group)
             {
-                source.Material.SelectShared(selection, instance.picked, heights);
+                if (instance.solidColumns.TryGetValue(source.Id, out var column))
+                    source.Material.SelectShared(selection, instance.picked, heights, column.Ground);
+                else source.Material.SelectShared(selection, instance.picked, heights);
                 foreach (int i in instance.picked) chosen.Add(i);
             }
 

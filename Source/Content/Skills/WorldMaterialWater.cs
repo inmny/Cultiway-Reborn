@@ -392,8 +392,9 @@ public sealed partial class WorldMaterialService
     /// <summary>共同水面使用合计深度；同格占比最多的外观决定表面，来源仍独立输运。</summary>
     private FormVisualInstance[] WaterVisuals()
     {
-        var result = rows.Values.Where(r => !r.Finished && (!r.WorldGrid || r.Recovering))
+        var result = rows.Values.Where(r => !r.Finished && (r.Recovering || !r.WorldGrid && (r.Material.Flow == null || !r.Material.ShapeHeld)))
             .Select(r => r.Material.Visual(terrain, IndependentConductionFrame(r))).ToList();
+        AddSolidVisuals(result);
         foreach (var row in rows.Values.Where(r => !r.Finished))
             FormBurningPresentation.Append(result, row.Material.Transform, row.Material.Burning, row.Material.Volume,
                 terrain, row.Clock);

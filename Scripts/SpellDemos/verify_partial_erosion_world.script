@@ -1,0 +1,108 @@
+Actor source = Make(60), enemy = Make(74, "wolf"); var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var active = new List<AbilityCast>(); var materials = new List<WorldMaterialChange>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == fact.CastId) active.Add((AbilityCast)Field(running, "Cast"));
+}
+void Material(WorldMaterialChange fact) { if (fact.Provider == source.id) materials.Add(fact); }
+ConstructedAbilityService.CastStarted += Started; WorldMaterialService.Changed += Material;
+JObject Section() => (JObject)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "partial-erosion"))["sections"]["world_materials"];
+JArray Records() => (JArray)Section()["data"]["Records"];
+JToken Row(long id) => Records().Single(value => (long)value["Id"] == id);
+async Task<AbilityCast> Cast(AbilityDefinition definition, Vector3 point)
+{
+    Input(definition, definition.Id.Split('.').Last()); Ready(source); await Advance(.15f); Place(source, 60); Place(enemy, 74);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f; float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, enemy, aim: point, aggro: false); owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f, "正常入口实际支付 " + definition.Id);
+    return active.Last();
+}
+AbilityDefinition Selector(string name, float size = .2f)
+{
+    var d = RequestDefinition(name); d.Id = "test.partial-erosion." + name; d.Name = "曲面局部侵蚀";
+    d.Root.Form = "fireball"; d.Root.Scale = size; d.Root.Operations[0].Erosion.Fraction = .75f;
+    d.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, FaceTarget = false }; return d;
+}
+Vector3 Cell(AbilityMaterialData data, int index) => new Vector3(data.Flow.X + (index % 16 + .5f) * data.Flow.Cell,
+    data.Flow.Y + (index / 16 + .5f) * data.Flow.Cell, data.Flow.Bed[index] + data.Flow.Water[index * 3] * .5f);
+void Conservation()
+{
+    var data = Records().Select(value => value["Material"].ToObject<AbilityMaterialData>()).ToArray();
+    Check(Math.Abs(data.Sum(value => value.Volume + (value.Weathering?.LostVolume ?? 0)) - 8) < .00005 &&
+        Math.Abs(data.Sum(value => value.Resource + (value.Weathering?.SpentResource ?? 0)) - 3) < .00005,
+        "所有余量及累计侵蚀保持原体积和本金");
+}
+async Task Picture(string name)
+{
+    ControllableUnit.clear(false); World.world.console.Hide(); Tooltip.hideTooltipNow();
+    for (int i = 0; i < 4; i++)
+    {
+        World.world.camera.transform.position = new Vector3(66, 72, World.world.camera.transform.position.z);
+        MoveCamera.instance.forceZoom(3.5f); World.world.camera.orthographicSize = 3.5f; World.world.setZoomOrthographic(3.5f);
+        await Game.NextFrame();
+    }
+    Screen.Capture(Path.Combine(folder, name + ".png")); await Game.NextFrame();
+}
+try
+{
+    var seed = Selector("seed"); seed.Cost = 3; seed.Lifetime = .8f; seed.Root.Form = "water_wave"; seed.Root.Matter = "water"; seed.Root.Scale = 1; seed.Root.Volume = 8; seed.Steps = Array.Empty<ConstructionStep>();
+    seed.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow, Flow = new ConstructionFlow { Cells = 16, Size = 4, Gravity = 0, Drag = 0, Evaporation = 0, OpenBoundary = false } },
+        new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "wood", At = .05f },
+        new ConstructionOperation { Kind = ConstructionOperationKind.Leave, At = .1f, Residue = new ConstructionResidue() } };
+    await Cast(seed, new Vector3(66, 72, 0)); await Advance(.2f);
+    long original = materials.Single(value => value.AbilityId == seed.Id && value.Kind == "leave").Id;
+    var data = Row(original)["Material"].ToObject<AbilityMaterialData>();
+    int cell = Enumerable.Range(0, 256).OrderByDescending(index => data.Flow.Water[index * 3]).First();
+    float capacity = data.Flow.Water[cell * 3] * data.Flow.Cell * data.Flow.Cell * .37f;
+    var partial = Selector("normal"); partial.Root.Operations[0].WorldMatter.MaximumVolume = capacity;
+    partial.Steps = new[] { new ConstructionStep { Id = "convert", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "iron", WorldMatter = new ConstructionWorldMatter { FromMatter = "wood", MaximumVolume = 16 } },
+        Inputs = new Dictionary<string, ConstructionOutputReference> { ["part"] = new() { Node = "root" }, ["worldMaterials"] = new() { Node = "root", Operation = "erode", Output = "material", Mode = ConstructionInputMode.All } } } };
+    var live = await Cast(partial, Cell(data, cell)); await Advance(.2f);
+    var start = materials.Single(value => value.AbilityId == partial.Id && value.Kind == "erode");
+    Check(start.Id != original && start.Volume > 0 && start.Volume <= capacity && live.StepStateOf("convert") == ConstructionStepState.Waiting,
+        "实际部分厚度在容量内独立接受，完成前不转换", new { start, capacity, cell });
+    var remaining = Row(original)["Material"].ToObject<AbilityMaterialData>();
+    Check(Enumerable.Range(0, 256).Where(index => index != cell).All(index => remaining.Flow.Water[index * 3] == data.Flow.Water[index * 3]) && remaining.Erosion == null,
+        "未选中格子和未选中过程保持原状态");
+    var view = FormVisualScene.Instances.Single(value => value.Layer != null && value.Matter.Id == "wood");
+    var current = Records().Where(value => (string)value["Material"]["Matter"] == "wood").Select(value => value["Material"].ToObject<AbilityMaterialData>()).ToArray();
+    float depth = current.Sum(value => value.Flow.Water[cell * 3]);
+    Check(view.Layer.Sources == 2 && view.Layer.Depth(cell % 16, cell / 16) == depth,
+        "同格拆分只发布一个共同曲面，显示厚度为实际总量", new { view.Layer.Sources, cell, depth });
+    await Picture("partial-common-surface"); await Advance(.7f);
+    Check(live.OperationStateOf("root", "erode") == ConstructionStepState.Completed && live.StepStateOf("convert") == ConstructionStepState.Completed &&
+        Records().Any(value => (string)value["Material"]["Matter"] == "iron") && (string)Row(original)["Material"]["Matter"] == "wood",
+        "实际完成后的明确材料输入仅转换选中余量");
+    Conservation();
+
+    var whole = Selector("whole", 10); whole.Root.Operations[0].Seconds = 8; whole.Root.Operations[0].Erosion.Fraction = .5f; whole.Root.Operations[0].WorldMatter.MaximumVolume = 16; whole.Root.DisappearAt = .6f;
+    var old = await Cast(whole, new Vector3(66, 72, .25f)); await Advance(.1f);
+    long oldProcess = (long)Row(original)["Material"]["Erosion"]["Id"];
+    var before = Row(original)["Material"].ToObject<AbilityMaterialData>();
+    int second = Enumerable.Range(0, 256).Where(index => index != cell).OrderByDescending(index => before.Flow.Water[index * 3]).First();
+    var replacement = Selector("replacement"); replacement.Root.Operations[0].Seconds = 6; replacement.Root.Operations[0].WorldMatter.MaximumVolume = before.Flow.Water[second * 3] * before.Flow.Cell * before.Flow.Cell * .37f;
+    replacement.Steps = Array.Empty<ConstructionStep>();
+    await Cast(replacement, Cell(before, second)); await Advance(.2f);
+    var selected = materials.Single(value => value.AbilityId == replacement.Id && value.Kind == "erode");
+    Check(old.OperationStateOf("root", "erode") == ConstructionStepState.Interrupted &&
+        Row(original)["Material"]["Erosion"].ToObject<MaterialErosionProcess>().Active &&
+        (long)Row(original)["Material"]["Erosion"]["Id"] == oldProcess &&
+        (long)Row(selected.Id)["Material"]["Erosion"]["Id"] != oldProcess,
+        "部分替换中断旧完成依赖，未选中余量继续原独立过程");
+    await Advance(.2f); Conservation(); await Picture("partial-replacement");
+    var expected = new { section = Section(), active = selected.Id, initialVolume = 8d, initialResource = 3d, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(expected, Formatting.Indented));
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "pending-save"));
+    return new { passed = true, closed = "曲面局部容量、共同显示、明确材料后续与部分替换", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started; WorldMaterialService.Changed -= Material;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(new { materials }, Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}

@@ -52,7 +52,7 @@ public sealed partial class WorldMaterialService
                      .OrderBy(r => r.Id))
         {
             instance.shapes.Clear();
-            row.Material.Contacts(instance.shapes);
+            instance.MaterialContacts(row, instance.shapes);
             foreach (var shape in instance.shapes) output.Add(new WorldThermalContact(row, shape));
         }
     }
@@ -72,7 +72,7 @@ public sealed partial class WorldMaterialService
             if (!AbilityBurning.CanBurn(material.Matter) || material.Volume <= 0 ||
                 hotOnly && material.Burning.Transferable(material.Volume) <= 0) continue;
             instance.shapes.Clear();
-            material.Contacts(instance.shapes);
+            instance.MaterialContacts(row, instance.shapes);
             foreach (var shape in instance.shapes)
                 if (AbilityContactIndex.Swept(shape, shape).Intersects(bounds))
                     output.Add(new WorldThermalContact(row, shape));
@@ -87,7 +87,7 @@ public sealed partial class WorldMaterialService
         if (!rows.TryGetValue(id, out row) || row.Finished || !AbilityBurning.CanBurn(row.Material.Matter) ||
             row.Material.Volume <= 0) return false;
         instance.shapes.Clear();
-        row.Material.Contacts(instance.shapes);
+        instance.MaterialContacts(row, instance.shapes);
         foreach (var shape in instance.shapes)
             if (AbilityPairSweep.Find(shape, shape, other, other, out _, out _, out _))
                 return true;
@@ -119,7 +119,7 @@ public sealed partial class WorldMaterialService
                      .ToArray())
         {
             sourceShapes.Clear();
-            source.Material.Contacts(sourceShapes);
+            MaterialContacts(source, sourceShapes);
             foreach (var shape in sourceShapes)
             {
                 Bounds bounds = AbilityContactIndex.Swept(shape, shape);
