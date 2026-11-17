@@ -8,6 +8,7 @@ using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
+using Cultiway.Core.EventSystem.Systems;
 using Cultiway.Core.Combat.Tactical;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -354,7 +355,8 @@ internal static class PatchActor
             IgnoreDamageReduction = !pCheckDamageReduction
         };
         evt.BindAttacker(pAttacker);
-        EventSystemHub.Publish(evt);
+        if (DamageResolutionContext.TryClaimImmediateHit(evt.TargetID) && !EventSystemHub.IsPaused) GetHitEventSystem.Resolve(evt);
+        else EventSystemHub.Publish(evt);
         return false;
     }
 

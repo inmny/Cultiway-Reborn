@@ -27,6 +27,10 @@ public static class DamageResolutionContext
     [ThreadStatic]
     private static long currentSourceScopeId;
 
+    /// <summary>当前近战确认允许立即结算的一次原目标，领取后立即清空。</summary>
+    [ThreadStatic]
+    private static long immediateTargetId;
+
     /// <summary>当前结算栈的伤害来源；没有活动结算时返回主动伤害。</summary>
     public static DamageOrigin CurrentOrigin => depth > 0 ? currentOrigin : DamageOrigin.Primary;
 
@@ -37,13 +41,25 @@ public static class DamageResolutionContext
     public static long CurrentSourceScopeId => depth > 0 ? currentSourceScopeId : 0;
 
     /// <summary>进入一次伤害结算，并在释放返回值时恢复外层上下文。</summary>
-    internal static Scope Enter(DamageOrigin origin, long sourceScopeId = 0)
+    /// <param name="origin">原伤害类别。</param><param name="sourceScopeId">原作用域。</param>
+    /// <param name="immediateTarget">仅此原目标的一次近战受击需要在当前边界确认，零沿原队列。</param>
+    internal static Scope Enter(DamageOrigin origin, long sourceScopeId = 0, long immediateTarget = 0)
     {
-        var scope = new Scope(currentOrigin, currentSourceScopeId, depth);
+        var scope = new Scope(currentOrigin, currentSourceScopeId, depth, immediateTargetId);
         currentOrigin = origin;
         currentSourceScopeId = sourceScopeId;
+        immediateTargetId = immediateTarget;
         depth++;
         return scope;
+    }
+
+    /// <summary>只领取本次原目标的一次立即受击，派发回调之前清空，附加伤害继续原队列。</summary>
+    /// <param name="target">原受击人物编号。</param>
+    internal static bool TryClaimImmediateHit(long target)
+    {
+        if (depth == 0 || target == 0 || immediateTargetId != target) return false;
+        immediateTargetId = 0;
+        return true;
     }
 
     /// <summary>负责恢复嵌套伤害结算上下文的作用域。</summary>
@@ -53,12 +69,18 @@ public static class DamageResolutionContext
         private readonly long previousSourceScopeId;
         private readonly int previousDepth;
 
+        /// <summary>外层尚未领取的原目标确认。</summary>
+        private readonly long previousImmediateTarget;
+
         /// <summary>保存进入当前结算前的上下文。</summary>
-        internal Scope(DamageOrigin origin, long sourceScopeId, int contextDepth)
+        /// <param name="origin">外层伤害类别。</param><param name="sourceScopeId">外层作用域。</param>
+        /// <param name="contextDepth">外层深度。</param><param name="immediateTarget">外层原目标确认。</param>
+        internal Scope(DamageOrigin origin, long sourceScopeId, int contextDepth, long immediateTarget)
         {
             previousOrigin = origin;
             previousSourceScopeId = sourceScopeId;
             previousDepth = contextDepth;
+            previousImmediateTarget = immediateTarget;
         }
 
         /// <summary>恢复外层伤害来源和嵌套深度。</summary>
@@ -67,6 +89,7 @@ public static class DamageResolutionContext
             currentOrigin = previousOrigin;
             currentSourceScopeId = previousSourceScopeId;
             depth = previousDepth;
+            immediateTargetId = previousImmediateTarget;
         }
     }
 }

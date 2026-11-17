@@ -1,0 +1,39 @@
+try
+{
+    // 同步确认只领取一次原目标，嵌套反应及释放继续原作用域。
+    Type context = typeof(Cultiway.Core.Combat.DamageResolutionContext);
+    var enter = context.GetMethod("Enter", F);
+    var claim = context.GetMethod("TryClaimImmediateHit", F);
+    long priorScope = Cultiway.Core.Combat.DamageResolutionContext.CurrentSourceScopeId;
+    using ((IDisposable)enter.Invoke(null, new object[] { Cultiway.Core.Combat.DamageOrigin.Primary, 77L, source.id }))
+    {
+        using ((IDisposable)enter.Invoke(null, new object[] { Cultiway.Core.Combat.DamageOrigin.Reaction, 78L, 0L }))
+            Check(!(bool)claim.Invoke(null, new object[] { source.id }), "嵌套反应不领取外层原目标的同步受击");
+        Check((bool)claim.Invoke(null, new object[] { source.id }) && !(bool)claim.Invoke(null, new object[] { source.id }),
+            "原目标同步受击只领取一次");
+    }
+    Check(Cultiway.Core.Combat.DamageResolutionContext.CurrentSourceScopeId == priorScope &&
+        !(bool)claim.Invoke(null, new object[] { source.id }), "退出同步近战后恢复原作用域");
+    var hand = Body("hand");
+    await Begin(hand); await Advance(1.9f);
+    Check(facts.Count == 1 && facts[0].AttackNode == -1 && facts[0].OwnerId == source.id && facts[0].TargetId == target.id &&
+        facts[0].HealthAfter < facts[0].HealthBefore && actual[hand.Id].BodyResult == BodyActionResult.Contact,
+        "徒手真实接触近处映像，远处原人物沿原近战入口受伤，映像破碎后按接触收势", new { result = actual[hand.Id].BodyResult, events = Snapshots() });
+    Check(!BodyControlState.IsBusy(source.id) && !ConstructedAbilityService.HasWeaponControl(source),
+        "徒手结束后控制归还");
+    Item sword = Equip();
+    var weapon = Body("weapon", true);
+    int previous = facts.Count;
+    await Begin(weapon, strong: true); await Advance(1.9f);
+    Check(facts.Count == previous + 1 && facts.Last().HealthAfter < facts.Last().HealthBefore &&
+        actual[weapon.Id].BodyResult == BodyActionResult.Blocked && source.getWeapon().data.id == sword.data.id,
+        "原剑真实接触映像并传伤，映像承住发力后按受阻收势，原器物身份保持", Snapshots());
+    Check(!BodyControlState.IsBusy(source.id) && !ConstructedAbilityService.HasWeaponControl(source),
+        "持物结束后原身体和器物控制归还");
+    var miss = Body("miss", true);
+    previous = facts.Count;
+    await Begin(miss, miss: true); await Advance(1.9f);
+    Check(facts.Count == previous && !BodyControlState.IsBusy(source.id), "真实作用面外映像保持，落空后控制正常归还");
+    return new { passed = true, closed = "徒手及原剑真实映像接触、原近战传伤、实际支付、承住与破碎收势、落空及控制归还", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { Finish(); }

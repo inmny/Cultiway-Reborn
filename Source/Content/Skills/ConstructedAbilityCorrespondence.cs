@@ -1,6 +1,8 @@
 using System;
+using Cultiway.Content.KnightCombat;
 using Cultiway.Core.EventSystem.Systems;
 using Cultiway.Core.Skills;
+using Cultiway.Utils.Extension;
 using UnityEngine;
 
 namespace Cultiway.Content.Skills;
@@ -23,7 +25,7 @@ public readonly struct ConstructedCorrespondenceDamage
     /// <summary>真实结算时刻。</summary>
     public readonly double WorldTime;
 
-    /// <summary>真实消耗、传递份额、抗性前伤害和实际生命前后值。</summary>
+    /// <summary>真实消耗、传递份额、按交锋量折算的基础伤害和实际生命前后值。</summary>
     public readonly float ConsumedForce, Fraction, Damage, HealthBefore, HealthAfter;
 
     /// <summary>原人物已经结算后建立事实。</summary>
@@ -32,7 +34,7 @@ public readonly struct ConstructedCorrespondenceDamage
     /// <param name="attackNode">攻击部位。</param><param name="imageNode">映像部位。</param>
     /// <param name="relation">明确关系。</param><param name="position">真实交锋点。</param>
     /// <param name="time">共同世界时刻。</param><param name="consumed">实际消耗。</param>
-    /// <param name="fraction">声明份额。</param><param name="damage">抗性前伤害。</param>
+    /// <param name="fraction">声明份额。</param><param name="damage">按交锋量折算的基础伤害。</param>
     /// <param name="before">原生命值。</param><param name="after">结果生命值。</param>
     internal ConstructedCorrespondenceDamage(long attack, long image, long owner, long target, int attackNode,
         int imageNode, string relation, Vector3 position, double time, float consumed, float fraction,
@@ -89,7 +91,8 @@ public sealed partial class ConstructedAbilityService
     private static Actor CorrespondenceReceiver(RunningCast running, int node)
     {
         if (node < 0 || running.CorrespondenceEnded == null || running.CorrespondenceEnded[node] ||
-            running.Cast.Plan.Nodes[node].Correspondence == null || !running.Cast.IsNodePresent(node)) return null;
+            running.Cast.Plan.Nodes[node].Correspondence == null ||
+            !running.Cast.IsNodePresent(node) && running.Cast.ContactSweepForce(node) <= 0f) return null;
         Actor actor = CorrespondenceActor(running, node);
         var relation = running.Cast.Plan.Nodes[node].Correspondence;
         long id = relation.Target == ConstructionCorrespondenceTarget.Source ? running.SourceId : running.TargetId;
@@ -131,30 +134,45 @@ public sealed partial class ConstructedAbilityService
     /// <param name="attack">实际攻击。</param><param name="image">实际映像。</param>
     /// <param name="receiver">消耗前确认的原人物，允许本次交锋打碎映像后完成最后一次传递。</param>
     /// <param name="consumed">已经实际扣除的作用量。</param><param name="point">共同交锋点。</param>
-    private static void ApplyCorrespondenceDamage(in ShapeMotion attack, in ShapeMotion image, Actor receiver,
-        float consumed, Vector3 point)
+    /// <param name="contactConfirmed">身体已按完整共同表面及频率确认资格。</param>
+    private static ApplyAttackState ApplyCorrespondenceDamage(in ShapeMotion attack, in ShapeMotion image, Actor receiver,
+        float consumed, Vector3 point, bool contactConfirmed = false)
     {
-        if (receiver == null || !receiver.isAlive() || !receiver.hasHealth()) return;
+        if (receiver == null || !receiver.isAlive() || !receiver.hasHealth()) return ApplyAttackState.Continue;
         var relation = image.Running.Cast.Plan.Nodes[image.To.Node].Correspondence;
         long id = relation.Target == ConstructionCorrespondenceTarget.Source ? image.Running.SourceId : image.Running.TargetId;
         var impact = attack.Running.Cast.Impact(attack.To.Node);
         CastAuthority owner = attack.Running.Owner(attack.To.Node);
         float amount = consumed * relation.DamageFraction * impact.DamageScale;
         if (receiver.data?.id != id || amount <= 0f || !owner.Matches(impact.Targets, receiver) ||
-            !CorrespondenceContactReady(attack.Running, attack.To.Node, id)) return;
+            !contactConfirmed && !CorrespondenceContactReady(attack.Running, attack.To.Node, id)) return ApplyAttackState.Continue;
         RememberContact(attack.Running, attack.To.Node, id);
         float before = receiver.data.health;
-        var damage = owner.Damage;
-        damage.TargetID = id;
-        damage.Damage = amount;
-        damage.Element = impact.Element ?? Composition(attack.Running.Cast.Matter(attack.To.Node).DamageKind);
         long generation = worldGeneration;
-        GetHitEventSystem.Resolve(damage);
-        if (generation != worldGeneration) return;
+        ApplyAttackState result = ApplyAttackState.Hit;
+        if (attack.To.Node < 0)
+        {
+            float multiplier = attack.Running.Power * impact.DamageScale * relation.DamageFraction *
+                               consumed / BodyCorrespondenceForce(attack.Running);
+            var caster = attack.Running.Source.GetExtend();
+            result = attack.Running.Body.Weapon == null
+                ? KnightWeaponStrikeResolver.StrikeUnarmed(caster, receiver, null, multiplier, immediate: true).state
+                : KnightWeaponStrikeResolver.StrikeBorrowed(caster, attack.Running.Body.Weapon, receiver, multiplier, immediate: true).state;
+        }
+        else
+        {
+            var damage = owner.Damage;
+            damage.TargetID = id;
+            damage.Damage = amount;
+            damage.Element = impact.Element ?? Composition(attack.Running.Cast.Matter(attack.To.Node).DamageKind);
+            GetHitEventSystem.Resolve(damage);
+        }
+        if (generation != worldGeneration) return result;
         float after = receiver.data?.id == id ? receiver.data.health : 0f;
         EndExhaustedContactGroup(attack.Running, attack.To.Node);
         CorrespondenceDamageConfirmed?.Invoke(new ConstructedCorrespondenceDamage(attack.Running.Id,
             image.Running.Id, owner.Id, id, attack.To.Node, image.To.Node, relation.Id, point,
             simulation.contactTime, consumed, relation.DamageFraction, amount, before, after));
+        return result;
     }
 }

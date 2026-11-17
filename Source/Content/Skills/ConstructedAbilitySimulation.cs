@@ -453,6 +453,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         actingSurfacesFrom = actingSurfacesTo = 0d;
         sampledAt = sampleUntil = 0d;
         contactIntervals.Clear();
+        correspondenceStarts.Clear();
+        correspondenceStartIndex.Clear();
+        correspondenceCandidates.Clear();
+        bodyCorrespondenceCandidates.Clear();
     }
 
     /// <summary>保存前态，再用同一段时间预测所有施放；不在预测阶段造成伤害。</summary>
@@ -478,8 +482,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             running.BeforeJoint = running.BodyControlled && running.Cast.Plan.Body.Part.IsJoint ? running.Cast.BodyPose.Value.Joint : null;
             running.Cast.SaveStep();
             Collect(running, running.Before, false);
-            RefreshReentry(running, clock);
         }
+
+        IndexCorrespondenceStarts();
+        foreach (RunningCast running in active) RefreshReentry(running, clock);
 
         CaptureActingSurfaces(clock, true);
         AdvanceAll(clock + step, step);
@@ -746,6 +752,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             bool fire = powered && shape.To.Material?.Id == "fire" && shape.To.Material.State == "energy";
             bool ordinary = powered && running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
             bool thermalSource = fire || shape.To.Node >= 0 && running.Cast.Burning(shape.To.Node).Heat > 0;
+            if (shape.To.Node < 0 && ordinary) FindBodyCorrespondences(shape, clock, step, Include);
             if (shape.To.Node >= 0 && (ordinary || thermalSource))
             {
                 if (!singleActingNode)
@@ -943,6 +950,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         int node = hit.Left.To.Node;
         if (hit.Right.HasValue)
         {
+            if (node < 0 || hit.Right.Value.To.Node < 0)
+            {
+                ResolveBodyCorrespondence(hit);
+                return;
+            }
             if (TryReflect(in hit)) return;
             ShapeMotion right = hit.Right.Value;
             Actor leftReceiver = CorrespondenceReceiver(running, node);

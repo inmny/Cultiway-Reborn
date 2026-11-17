@@ -1,0 +1,154 @@
+Actor source = Make(64), target = Make(80, "wolf");
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+var bindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding");
+var facts = new List<ConstructedCorrespondenceDamage>();
+var actual = new Dictionary<string, AbilityCast>();
+
+/// <summary>保留这一人物发出的实际对应伤害。</summary>
+/// <param name="fact">正式传伤。</param>
+void Mapped(ConstructedCorrespondenceDamage fact)
+{
+    facts.Add(fact);
+    if (facts.Count <= 10)
+        File.WriteAllText(Path.Combine(folder, "live-events.json"), JsonConvert.SerializeObject(Snapshots(), Formatting.Indented));
+}
+
+/// <summary>保留同一真实施放，用于核对接触后的原收势状态。</summary>
+/// <param name="fact">普通受理。</param>
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    foreach (object value in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(value, "Id") == fact.CastId) actual[fact.AbilityId] = (AbilityCast)Field(value, "Cast");
+}
+ConstructedAbilityService.CorrespondenceDamageConfirmed += Mapped;
+ConstructedAbilityService.CastStarted += Started;
+
+/// <summary>坐标仅导出纯数值。</summary>
+object[] Snapshots() => facts.Select(fact => (object)new
+{
+    fact.AttackCastId, fact.ImageCastId, fact.OwnerId, fact.TargetId, fact.AttackNode, fact.ImageNode,
+    fact.Relation, fact.WorldTime, fact.ConsumedForce, fact.Fraction, fact.Damage,
+    fact.HealthBefore, fact.HealthAfter, position = new[] { fact.Position.x, fact.Position.y, fact.Position.z }
+}).ToArray();
+
+/// <summary>沿已通过的原剑形握持入口装备同一类真实器物。</summary>
+Item Equip()
+{
+    Item item = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: source);
+    source.equipment.setItem(item, source); source.setStatsDirty(); source.updateStats();
+    return item;
+}
+
+/// <summary>从已存在的普通动作生成这一真实身体的声明。</summary>
+/// <param name="name">本场景编号。</param><param name="weapon">是否使用当前真实剑。</param>
+AbilityDefinition Body(string name, bool weapon = false)
+{
+    var definition = BodyActionCatalog.Create("test.body-correspondence." + name, name,
+        new BodyActionRequest { Kind = weapon ? BodyActionKind.Thrust : BodyActionKind.Slap,
+            Seconds = 1.2f, WeaponForm = weapon ? "sword" : null, Contact = weapon ? "tip" : null,
+            Responses = new[]
+            {
+                new BodyResultResponse { Result = BodyActionResult.Contact, RecoverFrom = "rest", Seconds = .12f },
+                new BodyResultResponse { Result = BodyActionResult.Blocked, RecoverFrom = "rest", Seconds = .18f }
+            } });
+    definition.Resource = "wakan"; definition.Cost = 2f; definition.Cooldown = .1f; definition.TargetRange = 40;
+    definition.Body.MatchDistance = false;
+    definition.Body.Impact = new ConstructionImpact { DamageScale = 1 };
+    return definition;
+}
+
+/// <summary>仅为频率场景维持原身体接触姿态，实际表面继续由原绑定采集。</summary>
+/// <param name="name">场景编号。</param><param name="mode">普通接触频率。</param>
+AbilityDefinition Held(string name, ConstructionContactMode mode)
+{
+    var definition = Body(name);
+    float at = (definition.Body.ActiveFrom + definition.Body.ActiveUntil) * .5f;
+    BodyMotionKey selected = definition.Body.Keys.OrderBy(key => Math.Abs(key.At - at)).First();
+    foreach (var key in definition.Body.Keys)
+    {
+        key.Hand = (float[])selected.Hand.Clone();
+        key.Torso = selected.Torso == null ? null : (float[])selected.Torso.Clone();
+        key.Rotation = selected.Rotation == null ? null : (float[])selected.Rotation.Clone();
+        key.Turn = selected.Turn;
+    }
+    definition.Body.ActiveFrom = .1f; definition.Body.ActiveUntil = 1.1f; definition.Body.ReleaseAt = .1f;
+    definition.Body.Responses = Array.Empty<BodyResultResponse>();
+    definition.Body.Contact = new ConstructionContactPolicy { Mode = mode, Interval = .2f, MaximumPerTarget = 3 };
+    return definition;
+}
+
+/// <summary>按已存在的真实绑定和声明中的作用时点选择映像位置。</summary>
+/// <param name="definition">即将沿普通入口使用的身体构造。</param>
+Vector3 ContactPoint(AbilityDefinition definition)
+{
+    var plan = AbilityCompiler.Compile(definition, false);
+    Vector3 foot = (Vector3)spatial.GetMethod("Foot", F).Invoke(null, new object[] { target });
+    float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { target });
+    object binding = bindingType.GetMethod("TryCreate", F).Invoke(null,
+        new object[] { source, plan.Body, Vector3.right, foot, height });
+    Check(binding != null, "复用实际身体绑定准备映像位置");
+    var frame = (BodyFrame)bindingType.GetMethod("Frame", F, null, new[] { typeof(Actor) }, null).Invoke(binding, new object[] { source });
+    var pose = plan.Body.Sample((plan.Body.ActiveFrom + plan.Body.ActiveUntil) * .5f, in frame);
+    var shapes = new List<AbilityCapsule>();
+    bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
+    Check(shapes.Count > 0, "原身体或握持器物具有真实接触面");
+    return (shapes[0].A + shapes[0].B) * .5f;
+}
+
+/// <summary>复用现成人物，稳定后再按真实接触面摆放普通映像。</summary>
+/// <param name="definition">本次实际身体动作。</param><param name="strong">映像是否承住本次发力。</param>
+/// <param name="miss">映像是否放在实际路径外。</param>
+/// <param name="imageEdit">本场景明确使用的普通映像运动。</param>
+async Task Begin(AbilityDefinition definition, bool strong = false, bool miss = false,
+    Action<AbilityDefinition> imageEdit = null)
+{
+    Ready(source); await Advance(.15f); Place(source, 64); Place(target, 80);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    Vector3 point = ContactPoint(definition);
+    if (miss) point.y += 4f;
+    var image = ImageDefinition(); image.Id = definition.Id + ".image"; image.Lifetime = 1.8f;
+    image.Root.Scale = .2f; image.Power = strong ? 100f : .25f;
+    image.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
+    Vector3 anchorPoint = (Vector3)spatial.GetMethod("Foot", F).Invoke(null, new object[] { source });
+    image.Root.Offset = new[] { point.x - anchorPoint.x, point.y - anchorPoint.y, point.z - anchorPoint.z };
+    imageEdit?.Invoke(image);
+    Input(definition, definition.Id.Split('.').Last()); Input(image, definition.Id.Split('.').Last() + "-image");
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(image, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+    if (definition.Body.WeaponForm != null)
+    {
+        var plan = AbilityCompiler.Compile(definition, false);
+        bool ready = (bool)service.GetMethod("BodyReady", F).Invoke(null, new object[] { owner, plan });
+        var state = new
+        {
+            ready, source.under_forces, source.attack_timer,
+            rotationZ = ((Vector3)Field(source, "current_rotation")).z,
+            canBind = (bool)bindingType.GetMethod("CanBind", F).Invoke(null, new object[] { owner, plan.Body }),
+            weaponCasting = (bool)service.Assembly.GetType("Cultiway.Content.WeaponControl.WeaponControlRuntimeService").GetMethod("IsCasting", F).Invoke(null, new object[] { owner }),
+            knightBusy = (bool)service.Assembly.GetType("Cultiway.Content.KnightCombat.KnightTechniqueRuntimeService").GetMethod("IsBusy", F).Invoke(null, new object[] { owner }),
+            wakan = owner.GetCultisys<Xian>().wakan,
+            weaponGroup = source.getWeaponAsset()?.group_id
+        };
+        File.WriteAllText(Path.Combine(folder, "weapon-readiness.json"), JsonConvert.SerializeObject(state, Formatting.Indented));
+        Check(ready, "持物动作按原真实准入规则就绪", state);
+    }
+    await Fire(definition, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - definition.Cost - image.Cost) < .001f,
+        "原身体和映像各自按普通入口支付");
+}
+
+/// <summary>结束本段并保留实际记录。</summary>
+void Finish()
+{
+    ConstructedAbilityService.CorrespondenceDamageConfirmed -= Mapped;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(Snapshots(), Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}

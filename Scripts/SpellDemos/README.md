@@ -1872,3 +1872,12 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 保存段用`--state <已通过的runtime目录>`复用正式完成世界，`--legacy <真实旧12世界>`可指定旧来源。默认旧样例来自5.13 C2已交付的真实完成世界，入口核对正式区段12并保存校验值及原资料。完整旧构造原样升级，新13对应、原人物和生命结果及已学关系保持，重复读取及换世界不重放。
 
 输出位于`CULTIWAY_DEV_OUTPUT/correspondence/<分段>`。原all的边界段通过，实机事件坐标直接序列化失败，改为纯数值后仅补实机及存读，按分段验收。完整输入、事件、世界和退出记录位于`/home/inmny/.local/state/cultiway-dev/evidence/correspondence-damage/delivery.json`。A关闭，其他作用、时序、身体与持物接触、编辑及自主创作、集中双端影片继续5.14后批。
+
+
+### 5.14 B1　真实身体及持物接触映像
+
+通过develop执行`python3 Scripts/SpellDemos/verify_body_correspondence.py --section normal|frequency|control|all`。`normal`复用原身体与同一铁剑，检查真实徒手及持物接触、原近战传伤、实际支付、映像承住与破碎后的连续收势、落空和控制归还。原目标首次近战受击在当前接触边界确认，嵌套反应及一次领取用同一段检查。
+
+`frequency`检查持续接触的间隔、共同脉冲和次数上限，以及持续贴住有效映像的去重。重入沿普通飞行曲线把同一映像真实移出并移回，保留离开位置和实际传伤时点。可用`--frequency-case timed|reentry|all`只补对应部分，单独输出`frequency-timed`或`frequency-reentry`。`control`验证真实器物替换中断、新器物再次使用和换世界控制归还。
+
+输出位于`CULTIWAY_DEV_OUTPUT/body-correspondence/<分段>`，保留完整实际定义、脚本、费用、原人物及器物身份、传伤事实和生命结果。正常段及间隔、脉冲在修正后的all中通过，重入及控制后续分别通过，受影响的A实机段单独补验通过。原失败和推进诊断日志保留，按分段验收。索引位于`/home/inmny/.local/state/cultiway-dev/evidence/body-correspondence/delivery.json`。正式声明与区段仍为13，其他作用、编辑与自主创作、集中恢复及连续影片继续5.14后批。

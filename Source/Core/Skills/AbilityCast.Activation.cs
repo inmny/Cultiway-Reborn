@@ -218,10 +218,13 @@ public sealed partial class AbilityCast
     internal void ConfirmClash(int node, Vector3 point, float spent)
     {
         RecordActionContact(node, point, AbilityActionContactKind.Ability);
-        if (fractures != null && Plan.Nodes[node].Fracture != null) fractures[node].AwaitingSpend = spent > 0f;
-        nodes[node].HasClashPoint = true;
-        nodes[node].ClashPoint = point;
-        ApplyMatterChanges(node, ConstructionChangeTrigger.Clash);
+        if (node >= 0)
+        {
+            if (fractures != null && Plan.Nodes[node].Fracture != null) fractures[node].AwaitingSpend = spent > 0f;
+            nodes[node].HasClashPoint = true;
+            nodes[node].ClashPoint = point;
+            ApplyMatterChanges(node, ConstructionChangeTrigger.Clash);
+        }
         SignalEvent(node, ConstructionChangeTrigger.Clash, point);
         FlushBirths(inputs.Target);
         RecordActionTimeline();

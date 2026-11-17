@@ -40,10 +40,12 @@ internal static class KnightWeaponStrikeResolver
     /// <param name="caster">已完成接触距离检查的出掌者。</param>
     /// <param name="target">实际接触的原目标。</param>
     /// <param name="onPositiveActorDamage">只有产生正数最终伤害时才通知。</param>
+    /// <param name="damageMultiplier">本次已确认接触的伤害倍率。</param>
+    /// <param name="immediate">是否需要在当前真实接触边界确认这次原目标伤害。</param>
     internal static AttackDataResult StrikeUnarmed(ActorExtend caster, BaseSimObject target,
-        Action<Actor, float> onPositiveActorDamage, float damageMultiplier = 1f)
+        Action<Actor, float> onPositiveActorDamage, float damageMultiplier = 1f, bool immediate = false)
     {
-        return ResolveStrike(caster, target, damageMultiplier, caster.Base.kingdom, DamageOrigin.Primary, onPositiveActorDamage);
+        return ResolveStrike(caster, target, damageMultiplier, caster.Base.kingdom, DamageOrigin.Primary, onPositiveActorDamage, immediate);
     }
 
     /// <summary>实际借用器物的接触使用同一原版防御、耐久及伤害入口。</summary>
@@ -51,9 +53,10 @@ internal static class KnightWeaponStrikeResolver
     /// <param name="weapon">受理时借用的实际器物。</param>
     /// <param name="target">真实接触对象。</param>
     /// <param name="multiplier">构造的实际倍率。</param>
-    internal static AttackDataResult StrikeBorrowed(ActorExtend caster, Item weapon, BaseSimObject target, float multiplier) =>
+    /// <param name="immediate">是否需要在当前真实接触边界确认这次原目标伤害。</param>
+    internal static AttackDataResult StrikeBorrowed(ActorExtend caster, Item weapon, BaseSimObject target, float multiplier, bool immediate = false) =>
         EquippedWeaponVisualService.IsCurrent(caster.Base, weapon)
-            ? ResolveStrike(caster, target, multiplier, caster.Base.kingdom, DamageOrigin.Primary, null) : default;
+            ? ResolveStrike(caster, target, multiplier, caster.Base.kingdom, DamageOrigin.Primary, null, immediate) : default;
 
     /// <summary>共用一次原版攻击的范围、来源与最终伤害关联。</summary>
     /// <param name="caster">攻击者。</param>
@@ -62,8 +65,9 @@ internal static class KnightWeaponStrikeResolver
     /// <param name="attackKingdom">攻击阵营。</param>
     /// <param name="damageOrigin">伤害来源类别。</param>
     /// <param name="onPositiveActorDamage">实际正数伤害的回调。</param>
+    /// <param name="immediate">仅原目标的首次受击在当前边界结算。</param>
     private static AttackDataResult ResolveStrike(ActorExtend caster, BaseSimObject target, float damageMultiplier,
-        Kingdom attackKingdom, DamageOrigin damageOrigin, Action<Actor, float> onPositiveActorDamage)
+        Kingdom attackKingdom, DamageOrigin damageOrigin, Action<Actor, float> onPositiveActorDamage, bool immediate = false)
     {
         Actor owner = caster.Base;
 
@@ -90,7 +94,7 @@ internal static class KnightWeaponStrikeResolver
         float previousMultiplier = AttackDamageScaleContext.Enter(damageMultiplier);
         try
         {
-            using (DamageResolutionContext.Enter(damageOrigin, scopeId))
+            using (DamageResolutionContext.Enter(damageOrigin, scopeId, immediate ? target.getID() : 0))
             {
                 result = MapBox.checkAttackFor(attack, target);
             }

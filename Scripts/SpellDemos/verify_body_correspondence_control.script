@@ -1,0 +1,29 @@
+try
+{
+    Equip();
+    var definition = Body("weapon-loss", true);
+    await Begin(definition, miss: true); await Advance(.05f);
+    Check(BodyControlState.IsBusy(source.id) && ConstructedAbilityService.HasWeaponControl(source),
+        "普通持物动作实际取得原身体与原剑控制");
+    Item replacement = Equip();
+    await Advance(.3f);
+    Check(!BodyControlState.IsBusy(source.id) && !ConstructedAbilityService.HasWeaponControl(source) &&
+        facts.Count == 0 && source.getWeapon().data.id == replacement.data.id,
+        "原器物被真实替换后旧动作中断，控制归还且不补发映像伤害");
+    await Advance(1.6f);
+    var again = Body("again", true);
+    await Begin(again); await Advance(1.9f);
+    Check(facts.Count == 1 && !BodyControlState.IsBusy(source.id), "中断后可按新原物件再次正常使用");
+    var changing = Body("world", true);
+    await Begin(changing, miss: true); await Advance(.05f);
+    long id = source.id;
+    Check(BodyControlState.IsBusy(id) && ConstructedAbilityService.HasWeaponControl(source), "换世界前实际持有身体及兵器控制");
+    World.world.save_manager.loadWorld(Path.Combine(folder, "input-world"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800); await Advance(.2f);
+    Check(!BodyControlState.IsBusy(id) && !ConstructedAbilityService.HasWeaponControl(source) &&
+        ((ICollection)service.GetField("casts", F).GetValue(null)).Count == 0,
+        "换世界后旧映像和旧动作退出，实际控制全部归还");
+    return new { passed = true, closed = "真实器物替换中断、再次使用及换世界控制归还", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { Finish(); }

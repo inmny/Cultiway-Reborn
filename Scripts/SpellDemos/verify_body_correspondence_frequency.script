@@ -1,0 +1,50 @@
+try
+{
+    foreach (var mode in frequencyCase == "reentry" ? Array.Empty<ConstructionContactMode>() :
+        new[] { ConstructionContactMode.Interval, ConstructionContactMode.Pulse })
+    {
+        var definition = Held(mode.ToString().ToLowerInvariant(), mode);
+        int previous = facts.Count;
+        await Begin(definition, strong: true); await Advance(1.9f);
+        var used = facts.Skip(previous).ToArray();
+        Check(used.Length == 3 && used.Zip(used.Skip(1), (a, b) => b.WorldTime - a.WorldTime).All(gap => gap >= .199f),
+            "持续身体映像接触共用间隔、脉冲和次数上限 " + mode, Snapshots());
+        Check(!BodyControlState.IsBusy(source.id), "连续接触结束后控制归还 " + mode);
+    }
+    if (frequencyCase != "timed")
+    {
+        var reentry = Held("reentry", ConstructionContactMode.Reentry);
+        int before = facts.Count;
+        await Begin(reentry, strong: true, imageEdit: image => image.Root.Operations = new[]
+        {
+            new ConstructionOperation
+            {
+                Kind = ConstructionOperationKind.Fly, At = .5f, InheritVelocity = false,
+                Path = new ConstructionPath { Forward = null, Keys = new[]
+                {
+                    new ConstructionPathKey(),
+                    new ConstructionPathKey { At = .15f, Point = new[] { 0f, 4f, 0f } },
+                    new ConstructionPathKey { At = .3f, Point = new[] { 0f, 0f, 0f } }
+                } }
+            }
+        });
+        await Advance(.3f);
+        Check(facts.Count == before + 1, "维持接触只记录首次实际进入");
+        await Advance(.15f);
+        Check(facts.Count == before + 1, "持续贴住有效映像不会因原人物在远处而伪造离开");
+        await Advance(.2f);
+        var forms = new List<FormVisualInstance>();
+        actual[reentry.Id + ".image"].AppendVisuals(forms);
+        Vector3 away = forms.Single().Transform.GetColumn(3);
+        Check(Vector3.Distance(away, facts[before].Position) > 2f && facts.Count == before + 1,
+            "普通轨迹把同一映像实际移出身体作用面，离开本身不补发命中", new { x = away.x, y = away.y, z = away.z });
+        await Advance(.25f);
+        Check(facts.Count == before + 2, "映像真实离开后再次进入才恢复同一阶段的接触机会", Snapshots());
+        await Advance(1f);
+        Check(!BodyControlState.IsBusy(source.id), "离开再进入场景结束后控制归还");
+    }
+    return new { passed = true, closed = frequencyCase == "reentry" ? "持续贴住去重、实际离开后重入及控制归还" :
+        frequencyCase == "timed" ? "持续接触的间隔、共同脉冲、共用次数及控制归还" :
+        "持续接触的间隔、共同脉冲、实际重入和共用次数", frequencyCase, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { Finish(); }

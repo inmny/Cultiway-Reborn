@@ -40,6 +40,11 @@ public sealed partial class ConstructedAbilityService
             ContactMemory memory = pair.Value;
             if (!memory.Touching || running.Cast.Plan.ContactPolicies[pair.Key.Group].Mode != ConstructionContactMode.Reentry) continue;
             memory.Touching = false;
+            if (CorrespondenceTouching(running, pair.Key))
+            {
+                memory.Touching = true;
+                continue;
+            }
             if (!actorIndices.TryGetValue(pair.Key.Target, out int index)) continue;
             ActorMotion actor = actors[index];
             Sample(actor, clock, out Vector3 foot, out float height);
@@ -129,30 +134,8 @@ public sealed partial class ConstructedAbilityService
                     ? !running.Cast.AffectsActors(shape.To.Node) ||
                       (bodyStage < 0 ? running.HitKey(shape.To.Node, key.Item4) : running.HitKeyAtStage(shape.To.Node, key.Item4, bodyStage)) != key
                     : shape.To.Node != onlyNode)) continue;
-            AbilityCapsule start = shape.Continuous ? shape.From : shape.To;
-            if (shape.To.Node < 0 && running.BeforeJoint != null)
-            {
-                BodySurfacePose before = shape.Continuous ? running.BeforeJoint.Contact : running.Cast.BodyPose.Value.Joint.Contact;
-                BodySurfacePose after = running.Cast.BodyPose.Value.Joint.Contact;
-                AbilityCapsule targetBefore = shape.Continuous ? from : to;
-                if (BodySurfacePose.Find(before, after, targetBefore, to, "surface", out float jointEnter, out _, out _) &&
-                    BodySurfacePose.Find(after, before, to, targetBefore, "surface", out float jointReverse, out _, out _))
-                    contactIntervals.Add((jointEnter, Mathf.Min(1f - jointReverse, shape.To.Until)));
-                continue;
-            }
-            if (!shape.Continuous)
-            {
-                if (AbilityPairSweep.Find(start, start, to, to, out _, out _, out _)) contactIntervals.Add((1f, 1f));
-                continue;
-            }
-            if (AbilityPairSweep.Find(start, shape.To, from, to, out float enter, out _, out _) &&
-                AbilityPairSweep.Find(shape.To, start, to, from, out float reverse, out _, out _))
-            {
-                if (onlyNode == int.MinValue
-                        ? start.Intersects(from.A, from.Radius + .00002f)
-                        : AbilityPairSweep.Find(start, start, from, from, out _, out _, out _)) enter = 0f;
-                contactIntervals.Add((enter, Mathf.Min(1f - reverse, shape.To.Until)));
-            }
+            AppendContactInterval(shape, from, to, true, onlyNode == int.MinValue);
+            if (onlyNode == int.MinValue) AppendCorrespondenceIntervals(shape, key.Item4);
         }
         contactIntervals.Sort((left, right) => left.From.CompareTo(right.From));
         float covered = 0f;
@@ -162,6 +145,41 @@ public sealed partial class ConstructedAbilityService
             covered = Mathf.Max(covered, interval.To);
         }
         return float.PositiveInfinity;
+    }
+
+    /// <summary>同一真实扫掠生成覆盖区间，原人物、世界及映像共用精确几何。</summary>
+    /// <param name="shape">实际攻击前后态。</param><param name="from">目标前态。</param>
+    /// <param name="to">目标后态。</param><param name="targetContinuous">目标是否有连续路径。</param>
+    /// <param name="actorTarget">普通人物沿原脚下接触容差，映像和世界使用完整形状。</param>
+    private void AppendContactInterval(in ShapeMotion shape, in AbilityCapsule from, in AbilityCapsule to,
+        bool targetContinuous, bool actorTarget)
+    {
+        RunningCast running = shape.Running;
+        bool continuous = shape.Continuous && targetContinuous;
+        AbilityCapsule start = continuous ? shape.From : shape.To;
+        if (shape.To.Node < 0 && running.BeforeJoint != null)
+        {
+            BodySurfacePose before = continuous ? running.BeforeJoint.Contact : running.Cast.BodyPose.Value.Joint.Contact;
+            BodySurfacePose after = running.Cast.BodyPose.Value.Joint.Contact;
+            AbilityCapsule targetBefore = continuous ? from : to;
+            if (BodySurfacePose.Find(before, after, targetBefore, to, "surface", out float jointEnter, out _, out _) &&
+                BodySurfacePose.Find(after, before, to, targetBefore, "surface", out float jointReverse, out _, out _))
+                contactIntervals.Add((jointEnter, Mathf.Min(1f - jointReverse, shape.To.Until)));
+            return;
+        }
+        if (!continuous)
+        {
+            if (AbilityPairSweep.Find(start, start, to, to, out _, out _, out _)) contactIntervals.Add((1f, 1f));
+            return;
+        }
+        if (AbilityPairSweep.Find(start, shape.To, from, to, out float enter, out _, out _) &&
+            AbilityPairSweep.Find(shape.To, start, to, from, out float reverse, out _, out _))
+        {
+            if (actorTarget
+                    ? start.Intersects(from.A, from.Radius + .00002f)
+                    : AbilityPairSweep.Find(start, start, from, from, out _, out _, out _)) enter = 0f;
+            contactIntervals.Add((enter, Mathf.Min(1f - reverse, shape.To.Until)));
+        }
     }
 
     /// <summary>先登记实际接触，避免正常受击回调重入时再次消费同一时点。</summary>
