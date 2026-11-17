@@ -89,6 +89,11 @@ public sealed class CompiledAbility
     /// <summary>有限展开后的形体数。</summary>
     public int FormCount => Nodes.Length;
 
+    /// <summary>本次施放需要借用的库存材料。</summary>
+    internal CompiledInventoryInput[] Inventory { get; }
+    /// <summary>按原资料顺序固定的库存消耗操作。</summary>
+    internal CompiledEventOperation[] InventoryOperations { get; }
+
     /// <summary>同一真实计划的材料、持续、重复作用和资源规模统计。</summary>
     public ConstructionMeasure Measure { get; }
 
@@ -173,6 +178,8 @@ public sealed class CompiledAbility
         CompiledContactPolicy[] contacts, int[][] listeners, CompiledEventOperation[] operations,
         CompiledConstructionStep[] steps)
     {
+        Inventory = AbilityCompiler.CompileInventory(definition, operations);
+        InventoryOperations = operations.Where(operation => operation.Kind == ConstructionOperationKind.ConsumeInventory).ToArray();
         ResourceVersion = FormResources.Version;
         Id = definition.Id;
         Revision = definition.Revision;

@@ -90,5 +90,6 @@
   "Cultiway.ConstructionText.Change.Remainder": "余量续形",
   "Cultiway.ConstructionText.Change.Flow": "液态流散",
   "Cultiway.ConstructionText.Change.Recovery": "收束回能",
-  "Cultiway.ConstructionText.Change.Residue": "世界留置"
+  "Cultiway.ConstructionText.Change.Residue": "世界留置",
+  "Cultiway.ConstructionText.Operation.ConsumeInventory": "消耗真实库存材料"
 }

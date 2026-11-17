@@ -1,0 +1,90 @@
+Actor source = Make(64), enemy = Make(72, "wolf"), other = Make(62); var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2; owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+Entity first = Material(owner, ItemShapes.Wood, "木料一", 4), second = Material(owner, ItemShapes.Wood, "木料二", 7), bone = Material(owner, ItemShapes.Bone, "骨料", 9);
+JObject woodBefore = Original(second), boneBefore = Original(bone); WorldObjects();
+string usedId = Stable(first); var definition = Definition();
+var active = new List<AbilityCast>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    foreach (object run in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(run, "Id") == fact.CastId) active.Add((AbilityCast)Field(run, "Cast"));
+}
+async Task Use()
+{
+    Ready(source); await Advance(.15f); Place(source, 64); Place(enemy, 72);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    await Fire(definition, source, enemy); owner.E.RemoveComponent<ConstructedKnowledge>();
+}
+void Cancel(AbilityCast cast) => service.GetMethod("Cancel", F).Invoke(null, new object[] { (long)Field(Running(cast), "Id") });
+ConstructedAbilityService.CastStarted += Started;
+try
+{
+    var invalid = ConstructionEditing.Copy(definition); invalid.Steps[0].Operation.InventoryUse.Input = "missing";
+    string rejection = null; try { AbilityCompiler.Compile(invalid, false); } catch (InvalidDataException error) { rejection = error.Message; }
+    Check(rejection != null, "不存在的库存引用在完整编译边界拒绝");
+    var old = ConstructionEditing.Copy(definition); old.Inventory = null; old.Steps = Array.Empty<ConstructionStep>();
+    Check(((Array)AbilityCompiler.Compile(old, false).GetType().GetProperty("Inventory", F).GetValue(AbilityCompiler.Compile(old, false))).Length == 0,
+        "旧构造不自动添加库存要求");
+    await Use(); var live = active.Last(); float paidBalance = owner.GetCultisys<Xian>().wakan;
+    await Advance(.2f);
+    Check(owner.GetItems().Count() == 3 && new[] { first, second, bone }.All(item => item.Tags.Has<TagOccupied>() && !item.IsAvailable()) &&
+        live.StepStateOf("spend") == ConstructionStepState.Waiting && live.StepStateOf("after") == ConstructionStepState.Waiting,
+        "正式受理借到两种原材料，库存归属保留，消耗前后续等待");
+    ConstructedAbilityService.Learn(owner, definition.Id);
+    bool again = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.constructed", owner.E, definition.Id),
+        new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(!again && active.Count == 1 && Math.Abs(owner.GetCultisys<Xian>().wakan - paidBalance) < .001f,
+        "同一批原物件不能被第二次受理，失败没有重复收费");
+    await Advance(.4f);
+    var receipts = new List<ConstructionWorldReceipt>(); live.AppendStepReceipts("spend", receipts);
+    Check(receipts.Count == 1 && receipts[0].Kind == ConstructionWorldResultKind.Inventory && receipts[0].Items.SequenceEqual(new[] { usedId }) &&
+        !owner.GetItems().Contains(first) && live.StepStateOf("spend") == ConstructionStepState.Completed && live.StepStateOf("after") != ConstructionStepState.Waiting,
+        "实际消耗一件原木料后才发布回执和后续生长");
+    var session = Field(Running(live), "Inventory");
+    var actions = (Array)live.Plan.GetType().GetProperty("InventoryOperations", F).GetValue(live.Plan);
+    object action = actions.GetValue(0); object parameters = action.GetType().GetProperty("Parameters", F).GetValue(action);
+    object[] retry = { (int)Field(action, "Index"), parameters, null };
+    Check((bool)session.GetType().GetMethod("TryConsume", F).Invoke(session, retry) && ((string[])retry[2]).SequenceEqual(new[] { usedId }) &&
+        owner.GetItems().Count() == 2, "同一实际消耗的重复提交返回原事实，不再次扣除");
+    await Advance(.65f);
+    Check(live.StepStateOf("overuse") == ConstructionStepState.Interrupted && live.StepStateOf("unreachable") == ConstructionStepState.Interrupted &&
+        owner.GetItems().Count() == 2 && second.Tags.Has<TagOccupied>() && bone.Tags.Has<TagOccupied>(),
+        "后续数量不足不部分多扣，不伪造完成或放行后段");
+    await Advance(definition.Lifetime + .1f);
+    Check(live.Finished && second.IsAvailable() && bone.IsAvailable() && owner.GetItems().Contains(second) && owner.GetItems().Contains(bone) &&
+        JToken.DeepEquals(Original(second), woodBefore) && JToken.DeepEquals(Original(bone), boneBefore),
+        "结束后未用原物件重新可用，原来源、品阶及库存关系保持");
+    first = Material(owner, ItemShapes.Wood, "补充木料", 5);
+    await Use(); live = active.Last(); await Advance(.1f); Cancel(live);
+    Check(new[] { first, second, bone }.All(item => item.IsAvailable()), "消耗前取消立即释放全部原材料");
+    await Advance(.15f); await Use(); live = active.Last(); await Advance(.1f);
+    other.GetExtend().AddSpecialItem(first);
+    Check(live.Phase == AbilityCastPhase.Interrupted && first.IsAvailable() && second.IsAvailable() && bone.IsAvailable() &&
+        other.GetExtend().GetItems().Contains(first), "转移原物件立即停止借用并释放其余材料，真实新归属生效");
+    await Advance(.15f); owner.AddSpecialItem(first);
+    var spend = SkillCastResources.Wakan.SpendAmount;
+    int before = active.Count; float balance = source.stats[BaseStatses.MaxWakan.id] * .8f; owner.GetCultisys<Xian>().wakan = balance;
+    ConstructedAbilityService.Learn(owner, definition.Id);
+    try
+    {
+        SkillCastResources.Wakan.SpendAmount = (caster, amount) => { spend(caster, amount); other.GetExtend().AddSpecialItem(first); };
+        bool accepted = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.constructed", owner.E, definition.Id),
+            new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script);
+        Check(!accepted && active.Count == before && Math.Abs(owner.GetCultisys<Xian>().wakan - balance) < .001f &&
+            second.IsAvailable() && bone.IsAvailable(), "扣费通知中原材料失效，启动撤销费用并释放已借部分");
+    }
+    finally { SkillCastResources.Wakan.SpendAmount = spend; owner.E.RemoveComponent<ConstructedKnowledge>(); }
+    owner.AddSpecialItem(first); await Use(); live = active.Last(); Cancel(live); await Advance(.1f);
+    Check(first.IsAvailable() && second.IsAvailable() && bone.IsAvailable() && !BodyControlState.IsBusy(source.id),
+        "失败恢复后同一材料可再次正常受理、取消与归还");
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "receipts.json"), JsonConvert.SerializeObject(receipts, Formatting.Indented));
+    return new { passed = true, closed = "真实库存借用、分次消耗、真实回执与结束归还", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

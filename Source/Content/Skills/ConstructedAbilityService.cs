@@ -85,6 +85,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (result == SkillEmissionResult.Unhandled) result = BeamConstructionMigration.Emit(emission);
             return result == SkillEmissionResult.Unhandled ? ChainConstructionMigration.Emit(emission) : result;
         };
+        ConstructedInventoryInputs.Initialize();
         ConstructedRainClouds.Initialize();
         ConstructedMatterCatalog.Initialize();
         Combat.GroundWeaponService.Initialize();
@@ -209,6 +210,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         CompiledAbility plan = AbilityCompiler.Compile(definition, cache);
         foreach (string matter in plan.Matters) Composition(matter);
         if (plan.Body != null) BodyActionBinding.ValidateResources(plan.Body);
+        ConstructedInventoryInputs.Validate(plan);
         ConstructionResources.Validate(definition, plan.HasRecovery || plan.HasWorldMaterials);
         return plan;
     }
@@ -284,7 +286,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             return new(ActiveAbilityControlBlockReason.Unavailable);
         if (PlanFor(handle.EntryId).Body?.ControlsStance == true && caster.Base.attack_timer > 0f)
             return new(ActiveAbilityControlBlockReason.Cooldown, caster.Base.attack_timer);
-        if (!BodyReady(caster, PlanFor(handle.EntryId))) return new(ActiveAbilityControlBlockReason.Unavailable);
+        if (!BodyReady(caster, PlanFor(handle.EntryId)) || !ConstructedInventoryInputs.CanAcquire(caster, PlanFor(handle.EntryId))) return new(ActiveAbilityControlBlockReason.Unavailable);
         if (cooldowns.TryGetValue((caster.Base.id, handle.EntryId), out double until) && until > LogicTime)
             return new(ActiveAbilityControlBlockReason.Cooldown, (float)(until - LogicTime));
         return CanPay(caster, definitions[handle.EntryId])
@@ -406,6 +408,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         RunningCast running = casts.Find(cast => cast.Id == castId);
         if (running == null) return;
         running.Cast.Cancel();
+        running.Inventory?.Dispose();
         ReleaseBody(running);
     }
 
@@ -437,7 +440,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             return false;
         if (caster != null && !BodyReady(caster, plan) ||
             target.WorldScope != null && !target.WorldScope.IsValid() ||
-            !WorldMaterialService.CanReserve(plan)) return false;
+            !WorldMaterialService.CanReserve(plan) || !ConstructedInventoryInputs.CanAcquire(caster, plan)) return false;
         Vector2 from = sourcePosition ?? spatialSource.GetSimPos(), to = point;
         float propagationRange = plan.EventOperations.Where(operation => operation.Propagation != null)
             .Select(operation => operation.Propagation.Range * plan.Nodes[operation.Node].Scale).DefaultIfEmpty(0f).Max();
@@ -490,6 +493,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         WorldMaterialService.Reserve(plan.ResidueCount, plan.ResidueCells);
         bool accepted = false;
         ConstructedArtifactCarrier carrier = null;
+        ConstructedInventoryInputs inventory = null;
         try
         {
             if (plan.Binding?.Anchor == AbilityAnchor.Carrier)
@@ -498,10 +502,15 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 if (carrier == null) return false;
                 inputs = new AbilityInputs(source, point, direction, sourceHeight, carrier.Pose);
             }
+            if (plan.Inventory.Length > 0)
+            {
+                inventory = ConstructedInventoryInputs.TryAcquire(caster, plan);
+                if (inventory == null) return false;
+            }
             using var ownPayment = prepaid ? null : ConstructionResources.TryBegin(caster, definition);
             SkillCastPayment payment = sourcePayment ?? ownPayment;
             if (!prepaid && payment == null || sourceActor != null && (sourceActor.isRekt() || sourceActor.id != sourceId) ||
-                generation != worldGeneration) return false;
+                generation != worldGeneration || inventory != null && !inventory.IsValid) return false;
             if (plan.Body?.Construction.HasControlRelations == true)
             {
                 if (!PrepareBodySurface(targetActor)) return false;
@@ -574,6 +583,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 ForceResponseRemaining = plan.Body?.ForceResponse?.Capacity ?? 0f,
                 BodyLease = bodyLease,
                 Carrier = carrier,
+                Inventory = inventory,
                 CarrierPose = inputs.Carrier,
                 Direction = direction,
                 LastTargetFoot = point,
@@ -587,6 +597,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             running.LastSourceFoot = inputs.Source;
             running.LastSourceHeight = inputs.SourceHeight;
             if (casts.Count == 0) simulation.RememberActors(startedAt);
+            if (inventory != null) inventory.CastId = running.Id;
             casts.Add(running);
             if (movement != null) Cultiway.Content.Persistence.ActorPositionSaveService.Remember(caster);
             if (payment != null && !payment.IsCommitted) payment.Commit();
@@ -616,6 +627,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             {
                 bodyLease?.Dispose();
                 carrier?.Dispose();
+                inventory?.Dispose();
                 if (generation == worldGeneration) WorldMaterialService.Release(plan.ResidueCount, plan.ResidueCells);
             }
         }
@@ -748,8 +760,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             ReleaseBodyConnection(running, "WorldChanged", fade: false, time: running.LastWorldTime);
             running.BodyLease?.Dispose();
             running.Carrier?.Dispose();
+            running.Inventory?.Dispose();
         }
 
+        ConstructedInventoryInputs.Clear();
         worldNeedQueue.Clear();
         worldNeeds.Clear();
         worldRecoveryCounts.Clear();
@@ -776,6 +790,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         ReleaseBody(running);
         ReleaseMaterialReservation(running);
+        running.Inventory?.Dispose();
         casts.RemoveAt(index);
         long generation = worldGeneration;
         PublishActionEvents(running);
@@ -800,6 +815,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 running.SourceInstance != accepted.SourceInstance || running.Cast.Plan.Id != accepted.Cast.Plan.Id) continue;
             if (++count <= limit) continue;
             running.Replaced = true;
+            running.Inventory?.Dispose();
             running.Cast.Cancel();
             ReleaseBody(running);
         }
@@ -908,6 +924,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>本次借用的原法宝；解除后不删除物件或继续占用。</summary>
         internal ConstructedArtifactCarrier Carrier;
+
+        /// <summary>本次从原库存借到的实际材料，结束只归还未用部分。</summary>
+        internal ConstructedInventoryInputs Inventory;
 
         /// <summary>最后确认的载体数值姿态，独立离手后保留原输入而不重借法宝。</summary>
         internal Matrix4x4? CarrierPose;

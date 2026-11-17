@@ -11,6 +11,14 @@ public sealed partial class AbilityCast
     /// <summary>旧专用定时入口保持原实现；所有条件及命名执行共用同一登记表。</summary>
     internal static void RegisterOperationImplementations()
     {
+        ConstructionOperations.Register(ConstructionOperationKind.ConsumeInventory,
+            context => new CompiledInventoryUse(context.Source.InventoryUse, context.Path),
+            (cast, action, value) =>
+            {
+                cast.operations[action.Index].WorldRequested = true;
+                if (action.Step >= 0) cast.stepStates[action.Step].WorldPending = true;
+                return true;
+            });
         ConstructionOperations.Register<object>(ConstructionOperationKind.Ready, context => null,
             (cast, action, value) => true, immediate: value => true);
         ConstructionOperations.Register<float>(ConstructionOperationKind.ChangeSpeed, context =>

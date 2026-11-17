@@ -1,0 +1,39 @@
+AbilityDefinition Definition() => new AbilityDefinition
+{
+    Id = "test.inventory.materials", Name = "原物料步骤", Power = 1, Cost = 2, Cooldown = .1f, Lifetime = 1.8f, TargetRange = 100,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = true },
+    Inventory = new[] { new ConstructionInventoryInput { Id = "wood", Shape = ItemShapes.Wood.id, Count = 2 },
+        new ConstructionInventoryInput { Id = "bone", Shape = ItemShapes.Bone.id } },
+    Root = new ConstructionNode { Id = "root", Form = "sword", Matter = "iron", Scale = .2f, ContactRole = ConstructionContactRole.Decoration },
+    Steps = new[]
+    {
+        new ConstructionStep { Id = "spend", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.ConsumeInventory,
+            At = .4f, InventoryUse = new ConstructionInventoryUse { Input = "wood" } }, Inputs = new() { ["part"] = new() { Node = "root" } } },
+        new ConstructionStep { Id = "after", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = .3f, TargetScale = 2 },
+            Inputs = new() { ["part"] = new() { Node = "root" }, ["after"] = new() { Step = "spend", Output = "consumed", Stage = ConstructionOutputStage.Completed } } },
+        new ConstructionStep { Id = "overuse", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.ConsumeInventory,
+            At = 1, InventoryUse = new ConstructionInventoryUse { Input = "wood", Count = 2 } },
+            Inputs = new() { ["part"] = new() { Node = "root" }, ["after"] = new() { Step = "spend", Output = "consumed" } } },
+        new ConstructionStep { Id = "unreachable", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "fire" },
+            Inputs = new() { ["part"] = new() { Node = "root" }, ["after"] = new() { Step = "overuse", Output = "consumed" } } }
+    }
+};
+Entity Material(ActorExtend owner, Cultiway.Core.Libraries.ItemShapeAsset shape, string name, int level)
+{
+    Entity item = SpecialItemUtils.StartBuild(shape, World.world.getCurWorldTime(), "原材料来源", 1000000, "human")
+        .AddComponent(new EntityName(name)).AddComponent(ItemLevel.FromValue(level)).AddTag<TagIngredient>().Build();
+    owner.AddSpecialItem(item); return item;
+}
+JObject Original(Entity item) => JObject.FromObject(new { name = item.Name.value, shape = item.GetComponent<ItemShape>().shape_id,
+    level = item.GetComponent<ItemLevel>(), creation = item.GetComponent<ItemCreation>() });
+JObject WorldObjects() => (JObject)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "inventory"))["sections"]["objects"]["data"];
+string Stable(Entity item)
+{
+    var type = service.Assembly.GetType("Cultiway.Content.Persistence.WorldSaveIdentity");
+    var get = typeof(Entity).GetMethods().Single(method => method.Name == "TryGetComponent" && method.IsGenericMethodDefinition && method.GetParameters().Length == 1);
+    object[] args = { null };
+    if (!(bool)get.MakeGenericMethod(type).Invoke(item, args)) throw new InvalidOperationException("原物件缺少正式稳定编号");
+    object value = args[0];
+    return "object:" + (string)type.GetField("Id").GetValue(value);
+}
+object Running(AbilityCast cast) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(value => ReferenceEquals(Field(value, "Cast"), cast));

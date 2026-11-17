@@ -1,0 +1,35 @@
+Actor source = Make(64), enemy = Make(72, "wolf");
+void Prepare(Actor actor)
+{
+    var owner = actor.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); actor.setStatsDirty(); actor.updateStats(); owner.GetCultisys<Xian>().wakan = actor.stats[BaseStatses.MaxWakan.id] * .8f;
+    Material(owner, ItemShapes.Wood, "换界木料一", 2); Material(owner, ItemShapes.Wood, "换界木料二", 3); Material(owner, ItemShapes.Bone, "换界骨料", 4);
+}
+var definition = Definition(); Prepare(source);
+try
+{
+    Ready(source); await Advance(.15f); Place(source, 64); Place(enemy, 72); await Fire(definition, source, enemy);
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>(); await Advance(.1f);
+    Check(source.GetExtend().GetItems().All(item => item.Tags.Has<TagOccupied>()), "换世界前存在真实未消耗借用");
+    World.world.save_manager.loadWorld(Path.Combine(folder, "input-world")); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    var type = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedInventoryInputs");
+    Check(((IDictionary)type.GetField("sessions", F).GetValue(null)).Count == 0 &&
+        !((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Any(),
+        "换世界清理旧施放和全部短时借用");
+    source = Make(64); enemy = Make(72, "wolf"); Prepare(source);
+    Ready(source); await Advance(.15f); Place(source, 64); Place(enemy, 72); await Fire(definition, source, enemy);
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>(); await Advance(.1f);
+    object run = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single();
+    service.GetMethod("Cancel", F).Invoke(null, new object[] { (long)Field(run, "Id") });
+    await Advance(1f);
+    Check(source.GetExtend().GetItems().Count() == 3 && source.GetExtend().GetItems().All(item => item.IsAvailable()) &&
+        ((IDictionary)type.GetField("sessions", F).GetValue(null)).Count == 0 && !BodyControlState.IsBusy(source.id),
+        "新世界可正常取用和归还，旧借用或延迟操作不接管新物件");
+    return new { passed = true, closed = "活动材料借用中的换世界与新世界恢复", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

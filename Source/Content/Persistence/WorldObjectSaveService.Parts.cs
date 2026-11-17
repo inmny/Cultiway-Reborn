@@ -7,6 +7,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.Persistence;
 using Cultiway.Core.SkillLibV3.Components;
 using Friflo.Engine.ECS;
 using Newtonsoft.Json;
@@ -121,7 +122,9 @@ internal static partial class WorldObjectSaveService
         Tag<TagElixirStatusGain>("elixir.status-gain");
         Tag<TagElixirRestore>("elixir.restore");
         Tag<TagUncompleted>("craft.uncompleted");
-        Tag<TagOccupied>("craft.occupied");
+        Parts.Register(new SaveSection<Entity, SavedTag>("craft.occupied", "craft.occupied", 1,
+            entity => entity.Tags.Has<TagOccupied>() && !Cultiway.Content.Skills.ConstructedInventoryInputs.IsBorrowed(entity) ? new SavedTag() : null,
+            (entity, _) => entity.AddTag<TagOccupied>()));
         Tag<TagConsumed>("craft.consumed");
         Tag<TagSuspendAliveTimeLimit>("life.suspended");
         Link<InventoryRelation>("inventory");

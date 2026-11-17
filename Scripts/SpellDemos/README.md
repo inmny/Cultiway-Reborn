@@ -1710,3 +1710,14 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 `runtime`读取已通过的创作成品，通过正常入口支付，确认来源结束才守恒交接、真实后段接触、水层与有限体积、实际回能、原施放结束后独立留置、余额不足拒绝及恢复后再次使用。`legacy`恢复真实旧规则24等待请求并核对完整结果和费用。`save`正式保存新旧等待世界、读取后各授予一次、新成品实际使用及完成世界。`runtime`和`save`可用`--creation <已有creation目录>`复用已通过输入。
 
 每段将现成世界和真实旧样例显式传入开发环境。旧样例`fixtures/ending-rule24.json`来自5.09正式等待世界与当时完整预期。结果位于`CULTIWAY_DEV_OUTPUT/ending/<分段>`。本批索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-creation/delivery.json`，原失败及各次分别通过的事实保留。真正冷启动和连续双端录像集中于5.11最终交付。
+
+
+### 5.11 B1　真实库存取用及步骤消耗
+
+通过develop执行`python3 Scripts/SpellDemos/verify_inventory.py --section runtime|save|world|all`。入口显式传入现成世界，沿原物品工厂建立木料和骨料，通过正常已学能力入口受理，结果位于`CULTIWAY_DEV_OUTPUT/inventory/<分段>`。
+
+`runtime`确认完整借用、原库存关系、消耗前等待、同一批材料拒绝重复受理、一件原木料的真实消耗回执及后续生长、重复提交去重、余量不足中断、未用材料归还、取消及转移，以及扣费通知中材料失效时撤销费用、释放借用和再次正常受理。编译边界同时检查无效输入引用，旧构造保持没有额外材料要求。
+
+`save`在部分使用且其余材料仍借用时写出正式世界。核对已用物件退出、短时占用排除及原有炼制占用保留，读取后完整恢复物件身份、来源、品阶、数量、归属、构造和已学关系，旧施放及延迟消耗不重放，再保存完成世界。`world`在实际借用中加载另一世界，确认旧借用清理、新世界取用及取消恢复，旧操作没有接管新物件。
+
+三段分别通过，索引位于`/home/inmny/.local/state/cultiway-dev/evidence/inventory-inputs/delivery.json`，实际输入、命令、正式世界和结果一并归档。B2继续原窗口及自主创作接入，5.11最终冷启动及连续录像集中在C完成。

@@ -224,6 +224,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 foreach (RunningCast running in active)
                 {
                     if (running.Replaced || running.WorldScope != null && running.Cast.Phase == AbilityCastPhase.Interrupted) continue;
+                    ConfirmInventory(running, clock);
+                    if (generation != worldGeneration) yield break;
                     ConfirmRecovery(running);
                     if (generation != worldGeneration) yield break;
                     ConfirmWorldMaterial(running, clock);
@@ -299,6 +301,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
         // 已确认的自然结束不再被来源后来失效改写成中断。
         if (running.Cast.Finished) return;
+        if (running.Inventory != null && !running.Inventory.IsValid)
+        {
+            running.Cast.Cancel(); running.Inventory.Dispose(); ReleaseBody(running); return;
+        }
         if (running.Carrier != null && (!running.Cast.IsInputAttached || !running.Carrier.IsValid))
         {
             bool lost = running.Cast.IsInputAttached;

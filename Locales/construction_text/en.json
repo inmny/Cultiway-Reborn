@@ -90,5 +90,6 @@
   "Cultiway.ConstructionText.Change.Remainder": "continuation from the actual remainder",
   "Cultiway.ConstructionText.Change.Flow": "liquid flow",
   "Cultiway.ConstructionText.Change.Recovery": "recovery of unspent payment",
-  "Cultiway.ConstructionText.Change.Residue": "world retention"
+  "Cultiway.ConstructionText.Change.Residue": "world retention",
+  "Cultiway.ConstructionText.Operation.ConsumeInventory": "consume reserved inventory material"
 }

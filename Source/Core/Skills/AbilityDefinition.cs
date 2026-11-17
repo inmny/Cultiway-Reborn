@@ -29,6 +29,10 @@ public sealed class AbilityDefinition
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public AbilityParent Parent;
 
+    /// <summary>本次施放需要借用的实际库存材料，旧构造没有额外要求。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionInventoryInput[] Inventory;
+
     /// <summary>一次施放的最大世界秒数。</summary>
     public float Lifetime = 3f;
 
@@ -312,7 +316,10 @@ public enum ConstructionOperationKind
     /// <summary>等待实际部位、前序、时点和条件就绪后确认一次，不改变主体。</summary>
     Ready = 17,
     /// <summary>通过已有控制结构收拢、展开或弯折主体，保持真实部位身份。</summary>
-    Deform = 18
+    Deform = 18,
+
+    /// <summary>从本次借用的真实库存中消耗明确的材料。</summary>
+    ConsumeInventory = 19
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
@@ -328,6 +335,10 @@ public sealed class ConstructionOperation
     /// <summary>对实际控制结构的间距、偏移和旋转目标。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionDeformation Deformation;
+
+    /// <summary>本次真实库存消耗的输入与件数。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionInventoryUse InventoryUse;
 
     /// <summary>操作种类。</summary>
     public ConstructionOperationKind Kind;

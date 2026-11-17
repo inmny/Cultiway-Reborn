@@ -1,0 +1,59 @@
+Actor source = Make(64), enemy = Make(72, "wolf"); var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2; owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+Entity first = Material(owner, ItemShapes.Wood, "保存已用木料", 3), second = Material(owner, ItemShapes.Wood, "保存未用木料", 8), bone = Material(owner, ItemShapes.Bone, "保存骨料", 11);
+Entity busy = Material(owner, ItemShapes.Wood, "原有炼制占用", 2); busy.AddTag<TagOccupied>();
+var definition = Definition(); definition.Lifetime = 6;
+var plain = ConstructionEditing.Copy(definition); plain.Id = "test.inventory.legacy"; plain.Inventory = null; plain.Steps = Array.Empty<ConstructionStep>();
+ConstructedAbilityService.Register(plain);
+WorldObjects(); string usedId = Stable(first), woodId = Stable(second), boneId = Stable(bone), busyId = Stable(busy);
+var beforeWood = Original(second); var beforeBone = Original(bone);
+var active = new List<AbilityCast>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    foreach (object run in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(run, "Id") == fact.CastId) active.Add((AbilityCast)Field(run, "Cast"));
+}
+ConstructedAbilityService.CastStarted += Started;
+try
+{
+    Ready(source); await Advance(.15f); Place(source, 64); Place(enemy, 72);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    await Fire(definition, source, enemy); owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.6f); var live = active.Single();
+    Check(live.StepStateOf("spend") == ConstructionStepState.Completed && second.Tags.Has<TagOccupied>() && bone.Tags.Has<TagOccupied>(),
+        "在实际部分消耗且其余仍被借用时保存");
+    var objects = WorldObjects(); var rows = (JArray)objects["Objects"];
+    JObject Parts(string id) => JObject.Parse((string)rows.Single(row => (string)row["Id"] == id)["Parts"]);
+    Check(rows.All(row => (string)row["Id"] != usedId) && Parts(woodId)["sections"]["craft.occupied"] == null &&
+        Parts(boneId)["sections"]["craft.occupied"] == null && Parts(busyId)["sections"]["craft.occupied"] != null,
+        "正式资料排除已用物件和短时借用占用，原有炼制占用继续保存");
+    ConstructedAbilityService.Learn(owner, definition.Id);
+    long sourceId = source.id;
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new { sourceId, usedId, woodId, boneId, busyId,
+        beforeWood, beforeBone, definition, plain, process = System.Diagnostics.Process.GetCurrentProcess().Id }, Formatting.Indented));
+    string save = Path.Combine(folder, "borrowed-save"); SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    source = World.world.units.get(sourceId); owner = source.GetExtend();
+    Entity Loaded(string id) => owner.GetItems().Single(item => Stable(item) == id);
+    var loadedWood = Loaded(woodId); var loadedBone = Loaded(boneId); var loadedBusy = Loaded(busyId);
+    Check(owner.GetItems().Count() == 3 && loadedWood.IsAvailable() && loadedBone.IsAvailable() && loadedBusy.Tags.Has<TagOccupied>() &&
+        JToken.DeepEquals(Original(loadedWood), beforeWood) && JToken.DeepEquals(Original(loadedBone), beforeBone),
+        "读档恢复原物件稳定身份、数量、来源、品阶及库存归属，短时借用已经解除");
+    var restored = ConstructionEditing.Access.Read(definition.Id); var restoredPlain = ConstructionEditing.Access.Read(plain.Id);
+    Check(JToken.DeepEquals(JObject.FromObject(restored), JObject.FromObject(definition)) && restoredPlain.Inventory == null &&
+        owner.GetComponent<ConstructedKnowledge>().Ids.Contains(definition.Id), "材料声明、消耗及完成依赖、旧构造和已学关系完整恢复");
+    int count = active.Count;
+    await Advance(5f);
+    Check(active.Count == count && owner.GetItems().Count() == 3 && owner.GetItems().All(item => Stable(item) != usedId) &&
+        loadedWood.IsAvailable() && loadedBone.IsAvailable(), "旧施放及延迟消耗不重放，已用材料没有重生或再次扣除");
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+    File.WriteAllText(Path.Combine(folder, "objects.json"), WorldObjects().ToString(Formatting.Indented));
+    return new { passed = true, closed = "部分消耗中的正式保存及原库存完整恢复", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

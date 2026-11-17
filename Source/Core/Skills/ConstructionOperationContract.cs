@@ -82,7 +82,9 @@ public enum ConstructionOperationResource
     /// <summary>受理时提供的真实目标位置。</summary>
     Target = 256,
     /// <summary>显示及实际接触共用的形状。</summary>
-    Contacts = 512
+    Contacts = 512,
+    /// <summary>来源已经借用的实际库存材料。</summary>
+    Inventory = 1024
 }
 
 /// <summary>操作真正改变的内容，显示不是另一套结算。</summary>

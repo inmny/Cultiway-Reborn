@@ -13,7 +13,9 @@ public enum ConstructionWorldResultKind
     /// <summary>一波真实水路传播及作用已经处理。</summary>
     Conduction,
     /// <summary>原支付通道已经处理资源返还。</summary>
-    Recovery
+    Recovery,
+    /// <summary>真实库存物料已经消耗。</summary>
+    Inventory
 }
 
 /// <summary>一次确认的不可变回执，空选择也保留真实的零结果。</summary>
@@ -47,6 +49,10 @@ public sealed class ConstructionWorldReceipt
     public float Spent { get; }
     /// <summary>确认后的尚存余力。</summary>
     public float Remaining { get; }
+    /// <summary>实际消耗的原库存物件稳定编号。</summary>
+    public IReadOnlyList<string> Items { get; }
+    /// <summary>实际消耗的整件数量。</summary>
+    public int ItemCount => Items.Count;
     /// <summary>同一步骤的先前确认，仅供内部保留事实链。</summary>
     internal readonly ConstructionWorldReceipt Previous;
 
@@ -57,9 +63,10 @@ public sealed class ConstructionWorldReceipt
     /// <param name="cells">到达水格。</param><param name="spent">真实消耗。</param><param name="remaining">当前余力。</param><param name="previous">已确认前项。</param>
     /// <param name="materialIdentities">整份材料身份，留置时与首次记录编号相同。</param>
     internal ConstructionWorldReceipt(ConstructionWorldResultKind kind, int node, double clock, int sequence = 1, long[] materials = null, long[] targets = null,
-        double volume = 0, double resource = 0, double requested = 0, double granted = 0, int cells = 0, float spent = 0, float remaining = 0, ConstructionWorldReceipt previous = null, long[] materialIdentities = null)
+        double volume = 0, double resource = 0, double requested = 0, double granted = 0, int cells = 0, float spent = 0, float remaining = 0, ConstructionWorldReceipt previous = null, long[] materialIdentities = null, string[] items = null)
     {
         Kind = kind; Node = node; WorldTime = clock; Sequence = sequence;
+        Items = Array.AsReadOnly(items == null ? Array.Empty<string>() : (string[])items.Clone());
         Materials = Array.AsReadOnly(materials == null ? Array.Empty<long>() : (long[])materials.Clone());
         MaterialIdentities = Array.AsReadOnly((long[])(materialIdentities ?? materials ?? Array.Empty<long>()).Clone());
         Targets = Array.AsReadOnly(targets == null ? Array.Empty<long>() : (long[])targets.Clone());
@@ -71,6 +78,7 @@ public sealed class ConstructionWorldReceipt
     /// <param name="node">需要补充的实际部位，负一保留原值。</param>
     internal ConstructionWorldReceipt(ConstructionWorldReceipt source, ConstructionWorldReceipt previous, int node = -1)
     {
+        Items = source.Items;
         Kind = source.Kind; Node = node < 0 ? source.Node : node; WorldTime = source.WorldTime; Sequence = source.Sequence;
         Materials = source.Materials; MaterialIdentities = source.MaterialIdentities; Targets = source.Targets; Volume = source.Volume; Resource = source.Resource;
         Requested = source.Requested; Granted = source.Granted; Cells = source.Cells; Spent = source.Spent; Remaining = source.Remaining; Previous = previous;
