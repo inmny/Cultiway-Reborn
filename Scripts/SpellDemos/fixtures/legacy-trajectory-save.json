@@ -1,0 +1,230 @@
+{
+  "curve": {
+    "source": {
+      "map": "artifacts/skill_rebuild/constructed-save/map.wbox",
+      "sha256": "52f77d8f73a964013be8ce244862d4a29bbfe7ba38f2bc5739666bfba4b41f6d"
+    },
+    "section": {
+      "version": 1,
+      "data": {
+        "Definitions": [
+          {
+            "Version": 1,
+            "Id": "test.saved-path.da310dd387984677a451876b0c1667cf",
+            "Revision": 1,
+            "Name": "保存的任意曲线",
+            "Creator": 0,
+            "Seed": 0,
+            "Lifetime": 2.0,
+            "Cost": 1.0,
+            "Resource": "wakan",
+            "Cooldown": 2.0,
+            "Power": 1.0,
+            "Root": {
+              "Id": "sword",
+              "Form": "sword",
+              "Matter": "physical",
+              "Offset": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "Rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "Scale": 1.0,
+              "ActiveFrom": 0.0,
+              "ActiveUntil": -1.0,
+              "OnContact": 0,
+              "ContactRole": 0,
+              "Strength": 1.0,
+              "Interception": 0,
+              "ReflectionLimit": 8,
+              "Operations": [
+                {
+                  "Kind": 3,
+                  "At": 0.2,
+                  "Seconds": 0.0,
+                  "Vector": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "TurnRate": 0.0,
+                  "Trigger": 0,
+                  "Path": {
+                    "Space": 1,
+                    "Keys": [
+                      {
+                        "At": 0.0,
+                        "Point": [
+                          0.0,
+                          0.0,
+                          0.0
+                        ],
+                        "In": [
+                          0.0,
+                          0.0,
+                          0.0
+                        ],
+                        "Out": [
+                          0.333333343,
+                          0.0,
+                          4.0
+                        ]
+                      },
+                      {
+                        "At": 1.0,
+                        "Point": [
+                          1.0,
+                          0.0,
+                          0.0
+                        ],
+                        "In": [
+                          -0.333333343,
+                          0.0,
+                          4.0
+                        ],
+                        "Out": [
+                          0.0,
+                          0.0,
+                          0.0
+                        ]
+                      }
+                    ],
+                    "Loop": false,
+                    "Forward": [
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "TurnRate": 720.0
+                  },
+                  "InheritVelocity": false
+                }
+              ],
+              "Children": []
+            }
+          }
+        ]
+      }
+    }
+  },
+  "steps": {
+    "source": {
+      "map": "artifacts/skill_rebuild/construction-pricing/save/map.wbox",
+      "sha256": "109ac1d65ecb94883565b0823b672d4e7044c44faec84a514915cbbe2edf5d37"
+    },
+    "section": {
+      "version": 6,
+      "data": {
+        "Definitions": [
+          {
+            "Version": 1,
+            "Id": "test.range-hold.wave",
+            "Revision": 1,
+            "Creator": 0,
+            "Seed": 0,
+            "Lifetime": 6.2,
+            "Cost": 4.57913065,
+            "Resource": "wakan",
+            "Cooldown": 0.320983559,
+            "Calculation": {
+              "Resource": "wakan",
+              "Demand": 4.579130869412913,
+              "Recovery": 0.32098357084111767
+            },
+            "Power": 1.0,
+            "Root": {
+              "Id": "wave",
+              "Form": "water_wave",
+              "Matter": "water",
+              "Offset": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "Rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "Scale": 1.0,
+              "ActiveFrom": 0.0,
+              "ActiveUntil": -1.0,
+              "ActiveFromMarker": "rise",
+              "ActiveUntilMarker": "fall",
+              "OnContact": 0,
+              "ContactRole": 0,
+              "Strength": 1.0,
+              "Interception": 0,
+              "ReflectionLimit": 8,
+              "Operations": [],
+              "Children": []
+            },
+            "Binding": {
+              "Anchor": 1,
+              "Follow": false,
+              "FaceTarget": true,
+              "ScaleByBody": false,
+              "Height": 0.0
+            },
+            "Steps": [
+              {
+                "Id": "move",
+                "Operation": {
+                  "Kind": 3,
+                  "At": 0.0,
+                  "Seconds": 0.0,
+                  "Vector": [
+                    0.0,
+                    0.0,
+                    2.0
+                  ],
+                  "TurnRate": 0.0,
+                  "Trigger": 0,
+                  "InheritVelocity": false
+                },
+                "Inputs": {
+                  "part": {
+                    "Node": "root",
+                    "Stage": 0
+                  }
+                }
+              },
+              {
+                "Id": "break",
+                "Operation": {
+                  "Clip": "break",
+                  "Kind": 4,
+                  "At": 0.4,
+                  "Seconds": 0.0,
+                  "Vector": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "TurnRate": 0.0,
+                  "Hold": {
+                    "At": 1.008,
+                    "Seconds": 1.2
+                  },
+                  "Trigger": 0,
+                  "InheritVelocity": true
+                },
+                "Inputs": {
+                  "part": {
+                    "Node": "root",
+                    "Stage": 0
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

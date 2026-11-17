@@ -1629,3 +1629,10 @@ python3 Scripts/SpellDemos/verify_contact_spreads.py --section save
 `creation`验证规则21独立创作与存续/两点连接派生、冻结输入重现及原资料保持；`save`验证正式人物区段22、新旧等待请求各授予一次、旧结果和费用保持，新成品实际支付、结束及完成后再次正式存读。旧样例`fixtures/persistence-creation-rule20.json`直接来自C12真实等待存档及当时完整预期，附来源校验值。
 
 证据索引为`artifacts/skill_rebuild/trajectories/persistence-creation/delivery.json`。本批六段在同一进程分别通过，没有执行一次完整all；首次存读脚本的内部资料访问编译失败保留于`failures/save-1`，修正后只重跑未执行的存读段。正式冷启动和连续录像仍集中于C交付点，软件渲染仅用于功能及窗口。
+
+
+### 5.05 C14：真实旧轨迹构造升级与局部失败恢复
+
+`python3 Scripts/SpellDemos/verify_legacy_trajectory_save.py`复用现成世界，注入第一版真实曲线及一份故意缺失模型的独立定义，经正式加载核对完整曲线、费用、原档自动副本和局部报告；再恢复第六版真实命名步骤，核对命名输入与未取整基准，按真实目标规则、范围与冷却使用两份旧成品，验证实际作用、结束、再次使用及成品和已学关系再次正式存读。样例`fixtures/legacy-trajectory-save.json`附真实历史来源校验值；历史文件存在时会核对，固定样例可独立用于复现。
+
+`--section runtime`仅用于读取前段已完成、首次正式施放尚未受理后的同一进程续接，不重新建立世界，不加入正常all。索引`artifacts/skill_rebuild/trajectories/legacy-trajectory-save/delivery.json`明确保留纯地点目标未受理及已有冷却的两次失败，以及分别通过的读取前段、运行和保存后段，不声称一次all完整通过。本批不重跑已有身体、装备或等待创作请求矩阵；正式冷启动与连续录像仍集中于C交付点。

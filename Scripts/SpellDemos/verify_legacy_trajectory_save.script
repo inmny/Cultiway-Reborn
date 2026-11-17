@@ -1,0 +1,76 @@
+// C14：真实第一版和第六版资料通过正式升级，保持完整原意并局部报告坏定义。
+var records = JObject.Parse(File.ReadAllText(Path.Combine(root, "Scripts/SpellDemos/fixtures/legacy-trajectory-save.json")));
+var saves = Cultiway.ModClass.I.WorldSaves; var access = ConstructionEditing.Access;
+string input = Path.Combine(root, "artifacts/skill_rebuild/trajectories/legacy-trajectory-save/input-world");
+string Digest(string path) { using(var hash=System.Security.Cryptography.SHA256.Create()) using(var stream=File.OpenRead(path)) return BitConverter.ToString(hash.ComputeHash(stream)).Replace("-","").ToLowerInvariant(); }
+JObject Canon(JToken raw) => JObject.FromObject(raw.ToObject<AbilityDefinition>());
+var oldCurve = (JObject)records["curve"]["section"]["data"]["Definitions"][0];
+var oldSteps = (JObject)records["steps"]["section"]["data"]["Definitions"][0];
+string curveId=(string)oldCurve["Id"], stepsId=(string)oldSteps["Id"], badId="test.legacy-trajectory.missing";
+var expectedInput=JObject.Parse(File.ReadAllText(Path.Combine(Path.GetDirectoryName(input),"input-world-expected.json")));
+var active = new List<(long Id, string Ability, AbilityCast Cast)>();
+void Started(ConstructedCastStarted value)
+{
+    if(value.AbilityId!=curveId && value.AbilityId!=stepsId) return;
+    foreach(object running in (IEnumerable)service.GetField("casts",F).GetValue(null))
+        if((long)Field(running,"Id")==value.CastId) active.Add((value.CastId,value.AbilityId,(AbilityCast)Field(running,"Cast")));
+}
+ConstructedAbilityService.CastStarted+=Started;
+var views=new List<FormVisualInstance>();
+Matrix4x4 Pose(AbilityCast cast) { views.Clear(); cast.AppendVisuals(views); return views.Single().Transform; }
+try
+{
+    World.world.save_manager.loadWorld(input); await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800); Config.paused=true; await Game.WaitUntil(Boundary,1800);
+    var report=saves.LastReport;
+    Check(report.Upgraded>0 && report.Skipped.Any(text=>text.Contains(badId)) && !report.Skipped.Any(text=>text.Contains(curveId)),"正式旧世界只报告无法恢复的独立定义，正常曲线继续恢复",new{report.Upgraded,report.Skipped});
+    var curve=access.Read(curveId);
+    Check(JToken.DeepEquals(Canon(oldCurve),JObject.FromObject(curve)),"第一版真实曲线的完整路径、时点、费用及冷却升级保持");
+    string inputHash=(string)expectedInput["sha256"];
+    Check(Digest(Path.Combine(input,"map.wbox"))==inputHash && !string.IsNullOrEmpty(report.BackupDirectory) && Digest(Path.Combine(report.BackupDirectory,"map.wbox"))==inputHash,"正式读取保留原档及字节一致的自动副本",new{report.BackupDirectory,inputHash});
+    File.WriteAllText(Path.Combine(folder,"load-report.json"),JsonConvert.SerializeObject(report,Formatting.Indented));
+    var envelope=JObject.Parse(saves.World.Capture(World.world,"legacy-trajectory-save")); envelope["sections"]["ability_constructions"]=records["steps"]["section"].DeepClone();
+    string original=records.ToString(); int skipped=saves.LastReport.Skipped.Count; var stepReport=new SaveLoadReport();
+    saves.World.Restore(World.world,envelope.ToString(),stepReport,"legacy-trajectory-save",section=>section.Id=="ability_constructions",false);
+    var steps=access.Read(stepsId);
+    Check(stepReport.Upgraded==1 && stepReport.Skipped.Count==0 && saves.LastReport.Skipped.Count==skipped && JToken.DeepEquals(Canon(oldSteps),JObject.FromObject(steps)) && records.ToString()==original,"第六版真实命名步骤、输入、未取整基准及原输入保持");
+    var numeric=new AbilityCast(AbilityCompiler.Compile(curve,false),Matrix4x4.identity,inputs:new AbilityInputs(Vector3.zero,new Vector3(8,0,0),Vector3.right,1));
+    numeric.Advance(.7f,new Vector3(8,0,0)); var numericPose=Pose(numeric);
+    Check(Math.Abs(numericPose.m03-4f)<.001f && Math.Abs(numericPose.m23-3f)<.001f,"旧控制柄及延迟在当前执行中仍到达原弧顶",new{position=new[]{numericPose.m03,numericPose.m13,numericPose.m23}});
+    foreach(Actor a in World.world.units.getSimpleList().ToArray()) { CombatStatusEffects.ApplyStatus(a,hold,10000,a); Place(a,12,12); }
+    // 正式施放及完成存读
+    Actor source=Make(64),enemy=Make(72,"wolf"); var owner=source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level=2;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.9f;
+    ConstructedAbilityService.Learn(owner,curveId);
+    var selectedHandle=new ActiveAbilityHandle("content.constructed",owner.E,curve.Id);
+    var control=new ConstructedAbilityService().ResolveControlState(owner,selectedHandle);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    if(control.BlockReason==ActiveAbilityControlBlockReason.Cooldown) await Advance(control.CooldownRemaining+.05f);
+    Ready(source); Place(source,64);
+    float reach=new ConstructedAbilityService().ResolveRange(owner,selectedHandle,enemy);
+    Place(enemy,64+Math.Min(2f,reach*.5f)); int hp=enemy.data.health;
+    float before=owner.GetCultisys<Xian>().wakan; await Fire(curve,source,enemy); float paid=before-owner.GetCultisys<Xian>().wakan; owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.7f); var live=active.Last().Cast; var actual=Pose(live);
+    Check(Math.Abs(paid-curve.Cost)<.001f && Math.Abs(actual.m23-3f)<.03f,"升级后的旧曲线按原费用实际施放并到达真实弧顶",new{paid,curve.Cost,age=live.Age,position=new[]{actual.m03,actual.m13,actual.m23}});
+    await Advance(1.55f);
+    Check(enemy.data.health<hp && contacts.Any(c=>c.AbilityId==curveId && c.TargetId==enemy.id) && endings.Any(e=>e.Fact.AbilityId==curveId && !e.Fact.Cancelled) && !BodyControlState.IsBusy(source.id),"真实旧曲线按原默认落点接触、自然结束且无控制残留",new{hp,after=enemy.data.health});
+    Ready(source); Place(source,64); Place(enemy,64+Math.Min(2f,reach*.5f)); before=owner.GetCultisys<Xian>().wakan;
+    await Fire(curve,source,enemy); paid=before-owner.GetCultisys<Xian>().wakan; owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(curve.Lifetime+.25f);
+    Check(Math.Abs(paid-curve.Cost)<.001f && active.Last().Cast.Finished,"旧冷却到期后可再次按原费用使用同一曲线");
+    Ready(source); Place(source,64); Place(enemy,64+Math.Min(2f,reach*.5f)); before=owner.GetCultisys<Xian>().wakan;
+    await Fire(steps,source,enemy); paid=before-owner.GetCultisys<Xian>().wakan; owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(.55f);
+    var stepCast=active.Last().Cast; var stepped=Pose(stepCast);
+    Check(Math.Abs(paid-steps.Cost)<.001f && stepCast.StepStateOf("move")==ConstructionStepState.Running && stepCast.StepStateOf("break")==ConstructionStepState.Running && stepped.m03>64.8f,"第六版命名运动和制作动作真实启动，费用不重新取整",new{paid,steps.Cost,position=new[]{stepped.m03,stepped.m13,stepped.m23}});
+    await Advance(steps.Lifetime+.2f); Check(stepCast.Finished && endings.Any(e=>e.Fact.AbilityId==stepsId && !e.Fact.Cancelled),"升级后的命名构造正常结束");
+    ConstructedAbilityService.Learn(owner,curveId); ConstructedAbilityService.Learn(owner,stepsId); long sourceId=source.id;
+    string completed=Path.Combine(folder,"completed-save"); SaveManager.saveWorldToDirectory(completed);
+    World.world.save_manager.loadWorld(completed); await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800); Config.paused=true; await Game.WaitUntil(Boundary,1800);
+    Check(JToken.DeepEquals(Canon(oldCurve),JObject.FromObject(access.Read(curveId))) && JToken.DeepEquals(Canon(oldSteps),JObject.FromObject(access.Read(stepsId))) && ConstructedAbilityService.Knows(World.world.units.get(sourceId).GetExtend(),curveId) && ConstructedAbilityService.Knows(World.world.units.get(sourceId).GetExtend(),stepsId),"升级成品及已学关系再次正式保存读取保持");
+    Check(!saves.LastReport.Skipped.Any(text=>text.Contains(badId)) && Digest(Path.Combine(input,"map.wbox"))==inputHash,"坏定义不进入完成存档且原旧输入仍未覆盖");
+    File.WriteAllText(Path.Combine(folder,"restored-definitions.json"),JsonConvert.SerializeObject(new[]{access.Read(curveId),access.Read(stepsId)},Formatting.Indented));
+    return new{passed=true,closed="真实旧构造升级、原档副本、局部报告、实际使用及再次存读",checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    ConstructedAbilityService.CastStarted-=Started; ConstructedAbilityService.ContactConfirmed-=Hit; ConstructedAbilityService.CastEnded-=Ended;
+    Config.paused=true; ControllableUnit.clear(false);
+}
