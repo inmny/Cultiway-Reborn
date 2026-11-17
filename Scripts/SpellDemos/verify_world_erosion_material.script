@@ -1,0 +1,68 @@
+AbilityCast Numeric(AbilityDefinition definition) => new AbilityCast(AbilityCompiler.Compile(definition, false), Matrix4x4.identity, force: 10, paidResource: 3);
+AbilityMaterial Capture(AbilityCast cast) => (AbilityMaterial)typeof(AbilityCast).GetMethod("CaptureMaterial", F).Invoke(cast, new object[] { 0 });
+AbilityMaterialData Data(AbilityMaterial material) => (AbilityMaterialData)typeof(AbilityMaterial).GetMethod("Capture", F).Invoke(material, null);
+AbilityMaterial Restore(AbilityMaterialData data) => (AbilityMaterial)typeof(AbilityMaterial).GetMethod("Restore", F).Invoke(null, new object[] { data });
+void Tick(AbilityMaterial material, float seconds) => typeof(AbilityMaterial).GetMethod("Advance", F).Invoke(material, new object[] { seconds, null });
+AbilityMaterial Convert(AbilityMaterial material, string matter) => (AbilityMaterial)typeof(AbilityMaterial).GetMethod("ConvertTo", F).Invoke(material, new object[] { AbilityMatters.Resolve(matter, null, "test"), null });
+try
+{
+    var definition = WorldDefinition("material"); Input(definition, "definition"); var cast = Numeric(definition); cast.Advance(.7f, Vector3.zero);
+    var material = Capture(cast); var original = Data(material);
+    Check(Math.Abs(material.Volume - 6) < .0001 && Math.Abs(material.Weathering.LostVolume - 2) < .0001 && material.Erosion.Active &&
+        material.Erosion.Elapsed == 0 && material.Weathering.Stage == MaterialErosionStage.Weathered,
+        "实际余量继承原阶段、损耗及本金，独立过程从真实交接开始");
+    Tick(material, 1); var current = Data(material);
+    Check(Math.Abs(material.Volume - 4.875) < .0001 && Math.Abs(material.Resource + material.Weathering.SpentResource - 3) < .0001 &&
+        Math.Abs(Math.Pow(current.Transform[0] / original.Transform[0], 3) - material.Volume / original.Volume) < .0001,
+        "独立侵蚀共同缩小体积、实际几何及本金，已蚀部分退出可回收份额");
+    var recovered = Restore(JsonConvert.DeserializeObject<AbilityMaterialData>(JsonConvert.SerializeObject(current)));
+    Tick(material, 1); Tick(recovered, 1);
+    Check(Math.Abs(material.Volume - recovered.Volume) < .000001 && Math.Abs(material.Resource - recovered.Resource) < .000001 &&
+        JsonConvert.SerializeObject(material.Weathering) == JsonConvert.SerializeObject(recovered.Weathering) && material.Erosion.Progress == recovered.Erosion.Progress,
+        "数值保存恢复只推进剩余过程，阶段和累计损耗相同");
+    var changed = Convert(recovered, "iron"); Tick(changed, 1);
+    Check(changed.Erosion.Active && changed.Volume < recovered.Volume && changed.Weathering.LostVolume > recovered.Weathering.LostVolume,
+        "有效转换使用当前材料耐受，已经发生的损失保持");
+    var stopped = Convert(changed, "water"); var returned = Convert(stopped, "wood"); double left = returned.Volume;
+    Tick(returned, 5);
+    Check(returned.Erosion.Interrupted && returned.Volume == left && returned.Weathering.LostVolume == stopped.Weathering.LostVolume,
+        "不适用物态中断侵蚀，变回原材料保持中断事实");
+
+    // 通过既有真实转换建立定形木质层，再检查共同分割入口如何分配历史。
+    var flowDefinition = Definition("water"); flowDefinition.Root.Form = "water_wave";
+    flowDefinition.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow,
+        Flow = new ConstructionFlow { Cells = 16, Size = 4, Gravity = 0, Drag = 0, Evaporation = 0, OpenBoundary = false } },
+        new ConstructionOperation { Kind = ConstructionOperationKind.Leave, At = .1f, Residue = new ConstructionResidue() } };
+    var fluid = Numeric(flowDefinition); fluid.Advance(.2f, Vector3.zero); var layer = Convert(Capture(fluid), "wood");
+    var plan = AbilityCompiler.Compile(definition, false); var node = ((Array)plan.GetType().GetProperty("Nodes", F).GetValue(plan)).GetValue(0);
+    typeof(AbilityMaterial).GetMethod("BeginErosion", F).Invoke(layer, new[] { Field(Field(node, "Residue"), "Erosion") });
+    Tick(layer, 1); var beforeSplit = Data(layer); var full = Restore(beforeSplit);
+    var water = (Vector3[])Field(Field(layer, "Flow"), "Water");
+    var wet = Enumerable.Range(0, water.Length).Where(index => water[index].x > 0).ToArray();
+    var picked = wet.Take(Math.Max(1, wet.Length / 2)).ToList();
+    Check(picked.Count > 0 && picked.Count < wet.Length, "复用的真实定形层具有可分开的局部格子");
+    var part = (AbilityMaterial)typeof(AbilityMaterial).GetMethod("Take", F).Invoke(layer, new object[] { picked });
+    Check(Math.Abs(layer.Volume + part.Volume - beforeSplit.Volume) < .00001 && Math.Abs(layer.Resource + part.Resource - beforeSplit.Resource) < .00001 &&
+        Math.Abs(layer.Weathering.LostVolume + part.Weathering.LostVolume - beforeSplit.Weathering.Value.LostVolume) < .00001 &&
+        Math.Abs(layer.Weathering.SpentResource + part.Weathering.SpentResource - beforeSplit.Weathering.Value.SpentResource) < .00001 &&
+        layer.Erosion.Progress == part.Erosion.Progress && layer.Weathering.Exposure == part.Weathering.Exposure,
+        "局部交接分配真实余量和累计损耗，阶段及已推进时间随各自余量继承");
+    Tick(layer, .5f); Tick(part, .5f); Tick(full, .5f);
+    Check(Math.Abs(layer.Volume + part.Volume - full.Volume) < .00001 && Math.Abs(layer.Resource + part.Resource - full.Resource) < .00001 &&
+        Math.Abs(layer.Weathering.LostVolume + part.Weathering.LostVolume - full.Weathering.LostVolume) < .00001,
+        "分开维护和完整维护得到同一总份额，独立过程没有重复本金");
+
+    var invalid = Data(material); invalid.Erosion = new MaterialErosionProcess { Seconds = 4, Fraction = .75f, Elapsed = 1, Progress = 2 };
+    bool refused = false;
+    try { Restore(invalid); } catch (TargetInvocationException error) when (error.InnerException is InvalidDataException) { refused = true; }
+    Check(refused, "外部资料的非法进度在恢复边界拒绝");
+    var orphan = WorldDefinition("orphan"); orphan.Root.Operations.Last().Residue.Erosion = null; refused = false;
+    try { AbilityCompiler.Compile(orphan, false); } catch (InvalidDataException) { refused = true; }
+    Check(refused, "缺少份额的独立历时不会静默忽略");
+    return new { passed = true, closed = "独立侵蚀、阶段交接、局部份额、转换及数值恢复", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

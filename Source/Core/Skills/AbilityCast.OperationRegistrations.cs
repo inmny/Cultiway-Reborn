@@ -107,7 +107,7 @@ public sealed partial class AbilityCast
         ConstructionOperations.Register<object>(ConstructionOperationKind.Stop, c => null,
             (cast, action, p) => { cast.StopNode(action.Node, 1f); return true; }, immediate: p => true, direct: true);
         ConstructionOperations.Register<object>(ConstructionOperationKind.Leave, c => null,
-            (cast, action, p) => { cast.StartLeave(action.Node); cast.nodes[action.Node].LeaveOperation = action; return true; }, direct: true);
+            (cast, action, p) => { if (!cast.StartLeave(action.Node)) return false; cast.nodes[action.Node].LeaveOperation = action; return true; }, direct: true);
         RegisterDeflection();
         RegisterRay();
     }

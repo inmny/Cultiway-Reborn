@@ -39,6 +39,14 @@ public sealed class AbilityMaterialData
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public AbilityBurning? Burning;
 
+    /// <summary>已经发生的真实侵蚀，旧资料为空。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public AbilityErosion? Weathering;
+
+    /// <summary>独立过程的剩余时序，不保存旧世界绝对时间。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public MaterialErosionProcess? Erosion;
+
     /// <summary>数值材料是否已经定形；刚性物件不另存此状态。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool? ShapeHeld;
@@ -106,7 +114,8 @@ public sealed partial class AbilityMaterial
     internal readonly bool ShapeHeld;
 
     /// <summary>无独立热量与烧损的层可共用容器，避免合并时丢失点火位置和历史。</summary>
-    internal bool CanMerge => Burning.Heat == 0 && Burning.Burned == 0;
+    internal bool CanMerge => Burning.Heat == 0 && Burning.Burned == 0 && Erosion.Seconds == 0 &&
+        Weathering.LostVolume == 0 && Weathering.SpentResource == 0;
 
     /// <summary>已经交接的有限燃料与热量。</summary>
     internal AbilityBurning Burning;
@@ -177,6 +186,7 @@ public sealed partial class AbilityMaterial
         }
 
         AdvanceBurning(seconds);
+        AdvanceErosion(seconds);
     }
 
     /// <summary>数值量转化为原资源，显示与真实体积一起减小。</summary>
@@ -327,8 +337,11 @@ public sealed partial class AbilityMaterial
         var burning = Burning;
         burning.Retain(burningShare);
         Burning.Retain(1 - burningShare);
+        var weathering = Weathering.Share(burningShare);
+        Weathering = Weathering.Share(1 - burningShare);
         return new AbilityMaterial(Form, Matter, Transform, Skin, PoseBounds, System.Array.Empty<AbilityCapsule>(),
-            Surface, Dye, taken.Volume, resource, taken, burning, ShapeHeld, BuildProgress);
+            Surface, Dye, taken.Volume, resource, taken, burning, ShapeHeld, BuildProgress)
+        { Weathering = weathering, Erosion = Erosion };
     }
 
     /// <summary>真实材料变化保留归属和体积；保持态停止流动，刚性液态输出建立实际流散。</summary>
@@ -371,8 +384,10 @@ public sealed partial class AbilityMaterial
 
         var burning = Burning;
         if (!AbilityBurning.CanBurn(matter)) burning.Extinguish();
-        return new AbilityMaterial(Form, matter, Transform, Skin, PoseBounds, Shapes, null, Dye, Volume, Resource,
-            flow, burning, held, BuildProgress);
+        var converted = new AbilityMaterial(Form, matter, Transform, Skin, PoseBounds, Shapes, null, Dye, Volume, Resource,
+            flow, burning, held, BuildProgress) { Weathering = Weathering, Erosion = Erosion };
+        if (matter.ErosionFactor <= 0) converted.InterruptErosion();
+        return converted;
     }
 
     /// <summary>同一来源、材料和位置的格网层合并，旧容器由世界维护者移除。</summary>
@@ -401,7 +416,8 @@ public sealed partial class AbilityMaterial
         var burning = Burning;
         burning.Retain(Volume > 0 ? Math.Min(1, flow.Volume / Volume) : 0);
         return new AbilityMaterial(Form, Matter, Transform, Skin, PoseBounds,
-            Array.Empty<AbilityCapsule>(), Surface, Dye, flow.Volume, flow.Resource, flow, burning, ShapeHeld, BuildProgress);
+            Array.Empty<AbilityCapsule>(), Surface, Dye, flow.Volume, flow.Resource, flow, burning, ShapeHeld, BuildProgress)
+        { Weathering = Weathering.Share(Volume > 0 ? Math.Min(1, flow.Volume / Volume) : 0), Erosion = Erosion };
     }
 
     /// <summary>保存只包含稳定资源名与数值，不把显示和工作区对象序列化。</summary>
@@ -419,6 +435,8 @@ public sealed partial class AbilityMaterial
             Volume = Volume,
             Resource = Resource,
             Burning = Burning.Heat > 0 || Burning.Burned > 0 ? Burning : null,
+            Weathering = Weathering.Exposure > 0 || Weathering.LostVolume > 0 || Weathering.SpentResource > 0 ? Weathering : null,
+            Erosion = Erosion.Seconds > 0 ? Erosion : null,
             ShapeHeld = Flow == null ? null : ShapeHeld,
             Controls = Form.Description.Controls.Select(control => control.Id).ToArray(),
             Dye = Dye.HasValue ? new[] { Dye.Value.r, Dye.Value.g, Dye.Value.b } : null,
@@ -482,6 +500,11 @@ public sealed partial class AbilityMaterial
         AbilityCapsule[] shapes = BuildShapes(form, pose, matrix);
         AbilityFlow flow = data.Flow == null ? null : AbilityFlow.Restore(data.Flow);
         AbilityBurning burning = data.Burning ?? default;
+        AbilityErosion weathering = data.Weathering ?? default;
+        if (!Finite(weathering.Exposure) || weathering.Exposure < 0 || weathering.Exposure > 1 ||
+            !Finite(weathering.LostVolume) || weathering.LostVolume < 0 || !Finite(weathering.SpentResource) || weathering.SpentResource < 0)
+            throw new InvalidDataException("世界材料的累计侵蚀份额无效");
+        data.Erosion?.Validate(matter, flow?.Volume ?? data.Volume);
         if (!Finite(burning.Heat) || burning.Heat < 0 || !Finite(burning.Fuel) || burning.Fuel < 0 ||
             !Finite(burning.Burned) || burning.Burned < 0 || burning.Source < 0 ||
             !Finite(burning.X) || !Finite(burning.Y) || !Finite(burning.Z) ||
@@ -494,7 +517,8 @@ public sealed partial class AbilityMaterial
             throw new InvalidDataException("世界材料的定形状态、基底或内部动量不符");
         return new AbilityMaterial(form, matter, matrix, skin, pose?.Bounds,
             shapes, data.Surface, data.Dye == null ? null : new Color(data.Dye[0], data.Dye[1], data.Dye[2]),
-            flow?.Volume ?? data.Volume, data.Resource, flow, burning, data.ShapeHeld, data.BuildProgress);
+            flow?.Volume ?? data.Volume, data.Resource, flow, burning, data.ShapeHeld, data.BuildProgress)
+        { Weathering = weathering, Erosion = data.Erosion ?? default };
     }
 
     /// <summary>按当前资源与同一骨架重建选择形状，更新模型后不保留一套过时判定。</summary>

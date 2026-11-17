@@ -97,6 +97,7 @@ internal sealed class WorldMaterialRecord
     /// <param name="recovery">普通法术已经检查的收束参数。</param>
     internal void Begin(CompiledRecovery recovery)
     {
+        Material.InterruptErosion();
         Material.Burning.Extinguish();
         Recovering = true;
         Seconds = recovery.Seconds;

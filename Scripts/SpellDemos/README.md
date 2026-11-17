@@ -1777,3 +1777,10 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 通过develop执行`python3 Scripts/SpellDemos/verify_erosion.py --section core|runtime|all`。`core`检查木铁耐受、实际阶段、共同份额、替换、材料转换、收束及主体结束、完全耗尽、预测回退、非法参数、零体积与动态流散入口限制。`runtime`复用同一现成世界和来源，通过正常学习、支付和施放，比较枝体及剑体的实际缩小、作用量及本金减少，等待真实完成后留置，并验证不适用材料的失败结束及再次使用。
 
 本批最终数值段通过，实机行为完成。首次地点演示漏写选取声明，修正测试输入后补齐实机段；末尾日志包含结束坐标，序列化失败。导出已改为纯数值材料事件，实际留置事件从原落盘检查恢复并与原材料记录核对。各段按各自原调用状态交付，原始失败保留，索引位于`/home/inmny/.local/state/cultiway-dev/evidence/erosion-generated/delivery.json`。A1关闭，独立材料过程与保存、原物件及生灵、窗口与创作和集中双端影片继续5.13后批。
+
+
+### 5.13 A2a　独立世界材料侵蚀及正式保存
+
+通过develop执行`python3 Scripts/SpellDemos/verify_world_erosion.py --section material|world|save|all`。`material`检查真实阶段交接、独立几何及本金扣除、数值恢复、材料转换、局部分割后的份额与进度、非法资料。`world`复用同一现成世界及来源，正常学习、支付和施放，验证普通留置继承损耗、独立过程、失败结束、真实范围收束中断、再次使用及来源死亡后继续，并保存中途世界。`save`读取该中途世界，验证原身份、阶段和进度、剩余过程、完成后的再次存读、坏条目局部报告与保留其他材料、旧6区段升级及换世界。
+
+单独运行`save`可通过`--state`指定已通过的`world`输出目录。旧6资料固定在`fixtures/erosion-world-v6.json`，由既有正式世界提取，含来源文件及校验值。复验将该原区段嵌入现成世界，另从本批实际中途存档生成非法进度副本。各段分别通过，证据索引为`/home/inmny/.local/state/cultiway-dev/evidence/erosion-world-materials/delivery.json`。A2a关闭，范围侵蚀、局部选择及完成衔接继续A2b，整体5.13继续推进。

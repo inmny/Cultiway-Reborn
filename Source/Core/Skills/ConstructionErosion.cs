@@ -20,12 +20,28 @@ internal sealed class CompiledErosion
     /// <summary>解析实际参数，非法声明停在资料边界。</summary>
     /// <param name="source">原始操作。</param><param name="lifetime">整次上限。</param><param name="path">资料位置。</param>
     internal CompiledErosion(ConstructionOperation source, float lifetime, string path)
+        : this(source.Seconds, source.Erosion, lifetime, path) { }
+
+    /// <summary>主体与独立材料共用一次参数核对。</summary>
+    /// <param name="seconds">实际历时。</param><param name="source">明确份额。</param>
+    /// <param name="lifetime">入口允许的最长时间。</param><param name="path">资料位置。</param>
+    internal CompiledErosion(float seconds, ConstructionErosion source, float lifetime, string path)
     {
-        Seconds = source.Seconds; Fraction = source.Erosion?.Fraction ?? .75f;
+        Seconds = seconds; Fraction = source?.Fraction ?? .75f;
         if (float.IsNaN(Seconds) || float.IsInfinity(Seconds) || Seconds <= 0 || Seconds > lifetime ||
             float.IsNaN(Fraction) || float.IsInfinity(Fraction) || Fraction <= 0 || Fraction > 1)
             throw new InvalidDataException(path + "：侵蚀需要有效历时及大于零且不超过一的份额");
     }
+
+    /// <summary>真实材料能表示本段损耗时才接受交接。</summary>
+    /// <param name="matter">交接当时的材料。</param><param name="volume">实际余量。</param>
+    internal bool CanAffect(AbilityMatter matter, double volume) => volume > 0 && matter.ErosionFactor > 0 &&
+        volume * (float)(1 - Fraction * (double)matter.ErosionFactor) < volume;
+
+    /// <summary>按当前余量推进，其他过程造成的损失不会被重建。</summary>
+    /// <param name="loss">当前材料的整段损耗比例。</param><param name="before">上次实际扣到的进度。</param>
+    /// <param name="after">本次目标进度。</param>
+    internal static double Retained(double loss, double before, double after) => (1 - loss * after) / (1 - loss * before);
 }
 
 /// <summary>由实际累计推进得到的材料阶段。</summary>
@@ -53,4 +69,19 @@ public struct AbilityErosion
     /// <summary>从真实累计值读取当前阶段。</summary>
     public MaterialErosionStage Stage => Exposure >= .99999f ? MaterialErosionStage.Spent :
         Exposure >= .5f ? MaterialErosionStage.Weakened : Exposure > 0 ? MaterialErosionStage.Weathered : MaterialErosionStage.Intact;
+
+    /// <summary>主体与世界材料共同登记已经发生的真实损失。</summary>
+    /// <param name="before">本次损耗前的体积。</param><param name="volume">实际移除体积。</param>
+    /// <param name="resource">随材料退出的本金。</param>
+    internal void Add(double before, double volume, double resource)
+    {
+        LostVolume += volume;
+        SpentResource += resource;
+        Exposure = (float)Math.Min(1, Exposure + (1 - Exposure) * volume / before);
+    }
+
+    /// <summary>阶段随实际余量继承，累计损失按交出份额分配。</summary>
+    /// <param name="fraction">真正交出的体积比例。</param>
+    internal AbilityErosion Share(double fraction) => new()
+    { Exposure = Exposure, LostVolume = LostVolume * fraction, SpentResource = SpentResource * fraction };
 }

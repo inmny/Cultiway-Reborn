@@ -51,9 +51,8 @@ public sealed partial class AbilityCast
             if (state.Erosion == null || state.ErosionProgress >= 1 || !state.Exists) continue;
             float progress = Mathf.Clamp01((Age - state.ErosionAt) / state.Erosion.Seconds);
             double loss = state.Erosion.Fraction * (double)state.Matter.ErosionFactor;
-            double prior = 1 - loss * state.ErosionProgress;
-            double retained = 1 - loss * progress;
-            double removed = state.Volume * Math.Max(0, 1 - retained / prior);
+            double retained = CompiledErosion.Retained(loss, state.ErosionProgress, progress);
+            double removed = state.Volume * Math.Max(0, 1 - retained);
             // 很小的一步累计到足以改变实际形体时再扣除，不把舍入掉的变化记为已发生。
             if (!CanUseWorldMaterial(node, 0, removed))
             {
@@ -63,10 +62,7 @@ public sealed partial class AbilityCast
             state.ErosionProgress = progress;
             double before = state.Volume;
             double actual = UseWorldMaterial(node, 0, removed, state.Position, out double resource);
-            state.Weathering.LostVolume += actual;
-            state.Weathering.SpentResource += resource;
-            state.Weathering.Exposure = (float)Math.Min(1, state.Weathering.Exposure +
-                (1 - state.Weathering.Exposure) * actual / before);
+            state.Weathering.Add(before, actual, resource);
             changed |= actual > 0;
         }
         return changed;

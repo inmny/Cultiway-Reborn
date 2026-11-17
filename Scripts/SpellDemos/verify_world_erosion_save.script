@@ -1,0 +1,53 @@
+JObject Section() => (JObject)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "world-erosion"))["sections"]["world_materials"];
+JArray Records() => (JArray)Section()["data"]["Records"];
+JToken Canonical(JObject section)
+{
+    var data = (JObject)section["data"].DeepClone(); var rows = new JArray();
+    foreach (var token in ((JArray)data["Records"]).OrderBy(value => (long)value["Id"]))
+    {
+        var row = JObject.Parse(JsonConvert.SerializeObject(token.ToObject<WorldMaterialData>())); row.Remove("Clock"); rows.Add(row);
+    }
+    data["Records"] = rows; return data;
+}
+async Task Load(string name)
+{
+    Config.paused = true; World.world.save_manager.loadWorld(Path.Combine(folder, name));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+}
+try
+{
+    var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "expected.json"))); long id = (long)expected["active"];
+    Check(WorldMaterialService.Count == 0, "换世界已清理原世界的独立材料和侵蚀过程");
+    await Load("pending-save"); var section = Section();
+    Check((int)section["version"] == 7 && JToken.DeepEquals(Canonical(section), Canonical((JObject)expected["section"])),
+        "正式中途保存恢复稳定身份、来源、体积、本金、阶段及原进度");
+    double left = (double)Records().Single(value => (long)value["Id"] == id)["Material"]["Volume"];
+    await Advance(.3f); var progressed = Records().Single(value => (long)value["Id"] == id)["Material"].ToObject<AbilityMaterialData>();
+    Check(progressed.Erosion.Value.Active && progressed.Volume < left && Math.Abs(progressed.Volume + progressed.Weathering.Value.LostVolume - 8) < .0001 &&
+        Math.Abs(progressed.Resource + progressed.Weathering.Value.SpentResource - 3) < .0001,
+        "恢复只续接剩余侵蚀，体积及原本金没有重建");
+    await Advance(9); var completed = Records().Single(value => (long)value["Id"] == id)["Material"].ToObject<AbilityMaterialData>();
+    Check(!completed.Erosion.Value.Active && completed.Erosion.Value.Progress == 1 && Math.Abs(completed.Volume - 1.5) < .0001 &&
+        completed.Weathering.Value.Stage == MaterialErosionStage.Weakened,
+        "恢复后的独立过程按原份额完成，余量和实际阶段正确");
+    var finished = Section(); File.WriteAllText(Path.Combine(folder, "completed.json"), finished.ToString(Formatting.Indented));
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save")); await Load("completed-save"); await Advance(.3f);
+    Check(JToken.DeepEquals(Canonical(Section()), Canonical(finished)), "完成世界再次正式恢复与推进，完成损耗和本金去向保持一次");
+
+    await Load("bad-world"); var remaining = Records();
+    Check(!remaining.Any(value => (long)value["Id"] == id) && remaining.Count == ((JArray)expected["section"]["data"]["Records"]).Count - 1 &&
+        Cultiway.ModClass.I.WorldSaves.LastReport.Skipped.Any(value => value.Contains("侵蚀")),
+        "坏侵蚀进度仅丢弃受影响材料并报告，其他材料继续加载");
+    var legacy = JObject.Parse(File.ReadAllText(Path.Combine(folder, "legacy.json")));
+    await Load("legacy-world");
+    Check((int)Section()["version"] == 7 && JToken.DeepEquals(Canonical(Section()), Canonical((JObject)legacy["section"])) &&
+        Records().All(value => value["Material"]["Erosion"] == null && value["Material"]["Weathering"] == null),
+        "实际旧6区段原样升级，原材料、身份及已确认回收保持，旧材料缺省没有侵蚀");
+    File.WriteAllText(Path.Combine(folder, "loaded-legacy.json"), Section().ToString(Formatting.Indented));
+    return new { passed = true, closed = "中途侵蚀正式恢复、完成去重、局部坏档、旧6升级及换世界", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

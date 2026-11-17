@@ -1,0 +1,80 @@
+Actor source = Make(60), enemy = Make(74, "wolf"); var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var active = new List<AbilityCast>(); var materials = new List<WorldMaterialChange>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == fact.CastId) active.Add((AbilityCast)Field(running, "Cast"));
+}
+void Material(WorldMaterialChange fact) { if (fact.Provider == source.id) materials.Add(fact); }
+ConstructedAbilityService.CastStarted += Started; WorldMaterialService.Changed += Material;
+JObject Section() => (JObject)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "world-erosion"))["sections"]["world_materials"];
+JArray Records() => (JArray)Section()["data"]["Records"];
+JToken Row(long id) => Records().Single(value => (long)value["Id"] == id);
+async Task<AbilityCast> Cast(AbilityDefinition definition, Vector3 point)
+{
+    Ready(source); await Advance(.15f); Place(source, 60); Place(enemy, 74);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, enemy, aim: point, aggro: false); owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f, "正常入口实际支付 " + definition.Id);
+    return active.Last();
+}
+try
+{
+    var inherited = WorldDefinition("inherited", false); Input(inherited, "inherited");
+    var old = await Cast(inherited, new Vector3(64, 68, 2)); await Advance(.8f);
+    var leave = materials.Single(value => value.AbilityId == inherited.Id && value.Kind == "leave"); var prior = Row(leave.Id);
+    Check(old.Finished && Math.Abs((double)prior["Material"]["Volume"] - 6) < .0001 &&
+        Math.Abs((double)prior["Material"]["Weathering"]["LostVolume"] - 2) < .0001 && prior["Material"]["Erosion"] == null,
+        "普通留置继承主体已经发生的阶段及损失，真实余量和本金正确交接");
+    var definition = WorldDefinition("independent"); Input(definition, "independent");
+    var live = await Cast(definition, new Vector3(70, 76, 2)); await Advance(1.1f);
+    leave = materials.Single(value => value.AbilityId == definition.Id && value.Kind == "leave"); long target = leave.Id;
+    var running = Row(target); var data = running["Material"].ToObject<AbilityMaterialData>();
+    Check(live.Finished && data.Erosion.Value.Active && data.Erosion.Value.Elapsed > 0 && data.Volume < 6 &&
+        Math.Abs(data.Volume + data.Weathering.Value.LostVolume - 8) < .0001 && Math.Abs(data.Resource + data.Weathering.Value.SpentResource - 3) < .0001,
+        "原施放已结束，独立世界过程继续按真实余量侵蚀", running);
+
+    var invalid = WorldDefinition("unsupported"); invalid.Root.Matter = "water"; invalid.Lifetime = 1.2f;
+    invalid.Root.Operations = new[] { invalid.Root.Operations.Last() }; invalid.Root.Operations[0].At = .2f; Input(invalid, "unsupported");
+    var failed = await Cast(invalid, new Vector3(66, 72, 2)); await Advance(1.4f);
+    Check(failed.Finished && failed.OperationStateOf("root", "leave") == ConstructionStepState.Interrupted &&
+        !materials.Any(value => value.AbilityId == invalid.Id && value.Kind == "leave") && !BodyControlState.IsBusy(source.id),
+        "不适用材料不能借独立侵蚀配置交出，失败正常结束并释放额度");
+
+    var recovery = WorldDefinition("recovery", false); recovery.Power = 0; recovery.Cost = 1; recovery.Root.Volume = 1;
+    recovery.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Recover, Seconds = 1,
+        Recovery = new ConstructionRecovery { WorldMaterials = true, Efficiency = 1 } } }; Input(recovery, "recovery");
+    await Cast(recovery, new Vector3(70, 76, 2)); await Advance(.1f);
+    var shrinking = Row(target); var interrupted = shrinking["Material"].ToObject<AbilityMaterialData>();
+    Check((bool)shrinking["Recovering"] && interrupted.Erosion.Value.Interrupted && !interrupted.Erosion.Value.Active,
+        "真实跨施放收束中断侵蚀，后续只回收尚存本金");
+    double eroded = interrupted.Weathering.Value.SpentResource;
+    await Advance(1.1f);
+    Check(!Records().Any(value => (long)value["Id"] == target) &&
+        materials.Where(value => value.Id == target && value.Kind == "credit").Sum(value => value.Granted) + eroded <= 3.0001,
+        "收束只转化剩余份额，原侵蚀损失不成为回收入账");
+
+    var saved = WorldDefinition("saved"); saved.Root.Operations.Last().Residue.ErosionSeconds = 8; Input(saved, "saved");
+    var resumed = await Cast(saved, new Vector3(70, 76, 2)); await Advance(1.1f);
+    leave = materials.Single(value => value.AbilityId == saved.Id && value.Kind == "leave"); long id = leave.Id;
+    double before = (double)Row(id)["Material"]["Volume"];
+    source.dieAndDestroy(AttackType.None); ControllableUnit.clear(false); await Advance(.25f);
+    var final = Row(id); var process = final["Material"]["Erosion"].ToObject<MaterialErosionProcess>();
+    Check(resumed.Finished && !source.isAlive() && process.Active && (double)final["Material"]["Volume"] < before,
+        "失败后可再次使用，来源真实死亡后世界材料继续侵蚀");
+    var expected = new { section = Section(), active = id, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(expected, Formatting.Indented));
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "pending-save"));
+    return new { passed = true, closed = "真实阶段交接、独立推进、失败、收束及来源死亡后继续", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started; WorldMaterialService.Changed -= Material;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(new { materials }, Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}

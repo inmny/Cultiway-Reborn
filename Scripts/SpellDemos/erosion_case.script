@@ -16,3 +16,16 @@ AbilityDefinition Definition(string matter = "wood") => new AbilityDefinition
 List<FormVisualInstance> Views(AbilityCast cast) { var values = new List<FormVisualInstance>(); cast.AppendVisuals(values); return values; }
 List<AbilityCapsule> Shapes(AbilityCast cast) { var values = new List<AbilityCapsule>(); cast.AppendContacts(values); return values; }
 void Input(AbilityDefinition definition, string name) => File.WriteAllText(Path.Combine(folder, name + ".json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+
+// 留置先继承已发生的损失，独立过程使用自己的世界秒数。
+AbilityDefinition WorldDefinition(string suffix, bool independent = true)
+{
+    var definition = Definition(); definition.Id = "test.world-erosion." + suffix; definition.Name = "世界材料侵蚀";
+    definition.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point };
+    definition.Root.Operations[0].Seconds = .5f; definition.Root.Operations[0].Erosion.Fraction = .25f;
+    var residue = new ConstructionResidue();
+    if (independent) { residue.Erosion = new ConstructionErosion { Fraction = .75f }; residue.ErosionSeconds = 4; }
+    definition.Root.Operations = definition.Root.Operations.Concat(new[]
+    { new ConstructionOperation { Id = "leave", Kind = ConstructionOperationKind.Leave, At = .6f, Residue = residue } }).ToArray();
+    return definition;
+}

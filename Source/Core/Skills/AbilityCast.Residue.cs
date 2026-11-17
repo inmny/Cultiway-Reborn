@@ -10,10 +10,12 @@ public sealed partial class AbilityCast
 {
     /// <summary>开始留置即停止攻击和运动，等待事实维护者接受。</summary>
     /// <param name="node">真实生成部位。</param>
-    private void StartLeave(int node)
+    private bool StartLeave(int node)
     {
         ref NodeState state = ref nodes[node];
-        if (state.Leaving || state.Recovering || !state.Exists) return;
+        if (state.Leaving || state.Recovering || !state.Exists) return false;
+        var erosion = Plan.Nodes[node].Residue.Erosion;
+        if (erosion != null && !erosion.CanAffect(state.Matter, state.Volume)) return false;
         InterruptErosion(node);
         ReleaseNode(node);
         for (int child = node + 1; child < nodes.Length; child++)
@@ -26,6 +28,7 @@ public sealed partial class AbilityCast
         state.MotionStopped = state.GrowthStopped = state.MovementStopped = true;
         state.Velocity = state.Acceleration = state.Spin = Vector3.zero;
         NativeStarted(node, ConstructionOperationKind.Leave);
+        return true;
     }
 
     /// <summary>读取已确认时点的转交请求，取消或清世界后不产生旧事实。</summary>
@@ -58,7 +61,7 @@ public sealed partial class AbilityCast
             flows[node].CopyTo(flow);
         }
 
-        return new AbilityMaterial(form.Resource, state.Matter, state.Transform,
+        var material = new AbilityMaterial(form.Resource, state.Matter, state.Transform,
             poses[node] == null ? null : (Matrix4x4[])poses[node].Skin.Clone(),
             poses[node]?.Bounds,
             flow == null
@@ -66,6 +69,9 @@ public sealed partial class AbilityCast
                 : Array.Empty<AbilityCapsule>(),
             form.Surface, form.Dye, state.Volume, state.Resource, flow, state.Burning, state.ShapeHeld,
             poses[node]?.BuildProgress ?? 1f);
+        material.Weathering = state.Weathering;
+        if (form.Residue.Erosion != null) material.BeginErosion(form.Residue.Erosion);
+        return material;
     }
 
     /// <summary>另一施放按同一实际形状选择材料，零攻击力量不等于没有物理范围。</summary>
