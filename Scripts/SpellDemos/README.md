@@ -1809,3 +1809,12 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 `save`读取已通过实机输出，核对原人物身份、年龄和年龄增量、完整构造、已学关系、完成世界再次存读及换世界清理。可用`--state <已通过runtime目录>`复用原世界。输出位于`CULTIWAY_DEV_OUTPUT/aging/<分段>`，实际事件记录前后年龄、真实接触时点及原版寿终结果。
 
 各段独立验收，首次脚本名称及数值比较失败保留，仅补对应段。索引位于`/home/inmny/.local/state/cultiway-dev/evidence/aging-actors/delivery.json`。原物件继续B2，窗口与自主创作、真正冷启动和集中双端画面继续C。
+
+
+### 5.13 B2a　明确装备栏腐蚀与原耐久保存
+
+通过develop执行`python3 Scripts/SpellDemos/verify_aging.py --family equipment --section core|runtime|save|all`。默认family仍为actor，保留B1入口原行为。`core`核对明确栏位、份额边界、编译副本、共同需求及格挡和偏转入口。`runtime`复用同一现成世界、来源和目标，仅一件铁甲及木剑，检查真实支付、指定栏位、材料差异、不老、微量与范围外、真实间隔、耐久耗尽后的属性和原物品归属，以及结束后再次使用。
+
+`runtime`保存`worn-save`和`broken-save`两份真实世界。`save`恢复部分及完全磨损的原物品身份、耐久、持有人和装备栏，完整腐蚀构造、已学关系及破损属性，继续推进及再次存读保持一次结果，换世界清理旧施放。可通过`--state <已通过runtime目录>`复用输入。输出位于`CULTIWAY_DEV_OUTPUT/equipment-erosion/<分段>`，事件中保留前后耐久和真实时点。
+
+本批all中三段依次首次通过，索引位于`/home/inmny/.local/state/cultiway-dev/evidence/erosion-equipment/delivery.json`。B2b继续模组库存物件的已登记过程，真正冷启动及双端影片继续C。

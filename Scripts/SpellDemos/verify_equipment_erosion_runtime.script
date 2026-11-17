@@ -1,0 +1,72 @@
+Actor source = Make(64), target = Make(68);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+Item armor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: target);
+Item weapon = World.world.items.generateItem(AssetManager.items.get("sword_wood"), pActor: target);
+target.equipment.setItem(armor, target); target.equipment.setItem(weapon, target); target.setStatsDirty(); target.updateStats();
+var facts = new List<ConstructedEquipmentErosion>();
+void Worn(ConstructedEquipmentErosion fact) { if (fact.SourceId == source.id) facts.Add(fact); }
+ConstructedAbilityService.EquipmentErosionConfirmed += Worn;
+async Task Use(AbilityDefinition input)
+{
+    Ready(source); await Advance(.15f); Place(source, 64); Place(target, 68);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(input, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - input.Cost) < .001f, "实际施放逐次支付 " + input.Id);
+    await Advance(.8f);
+}
+object Snapshot() => new { armor = armor.id, weapon = weapon.id, armorDurability = armor.getDurabilityCurrent(),
+    weaponDurability = weapon.getDurabilityCurrent(), armorValue = target.stats["armor"] };
+try
+{
+    int maxArmor = armor.getDurabilityMax(), maxWeapon = weapon.getDurabilityMax();
+    Check(armor.getDurabilityCurrent() == maxArmor && weapon.getDurabilityCurrent() == maxWeapon, "正常新建物品保持原版完整耐久");
+    var definition = EquipmentDefinition(); AgingInput(definition, "definition"); await Use(definition);
+    int firstDamage = (int)Math.Floor(maxArmor * .5d * AbilityMatters.Resolve("iron", "solid", "test").ErosionFactor);
+    Check(facts.Count == 1 && facts[0].ItemId == armor.id && facts[0].Before - facts[0].After == firstDamage &&
+        armor.getDurabilityCurrent() == maxArmor - firstDamage && weapon.getDurabilityCurrent() == maxWeapon,
+        "真实命中只腐蚀指定铁甲，其他装备保持", facts.ToArray());
+    var both = EquipmentDefinition(); both.Id += ".both";
+    both.Impact.EquipmentErosion.Slots = new[] { EquipmentType.Armor, EquipmentType.Weapon }; AgingInput(both, "both");
+    await Use(both);
+    Check(armor.getDurabilityCurrent() == maxArmor - firstDamage * 2 && weapon.getDurabilityCurrent() == maxWeapon - (int)Math.Floor(maxWeapon * .5d) &&
+        armor.getActor() == target && weapon.getActor() == target, "同次输入按真实木铁耐受扣除，原物品身份及归属保持", Snapshot());
+
+    armor.addMod("eternal"); int preserved = armor.getDurabilityCurrent(); int count = facts.Count;
+    await Use(definition);
+    Check(armor.getDurabilityCurrent() == preserved && facts.Count == count, "原版不老装备拒绝实际腐蚀"); armor.removeMod("eternal");
+    var missed = EquipmentDefinition(); missed.Id += ".miss"; missed.Root.Offset = new[] { 0f, 8f, 0f }; AgingInput(missed, "miss");
+    await Use(missed);
+    Check(armor.getDurabilityCurrent() == preserved && facts.Count == count, "作用面外原物品保持耐久");
+    var tiny = EquipmentDefinition(); tiny.Id += ".tiny"; tiny.Impact.EquipmentErosion.Fraction = 1e-9f; AgingInput(tiny, "tiny");
+    await Use(tiny);
+    Check(armor.getDurabilityCurrent() == preserved && facts.Count == count, "无法表示的微量腐蚀保持零损失");
+
+    ConstructedAbilityService.Learn(owner, definition.Id); object partial = Snapshot();
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "worn-save")); owner.E.RemoveComponent<ConstructedKnowledge>();
+    float armorBefore = target.stats["armor"];
+    var repeated = EquipmentDefinition(); repeated.Id += ".break"; repeated.Impact.EquipmentErosion.Fraction = 1;
+    repeated.Root.Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval, Interval = .12f, MaximumPerTarget = 4 };
+    AgingInput(repeated, "break"); await Use(repeated);
+    var changes = facts.Where(value => value.AbilityId == repeated.Id).ToArray();
+    Check(armor.isBroken() && armor.getActor() == target && target.equipment.armor.getItem() == armor && target.stats["armor"] < armorBefore &&
+        changes.Length > 0 && changes.Last().Broken && changes.Last().After == 0 &&
+        changes.Zip(changes.Skip(1), (a, b) => b.WorldTime - a.WorldTime).All(delta => delta >= .1199),
+        "共同频率逐次扣至破损，原物品留在原栏位并按原版降低属性", new { changes, armorBefore, after = Snapshot() });
+    await Use(both);
+    Check(weapon.isBroken() && armor.getDurabilityCurrent() == 0 && weapon.getActor() == target && !BodyControlState.IsBusy(source.id),
+        "结束后再次使用，已破损物品保持零耐久，其他指定物品继续真实磨损");
+    ConstructedAbilityService.Learn(owner, definition.Id); object broken = Snapshot();
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "broken-save")); owner.E.RemoveComponent<ConstructedKnowledge>();
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new { source = source.id, target = target.id,
+        definition = (AbilityDefinition)((IDictionary)service.GetField("definitions", F).GetValue(null))[definition.Id], partial, broken }, Formatting.Indented));
+    return new { passed = true, closed = "真实装备腐蚀、材料差异、明确栏位、破损属性及结束恢复", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.EquipmentErosionConfirmed -= Worn;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(facts, Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}

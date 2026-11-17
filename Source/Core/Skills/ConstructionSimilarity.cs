@@ -233,6 +233,12 @@ public sealed class ConstructionSimilarity
             }))
         };
         if (impact.AgeYears > 0) result["AgeYears"] = impact.AgeYears;
+        if (impact.EquipmentErosion != null)
+            result["EquipmentErosion"] = new JObject
+            {
+                ["Slots"] = new JArray(impact.EquipmentErosion.Slots.OrderBy(slot => slot).Select(slot => (int)slot)),
+                ["Fraction"] = impact.EquipmentErosion.Fraction
+            };
         return result;
     }
 

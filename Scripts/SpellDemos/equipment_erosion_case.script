@@ -1,0 +1,8 @@
+// 两类普通人物作用复用同一基础输入，仅替换实际效果。
+AbilityDefinition EquipmentDefinition()
+{
+    var result = AgingDefinition(); result.Id = "test.equipment-erosion.contact"; result.Name = "接触蚀甲";
+    result.Impact.AgeYears = 0;
+    result.Impact.EquipmentErosion = new ConstructionEquipmentErosion { Slots = new[] { EquipmentType.Armor }, Fraction = .5f };
+    return result;
+}

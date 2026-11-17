@@ -1,0 +1,37 @@
+try
+{
+    var old = EquipmentDefinition(); old.Impact.EquipmentErosion = null;
+    var oldPlan = AbilityCompiler.Compile(old, cache: false);
+    Check(!JObject.Parse(JsonConvert.SerializeObject(old))["Impact"].Children<JProperty>().Any(p => p.Name == "EquipmentErosion"),
+        "省略装备腐蚀沿用原构造资料");
+    var definition = EquipmentDefinition(); var plan = AbilityCompiler.Compile(definition, cache: false);
+    definition.Impact.EquipmentErosion.Slots[0] = EquipmentType.Weapon; definition.Impact.EquipmentErosion.Fraction = 1;
+    Check(plan.Impact.EquipmentErosion.Slots.Single() == EquipmentType.Armor && plan.Impact.EquipmentErosion.Fraction == .5f &&
+        plan.Impact.HasActorEffect && plan.Measure.ContactEffectsWork > oldPlan.Measure.ContactEffectsWork,
+        "编译固定明确装备栏和份额，共同需求包含装备腐蚀");
+    foreach (var input in new[]
+    {
+        new ConstructionEquipmentErosion(),
+        new ConstructionEquipmentErosion { Slots = new[] { EquipmentType.Armor, EquipmentType.Armor } },
+        new ConstructionEquipmentErosion { Slots = new[] { (EquipmentType)99 } },
+        new ConstructionEquipmentErosion { Slots = new[] { EquipmentType.Armor }, Fraction = 0 },
+        new ConstructionEquipmentErosion { Slots = new[] { EquipmentType.Armor }, Fraction = 1.1f },
+        new ConstructionEquipmentErosion { Slots = new[] { EquipmentType.Armor }, Fraction = float.NaN }
+    })
+    {
+        definition.Impact.EquipmentErosion = input; bool rejected = false;
+        try { AbilityCompiler.Compile(definition, cache: false); }
+        catch (InvalidDataException error) { rejected = error.Message.Contains("EquipmentErosion"); }
+        Check(rejected, "非法装备栏或份额在资料入口拒绝", input.Slots);
+    }
+    var apply = service.GetMethod("ApplyEquipmentErosion", F);
+    foreach (var result in new[] { ApplyAttackState.Block, ApplyAttackState.Deflect })
+        Check((bool)apply.Invoke(null, new object[] { null, 0, null, plan.Impact.EquipmentErosion, result, 1f }),
+            "格挡或偏转跳过装备腐蚀 " + result);
+    return new { passed = true, closed = "明确装备腐蚀的编译副本、共同需求及边界", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

@@ -33,6 +33,10 @@ public sealed class ConstructionImpact
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public int AgeYears;
 
+    /// <summary>本次真实命中腐蚀的明确装备栏，空值表示没有装备腐蚀。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionEquipmentErosion EquipmentErosion;
+
     /// <summary>可选的明确本体伤害组成；省略时随当时实际材料，零组成表示通用伤害。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ElementComposition? Element;
@@ -158,6 +162,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>每次真实命中推进的整数年数，接触衰减后向下取整。</summary>
     public int AgeYears { get; }
 
+    /// <summary>已经核对并复制的明确装备腐蚀规则。</summary>
+    public CompiledEquipmentErosion EquipmentErosion { get; }
+
     /// <summary>已经独立复制的明确组成；空值继续读取接触当时的真实材料。</summary>
     public ElementComposition? Element { get; }
 
@@ -213,7 +220,7 @@ public sealed class CompiledConstructionImpact
     public float ExposureSeconds { get; }
 
     /// <summary>伤害、移动或行动限制中至少有一项真实人物作用。</summary>
-    public bool HasActorEffect => AgeYears > 0 || Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) || Spreads.Any(spread => spread.HasEffect) ||
+    public bool HasActorEffect => EquipmentErosion != null || AgeYears > 0 || Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) || Spreads.Any(spread => spread.HasEffect) ||
                                   StaggerSeconds > 0f || BindSeconds > 0f || StrainSeconds > 0f || ExposureSeconds > 0f;
 
     /// <summary>实际推拉中心。</summary>
@@ -240,6 +247,8 @@ public sealed class CompiledConstructionImpact
         AgeYears = source?.AgeYears ?? 0;
         if (AgeYears < 0 || AgeYears > 1000000)
             throw new InvalidDataException(path + "/AgeYears：每次老化需0至一百万整数年");
+        if (source?.EquipmentErosion != null)
+            EquipmentErosion = new CompiledEquipmentErosion(source.EquipmentErosion, path + "/EquipmentErosion");
         Element = source?.Element;
         if (Element.HasValue) CompiledConstructionContactDamage.ValidateElement(Element.Value, path + "/Element");
         DamageBasis = source?.DamageBasis ?? ConstructionDamageBasis.RemainingForce;

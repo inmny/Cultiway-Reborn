@@ -1,0 +1,44 @@
+var facts = new List<ConstructedEquipmentErosion>();
+void Worn(ConstructedEquipmentErosion fact) { facts.Add(fact); }
+ConstructedAbilityService.EquipmentErosionConfirmed += Worn;
+async Task Load(string name)
+{
+    Config.paused = true; World.world.save_manager.loadWorld(Path.Combine(folder, name));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+}
+try
+{
+    var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "expected.json")));
+    foreach (string stage in new[] { "worn", "broken" })
+    {
+        await Load(stage + "-save"); var state = expected[stage == "worn" ? "partial" : "broken"];
+        var source = World.world.units.get((long)expected["source"]); var target = World.world.units.get((long)expected["target"]);
+        Item armor = World.world.items.get((long)state["armor"]), weapon = World.world.items.get((long)state["weapon"]);
+        var definition = (AbilityDefinition)((IDictionary)service.GetField("definitions", F).GetValue(null))[(string)expected["definition"]["Id"]];
+        Check(armor != null && weapon != null && armor.getDurabilityCurrent() == (int)state["armorDurability"] &&
+            weapon.getDurabilityCurrent() == (int)state["weaponDurability"] && armor.getActor() == target && weapon.getActor() == target &&
+            target.equipment.armor.getItem() == armor && target.getWeapon() == weapon,
+            "正式存读保持实际耐久、原物品与装备归属 " + stage, new { armor = armor?.getDurabilityCurrent(), weapon = weapon?.getDurabilityCurrent() });
+        Check(JToken.DeepEquals(JObject.Parse(JsonConvert.SerializeObject(definition)),
+                JObject.Parse(JsonConvert.SerializeObject(expected["definition"].ToObject<AbilityDefinition>()))) &&
+            source.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids.Contains(definition.Id), "正式恢复完整腐蚀构造与已学关系 " + stage);
+        source.GetExtend().E.RemoveComponent<ConstructedKnowledge>(); await Advance(.3f);
+        Check(facts.Count == 0 && armor.getDurabilityCurrent() == (int)state["armorDurability"] &&
+            weapon.getDurabilityCurrent() == (int)state["weaponDurability"] &&
+            Math.Abs(target.stats["armor"] - (float)state["armorValue"]) < .0001,
+            "已发生磨损及破损属性保持，读取不重放 " + stage);
+    }
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "restored-save")); await Load("restored-save"); await Advance(.3f);
+    var brokenArmor = World.world.items.get((long)expected["broken"]["armor"]);
+    Check(brokenArmor.isBroken() && brokenArmor.getDurabilityCurrent() == 0 && facts.Count == 0, "破损物品再次存读保持真实结果");
+    await Load("input-world"); await Advance(.3f);
+    Check(facts.Count == 0 && ((ICollection)service.GetField("casts", F).GetValue(null)).Count == 0,
+        "换世界后旧装备腐蚀施放全部退出");
+    return new { passed = true, closed = "原物品耐久正式恢复、完整构造、破损去重与换世界", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.EquipmentErosionConfirmed -= Worn;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}
