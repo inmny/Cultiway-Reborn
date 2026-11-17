@@ -1,0 +1,17 @@
+// B2b复用普通人物接触，只声明当前库存的已有寿命进度。
+AbilityDefinition InventoryAgingDefinition()
+{
+    var result = AgingDefinition(); result.Id = "test.inventory-aging.contact"; result.Name = "库存催朽";
+    result.Impact.AgeYears = 0;
+    result.Impact.InventoryAging = new ConstructionInventoryAging { Seconds = 20, MaximumItems = 1, Shapes = new[] { ItemShapes.Wood.id } };
+    return result;
+}
+Entity LifeItem(ActorExtend owner, Cultiway.Core.Libraries.ItemShapeAsset shape, string name, bool permanent = false, bool ingredient = false)
+{
+    var item = SpecialItemUtils.StartBuild(shape, World.world.getCurWorldTime(), "寿命原来源",
+            permanent ? 1000000f : 120f / TimeScales.SecPerYear, "human")
+        .AddComponent(new EntityName(name)).AddComponent(ItemLevel.FromValue(7)).Build();
+    if (ingredient) item.AddTag<TagIngredient>();
+    owner.AddSpecialItem(item); return item;
+}
+JObject ItemRecord(Entity item) => (JObject)((JArray)WorldObjects()["Objects"]).Single(row => (string)row["Id"] == Stable(item));

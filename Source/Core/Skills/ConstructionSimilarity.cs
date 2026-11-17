@@ -233,6 +233,12 @@ public sealed class ConstructionSimilarity
             }))
         };
         if (impact.AgeYears > 0) result["AgeYears"] = impact.AgeYears;
+        if (impact.InventoryAging != null)
+            result["InventoryAging"] = new JObject
+            {
+                ["Seconds"] = impact.InventoryAging.Seconds, ["MaximumItems"] = impact.InventoryAging.MaximumItems,
+                ["Shapes"] = new JArray(impact.InventoryAging.Shapes.OrderBy(shape => shape, StringComparer.Ordinal))
+            };
         if (impact.EquipmentErosion != null)
             result["EquipmentErosion"] = new JObject
             {

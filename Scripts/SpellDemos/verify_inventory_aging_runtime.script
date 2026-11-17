@@ -1,0 +1,87 @@
+Actor source = Make(64), target = Make(68); var owner = source.GetExtend(); var inventory = target.GetExtend();
+foreach (var actor in new[] { source, target })
+{
+    actor.GetExtend().NewCultisys(Cultisyses.Xian); actor.GetExtend().GetCultisys<Xian>().level = 2;
+    actor.GetExtend().MarkCultiwayStatsDirty(); actor.setStatsDirty(); actor.updateStats();
+}
+Entity permanent = LifeItem(inventory, ItemShapes.Wood, "永久木料", true);
+Entity suspended = LifeItem(inventory, ItemShapes.Wood, "暂缓到期木料"); suspended.AddTag<TagSuspendAliveTimeLimit>();
+Entity bone = LifeItem(inventory, ItemShapes.Bone, "骨质对照");
+Entity first = LifeItem(inventory, ItemShapes.Wood, "木料一", ingredient: true), second = LifeItem(inventory, ItemShapes.Wood, "木料二", ingredient: true);
+WorldObjects(); string firstId = Stable(first), secondId = Stable(second);
+JObject original = Original(first); float limit = first.GetComponent<AliveTimeLimit>().value;
+var facts = new List<ConstructedInventoryAging>(); var active = new List<(long Source, AbilityCast Cast)>();
+void Aged(ConstructedInventoryAging fact) { facts.Add(fact); }
+void Started(ConstructedCastStarted fact)
+{
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == fact.CastId) active.Add((fact.SourceId, (AbilityCast)Field(running, "Cast")));
+}
+ConstructedAbilityService.InventoryAgingConfirmed += Aged; ConstructedAbilityService.CastStarted += Started;
+var definition = InventoryAgingDefinition();
+async Task Use(AbilityDefinition input)
+{
+    Ready(source); await Advance(.15f); Place(source, 64); Place(target, 68);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(input, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - input.Cost) < .001f, "正常接触老化实际支付 " + input.Id);
+    await Advance(.8f);
+}
+JArray ItemSnapshot() => new JArray(inventory.GetItems().Select(ItemRecord));
+try
+{
+    AgingInput(definition, "definition"); await Use(definition);
+    Check(facts.Count == 1 && facts[0].ItemId == firstId && Math.Abs(facts[0].After - facts[0].Before - 20) < .00001 &&
+        Math.Abs(first.GetComponent<AliveTimer>().value - second.GetComponent<AliveTimer>().value - 20) < .0001 &&
+        Math.Abs(bone.GetComponent<AliveTimer>().value - second.GetComponent<AliveTimer>().value) < .0001 &&
+        Math.Abs(suspended.GetComponent<AliveTimer>().value - second.GetComponent<AliveTimer>().value) < .0001 &&
+        !permanent.HasComponent<AliveTimer>() && first.GetComponent<AliveTimeLimit>().value == limit &&
+        JToken.DeepEquals(Original(first), original) && inventory.GetItems().Count() == 5,
+        "真实命中只推进一件匹配物件，永久、暂停、形状及未选中对照保持原过程", facts.ToArray());
+    var missed = InventoryAgingDefinition(); missed.Id += ".miss"; missed.Root.Offset = new[] { 0f, 8f, 0f }; AgingInput(missed, "miss");
+    await Use(missed);
+    Check(facts.Count == 1 && Math.Abs(first.GetComponent<AliveTimer>().value - second.GetComponent<AliveTimer>().value - 20) < .0001,
+        "作用面外库存物件只有原自然时间进度");
+    ConstructedAbilityService.Learn(owner, definition.Id); var partial = ItemSnapshot();
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "aged-save")); owner.E.RemoveComponent<ConstructedKnowledge>();
+
+    var pending = Definition(); pending.Id = "test.inventory-aging.pending";
+    pending.Inventory = new[] { new ConstructionInventoryInput { Id = "wood", Shape = ItemShapes.Wood.id, Count = 2 } };
+    pending.Steps = pending.Steps.Take(1).ToArray(); pending.Steps[0].Operation.At = 1.5f; pending.Lifetime = 2;
+    AgingInput(pending, "pending-consumer");
+    Ready(target); await Advance(.15f); Place(source, 64); Place(target, 68);
+    inventory.GetCultisys<Xian>().wakan = target.stats[BaseStatses.MaxWakan.id] * .9f;
+    await Fire(pending, target, source); inventory.E.RemoveComponent<ConstructedKnowledge>();
+    CombatStatusEffects.ApplyStatus(target, hold, 10000, target); target.updateStats();
+    var waiting = active.Last(value => value.Source == target.id).Cast;
+    await Advance(.1f);
+    Check(first.HasComponent<Cultiway.Core.SkillLibV3.Components.SkillExecutionBodyLease>() &&
+        second.HasComponent<Cultiway.Core.SkillLibV3.Components.SkillExecutionBodyLease>() && waiting.StepStateOf("spend") == ConstructionStepState.Waiting,
+        "另一正常施放真实借用两件原材料并等待后续消耗");
+    var expire = InventoryAgingDefinition(); expire.Id += ".expire"; expire.Impact.InventoryAging.Seconds = 1000; AgingInput(expire, "expire");
+    await Use(expire);
+    var expiry = facts.Single(value => value.AbilityId == expire.Id);
+    Check(expiry.ItemId == firstId && expiry.Expired && expiry.After == limit && first.IsNull &&
+        waiting.Phase == AbilityCastPhase.Interrupted && waiting.StepStateOf("spend") == ConstructionStepState.Interrupted &&
+        second.IsAvailable() && inventory.GetItems().Contains(second) && inventory.GetItems().Count() == 4,
+        "借用中到期交原回收，消耗中断并归还其他未耗材料", expiry);
+    Check(JToken.DeepEquals(Original(second)["creation"], original["creation"]) && !BodyControlState.IsBusy(target.id),
+        "剩余原材料来源保持，借用结束归还控制");
+    ConstructedAbilityService.Learn(owner, definition.Id); var expired = ItemSnapshot();
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "expired-save")); owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Use(definition);
+    Check(facts.Last().ItemId == secondId && !facts.Last().Expired &&
+        Math.Abs(second.GetComponent<AliveTimer>().value - bone.GetComponent<AliveTimer>().value - 20) < .0001,
+        "结束后可再次使用，原来未选中的真实余量继续接受寿命推进");
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new { source = source.id, target = target.id,
+        firstId, secondId, partial, expired, definition = (AbilityDefinition)((IDictionary)service.GetField("definitions", F).GetValue(null))[definition.Id] }, Formatting.Indented));
+    return new { passed = true, closed = "库存有限寿命、真实选择、借用中到期及后续中断归还", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.InventoryAgingConfirmed -= Aged; ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(facts, Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}

@@ -265,6 +265,9 @@ public sealed class ConstructionMeasure
             double effects = impact.AgeYears * (double)strength;
             if (impact.EquipmentErosion != null)
                 effects += impact.EquipmentErosion.Slots.Count * impact.EquipmentErosion.Fraction * 100d * strength;
+            if (impact.InventoryAging != null)
+                effects += impact.InventoryAging.MaximumItems * (double)impact.InventoryAging.Seconds * strength /
+                           Const.TimeScales.SecPerYear;
             foreach (CompiledConstructionStatus status in impact.Statuses)
                 effects += status.Duration * (.25d +
                     (status.Stats?.Values.Sum(value => Math.Abs((double)value)) ?? 0d) * .1d +

@@ -1,0 +1,70 @@
+var facts = new List<ConstructedInventoryAging>();
+JObject expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "expected.json")));
+JArray restoredItems = null;
+double restoredAt = 0;
+void Aged(ConstructedInventoryAging fact) { facts.Add(fact); }
+void Restored()
+{
+    Config.paused = true;
+    restoredAt = World.world.getCurWorldTime();
+    Actor actor = World.world.units.get((long)expected["target"]);
+    restoredItems = actor == null ? new JArray() : new JArray(actor.GetExtend().GetItems().Select(ItemRecord));
+}
+ConstructedAbilityService.InventoryAgingConfirmed += Aged;
+Cultiway.ModClass.I.WorldSaves.WorldRestored += Restored;
+async Task Load(string name)
+{
+    Config.paused = true; World.world.save_manager.loadWorld(Path.Combine(folder, name));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+}
+try
+{
+    foreach (string stage in new[] { "aged", "expired" })
+    {
+        await Load(stage + "-save"); var source = World.world.units.get((long)expected["source"]);
+        var target = World.world.units.get((long)expected["target"]); var inventory = target.GetExtend();
+        JArray saved = (JArray)expected[stage == "aged" ? "partial" : "expired"];
+        var actual = new JArray(inventory.GetItems().Select(ItemRecord));
+        File.WriteAllText(Path.Combine(folder, "actual-" + stage + ".json"), actual.ToString(Formatting.Indented));
+        File.WriteAllText(Path.Combine(folder, "saved-" + stage + ".json"), saved.ToString(Formatting.Indented));
+        File.WriteAllText(Path.Combine(folder, "restored-" + stage + ".json"), restoredItems.ToString(Formatting.Indented));
+        Check(restoredItems.Count == saved.Count && saved.All(record => restoredItems.Any(row => (string)row["Id"] == (string)record["Id"] &&
+            JToken.DeepEquals(JObject.Parse((string)row["Parts"]), JObject.Parse((string)record["Parts"])))),
+            "正式存读恢复原物件身份、来源、品阶及寿命进度 " + stage);
+        double elapsed = World.world.getCurWorldTime() - restoredAt;
+        Check(elapsed >= 0 && actual.All(record =>
+        {
+            var parts = JObject.Parse((string)record["Parts"])["sections"];
+            if (parts["life.elapsed"] == null) return true;
+            var before = restoredItems.Single(row => (string)row["Id"] == (string)record["Id"]);
+            return Math.Abs((double)parts["life.elapsed"]["data"]["Value"]["value"] -
+                (double)JObject.Parse((string)before["Parts"])["sections"]["life.elapsed"]["data"]["Value"]["value"] - elapsed) < .00001;
+        }), "恢复完成到测试暂停之间仅推进实际世界时间 " + stage, new { restoredAt, now = World.world.getCurWorldTime(), elapsed });
+        var definition = (AbilityDefinition)((IDictionary)service.GetField("definitions", F).GetValue(null))[(string)expected["definition"]["Id"]];
+        Check(JToken.DeepEquals(JObject.Parse(JsonConvert.SerializeObject(definition)),
+                JObject.Parse(JsonConvert.SerializeObject(expected["definition"].ToObject<AbilityDefinition>()))) &&
+            source.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids.Contains(definition.Id), "完整库存老化构造及已学关系正式恢复 " + stage);
+        source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+        var before = inventory.GetItems().Where(item => item.HasComponent<AliveTimer>()).ToDictionary(Stable, item => item.GetComponent<AliveTimer>().value);
+        await Advance(.3f);
+        Check(facts.Count == 0 && inventory.GetItems().Where(item => item.HasComponent<AliveTimer>()).All(item =>
+            item.GetComponent<AliveTimer>().value > before[Stable(item)] && item.GetComponent<AliveTimer>().value - before[Stable(item)] < 1f),
+            "读取只继续原自然寿命，已确认额外进度保持一次 " + stage);
+        if (stage == "expired") Check(!inventory.GetItems().Any(item => Stable(item) == (string)expected["firstId"]) &&
+            inventory.GetItems().All(item => item.IsAvailable()), "到期物件保持退出，未耗材料解除旧施放占用");
+    }
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "restored-save")); await Load("restored-save"); await Advance(.3f);
+    var restored = World.world.units.get((long)expected["target"]).GetExtend();
+    Check(!restored.GetItems().Any(item => Stable(item) == (string)expected["firstId"]) && restored.GetItems().Count() == ((JArray)expected["expired"]).Count && facts.Count == 0,
+        "到期世界再次存读及推进保持真实物件集合");
+    await Load("input-world"); await Advance(.3f);
+    Check(facts.Count == 0 && ((ICollection)service.GetField("casts", F).GetValue(null)).Count == 0, "换世界清理旧库存老化施放");
+    return new { passed = true, closed = "库存原寿命正式恢复、到期去重、原关系与换世界", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.InventoryAgingConfirmed -= Aged;
+    Cultiway.ModClass.I.WorldSaves.WorldRestored -= Restored;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

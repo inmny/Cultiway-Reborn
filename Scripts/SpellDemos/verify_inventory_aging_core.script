@@ -1,0 +1,48 @@
+try
+{
+    var original = InventoryAgingDefinition(); original.Impact.InventoryAging = null;
+    var old = AbilityCompiler.Compile(original, false);
+    Check(!JObject.Parse(JsonConvert.SerializeObject(original))["Impact"].Children<JProperty>().Any(p => p.Name == "InventoryAging"),
+        "省略库存老化保持原序列化形式");
+    var definition = InventoryAgingDefinition(); var plan = AbilityCompiler.Compile(definition, false);
+    definition.Impact.InventoryAging.Shapes[0] = ItemShapes.Bone.id; definition.Impact.InventoryAging.Seconds = 40;
+    Check(plan.Impact.InventoryAging.Seconds == 20 && plan.Impact.InventoryAging.Shapes.Single() == ItemShapes.Wood.id &&
+        plan.Impact.HasActorEffect && plan.Measure.ContactEffectsWork > old.Measure.ContactEffectsWork,
+        "编译复制寿命进度、形状和件数，共同需求计入实际声明");
+    foreach (var input in new[]
+    {
+        new ConstructionInventoryAging { Seconds = 0 }, new ConstructionInventoryAging { Seconds = float.NaN },
+        new ConstructionInventoryAging { Seconds = 1000000100f }, new ConstructionInventoryAging { MaximumItems = 0 },
+        new ConstructionInventoryAging { MaximumItems = 1025 }, new ConstructionInventoryAging { Shapes = new[] { "" } },
+        new ConstructionInventoryAging { Shapes = new[] { ItemShapes.Wood.id, ItemShapes.Wood.id } }
+    })
+    {
+        definition.Impact.InventoryAging = input; bool rejected = false;
+        try { AbilityCompiler.Compile(definition, false); } catch (InvalidDataException error) { rejected = error.Message.Contains("InventoryAging"); }
+        Check(rejected, "非法库存寿命声明在边界拒绝");
+    }
+    definition.Impact.InventoryAging = new ConstructionInventoryAging { Shapes = new[] { "test.missing-shape" } };
+    bool missing = false;
+    try { ConstructedAbilityService.Register(definition); } catch (ArgumentException error) { missing = error.Message.Contains("InventoryAging"); }
+    Check(missing, "未知库存形状在正式登记边界拒绝");
+    var end = service.GetMethod("InventoryAgingEnd", F);
+    foreach (var input in new[]
+    {
+        new { before = 0f, limit = 120f, seconds = 20d }, new { before = .5f, limit = 10f, seconds = .013d },
+        new { before = 1e9f, limit = 2e9f, seconds = 1e-50 }, new { before = 119f, limit = 120f, seconds = 1000d }
+    })
+    {
+        float after = (float)end.Invoke(null, new object[] { input.before, input.limit, input.seconds });
+        Check(after >= input.before && after <= input.limit && (double)after - input.before <= input.seconds,
+            "实际可表示额外进度在预算及寿命内", new { input, after });
+    }
+    var apply = service.GetMethod("ApplyInventoryAging", F);
+    foreach (var state in new[] { ApplyAttackState.Block, ApplyAttackState.Deflect })
+        Check((bool)apply.Invoke(null, new object[] { null, 0, null, plan.Impact.InventoryAging, state, 1f }), "格挡或偏转跳过库存寿命 " + state);
+    return new { passed = true, closed = "库存寿命编译、形状边界、共同需求及可表示精度", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

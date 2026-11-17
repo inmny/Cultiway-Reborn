@@ -55,6 +55,13 @@ internal sealed class ConstructedInventoryInputs : IDisposable
         foreach (var input in plan.Inventory)
             if (ModClass.L.ItemShapeLibrary.get(input.Shape) == null)
                 throw new ArgumentException("Inventory：物品形状不存在：" + input.Shape);
+        var impacts = plan.Nodes.Select(node => node.Impact)
+            .Concat(plan.Body?.Stages.Select(stage => stage.Impact) ?? Enumerable.Empty<CompiledConstructionImpact>())
+            .Concat(new[] { plan.Impact });
+        foreach (var effect in impacts.Where(impact => impact?.InventoryAging != null).Select(impact => impact.InventoryAging).Distinct())
+            foreach (string shape in effect.Shapes)
+                if (ModClass.L.ItemShapeLibrary.get(shape) == null)
+                    throw new ArgumentException("InventoryAging：物品形状不存在：" + shape);
     }
 
     /// <summary>当前可作为原材料的真实物件，创作采集与实际取用共用。</summary>

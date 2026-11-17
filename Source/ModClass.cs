@@ -196,7 +196,8 @@ namespace Cultiway
                         logicScheduler.RunFrame(default, false);
                     }
                 }
-                else if (!Game.IsPaused())
+                // 读档后一帧的暂停缓存可能尚未刷新，先确认玩家暂停，避免残留步长推进逻辑。
+                else if (!Config.paused && !Game.IsPaused())
                 {
                     float logicDeltaTime = Game.GetLogicDeltaTime();
                     SimulationTime.SynchronizeFromWorld(World.world);

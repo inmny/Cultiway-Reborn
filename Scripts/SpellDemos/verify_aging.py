@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""5.13真实接触老化、装备腐蚀及原版结果的正式存读。"""
+"""5.13真实接触老化、装备腐蚀、库存寿命及正式存读。"""
 import argparse
 import json
 import os
@@ -13,14 +13,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', choices=('core', 'runtime', 'save', 'all'), default='all')
     parser.add_argument('--state', type=Path, help='save读取已通过的runtime目录')
-    parser.add_argument('--family', choices=('actor', 'equipment'), default='actor')
+    parser.add_argument('--family', choices=('actor', 'equipment', 'inventory'), default='actor')
     options = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         parser.error('请通过develop的dev.py exec运行')
     import baseline_scenarios as baseline
     connection = baseline.connect(False, validate_runtime=False)
-    prefix = 'aging' if options.family == 'actor' else 'equipment-erosion'
-    script_prefix = 'verify_aging_' if options.family == 'actor' else 'verify_equipment_erosion_'
+    prefixes = {'actor': ('aging', 'verify_aging_'), 'equipment': ('equipment-erosion', 'verify_equipment_erosion_'),
+                'inventory': ('inventory-aging', 'verify_inventory_aging_')}
+    prefix, script_prefix = prefixes[options.family]
     for section in ('core', 'runtime', 'save') if options.section == 'all' else (options.section,):
         folder = Path(os.environ['CULTIWAY_DEV_OUTPUT']) / prefix / section
         folder.mkdir(parents=True, exist_ok=True)
@@ -28,8 +29,9 @@ def main():
         if section == 'save':
             source = options.state or folder.parent / 'runtime'
             if not json.loads((source / 'result.json').read_text()).get('passed'):
-                raise RuntimeError('需要已通过的生灵老化实机结果')
-            archives = ('aged-save',) if options.family == 'actor' else ('worn-save', 'broken-save')
+                raise RuntimeError('需要已通过的对应实机结果')
+            archives = {'actor': ('aged-save',), 'equipment': ('worn-save', 'broken-save'),
+                        'inventory': ('aged-save', 'expired-save')}[options.family]
             for name in archives:
                 shutil.copytree(source / name, folder / name, dirs_exist_ok=True)
             shutil.copy2(source / 'expected.json', folder / 'expected.json')
@@ -42,8 +44,12 @@ def main():
         shared = Path(__file__).with_name('aging_case.script').read_text()
         if options.family == 'equipment':
             shared += '\n' + Path(__file__).with_name('equipment_erosion_case.script').read_text()
+        if options.family == 'inventory':
+            shared += '\n' + Path(__file__).with_name('inventory_case.script').read_text()
+            shared += '\n' + Path(__file__).with_name('inventory_aging_case.script').read_text()
         body = Path(__file__).with_name(script_prefix + section + '.script').read_text()
-        script = folder / 'input.script'; script.write_text(helpers + '\n' + shared + '\n' + body)
+        script = folder / 'input.script'
+        script.write_text('using Friflo.Engine.ECS;\nusing Cultiway.Core.Components;\nusing Cultiway.Utils;\nusing Cultiway.Const;\n' + helpers + '\n' + shared + '\n' + body)
         write_json(folder / 'connection.json', connection)
         try:
             result = baseline.call('run', str(script), '180000')
@@ -52,7 +58,7 @@ def main():
             raise
         write_json(folder / 'result.json', result)
         if not result.get('passed'):
-            raise RuntimeError('生灵老化复验未通过 ' + str(folder))
+            raise RuntimeError('寿命与腐蚀复验未通过 ' + str(folder))
         print(json.dumps(result, ensure_ascii=False))
 
 

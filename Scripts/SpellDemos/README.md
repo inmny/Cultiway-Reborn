@@ -1818,3 +1818,12 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 `runtime`保存`worn-save`和`broken-save`两份真实世界。`save`恢复部分及完全磨损的原物品身份、耐久、持有人和装备栏，完整腐蚀构造、已学关系及破损属性，继续推进及再次存读保持一次结果，换世界清理旧施放。可通过`--state <已通过runtime目录>`复用输入。输出位于`CULTIWAY_DEV_OUTPUT/equipment-erosion/<分段>`，事件中保留前后耐久和真实时点。
 
 本批all中三段依次首次通过，索引位于`/home/inmny/.local/state/cultiway-dev/evidence/erosion-equipment/delivery.json`。B2b继续模组库存物件的已登记过程，真正冷启动及双端影片继续C。
+
+
+### 5.13 B2b　库存物件寿命与到期解除借用
+
+通过develop执行`python3 Scripts/SpellDemos/verify_aging.py --family inventory --section core|runtime|save|all`。`core`检查有限进度、件数及形状、正式登记的未知形状、编译副本、共同需求、格挡和偏转入口，以及可表示精度和原寿命边界。`runtime`复用现成世界、一个来源与一个目标，有限木料、骨料、永久及暂停对照组成同一库存，验证真实支付、实际筛选及件数、原资料和未选中保持、作用面外、借用中到期、后续消耗中断及其他材料归还，以及结束后再次使用。
+
+`runtime`保存`aged-save`及`expired-save`，事件保留原物件稳定身份、真实前后进度、原寿命、到期交接和世界时点。`save`在正式世界恢复回调取原资料，随后按实际世界时间核对额外进度，验证部分进度及原身份、来源、品阶、归属、完整构造和已学关系，到期世界再次存读保持一次结果，旧施放和借用不重放，换世界清理。可用`--state <已通过runtime目录>`复用原输入。
+
+输出位于`CULTIWAY_DEV_OUTPUT/inventory-aging/<分段>`。首轮core及runtime通过，save脚本包装错误与真实暂停缺陷分别定位，源头修正后仅补受影响实机和保存。原all失败、字段差异及临时只读调用记录保留，正式脚本只保留恢复边界和实际时间对照。证据索引位于`/home/inmny/.local/state/cultiway-dev/evidence/aging-inventory/delivery.json`。B关闭，窗口与创作、旧请求保持、真正冷启动及双端画面继续C。
