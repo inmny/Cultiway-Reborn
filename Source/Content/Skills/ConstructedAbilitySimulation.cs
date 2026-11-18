@@ -209,7 +209,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 if (generation != worldGeneration) yield break;
                 for (int i = 0; i < active.Count; i++)
                 {
-                    PublishActionEvents(active[i]);
+                    RunningCast running = active[i];
+                    if (running.ActorTransferHolds?.Count > 0) ConfirmActorTransferHolds(running, clock, generation);
+                    if (generation != worldGeneration) yield break;
+                    PublishActionEvents(running);
                     if (generation != worldGeneration) yield break;
                 }
 
@@ -301,7 +304,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             return;
         }
         // 已确认的自然结束不再被来源后来失效改写成中断。
-        if (running.Cast.Finished) return;
+        if (running.Cast.Finished) { ReleaseActorTransferHolds(running); return; }
+        if (running.ActorTransferHolds?.Count > 0 && !ActorTransferSourceLive(running)) ReleaseActorTransferHolds(running);
         ValidateCorrespondences(running);
         if (running.Inventory != null && !running.Inventory.IsValid)
         {

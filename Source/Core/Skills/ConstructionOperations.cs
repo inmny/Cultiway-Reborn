@@ -88,7 +88,8 @@ public static class ConstructionOperations
             Effect.Movement | Effect.Pose | Effect.World, new[] { nameof(ConstructionOperation.MappingRadius) });
         Add(ConstructionOperationKind.MapActor, new[] { part, Port("exit", Value.Part) },
             new[] { part, Port("transferred", Value.Result) }, State.Pose | State.Event, Resource.Contacts | Resource.Terrain,
-            Effect.Movement | Effect.Connection | Effect.World, new[] { nameof(ConstructionOperation.MappingRadius), nameof(ConstructionOperation.MappingCapacity) });
+            Effect.Movement | Effect.Connection | Effect.World, new[] { nameof(ConstructionOperation.MappingRadius), nameof(ConstructionOperation.MappingCapacity),
+                nameof(ConstructionOperation.MappingWaitSeconds) });
         Add(ConstructionOperationKind.MapSpace, new[] { part, Port("entrance", Value.Part), Port("exit", Value.Part) },
             new[] { part, Port("transferred", Value.Result) }, State.Pose | State.Connection | State.Momentum, Resource.Geometry,
             Effect.Pose | Effect.Connection | Effect.Movement, new[] { nameof(ConstructionOperation.MappingRadius) });

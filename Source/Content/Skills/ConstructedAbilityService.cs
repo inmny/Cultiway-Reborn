@@ -766,6 +766,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         foreach (RunningCast running in casts) ReleaseMaterialReservation(running);
         foreach (RunningCast running in casts)
         {
+            ReleaseActorTransferHolds(running);
             ReleaseBodyConnection(running, "WorldChanged", fade: false, time: running.LastWorldTime);
             running.BodyLease?.Dispose();
             running.Carrier?.Dispose();
@@ -797,6 +798,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="running">结束的施放。</param>
     private static void Finish(int index, RunningCast running)
     {
+        ReleaseActorTransferHolds(running);
         ReleaseBody(running);
         ReleaseMaterialReservation(running);
         running.Inventory?.Dispose();
@@ -824,6 +826,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 running.SourceInstance != accepted.SourceInstance || running.Cast.Plan.Id != accepted.Cast.Plan.Id) continue;
             if (++count <= limit) continue;
             running.Replaced = true;
+            ReleaseActorTransferHolds(running);
             running.Inventory?.Dispose();
             running.Cast.Cancel();
             ReleaseBody(running);
@@ -874,6 +877,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <summary>单次施放的主线程对象绑定与去重记录。</summary>
     private sealed class RunningCast
     {
+        /// <summary>入口当前持有的原人物，沿真实接触顺序确认。</summary>
+        internal List<ActorTransferHold> ActorTransferHolds;
+
+        /// <summary>同一步骤只让原人物暂存一次，避免重复接触延长控制。</summary>
+        internal HashSet<(int Step, long Actor)> StagedActors;
+
         /// <summary>原已学容器的临时并存分组；不进入长期资料。</summary>
         internal int SourceInstance;
 
