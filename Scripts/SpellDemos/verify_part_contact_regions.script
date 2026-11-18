@@ -1,0 +1,187 @@
+// 正式施放同一组试件；显示和作用读取同一次成形进度，不加入正常创法目录。
+const string prefix = "test.part-region.";
+var generation = typeof(FormResource).GetField("Generation", F).GetValue(FormResources.Load("fireball"));
+var forms = (IDictionary)Field(generation, "forms");
+var ctor = typeof(FormResource).GetConstructors(F).Single(c => c.GetParameters().Length == 3);
+var resources = new List<FormResource>();
+var meshes = new List<Mesh>();
+
+FormResource RegisterForm(bool path)
+{
+    string name = path ? "path" : "sector";
+    var description = new FormDescription
+    {
+        Id = prefix + name, Version = FormDescription.FormatVersion,
+        Parts = new[] { new FormPartDescription { Id = "surface", Roles = new[] { "contact-surface" },
+            Surface = "metal", Pivot = new float[3], Skin = path, HasBuildData = path } },
+        Anchors = Array.Empty<FormAnchorDescription>(), Controls = Array.Empty<FormControlDescription>(),
+        Motions = Array.Empty<FormMotionDescription>(),
+        Contacts = new[] { new FormContactDescription { Id = "region", Part = 0, A = new float[3],
+            Sector = path ? null : new FormContactSector { Radius = 3f, Angle = 60f, Direction = 90f, HalfThickness = .10f },
+            Path = path ? new FormContactPath { Points = new[] { new[] { 0f, 0f }, new[] { 3f, 0f }, new[] { 3f, 2f } },
+                HalfWidth = .14f, HalfThickness = .10f, Starts = new[] { 0f, .55f } } : null } },
+        Structure = new FormStructureDescription
+        {
+            Kind = path ? "articulated" : "rigid",
+            Changes = path ? new[] { "transform", "motion", "build" } : new[] { "transform" },
+            Generation = new FormGenerationDescription { Source = "verify_part_contact_regions.script", Entry = name }
+        }
+    };
+    float[] rotation = { 0f, 0f, 0f, 1f };
+    if (path)
+    {
+        description.Controls = new[] { new FormControlDescription { Id = "root", Position = new float[3], Rotation = rotation,
+            Minimum = new[] { 0f, -.10f, -.14f }, Maximum = new[] { 3.14f, .10f, 2f } } };
+        description.Motions = new[] { new FormMotionDescription { Id = "form", Duration = .65f,
+            Keys = new[] { new FormMotionKeyDescription { Positions = new float[3], Rotations = rotation, Build = .1f },
+                new FormMotionKeyDescription { At = .65f, Positions = new float[3], Rotations = rotation, Build = 1f } } } };
+    }
+    var vertices = new List<Vector3>(); var triangles = new List<int>(); var build = new List<Vector4>();
+    void Prism(float phase, params Vector2[] points)
+    {
+        int first = vertices.Count, n = points.Length;
+        for (int side = 0; side < 2; side++) foreach (Vector2 p in points)
+        {
+            var v = new Vector3(p.x, side == 0 ? -.10f : .10f, p.y);
+            vertices.Add(v); build.Add(new Vector4(v.x, v.y, v.z, phase));
+        }
+        for (int i = 1; i + 1 < n; i++) triangles.AddRange(new[] { first, first + i, first + i + 1,
+            first + n, first + n + i + 1, first + n + i });
+        for (int i = 0; i < n; i++)
+        {
+            int a = first + i, b = first + (i + 1) % n;
+            triangles.AddRange(new[] { a, a + n, b, b, a + n, b + n });
+        }
+    }
+    if (path)
+    {
+        Prism(0f, new Vector2(0, -.14f), new Vector2(3, -.14f), new Vector2(3, .14f), new Vector2(0, .14f));
+        Prism(.55f, new Vector2(3.14f, 0), new Vector2(3.14f, 2), new Vector2(2.86f, 2), new Vector2(2.86f, 0));
+        Prism(.55f, new Vector2(3, 0), new Vector2(3, -.14f), new Vector2(3.14f, 0));
+    }
+    else Prism(0f, new[] { Vector2.zero }.Concat(Enumerable.Range(0, 13).Select(i =>
+    {
+        float angle = (-30 + 5 * i) * Mathf.Deg2Rad;
+        return 3f * new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+    })).ToArray());
+    var mesh = new Mesh();
+    mesh.SetVertices(vertices); mesh.SetTriangles(triangles, 0);
+    mesh.uv = vertices.Select(p => new Vector2(p.x, p.z)).ToArray();
+    if (path)
+    {
+        mesh.SetUVs(1, vertices.Select(_ => Vector4.zero).ToList());
+        mesh.SetUVs(2, vertices.Select(_ => new Vector4(1, 0, 0, 0)).ToList());
+        mesh.SetUVs(4, build);
+    }
+    mesh.RecalculateNormals(); mesh.RecalculateBounds(); meshes.Add(mesh);
+    string json = JsonConvert.SerializeObject(description, Formatting.Indented);
+    File.WriteAllText(Path.Combine(folder, name + "-form.json"), json);
+    var resource = (FormResource)ctor.Invoke(new[] { (object)JsonConvert.DeserializeObject<FormDescription>(json), new[] { mesh }, generation });
+    forms.Add(resource.Description.Id, resource); resources.Add(resource);
+    return resource;
+}
+
+Actor source = Make(64), enemy = Make(66, "wolf");
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+AbilityCast active = null;
+void Started(ConstructedCastStarted value)
+{
+    if (value.SourceId != source.id) return;
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == value.CastId) active = (AbilityCast)Field(running, "Cast");
+}
+ConstructedAbilityService.CastStarted += Started;
+var sampled = new List<AbilityCapsule>();
+var visuals = new List<FormVisualInstance>();
+
+void Position(float x, float y, float height = 0f)
+{
+    Place(enemy, 64 + x, 72 + y); enemy.position_height = height;
+    ConstructedAbilityService.NotifyActorChanged(enemy);
+}
+async Task<AbilityDefinition> Cast(string title, FormResource resource, bool path)
+{
+    Place(source, 64, 72); source.position_height = 0;
+    ConstructedAbilityService.NotifyActorChanged(source);
+    var definition = new AbilityDefinition { Id = prefix + title, Name = title, Resource = "none", Cost = 0, Power = 2f,
+        Lifetime = path ? 1.05f : .48f, TargetRange = 12f,
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Height = .26f },
+        Root = new ConstructionNode { Id = "area", Form = resource.Description.Id, Matter = "iron",
+            Rotation = new[] { -90f, 0f, 0f }, OnContact = ConstructionContactResponse.Continue } };
+    if (path) definition.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "form" } };
+    active = null; await Fire(definition, source, enemy); owner.E.RemoveComponent<ConstructedKnowledge>();
+    if (active == null) throw new InvalidOperationException("缺少实际施放实例");
+    return definition;
+}
+void Probe(string name, AbilityDefinition ability, int life, int count, bool hit)
+{
+    int hits = contacts.Skip(count).Count(fact => fact.TargetId == enemy.id && fact.AbilityId == ability.Id);
+    Check(hits == (hit ? 1 : 0) && (hit ? enemy.data.health < life : enemy.data.health == life), name,
+        new { life, after = enemy.data.health, hits, enemy.position_height });
+}
+(int[] Shapes, float Phase) ShapeState()
+{
+    sampled.Clear(); visuals.Clear(); active.AppendContacts(sampled); active.AppendVisuals(visuals);
+    return (sampled.Select(s => s.Shape).ToArray(), visuals.Single().BuildProgress);
+}
+async Task End(AbilityDefinition definition)
+{
+    await Advance(definition.Lifetime + .1f);
+    Check(endings.Any(end => end.Fact.AbilityId == definition.Id && !end.Fact.Cancelled), "自然结束：" + definition.Name);
+}
+
+try
+{
+    Ready(source); await Advance(.16f); source.setStatsDirty(); source.updateStats();
+    if (section is "all" or "sector")
+    {
+        var sector = RegisterForm(false);
+        async Task TrySector(string title, float x, float y, bool hit, float height = 0f)
+        {
+            Position(x, y, height);
+            int life = enemy.data.health, count = contacts.Count;
+            var definition = await Cast(title, sector, false);
+            await Advance(.14f);
+            Probe(title, definition, life, count, hit);
+            await End(definition);
+        }
+        await TrySector("扇形靠外沿内侧命中", 2.72f, .1f, true);
+        await TrySector("扇形轴向半径之外无伤", 3.45f, 0f, false);
+        await TrySector("以相近半径离开开角无伤", 2f, 1.9f, false);
+        await TrySector("越过厚度无伤", 2.72f, .1f, false, 9f);
+    }
+    if (section is "all" or "path")
+    {
+        var path = RegisterForm(true);
+        Position(3, 1.45f);
+        int life = enemy.data.health, count = contacts.Count;
+        var definition = await Cast("后段形成", path, true);
+        await Advance(.16f);
+        var early = ShapeState();
+        Probe("未启用的后段无伤", definition, life, count, false);
+        await Advance(.45f);
+        var late = ShapeState();
+        Probe("后段出现后实际命中一次", definition, life, count, true);
+        Check(early.Shapes.SequenceEqual(new[] { 0 }) && late.Shapes.SequenceEqual(new[] { 0, 1, 2 }) &&
+            early.Phase < .55f && late.Phase > .55f, "前段身份稳定，显示和作用采用同一次成形进度",
+            new { early = new { early.Shapes, early.Phase }, late = new { late.Shapes, late.Phase } });
+        await End(definition);
+        Position(1.55f, 1.02f);
+        life = enemy.data.health; count = contacts.Count;
+        definition = await Cast("弯道内侧空隙", path, true);
+        await Advance(.72f);
+        Probe("在弯道内侧跨过启用时点仍无伤", definition, life, count, false);
+        await End(definition);
+    }
+    return new { passed = true, section, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    foreach (var resource in resources) forms.Remove(resource.Description.Id);
+    foreach (var mesh in meshes) UnityEngine.Object.Destroy(mesh);
+    ControllableUnit.clear(false); Config.paused = true;
+}

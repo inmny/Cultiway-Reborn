@@ -172,7 +172,7 @@ internal static partial class ProjectileConstructionMigration
         {
             if (contact.IsPrism)
             {
-                var box = new AbilityPrism.Frame(AbilityPrism.Rectangle, contact.PrismMatrix(pose, Matrix4x4.Rotate(facing)));
+                var box = contact.PrismFrame(pose, Matrix4x4.Rotate(facing));
                 bottom = Mathf.Min(bottom, box.Bounds().min.z);
                 continue;
             }

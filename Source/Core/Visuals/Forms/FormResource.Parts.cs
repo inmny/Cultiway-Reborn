@@ -84,21 +84,7 @@ public sealed partial class FormResource
             Controls = original.Controls,
             Motions = original.Motions,
             Grips = original.Grips.Where(grip => anchors.Any(i => original.Anchors[i].Id == grip.Anchor)).ToArray(),
-            Contacts = contacts.Select(i => new FormContactDescription
-            {
-                Id = original.Contacts[i].Id,
-                Part = 0,
-                A = original.Contacts[i].A,
-                B = original.Contacts[i].B,
-                Radius = original.Contacts[i].Radius,
-                HalfExtents = original.Contacts[i].HalfExtents,
-                AControl = original.Contacts[i].AControl,
-                BControl = original.Contacts[i].BControl,
-                AInfluences = original.Contacts[i].AInfluences,
-                BInfluences = original.Contacts[i].BInfluences,
-                BuildRange = original.Contacts[i].BuildRange,
-                BuildAlong = original.Contacts[i].BuildAlong
-            }).ToArray(),
+            Contacts = contacts.Select(i => original.Contacts[i].WithPart(0)).ToArray(),
             Anchors = anchors.Select(i => new FormAnchorDescription
             {
                 Id = original.Anchors[i].Id,
@@ -113,7 +99,7 @@ public sealed partial class FormResource
         Meshes = new[] { source.Meshes[part] };
         detailMeshes = new[] { source.detailMeshes[part] };
         PartControls = new[] { source.PartControls[part] };
-        Contacts = contacts.Select(i => source.Contacts[i]).ToArray();
+        Contacts = source.Contacts.Where(contact => contact.Part == part).ToArray();
         Anchors = anchors.Select(i => source.Anchors[i]).ToArray();
         LoadGrips();
         Structure = new FormStructure(Description);

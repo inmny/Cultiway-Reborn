@@ -165,7 +165,7 @@ public sealed class ConstructionMeasure
                 {
                     if (shape.IsPrism)
                     {
-                        var box = new AbilityPrism.Frame(AbilityPrism.Rectangle, shape.PrismMatrix(null, layouts[i])).Bounds();
+                        var box = shape.PrismFrame(null, layouts[i]).Bounds();
                         minimum = Vector2.Min(minimum, box.min);
                         maximum = Vector2.Max(maximum, box.max);
                         continue;

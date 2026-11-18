@@ -848,8 +848,7 @@ public sealed partial class CompiledBodyAction
                 Matrix4x4.TRS(handMatrix.MultiplyPoint3x4(handGrip), Quaternion.identity, Vector3.one), WeaponSize);
         }
 
-        var selectedContacts = resource.Contacts.Where((_, index) =>
-            Construction.UsesContact(WeaponForm != null, resource.Description.Contacts[index].Id)).ToArray();
+        var selectedContacts = resource.Contacts.Where(contact => Construction.UsesContact(WeaponForm != null, contact.Id)).ToArray();
         if (WeaponForm != null && selectedContacts.Length > 0)
         {
             Vector3 center = Vector3.zero;

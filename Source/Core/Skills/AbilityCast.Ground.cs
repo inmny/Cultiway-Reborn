@@ -27,7 +27,7 @@ public sealed partial class AbilityCast
             (state.Motion?.Motion ?? form.Motion) != null && !state.ShapeHeld && !state.MotionStopped ||
             !state.GrowthStopped && (state.GrowthChanged ? state.GrowthAge < state.GrowthSeconds : form.Growth.x >= 0 && NodeAge(node) < form.Growth.y)) return maximum;
         float height = MinimumHeight(node, state.Transform, poses[node]);
-        if (height <= .000001f) return maximum;
+        if (height <= .000001f || float.IsPositiveInfinity(height)) return maximum;
         float velocity = state.Velocity.z, acceleration = state.Acceleration.z, until = float.PositiveInfinity;
         if (Mathf.Abs(acceleration) < .000001f)
         { if (velocity < 0f) until = -height / velocity; }
@@ -69,14 +69,21 @@ public sealed partial class AbilityCast
             {
                 if (contact.IsPrism)
                 {
-                    Matrix4x4 before = contact.PrismMatrix(previousPose, state.PreviousTransform),
-                        current = contact.PrismMatrix(poses[node], state.Transform);
-                    var from = new AbilityPrism.Frame(AbilityPrism.Rectangle, before);
-                    var to = new AbilityPrism.Frame(AbilityPrism.Rectangle, current);
+                    if (!contact.IsFormed(poses[node])) continue;
+                    bool existed = contact.IsFormed(previousPose);
+                    var from = contact.PrismFrame(previousPose, state.PreviousTransform);
+                    var to = contact.PrismFrame(poses[node], state.Transform);
                     for (int i = 0; i < to.VertexCount; i++)
                     {
-                        Vector3 p = from.Vertex(i), q = to.Vertex(i);
-                        Include(p.z - TerrainHeight(p), q.z - TerrainHeight(q));
+                        Vector3 q = to.Vertex(i);
+                        float height = q.z - TerrainHeight(q);
+                        if (!existed)
+                        {
+                            if (height <= .00001f) first = Mathf.Min(first, 1f);
+                            continue;
+                        }
+                        Vector3 p = from.Vertex(i);
+                        Include(p.z - TerrainHeight(p), height);
                     }
                     continue;
                 }
@@ -108,7 +115,7 @@ public sealed partial class AbilityCast
         void Include(float before, float after)
         {
             if (after <= .00001f && after < before - .000001f)
-                first = Mathf.Min(first, before <= 0f ? 0f : Mathf.Clamp01(before / (before - after)));
+                first = Mathf.Min(first, float.IsPositiveInfinity(before) ? 1f : before <= 0f ? 0f : Mathf.Clamp01(before / (before - after)));
         }
     }
 
@@ -124,7 +131,8 @@ public sealed partial class AbilityCast
         {
             if (contact.IsPrism)
             {
-                var box = new AbilityPrism.Frame(AbilityPrism.Rectangle, contact.PrismMatrix(pose, matrix));
+                if (!contact.IsFormed(pose)) continue;
+                var box = contact.PrismFrame(pose, matrix);
                 for (int i = 0; i < box.VertexCount; i++)
                 {
                     Vector3 point = box.Vertex(i);

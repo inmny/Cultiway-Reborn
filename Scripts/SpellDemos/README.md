@@ -1965,3 +1965,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 6.02 A　薄板、厚块与实际部位
 
 在独立游戏中运行 `dev.py exec --timeout 195 -- python3 Scripts/SpellDemos/verify_part_contact_shapes.py`。用同一个受击者检查真实边内外、斜放空角、离地、厚块内部、部位自己移动和薄板拦截。`--section attack|controlled|barrier` 可只验证改变的段。输出在 `CULTIWAY_DEV_OUTPUT/part-contact-shapes/<分段>`，保留试件资料、实际脚本、血量及拦截位置。
+
+### 6.02 B　扇形、路径带和形成空隙
+
+在独立游戏中运行 `dev.py exec --timeout 195 -- python3 Scripts/SpellDemos/verify_part_contact_regions.py`。同一个目标验证扇形尺寸、开角和厚度，以及路径后段出现前后、弯道内侧和结束。`--section sector|path` 可只重验受影响的段。输出在 `CULTIWAY_DEV_OUTPUT/part-contact-regions/<分段>`，保留载入的形体声明、实际执行脚本、阶段和伤害。
