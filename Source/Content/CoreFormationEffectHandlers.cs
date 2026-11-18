@@ -85,7 +85,7 @@ internal static class CoreFormationEffectHandlers
                 !CoreFormationStateService.TryGet(owner, effect, out Entity status, out CoreFormationEffectState state) ||
                 state.value <= 0f) return;
             float before = evt.Damage;
-            CombatDamageEffects.AbsorbDamage(ref evt.Damage, ref state.value);
+            CombatDamageEffects.AbsorbDamage(ref evt.Damage, ref state.value, owner);
             if (state.value <= 0f)
                 CoreFormationStateService.Remove(owner, effect);
             else

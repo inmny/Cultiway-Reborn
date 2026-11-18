@@ -60,6 +60,9 @@ Check(plan.HasWorldContactEvents && !plan.HasWorldEffects, "真实接触条件�
 Check(AbilityCompiler.Compile(JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(step)), false)
     .HasWorldContactEvents, "新事件条件按普通构造完整读写");
 
+var ground = new List<ConstructedWorldContact>();
+void ConfirmedGround(ConstructedWorldContact fact) => ground.Add(fact);
+ConstructedAbilityService.WorldContactConfirmed += ConfirmedGround;
 ConstructedAbilityService.ActionConfirmed += ActionFact;
 ConstructedAbilityService.CastEnded += QuietEnded;
 try
@@ -80,6 +83,17 @@ try
     Check(Math.Abs(births[0].Fact.Age - touch[0].Fact.Age) < .00001f &&
           Vector3.Distance(births[0].Fact.Point, touch[0].Fact.Point) < .0001f,
         "分支沿真实接触位置与时点开始，不用选定目标或人物原点代替", births.Select(f => new { f.Fact.Age, point = new[] { f.Fact.Point.x, f.Fact.Point.y, f.Fact.Point.z } }));
+    var land = ground.Single(fact => fact.CastId == touch[0].CastId);
+    Check(land.TriggerOnly && !land.Result.Changed && land.Attempts == 0 && land.Node < 0 &&
+          land.SourceId == source.id && land.OwnerId == source.id && Math.Abs(land.WorldTime - touch[0].WorldTime) < .00001 &&
+          Vector3.Distance(land.Position, touch[0].Fact.Point) < .0001f && land.Normal.sqrMagnitude <= 1.0001f,
+        "足面地块记录使用同一次实际接触，且不计为地形修改",
+        new { land.CastId, land.WorldTime, land.X, land.Y, point = new[] { land.Position.x, land.Position.y, land.Position.z },
+            normal = new[] { land.Normal.x, land.Normal.y, land.Normal.z } });
+    var exported = JObject.Parse(JsonConvert.SerializeObject(land));
+    Check(exported["Position"].Values<float>().SequenceEqual(new[] { land.Position.x, land.Position.y, land.Position.z }) &&
+          exported["Normal"].Values<float>().SequenceEqual(new[] { land.Normal.x, land.Normal.y, land.Normal.z }),
+        "地块结果可直接导出真实坐标和方向");
     await Advance(.8f);
     Check(!BodyControlState.IsBusy(source.id) && ended.Count(f => f.AbilityId == step.Id) == 1,
         "自然结束归还身体，持续贴地不重复生成");
@@ -93,6 +107,8 @@ try
     await Advance(1.4f);
     Check(!facts.Any(f => f.AbilityId == miss.Id && (f.Fact.ContactKind == AbilityActionContactKind.World || f.Fact.Node >= 0)) &&
           !BodyControlState.IsBusy(source.id), "悬空掌击没有地面入口，等待分支随身体结束清理");
+
+    Check(ground.All(fact => fact.AbilityId != miss.Id), "悬空落空没有地块接触结果");
 
     var interrupted = ConstructionEditing.Copy(step);
     interrupted.Id = "test.body-footwork.world-event.interrupted";
@@ -138,6 +154,7 @@ try
 }
 finally
 {
+    ConstructedAbilityService.WorldContactConfirmed -= ConfirmedGround;
     ConstructedAbilityService.ActionConfirmed -= ActionFact;
     ConstructedAbilityService.CastEnded -= QuietEnded;
     ConstructedAbilityService.ContactConfirmed -= Hit;

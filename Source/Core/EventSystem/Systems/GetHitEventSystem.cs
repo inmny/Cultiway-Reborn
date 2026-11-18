@@ -15,17 +15,26 @@ public class GetHitEventSystem : GenericEventSystem<GetHitEvent>
 
     /// <summary>在主线程立即执行相同标准受击规则，供必须按接触顺序确认死亡及破盾的过程使用。</summary>
     /// <param name="evt">已经绑定稳定来源及作用范围的伤害。</param>
-    internal static void Resolve(GetHitEvent evt)
+    internal static DamageSettlement Resolve(GetHitEvent evt)
+    {
+        var result = ResolveHit(evt);
+        evt.Observation?.Complete(result);
+        return result;
+    }
+
+    /// <summary>执行共同受击规则，不把找不到目标的事件报成已结算。</summary>
+    /// <param name="evt">实际入队或明确立即结算的伤害。</param>
+    private static DamageSettlement ResolveHit(GetHitEvent evt)
     {
         if (evt.TargetID == 0 || evt.Damage <= 0)
         {
-            return;
+            return default;
         }
 
         var actor = World.world.units.get(evt.TargetID);
         if (actor == null || actor.isRekt())
         {
-            return;
+            return default;
         }
 
         BaseSimObject attacker = null;
@@ -40,7 +49,7 @@ public class GetHitEventSystem : GenericEventSystem<GetHitEvent>
         using (DamageResolutionContext.Enter(evt.DamageOrigin, evt.SourceScopeId))
         {
             var element = evt.Element;
-            actor.GetExtend().GetHit(evt.Damage, ref element, attacker,
+            return actor.GetExtend().ResolveHit(evt.Damage, ref element, attacker,
                 ignore_damage_reduction: evt.IgnoreDamageReduction,
                 attack_type_for_vanilla: evt.AttackType,
                 attacker_power_level_override: evt.AttackerPowerLevel);

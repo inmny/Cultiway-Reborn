@@ -449,12 +449,21 @@ public partial class ActorExtend
         }
     }
 
-    [Hotfixable]
     public void GetHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker,
         AttackType attack_type_for_vanilla = AttackType.Other, bool ignore_damage_reduction = false,
-        float? attacker_power_level_override = null)
+        float? attacker_power_level_override = null) => ResolveHit(damage, ref damage_composition, attacker,
+        attack_type_for_vanilla, ignore_damage_reduction, attacker_power_level_override);
+
+    /// <summary>沿原伤害规则扣除生命和护盾，把实际结果交给调用者。</summary>
+    /// <param name="damage">进入结算的伤害。</param><param name="damage_composition">当前伤害构成。</param>
+    /// <param name="attacker">实际攻击者。</param><param name="attack_type_for_vanilla">原版伤害类型。</param>
+    /// <param name="ignore_damage_reduction">是否略过部分抗性。</param>
+    /// <param name="attacker_power_level_override">施放时冻结的境界。</param>
+    [Hotfixable]
+    internal DamageSettlement ResolveHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker,
+        AttackType attack_type_for_vanilla, bool ignore_damage_reduction, float? attacker_power_level_override)
     {
-        if (Base == attacker) return;
+        if (Base == attacker) return default;
         if (Base.isAlive() && Base.data.health > 0)
         {
             RecordRecentAttacker(attacker);
@@ -463,12 +472,12 @@ public partial class ActorExtend
 
         if (!Base.isAlive() || Base.data.health <= 0)
         {
-            return;
+            return default;
         }
         if (Base.hasStatus("invincible"))
         {
             CombatWorldService.RecordDamageOutcome(attacker, Base, 0f, true);
-            return;
+            return new DamageSettlement(0, 0);
         }
 
         var damage_debug = CombatDamageDebug.ShouldLog(this, attacker)
@@ -476,6 +485,7 @@ public partial class ActorExtend
                 ignore_damage_reduction)
             : null;
 
+        using var shield = new ShieldAbsorptionScope(this);
         action_before_be_attacked?.Invoke(this, attacker, ref damage_composition, ref attack_type_for_vanilla, ref damage, ref ignore_damage_reduction);
         if (damage_debug != null)
         {
@@ -553,7 +563,7 @@ public partial class ActorExtend
             }
             CombatWorldService.RecordDamageOutcome(attacker, Base, 0f, true);
             ResolveIneffectiveHit(attacker);
-            return;
+            return new DamageSettlement(0, shield.Absorbed);
         }
         
         // 触发被攻击事件（在实际受到伤害之前）
@@ -603,15 +613,14 @@ public partial class ActorExtend
         {
             OnDamageResolved(attacker, damage, damage_composition, attack_type_for_vanilla);
         }
-        PatchActor.getHit_snapshot(
+        int lost = PatchActor.MeasureHit(
             Base,
             damage,
             pFlash: damage >= 1,
             pAttackType: attack_type_for_vanilla,
-            pAttacker: attributionAttacker,
-            pSkipIfShake: false,
-            pCheckDamageReduction: false);
+            pAttacker: attributionAttacker);
         RestoreSpatialRetaliationTarget(attacker, attributionAttacker);
+        return new DamageSettlement(lost, shield.Absorbed);
     }
 
     /// <summary>把临时命魂攻击的原版关系、成就和死亡归属解析到唯一身份所有者。</summary>

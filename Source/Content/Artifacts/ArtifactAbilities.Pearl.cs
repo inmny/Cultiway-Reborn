@@ -121,7 +121,7 @@ public partial class ArtifactAbilities
     {
         float sharedShield = runtime.GetNumber(ShieldCurrent);
         float shield = Mathf.Min(sharedShield, ability.GetNumber(ShieldCapacity) * context.effect_scale);
-        float absorbed = CombatDamageEffects.AbsorbDamage(ref evt.Damage, ref shield);
+        float absorbed = CombatDamageEffects.AbsorbDamage(ref evt.Damage, ref shield, evt.Target);
         runtime.SetNumber(ShieldCurrent, Mathf.Max(0f, sharedShield - absorbed));
         ArtifactAbilityVisuals.Emit(
             context,

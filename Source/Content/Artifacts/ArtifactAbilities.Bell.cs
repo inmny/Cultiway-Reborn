@@ -307,7 +307,7 @@ public partial class ArtifactAbilities
         ArtifactIncomingDamageEvent evt)
     {
         float shield = runtime.GetNumber(ShieldCurrent);
-        float absorbed = CombatDamageEffects.AbsorbDamage(ref evt.Damage, ref shield);
+        float absorbed = CombatDamageEffects.AbsorbDamage(ref evt.Damage, ref shield, evt.Target);
         runtime.SetNumber(ShieldCurrent, shield);
         if (absorbed <= 0f) return;
         Vector3 direction = evt.Attacker != null && !evt.Attacker.isRekt()

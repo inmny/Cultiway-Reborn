@@ -31,6 +31,10 @@ public static class DamageResolutionContext
     [ThreadStatic]
     private static long immediateTargetId;
 
+    /// <summary>当前原版攻击只允许原目标领取一次结果观察。</summary>
+    [ThreadStatic]
+    private static DamageObservation observation;
+
     /// <summary>当前结算栈的伤害来源；没有活动结算时返回主动伤害。</summary>
     public static DamageOrigin CurrentOrigin => depth > 0 ? currentOrigin : DamageOrigin.Primary;
 
@@ -43,12 +47,15 @@ public static class DamageResolutionContext
     /// <summary>进入一次伤害结算，并在释放返回值时恢复外层上下文。</summary>
     /// <param name="origin">原伤害类别。</param><param name="sourceScopeId">原作用域。</param>
     /// <param name="immediateTarget">仅此原目标的一次近战受击需要在当前边界确认，零沿原队列。</param>
-    internal static Scope Enter(DamageOrigin origin, long sourceScopeId = 0, long immediateTarget = 0)
+    /// <param name="observer">只观察本次原版攻击的原目标。</param>
+    internal static Scope Enter(DamageOrigin origin, long sourceScopeId = 0, long immediateTarget = 0,
+        DamageObservation observer = null)
     {
-        var scope = new Scope(currentOrigin, currentSourceScopeId, depth, immediateTargetId);
+        var scope = new Scope(currentOrigin, currentSourceScopeId, depth, immediateTargetId, observation);
         currentOrigin = origin;
         currentSourceScopeId = sourceScopeId;
         immediateTargetId = immediateTarget;
+        observation = observer;
         depth++;
         return scope;
     }
@@ -62,6 +69,16 @@ public static class DamageResolutionContext
         return true;
     }
 
+    /// <summary>把观察交给原攻击的同一份事件，衍生攻击不会重复领取。</summary>
+    /// <param name="source">实际攻击者。</param><param name="target">实际受击人物。</param>
+    internal static DamageObservation ClaimObservation(long source, long target)
+    {
+        var result = observation;
+        if (result == null || result.Source != source || result.Target != target) return null;
+        observation = null;
+        return result;
+    }
+
     /// <summary>负责恢复嵌套伤害结算上下文的作用域。</summary>
     internal readonly struct Scope : IDisposable
     {
@@ -72,15 +89,21 @@ public static class DamageResolutionContext
         /// <summary>外层尚未领取的原目标确认。</summary>
         private readonly long previousImmediateTarget;
 
+        /// <summary>外层仍可能等待的原版受击观察。</summary>
+        private readonly DamageObservation previousObservation;
+
         /// <summary>保存进入当前结算前的上下文。</summary>
         /// <param name="origin">外层伤害类别。</param><param name="sourceScopeId">外层作用域。</param>
         /// <param name="contextDepth">外层深度。</param><param name="immediateTarget">外层原目标确认。</param>
-        internal Scope(DamageOrigin origin, long sourceScopeId, int contextDepth, long immediateTarget)
+        /// <param name="observer">外层原版受击观察。</param>
+        internal Scope(DamageOrigin origin, long sourceScopeId, int contextDepth, long immediateTarget,
+            DamageObservation observer)
         {
             previousOrigin = origin;
             previousSourceScopeId = sourceScopeId;
             previousDepth = contextDepth;
             previousImmediateTarget = immediateTarget;
+            previousObservation = observer;
         }
 
         /// <summary>恢复外层伤害来源和嵌套深度。</summary>
@@ -90,6 +113,7 @@ public static class DamageResolutionContext
             currentSourceScopeId = previousSourceScopeId;
             depth = previousDepth;
             immediateTargetId = previousImmediateTarget;
+            observation = previousObservation;
         }
     }
 }

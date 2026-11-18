@@ -91,23 +91,27 @@ public sealed partial class ConstructedAbilityService
         RunningCast running = attack.Running;
         Actor receiver = CorrespondenceReceiver(image.Running, image.To.Node);
         if (!running.BodyControlled || receiver == null || !CorrespondenceAllows(attack, image)) return;
-        float force = BodyCorrespondenceForce(running);
-        float consumed = Mathf.Min(force, image.Running.Cast.RemainingForce(image.To.Node));
+        long leftOwner = hit.Left.Running.Owner(hit.Left.To.Node).Id, rightOwner = hit.Right.Value.Running.Owner(hit.Right.Value.To.Node).Id;
+        float force = BodyCorrespondenceForce(running), imageBefore = image.Running.Cast.RemainingForce(image.To.Node);
+        float consumed = Mathf.Min(force, imageBefore);
         if (consumed <= 0f) return;
         running.Cast.ConfirmClash(-1, hit.Point, consumed);
         image.Running.Cast.ConfirmClash(image.To.Node, hit.Point, consumed);
         image.Running.Cast.ConsumeForce(image.To.Node, consumed);
+        float imageAfter = image.Running.Cast.RemainingForce(image.To.Node);
         long generation = worldGeneration;
         ApplyAttackState result = ApplyCorrespondence(attack, image, receiver, consumed, hit.Point, contactConfirmed: true);
         if (generation != worldGeneration) return;
         ConfirmBodyFeedback(running, hit.Point);
         bool blocked = image.Running.Cast.RemainingForce(image.To.Node) > 0f || result is ApplyAttackState.Block or ApplyAttackState.Deflect;
         RespondToBodyResult(running, blocked ? BodyActionResult.Blocked : BodyActionResult.Contact);
-        float left = hit.Left.To.Node < 0 ? force - consumed : hit.Left.Running.Cast.RemainingForce(hit.Left.To.Node);
-        float right = hit.Right.Value.To.Node < 0 ? force - consumed : hit.Right.Value.Running.Cast.RemainingForce(hit.Right.Value.To.Node);
-        ClashConfirmed?.Invoke(new ConstructedClash(hit.Left.Running.Id, hit.Right.Value.Running.Id,
-            hit.Left.Running.Owner(hit.Left.To.Node).Id, hit.Right.Value.Running.Owner(hit.Right.Value.To.Node).Id,
-            hit.Left.To.Node, hit.Right.Value.To.Node, hit.Point, hit.Normal, hit.Left.Running.Cast.Age,
-            hit.Right.Value.Running.Cast.Age, consumed, left, right));
+        bool leftBody = hit.Left.To.Node < 0;
+        ShapeMotion right = hit.Right.Value;
+        ClashConfirmed?.Invoke(new ConstructedClash(hit.Left.Running.Id, right.Running.Id, leftOwner, rightOwner,
+            hit.Left.To.Node, right.To.Node, hit.Point, hit.Normal, LogicTime, hit.Left.Running.Cast.Age,
+            right.Running.Cast.Age, consumed, leftBody ? force - consumed : imageAfter,
+            leftBody ? imageAfter : force - consumed, hit.Left.Running.SourceId, right.Running.SourceId,
+            leftBody ? consumed : imageBefore - imageAfter, leftBody ? imageBefore - imageAfter : consumed,
+            ContactPartPresent(hit.Left.Running, hit.Left.To.Node), ContactPartPresent(right.Running, right.To.Node)));
     }
 }

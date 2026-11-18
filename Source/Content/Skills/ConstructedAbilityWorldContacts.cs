@@ -2,23 +2,33 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Core.Skills;
 using Cultiway.Core.SkillLibV3.Effects;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>一项世界操作在真实地块接触处提交后的事实。</summary>
+/// <summary>真实地块接触提交世界操作或触发构造分支后的事实。</summary>
 public readonly struct ConstructedWorldContact
 {
     /// <summary>施放、原来源及当前归属。</summary>
     public readonly long CastId, SourceId, OwnerId;
 
-    /// <summary>构造与实际操作编号。</summary>
+    /// <summary>构造与实际操作编号；只触发接触分支时没有世界操作编号。</summary>
     public readonly string AbilityId, Action;
 
     /// <summary>实际部位及地块坐标。</summary>
     public readonly int Node, X, Y;
 
-    /// <summary>实际共同世界时点及施放年龄。</summary>
+    /// <summary>实际接触点与从作用面指向地块的方向；初始重叠可没有明确方向。</summary>
+    [JsonIgnore] public readonly Vector3 Position, Normal;
+
+    /// <summary>导出时只写坐标，不展开 Unity 向量计算属性。</summary>
+    [JsonProperty(nameof(Position))] private float[] PositionCoordinates => new[] { Position.x, Position.y, Position.z };
+
+    /// <summary>导出实际方向的三个分量。</summary>
+    [JsonProperty(nameof(Normal))] private float[] NormalCoordinates => new[] { Normal.x, Normal.y, Normal.z };
+
+    /// <summary>实际共同世界时点。</summary>
     public readonly double WorldTime;
 
     /// <summary>施放年龄。</summary>
@@ -27,7 +37,10 @@ public readonly struct ConstructedWorldContact
     /// <summary>实际世界结果，失败尝试也记录，不能用显示代替成功。</summary>
     public readonly SkillEffectResult Result;
 
-    /// <summary>本地块已尝试次数。</summary>
+    /// <summary>是否只触发了地块接触分支。此时 Result 不计作世界操作成功。</summary>
+    public bool TriggerOnly => Action == null;
+
+    /// <summary>本地块已尝试操作次数；单纯触发分支时为零。</summary>
     public readonly int Attempts;
 
     /// <summary>本次真正交给永久结果的生成体积及其原支付份额，失败为零。</summary>
@@ -39,9 +52,10 @@ public readonly struct ConstructedWorldContact
     /// <param name="x">地块横坐标。</param><param name="y">地块纵坐标。</param><param name="time">世界时间。</param>
     /// <param name="age">施放年龄。</param><param name="result">实际结果。</param><param name="attempts">已尝试次数。</param>
     /// <param name="materialVolume">真正交出的体积。</param><param name="materialResource">随材料退出的支付份额。</param>
+    /// <param name="position">真实接触点。</param><param name="normal">真实接触方向。</param>
     internal ConstructedWorldContact(long runningId, long source, long owner, string ability, string action,
-        int node, int x, int y, double time, float age, SkillEffectResult result, int attempts,
-        double materialVolume, double materialResource)
+        int node, int x, int y, Vector3 position, Vector3 normal, double time, float age, SkillEffectResult result,
+        int attempts, double materialVolume = 0, double materialResource = 0)
     {
         CastId = runningId;
         SourceId = source;
@@ -51,6 +65,8 @@ public readonly struct ConstructedWorldContact
         Node = node;
         X = x;
         Y = y;
+        Position = position;
+        Normal = normal;
         WorldTime = time;
         Age = age;
         Result = result;
@@ -248,7 +264,11 @@ public sealed partial class ConstructedAbilityService
         int node = hit.Left.To.Node, effect = hit.WorldEffect;
         if (effect < 0)
         {
-            running.Cast.ConfirmWorldContact(node, hit.Point);
+            long triggerOwner = running.Owner(node).Id;
+            if (running.Cast.ConfirmWorldContact(node, hit.Point))
+                WorldContactConfirmed?.Invoke(new ConstructedWorldContact(running.Id, running.SourceId, triggerOwner,
+                    running.Cast.Plan.Id, null, node, hit.Tile.pos.x, hit.Tile.pos.y, hit.Point, hit.Normal,
+                    LogicTime, running.Cast.Age, SkillEffectResult.None, 0));
             return;
         }
         CompiledConstructionWorldEffect rule = running.Cast.Impact(node).WorldEffects[effect];
@@ -273,7 +293,7 @@ public sealed partial class ConstructedAbilityService
         running.Cast.RecordActionContact(node, hit.Point, AbilityActionContactKind.World);
         if (result.Changed) running.WorldChanges++;
         WorldContactConfirmed?.Invoke(new ConstructedWorldContact(running.Id, running.SourceId, owner,
-            running.Cast.Plan.Id, rule.Action.Id, node, hit.Tile.pos.x, hit.Tile.pos.y,
+            running.Cast.Plan.Id, rule.Action.Id, node, hit.Tile.pos.x, hit.Tile.pos.y, hit.Point, hit.Normal,
             LogicTime, running.Cast.Age, result, memory.Count, materialVolume, materialResource));
     }
 

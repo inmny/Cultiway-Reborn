@@ -10,6 +10,9 @@ namespace Cultiway.Content.Events;
 /// </summary>
 public sealed class ArtifactIncomingDamageEvent
 {
+    /// <summary>这次受击的实际人物，可能与法宝控制者不同。</summary>
+    internal ActorExtend Target;
+
     /// <summary>本次伤害的来源；环境伤害时可以为空。</summary>
     public BaseSimObject Attacker;
 
