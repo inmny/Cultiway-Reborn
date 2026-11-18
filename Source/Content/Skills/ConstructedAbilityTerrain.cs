@@ -188,10 +188,16 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>新旧位置沿同一世界高度换算，桥面不会在接管时才突然出现。</summary>
     /// <param name="actor">真实人物。</param><param name="foot">原版位置与离地高度。</param>
-    private static Vector3 WorldFoot(Actor actor, Vector3 foot)
+    private static Vector3 WorldFoot(Actor actor, Vector3 foot) => WorldFoot(actor, foot, simulation?.terrain);
+
+    /// <summary>各技能共用人物的实际地表、桥面和飞行高度。</summary>
+    /// <param name="actor">真实人物。</param>
+    /// <param name="foot">原版位置与离地高度。</param>
+    /// <param name="groundField">本次相交计算采用的地表。</param>
+    internal static Vector3 WorldFoot(Actor actor, Vector3 foot, AbilityHeightField groundField)
     {
         if (ConstructedActorImpulse.TryBody(actor.id, out var flying)) return flying.Surface.Foot;
-        float ground = simulation?.terrain?.Sample(foot.x, foot.y) ?? 0f;
+        float ground = groundField?.Sample(foot.x, foot.y) ?? 0f;
         foot.z += ground;
         return StandingFootProvider?.Invoke(actor, foot, ground) ?? foot;
     }

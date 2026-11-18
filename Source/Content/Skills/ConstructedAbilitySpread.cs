@@ -75,7 +75,7 @@ public sealed partial class ConstructedAbilityService
                     var candidate = simulation.actors[id];
                     if (candidate.Actor.data?.id != candidate.Id || !candidate.Actor.isAlive() || !candidate.Actor.hasHealth() || !owner.Matches(impact.Targets, candidate.Actor)) continue;
                     simulation.Sample(candidate, time, out Vector3 foot, out float height);
-                    var body = ActorContact(foot, height, candidate.Body?.Cast.BodyPose?.Torso ?? Vector3.zero);
+                    var body = ActorHitBoundary.Create(foot, height, candidate.Body?.Cast.BodyPose?.Torso ?? Vector3.zero);
                     if (!AbilityPairSweep.Find(shape, shape, body, body, out _, out _, out _)) continue;
                     ApplyContactOutcome(running, node, candidate.Actor, candidate.Id, spread.Outcome, center, strength, out _);
                     if (generation != worldGeneration) return;

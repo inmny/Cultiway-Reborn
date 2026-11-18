@@ -1171,7 +1171,9 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
 
     private static void AnchorCollisionAtCurrentPosition(Entity entity, ref Position position)
     {
-        entity.GetComponent<PrevPosition>().Value = position.v2;
+        ref var previous = ref entity.GetComponent<PrevPosition>();
+        previous.Value = position.v2;
+        previous.Height = position.z;
     }
 
     private static ref TrajectoryRuntimeState GetRuntimeState(Entity e, ref Position pos, ref Rotation rot)

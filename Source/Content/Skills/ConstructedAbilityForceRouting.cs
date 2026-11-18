@@ -149,7 +149,7 @@ public sealed partial class ConstructedAbilityService
         internal readonly RunningCast Response;
 
         /// <summary>真实身体接触形状。</summary>
-        internal AbilityCapsule Shape => ActorContact(Foot, Height, Pose?.Torso ?? Vector3.zero);
+        internal AbilityCapsule Shape => ActorHitBoundary.Create(Foot, Height, Pose?.Torso ?? Vector3.zero);
 
         /// <summary>冻结真实时点的身体与承力入口。</summary><param name="actor">当前人物。</param>
         internal ForceReceiver(Actor actor)

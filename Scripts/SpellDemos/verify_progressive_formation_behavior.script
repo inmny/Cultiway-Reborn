@@ -97,7 +97,7 @@ try
         { source = V(input.Source), target = V(input.Target), full = full.Select(Shape), early = early.Select(Shape) }, Formatting.Indented));
         var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
         float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { enemy });
-        var bodyMethod = service.GetMethod("ActorContact", F);
+        var bodyMethod = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.ActorHitBoundary").GetMethod("Create", F);
         var sweep = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityPairSweep").GetMethod("Find", F);
         bool Touch(AbilityCapsule shape, AbilityCapsule body) => (bool)sweep.Invoke(null,
             new object[] { shape, shape, body, body, 0f, Vector3.zero, Vector3.zero });

@@ -57,7 +57,7 @@ for (int i = 0; i < plans.Length; i++)
     bindingType.GetMethod("AppendContacts", F).Invoke(bindings[i], new object[] { cast.BodyPose.Value, areas[i] });
 }
 float targetHeight = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { firstTarget });
-AbilityCapsule body = (AbilityCapsule)service.GetMethod("ActorContact", F).Invoke(null, new object[] { Vector3.zero, targetHeight, Vector3.zero });
+AbilityCapsule body = (AbilityCapsule)typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.ActorHitBoundary").GetMethod("Create", F).Invoke(null, new object[] { Vector3.zero, targetHeight, Vector3.zero });
 // 复用一名站立目标：平扫和向前拍下分别读取自己的真实曲线。站位来自两段实际几何的共同触达，不能把高于头顶的尾尖投到地面当作命中。
 var common = (from a in areas[0] from b in areas[1]
     let p = (a.A + a.B) * .5f let q = (b.A + b.B) * .5f let point = (p + q) * .5f

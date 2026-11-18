@@ -1957,3 +1957,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 5.20 嵌套、换材与实际结果的接续
 
 在独立游戏中运行 `dev.py exec --timeout 195 -- python3 Scripts/SpellDemos/verify_composite_change.py`。使用[聚剑凝冰](../../Doc/技能系统全面重构/构造输入/聚剑凝冰.json)核对三级部件的聚合、换材、使用真实父连接离体、以新材料命中和世界留置。输出包含绘制姿态、步骤回执、实际伤害和正式存档。另起游戏后加 `--state <正式保存输出目录>`，读回同一构造及材料并重新施放；中断已经通过时可用 `--skip-interruption` 只补正常施放和保存。
+
+### 6.01 人物受击范围与高度
+
+在独立游戏中运行 `dev.py exec --timeout 195 -- python3 Scripts/SpellDemos/verify_actor_hit_boundary.py`；加载 Worldfall 的独立游戏加 `--worldfall`。两端复用同一存档和受击者，比较旧执行的实际碰撞回调与新构造的实际伤害，覆盖边界内外、离地错开和再次命中。用 `--section legacy|legacy-height|construction` 补测相应段。输入世界、实际脚本、打击前后血量和判定明细保存在 `CULTIWAY_DEV_OUTPUT/actor-hit-boundary/<视角>/<分段>`。

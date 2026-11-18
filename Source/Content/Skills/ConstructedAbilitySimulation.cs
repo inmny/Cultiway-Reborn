@@ -836,9 +836,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) continue;
                 Sample(actor, clock, out Vector3 fromFoot, out float fromHeight);
                 Sample(actor, clock + step, out Vector3 toFoot, out float toHeight);
-                var b0 = ActorContact(fromFoot, fromHeight,
+                var b0 = ActorHitBoundary.Create(fromFoot, fromHeight,
                     actor.Body?.BodyControlled == true ? actor.Body.BeforeTorso : Vector3.zero);
-                var b1 = ActorContact(toFoot, toHeight,
+                var b1 = ActorHitBoundary.Create(toFoot, toHeight,
                     actor.Body?.BodyControlled == true ? actor.Body.Cast.BodyPose.Value.Torso : Vector3.zero);
                 if (shape.To.Node < 0)
                 {

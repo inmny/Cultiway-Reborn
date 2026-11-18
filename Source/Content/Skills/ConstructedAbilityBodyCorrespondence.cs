@@ -35,9 +35,9 @@ public sealed partial class ConstructedAbilityService
             ActorMotion actor = actors[actorIndex];
             Sample(actor, clock, out Vector3 fromFoot, out float fromHeight);
             Sample(actor, clock + step, out Vector3 toFoot, out float toHeight);
-            AbilityCapsule originalFrom = ActorContact(fromFoot, fromHeight,
+            AbilityCapsule originalFrom = ActorHitBoundary.Create(fromFoot, fromHeight,
                 actor.Body?.BodyControlled == true ? actor.Body.BeforeTorso : Vector3.zero);
-            AbilityCapsule originalTo = ActorContact(toFoot, toHeight,
+            AbilityCapsule originalTo = ActorHitBoundary.Create(toFoot, toHeight,
                 actor.Body?.BodyControlled == true ? actor.Body.Cast.BodyPose.Value.Torso : Vector3.zero);
             bool changed = running.Cast.ContactScopeChanged(-1);
             if (changed) AtStage(running.Cast.PreviousBodyStage, true, false);

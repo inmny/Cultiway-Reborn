@@ -58,7 +58,7 @@ public sealed partial class ConstructedAbilityService
             !simulation.actorIndices.TryGetValue(contactId, out int entryIndex)) return;
         ActorMotion entry = simulation.actors[entryIndex];
         simulation.Sample(entry, time, out _, out float height);
-        var entryBody = ActorContact(center, height, entry.Body?.Cast.BodyPose?.Torso ?? Vector3.zero);
+        var entryBody = ActorHitBoundary.Create(center, height, entry.Body?.Cast.BodyPose?.Torso ?? Vector3.zero);
         CastAuthority owner = running.Owner(node);
         RunningCast medium = null; int mediumNode = -1; AbilityMediumRegion region = null;
         foreach (var candidate in casts.OrderBy(c => c.Id))
@@ -173,7 +173,7 @@ public sealed partial class ConstructedAbilityService
             if (actor.data?.id != recipient.Id || !actor.isAlive() || !actor.hasHealth() || !owner.Matches(impact.Targets, actor) ||
                 !simulation.actorIndices.TryGetValue(recipient.Id, out int index)) return false;
             var motion = simulation.actors[index]; simulation.Sample(motion, time, out var foot, out float height);
-            body = ActorContact(foot, height, motion.Body?.Cast.BodyPose?.Torso ?? Vector3.zero);
+            body = ActorHitBoundary.Create(foot, height, motion.Body?.Cast.BodyPose?.Torso ?? Vector3.zero);
             point = foot + Vector3.forward * height * .55f; return true;
         }
         Building building = recipient.Building;
