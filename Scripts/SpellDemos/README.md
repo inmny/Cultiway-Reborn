@@ -1953,3 +1953,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 5.19 通用运动操作的实机复验
 
 在独立游戏中运行 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_operation_acceptance.py --section motion`。同一剑形分别等待真实生长和定时就绪，随后反向旋转，在飞行中制动再起或加速；输出原定义、绘制姿态、正式存档和人物编号。另起游戏后用 `--section reload --state <motion输出目录>` 只复验正式恢复和再次施放。`--section turn` 单独验证「折向续行」的反向弯点和真实接触；若动作段已通过，可用 `--section turn-save` 只补正式保存比较。`verify_spatial_mapping.py --section artifact-varied` 复用同一原飞剑，核对不同出口角度、归还、正式存读及过门不重放。完整操作表及复用依据见[逐项验收](../../Doc/技能系统全面重构/通用操作逐项验收.md)。
+
+### 5.20 嵌套、换材与实际结果的接续
+
+在独立游戏中运行 `dev.py exec --timeout 195 -- python3 Scripts/SpellDemos/verify_composite_change.py`。使用[聚剑凝冰](../../Doc/技能系统全面重构/构造输入/聚剑凝冰.json)核对三级部件的聚合、换材、使用真实父连接离体、以新材料命中和世界留置。输出包含绘制姿态、步骤回执、实际伤害和正式存档。另起游戏后加 `--state <正式保存输出目录>`，读回同一构造及材料并重新施放；中断已经通过时可用 `--skip-interruption` 只补正常施放和保存。
