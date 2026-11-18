@@ -148,6 +148,7 @@
   "Cultiway.ConstructionText.ReleaseGrab": "可对{0}执行：{1}。",
   "Cultiway.ConstructionText.EquipmentRepair": "对{0}修复{1}栏。每件「{2}」最多恢复{3}点耐久，满耐久不扣材料。",
   "Cultiway.ConstructionText.Signal": "向实际接触的{0}送达「{1}」，完整作用时最多保留{2:0.##}秒。",
+  "Cultiway.ConstructionText.DirectSignal": "向指定人物直接传讯「{0}」，最多保留{1:0.##}秒，送达无需接触",
   "Cultiway.ConstructionText.RequiredStatus": "接触{0}时读取「{1}」作为分支条件。",
   "Cultiway.ConstructionText.RemoveStatus": "最多解除{1}层「{0}」（{2}）。",
   "Cultiway.ConstructionText.OwnStatusSource": "仅当前施术者",

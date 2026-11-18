@@ -123,6 +123,7 @@ public static partial class AbilityCompiler
                 if (condition.Trigger == ConstructionChangeTrigger.WaterRouteArrival && !conducts)
                     Fail(condition.Path, "水路到达条件需要能实际传播的导电来源：" + source.Path);
                 if (condition.Trigger == ConstructionChangeTrigger.SignalDelivery &&
+                    !operations.Any(op => op.Node == condition.Source && op.Kind == ConstructionOperationKind.SendSignal) &&
                     (!(source.AffectsActors || conducts) || !(source.Impact == null && source.BodyWindow
                         ? body.Stages.Any(stage => HasSignal(stage.Impact)) : HasSignal(source.Impact))))
                     Fail(condition.Path, "讯号送达条件需要能实际作用于人物的讯号来源：" + source.Path);

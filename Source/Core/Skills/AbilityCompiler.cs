@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.Visuals.Forms;
 using Newtonsoft.Json;
 using UnityEngine;
@@ -172,6 +173,9 @@ public sealed class CompiledAbility
     /// <summary>等待世界移动真实借用法宝的步骤索引。</summary>
     internal int[] ArtifactTransferSteps { get; }
 
+    /// <summary>向本次指定人物送达实际内容的步骤。</summary>
+    internal int[] DirectSignalSteps { get; }
+
     /// <summary>同类指令、参数与连续绑定的直接索引。</summary>
     internal CompiledOperationProgram Program { get; }
 
@@ -259,6 +263,9 @@ public sealed class CompiledAbility
         Steps = steps;
         ActorTransferSteps = Enumerable.Range(0, steps.Length).Where(i => steps[i].Action.Kind == ConstructionOperationKind.MapActor).ToArray();
         ArtifactTransferSteps = Enumerable.Range(0, steps.Length).Where(i => steps[i].Action.Kind == ConstructionOperationKind.MapArtifact).ToArray();
+        DirectSignalSteps = Enumerable.Range(0, steps.Length).Where(i => steps[i].Action.Kind == ConstructionOperationKind.SendSignal).ToArray();
+        if (DirectSignalSteps.Length != 0 && Use.Target is not (ActiveAbilityTargetMode.Object or ActiveAbilityTargetMode.Self))
+            throw new InvalidDataException("Use/Target：指定传讯须选择人物或本人");
         HasStepRecovery = steps.Any(step => step.Action.Recovery != null);
         Matters = nodes
             .SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind)

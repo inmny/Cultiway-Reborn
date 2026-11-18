@@ -274,6 +274,8 @@ public sealed class ConstructionMeasure
 
         foreach (var step in plan.Steps)
         {
+            if (step.Action.Parameters is CompiledConstructionSignal signal)
+                work += .25d + signal.Duration * .25d;
             if (step.MappingEntrance < 0) continue;
             double meters = Vector3.Distance(layouts[step.MappingEntrance].GetColumn(3), layouts[step.MappingExit].GetColumn(3));
             if (step.Action.Kind == ConstructionOperationKind.MapActor)

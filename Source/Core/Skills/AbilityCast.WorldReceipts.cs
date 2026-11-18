@@ -6,6 +6,20 @@ namespace Cultiway.Core.Skills;
 /// <summary>世界回执只在正式确认后进入步骤，不从预测进度制造入账或命中。</summary>
 public sealed partial class AbilityCast
 {
+    /// <summary>步骤已在数值推进中就绪，等主线程确认实际效果。</summary>
+    /// <param name="index">实际步骤。</param>
+    internal bool AwaitingStepWorld(int index) => !cancelled && stepStates[index].State == ConstructionStepState.Running &&
+        stepStates[index].WorldPending;
+
+    /// <summary>当前条件未满足，依赖此实际结果的步骤也不能完成。</summary>
+    /// <param name="index">已经尝试的步骤。</param>
+    internal void RejectStepWorld(int index)
+    {
+        stepStates[index].WorldPending = false;
+        stepStates[index].State = ConstructionStepState.Interrupted;
+        UpdateSteps();
+    }
+
     /// <summary>世界已接受独立侵蚀，后续按真实结果等待，来源结束仍可中断步骤。</summary>
     /// <param name="index">实际步骤，未命名时为负一。</param>
     internal void AwaitWorldErosion(int index)

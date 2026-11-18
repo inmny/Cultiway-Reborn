@@ -231,6 +231,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     if (running.Cast.Plan.ArtifactTransferSteps.Length != 0) ConfirmArtifactTransfers(running, clock);
                     ConfirmInventory(running, clock);
                     if (generation != worldGeneration) yield break;
+                    if (running.Cast.Plan.DirectSignalSteps.Length != 0) ConfirmDirectSignals(running, clock);
+                    if (generation != worldGeneration) yield break;
                     ConfirmRecovery(running);
                     if (generation != worldGeneration) yield break;
                     ConfirmWorldMaterial(running, clock);

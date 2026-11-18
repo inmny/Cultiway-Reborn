@@ -750,6 +750,14 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 175 -- python3 Scri
 python3 .agents/skills/develop/scripts/dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_clash_termination.py --section contact
 ```
 
+#### 非接触结果（6.17）
+
+用现有世界复验指定传讯。只在正式送达后启动依赖结果和到达条件的后续；收件人提前越界、同源刷新和读档不产生新送达，也没有命中。运行后在本次输出的 `direct-signal` 目录查看结果、实际收件记录与正式测试存档。
+
+```bash
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 177 -- python3 Scripts/SpellDemos/verify_direct_signal.py
+```
+
 ### 构造命名、说明与书籍传承
 
 `verify_construction_text.script`检查实际材料、过程、费用和中英文说明，确认染色不冒充换材、读取不改写正式名称、编辑后不残留旧说明。名称在本地按实际构造生成；旧的正式名称仍保存，未完成请求在完成时取得当前规则名。
