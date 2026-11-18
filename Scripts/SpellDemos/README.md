@@ -1945,3 +1945,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 5.18 D2 创作与正式冷读
 
 在原版独立安装运行 `dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_propagation_creation.py creation`。退出该游戏并另起新进程，用同一入口的 `restart --state <creation输出目录>` 验证已冻结的新规则 33 与历史规则 32 请求。输出保留正式等待档、完整成品、付费水路接续和再次保存的结果。
+
+### 5.18 D3 地波与水路连续录像
+
+在原版独立游戏运行 `dev.py exec --timeout 390 -- python3 Scripts/SpellDemos/record_propagation.py --state <D2重存目录>`；兼容安装加 `--worldfall`。两端复用 C 的正式地波连锁资料和 D2 已重存的循水成品，保留逐帧位置及实际触地、水路到达和收束记录。`--case ground|water` 只录对应片段，`--encode-only <视角目录>` 只核对和编码已有原帧。

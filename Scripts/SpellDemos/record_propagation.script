@@ -1,0 +1,165 @@
+// 两端播放同一份正式构造；字幕和事实随每张游戏原帧留档。
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+await ClearFilmSet();
+for (int x = 60; x <= 86; x++)
+for (int y = 60; y <= 85; y++)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    if (tile.building != null) tile.building.removeBuildingFinal();
+    tile.setTileTypes(clip == "water" && x <= 80 && y >= 70 && y < 75 ? AssetManager.tiles.get("shallow_waters") : TileLibrary.soil_low,
+        clip == "water" && x <= 80 && y >= 70 && y < 75 ? null : TopTileLibrary.grass_low);
+}
+if (mod != null)
+{
+    var sampler = Field(mod, "_sampler");
+    sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
+    sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+}
+Actor source = Make(clip == "ground" ? 64 : 60), target = Make(clip == "ground" ? 79 : 76);
+if (clip == "ground") target.setKingdom(source.kingdom);
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000f });
+int? originalHp = null;
+var groundEvents = new List<ConstructedActionEvent>();
+var waterEvents = new List<ConstructedConduction>();
+void Action(ConstructedActionEvent action)
+{
+    if (action.AbilityId != filmId) return;
+    groundEvents.Add(action);
+    events.Add(new { action.AbilityId, action.Fact.Node, action.Fact.Kind, action.Fact.Age,
+        point = Position(action.Fact.Point), action.Fact.ContactKind });
+}
+void Water(ConstructedConduction water)
+{
+    if (water.AbilityId != filmId || water.OwnerId != source.id) return;
+    waterEvents.Add(water);
+    events.Add(new { water.AbilityId, water.Pulse, water.Spent, route = water.Route.Select(Position).ToArray() });
+}
+void Quiet(ConstructedCastEnded fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != filmId) return;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+    if (mod == null)
+    {
+        ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+    }
+    events.Add(new { fact.AbilityId, fact.Cancelled, kind = "ended" });
+}
+float[] Position(Vector3 p) => new[] { p.x, p.y, p.z };
+float[] Point(int part)
+{
+    var cast = Live();
+    return cast == null || cast.NodeAge(part) < 0 ? null : Position(cast.ContactOrigin(part));
+}
+bool Grounded() => groundEvents.Any(e => e.AbilityId == filmId && e.Fact.Node == -1 && e.Fact.Kind == AbilityActionEventKind.Contact && e.Fact.ContactKind == AbilityActionContactKind.World);
+bool EndedFor(bool cancel) => endings.Any(e => e.Fact.AbilityId == filmId && e.Fact.Cancelled == cancel);
+int Restored() => originalHp.HasValue ? target.data.health - originalHp.Value : 0;
+string Caption()
+{
+    if (EndedFor(true)) return "主动取消 · 等待中的接续消失";
+    if (EndedFor(false)) return "自然结束 · 形体与波面回收";
+    if (clip == "ground")
+    {
+        if (Point(4) != null) return "远段到达 · 形体在实际地块开启";
+        if (Restored() == 20) return "同刻换材 · 只恢复一次生命";
+        if (Point(1) != null) return "近段生长 · 真正到达后才成形";
+        if (Grounded()) return "足底触地 · 地波沿可走地面传开";
+        return filmId.EndsWith(".interrupt") ? "再施放同一式 · 等待近段" : "足底准备 · 未触地时没有传播";
+    }
+    if (waterEvents.Count > 1) return "第二轮脉冲 · 不重复启动后段";
+    if (waterEvents.Count == 1) return "首轮真实到达 · 同刻出现后段并换材";
+    return "等待触水 · 尚无接续";
+}
+object Detail() => new { ability = filmId, touched = Grounded(), near = Point(1),
+    far = clip == "ground" ? Point(4) : null, restored = Restored(),
+    material = Live()?.Matter(clip == "ground" ? 1 : 0).Id, pulses = waterEvents.Count,
+    route = waterEvents.Count == 0 ? 0 : waterEvents.Last().Route.Length, ended = EndedFor(false), cancelled = EndedFor(true) };
+async Task Use(AbilityDefinition value)
+{
+    var position = clip == "ground" ? 64 : 60;
+    Place(source, position);
+    if (mod == null) Ready(source);
+    else
+    {
+        // 第一人称模组切换所控单位会关闭取景；正式脚本施放只需解除测试定身。
+        CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.attack_timer = 0;
+    }
+    owner.GetCultisys<Xian>().wakan = 10000f;
+    float before = owner.GetCultisys<Xian>().wakan;
+    var aim = new Vector3(clip == "ground" ? 65 : 76, 72, 0);
+    await Fire(value, source, target, aim: aim, aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - value.Cost) < .001f, "录像本次正式施放按原价支付");
+}
+(float At, Vector3 Point) ActualNear(AbilityCast cast)
+{
+    object wave = ((Array)Field(cast, "propagations")).GetValue(0);
+    var near = ((Array)Field(wave, "Route")).Cast<object>().First(cell => (float)Field(cell, "Distance") >= 3);
+    int x = (int)Field(near, "X"), y = (int)Field(near, "Y");
+    var ground = Field(cast, "propagationGround");
+    float floor = (float)ground.GetType().GetMethod("Height", F).Invoke(ground, new object[] { x, y });
+    var point = new Vector3(x + .5f, y + .5f, floor);
+    return ((float)Field(wave, "StartedAt") + (float)Field(near, "At"), point);
+}
+ConstructedAbilityService.ActionConfirmed += Action;
+ConstructedAbilityService.ConductionConfirmed += Water;
+ConstructedAbilityService.CastEnded += Quiet;
+try
+{
+    await BeginFilm(source, target, clip == "ground" ? 68.5f : 70.5f, 72f, definition, null, Caption, Detail);
+    await Use(definition);
+    if (clip == "ground")
+    {
+        await Advance(.68f);
+        var cast = Live();
+        var near = ActualNear(cast);
+        Place(target, near.Point.x, near.Point.y);
+        target.setHealth(target.getMaxHealth() - 100); originalHp = target.data.health;
+        Check(Grounded() && cast.Age < near.At && Point(1) == null, "确有足底触地，地波到达之前分支未出现");
+        await Advance(.51f);
+        Check(Point(1) != null && (cast.ContactOrigin(1) - near.Point).sqrMagnitude < .0001f &&
+            cast.Matter(1).Id == "iron" && Restored() == 20,
+            "接续在实际地块生长并同刻换材，实际恢复一次", new { near.At, nearPoint = Position(near.Point) });
+        await Advance(.22f);
+        Check(Point(4) != null && (cast.ContactOrigin(4) - near.Point).sqrMagnitude >= 1f, "远段有自己的到达位置");
+        await Advance(definition.Lifetime - cast.Age + .3f);
+        Check(EndedFor(false) && Live() == null, "正常地波与后段收完");
+        var interruption = ConstructionEditing.Copy(definition); interruption.Id += ".interrupt";
+        filmId = interruption.Id;
+        Place(target, 79); originalHp = null;
+        await Use(interruption); await Advance(.68f);
+        cast = Live(); near = ActualNear(cast);
+        Place(target, near.Point.x, near.Point.y);
+        target.setHealth(target.getMaxHealth() - 100); originalHp = target.data.health;
+        await Advance(.19f);
+        Check(cast.Age >= near.At && cast.Age < near.At + .12f && Point(1) == null,
+            "真实近段已到达，主动取消仍发生在后段延迟内", new { cast.Age, near.At });
+        cast.Cancel(); await Advance(.58f);
+        Check(EndedFor(true) && target.data.health == originalHp && cast.NodeAge(1) < 0 && cast.NodeAge(4) < 0,
+            "取消后未补发任何后续部位或恢复");
+    }
+    else
+    {
+        await Advance(.15f);
+        var cast = Live();
+        Check(waterEvents.Count == 0 && Point(1) == null, "实际水路到达之前没有后段");
+        await Advance(.21f);
+        var first = waterEvents.Single();
+        Check(first.Route.Length > 1 && first.Spent > 0 && Point(1) != null &&
+            (cast.ContactOrigin(1) - first.Route.Last()).sqrMagnitude < .0001f && cast.Matter(0).Id == definition.Root.Operations.Last().Matter,
+            "实际水路在最后一格开启后段，原主体换材", new { route = first.Route.Length, point = Position(first.Route.Last()) });
+        await Advance(definition.Lifetime - cast.Age + .4f);
+        Check(waterEvents.Count == 2 && cast.Matter(0).Id == "iron" && EndedFor(false), "后续脉冲继续，换回铁后未重复开启且自然收完");
+    }
+    return new { passed = true, view, clip, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    await EndFilm();
+    ConstructedAbilityService.ActionConfirmed -= Action;
+    ConstructedAbilityService.ConductionConfirmed -= Water;
+    ConstructedAbilityService.CastEnded -= Quiet;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}
