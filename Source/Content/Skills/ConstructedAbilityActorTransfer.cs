@@ -41,9 +41,7 @@ public sealed partial class ConstructedAbilityService
     private bool CanLandActor(Actor actor, Vector3 from, ref Vector3 destination)
     {
         Vector2 point = destination;
-        if (!Toolbox.inMapBorder(ref point) || (point - (Vector2)from).sqrMagnitude < .0001f) return false;
-        WorldTile tile = World.world.GetTileSimple((int)point.x, (int)point.y);
-        if (tile.Type.block || tile.Type.liquid || tile.Type.lava || tile.Type.damage_units || tile.hasBuilding()) return false;
+        if ((point - (Vector2)from).sqrMagnitude < .0001f || !HasTransferGround(point)) return false;
 
         float height = SpatialActorPose.Height(actor), radius = height * .16f;
         destination.z = terrain?.Sample(point.x, point.y) ?? 0f;
@@ -61,4 +59,14 @@ public sealed partial class ConstructedAbilityService
         }
         return true;
     }
+
+    /// <summary>双门出口禁止放进地图外、危险地块或已有建筑内。</summary>
+    /// <param name="point">出口所在的连续平面点。</param>
+    private static bool HasTransferGround(Vector2 point)
+    {
+        if (!Toolbox.inMapBorder(ref point)) return false;
+        WorldTile tile = World.world.GetTileSimple((int)point.x, (int)point.y);
+        return !tile.Type.block && !tile.Type.liquid && !tile.Type.lava && !tile.Type.damage_units && !tile.hasBuilding();
+    }
+
 }

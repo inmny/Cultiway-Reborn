@@ -169,6 +169,9 @@ public sealed class CompiledAbility
     /// <summary>只在实际人物接触时可执行的步骤索引。</summary>
     internal int[] ActorTransferSteps { get; }
 
+    /// <summary>等待世界移动真实借用法宝的步骤索引。</summary>
+    internal int[] ArtifactTransferSteps { get; }
+
     /// <summary>同类指令、参数与连续绑定的直接索引。</summary>
     internal CompiledOperationProgram Program { get; }
 
@@ -253,6 +256,7 @@ public sealed class CompiledAbility
         NeedsRayTarget = operations.Any(operation => operation.Ray != null);
         Steps = steps;
         ActorTransferSteps = Enumerable.Range(0, steps.Length).Where(i => steps[i].Action.Kind == ConstructionOperationKind.MapActor).ToArray();
+        ArtifactTransferSteps = Enumerable.Range(0, steps.Length).Where(i => steps[i].Action.Kind == ConstructionOperationKind.MapArtifact).ToArray();
         HasStepRecovery = steps.Any(step => step.Action.Recovery != null);
         Matters = nodes
             .SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind)

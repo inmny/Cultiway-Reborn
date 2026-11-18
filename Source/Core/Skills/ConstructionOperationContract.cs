@@ -84,7 +84,9 @@ public enum ConstructionOperationResource
     /// <summary>显示及实际接触共用的形状。</summary>
     Contacts = 512,
     /// <summary>来源已经借用的实际库存材料。</summary>
-    Inventory = 1024
+    Inventory = 1024,
+    /// <summary>本次施放借用的原法宝本体。</summary>
+    Carrier = 2048
 }
 
 /// <summary>操作真正改变的内容，显示不是另一套结算。</summary>

@@ -119,14 +119,18 @@ public static partial class AbilityCompiler
                     step.MappingExit = bindings["exit"][0].Node;
                     if (target == step.MappingExit) Fail(path, "入口和出口不能使用同一部位");
                 }
-                if (operation.Kind == ConstructionOperationKind.MapSpace)
+                if (operation.Kind == ConstructionOperationKind.MapArtifact &&
+                    (target != 0 || definition.Binding is not { Anchor: AbilityAnchor.Carrier, Follow: true }))
+                    Fail(path, "法宝转移的主体必须连接本次借用的真实载体");
+                if (operation.Kind is ConstructionOperationKind.MapSpace or ConstructionOperationKind.MapArtifact)
                 {
                     if (!bindings.TryGetValue("entrance", out var entrance) || entrance.Length != 1 ||
                         !bindings.TryGetValue("exit", out var exit) || exit.Length != 1)
                         Fail(path, "空间转移需要唯一的入口和出口");
                     step.MappingEntrance = bindings["entrance"][0].Node;
                     step.MappingExit = bindings["exit"][0].Node;
-                    if (step.MappingEntrance == step.MappingExit || BelongsToSubject(step.MappingEntrance) || BelongsToSubject(step.MappingExit))
+                    if (step.MappingEntrance == step.MappingExit || step.MappingEntrance == target || step.MappingExit == target ||
+                        operation.Kind == ConstructionOperationKind.MapSpace && (BelongsToSubject(step.MappingEntrance) || BelongsToSubject(step.MappingExit)))
                         Fail(path, "入口、出口和转移主体必须彼此独立，不能使用主体或它的下属部位作门");
 
                     bool BelongsToSubject(int gate)

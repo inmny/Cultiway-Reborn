@@ -332,7 +332,10 @@ public enum ConstructionOperationKind
     MapSpace = 21,
 
     /// <summary>实际接触后把原人物送到成对出口，由世界确认。</summary>
-    MapActor = 22
+    MapActor = 22,
+
+    /// <summary>命名步骤把本次借用的原法宝送到成对出口，由世界确认。</summary>
+    MapArtifact = 23
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>

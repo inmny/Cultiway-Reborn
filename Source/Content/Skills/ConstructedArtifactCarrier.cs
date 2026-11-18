@@ -13,7 +13,11 @@ using UnityEngine;
 namespace Cultiway.Content.Skills;
 
 /// <summary>标记构造能力对真实法宝的本次借用，旧主动能力不能同时接管。</summary>
-internal struct ConstructedCarrierSession : IComponent { }
+internal struct ConstructedCarrierSession : IComponent
+{
+    /// <summary>通过立体双门后的真实模型朝向；没有转移时沿原显示摆放。</summary>
+    internal Quaternion? MappedRotation;
+}
 
 /// <summary>借用原法宝及原显示，只向共同数值执行提供实际载体姿态。</summary>
 internal sealed class ConstructedArtifactCarrier : IDisposable
@@ -57,6 +61,14 @@ internal sealed class ConstructedArtifactCarrier : IDisposable
         artifact.TryGetComponent(out SkillExecutionBodyLease lease) && !lease.execution.IsNull &&
         lease.execution.HasComponent<ConstructedCarrierSession>();
 
+    /// <summary>两套视图都从同一法宝读取本次借用的空间朝向。</summary>
+    /// <param name="artifact">当前显示的原法宝。</param>
+    /// <param name="rotation">未转移时回到原显示朝向。</param>
+    internal static Quaternion Heading(Entity artifact, Quaternion rotation) =>
+        artifact.TryGetComponent(out SkillExecutionBodyLease lease) && !lease.execution.IsNull &&
+        lease.execution.TryGetComponent(out ConstructedCarrierSession session)
+            ? session.MappedRotation ?? rotation : rotation;
+
     /// <summary>在实际支付前取得原本体，转换旧随身坐标时保留当前真实空间位置。</summary>
     /// <param name="owner">实际控制者。</param><param name="artifact">本人真实装备。</param>
     internal static ConstructedArtifactCarrier TryAcquire(ActorExtend owner, Entity artifact)
@@ -90,6 +102,19 @@ internal sealed class ConstructedArtifactCarrier : IDisposable
             ArtifactAppearanceRenderer.TryGetSpatialPose(Artifact, out SpatialVisualMeshInstance pose);
             return ConstructedAbilityService.CarrierFrame(pose);
         }
+    }
+
+    /// <summary>将已确认的出口姿态写回原本体；仍沿原借用和显示维护。</summary>
+    /// <param name="point">出口实际世界点。</param><param name="rotation">出口真实模型朝向。</param>
+    internal Matrix4x4 PlaceMapped(Vector3 point, Quaternion rotation)
+    {
+        execution.GetComponent<ConstructedCarrierSession>().MappedRotation = rotation;
+        ref Position stored = ref Artifact.GetComponent<Position>();
+        stored.value = new Vector3(point.x, point.y, 0f);
+        float atGround = Pose.GetColumn(3).z;
+        float z = point.z - atGround;
+        stored.value = new Vector3(point.x, point.y + z, z);
+        return Pose;
     }
 
     /// <summary>解除本次控制；原物件、外观、装备关系及所有权均保留。</summary>
