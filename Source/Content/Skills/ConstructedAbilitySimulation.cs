@@ -1037,6 +1037,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (result == ApplyAttackState.Hit)
             ApplyContactSpreads(running, node, actor.Id, impact, spreadCenter, simulation.contactTime, running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
         if (contactGeneration != worldGeneration) return;
+        if (node >= 0 && result == ApplyAttackState.Hit && running.Cast.Plan.ActorTransferSteps.Length != 0)
+            ResolveActorTransfer(running, node, actor.Actor, actor.Id, contactGeneration);
+        if (contactGeneration != worldGeneration) return;
         running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id,
             hit.LeftRayLength >= 0f ? hit.LeftRayLength : null);
         simulation.SelectContactTargets(running, node, actor);

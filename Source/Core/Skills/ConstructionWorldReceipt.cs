@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Cultiway.Core.Skills;
 
@@ -17,7 +18,9 @@ public enum ConstructionWorldResultKind
     /// <summary>真实库存物料已经消耗。</summary>
     Inventory,
     /// <summary>世界材料的独立侵蚀已经得到实际结果。</summary>
-    Erosion
+    Erosion,
+    /// <summary>实际生灵到达经过确认的出口。</summary>
+    ActorTransfer
 }
 
 /// <summary>一次确认的不可变回执，空选择也保留真实的零结果。</summary>
@@ -57,6 +60,8 @@ public sealed class ConstructionWorldReceipt
     public float Remaining { get; }
     /// <summary>实际消耗的原库存物件稳定编号。</summary>
     public IReadOnlyList<string> Items { get; }
+    /// <summary>实际转移落点；其他世界操作没有落点。</summary>
+    public Vector3? Destination { get; }
     /// <summary>实际消耗的整件数量。</summary>
     public int ItemCount => Items.Count;
     /// <summary>同一步骤的先前确认，仅供内部保留事实链。</summary>
@@ -69,10 +74,11 @@ public sealed class ConstructionWorldReceipt
     /// <param name="cells">到达水格。</param><param name="spent">真实消耗。</param><param name="remaining">当前余力。</param><param name="previous">已确认前项。</param>
     /// <param name="erodedVolume">本段侵蚀的实际体积损失。</param><param name="erodedResource">本段侵蚀退出的本金。</param>
     /// <param name="materialIdentities">整份材料身份，留置时与首次记录编号相同。</param>
+    /// <param name="destination">已经确认的实际转移落点。</param>
     internal ConstructionWorldReceipt(ConstructionWorldResultKind kind, int node, double clock, int sequence = 1, long[] materials = null, long[] targets = null,
-        double volume = 0, double resource = 0, double requested = 0, double granted = 0, int cells = 0, float spent = 0, float remaining = 0, ConstructionWorldReceipt previous = null, long[] materialIdentities = null, string[] items = null, double erodedVolume = 0, double erodedResource = 0)
+        double volume = 0, double resource = 0, double requested = 0, double granted = 0, int cells = 0, float spent = 0, float remaining = 0, ConstructionWorldReceipt previous = null, long[] materialIdentities = null, string[] items = null, double erodedVolume = 0, double erodedResource = 0, Vector3? destination = null)
     {
-        Kind = kind; Node = node; WorldTime = clock; Sequence = sequence;
+        Kind = kind; Node = node; WorldTime = clock; Sequence = sequence; Destination = destination;
         Items = Array.AsReadOnly(items == null ? Array.Empty<string>() : (string[])items.Clone());
         Materials = Array.AsReadOnly(materials == null ? Array.Empty<long>() : (long[])materials.Clone());
         MaterialIdentities = Array.AsReadOnly((long[])(materialIdentities ?? materials ?? Array.Empty<long>()).Clone());
@@ -86,7 +92,7 @@ public sealed class ConstructionWorldReceipt
     /// <param name="node">需要补充的实际部位，负一保留原值。</param>
     internal ConstructionWorldReceipt(ConstructionWorldReceipt source, ConstructionWorldReceipt previous, int node = -1)
     {
-        Items = source.Items; ErodedVolume = source.ErodedVolume; ErodedResource = source.ErodedResource;
+        Items = source.Items; Destination = source.Destination; ErodedVolume = source.ErodedVolume; ErodedResource = source.ErodedResource;
         Kind = source.Kind; Node = node < 0 ? source.Node : node; WorldTime = source.WorldTime; Sequence = source.Sequence;
         Materials = source.Materials; MaterialIdentities = source.MaterialIdentities; Targets = source.Targets; Volume = source.Volume; Resource = source.Resource;
         Requested = source.Requested; Granted = source.Granted; Cells = source.Cells; Spent = source.Spent; Remaining = source.Remaining; Previous = previous;

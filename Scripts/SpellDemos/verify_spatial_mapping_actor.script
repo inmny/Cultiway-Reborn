@@ -1,0 +1,126 @@
+// 沿用已有平地，避开原存档里尚在的房屋。
+WorldTile exitTile = new[] { 74, 73, 75, 72, 71, 70 }
+    .Select(x => World.world.GetTileSimple(x, 72)).First(tile => !tile.hasBuilding());
+int exitX = exitTile.pos.x;
+AbilityDefinition Gates() => new()
+{
+    Id = "test.spatial-mapping.actor", Name = "生灵双门", Cost = 3, Resource = "wakan", Power = 2,
+    Cooldown = .1f, Lifetime = .7f, TargetRange = 12,
+    Impact = new ConstructionImpact { DamageScale = 0, SelectedTargetOnly = true },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = .26f },
+    Root = new ConstructionNode
+    {
+        Id = "gates", Form = "pivot", ContactRole = ConstructionContactRole.Decoration,
+        Children = new[]
+        {
+            new ConstructionNode { Id = "entry", Form = "fireball", Scale = .8f, Offset = new[] { .5f, 0f, 0f } },
+            new ConstructionNode { Id = "exit", Form = "fireball", ContactRole = ConstructionContactRole.Decoration,
+                Scale = .7f, Offset = new[] { exitX - 64f, 0f, 0f }, Rotation = new[] { 0f, 0f, 90f } }
+        }
+    },
+    Steps = new[]
+    {
+        new ConstructionStep { Id = "carry", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.MapActor, MappingRadius = 1f },
+            Inputs = new() { ["part"] = new() { Node = "root/entry" }, ["exit"] = new() { Node = "root/exit" } } },
+        new ConstructionStep { Id = "landed", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Ready },
+            Inputs = new() { ["part"] = new() { Node = "root/exit" }, ["after"] = new() { Step = "carry", Output = "transferred" } } }
+    }
+};
+
+float[] Point(Vector3 value) => new[] { value.x, value.y, value.z };
+var definition = Gates();
+var invalid = Gates(); invalid.Steps[0].Inputs["exit"].Node = "root/entry";
+bool rejected = false;
+try { AbilityCompiler.Compile(invalid, false); }
+catch (InvalidDataException error) { rejected = error.Message.Contains("入口和出口不能"); }
+Check(rejected, "不能以同一个部位作为两端");
+var direct = new AbilityCast(AbilityCompiler.Compile(definition, false), Matrix4x4.identity,
+    inputs: new AbilityInputs(new Vector3(64, 72, 0), new Vector3(64.5f, 72, 0), Vector3.right, 1));
+direct.Advance(.35f, Vector3.right);
+Check(direct.StepStateOf("carry") == ConstructionStepState.Waiting && !direct.TryGetOutput("carry", "transferred", out _),
+    "纯数值推进不触发人物搬运，必须等真实接触");
+
+Actor source = Make(64), passenger = Make(64.5f);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+Ready(source); Ready(passenger); await Advance(.15f);
+long id = passenger.id;
+var palm = BodyActionCatalog.Create("test.spatial-mapping.palm", "验证原人物动作归还", new BodyActionRequest { Kind = BodyActionKind.Slap, Seconds = 1.6f });
+palm.Cost = 0; palm.Resource = "none"; palm.Cooldown = .1f;
+var live = (IEnumerable)service.GetField("casts", F).GetValue(null);
+int health = passenger.data.health;
+
+async Task<AbilityCast> Open(bool obstruction, bool acting)
+{
+    if (obstruction) exitTile.setTileTypes(TileLibrary.mountains, null, true);
+    else
+    {
+        exitTile.Height = 140;
+        exitTile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    }
+    Place(source, 64); Place(passenger, 64.65f, 71.8f); source.cancelAllBeh(); passenger.cancelAllBeh();
+    if (acting)
+    {
+        await Fire(palm, passenger, source);
+        passenger.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+        Check(BodyControlState.IsBusy(id), "入口前原人物确实在执行身体动作");
+    }
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    float paid = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, passenger);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Mathf.Abs(paid - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f, "按原入口一次支付施放");
+    var cast = live.Cast<object>().Select(r => (AbilityCast)Field(r, "Cast")).Single(c => c.Plan.Id == definition.Id);
+    await Advance(.13f);
+    return cast;
+}
+
+try
+{
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    if (section == "actor")
+    {
+        var refused = await Open(true, true);
+        Check(contacts.Any(c => c.AbilityId == definition.Id && c.TargetId == id), "阻挡场景也确实接触入口");
+        Check(refused.StepStateOf("carry") == ConstructionStepState.Interrupted && refused.StepStateOf("landed") == ConstructionStepState.Interrupted &&
+            !refused.TryGetOutput("carry", "transferred", out _) && Vector2.Distance(passenger.current_position, new Vector2(64.65f, 71.8f)) < .1f &&
+            BodyControlState.IsBusy(id), "出口是阻挡地块，原人物和正在执行的动作均保留", Point(passenger.GetSimPos()));
+        await Advance(1.7f);
+        Check(!BodyControlState.IsBusy(id), "失败后旧动作自然收势");
+
+    }
+
+    var transferred = await Open(false, true);
+    Check(transferred.TryGetOutput("carry", "transferred", out var arrival) && transferred.StepStateOf("landed") == ConstructionStepState.Completed &&
+        arrival.Receipt.Kind == ConstructionWorldResultKind.ActorTransfer && arrival.Receipt.Targets.Single() == id &&
+        Vector2.Distance((Vector2)arrival.Position, new Vector2(exitX + .2f, 72.15f)) < .1f &&
+        Vector2.Distance(passenger.current_position, (Vector2)arrival.Position) < .1f && passenger.current_tile == exitTile &&
+        ReferenceEquals(World.world.units.get(id), passenger) && passenger.data.health == health && !BodyControlState.IsBusy(id),
+        "安全出口只移动原人物，确认地块与位置并真正归还旧动作", new
+        {
+            id, result = Point(arrival.Position), actual = Point(passenger.GetSimPos()), passenger.data.health,
+            state = transferred.StepStateOf("carry").ToString(),
+            contacts = contacts.Count(c => c.AbilityId == definition.Id && c.TargetId == id),
+            tile = new { exitTile.Type.id, exitTile.Height, exitTile.Type.block, exitTile.Type.liquid,
+                exitTile.Type.lava, exitTile.Type.damage_units, building = exitTile.hasBuilding() }
+        });
+    var receipts = new List<ConstructionWorldReceipt>();
+    Check(transferred.AppendStepReceipts("carry", receipts) == 1, "同一步骤只有真实到达回执");
+    await Advance(.8f);
+    Check(Vector2.Distance(passenger.current_position, (Vector2)arrival.Position) < .1f, "旧控制不把原人物拖回入口");
+    var reuse = await Open(false, false);
+    Check(reuse.TryGetOutput("carry", "transferred", out var second) && second.Receipt.Targets.Single() == id,
+        "收势后双门能再次搬运同一个人物");
+    await Advance(.8f);
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, passenger = id };
+}
+finally
+{
+    exitTile.Height = 140;
+    exitTile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

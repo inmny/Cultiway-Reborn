@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""复验生成形体的双门转移与实际出口接触。"""
+"""复验生成形体及生灵的双门转移。"""
 import argparse
 import os
 from pathlib import Path
@@ -10,7 +10,7 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('core', 'runtime', 'all'), default='all')
+    parser.add_argument('--section', choices=('core', 'runtime', 'all', 'actor', 'actor-clear'), default='all')
     section = parser.parse_args().section
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过 dev.py exec 运行')
@@ -24,7 +24,7 @@ def main():
                               'Path.Combine(Environment.GetEnvironmentVariable("CULTIWAY_DEV_OUTPUT"), "spatial-mapping", "' + section + '")')
     helpers = helpers.replace('Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")', 'Path.Combine(folder, "input-world")')
     helpers = helpers.replace('test.body-footwork.', 'test.spatial-mapping.')
-    body = Path(__file__).with_suffix('.script').read_text()
+    body = Path(__file__).with_name('verify_spatial_mapping_actor.script').read_text() if section.startswith('actor') else Path(__file__).with_suffix('.script').read_text()
     script = folder / 'input.script'
     script.write_text(helpers + '\nconst string section = "' + section + '";\n' + body)
     try:
