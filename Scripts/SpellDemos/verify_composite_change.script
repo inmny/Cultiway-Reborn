@@ -1,0 +1,155 @@
+const string spellId = "test.composite-change.ice-edge";
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+var access = ConstructionEditing.Access;
+var saves = Cultiway.ModClass.I.WorldSaves;
+var departures = new List<WorldMaterialChange>();
+var poses = new List<object>();
+void MaterialChanged(WorldMaterialChange change)
+{
+    if (change.AbilityId == spellId && change.Kind == "leave") departures.Add(change);
+}
+IEnumerable<object> Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Where(row => ((AbilityCast)Field(row, "Cast")).Plan.Id == spellId);
+JObject Archive() => JObject.Parse(saves.World.Capture(World.world, "composite-change"))["sections"] as JObject;
+JToken[] Rows(long provider) => ((JArray)Archive()["world_materials"]["data"]["Records"])
+    .Where(row => (long)row["Provider"] == provider).ToArray();
+JObject StableDefinition(AbilityDefinition value) => JObject.Parse(JsonConvert.SerializeObject(value, Cultiway.Core.Persistence.StableSaveJson.Settings));
+void Write(string name, object value) => File.WriteAllText(Path.Combine(folder, name), JsonConvert.SerializeObject(value, Formatting.Indented));
+object Point(Vector3 value) => new { value.x, value.y, value.z };
+FormVisualInstance Observe(AbilityCast cast, string phase)
+{
+    var visuals = new List<FormVisualInstance>();
+    cast.AppendVisuals(visuals);
+    var sword = visuals.Single(visual => visual.Resource.Description.Id == "sword");
+    poses.Add(new { phase, cast.Age, position = Point(sword.Transform.GetColumn(3)), sword.Matter.Id, sword.Matter.State, sword.MatterSurface });
+    Write("poses.json", poses);
+    return sword;
+}
+ConstructionOutputValue Output(AbilityCast cast, string step, string output, ConstructionOutputStage stage = ConstructionOutputStage.Auto)
+{
+    Check(cast.TryGetOutput(step, output, out var value, stage), $"实际输出：{step}/{output}", new
+    {
+        value.Node, value.Parent, value.Authority, value.At, value.Volume, value.Resource,
+        matter = value.Matter?.Id, position = Point(value.Position)
+    });
+    return value;
+}
+
+WorldMaterialService.Changed += MaterialChanged;
+try
+{
+    Actor source, target;
+    AbilityDefinition definition;
+    if (reload)
+    {
+        var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "expected.json")));
+        Check(process != (int)expected["process"], "在另一游戏进程正式读取");
+        World.world.save_manager.loadWorld(Path.Combine(folder, "saved-world"));
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        source = World.world.units.get((long)expected["sourceId"]);
+        target = World.world.units.get((long)expected["targetId"]);
+        definition = access.Read(spellId);
+        Check(source != null && target != null && definition != null && ConstructedAbilityService.Knows(source.GetExtend(), spellId) &&
+            JToken.DeepEquals(expected["definition"], StableDefinition(definition)), "原人物、定义、学习关系和全部命名引用读回一致");
+        var restored = Rows(source.id).Single();
+        foreach (string key in new[] { "Id", "Lineage", "Identity", "Provider", "Material" })
+            Check(JToken.DeepEquals(expected["material"][key], restored[key]), "最终世界材料保留 " + key);
+        Check(!Running().Any() && departures.Count == 0, "结束后的结果保留，活动操作和留置回执不重播");
+        CombatStatusEffects.ApplyStatus(target, hold, 10000, target);
+    }
+    else
+    {
+        definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+        source = Make(64);
+        target = Make(73, "wolf");
+        var initial = source.GetExtend();
+        initial.NewCultisys(Cultisyses.Xian);
+        initial.GetCultisys<Xian>().level = 2;
+    }
+    var owner = source.GetExtend();
+    Ready(source);
+    await Advance(.15f);
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+    async Task<(long Id, AbilityCast Cast)> Start()
+    {
+        Place(source, 64); Place(target, 73);
+        ConstructedAbilityService.NotifyActorChanged(source); ConstructedAbilityService.NotifyActorChanged(target);
+        owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+        float before = owner.GetCultisys<Xian>().wakan;
+        await Fire(definition, source, target);
+        float paid = before - owner.GetCultisys<Xian>().wakan;
+        Check(Mathf.Abs(paid - definition.Cost) < .05f, "正式施放只支付一次", new { paid, definition.Cost });
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        object instance = Running().Single();
+        return ((long)Field(instance, "Id"), (AbilityCast)Field(instance, "Cast"));
+    }
+
+    int health = target.data.health;
+    if (checkInterruption)
+    {
+        var interrupted = await Start();
+        await Advance(.34f);
+        var mid = Observe(interrupted.Cast, "汇入中断前");
+        var connection = Output(interrupted.Cast, "assemble", "connection", ConstructionOutputStage.Started);
+        Check(interrupted.Cast.StepStateOf("assemble") == ConstructionStepState.Running && mid.Matter.Id == "iron" &&
+            connection.Parent >= 0 && !interrupted.Cast.TryGetOutput("freeze", "converted", out _), "汇入中仍附着，尚未换材");
+        service.GetMethod("Cancel", F).Invoke(null, new object[] { interrupted.Id });
+        await Advance(.4f);
+        Check(!Running().Any() && !interrupted.Cast.TryGetOutput("release", "released", out _) && departures.Count == 0 &&
+            !Rows(source.id).Any() && health == target.data.health, "途中撤销不换材、不释放、不命中、不留置");
+    }
+
+    var active = await Start();
+    await Advance(.34f);
+    var iron = Observe(active.Cast, "汇入中");
+    Check(iron.Matter.Id == "iron" && active.Cast.StepStateOf("throw") == ConstructionStepState.Waiting && target.data.health == health,
+        "等待真实聚合完成期间仍是铁剑，尚未发射");
+    await Advance(.43f);
+    var ice = Observe(active.Cast, "聚合完成后已凝冰");
+    var assembled = Output(active.Cast, "assemble", "connection", ConstructionOutputStage.Completed);
+    var frozen = Output(active.Cast, "freeze", "converted");
+    Check(assembled.Node == 2 && assembled.Parent == 1 && frozen.Parent == assembled.Parent && frozen.Node == assembled.Node &&
+        ice.Matter.Id == "ice" && frozen.Matter.Id == "ice" && assembled.Authority == frozen.Authority && frozen.At >= assembled.At &&
+        ice.Transform.m13 < iron.Transform.m13 - .4f && !active.Cast.TryGetOutput("release", "released", out _),
+        "三级结构的里层原件汇入直接父体，完成后换材，原归属和连接保留到预定释放");
+    await Advance(1.02f);
+    var air = Observe(active.Cast, "原剑离体后");
+    var released = Output(active.Cast, "release", "released");
+    var launched = Output(active.Cast, "throw", "part");
+    var hits = contacts.Where(hit => hit.Node == assembled.Node && hit.SourceId == source.id && hit.TargetId == target.id).ToArray();
+    Check(released.Parent == -1 && launched.Parent == -1 && launched.Node == assembled.Node && launched.Authority == assembled.Authority &&
+        released.At >= frozen.At && launched.At >= released.At && air.Matter.Id == "ice" && air.Transform.m03 > ice.Transform.m03 + 4 &&
+        hits.Length == 1 && hits[0].MatterBefore == "ice" && target.data.health < health,
+        "实际连接被消耗，原部件飞行并以冰材命中，显示、部件编号和伤害来源一致",
+        new { before = health, after = target.data.health, hits = hits.Select(hit => new { hit.Age, hit.Node, hit.SourceId, hit.MatterBefore, at = Point(hit.Position) }) });
+    await Advance(1.4f);
+    var transferred = Output(active.Cast, "leave", "transferred");
+    var leave = departures.Single(change => change.CastId == active.Id);
+    var material = Rows(source.id).Single(row => (long)row["Id"] == leave.Id);
+    // 实际命中已消耗可返还份额，留置不能再次带出这笔真元。
+    var receipt = transferred.Receipt;
+    bool finished = !Running().Any() && endings.Any(end => end.Fact.AbilityId == spellId && !end.Fact.Cancelled);
+    Check(leave.Provider == source.id && transferred.Node == assembled.Node && transferred.Authority == assembled.Authority &&
+        (string)material["Material"]["Matter"] == "ice" && Math.Abs((double)material["Material"]["Volume"] - frozen.Volume) < .001 &&
+        receipt != null && receipt.Materials.SequenceEqual(new[] { leave.Id }) && Math.Abs(receipt.Volume - frozen.Volume) < .001 &&
+        frozen.Resource > 0 && receipt.Resource == 0 && (double)material["Material"]["Resource"] == 0 && finished,
+        "实际留置保留原施术者和完整材料量，命中用掉的真元不能再返还，活动部位自然退出",
+        new { leave.Id, leave.Provider, beforeVolume = frozen.Volume, volume = receipt?.Volume,
+            beforeResource = frozen.Resource, resource = receipt?.Resource, finished });
+    ConstructedAbilityService.Learn(owner, spellId);
+    if (!reload)
+    {
+        SaveManager.saveWorldToDirectory(Path.Combine(folder, "save"));
+        Write("expected.json", new { process, sourceId = source.id, targetId = target.id, definition = StableDefinition(access.Read(spellId)), material });
+    }
+    return new { passed = true, process, materialId = leave.Id, sourceId = source.id, checks };
+}
+finally
+{
+    WorldMaterialService.Changed -= MaterialChanged;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false); Config.paused = true;
+}

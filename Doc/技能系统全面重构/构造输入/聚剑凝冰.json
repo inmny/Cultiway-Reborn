@@ -1,0 +1,30 @@
+{
+  "Version": 1,
+  "Id": "test.composite-change.ice-edge",
+  "Name": "聚剑凝冰",
+  "Resource": "wakan",
+  "Cost": 6,
+  "Cooldown": 0.2,
+  "Lifetime": 2.8,
+  "Power": 2.0,
+  "TargetRange": 24,
+  "Binding": {"Anchor": "Source", "Height": 0.45},
+  "Root": {"Id": "base", "Form": "pivot", "ContactRole": "Decoration", "Children": [
+    {"Id": "mount", "Form": "pivot", "ContactRole": "Decoration", "Offset": [3, 0, 0], "Children": [
+      {"Id": "edge", "Form": "sword", "Matter": "iron", "Volume": 4, "Offset": [0, 3, 0], "ActiveFrom": 0.9}
+    ]}
+  ]},
+  "Steps": [
+    {"Id": "assemble", "Operation": {"Kind": "Gather", "At": 0.15, "Seconds": 0.5, "Vector": [0, 0, 0]},
+     "Inputs": {"part": {"Node": "root/mount/edge"}, "parent": {"Node": "root/mount"}}},
+    {"Id": "freeze", "Operation": {"Kind": "ConvertMatter", "Matter": "ice"},
+     "Inputs": {"part": {"Step": "assemble", "Output": "part"}, "after": {"Step": "assemble", "Output": "gathering"}}},
+    {"Id": "release", "Operation": {"Kind": "Detach", "At": 0.9},
+     "Inputs": {"part": {"Step": "assemble", "Output": "part"}, "connection": {"Step": "assemble", "Output": "connection", "Stage": "Completed"},
+                "after": {"Step": "freeze", "Output": "converted"}}},
+    {"Id": "throw", "Operation": {"Kind": "Fly", "Vector": [7, 0, 0], "WorldVelocity": true, "InheritVelocity": false},
+     "Inputs": {"part": {"Step": "release", "Output": "part"}, "after": {"Step": "release", "Output": "released"}}},
+    {"Id": "leave", "Operation": {"Kind": "Leave", "At": 2.25, "Residue": {"Lifetime": 20}},
+     "Inputs": {"part": {"Step": "throw", "Output": "part"}, "after": {"Step": "release", "Output": "released"}}}
+  ]
+}
