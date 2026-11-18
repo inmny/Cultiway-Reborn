@@ -87,6 +87,7 @@ public sealed partial class AbilityCast
             float transferred = fracture.Active[part] ? activeLeft == 1 ? remaining : share : 0f;
             if (fracture.Active[part]) { remaining = Mathf.Max(0f, remaining - transferred); activeLeft--; }
             piece.Force = piece.InitialForce = transferred;
+            piece.Guarded = false;
             piece.Volume = source.Volume / fracture.Pieces.Length;
             piece.Burning = source.Burning;
             piece.Burning.Retain(1d / fracture.Pieces.Length);

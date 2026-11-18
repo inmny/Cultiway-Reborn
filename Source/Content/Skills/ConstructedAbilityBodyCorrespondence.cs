@@ -92,7 +92,7 @@ public sealed partial class ConstructedAbilityService
         Actor receiver = CorrespondenceReceiver(image.Running, image.To.Node);
         if (!running.BodyControlled || receiver == null || !CorrespondenceAllows(attack, image)) return;
         long leftOwner = hit.Left.Running.Owner(hit.Left.To.Node).Id, rightOwner = hit.Right.Value.Running.Owner(hit.Right.Value.To.Node).Id;
-        float force = BodyCorrespondenceForce(running), imageBefore = image.Running.Cast.RemainingForce(image.To.Node);
+        float force = BodyCorrespondenceForce(running) * running.BodyStrikeScale(running.Cast.BodyStage), imageBefore = image.Running.Cast.RemainingForce(image.To.Node);
         float consumed = Mathf.Min(force, imageBefore);
         if (consumed <= 0f) return;
         running.Cast.ConfirmClash(-1, hit.Point, consumed);

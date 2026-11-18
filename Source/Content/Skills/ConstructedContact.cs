@@ -354,6 +354,12 @@ public readonly struct ConstructedClash
     /// <summary>真实作用面位置及从左指向右的方向。</summary>
     public readonly Vector3 Position, Normal;
 
+    /// <summary>非零时右侧是真实格挡面，指向实际受理的来招方向。</summary>
+    public readonly Vector3 GuardFacing;
+
+    /// <summary>右侧实际格挡形状索引；普通交锋为负一。</summary>
+    public readonly int GuardShape;
+
     /// <summary>实际确认交锋的共同世界时点。</summary>
     public readonly double WorldTime;
 
@@ -389,11 +395,13 @@ public readonly struct ConstructedClash
     /// <param name="leftOriginal">左原来源。</param><param name="rightOriginal">右原来源。</param>
     /// <param name="leftSpent">左实际消耗。</param><param name="rightSpent">右实际消耗。</param>
     /// <param name="leftPresent">左部位仍在。</param><param name="rightPresent">右部位仍在。</param>
+    /// <param name="guardFacing">右侧真实格挡面朝向。</param><param name="guardShape">真实格挡形状索引。</param>
     internal ConstructedClash(long leftCast, long rightCast, long leftSource, long rightSource, int leftNode,
         int rightNode,
         Vector3 position, Vector3 normal, double time, float leftAge, float rightAge, float absorbed,
         float leftRemaining, float rightRemaining, long leftOriginal, long rightOriginal,
-        float leftSpent, float rightSpent, bool leftPresent, bool rightPresent)
+        float leftSpent, float rightSpent, bool leftPresent, bool rightPresent,
+        Vector3 guardFacing = default, int guardShape = -1)
     {
         LeftCast = leftCast;
         RightCast = rightCast;
@@ -403,6 +411,8 @@ public readonly struct ConstructedClash
         RightNode = rightNode;
         Position = position;
         Normal = normal;
+        GuardFacing = guardFacing;
+        GuardShape = guardShape;
         WorldTime = time;
         LeftOriginalSource = leftOriginal;
         RightOriginalSource = rightOriginal;

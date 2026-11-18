@@ -71,6 +71,10 @@ public sealed class BodyActionDefinition
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public BodyForceResponse ForceResponse;
 
+    /// <summary>实际手面或持物面拦截来招；空值只执行原动作。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public BodyGuardDefinition Guard;
+
     /// <summary>实际攻击结果选择的收势规则；空值保留原有动作过程。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public BodyResultResponse[] Responses;
@@ -700,6 +704,7 @@ public sealed partial class CompiledBodyAction
         if ((Construction.HasFootwork || keys.Any(key => key.Heading != 0f)) && !HasSupportMotion)
             throw new InvalidDataException("Body/Keys/Support：移动和整身转向须提供同刻足底及接地过程");
 
+        Guard = new CompiledBodyGuard(definition.Guard, !Part.HasPartRotation && Part.Contact == BodyContactPart.Hand);
         MatchDistance = definition.MatchDistance;
         if (Part.HasPartRotation && MatchDistance)
             throw new InvalidDataException("Body/MatchDistance：当前独立器官仍使用实际根部转角，不能静默伸缩到目标");

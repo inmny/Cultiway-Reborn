@@ -241,7 +241,7 @@ public sealed class CompiledAbility
             .DefaultIfEmpty(0f).Max();
         ContactImpairment = impacts.Select(impact => Math.Max(impact.StrainSeconds, impact.ExposureSeconds))
             .DefaultIfEmpty(0f).Max();
-        HasBarrier = nodes.Any(node => node.ContactRole == ConstructionContactRole.Barrier);
+        HasBarrier = body?.Guard.Enabled == true || nodes.Any(node => node.ContactRole == ConstructionContactRole.Barrier);
         HasWorldMaterials = nodes.Any(node =>
             node.Residue != null || node.Conduction != null || node.EventOperations.Any(op => op.Conduction != null) ||
             node.Recovery?.WorldMaterials == true ||

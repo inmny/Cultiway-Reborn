@@ -1303,19 +1303,28 @@ public sealed partial class AbilityCast
         origin = savedOrigin;
     }
 
-    /// <summary>部位的明确作用用途；实际身体仍由借用方结算正常近战。</summary>
+    /// <summary>部位的明确作用用途；主动架挡的身体不作为额外攻击面。</summary>
     /// <param name="node">展开部位，负一为身体。</param>
     internal ConstructionContactRole Role(int node) =>
-        node < 0 ? ConstructionContactRole.Attack : Plan.Nodes[node].ContactRole;
+        node >= 0 ? Plan.Nodes[node].ContactRole : Plan.Body.Guard.Enabled
+            ? ConstructionContactRole.Barrier : ConstructionContactRole.Attack;
 
     /// <summary>实际人物接触资格与防御角色分别判断。</summary>
     /// <param name="node">展开部位，负一为身体。</param>
-    internal bool AffectsActors(int node) => node < 0 || Plan.Nodes[node].AffectsActors;
+    internal bool AffectsActors(int node) => node < 0 ? !Plan.Body.Guard.Enabled : Plan.Nodes[node].AffectsActors;
 
     /// <summary>按明确规则取得伤害强度，不改变实际交锋容量。</summary>
     /// <param name="node">生成部位。</param>
-    internal float DamageForce(int node) => Impact(node).DamageBasis == ConstructionDamageBasis.InitialForce
+    internal float DamageForce(int node) => Impact(node).DamageBasis == ConstructionDamageBasis.InitialForce && !nodes[node].Guarded
         ? nodes[node].InitialForce : nodes[node].Force;
+
+    /// <summary>真正穿过身体格挡的来招至多按格挡后剩下的力度打到人物。</summary>
+    /// <param name="node">被拦截的生成部位。</param><param name="amount">本次实际消耗。</param>
+    internal void ConsumeForceAtBodyGuard(int node, float amount)
+    {
+        nodes[node].Guarded = true;
+        ConsumeForce(node, amount);
+    }
 
     /// <summary>相互消耗后仍可继续传递的实际作用量。</summary>
     /// <param name="node">生成部位。</param>
@@ -1563,6 +1572,9 @@ public sealed partial class AbilityCast
     /// <summary>一个独立形体的必要可变状态。</summary>
     private struct NodeState
     {
+        /// <summary>实际格挡已限制本部位能传递给人物的作用量。</summary>
+        internal bool Guarded;
+
         /// <summary>当前侵蚀操作的身份，替换不复用旧过程。</summary>
         internal CompiledEventOperation ErosionOperation;
         /// <summary>当前过程的固定历时与投入份额。</summary>

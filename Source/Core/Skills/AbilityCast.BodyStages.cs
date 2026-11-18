@@ -65,7 +65,7 @@ public sealed partial class AbilityCast
     }
 
     /// <summary>耗尽只停止本次身体作用，支撑、控制和连续姿态仍运行至实际结束。</summary>
-    private void ExhaustBodyStage()
+    internal void ExhaustBodyStage()
     {
         exhaustedBodyStage = bodyStage;
         BodyContactRevision++;
