@@ -119,5 +119,13 @@
   "Cultiway.ConstructionText.CorrespondenceWindow": "部位出现后 {0:0.##} 至 {1:0.##} 秒有效。",
   "Cultiway.ConstructionText.CorrespondenceOpen": "部位出现后 {0:0.##} 秒起有效，随部位结束。",
   "Cultiway.ConstructionText.CorrespondenceNoExtras": "无",
-  "Cultiway.ConstructionText.Change.Correspondence": "映像传递"
+  "Cultiway.ConstructionText.Change.Correspondence": "映像传递",
+  "Cultiway.ConstructionText.Change.MapSpace": "形体过门",
+  "Cultiway.ConstructionText.Change.MapActor": "生灵过门",
+  "Cultiway.ConstructionText.Change.MapArtifact": "法宝过门",
+  "Cultiway.ConstructionText.Mapping.MapSpace": "让生成形体从半径{0:0.##}的入口转移",
+  "Cultiway.ConstructionText.Mapping.MapActor": "搬运接触半径{0:0.##}入口的生灵",
+  "Cultiway.ConstructionText.Mapping.MapArtifact": "从半径{0:0.##}的入口搬运原法宝",
+  "Cultiway.ConstructionText.MappingCapacity": "最多{0}名实际通行。",
+  "Cultiway.ConstructionText.MappingWait": "入口最多暂存{0:0.##}秒。"
 }

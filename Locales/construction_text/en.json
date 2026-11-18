@@ -119,5 +119,13 @@
   "Cultiway.ConstructionText.CorrespondenceWindow": "Active from {0:0.##} to {1:0.##}s after the part appears.",
   "Cultiway.ConstructionText.CorrespondenceOpen": "Active from {0:0.##}s after the part appears until it ends.",
   "Cultiway.ConstructionText.CorrespondenceNoExtras": "none",
-  "Cultiway.ConstructionText.Change.Correspondence": "Image link"
+  "Cultiway.ConstructionText.Change.Correspondence": "Image link",
+  "Cultiway.ConstructionText.Change.MapSpace": "Created form transfer",
+  "Cultiway.ConstructionText.Change.MapActor": "Actor transfer",
+  "Cultiway.ConstructionText.Change.MapArtifact": "Borrowed artifact transfer",
+  "Cultiway.ConstructionText.Mapping.MapSpace": "transfer a created form through a gate of radius {0:0.##}",
+  "Cultiway.ConstructionText.Mapping.MapActor": "transfer actors contacting a gate of radius {0:0.##}",
+  "Cultiway.ConstructionText.Mapping.MapArtifact": "move the borrowed artifact through a gate of radius {0:0.##}",
+  "Cultiway.ConstructionText.MappingCapacity": "Up to {0} successful arrivals.",
+  "Cultiway.ConstructionText.MappingWait": "Wait at the entrance for at most {0:0.##} seconds."
 }

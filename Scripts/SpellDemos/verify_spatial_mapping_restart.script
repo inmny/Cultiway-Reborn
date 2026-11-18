@@ -1,0 +1,79 @@
+// 以不同游戏进程打开含原规则29与新规则30请求的正式世界。
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "pending-expected.json")));
+var old = JObject.Parse(File.ReadAllText(Path.Combine(folder, "rule29.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check(process != (int)expected["process"], "实际退出并换到新进程");
+JObject Complete(AbilityDefinition definition) { var result = JObject.FromObject(definition); result.Remove("Id"); return result; }
+var access = ConstructionEditing.Access;
+var saves = Cultiway.ModClass.I.WorldSaves;
+long sourceId = (long)expected["sourceId"], legacyId = (long)expected["legacyId"], targetId = (long)expected["targetId"];
+int known = (int)expected["known"] + 1, oldKnown = (int)expected["oldKnown"] + 1;
+Actor Loaded(long id) => World.world.units.get(id) ?? throw new InvalidOperationException("正式世界缺少人物 " + id);
+async Task Load(string path)
+{
+    World.world.save_manager.loadWorld(Path.Combine(folder, path));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+var current = expected["derived"].ToObject<AbilityDefinition>();
+var historical = old["expected"].ToObject<AbilityDefinition>();
+try
+{
+    await Load("pending-save");
+    var source = Loaded(sourceId); var legacy = Loaded(legacyId); var target = Loaded(targetId);
+    var owner = source.GetExtend(); var previous = legacy.GetExtend();
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    var oldPending = previous.GetComponent<ConstructedCreationState>();
+    Check(pending.Inspiration.Rules == 30 && oldPending.Inspiration.Rules == 29 && saves.LastReport.Skipped.Count == 0 &&
+        saves.LastReport.Upgraded >= 1 && saves.LastReport.BackupError == null, "正式世界读取两代规则，旧区段实际升级且无内容丢失");
+    var restored = JObject.Parse(saves.Actors.Capture(owner, "restored-mapping"))["sections"]["ability_creation"];
+    bool sameSource = JToken.DeepEquals(restored["data"]["Source"], expected["frozenState"]["data"]["Source"]);
+    bool sameResources = JToken.DeepEquals(restored["data"]["Resources"], expected["frozenState"]["data"]["Resources"]);
+    AbilityDefinition Seen(ActorExtend person, ConstructedCreationState state) => state.Pending
+        ? ConstructedAbilityService.Generate(person, state.Seed, state.Inspiration, state.Source, state.Resources)
+        : access.Read(state.LastAbility);
+    var currentSeen = Seen(owner, pending); var oldSeen = Seen(previous, oldPending);
+    bool newMatches = currentSeen != null && JToken.DeepEquals(Complete(currentSeen), Complete(current));
+    bool oldMatches = oldSeen != null && JToken.DeepEquals(Complete(oldSeen), Complete(historical));
+    if (!newMatches || !oldMatches || pending.Pending && (!sameSource || !sameResources))
+        File.WriteAllText(Path.Combine(folder, "restored-observed.json"), JsonConvert.SerializeObject(new
+        { restored, currentSeen, oldSeen, pending.LastFailure, oldFailure = oldPending.LastFailure }, Formatting.Indented));
+    Check((!pending.Pending || sameSource && sameResources) && newMatches && oldMatches,
+        "冷启动恢复冻结原术、目录与两份完整结果，旧费用保持",
+        new { pending = pending.Pending, oldPending = oldPending.Pending, sameSource, sameResources, newMatches, oldMatches });
+    await Advance(.24f);
+    var completed = owner.GetComponent<ConstructedCreationState>(); var before = previous.GetComponent<ConstructedCreationState>();
+    string learnedId = completed.LastAbility, oldId = before.LastAbility;
+    var learned = access.Read(learnedId); var oldLearned = access.Read(oldId);
+    Check(!completed.Pending && !before.Pending && completed.LastFailure == null && before.LastFailure == null &&
+        JToken.DeepEquals(Complete(learned), Complete(current)) && JToken.DeepEquals(Complete(oldLearned), Complete(historical)) &&
+        access.List(owner).Count == known && access.List(previous).Count == oldKnown,
+        "两笔等待各授予一次，完整结果与预计一致");
+
+    Ready(source); await Advance(.12f); Place(source, 64); Place(target, 72);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    float paid = owner.GetCultisys<Xian>().wakan;
+    await Fire(learned, source, target);
+    Check(Math.Abs(paid - owner.GetCultisys<Xian>().wakan - learned.Cost) < .002f, "正式学到的双门术按实际费用施放");
+    var live = (IEnumerable)service.GetField("casts", F).GetValue(null);
+    AbilityCast cast = live.Cast<object>().Select(r => (AbilityCast)Field(r, "Cast")).Single(c => c.Plan.Id == learned.Id);
+    await Advance(.34f);
+    string step = learned.Steps.Single(s => s.Operation.Kind == ConstructionOperationKind.MapSpace).Id;
+    Check(cast.TryGetOutput(step, "transferred", out var arrival) && cast.StepStateOf(step) == ConstructionStepState.Completed,
+        "学会的双门在实际施放中产生出口位置", new { position = arrival.Position.ToString(), learned.Cost });
+    await Advance(1.2f);
+    Check(endings.Any(end => end.Fact.AbilityId == learnedId), "付费施放正常结束");
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+    await Load("completed-save"); await Advance(.2f);
+    owner = Loaded(sourceId).GetExtend(); previous = Loaded(legacyId).GetExtend();
+    Check(owner.GetComponent<ConstructedCreationState>().LastAbility == learnedId && previous.GetComponent<ConstructedCreationState>().LastAbility == oldId &&
+        access.List(owner).Count == known && access.List(previous).Count == oldKnown &&
+        JToken.DeepEquals(Complete(access.Read(learnedId)), Complete(current)), "正式重存后两个请求不重复授予，新双门术仍可读取");
+    return new { passed = true, process, learnedId, oldId };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

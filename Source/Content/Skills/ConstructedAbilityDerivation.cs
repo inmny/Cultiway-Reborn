@@ -47,6 +47,11 @@ public sealed partial class ConstructedAbilityService
         var random = new Random(seed);
         var choices = new List<(string Name, Func<AbilityDefinition> Apply)>();
         ConstructionNode[] nodes = DerivationNodes(draft.Root).ToArray();
+        if (inspiration.Rules >= 30)
+            foreach (var kind in MappingChoices(draft, plan))
+                choices.Add((kind == ConstructionOperationKind.MapArtifact ? "法宝过门" :
+                    kind == ConstructionOperationKind.MapActor ? "生灵过门" : "形体过门",
+                    () => VaryMapping(draft, plan, kind, resources, random)));
         if (inspiration.Rules >= 29)
         {
             var correspondenceSites = CorrespondenceSites(draft, plan);

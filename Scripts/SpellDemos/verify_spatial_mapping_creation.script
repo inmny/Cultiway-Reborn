@@ -1,0 +1,85 @@
+// 5.15 C2：以同一人物承接自主创作，写真实尚未执行的正式存档。
+Actor legacy = Make(60), source = Make(64), target = Make(72);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var inspiration = ConstructedAbilityService.ReadInspiration(owner);
+var capture = service.GetMethod("CaptureCreationResources", F);
+SynthesisResources Capture(int seed) => (SynthesisResources)capture.Invoke(null, new object[] { owner, seed, inspiration });
+JObject Complete(AbilityDefinition definition) { var result = JObject.FromObject(definition); result.Remove("Id"); return result; }
+void Write(string filename, object data) => File.WriteAllText(Path.Combine(folder, filename), JsonConvert.SerializeObject(data, Formatting.Indented));
+ConstructionNode Root() => new() { Id = "root", Form = "sword", Matter = "iron", Scale = .8f,
+    Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0f, 30f } } } };
+var basis = new AbilityDefinition { Id = "test.spatial-mapping.creation-basis", Name = "飞剑原术", Cost = 2f, Power = 2f,
+    Lifetime = 1.15f, Cooldown = .1f, TargetRange = 15f, Resource = "wakan",
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = .26f }, Root = Root(),
+    Steps = new[] { new ConstructionStep { Id = "original", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Ready },
+        Inputs = new() { ["part"] = new() { Node = "root" } } } } };
+var carrier = ConstructionEditing.Copy(basis); carrier.Id += ".carrier";
+carrier.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Carrier, Follow = true };
+var original = JObject.FromObject(basis);
+AbilityDefinition derived = null, artifact = null;
+var independent = new Dictionary<ConstructionOperationKind, AbilityDefinition>();
+var rejected = new List<string>();
+try
+{
+    Check(inspiration.Rules == 30, "当前自然请求使用规则30");
+    for (int seed = 0; seed < 180 && (independent.Count < 2 || derived == null || artifact == null); seed++)
+    {
+        var frozen = Capture(seed);
+        if (independent.Count < 2)
+        {
+            AbilityDefinition candidate = null;
+            try { candidate = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: frozen); }
+            catch (InvalidDataException error) { rejected.Add(seed + ": " + error.Message); }
+            var kind = candidate?.Steps.FirstOrDefault(s => s.Operation.Kind is ConstructionOperationKind.MapActor or ConstructionOperationKind.MapSpace)?.Operation.Kind;
+            if (kind.HasValue && !independent.ContainsKey(kind.Value))
+            {
+                independent[kind.Value] = candidate;
+                Check(JToken.DeepEquals(Complete(candidate), Complete(ConstructedAbilityService.Generate(owner, seed, inspiration,
+                    resources: JObject.FromObject(frozen).ToObject<SynthesisResources>()))), "独立双门冻存目录可复现完整结果", new { seed, kind });
+            }
+        }
+        if (derived == null)
+        {
+            var candidate = ConstructedAbilityService.Generate(owner, seed, inspiration, basis, frozen);
+            if (candidate.Parent.Change == "形体过门") derived = candidate;
+        }
+        if (artifact == null)
+        {
+            var candidate = ConstructedAbilityService.Generate(owner, seed, inspiration, carrier, frozen);
+            if (candidate.Parent.Change == "法宝过门") artifact = candidate;
+        }
+        if (seed % 12 == 0) await Game.NextFrame();
+    }
+    Write("rejected-inputs.json", rejected);
+    Check(independent.Count == 2 && derived != null && artifact != null && JToken.DeepEquals(original, JObject.FromObject(basis)) &&
+        JToken.DeepEquals(JArray.FromObject(derived.Root.Operations), JArray.FromObject(basis.Root.Operations)) &&
+        JToken.DeepEquals(JObject.FromObject(derived.Steps.First()), JObject.FromObject(basis.Steps.First())) &&
+        artifact.Steps.Last().Inputs["part"].Node == "root", "两类独立创作和法宝衍生可用，原术原动作和原步骤保持",
+        new { independent = independent.Values.Select(d => d.Seed), derived = derived?.Seed, artifact = artifact?.Seed });
+    var meter = AbilityCompiler.Compile(derived, false).Measure;
+    var oldQuote = ConstructionPricing.Price(ConstructionEditing.Copy(derived), contactRules: 29);
+    var newQuote = ConstructionPricing.Price(ConstructionEditing.Copy(derived), contactRules: 30);
+    Check(meter.SpatialMappingWork > 0 && Math.Abs(newQuote.Calculation.Demand - oldQuote.Calculation.Demand - meter.SpatialMappingWork) < .001d,
+        "三十版计算转移需求，二十九版不补收", meter.SpatialMappingWork);
+    Write("independent-forms.json", independent); Write("borrowed-derivation.json", artifact);
+    ConstructedAbilityService.Register(basis); ConstructedAbilityService.Learn(owner, basis.Id);
+    Check(ConstructedAbilityService.TryQueueCreation(owner, derived.Seed, basis.Id), "正式队列受理人物已学原术");
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    var envelope = JObject.Parse(Cultiway.ModClass.I.WorldSaves.Actors.Capture(owner, "mapping-creation"));
+    var frozenState = envelope["sections"]["ability_creation"];
+    Check((int)frozenState["version"] == 31 && pending.Inspiration.Rules == 30 && pending.Pending &&
+        JToken.DeepEquals(Complete(derived), Complete(ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources))),
+        "正式31区段冻结规则30的门形、原术和费用");
+    Write("pending-expected.json", new { sourceId = source.id, legacyId = legacy.id, targetId = target.id,
+        derived, frozenState, known = ConstructionEditing.Access.List(owner).Count, oldKnown = ConstructionEditing.Access.List(legacy.GetExtend()).Count,
+        process = System.Diagnostics.Process.GetCurrentProcess().Id });
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "pending-save"));
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, derived.Seed };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

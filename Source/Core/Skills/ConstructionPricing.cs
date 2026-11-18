@@ -64,6 +64,9 @@ public sealed class ConstructionMeasure
     /// <summary>真实部位承载映像传递的额外需求，第二十九版起计入。</summary>
     public double CorrespondenceWork { get; }
 
+    /// <summary>门的半径、门距和真实通行上限带来的需求，独立于生成材料费用。</summary>
+    public double SpatialMappingWork { get; }
+
     /// <summary>按当前规模给出的默认恢复世界秒数；不替代真实身体收势。</summary>
     public float DefaultCooldown { get; }
 
@@ -246,6 +249,23 @@ public sealed class ConstructionMeasure
             }
         }
 
+        foreach (var step in plan.Steps)
+        {
+            if (step.MappingEntrance < 0) continue;
+            double meters = Vector3.Distance(layouts[step.MappingEntrance].GetColumn(3), layouts[step.MappingExit].GetColumn(3));
+            if (step.Action.Kind == ConstructionOperationKind.MapActor)
+            {
+                var mapping = ((float Radius, int? Capacity, float Wait))step.Action.Parameters;
+                SpatialMappingWork += mapping.Radius * mapping.Radius * .08d +
+                                      (mapping.Capacity ?? 1) * (.3d + meters * .2d + mapping.Wait * .22d);
+            }
+            else
+            {
+                var radius = (float)step.Action.Parameters;
+                SpatialMappingWork += radius * radius * .08d + .3d + meters * .2d;
+            }
+        }
+
         foreach (var group in groups)
         {
             double repeat = Repeat(plan.ContactPolicies[group.Key], group.Value.Until - group.Value.From);
@@ -386,7 +406,7 @@ public static class ConstructionPricing
         (rules >= 12 ? measure.ContactEffectsWork : 0d) + (rules >= 13 ? measure.ContactDisplacementWork : 0d) +
         (rules >= 14 ? measure.ContactResultsWork : 0d) + (rules >= 15 ? measure.ContactSpreadWork : 0d) +
         (rules >= 19 ? measure.RadialMotionWork : 0d) + (rules >= 28 ? measure.ErosionWork : 0d) +
-        (rules >= 29 ? measure.CorrespondenceWork : 0d);
+        (rules >= 29 ? measure.CorrespondenceWork : 0d) + (rules >= 30 ? measure.SpatialMappingWork : 0d);
 
     /// <summary>以当前实际构造计算新创作的默认费用与恢复时间。</summary>
     /// <param name="definition">本次独占的新创作。</param><param name="cost">是否补费用。</param><param name="cooldown">是否补恢复时间。</param>
