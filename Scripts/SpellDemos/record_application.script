@@ -1,0 +1,99 @@
+// 同一世界连续展示实物修复、偏离不送达、告警与解除后的实际恢复差异。
+var inputs = JObject.Parse(File.ReadAllText(Path.Combine(folder, "definition.json")));
+var repair = inputs["learned"].ToObject<AbilityDefinition>();
+AbilityDefinition FromD(string id) => inputs["signals"]["test.contact-signal." + id].ToObject<AbilityDefinition>();
+var notice = FromD("notice"); var heal = FromD("conditional"); var remove = FromD("remove");
+var miss = ConstructionEditing.Copy(notice); miss.Id += ".miss"; miss.Root.Offset = new[] { 0f, 8f, 0f };
+await ClearFilmSet();
+Actor source = Make(64), target = Make(68);
+target.setKingdom(source.kingdom);
+ActorExtend owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+Item armor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: target);
+target.equipment.setItem(armor, target); target.setStatsDirty(); target.updateStats();
+armor.getDamaged(12); int original = armor.getDurabilityCurrent();
+var wood = repair.Root.Impact.EquipmentRepair;
+Check(repair.Inventory.Single().Shape == ItemShapes.Wood.id, "录像复用已按正式输入学到的修复术及原木料");
+Material(owner, ItemShapes.Wood, "修复用的实物木料", 1);
+var received = new List<ConstructedSignalReceipt>(); var repaired = new List<ConstructedEquipmentRepair>();
+void Received(ConstructedSignalReceipt value)
+{
+    if (value.SenderId != source.id) return;
+    received.Add(value);
+    events.Add(new { kind = "warning", value });
+}
+void Repaired(ConstructedEquipmentRepair value)
+{
+    if (value.SourceId != source.id) return;
+    repaired.Add(value);
+    events.Add(new { kind = "repair", value });
+}
+bool Active() => target.GetExtend().GetStatuses().Any(entity => !entity.Tags.Has<TagRecycle>() &&
+    entity.GetComponent<StatusComponent>().Type == StatusEffects.SignalWarning &&
+    entity.GetComponent<AliveTimer>().value < entity.GetComponent<AliveTimeLimit>().value);
+string caption = "准备 · 同一件损伤铁甲与一份木料";
+int gained = 0;
+object Detail() => new { source = source.id, target = target.id, armor = armor.id, durability = armor.getDurabilityCurrent(),
+    repairCount = repaired.Count, received = received.Count, active = Active(), gained, materials = owner.GetItems().Count() };
+async Task<int> Cast(AbilityDefinition definition)
+{
+    int first = contacts.Count;
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, target, aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f, definition.Id + "按正式费用施放");
+    await Advance(definition.Lifetime + .03f);
+    return contacts.Count - first;
+}
+async Task<int> Heal()
+{
+    target.setHealth(target.getMaxHealth() - 100);
+    int before = target.data.health;
+    Check(await Cast(heal) == 1, "恢复术真正接触目标");
+    return target.data.health - before;
+}
+ConstructedAbilityService.SignalReceived += Received;
+ConstructedAbilityService.EquipmentRepairConfirmed += Repaired;
+try
+{
+    Ready(source); await Advance(.15f); Place(source, 64); Place(target, 68);
+    await BeginFilm(source, target, 66f, 72.35f, repair, null, () => caption, Detail);
+    Check(await Cast(repair) > 0 && repaired.Count == 1 && armor.getDurabilityCurrent() == original + wood.Durability &&
+          !owner.GetItems().Any(), "同一装备实际修一次，消耗一份木料", Detail());
+    caption = $"实际修复 · 铁甲耐久 {original} → {armor.getDurabilityCurrent()} · 消耗一份木料";
+    await Advance(.17f);
+    caption = "试发告警 · 作用面偏离收件人";
+    Check(await Cast(miss) == 0 && received.Count == 0 && !Active(), "偏离后没有送达，也没有状态", Detail());
+    caption = "偏离未送达 · 不登记告警";
+    await Advance(.17f);
+    caption = "重新发送告警";
+    Check(await Cast(notice) > 0 && received.Count == 1 && received[0].RecipientId == target.id && Active(), "实际接触后只报告一次告警", Detail());
+    caption = "告警实际送达 · 状态生效";
+    await Advance(.17f);
+    caption = "施放条件恢复";
+    gained = await Heal();
+    Check(gained >= 20 && gained < 25 && Active(), "告警仍在，按成立分支恢复", Detail());
+    int enhanced = gained;
+    caption = $"有告警 · 恢复 {gained} 点生命";
+    await Advance(.17f);
+    caption = "施放具名解除";
+    Check(await Cast(remove) == 1 && !Active() && received.Count == 1, "到期前主动解除指定告警", Detail());
+    caption = "指定解除 · 告警清除";
+    await Advance(.17f);
+    caption = "再施放相同的条件恢复";
+    gained = await Heal();
+    Check(gained >= 5 && gained < enhanced && !Active(), "再次施放走原普通恢复分支", Detail());
+    caption = $"恢复原规则 · 同一术式恢复 {gained} 点生命";
+    await Advance(.55f);
+    return new { passed = true, view, original, repaired = armor.getDurabilityCurrent(), enhanced, normal = gained };
+}
+finally
+{
+    await EndFilm();
+    ConstructedAbilityService.SignalReceived -= Received;
+    ConstructedAbilityService.EquipmentRepairConfirmed -= Repaired;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

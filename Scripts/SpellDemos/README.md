@@ -1923,3 +1923,5 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 5.17 E1 使用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_application_editor.py`，在原窗口验证具名解除、解救、装备修复、讯号及状态条件的编辑；检查材料引用、报价、撤销与保存重开。中英截图、说明和实际成品见 `~/.local/state/cultiway-dev/evidence/application-editor-e1/delivery.json`。
 
 5.17 E2 用独立环境执行 `verify_application_creation.py creation`，然后完全退出游戏、重新启动，以 `verify_application_creation.py restart --state <creation 输出>` 读取正式待授予档。两步均通过 `dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_application_creation.py ...`。旧规则资料取自 5.16 的真实等待档和当时的预期；新旧各授予一次，再实际支付、消耗原材料和修复原装备并重存。分段首次结果及通过记录见 `~/.local/state/cultiway-dev/evidence/application-creation-e2/delivery.json`。
+
+5.17 E3 通过 `dev.py exec --timeout 330 -- python3 Scripts/SpellDemos/record_application.py --state <E2 已重存的输出> --signal-definitions <D 的 saved-definitions.json>` 录原版；加载同一兼容环境并加 `--worldfall` 录对照。录像使用同一组实际术式，逐帧核对修复、无效接触、真实收件、条件恢复和解除。已保存的视角目录可通过 `--encode-only <视角目录>` 重新编码。两端原片及事实索引见 `~/.local/state/cultiway-dev/evidence/application-films/delivery.json`。
