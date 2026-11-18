@@ -326,6 +326,7 @@ internal sealed class BodySurfaceOcclusion
     /// <param name="from">作用前态。</param><param name="to">作用后态。</param><param name="target">可能露出的范围。</param>
     private static bool CanReach(AbilityCapsule from, AbilityCapsule to, Bounds target)
     {
+        if (to.Prism != null) return AbilityContactIndex.Swept(from, to).Intersects(target);
         Bounds axes = new(from.A, Vector3.zero);
         axes.Encapsulate(from.B);
         axes.Encapsulate(to.A);
@@ -342,7 +343,8 @@ internal sealed class BodySurfaceOcclusion
     private static AbilityCapsule Mix(AbilityCapsule from, AbilityCapsule to, float at, Vector3 shift = default) =>
         new(to.Node, Vector3.Lerp(from.A, to.A, at) - shift, Vector3.Lerp(from.B, to.B, at) - shift,
             Mathf.Lerp(from.Radius, to.Radius, at), to.Matter, to.Shape, to.Revision, to.Material,
-            Vector3.Lerp(from.HalfExtents, to.HalfExtents, at), Mathf.Lerp(from.Until, to.Until, at));
+            Vector3.Lerp(from.HalfExtents, to.HalfExtents, at), Mathf.Lerp(from.Until, to.Until, at),
+            from.Prism?.At(to.Prism, at).Move(Matrix4x4.Translate(-shift)));
 
     /// <summary>先连续查询原面，再只在可能露出的区间细分；固定点仍属于原三角面。</summary>
     /// <param name="from">遮挡前态。</param><param name="to">遮挡后态。</param>
@@ -354,11 +356,8 @@ internal sealed class BodySurfaceOcclusion
         AbilityCapsule sourceFrom, AbilityCapsule sourceTo, Vector3 a0, Vector3 b0, Vector3 c0,
         Vector3 a1, Vector3 b1, Vector3 c1, out float at, out Vector3 point, out Vector3 normal)
     {
-        float speed = Mathf.Max((sourceTo.A - sourceFrom.A).magnitude, (sourceTo.B - sourceFrom.B).magnitude) +
-                      Mathf.Max((a1 - a0).magnitude, (b1 - b0).magnitude, (c1 - c0).magnitude) +
-                      Mathf.Abs(sourceTo.Radius - sourceFrom.Radius) +
-                      (sourceTo.HalfExtents - sourceFrom.HalfExtents).magnitude +
-                      from.MotionTo(to);
+        float speed = sourceFrom.TravelTo(sourceTo) +
+                      Mathf.Max((a1 - a0).magnitude, (b1 - b0).magnitude, (c1 - c0).magnitude) + from.MotionTo(to);
         return Search(0f, 1f, 0, out at, out point, out normal);
 
         /// <summary>按实际连续接触裁去无效时段，先找较早的一半。</summary>

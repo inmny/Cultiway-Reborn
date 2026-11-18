@@ -39,10 +39,8 @@ internal static class AbilityPairSweep
     internal static bool Find(in AbilityCapsule a0, in AbilityCapsule a1, in AbilityCapsule b0, in AbilityCapsule b1,
         out float fraction, out Vector3 point, out Vector3 normal)
     {
-        float speed = Mathf.Max((a1.A - a0.A).magnitude, (a1.B - a0.B).magnitude) +
-            Mathf.Max((b1.A - b0.A).magnitude, (b1.B - b0.B).magnitude) +
-            Mathf.Abs(a1.Radius - a0.Radius) + Mathf.Abs(b1.Radius - b0.Radius);
-        speed += (a1.HalfExtents - a0.HalfExtents).magnitude + (b1.HalfExtents - b0.HalfExtents).magnitude;
+        bool prism = a1.Prism != null || b1.Prism != null;
+        float speed = a0.TravelTo(a1) + b0.TravelTo(b1);
         float at = 0f; bool found = false;
         for (int iteration = 0; iteration < 64; iteration++)
         {
@@ -52,7 +50,7 @@ internal static class AbilityPairSweep
             at += distance / speed;
             if (at > 1f) break;
         }
-        if (!found && at <= 1f && speed > 1e-10f)
+        if (!found && !prism && at <= 1f && speed > 1e-10f)
             found = a1.IsBox || b1.IsBox ? AbilityBoxSweep.Find(a0, a1, b0, b1, out at) : Roots(a0, a1, b0, b1, out at);
         fraction = at; point = normal = Vector3.zero;
         if (!found) return false;
@@ -75,6 +73,16 @@ internal static class AbilityPairSweep
     private static float Separation(in AbilityCapsule a0, in AbilityCapsule a1, in AbilityCapsule b0,
         in AbilityCapsule b1, float at, out Vector3 a, out Vector3 b)
     {
+        if (a1.Prism != null || b1.Prism != null)
+        {
+            bool leftSolid = a1.Prism != null || a1.IsBox, rightSolid = b1.Prism != null || b1.IsBox;
+            float distance = leftSolid && rightSolid
+                ? AbilityPrism.Sample(a0, a1, at).Distance(AbilityPrism.Sample(b0, b1, at), out a, out b)
+                : leftSolid
+                    ? AbilityPrism.Sample(a0, a1, at).Line(Vector3.Lerp(b0.A, b1.A, at), Vector3.Lerp(b0.B, b1.B, at), out a, out b)
+                    : AbilityPrism.Sample(b0, b1, at).Line(Vector3.Lerp(a0.A, a1.A, at), Vector3.Lerp(a0.B, a1.B, at), out b, out a);
+            return distance - Mathf.Lerp(a0.Radius + b0.Radius, a1.Radius + b1.Radius, at);
+        }
         if (a1.IsBox || b1.IsBox) return AbilityBoxContact.Distance(a0, a1, b0, b1, at, out a, out b);
         Closest(Vector3.Lerp(a0.A, a1.A, at), Vector3.Lerp(a0.B, a1.B, at),
             Vector3.Lerp(b0.A, b1.A, at), Vector3.Lerp(b0.B, b1.B, at), out a, out b);

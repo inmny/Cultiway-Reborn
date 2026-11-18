@@ -388,6 +388,8 @@ internal sealed partial class BodyActionBinding
     {
         FormContactDescription contact = weapon.Description.Contacts[shape];
         Matrix4x4 matrix = WeaponMatrix(in pose);
+        if (weapon.Contacts[shape].IsPrism && weapon.Contacts[shape].World(null, matrix, -1, shape, 0, null, 1f, out var solid))
+            return solid.ClosestAxisPoint(point);
         Vector3 a = matrix.MultiplyPoint3x4(Point(contact.A)), b = matrix.MultiplyPoint3x4(Point(contact.B));
         Vector3 line = b - a;
         Vector3 centre = a + line * (line.sqrMagnitude > 0f
@@ -429,6 +431,11 @@ internal sealed partial class BodyActionBinding
                     for (int i = 0; i < Organ.Model.Contacts.Length; i++)
                     {
                         var shape = Organ.Model.Contacts[i];
+                        if (shape.IsPrism)
+                        {
+                            if (shape.World(null, matrix, -1, i, 0, null, 1f, out var solid, "physical")) output.Add(solid);
+                            continue;
+                        }
                         output.Add(new AbilityCapsule(-1, matrix.MultiplyPoint3x4(shape.A),
                             matrix.MultiplyPoint3x4(shape.B), shape.Radius * Organ.Model.Scale, "physical", i));
                     }
@@ -476,6 +483,12 @@ internal sealed partial class BodyActionBinding
         {
             FormContactDescription contact = resource.Description.Contacts[shape];
             if (!action.Construction.UsesContact(weapon != null, contact.Id, pose.WorldAge, includeEnd)) continue;
+            if (resource.Contacts[shape].IsPrism)
+            {
+                if (resource.Contacts[shape].World(null, transform, -1, shape, 0, null, 1f, out var solid,
+                        weapon == null ? "physical" : "iron")) output.Add(solid);
+                continue;
+            }
             output.Add(new AbilityCapsule(-1, transform.MultiplyPoint3x4(Point(contact.A)),
                 transform.MultiplyPoint3x4(Point(contact.B)), contact.Radius * transform.lossyScale.x,
                 weapon == null ? "physical" : "iron", shape));

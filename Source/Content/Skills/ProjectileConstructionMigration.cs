@@ -170,6 +170,12 @@ internal static partial class ProjectileConstructionMigration
         foreach (FormSurfaceVertex vertex in resource.GroundPoints()) bottom = Mathf.Min(bottom, (facing * vertex.Sample(pose)).z);
         foreach (FormContactBinding contact in resource.Contacts)
         {
+            if (contact.IsPrism)
+            {
+                var box = new AbilityPrism.Frame(AbilityPrism.Rectangle, contact.PrismMatrix(pose, Matrix4x4.Rotate(facing)));
+                bottom = Mathf.Min(bottom, box.Bounds().min.z);
+                continue;
+            }
             bottom = Mathf.Min(bottom, (facing * contact.ABlend.Point(contact.A, pose)).z - contact.Radius);
             bottom = Mathf.Min(bottom, (facing * contact.BBlend.Point(contact.B, pose)).z - contact.Radius);
         }

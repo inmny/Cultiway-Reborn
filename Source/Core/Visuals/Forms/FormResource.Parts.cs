@@ -91,6 +91,7 @@ public sealed partial class FormResource
                 A = original.Contacts[i].A,
                 B = original.Contacts[i].B,
                 Radius = original.Contacts[i].Radius,
+                HalfExtents = original.Contacts[i].HalfExtents,
                 AControl = original.Contacts[i].AControl,
                 BControl = original.Contacts[i].BControl,
                 AInfluences = original.Contacts[i].AInfluences,

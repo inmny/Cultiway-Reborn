@@ -14,9 +14,7 @@ internal static class AbilityTriangleSweep
     internal static bool Find(in AbilityCapsule from, in AbilityCapsule to, Vector3 a0, Vector3 b0, Vector3 c0,
         Vector3 a1, Vector3 b1, Vector3 c1, out float fraction, out Vector3 point, out Vector3 normal)
     {
-        float speed = Mathf.Max((to.A - from.A).magnitude, (to.B - from.B).magnitude) +
-                      Mathf.Max((a1 - a0).magnitude, (b1 - b0).magnitude, (c1 - c0).magnitude) +
-                      Mathf.Abs(to.Radius - from.Radius) + (to.HalfExtents - from.HalfExtents).magnitude;
+        float speed = from.TravelTo(to) + Mathf.Max((a1 - a0).magnitude, (b1 - b0).magnitude, (c1 - c0).magnitude);
         fraction = 0f;
         point = normal = Vector3.zero;
         for (int iteration = 0; iteration < 128; iteration++)
@@ -53,6 +51,7 @@ internal static class AbilityTriangleSweep
     private static float Distance(in AbilityCapsule from, in AbilityCapsule to, float at,
         Vector3 a, Vector3 b, Vector3 c, out Vector3 source, out Vector3 target)
     {
+        if (to.Prism != null) return AbilityPrism.Sample(from, to, at).Triangle(a, b, c, out source, out target);
         Vector3 start = Vector3.Lerp(from.A, to.A, at), end = Vector3.Lerp(from.B, to.B, at);
         if (!to.IsBox) return Segment(start, end, a, b, c, out source, out target);
         Vector3 half = Vector3.Lerp(from.HalfExtents, to.HalfExtents, at), min = start - half, max = start + half;
@@ -100,7 +99,7 @@ internal static class AbilityTriangleSweep
     /// <param name="p">轴起点。</param><param name="q">轴终点。</param>
     /// <param name="a">面第一点。</param><param name="b">面第二点。</param><param name="c">面第三点。</param>
     /// <param name="source">轴上的最近点。</param><param name="target">面上的最近点。</param>
-    private static float Segment(Vector3 p, Vector3 q, Vector3 a, Vector3 b, Vector3 c,
+    internal static float Segment(Vector3 p, Vector3 q, Vector3 a, Vector3 b, Vector3 c,
         out Vector3 source, out Vector3 target)
     {
         Vector3 n = Vector3.Cross(b - a, c - a), delta = q - p;

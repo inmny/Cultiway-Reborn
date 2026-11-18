@@ -67,6 +67,19 @@ public sealed partial class AbilityCast
         {
             foreach (FormContactBinding contact in form.Resource.Contacts)
             {
+                if (contact.IsPrism)
+                {
+                    Matrix4x4 before = contact.PrismMatrix(previousPose, state.PreviousTransform),
+                        current = contact.PrismMatrix(poses[node], state.Transform);
+                    var from = new AbilityPrism.Frame(AbilityPrism.Rectangle, before);
+                    var to = new AbilityPrism.Frame(AbilityPrism.Rectangle, current);
+                    for (int i = 0; i < to.VertexCount; i++)
+                    {
+                        Vector3 p = from.Vertex(i), q = to.Vertex(i);
+                        Include(p.z - TerrainHeight(p), q.z - TerrainHeight(q));
+                    }
+                    continue;
+                }
                 Vector3 beforeA = state.PreviousTransform.MultiplyPoint3x4(contact.ABlend.Point(contact.A, previousPose));
                 Vector3 beforeB = state.PreviousTransform.MultiplyPoint3x4(contact.BBlend.Point(contact.B, previousPose));
                 Vector3 a = state.Transform.MultiplyPoint3x4(contact.ABlend.Point(contact.A, poses[node]));
@@ -109,6 +122,16 @@ public sealed partial class AbilityCast
         float minimum = float.PositiveInfinity, scale = MaximumScale(matrix);
         foreach (FormContactBinding contact in Plan.Nodes[node].Resource.Contacts)
         {
+            if (contact.IsPrism)
+            {
+                var box = new AbilityPrism.Frame(AbilityPrism.Rectangle, contact.PrismMatrix(pose, matrix));
+                for (int i = 0; i < box.VertexCount; i++)
+                {
+                    Vector3 point = box.Vertex(i);
+                    minimum = Mathf.Min(minimum, point.z - (useTerrain ? TerrainHeight(point) : 0f));
+                }
+                continue;
+            }
             Vector3 a = matrix.MultiplyPoint3x4(contact.ABlend.Point(contact.A, pose));
             Vector3 b = matrix.MultiplyPoint3x4(contact.BBlend.Point(contact.B, pose));
             if (!useTerrain || terrain == null)

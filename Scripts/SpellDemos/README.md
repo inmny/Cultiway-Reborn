@@ -1961,3 +1961,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 6.01 人物受击范围与高度
 
 在独立游戏中运行 `dev.py exec --timeout 195 -- python3 Scripts/SpellDemos/verify_actor_hit_boundary.py`；加载 Worldfall 的独立游戏加 `--worldfall`。两端复用同一存档和受击者，比较旧执行的实际碰撞回调与新构造的实际伤害，覆盖边界内外、离地错开和再次命中。用 `--section legacy|legacy-height|construction` 补测相应段。输入世界、实际脚本、打击前后血量和判定明细保存在 `CULTIWAY_DEV_OUTPUT/actor-hit-boundary/<视角>/<分段>`。
+
+### 6.02 A　薄板、厚块与实际部位
+
+在独立游戏中运行 `dev.py exec --timeout 195 -- python3 Scripts/SpellDemos/verify_part_contact_shapes.py`。用同一个受击者检查真实边内外、斜放空角、离地、厚块内部、部位自己移动和薄板拦截。`--section attack|controlled|barrier` 可只验证改变的段。输出在 `CULTIWAY_DEV_OUTPUT/part-contact-shapes/<分段>`，保留试件资料、实际脚本、血量及拦截位置。

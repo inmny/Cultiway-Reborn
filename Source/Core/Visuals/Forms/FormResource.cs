@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Cultiway.Core.Skills;
 using Newtonsoft.Json;
 using UnityEngine;
 
@@ -141,6 +142,10 @@ public sealed class FormContactDescription
     /// <summary>局部半径。</summary>
     public float Radius;
 
+    /// <summary>以 A 为中心的局部箱体半宽；提供时替代轴线 B 和半径。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float[] HalfExtents;
+
     /// <summary>两个端点各自随动的控制，空值继承部件的刚性控制。</summary>
     public string AControl, BControl;
 
@@ -166,6 +171,11 @@ public readonly struct FormContactBinding
     /// <summary>模型空间半径。</summary>
     public readonly float Radius;
 
+    /// <summary>本地三个方向的箱体半宽；零值保留原轴与半径。</summary>
+    public readonly Vector3 HalfExtents;
+
+    internal bool IsPrism => HalfExtents.x > 0f;
+
     /// <summary>已经检查的成形区间，负值表示不限制。</summary>
     public readonly Vector2 BuildRange;
 
@@ -179,8 +189,20 @@ public readonly struct FormContactBinding
     internal FormContactBinding(FormContactDescription source, FormRig rig, string control)
     {
         A = FormRig.Vector(source.A, 0, source.Id);
-        B = FormRig.Vector(source.B, 0, source.Id);
-        Radius = source.Radius;
+        if (source.HalfExtents == null)
+        {
+            B = FormRig.Vector(source.B, 0, source.Id);
+            Radius = source.Radius;
+            HalfExtents = default;
+        }
+        else
+        {
+            B = A;
+            Radius = 0f;
+            HalfExtents = FormRig.Vector(source.HalfExtents, 0, source.Id);
+            if (HalfExtents.x <= 0f || HalfExtents.y <= 0f || HalfExtents.z <= 0f)
+                throw new InvalidDataException(source.Id + "：箱体三个半宽都须大于零");
+        }
         BuildRange = FormFormation.Range(source.BuildRange, source.Id);
         buildAlong = source.BuildAlong;
         if (buildAlong && (BuildRange.x < 0f || BuildRange.y - BuildRange.x <= FormFormation.TipSpan))
@@ -189,6 +211,41 @@ public readonly struct FormContactBinding
             string.IsNullOrEmpty(source.AControl) ? control : source.AControl, rig);
         BBlend = new FormControlBlend(source.BInfluences,
             string.IsNullOrEmpty(source.BControl) ? control : source.BControl, rig);
+    }
+
+    /// <summary>根据实际部位控制取得箱体中心与三个半轴；不先转成放大的世界包围盒。</summary>
+    internal Matrix4x4 PrismMatrix(FormPose pose, Matrix4x4 world, float build = 1f)
+    {
+        Vector3 origin = ABlend.Point(A, pose);
+        var local = Matrix4x4.identity;
+        local.SetColumn(0, ABlend.Point(A + Vector3.right * (HalfExtents.x * build), pose) - origin);
+        local.SetColumn(1, ABlend.Point(A + Vector3.up * (HalfExtents.y * build), pose) - origin);
+        local.SetColumn(2, ABlend.Point(A + Vector3.forward * (HalfExtents.z * build), pose) - origin);
+        local.SetColumn(3, new Vector4(origin.x, origin.y, origin.z, 1f));
+        return world * local;
+    }
+
+    /// <summary>共用施放、借用形体及留置材料的作用形状采样入口。</summary>
+    internal bool World(FormPose pose, Matrix4x4 world, int node, int shape, int revision, AbilityMatter material,
+        float until, out AbilityCapsule result, string matter = null)
+    {
+        if (IsPrism)
+        {
+            float build = BuildRange.x < 0f ? 1f : Mathf.Clamp01(((pose?.BuildProgress ?? 1f) - BuildRange.x) /
+                FormFormation.TipSpan);
+            if (build <= .000001f) { result = default; return false; }
+            Matrix4x4 matrix = PrismMatrix(pose, world, build);
+            Vector3 center = matrix.GetColumn(3);
+            result = new AbilityCapsule(node, center, center, 0f, material?.Id ?? matter, shape, revision, material,
+                until: until, prism: new AbilityPrism(AbilityPrism.Rectangle, matrix));
+            return true;
+        }
+        if (!Sample(pose, out var a, out var b, out float radius)) { result = default; return false; }
+        Vector3 scale = world.lossyScale;
+        result = new AbilityCapsule(node, world.MultiplyPoint3x4(a), world.MultiplyPoint3x4(b),
+            radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)), material?.Id ?? matter,
+            shape, revision, material, until: until);
+        return true;
     }
 
     /// <summary>显示、施放接触及世界材料共同采用的当前成形形状。</summary>
@@ -597,8 +654,10 @@ internal sealed partial class FormResourceGeneration
                 throw new InvalidDataException("挂点部位或位置无效：" + path + "/" + anchor.Id);
         foreach (FormContactDescription contact in data.Contacts)
             if (contact.Part < -1 || contact.Part >= meshes.Length || contact.A?.Length != 3 ||
-                contact.B?.Length != 3 ||
-                !FormRig.Finite(contact.Radius) || contact.Radius <= 0f)
+                (contact.HalfExtents == null
+                    ? contact.B?.Length != 3 || !FormRig.Finite(contact.Radius) || contact.Radius <= 0f
+                    : contact.HalfExtents.Length != 3 || contact.B != null || contact.Radius != 0f ||
+                      contact.BControl != null || contact.BInfluences != null || contact.BuildAlong))
                 throw new InvalidDataException("作用部位或形状无效：" + path + "/" + contact.Id);
         found = new FormResource(data, meshes, this);
         forms.Add(id, found);
