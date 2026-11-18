@@ -22,6 +22,7 @@ public sealed partial class ConstructedAbilityService
         if (inspiration.Rules < 10)
             common = new SynthesisResources(common.Forms.Where(form => SynthesisResources.RequiredForms.Contains(form.Id)).ToArray(), common.Bodies, common.Resource);
         if (inspiration.Rules <= 6) return common;
+        var forms = inspiration.Rules >= 30 ? common.Forms.Append(CaptureSynthesisForm("fireball")).ToArray() : common.Forms;
         SynthesisWorldAction[] worldActions = inspiration.Rules >= 17
             ? ConstructionWorldActions.All.OrderBy(action => action.Id, StringComparer.Ordinal)
                 .Select(action => new SynthesisWorldAction(action.Id, action.DefaultDuration)).ToArray()
@@ -38,7 +39,7 @@ public sealed partial class ConstructedAbilityService
         {
             // 从实际能接管的腿链生成触地动作；接管失败继续使用已有真实部位选择。
             AbilityDefinition foot = CaptureGroundBody(actor, random);
-            if (foot != null) return new SynthesisResources(common.Forms, new[] { foot }, resource, worldActions,
+            if (foot != null) return new SynthesisResources(forms, new[] { foot }, resource, worldActions,
                 inspiration.Rules >= 24 ? common.DeformationForms : null, materials, erosion);
         }
         AbilityDefinition[] bodies = Array.Empty<AbilityDefinition>();
@@ -62,7 +63,7 @@ public sealed partial class ConstructedAbilityService
             body.Resource = "stamina";
             bodies = new[] { body };
         }
-        return new SynthesisResources(common.Forms, bodies, resource, worldActions,
+        return new SynthesisResources(forms, bodies, resource, worldActions,
             inspiration.Rules >= 24 ? common.DeformationForms : null, materials, erosion);
     }
 }

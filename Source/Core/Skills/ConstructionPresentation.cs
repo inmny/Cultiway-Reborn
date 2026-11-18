@@ -228,6 +228,16 @@ public static class ConstructionPresentation
             processes.Add(F("NamedProcess", step.Id, step.Operation.Kind == ConstructionOperationKind.Erode
                 ? ErosionDescription(step.Operation) : ResidueDescription(step.Operation.Residue)));
 
+        foreach (ConstructionStep step in definition.Steps.Where(step => step.Operation.Kind is
+                     ConstructionOperationKind.MapSpace or ConstructionOperationKind.MapActor or ConstructionOperationKind.MapArtifact))
+        {
+            var operation = step.Operation;
+            string detail = F("Mapping." + operation.Kind, operation.MappingRadius ?? 1f);
+            if (operation.MappingCapacity is int capacity) detail += " " + F("MappingCapacity", capacity);
+            if (operation.MappingWaitSeconds is float seconds) detail += " " + F("MappingWait", seconds);
+            processes.Add(F("NamedProcess", step.Id, detail));
+        }
+
         string[] unique = processes.Distinct().ToArray();
         lines.AddRange(unique.Take(12));
         if (unique.Length > 12) lines.Add(F("More", unique.Length - 12));
@@ -298,6 +308,7 @@ public static class ConstructionPresentation
         "世界侵蚀" => "WorldErosion",
         "留置侵蚀" => "ResidueErosion",
         "映像传递" => "Correspondence",
+        "形体过门" => "MapSpace", "生灵过门" => "MapActor", "法宝过门" => "MapArtifact",
         "生灵老化" => "AgingActors",
         "装备腐蚀" => "AgingEquipment",
         "库存催朽" => "AgingInventory",
