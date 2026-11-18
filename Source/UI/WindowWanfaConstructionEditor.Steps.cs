@@ -18,6 +18,7 @@ public sealed partial class WindowWanfaConstructionEditor
     private void StepsPage()
     {
         Row("StepsRules", T("StepsHint"));
+        Row("EditOrder", T("EditOrderHint"));
         if (parts.Count == 0) { Row("BodyOnly", T("BodyHint")); return; }
         ConstructionNode node = parts[part];
         Choice("StepScope", T(operationScope == 0 ? "StepScope.Native" : "StepScope.Named"), () => menu.Show(T("StepScope"),

@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Linq;
 using UnityEngine;
 
@@ -23,13 +22,7 @@ public sealed partial class AbilityCast
                 state.Revision++; return true;
             },
             (cast, action, parameters, native) => new ConstructionOperationProgress(
-                cast.nodes[action.Node].MovementStopped, !ReferenceEquals(cast.nodes[action.Node].Ray, parameters)),
-            validate: (form, parameters, path) =>
-            {
-                if (form.EventOperations.Count(o => o.Ray != null) != 1 || form.FlowSettings != null || form.Fracture != null ||
-                    form.Residue != null || form.EventOperations.Any(o => o.Motion != null || o.Propagation != null))
-                    throw new InvalidDataException(path + "：同一伸展控制需要一项射线；流散、碎解和其他骨架过程请使用独立后续部位");
-            });
+                cast.nodes[action.Node].MovementStopped, !ReferenceEquals(cast.nodes[action.Node].Ray, parameters)));
     }
 
     /// <summary>当前部位是否正在使用真实射线，身体作用面不借用此规则。</summary>

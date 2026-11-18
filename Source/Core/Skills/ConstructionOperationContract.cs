@@ -226,6 +226,8 @@ public sealed class CompiledOperationRequirement
     public string NodePath { get; }
     /// <summary>原部位资料中的操作索引。</summary>
     public int Index { get; }
+    /// <summary>原部位操作或命名步骤的位置，用于检查同部位冲突。</summary>
+    internal string Location { get; }
     /// <summary>共同的输入输出和参数约定。</summary>
     public ConstructionOperationContract Contract { get; }
     /// <summary>按本次真实参数补齐的状态需求。</summary>
@@ -238,9 +240,10 @@ public sealed class CompiledOperationRequirement
     public ConstructionOperationEffect Effects { get; }
     /// <summary>在编译边界复制实际需求。</summary>
     /// <param name="path">实际部位路径。</param><param name="index">原操作索引。</param><param name="source">已检查操作。</param><param name="contract">已有约定。</param>
-    internal CompiledOperationRequirement(string path, int index, ConstructionOperation source, ConstructionOperationContract contract)
+    /// <param name="location">原声明的位置。</param>
+    internal CompiledOperationRequirement(string path, int index, ConstructionOperation source, ConstructionOperationContract contract, string location)
     {
-        NodePath = path; Index = index; Contract = contract; State = contract.State; Resources = contract.Resources; Effects = contract.Effects;
+        NodePath = path; Index = index; Location = location; Contract = contract; State = contract.State; Resources = contract.Resources; Effects = contract.Effects;
         bool eventInput = source.When != null || source.Trigger != ConstructionChangeTrigger.Time;
         if (eventInput) State |= ConstructionOperationState.Event;
         if (source.Kind == ConstructionOperationKind.Fly)

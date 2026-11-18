@@ -1,0 +1,41 @@
+// 使用万法阁保存的同一成品，读取已经发生的真实结果。
+const string leafPath = "root/branch/leaf";
+var saved = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "edited.json")));
+var source = Make(64); var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000f });
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+await Advance(.2f); Place(source, 64);
+bool Is(AbilityMatter matter, string id, string state) => matter != null && matter.Id == id && matter.State == state;
+try
+{
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(saved, source, null, aim: new Vector3(70, 72, 0), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - saved.Cost) < .0001f, "施放采用实际保存的消耗");
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(record => ((AbilityCast)Field(record, "Cast")).Plan.Id == saved.Id);
+    var live = (AbilityCast)Field(running, "Cast");
+    await Advance(.36f);
+    bool hot = live.TryGetOperationOutput(leafPath, "heat", "converted", out var first, ConstructionOutputStage.Completed);
+    bool cold = live.TryGetOperationOutput(leafPath, "cold", "converted", out var second, ConstructionOutputStage.Completed);
+    Check(hot && cold && Is(live.Matter(2), "water", "solid") &&
+          live.StepStateOf("middle") == ConstructionStepState.Waiting && live.StepStateOf("last") == ConstructionStepState.Waiting,
+        "同一时点两项普通改造均真实完成，以后声明的冻结结果为准，后段还未开始",
+        new { first = hot, second = cold, live.Matter(2).Id, live.Matter(2).State });
+    await Advance(.48f);
+    bool middle = live.TryGetOutput("middle", "material", out var third, ConstructionOutputStage.Completed);
+    bool last = live.TryGetOutput("last", "material", out var fourth, ConstructionOutputStage.Completed);
+    Check(middle && last && Is(third.Matter, "wood", "solid") && Is(fourth.Matter, "water", "liquid") &&
+          Is(live.Matter(2), "water", "liquid"),
+        "同一时点的命名步骤等待真实产出，先换成木再化成水，即使消费者写在前面",
+        new { middle, last, middleMatter = third.Matter?.Id, lastMatter = fourth.Matter?.Id, live.Matter(2).Id, live.Matter(2).State });
+    await Advance(2f);
+    Check(endings.Count(value => value.Fact.AbilityId == saved.Id) == 1 &&
+          !((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Contains(running), "原有收束和到期结束仍可正常完成");
+    return new { passed = true, saved = saved.Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}
