@@ -1,0 +1,146 @@
+// 同一现成世界里的实际施加、解除、空结果、再次施放及完整成品存读。
+Actor source = Make(64), target = Make(70), other = Make(74);
+target.setKingdom(source.kingdom);
+other.setKingdom(source.kingdom);
+var applied = StatusEffects.BodyStrain;
+var untouched = StatusEffects.BodyExposure;
+
+AbilityDefinition Spell(string name) => new AbilityDefinition
+{
+    Id = "test.status-removal." + name, Name = name, Power = 1f, Cooldown = .1f,
+    Lifetime = .35f, TargetRange = 30f,
+    Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, DamageScale = 0f, SelectedTargetOnly = true },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = .6f },
+    Root = new ConstructionNode { Id = "contact", Form = "fireball", Matter = "physical", Scale = .75f }
+};
+
+void Reject(AbilityDefinition definition, string name)
+{
+    bool rejected = false;
+    try { AbilityCompiler.Compile(definition); }
+    catch (InvalidDataException e) { rejected = e.Message.Contains("/RemoveStatus"); }
+    Check(rejected, name);
+}
+
+foreach (Actor caster in new[] { source, other })
+{
+    var extend = caster.GetExtend();
+    extend.NewCultisys(Cultisyses.Xian);
+    extend.GetCultisys<Xian>().level = 2;
+    extend.MarkCultiwayStatsDirty(); caster.setStatsDirty(); caster.updateStats();
+}
+
+async Task Cast(AbilityDefinition d, Actor caster)
+{
+    var extend = caster.GetExtend();
+    extend.GetCultisys<Xian>().wakan = caster.stats[BaseStatses.MaxWakan.id] * .9f;
+    float balance = extend.GetCultisys<Xian>().wakan;
+    int hitCount = contacts.Count, endCount = endings.Count;
+    await Fire(d, caster, target, aggro: false);
+    extend.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - extend.GetCultisys<Xian>().wakan - d.Cost) < .001f, d.Id + "一次真实支付");
+    await Advance(.55f);
+    Check(contacts.Count == hitCount + 1 && contacts.Last().TargetId == target.id &&
+        endings.Count == endCount + 1 && endings.Last().Fact.CastId == contacts.Last().CastId,
+        d.Id + "只接触所选人物一次并正常结束", new { hitCount = contacts.Count - hitCount, endCount = endings.Count - endCount });
+}
+
+int Layers(Actor caster) => target.GetExtend().GetStatuses().Count(entity =>
+{
+    var status = entity.GetComponent<StatusComponent>();
+    return status.Type == applied && status.Source == caster && !entity.Tags.Has<TagRecycle>();
+});
+
+async Task Load(string name)
+{
+    World.world.save_manager.loadWorld(Path.Combine(folder, name));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+try
+{
+    var restore = Spell("restore");
+    restore.Impact.Restoration = new ConstructionRestoration { Health = 20f };
+    var oldPrice = ConstructionPricing.Price(ConstructionEditing.Copy(restore), contactRules: 31);
+    Check(JObject.FromObject(restore.Impact.Restoration)["RemoveStatus"] == null, "原恢复不写入新字段");
+    var remove = ConstructionEditing.Copy(restore);
+    remove.Impact.Restoration.RemoveStatus = new ConstructionStatusRemoval { Id = "missing", Maximum = 1, OwnSourceOnly = true };
+    Reject(remove, "未知状态不能编译");
+    remove.Impact.Restoration.RemoveStatus.Id = applied.id;
+    remove.Impact.Restoration.RemoveStatus.Maximum = 0;
+    Reject(remove, "零层不能编译为无限解除");
+    remove.Impact.Restoration.RemoveStatus.Maximum = 1;
+    ConstructionPricing.Price(remove, cooldown: false, contactRules: 31);
+    Check(remove.Calculation.Demand > oldPrice.Calculation.Demand && remove.Cost > oldPrice.Cost &&
+          ConstructionPricing.Price(ConstructionEditing.Copy(restore), contactRules: 31).Cost == oldPrice.Cost,
+        "按解除预算报价，缺省恢复保持原费用", new { oldPrice.Cost, newCost = remove.Cost });
+    var put = Spell("apply");
+    put.Impact.Statuses = new[] { new ConstructionStatus { Id = applied.id, Duration = 60f,
+        Application = ConstructionStatusApplication.Stack } };
+    await Cast(put, source);
+    await Cast(put, other);
+    await Cast(put, source);
+    CombatStatusEffects.ApplyStatus(target, untouched, 60f, source);
+    Check(Layers(source) == 2 && Layers(other) == 1, "正式状态施加产生两个来源的三层同名状态");
+    target.setHealth(target.getMaxHealth() - 100);
+    int before = target.data.health;
+    await Cast(remove, source);
+    Check(target.data.health >= before + 20 && Layers(source) == 1 && Layers(other) == 1 &&
+          CombatStatusEffects.HasStatus(target, untouched, source),
+        "恢复与解除共存；只去掉同源一层，留住他人同名状态及不同状态",
+        new { before, after = target.data.health, own = Layers(source), external = Layers(other) });
+    await Cast(remove, source);
+    Check(Layers(source) == 0 && Layers(other) == 1, "结束后可再次施放并解除剩余同源层");
+    target.setHealth(target.getMaxHealth());
+    await Cast(remove, source);
+    Check(Layers(source) == 0 && Layers(other) == 1 && CombatStatusEffects.HasStatus(target, untouched, source),
+        "同源无匹配时没有误删或重复结算");
+    var unscoped = Spell("remove-any");
+    unscoped.Impact.Restoration = new ConstructionRestoration
+    {
+        RemoveStatus = new ConstructionStatusRemoval { Id = applied.id }
+    };
+    await Cast(unscoped, source);
+    Check(Layers(other) == 0 && CombatStatusEffects.HasStatus(target, untouched, source),
+        "明确允许解除任一来源时，仍限于指定类型");
+
+    long sourceId = source.id;
+    ConstructedAbilityService.Learn(source.GetExtend(), remove.Id);
+    var expected = JObject.FromObject(remove);
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), expected.ToString(Formatting.Indented));
+    await Game.NextFrame(); await Game.NextFrame(); await Game.NextFrame();
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+    await Load("completed-save");
+    var definitions = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    var restored = (AbilityDefinition)definitions[remove.Id];
+    var reloaded = World.world.units.get(sourceId);
+    Check(restored != null && JToken.DeepEquals(expected, JObject.FromObject(restored)) &&
+          reloaded.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids.Contains(restored.Id),
+        "正式存读保留已学成品、指定解除及实际费用");
+
+    string legacyFile = Path.Combine(folder, "legacy-constructions.json");
+    int oldCount = 0;
+    if (File.Exists(legacyFile))
+    {
+        var legacy = JArray.Parse(File.ReadAllText(legacyFile));
+        await Load("legacy-save");
+        foreach (var saved in legacy)
+        {
+            var original = saved.ToObject<AbilityDefinition>();
+            var received = (AbilityDefinition)definitions[original.Id];
+            Check(received != null && JToken.DeepEquals(JObject.FromObject(original), JObject.FromObject(received)),
+                "正式区段15原构造与费用保持：" + original.Id);
+            oldCount++;
+        }
+    }
+    return new { passed = true, oldCount, closed = "指定层数解除、来源约束、恢复共用及正式存读",
+        process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

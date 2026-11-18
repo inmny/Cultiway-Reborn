@@ -2071,7 +2071,7 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
     private static void SetStatusSource(Entity status, BaseSimObject source, float? sourcePowerLevel)
     {
         ref var statusComp = ref status.GetComponent<StatusComponent>();
-        statusComp.Source = source;
+        statusComp.SetSource(source);
         statusComp.SourcePowerLevel = sourcePowerLevel;
     }
 

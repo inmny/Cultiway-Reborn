@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Cultiway.Core.Libraries;
 using Newtonsoft.Json;
 
 namespace Cultiway.Core.Skills;
@@ -11,6 +12,17 @@ public enum ConstructionRestorationTarget
     Contact = 0,
     /// <summary>本部位当前有效的控制人物，反射后随控制权交接。</summary>
     Controller = 1
+}
+
+/// <summary>按实际状态编号与层数解除共享状态。</summary>
+public sealed class ConstructionStatusRemoval
+{
+    /// <summary>共享状态库中已登记的编号。</summary>
+    public string Id;
+    /// <summary>同一接触最多解除的实际层数。</summary>
+    public int Maximum = 1;
+    /// <summary>只解除当前施术者施加的层数。</summary>
+    public bool OwnSourceOnly;
 }
 
 /// <summary>同一真实接触可以附带的恢复和净化，不自行扩大作用区。</summary>
@@ -30,6 +42,9 @@ public sealed class ConstructionRestoration
     public float Duration = 1.25f;
     /// <summary>按共享负状态优先级最多清除的数量。</summary>
     public int CleanseCount;
+    /// <summary>先于通用净化执行的指定解除，省略时没有该作用。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionStatusRemoval RemoveStatus;
 }
 
 /// <summary>在创建、编辑及保存读回边界检查并复制的恢复资料。</summary>
@@ -47,8 +62,14 @@ public sealed class CompiledConstructionRestoration
     public float Duration { get; }
     /// <summary>实际净化数量。</summary>
     public int CleanseCount { get; }
+    /// <summary>要解除的已登记状态，省略时不查找。</summary>
+    public StatusEffectAsset RemovedStatus { get; }
+    /// <summary>每次实际接触可解除的最多层数，未声明时为零。</summary>
+    public int RemovalMaximum { get; }
+    /// <summary>只解除当前施术者的层数。</summary>
+    public bool RemovalOwnSourceOnly { get; }
     /// <summary>是否声明了至少一种人物作用。</summary>
-    public bool HasEffect => Health > 0f || HealthPerForce > 0f || HealthPerSecond > 0f || CleanseCount > 0;
+    public bool HasEffect => Health > 0f || HealthPerForce > 0f || HealthPerSecond > 0f || CleanseCount > 0 || RemovalMaximum > 0;
 
     /// <summary>恢复量必须有限，持续恢复需要正时长，不替用户修正非法资料。</summary>
     /// <param name="source">可保存资料。</param><param name="path">错误位置。</param>
@@ -67,6 +88,14 @@ public sealed class CompiledConstructionRestoration
         HealthPerSecond = source.HealthPerSecond;
         Duration = source.Duration;
         CleanseCount = source.CleanseCount;
+        if (source.RemoveStatus is not { } removal) return;
+        if (string.IsNullOrWhiteSpace(removal.Id) ||
+            (RemovedStatus = ModClass.L.StatusEffectLibrary.get(removal.Id)) == null)
+            throw new InvalidDataException(path + "/RemoveStatus：需要已登记的共享状态编号");
+        if (removal.Maximum < 1 || removal.Maximum > 1024)
+            throw new InvalidDataException(path + "/RemoveStatus：解除层数需要在1至1024之间");
+        RemovalMaximum = removal.Maximum;
+        RemovalOwnSourceOnly = removal.OwnSourceOnly;
     }
 
     /// <summary>只在编译边界检查恢复量。</summary>

@@ -330,7 +330,8 @@ public sealed class ConstructionMeasure
             {
                 CompiledConstructionRestoration restoration = impact.Restoration;
                 effects += (restoration.Health + restoration.HealthPerForce * power * strength +
-                            restoration.HealthPerSecond * restoration.Duration) * .1d + restoration.CleanseCount * .5d;
+                            restoration.HealthPerSecond * restoration.Duration) * .1d +
+                    (restoration.CleanseCount + restoration.RemovalMaximum) * .5d;
             }
             double displacement = impact.Knockback == null ? 0d :
                 impact.Knockback.Distance * .25d + impact.Knockback.Height * .5d;
@@ -393,7 +394,8 @@ public sealed class ConstructionMeasure
                 (status.Tick?.ForcePerSecond ?? 0f) * power * strength);
         if (outcome.Restoration != null)
             work += (outcome.Restoration.Health + outcome.Restoration.HealthPerForce * power * strength +
-                outcome.Restoration.HealthPerSecond * outcome.Restoration.Duration) * .1d + outcome.Restoration.CleanseCount * .5d;
+                outcome.Restoration.HealthPerSecond * outcome.Restoration.Duration) * .1d +
+                (outcome.Restoration.CleanseCount + outcome.Restoration.RemovalMaximum) * .5d;
         if (outcome.Knockback != null) work += outcome.Knockback.Distance * .25d + outcome.Knockback.Height * .5d;
         return work;
     }

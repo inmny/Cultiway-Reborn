@@ -1078,6 +1078,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (!owner.IsLive) return;
             target = owner.Actor;
         }
+        if (effect.RemovedStatus != null && (!effect.RemovalOwnSourceOnly || owner.IsLive))
+            CombatStatusEffects.RemoveStatus(target, effect.RemovedStatus,
+                effect.RemovalOwnSourceOnly ? owner.Actor : null, effect.RemovalMaximum);
         float amount = effect.Health + Mathf.RoundToInt((forceBasis ?? (node < 0 ? running.Power : running.Cast.RemainingForce(node))) * attenuation * effect.HealthPerForce);
         if (amount > 0f) CombatResourceEffects.RestoreHealth(target, amount);
         if (effect.HealthPerSecond > 0f && target.data.health < target.getMaxHealth() && owner.IsLive)

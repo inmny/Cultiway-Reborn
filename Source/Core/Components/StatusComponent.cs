@@ -25,6 +25,15 @@ public struct StatusComponent : IComponent
     /// </summary>
     [Ignore]
     public BaseSimObject Source;
+    /// <summary>施加时的人物编号，防止对象池重用后新人物继承旧来源身份。</summary>
+    [Ignore]
+    public long SourceActorId;
+
+    internal void SetSource(BaseSimObject source)
+    {
+        Source = source;
+        SourceActorId = (source as Actor)?.data.id ?? 0;
+    }
     [Ignore]
     public float? SourcePowerLevel;
 }

@@ -156,18 +156,23 @@ public static class CombatStatusEffects
     }
 
     /// <summary>移除指定类型的共享状态；提供来源时只移除该来源施加的实例。</summary>
-    public static int RemoveStatus(Actor target, StatusEffectAsset effect, Actor source = null)
+    public static int RemoveStatus(Actor target, StatusEffectAsset effect, Actor source = null) =>
+        RemoveStatus(target, effect, source, int.MaxValue);
+
+    /// <summary>按状态现有顺序解除匹配层数，不计已回收的状态。</summary>
+    public static int RemoveStatus(Actor target, StatusEffectAsset effect, Actor source, int maximum)
     {
-        if (target == null || target.isRekt() || effect == null) return 0;
+        if (target == null || target.isRekt() || effect == null || maximum <= 0) return 0;
         ActorExtend extend = target.GetExtend();
         int removed = 0;
         foreach (Entity status in extend.GetStatuses())
         {
             StatusComponent component = status.GetComponent<StatusComponent>();
-            if (component.Type != effect || source != null && component.Source != source) continue;
+            if (component.Type != effect || status.Tags.Has<TagRecycle>() ||
+                source != null && (component.Source != source || component.SourceActorId != source.data.id)) continue;
             extend.RemoveSharedStatus(status);
             ModClass.I.CommandBuffer.AddTag<TagRecycle>(status.Id);
-            removed++;
+            if (++removed >= maximum) break;
         }
 
         return removed;
@@ -548,7 +553,7 @@ public static class CombatStatusEffects
         status.GetComponent<AliveTimeLimit>().value = duration;
         status.GetComponent<AliveTimer>().value = 0f;
         ref StatusComponent component = ref status.GetComponent<StatusComponent>();
-        component.Source = source;
+        component.SetSource(source);
         component.SourcePowerLevel = source?.GetExtend().GetPowerLevel();
     }
 }
