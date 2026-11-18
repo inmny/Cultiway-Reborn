@@ -114,5 +114,10 @@
   "Cultiway.ConstructionText.Change.ResidueErosion": "留置侵蚀",
   "Cultiway.ConstructionText.Change.AgingActors": "生灵老化",
   "Cultiway.ConstructionText.Change.AgingEquipment": "装备腐蚀",
-  "Cultiway.ConstructionText.Change.AgingInventory": "库存催朽"
+  "Cultiway.ConstructionText.Change.AgingInventory": "库存催朽",
+  "Cultiway.ConstructionText.Correspondence": "{0}的映像「{1}」对应{2}，传伤比例 {3:0.##}；附带作用：{4}。{5}",
+  "Cultiway.ConstructionText.CorrespondenceWindow": "部位出现后 {0:0.##} 至 {1:0.##} 秒有效。",
+  "Cultiway.ConstructionText.CorrespondenceOpen": "部位出现后 {0:0.##} 秒起有效，随部位结束。",
+  "Cultiway.ConstructionText.CorrespondenceNoExtras": "无",
+  "Cultiway.ConstructionText.Change.Correspondence": "映像传递"
 }

@@ -1413,5 +1413,19 @@
   "Cultiway.Construction.NodeInventoryAgingChangeShape": "修改当前形状",
   "Cultiway.Construction.NodeInventoryAgingAddShape": "增加形状筛选",
   "Cultiway.Construction.NodeInventoryAgingRemoveShape": "移除当前形状",
-  "Cultiway.Construction.StepOutput.erosion": "侵蚀过程"
+  "Cultiway.Construction.StepOutput.erosion": "侵蚀过程",
+  "Cultiway.Construction.CorrespondenceRules": "映像对应",
+  "Cultiway.Construction.CorrespondenceHint": "映像只把实际交锋中的获准作用交给原人物。计时从这个部位出现起算；连接停止后部位仍可存在。",
+  "Cultiway.Construction.Correspondence": "启用映像传递",
+  "Cultiway.Construction.CorrespondenceId": "关系名称",
+  "Cultiway.Construction.CorrespondenceTarget": "对应原人物",
+  "Cultiway.Construction.CorrespondenceTarget.Target": "选中的原人物",
+  "Cultiway.Construction.CorrespondenceTarget.Source": "原施法者",
+  "Cultiway.Construction.CorrespondenceDamage": "传伤比例（0 至 1）",
+  "Cultiway.Construction.CorrespondenceEffect.Restoration": "允许恢复与净化",
+  "Cultiway.Construction.CorrespondenceEffect.Status": "允许状态与受击反应",
+  "Cultiway.Construction.CorrespondenceEffect.Force": "允许直接受力",
+  "Cultiway.Construction.CorrespondenceFrom": "传递开始（秒）",
+  "Cultiway.Construction.CorrespondenceHasEnd": "单独设定传递截止",
+  "Cultiway.Construction.CorrespondenceUntil": "传递截止（秒）"
 }

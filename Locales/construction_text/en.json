@@ -114,5 +114,10 @@
   "Cultiway.ConstructionText.Change.ResidueErosion": "independent residue erosion",
   "Cultiway.ConstructionText.Change.AgingActors": "actor aging",
   "Cultiway.ConstructionText.Change.AgingEquipment": "equipment corrosion",
-  "Cultiway.ConstructionText.Change.AgingInventory": "inventory aging"
+  "Cultiway.ConstructionText.Change.AgingInventory": "inventory aging",
+  "Cultiway.ConstructionText.Correspondence": "{0} image “{1}” links to {2}; damage share {3:0.##}. Additional effects: {4}. {5}",
+  "Cultiway.ConstructionText.CorrespondenceWindow": "Active from {0:0.##} to {1:0.##}s after the part appears.",
+  "Cultiway.ConstructionText.CorrespondenceOpen": "Active from {0:0.##}s after the part appears until it ends.",
+  "Cultiway.ConstructionText.CorrespondenceNoExtras": "none",
+  "Cultiway.ConstructionText.Change.Correspondence": "Image link"
 }

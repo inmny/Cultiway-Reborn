@@ -1,0 +1,50 @@
+Actor source = Make(64); var owner = source.GetExtend();
+var definition = ImageDefinition(); definition.Root.Correspondence = null;
+ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+// UI_HELPERS
+try
+{
+    Click("Page4"); ToggleValue("Correspondence", true); Set("CorrespondenceId", "returned-shade");
+    Choose("CorrespondenceTarget", T("CorrespondenceTarget.Target")); Set("CorrespondenceDamage", ".6");
+    foreach (string effect in new[] { "Restoration", "Status", "Force" }) ToggleValue("CorrespondenceEffect." + effect, true);
+    Set("CorrespondenceFrom", ".2"); ToggleValue("CorrespondenceHasEnd", true); Set("CorrespondenceUntil", ".8");
+    string expected = JsonConvert.SerializeObject(Session().Draft.Root.Correspondence);
+    Set("CorrespondenceUntil", ".1");
+    Check(JsonConvert.SerializeObject(Session().Draft.Root.Correspondence) == expected && B("Replace").interactable &&
+          ((Text)Field(editor, "state")).text.Contains("映像传递"), "非法窗口给出原因，未覆盖原合法草稿");
+    Click("Undo"); Check(Session().Draft.Root.Correspondence.ActiveUntil == 1f, "撤销只回到上一次合法设定");
+    Click("Redo"); Check(JsonConvert.SerializeObject(Session().Draft.Root.Correspondence) == expected, "重做恢复截止时点与许可");
+    foreach (string language in new[] { "cz", "en" })
+    {
+        LocalizedTextManager.instance.setLanguage(language); Click("Page0"); Click("Page4");
+        await ShotRow("CorrespondenceEffect.Status", "image-" + language);
+        string text = ConstructionPresentation.Explain(Session().Draft, AbilityCompiler.Compile(Session().Draft, false));
+        Check(text.Contains("returned-shade") && text.Contains("0.6") && text.Contains("0.2") && text.Contains("0.8") &&
+              text.Contains(T("CorrespondenceTarget.Target")) &&
+              new[] { "Restoration", "Status", "Force" }.All(effect => text.Contains(T("CorrespondenceEffect." + effect))),
+            "同一构造完整解释原人物、时间和许可 " + language, text);
+        File.WriteAllText(Path.Combine(folder, "explanation-" + language + ".txt"), text);
+    }
+    Click("Replace"); var saved = ConstructionEditing.Access.Read(Session().SourceId); Input(saved, "saved-definition");
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(saved.Id, source); await Frames(); Click("Page4");
+    Check(JsonConvert.SerializeObject(Session().Draft.Root.Correspondence) == expected && saved.Cost == 3 && saved.Cooldown == .1f,
+        "覆盖再开保留全部规则和作者设定的费用");
+    double demand(int rule) => ConstructionPricing.Price(ConstructionEditing.Copy(saved), contactRules: rule).Calculation.Demand;
+    var measure = AbilityCompiler.Compile(saved, false).Measure;
+    var shortLink = ConstructionEditing.Copy(saved); shortLink.Root.Correspondence.ActiveUntil = .5f;
+    var onlyDamage = ConstructionEditing.Copy(saved); onlyDamage.Root.Correspondence.Effects = ConstructionCorrespondenceEffects.None;
+    var noLink = ConstructionEditing.Copy(saved); noLink.Root.Correspondence = null;
+    Check(measure.CorrespondenceWork > 0 && Math.Abs(demand(29) - demand(28) - measure.CorrespondenceWork) < 1e-7 &&
+          demand(28) == ConstructionPricing.Price(noLink, contactRules: 28).Calculation.Demand &&
+          AbilityCompiler.Compile(shortLink, false).Measure.CorrespondenceWork < measure.CorrespondenceWork &&
+          AbilityCompiler.Compile(onlyDamage, false).Measure.CorrespondenceWork < measure.CorrespondenceWork,
+        "新需求随真实时段和转交许可增减；旧规则不再加收映像费用", new { current = demand(29), legacy = demand(28), extra = measure.CorrespondenceWork });
+    Click("Close"); await Frames();
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, closed = "正式窗口、撤销与说明、旧新需求" };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    LocalizedTextManager.instance.setLanguage("cz"); Config.paused = true; ControllableUnit.clear(false);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+}

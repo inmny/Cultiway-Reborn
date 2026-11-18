@@ -1891,3 +1891,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 5.14 B2 映像有效时段
 
 通过独立环境运行 `python3 Scripts/SpellDemos/verify_correspondence.py --section timing`，核对实际开启时点、到期、实体自然结束、撤销、再次使用及等待中换世界。用 `verify_body_correspondence.py --section timing` 核对实际掌面在窗口内接触及结束归还控制。保存检查使用 `--section save --state <timing目录> --legacy <真实旧14世界>`。实际事件和分段结果位于 `/home/inmny/.local/state/cultiway-dev/evidence/correspondence-timing/delivery.json`。
+
+### 5.14 映像编辑及自主创作
+
+通过独立环境运行 `python3 Scripts/SpellDemos/verify_correspondence_creation.py --section ui|creation|all`。窗口段验证字段、中英说明、非法候选保留、撤销、再开和独立需求；创作段验证规则29的冻结输入、独立生成、已学原术衍生、实际付费传伤和完成。真实等待世界保存在 `correspondence-creation/creation/pending-save`，两段及首次失败的索引位于 `/home/inmny/.local/state/cultiway-dev/evidence/correspondence-creation/delivery.json`。

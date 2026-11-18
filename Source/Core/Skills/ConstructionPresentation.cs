@@ -184,6 +184,14 @@ public static class ConstructionPresentation
         var processes = new List<string>();
         foreach (ConstructionNode node in Nodes(definition.Root))
         {
+            if (node.Correspondence is { } link)
+            {
+                string[] effects = new[] { ConstructionCorrespondenceEffects.Restoration, ConstructionCorrespondenceEffects.Status, ConstructionCorrespondenceEffects.Force }
+                    .Where(effect => (link.Effects & effect) != 0).Select(effect => L("Cultiway.Construction.CorrespondenceEffect." + effect)).ToArray();
+                string window = link.ActiveUntil is float until ? F("CorrespondenceWindow", link.ActiveFrom, until) : F("CorrespondenceOpen", link.ActiveFrom);
+                lines.Add(F("Correspondence", Form(node.Form), link.Id, L("Cultiway.Construction.CorrespondenceTarget." + link.Target),
+                    link.DamageFraction, effects.Length == 0 ? T("CorrespondenceNoExtras") : string.Join("、", effects), window));
+            }
             if (node.Activation != null) processes.Add(F("Appears", Form(node.Form), Condition(node.Activation)));
             foreach (ConstructionOperation operation in node.Operations)
             {
@@ -289,6 +297,7 @@ public static class ConstructionPresentation
         "主体侵蚀" => "SelfErosion",
         "世界侵蚀" => "WorldErosion",
         "留置侵蚀" => "ResidueErosion",
+        "映像传递" => "Correspondence",
         "生灵老化" => "AgingActors",
         "装备腐蚀" => "AgingEquipment",
         "库存催朽" => "AgingInventory",

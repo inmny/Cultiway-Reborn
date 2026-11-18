@@ -1418,5 +1418,19 @@
   "Cultiway.Construction.NodeInventoryAgingChangeShape": "Change selected shape",
   "Cultiway.Construction.NodeInventoryAgingAddShape": "Add shape filter",
   "Cultiway.Construction.NodeInventoryAgingRemoveShape": "Remove selected shape",
-  "Cultiway.Construction.StepOutput.erosion": "Erosion process"
+  "Cultiway.Construction.StepOutput.erosion": "Erosion process",
+  "Cultiway.Construction.CorrespondenceRules": "Image link",
+  "Cultiway.Construction.CorrespondenceHint": "An image relays only permitted effects from actual contact to its original actor. Time starts when this part appears. The part can outlast the link.",
+  "Cultiway.Construction.Correspondence": "Relay through image",
+  "Cultiway.Construction.CorrespondenceId": "Link name",
+  "Cultiway.Construction.CorrespondenceTarget": "Original actor",
+  "Cultiway.Construction.CorrespondenceTarget.Target": "Selected actor",
+  "Cultiway.Construction.CorrespondenceTarget.Source": "Caster",
+  "Cultiway.Construction.CorrespondenceDamage": "Damage share (0–1)",
+  "Cultiway.Construction.CorrespondenceEffect.Restoration": "Allow healing and cleansing",
+  "Cultiway.Construction.CorrespondenceEffect.Status": "Allow statuses and reactions",
+  "Cultiway.Construction.CorrespondenceEffect.Force": "Allow direct force",
+  "Cultiway.Construction.CorrespondenceFrom": "Start relaying (s)",
+  "Cultiway.Construction.CorrespondenceHasEnd": "Set an earlier cutoff",
+  "Cultiway.Construction.CorrespondenceUntil": "Stop relaying (s)"
 }

@@ -47,6 +47,12 @@ public sealed partial class ConstructedAbilityService
         var random = new Random(seed);
         var choices = new List<(string Name, Func<AbilityDefinition> Apply)>();
         ConstructionNode[] nodes = DerivationNodes(draft.Root).ToArray();
+        if (inspiration.Rules >= 29)
+        {
+            var correspondenceSites = CorrespondenceSites(draft, plan);
+            if (correspondenceSites.Length > 0)
+                choices.Add(("映像传递", () => VaryCorrespondence(draft, plan, correspondenceSites, random)));
+        }
         if (inspiration.Rules >= 28) AddErosionAndAgingChoices(draft, plan, resources, random, choices);
         if (inspiration.Rules >= 27 && MaterialTransferSites(draft, plan).Length > 0)
             choices.Add(("材料交出", () => VaryMaterialTransfer(draft, random, plan)));

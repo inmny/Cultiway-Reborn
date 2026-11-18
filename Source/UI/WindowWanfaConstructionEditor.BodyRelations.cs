@@ -128,12 +128,15 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <summary>接触面与原模型部件为可拓展名称；编辑时仍由正式编译和施放核对。</summary>
     /// <param name="key">字段名称。</param><param name="value">当前名称。</param>
     /// <param name="set">写入独立草稿。</param>
-    private void ConnectionText(string key, string value, Action<string> set)
+    /// <param name="draftChange">是否由此控件提交草稿；完整候选命令自行建立撤销记录。</param>
+    private void ConnectionText(string key, string value, Action<string> set, bool draftChange = true)
     {
         var field = UiElements.CreateInput(Row(key).UseInlineControls(260f), key, value, T(key), 260f, 22f);
         field.onEndEdit.AddListener(text =>
         {
-            if (!refreshing) Change(() => set(text.Trim()));
+            if (refreshing) return;
+            if (draftChange) Change(() => set(text.Trim()));
+            else set(text.Trim());
         });
     }
 

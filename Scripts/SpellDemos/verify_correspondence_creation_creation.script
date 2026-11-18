@@ -1,0 +1,83 @@
+Actor source = Make(64), target = Make(80, "wolf"); var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var facts = new List<ConstructedCorrespondenceDamage>();
+void Mapped(ConstructedCorrespondenceDamage value) => facts.Add(value);
+ConstructedAbilityService.CorrespondenceDamageConfirmed += Mapped;
+JObject Complete(AbilityDefinition definition) { var value = JObject.FromObject(definition); value.Remove("Id"); return value; }
+SynthesisResources Capture(int seed, ConstructionInspiration inspiration) =>
+    (SynthesisResources)service.GetMethod("CaptureCreationResources", F).Invoke(null, new object[] { owner, seed, inspiration });
+bool HasImage(ConstructionNode part) => part != null && (part.Correspondence != null || part.Children.Any(HasImage));
+try
+{
+    var basis = ImageDefinition(); basis.Id += ".basis"; basis.Root.Correspondence = null;
+    ConstructedAbilityService.Register(basis); ConstructedAbilityService.Learn(owner, basis.Id);
+    var inspiration = ConstructedAbilityService.ReadInspiration(owner);
+    Check(inspiration.Rules == 29, "自主创作当前采用映像规则29");
+    var rejected = new List<object>();
+    var original = Complete(basis); AbilityDefinition independent = null, derived = null;
+    for (int seed = 0; seed < 96 && (independent == null || derived == null); seed++)
+    {
+        var resources = Capture(seed, inspiration);
+        if (independent == null)
+        {
+            AbilityDefinition candidate = null;
+            try { candidate = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: resources); }
+            catch (InvalidDataException error) { rejected.Add(new { seed, reason = error.Message }); }
+            if (candidate != null && HasImage(candidate.Root))
+            {
+                independent = candidate;
+                var copied = JObject.FromObject(resources).ToObject<SynthesisResources>();
+                Check(JToken.DeepEquals(Complete(candidate), Complete(ConstructedAbilityService.Generate(owner, seed, inspiration, resources: copied))),
+                    "独立创作的冻结目录与种子复现完整构造及需求", seed);
+            }
+        }
+        if (derived == null)
+        {
+            var candidate = ConstructedAbilityService.Generate(owner, seed, inspiration, basis, resources);
+            if (candidate.Parent.Change == "映像传递" && candidate.Root.Correspondence is { } link &&
+                link.ActiveFrom == 0f && (link.ActiveUntil ?? 1f) > .4f && link.DamageFraction > 0f) derived = candidate;
+        }
+        if (seed % 8 == 0) await Game.NextFrame();
+    }
+    File.WriteAllText(Path.Combine(folder, "rejected-inputs.json"), JsonConvert.SerializeObject(rejected, Formatting.Indented));
+    Check(independent != null && derived != null && JToken.DeepEquals(Complete(basis), original) &&
+          JToken.DeepEquals(JArray.FromObject(derived.Root.Operations), JArray.FromObject(basis.Root.Operations)) &&
+          JToken.DeepEquals(JArray.FromObject(derived.Steps), JArray.FromObject(basis.Steps)),
+        "独立与衍生均可产生映像，原术及其他动作保持", new { independent = independent?.Seed, derived = derived?.Seed });
+    Input(independent, "independent-definition"); Input(basis, "basis");
+    Check(ConstructedAbilityService.TryQueueCreation(owner, derived.Seed, basis.Id), "由人物真实已学原术受理创作");
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    var envelope = JObject.Parse(Cultiway.ModClass.I.WorldSaves.Actors.Capture(owner, "correspondence-creation"));
+    Check((int)envelope["sections"]["ability_creation"]["version"] == 30 && pending.Inspiration.Rules == 29 &&
+          JToken.DeepEquals(Complete(ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources)), Complete(derived)),
+        "正式30区段冻结当前完整请求及费用");
+    long sourceId = source.id, targetId = target.id;
+    int known = ConstructionEditing.Access.List(owner).Count;
+    File.WriteAllText(Path.Combine(folder, "pending-expected.json"), JsonConvert.SerializeObject(new { sourceId, targetId, predicted = derived, known, process = System.Diagnostics.Process.GetCurrentProcess().Id }, Formatting.Indented));
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "pending-save"));
+    await Advance(.2f);
+    var completed = owner.GetComponent<ConstructedCreationState>();
+    var learned = ConstructionEditing.Access.Read(completed.LastAbility);
+    Check(!completed.Pending && completed.LastFailure == null && learned != null && JToken.DeepEquals(Complete(learned), Complete(derived)) &&
+          ConstructionEditing.Access.List(owner).Count == known + 1, "正式队列实际学习一次完整衍生成品", completed.LastFailure);
+    Input(learned, "created-definition");
+    Ready(source); await Advance(.12f); Place(source, 64); Place(target, 80);
+    var attack = AttackDefinition(); Input(attack, "attack-definition");
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    float before = owner.GetCultisys<Xian>().wakan;
+    await Fire(learned, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Fire(attack, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - learned.Cost - attack.Cost) < .002f, "衍生成品与独立攻击分别按实际费用支付");
+    await Advance(1.2f);
+    Check(facts.Count == 1 && facts[0].TargetId == targetId && facts[0].HealthAfter < facts[0].HealthBefore &&
+          facts[0].Fraction == learned.Root.Correspondence.DamageFraction && endings.Any(fact => fact.Fact.AbilityId == learned.Id),
+        "衍生成品真实交锋、传伤并结束", facts.Select(f => new { f.TargetId, f.Relation, f.Fraction, f.HealthBefore, f.HealthAfter }).ToArray());
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, closed = "独立与衍生创作、正式受理、付费传伤和结束" };
+}
+finally
+{
+    ConstructedAbilityService.CorrespondenceDamageConfirmed -= Mapped;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

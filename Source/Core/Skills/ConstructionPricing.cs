@@ -61,6 +61,9 @@ public sealed class ConstructionMeasure
     /// <summary>主体、明确世界容量及留置后侵蚀的独立需求，第二十八版起计入。</summary>
     public double ErosionWork { get; }
 
+    /// <summary>真实部位承载映像传递的额外需求，第二十九版起计入。</summary>
+    public double CorrespondenceWork { get; }
+
     /// <summary>按当前规模给出的默认恢复世界秒数；不替代真实身体收势。</summary>
     public float DefaultCooldown { get; }
 
@@ -161,6 +164,14 @@ public sealed class ConstructionMeasure
                   plan.Nodes[node.FragmentSource].Fracture.Pieces.Length
                 : volume;
             double control = Math.Max(Math.Max(carried, area * .1d), .05d);
+            if (node.Correspondence is { } relation)
+            {
+                double window = Math.Max(0d, Math.Min(span, relation.ActiveUntil) - relation.ActiveFrom);
+                double channels = relation.DamageFraction;
+                foreach (var effect in new[] { ConstructionCorrespondenceEffects.Restoration, ConstructionCorrespondenceEffects.Status, ConstructionCorrespondenceEffects.Force })
+                    if ((relation.Effects & effect) != 0) channels += .5d;
+                CorrespondenceWork += control * node.Strength * window * channels * .25d;
+            }
             foreach (CompiledEventOperation operation in node.EventOperations)
                 if (operation.Ray != null)
                 {
@@ -374,7 +385,8 @@ public static class ConstructionPricing
     private static double Demand(ConstructionMeasure measure, int rules) => measure.Work +
         (rules >= 12 ? measure.ContactEffectsWork : 0d) + (rules >= 13 ? measure.ContactDisplacementWork : 0d) +
         (rules >= 14 ? measure.ContactResultsWork : 0d) + (rules >= 15 ? measure.ContactSpreadWork : 0d) +
-        (rules >= 19 ? measure.RadialMotionWork : 0d) + (rules >= 28 ? measure.ErosionWork : 0d);
+        (rules >= 19 ? measure.RadialMotionWork : 0d) + (rules >= 28 ? measure.ErosionWork : 0d) +
+        (rules >= 29 ? measure.CorrespondenceWork : 0d);
 
     /// <summary>以当前实际构造计算新创作的默认费用与恢复时间。</summary>
     /// <param name="definition">本次独占的新创作。</param><param name="cost">是否补费用。</param><param name="cooldown">是否补恢复时间。</param>

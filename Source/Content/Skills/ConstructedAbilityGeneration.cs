@@ -89,6 +89,7 @@ public sealed partial class ConstructedAbilityService
         if (inspiration.Rules >= 26) result = GenerateInventory(result, seed, resources);
         if (inspiration.Rules >= 27) result = GenerateMaterialTransfer(result, seed);
         if (inspiration.Rules >= 28) result = GenerateErosionAndAging(result, seed, resources);
+        if (inspiration.Rules >= 29) result = GenerateCorrespondence(result, seed);
         return inspiration.Rules >= 3 ? ConstructionPricing.Price(result, contactRules: inspiration.Rules) : result;
     }
 

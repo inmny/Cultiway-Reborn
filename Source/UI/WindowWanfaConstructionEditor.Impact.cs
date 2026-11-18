@@ -42,6 +42,7 @@ public sealed partial class WindowWanfaConstructionEditor
             return;
         }
 
+        CorrespondenceRows(node);
         ConnectionText("NodeContactGroup", node.ContactGroup ?? "", value => node.ContactGroup = string.IsNullOrWhiteSpace(value) ? null : value);
         ContactPolicyRows(node.Contact, node, "Node");
         ImpactOption("Node", "OnContact", node.OnContact, value => node.OnContact = value);
