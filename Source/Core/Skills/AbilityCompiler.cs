@@ -309,6 +309,9 @@ internal sealed class CompiledForm
     /// <summary>已复制的当前控制者失效规则。</summary>
     internal ConstructionSourceLoss SourceLoss;
 
+    /// <summary>本体伤害属性和表面是否随当前实际材料更新。</summary>
+    internal bool FollowMatter;
+
     /// <summary>此实际部位中已核对的原操作需求，合成碎片不虚构作者操作。</summary>
     internal CompiledOperationRequirement[] Operations = Array.Empty<CompiledOperationRequirement>();
 
@@ -545,6 +548,15 @@ internal sealed class CompiledForm
 /// <summary>在创建或改造时一次展开结构和名称，不在运行热路径解释资料。</summary>
 public static partial class AbilityCompiler
 {
+    /// <summary>编译时检查实际会用到的表面，避免错误资源到发布时才暴露。</summary>
+    /// <param name="matter">已解析的材料。</param><param name="follows">是否采用换材表面。</param>
+    /// <param name="path">对应声明路径。</param>
+    internal static void ValidateMatterSurface(AbilityMatter matter, bool follows, string path)
+    {
+        string surface = follows ? matter.EditedSurface : matter.Surface;
+        if (surface != null) ConstructionReferences.Resolve(path, () => FormResources.Surface(surface, true));
+    }
+
     /// <summary>同一世界可共用的完整资料缓存；内容不同也不会误用相同修订号。</summary>
     private static readonly Dictionary<(int Version, string Definition), CompiledAbility> plans = new();
 
@@ -773,8 +785,7 @@ public static partial class AbilityCompiler
         if (node.Correspondence != null && node.ContactRole == ConstructionContactRole.Decoration)
             Fail(path + "/Correspondence", "装饰部位没有真实交锋形状，不能传递映像作用");
         CompiledSpreadMedium.ValidateChannel(node.MediumChannel, path + "/MediumChannel");
-        if (matter.Surface != null)
-            ConstructionReferences.Resolve(path + "/Matter/Surface", () => FormResources.Surface(matter.Surface, true));
+        ValidateMatterSurface(matter, node.FollowMatter, path + "/Matter/Surface");
         Color? dye = null;
         if (node.Tint != null)
         {
@@ -803,6 +814,7 @@ public static partial class AbilityCompiler
             Hold = new CompiledConstructionHold(node.Hold, lifetime, path + "/Hold"),
             Surface = node.Surface,
             Matter = matter,
+            FollowMatter = node.FollowMatter,
             MediumChannel = node.MediumChannel,
             Dye = dye,
             ContactKey = node.ContactGroup ?? path,
@@ -959,7 +971,7 @@ public static partial class AbilityCompiler
                     if (changes.Count >= 16) Fail(path, "每部位物态变化不能超过16项");
                     AbilityMatter target = AbilityMatters.Resolve(operation.Matter, operation.State,
                         path + "/ConvertMatter[" + changes.Count + "]");
-                    if (target.Surface != null) FormResources.Surface(target.Surface, true);
+                    ValidateMatterSurface(target, node.FollowMatter, operationPath + "/Matter/Surface");
                     changes.Add(new CompiledMatterChange(operation.At, operation.Trigger, target,
                         operation.WorldMatter == null
                             ? null

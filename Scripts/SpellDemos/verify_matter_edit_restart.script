@@ -1,0 +1,32 @@
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "pending.json")));
+Check(System.Diagnostics.Process.GetCurrentProcess().Id != (int)expected["process"], "正式档由另一个游戏进程读取");
+try
+{
+    World.world.save_manager.loadWorld(Path.Combine(folder, "pending-save"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    foreach (string name in new[] { "original", "dye", "edited" })
+    {
+        var before = expected[name].ToObject<AbilityDefinition>();
+        var loaded = ConstructionEditing.Access.Read(before.Id);
+        Check(loaded != null && JsonConvert.SerializeObject(before.Root) == JsonConvert.SerializeObject(loaded.Root) &&
+            JsonConvert.SerializeObject(before.Impact) == JsonConvert.SerializeObject(loaded.Impact) &&
+            before.Cost == loaded.Cost, name + " 正式档保留原规则、换材模式和颜色设置");
+    }
+    await Advance(.14f);
+    long id = (long)expected["row"]["Id"];
+    var capture = (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "matter-edit-restart"))
+        ["sections"]["world_materials"]["data"]["Records"];
+    var material = capture.Single(value => (long)value["Id"] == id)["Material"].ToObject<AbilityMaterialData>();
+    var visual = FormVisualScene.Instances.Single(value => value.Resource.Description.Id == "poison_pool" &&
+        Math.Abs(value.Transform.m03 - 68) < .2f && Math.Abs(value.Transform.m13 - 72) < .2f);
+    Check(material.Matter == "water" && material.State == "solid" && material.FollowMatter && material.Dye[0] == .55f &&
+        visual.SurfaceFor(0) == "ice" && visual.Dye?.r == .55f && visual.Matter.State == "solid",
+        "留置物冷读后仍是冰质，实际发布表面和独立染色一致");
+    return new { passed = true, row = id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

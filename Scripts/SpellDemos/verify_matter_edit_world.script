@@ -1,0 +1,94 @@
+// 用窗口保存的三种结果走同一真实接触路径，比较伤害输入与发布表面。
+AbilityDefinition Read(string name) => JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, name + ".json")));
+var original = Read("original"); var dye = Read("dye"); var edited = Read("edited");
+var source = Make(64); var first = Make(74, "wolf"); var second = Make(75, "wolf");
+var owner = source.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 10000f });
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+await Advance(.2f);
+Place(source, 64); Place(first, 74); Place(second, 75);
+foreach (var enemy in new[] { first, second }) { source.addAggro(enemy); enemy.addAggro(source); }
+var spot = new Vector3(68, 72, 0);
+var events = new List<WorldMaterialChange>();
+void Material(WorldMaterialChange value) { if (value.Provider == source.id) events.Add(value); }
+JArray Records() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "matter-edit"))
+    ["sections"]["world_materials"]["data"]["Records"];
+string SurfaceFor(FormVisualInstance visual) => visual.SurfaceFor(0);
+FormVisualInstance Published() => FormVisualScene.Instances.Single(value => value.Resource.Description.Id == "poison_pool" &&
+    Math.Abs(value.Transform.m03 - spot.x) < .2f && Math.Abs(value.Transform.m13 - spot.y) < .2f);
+bool ElementEquals(ElementComposition a, ElementComposition b) => Enumerable.Range(0, 8).All(i => Math.Abs(a[i] - b[i]) < .00001f);
+async Task<AbilityCast> Begin(AbilityDefinition definition)
+{
+    Place(first, 74); Place(second, 75);
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, first, aim: spot, aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - definition.Cost) < .0001f, "正式施放按原费用扣款");
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(record => ((AbilityCast)Field(record, "Cast")).Plan.Id == definition.Id);
+    await Advance(.13f);
+    return (AbilityCast)Field(running, "Cast");
+}
+async Task Strike(MethodTraceScope trace, AbilityDefinition definition, Actor enemy, string matter, string state, ElementComposition kind)
+{
+    Place(enemy, spot.x, spot.y);
+    await Advance(.14f);
+    var actual = contacts.Single(value => value.AbilityId == definition.Id && value.TargetId == enemy.id);
+    var packet = trace.Events.Select(item => Objects.Resolve<GetHitEvent>((string)item.Arguments["evt"]["handle"]))
+        .Last(hit => hit.TargetID == enemy.id && hit.Damage > 0);
+    Check(actual.MatterBefore == matter && actual.StateBefore == state && ElementEquals(packet.Element, kind) &&
+          actual.TargetHealthAfter < actual.TargetHealthBefore, "真实接触与伤害系统采用正确属性", new
+          { definition.Id, actual.MatterBefore, actual.StateBefore, actual.TargetId, actual.TargetHealthBefore, actual.TargetHealthAfter, packet.Element });
+    Place(enemy, 75);
+}
+
+WorldMaterialService.Changed += Material;
+try
+{
+    using var trace = Trace.Attach(typeof(GetHitEventSystem).GetMethod("Resolve", F), new MethodTraceOptions { IncludeResult = false, MaxEvents = 100 });
+    var baseCast = await Begin(original);
+    var firstLook = Published();
+    Check(firstLook.Resource.Description.Parts.All(part => !part.UseMatterSurface) && SurfaceFor(firstLook) == "poison_liquid" && !firstLook.Dye.HasValue,
+        "未改旧术保留旧表面，样本确实没有主体材料槽");
+    await Strike(trace, original, first, "poison", "liquid", ElementComposition.Static.Fire);
+    await Advance(1.85f);
+    Check(baseCast.Finished, "原术自然结束");
+
+    var dyeCast = await Begin(dye);
+    var tinted = Published();
+    Check(SurfaceFor(tinted) == "poison_liquid" && tinted.Dye?.r == .55f && tinted.Matter.Id == "poison",
+        "独立染色只改变显示颜色倍率");
+    await Strike(trace, dye, first, "poison", "liquid", ElementComposition.Static.Fire);
+    await Advance(1.85f);
+    Check(dyeCast.Finished, "染色版本结束后可继续施放");
+
+    var live = await Begin(edited);
+    var water = Published();
+    Check(SurfaceFor(water) == "water" && water.Matter.State == "liquid" && water.Dye?.r == .55f,
+        "换材后的无材料槽模型实际发布水质表面，染色仍在");
+    await Strike(trace, edited, first, "water", "liquid", ElementComposition.Static.Water);
+    await Advance(.68f);
+    var ice = Published();
+    Check(SurfaceFor(ice) == "ice" && ice.Matter.State == "solid" && ice.Dye?.r == .55f,
+        "同次正式转换已发布为冰质并保留染色");
+    await Strike(trace, edited, second, "water", "solid", ElementComposition.Static.Ice);
+    await Advance(.87f);
+    var left = events.Single(value => value.Kind == "leave");
+    var row = Records().Single(value => (long)value["Id"] == left.Id);
+    var remains = Published();
+    Check(live.Finished && left.AbilityId == edited.Id && (bool)row["Material"]["FollowMatter"] &&
+        SurfaceFor(remains) == "ice" && remains.Dye?.r == .55f, "转换结果由真实部位交给世界，留置外观与冰态相同");
+
+    foreach (var definition in new[] { original, dye, edited }) ConstructedAbilityService.Learn(owner, definition.Id);
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "pending-save"));
+    File.WriteAllText(Path.Combine(folder, "pending.json"), JsonConvert.SerializeObject(new
+    {
+        process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, original, dye, edited, row
+    }, Formatting.Indented));
+    return new { passed = true, row = left.Id };
+}
+finally
+{
+    WorldMaterialService.Changed -= Material;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

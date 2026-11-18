@@ -53,13 +53,14 @@ public sealed partial class WindowWanfaConstructionEditor
                 ? JsonConvert.DeserializeObject<ConstructionImpact>(JsonConvert.SerializeObject(basis))
                 : null;
         });
-        if (node.Impact != null) ImpactRows(node.Impact, "Node");
+        if (node.Impact != null) ImpactRows(node.Impact, "Node", node.FollowMatter);
     }
 
     /// <summary>同一规则用于整招及生成部位；关闭覆盖时直接恢复继承。</summary>
     /// <param name="impact">独立草稿中的接触作用。</param>
     /// <param name="prefix">整招和部位表单名称。</param>
-    private void ImpactRows(ConstructionImpact impact, string prefix)
+    /// <param name="followMatter">本部位的本体伤害是否改用实际材料。</param>
+    private void ImpactRows(ConstructionImpact impact, string prefix, bool followMatter = false)
     {
         Choice(prefix + "Targets", T("Relation." + impact.Targets), () => menu.Show(T(prefix + "Targets"),
             new[] { SkillUseTargetRelation.Hostile, SkillUseTargetRelation.Friendly, SkillUseTargetRelation.Self }
@@ -69,7 +70,7 @@ public sealed partial class WindowWanfaConstructionEditor
                     Select = () => Change(() => impact.Targets = relation)
                 }).ToArray()));
         Number(prefix + "DamageScale", impact.DamageScale, value => impact.DamageScale = value);
-        ContactEffectRows(impact, prefix);
+        ContactEffectRows(impact, prefix, followMatter);
         ContactResultRows(impact, prefix);
         Toggle(prefix + "DirectedImpulse", impact.Impulse != null, value =>
         {

@@ -60,6 +60,7 @@ public sealed partial class FormResource
         Generation = source.Generation;
         ContactVolume = source.ContactVolume;
         Builds = source.Description.Parts[part].HasBuildData;
+        HasMatterParts = source.HasMatterParts;
         Rig = source.Rig;
         Facing = source.Facing;
         FormDescription original = source.Description;

@@ -1506,15 +1506,16 @@ public sealed partial class AbilityCast
                     AppendPropagationVisuals(i, wave, output);
                     continue;
                 }
+                var appearance = MatterAppearance(i);
                 output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
-                    surface: Plan.Nodes[i].Surface,
+                    surface: appearance.Surface,
                     tint: nodes[i].Matter.Id == "fire"
                         ? new Color(1f, .31f, .035f,
                             nodes[i].InitialForce > 0 ? Mathf.Clamp01(nodes[i].Force / nodes[i].InitialForce) : 0f)
                         : FormBurningPresentation.Char(nodes[i].Burning, nodes[i].Volume),
                     groundAnchor: Plan.Nodes[i].FragmentSource >= 0 ? (Vector2?)nodes[i].Position : null,
                     skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
-                    matterSurface: nodes[i].Matter.Surface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter,
+                    matterSurface: appearance.MatterSurface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter,
                     terrain: terrain, layer: flows?[i]?.Started == true ? ConductingFrame(i) : null,
                     buildProgress: poses[i]?.BuildProgress ?? 1f));
                 FormBurningPresentation.Append(output, nodes[i].Transform, nodes[i].Burning, nodes[i].Volume, terrain,

@@ -122,6 +122,10 @@ public sealed class ConstructionNode
     /// <summary>明确物态，空值使用实际材料的默认规则。</summary>
     public string State;
 
+    /// <summary>改造后，本体伤害属性和表面使用当前实际材料，旧资料缺省保留固定设置。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool FollowMatter;
+
     /// <summary>实际部位作为接触介质时提供的通道，空值不参与介质分送。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public string MediumChannel;

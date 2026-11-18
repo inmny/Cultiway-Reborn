@@ -88,16 +88,18 @@ public sealed partial class WindowWanfaConstructionEditor
                      o.Kind == ConstructionOperationKind.ConvertMatter && o.When == null))
         {
             Number("MatterAt", operation.At, value => operation.At = value);
-            MatterConversionParameters(operation);
+            MatterConversionParameters(node, operation);
             ActionRow("RemoveMatterConversion", "",
                 () => Change(() => node.Operations = node.Operations.Where(item => item != operation).ToArray()));
         }
 
         if (!node.Operations.Any(o => o.Kind == ConstructionOperationKind.ConvertMatter && o.When == null))
-            ActionRow("AddMatterConversion", "", () => Change(() => node.Operations = node.Operations.Concat(new[]
+            ActionRow("AddMatterConversion", "", () => Change(() =>
             {
-                new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "ice", At = 0 }
-            }).ToArray()));
+                node.FollowMatter = true;
+                node.Operations = node.Operations.Append(new ConstructionOperation
+                    { Kind = ConstructionOperationKind.ConvertMatter, Matter = "ice", At = 0 }).ToArray();
+            }));
         foreach (ConstructionOperation operation in node.Operations.Where(o =>
                      o.Kind == ConstructionOperationKind.Flow && o.When == null))
         {
@@ -181,9 +183,11 @@ public sealed partial class WindowWanfaConstructionEditor
                 {
                     node.Matter = item.Id;
                     node.State = item.State;
-                    node.Surface = null;
+                    node.FollowMatter = true;
                 })
             }).ToArray(), true));
+        Row("FollowMatterHint", T("FollowMatterHintText"));
+        Toggle("FollowMatter", node.FollowMatter, value => node.FollowMatter = value);
         Toggle("Dye", node.Tint != null, value => node.Tint = value ? new[] { 1f, 1f, 1f } : null);
         if (node.Tint != null)
             for (int i = 0; i < 3; i++)

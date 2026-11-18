@@ -68,7 +68,7 @@ public sealed partial class AbilityCast
                 ? AbilityMaterial.BuildShapes(form.Resource, poses[node], state.Transform)
                 : Array.Empty<AbilityCapsule>(),
             form.Surface, form.Dye, state.Volume, state.Resource, flow, state.Burning, state.ShapeHeld,
-            poses[node]?.BuildProgress ?? 1f);
+            poses[node]?.BuildProgress ?? 1f, form.FollowMatter);
         material.Weathering = state.Weathering;
         if (form.Residue.Erosion != null) material.BeginErosion(form.Residue.Erosion);
         return material;

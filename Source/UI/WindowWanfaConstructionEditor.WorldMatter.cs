@@ -7,8 +7,9 @@ namespace Cultiway.UI;
 public sealed partial class WindowWanfaConstructionEditor
 {
     /// <summary>定时和条件转换使用同一组输出、来源和体积容量。</summary>
+    /// <param name="node">实际改造的主体。</param>
     /// <param name="operation">当前独立草稿中的真实操作。</param>
-    private void MatterConversionParameters(ConstructionOperation operation)
+    private void MatterConversionParameters(ConstructionNode node, ConstructionOperation operation)
     {
         Choice("ProcessMatter", MaterialName(AbilityMatters.Resolve(operation.Matter, operation.State, "过程输出")), () =>
             menu.Show(T("ProcessMatter"),
@@ -21,6 +22,7 @@ public sealed partial class WindowWanfaConstructionEditor
                     {
                         operation.Matter = matter.Id;
                         operation.State = matter.State;
+                        node.FollowMatter = true;
                     })
                 }).ToArray(), true));
         Toggle("ConvertWorldMatter", operation.WorldMatter != null,

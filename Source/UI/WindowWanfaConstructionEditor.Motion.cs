@@ -36,6 +36,7 @@ public sealed partial class WindowWanfaConstructionEditor
                 {
                     Label = T("MotionKind." + kind), Select = () => Change(() =>
                     {
+                        if (kind == ConstructionOperationKind.ConvertMatter) node.FollowMatter = true;
                         motionChoice = node.Operations.Count(o => o.When != null);
                         node.Operations = node.Operations
                             .Concat(new[] { NewProcessOperation(node, kind, session.Draft.Lifetime) }).ToArray();
@@ -119,7 +120,7 @@ public sealed partial class WindowWanfaConstructionEditor
         }
 
         if (operation.Kind == ConstructionOperationKind.ConvertMatter)
-            MatterConversionParameters(operation);
+            MatterConversionParameters(node, operation);
         if (operation.Kind is not (ConstructionOperationKind.Deflect or ConstructionOperationKind.Spin)) return;
         for (int axis = 0; axis < 3; axis++)
         { int component = axis; Number("MotionVector" + new[] { "X", "Y", "Z" }[axis], operation.Vector[axis], value => operation.Vector[component] = value); }

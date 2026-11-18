@@ -3,6 +3,21 @@ namespace Cultiway.Core.Skills;
 /// <summary>单次施放内的实际材料变化，保持与姿态、作用区及预测恢复一致。</summary>
 public sealed partial class AbilityCast
 {
+    /// <summary>本体是否保留作者原有的固定伤害属性；附加伤害不走这条规则。</summary>
+    /// <param name="node">实际发生接触的部位。</param><param name="impact">本次使用的完整作用。</param>
+    internal ElementComposition? FixedDamageElement(int node, CompiledConstructionImpact impact) =>
+        node >= 0 && Plan.Nodes[node].FollowMatter ? null : impact.Element;
+
+    /// <summary>当前位置和两端显示共用实际材料选出的表面。</summary>
+    /// <param name="node">实际显示部位。</param>
+    private (string Surface, string MatterSurface) MatterAppearance(int node)
+    {
+        CompiledForm form = Plan.Nodes[node];
+        AbilityMatter matter = nodes[node].Matter;
+        return (form.Resource.AppearanceOverride(form.Surface, matter, form.FollowMatter),
+            form.FollowMatter ? matter.EditedSurface : matter.Surface);
+    }
+
     /// <summary>读取当前实际材料及物态，不读取显示颜色。</summary>
     /// <param name="node">已经展开的生成部位。</param>
     public AbilityMatter Matter(int node) => nodes[node].Matter;

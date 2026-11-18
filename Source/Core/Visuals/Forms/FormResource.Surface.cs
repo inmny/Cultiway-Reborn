@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Cultiway.Core.Skills;
 using UnityEngine;
 
 namespace Cultiway.Core.Visuals.Forms;
@@ -9,6 +10,15 @@ namespace Cultiway.Core.Visuals.Forms;
 /// <summary>按需在资源边界取得实际表面，施放与工作线程不读取Unity网格。</summary>
 public sealed partial class FormResource
 {
+    /// <summary>主体是否提供材料槽；拆开后仍保留其余部件自己的表面。</summary>
+    private readonly bool HasMatterParts;
+
+    /// <summary>旧资料保留显式覆盖，换材时只在没有材料槽的主体上使用整件表面。</summary>
+    /// <param name="surface">原资料的固定表面。</param><param name="matter">当前真实材料。</param>
+    /// <param name="followMatter">是否按实际材料更新。</param>
+    internal string AppearanceOverride(string surface, AbilityMatter matter, bool followMatter) =>
+        followMatter ? HasMatterParts ? null : matter.EditedSurface : surface;
+
     /// <summary>本资源版本共享的各部件完整制作表面。</summary>
     private FormSurfaceMesh[] surfaces;
 

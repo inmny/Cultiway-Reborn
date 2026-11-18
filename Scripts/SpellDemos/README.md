@@ -2063,3 +2063,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 在独立游戏中通过 `dev.py exec --timeout 235 -- python3 Scripts/SpellDemos/verify_propagation_residue.py ui` 从 5.18 的实际地波输入开始，在万法阁编辑两招。默认沿用当时通过的 `ground-route-a/passed/definition.json`；可用 `ui --ground <definition.json>` 指定通过 `verify_ground_route.py --section arrival` 导出的输入。
 
 接着运行 `verify_propagation_residue.py world --state <ui输出目录>`，用窗口成品验证断路没有留置、接回地面后同招在实际远处留下独立材料，并保留正式档。退出并另起游戏进程，运行 `verify_propagation_residue.py restart --state <world输出目录>`，检查成品、留下的材料和原支付份额，实际回收后重新保存。三段分别通过 `dev.py exec` 运行；结果目录名为 `propagation-residue`，一段失败时只补对应段。
+
+### 8.07 材料改造、实际伤害与独立染色
+
+通过独立游戏运行 `dev.py exec --timeout 235 -- python3 Scripts/SpellDemos/verify_matter_edit.py ui`，在万法阁保存只染色和真实换材两份成品。接着用 `world --state <ui输出目录>` 验证原术和仅染色成品的火伤、换材成品冻结前后的水伤与冰伤、实际表面与留置。退出并重新启动独立游戏，再用 `restart --state <world输出目录>` 打开正式档。输出目录位于每次启动的 `output/matter-edit` 下，各段结果单独保留。
