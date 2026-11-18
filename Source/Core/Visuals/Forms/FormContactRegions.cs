@@ -22,6 +22,9 @@ public sealed class FormContactPath
 /// <summary>加载形体时拆出有限的凸片；各片的身份不会随成形进度变化。</summary>
 internal static class FormContactRegions
 {
+    /// <summary>单段圆弧最多五度。向内收缩为半径的 1 - cos(2.5°)，小于千分之一。</summary>
+    internal const int ArcStepDegrees = 5;
+
     internal static void Add(List<FormContactBinding> contacts, FormContactDescription source, FormRig rig, string control)
     {
         var sector = source.Sector;
@@ -47,7 +50,7 @@ internal static class FormContactRegions
         int count = Mathf.CeilToInt(sector.Angle / 90f);
         float span = sector.Angle / count;
         float first = 90f - sector.Direction % 360f - sector.Angle * .5f;
-        int edges = Mathf.CeilToInt(span / 5f);
+        int edges = Mathf.CeilToInt(span / ArcStepDegrees);
         for (int part = 0; part < count; part++)
         {
             var outline = new Vector2[edges + 2];
