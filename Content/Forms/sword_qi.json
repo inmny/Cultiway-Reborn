@@ -1,7 +1,7 @@
 {
     "Structure": {
         "Kind": "rigid",
-        "UnitInTiles": 1.0,
+        "UnitInTiles": 1,
         "Generation": {
             "Source": "Scripts/CombatModelStudio/forms_blades.mjs",
             "Entry": "makeBladeForms",
@@ -15,7 +15,7 @@
                 {
                     "Id": "profile",
                     "Values": [
-                        0.0
+                        0
                     ]
                 },
                 {
@@ -36,14 +36,14 @@
     "Version": 8,
     "Id": "sword_qi",
     "Forward": [
-        0.0,
-        0.0,
-        1.0
+        0,
+        0,
+        1
     ],
     "Up": [
-        0.0,
-        1.0,
-        0.0
+        0,
+        1,
+        0
     ],
     "Parts": [
         {
@@ -58,9 +58,9 @@
             "Id": "edge",
             "Surface": "metal",
             "Pivot": [
-                0.0,
-                0.0,
-                0.0
+                0,
+                0,
+                0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/sword_qi_edge.asset",
             "Control": "root",
@@ -81,9 +81,9 @@
             "Id": "ridge",
             "Surface": "gold",
             "Pivot": [
-                0.0,
-                0.0,
-                0.0
+                0,
+                0,
+                0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/sword_qi_ridge.asset",
             "Control": "root",
@@ -95,18 +95,18 @@
     ],
     "Anchors": [
         {
-            "BuildAt": 0.0,
+            "BuildAt": 0,
             "Id": "root",
             "Part": 0,
             "Position": [
-                0.0,
-                0.0,
-                0.0
+                0,
+                0,
+                0
             ],
             "Direction": [
-                0.0,
-                0.0,
-                1.0
+                0,
+                0,
+                1
             ],
             "Control": "root",
             "Influences": []
@@ -115,345 +115,37 @@
     "Grips": [],
     "Held": {
         "Groups": [],
-        "Scale": 0.0
+        "Scale": 0
     },
     "Actions": [],
     "Contacts": [
         {
-            "BuildRange": [],
-            "BuildAlong": false,
             "Id": "edge_0",
             "Part": 0,
             "A": [
-                -1.6649999618530274,
-                0.0,
-                -0.07500000298023224
+                0,
+                0,
+                0
             ],
-            "B": [
-                -1.456874966621399,
-                0.0,
-                -0.013124999590218068
-            ],
-            "Radius": 0.03691919147968292,
             "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
-        },
-        {
-            "BuildRange": [],
-            "BuildAlong": false,
-            "Id": "edge_1",
-            "Part": 0,
-            "A": [
-                -1.456874966621399,
-                0.0,
-                -0.013124999590218068
-            ],
-            "B": [
-                -1.2487499713897706,
-                0.0,
-                0.04874999821186066
-            ],
-            "Radius": 0.055945221334695819,
-            "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
-        },
-        {
-            "BuildRange": [],
-            "BuildAlong": false,
-            "Id": "edge_2",
-            "Part": 0,
-            "A": [
-                -1.2487499713897706,
-                0.0,
-                0.04874999821186066
-            ],
-            "B": [
-                -1.040624976158142,
-                0.0,
-                0.1106249988079071
-            ],
-            "Radius": 0.06942868232727051,
-            "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
-        },
-        {
-            "BuildRange": [],
-            "BuildAlong": false,
-            "Id": "edge_3",
-            "Part": 0,
-            "A": [
-                -1.040624976158142,
-                0.0,
-                0.1106249988079071
-            ],
-            "B": [
-                -0.8324999809265137,
-                0.0,
-                0.17249999940395356
-            ],
-            "Radius": 0.079593725502491,
-            "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
-        },
-        {
-            "BuildRange": [],
-            "BuildAlong": false,
-            "Id": "edge_4",
-            "Part": 0,
-            "A": [
-                -0.8324999809265137,
-                0.0,
-                0.17249999940395356
-            ],
-            "B": [
-                -0.6243749856948853,
-                0.0,
-                0.234375
-            ],
-            "Radius": 0.08730486035346985,
-            "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
-        },
-        {
-            "BuildRange": [],
-            "BuildAlong": false,
-            "Id": "edge_5",
-            "Part": 0,
-            "A": [
-                -0.6243749856948853,
-                0.0,
-                0.234375
-            ],
-            "B": [
-                -0.41624999046325686,
-                0.0,
-                0.29624998569488528
-            ],
-            "Radius": 0.09300103783607483,
-            "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
-        },
-        {
-            "BuildRange": [],
-            "BuildAlong": false,
-            "Id": "edge_6",
-            "Part": 0,
-            "A": [
-                -0.41624999046325686,
-                0.0,
-                0.29624998569488528
-            ],
-            "B": [
-                -0.20812499523162843,
-                0.0,
-                0.3581250011920929
-            ],
-            "Radius": 0.09693099558353424,
-            "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
-        },
-        {
-            "BuildRange": [],
-            "BuildAlong": false,
-            "Id": "edge_7",
-            "Part": 0,
-            "A": [
-                -0.20812499523162843,
-                0.0,
-                0.3581250011920929
-            ],
-            "B": [
-                0.0,
-                0.0,
-                0.41999998688697817
-            ],
-            "Radius": 0.09923869371414185,
-            "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
-        },
-        {
-            "BuildRange": [],
-            "BuildAlong": false,
-            "Id": "edge_8",
-            "Part": 0,
-            "A": [
-                0.0,
-                0.0,
-                0.41999998688697817
-            ],
-            "B": [
-                0.20812499523162843,
-                0.0,
-                0.3581250011920929
-            ],
-            "Radius": 0.09923869371414185,
-            "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
-        },
-        {
-            "BuildRange": [],
-            "BuildAlong": false,
-            "Id": "edge_9",
-            "Part": 0,
-            "A": [
-                0.20812499523162843,
-                0.0,
-                0.3581250011920929
-            ],
-            "B": [
-                0.41624999046325686,
-                0.0,
-                0.29624998569488528
-            ],
-            "Radius": 0.09693099558353424,
-            "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
-        },
-        {
-            "BuildRange": [],
-            "BuildAlong": false,
-            "Id": "edge_10",
-            "Part": 0,
-            "A": [
-                0.41624999046325686,
-                0.0,
-                0.29624998569488528
-            ],
-            "B": [
-                0.6243749856948853,
-                0.0,
-                0.234375
-            ],
-            "Radius": 0.09300103783607483,
-            "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
-        },
-        {
-            "BuildRange": [],
-            "BuildAlong": false,
-            "Id": "edge_11",
-            "Part": 0,
-            "A": [
-                0.6243749856948853,
-                0.0,
-                0.234375
-            ],
-            "B": [
-                0.8324999809265137,
-                0.0,
-                0.17249999940395356
-            ],
-            "Radius": 0.08730486035346985,
-            "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
-        },
-        {
-            "BuildRange": [],
-            "BuildAlong": false,
-            "Id": "edge_12",
-            "Part": 0,
-            "A": [
-                0.8324999809265137,
-                0.0,
-                0.17249999940395356
-            ],
-            "B": [
-                1.040624976158142,
-                0.0,
-                0.1106249988079071
-            ],
-            "Radius": 0.079593725502491,
-            "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
-        },
-        {
-            "BuildRange": [],
-            "BuildAlong": false,
-            "Id": "edge_13",
-            "Part": 0,
-            "A": [
-                1.040624976158142,
-                0.0,
-                0.1106249988079071
-            ],
-            "B": [
-                1.2487499713897706,
-                0.0,
-                0.04874999821186066
-            ],
-            "Radius": 0.06942868232727051,
-            "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
-        },
-        {
-            "BuildRange": [],
-            "BuildAlong": false,
-            "Id": "edge_14",
-            "Part": 0,
-            "A": [
-                1.2487499713897706,
-                0.0,
-                0.04874999821186066
-            ],
-            "B": [
-                1.456874966621399,
-                0.0,
-                -0.013124999590218068
-            ],
-            "Radius": 0.055945221334695819,
-            "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
-        },
-        {
-            "BuildRange": [],
-            "BuildAlong": false,
-            "Id": "edge_15",
-            "Part": 0,
-            "A": [
-                1.456874966621399,
-                0.0,
-                -0.013124999590218068
-            ],
-            "B": [
-                1.6649999618530274,
-                0.0,
-                -0.07500000298023224
-            ],
-            "Radius": 0.03691919147968292,
-            "AControl": "root",
-            "BControl": "root",
-            "AInfluences": [],
-            "BInfluences": []
+            "Path": {
+                "Points": [
+                    [
+                        -1.665,
+                        -0.07500000000000007
+                    ],
+                    [
+                        0,
+                        0.42
+                    ],
+                    [
+                        1.665,
+                        -0.07500000000000007
+                    ]
+                ],
+                "HalfWidth": 0.1,
+                "HalfThickness": 0.05
+            }
         }
     ],
     "Controls": [
@@ -461,24 +153,24 @@
             "Id": "root",
             "Parent": "",
             "Position": [
-                0.0,
-                0.0,
-                0.0
+                0,
+                0,
+                0
             ],
             "Rotation": [
-                0.0,
-                0.0,
-                0.0,
-                1.0
+                0,
+                0,
+                0,
+                1
             ],
             "Minimum": [
                 -1.850000023841858,
-                -0.14000000059604646,
+                -0.14000000059604645,
                 -0.251800000667572
             ],
             "Maximum": [
                 1.850000023841858,
-                0.20999999344348908,
+                0.20999999344348907,
                 0.7599999904632568
             ]
         }

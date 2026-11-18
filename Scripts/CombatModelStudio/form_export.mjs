@@ -89,7 +89,9 @@ export function write(id, parts, anchors, contacts, controls = [], motions = [],
   const {Roles, ...description} = structure;
   motions = motions.map(clip => ({...clip, Keys: clip.Keys.map(key => ({...key, Build: key.Build ?? 1}))}));
   parts=parts.map((part,index)=>({...part,Details:details(part,controls,motions,
-    [...anchors.filter(a=>a.Part===index).map(a=>a.Position),...contacts.filter(c=>c.Part===index).flatMap(c=>[c.A,c.B])])}));
+    [...anchors.filter(a=>a.Part===index).map(a=>a.Position),...contacts.filter(c=>c.Part===index).flatMap(c=>c.Path
+      ? c.Path.Points.map(([x,z])=>[c.A[0]+x,c.A[1],c.A[2]+z])
+      : [c.A,c.B].filter(Boolean))])}));
   const value = {Version: 8, Id: id, Structure: {...description, Changes: changes}, Parts: parts, Anchors: anchors, Grips: grips, Held: held ?? {Groups: [], Scale: 0}, Actions: actions, Contacts: contacts, Controls: controls, Motions: motions,
     ...(conform ? {ConformToGround:true} : {}), ...(facing ?? {})};
   writeFileSync(output + id + '.json', JSON.stringify(value));

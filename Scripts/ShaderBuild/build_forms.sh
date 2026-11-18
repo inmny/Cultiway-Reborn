@@ -11,3 +11,4 @@ cp "$task_root/Scripts/ShaderBuild/BuildFormBundles.cs.txt" "$task_project/Asset
 "$task_editor" -batchmode -nographics -quit -projectPath "$task_project" \
   -executeMethod CultiwayAssets.Editor.BuildFormBundles.BuildFromCommandLine \
   -cultiwayRoot "$task_root" -logFile /tmp/cultiway-form-build.log
+node "$task_root/Scripts/ShaderBuild/publish_form_contacts.mjs" "$task_root"
