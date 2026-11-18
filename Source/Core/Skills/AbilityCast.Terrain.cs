@@ -37,6 +37,7 @@ public sealed partial class AbilityCast
         bool deform = form.Resource.Description.ConformToGround && !state.ShapeHeld && !state.MotionStopped;
         float lift = deform ? TerrainHeight(state.Position) - MinimumHeight(node, state.Transform, poses[node], false) :
             -MinimumHeight(node, state.Transform, poses[node]);
+        if (float.IsNegativeInfinity(lift)) return;
         state.Position.z += lift; state.Transform.m23 += lift;
         if (deform)
         {

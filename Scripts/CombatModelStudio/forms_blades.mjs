@@ -28,7 +28,9 @@ function cores(point,radius=.10,count=16) {
 function publish(id,pieces,contacts,parameters) {
   const controls=[{Id:'root',Position:[0,0,0],Rotation:[0,0,0,1]}];
   const parts=pieces.map(([name,g,s])=>wallPart(name,g,s,[0,0,0],'root'));
-  const shapes=contacts.map(([a,b,r,part=0],i)=>({Id:`edge_${i}`,Part:part,A:a,B:b,Radius:r,AControl:'root',BControl:'root'}));
+  const shapes=contacts.map((contact,i)=>Array.isArray(contact)
+    ? {Id:`edge_${i}`,Part:contact[3] ?? 0,A:contact[0],B:contact[1],Radius:contact[2],AControl:'root',BControl:'root'}
+    : contact);
   write(id,parts,[{Id:'root',Part:0,Position:[0,0,0],Direction:[0,0,1],Control:'root'}],shapes,controls,[],false,
     {Forward:[0,0,1],Up:[0,1,0]},structure('rigid','forms_blades.mjs','makeBladeForms',parameters,
       Object.fromEntries(parts.map(p=>[p.Id,['projectile.body','projectile.edge']])),[]));
@@ -38,8 +40,12 @@ function publish(id,pieces,contacts,parameters) {
 function sword() {
   const edge=u=>[u*1.85,0,.42-.55*Math.abs(u)];
   const ridge=u=>[u*1.72,.07,.24-.49*Math.abs(u)];
+  // 作用区沿现有折锋。保留两端的收尖余量和前缘两侧的空隙。
+  const points=[-.9,0,.9].map(u=>{const [x,,z]=edge(u);return [x,z];});
+  const contact={Id:'edge_0',Part:0,A:[0,0,0],AControl:'root',
+    Path:{Points:points,HalfWidth:.10,HalfThickness:.05}};
   publish('sword_qi',[['edge',ribbon(edge,.34,.14,32),'metal'],['ridge',ribbon(ridge,.10,.14,32),'gold']],
-    cores(edge),{span:3.7,profile:'angular',depth:.34});
+    [contact],{span:3.7,profile:'angular',depth:.34});
 }
 
 /** 风刃由三道交错的宽弯流组成，分叉与留白可辨，不使用细线或烟团。 */

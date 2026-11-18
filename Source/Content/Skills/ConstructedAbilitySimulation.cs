@@ -513,7 +513,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                             Mathf.Abs(departure.m10) * half.x + Mathf.Abs(departure.m11) * half.y + Mathf.Abs(departure.m12) * half.z,
                             Mathf.Abs(departure.m20) * half.x + Mathf.Abs(departure.m21) * half.y + Mathf.Abs(departure.m22) * half.z);
                         var departed = new AbilityCapsule(shape.Node, departure.MultiplyPoint3x4(shape.A), departure.MultiplyPoint3x4(shape.B),
-                            shape.Radius, shape.Matter, shape.Shape, shape.Revision, shape.Material, departedHalf, .99999994f);
+                            shape.Radius, shape.Matter, shape.Shape, shape.Revision, shape.Material, departedHalf, .99999994f, shape.Prism?.Move(departure));
                         shapes.Add(new ShapeMotion(running, from, departed, true));
                     }
                     continuous = false;
@@ -704,7 +704,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 AbilityCapsule shape = output[i];
                 output[i] = new AbilityCapsule(shape.Node, shape.A, shape.B, shape.Radius, shape.Matter, shape.Shape,
-                    running.Cast.BodyContactRevision);
+                    running.Cast.BodyContactRevision, shape.Material, shape.HalfExtents, shape.Until, shape.Prism);
             }
         }
     }
@@ -1424,6 +1424,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         internal Vector3 SurfaceVelocity(Vector3 point, Vector3 outward, float fraction, float seconds)
         {
             if (!Continuous || seconds <= 0f) return Vector3.zero;
+            if (To.Prism != null) return From.Prism.VelocityTo(To.Prism, point, fraction) / seconds;
             if (To.IsBox)
             {
                 Vector3 half = Vector3.Lerp(From.HalfExtents, To.HalfExtents, fraction),

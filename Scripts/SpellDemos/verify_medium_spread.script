@@ -121,7 +121,7 @@ try
         var inheritedNode = ((Array)typeof(CompiledAbility).GetProperty("Nodes", F).GetValue(inheritedPlan)).GetValue(0);
         Check(((CompiledConstructionImpact)Field(inheritedNode, "Impact")).Spreads.Single().HasEffect, "只继承接触结果的介质仍有效");
         AbilityCapsule Capsule(float x, float z = 0) => (AbilityCapsule)Activator.CreateInstance(typeof(AbilityCapsule), F, null,
-            new object[] { 0, new Vector3(x, 0, z), new Vector3(x + .5f, 0, z), .2f, "water", 0, 0, null, Vector3.zero, 1f }, null);
+            new object[] { 0, new Vector3(x, 0, z), new Vector3(x + .5f, 0, z), .2f, "water", 0, 0, null, Vector3.zero, 1f, null }, null);
         var regionType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityMediumRegion");
         var shapes = new List<AbilityCapsule> { Capsule(0), Capsule(.7f), Capsule(4) };
         var region = Activator.CreateInstance(regionType, F, null, new object[] { shapes, Capsule(0) }, null);

@@ -118,7 +118,7 @@ public sealed class ConstructionReach
             foreach (var contact in node.Resource.Contacts)
                 radii[i] = Mathf.Max(radii[i],
                     Mathf.Max(contact.ABlend.RadiusBound(contact.A, node.Resource.Rig, motions[i]),
-                        contact.BBlend.RadiusBound(contact.B, node.Resource.Rig, motions[i])) + contact.Radius);
+                        contact.BBlend.RadiusBound(contact.B, node.Resource.Rig, motions[i])) + contact.Radius + contact.Extent);
             radii[i] += node.EventOperations.Where(operation => operation.Ray != null)
                 .Select(operation => Mathf.Max(0f, operation.Ray.Length - operation.Ray.Span.Length)).DefaultIfEmpty(0f).Max();
             Vector2 attached = source < 0 ? Vector2.zero : speeds[source];

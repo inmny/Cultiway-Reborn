@@ -163,6 +163,13 @@ public sealed class ConstructionMeasure
                 Vector3 scale = layouts[i].lossyScale;
                 foreach (var shape in node.Resource.Contacts)
                 {
+                    if (shape.IsPrism)
+                    {
+                        var box = shape.PrismFrame(null, layouts[i]).Bounds();
+                        minimum = Vector2.Min(minimum, box.min);
+                        maximum = Vector2.Max(maximum, box.max);
+                        continue;
+                    }
                     Vector2 a = (Vector3)layouts[i].MultiplyPoint3x4(shape.A),
                         b = (Vector3)layouts[i].MultiplyPoint3x4(shape.B);
                     Vector2 radius = Vector2.one * shape.Radius *

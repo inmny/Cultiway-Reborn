@@ -190,7 +190,7 @@ internal sealed partial class BodyActionBinding
     /// <param name="relation">当前关系。</param><param name="shape">实际资源形状编号。</param>
     internal bool UsesRelationShape(in CompiledBodyRelation relation, int shape) =>
         CompiledBodyConstruction.MatchesContact(relation.FromAnchor, action.Part.Contact == BodyContactPart.Hand
-            ? (weapon ?? hand).Description.Contacts[shape].Id
+            ? (weapon ?? hand).Contacts[shape].Id
             : action.Part.Shape);
 
     /// <summary>一次施放只绑定一次真实物件及手部关节。</summary>
@@ -386,9 +386,11 @@ internal sealed partial class BodyActionBinding
     /// <param name="point">沿原局部位置换算的接触点。</param>
     internal Vector3 ClampWeaponContactPoint(in BodyPose pose, int shape, Vector3 point)
     {
-        FormContactDescription contact = weapon.Description.Contacts[shape];
+        FormContactBinding contact = weapon.Contacts[shape];
         Matrix4x4 matrix = WeaponMatrix(in pose);
-        Vector3 a = matrix.MultiplyPoint3x4(Point(contact.A)), b = matrix.MultiplyPoint3x4(Point(contact.B));
+        if (contact.IsPrism && contact.World(null, matrix, -1, shape, 0, null, 1f, out var solid))
+            return solid.ClosestAxisPoint(point);
+        Vector3 a = matrix.MultiplyPoint3x4(contact.A), b = matrix.MultiplyPoint3x4(contact.B);
         Vector3 line = b - a;
         Vector3 centre = a + line * (line.sqrMagnitude > 0f
             ? Mathf.Clamp01(Vector3.Dot(point - a, line) / line.sqrMagnitude) : 0f);
@@ -429,6 +431,11 @@ internal sealed partial class BodyActionBinding
                     for (int i = 0; i < Organ.Model.Contacts.Length; i++)
                     {
                         var shape = Organ.Model.Contacts[i];
+                        if (shape.IsPrism)
+                        {
+                            if (shape.World(null, matrix, -1, i, 0, null, 1f, out var solid, "physical")) output.Add(solid);
+                            continue;
+                        }
                         output.Add(new AbilityCapsule(-1, matrix.MultiplyPoint3x4(shape.A),
                             matrix.MultiplyPoint3x4(shape.B), shape.Radius * Organ.Model.Scale, "physical", i));
                     }
@@ -472,12 +479,18 @@ internal sealed partial class BodyActionBinding
 
         FormResource resource = weapon ?? hand;
         Matrix4x4 transform = weapon == null ? HandMatrix(in pose) : WeaponMatrix(in pose);
-        for (int shape = 0; shape < resource.Description.Contacts.Length; shape++)
+        for (int shape = 0; shape < resource.Contacts.Length; shape++)
         {
-            FormContactDescription contact = resource.Description.Contacts[shape];
+            FormContactBinding contact = resource.Contacts[shape];
             if (!action.Construction.UsesContact(weapon != null, contact.Id, pose.WorldAge, includeEnd)) continue;
-            output.Add(new AbilityCapsule(-1, transform.MultiplyPoint3x4(Point(contact.A)),
-                transform.MultiplyPoint3x4(Point(contact.B)), contact.Radius * transform.lossyScale.x,
+            if (contact.IsPrism)
+            {
+                if (contact.World(null, transform, -1, shape, 0, null, 1f, out var solid,
+                        weapon == null ? "physical" : "iron")) output.Add(solid);
+                continue;
+            }
+            output.Add(new AbilityCapsule(-1, transform.MultiplyPoint3x4(contact.A),
+                transform.MultiplyPoint3x4(contact.B), contact.Radius * transform.lossyScale.x,
                 weapon == null ? "physical" : "iron", shape));
         }
     }

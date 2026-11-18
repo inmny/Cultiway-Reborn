@@ -211,7 +211,8 @@ public sealed partial class AbilityMaterial
                 AbilityCapsule old = Shapes[i];
                 Shapes[i] = new AbilityCapsule(0,
                     centre + (old.A - centre) * scale, centre + (old.B - centre) * scale, old.Radius * scale, Matter.Id,
-                    material: Matter, halfExtents: old.HalfExtents * scale);
+                    material: Matter, halfExtents: old.HalfExtents * scale,
+                    prism: old.Prism?.Move(Matrix4x4.TRS(centre * (1f - scale), Quaternion.identity, Vector3.one * scale)));
             }
         }
 
@@ -529,13 +530,11 @@ public sealed partial class AbilityMaterial
     /// <param name="matrix">根姿态。</param>
     internal static AbilityCapsule[] BuildShapes(FormResource form, FormPose pose, Matrix4x4 matrix)
     {
-        float scale = Mathf.Max(matrix.lossyScale.x, matrix.lossyScale.y, matrix.lossyScale.z);
         if (form.Contacts.Length > 0)
         {
             var shapes = new List<AbilityCapsule>();
-            foreach (var contact in form.Contacts)
-                if (contact.Sample(pose, out Vector3 a, out Vector3 b, out float radius))
-                    shapes.Add(new AbilityCapsule(0, matrix.MultiplyPoint3x4(a), matrix.MultiplyPoint3x4(b), radius * scale, null));
+            for (int i = 0; i < form.Contacts.Length; i++)
+                if (form.Contacts[i].World(pose, matrix, 0, i, 0, null, 1f, out var shape)) shapes.Add(shape);
             return shapes.ToArray();
         }
         Bounds local = form.Description.Id.Contains(":")

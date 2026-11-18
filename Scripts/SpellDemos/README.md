@@ -1961,3 +1961,17 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 6.01 人物受击范围与高度
 
 在独立游戏中运行 `dev.py exec --timeout 195 -- python3 Scripts/SpellDemos/verify_actor_hit_boundary.py`；加载 Worldfall 的独立游戏加 `--worldfall`。两端复用同一存档和受击者，比较旧执行的实际碰撞回调与新构造的实际伤害，覆盖边界内外、离地错开和再次命中。用 `--section legacy|legacy-height|construction` 补测相应段。输入世界、实际脚本、打击前后血量和判定明细保存在 `CULTIWAY_DEV_OUTPUT/actor-hit-boundary/<视角>/<分段>`。
+
+### 6.02 A　薄板、厚块与实际部位
+
+在独立游戏中运行 `dev.py exec --timeout 195 -- python3 Scripts/SpellDemos/verify_part_contact_shapes.py`。用同一个受击者检查真实边内外、斜放空角、离地、厚块内部、部位自己移动和薄板拦截。`--section attack|controlled|barrier` 可只验证改变的段。输出在 `CULTIWAY_DEV_OUTPUT/part-contact-shapes/<分段>`，保留试件资料、实际脚本、血量及拦截位置。
+
+### 6.02 B　扇形、路径带和形成空隙
+
+在独立游戏中运行 `dev.py exec --timeout 195 -- python3 Scripts/SpellDemos/verify_part_contact_regions.py`。同一个目标验证扇形尺寸、开角和厚度，以及路径后段出现前后、弯道内侧和结束。`--section sector|path` 可只重验受影响的段。输出在 `CULTIWAY_DEV_OUTPUT/part-contact-regions/<分段>`，保留载入的形体声明、实际执行脚本、阶段和伤害。
+
+### 6.02 C　持续复合区域与正式剑气
+
+在原版独立游戏中运行 `dev.py exec --timeout 215 -- python3 Scripts/SpellDemos/verify_sustained_contact_regions.py`。完整段验证重叠去重、离开重入、间隔、到期及保存；可用 `--section reentry|interval|save|original` 补受影响的段，`original` 验证原来已学剑气的实际费用与命中。
+
+分别冷启动原版和装有 Worldfall 的独立游戏，用 `--section restore --input-save <上一轮输出的 completed-save 绝对路径>` 检查读回两项已学构造并再次施放。Worldfall 端加 `--worldfall`，另外比对实际绘制与作用位置。每端保留自己的运行输出，不重跑保存。输入脚本、结果及世界在 `CULTIWAY_DEV_OUTPUT/sustained-contact-regions/<分段>`。

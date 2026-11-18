@@ -48,6 +48,9 @@ public readonly struct AbilityCapsule
     /// <summary>薄层轴对齐箱体的半宽；零值保持胶囊。</summary>
     public readonly Vector3 HalfExtents;
 
+    /// <summary>随真实部位变换的有限面或体块；普通胶囊和旧水格为空。</summary>
+    internal readonly AbilityPrism Prism;
+
     /// <summary>本次扫掠中最后仍有真实材料的时间比例，普通形状为一。</summary>
     public readonly float Until;
 
@@ -72,7 +75,7 @@ public readonly struct AbilityCapsule
     /// <param name="halfExtents">薄层箱体半宽，默认仍为胶囊。</param>
     /// <param name="until">此步内材料保持有效的末端。</param>
     internal AbilityCapsule(int node, Vector3 a, Vector3 b, float radius, string matter, int shape = 0,
-        int revision = 0, AbilityMatter material = null, Vector3 halfExtents = default, float until = 1f)
+        int revision = 0, AbilityMatter material = null, Vector3 halfExtents = default, float until = 1f, AbilityPrism prism = null)
     {
         Node = node;
         A = a;
@@ -84,7 +87,13 @@ public readonly struct AbilityCapsule
         Material = material;
         HalfExtents = halfExtents;
         Until = until;
+        Prism = prism;
     }
+
+    /// <summary>同一形状前后姿态的最大表面位移，用于连续接触安全推进。</summary>
+    internal float TravelTo(in AbilityCapsule to) => Prism == null
+        ? Mathf.Max((to.A - A).magnitude, (to.B - B).magnitude) + (to.HalfExtents - HalfExtents).magnitude + Mathf.Abs(to.Radius - Radius)
+        : Prism.MotionTo(to.Prism) + Mathf.Abs(to.Radius - Radius);
 
     /// <summary>检查是否与人物或其他对象的球形部位真实相交。</summary>
     /// <param name="centre">目标部位中心。</param>
@@ -99,6 +108,7 @@ public readonly struct AbilityCapsule
     /// <param name="point">对象身体位置。</param>
     public Vector3 ClosestAxisPoint(Vector3 point)
     {
+        if (Prism != null) { Prism.Pose.Line(point, point, out Vector3 closest, out _); return closest; }
         if (IsBox) return Vector3.Max(A - HalfExtents, Vector3.Min(A + HalfExtents, point));
         Vector3 axis = B - A;
         float t = axis.sqrMagnitude > 1e-10f ? Mathf.Clamp01(Vector3.Dot(point - A, axis) / axis.sqrMagnitude) : 0f;
@@ -122,7 +132,7 @@ public readonly struct AbilityCapsule
     public bool SweepFrom(in AbilityCapsule previous, Vector3 centre, float radius, out Vector3 point,
         out float fraction)
     {
-        if (IsBox || previous.IsBox)
+        if (IsBox || previous.IsBox || Prism != null || previous.Prism != null)
         {
             var sphere = new AbilityCapsule(0, centre, centre, radius, null);
             return AbilityPairSweep.Find(previous, this, sphere, sphere, out fraction, out point, out _);
@@ -1512,12 +1522,8 @@ public sealed partial class AbilityCast
             {
                 FormContactBinding contact = form.Resource.Contacts[shape];
                 Matrix4x4 matrix = flowing ? flows[i].SourceTransform : state.Transform;
-                if (!contact.Sample(poses[i], out Vector3 a, out Vector3 b, out float radius)) continue;
-                Vector3 scale = matrix.lossyScale;
-                output.Add(new AbilityCapsule(i, matrix.MultiplyPoint3x4(a), matrix.MultiplyPoint3x4(b),
-                    radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)), state.Matter.Id,
-                    shape, state.Revision, state.Matter,
-                    until: flowing ? .99999994f : 1f));
+                if (contact.World(poses[i], matrix, i, shape, state.Revision, state.Matter,
+                        flowing ? .99999994f : 1f, out AbilityCapsule sampled)) output.Add(sampled);
             }
         }
     }

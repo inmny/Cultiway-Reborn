@@ -27,7 +27,7 @@ public sealed partial class AbilityCast
             (state.Motion?.Motion ?? form.Motion) != null && !state.ShapeHeld && !state.MotionStopped ||
             !state.GrowthStopped && (state.GrowthChanged ? state.GrowthAge < state.GrowthSeconds : form.Growth.x >= 0 && NodeAge(node) < form.Growth.y)) return maximum;
         float height = MinimumHeight(node, state.Transform, poses[node]);
-        if (height <= .000001f) return maximum;
+        if (height <= .000001f || float.IsPositiveInfinity(height)) return maximum;
         float velocity = state.Velocity.z, acceleration = state.Acceleration.z, until = float.PositiveInfinity;
         if (Mathf.Abs(acceleration) < .000001f)
         { if (velocity < 0f) until = -height / velocity; }
@@ -67,6 +67,26 @@ public sealed partial class AbilityCast
         {
             foreach (FormContactBinding contact in form.Resource.Contacts)
             {
+                if (contact.IsPrism)
+                {
+                    if (!contact.IsFormed(poses[node])) continue;
+                    bool existed = contact.IsFormed(previousPose);
+                    var from = contact.PrismFrame(previousPose, state.PreviousTransform);
+                    var to = contact.PrismFrame(poses[node], state.Transform);
+                    for (int i = 0; i < to.VertexCount; i++)
+                    {
+                        Vector3 q = to.Vertex(i);
+                        float height = q.z - TerrainHeight(q);
+                        if (!existed)
+                        {
+                            if (height <= .00001f) first = Mathf.Min(first, 1f);
+                            continue;
+                        }
+                        Vector3 p = from.Vertex(i);
+                        Include(p.z - TerrainHeight(p), height);
+                    }
+                    continue;
+                }
                 Vector3 beforeA = state.PreviousTransform.MultiplyPoint3x4(contact.ABlend.Point(contact.A, previousPose));
                 Vector3 beforeB = state.PreviousTransform.MultiplyPoint3x4(contact.BBlend.Point(contact.B, previousPose));
                 Vector3 a = state.Transform.MultiplyPoint3x4(contact.ABlend.Point(contact.A, poses[node]));
@@ -95,7 +115,7 @@ public sealed partial class AbilityCast
         void Include(float before, float after)
         {
             if (after <= .00001f && after < before - .000001f)
-                first = Mathf.Min(first, before <= 0f ? 0f : Mathf.Clamp01(before / (before - after)));
+                first = Mathf.Min(first, float.IsPositiveInfinity(before) ? 1f : before <= 0f ? 0f : Mathf.Clamp01(before / (before - after)));
         }
     }
 
@@ -109,6 +129,17 @@ public sealed partial class AbilityCast
         float minimum = float.PositiveInfinity, scale = MaximumScale(matrix);
         foreach (FormContactBinding contact in Plan.Nodes[node].Resource.Contacts)
         {
+            if (contact.IsPrism)
+            {
+                if (!contact.IsFormed(pose)) continue;
+                var box = contact.PrismFrame(pose, matrix);
+                for (int i = 0; i < box.VertexCount; i++)
+                {
+                    Vector3 point = box.Vertex(i);
+                    minimum = Mathf.Min(minimum, point.z - (useTerrain ? TerrainHeight(point) : 0f));
+                }
+                continue;
+            }
             Vector3 a = matrix.MultiplyPoint3x4(contact.ABlend.Point(contact.A, pose));
             Vector3 b = matrix.MultiplyPoint3x4(contact.BBlend.Point(contact.B, pose));
             if (!useTerrain || terrain == null)

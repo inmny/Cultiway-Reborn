@@ -1,0 +1,231 @@
+// 同一已发布的剑气形体、同一人物和地点。两重折刃共享作用记录。
+const string prefix = "test.sustained-region.";
+var access = ConstructionEditing.Access;
+var form = FormResources.Load("sword_qi");
+var declaration = form.Description.Contacts.Single();
+Check(declaration.Path?.Points.Length == 3 && form.Contacts.Length == 3,
+    "正式发布的剑气保留两段路径和外角接缝");
+JObject expected = section == "restore" ? JObject.Parse(File.ReadAllText(Path.Combine(folder, "saved-expected.json"))) : null;
+Actor source = expected == null ? Make(64) : World.world.units.get((long)expected["sourceId"]);
+Actor enemy = expected == null ? Make(66, "wolf") : World.world.units.get((long)expected["enemyId"]);
+var owner = source.GetExtend();
+if (expected == null)
+{
+    owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+}
+AbilityCast active = null;
+void Started(ConstructedCastStarted value)
+{
+    if (value.SourceId != source.id || !value.AbilityId.StartsWith(prefix) && value.AbilityId != SkillEntities.SwordQi.id) return;
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == value.CastId) active = (AbilityCast)Field(running, "Cast");
+}
+ConstructedAbilityService.CastStarted += Started;
+var shapes = new List<AbilityCapsule>();
+var visuals = new List<FormVisualInstance>();
+int firstFact = 0;
+int lifeBefore = 0;
+
+AbilityDefinition Definition(ConstructionContactMode mode)
+{
+    var root = new ConstructionNode { Id = "first", Form = "sword_qi", Matter = "iron", ActiveFrom = .24f, ActiveUntil = 1.08f,
+        ContactGroup = "together", Contact = new ConstructionContactPolicy { Mode = mode, Interval = .16f },
+        Rotation = new[] { -90f, 0f, 0f }, OnContact = ConstructionContactResponse.Continue,
+        Children = new[] { new ConstructionNode { Id = "second", Form = "sword_qi", Matter = "iron", ActiveFrom = .24f,
+            ActiveUntil = 1.08f, ContactGroup = "together", Offset = new[] { 0f, 0f, .075f }, OnContact = ConstructionContactResponse.Continue } } };
+    return new AbilityDefinition { Id = prefix + mode, Name = "持续折刃·" + mode,
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Height = .26f },
+        Lifetime = 1.42f, TargetRange = 10f, Resource = "none", Cost = 0, Power = 2f, Root = root };
+}
+void Inside()
+{
+    Place(enemy, 64.82f, 72.21f); enemy.position_height = 0; ConstructedAbilityService.NotifyActorChanged(enemy);
+}
+void Outside()
+{
+    Place(enemy, 64.82f, 74.2f); enemy.position_height = 0; ConstructedAbilityService.NotifyActorChanged(enemy);
+}
+ConstructedContact[] Facts() => contacts.Skip(firstFact).Where(fact => fact.TargetId == enemy.id).ToArray();
+void Count(int count, string what)
+{
+    var facts = Facts();
+    Check(facts.Length == count && (count == 0 ? enemy.data.health == lifeBefore : enemy.data.health < lifeBefore) &&
+        facts.Select(f => f.GroupContactNumber).SequenceEqual(Enumerable.Range(1, count)) &&
+        facts.All(f => f.Age >= .2399f && f.Age <= 1.0801f), what,
+        new { count = facts.Length, lifeBefore, after = enemy.data.health, active.Age,
+            hits = facts.Select(f => new { f.Node, f.Age, f.GroupContactNumber, f.Position.x, f.Position.y, f.Position.z }) });
+}
+async Task Start(AbilityDefinition definition, bool restored)
+{
+    Place(source, 64, 72); source.position_height = 0; ConstructedAbilityService.NotifyActorChanged(source);
+    Inside(); firstFact = contacts.Count; lifeBefore = enemy.data.health; active = null;
+    if (restored)
+    {
+        // 读取已经学会的能力直接放，不再次登记或授予，以免掩盖存档遗漏。
+        source.addAggro(enemy); enemy.addAggro(source); source.attack_timer = 0;
+        var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+        Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script),
+            "重新打开的已学构造直接受理");
+        source.attack_timer = 999;
+    }
+    else await Fire(definition, source, enemy);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(active != null, "实际施放已进入共同运行流程");
+}
+async Task Until(float age)
+{
+    if (active.Age < age) await Advance(age - active.Age);
+}
+void Snapshot()
+{
+    shapes.Clear(); active.AppendContacts(shapes);
+    visuals.Clear(); active.AppendVisuals(visuals);
+}
+async Task CheckDrawing()
+{
+    Snapshot();
+    Vector3 local = new Vector3(.82f, 0, .42f - .55f * .82f / 1.85f);
+    var scene = FormVisualScene.Instances.Where(i => i.Resource == form).ToArray();
+    var centres = visuals.Select(view => view.PartTransform(0).MultiplyPoint3x4(local)).ToArray();
+    Check(shapes.Count == 6 && centres.Length == 2 && scene.Length == 2 && Vector3.Distance(centres[0], centres[1]) > .06f &&
+          Enumerable.Range(0, 2).All(i => shapes.Where(shape => shape.Node == i).Any(shape =>
+              shape.Intersects(centres[i], .001f) && shape.Intersects((centres[0] + centres[1]) * .5f, .001f))),
+        "两个可见折刃各有自己的作用片，重叠点同时落在两者真实范围内",
+        new { nodes = shapes.GroupBy(s => s.Node).Select(g => g.Count()).ToArray(), scene = scene.Length, centres = centres.Select(p => new[] { p.x, p.y, p.z }).ToArray() });
+    if (!worldfall) return;
+    for (int i = 0; i < 5; i++) await Game.NextFrame();
+    var assembly = typeof(Cultiway.ModClass).Assembly;
+    var renderer = assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer", true);
+    var bridge = assembly.GetType("Cultiway.Content.Compatibility.Worldfall.WorldfallVisualBridge", true);
+    var ground = (Func<float, float, float>)bridge.GetField("sceneGround", F).GetValue(null);
+    var draws = ((IEnumerable)renderer.GetField("solids", F).GetValue(null)).Cast<object>()
+        .Where(draw => (FormResource)Field(draw, "Resource") == form && (int)Field(draw, "Part") == 0)
+        .Select(draw => (Matrix4x4)Field(draw, "Transform")).ToArray();
+    var expectedPoints = visuals.Select(view => view.PartTransform(0).MultiplyPoint3x4(local) + Vector3.forward *
+        (view.Terrain == null ? ground(view.GroundAnchor.x, view.GroundAnchor.y) : 0f)).ToArray();
+    Check(draws.Length == 2 && expectedPoints.All(p => draws.Any(m => Vector3.Distance(p, m.MultiplyPoint3x4(local)) < .0005f)),
+        "Worldfall 两道实际绘制的刃身与同一次作用姿态对齐", new { drawn = draws.Length,
+            expected = expectedPoints.Select(p => new[] { p.x, p.y, p.z }).ToArray(),
+            actual = draws.Select(m => m.MultiplyPoint3x4(local)).Select(p => new[] { p.x, p.y, p.z }).ToArray() });
+}
+async Task Reentry(AbilityDefinition definition, bool restored)
+{
+    await Start(definition, restored);
+    await Until(.12f); Snapshot();
+    Count(0, "作用尚未开启，不因已有画面扣血");
+    Check(shapes.Count == 0, "开始时点之前没有活动的作用片");
+    await Until(.33f);
+    Count(1, "第二道也压在目标上，进入只结算一次");
+    await CheckDrawing();
+    await Until(.51f);
+    Count(1, "在重叠处持续停留不重复结算进入");
+    Outside(); await Until(.68f);
+    Count(1, "离开整个作用组不补伤害");
+    Inside(); await Until(.89f);
+    Count(2, "离开两道刃后再进入，才能结算下一次");
+    Outside(); await Until(1.15f); Inside(); await Until(1.29f); Snapshot();
+    Count(2, "效果关闭，再次进入也无伤");
+    Check(shapes.Count == 0, "同一部位还在收尾时已不再提供作用片");
+    await Advance(.27f);
+    Check(endings.Any(end => end.Fact.AbilityId == definition.Id && !end.Fact.Cancelled), "招式自然结束");
+}
+async Task Interval(AbilityDefinition definition)
+{
+    await Start(definition, false); await Until(.77f);
+    var facts = Facts();
+    Count(4, "重叠的两道折刃合用 0.16 世界秒间隔");
+    Check(facts.Zip(facts.Skip(1), (a, b) => Mathf.Abs(b.Age - a.Age - .16f) < .0005f).All(ok => ok),
+        "实际结算间隔不随形状数量增加");
+    await Until(1.22f);
+    Count(6, "只有声明时段内的间隔结算");
+    await Advance(.3f);
+    Check(endings.Any(end => end.Fact.AbilityId == definition.Id && !end.Fact.Cancelled), "间隔区域自然结束");
+}
+
+async Task Original()
+{
+    owner.GetCultisys<Xian>().level = 0;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+    var asset = SkillEntities.SwordQi;
+    var made = new SkillContainerBuilder(asset).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+    string signature = SkillContainerSignature.Build(made);
+    owner.LearnSkillV3(made);
+    var learned = (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+    var skill = learned.First(e => SkillContainerSignature.Build(e) == signature);
+    Place(source, 64); Place(enemy, 70); source.position_height = enemy.position_height = 0f;
+    ConstructedAbilityService.NotifyActorChanged(source); ConstructedAbilityService.NotifyActorChanged(enemy);
+    source.addAggro(enemy); enemy.addAggro(source); source.attack_timer = 0;
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    double before = owner.GetCultisys<Xian>().wakan;
+    double quote = SkillCastResources.Wakan.Quote(owner, SkillCastCost.CalculateStepDemand(skill) *
+        Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    int hp = enemy.data.health;
+    Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(enemy, enemy.GetSimPos(), selectionArea: new SkillTargetSelectionArea(true, enemy.GetSimPos(), .1f)),
+        ActiveAbilityUseOrigin.Script), "原来学会的剑气入口受理");
+    source.attack_timer = 999; CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+    await Advance(.12f);
+    Check(active != null, "原来学会的剑气使用已发布折刃");
+    Snapshot();
+    Check(shapes.Count == 3 && visuals.Count == 1 && visuals[0].Resource == form, "剑气使用同一个发布形体和真实分段");
+    await Advance(1.0f);
+    int hits = contacts.Count(f => f.TargetId == enemy.id && f.AbilityId == asset.id);
+    double spent = before - owner.GetCultisys<Xian>().wakan;
+    Check(hits == 1 && hp > enemy.data.health && Math.Abs(spent - quote) < .001f &&
+        endings.Any(end => end.Fact.AbilityId == asset.id && !end.Fact.Cancelled),
+        "原来学会的剑气仍按原费用结算，实际命中一次并自然结束", new { hits, hp, after = enemy.data.health, quote, spent });
+}
+
+try
+{
+    var reentry = Definition(ConstructionContactMode.Reentry);
+    var interval = Definition(ConstructionContactMode.Interval);
+    Ready(source); await Advance(.10f); source.setStatsDirty(); source.updateStats();
+    MoveCamera.instance.forceZoom(5);
+    World.world.camera.transform.position = new Vector3(65, 72, 0);
+    if (worldfall)
+    {
+        var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+        var mod = external.GetProperty("Instance", F).GetValue(null);
+        external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+        external.GetMethod("SetGodView", F).Invoke(mod, new object[] { true });
+        object ReadView(string name) => external.GetField(name, F)?.GetValue(mod) ?? external.GetProperty(name, F).GetValue(mod);
+        await Game.WaitUntil(() => (bool)ReadView("GodShown") && (float)ReadView("GodAlpha") >= .999f, 3600);
+        external.GetField("_godTip", F).SetValue(mod, .55f);
+        external.GetField("_godTipRate", F).SetValue(mod, 0f);
+        for (int i = 0; i < 12; i++) await Game.NextFrame();
+    }
+    if (section == "restore")
+    {
+        var read = access.Read(reentry.Id);
+        bool Same(AbilityDefinition ability, string key) => JToken.DeepEquals(
+            JToken.Parse(JsonConvert.SerializeObject(ability)), expected[key]);
+        bool sameReentry = Same(read, "reentry"), sameInterval = Same(access.Read(interval.Id), "interval");
+        bool knowsReentry = ConstructedAbilityService.Knows(owner, reentry.Id), knowsInterval = ConstructedAbilityService.Knows(owner, interval.Id);
+        Check(sameReentry && sameInterval && knowsReentry && knowsInterval,
+            "真实世界保存恢复完整部位、作用时段、共享规则和两份已学资料",
+            new { sameReentry, sameInterval, knowsReentry, knowsInterval });
+        await Reentry(read, true);
+    }
+    if (section == "original") await Original();
+    if (section is "full" or "reentry") await Reentry(reentry, false);
+    if (section is "full" or "interval") await Interval(interval);
+    if (section is "full" or "save")
+    {
+        ConstructedAbilityService.Register(reentry); ConstructedAbilityService.Register(interval);
+        ConstructedAbilityService.Learn(owner, reentry.Id); ConstructedAbilityService.Learn(owner, interval.Id);
+        string save = Path.Combine(folder, "completed-save");
+        SaveManager.saveWorldToDirectory(save);
+        File.WriteAllText(Path.Combine(folder, "saved-expected.json"), JsonConvert.SerializeObject(new {
+            sourceId = source.id, enemyId = enemy.id, reentry = access.Read(reentry.Id), interval = access.Read(interval.Id) }, Formatting.Indented));
+        Check(File.Exists(Path.Combine(save, "map.wbox")), "正式世界档已经写出");
+    }
+    return new { passed = true, section, worldfall, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false); Config.paused = true;
+}

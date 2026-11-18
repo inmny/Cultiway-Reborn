@@ -1,0 +1,177 @@
+// 通过正式施放使用同一组部位和作用资料；试件不加入正常创法资源目录。
+const string prefix = "test.part-contact.";
+var generation = typeof(FormResource).GetField("Generation", F).GetValue(FormResources.Load("fireball"));
+var forms = (IDictionary)Field(generation, "forms");
+var ctor = typeof(FormResource).GetConstructors(F).Single(c => c.GetParameters().Length == 3);
+var resources = new List<FormResource>();
+var meshes = new List<Mesh>();
+var sampleCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+Mesh cube = sampleCube.GetComponent<MeshFilter>().sharedMesh;
+UnityEngine.Object.Destroy(sampleCube);
+FormResource RegisterForm(string name, Vector3 half, bool controlled = false)
+{
+    string id = prefix + name;
+    var description = new FormDescription
+    {
+        Id = id, Version = FormDescription.FormatVersion,
+        Parts = new[] { new FormPartDescription { Id = "surface", Roles = new[] { "contact-surface" }, Surface = "metal", Pivot = new float[3], Control = controlled ? "hinge" : null } },
+        Anchors = Array.Empty<FormAnchorDescription>(), Controls = Array.Empty<FormControlDescription>(),
+        Motions = Array.Empty<FormMotionDescription>(),
+        Contacts = new[] { new FormContactDescription { Id = "solid", Part = 0, A = new float[3], HalfExtents = new[] { half.x, half.y, half.z } } },
+        Structure = new FormStructureDescription
+        {
+            Kind = controlled ? "articulated" : "rigid",
+            Changes = controlled ? new[] { "transform", "motion" } : new[] { "transform" },
+            Generation = new FormGenerationDescription { Source = "verify_part_contact_shapes.script", Entry = name }
+        }
+    };
+    if (controlled)
+    {
+        float[] rotation = { 0f, 0f, 0f, 1f };
+        description.Controls = new[] { new FormControlDescription { Id = "hinge", Position = new float[3],
+            Rotation = rotation, Minimum = new[] { -half.x, -half.y, -half.z }, Maximum = new[] { half.x, half.y, half.z } } };
+        description.Motions = new[] { new FormMotionDescription { Id = "shift", Duration = .35f,
+            Keys = new[] { new FormMotionKeyDescription { Positions = new float[3], Rotations = rotation },
+                new FormMotionKeyDescription { At = .35f, Positions = new[] { 0f, .9f, 0f }, Rotations = rotation } } } };
+    }
+    string json = JsonConvert.SerializeObject(description, Formatting.Indented);
+    File.WriteAllText(Path.Combine(folder, name + "-form.json"), json);
+    Mesh mesh = UnityEngine.Object.Instantiate(cube);
+    mesh.vertices = mesh.vertices.Select(point => Vector3.Scale(point, half * 2f)).ToArray();
+    mesh.RecalculateBounds();
+    meshes.Add(mesh);
+    var resource = (FormResource)ctor.Invoke(new[] { (object)JsonConvert.DeserializeObject<FormDescription>(json), new[] { mesh }, generation });
+    forms.Add(id, resource);
+    resources.Add(resource);
+    return resource;
+}
+
+Actor source = Make(64), enemy = Make(66, "wolf");
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+var started = new List<AbilityCast>();
+var reflections = new List<ConstructedReflection>();
+void Reflected(ConstructedReflection value) { if (value.AbilityId.StartsWith(prefix)) reflections.Add(value); }
+void Started(ConstructedCastStarted value)
+{
+    if (value.SourceId != source.id) return;
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == value.CastId) started.Add((AbilityCast)Field(running, "Cast"));
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ReflectionConfirmed += Reflected;
+var sampled = new List<AbilityCapsule>();
+var visuals = new List<FormVisualInstance>();
+AbilityDefinition Definition(string name, string form, float angle = 0f) => new AbilityDefinition
+{
+    Id = prefix + name, Name = name, Resource = "none", Cost = 0, Power = 2f, Lifetime = .55f, TargetRange = 12f,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Height = .26f },
+    Root = new ConstructionNode
+    {
+        Id = "section", Form = form, Matter = "iron", Rotation = new[] { 0f, 0f, angle },
+        OnContact = ConstructionContactResponse.Continue
+    }
+};
+
+try
+{
+    var thin = RegisterForm("thin-plate", new Vector3(1.6f, .055f, .17f));
+    var block = RegisterForm("thick-block", new Vector3(.65f, .60f, .5f));
+    Ready(source); await Advance(.16f);
+    source.setStatsDirty(); source.updateStats();
+    async Task Attack(string name, FormResource form, float angle, float x, float y, bool hit, float lift = 0f)
+    {
+        Place(source, 64, 72); Place(enemy, 64 + x, 72 + y);
+        source.position_height = 0; enemy.position_height = lift;
+        ConstructedAbilityService.NotifyActorChanged(source); ConstructedAbilityService.NotifyActorChanged(enemy);
+        int life = enemy.data.health, count = contacts.Count;
+        var definition = Definition(name, form.Description.Id, angle);
+        await Fire(definition, source, enemy); owner.E.RemoveComponent<ConstructedKnowledge>();
+        await Advance(.13f);
+        var cast = started.Last();
+        sampled.Clear(); visuals.Clear(); cast.AppendContacts(sampled); cast.AppendVisuals(visuals);
+        AbilityCapsule shape = sampled.Single();
+        Matrix4x4 drawn = visuals.Single().Transform;
+        var result = contacts.Skip(count).Where(fact => fact.TargetId == enemy.id).ToArray();
+        Check(result.Length == (hit ? 1 : 0) && (hit ? enemy.data.health < life : enemy.data.health == life),
+            name, new { life, after = enemy.data.health, contacts = result.Length, x, y, angle, lift = enemy.position_height });
+        Check(Vector3.Distance(shape.A, drawn.GetColumn(3)) < .001f && (lift == 0f || enemy.position_height > 1f),
+            "同一部位姿态用于作用和绘制，离地样本仍在作用体上方");
+        await Advance(.51f);
+        Check(endings.Any(end => end.Fact.AbilityId == definition.Id && !end.Fact.Cancelled), "本次施放自然结束：" + name);
+    }
+    if (section is "all" or "attack")
+    {
+        await Attack("薄板面内命中", thin, 0, 1.10f, 0f, true);
+        await Attack("刚越真实薄边无伤", thin, 0, 1.10f, .24f, false);
+        await Attack("斜放后外包框内的角落仍无伤", thin, 45, 1f, 0f, false);
+        await Attack("相同薄板旋转后的真实表面命中", thin, 45, .8f, .8f, true);
+        await Attack("平面相交但在薄板上方无伤", thin, 45, .8f, .8f, false, 9f);
+        await Attack("厚块内部在薄边以外仍可结算", block, 0, .45f, .45f, true);
+    }
+    if (section is "all" or "controlled")
+    {
+        var moving = RegisterForm("hinged-plate", new Vector3(1.6f, .055f, .17f), true);
+        Place(source, 64, 72); Place(enemy, 64.8f, 72.9f);
+        source.position_height = enemy.position_height = 0;
+        ConstructedAbilityService.NotifyActorChanged(source); ConstructedAbilityService.NotifyActorChanged(enemy);
+        var definition = Definition("独立板部位平移", moving.Description.Id);
+        definition.Lifetime = .85f;
+        definition.Root.Operations = new[] { new ConstructionOperation
+            { Kind = ConstructionOperationKind.Animate, Clip = "shift", At = .20f, Seconds = .35f } };
+        int life = enemy.data.health, count = contacts.Count;
+        await Fire(definition, source, enemy); owner.E.RemoveComponent<ConstructedKnowledge>();
+        await Advance(.11f);
+        var cast = started.Last();
+        Check(life == enemy.data.health && contacts.Count == count, "板部位尚未移到实际位置时无伤");
+        await Advance(.48f);
+        sampled.Clear(); visuals.Clear(); cast.AppendContacts(sampled); cast.AppendVisuals(visuals);
+        var drawn = visuals.Single();
+        var shape = sampled.Single();
+        Vector3 drawnAt = drawn.PartTransform(0).MultiplyPoint3x4(Vector3.zero);
+        var actual = contacts.Skip(count).Where(fact => fact.TargetId == enemy.id).ToArray();
+        Check(life > enemy.data.health && actual.Length == 1 && drawnAt.y - drawn.Transform.GetColumn(3).y > .85f &&
+            Vector3.Distance(shape.A, drawnAt) < .001f, "独立部位实际移动后命中，作用面与绘制同位置",
+            new { life, after = enemy.data.health, contacts = actual.Length, worldY = shape.A.y, visualY = drawnAt.y });
+        await Advance(.45f);
+        Check(endings.Any(end => end.Fact.AbilityId == definition.Id && !end.Fact.Cancelled), "部位动作及作用自然结束");
+    }
+    if (section is "all" or "barrier")
+    {
+        Place(source, 64); Place(enemy, 72); source.position_height = enemy.position_height = 0;
+        var ward = Definition("薄板屏障", thin.Description.Id, 90f);
+        ward.Lifetime = 1.2f; ward.Root.Offset = new[] { 2f, 0f, 0f };
+        ward.Root.ContactRole = ConstructionContactRole.Barrier;
+        ward.Root.Interception = ConstructionInterception.Reflect;
+        ward.Root.ReflectionLimit = 1; ward.Root.Strength = 100f;
+        var projectile = Definition("来袭投射", "fireball");
+        projectile.Power = 5f / enemy.stats["damage"];
+        projectile.Lifetime = .7f;
+        projectile.Root.OnContact = ConstructionContactResponse.End;
+        projectile.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+            Vector = new[] { -44f, 0f, 0f }, WorldVelocity = true, InheritVelocity = false } };
+        await Fire(ward, source, enemy); owner.E.RemoveComponent<ConstructedKnowledge>();
+        Ready(enemy); CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+        await Advance(.12f); Place(source, 64); Place(enemy, 72);
+        await Fire(projectile, enemy, source); enemy.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+        await Advance(.27f);
+        var actual = reflections.Where(value => value.AbilityId == projectile.Id).ToArray();
+        Check(actual.Length == 1 && actual[0].Owner == source.id && actual[0].OutgoingVelocity.x > 0f &&
+            Mathf.Abs(actual[0].Position.x - 66.055f) < .035f,
+            "实际来袭物在薄板前面反射并交接归属", actual.Select(value => new { value.Owner,
+                at = new[] { value.Position.x, value.Position.y, value.Position.z }, speed = value.OutgoingVelocity.x }));
+        await Advance(1.02f);
+        Check(endings.Any(end => end.Fact.AbilityId == ward.Id && !end.Fact.Cancelled), "防御薄板随施放自然结束");
+    }
+    return new { passed = true, section, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ReflectionConfirmed -= Reflected;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    foreach (var resource in resources) forms.Remove(resource.Description.Id);
+    foreach (var mesh in meshes) UnityEngine.Object.Destroy(mesh);
+    ControllableUnit.clear(false); Config.paused = true;
+}

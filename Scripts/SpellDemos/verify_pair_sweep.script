@@ -10,7 +10,7 @@ using Cultiway.Core.Skills;
 
 var assembly=typeof(AbilityCast).Assembly;
 var constructor=typeof(AbilityCapsule).GetConstructors(BindingFlags.Instance|BindingFlags.NonPublic).Single();
-AbilityCapsule Capsule(Vector3 a,Vector3 b,float radius)=>(AbilityCapsule)constructor.Invoke(new object[]{0,a,b,radius,"physical",0,0,null,Vector3.zero,1f});
+AbilityCapsule Capsule(Vector3 a,Vector3 b,float radius)=>(AbilityCapsule)constructor.Invoke(new object[]{0,a,b,radius,"physical",0,0,null,Vector3.zero,1f, null});
 var pair=assembly.GetType("Cultiway.Core.Skills.AbilityPairSweep");
 var find=pair.GetMethod("Find",BindingFlags.Static|BindingFlags.NonPublic);
 var roots=pair.GetMethod("Roots",BindingFlags.Static|BindingFlags.NonPublic);
