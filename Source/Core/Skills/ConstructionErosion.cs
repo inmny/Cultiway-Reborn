@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Newtonsoft.Json;
 
 namespace Cultiway.Core.Skills;
 
@@ -8,6 +9,10 @@ public sealed class ConstructionErosion
 {
     /// <summary>整段投入份额，乘当前材料系数后得到实际损耗比例。</summary>
     public float Fraction = .75f;
+
+    /// <summary>本次侵蚀自己的变速时段，旧资料默认常速。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionProcessWindow[] TimeWindows;
 }
 
 /// <summary>入口核对后的有限侵蚀过程。</summary>
@@ -17,23 +22,28 @@ internal sealed class CompiledErosion
     internal readonly float Seconds;
     /// <summary>未乘材料耐受的投入份额。</summary>
     internal readonly float Fraction;
+    /// <summary>本过程变速规则，空值保留原有推进。</summary>
+    internal readonly CompiledProcessTime Pace;
     /// <summary>可选的世界材料筛选，空值仍侵蚀操作自身。</summary>
     internal readonly CompiledWorldMatter World;
     /// <summary>解析实际参数，非法声明停在资料边界。</summary>
     /// <param name="source">原始操作。</param><param name="lifetime">整次上限。</param><param name="path">资料位置。</param>
     internal CompiledErosion(ConstructionOperation source, float lifetime, string path, int order = 0)
-        : this(source.Seconds, source.Erosion, source.WorldMatter == null ? lifetime : 1000000000, path)
+        : this(source.Seconds, source.Erosion, source.WorldMatter == null ? lifetime : 1000000000, path, allowPace: source.WorldMatter == null)
     { if (source.WorldMatter != null) World = new CompiledWorldMatter(source.WorldMatter, path + "/WorldMatter", order); }
 
     /// <summary>主体与独立材料共用一次参数核对。</summary>
     /// <param name="seconds">实际历时。</param><param name="source">明确份额。</param>
     /// <param name="lifetime">入口允许的最长时间。</param><param name="path">资料位置。</param>
-    internal CompiledErosion(float seconds, ConstructionErosion source, float lifetime, string path)
+    internal CompiledErosion(float seconds, ConstructionErosion source, float lifetime, string path, bool allowPace = false)
     {
         Seconds = seconds; Fraction = source?.Fraction ?? .75f;
         if (float.IsNaN(Seconds) || float.IsInfinity(Seconds) || Seconds <= 0 || Seconds > lifetime ||
             float.IsNaN(Fraction) || float.IsInfinity(Fraction) || Fraction <= 0 || Fraction > 1)
             throw new InvalidDataException(path + "：侵蚀需要有效历时及大于零且不超过一的份额");
+        if (source?.TimeWindows is not { Length: > 0 }) return;
+        if (!allowPace) throw new InvalidDataException(path + "：变速时段目前用于本次生成实体的侵蚀过程");
+        Pace = new CompiledProcessTime(source.TimeWindows, Seconds, lifetime, path + "/Erosion/TimeWindows");
     }
 
     /// <summary>真实材料能表示本段损耗时才接受交接。</summary>

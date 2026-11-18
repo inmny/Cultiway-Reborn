@@ -1,0 +1,105 @@
+// 同一次正式施放比较两块相同材料。只改其中一个实际操作的时间。
+AbilityDefinition Paired()
+{
+    var definition = Definition();
+    var ordinary = definition.Root;
+    var paced = ConstructionEditing.Copy(definition).Root;
+    definition.Id = "test.erosion.pace";
+    definition.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point };
+    definition.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, FaceTarget = false, Height = .2f };
+    ordinary.Id = "ordinary"; ordinary.Offset = new[] { -2f, 0f, 0f };
+    paced.Id = "paced"; paced.Offset = new[] { 2f, 0f, 0f };
+    ordinary.ContactRole = paced.ContactRole = ConstructionContactRole.Attack;
+    definition.Root = new ConstructionNode { Id = "pair", Form = "pivot", ContactRole = ConstructionContactRole.Decoration,
+        Children = new[] { ordinary, paced } };
+    paced.Operations[0].Erosion.TimeWindows = new[] {
+        new ConstructionProcessWindow { At = .10f, Seconds = .40f, Rate = 0f },
+        new ConstructionProcessWindow { At = .50f, Seconds = .40f, Rate = .5f },
+        new ConstructionProcessWindow { At = .90f, Seconds = .50f, Rate = 2f }
+    };
+    definition.Steps = new[]
+    {
+        new ConstructionStep { Id = "ready", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Ready },
+            Inputs = new() { ["part"] = new() { Node = "root/paced" },
+                ["after"] = new() { Node = "root/paced", Operation = "weather", Output = "erosion" } } }
+    };
+    return definition;
+}
+var source = Make(60); var observer = Make(74, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var active = new List<AbilityCast>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != "test.erosion.pace") return;
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == fact.CastId) active.Add((AbilityCast)Field(running, "Cast"));
+}
+ConstructedAbilityService.CastStarted += Started;
+async Task<AbilityCast> Launch(AbilityDefinition definition)
+{
+    Ready(source); await Advance(.15f); Place(source, 60); Place(observer, 74);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float paid = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, observer, aim: new Vector3(66, 73, 2), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(paid - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f, "整次实际施放按原报价支付一次");
+    return active.Last();
+}
+async Task AdvanceTo(AbilityCast cast, float age) { await Advance(age - cast.Age); }
+bool Close(double a, double b, double tolerance = .0001) => Math.Abs(a - b) < tolerance;
+try
+{
+    AbilityDefinition definition = Paired(), overlapping = Paired();
+    overlapping.Root.Children[1].Operations[0].Erosion.TimeWindows[1].At = .3f;
+    bool rejected = false;
+    try { AbilityCompiler.Compile(overlapping, false); }
+    catch (InvalidDataException error) { rejected = error.Message.Contains("不重叠"); }
+    Check(rejected, "重叠时间窗拒绝编译");
+    var scaled = ConstructionMagnitudeEdits.Duration(definition, 2, reprice: false);
+    var operation = scaled.Root.Children[1].Operations[0];
+    Check(operation.Seconds == 2 && operation.Erosion.TimeWindows[0].At == .2f &&
+        operation.Erosion.TimeWindows[2].Rate == 2, "整招历时调整同步缩放局部时间窗，倍率不变");
+    Input(definition, "definition");
+    AbilityCast cast = await Launch(definition);
+    double volume = cast.RemainingVolume(2), resource = cast.RemainingResource(2);
+    float worldRate = Time.timeScale;
+    await AdvanceTo(cast, .20f);
+    double paused = cast.RemainingVolume(2), pausedResource = cast.RemainingResource(2);
+    double ordinary = cast.RemainingVolume(1), world = World.world.getCurWorldTime();
+    var pausedVisual = Views(cast).Last().Transform.lossyScale;
+    var pausedShape = Shapes(cast).Last();
+    await AdvanceTo(cast, .39f);
+    var shape = Shapes(cast).Last();
+    Check(paused < volume && Close(cast.RemainingVolume(2), paused) && Close(cast.RemainingResource(2), pausedResource) &&
+        cast.RemainingVolume(1) < ordinary && World.world.getCurWorldTime() > world + .10 && Time.timeScale == worldRate &&
+        Views(cast).Last().Transform.lossyScale == pausedVisual && shape.Radius == pausedShape.Radius && cast.StepStateOf("ready") == ConstructionStepState.Waiting,
+        "暂停时所选材料、余款、显示与作用形体保持，另一部位和世界继续", new { cast.Age, paused, pausedResource, ordinary, currentOrdinary = cast.RemainingVolume(1) });
+    await AdvanceTo(cast, .72f);
+    double slow = .10 + (cast.Age - .50) * .5;
+    Check(Close(cast.RemainingVolume(2), volume * (1 - .75 * slow)) && cast.StepStateOf("ready") == ConstructionStepState.Waiting,
+        "恢复后按半速继续，不补发暂停时的损耗", new { cast.Age, slow, volume = cast.RemainingVolume(2) });
+    await AdvanceTo(cast, 1.07f);
+    double fast = .30 + (cast.Age - .90) * 2;
+    double ratio = 1 - .75 * fast;
+    Check(Close(cast.RemainingVolume(2), volume * ratio) && Close(cast.RemainingResource(2), resource * ratio) &&
+        Close(Math.Pow(Views(cast).Last().Transform.lossyScale.x, 3), ratio) &&
+        cast.OperationStateOf("root/ordinary", "weather") == ConstructionStepState.Completed && cast.StepStateOf("ready") == ConstructionStepState.Waiting,
+        "后段按两倍推进，显示和余款跟随实际损耗，完成依赖仍不提前", new { cast.Age, fast, ratio, volume = cast.RemainingVolume(2) });
+    await AdvanceTo(cast, 1.34f);
+    Check(cast.OperationStateOf("root/paced", "weather") == ConstructionStepState.Completed && cast.StepStateOf("ready") == ConstructionStepState.Completed &&
+        Close(cast.RemainingVolume(2), cast.RemainingVolume(1)) && Close(cast.RemainingVolume(2), volume * .25),
+        "真实完成才运行下游，变速没有多扣材料", new { cast.Age, volume = cast.RemainingVolume(2), loss = cast.Erosion(2).LostVolume });
+    await Advance(2f);
+    var again = await Launch(definition);
+    Check(cast.Finished && again != cast && Close(again.RemainingVolume(2), volume), "自然结束后再次施放从完整份额开始");
+    await Advance(3.3f);
+    Check(again.Finished, "第二次正常结束");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false); Config.paused = true;
+}

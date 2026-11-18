@@ -11,7 +11,7 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('core', 'runtime', 'all'), default='all')
+    parser.add_argument('--section', choices=('core', 'runtime', 'time', 'all'), default='all')
     options = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         parser.error('请通过develop的dev.py exec运行')
