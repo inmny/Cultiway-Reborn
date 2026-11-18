@@ -103,7 +103,8 @@ internal static class FormWorldfallRenderer
         float time = (float)World.world.getCurWorldTime();
         foreach (FormVisualInstance instance in FormVisualScene.Instances)
         {
-            float height = instance.Terrain == null ? ground(instance.GroundAnchor.x, instance.GroundAnchor.y) : 0f;
+            float height = instance.Terrain == null && instance.Geometry == null
+                ? ground(instance.GroundAnchor.x, instance.GroundAnchor.y) : 0f;
             Vector3 shift = instance.GroundActorId == 0 ? Vector3.zero : bodyShift(instance.GroundActorId);
             for (int part = 0; part < instance.PartCount; part++)
             {
@@ -144,17 +145,17 @@ internal static class FormWorldfallRenderer
         {
             Resource = instance.Resource,
             Build = new Vector4(instance.BuildProgress, FormFormation.TipSpan,
-                instance.Layer == null && instance.Resource.Description.Parts[part].HasBuildData ? 1f : 0f, instance.Feedback.Strength),
+                !instance.DynamicGeometry && instance.Resource.Description.Parts[part].HasBuildData ? 1f : 0f, instance.Feedback.Strength),
             Contact = instance.Feedback.Region(shift),
             Mesh = mesh,
             Transform = transform,
             Material = material,
             Tint = BodyWorldfallRenderer.ResolveTint(in instance),
             Dye = instance.Dye,
-            Skin = instance.Layer == null && instance.Resource.Description.Parts[part].Skin ? instance.Skin : null,
-            ClosedVolume = instance.Layer == null && instance.Resource.Description.Parts[part].HasSurfaceData,
+            Skin = !instance.DynamicGeometry && instance.Resource.Description.Parts[part].Skin ? instance.Skin : null,
+            ClosedVolume = !instance.DynamicGeometry && instance.Resource.Description.Parts[part].HasSurfaceData,
             Part = part,
-            Dynamic = instance.Layer != null,
+            Dynamic = instance.DynamicGeometry,
             Bounds = instance.Skin != null && instance.Resource.Description.Parts[part].Skin
                 ? instance.PoseBounds ?? mesh.bounds
                 : mesh.bounds

@@ -57,6 +57,10 @@ public readonly struct FormVisualInstance
     public readonly AbilityMatter Matter;
     /// <summary>实际浅层流散曲面，空值使用资源原形。</summary>
     public readonly FormLayerFrame Layer;
+    /// <summary>确认后发布的自有形体，由发布方回收。</summary>
+    internal readonly Mesh Geometry;
+    /// <summary>动态形体不使用原资源的模型细节和蒙皮。</summary>
+    internal bool DynamicGeometry => Geometry != null || Layer != null;
     /// <summary>相连肢段的身体语义，独立形体和器物不使用。</summary>
     public readonly BodyVisualSegment BodySegment;
     /// <summary>当前表面位置及已确认的短暂强度，默认不改变材质。</summary>
@@ -90,7 +94,14 @@ public readonly struct FormVisualInstance
         Tint = tint; GroundAnchor = groundAnchor ?? (Vector2)(Vector3)transform.GetColumn(3); GroundActorId = groundActorId;
         Skin = skin; PoseBounds = poseBounds;
         MatterSurface = matterSurface; Dye = dye; Matter = matter; Terrain = terrain; Layer = layer;
-        BodySegment = bodySegment; Feedback = feedback;
+        BodySegment = bodySegment; Feedback = feedback; Geometry = null;
+    }
+
+    /// <summary>发布世界绝对坐标中的短暂自有形体。</summary>
+    internal FormVisualInstance(FormResource resource, Mesh geometry, Color tint, AbilityHeightField terrain)
+        : this(resource, Matrix4x4.identity, tint: tint, terrain: terrain)
+    {
+        Geometry = geometry;
     }
 
     /// <summary>明确覆盖优先，其次是主体材料，握柄、眼部及泡沫保留资源自身表面。</summary>
@@ -103,12 +114,12 @@ public readonly struct FormVisualInstance
     public Matrix4x4 PartTransform(int part) => Layer != null ? Matrix4x4.identity : Transform * (Parts == null ? Matrix4x4.identity : Parts[part]) *
         (Skin != null && Resource.PartControls[part] >= 0 ? Skin[Resource.PartControls[part]] : Matrix4x4.identity);
 
-    /// <summary>动态曲面只提供一个共用水面部件。</summary>
-    public int PartCount => Layer == null ? Resource.Meshes.Length : 1;
+    /// <summary>动态形体只提供一个共用部件。</summary>
+    public int PartCount => DynamicGeometry ? 1 : Resource.Meshes.Length;
     /// <summary>两端显示共用同一份已发布几何。</summary>
     /// <param name="part">实际部件。</param>
     /// <param name="level">已经按实际视点确定的显示等级。</param>
-    internal Mesh MeshFor(int part, int level = 0) => Layer == null ? Resource.DetailMesh(part, level) : FormLayerMeshes.Get(Layer);
+    internal Mesh MeshFor(int part, int level = 0) => Geometry ?? (Layer == null ? Resource.DetailMesh(part, level) : FormLayerMeshes.Get(Layer));
 }
 
 /// <summary>保存最后一次完整发布的形体状态，不持有动作时钟或游戏修改入口。</summary>

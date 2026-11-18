@@ -137,6 +137,8 @@ public sealed partial class ConstructedAbilityService
         var before = new List<float>();
         var after = new List<float>();
         var responses = new List<ConstructedTargetResponse>();
+        var fronts = new List<ConductionFront>();
+        var travel = new float[trace.Route.Count];
         var valid = new bool[trace.Route.Count];
         var currentWater = new ConductingWater[trace.Route.Count];
         int nextHit = 0;
@@ -146,7 +148,16 @@ public sealed partial class ConstructedAbilityService
             if (running.Cast.Finished || !running.Cast.IsNodePresent(node)) break;
             Validate(i);
 
-            if (valid[i]) reached.Add(currentWater[i]);
+            if (valid[i])
+            {
+                var waterCell = currentWater[i];
+                Rect area = waterCell.Footprint(cell);
+                int parent = trace.Parents[i];
+                Vector2 fromParent = parent < 0 ? Vector2.zero : area.center - currentWater[parent].Footprint(cell).center;
+                travel[i] = parent < 0 ? 0f : travel[parent] + fromParent.magnitude;
+                fronts.Add(new ConductionFront(area, waterCell.Bottom + waterCell.Depth, fromParent, travel[i]));
+                reached.Add(waterCell);
+            }
             while (nextHit < trace.Hits.Count && trace.Hits[nextHit].Cell == i)
             {
                 var hit = trace.Hits[nextHit++];
@@ -212,6 +223,7 @@ public sealed partial class ConstructedAbilityService
             if (column.Source < -1 && !liveWater[column.Source].Cast.Finished)
                 liveWater[column.Source].Cast.PulseConduction(column.Index);
         WorldMaterialService.PulseConduction(reached, clock);
+        AddConductionVisuals(fronts, clock, pulse);
         ConductionConfirmed?.Invoke(new ConstructedConduction(running.Id, running.SourceId, owner.Id,
             running.Cast.Plan.Id, node, clock,
             reached.Select(WaterPoint).ToArray(),

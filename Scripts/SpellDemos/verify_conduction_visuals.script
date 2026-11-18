@@ -1,0 +1,133 @@
+// 共用真实测试水路，观察确认后发布的网格而不是重算受击路径。
+var geometry = typeof(FormVisualInstance).GetField("Geometry", F);
+Mesh[] Meshes() => FormVisualScene.Instances.Select(v => (Mesh)geometry.GetValue(v))
+    .Where(m => m != null && m.name == "Cultiway Water Discharge").ToArray();
+var waves = new List<ConstructedConduction>();
+void Wave(ConstructedConduction wave) => waves.Add(wave);
+ConstructedAbilityService.ConductionConfirmed += Wave;
+var snapshots = new List<object>();
+void Write(string failure = null) => File.WriteAllText(Path.Combine(folder, "checks.json"),
+    JsonConvert.SerializeObject(new { passed = failure == null, checks, snapshots, failure,
+        waves = waves.Select(w => new { w.Pulse, w.WorldTime, Cells = w.Route.Length, w.WaterCasts, w.Targets }) }, Formatting.Indented));
+async Task Frames(int n = 5) { for (int i = 0; i < n; i++) await Game.NextFrame(); }
+async Task Shot(string name) { await Frames(); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames(); }
+object Get(object o, string n) => o.GetType().GetProperty(n, F)?.GetValue(o) ?? o.GetType().GetField(n, F)?.GetValue(o);
+void Call(object o, string name, params object[] values) => o.GetType().GetMethod(name, F).Invoke(o, values);
+void Set(object o, string name, object v) { var property = o.GetType().GetProperty(name, F); if (property != null) property.SetValue(o, v); else o.GetType().GetField(name, F).SetValue(o, v); }
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+object mod = external.GetProperty("Instance", F).GetValue(null);
+Call(mod, "ViewForTest", false);
+Call(mod, "SetGodView", false);
+ControllableUnit.clear(false);
+await Game.WaitUntil(() => !(bool)Get(mod, "IsFirstPerson") && !(bool)Get(mod, "GodShown") &&
+    (bool)Get(mod, "DiveDone") && !(bool)Get(mod, "Flying"), 3600);
+World.world.console.Hide();
+foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+Set(Get(mod, "Settings"), "TimeMode", 1);
+
+void Camera(float x) { World.world.camera.transform.position = new Vector3(x, 72, 0); MoveCamera.instance.forceZoom(17); }
+async Task NearWave(AbilityDefinition attack, int pulse)
+{
+    await Game.WaitUntil(() => Config.paused, 3600);
+    double need = pulse == 1 ? .295 : waves.Last(w => w.AbilityId == attack.Id).WorldTime + .495 - World.world.getCurWorldTime();
+    await Advance((float)Math.Max(.01, need));
+    await Frames();
+}
+Mesh[] Verify(ConstructedConduction wave, string name)
+{
+    Mesh[] meshes = Meshes();
+    Vector3[] vertices = meshes.SelectMany(m => m.vertices).ToArray();
+    int quads = vertices.Length / 24;
+    var coverage = new Vector3[quads];
+    for (int i = 0; i < quads; i++)
+    {
+        var crest = vertices.Skip(i * 24).Take(24).ToArray();
+        coverage[i] = wave.Route.FirstOrDefault(c => crest.All(v => Mathf.Abs(v.x - c.x) <= .501f &&
+            Mathf.Abs(v.y - c.y) <= .501f && v.z > c.z && v.z <= c.z + .176f));
+    }
+    snapshots.Add(new { name, wave.Pulse, route = wave.Route.Length, geometry = quads,
+        bands = meshes.Select(m => m.vertexCount).ToArray(), age = World.world.getCurWorldTime() - wave.WorldTime,
+        complete = coverage.Distinct().Count() });
+    Check(meshes.Length == 3 && vertices.Length % 24 == 0 && quads == wave.Route.Length &&
+        coverage.All(c => c != Vector3.zero) && coverage.Distinct().Count() == quads,
+        name + "：三个起伏阶段与本波真实水面逐格对应");
+    return meshes;
+}
+
+try
+{
+    if (section == "native")
+    {
+        Camera(70);
+        var attack = Attack("test.visuals.native");
+        Check(Fire(source, target, attack), "原版水道正式施放");
+        await NearWave(attack, 1);
+        var first = waves.Single(w => w.AbilityId == attack.Id && w.Pulse == 1);
+        var native = Verify(first, "完整水道");
+        Check(first.Targets.Contains(target.id) && first.Route.All(v => Mathf.Abs(v.z) < .001f), "实际到达原版海面并作用水中敌人");
+        await Shot("native-full");
+        Call(mod, "SetGodView", true);
+        await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600);
+        Set(mod, "_godTip", .7f); Set(mod, "_godTipRate", 0f);
+        await Shot("worldfall-full");
+        var worldfall = typeof(FormVisualInstance).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer");
+        var transparent = ((IEnumerable)worldfall.GetField("transparent", F).GetValue(null)).Cast<object>()
+            .Where(entry => native.Contains((Mesh)Get(entry, "Mesh"))).ToArray();
+        Check(native.SequenceEqual(Meshes()) && transparent.Length == 3 && transparent.All(entry =>
+            (bool)Get(entry, "Dynamic") && ((Matrix4x4)Get(entry, "Transform")).GetColumn(3).z == 0f) &&
+            (int)worldfall.GetProperty("LastDrawCount", F).GetValue(null) >= transparent.Length,
+            "三维实际提交同一组海面网格，不重复叠加地面高度");
+        Call(mod, "SetGodView", false);
+        await Game.WaitUntil(() => !(bool)Get(mod, "GodShown") && (bool)Get(mod, "DiveDone"), 3600);
+        for (int y = 70; y < 75; y++) World.world.GetTileSimple(71, y).setTopTileType(TopTileLibrary.ice);
+        await NearWave(attack, 2);
+        var second = waves.Single(w => w.AbilityId == attack.Id && w.Pulse == 2);
+        Verify(second, "冻结断路");
+        Check(second.Route.All(v => v.x < 71f) && !second.Targets.Contains(target.id) && native.All(m => m == null),
+            "新波停在冰前，远端无作用；旧波网格已经回收");
+        await Shot("native-broken");
+        await Advance(.25f);
+        await Shot("native-clear");
+        Check(Meshes().Length == 0 && waves.Count(w => w.AbilityId == attack.Id) == 2, "本波散去与下一波之间不残留网格");
+    }
+    else
+    {
+        Place(source, 94, 72); Place(target, 110, 72); Place(middle, 102, 72); Camera(102);
+        var supply = Spell("活动导电验证水流");
+        supply.Root.Operations = supply.Root.Operations.Concat(new[] { new ConstructionOperation
+            { Kind = ConstructionOperationKind.Leave, At = 1.69f, Residue = new ConstructionResidue { Lifetime = 0 } } }).ToArray();
+        target.GetExtend().GetCultisys<Xian>().wakan = target.stats[Cultiway.Content.BaseStatses.MaxWakan.id];
+        Check(Fire(target, target, supply), "正式生成活动水层，预定稍后留存");
+        await Advance(1.4f);
+        Place(target, 109, 72);
+        var attack = Attack("test.visuals.transfer");
+        Check(WorldMaterialService.Count == 0 && Fire(source, target, attack), "放电开始时只存在活动水层");
+        await NearWave(attack, 1);
+        var first = waves.Single(w => w.AbilityId == attack.Id && w.Pulse == 1);
+        var meshes = Verify(first, "活动水面");
+        Check(first.WaterCasts.Length == 1 && first.Route.Any(v => v.z > .2f), "放电确实取活动水面的实际高度");
+        await Shot("transferred-first-wave");
+        if (WorldMaterialService.Count == 0) await Advance(.05f);
+        Check(WorldMaterialService.Count > 0 && meshes.Any(m => m != null) && Meshes().Length > 0,
+            "已到达的反馈在真实留存后继续，没有绑在活动水体上");
+        await NearWave(attack, 2);
+        var second = waves.Single(w => w.AbilityId == attack.Id && w.Pulse == 2);
+        Verify(second, "留存水面");
+        Check(second.WaterCasts.Length == 0 && meshes.All(m => m == null), "后续波取当前留存水面，已经结束的旧波完成回收");
+        await Shot("retained-second-wave");
+        World.world.save_manager.loadWorld(Path.Combine(folder,"input-world"));
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+        Config.paused = true;
+        await Frames();
+        Check(Meshes().Length == 0, "再次加载世界后没有上个世界的放电网格");
+    }
+    Write();
+    return new { passed = true, checks, snapshots };
+}
+catch (Exception error) { Write(error.ToString()); throw; }
+finally
+{
+    ConstructedAbilityService.ConductionConfirmed -= Wave;
+    Call(mod, "SetGodView", false);
+    Config.paused = true;
+}

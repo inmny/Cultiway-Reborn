@@ -730,6 +730,17 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 正式保存测试中新建人物后应先推进实际逻辑步，让原版单位列表完成接入；保存时检查返回的`SavedMap.actors_data`确有该人物。只看文件存在或模组侧人物引用，不能证明原版人物已经写入世界。
 
+#### 逐波放电画面（6.12）
+
+在已加载 Worldfall 的独立游戏运行下面两段。`native` 对同一波对照原版及三维画面，再冻结一格宽的横断面；`transferred` 用同一测试世界检查活动水层转交、下一波和换世界。两段分别保存真实水路、截图及结束时的绘制错误检查。
+
+```bash
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_conduction_visuals.py --section native
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_conduction_visuals.py --section transferred
+```
+
+如需准备兼容副本，使用先前已通过三维验收的 Worldfall 原 DLL、`mod.json` 和图标，放在独立游戏的 `worldbox_Data/StreamingAssets/mods/Worldfall` 下；玩家安装无需改动。查阅 [逐波放电记录](../../Doc/技能系统全面重构/生成水域导电与实际电击.md#612-收尾按真实水路显示放电)。
+
 ### 构造命名、说明与书籍传承
 
 `verify_construction_text.script`检查实际材料、过程、费用和中英文说明，确认染色不冒充换材、读取不改写正式名称、编辑后不残留旧说明。名称在本地按实际构造生成；旧的正式名称仍保存，未完成请求在完成时取得当前规则名。
