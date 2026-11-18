@@ -210,13 +210,16 @@ public sealed partial class ConstructedAbilityService
             var caster = attack.Running.Source.GetExtend();
             var observation = new DamageObservation(caster.Base.id, id);
             result = attack.Running.Body.Weapon == null
-                ? KnightWeaponStrikeResolver.StrikeUnarmed(caster, receiver, null, multiplier, immediate: true, observer: observation).state
-                : KnightWeaponStrikeResolver.StrikeBorrowed(caster, attack.Running.Body.Weapon, receiver, multiplier, immediate: true, observer: observation).state;
+                ? KnightWeaponStrikeResolver.StrikeUnarmed(caster, receiver, null, multiplier, immediate: true,
+                    observer: observation, damageOrigin: DamageOrigin.Reaction).state
+                : KnightWeaponStrikeResolver.StrikeBorrowed(caster, attack.Running.Body.Weapon, receiver, multiplier,
+                    immediate: true, observer: observation, damageOrigin: DamageOrigin.Reaction).state;
             settlement = observation.Result;
         }
         else if (amount > 0f)
         {
             var damage = owner.Damage;
+            damage.DamageOrigin = DamageOrigin.Reaction;
             damage.TargetID = id;
             damage.Damage = amount;
             damage.Element = impact.Element ?? Composition(attack.Running.Cast.Matter(attack.To.Node).DamageKind);

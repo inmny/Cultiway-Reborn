@@ -741,6 +741,15 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 190 -- python3 Scri
 
 如需准备兼容副本，使用先前已通过三维验收的 Worldfall 原 DLL、`mod.json` 和图标，放在独立游戏的 `worldbox_Data/StreamingAssets/mods/Worldfall` 下；玩家安装无需改动。查阅 [逐波放电记录](../../Doc/技能系统全面重构/生成水域导电与实际电击.md#612-收尾按真实水路显示放电)。
 
+#### 交锋去重与终止（6.16）
+
+在独立游戏中分段运行。`water` 核对两波实际到达、逐人扣血、取消和重施；`contact` 对照主体、追加、分送及同一原人物的多映像传伤。两段在真实受击回调内记录主动伤害与后续反应的分类，并保存扣血和交锋记录。规则见[交锋去重与终止](../../Doc/技能系统全面重构/交锋去重与终止.md)。
+
+```bash
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_clash_termination.py --section water
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_clash_termination.py --section contact
+```
+
 ### 构造命名、说明与书籍传承
 
 `verify_construction_text.script`检查实际材料、过程、费用和中英文说明，确认染色不冒充换材、读取不改写正式名称、编辑后不残留旧说明。名称在本地按实际构造生成；旧的正式名称仍保存，未完成请求在完成时取得当前规则名。

@@ -1,0 +1,11 @@
+// 观察真实共同受击回调内的类别；法宝与阵法在这里区分主动伤害和后续反应。
+var packets = new List<(long Target, float Damage, DamageOrigin Origin)>();
+long attackerId = 0;
+void Resolved(ActorExtend receiver, BaseSimObject from, float damage, ElementComposition element, AttackType attackType)
+{
+    if (from?.getID() == attackerId && damage > 0f)
+        packets.Add((receiver.Base.id, damage, DamageResolutionContext.CurrentOrigin));
+}
+var callback = new Action<ActorExtend, BaseSimObject, float, ElementComposition, AttackType>(Resolved);
+var callbacks = typeof(ActorExtend).GetField("action_on_damage_resolved", F);
+object[] PacketEvidence() => packets.Select(p => (object)new { p.Target, p.Damage, origin = p.Origin.ToString() }).ToArray();

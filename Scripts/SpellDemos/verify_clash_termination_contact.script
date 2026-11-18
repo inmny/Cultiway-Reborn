@@ -1,0 +1,76 @@
+Actor source = Make(64), target = Make(80, "wolf"), nearby = Make(90, "wolf");
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var mapped = new List<ConstructedCorrespondenceDamage>();
+var clashes = new List<ConstructedClash>();
+void Mapped(ConstructedCorrespondenceDamage fact) => mapped.Add(fact);
+void Clashed(ConstructedClash fact) => clashes.Add(fact);
+ConstructedAbilityService.CorrespondenceDamageConfirmed += Mapped;
+ConstructedAbilityService.ClashConfirmed += Clashed;
+attackerId = source.id;
+ActorExtend.RegisterActionOnDamageResolved(callback);
+try
+{
+    Ready(source); await Advance(.15f);
+    Place(source, 64); Place(target, 67);
+    Place(nearby, 67, 74); source.addAggro(nearby);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    var direct = AttackDefinition(); direct.Id = "test.clash-termination.direct";
+    direct.Impact.AdditionalDamage = new[] { new ConstructionContactDamage { MinimumBonus = 17, IgnoreDamageReduction = true } };
+    direct.Impact.Spreads = new[] { new ConstructionContactSpread
+    {
+        Radius = 3,
+        Outcome = new ConstructionContactOutcome
+        {
+            Damage = new[] { new ConstructionContactDamage { MinimumBonus = 7, IgnoreDamageReduction = true } }
+        }
+    } };
+    float before = target.getHealth();
+    float nearbyBefore = nearby.getHealth();
+    await Fire(direct, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.85f);
+    var directPackets = packets.Where(p => p.Target == target.id).ToArray();
+    Check(directPackets.Select(p => p.Origin).SequenceEqual(new[] { DamageOrigin.Primary, DamageOrigin.Reaction, DamageOrigin.Reaction }) &&
+        directPackets[1].Damage >= 16 && before > target.getHealth(),
+        "直接接触只有主体伤害算主动攻击，指定追加伤害仍实际扣血", PacketEvidence());
+    var spreadPackets = packets.Where(p => p.Target == nearby.id).ToArray();
+    Check(spreadPackets.Length == 1 && spreadPackets[0].Origin == DamageOrigin.Reaction &&
+        spreadPackets[0].Damage == 7 && nearbyBefore > nearby.getHealth(),
+        "路径外的旁人只结算一次真实分送，分送不会再次分送", PacketEvidence());
+
+    Place(source, 64); Place(target, 80); Place(nearby, 90);
+    var image = ImageDefinition(); image.Id = "test.clash-termination.images";
+    image.Root.Children = new[] { new ConstructionNode
+    {
+        Id = "independent", Form = "fireball", Matter = "physical", Scale = .75f,
+        ContactRole = ConstructionContactRole.Barrier,
+        Correspondence = new ConstructionCorrespondence { Id = "same_original", DamageFraction = .5f },
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Detach } }
+    } };
+    var attack = AttackDefinition(); attack.Id = "test.clash-termination.mapped";
+    await Fire(image, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Fire(attack, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(1.2f);
+    var final = packets.Where(p => p.Target == target.id).Skip(directPackets.Length).ToArray();
+    Check(clashes.Count >= 2 && mapped.Count == 1 && mapped[0].TargetId == target.id && mapped[0].OwnerId == source.id &&
+        mapped[0].HealthAfter < mapped[0].HealthBefore && final.Length == 1 && final[0].Origin == DamageOrigin.Reaction,
+        "两次实际映像交锋只向同一原人物传伤一次，且不重新触发主动伤害门槛",
+        new { clashes = clashes.Count, mapped = mapped.Count, packets = PacketEvidence() });
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CorrespondenceDamageConfirmed -= Mapped;
+    ConstructedAbilityService.ClashConfirmed -= Clashed;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    callbacks.SetValue(null, Delegate.Remove((Delegate)callbacks.GetValue(null), callback));
+    File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(new
+    {
+        packets = PacketEvidence(), clashes = clashes.Count,
+        mapped = mapped.Select(f => new { f.OwnerId, f.TargetId, f.HealthBefore, f.HealthAfter })
+    }, Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}

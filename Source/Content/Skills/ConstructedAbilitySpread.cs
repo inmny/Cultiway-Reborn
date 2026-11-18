@@ -97,7 +97,7 @@ public sealed partial class ConstructedAbilityService
                     point.z = building.getHeight() + (simulation.terrain?.Sample(point.x, point.y) ?? 0f);
                     if ((point - center).sqrMagnitude > spread.Radius * spread.Radius) continue;
                     long buildingId = building.data.id;
-                    using (DamageResolutionContext.Enter(owner.Damage.DamageOrigin, owner.Damage.SourceScopeId))
+                    using (DamageResolutionContext.Enter(DamageOrigin.Reaction, owner.Damage.SourceScopeId))
                         building.getHit(damage, pAttacker: owner.IsLive ? owner.Actor : null);
                     if (generation != worldGeneration) return;
                     buildings.Add(buildingId);

@@ -42,6 +42,8 @@ public sealed partial class ConstructedAbilityService
                 UnityEngine.Mathf.Max(effect.MinimumBonus, receiver.getMaxHealth() * effect.PerMaxHealth));
             if (amount <= 0f) continue;
             var damage = owner.Damage;
+            // 追加一份已确认接触的效果，不再触发只响应主动伤害的被动。
+            damage.DamageOrigin = DamageOrigin.Reaction;
             damage.TargetID = receiver.data.id;
             damage.Damage = amount;
             damage.Element = effect.Element;

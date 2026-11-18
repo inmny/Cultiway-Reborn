@@ -1,0 +1,48 @@
+var waves = new List<ConstructedConduction>();
+void Wave(ConstructedConduction fact) => waves.Add(fact);
+var input = Attack("test.clash-termination.water");
+input.Impact.AdditionalDamage = new[] { new ConstructionContactDamage { MinimumBonus = 17, IgnoreDamageReduction = true } };
+Place(air, 70, 90);
+attackerId = source.id;
+ActorExtend.RegisterActionOnDamageResolved(callback);
+ConstructedAbilityService.ConductionConfirmed += Wave;
+try
+{
+    Check(Fire(source, target, input), "正式施放循水连雷与追加伤害");
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.8f);
+    var first = waves.Where(w => w.AbilityId == input.Id).ToArray();
+    Check(first.Select(w => w.Pulse).SequenceEqual(new[] { 1, 2 }) && first.All(w =>
+        w.Targets.Contains(target.id) && w.Targets.Distinct().Count() == w.Targets.Length &&
+        w.HealthBefore.Zip(w.HealthAfter, (before, after) => before > after).All(value => value)),
+        "两个实际水波各自只确认每人一次且确实扣血");
+    foreach (var id in new[] { target.id, middle.id })
+    {
+        var actual = packets.Where(p => p.Target == id).ToArray();
+        Check(actual.Length == 4 && actual.Count(p => p.Damage >= 16) == 2 &&
+            actual.All(p => p.Origin == DamageOrigin.Reaction),
+            "两波各有一份主体伤害和一份追加伤害，均不算新的主动攻击：" + id);
+    }
+    Running(input.Id).Cancel();
+    var beforeStop = packets.Count;
+    await Advance(1.5f);
+    Check(waves.Count(w => w.AbilityId == input.Id) == 2 && packets.Count == beforeStop,
+        "取消后不补发后续水波，也不再扣血");
+    Check(Fire(source, target, input), "取消后同一招式可再次施放");
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.35f);
+    Check(waves.Where(w => w.AbilityId == input.Id).Select(w => w.Pulse).SequenceEqual(new[] { 1, 2, 1 }),
+        "新施放重新从第一波开始且没有旧波混入");
+    Running(input.Id).Cancel();
+    return new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ConductionConfirmed -= Wave;
+    callbacks.SetValue(null, Delegate.Remove((Delegate)callbacks.GetValue(null), callback));
+    File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(new
+    {
+        packets = PacketEvidence(), waves = waves.Select(w => new { w.AbilityId, w.Pulse, w.Targets, w.HealthBefore, w.HealthAfter })
+    }, Formatting.Indented));
+    Config.paused = true;
+}
