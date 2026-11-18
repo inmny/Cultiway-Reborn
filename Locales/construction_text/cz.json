@@ -109,6 +109,8 @@
   "Cultiway.ConstructionText.AnyWorldMaterials": "允许其他支付者的材料",
   "Cultiway.ConstructionText.NamedProcess": "命名步骤“{0}”执行{1}。",
   "Cultiway.ConstructionText.Operation.Erode": "侵蚀材料",
+  "Cultiway.ConstructionText.Change.ProcessTime": "过程时间",
+  "Cultiway.ConstructionText.Change.RetimeErosion": "调整侵蚀节奏",
   "Cultiway.ConstructionText.Change.SelfErosion": "主体侵蚀",
   "Cultiway.ConstructionText.Change.WorldErosion": "世界侵蚀",
   "Cultiway.ConstructionText.Change.ResidueErosion": "留置侵蚀",

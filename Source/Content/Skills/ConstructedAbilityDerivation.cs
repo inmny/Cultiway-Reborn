@@ -46,6 +46,7 @@ public sealed partial class ConstructedAbilityService
         AbilityDefinition draft = ConstructionEditing.Copy(source);
         var random = new Random(seed);
         var choices = new List<(string Name, Func<AbilityDefinition> Apply)>();
+        if (inspiration.Rules >= ConstructionPricing.ProcessTimeRules) AddProcessTimeChoices(draft, plan, resources, random, choices);
         ConstructionNode[] nodes = DerivationNodes(draft.Root).ToArray();
         if (inspiration.Rules >= 30)
             foreach (var kind in MappingChoices(draft, plan))

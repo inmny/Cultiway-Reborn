@@ -109,6 +109,8 @@
   "Cultiway.ConstructionText.AnyWorldMaterials": "including material paid by others",
   "Cultiway.ConstructionText.NamedProcess": "Named step “{0}” executes {1}.",
   "Cultiway.ConstructionText.Operation.Erode": "erodes material",
+  "Cultiway.ConstructionText.Change.ProcessTime": "process timing",
+  "Cultiway.ConstructionText.Change.RetimeErosion": "retime erosion",
   "Cultiway.ConstructionText.Change.SelfErosion": "self erosion",
   "Cultiway.ConstructionText.Change.WorldErosion": "world erosion",
   "Cultiway.ConstructionText.Change.ResidueErosion": "independent residue erosion",

@@ -1,0 +1,116 @@
+// 两类自主创作共用一名作者和已有木料，再写正式等待档供冷启动复验。
+Make(60); Actor legacy = Make(61), source = Make(64), target = Make(72);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var inspiration = ConstructedAbilityService.ReadInspiration(owner);
+var capture = service.GetMethod("CaptureCreationResources", F);
+SynthesisResources Capture(int seed) => (SynthesisResources)capture.Invoke(null, new object[] { owner, seed, inspiration });
+JObject Complete(AbilityDefinition definition) { var json = JObject.FromObject(definition); json.Remove("Id"); return json; }
+void Write(string name, object data) => File.WriteAllText(Path.Combine(folder, name), JsonConvert.SerializeObject(data, Formatting.Indented));
+var basis = new AbilityDefinition
+{
+    Id = "test.process-time.creation-basis", Name = "木剑原术", Cost = 2, Power = 0, Resource = "wakan",
+    Lifetime = 1.5f, Cooldown = .1f, TargetRange = 15,
+    Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point },
+    Root = new ConstructionNode { Id = "root", Form = "sword", Matter = "wood", Volume = 1,
+        Operations = new[] { new ConstructionOperation { Id = "weather", Kind = ConstructionOperationKind.Erode, Seconds = 1f,
+            Erosion = new ConstructionErosion { Fraction = .3f } } } },
+    Steps = new[] { new ConstructionStep { Id = "original", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Ready },
+        Inputs = new() { ["part"] = new() { Node = "root" }, ["after"] = new() { Node = "root", Operation = "weather", Output = "erosion" } } } }
+};
+var original = JObject.FromObject(basis);
+IEnumerable<ConstructionOperation> Operations(ConstructionNode node) => node == null ? Array.Empty<ConstructionOperation>() : node.Operations.Concat(node.Children.SelectMany(Operations));
+IEnumerable<ConstructionOperation> OperationsOf(AbilityDefinition definition) => Operations(definition.Root).Concat(definition.Steps.Select(step => step.Operation));
+bool Timed(AbilityDefinition definition) => OperationsOf(definition).Any(operation =>
+    operation.Erosion?.TimeWindows is { Length: > 0 } || operation.Residue?.Erosion?.TimeWindows is { Length: > 0 });
+ConstructionStep Retime(AbilityDefinition definition) => definition.Steps.FirstOrDefault(step => step.Operation.Kind == ConstructionOperationKind.RetimeErosion);
+async Task Use(AbilityDefinition definition)
+{
+    Ready(source); await Advance(.15f); Place(source, 64);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    await Fire(definition, source, null, aim: new Vector3(66, 72, 2), aggro: false);
+}
+try
+{
+    Check(inspiration.Rules == 31 && legacy.id == 57, "自然创作规则31及真实旧人物编号");
+    AbilityDefinition time = null, retime = null, independentTimed = null, independentRetime = null;
+    var independentRejected = new List<string>(); var derivedRejected = new List<string>();
+    for (int seed = 0; seed < 160 && (time == null || retime == null || independentTimed == null || independentRetime == null); seed++)
+    {
+        var frozen = Capture(seed);
+        if (independentTimed == null || independentRetime == null)
+        {
+            try
+            {
+                var independent = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: frozen);
+                if (independentTimed == null && Timed(independent) || independentRetime == null && Retime(independent) != null)
+                {
+                    var repeated = ConstructedAbilityService.Generate(owner, seed, inspiration,
+                        resources: JObject.FromObject(frozen).ToObject<SynthesisResources>());
+                    Check(JToken.DeepEquals(Complete(independent), Complete(repeated)), "冻结目录复现独立成品的完整结构和费用", seed);
+                    if (Timed(independent)) independentTimed ??= independent;
+                    if (Retime(independent) != null) independentRetime ??= independent;
+                }
+            }
+            catch (InvalidDataException error) { independentRejected.Add(seed + ": " + error.Message); }
+        }
+        if (time == null || retime == null)
+        {
+            try
+            {
+                var derived = ConstructedAbilityService.Generate(owner, seed, inspiration, basis, frozen);
+                if (derived.Parent.Change == "过程时间") time ??= derived;
+                if (derived.Parent.Change == "调整侵蚀节奏" && Retime(derived).Operation.WorldMatter.FromMatter == "wood") retime ??= derived;
+            }
+            catch (InvalidDataException error) { derivedRejected.Add(seed + ": " + error.Message); }
+        }
+        if (seed % 12 == 0) await Game.NextFrame();
+    }
+    Write("rejected-inputs.json", new { independentRejected, derivedRejected });
+    Check(time != null && retime != null && independentTimed != null && independentRetime != null,
+        "独立创作和已学原术均可产生两类时间用法", new { time = time?.Seed, retime = retime?.Seed,
+            independentTimed = independentTimed?.Seed, independentRetime = independentRetime?.Seed });
+    var untimed = ConstructionEditing.Copy(time); untimed.Root.Operations[0].Erosion.TimeWindows = null;
+    Check(JToken.DeepEquals(original, JObject.FromObject(basis)) &&
+        JToken.DeepEquals(JObject.FromObject(basis.Root), JObject.FromObject(untimed.Root)) &&
+        JToken.DeepEquals(JObject.FromObject(basis.Root), JObject.FromObject(retime.Root)) &&
+        JToken.DeepEquals(JObject.FromObject(basis.Steps.Single()), JObject.FromObject(time.Steps.First())) &&
+        JToken.DeepEquals(JObject.FromObject(basis.Steps.Single()), JObject.FromObject(retime.Steps.First())),
+        "只改实际时间或添加一步，原术、份额、完成依赖与其他结构保持");
+    var oldPrice = ConstructionPricing.Price(ConstructionEditing.Copy(retime), contactRules: 30);
+    var newPrice = ConstructionPricing.Price(ConstructionEditing.Copy(retime), contactRules: 31);
+    Check(newPrice.Calculation.Demand > oldPrice.Calculation.Demand && retime.Cost > basis.Cost && time.Cost > basis.Cost,
+        "实际时间工作仅在规则31进入费用", new { previousDemand = oldPrice.Calculation.Demand, latestDemand = newPrice.Calculation.Demand,
+            time.Cost, retimeCost = retime.Cost });
+    Write("created-definitions.json", new { independentTimed, independentRetime, time, retime });
+
+    // 与 B2 相同的木料和位置，实际交接后已有损耗，再保存仍在等待的作者请求。
+    var residue = ConstructionEditing.Copy(basis); residue.Id = "test.process-time.creation-wood"; residue.Cost = 3;
+    residue.Root.Volume = 4; residue.Steps = Array.Empty<ConstructionStep>();
+    residue.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Leave, At = .05f,
+        Residue = new ConstructionResidue { ErosionSeconds = 7, Erosion = new ConstructionErosion { Fraction = .75f } } } };
+    await Use(residue); await Advance(.35f);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    var saves = Cultiway.ModClass.I.WorldSaves;
+    var material = ((JArray)JObject.Parse(saves.World.Capture(World.world, "retime-pending"))["sections"]["world_materials"]["data"]["Records"]).Single();
+    Check((double)material["Material"]["Erosion"]["Progress"] > 0, "选定世界木料已开始实际耗蚀");
+    ConstructedAbilityService.Register(basis); ConstructedAbilityService.Learn(owner, basis.Id);
+    Check(ConstructedAbilityService.TryQueueCreation(owner, retime.Seed, basis.Id), "正式创作队列受理已学原术");
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    var frozenState = JObject.Parse(saves.Actors.Capture(owner, "process-time-creation"))["sections"]["ability_creation"];
+    Check((int)frozenState["version"] == 32 && pending.Pending && pending.Inspiration.Rules == 31 &&
+        JToken.DeepEquals(Complete(retime), Complete(ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources))),
+        "正式人物32区段冻结规则31、原术、目录与预计成品");
+    int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+    Write("pending-expected.json", new { sourceId = source.id, legacyId = legacy.id, targetId = target.id, material,
+        derived = retime, frozenState, known = ConstructionEditing.Access.List(owner).Count,
+        oldKnown = ConstructionEditing.Access.List(legacy.GetExtend()).Count, process });
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "pending-save"));
+    return new { passed = true, process, retime.Seed };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

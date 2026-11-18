@@ -118,12 +118,13 @@ public sealed partial class ConstructedAbilityService
         };
 
         static float[] Coordinates(Vector3 value) => new[] { value.x, value.y, value.z };
-        static string NewId(string baseId, IEnumerable<string> all)
-        {
-            string id = baseId;
-            for (int suffix = 1; all.Contains(id); suffix++) id = baseId + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            return id;
-        }
+    }
+
+    private static string NewId(string baseId, IEnumerable<string> all)
+    {
+        string id = baseId;
+        for (int suffix = 1; all.Contains(id); suffix++) id = baseId + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return id;
     }
 }
 

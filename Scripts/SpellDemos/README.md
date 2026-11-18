@@ -1907,3 +1907,5 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 5.16 B2 使用同一入口的 `--section retiming`：在同一份活动木料上暂停、替换为两倍、等待原结果真正完成，验证已完成时拒绝、下一次再用与清除变速，并正式保存读取第 10 版及真实旧第 9 版。证据见 `~/.local/state/cultiway-dev/evidence/process-time-b2/delivery.json`。
 
 5.16 C1 使用同一入口的 `--section editor`：复用木料与现成世界，在实际万法阁检查四处时间窗、重叠拒绝、撤销、规则 31 推荐费用及原规则费用、中英文说明和正式保存重开。证据见 `~/.local/state/cultiway-dev/evidence/process-time-c1/delivery.json`。
+
+5.16 C2 使用 `--section creation` 进行独立创作、原术衍生与正式保存。退出并启动新进程后，用 `--section creation-restart --state <creation 输出目录>` 冷读规则 30、31 的真实等待请求，检查一次授予、实际付费、暂停、恢复和重存；`creation-use` 仅用于前段冷读已通过之后补后半段。分段结果和原失败见 `~/.local/state/cultiway-dev/evidence/process-time-c2/delivery.json`。

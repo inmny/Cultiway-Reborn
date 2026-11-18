@@ -323,6 +323,8 @@ public static class ConstructionPresentation
         "结构形变" => "Deformation",
         "库存材料" => "Inventory",
         "材料交出" => "MaterialTransfer",
+        "过程时间" => "ProcessTime",
+        "调整侵蚀节奏" => "RetimeErosion",
         "主体侵蚀" => "SelfErosion",
         "世界侵蚀" => "WorldErosion",
         "留置侵蚀" => "ResidueErosion",

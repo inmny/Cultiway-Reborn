@@ -1,0 +1,107 @@
+// 以不同游戏进程打开含原规则30与新规则31请求的正式世界。
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "pending-expected.json")));
+var old = JObject.Parse(File.ReadAllText(Path.Combine(folder, "rule30.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+if (!useOnly) Check(process != (int)expected["process"], "实际退出并换到新进程");
+JObject Complete(AbilityDefinition definition) { var result = JObject.FromObject(definition); result.Remove("Id"); return result; }
+var access = ConstructionEditing.Access;
+var saves = Cultiway.ModClass.I.WorldSaves;
+long sourceId = (long)expected["sourceId"], legacyId = (long)expected["legacyId"], targetId = (long)expected["targetId"];
+int known = (int)expected["known"] + 1, oldKnown = (int)expected["oldKnown"] + 1;
+Actor Loaded(long id) => World.world.units.get(id) ?? throw new InvalidOperationException("正式世界缺少人物 " + id);
+async Task Load(string path)
+{
+    World.world.save_manager.loadWorld(Path.Combine(folder, path));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+var current = expected["derived"].ToObject<AbilityDefinition>();
+var historical = old["expected"].ToObject<AbilityDefinition>();
+JToken WorldMaterial(long id) => ((JArray)JObject.Parse(saves.World.Capture(World.world, "retime-restart"))
+    ["sections"]["world_materials"]["data"]["Records"]).Single(row => (long)row["Id"] == id)["Material"];
+long materialId = (long)expected["material"]["Id"];
+bool Near(double a, double b) => Math.Abs(a - b) < .002;
+double Time(JToken material, string key) => (double)material["Erosion"][key];
+try
+{
+    await Load("pending-save");
+    var source = Loaded(sourceId); var legacy = Loaded(legacyId); Loaded(targetId);
+    var loadedMaterial = WorldMaterial(materialId);
+    var owner = source.GetExtend(); var previous = legacy.GetExtend();
+    if (!useOnly)
+    {
+        Check(JToken.DeepEquals(expected["material"]["Material"], loadedMaterial), "等待档中的世界木料保留原耗蚀进度");
+        var pending = owner.GetComponent<ConstructedCreationState>();
+        var oldPending = previous.GetComponent<ConstructedCreationState>();
+        Check(pending.Inspiration.Rules == 31 && oldPending.Inspiration.Rules == 30 && saves.LastReport.Skipped.Count == 0 &&
+            saves.LastReport.Upgraded >= 1 && saves.LastReport.BackupError == null, "正式世界读取两代规则，旧区段实际升级且无内容丢失");
+        var restored = JObject.Parse(saves.Actors.Capture(owner, "restored-process-time"))["sections"]["ability_creation"];
+        bool sameSource = JToken.DeepEquals(restored["data"]["Source"], expected["frozenState"]["data"]["Source"]);
+        bool sameResources = JToken.DeepEquals(restored["data"]["Resources"], expected["frozenState"]["data"]["Resources"]);
+        AbilityDefinition Seen(ActorExtend person, ConstructedCreationState state) => state.Pending
+            ? ConstructedAbilityService.Generate(person, state.Seed, state.Inspiration, state.Source, state.Resources)
+            : access.Read(state.LastAbility);
+        var currentSeen = Seen(owner, pending); var oldSeen = Seen(previous, oldPending);
+        bool newMatches = currentSeen != null && JToken.DeepEquals(Complete(currentSeen), Complete(current));
+        bool oldMatches = oldSeen != null && JToken.DeepEquals(Complete(oldSeen), Complete(historical));
+        if (!newMatches || !oldMatches || pending.Pending && (!sameSource || !sameResources))
+            File.WriteAllText(Path.Combine(folder, "restored-observed.json"), JsonConvert.SerializeObject(new
+            { restored, currentSeen, oldSeen, pending.LastFailure, oldFailure = oldPending.LastFailure }, Formatting.Indented));
+        Check((!pending.Pending || sameSource && sameResources) && newMatches && oldMatches,
+            "冷启动恢复冻结原术、目录与两份完整结果，旧费用保持",
+            new { pending = pending.Pending, oldPending = oldPending.Pending, sameSource, sameResources, newMatches, oldMatches });
+    }
+    await Advance(.24f);
+    var completed = owner.GetComponent<ConstructedCreationState>(); var before = previous.GetComponent<ConstructedCreationState>();
+    string learnedId = completed.LastAbility, oldId = before.LastAbility;
+    var learned = access.Read(learnedId); var oldLearned = access.Read(oldId);
+    if (!useOnly) Check(!completed.Pending && !before.Pending && completed.LastFailure == null && before.LastFailure == null &&
+        JToken.DeepEquals(Complete(learned), Complete(current)) && JToken.DeepEquals(Complete(oldLearned), Complete(historical)) &&
+        access.List(owner).Count == known && access.List(previous).Count == oldKnown,
+        "两笔等待各授予一次，完整结果与预计一致");
+
+    Ready(source); await Advance(.12f); Place(source, 64);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    float paid = owner.GetCultisys<Xian>().wakan;
+    await Fire(learned, source, null, aim: new Vector3(66, 72, 2), aggro: false);
+    Check(Near(paid - owner.GetCultisys<Xian>().wakan, learned.Cost), "学到的调整术按实际费用施放");
+    var live = (IEnumerable)service.GetField("casts", F).GetValue(null);
+    AbilityCast cast = live.Cast<object>().Select(r => (AbilityCast)Field(r, "Cast")).Single(c => c.Plan.Id == learned.Id);
+    var step = learned.Steps.Single(s => s.Operation.Kind == ConstructionOperationKind.RetimeErosion);
+    var windows = step.Operation.TimeWindows;
+    await Advance(windows[0].At + windows[0].Seconds * .25f);
+    var paused = WorldMaterial(materialId);
+    var receipts = new List<ConstructionWorldReceipt>(); cast.AppendStepReceipts(step.Id, receipts);
+    Check(cast.StepStateOf(step.Id) == ConstructionStepState.Completed && receipts.Count == 1 &&
+        receipts[0].Kind == ConstructionWorldResultKind.ErosionRetimed && receipts[0].Materials.SequenceEqual(new[] { materialId }) &&
+        (long?)paused["Erosion"]["Id"] == (long?)loadedMaterial["Erosion"]["Id"] &&
+        Time(paused, "ElapsedAtScheduleStart") >= Time(loadedMaterial, "Elapsed"),
+        "新成品只调整选中材料，过程编号和已耗进度保持", paused["Erosion"]);
+    await Advance(.1f); var still = WorldMaterial(materialId);
+    Check(Near(Time(still, "Elapsed"), Time(paused, "Elapsed")) && Near((double)still["Volume"], (double)paused["Volume"]) &&
+        Time(still, "WorldElapsed") > Time(paused, "WorldElapsed"), "世界继续走，选中的木料在暂停段不扣量", still["Erosion"]);
+    await Advance(windows[1].At + windows[1].Seconds - (float)Time(still, "WorldElapsed") + .12f);
+    var resumed = WorldMaterial(materialId);
+    Check(Time(resumed, "Elapsed") > Time(still, "Elapsed") && (double)resumed["Volume"] < (double)still["Volume"],
+        "越过时间窗后接续真实损耗", resumed["Erosion"]);
+    await Advance(learned.Lifetime + .1f);
+    Check(endings.Any(end => end.Fact.AbilityId == learnedId), "学到的新术自行结束，独立材料照常运行");
+    var expectedAfterUse = WorldMaterial(materialId);
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+    await Load("completed-save");
+    Check(JToken.DeepEquals(expectedAfterUse, WorldMaterial(materialId)), "存档保留已施放成品造成的实际世界变化");
+    await Advance(.2f);
+    owner = Loaded(sourceId).GetExtend(); previous = Loaded(legacyId).GetExtend();
+    Check(owner.GetComponent<ConstructedCreationState>().LastAbility == learnedId && previous.GetComponent<ConstructedCreationState>().LastAbility == oldId &&
+        access.List(owner).Count == known && access.List(previous).Count == oldKnown &&
+        JToken.DeepEquals(Complete(access.Read(learnedId)), Complete(current)), "正式重存后两个请求不重复授予，新调整术仍可读取");
+    File.WriteAllText(Path.Combine(folder, "actual-world-progress.json"), JsonConvert.SerializeObject(new
+        { before = loadedMaterial, paused, still, resumed, afterUse = expectedAfterUse }, Formatting.Indented));
+    return new { passed = true, process, learnedId, oldId, useOnly };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}
