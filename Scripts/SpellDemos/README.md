@@ -1933,3 +1933,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 5.18 B 水路与人物实际送达
 
 通过 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_network_arrival.py`。`--section water` 复用循水连雷，核对实际水路、空水、首末两轮和接续位置；`--section signal` 复用告警入口，核对落空、真实收件、同源刷新及到期后重发。输入、真实脉冲和收件时点、初次准备失败见 `~/.local/state/cultiway-dev/evidence/network-arrival-b/delivery.json`。
+
+### 5.18 C 多段条件的顺序与终止
+
+通过 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_ground_route.py --section chain` 复用 A 的地面及足底，验证真实地波到达、延迟独立成形、同刻换材和人物实际恢复。正常结束、波源先结束和主动取消使用同一组合，其他地波检查仍由 `all` 执行。实际输入、事件、恢复及退出证据见 `~/.local/state/cultiway-dev/evidence/propagation-chain-c/delivery.json`。

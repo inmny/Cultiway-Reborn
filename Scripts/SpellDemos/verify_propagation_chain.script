@@ -1,0 +1,117 @@
+// 5.18 C：复用已通过的地面与足底入口，只改变本次组合的声明。
+const float growSeconds = .38f;
+const float nearDelay = .12f;
+target.setKingdom(source.kingdom);
+var timeline = new List<ConstructedActionEvent>();
+void Action(ConstructedActionEvent fact)
+{
+    if (fact.AbilityId.StartsWith("test.ground-route.chain")) timeline.Add(fact);
+}
+ConstructionCondition Grown() => new ConstructionCondition { Trigger = ConstructionChangeTrigger.SizeAbove, Threshold = .5f };
+ConstructionNode OnMaterial(string id, string matter, bool heals) => new ConstructionNode
+{
+    Id = id, Form = "fireball", Matter = matter, Scale = .75f,
+    ContactRole = heals ? ConstructionContactRole.Attack : ConstructionContactRole.Decoration,
+    Impact = heals ? new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, DamageScale = 0,
+        Restoration = new ConstructionRestoration { Health = 20 } } : null,
+    Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.MatterChanged, Matter = matter }
+};
+definition.Root.Operations = definition.Root.Operations.Where(operation => operation.Kind == ConstructionOperationKind.Propagate).ToArray();
+definition.Root.Children = new[]
+{
+    new ConstructionNode
+    {
+        Id = "grown", Form = "branch", Matter = "wood", ContactRole = ConstructionContactRole.Decoration,
+        Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.GroundRouteDistance, Threshold = 3f, Delay = nearDelay },
+        Operations = new[]
+        {
+            new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = growSeconds },
+            new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "ice", When = Grown() },
+            new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "iron", When = Grown() }
+        },
+        Children = new[] { OnMaterial("first", "ice", false), OnMaterial("recovery", "iron", true) }
+    },
+    Marker("far", 7f)
+};
+float PendingAt(AbilityCast cast) => (float)Field(((Array)Field(cast, "nodes")).GetValue(1), "BirthAt");
+bool Present(AbilityCast cast, int part) => (bool)typeof(AbilityCast).GetMethod("IsNodePresent", F).Invoke(cast, new object[] { part });
+
+async Task<(AbilityCast Cast, (float At, Vector3 Point) Near, (float At, Vector3 Point) Far, float Hp)> Open(string suffix)
+{
+    Place(target, 79);
+    await Begin("chain." + suffix); await Advance(.68f);
+    var cast = Live(); var near = Expected(cast, 3f); var far = Expected(cast, 7f);
+    Place(target, near.Point.x, near.Point.y); target.setHealth(target.getMaxHealth() - 100);
+    Check(timeline.Any(e => e.AbilityId == definition.Id && e.Fact.Node == -1 && e.Fact.Kind == AbilityActionEventKind.Contact &&
+        e.Fact.ContactKind == AbilityActionContactKind.World && e.Fact.Age < near.At) && cast.NodeAge(1) < 0,
+        "实际足底先触地；近段尚未实到时不提前开始生长");
+    return (cast, near, far, target.data.health);
+}
+
+async Task CheckGrown(AbilityCast cast, (float At, Vector3 Point) near, float initialHp)
+{
+    float birth = near.At + nearDelay, grown = birth + growSeconds * .5f;
+    CheckMarker(cast, 1, (birth, near.Point), "地波到达后经普通延迟在实际地块开始生长");
+    Check(cast.Age < grown && cast.NodeAge(2) < 0 && cast.NodeAge(3) < 0 && cast.Matter(1).Id == "wood" &&
+        target.data.health == initialHp, "生长未达阈值前没有换材或恢复", new { cast.Age, grown });
+    await Advance(.24f);
+    CheckMarker(cast, 2, (grown, near.Point), "第一种材料的独立分支在真实生长阈值开启");
+    CheckMarker(cast, 3, (grown, near.Point), "同一时刻第二种材料也被记录并开启各自分支");
+    var hit = contacts.Where(c => c.AbilityId == definition.Id && c.Node == 3 && c.TargetId == target.id).ToArray();
+    Check(cast.Matter(1).Id == "iron" && target.data.health - initialHp == 20 && hit.Length == 1 &&
+        Math.Abs(hit[0].Age - grown) < .009f,
+        "同刻换材保持声明顺序，最终分支真实恢复一次", new { material = cast.Matter(1).Id, initialHp,
+            finalHp = target.data.health, expectedAt = grown, contacts = hit.Select(h => new { h.Age, h.TargetId }).ToArray() });
+}
+
+ConstructedAbilityService.ActionConfirmed += Action;
+ConstructedAbilityService.CastEnded += QuietEnded;
+try
+{
+    var trial = await Open("normal"); await Advance(.38f);
+    await CheckGrown(trial.Cast, trial.Near, trial.Hp);
+    await Advance(.28f);
+    CheckMarker(trial.Cast, 4, trial.Far, "完整地波自然走到后续远段");
+    await Advance(2f);
+    Check(endings.Count(e => e.Fact.AbilityId == definition.Id && !e.Fact.Cancelled) == 1 &&
+        contacts.Count(c => c.AbilityId == definition.Id && c.Node == 3 && c.TargetId == target.id) == 1,
+        "整招正常回收，持续接触未重复恢复");
+    File.WriteAllText(Path.Combine(folder, "chain-definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+
+    definition.Root.DisappearAt = .48f;
+    trial = await Open("source-ended"); await Advance(.38f);
+    Check(!Present(trial.Cast, 0) && !Present(trial.Cast, 4) && trial.Cast.NodeAge(4) < 0f &&
+        timeline.Any(e => e.AbilityId == definition.Id && e.Fact.Node == 0 && e.Fact.Kind == AbilityActionEventKind.Completed),
+        "波源自然结束清掉尚未到达的远段，先前已接受的独立近段继续");
+    await CheckGrown(trial.Cast, trial.Near, trial.Hp);
+    await Advance(2f);
+    Check(trial.Cast.NodeAge(4) < 0f && endings.Count(e => e.Fact.AbilityId == definition.Id && !e.Fact.Cancelled) == 1,
+        "远段直到整招结束都未补发");
+
+    definition.Root.DisappearAt = null;
+    trial = await Open("cancelled"); await Advance(.21f);
+    float ready = PendingAt(trial.Cast);
+    Check(trial.Cast.Age >= trial.Near.At && trial.Cast.Age < ready && trial.Cast.NodeAge(1) < 0f &&
+        Math.Abs(ready - (trial.Near.At + nearDelay)) < .009f,
+        "取消发生在真实近段已被接收、实际出生仍在等待时", new { trial.Cast.Age, ready });
+    trial.Cast.Cancel(); await Advance(.8f);
+    Check(trial.Cast.NodeAge(1) < 0f && trial.Cast.NodeAge(3) < 0f && trial.Cast.NodeAge(4) < 0f &&
+        target.data.health == trial.Hp && endings.Count(e => e.Fact.AbilityId == definition.Id && e.Fact.Cancelled) == 1,
+        "整招主动取消会关闭已接收但仍等待的分支，不产生迟到的恢复");
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ActionConfirmed -= Action;
+    ConstructedAbilityService.CastEnded -= QuietEnded;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "chain-events.json"), JsonConvert.SerializeObject(new
+    {
+        actions = timeline.Select(e => new { e.AbilityId, e.Fact.Kind, e.Fact.Node, e.Fact.Age, e.Fact.ContactKind, e.Fact.TargetId,
+            point = new[] { e.Fact.Point.x, e.Fact.Point.y, e.Fact.Point.z } }),
+        touches = contacts.Select(c => new { c.AbilityId, c.Node, c.Age, c.TargetId }),
+        ends = endings.Select(e => e.Fact)
+    }, Formatting.Indented));
+}
