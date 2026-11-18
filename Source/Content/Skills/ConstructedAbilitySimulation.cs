@@ -286,6 +286,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
 
         AppendSteamVisuals(now);
+        AppendConductionVisuals(now);
         AppendContactVolumes(now);
         AppendMediumLinks(now);
         ConfirmedWorldTime = now;

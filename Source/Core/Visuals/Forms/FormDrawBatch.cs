@@ -130,7 +130,8 @@ internal sealed class FormDrawBatch
         for (int i = 0; i < groupCount; i++)
         {
             Group group = groups[i];
-            if (group.Key.Pass != pass) continue;
+            // 原版相机可能比场景更新晚一帧；到期的短暂形体不再提交。
+            if (group.Key.Pass != pass || group.Key.Mesh == null) continue;
             properties.Clear();
             FormDrawItem first = group.Items[0];
             properties.SetFloat(DepthScale, scale); properties.SetFloat(DepthBias, bias);

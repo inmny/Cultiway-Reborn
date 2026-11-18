@@ -89,7 +89,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 if (actor != null) bodyOffset = actor.move_jump_offset + actor.shake_offset;
             }
 
-            bool anchored = instance.GroundActorId != 0 && instance.Terrain != null && instance.Layer == null &&
+            bool anchored = instance.GroundActorId != 0 && instance.Terrain != null && !instance.DynamicGeometry &&
                             !instance.Resource.Description.ConformToGround;
             float anchorHeight =
                 anchored ? instance.Terrain.Sample(instance.GroundAnchor.x, instance.GroundAnchor.y) : 0f;
@@ -101,7 +101,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 bool changed = !ReferenceEquals(view.Resource, instance.Resource) || view.Part != part;
                 view.Resource = instance.Resource;
                 view.Part = part;
-                view.Dynamic = instance.Layer != null;
+                view.Dynamic = instance.DynamicGeometry;
                 Mesh mesh = instance.MeshFor(part);
                 if (changed || view.Dynamic) view.Filter.sharedMesh = mesh;
                 Material material = instance.Resource.Surface(instance.SurfaceFor(part), true,
@@ -117,14 +117,14 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 FormTerrainTextures.Bind(instance.Terrain, properties);
                 properties.SetVector("_TerrainAnchor", new Vector4(anchorHeight, anchored ? 1 : 0, 0, 0));
                 properties.SetMatrix("_FormNormalMatrix", transform.inverse.transpose);
-                bool skinned = instance.Layer == null && instance.Skin != null &&
+                bool skinned = !instance.DynamicGeometry && instance.Skin != null &&
                                instance.Resource.Description.Parts[part].Skin;
                 properties.SetFloat("_UseSkinning", skinned ? 1f : 0f);
                 properties.SetFloat("_FormHideBelowGround", instance.Resource.Description.HideBelowGround ? 1f : 0f);
                 properties.SetFloat("_FormClosedVolume",
-                    instance.Layer == null && instance.Resource.Description.Parts[part].HasSurfaceData ? 1f : 0f);
+                    !instance.DynamicGeometry && instance.Resource.Description.Parts[part].HasSurfaceData ? 1f : 0f);
                 properties.SetVector("_FormBuild", new Vector4(instance.BuildProgress, FormFormation.TipSpan,
-                    instance.Layer == null && instance.Resource.Description.Parts[part].HasBuildData ? 1f : 0f, instance.Feedback.Strength));
+                    !instance.DynamicGeometry && instance.Resource.Description.Parts[part].HasBuildData ? 1f : 0f, instance.Feedback.Strength));
                 properties.SetVector("_FormContact", instance.Feedback.Region(new Vector3(bodyOffset.x, bodyOffset.y, 0f)));
                 if (instance.Tint.HasValue) properties.SetColor("_Color", instance.Tint.Value);
                 properties.SetColor("_Dye", instance.Dye ?? Color.white);
@@ -140,7 +140,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
                     Build = properties.GetVector("_FormBuild"),
                     Contact = properties.GetVector("_FormContact"),
                     Anchor = properties.GetVector("_TerrainAnchor"),
-                    ClosedVolume = instance.Layer == null && instance.Resource.Description.Parts[part].HasSurfaceData,
+                    ClosedVolume = !instance.DynamicGeometry && instance.Resource.Description.Parts[part].HasSurfaceData,
                     Terrain = properties.GetTexture("_TerrainHeights"),
                     TerrainSize = properties.GetVector("_TerrainSize")
                 };
