@@ -18,10 +18,10 @@ public sealed partial class ConstructedAbilityService
         foreach (int index in cast.Plan.ActorTransferSteps)
         {
             Vector3 foot = PhysicsFoot(actor);
-            if (!cast.TryMapActor(index, node, foot, out Vector3 destination)) continue;
+            if (!cast.TryMapActor(index, node, id, foot, out Vector3 destination)) continue;
             if (!simulation.CanLandActor(actor, foot, ref destination))
             {
-                cast.FinishActorTransfer(index, null);
+                cast.RejectActorTransfer(index);
                 continue;
             }
 
@@ -29,8 +29,7 @@ public sealed partial class ConstructedAbilityService
             PublishBodyPosition(actor, destination);
             Persistence.ActorPositionSaveService.Remember(actor.GetExtend());
             NotifyActorChanged(actor);
-            cast.FinishActorTransfer(index, new ConstructionWorldReceipt(ConstructionWorldResultKind.ActorTransfer,
-                node, simulation.contactTime, targets: new[] { id }, destination: PhysicsFoot(actor)));
+            cast.FinishActorTransfer(index, simulation.contactTime, id, PhysicsFoot(actor));
             return;
         }
     }

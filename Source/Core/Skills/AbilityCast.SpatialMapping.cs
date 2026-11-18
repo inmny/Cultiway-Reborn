@@ -14,6 +14,15 @@ public sealed partial class AbilityCast
         return radius;
     }
 
+    /// <summary>编译实际通行上限。无容量的旧声明继续只尝试一次。</summary>
+    /// <param name="context">命名生灵转移步骤。</param>
+    private static (float Radius, int? Capacity) CompileActorMapping(ConstructionOperationCompileContext context)
+    {
+        int? capacity = context.Source.MappingCapacity;
+        if (capacity is < 1 or > 32) throw new InvalidDataException(context.Path + "：通行容量须在1至32人之间");
+        return (CompileMappingRadius(context), capacity);
+    }
+
     /// <summary>按两端当前姿态保留局部位置和方向；门的显示大小不参与换算。</summary>
     /// <param name="step">已经绑定双门的步骤。</param><param name="rotation">入口到出口的朝向差。</param>
     private Matrix4x4 MappingFrame(CompiledConstructionStep step, out Quaternion rotation)
@@ -25,35 +34,48 @@ public sealed partial class AbilityCast
 
     /// <summary>在真实接触回调中计算候选落点，数值计算本身不移动人物。</summary>
     /// <param name="index">生灵转移步骤。</param><param name="node">实际接触部位。</param>
-    /// <param name="foot">原人物脚下。</param><param name="mapped">按出口方向换算的候选落点。</param>
-    internal bool TryMapActor(int index, int node, Vector3 foot, out Vector3 mapped)
+    /// <param name="actorId">实际接触的原人物编号。</param><param name="foot">原人物脚下。</param>
+    /// <param name="mapped">按出口方向换算的候选落点。</param>
+    internal bool TryMapActor(int index, int node, long actorId, Vector3 foot, out Vector3 mapped)
     {
         var step = Plan.Steps[index];
         mapped = default;
-        if (cancelled || step.Node != node || stepStates[index].State != ConstructionStepState.Waiting ||
+        ref StepState state = ref stepStates[index];
+        if (cancelled || step.Node != node || state.State is not (ConstructionStepState.Waiting or ConstructionStepState.Running) ||
             NodeAge(node) < step.Action.At || !StepInputsReady(index)) return false;
+        var mapping = ((float Radius, int? Capacity))step.Action.Parameters;
         Vector3 entrance = nodes[node].Transform.GetColumn(3);
-        float radius = (float)step.Action.Parameters;
-        if ((foot - entrance).sqrMagnitude > radius * radius) return false;
+        if ((foot - entrance).sqrMagnitude > mapping.Radius * mapping.Radius) return false;
+        for (var prior = state.Receipts; prior != null; prior = prior.Previous)
+            if (prior.Targets[0] == actorId) return false;
         mapped = MappingFrame(step, out _).MultiplyPoint3x4(foot);
         return true;
     }
 
-    /// <summary>只有原人物已到达出口才发布完成，拒绝时中断依赖完成的步骤。</summary>
-    /// <param name="index">已经尝试的转移步骤。</param><param name="receipt">实际到达；失败为空。</param>
-    internal void FinishActorTransfer(int index, ConstructionWorldReceipt receipt)
+    /// <summary>拒绝不占容量。只有未声明容量的单次尝试会立即中断。</summary>
+    /// <param name="index">已经尝试的转移步骤。</param>
+    internal void RejectActorTransfer(int index)
     {
-        if (cancelled || stepStates[index].State != ConstructionStepState.Waiting) return;
-        if (receipt == null)
-        {
-            stepStates[index].State = ConstructionStepState.Interrupted;
-            UpdateSteps();
-        }
-        else
-        {
-            StepApplied(Plan.Steps[index].Action);
-            ConfirmStepWorld(index, receipt);
-        }
+        var mapping = ((float Radius, int? Capacity))Plan.Steps[index].Action.Parameters;
+        if (mapping.Capacity.HasValue) return;
+        stepStates[index].State = ConstructionStepState.Interrupted;
+        UpdateSteps();
+    }
+
+    /// <summary>记录实际抵达顺序。达到容量才放行等待整批完成的后续。</summary>
+    /// <param name="index">已经实际搬运的步骤。</param>
+    /// <param name="clock">共同确认时点。</param><param name="actorId">原人物编号。</param>
+    /// <param name="position">原人物已经确认的落点。</param>
+    internal void FinishActorTransfer(int index, double clock, long actorId, Vector3 position)
+    {
+        ref StepState state = ref stepStates[index];
+        if (cancelled || state.State is not (ConstructionStepState.Waiting or ConstructionStepState.Running)) return;
+        var action = Plan.Steps[index].Action;
+        if (state.State == ConstructionStepState.Waiting) StepApplied(action);
+        var mapping = ((float Radius, int? Capacity))action.Parameters;
+        int sequence = state.Confirmations + 1;
+        ConfirmStepWorld(index, new ConstructionWorldReceipt(ConstructionWorldResultKind.ActorTransfer,
+            action.Node, clock, sequence, targets: new[] { actorId }, destination: position), sequence >= (mapping.Capacity ?? 1));
     }
 
     /// <summary>等到实际门及前序步骤就绪后的世界搬运请求。数值推进不能确认该结果。</summary>
