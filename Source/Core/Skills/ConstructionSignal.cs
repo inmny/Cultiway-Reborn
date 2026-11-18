@@ -13,7 +13,7 @@ public enum ConstructionSignalKind
     Rally = 1
 }
 
-/// <summary>发送给实际接触人物的讯号。</summary>
+/// <summary>发送给真实收件人的讯号。</summary>
 public sealed class ConstructionSignal
 {
     /// <summary>讯号内容种类。</summary>

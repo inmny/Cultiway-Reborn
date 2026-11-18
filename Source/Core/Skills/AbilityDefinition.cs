@@ -338,7 +338,10 @@ public enum ConstructionOperationKind
     MapArtifact = 23,
 
     /// <summary>替换选中世界材料正在进行的侵蚀节奏。</summary>
-    RetimeErosion = 24
+    RetimeErosion = 24,
+
+    /// <summary>向本次实际选中的人物送达讯号，不通过接触。</summary>
+    SendSignal = 25
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
@@ -358,6 +361,10 @@ public sealed class ConstructionOperation
     /// <summary>本次真实库存消耗的输入与件数。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionInventoryUse InventoryUse;
+
+    /// <summary>仅指定传讯步骤使用的内容和有效时间。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionSignal Signal;
 
     /// <summary>实际侵蚀份额，未配置时使用普通份额。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]

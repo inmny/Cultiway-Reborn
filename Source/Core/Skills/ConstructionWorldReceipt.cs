@@ -24,7 +24,9 @@ public enum ConstructionWorldResultKind
     /// <summary>本次借用的原法宝实际抵达出口。</summary>
     ArtifactTransfer,
     /// <summary>选中的现有材料过程已改变时间安排。</summary>
-    ErosionRetimed
+    ErosionRetimed,
+    /// <summary>指定人物实际收到新讯号。</summary>
+    SignalDelivered
 }
 
 /// <summary>一次确认的不可变回执，空选择也保留真实的零结果。</summary>
@@ -38,6 +40,10 @@ public sealed class ConstructionWorldReceipt
     public int Sequence { get; }
     /// <summary>确认的真实世界时点。</summary>
     public double WorldTime { get; }
+    /// <summary>直接送达的内容；其他回执为空。</summary>
+    public ConstructionSignalKind? Signal { get; }
+    /// <summary>直接送达的实际发送者；其他回执为零。</summary>
+    public long SenderId { get; }
     /// <summary>真实转交或转换记录编号，不保存对象引用。</summary>
     public IReadOnlyList<long> Materials { get; }
     /// <summary>整份材料的身份，跨分区和流动时仍可供后段准确选择。</summary>
@@ -79,10 +85,13 @@ public sealed class ConstructionWorldReceipt
     /// <param name="erodedVolume">本段侵蚀的实际体积损失。</param><param name="erodedResource">本段侵蚀退出的本金。</param>
     /// <param name="materialIdentities">整份材料身份，留置时与首次记录编号相同。</param>
     /// <param name="destination">已经确认的实际转移落点。</param>
+    /// <param name="signal">实际登记的讯号内容。</param><param name="senderId">实际发信人。</param>
     internal ConstructionWorldReceipt(ConstructionWorldResultKind kind, int node, double clock, int sequence = 1, long[] materials = null, long[] targets = null,
-        double volume = 0, double resource = 0, double requested = 0, double granted = 0, int cells = 0, float spent = 0, float remaining = 0, ConstructionWorldReceipt previous = null, long[] materialIdentities = null, string[] items = null, double erodedVolume = 0, double erodedResource = 0, Vector3? destination = null)
+        double volume = 0, double resource = 0, double requested = 0, double granted = 0, int cells = 0, float spent = 0, float remaining = 0, ConstructionWorldReceipt previous = null, long[] materialIdentities = null, string[] items = null, double erodedVolume = 0, double erodedResource = 0, Vector3? destination = null,
+        ConstructionSignalKind? signal = null, long senderId = 0)
     {
         Kind = kind; Node = node; WorldTime = clock; Sequence = sequence; Destination = destination;
+        Signal = signal; SenderId = senderId;
         Items = Array.AsReadOnly(items == null ? Array.Empty<string>() : (string[])items.Clone());
         Materials = Array.AsReadOnly(materials == null ? Array.Empty<long>() : (long[])materials.Clone());
         MaterialIdentities = Array.AsReadOnly((long[])(materialIdentities ?? materials ?? Array.Empty<long>()).Clone());
@@ -98,6 +107,7 @@ public sealed class ConstructionWorldReceipt
     {
         Items = source.Items; Destination = source.Destination; ErodedVolume = source.ErodedVolume; ErodedResource = source.ErodedResource;
         Kind = source.Kind; Node = node < 0 ? source.Node : node; WorldTime = source.WorldTime; Sequence = source.Sequence;
+        Signal = source.Signal; SenderId = source.SenderId;
         Materials = source.Materials; MaterialIdentities = source.MaterialIdentities; Targets = source.Targets; Volume = source.Volume; Resource = source.Resource;
         Requested = source.Requested; Granted = source.Granted; Cells = source.Cells; Spent = source.Spent; Remaining = source.Remaining; Previous = previous;
     }

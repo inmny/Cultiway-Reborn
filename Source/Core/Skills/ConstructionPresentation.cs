@@ -251,6 +251,13 @@ public static class ConstructionPresentation
                 _ => ResidueDescription(step.Operation.Residue)
             }));
 
+        foreach (int index in plan.DirectSignalSteps)
+        {
+            var step = plan.Steps[index];
+            var signal = (CompiledConstructionSignal)step.Action.Parameters;
+            processes.Add(F("NamedProcess", step.Id, F("DirectSignal", signal.Asset.GetName(), signal.Duration)));
+        }
+
         foreach (ConstructionStep step in definition.Steps.Where(step => step.Operation.Kind is
                      ConstructionOperationKind.MapSpace or ConstructionOperationKind.MapActor or ConstructionOperationKind.MapArtifact))
         {

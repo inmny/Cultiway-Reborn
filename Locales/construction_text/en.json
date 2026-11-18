@@ -148,6 +148,7 @@
   "Cultiway.ConstructionText.ReleaseGrab": "On contact with {0}: {1}.",
   "Cultiway.ConstructionText.EquipmentRepair": "Repairs the {1} slot of {0}. Each {2} restores up to {3} durability; none is consumed at full durability.",
   "Cultiway.ConstructionText.Signal": "Delivers {1} to {0} on contact. At full strength it lasts up to {2:0.##} seconds.",
+  "Cultiway.ConstructionText.DirectSignal": "sends {0} to the selected person without contact, lasting up to {1:0.##} seconds",
   "Cultiway.ConstructionText.RequiredStatus": "The branch checks whether {0} still have {1} on contact.",
   "Cultiway.ConstructionText.RemoveStatus": "Removes up to {1} stacks of {0} ({2}).",
   "Cultiway.ConstructionText.OwnStatusSource": "caster’s stacks only",

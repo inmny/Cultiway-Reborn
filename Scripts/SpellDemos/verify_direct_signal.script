@@ -1,0 +1,146 @@
+Actor source = Make(64), target = Make(74), nearby = Make(68);
+long sourceId = source.id, targetId = target.id, nearbyId = nearby.id;
+target.setKingdom(source.kingdom); nearby.setKingdom(source.kingdom);
+ActorExtend owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+
+var receipts = new List<ConstructedSignalReceipt>();
+void Received(ConstructedSignalReceipt receipt) { if (receipt.SenderId == sourceId) receipts.Add(receipt); }
+ConstructedAbilityService.SignalReceived += Received;
+
+Entity Active(Actor subject) => subject.GetExtend().GetStatuses().FirstOrDefault(entity =>
+    !entity.Tags.Has<TagRecycle>() && entity.GetComponent<StatusComponent>().Type == StatusEffects.SignalWarning &&
+    entity.GetComponent<AliveTimer>().value < entity.GetComponent<AliveTimeLimit>().value);
+
+var input = new AbilityDefinition
+{
+    Id = "test.direct-signal.notice", Name = "定向告警", Power = 1, Cost = 3, Cooldown = .1f, Lifetime = .9f,
+    TargetRange = 18f, Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, DamageScale = 0 },
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Object },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+    Root = new ConstructionNode
+    {
+        Id = "signal", Form = "fireball", Matter = "physical", ContactRole = ConstructionContactRole.Decoration,
+        Children = new[] { new ConstructionNode
+        {
+            Id = "receipt", Form = "fireball", Matter = "ice", ContactRole = ConstructionContactRole.Decoration,
+            Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.SignalDelivery, Source = "root" }
+        } }
+    },
+    Steps = new[]
+    {
+        new ConstructionStep
+        {
+            Id = "send", Operation = new ConstructionOperation
+            {
+                Kind = ConstructionOperationKind.SendSignal, At = .35f,
+                Signal = new ConstructionSignal { Kind = ConstructionSignalKind.Warning, Duration = 2.3f }
+            },
+            Inputs = new Dictionary<string, ConstructionOutputReference> { ["part"] = new() { Node = "root" } }
+        },
+        new ConstructionStep
+        {
+            Id = "resume", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Ready },
+            Inputs = new Dictionary<string, ConstructionOutputReference>
+            {
+                ["part"] = new() { Node = "root" }, ["after"] = new() { Step = "send", Output = "delivered" }
+            }
+        }
+    }
+};
+
+void Reject(AbilityDefinition candidate, string message)
+{
+    bool rejected = false;
+    try { AbilityCompiler.Compile(candidate, false); }
+    catch (InvalidDataException error) { rejected = error.Message.Contains(message); }
+    Check(rejected, "错误声明编译拒绝：" + message);
+}
+
+async Task<AbilityCast> Begin(AbilityDefinition definition)
+{
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, target, aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f, "同一次施放只支付一次");
+    var casts = (IEnumerable)service.GetField("casts", F).GetValue(null);
+    return casts.Cast<object>().Select(value => (AbilityCast)Field(value, "Cast"))
+        .Single(cast => cast.Plan.Id == definition.Id && !cast.Finished);
+}
+
+bool Marker(AbilityCast cast, float x)
+{
+    var views = new List<FormVisualInstance>();
+    cast.AppendVisuals(views);
+    return views.Any(view => Math.Abs(view.Transform.m03 - x) < .2f);
+}
+
+try
+{
+    var invalid = ConstructionEditing.Copy(input); invalid.Use.Target = ActiveAbilityTargetMode.Point;
+    Reject(invalid, "Use/Target");
+    invalid = ConstructionEditing.Copy(input); invalid.Steps[0].Operation.Signal = null;
+    Reject(invalid, "Signal");
+    Ready(source); await Advance(.15f); Place(source, 64); Place(target, 74); Place(nearby, 68);
+    var moved = await Begin(input);
+    await Advance(.13f);
+    Check(receipts.Count == 0 && !moved.TryGetOutput("send", "delivered", out _) && Active(target).IsNull,
+        "预定时点前没有送达、状态或后续效果");
+    Place(target, 90);
+    await Advance(.33f);
+    Check(moved.StepStateOf("send") == ConstructionStepState.Interrupted &&
+        moved.StepStateOf("resume") == ConstructionStepState.Interrupted && !Marker(moved, 90) &&
+        receipts.Count == 0 && Active(target).IsNull,
+        "指定人物送达前离开距离就中断，后续不会把失败当成完成");
+    await Advance(.53f);
+    Place(target, 74);
+    int before = target.data.health;
+    var delivered = await Begin(input);
+    await Advance(.47f);
+    Check(delivered.TryGetOutput("send", "delivered", out var output) && output.Receipt != null &&
+        output.Receipt.Kind == ConstructionWorldResultKind.SignalDelivered && output.Receipt.Targets.SequenceEqual(new[] { targetId }) &&
+        output.Receipt.Signal == ConstructionSignalKind.Warning && output.Receipt.SenderId == sourceId &&
+        output.Receipt.WorldTime == receipts.Single().WorldTime && Math.Abs(output.Position.x - 74f) < .2f &&
+        delivered.StepStateOf("resume") == ConstructionStepState.Completed && Marker(delivered, 74),
+        "同一送达事实记在收件位置，放行依赖结果和到达声明", receipts.ToArray());
+    Check(!Active(target).IsNull && Active(nearby).IsNull && target.data.health == before && contacts.Count == 0,
+        "隔着旁人只送达给指定人物，没有接触或扣血");
+    await Advance(.5f);
+    ConstructedAbilityService.Learn(owner, input.Id);
+    string save = Path.Combine(folder, "completed-save");
+    SaveManager.saveWorldToDirectory(save);
+    ControllableUnit.clear(false);
+    World.world.save_manager.loadWorld(save);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    source = World.world.units.get(sourceId); target = World.world.units.get(targetId); nearby = World.world.units.get(nearbyId);
+    owner = source.GetExtend();
+    var saved = (AbilityDefinition)((IDictionary)service.GetField("definitions", F).GetValue(null))[input.Id];
+    Check(saved != null && JToken.DeepEquals(JObject.FromObject(saved), JObject.FromObject(input)) &&
+        owner.E.GetComponent<ConstructedKnowledge>().Ids.Contains(input.Id) &&
+        !Active(target).IsNull && Active(target).GetComponent<StatusComponent>().SourceActorId == sourceId && receipts.Count == 1,
+        "正式存读保留声明、学习关系与原收件状态，不重放送达");
+    Ready(source); await Advance(.15f); Place(source, 64); Place(target, 74); Place(nearby, 68);
+    var same = await Begin(saved);
+    await Advance(.47f);
+    Check(!Active(target).IsNull && !same.TryGetOutput("send", "delivered", out _) && receipts.Count == 1 && !Marker(same, 74),
+        "同一发信人刷新有效时间，不伪造第二次送达或后续接续");
+    await Advance(2.5f);
+    Check(Active(target).IsNull, "旧讯号到期后恢复未告警状态");
+    var renewed = await Begin(saved);
+    await Advance(.47f);
+    Check(renewed.TryGetOutput("send", "delivered", out _) && receipts.Count == 2 && contacts.Count == 0 &&
+        !Active(target).IsNull && Active(nearby).IsNull,
+        "读档后的正式能力可重新送达，旁人及命中记录仍无变化");
+    return new { passed = true, sourceId, targetId, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.SignalReceived -= Received;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    File.WriteAllText(Path.Combine(folder, "receipts.json"), JsonConvert.SerializeObject(receipts, Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}

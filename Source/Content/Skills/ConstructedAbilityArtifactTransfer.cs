@@ -17,12 +17,12 @@ public sealed partial class ConstructedAbilityService
         ConstructedArtifactCarrier carrier = running.Carrier;
         foreach (int index in cast.Plan.ArtifactTransferSteps)
         {
-            if (!cast.AwaitingArtifactTransfer(index)) continue;
+            if (!cast.AwaitingStepWorld(index)) continue;
             if (carrier?.IsValid != true || !ArtifactAppearanceRenderer.TryGetSpatialPose(carrier.Artifact, out var visual) ||
                 !cast.TryMapArtifact(index, CarrierFrame(visual).GetColumn(3), out Vector3 point, out Quaternion turn) ||
                 !simulation.CanPlaceMappedArtifact(visual, point, turn * visual.Rotation))
             {
-                cast.RejectArtifactTransfer(index);
+                cast.RejectStepWorld(index);
                 continue;
             }
 
