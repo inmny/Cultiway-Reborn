@@ -1,0 +1,74 @@
+// 复用「折向续行」：弯点提早并向另一侧转，只有真实折过去才会命中。
+var source = Make(64);
+var target = Make(67, "wolf");
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "basis.json")));
+definition.Id = "test.operation-acceptance.turn";
+definition.Name = "折向续行 · 反向截击";
+definition.TargetRange = 20; definition.Cooldown = .1f;
+definition.Root.Offset = new float[3];
+definition.Root.OnContact = ConstructionContactResponse.Continue;
+var operations = definition.Root.Operations;
+operations[1].At = .75f;
+operations[1].Vector = new[] { 0f, 0f, -90f };
+var access = ConstructionEditing.Access;
+try
+{
+    Ready(source); await Advance(.15f);
+    Place(source, 64, 72); Place(target, 67, 69);
+    ConstructedAbilityService.NotifyActorChanged(source); ConstructedAbilityService.NotifyActorChanged(target);
+    var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+    definition.Binding.Height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { target }) * .4f;
+    var provider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+    var ground = provider?.Invoke(new Rect(60, 66, 15, 12));
+    float slope = ground == null ? 0f : (ground.Sample(67, 69) - ground.Sample(64, 72)) / 1.5f;
+    operations[0].Vector = new[] { 4f, 0f, slope };
+    if (!saveOnly)
+    {
+        owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+        float balance = owner.GetCultisys<Xian>().wakan;
+        int health = target.data.health;
+        await Fire(definition, source, target);
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        float paid = balance - owner.GetCultisys<Xian>().wakan;
+        await Advance(.48f);
+        var cast = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Select(item => (AbilityCast)Field(item, "Cast")).Single(item => item.Plan.Id == definition.Id);
+        Vector3 Position()
+        {
+            var forms = new List<FormVisualInstance>(); cast.AppendVisuals(forms);
+            return forms.Single().Transform.GetColumn(3);
+        }
+        var before = Position();
+        Check(before.x > 65 && Mathf.Abs(before.y - 72) < .05f && target.data.health == health,
+            "折向前可见主体沿原路线经过，另一侧人物还未受伤");
+        await Advance(.52f);
+        var after = Position();
+        Check(cast.TryGetOperationOutput("root", "turn", "deflected", out var turn) &&
+            Mathf.Abs(turn.At - .75f) < .02f && Mathf.Abs(after.x - 67f) < .05f && after.y < 71.2f,
+            "实际剑体在新弯点向另一侧转，显示和运动共用同一主体",
+            new { turn.At, before = new[] { before.x, before.y, before.z }, after = new[] { after.x, after.y, after.z } });
+        await Advance(.85f);
+        var hits = contacts.Where(c => c.AbilityId == definition.Id && c.TargetId == target.id).ToArray();
+        Check(hits.Length == 1 && target.data.health < health && hits[0].Age >= turn.At &&
+            Mathf.Abs(paid - definition.Cost) < .05f,
+            "反向折过去后实际命中一次，仍只支付一次", new { health, after = target.data.health, paid, age = hits.Select(hit => hit.Age) });
+        await Advance(1.4f);
+        Check(cast.Finished && endings.Any(e => e.Fact.AbilityId == definition.Id && !e.Fact.Cancelled), "转折后的主体自然清理");
+    }
+    else ConstructedAbilityService.Register(definition);
+    var stored = JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "deflection-acceptance"));
+    var saved = stored["sections"]["ability_constructions"]["data"]["Definitions"].Single(row => (string)row["Id"] == definition.Id);
+    File.WriteAllText(Path.Combine(folder, "definition.json"), saved.ToString(Formatting.Indented));
+    var actual = JObject.Parse(JsonConvert.SerializeObject(access.Read(definition.Id), Cultiway.Core.Persistence.StableSaveJson.Settings));
+    Check(JToken.DeepEquals(saved, actual), "正式世界构造保存第二种折向的时点、角度与接续");
+    return new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false); Config.paused = true;
+}

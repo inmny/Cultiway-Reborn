@@ -1949,3 +1949,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 5.18 D3 地波与水路连续录像
 
 在原版独立游戏运行 `dev.py exec --timeout 390 -- python3 Scripts/SpellDemos/record_propagation.py --state <D2重存目录>`；兼容安装加 `--worldfall`。两端复用 C 的正式地波连锁资料和 D2 已重存的循水成品，保留逐帧位置及实际触地、水路到达和收束记录。`--case ground|water` 只录对应片段，`--encode-only <视角目录>` 只核对和编码已有原帧。
+
+### 5.19 通用运动操作的实机复验
+
+在独立游戏中运行 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_operation_acceptance.py --section motion`。同一剑形分别等待真实生长和定时就绪，随后反向旋转，在飞行中制动再起或加速；输出原定义、绘制姿态、正式存档和人物编号。另起游戏后用 `--section reload --state <motion输出目录>` 只复验正式恢复和再次施放。`--section turn` 单独验证「折向续行」的反向弯点和真实接触；若动作段已通过，可用 `--section turn-save` 只补正式保存比较。`verify_spatial_mapping.py --section artifact-varied` 复用同一原飞剑，核对不同出口角度、归还、正式存读及过门不重放。完整操作表及复用依据见[逐项验收](../../Doc/技能系统全面重构/通用操作逐项验收.md)。

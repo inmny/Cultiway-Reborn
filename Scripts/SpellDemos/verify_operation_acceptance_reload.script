@@ -1,0 +1,48 @@
+// 使用运动段保存的正式世界，只复验读档和再施放。
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "definitions.json")));
+var actors = JObject.Parse(File.ReadAllText(Path.Combine(folder, "saved-actors.json")));
+var access = ConstructionEditing.Access;
+long sourceId = (long)actors["sourceId"], targetId = (long)actors["targetId"];
+IEnumerable<object> Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>();
+try
+{
+    World.world.save_manager.loadWorld(Path.Combine(folder, "saved-world"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var source = World.world.units.get(sourceId);
+    var target = World.world.units.get(targetId);
+    Check(source != null && target != null, "正式世界恢复原施术者与原目标");
+    foreach (var entry in expected.Properties())
+    {
+        var restored = access.Read(entry.Name);
+        var actual = restored == null ? null : JObject.Parse(JsonConvert.SerializeObject(restored));
+        Check(ConstructedAbilityService.Knows(source.GetExtend(), entry.Name) &&
+            JToken.DeepEquals(entry.Value, actual), "正式定义及学习关系读回一致", entry.Name);
+    }
+    Check(!Running().Any(item => expected.ContainsKey(((AbilityCast)Field(item, "Cast")).Plan.Id)), "保存时正在运行的瞬时步骤没有重播");
+    // 读回时原版会重新安排闲置单位。用原目标，重新固定它的生存状态和位置。
+    CombatStatusEffects.ApplyStatus(target, hold, 10000, target);
+    Ready(source); await Advance(.18f); Place(source, 64); Place(target, 74);
+    var owner = source.GetExtend();
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    var definition = access.Read("test.operation-acceptance.boost");
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+    var control = ActiveAbilityService.ResolveControlState(owner, handle);
+    Check(control.CanUse && target.isAlive(), "读回后的原修士已学会且可用，原测试目标仍存活",
+        new { control.BlockReason, control.CooldownRemaining, wakan = owner.GetCultisys<Xian>().wakan, target.data.health });
+    if (!source.kingdom.isEnemy(target.kingdom)) target = Make(74, "wolf");
+    await Fire(definition, source, target);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(definition.Lifetime + .2f);
+    Check(!Running().Any(item => ((AbilityCast)Field(item, "Cast")).Plan.Id == definition.Id) &&
+        endings.Any(e => e.Fact.AbilityId == definition.Id && !e.Fact.Cancelled), "正式读回后再次施放并正常结束");
+    return new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false); Config.paused = true;
+}
