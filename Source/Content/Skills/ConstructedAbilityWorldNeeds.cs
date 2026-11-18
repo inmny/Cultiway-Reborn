@@ -113,7 +113,6 @@ public sealed partial class ConstructedAbilityService
             if ((plan.Use.Channels & ActiveAbilityChannel.World) == 0 || plan.Body != null ||
                 plan.Use.Target is not (ActiveAbilityTargetMode.Point or ActiveAbilityTargetMode.ObjectOrPoint))
                 continue;
-            AbilityDefinition definition = definitions[id];
             var handle = new ActiveAbilityHandle(ProviderId, owner.E, id);
             AbilityHeightField ground = GroundProvider?.Invoke(new Rect(point.x, point.y, 1, 1));
             Vector3 relative = point;
@@ -132,7 +131,9 @@ public sealed partial class ConstructedAbilityService
             double expected = WorldMaterialService.EstimateRecovery(material, worldNeedSelection) *
                               plan.Nodes[node].Recovery.Efficiency;
             var refunds = funding.Totals(expected);
-            var costs = ConstructionResources.PreviewCosts(owner, definition);
+            var quoted = ConstructionResources.Preview(owner, plan);
+            if (quoted == null) continue;
+            var costs = quoted.ToDictionary(entry => entry.Resource.id, entry => entry.Cost, StringComparer.Ordinal);
             var balances = refunds.Keys.Concat(costs.Keys).Distinct().GroupBy(id => ConstructionResources.Resolve(id).BalanceId);
             bool gain = false, loss = false;
             foreach (var balance in balances)

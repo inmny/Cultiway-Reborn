@@ -211,7 +211,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         foreach (string matter in plan.Matters) Composition(matter);
         if (plan.Body != null) BodyActionBinding.ValidateResources(plan.Body);
         ConstructedInventoryInputs.Validate(plan);
-        ConstructionResources.Validate(definition, plan.HasRecovery || plan.HasWorldMaterials);
+        ConstructionResources.Validate(plan);
         return plan;
     }
 
@@ -281,15 +281,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)
     {
         if (!Owns(caster, handle)) return new(ActiveAbilityControlBlockReason.Unavailable);
-        if (PlanFor(handle.EntryId).Binding?.Anchor == AbilityAnchor.Carrier &&
+        CompiledAbility plan = PlanFor(handle.EntryId);
+        if (plan.Binding?.Anchor == AbilityAnchor.Carrier &&
             !ConstructedArtifactCarrier.CanBorrow(caster, handle.Source))
             return new(ActiveAbilityControlBlockReason.Unavailable);
-        if (PlanFor(handle.EntryId).Body?.ControlsStance == true && caster.Base.attack_timer > 0f)
+        if (plan.Body?.ControlsStance == true && caster.Base.attack_timer > 0f)
             return new(ActiveAbilityControlBlockReason.Cooldown, caster.Base.attack_timer);
-        if (!BodyReady(caster, PlanFor(handle.EntryId)) || !ConstructedInventoryInputs.CanAcquire(caster, PlanFor(handle.EntryId))) return new(ActiveAbilityControlBlockReason.Unavailable);
+        if (!BodyReady(caster, plan) || !ConstructedInventoryInputs.CanAcquire(caster, plan)) return new(ActiveAbilityControlBlockReason.Unavailable);
         if (cooldowns.TryGetValue((caster.Base.id, handle.EntryId), out double until) && until > LogicTime)
             return new(ActiveAbilityControlBlockReason.Cooldown, (float)(until - LogicTime));
-        return CanPay(caster, definitions[handle.EntryId])
+        return ConstructionResources.CanPay(caster, plan)
             ? ActiveAbilityControlState.Ready
             : new(ActiveAbilityControlBlockReason.InsufficientResource);
     }
@@ -332,14 +333,14 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         CompiledAbility plan = PlanFor(handle.EntryId);
         float aging = AgingCombatValue(caster, plan, target);
-        if (IsPureAging(plan) && aging <= 0f) return new(0f, 0f, 0f, 0f, 0f, definitions[handle.EntryId].Cost, 1f);
+        if (IsPureAging(plan) && aging <= 0f) return new(0f, 0f, 0f, 0f, 0f, plan.Cost, 1f);
         bool hostile = plan.Impact.Targets == SkillUseTargetRelation.Hostile;
         return new(hostile && (plan.ContactDamageScale > 0f || aging > 0f) ? 1f : 0f, plan.HasBarrier ? 1f : 0f, hostile ? 0f : 1f,
             plan.ContactControl > 0f ? 1f : 0f,
             Mathf.Max(
-                caster.Base.stats["damage"] * definitions[handle.EntryId].Power *
+                caster.Base.stats["damage"] * plan.Power *
                 Mathf.Max(plan.ContactDamageScale, plan.HasBarrier ? 1f : 0f), Mathf.Max(plan.ContactControl, aging)),
-            definitions[handle.EntryId].Cost, 1f);
+            plan.Cost, 1f);
     }
 
     /// <summary>首轮生长构造的目标放置距离，不代替作用形状。</summary>
@@ -363,7 +364,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ActiveAbilityUseOrigin origin)
     {
         if (!CanUse(caster, handle, target)) return false;
-        return Start(caster, definitions[handle.EntryId], PlanFor(handle.EntryId), target, origin, out _,
+        return Start(caster, PlanFor(handle.EntryId), target, origin, out _,
             carrierSource: handle.Source);
     }
 
@@ -375,7 +376,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     internal static bool Start(ActorExtend caster, string id, in ActiveAbilityTarget target,
         ActiveAbilityUseOrigin origin)
     {
-        return Start(caster, definitions[id], PlanFor(id), target, origin, out _);
+        return Start(caster, PlanFor(id), target, origin, out _);
     }
 
     /// <summary>已经由实际来源收费的功能步骤直接进入共同执行，不授予另一份知识或再次支付。</summary>
@@ -390,7 +391,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0, BaseSimObject spatialSource = null)
     {
         if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
-        return Start(caster, definition, ValidateDefinition(definition), target, target.RuntimeData.Origin, out _, sourcePosition,
+        return Start(caster, ValidateDefinition(definition), target, target.RuntimeData.Origin, out _, sourcePosition,
             true, payment, sourceDamage: damage, sourceDirection: direction, sourceInstance: sourceInstance,
             spatialSource: spatialSource?.a);
     }
@@ -403,7 +404,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         CompiledAbility plan = ValidateDefinition(definition);
         if (plan.Body != null || plan.Binding?.Anchor == AbilityAnchor.Carrier || damage.HasAttacker) return 0;
-        return Start(null, definition, plan, target, target.RuntimeData.Origin, out long castId,
+        return Start(null, plan, target, target.RuntimeData.Origin, out long castId,
             position, prepaid: true, sourceDamage: damage) ? castId : 0;
     }
 
@@ -419,7 +420,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     }
 
     /// <summary>普通已学构造和已经收费的来源共用创建、接触、结束及清理。</summary>
-    /// <param name="caster">实际归属人物。</param><param name="definition">当前完整资料。</param>
+    /// <param name="caster">实际归属人物。</param>
     /// <param name="plan">本次已编译计划。</param><param name="target">实际目标及边界。</param>
     /// <param name="castId">成功受理的实际施放编号。</param>
     /// <param name="origin">实际调用方式。</param><param name="sourcePosition">来源明确提供的出生点，空值读取实际身体。</param>
@@ -429,7 +430,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="sourceInstance">原运行容器的并存分组，普通构造为零。</param>
     /// <param name="spatialSource">本次真实人物载体，与资源及伤害归属分开保存。</param>
     /// <param name="practice">是否由实际训练任务练习姿态而不产生战斗接触。</param>
-    private static bool Start(ActorExtend caster, AbilityDefinition definition, CompiledAbility plan,
+    private static bool Start(ActorExtend caster, CompiledAbility plan,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, out long castId, Vector3? sourcePosition = null,
         bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
         GetHitEvent? sourceDamage = null, Vector3? sourceDirection = null, int sourceInstance = 0, Actor spatialSource = null,
@@ -439,7 +440,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         Actor sourceActor = caster?.Base;
         spatialSource ??= sourceActor;
         if (spatialSource != null && (!spatialSource.isAlive() || !spatialSource.hasHealth())) return false;
-        string id = definition.Id;
+        string id = plan.Id;
         Actor targetActor = null;
         Vector3 point = target.Position;
         float targetHeight = 0f;
@@ -495,7 +496,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         var inputs = new AbilityInputs(source, point, direction, sourceHeight);
         GetHitEvent damage = sourceDamage ?? CombatDamageEffects.PrepareDamage(caster.Base,
-            caster.Base.stats["damage"] * definition.Power, ElementComposition.Static.empty);
+            caster.Base.stats["damage"] * plan.Power, ElementComposition.Static.empty);
         long sourceId = sourceActor?.id ?? 0, generation = worldGeneration;
         BodyControlLease bodyLease =
             plan.Body == null
@@ -520,7 +521,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 inventory = ConstructedInventoryInputs.TryAcquire(caster, plan);
                 if (inventory == null) return false;
             }
-            using var ownPayment = prepaid ? null : ConstructionResources.TryBegin(caster, definition);
+            using var ownPayment = prepaid ? null : ConstructionResources.TryBegin(caster, plan);
             SkillCastPayment payment = sourcePayment ?? ownPayment;
             if (!prepaid && payment == null || sourceActor != null && (sourceActor.isRekt() || sourceActor.id != sourceId) ||
                 generation != worldGeneration || inventory != null && !inventory.IsValid) return false;
@@ -591,7 +592,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 Target = targetActor,
                 TargetId = targetActor?.id ?? 0,
                 LastTarget = point + Vector3.forward * targetHeight * .5f,
-                Power = definition.Power,
+                Power = plan.Power,
                 Body = body,
                 Movement = movement,
                 BodyControlled = body != null,
@@ -604,7 +605,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 LastTargetFoot = point,
                 LastWorldTime = startedAt,
                 StartedAt = startedAt,
-                BodyGuardRemaining = practice ? 0f : (plan.Body?.Guard.Capacity ?? 0f) * definition.Power
+                BodyGuardRemaining = practice ? 0f : (plan.Body?.Guard.Capacity ?? 0f) * plan.Power
             };
             running.InitialOwner = new CastAuthority(sourceActor, damage, targetActor, target.AttackKingdom, spatialSource?.id ?? 0);
             if (sourceActor == null) running.InitialOwner.LastFoot = inputs.Source;
@@ -623,7 +624,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             TrackWorldRecovery(running, true);
             if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
             if (caster != null && !practice) RecordInspirationUse(caster, plan);
-            if (caster != null && definition.Cooldown > 0f) cooldowns[(sourceId, id)] = startedAt + definition.Cooldown;
+            if (caster != null && plan.Cooldown > 0f) cooldowns[(sourceId, id)] = startedAt + plan.Cooldown;
             if (plan.Body?.ControlsStance == true)
             {
                 caster.Base.lookTowardsPosition(caster.Base.current_position + (Vector2)body.Direction);
@@ -713,12 +714,6 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                                                                       PlanFor(id).Body != null &&
                                                                       BodyActionBinding.CanBind(caster,
                                                                           PlanFor(id).Body);
-
-    /// <summary>按来源自己的资源事实判断，不为骑士生成真元组件。</summary>
-    /// <param name="caster">实际来源。</param>
-    /// <param name="definition">已登记构造。</param>
-    private static bool CanPay(ActorExtend caster, AbilityDefinition definition) =>
-        ConstructionResources.CanPay(caster, definition);
 
     /// <summary>不接受其他人物或伪造来源的句柄。</summary>
     /// <param name="caster">当前人物。</param>

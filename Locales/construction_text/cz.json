@@ -1,5 +1,5 @@
 {
-  "Cultiway.ConstructionText.Basics": "一次支付{0:0.##}{1}，最长{2:0.##}秒，冷却{3:0.##}秒。",
+  "Cultiway.ConstructionText.Basics": "基础需求{0:0.##}{1}，最长{2:0.##}秒，冷却{3:0.##}秒。",
   "Cultiway.ConstructionText.Forms": "最多{0}个形体：{1}。",
   "Cultiway.ConstructionText.BodyOnly": "借用实际身体和持物，不生成独立形体。",
   "Cultiway.ConstructionText.Body": "身体有效阶段：{0:0.##}至{1:0.##}秒。",

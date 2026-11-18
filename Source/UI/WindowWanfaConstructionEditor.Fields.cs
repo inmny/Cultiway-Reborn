@@ -45,6 +45,21 @@ public sealed partial class WindowWanfaConstructionEditor
         if (session.Draft.TargetRange.HasValue)
             Number("TargetRange", session.Draft.TargetRange.Value, value => session.Draft.TargetRange = value);
         Row("SelectionRange", T("SelectionRangeHint"));
+        if (previewPlan != null)
+        {
+            var actor = HasLearner ? learner.GetExtend() : null;
+            var quote = actor == null ? null : access.PreviewPayment(actor, previewPlan);
+            Row("ActualPayment", actor == null ? T("ActualPaymentNeedsLearner") : quote == null ? T("ActualPaymentUnavailable") :
+                quote.Count == 0 ? T("Resource.none") : string.Join(" + ", quote.Select(entry =>
+                    string.Format(T("ActualPaymentAmount"), entry.Cost, ConstructionPresentation.ResourceName(entry.Resource.id)))));
+            if (previewPlan.Binding?.Anchor == AbilityAnchor.Carrier)
+                Row("ActualRange", T("ActualRangeNeedsCarrier"));
+            else if (actor != null)
+                Row("ActualRange", string.Format(T("ActualRangeAmount"), access.PreviewRange(actor, previewPlan)));
+            else if (previewPlan.TargetRange.HasValue)
+                Row("ActualRange", string.Format(T("ActualRangeAmount"), previewPlan.TargetRange.Value));
+            else Row("ActualRange", T("ActualRangeNeedsLearner"));
+        }
         InventoryRows();
         MagnitudeRows();
         if (parts.Count == 0)

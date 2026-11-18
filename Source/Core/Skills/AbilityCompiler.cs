@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.Visuals.Forms;
 using Newtonsoft.Json;
@@ -20,6 +21,21 @@ public sealed class CompiledAbility
 
     /// <summary>资料修订号。</summary>
     public int Revision { get; }
+
+    /// <summary>进入已登记资源报价的基础需求。</summary>
+    public float Cost { get; }
+
+    /// <summary>按声明顺序冻结的资源编号；无消耗使用原编号 none。</summary>
+    public IReadOnlyList<string> Resources { get; }
+
+    /// <summary>已验证的资源选择方式。</summary>
+    public SkillCastResourceRequirementMode ResourceMode { get; }
+
+    /// <summary>正式受理后的恢复时间。</summary>
+    public float Cooldown { get; }
+
+    /// <summary>正式施放使用的作用量。</summary>
+    public float Power { get; }
 
     /// <summary>最大持续时间。</summary>
     public float Lifetime { get; }
@@ -198,6 +214,11 @@ public sealed class CompiledAbility
         ResourceVersion = FormResources.Version;
         Id = definition.Id;
         Revision = definition.Revision;
+        Cost = definition.Cost;
+        Resources = Array.AsReadOnly(new[] { definition.Resource }.Concat(definition.AdditionalResources).ToArray());
+        ResourceMode = definition.ResourceMode;
+        Cooldown = definition.Cooldown;
+        Power = definition.Power;
         Lifetime = definition.Lifetime;
         ConcurrentLimit = definition.ConcurrentLimit;
         TargetRange = definition.TargetRange;

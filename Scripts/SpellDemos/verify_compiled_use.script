@@ -1,0 +1,71 @@
+// 同一学习者的基础需求、正式报价、距离边界、扣费和动作结束。
+var source = Make(64); var owner = source.GetExtend();
+source.data.stamina = 0;
+var original = new AbilityDefinition
+{
+    Id = "test.compiled-use.physical", Name = "试炼剑胚", Resource = "stamina", Cost = 1.25f,
+    Power = 2f, Cooldown = .3f, Lifetime = 1.35f, TargetRange = 8,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+    Root = new ConstructionNode { Id = "sword", Form = "sword", Matter = "water", State = "liquid", FollowMatter = true,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = .40f, Matter = "water", State = "solid" } } }
+};
+ConstructedAbilityService.Register(original); ConstructedAbilityService.Learn(owner, original.Id);
+LocalizedTextManager.instance.setLanguage("cz"); WindowWanfaConstructionEditor.Open(original.Id, source);
+// COMMON_CONTROLS
+CompiledAbility Plan() => (CompiledAbility)Field(editor, "previewPlan");
+string Detail(string key) => ((Text)Field(Row(key), "_detail")).text;
+try
+{
+    source.data.stamina = 0; Click("Page0");
+    Check(Detail("ActualPayment") == T("ActualPaymentUnavailable") && Plan().Cost == 1.25f && source.data.stamina == 0,
+        "真实余额不足时仍可编辑，窗口不把基础需求误报为可扣费用",
+        new { detail = Detail("ActualPayment"), expected = T("ActualPaymentUnavailable"), Plan().Cost, source.data.stamina });
+    source.data.stamina = 20;
+    Click("Page0");
+    Check(Detail("ActualPayment") == string.Format(T("ActualPaymentAmount"), 2, T("Resource.stamina")) &&
+        Detail("ActualRange") == string.Format(T("ActualRangeAmount"), 8), "刷新后窗口读取真实整数报价及同一选点距离");
+    Set("Cost", "2.25"); Set("TargetRange", "5.25");
+    Check(Plan().Cost == 2.25f && Detail("ActualPayment") == string.Format(T("ActualPaymentAmount"), 3, T("Resource.stamina")) &&
+        Detail("ActualRange") == string.Format(T("ActualRangeAmount"), 5.25), "一次有效改造同步更新基础需求、实际报价和选点距离");
+    Set("TargetRange", "-1");
+    Check(Plan() == null && !B("LearnCopy").interactable && source.data.stamina == 20, "无效距离不会继续使用旧报价或旧计划，也不会扣费");
+    Click("Undo");
+    Check(Plan().TargetRange == 5.25f && source.data.stamina == 20, "撤销恢复相同的计划和有效距离");
+    await ShotRow("ActualPayment", "compiled-use-cz");
+    var balanceBeforeSave = source.data.stamina;
+    Click("LearnCopy");
+    string id = Session().SourceId;
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(id, source); await Frames();
+    CompiledAbility saved = Plan();
+    string explanation = ConstructedAbilityService.Explain(id);
+    Check(saved.Cost == 2.25f && saved.TargetRange == 5.25f && saved.Cooldown == .3f &&
+        explanation.Contains("2.25") && !explanation.Contains("一次支付") && source.data.stamina == balanceBeforeSave,
+        "保存重开仍保持与正式说明相同的编译需求，窗口预览没有扣费", explanation);
+    Click("Close"); await Frames();
+    Place(source, 64); source.data.stamina = 20;
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, id);
+    var inside = new ActiveAbilityTarget(null, new Vector3(69.25f, 72, 0));
+    var outside = new ActiveAbilityTarget(null, new Vector3(69.30f, 72, 0));
+    Check(ActiveAbilityService.ResolveRange(owner, handle) == saved.TargetRange.Value &&
+        !ActiveAbilityService.TryUse(owner, handle, outside, ActiveAbilityUseOrigin.Script) && source.data.stamina == 20,
+        "超过同一选点边界的真实施放被拒绝，没有收费");
+    Check(ActiveAbilityService.TryUse(owner, handle, inside, ActiveAbilityUseOrigin.Script) && source.data.stamina == 17,
+        "边界内真实施放受理，只扣窗口报价中的三点体力");
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(record => ((AbilityCast)Field(record, "Cast")).Plan.Id == id);
+    var live = (AbilityCast)Field(running, "Cast");
+    Check(ReferenceEquals(saved, live.Plan) && live.Matter(0).State == "liquid", "保存后的预览引用正式运行的同一份计划");
+    await Advance(.6f);
+    Check(live.Matter(0).State == "solid", "正式形体按编译后的计划冻结");
+    await Advance(1f);
+    Check(endings.Count(entry => entry.Fact.AbilityId == id) == 1, "正式施放正常结束");
+    return new { passed = true, id, saved.Cost, saved.Cooldown, saved.TargetRange };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

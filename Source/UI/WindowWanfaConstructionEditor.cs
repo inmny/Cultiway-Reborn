@@ -186,8 +186,8 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
                 CompiledAbility plan = previewPlan = access.Validate(session.Draft);
                 valid = !string.IsNullOrWhiteSpace(session.Draft.Name);
                 state.text = valid ? (session.Matches(session.Draft) ? T("Saved") : T("Modified")) : T("NameRequired");
-                summary.text = string.Format(T("Summary"), plan.FormCount, session.Draft.Cost,
-                    T("Resource." + session.Draft.Resource), session.Draft.Cooldown);
+                summary.text = string.Format(T("Summary"), plan.FormCount, plan.Cost,
+                    ConstructionPresentation.ResourceNames(plan), plan.Cooldown);
                 UiTooltip.Set(summary.gameObject, session.Draft.Name,
                     ConstructionPresentation.Explain(session.Draft, plan));
             }

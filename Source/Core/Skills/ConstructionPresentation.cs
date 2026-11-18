@@ -104,17 +104,25 @@ public static class ConstructionPresentation
     }
 
     /// <summary>列出实际声明的全部资源，任选与同时支付采用明确连接词。</summary>
-    /// <param name="definition">当前完整资料。</param>
-    private static string ResourceNames(AbilityDefinition definition)
+    /// <param name="plan">实际计划。</param>
+    internal static string ResourceNames(CompiledAbility plan)
     {
-        string Name(string id) => L("Cultiway.Construction.Resource." + id);
-        string[] names = new[] { definition.Resource }.Concat(definition.AdditionalResources).Select(Name).ToArray();
+        string[] names = plan.Resources.Select(ResourceName).ToArray();
         return names.Length == 1
             ? names[0]
             : string.Join(
-                T(definition.ResourceMode == Cultiway.Core.SkillLibV3.SkillCastResourceRequirementMode.AnyOf
+                T(plan.ResourceMode == Cultiway.Core.SkillLibV3.SkillCastResourceRequirementMode.AnyOf
                     ? "PaymentAny"
                     : "PaymentAll"), names);
+    }
+
+    /// <summary>保存的短编号与正式报价中的长期编号共用显示名称。</summary>
+    internal static string ResourceName(string id)
+    {
+        const string prefix = "Cultiway.SkillCastResource.";
+        if (id.StartsWith(prefix, StringComparison.Ordinal))
+            id = id.Substring(prefix.Length) switch { "NativeMana" => "mana", "YaoPower" => "yao_power", var name => name.ToLowerInvariant() };
+        return LMTools.GetOrFallback("Cultiway.Construction.Resource." + id, id);
     }
 
     /// <summary>说明当前完整资料，不储存可能因改造过时的说明副本。</summary>
@@ -124,15 +132,14 @@ public static class ConstructionPresentation
     {
         var lines = new List<string>
         {
-            F("Basics", definition.Cost, ResourceNames(definition),
-                plan.Lifetime, definition.Cooldown),
+            F("Basics", plan.Cost, ResourceNames(plan), plan.Lifetime, plan.Cooldown),
             plan.Nodes.Any(n => n.Resource.Meshes.Length > 0)
                 ? F("Forms", plan.Nodes.Count(n => n.Resource.Meshes.Length > 0),
                     string.Join("、", plan.Nodes.Where(n => n.Resource.Meshes.Length > 0)
                         .Select(n => Material(n.Matter) + " " + Form(n.Resource.Description.Id)).Distinct()))
                 : T("BodyOnly")
         };
-        foreach (var input in definition.Inventory ?? Array.Empty<ConstructionInventoryInput>())
+        foreach (var input in plan.Inventory)
             lines.Add(F("InventoryInput", input.Id, LMTools.GetOrFallback(input.Shape, input.Shape.Substring(input.Shape.LastIndexOf('.') + 1)), input.Count));
         lines.AddRange(plan.Nodes.SelectMany(node => (node.Impact ?? plan.Impact).WorldEffects
             .Where(effect => effect.MaterialVolume > 0).Select(effect => F("WorldMaterial", Form(node.Resource.Description.Id),
@@ -188,16 +195,16 @@ public static class ConstructionPresentation
                         shape.Substring(shape.LastIndexOf('.') + 1))))));
         }
         if (plan.HasBarrier) lines.Add(T("Barrier"));
-        if (definition.Binding != null)
-            lines.Add(F("Placement", L("Cultiway.Construction.Anchor." + definition.Binding.Anchor),
-                T(definition.Binding.Follow ? "Following" : "Fixed")));
+        if (plan.Binding != null)
+            lines.Add(F("Placement", L("Cultiway.Construction.Anchor." + plan.Binding.Anchor),
+                T(plan.Binding.Follow ? "Following" : "Fixed")));
         if (plan.ConcurrentLimit > 0) lines.Add(F("ConcurrentLimit", plan.ConcurrentLimit));
-        if (definition.Binding?.Anchor == AbilityAnchor.Between)
-            lines.Add(F("BetweenFraction", definition.Binding.Fraction ?? .5f));
-        if (definition.Binding?.ContactAtDestination == true) lines.Add(T("DestinationOnly"));
+        if (plan.Binding?.Anchor == AbilityAnchor.Between)
+            lines.Add(F("BetweenFraction", plan.Binding.Fraction));
+        if (plan.Binding?.ContactAtDestination == true) lines.Add(T("DestinationOnly"));
         if (plan.Nodes.Any(node => node.SourceLoss == ConstructionSourceLoss.Continue)) lines.Add(T("IndependentSourceLoss"));
-        if (definition.Binding?.Anchor == AbilityAnchor.Target && !definition.Binding.Follow &&
-            definition.Root != null && !definition.Root.Operations.Any(operation => operation.Kind is ConstructionOperationKind.Fly or ConstructionOperationKind.Ray))
+        if (plan.Binding?.Anchor == AbilityAnchor.Target && !plan.Binding.Follow &&
+            !plan.Nodes[0].Operations.Any(operation => operation.Contract.Kind is ConstructionOperationKind.Fly or ConstructionOperationKind.Ray))
             lines.Add(T("DirectPlacement"));
         var processes = new List<string>();
         foreach (ConstructionNode node in Nodes(definition.Root))
