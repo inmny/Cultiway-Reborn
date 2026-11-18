@@ -2019,3 +2019,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 6.09　身体与器物格挡
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_body_guard.py --section palm` 核对实际掌面、反面、收势后和破防余力。`--section weapon` 沿用同一路径，换为实际持有的一把铁剑。`--section melee` 从万法阁让人物学会架掌，核对近身直掌全挡、破防后实际扣血、收势归还控制和再次使用。`--section melee-remainder` 只复验近身破防和原版实际扣血。`--section lost` 在格挡期间取下实际铁剑，验证同一路来招不再被旧剑拦住。`--section initial-force` 核对即使来招选择按初始力度计伤，仍不能补回已被身体格挡的损耗。各段结果位于 `CULTIWAY_DEV_OUTPUT/body-guard/<分段>`。
+
+### 6.18　正式模型与实战边界
+
+在独立游戏运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_visual_boundary.py --section circle`。可分别选择 `circle`（圆内外）、`height`（同位置改高度）、`blade`（细长刃边）、`wave`（潮浪经过）、`shield`（盾面边缘）。脚本加载现成测试世界，用正式模型施放；同一次运行的画面、几何坐标和实际扣血或反射回执保存在 `CULTIWAY_DEV_OUTPUT/visual-boundary/<分段>`。结论及样本说明见[画面与实际作用边界](../../Doc/技能系统全面重构/画面与实际作用边界.md)。
