@@ -64,6 +64,7 @@ public sealed partial class WindowWanfaConstructionEditor
             stepChoice = session.Draft.Steps.Length;
             session.Draft.Steps = session.Draft.Steps.Concat(new[] { step }).ToArray();
         })));
+        AddMappingRow(node);
         if (session.Draft.Steps.Length == 0) return;
         stepChoice = Math.Min(stepChoice, session.Draft.Steps.Length - 1);
         ConstructionStep selected = session.Draft.Steps[stepChoice];
@@ -73,8 +74,14 @@ public sealed partial class WindowWanfaConstructionEditor
             Select = () => { stepChoice = index; Refresh(); }
         }).ToArray(), true));
         NameParameter("StepName", selected.Id, value => RenameStep(selected, value));
-        ActionRow("RemoveStep", T("RemoveOperationHint"), () => Change(() =>
-            session.Draft.Steps = session.Draft.Steps.Where(item => item != selected).ToArray()));
+        ActionRow("RemoveStep", T("RemoveOperationHint"), () =>
+        {
+            if (IsMapping(selected.Operation.Kind)) EditMapping(candidate => RemoveStep(candidate));
+            else Change(() => RemoveStep(session.Draft));
+        });
+        if (IsMapping(selected.Operation.Kind)) { MappingRows(selected); return; }
+
+        void RemoveStep(AbilityDefinition candidate) => candidate.Steps = candidate.Steps.Where(item => item.Id != selected.Id).ToArray();
         foreach (ConstructionOperationPort input in ConstructionOperations.Describe(selected.Operation.Kind).Inputs)
         {
             if (input.Name is "part" or "after" or "event" or "parent" or "connection" or "worldMaterials" or "water")
@@ -90,7 +97,7 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <param name="node">实际操作对象。</param><param name="select">选择后的草稿命令。</param>
     private void ChooseOperationKind(ConstructionNode node, Action<ConstructionOperationKind> select)
         => menu.Show(T("OperationKind"), ConstructionOperations.All.Where(contract =>
-            contract.Kind is not (ConstructionOperationKind.MapSpace or ConstructionOperationKind.MapActor or ConstructionOperationKind.MapArtifact) &&
+            !IsMapping(contract.Kind) &&
             (contract.Kind != ConstructionOperationKind.ConsumeInventory || session.Draft.Inventory?.Length > 0) &&
             (contract.Kind != ConstructionOperationKind.Animate || FormResources.Load(node.Form).Description.Motions.Length > 0) &&
             (contract.Kind != ConstructionOperationKind.Deform || FormResources.Load(node.Form).Deformable) &&
@@ -124,12 +131,12 @@ public sealed partial class WindowWanfaConstructionEditor
             Enum.GetValues(typeof(ConstructionOutputStage)).Cast<ConstructionOutputStage>()
                 .Where(stage => reference.Step != null || reference.Operation != null || stage != ConstructionOutputStage.Completed)
                 .Select(stage => new UiOptionMenuOption { Label = T("StepStage." + stage), Selected = reference.Stage == stage,
-                    Select = () => Change(() => reference.Stage = stage) }).ToArray()));
+                    Select = () => EditStepInput(step, next => next.Inputs[port.Name].Stage = stage) }).ToArray()));
         Choice("StepInputMode." + port.Name, T("StepMode." + reference.Mode), () => menu.Show(T("StepInputMode." + port.Name),
             Enum.GetValues(typeof(ConstructionInputMode)).Cast<ConstructionInputMode>()
                 .Where(mode => port.Name != "part" || mode != ConstructionInputMode.All)
                 .Select(mode => new UiOptionMenuOption { Label = T("StepMode." + mode), Selected = reference.Mode == mode,
-                    Select = () => Change(() => reference.Mode = mode) }).ToArray()));
+                    Select = () => EditStepInput(step, next => next.Inputs[port.Name].Mode = mode) }).ToArray()));
     }
 
     /// <summary>从部位、命名部位操作和命名步骤取得真正的输出引用。</summary>
@@ -137,7 +144,7 @@ public sealed partial class WindowWanfaConstructionEditor
     private void ChooseStepInput(ConstructionStep step, ConstructionOperationPort port)
     {
         var options = new List<UiOptionMenuOption>();
-        if (port.Name != "part") options.Add(new UiOptionMenuOption { Label = T("StepUnbound"), Select = () => Change(() => step.Inputs.Remove(port.Name)) });
+        if (port.Name != "part") options.Add(new UiOptionMenuOption { Label = T("StepUnbound"), Select = () => EditStepInput(step, next => next.Inputs.Remove(port.Name)) });
         bool world = port.Name is "worldMaterials" or "water";
         if (!world)
         {
@@ -179,8 +186,16 @@ public sealed partial class WindowWanfaConstructionEditor
             if (!port.Kinds.Contains(kind)) return;
             var reference = new ConstructionOutputReference { Node = node, Operation = operation, Step = producer, Output = output,
                 Mode = collection ? ConstructionInputMode.Each : ConstructionInputMode.Single };
-            options.Add(new UiOptionMenuOption { Label = ReferenceLabel(reference), Select = () => Change(() => step.Inputs[port.Name] = reference) });
+            options.Add(new UiOptionMenuOption { Label = ReferenceLabel(reference), Select = () => EditStepInput(step, next => next.Inputs[port.Name] = reference) });
         }
+    }
+
+    /// <summary>双门的依赖修改也须验证完整候选，普通步骤保留原草稿编辑方式。</summary>
+    /// <param name="step">当前步骤。</param><param name="edit">本次输入修改。</param>
+    private void EditStepInput(ConstructionStep step, Action<ConstructionStep> edit)
+    {
+        if (IsMapping(step.Operation.Kind)) EditMappingStep(step, edit);
+        else Change(() => edit(step));
     }
 
     /// <summary>名称修改与引用修改处于同一次撤销，拒绝空名及重名。</summary>
@@ -190,12 +205,16 @@ public sealed partial class WindowWanfaConstructionEditor
         if (string.IsNullOrWhiteSpace(value) || session.Draft.Steps.Any(item => item != step && item.Id == value))
         { state.text = T("OperationNameInvalid"); return; }
         if (step.Id == value) return;
-        Change(() =>
+        if (IsMapping(step.Operation.Kind)) EditMapping(Rename);
+        else Change(() => Rename(session.Draft));
+
+        void Rename(AbilityDefinition draft)
         {
-            string previous = step.Id; step.Id = value;
-            foreach (ConstructionOutputReference input in session.Draft.Steps.SelectMany(item => item.Inputs.Values))
+            string previous = step.Id;
+            draft.Steps.First(item => item.Id == previous).Id = value;
+            foreach (ConstructionOutputReference input in draft.Steps.SelectMany(item => item.Inputs.Values))
                 if (input.Step == previous) input.Step = value;
-        });
+        }
     }
 
     /// <summary>部位操作改名时保持现有步骤的实际指向，引用中的名称不能被直接清空。</summary>
