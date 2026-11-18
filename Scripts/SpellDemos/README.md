@@ -1983,3 +1983,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 6.03 B　连续转向与断点
 
 用 `dev.py run Scripts/SpellDemos/verify_rotating_contact_math.script --timeout 120` 检查六度转角的真实外弧、内弦空隙、候选范围和首次接触时间。实机沿用上面的 Python 入口，`--section turn` 检查高速旋转的实际扣血与内环无伤，`--section breaks` 检查间隔转移和立即改向各自的空隙与真实落点。旧直移和空间筛选共用回归入口为 `dev.py run Scripts/SpellDemos/verify_pair_sweep.script --timeout 120`。
+
+### 6.05 A　真实接触结果
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_contact_facts.py --section opposition` 核对两种真实交锋：有余力时反射并交接归属，容量不足时破盾而保留攻击余量。`--section ground` 复用触地分支，核对实际位置、方向、不改地形、悬空落空与归还身体。结果分别保存在 `CULTIWAY_DEV_OUTPUT/contact-facts/<分段>`。

@@ -189,7 +189,8 @@ public sealed partial class ConstructedAbilityService
             ward.Running.Cast.Plan.Nodes[guardNode].Interception != ConstructionInterception.Reflect ||
             !attack.Running.Cast.CanReflect(node)) return false;
         float force = attack.Running.Cast.RemainingForce(node);
-        if (ward.Running.Cast.RemainingForce(guardNode) < force) return false;
+        float barrierBefore = ward.Running.Cast.RemainingForce(guardNode);
+        if (barrierBefore < force) return false;
         Vector3 normal = leftWard ? hit.Normal : -hit.Normal;
         if (normal.sqrMagnitude < .5f) return false;
         Vector3 surface = ward.SurfaceVelocity(hit.Point, normal, hit.Fraction, hit.Seconds);
@@ -215,10 +216,12 @@ public sealed partial class ConstructedAbilityService
         attack.Running.Cast.ConfirmClash(node, hit.Point, 0f);
         ward.Running.Cast.ConfirmClash(guardNode, hit.Point, force);
         ward.Running.Cast.ConsumeForce(guardNode, force);
+        float barrierAfter = ward.Running.Cast.RemainingForce(guardNode);
         ReflectionConfirmed?.Invoke(new ConstructedReflection(attack.Running.Id, attack.Running.Cast.Plan.Id,
             node, attack.Running.SourceId, previous.Id, owner.Id, attack.Running.Cast.Reflections(node),
-            attack.Running.Cast.Age, hit.Point, normal, incoming, attack.Running.Cast.Velocity(node),
-            force, ward.Running.Id, guardNode, ward.Running.Cast.RemainingForce(guardNode)));
+            LogicTime, attack.Running.Cast.Age, hit.Point, normal, incoming, attack.Running.Cast.Velocity(node),
+            force, ward.Running.Id, guardNode, barrierAfter, ward.Running.SourceId, defender.Id,
+            barrierBefore - barrierAfter, ContactPartPresent(ward.Running, guardNode)));
         return true;
     }
 }

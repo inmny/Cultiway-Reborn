@@ -1,4 +1,5 @@
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Skills;
 using UnityEngine;
 
 namespace Cultiway.Content.Skills;
@@ -117,6 +118,9 @@ public readonly struct ConstructedContact
     /// <summary>由攻击作用面指向目标的实际接触方向，初始深度重叠时可为零。</summary>
     public readonly Vector3 Normal;
 
+    /// <summary>实际确认接触的共同世界时点。</summary>
+    public readonly double WorldTime;
+
     /// <summary>单次施放已经过去的世界秒数。</summary>
     public readonly float Age;
 
@@ -144,6 +148,12 @@ public readonly struct ConstructedContact
     /// <summary>真实作用后该生成部位的材料和物态。</summary>
     public readonly string MatterAfter, StateAfter;
 
+    /// <summary>实际接触结算后部位是否仍存在；身体部位以是否仍控制真实身体判断。</summary>
+    public readonly bool PartPresent;
+
+    /// <summary>结算后身体当前的收势；没有收势时为空。</summary>
+    public readonly BodyActionResult? BodyResult;
+
     /// <summary>记录已经确认的接触，不把目标选择或动画时点冒充接触。</summary>
     /// <param name="cast">施放编号。</param>
     /// <param name="ability">构造编号。</param>
@@ -167,8 +177,11 @@ public readonly struct ConstructedContact
     /// <param name="forceApplied">实际受力规则是否受理。</param>
     /// <param name="staggerSeconds">真实受理的停顿秒数。</param><param name="bindSeconds">真实受理的束缚秒数。</param>
     /// <param name="strainSeconds">实际扭伤持续秒数。</param><param name="exposureSeconds">实际破甲持续秒数。</param>
+    /// <param name="worldTime">实际接触时点。</param><param name="partPresent">结算后部位是否仍存在。</param>
+    /// <param name="bodyResult">接触后的身体收势。</param>
     internal ConstructedContact(long cast, string ability, long source, long target, int node,
-        Vector3 position, Vector3 normal, float age, ApplyAttackState result, long originalSource = 0,
+        Vector3 position, Vector3 normal, double worldTime, float age, ApplyAttackState result,
+        bool partPresent, BodyActionResult? bodyResult, long originalSource = 0,
         int reflections = 0,
         int targetContactNumber = 1, int groupContactNumber = 1, string matterBefore = null, string stateBefore = null,
         string matterAfter = null, string stateAfter = null,
@@ -182,7 +195,10 @@ public readonly struct ConstructedContact
         Node = node;
         Position = position;
         Normal = normal;
+        WorldTime = worldTime;
         Age = age;
+        PartPresent = partPresent;
+        BodyResult = bodyResult;
         Result = result;
         OriginalSourceId = originalSource == 0 ? source : originalSource;
         Reflections = reflections;
@@ -223,6 +239,9 @@ public readonly struct ConstructedReflection
     /// <summary>原施放的真实进度。</summary>
     public readonly float Age;
 
+    /// <summary>实际确认反射的共同世界时点。</summary>
+    public readonly double WorldTime;
+
     /// <summary>接触位置、表面方向及前后世界速度。</summary>
     public readonly Vector3 Position, Normal, IncomingVelocity, OutgoingVelocity;
 
@@ -234,6 +253,13 @@ public readonly struct ConstructedReflection
 
     /// <summary>实际屏障部位。</summary>
     public readonly int BarrierNode;
+
+    /// <summary>屏障的原来源和反射时的实际控制者。</summary>
+    public readonly long BarrierOriginalSource, BarrierOwner;
+
+    /// <summary>实际扣除的屏障余力及其部位是否仍存在。</summary>
+    public readonly float BarrierSpent;
+    public readonly bool BarrierPresent;
 
     /// <summary>屏障支付后的剩余量。</summary>
     public readonly float BarrierRemaining;
@@ -255,9 +281,13 @@ public readonly struct ConstructedReflection
     /// <param name="barrier">屏障施放。</param>
     /// <param name="barrierNode">屏障部位。</param>
     /// <param name="remaining">屏障余量。</param>
+    /// <param name="time">实际共同世界时点。</param>
+    /// <param name="barrierOriginal">屏障原来源。</param><param name="barrierOwner">屏障实际控制者。</param>
+    /// <param name="barrierSpent">屏障的实际消耗。</param><param name="barrierPresent">反射后屏障部位是否仍在。</param>
     internal ConstructedReflection(long cast, string ability, int node, long original, long previous, long owner,
-        int count, float age, Vector3 position, Vector3 normal, Vector3 incoming, Vector3 outgoing, float force,
-        long barrier, int barrierNode, float remaining)
+        int count, double time, float age, Vector3 position, Vector3 normal, Vector3 incoming, Vector3 outgoing, float force,
+        long barrier, int barrierNode, float remaining, long barrierOriginal, long barrierOwner,
+        float barrierSpent, bool barrierPresent)
     {
         CastId = cast;
         AbilityId = ability;
@@ -266,6 +296,7 @@ public readonly struct ConstructedReflection
         PreviousOwner = previous;
         Owner = owner;
         Count = count;
+        WorldTime = time;
         Age = age;
         Position = position;
         Normal = normal;
@@ -275,6 +306,10 @@ public readonly struct ConstructedReflection
         BarrierCast = barrier;
         BarrierNode = barrierNode;
         BarrierRemaining = remaining;
+        BarrierOriginalSource = barrierOriginal;
+        BarrierOwner = barrierOwner;
+        BarrierSpent = barrierSpent;
+        BarrierPresent = barrierPresent;
     }
 }
 
@@ -287,17 +322,28 @@ public readonly struct ConstructedClash
     /// <summary>交锋双方的实际来源。</summary>
     public readonly long LeftSource, RightSource;
 
+    /// <summary>双方最早发起施放的实际来源。</summary>
+    public readonly long LeftOriginalSource, RightOriginalSource;
+
     /// <summary>实际相撞的展开部位。</summary>
     public readonly int LeftNode, RightNode;
 
     /// <summary>真实作用面位置及从左指向右的方向。</summary>
     public readonly Vector3 Position, Normal;
 
+    /// <summary>实际确认交锋的共同世界时点。</summary>
+    public readonly double WorldTime;
+
     /// <summary>同一交锋时点下双方各自已经经过的时间。</summary>
     public readonly float LeftAge, RightAge;
 
-    /// <summary>本次双方各自损耗的作用量。</summary>
+    /// <summary>双方用于抵消的一次共同作用量。</summary>
     public readonly float Absorbed;
+
+    /// <summary>生成部位的实际扣除量；身体一侧为本次交锋的抵消量。</summary>
+    public readonly float LeftSpent, RightSpent;
+    /// <summary>结算后双方的部位是否仍在。</summary>
+    public readonly bool LeftPresent, RightPresent;
 
     /// <summary>交锋后双方的实际剩余量。</summary>
     public readonly float LeftRemaining, RightRemaining;
@@ -316,10 +362,15 @@ public readonly struct ConstructedClash
     /// <param name="absorbed">双方各自消耗量。</param>
     /// <param name="leftRemaining">左剩余。</param>
     /// <param name="rightRemaining">右剩余。</param>
+    /// <param name="time">实际交锋时点。</param>
+    /// <param name="leftOriginal">左原来源。</param><param name="rightOriginal">右原来源。</param>
+    /// <param name="leftSpent">左实际消耗。</param><param name="rightSpent">右实际消耗。</param>
+    /// <param name="leftPresent">左部位仍在。</param><param name="rightPresent">右部位仍在。</param>
     internal ConstructedClash(long leftCast, long rightCast, long leftSource, long rightSource, int leftNode,
         int rightNode,
-        Vector3 position, Vector3 normal, float leftAge, float rightAge, float absorbed, float leftRemaining,
-        float rightRemaining)
+        Vector3 position, Vector3 normal, double time, float leftAge, float rightAge, float absorbed,
+        float leftRemaining, float rightRemaining, long leftOriginal, long rightOriginal,
+        float leftSpent, float rightSpent, bool leftPresent, bool rightPresent)
     {
         LeftCast = leftCast;
         RightCast = rightCast;
@@ -329,6 +380,13 @@ public readonly struct ConstructedClash
         RightNode = rightNode;
         Position = position;
         Normal = normal;
+        WorldTime = time;
+        LeftOriginalSource = leftOriginal;
+        RightOriginalSource = rightOriginal;
+        LeftSpent = leftSpent;
+        RightSpent = rightSpent;
+        LeftPresent = leftPresent;
+        RightPresent = rightPresent;
         LeftAge = leftAge;
         RightAge = rightAge;
         Absorbed = absorbed;

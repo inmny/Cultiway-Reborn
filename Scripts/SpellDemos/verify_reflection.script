@@ -18,6 +18,7 @@ using Cultiway.Content.Skills;
 using Cultiway.Content.Combat;
 using Cultiway.Utils.Extension;
 string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+bool factsOnly = false;
 var checks = new List<string>();
 var records = new List<object>();
 
@@ -192,15 +193,20 @@ void Record(string name)
         contacts = impacts.Select((h, i) => new
         {
             h.CastId, h.AbilityId, h.SourceId, h.OriginalSourceId, h.Reflections, h.TargetId, h.Node, h.Age,
-            attacker = attribution[i]
+            h.WorldTime, h.PartPresent, position = new[] { h.Position.x, h.Position.y, h.Position.z },
+            normal = new[] { h.Normal.x, h.Normal.y, h.Normal.z }, attacker = attribution[i]
         }).ToArray(),
         reflections = reflections.Select(r => new
         {
             r.CastId, r.AbilityId, r.Node, r.OriginalSource, r.PreviousOwner, r.Owner, r.Count, r.Age, r.Force,
-            r.BarrierCast, r.BarrierNode, r.BarrierRemaining,
+            r.WorldTime, r.BarrierCast, r.BarrierNode, r.BarrierOriginalSource, r.BarrierOwner,
+            r.BarrierSpent, r.BarrierRemaining, r.BarrierPresent,
             vectors = Values(r).Select(v => new[] { v.x, v.y, v.z }).ToArray()
         }).ToArray(),
-        clashes = clashes.Select(c => new { c.Absorbed, c.LeftRemaining, c.RightRemaining }).ToArray()
+        clashes = clashes.Select(c => new { c.WorldTime, c.LeftCast, c.RightCast, c.LeftSource, c.RightSource,
+            c.LeftOriginalSource, c.RightOriginalSource, c.LeftNode, c.RightNode, c.Absorbed, c.LeftSpent, c.RightSpent,
+            c.LeftRemaining, c.RightRemaining, c.LeftPresent, c.RightPresent,
+            point = new[] { c.Position.x, c.Position.y, c.Position.z }, normal = new[] { c.Normal.x, c.Normal.y, c.Normal.z } }).ToArray()
     });
     File.WriteAllText(Path.Combine(root, "artifacts/skill_rebuild/reflection-checks.json"),
         JsonConvert.SerializeObject(new { passed = false, checks, records }, Formatting.Indented));
@@ -231,6 +237,16 @@ try
     Check(left.data.health < health && right.data.health == otherHealth && attribution.Single() == right.id,
         "正常伤害和原版受击归属使用新控制者");
     Check(starts.Count == 2 && impacts[0].CastId == reflected.CastId, "反射沿用原施放，不创建额外施法或支付");
+    Check(reflected.BarrierOriginalSource == right.id && reflected.BarrierOwner == right.id &&
+          reflected.BarrierPresent && Mathf.Abs(reflected.BarrierSpent - 100) < .001f,
+        "屏障记录实际来源、扣除量和仍存在的部位");
+    double shotStart = starts.Single(c => c.CastId == reflected.CastId).WorldTime;
+    Check(Math.Abs(reflected.WorldTime - shotStart - reflected.Age) < .0005 &&
+          Math.Abs(impacts[0].WorldTime - shotStart - impacts[0].Age) < .0005 &&
+          impacts[0].WorldTime > reflected.WorldTime && reflected.Normal.sqrMagnitude > .9f &&
+          impacts[0].Normal.sqrMagnitude > .9f && !impacts[0].PartPresent &&
+          Vector3.Distance(reflected.Position, impacts[0].Position) > 1f,
+        "反射和折返命中按实际共同时间、位置和方向分别记录");
     Record("basic");
 
     Reset("容量不足");
@@ -243,7 +259,25 @@ try
     Check(
         impacts.Count == 1 && impacts[0].SourceId == left.id && impacts[0].TargetId == right.id &&
         right.data.health < health, "余力60仍沿原方向命中且保留原归属");
+    var clash = clashes.Single();
+    bool wardLeft = clash.LeftSource == right.id;
+    Check(clash.LeftOriginalSource == clash.LeftSource && clash.RightOriginalSource == clash.RightSource &&
+          clash.LeftNode == 0 && clash.RightNode == 0 && Mathf.Abs(clash.LeftSpent - 40) < .001f &&
+          Mathf.Abs(clash.RightSpent - 40) < .001f &&
+          (wardLeft ? clash.LeftRemaining == 0 && !clash.LeftPresent && clash.RightPresent && clash.RightRemaining > 0 :
+                      clash.RightRemaining == 0 && !clash.RightPresent && clash.LeftPresent && clash.LeftRemaining > 0),
+        "破盾事实记录双方分别扣除的量，只有仍有余力的一侧继续");
+    Check(Math.Abs(clash.WorldTime - starts.Single(c => c.CastId == clash.LeftCast).WorldTime - clash.LeftAge) < .0005 &&
+          Math.Abs(clash.WorldTime - starts.Single(c => c.CastId == clash.RightCast).WorldTime - clash.RightAge) < .0005 &&
+          clash.WorldTime < impacts[0].WorldTime && clash.Normal.sqrMagnitude > .9f,
+        "同一次破盾对双方只有一个实际时点，余力命中发生在其后");
     Record("insufficient");
+    if (factsOnly)
+    {
+        string outputFolder = Path.Combine(Environment.GetEnvironmentVariable("CULTIWAY_DEV_OUTPUT"), "contact-facts", "opposition");
+        File.WriteAllText(Path.Combine(outputFolder, "facts.json"), JsonConvert.SerializeObject(records, Formatting.Indented));
+        return new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
 
     Reset("零次数");
     var limited = Definition("zero-shot", left, 100, 60);

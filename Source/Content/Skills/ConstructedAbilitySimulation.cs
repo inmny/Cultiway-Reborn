@@ -980,8 +980,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ShapeMotion right = hit.Right.Value;
             Actor leftReceiver = CorrespondenceReceiver(running, node);
             Actor rightReceiver = CorrespondenceReceiver(right.Running, right.To.Node);
-            float absorbed = Mathf.Min(running.Cast.RemainingForce(node),
-                right.Running.Cast.RemainingForce(right.To.Node));
+            long leftOwner = running.Owner(node).Id, rightOwner = right.Running.Owner(right.To.Node).Id;
+            float leftBefore = running.Cast.RemainingForce(node), rightBefore = right.Running.Cast.RemainingForce(right.To.Node);
+            float absorbed = Mathf.Min(leftBefore, rightBefore);
             if (hit.LeftRayLength >= 0f && absorbed >= running.Cast.RemainingForce(node))
                 running.Cast.ClipRay(node, hit.LeftRayLength);
             if (hit.RightRayLength >= 0f && absorbed >= right.Running.Cast.RemainingForce(right.To.Node))
@@ -992,15 +993,16 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             right.Running.Cast.ConfirmClash(right.To.Node, hit.Point, absorbed);
             running.Cast.ConsumeForce(node, absorbed);
             right.Running.Cast.ConsumeForce(right.To.Node, absorbed);
+            float leftAfter = running.Cast.RemainingForce(node), rightAfter = right.Running.Cast.RemainingForce(right.To.Node);
             long clashGeneration = worldGeneration;
             ApplyCorrespondence(right, hit.Left, leftReceiver, absorbed, hit.Point);
             if (clashGeneration != worldGeneration) return;
             ApplyCorrespondence(hit.Left, right, rightReceiver, absorbed, hit.Point);
             if (clashGeneration != worldGeneration) return;
-            ClashConfirmed?.Invoke(new ConstructedClash(running.Id, right.Running.Id, running.Owner(node).Id,
-                right.Running.Owner(right.To.Node).Id,
-                node, right.To.Node, hit.Point, hit.Normal, running.Cast.Age, right.Running.Cast.Age, absorbed,
-                running.Cast.RemainingForce(node), right.Running.Cast.RemainingForce(right.To.Node)));
+            ClashConfirmed?.Invoke(new ConstructedClash(running.Id, right.Running.Id, leftOwner, rightOwner,
+                node, right.To.Node, hit.Point, hit.Normal, LogicTime, running.Cast.Age, right.Running.Cast.Age, absorbed,
+                leftAfter, rightAfter, running.SourceId, right.Running.SourceId, leftBefore - leftAfter,
+                rightBefore - rightAfter, ContactPartPresent(running, node), ContactPartPresent(right.Running, right.To.Node)));
             return;
         }
 
@@ -1008,6 +1010,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ActorMotion actor = hit.Actor;
         if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) return;
         simulation.Sample(actor, simulation.contactTime, out Vector3 spreadCenter, out _);
+        CastAuthority contactOwner = running.Owner(node);
+        int reflections = running.Cast.Reflections(node);
         ContactMemory memory = RememberContact(running, node, actor.Id);
         AbilityMatter beforeMatter = node < 0 ? null : running.Cast.Matter(node);
         CompiledConstructionImpact impact = running.Cast.Impact(node);
@@ -1026,7 +1030,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
         else if (node >= 0 && impact.DamageScale > 0f)
         {
-            var damage = running.Owner(node).Damage;
+            var damage = contactOwner.Damage;
             damage.TargetID = actor.Id;
             damage.Damage = running.Cast.DamageForce(node) * impact.DamageScale *
                 running.Cast.ContactAttenuation(node, hit.Left.To.Shape);
@@ -1055,14 +1059,19 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             RespondToBodyResult(running, BodyActionResult.Blocked);
         EndExhaustedContactGroup(running, node);
         AbilityMatter afterMatter = node < 0 ? null : running.Cast.Matter(node);
-        ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.Owner(node).Id,
-            actor.Id,
-            node, hit.Point, hit.Normal, running.Cast.Age, result, running.SourceId, running.Cast.Reflections(node),
+        ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, contactOwner.Id, actor.Id,
+            node, hit.Point, hit.Normal, LogicTime, running.Cast.Age, result, ContactPartPresent(running, node),
+            running.Cast.UsesBodyWindow(node) ? running.Cast.BodyResult : null, running.SourceId, reflections,
             memory.Count, running.GroupHits[running.Cast.ContactGroup(node)], beforeMatter?.Id, beforeMatter?.State,
             afterMatter?.Id, afterMatter?.State,
             impact.DamageScale > 0f || response.AdditionalDamageAttempted, response.VelocityChange, response.ForceApplied, response.StaggerSeconds,
             response.BindSeconds, response.StrainSeconds, response.ExposureSeconds));
     }
+
+    /// <summary>是否仍留下真实部位；存在的部位也可能已没有攻击余力。</summary>
+    /// <param name="running">实际施放。</param><param name="node">实际部位，负一为身体。</param>
+    private static bool ContactPartPresent(RunningCast running, int node) =>
+        node < 0 ? running.BodyControlled : running.Cast.IsNodePresent(node);
 
     /// <summary>已确认接触复用共享恢复规则；可按接触余力恢复当前控制人物，不重新读取攻击力。</summary>
     /// <param name="running">实际施放。</param><param name="node">实际部位。</param>

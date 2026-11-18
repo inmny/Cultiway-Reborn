@@ -22,12 +22,13 @@ public sealed partial class AbilityCast
     /// <summary>回到真实最早接触时点后，记录接触并开始已声明分支。</summary>
     /// <param name="source">实际作用部位，负一表示身体。</param>
     /// <param name="point">已确认的作用面接触点。</param>
-    internal void ConfirmWorldContact(int source, Vector3 point)
+    internal bool ConfirmWorldContact(int source, Vector3 point)
     {
-        if (WorldContactReadyAt(source) > Age) return;
+        if (WorldContactReadyAt(source) > Age) return false;
         RecordActionContact(source, point, AbilityActionContactKind.World);
         SignalEvent(source, ConstructionChangeTrigger.WorldContact, point);
         FlushBirths(inputs.Target);
         RecordActionTimeline();
+        return true;
     }
 }
