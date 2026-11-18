@@ -1,0 +1,117 @@
+var access = ConstructionEditing.Access;
+var origins = JObject.Parse(File.ReadAllText(Path.Combine(folder, "sources.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+var damage = new List<ConstructedCorrespondenceDamage>(); int effects = 0;
+void Mapped(ConstructedCorrespondenceDamage value) => damage.Add(value);
+void Effects(ConstructedCorrespondenceEffects value) => effects++;
+ConstructedAbilityService.CorrespondenceDamageConfirmed += Mapped;
+ConstructedAbilityService.CorrespondenceEffectsConfirmed += Effects;
+JObject Expected(string name) => JObject.Parse(File.ReadAllText(Path.Combine(folder, name + "-expected.json")));
+JObject Complete(AbilityDefinition definition) { var data = JObject.FromObject(definition); data.Remove("Id"); return data; }
+async Task Load(string name)
+{
+    Check((int)origins[name]["process"] != process, "输入来自已退出的不同游戏进程 " + name, new { process, origin = (int)origins[name]["process"] });
+    World.world.save_manager.loadWorld(Path.Combine(folder, name + "-world"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+}
+try
+{
+    if (frozenOnly)
+    {
+        var expected = Expected("new"); long id = (long)expected["sourceId"];
+        var saves = Cultiway.ModClass.I.WorldSaves; JToken actual = null;
+        void OnActor(ActorExtend actor)
+        {
+            if (actor.Base.id == id)
+                actual = JObject.Parse(saves.Actors.Capture(actor, "correspondence-cold"))["sections"]["ability_creation"];
+        }
+        saves.ActorRestored += OnActor;
+        try { await Load("new"); }
+        finally { saves.ActorRestored -= OnActor; }
+        var frozen = expected["frozenSection"];
+        Check(actual != null && (int)actual["version"] == 30 &&
+              new[] { "Pending", "Seed", "Origin", "Inspiration", "Source", "Resources" }.All(key => JToken.DeepEquals(actual["data"][key], frozen[key])),
+            "新正式等待档在实际原人物恢复时完整保留冻结输入，早于待办授予");
+        return new { passed = true, process, closed = "新正式等待档的原人物恢复边界" };
+    }
+    if (resuming)
+    {
+        var expected = Expected("timing"); await Load("timing");
+        var source = World.world.units.get((long)expected["source"]); var target = World.world.units.get((long)expected["target"]);
+        var definition = expected["definition"].ToObject<AbilityDefinition>();
+        Check(source != null && target.data.health == (int)expected["health"] &&
+              JToken.DeepEquals(JObject.FromObject(access.Read(definition.Id)), JObject.FromObject(definition)) &&
+              access.List(source.GetExtend()).Any(entry => entry.Id == definition.Id),
+            "有效时段世界冷启动保持完整构造、已学关系和原生命结果");
+        Check(damage.Count == 0 && effects == 0 && ((ICollection)service.GetField("casts", F).GetValue(null)).Count == 0,
+            "既有映像结算和短期关系未被恢复重放");
+    }
+    foreach (string name in new[] { "old", "new" })
+    {
+        damage.Clear(); effects = 0;
+        var expected = Expected(name); await Load(name);
+        long sourceId = (long)expected["sourceId"], targetId = (long)expected["targetId"];
+        var source = World.world.units.get(sourceId); var owner = source.GetExtend(); var target = World.world.units.get(targetId);
+        source.attack_timer = 999;
+        if (resuming)
+        {
+            var predicted = expected["predicted"].ToObject<AbilityDefinition>();
+            var state = owner.GetComponent<ConstructedCreationState>();
+            if (state.Pending)
+            {
+                var updated = JObject.Parse(Cultiway.ModClass.I.WorldSaves.Actors.Capture(owner, "correspondence-cold"))["sections"]["ability_creation"];
+                var frozen = expected["frozenSection"];
+                Check((int)updated["version"] == 30 && new[] { "Seed", "Origin", "Inspiration", "Source", "Resources" }.All(key =>
+                      JToken.DeepEquals(updated["data"][key], frozen[key])), "旧新正式输入按真实原值保留 " + name);
+                Check(JToken.DeepEquals(Complete(ConstructedAbilityService.Generate(owner, state.Seed, state.Inspiration, state.Source, state.Resources)), Complete(predicted)),
+                    "原完整规则、作者与费用可重现 " + name);
+            }
+            await Advance(.2f);
+            state = owner.GetComponent<ConstructedCreationState>();
+            var learned = access.Read(state.LastAbility); int known = (int)expected["known"] + 1;
+            Check(!state.Pending && state.LastFailure == null && learned != null && JToken.DeepEquals(Complete(learned), Complete(predicted)) &&
+                  access.List(owner).Count == known, "正式冷读只授予原预期的完整作品 " + name);
+            if (name == "new")
+            {
+                Ready(source); await Advance(.12f); Place(source, 64); Place(target, 80);
+                var knowledge = owner.GetComponent<ConstructedKnowledge>();
+                owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+                float before = owner.GetCultisys<Xian>().wakan;
+                await Fire(learned, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+                var attack = AttackDefinition(); await Fire(attack, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+                Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - learned.Cost - attack.Cost) < .002f,
+                    "冷读授予后仍按恢复的原费用实际使用");
+                await Advance(1.2f);
+                Check(damage.Count == 1 && damage[0].TargetId == targetId && damage[0].HealthAfter < damage[0].HealthBefore &&
+                      endings.Any(entry => entry.Fact.AbilityId == learned.Id), "恢复的技能实际传伤及结束", damage.Select(value => value.Damage).ToArray());
+                owner.E.AddComponent(knowledge);
+            }
+            await Advance(.2f);
+            Check(access.List(owner).Count == known && owner.GetComponent<ConstructedCreationState>().LastAbility == learned.Id,
+                "继续运行不重复授予 " + name);
+            SaveManager.saveWorldToDirectory(Path.Combine(folder, name + "-completed"));
+            File.WriteAllText(Path.Combine(folder, name + "-completed.json"), JsonConvert.SerializeObject(new
+            { sourceId, targetId, learned, known, health = target.data.health }, Formatting.Indented));
+        }
+        else
+        {
+            var learned = expected["learned"].ToObject<AbilityDefinition>();
+            await Advance(.2f);
+            var state = owner.GetComponent<ConstructedCreationState>();
+            Check(!state.Pending && state.LastAbility == learned.Id && access.List(owner).Count == (int)expected["known"] &&
+                  JToken.DeepEquals(JObject.FromObject(access.Read(learned.Id)), JObject.FromObject(learned)) &&
+                  target.data.health == (int)expected["health"] && damage.Count == 0 && effects == 0 &&
+                  ((ICollection)service.GetField("casts", F).GetValue(null)).Count == 0,
+                "再启后完整原作品、唯一授予和生命结果都保持，没有重放 " + name);
+        }
+    }
+    return new { passed = true, process, closed = resuming ? "旧新等待请求冷读及实际使用" : "已授予及结算世界再次冷读" };
+}
+finally
+{
+    ConstructedAbilityService.CorrespondenceDamageConfirmed -= Mapped;
+    ConstructedAbilityService.CorrespondenceEffectsConfirmed -= Effects;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

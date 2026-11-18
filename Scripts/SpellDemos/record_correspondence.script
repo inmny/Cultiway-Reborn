@@ -1,0 +1,101 @@
+AbilityDefinition Read(string name) => JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, name + ".json")));
+var original = Read("created-definition");
+var definition = ConstructionEditing.Copy(original);
+definition.Id = "test.correspondence-film.image"; definition.Lifetime = 2.9f;
+definition.Root.Correspondence.ActiveUntil = 2.5f;
+definition.Root.Tint = new[] { .25f, .85f, 1f };
+definition.Power = 1.5f;
+ConstructionPricing.Reprice(original, definition, contactRules: 29);
+var attack = Read("attack-definition"); attack.Id = "test.correspondence-film.attack";
+attack.Root.Tint = new[] { 1f, .44f, .14f };
+Actor source = Make(64), target = Make(71, "wolf");
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+for (int x = 61; x <= 74; x++) for (int y = 68; y <= 77; y++)
+{
+    var tile = World.world.GetTileSimple(x, y); tile.Height = 140; tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+}
+await Advance(.2f);
+foreach (Building building in World.world.buildings.getSimpleList().ToArray()) building.removeBuildingFinal();
+await Advance(.1f);
+Vector2 centre = new Vector2(67f, 72f);
+Type external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+object mod = external?.GetProperty("Instance", F).GetValue(null);
+Camera camera = World.world.camera;
+RenderTexture nativeTarget = null; Texture2D read = null;
+object settings = mod == null ? null : Field(mod, "Settings");
+int? oldMode = settings == null ? (int?)null : (int)Field(settings, "TimeMode");
+var frames = new List<object>(); var events = new List<object>(); var times = new List<double>();
+long castId = 0, attackId = 0; int hits = 0, oldHp = 0, newHp = 0;
+bool stop = false, finished = false, cancelled = false, attackFinished = false;
+Task recording = null;
+AbilityCast Live()
+{
+    object run = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .FirstOrDefault(r => ((AbilityCast)Field(r, "Cast")).Plan.Id == definition.Id);
+    return run == null ? null : (AbilityCast)Field(run, "Cast");
+}
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    if (fact.AbilityId == definition.Id) castId = fact.CastId;
+    else if (fact.AbilityId == attack.Id) attackId = fact.CastId;
+    else return;
+    events.Add(new { kind = "start", fact.AbilityId, fact.CastId, fact.WorldTime });
+}
+void Mapped(ConstructedCorrespondenceDamage fact)
+{
+    if (fact.ImageCastId != castId || fact.AttackCastId != attackId || fact.TargetId != target.id) return;
+    hits++; oldHp = (int)fact.HealthBefore; newHp = (int)fact.HealthAfter;
+    events.Add(new { kind = "transfer", fact.WorldTime, fact.TargetId, fact.Damage, fact.ConsumedForce, fact.Fraction,
+        fact.HealthBefore, fact.HealthAfter, point = new[] { fact.Position.x, fact.Position.y, fact.Position.z } });
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (fact.CastId == castId) { finished = true; cancelled = fact.Cancelled; }
+    else if (fact.CastId == attackId) attackFinished = true;
+    else return;
+    events.Add(new { kind = "end", fact.AbilityId, fact.CastId, fact.WorldTime, fact.Cancelled });
+}
+string Stage() => hits > 0 ? finished && attackFinished ? $"招式结束 · 原人物生命 {oldHp} → {newHp}" : $"交锋传伤 · 原人物生命 {oldHp} → {newHp}"
+    : attackId != 0 ? "小型来袭 · 飞向中间映像" : castId != 0 ? "映像形成 · 对应远处原人物" : "施放前 · 修士与远处原人物";
+// RECORD_SHARED
+try
+{
+    // CAMERA_SHARED
+    Place(source, 64); Place(target, 71);
+    source.addAggro(target); target.addAggro(source);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    ConstructedAbilityService.CastStarted += Started; ConstructedAbilityService.CorrespondenceDamageConfirmed += Mapped;
+    ConstructedAbilityService.CastEnded += Finished;
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(new { definition, attack }, Formatting.Indented));
+    Capture(); recording = Record(); await Advance(.35f);
+    float first = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+    bool firstPaid = Math.Abs(first - owner.GetCultisys<Xian>().wakan - definition.Cost) < .002f;
+    await Advance(.72f);
+    float second = owner.GetCultisys<Xian>().wakan;
+    await Fire(attack, source, target); owner.E.RemoveComponent<ConstructedKnowledge>();
+    bool secondPaid = Math.Abs(second - owner.GetCultisys<Xian>().wakan - attack.Cost) < .002f;
+    await Advance(2.6f);
+    stop = true; if (recording != null) await recording;
+    Check(firstPaid && secondPaid && hits == 1 && newHp < oldHp && finished && !cancelled && attackFinished && Live() == null,
+        "两次实际收费、同一真实映像和攻击、原人物生命下降与清场", new { firstPaid, secondPaid, hits, oldHp, newHp, finished, cancelled, attackFinished });
+    Check(times.Count >= 28 && times.Zip(times.Skip(1), (a, b) => b > a).All(value => value), "连续取景使用递增的真实世界时间", times.Count);
+    return new { passed = true, view = mod == null ? "native" : "worldfall", process = System.Diagnostics.Process.GetCurrentProcess().Id, frames = frames.Count, hits, oldHp, newHp };
+}
+finally
+{
+    stop = true;
+    try { if (recording != null) await recording; }
+    finally
+    {
+        ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.CorrespondenceDamageConfirmed -= Mapped;
+        ConstructedAbilityService.CastEnded -= Finished; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+        Config.paused = true; ControllableUnit.clear(false);
+        if (oldMode.HasValue) settings.GetType().GetField("TimeMode", F).SetValue(settings, oldMode.Value);
+        if (read != null) UnityEngine.Object.Destroy(read);
+        if (nativeTarget != null) { nativeTarget.Release(); UnityEngine.Object.Destroy(nativeTarget); }
+        File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { view = mod == null ? "native" : "worldfall", frames, events }, Formatting.Indented));
+    }
+}

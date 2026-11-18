@@ -1895,3 +1895,5 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 5.14 映像编辑及自主创作
 
 通过独立环境运行 `python3 Scripts/SpellDemos/verify_correspondence_creation.py --section ui|creation|all`。窗口段验证字段、中英说明、非法候选保留、撤销、再开和独立需求；创作段验证规则29的冻结输入、独立生成、已学原术衍生、实际付费传伤和完成。真实等待世界保存在 `correspondence-creation/creation/pending-save`，两段及首次失败的索引位于 `/home/inmny/.local/state/cultiway-dev/evidence/correspondence-creation/delivery.json`。
+
+5.14集中交付：`verify_correspondence_delivery.py --section resume|frozen --state <B3创作目录>` 用真实旧新等待档及已有结果检查正式冷启动。再次启动后，`--section completed --state <第一次冷读目录>`核对已授予和结算不会重放。`record_correspondence.py --state <B3创作目录>`连续录制真实映像，Worldfall独立环境加`--worldfall`；`--encode-only <视角目录>`可只按已保存的原始帧编码。双端原片、事件、核对和退出记录见 `/home/inmny/.local/state/cultiway-dev/evidence/correspondence-delivery/delivery.json`。
