@@ -11,7 +11,8 @@ public static partial class AbilityCompiler
     /// <param name="nodes">已经有限展开的部位。</param>
     /// <param name="body">可选的真实身体动作。</param>
     /// <param name="operations">运行中的有限条件操作。</param>
-    private static int[][] CompileActivations(List<CompiledForm> nodes, CompiledBodyAction body, List<CompiledEventOperation> operations)
+    /// <param name="defaultSignal">整招默认作用提供讯号。</param>
+    private static int[][] CompileActivations(List<CompiledForm> nodes, CompiledBodyAction body, List<CompiledEventOperation> operations, bool defaultSignal)
     {
         // 父子关系也供表面失效与成形启动使用，不依赖是否登记了事件。
         var children = new List<int>[nodes.Count];
@@ -94,8 +95,13 @@ public static partial class AbilityCompiler
             condition.Source = Resolve(target, condition.SourcePath, condition.Path + "/Source");
             if (condition.Source < 0)
             {
-                if (body == null || condition.Trigger is not (ConstructionChangeTrigger.ActorContact or ConstructionChangeTrigger.WorldContact or ConstructionChangeTrigger.End))
-                    Fail(condition.Path, "所选事件" + condition.Trigger + "需要实际Body身体，身体只提供人物接触、地块接触和自然收势");
+                if (condition.Trigger == ConstructionChangeTrigger.SignalDelivery)
+                {
+                    if (body?.Construction.MayContact != true || !body.Stages.Any(stage => HasSignal(stage.Impact)))
+                        Fail(condition.Path, "讯号送达条件需要实际身体接触和讯号作用");
+                }
+                else if (body == null || condition.Trigger is not (ConstructionChangeTrigger.ActorContact or ConstructionChangeTrigger.WorldContact or ConstructionChangeTrigger.End))
+                    Fail(condition.Path, "所选事件" + condition.Trigger + "需要实际身体提供该事件");
                 return;
             }
             CompiledForm source = nodes[condition.Source];
@@ -111,10 +117,22 @@ public static partial class AbilityCompiler
                 Fail(condition.Path, "飞行起点距离条件需要已有初始或条件飞行：" + source.Path);
             if (condition.Trigger == ConstructionChangeTrigger.GroundRouteDistance && !source.EventOperations.Any(op => op.Propagation != null))
                 Fail(condition.Path, "地波路程条件需要能够实际开始地表传播的来源：" + source.Path);
+            if (condition.Trigger is ConstructionChangeTrigger.WaterRouteArrival or ConstructionChangeTrigger.SignalDelivery)
+            {
+                bool conducts = source.Conduction != null || source.EventOperations.Any(op => op.Conduction != null);
+                if (condition.Trigger == ConstructionChangeTrigger.WaterRouteArrival && !conducts)
+                    Fail(condition.Path, "水路到达条件需要能实际传播的导电来源：" + source.Path);
+                if (condition.Trigger == ConstructionChangeTrigger.SignalDelivery &&
+                    (!(source.AffectsActors || conducts) || !(source.Impact == null && source.BodyWindow
+                        ? body.Stages.Any(stage => HasSignal(stage.Impact)) : HasSignal(source.Impact))))
+                    Fail(condition.Path, "讯号送达条件需要能实际作用于人物的讯号来源：" + source.Path);
+            }
             if (condition.Trigger is ConstructionChangeTrigger.SizeAbove or ConstructionChangeTrigger.SizeBelow && source.Growth.x < 0 &&
                 !source.EventOperations.Any(op => op.Kind == ConstructionOperationKind.Grow))
                 Fail(condition.Path, "成长条件需要已有初始或条件生长过程：" + source.Path);
         }
+
+        bool HasSignal(CompiledConstructionImpact impact) => impact == null ? defaultSignal : impact.Signal != null;
 
         int Resolve(int current, string reference, string path)
         {

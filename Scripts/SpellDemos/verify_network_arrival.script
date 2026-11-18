@@ -1,0 +1,176 @@
+// 5.18 B：只观察已确认的一条水路和一个收件人，不扩展旧样本。
+for (int x = 60; x <= 81; x++)
+for (int y = 69; y <= 76; y++)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    if (tile.building != null) tile.building.removeBuildingFinal();
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+}
+Actor source = Make(64), target = Make(76), other = Make(69), foe = Make(12, "wolf");
+target.setKingdom(foe.kingdom);
+other.setKingdom(source.kingdom);
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000f });
+var waters = new List<(ConstructedConduction Fact, float Age)>();
+var signals = new List<ConstructedSignalReceipt>();
+AbilityCast Running(string id) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Select(c => (AbilityCast)Field(c, "Cast")).Single(c => c.Plan.Id == id && !c.Finished);
+void Wave(ConstructedConduction fact)
+{
+    if (fact.AbilityId.StartsWith("test.network-arrival.")) waters.Add((fact, Running(fact.AbilityId).Age));
+}
+void Received(ConstructedSignalReceipt fact) { if (fact.SenderId == source.id) signals.Add(fact); }
+void QuietEnded(ConstructedCastEnded fact)
+{
+    if (fact.SourceId != source.id || !fact.AbilityId.StartsWith("test.network-arrival.")) return;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+    ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+}
+
+async Task Use(AbilityDefinition spell, Actor recipient, int x)
+{
+    Ready(source); await Advance(.12f); Place(source, x);
+    owner.GetCultisys<Xian>().wakan = 10000f;
+    float initial = owner.GetCultisys<Xian>().wakan;
+    await Fire(spell, source, recipient, aim: spell.Use?.Target == ActiveAbilityTargetMode.Point
+        ? new Vector3(recipient.current_position.x, recipient.current_position.y, 0f) : null, aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(initial - owner.GetCultisys<Xian>().wakan - spell.Cost) < .001f, "正式施放只支付一次整招费用");
+    File.WriteAllText(Path.Combine(folder, spell.Id + ".json"), JsonConvert.SerializeObject(spell, Formatting.Indented));
+}
+void Qualified(AbilityDefinition def, string message)
+{
+    string why = null;
+    try { AbilityCompiler.Compile(def, false); }
+    catch (InvalidDataException ex) { why = ex.Message; }
+    Check(why?.Contains(message) == true, "编译拒绝不能产生该事实的来源", why);
+}
+void PrepareArrival(AbilityDefinition def, ConstructionChangeTrigger trigger)
+{
+    def.Root.Children = new[] { new ConstructionNode
+    {
+        Id = "arrived", Form = "sword", ContactRole = ConstructionContactRole.Decoration,
+        Activation = new ConstructionActivation { Trigger = trigger }
+    }};
+    def.Root.Operations = def.Root.Operations.Append(new ConstructionOperation
+    {
+        Kind = ConstructionOperationKind.ConvertMatter, Matter = "ice", When = new ConstructionCondition { Trigger = trigger }
+    }).ToArray();
+}
+float StartAt(AbilityCast cast) => cast.Age - cast.NodeAge(1);
+float[] Vector(Vector3 p) => new[] { p.x, p.y, p.z };
+
+ConstructedAbilityService.ConductionConfirmed += Wave;
+ConstructedAbilityService.SignalReceived += Received;
+ConstructedAbilityService.CastEnded += QuietEnded;
+try
+{
+    if (section is "water" or "all")
+    {
+        var water = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "water-input.json")));
+        water.Id = "test.network-arrival.water";
+        water.Resource = "wakan"; water.TargetRange = 32; water.Lifetime = 1.38f;
+        water.Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point };
+        var conduct = water.Root.Operations.Single(o => o.Kind == ConstructionOperationKind.Conduct);
+        conduct.At = .26f; conduct.Conduction.Pulses = 2; conduct.Conduction.Interval = .4f;
+        PrepareArrival(water, ConstructionChangeTrigger.WaterRouteArrival);
+        water.Root.Operations = water.Root.Operations.Append(new ConstructionOperation
+        {
+            Kind = ConstructionOperationKind.ConvertMatter, Matter = "iron", At = .48f
+        }).ToArray();
+        var missing = ConstructionEditing.Copy(water);
+        missing.Root.Operations = missing.Root.Operations.Where(o => o.Kind != ConstructionOperationKind.Conduct).ToArray();
+        Qualified(missing, "水路到达条件");
+
+        var dry = ConstructionEditing.Copy(water); dry.Id += ".dry";
+        await Use(dry, target, 60); await Advance(.89f);
+        var empty = Running(dry.Id);
+        Check(empty.NodeAge(1) < 0f && empty.Matter(0).Id == "iron" && waters.All(e => e.Fact.AbilityId != dry.Id),
+            "脉冲时间已到，但空水路没有到达或后续作用");
+        await Advance(.58f);
+
+        for (int y = 70; y < 75; y++)
+        for (int x = 60; x <= 80; x++) World.world.GetTileSimple(x, y).setTileTypes("shallow_waters", null);
+        await Use(water, target, 60); await Advance(.14f);
+        var cast = Running(water.Id);
+        Check(waters.Count == 0 && cast.NodeAge(1) < 0f && cast.Matter(0).Id == "iron", "未到首轮放电时没有水路事件");
+        await Advance(.22f);
+        var first = waters.Single(e => e.Fact.AbilityId == water.Id);
+        var point = cast.ContactOrigin(1);
+        Check(first.Fact.Pulse == 1 && first.Fact.OwnerId == source.id && first.Fact.Route.Length > 1 && first.Fact.Spent > 0f &&
+            cast.NodeAge(1) >= 0f && Math.Abs(first.Age - StartAt(cast)) < .001f &&
+            (first.Fact.Route.Last() - point).sqrMagnitude < .00001f && cast.Matter(0).Id == "ice",
+            "实际确认的首轮水路在最后一格同刻开启部位和换材", new { first.Age, birth = StartAt(cast), position = Vector(point), end = Vector(first.Fact.Route.Last()) });
+        await Advance(.45f);
+        Check(waters.Count(e => e.Fact.AbilityId == water.Id) == 2 && Math.Abs(first.Age - StartAt(cast)) < .001f &&
+            cast.Matter(0).Id == "iron", "第二轮真实到达照常结算，不重复触发已完成的部位和操作");
+        await Advance(.68f);
+        Check(endings.Any(e => e.Fact.AbilityId == water.Id && !e.Fact.Cancelled), "水路及后续作用自然结束");
+    }
+
+    if (section is "signal" or "all")
+    {
+        for (int y = 69; y <= 76; y++)
+        for (int x = 60; x <= 81; x++) World.world.GetTileSimple(x, y).setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        Place(target, 76); target.setKingdom(source.kingdom);
+        Place(other, 69);
+        var dispatch = new AbilityDefinition
+        {
+            Id = "test.network-arrival.signal", Name = "告警到达", Resource = "wakan", Cost = 3f,
+            Power = 1, Cooldown = 0f, Lifetime = .42f, TargetRange = 32f,
+            Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, DamageScale = 0, SelectedTargetOnly = true,
+                Signal = new ConstructionSignal { Kind = ConstructionSignalKind.Warning, Duration = 2.3f } },
+            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = .6f },
+            Root = new ConstructionNode { Id = "contact", Form = "fireball", Matter = "physical", Scale = .75f,
+                Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval, Interval = .12f, MaximumPerTarget = 3 } }
+        };
+        PrepareArrival(dispatch, ConstructionChangeTrigger.SignalDelivery);
+        var missing = ConstructionEditing.Copy(dispatch); missing.Impact.Signal = null;
+        Qualified(missing, "讯号送达条件");
+
+        var miss = ConstructionEditing.Copy(dispatch); miss.Id += ".miss"; miss.Root.Offset = new[] { 0f, 8f, 0f };
+        await Use(miss, target, 64); await Advance(.22f);
+        var cast = Running(miss.Id);
+        Check(signals.Count == 0 && contacts.All(c => c.AbilityId != miss.Id) && cast.NodeAge(1) < 0f &&
+            cast.Matter(0).Id == "physical", "落空不会冒充人物收件，部位与操作保持等待");
+        await Advance(.3f);
+
+        await Use(dispatch, target, 64); await Advance(.28f);
+        cast = Running(dispatch.Id);
+        var received = signals.Single(); var point = cast.ContactOrigin(1);
+        var first = contacts.First(c => c.CastId == received.CastId);
+        Check(received.RecipientId == target.id && received.SenderId == source.id && cast.NodeAge(1) >= 0f &&
+            Math.Abs(first.Age - StartAt(cast)) < .001f && (point - new Vector3(76, 72, 0)).sqrMagnitude < .0001f &&
+            cast.Matter(0).Id == "ice" && contacts.Count(c => c.CastId == received.CastId) > 1,
+            "真实收件同刻在目标脚下开启并换材，后续接触只刷新",
+            new { received.RecipientId, received.SenderId, received.WorldTime, contact = first.Age, birth = StartAt(cast), position = Vector(point) });
+        await Advance(.23f);
+
+        await Use(dispatch, target, 64); await Advance(.23f);
+        cast = Running(dispatch.Id);
+        Check(contacts.Any(c => c.AbilityId == dispatch.Id && c.CastId != received.CastId) && signals.Count == 1 &&
+            cast.NodeAge(1) < 0f && cast.Matter(0).Id == "physical", "同一来源换一施放刷新仍不会再报告到达");
+        await Advance(2.6f);
+        await Use(dispatch, target, 64); await Advance(.21f);
+        cast = Running(dispatch.Id);
+        Check(signals.Count == 2 && signals[^1].CastId != received.CastId && cast.NodeAge(1) >= 0f &&
+            cast.Matter(0).Id == "ice", "讯号确实到期后，同一招恢复实际新送达");
+        await Advance(.35f);
+        Check(endings.Any(e => e.Fact.CastId == signals[^1].CastId && !e.Fact.Cancelled), "真实收件后自然结束");
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ConductionConfirmed -= Wave;
+    ConstructedAbilityService.SignalReceived -= Received;
+    ConstructedAbilityService.CastEnded -= QuietEnded;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "network-facts.json"), JsonConvert.SerializeObject(new
+    {
+        water = waters.Select(w => new { w.Fact.AbilityId, w.Fact.WorldTime, w.Age, w.Fact.OwnerId, w.Fact.Pulse, w.Fact.Spent, route = w.Fact.Route.Select(Vector) }),
+        signals, ended = endings.Select(e => e.Fact)
+    }, Formatting.Indented));
+}

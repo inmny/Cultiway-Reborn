@@ -88,9 +88,11 @@ public sealed partial class ConstructedAbilityService
     /// <param name="settings">传播和消耗规则。</param><param name="clock">共同确认时点。</param>
     /// <param name="pulse">本轮已经实际到时的波序号。</param>
     /// <param name="identities">明确接入的世界水域，空集合不借用其他供水。</param>
+    /// <param name="arrival">最后一处确认到达的水面；没有有效水路时为空。</param>
     private static ConstructionWorldReceipt Conduct(RunningCast running, int node, CompiledConduction settings,
-        double clock, int pulse, IReadOnlyList<long> identities = null)
+        double clock, int pulse, IReadOnlyList<long> identities, out Vector3? arrival)
     {
+        arrival = null;
         long epoch = worldGeneration;
         var owner = running.Owner(node);
         if (running.Cast.Finished || running.Cast.RemainingForce(node) <= 0)
@@ -211,14 +213,20 @@ public sealed partial class ConstructedAbilityService
         WorldMaterialService.PulseConduction(reached, clock);
         ConductionConfirmed?.Invoke(new ConstructedConduction(running.Id, running.SourceId, owner.Id,
             running.Cast.Plan.Id, node, clock,
-            reached.Select(w => new Vector3(w.Footprint(cell).center.x, w.Footprint(cell).center.y,
-                w.Bottom + w.Depth)).ToArray(),
+            reached.Select(WaterPoint).ToArray(),
             ids.ToArray(), before.ToArray(), after.ToArray(), trace.Spent, running.Cast.RemainingForce(node),
             reached.Where(w => w.Source < -1).Select(w => -w.Source - 1).Distinct().OrderBy(id => id).ToArray(),
             settings.Order, pulse, responses.ToArray()));
         if (epoch != worldGeneration) return null;
+        if (reached.Count > 0) arrival = WaterPoint(reached[^1]);
         return new ConstructionWorldReceipt(ConstructionWorldResultKind.Conduction, node, clock, pulse,
             targets: ids.ToArray(), cells: reached.Count,
             spent: trace.Spent, remaining: running.Cast.RemainingForce(node));
+
+        Vector3 WaterPoint(ConductingWater water)
+        {
+            Vector2 center = water.Footprint(cell).center;
+            return new Vector3(center.x, center.y, water.Bottom + water.Depth);
+        }
     }
 }

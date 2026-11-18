@@ -211,6 +211,22 @@ public sealed partial class AbilityCast
                     EndNode(index);
     }
 
+    /// <summary>接收已经由游戏确认的传播终点；只沿当前有效来源展开普通条件。</summary>
+    /// <param name="source">实际送达来源，负一表示身体。</param>
+    /// <param name="trigger">真实水路或收件结果。</param>
+    /// <param name="point">已经确认的水面或收件人脚下。</param>
+    internal void ConfirmNetworkArrival(int source, ConstructionChangeTrigger trigger, Vector3 point)
+    {
+        if (Plan.EventListeners.Length == 0 || cancelled || Age >= Plan.Lifetime || source >= 0 && !nodes[source].Exists)
+            return;
+        int bucket = (source < 0 ? nodes.Length : source) * CompiledConstructionCondition.EventCount + (int)trigger - 1;
+        if (Plan.EventListeners[bucket].Length == 0) return;
+        SignalEvent(source, trigger, point);
+        FlushBirths(inputs.Target);
+        UpdateSteps();
+        RecordActionTimeline();
+    }
+
     /// <summary>在真实交锋处通知变化及后续部位，耗尽时仍能留下独立结果。</summary>
     /// <param name="node">已经参与交锋的部位。</param>
     /// <param name="point">共同时间确认的接触位置。</param>

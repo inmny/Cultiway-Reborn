@@ -1929,3 +1929,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 5.18 A 地波实际到达
 
 通过 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_ground_route.py` 复用已有地面和同一个足底入口。`--section arrival` 只查近远到达、同部位操作和预测回退；`--section interruption` 只查途中断路、接回后同招再用和取消。正式施放与事件位置、结束、输入和初次登记失败见 `~/.local/state/cultiway-dev/evidence/ground-route-a/delivery.json`。
+
+### 5.18 B 水路与人物实际送达
+
+通过 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_network_arrival.py`。`--section water` 复用循水连雷，核对实际水路、空水、首末两轮和接续位置；`--section signal` 复用告警入口，核对落空、真实收件、同源刷新及到期后重发。输入、真实脉冲和收件时点、初次准备失败见 `~/.local/state/cultiway-dev/evidence/network-arrival-b/delivery.json`。

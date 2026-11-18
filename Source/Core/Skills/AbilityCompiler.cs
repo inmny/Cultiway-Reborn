@@ -659,7 +659,7 @@ public static partial class AbilityCompiler
                 eventOperations.Add(operation);
             }
 
-        int[][] listeners = CompileActivations(nodes, body, eventOperations);
+        int[][] listeners = CompileActivations(nodes, body, eventOperations, definition.Impact?.Signal != null);
         if ((definition.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) && connectedRoot &&
             nodes[0].Activation is
                 { Placement: ConstructionEventPlacement.Attached } gate)

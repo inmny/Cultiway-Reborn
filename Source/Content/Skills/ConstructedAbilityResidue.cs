@@ -66,9 +66,13 @@ public sealed partial class ConstructedAbilityService
                 simulation.contactTime = clock;
                 try
                 {
-                    var receipt = Conduct(running, request.Node, request.Conduction, clock, request.Pulse, identities);
+                    var receipt = Conduct(running, request.Node, request.Conduction, clock, request.Pulse, identities, out var arrival);
                     if (epoch == worldGeneration && receipt != null)
+                    {
                         running.Cast.ConfirmStepWorld(request.Step, receipt, request.Pulse >= request.Conduction.Pulses);
+                        if (arrival.HasValue)
+                            running.Cast.ConfirmNetworkArrival(request.Node, ConstructionChangeTrigger.WaterRouteArrival, arrival.Value);
+                    }
                 }
                 finally
                 {

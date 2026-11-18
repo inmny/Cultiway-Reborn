@@ -28,7 +28,7 @@ internal class CompiledConstructionCondition
     /// <summary>实际条件字段的位置，仅用于创建时指出不成立的引用。</summary>
     internal readonly string Path;
     /// <summary>除按时操作外，实际可订阅的事件种类数。</summary>
-    internal const int EventCount = 10;
+    internal const int EventCount = 12;
     /// <summary>明确数值边界，非数值事件不使用。</summary>
     internal readonly float Threshold;
     /// <summary>只用于解析引用的独立路径。</summary>
@@ -50,7 +50,7 @@ internal class CompiledConstructionCondition
     {
         Path = path;
         SourcePath = source.Source; Trigger = source.Trigger; Delay = source.Delay;
-        if (string.IsNullOrWhiteSpace(SourcePath) || Trigger is not (ConstructionChangeTrigger.ActorContact or ConstructionChangeTrigger.Clash or ConstructionChangeTrigger.End or ConstructionChangeTrigger.MatterChanged or ConstructionChangeTrigger.ForceBelow or ConstructionChangeTrigger.SizeAbove or ConstructionChangeTrigger.SizeBelow or ConstructionChangeTrigger.WorldContact or ConstructionChangeTrigger.DistanceFromFlightStart or ConstructionChangeTrigger.GroundRouteDistance) ||
+        if (string.IsNullOrWhiteSpace(SourcePath) || Trigger is not (ConstructionChangeTrigger.ActorContact or ConstructionChangeTrigger.Clash or ConstructionChangeTrigger.End or ConstructionChangeTrigger.MatterChanged or ConstructionChangeTrigger.ForceBelow or ConstructionChangeTrigger.SizeAbove or ConstructionChangeTrigger.SizeBelow or ConstructionChangeTrigger.WorldContact or ConstructionChangeTrigger.DistanceFromFlightStart or ConstructionChangeTrigger.GroundRouteDistance or ConstructionChangeTrigger.WaterRouteArrival or ConstructionChangeTrigger.SignalDelivery) ||
             float.IsNaN(Delay) || float.IsInfinity(Delay) || Delay < 0f || Delay >= lifetime ||
             source.State != null && source.Matter == null || Trigger != ConstructionChangeTrigger.MatterChanged && (source.Matter != null || source.State != null))
             throw new InvalidDataException(path + "：事件来源、种类、延迟或材料筛选无效");
