@@ -132,7 +132,7 @@ internal sealed class CompiledEventOperation
     /// <summary>已解析的输出材料。</summary>
     internal AbilityMatter Matter => MatterData?.Matter;
     /// <summary>已解析的世界选择。</summary>
-    internal CompiledWorldMatter WorldMatter => MatterData?.World ?? (parameters as CompiledErosion)?.World;
+    internal CompiledWorldMatter WorldMatter => MatterData?.World ?? (parameters as CompiledErosion)?.World ?? (parameters as CompiledErosionRetiming)?.World;
     /// <summary>只有旋转、飞行或聚合需要三维向量。</summary>
     internal Vector3 Vector => parameters is Vector3 spin ? spin : Flight?.Velocity ?? Gather?.Target ?? Vector3.zero;
 

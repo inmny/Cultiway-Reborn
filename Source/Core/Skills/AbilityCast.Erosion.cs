@@ -54,7 +54,11 @@ public sealed partial class AbilityCast
         {
             ref NodeState state = ref nodes[node];
             if (state.Erosion == null || state.ErosionProgress >= 1 || !state.Exists) continue;
-            float progress = Mathf.Clamp01((Age - state.ErosionAt) / state.Erosion.Seconds);
+            var pace = state.Erosion.Pace;
+            float progress = pace == null ? Mathf.Clamp01((Age - state.ErosionAt) / state.Erosion.Seconds) :
+                Age >= state.ErosionAt + state.Erosion.Completion ? 1f :
+                (float)(pace.WorkAt((double)Age - state.ErosionAt) / state.Erosion.Seconds);
+            if (progress <= state.ErosionProgress) continue;
             double loss = state.Erosion.Fraction * (double)state.Matter.ErosionFactor;
             double retained = CompiledErosion.Retained(loss, state.ErosionProgress, progress);
             double removed = state.Volume * Math.Max(0, 1 - retained);

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Newtonsoft.Json;
 
 namespace Cultiway.Core.Skills;
 
@@ -8,15 +9,23 @@ public sealed class ConstructionErosion
 {
     /// <summary>整段投入份额，乘当前材料系数后得到实际损耗比例。</summary>
     public float Fraction = .75f;
+
+    /// <summary>本次侵蚀自己的变速时段，旧资料默认常速。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionProcessWindow[] TimeWindows;
 }
 
 /// <summary>入口核对后的有限侵蚀过程。</summary>
 internal sealed class CompiledErosion
 {
-    /// <summary>沿共同世界时间推进的历时。</summary>
+    /// <summary>按常速完成需要的有效历时。</summary>
     internal readonly float Seconds;
     /// <summary>未乘材料耐受的投入份额。</summary>
     internal readonly float Fraction;
+    /// <summary>本过程变速规则，空值保留原有推进。</summary>
+    internal readonly CompiledProcessTime Pace;
+    /// <summary>当前安排走完本次侵蚀所需的世界秒数。</summary>
+    internal readonly float Completion;
     /// <summary>可选的世界材料筛选，空值仍侵蚀操作自身。</summary>
     internal readonly CompiledWorldMatter World;
     /// <summary>解析实际参数，非法声明停在资料边界。</summary>
@@ -34,6 +43,9 @@ internal sealed class CompiledErosion
         if (float.IsNaN(Seconds) || float.IsInfinity(Seconds) || Seconds <= 0 || Seconds > lifetime ||
             float.IsNaN(Fraction) || float.IsInfinity(Fraction) || Fraction <= 0 || Fraction > 1)
             throw new InvalidDataException(path + "：侵蚀需要有效历时及大于零且不超过一的份额");
+        if (source?.TimeWindows is { Length: > 0 })
+            Pace = new CompiledProcessTime(source.TimeWindows, lifetime, path + "/Erosion/TimeWindows");
+        Completion = Pace == null ? Seconds : (float)Pace.CompletionFor(Seconds);
     }
 
     /// <summary>真实材料能表示本段损耗时才接受交接。</summary>

@@ -1,0 +1,66 @@
+JObject Section() => (JObject)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "process-time"))["sections"]["world_materials"];
+JArray Rows() => (JArray)Section()["data"]["Records"];
+JToken Material(long id) => Rows().Single(value => (long)value["Id"] == id)["Material"];
+bool Close(double a, double b) => Math.Abs(a - b) < .0001;
+async Task Load(string name)
+{
+    Config.paused = true; World.world.save_manager.loadWorld(Path.Combine(folder, name));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+}
+try
+{
+    var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "expected.json")));
+    int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+    long id = (long)expected["id"], first = (long)expected["first"];
+    Check(process != (int)expected["process"] && WorldMaterialService.Count == 0, "新进程先加载的世界不带上一次的材料和结果");
+    var before = ((JArray)expected["section"]["data"]["Records"]).Single(value => (long)value["Id"] == id)["Material"];
+    await Load("pending-save"); var loaded = Material(id);
+    var saves = Cultiway.ModClass.I.WorldSaves;
+    Check((int)Section()["version"] == 10 && saves.LastReport.Skipped.Count == 0 &&
+        JToken.DeepEquals(loaded["Erosion"], before["Erosion"]) && JToken.DeepEquals(loaded["Weathering"], before["Weathering"]) &&
+        (double)loaded["Volume"] == (double)before["Volume"] && (double)loaded["Resource"] == (double)before["Resource"],
+        "正式冷启动原样恢复暂停位置、当前实际余量和累计损耗", loaded["Erosion"]);
+    await Advance(.55f); var waiting = Material(id);
+    Check((double)waiting["Erosion"]["WorldElapsed"] > (double)loaded["Erosion"]["WorldElapsed"] &&
+        (double)waiting["Erosion"]["Progress"] == (double)loaded["Erosion"]["Progress"] &&
+        (double)waiting["Volume"] == (double)loaded["Volume"] && (double)waiting["Resource"] == (double)loaded["Resource"],
+        "重启后的剩余暂停时段没有被补算或忽略", waiting["Erosion"]);
+    await Advance(2.85f - (float)waiting["Erosion"]["WorldElapsed"] + .3f); var running = Material(id);
+    double worldElapsed = (double)running["Erosion"]["WorldElapsed"], elapsed = (double)running["Erosion"]["Elapsed"];
+    Check(worldElapsed > 2.85 && elapsed < 4 && Close(elapsed, .35 + 2 * (worldElapsed - 2.85)) &&
+        (double)running["Volume"] < (double)waiting["Volume"] &&
+        Close((double)running["Volume"] + (double)running["Weathering"]["LostVolume"], 8) &&
+        Close((double)running["Resource"] + (double)running["Weathering"]["SpentResource"], 3),
+        "跨过暂停后只按剩下的两倍时段推进，实际量和原本金守恒", running["Erosion"]);
+    await Advance(2); var finished = Material(id);
+    Check((double)finished["Erosion"]["Progress"] == 1 && !(bool)finished["Erosion"]["Interrupted"] &&
+        Close((double)finished["Volume"], 2) && Close((double)finished["Resource"], .75), "真实完成一次，留下实际余量和未耗本金");
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save")); await Load("completed-save"); await Advance(.3f);
+    var confirmed = Material(id);
+    Check(JToken.DeepEquals(confirmed["Erosion"], finished["Erosion"]) && JToken.DeepEquals(confirmed["Weathering"], finished["Weathering"]),
+        "完成后再存读不会重复扣减");
+
+    await Load("bad-world");
+    Check(Rows().Any(value => (long)value["Id"] == first) && !Rows().Any(value => (long)value["Id"] == id) &&
+        saves.LastReport.Skipped.Any(value => value.Contains("侵蚀变速")), "无效暂停记录只丢弃自身并报告，其他真实材料仍在");
+    var legacy = JObject.Parse(File.ReadAllText(Path.Combine(folder, "legacy.json")));
+    var legacyRow = ((JArray)legacy["section"]["data"]["Records"]).Single(); long legacyId = (long)legacyRow["Id"];
+    await Load("legacy-world"); var old = Material(legacyId);
+    Check((int)Section()["version"] == 10 && Rows().Count == 1 && saves.LastReport.Skipped.Count == 0 &&
+        JToken.DeepEquals(old["Erosion"], legacyRow["Material"]["Erosion"]) && JToken.DeepEquals(old["Weathering"], legacyRow["Material"]["Weathering"]) &&
+        (double)old["Volume"] == (double)legacyRow["Material"]["Volume"] && (double)old["Resource"] == (double)legacyRow["Material"]["Resource"],
+        "实际旧第八版保留过程编号、实际耗损、本金及中途进度");
+    double clock = (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null);
+    await Advance(.35f); var resumed = Material(legacyId);
+    double seconds = (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null) - clock;
+    Check(resumed["Erosion"]["TimeWindows"] == null && seconds >= .35 &&
+        Close((double)resumed["Erosion"]["Elapsed"] - (double)old["Erosion"]["Elapsed"], seconds) &&
+        (double)resumed["Volume"] < (double)old["Volume"], "旧进度按常速接续，换世界未继承上一次的变速");
+    File.WriteAllText(Path.Combine(folder, "snapshots.json"), JsonConvert.SerializeObject(new { loaded, waiting, running, finished, old, resumed }, Formatting.Indented));
+    return new { passed = true, closed = "冷启动后按剩余时间恢复并完成，旧档常速接续，坏记录局部丢弃", process };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

@@ -22,11 +22,12 @@ public sealed partial class WindowWanfaConstructionEditor
                     ConstructionOperationKind.Spin, ConstructionOperationKind.Grow, ConstructionOperationKind.Animate, ConstructionOperationKind.Deform,
                     ConstructionOperationKind.ConvertMatter, ConstructionOperationKind.Gather,
                     ConstructionOperationKind.Fracture, ConstructionOperationKind.Flow,
-                    ConstructionOperationKind.Recover, ConstructionOperationKind.Erode,
+                    ConstructionOperationKind.Recover, ConstructionOperationKind.Erode, ConstructionOperationKind.RetimeErosion,
                     ConstructionOperationKind.Leave, ConstructionOperationKind.Conduct, ConstructionOperationKind.Propagate, ConstructionOperationKind.Ray
                 }.Where(kind => kind != ConstructionOperationKind.Leave || !node.Operations.Any(o => o.Kind == kind))
                 .Where(kind => kind != ConstructionOperationKind.Ray ||
                     Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Span != null && !node.Operations.Any(o => o.Ray != null))
+                .Where(kind => kind != ConstructionOperationKind.RetimeErosion || Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Meshes.Length > 0)
                 .Where(kind => kind != ConstructionOperationKind.Gather || part > 0).Where(kind =>
                     kind != ConstructionOperationKind.Fracture ||
                     Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Meshes.Length > 1 &&
@@ -91,9 +92,10 @@ public sealed partial class WindowWanfaConstructionEditor
             PropagationParameters(operation.Propagation ??= new ConstructionPropagation());
         if (operation.Kind == ConstructionOperationKind.Conduct)
             ConductionParameters(operation.Conduction ??= new ConstructionConduction());
-        if (operation.Kind == ConstructionOperationKind.Leave) ResidueParameters(operation);
+        if (operation.Kind == ConstructionOperationKind.Leave) ResidueParameters(node, operation);
         if (operation.Kind == ConstructionOperationKind.Recover) RecoveryParameters(operation);
-        if (operation.Kind == ConstructionOperationKind.Erode) ErosionParameters(operation);
+        if (operation.Kind == ConstructionOperationKind.Erode) ErosionParameters(node, operation);
+        if (operation.Kind == ConstructionOperationKind.RetimeErosion) RetimeParameters(node, operation);
         if (operation.Kind == ConstructionOperationKind.Fracture) FractureParameters(node, operation.Fracture);
         if (operation.Kind == ConstructionOperationKind.Gather) GatherParameters(node, operation);
         if (operation.Kind == ConstructionOperationKind.Grow)
@@ -152,6 +154,8 @@ public sealed partial class WindowWanfaConstructionEditor
             Propagation = kind == ConstructionOperationKind.Propagate ? new ConstructionPropagation() : null,
             Recovery = kind == ConstructionOperationKind.Recover ? new ConstructionRecovery() : null,
             Erosion = kind == ConstructionOperationKind.Erode ? new ConstructionErosion() : null,
+            WorldMatter = kind == ConstructionOperationKind.RetimeErosion ? new ConstructionWorldMatter { FromMatter = "wood", FromState = "solid" } : null,
+            TimeWindows = kind == ConstructionOperationKind.RetimeErosion ? new[] { new ConstructionProcessWindow { Seconds = .5f, Rate = 0f } } : null,
             Flow = kind == ConstructionOperationKind.Flow ? new ConstructionFlow() : null,
             Fracture = kind == ConstructionOperationKind.Fracture ? NewFracture(node, lifetime) : null,
             When = kind == ConstructionOperationKind.Fracture

@@ -76,6 +76,8 @@ internal readonly struct AbilityWorldMatterRequest
     internal readonly CompiledConduction Conduction;
     /// <summary>可选的独立世界侵蚀，其他请求为空。</summary>
     internal readonly CompiledErosion Erosion;
+    /// <summary>可选的现有侵蚀时间调整。</summary>
+    internal readonly CompiledErosionRetiming Retiming;
 
     /// <summary>导电在同一轮中的波序号；材料转换为零。</summary>
     internal readonly int Pulse;
@@ -94,7 +96,7 @@ internal readonly struct AbilityWorldMatterRequest
         Matter = matter;
         Selection = selection;
         Conduction = null;
-        Erosion = null;
+        Erosion = null; Retiming = null;
         Pulse = 0;
         Step = step;
     }
@@ -109,7 +111,7 @@ internal readonly struct AbilityWorldMatterRequest
         Matter = null;
         Selection = null;
         Conduction = conduction;
-        Erosion = null;
+        Erosion = null; Retiming = null;
         Pulse = pulse;
         Step = step;
     }
@@ -118,5 +120,11 @@ internal readonly struct AbilityWorldMatterRequest
     /// <param name="node">真实选择部位。</param><param name="erosion">有限过程及材料筛选。</param>
     /// <param name="step">对应步骤。</param>
     internal AbilityWorldMatterRequest(int node, CompiledErosion erosion, int step)
-    { Node = node; Matter = null; Selection = erosion.World; Conduction = null; Erosion = erosion; Pulse = 0; Step = step; }
+    { Node = node; Matter = null; Selection = erosion.World; Conduction = null; Erosion = erosion; Retiming = null; Pulse = 0; Step = step; }
+
+    internal AbilityWorldMatterRequest(int node, CompiledErosionRetiming retiming, int step)
+    {
+        this = default;
+        Node = node; Selection = retiming.World; Retiming = retiming; Step = step;
+    }
 }

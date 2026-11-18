@@ -96,6 +96,10 @@ public static class ConstructionOperations
         Add(ConstructionOperationKind.Erode, new[] { part, world }, new[] { part, Port("erosion", Value.Process), material },
             State.Pose | State.Matter | State.Event, Resource.Geometry | Resource.Payment | Resource.WorldMaterials, Effect.Shape | Effect.World,
             new[] { nameof(ConstructionOperation.Seconds), nameof(ConstructionOperation.Erosion), nameof(ConstructionOperation.WorldMatter) }, new[] { nameof(ConstructionOperation.Seconds) });
+        Add(ConstructionOperationKind.RetimeErosion, new[] { part, world }, new[] { part, Port("retimed", Value.Result), material },
+            State.Pose | State.WorldMaterial | State.Event, Resource.Geometry | Resource.WorldMaterials, Effect.World,
+            new[] { nameof(ConstructionOperation.WorldMatter), nameof(ConstructionOperation.TimeWindows) },
+            new[] { nameof(ConstructionOperation.WorldMatter), nameof(ConstructionOperation.TimeWindows) });
         Add(ConstructionOperationKind.ConsumeInventory, new[] { part }, new[] { Port("consumed", Value.Result) },
             State.Event, Resource.Inventory, Effect.World, new[] { nameof(ConstructionOperation.InventoryUse) },
             new[] { nameof(ConstructionOperation.InventoryUse) });

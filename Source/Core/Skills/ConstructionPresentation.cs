@@ -206,6 +206,7 @@ public static class ConstructionPresentation
                 if (operation.Kind == ConstructionOperationKind.Leave)
                     action = ResidueDescription(operation.Residue);
                 if (operation.Kind == ConstructionOperationKind.Erode) action = ErosionDescription(operation);
+                if (operation.Kind == ConstructionOperationKind.RetimeErosion) action = RetimingDescription(operation);
                 string when = operation.When != null
                     ? Condition(operation.When)
                     : operation.Trigger != ConstructionChangeTrigger.Time
@@ -223,10 +224,14 @@ public static class ConstructionPresentation
             processes.Add(F("Process", when, Form(plan.Nodes[plan.Steps.Single(value => value.Id == step.Id).Node].Resource.Description.Id), RayDescription(operation.Ray)));
         }
 
-        foreach (ConstructionStep step in definition.Steps.Where(step => step.Operation.Kind == ConstructionOperationKind.Erode ||
+        foreach (ConstructionStep step in definition.Steps.Where(step => step.Operation.Kind is ConstructionOperationKind.Erode or ConstructionOperationKind.RetimeErosion ||
                      step.Operation.Kind == ConstructionOperationKind.Leave && step.Operation.Residue?.Erosion != null))
-            processes.Add(F("NamedProcess", step.Id, step.Operation.Kind == ConstructionOperationKind.Erode
-                ? ErosionDescription(step.Operation) : ResidueDescription(step.Operation.Residue)));
+            processes.Add(F("NamedProcess", step.Id, step.Operation.Kind switch
+            {
+                ConstructionOperationKind.Erode => ErosionDescription(step.Operation),
+                ConstructionOperationKind.RetimeErosion => RetimingDescription(step.Operation),
+                _ => ResidueDescription(step.Operation.Residue)
+            }));
 
         foreach (ConstructionStep step in definition.Steps.Where(step => step.Operation.Kind is
                      ConstructionOperationKind.MapSpace or ConstructionOperationKind.MapActor or ConstructionOperationKind.MapArtifact))
@@ -252,7 +257,7 @@ public static class ConstructionPresentation
     {
         string text = residue?.Lifetime > 0f ? F("Residue", residue.Lifetime) : T("ResiduePermanent");
         return residue?.Erosion == null ? text : text + " " +
-            F("ResidueErosion", residue.ErosionSeconds, residue.Erosion.Fraction);
+            F("ResidueErosion", residue.ErosionSeconds, residue.Erosion.Fraction) + ProcessTimeDescription(residue.Erosion.TimeWindows);
     }
 
     /// <summary>区分原主体和真实世界选择，份额仍要经过实际材料耐受。</summary>
@@ -260,14 +265,28 @@ public static class ConstructionPresentation
     private static string ErosionDescription(ConstructionOperation operation)
     {
         float fraction = operation.Erosion?.Fraction ?? .75f;
-        if (operation.WorldMatter == null) return F("SelfErosion", operation.Seconds, fraction);
-        ConstructionWorldMatter selection = operation.WorldMatter;
-        string filter = selection.FromMatter == null ? T("AllWorldMaterials") :
-            selection.FromState == null ? F("AllMaterialStates", Material(AbilityMatters.Resolve(selection.FromMatter, null, "侵蚀说明"))) :
-            Material(AbilityMatters.Resolve(selection.FromMatter, selection.FromState, "侵蚀说明"));
-        return F("WorldErosion", operation.Seconds, fraction, filter, selection.MaximumVolume,
-            T(selection.OwnedOnly ? "OwnWorldMaterials" : "AnyWorldMaterials"));
+        string time = ProcessTimeDescription(operation.Erosion?.TimeWindows);
+        if (operation.WorldMatter == null) return F("SelfErosion", operation.Seconds, fraction) + time;
+        var selection = operation.WorldMatter;
+        return F("WorldErosion", operation.Seconds, fraction, WorldSelectionName(selection), selection.MaximumVolume,
+            T(selection.OwnedOnly ? "OwnWorldMaterials" : "AnyWorldMaterials")) + time;
     }
+
+    private static string RetimingDescription(ConstructionOperation operation)
+    {
+        var selection = operation.WorldMatter;
+        return F("RetimeErosion", WorldSelectionName(selection), selection.MaximumVolume,
+                   T(selection.OwnedOnly ? "OwnWorldMaterials" : "AnyWorldMaterials")) +
+               (operation.TimeWindows.Length == 0 ? " " + T("RestoreProcessTime") : ProcessTimeDescription(operation.TimeWindows));
+    }
+
+    private static string WorldSelectionName(ConstructionWorldMatter selection) => selection.FromMatter == null ? T("AllWorldMaterials") :
+        selection.FromState == null ? F("AllMaterialStates", Material(AbilityMatters.Resolve(selection.FromMatter, null, "侵蚀说明"))) :
+        Material(AbilityMatters.Resolve(selection.FromMatter, selection.FromState, "侵蚀说明"));
+
+    private static string ProcessTimeDescription(ConstructionProcessWindow[] windows) => windows is not { Length: > 0 } ? "" :
+        " " + F("ProcessTime", string.Join(T("ProcessTimeSeparator"), windows.Select(window =>
+            F(window.Rate == 0f ? "ProcessTimePause" : "ProcessTimeRate", window.At, window.Seconds, window.Rate))));
 
     /// <summary>条件说明与真实时钟、阈值和额外等待一致。</summary>
     /// <param name="condition">实际开始条件。</param>
@@ -304,6 +323,8 @@ public static class ConstructionPresentation
         "结构形变" => "Deformation",
         "库存材料" => "Inventory",
         "材料交出" => "MaterialTransfer",
+        "过程时间" => "ProcessTime",
+        "调整侵蚀节奏" => "RetimeErosion",
         "主体侵蚀" => "SelfErosion",
         "世界侵蚀" => "WorldErosion",
         "留置侵蚀" => "ResidueErosion",

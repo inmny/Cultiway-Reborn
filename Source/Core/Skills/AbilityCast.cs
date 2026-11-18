@@ -589,7 +589,8 @@ public sealed partial class AbilityCast
             }
 
             IncludeNode(form.LeaveAt);
-            if (state.Erosion != null && state.ErosionProgress < 1) Include(state.ErosionAt + state.Erosion.Seconds);
+            if (state.Erosion != null && state.ErosionProgress < 1)
+                Include(state.Erosion.Pace?.NextBoundary(state.ErosionAt, Age, state.Erosion.Completion) ?? state.ErosionAt + state.Erosion.Seconds);
             if (state.Recovering) Include(state.RecoveryAt + state.Recovery.Seconds);
             if (form.ShapeActiveFrom && state.Motion == null) IncludeShape(form.Active.x);
             else IncludeNode(form.Active.x);

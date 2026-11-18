@@ -22,7 +22,7 @@ public sealed partial class WindowWanfaConstructionEditor
 
     /// <summary>留置时长是世界独立规则，不依附本次施放的结束时间。</summary>
     /// <param name="operation">当前真实草稿。</param>
-    private void ResidueParameters(ConstructionOperation operation)
+    private void ResidueParameters(ConstructionNode node, ConstructionOperation operation)
     {
         Number("ResidueLifetime", operation.Residue?.Lifetime ?? 0, value =>
         {
@@ -38,12 +38,13 @@ public sealed partial class WindowWanfaConstructionEditor
         {
             Number("ResidueErosionSeconds", operation.Residue.ErosionSeconds, value => operation.Residue.ErosionSeconds = value);
             Number("ResidueErosionFraction", operation.Residue.Erosion.Fraction, value => operation.Residue.Erosion.Fraction = value);
+            ProcessTimeRows(node, operation);
         }
     }
 
     /// <summary>普通部位和命名步骤共用侵蚀历时、份额及世界材料选择。</summary>
     /// <param name="operation">当前独立草稿中的操作。</param>
-    private void ErosionParameters(ConstructionOperation operation)
+    private void ErosionParameters(ConstructionNode node, ConstructionOperation operation)
     {
         Row("ErosionRules", T("ErosionRulesHint"));
         Number("ErosionSeconds", operation.Seconds, value => operation.Seconds = value);
@@ -56,6 +57,7 @@ public sealed partial class WindowWanfaConstructionEditor
             ? new ConstructionWorldMatter { FromMatter = "wood", FromState = "solid" }
             : null);
         if (operation.WorldMatter != null) WorldMatterParameters(operation.WorldMatter, true);
+        ProcessTimeRows(node, operation);
     }
 
     /// <summary>只绑定实际参与数值计算的参数。</summary>

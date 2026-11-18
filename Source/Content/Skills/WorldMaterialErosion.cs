@@ -77,14 +77,8 @@ public sealed partial class WorldMaterialService
     internal static WorldErosionWatch Erode(long controller, IReadOnlyList<AbilityCapsule> selection, CompiledErosion settings,
         double clock, long cast, string ability, int step, IReadOnlyList<long> identities)
     {
-        instance.RebuildIndex();
+        var targets = ErosionTargets(selection);
         UpdateErosionWatches(clock);
-        var targets = new HashSet<long>();
-        foreach (var shape in selection)
-        {
-            instance.index.Query(AbilityContactIndex.Swept(shape, shape), instance.nearby);
-            foreach (int i in instance.nearby) targets.Add(instance.indexed[i].Id);
-        }
         var watch = new WorldErosionWatch(step); var affected = new List<WorldMaterialRecord>();
         double remaining = settings.World.MaximumVolume;
         foreach (long id in targets.OrderBy(id => id))
@@ -125,6 +119,50 @@ public sealed partial class WorldMaterialService
             if (epoch != instance.generation) return null;
         }
         return watch;
+    }
+
+    /// <summary>在已确认的材料时间上换一份安排，原过程、付费及等待关系保持不变。</summary>
+    internal static ConstructionWorldReceipt RetimeErosion(long controller, IReadOnlyList<AbilityCapsule> selection,
+        CompiledErosionRetiming settings, double clock, long cast, string ability, IReadOnlyList<long> identities)
+    {
+        var affected = new List<WorldMaterialRecord>();
+        double volume = 0, resource = 0, remaining = settings.World.MaximumVolume;
+        foreach (long id in ErosionTargets(selection).OrderBy(id => id))
+        {
+            if (remaining <= 0) break;
+            var row = rows[id]; var material = row.Material;
+            if (row.Finished || row.Recovering || !material.Erosion.Active || material.Volume <= 0 ||
+                material.Volume > remaining || identities != null && !identities.Contains(row.Identity) ||
+                settings.World.OwnedOnly && row.Provider != controller || !settings.World.Matches(material.Matter) ||
+                !instance.SelectMaterial(row, selection, instance.picked) || !material.Erosion.TryRetime(settings.Pace)) continue;
+            remaining -= material.Volume;
+            volume += material.Volume; resource += material.Resource;
+            affected.Add(row);
+        }
+
+        var receipt = new ConstructionWorldReceipt(ConstructionWorldResultKind.ErosionRetimed, -1, clock,
+            materials: affected.Select(row => row.Id).ToArray(),
+            materialIdentities: affected.Select(row => row.Identity).Distinct().ToArray(), volume: volume, resource: resource);
+        long epoch = instance.generation;
+        foreach (var row in affected)
+        {
+            Changed?.Invoke(new WorldMaterialChange(row, "retime-erosion", castId: cast, abilityId: ability));
+            if (epoch != instance.generation) return null;
+        }
+        return receipt;
+    }
+
+    /// <summary>侵蚀及调整节奏使用同一真实形状索引。</summary>
+    private static HashSet<long> ErosionTargets(IReadOnlyList<AbilityCapsule> selection)
+    {
+        instance.RebuildIndex();
+        var targets = new HashSet<long>();
+        foreach (var shape in selection)
+        {
+            instance.index.Query(AbilityContactIndex.Swept(shape, shape), instance.nearby);
+            foreach (int i in instance.nearby) targets.Add(instance.indexed[i].Id);
+        }
+        return targets;
     }
 
     /// <summary>先保留记录额度，再按实际可表示厚度转交局部份额。</summary>

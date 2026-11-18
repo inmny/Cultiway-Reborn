@@ -335,7 +335,10 @@ public enum ConstructionOperationKind
     MapActor = 22,
 
     /// <summary>命名步骤把本次借用的原法宝送到成对出口，由世界确认。</summary>
-    MapArtifact = 23
+    MapArtifact = 23,
+
+    /// <summary>替换选中世界材料正在进行的侵蚀节奏。</summary>
+    RetimeErosion = 24
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
@@ -434,6 +437,10 @@ public sealed class ConstructionOperation
     /// <summary>可选的世界材料选择，未配置时只改变本生成主体。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionWorldMatter WorldMatter;
+
+    /// <summary>从本次调整起算的时间安排；空数组恢复常速。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionProcessWindow[] TimeWindows;
 
     /// <summary>物态变化的明确输出材料。</summary>
     public string Matter;

@@ -1,0 +1,104 @@
+// 同一世界留置两块实材；用 C2 已学成品只改左侧的侵蚀。
+var definitions = JObject.Parse(File.ReadAllText(Path.Combine(folder, "definition.json")));
+var learned = definitions["learned"].ToObject<AbilityDefinition>();
+var leftWood = definitions["residue"].ToObject<AbilityDefinition>();
+leftWood.Root.Operations.Single(op => op.Kind == ConstructionOperationKind.Leave).Residue.ErosionSeconds = 3.4f;
+leftWood.Root.Tint = new[] { 1f, .8f, .64f };
+var rightWood = ConstructionEditing.Copy(leftWood); rightWood.Id += ".comparison";
+rightWood.Root.Tint = new[] { .64f, .92f, .83f };
+File.WriteAllText(Path.Combine(folder, "scene-definitions.json"),
+    JsonConvert.SerializeObject(new { leftWood, rightWood, learned }, Formatting.Indented));
+var windows = learned.Steps.Single(value => value.Operation.Kind == ConstructionOperationKind.RetimeErosion).Operation.TimeWindows;
+await ClearFilmSet();
+Actor caster = Make(63);
+var owner = caster.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); caster.setStatsDirty(); caster.updateStats();
+CombatStatusEffects.RemoveStatus(caster, hold);
+caster.updateStats();
+long left = 0, right = 0;
+var applied = new List<long>();
+void MaterialChange(WorldMaterialChange fact)
+{
+    if (fact.Provider != caster.id) return;
+    if (fact.Kind == "leave" && fact.AbilityId == leftWood.Id) left = fact.Id;
+    if (fact.Kind == "leave" && fact.AbilityId == rightWood.Id) right = fact.Id;
+    if (fact.Kind == "retime-erosion" && fact.AbilityId == learned.Id) applied.Add(fact.Id);
+    events.Add(new { fact.Id, fact.Kind, fact.AbilityId, time = World.world.getCurWorldTime() });
+}
+JArray Rows() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "process-time-film"))
+    ["sections"]["world_materials"]["data"]["Records"];
+(JToken Left, JToken Right) Read()
+{
+    var rows = Rows();
+    return (rows.Single(row => (long)row["Id"] == left)["Material"], rows.Single(row => (long)row["Id"] == right)["Material"]);
+}
+double Volume(JToken material) => (double)material["Volume"];
+double Progress(JToken material) => (double)material["Erosion"]["Progress"];
+double Elapsed(JToken material) => (double)material["Erosion"]["Elapsed"];
+double? Schedule(JToken material) => (double?)material["Erosion"]["WorldElapsed"];
+string Caption()
+{
+    var (a, b) = Read();
+    if (Progress(a) >= 1 && Progress(b) >= 1) return "两边均真实完成 · 剩余木料留在世界";
+    if (Schedule(a) is not double age) return "两块木料各自按常速耗蚀";
+    if (age < windows[0].At) return "术式选中左侧 · 右侧保持原节奏";
+    if (age < windows[0].At + windows[0].Seconds) return "左侧暂停 · 右侧仍在耗蚀";
+    if (age < windows[1].At) return "左侧恢复 · 从暂停前的余量继续";
+    if (age < windows[1].At + windows[1].Seconds) return "左侧以两倍推进 · 右侧仍为常速";
+    return "两侧分别按剩余进度走到终点";
+}
+object Detail()
+{
+    var (a, b) = Read();
+    return new { left, right, leftVolume = Volume(a), rightVolume = Volume(b), leftClock = Elapsed(a),
+        rightClock = Elapsed(b), selectedSchedule = Schedule(a), leftProgress = Progress(a), rightProgress = Progress(b) };
+}
+async Task<float> CastAt(AbilityDefinition definition, float x)
+{
+    Place(caster, 63);
+    owner.GetCultisys<Xian>().wakan = caster.stats[BaseStatses.MaxWakan.id] * .8f;
+    float paid = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, caster, null, aim: new Vector3(x, 72, 2), aggro: false);
+    return paid - owner.GetCultisys<Xian>().wakan;
+}
+WorldMaterialService.Changed += MaterialChange;
+try
+{
+    await CastAt(leftWood, 66); await Advance(.18f);
+    await CastAt(rightWood, 73); await Advance(.18f);
+    var before = Read();
+    Check(left != right && left > 0 && right > 0 && Schedule(before.Left) == null && Schedule(before.Right) == null &&
+        Elapsed(before.Left) > 0 && Elapsed(before.Right) > 0, "两份实际留置材料开始独立侵蚀", Detail());
+    await BeginFilm(caster, caster, 69.3f, 72, learned, "retimeErosion", Caption, Detail);
+    float paid = await CastAt(learned, 66);
+    Check(Math.Abs(paid - learned.Cost) < .002f, "只施放一次已学成品并按原费用支付", new { paid, learned.Cost });
+    await Advance(windows[0].At + windows[0].Seconds * .27f);
+    var paused = Read();
+    Check(applied.SequenceEqual(new[] { left }) && Schedule(paused.Right) == null &&
+        Schedule(paused.Left) >= windows[0].At && Schedule(paused.Left) < windows[0].At + windows[0].Seconds,
+        "正式调整只选左侧，进入实际暂停", Detail());
+    await Advance(.10f);
+    var still = Read();
+    Check(Elapsed(paused.Left) == Elapsed(still.Left) && Volume(paused.Left) == Volume(still.Left) &&
+        Elapsed(still.Right) > Elapsed(paused.Right) && Volume(still.Right) < Volume(paused.Right),
+        "同一段世界时间内左侧停留，右侧继续扣量", Detail());
+    await Advance(windows[1].At + windows[1].Seconds - (float)Schedule(still.Left).Value + .10f);
+    var resumed = Read();
+    Check(Elapsed(resumed.Left) > Elapsed(still.Left) && Volume(resumed.Left) < Volume(still.Left),
+        "恢复从左侧实际余量接续", Detail());
+    await Advance((float)(3.4 - Math.Min(Elapsed(resumed.Left), Elapsed(resumed.Right))) + .28f);
+    var finished = Read();
+    Check(Progress(finished.Left) == 1 && Progress(finished.Right) == 1 &&
+        Math.Abs(Volume(finished.Left) - 1) < .001 && Math.Abs(Volume(finished.Right) - 1) < .001,
+        "两个原过程都实际结束，分别保留真实余量", Detail());
+    return new { passed = true, view, process = System.Diagnostics.Process.GetCurrentProcess().Id, left, right, paid };
+}
+finally
+{
+    await EndFilm();
+    WorldMaterialService.Changed -= MaterialChange;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

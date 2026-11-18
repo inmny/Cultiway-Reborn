@@ -49,6 +49,15 @@ public sealed partial class ConstructedAbilityService
                 }
                 continue;
             }
+            if (request.Retiming != null)
+            {
+                var receipt = WorldMaterialService.RetimeErosion(running.Owner(request.Node).Id, simulation.materialSelection,
+                    request.Retiming, clock, running.Id, running.Cast.Plan.Id, identities);
+                if (epoch != worldGeneration) return;
+                if (receipt.Materials.Count == 0) running.Cast.InterruptStepWorld(request.Step, receipt);
+                else running.Cast.ConfirmStepWorld(request.Step, receipt);
+                continue;
+            }
             if (request.Conduction != null)
             {
                 bool confirming = simulation.confirmingContact;
