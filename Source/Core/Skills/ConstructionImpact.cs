@@ -268,7 +268,10 @@ public sealed class CompiledConstructionImpact
     public bool HasOtherActorEffect => Statuses.Count > 0 || HasActorEffectBesidesStatuses;
 
     /// <summary>状态以外的实际人物作用，用于辨别只凝神的构造。</summary>
-    internal bool HasActorEffectBesidesStatuses => Signal != null || EquipmentRepair != null || ReleaseGrab != ConstructionGrabRelease.None || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) || Spreads.Any(spread => spread.HasEffect) ||
+    internal bool HasActorEffectBesidesStatuses => EquipmentRepair != null || HasActorEffectBesidesStatusesAndRepair;
+
+    /// <summary>扣除状态和修复后的作用，用于排除混合用途。</summary>
+    internal bool HasActorEffectBesidesStatusesAndRepair => Signal != null || ReleaseGrab != ConstructionGrabRelease.None || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) || Spreads.Any(spread => spread.HasEffect) ||
                                   StaggerSeconds > 0f || BindSeconds > 0f || StrainSeconds > 0f || ExposureSeconds > 0f;
 
     /// <summary>实际推拉中心。</summary>

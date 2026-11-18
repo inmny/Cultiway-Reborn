@@ -80,6 +80,12 @@ public partial class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     protected override void OnInit()
     {
         InitYaoTasks();
+        var repair = AssetManager.tasks_actor.get("repair_equipment");
+        var spellRepair = new BehRepairByConstruction();
+        repair.addBeh(spellRepair);
+        repair.list.RemoveAt(repair.list.Count - 1);
+        repair.list.Insert(0, spellRepair);
+
         YuanyingPossession.addBeh(new BehYuanyingPossession());
         YuanyingPossession.setIcon("cultiway/icons/achievements/nascent_soul_formed");
 

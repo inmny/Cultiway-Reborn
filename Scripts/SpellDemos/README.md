@@ -2035,3 +2035,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 7.11B　打坐时自主凝神
 
 在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_meditation_construction.py`。复用现成世界，用原打坐任务核对已学术的自主支付与实际接触、人物吸收与地块扣除、低供给跳过以及到期恢复。日志在 `CULTIWAY_DEV_OUTPUT/meditation-construction`，见[凝神实施与证据](../../Doc/技能系统全面重构/构造法术的日常活动.md#凝神实施与证据)。
+
+### 7.11C　原装备维修任务用修复术
+
+在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_maintenance_construction.py --section normal`，核对原任务自主选术、正式支付、实际材料消耗、原铁甲修复与缺料／满耐久跳过。`--section cancel` 核对接触前脱下、归还原库存材料以及重新穿回后可继续维修。复用同一现成世界和铁甲样本；记录保存在 `CULTIWAY_DEV_OUTPUT/maintenance-construction/<分段>`，见[维护实施与证据](../../Doc/技能系统全面重构/构造法术的日常活动.md#维护实施与证据)。
