@@ -104,14 +104,17 @@ internal sealed class AbilityContactIndex
     /// <param name="to">后态。</param>
     internal static Bounds Swept(in AbilityCapsule from, in AbilityCapsule to)
     {
+        var turn = new AbilitySweepTurn(from.SweepPose, to.SweepPose);
+        float padding = 0f;
+        if (turn.Active) from.TravelTo(to, turn, out padding);
         if (to.Prism != null)
         {
             Bounds swept = from.Prism.Pose.Bounds();
             swept.Encapsulate(to.Prism.Pose.Bounds());
-            swept.Expand(.00004f);
+            swept.Expand(2f * padding + .00004f);
             return swept;
         }
-        Vector3 radius = Vector3.one * (Mathf.Max(from.Radius, to.Radius) + .00002f);
+        Vector3 radius = Vector3.one * (Mathf.Max(from.Radius, to.Radius) + padding + .00002f);
         radius += Vector3.Max(from.HalfExtents, to.HalfExtents);
         var value = new Bounds();
         value.SetMinMax(Vector3.Min(Vector3.Min(from.A, from.B), Vector3.Min(to.A, to.B)) - radius,

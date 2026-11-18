@@ -17,33 +17,32 @@ internal sealed class AbilityPrism
 
     internal Frame Pose => new(outline, transform);
     internal AbilityPrism Move(Matrix4x4 world) => new(outline, world * transform);
-    internal AbilityPrism At(AbilityPrism to, float at) => at <= 0f ? this : at >= 1f ? to : new(outline, Between(to, at));
+    internal AbilityPrism At(AbilityPrism to, in AbilitySweepTurn turn, float at) =>
+        at <= 0f ? this : at >= 1f ? to : new(outline, turn.Frame(transform, to.transform, at));
 
-    private Matrix4x4 Between(AbilityPrism to, float at)
-    {
-        var matrix = new Matrix4x4();
-        for (int column = 0; column < 4; column++)
-            matrix.SetColumn(column, Vector4.LerpUnclamped(transform.GetColumn(column), to.transform.GetColumn(column), at));
-        return matrix;
-    }
-
-    internal float MotionTo(AbilityPrism to)
+    internal float MotionTo(AbilityPrism to, in AbilitySweepTurn turn, out float padding)
     {
         float maximum = 0f;
+        padding = 0f;
         Frame a = Pose, b = to.Pose;
-        for (int i = 0; i < a.VertexCount; i++) maximum = Mathf.Max(maximum, (b.Vertex(i) - a.Vertex(i)).sqrMagnitude);
-        return Mathf.Sqrt(maximum);
+        for (int i = 0; i < a.VertexCount; i++)
+        {
+            turn.Measure(a.Vertex(i), b.Vertex(i), out float speed, out float deviation);
+            maximum = Mathf.Max(maximum, speed);
+            padding = Mathf.Max(padding, deviation);
+        }
+        return maximum;
     }
 
-    internal Vector3 VelocityTo(AbilityPrism to, Vector3 point, float at)
+    internal Vector3 VelocityTo(AbilityPrism to, in AbilitySweepTurn turn, Vector3 point, float at)
     {
-        Vector3 local = Between(to, at).inverse.MultiplyPoint3x4(point);
-        return to.transform.MultiplyPoint3x4(local) - transform.MultiplyPoint3x4(local);
+        Vector3 local = turn.Frame(transform, to.transform, at).inverse.MultiplyPoint3x4(point);
+        return turn.Velocity(transform.MultiplyPoint3x4(local), to.transform.MultiplyPoint3x4(local), at);
     }
 
-    internal static Frame Sample(in AbilityCapsule from, in AbilityCapsule to, float at)
+    internal static Frame Sample(in AbilityCapsule from, in AbilityCapsule to, in AbilitySweepTurn turn, float at)
     {
-        if (to.Prism != null) return new Frame(to.Prism.outline, from.Prism.Between(to.Prism, at));
+        if (to.Prism != null) return new Frame(to.Prism.outline, turn.Frame(from.Prism.transform, to.Prism.transform, at));
         return new Frame(Rectangle, Matrix4x4.TRS(Vector3.Lerp(from.A, to.A, at), Quaternion.identity,
             Vector3.Lerp(from.HalfExtents, to.HalfExtents, at)));
     }

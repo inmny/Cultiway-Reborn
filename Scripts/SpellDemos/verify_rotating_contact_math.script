@@ -1,0 +1,70 @@
+// 6.03：用真正的形体采样入口和独立的旋转参考验证弧面与空隙。
+using System;
+using System.Reflection;
+using System.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+const BindingFlags F = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic;
+var rig = FormResources.Load("sword_qi").Rig;
+var bindingType = typeof(FormContactBinding);
+var constructor = bindingType.GetConstructors(F).Single();
+var world = bindingType.GetMethod("World", F);
+var assembly = typeof(AbilityCast).Assembly;
+var find = assembly.GetType("Cultiway.Core.Skills.AbilityPairSweep").GetMethod("Find", F);
+var swept = assembly.GetType("Cultiway.Core.Skills.AbilityContactIndex").GetMethod("Swept", F);
+var capsule = typeof(AbilityCapsule).GetConstructors(F).Single();
+
+AbilityCapsule Sample(object binding, float angle)
+{
+    var placement = Matrix4x4.Rotate(Quaternion.Euler(0, angle, 0));
+    object[] args = { null, placement, 0, 0, 0, null, 1f, default(AbilityCapsule), "iron" };
+    if (!(bool)world.Invoke(binding, args)) throw new InvalidOperationException("已出现的形体未采样");
+    return (AbilityCapsule)args[7];
+}
+
+object Make(bool prism)
+{
+    var declaration = new FormContactDescription { Id = prism ? "thin-blade" : "rigid-axis", Part = -1,
+        A = new[] { prism ? 64f : 63.5f, 0f, 0f }, B = new[] { 64.5f, 0f, 0f }, Radius = .02f,
+        HalfExtents = prism ? new[] { .5f, .02f, .02f } : null };
+    return constructor.Invoke(new object[] { declaration, rig, null, null, 0f, 0f });
+}
+
+object Check(object binding, string name, float angle, float radius, float x, bool expected)
+{
+    Vector3 target = new Vector3(x, 0, 0);
+    var before = Sample(binding, -angle);
+    var after = Sample(binding, angle);
+    var targetShape = (AbilityCapsule)capsule.Invoke(new object[] { 0, target, target, radius, null, 0, 0, null, Vector3.zero, 1f, null, null });
+    float reference = -1f;
+    for (int i = 0; i <= 4096; i++)
+    {
+        float t = i / 4096f;
+        if (!Sample(binding, Mathf.Lerp(-angle, angle, t)).Intersects(target, radius)) continue;
+        reference = t;
+        break;
+    }
+    object[] args = { before, after, targetShape, targetShape, 0f, Vector3.zero, Vector3.zero };
+    bool hit = (bool)find.Invoke(null, args);
+    float at = (float)args[4];
+    Bounds search = (Bounds)swept.Invoke(null, new object[] { before, after });
+    Bounds targetBounds = (Bounds)swept.Invoke(null, new object[] { targetShape, targetShape });
+    bool candidate = search.Intersects(targetBounds);
+    bool endsClear = !before.Intersects(target, radius) && !after.Intersects(target, radius);
+    bool passed = endsClear && (reference > 0f) == expected && hit == expected &&
+        (!expected || candidate && Mathf.Abs(reference - at) < .001f);
+    return new { name, passed, endsClear, hit, candidate, at, reference, upper = search.max.x };
+}
+
+var blade = Make(true);
+var line = Make(false);
+var cases = new[]
+{
+    Check(blade, "六度内真实外弧命中", 3f, .017f, 64.46f, true),
+    Check(line, "六度内长轴随转命中", 3f, .014f, 64.47f, true),
+    Check(blade, "大转向的内弦空隙无伤", 60f, .017f, 32f, false),
+    Check(line, "长轴转向的内弦空隙无伤", 60f, .014f, 32f, false)
+};
+return new { passed = cases.All(c => (bool)c.GetType().GetProperty("passed").GetValue(c)), cases };

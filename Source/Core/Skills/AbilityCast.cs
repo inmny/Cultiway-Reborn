@@ -51,6 +51,9 @@ public readonly struct AbilityCapsule
     /// <summary>随真实部位变换的有限面或体块；普通胶囊和旧水格为空。</summary>
     internal readonly AbilityPrism Prism;
 
+    /// <summary>同一实际部位的转动中心与朝向；人物受击边界和旧水格不需要转动姿态。</summary>
+    internal readonly AbilitySweepPose? SweepPose;
+
     /// <summary>本次扫掠中最后仍有真实材料的时间比例，普通形状为一。</summary>
     public readonly float Until;
 
@@ -74,8 +77,11 @@ public readonly struct AbilityCapsule
     /// <param name="material">已经解析的实际材料。</param>
     /// <param name="halfExtents">薄层箱体半宽，默认仍为胶囊。</param>
     /// <param name="until">此步内材料保持有效的末端。</param>
+    /// <param name="prism">有限面或块体的局部轮廓。</param>
+    /// <param name="sweepPose">实际部位的转动姿态。</param>
     internal AbilityCapsule(int node, Vector3 a, Vector3 b, float radius, string matter, int shape = 0,
-        int revision = 0, AbilityMatter material = null, Vector3 halfExtents = default, float until = 1f, AbilityPrism prism = null)
+        int revision = 0, AbilityMatter material = null, Vector3 halfExtents = default, float until = 1f, AbilityPrism prism = null,
+        AbilitySweepPose? sweepPose = null)
     {
         Node = node;
         A = a;
@@ -88,12 +94,37 @@ public readonly struct AbilityCapsule
         HalfExtents = halfExtents;
         Until = until;
         Prism = prism;
+        SweepPose = sweepPose;
     }
 
-    /// <summary>同一形状前后姿态的最大表面位移，用于连续接触安全推进。</summary>
-    internal float TravelTo(in AbilityCapsule to) => Prism == null
-        ? Mathf.Max((to.A - A).magnitude, (to.B - B).magnitude) + (to.HalfExtents - HalfExtents).magnitude + Mathf.Abs(to.Radius - Radius)
-        : Prism.MotionTo(to.Prism) + Mathf.Abs(to.Radius - Radius);
+    /// <summary>同一形状此步的表面速度上界和包围范围需增加的弧度余量。</summary>
+    internal float TravelTo(in AbilityCapsule to) => TravelTo(to, new AbilitySweepTurn(SweepPose, to.SweepPose), out _);
+
+    internal float TravelTo(in AbilityCapsule to, in AbilitySweepTurn turn, out float padding)
+    {
+        float change = Mathf.Abs(to.Radius - Radius);
+        if (Prism != null) return Prism.MotionTo(to.Prism, turn, out padding) + change;
+        turn.Measure(A, to.A, out float a, out float ea);
+        turn.Measure(B, to.B, out float b, out float eb);
+        padding = Mathf.Max(ea, eb);
+        return Mathf.Max(a, b) + (to.HalfExtents - HalfExtents).magnitude + change;
+    }
+
+    /// <summary>统一切取接触时刻并可换到共同参考系，后续小段仍保留转动轨迹。</summary>
+    internal AbilityCapsule At(in AbilityCapsule to, float at, Vector3 shift = default)
+    {
+        var turn = new AbilitySweepTurn(SweepPose, to.SweepPose);
+        AbilitySweepPose? pose = turn.PoseAt(SweepPose, to.SweepPose, at);
+        AbilityPrism prism = Prism?.At(to.Prism, turn, at);
+        if (shift.sqrMagnitude > 0f)
+        {
+            if (pose.HasValue) pose = new AbilitySweepPose(pose.Value.Pivot - shift, pose.Value.Rotation);
+            prism = prism?.Move(Matrix4x4.Translate(-shift));
+        }
+        return new AbilityCapsule(to.Node, turn.Point(A, to.A, at) - shift, turn.Point(B, to.B, at) - shift,
+            Mathf.Lerp(Radius, to.Radius, at), to.Matter, to.Shape, to.Revision, to.Material,
+            Vector3.Lerp(HalfExtents, to.HalfExtents, at), to.Until, prism, pose);
+    }
 
     /// <summary>检查是否与人物或其他对象的球形部位真实相交。</summary>
     /// <param name="centre">目标部位中心。</param>
@@ -132,7 +163,8 @@ public readonly struct AbilityCapsule
     public bool SweepFrom(in AbilityCapsule previous, Vector3 centre, float radius, out Vector3 point,
         out float fraction)
     {
-        if (IsBox || previous.IsBox || Prism != null || previous.Prism != null)
+        if (IsBox || previous.IsBox || Prism != null || previous.Prism != null ||
+            new AbilitySweepTurn(previous.SweepPose, SweepPose).Active)
         {
             var sphere = new AbilityCapsule(0, centre, centre, radius, null);
             return AbilityPairSweep.Find(previous, this, sphere, sphere, out fraction, out point, out _);

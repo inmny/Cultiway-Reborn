@@ -39,22 +39,24 @@ internal static class AbilityPairSweep
     internal static bool Find(in AbilityCapsule a0, in AbilityCapsule a1, in AbilityCapsule b0, in AbilityCapsule b1,
         out float fraction, out Vector3 point, out Vector3 normal)
     {
-        bool prism = a1.Prism != null || b1.Prism != null;
-        float speed = a0.TravelTo(a1) + b0.TravelTo(b1);
+        var leftTurn = new AbilitySweepTurn(a0.SweepPose, a1.SweepPose);
+        var rightTurn = new AbilitySweepTurn(b0.SweepPose, b1.SweepPose);
+        bool curved = a1.Prism != null || b1.Prism != null || leftTurn.Active || rightTurn.Active;
+        float speed = a0.TravelTo(a1, leftTurn, out _) + b0.TravelTo(b1, rightTurn, out _);
         float at = 0f; bool found = false;
         for (int iteration = 0; iteration < 64; iteration++)
         {
-            float distance = Separation(a0, a1, b0, b1, at, out _, out _);
+            float distance = Separation(a0, a1, b0, b1, leftTurn, rightTurn, at, out _, out _);
             if (distance <= .00001f) { found = true; break; }
             if (speed <= 1e-10f) break;
             at += distance / speed;
             if (at > 1f) break;
         }
-        if (!found && !prism && at <= 1f && speed > 1e-10f)
+        if (!found && !curved && at <= 1f && speed > 1e-10f)
             found = a1.IsBox || b1.IsBox ? AbilityBoxSweep.Find(a0, a1, b0, b1, out at) : Roots(a0, a1, b0, b1, out at);
         fraction = at; point = normal = Vector3.zero;
         if (!found) return false;
-        Separation(a0, a1, b0, b1, at, out Vector3 a, out Vector3 b);
+        Separation(a0, a1, b0, b1, leftTurn, rightTurn, at, out Vector3 a, out Vector3 b);
         normal = (b - a).normalized;
         if (normal.sqrMagnitude < 1e-10f)
             normal = ((a1.A + a1.B - a0.A - a0.B) - (b1.A + b1.B - b0.A - b0.B)).normalized;
@@ -71,21 +73,21 @@ internal static class AbilityPairSweep
     /// <param name="a">左轴最近点。</param>
     /// <param name="b">右轴最近点。</param>
     private static float Separation(in AbilityCapsule a0, in AbilityCapsule a1, in AbilityCapsule b0,
-        in AbilityCapsule b1, float at, out Vector3 a, out Vector3 b)
+        in AbilityCapsule b1, in AbilitySweepTurn leftTurn, in AbilitySweepTurn rightTurn, float at, out Vector3 a, out Vector3 b)
     {
-        if (a1.Prism != null || b1.Prism != null)
+        if (a1.Prism != null || b1.Prism != null || (leftTurn.Active || rightTurn.Active) && (a1.IsBox || b1.IsBox))
         {
             bool leftSolid = a1.Prism != null || a1.IsBox, rightSolid = b1.Prism != null || b1.IsBox;
             float distance = leftSolid && rightSolid
-                ? AbilityPrism.Sample(a0, a1, at).Distance(AbilityPrism.Sample(b0, b1, at), out a, out b)
+                ? AbilityPrism.Sample(a0, a1, leftTurn, at).Distance(AbilityPrism.Sample(b0, b1, rightTurn, at), out a, out b)
                 : leftSolid
-                    ? AbilityPrism.Sample(a0, a1, at).Line(Vector3.Lerp(b0.A, b1.A, at), Vector3.Lerp(b0.B, b1.B, at), out a, out b)
-                    : AbilityPrism.Sample(b0, b1, at).Line(Vector3.Lerp(a0.A, a1.A, at), Vector3.Lerp(a0.B, a1.B, at), out b, out a);
+                    ? AbilityPrism.Sample(a0, a1, leftTurn, at).Line(rightTurn.Point(b0.A, b1.A, at), rightTurn.Point(b0.B, b1.B, at), out a, out b)
+                    : AbilityPrism.Sample(b0, b1, rightTurn, at).Line(leftTurn.Point(a0.A, a1.A, at), leftTurn.Point(a0.B, a1.B, at), out b, out a);
             return distance - Mathf.Lerp(a0.Radius + b0.Radius, a1.Radius + b1.Radius, at);
         }
         if (a1.IsBox || b1.IsBox) return AbilityBoxContact.Distance(a0, a1, b0, b1, at, out a, out b);
-        Closest(Vector3.Lerp(a0.A, a1.A, at), Vector3.Lerp(a0.B, a1.B, at),
-            Vector3.Lerp(b0.A, b1.A, at), Vector3.Lerp(b0.B, b1.B, at), out a, out b);
+        Closest(leftTurn.Point(a0.A, a1.A, at), leftTurn.Point(a0.B, a1.B, at),
+            rightTurn.Point(b0.A, b1.A, at), rightTurn.Point(b0.B, b1.B, at), out a, out b);
         return Vector3.Distance(a, b) - Mathf.Lerp(a0.Radius + b0.Radius, a1.Radius + b1.Radius, at);
     }
 
@@ -151,7 +153,7 @@ internal static class AbilityPairSweep
             for (int i = 0; i < polynomial.Length; i++) polynomial[i] /= scale;
             foreach (var root in FindRoots.Polynomial(polynomial))
                 if (Math.Abs(root.Imaginary) < 1e-6 && root.Real >= 0d && root.Real <= 1d && root.Real < best &&
-                    Separation(a0, a1, b0, b1, (float)root.Real, out _, out _) <= .00002f)
+                    Separation(a0, a1, b0, b1, default, default, (float)root.Real, out _, out _) <= .00002f)
                     best = (float)root.Real;
         }
         at = best; return !float.IsPositiveInfinity(best);

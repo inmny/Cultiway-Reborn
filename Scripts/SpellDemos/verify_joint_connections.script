@@ -88,7 +88,7 @@ try
         "跨步维持原实际骨段与共同抓点，目标没有被拉向来源", new { contactError, turnError });
     object actualSurface = Field(cast.BodyPose.Value.Joint, "Contact");
     object pointShape = typeof(AbilityCapsule).GetConstructors(F).Single().Invoke(new object[]
-        { -1, active.SourcePoint, active.SourcePoint, .00002f, null, 0, 0, null, Vector3.zero, 1f, null });
+        { -1, active.SourcePoint, active.SourcePoint, .00002f, null, 0, 0, null, Vector3.zero, 1f, null, null });
     object[] exact = { actualSurface, actualSurface, pointShape, pointShape, "surface", 0f, null, Vector3.zero };
     Check((bool)jointSurfaceType.GetMethod("Find", F).Invoke(null, exact), "共同抓点确实仍位于同刻实际足面");
     await CaptureHandoff("actual-hold");

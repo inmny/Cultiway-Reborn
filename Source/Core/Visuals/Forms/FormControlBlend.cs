@@ -23,6 +23,9 @@ public readonly struct FormControlBlend
     /// <summary>是否实际依赖骨架。</summary>
     public bool HasControls => indices != null;
 
+    /// <summary>同一个刚性控制的编号；无单一转心时由整个主体带动。</summary>
+    internal int RigidControl => indices?.Length == 1 ? indices[0] : -1;
+
     /// <summary>编译时按实际控制链的最大平移和绑定点计算保守半径，连续旋转不会越过此界。</summary>
     /// <param name="point">绑定空间中的实际点。</param><param name="rig">同一资源骨架。</param><param name="motions">实际采用的动作。</param>
     internal float RadiusBound(Vector3 point, FormRig rig, FormMotion[] motions)

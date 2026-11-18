@@ -209,6 +209,5 @@ public sealed partial class ConstructedAbilityService
     /// <param name="to">本段末端。</param>
     /// <param name="fraction">截取进度。</param>
     private static AbilityCapsule Slice(in AbilityCapsule from, in AbilityCapsule to, float fraction) =>
-        new(to.Node, Vector3.Lerp(from.A, to.A, fraction), Vector3.Lerp(from.B, to.B, fraction),
-            Mathf.Lerp(from.Radius, to.Radius, fraction), to.Matter, to.Shape, to.Revision, to.Material, Vector3.Lerp(from.HalfExtents, to.HalfExtents, fraction), to.Until, from.Prism?.At(to.Prism, fraction));
+        from.At(to, fraction);
 }

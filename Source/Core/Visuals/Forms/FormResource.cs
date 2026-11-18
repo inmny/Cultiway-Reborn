@@ -259,6 +259,9 @@ public readonly struct FormContactBinding
         float until, out AbilityCapsule result, string matter = null)
     {
         if (!IsFormed(pose)) { result = default; return false; }
+        int control = ABlend.RigidControl;
+        var sweep = new AbilitySweepPose(control >= 0 && (IsPrism || control == BBlend.RigidControl)
+            ? world * pose.Skin[control] : world);
         if (IsPrism)
         {
             float build = BuildRange.x < 0f ? 1f : Mathf.Clamp01(((pose?.BuildProgress ?? 1f) - BuildRange.x) /
@@ -267,14 +270,14 @@ public readonly struct FormContactBinding
             Matrix4x4 matrix = PrismMatrix(pose, world, build);
             Vector3 center = matrix.GetColumn(3);
             result = new AbilityCapsule(node, center, center, 0f, material?.Id ?? matter, shape, revision, material,
-                until: until, prism: new AbilityPrism(outline, matrix));
+                until: until, prism: new AbilityPrism(outline, matrix), sweepPose: sweep);
             return true;
         }
         if (!Sample(pose, out var a, out var b, out float radius)) { result = default; return false; }
         Vector3 scale = world.lossyScale;
         result = new AbilityCapsule(node, world.MultiplyPoint3x4(a), world.MultiplyPoint3x4(b),
             radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)), material?.Id ?? matter,
-            shape, revision, material, until: until);
+            shape, revision, material, until: until, sweepPose: sweep);
         return true;
     }
 

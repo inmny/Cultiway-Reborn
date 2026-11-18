@@ -341,10 +341,7 @@ internal sealed class BodySurfaceOcclusion
     /// <param name="from">前态。</param><param name="to">后态。</param><param name="at">共同进度。</param>
     /// <param name="shift">只用于共同参考系的平移。</param>
     private static AbilityCapsule Mix(AbilityCapsule from, AbilityCapsule to, float at, Vector3 shift = default) =>
-        new(to.Node, Vector3.Lerp(from.A, to.A, at) - shift, Vector3.Lerp(from.B, to.B, at) - shift,
-            Mathf.Lerp(from.Radius, to.Radius, at), to.Matter, to.Shape, to.Revision, to.Material,
-            Vector3.Lerp(from.HalfExtents, to.HalfExtents, at), Mathf.Lerp(from.Until, to.Until, at),
-            from.Prism?.At(to.Prism, at).Move(Matrix4x4.Translate(-shift)));
+        from.At(to, at, shift);
 
     /// <summary>先连续查询原面，再只在可能露出的区间细分；固定点仍属于原三角面。</summary>
     /// <param name="from">遮挡前态。</param><param name="to">遮挡后态。</param>
