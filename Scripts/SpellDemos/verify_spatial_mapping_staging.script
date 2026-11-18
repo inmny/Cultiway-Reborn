@@ -1,0 +1,137 @@
+// 同一角色复用相同地面，只核对短时暂存、实际移交与清理。
+WorldTile exitTile = new[] { 74, 73, 75, 72, 71, 70 }
+    .Select(x => World.world.GetTileSimple(x, 72)).First(tile => !tile.hasBuilding());
+int exitX = exitTile.pos.x;
+void SetExit(bool blocked)
+{
+    if (blocked) exitTile.setTileTypes(TileLibrary.mountains, null, true);
+    else
+    {
+        exitTile.Height = 140;
+        exitTile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    }
+}
+
+AbilityDefinition Gates(float? close = null, float wait = .65f) => new()
+{
+    Id = "test.spatial-mapping.staging", Name = "暂存双门", Cost = 3, Resource = "wakan", Power = 2,
+    Cooldown = .1f, Lifetime = 1.2f, TargetRange = 12,
+    Impact = new ConstructionImpact { DamageScale = 0 },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = .26f },
+    Root = new ConstructionNode
+    {
+        Id = "gates", Form = "pivot", ContactRole = ConstructionContactRole.Decoration,
+        Children = new[]
+        {
+            new ConstructionNode { Id = "entry", Form = "fireball", Scale = .8f, Offset = new[] { .5f, 0f, 0f },
+                Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Once } },
+            new ConstructionNode { Id = "exit", Form = "fireball", ContactRole = ConstructionContactRole.Decoration,
+                AppearAt = .25f, DisappearAt = close, Scale = .7f, Offset = new[] { exitX - 64f, 0f, 0f }, Rotation = new[] { 0f, 0f, 90f } }
+        }
+    },
+    Steps = new[]
+    {
+        new ConstructionStep { Id = "carry", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.MapActor, MappingRadius = 1f, MappingCapacity = 1, MappingWaitSeconds = wait },
+            Inputs = new() { ["part"] = new() { Node = "root/entry" }, ["exit"] = new() { Node = "root/exit" } } },
+        new ConstructionStep { Id = "batch", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Ready },
+            Inputs = new() { ["part"] = new() { Node = "root/entry" }, ["after"] = new() { Step = "carry", Output = "transferred" } } }
+    }
+};
+
+var definition = Gates();
+var closing = Gates(.48f);
+bool rejected = false;
+try { AbilityCompiler.Compile(Gates(wait: 0), false); }
+catch (InvalidDataException error) { rejected = error.Message.Contains("暂存时间"); }
+Check(rejected, "暂存时间必须为有效正数");
+Actor source = Make(64), passenger = Make(62);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+Ready(passenger); Ready(source); await Advance(.18f);
+long passengerId = passenger.id;
+var live = (IEnumerable)service.GetField("casts", F).GetValue(null);
+var movement = service.Assembly.GetType("Cultiway.Core.Combat.Tactical.CombatWorldService").GetMethod("ShouldPauseMovement", F);
+var waitingAt = new Vector2(64.65f, 71.8f);
+var landing = new Vector2(exitX + .2f, 72.15f);
+bool Held() => BodyControlState.HasControl(passengerId, BodyOccupancy.Stance);
+bool StopsMovement() => (bool)movement.Invoke(null, new object[] { passenger });
+bool AtEntrance() => Vector2.Distance(passenger.current_position, waitingAt) < .08f;
+ConstructionWorldReceipt[] Results(AbilityCast cast)
+{
+    var results = new List<ConstructionWorldReceipt>();
+    cast.AppendStepReceipts("carry", results);
+    return results.ToArray();
+}
+
+async Task<AbilityCast> Open(AbilityDefinition ability)
+{
+    Place(source, 64); Place(passenger, waitingAt.x, waitingAt.y);
+    Check(!Held() && !StopsMovement(), "入口接触前人物可自由移动");
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    float paid = owner.GetCultisys<Xian>().wakan;
+    await Fire(ability, source, passenger);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Mathf.Abs(paid - owner.GetCultisys<Xian>().wakan - ability.Cost) < .001f, "整个通行只支付一次施放费用");
+    return live.Cast<object>().Select(r => (AbilityCast)Field(r, "Cast")).Single(c => c.Plan.Id == ability.Id);
+}
+
+void Waiting(AbilityCast cast)
+{
+    Check(Held() && StopsMovement() && AtEntrance() && Results(cast).Length == 0 &&
+        cast.StepStateOf("batch") == ConstructionStepState.Waiting,
+        "一次真实接触后原人物原地停步，尚无抵达或下游结果",
+        new { position = passenger.current_position.ToString(), cast.Age, held = Held(), pause = StopsMovement(),
+              results = Results(cast).Length, contacts = contacts.Count(c => c.TargetId == passengerId) });
+}
+
+try
+{
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    SetExit(false);
+    AbilityCast opens = await Open(definition);
+    await Advance(.12f);
+    Check(contacts.Count(c => c.TargetId == passengerId) == 1, "暂存来自一次正常接触");
+    Waiting(opens);
+    await Advance(.23f);
+    ConstructionWorldReceipt[] arrivals = Results(opens);
+    Check(ReferenceEquals(World.world.units.get(passengerId), passenger) && passenger.current_tile == exitTile &&
+        Vector2.Distance(passenger.current_position, landing) < .09f && !Held() && !StopsMovement() && arrivals.Length == 1 &&
+        arrivals[0].Targets.Single() == passengerId && opens.StepStateOf("batch") == ConstructionStepState.Completed,
+        "出口开启后同一人物安全落地，实际结果只记一次并归还移动",
+        new { position = passenger.current_position.ToString(), opens.Age, held = Held(), pause = StopsMovement(), results = arrivals.Length });
+    await Advance(1f);
+
+    SetExit(true);
+    AbilityCast closes = await Open(closing);
+    await Advance(.34f);
+    Waiting(closes);
+    await Advance(.20f);
+    Check(!Held() && !StopsMovement() && AtEntrance() && Results(closes).Length == 0 &&
+        closes.StepStateOf("batch") == ConstructionStepState.Interrupted,
+        "出口受阻直至关门，原地解除控制，也没有抵达结果",
+        new { position = passenger.current_position.ToString(), closes.Age, held = Held(), pause = StopsMovement(),
+              downstream = closes.StepStateOf("batch").ToString() });
+    await Advance(.8f);
+
+    SetExit(false);
+    AbilityCast resets = await Open(definition);
+    await Advance(.12f);
+    Waiting(resets);
+    long generation = (long)service.GetField("worldGeneration", F).GetValue(null);
+    World.world.save_manager.loadWorld(fixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check((long)service.GetField("worldGeneration", F).GetValue(null) > generation && !Held() &&
+        !live.Cast<object>().Any(r => ReferenceEquals(Field(r, "Cast"), resets)) && Results(resets).Length == 0,
+        "真实换世界清掉本次暂存控制，不带入人物或产生抵达");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, passenger = passengerId };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

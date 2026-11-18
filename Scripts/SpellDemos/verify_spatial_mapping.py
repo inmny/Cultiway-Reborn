@@ -10,7 +10,7 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('core', 'runtime', 'all', 'actor', 'actor-clear', 'artifact', 'artifact-clear', 'capacity'), default='all')
+    parser.add_argument('--section', choices=('core', 'runtime', 'all', 'actor', 'actor-clear', 'artifact', 'artifact-clear', 'capacity', 'staging'), default='all')
     section = parser.parse_args().section
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过 dev.py exec 运行')
@@ -25,7 +25,7 @@ def main():
     helpers = helpers.replace('Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")', 'Path.Combine(folder, "input-world")')
     helpers = helpers.replace('test.body-footwork.', 'test.spatial-mapping.')
     variant = section.split('-', 1)[0]
-    name = f'verify_spatial_mapping_{variant}.script' if variant in ('actor', 'artifact', 'capacity') else 'verify_spatial_mapping.script'
+    name = f'verify_spatial_mapping_{variant}.script' if variant in ('actor', 'artifact', 'capacity', 'staging') else 'verify_spatial_mapping.script'
     body = Path(__file__).with_name(name).read_text()
     if variant == 'artifact':
         helpers = 'using Friflo.Engine.ECS;\n' + helpers

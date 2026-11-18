@@ -121,7 +121,8 @@ public sealed partial class AbilityCast
 
     /// <summary>检查实际身份及阶段，失去的部位或连接不能凭旧输出复活。</summary>
     /// <param name="step">已解析的步骤索引。</param>
-    private bool StepInputsReady(int step)
+    /// <param name="waitForExit">暂存允许出口尚未出现，仍要求前序结果及门的关系成立。</param>
+    private bool StepInputsReady(int step, bool waitForExit = false)
     {
         var plan = Plan.Steps[step];
         foreach (var input in plan.Inputs)
@@ -133,12 +134,13 @@ public sealed partial class AbilityCast
             }
             if (input.Kind is ConstructionValueKind.Part or ConstructionValueKind.Structure or ConstructionValueKind.Relation)
             {
-                if (!nodes[input.Node].Exists || !nodes[input.Node].Started) return false;
+                if (!nodes[input.Node].Exists || !nodes[input.Node].Started && !(waitForExit && input.Node == plan.MappingExit)) return false;
                 if (input.Connection && nodes[input.Node].Free) return false;
             }
         }
         if (!nodes[plan.Node].Exists || !nodes[plan.Node].Started) return false;
-        if (plan.MappingEntrance >= 0 && (!nodes[plan.MappingEntrance].Visible || !nodes[plan.MappingExit].Visible)) return false;
+        if (plan.MappingEntrance >= 0 && (!nodes[plan.MappingEntrance].Visible || !nodes[plan.MappingExit].Exists ||
+                                         !waitForExit && !nodes[plan.MappingExit].Visible)) return false;
         if (plan.Action.Kind is ConstructionOperationKind.Gather or ConstructionOperationKind.Detach && nodes[plan.Node].Free) return false;
         return true;
     }

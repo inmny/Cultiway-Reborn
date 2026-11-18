@@ -368,6 +368,10 @@ public sealed class ConstructionOperation
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public int? MappingCapacity;
 
+    /// <summary>入口接触后允许暂存的世界秒数；未指定时只尝试立即抵达。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float? MappingWaitSeconds;
+
     /// <summary>操作种类。</summary>
     public ConstructionOperationKind Kind;
 

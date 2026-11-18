@@ -16,11 +16,14 @@ public sealed partial class AbilityCast
 
     /// <summary>编译实际通行上限。无容量的旧声明继续只尝试一次。</summary>
     /// <param name="context">命名生灵转移步骤。</param>
-    private static (float Radius, int? Capacity) CompileActorMapping(ConstructionOperationCompileContext context)
+    private static (float Radius, int? Capacity, float Wait) CompileActorMapping(ConstructionOperationCompileContext context)
     {
         int? capacity = context.Source.MappingCapacity;
         if (capacity is < 1 or > 32) throw new InvalidDataException(context.Path + "：通行容量须在1至32人之间");
-        return (CompileMappingRadius(context), capacity);
+        float? wait = context.Source.MappingWaitSeconds;
+        if (wait.HasValue && !(wait.Value > 0f && wait.Value <= context.Lifetime && wait.Value <= 10f))
+            throw new InvalidDataException(context.Path + "：暂存时间须大于0且不超过10秒或整招时长");
+        return (CompileMappingRadius(context), capacity, wait ?? 0f);
     }
 
     /// <summary>按两端当前姿态保留局部位置和方向；门的显示大小不参与换算。</summary>
@@ -38,25 +41,43 @@ public sealed partial class AbilityCast
     /// <param name="mapped">按出口方向换算的候选落点。</param>
     internal bool TryMapActor(int index, int node, long actorId, Vector3 foot, out Vector3 mapped)
     {
-        var step = Plan.Steps[index];
         mapped = default;
+        if (!CanTransferActor(index, node, actorId, foot, waitForExit: false)) return false;
+        mapped = MappingFrame(Plan.Steps[index], out _).MultiplyPoint3x4(foot);
+        return true;
+    }
+
+    /// <summary>实际入口、前序条件和未用容量同时成立才允许接人；暂存时出口可以晚出现。</summary>
+    /// <param name="index">转移步骤。</param><param name="node">实际入口。</param>
+    /// <param name="actorId">原人物编号。</param><param name="foot">实际脚下。</param><param name="waitForExit">是否允许等待出口。</param>
+    internal bool CanTransferActor(int index, int node, long actorId, Vector3 foot, bool waitForExit)
+    {
+        var step = Plan.Steps[index];
         ref StepState state = ref stepStates[index];
         if (cancelled || step.Node != node || state.State is not (ConstructionStepState.Waiting or ConstructionStepState.Running) ||
-            NodeAge(node) < step.Action.At || !StepInputsReady(index)) return false;
-        var mapping = ((float Radius, int? Capacity))step.Action.Parameters;
+            NodeAge(node) < step.Action.At || !StepInputsReady(index, waitForExit)) return false;
+        var mapping = ActorMapping(index);
         Vector3 entrance = nodes[node].Transform.GetColumn(3);
         if ((foot - entrance).sqrMagnitude > mapping.Radius * mapping.Radius) return false;
         for (var prior = state.Receipts; prior != null; prior = prior.Previous)
             if (prior.Targets[0] == actorId) return false;
-        mapped = MappingFrame(step, out _).MultiplyPoint3x4(foot);
         return true;
     }
+
+    /// <summary>暂存上限随实际抵达减少，暂存本身不计入抵达。</summary>
+    /// <param name="index">人物转移步骤。</param>
+    internal int ActorTransferSlots(int index) => (ActorMapping(index).Capacity ?? 1) - stepStates[index].Confirmations;
+
+    /// <summary>本次共同编译的人物转移参数。</summary>
+    /// <param name="index">人物转移步骤。</param>
+    internal (float Radius, int? Capacity, float Wait) ActorMapping(int index) =>
+        ((float Radius, int? Capacity, float Wait))Plan.Steps[index].Action.Parameters;
 
     /// <summary>拒绝不占容量。只有未声明容量的单次尝试会立即中断。</summary>
     /// <param name="index">已经尝试的转移步骤。</param>
     internal void RejectActorTransfer(int index)
     {
-        var mapping = ((float Radius, int? Capacity))Plan.Steps[index].Action.Parameters;
+        var mapping = ActorMapping(index);
         if (mapping.Capacity.HasValue) return;
         stepStates[index].State = ConstructionStepState.Interrupted;
         UpdateSteps();
@@ -72,7 +93,7 @@ public sealed partial class AbilityCast
         if (cancelled || state.State is not (ConstructionStepState.Waiting or ConstructionStepState.Running)) return;
         var action = Plan.Steps[index].Action;
         if (state.State == ConstructionStepState.Waiting) StepApplied(action);
-        var mapping = ((float Radius, int? Capacity))action.Parameters;
+        var mapping = ActorMapping(index);
         int sequence = state.Confirmations + 1;
         ConfirmStepWorld(index, new ConstructionWorldReceipt(ConstructionWorldResultKind.ActorTransfer,
             action.Node, clock, sequence, targets: new[] { actorId }, destination: position), sequence >= (mapping.Capacity ?? 1));
