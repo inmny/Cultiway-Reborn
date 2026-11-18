@@ -42,7 +42,10 @@ public sealed partial class ConstructedAbilityService
         if (actor?.Base?.data == null) throw new ArgumentException("缺少真实创造者", nameof(actor));
         inspiration ??= ReadInspiration(actor);
         AbilityDefinition definition = GenerateDraft(actor, seed, inspiration, source, resources);
-        definition.Name = ConstructionPresentation.Name(definition, ValidateDefinition(definition, cache: false));
+        var plan = ValidateDefinition(definition, cache: false);
+        definition.Name = inspiration.Rules >= ConstructionPricing.DailyUseRules
+            ? DailyUseName(plan) ?? ConstructionPresentation.Name(definition, plan)
+            : ConstructionPresentation.Name(definition, plan);
         return definition;
     }
 
@@ -73,6 +76,12 @@ public sealed partial class ConstructedAbilityService
         }
         if (source != null) return Derive(actor, source, seed, inspiration,
             resources ?? (inspiration.Rules >= 7 ? CaptureCreationResources(actor, seed, inspiration) : null));
+        if (inspiration.Rules >= ConstructionPricing.DailyUseRules)
+        {
+            if (resources.RepairSlots == null) throw new ArgumentException("日用创法请求缺少受理时冻结的装备栏", nameof(resources));
+            var daily = GenerateDailyUse(actor.Base.id, seed, inspiration, resources);
+            if (daily != null) return ConstructionPricing.Price(daily, contactRules: inspiration.Rules);
+        }
         AbilityDefinition result = inspiration.Rules == 1
             ? GenerateLegacyDraft(actor, seed, inspiration)
             : Synthesize(actor, seed, inspiration, resources ?? CaptureCreationResources(actor, seed, inspiration));

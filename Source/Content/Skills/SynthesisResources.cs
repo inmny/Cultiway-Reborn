@@ -43,6 +43,10 @@ public sealed class SynthesisResources
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public readonly SynthesisErosionMaterial[] ErosionMaterials;
 
+    /// <summary>受理时穿戴的装备栏；有磨损时仅记录磨损栏位，旧请求缺省。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public readonly EquipmentType[] RepairSlots;
+
     /// <summary>只为当前输入建立的查找，不保存运行时对象。</summary>
     private readonly Dictionary<string, SynthesisForm> forms;
 
@@ -54,10 +58,11 @@ public sealed class SynthesisResources
     /// <param name="deformationForms">基础模型以外的实际可变模型。</param>
     /// <param name="inventoryMaterials">受理时真实可用的材料。</param>
     /// <param name="erosionMaterials">受理时可接受侵蚀的材料目录。</param>
+    /// <param name="repairSlots">当时可研究的实际装备栏。</param>
     [JsonConstructor]
     public SynthesisResources(SynthesisForm[] forms, AbilityDefinition[] bodies, string resource = "wakan",
         SynthesisWorldAction[] worldActions = null, SynthesisForm[] deformationForms = null, SynthesisInventoryMaterial[] inventoryMaterials = null,
-        SynthesisErosionMaterial[] erosionMaterials = null)
+        SynthesisErosionMaterial[] erosionMaterials = null, EquipmentType[] repairSlots = null)
     {
         if (forms == null || forms.Length > 16 || forms.Any(form => form == null) ||
             forms.Select(form => form.Id).Distinct(StringComparer.Ordinal).Count() != forms.Length ||
@@ -81,6 +86,10 @@ public sealed class SynthesisResources
         if (erosionMaterials != null && (erosionMaterials.Length > 128 || erosionMaterials.Any(material => material == null) ||
             erosionMaterials.Select(material => (material.Matter, material.State)).Distinct().Count() != erosionMaterials.Length))
             throw new ArgumentException("创作侵蚀材料缺失、重复或超过预算");
+        if (repairSlots != null && (repairSlots.Length > 6 || repairSlots.Distinct().Count() != repairSlots.Length ||
+            repairSlots.Any(slot => !Enum.IsDefined(typeof(EquipmentType), slot))))
+            throw new ArgumentException("创作维修栏位缺失、重复或超过预算");
+        RepairSlots = repairSlots;
         ErosionMaterials = erosionMaterials;
         DeformationForms = deformationForms;
         Forms = forms;
@@ -99,7 +108,8 @@ public sealed class SynthesisResources
         WorldActions?.Select(action => new SynthesisWorldAction(action.Id, action.DefaultDuration)).ToArray(),
         DeformationForms?.Select(CopyForm).ToArray(),
         InventoryMaterials?.Select(material => new SynthesisInventoryMaterial(material.Shape, material.Count)).ToArray(),
-        ErosionMaterials?.Select(material => new SynthesisErosionMaterial(material.Matter, material.State)).ToArray());
+        ErosionMaterials?.Select(material => new SynthesisErosionMaterial(material.Matter, material.State)).ToArray(),
+        RepairSlots?.ToArray());
 
     /// <summary>两类模型输入共用逐数组复制，避免请求之间共享可编辑控制名称。</summary>
     /// <param name="form">已检查的冻结资料。</param>

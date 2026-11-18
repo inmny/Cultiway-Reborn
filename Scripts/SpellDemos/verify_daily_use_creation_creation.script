@@ -1,0 +1,146 @@
+// 用一名实际修士、同一件原版铁甲和已有原料；等待请求用正式的游戏保存入口。
+Actor scholar = Make(64.2f);
+var owner = scholar.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); scholar.setStatsDirty(); scholar.updateStats();
+scholar.joinLanguage(World.world.languages.newLanguage(scholar, true));
+scholar.setCulture(World.world.cultures.newCulture(scholar, true));
+World.world.kingdoms.makeNewCivKingdom(scholar);
+var city = World.world.cities.buildNewCity(scholar, scholar.current_tile.zone);
+scholar.joinCity(city);
+Item armor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: scholar);
+scholar.equipment.setItem(armor, scholar); armor.getDamaged(4);
+Material(owner, ItemShapes.Wood, "自然创法时已有木材", 1);
+var inspiration = ConstructedAbilityService.ReadInspiration(owner);
+var capture = service.GetMethod("CaptureCreationResources", F);
+SynthesisResources Capture(int seed) => (SynthesisResources)capture.Invoke(null, new object[] { owner, seed, inspiration });
+JObject Complete(AbilityDefinition value) { var json = JObject.FromObject(value); json.Remove("Id"); return json; }
+void Write(string name, object value) => File.WriteAllText(Path.Combine(folder, name), JsonConvert.SerializeObject(value, Formatting.Indented));
+var access = ConstructionEditing.Access;
+var saves = Cultiway.ModClass.I.WorldSaves;
+var genDaily = service.GetMethod("GenerateDailyUse", F);
+bool DailySeed(int seed, SynthesisResources resources) => genDaily.Invoke(null, new object[] { scholar.id, seed, inspiration, resources }) != null;
+var accepts = service.Assembly.GetType("Cultiway.Content.CollectiveProjects.CityMagicUtilityProjectRules").GetMethod("AcceptsConstruction", F);
+string Purpose(AbilityDefinition value) => value.Impact.EquipmentRepair != null ? "repair" : value.Impact.Statuses?.Length > 0 ? "focus" :
+    value.Impact.WorldEffects?.Length > 0 ? value.Impact.WorldEffects[0].Action : "travel";
+var restoration = GeneralSettings.EnableNaturalWakanRestore;
+var spread = GeneralSettings.EnableWakanSpread;
+GeneralSettings.SwitchNaturalWakanRestore(false);
+GeneralSettings.SwitchWakanSpread(false);
+var starts = new List<ConstructedCastStarted>();
+var paid = new List<(float Ground, float Balance)>();
+int tileId = WorldWakanService.GetTileId(scholar.current_tile.x, scholar.current_tile.y);
+void Started(ConstructedCastStarted entry)
+{
+    if (entry.SourceId != scholar.id) return;
+    starts.Add(entry); paid.Add((WorldWakanService.GetClean(tileId), owner.GetCultisys<Xian>().wakan));
+}
+void Hit(ConstructedContact entry) { if (entry.SourceId == scholar.id) contacts.Add(entry); }
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Hit;
+try
+{
+    var frozen = Capture(0);
+    Check(inspiration.Rules == 34 && frozen.RepairSlots.SequenceEqual(new[] { EquipmentType.Armor }) &&
+        frozen.InventoryMaterials.Any(material => material.Shape == ItemShapes.Wood.id), "正式规则采集现有磨损装备与实际库存元件");
+    var input = JObject.FromObject(frozen).ToObject<SynthesisResources>();
+    var variants = new Dictionary<string, List<AbilityDefinition>>();
+    for (int seed = 0; seed < 192 && (variants.Count < 6 || variants.Values.Any(list => list.Count < 2)); seed++)
+    {
+        if (!DailySeed(seed, frozen)) continue;
+        var made = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: frozen);
+        string purpose = Purpose(made);
+        if (!variants.TryGetValue(purpose, out var found)) variants.Add(purpose, found = new());
+        if (found.Count >= 2) continue;
+        found.Add(made);
+        var plan = AbilityCompiler.Compile(made);
+        bool fits = purpose switch
+        {
+            "travel" => (bool)service.GetMethod("TravelPlan", F).Invoke(null, new object[] { plan }),
+            "focus" => (bool)service.GetMethod("MeditationFocusPlan", F).Invoke(null, new object[] { plan }),
+            "repair" => service.GetMethod("OwnEquipmentRepairRule", F).Invoke(null, new object[] { plan }) != null &&
+                        made.Impact.EquipmentRepair.Slot == EquipmentType.Armor && made.Inventory.Single().Shape == ItemShapes.Wood.id,
+            _ => made.Power == 0f && made.Use.Target == ActiveAbilityTargetMode.Point &&
+                (bool)accepts.Invoke(null, new object[] { plan, purpose })
+        };
+        Check(fits && made.Use.Channels == ActiveAbilityChannel.World && made.Cost > 0 &&
+            JToken.DeepEquals(Complete(made), Complete(ConstructedAbilityService.Generate(owner, seed, inspiration, resources: input))),
+            "冻结输入生成有实际日常入口的同样结构及费用：" + purpose, new { seed, made.Name, made.Cost });
+    }
+    Write("variants.json", variants);
+    Check(variants.Count == 6 && variants.Values.All(list => list.Count == 2 &&
+        !JToken.DeepEquals(JObject.FromObject(list[0].Root), JObject.FromObject(list[1].Root))),
+        "工作、救灾、出行、修炼和维护各有可用且结构参数不同的公开成品", variants.Keys.ToArray());
+
+    // 预置到一次可复现的机会序号，不调用创法入口；原打坐实际结算决定是否受理。
+    int sequence = 0;
+    AbilityDefinition predicted = null;
+    for (int index = 1; index <= 10000 && predicted == null; index++)
+    {
+        var roll = new System.Random(unchecked((int)scholar.id * 73856093 ^ index * 19349663));
+        if (roll.NextDouble() >= .015d) continue;
+        int seed = roll.Next();
+        if (!DailySeed(seed, frozen)) continue;
+        var value = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: Capture(seed));
+        if (Purpose(value) == "focus") { predicted = value; sequence = index; }
+    }
+    Check(predicted != null && access.List(owner).Count == 0, "找到有限可复现的天然机会，测试人物未事先学会任何构造", sequence);
+    owner.AddComponent(new ConstructedCreationState { Sequence = sequence - 1 });
+    await Advance(.2f);
+    CombatStatusEffects.RemoveStatus(scholar, hold);
+    scholar.setStatsDirty(); scholar.updateStats();
+    scholar.cancelAllBeh(); Place(scholar, 64.2f);
+    scholar.timer_action = scholar.attack_timer = 0f;
+    float baseline = 17f, ground = Mathf.Min(512f, WorldWakanService.MaximumValue);
+    WorldWakanService.SetClean(tileId, ground);
+    owner.GetCultisys<Xian>().wakan = baseline;
+    scholar.data.set(ContentActorDataKeys.CultivateTime_float, 8f);
+    var task = ActorTasks.DailyXianCultivate;
+    scholar.setTask(task.id, pForceAction: true);
+    scholar.ai.GetType().BaseType.GetField("action_index", F).SetValue(scholar.ai, task.list.FindIndex(step => step is BehXianCultivate));
+    await Advance(.42f);
+    var finished = owner.GetComponent<ConstructedCreationState>();
+    string learnedId = finished.LastAbility;
+    var learned = learnedId == null ? null : access.Read(learnedId);
+    Check(learned != null && !finished.Pending && finished.LastFailure == null && finished.Sequence == sequence &&
+        finished.Origin == ConstructionCreationOrigin.Cultivation && access.List(owner).Count == 1 &&
+        JToken.DeepEquals(Complete(learned), Complete(predicted)), "真实打坐产生自然灵感，并正式授予同样日用成品",
+        new { sequence, learnedId, finished.Origin, finished.LastFailure, balance = owner.GetCultisys<Xian>().wakan });
+    await Advance(1.26f);
+    Check(starts.Count == 1 && starts[0].AbilityId == learnedId && starts[0].Origin == ActiveAbilityUseOrigin.Autonomous &&
+        Math.Abs((baseline + ground) - (paid[0].Ground + paid[0].Balance) - learned.Cost) < .035f &&
+        contacts.Any(contact => contact.AbilityId == learnedId && contact.TargetId == scholar.id) &&
+        CombatStatusEffects.HasStatus(scholar, Cultiway.Content.StatusEffects.CultivationFocus),
+        "仍在真实打坐中的角色随后按正式报价自主使用刚创出的术，实际接触本人",
+        new { calls = starts.Count, learned.Cost, paid = paid.Select(value => new { value.Ground, value.Balance }), contacts = contacts.Count });
+    scholar.cancelAllBeh();
+    CombatStatusEffects.ApplyStatus(scholar, hold, 10000, scholar);
+    await Advance(learned.Impact.Statuses.Single().Duration + .35f);
+
+    var sourceChoice = service.GetMethod("CaptureCreationSource", F);
+    int saveSeed = -1;
+    for (int seed = 0; seed < 192; seed++)
+    {
+        if (!DailySeed(seed, frozen) || sourceChoice.Invoke(null, new object[] { owner, seed, null }) != null) continue;
+        if (Purpose(ConstructedAbilityService.Generate(owner, seed, inspiration, resources: frozen)) == "repair") { saveSeed = seed; break; }
+    }
+    Check(saveSeed >= 0 && ConstructedAbilityService.TryQueueCreation(owner, saveSeed), "公开复现入口受理一份可冷启动的维修请求");
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    var expected = ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources);
+    var section = JObject.Parse(saves.Actors.Capture(owner, "daily-use-creation"))["sections"]["ability_creation"];
+    Check((int)section["version"] == 35 && pending.Pending && pending.Source == null && Purpose(expected) == "repair" &&
+        pending.Resources.RepairSlots.SequenceEqual(new[] { EquipmentType.Armor }), "正式人物区段保存相同维修请求和冻结装备栏");
+    int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+    Write("pending-expected.json", new { process, sourceId = scholar.id, armorId = armor.id, known = access.List(owner).Count,
+        section, expected, learned });
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "pending-save"));
+    return new { passed = true, process, sequence, natural = learned.Id, pending.Seed };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    GeneralSettings.SwitchNaturalWakanRestore(restoration);
+    GeneralSettings.SwitchWakanSpread(spread);
+    Config.paused = true;
+}

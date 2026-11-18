@@ -448,6 +448,9 @@ public static class ConstructionPricing
     /// <summary>自主创作接入真实地波、水路和讯号到达。</summary>
     internal const int PropagationRules = 33;
 
+    /// <summary>自主独立创作可以生成能被原日常任务选中的用途。</summary>
+    internal const int DailyUseRules = 34;
+
     /// <summary>按已冻结规则合并真实接触需求，不改变旧请求的计算。</summary>
     /// <param name="measure">已编译的实际规模。</param><param name="rules">本次创作版本。</param>
     private static double Demand(ConstructionMeasure measure, int rules) => measure.Work +
