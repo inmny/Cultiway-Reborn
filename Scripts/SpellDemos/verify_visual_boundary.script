@@ -1,0 +1,279 @@
+const string prefix = "test.visual-boundary.";
+var actorPose = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+var footMethod = actorPose.GetMethod("Foot", F);
+var heightMethod = actorPose.GetMethod("Height", F);
+var boundaryMethod = service.Assembly.GetType("Cultiway.Core.Skills.ActorHitBoundary").GetMethod("Create", F);
+var caster = Make(64);
+var target = Make(67, "wolf");
+var casts = new Dictionary<string, AbilityCast>();
+var reflections = new List<ConstructedReflection>();
+void Reflected(ConstructedReflection result) => reflections.Add(result);
+void Started(ConstructedCastStarted value)
+{
+    if (!value.AbilityId.StartsWith(prefix)) return;
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == value.CastId)
+            casts.Add(value.AbilityId, (AbilityCast)Field(running, "Cast"));
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ReflectionConfirmed += Reflected;
+object Get(object o, string n) => o.GetType().GetProperty(n, F)?.GetValue(o) ?? o.GetType().GetField(n, F)?.GetValue(o);
+float[] XYZ(Vector3 point) => new[] { point.x, point.y, point.z };
+object Shape(AbilityCapsule shape) => new { a = XYZ(shape.A), b = XYZ(shape.B), shape.Radius, shape.Shape };
+Vector3 Foot(Actor actor) => (Vector3)footMethod.Invoke(null, new object[] { actor });
+float Height(Actor actor) => (float)heightMethod.Invoke(null, new object[] { actor });
+AbilityCapsule Body(Actor actor, AbilityHeightField terrain = null)
+{
+    Vector3 foot = Foot(actor);
+    foot.z += terrain?.Sample(foot.x, foot.y) ?? 0f;
+    return (AbilityCapsule)boundaryMethod.Invoke(null, new object[] { foot, Height(actor), Vector3.zero });
+}
+void Move(Actor actor, float x, float y, float lift = 0)
+{
+    Place(actor, x, y);
+    actor.position_height = lift;
+    actor.updatePos();
+    ConstructedAbilityService.NotifyActorChanged(actor);
+}
+async Task Frames(int count = 5) { for (int i = 0; i < count; i++) await Game.NextFrame(); }
+async Task Shot(string name, float x, float y, float zoom)
+{
+    World.world.console.Hide();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    MoveCamera.instance.forceZoom(zoom);
+    var camera = World.world.camera.transform;
+    camera.position = new Vector3(x, y, camera.position.z);
+    await Frames();
+    string file = Path.Combine(folder, name + ".png");
+    File.Delete(file);
+    Screen.Capture(file);
+    await Game.WaitUntil(() => File.Exists(file) && new FileInfo(file).Length > 0, 600);
+}
+AbilityDefinition Spell(string id, string form, string matter, float height) => new AbilityDefinition
+{
+    Id = prefix + id, Name = id, Resource = "none", Cost = 0, Power = 2f, Lifetime = .65f, TargetRange = 30f,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Height = height },
+    Root = new ConstructionNode { Id = "shape", Form = form, Matter = matter, OnContact = ConstructionContactResponse.Continue }
+};
+async Task Cast(AbilityDefinition definition, Actor source, Actor aim)
+{
+    await Fire(definition, source, aim);
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+}
+(AbilityCapsule[] Contacts, FormVisualInstance[] Models) Sample(AbilityDefinition definition)
+{
+    var shapes = new List<AbilityCapsule>();
+    var models = new List<FormVisualInstance>();
+    casts[definition.Id].AppendContacts(shapes);
+    casts[definition.Id].AppendVisuals(models);
+    Check(shapes.Count > 0 && models.Any(model => model.Resource.Description.Id == definition.Root.Form),
+        "同一次施放发布正式模型与有效区：" + definition.Root.Form);
+    return (shapes.ToArray(), models.ToArray());
+}
+
+try
+{
+    var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+    object mod = external?.GetProperty("Instance", F).GetValue(null);
+    if (mod != null)
+    {
+        external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+        external.GetMethod("SetGodView", F).Invoke(mod, new object[] { false });
+        await Game.WaitUntil(() => !(bool)Get(mod, "IsFirstPerson") && !(bool)Get(mod, "GodShown") &&
+            (bool)Get(mod, "DiveDone") && !(bool)Get(mod, "Flying"), 3600);
+    }
+    Ready(caster);
+    await Advance(.16f);
+    float bodyHeight = Height(target);
+    float bodyRadius = Body(target).Radius;
+    const float scale = 2.6f, gap = .15f;
+    float radius = FormResources.Load("fire_burst").Description.Contacts.Single().Radius * scale;
+
+    async Task Circle(string name, float distance, float lift, bool hit)
+    {
+        Move(caster, 64, 72);
+        Move(target, 64 + distance, 72, lift);
+        var definition = Spell(name, "fire_burst", "fire", bodyHeight * .5f);
+        definition.Root.Scale = scale;
+        if (section == "height") definition.Lifetime = .34f;
+        int health = target.data.health;
+        await Cast(definition, caster, target);
+        await Advance(.14f);
+        var sample = Sample(definition);
+        AbilityCapsule area = sample.Contacts.Single(), body = Body(target, sample.Models.Single().Terrain);
+        Vector3 centre = sample.Models.Single().Transform.GetColumn(3);
+        var facts = contacts.Where(c => c.AbilityId == definition.Id && c.TargetId == target.id).ToArray();
+        await Shot(name, 65.4f, section == "height" ? 76.4f : 73.8f, section == "height" ? 11f : 9f);
+        Check(Vector3.Distance(centre, area.A) < .002f && Vector3.Distance(area.A, area.B) < .002f &&
+            Mathf.Abs(area.Radius - radius) < .002f && (lift <= 0f || body.A.z - body.Radius > area.A.z + area.Radius),
+            "画面主体与圆形有效区同心，高处样本仍在圆顶上方：" + name,
+            new { image = name + ".png", model = XYZ(centre), area = Shape(area), body = Shape(body), foot = XYZ(Foot(target)) });
+        Check(facts.Length == (hit ? 1 : 0) && (hit ? target.data.health < health : target.data.health == health),
+            "实际扣血与确认事件：" + name, new { health, after = target.data.health, distance, hits = facts.Select(c => XYZ(c.Position)) });
+        await Advance(definition.Lifetime - .10f);
+        Check(endings.Any(end => end.Fact.AbilityId == definition.Id && !end.Fact.Cancelled) &&
+            contacts.Count(c => c.AbilityId == definition.Id && c.TargetId == target.id) == facts.Length,
+            "施放自然结束，结果未改变：" + name);
+    }
+
+    if (section == "circle")
+    {
+        await Circle("circle-inside", radius + bodyRadius - gap, 0, true);
+        await Circle("circle-outside", radius + bodyRadius + gap, 0, false);
+    }
+    if (section == "height")
+    {
+        await Circle("circle-above", .85f, 11f, false);
+        await Circle("circle-return", .85f, 0, true);
+    }
+    if (section == "blade")
+    {
+        // 正式折锋的右半段。角色留在同一横坐标，只在刃口前缘移动。
+        const float bladeScale = 2f, bladeX = .8325f, bladeY = .1725f;
+        async Task Blade(string name, float lateral, bool hit)
+        {
+            Move(caster, 64, 72);
+            Move(target, 64 + bladeX * bladeScale, 72 + bladeY * bladeScale + lateral);
+            var definition = Spell(name, "sword_qi", "iron", bodyHeight * .5f);
+            definition.Root.Scale = bladeScale;
+            definition.Root.Rotation = new[] { -90f, 0f, 0f };
+            int health = target.data.health;
+            await Cast(definition, caster, target);
+            await Advance(.14f);
+            var sample = Sample(definition);
+            var model = sample.Models.Single();
+            AbilityCapsule body = Body(target, model.Terrain);
+            Vector3 centre = (body.A + body.B) * .5f;
+            Vector3 edge = model.Transform.MultiplyPoint3x4(new Vector3(bladeX, 0f, bladeY));
+            float distance = sample.Contacts.Min(area => Vector3.Distance(area.ClosestAxisPoint(centre), centre));
+            var hits = contacts.Where(c => c.AbilityId == definition.Id && c.TargetId == target.id).ToArray();
+            await Shot(name, 64.5f, 72, 7.5f);
+            Check(sample.Contacts.Length > 1 && Mathf.Abs(edge.x - centre.x) < .02f &&
+                Mathf.Abs(centre.y - edge.y - lateral) < .02f && (hit ? distance < body.Radius : distance > body.Radius),
+                "同一刃段的画面边和实际人物距离：" + name,
+                new { image = name + ".png", edge = XYZ(edge), body = Shape(body), distance, areas = sample.Contacts.Select(Shape) });
+            Check(hits.Length == (hit ? 1 : 0) && (hit ? target.data.health < health : target.data.health == health),
+                "实战结果：" + name, new { health, after = target.data.health, contacts = hits.Select(c => XYZ(c.Position)) });
+            await Advance(.55f);
+            Check(endings.Any(end => end.Fact.AbilityId == definition.Id && !end.Fact.Cancelled), "刃面自然结束：" + name);
+        }
+        await Blade("blade-inside", .22f, true);
+        await Blade("blade-outside", .43f, false);
+    }
+    if (section == "wave")
+    {
+        Move(caster, 64, 72);
+        Move(target, 69.35f, 72);
+        var definition = Spell("tidal-front", "tidal_wave", "water", 0f);
+        definition.Lifetime = .95f;
+        definition.Root.Scale = 2f;
+        Vector3 rotation = Quaternion.LookRotation(Vector3.right, Vector3.forward).eulerAngles;
+        definition.Root.Rotation = XYZ(rotation);
+        definition.Root.Operations = new[]
+        {
+            new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { 8f, 0, 0 },
+                WorldVelocity = true, InheritVelocity = false, Ground = ConstructionGroundResponse.Follow },
+            new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "travel", Seconds = .95f }
+        };
+        int health = target.data.health;
+        await Cast(definition, caster, target);
+        async Task Front(string name, bool reached)
+        {
+            var sample = Sample(definition);
+            var model = sample.Models.Single();
+            var body = Body(target, model.Terrain);
+            // 浪唇高于头顶时只能从身上经过。前沿按同一帧确实能碰到这个人物的高度记录。
+            float leading = sample.Contacts.Max(c => Mathf.Max(c.A.x, c.B.x) + c.Radius);
+            float reachable = float.NegativeInfinity;
+            foreach (var c in sample.Contacts)
+            {
+                float separation = Mathf.Abs(c.A.z - Mathf.Clamp(c.A.z, body.A.z, body.B.z));
+                float sum = c.Radius + body.Radius;
+                if (separation < sum) reachable = Mathf.Max(reachable, c.A.x + Mathf.Sqrt(sum * sum - separation * separation));
+            }
+            var hits = contacts.Where(c => c.AbilityId == definition.Id && c.TargetId == target.id).ToArray();
+            await Shot(name, 68f, 72.6f, 9f);
+            Check((reached ? reachable >= body.A.x : leading < body.A.x - body.Radius) &&
+                hits.Length == (reached ? 1 : 0) && (reached ? target.data.health < health : target.data.health == health),
+                "浪前沿位置和实战结果：" + name, new { image = name + ".png", leading, reachable, body = Shape(body),
+                    model = XYZ(model.Transform.GetColumn(3)), areas = sample.Contacts.Select(Shape), health, after = target.data.health,
+                    hits = hits.Select(c => new { c.Age, at = XYZ(c.Position) }) });
+        }
+        await Advance(.43f);
+        await Front("wave-ahead", false);
+        while (casts[definition.Id].Age < .88f && !contacts.Any(c => c.AbilityId == definition.Id && c.TargetId == target.id))
+            await Advance(.035f);
+        await Front("wave-reaches", true);
+        await Advance(.54f);
+        Check(casts[definition.Id].Finished && endings.Any(end => end.Fact.AbilityId == definition.Id && !end.Fact.Cancelled), "浪自然结束");
+    }
+    if (section == "shield")
+    {
+        var shooter = Make(72);
+        async Task Shield(string name, float lateral, bool blocked)
+        {
+            Ready(caster);
+            await Advance(.16f);
+            Move(caster, 64, 72);
+            Move(target, 12, 12);
+            Move(shooter, 72, 72 + lateral);
+            var shield = Spell(name + "-ward", "shield", "iron", 1.45f);
+            shield.Lifetime = 1.75f;
+            shield.Root.Scale = 2.2f;
+            shield.Root.Offset = new[] { 3f, 0, 0 };
+            shield.Root.Rotation = XYZ(Quaternion.LookRotation(new Vector3(1f, 0f, .38f), Vector3.forward).eulerAngles);
+            shield.Root.ContactRole = ConstructionContactRole.Barrier;
+            shield.Root.Interception = ConstructionInterception.Reflect;
+            shield.Root.ReflectionLimit = 1;
+            shield.Root.Strength = 100f;
+            await Cast(shield, caster, shooter);
+
+            Ready(shooter);
+            CombatStatusEffects.ApplyStatus(caster, hold, 10000, caster);
+            await Advance(.16f);
+            Move(caster, 64, 72);
+            Move(shooter, 72, 72 + lateral);
+            var incoming = Spell(name + "-shot", "fireball", "fire", 1.45f);
+            incoming.Power = 5f / shooter.stats["damage"];
+            incoming.Lifetime = 1.10f;
+            incoming.Root.Scale = .9f;
+            incoming.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+                Vector = new[] { -8f, 0, 0 }, WorldVelocity = true, InheritVelocity = false } };
+            await Cast(incoming, shooter, caster);
+            await Advance(.45f);
+            var ward = Sample(shield);
+            var shot = Sample(incoming);
+            float edge = ward.Contacts.Max(c => Mathf.Max(c.A.y, c.B.y) + c.Radius);
+            float shotY = shot.Contacts.Single().A.y;
+            float shotRadius = shot.Contacts.Single().Radius;
+            bool reach = shotY - shotRadius < edge;
+            bool IsReflection(ConstructedReflection result) => result.AbilityId == incoming.Id;
+            await Shot(name + "-incoming", 67.8f, 73.6f, 8f);
+            Check(reach == blocked && !reflections.Any(IsReflection), "来袭物尚未到盾面：" + name,
+                new { edge, shotY, shotRadius, ward = XYZ(ward.Models.Single().Transform.GetColumn(3)), shot = Shape(shot.Contacts.Single()) });
+            await Advance(.40f);
+            var result = reflections.Where(IsReflection).ToArray();
+            float outgoingX = Sample(incoming).Contacts.Single().A.x;
+            await Shot(name + "-result", 67.8f, 73.6f, 8f);
+            Check(result.Length == (blocked ? 1 : 0) && (blocked
+                    ? outgoingX > 67f && result[0].Owner == caster.id && result[0].OutgoingVelocity.x > 0f
+                    : outgoingX < 66f),
+                "实际拦截折返或从盾外通过：" + name,
+                new { outgoingX, reflections = result.Select(c => new { at = XYZ(c.Position), c.Owner, velocity = XYZ(c.OutgoingVelocity) }) });
+            await Advance(.82f);
+            Check(casts[shield.Id].Finished && casts[incoming.Id].Finished, "盾和来袭物自然结束：" + name);
+        }
+        await Shield("shield-edge", 1.92f, true);
+        await Shield("shield-outside", 2.55f, false);
+    }
+    return new { passed = true, section, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ReflectionConfirmed -= Reflected;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
