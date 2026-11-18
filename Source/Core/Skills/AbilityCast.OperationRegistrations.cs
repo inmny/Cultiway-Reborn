@@ -11,12 +11,14 @@ public sealed partial class AbilityCast
     /// <summary>旧专用定时入口保持原实现；所有条件及命名执行共用同一登记表。</summary>
     internal static void RegisterOperationImplementations()
     {
-        ConstructionOperations.Register(ConstructionOperationKind.MapSpace, context =>
+        ConstructionOperations.Register(ConstructionOperationKind.MapActor, CompileMappingRadius,
+            (_, _, _) => false, validate: (form, _, path) =>
             {
-                float radius = context.Source.MappingRadius ?? 1f;
-                if (!(radius > 0f && radius <= 32f)) throw new InvalidDataException(context.Path + "：入口半径须大于0且不超过32");
-                return radius;
-            }, (cast, action, radius) => cast.MapSpace(action, radius), immediate: _ => true,
+                if (form.BodyWindow || !form.AffectsActors || form.Resource.Contacts.Length == 0)
+                    throw new InvalidDataException(path + "：生灵转移入口需要能够实际接触人物的生成形体");
+            });
+        ConstructionOperations.Register(ConstructionOperationKind.MapSpace, CompileMappingRadius,
+            (cast, action, radius) => cast.MapSpace(action, radius), immediate: _ => true,
             validate: (form, _, path) =>
             {
                 if (form.BodyWindow || form.Resource.Meshes.Length == 0)

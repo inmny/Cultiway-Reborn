@@ -605,6 +605,7 @@ internal static class WorldfallVisualBridge
         Skills.ConstructedAbilityService.BodyEnvironmentProvider = null;
         Skills.ConstructedAbilityService.StandingFootProvider = null;
         Skills.BodyLocomotion.ObstacleAllowed = null;
+        Skills.BodyLocomotion.DestinationAllowed = null;
         Skills.BodyLocomotion.SurfaceHeight = null;
         Skills.BodyLocomotion.SurfaceContact = null;
         Skills.BodyLocomotion.SavedSurface = null;

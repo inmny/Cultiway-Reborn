@@ -111,6 +111,14 @@ public static partial class AbilityCompiler
                 var action = new CompiledEventOperation(operation, ReadVector(operation.Vector, path), definition.Lifetime, path, node.Resource, original, node.Fracture, bound: true, order: original.Operations.Length + index)
                 { Step = sorted.Count };
                 var step = new CompiledConstructionStep(source.Id, target, inputs.ToArray(), action, contract);
+                if (operation.Kind == ConstructionOperationKind.MapActor)
+                {
+                    if (operation.When != null || !bindings.TryGetValue("exit", out var exit) || exit.Length != 1)
+                        Fail(path, "生灵转移仅在实际入口接触确认时执行，需要唯一出口，不另设事件");
+                    step.MappingEntrance = target;
+                    step.MappingExit = bindings["exit"][0].Node;
+                    if (target == step.MappingExit) Fail(path, "入口和出口不能使用同一部位");
+                }
                 if (operation.Kind == ConstructionOperationKind.MapSpace)
                 {
                     if (!bindings.TryGetValue("entrance", out var entrance) || entrance.Length != 1 ||

@@ -166,6 +166,9 @@ public sealed class CompiledAbility
     /// <summary>已经按依赖排序的命名操作，不在运行中解释原描述。</summary>
     internal CompiledConstructionStep[] Steps { get; }
 
+    /// <summary>只在实际人物接触时可执行的步骤索引。</summary>
+    internal int[] ActorTransferSteps { get; }
+
     /// <summary>同类指令、参数与连续绑定的直接索引。</summary>
     internal CompiledOperationProgram Program { get; }
 
@@ -249,6 +252,7 @@ public sealed class CompiledAbility
         HasPropagation = operations.Any(operation => operation.Propagation != null);
         NeedsRayTarget = operations.Any(operation => operation.Ray != null);
         Steps = steps;
+        ActorTransferSteps = Enumerable.Range(0, steps.Length).Where(i => steps[i].Action.Kind == ConstructionOperationKind.MapActor).ToArray();
         HasStepRecovery = steps.Any(step => step.Action.Recovery != null);
         Matters = nodes
             .SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind)

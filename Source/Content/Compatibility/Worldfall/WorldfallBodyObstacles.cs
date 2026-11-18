@@ -220,6 +220,7 @@ internal sealed partial class WorldfallBodyObstacles
         ConstructedAbilityService.CaptureBodyObstacles = Capture;
         ConstructedAbilityService.BodyEnvironmentProvider = CaptureMeshes;
         BodyLocomotion.ObstacleAllowed = Allowed;
+        BodyLocomotion.DestinationAllowed = DestinationAllowed;
         BodyLocomotion.SurfaceHeight = Surface;
         BodyLocomotion.SurfaceContact = Contact;
         BodyLocomotion.SavedSurface = SavedSurface;
@@ -419,6 +420,21 @@ internal sealed partial class WorldfallBodyObstacles
             if (next < radius && next < Distance(entry, from, height) - .000001f) return false;
         }
 
+        return true;
+    }
+
+    /// <summary>双门落点检查当前身体与模型的重叠；不沿两个门之间取样。</summary>
+    /// <param name="point">候选脚下。</param><param name="height">实际体高。</param>
+    private bool DestinationAllowed(Vector3 point, float height)
+    {
+        float radius = height * .16f;
+        foreach (Entry entry in active)
+        {
+            if (!entry.Owner.isAlive() || entry.Owner.id != entry.Id || entry.Owner.chopped) continue;
+            Rect bounds = entry.Bounds;
+            bounds.xMin -= radius; bounds.xMax += radius; bounds.yMin -= radius; bounds.yMax += radius;
+            if (bounds.Contains(point) && Distance(entry, point, height) < radius) return false;
+        }
         return true;
     }
 

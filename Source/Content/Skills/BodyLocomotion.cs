@@ -10,6 +10,9 @@ internal sealed partial class BodyLocomotion
     /// <summary>可选实际模型阻挡；只在主线程预测中查询，不依赖显示回调。</summary>
     internal static System.Func<Vector3, Vector3, float, bool> ObstacleAllowed;
 
+    /// <summary>瞬时放置只检查终点，不继承步行时允许离开重叠的例外。</summary>
+    internal static System.Func<Vector3, float, bool> DestinationAllowed;
+
     /// <summary>实际模型的可站立表面；输入脚下、半径、允许的最高表面，不存在时返回负无穷。</summary>
     internal static System.Func<Vector3, float, float, float> SurfaceHeight;
 

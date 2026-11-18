@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using UnityEngine;
 using System.Collections.Generic;
 
 namespace Cultiway.Core.Skills;
@@ -157,7 +158,7 @@ public sealed partial class AbilityCast
     /// <param name="node">实际部位。</param>
     /// <param name="receipt">已经完成的世界确认。</param>
     private ConstructionOutputValue StepFact(int node, ConstructionWorldReceipt receipt = null) => new(node, nodes[node].Free ? -1 : Plan.Nodes[node].Parent, ConstructionValueKind.Part,
-        Age, nodes[node].Transform.GetColumn(3), nodes[node].Matter, nodes[node].Authority, nodes[node].Volume, nodes[node].Force, nodes[node].Resource, receipt);
+        Age, receipt?.Destination ?? (Vector3)nodes[node].Transform.GetColumn(3), nodes[node].Matter, nodes[node].Authority, nodes[node].Volume, nodes[node].Force, nodes[node].Resource, receipt);
 
     /// <summary>先确认已有过程，再执行新就绪输入；每个状态单向改变，队列有界。</summary>
     private void UpdateSteps()
@@ -198,7 +199,7 @@ public sealed partial class AbilityCast
                     if (input.Connection && nodes[input.Node].Free && (input.Step < 0 || stepStates[input.Step].Started.Matter != null)) { failed = true; break; }
                 }
                 if (failed) { step.State = ConstructionStepState.Interrupted; changed = true; continue; }
-                if (NodeAge(plan.Node) < action.At || !StepInputsReady(i)) continue;
+                if (action.Kind == ConstructionOperationKind.MapActor || NodeAge(plan.Node) < action.At || !StepInputsReady(i)) continue;
                 if (action.When == null) ReceiveOperationAt(action.Index, Age);
                 if (!operations[action.Index].Received || operations[action.Index].Due > Age) continue;
                 ApplyOperation(action.Index); changed = true;

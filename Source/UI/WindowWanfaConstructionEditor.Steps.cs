@@ -90,7 +90,7 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <param name="node">实际操作对象。</param><param name="select">选择后的草稿命令。</param>
     private void ChooseOperationKind(ConstructionNode node, Action<ConstructionOperationKind> select)
         => menu.Show(T("OperationKind"), ConstructionOperations.All.Where(contract =>
-            contract.Kind != ConstructionOperationKind.MapSpace &&
+            contract.Kind is not (ConstructionOperationKind.MapSpace or ConstructionOperationKind.MapActor) &&
             (contract.Kind != ConstructionOperationKind.ConsumeInventory || session.Draft.Inventory?.Length > 0) &&
             (contract.Kind != ConstructionOperationKind.Animate || FormResources.Load(node.Form).Description.Motions.Length > 0) &&
             (contract.Kind != ConstructionOperationKind.Deform || FormResources.Load(node.Form).Deformable) &&

@@ -329,7 +329,10 @@ public enum ConstructionOperationKind
     Erode = 20,
 
     /// <summary>把同一生成形体从入口的局部位置转到出口。</summary>
-    MapSpace = 21
+    MapSpace = 21,
+
+    /// <summary>实际接触后把原人物送到成对出口，由世界确认。</summary>
+    MapActor = 22
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
