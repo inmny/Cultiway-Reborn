@@ -1909,3 +1909,5 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 5.16 C1 使用同一入口的 `--section editor`：复用木料与现成世界，在实际万法阁检查四处时间窗、重叠拒绝、撤销、规则 31 推荐费用及原规则费用、中英文说明和正式保存重开。证据见 `~/.local/state/cultiway-dev/evidence/process-time-c1/delivery.json`。
 
 5.16 C2 使用 `--section creation` 进行独立创作、原术衍生与正式保存。退出并启动新进程后，用 `--section creation-restart --state <creation 输出目录>` 冷读规则 30、31 的真实等待请求，检查一次授予、实际付费、暂停、恢复和重存；`creation-use` 仅用于前段冷读已通过之后补后半段。分段结果和原失败见 `~/.local/state/cultiway-dev/evidence/process-time-c2/delivery.json`。
+
+5.16 C3 用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 360 -- python3 Scripts/SpellDemos/record_process_time.py --state <C2实际学会并重存的输出目录>`，录制同场两份世界木料的独立节奏；另起兼容环境后加 `--worldfall`。`--encode-only <视角目录>` 从已录原帧重核并编码。两端影片、暂停体积对照、两倍进度及实际结束见 `~/.local/state/cultiway-dev/evidence/process-time-c3/delivery.json`。
