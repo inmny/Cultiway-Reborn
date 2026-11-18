@@ -25,8 +25,9 @@ public sealed partial class ConstructedAbilityService
             if (!image.Cast.Plan.HasCorrespondences) continue;
             foreach (AbilityCapsule shape in image.Before)
             {
-                if (CorrespondenceReceiver(image, shape.Node) == null ||
-                    image.Cast.Plan.Nodes[shape.Node].Correspondence.DamageFraction <= 0f) continue;
+                if (CorrespondenceReceiver(image, shape.Node) == null) continue;
+                var relation = image.Cast.Plan.Nodes[shape.Node].Correspondence;
+                if (relation.DamageFraction <= 0f && relation.Effects == 0) continue;
                 correspondenceStarts.Add(new BarrierContact(image, shape));
                 correspondenceStartIndex.Add(AbilityContactIndex.Swept(shape, shape));
             }
@@ -44,7 +45,7 @@ public sealed partial class ConstructedAbilityService
             foreach (int candidate in correspondenceCandidates)
             {
                 BarrierContact image = correspondenceStarts[candidate];
-                if (CorrespondenceReceiver(image.Running, image.Shape.Node)?.id != key.Item4 ||
+                if (!CorrespondenceCovers(running, shape.Node, image.Running, image.Shape.Node, key.Item4) ||
                     !AbilityPairSweep.Find(shape, shape, image.Shape, image.Shape, out _, out _, out _)) continue;
                 if (shape.Node < 0 && running.BeforeJoint != null &&
                     !BodySurfacePose.Find(running.BeforeJoint.Contact, running.BeforeJoint.Contact,
@@ -66,16 +67,26 @@ public sealed partial class ConstructedAbilityService
         {
             BarrierContact image = correspondenceStarts[candidate];
             if (!image.Running.Cast.ContactAtDestination(image.Shape.Node) ||
-                CorrespondenceReceiver(image.Running, image.Shape.Node)?.id != target) continue;
+                !CorrespondenceCovers(shape.Running, shape.To.Node, image.Running, image.Shape.Node, target)) continue;
             AppendContactInterval(shape, image.Shape, image.Shape, true, false);
         }
         shapeIndex.Query(shape.Bounds, correspondenceCandidates);
         foreach (int candidate in correspondenceCandidates)
         {
             ShapeMotion image = shapes[candidate];
-            if (CorrespondenceReceiver(image.Running, image.To.Node)?.id != target ||
-                image.Running.Cast.Plan.Nodes[image.To.Node].Correspondence.DamageFraction <= 0f) continue;
+            if (!CorrespondenceCovers(shape.Running, shape.To.Node, image.Running, image.To.Node, target)) continue;
             AppendContactInterval(shape, image.From, image.To, image.Continuous, false);
         }
+    }
+
+    /// <summary>只有能够转交本组作用的对应表面才参与原人物的共同覆盖。</summary>
+    /// <param name="running">真实攻击。</param><param name="node">实际作用部位。</param>
+    /// <param name="image">映像施放。</param><param name="imageNode">映像部位。</param>
+    /// <param name="target">原人物编号。</param>
+    private static bool CorrespondenceCovers(RunningCast running, int node, RunningCast image, int imageNode, long target)
+    {
+        Actor receiver = CorrespondenceReceiver(image, imageNode);
+        return receiver?.id == target && CorrespondenceAllows(running, node, running.Cast.Impact(node),
+            image.Cast.Plan.Nodes[imageNode].Correspondence, receiver);
     }
 }

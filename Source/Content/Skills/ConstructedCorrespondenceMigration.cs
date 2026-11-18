@@ -13,3 +13,14 @@ internal sealed class ConstructionsV12ToV13 : ISaveMigration
     /// <param name="data">旧区段的独立副本。</param>
     public JObject Apply(JObject data) => data;
 }
+
+/// <summary>原映像保留传伤和完整资料，附带作用默认关闭。</summary>
+internal sealed class ConstructionsV13ToV14 : ISaveMigration
+{
+    /// <summary>原映像所在的正式区段版本。</summary>
+    public int FromVersion => 13;
+
+    /// <summary>保留旧构造完整资料。</summary>
+    /// <param name="data">旧区段的独立副本。</param>
+    public JObject Apply(JObject data) => data;
+}

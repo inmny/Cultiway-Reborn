@@ -1,0 +1,98 @@
+Actor source = Make(64), target = Make(80), other = Make(90);
+target.setKingdom(source.kingdom);
+other.setKingdom(source.kingdom);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var stillStats = new BaseStats();
+stillStats.addTag("frozen_ai");
+var still = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.CorrespondenceStill")
+    .SetStats(stillStats).SetDuration(10000).Build();
+CombatStatusEffects.RemoveStatus(target, hold);
+CombatStatusEffects.ApplyStatus(target, still, 10000, target);
+target.updateStats();
+var effects = new List<ConstructedCorrespondenceEffects>();
+var damage = new List<ConstructedCorrespondenceDamage>();
+void Applied(ConstructedCorrespondenceEffects fact) => effects.Add(fact);
+void Damaged(ConstructedCorrespondenceDamage fact) => damage.Add(fact);
+ConstructedAbilityService.CorrespondenceEffectsConfirmed += Applied;
+ConstructedAbilityService.CorrespondenceDamageConfirmed += Damaged;
+
+object[] Snapshots() => effects.Select(fact => (object)new
+{
+    fact.AttackCastId, fact.ImageCastId, fact.OwnerId, fact.TargetId, fact.Relation, fact.WorldTime,
+    fact.Effects, fact.ConsumedForce, fact.HealthRestored, fact.ForceApplied,
+    velocity = new[] { fact.VelocityChange.x, fact.VelocityChange.y, fact.VelocityChange.z }
+}).ToArray();
+
+async Task<(bool Force, float X, bool Status)> Pair(string name, ConstructionCorrespondenceEffects allowed)
+{
+    Place(source, 64); Place(target, 70); Place(other, 74);
+    target.setHealth(target.getMaxHealth() - 100);
+    other.setHealth(other.getMaxHealth() - 100);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    var image = ImageDefinition(); image.Id += "." + name;
+    image.Impact.Targets = SkillUseTargetRelation.Friendly;
+    image.Root.Correspondence.DamageFraction = 0f;
+    image.Root.Correspondence.Effects = allowed;
+    var attack = AttackDefinition(); attack.Id += "." + name;
+    attack.Impact = new ConstructionImpact
+    {
+        Targets = SkillUseTargetRelation.Friendly, SelectedTargetOnly = true, DamageScale = 0f,
+        Restoration = new ConstructionRestoration { Health = 20f, HealthPerForce = 2f },
+        ExposureSeconds = 1f, Impulse = new[] { 4f, 0f, 0f }, SlideSeconds = .4f,
+        AdditionalDamage = new[] { new ConstructionContactDamage { PerForce = 100f, Element = ElementComposition.Static.Fire } }
+    };
+    attack.Lifetime = .4f;
+    Input(image, name + "-image"); Input(attack, name + "-attack");
+    float balance = owner.GetCultisys<Xian>().wakan;
+    int startHealth = target.data.health, otherHealth = other.data.health, before = effects.Count;
+    await Fire(image, source, target, aggro: false); owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Fire(attack, source, target, aggro: false); owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - image.Cost - attack.Cost) < .001f,
+        "映像和普通来袭部位分别按原入口收费 " + name);
+    await Advance(.6f);
+    Check(effects.Count == before + 1 && damage.Count == 0 && other.data.health == otherHealth && contacts.Count == 0,
+        "真实映像交锋只向指定原人物提交一次许可作用 " + name, Snapshots());
+    var fact = effects.Last();
+    Check(fact.OwnerId == source.id && fact.TargetId == target.id && fact.Effects == allowed &&
+        fact.HealthRestored == 20 + Mathf.RoundToInt(fact.ConsumedForce * 2) &&
+        target.data.health == startHealth + fact.HealthRestored,
+        "使用实际消耗恢复原人物生命，混入的追加伤害未传递 " + name, Snapshots());
+    return (fact.ForceApplied, target.current_position.x,
+        CombatStatusEffects.TryGetStatus(target, StatusEffects.BodyExposure, source, out _));
+}
+
+try
+{
+    Ready(source); await Advance(.15f);
+    var limited = await Pair("limited", ConstructionCorrespondenceEffects.Restoration);
+    Check(!limited.Force && !limited.Status && Math.Abs(limited.X - 70f) < .001f,
+        "映像只允许恢复时原人物没有受力和状态", new { limited.Force, limited.Status, limited.X });
+    await Advance(.6f);
+    var full = await Pair("allowed", ConstructionCorrespondenceEffects.Restoration |
+        ConstructionCorrespondenceEffects.Status | ConstructionCorrespondenceEffects.Force);
+    Check(full.Force && full.Status && full.X > 70.1f, "开启许可后原人物实际获得状态并向外移动",
+        new { full.Force, full.Status, full.X, events = Snapshots() });
+    await Advance(1.3f);
+    Check(!CombatStatusEffects.TryGetStatus(target, StatusEffects.BodyExposure, source, out _) && effects.Count == 2,
+        "本次施放结束后状态照常到期");
+    string id = ImageDefinition().Id + ".allowed";
+    ConstructedAbilityService.Learn(owner, id);
+    var expected = new { source = source.id, target = target.id, health = target.data.health,
+        definition = (AbilityDefinition)((IDictionary)service.GetField("definitions", F).GetValue(null))[id] };
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(expected, Formatting.Indented));
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    return new { passed = true, closed = "恢复、状态、受力的许可和实际原人物效果", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CorrespondenceEffectsConfirmed -= Applied;
+    ConstructedAbilityService.CorrespondenceDamageConfirmed -= Damaged;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "effects.json"), JsonConvert.SerializeObject(Snapshots(), Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}

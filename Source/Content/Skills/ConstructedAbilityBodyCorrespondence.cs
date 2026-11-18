@@ -22,7 +22,7 @@ public sealed partial class ConstructedAbilityService
     private void FindBodyCorrespondences(ShapeMotion shape, double clock, float step, Action<ContactChoice> include)
     {
         RunningCast running = shape.Running;
-        if (singleActingNode || !running.Cast.Plan.Body.Construction.HasTouchRelations ||
+        if (singleActingNode || !running.Cast.Plan.Body.Construction.HasTouchRelations || BodyCorrespondenceForce(running) <= 0f ||
             running.WeaponConstraint?.Active == true || running.Connection?.Active == true && running.Connection.WeaponOnly) return;
         shapeIndex.Query(shape.Bounds, bodyCorrespondenceCandidates);
         foreach (int candidate in bodyCorrespondenceCandidates)
@@ -30,6 +30,7 @@ public sealed partial class ConstructedAbilityService
             ShapeMotion image = shapes[candidate];
             Actor receiver = CorrespondenceReceiver(image.Running, image.To.Node);
             if (receiver == null || !actorIndices.TryGetValue(receiver.id, out int actorIndex)) continue;
+            var relation = image.Running.Cast.Plan.Nodes[image.To.Node].Correspondence;
             ActorMotion actor = actors[actorIndex];
             Sample(actor, clock, out Vector3 fromFoot, out float fromHeight);
             Sample(actor, clock + step, out Vector3 toFoot, out float toHeight);
@@ -47,9 +48,7 @@ public sealed partial class ConstructedAbilityService
             void AtStage(int stage, bool oldScope, bool endpointOnly)
             {
                 var impact = running.Cast.ImpactAtStage(-1, stage);
-                if (impact.DamageScale <= 0f || image.Running.Cast.Plan.Nodes[image.To.Node].Correspondence.DamageFraction <= 0f ||
-                    !running.Owner(-1).Matches(impact.Targets, receiver) ||
-                    impact.SelectedTargetOnly && running.Owner(-1).TargetId != receiver.id ||
+                if (!CorrespondenceAllows(running, -1, impact, relation, receiver) ||
                     !running.Cast.ContactInterval(-1, stage, out float from, out float until)) return;
                 float earliest = Mathf.Max(from, ContactFraction(shape, actor, originalFrom, originalTo, step, stage, from));
                 if (earliest > 1f || earliest > until) return;
@@ -97,7 +96,7 @@ public sealed partial class ConstructedAbilityService
         image.Running.Cast.ConfirmClash(image.To.Node, hit.Point, consumed);
         image.Running.Cast.ConsumeForce(image.To.Node, consumed);
         long generation = worldGeneration;
-        ApplyAttackState result = ApplyCorrespondenceDamage(attack, image, receiver, consumed, hit.Point, contactConfirmed: true);
+        ApplyAttackState result = ApplyCorrespondence(attack, image, receiver, consumed, hit.Point, contactConfirmed: true);
         if (generation != worldGeneration) return;
         ConfirmBodyFeedback(running, hit.Point);
         bool blocked = image.Running.Cast.RemainingForce(image.To.Node) > 0f || result is ApplyAttackState.Block or ApplyAttackState.Deflect;

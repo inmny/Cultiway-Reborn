@@ -1881,3 +1881,8 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 `frequency`检查持续接触的间隔、共同脉冲和次数上限，以及持续贴住有效映像的去重。重入沿普通飞行曲线把同一映像真实移出并移回，保留离开位置和实际传伤时点。可用`--frequency-case timed|reentry|all`只补对应部分，单独输出`frequency-timed`或`frequency-reentry`。`control`验证真实器物替换中断、新器物再次使用和换世界控制归还。
 
 输出位于`CULTIWAY_DEV_OUTPUT/body-correspondence/<分段>`，保留完整实际定义、脚本、费用、原人物及器物身份、传伤事实和生命结果。正常段及间隔、脉冲在修正后的all中通过，重入及控制后续分别通过，受影响的A实机段单独补验通过。原失败和推进诊断日志保留，按分段验收。索引位于`/home/inmny/.local/state/cultiway-dev/evidence/body-correspondence/delivery.json`。正式声明与区段仍为13，其他作用、编辑与自主创作、集中恢复及连续影片继续5.14后批。
+
+
+### 5.14 B2 映像附带作用许可
+
+通过独立环境运行 `python3 Scripts/SpellDemos/verify_correspondence.py --section effects`，复用现成世界核对实际恢复、状态、推力、未许可作用和到期。脚本在输出目录保存新14正式完成世界。保存检查用 `--section save --state <effects目录> --legacy <真实旧13世界>`，核对完整新旧资料、实际生命结果及重复读取和换世界去重。证据索引位于 `/home/inmny/.local/state/cultiway-dev/evidence/correspondence-effects/delivery.json`。

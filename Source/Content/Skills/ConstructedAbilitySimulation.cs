@@ -972,9 +972,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             running.Cast.ConsumeForce(node, absorbed);
             right.Running.Cast.ConsumeForce(right.To.Node, absorbed);
             long clashGeneration = worldGeneration;
-            ApplyCorrespondenceDamage(right, hit.Left, leftReceiver, absorbed, hit.Point);
+            ApplyCorrespondence(right, hit.Left, leftReceiver, absorbed, hit.Point);
             if (clashGeneration != worldGeneration) return;
-            ApplyCorrespondenceDamage(hit.Left, right, rightReceiver, absorbed, hit.Point);
+            ApplyCorrespondence(hit.Left, right, rightReceiver, absorbed, hit.Point);
             if (clashGeneration != worldGeneration) return;
             ClashConfirmed?.Invoke(new ConstructedClash(running.Id, right.Running.Id, running.Owner(node).Id,
                 right.Running.Owner(right.To.Node).Id,
@@ -1044,7 +1044,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="running">实际施放。</param><param name="node">实际部位。</param>
     /// <param name="target">已确认的人物。</param><param name="effect">可选恢复资料。</param>
     /// <param name="attenuation">接触位置给出的实际传播衰减。</param>
-    private static void ApplyRestoration(RunningCast running, int node, Actor target, CompiledConstructionRestoration effect, float attenuation = 1f)
+    /// <param name="forceBasis">实际映像交锋消耗，省略时读取原部位作用量。</param>
+    private static void ApplyRestoration(RunningCast running, int node, Actor target, CompiledConstructionRestoration effect,
+        float attenuation = 1f, float? forceBasis = null)
     {
         if (effect == null) return;
         CastAuthority owner = running.Owner(node);
@@ -1053,7 +1055,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (!owner.IsLive) return;
             target = owner.Actor;
         }
-        float amount = effect.Health + Mathf.RoundToInt((node < 0 ? running.Power : running.Cast.RemainingForce(node)) * attenuation * effect.HealthPerForce);
+        float amount = effect.Health + Mathf.RoundToInt((forceBasis ?? (node < 0 ? running.Power : running.Cast.RemainingForce(node))) * attenuation * effect.HealthPerForce);
         if (amount > 0f) CombatResourceEffects.RestoreHealth(target, amount);
         if (effect.HealthPerSecond > 0f && target.data.health < target.getMaxHealth() && owner.IsLive)
             CombatStatusEffects.ApplyStrongestTickingStatus(target, StatusEffects.Rejuvenating, effect.Duration,
@@ -1066,7 +1068,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="running">实际施放。</param><param name="node">实际部位。</param>
     /// <param name="target">已确认的人物。</param><param name="effects">已编译属性状态。</param>
     /// <param name="attenuation">真实接触位置或传播路程给出的本体强度倍率。</param>
-    private static void ApplyStatuses(RunningCast running, int node, Actor target, IReadOnlyList<CompiledConstructionStatus> effects, float attenuation = 1f)
+    /// <param name="forceBasis">实际映像交锋消耗，省略时读取原部位作用量。</param>
+    private static void ApplyStatuses(RunningCast running, int node, Actor target, IReadOnlyList<CompiledConstructionStatus> effects,
+        float attenuation = 1f, float? forceBasis = null)
     {
         if (effects.Count == 0) return;
         CastAuthority owner = running.Owner(node);
@@ -1100,7 +1104,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     target.makeWait(strongest.GetComponent<Core.Components.AliveTimeLimit>().value);
                 continue;
             }
-            float tickValue = effect.Tick == null ? 0f : (node < 0 ? running.Power : running.Cast.RemainingForce(node)) * attenuation * effect.Tick.ForcePerSecond;
+            float tickValue = effect.Tick == null ? 0f : (forceBasis ?? (node < 0 ? running.Power : running.Cast.RemainingForce(node))) * attenuation * effect.Tick.ForcePerSecond;
             if (effect.Tick != null && tickValue <= 0f) continue;
             var status = CombatStatusEffects.ApplyStatusDeclaration(target, effect, owner.Actor,
                 owner.Damage.AttackerPowerLevel ?? 0f, stats, tickValue);
@@ -1247,9 +1251,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="priorVelocity">接触前已有的真实运动，空值读取当前受力。</param>
     /// <param name="forceReceiver">受击前的承力姿态。</param>
     /// <param name="strength">实际传播强度，普通形体为一。</param>
+    /// <param name="allowRouting">是否允许沿来力规则转交其他人物。</param>
     private static Vector3 ApplyContactForce(RunningCast running, int node, Actor target,
         CompiledConstructionImpact impact, ApplyAttackState result, out bool applied, Vector3? origin = null,
-        Vector3? priorVelocity = null, ForceReceiver? forceReceiver = null, float strength = 1f)
+        Vector3? priorVelocity = null, ForceReceiver? forceReceiver = null, float strength = 1f, bool allowRouting = true)
     {
         applied = false;
         if (impact.Force == 0f && !impact.Launch && !impact.Impulse.HasValue || result != ApplyAttackState.Hit ||
@@ -1277,7 +1282,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             Vector3 change = new(direction.x * local.x - direction.y * local.y,
                 direction.y * local.x + direction.x * local.y, local.z);
             ForceReceiver receiver = forceReceiver ?? new ForceReceiver(target);
-            return impact.ForceRouting != null || receiver.Response != null
+            return allowRouting && (impact.ForceRouting != null || receiver.Response != null)
                 ? ApplyRoutedForce(running, node, receiver, impact, change, priorVelocity, out applied)
                 : DeliverForce(owner, target, change, impact.SlideSeconds, priorVelocity, out applied, out _);
         }

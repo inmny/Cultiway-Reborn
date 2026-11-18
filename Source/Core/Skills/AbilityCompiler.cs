@@ -751,7 +751,7 @@ public static partial class AbilityCompiler
             ConstructionReferences.Resolve(path + "/Surface", () => FormResources.Surface(node.Surface, true));
         AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, path + "/Matter");
         if (node.Correspondence != null && node.ContactRole == ConstructionContactRole.Decoration)
-            Fail(path + "/Correspondence", "装饰部位没有真实交锋形状，不能承接受击传伤");
+            Fail(path + "/Correspondence", "装饰部位没有真实交锋形状，不能传递映像作用");
         CompiledSpreadMedium.ValidateChannel(node.MediumChannel, path + "/MediumChannel");
         if (matter.Surface != null)
             ConstructionReferences.Resolve(path + "/Matter/Surface", () => FormResources.Surface(matter.Surface, true));

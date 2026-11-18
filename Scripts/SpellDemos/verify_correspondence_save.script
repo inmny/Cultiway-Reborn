@@ -2,7 +2,10 @@ var facts = new List<ConstructedCorrespondenceDamage>();
 /// <summary>捕获读档和换世界后意外重放的伤害。</summary>
 /// <param name="fact">实际结果。</param>
 void Mapped(ConstructedCorrespondenceDamage fact) => facts.Add(fact);
+int transferred = 0;
+void Effects(ConstructedCorrespondenceEffects fact) => transferred++;
 ConstructedAbilityService.CorrespondenceDamageConfirmed += Mapped;
+ConstructedAbilityService.CorrespondenceEffectsConfirmed += Effects;
 
 /// <summary>按同一正式读档入口切换世界并等待共同逻辑边界。</summary>
 /// <param name="name">本批已归档的正式世界。</param>
@@ -18,6 +21,7 @@ async Task Load(string name)
 try
 {
     var legacy = JObject.Parse(File.ReadAllText(Path.Combine(folder, "legacy-definition.json")));
+    int legacyVersion = (int)legacy["version"];
     await Load("legacy-save");
     var definitions = (IDictionary)service.GetField("definitions", F).GetValue(null);
     foreach (var saved in (JArray)legacy["data"]["Definitions"])
@@ -25,9 +29,9 @@ try
         var old = saved.ToObject<AbilityDefinition>();
         var actual = (AbilityDefinition)definitions[old.Id];
         Check(actual != null && JToken.DeepEquals(JObject.FromObject(old), JObject.FromObject(actual)),
-            "真实旧12原样升级，完整构造保持 " + old.Id);
+            "真实旧" + legacyVersion + "原样升级，完整构造保持 " + old.Id);
     }
-    Check(facts.Count == 0, "旧世界升级不补写映像传伤");
+    Check(facts.Count == 0 && transferred == 0, "旧世界升级不重放对应作用");
 
     var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "expected.json")));
     await Load("completed-save");
@@ -41,8 +45,8 @@ try
         "正式存读保持原身份、完整对应、已学关系及真实生命结果");
     source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
     await Advance(.3f);
-    Check(facts.Count == 0 && ((ICollection)service.GetField("casts", F).GetValue(null)).Count == 0,
-        "恢复后不重放对应伤害和旧施放");
+    Check(facts.Count == 0 && transferred == 0 && ((ICollection)service.GetField("casts", F).GetValue(null)).Count == 0,
+        "恢复后不重放对应作用和旧施放");
     ConstructedAbilityService.Learn(source.GetExtend(), definition.Id);
     int health = target.data.health;
     SaveManager.saveWorldToDirectory(Path.Combine(folder, "restored-save"));
@@ -54,13 +58,14 @@ try
     source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
     await Advance(.3f);
     await Load("input-world"); await Advance(.3f);
-    Check(facts.Count == 0 && ((ICollection)service.GetField("casts", F).GetValue(null)).Count == 0,
-        "换世界后旧对应和旧伤害全部退出");
-    return new { passed = true, closed = "真实旧12原样升级、新对应与原生命保存、重复读取和换世界去重", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    Check(facts.Count == 0 && transferred == 0 && ((ICollection)service.GetField("casts", F).GetValue(null)).Count == 0,
+        "换世界后旧对应和旧作用全部退出");
+    return new { passed = true, legacyVersion, closed = "真实旧构造原样升级、新对应与原生命保存、重复读取和换世界去重", process = System.Diagnostics.Process.GetCurrentProcess().Id };
 }
 finally
 {
     ConstructedAbilityService.CorrespondenceDamageConfirmed -= Mapped;
+    ConstructedAbilityService.CorrespondenceEffectsConfirmed -= Effects;
     ConstructedAbilityService.ContactConfirmed -= Hit;
     ConstructedAbilityService.CastEnded -= Ended;
     Config.paused = true; ControllableUnit.clear(false);

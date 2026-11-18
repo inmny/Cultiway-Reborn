@@ -104,9 +104,36 @@ public sealed partial class ConstructedAbilityService
     private static bool CorrespondenceAllows(in ShapeMotion attack, in ShapeMotion image)
     {
         Actor receiver = CorrespondenceReceiver(image.Running, image.To.Node);
-        return receiver != null && image.Running.Cast.Plan.Nodes[image.To.Node].Correspondence.DamageFraction > 0f &&
-            attack.Running.Cast.Impact(attack.To.Node).DamageScale > 0f &&
-            attack.Running.Owner(attack.To.Node).Matches(attack.Running.Cast.Impact(attack.To.Node).Targets, receiver);
+        return receiver != null && CorrespondenceAllows(attack.Running, attack.To.Node,
+            attack.Running.Cast.Impact(attack.To.Node), image.Running.Cast.Plan.Nodes[image.To.Node].Correspondence, receiver);
+    }
+
+    /// <summary>原人物必须符合来袭部位的对象限制，双方至少同意一种实际作用。</summary>
+    /// <param name="running">来袭施放。</param><param name="node">来袭部位。</param>
+    /// <param name="impact">该作用阶段的资料。</param><param name="relation">映像许可。</param>
+    /// <param name="receiver">对应的原人物。</param>
+    private static bool CorrespondenceAllows(RunningCast running, int node, CompiledConstructionImpact impact,
+        CompiledCorrespondence relation, Actor receiver)
+    {
+        CastAuthority owner = running.Owner(node);
+        return (!impact.SelectedTargetOnly || owner.TargetId == receiver.id) && owner.Matches(impact.Targets, receiver) &&
+               (relation.DamageFraction > 0f && impact.DamageScale > 0f || CorrespondenceEffects(impact, relation) != 0);
+    }
+
+    /// <summary>只有映像许可且来袭部位实际拥有的作用才可转交。</summary>
+    /// <param name="impact">来袭部位的作用。</param><param name="relation">映像许可。</param>
+    private static ConstructionCorrespondenceEffects CorrespondenceEffects(CompiledConstructionImpact impact,
+        CompiledCorrespondence relation)
+    {
+        var effects = ConstructionCorrespondenceEffects.None;
+        if (impact.Restoration?.Target == ConstructionRestorationTarget.Contact && impact.Restoration.HasEffect)
+            effects |= ConstructionCorrespondenceEffects.Restoration;
+        if (impact.Statuses.Count > 0 || impact.StaggerSeconds > 0 || impact.BindSeconds > 0 ||
+            impact.StrainSeconds > 0 || impact.ExposureSeconds > 0)
+            effects |= ConstructionCorrespondenceEffects.Status;
+        if (impact.Force != 0f || impact.Launch || impact.Impulse?.sqrMagnitude > 0f || impact.Knockback?.HasEffect == true)
+            effects |= ConstructionCorrespondenceEffects.Force;
+        return effects & relation.Effects;
     }
 
     /// <summary>映像与直接人物接触共用次数和时点，传递不会再递归触发另一份命中。</summary>
@@ -130,12 +157,12 @@ public sealed partial class ConstructedAbilityService
         };
     }
 
-    /// <summary>双方已真实扣除交锋容量后，向仍是原人物的接收者提交明确伤害。</summary>
+    /// <summary>实际消耗后领取一次共同接触机会，按顺序向原人物提交获准的伤害和附带作用。</summary>
     /// <param name="attack">实际攻击。</param><param name="image">实际映像。</param>
     /// <param name="receiver">消耗前确认的原人物，允许本次交锋打碎映像后完成最后一次传递。</param>
     /// <param name="consumed">已经实际扣除的作用量。</param><param name="point">共同交锋点。</param>
     /// <param name="contactConfirmed">身体已按完整共同表面及频率确认资格。</param>
-    private static ApplyAttackState ApplyCorrespondenceDamage(in ShapeMotion attack, in ShapeMotion image, Actor receiver,
+    private static ApplyAttackState ApplyCorrespondence(in ShapeMotion attack, in ShapeMotion image, Actor receiver,
         float consumed, Vector3 point, bool contactConfirmed = false)
     {
         if (receiver == null || !receiver.isAlive() || !receiver.hasHealth()) return ApplyAttackState.Continue;
@@ -144,13 +171,17 @@ public sealed partial class ConstructedAbilityService
         var impact = attack.Running.Cast.Impact(attack.To.Node);
         CastAuthority owner = attack.Running.Owner(attack.To.Node);
         float amount = consumed * relation.DamageFraction * impact.DamageScale;
-        if (receiver.data?.id != id || amount <= 0f || !owner.Matches(impact.Targets, receiver) ||
+        var effects = CorrespondenceEffects(impact, relation);
+        if (receiver.data?.id != id || consumed <= 0f || amount <= 0f && effects == 0 ||
+            !CorrespondenceAllows(attack.Running, attack.To.Node, impact, relation, receiver) ||
             !contactConfirmed && !CorrespondenceContactReady(attack.Running, attack.To.Node, id)) return ApplyAttackState.Continue;
         RememberContact(attack.Running, attack.To.Node, id);
         float before = receiver.data.health;
         long generation = worldGeneration;
         ApplyAttackState result = ApplyAttackState.Hit;
-        if (attack.To.Node < 0)
+        Vector3? priorVelocity = (effects & ConstructionCorrespondenceEffects.Force) != 0 && impact.Impulse.HasValue
+            ? ConstructedActorImpulse.Velocity(receiver) : null;
+        if (amount > 0f && attack.To.Node < 0)
         {
             float multiplier = attack.Running.Power * impact.DamageScale * relation.DamageFraction *
                                consumed / BodyCorrespondenceForce(attack.Running);
@@ -159,7 +190,7 @@ public sealed partial class ConstructedAbilityService
                 ? KnightWeaponStrikeResolver.StrikeUnarmed(caster, receiver, null, multiplier, immediate: true).state
                 : KnightWeaponStrikeResolver.StrikeBorrowed(caster, attack.Running.Body.Weapon, receiver, multiplier, immediate: true).state;
         }
-        else
+        else if (amount > 0f)
         {
             var damage = owner.Damage;
             damage.TargetID = id;
@@ -169,10 +200,14 @@ public sealed partial class ConstructedAbilityService
         }
         if (generation != worldGeneration) return result;
         float after = receiver.data?.id == id ? receiver.data.health : 0f;
+        if (effects != 0 && receiver.data?.id == id && receiver.isAlive() && receiver.hasHealth())
+            ApplyCorrespondenceEffects(attack, image, receiver, impact, effects, result, consumed, point, priorVelocity);
+        if (generation != worldGeneration) return result;
         EndExhaustedContactGroup(attack.Running, attack.To.Node);
-        CorrespondenceDamageConfirmed?.Invoke(new ConstructedCorrespondenceDamage(attack.Running.Id,
-            image.Running.Id, owner.Id, id, attack.To.Node, image.To.Node, relation.Id, point,
-            simulation.contactTime, consumed, relation.DamageFraction, amount, before, after));
+        if (amount > 0f)
+            CorrespondenceDamageConfirmed?.Invoke(new ConstructedCorrespondenceDamage(attack.Running.Id,
+                image.Running.Id, owner.Id, id, attack.To.Node, image.To.Node, relation.Id, point,
+                simulation.contactTime, consumed, relation.DamageFraction, amount, before, after));
         return result;
     }
 }
