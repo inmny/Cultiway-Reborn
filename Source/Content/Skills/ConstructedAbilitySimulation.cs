@@ -765,7 +765,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             bool thermalSource = fire || shape.To.Node >= 0 && running.Cast.Burning(shape.To.Node).Heat > 0;
             bool attack = ordinary && running.Cast.Role(shape.To.Node) == ConstructionContactRole.Attack;
             if (shape.To.Node < 0 && attack) FindBodyCorrespondences(shape, clock, step, Include);
-            if (shape.To.Node >= 0 && attack && hasBodyGuardShapes)
+            if (attack && hasBodyGuardShapes)
                 FindBodyGuards(shape, step, Include);
             if (shape.To.Node >= 0 && (ordinary || thermalSource))
             {
@@ -1028,6 +1028,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ContactMemory memory = RememberContact(running, node, actor.Id);
         AbilityMatter beforeMatter = node < 0 ? null : running.Cast.Matter(node);
         CompiledConstructionImpact impact = running.Cast.Impact(node);
+        float strength = node < 0 ? running.BodyStrikeScale(running.Cast.BodyStage) :
+            running.Cast.ContactAttenuation(node, hit.Left.To.Shape);
         int healthBefore = actor.Actor.data.health;
         DamageSettlement primaryDamage = default;
         DamageObservation observation = null;
@@ -1041,10 +1043,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             observation = ObserveQueuedContact(running.Id, running.Cast.Plan.Id, contactOwner.Id, actor.Id,
                 memory.Count, LogicTime);
             AttackDataResult strike = running.Body.Weapon == null
-                ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, actor.Actor, null, running.Power * impact.DamageScale,
+                ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, actor.Actor, null, running.Power * impact.DamageScale * strength,
                     observer: observation)
                 : KnightWeaponStrikeResolver.StrikeBorrowed(owner, running.Body.Weapon, actor.Actor,
-                    running.Power * impact.DamageScale, observer: observation);
+                    running.Power * impact.DamageScale * strength, observer: observation);
             result = strike.state;
         }
         else if (node >= 0 && impact.DamageScale > 0f)
@@ -1052,19 +1054,19 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             var damage = contactOwner.Damage;
             damage.TargetID = actor.Id;
             damage.Damage = running.Cast.DamageForce(node) * impact.DamageScale *
-                running.Cast.ContactAttenuation(node, hit.Left.To.Shape);
+                strength;
             damage.Element = impact.Element ?? Composition(beforeMatter.DamageKind);
             primaryDamage = GetHitEventSystem.Resolve(damage);
         }
 
         if (contactGeneration != worldGeneration) return;
-        ApplyRestoration(running, node, actor.Actor, impact.Restoration, running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
+        ApplyRestoration(running, node, actor.Actor, impact.Restoration, strength);
         ConstructedTargetResponse response = ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
             priorVelocity: priorVelocity, forceReceiver: forceReceiver,
-            strength: running.Cast.ContactAttenuation(node, hit.Left.To.Shape), settled: primaryDamage);
+            strength: strength, settled: primaryDamage);
         if (contactGeneration != worldGeneration) return;
         if (result == ApplyAttackState.Hit)
-            ApplyContactSpreads(running, node, actor.Id, impact, spreadCenter, simulation.contactTime, running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
+            ApplyContactSpreads(running, node, actor.Id, impact, spreadCenter, simulation.contactTime, strength);
         if (contactGeneration != worldGeneration) return;
         if (node >= 0 && result == ApplyAttackState.Hit && running.Cast.Plan.ActorTransferSteps.Length != 0)
             ResolveActorTransfer(running, node, actor.Actor, actor.Id, contactGeneration);

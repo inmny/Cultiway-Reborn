@@ -1,10 +1,11 @@
 // 复用同一角色和同一飞行主体；来路取真实模型接触位置，不添加防御碰撞体。
 const string prefix = "test.body-guard.";
 Actor defender = Make(66f), attacker = Make(73f, "wolf");
-bool weapon = section == "weapon";
+bool weapon = section == "weapon" || section == "lost";
+Item sword = null;
 if (weapon)
 {
-    Item sword = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: defender);
+    sword = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: defender);
     defender.equipment.setItem(sword, defender);
     defender.setStatsDirty(); defender.updateStats();
 }
@@ -44,6 +45,7 @@ AbilityDefinition Projectile(string name, float height) => new AbilityDefinition
     {
         Id = "blade", Form = "sword_qi", Matter = "iron", Rotation = new[] { -90f, 0f, 180f },
         OnContact = ConstructionContactResponse.Continue,
+        Impact = section == "initial-force" ? new ConstructionImpact { DamageBasis = ConstructionDamageBasis.InitialForce } : null,
         Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
             WorldVelocity = true, InheritVelocity = false, Vector = new[] { -70f, 0f, 0f } } }
     }
@@ -79,6 +81,12 @@ async Task<int> Trial(string name, float capacity, bool reverse = false, bool la
     var face = shapes.OrderBy(s => Mathf.Abs((s.A.y + s.B.y) * .5f - 72f)).First();
     Vector3 center = (face.A + face.B) * .5f;
     if (late) await Advance(1.3f);
+    if (section == "lost")
+    {
+        defender.equipment.weapon.takeAwayItem();
+        defender.setStatsDirty(); defender.updateStats();
+        Check(!defender.hasWeapon(), "移除当时实际装备的铁剑");
+    }
     Place(attacker, 73f, center.y);
     ConstructedAbilityService.NotifyActorChanged(attacker);
     int life = defender.data.health;
@@ -88,7 +96,7 @@ async Task<int> Trial(string name, float capacity, bool reverse = false, bool la
     var clashes = guards.Where(g => g.LeftCast == shot).ToArray();
     var impacts = contacts.Where(c => c.CastId == shot && c.TargetId == defender.id).ToArray();
     int lost = life - defender.data.health;
-    bool expectedBlock = !reverse && !late;
+    bool expectedBlock = !reverse && !late && section != "lost";
     bool broken = capacity < 100f;
     Check(expectedBlock ? clashes.Length == 1 && Mathf.Abs(clashes[0].LeftSpent - clashes[0].RightSpent) < .0001f &&
               clashes[0].RightAge >= block.Body.ActiveFrom && clashes[0].RightAge <= block.Body.ActiveUntil &&
@@ -98,8 +106,13 @@ async Task<int> Trial(string name, float capacity, bool reverse = false, bool la
         name + "：用真实格挡结果和人物损耗核对", new { clashes = clashes.Select(Report).ToArray(), lost,
             expectedBlock, broken, impacts = impacts.Select(h => new { h.WorldTime, h.Damage.HealthLost }),
             origin = new[] { 73f, center.y, center.z }, scale = face.Radius });
+    if (section == "lost")
+        Check(!BodyControlState.IsBusy(defender.id) && endings.Any(e => e.Fact.AbilityId == block.Id),
+            "器物失效时立即归还身体，即使原动作尚未到自然结束时点",
+            new { cast.Age, block.Lifetime });
     if (!late) await Advance(.92f);
-    Check(!BodyControlState.IsBusy(defender.id) && endings.Any(e => e.Fact.AbilityId == block.Id), "原动作自然收势并归还控制");
+    Check(!BodyControlState.IsBusy(defender.id) && endings.Any(e => e.Fact.AbilityId == block.Id),
+        section == "lost" ? "脱手后的旧动作不再占用身体" : "原动作自然收势并归还控制");
     return lost;
 }
 
@@ -109,8 +122,14 @@ try
     await Advance(.1f);
     attacker.setStatsDirty(); attacker.updateStats();
     caster.GetCultisys<Xian>().wakan = 100f;
-    await Trial("front", 300f);
-    if (!weapon)
+    if (section == "initial-force")
+    {
+        int ordinary = await Trial("unblocked-initial", 300f, reverse: true);
+        int remainder = await Trial("guarded-initial", 12f);
+        Check(ordinary > 12 && remainder == ordinary - 12, "选择初始来势的剑气也只留下架掌后的实际余力", new { ordinary, remainder });
+    }
+    else await Trial(section == "lost" ? "weapon-lost" : "front", 300f);
+    if (section == "palm")
     {
         int ordinary = await Trial("back", 300f, reverse: true);
         await Trial("after-window", 300f, late: true);

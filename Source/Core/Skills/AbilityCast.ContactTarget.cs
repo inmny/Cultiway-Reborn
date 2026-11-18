@@ -21,6 +21,7 @@ public sealed partial class AbilityCast
     {
         ref NodeState state = ref nodes[node];
         state.Force = state.InitialForce = nodes[source].Force * Plan.Nodes[node].Activation.Target.ForceMultiplier;
+        state.Guarded = false;
         state.Reflections = nodes[source].Reflections;
         SetTarget(node, target);
         QueueBirth(node);

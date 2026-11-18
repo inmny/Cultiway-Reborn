@@ -12,7 +12,7 @@ def main():
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请用 develop 的 dev.py exec 运行')
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('palm', 'weapon'), required=True)
+    parser.add_argument('--section', choices=('palm', 'weapon', 'melee', 'melee-remainder', 'lost', 'initial-force'), required=True)
     section = parser.parse_args().section
     relative = f'body-guard/{section}'
     folder = Path(os.environ['CULTIWAY_DEV_OUTPUT']) / relative
@@ -26,7 +26,9 @@ def main():
     setup = setup.replace(f'Path.Combine(root, "{fixture}")', 'Path.Combine(folder, "input-world")')
     setup = setup.replace('test.body-footwork.', 'test.body-guard.')
     script = folder / 'input.script'
-    script.write_text(setup + f'\nstring section = "{section}";\n' + (scripts / 'verify_body_guard.script').read_text())
+    body = 'verify_body_guard_melee.script' if section.startswith('melee') else 'verify_body_guard.script'
+    setup = 'using Cultiway.UI;\nusing UnityEngine.UI;\n' + setup
+    script.write_text(setup + f'\nstring section = "{section}";\n' + (scripts / body).read_text())
     import baseline_scenarios as baseline
     write_json(folder / 'connection.json', baseline.connect(False, validate_runtime=False))
     try:

@@ -19,6 +19,11 @@ public sealed partial class ConstructedAbilityService
     private void FindBodyGuards(in ShapeMotion attack, float step, Action<ContactChoice> include)
     {
         if (singleActingNode) return;
+        RunningCast striker = attack.Running;
+        bool body = attack.To.Node < 0;
+        if (body && (!striker.Cast.Plan.Body.Construction.HasTouchRelations ||
+                     striker.WeaponConstraint?.Active == true || striker.Connection?.Active == true && striker.Connection.WeaponOnly)) return;
+        bool attackChanged = body && striker.Cast.ContactScopeChanged(-1);
         shapeIndex.Query(attack.Bounds, bodyGuardCandidates);
         CastAuthority owner = attack.Running.Owner(attack.To.Node);
         foreach (int index in bodyGuardCandidates)
@@ -29,27 +34,38 @@ public sealed partial class ConstructedAbilityService
                 !guard.BodyControlled || !owner.IsHostileTo(guard.Owner(-1)) && !guard.Owner(-1).IsHostileTo(owner)) continue;
             var cast = guard.Cast;
             bool changed = cast.ContactScopeChanged(-1);
-            if (changed) AddBodyGuardCandidate(attack, defense, cast.PreviousBodyStage, step, true, false, include);
-            AddBodyGuardCandidate(attack, defense, cast.BodyStage, step, false, changed, include);
+            for (int a = attackChanged ? 1 : 0; a >= 0; a--)
+            {
+                int attackStage = a == 1 ? striker.Cast.PreviousBodyStage : striker.Cast.BodyStage;
+                float from = 0f, until = 1f;
+                if (body && (BodyStrikeForce(striker, attackStage) <= 0f ||
+                             !striker.Cast.ContactInterval(-1, attackStage, out from, out until))) continue;
+                if (attackChanged && a == 0) from = 1f;
+                if (changed) AddBodyGuardCandidate(attack, defense, cast.PreviousBodyStage, step, from, until, true, a == 1, include);
+                AddBodyGuardCandidate(attack, defense, cast.BodyStage, step, changed ? 1f : from, until, false, a == 1, include);
+            }
         }
     }
 
     /// <summary>仅在限定的动作时段内扫掠真实形状，并用接触处的真实来向核对正面。</summary>
     /// <param name="attack">来袭形状。</param><param name="defense">格挡形状。</param><param name="stage">实际防御阶段。</param>
-    /// <param name="step">本步长度。</param><param name="oldScope">边界前的旧窗口。</param>
-    /// <param name="endpointOnly">新窗口只接受实际边界。</param><param name="include">共同候选入口。</param>
+    /// <param name="step">本步长度。</param><param name="first">来势可接触的起点。</param>
+    /// <param name="last">来势可接触的终点。</param><param name="oldGuard">动作边界前的旧格挡。</param>
+    /// <param name="oldAttack">动作边界前的旧来招。</param><param name="include">共同候选入口。</param>
     private static void AddBodyGuardCandidate(in ShapeMotion attack, in ShapeMotion defense, int stage, float step,
-        bool oldScope, bool endpointOnly, Action<ContactChoice> include)
+        float first, float last, bool oldGuard, bool oldAttack, Action<ContactChoice> include)
     {
         RunningCast guard = defense.Running;
         if (!guard.Cast.ContactInterval(-1, stage, out float from, out float until)) return;
-        if (endpointOnly || !defense.Continuous || !attack.Continuous) from = 1f;
+        from = Mathf.Max(first, from);
+        until = Mathf.Min(last, until);
+        if (!defense.Continuous || !attack.Continuous) from = 1f;
         if (from > until) return;
         var start = Slice(attack.From, attack.To, from);
         var shield = Slice(defense.From, defense.To, from);
         if (!AbilityPairSweep.Find(start, attack.To, shield, defense.To, out float at, out Vector3 point, out Vector3 normal)) return;
         float fraction = Mathf.Lerp(from, 1f, at);
-        if (fraction > until || oldScope && fraction >= 1f) return;
+        if (fraction > until || (oldGuard || oldAttack) && fraction >= 1f) return;
         Vector3 end = guard.Body.GuardNormal(guard.Cast.BodyPose.Value);
         Vector3 facing = Vector3.Slerp(guard.BeforeGuardNormal, end, fraction).normalized;
         Vector3 incoming = GuardIncoming(attack, fraction, point);
@@ -81,6 +97,11 @@ public sealed partial class ConstructedAbilityService
         return Vector3.Lerp(to.A - from.A, to.B - from.B, along);
     }
 
+    /// <summary>近身来势使用当前动作实际伤害倍率，再扣除这段已经被拦掉的比例。</summary>
+    /// <param name="running">具备可用接触面的真实近身来招。</param><param name="stage">实际攻击段。</param>
+    private static float BodyStrikeForce(RunningCast running, int stage) => BodyCorrespondenceForce(running) *
+        running.Cast.ImpactAtStage(-1, stage).DamageScale * running.BodyStrikeScale(stage);
+
     /// <summary>只对真正拦住的来招扣除双方余量；不伪造人物命中。</summary>
     /// <param name="hit">共同时间选出的真实格挡。</param>
     private static void ResolveBodyGuard(in ContactChoice hit)
@@ -89,18 +110,31 @@ public sealed partial class ConstructedAbilityService
         int node = hit.Left.To.Node;
         var defense = hit.Right.Value;
         var guard = defense.Running;
-        if (!guard.BodyControlled || !guard.Body.IsValid(guard.Source)) return;
-        float before = attack.Cast.RemainingForce(node), guardBefore = guard.BodyGuardRemaining;
+        if (!guard.BodyControlled || !guard.Body.IsValid(guard.Source) || node < 0 && !attack.BodyControlled) return;
+        int stage = attack.Cast.BodyStage;
+        float before = node < 0 ? BodyStrikeForce(attack, stage) : attack.Cast.RemainingForce(node);
+        float guardBefore = guard.BodyGuardRemaining;
         float spent = Mathf.Min(before, guardBefore);
         if (spent <= 0f) return;
         guard.BodyGuardRemaining = guardBefore - spent;
         if (hit.LeftRayLength >= 0f && spent >= before) attack.Cast.ClipRay(node, hit.LeftRayLength);
         attack.Cast.ConfirmClash(node, hit.Point, spent);
         guard.Cast.ConfirmClash(-1, hit.Point, spent);
-        attack.Cast.ConsumeForce(node, spent);
+        float after;
+        if (node < 0)
+        {
+            after = before - spent;
+            attack.ReduceBodyStrike(stage, after / before);
+            ConfirmBodyFeedback(attack, hit.Point);
+            if (after == 0f && !RespondToBodyResult(attack, BodyActionResult.Blocked)) attack.Cast.ExhaustBodyStage();
+        }
+        else
+        {
+            attack.Cast.ConsumeForceAtBodyGuard(node, spent);
+            after = attack.Cast.RemainingForce(node);
+        }
         ConfirmBodyFeedback(guard, hit.Point);
         if (guard.BodyGuardRemaining <= 0f) RespondToBodyResult(guard, BodyActionResult.Blocked);
-        float after = attack.Cast.RemainingForce(node);
         ClashConfirmed?.Invoke(new ConstructedClash(attack.Id, guard.Id, attack.Owner(node).Id, guard.Owner(-1).Id,
             node, -1, hit.Point, hit.Normal, LogicTime, attack.Cast.Age, guard.Cast.Age, spent,
             after, guard.BodyGuardRemaining, attack.SourceId, guard.SourceId, before - after,

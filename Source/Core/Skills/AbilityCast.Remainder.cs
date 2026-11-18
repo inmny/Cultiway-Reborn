@@ -58,6 +58,7 @@ public sealed partial class AbilityCast
             target.Resource = Plan.Nodes[index].ContactRole == ConstructionContactRole.Decoration ? 0 : left == 0 ? resourceLeft : System.Math.Min(resourceLeft, resource * (Plan.Nodes[index].Strength / total));
             resourceLeft -= target.Resource;
             target.Force = target.InitialForce = share;
+            target.Guarded = false;
             target.Matter = source.Matter;
             target.ShapeHeld = source.ShapeHeld;
             target.Burning = source.Burning;

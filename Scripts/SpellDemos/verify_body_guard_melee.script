@@ -1,0 +1,228 @@
+// 6.09：同一对人物使用万法阁成品架掌，与真实近身来招比较。
+const string prefix = "test.body-guard.";
+Actor defender = Make(66f), striker = Make(66.38f);
+striker.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != defender.kingdom).kingdom);
+var quietStats = new BaseStats();
+quietStats.addTag("frozen_ai");
+var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.BodyGuard.Quiet")
+    .SetStats(quietStats).SetDuration(10000).Build();
+foreach (Actor actor in new[] { defender, striker })
+{
+    CombatStatusEffects.RemoveStatus(actor, hold);
+    CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+    actor.updateStats();
+}
+var guards = new List<ConstructedClash>();
+var queued = new List<ConstructedQueuedDamage>();
+var casts = new Dictionary<long, AbilityCast>();
+var bindings = new Dictionary<long, object>();
+void Clashed(ConstructedClash fact) { if (fact.GuardFacing != Vector3.zero) guards.Add(fact); }
+void Settled(ConstructedQueuedDamage fact) { if (fact.SourceId == striker.id) queued.Add(fact); }
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != striker.id && fact.SourceId != defender.id) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(c => (long)Field(c, "Id") == fact.CastId);
+    casts[fact.SourceId] = (AbilityCast)Field(running, "Cast");
+    bindings[fact.SourceId] = Field(running, "Body");
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ClashConfirmed += Clashed;
+ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+
+async Task Frames()
+{
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    Canvas.ForceUpdateCanvases();
+}
+
+// 沿用万法阁实际新建菜单和“另创并学会”按钮。
+async Task<AbilityDefinition> LearnGuard()
+{
+    ControllableUnit.setControllableCreature(defender);
+    ScrollWindow.showWindow(WindowWanfaPavilion.Id);
+    await Frames();
+    var pavilion = UnityEngine.Object.FindObjectOfType<WindowWanfaPavilion>();
+    pavilion.GetComponentsInChildren<Button>(false).Single(b => b.name == "New").onClick.Invoke();
+    await Frames();
+    pavilion.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") &&
+        b.GetComponentInChildren<Text>().text == "架掌").onClick.Invoke();
+    await Frames();
+    var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+    Button learn = editor.GetComponentsInChildren<Button>(false).Single(b => b.name == "LearnCopy");
+    Check(learn.interactable, "万法阁架掌可交给正在操控的人物另创学习");
+    learn.onClick.Invoke();
+    await Frames();
+    var saved = ConstructionEditing.Access.Read(((ConstructionEditSession)Field(editor, "session")).SourceId);
+    Check(saved.Parent?.Id == BodyActionCatalog.GuardId && saved.Creator == defender.id &&
+          defender.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids.Contains(saved.Id),
+        "真正按下学习后，人物掌握的是架掌的正式副本", new { saved.Id, saved.Creator, parent = saved.Parent.Id });
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(); Screen.Capture(Path.Combine(folder, "learned-guard.png")); await Frames();
+    editor.GetComponentsInChildren<Button>(false).Single(b => b.name == "Close").onClick.Invoke();
+    await Frames();
+    return saved;
+}
+
+void ReadyGuard(AbilityDefinition guard)
+{
+    CombatStatusEffects.RemoveStatus(defender, quiet);
+    defender.updateStats();
+    defender.cancelAllBeh();
+    var owner = defender.GetExtend();
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, guard.Id);
+    defender.attack_timer = 0;
+    Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(striker, striker.GetSimPos()), ActiveAbilityUseOrigin.Player),
+        "从正式人物能力入口使用已学架掌", new { guard.Id, busy = BodyControlState.IsBusy(defender.id) });
+    defender.attack_timer = 999;
+}
+
+AbilityDefinition Strike(string name)
+{
+    var d = BodyActionCatalog.Create(prefix + name, "近身直掌", new BodyActionRequest
+    {
+        Kind = BodyActionKind.Thrust, Effector = "hand.left", Seconds = .48f,
+        Responses = new[]
+        {
+            new BodyResultResponse { Result = BodyActionResult.Blocked, RecoverFrom = "rest", Seconds = .12f },
+            new BodyResultResponse { Result = BodyActionResult.Contact, RecoverFrom = "rest", Seconds = .12f }
+        }
+    });
+    d.Body.MatchDistance = false;
+    // 允许选取站在步幅外缘的对手，击中仍完全由真实手面决定。
+    d.TargetRange = .55f;
+    // 高位直掌在前送起点开始接触，朝现成架掌的高度出手。
+    d.Body.ActiveFrom = .15f;
+    foreach (var key in d.Body.Keys.Skip(1).Take(3))
+    {
+        key.Hand[1] -= .07f;
+        key.Hand[2] += .10f;
+    }
+    return d;
+}
+
+void PlaceBoth()
+{
+    Place(defender, 66f); Place(striker, 66.38f);
+    defender.position_height = 0; striker.position_height = 0;
+    ConstructedAbilityService.NotifyActorChanged(defender);
+    ConstructedAbilityService.NotifyActorChanged(striker);
+    defender.addAggro(striker); striker.addAggro(defender);
+}
+
+object Clash(ConstructedClash g) => new
+{
+    g.LeftNode, g.RightNode, g.LeftSpent, g.RightSpent, g.LeftRemaining, g.RightRemaining,
+    g.LeftAge, g.RightAge, g.WorldTime, g.GuardShape,
+    point = new[] { g.Position.x, g.Position.y, g.Position.z }
+};
+
+// 仅记录这场实际接触使用的形状，失败记录也能看出来招从哪里经过。
+object Surface(Actor actor)
+{
+    var cast = casts[actor.id];
+    var shapes = new List<AbilityCapsule>();
+    if (cast.BodyPose.HasValue)
+    {
+        object binding = bindings[actor.id];
+        binding.GetType().GetMethod("AppendContactShapes", F).Invoke(binding, new object[] { cast.BodyPose.Value, shapes, false });
+    }
+    return new { cast.Age, shapes = shapes.Select(q => new
+        { a = new[] { q.A.x, q.A.y, q.A.z }, b = new[] { q.B.x, q.B.y, q.B.z }, q.Radius }).ToArray() };
+}
+
+async Task<(int Lost, float Remaining, float Spent)> Trial(string name, AbilityDefinition guard)
+{
+    PlaceBoth();
+    int beforeGuards = guards.Count, before = defender.data.health, beforeQueued = queued.Count;
+    if (guard != null)
+    {
+        ReadyGuard(guard);
+        await Advance(.62f);
+    }
+    CombatStatusEffects.RemoveStatus(striker, quiet);
+    striker.updateStats();
+    striker.cancelAllBeh();
+    var attack = Strike(name);
+    ActorExtend owner = striker.GetExtend();
+    ConstructedAbilityService.Register(attack);
+    ConstructedAbilityService.Learn(owner, attack.Id);
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, attack.Id);
+    var target = new ActiveAbilityTarget(defender, defender.GetSimPos());
+    var provider = (IActiveAbilityProvider)ConstructionEditing.Access;
+    striker.attack_timer = 0;
+    bool prepare = provider.CanPrepare(owner, handle, defender), use = provider.CanUse(owner, handle, target);
+    bool attackPossible = striker.isAttackPossible();
+    string reason = provider.ResolveControlState(owner, handle).BlockReason.ToString();
+    Check(ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script), "真实直掌受理", new
+    {
+        prepare, use, attackPossible,
+        distance = Vector2.Distance(defender.current_position, striker.current_position),
+        range = provider.ResolveRange(owner, handle, defender),
+        reason
+    });
+    striker.attack_timer = 999;
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    var surfaces = new List<object>();
+    for (int i = 0; i < 7; i++)
+    {
+        await Advance(.037f);
+        surfaces.Add(new { attack = Surface(striker), defense = guard == null ? null : Surface(defender) });
+    }
+    await Advance(.34f);
+    var hits = queued.Skip(beforeQueued).ToArray();
+    var blocks = guards.Skip(beforeGuards).ToArray();
+    int lost = before - defender.data.health;
+    bool weak = name == "broken";
+    bool stopped = guard != null && !weak;
+    BodyActionResult? strikeResult = casts[striker.id].BodyResult;
+    BodyActionResult? guardResult = guard == null ? null : casts[defender.id].BodyResult;
+    Check((guard == null ? blocks.Length == 0 : blocks.Length == 1 &&
+          blocks[0].LeftNode < 0 && blocks[0].RightNode < 0 && Mathf.Abs(blocks[0].LeftSpent - blocks[0].RightSpent) < .0001f &&
+          (stopped ? blocks[0].LeftRemaining == 0f : blocks[0].LeftRemaining > 0f && blocks[0].RightRemaining == 0f)) &&
+          (stopped ? hits.Length == 0 && lost == 0 && strikeResult == BodyActionResult.Blocked
+                   : hits.Length == 1 && hits[0].Damage.HealthLost == lost && lost > 0 && strikeResult == BodyActionResult.Contact) &&
+          (!weak || guardResult == BodyActionResult.Blocked),
+        name + "：核对真实掌击、格挡与排队扣血", new { lost, strikeResult, guardResult,
+            hits = hits.Select(h => new { h.Damage.HealthLost, h.ContactWorldTime }), blocks = blocks.Select(Clash), surfaces,
+            positions = new[] { defender.current_position.x, defender.current_position.y, striker.current_position.x, striker.current_position.y } });
+    await Advance(.60f);
+    Check(!BodyControlState.IsBusy(defender.id) && !BodyControlState.IsBusy(striker.id), "双方收势后都归还身体");
+    CombatStatusEffects.ApplyStatus(striker, quiet, 10000, striker);
+    striker.updateStats();
+    striker.cancelAllBeh();
+    return (lost, blocks.Length == 0 ? 0f : blocks[0].LeftRemaining, blocks.Length == 0 ? 0f : blocks[0].LeftSpent);
+}
+
+try
+{
+    AbilityDefinition guard = await LearnGuard();
+    var ordinary = await Trial("ordinary", null);
+    float measuredForce = striker.stats["damage"];
+    if (section == "melee")
+    {
+        var whole = await Trial("whole", guard);
+        await Trial("reuse", guard);
+        measuredForce = whole.Spent;
+    }
+    var edit = new ConstructionEditSession(guard);
+    edit.Draft.Body.Guard.Capacity = measuredForce * .5f;
+    var weak = ConstructionEditing.Access.Apply(defender.GetExtend(), edit, false);
+    var broken = await Trial("broken", weak);
+    Check(Mathf.Abs(broken.Remaining - measuredForce * .5f) < .0001f && broken.Lost < ordinary.Lost,
+        "格挡只留下约定的一半来势，原版防御继续处理剩余伤害",
+        new { ordinary.Lost, remaining = broken.Lost, measuredForce, broken.Remaining });
+    return new { passed = true, section, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ClashConfirmed -= Clashed;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

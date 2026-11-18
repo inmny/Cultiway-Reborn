@@ -962,6 +962,22 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         /// <summary>一次实际防御动作共享的剩余作用量。</summary>
         internal float BodyGuardRemaining;
 
+        /// <summary>最近一次被架挡的近身攻击段与留下的力度比例。</summary>
+        private int guardedBodyStage = -1;
+        private float guardedBodyScale;
+
+        /// <summary>后续独立攻击段不继承前一段的格挡损耗。</summary>
+        /// <param name="stage">实际攻击段。</param>
+        internal float BodyStrikeScale(int stage) => guardedBodyStage == stage ? guardedBodyScale : 1f;
+
+        /// <summary>同一段连续遭遇多个实际防御面时，从已剩下的力度继续扣除。</summary>
+        /// <param name="stage">实际攻击段。</param><param name="fraction">这次挡下后实际保留的比例。</param>
+        internal void ReduceBodyStrike(int stage, float fraction)
+        {
+            guardedBodyScale = BodyStrikeScale(stage) * fraction;
+            guardedBodyStage = stage;
+        }
+
         /// <summary>预测推进前的实际防御面朝向。</summary>
         internal Vector3 BeforeGuardNormal;
 

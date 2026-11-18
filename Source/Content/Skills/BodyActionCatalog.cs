@@ -11,12 +11,30 @@ public static class BodyActionCatalog
     /// <summary>保留旧掌击的正式编号，供原有能力入口接入。</summary>
     public const string PalmId = "Cultiway.PalmStrike";
 
-    /// <summary>已经读取的三个基础动作资料。</summary>
+    /// <summary>万法阁可直接取用的架掌资料。</summary>
+    public const string GuardId = "Cultiway.Body.PalmGuard";
+
+    /// <summary>已经读取的基础动作资料。</summary>
     private static AbilityDefinition[] all;
 
     /// <summary>读取制作资料，不在每次出手时解释文件。</summary>
-    internal static AbilityDefinition[] All =>
-        all ??= new[] { Load("palm-strike"), Load("sweeping-palm"), Load("sword-thrust") };
+    internal static AbilityDefinition[] All => all ??= LoadAll();
+
+    /// <summary>把架掌放在原目录末尾，原创作使用的基础动作顺序保持不变。</summary>
+    private static AbilityDefinition[] LoadAll()
+    {
+        AbilityDefinition palm = Load("palm-strike");
+        AbilityDefinition guard = CreateFrom(palm, GuardId, "架掌",
+            new BodyActionRequest
+            {
+                Effector = "hand.right", Kind = BodyActionKind.Guard, Seconds = 1.6f,
+                Responses = new[] { new BodyResultResponse { Result = BodyActionResult.Blocked, RecoverFrom = "rest" } }
+            });
+        guard.TargetRange = 12f;
+        guard.Body.MatchDistance = false;
+        guard.Body.Guard = new BodyGuardDefinition { Capacity = 100f, Normal = new[] { 0f, 0f, 1f } };
+        return new[] { palm, Load("sweeping-palm"), Load("sword-thrust"), guard };
+    }
 
     /// <summary>原地直掌的完整资料。</summary>
     public static AbilityDefinition Palm => All[0];
@@ -25,8 +43,14 @@ public static class BodyActionCatalog
     /// <param name="id">新构造的稳定编号。</param><param name="name">显示名称。</param>
     /// <param name="request">实际部位与动作参数。</param>
     public static AbilityDefinition Create(string id, string name, BodyActionRequest request)
+        => CreateFrom(Palm, id, name, request);
+
+    /// <summary>由现有动作资料展开同样可编辑的实际身体姿态。</summary>
+    /// <param name="basis">原动作外层资料。</param><param name="id">正式编号。</param>
+    /// <param name="name">显示名称。</param><param name="request">实际部位和动作。</param>
+    private static AbilityDefinition CreateFrom(AbilityDefinition basis, string id, string name, BodyActionRequest request)
     {
-        AbilityDefinition result = ConstructionEditing.Copy(Palm);
+        AbilityDefinition result = ConstructionEditing.Copy(basis);
         result.Id = id;
         result.Name = name;
         result.Revision = 1;
