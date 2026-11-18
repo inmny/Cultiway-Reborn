@@ -45,7 +45,8 @@ public sealed partial class ConstructedAbilityService
     private static bool ApplyEquipmentRepair(RunningCast running, int node, Actor target,
         CompiledEquipmentRepair effect, ApplyAttackState result, float strength)
     {
-        if (effect == null || result != ApplyAttackState.Hit || target.equipment == null || running.Inventory == null)
+        if (effect == null || result != ApplyAttackState.Hit || target.equipment == null || running.Inventory == null ||
+            running.WorldScope?.IsValid() == false)
             return true;
         CastAuthority owner = running.Owner(node);
         if (!owner.IsLive || owner.Id != running.SourceId || owner.Actor != running.Source) return true;

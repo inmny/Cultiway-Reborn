@@ -1,0 +1,147 @@
+var definition = new AbilityDefinition
+{
+    Id = "test.travel-construction.shortcut", Name = "缩地双门", Cost = 3f, Resource = "wakan", Power = 1f,
+    Lifetime = .26f, Cooldown = .2f, TargetRange = 6f,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Self, DamageScale = 0f },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = true, Height = .22f },
+    Root = new ConstructionNode
+    {
+        Id = "gates", Form = "pivot", ContactRole = ConstructionContactRole.Decoration,
+        Children = new[]
+        {
+            new ConstructionNode { Id = "entry", Form = "fireball", Scale = .8f, OnContact = ConstructionContactResponse.Continue },
+            new ConstructionNode { Id = "exit", Form = "fireball", Scale = .7f, ContactRole = ConstructionContactRole.Decoration,
+                Offset = new[] { 0f, 0f, 5f } }
+        }
+    },
+    Steps = new[]
+    {
+        new ConstructionStep { Id = "travel", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.MapActor, MappingRadius = 1f },
+            Inputs = new() { ["part"] = new() { Node = "root/entry" }, ["exit"] = new() { Node = "root/exit" } } }
+    }
+};
+Actor traveler = Make(64.2f), founder = Make(73.2f);
+var owner = traveler.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 0 });
+owner.MarkCultiwayStatsDirty();
+traveler.setStatsDirty(); traveler.updateStats();
+traveler.joinLanguage(World.world.languages.newLanguage(traveler, true));
+traveler.setCulture(World.world.cultures.newCulture(traveler, true));
+var kingdom = World.world.kingdoms.makeNewCivKingdom(traveler);
+var home = World.world.cities.buildNewCity(traveler, traveler.current_tile.zone);
+traveler.joinCity(home);
+founder.joinLanguage(traveler.language);
+founder.setCulture(traveler.culture);
+founder.joinKingdom(kingdom);
+var away = World.world.cities.buildNewCity(founder, founder.current_tile.zone);
+founder.joinCity(away);
+var destination = founder.current_tile;
+var expected = new Vector2(64.2f, 72f) + ((Vector2)destination.posV3 - new Vector2(64.2f, 72f)).normalized * 5f;
+var landing = World.world.GetTileSimple((int)expected.x, (int)expected.y);
+if (landing.building != null) landing.building.removeBuildingFinal();
+landing.Height = 140; landing.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+ConstructedAbilityService.Register(definition);
+ConstructedAbilityService.Learn(owner, definition.Id);
+var starts = new List<ConstructedCastStarted>();
+var received = new Dictionary<long, AbilityCast>();
+var fees = new List<float>();
+float prepared = 0f;
+bool changeTask = false;
+void Started(ConstructedCastStarted value)
+{
+    if (value.AbilityId != definition.Id || value.SourceId != traveler.id) return;
+    starts.Add(value);
+    fees.Add(prepared - owner.GetCultisys<Xian>().wakan);
+    foreach (var running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == value.CastId) received.Add(value.CastId, (AbilityCast)Field(running, "Cast"));
+    if (changeTask) traveler.cancelAllBeh();
+}
+ConstructedAbilityService.CastStarted += Started;
+var originalBuild = DebugConfig.isOn(DebugOption.SystemBuildTick);
+DebugConfig.setOption(DebugOption.SystemBuildTick, false);
+try
+{
+    await Advance(.2f);
+    CombatStatusEffects.RemoveStatus(traveler, hold);
+    traveler.setStatsDirty(); traveler.updateStats();
+    Check(destination.zone_city == away && home != away && destination.isSameIsland(traveler.current_tile),
+        "复用地图上的同岛友城和原出行任务", new { start = traveler.current_position.ToString(), destination = destination.pos.ToString(), landing = landing.pos.ToString() });
+    void Depart(bool blocked = false)
+    {
+        traveler.cancelAllBeh();
+        Place(traveler, 64.2f);
+        traveler.attack_timer = 0;
+        landing.setTileTypes(blocked ? TileLibrary.mountains : TileLibrary.soil_low, blocked ? null : TopTileLibrary.grass_low, true);
+        prepared = traveler.stats[BaseStatses.MaxWakan.id] * .7f;
+        owner.GetCultisys<Xian>().wakan = prepared;
+        traveler.setTask(ActorTasks.TravelToCity.id, pForceAction: true);
+        // 任务已有合法的友城目标；不从脚本选能力或调用施放与搬运。
+        traveler.beh_tile_target = destination;
+    }
+
+    Depart();
+    var plan = AbilityCompiler.Compile(definition);
+    var travelPlan = (bool)service.GetMethod("TravelPlan", F).Invoke(null, new object[] { plan });
+    Vector3 foot = (Vector3)traveler.current_position;
+    Vector3 forward = ((Vector3)(Vector2)destination.posV3 - foot).normalized;
+    Vector3 aim = foot + forward;
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+    var castReady = ActiveAbilityService.CanUse(owner, handle, new ActiveAbilityTarget(null, aim));
+    var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+    float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { traveler });
+    var preview = new AbilityCast(plan, Matrix4x4.TRS(aim, Quaternion.identity, Vector3.one),
+        inputs: new AbilityInputs(foot, aim, forward, height));
+    var mapArgs = new object[] { 0, 1, traveler.id, foot, Vector3.zero };
+    bool mapped = (bool)typeof(AbilityCast).GetMethod("TryMapActor", F).Invoke(preview, mapArgs);
+    var shapes = new List<AbilityCapsule>(); preview.AppendContacts(shapes);
+    var shapesInfo = shapes.Select(shape => new { shape.Node, pos = shape.A.ToString(), shape.Radius }).ToArray();
+    var projected = (Vector3)mapArgs[4];
+    var situation = new { travelPlan, castReady, prepared, height, mapped, shapesInfo, projected = projected.ToString(),
+        foot = foot.ToString(), aim = aim.ToString(), sameIsland = landing.isSameIsland(destination),
+        traveler.position_height, flying = traveler.isFlying(), traveler.under_forces, frozen = traveler.hasTag("frozen_ai"),
+        busy = BodyControlState.IsBusy(traveler.id), task = traveler.ai.task?.id, target = traveler.beh_tile_target?.pos.ToString(),
+        landing = new { building = landing.hasBuilding(), landing.Type.block, landing.Type.liquid, landing.Type.lava, landing.Type.damage_units } };
+    File.WriteAllText(Path.Combine(folder, "departure.json"), JsonConvert.SerializeObject(situation, Formatting.Indented));
+    int health = traveler.data.health;
+    await Advance(.30f);
+    Check(starts.Count == 1 && starts[0].Origin == ActiveAbilityUseOrigin.Autonomous && Mathf.Abs(fees.Single() - definition.Cost) < .001f,
+        "原出行步骤自主施放并只扣一次费用", new { starts, fees, task = traveler.ai.task?.id, actual = traveler.current_position.ToString() });
+    var cast = received[starts[0].CastId];
+    Check(cast.TryGetOutput("travel", "transferred", out var arrived) && arrived.Receipt.Targets.Single() == traveler.id &&
+        Vector2.Distance(arrived.Position, expected) < .06f && traveler.current_tile == landing && traveler.data.health == health &&
+        traveler.ai.task == ActorTasks.TravelToCity && traveler.beh_tile_target == destination,
+        "真实短程落点保留原人物、生命和原任务", new { expected = expected.ToString(), actual = traveler.current_position.ToString(), hits = contacts.Count });
+    var beforeWalk = traveler.current_position;
+    await Advance(.9f);
+    Check(Vector2.Distance(traveler.current_position, destination.posV3) < Vector2.Distance(beforeWalk, destination.posV3) - .15f &&
+        starts.Count == 1, "搬运结束后正常沿原路线走，途中不重复支付", traveler.current_position.ToString());
+
+    Depart(blocked: true);
+    await Advance(.95f);
+    Check(starts.Count == 1 && Mathf.Abs(owner.GetCultisys<Xian>().wakan - prepared) < .001f &&
+        Vector2.Distance(traveler.current_position, new Vector2(64.2f, 72f)) > .15f,
+        "危险出口不施放不扣费，仍会正常步行", traveler.current_position.ToString());
+
+    changeTask = true;
+    Depart();
+    await Advance(.35f);
+    Check(starts.Count == 2 && !received[starts[1].CastId].TryGetOutput("travel", "transferred", out _) &&
+        endings.Any(e => e.Fact.CastId == starts[1].CastId && e.Fact.Cancelled),
+        "受理后原出行任务被取消，旧门不继续搬运", traveler.current_position.ToString());
+    changeTask = false;
+    Depart();
+    await Advance(.30f);
+    Check(starts.Count == 3 && Mathf.Abs(fees[2] - definition.Cost) < .001f &&
+        received[starts[2].CastId].TryGetOutput("travel", "transferred", out _),
+        "恢复同一路段之后可再次自主选择并实际抵达");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, traveler = traveler.id, checks, starts, fees, contacts };
+}
+finally
+{
+    DebugConfig.setOption(DebugOption.SystemBuildTick, originalBuild);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

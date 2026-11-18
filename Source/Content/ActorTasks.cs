@@ -80,6 +80,12 @@ public partial class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     protected override void OnInit()
     {
         InitYaoTasks();
+        var repair = AssetManager.tasks_actor.get("repair_equipment");
+        var spellRepair = new BehRepairByConstruction();
+        repair.addBeh(spellRepair);
+        repair.list.RemoveAt(repair.list.Count - 1);
+        repair.list.Insert(0, spellRepair);
+
         YuanyingPossession.addBeh(new BehYuanyingPossession());
         YuanyingPossession.setIcon("cultiway/icons/achievements/nascent_soul_formed");
 
@@ -156,6 +162,7 @@ public partial class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         DailyPlantXianCultivate.setIcon("cultiway/icons/iconCultivation");
 
         DailyEnvironmentalCultivate.addBeh(new BehFindEnvironmentalCultivationSite());
+        DailyEnvironmentalCultivate.addBeh(new BehTravelByConstruction());
         DailyEnvironmentalCultivate.addBeh(new BehGoToEnvironmentalCultivationSite());
         DailyEnvironmentalCultivate.addBeh(new BehEnvironmentalCultivate());
         DailyEnvironmentalCultivate.setIcon("cultiway/icons/iconCultivation");
@@ -247,6 +254,7 @@ public partial class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         SwitchCultibook.setIcon("cultiway/icons/iconCultivation");
 
         TravelToCity.addBeh(new BehTravelToCity());
+        TravelToCity.addBeh(new BehTravelByConstruction());
         TravelToCity.addBeh(new BehGoToTileTarget());
         TravelToCity.addBeh(new BehRandomWait(5f, 15f));
         TravelToCity.addBeh(new BehEndJob());

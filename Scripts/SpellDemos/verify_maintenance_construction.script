@@ -1,0 +1,146 @@
+// 复用一名正式初始化的修士、一件原版铁甲和原版维修任务。
+Actor smith = Make(64.2f);
+var owner = smith.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty();
+smith.joinLanguage(World.world.languages.newLanguage(smith, true));
+smith.setCulture(World.world.cultures.newCulture(smith, true));
+World.world.kingdoms.makeNewCivKingdom(smith);
+var city = World.world.cities.buildNewCity(smith, smith.current_tile.zone);
+smith.joinCity(city);
+Item armor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: smith);
+smith.equipment.setItem(armor, smith);
+long armorId = armor.id;
+int maximum = armor.getDurabilityMax();
+var definition = new AbilityDefinition
+{
+    Id = "test.maintenance-construction.armor", Name = "叩甲修补", Cost = 1.25f, Resource = "wakan", Power = 1f,
+    Cooldown = .15f, Lifetime = .28f,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Object },
+    Inventory = new[] { new ConstructionInventoryInput { Id = "material", Shape = ItemShapes.Wood.id, Count = 1 } },
+    Impact = new ConstructionImpact
+    {
+        Targets = SkillUseTargetRelation.Friendly, DamageScale = 0f, SelectedTargetOnly = true,
+        EquipmentRepair = new ConstructionEquipmentRepair { Slot = EquipmentType.Armor, MaterialInput = "material", Durability = 7 }
+    },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = .22f },
+    Root = new ConstructionNode { Id = "mend", Form = "fireball", Matter = "physical", Scale = .8f }
+};
+var task = AssetManager.tasks_actor.get("repair_equipment");
+var starts = new List<ConstructedCastStarted>();
+var repairs = new List<ConstructedEquipmentRepair>();
+var goldAtStart = new List<int>();
+var paidBalances = new List<float>();
+bool removeArmorAtStart = false;
+Entity expectedMaterial = default;
+string firstMaterial = null, spareId = null;
+float Balance() => owner.GetCultisys<Xian>().wakan;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != smith.id || fact.AbilityId != definition.Id) return;
+    starts.Add(fact);
+    paidBalances.Add(Balance());
+    goldAtStart.Add(smith.money);
+    // 正式借用才赋予材料编号；在实际受理后读取，而不是给测试材料事先写编号。
+    if (starts.Count == 1) firstMaterial = Stable(expectedMaterial);
+    if (removeArmorAtStart)
+    {
+        spareId = Stable(expectedMaterial);
+        smith.equipment.armor.takeAwayItem();
+        // 暂存在已有城镇，避免把脱下的原物件当无主垃圾回收。
+        city.data.equipment.addItem(city, armor);
+    }
+}
+void Repaired(ConstructedEquipmentRepair fact) { if (fact.SourceId == smith.id) repairs.Add(fact); }
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.EquipmentRepairConfirmed += Repaired;
+var originalRestore = GeneralSettings.EnableNaturalWakanRestore;
+GeneralSettings.SwitchNaturalWakanRestore(false);
+ConstructedAbilityService.Register(definition);
+ConstructedAbilityService.Learn(owner, definition.Id);
+const float openingBalance = 17f;
+void StartMaintenance()
+{
+    smith.cancelAllBeh();
+    Place(smith, 64.2f);
+    smith.timer_action = smith.attack_timer = 0f;
+    smith.data.money = 0;
+    owner.GetCultisys<Xian>().wakan = openingBalance;
+    smith.setTask(task.id, pForceAction: true);
+}
+try
+{
+    await Advance(.22f);
+    CombatStatusEffects.RemoveStatus(smith, hold);
+    smith.setStatsDirty(); smith.updateStats();
+    Entity spare;
+    if (section != "cancel")
+    {
+        int health = smith.data.health;
+        armor.getDamaged(4);
+        expectedMaterial = Material(owner, ItemShapes.Wood, "维修木材", 1);
+        StartMaintenance();
+        await Advance(.58f);
+        Check(starts.Count == 1 && starts[0].Origin == ActiveAbilityUseOrigin.Autonomous &&
+            Mathf.Abs(openingBalance - paidBalances[0] - definition.Cost) < .001f && goldAtStart[0] == 0 &&
+            repairs.Count == 1 && repairs[0].CastId == starts[0].CastId && repairs[0].ItemId == armorId &&
+            repairs[0].Before == maximum - 4 && repairs[0].After == maximum && repairs[0].MaterialId == firstMaterial &&
+            smith.equipment.armor.getItem() == armor && !owner.GetItems().Any() && smith.data.health == health,
+            "原版维修任务无金币也能自主支付、消费一件原材料，实际修好本人同一件铁甲",
+            new { count = starts.Count, paid = paidBalances, facts = repairs, id = armorId, current = armor.getDurabilityCurrent(), task = smith.ai.task?.id });
+        Check(endings.Count == 1 && endings[0].Fact.CastId == starts[0].CastId && smith.ai.task != task,
+            "修好后作用停止，原维修任务发现不再需要普通修理而结束");
+
+        armor.getDamaged(3);
+        StartMaintenance();
+        await Advance(.42f);
+        Check(starts.Count == 1 && armor.getDurabilityCurrent() == maximum - 3 && Balance() == openingBalance && smith.ai.task != task,
+            "缺材料时不施法扣费，原版仍可按无钱规则结束", new { count = starts.Count, balance = Balance() });
+
+        spare = Material(owner, ItemShapes.Wood, "可归还的原木", 1);
+        expectedMaterial = spare;
+        armor.data.durability = maximum;
+        StartMaintenance();
+        await Advance(.42f);
+        Check(starts.Count == 1 && armor.getDurabilityCurrent() == maximum && Balance() == openingBalance && owner.GetItems().Single() == spare,
+            "满耐久时保留材料，不施法扣费");
+    }
+    else
+    {
+        spare = Material(owner, ItemShapes.Wood, "可归还的原木", 1);
+        expectedMaterial = spare;
+    }
+
+    if (section == "normal") return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = smith.id, checks };
+    int priorStarts = starts.Count, priorEndings = endings.Count, priorRepairs = repairs.Count;
+    armor.getDamaged(3);
+    removeArmorAtStart = true;
+    StartMaintenance();
+    await Advance(.48f);
+    removeArmorAtStart = false;
+    Check(starts.Count == priorStarts + 1 && endings.Count == priorEndings + 1 &&
+        endings.Last().Fact.CastId == starts.Last().CastId && endings.Last().Fact.Cancelled &&
+        repairs.Count == priorRepairs && armor.isAlive() && armor.getDurabilityCurrent() == maximum - 3 &&
+        armor.getCity() == city && smith.equipment.armor.isEmpty() &&
+        Mathf.Abs(openingBalance - Balance() - definition.Cost) < .001f && owner.GetItems().Single() == spare && Stable(spare) == spareId,
+        "受理后接触前取下原甲，停止修复并归还同一份未用材料，保留已付施法费",
+        new { count = starts.Count, balance = Balance(), endings = endings.Select(entry => entry.Fact).ToArray(), spareId });
+
+    city.getEquipmentList(EquipmentType.Armor).Remove(armorId);
+    smith.equipment.setItem(armor, smith); smith.updateStats();
+    StartMaintenance();
+    await Advance(.55f);
+    Check(starts.Count == priorStarts + 2 && repairs.Count == priorRepairs + 1 &&
+        repairs.Last().ItemId == armorId && repairs.Last().MaterialId == spareId &&
+        armor.getDurabilityCurrent() == maximum && !owner.GetItems().Any() && smith.ai.task != task,
+        "同一原甲重新穿回后下一次原维修任务正常支付、使用归还材料并结束", new { count = starts.Count, paid = paidBalances, facts = repairs });
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = smith.id, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.EquipmentRepairConfirmed -= Repaired;
+    ConstructedAbilityService.CastEnded -= Ended;
+    GeneralSettings.SwitchNaturalWakanRestore(originalRestore);
+}

@@ -1,0 +1,153 @@
+var definition = new AbilityDefinition
+{
+    Id = "test.meditation-construction.focus", Name = "凝神一息", Cost = .5f, Resource = "wakan", Power = 1f,
+    Lifetime = .24f, Cooldown = .2f,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Self },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Height = .22f },
+    Root = new ConstructionNode { Id = "focus", Form = "fireball", Scale = .8f },
+    Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Self, DamageScale = 0f, Statuses = new[]
+    {
+        new ConstructionStatus { Id = Cultiway.Content.StatusEffects.CultivationFocus.id, Duration = 3.5f, Potency = 1f,
+            Stats = new() { [BaseStatses.MeditationFocus.id] = .75f } }
+    } }
+};
+Actor meditator = Make(64.2f);
+var owner = meditator.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty();
+meditator.setStatsDirty(); meditator.updateStats();
+meditator.joinLanguage(World.world.languages.newLanguage(meditator, true));
+meditator.setCulture(World.world.cultures.newCulture(meditator, true));
+World.world.kingdoms.makeNewCivKingdom(meditator);
+var city = World.world.cities.buildNewCity(meditator, meditator.current_tile.zone);
+meditator.joinCity(city);
+var meditationTile = meditator.current_tile;
+int tileId = WorldWakanService.GetTileId(meditationTile.x, meditationTile.y);
+var task = ActorTasks.DailyXianCultivate;
+int action = task.list.FindIndex(step => step is BehXianCultivate);
+var indexField = meditator.ai.GetType().BaseType.GetField("action_index", F);
+float Balance() => owner.GetCultisys<Xian>().wakan;
+float Supply() => WorldWakanService.GetClean(tileId);
+void Prepare(float supply, float balance, float duration)
+{
+    // 从原任务已经坐下的步骤起跑；实际结算与选择都由人物行动执行。
+    meditator.cancelAllBeh();
+    Place(meditator, 64.2f);
+    meditator.timer_action = 0f;
+    meditator.attack_timer = 0f;
+    WorldWakanService.SetClean(tileId, supply);
+    owner.GetCultisys<Xian>().wakan = balance;
+    meditator.data.set(ContentActorDataKeys.CultivateTime_float, duration);
+    meditator.setTask(task.id, pForceAction: true);
+    indexField.SetValue(meditator.ai, action);
+}
+ConstructedAbilityService.Register(definition);
+ConstructedAbilityService.Learn(owner, definition.Id);
+var starts = new List<ConstructedCastStarted>();
+var atPayment = new List<(float Ground, float Balance)>();
+void Started(ConstructedCastStarted value)
+{
+    if (value.SourceId != meditator.id || value.AbilityId != definition.Id) return;
+    starts.Add(value);
+    atPayment.Add((Supply(), Balance()));
+}
+void Hit(ConstructedContact value)
+{
+    if (value.AbilityId == definition.Id && value.SourceId == meditator.id) contacts.Add(value);
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Hit;
+// 观察真实资源写入，不把多次实际结算合并成一笔，也不修改原灵气写入。
+var mutations = new List<(WakanMutationKind Kind, float Delta, float BeforeGround, float AfterGround, float Remaining, double Clock)>();
+var timings = new List<object>();
+var notification = typeof(WakanResourceService).GetEvent("mutationCommitted", F);
+float previousGround = Supply();
+void Observe(Cultiway.Core.ActorExtend actor, in WakanMutation change)
+{
+    if (actor != owner) return;
+    float ground = Supply();
+    float remaining = CombatStatusEffects.GetStatusRemaining(meditator, Cultiway.Content.StatusEffects.CultivationFocus);
+    double now = World.world.getCurWorldTime();
+    mutations.Add((change.Kind, change.Delta, previousGround, ground, remaining, now));
+    if (timings.Count < 5)
+    {
+        meditator.data.get(ContentActorDataKeys.CultivateTime_float, out float duration);
+        timings.Add(new { now, change.Kind, change.Delta, meditator.timer_action, duration, remaining,
+            trace = Environment.StackTrace.Split('\n').Where(line => line.Contains("Cultivat") || line.Contains("RestoreWakan")).Take(5).ToArray() });
+    }
+    previousGround = ground;
+}
+var observer = new WakanMutationHandler(Observe);
+notification.GetAddMethod(true).Invoke(null, new object[] { observer });
+var originalBuild = DebugConfig.isOn(DebugOption.SystemBuildTick);
+DebugConfig.setOption(DebugOption.SystemBuildTick, false);
+// 单独计量打坐时，暂停可独立启停的回气和邻格扩散，仍执行真实付费与地块结算。
+var originalRestore = GeneralSettings.EnableNaturalWakanRestore;
+var originalSpread = GeneralSettings.EnableWakanSpread;
+GeneralSettings.SwitchNaturalWakanRestore(false);
+GeneralSettings.SwitchWakanSpread(false);
+var focusAsset = Cultiway.Content.StatusEffects.CultivationFocus;
+float FocusRemaining() => CombatStatusEffects.GetStatusRemaining(meditator, focusAsset);
+try
+{
+    await Advance(.22f);
+    CombatStatusEffects.RemoveStatus(meditator, hold);
+    meditator.setStatsDirty(); meditator.updateStats();
+    float reserve = 17f, available = Mathf.Min(512f, WorldWakanService.MaximumValue);
+    int health = meditator.data.health;
+    Prepare(available, reserve, 8f);
+    previousGround = Supply();
+    await Advance(.36f);
+    Check(starts.Count == 1 && starts[0].Origin == ActiveAbilityUseOrigin.Autonomous &&
+        Mathf.Abs(reserve + available - atPayment[0].Ground - atPayment[0].Balance - definition.Cost) < .025f,
+        "原打坐任务在第一轮实际吐纳后自主选择并只支付一次", new { count = starts.Count,
+            atPayment = atPayment.Select(value => new { value.Ground, value.Balance }).ToArray(), available,
+            balance = Balance(), supply = Supply(), task = meditator.ai.task?.id });
+    Check(FocusRemaining() > 0f && contacts.Any(contact => contact.TargetId == meditator.id) && meditator.data.health == health,
+        "凝神由同一人物的真实接触施加，未造成伤害", new { remaining = FocusRemaining(), hits = contacts.Count, health = meditator.data.health });
+
+    await Advance(1.03f);
+    File.WriteAllText(Path.Combine(folder, "timings.json"), JsonConvert.SerializeObject(timings, Formatting.Indented));
+    var boosted = mutations.Where(change => change.Kind == WakanMutationKind.Gain && change.Remaining > 0f).ToArray();
+    var measured = boosted.Select(change => new { change.Clock, change.Delta, taken = change.BeforeGround - change.AfterGround,
+        expected = Mathf.Log10(change.BeforeGround + 1f) * CultivationEfficiencyResolver.Resolve(owner).FinalMultiplier * 1.75f }).ToArray();
+    var firstPractice = mutations.First(change => change.Kind == WakanMutationKind.Gain);
+    Check(starts.Count == 1 && measured.Length == 1 && measured[0].Clock - firstPractice.Clock >= .95 &&
+        Mathf.Abs(measured[0].Delta - measured[0].expected) < .035f && Mathf.Abs(measured[0].taken - measured[0].Delta) < .035f &&
+        owner.GetComponent<CultivationPracticeState>().methods.Any(method => method.method_id == CultivateMethods.Standard.id && method.effective_months > 0f),
+        "带凝神的实际单次结算按原比例抽取增量，状态未到期不重复付费", new { first = measured.FirstOrDefault(), count = measured.Length, initialClock = firstPractice.Clock });
+
+    meditator.cancelAllBeh();
+    CombatStatusEffects.ApplyStatus(meditator, hold, 10000f, meditator);
+    await Advance(3.75f);
+    Check(FocusRemaining() == 0f, "原修炼中断后凝神按其原定时限自然结束");
+    CombatStatusEffects.RemoveStatus(meditator, hold);
+    meditator.setStatsDirty(); meditator.updateStats();
+    Prepare(available, reserve, 1f);
+    previousGround = Supply();
+    int recoveryStart = mutations.Count;
+    await Advance(.36f);
+    var recovered = mutations.Skip(recoveryStart).FirstOrDefault(change => change.Kind == WakanMutationKind.Gain);
+    float returnedRate = Mathf.Log10(available + 1f) * CultivationEfficiencyResolver.Resolve(owner).FinalMultiplier;
+    Check(starts.Count == 1 && Mathf.Abs(recovered.Delta - returnedRate) < .035f &&
+        Mathf.Abs(recovered.BeforeGround - recovered.AfterGround - recovered.Delta) < .035f,
+        "到期后再打坐恢复原抽取量，剩余一轮时不施法", new { recovered = recovered.Delta, returnedRate });
+
+    Prepare(.05f, reserve, 8f);
+    await Advance(.36f);
+    Check(starts.Count == 1 && Balance() >= reserve && Balance() - reserve <= .075f && !CombatStatusEffects.HasStatus(meditator, focusAsset),
+        "供给低于施法成本时照常吐纳，不付款也不施加凝神", new { gained = Balance() - reserve, ground = Supply() });
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = meditator.id, checks };
+}
+finally
+{
+    notification.GetRemoveMethod(true).Invoke(null, new object[] { observer });
+    GeneralSettings.SwitchNaturalWakanRestore(originalRestore);
+    GeneralSettings.SwitchWakanSpread(originalSpread);
+    DebugConfig.setOption(DebugOption.SystemBuildTick, originalBuild);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

@@ -43,7 +43,8 @@ public sealed partial class ConstructedAbilityService
     /// <summary>归还旧身体、双方关系和受力，避免换位后仍由旧动作拉回原处。</summary>
     /// <param name="actor">即将换位的人物。</param><param name="actorId">接触时的真实人物编号。</param>
     /// <param name="generation">本次接触所属的世界。</param>
-    private static bool ReleaseForExchange(Actor actor, long actorId, long generation)
+    /// <param name="keepTask">本次搬运是原出行任务的一步时继续该任务。</param>
+    private static bool ReleaseForExchange(Actor actor, long actorId, long generation, bool keepTask = false)
     {
         if (generation != worldGeneration || actor.data?.id != actorId) return false;
         InterruptBodyConnections(actor);
@@ -57,7 +58,7 @@ public sealed partial class ConstructedAbilityService
             if (generation != worldGeneration || actor.data?.id != actorId) return false;
         }
         if (!ConstructedActorImpulse.EndForRelocation(actor, generation)) return false;
-        actor.cancelAllBeh();
+        if (!keepTask) actor.cancelAllBeh();
         return generation == worldGeneration && actor.data?.id == actorId;
     }
 

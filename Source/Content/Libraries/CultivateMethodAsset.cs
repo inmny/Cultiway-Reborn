@@ -64,8 +64,10 @@ public readonly struct CultivationTriggerContext
         float opponentPower = 0f,
         float referenceMaxHealth = 0f,
         int tileX = -1,
-        int tileY = -1)
+        int tileY = -1,
+        float remainingActivitySeconds = 0f)
     {
+        RemainingActivitySeconds = remainingActivitySeconds;
         Practitioner = practitioner;
         Trigger = trigger;
         Activity = activity;
@@ -89,6 +91,9 @@ public readonly struct CultivationTriggerContext
 
     /// <summary>本次定时或主动结算覆盖的秒数。</summary>
     public float ElapsedSeconds { get; }
+
+    /// <summary>本次结算之后，原持续修炼任务计划继续的秒数。</summary>
+    internal float RemainingActivitySeconds { get; }
 
     /// <summary>伤害触发中已经通过最终伤害层的实际伤害。</summary>
     public float ActualDamage { get; }

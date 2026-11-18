@@ -1,0 +1,107 @@
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "pending-expected.json")));
+var old = JObject.Parse(File.ReadAllText(Path.Combine(folder, "legacy-expected.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check(process != (int)expected["process"], "实际冷启动使用新游戏进程");
+var access = ConstructionEditing.Access;
+var saves = Cultiway.ModClass.I.WorldSaves;
+Actor Loaded(long id) => World.world.units.get(id) ?? throw new InvalidOperationException("正式世界缺少人物 " + id);
+JObject Complete(AbilityDefinition value) { var json = JObject.FromObject(value); json.Remove("Id"); return json; }
+JToken Section(Actor actor) => JObject.Parse(saves.Actors.Capture(actor.GetExtend(), "daily-use-creation"))["sections"]["ability_creation"];
+async Task Load(string path)
+{
+    World.world.save_manager.loadWorld(Path.Combine(folder, path));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+async Task<string> Restore(string map, JToken record, string pendingKey, string definitionKey, int rules)
+{
+    await Load(map);
+    var actor = Loaded((long)record["sourceId"]);
+    var owner = actor.GetExtend();
+    var target = record[definitionKey].ToObject<AbilityDefinition>();
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    var observed = Section(actor);
+    Check(pending.Inspiration?.Rules == rules && (int)observed["version"] == 35 && saves.LastReport.Skipped.Count == 0 &&
+        saves.LastReport.BackupError == null && (rules != 33 || saves.LastReport.Upgraded > 0),
+        "正式存档读取规则" + rules + "，无丢弃，旧区段完成升级", new { upgraded = saves.LastReport.Upgraded, pending.Pending });
+    if (pending.Pending)
+    {
+        var data = record[pendingKey]["data"];
+        bool same = new[] { "Source", "Resources", "Inspiration", "Seed" }.All(key => JToken.DeepEquals(data[key], observed["data"][key]));
+        Check(same, "恢复原来冻结的全部创法资料：规则" + rules);
+    }
+    await Advance(.24f);
+    var finished = owner.GetComponent<ConstructedCreationState>();
+    var learned = finished.LastAbility == null ? null : access.Read(finished.LastAbility);
+    Check(!finished.Pending && finished.LastFailure == null && learned != null && access.List(owner).Count == (int)record["known"] + 1 &&
+        JToken.DeepEquals(Complete(learned), Complete(target)), "规则" + rules + "的等待只授予一次，完整成品和报价不变",
+        new { finished.LastAbility, finished.LastFailure, expectedFee = target.Cost, actualFee = learned?.Cost });
+    return learned.Id;
+}
+var restore = GeneralSettings.EnableNaturalWakanRestore;
+GeneralSettings.SwitchNaturalWakanRestore(false);
+try
+{
+    string historical = await Restore("legacy-save", old, "frozenState", "derived", 33);
+    string id = await Restore("pending-save", expected, "section", "expected", 34);
+    long sourceId = (long)expected["sourceId"];
+    var source = Loaded(sourceId);
+    var owner = source.GetExtend();
+    var newRepair = access.Read(id);
+    string focusId = (string)expected["learned"]["Id"];
+    Check(access.List(owner).Any(entry => entry.Id == focusId) &&
+        JToken.DeepEquals(JObject.FromObject(access.Read(focusId)), JObject.FromObject(expected["learned"].ToObject<AbilityDefinition>())),
+        "自然领悟的凝神成品及掌握关系也完整保留");
+    var armor = source.equipment.armor.getItem();
+    Check(armor != null && armor.id == (long)expected["armorId"] && armor.needRepair() && owner.GetItems().Count() == 1,
+        "原版磨损铁甲和实际库存木材随待办世界恢复");
+    var starts = new List<ConstructedCastStarted>();
+    var repairs = new List<ConstructedEquipmentRepair>();
+    float opening = 17f, paid = 0f;
+    void Started(ConstructedCastStarted fact)
+    {
+        if (fact.SourceId != sourceId || fact.AbilityId != id) return;
+        starts.Add(fact); paid = opening - owner.GetCultisys<Xian>().wakan;
+    }
+    void Repaired(ConstructedEquipmentRepair fact) { if (fact.SourceId == sourceId) repairs.Add(fact); }
+    ConstructedAbilityService.CastStarted += Started;
+    ConstructedAbilityService.EquipmentRepairConfirmed += Repaired;
+    try
+    {
+        CombatStatusEffects.RemoveStatus(source, hold);
+        source.setStatsDirty(); source.updateStats();
+        source.cancelAllBeh(); Place(source, 64.2f);
+        source.attack_timer = source.timer_action = 0f;
+        source.data.money = 0;
+        owner.GetCultisys<Xian>().wakan = opening;
+        source.setTask("repair_equipment", pForceAction: true);
+        int before = armor.getDurabilityCurrent();
+        await Advance(.7f);
+        Check(starts.Count == 1 && starts[0].Origin == ActiveAbilityUseOrigin.Autonomous &&
+            Mathf.Abs(paid - newRepair.Cost) < .001f && repairs.Count == 1 && repairs[0].CastId == starts[0].CastId && repairs[0].ItemId == armor.id && repairs[0].Before == before &&
+            armor.getDurabilityCurrent() == Math.Min(armor.getDurabilityMax(), before + newRepair.Impact.EquipmentRepair.Durability) &&
+            !owner.GetItems().Any(), "刚授予的真实维修术被原任务选中并按价消耗库存，实际修原甲", new { paid, facts = repairs });
+        await Game.NextFrame(); await Game.NextFrame(); await Game.NextFrame();
+        SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+        await Load("completed-save");
+        await Advance(.24f);
+        var reloaded = Loaded(sourceId).GetExtend();
+        Check(access.List(reloaded).Count == (int)expected["known"] + 1 && !reloaded.GetComponent<ConstructedCreationState>().Pending &&
+            JToken.DeepEquals(JObject.FromObject(access.Read(id)), JObject.FromObject(newRepair)) &&
+            reloaded.Base.equipment.armor.getItem().getDurabilityCurrent() == repairs[0].After &&
+            !reloaded.GetItems().Any() && starts.Count == 1 && repairs.Count == 1, "再次保存恢复完整所学与原耐久，不重复授予、施放或消耗");
+    }
+    finally
+    {
+        ConstructedAbilityService.CastStarted -= Started;
+        ConstructedAbilityService.EquipmentRepairConfirmed -= Repaired;
+    }
+    return new { passed = true, process, historical, repair = id, focus = focusId, paid };
+}
+finally
+{
+    GeneralSettings.SwitchNaturalWakanRestore(restore);
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

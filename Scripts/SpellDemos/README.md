@@ -2027,3 +2027,21 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 6.19　实际判定误差与有效区调试
 
 在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_contact_accuracy.py --section accuracy`。`accuracy` 核对三档扇形半径的内缩和实际扣血；`outline` 核对两种视角共用轮廓，以及关调试、自然结束和换世界清理；`isolated` 核对只看有效区及显示恢复；`water` 比较实际湿格箱体与水面的四侧。每段使用同一份现成世界，实际输入、数值和截图保存在 `CULTIWAY_DEV_OUTPUT/contact-accuracy/<分段>`。容差及开发调用见[作用形状精度与调试轮廓](../../Doc/技能系统全面重构/作用形状精度与调试轮廓.md)。
+
+### 7.11A　出行途中使用本人双门
+
+在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_travel_construction.py`。复用现成世界，给已有出行任务安排有效的友城目的地，由游戏自己选择已学能力。核对实际落点和费用、落地后继续步行、预计出口危险时跳过、出行任务取消时中止及下一次出行可重新使用。日志在 `CULTIWAY_DEV_OUTPUT/travel-construction`，见[出行实施与证据](../../Doc/技能系统全面重构/构造法术的日常活动.md#出行实施与证据)。
+
+### 7.11B　打坐时自主凝神
+
+在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_meditation_construction.py`。复用现成世界，用原打坐任务核对已学术的自主支付与实际接触、人物吸收与地块扣除、低供给跳过以及到期恢复。日志在 `CULTIWAY_DEV_OUTPUT/meditation-construction`，见[凝神实施与证据](../../Doc/技能系统全面重构/构造法术的日常活动.md#凝神实施与证据)。
+
+### 7.11C　原装备维修任务用修复术
+
+在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_maintenance_construction.py --section normal`，核对原任务自主选术、正式支付、实际材料消耗、原铁甲修复与缺料／满耐久跳过。`--section cancel` 核对接触前脱下、归还原库存材料以及重新穿回后可继续维修。复用同一现成世界和铁甲样本；记录保存在 `CULTIWAY_DEV_OUTPUT/maintenance-construction/<分段>`，见[维护实施与证据](../../Doc/技能系统全面重构/构造法术的日常活动.md#维护实施与证据)。
+
+### 7.11D　自然领悟可用的日用术
+
+在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_daily_use_creation.py creation`。先核对固定创法资料能重现工作、救灾、出行、修炼及维护成品，再让原打坐任务产生自然灵感、正式领悟并自行付费使用凝神术。记录和正式待办档在 `CULTIWAY_DEV_OUTPUT/daily-use-creation/creation`。
+
+用 `dev.py stop` 退出该游戏，再用 `dev.py start` 启动新进程。运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_daily_use_creation.py restart --state <creation输出目录>`。旧档默认读取 `~/.local/state/cultiway-dev/evidence/propagation-creation-d2/creation`，可用 `--legacy` 指定该历史证据的副本；它必须包含规则 33 的真实等待世界和当时记录的成品。新旧资料分别恢复并授予一次，新学修复术再由原维修任务付费使用和保存。见[自然领悟与实测](../../Doc/技能系统全面重构/构造法术的日常活动.md#自然领悟与实测)。
