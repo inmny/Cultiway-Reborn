@@ -1921,3 +1921,5 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 5.17 D 使用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_contact_signal.py`，用同一收件人核对未送达、真实登记、重复接触、作用分支、解除、到期及正式存读。可用 `--saved-world <原输出目录>` 仅复验已生成的世界。分段证据、初次失败及读回后续见 `~/.local/state/cultiway-dev/evidence/contact-signal-d/delivery.json`。
 
 5.17 E1 使用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_application_editor.py`，在原窗口验证具名解除、解救、装备修复、讯号及状态条件的编辑；检查材料引用、报价、撤销与保存重开。中英截图、说明和实际成品见 `~/.local/state/cultiway-dev/evidence/application-editor-e1/delivery.json`。
+
+5.17 E2 用独立环境执行 `verify_application_creation.py creation`，然后完全退出游戏、重新启动，以 `verify_application_creation.py restart --state <creation 输出>` 读取正式待授予档。两步均通过 `dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_application_creation.py ...`。旧规则资料取自 5.16 的真实等待档和当时的预期；新旧各授予一次，再实际支付、消耗原材料和修复原装备并重存。分段首次结果及通过记录见 `~/.local/state/cultiway-dev/evidence/application-creation-e2/delivery.json`。

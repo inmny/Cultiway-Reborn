@@ -1,0 +1,117 @@
+// 用已学友方接触和一件真实木料，扫描有限种子后通过正式队列等待授予。
+Actor source = Make(64), target = Make(68), legacy = Make(61);
+target.setKingdom(source.kingdom);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var inspiration = ConstructedAbilityService.ReadInspiration(owner);
+var capture = service.GetMethod("CaptureCreationResources", F);
+SynthesisResources Capture(int seed) => (SynthesisResources)capture.Invoke(null, new object[] { owner, seed, inspiration });
+JObject Complete(AbilityDefinition definition) { var json = JObject.FromObject(definition); json.Remove("Id"); return json; }
+void Write(string name, object data) => File.WriteAllText(Path.Combine(folder, name), JsonConvert.SerializeObject(data, Formatting.Indented));
+var basis = new AbilityDefinition
+{
+    Id = "test.application-creation.basis", Name = "护身原术", Cost = 2, Power = 1, Resource = "wakan",
+    Lifetime = .58f, Cooldown = .1f, TargetRange = 18,
+    Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, DamageScale = 0, SelectedTargetOnly = true },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = .6f },
+    Root = new ConstructionNode { Id = "contact", Form = "fireball", Matter = "physical", Scale = .75f,
+        Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval, Interval = .12f, MaximumPerTarget = 3 } }
+};
+var original = JObject.FromObject(basis);
+var noStock = Capture(0);
+Material(owner, ItemShapes.Wood, "创作受理时实际持有的木料", 1);
+Item armor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: target);
+target.equipment.setItem(armor, target); target.setStatsDirty(); target.updateStats();
+armor.getDamaged(12);
+IEnumerable<ConstructionNode> Parts(ConstructionNode node) => node == null ? Array.Empty<ConstructionNode>() : new[] { node }.Concat(node.Children.SelectMany(Parts));
+IEnumerable<ConstructionImpact> Impacts(AbilityDefinition definition) => Parts(definition.Root).Select(part => part.Impact)
+    .Concat(new[] { definition.Impact, definition.Body?.Impact })
+    .Concat((definition.Body?.Stages ?? Array.Empty<BodyActionStage>()).Select(stage => stage.Impact)).Where(impact => impact != null);
+IEnumerable<string> Changes(AbilityDefinition definition)
+{
+    foreach (var impact in Impacts(definition))
+    {
+        if (impact.Restoration?.RemoveStatus != null) yield return "指定解除";
+        if (impact.ReleaseGrab == ConstructionGrabRelease.Rescue) yield return "抓持解救";
+        if (impact.EquipmentRepair != null) yield return "装备修复";
+        if (impact.Signal != null && impact.ConditionalContacts?.Any(condition => condition.RequiredStatus != null) == true) yield return "讯号条件";
+    }
+}
+try
+{
+    Check(inspiration.Rules == 32 && legacy.id == 58 && !noStock.InventoryMaterials.Any(), "新创作规则32、旧人物编号和原本无库存", new { inspiration.Rules, legacy = legacy.id, noStock.InventoryMaterials });
+    string resume = Path.Combine(folder, "prior-definitions.json");
+    var prior = File.Exists(resume) ? JObject.Parse(File.ReadAllText(resume)) : null;
+    var independent = prior?["independent"].ToObject<Dictionary<string, AbilityDefinition>>() ?? new();
+    var derived = prior?["derived"].ToObject<Dictionary<string, AbilityDefinition>>() ?? new();
+    var rejected = new List<string>();
+    int firstSeed = prior == null ? 0 : ((int?)prior["limit"] ?? 160);
+    const int limit = 512;
+    for (int seed = firstSeed; seed < limit && (independent.Count < 4 || derived.Count < 4); seed++)
+    {
+        var frozen = Capture(seed);
+        if (independent.Count < 4)
+            try
+            {
+                var made = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: frozen);
+                foreach (string change in Changes(made).Distinct().Where(change => !independent.ContainsKey(change)))
+                {
+                    var repeated = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: JObject.FromObject(frozen).ToObject<SynthesisResources>());
+                    Check(JToken.DeepEquals(Complete(made), Complete(repeated)), "独立新成品冻结结构和费用 " + change, seed);
+                    independent.Add(change, made);
+                }
+            }
+            catch (InvalidDataException error) { rejected.Add("独立 " + seed + ": " + error.Message); }
+        if (derived.Count < 4)
+            try
+            {
+                var made = ConstructedAbilityService.Generate(owner, seed, inspiration, basis, frozen);
+                if (Changes(made).Contains(made.Parent.Change) && !derived.ContainsKey(made.Parent.Change)) derived.Add(made.Parent.Change, made);
+            }
+            catch (InvalidDataException error) { rejected.Add("派生 " + seed + ": " + error.Message); }
+        if (seed % 12 == 0) await Game.NextFrame();
+    }
+    Write("created-definitions.json", new { independent, derived, rejected, limit });
+    Check(independent.Count == 4 && derived.Count == 4, "独立和派生均能生成四种实际作用",
+        new { independent = independent.Keys, derived = derived.Keys });
+    Check(JToken.DeepEquals(original, JObject.FromObject(basis)) && derived.Values.All(made =>
+        JToken.DeepEquals(original["Impact"], JObject.FromObject(made.Impact)) &&
+        JToken.DeepEquals(original["Binding"], JObject.FromObject(made.Binding)) &&
+        made.Root.Impact.Targets == basis.Impact.Targets && made.Root.Impact.SelectedTargetOnly && made.Root.Impact.DamageScale == 0 &&
+        JToken.DeepEquals(original["Root"]["Contact"], JObject.FromObject(made.Root.Contact))),
+        "派生保留原术、原定位、接触预算以及目标关系");
+    var repair = derived["装备修复"];
+    var claimed = repair.Inventory.Single();
+    Check(claimed.Shape == ItemShapes.Wood.id && claimed.Count == 1 && repair.Root.Impact.EquipmentRepair.MaterialInput == claimed.Id,
+        "修复引用一份实际持有的同型材料");
+    var bare = ConstructionEditing.Copy(repair);
+    bare.Root.Impact.EquipmentRepair = null;
+    bare.Inventory = Array.Empty<ConstructionInventoryInput>();
+    ConstructionPricing.Price(bare, contactRules: 32);
+    Check(repair.Calculation.Demand > bare.Calculation.Demand, "修复纳入正式费用", new { repair.Cost, bareCost = bare.Cost });
+    var reserved = ConstructionEditing.Copy(basis);
+    reserved.Inventory = new[] { new ConstructionInventoryInput { Id = "prior", Shape = ItemShapes.Wood.id, Count = 1 } };
+    var rejectedRepair = new[] { (Definition: basis, Snapshot: noStock), (Definition: reserved, Snapshot: Capture(repair.Seed)) };
+    foreach (var attempt in rejectedRepair)
+        Check(!Changes(ConstructedAbilityService.Generate(owner, repair.Seed, inspiration, attempt.Definition, attempt.Snapshot)).Contains("装备修复"),
+            "无可用材料时不追加修复，包括已声明占用");
+    ConstructedAbilityService.Register(basis); ConstructedAbilityService.Learn(owner, basis.Id);
+    Check(ConstructedAbilityService.TryQueueCreation(owner, repair.Seed, basis.Id), "正式队列受理实际掌握的原术");
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    var saves = Cultiway.ModClass.I.WorldSaves;
+    var frozenState = JObject.Parse(saves.Actors.Capture(owner, "application-creation"))["sections"]["ability_creation"];
+    Check((int)frozenState["version"] == 33 && pending.Pending && pending.Inspiration.Rules == 32 &&
+        JToken.DeepEquals(Complete(repair), Complete(ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources))),
+        "正式等待区段冻结新规则、原术、材料和同一报价");
+    int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+    Write("pending-expected.json", new { sourceId = source.id, legacyId = legacy.id, targetId = target.id, armorId = armor.id, armorBefore = armor.getDurabilityCurrent(),
+        derived = repair, frozenState, known = ConstructionEditing.Access.List(owner).Count,
+        oldKnown = ConstructionEditing.Access.List(legacy.GetExtend()).Count, process });
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "pending-save"));
+    return new { passed = true, process, repair.Seed };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

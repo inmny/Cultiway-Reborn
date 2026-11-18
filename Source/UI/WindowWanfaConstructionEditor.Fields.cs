@@ -39,7 +39,7 @@ public sealed partial class WindowWanfaConstructionEditor
             }).ToArray()));
         Number("Cost", session.Draft.Cost, value => session.Draft.Cost = value);
         ActionRow("ApplyRecommendedCost", T("ApplyRecommendedCostHint"), () => ApplyConstructionEdit(() =>
-            ConstructionPricing.Price(ConstructionEditing.Copy(session.Draft), contactRules: ConstructionPricing.ProcessTimeRules)));
+            ConstructionPricing.Price(ConstructionEditing.Copy(session.Draft), contactRules: ConstructionPricing.ApplicationRules)));
         Toggle("ExplicitRange", session.Draft.TargetRange.HasValue,
             value => session.Draft.TargetRange = value ? 12f : (float?)null);
         if (session.Draft.TargetRange.HasValue)
