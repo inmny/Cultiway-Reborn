@@ -153,7 +153,7 @@ public sealed partial class ConstructedAbilityService
     internal static bool GroundMovementAllowed(Actor actor, Vector3 from, Vector3 to, float height)
     {
         if (barriers.Count == 0 || actor.isFlying() || ((Vector2)(to - from)).sqrMagnitude < 1e-12f) return true;
-        return !FindBarrier(ActorContact(from, height, Vector3.zero), ActorContact(to, height, Vector3.zero),
+        return !FindBarrier(ActorHitBoundary.Create(from, height, Vector3.zero), ActorHitBoundary.Create(to, height, Vector3.zero),
             null, actor.id, actor, true, out _, out _, out _);
     }
 

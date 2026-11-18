@@ -127,7 +127,7 @@ try
         if (sample == "parts")
         {
             // 以同一正前方向摆放两名原站立目标，避免站位反过来改变整只身体的出手方向。
-            AbilityCapsule body = (AbilityCapsule)service.GetMethod("ActorContact", F).Invoke(null, new object[] { Vector3.zero, height, Vector3.zero });
+            AbilityCapsule body = (AbilityCapsule)typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.ActorHitBoundary").GetMethod("Create", F).Invoke(null, new object[] { Vector3.zero, height, Vector3.zero });
             var points = new List<Vector3>();
             for (int step = 0; step <= 16; step++)
             {
@@ -158,7 +158,7 @@ try
         // 直接复用B2已经通过的原站立目标与共同触达，不另建像素尾部场景。
         float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { target });
         float sourceHeight = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source });
-        AbilityCapsule body = (AbilityCapsule)service.GetMethod("ActorContact", F).Invoke(null, new object[] { Vector3.zero, height, Vector3.zero });
+        AbilityCapsule body = (AbilityCapsule)typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.ActorHitBoundary").GetMethod("Create", F).Invoke(null, new object[] { Vector3.zero, height, Vector3.zero });
         var common = (from a in sampledParts[0] from b in sampledParts[1]
             let p = (a.A + a.B) * .5f let q = (b.A + b.B) * .5f let point = (p + q) * .5f
             where p.z >= body.A.z && p.z <= body.B.z && q.z >= body.A.z && q.z <= body.B.z &&

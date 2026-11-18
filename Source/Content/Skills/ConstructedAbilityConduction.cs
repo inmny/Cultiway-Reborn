@@ -108,7 +108,7 @@ public sealed partial class ConstructedAbilityService
                 !owner.Matches(impact.Targets, actor.Actor)) continue;
             simulation.Sample(actor, clock, out var foot, out float height);
             targets.Add(actor);
-            bodies.Add(ActorContact(foot, height, actor.Body?.Cast.BodyPose?.Torso ?? Vector3.zero));
+            bodies.Add(ActorHitBoundary.Create(foot, height, actor.Body?.Cast.BodyPose?.Torso ?? Vector3.zero));
         }
 
         var water = WorldMaterialService.ConductingWater(simulation.materialSelection, settings.Range, identities);
@@ -154,7 +154,7 @@ public sealed partial class ConstructedAbilityService
                 if (!valid[i] || actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() ||
                     !actor.Actor.hasHealth() || !owner.Matches(impact.Targets, actor.Actor)) continue;
                 StartingPose(actor.Actor, out var foot, out float height);
-                var body = ActorContact(foot, height, actor.Body?.Cast.BodyPose?.Torso ?? Vector3.zero);
+                var body = ActorHitBoundary.Create(foot, height, actor.Body?.Cast.BodyPose?.Torso ?? Vector3.zero);
                 var shape = currentWater[i].Shape(cell);
                 if (!AbilityPairSweep.Find(shape, shape, body, body, out _, out _, out _)) continue;
                 float hp = actor.Actor.data.health;

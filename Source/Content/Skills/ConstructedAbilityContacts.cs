@@ -48,7 +48,7 @@ public sealed partial class ConstructedAbilityService
             if (!actorIndices.TryGetValue(pair.Key.Target, out int index)) continue;
             ActorMotion actor = actors[index];
             Sample(actor, clock, out Vector3 foot, out float height);
-            AbilityCapsule target = ActorContact(foot, height, actor.Body?.BodyControlled == true ? actor.Body.Cast.BodyPose.Value.Torso : Vector3.zero);
+            AbilityCapsule target = ActorHitBoundary.Create(foot, height, actor.Body?.BodyControlled == true ? actor.Body.Cast.BodyPose.Value.Torso : Vector3.zero);
             foreach (AbilityCapsule shape in running.Before)
                 if (running.Cast.AffectsActors(shape.Node) &&
                     running.HitKey(shape.Node, actor.Id) == pair.Key && AbilityPairSweep.Find(shape, shape, target, target, out _, out _, out _))
@@ -58,17 +58,6 @@ public sealed partial class ConstructedAbilityService
                     memory.Touching = true; break;
                 }
         }
-    }
-
-    /// <summary>覆盖脚底到头部的实际身高，低矮攻击不再从胸口球体下方漏过。</summary>
-    /// <param name="foot">共同空间中的脚下位置。</param>
-    /// <param name="height">当前身体高度。</param>
-    /// <param name="torso">身体动作已有的整体偏移。</param>
-    private static AbilityCapsule ActorContact(Vector3 foot, float height, Vector3 torso)
-    {
-        float radius = height * .24f;
-        return new AbilityCapsule(0, foot + torso + Vector3.forward * radius,
-            foot + torso + Vector3.forward * (height - radius), radius, null);
     }
 
     /// <summary>按已确认次数及年龄裁掉尚不能再次作用的路径。</summary>
