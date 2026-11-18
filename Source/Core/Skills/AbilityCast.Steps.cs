@@ -137,6 +137,7 @@ public sealed partial class AbilityCast
             }
         }
         if (!nodes[plan.Node].Exists || !nodes[plan.Node].Started) return false;
+        if (plan.MappingEntrance >= 0 && (!nodes[plan.MappingEntrance].Visible || !nodes[plan.MappingExit].Visible)) return false;
         if (plan.Action.Kind is ConstructionOperationKind.Gather or ConstructionOperationKind.Detach && nodes[plan.Node].Free) return false;
         return true;
     }
@@ -189,7 +190,7 @@ public sealed partial class AbilityCast
                     continue;
                 }
                 if (!node.Exists || operations[action.Index].Done) { step.State = ConstructionStepState.Interrupted; changed = true; continue; }
-                bool failed = false;
+                bool failed = plan.MappingEntrance >= 0 && (!nodes[plan.MappingEntrance].Exists || !nodes[plan.MappingExit].Exists);
                 foreach (var input in plan.Inputs)
                 {
                     if (input.Step >= 0 && stepStates[input.Step].State == ConstructionStepState.Interrupted &&

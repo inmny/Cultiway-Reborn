@@ -52,7 +52,7 @@ public static partial class AbilityCompiler
                 if (port == null) Fail(path, "操作没有输入端口：" + entry.Key);
                 var values = Resolve(entry.Value, path + "/Inputs/" + entry.Key);
                 if (values.Any(input => !port.Kinds.Contains(input.Kind))) Fail(path, "输入资料种类不匹配：" + entry.Key);
-                if (entry.Key is not ("part" or "after" or "event" or "parent" or "connection" or "worldMaterials" or "water")) Fail(path, "现有操作输出不能替代施放上下文输入：" + entry.Key);
+                if (entry.Key is not ("part" or "after" or "event" or "parent" or "connection" or "worldMaterials" or "water" or "entrance" or "exit")) Fail(path, "现有操作输出不能替代施放上下文输入：" + entry.Key);
                 bool world = entry.Key is "worldMaterials" or "water";
                 if (world && (entry.Value.Stage == ConstructionOutputStage.Started || values.Any(input => input.Step < 0 ||
                     sorted[input.Step].Action.Kind != ConstructionOperationKind.Leave && sorted[input.Step].Action.WorldMatter == null)))
@@ -111,6 +111,23 @@ public static partial class AbilityCompiler
                 var action = new CompiledEventOperation(operation, ReadVector(operation.Vector, path), definition.Lifetime, path, node.Resource, original, node.Fracture, bound: true, order: original.Operations.Length + index)
                 { Step = sorted.Count };
                 var step = new CompiledConstructionStep(source.Id, target, inputs.ToArray(), action, contract);
+                if (operation.Kind == ConstructionOperationKind.MapSpace)
+                {
+                    if (!bindings.TryGetValue("entrance", out var entrance) || entrance.Length != 1 ||
+                        !bindings.TryGetValue("exit", out var exit) || exit.Length != 1)
+                        Fail(path, "空间转移需要唯一的入口和出口");
+                    step.MappingEntrance = bindings["entrance"][0].Node;
+                    step.MappingExit = bindings["exit"][0].Node;
+                    if (step.MappingEntrance == step.MappingExit || BelongsToSubject(step.MappingEntrance) || BelongsToSubject(step.MappingExit))
+                        Fail(path, "入口、出口和转移主体必须彼此独立，不能使用主体或它的下属部位作门");
+
+                    bool BelongsToSubject(int gate)
+                    {
+                        for (; gate >= 0; gate = nodes[gate].Parent)
+                            if (gate == target) return true;
+                        return false;
+                    }
+                }
                 node.EventOperations = node.EventOperations.Concat(new[] { action }).ToArray();
                 node.Operations = node.Operations.Concat(new[] { new CompiledOperationRequirement(node.Path, original.Operations.Length + index, operation, contract) }).ToArray();
                 result.Add(step); sorted.Add(step);

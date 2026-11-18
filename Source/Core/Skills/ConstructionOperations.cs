@@ -63,6 +63,8 @@ public static class ConstructionOperations
     internal static ConstructionOperationContract Resolve(ConstructionOperation source, string path, bool bound = false)
     {
         if (source == null || !contracts.TryGetValue(source.Kind, out var found)) throw new InvalidDataException(path + "：操作为空或没有执行约定");
+        if (source.Kind == ConstructionOperationKind.MapSpace && !bound)
+            throw new InvalidDataException(path + "：空间转移需要命名步骤指定实际入口和出口");
         found.Validate(source, path, bound); return found;
     }
 
@@ -81,6 +83,9 @@ public static class ConstructionOperations
         var part = new ConstructionOperationPort("part", Value.Part);
         var material = new ConstructionOperationPort("material", Value.Material);
         var world = new ConstructionOperationPort("worldMaterials", Value.Material, false, true, true);
+        Add(ConstructionOperationKind.MapSpace, new[] { part, Port("entrance", Value.Part), Port("exit", Value.Part) },
+            new[] { part, Port("transferred", Value.Result) }, State.Pose | State.Connection | State.Momentum, Resource.Geometry,
+            Effect.Pose | Effect.Connection | Effect.Movement, new[] { nameof(ConstructionOperation.MappingRadius) });
         Add(ConstructionOperationKind.Erode, new[] { part, world }, new[] { part, Port("erosion", Value.Process), material },
             State.Pose | State.Matter | State.Event, Resource.Geometry | Resource.Payment | Resource.WorldMaterials, Effect.Shape | Effect.World,
             new[] { nameof(ConstructionOperation.Seconds), nameof(ConstructionOperation.Erosion), nameof(ConstructionOperation.WorldMatter) }, new[] { nameof(ConstructionOperation.Seconds) });
