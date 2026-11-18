@@ -1913,3 +1913,5 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 5.16 C3 用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 360 -- python3 Scripts/SpellDemos/record_process_time.py --state <C2实际学会并重存的输出目录>`，录制同场两份世界木料的独立节奏；另起兼容环境后加 `--worldfall`。`--encode-only <视角目录>` 从已录原帧重核并编码。两端影片、暂停体积对照、两倍进度及实际结束见 `~/.local/state/cultiway-dev/evidence/process-time-c3/delivery.json`。
 
 5.17 A 使用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_status_removal.py`，复用现成世界验证真实状态施加、按层和来源解除、非匹配保留、恢复、再次支付施放及成品存读。可用 `--legacy <旧构造区段15的正式世界目录>` 核对旧构造和费用。当前结果、实际输入、保存资料及进程退出记录见 `~/.local/state/cultiway-dev/evidence/status-removal-a/delivery.json`。
+
+5.17 B 使用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_grab_release.py`，复用现成世界和一个真实抓持动作，验证主动放手的归属、解救力度、提前归还、拒绝及再次抓持、正式存读。记录和初次脚本编译失败见 `~/.local/state/cultiway-dev/evidence/grab-release-b/delivery.json`。

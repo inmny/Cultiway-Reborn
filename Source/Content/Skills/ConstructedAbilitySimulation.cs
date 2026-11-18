@@ -1154,6 +1154,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
             return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);
         long generation = worldGeneration;
+        if (result == ApplyAttackState.Hit && impact.ReleaseGrab != ConstructionGrabRelease.None)
+        {
+            TryReleaseGrab(running, node, target, impact.ReleaseGrab, strength);
+            if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
+                return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);
+        }
         ApplyContactExchange(running.Owner(node), target, impact.Exchange, result, strength);
         if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
             return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);

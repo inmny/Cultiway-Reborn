@@ -1,0 +1,148 @@
+// 正式使用同一个现成身体动作，核对真实关系和原凭据归还。
+Actor holder = Make(64), target = Make(64.25f), rescuer = Make(71);
+rescuer.setKingdom(target.kingdom);
+var quietStats = new BaseStats();
+quietStats.addTag("frozen_ai");
+var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.GrabRelease.Quiet")
+    .SetStats(quietStats).SetDuration(10000).Build();
+CombatStatusEffects.RemoveStatus(target, hold);
+CombatStatusEffects.ApplyStatus(target, quiet, 10000, target);
+target.updateStats();
+foreach (Actor caster in new[] { holder, rescuer })
+{
+    var extend = caster.GetExtend();
+    extend.NewCultisys(Cultisyses.Xian);
+    extend.GetCultisys<Xian>().level = 2;
+    extend.MarkCultiwayStatsDirty(); caster.updateStats();
+}
+var relations = new List<ConstructedBodyConnection>();
+void Related(ConstructedBodyConnection fact)
+{
+    relations.Add(fact);
+    File.WriteAllText(Path.Combine(folder, "relations.json"), JsonConvert.SerializeObject(relations.Select(link => new
+    { link.CastId, link.SourceId, link.TargetId, link.RelationId, link.State, link.Reason, link.WorldTime, link.Until,
+      link.Remaining }), Formatting.Indented));
+}
+ConstructedAbilityService.BodyConnectionChanged += Related;
+
+AbilityDefinition Release(string name, ConstructionGrabRelease mode, float power) => new()
+{
+    Id = "test.grab-release." + name, Name = name, Power = power, Cooldown = 0f, Lifetime = .2f, TargetRange = 18f,
+    Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, SelectedTargetOnly = true,
+        DamageScale = 0f, ReleaseGrab = mode },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = .6f },
+    Root = new ConstructionNode { Id = "release", Form = "fireball", Matter = "physical", Scale = .75f }
+};
+
+async Task<ConstructedBodyConnection> Hold()
+{
+    var grab = Grab("hold");
+    grab.Body.Construction.Relations.Single().ControlStrength = 4f;
+    grab.Body.Impact.Targets = SkillUseTargetRelation.Friendly;
+    grab.Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, DamageScale = 0f };
+    target.setKingdom(holder.kingdom);
+    rescuer.setKingdom(holder.kingdom);
+    Ready(holder); holder.cancelAllBeh(); Place(holder, 64); Place(target, 64.25f);
+    await PlaceConnection(holder, target, grab, latestContactAge: .65f);
+    int before = relations.Count, endBefore = endings.Count;
+    await Fire(grab, holder, target, aggro: false);
+    holder.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    Config.paused = false;
+    await Game.WaitUntil(() => relations.Count > before || endings.Skip(endBefore).Any(e => e.Fact.AbilityId == grab.Id), 900);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 900);
+    Check(relations.Count > before && relations[before].State == ConstructedBodyConnectionState.Active &&
+          BodyControlState.IsBusy(target.id), "原动作实际抓住并取得目标控制");
+    return relations[before];
+}
+
+async Task Contact(AbilityDefinition spell, Actor caster)
+{
+    var extend = caster.GetExtend();
+    extend.GetCultisys<Xian>().wakan = caster.stats[BaseStatses.MaxWakan.id] * .9f;
+    float available = extend.GetCultisys<Xian>().wakan;
+    int before = contacts.Count;
+    await Fire(spell, caster, target, aggro: false);
+    extend.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(available - extend.GetCultisys<Xian>().wakan - spell.Cost) < .001f, spell.Name + "实际支付");
+    Config.paused = false;
+    await Game.WaitUntil(() => contacts.Count > before, 900);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 900);
+    Check(contacts.Count == before + 1 && contacts[before].TargetId == target.id &&
+          !contacts[before].DamageAttempted && !contacts[before].ForceApplied, spell.Name + "实际接触且无伤害或附加推力");
+}
+
+bool StillHeld(ConstructedBodyConnection link) => BodyControlState.IsBusy(target.id) &&
+    ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == link.CastId && c.State == ConstructedBodyConnectionState.Active);
+
+void Released(ConstructedBodyConnection link)
+{
+    var releases = relations.Where(c => c.CastId == link.CastId && c.State == ConstructedBodyConnectionState.Released).ToArray();
+    Check(releases.Length == 1 && releases[0].Reason == "ReleasedByAbility" && releases[0].WorldTime < link.Until &&
+          !BodyControlState.IsBusy(target.id) && BodyControlState.IsBusy(holder.id) &&
+          !endings.Any(e => e.Fact.CastId == link.CastId),
+        "实际提前解除一次，只交还原目标控制，抓持者动作继续");
+}
+
+try
+{
+    var own = Release("own", ConstructionGrabRelease.Own, 1f);
+    var weak = Release("weak", ConstructionGrabRelease.Rescue, .01f);
+    var rescue = Release("rescue", ConstructionGrabRelease.Rescue, 24f);
+    var invalid = Release("invalid", (ConstructionGrabRelease)77, 1f);
+    bool rejected = false;
+    try { AbilityCompiler.Compile(invalid, false); }
+    catch (InvalidDataException e) { rejected = e.Message.Contains("/ReleaseGrab"); }
+    Check(rejected, "未知抓持解除方式在编译时拒绝");
+    var old = Release("old", ConstructionGrabRelease.None, rescue.Power);
+    Check(JObject.FromObject(old.Impact)["ReleaseGrab"] == null, "旧规则没有新增解除字段");
+    ConstructionPricing.Price(rescue, cooldown: false, contactRules: 31);
+    Check(rescue.Cost > ConstructionPricing.Price(old, cooldown: false, contactRules: 31).Cost, "解救的余力进入正式报价");
+    var first = await Hold();
+    int health = target.data.health;
+    await Contact(own, rescuer);
+    Check(StillHeld(first), "非抓持者不能冒充主动放手");
+    await Contact(weak, rescuer);
+    Check(StillHeld(first), "力度不足时保留原关系");
+    await Contact(rescue, rescuer);
+    Released(first);
+    Check(target.data.health == health && !target.under_forces, "解救没有伤害或摔投");
+    await Contact(rescue, rescuer);
+    Check(relations.Count(r => r.CastId == first.CastId && r.State == ConstructedBodyConnectionState.Released) == 1,
+        "再次命中已脱离人物不会重放解除");
+    await Advance(2.1f);
+    var second = await Hold();
+    await Contact(own, holder);
+    Released(second);
+    await Advance(2.1f);
+    Check(!BodyControlState.IsBusy(holder.id) && !BodyControlState.IsBusy(target.id), "来源动作自然结束并归还自己的控制");
+
+    long rescuerId = rescuer.id;
+    ConstructedAbilityService.Learn(rescuer.GetExtend(), rescue.Id);
+    var expected = JObject.FromObject(rescue);
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), expected.ToString(Formatting.Indented));
+    await Game.NextFrame(); await Game.NextFrame(); await Game.NextFrame();
+    string saved = Path.Combine(folder, "completed-save");
+    SaveManager.saveWorldToDirectory(saved);
+    int published = relations.Count;
+    World.world.save_manager.loadWorld(saved);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var actual = (AbilityDefinition)((IDictionary)service.GetField("definitions", F).GetValue(null))[rescue.Id];
+    Check(actual != null && JToken.DeepEquals(expected, JObject.FromObject(actual)) &&
+          World.world.units.get(rescuerId).GetExtend().E.GetComponent<ConstructedKnowledge>().Ids.Contains(rescue.Id) &&
+          relations.Count == published && ConstructedAbilityService.GetBodyConnections().Length == 0,
+        "正式存读保留已学解救和费用，不重放已经结束的关系");
+    return new { passed = true, closed = "主动放手、受力解救、独立归还和正式存读",
+        process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.BodyConnectionChanged -= Related;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

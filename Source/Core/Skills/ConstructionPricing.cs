@@ -316,6 +316,12 @@ public sealed class ConstructionMeasure
                                                (impact.Impulse?.magnitude ?? 0f) * .1d *
                                                (impact.SlideSeconds > 0 ? impact.SlideSeconds : 1d));
             double effects = impact.AgeYears * (double)strength;
+            effects += impact.ReleaseGrab switch
+            {
+                ConstructionGrabRelease.Own    => .5d,
+                ConstructionGrabRelease.Rescue => .5d + power * strength,
+                _                              => 0d
+            };
             if (impact.EquipmentErosion != null)
                 effects += impact.EquipmentErosion.Slots.Count * impact.EquipmentErosion.Fraction * 100d * strength;
             if (impact.InventoryAging != null)
