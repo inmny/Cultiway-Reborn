@@ -2027,3 +2027,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 6.19　实际判定误差与有效区调试
 
 在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_contact_accuracy.py --section accuracy`。`accuracy` 核对三档扇形半径的内缩和实际扣血；`outline` 核对两种视角共用轮廓，以及关调试、自然结束和换世界清理；`isolated` 核对只看有效区及显示恢复；`water` 比较实际湿格箱体与水面的四侧。每段使用同一份现成世界，实际输入、数值和截图保存在 `CULTIWAY_DEV_OUTPUT/contact-accuracy/<分段>`。容差及开发调用见[作用形状精度与调试轮廓](../../Doc/技能系统全面重构/作用形状精度与调试轮廓.md)。
+
+### 7.11A　出行途中使用本人双门
+
+在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_travel_construction.py`。复用现成世界，给已有出行任务安排有效的友城目的地，由游戏自己选择已学能力。核对实际落点和费用、落地后继续步行、预计出口危险时跳过、出行任务取消时中止及下一次出行可重新使用。日志在 `CULTIWAY_DEV_OUTPUT/travel-construction`，见[出行实施与证据](../../Doc/技能系统全面重构/构造法术的日常活动.md#出行实施与证据)。

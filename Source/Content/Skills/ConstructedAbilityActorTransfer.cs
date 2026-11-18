@@ -38,7 +38,8 @@ public sealed partial class ConstructedAbilityService
             }
 
             if (!cast.TryMapActor(index, node, id, foot, out Vector3 destination)) continue;
-            if (!simulation.CanLandActor(actor, foot, ref destination))
+            if (running.WorldScope?.AllowsTravelArrival?.Invoke(actor, destination) == false ||
+                !simulation.CanLandActor(actor, foot, ref destination))
             {
                 cast.RejectActorTransfer(index);
                 continue;
@@ -55,7 +56,8 @@ public sealed partial class ConstructedAbilityService
     /// <param name="clock">确认时点。</param><param name="generation">所属世界。</param>
     private static void ArriveActorTransfer(RunningCast running, int index, Actor actor, long id, Vector3 destination, double clock, long generation)
     {
-        if (!ReleaseForExchange(actor, id, generation) || running.Replaced || running.Cast.Finished || !actor.isAlive() || !actor.hasHealth()) return;
+        bool keepTask = running.WorldScope?.AllowsTravelArrival != null;
+        if (!ReleaseForExchange(actor, id, generation, keepTask) || running.Replaced || running.Cast.Finished || !actor.isAlive() || !actor.hasHealth()) return;
         PublishBodyPosition(actor, destination);
         Persistence.ActorPositionSaveService.Remember(actor.GetExtend());
         NotifyActorChanged(actor);
