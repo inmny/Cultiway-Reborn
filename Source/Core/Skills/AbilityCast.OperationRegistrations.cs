@@ -40,6 +40,14 @@ public sealed partial class AbilityCast
                 if (form.BodyWindow || settings.World == null && form.FlowSettings != null || form.Resource.Meshes.Length == 0)
                     throw new InvalidDataException(path + "：本批侵蚀用于真实生成实体，身体及动态流散由对应入口维护");
             });
+        ConstructionOperations.Register(ConstructionOperationKind.RetimeErosion,
+            context => new CompiledErosionRetiming(context.Source, context.Path, context.Order),
+            (cast, action, _) => { cast.operations[action.Index].WorldRequested = true; return true; },
+            validate: (form, _, path) =>
+            {
+                if (form.BodyWindow || form.Resource.Meshes.Length == 0)
+                    throw new InvalidDataException(path + "：调整侵蚀需要实际选择形体");
+            });
         ConstructionOperations.Register(ConstructionOperationKind.ConsumeInventory,
             context => new CompiledInventoryUse(context.Source.InventoryUse, context.Path),
             (cast, action, value) =>

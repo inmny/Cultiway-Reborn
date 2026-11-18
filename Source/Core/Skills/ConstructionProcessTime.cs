@@ -21,10 +21,7 @@ internal sealed class CompiledProcessTime
 {
     private readonly (double Start, double End, double Rate, float Seconds)[] windows;
 
-    /// <summary>当前过程按完整安排走完所需的世界秒数。</summary>
-    internal readonly double Completion;
-
-    internal CompiledProcessTime(ConstructionProcessWindow[] source, float work, float limit, string path)
+    internal CompiledProcessTime(ConstructionProcessWindow[] source, float limit, string path)
     {
         if (source.Length > 8) throw new InvalidDataException(path + "：一个过程最多有八个变速时段");
         windows = new (double, double, double, float)[source.Length];
@@ -39,8 +36,12 @@ internal sealed class CompiledProcessTime
             windows[i] = (window.At, end, window.Rate, window.Seconds);
             last = end;
         }
+    }
 
-        double remaining = work, cursor = 0d;
+    /// <summary>同一份安排完成指定剩余进度所需的世界秒数。</summary>
+    internal double CompletionFor(double remaining)
+    {
+        double cursor = 0d;
         foreach (var (start, end, rate, _) in windows)
         {
             double idle = start - cursor;
@@ -57,7 +58,7 @@ internal sealed class CompiledProcessTime
             remaining -= effective;
             cursor = end;
         }
-        Completion = cursor + remaining;
+        return cursor + remaining;
     }
 
     /// <summary>独立材料保存编译时的窗口声明，不引用可编辑资料。</summary>
@@ -85,9 +86,9 @@ internal sealed class CompiledProcessTime
     }
 
     /// <summary>在倍率切换和真实完成时拆步，避免把两个形体状态当作同一次接触。</summary>
-    internal float NextBoundary(float origin, float age)
+    internal float NextBoundary(float origin, float age, float completion)
     {
-        float endAt = origin + (float)Completion;
+        float endAt = origin + completion;
         foreach (var (start, end, _, _) in windows)
         {
             float begin = origin + (float)start;

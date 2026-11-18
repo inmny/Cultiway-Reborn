@@ -20,7 +20,7 @@ try
     Check(WorldMaterialService.Count == 0 && ((IDictionary)typeof(WorldMaterialService).GetField("erosionWatches", F).GetValue(null)).Count == 0,
         "换世界清理旧材料和等待关系");
     await Load("pending-save"); var section = Section();
-    Check((int)section["version"] == 9 && JToken.DeepEquals(Canonical(section), Canonical((JObject)expected["section"])),
+    Check((int)section["version"] == 10 && JToken.DeepEquals(Canonical(section), Canonical((JObject)expected["section"])),
         "正式保存恢复局部身份、原支付归属、冻结地表、历史及各自过程");
     var before = Records().Select(value => value["Material"].ToObject<AbilityMaterialData>()).ToArray();
     var finals = before.Select(value =>
@@ -48,7 +48,7 @@ try
         Cultiway.ModClass.I.WorldSaves.LastReport.Skipped.Any(value => value.Contains("侵蚀过程编号")),
         "坏过程编号只丢弃对应部分，其他份额继续恢复并报告");
     var legacy = JObject.Parse(File.ReadAllText(Path.Combine(folder, "legacy.json"))); await Load("legacy-world");
-    Check((int)Section()["version"] == 9 && JToken.DeepEquals(Canonical(Section()), Canonical((JObject)legacy["section"])),
+    Check((int)Section()["version"] == 10 && JToken.DeepEquals(Canonical(Section()), Canonical((JObject)legacy["section"])),
         "实际旧7资料保留原进度、阶段、总损耗及本金，新计数使用缺省值");
     double total = Records().Sum(value => (double)value["Material"]["Volume"]);
     await Advance(.3f);

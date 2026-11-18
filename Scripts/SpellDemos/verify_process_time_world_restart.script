@@ -16,7 +16,7 @@ try
     var before = ((JArray)expected["section"]["data"]["Records"]).Single(value => (long)value["Id"] == id)["Material"];
     await Load("pending-save"); var loaded = Material(id);
     var saves = Cultiway.ModClass.I.WorldSaves;
-    Check((int)Section()["version"] == 9 && saves.LastReport.Skipped.Count == 0 &&
+    Check((int)Section()["version"] == 10 && saves.LastReport.Skipped.Count == 0 &&
         JToken.DeepEquals(loaded["Erosion"], before["Erosion"]) && JToken.DeepEquals(loaded["Weathering"], before["Weathering"]) &&
         (double)loaded["Volume"] == (double)before["Volume"] && (double)loaded["Resource"] == (double)before["Resource"],
         "正式冷启动原样恢复暂停位置、当前实际余量和累计损耗", loaded["Erosion"]);
@@ -46,7 +46,7 @@ try
     var legacy = JObject.Parse(File.ReadAllText(Path.Combine(folder, "legacy.json")));
     var legacyRow = ((JArray)legacy["section"]["data"]["Records"]).Single(); long legacyId = (long)legacyRow["Id"];
     await Load("legacy-world"); var old = Material(legacyId);
-    Check((int)Section()["version"] == 9 && Rows().Count == 1 && saves.LastReport.Skipped.Count == 0 &&
+    Check((int)Section()["version"] == 10 && Rows().Count == 1 && saves.LastReport.Skipped.Count == 0 &&
         JToken.DeepEquals(old["Erosion"], legacyRow["Material"]["Erosion"]) && JToken.DeepEquals(old["Weathering"], legacyRow["Material"]["Weathering"]) &&
         (double)old["Volume"] == (double)legacyRow["Material"]["Volume"] && (double)old["Resource"] == (double)legacyRow["Material"]["Resource"],
         "实际旧第八版保留过程编号、实际耗损、本金及中途进度");

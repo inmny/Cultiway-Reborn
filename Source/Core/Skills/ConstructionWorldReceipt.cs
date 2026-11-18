@@ -22,7 +22,9 @@ public enum ConstructionWorldResultKind
     /// <summary>实际生灵到达经过确认的出口。</summary>
     ActorTransfer,
     /// <summary>本次借用的原法宝实际抵达出口。</summary>
-    ArtifactTransfer
+    ArtifactTransfer,
+    /// <summary>选中的现有材料过程已改变时间安排。</summary>
+    ErosionRetimed
 }
 
 /// <summary>一次确认的不可变回执，空选择也保留真实的零结果。</summary>

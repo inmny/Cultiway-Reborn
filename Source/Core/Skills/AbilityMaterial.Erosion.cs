@@ -18,7 +18,10 @@ public struct MaterialErosionProcess
     public double Elapsed, Progress;
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] private ConstructionProcessWindow[] TimeWindows;
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)] private double WorldElapsed;
+    // 调整时间只重置当前安排的起点，已经累计的有效秒数保留。
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)] private double ElapsedAtScheduleStart;
     private CompiledProcessTime pace;
+    private double completion;
     /// <summary>材料变化或收束已经中断，读档不重新开始。</summary>
     public bool Interrupted;
     /// <summary>只有已声明且尚未完成、中断的过程继续推进。</summary>
@@ -31,16 +34,35 @@ public struct MaterialErosionProcess
     {
         this = default;
         Seconds = settings.Seconds; Fraction = settings.Fraction;
-        pace = settings.Pace;
+        SetSchedule(settings.Pace);
+    }
+
+    /// <summary>替换之后的安排，不触碰原过程身份、已扣比例及材料历史。</summary>
+    internal bool TryRetime(CompiledProcessTime schedule)
+    {
+        if (!Active || Elapsed >= Seconds || (schedule == null && pace == null)) return false;
+        SetSchedule(schedule);
+        return true;
+    }
+
+    private void SetSchedule(CompiledProcessTime schedule)
+    {
+        pace = schedule;
+        WorldElapsed = 0;
+        ElapsedAtScheduleStart = pace == null ? 0 : Elapsed;
+        completion = pace?.CompletionFor(Seconds - ElapsedAtScheduleStart) ?? 0;
         TimeWindows = pace?.Describe();
     }
+
+    private double ElapsedAt(double worldSeconds) => worldSeconds >= completion ? Seconds :
+        Math.Min(Seconds, ElapsedAtScheduleStart + pace.WorkAt(worldSeconds));
 
     /// <summary>以材料自己的世界时间换算推进量；到达终点时钳住实际进度。</summary>
     internal void AdvanceTime(float seconds)
     {
         if (pace == null) { Elapsed = Math.Min(Seconds, Elapsed + seconds); return; }
-        WorldElapsed = Math.Min(pace.Completion, WorldElapsed + seconds);
-        Elapsed = WorldElapsed >= pace.Completion ? Seconds : Math.Min(Seconds, pace.WorkAt(WorldElapsed));
+        WorldElapsed = Math.Min(completion, WorldElapsed + seconds);
+        Elapsed = ElapsedAt(WorldElapsed);
     }
 
     /// <summary>只在正式资料读取边界检查进度，不用旧世界绝对时点补算。</summary>
@@ -52,12 +74,12 @@ public struct MaterialErosionProcess
             !Finite(Elapsed) || Elapsed < 0 || Elapsed > Seconds || !Finite(Progress) || Progress < 0 || Progress > 1 ||
             Progress > Elapsed / Seconds + 1e-9 || Active && (matter.ErosionFactor <= 0 || volume <= 0))
             throw new InvalidDataException("世界材料的侵蚀历时、进度或实际材料无效");
-        if (TimeWindows == null && WorldElapsed == 0) return;
-        if (!(WorldElapsed >= 0) || TimeWindows is not { Length: > 0 })
+        if (TimeWindows == null && WorldElapsed == 0 && ElapsedAtScheduleStart == 0) return;
+        if (!(WorldElapsed >= 0) || !(ElapsedAtScheduleStart >= 0 && ElapsedAtScheduleStart < Seconds) || TimeWindows is not { Length: > 0 })
             throw new InvalidDataException("世界材料的侵蚀变速时间无效");
-        pace = new CompiledProcessTime(TimeWindows, Seconds, 1000000000, "世界材料侵蚀变速");
-        double work = WorldElapsed >= pace.Completion ? Seconds : Math.Min(Seconds, pace.WorkAt(WorldElapsed));
-        if (WorldElapsed > pace.Completion || Math.Abs(Elapsed - work) > 1e-9 * Math.Max(1d, Seconds))
+        pace = new CompiledProcessTime(TimeWindows, 1000000000, "世界材料侵蚀变速");
+        completion = pace.CompletionFor(Seconds - ElapsedAtScheduleStart);
+        if (WorldElapsed > completion || Math.Abs(Elapsed - ElapsedAt(WorldElapsed)) > 1e-9 * Math.Max(1d, Seconds))
             throw new InvalidDataException("世界材料的侵蚀变速时间与已累计进度不符");
     }
 

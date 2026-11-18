@@ -1,0 +1,117 @@
+AbilityDefinition Retime(string suffix, ConstructionProcessWindow[] windows, bool named = true)
+{
+    var definition = RequestDefinition(suffix);
+    var operation = new ConstructionOperation { Id = named ? null : "clear", Kind = ConstructionOperationKind.RetimeErosion,
+        TimeWindows = windows, WorldMatter = definition.Root.Operations[0].WorldMatter };
+    definition.Root.Operations = named ? Array.Empty<ConstructionOperation>() : new[] { operation };
+    definition.Steps = named ? new[] { new ConstructionStep { Id = "retime", Operation = operation,
+        Inputs = new Dictionary<string, ConstructionOutputReference> { ["part"] = new() { Node = "root" } } } } : Array.Empty<ConstructionStep>();
+    return definition;
+}
+ConstructionWorldReceipt RetimeResult(AbilityCast cast)
+{
+    var list = new List<ConstructionWorldReceipt>(); cast.AppendStepReceipts("retime", list); return list.Single();
+}
+double Value(JToken material, string name) => (double)material["Erosion"][name];
+JToken Erosion(JToken material) => material["Erosion"];
+long ProcessId(JToken material) => (long)Erosion(material)["Id"];
+bool SameProgress(JToken before, JToken after) => ProcessId(before) == ProcessId(after) &&
+    Value(before, "Elapsed") == Value(after, "Elapsed") && Value(before, "Progress") == Value(after, "Progress") &&
+    Value(before, "LostVolume") == Value(after, "LostVolume") && Value(before, "SpentResource") == Value(after, "SpentResource") &&
+    (double)before["Volume"] == (double)after["Volume"] && (double)before["Resource"] == (double)after["Resource"];
+async Task Load(string name)
+{
+    Config.paused = true; World.world.save_manager.loadWorld(Path.Combine(folder, name));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+}
+var applied = new List<(string Ability, JToken Material)>();
+void Adjusted(WorldMaterialChange fact)
+{
+    if (fact.Provider == source.id && fact.Kind == "retime-erosion") applied.Add((fact.AbilityId, Material(fact.Id)));
+}
+ConstructedAbilityService.CastStarted += Started; WorldMaterialService.Changed += Changed; WorldMaterialService.Changed += Adjusted;
+try
+{
+    var target = Target("retime-target", new ConstructionResidue()); await Cast(target); await Advance(.23f); long id = Left(target);
+    var original = RequestDefinition("retime-original", seconds: 3); original.Lifetime = 12; original.Root.Operations[0].Erosion.Fraction = .75f;
+    var erosion = await Cast(original); await Advance(.4f);
+    var started = Material(id); long processId = ProcessId(started);
+    Check(processId > 0 && Value(started, "Elapsed") > 0 && Erosion(started)["TimeWindows"] == null &&
+        erosion.StepStateOf("after") == ConstructionStepState.Waiting, "原范围侵蚀已实扣木料并开始等待真实完成", Erosion(started));
+
+    var pause = Retime("retime-pause", new[] { new ConstructionProcessWindow { At = 0, Seconds = 3.2f, Rate = 0 } });
+    var delaying = await Cast(pause); await Advance(.25f); var receipt = RetimeResult(delaying);
+    var paused = applied.Single(value => value.Ability == pause.Id).Material;
+    Check(delaying.StepStateOf("retime") == ConstructionStepState.Completed && receipt.Kind == ConstructionWorldResultKind.ErosionRetimed &&
+        receipt.Materials.SequenceEqual(new[] { id }) && receipt.ErodedVolume == 0 && receipt.ErodedResource == 0 &&
+        ProcessId(paused) == processId && Value(paused, "LostVolume") >= Value(started, "LostVolume") &&
+        Value(paused, "ElapsedAtScheduleStart") == Value(paused, "Elapsed") && Value(paused, "Elapsed") >= Value(started, "Elapsed"),
+        "调整只确认选中的活动过程，保留原身份和既有扣耗", Erosion(paused));
+    await Advance(.4f); var still = Material(id);
+    Check(SameProgress(paused, still) && Value(still, "WorldElapsed") > .4 &&
+        erosion.OperationStateOf("root", "erode") == ConstructionStepState.Running && erosion.StepStateOf("after") == ConstructionStepState.Waiting,
+        "原步骤持续等待，暂停前已经扣掉的木料和灵力原样保留", Erosion(still));
+
+    var accelerate = Retime("retime-faster", new[] { new ConstructionProcessWindow { At = 0, Seconds = 1.6f, Rate = 2 } });
+    var faster = await Cast(accelerate); await Advance(.32f);
+    var replaced = applied.Single(value => value.Ability == accelerate.Id).Material; var advancing = Material(id);
+    Check(SameProgress(still, replaced) && faster.StepStateOf("retime") == ConstructionStepState.Completed &&
+        Close(Value(advancing, "Elapsed") - Value(replaced, "Elapsed"), 2 * Value(advancing, "WorldElapsed")) &&
+        (double)advancing["Volume"] < (double)still["Volume"] && erosion.StepStateOf("after") == ConstructionStepState.Waiting,
+        "新的两倍时间替换还没走完的暂停，旧损失没有重算", Erosion(advancing));
+    await Advance(1.55f);
+    var finished = Material(id); var results = new List<ConstructionWorldReceipt>(); erosion.AppendOperationReceipts("root", "erode", results);
+    Check(erosion.StepStateOf("after") == ConstructionStepState.Completed && results.Count == 1 &&
+        results[0].Kind == ConstructionWorldResultKind.Erosion && results[0].Materials.Contains(id) && ProcessId(finished) == processId &&
+        Close(results[0].ErodedVolume, 6) && Close(results[0].ErodedResource, 2.25) && Close((double)finished["Volume"], 2),
+        "原法术只在真实完成触发一次，实际总损耗和保留材料匹配", results);
+
+    int appliedCount = applied.Count;
+    var invalid = await Cast(pause); await Advance(.25f);
+    Check(invalid.StepStateOf("retime") == ConstructionStepState.Interrupted && RetimeResult(invalid).Materials.Count == 0 &&
+        applied.Count == appliedCount && JToken.DeepEquals(Material(id), finished), "已完成材料不重启过程，空选择没有实际结果");
+
+    var repeat = RequestDefinition("retime-new-work", seconds: 8); repeat.Lifetime = 16;
+    await Cast(repeat); await Advance(.4f);
+    var again = await Cast(pause); await Advance(.25f); var secondPause = Material(id);
+    Check(again.StepStateOf("retime") == ConstructionStepState.Completed && ProcessId(secondPause) != processId &&
+        (double)secondPause["Volume"] < (double)finished["Volume"], "空选择后同一调整仍可作用于新的真实过程");
+    var clear = Retime("retime-clear", Array.Empty<ConstructionProcessWindow>(), named: false);
+    await Cast(clear); await Advance(.35f);
+    var cleared = applied.Single(value => value.Ability == clear.Id).Material; var constant = Material(id);
+    Check(SameProgress(secondPause, cleared) && Erosion(constant)["TimeWindows"] == null &&
+        Erosion(constant)["ElapsedAtScheduleStart"] == null && Value(constant, "Elapsed") - Value(cleared, "Elapsed") > .25,
+        "普通部位操作也能恢复常速，恢复时沿用已发生的进度", Erosion(constant));
+
+    await Cast(pause); await Advance(.4f); var expected = Material(id);
+    double beforeSave = Value(expected, "Elapsed"), at = Value(expected, "WorldElapsed");
+    Check(beforeSave > 0 && Value(expected, "ElapsedAtScheduleStart") == beforeSave && at > 0, "保存的是已推进后改速的真实过程", Erosion(expected));
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "adjusted-save")); await Load("adjusted-save"); var loaded = Material(id);
+    Check((int)Section()["version"] == 10 && JToken.DeepEquals(expected, loaded), "正式读回完整调整起点、材料和实际损耗");
+    await Advance(.5f); var continuedPause = Material(id);
+    Check(SameProgress(loaded, continuedPause) && Value(continuedPause, "WorldElapsed") > at, "读档只花去剩余暂停时间");
+    await Advance(3.2f - (float)Value(continuedPause, "WorldElapsed") + .27f); var continued = Material(id);
+    Check(ProcessId(continued) == ProcessId(loaded) && Close(Value(continued, "Elapsed") - beforeSave, Value(continued, "WorldElapsed") - 3.2) &&
+        Close((double)continued["Volume"] + (double)continued["Weathering"]["LostVolume"], 8) &&
+        Close((double)continued["Resource"] + (double)continued["Weathering"]["SpentResource"], 3),
+        "恢复从原已扣进度按常速接续，体积与本金守恒", Erosion(continued));
+
+    var legacy = JObject.Parse(File.ReadAllText(Path.Combine(folder, "legacy.json")));
+    var row = ((JArray)legacy["section"]["data"]["Records"]).Single(); long oldId = (long)row["Id"];
+    await Load("legacy-world"); var old = Material(oldId);
+    Check((int)Section()["version"] == 10 && WorldMaterialService.Count == 1 &&
+        JToken.DeepEquals(Erosion(old), row["Material"]["Erosion"]) && Erosion(old)["ElapsedAtScheduleStart"] == null,
+        "原第九版的初始安排不重新开始，换世界只保留新档自己的过程");
+    await Advance(.4f); var oldWaiting = Material(oldId);
+    Check(Value(old, "Elapsed") == Value(oldWaiting, "Elapsed") && Value(oldWaiting, "WorldElapsed") > Value(old, "WorldElapsed"),
+        "第九版安排的剩余暂停仍生效");
+    File.WriteAllText(Path.Combine(folder, "snapshots.json"), JsonConvert.SerializeObject(new { started, paused, still, replaced, advancing,
+        finished, expected, loaded, continuedPause, continued, old, oldWaiting }, Formatting.Indented));
+    return new { passed = true, closed = "活动侵蚀两次调整、实际完成、结束拒绝和再用、正式新旧存读", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    WorldMaterialService.Changed -= Adjusted; WorldMaterialService.Changed -= Changed; ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

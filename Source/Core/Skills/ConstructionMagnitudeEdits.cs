@@ -171,8 +171,9 @@ public static partial class ConstructionMagnitudeEdits
 
             if (operation.When != null) operation.When.Delay *= factor;
             if (operation.Conduction?.Pulses > 1) operation.Conduction.Interval *= factor;
-            if (operation.Erosion?.TimeWindows != null)
-                foreach (var window in operation.Erosion.TimeWindows)
+            var timeWindows = operation.TimeWindows ?? operation.Erosion?.TimeWindows;
+            if (timeWindows != null)
+                foreach (var window in timeWindows)
                 {
                     window.At *= factor;
                     window.Seconds *= factor;

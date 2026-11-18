@@ -24,6 +24,8 @@ internal sealed class CompiledErosion
     internal readonly float Fraction;
     /// <summary>本过程变速规则，空值保留原有推进。</summary>
     internal readonly CompiledProcessTime Pace;
+    /// <summary>当前安排走完本次侵蚀所需的世界秒数。</summary>
+    internal readonly float Completion;
     /// <summary>可选的世界材料筛选，空值仍侵蚀操作自身。</summary>
     internal readonly CompiledWorldMatter World;
     /// <summary>解析实际参数，非法声明停在资料边界。</summary>
@@ -41,8 +43,9 @@ internal sealed class CompiledErosion
         if (float.IsNaN(Seconds) || float.IsInfinity(Seconds) || Seconds <= 0 || Seconds > lifetime ||
             float.IsNaN(Fraction) || float.IsInfinity(Fraction) || Fraction <= 0 || Fraction > 1)
             throw new InvalidDataException(path + "：侵蚀需要有效历时及大于零且不超过一的份额");
-        if (source?.TimeWindows is not { Length: > 0 }) return;
-        Pace = new CompiledProcessTime(source.TimeWindows, Seconds, lifetime, path + "/Erosion/TimeWindows");
+        if (source?.TimeWindows is { Length: > 0 })
+            Pace = new CompiledProcessTime(source.TimeWindows, lifetime, path + "/Erosion/TimeWindows");
+        Completion = Pace == null ? Seconds : (float)Pace.CompletionFor(Seconds);
     }
 
     /// <summary>真实材料能表示本段损耗时才接受交接。</summary>

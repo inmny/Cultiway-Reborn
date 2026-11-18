@@ -168,7 +168,7 @@ public readonly struct WorldMaterialChange
     /// <summary>原支付者。</summary>
     public readonly long Provider;
 
-    /// <summary>接受留置、材料转换、开始收束、实际回能或结束。</summary>
+    /// <summary>留置、转换、侵蚀、改速、收束和实际回能等确认。</summary>
     public readonly string Kind;
 
     /// <summary>确认时的实际剩余体积及本次入账。</summary>

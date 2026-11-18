@@ -34,6 +34,8 @@ public sealed partial class AbilityCast
                 operations[index].WorldRequested = false;
                 if (Plan.Program.Groups[command.Group].Kind == ConstructionOperationKind.Erode)
                     output.Add(new AbilityWorldMatterRequest(command.Node, Plan.Program.Parameter<CompiledErosion>(command), command.Step));
+                else if (Plan.Program.Groups[command.Group].Kind == ConstructionOperationKind.RetimeErosion)
+                    output.Add(new AbilityWorldMatterRequest(command.Node, Plan.Program.Parameter<CompiledErosionRetiming>(command), command.Step));
                 else
                 {
                     var matter = Plan.Program.Parameter<CompiledMatterParameters>(command);

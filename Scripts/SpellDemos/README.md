@@ -1903,3 +1903,5 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 5.16 A 局部变速用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_erosion.py --section time`。在同一次正式施放中验证两块实际材料、不同速度和真实完成依赖。复验数据见 `~/.local/state/cultiway-dev/evidence/process-time-a/delivery.json`。
 
 5.16 B1 世界材料变速用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_process_time_world.py --section pending`：复用同一种木料验证范围侵蚀完成衔接，并留存暂停中的正式世界。退出测试游戏后启动新进程，将末尾参数换成 `--section restart --state <上次的 process-time-world/pending 目录>`。新进程检查余下暂停、实际加速、完成存读、坏记录局部丢弃和真实旧第 8 版的常速接续。证据见 `~/.local/state/cultiway-dev/evidence/process-time-b1/delivery.json`。
+
+5.16 B2 使用同一入口的 `--section retiming`：在同一份活动木料上暂停、替换为两倍、等待原结果真正完成，验证已完成时拒绝、下一次再用与清除变速，并正式保存读取第 10 版及真实旧第 9 版。证据见 `~/.local/state/cultiway-dev/evidence/process-time-b2/delivery.json`。
