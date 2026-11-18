@@ -160,6 +160,7 @@ public sealed partial class ConstructedAbilityService
                 float hp = actor.Actor.data.health;
                 ForceReceiver? forceReceiver = impact.Impulse.HasValue ? new ForceReceiver(actor.Actor) : null;
                 Vector3? priorVelocity = impact.Impulse.HasValue ? ConstructedActorImpulse.Velocity(actor.Actor) : null;
+                DamageSettlement settled = default;
                 if (impact.DamageScale > 0f)
                 {
                     var damage = owner.Damage;
@@ -167,13 +168,13 @@ public sealed partial class ConstructedAbilityService
                     damage.Damage = settings.DamagePerTarget * impact.DamageScale;
                     damage.Element = ElementComposition.Static.Lightning;
                     damage.DamageOrigin = DamageOrigin.Reaction;
-                    GetHitEventSystem.Resolve(damage);
+                    settled = GetHitEventSystem.Resolve(damage);
                 }
 
                 if (epoch != worldGeneration) return null;
                 ApplyRestoration(running, node, actor.Actor, impact.Restoration);
                 responses.Add(ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, ApplyAttackState.Hit,
-                    (shape.A + shape.B) * .5f, priorVelocity, forceReceiver));
+                    (shape.A + shape.B) * .5f, priorVelocity, forceReceiver, settled: settled));
                 if (epoch != worldGeneration) return null;
                 ApplyContactSpreads(running, node, actor.Id, impact, foot, clock);
                 if (epoch != worldGeneration) return null;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""6.05：复用已有反射、破盾和地块场景，观察实际接触记录。"""
+"""6.05：复验交锋、触地、生命和护盾的实际结算。"""
 import argparse
 import os
 from pathlib import Path
@@ -12,7 +12,7 @@ def main():
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请用 develop 的 dev.py exec 运行')
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('opposition', 'ground'), required=True)
+    parser.add_argument('--section', choices=('opposition', 'ground', 'damage', 'body'), required=True)
     section = parser.parse_args().section
     relative = f'contact-facts/{section}'
     folder = Path(os.environ['CULTIWAY_DEV_OUTPUT']) / relative
@@ -29,7 +29,12 @@ def main():
         helpers = helpers.replace('Path.Combine(root, "artifacts/skill_rebuild/body-footwork")',
                                   f'Path.Combine(Environment.GetEnvironmentVariable("CULTIWAY_DEV_OUTPUT"), "{relative}")')
         helpers = helpers.replace(f'Path.Combine(root, "{fixture}")', 'Path.Combine(folder, "input-world")')
-        source = helpers + '\n' + (scripts / 'verify_world_contact_events.script').read_text()
+        if section == 'ground':
+            source = helpers + '\n' + (scripts / 'verify_world_contact_events.script').read_text()
+        else:
+            helpers = helpers.replace('test.body-footwork.', 'test.contact-facts.')
+            source = (helpers + f'\nstring section = "{section}";\n' +
+                      (scripts / 'verify_contact_damage_facts.script').read_text())
     script = folder / 'input.script'
     script.write_text(source)
     import baseline_scenarios as baseline

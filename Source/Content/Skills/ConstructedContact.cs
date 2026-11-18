@@ -1,3 +1,4 @@
+using Cultiway.Core.Combat;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.Skills;
 using UnityEngine;
@@ -12,6 +13,9 @@ public readonly struct ConstructedTargetResponse
 
     /// <summary>是否实际提交了接触附带的追加伤害。</summary>
     public readonly bool AdditionalDamageAttempted;
+
+    /// <summary>已经实际结算到此人物的伤害，附带对其他人物的伤害不计入。</summary>
+    public readonly DamageSettlement Damage;
 
     /// <summary>实际受理后的速度变化。</summary>
     public readonly Vector3 VelocityChange;
@@ -30,11 +34,13 @@ public readonly struct ConstructedTargetResponse
     /// <param name="force">受力是否受理。</param><param name="stagger">停顿秒数。</param><param name="bound">束缚秒数。</param>
     /// <param name="strain">实际扭伤秒数。</param><param name="exposure">实际破甲秒数。</param>
     /// <param name="additionalDamage">是否实际提交了追加伤害。</param>
+    /// <param name="damage">已结算到该人物的真实损耗。</param>
     internal ConstructedTargetResponse(long target, Vector3 velocity, bool force, float stagger, float bound,
-        float strain = 0f, float exposure = 0f, bool additionalDamage = false)
+        float strain = 0f, float exposure = 0f, bool additionalDamage = false, DamageSettlement damage = default)
     {
         TargetId = target;
         AdditionalDamageAttempted = additionalDamage;
+        Damage = damage;
         VelocityChange = velocity;
         ForceApplied = force;
         StaggerSeconds = stagger;
@@ -130,6 +136,16 @@ public readonly struct ConstructedContact
     /// <summary>本次是否提交了伤害或近战攻击，不代表已突破抗性或免疫。</summary>
     public readonly bool DamageAttempted;
 
+    /// <summary>本次已经结算到接触人物的扣血和护盾吸收，且不扣除同次恢复。</summary>
+    public readonly DamageSettlement Damage;
+
+    /// <summary>原版近身伤害已进入原队列；该部分完成后由同编号的后续事实交回。</summary>
+    public readonly bool DamagePending;
+
+    /// <summary>接触前和接触作用后生命，后者为空表示原人物已无法读取；不包含尚在队列中的伤害。</summary>
+    public readonly int TargetHealthBefore;
+    public readonly int? TargetHealthAfter;
+
     /// <summary>真实受力入口造成的速度变化，不能当作已经走过的距离。</summary>
     public readonly Vector3 VelocityChange;
 
@@ -179,9 +195,12 @@ public readonly struct ConstructedContact
     /// <param name="strainSeconds">实际扭伤持续秒数。</param><param name="exposureSeconds">实际破甲持续秒数。</param>
     /// <param name="worldTime">实际接触时点。</param><param name="partPresent">结算后部位是否仍存在。</param>
     /// <param name="bodyResult">接触后的身体收势。</param>
+    /// <param name="damage">已经实际扣除的生命和实际吸收量。</param><param name="damagePending">原版伤害是否排队。</param>
+    /// <param name="healthBefore">接触前生命。</param><param name="healthAfter">接触作用后的生命。</param>
     internal ConstructedContact(long cast, string ability, long source, long target, int node,
         Vector3 position, Vector3 normal, double worldTime, float age, ApplyAttackState result,
-        bool partPresent, BodyActionResult? bodyResult, long originalSource = 0,
+        bool partPresent, BodyActionResult? bodyResult, DamageSettlement damage, bool damagePending,
+        int healthBefore, int? healthAfter, long originalSource = 0,
         int reflections = 0,
         int targetContactNumber = 1, int groupContactNumber = 1, string matterBefore = null, string stateBefore = null,
         string matterAfter = null, string stateAfter = null,
@@ -209,6 +228,10 @@ public readonly struct ConstructedContact
         MatterAfter = matterAfter;
         StateAfter = stateAfter;
         DamageAttempted = damageAttempted;
+        Damage = damage;
+        DamagePending = damagePending;
+        TargetHealthBefore = healthBefore;
+        TargetHealthAfter = healthAfter;
         VelocityChange = velocityChange;
         ForceApplied = forceApplied;
         StaggerSeconds = staggerSeconds;

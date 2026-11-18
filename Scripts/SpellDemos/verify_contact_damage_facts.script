@@ -1,0 +1,154 @@
+// 同一个真实初始场景和发布动作，核对接触、扣血和随后回血各自的记录。
+const float startX = 64f, targetX = 70.3f;
+const string prefix = "test.contact-facts.";
+Actor source = Make(startX), enemy = Make(targetX, section == "body" ? "human" : "wolf");
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+var queued = new List<ConstructedQueuedDamage>();
+var order = new List<string>();
+void ContactOrder(ConstructedContact fact)
+{
+    if (fact.SourceId == source.id && fact.TargetId == enemy.id && fact.AbilityId.StartsWith(prefix)) order.Add("contact");
+}
+void Settled(ConstructedQueuedDamage fact)
+{
+    if (fact.SourceId != source.id || fact.TargetId != enemy.id || !fact.AbilityId.StartsWith(prefix)) return;
+    order.Add("settled");
+    queued.Add(fact);
+}
+ConstructedAbilityService.ContactConfirmed += ContactOrder;
+ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+
+AbilityDefinition Sword(string name) => new AbilityDefinition
+{
+    Id = prefix + name, Name = "真实受击复验", Lifetime = .092f, TargetRange = 12f,
+    Resource = "wakan", Cost = 1.25f, Cooldown = .08f, Power = 2f,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = .28f },
+    Root = new ConstructionNode
+    {
+        Id = "projectile", Form = "sword_qi", Matter = "iron", Rotation = new[] { -90f, 0f, 0f },
+        OnContact = ConstructionContactResponse.Continue,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+            WorldVelocity = true, InheritVelocity = false, Vector = new[] { 780f, 0f, 0f } } }
+    }
+};
+
+object Outcome(ConstructedContact fact) => new
+{
+    fact.CastId, fact.AbilityId, fact.SourceId, fact.TargetId, fact.Node, fact.TargetContactNumber, fact.WorldTime,
+    fact.Result, fact.DamageAttempted, fact.DamagePending, fact.Damage, fact.TargetHealthBefore, fact.TargetHealthAfter
+};
+
+async Task<ConstructedContact> Cast(AbilityDefinition definition, float from, float to)
+{
+    Place(source, from); source.position_height = 0;
+    Place(enemy, to); enemy.position_height = 0;
+    ConstructedAbilityService.NotifyActorChanged(source);
+    ConstructedAbilityService.NotifyActorChanged(enemy);
+    await Fire(definition, source, enemy);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(definition.Lifetime + .12f);
+    var facts = contacts.Where(x => x.AbilityId == definition.Id && x.SourceId == source.id && x.TargetId == enemy.id).ToArray();
+    Check(facts.Length == 1 && endings.Any(e => e.Fact.AbilityId == definition.Id && !e.Fact.Cancelled),
+        "正式出手只确认一次接触，之后自然收势", new { definition.Id, facts = facts.Select(Outcome).ToArray(), health = enemy.data.health });
+    return facts[0];
+}
+
+var hitAction = typeof(Actor).GetField("s_get_hit_action", F);
+var shieldAction = typeof(ActorExtend).GetField("action_before_be_attacked", F);
+var originalShieldAction = (ActorExtend.ActionBeforeBeAttacked)shieldAction.GetValue(null);
+GetHitAction originalHitAction = null;
+int nativeRecovery = 0;
+float shield = 0f;
+bool installedHeal = false;
+try
+{
+    if (section == "body")
+        enemy.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
+    Ready(source);
+    await Advance(.10f);
+    source.setStatsDirty(); source.updateStats();
+    owner.GetCultisys<Xian>().wakan = 100f;
+    if (section == "body")
+    {
+        var palm = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(BodyActionCatalog.Palm));
+        palm.Id = prefix + "body";
+        var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+        float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { source });
+        int life = enemy.data.health;
+        var fact = await Cast(palm, 66f, 66f + height * .4f);
+        Check(fact.Result == ApplyAttackState.Hit && fact.Node < 0 && fact.DamagePending && fact.Damage.SettledCount == 0 &&
+              fact.Damage.HealthLost == 0 && fact.TargetHealthBefore == life && fact.TargetHealthAfter == life,
+            "近身接触保留原版排队，接触当下没有提前扣血", new { fact = Outcome(fact), life, order, queued });
+        Check(queued.Count == 1 && order.SequenceEqual(new[] { "contact", "settled" }) &&
+              queued[0].CastId == fact.CastId && queued[0].TargetContactNumber == fact.TargetContactNumber &&
+              queued[0].ContactWorldTime == fact.WorldTime && queued[0].WorldTime >= fact.WorldTime &&
+              queued[0].Damage.SettledCount == 1 && queued[0].Damage.HealthLost > 0 &&
+              queued[0].Damage.HealthLost == life - enemy.data.health && queued[0].TargetHealthAfter == enemy.data.health &&
+              !BodyControlState.IsBusy(source.id), "原队列只补回同一次接触的实际扣血，收势归还身体控制",
+            new { fact = Outcome(fact), order, queued, life, after = enemy.data.health });
+    }
+    else
+    {
+        var ordinary = await Cast(Sword("ordinary"), startX, targetX);
+        Check(ordinary.DamageAttempted && !ordinary.DamagePending && ordinary.Damage.SettledCount == 1 &&
+              ordinary.Damage.HealthLost > 0 && ordinary.Damage.ShieldAbsorbed == 0f &&
+              ordinary.TargetHealthBefore - ordinary.TargetHealthAfter == ordinary.Damage.HealthLost &&
+              ordinary.TargetHealthAfter == enemy.data.health, "普通命中等于实际扣血，没有排队或护盾", Outcome(ordinary));
+
+        originalHitAction = (GetHitAction)hitAction.GetValue(enemy);
+        GetHitAction recover = (self, attacker, tile) =>
+        {
+            if (self == enemy && attacker == source)
+            {
+                int before = self.getHealth();
+                self.changeHealth(7);
+                nativeRecovery += self.getHealth() - before;
+            }
+            return false;
+        };
+        hitAction.SetValue(enemy, originalHitAction + recover);
+        installedHeal = true;
+        float shieldBefore = shield = 7f;
+        void Absorb(ActorExtend target, BaseSimObject attacker, ref ElementComposition element, ref AttackType kind,
+            ref float amount, ref bool ignore)
+        {
+            if (target.Base == enemy && attacker == source)
+                CombatDamageEffects.AbsorbDamage(ref amount, ref shield, target);
+        }
+        ActorExtend.RegisterActionBeforeBeAttacked(Absorb);
+        var defended = await Cast(Sword("shield-and-recovery"), startX, targetX);
+        Check(shield < shieldBefore && defended.DamageAttempted && defended.Damage.SettledCount == 1 &&
+              Mathf.Abs(defended.Damage.ShieldAbsorbed - (shieldBefore - shield)) < .0001f &&
+              defended.Damage.HealthLost > 0 && nativeRecovery == 7 &&
+              defended.TargetHealthBefore - defended.TargetHealthAfter + nativeRecovery == defended.Damage.HealthLost &&
+              defended.TargetHealthAfter == enemy.data.health,
+            "护盾按实际消耗单列，原版回调立即回血也保留此前扣血", new { defended = Outcome(defended), shieldBefore, shield, nativeRecovery });
+        hitAction.SetValue(enemy, originalHitAction);
+        installedHeal = false;
+        shieldAction.SetValue(null, originalShieldAction);
+
+        var addStatus = typeof(BaseSimObject).GetMethod("addStatusEffect", F, null,
+            new[] { typeof(string), typeof(float), typeof(bool) }, null);
+        addStatus.Invoke(enemy, new object[] { "invincible", 20f, false });
+        Check(enemy.hasStatus("invincible"), "真实目标获得原版免疫状态");
+        var immune = await Cast(Sword("immune"), startX, targetX);
+        Check(immune.DamageAttempted && immune.Damage.SettledCount == 1 && !immune.DamagePending &&
+              immune.Damage.HealthLost == 0 && immune.Damage.ShieldAbsorbed == 0f &&
+              immune.TargetHealthBefore == immune.TargetHealthAfter && immune.TargetHealthAfter == enemy.data.health,
+            "免疫仍有真实接触和独立结算，未扣生命或护盾", Outcome(immune));
+    }
+    return new { passed = true, section, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (installedHeal) hitAction.SetValue(enemy, originalHitAction);
+    shieldAction.SetValue(null, originalShieldAction);
+    ConstructedAbilityService.ContactConfirmed -= ContactOrder;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

@@ -155,10 +155,17 @@ public static class CombatDamageEffects
 
     /// <summary>用护盾池吸收最终伤害，并返回本次实际吸收值。</summary>
     public static float AbsorbDamage(ref float damage, ref float shield)
+        => AbsorbDamage(ref damage, ref shield, null);
+
+    /// <summary>消耗指定人物的护盾，供本次受击记录实际吸收。</summary>
+    /// <param name="damage">剩余伤害。</param><param name="shield">剩余护盾。</param>
+    /// <param name="target">这次受击的实际人物。</param>
+    public static float AbsorbDamage(ref float damage, ref float shield, ActorExtend target)
     {
         float absorbed = Mathf.Min(Mathf.Max(0f, shield), Mathf.Max(0f, damage));
         damage -= absorbed;
         shield -= absorbed;
+        if (target != null) ShieldAbsorptionScope.Record(target, absorbed);
         return absorbed;
     }
 }

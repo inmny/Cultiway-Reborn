@@ -36,6 +36,7 @@ internal static class ArtifactAbilityRuntimeBridge
         using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(in context);
         ArtifactIncomingDamageEvent evt = new()
         {
+            Target = self,
             Attacker = attacker,
             DamageComposition = damageComposition,
             AttackType = attackType,

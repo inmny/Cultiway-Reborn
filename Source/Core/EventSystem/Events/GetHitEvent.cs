@@ -23,6 +23,9 @@ public struct GetHitEvent
     /// <summary>伤害入队时所在的外部来源作用域；零表示没有需要跨事件保留的来源。</summary>
     public long SourceScopeId;
 
+    /// <summary>原版近身攻击自有的受击结果观察，沿原队列保存，不持有世界对象。</summary>
+    internal DamageObservation Observation;
+
     /// <summary>在事件边界只保存攻击源身份，不持有可能被回收的世界对象。</summary>
     public void BindAttacker(BaseSimObject attacker, long? stableID = null)
     {

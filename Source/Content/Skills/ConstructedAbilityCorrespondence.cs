@@ -1,5 +1,6 @@
 using System;
 using Cultiway.Content.KnightCombat;
+using Cultiway.Core.Combat;
 using Cultiway.Core.EventSystem.Systems;
 using Cultiway.Core.Skills;
 using Cultiway.Utils.Extension;
@@ -28,6 +29,9 @@ public readonly struct ConstructedCorrespondenceDamage
     /// <summary>真实消耗、传递份额、按交锋量折算的基础伤害和实际生命前后值。</summary>
     public readonly float ConsumedForce, Fraction, Damage, HealthBefore, HealthAfter;
 
+    /// <summary>原人物实际生命扣除与护盾吸收。</summary>
+    public readonly DamageSettlement Settlement;
+
     /// <summary>原人物已经结算后建立事实。</summary>
     /// <param name="attack">实际攻击施放。</param><param name="image">实际映像施放。</param>
     /// <param name="owner">伤害归属。</param><param name="target">原受害人物。</param>
@@ -36,9 +40,10 @@ public readonly struct ConstructedCorrespondenceDamage
     /// <param name="time">共同世界时刻。</param><param name="consumed">实际消耗。</param>
     /// <param name="fraction">声明份额。</param><param name="damage">按交锋量折算的基础伤害。</param>
     /// <param name="before">原生命值。</param><param name="after">结果生命值。</param>
+    /// <param name="settlement">原人物的实际受击结果。</param>
     internal ConstructedCorrespondenceDamage(long attack, long image, long owner, long target, int attackNode,
         int imageNode, string relation, Vector3 position, double time, float consumed, float fraction,
-        float damage, float before, float after)
+        float damage, float before, float after, DamageSettlement settlement)
     {
         AttackCastId = attack;
         ImageCastId = image;
@@ -54,6 +59,7 @@ public readonly struct ConstructedCorrespondenceDamage
         Damage = damage;
         HealthBefore = before;
         HealthAfter = after;
+        Settlement = settlement;
     }
 }
 
@@ -194,6 +200,7 @@ public sealed partial class ConstructedAbilityService
         float before = receiver.data.health;
         long generation = worldGeneration;
         ApplyAttackState result = ApplyAttackState.Hit;
+        DamageSettlement settlement = default;
         Vector3? priorVelocity = (effects & ConstructionCorrespondenceEffects.Force) != 0 && impact.Impulse.HasValue
             ? ConstructedActorImpulse.Velocity(receiver) : null;
         if (amount > 0f && attack.To.Node < 0)
@@ -201,9 +208,11 @@ public sealed partial class ConstructedAbilityService
             float multiplier = attack.Running.Power * impact.DamageScale * relation.DamageFraction *
                                consumed / BodyCorrespondenceForce(attack.Running);
             var caster = attack.Running.Source.GetExtend();
+            var observation = new DamageObservation(caster.Base.id, id);
             result = attack.Running.Body.Weapon == null
-                ? KnightWeaponStrikeResolver.StrikeUnarmed(caster, receiver, null, multiplier, immediate: true).state
-                : KnightWeaponStrikeResolver.StrikeBorrowed(caster, attack.Running.Body.Weapon, receiver, multiplier, immediate: true).state;
+                ? KnightWeaponStrikeResolver.StrikeUnarmed(caster, receiver, null, multiplier, immediate: true, observer: observation).state
+                : KnightWeaponStrikeResolver.StrikeBorrowed(caster, attack.Running.Body.Weapon, receiver, multiplier, immediate: true, observer: observation).state;
+            settlement = observation.Result;
         }
         else if (amount > 0f)
         {
@@ -211,7 +220,7 @@ public sealed partial class ConstructedAbilityService
             damage.TargetID = id;
             damage.Damage = amount;
             damage.Element = impact.Element ?? Composition(attack.Running.Cast.Matter(attack.To.Node).DamageKind);
-            GetHitEventSystem.Resolve(damage);
+            settlement = GetHitEventSystem.Resolve(damage);
         }
         if (generation != worldGeneration) return result;
         float after = receiver.data?.id == id ? receiver.data.health : 0f;
@@ -222,7 +231,7 @@ public sealed partial class ConstructedAbilityService
         if (amount > 0f)
             CorrespondenceDamageConfirmed?.Invoke(new ConstructedCorrespondenceDamage(attack.Running.Id,
                 image.Running.Id, owner.Id, id, attack.To.Node, image.To.Node, relation.Id, point,
-                simulation.contactTime, consumed, relation.DamageFraction, amount, before, after));
+                simulation.contactTime, consumed, relation.DamageFraction, amount, before, after, settlement));
         return result;
     }
 }

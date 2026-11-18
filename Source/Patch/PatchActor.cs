@@ -300,12 +300,56 @@ internal static class PatchActor
         actor._timeout_targets *= scale;
     }
 
-    [HarmonyReversePatch(HarmonyReversePatchType.Snapshot), HarmonyPatch(typeof(Actor), nameof(Actor.getHit))]
+    /// <summary>复用同一份原版受击方法，不启用二次减伤。</summary>
+    /// <param name="actor">实际受击人物。</param><param name="damage">最终伤害。</param>
+    /// <param name="pFlash">是否闪红。</param><param name="pAttackType">原版伤害种类。</param><param name="pAttacker">实际归属。</param>
+    internal static int MeasureHit(Actor actor, float damage, bool pFlash, AttackType pAttackType, BaseSimObject pAttacker)
+    {
+        int lost = 0;
+        GetHitWithMeasurement(actor, damage, pFlash, pAttackType, pAttacker, false, false, false, ref lost);
+        return lost;
+    }
+
+    /// <summary>其他原版伤害入口仍复用原副本，调用方不需要结果时不保留记录。</summary>
     public static void getHit_snapshot(Actor __instance, float pDamage, bool pFlash = true,
         AttackType pAttackType = AttackType.Other, BaseSimObject pAttacker = null,
         bool pSkipIfShake = true, bool pMetallicWeapon = false, bool pCheckDamageReduction = true)
     {
+        int ignored = 0;
+        GetHitWithMeasurement(__instance, pDamage, pFlash, pAttackType, pAttacker, pSkipIfShake,
+            pMetallicWeapon, pCheckDamageReduction, ref ignored);
+    }
+
+    /// <summary>原版受击的副本，只替换其中真正扣减生命的那一次调用。</summary>
+    [HarmonyReversePatch(HarmonyReversePatchType.Snapshot), HarmonyPatch(typeof(Actor), nameof(Actor.getHit))]
+    private static void GetHitWithMeasurement(Actor actor, float damage, bool flash, AttackType attackType,
+        BaseSimObject attacker, bool skipIfShake, bool metallicWeapon, bool checkDamageReduction, ref int lost)
+    {
+        IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var change = AccessTools.Method(typeof(BaseSimObject), nameof(BaseSimObject.changeHealth));
+            var measure = AccessTools.Method(typeof(PatchActor), nameof(MeasureHealthChange));
+            foreach (var instruction in instructions)
+            {
+                if (!instruction.Calls(change)) { yield return instruction; continue; }
+                // 原版的八个参数占 0 到 7；第九个是本副本追加的本次扣血输出。
+                yield return new CodeInstruction(OpCodes.Ldarg_S, (byte)8).MoveLabelsFrom(instruction);
+                yield return new CodeInstruction(OpCodes.Call, measure).MoveBlocksFrom(instruction);
+            }
+        }
+
+        _ = (Func<IEnumerable<CodeInstruction>, IEnumerable<CodeInstruction>>)Transpiler;
         throw new NotImplementedException();
+    }
+
+    /// <summary>在原版生命变化处读实际扣除量，后面的受击回调不能改写这个事实。</summary>
+    /// <param name="target">当前受击对象。</param><param name="amount">原版取整后的变化。</param>
+    /// <param name="lost">本次实际扣除。</param>
+    private static void MeasureHealthChange(BaseSimObject target, int amount, ref int lost)
+    {
+        int before = target.getHealth();
+        target.changeHealth(amount);
+        lost = Math.Max(0, before - target.getHealth());
     }
 
     [Hotfixable]
@@ -355,8 +399,10 @@ internal static class PatchActor
             IgnoreDamageReduction = !pCheckDamageReduction
         };
         evt.BindAttacker(pAttacker);
+        evt.Observation = DamageResolutionContext.ClaimObservation(evt.AttackerID, evt.TargetID);
         if (DamageResolutionContext.TryClaimImmediateHit(evt.TargetID) && !EventSystemHub.IsPaused) GetHitEventSystem.Resolve(evt);
-        else EventSystemHub.Publish(evt);
+        else if (evt.Observation == null) EventSystemHub.Publish(evt);
+        else evt.Observation.Pending = EventSystemHub.TryPublish(evt);
         return false;
     }
 

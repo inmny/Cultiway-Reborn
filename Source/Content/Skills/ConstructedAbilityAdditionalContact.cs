@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cultiway.Core.Combat;
 using Cultiway.Core.EventSystem.Systems;
 using Cultiway.Core.Skills;
 
@@ -20,10 +21,13 @@ public sealed partial class ConstructedAbilityService
     /// <param name="effects">已经编译的伤害资料。</param><param name="strength">接触位置或传播路程的余力倍率。</param>
     /// <param name="attempted">是否实际向共同受击入口提交了至少一份伤害。</param>
     /// <param name="contactDamage">是否向本次接触人物提交了伤害，用于真实致死后续作用。</param>
+    /// <param name="settled">已确实结算到接触人物的结果，不混入控制者受伤。</param>
     private static bool ApplyAdditionalDamage(RunningCast running, int node, Actor target, long targetId,
-        IReadOnlyList<CompiledConstructionContactDamage> effects, float strength, out bool attempted, out bool contactDamage)
+        IReadOnlyList<CompiledConstructionContactDamage> effects, float strength, out bool attempted, out bool contactDamage,
+        out DamageSettlement settled)
     {
         attempted = contactDamage = false;
+        settled = default;
         if (effects == null || effects.Count == 0) return true;
         float force = (node < 0 ? running.Power : running.Cast.RemainingForce(node)) * strength;
         if (strength <= 0f) return true;
@@ -45,7 +49,8 @@ public sealed partial class ConstructedAbilityService
             if (effect.Source == ConstructionContactActor.Contact) damage.BindAttacker(target, targetId);
             attempted = true;
             contactDamage |= damage.TargetID == targetId;
-            GetHitEventSystem.Resolve(damage);
+            DamageSettlement result = GetHitEventSystem.Resolve(damage);
+            if (damage.TargetID == targetId) settled += result;
             if (generation != worldGeneration || target.data?.id != targetId || targetWasAlive && (!target.isAlive() || !target.hasHealth())) return false;
         }
         return true;

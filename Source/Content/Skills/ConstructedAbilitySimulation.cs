@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cultiway.Content.Combat;
 using Cultiway.Content.KnightCombat;
 using Cultiway.Core.Performance;
+using Cultiway.Core.Combat;
 using Cultiway.Core.EventSystem.Systems;
 using Cultiway.Core.Skills;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -1015,6 +1016,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ContactMemory memory = RememberContact(running, node, actor.Id);
         AbilityMatter beforeMatter = node < 0 ? null : running.Cast.Matter(node);
         CompiledConstructionImpact impact = running.Cast.Impact(node);
+        int healthBefore = actor.Actor.data.health;
+        DamageSettlement primaryDamage = default;
+        DamageObservation observation = null;
         // 明确发力继承接触前的运动；原版同次命中附带的击退不再重复计入。
         Vector3? priorVelocity = impact.Impulse.HasValue ? ConstructedActorImpulse.Velocity(actor.Actor) : null;
         ForceReceiver? forceReceiver = impact.Impulse.HasValue ? new ForceReceiver(actor.Actor) : null;
@@ -1022,10 +1026,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (node < 0 && impact.DamageScale > 0f)
         {
             var owner = running.Source.GetExtend();
+            observation = ObserveQueuedContact(running.Id, running.Cast.Plan.Id, contactOwner.Id, actor.Id,
+                memory.Count, LogicTime);
             AttackDataResult strike = running.Body.Weapon == null
-                ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, actor.Actor, null, running.Power * impact.DamageScale)
+                ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, actor.Actor, null, running.Power * impact.DamageScale,
+                    observer: observation)
                 : KnightWeaponStrikeResolver.StrikeBorrowed(owner, running.Body.Weapon, actor.Actor,
-                    running.Power * impact.DamageScale);
+                    running.Power * impact.DamageScale, observer: observation);
             result = strike.state;
         }
         else if (node >= 0 && impact.DamageScale > 0f)
@@ -1035,14 +1042,14 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             damage.Damage = running.Cast.DamageForce(node) * impact.DamageScale *
                 running.Cast.ContactAttenuation(node, hit.Left.To.Shape);
             damage.Element = impact.Element ?? Composition(beforeMatter.DamageKind);
-            GetHitEventSystem.Resolve(damage);
+            primaryDamage = GetHitEventSystem.Resolve(damage);
         }
 
         if (contactGeneration != worldGeneration) return;
         ApplyRestoration(running, node, actor.Actor, impact.Restoration, running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
         ConstructedTargetResponse response = ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
             priorVelocity: priorVelocity, forceReceiver: forceReceiver,
-            strength: running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
+            strength: running.Cast.ContactAttenuation(node, hit.Left.To.Shape), settled: primaryDamage);
         if (contactGeneration != worldGeneration) return;
         if (result == ApplyAttackState.Hit)
             ApplyContactSpreads(running, node, actor.Id, impact, spreadCenter, simulation.contactTime, running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
@@ -1059,9 +1066,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             RespondToBodyResult(running, BodyActionResult.Blocked);
         EndExhaustedContactGroup(running, node);
         AbilityMatter afterMatter = node < 0 ? null : running.Cast.Matter(node);
+        int? healthAfter = actor.Actor.data?.id == actor.Id ? actor.Actor.data.health : null;
         ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, contactOwner.Id, actor.Id,
             node, hit.Point, hit.Normal, LogicTime, running.Cast.Age, result, ContactPartPresent(running, node),
-            running.Cast.UsesBodyWindow(node) ? running.Cast.BodyResult : null, running.SourceId, reflections,
+            running.Cast.UsesBodyWindow(node) ? running.Cast.BodyResult : null, response.Damage,
+            observation?.Pending == true, healthBefore, healthAfter, running.SourceId, reflections,
             memory.Count, running.GroupHits[running.Cast.ContactGroup(node)], beforeMatter?.Id, beforeMatter?.State,
             afterMatter?.Id, afterMatter?.State,
             impact.DamageScale > 0f || response.AdditionalDamageAttempted, response.VelocityChange, response.ForceApplied, response.StaggerSeconds,
@@ -1156,35 +1165,39 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="priorVelocity">直接接触前已有的运动，不包含同次原版自动击退。</param>
     /// <param name="forceReceiver">同次伤害或停顿解除动作之前的承力身体。</param>
     /// <param name="strength">真实介质路程给出的强度倍率，普通接触为一。</param>
+    /// <param name="settled">已结算的本体扣血，用于合计追加作用。</param>
     private static ConstructedTargetResponse ApplyTargetResponse(RunningCast running, int node, Actor target,
         long targetId,
         CompiledConstructionImpact impact, ApplyAttackState result, Vector3? origin = null,
-        Vector3? priorVelocity = null, ForceReceiver? forceReceiver = null, float strength = 1f)
+        Vector3? priorVelocity = null, ForceReceiver? forceReceiver = null, float strength = 1f,
+        DamageSettlement settled = default)
     {
         if (target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
-            return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);
+            return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, damage: settled);
         long generation = worldGeneration;
         if (result == ApplyAttackState.Hit && impact.ReleaseGrab != ConstructionGrabRelease.None)
         {
             TryReleaseGrab(running, node, target, impact.ReleaseGrab, strength);
             if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
-                return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);
+                return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, damage: settled);
         }
         ApplyContactExchange(running.Owner(node), target, impact.Exchange, result, strength);
         if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
-            return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);
+            return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, damage: settled);
         CompiledConstructionContactOutcome outcome = SelectContactOutcome(impact.RandomContact, result);
         bool additionalDamage = false;
         if (result == ApplyAttackState.Hit)
         {
-            bool valid = ApplyAdditionalDamage(running, node, target, targetId, impact.AdditionalDamage, strength, out bool direct, out _);
+            bool valid = ApplyAdditionalDamage(running, node, target, targetId, impact.AdditionalDamage, strength, out bool direct, out _, out var directDamage);
+            settled += directDamage;
             additionalDamage = direct;
             if (valid && outcome != null)
             {
-                valid = ApplyAdditionalDamage(running, node, target, targetId, outcome.Damage, strength, out bool chosen, out _);
+                valid = ApplyAdditionalDamage(running, node, target, targetId, outcome.Damage, strength, out bool chosen, out _, out var chosenDamage);
+                settled += chosenDamage;
                 additionalDamage |= chosen;
             }
-            if (!valid) return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, additionalDamage: additionalDamage);
+            if (!valid) return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, additionalDamage: additionalDamage, damage: settled);
         }
         ApplyStatuses(running, node, target, impact.Statuses, strength);
         if (outcome != null)
@@ -1197,18 +1210,19 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (generation == worldGeneration && target.data?.id == targetId && target.isAlive() && target.hasHealth())
                 DeliverSignal(running, node, target, impact.Signal, strength);
             if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
-                return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, additionalDamage: additionalDamage);
+                return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, additionalDamage: additionalDamage, damage: settled);
         }
         ConstructedTargetResponse conditional = result == ApplyAttackState.Hit ? ApplyConditionalContacts(running, node, target, targetId,
             impact.ConditionalContacts, origin, strength) : default;
         additionalDamage |= conditional.AdditionalDamageAttempted;
+        settled += conditional.Damage;
         if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
-            return new ConstructedTargetResponse(targetId, conditional.VelocityChange, conditional.ForceApplied, 0f, 0f, additionalDamage: additionalDamage);
+            return new ConstructedTargetResponse(targetId, conditional.VelocityChange, conditional.ForceApplied, 0f, 0f, additionalDamage: additionalDamage, damage: settled);
         if (!ApplyInventoryAging(running, node, target, impact.InventoryAging, result, strength) ||
             !ApplyEquipmentErosion(running, node, target, impact.EquipmentErosion, result, strength) ||
             !ApplyEquipmentRepair(running, node, target, impact.EquipmentRepair, result, strength) ||
             !ApplyContactAging(running, node, target, impact.AgeYears, result, strength))
-            return new ConstructedTargetResponse(targetId, conditional.VelocityChange, conditional.ForceApplied, 0f, 0f, additionalDamage: additionalDamage);
+            return new ConstructedTargetResponse(targetId, conditional.VelocityChange, conditional.ForceApplied, 0f, 0f, additionalDamage: additionalDamage, damage: settled);
         ApplyContactReactions(target, impact, running.Owner(node), result, out float stagger, out float bound,
             out float strain, out float exposure);
         Vector3 velocity = ApplyContactForce(running, node, target, impact, result, out bool force, origin,
@@ -1223,7 +1237,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
         if (force) InterruptContactBody(target);
         else if (stagger > 0f || bound > 0f) InterruptContactBody(target, Mathf.Max(stagger, bound));
-        return new ConstructedTargetResponse(targetId, velocity, force, stagger, bound, strain, exposure, additionalDamage);
+        return new ConstructedTargetResponse(targetId, velocity, force, stagger, bound, strain, exposure, additionalDamage, settled);
     }
 
     /// <summary>先确认共享状态，再限制实际行动；受力仍单独经过原有抗击退规则。</summary>

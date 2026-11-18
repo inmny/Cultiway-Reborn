@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Content.Combat;
+using Cultiway.Core.Combat;
 using Cultiway.Core.Skills;
 using UnityEngine;
 
@@ -18,6 +19,7 @@ public sealed partial class ConstructedAbilityService
         long generation = worldGeneration;
         Vector3 velocity = Vector3.zero;
         bool force = false, damage = false;
+        DamageSettlement settled = default;
         foreach (CompiledConstructionConditionalContact rule in rules)
         {
             if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth()) break;
@@ -26,15 +28,17 @@ public sealed partial class ConstructedAbilityService
             CompiledConstructionContactOutcome outcome = matches ? rule.Outcome : rule.Otherwise;
             ConstructedTargetResponse response = ApplyContactOutcome(running, node, target, targetId, outcome, origin, strength, out bool contactDamage);
             velocity += response.VelocityChange; force |= response.ForceApplied; damage |= response.AdditionalDamageAttempted;
+            settled += response.Damage;
             if (generation != worldGeneration || target.data?.id != targetId) break;
             if (contactDamage)
             {
                 CompiledConstructionContactOutcome follow = target.isAlive() && target.hasHealth() ? rule.OnSurvive : rule.OnKill;
                 response = ApplyContactOutcome(running, node, target, targetId, follow, origin, strength, out _);
                 velocity += response.VelocityChange; force |= response.ForceApplied; damage |= response.AdditionalDamageAttempted;
+                settled += response.Damage;
             }
         }
-        return new ConstructedTargetResponse(targetId, velocity, force, 0f, 0f, additionalDamage: damage);
+        return new ConstructedTargetResponse(targetId, velocity, force, 0f, 0f, additionalDamage: damage, damage: settled);
     }
 
     /// <summary>先提交明确伤害，再恢复仍有效的人物，最后只对活着的接触者施加状态和运动。</summary>
@@ -50,17 +54,17 @@ public sealed partial class ConstructedAbilityService
         if (outcome == null) return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);
         long generation = worldGeneration;
         // 伤害入口会跳过已死亡接触者，但允许仍有效控制者承受明确作用。
-        ApplyAdditionalDamage(running, node, target, targetId, outcome.Damage, strength, out bool attempted, out contactDamage);
+        ApplyAdditionalDamage(running, node, target, targetId, outcome.Damage, strength, out bool attempted, out contactDamage, out var settled);
         if (generation != worldGeneration || target.data?.id != targetId)
-            return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, additionalDamage: attempted);
+            return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, additionalDamage: attempted, damage: settled);
         bool alive = target.isAlive() && target.hasHealth();
         if (outcome.Restoration?.Target == ConstructionRestorationTarget.Controller || alive)
             ApplyRestoration(running, node, target, outcome.Restoration, strength);
         if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
-            return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, additionalDamage: attempted);
+            return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, additionalDamage: attempted, damage: settled);
         ApplyStatuses(running, node, target, outcome.Statuses, strength);
         Vector3 velocity = ApplyContactKnockback(running, node, target, outcome.Knockback, ApplyAttackState.Hit, out bool force, origin, strength);
         if (force) InterruptContactBody(target);
-        return new ConstructedTargetResponse(targetId, velocity, force, 0f, 0f, additionalDamage: attempted);
+        return new ConstructedTargetResponse(targetId, velocity, force, 0f, 0f, additionalDamage: attempted, damage: settled);
     }
 }
