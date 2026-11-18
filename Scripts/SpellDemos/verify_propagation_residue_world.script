@@ -1,0 +1,79 @@
+// 直接使用从万法阁保存的成品；地面及足底动作复用 5.18 A。
+for (int x = 60; x <= 86; x++)
+for (int y = 60; y <= 85; y++)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    if (tile.building != null) tile.building.removeBuildingFinal();
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+}
+var source = Make(64); var target = Make(79); var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000f });
+var ground = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "ground-saved.json")));
+var recovery = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "recovery-saved.json")));
+Check(ground.Root.Children.Single(node => node.Id == "far").Operations.Single().Residue.Lifetime == 120f, "地波取自本批正式编辑成品");
+var materialEvents = new List<WorldMaterialChange>();
+void Material(WorldMaterialChange evt) { if (evt.Provider == source.id) materialEvents.Add(evt); }
+void Quiet(ConstructedCastEnded fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != ground.Id) return;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+    ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+}
+async Task<AbilityCast> Begin()
+{
+    Place(source, 64); Ready(source);
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(ground, source, target, aim: new Vector3(65, 72, 0), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(balance - owner.GetCultisys<Xian>().wakan == ground.Cost, "编辑成品正式施放只支付整招一次");
+    return (AbilityCast)Field(((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(record => ((AbilityCast)Field(record, "Cast")).Plan.Id == ground.Id), "Cast");
+}
+void Gap(bool open)
+{
+    for (int y = 60; y <= 85; y++) World.world.GetTileSimple(70, y).setTileTypes(
+        open ? TileLibrary.deep_ocean : TileLibrary.soil_low, open ? null : TopTileLibrary.grass_low);
+}
+JArray Records() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "propagation-residue"))
+    ["sections"]["world_materials"]["data"]["Records"];
+ConstructedAbilityService.CastEnded += Quiet;
+WorldMaterialService.Changed += Material;
+try
+{
+    var broken = await Begin(); await Advance(.96f);
+    Check(broken.NodeAge(1) >= 0 && broken.NodeAge(2) < 0 && materialEvents.Count == 0,
+        "近段已到达，远段和独立材料都尚未产生");
+    Gap(true); await Advance(2.4f);
+    Check(broken.Finished && broken.NodeAge(2) < 0 && materialEvents.Count == 0,
+        "断开真实地面时不产生远段或留置，原招正常结束");
+    Gap(false);
+    var restored = await Begin(); await Advance(1.36f);
+    Vector3 point = restored.ContactOrigin(2);
+    Check(restored.NodeAge(2) >= 0 && point.x > 70 && materialEvents.Count == 0,
+        "修复地面后同一成品到达实际远处，留置仍等待编辑的时点", new { x = point.x, y = point.y, age = restored.NodeAge(2) });
+    await Advance(2.1f);
+    var evt = materialEvents.Single(value => value.Kind == "leave");
+    var row = Records().Single(value => (long)value["Id"] == evt.Id);
+    var material = row["Material"].ToObject<AbilityMaterialData>();
+    Check(restored.Finished && evt.CastId != 0 && evt.AbilityId == ground.Id && material.Volume > 0 &&
+        material.Resource > 0 && material.Resource <= ground.Cost && (long)row["Provider"] == source.id && (double)row["Remaining"] > 100,
+        "实际到达后留下一份有效独立材料及原支付份额", row);
+    ConstructedAbilityService.Register(recovery); var access = ConstructionEditing.Access;
+    ConstructedAbilityService.Learn(owner, recovery.Id); ConstructedAbilityService.Learn(owner, ground.Id);
+    Check(access.Read(ground.Id) != null && access.Read(recovery.Id) != null, "正式世界保存两件已编辑并学会的成品");
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "pending-save"));
+    File.WriteAllText(Path.Combine(folder, "pending.json"), JsonConvert.SerializeObject(new
+    {
+        process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, target = target.id,
+        ground, recovery, point = new[] { point.x, point.y, point.z }, row
+    }, Formatting.Indented));
+    return new { passed = true, row = evt.Id };
+}
+finally
+{
+    Gap(false);
+    WorldMaterialService.Changed -= Material;
+    ConstructedAbilityService.CastEnded -= Quiet;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

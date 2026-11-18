@@ -1,0 +1,84 @@
+// 冷启动只恢复真实留置的结果，再用档中已学的收束取回。
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "pending.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+long provider = (long)expected["source"], id = (long)expected["row"]["Id"];
+Check(process != (int)expected["process"], "正式档在新的游戏进程打开");
+var materials = new List<WorldMaterialChange>();
+void Material(WorldMaterialChange evt) { if (evt.Provider == provider) materials.Add(evt); }
+JArray Records() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "propagation-residue"))
+    ["sections"]["world_materials"]["data"]["Records"];
+async Task Load(string name)
+{
+    World.world.save_manager.loadWorld(Path.Combine(folder, name));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+}
+WorldMaterialService.Changed += Material;
+try
+{
+    await Load("pending-save");
+    var source = World.world.units.get(provider); var owner = source.GetExtend(); var access = ConstructionEditing.Access;
+    var ground = access.Read((string)expected["ground"]["Id"]); var recovery = access.Read((string)expected["recovery"]["Id"]);
+    bool SameDefinition(AbilityDefinition value, string name) => value != null &&
+        JToken.DeepEquals(JObject.FromObject(value), JObject.FromObject(expected[name].ToObject<AbilityDefinition>()));
+    bool sameGround = SameDefinition(ground, "ground"), sameRecovery = SameDefinition(recovery, "recovery");
+    var known = access.List(owner).Select(value => value.Id).ToArray();
+    if (!sameGround || !sameRecovery)
+        File.WriteAllText(Path.Combine(folder, "reloaded-definitions.json"), JsonConvert.SerializeObject(new { ground, recovery, known }, Formatting.Indented));
+    Check(sameGround && sameRecovery && known.Contains(ground.Id) && known.Contains(recovery.Id),
+        "正式读回窗口保存的完整构造及已学关系", new { sameGround, sameRecovery, known });
+    var row = Records().Single(value => (long)value["Id"] == id);
+    Check((long)row["Provider"] == provider && JToken.DeepEquals(row["Material"], expected["row"]["Material"]) && materials.Count == 0,
+        "读档只恢复原身份、姿态、实际材料和本金，没有重放旧地波或再次留置");
+    var point = ((JArray)expected["point"]).ToObject<float[]>();
+    Ready(source); await Advance(.15f); Place(source, 64);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .5f;
+    float balance = owner.GetCultisys<Xian>().wakan;
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, recovery.Id);
+    source.attack_timer = 0;
+    // 地波留下的绝对高度与当前选点的地表采样不一定相同。
+    // 在实际剑身上取一点，再用共同地表把它换算成正式选点的离地高度。
+    float x = point[0] + .5f, y = point[1];
+    var groundProvider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+    Vector2 launch = source.GetSimPos();
+    var area = Rect.MinMaxRect(Mathf.Min(launch.x, x) - 20, Mathf.Min(launch.y, y) - 20,
+        Mathf.Max(launch.x, x) + 20, Mathf.Max(launch.y, y) + 20);
+    float groundAt = groundProvider?.Invoke(area)?.Sample(x, y) ?? 0f;
+    float bladeStart = .05f * recovery.Root.Scale;
+    var aim = new Vector3(x, y, point[2] - groundAt - bladeStart);
+    Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, aim),
+        ActiveAbilityUseOrigin.Script) && Math.Abs(balance - owner.GetCultisys<Xian>().wakan - recovery.Cost) < .001,
+        "正式加载的收束成品直接使用并按原报价支付");
+    source.attack_timer = 999;
+    var live = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Select(record => (AbilityCast)Field(record, "Cast")).Single(cast => cast.Plan.Id == recovery.Id);
+    await Advance(.12f);
+    var shape = new List<AbilityCapsule>();
+    typeof(AbilityCast).GetMethod("MaterialSelection", F).Invoke(live, new object[] { 0, shape });
+    var rows = (IDictionary)typeof(WorldMaterialService).GetField("rows", F).GetValue(null);
+    var actual = (AbilityMaterial)Field(rows[id], "Material");
+    bool touches = (bool)typeof(AbilityMaterial).GetMethod("Select", F).Invoke(actual, new object[] { shape, new List<int>() });
+    Vector3 origin = live.ContactOrigin(0);
+    var selection = new { pose = new[] { origin.x, origin.y, origin.z }, shapeCount = shape.Count, touches, groundAt };
+    await Advance(1.13f);
+    double original = (double)row["Material"]["Resource"];
+    double returned = materials.Where(value => value.Id == id && value.Kind == "credit").Sum(value => value.Granted);
+    Check(materials.Count(value => value.Id == id && value.Kind == "recover") == 1 &&
+        touches && !Records().Any(value => (long)value["Id"] == id) && Math.Abs(returned - original * .75d) < .002,
+        "仅收束这份恢复的材料一次，按原未使用本金和编辑的效率返还", new { original, returned, id, selection, events = materials });
+    float final = owner.GetCultisys<Xian>().wakan;
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+    await Load("completed-save"); await Advance(.25f);
+    Check(!Records().Any(value => (long)value["Id"] == id) &&
+        Math.Abs(World.world.units.get(provider).GetExtend().GetCultisys<Xian>().wakan - final) < .002 &&
+        materials.Count(value => value.Id == id && value.Kind == "recover") == 1,
+        "完成后重存不恢复已回收物，也不重复入账");
+    File.WriteAllText(Path.Combine(folder, "material-events.json"), JsonConvert.SerializeObject(materials, Formatting.Indented));
+    return new { passed = true, returned, id, process };
+}
+finally
+{
+    WorldMaterialService.Changed -= Material;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

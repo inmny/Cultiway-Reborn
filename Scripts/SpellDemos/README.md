@@ -2057,3 +2057,9 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_martial_practice.py practice`。默认取 7.20 留下的正式世界和原剑尖战技，也可用 `--source <7.20实战输出目录>`。复用一个城市，走原版写书、入库和读书，再检查原训练任务的出手、付费、收势、中途退出和实际使用经历。输出位于 `CULTIWAY_DEV_OUTPUT/martial-practice/practice`。
 
 用 `dev.py stop` 退出后重新启动，在新进程运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_martial_practice.py restore --state <practice输出目录>`。恢复书本、已学关系、动作和使用经历后，让学习者在真实交战中自主决定是否用该战技。
+
+### 8.06 从地波到留置、正式保存与回收
+
+在独立游戏中通过 `dev.py exec --timeout 235 -- python3 Scripts/SpellDemos/verify_propagation_residue.py ui` 从 5.18 的实际地波输入开始，在万法阁编辑两招。默认沿用当时通过的 `ground-route-a/passed/definition.json`；可用 `ui --ground <definition.json>` 指定通过 `verify_ground_route.py --section arrival` 导出的输入。
+
+接着运行 `verify_propagation_residue.py world --state <ui输出目录>`，用窗口成品验证断路没有留置、接回地面后同招在实际远处留下独立材料，并保留正式档。退出并另起游戏进程，运行 `verify_propagation_residue.py restart --state <world输出目录>`，检查成品、留下的材料和原支付份额，实际回收后重新保存。三段分别通过 `dev.py exec` 运行；结果目录名为 `propagation-residue`，一段失败时只补对应段。
