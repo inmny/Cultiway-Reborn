@@ -43,11 +43,12 @@ internal static class KnightWeaponStrikeResolver
     /// <param name="damageMultiplier">本次已确认接触的伤害倍率。</param>
     /// <param name="immediate">是否需要在当前真实接触边界确认这次原目标伤害。</param>
     /// <param name="observer">原目标的受击观察，沿原结算顺序交回结果。</param>
+    /// <param name="damageOrigin">直接接触或由映像传回的伤害类别。</param>
     internal static AttackDataResult StrikeUnarmed(ActorExtend caster, BaseSimObject target,
         Action<Actor, float> onPositiveActorDamage, float damageMultiplier = 1f, bool immediate = false,
-        DamageObservation observer = null)
+        DamageObservation observer = null, DamageOrigin damageOrigin = DamageOrigin.Primary)
     {
-        return ResolveStrike(caster, target, damageMultiplier, caster.Base.kingdom, DamageOrigin.Primary, onPositiveActorDamage, immediate, observer);
+        return ResolveStrike(caster, target, damageMultiplier, caster.Base.kingdom, damageOrigin, onPositiveActorDamage, immediate, observer);
     }
 
     /// <summary>实际借用器物的接触使用同一原版防御、耐久及伤害入口。</summary>
@@ -57,9 +58,11 @@ internal static class KnightWeaponStrikeResolver
     /// <param name="multiplier">构造的实际倍率。</param>
     /// <param name="immediate">是否需要在当前真实接触边界确认这次原目标伤害。</param>
     /// <param name="observer">原目标的受击观察，沿原结算顺序交回结果。</param>
-    internal static AttackDataResult StrikeBorrowed(ActorExtend caster, Item weapon, BaseSimObject target, float multiplier, bool immediate = false, DamageObservation observer = null) =>
+    /// <param name="damageOrigin">直接接触或由映像传回的伤害类别。</param>
+    internal static AttackDataResult StrikeBorrowed(ActorExtend caster, Item weapon, BaseSimObject target, float multiplier,
+        bool immediate = false, DamageObservation observer = null, DamageOrigin damageOrigin = DamageOrigin.Primary) =>
         EquippedWeaponVisualService.IsCurrent(caster.Base, weapon)
-            ? ResolveStrike(caster, target, multiplier, caster.Base.kingdom, DamageOrigin.Primary, null, immediate, observer) : default;
+            ? ResolveStrike(caster, target, multiplier, caster.Base.kingdom, damageOrigin, null, immediate, observer) : default;
 
     /// <summary>共用一次原版攻击的范围、来源与最终伤害关联。</summary>
     /// <param name="caster">攻击者。</param>

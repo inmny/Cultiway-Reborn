@@ -131,7 +131,7 @@ public sealed partial class ConstructedAbilityService
             else
             {
                 float damage = (node < 0 ? running.Power : running.Cast.RemainingForce(node)) * strength * spread.BuildingDamagePerForce;
-                using (DamageResolutionContext.Enter(owner.Damage.DamageOrigin, owner.Damage.SourceScopeId))
+                using (DamageResolutionContext.Enter(DamageOrigin.Reaction, owner.Damage.SourceScopeId))
                     recipient.Building.getHit(damage, pAttacker: owner.IsLive ? owner.Actor : null);
                 if (generation != worldGeneration) return;
                 if (settings.InheritContactEffects)
