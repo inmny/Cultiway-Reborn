@@ -11,6 +11,12 @@ public sealed partial class AbilityCast
     /// <summary>旧专用定时入口保持原实现；所有条件及命名执行共用同一登记表。</summary>
     internal static void RegisterOperationImplementations()
     {
+        ConstructionOperations.Register(ConstructionOperationKind.MapArtifact, CompileMappingRadius,
+            (cast, action, _) =>
+            {
+                cast.stepStates[action.Step].WorldPending = true;
+                return true;
+            });
         ConstructionOperations.Register(ConstructionOperationKind.MapActor, CompileMappingRadius,
             (_, _, _) => false, validate: (form, _, path) =>
             {

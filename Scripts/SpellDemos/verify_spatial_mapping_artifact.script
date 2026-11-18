@@ -1,0 +1,168 @@
+// 同一件原法宝通过实际双门，地图受阻时不修改本体或伪造结果。
+var source = Make(64);
+var foe = Make(67, "wolf");
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 3, wakan = 10000f });
+owner.SetPowerLevel(3); owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+Ready(source);
+Place(foe, 67, 76);
+var composed = Cultiway.Content.Artifacts.ArtifactComposer.ComposeDesign(new Cultiway.Content.Artifacts.ArtifactDesignRequest
+{
+    Shape = ItemShapes.Sword, Atoms = new[] { ArtifactAtoms.SwordEdge, ArtifactAtoms.Iron },
+    Level = new Cultiway.Core.Components.ItemLevel { Stage = 1, Level = 3 }, Name = "真实双门飞剑"
+});
+var artifact = Cultiway.Content.Artifacts.Baibao.ArtifactBlueprintCodec.Materialize(
+    Cultiway.Content.Artifacts.Baibao.ArtifactBlueprintCodec.FromComposeResult(composed), source.getName());
+owner.AddSpecialItem(artifact);
+Check(Cultiway.Content.Extensions.ArtifactEquipmentTools.EquipArtifact(owner, artifact, true, ArtifactEquipMode.Standby, 100),
+    "正式制作并装备一件真实法宝");
+var life = typeof(Cultiway.Content.Artifacts.ArtifactAbilityLifecycle);
+void UpdateEquipment() => life.GetMethod("Synchronize", F).Invoke(null, new object[] { artifact });
+UpdateEquipment();
+await Advance(.12f);
+
+var renderer = typeof(Cultiway.Content.Artifacts.ArtifactAppearanceRenderer);
+var carrierType = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedArtifactCarrier");
+bool Borrowed() => (bool)carrierType.GetMethod("IsBorrowed", F).Invoke(null, new object[] { artifact });
+bool Equipped()
+{
+    if (!artifact.HasComponent<Artifact>() || !Cultiway.Content.Extensions.ArtifactEquipmentTools.IsArtifactEquipped(owner, artifact)) return false;
+    var held = owner.E.GetRelations<Cultiway.Core.Components.InventoryRelation>();
+    for (int i = 0; i < held.Length; i++) if (held[i].item == artifact) return true;
+    return false;
+}
+Matrix4x4 ActualPose()
+{
+    object[] pair = { artifact, null };
+    if (!(bool)renderer.GetMethod("TryGetSpatialPose", F).Invoke(null, pair)) throw new InvalidOperationException("没有真实空间模型");
+    return (Matrix4x4)service.GetMethod("CarrierFrame", F).Invoke(null, new[] { pair[1] });
+}
+float[] Point(Vector3 point) => new[] { point.x, point.y, point.z };
+IEnumerable<WorldTile> ExitPatch(int x, int y) => from dx in Enumerable.Range(-1, 3)
+    from dy in Enumerable.Range(-1, 3) select World.world.GetTileSimple(x + dx, y + dy);
+WorldTile exitTile = (from y in Enumerable.Range(50, 28).OrderBy(y => Math.Abs(y - 72))
+    from x in Enumerable.Range(68, 9)
+    where ExitPatch(x, y).All(tile => !tile.hasBuilding())
+    select World.world.GetTileSimple(x, y)).First();
+foreach (var tile in ExitPatch(exitTile.pos.x, exitTile.pos.y))
+{
+    tile.Height = 140;
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+}
+
+
+AbilityDefinition Gates(Matrix4x4 before)
+{
+    Vector3 world = new(exitTile.pos.x + .5f, exitTile.pos.y + .5f, before.GetColumn(3).z);
+    Quaternion heading = before.rotation;
+    Quaternion facing = Quaternion.Inverse(heading) * Quaternion.Euler(0, 0, 90) * heading;
+    ConstructionNode Gate(string id, Vector3 offset, Quaternion rotation) => new()
+    {
+        Id = id, Form = "fireball", Scale = .65f, ContactRole = ConstructionContactRole.Decoration,
+        Offset = Point(offset), Rotation = Point(rotation.eulerAngles),
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Detach } }
+    };
+    return new AbilityDefinition
+    {
+        Id = "test.spatial-mapping.artifact", Name = "真实飞剑过双门", Cost = 3, Resource = "wakan",
+        Power = 2, Cooldown = .1f, Lifetime = .65f, TargetRange = 12,
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Carrier, FaceTarget = false, Follow = true },
+        Root = new ConstructionNode
+        {
+            Id = "anchor", Form = "pivot", ContactRole = ConstructionContactRole.Decoration,
+            Children = new[] { Gate("entrance", Vector3.zero, Quaternion.identity),
+                Gate("exit", Quaternion.Inverse(heading) * (world - (Vector3)before.GetColumn(3)), facing) }
+        },
+        Steps = new[]
+        {
+            new ConstructionStep { Id = "carry", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.MapArtifact, MappingRadius = .75f, At = .16f },
+                Inputs = new() { ["part"] = new() { Node = "root" }, ["entrance"] = new() { Node = "root/entrance" }, ["exit"] = new() { Node = "root/exit" } } },
+            new ConstructionStep { Id = "arrive", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Ready },
+                Inputs = new() { ["part"] = new() { Node = "root/exit" }, ["after"] = new() { Step = "carry", Output = "transferred" } } }
+        }
+    };
+}
+
+try
+{
+    var initial = Gates(ActualPose());
+    initial.Binding.Anchor = AbilityAnchor.Source;
+    bool refused = false;
+    try { AbilityCompiler.Compile(initial, false); }
+    catch (InvalidDataException error) { refused = error.Message.Contains("本次借用的真实载体"); }
+    Check(refused, "没有真实载体的构造不能声明法宝转移");
+    var point = ActualPose();
+    var direct = new AbilityCast(AbilityCompiler.Compile(Gates(point), false), Matrix4x4.identity,
+        inputs: new AbilityInputs(Vector3.zero, Vector3.right, Vector3.right, 1f, point));
+    direct.Advance(.25f, Vector3.right);
+    Check(direct.StepStateOf("carry") == ConstructionStepState.Running && !direct.TryGetOutput("carry", "transferred", out _),
+        "纯数值已有请求，但没有任何真实法宝结果");
+
+    var live = (IEnumerable)service.GetField("casts", F).GetValue(null);
+    var receiptIds = new List<string>();
+    async Task Cast(bool blocked)
+    {
+        Place(source, 64);
+        Cultiway.Content.Extensions.ArtifactEquipmentTools.SetArtifactEquipMode(owner, artifact, ArtifactEquipMode.ForcedOperating);
+        UpdateEquipment();
+        Matrix4x4 before = ActualPose();
+        AbilityDefinition definition = Gates(before);
+        File.WriteAllText(Path.Combine(folder, blocked ? "blocked.json" : "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+        if (blocked) exitTile.setTileTypes(TileLibrary.mountains, null, true);
+        else { exitTile.Height = 140; exitTile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low); }
+        ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+        var handles = new List<ActiveAbilityHandle>(); ActiveAbilityService.Collect(owner, handles);
+        var handle = handles.Single(h => h.EntryId == definition.Id && h.Source == artifact);
+        source.addAggro(foe); foe.addAggro(source); source.attack_timer = 0;
+        owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+        float paid = owner.GetCultisys<Xian>().wakan;
+        Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(foe, foe.GetSimPos()), ActiveAbilityUseOrigin.Script) &&
+            Borrowed() && Mathf.Abs(paid - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f,
+            "正式能力借用这件原法宝并支付一次");
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        before = ActualPose();
+        var cast = live.Cast<object>().Select(r => (AbilityCast)Field(r, "Cast")).Single(c => c.Plan.Id == definition.Id);
+        await Advance(.25f);
+        Matrix4x4 after = ActualPose();
+        bool landed = cast.TryGetOutput("carry", "transferred", out var result);
+        var data = new { before = Point(before.GetColumn(3)), actual = Point(after.GetColumn(3)), actualRotation = Point(after.rotation.eulerAngles),
+            result = Point(result.Position), state = cast.StepStateOf("carry").ToString(), tile = exitTile.Type.id };
+        if (blocked)
+            Check(!landed && cast.StepStateOf("carry") == ConstructionStepState.Interrupted && cast.StepStateOf("arrive") == ConstructionStepState.Interrupted &&
+                Vector3.Distance(before.GetColumn(3), after.GetColumn(3)) < .001f && Quaternion.Angle(before.rotation, after.rotation) < .1f && Borrowed() && Equipped(),
+                "受阻不搬运、不发布结果，保留原位置和借用", data);
+        else
+        {
+            var receipts = new List<ConstructionWorldReceipt>();
+            Check(landed && cast.StepStateOf("arrive") == ConstructionStepState.Completed && result.Receipt.Kind == ConstructionWorldResultKind.ArtifactTransfer &&
+                cast.AppendStepReceipts("carry", receipts) == 1 && result.Receipt.Items.Count == 1 && Equipped() && Borrowed() &&
+                Vector3.Distance(result.Position, after.GetColumn(3)) < .001f &&
+                Vector2.Distance(result.Position, new Vector2(exitTile.pos.x + .5f, exitTile.pos.y + .5f)) < .04f &&
+                Quaternion.Angle(after.rotation, Quaternion.Euler(0, 0, 90) * before.rotation) < .2f,
+                "原法宝到达且转向，真实落点与显示一致，只发布一次结果", data);
+            receiptIds.Add(result.Receipt.Items.Single());
+        }
+        // 仍沿旧法宝的正常退场规则归还，并阻止独立原主动能力抢跑下一次测试。
+        Cultiway.Content.Extensions.ArtifactEquipmentTools.SetArtifactEquipMode(owner, artifact, ArtifactEquipMode.Standby);
+        await Advance(.7f);
+        Check(cast.Finished && !Borrowed() && !artifact.HasComponent<Cultiway.Core.SkillLibV3.Components.SkillExecutionBodyLease>() && Equipped(),
+            "自然结束归还原物，未改变所有权及装备");
+        foreach (var ability in artifact.GetComponent<ArtifactAbilitySet>().abilities)
+            Cultiway.Content.Artifacts.ArtifactAbilityLifecycle.Recall(artifact, ability.instance_id);
+        await Advance(.1f);
+    }
+    if (section == "artifact") await Cast(true);
+    await Cast(false);
+    await Cast(false);
+    Check(receiptIds.Count == 2 && !string.IsNullOrEmpty(receiptIds[0]) && receiptIds[0] == receiptIds[1], "再次施放仍搬运同一稳定编号的原法宝", receiptIds);
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, artifact = receiptIds[0] };
+}
+finally
+{
+    exitTile.Height = 140;
+    exitTile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

@@ -56,6 +56,43 @@ public sealed partial class AbilityCast
         }
     }
 
+    /// <summary>等到实际门及前序步骤就绪后的世界搬运请求。数值推进不能确认该结果。</summary>
+    /// <param name="index">法宝转移步骤。</param>
+    internal bool AwaitingArtifactTransfer(int index) => !cancelled && stepStates[index].State == ConstructionStepState.Running &&
+        stepStates[index].WorldPending;
+
+    /// <summary>门已放下且真实原法宝位于入口内时，得到不含缩放的刚性换算。</summary>
+    /// <param name="index">法宝转移步骤。</param><param name="position">原法宝的实际中心。</param>
+    /// <param name="destination">出口对应点。</param><param name="rotation">通过时的朝向变化。</param>
+    internal bool TryMapArtifact(int index, Vector3 position, out Vector3 destination, out Quaternion rotation)
+    {
+        var step = Plan.Steps[index];
+        int entrance = step.MappingEntrance, exit = step.MappingExit;
+        destination = default; rotation = Quaternion.identity;
+        if (!IsInputAttached || !StepInputsReady(index) || IsAttachedBelow(entrance, 0) || IsAttachedBelow(exit, 0)) return false;
+        float radius = (float)step.Action.Parameters;
+        if ((position - (Vector3)nodes[entrance].Transform.GetColumn(3)).sqrMagnitude > radius * radius) return false;
+        destination = MappingFrame(step, out rotation).MultiplyPoint3x4(position);
+        return true;
+    }
+
+    /// <summary>世界拒绝搬运时不发布完成，也不启动依赖真实结果的后续步骤。</summary>
+    /// <param name="index">已尝试的步骤。</param>
+    internal void RejectArtifactTransfer(int index)
+    {
+        stepStates[index].WorldPending = false;
+        stepStates[index].State = ConstructionStepState.Interrupted;
+        UpdateSteps();
+    }
+
+    /// <summary>用刚提交的同一法宝重新取样连接，不在两扇门之间计算路径接触。</summary>
+    /// <param name="pose">原法宝已经确认的出口姿态。</param>
+    internal void RefreshTransferredCarrier(Matrix4x4 pose)
+    {
+        UpdateInputs(new AbilityInputs(inputs.Source, inputs.Target, inputs.Forward, inputs.SourceHeight, pose));
+        Refresh(inputs.Target);
+    }
+
     /// <summary>通过两端的当前姿态转移同一个形体；门的尺寸不缩放通过的物体。</summary>
     /// <param name="action">已绑定入口、出口和主体的命名步骤。</param>
     /// <param name="radius">实际入口半径。</param>

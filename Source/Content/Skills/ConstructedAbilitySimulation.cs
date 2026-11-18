@@ -224,6 +224,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 foreach (RunningCast running in active)
                 {
                     if (running.Replaced || running.WorldScope != null && running.Cast.Phase == AbilityCastPhase.Interrupted) continue;
+                    if (running.Cast.Plan.ArtifactTransferSteps.Length != 0) ConfirmArtifactTransfers(running, clock);
                     ConfirmInventory(running, clock);
                     if (generation != worldGeneration) yield break;
                     ConfirmRecovery(running);

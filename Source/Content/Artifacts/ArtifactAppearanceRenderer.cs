@@ -241,6 +241,7 @@ public static class ArtifactAppearanceRenderer
         else
         {
             position.y -= position.z;
+            groundAnchor = position;
             foreach (Entity inventory in item.GetIncomingLinks<ArtifactSectInstallationRelation>().Entities)
             {
                 Sect sect = inventory.GetComponent<SectInventoryBinder>().Sect;
@@ -259,6 +260,7 @@ public static class ArtifactAppearanceRenderer
         ArtifactAppearanceTemplateDef template = ArtifactAppearanceCatalogLoader.Current.Templates[appearance.template_key];
         Quaternion rotation = Quaternion.Euler(0f, 0f, yaw) *
                               Quaternion.Euler(ArtifactAppearanceMath.Vec3(template.SpatialRotation, Vector3.zero));
+        rotation = Skills.ConstructedArtifactCarrier.Heading(item, rotation);
         if (template.SpatialOriginAtBase)
         {
             float bottom = float.PositiveInfinity;

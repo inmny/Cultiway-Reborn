@@ -20,7 +20,9 @@ public enum ConstructionWorldResultKind
     /// <summary>世界材料的独立侵蚀已经得到实际结果。</summary>
     Erosion,
     /// <summary>实际生灵到达经过确认的出口。</summary>
-    ActorTransfer
+    ActorTransfer,
+    /// <summary>本次借用的原法宝实际抵达出口。</summary>
+    ArtifactTransfer
 }
 
 /// <summary>一次确认的不可变回执，空选择也保留真实的零结果。</summary>
@@ -58,7 +60,7 @@ public sealed class ConstructionWorldReceipt
     public float Spent { get; }
     /// <summary>确认后的尚存余力。</summary>
     public float Remaining { get; }
-    /// <summary>实际消耗的原库存物件稳定编号。</summary>
+    /// <summary>实际消耗或搬运的原物件稳定编号。</summary>
     public IReadOnlyList<string> Items { get; }
     /// <summary>实际转移落点；其他世界操作没有落点。</summary>
     public Vector3? Destination { get; }
