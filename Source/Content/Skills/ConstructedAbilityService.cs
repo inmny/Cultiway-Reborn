@@ -428,18 +428,23 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="sourceDirection">原来源确定的完整方向，空值保留普通身体的水平朝向。</param>
     /// <param name="sourceInstance">原运行容器的并存分组，普通构造为零。</param>
     /// <param name="spatialSource">本次真实人物载体，与资源及伤害归属分开保存。</param>
+    /// <param name="practice">是否由实际训练任务练习姿态而不产生战斗接触。</param>
     private static bool Start(ActorExtend caster, AbilityDefinition definition, CompiledAbility plan,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, out long castId, Vector3? sourcePosition = null,
         bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
-        GetHitEvent? sourceDamage = null, Vector3? sourceDirection = null, int sourceInstance = 0, Actor spatialSource = null)
+        GetHitEvent? sourceDamage = null, Vector3? sourceDirection = null, int sourceInstance = 0, Actor spatialSource = null,
+        bool practice = false)
     {
         castId = 0;
         Actor sourceActor = caster?.Base;
         spatialSource ??= sourceActor;
         if (spatialSource != null && (!spatialSource.isAlive() || !spatialSource.hasHealth())) return false;
         string id = definition.Id;
-        if (!TryResolveUseTarget(caster, plan, target, out Actor targetActor, out Vector3 point,
-                out float targetHeight)) return false;
+        Actor targetActor = null;
+        Vector3 point = target.Position;
+        float targetHeight = 0f;
+        if (!practice && !TryResolveUseTarget(caster, plan, target, out targetActor, out point, out targetHeight))
+            return false;
         if (plan.HasCorrespondences && plan.Nodes.Any(node => node.Correspondence != null &&
             (node.Correspondence.Target == ConstructionCorrespondenceTarget.Source ? sourceActor : targetActor) == null)) return false;
         if (caster != null && StartingDistance(spatialSource, point) > Range(caster, plan, targetActor, carrierSource) ||
@@ -575,6 +580,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 Cast = cast,
                 CorrespondenceEnded = plan.HasCorrespondences ? new bool[plan.FormCount] : null,
                 WorldScope = target.WorldScope,
+                Practice = practice,
                 CorrelationId = target.RuntimeData.CorrelationId,
                 WorldHits = plan.HasWorldEffects ? new() : null,
                 WorldTotals = plan.HasWorldEffects ? new() : null,
@@ -598,7 +604,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 LastTargetFoot = point,
                 LastWorldTime = startedAt,
                 StartedAt = startedAt,
-                BodyGuardRemaining = (plan.Body?.Guard.Capacity ?? 0f) * definition.Power
+                BodyGuardRemaining = practice ? 0f : (plan.Body?.Guard.Capacity ?? 0f) * definition.Power
             };
             running.InitialOwner = new CastAuthority(sourceActor, damage, targetActor, target.AttackKingdom, spatialSource?.id ?? 0);
             if (sourceActor == null) running.InitialOwner.LastFoot = inputs.Source;
@@ -616,7 +622,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             PublishBarriers();
             TrackWorldRecovery(running, true);
             if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
-            if (caster != null) RecordInspirationUse(caster, plan);
+            if (caster != null && !practice) RecordInspirationUse(caster, plan);
             if (caster != null && definition.Cooldown > 0f) cooldowns[(sourceId, id)] = startedAt + definition.Cooldown;
             if (plan.Body?.ControlsStance == true)
             {
@@ -810,6 +816,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         PublishActionEvents(running);
         if (generation != worldGeneration) return;
         bool cancelled = running.Cast.Phase == AbilityCastPhase.Interrupted;
+        if (running.Practice && !cancelled && running.Cast.BodyResult == null &&
+            running.Cast.Age >= running.Cast.Plan.Body.Duration &&
+            running.Source.data?.id == running.SourceId && running.Source.isAlive())
+            RecordInspirationUse(running.Source.GetExtend(), running.Cast.Plan);
         CastEnded?.Invoke(new ConstructedCastEnded(running.Id, running.Cast.Plan.Id, running.SourceId,
             running.CorrelationId, cancelled ? LogicTime : running.LastWorldTime, running.Cast.Age,
             cancelled, running.WorldChanges));
@@ -903,6 +913,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>本次世界行动边界，只允许主线程读取。</summary>
         internal ConstructionWorldScope WorldScope;
+
+        /// <summary>只在原训练任务中播放已学身体动作，接触形状不参与交锋。</summary>
+        internal bool Practice;
 
         /// <summary>已经实际改变世界的提交次数，不是不同地块数或预估收益。</summary>
         internal int WorldChanges;

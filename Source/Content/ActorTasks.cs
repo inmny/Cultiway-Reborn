@@ -16,7 +16,7 @@ public partial class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor DailyPlantXianCultivate   { get; private set; }
     public static BehaviourTaskActor DailyEnvironmentalCultivate { get; private set; }
     public static BehaviourTaskActor DailyMagicMeditate        { get; private set; }
-    /// <summary>骑士和平期操练任务（原地积累斗气，比战斗慢）。</summary>
+    /// <summary>城市训练假人任务；练习已学战技，骑士也在这里积累斗气。</summary>
     public static BehaviourTaskActor DailyKnightTrain          { get; private set; }
 
     /// <summary>元婴离体后持续寻主、接近并结算一次夺舍。</summary>
@@ -117,6 +117,7 @@ public partial class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
                 true,
                 true));
         }
+        DailyKnightTrain.addBeh(new BehPracticeConstruction());
         DailyKnightTrain.addBeh(new BehKnightTrain());
         DailyKnightTrain.setIcon("cultiway/icons/iconCultivation");
 

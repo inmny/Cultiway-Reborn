@@ -99,6 +99,8 @@ public enum ActiveAbilityUseOrigin
     Autonomous,
     Player,
     Script,
+    /// <summary>原训练任务中的一次已学动作操练，不计作自主战斗。</summary>
+    Practice,
 }
 
 /// <summary>

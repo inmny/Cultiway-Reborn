@@ -1,0 +1,72 @@
+var input = JObject.Parse(File.ReadAllText(Path.Combine(folder, "input.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check(process != (int)input["process"], "正式档已经在另一个进程加载");
+Actor author = World.world.units.get((long)input["author"]), reader = World.world.units.get((long)input["reader"]);
+Book book = World.world.books.get((long)input["book"]);
+AbilityDefinition expected = input["definition"].ToObject<AbilityDefinition>();
+var access = ConstructionEditing.Access;
+var saved = access.Read(expected.Id);
+var owner = reader.GetExtend();
+Check(ConstructedAbilityService.Knows(author.GetExtend(), expected.Id) && ConstructedAbilityService.Knows(owner, expected.Id) &&
+    access.List(owner).Count == 1 && saved.Creator == author.id &&
+    JToken.DeepEquals(JObject.FromObject(saved), JObject.FromObject(expected)) &&
+    book.GetExtend().GetComponent<ConstructionBook>().AbilityId == expected.Id &&
+    owner.GetComponent<ConstructedUseHistory>().Uses == (int)input["uses"] &&
+    !BodyControlState.IsBusy(reader.id), "原作者、完整动作、书中版本、已学关系及使用经历冷启动恢复");
+Check(Cultiway.ModClass.I.WorldSaves.LastReport.Skipped.Count == 0 &&
+    Cultiway.ModClass.I.WorldSaves.LastReport.BackupError == null, "正式恢复报告无丢弃或备份失败");
+var target = World.world.units.get(57);
+Check(target != null && target.kingdom != reader.kingdom, "复用 7.20 的真实敌方人物");
+
+// 上次退出只归还身体，冷却仍沿用正式记录。在人物无行动时让这个冷却自然结束。
+await Advance(saved.Cooldown + .2f);
+// 按原构造的真实剑尖找合适交战距离，选择、动作及扣费由原自主战斗执行。
+var plan = access.Validate(saved);
+CombatStatusEffects.RemoveStatus(reader, hold); reader.setStatsDirty(); reader.updateStats(); reader.cancelAllBeh();
+Place(reader, 64.2f); Place(target, 65.4f);
+var bindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding");
+var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { reader });
+Vector3 foot = (Vector3)service.GetMethod("BodyFoot", F).Invoke(null, new object[] { reader });
+object binding = bindingType.GetMethod("TryCreate", F).Invoke(null, new object[] { reader, plan.Body, Vector3.right, foot + Vector3.right, height });
+Check(binding != null, "恢复的原铁剑和实际身体仍可绑定");
+var frame = (BodyFrame)bindingType.GetMethod("Frame", F, null, new[] { typeof(Actor) }, null).Invoke(binding, new object[] { reader });
+float at = saved.Body.Keys[2].At;
+var shapes = new List<AbilityCapsule>();
+bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { plan.Body.Sample(at, frame), shapes });
+plan.Body.Footwork(at, out Vector3 stride, out _);
+Place(target, (shapes.Single().A.x + shapes.Single().B.x) * .5f + stride.x * height);
+reader.addAggro(target); target.addAggro(reader); reader.setAttackTarget(target); reader.attack_timer = 0f;
+reader.data.stamina = 100;
+List<ConstructedCastStarted> starts = new();
+int stamina = -1;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != reader.id || fact.AbilityId != saved.Id) return;
+    starts.Add(fact);
+    stamina = reader.data.stamina;
+}
+ConstructedAbilityService.CastStarted += Started;
+try
+{
+    var candidates = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.CollectAiCandidates(owner, target, candidates, new List<int>());
+    Check(candidates.Any(value => value.EntryId == saved.Id), "战斗候选从恢复的本人知识取得该版本");
+    Config.paused = false;
+    double deadline = World.world.getCurWorldTime() + 4f;
+    await Game.WaitUntil(() => starts.Count > 0 || World.world.getCurWorldTime() >= deadline, 2400);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    Check(starts.Count == 1 && starts[0].Origin == ActiveAbilityUseOrigin.Autonomous &&
+        stamina == 100 - Mathf.CeilToInt(saved.Cost), "非附体人物在真实敌对战斗自主选择并支付该战技",
+        new { starts, stamina, target = reader.attack_target?.getID(), task = reader.ai.task?.id });
+    await Advance(saved.Lifetime + .14f);
+    Check(endings.Any(entry => entry.Fact.CastId == starts[0].CastId && !entry.Fact.Cancelled) &&
+        !BodyControlState.IsBusy(reader.id), "自主战技正常收势并归还身体");
+    return new { passed = true, process, reader = reader.id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

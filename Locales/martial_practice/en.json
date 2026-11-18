@@ -1,0 +1,7 @@
+{
+  "Task.Unit.Cultiway.DailyKnightTrain": "Martial training",
+  "Cultiway.ControlledTask.Command.KnightTrain.Name": "Martial training",
+  "Cultiway.ControlledTask.Command.KnightTrain.Description": "Practice a learned martial technique at the city's training dummy. Knights can also build vigor.",
+  "Cultiway.ControlledTask.Reason.RequiresKnight": "Requires knight cultivation or a learned technique this body can practice",
+  "Cultiway.ControlledTask.Reason.RequiresTrainingDummy": "The city has no usable training dummy"
+}

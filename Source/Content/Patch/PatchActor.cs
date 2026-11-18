@@ -97,8 +97,9 @@ internal static class PatchActor
                 }
             }
 
-            // 骑士：和平期且本轮选中修炼工作时，操练积累斗气（战时不练）
-            if (ae.HasCultisys<Knight>() && use_cultivator_job)
+            // 城市和平时，沿用训练假人工作来操练已学战技或积累斗气。
+            if (use_cultivator_job && (ae.HasCultisys<Knight>() ||
+                Skills.ConstructedAbilityService.HasPracticeConstruction(ae)))
             {
                 pool.Add(ActorJobs.KnightCultivator.id);
             }
