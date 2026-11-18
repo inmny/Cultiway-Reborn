@@ -33,7 +33,7 @@ public sealed class BehEnvironmentalCultivate : BehaviourActionActor
                 actor,
                 CultivationTriggerKind.ActiveTick,
                 CultivationActivityKind.EnvironmentalMeditation,
-                TickInterval);
+                TickInterval, remainingActivitySeconds: time);
             CultivateMethods.TryDispatch(in context);
 
             if (pActor.isAlive() && xian.wakan < pActor.stats[BaseStatses.MaxWakan.id] && time > 0f)

@@ -27,11 +27,15 @@ public class BaseStatses : ExtendLibrary<BaseStatAsset, BaseStatses>
     [AssetId(nameof(KnightEvasion))] public static BaseStatAsset KnightEvasion { get; private set; }
     /// <summary>单位抵消外力与攻击击退效果的内部抗性。</summary>
     [AssetId(S.knockback_reduction)] public static BaseStatAsset KnockbackReduction { get; private set; }
+    /// <summary>凝神构造对主动吐纳每次吸收量的加成。</summary>
+    [AssetId(nameof(MeditationFocus))] public static BaseStatAsset MeditationFocus { get; private set; }
     private static StringBuilder all_stats_ids = new();
     internal static string AllStatsIds => all_stats_ids.ToString();
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
+        MeditationFocus.hidden = true;
+        MeditationFocus.translation_key = MeditationFocus.id;
         KnockbackReduction.hidden = true;
         KnockbackReduction.translation_key = KnockbackReduction.id;
 

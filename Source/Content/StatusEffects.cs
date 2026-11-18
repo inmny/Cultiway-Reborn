@@ -15,6 +15,8 @@ namespace Cultiway.Content;
 public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
 {
     public static StatusEffectAsset Enlighten { get; private set; }
+    /// <summary>短时提高主动吐纳的吸收速度；无可用地块资源时没有收益。</summary>
+    public static StatusEffectAsset CultivationFocus { get; private set; }
     public static StatusEffectAsset Slow { get; private set; }
     public static StatusEffectAsset Burn { get; private set; }
     public static StatusEffectAsset Poison { get; private set; }
@@ -136,6 +138,10 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
         BodyExposure = StatusEffectAsset.StartBuild(nameof(BodyExposure))
             .SetNegative().SetIconPath("cultiway/icons/stats/IronArmor")
             .SetDuration(3f).SetStats(new BaseStats { [S.armor] = -.2f }).Build();
+        CultivationFocus = StatusEffectAsset.StartBuild(nameof(CultivationFocus))
+            .SetDuration(4f).SetIconPath("cultiway/icons/iconCultivation")
+            .AddComponent(new StatusPotency())
+            .AddComponent(new StatusOverwriteStats { stats = new BaseStats() }).Build();
         SignalWarning = StatusEffectAsset.StartBuild(nameof(SignalWarning))
             .SetDuration(3f).SetIconPath("cultiway/icons/element_root/neg").Build();
         SignalRally = StatusEffectAsset.StartBuild(nameof(SignalRally))

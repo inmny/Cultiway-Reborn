@@ -31,7 +31,7 @@ public class BehXianCultivate : BehCityActor
                 actor_extend,
                 Libraries.CultivationTriggerKind.ActiveTick,
                 Libraries.CultivationActivityKind.Meditation,
-                TickInterval);
+                TickInterval, remainingActivitySeconds: time);
             CultivateMethods.TryDispatch(in context);
             if (xian.wakan < pObject.stats[BaseStatses.MaxWakan.id] && time > 0f)
             {

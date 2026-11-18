@@ -2031,3 +2031,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 7.11A　出行途中使用本人双门
 
 在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_travel_construction.py`。复用现成世界，给已有出行任务安排有效的友城目的地，由游戏自己选择已学能力。核对实际落点和费用、落地后继续步行、预计出口危险时跳过、出行任务取消时中止及下一次出行可重新使用。日志在 `CULTIWAY_DEV_OUTPUT/travel-construction`，见[出行实施与证据](../../Doc/技能系统全面重构/构造法术的日常活动.md#出行实施与证据)。
+
+### 7.11B　打坐时自主凝神
+
+在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_meditation_construction.py`。复用现成世界，用原打坐任务核对已学术的自主支付与实际接触、人物吸收与地块扣除、低供给跳过以及到期恢复。日志在 `CULTIWAY_DEV_OUTPUT/meditation-construction`，见[凝神实施与证据](../../Doc/技能系统全面重构/构造法术的日常活动.md#凝神实施与证据)。

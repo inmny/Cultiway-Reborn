@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Skills;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
@@ -531,18 +533,8 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
         CultivateMethodAsset method = cultibook.GetCultivateMethod();
         CultivationEnvironmentRule rule = method.EnvironmentRule;
         CultivationEfficiencyResult efficiency = CultivationEfficiencyResolver.Resolve(actor, cultibook, method);
-        Vector2Int position = actor.Base.current_tile.pos;
-        var resourceContext = new CultivationResourceContext(actor, position.x, position.y);
-        float available = rule.Resource.GetAvailable(in resourceContext);
-        float cleanEquivalent = available / rule.ResourcePerWakan;
-        float requested = Mathf.Log10(cleanEquivalent + 1f) * efficiency.FinalMultiplier;
-        CultivationSettlementResult result = CultivationSettlementService.ConvertToWakan(
-            actor,
-            rule.Resource,
-            requested,
-            rule.ResourcePerWakan,
-            position.x,
-            position.y);
+        CultivationSettlementResult result = SettleMeditation(in context, efficiency, rule.Resource,
+            rule.ResourcePerWakan, out float requested);
 
         float quality = rule.ResolveQuality(actor, actor.Base.current_tile);
         RecordSettledPractice(in context, method, efficiency, requested, result);
@@ -656,38 +648,45 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
         CultibookAsset cultibook = actor.GetMainCultibook();
         CultivateMethodAsset method = cultibook?.GetCultivateMethod() ?? Standard;
         CultivationEfficiencyResult efficiency = CultivationEfficiencyResolver.Resolve(actor, cultibook, method);
-        Vector2Int position = actor.Base.current_tile.pos;
-        var resourceContext = new CultivationResourceContext(actor, position.x, position.y);
-        CultivationSettlementResult result;
-        float requested;
-        if (context.Activity == CultivationActivityKind.PlantPurification)
-        {
-            float dirty = CultivationResources.TileDirtyWakan.GetAvailable(in resourceContext);
-            float cleanEquivalent = dirty / ContentSetting.DirtyWakanToWakanRatio;
-            requested = Mathf.Log10(cleanEquivalent + 1f) * efficiency.FinalMultiplier;
-            result = CultivationSettlementService.ConvertToWakan(
-                actor,
-                CultivationResources.TileDirtyWakan,
-                requested,
-                ContentSetting.DirtyWakanToWakanRatio,
-                position.x,
-                position.y);
-        }
-        else
-        {
-            float worldWakan = CultivationResources.WorldWakan.GetAvailable(in resourceContext);
-            requested = Mathf.Log10(worldWakan + 1f) * efficiency.FinalMultiplier;
-            result = CultivationSettlementService.ConvertToWakan(
-                actor,
-                CultivationResources.WorldWakan,
-                requested,
-                1f,
-                position.x,
-                position.y);
-        }
+        bool purification = context.Activity == CultivationActivityKind.PlantPurification;
+        CultivationSettlementResult result = SettleMeditation(in context, efficiency,
+            purification ? CultivationResources.TileDirtyWakan : CultivationResources.WorldWakan,
+            purification ? ContentSetting.DirtyWakanToWakanRatio : 1f, out float requested);
 
         RecordSettledPractice(in context, method, efficiency, requested, result);
     }
+
+    /// <summary>按实际地块和原兑换率结算；凝神只提高持续主动吐纳的每次抽取量。</summary>
+    /// <param name="context">本次实际修炼触发。</param>
+    /// <param name="efficiency">原功法和灵根的效率。</param>
+    /// <param name="resource">本次使用的实际地块资源。</param>
+    /// <param name="resourcePerWakan">兑换一点灵气所消耗的地块资源量。</param>
+    /// <param name="requested">本次受容量和供给限制之前的请求量。</param>
+    private static CultivationSettlementResult SettleMeditation(in CultivationTriggerContext context,
+        CultivationEfficiencyResult efficiency, CultivationResourceAsset resource, float resourcePerWakan, out float requested)
+    {
+        ActorExtend actor = context.Practitioner;
+        WorldTile tile = actor.Base.current_tile;
+        var resourceContext = new CultivationResourceContext(actor, tile.x, tile.y);
+        float available = resource.GetAvailable(in resourceContext);
+        float baseline = Mathf.Log10(available / resourcePerWakan + 1f) * efficiency.FinalMultiplier;
+        bool active = context.Trigger == CultivationTriggerKind.ActiveTick &&
+            context.Activity is CultivationActivityKind.Meditation or CultivationActivityKind.EnvironmentalMeditation;
+        float bonus = 0f;
+        bool focused = false;
+        if (active && CombatStatusEffects.TryGetActiveStatus(actor.Base, StatusEffects.CultivationFocus, out var focus))
+        {
+            focused = true;
+            if (focus.TryGetComponent(out StatusOverwriteStats stats) && stats.stats != null)
+                bonus = Mathf.Clamp01(stats.stats[BaseStatses.MeditationFocus.id]);
+        }
+        requested = baseline * (1f + bonus);
+        var result = CultivationSettlementService.ConvertToWakan(actor, resource, requested, resourcePerWakan, tile.x, tile.y);
+        if (active && !focused && context.RemainingActivitySeconds > 0f && result.WakanGained > 0f)
+            ConstructedAbilityService.TryMeditationFocus(in context, tile, (available - result.ResourceSpent) / resourcePerWakan, baseline);
+        return result;
+    }
+
 
     [Hotfixable]
     private static void ExecuteBattleCultivation(in CultivationTriggerContext context)
