@@ -1,0 +1,109 @@
+// 5.15 C1：同一窗口、同一组部位创建并保存三种实际双门步骤。
+Actor source = Make(64);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var definition = new AbilityDefinition
+{
+    Id = "test.spatial-mapping.editor", Name = "双门编辑", Cost = 3, Resource = "wakan", Power = 2,
+    Cooldown = .1f, Lifetime = 1.2f, TargetRange = 12,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Carrier, Follow = true, FaceTarget = false },
+    Root = new ConstructionNode
+    {
+        Id = "gates", Form = "pivot", ContactRole = ConstructionContactRole.Decoration,
+        Children = new[]
+        {
+            new ConstructionNode { Id = "entry", Form = "fireball", Scale = .8f,
+                Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Detach } } },
+            new ConstructionNode { Id = "exit", Form = "fireball", ContactRole = ConstructionContactRole.Decoration,
+                AppearAt = .25f, Scale = .7f, Offset = new[] { 6f, 0f, 0f }, Rotation = new[] { 0f, 0f, 90f },
+                Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Detach } } },
+            new ConstructionNode { Id = "blade", Form = "sword", Matter = "iron", Scale = .7f }
+        }
+    }
+};
+ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(definition.Id, source);
+async Task Frames(int count = 3) { for (int i = 0; i < count; i++) await Game.NextFrame(); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300); Canvas.ForceUpdateCanvases(); }
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+Button B(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+void Click(string name) { if (!B(name).interactable) throw new InvalidOperationException("按钮不可用：" + name); B(name).onClick.Invoke(); }
+WanfaEditorRow Row(string key)
+{
+    IEnumerable<WanfaEditorRow> found = editor.GetComponentsInChildren<WanfaEditorRow>(false);
+    return found.First(r => ((Text)Field(r, "_title")).text == T(key));
+}
+void Action(string key) => ((Button)Field(Row(key), "_action")).onClick.Invoke();
+void Set(string key, string value) { var input = editor.GetComponentsInChildren<InputField>(false).First(f => f.name == key); input.text = value; input.onEndEdit.Invoke(value); }
+void ToggleValue(string key, bool value) => Row(key).GetComponentsInChildren<Toggle>(false).Single().isOn = value;
+void Choose(string key, string text) { Action(key); editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && b.GetComponentInChildren<Text>().text == text).onClick.Invoke(); }
+async Task ShotRow(string key, string name)
+{
+    await Frames(); var row = (RectTransform)Row(key).transform; var scroll = row.GetComponentInParent<ScrollRect>();
+    Vector3 local = scroll.content.InverseTransformPoint(row.TransformPoint(row.rect.center));
+    float offset = scroll.content.rect.yMax - local.y - scroll.viewport.rect.height * .5f;
+    scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(offset / Mathf.Max(1f, scroll.content.rect.height - scroll.viewport.rect.height));
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(4); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+void Pick(Func<string, bool> label) => editor.GetComponentsInChildren<Button>(false).Single(b =>
+    b.name.StartsWith("Option") && label(b.GetComponentInChildren<Text>().text)).onClick.Invoke();
+void PickPath(string path) => Pick(label => label.EndsWith("[" + path + "]", StringComparison.Ordinal));
+void PickPart(int index) { Click("Part"); Click("Option" + index); }
+ConstructionStep Step(ConstructionOperationKind kind) => Session().Draft.Steps.Single(s => s.Operation.Kind == kind);
+string Draft() => JsonConvert.SerializeObject(Session().Draft);
+try
+{
+    Click("Page5"); Choose("StepScope", T("StepScope.Named"));
+    Choose("AddMapping", T("MotionKind.MapArtifact")); PickPath("root/entry"); PickPath("root/exit");
+    Set("OperationAt", "0.35");
+    Check(Step(ConstructionOperationKind.MapArtifact).Inputs["part"].Node == "root" &&
+        Step(ConstructionOperationKind.MapArtifact).Operation.At == .35f, "根部可绑定借用法宝，设定步骤时间");
+
+    PickPart(3); Choose("AddMapping", T("MotionKind.MapSpace")); PickPath("root/entry"); PickPath("root/exit");
+    Set("MappingRadius", "1.4");
+    Check(Step(ConstructionOperationKind.MapSpace).Inputs["part"].Node == "root/blade" &&
+        Step(ConstructionOperationKind.MapSpace).Operation.MappingRadius == 1.4f, "独立生成形体可选择两个不同的门");
+
+    PickPart(1); Choose("AddMapping", T("MotionKind.MapActor")); PickPath("root/exit");
+    string artifact = Step(ConstructionOperationKind.MapArtifact).Id;
+    Choose("StepInput.after", artifact + " · " + T("StepOutput.transferred"));
+    ToggleValue("MappingCapacityEnabled", true); Set("MappingCapacity", "3");
+    ToggleValue("MappingWaitEnabled", true); Set("MappingWaitSeconds", "0.7");
+    var actor = Step(ConstructionOperationKind.MapActor);
+    Check(actor.Inputs["part"].Node == "root/entry" && actor.Inputs["exit"].Node == "root/exit" &&
+        actor.Inputs["after"].Step == artifact && actor.Operation.MappingCapacity == 3 && actor.Operation.MappingWaitSeconds == .7f,
+        "接触入口可等待实际前序结果，设置人数和暂存");
+
+    string expected = Draft();
+    Set("MappingWaitSeconds", "3");
+    Check(Draft() == expected && ((Text)Field(editor, "state")).text.Contains("暂存时间"), "超出整招时长时拒绝并保留原草稿");
+    Action("MappingExit");
+    Check(!editor.GetComponentsInChildren<Button>(false).Any(b => b.name.StartsWith("Option") &&
+        b.GetComponentInChildren<Text>().text.EndsWith("[root/entry]", StringComparison.Ordinal)), "出口选择不把同一部位同时作为两端");
+    PickPath("root/exit");
+    Set("MappingWaitSeconds", "0.6"); Click("Undo");
+    Check(Draft() == expected, "撤销恢复完整步骤和原有引用");
+
+    await ShotRow("MappingCapacity", "mapping-cz");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page5"); await Frames(); await ShotRow("MappingCapacity", "mapping-en");
+    var steps = JsonConvert.SerializeObject(Session().Draft.Steps);
+    Click("Replace"); AbilityDefinition saved = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(JsonConvert.SerializeObject(saved.Steps) == steps && JsonConvert.SerializeObject(saved.Root) == JsonConvert.SerializeObject(definition.Root),
+        "正式保存三种步骤且未改原有部位");
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(saved.Id, source); await Frames(); Click("Page5");
+    Check(JsonConvert.SerializeObject(Session().Draft.Steps) == steps, "关闭重开保留三个双门步骤");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, steps = saved.Steps.Length };
+}
+
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}
