@@ -126,6 +126,8 @@ internal sealed class CompiledConstructionStep
     internal readonly string OperationId;
     /// <summary>只观察原定时执行，不另外派发同一操作。</summary>
     internal readonly bool Native;
+    /// <summary>空间转移实际使用的入口和出口；其他步骤为负一。</summary>
+    internal int MappingEntrance = -1, MappingExit = -1;
     /// <summary>构造只含索引和只读参数的步骤。</summary>
     /// <param name="id">稳定编号。</param><param name="node">目标部位。</param><param name="inputs">已解析输入。</param>
     /// <param name="action">共同执行参数。</param><param name="contract">共同约定。</param>

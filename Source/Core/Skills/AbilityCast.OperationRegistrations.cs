@@ -11,6 +11,17 @@ public sealed partial class AbilityCast
     /// <summary>旧专用定时入口保持原实现；所有条件及命名执行共用同一登记表。</summary>
     internal static void RegisterOperationImplementations()
     {
+        ConstructionOperations.Register(ConstructionOperationKind.MapSpace, context =>
+            {
+                float radius = context.Source.MappingRadius ?? 1f;
+                if (!(radius > 0f && radius <= 32f)) throw new InvalidDataException(context.Path + "：入口半径须大于0且不超过32");
+                return radius;
+            }, (cast, action, radius) => cast.MapSpace(action, radius), immediate: _ => true,
+            validate: (form, _, path) =>
+            {
+                if (form.BodyWindow || form.Resource.Meshes.Length == 0)
+                    throw new InvalidDataException(path + "：空间转移需要实际生成形体");
+            });
         ConstructionOperations.Register(ConstructionOperationKind.Erode,
             context => new CompiledErosion(context.Source, context.Lifetime, context.Path, context.Order),
             (cast, action, settings) => cast.StartErosion(action, settings),

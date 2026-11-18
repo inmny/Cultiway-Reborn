@@ -1,0 +1,128 @@
+AbilityDefinition Mapping(float radius = 2.5f, float angle = 90f) => new()
+{
+    Id = "test.spatial-mapping.gates", Name = "双门转移", Cost = 3, Resource = "wakan", Power = 8,
+    Cooldown = .1f, Lifetime = .85f, TargetRange = 20,
+    Impact = new ConstructionImpact { DamageScale = 1 },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = .6f },
+    Root = new ConstructionNode
+    {
+        Id = "root", Form = "pivot", ContactRole = ConstructionContactRole.Decoration, Children = new[]
+        {
+            new ConstructionNode { Id = "entrance", Form = "fireball", ContactRole = ConstructionContactRole.Decoration, Scale = .15f },
+            new ConstructionNode { Id = "exit", Form = "fireball", ContactRole = ConstructionContactRole.Decoration, Scale = .3f,
+                Offset = new[] { 11f, 0f, 0f }, Rotation = new[] { 0f, 0f, angle } },
+            new ConstructionNode { Id = "sword", Form = "sword", Matter = "iron", Scale = .55f, Offset = new[] { 1f, 0f, 0f },
+                Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Detach },
+                    new ConstructionOperation { Kind = ConstructionOperationKind.Fly, WorldVelocity = true,
+                    Vector = new[] { 4f, 0f, 0f } } } }
+        }
+    },
+    Steps = new[]
+    {
+        new ConstructionStep { Id = "cross", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.MapSpace, At = .25f, MappingRadius = radius },
+            Inputs = new() { ["part"] = new() { Node = "root/sword" }, ["entrance"] = new() { Node = "root/entrance" }, ["exit"] = new() { Node = "root/exit" } } },
+        new ConstructionStep { Id = "arrive", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Ready },
+            Inputs = new() { ["part"] = new() { Node = "root/sword" }, ["after"] = new() { Step = "cross", Output = "transferred" } } }
+    }
+};
+float[] Points(Vector3 value) => new[] { value.x, value.y, value.z };
+var visuals = new List<FormVisualInstance>();
+Matrix4x4 Sword(AbilityCast cast)
+{
+    visuals.Clear(); cast.AppendVisuals(visuals);
+    return visuals[2].Transform;
+}
+var input = new AbilityInputs(new Vector3(64, 72, 0), new Vector3(75, 74, 0), Vector3.right, 1);
+AbilityCast Probe(AbilityDefinition definition) => new(AbilityCompiler.Compile(definition, false), Matrix4x4.identity, inputs: input);
+try
+{
+    var definition = Mapping();
+    if (section != "runtime")
+    {
+        foreach (float angle in new[] { 90f, -60f })
+        {
+            var cast = Probe(Mapping(angle: angle));
+            cast.Advance(.2f, input.Target);
+            Check(cast.StepStateOf("cross") == ConstructionStepState.Waiting, "入口时点之前不提前完成");
+            var before = Sword(cast);
+            cast.Advance(.05f, input.Target);
+            Check(cast.TryGetOutput("cross", "transferred", out var result) && cast.StepStateOf("arrive") == ConstructionStepState.Completed,
+                "完成结果驱动后续命名步骤");
+            var mapped = Sword(cast);
+            Quaternion delta = Quaternion.AngleAxis(angle, Vector3.forward);
+            Vector3 expected = input.Source + new Vector3(11, 0, .6f) + delta * (Vector3.right * 2f);
+            Check(Vector3.Distance(result.Position, expected) < .01f && Vector3.Distance(mapped.GetColumn(3), expected) < .01f &&
+                  Quaternion.Angle(mapped.rotation, delta * before.rotation) < .2f && Vector3.Distance(mapped.lossyScale, before.lossyScale) < .001f &&
+                  result.Matter != null && result.Authority == result.Node && result.Volume > 0 && result.Force > 0,
+                "保留同一部位的局部偏移、朝向、尺寸和实际余量", new { angle, actual = Points(result.Position), expected = Points(expected), result.Node, result.Authority, result.Volume, result.Force });
+            cast.Advance(.1f, input.Target);
+            Vector3 velocity = ((Vector3)Sword(cast).GetColumn(3) - result.Position) / .1f;
+            Check(Vector3.Distance(velocity, delta * (4f * Vector3.right)) < .01f,
+                "出口延续同一次飞行的旋转速度", Points(velocity));
+        }
+        var missed = Probe(Mapping(.2f));
+        missed.Advance(.4f, input.Target);
+        Check(missed.StepStateOf("cross") == ConstructionStepState.Interrupted && missed.StepStateOf("arrive") == ConstructionStepState.Interrupted &&
+            !missed.TryGetOutput("cross", "transferred", out _), "不在门内时不伪造后续完成");
+        var bad = Mapping();
+        bad.Steps[0].Inputs["exit"].Node = "root/sword";
+        bool rejected = false;
+        try { AbilityCompiler.Compile(bad, false); }
+        catch (InvalidDataException) { rejected = true; }
+        Check(rejected, "主体本身不能充当出口");
+        var distance = Mapping();
+        var blade = distance.Root.Children.Last();
+        blade.Operations = blade.Operations.Append(new ConstructionOperation
+        {
+            Id = "begin-spin", Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0f, 90f },
+            When = new ConstructionCondition { Source = ".", Trigger = ConstructionChangeTrigger.DistanceFromFlightStart, Threshold = 2f }
+        }).ToArray();
+        var route = Probe(distance);
+        route.Advance(.35f, input.Target);
+        Check(!route.TryGetOperationOutput("root/sword", "begin-spin", "rotation", out _, ConstructionOutputStage.Started),
+            "跨越空隙不计入已飞距离");
+        route.Advance(.2f, input.Target);
+        Check(route.TryGetOperationOutput("root/sword", "begin-spin", "rotation", out _, ConstructionOutputStage.Started),
+            "出门后飞到真实距离仍会触发后续动作");
+        if (section == "core") return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
+    definition.Binding.Height = .25f;
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+
+    Actor source = Make(64), gap = Make(70.5f, "wolf"), arrival = Make(75, "wolf");
+    var owner = source.GetExtend();
+    owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+    Ready(source); await Advance(.15f);
+    Place(source, 64); Place(gap, 70.5f, 73); Place(arrival, 75, 74.1f);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    source.addAggro(gap); gap.addAggro(source);
+    int gapBefore = gap.data.health, arrivalBefore = arrival.data.health;
+    float beforeWakan = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, arrival);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(beforeWakan - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f, "正式施放只支付一次");
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single();
+    var real = (AbilityCast)Field(running, "Cast");
+    await Advance(.34f);
+    Check(real.TryGetOutput("cross", "transferred", out var flown), "实机正式投送已通过门");
+    var shapes = new List<AbilityCapsule>();
+    real.AppendContacts(shapes);
+    var geometry = shapes.Take(2).Select(shape => new { a = Points(shape.A), b = Points(shape.B), shape.Radius }).ToArray();
+    await Advance(.65f);
+    Check(contacts.All(c => c.TargetId != gap.id) && gap.data.health == gapBefore &&
+          contacts.Any(c => c.TargetId == arrival.id && c.OriginalSourceId == source.id && c.SourceId == source.id && c.DamageAttempted) &&
+          arrival.data.health < arrivalBefore,
+        "门间人物不受伤，出口人物由原施法者造成真实伤害",
+        new { exit = Points(flown.Position), gap = Points(gap.GetSimPos()), arrival = Points(arrival.GetSimPos()), geometry, gapBefore, gapAfter = gap.data.health, arrivalBefore, arrivalAfter = arrival.data.health,
+            contacts = contacts.Select(c => new { c.TargetId, c.Node, c.Age, position = Points(c.Position) }).ToArray() });
+    Check(endings.Any(e => e.Fact.AbilityId == definition.Id), "仍按原寿命结束");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
