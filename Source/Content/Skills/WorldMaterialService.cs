@@ -77,7 +77,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         instance = new WorldMaterialService();
         ModClass.I.GeneralLogicSystems.Add(instance);
         PatchMapBox.RegisterActionOnClearWorld(instance.Clear);
-        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("world_materials", "世界生成材料", 8,
+        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("world_materials", "世界生成材料", 9,
             _ => new Archive
             {
                 Next = nextId,
@@ -91,7 +91,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                     data.RecoveryGroups.Count > MaximumRecords) throw new InvalidDataException("世界材料集合或稳定编号超过保存范围");
             },
             migrations: new ISaveMigration[]
-                { new WorldMaterialsV1ToV2(), new WorldMaterialsV2ToV3(), new WorldMaterialsV3ToV4(), new WorldMaterialsV4ToV5(), new WorldMaterialsV5ToV6(), new WorldMaterialsV6ToV7(), new WorldMaterialsV7ToV8() }));
+                { new WorldMaterialsV1ToV2(), new WorldMaterialsV2ToV3(), new WorldMaterialsV3ToV4(), new WorldMaterialsV4ToV5(), new WorldMaterialsV5ToV6(), new WorldMaterialsV6ToV7(), new WorldMaterialsV7ToV8(), new WorldMaterialsV8ToV9() }));
     }
 
     /// <summary>世界保存的独立容器，条目逐个解释，坏条目不拖垮整个部分。</summary>

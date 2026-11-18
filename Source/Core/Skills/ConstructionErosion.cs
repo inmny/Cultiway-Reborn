@@ -18,7 +18,7 @@ public sealed class ConstructionErosion
 /// <summary>入口核对后的有限侵蚀过程。</summary>
 internal sealed class CompiledErosion
 {
-    /// <summary>沿共同世界时间推进的历时。</summary>
+    /// <summary>按常速完成需要的有效历时。</summary>
     internal readonly float Seconds;
     /// <summary>未乘材料耐受的投入份额。</summary>
     internal readonly float Fraction;
@@ -29,20 +29,19 @@ internal sealed class CompiledErosion
     /// <summary>解析实际参数，非法声明停在资料边界。</summary>
     /// <param name="source">原始操作。</param><param name="lifetime">整次上限。</param><param name="path">资料位置。</param>
     internal CompiledErosion(ConstructionOperation source, float lifetime, string path, int order = 0)
-        : this(source.Seconds, source.Erosion, source.WorldMatter == null ? lifetime : 1000000000, path, allowPace: source.WorldMatter == null)
+        : this(source.Seconds, source.Erosion, source.WorldMatter == null ? lifetime : 1000000000, path)
     { if (source.WorldMatter != null) World = new CompiledWorldMatter(source.WorldMatter, path + "/WorldMatter", order); }
 
     /// <summary>主体与独立材料共用一次参数核对。</summary>
     /// <param name="seconds">实际历时。</param><param name="source">明确份额。</param>
     /// <param name="lifetime">入口允许的最长时间。</param><param name="path">资料位置。</param>
-    internal CompiledErosion(float seconds, ConstructionErosion source, float lifetime, string path, bool allowPace = false)
+    internal CompiledErosion(float seconds, ConstructionErosion source, float lifetime, string path)
     {
         Seconds = seconds; Fraction = source?.Fraction ?? .75f;
         if (float.IsNaN(Seconds) || float.IsInfinity(Seconds) || Seconds <= 0 || Seconds > lifetime ||
             float.IsNaN(Fraction) || float.IsInfinity(Fraction) || Fraction <= 0 || Fraction > 1)
             throw new InvalidDataException(path + "：侵蚀需要有效历时及大于零且不超过一的份额");
         if (source?.TimeWindows is not { Length: > 0 }) return;
-        if (!allowPace) throw new InvalidDataException(path + "：变速时段目前用于本次生成实体的侵蚀过程");
         Pace = new CompiledProcessTime(source.TimeWindows, Seconds, lifetime, path + "/Erosion/TimeWindows");
     }
 

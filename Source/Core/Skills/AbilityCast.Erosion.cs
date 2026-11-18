@@ -56,7 +56,7 @@ public sealed partial class AbilityCast
             if (state.Erosion == null || state.ErosionProgress >= 1 || !state.Exists) continue;
             var pace = state.Erosion.Pace;
             float progress = pace == null ? Mathf.Clamp01((Age - state.ErosionAt) / state.Erosion.Seconds) :
-                Age >= state.ErosionAt + pace.Completion ? 1f :
+                Age >= state.ErosionAt + (float)pace.Completion ? 1f :
                 (float)(pace.WorkAt((double)Age - state.ErosionAt) / state.Erosion.Seconds);
             if (progress <= state.ErosionProgress) continue;
             double loss = state.Erosion.Fraction * (double)state.Matter.ErosionFactor;

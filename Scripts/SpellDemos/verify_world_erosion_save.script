@@ -19,7 +19,7 @@ try
     var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "expected.json"))); long id = (long)expected["active"];
     Check(WorldMaterialService.Count == 0, "换世界已清理原世界的独立材料和侵蚀过程");
     await Load("pending-save"); var section = Section();
-    Check((int)section["version"] == 8 && JToken.DeepEquals(Canonical(section), Canonical((JObject)expected["section"])),
+    Check((int)section["version"] == 9 && JToken.DeepEquals(Canonical(section), Canonical((JObject)expected["section"])),
         "正式中途保存恢复稳定身份、来源、体积、本金、阶段及原进度");
     double left = (double)Records().Single(value => (long)value["Id"] == id)["Material"]["Volume"];
     await Advance(.3f); var progressed = Records().Single(value => (long)value["Id"] == id)["Material"].ToObject<AbilityMaterialData>();
@@ -40,7 +40,7 @@ try
         "坏侵蚀进度仅丢弃受影响材料并报告，其他材料继续加载");
     var legacy = JObject.Parse(File.ReadAllText(Path.Combine(folder, "legacy.json")));
     await Load("legacy-world");
-    Check((int)Section()["version"] == 8 && JToken.DeepEquals(Canonical(Section()), Canonical((JObject)legacy["section"])) &&
+    Check((int)Section()["version"] == 9 && JToken.DeepEquals(Canonical(Section()), Canonical((JObject)legacy["section"])) &&
         Records().All(value => value["Material"]["Erosion"] == null && value["Material"]["Weathering"] == null),
         "实际旧6区段原样升级，原材料、身份及已确认回收保持，旧材料缺省没有侵蚀");
     File.WriteAllText(Path.Combine(folder, "loaded-legacy.json"), Section().ToString(Formatting.Indented));

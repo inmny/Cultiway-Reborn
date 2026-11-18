@@ -506,7 +506,8 @@ public sealed partial class AbilityMaterial
         if (!Finite(weathering.Exposure) || weathering.Exposure < 0 || weathering.Exposure > 1 ||
             !Finite(weathering.LostVolume) || weathering.LostVolume < 0 || !Finite(weathering.SpentResource) || weathering.SpentResource < 0)
             throw new InvalidDataException("世界材料的累计侵蚀份额无效");
-        data.Erosion?.Validate(matter, flow?.Volume ?? data.Volume);
+        MaterialErosionProcess erosion = data.Erosion ?? default;
+        if (data.Erosion.HasValue) erosion.Validate(matter, flow?.Volume ?? data.Volume);
         if (!Finite(burning.Heat) || burning.Heat < 0 || !Finite(burning.Fuel) || burning.Fuel < 0 ||
             !Finite(burning.Burned) || burning.Burned < 0 || burning.Source < 0 ||
             !Finite(burning.X) || !Finite(burning.Y) || !Finite(burning.Z) ||
@@ -520,7 +521,7 @@ public sealed partial class AbilityMaterial
         return new AbilityMaterial(form, matter, matrix, skin, pose?.Bounds,
             shapes, data.Surface, data.Dye == null ? null : new Color(data.Dye[0], data.Dye[1], data.Dye[2]),
             flow?.Volume ?? data.Volume, data.Resource, flow, burning, data.ShapeHeld, data.BuildProgress)
-        { Weathering = weathering, Erosion = data.Erosion ?? default };
+        { Weathering = weathering, Erosion = erosion };
     }
 
     /// <summary>按当前资源与同一骨架重建选择形状，更新模型后不保留一套过时判定。</summary>
