@@ -22,12 +22,13 @@ public static partial class AbilityCompiler
             names.Add(sources[i].Id, i);
         }
         var visiting = new byte[sources.Length]; var compiled = new CompiledConstructionStep[sources.Length][]; var sorted = new List<CompiledConstructionStep>();
+        var dependencyChain = new List<int>();
         var native = CompileNativeOutputs(definition, nodes, sorted);
         if (sources.Length == 0) return sorted.ToArray();
         for (int i = 0; i < sources.Length; i++) Visit(i);
         foreach (var node in nodes.Where(node => node.FlowSettings != null))
         {
-            if (node.Resource.Meshes.Length == 0 || node.Fracture != null) Fail(node.Path, "流散需要真实生成几何，不能在同一部位同时保留固定碎片");
+            if (node.Resource.Meshes.Length == 0) Fail(node.Path, "流散需要真实生成几何");
             foreach (var flight in node.EventOperations.Select(op => op.Flight).Append(node.FlowAt < 0 || node.FlyAt > node.FlowAt ? node.Flight : null).Where(flight => flight != null))
                 if (flight.Path != null || flight.Velocity.z != 0 || flight.Acceleration.z != 0) Fail(node.Path, "浅层流散只支持水平投送，不能以三维路径代替真实水格");
         }
@@ -38,8 +39,13 @@ public static partial class AbilityCompiler
             if (visiting[index] == 2) return compiled[index];
             ConstructionStep source = sources[index]; string path = "Steps/" + source.Id;
             if (source.Operation?.Id != null) Fail(path, "Steps操作使用外层步骤名称，不能再声明部位操作名称");
-            if (visiting[index] == 1) Fail(path, "输出引用形成循环");
+            if (visiting[index] == 1)
+            {
+                string[] cycle = dependencyChain.SkipWhile(item => item != index).Append(index).Select(item => sources[item].Id).ToArray();
+                throw ConstructionReferences.Error(path, "输出引用形成循环：" + string.Join(" → ", cycle), related: "Steps/" + cycle[cycle.Length - 2]);
+            }
             visiting[index] = 1;
+            dependencyChain.Add(index);
             if (source.Inputs == null || !source.Inputs.ContainsKey("part")) Fail(path, "缺少实际part输入");
             ConstructionOperationContract contract = ConstructionOperations.Resolve(source.Operation, path, bound: true);
             ConstructionOperation operation = source.Operation;
@@ -93,20 +99,17 @@ public static partial class AbilityCompiler
                     Fail(path, "世界操作需要实际生成主体，空支点不能制造材料或回能");
                 if (operation.WorldMatter != null && operation.Kind == ConstructionOperationKind.ConvertMatter && AbilityMatters.Resolve(operation.Matter, operation.State, path).State is not ("liquid" or "solid"))
                     Fail(path, "世界材料转换需要明确的液态或固态输出");
-                if (operation.Kind == ConstructionOperationKind.Recover && (node.Recovery != null || node.EventOperations.Any(op => op.Recovery != null))) Fail(path, "同一部位只能声明一套真实收束");
+                CheckProcessConflict(node, operation.Kind, path);
                 if (operation.Kind == ConstructionOperationKind.Leave)
                 {
-                    if (node.Residue != null) Fail(path, "同一部位只能交给世界一次");
                     node.Residue = new CompiledResidue(operation.Residue, path);
                 }
                 if (operation.Kind == ConstructionOperationKind.Fracture)
                 {
-                    if (node.Fracture != null) Fail(path, "同一主体只能声明一套真实分件");
                     node.Fracture = new CompiledFracture(operation.Fracture, node.Resource, node.ContactRole, definition.Lifetime, path);
                     int start = nodes.Count; AppendFragments(node, target, definition.Lifetime, nodes);
                     for (int n = start; n < nodes.Count; n++) paths.Add(nodes[n].Path, n);
                 }
-                if (operation.Kind == ConstructionOperationKind.Flow && node.FlowSettings != null) Fail(path, "同一部位只能声明一套实际流散");
                 var original = node.FragmentSource < 0 ? Declaration(definition.Root, node.DeclarationPath) : new ConstructionNode { Id = node.Path, Rotation = VectorArray(node.Rotation.eulerAngles) };
                 var action = new CompiledEventOperation(operation, ReadVector(operation.Vector, path), definition.Lifetime, path, node.Resource, original, node.Fracture, bound: true, order: original.Operations.Length + index)
                 { Step = sorted.Count };
@@ -141,9 +144,10 @@ public static partial class AbilityCompiler
                     }
                 }
                 node.EventOperations = node.EventOperations.Concat(new[] { action }).ToArray();
-                node.Operations = node.Operations.Concat(new[] { new CompiledOperationRequirement(node.Path, original.Operations.Length + index, operation, contract) }).ToArray();
+                node.Operations = node.Operations.Concat(new[] { new CompiledOperationRequirement(node.Path, original.Operations.Length + index, operation, contract, path) }).ToArray();
                 result.Add(step); sorted.Add(step);
             }
+            dependencyChain.RemoveAt(dependencyChain.Count - 1);
             compiled[index] = result.ToArray(); visiting[index] = 2; return compiled[index];
         }
 

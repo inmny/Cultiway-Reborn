@@ -651,7 +651,13 @@ public static partial class AbilityCompiler
         CompiledConstructionStep[] steps = CompileSteps(definition, nodes);
         foreach (var node in nodes)
         {
-            foreach (var action in node.EventOperations) action.Implementation.ValidateTarget(node, action, action.Path);
+            CheckRayMotionConflict(node);
+            foreach (var action in node.EventOperations)
+                ConstructionReferences.Resolve(action.Path, () =>
+                {
+                    action.Implementation.ValidateTarget(node, action, action.Path);
+                    return true;
+                });
             node.HasRay = node.EventOperations.Any(action => action.Ray != null);
             if (node.FragmentSource < 0 && (node.Flight?.Ground is ConstructionGroundResponse.Stop or ConstructionGroundResponse.Follow or ConstructionGroundResponse.End ||
                 node.EventOperations.Any(action => action.Flight?.Ground is ConstructionGroundResponse.Stop or ConstructionGroundResponse.Follow or ConstructionGroundResponse.End)))
@@ -832,7 +838,7 @@ public static partial class AbilityCompiler
             SourceLoss = node.SourceLoss,
             Active = new Vector2(node.ActiveFrom, node.ActiveUntil < 0 ? lifetime : node.ActiveUntil)
         };
-        var used = new HashSet<ConstructionOperationKind>();
+        var used = new Dictionary<ConstructionOperationKind, string>();
         var operationIds = new HashSet<string>(StringComparer.Ordinal);
         if (!Finite(compiled.Volume) || compiled.Volume < 0 || compiled.Volume > 1000000f) Fail(path, "体积须为0至一百万的有限数");
         var changes = new List<CompiledMatterChange>();
@@ -846,13 +852,19 @@ public static partial class AbilityCompiler
                 Fail(operationPath, "原操作输出名称为空或重复");
             if (operation?.Id != null) compiled.HasNamedOperations = true;
             ConstructionOperationContract contract = ConstructionOperations.Resolve(operation, operationPath);
+            CheckProcessConflict(compiled, operation.Kind, operationPath);
             compiled.Operations[operationIndex] =
-                new CompiledOperationRequirement(path, operationIndex, operation, contract);
+                new CompiledOperationRequirement(path, operationIndex, operation, contract, operationPath);
             bool direct = ConstructionOperations.Implementation(operation.Kind).Direct;
-            if (operation.When == null && direct && operation.Kind != ConstructionOperationKind.ConvertMatter &&
-                !used.Add(operation.Kind) || !Finite(operation.At) || operation.At < 0 || operation.At > lifetime ||
+            if (operation.When == null && direct && operation.Kind != ConstructionOperationKind.ConvertMatter)
+            {
+                if (used.TryGetValue(operation.Kind, out string previous))
+                    ProcessConflict(compiled, operationPath, previous, "同一部位不能有两项相同的定时操作");
+                used.Add(operation.Kind, operationPath);
+            }
+            if (!Finite(operation.At) || operation.At < 0 || operation.At > lifetime ||
                 !Finite(operation.Seconds) || !Finite(operation.TurnRate) || operation.TurnRate < 0)
-                Fail(operationPath, "操作重复或时间无效");
+                Fail(operationPath, "操作时点、历时或转速无效");
             Vector3 vector = ReadVector(operation.Vector, operationPath + "/Vector");
             if (operation.WorldMatter != null)
             {
@@ -864,8 +876,8 @@ public static partial class AbilityCompiler
 
             if (operation.Kind == ConstructionOperationKind.Leave)
             {
-                if (resource.Meshes.Length == 0 || compiled.Residue != null) Fail(path, "留置需要实际生成主体，同部位只声明一次");
-                compiled.Residue = new CompiledResidue(operation.Residue, path);
+                if (resource.Meshes.Length == 0) Fail(operationPath, "留置需要实际生成主体");
+                compiled.Residue = new CompiledResidue(operation.Residue, operationPath);
                 if (operation.When == null) compiled.LeaveAt = operation.At;
             }
 
@@ -873,14 +885,10 @@ public static partial class AbilityCompiler
                 Fail(path, "导电需要真实生成部位选择触水入口");
             if (operation.Kind == ConstructionOperationKind.Recover && resource.Meshes.Length == 0)
                 Fail(path, "收束需要实际生成主体，空连接点与借用身体不能回能");
-            if (operation.Kind == ConstructionOperationKind.Flow &&
-                (compiled.Flow != null || reactions.Any(reaction => reaction.Flow != null)))
-                Fail(path, "同一部位只能声明一套流散参数");
             if (operation.Kind == ConstructionOperationKind.Fracture)
             {
-                if (compiled.Fracture != null) Fail(path, "同一主体只能声明一套碎片");
                 compiled.Fracture =
-                    new CompiledFracture(operation.Fracture, resource, node.ContactRole, lifetime, path);
+                    new CompiledFracture(operation.Fracture, resource, node.ContactRole, lifetime, operationPath);
                 if (operation.When == null) compiled.FractureAt = operation.At;
             }
 
@@ -994,7 +1002,6 @@ public static partial class AbilityCompiler
                 Fail(path, "浅层流散的后续投送当前支持水平速度、追踪及加速度，三维曲面投送继续待办");
         }
 
-        if (compiled.FlowSettings != null && compiled.Fracture != null) Fail(path, "动态流散与固定模型分件尚未提供同一部位的转换，请用真实结束后段交接");
         if (compiled.HasGround && resource.Contacts.Length == 0) Fail(path, "地面停止需要实际作用形状，空支点或纯显示不能冒充触地");
         if (!string.IsNullOrEmpty(node.ActiveFromMarker) || !string.IsNullOrEmpty(node.ActiveUntilMarker))
         {
@@ -1090,7 +1097,7 @@ public static partial class AbilityCompiler
     /// <summary>给出具体不成立的结构，禁止静默替换成旧技能。</summary>
     /// <param name="path">部位路径。</param>
     /// <param name="reason">缺失内容。</param>
-    private static void Fail(string path, string reason) => throw new InvalidDataException(path + "：" + reason);
+    private static void Fail(string path, string reason) => throw ConstructionReferences.Error(path, reason);
 
     /// <summary>世界卸载时清除计划，现有施放仍持有自己开始时的计划。</summary>
     public static void Clear()

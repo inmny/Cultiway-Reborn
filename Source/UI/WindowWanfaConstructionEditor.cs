@@ -112,6 +112,9 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
         BindText(copyButton.GetComponentInChildren<Text>(), "LearnCopy");
         BindText(replaceButton.GetComponentInChildren<Text>(), "Replace");
         BindText(close.GetComponentInChildren<Text>(), "Close");
+        locateIssueButton = UiElements.CreateButton(footer.transform, "LocateIssue", T("LocateIssue"), 88f, 22f, LocateIssue);
+        BindText(locateIssueButton.GetComponentInChildren<Text>(), "LocateIssue");
+        locateIssueButton.gameObject.SetActive(false);
         BindText((Text)nameInput.placeholder, "Name");
         UiTooltip.Set(undoButton.gameObject, "Cultiway.Construction.Undo", "Cultiway.Construction.Undo");
         UiTooltip.Set(redoButton.gameObject, "Cultiway.Construction.Redo", "Cultiway.Construction.Redo");
@@ -177,7 +180,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
             UiElements.SetButtonLabel(learnerButton, HasLearner ? string.Format(T("Learner"), learner.getName()) : T("ChooseLearner"));
             UiElements.SetButtonLabel(partButton, parts.Count == 0 ? T("BodyOnly") : PartName(part));
             partButton.interactable = parts.Count > 0;
-            valid = false; previewPlan = null; state.text = "";
+            valid = false; previewPlan = null; state.text = ""; ClearConstructionIssue();
             try
             {
                 CompiledAbility plan = previewPlan = access.Validate(session.Draft);
@@ -190,7 +193,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
             }
             catch (Exception error) when (error is InvalidDataException or IOException or ArgumentException)
             {
-                state.text = string.Format(T("Invalid"), error.Message);
+                ShowConstructionIssue(error);
                 summary.text = T("InvalidSummary");
                 UiTooltip.Clear(summary.gameObject);
             }
@@ -262,7 +265,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
             WorldTip.showNow(T("Applied"), false, "top", 2f);
         }
         catch (Exception error) when (error is InvalidDataException or IOException or ArgumentException or InvalidOperationException)
-        { state.text = string.Format(T("Invalid"), error.Message); state.color = UiTheme.Current.Palette.Error; }
+        { ShowConstructionIssue(error); }
     }
 
     /// <summary>通过明确的放弃动作关闭，或继续编辑。</summary>
@@ -278,7 +281,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
     /// <summary>释放编辑绑定和历史，不在正常关闭后保留人物引用。</summary>
     private void ReleaseDraft()
     {
-        session = null; previewPlan = null; learner = null; learnerId = 0;
+        session = null; previewPlan = null; learner = null; learnerId = 0; ClearConstructionIssue();
         undo.Clear(); redo.Clear(); parts.Clear(); rows.Clear(); menu.Clear();
     }
 

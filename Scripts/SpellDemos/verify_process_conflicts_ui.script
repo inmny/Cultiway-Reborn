@@ -1,0 +1,127 @@
+// 普通操作与命名步骤作用于三层部位，玩家修正后保留原来的声明顺序。
+const string leafPath = "root/branch/leaf";
+const string oldProcess = leafPath + "/Operations[2]";
+ConstructionOperation Convert(string id, float at, string matter, string state) => new ConstructionOperation
+{ Id = id, Kind = ConstructionOperationKind.ConvertMatter, At = at, Matter = matter, State = state };
+ConstructionOperation Recover(ConstructionCondition when = null) => new ConstructionOperation
+{ Kind = ConstructionOperationKind.Recover, At = 1.15f, Seconds = .6f, When = when, Recovery = new ConstructionRecovery { Efficiency = .75f } };
+ConstructionStep Step(string id, string matter, string state, ConstructionOutputReference after) => new ConstructionStep
+{
+    Id = id, Operation = Convert(null, .65f, matter, state),
+    Inputs = new Dictionary<string, ConstructionOutputReference>
+    { ["part"] = new ConstructionOutputReference { Node = leafPath, Output = "part" }, ["after"] = after }
+};
+var leaf = new ConstructionNode
+{
+    Id = "leaf", Form = "sword", Matter = "wood", Volume = 4, FollowMatter = true,
+    ContactRole = ConstructionContactRole.Decoration,
+    Operations = new[] { Convert("heat", .25f, "iron", "liquid"), Convert("cold", .25f, "water", "solid"), Recover() }
+};
+var original = new AbilityDefinition
+{
+    Id = "test.process-conflicts.nested", Name = "嵌套剑胚", Cost = 2, Resource = "wakan", Cooldown = .1f, Power = 3,
+    Lifetime = 2.5f, TargetRange = 16,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+    Root = new ConstructionNode { Id = "sword", Form = "sword", Volume = 4, ContactRole = ConstructionContactRole.Decoration,
+        Children = new[] { new ConstructionNode { Id = "branch", Form = "sword", Volume = 4, ContactRole = ConstructionContactRole.Decoration, Children = new[] { leaf } } } },
+    Steps = new[]
+    {
+        Step("last", "water", "liquid", new ConstructionOutputReference { Step = "middle", Output = "converted", Stage = ConstructionOutputStage.Completed }),
+        Step("middle", "wood", "solid", new ConstructionOutputReference { Node = leafPath, Operation = "cold", Output = "converted", Stage = ConstructionOutputStage.Completed })
+    }
+};
+string DescribeFailure(AbilityDefinition value)
+{
+    try { AbilityCompiler.Compile(value); }
+    catch (InvalidDataException error) { return error.Message; }
+    return "";
+}
+ConstructionNode Leaf(AbilityDefinition value) => value.Root.Children.Single().Children.Single();
+string Sequence(AbilityDefinition value) => string.Join(",", Leaf(value).Operations.Select(op => op.Id ?? op.Kind.ToString())) +
+    ";" + string.Join(",", value.Steps.Select(step => step.Id));
+var ray = ConstructionEditing.Copy(original);
+Leaf(ray).Form = "spirit_ray";
+Leaf(ray).Operations = new[]
+{
+    new ConstructionOperation { Kind = ConstructionOperationKind.Ray, Ray = new ConstructionRay { Length = 8 } },
+    new ConstructionOperation { Kind = ConstructionOperationKind.Leave, At = 1.1f, Residue = new ConstructionResidue { Lifetime = 30 } }
+};
+ray.Steps = Array.Empty<ConstructionStep>();
+string incompatible = DescribeFailure(ray);
+Check(incompatible.Contains(leafPath + "/Operations[0]") && incompatible.Contains(leafPath + "/Operations[1]") && incompatible.Contains("射线"),
+    "原本互斥的射线与留置也给出两项实际声明", incompatible);
+if (!saveOnly)
+{
+    var repeated = ConstructionEditing.Copy(original);
+    Leaf(repeated).Operations = Leaf(repeated).Operations.Append(Recover(new ConstructionCondition())).ToArray();
+    string duplicate = DescribeFailure(repeated);
+    Check(duplicate.Contains(oldProcess) && duplicate.Contains(leafPath + "/Operations[3]"),
+        "定时和事件收束共用同一独占检查，给出两项原始位置", duplicate);
+    var cycle = ConstructionEditing.Copy(original);
+    cycle.Steps[1].Inputs["after"] = new ConstructionOutputReference { Step = "last", Output = "converted", Stage = ConstructionOutputStage.Completed };
+    string cyclic = DescribeFailure(cycle);
+    Check(cyclic.Contains("last → middle → last"), "循环提示展示实际依赖链", cyclic);
+}
+
+Actor source = Make(64); var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+ConstructedAbilityService.Register(original); ConstructedAbilityService.Learn(owner, original.Id);
+string formalBefore = JsonConvert.SerializeObject(ConstructionEditing.Access.Read(original.Id));
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(original.Id, source);
+// COMMON_CONTROLS
+
+string C() => ((Text)Field(editor, "state")).text;
+void Option(string text) => editor.GetComponentsInChildren<Button>(false)
+    .Single(b => b.name.StartsWith("Option") && b.GetComponentInChildren<Text>().text == text).onClick.Invoke();
+void Part(int index)
+{
+    Click("Part");
+    Option((string)typeof(WindowWanfaConstructionEditor).GetMethod("PartName", F).Invoke(editor, new object[] { index }));
+}
+void Locate(string label, string location) { Click("LocateIssue"); Option(string.Format(T(label), location)); }
+int Value(string field) => (int)Field(editor, field);
+try
+{
+    if (!saveOnly)
+    {
+        Click("Page5"); Part(2);
+        Choose("StepScope", T("StepScope.Named"));
+        Choose("AddStep", T("MotionKind.Recover"));
+        Check(!B("LearnCopy").interactable && C().Contains(leafPath) && C().Contains("Steps/step") && C().Contains(oldProcess) &&
+              JsonConvert.SerializeObject(ConstructionEditing.Access.Read(original.Id)) == formalBefore,
+            "重复收束无法保存，提示包含实际嵌套部位和两项原始声明，正式法术不变", C());
+        Click("Page0"); Part(0);
+        Locate("IssueRelated", oldProcess);
+        Check(Value("page") == 5 && Value("part") == 2 && Value("operationScope") == 0 && Value("nativeChoice") == 2,
+            "从其他页能跳往嵌套部位已有的普通收束");
+        await ShotRow("RemoveNativeOperation", "conflict-cz");
+        Locate("IssueCurrent", "Steps/step");
+        Check(Value("page") == 5 && Value("part") == 2 && Value("operationScope") == 1 && Value("stepChoice") == 2,
+            "能跳往新增的命名步骤查看与修改");
+        LocalizedTextManager.instance.setLanguage("en"); Click("Page5");
+        await ShotRow("RemoveStep", "conflict-en");
+        Click("Undo");
+        Check(B("LearnCopy").interactable && Sequence(Session().Draft) == Sequence(original),
+            "撤销重复收束后草稿恢复，其他声明次序保留");
+    }
+    Click("Page0"); Set("Cost", "3");
+    Check(Session().Draft.Cost == 3, "有效修改保留玩家明确选择的消耗");
+    Click("LearnCopy");
+    var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(saved.Id != original.Id && saved.Cost == 3 && Sequence(saved) == Sequence(original) &&
+          JsonConvert.SerializeObject(ConstructionEditing.Access.Read(original.Id)) == formalBefore,
+        "正式副本沿用合法声明顺序，原术保持原样");
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(saved.Id, source); await Frames();
+    Check(Session().Draft.Cost == 3 && Sequence(Session().Draft) == Sequence(original), "重新打开保留明确消耗和原来的声明次序");
+    File.WriteAllText(Path.Combine(folder, "edited.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    return new { passed = true, saved = saved.Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; LocalizedTextManager.instance.setLanguage("cz");
+}

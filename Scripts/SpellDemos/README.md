@@ -2067,3 +2067,8 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 8.07 材料改造、实际伤害与独立染色
 
 通过独立游戏运行 `dev.py exec --timeout 235 -- python3 Scripts/SpellDemos/verify_matter_edit.py ui`，在万法阁保存只染色和真实换材两份成品。接着用 `world --state <ui输出目录>` 验证原术和仅染色成品的火伤、换材成品冻结前后的水伤与冰伤、实际表面与留置。退出并重新启动独立游戏，再用 `restart --state <world输出目录>` 打开正式档。输出目录位于每次启动的 `output/matter-edit` 下，各段结果单独保留。
+
+
+### 8.08 多项改造与冲突定位
+
+启动独立游戏后运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_process_conflicts.py ui`，验证三层部位上的冲突、两个跳转入口、撤销和重新打开。接着把返回的 `output` 传给 `world --state <输出目录>`，验证同一成品的扣费、普通声明和实际依赖次序及正常结束。`save` 可单独补跑保存与重开。首次实际验证保留了点错页签的失败记录，保存与施放由随后两段分别补齐。
