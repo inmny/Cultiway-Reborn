@@ -1,0 +1,159 @@
+// 5.18 A：复用已验证的足底入口，检查真实路径到达如何驱动普通部位及操作。
+for (int x = 60; x <= 86; x++)
+for (int y = 60; y <= 85; y++)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    if (tile.building != null) tile.building.removeBuildingFinal();
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+}
+Actor source = Make(64), target = Make(79);
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000f });
+var aim = new Vector3(65f, 72f, 0f);
+void QuietEnded(ConstructedCastEnded fact)
+{
+    if (fact.SourceId != source.id || !fact.AbilityId.StartsWith("test.ground-route.")) return;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+    ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+}
+
+var definition = BodyActionCatalog.Create("test.ground-route.arrival", "霜脉到达",
+    new BodyActionRequest { Kind = BodyActionKind.Guard, Effector = "foot.right", Seconds = 1.2f });
+definition.Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point };
+definition.Resource = "wakan"; definition.Cost = 9f; definition.Cooldown = 0f; definition.Lifetime = 3f;
+definition.Body.Impact = new ConstructionImpact { DamageScale = 0f };
+definition.Body.ActiveFrom = .45f; definition.Body.ActiveUntil = .65f; definition.Body.MatchDistance = false;
+foreach (BodyMotionKey key in definition.Body.Keys) { key.Foot = new[] { .1f, key.Foot[1], 0f }; key.Torso = new[] { 0f, 0f, -.12f }; }
+definition.Impact = new ConstructionImpact { DamageScale = 0f };
+ConstructionNode Marker(string id, float distance) => new ConstructionNode
+{
+    Id = id, Form = "sword", ContactRole = ConstructionContactRole.Decoration,
+    Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.GroundRouteDistance, Threshold = distance }
+};
+definition.Root = new ConstructionNode
+{
+    Id = "front", Form = "fracture_slab", Matter = "ice",
+    Activation = new ConstructionActivation { Source = "body", Trigger = ConstructionChangeTrigger.WorldContact },
+    Operations = new[]
+    {
+        new ConstructionOperation { Kind = ConstructionOperationKind.Propagate,
+            Propagation = new ConstructionPropagation { Range = 12f, Speed = 8f, Seconds = .6f, Height = 1f, Angle = 1f, MaximumCells = 128 } },
+        new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "water",
+            When = new ConstructionCondition { Trigger = ConstructionChangeTrigger.GroundRouteDistance, Threshold = 3f } },
+        new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "ice", At = .65f }
+    },
+    Children = new[] { Marker("near", 3f), Marker("far", 7f) }
+};
+
+AbilityCast Live() => (AbilityCast)Field(((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Single(c => ((AbilityCast)Field(c, "Cast")).Plan.Id == definition.Id), "Cast");
+
+async Task Begin(string suffix)
+{
+    definition.Id = "test.ground-route." + suffix;
+    Place(source, 64); Ready(source);
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, target, aim: aim, aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(balance - owner.GetCultisys<Xian>().wakan == 9f, "地波与后续部分只支付一次整招费用");
+}
+
+(float At, Vector3 Point) Expected(AbilityCast cast, float threshold)
+{
+    object wave = ((Array)Field(cast, "propagations")).GetValue(0);
+    var first = ((Array)Field(wave, "Route")).Cast<object>().First(c => (float)Field(c, "Distance") >= threshold);
+    return ((float)Field(wave, "StartedAt") + (float)Field(first, "At"),
+        new Vector3((int)Field(first, "X") + .5f, (int)Field(first, "Y") + .5f, 0f));
+}
+
+void CheckMarker(AbilityCast cast, int node, (float At, Vector3 Point) expected, string name)
+{
+    float actualAt = cast.Age - cast.NodeAge(node);
+    Vector3 p = cast.ContactOrigin(node);
+    Check(cast.NodeAge(node) >= 0f && Math.Abs(actualAt - expected.At) < .009f &&
+        (p - expected.Point).sqrMagnitude < .0001f, name,
+        new { actualAt, expectedAt = expected.At, point = new[] { p.x, p.y, p.z },
+            expectedPoint = new[] { expected.Point.x, expected.Point.y, expected.Point.z } });
+}
+
+ConstructedAbilityService.CastEnded += QuietEnded;
+try
+{
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    if (section is "all" or "arrival")
+    {
+        var bad = ConstructionEditing.Copy(definition);
+        bad.Root.Operations = bad.Root.Operations.Skip(1).ToArray();
+        string rejected = null;
+        try { AbilityCompiler.Compile(bad, false); }
+        catch (InvalidDataException ex) { rejected = ex.Message; }
+        Check(rejected?.Contains("地波路程条件") == true, "编译拒绝没有真实传播的到达来源", rejected);
+
+        await Begin("arrival"); await Advance(.68f);
+        var cast = Live(); var near = Expected(cast, 3f); var far = Expected(cast, 7f);
+        Check(cast.Age < near.At && cast.NodeAge(1) < 0f && cast.NodeAge(2) < 0f && cast.Matter(0).Id == "ice",
+            "地波开始后仍要实际走完路程，部位和操作都不提前", new { cast.Age, near.At });
+        var save = typeof(AbilityCast).GetMethod("SaveStep", F);
+        var restore = typeof(AbilityCast).GetMethod("RestoreStep", F);
+        float age = cast.Age, force = cast.RemainingForce(0);
+        save.Invoke(cast, null);
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            // 小步预测沿用真实路线的到达边界；操作与出生也必须随快照一起回退。
+            try
+            {
+                while (cast.Age < near.At + .015f) cast.Advance(.004f, aim);
+                CheckMarker(cast, 1, near, "预测先到近段且使用该格中心");
+                Check(cast.Matter(0).Id == "water" && cast.NodeAge(2) < 0f, "预测只接受到达的换材操作");
+            }
+            finally { restore.Invoke(cast, null); }
+            Check(cast.Age == age && cast.RemainingForce(0) == force && cast.NodeAge(1) < 0f && cast.Matter(0).Id == "ice",
+                "回退恢复到达界线、换材、部位及已扣力量");
+        }
+        await Advance(.29f);
+        CheckMarker(cast, 1, near, "正式运行先在近段实际地块开启部位");
+        Check(cast.Matter(0).Id == "water" && cast.NodeAge(2) < 0f, "近段同时触发操作，远段继续等待");
+        await Advance(.62f);
+        CheckMarker(cast, 2, far, "远段按后续真实到达时点和位置开启");
+        CheckMarker(cast, 1, near, "后续地块到达没有重复开启近段");
+        Check(cast.Matter(0).Id == "ice", "后续普通换材没有被已用完的到达操作覆盖");
+        await Advance(2f);
+        Check(endings.Any(e => e.Fact.AbilityId == definition.Id && !e.Fact.Cancelled), "正常施放到时自然结束");
+    }
+
+    if (section is "all" or "interruption")
+    {
+        await Begin("broken"); await Advance(.96f);
+        var cast = Live(); var near = Expected(cast, 3f); var far = Expected(cast, 7f);
+        CheckMarker(cast, 1, near, "断路之前近段已按实际距离出现");
+        Check(cast.Age < far.At && cast.NodeAge(2) < 0f && near.Point.x < 70f && far.Point.x > 70f,
+            "水隙设在近段与仍未到达的远段之间", new { cast.Age, far.At, nearX = near.Point.x, farX = far.Point.x });
+        for (int y = 60; y <= 85; y++) World.world.GetTileSimple(70, y).setTileTypes(TileLibrary.deep_ocean, null);
+        await Advance(.72f);
+        Check(cast.NodeAge(1) >= 0f && cast.NodeAge(2) < 0f, "途中真实断路保留已发生的近段，远段不补发");
+        await Advance(1.9f);
+        Check(cast.NodeAge(2) < 0f && endings.Any(e => e.Fact.AbilityId == definition.Id && !e.Fact.Cancelled),
+            "断路后到整招结束仍不补发，也不留下运行中的地波");
+        for (int y = 60; y <= 85; y++) World.world.GetTileSimple(70, y).setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+
+        // 使用同一个编号重新付费施放，确认断路记录没有泄漏到下次。
+        await Begin("broken"); await Advance(1.65f);
+        cast = Live(); CheckMarker(cast, 2, Expected(cast, 7f), "接回地面后同一招再次正式施放可达远段");
+        await Advance(2f);
+
+        await Begin("cancelled"); await Advance(.68f);
+        cast = Live(); cast.Cancel(); await Advance(.8f);
+        Check(cast.NodeAge(1) < 0f && cast.NodeAge(2) < 0f && endings.Any(e => e.Fact.AbilityId == definition.Id && e.Fact.Cancelled),
+            "确认到达前取消，不产生延迟开启");
+    }
+
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= QuietEnded;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "ended.json"), JsonConvert.SerializeObject(endings.Select(e => e.Fact), Formatting.Indented));
+}

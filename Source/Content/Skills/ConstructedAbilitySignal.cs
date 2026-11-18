@@ -42,7 +42,9 @@ public sealed partial class ConstructedAbilityService
                                previous.GetComponent<StatusComponent>().SourceActorId == sender.Id;
         var received = CombatStatusEffects.ApplyContactStatus(target, signal.Asset, duration, sender.Actor,
             sender.Damage.AttackerPowerLevel ?? 0f, ConstructionStatusApplication.Refresh, null);
-        if (!received.IsNull && !received.Tags.Has<TagRecycle>() && !alreadyReceived)
-            SignalReceived?.Invoke(new ConstructedSignalReceipt(running.Id, sender.Id, target.id, signal.Kind, simulation.contactTime));
+        if (received.IsNull || received.Tags.Has<TagRecycle>() || alreadyReceived) return;
+        StartingPose(target, out Vector3 point, out _);
+        running.Cast.ConfirmNetworkArrival(node, ConstructionChangeTrigger.SignalDelivery, point);
+        SignalReceived?.Invoke(new ConstructedSignalReceipt(running.Id, sender.Id, target.id, signal.Kind, simulation.contactTime));
     }
 }

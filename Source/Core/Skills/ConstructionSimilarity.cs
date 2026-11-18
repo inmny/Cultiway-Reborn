@@ -112,7 +112,9 @@ public sealed class ConstructionSimilarity
                 if (operation["When"] is JObject condition)
                 {
                     int index = eventIndex++;
-                    Condition(condition, actual.Select(form => form.EventOperations[index].When.Source));
+                    // 定时执行的运行操作与步骤也在同一表中；这里只对应声明中的条件操作。
+                    Condition(condition, actual.Select(form => form.EventOperations
+                        .Where(item => item.Step < 0 && item.When != null).ElementAt(index).When.Source));
                 }
 
             foreach (JObject child in (JArray)node["Children"])

@@ -878,7 +878,7 @@ public sealed partial class AbilityCast
         ApplyPendingOperations(i);
         if (propagations?[i] is AbilityPropagation wave)
         {
-            if (!state.MovementStopped) ConsumeForce(i, wave.Advance(Age - wave.StartedAt, propagationGround));
+            if (!state.MovementStopped) AdvancePropagation(i, wave);
             if (wave.Age >= wave.Until) EndNode(i);
         }
         if (state.Leaving)
@@ -1282,7 +1282,9 @@ public sealed partial class AbilityCast
     /// <summary>真实交锋消耗本部位，归零时连同仍附着的子结构结束。</summary>
     /// <param name="node">实际承受消耗的部位。</param>
     /// <param name="amount">实际吸收或抵消量。</param>
-    internal void ConsumeForce(int node, float amount)
+    /// <param name="wave">确实消耗本次作用量的地波；其他消耗为空。</param>
+    /// <param name="firstArrival">地波本步第一个新到达格的路线位置。</param>
+    internal void ConsumeForce(int node, float amount, AbilityPropagation wave = null, int firstArrival = 0)
     {
         ref NodeState state = ref nodes[node];
         float before = state.Force;
@@ -1295,6 +1297,7 @@ public sealed partial class AbilityCast
         if (state.Force < before && state.InitialForce > 0)
             SignalEvent(node, ConstructionChangeTrigger.ForceBelow, point, before / state.InitialForce,
                 state.Force / state.InitialForce);
+        if (wave != null && state.Exists) SignalGroundRoute(node, wave, firstArrival);
         if (fractures != null && Plan.Nodes[node].Fracture != null)
         {
             fractures[node].AwaitingSpend = false;
@@ -1606,6 +1609,9 @@ public sealed partial class AbilityCast
 
         /// <summary>上次采样的起点距离，随预测前态一起恢复。</summary>
         internal float FlightDistance;
+
+        /// <summary>上次已通知的地波路程边界，随预测前态一起恢复。</summary>
+        internal float GroundRouteDistance;
 
         /// <summary>本次飞行已经完成的转移步号；随预测前态一起恢复。</summary>
         internal int TransferCount;

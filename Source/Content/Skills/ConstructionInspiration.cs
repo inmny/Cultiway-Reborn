@@ -49,13 +49,13 @@ public sealed class ConstructionInspiration
     /// <param name="rules">旧请求保留原规则，第三十二版接入接触作用创作。</param>
     [JsonConstructor]
     public ConstructionInspiration(ElementComposition elements, float aggression, float control, bool canProject,
-        int rules = ConstructionPricing.ApplicationRules)
+        int rules = ConstructionPricing.PropagationRules)
     {
         for (int i = 0; i < ElementIndex.Count; i++)
             if (float.IsNaN(elements[i]) || float.IsInfinity(elements[i]) || elements[i] < 0f || elements[i] > 1.001f)
                 throw new ArgumentException("创法元素倾向无效", nameof(elements));
         if (!Valid(aggression) || !Valid(control)) throw new ArgumentException("创法性格倾向需要零至一的有限数值");
-        if (rules is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25 or 26 or 27 or 28 or 29 or 30 or ConstructionPricing.ProcessTimeRules or ConstructionPricing.ApplicationRules)) throw new ArgumentException("未知的创法生成规则", nameof(rules));
+        if (rules is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25 or 26 or 27 or 28 or 29 or 30 or ConstructionPricing.ProcessTimeRules or ConstructionPricing.ApplicationRules or ConstructionPricing.PropagationRules)) throw new ArgumentException("未知的创法生成规则", nameof(rules));
         Rules = rules;
         Elements = elements;
         Aggression = aggression;

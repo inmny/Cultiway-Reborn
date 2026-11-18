@@ -311,7 +311,9 @@ public static class ConstructionPresentation
     private static string Condition(ConstructionCondition condition)
     {
         string text = T("Condition." + condition.Trigger);
-        if (condition.Threshold.HasValue) text += F("Threshold", condition.Threshold.Value);
+        if (condition.Threshold.HasValue)
+            text += F(condition.Trigger == ConstructionChangeTrigger.GroundRouteDistance ? "GroundRouteThreshold" : "Threshold",
+                condition.Threshold.Value);
         if (condition.Delay > 0f) text += F("Delay", condition.Delay);
         return text;
     }
@@ -346,6 +348,7 @@ public static class ConstructionPresentation
         "抓持解救" => "RescueGrab",
         "装备修复" => "RepairEquipment",
         "讯号条件" => "SignalCondition",
+        "传播接续" => "PropagationFollowup",
         "调整侵蚀节奏" => "RetimeErosion",
         "主体侵蚀" => "SelfErosion",
         "世界侵蚀" => "WorldErosion",

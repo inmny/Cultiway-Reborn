@@ -1925,3 +1925,27 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 5.17 E2 用独立环境执行 `verify_application_creation.py creation`，然后完全退出游戏、重新启动，以 `verify_application_creation.py restart --state <creation 输出>` 读取正式待授予档。两步均通过 `dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_application_creation.py ...`。旧规则资料取自 5.16 的真实等待档和当时的预期；新旧各授予一次，再实际支付、消耗原材料和修复原装备并重存。分段首次结果及通过记录见 `~/.local/state/cultiway-dev/evidence/application-creation-e2/delivery.json`。
 
 5.17 E3 通过 `dev.py exec --timeout 330 -- python3 Scripts/SpellDemos/record_application.py --state <E2 已重存的输出> --signal-definitions <D 的 saved-definitions.json>` 录原版；加载同一兼容环境并加 `--worldfall` 录对照。录像使用同一组实际术式，逐帧核对修复、无效接触、真实收件、条件恢复和解除。已保存的视角目录可通过 `--encode-only <视角目录>` 重新编码。两端原片及事实索引见 `~/.local/state/cultiway-dev/evidence/application-films/delivery.json`。
+
+### 5.18 A 地波实际到达
+
+通过 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_ground_route.py` 复用已有地面和同一个足底入口。`--section arrival` 只查近远到达、同部位操作和预测回退；`--section interruption` 只查途中断路、接回后同招再用和取消。正式施放与事件位置、结束、输入和初次登记失败见 `~/.local/state/cultiway-dev/evidence/ground-route-a/delivery.json`。
+
+### 5.18 B 水路与人物实际送达
+
+通过 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_network_arrival.py`。`--section water` 复用循水连雷，核对实际水路、空水、首末两轮和接续位置；`--section signal` 复用告警入口，核对落空、真实收件、同源刷新及到期后重发。输入、真实脉冲和收件时点、初次准备失败见 `~/.local/state/cultiway-dev/evidence/network-arrival-b/delivery.json`。
+
+### 5.18 C 多段条件的顺序与终止
+
+通过 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_ground_route.py --section chain` 复用 A 的地面及足底，验证真实地波到达、延迟独立成形、同刻换材和人物实际恢复。正常结束、波源先结束和主动取消使用同一组合，其他地波检查仍由 `all` 执行。实际输入、事件、恢复及退出证据见 `~/.local/state/cultiway-dev/evidence/propagation-chain-c/delivery.json`。
+
+### 5.18 D1 在万法阁编辑传播条件
+
+在已启动的独立游戏运行 `dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_propagation_editor.py`。默认从本地开发证据目录取 A 的地波和 B 的两种到达构造；可用 `--evidence` 指定证据根目录。复验通过实际窗口编辑两处条件、撤销不可保存的路程，并核对替换和重开。输出含中英截图、最终构造和说明。
+
+### 5.18 D2 创作与正式冷读
+
+在原版独立安装运行 `dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_propagation_creation.py creation`。退出该游戏并另起新进程，用同一入口的 `restart --state <creation输出目录>` 验证已冻结的新规则 33 与历史规则 32 请求。输出保留正式等待档、完整成品、付费水路接续和再次保存的结果。
+
+### 5.18 D3 地波与水路连续录像
+
+在原版独立游戏运行 `dev.py exec --timeout 390 -- python3 Scripts/SpellDemos/record_propagation.py --state <D2重存目录>`；兼容安装加 `--worldfall`。两端复用 C 的正式地波连锁资料和 D2 已重存的循水成品，保留逐帧位置及实际触地、水路到达和收束记录。`--case ground|water` 只录对应片段，`--encode-only <视角目录>` 只核对和编码已有原帧。
