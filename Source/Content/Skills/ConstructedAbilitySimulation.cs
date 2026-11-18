@@ -513,7 +513,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                             Mathf.Abs(departure.m10) * half.x + Mathf.Abs(departure.m11) * half.y + Mathf.Abs(departure.m12) * half.z,
                             Mathf.Abs(departure.m20) * half.x + Mathf.Abs(departure.m21) * half.y + Mathf.Abs(departure.m22) * half.z);
                         var departed = new AbilityCapsule(shape.Node, departure.MultiplyPoint3x4(shape.A), departure.MultiplyPoint3x4(shape.B),
-                            shape.Radius, shape.Matter, shape.Shape, shape.Revision, shape.Material, departedHalf, .99999994f, shape.Prism?.Move(departure));
+                            shape.Radius, shape.Matter, shape.Shape, shape.Revision, shape.Material, departedHalf, .99999994f, shape.Prism?.Move(departure),
+                            shape.SweepPose?.Move(departure));
                         shapes.Add(new ShapeMotion(running, from, departed, true));
                     }
                     continuous = false;
@@ -704,7 +705,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 AbilityCapsule shape = output[i];
                 output[i] = new AbilityCapsule(shape.Node, shape.A, shape.B, shape.Radius, shape.Matter, shape.Shape,
-                    running.Cast.BodyContactRevision, shape.Material, shape.HalfExtents, shape.Until, shape.Prism);
+                    running.Cast.BodyContactRevision, shape.Material, shape.HalfExtents, shape.Until, shape.Prism, shape.SweepPose);
             }
         }
     }
@@ -1424,7 +1425,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         internal Vector3 SurfaceVelocity(Vector3 point, Vector3 outward, float fraction, float seconds)
         {
             if (!Continuous || seconds <= 0f) return Vector3.zero;
-            if (To.Prism != null) return From.Prism.VelocityTo(To.Prism, point, fraction) / seconds;
+            var turn = new AbilitySweepTurn(From.SweepPose, To.SweepPose);
+            if (To.Prism != null) return From.Prism.VelocityTo(To.Prism, turn, point, fraction) / seconds;
             if (To.IsBox)
             {
                 Vector3 half = Vector3.Lerp(From.HalfExtents, To.HalfExtents, fraction),
@@ -1434,11 +1436,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 return (To.A - From.A + Vector3.Scale(To.HalfExtents - From.HalfExtents, offset)) / seconds;
             }
 
-            Vector3 a = Vector3.Lerp(From.A, To.A, fraction), axis = Vector3.Lerp(From.B, To.B, fraction) - a;
+            Vector3 a = turn.Point(From.A, To.A, fraction), axis = turn.Point(From.B, To.B, fraction) - a;
             float along = axis.sqrMagnitude > 1e-10f
                 ? Mathf.Clamp01(Vector3.Dot(point - a, axis) / axis.sqrMagnitude)
                 : 0f;
-            return (Vector3.Lerp(To.A - From.A, To.B - From.B, along) + outward * (To.Radius - From.Radius)) / seconds;
+            return (Vector3.Lerp(turn.Velocity(From.A, To.A, fraction), turn.Velocity(From.B, To.B, fraction), along) + outward * (To.Radius - From.Radius)) / seconds;
         }
     }
 

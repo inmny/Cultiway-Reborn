@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""6.03：高速剑刃和飞掌的实际接触。"""
+"""6.03：剑刃、飞掌及快速转向的实际接触。"""
 import argparse
 import os
 from pathlib import Path
@@ -12,7 +12,7 @@ def main():
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请用 develop 的 dev.py exec 运行')
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('linear', 'blade', 'palm'), default='linear')
+    parser.add_argument('--section', choices=('linear', 'blade', 'palm', 'turn', 'breaks'), default='linear')
     args = parser.parse_args()
     relative = f'high-speed-contacts/{args.section}'
     folder = Path(os.environ['CULTIWAY_DEV_OUTPUT']) / relative

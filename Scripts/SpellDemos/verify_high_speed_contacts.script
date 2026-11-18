@@ -77,14 +77,100 @@ async Task Pass(AbilityDefinition definition, bool inside)
         "高速主体自然结束", new { definition.Id, active.Age });
 }
 
+// 同一个轮廓按实际声明给定角度；从静止姿态逐时核对，参考不走连续判定。
+const float rate = 7200f, size = 2f, turnAngle = 104f;
+Quaternion baseRotation = Quaternion.Euler(-90f, 0f, 0f);
+Vector3 origin = new Vector3(startX, 72, .28f);
+var blade = FormResources.Load("sword_qi");
+var bladePose = blade.Rig.CreatePose();
+if (bladePose != null) blade.Rig.Sample(null, 0f, bladePose);
+var shapeAt = typeof(FormContactBinding).GetMethod("World", F);
+var makeActorBoundary = service.Assembly.GetType("Cultiway.Core.Skills.ActorHitBoundary").GetMethod("Create", F);
+var actorHeight = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F);
+var pairFind = service.Assembly.GetType("Cultiway.Core.Skills.AbilityPairSweep").GetMethod("Find", F);
+Quaternion BladeAngle(float angle) => baseRotation * Quaternion.Euler(0f, angle, 0f);
+Vector3 Tip(float angle) => origin + BladeAngle(angle) * new Vector3(1.62f * size, 0f, -.065f * size);
+AbilityCapsule Body(Vector3 place) => (AbilityCapsule)makeActorBoundary.Invoke(null, new object[] {
+    new Vector3(place.x, place.y, 0f), (float)actorHeight.Invoke(null, new object[] { enemy }), Vector3.zero });
+bool AtAngle(float angle, AbilityCapsule target)
+{
+    var frame = Matrix4x4.TRS(origin, BladeAngle(angle), Vector3.one * size);
+    foreach (var binding in blade.Contacts)
+    {
+        object[] args = { bladePose, frame, 0, 0, 0, null, 1f, default(AbilityCapsule), "iron" };
+        if (!(bool)shapeAt.Invoke(binding, args)) continue;
+        var shape = (AbilityCapsule)args[7];
+        if ((bool)pairFind.Invoke(null, new object[] { shape, shape, target, target, 0f, Vector3.zero, Vector3.zero })) return true;
+    }
+    return false;
+}
+async Task StartAt(AbilityDefinition d, Vector3 place)
+{
+    Place(source, startX); source.position_height = 0;
+    Place(enemy, place.x, place.y); enemy.position_height = 0;
+    ConstructedAbilityService.NotifyActorChanged(source);
+    ConstructedAbilityService.NotifyActorChanged(enemy);
+    active = null; activeId = 0;
+    await Fire(d, source, enemy);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(active != null, "本次正式施放已创建主体");
+}
+ConstructedContact[] CurrentHits() => contacts.Where(value => value.CastId == activeId && value.TargetId == enemy.id).ToArray();
+async Task VerifyCase(AbilityDefinition d, Vector3 place, int hitCount, float firstAt, string message)
+{
+    int life = enemy.data.health;
+    await StartAt(d, place);
+    await Advance(d.Lifetime + .09f);
+    var facts = CurrentHits();
+    Check(facts.Length == hitCount && (hitCount == 0 ? enemy.data.health == life :
+        enemy.data.health < life && Mathf.Abs(facts[0].Age - firstAt) < .0005f) && active.Finished &&
+        endings.Any(end => end.Fact.AbilityId == d.Id && !end.Fact.Cancelled), message,
+        new { facts = facts.Select(h => new { h.Age, h.Position.x, h.Position.y, h.Position.z }),
+            target = new[] { place.x, place.y }, life, after = enemy.data.health, firstAt, active.Age });
+}
+async Task Turning()
+{
+    var d = Moving("sword_qi"); d.Id += ".turn"; d.Root.Scale = size;
+    d.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Spin,
+        Vector = new[] { 0f, rate, 0f } } };
+    Vector3 outer = Tip(46f);
+    Vector3 inner = origin + new Vector3(.16f, .13f, 0f);
+    var outerBody = Body(outer); var innerBody = Body(inner);
+    int first = Enumerable.Range(0, 3610).FirstOrDefault(i => AtAngle(i * .1f, outerBody));
+    Check(first > 0 && first < 460 && Enumerable.Range(0, 361).All(i => !AtAngle(i, innerBody)),
+        "静止姿态参考：外沿途中经过目标，环内空隙从未覆盖", new { angle = first * .1f, radius = outerBody.Radius });
+    await VerifyCase(d, outer, 1, first * .1f / rate, "实际快速旋转的刃尖命中一次，时点符合静止姿态参考");
+    await VerifyCase(d, inner, 0, 0f, "同一招旋转多周，环内空隙一直无伤");
+}
+async Task Breaks()
+{
+    var d = Moving("hand"); d.Id += ".jump";
+    d.Root.Operations[0].Vector = new[] { 4f, 0f, 0f };
+    d.Root.Operations[0].Transfer = new ConstructionFlightTransfer { Interval = .04f, Distance = 8f, SideJitter = 0f };
+    await VerifyCase(d, new Vector3(68f, 72f, 0f), 0, 0f, "间隔转移的空隙无伤");
+    await VerifyCase(d, new Vector3(72f, 72f, 0f), 1, .04f, "间隔转移在真实落点命中");
+    d = Moving("sword_qi"); d.Id += ".snap-turn"; d.Root.Scale = size;
+    d.Root.Operations[0].Vector = new float[3];
+    d.Root.Operations = d.Root.Operations.Concat(new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Deflect,
+        At = .04f, WorldVelocity = true, Vector = new[] { 0f, 0f, -turnAngle } } }).ToArray();
+    Vector3 skipped = Tip(turnAngle / 2f), landed = Tip(turnAngle);
+    var skippedBody = Body(skipped); var landedBody = Body(landed);
+    Check(!AtAngle(0, skippedBody) && !AtAngle(turnAngle, skippedBody) && AtAngle(turnAngle / 2f, skippedBody) &&
+          !AtAngle(0, landedBody) && AtAngle(turnAngle, landedBody), "参考：中间角可碰到，但立即改向没有经过它");
+    await VerifyCase(d, skipped, 0, 0f, "立即改向不扫伤中间角的目标");
+    await VerifyCase(d, landed, 1, .04f, "立即改向在新姿态实际命中");
+}
+
 try
 {
     Ready(source);
     await Advance(.10f);
     source.setStatsDirty(); source.updateStats();
     owner.GetCultisys<Xian>().wakan = 100f;
-    if (section != "palm") await Pass(Moving("sword_qi"), true);
-    if (section != "blade")
+    if (section == "turn") await Turning();
+    if (section == "breaks") await Breaks();
+    if (section == "linear" || section == "blade") await Pass(Moving("sword_qi"), true);
+    if (section == "linear" || section == "palm")
     {
         var palm = Moving("hand");
         await Pass(palm, false);

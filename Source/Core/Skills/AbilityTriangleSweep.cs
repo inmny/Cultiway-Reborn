@@ -14,7 +14,8 @@ internal static class AbilityTriangleSweep
     internal static bool Find(in AbilityCapsule from, in AbilityCapsule to, Vector3 a0, Vector3 b0, Vector3 c0,
         Vector3 a1, Vector3 b1, Vector3 c1, out float fraction, out Vector3 point, out Vector3 normal)
     {
-        float speed = from.TravelTo(to) + Mathf.Max((a1 - a0).magnitude, (b1 - b0).magnitude, (c1 - c0).magnitude);
+        var turn = new AbilitySweepTurn(from.SweepPose, to.SweepPose);
+        float speed = from.TravelTo(to, turn, out _) + Mathf.Max((a1 - a0).magnitude, (b1 - b0).magnitude, (c1 - c0).magnitude);
         fraction = 0f;
         point = normal = Vector3.zero;
         for (int iteration = 0; iteration < 128; iteration++)
@@ -22,7 +23,7 @@ internal static class AbilityTriangleSweep
             Vector3 a = Vector3.Lerp(a0, a1, fraction),
                 b = Vector3.Lerp(b0, b1, fraction),
                 c = Vector3.Lerp(c0, c1, fraction);
-            float distance = Distance(from, to, fraction, a, b, c, out Vector3 source, out point) -
+            float distance = Distance(from, to, turn, fraction, a, b, c, out Vector3 source, out point) -
                              Mathf.Lerp(from.Radius, to.Radius, fraction);
             if (distance <= .00001f)
             {
@@ -48,11 +49,11 @@ internal static class AbilityTriangleSweep
     /// <param name="from">来源前态。</param><param name="to">来源后态。</param><param name="at">共同进度。</param>
     /// <param name="a">面第一点。</param><param name="b">面第二点。</param><param name="c">面第三点。</param>
     /// <param name="source">来源基础形状上的最近点。</param><param name="target">三角面上的最近点。</param>
-    private static float Distance(in AbilityCapsule from, in AbilityCapsule to, float at,
+    private static float Distance(in AbilityCapsule from, in AbilityCapsule to, in AbilitySweepTurn turn, float at,
         Vector3 a, Vector3 b, Vector3 c, out Vector3 source, out Vector3 target)
     {
-        if (to.Prism != null) return AbilityPrism.Sample(from, to, at).Triangle(a, b, c, out source, out target);
-        Vector3 start = Vector3.Lerp(from.A, to.A, at), end = Vector3.Lerp(from.B, to.B, at);
+        if (to.Prism != null) return AbilityPrism.Sample(from, to, turn, at).Triangle(a, b, c, out source, out target);
+        Vector3 start = turn.Point(from.A, to.A, at), end = turn.Point(from.B, to.B, at);
         if (!to.IsBox) return Segment(start, end, a, b, c, out source, out target);
         Vector3 half = Vector3.Lerp(from.HalfExtents, to.HalfExtents, at), min = start - half, max = start + half;
         Vector3 bestSource = default, bestTarget = default;

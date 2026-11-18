@@ -10,7 +10,7 @@ using Cultiway.Core.Skills;
 
 var assembly=typeof(AbilityCast).Assembly;
 var constructor=typeof(AbilityCapsule).GetConstructors(BindingFlags.Instance|BindingFlags.NonPublic).Single();
-AbilityCapsule Capsule(Vector3 a,Vector3 b,float radius)=>(AbilityCapsule)constructor.Invoke(new object[]{0,a,b,radius,"physical",0,0,null,Vector3.zero,1f, null});
+AbilityCapsule Capsule(Vector3 a,Vector3 b,float radius)=>(AbilityCapsule)constructor.Invoke(new object[]{0,a,b,radius,"physical",0,0,null,Vector3.zero,1f, null, null});
 var pair=assembly.GetType("Cultiway.Core.Skills.AbilityPairSweep");
 var find=pair.GetMethod("Find",BindingFlags.Static|BindingFlags.NonPublic);
 var roots=pair.GetMethod("Roots",BindingFlags.Static|BindingFlags.NonPublic);
@@ -61,7 +61,7 @@ for(int test=0;test<200;test++)
 }
 // 空间索引与直接范围相交对照，包含巨大条目、巨大查询、重复覆盖及回收后重建。
 var indexType=assembly.GetType("Cultiway.Core.Skills.AbilityContactIndex");
-var index=Activator.CreateInstance(indexType,true);
+var index=indexType.GetConstructors(BindingFlags.Instance|BindingFlags.NonPublic).Single().Invoke(new object[]{8f});
 var add=indexType.GetMethod("Add",BindingFlags.Instance|BindingFlags.NonPublic);
 var update=indexType.GetMethod("Update",BindingFlags.Instance|BindingFlags.NonPublic);
 var query=indexType.GetMethod("Query",BindingFlags.Instance|BindingFlags.NonPublic);
@@ -84,5 +84,8 @@ for(int round=0;round<2;round++)
 }
 var output=new{passed=true,seed=725319,cases=solved,queries,updates,referenceSamples=4096,maximumEarly,maximumLate,
  validation="共同时间的线性胶囊端点及半径；真实任意弧线和最终模型边界仍须另验"};
-File.WriteAllText(Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/pair-sweep-checks.json"),JsonConvert.SerializeObject(output,Formatting.Indented));
+string outputFolder=Environment.GetEnvironmentVariable("CULTIWAY_DEV_OUTPUT") ??
+ Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild");
+Directory.CreateDirectory(outputFolder);
+File.WriteAllText(Path.Combine(outputFolder,"pair-sweep-checks.json"),JsonConvert.SerializeObject(output,Formatting.Indented));
 return output;

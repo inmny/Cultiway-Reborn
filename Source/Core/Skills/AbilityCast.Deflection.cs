@@ -49,6 +49,9 @@ public sealed partial class AbilityCast
             state.Flight.Path.Sample(PathTime(in state), out Vector3 offset, out _);
             state.PathCentre = state.Position - PathVector(in state, offset);
         }
+        // 立即换向只有离开姿态和换向后姿态，不能凭两个朝向合成一道连续旋转。
+        state.TransferDeparture = TryTransferDeparture(node, out var previousFrame) ? previousFrame * state.Transform : state.Transform;
+        state.TransferRevision++;
         Matrix4x4 turn = Matrix4x4.TRS(state.Position, rotation, Vector3.one) * Matrix4x4.Translate(-state.Position);
         state.Transform = turn * state.Transform;
         for (int child = node + 1; child < nodes.Length; child++)

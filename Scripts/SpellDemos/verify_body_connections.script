@@ -76,7 +76,7 @@ try
     var capsule = typeof(AbilityCapsule).GetConstructors(F).Single();
 
     object Sphere(Vector3 from, Vector3 to, float radius, Vector3 half = default) => capsule.Invoke(new object[]
-        { -1, from, to, radius, null, 0, 0, null, half, 1f, null });
+        { -1, from, to, radius, null, 0, 0, null, half, 1f, null, null });
 
     Vector3 ta = new(0, -1, -1), tb = new(0, 1, -1), tc = new(0, 0, 1);
 

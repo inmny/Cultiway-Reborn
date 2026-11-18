@@ -1979,3 +1979,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 6.03 A　高速直飞的剑刃与飞掌
 
 在独立原版游戏运行 `dev.py exec --timeout 195 -- python3 Scripts/SpellDemos/verify_high_speed_contacts.py`。使用真实施放和已发布形体，检查一步两端、实际付款、落在步内的扣血时点和自然结束。`--section blade|palm` 用于分别复验；飞掌段包含偏开无伤及同招再放。结果在 `CULTIWAY_DEV_OUTPUT/high-speed-contacts/<分段>`。
+
+### 6.03 B　连续转向与断点
+
+用 `dev.py run Scripts/SpellDemos/verify_rotating_contact_math.script --timeout 120` 检查六度转角的真实外弧、内弦空隙、候选范围和首次接触时间。实机沿用上面的 Python 入口，`--section turn` 检查高速旋转的实际扣血与内环无伤，`--section breaks` 检查间隔转移和立即改向各自的空隙与真实落点。旧直移和空间筛选共用回归入口为 `dev.py run Scripts/SpellDemos/verify_pair_sweep.script --timeout 120`。
