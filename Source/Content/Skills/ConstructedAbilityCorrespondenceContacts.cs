@@ -67,15 +67,17 @@ public sealed partial class ConstructedAbilityService
         {
             BarrierContact image = correspondenceStarts[candidate];
             if (!image.Running.Cast.ContactAtDestination(image.Shape.Node) ||
-                !CorrespondenceCovers(shape.Running, shape.To.Node, image.Running, image.Shape.Node, target)) continue;
-            AppendContactInterval(shape, image.Shape, image.Shape, true, false);
+                !CorrespondenceCovers(shape.Running, shape.To.Node, image.Running, image.Shape.Node, target, current: false) ||
+                !image.Running.Cast.CorrespondenceInterval(image.Shape.Node, out float from, out float until)) continue;
+            AppendContactInterval(shape, image.Shape, image.Shape, true, false, from, until);
         }
         shapeIndex.Query(shape.Bounds, correspondenceCandidates);
         foreach (int candidate in correspondenceCandidates)
         {
             ShapeMotion image = shapes[candidate];
-            if (!CorrespondenceCovers(shape.Running, shape.To.Node, image.Running, image.To.Node, target)) continue;
-            AppendContactInterval(shape, image.From, image.To, image.Continuous, false);
+            if (!CorrespondenceCovers(shape.Running, shape.To.Node, image.Running, image.To.Node, target, current: false) ||
+                !image.Running.Cast.CorrespondenceInterval(image.To.Node, out float from, out float until)) continue;
+            AppendContactInterval(shape, image.From, image.To, image.Continuous, false, from, until);
         }
     }
 
@@ -83,9 +85,11 @@ public sealed partial class ConstructedAbilityService
     /// <param name="running">真实攻击。</param><param name="node">实际作用部位。</param>
     /// <param name="image">映像施放。</param><param name="imageNode">映像部位。</param>
     /// <param name="target">原人物编号。</param>
-    private static bool CorrespondenceCovers(RunningCast running, int node, RunningCast image, int imageNode, long target)
+    /// <param name="current">当前时点或共同预测段。</param>
+    private static bool CorrespondenceCovers(RunningCast running, int node, RunningCast image, int imageNode, long target,
+        bool current = true)
     {
-        Actor receiver = CorrespondenceReceiver(image, imageNode);
+        Actor receiver = CorrespondenceReceiver(image, imageNode, current);
         return receiver?.id == target && CorrespondenceAllows(running, node, running.Cast.Impact(node),
             image.Cast.Plan.Nodes[imageNode].Correspondence, receiver);
     }

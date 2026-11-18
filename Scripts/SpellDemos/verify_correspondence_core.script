@@ -2,20 +2,24 @@ try
 {
     var definition = ImageDefinition();
     definition.Root.Correspondence.Effects = ConstructionCorrespondenceEffects.Restoration | ConstructionCorrespondenceEffects.Force;
+    definition.Root.Correspondence.ActiveFrom = .2f;
+    definition.Root.Correspondence.ActiveUntil = .7f;
     var plan = AbilityCompiler.Compile(definition, false);
     Check(plan.HasCorrespondences, "普通部位编译真实人物对应");
     object compiled = ((Array)plan.GetType().GetProperty("Nodes", F).GetValue(plan)).GetValue(0);
     var relation = (CompiledCorrespondence)Field(compiled, "Correspondence");
     definition.Root.Correspondence.DamageFraction = .2f;
     definition.Root.Correspondence.Effects = ConstructionCorrespondenceEffects.Status;
+    definition.Root.Correspondence.ActiveFrom = .3f;
     Check(relation.Id == "original" && relation.Target == ConstructionCorrespondenceTarget.Target && relation.DamageFraction == .5f &&
-        relation.Effects == (ConstructionCorrespondenceEffects.Restoration | ConstructionCorrespondenceEffects.Force),
+        relation.Effects == (ConstructionCorrespondenceEffects.Restoration | ConstructionCorrespondenceEffects.Force) &&
+        relation.ActiveFrom == .2f && relation.ActiveUntil == .7f,
         "完整编译复制原对应，不读取随后编辑");
     var copy = ConstructionEditing.Copy(definition);
     copy.Root.Correspondence.Target = ConstructionCorrespondenceTarget.Source;
     Check(definition.Root.Correspondence.Target == ConstructionCorrespondenceTarget.Target &&
         AbilityCompiler.Compile(copy, false).HasCorrespondences, "来源端点与完整复制相互独立");
-    foreach (int invalid in new[] { 0, 1, 2, 3, 4 })
+    foreach (int invalid in new[] { 0, 1, 2, 3, 4, 5, 6, 7 })
     {
         var bad = ImageDefinition();
         if (invalid == 0) bad.Root.Correspondence.Id = "../other";
@@ -23,6 +27,9 @@ try
         if (invalid == 2) bad.Root.Correspondence.DamageFraction = 1.1f;
         if (invalid == 3) bad.Root.ContactRole = ConstructionContactRole.Decoration;
         if (invalid == 4) bad.Root.Correspondence.Effects = (ConstructionCorrespondenceEffects)8;
+        if (invalid == 5) bad.Root.Correspondence.ActiveFrom = float.NaN;
+        if (invalid == 6) bad.Root.Correspondence.ActiveUntil = 0f;
+        if (invalid == 7) bad.Root.Correspondence.ActiveUntil = 1.1f;
         bool refused = false;
         try { AbilityCompiler.Compile(bad, false); }
         catch (InvalidDataException) { refused = true; }

@@ -1,0 +1,19 @@
+try
+{
+    var action = Held("timing", ConstructionContactMode.Interval);
+    await Begin(action, strong: true, imageEdit: image =>
+    {
+        image.Root.Correspondence.ActiveFrom = .3f;
+        image.Root.Correspondence.ActiveUntil = .47f;
+    });
+    await Advance(.25f);
+    Check(facts.Count == 0 && BodyControlState.IsBusy(source.id), "真实掌面在窗口前保持作用姿态，尚未传伤");
+    await Advance(.16f);
+    Check(facts.Count == 1 && facts[0].HealthAfter < facts[0].HealthBefore, "真实掌面在映像窗口内传伤一次", Snapshots());
+    await Advance(.45f);
+    Check(facts.Count == 1 && BodyControlState.IsBusy(source.id), "映像窗口结束后间隔到点也不会重复传伤");
+    await Advance(1f);
+    Check(!BodyControlState.IsBusy(source.id), "普通身体动作结束并归还控制");
+    return new { passed = true, closed = "真实掌面接触受映像窗口限制，结束归还控制", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { Finish(); }

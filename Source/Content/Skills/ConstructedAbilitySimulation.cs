@@ -772,18 +772,33 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                              running.Cast.Role(shape.To.Node) == ConstructionContactRole.Decoration ||
                              right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Decoration ||
                              running.Cast.Role(shape.To.Node) == ConstructionContactRole.Barrier &&
-                             right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Barrier ||
-                             !owner.IsHostileTo(right.Running.Owner(right.To.Node)) &&
-                             !right.Running.Owner(right.To.Node).IsHostileTo(owner) &&
-                             !CorrespondenceAllows(shape, right) && !CorrespondenceAllows(right, shape))) continue;
+                             right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Barrier)) continue;
+                        bool requiresCorrespondence = !quench && reaction == ThermalReaction.None &&
+                            !owner.IsHostileTo(right.Running.Owner(right.To.Node)) &&
+                            !right.Running.Owner(right.To.Node).IsHostileTo(owner);
+                        float leftFromTime = float.PositiveInfinity, rightFromTime = float.PositiveInfinity;
+                        float leftUntil = 0f, rightUntil = 0f;
+                        if (requiresCorrespondence)
+                        {
+                            bool rightImage = CorrespondenceRange(shape, right, out rightFromTime, out rightUntil);
+                            bool leftImage = CorrespondenceRange(right, shape, out leftFromTime, out leftUntil);
+                            if (!rightImage && !leftImage) continue;
+                            if (!rightImage) rightFromTime = float.PositiveInfinity;
+                            if (!leftImage) leftFromTime = float.PositiveInfinity;
+                        }
                         bool continuous = shape.Continuous && right.Continuous &&
                                           (reaction != ThermalReaction.Ignite || running.Cast.StartHeat(shape.To.Node) > 0);
-                        AbilityCapsule leftFrom = continuous ? shape.From : shape.To,
-                            rightFrom = continuous ? right.From : right.To;
+                        float sweepFrom = continuous ? (requiresCorrespondence ? Mathf.Min(leftFromTime, rightFromTime) : 0f) : 1f;
+                        AbilityCapsule leftFrom = !continuous ? shape.To : sweepFrom == 0f ? shape.From : Slice(shape.From, shape.To, sweepFrom),
+                            rightFrom = !continuous ? right.To : sweepFrom == 0f ? right.From : Slice(right.From, right.To, sweepFrom);
                         if (AbilityPairSweep.Find(leftFrom, shape.To, rightFrom, right.To, out float at, out Vector3 point,
                                 out Vector3 normal))
-                            Include(new ContactChoice(shape, default, right, continuous ? at : 1f, point, normal, step,
-                                quench, reaction: reaction));
+                        {
+                            float fraction = Mathf.Lerp(sweepFrom, 1f, at);
+                            if (requiresCorrespondence && !(fraction >= leftFromTime && fraction < leftUntil) &&
+                                !(fraction >= rightFromTime && fraction < rightUntil)) continue;
+                            Include(new ContactChoice(shape, default, right, fraction, point, normal, step, quench, reaction: reaction));
+                        }
                     }
 
                 }

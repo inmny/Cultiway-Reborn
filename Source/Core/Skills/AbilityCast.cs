@@ -458,6 +458,11 @@ public sealed partial class AbilityCast
             }
 
             void IncludeNode(float marker) => Include(state.StartedAt + marker);
+            if (form.Correspondence != null)
+            {
+                IncludeNode(form.Correspondence.ActiveFrom);
+                IncludeNode(form.Correspondence.ActiveUntil);
+            }
             if (propagations?[i] is AbilityPropagation wave && !state.MovementStopped)
                 Include(Age + Mathf.Max(0f, wave.NextBoundary - wave.Age));
             step = PathStep(form, in state, step);

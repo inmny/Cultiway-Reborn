@@ -11,7 +11,7 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('normal', 'frequency', 'control', 'all'), default='all')
+    parser.add_argument('--section', choices=('normal', 'frequency', 'control', 'timing', 'all'), default='all')
     parser.add_argument('--frequency-case', choices=('timed', 'reentry', 'all'), default='all',
                         help='只补间隔及脉冲，或实际离开再进入')
     options = parser.parse_args()
@@ -19,7 +19,7 @@ def main():
         parser.error('请通过develop的dev.py exec运行')
     import baseline_scenarios as baseline
     connection = baseline.connect(False, validate_runtime=False)
-    sections = ('normal', 'frequency', 'control') if options.section == 'all' else (options.section,)
+    sections = ('normal', 'frequency', 'control', 'timing') if options.section == 'all' else (options.section,)
     for section in sections:
         folder = Path(os.environ['CULTIWAY_DEV_OUTPUT']) / 'body-correspondence' / section
         if section == 'frequency' and options.frequency_case != 'all':

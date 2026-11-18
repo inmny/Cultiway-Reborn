@@ -42,6 +42,14 @@ public sealed class ConstructionCorrespondence
     /// <summary>允许转交的附带作用，缺省保留原映像行为。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public ConstructionCorrespondenceEffects Effects;
+
+    /// <summary>映像部位出现多久后开始传递，使用世界秒数。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float ActiveFrom;
+
+    /// <summary>从此时点起停止传递，省略时随映像部位结束。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float? ActiveUntil;
 }
 
 /// <summary>边界检查后的独立对应资料，运行不读取编辑中的声明。</summary>
@@ -59,9 +67,16 @@ public sealed class CompiledCorrespondence
     /// <summary>原人物允许接收的附带作用。</summary>
     public ConstructionCorrespondenceEffects Effects { get; }
 
+    /// <summary>开始传递的部位年龄。</summary>
+    public float ActiveFrom { get; }
+
+    /// <summary>停止传递的部位年龄，缺省随真实部位结束。</summary>
+    public float ActiveUntil { get; }
+
     /// <summary>只在完整构造边界核对名称、端点和有限份额。</summary>
-    /// <param name="source">明确声明的对应。</param><param name="path">所属部位资料路径。</param>
-    internal CompiledCorrespondence(ConstructionCorrespondence source, string path)
+    /// <param name="source">明确声明的对应。</param><param name="lifetime">本次施放总寿命。</param>
+    /// <param name="path">所属部位资料路径。</param>
+    internal CompiledCorrespondence(ConstructionCorrespondence source, float lifetime, string path)
     {
         if (string.IsNullOrWhiteSpace(source.Id) || source.Id.Length > 128 ||
             Array.Exists(source.Id.ToCharArray(), character => !char.IsLetterOrDigit(character) && character != '_' && character != '-'))
@@ -73,9 +88,14 @@ public sealed class CompiledCorrespondence
         const ConstructionCorrespondenceEffects supported = ConstructionCorrespondenceEffects.Restoration |
             ConstructionCorrespondenceEffects.Status | ConstructionCorrespondenceEffects.Force;
         if ((source.Effects & ~supported) != 0) throw new InvalidDataException(path + "/Effects：存在未知的映像作用许可");
+        if (float.IsNaN(source.ActiveFrom) || source.ActiveFrom < 0f || source.ActiveFrom >= lifetime ||
+            source.ActiveUntil is float until && (float.IsNaN(until) || until <= source.ActiveFrom || until > lifetime))
+            throw new InvalidDataException(path + "：映像传递的起止时间需要在施放寿命内递增");
         Id = source.Id;
         Target = source.Target;
         DamageFraction = source.DamageFraction;
         Effects = source.Effects;
+        ActiveFrom = source.ActiveFrom;
+        ActiveUntil = source.ActiveUntil ?? float.PositiveInfinity;
     }
 }

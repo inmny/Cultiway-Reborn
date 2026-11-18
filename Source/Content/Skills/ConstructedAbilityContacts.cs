@@ -151,8 +151,9 @@ public sealed partial class ConstructedAbilityService
     /// <param name="shape">实际攻击前后态。</param><param name="from">目标前态。</param>
     /// <param name="to">目标后态。</param><param name="targetContinuous">目标是否有连续路径。</param>
     /// <param name="actorTarget">普通人物沿原脚下接触容差，映像和世界使用完整形状。</param>
+    /// <param name="allowedFrom">目标的最早有效时刻。</param><param name="allowedUntil">目标的有效终点。</param>
     private void AppendContactInterval(in ShapeMotion shape, in AbilityCapsule from, in AbilityCapsule to,
-        bool targetContinuous, bool actorTarget)
+        bool targetContinuous, bool actorTarget, float allowedFrom = 0f, float allowedUntil = float.PositiveInfinity)
     {
         RunningCast running = shape.Running;
         bool continuous = shape.Continuous && targetContinuous;
@@ -164,12 +165,12 @@ public sealed partial class ConstructedAbilityService
             AbilityCapsule targetBefore = continuous ? from : to;
             if (BodySurfacePose.Find(before, after, targetBefore, to, "surface", out float jointEnter, out _, out _) &&
                 BodySurfacePose.Find(after, before, to, targetBefore, "surface", out float jointReverse, out _, out _))
-                contactIntervals.Add((jointEnter, Mathf.Min(1f - jointReverse, shape.To.Until)));
+                Add(jointEnter, Mathf.Min(1f - jointReverse, shape.To.Until));
             return;
         }
         if (!continuous)
         {
-            if (AbilityPairSweep.Find(start, start, to, to, out _, out _, out _)) contactIntervals.Add((1f, 1f));
+            if (AbilityPairSweep.Find(start, start, to, to, out _, out _, out _)) Add(1f, 1f);
             return;
         }
         if (AbilityPairSweep.Find(start, shape.To, from, to, out float enter, out _, out _) &&
@@ -178,7 +179,16 @@ public sealed partial class ConstructedAbilityService
             if (actorTarget
                     ? start.Intersects(from.A, from.Radius + .00002f)
                     : AbilityPairSweep.Find(start, start, from, from, out _, out _, out _)) enter = 0f;
-            contactIntervals.Add((enter, Mathf.Min(1f - reverse, shape.To.Until)));
+            Add(enter, Mathf.Min(1f - reverse, shape.To.Until));
+        }
+
+        /// <summary>只记录真实覆盖与目标允许时段的交集。</summary>
+        /// <param name="enter">实际进入进度。</param><param name="exit">实际离开进度。</param>
+        void Add(float enter, float exit)
+        {
+            enter = Mathf.Max(enter, allowedFrom);
+            exit = Mathf.Min(exit, allowedUntil);
+            if (enter <= exit && enter < allowedUntil) contactIntervals.Add((enter, exit));
         }
     }
 

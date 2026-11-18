@@ -24,3 +24,14 @@ internal sealed class ConstructionsV13ToV14 : ISaveMigration
     /// <param name="data">旧区段的独立副本。</param>
     public JObject Apply(JObject data) => data;
 }
+
+/// <summary>未声明时段的原映像继续随部位出现和结束。</summary>
+internal sealed class ConstructionsV14ToV15 : ISaveMigration
+{
+    /// <summary>加入附带作用许可的正式区段版本。</summary>
+    public int FromVersion => 14;
+
+    /// <summary>保留旧构造完整资料。</summary>
+    /// <param name="data">旧区段的独立副本。</param>
+    public JObject Apply(JObject data) => data;
+}

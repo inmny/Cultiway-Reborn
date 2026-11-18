@@ -88,10 +88,12 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>读取当前真实对应，预测筛选不改写正式记录。</summary>
     /// <param name="running">映像施放。</param><param name="node">实际部位。</param>
-    private static Actor CorrespondenceReceiver(RunningCast running, int node)
+    /// <param name="current">确认时核对当前时段，预测时由共同区间另行确认。</param>
+    private static Actor CorrespondenceReceiver(RunningCast running, int node, bool current = true)
     {
         if (node < 0 || running.CorrespondenceEnded == null || running.CorrespondenceEnded[node] ||
             running.Cast.Plan.Nodes[node].Correspondence == null ||
+            current && !running.Cast.CorrespondenceActive(node) ||
             !running.Cast.IsNodePresent(node) && running.Cast.ContactSweepForce(node) <= 0f) return null;
         Actor actor = CorrespondenceActor(running, node);
         var relation = running.Cast.Plan.Nodes[node].Correspondence;
@@ -106,6 +108,19 @@ public sealed partial class ConstructedAbilityService
         Actor receiver = CorrespondenceReceiver(image.Running, image.To.Node);
         return receiver != null && CorrespondenceAllows(attack.Running, attack.To.Node,
             attack.Running.Cast.Impact(attack.To.Node), image.Running.Cast.Plan.Nodes[image.To.Node].Correspondence, receiver);
+    }
+
+    /// <summary>同阵营形体只在原人物可接收的真实窗口内引发接触。</summary>
+    /// <param name="attack">实际来袭面。</param><param name="image">实际映像面。</param>
+    /// <param name="from">允许接触的最早进度。</param><param name="until">停止传递的进度。</param>
+    private static bool CorrespondenceRange(in ShapeMotion attack, in ShapeMotion image, out float from, out float until)
+    {
+        from = float.PositiveInfinity;
+        until = 0f;
+        Actor receiver = CorrespondenceReceiver(image.Running, image.To.Node, current: false);
+        return receiver != null && CorrespondenceAllows(attack.Running, attack.To.Node, attack.Running.Cast.Impact(attack.To.Node),
+                   image.Running.Cast.Plan.Nodes[image.To.Node].Correspondence, receiver) &&
+               image.Running.Cast.CorrespondenceInterval(image.To.Node, out from, out until);
     }
 
     /// <summary>原人物必须符合来袭部位的对象限制，双方至少同意一种实际作用。</summary>

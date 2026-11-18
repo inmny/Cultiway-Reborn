@@ -790,7 +790,7 @@ public static partial class AbilityCompiler
             ContactPolicy = node.Contact == null ? null : new CompiledContactPolicy(node.Contact, path),
             Impact = node.Impact == null ? null : new CompiledConstructionImpact(node.Impact, path + "/Impact"),
             RadialMotion = node.RadialMotion == null ? null : new CompiledConstructionRadialMotion(node.RadialMotion, path + "/RadialMotion"),
-            Correspondence = node.Correspondence == null ? null : new CompiledCorrespondence(node.Correspondence, path + "/Correspondence"),
+            Correspondence = node.Correspondence == null ? null : new CompiledCorrespondence(node.Correspondence, lifetime, path + "/Correspondence"),
             OnContact = node.OnContact,
             ContactRole = node.ContactRole,
             BlocksGroundActors = node.BlocksGroundActors,

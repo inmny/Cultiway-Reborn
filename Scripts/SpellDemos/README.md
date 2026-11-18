@@ -1886,3 +1886,8 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 5.14 B2 映像附带作用许可
 
 通过独立环境运行 `python3 Scripts/SpellDemos/verify_correspondence.py --section effects`，复用现成世界核对实际恢复、状态、推力、未许可作用和到期。脚本在输出目录保存新14正式完成世界。保存检查用 `--section save --state <effects目录> --legacy <真实旧13世界>`，核对完整新旧资料、实际生命结果及重复读取和换世界去重。证据索引位于 `/home/inmny/.local/state/cultiway-dev/evidence/correspondence-effects/delivery.json`。
+
+
+### 5.14 B2 映像有效时段
+
+通过独立环境运行 `python3 Scripts/SpellDemos/verify_correspondence.py --section timing`，核对实际开启时点、到期、实体自然结束、撤销、再次使用及等待中换世界。用 `verify_body_correspondence.py --section timing` 核对实际掌面在窗口内接触及结束归还控制。保存检查使用 `--section save --state <timing目录> --legacy <真实旧14世界>`。实际事件和分段结果位于 `/home/inmny/.local/state/cultiway-dev/evidence/correspondence-timing/delivery.json`。

@@ -28,8 +28,9 @@ public sealed partial class ConstructedAbilityService
         foreach (int candidate in bodyCorrespondenceCandidates)
         {
             ShapeMotion image = shapes[candidate];
-            Actor receiver = CorrespondenceReceiver(image.Running, image.To.Node);
-            if (receiver == null || !actorIndices.TryGetValue(receiver.id, out int actorIndex)) continue;
+            Actor receiver = CorrespondenceReceiver(image.Running, image.To.Node, current: false);
+            if (receiver == null || !image.Running.Cast.CorrespondenceInterval(image.To.Node, out float imageFromTime, out float imageUntil) ||
+                !actorIndices.TryGetValue(receiver.id, out int actorIndex)) continue;
             var relation = image.Running.Cast.Plan.Nodes[image.To.Node].Correspondence;
             ActorMotion actor = actors[actorIndex];
             Sample(actor, clock, out Vector3 fromFoot, out float fromHeight);
@@ -50,8 +51,9 @@ public sealed partial class ConstructedAbilityService
                 var impact = running.Cast.ImpactAtStage(-1, stage);
                 if (!CorrespondenceAllows(running, -1, impact, relation, receiver) ||
                     !running.Cast.ContactInterval(-1, stage, out float from, out float until)) return;
-                float earliest = Mathf.Max(from, ContactFraction(shape, actor, originalFrom, originalTo, step, stage, from));
-                if (earliest > 1f || earliest > until) return;
+                float first = Mathf.Max(from, imageFromTime);
+                float earliest = Mathf.Max(first, ContactFraction(shape, actor, originalFrom, originalTo, step, stage, first));
+                if (earliest > 1f || earliest > until || earliest >= imageUntil) return;
                 bool continuous = shape.Continuous && image.Continuous && !endpointOnly;
                 bool pulse = running.Cast.Plan.ContactPolicies[running.Cast.ContactGroup(-1)].Mode == ConstructionContactMode.Pulse;
                 if (pulse && !continuous && earliest < 1f - .000001f) return;
@@ -74,7 +76,7 @@ public sealed partial class ConstructedAbilityService
                     if (!AbilityPairSweep.Find(start, pulse ? start : shape.To, imageFrom, pulse ? imageFrom : image.To, out at, out point, out normal)) return;
                 }
                 float fraction = Mathf.Lerp(earliest, 1f, at);
-                if (fraction > until || oldScope && fraction >= 1f) return;
+                if (fraction > until || fraction >= imageUntil || oldScope && fraction >= 1f) return;
                 include(new ContactChoice(shape, default, image, fraction, point, normal, step));
             }
         }

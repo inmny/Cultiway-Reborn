@@ -1,0 +1,92 @@
+Actor source = Make(64), target = Make(80, "wolf");
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+
+var starts = new Dictionary<string, ConstructedCastStarted>();
+var mapped = new List<ConstructedCorrespondenceDamage>();
+var clashed = new List<ConstructedClash>();
+void Started(ConstructedCastStarted fact) => starts[fact.AbilityId] = fact;
+void Mapped(ConstructedCorrespondenceDamage fact) => mapped.Add(fact);
+void Clashed(ConstructedClash fact) => clashed.Add(fact);
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CorrespondenceDamageConfirmed += Mapped;
+ConstructedAbilityService.ClashConfirmed += Clashed;
+
+var image = ImageDefinition();
+image.Id += ".timing";
+image.Power = 100f;
+image.Root.Correspondence.ActiveFrom = .3f;
+image.Root.Correspondence.ActiveUntil = .55f;
+var attack = AttackDefinition();
+attack.Id += ".timing";
+attack.Root.Offset = new[] { 2f, 0f, 0f };
+attack.Root.Operations = Array.Empty<ConstructionOperation>();
+attack.Lifetime = .5f;
+Input(image, "image-definition"); Input(attack, "attack-definition");
+
+async Task Use(AbilityDefinition definition)
+{
+    await Fire(definition, source, target);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+}
+
+try
+{
+    Ready(source); await Advance(.15f); Place(source, 64); Place(target, 80);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    int health = target.data.health;
+    await Use(image); await Use(attack);
+    await Advance(.2f);
+    Check(mapped.Count == 0 && clashed.Count == 0 && target.data.health == health,
+        "映像存在且同阵营形体已经重叠，开始前不建立传递接触");
+    await Advance(.19f);
+    var active = mapped.Single();
+    double at = active.WorldTime - starts[image.Id].WorldTime;
+    Check(Math.Abs(at - .3f) < .002f && active.HealthAfter < active.HealthBefore,
+        "映像在真实开启时刻接受已重叠的来袭面并传伤", new { at, active.HealthBefore, active.HealthAfter });
+    await Advance(.21f);
+    var late = ConstructionEditing.Copy(attack); late.Id += ".late";
+    await Use(late); await Advance(.21f);
+    Check(mapped.Count == 1 && clashed.Count == 1 && endings.All(item => item.Fact.AbilityId != image.Id),
+        "传递到期后映像仍存在，后来同阵营接触不消耗或传伤");
+    await Advance(.4f);
+    Check(endings.Any(item => item.Fact.AbilityId == image.Id), "映像实体按原寿命自然结束");
+
+    await Use(image); await Use(attack); await Advance(.12f);
+    service.GetMethod("Cancel", F).Invoke(null, new object[] { starts[image.Id].CastId });
+    await Advance(.5f);
+    Check(mapped.Count == 1 && clashed.Count == 1, "开启前主动撤销会清理等待关系");
+    await Use(image); await Use(attack); await Advance(1.15f);
+    Check(mapped.Count == 2 && clashed.Count == 2, "取消后重新施放可正常进入新窗口");
+
+    ConstructedAbilityService.Learn(owner, image.Id);
+    var expected = new { source = source.id, target = target.id, health = target.data.health,
+        definition = (AbilityDefinition)((IDictionary)service.GetField("definitions", F).GetValue(null))[image.Id] };
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(expected, Formatting.Indented));
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+
+    await Use(image); await Use(attack); await Advance(.1f);
+    World.world.save_manager.loadWorld(Path.Combine(folder, "input-world"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800); await Advance(.7f);
+    Check(mapped.Count == 2 && ((ICollection)service.GetField("casts", F).GetValue(null)).Count == 0,
+        "等待开启时换世界会清理旧关系和施放");
+    return new { passed = true, closed = "共同时间起止、主动撤销、再次使用和换世界", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CorrespondenceDamageConfirmed -= Mapped;
+    ConstructedAbilityService.ClashConfirmed -= Clashed;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(mapped.Select(fact => new
+    {
+        fact.AttackCastId, fact.ImageCastId, fact.OwnerId, fact.TargetId, fact.WorldTime,
+        fact.ConsumedForce, fact.HealthBefore, fact.HealthAfter
+    }), Formatting.Indented));
+    Config.paused = true; ControllableUnit.clear(false);
+}
