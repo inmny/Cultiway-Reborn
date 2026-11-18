@@ -1,0 +1,80 @@
+// 使用 B 的真实水路原术；地图只铺同一段浅水，不增加测试单位种类。
+Actor legacy = Make(61), source = Make(60), target = Make(76);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var inspiration = ConstructedAbilityService.ReadInspiration(owner);
+var capture = service.GetMethod("CaptureCreationResources", F);
+SynthesisResources Capture(int seed) => (SynthesisResources)capture.Invoke(null, new object[] { owner, seed, inspiration });
+JObject Complete(AbilityDefinition definition) { var json = JObject.FromObject(definition); json.Remove("Id"); return json; }
+void Write(string name, object data) => File.WriteAllText(Path.Combine(folder, name), JsonConvert.SerializeObject(data, Formatting.Indented));
+var basis = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "water-input.json")));
+var original = JObject.FromObject(basis);
+IEnumerable<ConstructionNode> Parts(ConstructionNode node) => node == null ? Array.Empty<ConstructionNode>() : new[] { node }.Concat(node.Children.SelectMany(Parts));
+ConstructionOperation[] Arrivals(AbilityDefinition definition) => Parts(definition.Root).SelectMany(part => part.Operations)
+    .Where(operation => operation.When?.Trigger is ConstructionChangeTrigger.GroundRouteDistance or
+        ConstructionChangeTrigger.WaterRouteArrival or ConstructionChangeTrigger.SignalDelivery).ToArray();
+try
+{
+    Check(inspiration.Rules == 33 && legacy.id == 56, "现行规则33，保留历史请求的人物编号", new { inspiration.Rules, legacy.id });
+    var rejected = new List<string>();
+    var independent = new Dictionary<ConstructionChangeTrigger, AbilityDefinition>();
+    AbilityDefinition derived = null;
+    const int limit = 256;
+    for (int seed = 0; seed < limit && (independent.Count < 3 || derived == null); seed++)
+    {
+        var frozen = Capture(seed);
+        if (independent.Count < 3)
+            try
+            {
+                var made = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: frozen);
+                var gates = Arrivals(made);
+                foreach (var condition in gates.Where(operation => !independent.ContainsKey(operation.When.Trigger)))
+                {
+                    var again = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: JObject.FromObject(frozen).ToObject<SynthesisResources>());
+                    Check(JToken.DeepEquals(Complete(made), Complete(again)), "独立成品的传播条件、结构和费用可由冻结输入重现", condition.When.Trigger);
+                    independent.Add(condition.When.Trigger, made);
+                }
+            }
+            catch (InvalidDataException error) { rejected.Add("独立 " + seed + ": " + error.Message); }
+        if (derived == null)
+            try
+            {
+                var made = ConstructedAbilityService.Generate(owner, seed, inspiration, basis, frozen);
+                if (made.Parent.Change == "传播接续") derived = made;
+            }
+            catch (InvalidDataException error) { rejected.Add("派生 " + seed + ": " + error.Message); }
+    }
+    Write("created-definitions.json", new { independent, derived, rejected });
+    Check(independent.Count > 0 && derived != null, "独立创作与实际水路派生均生成到达接续", independent.Keys);
+    var added = derived.Root.Operations.Last();
+    Check(added.Kind == ConstructionOperationKind.ConvertMatter && added.When.Trigger == ConstructionChangeTrigger.WaterRouteArrival &&
+        added.When.Threshold == null && JToken.DeepEquals(original, JObject.FromObject(basis)) &&
+        JToken.DeepEquals(JArray.FromObject(basis.Root.Operations), JArray.FromObject(derived.Root.Operations.Take(basis.Root.Operations.Length).ToArray())),
+        "派生新增真实到达换材，并保留原术及原操作顺序");
+    for (int y = 70; y < 75; y++)
+    for (int x = 60; x <= 80; x++) World.world.GetTileSimple(x, y).setTileTypes("shallow_waters", null);
+    Ready(source); await Advance(.12f); Place(source, 60); Place(target, 76);
+    owner.GetCultisys<Xian>().wakan = 10000f;
+    await Fire(basis, source, target, aim: new Vector3(76, 72, 0f), aggro: false);
+    var active = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Select(item => (AbilityCast)Field(item, "Cast"))
+        .Single(cast => cast.Plan.Id == basis.Id && !cast.Finished);
+    Check(active.NodeAge(1) < 0 && active.Age < .26f, "保存前存在真实运行的水路和尚未开启的分支", active.Age);
+    Check(ConstructedAbilityService.TryQueueCreation(owner, derived.Seed, basis.Id), "正式队列受理已学水路原术");
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    var saves = Cultiway.ModClass.I.WorldSaves;
+    var frozenState = JObject.Parse(saves.Actors.Capture(owner, "propagation-creation"))["sections"]["ability_creation"];
+    Check((int)frozenState["version"] == 34 && pending.Pending && pending.Inspiration.Rules == 33 &&
+        JToken.DeepEquals(Complete(derived), Complete(ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources))),
+        "正式等待区段冻结新规则、原术、输入和同一报价");
+    int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+    Write("pending-expected.json", new { sourceId = source.id, legacyId = legacy.id, targetId = target.id, basis = basis.Id,
+        derived, frozenState, known = ConstructionEditing.Access.List(owner).Count,
+        oldKnown = ConstructionEditing.Access.List(legacy.GetExtend()).Count, process });
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "pending-save"));
+    return new { passed = true, process, derived.Seed, independent = independent.Keys.ToArray() };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

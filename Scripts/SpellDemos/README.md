@@ -1941,3 +1941,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 5.18 D1 在万法阁编辑传播条件
 
 在已启动的独立游戏运行 `dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_propagation_editor.py`。默认从本地开发证据目录取 A 的地波和 B 的两种到达构造；可用 `--evidence` 指定证据根目录。复验通过实际窗口编辑两处条件、撤销不可保存的路程，并核对替换和重开。输出含中英截图、最终构造和说明。
+
+### 5.18 D2 创作与正式冷读
+
+在原版独立安装运行 `dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_propagation_creation.py creation`。退出该游戏并另起新进程，用同一入口的 `restart --state <creation输出目录>` 验证已冻结的新规则 33 与历史规则 32 请求。输出保留正式等待档、完整成品、付费水路接续和再次保存的结果。

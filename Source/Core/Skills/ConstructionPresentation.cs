@@ -348,6 +348,7 @@ public static class ConstructionPresentation
         "抓持解救" => "RescueGrab",
         "装备修复" => "RepairEquipment",
         "讯号条件" => "SignalCondition",
+        "传播接续" => "PropagationFollowup",
         "调整侵蚀节奏" => "RetimeErosion",
         "主体侵蚀" => "SelfErosion",
         "世界侵蚀" => "WorldErosion",

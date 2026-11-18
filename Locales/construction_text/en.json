@@ -122,6 +122,7 @@
   "Cultiway.ConstructionText.Change.RescueGrab": "Release from a grab",
   "Cultiway.ConstructionText.Change.RepairEquipment": "Equipment repair",
   "Cultiway.ConstructionText.Change.SignalCondition": "Signal condition",
+  "Cultiway.ConstructionText.Change.PropagationFollowup": "Follow-up on arrival",
   "Cultiway.ConstructionText.Change.AgingActors": "actor aging",
   "Cultiway.ConstructionText.Change.AgingEquipment": "equipment corrosion",
   "Cultiway.ConstructionText.Change.AgingInventory": "inventory aging",
