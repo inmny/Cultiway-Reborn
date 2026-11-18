@@ -283,6 +283,10 @@ public sealed class ControlledTaskCommands : ExtendLibrary<ControlledTaskCommand
         ControlledTaskAvailability common = EvaluateCommon(actor);
         if (!common.Enabled) return common;
         ActorExtend actorExtend = actor.GetExtend();
+        if (Skills.ConstructedAbilityService.HasPracticeConstruction(actorExtend))
+            return KnightTrainingDummyService.TryFind(actor, out _)
+                ? ControlledTaskAvailability.Available
+                : ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresTrainingDummy");
         if (!actorExtend.HasCultisys<Knight>())
             return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresKnight");
         if (ProgressionService.CanScheduleAny(actorExtend))

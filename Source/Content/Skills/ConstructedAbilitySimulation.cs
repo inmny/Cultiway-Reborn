@@ -363,13 +363,20 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                                        (running.Cast.BodyResult != BodyActionResult.Interrupted || running.BodyReactionUntil < LogicTime) &&
                                        (running.Source.stats.hasTag("frozen_ai") || running.Source.stats.hasTag("immovable"))))
         {
-            running.Cast.InterruptBody();
+            if (running.Practice) running.Cast.Cancel();
+            else running.Cast.InterruptBody();
             ReleaseBody(running);
             return;
         }
 
         if (running.BodyControlled && running.Movement?.LostSupport(simulation.terrain) == true)
         {
+            if (running.Practice)
+            {
+                running.Cast.Cancel();
+                ReleaseBody(running);
+                return;
+            }
             ReleaseBodyConnection(running, "SupportLost", fade: false);
             if (!RespondToBodyResult(running, BodyActionResult.SupportLost))
             {
@@ -705,7 +712,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         output.Clear();
         running.Cast.AppendContacts(output, includeEnd, includeMaterials: includeReactiveMaterials);
-        if (running.BodyControlled && running.Cast.BodyContactEnabled)
+        if (!running.Practice && running.BodyControlled && running.Cast.BodyContactEnabled)
         {
             int first = output.Count;
             running.Body.AppendContactShapes(running.Cast.BodyPose.Value, output, includeEnd);

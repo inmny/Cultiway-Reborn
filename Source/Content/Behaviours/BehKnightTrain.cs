@@ -18,6 +18,7 @@ public class BehKnightTrain : BehCityActor
     public override BehResult execute(Actor pObject)
     {
         var ae = pObject.GetExtend();
+        if (!ae.HasCultisys<Knight>()) return BehResult.Continue;
         ref var knight = ref ae.GetCultisys<Knight>();
         var maxVigor = pObject.stats[BaseStatses.MaxVigor.id];
         if (maxVigor <= 0f)
@@ -27,7 +28,6 @@ public class BehKnightTrain : BehCityActor
             return BehResult.Stop;
         }
 
-        var vigorBefore = knight.vigor;
         var monthly_gain = maxVigor * KnightSetting.PracticeVigorGainRatioPerMonth;
         knight.vigor = Mathf.Min(knight.vigor + monthly_gain, maxVigor);
 

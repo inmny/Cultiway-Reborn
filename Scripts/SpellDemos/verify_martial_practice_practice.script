@@ -1,0 +1,133 @@
+var input = JObject.Parse(File.ReadAllText(Path.Combine(folder, "input.json")));
+var access = ConstructionEditing.Access;
+Actor author = World.world.units.get((long)input["sourceId"]);
+AbilityDefinition print = input["learned"].ToObject<AbilityDefinition>();
+var definition = access.Read(print.Id);
+JObject Data(AbilityDefinition value) => JObject.FromObject(value);
+Check(ConstructedAbilityService.Knows(author.GetExtend(), print.Id) && JToken.DeepEquals(Data(definition), Data(print)),
+    "加载 7.20 原作者、正式战技和完整动作");
+
+// 沿用原书籍复验建立实际城市，只放本项所需的书库和训练假人。
+Place(author, 64.2f);
+author.joinLanguage(World.world.languages.newLanguage(author, true));
+author.setCulture(World.world.cultures.newCulture(author, true));
+World.world.kingdoms.makeNewCivKingdom(author);
+var city = World.world.cities.buildNewCity(author, author.current_tile.zone);
+author.joinCity(city);
+var reader = Make(66.2f);
+reader.joinCity(city); reader.joinLanguage(author.language); reader.setCulture(author.culture);
+WorldTile dummyTile = World.world.GetTileSimple(65, 72);
+if (dummyTile.zone_city != city) city.addZone(dummyTile.zone);
+var libraryTile = World.world.GetTileSimple(63, 74);
+if (libraryTile.zone_city != city) city.addZone(libraryTile.zone);
+var add = typeof(BuildingManager).GetMethod("addBuilding", F, null, new[]{ typeof(string), typeof(WorldTile), typeof(bool), typeof(bool), typeof(BuildPlacingType) }, null);
+var library = (Building)add.Invoke(World.world.buildings, new object[]{ "library_human", libraryTile, false, false, BuildPlacingType.New });
+var dummy = World.world.buildings.addBuilding(strings.SB.training_dummy, dummyTile);
+await Advance(.25f);
+Check(library != null && city.getBuildingWithBookSlot() != null && KnightTrainingDummyService.TryFind(reader, out var actual) &&
+    actual == dummy, "真实城市训练假人和书库就绪", new { city = city.id, dummy = dummy?.id, belongs = dummy?.city?.id, library = library?.id, bookSlot = city.getBuildingWithBookSlot()?.id });
+var owner = reader.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+reader.setStatsDirty(); reader.updateStats();
+Book book = ConstructedAbilityService.WriteBook(author, definition.Id);
+Check(book != null && World.world.books.TryStoreBookInCity(author, book), "原作者将确定版本写书并收入原版书库");
+reader.beh_book_target = book;
+new BehFinishReading().execute(reader);
+Check(ConstructedAbilityService.Knows(owner, definition.Id) && access.List(owner).Count == 1 &&
+    JToken.DeepEquals(Data(access.Read(definition.Id)), Data(definition)), "学习者读书取得同一完整版本与原作者");
+new BehFinishReading().execute(reader);
+Check(access.List(owner).Count == 1 && !ControlledTaskCommands.KnightTrain.Evaluate(reader).Enabled,
+    "重读不重复授予；没有真实铁剑，非骑士不可下令操练此动作");
+
+reader.createNewWeapon("sword_iron");
+Item sword = reader.getWeapon();
+CombatStatusEffects.RemoveStatus(reader, hold);
+reader.setStatsDirty(); reader.updateStats();
+await Advance(.15f);
+Check(ControlledTaskCommands.KnightTrain.Evaluate(reader).Enabled, "同一学习者佩剑后已有训练命令可以使用");
+var starts = new List<ConstructedCastStarted>();
+var costs = new List<int>();
+int History() => owner.E.TryGetComponent(out ConstructedUseHistory state) ? state.Uses : 0;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != reader.id || fact.AbilityId != definition.Id) return;
+    starts.Add(fact);
+    costs.Add(100 - reader.data.stamina);
+}
+void Hit(ConstructedContact fact)
+{
+    if (fact.SourceId == reader.id && fact.AbilityId == definition.Id) contacts.Add(fact);
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Hit;
+async Task Train(int before)
+{
+    reader.cancelAllBeh(); reader.clearAttackTarget(); reader.finishAngryStatus(); Place(reader, 66.2f);
+    reader.attack_timer = 0f; reader.timer_action = 0f; reader.data.stamina = 100;
+    reader.setTask(ActorTasks.DailyKnightTrain.id, pForceAction: true);
+    var trace = new List<object>();
+    string lastStep = null;
+    bool Observe()
+    {
+        string step = reader.ai.task?.id + ":" + reader.ai.GetType().BaseType.GetField("action_index", F).GetValue(reader.ai);
+        if (lastStep != step && trace.Count < 24)
+        {
+            lastStep = step;
+            trace.Add(new { step, pos = reader.current_position.ToString(), reader.attack_timer, reader.timer_action, reader.data.stamina,
+                target = reader.beh_building_target?.id, reader.under_forces, reader.position_height });
+        }
+        return starts.Count > before || (reader.ai.task != ActorTasks.DailyKnightTrain && trace.Count > 1);
+    }
+    Config.paused = false;
+    double deadline = World.world.getCurWorldTime() + 16f;
+    await Game.WaitUntil(() => Observe() || World.world.getCurWorldTime() >= deadline, 3600);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    Check(starts.Count == before + 1 && starts[before].Origin == ActiveAbilityUseOrigin.Practice &&
+        BodyControlState.IsBusy(reader.id) && reader.beh_building_target == dummy,
+        "现有假人任务走到原位置，自动练习已学动作", new
+        { before, starts, costs, trace, position = reader.current_position.ToString(), action = reader.ai.task?.id, reader.timer_action,
+          selected = reader.beh_building_target?.id, reader.position_height, reader.under_forces, body = BodyControlState.IsBusy(reader.id) });
+}
+try
+{
+    int originalUses = History(), authorHealth = author.data.health, dummyHealth = dummy.data.health;
+    await Train(0);
+    Check(costs.Single() == Mathf.CeilToInt(definition.Cost) && History() == originalUses,
+        "真实支付一次体力，尚未收势不计使用经历", new { costs, prior = originalUses });
+    await Advance(definition.Body.ActiveFrom + .02f);
+    World.world.console.Hide();
+    var camera = World.world.camera;
+    camera.transform.position = new Vector3(dummy.current_position.x, dummy.current_position.y + .35f, camera.transform.position.z);
+    MoveCamera.instance.forceZoom(3f);
+    await Game.NextFrame();
+    Screen.Capture(Path.Combine(folder, "practice.png"));
+    await Game.NextFrame();
+    await Advance(definition.Lifetime + .16f);
+    Check(endings.Any(entry => entry.Fact.CastId == starts[0].CastId && !entry.Fact.Cancelled) && !BodyControlState.IsBusy(reader.id) &&
+        History() == originalUses + 1 && contacts.Count == 0 && author.data.health == authorHealth && dummy.data.health == dummyHealth &&
+        ReferenceEquals(sword, reader.getWeapon()), "正常完成才记经历，未伤及人物或假人并归还控制和兵器", new { history = History(), hits = contacts.Count });
+
+    await Train(1);
+    reader.cancelAllBeh();
+    await Advance(.15f);
+    Check(endings.Any(entry => entry.Fact.CastId == starts[1].CastId && entry.Fact.Cancelled) &&
+        !BodyControlState.IsBusy(reader.id) && History() == originalUses + 1,
+        "中途退出训练归还身体且不记完成经历");
+    foreach (Actor actor in World.world.units.getSimpleList())
+        CombatStatusEffects.RemoveStatus(actor, hold);
+    World.world.books.checkLists();
+    var map = SaveManager.saveWorldToDirectory(Path.Combine(folder, "save"));
+    Check(map.books.Any(entry => entry.id == book.id) && map.actors_data.Any(entry => entry.id == reader.id),
+        "正式世界档同时保存传授者、学习者和原书");
+    int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+    { process, author = author.id, reader = reader.id, book = book.id, definition, uses = History() }, Formatting.Indented));
+    return new { passed = true, process, reader = reader.id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

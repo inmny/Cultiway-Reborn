@@ -2051,3 +2051,9 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_martial_study.py prepare`。入口复用一个原版世界与同一把铁剑，核对空手、剑刃和剑尖生成不同结构，真实命名足参与创作，以及正式学习、出手费用、位移、接触、收势与缺少器物时的拒绝。输出正式等待档在 `CULTIWAY_DEV_OUTPUT/martial-study/prepare`。
 
 用 `dev.py stop` 确认退出后再启动，以 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_martial_study.py restore --state <prepare输出目录>` 核对新旧冻结资料和一次授予。旧档默认读取 7.11 留下的实际规则 34 等待世界，可用 `--legacy` 指定该证据目录副本。
+
+### 7.21　确定版本的战技传授、操练与自主出手
+
+在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_martial_practice.py practice`。默认取 7.20 留下的正式世界和原剑尖战技，也可用 `--source <7.20实战输出目录>`。复用一个城市，走原版写书、入库和读书，再检查原训练任务的出手、付费、收势、中途退出和实际使用经历。输出位于 `CULTIWAY_DEV_OUTPUT/martial-practice/practice`。
+
+用 `dev.py stop` 退出后重新启动，在新进程运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_martial_practice.py restore --state <practice输出目录>`。恢复书本、已学关系、动作和使用经历后，让学习者在真实交战中自主决定是否用该战技。

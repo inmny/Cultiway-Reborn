@@ -60,7 +60,7 @@ Cultiway.ControlledTask.Reason.RequiresHome,需要有效住宅和所属城市
 Cultiway.ControlledTask.Reason.CultivationMethodMismatch,当前功法不使用这类修炼活动
 Cultiway.ControlledTask.Reason.NoCultivationSite,附近没有符合功法要求的修炼地点
 Cultiway.ControlledTask.Reason.RequiresMagic,需要魔法修炼体系
-Cultiway.ControlledTask.Reason.RequiresKnight,需要骑士修炼体系
+Cultiway.ControlledTask.Reason.RequiresKnight,需要骑士修炼体系或当前可以操练的已学战技
 Cultiway.ControlledTask.Reason.RequiresTrainingDummy,所属城市没有可用训练假人
 Cultiway.ControlledTask.Reason.CannotCraftMagicScroll,没有可支付法力成本的已掌握法术
 Cultiway.ControlledTask.Reason.CannotFoundSect,当前不满足创立宗门的境界、传承或驻地条件
@@ -83,8 +83,8 @@ Cultiway.ControlledTask.Command.EnvironmentalCultivate.Name,寻觅灵地修炼
 Cultiway.ControlledTask.Command.EnvironmentalCultivate.Description,寻找附近符合当前功法环境规则的地点进行修炼。
 Cultiway.ControlledTask.Command.MagicMeditate.Name,魔法冥想
 Cultiway.ControlledTask.Command.MagicMeditate.Description,原地冥想并积累精神力，资源充满后结束。
-Cultiway.ControlledTask.Command.KnightTrain.Name,骑士操练
-Cultiway.ControlledTask.Command.KnightTrain.Description,前往所属城市的训练假人处操练并积累斗气。
+Cultiway.ControlledTask.Command.KnightTrain.Name,战技操练
+Cultiway.ControlledTask.Command.KnightTrain.Description,前往所属城市的训练假人处练习已学战技。骑士也可以积累斗气。
 Cultiway.ControlledTask.Command.CultivationProgression.Name,尝试境界进阶
 Cultiway.ControlledTask.Command.CultivationProgression.Description,执行当前已经满足条件的修炼体系进阶；可能启动准备阶段或消耗进阶资源。
 Cultiway.ControlledTask.Command.StudyMagicWeb.Name,研习魔网
