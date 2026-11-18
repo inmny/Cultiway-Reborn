@@ -1,0 +1,122 @@
+// 5.16 C1：在同一法术的普通操作和命名步骤中编辑实际过程。
+Actor source = Make(60); var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var definition = new AbilityDefinition
+{
+    Id = "test.process-time.editor", Name = "分段侵蚀", Power = 3, Cost = 3, Cooldown = .1f, Resource = "wakan",
+    Lifetime = 4f, TargetRange = 12, Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point },
+    Root = new ConstructionNode { Id = "wood", Form = "sword", Matter = "wood", Volume = 8 }
+};
+ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(definition.Id, source);
+async Task Frames(int count = 3) { for (int i = 0; i < count; i++) await Game.NextFrame(); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300); Canvas.ForceUpdateCanvases(); }
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+Button B(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+void Click(string name) { if (!B(name).interactable) throw new InvalidOperationException("按钮不可用：" + name); B(name).onClick.Invoke(); }
+WanfaEditorRow Row(string key)
+{
+    IEnumerable<WanfaEditorRow> found = editor.GetComponentsInChildren<WanfaEditorRow>(false);
+    return found.First(r => ((Text)Field(r, "_title")).text == T(key));
+}
+void Action(string key) => ((Button)Field(Row(key), "_action")).onClick.Invoke();
+void Set(string key, string value) { var input = editor.GetComponentsInChildren<InputField>(false).First(f => f.name == key); input.text = value; input.onEndEdit.Invoke(value); }
+void ToggleValue(string key, bool value) => Row(key).GetComponentsInChildren<Toggle>(false).Single().isOn = value;
+void Choose(string key, string text) { Action(key); editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && b.GetComponentInChildren<Text>().text == text).onClick.Invoke(); }
+async Task ShotRow(string key, string name)
+{
+    await Frames(); var row = (RectTransform)Row(key).transform; var scroll = row.GetComponentInParent<ScrollRect>();
+    Vector3 local = scroll.content.InverseTransformPoint(row.TransformPoint(row.rect.center));
+    float offset = scroll.content.rect.yMax - local.y - scroll.viewport.rect.height * .5f;
+    scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(offset / Mathf.Max(1f, scroll.content.rect.height - scroll.viewport.rect.height));
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(4); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+ConstructionOperation Native(ConstructionOperationKind kind) => Session().Draft.Root.Operations.Single(value => value.Kind == kind);
+ConstructionOperation Named(ConstructionOperationKind kind) => Session().Draft.Steps.Single(value => value.Operation.Kind == kind).Operation;
+string Draft() => JsonConvert.SerializeObject(Session().Draft);
+bool Close(double a, double b) => Math.Abs(a - b) < .00001;
+string TText(string key) => LocalizedTextManager.getText("Cultiway.ConstructionText." + key);
+try
+{
+    Click("Page5"); Choose("AddNativeOperation", T("MotionKind.Erode")); Set("ErosionSeconds", "2");
+    Action("AddProcessWindow"); Set("ProcessWindowAt", "0.25"); Set("ProcessWindowSeconds", "0.6"); Set("ProcessWindowRate", "0.5");
+    Action("AddProcessWindow"); var windows = Native(ConstructionOperationKind.Erode).Erosion.TimeWindows;
+    Check(windows.Length == 2 && windows[0].At == 0 && windows[0].Seconds == .25f && windows[0].Rate == 0 &&
+        windows[1].At == .25f && windows[1].Seconds == .6f && windows[1].Rate == .5f,
+        "未占用时段可添加，原有窗口按实际起点保留");
+    string paused = Draft(); Set("ProcessWindowSeconds", "0.4");
+    Check(Draft() == paused && ((Text)Field(editor, "state")).text.Contains("不重叠"), "重叠拒绝，原草稿保持");
+    Set("ProcessWindowRate", "2"); Click("Undo");
+    Check(Draft() == paused, "合法变速参数只占一次撤销历史");
+    Set("ProcessWindowRate", "2");
+    await ShotRow("ProcessWindowRate", "self-cz");
+
+    Choose("AddNativeOperation", T("MotionKind.Leave")); Set("OperationAt", "3.75");
+    ToggleValue("ResidueErosion", true); Action("AddProcessWindow");
+    Set("ProcessWindowAt", "0.4"); Set("ProcessWindowSeconds", "1.25");
+    var residue = Native(ConstructionOperationKind.Leave).Residue;
+    Check(residue.Erosion.TimeWindows.Single().At == .4f && residue.Erosion.TimeWindows.Single().Seconds == 1.25f,
+        "留置后动力独立，能编辑它自己的暂停时段");
+
+    Choose("StepScope", T("StepScope.Named")); Choose("AddStep", T("MotionKind.Erode"));
+    ToggleValue("ErosionWorldMaterials", true); Set("OperationAt", "0.4"); Set("WorldMatterMaximum", "8");
+    Action("AddProcessWindow"); Set("ProcessWindowRate", "0.25");
+    Check(Named(ConstructionOperationKind.Erode).WorldMatter.MaximumVolume == 8f && Named(ConstructionOperationKind.Erode).Erosion.TimeWindows.Single().Rate == .25f,
+        "命名步骤的世界材料选择和变速用同一份正式参数");
+    Choose("AddStep", T("MotionKind.RetimeErosion")); Set("OperationAt", "1.25"); Set("WorldMatterMaximum", "8");
+    ToggleValue("WorldMatterOwned", true); Set("ProcessWindowSeconds", "0.8");
+    string old = Draft(); Action("RemoveProcessWindow"); var retime = Named(ConstructionOperationKind.RetimeErosion);
+    Check(retime.TimeWindows.Length == 0 && retime.WorldMatter.OwnedOnly &&
+        ConstructionPresentation.Explain(Session().Draft, AbilityCompiler.Compile(Session().Draft)).Contains(TText("RestoreProcessTime")),
+        "调整步骤清空时间窗后明确恢复常速");
+    Click("Undo"); Check(Draft() == old, "移除时间窗可完整撤销");
+    await ShotRow("ProcessWindowRate", "retime-cz");
+
+    var current = Session().Draft; var neutral = ConstructionEditing.Copy(current);
+    foreach (var operation in neutral.Root.Operations.Concat(neutral.Steps.Select(step => step.Operation)))
+    {
+        if (operation.Erosion != null) operation.Erosion.TimeWindows = null;
+        if (operation.Residue?.Erosion != null) operation.Residue.Erosion.TimeWindows = null;
+        if (operation.TimeWindows != null) operation.TimeWindows = Array.Empty<ConstructionProcessWindow>();
+    }
+    AbilityDefinition Quote(AbilityDefinition draft, int rules) => ConstructionPricing.Price(ConstructionEditing.Copy(draft), contactRules: rules);
+    var oldQuote = Quote(current, 30); var neutralOld = Quote(neutral, 30);
+    var newQuote = Quote(current, 31); var neutralNew = Quote(neutral, 31);
+    double work = AbilityCompiler.Compile(current).Measure.ProcessTimeWork;
+    Check(Close(oldQuote.Calculation.Demand, neutralOld.Calculation.Demand) && Close(newQuote.Calculation.Demand - oldQuote.Calculation.Demand, work) &&
+        newQuote.Cost > neutralNew.Cost && neutralNew.Cost > neutralOld.Cost && current.Cost == 3 && current.Cooldown == .1f,
+        "原规则不计变速，规则31独立计选取和有效变速；参数改动未自动改价", new { work, old = oldQuote.Cost, newer = newQuote.Cost });
+    Click("Page0"); Action("ApplyRecommendedCost");
+    Check(Session().Draft.Cost == newQuote.Cost && Session().Draft.Cooldown == newQuote.Cooldown, "点击后才把推荐费用和冷却写入草稿");
+    Click("Undo"); Check(Draft() == old, "推荐费用也可一次撤销"); Action("ApplyRecommendedCost");
+
+    Click("Page5"); var cz = ConstructionPresentation.Explain(Session().Draft, AbilityCompiler.Compile(Session().Draft));
+    Check(cz.Contains("调整真实范围") && cz.Contains("暂停") && cz.Contains("有效秒") && cz.Contains("其余时间常速"), "中文说明区分有效时间、时间窗和调整范围");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page5"); await Frames();
+    var en = ConstructionPresentation.Explain(Session().Draft, AbilityCompiler.Compile(Session().Draft));
+    Check(en.Contains("Retimes active erosion") && en.Contains("pause") && en.Contains("effective seconds") && en.Contains("Normal speed otherwise"), "英文说明显示同一正式规则");
+    await ShotRow("ProcessWindowRate", "retime-en");
+    File.WriteAllText(Path.Combine(folder, "explanation-cz.txt"), cz);
+    File.WriteAllText(Path.Combine(folder, "explanation-en.txt"), en);
+
+    string savedRoot = JsonConvert.SerializeObject(Session().Draft.Root), steps = JsonConvert.SerializeObject(Session().Draft.Steps);
+    Click("Replace"); var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(JsonConvert.SerializeObject(saved.Root) == savedRoot && JsonConvert.SerializeObject(saved.Steps) == steps && saved.Cost == newQuote.Cost,
+        "正式保存四处时间规则及明确采用的报价");
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(saved.Id, source); await Frames(); Click("Page5");
+    Check(JsonConvert.SerializeObject(Session().Draft.Steps) == steps && JsonConvert.SerializeObject(Session().Draft.Root) == savedRoot,
+        "关闭重开保留完整可编辑资料");
+    return new { passed = true, closed = "万法阁时间窗、规则31报价与中英文保存重开", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}

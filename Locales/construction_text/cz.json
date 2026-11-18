@@ -100,9 +100,9 @@
   "Cultiway.ConstructionText.AgingEquipment": "实际命中{0}后腐蚀原装备的{1}，投入最大耐久的{2:0.##}份额，再按真实材料耐受及接触倍率向下取整。不老装备遵守原规则。",
   "Cultiway.ConstructionText.AgingInventory": "实际命中{0}后，每件库存有限物件额外推进至多{1:0.##}世界秒，每次至多{2}件，筛选为{3}。到期即退出原库存并归还借用。",
   "Cultiway.ConstructionText.AllInventoryShapes": "全部形状",
-  "Cultiway.ConstructionText.SelfErosion": "在{0:0.##}世界秒内侵蚀本主体，投入份额{1:0.##}，实际损耗由当前材料耐受决定",
-  "Cultiway.ConstructionText.WorldErosion": "选择真实范围内的{2}，至多{3:0.##}立方格，{4}，在{0:0.##}世界秒内独立侵蚀，投入份额{1:0.##}",
-  "Cultiway.ConstructionText.ResidueErosion": "真实交出后在{0:0.##}世界秒内独立侵蚀，投入份额{1:0.##}",
+  "Cultiway.ConstructionText.SelfErosion": "侵蚀本主体需{0:0.##}有效秒，投入份额{1:0.##}，实际损耗由当前材料耐受决定",
+  "Cultiway.ConstructionText.WorldErosion": "选择真实范围内的{2}，至多{3:0.##}立方格，{4}，独立侵蚀需{0:0.##}有效秒，投入份额{1:0.##}",
+  "Cultiway.ConstructionText.ResidueErosion": "真实交出后独立侵蚀需{0:0.##}有效秒，投入份额{1:0.##}",
   "Cultiway.ConstructionText.AllWorldMaterials": "全部已登记材料",
   "Cultiway.ConstructionText.AllMaterialStates": "{0}的所有已登记物态",
   "Cultiway.ConstructionText.OwnWorldMaterials": "仅限当前控制者原支付的材料",
@@ -127,5 +127,11 @@
   "Cultiway.ConstructionText.Mapping.MapActor": "搬运接触半径{0:0.##}入口的生灵",
   "Cultiway.ConstructionText.Mapping.MapArtifact": "从半径{0:0.##}的入口搬运原法宝",
   "Cultiway.ConstructionText.MappingCapacity": "最多{0}名实际通行。",
-  "Cultiway.ConstructionText.MappingWait": "入口最多暂存{0:0.##}秒。"
+  "Cultiway.ConstructionText.MappingWait": "入口最多暂存{0:0.##}秒。",
+  "Cultiway.ConstructionText.RetimeErosion": "调整真实范围内正在侵蚀的{0}，至多{1:0.##}立方格，{2}，保留已扣进度。",
+  "Cultiway.ConstructionText.RestoreProcessTime": "恢复常速。",
+  "Cultiway.ConstructionText.ProcessTime": "实际启动或调整后：{0}；其余时间常速。",
+  "Cultiway.ConstructionText.ProcessTimePause": "第{0:0.##}秒起暂停{1:0.##}秒",
+  "Cultiway.ConstructionText.ProcessTimeRate": "第{0:0.##}秒起以{2:0.##}倍推进{1:0.##}秒",
+  "Cultiway.ConstructionText.ProcessTimeSeparator": "、"
 }

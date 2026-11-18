@@ -12,7 +12,7 @@ from verify_world_erosion import replace_section
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('pending', 'restart', 'retiming'), required=True)
+    parser.add_argument('--section', choices=('pending', 'restart', 'retiming', 'editor'), required=True)
     parser.add_argument('--state', type=Path, help='上一进程的process-time-world/pending目录')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
@@ -46,6 +46,9 @@ def main():
     shared = (scripts / 'erosion_case.script').read_text() + '\n' + (scripts / 'world_erosion_request_case.script').read_text()
     if args.section in ('pending', 'retiming'):
         shared += '\n' + (scripts / 'process_time_world_case.script').read_text()
+    if args.section == 'editor':
+        helpers = 'using Cultiway.UI;\nusing Cultiway.UI.Prefab;\nusing UnityEngine.UI;\n' + helpers
+        shared = ''
     script = folder / 'input.script'
     script.write_text(helpers + '\n' + shared + '\n' + body)
     import baseline_scenarios as baseline

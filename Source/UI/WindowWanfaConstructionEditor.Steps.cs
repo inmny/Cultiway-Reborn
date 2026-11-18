@@ -99,6 +99,7 @@ public sealed partial class WindowWanfaConstructionEditor
         => menu.Show(T("OperationKind"), ConstructionOperations.All.Where(contract =>
             !IsMapping(contract.Kind) &&
             (contract.Kind != ConstructionOperationKind.ConsumeInventory || session.Draft.Inventory?.Length > 0) &&
+            (contract.Kind != ConstructionOperationKind.RetimeErosion || FormResources.Load(node.Form).Meshes.Length > 0) &&
             (contract.Kind != ConstructionOperationKind.Animate || FormResources.Load(node.Form).Description.Motions.Length > 0) &&
             (contract.Kind != ConstructionOperationKind.Deform || FormResources.Load(node.Form).Deformable) &&
             (contract.Kind != ConstructionOperationKind.Ray || FormResources.Load(node.Form).Span != null) &&

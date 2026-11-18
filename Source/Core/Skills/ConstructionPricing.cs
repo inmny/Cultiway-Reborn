@@ -61,6 +61,9 @@ public sealed class ConstructionMeasure
     /// <summary>主体、明确世界容量及留置后侵蚀的独立需求，第二十八版起计入。</summary>
     public double ErosionWork { get; }
 
+    /// <summary>过程的局部变速需求；第三十一版起独立计入。</summary>
+    public double ProcessTimeWork { get; }
+
     /// <summary>真实部位承载映像传递的额外需求，第二十九版起计入。</summary>
     public double CorrespondenceWork { get; }
 
@@ -136,10 +139,21 @@ public sealed class ConstructionMeasure
             VolumeSeconds += volume * span;
             work += volume * (1d + span * .25d);
             foreach (var operation in node.EventOperations)
+            {
                 if (operation.Parameters is CompiledErosion erosion)
+                {
                     ErosionWork += ErosionDemand(erosion, volume);
-            if (node.Residue?.Erosion != null)
-                ErosionWork += ErosionDemand(node.Residue.Erosion, volume);
+                    ProcessTimeWork += ErosionTimeDemand(erosion, volume,
+                        erosion.World == null ? Math.Max(0d, node.Presence.y - Math.Max(node.Presence.x, operation.At)) : double.PositiveInfinity);
+                }
+                else if (operation.Parameters is CompiledErosionRetiming retiming)
+                    ProcessTimeWork += retiming.World.MaximumVolume * (.08d + (retiming.Pace?.AdjustmentWork(double.PositiveInfinity) ?? 0d) * .25d);
+            }
+            if (node.Residue?.Erosion is { } residue)
+            {
+                ErosionWork += ErosionDemand(residue, volume);
+                ProcessTimeWork += ErosionTimeDemand(residue, volume, node.Residue.Lifetime > 0 ? node.Residue.Lifetime : double.PositiveInfinity);
+            }
             if (node.Resource.Meshes.Length == 0 && node.Resource.Contacts.Length == 0) continue;
             double area = 0;
             if (node.Resource.Meshes.Length == 0)
@@ -358,6 +372,9 @@ public sealed class ConstructionMeasure
     private static double ErosionDemand(CompiledErosion erosion, double volume) =>
         (erosion.World?.MaximumVolume ?? volume) * erosion.Fraction * (1d + erosion.Seconds * .1d);
 
+    private static double ErosionTimeDemand(CompiledErosion erosion, double volume, double until) => erosion.Pace == null ? 0d :
+        (erosion.World?.MaximumVolume ?? volume) * erosion.Pace.AdjustmentWork(Math.Min(until, erosion.Pace.CompletionFor(erosion.Seconds))) * .25d;
+
     /// <summary>人物生命比例以本次本体量作参考预算；实际伤害仍在命中时读取人物生命。</summary>
     /// <param name="damage">实际编译伤害。</param><param name="power">整招量。</param><param name="strength">部位倍率。</param>
     private static double DamageWork(IReadOnlyList<CompiledConstructionContactDamage> damage, float power, float strength) =>
@@ -400,17 +417,20 @@ public sealed class ConstructionMeasure
 /// <summary>创建和明确改造命令共用的需求计算；正式读取与登记不重写作者确定的费用。</summary>
 public static class ConstructionPricing
 {
+    internal const int ProcessTimeRules = 31;
+
     /// <summary>按已冻结规则合并真实接触需求，不改变旧请求的计算。</summary>
     /// <param name="measure">已编译的实际规模。</param><param name="rules">本次创作版本。</param>
     private static double Demand(ConstructionMeasure measure, int rules) => measure.Work +
         (rules >= 12 ? measure.ContactEffectsWork : 0d) + (rules >= 13 ? measure.ContactDisplacementWork : 0d) +
         (rules >= 14 ? measure.ContactResultsWork : 0d) + (rules >= 15 ? measure.ContactSpreadWork : 0d) +
         (rules >= 19 ? measure.RadialMotionWork : 0d) + (rules >= 28 ? measure.ErosionWork : 0d) +
-        (rules >= 29 ? measure.CorrespondenceWork : 0d) + (rules >= 30 ? measure.SpatialMappingWork : 0d);
+        (rules >= 29 ? measure.CorrespondenceWork : 0d) + (rules >= 30 ? measure.SpatialMappingWork : 0d) +
+        (rules >= ProcessTimeRules ? measure.ProcessTimeWork : 0d);
 
     /// <summary>以当前实际构造计算新创作的默认费用与恢复时间。</summary>
     /// <param name="definition">本次独占的新创作。</param><param name="cost">是否补费用。</param><param name="cooldown">是否补恢复时间。</param>
-    /// <param name="contactRules">创作规则版本；十二版计状态及恢复，十三版计位移，十四版计附加与分支结果，十五版计范围和介质分送，十九版计范围推拉，省略沿原计算。</param>
+    /// <param name="contactRules">创作规则版本；十二版计状态及恢复，十三版计位移，十四版计附加与分支结果，十五版计范围和介质分送，十九版计范围推拉，三十一版计过程时间，省略沿原计算。</param>
     public static AbilityDefinition Price(AbilityDefinition definition, bool cost = true, bool cooldown = true, int contactRules = 0)
     {
         CompiledAbility plan = AbilityCompiler.Compile(definition, false);

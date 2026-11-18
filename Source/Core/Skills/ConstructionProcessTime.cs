@@ -6,6 +6,9 @@ namespace Cultiway.Core.Skills;
 /// <summary>从实际过程开始计的一段世界时间。窗口外按常速推进。</summary>
 public sealed class ConstructionProcessWindow
 {
+    /// <summary>单个过程最多声明的时间窗数。</summary>
+    internal const int Maximum = 8;
+
     /// <summary>开始前已经经过的世界秒数。</summary>
     public float At;
 
@@ -23,7 +26,7 @@ internal sealed class CompiledProcessTime
 
     internal CompiledProcessTime(ConstructionProcessWindow[] source, float limit, string path)
     {
-        if (source.Length > 8) throw new InvalidDataException(path + "：一个过程最多有八个变速时段");
+        if (source.Length > ConstructionProcessWindow.Maximum) throw new InvalidDataException(path + "：一个过程最多有八个变速时段");
         windows = new (double, double, double, float)[source.Length];
         double last = 0d;
         for (int i = 0; i < source.Length; i++)
@@ -71,6 +74,18 @@ internal sealed class CompiledProcessTime
             result[i] = new ConstructionProcessWindow { At = (float)window.Start, Seconds = window.Seconds, Rate = (float)window.Rate };
         }
         return result;
+    }
+
+    /// <summary>估算有效期间偏离常速的总量；常速段、未等到的后段不增加需求。</summary>
+    internal double AdjustmentWork(double until)
+    {
+        double work = 0;
+        foreach (var (start, end, rate, _) in windows)
+        {
+            if (start >= until) break;
+            work += (Math.Min(end, until) - start) * Math.Abs(rate - 1d);
+        }
+        return work;
     }
 
     /// <summary>累计已推进的过程秒数；暂停跳过该时段、不在恢复后补发。</summary>
