@@ -1,0 +1,82 @@
+// 从已实测的地波出发，通过实际万法阁窗口生成后续运行输入。
+Actor source = Make(64);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var ground = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "ground-input.json")));
+var recovery = new AbilityDefinition
+{
+    Id = "test.propagation-residue.recovery", Name = "伏脉收束", Lifetime = 2f, Cost = 1f, Resource = "wakan", TargetRange = 18f,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+    Root = new ConstructionNode
+    {
+        Id = "collector", Form = "sword", Matter = "wood", Scale = 4f,
+        ContactRole = ConstructionContactRole.Decoration
+    }
+};
+foreach (var definition in new[] { ground, recovery })
+{
+    ConstructedAbilityService.Register(definition);
+    ConstructedAbilityService.Learn(owner, definition.Id);
+}
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(ground.Id, source);
+// COMMON_CONTROLS
+
+void SelectPart(int index)
+{
+    string label = (string)typeof(WindowWanfaConstructionEditor).GetMethod("PartName", F).Invoke(editor, new object[] { index });
+    Click("Part");
+    editor.GetComponentsInChildren<Button>(false).Single(button => button.name.StartsWith("Option") &&
+        button.GetComponentInChildren<Text>().text == label).onClick.Invoke();
+}
+async Task Open(string id)
+{
+    Click("Close"); await Frames();
+    WindowWanfaConstructionEditor.Open(id, source); await Frames();
+}
+async Task SaveAndReopen(string name, AbilityDefinition original)
+{
+    string before = JsonConvert.SerializeObject(Session().Draft.Root);
+    Click("Replace");
+    var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(JsonConvert.SerializeObject(saved.Root) == before && saved.Cost == original.Cost && saved.Cooldown == original.Cooldown,
+        name + " 保存完整部位及原报价");
+    File.WriteAllText(Path.Combine(folder, name + "-saved.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    await Open(saved.Id);
+    Check(JsonConvert.SerializeObject(Session().Draft.Root) == before, name + " 关闭重开保留完整可编辑参数");
+}
+ConstructionNode Far() => Session().Draft.Root.Children.Single(node => node.Id == "far");
+try
+{
+    Click("Page4"); SelectPart(2);
+    Set("ActivationGroundRouteThreshold", "6.75");
+    Set("ActivationGroundRouteThreshold", "-1");
+    Check(!B("Replace").interactable, "留置前置路程为负时不能保存");
+    Click("Undo");
+    Check(Far().Activation.Threshold == 6.75f && B("Replace").interactable, "撤销恢复真实父体到达条件");
+    Click("Page0");
+    Action("AddResidue"); Set("LeaveAt", "0.2"); Set("ResidueLifetime", "120");
+    Check(Far().Activation.Source == ".." && Far().Operations.Single().Residue.Lifetime == 120f && B("Replace").interactable,
+        "后段保留地波条件，并在生效后开始独立留置");
+    await ShotRow("ResidueLifetime", "residue-cz");
+    await SaveAndReopen("ground", ground);
+
+    await Open(recovery.Id); Click("Page0");
+    Action("AddRecovery"); Set("RecoverAt", "0.2"); Set("RecoverySeconds", "0.6"); Set("RecoveryEfficiency", "0.75");
+    ToggleValue("RecoveryWorldMaterials", true);
+    Check(Session().Draft.Root.Operations.Single().Recovery.WorldMaterials && B("Replace").interactable,
+        "另一个已学招式可以编辑实际范围内的世界材料收束");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page0");
+    await ShotRow("RecoveryWorldMaterials", "recovery-en");
+    await SaveAndReopen("recovery", recovery);
+    return new { passed = true };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; LocalizedTextManager.instance.setLanguage("cz");
+}
