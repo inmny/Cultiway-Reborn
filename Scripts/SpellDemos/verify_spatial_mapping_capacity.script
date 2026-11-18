@@ -1,0 +1,133 @@
+// 两名同类角色复用同一入口；检查容量只按实际抵达结算。
+WorldTile exitTile = new[] { 74, 73, 75, 72, 71, 70 }
+    .Select(x => World.world.GetTileSimple(x, 72)).First(tile => !tile.hasBuilding());
+int exitX = exitTile.pos.x;
+void SetExit(bool blocked)
+{
+    if (blocked) exitTile.setTileTypes(TileLibrary.mountains, null, true);
+    else
+    {
+        exitTile.Height = 140;
+        exitTile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    }
+}
+
+AbilityDefinition Gates(float? close = null, int capacity = 2) => new()
+{
+    Id = "test.spatial-mapping.capacity", Name = "限额双门", Cost = 3, Resource = "wakan", Power = 2,
+    Cooldown = .1f, Lifetime = 1.2f, TargetRange = 12,
+    Impact = new ConstructionImpact { DamageScale = 0 },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = .26f },
+    Root = new ConstructionNode
+    {
+        Id = "gates", Form = "pivot", ContactRole = ConstructionContactRole.Decoration,
+        Children = new[]
+        {
+            new ConstructionNode { Id = "entry", Form = "fireball", Scale = .8f, Offset = new[] { .5f, 0f, 0f },
+                Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval, Interval = .07f } },
+            new ConstructionNode { Id = "exit", Form = "fireball", ContactRole = ConstructionContactRole.Decoration,
+                DisappearAt = close, Scale = .7f, Offset = new[] { exitX - 64f, 0f, 0f }, Rotation = new[] { 0f, 0f, 90f } }
+        }
+    },
+    Steps = new[]
+    {
+        new ConstructionStep { Id = "carry", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.MapActor, MappingRadius = 1f, MappingCapacity = capacity },
+            Inputs = new() { ["part"] = new() { Node = "root/entry" }, ["exit"] = new() { Node = "root/exit" } } },
+        new ConstructionStep { Id = "batch", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Ready },
+            Inputs = new() { ["part"] = new() { Node = "root/entry" }, ["after"] = new() { Step = "carry", Output = "transferred" } } }
+    }
+};
+
+var normal = Gates();
+var early = Gates(.35f);
+bool rejected = false;
+try { AbilityCompiler.Compile(Gates(capacity: 0), false); }
+catch (InvalidDataException error) { rejected = error.Message.Contains("通行容量"); }
+Check(rejected, "容量必须为有效正数");
+Actor source = Make(64), first = Make(62), second = Make(62);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+Ready(source); await Advance(.14f);
+var live = (IEnumerable)service.GetField("casts", F).GetValue(null);
+var waitingAt = new Vector2(64.65f, 71.8f);
+var landing = new Vector2(exitX + .2f, 72.15f);
+void AtEntrance(Actor actor) => Place(actor, waitingAt.x, waitingAt.y);
+int Contacts(Actor actor) => contacts.Count(c => c.AbilityId == normal.Id && c.TargetId == actor.id);
+ConstructionWorldReceipt[] Results(AbilityCast cast)
+{
+    var results = new List<ConstructionWorldReceipt>();
+    cast.AppendStepReceipts("carry", results);
+    return results.ToArray();
+}
+
+async Task<AbilityCast> Open(AbilityDefinition definition)
+{
+    Place(source, 64); Place(second, 62, 69);
+    AtEntrance(first);
+    source.addAggro(second); second.addAggro(source);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    float paid = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, first);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Mathf.Abs(paid - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f, "同次通行只支付施放费用一次");
+    return live.Cast<object>().Select(r => (AbilityCast)Field(r, "Cast")).Single(c => c.Plan.Id == definition.Id);
+}
+
+bool Landed(Actor actor) => Vector2.Distance(actor.current_position, landing) < .09f && actor.current_tile == exitTile;
+try
+{
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(normal, Formatting.Indented));
+    SetExit(true);
+    AbilityCast full = await Open(normal);
+    await Advance(.12f);
+    Check(Contacts(first) > 0 && full.StepStateOf("carry") == ConstructionStepState.Waiting && Results(full).Length == 0 &&
+        Vector2.Distance(first.current_position, waitingAt) < .08f, "真实接触遇到阻挡时保留位置，也不消耗名额");
+
+    SetExit(false);
+    await Advance(.15f);
+    var partial = Results(full);
+    Check(Landed(first) && partial.Length == 1 && partial[0].Targets.Single() == first.id &&
+        full.StepStateOf("carry") == ConstructionStepState.Running && full.StepStateOf("batch") == ConstructionStepState.Waiting &&
+        !full.TryGetOutput("carry", "transferred", out _), "同一人可在恢复落点后成功通过，首个真实结果不会放行整批", new
+        { position = first.current_position.ToString(), partial = partial.Length, state = full.StepStateOf("carry").ToString() });
+
+    int mark = Contacts(first);
+    AtEntrance(first);
+    await Advance(.12f);
+    Check(Contacts(first) > mark && Vector2.Distance(first.current_position, waitingAt) < .08f && Results(full).Length == 1,
+        "已通过的人再次实际接触不重复搬运或占名额");
+
+    Place(first, 62, 75);
+    AtEntrance(second);
+    await Advance(.15f);
+    var both = Results(full);
+    Check(Landed(second) && both.Select(r => r.Targets.Single()).SequenceEqual(new[] { first.id, second.id }) &&
+        both.Select(r => r.Sequence).SequenceEqual(new[] { 1, 2 }) && full.StepStateOf("batch") == ConstructionStepState.Completed,
+        "两名原人物按实际先后通过后才放行整批", new
+        { targets = both.Select(r => r.Targets.Single()).ToArray(), positions = both.Select(r => r.Destination.Value.ToString()).ToArray() });
+    await Advance(1.25f);
+
+    // 只提前关出口，入口仍在，单独验证等待整批的后续因失败而中断。
+    AbilityCast cutoff = await Open(early);
+    await Advance(.15f);
+    Check(Landed(first) && Results(cutoff).Length == 1 && cutoff.StepStateOf("batch") == ConstructionStepState.Waiting,
+        "自然结束后可重新施放，先通过一名角色");
+    await Advance(.33f);
+    AtEntrance(second);
+    int last = Contacts(second);
+    await Advance(.14f);
+    Check(!cutoff.Finished && Contacts(second) > last && cutoff.StepStateOf("carry") == ConstructionStepState.Interrupted &&
+        cutoff.StepStateOf("batch") == ConstructionStepState.Interrupted && Landed(first) && Results(cutoff).Single().Targets.Single() == first.id &&
+        Vector2.Distance(second.current_position, waitingAt) < .08f, "出口先关时保留已通过的人和实际结果，仍开着的入口不再搬运");
+    await Advance(.8f);
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, passengers = new[] { first.id, second.id } };
+}
+finally
+{
+    SetExit(false);
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

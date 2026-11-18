@@ -17,8 +17,9 @@ public sealed partial class AbilityCast
                 cast.stepStates[action.Step].WorldPending = true;
                 return true;
             });
-        ConstructionOperations.Register(ConstructionOperationKind.MapActor, CompileMappingRadius,
-            (_, _, _) => false, validate: (form, _, path) =>
+        ConstructionOperations.Register(ConstructionOperationKind.MapActor, CompileActorMapping,
+            (_, _, _) => false, (cast, action, _, _) => new ConstructionOperationProgress(false,
+                !cast.nodes[cast.Plan.Steps[action.Step].MappingExit].Exists), validate: (form, _, path) =>
             {
                 if (form.BodyWindow || !form.AffectsActors || form.Resource.Contacts.Length == 0)
                     throw new InvalidDataException(path + "：生灵转移入口需要能够实际接触人物的生成形体");

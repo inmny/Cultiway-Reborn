@@ -364,6 +364,10 @@ public sealed class ConstructionOperation
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? MappingRadius;
 
+    /// <summary>人物双门允许的成功通行次数；未指定时保留单次尝试。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public int? MappingCapacity;
+
     /// <summary>操作种类。</summary>
     public ConstructionOperationKind Kind;
 
