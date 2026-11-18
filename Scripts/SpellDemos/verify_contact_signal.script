@@ -1,0 +1,169 @@
+// 同一现成世界，观察一个告警讯号的确定收件、查询、解除、到期和读回。
+Actor source = Make(64), target = Make(68), other = Make(69);
+target.setKingdom(source.kingdom); other.setKingdom(source.kingdom);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var warning = StatusEffects.SignalWarning;
+var receipts = new List<ConstructedSignalReceipt>();
+void Received(ConstructedSignalReceipt fact) { if (fact.SenderId == source.id) receipts.Add(fact); }
+ConstructedAbilityService.SignalReceived += Received;
+
+AbilityDefinition Spell(string id) => new AbilityDefinition
+{
+    Id = "test.contact-signal." + id, Name = id, Power = 1, Cooldown = .1f, Lifetime = .42f, TargetRange = 30f,
+    Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, DamageScale = 0, SelectedTargetOnly = true },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = .6f },
+    Root = new ConstructionNode { Id = "contact", Form = "fireball", Matter = "physical", Scale = .75f }
+};
+Entity Active(Actor subject) => subject.GetExtend().GetStatuses().FirstOrDefault(entity =>
+    !entity.Tags.Has<TagRecycle>() && entity.GetComponent<StatusComponent>().Type == warning &&
+    entity.GetComponent<AliveTimer>().value < entity.GetComponent<AliveTimeLimit>().value);
+
+async Task<int> Cast(AbilityDefinition d, Actor recipient)
+{
+    var caster = source.GetExtend(); caster.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    float balance = caster.GetCultisys<Xian>().wakan;
+    int hits = contacts.Count, ends = endings.Count;
+    await Fire(d, source, recipient, aggro: false);
+    caster.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - caster.GetCultisys<Xian>().wakan - d.Cost) < .001f, d.Id + "实际支付一次");
+    await Advance(.60f);
+    Check(endings.Count == ends + 1 && contacts.Skip(hits).All(hit => hit.TargetId == recipient.id && hit.CastId == endings.Last().Fact.CastId),
+        d.Id + "正式结束且只允许接触选定对象");
+    return contacts.Count - hits;
+}
+void Reject(AbilityDefinition definition, string field)
+{
+    bool invalid = false;
+    try { AbilityCompiler.Compile(definition); }
+    catch (InvalidDataException error) { invalid = error.Message.Contains(field); }
+    Check(invalid, "编译拒绝未知 " + field);
+}
+
+async Task Heal(AbilityDefinition d, Actor recipient, int expected, string message)
+{
+    recipient.setHealth(recipient.getMaxHealth() - 100);
+    int before = recipient.data.health;
+    int hits = await Cast(d, recipient);
+    int gained = recipient.data.health - before;
+    Check(hits == 1 && gained >= expected && gained < expected + 5, message, new { expected, gained });
+}
+
+async Task CheckSave(string path, JObject expected, long sourceId, long targetId, int receiptCount)
+{
+    World.world.save_manager.loadWorld(path);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    source = World.world.units.get(sourceId); target = World.world.units.get(targetId);
+    var loaded = Active(target);
+    var definitions = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    var known = source.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids;
+    long loadedSender = loaded.IsNull ? 0 : loaded.GetComponent<StatusComponent>().SourceActorId;
+    var differences = expected.Properties().Where(entry => definitions[entry.Name] == null ||
+        // 从 JSON 文件取出的通用小数是 double；还原到正式字段类型再核对全部内容和价格。
+        !JToken.DeepEquals(JObject.FromObject(entry.Value.ToObject<AbilityDefinition>()), JObject.FromObject(definitions[entry.Name])) ||
+        !known.Contains(entry.Name)).Select(entry => entry.Name).ToArray();
+    Check(differences.Length == 0 &&
+        !loaded.IsNull && loadedSender == sourceId && receipts.Count == receiptCount,
+        "正式存读保留完整定义、费用、原发信人与尚未到期状态，不重放送达",
+        new { path, loadedSender, active = !loaded.IsNull, receipts = receipts.Count, differences });
+}
+
+async Task CheckRestoredBehavior(JObject expected)
+{
+    Ready(source); Place(source, 64); Place(target, 68);
+    var heal = expected["test.contact-signal.conditional"].ToObject<AbilityDefinition>();
+    var notice = expected["test.contact-signal.notice"].ToObject<AbilityDefinition>();
+    var remove = expected["test.contact-signal.remove"].ToObject<AbilityDefinition>();
+    await Heal(heal, target, 20, "读档后的有效讯号仍改变实际玩法");
+    int receivedBefore = receipts.Count;
+    Check(await Cast(notice, target) > 1 && receipts.Count == receivedBefore && !Active(target).IsNull,
+        "读档后同一发信人刷新讯号也不重复报告送达");
+    Check(await Cast(remove, target) == 1 && Active(target).IsNull, "读档后仍可由原发信人按来源解除");
+}
+
+try
+{
+    if (savedOnly)
+    {
+        string prior = Path.Combine(folder, "prior");
+        var oldExpected = JObject.Parse(File.ReadAllText(Path.Combine(prior, "saved-definitions.json")));
+        var sent = JArray.Parse(File.ReadAllText(Path.Combine(prior, "receipts.json"))).Last;
+        long oldSender = (long)sent["SenderId"], oldRecipient = (long)sent["RecipientId"];
+        await CheckSave(Path.Combine(prior, "completed-save"), oldExpected, oldSender, oldRecipient, 0);
+        string savedAgain = Path.Combine(folder, "completed-save");
+        SaveManager.saveWorldToDirectory(savedAgain);
+        await CheckSave(savedAgain, oldExpected, oldSender, oldRecipient, 0);
+        await CheckRestoredBehavior(oldExpected);
+        return new { passed = true, savedOnly, sender = oldSender, recipient = oldRecipient,
+            process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
+    var notice = Spell("notice");
+    notice.Impact.Signal = new ConstructionSignal { Kind = ConstructionSignalKind.Warning, Duration = 2.3f };
+    notice.Root.Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval, Interval = .12f, MaximumPerTarget = 3 };
+    var invalid = ConstructionEditing.Copy(notice); invalid.Impact.Signal.Kind = (ConstructionSignalKind)99;
+    Reject(invalid, "/Signal");
+    var baseline = ConstructionEditing.Copy(notice); baseline.Impact.Signal = null;
+    ConstructionPricing.Price(baseline, cooldown: false, contactRules: 31);
+    ConstructionPricing.Price(notice, cooldown: false, contactRules: 31);
+    Check(notice.Cost > baseline.Cost, "正式报价计入讯号时长");
+
+    var heal = Spell("conditional");
+    heal.Impact.ConditionalContacts = new[] { new ConstructionConditionalContact
+    {
+        RequiredStatus = warning.id,
+        Outcome = new ConstructionContactOutcome { Restoration = new ConstructionRestoration { Health = 20 } },
+        Otherwise = new ConstructionContactOutcome { Restoration = new ConstructionRestoration { Health = 5 } }
+    }};
+    invalid = ConstructionEditing.Copy(heal); invalid.Impact.ConditionalContacts[0].RequiredStatus = "not.a.registered.status";
+    Reject(invalid, "/RequiredStatus");
+    ConstructionPricing.Price(heal, cooldown: false, contactRules: 31);
+    var remove = Spell("remove");
+    remove.Impact.Restoration = new ConstructionRestoration
+    {
+        RemoveStatus = new ConstructionStatusRemoval { Id = warning.id, Maximum = 1, OwnSourceOnly = true }
+    };
+    ConstructionPricing.Price(remove, cooldown: false, contactRules: 31);
+
+    Ready(source); await Advance(.15f); Place(source, 64); Place(target, 68); Place(other, 69);
+    var missed = ConstructionEditing.Copy(notice); missed.Id += ".miss"; missed.Root.Offset = new[] { 0f, 8f, 0f };
+    Check(await Cast(missed, target) == 0 && receipts.Count == 0 && Active(target).IsNull,
+        "没有真实接触时没有提前登记或送达");
+    Check(await Cast(notice, target) > 1 && receipts.Count == 1 && !Active(target).IsNull && Active(other).IsNull &&
+        receipts[0].RecipientId == target.id && receipts[0].SenderId == source.id && receipts[0].Kind == ConstructionSignalKind.Warning &&
+        target.GetExtend().GetStatuses().Count(entity => entity.GetComponent<StatusComponent>().Type == warning) == 1,
+        "只在选定实际收件人登记一次；同来源重复接触刷新而不叠层", receipts.ToArray());
+    await Heal(heal, target, 20, "有告警时后续独立术式实际恢复二十点");
+    await Heal(heal, other, 5, "相邻未收到告警的人只恢复五点");
+    Check(await Cast(remove, target) == 1 && Active(target).IsNull, "真实具名解除去掉当前来源的讯号");
+    await Heal(heal, target, 5, "解除后后续术式恢复普通五点");
+    Check(await Cast(notice, target) > 1 && receipts.Count == 2 && !Active(target).IsNull, "再次施放可正常重新送达");
+    await Advance(2.5f);
+    Check(Active(target).IsNull, "原状态生命周期结束后不能继续查询讯号");
+    await Heal(heal, target, 5, "自然到期后术式恢复普通五点");
+
+    var combined = ConstructionEditing.Copy(heal); combined.Id += ".combined"; combined.Impact.Signal = notice.Impact.Signal;
+    ConstructionPricing.Price(combined, cooldown: false, contactRules: 31);
+    await Heal(combined, target, 20, "同一接触先实际送达，随后条件成立并恢复二十点");
+    Check(receipts.Count == 3 && !Active(target).IsNull, "实际送达仍只发一次收件事实");
+    long sourceId = source.id, targetId = target.id;
+    var expected = new[] { notice, heal, remove, combined }.ToDictionary(d => d.Id, d => JObject.FromObject(d));
+    foreach (var entry in expected) ConstructedAbilityService.Learn(owner, entry.Key);
+    File.WriteAllText(Path.Combine(folder, "saved-definitions.json"), JsonConvert.SerializeObject(expected, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "receipts.json"), JsonConvert.SerializeObject(receipts, Formatting.Indented));
+    await Game.NextFrame(); await Game.NextFrame(); await Game.NextFrame();
+    string path = Path.Combine(folder, "completed-save");
+    SaveManager.saveWorldToDirectory(path);
+    await CheckSave(path, JObject.FromObject(expected), sourceId, targetId, 3);
+    await CheckRestoredBehavior(JObject.FromObject(expected));
+    return new { passed = true, receipts = receipts.Count, sender = sourceId, recipient = targetId,
+        process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.SignalReceived -= Received;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

@@ -15,6 +15,25 @@ namespace Cultiway.Content.Combat;
 /// <summary>内容系统共用的状态查询、施加、刷新、净化与驱散原语。</summary>
 public static class CombatStatusEffects
 {
+    /// <summary>查询本时点仍可供玩法使用的共享状态，已到期或回收的不参与。</summary>
+    /// <param name="target">接收者。</param><param name="effect">已登记状态。</param><param name="active">真实持有的状态。</param>
+    internal static bool TryGetActiveStatus(Actor target, StatusEffectAsset effect, out Entity active)
+    {
+        var relations = target.GetExtend().E.GetRelations<StatusRelation>();
+        for (int index = 0; index < relations.Length; index++)
+        {
+            Entity status = relations[index].status;
+            if (!status.IsNull && !status.Tags.Has<TagRecycle>() && status.GetComponent<StatusComponent>().Type == effect &&
+                (!status.TryGetComponent(out AliveTimeLimit limit) || status.GetComponent<AliveTimer>().value < limit.value))
+            {
+                active = status;
+                return true;
+            }
+        }
+        active = default;
+        return false;
+    }
+
     /// <summary>判断目标是否持有指定类型且来自指定来源的共享状态。</summary>
     public static bool HasStatus(Actor target, StatusEffectAsset effect, Actor source = null)
     {

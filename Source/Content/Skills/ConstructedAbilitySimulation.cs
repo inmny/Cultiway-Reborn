@@ -1182,6 +1182,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ApplyStatuses(running, node, target, outcome.Statuses, strength);
             ApplyRestoration(running, node, target, outcome.Restoration, strength);
         }
+        if (result == ApplyAttackState.Hit && impact.Signal != null)
+        {
+            if (generation == worldGeneration && target.data?.id == targetId && target.isAlive() && target.hasHealth())
+                DeliverSignal(running, node, target, impact.Signal, strength);
+            if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
+                return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, additionalDamage: additionalDamage);
+        }
         ConstructedTargetResponse conditional = result == ApplyAttackState.Hit ? ApplyConditionalContacts(running, node, target, targetId,
             impact.ConditionalContacts, origin, strength) : default;
         additionalDamage |= conditional.AdditionalDamageAttempted;

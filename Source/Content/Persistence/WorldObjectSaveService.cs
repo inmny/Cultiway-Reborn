@@ -234,6 +234,8 @@ internal static partial class WorldObjectSaveService
                 continue;
             }
             if (entity.HasComponent<SpecialItem>()) entity.GetComponent<SpecialItem>().self = entity;
+            if (entity.TryGetComponent(out StatusComponent status) && status.SourceActorId == 0 && status.Source is Actor source)
+                entity.GetComponent<StatusComponent>().SourceActorId = source.id;
             if (entity.TryGetComponent(out BookBinder book)) RestoreKnowledge(book.BE, record.Knowledge);
         }
         // 缺失定义的物件整件丢弃，关系不会接到半件法宝或失效丹药上。

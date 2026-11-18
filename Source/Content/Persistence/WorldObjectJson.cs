@@ -284,11 +284,13 @@ internal sealed class WorldObjectJson : JsonConverter
                                 field.DeclaringType == typeof(ArtifactAbilityRuntimeEntry) &&
                                 field.Name is "activity_carrier_actor_id" or "activity_effect_scale" ||
                                 field.DeclaringType == typeof(StatusComponent) &&
-                                field.Name is "Source" or "SourcePowerLevel") &&
+                                field.Name is "Source" or "SourcePowerLevel" or "SourceActorId") &&
                                 !typeof(Delegate).IsAssignableFrom(field.FieldType))
                 .Select(field =>
                 {
                     JsonProperty property = base.CreateProperty(field, MemberSerialization.Fields);
+                    if (field.DeclaringType == typeof(StatusComponent) && field.Name == nameof(StatusComponent.SourceActorId))
+                        property.DefaultValueHandling = DefaultValueHandling.Ignore;
                     if (field.Name is "artifact_entity_id" or "anchor_artifact_entity_id") property.Converter = entityNumber;
                     return property;
                 }).ToList();

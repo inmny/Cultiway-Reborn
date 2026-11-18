@@ -32,6 +32,12 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
     /// <summary>实际穿刺破甲后的护甲损耗，不附加状态烟团。</summary>
     public static StatusEffectAsset BodyExposure { get; private set; }
 
+    /// <summary>真实收件人已收到的短时告警。</summary>
+    public static StatusEffectAsset SignalWarning { get; private set; }
+
+    /// <summary>真实收件人已收到的短时集结讯号。</summary>
+    public static StatusEffectAsset SignalRally { get; private set; }
+
     /// <summary>完整束缚状态，行动限制与空间显示共用一个持续时间。</summary>
     public static StatusEffectAsset Bound { get; private set; }
 
@@ -130,6 +136,10 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
         BodyExposure = StatusEffectAsset.StartBuild(nameof(BodyExposure))
             .SetNegative().SetIconPath("cultiway/icons/stats/IronArmor")
             .SetDuration(3f).SetStats(new BaseStats { [S.armor] = -.2f }).Build();
+        SignalWarning = StatusEffectAsset.StartBuild(nameof(SignalWarning))
+            .SetDuration(3f).SetIconPath("cultiway/icons/element_root/neg").Build();
+        SignalRally = StatusEffectAsset.StartBuild(nameof(SignalRally))
+            .SetDuration(3f).SetIconPath("cultiway/icons/element_root/pos").Build();
         Bound = StatusEffectAsset.StartBuild(nameof(Bound))
             .SetNegative().SetIconPath("cultiway/icons/element_root/entropy")
             .SetDuration(1f).SetStats(CreateReactionStats(true))

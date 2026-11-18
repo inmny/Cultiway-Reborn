@@ -326,6 +326,8 @@ public sealed class ConstructionMeasure
                 effects += impact.EquipmentErosion.Slots.Count * impact.EquipmentErosion.Fraction * 100d * strength;
             if (impact.EquipmentRepair != null)
                 effects += impact.EquipmentRepair.Durability * .1d * strength;
+            if (impact.Signal != null)
+                effects += .25d + impact.Signal.Duration * .25d * strength;
             if (impact.InventoryAging != null)
                 effects += impact.InventoryAging.MaximumItems * (double)impact.InventoryAging.Seconds * strength /
                            Const.TimeScales.SecPerYear;
