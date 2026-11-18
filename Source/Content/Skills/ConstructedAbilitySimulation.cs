@@ -276,7 +276,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 continue;
             }
 
-            running.Cast.AppendVisuals(visuals);
+            if (!contactDebugOnlyShapes || running.Id != contactDebugCast) running.Cast.AppendVisuals(visuals);
             if (!running.BodyControlled) continue;
             BodyPose pose = running.Cast.BodyPose.Value;
             if (running.Cast.Plan.Body.ControlsStance)

@@ -32,6 +32,7 @@ public sealed partial class ConstructedAbilityService
         FormVisualScene.Publish(ProviderId, completed.Forms);
         presentation = completed;
         PublishBodySurfaces(time);
+        PublishContactDebug();
     }
 
     /// <summary>只由已经确认的真实身体接触登记局部表面变化。</summary>

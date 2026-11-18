@@ -1,0 +1,197 @@
+var geometry = typeof(FormVisualInstance).GetField("Geometry", F);
+Mesh DebugMesh() => FormVisualScene.Instances.Select(v => (Mesh)geometry.GetValue(v))
+    .SingleOrDefault(m => m != null && m.name == "Cultiway Effective Contact Debug");
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+object mod = external?.GetProperty("Instance", F).GetValue(null);
+void View(bool threeDimensional) => external.GetMethod("SetGodView", F).Invoke(mod, new object[] { threeDimensional });
+
+try
+{
+    if (mod != null)
+    {
+        external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+        View(false);
+        await Game.WaitUntil(() => !(bool)Get(mod, "IsFirstPerson") && !(bool)Get(mod, "GodShown") &&
+            (bool)Get(mod, "DiveDone") && !(bool)Get(mod, "Flying"), 3600);
+    }
+    Ready(caster);
+    await Advance(.16f);
+    float bodyHeight = Height(target), bodyRadius = Body(target).Radius;
+
+    if (section == "accuracy")
+    {
+        var sector = RegisterForm(false);
+        const float bearing = 2.5f * Mathf.Deg2Rad;
+        Vector3 outward = new Vector3(Mathf.Cos(bearing), Mathf.Sin(bearing), 0f);
+        foreach (float size in new[] { 3f, 64f, 512f })
+        {
+            float exactChord = size * Mathf.Cos(bearing), limit = size * .001f;
+            float inset = size - exactChord;
+            async Task Edge(string name, float distance, bool shouldHit)
+            {
+                Move(caster, 64, 72);
+                Move(target, 69, 72);
+                var definition = Spell("sector-" + size + "-" + name, sector.Description.Id, "iron", bodyHeight * .5f);
+                definition.Root.Scale = size / 3f;
+                definition.Root.Rotation = new[] { -90f, 0f, 0f };
+                Vector3 origin = new Vector3(69, 72, 0f) - outward * distance;
+                definition.Root.Offset = new[] { origin.x - 64, origin.y - 72, 0f };
+                int health = target.data.health;
+                await Cast(definition, caster, target);
+                await Advance(.14f);
+                var sample = Sample(definition);
+                var area = sample.Contacts.Single();
+                Vector3 centre = sample.Models.Single().Transform.GetColumn(3);
+                Vector3 ideal = centre + outward * size;
+                Vector3 projected = area.ClosestAxisPoint(ideal);
+                float measured = Vector3.Dot(ideal - projected, outward);
+                float actualDistance = Vector3.Dot(Foot(target) - centre, outward);
+                int hits = contacts.Count(c => c.AbilityId == definition.Id && c.TargetId == target.id);
+                Check(measured > 0 && measured < limit && Mathf.Abs(measured - inset) < .0003f &&
+                    Mathf.Abs(actualDistance - distance) < .0003f && hits == (shouldHit ? 1 : 0) &&
+                    (shouldHit ? target.data.health < health : target.data.health == health),
+                    "实际边界：" + definition.Id, new { size, limit, measured, actualDistance, bodyRadius,
+                        chord = size - measured, ideal = XYZ(ideal), actual = XYZ(projected), health, after = target.data.health, hits });
+                await Advance(.55f);
+                Check(casts[definition.Id].Finished, "自然结束：" + definition.Id);
+            }
+            await Edge("inside-chord", exactChord + bodyRadius - inset * .4f, true);
+            await Edge("between-chord-and-arc", exactChord + bodyRadius + inset * .5f, false);
+            await Edge("outside-arc", size + bodyRadius + inset * .4f, false);
+        }
+    }
+    if (section is "outline" or "isolated")
+    {
+        bool isolated = section == "isolated";
+        int LiveModels() => FormVisualScene.Instances.Count(v => v.Resource.Description.Id is "fire_burst" or "sword_qi");
+        AbilityDefinition Show(string name)
+        {
+            var definition = Spell(name, "fire_burst", "fire", bodyHeight * .5f);
+            definition.Root.Scale = 1.4f;
+            definition.Root.Children = new[] { new ConstructionNode { Id = "edge", Matter = "iron", Form = "sword_qi",
+                Offset = new[] { 3.2f, 0f, 0f }, Rotation = new[] { -90f, 0f, 0f }, OnContact = ConstructionContactResponse.Continue } };
+            return definition;
+        }
+        Move(caster, 64, 72); Move(target, 66.9f, 72);
+        var definition = Show("outline");
+        await Cast(definition, caster, target);
+        await Advance(.09f);
+        Check(DebugMesh() == null, "正常游戏没有提交调试轮廓");
+        await Shot("native-off", 66f, 72.6f, 8.5f);
+        ConstructedAbilityService.SetContactDebug(castIds[definition.Id], isolated);
+        await Advance(.08f);
+        Check(isolated ? LiveModels() == 0 : LiveModels() >= 2, "调试与正式形体按所选模式提交，施放没有结束");
+        // 独立核对实际凸片顶点、实际球半径与已发布网格；不调用生成网格的函数作为预期。
+        var shapes = new List<AbilityCapsule>(); casts[definition.Id].AppendContacts(shapes);
+        var mesh = DebugMesh();
+        Check(mesh != null && mesh.GetTopology(0) == MeshTopology.Lines, "按实际编号发布共同轮廓");
+        var segments = mesh.vertices;
+        var ball = shapes.Single(s => s.Radius > 0);
+        var pieces = shapes.Where(s => s.Radius == 0).ToArray();
+        var all = new List<Vector3>();
+        foreach (AbilityCapsule piece in pieces)
+        {
+            object prism = Field(piece, "Prism"), frame = Get(prism, "Pose");
+            int n = (int)Get(frame, "VertexCount");
+            var vertex = frame.GetType().GetMethod("Vertex", F);
+            for (int i = 0; i < n; i++) all.Add((Vector3)vertex.Invoke(frame, new object[] { i }));
+        }
+        bool Near(Vector3 p, Vector3 q) => (p - q).sqrMagnitude < .00000005f;
+        var curved = segments.Where(p => !all.Any(q => Near(p, q))).ToArray();
+        Check(pieces.Length == 3 && all.All(p => segments.Any(q => Near(p, q))) && curved.Length > 100 &&
+            curved.All(p => Mathf.Abs(Vector3.Distance(p, ball.ClosestAxisPoint(p)) - ball.Radius) < .0003f),
+            "实际球半径与折刃各片的上下沿贯穿同一发布网格", new { totalVertices = segments.Length, bladeVertices = all.Count,
+                roundVertices = curved.Length, ball = Shape(ball) });
+        await Shot("native-on", 66f, 72.6f, 8.5f);
+        if (mod != null)
+        {
+            View(true);
+            await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600);
+            external.GetField("_godTip", F).SetValue(mod, .7f);
+            external.GetField("_godTipRate", F).SetValue(mod, 0f);
+            await Shot("worldfall-on", 66f, 72.6f, 8.5f);
+            var worldfall = typeof(FormVisualInstance).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer");
+            var rendered = ((IEnumerable)worldfall.GetField("transparent", F).GetValue(null)).Cast<object>();
+            Check(DebugMesh() == mesh && rendered.Any(entry => ReferenceEquals(Get(entry,"Mesh"), mesh)), "Worldfall 提交的仍是同一份轮廓");
+            View(false);
+            await Game.WaitUntil(() => !(bool)Get(mod, "GodShown") && (bool)Get(mod, "DiveDone"), 3600);
+        }
+        ConstructedAbilityService.SetContactDebug();
+        Check(DebugMesh() == null && !casts[definition.Id].Finished, "暂停时关闭立即移除，实际施放仍存在");
+        if (isolated)
+        {
+            await Advance(.05f);
+            Check(LiveModels() >= 2 && DebugMesh() == null, "关闭后下一轮恢复正式形体");
+            await Shot("native-restored", 66f, 72.6f, 8.5f);
+            return new { passed = true, section, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+        }
+        ConstructedAbilityService.SetContactDebug(castIds[definition.Id]);
+        await Advance(.08f);
+        Check(DebugMesh() != null, "同一次施放重新开启仍可读取实际形状");
+        await Advance(.48f);
+        Check(casts[definition.Id].Finished && DebugMesh() == null, "自然结束清理轮廓");
+
+        Move(caster, 64, 72); Move(target, 66.9f, 72);
+        var second = Show("clear-world");
+        await Cast(second, caster, target);
+        ConstructedAbilityService.SetContactDebug(castIds[second.Id]);
+        await Advance(.13f);
+        Check(DebugMesh() != null && !casts[second.Id].Finished, "换世界前确实还有活动轮廓");
+        World.world.save_manager.loadWorld(fixture);
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+        await Frames();
+        Check(DebugMesh() == null, "换世界清掉旧世界的轮廓");
+    }
+    if (section == "water")
+    {
+        Move(caster, 66, 72); Move(target, 73, 72);
+        var definition = Spell("water-box", "water_flow", "water", 0f);
+        definition.Root.Volume = 12f;
+        definition.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow,
+            Flow = new ConstructionFlow { Cells = 16, Size = 6f, Gravity = 10f, Drag = .08f, Evaporation = 0f, OpenBoundary = false } } };
+        await Cast(definition, caster, target);
+        ConstructedAbilityService.SetContactDebug(castIds[definition.Id]);
+        await Advance(.18f);
+        var sample = Sample(definition);
+        var layer = sample.Models.Single(v => v.Layer != null).Layer;
+        var boxes = sample.Contacts;
+        var mesh = DebugMesh();
+        Check(boxes.All(box => box.IsBox) && mesh != null && mesh.vertexCount == 24 * boxes.Length,
+            "实际有水格各发布一个完整箱体", new { count = boxes.Length, vertices = mesh?.vertexCount });
+        var lines = mesh.vertices;
+        for (int i = 0; i < boxes.Length; i++)
+        {
+            var box = boxes[i];
+            for (int mask = 0; mask < 8; mask++)
+            {
+                var corner = box.A + Vector3.Scale(box.HalfExtents, new Vector3(
+                    (mask & 1) == 0 ? -1 : 1, (mask & 2) == 0 ? -1 : 1, (mask & 4) == 0 ? -1 : 1));
+                if (!Enumerable.Range(i * 24, 24).Any(j => (corner - lines[j]).sqrMagnitude < .00000005f))
+                    throw new Exception("轮廓未保留箱体的实际上下沿：" + i);
+            }
+        }
+        Check(true, "所有调试箱体的八角与实际厚度一致");
+        var layers = typeof(FormVisualInstance).Assembly.GetType("Cultiway.Core.Visuals.Forms.FormLayerMeshes");
+        var rendered = ((Mesh)layers.GetMethod("Get", F).Invoke(null, new object[] { layer })).vertices;
+        float[] effective = { boxes.Min(b => b.A.x - b.HalfExtents.x), boxes.Max(b => b.A.x + b.HalfExtents.x),
+            boxes.Min(b => b.A.y - b.HalfExtents.y), boxes.Max(b => b.A.y + b.HalfExtents.y) };
+        float[] surface = { rendered.Min(p => p.x), rendered.Max(p => p.x), rendered.Min(p => p.y), rendered.Max(p => p.y) };
+        var difference = effective.Zip(surface, (actual, shown) => shown - actual).ToArray();
+        Check(difference.All(d => Mathf.Abs(d) <= layer.Cell * .5f + .0001f), "这帧水面四侧偏差不超过半个水格",
+            new { cell = layer.Cell, limit = layer.Cell * .5f, effective, surface, difference });
+        await Shot("water-box", 66f, 72.6f, 8.5f);
+    }
+    return new { passed = true, section, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.SetContactDebug();
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ReflectionConfirmed -= Reflected;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    foreach (var resource in resources) forms.Remove(resource.Description.Id);
+    foreach (var mesh in meshes) UnityEngine.Object.Destroy(mesh);
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

@@ -2023,3 +2023,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 6.18　正式模型与实战边界
 
 在独立游戏运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_visual_boundary.py --section circle`。可分别选择 `circle`（圆内外）、`height`（同位置改高度）、`blade`（细长刃边）、`wave`（潮浪经过）、`shield`（盾面边缘）。脚本加载现成测试世界，用正式模型施放；同一次运行的画面、几何坐标和实际扣血或反射回执保存在 `CULTIWAY_DEV_OUTPUT/visual-boundary/<分段>`。结论及样本说明见[画面与实际作用边界](../../Doc/技能系统全面重构/画面与实际作用边界.md)。
+
+### 6.19　实际判定误差与有效区调试
+
+在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_contact_accuracy.py --section accuracy`。`accuracy` 核对三档扇形半径的内缩和实际扣血；`outline` 核对两种视角共用轮廓，以及关调试、自然结束和换世界清理；`isolated` 核对只看有效区及显示恢复；`water` 比较实际湿格箱体与水面的四侧。每段使用同一份现成世界，实际输入、数值和截图保存在 `CULTIWAY_DEV_OUTPUT/contact-accuracy/<分段>`。容差及开发调用见[作用形状精度与调试轮廓](../../Doc/技能系统全面重构/作用形状精度与调试轮廓.md)。
