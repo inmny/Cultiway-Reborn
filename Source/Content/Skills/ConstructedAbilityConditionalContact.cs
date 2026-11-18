@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cultiway.Content.Combat;
 using Cultiway.Core.Skills;
 using UnityEngine;
 
@@ -6,7 +7,7 @@ namespace Cultiway.Content.Skills;
 
 public sealed partial class ConstructedAbilityService
 {
-    /// <summary>顺序选择生命分支，立即结算，再按本条真实伤害结果追加有限后续作用。</summary>
+    /// <summary>顺序核对实际生命与状态，立即结算，再按本条真实伤害结果追加有限后续作用。</summary>
     /// <param name="running">本次真实施放。</param><param name="node">接触部位。</param>
     /// <param name="target">实际接触人物。</param><param name="targetId">已确认的人物身份。</param>
     /// <param name="rules">已经编译的有限分支。</param><param name="origin">实际传播中心。</param>
@@ -20,8 +21,9 @@ public sealed partial class ConstructedAbilityService
         foreach (CompiledConstructionConditionalContact rule in rules)
         {
             if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth()) break;
-            CompiledConstructionContactOutcome outcome = !rule.MaximumHealthRatio.HasValue || target.getHealthRatio() <= rule.MaximumHealthRatio.Value
-                ? rule.Outcome : rule.Otherwise;
+            bool matches = (!rule.MaximumHealthRatio.HasValue || target.getHealthRatio() <= rule.MaximumHealthRatio.Value) &&
+                           (rule.RequiredStatus == null || CombatStatusEffects.TryGetActiveStatus(target, rule.RequiredStatus, out _));
+            CompiledConstructionContactOutcome outcome = matches ? rule.Outcome : rule.Otherwise;
             ConstructedTargetResponse response = ApplyContactOutcome(running, node, target, targetId, outcome, origin, strength, out bool contactDamage);
             velocity += response.VelocityChange; force |= response.ForceApplied; damage |= response.AdditionalDamageAttempted;
             if (generation != worldGeneration || target.data?.id != targetId) break;

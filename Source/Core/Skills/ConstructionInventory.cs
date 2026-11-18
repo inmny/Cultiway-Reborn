@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -63,7 +64,9 @@ public static partial class AbilityCompiler
 {
     /// <summary>完整展开后核对名称和预算，同一输入可以在不同真实步骤中分次使用。</summary>
     /// <param name="definition">外部资料。</param><param name="operations">已经编译的实际操作。</param>
-    internal static CompiledInventoryInput[] CompileInventory(AbilityDefinition definition, CompiledEventOperation[] operations)
+    /// <param name="impacts">已复制的人物作用声明。</param>
+    internal static CompiledInventoryInput[] CompileInventory(AbilityDefinition definition, CompiledEventOperation[] operations,
+        IEnumerable<CompiledConstructionImpact> impacts)
     {
         var source = definition.Inventory ?? Array.Empty<ConstructionInventoryInput>();
         if (source.Length > 16) throw new InvalidDataException("Inventory：单次构造最多16类材料");
@@ -77,6 +80,9 @@ public static partial class AbilityCompiler
             if (input == null || use.Count > input.Count)
                 throw new InvalidDataException(operation.Path + "：消耗引用不存在的材料输入或超过本次借用数量");
         }
+        foreach (var impact in impacts)
+            if (impact?.EquipmentRepair is { } repair && !inputs.Any(input => input.Id == repair.MaterialInput))
+                throw new InvalidDataException(repair.Path + "：修复引用了不存在的材料输入 " + repair.MaterialInput);
         return inputs;
     }
 }

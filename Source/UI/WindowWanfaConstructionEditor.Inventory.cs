@@ -43,6 +43,10 @@ public sealed partial class WindowWanfaConstructionEditor
             foreach (var operation in ConstructionContactEdits.Parts(candidate.Root).SelectMany(part => part.Node.Operations)
                          .Concat(candidate.Steps.Select(step => step.Operation)))
                 if (operation.InventoryUse?.Input == selected.Id) operation.InventoryUse.Input = value;
+            foreach (var impact in ConstructionContactEdits.Parts(candidate.Root).Select(part => part.Node.Impact)
+                         .Concat(candidate.Body?.Stages?.Select(stage => stage.Impact) ?? Enumerable.Empty<ConstructionImpact>())
+                         .Append(candidate.Impact).Append(candidate.Body?.Impact))
+                if (impact?.EquipmentRepair?.MaterialInput == selected.Id) impact.EquipmentRepair.MaterialInput = value;
         }));
         Choice("InventoryShape", InventoryShapeName(selected.Shape), () => menu.Show(T("InventoryShape"),
             ModClass.L.ItemShapeLibrary.list.OrderBy(shape => shape.id, StringComparer.Ordinal).Select(shape => new UiOptionMenuOption

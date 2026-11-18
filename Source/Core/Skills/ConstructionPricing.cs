@@ -316,8 +316,18 @@ public sealed class ConstructionMeasure
                                                (impact.Impulse?.magnitude ?? 0f) * .1d *
                                                (impact.SlideSeconds > 0 ? impact.SlideSeconds : 1d));
             double effects = impact.AgeYears * (double)strength;
+            effects += impact.ReleaseGrab switch
+            {
+                ConstructionGrabRelease.Own    => .5d,
+                ConstructionGrabRelease.Rescue => .5d + power * strength,
+                _                              => 0d
+            };
             if (impact.EquipmentErosion != null)
                 effects += impact.EquipmentErosion.Slots.Count * impact.EquipmentErosion.Fraction * 100d * strength;
+            if (impact.EquipmentRepair != null)
+                effects += impact.EquipmentRepair.Durability * .1d * strength;
+            if (impact.Signal != null)
+                effects += .25d + impact.Signal.Duration * .25d * strength;
             if (impact.InventoryAging != null)
                 effects += impact.InventoryAging.MaximumItems * (double)impact.InventoryAging.Seconds * strength /
                            Const.TimeScales.SecPerYear;
@@ -330,7 +340,8 @@ public sealed class ConstructionMeasure
             {
                 CompiledConstructionRestoration restoration = impact.Restoration;
                 effects += (restoration.Health + restoration.HealthPerForce * power * strength +
-                            restoration.HealthPerSecond * restoration.Duration) * .1d + restoration.CleanseCount * .5d;
+                            restoration.HealthPerSecond * restoration.Duration) * .1d +
+                    (restoration.CleanseCount + restoration.RemovalMaximum) * .5d;
             }
             double displacement = impact.Knockback == null ? 0d :
                 impact.Knockback.Distance * .25d + impact.Knockback.Height * .5d;
@@ -393,7 +404,8 @@ public sealed class ConstructionMeasure
                 (status.Tick?.ForcePerSecond ?? 0f) * power * strength);
         if (outcome.Restoration != null)
             work += (outcome.Restoration.Health + outcome.Restoration.HealthPerForce * power * strength +
-                outcome.Restoration.HealthPerSecond * outcome.Restoration.Duration) * .1d + outcome.Restoration.CleanseCount * .5d;
+                outcome.Restoration.HealthPerSecond * outcome.Restoration.Duration) * .1d +
+                (outcome.Restoration.CleanseCount + outcome.Restoration.RemovalMaximum) * .5d;
         if (outcome.Knockback != null) work += outcome.Knockback.Distance * .25d + outcome.Knockback.Height * .5d;
         return work;
     }
@@ -418,6 +430,9 @@ public sealed class ConstructionMeasure
 public static class ConstructionPricing
 {
     internal const int ProcessTimeRules = 31;
+
+    /// <summary>自主创作接入指定解除、解救、修复和讯号条件。</summary>
+    internal const int ApplicationRules = 32;
 
     /// <summary>按已冻结规则合并真实接触需求，不改变旧请求的计算。</summary>
     /// <param name="measure">已编译的实际规模。</param><param name="rules">本次创作版本。</param>

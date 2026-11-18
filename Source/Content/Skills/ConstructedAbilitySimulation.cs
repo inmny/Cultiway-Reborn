@@ -1078,6 +1078,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (!owner.IsLive) return;
             target = owner.Actor;
         }
+        if (effect.RemovedStatus != null && (!effect.RemovalOwnSourceOnly || owner.IsLive))
+            CombatStatusEffects.RemoveStatus(target, effect.RemovedStatus,
+                effect.RemovalOwnSourceOnly ? owner.Actor : null, effect.RemovalMaximum);
         float amount = effect.Health + Mathf.RoundToInt((forceBasis ?? (node < 0 ? running.Power : running.Cast.RemainingForce(node))) * attenuation * effect.HealthPerForce);
         if (amount > 0f) CombatResourceEffects.RestoreHealth(target, amount);
         if (effect.HealthPerSecond > 0f && target.data.health < target.getMaxHealth() && owner.IsLive)
@@ -1151,6 +1154,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
             return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);
         long generation = worldGeneration;
+        if (result == ApplyAttackState.Hit && impact.ReleaseGrab != ConstructionGrabRelease.None)
+        {
+            TryReleaseGrab(running, node, target, impact.ReleaseGrab, strength);
+            if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
+                return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);
+        }
         ApplyContactExchange(running.Owner(node), target, impact.Exchange, result, strength);
         if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
             return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);
@@ -1173,6 +1182,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ApplyStatuses(running, node, target, outcome.Statuses, strength);
             ApplyRestoration(running, node, target, outcome.Restoration, strength);
         }
+        if (result == ApplyAttackState.Hit && impact.Signal != null)
+        {
+            if (generation == worldGeneration && target.data?.id == targetId && target.isAlive() && target.hasHealth())
+                DeliverSignal(running, node, target, impact.Signal, strength);
+            if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
+                return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, additionalDamage: additionalDamage);
+        }
         ConstructedTargetResponse conditional = result == ApplyAttackState.Hit ? ApplyConditionalContacts(running, node, target, targetId,
             impact.ConditionalContacts, origin, strength) : default;
         additionalDamage |= conditional.AdditionalDamageAttempted;
@@ -1180,6 +1196,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             return new ConstructedTargetResponse(targetId, conditional.VelocityChange, conditional.ForceApplied, 0f, 0f, additionalDamage: additionalDamage);
         if (!ApplyInventoryAging(running, node, target, impact.InventoryAging, result, strength) ||
             !ApplyEquipmentErosion(running, node, target, impact.EquipmentErosion, result, strength) ||
+            !ApplyEquipmentRepair(running, node, target, impact.EquipmentRepair, result, strength) ||
             !ApplyContactAging(running, node, target, impact.AgeYears, result, strength))
             return new ConstructedTargetResponse(targetId, conditional.VelocityChange, conditional.ForceApplied, 0f, 0f, additionalDamage: additionalDamage);
         ApplyContactReactions(target, impact, running.Owner(node), result, out float stagger, out float bound,

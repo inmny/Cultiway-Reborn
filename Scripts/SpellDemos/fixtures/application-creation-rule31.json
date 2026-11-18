@@ -1,0 +1,2317 @@
+{
+  "source": {
+    "map": "process-time-c2/creation/pending-save/map.wbox",
+    "sha256": "174e0ae215e1caca1236fe6c672fc66729cb9d17fa8618e36384b7e528ae1d91",
+    "expected": "process-time-c2/creation/pending-expected.json",
+    "expectedSha256": "bf9a0c2f73bcfccf7f046ca76f2fa2c6973220b8a1095075b296ca747089b2fa",
+    "actorId": 58
+  },
+  "section": {
+    "version": 32,
+    "data": {
+      "Remaining": 0.0,
+      "Sequence": 0,
+      "Pending": true,
+      "Seed": 14,
+      "Origin": 2,
+      "Inspiration": {
+        "Elements": {
+          "iron": 0.0,
+          "wood": 1.0,
+          "water": 0.0,
+          "fire": 0.0,
+          "earth": 0.0,
+          "neg": 0.0,
+          "pos": 0.0,
+          "entropy": 0.0
+        },
+        "Aggression": 0.0,
+        "Control": 0.5,
+        "CanProject": true,
+        "Rules": 31
+      },
+      "Source": {
+        "Version": 1,
+        "Id": "test.process-time.creation-basis",
+        "Revision": 1,
+        "Name": "木剑原术",
+        "Creator": 0,
+        "Seed": 0,
+        "Lifetime": 1.5,
+        "Cost": 2.0,
+        "Resource": "wakan",
+        "AdditionalResources": [],
+        "ResourceMode": 0,
+        "Cooldown": 0.1,
+        "Power": 0.0,
+        "TargetRange": 15.0,
+        "Use": {
+          "Channels": 1,
+          "Target": 3
+        },
+        "Root": {
+          "Id": "root",
+          "Form": "sword",
+          "Matter": "wood",
+          "Offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Scale": 1.0,
+          "Volume": 1.0,
+          "ActiveFrom": 0.0,
+          "ActiveUntil": -1.0,
+          "OnContact": 0,
+          "ContactRole": 0,
+          "Strength": 1.0,
+          "Interception": 0,
+          "ReflectionLimit": 8,
+          "Operations": [
+            {
+              "Id": "weather",
+              "Erosion": {
+                "Fraction": 0.3
+              },
+              "Kind": 20,
+              "At": 0.0,
+              "Seconds": 1.0,
+              "Vector": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "TurnRate": 0.0,
+              "Trigger": 0,
+              "InheritVelocity": true
+            }
+          ],
+          "Children": []
+        },
+        "Steps": [
+          {
+            "Id": "original",
+            "Operation": {
+              "Kind": 17,
+              "At": 0.0,
+              "Seconds": 0.0,
+              "Vector": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "TurnRate": 0.0,
+              "Trigger": 0,
+              "InheritVelocity": true
+            },
+            "Inputs": {
+              "part": {
+                "Node": "root",
+                "Stage": 0
+              },
+              "after": {
+                "Node": "root",
+                "Operation": "weather",
+                "Output": "erosion",
+                "Stage": 0
+              }
+            }
+          }
+        ]
+      },
+      "Resources": {
+        "Forms": [
+          {
+            "Id": "sword",
+            "Size": 3.40193129,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "grip",
+              "choke",
+              "edge",
+              "tip"
+            ],
+            "Motions": [],
+            "Parts": [
+              "blade",
+              "guard",
+              "grip",
+              "pommel"
+            ],
+            "Formations": [],
+            "Kind": "rigid",
+            "Controls": []
+          },
+          {
+            "Id": "hand",
+            "Size": 0.203301832,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "finger_0",
+              "finger_1",
+              "finger_2",
+              "finger_3",
+              "finger_4",
+              "wrist",
+              "grip"
+            ],
+            "Motions": [],
+            "Parts": [
+              "palm",
+              "finger_0_0",
+              "finger_0_1",
+              "finger_1_0",
+              "finger_1_1",
+              "finger_2_0",
+              "finger_2_1",
+              "finger_3_0",
+              "finger_3_1",
+              "finger_4_0",
+              "finger_4_1"
+            ],
+            "Formations": [],
+            "Kind": "articulated",
+            "Controls": []
+          },
+          {
+            "Id": "branch",
+            "Size": 2.09982157,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "tip_0",
+              "tip_1",
+              "tip_2"
+            ],
+            "Motions": [],
+            "Parts": [
+              "trunk",
+              "branch_1",
+              "branch_2"
+            ],
+            "Formations": [],
+            "Kind": "branch",
+            "Controls": []
+          },
+          {
+            "Id": "water_wave",
+            "Size": 16.3118477,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "surface_0",
+              "surface_1",
+              "surface_2",
+              "surface_3"
+            ],
+            "Motions": [
+              "form",
+              "break",
+              "recede"
+            ],
+            "Parts": [
+              "water_body",
+              "aerated_lip"
+            ],
+            "Formations": [
+              "form"
+            ],
+            "Kind": "surface",
+            "Controls": [
+              "foot",
+              "lower_back",
+              "back",
+              "shoulder",
+              "crest",
+              "lip",
+              "fall"
+            ]
+          },
+          {
+            "Id": "water_flow",
+            "Size": 10.2758875,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "surface_0",
+              "surface_1",
+              "surface_2",
+              "surface_3",
+              "surface_4",
+              "surface_5",
+              "surface_6",
+              "surface_7",
+              "surface_8",
+              "surface_9",
+              "surface_10",
+              "surface_11",
+              "surface_12",
+              "surface_13",
+              "surface_14",
+              "surface_15",
+              "surface_16",
+              "surface_17",
+              "surface_18",
+              "surface_19",
+              "surface_20",
+              "surface_21",
+              "surface_22",
+              "surface_23",
+              "surface_24",
+              "surface_25",
+              "surface_26",
+              "surface_27",
+              "surface_28",
+              "surface_29"
+            ],
+            "Motions": [
+              "run",
+              "form"
+            ],
+            "Parts": [
+              "water_layer",
+              "broken_foam"
+            ],
+            "Formations": [
+              "form"
+            ],
+            "Kind": "surface",
+            "Controls": [
+              "flow_0_0",
+              "flow_0_1",
+              "flow_0_2",
+              "flow_0_3",
+              "flow_0_4",
+              "flow_1_0",
+              "flow_1_1",
+              "flow_1_2",
+              "flow_1_3",
+              "flow_1_4",
+              "flow_2_0",
+              "flow_2_1",
+              "flow_2_2",
+              "flow_2_3",
+              "flow_2_4",
+              "flow_3_0",
+              "flow_3_1",
+              "flow_3_2",
+              "flow_3_3",
+              "flow_3_4",
+              "flow_4_0",
+              "flow_4_1",
+              "flow_4_2",
+              "flow_4_3",
+              "flow_4_4",
+              "flow_5_0",
+              "flow_5_1",
+              "flow_5_2",
+              "flow_5_3",
+              "flow_5_4"
+            ]
+          },
+          {
+            "Id": "water_whale",
+            "Size": 16.8817425,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "front",
+              "tail_tip",
+              "fin_left",
+              "fin_right"
+            ],
+            "Motions": [
+              "swim",
+              "tail_sweep"
+            ],
+            "Parts": [
+              "body",
+              "fin_left",
+              "fin_right",
+              "flukes",
+              "dorsal",
+              "eye_right",
+              "eye_left"
+            ],
+            "Formations": [],
+            "Kind": "skinned",
+            "Controls": [
+              "head",
+              "neck",
+              "chest",
+              "waist",
+              "tail_base",
+              "tail",
+              "fluke",
+              "fin_left",
+              "fin_right"
+            ]
+          },
+          {
+            "Id": "fire_body",
+            "Size": 1.97926927,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [],
+            "Motions": [],
+            "Parts": [
+              "body"
+            ],
+            "Formations": [],
+            "Kind": "volume",
+            "Controls": []
+          },
+          {
+            "Id": "energy_ray",
+            "Size": 1.05603027,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "start",
+              "end"
+            ],
+            "Motions": [],
+            "Parts": [
+              "channel"
+            ],
+            "SpanRadius": 0.12,
+            "Formations": [],
+            "Kind": "volume",
+            "Controls": [
+              "origin",
+              "extent"
+            ]
+          },
+          {
+            "Id": "root_network",
+            "Size": 9.180242,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "tip_0",
+              "tip_1",
+              "tip_2"
+            ],
+            "Motions": [
+              "form",
+              "bend"
+            ],
+            "Parts": [
+              "trunk",
+              "lateral_1",
+              "lateral_2"
+            ],
+            "Formations": [
+              "form"
+            ],
+            "Kind": "branch",
+            "Controls": [
+              "trunk_0",
+              "trunk_1",
+              "trunk_2",
+              "trunk_3",
+              "trunk_4",
+              "trunk_5",
+              "trunk_6",
+              "trunk_7",
+              "trunk_8",
+              "lateral_1_0",
+              "lateral_1_1",
+              "lateral_1_2",
+              "lateral_1_3",
+              "lateral_1_4",
+              "lateral_1_5",
+              "lateral_1_6",
+              "lateral_1_7",
+              "lateral_1_8",
+              "lateral_2_0",
+              "lateral_2_1",
+              "lateral_2_2",
+              "lateral_2_3",
+              "lateral_2_4",
+              "lateral_2_5",
+              "lateral_2_6",
+              "lateral_2_7",
+              "lateral_2_8"
+            ]
+          },
+          {
+            "Id": "spirit_vine",
+            "Size": 6.430032,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "tip_0"
+            ],
+            "Motions": [
+              "form",
+              "bend"
+            ],
+            "Parts": [
+              "trunk"
+            ],
+            "Formations": [
+              "form"
+            ],
+            "Kind": "branch",
+            "Controls": [
+              "trunk_0",
+              "trunk_1",
+              "trunk_2",
+              "trunk_3",
+              "trunk_4",
+              "trunk_5",
+              "trunk_6",
+              "trunk_7",
+              "trunk_8"
+            ]
+          },
+          {
+            "Id": "fireball",
+            "Size": 1.934761,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "root"
+            ],
+            "Motions": [],
+            "Parts": [
+              "heart",
+              "flare_0",
+              "flare_1",
+              "flare_2"
+            ],
+            "Formations": [],
+            "Kind": "rigid",
+            "Controls": [
+              "root"
+            ]
+          }
+        ],
+        "Bodies": [
+          {
+            "Version": 1,
+            "Id": "Cultiway.PalmStrike",
+            "Revision": 4,
+            "Name": "掌击",
+            "Creator": 0,
+            "Seed": 0,
+            "Lifetime": 0.48,
+            "Cost": 0.0,
+            "Resource": "stamina",
+            "AdditionalResources": [],
+            "ResourceMode": 0,
+            "Cooldown": 0.48,
+            "Power": 1.0,
+            "Body": {
+              "Effector": "hand.right",
+              "Grip": "grip",
+              "MatchDistance": false,
+              "ActiveFrom": 0.15,
+              "ActiveUntil": 0.255,
+              "Occupancy": 5,
+              "Responses": [
+                {
+                  "Result": 0,
+                  "RecoverFrom": "rest",
+                  "Seconds": 0.12
+                },
+                {
+                  "Result": 1,
+                  "RecoverFrom": "rest",
+                  "Seconds": 0.08
+                },
+                {
+                  "Result": 2,
+                  "RecoverFrom": "rest",
+                  "Seconds": 0.16
+                }
+              ],
+              "ImpactRecoil": 0.035,
+              "RecoilSeconds": 0.09,
+              "Keys": [
+                {
+                  "At": 0.0,
+                  "Hand": [
+                    0.22,
+                    0.2,
+                    0.52
+                  ],
+                  "Torso": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "Turn": 0.0,
+                  "Heading": 0.0,
+                  "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                },
+                {
+                  "At": 0.12,
+                  "Hand": [
+                    0.12,
+                    0.25,
+                    0.57
+                  ],
+                  "Torso": [
+                    -0.025,
+                    0.0,
+                    0.0
+                  ],
+                  "Turn": -13.0,
+                  "Heading": 0.0,
+                  "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                },
+                {
+                  "At": 0.205,
+                  "Hand": [
+                    0.55,
+                    0.12,
+                    0.62
+                  ],
+                  "Torso": [
+                    0.045,
+                    -0.01,
+                    -0.015
+                  ],
+                  "Turn": 12.0,
+                  "Heading": 0.0,
+                  "Rotation": [
+                    0.0,
+                    25.0,
+                    0.0
+                  ]
+                },
+                {
+                  "At": 0.25,
+                  "Hand": [
+                    0.53,
+                    0.12,
+                    0.62
+                  ],
+                  "Torso": [
+                    0.04,
+                    -0.01,
+                    -0.015
+                  ],
+                  "Turn": 10.0,
+                  "Heading": 0.0,
+                  "Rotation": [
+                    0.0,
+                    25.0,
+                    0.0
+                  ]
+                },
+                {
+                  "Id": "rest",
+                  "At": 0.48,
+                  "Hand": [
+                    0.22,
+                    0.2,
+                    0.52
+                  ],
+                  "Torso": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "Turn": 0.0,
+                  "Heading": 0.0,
+                  "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              ]
+            },
+            "Steps": []
+          }
+        ],
+        "Resource": "wakan",
+        "WorldActions": [
+          {
+            "Id": "crop.mature",
+            "DefaultDuration": 0.0
+          },
+          {
+            "Id": "land.cleanse",
+            "DefaultDuration": 0.0
+          },
+          {
+            "Id": "nature.grow",
+            "DefaultDuration": 0.0
+          },
+          {
+            "Id": "terrain.lower",
+            "DefaultDuration": 0.0
+          },
+          {
+            "Id": "terrain.raise",
+            "DefaultDuration": 0.0
+          },
+          {
+            "Id": "water.drain",
+            "DefaultDuration": 0.0
+          },
+          {
+            "Id": "water.fill",
+            "DefaultDuration": 0.0
+          },
+          {
+            "Id": "weather.rain",
+            "DefaultDuration": 12.0
+          }
+        ],
+        "DeformationForms": [
+          {
+            "Id": "battle_knot",
+            "Size": 1.09920716,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "loop_0",
+              "loop_1",
+              "heart"
+            ],
+            "Formations": [],
+            "Kind": "articulated",
+            "Controls": [
+              "knot"
+            ]
+          },
+          {
+            "Id": "creeping_vine",
+            "Size": 2.130423,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "root"
+            ],
+            "Motions": [
+              "travel"
+            ],
+            "Parts": [
+              "root_0",
+              "root_1",
+              "root_2"
+            ],
+            "Formations": [],
+            "Kind": "articulated",
+            "Controls": [
+              "root_0",
+              "root_1",
+              "root_2"
+            ]
+          },
+          {
+            "Id": "earth_ridge",
+            "Size": 2.76702261,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "root"
+            ],
+            "Motions": [
+              "travel"
+            ],
+            "Parts": [
+              "bed",
+              "slab_0",
+              "slab_1",
+              "slab_2",
+              "slab_3",
+              "slab_4"
+            ],
+            "Formations": [],
+            "Kind": "articulated",
+            "Controls": [
+              "bed",
+              "slab_0",
+              "slab_1",
+              "slab_2",
+              "slab_3",
+              "slab_4"
+            ]
+          },
+          {
+            "Id": "earth_spikes",
+            "Size": 4.27967834,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "base",
+              "tip"
+            ],
+            "Motions": [
+              "erupt"
+            ],
+            "Parts": [
+              "spire_0",
+              "spire_1",
+              "spire_2",
+              "spire_3",
+              "spire_4",
+              "spire_5",
+              "spire_6"
+            ],
+            "Formations": [],
+            "Kind": "articulated",
+            "Controls": [
+              "spire_0",
+              "spire_1",
+              "spire_2",
+              "spire_3",
+              "spire_4",
+              "spire_5",
+              "spire_6"
+            ]
+          },
+          {
+            "Id": "earth_wall",
+            "Size": 5.534216,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "left",
+              "right",
+              "crest"
+            ],
+            "Motions": [],
+            "Parts": [
+              "wall"
+            ],
+            "Formations": [],
+            "Kind": "surface",
+            "Controls": [
+              "bed_0",
+              "bed_1",
+              "bed_2",
+              "bed_3",
+              "bed_4",
+              "bed_5",
+              "bed_6",
+              "bed_7",
+              "bed_8",
+              "bed_9",
+              "bed_10",
+              "bed_11",
+              "bed_12"
+            ]
+          },
+          {
+            "Id": "entropy_field",
+            "Size": 6.793309,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "fold_0",
+              "depth_0",
+              "fold_1",
+              "depth_1",
+              "fold_2",
+              "depth_2",
+              "fold_3",
+              "depth_3"
+            ],
+            "Formations": [],
+            "Kind": "volume",
+            "Controls": [
+              "fold_0",
+              "fold_1",
+              "fold_2",
+              "fold_3"
+            ]
+          },
+          {
+            "Id": "fire_wall",
+            "Size": 5.599733,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "left",
+              "right",
+              "crest"
+            ],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "tongue_0",
+              "tongue_1",
+              "tongue_2",
+              "tongue_3",
+              "tongue_4",
+              "tongue_5",
+              "tongue_6",
+              "tongue_7",
+              "tongue_8",
+              "tongue_9",
+              "tongue_10"
+            ],
+            "Formations": [],
+            "Kind": "surface",
+            "Controls": [
+              "tongue_0",
+              "tongue_1",
+              "tongue_2",
+              "tongue_3",
+              "tongue_4",
+              "tongue_5",
+              "tongue_6",
+              "tongue_7",
+              "tongue_8",
+              "tongue_9",
+              "tongue_10"
+            ]
+          },
+          {
+            "Id": "flame_aegis",
+            "Size": 6.26034927,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "crown",
+              "centre"
+            ],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "panel_0",
+              "panel_1",
+              "panel_2",
+              "panel_3",
+              "panel_4",
+              "panel_5",
+              "panel_6",
+              "panel_7"
+            ],
+            "Formations": [],
+            "Kind": "surface",
+            "Controls": [
+              "panel_0",
+              "panel_1",
+              "panel_2",
+              "panel_3",
+              "panel_4",
+              "panel_5",
+              "panel_6",
+              "panel_7"
+            ]
+          },
+          {
+            "Id": "fracture_slab",
+            "Size": 6.69749165,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "surface_0",
+              "surface_1",
+              "surface_2",
+              "surface_3",
+              "surface_4",
+              "surface_5",
+              "surface_6",
+              "surface_7"
+            ],
+            "Motions": [
+              "assemble",
+              "crack"
+            ],
+            "Parts": [
+              "plate_0",
+              "plate_1",
+              "plate_2",
+              "plate_3",
+              "plate_4",
+              "plate_5",
+              "plate_6",
+              "plate_7"
+            ],
+            "Formations": [],
+            "Kind": "articulated",
+            "Controls": [
+              "plate_0",
+              "plate_1",
+              "plate_2",
+              "plate_3",
+              "plate_4",
+              "plate_5",
+              "plate_6",
+              "plate_7"
+            ]
+          },
+          {
+            "Id": "guard_seal",
+            "Size": 0.993942142,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "body",
+              "rim",
+              "heart"
+            ],
+            "Formations": [],
+            "Kind": "articulated",
+            "Controls": [
+              "seal"
+            ]
+          },
+          {
+            "Id": "haste_vanes",
+            "Size": 1.45002818,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "core",
+              "vane_0",
+              "vane_1",
+              "vane_2"
+            ],
+            "Formations": [],
+            "Kind": "articulated",
+            "Controls": [
+              "core",
+              "vane_0",
+              "vane_1",
+              "vane_2"
+            ]
+          },
+          {
+            "Id": "healing_seed",
+            "Size": 1.38916862,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "leaf_0",
+              "leaf_1",
+              "leaf_2",
+              "seed"
+            ],
+            "Formations": [],
+            "Kind": "articulated",
+            "Controls": [
+              "bud"
+            ]
+          },
+          {
+            "Id": "ice_wall",
+            "Size": 5.5964036,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "left",
+              "right",
+              "crest"
+            ],
+            "Motions": [],
+            "Parts": [
+              "crystal_0",
+              "crystal_1",
+              "crystal_2",
+              "crystal_3",
+              "crystal_4",
+              "crystal_5",
+              "crystal_6",
+              "crystal_7",
+              "crystal_8",
+              "crystal_9",
+              "crystal_10"
+            ],
+            "Formations": [],
+            "Kind": "surface",
+            "Controls": [
+              "crystal_0",
+              "crystal_1",
+              "crystal_2",
+              "crystal_3",
+              "crystal_4",
+              "crystal_5",
+              "crystal_6",
+              "crystal_7",
+              "crystal_8",
+              "crystal_9",
+              "crystal_10"
+            ]
+          },
+          {
+            "Id": "lightning_aegis",
+            "Size": 6.3294816,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "crown",
+              "centre"
+            ],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "panel_0"
+            ],
+            "Formations": [],
+            "Kind": "surface",
+            "Controls": [
+              "panel_0"
+            ]
+          },
+          {
+            "Id": "poison_mist",
+            "Size": 6.98155451,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "cloud_0",
+              "core_0",
+              "cloud_1",
+              "core_1",
+              "cloud_2",
+              "core_2"
+            ],
+            "Formations": [],
+            "Kind": "volume",
+            "Controls": [
+              "cloud_0",
+              "cloud_1",
+              "cloud_2"
+            ]
+          },
+          {
+            "Id": "poison_pool",
+            "Size": 6.75239229,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "liquid"
+            ],
+            "Formations": [],
+            "Kind": "surface",
+            "Controls": [
+              "bed_0_0",
+              "bed_0_1",
+              "bed_0_2",
+              "bed_1_0",
+              "bed_1_1",
+              "bed_1_2",
+              "bed_2_0",
+              "bed_2_1",
+              "bed_2_2"
+            ]
+          },
+          {
+            "Id": "purification_wave",
+            "Size": 7.08614445,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "wave"
+            ],
+            "Formations": [],
+            "Kind": "surface",
+            "Controls": [
+              "wave"
+            ]
+          },
+          {
+            "Id": "rejuvenation_bloom",
+            "Size": 6.57206631,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "leaf_0",
+              "leaf_1",
+              "leaf_2",
+              "leaf_3",
+              "leaf_4",
+              "leaf_5",
+              "heart"
+            ],
+            "Formations": [],
+            "Kind": "articulated",
+            "Controls": [
+              "leaf_0",
+              "leaf_1",
+              "leaf_2",
+              "leaf_3",
+              "leaf_4",
+              "leaf_5",
+              "heart"
+            ]
+          },
+          {
+            "Id": "rift_opening",
+            "Size": 3.55463719,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "base",
+              "top"
+            ],
+            "Motions": [
+              "open"
+            ],
+            "Parts": [
+              "cavity",
+              "left_lip",
+              "right_lip"
+            ],
+            "Formations": [],
+            "Kind": "articulated",
+            "Controls": [
+              "left",
+              "right",
+              "axis"
+            ]
+          },
+          {
+            "Id": "solar_aegis",
+            "Size": 6.3294816,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "crown",
+              "centre"
+            ],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "panel_0",
+              "panel_1",
+              "panel_2",
+              "panel_3",
+              "panel_4",
+              "panel_5",
+              "panel_6",
+              "panel_7",
+              "sun_wheel"
+            ],
+            "Formations": [],
+            "Kind": "surface",
+            "Controls": [
+              "panel_0",
+              "panel_1",
+              "panel_2",
+              "panel_3",
+              "panel_4",
+              "panel_5",
+              "panel_6",
+              "panel_7",
+              "sun_wheel"
+            ]
+          },
+          {
+            "Id": "solar_ray",
+            "Size": 2.24944448,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "start",
+              "end"
+            ],
+            "Motions": [],
+            "Parts": [
+              "channel0",
+              "channel1",
+              "channel2"
+            ],
+            "SpanRadius": 0.25,
+            "Formations": [],
+            "Kind": "volume",
+            "Controls": [
+              "origin",
+              "extent"
+            ]
+          },
+          {
+            "Id": "spirit_aegis",
+            "Size": 6.3294816,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "crown",
+              "centre"
+            ],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "panel_0",
+              "panel_1",
+              "panel_2",
+              "panel_3",
+              "panel_4",
+              "panel_5",
+              "panel_6",
+              "panel_7"
+            ],
+            "Formations": [],
+            "Kind": "surface",
+            "Controls": [
+              "panel_0",
+              "panel_1",
+              "panel_2",
+              "panel_3",
+              "panel_4",
+              "panel_5",
+              "panel_6",
+              "panel_7"
+            ]
+          },
+          {
+            "Id": "spirit_arm",
+            "Size": 2.73880076,
+            "Forward": [
+              0.0,
+              -1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "shoulder",
+              "wrist",
+              "palm",
+              "grip",
+              "tip.little",
+              "tip.ring",
+              "tip.middle",
+              "tip.index",
+              "tip.thumb"
+            ],
+            "Motions": [
+              "grasp",
+              "palm_press"
+            ],
+            "Parts": [
+              "upper_arm",
+              "forearm",
+              "palm",
+              "finger_little",
+              "finger_ring",
+              "finger_middle",
+              "finger_index",
+              "finger_thumb"
+            ],
+            "Formations": [],
+            "Kind": "skinned",
+            "Controls": [
+              "upper",
+              "lower",
+              "wrist",
+              "little_base",
+              "little_tip",
+              "ring_base",
+              "ring_tip",
+              "middle_base",
+              "middle_tip",
+              "index_base",
+              "index_tip",
+              "thumb_base",
+              "thumb_tip"
+            ]
+          },
+          {
+            "Id": "spirit_colossus",
+            "Size": 5.404969,
+            "Forward": [
+              0.0,
+              -1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "palm.left",
+              "palm.right",
+              "crown",
+              "chest",
+              "foot.left",
+              "foot.right"
+            ],
+            "Motions": [
+              "palm_press",
+              "brace"
+            ],
+            "Parts": [
+              "torso",
+              "head",
+              "arm_left",
+              "arm_right",
+              "leg_left",
+              "leg_right",
+              "faceplate",
+              "eyes",
+              "chest_seal"
+            ],
+            "Formations": [],
+            "Kind": "skinned",
+            "Controls": [
+              "pelvis",
+              "spine",
+              "chest",
+              "neck",
+              "head",
+              "clavicle_left",
+              "upper_left",
+              "lower_left",
+              "hand_left",
+              "clavicle_right",
+              "upper_right",
+              "lower_right",
+              "hand_right",
+              "thigh_left",
+              "shin_left",
+              "foot_left",
+              "thigh_right",
+              "shin_right",
+              "foot_right"
+            ]
+          },
+          {
+            "Id": "spirit_ray",
+            "Size": 2.62297535,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "start",
+              "end"
+            ],
+            "Motions": [],
+            "Parts": [
+              "channel0"
+            ],
+            "SpanRadius": 0.6,
+            "Formations": [],
+            "Kind": "volume",
+            "Controls": [
+              "origin",
+              "extent"
+            ]
+          },
+          {
+            "Id": "sword_curtain",
+            "Size": 5.9319725,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "left",
+              "right",
+              "crest"
+            ],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "sword_0_blade",
+              "sword_0_guard",
+              "sword_0_grip",
+              "sword_0_pommel",
+              "sword_1_blade",
+              "sword_1_guard",
+              "sword_1_grip",
+              "sword_1_pommel",
+              "sword_2_blade",
+              "sword_2_guard",
+              "sword_2_grip",
+              "sword_2_pommel",
+              "sword_3_blade",
+              "sword_3_guard",
+              "sword_3_grip",
+              "sword_3_pommel",
+              "sword_4_blade",
+              "sword_4_guard",
+              "sword_4_grip",
+              "sword_4_pommel",
+              "sword_5_blade",
+              "sword_5_guard",
+              "sword_5_grip",
+              "sword_5_pommel",
+              "sword_6_blade",
+              "sword_6_guard",
+              "sword_6_grip",
+              "sword_6_pommel",
+              "sword_7_blade",
+              "sword_7_guard",
+              "sword_7_grip",
+              "sword_7_pommel",
+              "sword_8_blade",
+              "sword_8_guard",
+              "sword_8_grip",
+              "sword_8_pommel",
+              "sword_9_blade",
+              "sword_9_guard",
+              "sword_9_grip",
+              "sword_9_pommel",
+              "sword_10_blade",
+              "sword_10_guard",
+              "sword_10_grip",
+              "sword_10_pommel",
+              "sword_11_blade",
+              "sword_11_guard",
+              "sword_11_grip",
+              "sword_11_pommel",
+              "sword_12_blade",
+              "sword_12_guard",
+              "sword_12_grip",
+              "sword_12_pommel",
+              "sword_13_blade",
+              "sword_13_guard",
+              "sword_13_grip",
+              "sword_13_pommel",
+              "sword_14_blade",
+              "sword_14_guard",
+              "sword_14_grip",
+              "sword_14_pommel"
+            ],
+            "Formations": [],
+            "Kind": "articulated",
+            "Controls": [
+              "sword_0",
+              "sword_1",
+              "sword_2",
+              "sword_3",
+              "sword_4",
+              "sword_5",
+              "sword_6",
+              "sword_7",
+              "sword_8",
+              "sword_9",
+              "sword_10",
+              "sword_11",
+              "sword_12",
+              "sword_13",
+              "sword_14"
+            ]
+          },
+          {
+            "Id": "thunder_channel",
+            "Size": 2.026446,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "start",
+              "end"
+            ],
+            "Motions": [],
+            "Parts": [
+              "body",
+              "core"
+            ],
+            "SpanRadius": 0.12,
+            "Formations": [],
+            "Kind": "volume",
+            "Controls": [
+              "origin",
+              "extent"
+            ]
+          },
+          {
+            "Id": "tidal_wave",
+            "Size": 2.80489564,
+            "Forward": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Anchors": [
+              "root"
+            ],
+            "Motions": [
+              "travel"
+            ],
+            "Parts": [
+              "water_body"
+            ],
+            "Formations": [],
+            "Kind": "articulated",
+            "Controls": [
+              "water_0",
+              "water_1",
+              "water_2",
+              "water_3",
+              "water_4",
+              "water_5",
+              "water_6"
+            ]
+          },
+          {
+            "Id": "water_curtain",
+            "Size": 5.12367,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "left",
+              "right",
+              "crest"
+            ],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "water_sheet"
+            ],
+            "Formations": [],
+            "Kind": "surface",
+            "Controls": [
+              "water_0",
+              "water_1",
+              "water_2",
+              "water_3",
+              "water_4",
+              "water_5",
+              "water_6",
+              "water_7",
+              "water_8",
+              "water_9",
+              "water_10",
+              "water_11",
+              "water_12",
+              "water_13",
+              "water_14",
+              "water_15",
+              "water_16"
+            ]
+          },
+          {
+            "Id": "wind_aegis",
+            "Size": 6.3294816,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "crown",
+              "centre"
+            ],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "panel_0",
+              "panel_1",
+              "panel_2",
+              "panel_3",
+              "panel_4"
+            ],
+            "Formations": [],
+            "Kind": "surface",
+            "Controls": [
+              "panel_0",
+              "panel_1",
+              "panel_2",
+              "panel_3",
+              "panel_4"
+            ]
+          },
+          {
+            "Id": "wind_vortex",
+            "Size": 7.859065,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "wind_body"
+            ],
+            "Formations": [],
+            "Kind": "volume",
+            "Controls": [
+              "vortex"
+            ]
+          },
+          {
+            "Id": "wind_wall",
+            "Size": 5.275396,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "left",
+              "right",
+              "crest"
+            ],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "stream_0",
+              "stream_1",
+              "stream_2",
+              "stream_3",
+              "stream_4"
+            ],
+            "Formations": [],
+            "Kind": "surface",
+            "Controls": [
+              "flow_0",
+              "flow_1",
+              "flow_2",
+              "flow_3",
+              "flow_4",
+              "flow_5",
+              "flow_6",
+              "flow_7",
+              "flow_8",
+              "flow_9",
+              "flow_10"
+            ]
+          },
+          {
+            "Id": "wood_wall",
+            "Size": 5.658856,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [
+              "left",
+              "right",
+              "crest"
+            ],
+            "Motions": [],
+            "Parts": [
+              "root_0",
+              "root_1",
+              "root_2",
+              "root_3",
+              "root_4",
+              "root_5",
+              "root_6",
+              "root_7",
+              "root_8",
+              "root_9",
+              "root_10",
+              "binding_0",
+              "binding_1"
+            ],
+            "Formations": [],
+            "Kind": "surface",
+            "Controls": [
+              "root_0",
+              "root_1",
+              "root_2",
+              "root_3",
+              "root_4",
+              "root_5",
+              "root_6",
+              "root_7",
+              "root_8",
+              "root_9",
+              "root_10"
+            ]
+          },
+          {
+            "Id": "yin_field",
+            "Size": 7.08380127,
+            "Forward": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "Up": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "Anchors": [],
+            "Motions": [
+              "run"
+            ],
+            "Parts": [
+              "yin_surface"
+            ],
+            "Formations": [],
+            "Kind": "surface",
+            "Controls": [
+              "centre",
+              "rim_0",
+              "rim_1",
+              "rim_2",
+              "rim_3"
+            ]
+          }
+        ],
+        "InventoryMaterials": [],
+        "ErosionMaterials": [
+          {
+            "Matter": "earth",
+            "State": "solid"
+          },
+          {
+            "Matter": "gold",
+            "State": "solid"
+          },
+          {
+            "Matter": "iron",
+            "State": "solid"
+          },
+          {
+            "Matter": "wood",
+            "State": "solid"
+          }
+        ]
+      }
+    }
+  },
+  "expected": {
+    "Version": 1,
+    "Id": "Cultiway.Created.7e31fac77bfb4c15b03dd1682383cd8d",
+    "Revision": 1,
+    "Name": "木行剑诀",
+    "Creator": 58,
+    "Seed": 14,
+    "Parent": {
+      "Id": "test.process-time.creation-basis",
+      "Revision": 1,
+      "Creator": 0,
+      "Change": "调整侵蚀节奏"
+    },
+    "Lifetime": 1.5,
+    "Cost": 6.3918786,
+    "Resource": "wakan",
+    "AdditionalResources": [],
+    "ResourceMode": 0,
+    "Cooldown": 0.1787719,
+    "Calculation": {
+      "Resource": "wakan",
+      "Demand": 6.391878615330323,
+      "Recovery": 0.17877190503296583
+    },
+    "Power": 0.0,
+    "TargetRange": 15.0,
+    "Use": {
+      "Channels": 1,
+      "Target": 3
+    },
+    "Root": {
+      "Id": "root",
+      "Form": "sword",
+      "Surface": null,
+      "Matter": "wood",
+      "State": null,
+      "Tint": null,
+      "Anchor": null,
+      "Offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Scale": 1.0,
+      "Volume": 1.0,
+      "ActiveFrom": 0.0,
+      "ActiveUntil": -1.0,
+      "ActiveFromMarker": null,
+      "ActiveUntilMarker": null,
+      "ContactGroup": null,
+      "Contact": null,
+      "OnContact": 0,
+      "ContactRole": 0,
+      "Strength": 1.0,
+      "Interception": 0,
+      "ReflectionLimit": 8,
+      "Operations": [
+        {
+          "Id": "weather",
+          "Clip": null,
+          "Erosion": {
+            "Fraction": 0.3
+          },
+          "Kind": 20,
+          "At": 0.0,
+          "Seconds": 1.0,
+          "Vector": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "TurnRate": 0.0,
+          "Matter": null,
+          "State": null,
+          "Trigger": 0,
+          "Path": null,
+          "InheritVelocity": true
+        }
+      ],
+      "Children": []
+    },
+    "Body": null,
+    "Binding": null,
+    "Steps": [
+      {
+        "Id": "original",
+        "Operation": {
+          "Clip": null,
+          "Kind": 17,
+          "At": 0.0,
+          "Seconds": 0.0,
+          "Vector": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "TurnRate": 0.0,
+          "Matter": null,
+          "State": null,
+          "Trigger": 0,
+          "Path": null,
+          "InheritVelocity": true
+        },
+        "Inputs": {
+          "part": {
+            "Node": "root",
+            "Step": null,
+            "Output": null,
+            "Stage": 0
+          },
+          "after": {
+            "Node": "root",
+            "Operation": "weather",
+            "Step": null,
+            "Output": "erosion",
+            "Stage": 0
+          }
+        }
+      },
+      {
+        "Id": "retimeErosion",
+        "Operation": {
+          "Clip": null,
+          "Kind": 24,
+          "At": 0.0,
+          "Seconds": 0.0,
+          "Vector": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "TurnRate": 0.0,
+          "WorldMatter": {
+            "FromMatter": "wood",
+            "FromState": "solid",
+            "OwnedOnly": false,
+            "MaximumVolume": 10.0
+          },
+          "TimeWindows": [
+            {
+              "At": 0.207569465,
+              "Seconds": 0.439300716,
+              "Rate": 0.0
+            },
+            {
+              "At": 0.8703465,
+              "Seconds": 0.439300716,
+              "Rate": 2.0
+            }
+          ],
+          "Matter": null,
+          "State": null,
+          "Trigger": 0,
+          "Path": null,
+          "InheritVelocity": true
+        },
+        "Inputs": {
+          "part": {
+            "Node": "root",
+            "Step": null,
+            "Output": null,
+            "Stage": 0
+          }
+        }
+      }
+    ]
+  }
+}

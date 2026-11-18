@@ -1,0 +1,129 @@
+// 只用同一个现成世界、两个友方人物和一件原版铁甲。
+Actor source = Make(64), target = Make(68);
+target.setKingdom(source.kingdom);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+Item armor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: target);
+target.equipment.setItem(armor, target); target.setStatsDirty(); target.updateStats();
+int maximum = armor.getDurabilityMax();
+var facts = new List<ConstructedEquipmentRepair>();
+void Repaired(ConstructedEquipmentRepair fact) { if (fact.SourceId == source.id) facts.Add(fact); }
+ConstructedAbilityService.EquipmentRepairConfirmed += Repaired;
+var definition = new AbilityDefinition
+{
+    Id = "test.equipment-repair.armor", Name = "修甲", Power = 1, Cooldown = .1f, Lifetime = .56f, TargetRange = 30f,
+    Inventory = new[] { new ConstructionInventoryInput { Id = "material", Shape = ItemShapes.Wood.id, Count = 1 } },
+    Impact = new ConstructionImpact
+    {
+        Targets = SkillUseTargetRelation.Friendly, DamageScale = 0, SelectedTargetOnly = true,
+        EquipmentRepair = new ConstructionEquipmentRepair { Slot = EquipmentType.Armor, MaterialInput = "material", Durability = 7 }
+    },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = .6f },
+    Root = new ConstructionNode { Id = "contact", Form = "fireball", Matter = "physical", Scale = .75f,
+        Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval, Interval = .12f, MaximumPerTarget = 3 } }
+};
+
+async Task Use(string name)
+{
+    Ready(source); await Advance(.15f); Place(source, 64); Place(target, 68);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    float balance = owner.GetCultisys<Xian>().wakan;
+    int first = contacts.Count, last = endings.Count;
+    await Fire(definition, source, target, aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f,
+        name + "按正式报价支付一次");
+    await Advance(.8f);
+    var hits = contacts.Skip(first).ToArray();
+    Check(hits.Length > 1 && hits.All(hit => hit.TargetId == target.id) && endings.Count == last + 1 &&
+        hits.All(hit => hit.CastId == endings.Last().Fact.CastId), name + "真实重复接触后正常结束",
+        new { hits = hits.Length, cast = endings.Last().Fact.CastId });
+}
+
+try
+{
+    var invalid = ConstructionEditing.Copy(definition);
+    invalid.Impact.EquipmentRepair.MaterialInput = "missing";
+    bool rejected = false;
+    try { AbilityCompiler.Compile(invalid); }
+    catch (InvalidDataException error) { rejected = error.Message.Contains("EquipmentRepair") && error.Message.Contains("missing"); }
+    Check(rejected, "编译拒绝不存在的材料输入");
+    var unchanged = ConstructionEditing.Copy(definition); unchanged.Impact.EquipmentRepair = null;
+    ConstructionPricing.Price(unchanged, cooldown: false, contactRules: 31);
+    ConstructionPricing.Price(definition, cooldown: false, contactRules: 31);
+    Check(definition.Calculation.Demand > unchanged.Calculation.Demand && definition.Cost > unchanged.Cost,
+        "修复份额计入正式报价", new { original = unchanged.Cost, repair = definition.Cost });
+
+    armor.getDamaged(4);
+    Check(armor.getDurabilityCurrent() == maximum - 4, "原版铁甲确实掉了四点耐久");
+    Material(owner, ItemShapes.Wood, "修甲用一", 1);
+    await Use("封顶修复");
+    Check(facts.Count == 1 && facts[0].ItemId == armor.id && facts[0].Before == maximum - 4 &&
+        facts[0].After == maximum && armor.getDurabilityCurrent() == maximum && !owner.GetItems().Any(),
+        "消耗一件原库存材料，恢复同一件铁甲至原版上限", facts.ToArray());
+
+    ConstructedAbilityService.Learn(owner, definition.Id);
+    source.attack_timer = 0;
+    float balance = owner.GetCultisys<Xian>().wakan;
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+    var choice = new ActiveAbilityTarget(target, target.GetSimPos());
+    bool used = ActiveAbilityService.TryUse(owner, handle, choice, ActiveAbilityUseOrigin.Script);
+    Check(!used && owner.GetCultisys<Xian>().wakan == balance, "缺材料不受理施放，也不扣灵力");
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Entity spare = Material(owner, ItemShapes.Wood, "留存的材料", 1);
+    await Use("满耐久接触");
+    string spareId = Stable(spare);
+    Check(facts.Count == 1 && spare.IsAvailable() && owner.GetItems().Single() == spare,
+        "满耐久期间借用真实材料，结束时原件归还", new { spareId });
+
+    armor.getDamaged(11);
+    await Use("部分修复");
+    Check(facts.Count == 2 && facts[1].MaterialId == spareId && facts[0].MaterialId != spareId &&
+        facts[1].ItemId == armor.id && facts[1].Before == maximum - 11 && facts[1].After == maximum - 4 &&
+        armor.getDurabilityCurrent() == maximum - 4 && target.equipment.armor.getItem() == armor &&
+        armor.getActor() == target && !owner.GetItems().Any(),
+        "同一铁甲只增七点，多次接触没有复用已消耗材料", facts.ToArray());
+    Entity savedSpare = Material(owner, ItemShapes.Wood, "存档剩余材料", 1);
+    // 通过一次未命中施放借用并归还原件，为存读核对分配正式身份。
+    Ready(source);
+    Place(target, 68f, 76f);
+    var missed = ConstructionEditing.Copy(definition); missed.Id += ".miss";
+    missed.Root.Offset = new[] { 0f, 8f, 0f };
+    await Fire(missed, source, target, aggro: false); owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.8f);
+    string savedSpareId = Stable(savedSpare);
+    Check(facts.Count == 2 && savedSpare.IsAvailable(), "未接触装备不消耗，结束后可继续使用原材料");
+
+    var expected = JObject.FromObject(definition);
+    long originalItem = armor.id, sourceId = source.id, targetId = target.id;
+    ConstructedAbilityService.Learn(owner, definition.Id);
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), expected.ToString(Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "receipts.json"), JsonConvert.SerializeObject(facts, Formatting.Indented));
+    await Game.NextFrame(); await Game.NextFrame(); await Game.NextFrame();
+    string path = Path.Combine(folder, "completed-save");
+    SaveManager.saveWorldToDirectory(path);
+    World.world.save_manager.loadWorld(path);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var restoredOwner = World.world.units.get(sourceId).GetExtend();
+    var restoredTarget = World.world.units.get(targetId);
+    var restoredItem = restoredTarget.equipment.armor.getItem();
+    var restoredDefinition = (AbilityDefinition)((IDictionary)service.GetField("definitions", F).GetValue(null))[definition.Id];
+    Check(restoredItem.id == originalItem && restoredItem.getActor() == restoredTarget &&
+        restoredItem.getDurabilityCurrent() == maximum - 4 && restoredOwner.GetItems().Count() == 1 &&
+        restoredOwner.GetItems().Single().IsAvailable() && Stable(restoredOwner.GetItems().Single()) == savedSpareId &&
+        restoredDefinition != null && JToken.DeepEquals(expected, JObject.FromObject(restoredDefinition)) &&
+        restoredOwner.E.GetComponent<ConstructedKnowledge>().Ids.Contains(definition.Id) && facts.Count == 2,
+        "正式存读保留原铁甲、未修满的耐久、实际剩余材料和完整法术，不重放旧修复",
+        new { originalItem, durability = restoredItem.getDurabilityCurrent(), savedSpareId });
+    return new { passed = true, originalItem, maximum, repairCount = facts.Count,
+        process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.EquipmentRepairConfirmed -= Repaired;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

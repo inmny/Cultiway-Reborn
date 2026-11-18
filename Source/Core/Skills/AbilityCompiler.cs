@@ -190,7 +190,6 @@ public sealed class CompiledAbility
         CompiledContactPolicy[] contacts, int[][] listeners, CompiledEventOperation[] operations,
         CompiledConstructionStep[] steps)
     {
-        Inventory = AbilityCompiler.CompileInventory(definition, operations);
         InventoryOperations = operations.Where(operation => operation.Kind == ConstructionOperationKind.ConsumeInventory).ToArray();
         ResourceVersion = FormResources.Version;
         Id = definition.Id;
@@ -206,6 +205,9 @@ public sealed class CompiledAbility
         Impact = definition.Impact == null
             ? CompiledConstructionImpact.Default
             : new CompiledConstructionImpact(definition.Impact, "构造/Impact");
+        Inventory = AbilityCompiler.CompileInventory(definition, operations,
+            nodes.Select(node => node.Impact).Append(Impact).Append(body?.Impact)
+                .Concat(body?.Stages.Select(stage => stage.Impact) ?? Enumerable.Empty<CompiledConstructionImpact>()));
         Use = new CompiledConstructionUse(definition.Use, Impact.Targets);
         CompiledConstructionImpact[] impacts = nodes
             .Where(node => node.AffectsActors || node.Conduction != null ||

@@ -137,7 +137,7 @@ internal static class KnightTechniqueStatuses
             status.GetComponent<AliveTimer>().value = 0f;
             status.GetComponent<AliveTimeLimit>().value = resolvedDuration;
             ref StatusComponent component = ref status.GetComponent<StatusComponent>();
-            component.Source = source;
+            component.SetSource(source);
             component.SourcePowerLevel = sourcePowerLevel;
             target.setStatsDirty();
             return;

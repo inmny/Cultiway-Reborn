@@ -1,0 +1,88 @@
+// 由新游戏进程读入旧、新正式请求，随后实际用已授予的成品修复同一件铁甲。
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "pending-expected.json")));
+var old = JObject.Parse(File.ReadAllText(Path.Combine(folder, "rule31.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check(process != (int)expected["process"], "实际冷启动到了另一个游戏进程");
+JObject Complete(AbilityDefinition definition) { var json = JObject.FromObject(definition); json.Remove("Id"); return json; }
+var access = ConstructionEditing.Access;
+var saves = Cultiway.ModClass.I.WorldSaves;
+long sourceId = (long)expected["sourceId"], legacyId = (long)expected["legacyId"], targetId = (long)expected["targetId"];
+int known = (int)expected["known"] + 1, oldKnown = (int)expected["oldKnown"] + 1;
+Actor Loaded(long id) => World.world.units.get(id) ?? throw new InvalidOperationException("正式世界缺少人物 " + id);
+async Task Load(string path)
+{
+    World.world.save_manager.loadWorld(Path.Combine(folder, path));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+var current = expected["derived"].ToObject<AbilityDefinition>();
+var historical = old["expected"].ToObject<AbilityDefinition>();
+var repairs = new List<ConstructedEquipmentRepair>();
+void Repaired(ConstructedEquipmentRepair fact) { if (fact.SourceId == sourceId) repairs.Add(fact); }
+ConstructedAbilityService.EquipmentRepairConfirmed += Repaired;
+try
+{
+    await Load("pending-save");
+    var source = Loaded(sourceId); var legacy = Loaded(legacyId); var target = Loaded(targetId);
+    var owner = source.GetExtend(); var previous = legacy.GetExtend();
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    var oldPending = previous.GetComponent<ConstructedCreationState>();
+    Check(pending.Inspiration.Rules == 32 && oldPending.Inspiration.Rules == 31 && saves.LastReport.Skipped.Count == 0 &&
+          saves.LastReport.Upgraded >= 1 && saves.LastReport.BackupError == null, "正式世界读取两代规则，旧区段升级且无内容丢失");
+    var restored = JObject.Parse(saves.Actors.Capture(owner, "application-creation-cold"))["sections"]["ability_creation"];
+    bool sameSource = JToken.DeepEquals(restored["data"]["Source"], expected["frozenState"]["data"]["Source"]);
+    bool sameResources = JToken.DeepEquals(restored["data"]["Resources"], expected["frozenState"]["data"]["Resources"]);
+    AbilityDefinition Seen(ActorExtend person, ConstructedCreationState state) => state.Pending
+        ? ConstructedAbilityService.Generate(person, state.Seed, state.Inspiration, state.Source, state.Resources)
+        : access.Read(state.LastAbility);
+    var seen = Seen(owner, pending); var oldSeen = Seen(previous, oldPending);
+    bool newMatches = seen != null && JToken.DeepEquals(Complete(seen), Complete(current));
+    bool oldMatches = oldSeen != null && JToken.DeepEquals(Complete(oldSeen), Complete(historical));
+    if (!newMatches || !oldMatches || pending.Pending && (!sameSource || !sameResources))
+        File.WriteAllText(Path.Combine(folder, "restored-observed.json"), JsonConvert.SerializeObject(new
+            { restored, seen, oldSeen, pending.LastFailure, oldFailure = oldPending.LastFailure }, Formatting.Indented));
+    Check((!pending.Pending || sameSource && sameResources) && newMatches && oldMatches,
+          "冻结原术、材料及新旧完整结果和费用不变", new { sameSource, sameResources, newMatches, oldMatches });
+    await Advance(.24f);
+    var completed = owner.GetComponent<ConstructedCreationState>(); var oldCompleted = previous.GetComponent<ConstructedCreationState>();
+    string learnedId = completed.LastAbility, oldId = oldCompleted.LastAbility;
+    var learned = access.Read(learnedId); var oldLearned = access.Read(oldId);
+    Check(!completed.Pending && !oldCompleted.Pending && completed.LastFailure == null && oldCompleted.LastFailure == null &&
+        learned != null && oldLearned != null && JToken.DeepEquals(Complete(learned), Complete(current)) &&
+        JToken.DeepEquals(Complete(oldLearned), Complete(historical)) && access.List(owner).Count == known && access.List(previous).Count == oldKnown,
+        "两笔等待各实际授予一次，完整结果及费用保持");
+    Item armor = target.equipment.armor.getItem();
+    var repair = learned.Root.Impact.EquipmentRepair;
+    Check(armor.id == (long)expected["armorId"] && armor.getDurabilityCurrent() == (int)expected["armorBefore"] &&
+        owner.GetItems().Count() == 1, "冷启动保存同一件损伤装备和实际材料");
+    Ready(source); await Advance(.15f); Place(source, 64); Place(target, 68);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+    float balance = owner.GetCultisys<Xian>().wakan;
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, learnedId);
+    var choice = new ActiveAbilityTarget(target, target.GetSimPos());
+    Check(ActiveAbilityService.TryUse(owner, handle, choice, ActiveAbilityUseOrigin.Script) &&
+        Math.Abs(balance - owner.GetCultisys<Xian>().wakan - learned.Cost) < .001f, "自主成品实际按原报价支付一次");
+    await Advance(learned.Lifetime + .25f);
+    int repaired = (int)expected["armorBefore"] + repair.Durability;
+    Check(repairs.Count == 1 && repairs[0].ItemId == armor.id && armor.getDurabilityCurrent() == repaired &&
+        !owner.GetItems().Any() && endings.Count(end => end.Fact.AbilityId == learnedId && end.Fact.SourceId == sourceId) == 1,
+        "实际接触消耗一份材料、恢复原铁甲，结束且没有重复消耗", repairs);
+    await Game.NextFrame(); await Game.NextFrame(); await Game.NextFrame();
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+    await Load("completed-save");
+    await Advance(.24f);
+    var reloaded = Loaded(sourceId).GetExtend(); var oldReloaded = Loaded(legacyId).GetExtend();
+    Check(access.List(reloaded).Count == known && access.List(oldReloaded).Count == oldKnown &&
+        !reloaded.GetComponent<ConstructedCreationState>().Pending && !oldReloaded.GetComponent<ConstructedCreationState>().Pending &&
+        JToken.DeepEquals(Complete(access.Read(learnedId)), Complete(current)) && JToken.DeepEquals(Complete(access.Read(oldId)), Complete(historical)) &&
+        Loaded(targetId).equipment.armor.getItem().getDurabilityCurrent() == repaired && !reloaded.GetItems().Any() && repairs.Count == 1,
+        "重新保存保留两份成品、修复结果及余额，读回后不重复授予或修复");
+    return new { passed = true, process, learnedId, oldId, repaired };
+}
+finally
+{
+    ConstructedAbilityService.EquipmentRepairConfirmed -= Repaired;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

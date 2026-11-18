@@ -94,6 +94,7 @@ public sealed partial class ConstructedAbilityService
         if (inspiration.Rules >= 29) result = GenerateCorrespondence(result, seed);
         if (inspiration.Rules >= 30) result = GenerateMapping(result, seed, resources);
         if (inspiration.Rules >= ConstructionPricing.ProcessTimeRules) result = GenerateProcessTime(result, seed, resources);
+        if (inspiration.Rules >= ConstructionPricing.ApplicationRules) result = GenerateApplication(result, seed, resources);
         return inspiration.Rules >= 3 ? ConstructionPricing.Price(result, contactRules: inspiration.Rules) : result;
     }
 

@@ -521,6 +521,38 @@ public sealed partial class ConstructedAbilityService
             reason));
     }
 
+    /// <summary>确认目标正在被抓，再按施术归属或有效余力解除这一条关系。</summary>
+    /// <param name="running">造成这次真实接触的施放。</param><param name="node">实际接触部位。</param>
+    /// <param name="target">确实命中的人物。</param><param name="mode">编译后的解除方式。</param>
+    /// <param name="strength">当前接触的实际衰减。</param>
+    private static void TryReleaseGrab(RunningCast running, int node, Actor target, ConstructionGrabRelease mode,
+        float strength)
+    {
+        CastAuthority caster = running.Owner(node);
+        if (!caster.IsLive || !BodyControlState.HasControl(target.id, BodyOccupancy.Stance)) return;
+        foreach (RunningCast holder in casts)
+        {
+            BodyConnection link = holder.Connection;
+            if (link?.Active != true || link.Relation.Kind != BodyRelationKind.Grab || link.TargetId != target.id ||
+                link.Target != target || link.TargetLease?.IsHeld != true) continue;
+            CastAuthority grabber = holder.InitialOwner;
+            if (!grabber.IsLive) return;
+            if (mode == ConstructionGrabRelease.Own)
+            {
+                if (grabber.Id != caster.Id || grabber.Actor != caster.Actor) return;
+            }
+            else
+            {
+                float force = (node < 0 ? running.Power : running.Cast.RemainingForce(node)) * strength;
+                float effective = force * grabber.Actor.GetExtend().ForceResponseScale(caster.Actor,
+                    caster.Damage.AttackerPowerLevel);
+                if (effective < link.Relation.ControlStrength) return;
+            }
+            ReleaseBodyConnection(holder, "ReleasedByAbility");
+            return;
+        }
+    }
+
     /// <summary>人物受力或被停顿时，同时解除其作为来源或目标的实际关系。</summary>
     /// <param name="actor">受到真实作用的人物。</param>
     private static void InterruptBodyConnections(Actor actor)

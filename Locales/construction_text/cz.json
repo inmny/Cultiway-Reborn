@@ -114,6 +114,10 @@
   "Cultiway.ConstructionText.Change.SelfErosion": "主体侵蚀",
   "Cultiway.ConstructionText.Change.WorldErosion": "世界侵蚀",
   "Cultiway.ConstructionText.Change.ResidueErosion": "留置侵蚀",
+  "Cultiway.ConstructionText.Change.RemoveStatus": "指定解除",
+  "Cultiway.ConstructionText.Change.RescueGrab": "抓持解救",
+  "Cultiway.ConstructionText.Change.RepairEquipment": "装备修复",
+  "Cultiway.ConstructionText.Change.SignalCondition": "讯号条件",
   "Cultiway.ConstructionText.Change.AgingActors": "生灵老化",
   "Cultiway.ConstructionText.Change.AgingEquipment": "装备腐蚀",
   "Cultiway.ConstructionText.Change.AgingInventory": "库存催朽",
@@ -135,5 +139,12 @@
   "Cultiway.ConstructionText.ProcessTime": "实际启动或调整后：{0}；其余时间常速。",
   "Cultiway.ConstructionText.ProcessTimePause": "第{0:0.##}秒起暂停{1:0.##}秒",
   "Cultiway.ConstructionText.ProcessTimeRate": "第{0:0.##}秒起以{2:0.##}倍推进{1:0.##}秒",
-  "Cultiway.ConstructionText.ProcessTimeSeparator": "、"
+  "Cultiway.ConstructionText.ProcessTimeSeparator": "、",
+  "Cultiway.ConstructionText.ReleaseGrab": "可对{0}执行：{1}。",
+  "Cultiway.ConstructionText.EquipmentRepair": "对{0}修复{1}栏。每件「{2}」最多恢复{3}点耐久，满耐久不扣材料。",
+  "Cultiway.ConstructionText.Signal": "向实际接触的{0}送达「{1}」，完整作用时最多保留{2:0.##}秒。",
+  "Cultiway.ConstructionText.RequiredStatus": "接触{0}时读取「{1}」作为分支条件。",
+  "Cultiway.ConstructionText.RemoveStatus": "最多解除{1}层「{0}」（{2}）。",
+  "Cultiway.ConstructionText.OwnStatusSource": "仅当前施术者",
+  "Cultiway.ConstructionText.AnyStatusSource": "任意来源"
 }

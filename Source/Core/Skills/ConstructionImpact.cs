@@ -8,6 +8,17 @@ using UnityEngine;
 
 namespace Cultiway.Core.Skills;
 
+/// <summary>实际命中被抓人物后，解除已经存在的身体抓持。</summary>
+public enum ConstructionGrabRelease
+{
+    /// <summary>不解除抓持。</summary>
+    None = 0,
+    /// <summary>只放开当前施术者自己抓住的人。</summary>
+    Own = 1,
+    /// <summary>通过余力与抗性比较，解除当前人物受到的实际抓持。</summary>
+    Rescue = 2
+}
+
 /// <summary>实际接触后产生的作用，与显示和选取距离分开保存。</summary>
 public sealed class ConstructionImpact
 {
@@ -21,6 +32,10 @@ public sealed class ConstructionImpact
     /// <summary>真实接触附带的即时恢复、持续恢复及净化。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionRestoration Restoration;
+
+    /// <summary>明确解除实际抓持，省略时与旧接触作用相同。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public ConstructionGrabRelease ReleaseGrab;
 
     /// <summary>实际接触附带的已登记属性状态，空值表示不施加。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
@@ -36,6 +51,14 @@ public sealed class ConstructionImpact
     /// <summary>本次真实命中腐蚀的明确装备栏，空值表示没有装备腐蚀。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionEquipmentErosion EquipmentErosion;
+
+    /// <summary>真实命中后用本次借用的材料修复明确装备栏中的原物品。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionEquipmentRepair EquipmentRepair;
+
+    /// <summary>真正接触后送到收件人物的讯号。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionSignal Signal;
 
     /// <summary>真实命中后推进当前库存物件的已有有限寿命。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
@@ -157,6 +180,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>已检查并复制的恢复与净化资料。</summary>
     public CompiledConstructionRestoration Restoration { get; }
 
+    /// <summary>已检查的抓持解除方式。</summary>
+    public ConstructionGrabRelease ReleaseGrab { get; }
+
     /// <summary>已解析并复制的属性状态作用。</summary>
     public IReadOnlyList<CompiledConstructionStatus> Statuses { get; }
 
@@ -168,6 +194,12 @@ public sealed class CompiledConstructionImpact
 
     /// <summary>已经核对并复制的明确装备腐蚀规则。</summary>
     public CompiledEquipmentErosion EquipmentErosion { get; }
+
+    /// <summary>已核对的装备修复规则。</summary>
+    public CompiledEquipmentRepair EquipmentRepair { get; }
+
+    /// <summary>已经检查的实际送达规则。</summary>
+    public CompiledConstructionSignal Signal { get; }
 
     /// <summary>已复制并检查的库存物件寿命推进。</summary>
     public CompiledInventoryAging InventoryAging { get; }
@@ -233,7 +265,7 @@ public sealed class CompiledConstructionImpact
     public bool HasAgingEffect => InventoryAging != null || EquipmentErosion != null || AgeYears > 0;
 
     /// <summary>沿用原自主用途，不因新增损耗当前无效而屏蔽混合作用。</summary>
-    public bool HasOtherActorEffect => Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) || Spreads.Any(spread => spread.HasEffect) ||
+    public bool HasOtherActorEffect => Signal != null || EquipmentRepair != null || ReleaseGrab != ConstructionGrabRelease.None || Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) || Spreads.Any(spread => spread.HasEffect) ||
                                   StaggerSeconds > 0f || BindSeconds > 0f || StrainSeconds > 0f || ExposureSeconds > 0f;
 
     /// <summary>实际推拉中心。</summary>
@@ -255,6 +287,9 @@ public sealed class CompiledConstructionImpact
             Array.AsReadOnly(source.Statuses.Select((status, index) => new CompiledConstructionStatus(status, path + "/Statuses/" + index)).ToArray());
         SelectedTargetOnly = source?.SelectedTargetOnly == true;
         if (source?.Restoration != null) Restoration = new CompiledConstructionRestoration(source.Restoration, path + "/Restoration");
+        ReleaseGrab = source?.ReleaseGrab ?? ConstructionGrabRelease.None;
+        if (!Enum.IsDefined(typeof(ConstructionGrabRelease), ReleaseGrab))
+            throw new InvalidDataException(path + "/ReleaseGrab：需要有效的抓持解除方式");
         Targets = source?.Targets ?? SkillUseTargetRelation.Hostile;
         DamageScale = source?.DamageScale ?? 1f;
         AgeYears = source?.AgeYears ?? 0;
@@ -262,6 +297,10 @@ public sealed class CompiledConstructionImpact
             throw new InvalidDataException(path + "/AgeYears：每次老化需0至一百万整数年");
         if (source?.EquipmentErosion != null)
             EquipmentErosion = new CompiledEquipmentErosion(source.EquipmentErosion, path + "/EquipmentErosion");
+        if (source?.EquipmentRepair != null)
+            EquipmentRepair = new CompiledEquipmentRepair(source.EquipmentRepair, path + "/EquipmentRepair");
+        if (source?.Signal != null)
+            Signal = new CompiledConstructionSignal(source.Signal, path + "/Signal");
         if (source?.InventoryAging != null)
             InventoryAging = new CompiledInventoryAging(source.InventoryAging, path + "/InventoryAging");
         Element = source?.Element;

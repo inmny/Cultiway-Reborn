@@ -15,6 +15,25 @@ namespace Cultiway.Content.Combat;
 /// <summary>内容系统共用的状态查询、施加、刷新、净化与驱散原语。</summary>
 public static class CombatStatusEffects
 {
+    /// <summary>查询本时点仍可供玩法使用的共享状态，已到期或回收的不参与。</summary>
+    /// <param name="target">接收者。</param><param name="effect">已登记状态。</param><param name="active">真实持有的状态。</param>
+    internal static bool TryGetActiveStatus(Actor target, StatusEffectAsset effect, out Entity active)
+    {
+        var relations = target.GetExtend().E.GetRelations<StatusRelation>();
+        for (int index = 0; index < relations.Length; index++)
+        {
+            Entity status = relations[index].status;
+            if (!status.IsNull && !status.Tags.Has<TagRecycle>() && status.GetComponent<StatusComponent>().Type == effect &&
+                (!status.TryGetComponent(out AliveTimeLimit limit) || status.GetComponent<AliveTimer>().value < limit.value))
+            {
+                active = status;
+                return true;
+            }
+        }
+        active = default;
+        return false;
+    }
+
     /// <summary>判断目标是否持有指定类型且来自指定来源的共享状态。</summary>
     public static bool HasStatus(Actor target, StatusEffectAsset effect, Actor source = null)
     {
@@ -156,18 +175,23 @@ public static class CombatStatusEffects
     }
 
     /// <summary>移除指定类型的共享状态；提供来源时只移除该来源施加的实例。</summary>
-    public static int RemoveStatus(Actor target, StatusEffectAsset effect, Actor source = null)
+    public static int RemoveStatus(Actor target, StatusEffectAsset effect, Actor source = null) =>
+        RemoveStatus(target, effect, source, int.MaxValue);
+
+    /// <summary>按状态现有顺序解除匹配层数，不计已回收的状态。</summary>
+    public static int RemoveStatus(Actor target, StatusEffectAsset effect, Actor source, int maximum)
     {
-        if (target == null || target.isRekt() || effect == null) return 0;
+        if (target == null || target.isRekt() || effect == null || maximum <= 0) return 0;
         ActorExtend extend = target.GetExtend();
         int removed = 0;
         foreach (Entity status in extend.GetStatuses())
         {
             StatusComponent component = status.GetComponent<StatusComponent>();
-            if (component.Type != effect || source != null && component.Source != source) continue;
+            if (component.Type != effect || status.Tags.Has<TagRecycle>() ||
+                source != null && (component.Source != source || component.SourceActorId != source.data.id)) continue;
             extend.RemoveSharedStatus(status);
             ModClass.I.CommandBuffer.AddTag<TagRecycle>(status.Id);
-            removed++;
+            if (++removed >= maximum) break;
         }
 
         return removed;
@@ -548,7 +572,7 @@ public static class CombatStatusEffects
         status.GetComponent<AliveTimeLimit>().value = duration;
         status.GetComponent<AliveTimer>().value = 0f;
         ref StatusComponent component = ref status.GetComponent<StatusComponent>();
-        component.Source = source;
+        component.SetSource(source);
         component.SourcePowerLevel = source?.GetExtend().GetPowerLevel();
     }
 }

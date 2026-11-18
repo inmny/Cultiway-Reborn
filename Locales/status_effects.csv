@@ -47,3 +47,7 @@ Cultiway.BodyStrain,扭伤,Strained
 Cultiway.BodyStrain.Description,接触扭劲损伤攻击能力，持续结束后恢复,Contact strain reduces attack power until the effect ends.
 Cultiway.BodyExposure,破甲,Armor exposed
 Cultiway.BodyExposure.Description,穿刺命中后降低实际护甲，持续结束后恢复,A piercing hit reduces actual armor until the effect ends.
+Cultiway.SignalWarning,告警讯号,Warning Signal
+Cultiway.SignalWarning.Description,实际收到告警；其他法术可在讯号失效前读取。,A warning has been received. Other abilities can read the signal until it expires.
+Cultiway.SignalRally,集结讯号,Rally Signal
+Cultiway.SignalRally.Description,实际收到集结指令；其他法术可在讯号失效前读取。,A rally call has been received. Other abilities can read the signal until it expires.

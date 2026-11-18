@@ -128,10 +128,29 @@ internal sealed class ConstructedInventoryInputs : IDisposable
     internal bool TryConsume(int operation, CompiledInventoryUse use, out string[] identities)
     {
         if (consumed.TryGetValue(operation, out identities)) return true;
-        if (!IsValid || !items.TryGetValue(use.Input, out var group) || group.Count < use.Count) return false;
-        Entity[] taking = group.Take(use.Count).ToArray();
+        return TryConsumeFromGroup(use.Input, use.Count, operation, out identities);
+    }
+
+    /// <summary>每次实际修复取一件新材料，不复用以前命中的消耗结果。</summary>
+    /// <param name="input">本次借用的材料组。</param><param name="identity">消耗的实际物件。</param>
+    internal bool TryConsumeForRepair(string input, out string identity)
+    {
+        bool taken = TryConsumeFromGroup(input, 1, null, out var identities);
+        identity = taken ? identities[0] : null;
+        return taken;
+    }
+
+    /// <summary>两个入口都通过原库存和短时占用关系提交消费。</summary>
+    /// <param name="input">材料组名。</param><param name="count">实际件数。</param>
+    /// <param name="operation">需要保留消耗结果的命名操作。</param><param name="identities">消耗的实际物件。</param>
+    private bool TryConsumeFromGroup(string input, int count, int? operation, out string[] identities)
+    {
+        identities = null;
+        if (!IsValid || !items.TryGetValue(input, out var group) || group.Count < count) return false;
+        Entity[] taking = group.Take(count).ToArray();
         identities = taking.Select(item => "object:" + item.GetComponent<WorldSaveIdentity>().Id).ToArray();
-        consumed.Add(operation, identities); group.RemoveRange(0, use.Count);
+        if (operation.HasValue) consumed.Add(operation.Value, identities);
+        group.RemoveRange(0, count);
         foreach (Entity item in taking)
         {
             item.AddTag<TagConsumed>(); item.AddTag<TagRecycle>();
