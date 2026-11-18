@@ -19,7 +19,7 @@ public sealed partial class WindowWanfaConstructionEditor
     {
         int selected = contactPanels.TryGetValue(prefix, out int value) ? value : 0;
         Choice(prefix + "ContactPanel", T("ContactPanel." + selected), () => menu.Show(T(prefix + "ContactPanel"),
-            Enumerable.Range(0, 6).Select(index => new UiOptionMenuOption
+            Enumerable.Range(0, 7).Select(index => new UiOptionMenuOption
             {
                 Label = T("ContactPanel." + index), Selected = index == selected,
                 Select = () => { contactPanels[prefix] = index; Refresh(); }
@@ -35,7 +35,8 @@ public sealed partial class WindowWanfaConstructionEditor
         else if (selected == 2) ConditionalContactRows(impact, prefix);
         else if (selected == 3) ContactSpreadRows(impact, prefix);
         else if (selected == 4) WorldContactRows(impact, prefix);
-        else ContactAgingRows(impact, prefix);
+        else if (selected == 5) ContactAgingRows(impact, prefix);
+        else ContactApplicationRows(impact, prefix);
     }
 
     /// <summary>选择和增删独立伤害，受伤者与攻击归属分别保存。</summary>
@@ -120,10 +121,13 @@ public sealed partial class WindowWanfaConstructionEditor
         Toggle(prefix + "ContactHealthCondition", rule.MaximumHealthRatio.HasValue, next =>
         {
             rule.MaximumHealthRatio = next ? .5f : null;
-            if (!next) rule.Otherwise = null;
+            if (!next && rule.RequiredStatus == null) rule.Otherwise = null;
         });
         if (rule.MaximumHealthRatio.HasValue) Number(prefix + "ContactHealthRatio", rule.MaximumHealthRatio.Value, next => rule.MaximumHealthRatio = next);
-        int[] choices = rule.MaximumHealthRatio.HasValue ? new[] { 0, 1, 2, 3 } : new[] { 0, 2, 3 };
+        bool canClearStatus = rule.Otherwise == null || rule.MaximumHealthRatio.HasValue;
+        StatusChoice(prefix + "ContactRequiredStatus", rule.RequiredStatus, next => rule.RequiredStatus = next, canClearStatus);
+        if (rule.RequiredStatus != null && !canClearStatus) Row("RequiredStatusRules", T("RequiredStatusKeepFallback"));
+        int[] choices = rule.MaximumHealthRatio.HasValue || rule.RequiredStatus != null ? new[] { 0, 1, 2, 3 } : new[] { 0, 2, 3 };
         if (!choices.Contains(conditionalResultSelection)) conditionalResultSelection = 0;
         Choice(prefix + "ConditionalResult", T("ConditionalResult." + conditionalResultSelection), () => menu.Show(T(prefix + "ConditionalResult"),
             choices.Select(index => new UiOptionMenuOption

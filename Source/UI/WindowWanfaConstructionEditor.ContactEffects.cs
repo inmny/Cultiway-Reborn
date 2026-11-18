@@ -43,6 +43,7 @@ public sealed partial class WindowWanfaConstructionEditor
             Number(prefix + "RestorePerSecond", restoration.HealthPerSecond, v => restoration.HealthPerSecond = v);
             Number(prefix + "RestoreDuration", restoration.Duration, v => restoration.Duration = v);
             ContactInteger(prefix + "CleanseCount", restoration.CleanseCount, v => restoration.CleanseCount = v);
+            ContactRemovalRows(restoration, prefix);
         }
 
     }

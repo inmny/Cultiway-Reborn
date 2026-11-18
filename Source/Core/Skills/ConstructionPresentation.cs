@@ -159,6 +159,24 @@ public static class ConstructionPresentation
         foreach (var impact in plan.ActorImpacts)
         {
             string targets = T("Target." + impact.Targets);
+            if (impact.ReleaseGrab != ConstructionGrabRelease.None)
+                lines.Add(F("ReleaseGrab", targets, L("Cultiway.Construction.ReleaseGrab." + impact.ReleaseGrab)));
+            if (impact.EquipmentRepair is { } repair)
+                lines.Add(F("EquipmentRepair", targets, L("Cultiway.Construction.EquipmentSlot." + repair.Slot),
+                    repair.MaterialInput, repair.Durability));
+            if (impact.Signal is { } signal)
+                lines.Add(F("Signal", targets, signal.Asset.GetName(), signal.Duration));
+            foreach (var conditional in impact.ConditionalContacts)
+                if (conditional.RequiredStatus != null)
+                    lines.Add(F("RequiredStatus", targets, conditional.RequiredStatus.GetName()));
+            foreach (var restoration in impact.ConditionalContacts.SelectMany(rule =>
+                         new[] { rule.Outcome, rule.Otherwise, rule.OnKill, rule.OnSurvive })
+                         .Concat(impact.RandomContact?.Outcomes ?? Array.Empty<CompiledConstructionContactOutcome>())
+                         .Concat(impact.Spreads.Select(spread => spread.Outcome))
+                         .Select(outcome => outcome?.Restoration).Append(impact.Restoration))
+                if (restoration?.RemovedStatus != null)
+                    lines.Add(F("RemoveStatus", restoration.RemovedStatus.GetName(), restoration.RemovalMaximum,
+                        T(restoration.RemovalOwnSourceOnly ? "OwnStatusSource" : "AnyStatusSource")));
             if (impact.AgeYears > 0) lines.Add(F("AgingActors", targets, impact.AgeYears));
             if (impact.EquipmentErosion != null)
                 lines.Add(F("AgingEquipment", targets, string.Join("、", impact.EquipmentErosion.Slots.Select(slot =>

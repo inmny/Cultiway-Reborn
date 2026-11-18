@@ -1919,3 +1919,5 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 5.17 C 使用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_equipment_repair.py`，用同一件原版铁甲验证真实材料扣除、封顶、重复接触、无效时归还及原物品、耐久、材料和完整法术存读。结果和存档见 `~/.local/state/cultiway-dev/evidence/equipment-repair-c/delivery.json`。
 
 5.17 D 使用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_contact_signal.py`，用同一收件人核对未送达、真实登记、重复接触、作用分支、解除、到期及正式存读。可用 `--saved-world <原输出目录>` 仅复验已生成的世界。分段证据、初次失败及读回后续见 `~/.local/state/cultiway-dev/evidence/contact-signal-d/delivery.json`。
+
+5.17 E1 使用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_application_editor.py`，在原窗口验证具名解除、解救、装备修复、讯号及状态条件的编辑；检查材料引用、报价、撤销与保存重开。中英截图、说明和实际成品见 `~/.local/state/cultiway-dev/evidence/application-editor-e1/delivery.json`。

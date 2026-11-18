@@ -206,7 +206,7 @@ public sealed class CompiledAbility
             ? CompiledConstructionImpact.Default
             : new CompiledConstructionImpact(definition.Impact, "构造/Impact");
         Inventory = AbilityCompiler.CompileInventory(definition, operations,
-            nodes.Select(node => node.Impact).Append(Impact)
+            nodes.Select(node => node.Impact).Append(Impact).Append(body?.Impact)
                 .Concat(body?.Stages.Select(stage => stage.Impact) ?? Enumerable.Empty<CompiledConstructionImpact>()));
         Use = new CompiledConstructionUse(definition.Use, Impact.Targets);
         CompiledConstructionImpact[] impacts = nodes

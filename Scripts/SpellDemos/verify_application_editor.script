@@ -1,0 +1,84 @@
+// 5.17 E1：复用现成窗口和一个普通法术，编辑四类真实作用。
+Actor source = Make(64);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var definition = new AbilityDefinition
+{
+    Id = "test.application-editor.generic", Name = "援护", Lifetime = 1.5f, TargetRange = 20, Cost = 3, Cooldown = .2f,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = .6f },
+    Root = new ConstructionNode { Id = "root", Form = "fireball", Matter = "physical" },
+    Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, DamageScale = 0, SelectedTargetOnly = true }
+};
+ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(definition.Id, source);
+// COMMON_CONTROLS
+string Draft() => JsonConvert.SerializeObject(Session().Draft);
+ConstructionImpact Effect() => Session().Draft.Impact;
+string warning = StatusEffects.SignalWarning.GetName();
+try
+{
+    Click("Page4"); Choose("ContactPanel", T("ContactPanel.6"));
+    Check(((Text)Field(Row("RepairNeedsInput"), "_detail")).text.Contains("库存材料"), "未声明材料时提供实际入口说明");
+    Click("Page0");
+    string shape = ItemShapes.Wood.id;
+    Choose("AddInventoryInput", LMTools.GetOrFallback(shape, shape.Substring(shape.LastIndexOf('.') + 1)));
+    Set("InventoryName", "repair_stock");
+    Click("Page4"); Choose("ReleaseGrab", T("ReleaseGrab.Rescue"));
+    ToggleValue("EquipmentRepair", true); Set("RepairDurability", "7");
+    ToggleValue("ContactSignal", true); Choose("SignalKind", T("SignalKind.Rally")); Set("SignalDuration", "4");
+    Check(Effect().ReleaseGrab == ConstructionGrabRelease.Rescue && Effect().EquipmentRepair.MaterialInput == "repair_stock" &&
+        Effect().EquipmentRepair.Durability == 7 && Effect().Signal.Kind == ConstructionSignalKind.Rally &&
+        Effect().Signal.Duration == 4, "同一作用窗口保留解救、实物修复和讯号内容");
+    Set("RepairDurability", "0"); Check(!B("Replace").interactable, "无效修复量阻止保存");
+    Click("Undo"); Check(Effect().EquipmentRepair.Durability == 7 && B("Replace").interactable, "撤销恢复有效修复量");
+    await ShotRow("RepairDurability", "application-cz");
+    Click("Page0"); Set("InventoryName", "repair_material"); Action("RemoveInventoryInput");
+    Check(Session().Draft.Inventory.Single().Id == "repair_material" && Effect().EquipmentRepair.MaterialInput == "repair_material" &&
+        ((Text)Field(editor, "state")).text.Contains("EquipmentRepair") && B("Replace").interactable,
+        "改名一起更新真实修复引用；删除被引用的材料明确拒绝，草稿还可保存");
+
+    Click("Page4"); Choose("ContactPanel", T("ContactPanel.0"));
+    ToggleValue("Restoration", true); Choose("RemoveStatus", warning); Set("RemoveStatusMaximum", "2");
+    ToggleValue("RemoveOwnStatusOnly", true);
+    Check(Effect().Restoration.RemoveStatus.Id == StatusEffects.SignalWarning.id && Effect().Restoration.RemoveStatus.Maximum == 2 &&
+        Effect().Restoration.RemoveStatus.OwnSourceOnly, "真实表单声明同源状态和解除层数");
+    Choose("ContactPanel", T("ContactPanel.2")); Action("AddConditionalContact"); Choose("ContactRequiredStatus", warning);
+    ToggleValue("ContactHealthCondition", false); Choose("ConditionalResult", T("ConditionalResult.1"));
+    ToggleValue("ConditionalResultEnabled", true); ToggleValue("Restoration", true); Set("RestoreHealth", "5");
+    Check(Effect().ConditionalContacts.Single().RequiredStatus == StatusEffects.SignalWarning.id &&
+        Effect().ConditionalContacts.Single().Otherwise.Restoration.Health == 5 && B("Replace").interactable,
+        "仅查询已登记状态也可编辑和保存实际备用结果");
+    await ShotRow("ContactRequiredStatus", "required-status-cz");
+
+    Click("Page0"); string beforeQuote = Draft();
+    var expectedQuote = ConstructionPricing.Price(ConstructionEditing.Copy(Session().Draft), contactRules: 31);
+    Action("ApplyRecommendedCost");
+    Check(Session().Draft.Cost == expectedQuote.Cost && Session().Draft.Cooldown == expectedQuote.Cooldown,
+        "由原报价入口计费之后保存实际报价");
+    Click("Undo"); Check(Draft() == beforeQuote, "一次撤销恢复报价和完整作用"); Action("ApplyRecommendedCost");
+    string Explain() => ConstructionPresentation.Explain(Session().Draft, AbilityCompiler.Compile(Session().Draft));
+    string cz = Explain();
+    Check(cz.Contains("解救被抓人物") && cz.Contains("修复") && cz.Contains("集结讯号") && cz.Contains("告警讯号"), "中文说明对应正式作用");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page4"); await Frames();
+    string en = Explain();
+    Check(en.Contains("Free a held actor") && en.Contains("repair_material") && en.Contains("Rally Signal") &&
+        en.Contains("Warning Signal"), "英文说明对应同一正式作用");
+    Choose("ContactPanel", T("ContactPanel.6")); await ShotRow("SignalKind", "application-en");
+    File.WriteAllText(Path.Combine(folder, "explanation-cz.txt"), cz);
+    File.WriteAllText(Path.Combine(folder, "explanation-en.txt"), en);
+    string impact = JsonConvert.SerializeObject(Effect());
+    Click("Replace"); var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(JsonConvert.SerializeObject(saved.Impact) == impact && saved.Inventory.Single().Id == "repair_material" && saved.Cost == expectedQuote.Cost,
+        "正式覆盖保留所有新增作用、材料和批准报价");
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), JObject.FromObject(saved).ToString(Formatting.Indented));
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(saved.Id, source); await Frames();
+    Check(Draft() == JsonConvert.SerializeObject(saved), "关闭重开后完整资料一致");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}
