@@ -1,0 +1,102 @@
+// 使用已发布的两种形体、正式施放及实际世界推进，不直接调用伤害。
+const float startX = 64f, targetX = 70.3f, speed = 780f, lifetime = .092f;
+Actor source = Make(startX), enemy = Make(targetX, "wolf");
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+AbilityCast active = null;
+long activeId = 0;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || !fact.AbilityId.StartsWith("test.high-speed.")) return;
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == fact.CastId)
+        {
+            active = (AbilityCast)Field(running, "Cast");
+            activeId = fact.CastId;
+        }
+}
+ConstructedAbilityService.CastStarted += Started;
+var shapeIndex = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityContactIndex");
+var swept = shapeIndex.GetMethod("Swept", F);
+var shapes = new List<AbilityCapsule>();
+Bounds Current()
+{
+    shapes.Clear(); active.AppendContacts(shapes);
+    if (shapes.Count == 0) throw new InvalidOperationException("实际主体没有作用形状");
+    Bounds bounds = (Bounds)swept.Invoke(null, new object[] { shapes[0], shapes[0] });
+    for (int i = 1; i < shapes.Count; i++)
+        bounds.Encapsulate((Bounds)swept.Invoke(null, new object[] { shapes[i], shapes[i] }));
+    return bounds;
+}
+
+AbilityDefinition Moving(string form) => new AbilityDefinition
+{
+    Id = "test.high-speed." + form, Name = "高速复验·" + form, Lifetime = lifetime, TargetRange = 12f,
+    Resource = "wakan", Cost = 1.25f, Cooldown = .08f, Power = 2f,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = .28f },
+    Root = new ConstructionNode { Id = "projectile", Form = form, Matter = "iron", Scale = form == "hand" ? 2f : 1f,
+        Rotation = form == "hand" ? new float[3] : new[] { -90f, 0f, 0f }, OnContact = ConstructionContactResponse.Continue,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+            WorldVelocity = true, InheritVelocity = false, Vector = new[] { speed, 0f, 0f } } } }
+};
+
+async Task Pass(AbilityDefinition definition, bool inside)
+{
+    Place(source, startX); source.position_height = 0;
+    Place(enemy, targetX, inside ? 72 : 75); enemy.position_height = 0;
+    ConstructedAbilityService.NotifyActorChanged(source);
+    ConstructedAbilityService.NotifyActorChanged(enemy);
+    active = null; activeId = 0;
+    float beforeCharge = owner.GetCultisys<Xian>().wakan;
+    int beforeHealth = enemy.data.health;
+    await Fire(definition, source, enemy);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(active != null, "正式入口创建了本次高速主体");
+    Bounds initial = Current();
+    float tick = active.NextStep(1f);
+    Check(initial.max.x < targetX - 1f && initial.min.x + speed * tick > targetX + 1f &&
+          Mathf.Abs(beforeCharge - owner.GetCultisys<Xian>().wakan - definition.Cost) < .002f,
+        "一步的两端分居受击点两侧，按实际费用出手",
+        new { start = initial.min.x, end = initial.max.x, y = initial.center.y, z = initial.center.z, tick,
+            travelled = speed * tick, charge = beforeCharge - owner.GetCultisys<Xian>().wakan });
+    await Advance(.027f);
+    if (!active.Finished)
+    {
+        Bounds after = Current();
+        Check(after.min.x > targetX + 1f, "游戏真实推进后的主体已越过受击点", new { after = after.min.x, active.Age });
+    }
+    var hits = contacts.Where(value => value.CastId == activeId && value.TargetId == enemy.id).ToArray();
+    Check(inside ? hits.Length == 1 && hits[0].Age > 0 && hits[0].Age < tick && enemy.data.health < beforeHealth
+                 : hits.Length == 0 && enemy.data.health == beforeHealth,
+        inside ? "两端均未重叠，途中实际命中并只扣一次血" : "偏开的同一目标无伤",
+        new { count = hits.Length, beforeHealth, afterHealth = enemy.data.health, inside,
+            at = hits.Select(hit => new { hit.Age, hit.Position.x, hit.Position.y, hit.Position.z, hit.DamageAttempted }) });
+    await Advance(.12f);
+    Check(endings.Any(end => end.Fact.AbilityId == definition.Id && !end.Fact.Cancelled) && active.Finished,
+        "高速主体自然结束", new { definition.Id, active.Age });
+}
+
+try
+{
+    Ready(source);
+    await Advance(.10f);
+    source.setStatsDirty(); source.updateStats();
+    owner.GetCultisys<Xian>().wakan = 100f;
+    if (section != "palm") await Pass(Moving("sword_qi"), true);
+    if (section != "blade")
+    {
+        var palm = Moving("hand");
+        await Pass(palm, false);
+        await Pass(palm, true);
+    }
+    return new { passed = true, section, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

@@ -1975,3 +1975,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 在原版独立游戏中运行 `dev.py exec --timeout 215 -- python3 Scripts/SpellDemos/verify_sustained_contact_regions.py`。完整段验证重叠去重、离开重入、间隔、到期及保存；可用 `--section reentry|interval|save|original` 补受影响的段，`original` 验证原来已学剑气的实际费用与命中。
 
 分别冷启动原版和装有 Worldfall 的独立游戏，用 `--section restore --input-save <上一轮输出的 completed-save 绝对路径>` 检查读回两项已学构造并再次施放。Worldfall 端加 `--worldfall`，另外比对实际绘制与作用位置。每端保留自己的运行输出，不重跑保存。输入脚本、结果及世界在 `CULTIWAY_DEV_OUTPUT/sustained-contact-regions/<分段>`。
+
+### 6.03 A　高速直飞的剑刃与飞掌
+
+在独立原版游戏运行 `dev.py exec --timeout 195 -- python3 Scripts/SpellDemos/verify_high_speed_contacts.py`。使用真实施放和已发布形体，检查一步两端、实际付款、落在步内的扣血时点和自然结束。`--section blade|palm` 用于分别复验；飞掌段包含偏开无伤及同招再放。结果在 `CULTIWAY_DEV_OUTPUT/high-speed-contacts/<分段>`。
