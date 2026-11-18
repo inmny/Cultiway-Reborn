@@ -1,0 +1,49 @@
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "pending-expected.json")));
+var legacy = JObject.Parse(File.ReadAllText(Path.Combine(folder, "legacy-expected.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check(process != (int)expected["process"], "实际退出后在不同进程读取正式存档");
+var access = ConstructionEditing.Access;
+var saves = Cultiway.ModClass.I.WorldSaves;
+JObject Complete(AbilityDefinition definition) { var json = JObject.FromObject(definition); json.Remove("Id"); return json; }
+async Task<string> Restore(string map, JObject record, int rules)
+{
+    World.world.save_manager.loadWorld(Path.Combine(folder, map));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Actor source = World.world.units.get((long)record["sourceId"]);
+    var owner = source.GetExtend();
+    var live = owner.GetComponent<ConstructedCreationState>();
+    var section = JObject.Parse(saves.Actors.Capture(owner, "martial-study"))["sections"]["ability_creation"];
+    Check(live.Inspiration?.Rules == rules && (int)section["version"] == 36 && saves.LastReport.Skipped.Count == 0 &&
+        saves.LastReport.BackupError == null && (rules != 34 || saves.LastReport.Upgraded > 0), "正式恢复规则" + rules, new { live.Pending, saves.LastReport.Upgraded });
+    if (live.Pending)
+        Check(new[] { "Inspiration", "Seed", "Source", "Resources" }.All(key =>
+            JToken.DeepEquals(section["data"][key], record["section"]["data"][key])), "恢复相同冻结资料：规则" + rules);
+    await Advance(.26f);
+    var finished = owner.GetComponent<ConstructedCreationState>();
+    var learned = finished.LastAbility == null ? null : access.Read(finished.LastAbility);
+    var recorded = record["expected"].ToObject<AbilityDefinition>();
+    Check(!finished.Pending && finished.LastFailure == null && learned != null &&
+        access.List(owner).Count == (int)record["known"] + 1 && JToken.DeepEquals(Complete(learned), Complete(recorded)),
+        "完整成品和原报价保持，只授予一次：规则" + rules, new { finished.LastAbility, finished.LastFailure, fee = learned?.Cost });
+    if (rules == 35)
+    {
+        var before = record["learned"].ToObject<AbilityDefinition>();
+        Check(access.List(owner).Any(entry => entry.Id == before.Id) &&
+            JToken.DeepEquals(Complete(before), Complete(access.Read(before.Id))) && source.getWeapon()?.getAsset().group_id == "sword",
+            "先前独立学到的动作和原手持类型同时保留");
+    }
+    return learned.Id;
+}
+try
+{
+    var old = await Restore("legacy-save", legacy, 34);
+    var current = await Restore("pending-save", expected, 35);
+    return new { passed = true, process, old, current };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

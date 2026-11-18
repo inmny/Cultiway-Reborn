@@ -33,6 +33,9 @@ public sealed partial class ConstructedAbilityService
             .Select(matter => new SynthesisErosionMaterial(matter.Id, matter.State)).ToArray() : null;
         var repairSlots = inspiration.Rules >= ConstructionPricing.DailyUseRules ? CaptureRepairSlots(actor.Base) : null;
         var choices = BodyPartChoices(actor);
+        var martial = inspiration.Rules >= ConstructionPricing.MartialStudyRules
+            ? CaptureMartialStudy(actor, seed, inspiration, choices)
+            : null;
         int palms = inspiration.CanProject ? common.Bodies.Length : 0;
         var random = new Random(unchecked(seed ^ 0x431f29b));
         string resource = actor.HasCultisys<Yao>() && !actor.HasCultisys<Xian>() ? "yao_power" : "wakan";
@@ -41,7 +44,7 @@ public sealed partial class ConstructedAbilityService
             // 从实际能接管的腿链生成触地动作；接管失败继续使用已有真实部位选择。
             AbilityDefinition foot = CaptureGroundBody(actor, random);
             if (foot != null) return new SynthesisResources(forms, new[] { foot }, resource, worldActions,
-                inspiration.Rules >= 24 ? common.DeformationForms : null, materials, erosion, repairSlots);
+                inspiration.Rules >= 24 ? common.DeformationForms : null, materials, erosion, repairSlots, martial);
         }
         AbilityDefinition[] bodies = Array.Empty<AbilityDefinition>();
         if (palms + choices.Effectors.Length > 0)
@@ -65,7 +68,7 @@ public sealed partial class ConstructedAbilityService
             bodies = new[] { body };
         }
         return new SynthesisResources(forms, bodies, resource, worldActions,
-            inspiration.Rules >= 24 ? common.DeformationForms : null, materials, erosion, repairSlots);
+            inspiration.Rules >= 24 ? common.DeformationForms : null, materials, erosion, repairSlots, martial);
     }
 }
 

@@ -2045,3 +2045,9 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_daily_use_creation.py creation`。先核对固定创法资料能重现工作、救灾、出行、修炼及维护成品，再让原打坐任务产生自然灵感、正式领悟并自行付费使用凝神术。记录和正式待办档在 `CULTIWAY_DEV_OUTPUT/daily-use-creation/creation`。
 
 用 `dev.py stop` 退出该游戏，再用 `dev.py start` 启动新进程。运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_daily_use_creation.py restart --state <creation输出目录>`。旧档默认读取 `~/.local/state/cultiway-dev/evidence/propagation-creation-d2/creation`，可用 `--legacy` 指定该历史证据的副本；它必须包含规则 33 的真实等待世界和当时记录的成品。新旧资料分别恢复并授予一次，新学修复术再由原维修任务付费使用和保存。见[自然领悟与实测](../../Doc/技能系统全面重构/构造法术的日常活动.md#自然领悟与实测)。
+
+### 7.20　实际身体、器物与步法生成近身战技
+
+在独立游戏运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_martial_study.py prepare`。入口复用一个原版世界与同一把铁剑，核对空手、剑刃和剑尖生成不同结构，真实命名足参与创作，以及正式学习、出手费用、位移、接触、收势与缺少器物时的拒绝。输出正式等待档在 `CULTIWAY_DEV_OUTPUT/martial-study/prepare`。
+
+用 `dev.py stop` 确认退出后再启动，以 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_martial_study.py restore --state <prepare输出目录>` 核对新旧冻结资料和一次授予。旧档默认读取 7.11 留下的实际规则 34 等待世界，可用 `--legacy` 指定该证据目录副本。
