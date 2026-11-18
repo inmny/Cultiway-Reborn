@@ -1,0 +1,81 @@
+// 复用已验证的正式施放，记录当前场景的实际状态和两端发布画面。
+Type external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+object mod = external?.GetProperty("Instance", F).GetValue(null);
+string view = mod == null ? "native" : "worldfall";
+Camera camera = World.world.camera;
+RenderTexture nativeTarget = null; Texture2D read = null;
+object settings = mod == null ? null : Field(mod, "Settings");
+int? oldMode = settings == null ? (int?)null : (int)Field(settings, "TimeMode");
+var frames = new List<object>(); var events = new List<object>(); var times = new List<double>();
+Vector2 centre = default;
+Actor filmSource = null, filmTarget = null;
+string filmId = null, step = null, endingCaption = null;
+Func<string> entranceCaption = null;
+Func<string> resultCaption = null;
+Func<object> filmDetail = null;
+Task recording = null; bool stop = false;
+AbilityCast Live()
+{
+    object run = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .FirstOrDefault(r => ((AbilityCast)Field(r, "Cast")).Plan.Id == filmId);
+    return run == null ? null : (AbilityCast)Field(run, "Cast");
+}
+string Stage()
+{
+    if (endings.Any(e => e.Fact.AbilityId == filmId)) return endingCaption ?? "招式已自然结束";
+    var cast = Live();
+    if (cast == null) return "施放前 · 两端场地";
+    if (cast.TryGetOutput(step, "transferred", out _)) return resultCaption();
+    return entranceCaption?.Invoke() ?? "真实施放 · 入口待通行";
+}
+// RECORD_SHARED
+ConstructionNode GateOpening(ConstructionNode gate, bool entrance, float until)
+{
+    float span = until - (gate.AppearAt ?? 0f);
+    return new ConstructionNode
+    {
+        Id = gate.Id + "-opening", Form = "rift_opening", Matter = "entropy", Scale = .48f,
+        Offset = gate.Offset, AppearAt = gate.AppearAt, ContactRole = ConstructionContactRole.Decoration,
+        Tint = entrance ? new[] { .35f, .95f, 1f } : new[] { 1f, .64f, .27f },
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "open", Seconds = span } }
+    };
+}
+async Task ClearFilmSet()
+{
+    var buildings = new HashSet<Building>();
+    for (int x = 59; x <= 82; x++) for (int y = 66; y <= 79; y++)
+    {
+        var tile = World.world.GetTileSimple(x, y);
+        if (tile.building != null) buildings.Add(tile.building);
+        tile.Height = 140; tile.setTileTypes(TileLibrary.soil_low, null, true);
+    }
+    foreach (var building in buildings) building.removeBuildingFinal();
+    if (mod != null)
+    {
+        var sampler = Field(mod, "_sampler");
+        sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
+        sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+    }
+    await Advance(.12f);
+}
+
+async Task BeginFilm(Actor source, Actor target, float centreX, float centreY, AbilityDefinition definition, string resultStep,
+    Func<string> caption, Func<object> detail = null)
+{
+    filmSource = source; filmTarget = target; centre = new Vector2(centreX, centreY);
+    filmId = definition.Id; step = resultStep; resultCaption = caption; filmDetail = detail;
+    // CAMERA_SHARED
+    Capture(); recording = Record(); await Advance(.28f);
+}
+async Task EndFilm()
+{
+    stop = true;
+    try { if (recording != null) await recording; }
+    finally
+    {
+        if (oldMode.HasValue) settings.GetType().GetField("TimeMode", F).SetValue(settings, oldMode.Value);
+        if (read != null) UnityEngine.Object.Destroy(read);
+        if (nativeTarget != null) { nativeTarget.Release(); UnityEngine.Object.Destroy(nativeTarget); }
+        File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { view, frames, events }, Formatting.Indented));
+    }
+}
