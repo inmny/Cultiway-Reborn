@@ -1937,3 +1937,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 5.18 C 多段条件的顺序与终止
 
 通过 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_ground_route.py --section chain` 复用 A 的地面及足底，验证真实地波到达、延迟独立成形、同刻换材和人物实际恢复。正常结束、波源先结束和主动取消使用同一组合，其他地波检查仍由 `all` 执行。实际输入、事件、恢复及退出证据见 `~/.local/state/cultiway-dev/evidence/propagation-chain-c/delivery.json`。
+
+### 5.18 D1 在万法阁编辑传播条件
+
+在已启动的独立游戏运行 `dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_propagation_editor.py`。默认从本地开发证据目录取 A 的地波和 B 的两种到达构造；可用 `--evidence` 指定证据根目录。复验通过实际窗口编辑两处条件、撤销不可保存的路程，并核对替换和重开。输出含中英截图、最终构造和说明。

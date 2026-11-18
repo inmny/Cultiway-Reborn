@@ -23,14 +23,30 @@ public sealed partial class WindowWanfaConstructionEditor
                     condition.Trigger = trigger;
                     if (condition is ConstructionActivation activation && trigger != ConstructionChangeTrigger.End) { activation.InheritRemainder = false; activation.ResetContacts = false; }
                     if (trigger != ConstructionChangeTrigger.MatterChanged) { condition.Matter = null; condition.State = null; }
-                    condition.Threshold = trigger == ConstructionChangeTrigger.ForceBelow ? .5f : trigger == ConstructionChangeTrigger.SizeAbove ? 1f : trigger == ConstructionChangeTrigger.SizeBelow ? .5f : trigger == ConstructionChangeTrigger.DistanceFromFlightStart ? 5f : null;
+                    condition.Threshold = trigger switch
+                    {
+                        ConstructionChangeTrigger.ForceBelow or ConstructionChangeTrigger.SizeBelow => .5f,
+                        ConstructionChangeTrigger.SizeAbove => 1f,
+                        ConstructionChangeTrigger.DistanceFromFlightStart or ConstructionChangeTrigger.GroundRouteDistance => 5f,
+                        _ => null
+                    };
                 })
             }).ToArray()));
         if (condition.Threshold.HasValue)
         {
-            string key = prefix + (condition.Trigger == ConstructionChangeTrigger.ForceBelow ? "ForceThreshold" : condition.Trigger == ConstructionChangeTrigger.DistanceFromFlightStart ? "FlightDistanceThreshold" : "SizeThreshold");
-            Number(key, condition.Threshold.Value, value => condition.Threshold = value);
+            string field = condition.Trigger switch
+            {
+                ConstructionChangeTrigger.ForceBelow => "ForceThreshold",
+                ConstructionChangeTrigger.DistanceFromFlightStart => "FlightDistanceThreshold",
+                ConstructionChangeTrigger.GroundRouteDistance => "GroundRouteThreshold",
+                _ => "SizeThreshold"
+            };
+            Number(prefix + field, condition.Threshold.Value, value => condition.Threshold = value);
         }
+
+        if (condition.Trigger is ConstructionChangeTrigger.GroundRouteDistance or ConstructionChangeTrigger.WaterRouteArrival
+            or ConstructionChangeTrigger.SignalDelivery)
+            Row("ArrivalRules", T("EventHint." + condition.Trigger));
     }
 
     /// <summary>编辑当前部位的事件、来源、放置及明确延迟。</summary>

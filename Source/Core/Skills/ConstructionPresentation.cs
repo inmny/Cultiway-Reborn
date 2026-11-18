@@ -311,7 +311,9 @@ public static class ConstructionPresentation
     private static string Condition(ConstructionCondition condition)
     {
         string text = T("Condition." + condition.Trigger);
-        if (condition.Threshold.HasValue) text += F("Threshold", condition.Threshold.Value);
+        if (condition.Threshold.HasValue)
+            text += F(condition.Trigger == ConstructionChangeTrigger.GroundRouteDistance ? "GroundRouteThreshold" : "Threshold",
+                condition.Threshold.Value);
         if (condition.Delay > 0f) text += F("Delay", condition.Delay);
         return text;
     }

@@ -1,0 +1,94 @@
+// 5.18 D1：普通部位及操作条件共用三种真实到达规则。
+Actor source = Make(64);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+AbilityDefinition Read(string name) => JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, name + "-input.json")));
+var ground = Read("ground"); var water = Read("water"); var signal = Read("signal");
+foreach (var definition in new[] { ground, water, signal })
+{
+    ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+}
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(ground.Id, source);
+// COMMON_CONTROLS
+
+bool NumberExists(string name) => editor.GetComponentsInChildren<InputField>(false).Any(field => field.name == name);
+void SelectPart(int index)
+{
+    string label = (string)typeof(WindowWanfaConstructionEditor).GetMethod("PartName", F).Invoke(editor, new object[] { index });
+    Click("Part"); editor.GetComponentsInChildren<Button>(false).Single(button => button.name.StartsWith("Option") &&
+        button.GetComponentInChildren<Text>().text == label).onClick.Invoke();
+}
+ConstructionCondition OperationGate() => Session().Draft.Root.Operations.Single(operation => operation.When != null).When;
+ConstructionActivation PartGate() => Session().Draft.Root.Children[0].Activation;
+string RootData(AbilityDefinition value) => JsonConvert.SerializeObject(value.Root);
+string Explain() => ConstructionPresentation.Explain(Session().Draft, AbilityCompiler.Compile(Session().Draft, false));
+
+async Task Open(string id)
+{
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(id, source); await Frames(); Click("Page4");
+}
+async Task SaveAndReopen(string name, AbilityDefinition definition)
+{
+    string before = RootData(Session().Draft);
+    Click("Replace");
+    var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(RootData(saved) == before && saved.Cost == definition.Cost && saved.Cooldown == definition.Cooldown,
+        name + " 正式替换保留两处条件，费用与冷却未被自动改写");
+    File.WriteAllText(Path.Combine(folder, name + "-saved.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    await Open(saved.Id);
+    Check(RootData(Session().Draft) == before, name + " 关闭重开保留完整可编辑资料");
+}
+
+try
+{
+    Click("Page4");
+    Choose("MotionTrigger", T("Event.GroundRouteDistance"));
+    Check(OperationGate().Threshold == 5f && NumberExists("MotionGroundRouteThreshold"), "操作菜单可选地波路程并提供有效默认值");
+    Set("MotionGroundRouteThreshold", "4.25");
+    Check(OperationGate().Threshold == 4.25f && B("Replace").interactable, "操作接受有效的地波地图格路程");
+    Set("MotionGroundRouteThreshold", "-2");
+    Check(!B("Replace").interactable, "不能保存负的地波路程");
+    Click("Undo");
+    Check(OperationGate().Threshold == 4.25f && B("Replace").interactable, "一次撤销恢复原有效路程");
+    SelectPart(1);
+    Choose("ActivationTrigger", T("Event.GroundRouteDistance")); Set("ActivationGroundRouteThreshold", "3.75"); Set("ActivationDelay", "0.1");
+    Check(PartGate().Threshold == 3.75f && PartGate().Source == ".." && PartGate().Delay == .1f && B("Replace").interactable,
+        "部位保留实际父体来源，并可单独改路程和延迟");
+    string groundCz = Explain();
+    Check(groundCz.Contains("沿地波路程 3.75 格") && groundCz.Contains("沿地波路程 4.25 格"), "中文说明分别列出实际部位与操作的地波路程");
+    await ShotRow("ActivationGroundRouteThreshold", "ground-cz");
+    await SaveAndReopen("ground", ground);
+
+    await Open(water.Id); SelectPart(0);
+    Choose("MotionTrigger", T("Event.WaterRouteArrival")); Set("MotionDelay", "0.1");
+    Check(OperationGate().Trigger == ConstructionChangeTrigger.WaterRouteArrival && OperationGate().Threshold == null &&
+        OperationGate().Source == "." && OperationGate().Delay == .1f && !NumberExists("MotionGroundRouteThreshold"),
+        "水路操作使用实际来源和延迟，无额外数值阈值");
+    SelectPart(1); Choose("ActivationTrigger", T("Event.WaterRouteArrival"));
+    Check(PartGate().Threshold == null && !NumberExists("ActivationGroundRouteThreshold") && B("Replace").interactable,
+        "部位选择水路真实到达，无地波路程字段");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page4"); await Frames();
+    string waterEn = Explain(); Check(waterEn.Contains("actually reaches water"), "英文说明明确不是未到达的电击意图");
+    await ShotRow("ActivationTrigger", "water-en");
+    await SaveAndReopen("water", water);
+
+    await Open(signal.Id); SelectPart(0);
+    Choose("MotionTrigger", T("Event.ActorContact")); Choose("MotionTrigger", T("Event.SignalDelivery"));
+    Check(OperationGate().Trigger == ConstructionChangeTrigger.SignalDelivery && OperationGate().Threshold == null &&
+        Session().Draft.Impact.Signal.Kind == ConstructionSignalKind.Warning, "普通操作可区分实际人物接触和收到讯号");
+    SelectPart(1); Choose("ActivationTrigger", T("Event.SignalDelivery")); Set("ActivationDelay", "0.15");
+    Check(PartGate().Source == ".." && PartGate().Threshold == null && PartGate().Delay == .15f && B("Replace").interactable,
+        "部位采用真实收件无虚构的阈值");
+    string signalEn = Explain(); Check(signalEn.Contains("actually receives the signal"), "英文说明写明需真实收件");
+    await ShotRow("ActivationTrigger", "signal-en");
+    await SaveAndReopen("signal", signal);
+    File.WriteAllText(Path.Combine(folder, "explanations.json"), JsonConvert.SerializeObject(new { groundCz, waterEn, signalEn }, Formatting.Indented));
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; LocalizedTextManager.instance.setLanguage("cz");
+}
