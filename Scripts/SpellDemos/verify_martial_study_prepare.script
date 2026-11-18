@@ -1,0 +1,151 @@
+// 7.20：用同一人、同一把剑核对不同构造，再用正式能力施放。
+var access = ConstructionEditing.Access;
+var saves = Cultiway.ModClass.I.WorldSaves;
+Actor source = Make(64.2f), target = Make(65.2f);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); source.finishScale();
+var capture = service.GetMethod("CaptureCreationResources", F);
+var origin = service.GetMethod("CaptureCreationSource", F);
+// 新人物需要正常更新一次，等身体模型和握持入口就绪。
+await Advance(.15f);
+Place(source, 64.2f);
+var inspiration = ConstructedAbilityService.ReadInspiration(owner);
+SynthesisResources Capture(Actor actor, int seed) => (SynthesisResources)capture.Invoke(null, new object[] { actor.GetExtend(), seed, ConstructedAbilityService.ReadInspiration(actor.GetExtend()) });
+void Write(string name, object value) => File.WriteAllText(Path.Combine(folder, name), JsonConvert.SerializeObject(value, Formatting.Indented));
+JObject Complete(AbilityDefinition value) { var json = JObject.FromObject(value); json.Remove("Id"); return json; }
+var faceSeeds = new Dictionary<string, (int seed, AbilityDefinition work)>();
+int bareSeed = Enumerable.Range(0, 48).Where(seed => Capture(source, seed).MartialBody != null).DefaultIfEmpty(-1).First();
+Check(bareSeed >= 0, "就绪的空手人物能提供近身创法来源", new { source.id, source.position_height, source.under_forces });
+var bare = Capture(source, bareSeed).MartialBody;
+Check(bare.Body.WeaponForm == null && access.Validate(bare).Body.Construction.HasFootwork &&
+    bare.Body.Construction.Relations.Single().From == bare.Body.Effector, "没有器物时使用真实身体接触与双足过程", new { bareSeed, bare.Body.Effector });
+source.createNewWeapon("sword_iron");
+source.setStatsDirty(); source.updateStats();
+Item sword = source.getWeapon();
+await Advance(.15f);
+Place(source, 64.2f);
+for (int seed = 0; seed < 160 && faceSeeds.Count < 2; seed++)
+{
+    var frozen = Capture(source, seed);
+    if (frozen.MartialBody?.Body.WeaponForm != "sword") continue;
+    var result = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: frozen);
+    if (result.Body?.WeaponForm != "sword") continue;
+    string face = result.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Touch).FromAnchor;
+    if (faceSeeds.ContainsKey(face)) continue;
+    var replay = JsonConvert.DeserializeObject<SynthesisResources>(JsonConvert.SerializeObject(frozen));
+    var plan = access.Validate(result);
+    Check(result.Root == null && result.Resource == "stamina" && result.Cost > 0 && plan.Body.Construction.HasFootwork &&
+        JToken.DeepEquals(Complete(result), Complete(ConstructedAbilityService.Generate(owner, seed, inspiration, resources: replay))),
+        "真实铁剑的不同接触面各有可保存、可重现的完整新战技：" + face, new { seed, result.Cost });
+    faceSeeds.Add(face, (seed, result));
+}
+Check(faceSeeds.ContainsKey("edge") && faceSeeds.ContainsKey("tip") &&
+    !JToken.DeepEquals(JArray.FromObject(faceSeeds["edge"].work.Body.Keys), JArray.FromObject(faceSeeds["tip"].work.Body.Keys)),
+    "剑刃和剑尖产生不同发力姿态，而非同一招换名");
+Write("variants.json", faceSeeds.Values.Select(entry => new { entry.seed, entry.work }).ToArray());
+
+// 已验证的狼形只补核这次创法确实取得原命名足，不为每份身体重复长流程。
+Actor wolf = Make(61f, "wolf");
+float deadline = Time.realtimeSinceStartup + 5f;
+while (access.PartChoices(wolf.GetExtend()).Feet.Length == 0 && Time.realtimeSinceStartup < deadline) await Game.NextFrame();
+var feet = access.PartChoices(wolf.GetExtend()).Feet;
+var beast = Enumerable.Range(0, 60).Select(seed => Capture(wolf, seed).MartialBody).FirstOrDefault(d => d?.Body.Keys[0].Support?.Parts != null);
+Check(feet.Length > 1 && beast != null && beast.Body.Keys[0].Support.Parts.Keys.OrderBy(x => x).SequenceEqual(feet.OrderBy(x => x)),
+    "非人动作只从其已有身体取得出手部位和命名足", new { feet, part = beast?.Body.Effector });
+
+int learnedSeed = faceSeeds["tip"].seed;
+Check(ConstructedAbilityService.TryQueueCreation(owner, learnedSeed), "经正式创法队列受理新动作");
+var waiting = owner.GetComponent<ConstructedCreationState>();
+Check(waiting.Pending && waiting.Inspiration.Rules == 35 && waiting.Resources.MartialBody?.Body.WeaponForm == "sword", "正式等待请求冻结真实握持、接触面及步法");
+await Advance(.4f);
+var creation = owner.GetComponent<ConstructedCreationState>();
+var learned = creation.LastAbility == null ? null : access.Read(creation.LastAbility);
+Check(!creation.Pending && creation.LastFailure == null && learned != null && access.List(owner).Count == 1 &&
+    JToken.DeepEquals(Complete(learned), Complete(faceSeeds["tip"].work)), "学到的是独立生成的整套动作", new { creation.LastFailure, creation.LastAbility });
+var handle = new ActiveAbilityHandle("content.constructed", owner.E, learned.Id);
+var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { source });
+CombatStatusEffects.RemoveStatus(source, hold); source.cancelAllBeh(); source.setStatsDirty(); source.updateStats();
+ControllableUnit.setControllableCreature(source);
+Place(source, 64.2f);
+// 从实际剑尖而非默认近战半径给测试目标选位置，不更改成品的姿态、判定或费用。
+var planToCast = access.Validate(learned);
+var bindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding");
+Vector3 rootFoot = (Vector3)service.GetMethod("BodyFoot", F).Invoke(null, new object[] { source });
+object binding = bindingType.GetMethod("TryCreate", F).Invoke(null,
+    new object[] { source, planToCast.Body, Vector3.right, rootFoot + Vector3.right, height });
+var frame = (BodyFrame)bindingType.GetMethod("Frame", F, null, new[] { typeof(Actor) }, null).Invoke(binding, new object[] { source });
+float strike = learned.Body.Keys[2].At;
+var pose = planToCast.Body.Sample(strike, frame);
+var shapes = new List<AbilityCapsule>();
+bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
+var tip = shapes.Single();
+planToCast.Body.Footwork(strike, out Vector3 stride, out _);
+Place(target, (tip.A.x + tip.B.x) * .5f + stride.x * height, 72f);
+float[] Coords(Vector3 v) => new[] { v.x, v.y, v.z };
+Write("test-position.json", new { rootFoot = Coords(rootFoot), height, tip = Coords((tip.A + tip.B) * .5f),
+    stride = Coords(stride), target = Coords(target.current_position) });
+// 与原近身结算复验一样，使用实际不同阵营；只制造仇恨不足以建立敌对伤害。
+target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
+source.addAggro(target); target.addAggro(source); source.attack_timer = 0; source.data.stamina = 100;
+var hits = new List<ConstructedContact>();
+var damage = new List<ConstructedQueuedDamage>();
+void Contact(ConstructedContact fact) { if (fact.AbilityId == learned.Id && fact.TargetId == target.id) hits.Add(fact); }
+void Settled(ConstructedQueuedDamage fact) { if (fact.AbilityId == learned.Id && fact.TargetId == target.id) damage.Add(fact); }
+ConstructedAbilityService.ContactConfirmed += Contact;
+ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+try
+{
+    var choice = new ActiveAbilityTarget(target, target.GetSimPos());
+    Check(ActiveAbilityService.TryUse(owner, handle, choice, ActiveAbilityUseOrigin.Script) &&
+        source.data.stamina == 100 - Mathf.CeilToInt(learned.Cost), "正式出手并支付实际体力", new { height, learned.Cost, source.data.stamina });
+    int health = target.data.health;
+    await Advance(learned.Lifetime + .12f);
+    Check(source.current_position.x > 64.2f + .035f && hits.Any(fact => fact.Node == -1) && target.data.health < health,
+        "生成动作真实向前换步并由器物接触扣血", new { position = Coords(source.current_position), health, after = target.data.health,
+            contacts = hits.Select(fact => new { fact.Node, fact.Result, fact.DamageAttempted, fact.DamagePending, fact.Damage.HealthLost }).ToArray(),
+            queuedLoss = damage.Sum(fact => fact.Damage.HealthLost) });
+    Check(!BodyControlState.IsBusy(source.id) && endings.Any(entry => entry.Fact.AbilityId == learned.Id) &&
+        ReferenceEquals(sword, source.getWeapon()), "动作正常收势，归还控制与同一把剑");
+    await Advance(learned.Cooldown + .12f);
+    source.equipment.weapon.takeAwayItem();
+    source.setStatsDirty(); source.updateStats(); source.attack_timer = 0;
+    int paid = source.data.stamina;
+    Check(!source.hasWeapon() && !ActiveAbilityService.TryUse(owner, handle, choice, ActiveAbilityUseOrigin.Script) &&
+        paid == source.data.stamina && !BodyControlState.IsBusy(source.id), "失去实际器物后不支付、不占用身体");
+    source.equipment.setItem(sword, source);
+    source.setStatsDirty(); source.updateStats();
+    ControllableUnit.clear(false);
+    Place(source, 64.2f);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+
+    int pendingSeed = -1;
+    for (int seed = 0; seed < 160; seed++)
+    {
+        var frozen = Capture(source, seed);
+        if (frozen.MartialBody == null || origin.Invoke(null, new object[] { owner, seed, null }) != null) continue;
+        var result = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: frozen);
+        if (result.Body?.WeaponForm == "sword" && result.Body.Construction.Relations.Any(r => r.FromAnchor == "edge"))
+        { pendingSeed = seed; break; }
+    }
+    Check(pendingSeed >= 0 && ConstructedAbilityService.TryQueueCreation(owner, pendingSeed), "受理另一份实际剑刃动作以验证正式等待档");
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    var expected = ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources);
+    var section = JObject.Parse(saves.Actors.Capture(owner, "martial-study"))["sections"]["ability_creation"];
+    Check(pending.Pending && pending.Source == null && (int)section["version"] == 36 && pending.Resources.MartialBody != null,
+        "等待档保存规则35及完整身体动作");
+    int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+    Write("pending-expected.json", new { process, sourceId = source.id, known = access.List(owner).Count, section, expected, learned });
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "pending-save"));
+    return new { passed = true, process, pendingSeed, learned = learned.Id };
+}
+finally
+{
+    ControllableUnit.clear(false);
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

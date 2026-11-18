@@ -47,6 +47,10 @@ public sealed class SynthesisResources
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public readonly EquipmentType[] RepairSlots;
 
+    /// <summary>受理时从真实身体及器物生成的当地近身动作；旧规则或没有可用来源时为空。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public readonly AbilityDefinition MartialBody;
+
     /// <summary>只为当前输入建立的查找，不保存运行时对象。</summary>
     private readonly Dictionary<string, SynthesisForm> forms;
 
@@ -59,10 +63,11 @@ public sealed class SynthesisResources
     /// <param name="inventoryMaterials">受理时真实可用的材料。</param>
     /// <param name="erosionMaterials">受理时可接受侵蚀的材料目录。</param>
     /// <param name="repairSlots">当时可研究的实际装备栏。</param>
+    /// <param name="martialBody">本次固定的完整近身动作。</param>
     [JsonConstructor]
     public SynthesisResources(SynthesisForm[] forms, AbilityDefinition[] bodies, string resource = "wakan",
         SynthesisWorldAction[] worldActions = null, SynthesisForm[] deformationForms = null, SynthesisInventoryMaterial[] inventoryMaterials = null,
-        SynthesisErosionMaterial[] erosionMaterials = null, EquipmentType[] repairSlots = null)
+        SynthesisErosionMaterial[] erosionMaterials = null, EquipmentType[] repairSlots = null, AbilityDefinition martialBody = null)
     {
         if (forms == null || forms.Length > 16 || forms.Any(form => form == null) ||
             forms.Select(form => form.Id).Distinct(StringComparer.Ordinal).Count() != forms.Length ||
@@ -89,6 +94,9 @@ public sealed class SynthesisResources
         if (repairSlots != null && (repairSlots.Length > 6 || repairSlots.Distinct().Count() != repairSlots.Length ||
             repairSlots.Any(slot => !Enum.IsDefined(typeof(EquipmentType), slot))))
             throw new ArgumentException("创作维修栏位缺失、重复或超过预算");
+        if (martialBody != null && (martialBody.Body == null || martialBody.Root != null || martialBody.Resource != "stamina"))
+            throw new ArgumentException("创作近身动作需要独立身体资料和真实体力通道");
+        MartialBody = martialBody;
         RepairSlots = repairSlots;
         ErosionMaterials = erosionMaterials;
         DeformationForms = deformationForms;
@@ -109,7 +117,7 @@ public sealed class SynthesisResources
         DeformationForms?.Select(CopyForm).ToArray(),
         InventoryMaterials?.Select(material => new SynthesisInventoryMaterial(material.Shape, material.Count)).ToArray(),
         ErosionMaterials?.Select(material => new SynthesisErosionMaterial(material.Matter, material.State)).ToArray(),
-        RepairSlots?.ToArray());
+        RepairSlots?.ToArray(), MartialBody == null ? null : ConstructionEditing.Copy(MartialBody));
 
     /// <summary>两类模型输入共用逐数组复制，避免请求之间共享可编辑控制名称。</summary>
     /// <param name="form">已检查的冻结资料。</param>

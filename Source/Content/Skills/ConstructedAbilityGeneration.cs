@@ -82,6 +82,14 @@ public sealed partial class ConstructedAbilityService
             var daily = GenerateDailyUse(actor.Base.id, seed, inspiration, resources);
             if (daily != null) return ConstructionPricing.Price(daily, contactRules: inspiration.Rules);
         }
+        if (inspiration.Rules >= ConstructionPricing.MartialStudyRules && resources.MartialBody != null)
+        {
+            var body = ConstructionEditing.Copy(resources.MartialBody);
+            body.Id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
+            body.Creator = actor.Base.id;
+            body.Seed = seed;
+            return ConstructionPricing.Price(body, contactRules: inspiration.Rules);
+        }
         AbilityDefinition result = inspiration.Rules == 1
             ? GenerateLegacyDraft(actor, seed, inspiration)
             : Synthesize(actor, seed, inspiration, resources ?? CaptureCreationResources(actor, seed, inspiration));
