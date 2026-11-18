@@ -52,6 +52,10 @@ public sealed class ConstructionImpact
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionEquipmentErosion EquipmentErosion;
 
+    /// <summary>真实命中后用本次借用的材料修复明确装备栏中的原物品。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionEquipmentRepair EquipmentRepair;
+
     /// <summary>真实命中后推进当前库存物件的已有有限寿命。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionInventoryAging InventoryAging;
@@ -187,6 +191,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>已经核对并复制的明确装备腐蚀规则。</summary>
     public CompiledEquipmentErosion EquipmentErosion { get; }
 
+    /// <summary>已核对的装备修复规则。</summary>
+    public CompiledEquipmentRepair EquipmentRepair { get; }
+
     /// <summary>已复制并检查的库存物件寿命推进。</summary>
     public CompiledInventoryAging InventoryAging { get; }
 
@@ -251,7 +258,7 @@ public sealed class CompiledConstructionImpact
     public bool HasAgingEffect => InventoryAging != null || EquipmentErosion != null || AgeYears > 0;
 
     /// <summary>沿用原自主用途，不因新增损耗当前无效而屏蔽混合作用。</summary>
-    public bool HasOtherActorEffect => ReleaseGrab != ConstructionGrabRelease.None || Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) || Spreads.Any(spread => spread.HasEffect) ||
+    public bool HasOtherActorEffect => EquipmentRepair != null || ReleaseGrab != ConstructionGrabRelease.None || Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) || Spreads.Any(spread => spread.HasEffect) ||
                                   StaggerSeconds > 0f || BindSeconds > 0f || StrainSeconds > 0f || ExposureSeconds > 0f;
 
     /// <summary>实际推拉中心。</summary>
@@ -283,6 +290,8 @@ public sealed class CompiledConstructionImpact
             throw new InvalidDataException(path + "/AgeYears：每次老化需0至一百万整数年");
         if (source?.EquipmentErosion != null)
             EquipmentErosion = new CompiledEquipmentErosion(source.EquipmentErosion, path + "/EquipmentErosion");
+        if (source?.EquipmentRepair != null)
+            EquipmentRepair = new CompiledEquipmentRepair(source.EquipmentRepair, path + "/EquipmentRepair");
         if (source?.InventoryAging != null)
             InventoryAging = new CompiledInventoryAging(source.InventoryAging, path + "/InventoryAging");
         Element = source?.Element;

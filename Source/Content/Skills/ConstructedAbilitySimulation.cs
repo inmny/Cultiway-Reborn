@@ -1189,6 +1189,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             return new ConstructedTargetResponse(targetId, conditional.VelocityChange, conditional.ForceApplied, 0f, 0f, additionalDamage: additionalDamage);
         if (!ApplyInventoryAging(running, node, target, impact.InventoryAging, result, strength) ||
             !ApplyEquipmentErosion(running, node, target, impact.EquipmentErosion, result, strength) ||
+            !ApplyEquipmentRepair(running, node, target, impact.EquipmentRepair, result, strength) ||
             !ApplyContactAging(running, node, target, impact.AgeYears, result, strength))
             return new ConstructedTargetResponse(targetId, conditional.VelocityChange, conditional.ForceApplied, 0f, 0f, additionalDamage: additionalDamage);
         ApplyContactReactions(target, impact, running.Owner(node), result, out float stagger, out float bound,
