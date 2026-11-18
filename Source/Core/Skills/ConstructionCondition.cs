@@ -11,7 +11,7 @@ public class ConstructionCondition
     public string Source = ".";
     /// <summary>明确的人物接触、交锋、结束或材料变化。</summary>
     public ConstructionChangeTrigger Trigger = ConstructionChangeTrigger.ActorContact;
-    /// <summary>损耗比例、局部尺寸或飞行起点距离阈值，只用于明确数值条件。</summary>
+    /// <summary>损耗比例、局部尺寸、飞行起点或地波路程阈值，只用于明确数值条件。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? Threshold;
     /// <summary>确认事件后额外等待的世界秒数。</summary>
@@ -28,7 +28,7 @@ internal class CompiledConstructionCondition
     /// <summary>实际条件字段的位置，仅用于创建时指出不成立的引用。</summary>
     internal readonly string Path;
     /// <summary>除按时操作外，实际可订阅的事件种类数。</summary>
-    internal const int EventCount = 9;
+    internal const int EventCount = 10;
     /// <summary>明确数值边界，非数值事件不使用。</summary>
     internal readonly float Threshold;
     /// <summary>只用于解析引用的独立路径。</summary>
@@ -50,15 +50,16 @@ internal class CompiledConstructionCondition
     {
         Path = path;
         SourcePath = source.Source; Trigger = source.Trigger; Delay = source.Delay;
-        if (string.IsNullOrWhiteSpace(SourcePath) || Trigger is not (ConstructionChangeTrigger.ActorContact or ConstructionChangeTrigger.Clash or ConstructionChangeTrigger.End or ConstructionChangeTrigger.MatterChanged or ConstructionChangeTrigger.ForceBelow or ConstructionChangeTrigger.SizeAbove or ConstructionChangeTrigger.SizeBelow or ConstructionChangeTrigger.WorldContact or ConstructionChangeTrigger.DistanceFromFlightStart) ||
+        if (string.IsNullOrWhiteSpace(SourcePath) || Trigger is not (ConstructionChangeTrigger.ActorContact or ConstructionChangeTrigger.Clash or ConstructionChangeTrigger.End or ConstructionChangeTrigger.MatterChanged or ConstructionChangeTrigger.ForceBelow or ConstructionChangeTrigger.SizeAbove or ConstructionChangeTrigger.SizeBelow or ConstructionChangeTrigger.WorldContact or ConstructionChangeTrigger.DistanceFromFlightStart or ConstructionChangeTrigger.GroundRouteDistance) ||
             float.IsNaN(Delay) || float.IsInfinity(Delay) || Delay < 0f || Delay >= lifetime ||
             source.State != null && source.Matter == null || Trigger != ConstructionChangeTrigger.MatterChanged && (source.Matter != null || source.State != null))
             throw new InvalidDataException(path + "：事件来源、种类、延迟或材料筛选无效");
-        bool numeric = Trigger is ConstructionChangeTrigger.ForceBelow or ConstructionChangeTrigger.SizeAbove or ConstructionChangeTrigger.SizeBelow or ConstructionChangeTrigger.DistanceFromFlightStart;
+        bool distance = Trigger is ConstructionChangeTrigger.DistanceFromFlightStart or ConstructionChangeTrigger.GroundRouteDistance;
+        bool numeric = distance || Trigger is ConstructionChangeTrigger.ForceBelow or ConstructionChangeTrigger.SizeAbove or ConstructionChangeTrigger.SizeBelow;
         if (numeric != source.Threshold.HasValue || numeric && (float.IsNaN(source.Threshold.Value) || float.IsInfinity(source.Threshold.Value) ||
-            source.Threshold.Value < 0 || source.Threshold.Value > (Trigger == ConstructionChangeTrigger.ForceBelow ? 1f : Trigger == ConstructionChangeTrigger.DistanceFromFlightStart ? 10000f : 64f) ||
-            Trigger == ConstructionChangeTrigger.ForceBelow && source.Threshold.Value == 1 || Trigger is (ConstructionChangeTrigger.SizeAbove or ConstructionChangeTrigger.DistanceFromFlightStart) && source.Threshold.Value == 0))
-            throw new InvalidDataException(path + "：数值条件需要明确有效阈值，损耗为0至1的剩余比例，成长为0至64的局部尺寸，飞行起点距离为大于0至一万格");
+            source.Threshold.Value < 0 || source.Threshold.Value > (Trigger == ConstructionChangeTrigger.ForceBelow ? 1f : distance ? 10000f : 64f) ||
+            Trigger == ConstructionChangeTrigger.ForceBelow && source.Threshold.Value == 1 || (distance || Trigger == ConstructionChangeTrigger.SizeAbove) && source.Threshold.Value == 0))
+            throw new InvalidDataException(path + "：数值条件需要明确有效阈值，损耗为0至1的剩余比例，成长为0至64的局部尺寸，飞行起点距离及地波路程为大于0至一万格");
         Threshold = source.Threshold ?? 0f;
         if (source.Matter != null) Matter = AbilityMatters.Resolve(source.Matter, source.State, path + "/Matter");
     }
@@ -67,7 +68,7 @@ internal class CompiledConstructionCondition
     /// <param name="after">事件发生后的真实值。</param>
     internal bool Crossed(float before, float after) => Trigger switch
     {
-        ConstructionChangeTrigger.SizeAbove or ConstructionChangeTrigger.DistanceFromFlightStart => before < Threshold && after >= Threshold,
+        ConstructionChangeTrigger.SizeAbove or ConstructionChangeTrigger.DistanceFromFlightStart or ConstructionChangeTrigger.GroundRouteDistance => before < Threshold && after >= Threshold,
         ConstructionChangeTrigger.SizeBelow or ConstructionChangeTrigger.ForceBelow => before > Threshold && after <= Threshold,
         _ => true
     };

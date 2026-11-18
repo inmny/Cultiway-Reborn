@@ -63,8 +63,12 @@ public static partial class AbilityCompiler
         }
         for (int i = 0; i < nodes.Count; i++)
         {
-            var distances = listeners[i * CompiledConstructionCondition.EventCount + (int)ConstructionChangeTrigger.DistanceFromFlightStart - 1];
-            nodes[i].FlightDistanceThresholds = distances?.Select(index => index < 0 ? operations[~index].When.Threshold : nodes[index].Activation.Threshold)
+            int start = i * CompiledConstructionCondition.EventCount;
+            nodes[i].FlightDistanceThresholds = Thresholds(ConstructionChangeTrigger.DistanceFromFlightStart);
+            nodes[i].GroundRouteThresholds = Thresholds(ConstructionChangeTrigger.GroundRouteDistance);
+
+            float[] Thresholds(ConstructionChangeTrigger trigger) => listeners[start + (int)trigger - 1]?
+                .Select(index => index < 0 ? operations[~index].When.Threshold : nodes[index].Activation.Threshold)
                 .Distinct().OrderBy(value => value).ToArray() ?? Array.Empty<float>();
         }
         var visited = new byte[nodes.Count];
@@ -105,6 +109,8 @@ public static partial class AbilityCompiler
             if (condition.Trigger == ConstructionChangeTrigger.DistanceFromFlightStart && source.Flight == null &&
                 !source.EventOperations.Any(op => op.Kind == ConstructionOperationKind.Fly))
                 Fail(condition.Path, "飞行起点距离条件需要已有初始或条件飞行：" + source.Path);
+            if (condition.Trigger == ConstructionChangeTrigger.GroundRouteDistance && !source.EventOperations.Any(op => op.Propagation != null))
+                Fail(condition.Path, "地波路程条件需要能够实际开始地表传播的来源：" + source.Path);
             if (condition.Trigger is ConstructionChangeTrigger.SizeAbove or ConstructionChangeTrigger.SizeBelow && source.Growth.x < 0 &&
                 !source.EventOperations.Any(op => op.Kind == ConstructionOperationKind.Grow))
                 Fail(condition.Path, "成长条件需要已有初始或条件生长过程：" + source.Path);

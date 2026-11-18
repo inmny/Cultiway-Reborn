@@ -1925,3 +1925,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 5.17 E2 用独立环境执行 `verify_application_creation.py creation`，然后完全退出游戏、重新启动，以 `verify_application_creation.py restart --state <creation 输出>` 读取正式待授予档。两步均通过 `dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_application_creation.py ...`。旧规则资料取自 5.16 的真实等待档和当时的预期；新旧各授予一次，再实际支付、消耗原材料和修复原装备并重存。分段首次结果及通过记录见 `~/.local/state/cultiway-dev/evidence/application-creation-e2/delivery.json`。
 
 5.17 E3 通过 `dev.py exec --timeout 330 -- python3 Scripts/SpellDemos/record_application.py --state <E2 已重存的输出> --signal-definitions <D 的 saved-definitions.json>` 录原版；加载同一兼容环境并加 `--worldfall` 录对照。录像使用同一组实际术式，逐帧核对修复、无效接触、真实收件、条件恢复和解除。已保存的视角目录可通过 `--encode-only <视角目录>` 重新编码。两端原片及事实索引见 `~/.local/state/cultiway-dev/evidence/application-films/delivery.json`。
+
+### 5.18 A 地波实际到达
+
+通过 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_ground_route.py` 复用已有地面和同一个足底入口。`--section arrival` 只查近远到达、同部位操作和预测回退；`--section interruption` 只查途中断路、接回后同招再用和取消。正式施放与事件位置、结束、输入和初次登记失败见 `~/.local/state/cultiway-dev/evidence/ground-route-a/delivery.json`。

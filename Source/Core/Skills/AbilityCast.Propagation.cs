@@ -39,6 +39,37 @@ public sealed partial class AbilityCast
         return true;
     }
 
+    /// <summary>先确认这一步的地面和实际花费，再在自然结束之前通知新到达边界。</summary>
+    /// <param name="node">当前传播来源。</param><param name="wave">运行中的真实路线。</param>
+    private void AdvancePropagation(int node, AbilityPropagation wave)
+    {
+        int first = wave.End;
+        float spent = wave.Advance(Age - wave.StartedAt, propagationGround);
+        ConsumeForce(node, spent, wave, first);
+    }
+
+    /// <summary>只查看本次新到达的格子；没有订阅或已经越过最后阈值时不扫描路线。</summary>
+    /// <param name="node">实际来源部位。</param><param name="wave">已经按路径顺序确认到达的地波。</param>
+    /// <param name="first">本次新到达的第一个路线位置。</param>
+    private void SignalGroundRoute(int node, AbilityPropagation wave, int first)
+    {
+        float[] thresholds = Plan.Nodes[node].GroundRouteThresholds;
+        if (thresholds.Length == 0 || first == wave.End) return;
+        ref NodeState state = ref nodes[node];
+        int threshold = NextSizeIndex(thresholds, state.GroundRouteDistance, true);
+        int end = wave.End;
+        for (int i = first; i < end && threshold < thresholds.Length && state.Exists; i++)
+        {
+            var cell = wave.Route[i];
+            if (cell.Distance < thresholds[threshold] || !wave.Reachable(i)) continue;
+            float before = state.GroundRouteDistance;
+            state.GroundRouteDistance = cell.Distance;
+            var point = new Vector3(cell.X + .5f, cell.Y + .5f, propagationGround.Height(cell.X, cell.Y));
+            SignalEvent(node, ConstructionChangeTrigger.GroundRouteDistance, point, before, cell.Distance);
+            threshold = NextSizeIndex(thresholds, cell.Distance, true);
+        }
+    }
+
     /// <summary>命中所用的路程衰减，普通形体保持一。</summary>
     /// <param name="node">实际部位。</param><param name="shape">真实作用面编号。</param>
     internal float ContactAttenuation(int node, int shape) => node >= 0 && propagations?[node] is AbilityPropagation wave

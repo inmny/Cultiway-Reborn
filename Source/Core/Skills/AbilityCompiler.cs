@@ -514,6 +514,9 @@ internal sealed class CompiledForm
     /// <summary>订阅飞行起点距离的有序不同阈值，比较真实空间距离。</summary>
     internal float[] FlightDistanceThresholds = Array.Empty<float>();
 
+    /// <summary>订阅同一地波实际到达路程的有序不同阈值。</summary>
+    internal float[] GroundRouteThresholds = Array.Empty<float>();
+
     /// <summary>此部位是否需要保持动作过渡的独占起姿。</summary>
     internal bool HasMotionChanges => EventOperations.Any(op => op.Motion != null);
 

@@ -115,7 +115,10 @@ public enum ConstructionChangeTrigger
     WorldContact = 8,
 
     /// <summary>距本次飞行起点的实际空间距离向外达到阈值。</summary>
-    DistanceFromFlightStart = 9
+    DistanceFromFlightStart = 9,
+
+    /// <summary>普通地波实际抵达满足路径距离的可作用地块。</summary>
+    GroundRouteDistance = 10
 }
 
 /// <summary>已经解析的有限物态变化；每次施放每项最多执行一次。</summary>
