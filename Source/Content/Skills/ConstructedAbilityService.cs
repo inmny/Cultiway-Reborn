@@ -597,7 +597,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 Direction = direction,
                 LastTargetFoot = point,
                 LastWorldTime = startedAt,
-                StartedAt = startedAt
+                StartedAt = startedAt,
+                BodyGuardRemaining = (plan.Body?.Guard.Capacity ?? 0f) * definition.Power
             };
             running.InitialOwner = new CastAuthority(sourceActor, damage, targetActor, target.AttackKingdom, spatialSource?.id ?? 0);
             if (sourceActor == null) running.InitialOwner.LastFoot = inputs.Source;
@@ -957,6 +958,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>全身动作共用实际足底锚点、支撑与中断速度；局部动作为空。</summary>
         internal BodyLocomotion Movement;
+
+        /// <summary>一次实际防御动作共享的剩余作用量。</summary>
+        internal float BodyGuardRemaining;
+
+        /// <summary>预测推进前的实际防御面朝向。</summary>
+        internal Vector3 BeforeGuardNormal;
 
         /// <summary>本次是否仍实际占用身体，收势后独立形体不再占用。</summary>
         internal bool BodyControlled;

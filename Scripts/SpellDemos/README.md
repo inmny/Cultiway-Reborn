@@ -1987,3 +1987,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 6.05　真实接触结果
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_contact_facts.py --section opposition` 核对两种真实交锋：有余力时反射并交接归属，容量不足时破盾而保留攻击余量。`--section ground` 复用触地分支，核对实际位置、方向、不改地形、悬空落空与归还身体。用 `--section damage` 复用同一对人物检查普通扣血、盾的实际消耗、受击即回血和免疫；`--section body` 检查掌击接触与原队列的实际扣血通过同一编号关联，且收势归还身体控制。结果分别保存在 `CULTIWAY_DEV_OUTPUT/contact-facts/<分段>`。
+
+### 6.09 A　真实格挡面
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_body_guard.py --section palm` 核对实际掌面、反面、收势后和破防余力。`--section weapon` 沿用同一路径，换为实际持有的一把铁剑。各段结果位于 `CULTIWAY_DEV_OUTPUT/body-guard/<分段>`。

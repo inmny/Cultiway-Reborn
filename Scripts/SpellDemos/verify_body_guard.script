@@ -1,0 +1,130 @@
+// 复用同一角色和同一飞行主体；来路取真实模型接触位置，不添加防御碰撞体。
+const string prefix = "test.body-guard.";
+Actor defender = Make(66f), attacker = Make(73f, "wolf");
+bool weapon = section == "weapon";
+if (weapon)
+{
+    Item sword = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: defender);
+    defender.equipment.setItem(sword, defender);
+    defender.setStatsDirty(); defender.updateStats();
+}
+var caster = attacker.GetExtend();
+caster.NewCultisys(Cultisyses.Xian);
+caster.GetCultisys<Xian>().level = 2;
+var guards = new List<ConstructedClash>();
+object defense = null;
+long shot = 0;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId == attacker.id && fact.AbilityId.StartsWith(prefix)) shot = fact.CastId;
+    if (fact.SourceId != defender.id || !fact.AbilityId.StartsWith(prefix)) return;
+    defense = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(c => (long)Field(c, "Id") == fact.CastId);
+}
+void Clashed(ConstructedClash fact)
+{
+    if (fact.RightSource == defender.id && fact.LeftSource == attacker.id && fact.GuardShape >= 0) guards.Add(fact);
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ClashConfirmed += Clashed;
+
+object Report(ConstructedClash fact) => new
+{
+    fact.LeftCast, fact.RightCast, fact.LeftNode, fact.RightNode, fact.GuardShape, fact.WorldTime, fact.RightAge,
+    fact.LeftSpent, fact.RightSpent, fact.LeftRemaining, fact.RightRemaining, fact.LeftPresent, fact.RightPresent,
+    point = new[] { fact.Position.x, fact.Position.y, fact.Position.z },
+    front = new[] { fact.GuardFacing.x, fact.GuardFacing.y, fact.GuardFacing.z }
+};
+
+AbilityDefinition Projectile(string name, float height) => new AbilityDefinition
+{
+    Id = prefix + "shot." + name, Name = "来袭剑气", Lifetime = .26f, TargetRange = 18f,
+    Resource = "wakan", Cost = 1f, Cooldown = .08f, Power = 2f,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = height },
+    Root = new ConstructionNode
+    {
+        Id = "blade", Form = "sword_qi", Matter = "iron", Rotation = new[] { -90f, 0f, 180f },
+        OnContact = ConstructionContactResponse.Continue,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+            WorldVelocity = true, InheritVelocity = false, Vector = new[] { -70f, 0f, 0f } } }
+    }
+};
+
+async Task<int> Trial(string name, float capacity, bool reverse = false, bool late = false)
+{
+    Place(defender, 66f); Place(attacker, 66.35f);
+    ConstructedAbilityService.NotifyActorChanged(defender);
+    ConstructedAbilityService.NotifyActorChanged(attacker);
+    AbilityDefinition block = BodyActionCatalog.Create(prefix + name, "格挡面复验", new BodyActionRequest
+    {
+        Kind = BodyActionKind.Guard, Effector = "hand.right", Seconds = 2f,
+        WeaponForm = weapon ? "sword" : null, Contact = weapon ? "edge" : null
+    });
+    block.Body.MatchDistance = false;
+    block.Body.Guard = new BodyGuardDefinition
+    {
+        Capacity = capacity,
+        Normal = weapon ? new[] { reverse ? -1f : 1f, 0f, 0f } : new[] { 0f, 0f, reverse ? -1f : 1f }
+    };
+    await Fire(block, defender, attacker);
+    defender.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.86f);
+    var cast = (AbilityCast)Field(defense, "Cast");
+    var binding = Field(defense, "Body");
+    var shapes = new List<AbilityCapsule>();
+    binding.GetType().GetMethod("AppendContactShapes", F).Invoke(binding, new object[] { cast.BodyPose.Value, shapes, false });
+    var facing = (Vector3)binding.GetType().GetMethod("GuardNormal", F).Invoke(binding, new object[] { cast.BodyPose.Value });
+    Check(shapes.Count > 0 && Mathf.Abs(facing.x) >= .5f && (reverse ? facing.x < 0f : facing.x > 0f),
+        "读取激活时真实手面或兵器面", new { shapes = shapes.Count, facing.x, facing.y, facing.z, cast.Age,
+            body = new[] { cast.BodyPose.Value.Hand.x, cast.BodyPose.Value.Hand.y, cast.BodyPose.Value.Hand.z } });
+    var face = shapes.OrderBy(s => Mathf.Abs((s.A.y + s.B.y) * .5f - 72f)).First();
+    Vector3 center = (face.A + face.B) * .5f;
+    if (late) await Advance(1.3f);
+    Place(attacker, 73f, center.y);
+    ConstructedAbilityService.NotifyActorChanged(attacker);
+    int life = defender.data.health;
+    await Fire(Projectile(name, center.z), attacker, defender);
+    caster.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.36f);
+    var clashes = guards.Where(g => g.LeftCast == shot).ToArray();
+    var impacts = contacts.Where(c => c.CastId == shot && c.TargetId == defender.id).ToArray();
+    int lost = life - defender.data.health;
+    bool expectedBlock = !reverse && !late;
+    bool broken = capacity < 100f;
+    Check(expectedBlock ? clashes.Length == 1 && Mathf.Abs(clashes[0].LeftSpent - clashes[0].RightSpent) < .0001f &&
+              clashes[0].RightAge >= block.Body.ActiveFrom && clashes[0].RightAge <= block.Body.ActiveUntil &&
+              (broken ? clashes[0].RightRemaining == 0f && clashes[0].LeftRemaining > 0f && impacts.Length == 1 && lost > 0
+                      : clashes[0].RightRemaining > 0f && clashes[0].LeftRemaining == 0f && impacts.Length == 0 && lost == 0)
+            : clashes.Length == 0 && impacts.Length == 1 && lost > 0,
+        name + "：用真实格挡结果和人物损耗核对", new { clashes = clashes.Select(Report).ToArray(), lost,
+            expectedBlock, broken, impacts = impacts.Select(h => new { h.WorldTime, h.Damage.HealthLost }),
+            origin = new[] { 73f, center.y, center.z }, scale = face.Radius });
+    if (!late) await Advance(.92f);
+    Check(!BodyControlState.IsBusy(defender.id) && endings.Any(e => e.Fact.AbilityId == block.Id), "原动作自然收势并归还控制");
+    return lost;
+}
+
+try
+{
+    Ready(defender);
+    await Advance(.1f);
+    attacker.setStatsDirty(); attacker.updateStats();
+    caster.GetCultisys<Xian>().wakan = 100f;
+    await Trial("front", 300f);
+    if (!weapon)
+    {
+        int ordinary = await Trial("back", 300f, reverse: true);
+        await Trial("after-window", 300f, late: true);
+        int remainder = await Trial("breaking", 12f);
+        Check(remainder < ordinary, "破防后的实际扣血随来招余力下降", new { remainder, ordinary });
+    }
+    return new { passed = true, section, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ClashConfirmed -= Clashed;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

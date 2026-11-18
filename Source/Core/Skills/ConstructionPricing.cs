@@ -99,6 +99,8 @@ public sealed class ConstructionMeasure
                             (relation.Kind == BodyRelationKind.Disarm ? 2d : relation.Kind == BodyRelationKind.Deflect ? 1.5d : 1d) *
                             (relation.MoveTarget ? 2d * (1d + relation.CollisionDamageScale) : 1d) *
                             (relation.RotateTarget ? 1.5d : 1d);
+        if (plan.Body?.Guard.Enabled == true)
+            work += plan.Body.Guard.Capacity * .01d;
         if (plan.Body?.ForceResponse != null)
             work += plan.Body.ForceResponse.Capacity * .1d + plan.Body.ForceResponse.Routing.Work;
         if (plan.Body?.Construction.MayContact == true)

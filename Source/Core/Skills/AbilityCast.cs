@@ -1303,14 +1303,15 @@ public sealed partial class AbilityCast
         origin = savedOrigin;
     }
 
-    /// <summary>部位的明确作用用途；实际身体仍由借用方结算正常近战。</summary>
+    /// <summary>部位的明确作用用途；主动架挡的身体不作为额外攻击面。</summary>
     /// <param name="node">展开部位，负一为身体。</param>
     internal ConstructionContactRole Role(int node) =>
-        node < 0 ? ConstructionContactRole.Attack : Plan.Nodes[node].ContactRole;
+        node >= 0 ? Plan.Nodes[node].ContactRole : Plan.Body.Guard.Enabled
+            ? ConstructionContactRole.Barrier : ConstructionContactRole.Attack;
 
     /// <summary>实际人物接触资格与防御角色分别判断。</summary>
     /// <param name="node">展开部位，负一为身体。</param>
-    internal bool AffectsActors(int node) => node < 0 || Plan.Nodes[node].AffectsActors;
+    internal bool AffectsActors(int node) => node < 0 ? !Plan.Body.Guard.Enabled : Plan.Nodes[node].AffectsActors;
 
     /// <summary>按明确规则取得伤害强度，不改变实际交锋容量。</summary>
     /// <param name="node">生成部位。</param>

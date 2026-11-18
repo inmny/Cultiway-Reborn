@@ -472,6 +472,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         shapes.Clear();
         shapeIndex.Clear();
+        hasBodyGuardShapes = false;
         includeReactiveMaterials = WorldMaterialService.HasHeat;
         foreach (RunningCast running in active)
             for (int node = 0; node < running.Cast.Plan.FormCount; node++)
@@ -486,6 +487,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         {
             running.BeforeTorso = running.BodyControlled ? running.Cast.BodyPose.Value.Torso : Vector3.zero;
             running.BeforeJoint = running.BodyControlled && running.Cast.Plan.Body.Part.IsJoint ? running.Cast.BodyPose.Value.Joint : null;
+            if (running.BodyControlled && running.BodyGuardRemaining > 0f)
+                running.BeforeGuardNormal = running.Body.GuardNormal(running.Cast.BodyPose.Value);
             running.Cast.SaveStep();
             Collect(running, running.Before, false);
         }
@@ -524,6 +527,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 if (!continuous) from = shape;
                 var motion = new ShapeMotion(running, from, shape, continuous);
                 shapes.Add(motion);
+                hasBodyGuardShapes |= shape.Node < 0 && running.BodyGuardRemaining > 0f;
             }
         }
         singleActingNode = shapes.Count > 0;
@@ -759,7 +763,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             bool fire = powered && shape.To.Material?.Id == "fire" && shape.To.Material.State == "energy";
             bool ordinary = powered && running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
             bool thermalSource = fire || shape.To.Node >= 0 && running.Cast.Burning(shape.To.Node).Heat > 0;
-            if (shape.To.Node < 0 && ordinary) FindBodyCorrespondences(shape, clock, step, Include);
+            bool attack = ordinary && running.Cast.Role(shape.To.Node) == ConstructionContactRole.Attack;
+            if (shape.To.Node < 0 && attack) FindBodyCorrespondences(shape, clock, step, Include);
+            if (shape.To.Node >= 0 && attack && hasBodyGuardShapes)
+                FindBodyGuards(shape, step, Include);
             if (shape.To.Node >= 0 && (ordinary || thermalSource))
             {
                 if (!singleActingNode)
@@ -970,6 +977,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
         RunningCast running = hit.Left.Running;
         int node = hit.Left.To.Node;
+        if (hit.BodyGuardFacing != Vector3.zero)
+        {
+            ResolveBodyGuard(hit);
+            return;
+        }
         if (hit.Right.HasValue)
         {
             if (node < 0 || hit.Right.Value.To.Node < 0)
@@ -1500,6 +1512,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <summary>形体交锋的右侧，人物接触为空。</summary>
         internal readonly ShapeMotion? Right;
 
+        /// <summary>非零表示右侧是真实防御面，方向按接触姿态取样。</summary>
+        internal readonly Vector3 BodyGuardFacing;
+
         /// <summary>明确水火反应优先于同一时点的人物受击。</summary>
         internal readonly bool Quenching;
 
@@ -1552,8 +1567,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             AbilityCapsule worldShape = default, ThermalReaction reaction = ThermalReaction.None,
             bool worldSource = false, WorldTile tile = null, int worldEffect = 0, int bodyRelation = -1,
             BodySurfacePose bodySurface = null, BodySurfaceAnchor bodyAnchor = default, BodySurfaceHit? carrying = null, ConstructedActorImpulse.BodyFlight flight = null,
-            AbilityCapsule actorShape = default)
+            AbilityCapsule actorShape = default, Vector3 bodyGuardFacing = default)
         {
+            BodyGuardFacing = bodyGuardFacing;
             BodyRelation = bodyRelation;
             Carrying = carrying;
             Flight = flight;
@@ -1566,7 +1582,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             WorldSource = worldSource;
             WorldRecord = worldRecord;
             WorldShape = worldShape;
-            if (right.HasValue && CompareShape(left, right.Value) > 0)
+            if (right.HasValue && bodyGuardFacing == Vector3.zero && CompareShape(left, right.Value) > 0)
             {
                 Left = right.Value;
                 Right = left;

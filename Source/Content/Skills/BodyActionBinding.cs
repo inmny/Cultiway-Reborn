@@ -381,6 +381,11 @@ internal sealed partial class BodyActionBinding
         HandMatrix(in pose).MultiplyPoint3x4(handGrip),
         pose.Rotation, Vector3.one), pose.Height * action.WeaponSize);
 
+    /// <summary>取和碰撞与显示一致的真实掌面或持物面的朝向。</summary>
+    /// <param name="pose">同一世界时点的姿态。</param>
+    internal Vector3 GuardNormal(in BodyPose pose) =>
+        (weapon == null ? HandMatrix(in pose) : WeaponMatrix(in pose)).MultiplyVector(action.Guard.Normal).normalized;
+
     /// <summary>转动后的原接触点仍落在同一真实作用形状内，避免世界坐标往返误差把相抵点推出剑身。</summary>
     /// <param name="pose">本步实际姿态。</param><param name="shape">建立联系时的原作用形状。</param>
     /// <param name="point">沿原局部位置换算的接触点。</param>
