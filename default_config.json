@@ -1,6 +1,12 @@
 {
     "GeneralSettings": [
         {
+            "Id": "LIMIT_PLANT_NATURAL_SPAWN",
+            "Type": "SWITCH",
+            "BoolVal": false,
+            "Callback": "GeneralSettings:SwitchPlantNaturalSpawnLimit"
+        },
+        {
             "Id": "SPAWN_ELEMENT_ROOT_NATURALLY",
             "Type": "SLIDER",
             "FloatVal": 0.1,

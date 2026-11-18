@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Cultiway.Abstract;
+using Cultiway.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Semantics;
 using Cultiway.Core;
@@ -19,6 +20,20 @@ namespace Cultiway.Content;
     typeof(CultivationSemantics))]
 public partial class Actors : ExtendLibrary<ActorAsset, Actors>
 {
+    /// <summary>
+    ///     原本登记植物生物的群系及其原有生成开关；配置先于内容加载时保持为空。
+    /// </summary>
+    private static (BiomeAsset Biome, bool SpawnUnitsAuto)[] plantSpawnBiomes = [];
+
+    /// <summary>
+    ///     在自定义群系创建前记录原有名单；内容库会先统一创建，再逐个初始化。
+    /// </summary>
+    public Actors()
+    {
+        plantSpawnBiomes = AssetManager.biome_library.list
+            .Select(biome => (biome, biome.pot_spawn_units_auto)).ToArray();
+    }
+
     protected override bool AutoRegisterAssets() => true;
     class CommonCreatureSetupAttribute : Attribute
     {
@@ -160,9 +175,27 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
         AddPhenotype("skin_dark", "default_color");
         AddPhenotype("skin_mixed", "default_color");
 
-        AssetManager.biome_library.ForEach<BiomeAsset, BiomeLibrary>(biome => biome.addUnit(Plant.id));
-
+        RefreshPlantNaturalSpawn();
     }
+
+    /// <summary>
+    ///     仅更新原有群系的植物生物候选，保留其他生物和植被设置。
+    /// </summary>
+    public static void RefreshPlantNaturalSpawn()
+    {
+        foreach (var (biome, spawnUnitsAuto) in plantSpawnBiomes)
+            if (GeneralSettings.LimitPlantNaturalSpawn)
+            {
+                biome.pot_units_spawn?.RemoveAll(id => id == Plant.id);
+                // 原版会直接随机索引名单；原本没有生物的群系要恢复为不自动生成。
+                biome.pot_spawn_units_auto = spawnUnitsAuto;
+            }
+            else if (biome.pot_units_spawn == null || !biome.pot_units_spawn.Contains(Plant.id))
+            {
+                biome.addUnit(Plant.id);
+            }
+    }
+
     private void SetupTrain()
     {
         Train.kingdom_id_wild = SK.nature;
