@@ -20,10 +20,16 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <summary>整招、身体和部位共用同一套目标、伤害、恢复及状态参数。</summary>
     /// <param name="impact">独立草稿里的实际接触作用。</param>
     /// <param name="prefix">原有作用行的所属前缀。</param>
-    private void ContactEffectRows(ConstructionImpact impact, string prefix)
+    /// <param name="followMatter">本部位是否用真实材料决定本体伤害。</param>
+    private void ContactEffectRows(ConstructionImpact impact, string prefix, bool followMatter)
     {
         Toggle(prefix + "SelectedTargetOnly", impact.SelectedTargetOnly, v => impact.SelectedTargetOnly = v);
         ImpactOption(prefix, "DamageBasis", impact.DamageBasis, v => impact.DamageBasis = v);
+        if (followMatter)
+        {
+            Row(prefix + "DamageFollowsMatter", T("DamageFollowsMatterHint"));
+            return;
+        }
         Toggle(prefix + "ExplicitDamageElement", impact.Element.HasValue,
             v => impact.Element = v ? new ElementComposition { iron = 1f } : null);
         if (impact.Element.HasValue) ContactElementRows(prefix, "DamageElement", impact.Element.Value, v => impact.Element = v);

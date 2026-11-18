@@ -32,7 +32,7 @@ public sealed partial class WorldMaterialService
     /// <summary>真实外观仍由资源、表面和染色共同确定。</summary>
     /// <param name="row">真实材料。</param>
     private static (string, string, Color?) Appearance(WorldMaterialRecord row) => (row.Material.Form.Description.Id,
-        row.Material.Surface, row.Material.Dye);
+        row.Material.VisualSurface, row.Material.Dye);
 
     /// <summary>空间筛选先聚合一次水柱，仍保留各来源的独立水量。</summary>
     private void UpdateWaterColumns()

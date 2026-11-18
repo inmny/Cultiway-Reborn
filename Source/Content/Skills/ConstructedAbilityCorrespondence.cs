@@ -222,7 +222,8 @@ public sealed partial class ConstructedAbilityService
             damage.DamageOrigin = DamageOrigin.Reaction;
             damage.TargetID = id;
             damage.Damage = amount;
-            damage.Element = impact.Element ?? Composition(attack.Running.Cast.Matter(attack.To.Node).DamageKind);
+            damage.Element = attack.Running.Cast.FixedDamageElement(attack.To.Node, impact) ??
+                Composition(attack.Running.Cast.Matter(attack.To.Node).DamageKind);
             settlement = GetHitEventSystem.Resolve(damage);
         }
         if (generation != worldGeneration) return result;

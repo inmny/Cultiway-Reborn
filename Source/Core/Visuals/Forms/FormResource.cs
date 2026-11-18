@@ -437,6 +437,7 @@ public sealed partial class FormResource
         ContactVolume = generation.ContactVolume;
         Description = description;
         Builds = description.Parts.Any(part => part.HasBuildData);
+        HasMatterParts = description.Parts.Any(part => part.UseMatterSurface);
         Facing = ReadFacing(description.Forward, description.Up, description.Id);
         Meshes = meshes;
         Bounds? fixedBounds = null;

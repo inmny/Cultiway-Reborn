@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Cultiway.Core.Visuals.Forms;
+using Newtonsoft.Json;
 using UnityEngine;
 using Newtonsoft.Json;
 
@@ -19,6 +20,10 @@ public sealed class AbilityMaterialData
 
     /// <summary>明确的显示覆盖，不改变实际材料。</summary>
     public string Surface;
+
+    /// <summary>由换材模式生成的独立材料继续使用当前材料表面。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool FollowMatter;
 
     /// <summary>根矩阵及必要的内部骨架姿态。</summary>
     public float[] Transform, Skin;
@@ -104,6 +109,12 @@ public sealed partial class AbilityMaterial
     /// <summary>明确显示表面与染色。</summary>
     internal readonly string Surface;
 
+    /// <summary>此记录的表面是否随实际材料更新。</summary>
+    private readonly bool followMatter;
+
+    /// <summary>对发布与外观分组提供相同的整件表面。</summary>
+    internal string VisualSurface => Form.AppearanceOverride(Surface, Matter, followMatter);
+
     /// <summary>可选显示染色。</summary>
     internal readonly Color? Dye;
 
@@ -139,10 +150,11 @@ public sealed partial class AbilityMaterial
     /// <param name="burning">已经交接的热量与烧损。</param>
     /// <param name="shapeHeld">可选的真实定形状态，未提供时使用材料默认。</param>
     /// <param name="buildProgress">交接时的成形进度。</param>
+    /// <param name="followMatter">是否随当前实际材料更新表面。</param>
     internal AbilityMaterial(FormResource form, AbilityMatter matter, Matrix4x4 transform, Matrix4x4[] skin,
         Bounds? bounds,
         AbilityCapsule[] shapes, string surface, Color? dye, double volume, double resource, AbilityFlow flow,
-        AbilityBurning burning = default, bool? shapeHeld = null, float buildProgress = 1f)
+        AbilityBurning burning = default, bool? shapeHeld = null, float buildProgress = 1f, bool followMatter = false)
     {
         Form = form;
         Matter = matter;
@@ -152,6 +164,7 @@ public sealed partial class AbilityMaterial
         PoseBounds = bounds;
         Shapes = shapes;
         Surface = surface;
+        this.followMatter = followMatter;
         Dye = dye;
         Volume = volume;
         Resource = resource;
@@ -223,8 +236,9 @@ public sealed partial class AbilityMaterial
     /// <summary>从同一世界事实建立可发布显示，不推进材料。</summary>
     /// <param name="terrain">当前共同地表。</param>
     internal FormVisualInstance Visual(AbilityHeightField terrain, FormLayerFrame layer = null) => new(Form, Transform,
-        surface: Surface, skin: Skin,
-        poseBounds: PoseBounds, matterSurface: Matter.Surface, dye: Dye, matter: Matter, terrain: terrain,
+        surface: VisualSurface, skin: Skin,
+        poseBounds: PoseBounds, matterSurface: followMatter ? Matter.EditedSurface : Matter.Surface,
+        dye: Dye, matter: Matter, terrain: terrain,
         tint: FormBurningPresentation.Char(Burning, Volume),
         layer: layer ?? (Flow == null ? null : new FormLayerFrame(Flow)), buildProgress: BuildProgress);
 
@@ -343,7 +357,7 @@ public sealed partial class AbilityMaterial
         var erosion = Erosion.Share(burningShare);
         Erosion = Erosion.Share(1 - burningShare);
         return new AbilityMaterial(Form, Matter, Transform, Skin, PoseBounds, System.Array.Empty<AbilityCapsule>(),
-            Surface, Dye, taken.Volume, resource, taken, burning, ShapeHeld, BuildProgress)
+            Surface, Dye, taken.Volume, resource, taken, burning, ShapeHeld, BuildProgress, followMatter)
         { Weathering = weathering, Erosion = erosion };
     }
 
@@ -388,7 +402,7 @@ public sealed partial class AbilityMaterial
         var burning = Burning;
         if (!AbilityBurning.CanBurn(matter)) burning.Extinguish();
         var converted = new AbilityMaterial(Form, matter, Transform, Skin, PoseBounds, Shapes, null, Dye, Volume, Resource,
-            flow, burning, held, BuildProgress) { Weathering = Weathering, Erosion = Erosion };
+            flow, burning, held, BuildProgress, followMatter) { Weathering = Weathering, Erosion = Erosion };
         if (matter.ErosionFactor <= 0) converted.InterruptErosion();
         return converted;
     }
@@ -419,7 +433,7 @@ public sealed partial class AbilityMaterial
         var burning = Burning;
         burning.Retain(Volume > 0 ? Math.Min(1, flow.Volume / Volume) : 0);
         return new AbilityMaterial(Form, Matter, Transform, Skin, PoseBounds,
-            Array.Empty<AbilityCapsule>(), Surface, Dye, flow.Volume, flow.Resource, flow, burning, ShapeHeld, BuildProgress)
+            Array.Empty<AbilityCapsule>(), Surface, Dye, flow.Volume, flow.Resource, flow, burning, ShapeHeld, BuildProgress, followMatter)
         { Weathering = Weathering.Share(Volume > 0 ? Math.Min(1, flow.Volume / Volume) : 0), Erosion = Erosion.Share(Volume > 0 ? Math.Min(1, flow.Volume / Volume) : 0) };
     }
 
@@ -432,6 +446,7 @@ public sealed partial class AbilityMaterial
             Matter = Matter.Id,
             State = Matter.State,
             Surface = Surface,
+            FollowMatter = followMatter,
             Transform = Pack(new[] { Transform }),
             Skin = Skin == null ? null : Pack(Skin),
             BuildProgress = BuildProgress,
@@ -479,6 +494,7 @@ public sealed partial class AbilityMaterial
 
         AbilityMatter matter = AbilityMatters.Resolve(data.Matter, data.State, "世界材料");
         if (data.Surface != null) form.Surface(data.Surface, true);
+        if (data.FollowMatter) AbilityCompiler.ValidateMatterSurface(matter, true, "世界材料/Surface");
 
         Matrix4x4[] Unpack(float[] values)
         {
@@ -521,7 +537,7 @@ public sealed partial class AbilityMaterial
             throw new InvalidDataException("世界材料的定形状态、基底或内部动量不符");
         return new AbilityMaterial(form, matter, matrix, skin, pose?.Bounds,
             shapes, data.Surface, data.Dye == null ? null : new Color(data.Dye[0], data.Dye[1], data.Dye[2]),
-            flow?.Volume ?? data.Volume, data.Resource, flow, burning, data.ShapeHeld, data.BuildProgress)
+            flow?.Volume ?? data.Volume, data.Resource, flow, burning, data.ShapeHeld, data.BuildProgress, data.FollowMatter)
         { Weathering = weathering, Erosion = erosion };
     }
 

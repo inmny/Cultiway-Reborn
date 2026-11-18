@@ -1,0 +1,67 @@
+// 旧式法术同时有自己的模型表面和整招指定的伤害属性。
+Actor source = Make(64); var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var original = new AbilityDefinition
+{
+    Id = "test.matter-edit.original", Name = "旧式药池", Cost = 2, Resource = "wakan", Cooldown = .1f,
+    Lifetime = 1.8f, Power = 8, TargetRange = 16,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+    Impact = new ConstructionImpact { Element = ElementComposition.Static.Fire },
+    Root = new ConstructionNode { Id = "pool", Form = "poison_pool", Matter = "poison", State = "liquid", Surface = "poison_liquid", Volume = 4 }
+};
+ConstructedAbilityService.Register(original); ConstructedAbilityService.Learn(owner, original.Id);
+File.WriteAllText(Path.Combine(folder, "original.json"), JsonConvert.SerializeObject(original, Formatting.Indented));
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(original.Id, source);
+// COMMON_CONTROLS
+
+ConstructionNode Part() => Session().Draft.Root;
+AbilityDefinition Save(string name, string button)
+{
+    string input = JsonConvert.SerializeObject(Part());
+    Click(button);
+    var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(saved.Id != original.Id && JsonConvert.SerializeObject(saved.Root) == input &&
+          saved.Impact.Element.Value.fire == 1 && saved.Resource == original.Resource && saved.Cost == original.Cost,
+        name + " 正式保存全部部位资料、原伤害设置与报价");
+    File.WriteAllText(Path.Combine(folder, name + ".json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    return saved;
+}
+try
+{
+    Click("Page0");
+    ToggleValue("Dye", true); Set("Red", "0.55");
+    Check(!Part().FollowMatter && Part().Matter == "poison" && Part().State == "liquid" &&
+        Part().Surface == "poison_liquid" && Part().Tint[0] == .55f, "只染色不启用换材，也不改实际物态和原来表面");
+    var dye = Save("dye", "LearnCopy");
+
+    Choose("Material", T("Material.water.liquid"));
+    Check(Part().FollowMatter && Part().Matter == "water" && Part().State == "liquid" &&
+        Part().Tint[0] == .55f && Part().Surface == "poison_liquid", "主动换材启用随材料模式，保留原设置以便恢复");
+    ToggleValue("FollowMatter", false); Check(!Part().FollowMatter, "可恢复使用原固定设置");
+    Click("Undo"); Check(Part().FollowMatter, "撤销完整恢复模式");
+    Action("AddMatterConversion"); Set("MatterAt", "0.75");
+    Choose("ProcessMatter", T("Material.water.solid"));
+    var operation = Part().Operations.Single();
+    Check(operation.At == .75f && operation.Matter == "water" && operation.State == "solid", "真实转换选中同一种材料的冻结物态");
+    Action("AddResidue"); Set("LeaveAt", "1.35"); Set("ResidueLifetime", "120");
+    Set("Red", "1.2"); Check(!B("Replace").interactable, "非法染色不能存成正式法术");
+    Click("Undo"); Check(Part().Tint[0] == .55f && B("Replace").interactable, "撤销无效输入后可保存");
+    await ShotRow("FollowMatter", "matter-cz");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page0");
+    await ShotRow("FollowMatter", "matter-en");
+    var edited = Save("edited", "Replace");
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(edited.Id, source); await Frames();
+    Check(Session().Draft.Root.FollowMatter && Session().Draft.Root.Tint[0] == .55f &&
+        Session().Draft.Root.Operations.Any(value => value.Kind == ConstructionOperationKind.ConvertMatter && value.State == "solid"),
+        "关闭并重开后真实转换和独立颜色都保留");
+    return new { passed = true, edited = edited.Id, dye = dye.Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; LocalizedTextManager.instance.setLanguage("cz");
+}

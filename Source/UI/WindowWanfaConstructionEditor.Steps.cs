@@ -59,6 +59,7 @@ public sealed partial class WindowWanfaConstructionEditor
             while (session.Draft.Steps.Any(item => item.Id == id)) id = "step" + suffix++;
             ConstructionOperation operation = NewProcessOperation(node, kind, session.Draft.Lifetime);
             operation.When = null;
+            if (kind == ConstructionOperationKind.ConvertMatter) node.FollowMatter = true;
             var step = new ConstructionStep { Id = id, Operation = operation, Inputs = new Dictionary<string, ConstructionOutputReference>
             { ["part"] = new ConstructionOutputReference { Node = NodePath(node), Output = "part" } } };
             stepChoice = session.Draft.Steps.Length;

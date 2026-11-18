@@ -114,6 +114,7 @@ public sealed partial class AbilityCast
             if (!regions.TryGetValue(key, out var values)) regions.Add(key, values = new float[size * size]);
             values[cell.X % size + cell.Y % size * size] = height;
         }
+        var appearance = MatterAppearance(node);
         foreach (var pair in regions)
         {
             var key = (node, pair.Key.X, pair.Key.Y);
@@ -124,7 +125,7 @@ public sealed partial class AbilityCast
             for (int x = 0; x < size; x++) bed[x + y * size] = propagationGround.Height((int)origin.x + x, (int)origin.y + y);
             var frame = new FormLayerFrame(owner, origin, size, pair.Value, bed);
             output.Add(new FormVisualInstance(Plan.Nodes[node].Resource, Matrix4x4.identity,
-                surface: Plan.Nodes[node].Surface, matterSurface: nodes[node].Matter.Surface, matter: nodes[node].Matter,
+                surface: appearance.Surface, matterSurface: appearance.MatterSurface, matter: nodes[node].Matter,
                 dye: Plan.Nodes[node].Dye, terrain: terrain, layer: frame));
         }
     }

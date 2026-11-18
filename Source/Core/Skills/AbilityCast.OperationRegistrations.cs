@@ -109,8 +109,13 @@ public sealed partial class AbilityCast
             }, (cast, action, p, native) => new ConstructionOperationProgress(
                 (native ? cast.nodes[action.Node].SpinOperation == null : ReferenceEquals(cast.nodes[action.Node].SpinOperation, action)) && cast.nodes[action.Node].Spin.sqrMagnitude == 0,
                 native ? cast.nodes[action.Node].SpinOperation != null : !ReferenceEquals(cast.nodes[action.Node].SpinOperation, action)), direct: true);
-        ConstructionOperations.Register(ConstructionOperationKind.ConvertMatter, c => new CompiledMatterParameters(
-                AbilityMatters.Resolve(c.Source.Matter, c.Source.State, c.Path), c.Source.WorldMatter == null ? null : new CompiledWorldMatter(c.Source.WorldMatter, c.Path, c.Order)),
+        ConstructionOperations.Register(ConstructionOperationKind.ConvertMatter, c =>
+            {
+                AbilityMatter matter = AbilityMatters.Resolve(c.Source.Matter, c.Source.State, c.Path);
+                AbilityCompiler.ValidateMatterSurface(matter, c.Node.FollowMatter, c.Path + "/Matter/Surface");
+                return new CompiledMatterParameters(matter,
+                    c.Source.WorldMatter == null ? null : new CompiledWorldMatter(c.Source.WorldMatter, c.Path, c.Order));
+            },
             (cast, action, p) => { cast.ChangeMatter(action.Node, p.Matter); cast.operations[action.Index].WorldRequested = p.World != null; return true; }, immediate: p => p.World == null, direct: true);
         ConstructionOperations.Register(ConstructionOperationKind.Gather, c => new CompiledGather(c.Source, c.Vector,
                 Quaternion.Euler(c.Node.Rotation[0], c.Node.Rotation[1], c.Node.Rotation[2]), c.Lifetime, c.Path),

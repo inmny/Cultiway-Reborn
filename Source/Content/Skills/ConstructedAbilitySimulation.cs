@@ -1065,7 +1065,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             damage.TargetID = actor.Id;
             damage.Damage = running.Cast.DamageForce(node) * impact.DamageScale *
                 strength;
-            damage.Element = impact.Element ?? Composition(beforeMatter.DamageKind);
+            damage.Element = running.Cast.FixedDamageElement(node, impact) ?? Composition(beforeMatter.DamageKind);
             primaryDamage = GetHitEventSystem.Resolve(damage);
         }
 

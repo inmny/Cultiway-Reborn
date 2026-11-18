@@ -15,6 +15,8 @@ public sealed class AbilityMatter
     public readonly string DamageKind;
     /// <summary>主体材料表面，空值保留资源自身表面。</summary>
     public readonly string Surface;
+    /// <summary>在明确换材的部位使用的表面；兼容旧模型自行提供的默认表面。</summary>
+    internal readonly string EditedSurface;
     /// <summary>形成后是否保持当前内部形状。</summary>
     public readonly bool HoldsShape;
 
@@ -36,8 +38,9 @@ public sealed class AbilityMatter
     /// <param name="isDefault">是否为材料默认物态。</param>
     /// <param name="combustible">是否明确可燃。</param>
     /// <param name="erosionFactor">已实现的实体侵蚀系数。</param>
+    /// <param name="editedSurface">明确换材时的可选表面；缺省沿用材料表面。</param>
     public AbilityMatter(string id, string state, string damageKind, string surface = null, bool holdsShape = false,
-        bool isDefault = true, bool combustible = false, float erosionFactor = 0)
+        bool isDefault = true, bool combustible = false, float erosionFactor = 0, string editedSurface = null)
     {
         if (float.IsNaN(erosionFactor) || float.IsInfinity(erosionFactor) || erosionFactor < 0 || erosionFactor > 1)
             throw new ArgumentOutOfRangeException(nameof(erosionFactor));
@@ -45,6 +48,7 @@ public sealed class AbilityMatter
         State = state;
         DamageKind = damageKind;
         Surface = surface;
+        EditedSurface = editedSurface ?? surface;
         HoldsShape = holdsShape;
         IsDefault = isDefault;
         Combustible = combustible;
