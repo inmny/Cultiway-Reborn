@@ -1,4 +1,6 @@
 // 同一件原法宝通过实际双门，地图受阻时不修改本体或伪造结果。
+bool varied = section == "artifact-varied";
+float degrees = varied ? -45f : 90f;
 var source = Make(64);
 var foe = Make(67, "wolf");
 var owner = source.GetExtend();
@@ -55,7 +57,7 @@ AbilityDefinition Gates(Matrix4x4 before)
 {
     Vector3 world = new(exitTile.pos.x + .5f, exitTile.pos.y + .5f, before.GetColumn(3).z);
     Quaternion heading = before.rotation;
-    Quaternion facing = Quaternion.Inverse(heading) * Quaternion.Euler(0, 0, 90) * heading;
+    Quaternion facing = Quaternion.Inverse(heading) * Quaternion.Euler(0, 0, degrees) * heading;
     ConstructionNode Gate(string id, Vector3 offset, Quaternion rotation) => new()
     {
         Id = id, Form = "fireball", Scale = .65f, ContactRole = ConstructionContactRole.Decoration,
@@ -75,7 +77,7 @@ AbilityDefinition Gates(Matrix4x4 before)
         },
         Steps = new[]
         {
-            new ConstructionStep { Id = "carry", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.MapArtifact, MappingRadius = .75f, At = .16f },
+            new ConstructionStep { Id = "carry", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.MapArtifact, MappingRadius = varied ? 1f : .75f, At = .16f },
                 Inputs = new() { ["part"] = new() { Node = "root" }, ["entrance"] = new() { Node = "root/entrance" }, ["exit"] = new() { Node = "root/exit" } } },
             new ConstructionStep { Id = "arrive", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Ready },
                 Inputs = new() { ["part"] = new() { Node = "root/exit" }, ["after"] = new() { Step = "carry", Output = "transferred" } } }
@@ -100,6 +102,7 @@ try
 
     var live = (IEnumerable)service.GetField("casts", F).GetValue(null);
     var receiptIds = new List<string>();
+    AbilityDefinition used = null;
     async Task Cast(bool blocked)
     {
         Place(source, 64);
@@ -138,9 +141,10 @@ try
                 cast.AppendStepReceipts("carry", receipts) == 1 && result.Receipt.Items.Count == 1 && Equipped() && Borrowed() &&
                 Vector3.Distance(result.Position, after.GetColumn(3)) < .001f &&
                 Vector2.Distance(result.Position, new Vector2(exitTile.pos.x + .5f, exitTile.pos.y + .5f)) < .04f &&
-                Quaternion.Angle(after.rotation, Quaternion.Euler(0, 0, 90) * before.rotation) < .2f,
+                Quaternion.Angle(after.rotation, Quaternion.Euler(0, 0, degrees) * before.rotation) < .2f,
                 "原法宝到达且转向，真实落点与显示一致，只发布一次结果", data);
             receiptIds.Add(result.Receipt.Items.Single());
+            used = definition;
         }
         // 仍沿旧法宝的正常退场规则归还，并阻止独立原主动能力抢跑下一次测试。
         Cultiway.Content.Extensions.ArtifactEquipmentTools.SetArtifactEquipMode(owner, artifact, ArtifactEquipMode.Standby);
@@ -153,14 +157,51 @@ try
     }
     if (section == "artifact") await Cast(true);
     await Cast(false);
-    await Cast(false);
-    Check(receiptIds.Count == 2 && !string.IsNullOrEmpty(receiptIds[0]) && receiptIds[0] == receiptIds[1], "再次施放仍搬运同一稳定编号的原法宝", receiptIds);
+    if (!varied)
+    {
+        await Cast(false);
+        Check(receiptIds.Count == 2 && !string.IsNullOrEmpty(receiptIds[0]) && receiptIds[0] == receiptIds[1], "再次施放仍搬运同一稳定编号的原法宝", receiptIds);
+    }
+    else
+    {
+        ConstructedAbilityService.Learn(owner, used.Id);
+        long sourceId = source.id;
+        var serializer = Cultiway.Core.Persistence.StableSaveJson.Settings;
+        var access = ConstructionEditing.Access;
+        string expected = JsonConvert.SerializeObject(access.Read(used.Id), serializer);
+        string save = Path.Combine(folder, "variant-save");
+        await Game.NextFrame(); SaveManager.saveWorldToDirectory(save);
+        ControllableUnit.clear(false);
+        World.world.save_manager.loadWorld(save);
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+        Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+        var loaded = World.world.units.get(sourceId).GetExtend();
+        var restored = access.Read(used.Id);
+        Check(ConstructedAbilityService.Knows(loaded, used.Id) && expected == JsonConvert.SerializeObject(restored, serializer),
+            "正式读回保留新的转角、入口范围及学习关系");
+        var identity = service.Assembly.GetType("Cultiway.Content.Persistence.WorldSaveIdentity");
+        var get = typeof(Entity).GetMethods().Single(method => method.Name == "TryGetComponent" && method.IsGenericMethodDefinition && method.GetParameters().Length == 1)
+            .MakeGenericMethod(identity);
+        string OriginalId(Entity item)
+        {
+            object[] value = { null };
+            return (bool)get.Invoke(item, value) ? (string)identity.GetField("Id").GetValue(value[0]) : null;
+        }
+        var matching = loaded.GetItems().Where(item => OriginalId(item) == receiptIds.Single()).ToArray();
+        Check(matching.Length == 1 && Cultiway.Content.Extensions.ArtifactEquipmentTools.IsArtifactEquipped(loaded, matching[0]) &&
+            !(bool)carrierType.GetMethod("IsBorrowed", F).Invoke(null, new object[] { matching[0] }) &&
+            !live.Cast<object>().Any(item => ((AbilityCast)Field(item, "Cast")).Plan.Id == used.Id),
+            "原法宝按稳定编号读回并仍装备，临时借用与过门不会重放");
+    }
     return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, artifact = receiptIds[0] };
 }
 finally
 {
-    exitTile.Height = 140;
-    exitTile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    if (!varied)
+    {
+        exitTile.Height = 140;
+        exitTile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    }
     ConstructedAbilityService.ContactConfirmed -= Hit;
     ConstructedAbilityService.CastEnded -= Ended;
     ControllableUnit.clear(false);

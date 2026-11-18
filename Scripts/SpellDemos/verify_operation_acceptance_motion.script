@@ -1,0 +1,136 @@
+// 以同一剑形验证就绪、旋转和变速的两个正式输入。
+var source = Make(64);
+var target = Make(74, "wolf");
+long sourceId = source.id, targetId = target.id;
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var original = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(
+    Path.Combine(folder, "basis.json")));
+var access = ConstructionEditing.Access;
+var casts = new Dictionary<string, AbilityCast>();
+var starts = new List<string>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != sourceId) return;
+    starts.Add(fact.AbilityId);
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == fact.CastId) casts[fact.AbilityId] = (AbilityCast)Field(running, "Cast");
+}
+ConstructedAbilityService.CastStarted += Started;
+var samples = new List<object>();
+ConstructionStep Step(string id, ConstructionOperation operation, ConstructionOutputReference after = null)
+{
+    var inputs = new Dictionary<string, ConstructionOutputReference> { ["part"] = new() { Node = "root" } };
+    if (after != null) inputs["after"] = after;
+    return new ConstructionStep { Id = id, Operation = operation, Inputs = inputs };
+}
+AbilityDefinition Definition(bool brake)
+{
+    var definition = ConstructionEditing.Copy(original);
+    definition.Id = "test.operation-acceptance." + (brake ? "brake" : "boost");
+    definition.Name = brake ? "成锋行剑 · 制动再起" : "成锋行剑 · 反旋急进";
+    definition.Resource = "wakan"; definition.Lifetime = 3; definition.TargetRange = 20;
+    definition.Root.OnContact = ConstructionContactResponse.Continue;
+    definition.Root.Operations[0].Seconds = .62f;
+    definition.Steps = new[]
+    {
+        Step("gate", new() { Kind = ConstructionOperationKind.Ready, At = brake ? .4f : .45f },
+            brake ? new() { Node = "root", Operation = "formed", Output = "growth" } : null),
+        Step("turn", new() { Kind = ConstructionOperationKind.Spin, Vector = new[]{ 0f, 0f, brake ? 120f : -120f } },
+            new() { Step = "gate", Output = "ready" }),
+        Step("launch", new() { Kind = ConstructionOperationKind.Fly, At = 1.1f, Vector = new[]{ 5f, 0f, 0f },
+            WorldVelocity = true, InheritVelocity = false }),
+        Step("pace", new() { Kind = ConstructionOperationKind.ChangeSpeed, At = 1.45f, Speed = brake ? 0f : 10f }),
+        Step("resume", new() { Kind = ConstructionOperationKind.ChangeSpeed, At = 2.08f, Speed = brake ? 5f : 10f })
+    };
+    return definition;
+}
+float RotationFrom(Matrix4x4 start, Matrix4x4 now) => Vector3.SignedAngle(
+    start.MultiplyVector(Vector3.right), now.MultiplyVector(Vector3.right), start.MultiplyVector(Vector3.forward));
+Matrix4x4 Pose(AbilityCast cast, string label)
+{
+    var views = new List<FormVisualInstance>(); cast.AppendVisuals(views);
+    var pose = views.Single().Transform;
+    var right = pose.MultiplyVector(Vector3.right).normalized;
+    samples.Add(new { cast.Plan.Id, label, cast.Age, x = pose.m03, y = pose.m13, z = pose.m23, axis = new[] { right.x, right.y, right.z } });
+    return pose;
+}
+async Task To(AbilityCast cast, float age)
+{
+    if (cast.Age < age) await Advance(age - cast.Age);
+}
+var definitions = new[] { Definition(true), Definition(false) };
+try
+{
+    var turns = new List<float>();
+    Ready(source); await Advance(.15f);
+    foreach (var definition in definitions)
+    {
+        bool brake = definition == definitions[0];
+        Place(source, 64); Place(target, 74);
+        owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+        float balance = owner.GetCultisys<Xian>().wakan;
+        await Fire(definition, source, target);
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        float paid = balance - owner.GetCultisys<Xian>().wakan;
+        Check(Mathf.Abs(paid - definition.Cost) < .05f, "正式受理时按原费用支付", new { definition.Id, paid, definition.Cost });
+        await Advance(.25f);
+        var cast = casts[definition.Id];
+        var initial = Pose(cast, "等待");
+        Check(cast.StepStateOf("gate") == ConstructionStepState.Waiting && cast.StepStateOf("turn") == ConstructionStepState.Waiting,
+            "就绪前不会触发后续旋转", definition.Id);
+        await To(cast, .54f);
+        var mid = Pose(cast, "成形中");
+        Check((cast.StepStateOf("gate") == ConstructionStepState.Completed) == !brake &&
+            (brake ? Mathf.Abs(RotationFrom(initial, mid)) < .1f :
+                Mathf.Abs(RotationFrom(initial, mid)) > 4f), "同在成形中，定时就绪先转，等待成形仍保持原朝向", definition.Id);
+        await To(cast, .96f);
+        var turning = Pose(cast, "就绪旋转");
+        turns.Add(RotationFrom(initial, turning));
+        Check(cast.TryGetOutput("gate", "ready", out var result) && Mathf.Abs(result.At - (brake ? .62f : .45f)) < .025f &&
+            Mathf.Abs(RotationFrom(initial, turning)) > 25f && Mathf.Abs(turning.m03 - initial.m03) < .01f,
+            "就绪结果按真实时点解锁原地旋转", new { definition.Id, result.At, angle = RotationFrom(initial, turning) });
+        await To(cast, 1.26f);
+        var flight = Pose(cast, "正常飞行");
+        Check(Mathf.Abs(cast.Velocity(0).magnitude - 5) < .1f && flight.m03 > turning.m03 + .45f, "变速前以原速度飞行", definition.Id);
+        await To(cast, 1.57f);
+        var changed = Pose(cast, "变速后");
+        float changedAt = cast.Age;
+        await To(cast, 1.91f);
+        var later = Pose(cast, "同一主体继续");
+        float distance = later.m03 - changed.m03;
+        Check(Mathf.Abs(cast.Velocity(0).magnitude - (brake ? 0f : 10f)) < .05f &&
+            Mathf.Abs(distance - (brake ? 0f : 10f) * (cast.Age - changedAt)) < .12f,
+            "同一剑形分别停在原位置和加速移动", new { definition.Id, distance });
+        await To(cast, 2.31f);
+        var resumed = Pose(cast, "恢复飞行");
+        Check(resumed.m03 > later.m03 + .55f && Mathf.Abs(cast.Velocity(0).magnitude - (brake ? 5f : 10f)) < .05f,
+            "制动后从原位置恢复，急进保持实际速度", definition.Id);
+
+        if (brake)
+        {
+            await Advance(1f);
+            Check(cast.Finished && endings.Any(e => e.Fact.AbilityId == definition.Id && !e.Fact.Cancelled), "第一把剑自然收束");
+        }
+    }
+    Check(turns[0] * turns[1] < 0, "两种转角输入在绘制姿态中确实反向旋转", turns);
+    Check(starts.SequenceEqual(definitions.Select(d => d.Id)), "运动修改没有重复施放", starts.ToArray());
+    foreach (var definition in definitions) ConstructedAbilityService.Learn(owner, definition.Id);
+    var saved = definitions.ToDictionary(d => d.Id, d => JObject.FromObject(access.Read(d.Id)));
+    File.WriteAllText(Path.Combine(folder, "definitions.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    string save = Path.Combine(folder, "save");
+    await Game.NextFrame();
+    SaveManager.saveWorldToDirectory(save);
+    Check(casts[definitions[1].Id].Finished == false, "保存时第二把剑仍在施放");
+    File.WriteAllText(Path.Combine(folder, "saved-actors.json"), JsonConvert.SerializeObject(new { sourceId, targetId }));
+    return new { passed = true, checks, samples, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder, "poses.json"), JsonConvert.SerializeObject(samples, Formatting.Indented));
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false); Config.paused = true;
+}
