@@ -1,0 +1,60 @@
+var readings = new List<object>();
+try
+{
+    foreach (bool follow in new[] { false, true })
+    {
+        string mode = follow ? "follow" : "fixed";
+        Move(source, 64f, 72f); Move(target, 72f, 72f);
+        int health = target.data.health;
+        var d = Blade(mode);
+        d.Root.Operations = new[]
+        {
+            new ConstructionOperation
+            {
+                Kind = ConstructionOperationKind.Fly, WorldVelocity = true, InheritVelocity = false,
+                Vector = new[] { 9f, 0f, 0f }, TurnRate = 720,
+                Goal = new ConstructionFlightGoal
+                {
+                    Anchor = ConstructionFlightAnchor.Target, Follow = follow,
+                    Radius = .12f, Arrival = ConstructionFlightArrival.Continue
+                }
+            }
+        };
+        await Fire(d, source, target);
+        var cast = Live(d.Id);
+        await Advance(.15f);
+        var from = Position(Draw(cast).Single());
+        Move(target, 72f, 75.5f);
+        await Advance(.31f);
+        var current = Position(Draw(cast).Single());
+        Check(current.x > from.x + .7f &&
+              (follow ? current.y > from.y + .35f : Mathf.Abs(current.y - from.y) < .05f),
+            "移动目标后的实际形体保持或改变路线：" + mode,
+            new { from = XY(from), current = XY(current), target = XY(target.GetSimPos()) });
+        await FrameAppearance(mode + "-route", 69, 74, 8f);
+        await Advance(1.1f);
+        var hits = contacts.Where(contact => contact.AbilityId == d.Id).ToArray();
+        var done = endings.Where(entry => entry.Fact.AbilityId == d.Id).ToArray();
+        Check(follow ? hits.Length == 1 && hits[0].TargetId == target.id && target.data.health < health &&
+              Vector2.Distance((Vector2)hits[0].Position, target.current_position) < 1.4f
+              : hits.Length == 0 && target.data.health == health,
+              "按真实表面接触决定移动目标是否扣血：" + mode,
+              new { health, after = target.data.health, touches = hits.Select(h => XY(h.Position)).ToArray() });
+        Check(done.Length == 1 && !done[0].Fact.Cancelled && Live(d.Id) == null && Draw(cast).Length == 0,
+            "结束后不留旧运行或主体：" + mode);
+        int settled = target.data.health;
+        await Advance(.26f);
+        Check(contacts.Count(h => h.AbilityId == d.Id) == hits.Length && target.data.health == settled,
+            "结束后没有迟到的旧路径伤害：" + mode);
+        readings.Add(new { mode, start = XY(from), current = XY(current), hit = hits.Length,
+            damage = health - settled, age = done[0].Fact.Age, endDrawCount = Draw(cast).Length });
+    }
+    await FrameAppearance("routes-ended", 69, 74, 8f);
+    return new { passed = true, checks, readings };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

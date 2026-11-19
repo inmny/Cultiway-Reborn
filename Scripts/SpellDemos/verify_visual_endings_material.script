@@ -1,0 +1,54 @@
+var changes = new List<WorldMaterialChange>();
+void Changed(WorldMaterialChange change) => changes.Add(change);
+FormVisualInstance[] Water(string sourceKey) => Published(sourceKey).Where(v => v.Matter?.Id == "water").ToArray();
+WorldMaterialService.Changed += Changed;
+try
+{
+    var d = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "material-basis.json")));
+    d.Id = "test.visual-ending.material";
+    d.Resource = "none";
+    d.Cost = 0;
+    d.TargetRange = 30;
+    d.Lifetime = 1.6f;
+    d.Root.FollowMatter = true;
+    d.Root.Operations.Last().Residue.Lifetime = .55f;
+    int health = target.data.health;
+    await Fire(d, source, target);
+    var cast = Live(d.Id);
+    await Advance(.55f);
+    var liquid = Water("content.constructed").Single();
+    var position = Position(liquid);
+    Check(cast.Matter(0).State == "liquid" && liquid.Matter.State == "liquid" && liquid.Layer != null,
+        "确认水实际在流动，发布液态表面");
+    await FrameAppearance("flowing-water", position.x, position.y, 11f);
+    await Advance(.42f);
+    var ice = Water("content.constructed").Single();
+    Check(Live(d.Id) == cast && cast.Matter(0).State == "solid" && ice.Matter.State == "solid" &&
+          ice.MatterSurface != liquid.MatterSurface && changes.Count == 0 && contacts.Count == 0,
+        "同一主体的凝固与共同画面同步，不多生成一份世界实体或攻击",
+        new { from = liquid.MatterSurface, to = ice.MatterSurface, age = cast.Age });
+    var middle = Position(ice);
+    await FrameAppearance("frozen-before-leave", middle.x, middle.y, 11f);
+    await Advance(.68f);
+    var left = changes.Single(c => c.Kind == "leave" && c.AbilityId == d.Id);
+    var residue = Water("world.materials");
+    Check(Live(d.Id) == null && Draw(cast).Length == 0 && Water("content.constructed").Length == 0 &&
+          left.Matter == "water" && left.State == "solid" && left.Volume > 0 && residue.Length > 0 &&
+          residue.All(v => v.Matter.State == "solid" && v.MatterSurface == ice.MatterSurface),
+          "原术结束，只留下真实转交的有限冰体，沿用原材质",
+          new { left.Id, left.Volume, residue = residue.Length, surfaces = residue.Select(v => v.MatterSurface).ToArray() });
+    await FrameCleanupSide("independent-ice", middle, 12f, -.25f);
+    await Advance(.7f);
+    Check(changes.Count(c => c.Id == left.Id && c.Kind == "end") == 1 && Water("world.materials").Length == 0 &&
+          Water("content.constructed").Length == 0 && contacts.Count == 0 && target.data.health == health,
+          "冰体按独立期限结束一次，画面和作用一并退场");
+    await FrameAppearance("ice-ended", middle.x, middle.y, 11f);
+    return new { passed = true, checks };
+}
+finally
+{
+    WorldMaterialService.Changed -= Changed;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}
