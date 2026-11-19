@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""从实际游戏取得共用形体清单，复验换材后的制作层次。"""
+"""从实际游戏取得共用形体清单，复验换材、布局和轨迹。"""
 import argparse
 import json
 import os
@@ -11,7 +11,7 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('catalog', 'surfaces'), required=True)
+    parser.add_argument('--section', choices=('catalog', 'surfaces', 'layouts'), required=True)
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         parser.error('请通过 develop 的 dev.py exec 运行')

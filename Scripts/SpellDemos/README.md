@@ -2148,3 +2148,5 @@ python3 Scripts/SpellDemos/demo_spell.py TidalWave --cases base --view native --
 9.08 主体及残留去向：`dev.py exec --timeout 230 -- python3 Scripts/SpellDemos/verify_visual_endings_908.py --section motion`。复用固定与追随路线对照移动目标；另选 `block` 核对攻体从共同画面移除、剩余木障正常退场，`interrupt` 核对来源失效后延迟攻体不会出现，或 `material` 核对流水凝冰和有限冰体的世界交接。各段留正式施放结果和代表帧。
 
 9.09 A 共用形体换材：`dev.py exec --timeout 230 -- python3 Scripts/SpellDemos/verify_form_combinations_909.py --section catalog` 读游戏实际加载的形体全集，核对两端表面并保留部件和变化资料；用 `--section surfaces` 检查同一正式施放原材、真正换材、换回及正常退场，保存实际画面。独立冰体交接复用 9.08 的 `--section material`。
+
+9.09 B 共用形体布局和轨迹：同一入口使用 `--section layouts`，在复用世界中正式施放剑列和水鲸列，比较转弯前后的部位间距、实际作用区和自然退场，记录原版与 Worldfall 画面。

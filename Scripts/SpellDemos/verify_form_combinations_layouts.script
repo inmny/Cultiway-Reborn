@@ -1,0 +1,125 @@
+// 同一场景：成组形体沿折线转弯，核对每件的真实位置、厚度和接触。
+var source = Make(64);
+var target = Make(73, "wolf");
+var outside = Make(74, "wolf");
+PrepareAppearanceBackdrop(59, 78, 65, 79);
+await Advance(.2f);
+Vector3 Position(FormVisualInstance view) => view.Transform.GetColumn(3);
+Vector3 V(float[] p) => new Vector3(p[0], p[1], p[2]);
+float[] XYZ(Vector3 v) => new[] { v.x, v.y, v.z };
+List<FormVisualInstance> Views(AbilityCast cast)
+{
+    var results = new List<FormVisualInstance>();
+    cast.AppendVisuals(results);
+    return results;
+}
+List<AbilityCapsule> Contacts(AbilityCast cast)
+{
+    var results = new List<AbilityCapsule>();
+    cast.AppendContacts(results);
+    return results;
+}
+Vector3 Controlled(FormVisualInstance view, Vector3 point, FormInfluenceDescription[] weights, string control)
+{
+    if (weights?.Length > 0)
+        return weights.Aggregate(Vector3.zero, (p, weight) => p +
+            view.Skin[view.Resource.Rig.Control(weight.Control)].MultiplyPoint3x4(point) * weight.Weight);
+    return string.IsNullOrEmpty(control) ? point : view.Skin[view.Resource.Rig.Control(control)].MultiplyPoint3x4(point);
+}
+
+var completed = new List<object>();
+try
+{
+    foreach (string form in new[] { "sword", "water_whale" })
+    {
+        bool whale = form == "water_whale";
+        var path = ConstructionPathCurves.Zigzag(1.4f, Vector3.right * 1.2f);
+        path.Forward = new[] { 0f, 0f, 1f };
+        var d = new AbilityDefinition
+        {
+            Id = "test.form-combination.layout." + form, Name = "折线同行", Resource = "none", Cost = 0,
+            Power = 8, Lifetime = 1.8f, Cooldown = 0, TargetRange = 20,
+            Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = true, Height = .32f },
+            Root = new ConstructionNode
+            {
+                Id = "centre", Form = "pivot", ContactRole = ConstructionContactRole.Decoration,
+                Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+                    Vector = new[] { 4f, 0f, 0f }, WorldVelocity = true, InheritVelocity = false, Path = path } },
+                Children = new[] { new ConstructionNode
+                {
+                    Id = "row", Form = form, Scale = whale ? .20f : .75f, ContactGroup = "row",
+                    Rotation = whale ? new[] { -90f, 180f, 0f } : new float[3],
+                    Distribution = new ConstructionDistribution { Source = ConstructionDistributionSource.Space,
+                        Space = new ConstructionDistributionSpace { Size = new[] { 6f, 0f, 0f }, Counts = new[] { 3, 1, 1 } } },
+                    Operations = whale ? new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "swim" } }
+                        : Array.Empty<ConstructionOperation>()
+                } }
+            }
+        };
+        File.WriteAllText(Path.Combine(folder, form + ".definition.json"), JsonConvert.SerializeObject(d, Formatting.Indented));
+        Place(source, 64); Place(target, 74, 74); Place(outside, 66, 66);
+        await Fire(d, source, target, aim: new Vector3(74, 72, .32f), aggro: false);
+        source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+        var cast = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Select(r => (AbilityCast)Field(r, "Cast")).Single(c => c.Plan.Id == d.Id);
+        var resource = FormResources.Load(form);
+        FormVisualInstance[] Row() => Views(cast).Where(v => ReferenceEquals(v.Resource, resource)).ToArray();
+        float ShapeError(FormVisualInstance[] views, List<AbilityCapsule> shapes)
+        {
+            float error = 0f;
+            var groups = shapes.GroupBy(c => c.Node).OrderBy(g => g.Key).ToArray();
+            Check(views.Length == 3 && groups.Length == 3 && groups.All(g => g.Count() == resource.Contacts.Length),
+                form + "三份排布各保留自己的全部实际作用段");
+            for (int i = 0; i < views.Length; i++)
+            foreach (var shape in groups[i])
+            {
+                var c = resource.Description.Contacts[shape.Shape];
+                Vector3 a = Controlled(views[i], V(c.A), c.AInfluences, c.AControl);
+                Vector3 b = Controlled(views[i], V(c.B), c.BInfluences, c.BControl);
+                error = Mathf.Max(error, Vector3.Distance(views[i].Transform.MultiplyPoint3x4(a), shape.A),
+                    Vector3.Distance(views[i].Transform.MultiplyPoint3x4(b), shape.B),
+                    Mathf.Abs(shape.Radius - c.Radius * d.Root.Children[0].Scale));
+            }
+            return error;
+        }
+        await Advance(.19f);
+        var before = Row();
+        float beforeError = ShapeError(before, Contacts(cast));
+        float[] Widths(FormVisualInstance view) => Enumerable.Range(0, 3).Select(axis =>
+            ((Vector3)view.Transform.GetColumn(axis)).magnitude).ToArray();
+        var center = Position(before[1]);
+        await FrameAppearance(form + "-before", center.x, center.y, 5f);
+        await Advance(.39f);
+        var after = Row();
+        var shapes = Contacts(cast);
+        float afterError = ShapeError(after, shapes);
+        float turn = Quaternion.Angle(before[1].Transform.rotation, after[1].Transform.rotation);
+        Vector3 left = Position(after[0]), middle = Position(after[1]), right = Position(after[2]);
+        Check(turn > 20f && Vector3.Distance(left + right, middle * 2f) < .0001f &&
+            Mathf.Abs(Vector3.Distance(left, middle) - 2f) < .0001f &&
+            after.All(view => Widths(view).All(size => Mathf.Abs(size - d.Root.Children[0].Scale) < .0001f)) &&
+            Mathf.Max(beforeError, afterError) < .0001f && (!whale || !before[1].Skin.SequenceEqual(after[1].Skin)),
+            form + "实际转弯，格距、各轴尺寸和真实作用仍一致", new { turn, beforeError, afterError, middle = XYZ(middle) });
+        await FrameCleanupSide(form + "-after-worldfall", middle, 7.5f, -.25f);
+        var middleShape = shapes.GroupBy(c => c.Node).OrderBy(g => g.Key).ElementAt(1).First();
+        var point = (middleShape.A + middleShape.B) * .5f;
+        Place(target, point.x, point.y);
+        int hp = target.data.health, hpOut = outside.data.health;
+        await Advance(.15f);
+        Check(target.data.health < hp && outside.data.health == hpOut &&
+            contacts.Count(c => c.AbilityId == d.Id && c.TargetId == target.id && c.DamageAttempted) == 1,
+            form + "实画作用面内命中一次，场外无伤", new { loss = hp - target.data.health, point = XYZ(point) });
+        await Advance(1.4f);
+        Check(cast.Finished && Row().Length == 0 && Contacts(cast).Count == 0 &&
+            endings.Count(e => e.Fact.AbilityId == d.Id && !e.Fact.Cancelled) == 1, form + "整列正常退出");
+        completed.Add(new { form, turn, beforeError, afterError, loss = hp - target.data.health });
+    }
+    return new { passed = true, checks, completed, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}
