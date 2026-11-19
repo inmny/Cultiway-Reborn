@@ -754,6 +754,8 @@ internal sealed partial class FormResourceGeneration
             "stone_ridge" => (21f, new Color(.48f, .41f, .31f), .96f),
             "wind_open" => (17f, new Color(.72f, .88f, .84f, .76f), .55f),
             "wind_pressure" => (17f, new Color(.48f, .70f, .69f, .78f), .68f),
+            "wind_shear" => (22f, new Color(.20f, .16f, .23f, .92f), .62f),
+            "wind_fold_dark" => (22f, new Color(.39f, .30f, .42f, .74f), .76f),
             "yin_basin" => (18f, new Color(.13f, .13f, .32f, .88f), .62f),
             "meteor_heat" => (19f, new Color(.96f, .29f, .024f, .64f), .62f),
             "meteor_crown" => (19f, new Color(1f, .43f, .04f, .91f), .54f),

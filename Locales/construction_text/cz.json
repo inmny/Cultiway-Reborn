@@ -80,6 +80,7 @@
   "Cultiway.ConstructionText.Change.Ray": "射线变化",
   "Cultiway.ConstructionText.RadialMotion": "{0}中心的世界半径{1:0.##}内，对{4}施加水平推拉，中心速度{2:0.##}格/秒（正推负拉），每{3:0.###}秒重新选人；边缘衰减为零，独立于接触面。",
   "Cultiway.ConstructionText.Change.RadialMotion": "范围推拉",
+  "Cultiway.ConstructionText.RadialGroundItems": "最多卷起{0}件地面无主物；风停后原物自然落地。",
   "Cultiway.ConstructionText.Change.ClashRules": "交锋规则",
   "Cultiway.ConstructionText.Change.Persistence": "存续规则",
   "Cultiway.ConstructionText.Change.Between": "两点连接",

@@ -1,0 +1,25 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.CarryingWindWall",
+  "Name": "挟砂风垒",
+  "Resource": "mana",
+  "Cost": 8,
+  "Cooldown": 2,
+  "Lifetime": 2.45,
+  "Power": 1,
+  "TargetRange": 24,
+  "Binding": {"Anchor": "Between", "Fraction": 0.6, "FaceTarget": true},
+  "Root": {
+    "Id": "vortex", "Form": "wind_vortex_open", "Matter": "wind", "ContactRole": "Decoration",
+    "Rotation": [-90, 0, 0],
+    "Operations": [
+      {"Kind": "Animate", "Clip": "pressure"},
+      {"Kind": "Fly", "At": 0.15, "Vector": [0, -1.6, 0], "InheritVelocity": false}
+    ],
+    "Children": [{
+      "Id": "pressure", "Form": "pivot", "Matter": "wind", "ContactRole": "Decoration",
+      "AppearAt": 0.18, "DisappearAt": 2.02,
+      "RadialMotion": {"Radius": 2.5, "Speed": -6.5, "Interval": 0.1, "Targets": "Hostile", "GroundItemLimit": 2}
+    }]
+  }
+}

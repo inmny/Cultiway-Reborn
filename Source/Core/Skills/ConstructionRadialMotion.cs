@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Cultiway.Core.SkillLibV3.Usage;
+using Newtonsoft.Json;
 
 namespace Cultiway.Core.Skills;
 
@@ -18,6 +19,10 @@ public sealed class ConstructionRadialMotion
 
     /// <summary>实际作用的人物关系；范围运动只作用于可移动且站在地面的人物。</summary>
     public SkillUseTargetRelation Targets;
+
+    /// <summary>每次确认最多卷起多少件无主持物；零只作用于人物。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public int GroundItemLimit;
 }
 
 /// <summary>资料边界检查并独立复制后的范围运动；不保留旧词条或旅行回调。</summary>
@@ -35,15 +40,21 @@ public sealed class CompiledConstructionRadialMotion
     /// <summary>已经确定的目标关系。</summary>
     public SkillUseTargetRelation Targets { get; }
 
+    /// <summary>实际携物上限，保持原物件、归属和落地规则。</summary>
+    public int GroundItemLimit { get; }
+
     /// <summary>创建、编辑和恢复共用一次输入检查。</summary>
     /// <param name="source">可编辑资料。</param><param name="path">资料位置。</param>
     internal CompiledConstructionRadialMotion(ConstructionRadialMotion source, string path)
     {
         Radius = source.Radius; Speed = source.Speed; Interval = source.Interval; Targets = source.Targets;
+        GroundItemLimit = source.GroundItemLimit;
         if (float.IsNaN(Radius) || float.IsInfinity(Radius) || Radius <= 0f || Radius > 1000f ||
             float.IsNaN(Speed) || float.IsInfinity(Speed) || Math.Abs(Speed) > 1000f ||
             float.IsNaN(Interval) || float.IsInfinity(Interval) || Interval < 1f / 120f || Interval > 1f ||
             Targets is not (SkillUseTargetRelation.Hostile or SkillUseTargetRelation.Friendly or SkillUseTargetRelation.Self))
             throw new InvalidDataException(path + "：范围运动需要0至1000以内的正半径、正负1000以内速度、1/120至1秒间隔及有效人物关系");
+        if (GroundItemLimit is < 0 or > 8)
+            throw new InvalidDataException(path + "：每次范围运动可卷起零至八件无主持物");
     }
 }

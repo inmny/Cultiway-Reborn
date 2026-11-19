@@ -26,7 +26,7 @@ internal static class BalefulWindConstruction
         Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
         Root = new ConstructionNode
         {
-            Id = "center", Form = "wind_vortex", Matter = "wind", State = "energy", Scale = 1f,
+            Id = "center", Form = "baleful_wind_column", Matter = "wind", State = "energy", Scale = 1f,
             ContactRole = ConstructionContactRole.Decoration,
             Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "run" } }
         }
@@ -43,7 +43,7 @@ internal static class BalefulWindConstruction
         Impact = new ConstructionImpact { SelectedTargetOnly = true, DamageScale = 1f, Element = Element },
         Root = new ConstructionNode
         {
-            Id = "wind", Form = "wind_vortex", Matter = "wind", State = "energy", Scale = .35f,
+            Id = "wind", Form = "baleful_wind_shear", Matter = "wind", State = "energy", Scale = .35f,
             Contact = new ConstructionContactPolicy { MaximumTotal = 1 },
             Operations = new[]
             {

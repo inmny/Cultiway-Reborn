@@ -133,7 +133,8 @@ public sealed class ConstructionMeasure
             double span = Math.Max(0, node.Presence.y - node.Presence.x);
             if (node.RadialMotion != null)
                 RadialMotionWork += Math.PI * node.RadialMotion.Radius * node.RadialMotion.Radius *
-                                    Math.Abs(node.RadialMotion.Speed) * span * .1d;
+                                    Math.Abs(node.RadialMotion.Speed) * span * .1d +
+                                    Math.Min(8f, Math.Abs(node.RadialMotion.Speed)) * node.RadialMotion.GroundItemLimit * span * .12d;
             bool material = node.FragmentSource < 0 && node.RemainderRoot < 0 && node.Resource.Meshes.Length > 0;
             double volume = material ? node.Volume * scales[i] : 0d;
             if (material) Materials++;

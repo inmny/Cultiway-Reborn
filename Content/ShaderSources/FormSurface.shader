@@ -474,7 +474,7 @@ Shader "Cultiway/FormSurface"
                 base *= .95 + (.37-.18*_Roughness)*stream;
                 alpha *= chord*(.8+.2*stream);
             }
-            else if (_Kind < 16.5 || _Kind > 20.5)
+            else if (_Kind < 16.5 || (_Kind > 20.5 && _Kind < 21.5))
             {
                 // 岩层色随制作坐标固定；厚层缓慢变色，矿粒只在近处补出不均匀的粗面。
                 float3 q = i.material;
@@ -518,7 +518,7 @@ Shader "Cultiway/FormSurface"
                 base += float3(.34,.22,.04)* (.23+.77*hot) * (1-.65*high);
                 alpha *= i.surface.y*(.54+.46*hot)*(.58+.42*abs(dot(n,eye)));
             }
-            else
+            else if (_Kind < 20.5)
             {
                 // 亮芯藏在有厚度的火身内；外焰随上行热流变化，薄处透出背景。
                 float3 q = i.material;
@@ -534,6 +534,16 @@ Shader "Cultiway/FormSurface"
                     (tint.rgb*float3(1.15,1.35,1.5)+float3(.21,.32,.13))*dye.rgb,inner);
                 alpha *= (.40+.60*chord)*(.47+.42*body+.17*inner)*
                          (1-smoothstep(.71,1.02,height)*(.51-.28*bands));
+            }
+            else
+            {
+                // 煞风的厚薄跟着剪切面走；暗面有疏密，折面受光，不描亮边。
+                float fold = volumeNoise(i.material * float3(2.7,2.7,5.9) - float3(.16,-.09,1.6)*_WorldTime);
+                float chord = sqrt(abs(dot(n,eye)));
+                float density = smoothstep(.10,.84,fold);
+                base *= (.54+.62*density)*max(float3(.78,.76,.82),.49*ambient+.54*direct);
+                base += tint.rgb*(.14+.29*diffuse)*density;
+                alpha *= i.surface.y*(.48+.52*density)*(.29+.71*chord);
             }
             float contact = formFeedback(i);
             base += (base*.24 + float3(.035,.045,.05)*environmentLight)*contact;

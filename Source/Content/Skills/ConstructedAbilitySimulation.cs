@@ -290,6 +290,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
         AppendSteamVisuals(now);
         AppendConductionVisuals(now);
+        AppendWindScars(now);
         AppendContactVolumes(now);
         AppendMediumLinks(now);
         ConfirmedWorldTime = now;
@@ -1110,8 +1111,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ApplyRestoration(running, node, actor.Actor, impact.Restoration, strength);
         ConstructedTargetResponse response = ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
             priorVelocity: priorVelocity, forceReceiver: forceReceiver,
-            strength: strength, settled: primaryDamage);
+            strength: strength, settled: primaryDamage, contact: hit.Point);
         if (contactGeneration != worldGeneration) return;
+        if (primaryDamage.HealthLost > 0 && running.Cast.Plan.Id == BalefulWindConstruction.WaveId)
+            AddWindScar(running, node, actor.Actor, hit.Point, false);
         if (result == ApplyAttackState.Hit)
             ApplyContactSpreads(running, node, actor.Id, impact, spreadCenter, simulation.contactTime, strength);
         if (contactGeneration != worldGeneration) return;
@@ -1227,11 +1230,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="forceReceiver">同次伤害或停顿解除动作之前的承力身体。</param>
     /// <param name="strength">真实介质路程给出的强度倍率，普通接触为一。</param>
     /// <param name="settled">已结算的本体扣血，用于合计追加作用。</param>
+    /// <param name="contact">直接相交的形体位置；传播没有形体相交点。</param>
     private static ConstructedTargetResponse ApplyTargetResponse(RunningCast running, int node, Actor target,
         long targetId,
         CompiledConstructionImpact impact, ApplyAttackState result, Vector3? origin = null,
         Vector3? priorVelocity = null, ForceReceiver? forceReceiver = null, float strength = 1f,
-        DamageSettlement settled = default)
+        DamageSettlement settled = default, Vector3? contact = null)
     {
         if (target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
             return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, damage: settled);
@@ -1280,7 +1284,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
             return new ConstructedTargetResponse(targetId, conditional.VelocityChange, conditional.ForceApplied, 0f, 0f, additionalDamage: additionalDamage, damage: settled);
         if (!ApplyInventoryAging(running, node, target, impact.InventoryAging, result, strength) ||
-            !ApplyEquipmentErosion(running, node, target, impact.EquipmentErosion, result, strength) ||
+            !ApplyEquipmentErosion(running, node, target, impact.EquipmentErosion, result, strength, contact) ||
             !ApplyEquipmentRepair(running, node, target, impact.EquipmentRepair, result, strength) ||
             !ApplyContactAging(running, node, target, impact.AgeYears, result, strength))
             return new ConstructedTargetResponse(targetId, conditional.VelocityChange, conditional.ForceApplied, 0f, 0f, additionalDamage: additionalDamage, damage: settled);

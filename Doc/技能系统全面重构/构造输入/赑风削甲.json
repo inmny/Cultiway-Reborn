@@ -1,0 +1,22 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.BalefulWindErosion",
+  "Name": "赑风削甲",
+  "Resource": "mana",
+  "Cost": 8,
+  "Cooldown": 2,
+  "Lifetime": 1.65,
+  "Power": 3,
+  "TargetRange": 24,
+  "Binding": {"Anchor": "Between", "Fraction": 0.67, "FaceTarget": true},
+  "Impact": {"DamageScale": 0.14, "EquipmentErosion": {"Slots": ["Armor"], "Fraction": 0.12}},
+  "Root": {
+    "Id": "shear", "Form": "baleful_wind_shear", "Matter": "wind", "Scale": 0.62,
+    "Contact": {"Mode": "Interval", "Interval": 0.24},
+    "Rotation": [-90, 0, 0],
+    "Operations": [
+      {"Kind": "Animate", "Clip": "run"},
+      {"Kind": "Fly", "At": 0.16, "Vector": [0, -2.6, 0], "InheritVelocity": false}
+    ]
+  }
+}

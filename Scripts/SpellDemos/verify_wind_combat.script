@@ -1,0 +1,111 @@
+const string inputRoot = "";
+const string recordView = "";
+AbilityDefinition Spell(string name) => JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(inputRoot, name + ".json")));
+var source = Make(64);
+var victim = Make(69);
+victim.setKingdom(Make(12, "wolf").kingdom);
+var manaStats = new BaseStats(); manaStats["mana"] = 100;
+var mana = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Wind.Mana")
+    .SetStats(manaStats).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, mana, 10000, source);
+var seen = new Dictionary<long, AbilityCast>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == fact.CastId) seen.Add(fact.CastId, (AbilityCast)Field(running, "Cast"));
+}
+ConstructedAbilityService.CastStarted += Started;
+async Task<(long Id, AbilityCast Cast)> Use(AbilityDefinition value, float targetX = 69)
+{
+    await Advance(.14f);
+    Ready(source); Place(source, 64); Place(victim, targetX); source.setMana(64);
+    float balance = source.getMana();
+    await Fire(value, source, victim);
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    Check(Mathf.Abs(balance - source.getMana() - value.Cost) < .01f, "正式入口按本招报价支付");
+    var last = seen.Last();
+    return (last.Key, last.Value);
+}
+object cameraSettings = null;
+int previousTimeMode = 0;
+void ReleaseChecks()
+{
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}
+FormVisualInstance[] Forms(AbilityCast cast)
+{
+    var frames = new List<FormVisualInstance>(); cast.AppendVisuals(frames); return frames.ToArray();
+}
+async Task Shot(string name)
+{
+    await Game.NextFrame(); await Game.NextFrame();
+    Screen.Capture(Path.Combine(folder, name + ".png"));
+    await Game.NextFrame();
+}
+async Task SetCamera(float zoom)
+{
+    ControllableUnit.clear(false);
+    // 复用原测试场，只清理镜头内的植被和旧界面提示，不动高度、人物或作用区。
+    var scenery = new HashSet<Building>();
+    for (int x = 61; x <= 76; x++)
+    for (int y = 66; y <= 79; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        if (tile.building != null) scenery.Add(tile.building);
+        tile.setTileTypes(TileLibrary.soil_low, null, true);
+    }
+    foreach (Building building in scenery) building.removeBuildingFinal();
+    World.world.camera.transform.position = new Vector3(67.7f, 72f, 0);
+    MoveCamera.instance.forceZoom(zoom);
+    var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+    object mod = type.GetProperty("Instance", F).GetValue(null);
+    object Get(string key) => type.GetProperty(key, F)?.GetValue(mod) ?? type.GetField(key, F)?.GetValue(mod);
+    cameraSettings = Get("Settings");
+    previousTimeMode = (int)Field(cameraSettings, "TimeMode");
+    cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, 1);
+    type.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+    type.GetMethod("SetGodView", F).Invoke(mod, new object[] { recordView == "worldfall" });
+    if (recordView == "worldfall")
+    {
+        await Game.WaitUntil(() => (bool)Get("GodShown") && (float)Get("GodAlpha") >= .999f, 3600);
+        type.GetField("_godTip", F).SetValue(mod, .7f);
+        type.GetField("_godTipRate", F).SetValue(mod, 0f);
+    }
+    else await Game.WaitUntil(() => !(bool)Get("IsFirstPerson") && !(bool)Get("GodShown") && (bool)Get("DiveDone") && !(bool)Get("Flying"), 3600);
+    object sampler = Get("_sampler");
+    sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
+    sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.blockTooltips(30f);
+    foreach (var screen in Resources.FindObjectsOfTypeAll<LoadingScreen>()) screen.gameObject.SetActive(false);
+    await Game.NextFrame();
+}
+async Task<List<double>> Film(float duration, Action sample)
+{
+    string images = Path.Combine(folder, "frames"); Directory.CreateDirectory(images);
+    var times = new List<double>(); double start = World.world.getCurWorldTime(), next = 0;
+    Config.paused = false;
+    while (World.world.getCurWorldTime() - start < duration)
+    {
+        double time = World.world.getCurWorldTime() - start;
+        sample();
+        Tooltip.blockTooltips(.25f);
+        if (time >= next)
+        {
+            Screen.Capture(Path.Combine(images, times.Count.ToString("00000") + ".png"));
+            times.Add(time); next = time + .035;
+        }
+        await Game.NextFrame();
+    }
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    await Game.NextFrame();
+    return times;
+}

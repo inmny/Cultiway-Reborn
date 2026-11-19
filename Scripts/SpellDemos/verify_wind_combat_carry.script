@@ -1,0 +1,98 @@
+// A：同一风场先跑空地，再从原版已登记地面物件中卷起一件。
+var definition = Spell("挟砂风垒");
+var groundType = service.Assembly.GetType("Cultiway.Content.Combat.GroundWeaponService");
+var ground = (IDictionary)groundType.GetField("entries", F).GetValue(null);
+async Task<Item> LooseItem(float x, float y)
+{
+    Place(victim, x, y);
+    Item item = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: victim);
+    victim.equipment.setItem(item, victim); item.removeMod("cursed");
+    victim.setStatsDirty(); victim.updateStats();
+    await Game.NextFrame();
+    // 取人物正在佩戴的真实表面，沿用实际尺寸、方向和持物安装点。
+    object appearance = service.GetMethod("BodySelectionSurface", F).Invoke(null, new object[] { victim });
+    object[] arguments = { victim, appearance, Vector3.zero, World.world.getCurWorldTime(), null, null };
+    Check((bool)groundType.GetMethod("TryDrop", F).Invoke(null, arguments) && ReferenceEquals(Field(ground[item.id], "Item"), item),
+          "复用原落地入口放下同一件兵器", arguments[5]);
+    return item;
+}
+object Data(Item item) => Field(ground[item.id], "Data");
+Vector3 Vector(object data, string key) { var v = (float[])Field(data, key); return new Vector3(v[0], v[1], v[2]); }
+void PickUp(Item item, object data)
+{
+    Vector3 final = Vector(data, "Position");
+    Place(victim, final.x, final.y);
+    bool picked = (bool)groundType.GetMethod("TryPickUp", F).Invoke(null, new object[] { victim, item.id });
+    Check(picked && ReferenceEquals(victim.getWeapon(), item) && item.getActor() == victim && !ground.Contains(item.id),
+          "仍可拾回同一件原物", new { picked, final = final.ToString(), item = item.id, weapon = victim.getWeapon()?.id });
+}
+
+try
+{
+    MoveCamera.instance.transform.position = new Vector3(69, 72, MoveCamera.instance.transform.position.z);
+    MoveCamera.instance.forceZoom(8f);
+    var empty = await Use(definition);
+    await Advance(.4f);
+    Check(ground.Count == 0 && Forms(empty.Cast).Single().Resource.Description.Id == "wind_vortex_open",
+          "空风场只有风体，未凭空生成携带物");
+    await Advance(2.2f);
+    Check(empty.Cast.Finished && Forms(empty.Cast).Length == 0, "空风场自然退场");
+
+    Item original = await LooseItem(68.2f, 71.2f);
+    await Advance(.38f);
+    var data = Data(original);
+    Check((bool)Field(data, "Resting"), "实际物件确已落稳才开始第二次风");
+    Vector3 origin = Vector(data, "Position"); int durability = original.getDurabilityCurrent();
+    var loaded = await Use(definition);
+    var freezeStats = new BaseStats(); freezeStats.addTag("frozen_ai");
+    var freeze = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Wind.NoAI")
+        .SetStats(freezeStats).SetDuration(10000).Build();
+    CombatStatusEffects.RemoveStatus(victim, hold);
+    CombatStatusEffects.ApplyStatus(victim, freeze, 10000, victim);
+    victim.setStatsDirty(); victim.updateStats();
+    Place(victim, 68.5f, 73f); Vector2 before = victim.current_position;
+    if (recordView.Length > 0)
+    {
+        await SetCamera(5.6f);
+        float highest = origin.z;
+        double liftedAt = -1, movieStart = World.world.getCurWorldTime();
+        const float duration = 3.0f;
+        var times = await Film(duration, () => {
+            float height = Vector(data, "Position").z;
+            highest = Mathf.Max(height, highest);
+            if (liftedAt < 0 && height > origin.z + .18f) liftedAt = World.world.getCurWorldTime() - movieStart;
+        });
+        Check(highest > origin.z + .18f && Vector2.Distance(origin, Vector(data, "Position")) > .20f &&
+              loaded.Cast.Finished && (bool)Field(data, "Resting") && original.getDurabilityCurrent() == durability,
+              "原速原片包含同一原物卷起、离位和风停落稳", new { highest, original = original.id, liftedAt });
+        PickUp(original, data);
+        return new { passed = true, scene = "construction", resource = "mana", paid = definition.Cost, view = recordView,
+            item = original.id, highest, duration, times, previewFrame = Math.Max(0, times.FindIndex(t => t > liftedAt + .15)) };
+    }
+    await Advance(.16f);
+    var wind = Forms(loaded.Cast).Single();
+    Vector3 initialCentre = wind.Transform.GetColumn(3);
+    await Advance(.43f);
+    var pushed = Forms(loaded.Cast).Single();
+    Vector3 centre = pushed.Transform.GetColumn(3), lifted = Vector(data, "Position"), speed = Vector(data, "Velocity");
+    Check(Vector2.Distance(centre, initialCentre) > .3f && Mathf.Abs(centre.z - initialCentre.z) < .1f &&
+          Vector3.Dot(pushed.Transform.MultiplyVector(Vector3.forward).normalized, Vector3.forward) > .99f && lifted.z > origin.z + .15f &&
+          Vector2.Distance(lifted, origin) > .2f && !((bool)Field(data, "Resting")) &&
+          original.getActor() == null && original.getCity() == null && original.getDurabilityCurrent() == durability,
+          "风心实际推进，卷起场内原物并移动，未获取所有权或改耐久",
+          new { origin = origin.ToString(), lifted = lifted.ToString(), speed = speed.ToString(), centre = centre.ToString(), initial = initialCentre.ToString(), resting = Field(data, "Resting"),
+                actor = original.getActor()?.id, city = original.getCity()?.id, beforeWear = durability, afterWear = original.getDurabilityCurrent() });
+    Check(victim.current_position.y < before.y - .05f, "场内目标确实向风心牵引", new { before = before.ToString(), after = victim.current_position.ToString() });
+    await Shot("wind-carry");
+    Place(victim, 71, 77); Vector2 outside = victim.current_position;
+    await Advance(.45f);
+    Check(Vector2.Distance(victim.current_position, outside) < .04f && !contacts.Any(c => c.CastId == loaded.Id),
+          "范围外无牵引，风压不制造接触伤害", new { outside = outside.ToString(), actual = victim.current_position.ToString() });
+    await Advance(2.0f);
+    Check(loaded.Cast.Finished && ReferenceEquals(World.world.items.get(original.id), original) && ((bool)Field(data, "Resting")) &&
+          Vector(data, "Velocity") == Vector3.zero && original.getDurabilityCurrent() == durability,
+          "风停后原物落稳并保留编号与耐久");
+    PickUp(original, data);
+    return new { passed = true, item = original.id, durability, position = Vector(data, "Position").ToString() };
+}
+finally { ReleaseChecks(); }
