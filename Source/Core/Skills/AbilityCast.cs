@@ -754,6 +754,8 @@ public sealed partial class AbilityCast
         state.LastStep = step;
         state.PreviousMotionAge = state.MotionAge;
         state.PreviousBlendAge = state.BlendAge;
+        // 碎片继承上一时点已经贴地的真实姿态，不能把本轮重新贴地算成速度。
+        if (fractures != null) CaptureFragmentMotion(i);
         if (form.HasGround && groundPoses[i] != null) poses[i].CopyTo(groundPoses[i]);
         RestoreGroundBase(i);
         if (age > form.Presence.y)
@@ -766,7 +768,6 @@ public sealed partial class AbilityCast
         if (!state.ShapeHeld && (!state.MotionStopped || !state.GrowthStopped))
             state.ShapeAge = form.Hold.Advance(state.ShapeAge, ref state.HoldUsed, step);
         float shapeDelta = state.ShapeAge - state.PreviousShapeAge;
-        if (fractures != null) CaptureFragmentMotion(i);
         Matrix4x4 previous = state.Transform;
         state.PreviousTransform = previous;
         float growth = AdvanceGrowth(i, age, shapeDelta);

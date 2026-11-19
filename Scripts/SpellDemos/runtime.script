@@ -157,7 +157,7 @@ private readonly HashSet<string> yellowObjects = new();
 
 private readonly List<(ActorExtend Owner, Entity Skill)> learnedForBattle = new();
 private Entity incomingSkill;
-private bool probeUsed;
+private bool probeUsed, breakProbeUsed;
 private float barrierBefore, barrierLowest;
 
 /// <summary>本段已经受理的构造屏障，只从真实交锋读取其容量损耗。</summary>
@@ -1633,7 +1633,7 @@ private void Prepare(JObject item)
     yellowObjects.Clear();
     barrierLog.Clear();
     footprints.Clear();
-    probeUsed = false;
+    probeUsed = breakProbeUsed = false;
     barrierBefore = barrierLowest = 0;
     technique = id.StartsWith("Cultiway.KnightTechnique.")
         ? KnightTechniqueCatalog.All.Single(value => value.id + ".Execution" == id)
@@ -1848,6 +1848,10 @@ private IEnumerator Record(JObject item, string folder)
     BaseSimObject target = relation == SkillUseTargetRelation.Self ? caster :
         relation == SkillUseTargetRelation.Friendly ? friend : enemies[0];
     if (relation == SkillUseTargetRelation.WorldTile) target = enemies[0];
+    // 短程法术沿用同一对靶和规则，只在指定距离处观察实际接触。
+    if (request["targetOffset"] is JArray offset && target is Actor targetActor && targetActor != caster)
+        Place(targetActor, caster.current_position.x + (float)offset[0],
+            caster.current_position.y + (float)offset[1]);
     var owner = caster.GetExtend();
     owner.GetCultisys<Xian>().wakan = 10000;
     caster.setMana(10000, pClamp: false);
@@ -1963,7 +1967,10 @@ private IEnumerator Record(JObject item, string folder)
     {
         if (asset?.ImpactProfile.IsBarrier != true && id != ArtifactAbilities.GoldenBellBarrier.id)
             throw new InvalidOperationException("迎击场景只支持真实墙、护盾或金钟护界：" + id);
-        Place(enemies[0], 68, 72);
+        if (request["targetOffset"] is JArray approach)
+            Place(enemies[0], caster.current_position.x + (float)approach[0],
+                caster.current_position.y + (float)approach[1]);
+        else Place(enemies[0], 68, 72);
     }
 
     Config.paused = false;
@@ -2018,7 +2025,8 @@ private IEnumerator Record(JObject item, string folder)
         passed = (spawned > 0 || dedicated && used) && errors.Count == 0 &&
                  (!palm || palmCast > 0 && palmHits.Length == 1 && palmDamage.Length == 1 &&
                      (int?)palmDamage[0]["count"] == 1 && (int?)palmDamage[0]["lost"] > 0 && palmReleased) &&
-                 ((string)request["scene"] != "shield" || probeUsed && barrierBefore > barrierLowest),
+                 ((string)request["scene"] != "shield" || probeUsed && barrierBefore > barrierLowest) &&
+                 ((bool?)request["shieldBreak"] != true || breakProbeUsed && barrierLowest == 0f),
         id, item, frames = times.Count, times, start, motionFrames,
         duration = actual, spawned, peakMeshes, previewFrame, artifactDetails,
         palm = palm ? new { cast = palmCast, contacts = palmHits.Length, settlements = palmDamage.Length,
@@ -2029,7 +2037,7 @@ private IEnumerator Record(JObject item, string folder)
         worldContactsLog, areasLog, queuedDamageLog,
         barrierLog, clashesLog, footprints = footprints.Values.ToArray(), yellowObjects,
         assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(),
-        shield = new { probeUsed, barrierBefore, barrierLowest, absorbed = barrierLowest < barrierBefore },
+        shield = new { probeUsed, breakProbeUsed, barrierBefore, barrierLowest, absorbed = barrierLowest < barrierBefore },
         validation = palm ? "验证正式施放、实际掌面扣血和自然收势；画面另行查看" :
             "仅验证施放和运行错误；美术、范围与防御效果需另外验收",
         wakanBefore, wakanAfter = owner.GetCultisys<Xian>().wakan,
@@ -2442,12 +2450,24 @@ private void ProbeShield(double elapsed)
         if (barrierBefore == 0 && current > 0) barrierBefore = barrierLowest = current;
         if (probeUsed && elapsed < 2.5) barrierLowest = Mathf.Min(barrierLowest, current);
     }
-    if (probeUsed || elapsed < .45) return;
+    if (elapsed < .45) return;
+    bool requireBreak = (bool?)request["shieldBreak"] == true;
+    if (probeUsed)
+    {
+        if (!requireBreak || breakProbeUsed || elapsed < 1.45 || barrierLowest <= 0f || barrierLowest >= barrierBefore) return;
+        var attacker = enemies[0].GetExtend();
+        if (incomingSkill.IsAvailable()) retiringSkills.Add(incomingSkill);
+        // 临时容器可能已随上一枚石弹回收；重击使用自己的施放资料。
+        incomingSkill = new SkillContainerBuilder(SkillEntities.RockProjectile).Build();
+        breakProbeUsed = attacker.CastSkillV3(incomingSkill, caster, barrierLowest * 1.35f + 1f);
+        if (!breakProbeUsed) throw new InvalidOperationException("打穿用石弹未能正式施放");
+        return;
+    }
     var enemy = enemies[0].GetExtend();
     if (!enemy.HasCultisys<Xian>()) enemy.AddComponent(new Xian { level = 0, wakan = 10000 });
     enemy.GetCultisys<Xian>().wakan = 10000;
     incomingSkill = new SkillContainerBuilder(SkillEntities.RockProjectile).Build();
-    probeUsed = enemy.CastSkillV3(incomingSkill, caster);
+    probeUsed = requireBreak ? enemy.CastSkillV3(incomingSkill, caster, 13f) : enemy.CastSkillV3(incomingSkill, caster);
     if (!probeUsed) throw new InvalidOperationException("迎击用石弹未能正式施放");
 }
 

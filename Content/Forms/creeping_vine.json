@@ -1,7 +1,7 @@
 {
     "HideBelowGround": true,
     "Structure": {
-        "Kind": "articulated",
+        "Kind": "branch",
         "UnitInTiles": 1.0,
         "Generation": {
             "Source": "Scripts/CombatModelStudio/forms_ground_waves.mjs",
@@ -11,12 +11,6 @@
                     "Id": "roots",
                     "Values": [
                         3.0
-                    ]
-                },
-                {
-                    "Id": "duration",
-                    "Values": [
-                        0.8999999761581421
                     ]
                 },
                 {
@@ -31,7 +25,8 @@
         "Changes": [
             "transform",
             "material",
-            "motion"
+            "motion",
+            "build"
         ]
     },
     "ConformToGround": false,
@@ -54,8 +49,7 @@
                 "Assets/Cultiway/Forms/creeping_vine_root_0_far.asset"
             ],
             "Roles": [
-                "ground.front",
-                "projectile.body"
+                "branch.lateral"
             ],
             "Id": "root_0",
             "Surface": "wood",
@@ -65,10 +59,10 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/creeping_vine_root_0.asset",
-            "Control": "root_0",
-            "Skin": false,
+            "Control": "",
+            "Skin": true,
             "HasSurfaceData": false,
-            "HasBuildData": false,
+            "HasBuildData": true,
             "UseMatterSurface": true
         },
         {
@@ -77,8 +71,7 @@
                 "Assets/Cultiway/Forms/creeping_vine_root_1_far.asset"
             ],
             "Roles": [
-                "ground.front",
-                "projectile.body"
+                "branch.trunk"
             ],
             "Id": "root_1",
             "Surface": "wood",
@@ -88,10 +81,10 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/creeping_vine_root_1.asset",
-            "Control": "root_1",
-            "Skin": false,
+            "Control": "",
+            "Skin": true,
             "HasSurfaceData": false,
-            "HasBuildData": false,
+            "HasBuildData": true,
             "UseMatterSurface": true
         },
         {
@@ -100,8 +93,7 @@
                 "Assets/Cultiway/Forms/creeping_vine_root_2_far.asset"
             ],
             "Roles": [
-                "ground.front",
-                "projectile.body"
+                "branch.lateral"
             ],
             "Id": "root_2",
             "Surface": "wood",
@@ -111,10 +103,200 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/creeping_vine_root_2.asset",
-            "Control": "root_2",
-            "Skin": false,
+            "Control": "",
+            "Skin": true,
             "HasSurfaceData": false,
-            "HasBuildData": false,
+            "HasBuildData": true,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.shoot"
+            ],
+            "Id": "root_0_sprig_0",
+            "Surface": "wood",
+            "Pivot": [
+                -0.3097422420978546,
+                0.33806198835372927,
+                -0.11060000211000443
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/creeping_vine_root_0_sprig_0.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": true,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.leaf"
+            ],
+            "Id": "root_0_sprig_0_leaf",
+            "Surface": "wood_leaf",
+            "Pivot": [
+                -0.3097422420978546,
+                0.33806198835372927,
+                -0.11060000211000443
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/creeping_vine_root_0_sprig_0_leaf.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": true,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.shoot"
+            ],
+            "Id": "root_0_sprig_1",
+            "Surface": "wood",
+            "Pivot": [
+                -0.6022309064865112,
+                0.3235357403755188,
+                0.22840000689029694
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/creeping_vine_root_0_sprig_1.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": true,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.leaf"
+            ],
+            "Id": "root_0_sprig_1_leaf",
+            "Surface": "wood_leaf",
+            "Pivot": [
+                -0.6022309064865112,
+                0.3235357403755188,
+                0.22840000689029694
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/creeping_vine_root_0_sprig_1_leaf.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": true,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.shoot"
+            ],
+            "Id": "root_1_sprig_0",
+            "Surface": "wood",
+            "Pivot": [
+                -0.004441991914063692,
+                0.33147111535072329,
+                0.19449999928474427
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/creeping_vine_root_1_sprig_0.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": true,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.leaf"
+            ],
+            "Id": "root_1_sprig_0_leaf",
+            "Surface": "wood_leaf",
+            "Pivot": [
+                -0.004441991914063692,
+                0.33147111535072329,
+                0.19449999928474427
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/creeping_vine_root_1_sprig_0_leaf.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": true,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.shoot"
+            ],
+            "Id": "root_2_sprig_0",
+            "Surface": "wood",
+            "Pivot": [
+                0.2625804841518402,
+                0.33806198835372927,
+                -0.11060000211000443
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/creeping_vine_root_2_sprig_0.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": true,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.leaf"
+            ],
+            "Id": "root_2_sprig_0_leaf",
+            "Surface": "wood_leaf",
+            "Pivot": [
+                0.2625804841518402,
+                0.33806198835372927,
+                -0.11060000211000443
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/creeping_vine_root_2_sprig_0_leaf.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": true,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.shoot"
+            ],
+            "Id": "root_2_sprig_1",
+            "Surface": "wood",
+            "Pivot": [
+                0.6107802987098694,
+                0.3235357403755188,
+                0.22840000689029694
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/creeping_vine_root_2_sprig_1.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": true,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.leaf"
+            ],
+            "Id": "root_2_sprig_1_leaf",
+            "Surface": "wood_leaf",
+            "Pivot": [
+                0.6107802987098694,
+                0.3235357403755188,
+                0.22840000689029694
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/creeping_vine_root_2_sprig_1_leaf.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": true,
             "UseMatterSurface": true
         }
     ],
@@ -145,8 +327,11 @@
     "Actions": [],
     "Contacts": [
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.15360000729560853,
+                0.2714666724205017
+            ],
+            "BuildAlong": true,
             "Id": "root_0_0",
             "Part": 0,
             "A": [
@@ -166,8 +351,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.23146666586399079,
+                0.34933334589004519
+            ],
+            "BuildAlong": true,
             "Id": "root_0_1",
             "Part": 0,
             "A": [
@@ -187,8 +375,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.30933332443237307,
+                0.42719998955726626
+            ],
+            "BuildAlong": true,
             "Id": "root_0_2",
             "Part": 0,
             "A": [
@@ -208,8 +399,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.3871999979019165,
+                0.5050666928291321
+            ],
+            "BuildAlong": true,
             "Id": "root_0_3",
             "Part": 0,
             "A": [
@@ -229,8 +423,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.46506667137145998,
+                0.5829333066940308
+            ],
+            "BuildAlong": true,
             "Id": "root_0_4",
             "Part": 0,
             "A": [
@@ -250,8 +447,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.5429333448410034,
+                0.6607999801635742
+            ],
+            "BuildAlong": true,
             "Id": "root_0_5",
             "Part": 0,
             "A": [
@@ -271,8 +471,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.6208000183105469,
+                0.7386666536331177
+            ],
+            "BuildAlong": true,
             "Id": "root_0_6",
             "Part": 0,
             "A": [
@@ -292,8 +495,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.6986666917800903,
+                0.8165333271026611
+            ],
+            "BuildAlong": true,
             "Id": "root_0_7",
             "Part": 0,
             "A": [
@@ -313,8 +519,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.0,
+                0.1146666631102562
+            ],
+            "BuildAlong": true,
             "Id": "root_1_0",
             "Part": 1,
             "A": [
@@ -334,8 +543,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.07466666400432587,
+                0.18933333456516267
+            ],
+            "BuildAlong": true,
             "Id": "root_1_1",
             "Part": 1,
             "A": [
@@ -355,8 +567,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.14933332800865174,
+                0.2639999985694885
+            ],
+            "BuildAlong": true,
             "Id": "root_1_2",
             "Part": 1,
             "A": [
@@ -376,8 +591,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.2240000069141388,
+                0.3386666774749756
+            ],
+            "BuildAlong": true,
             "Id": "root_1_3",
             "Part": 1,
             "A": [
@@ -397,8 +615,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.29866665601730349,
+                0.41333332657814028
+            ],
+            "BuildAlong": true,
             "Id": "root_1_4",
             "Part": 1,
             "A": [
@@ -418,8 +639,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.3733333349227905,
+                0.4880000054836273
+            ],
+            "BuildAlong": true,
             "Id": "root_1_5",
             "Part": 1,
             "A": [
@@ -439,8 +663,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.4480000138282776,
+                0.562666654586792
+            ],
+            "BuildAlong": true,
             "Id": "root_1_6",
             "Part": 1,
             "A": [
@@ -460,8 +687,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.5226666927337647,
+                0.637333333492279
+            ],
+            "BuildAlong": true,
             "Id": "root_1_7",
             "Part": 1,
             "A": [
@@ -481,8 +711,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.2207999974489212,
+                0.3312000036239624
+            ],
+            "BuildAlong": true,
             "Id": "root_2_0",
             "Part": 2,
             "A": [
@@ -502,8 +735,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.29120001196861269,
+                0.4016000032424927
+            ],
+            "BuildAlong": true,
             "Id": "root_2_1",
             "Part": 2,
             "A": [
@@ -523,8 +759,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.36160001158714297,
+                0.47200000286102297
+            ],
+            "BuildAlong": true,
             "Id": "root_2_2",
             "Part": 2,
             "A": [
@@ -544,8 +783,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.4320000112056732,
+                0.5424000024795532
+            ],
+            "BuildAlong": true,
             "Id": "root_2_3",
             "Part": 2,
             "A": [
@@ -565,8 +807,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.5023999810218811,
+                0.6128000020980835
+            ],
+            "BuildAlong": true,
             "Id": "root_2_4",
             "Part": 2,
             "A": [
@@ -586,8 +831,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.5727999806404114,
+                0.6832000017166138
+            ],
+            "BuildAlong": true,
             "Id": "root_2_5",
             "Part": 2,
             "A": [
@@ -607,8 +855,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.6431999802589417,
+                0.753600001335144
+            ],
+            "BuildAlong": true,
             "Id": "root_2_6",
             "Part": 2,
             "A": [
@@ -628,8 +879,11 @@
             "BInfluences": []
         },
         {
-            "BuildRange": [],
-            "BuildAlong": false,
+            "BuildRange": [
+                0.7135999798774719,
+                0.8240000009536743
+            ],
+            "BuildAlong": true,
             "Id": "root_2_7",
             "Part": 2,
             "A": [
@@ -665,14 +919,14 @@
                 1.0
             ],
             "Minimum": [
-                -0.8621929883956909,
-                -0.012113000266253949,
+                -0.9857829809188843,
+                -0.014053000137209893,
                 -0.5400000214576721
             ],
             "Maximum": [
-                0.20200000703334809,
-                0.5057610273361206,
-                0.5899999737739563
+                0.2199999988079071,
+                0.6315079927444458,
+                0.6362349987030029
             ]
         },
         {
@@ -690,14 +944,14 @@
                 1.0
             ],
             "Minimum": [
-                -0.22473099827766419,
-                -0.012113000266253949,
+                -0.30309799313545229,
+                -0.06714800000190735,
                 -0.5400000214576721
             ],
             "Maximum": [
-                0.21420300006866456,
-                0.5057610273361206,
-                0.5899999737739563
+                0.44358599185943606,
+                0.6161249876022339,
+                0.6194369792938232
             ]
         },
         {
@@ -715,14 +969,14 @@
                 1.0
             ],
             "Minimum": [
-                -0.20200000703334809,
-                -0.012113000266253949,
+                -0.2236340045928955,
+                -0.02167399972677231,
                 -0.5400000214576721
             ],
             "Maximum": [
-                0.868012011051178,
-                0.5057610273361206,
-                0.5899999737739563
+                0.9896399974822998,
+                0.6315079927444458,
+                0.6306679844856262
             ]
         }
     ],
@@ -733,7 +987,8 @@
             "Loop": false,
             "Keys": [
                 {
-                    "Build": 1.0,
+                    "Build": 0.0,
+                    "Fade": 0.0,
                     "At": 0.0,
                     "Positions": [
                         0.0,
@@ -748,22 +1003,23 @@
                     ],
                     "Rotations": [
                         0.0,
+                        0.16425199806690217,
+                        0.0,
+                        0.9864180088043213,
+                        0.0,
                         0.0,
                         0.0,
                         1.0,
                         0.0,
-                        0.027427999302744867,
+                        -0.16425199806690217,
                         0.0,
-                        0.9996240139007568,
-                        0.0,
-                        0.003880999982357025,
-                        0.0,
-                        0.9999920129776001
+                        0.9864180088043213
                     ]
                 },
                 {
-                    "Build": 1.0,
-                    "At": 0.029999999329447748,
+                    "Build": 0.011452999897301197,
+                    "Fade": 0.0,
+                    "At": 0.02500000037252903,
                     "Positions": [
                         0.0,
                         0.0,
@@ -777,22 +1033,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        0.005717999767512083,
+                        0.15972700715065003,
                         0.0,
-                        0.9999840259552002,
+                        0.9871609807014465,
                         0.0,
-                        0.027233000844717027,
                         0.0,
-                        0.999629020690918,
                         0.0,
-                        -0.001863999990746379,
+                        1.0,
                         0.0,
-                        0.9999979734420776
+                        -0.15995199978351594,
+                        0.0,
+                        0.9871249794960022
                     ]
                 },
                 {
-                    "Build": 1.0,
-                    "At": 0.05999999865889549,
+                    "Build": 0.043800998479127887,
+                    "Fade": 0.0,
+                    "At": 0.05000000074505806,
                     "Positions": [
                         0.0,
                         0.0,
@@ -806,22 +1063,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        0.011184999719262123,
+                        0.1512250006198883,
                         0.0,
-                        0.9999369978904724,
+                        0.9884989857673645,
                         0.0,
-                        0.02584799937903881,
                         0.0,
-                        0.9996659755706787,
                         0.0,
-                        -0.007528000045567751,
+                        1.0,
                         0.0,
-                        0.9999719858169556
+                        -0.15568199753761292,
+                        0.0,
+                        0.9878069758415222
                     ]
                 },
                 {
-                    "Build": 1.0,
-                    "At": 0.09000000357627869,
+                    "Build": 0.09402299672365189,
+                    "Fade": 0.0,
+                    "At": 0.07500000298023224,
                     "Positions": [
                         0.0,
                         0.0,
@@ -835,22 +1093,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        0.016163000836968423,
+                        0.1380929946899414,
                         0.0,
-                        0.9998689889907837,
+                        0.9904189705848694,
                         0.0,
-                        0.023334000259637834,
                         0.0,
-                        0.9997280240058899,
                         0.0,
-                        -0.012861999683082104,
+                        1.0,
                         0.0,
-                        0.9999169707298279
+                        -0.15059399604797364,
+                        0.0,
+                        0.9885960221290588
                     ]
                 },
                 {
-                    "Build": 1.0,
-                    "At": 0.11999999731779099,
+                    "Build": 0.1590999960899353,
+                    "Fade": 0.0,
+                    "At": 0.10000000149011612,
                     "Positions": [
                         0.0,
                         0.0,
@@ -864,21 +1123,52 @@
                     ],
                     "Rotations": [
                         0.0,
-                        0.020434999838471414,
+                        0.12124300003051758,
                         0.0,
-                        0.9997910261154175,
+                        0.992622971534729,
                         0.0,
-                        0.019798999652266504,
                         0.0,
-                        0.9998040199279785,
                         0.0,
-                        -0.01763400062918663,
+                        1.0,
                         0.0,
-                        0.999845027923584
+                        -0.139506995677948,
+                        0.0,
+                        0.9902210235595703
                     ]
                 },
                 {
-                    "Build": 1.0,
+                    "Build": 0.2360139936208725,
+                    "Fade": 0.0,
+                    "At": 0.125,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.1015930026769638,
+                        0.0,
+                        0.9948260188102722,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        -0.12273599952459336,
+                        0.0,
+                        0.9924389719963074
+                    ]
+                },
+                {
+                    "Build": 0.32174399495124819,
+                    "Fade": 0.0,
                     "At": 0.15000000596046449,
                     "Positions": [
                         0.0,
@@ -893,109 +1183,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        0.023812999948859216,
+                        0.08006899803876877,
                         0.0,
-                        0.9997159838676453,
-                        0.0,
-                        0.015399999916553498,
-                        0.0,
-                        0.9998810291290283,
-                        0.0,
-                        -0.02163499966263771,
-                        0.0,
-                        0.9997659921646118
-                    ]
-                },
-                {
-                    "Build": 1.0,
-                    "At": 0.18000000715255738,
-                    "Positions": [
+                        0.9967889785766602,
                         0.0,
                         0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    "Rotations": [
-                        0.0,
-                        0.02615099959075451,
-                        0.0,
-                        0.9996579885482788,
-                        0.0,
-                        0.010327000170946122,
-                        0.0,
-                        0.9999470114707947,
-                        0.0,
-                        -0.02469100058078766,
-                        0.0,
-                        0.9996950030326843
-                    ]
-                },
-                {
-                    "Build": 1.0,
-                    "At": 0.20999999344348908,
-                    "Positions": [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    "Rotations": [
-                        0.0,
-                        0.02734600007534027,
-                        0.0,
-                        0.9996259808540344,
-                        0.0,
-                        0.004801999777555466,
-                        0.0,
-                        0.9999880194664002,
-                        0.0,
-                        -0.026667000725865365,
-                        0.0,
-                        0.9996439814567566
-                    ]
-                },
-                {
-                    "Build": 1.0,
-                    "At": 0.23999999463558198,
-                    "Positions": [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    "Rotations": [
-                        0.0,
-                        0.02734600007534027,
-                        0.0,
-                        0.9996259808540344,
-                        0.0,
-                        -0.0009330000029876828,
                         0.0,
                         1.0,
                         0.0,
-                        -0.02747800014913082,
+                        -0.10169800370931626,
                         0.0,
-                        0.9996219873428345
+                        0.9948149919509888
                     ]
                 },
                 {
-                    "Build": 1.0,
-                    "At": 0.27000001072883608,
+                    "Build": 0.4132710099220276,
+                    "Fade": 0.0,
+                    "At": 0.17499999701976777,
                     "Positions": [
                         0.0,
                         0.0,
@@ -1009,21 +1213,142 @@
                     ],
                     "Rotations": [
                         0.0,
-                        0.02615099959075451,
+                        0.05760699883103371,
                         0.0,
-                        0.9996579885482788,
+                        0.9983389973640442,
                         0.0,
-                        -0.0066269999369978909,
                         0.0,
-                        0.9999780058860779,
                         0.0,
-                        -0.027087999507784845,
+                        1.0,
                         0.0,
-                        0.9996330142021179
+                        -0.0778219997882843,
+                        0.0,
+                        0.9969670176506043
                     ]
                 },
                 {
-                    "Build": 1.0,
+                    "Build": 0.5075749754905701,
+                    "Fade": 0.0,
+                    "At": 0.20000000298023225,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.03515300154685974,
+                        0.0,
+                        0.9993820190429688,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        -0.05255400016903877,
+                        0.0,
+                        0.9986180067062378
+                    ]
+                },
+                {
+                    "Build": 0.6016389727592468,
+                    "Fade": 0.0,
+                    "At": 0.22499999403953553,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.013652999885380268,
+                        0.0,
+                        0.9999070167541504,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        -0.027355000376701356,
+                        0.0,
+                        0.9996259808540344
+                    ]
+                },
+                {
+                    "Build": 0.6924409866333008,
+                    "Fade": 0.0,
+                    "At": 0.25,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        -0.0059460001066327099,
+                        0.0,
+                        0.9999819993972778,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        -0.00368899991735816,
+                        0.0,
+                        0.9999930262565613
+                    ]
+                },
+                {
+                    "Build": 0.7769629955291748,
+                    "Fade": 0.0,
+                    "At": 0.2750000059604645,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        -0.022707000374794008,
+                        0.0,
+                        0.9997419714927673,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.01698100008070469,
+                        0.0,
+                        0.9998559951782227
+                    ]
+                },
+                {
+                    "Build": 0.8521860241889954,
+                    "Fade": 0.0,
                     "At": 0.30000001192092898,
                     "Positions": [
                         0.0,
@@ -1038,22 +1363,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        0.023812999948859216,
+                        -0.03569500148296356,
                         0.0,
-                        0.9997159838676453,
+                        0.9993630051612854,
                         0.0,
-                        -0.01203100010752678,
                         0.0,
-                        0.9999279975891113,
                         0.0,
-                        -0.0255149994045496,
+                        1.0,
                         0.0,
-                        0.9996740221977234
+                        0.03320299834012985,
+                        0.0,
+                        0.9994490146636963
                     ]
                 },
                 {
-                    "Build": 1.0,
-                    "At": 0.33000001311302187,
+                    "Build": 0.9150890111923218,
+                    "Fade": 0.0,
+                    "At": 0.32499998807907107,
                     "Positions": [
                         0.0,
                         0.0,
@@ -1067,22 +1393,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        0.020434999838471414,
+                        -0.0439860001206398,
                         0.0,
-                        0.9997910261154175,
+                        0.9990320205688477,
                         0.0,
-                        -0.016908999532461168,
                         0.0,
-                        0.9998570084571838,
                         0.0,
-                        -0.02282699942588806,
+                        1.0,
                         0.0,
-                        0.9997389912605286
+                        0.04353800043463707,
+                        0.0,
+                        0.9990519881248474
                     ]
                 },
                 {
-                    "Build": 1.0,
-                    "At": 0.36000001430511477,
+                    "Build": 0.9626539945602417,
+                    "Fade": 0.0,
+                    "At": 0.3499999940395355,
                     "Positions": [
                         0.0,
                         0.0,
@@ -1096,22 +1423,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        0.016163000836968423,
+                        -0.046966999769210818,
                         0.0,
-                        0.9998689889907837,
+                        0.9988960027694702,
                         0.0,
-                        -0.021046999841928483,
                         0.0,
-                        0.9997779726982117,
                         0.0,
-                        -0.019140999764204027,
+                        1.0,
                         0.0,
-                        0.9998170137405396
+                        0.046966999769210818,
+                        0.0,
+                        0.9988960027694702
                     ]
                 },
                 {
-                    "Build": 1.0,
-                    "At": 0.38999998569488528,
+                    "Build": 0.9918619990348816,
+                    "Fade": 0.0,
+                    "At": 0.375,
                     "Positions": [
                         0.0,
                         0.0,
@@ -1125,22 +1453,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        0.011184999719262123,
+                        -0.048278000205755237,
                         0.0,
-                        0.9999369978904724,
+                        0.9988340139389038,
                         0.0,
-                        -0.02426600083708763,
                         0.0,
-                        0.999705970287323,
                         0.0,
-                        -0.014618000015616417,
+                        1.0,
                         0.0,
-                        0.9998930096626282
+                        0.048278000205755237,
+                        0.0,
+                        0.9988340139389038
                     ]
                 },
                 {
                     "Build": 1.0,
-                    "At": 0.41999998688697817,
+                    "Fade": 0.0,
+                    "At": 0.4000000059604645,
                     "Positions": [
                         0.0,
                         0.0,
@@ -1154,21 +1483,52 @@
                     ],
                     "Rotations": [
                         0.0,
-                        0.005717999767512083,
+                        -0.049219999462366107,
                         0.0,
-                        0.9999840259552002,
+                        0.9987879991531372,
                         0.0,
-                        -0.026424000039696695,
                         0.0,
-                        0.9996510148048401,
                         0.0,
-                        -0.009456000290811062,
+                        1.0,
                         0.0,
-                        0.9999549984931946
+                        0.049219999462366107,
+                        0.0,
+                        0.9987879991531372
                     ]
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.42500001192092898,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        -0.04978900030255318,
+                        0.0,
+                        0.9987599849700928,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.04978900030255318,
+                        0.0,
+                        0.9987599849700928
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.44999998807907107,
                     "Positions": [
                         0.0,
@@ -1183,22 +1543,23 @@
                     ],
                     "Rotations": [
                         0.0,
+                        -0.04997900128364563,
+                        0.0,
+                        0.9987499713897705,
+                        0.0,
                         0.0,
                         0.0,
                         1.0,
                         0.0,
-                        -0.027427999302744867,
+                        0.04997900128364563,
                         0.0,
-                        0.9996240139007568,
-                        0.0,
-                        -0.003880999982357025,
-                        0.0,
-                        0.9999920129776001
+                        0.9987499713897705
                     ]
                 },
                 {
                     "Build": 1.0,
-                    "At": 0.47999998927116396,
+                    "Fade": 0.0,
+                    "At": 0.4749999940395355,
                     "Positions": [
                         0.0,
                         0.0,
@@ -1212,22 +1573,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        -0.005717999767512083,
+                        -0.04978900030255318,
                         0.0,
-                        0.9999840259552002,
+                        0.9987599849700928,
                         0.0,
-                        -0.027233000844717027,
                         0.0,
-                        0.999629020690918,
                         0.0,
-                        0.001863999990746379,
+                        1.0,
                         0.0,
-                        0.9999979734420776
+                        0.04978900030255318,
+                        0.0,
+                        0.9987599849700928
                     ]
                 },
                 {
                     "Build": 1.0,
-                    "At": 0.5099999904632568,
+                    "Fade": 0.0,
+                    "At": 0.5,
                     "Positions": [
                         0.0,
                         0.0,
@@ -1241,22 +1603,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        -0.011184999719262123,
+                        -0.049219999462366107,
                         0.0,
-                        0.9999369978904724,
+                        0.9987879991531372,
                         0.0,
-                        -0.02584799937903881,
                         0.0,
-                        0.9996659755706787,
                         0.0,
-                        0.007528000045567751,
+                        1.0,
                         0.0,
-                        0.9999719858169556
+                        0.049219999462366107,
+                        0.0,
+                        0.9987879991531372
                     ]
                 },
                 {
                     "Build": 1.0,
-                    "At": 0.5400000214576721,
+                    "Fade": 0.0,
+                    "At": 0.5249999761581421,
                     "Positions": [
                         0.0,
                         0.0,
@@ -1270,22 +1633,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        -0.016163000836968423,
+                        -0.048278000205755237,
                         0.0,
-                        0.9998689889907837,
+                        0.9988340139389038,
                         0.0,
-                        -0.023334000259637834,
                         0.0,
-                        0.9997280240058899,
                         0.0,
-                        0.012861999683082104,
+                        1.0,
                         0.0,
-                        0.9999169707298279
+                        0.048278000205755237,
+                        0.0,
+                        0.9988340139389038
                     ]
                 },
                 {
                     "Build": 1.0,
-                    "At": 0.5699999928474426,
+                    "Fade": 0.0,
+                    "At": 0.550000011920929,
                     "Positions": [
                         0.0,
                         0.0,
@@ -1299,21 +1663,52 @@
                     ],
                     "Rotations": [
                         0.0,
-                        -0.020434999838471414,
+                        -0.046966999769210818,
                         0.0,
-                        0.9997910261154175,
+                        0.9988960027694702,
                         0.0,
-                        -0.019798999652266504,
                         0.0,
-                        0.9998040199279785,
                         0.0,
-                        0.01763400062918663,
+                        1.0,
                         0.0,
-                        0.999845027923584
+                        0.046966999769210818,
+                        0.0,
+                        0.9988960027694702
                     ]
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.574999988079071,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        -0.04529999941587448,
+                        0.0,
+                        0.99897301197052,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.04529999941587448,
+                        0.0,
+                        0.99897301197052
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.6000000238418579,
                     "Positions": [
                         0.0,
@@ -1328,109 +1723,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        -0.023812999948859216,
+                        -0.04328799992799759,
                         0.0,
-                        0.9997159838676453,
-                        0.0,
-                        -0.015399999916553498,
-                        0.0,
-                        0.9998810291290283,
-                        0.0,
-                        0.02163499966263771,
-                        0.0,
-                        0.9997659921646118
-                    ]
-                },
-                {
-                    "Build": 1.0,
-                    "At": 0.6299999952316284,
-                    "Positions": [
+                        0.9990630149841309,
                         0.0,
                         0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    "Rotations": [
-                        0.0,
-                        -0.02615099959075451,
-                        0.0,
-                        0.9996579885482788,
-                        0.0,
-                        -0.010327000170946122,
-                        0.0,
-                        0.9999470114707947,
-                        0.0,
-                        0.02469100058078766,
-                        0.0,
-                        0.9996950030326843
-                    ]
-                },
-                {
-                    "Build": 1.0,
-                    "At": 0.6600000262260437,
-                    "Positions": [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    "Rotations": [
-                        0.0,
-                        -0.02734600007534027,
-                        0.0,
-                        0.9996259808540344,
-                        0.0,
-                        -0.004801999777555466,
-                        0.0,
-                        0.9999880194664002,
-                        0.0,
-                        0.026667000725865365,
-                        0.0,
-                        0.9996439814567566
-                    ]
-                },
-                {
-                    "Build": 1.0,
-                    "At": 0.6899999976158142,
-                    "Positions": [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    "Rotations": [
-                        0.0,
-                        -0.02734600007534027,
-                        0.0,
-                        0.9996259808540344,
-                        0.0,
-                        0.0009330000029876828,
                         0.0,
                         1.0,
                         0.0,
-                        0.02747800014913082,
+                        0.04328799992799759,
                         0.0,
-                        0.9996219873428345
+                        0.9990630149841309
                     ]
                 },
                 {
                     "Build": 1.0,
-                    "At": 0.7200000286102295,
+                    "Fade": 0.0,
+                    "At": 0.625,
                     "Positions": [
                         0.0,
                         0.0,
@@ -1444,21 +1753,142 @@
                     ],
                     "Rotations": [
                         0.0,
-                        -0.02615099959075451,
+                        -0.04094599932432175,
                         0.0,
-                        0.9996579885482788,
+                        0.9991610050201416,
                         0.0,
-                        0.0066269999369978909,
                         0.0,
-                        0.9999780058860779,
                         0.0,
-                        0.027087999507784845,
+                        1.0,
                         0.0,
-                        0.9996330142021179
+                        0.04094599932432175,
+                        0.0,
+                        0.9991610050201416
                     ]
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.6499999761581421,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        -0.03829300031065941,
+                        0.0,
+                        0.9992669820785523,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.03829300031065941,
+                        0.0,
+                        0.9992669820785523
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.675000011920929,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        -0.03534799814224243,
+                        0.0,
+                        0.9993749856948853,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.03534799814224243,
+                        0.0,
+                        0.9993749856948853
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.699999988079071,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        -0.03213400021195412,
+                        0.0,
+                        0.9994840025901794,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.03213400021195412,
+                        0.0,
+                        0.9994840025901794
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.7250000238418579,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        -0.028674999251961709,
+                        0.0,
+                        0.9995890259742737,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.028674999251961709,
+                        0.0,
+                        0.9995890259742737
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.75,
                     "Positions": [
                         0.0,
@@ -1473,22 +1903,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        -0.023812999948859216,
+                        -0.02499699965119362,
                         0.0,
-                        0.9997159838676453,
+                        0.9996880292892456,
                         0.0,
-                        0.01203100010752678,
                         0.0,
-                        0.9999279975891113,
                         0.0,
-                        0.0255149994045496,
+                        1.0,
                         0.0,
-                        0.9996740221977234
+                        0.02499699965119362,
+                        0.0,
+                        0.9996880292892456
                     ]
                 },
                 {
                     "Build": 1.0,
-                    "At": 0.7799999713897705,
+                    "Fade": 0.0,
+                    "At": 0.7749999761581421,
                     "Positions": [
                         0.0,
                         0.0,
@@ -1502,22 +1933,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        -0.020434999838471414,
+                        -0.021128999069333078,
                         0.0,
-                        0.9997910261154175,
+                        0.9997770190238953,
                         0.0,
-                        0.016908999532461168,
                         0.0,
-                        0.9998570084571838,
                         0.0,
-                        0.02282699942588806,
+                        1.0,
                         0.0,
-                        0.9997389912605286
+                        0.021128999069333078,
+                        0.0,
+                        0.9997770190238953
                     ]
                 },
                 {
                     "Build": 1.0,
-                    "At": 0.8100000023841858,
+                    "Fade": 0.0,
+                    "At": 0.800000011920929,
                     "Positions": [
                         0.0,
                         0.0,
@@ -1531,22 +1963,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        -0.016163000836968423,
+                        -0.017100000753998758,
                         0.0,
-                        0.9998689889907837,
+                        0.9998540282249451,
                         0.0,
-                        0.021046999841928483,
                         0.0,
-                        0.9997779726982117,
                         0.0,
-                        0.019140999764204027,
+                        1.0,
                         0.0,
-                        0.9998170137405396
+                        0.017100000753998758,
+                        0.0,
+                        0.9998540282249451
                     ]
                 },
                 {
                     "Build": 1.0,
-                    "At": 0.8399999737739563,
+                    "Fade": 0.0,
+                    "At": 0.824999988079071,
                     "Positions": [
                         0.0,
                         0.0,
@@ -1560,22 +1993,23 @@
                     ],
                     "Rotations": [
                         0.0,
-                        -0.011184999719262123,
+                        -0.012941000051796437,
                         0.0,
-                        0.9999369978904724,
+                        0.9999160170555115,
                         0.0,
-                        0.02426600083708763,
                         0.0,
-                        0.999705970287323,
                         0.0,
-                        0.014618000015616417,
+                        1.0,
                         0.0,
-                        0.9998930096626282
+                        0.012941000051796437,
+                        0.0,
+                        0.9999160170555115
                     ]
                 },
                 {
                     "Build": 1.0,
-                    "At": 0.8700000047683716,
+                    "Fade": 0.0,
+                    "At": 0.8500000238418579,
                     "Positions": [
                         0.0,
                         0.0,
@@ -1589,21 +2023,52 @@
                     ],
                     "Rotations": [
                         0.0,
-                        -0.005717999767512083,
+                        -0.008682000450789929,
                         0.0,
-                        0.9999840259552002,
+                        0.9999619722366333,
                         0.0,
-                        0.026424000039696695,
                         0.0,
-                        0.9996510148048401,
                         0.0,
-                        0.009456000290811062,
+                        1.0,
                         0.0,
-                        0.9999549984931946
+                        0.008682000450789929,
+                        0.0,
+                        0.9999619722366333
                     ]
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.875,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        -0.004358000122010708,
+                        0.0,
+                        0.9999909996986389,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.004358000122010708,
+                        0.0,
+                        0.9999909996986389
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.8999999761581421,
                     "Positions": [
                         0.0,
@@ -1622,13 +2087,13 @@
                         0.0,
                         1.0,
                         0.0,
-                        0.027427999302744867,
                         0.0,
-                        0.9996240139007568,
                         0.0,
-                        0.003880999982357025,
+                        1.0,
                         0.0,
-                        0.9999920129776001
+                        0.0,
+                        0.0,
+                        1.0
                     ]
                 }
             ],

@@ -31,6 +31,7 @@ public sealed partial class FormResource
     private static string MaterialFamily(string surface) => surface switch
     {
         "stone_strata" => "stone",
+        "wood_leaf" => "wood",
         "wind_open" or "wind_pressure" => "wind",
         "meteor_heat" or "meteor_crown" => "flame",
         "aegis_jade" or "spirit_core" or "spirit_beam_edge" or "spirit_beam_core" => "spirit_pearl",

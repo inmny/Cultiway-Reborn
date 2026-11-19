@@ -1,0 +1,114 @@
+// 使用已经学会的正式灵藤；只验证本批改动及受影响的原行为。
+var source = Make(64);
+var target = Make(70);
+var outside = Make(71);
+var wolf = Make(12, "wolf");
+target.setKingdom(wolf.kingdom);
+outside.setKingdom(wolf.kingdom);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 0;
+owner.MarkCultiwayStatsDirty();
+source.setStatsDirty();
+source.updateStats();
+await Advance(.2f);
+var made = new SkillContainerBuilder(SkillEntities.SpiritVine).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+owner.LearnSkillV3(made);
+var known = (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+var spell = known.First(skill => SkillContainerSignature.Build(skill) == SkillContainerSignature.Build(made));
+
+long castId = 0;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId == source.id && fact.AbilityId == SkillEntities.SpiritVine.id) castId = fact.CastId;
+}
+
+ConstructedAbilityService.CastStarted += Started;
+try
+{
+    Ready(source);
+    Place(source, 64);
+    Place(target, 70);
+    Place(outside, 70, 76);
+    foreach (Actor actor in new[] { source, target, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float before = owner.GetCultisys<Xian>().wakan;
+    double cost = SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculateStepDemand(spell) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, spell)));
+    int targetHealth = target.data.health, outsideHealth = outside.data.health;
+    Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", spell),
+        new ActiveAbilityTarget(target, target.GetSimPos(), selectionArea: new SkillTargetSelectionArea(true, target.GetSimPos(), .1f)),
+        ActiveAbilityUseOrigin.Script), "原已学入口受理");
+    source.attack_timer = 999;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    await Advance(.08f);
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == castId);
+    var cast = (AbilityCast)Field(running, "Cast");
+    var views = new List<FormVisualInstance>();
+    var shapes = new List<AbilityCapsule>();
+
+    (float Build, int Count, bool MainFirst, float Reach) Sample(string phase)
+    {
+        views.Clear(); shapes.Clear();
+        cast.AppendVisuals(views); cast.AppendContacts(shapes);
+        FormVisualInstance view = views.Single();
+        FormResource resource = view.Resource;
+        var pose = resource.Rig.CreatePose();
+        Array.Copy(view.Skin, pose.Skin, view.Skin.Length);
+        pose.BuildProgress = view.BuildProgress;
+        bool aligned = true;
+        int expected = 0;
+        float reach = 0f;
+        Vector3 scale = view.Transform.lossyScale;
+        float factor = Mathf.Max(Math.Abs(scale.x), Math.Abs(scale.y), Math.Abs(scale.z));
+        for (int i = 0; i < resource.Contacts.Length; i++)
+        {
+            if (!resource.Contacts[i].Sample(pose, out Vector3 a, out Vector3 b, out float radius))
+                continue;
+            expected++;
+            var local = view.Transform.MultiplyPoint3x4(b);
+            reach = Mathf.Max(reach, b.z);
+            aligned &= shapes.Any(shape => shape.Shape == i &&
+                Vector3.Distance(view.Transform.MultiplyPoint3x4(a), shape.A) < .0001f &&
+                Vector3.Distance(local, shape.B) < .0001f && Math.Abs(radius * factor - shape.Radius) < .0001f);
+        }
+        bool trunkOnly = shapes.Count > 0 && shapes.All(shape => resource.Description.Contacts[shape.Shape].Part == 1);
+        var leaves = resource.Description.Parts.Select((part, index) => (part, index))
+            .Where(entry => entry.part.Surface == "wood_leaf").ToArray();
+        Check(resource.Description.Id == "creeping_vine" && leaves.Length == 5 &&
+            leaves.All(entry => entry.part.HasBuildData && view.SurfaceFor(entry.index) == "wood_leaf") &&
+            resource.Description.Contacts.All(contact => contact.Part < 3) && aligned && shapes.Count == expected,
+            phase + "：阶段姿态和实际接触一致，叶面没有接触", new { build = view.BuildProgress, shapes = shapes.Count, trunkOnly, reach });
+        return (view.BuildProgress, shapes.Count, trunkOnly, reach);
+    }
+
+    var early = Sample("主根先出");
+    await Advance(.16f);
+    var growing = Sample("侧根张开");
+    await Advance(.22f);
+    var formed = Sample("根芯成形");
+    Check(early.Build > 0 && early.MainFirst && growing.Build > early.Build &&
+        growing.Count > early.Count && formed.Build == 1 && formed.Count == 24 && formed.Reach > early.Reach,
+        "主根先接触，完整之后保留原二十四段根芯");
+    await Advance(.82f);
+    Check(contacts.Count(hit => hit.TargetId == target.id) == 1 && target.data.health < targetHealth &&
+        contacts.All(hit => hit.TargetId != outside.id) && outside.data.health == outsideHealth,
+        "原版敌人确实受伤一次，侧外人物无伤",
+        new { targetHealth, now = target.data.health, outsideHealth, sideNow = outside.data.health });
+    var after = owner.GetCultisys<Xian>().wakan;
+    Check(Math.Abs(before - after - cost) < .001f && cast.Finished &&
+          endings.Any(end => end.Fact.CastId == castId) && !((IEnumerable)service.GetField("casts", F).GetValue(null))
+              .Cast<object>().Any(value => (long)Field(value, "Id") == castId),
+        "只扣一次原费用，正常退出并移除实例", new { cost, before, after });
+    return new { passed = true, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

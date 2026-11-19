@@ -1,0 +1,166 @@
+const string section = "all";
+var clashes = new List<ConstructedClash>();
+var incoming = new List<ConstructedCastStarted>();
+void Clashed(ConstructedClash clash) => clashes.Add(clash);
+void Incoming(ConstructedCastStarted fact) { if (fact.SourceId == target.id) incoming.Add(fact); }
+AbilityCast Live(long id) => (AbilityCast)Field(((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Single(run => (long)Field(run, "Id") == id), "Cast");
+bool Crossed(ConstructedClash clash, long wall, long stone) =>
+    clash.LeftCast == wall && clash.RightCast == stone || clash.RightCast == wall && clash.LeftCast == stone;
+Vector3 Middle(AbilityCapsule shape) => (shape.A + shape.B) * .5f;
+var bridge = manager.GetType().GetField("Barriers", F).GetValue(null);
+var restrictGround = service.Assembly.GetType("Cultiway.Core.SkillLibV3.ISkillBarrierBridge").GetMethod("RestrictGroundActor");
+float CrossGround()
+{
+    Place(target, 64);
+    target.position_height = 0f;
+    // 普通行走、步法和受力都从同一份真实墙面读取拦截。
+    return ((Vector2)restrictGround.Invoke(bridge,
+        new object[] { target, target.current_position, new Vector2(70, 72) })).x;
+}
+var emit = manager.GetType().GetMethod("EmitSkill", F);
+var enemy = target.GetExtend();
+var stone = new SkillContainerBuilder(SkillEntities.StoneCone).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+string signature = SkillContainerSignature.Build(stone);
+enemy.LearnSkillV3(stone);
+stone = ((IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(enemy, null))
+    .First(skill => SkillContainerSignature.Build(skill) == signature);
+var camera = World.world.camera;
+Vector3 oldCamera = camera.transform.position;
+float oldSize = camera.orthographicSize;
+var effects = service.Assembly.GetType("Cultiway.Core.Visuals.SpatialVisualEffects").GetField("effects", F);
+
+(long Id, AbilityCast Cast) Throw(float strength)
+{
+    var request = new SkillEmission
+    {
+        Source = target, SpatialSource = target, SourcePos = new Vector3(64, 72, .6f),
+        TargetPos = new Vector3(70, 72, .6f), Target = source, HasSourcePosition = true,
+        SkillContainer = stone, Strength = strength, PowerLevel = 0f, AttackKingdom = target.kingdom
+    };
+    Check((bool)emit.Invoke(manager, new object[] { request }), "真实石锥发射", new { strength });
+    long id = incoming.Last().CastId;
+    return (id, Live(id));
+}
+
+async Task<ConstructedClash> Meet(long wall, long shot)
+{
+    for (int i = 0; i < 20 && !clashes.Any(clash => Crossed(clash, wall, shot)); i++) await Advance(.025f);
+    Check(clashes.Count(clash => Crossed(clash, wall, shot)) == 1, "石锥与实际墙面交锋一次");
+    return clashes.Single(clash => Crossed(clash, wall, shot));
+}
+
+float Alignment(AbilityCast cast)
+{
+    var view = Views(cast).Single();
+    var pose = view.Resource.Rig.CreatePose();
+    Array.Copy(view.Skin, pose.Skin, view.Skin.Length);
+    pose.BuildProgress = view.BuildProgress;
+    return Shapes(cast).Max(shape =>
+    {
+        view.Resource.Contacts[shape.Shape].Sample(pose, out Vector3 a, out Vector3 b, out float _);
+        return Mathf.Max(Vector3.Distance(view.Transform.MultiplyPoint3x4(a), shape.A),
+            Vector3.Distance(view.Transform.MultiplyPoint3x4(b), shape.B));
+    });
+}
+
+ConstructedAbilityService.ClashConfirmed += Clashed;
+ConstructedAbilityService.CastStarted += Incoming;
+try
+{
+    camera.orthographicSize = 8.5f;
+    camera.transform.position = new Vector3(67, 72, oldCamera.z);
+    var wall = Build();
+    var definition = Convert(wall, out _);
+    AbilityCompiler.Compile(definition, cache: false);
+    float duration = definition.Root.ActiveUntil;
+    Check(Math.Abs(duration - 4f) < .001f && definition.Root.BlocksGroundActors && definition.Root.Strength == 5f &&
+        definition.Root.Operations.Single(op => op.Kind == ConstructionOperationKind.Fracture).Fracture.ActiveParts.Length == 0,
+        "保留原四秒、原容量和地面拦截，破坏只留下装饰");
+
+    async Task<AbilityCast> StartWall()
+    {
+        ResetPeople();
+        source.addAggro(target);
+        target.addAggro(source);
+        Check(Use(wall), "原已学木壁经正式入口受理");
+        await Advance(.085f);
+        return Live(starts.Last().CastId);
+    }
+
+    if (section != "exit")
+    {
+        var cast = await StartWall();
+        long id = starts.Last().CastId;
+        float initial = cast.RemainingForce(0);
+        var early = Shapes(cast);
+        float earlyError = Alignment(cast);
+        await Advance(Mathf.Max(.02f, .44f - cast.Age));
+        var standing = Shapes(cast);
+        var resource = Views(cast).Single().Resource;
+        float settledError = Alignment(cast);
+        var before = Middle(early[15]);
+        var settled = Middle(standing[15]);
+        float displacement = Vector3.Distance(before, settled);
+        Check(early.Count == 33 && standing.Count == 33 && displacement > .15f && earlyError < .001f && settledError < .001f &&
+              resource.Description.Parts.Count(part => part.Surface == "wood_leaf") == 4 && oldWalls == 0,
+            "根芯落稳时显示与实际墙面共动，叶片不承担拦截",
+            new { displacement, earlyError, settledError, before = before.ToString(), settled = settled.ToString() });
+        float groundX = CrossGround();
+        Check(groundX == 64f, "共同寻路拦截会挡住贴地的敌方人物", new { groundX });
+        int hp = source.data.health;
+        var weak = Throw(13);
+        var ordinary = await Meet(id, weak.Id);
+        float remaining = cast.RemainingForce(0);
+        var local = ((IEnumerable)effects.GetValue(null)).Cast<object>().Count(effect =>
+            Vector3.Distance((Vector3)Field(effect, "Start"), ordinary.Position) < .09f && (float)Field(effect, "Hold") == 0f);
+        Check(Math.Abs(initial - remaining - 13f) < .001f && remaining > 0f && weak.Cast.Finished &&
+            source.data.health == hp && Views(cast).Count == 1 && local >= 2,
+            "普通来弹被挡住，只在实际撞点掉木屑，木壁仍承力", new { initial, remaining, local, health = source.data.health });
+        await Advance(.18f);
+        var strong = Throw(remaining + 44f);
+        var broken = await Meet(id, strong.Id);
+        var scraps = Views(cast);
+        Check(cast.RemainingForce(0) == 0 && Shapes(cast).Count == 0 && CrossGround() == 70f &&
+            scraps.Count == 21 && scraps.All(view => view.Resource.Description.Id.StartsWith("wood_wall:")) && !strong.Cast.Finished,
+            "实际耗尽后解除墙身，21个真分件飞散且无隐藏阻挡", new { views = scraps.Count, groundX = CrossGround(), broken.Absorbed });
+        float fastest = Enumerable.Range(1, 21).Max(node => cast.Velocity(node).magnitude);
+        Check(fastest < 3f, "站稳后破坏只继承真实速度，地形高差不把碎枝弹飞", new { fastest });
+        float breakAge = cast.Age, maxX = 64f;
+        for (int i = 0; i < 9 && maxX <= settled.x + .5f && !strong.Cast.Finished; i++)
+        {
+            foreach (var view in Views(strong.Cast)) maxX = Mathf.Max(maxX, view.Transform.m03);
+            if (maxX <= settled.x + .5f) await Advance(.04f);
+        }
+        await Advance(Mathf.Max(.02f, breakAge + .48f - cast.Age));
+        Check((maxX > settled.x + .5f || source.data.health < hp) && cast.Finished && Views(cast).Count == 0 && Shapes(cast).Count == 0,
+            "打穿余力真实越过原墙面，碎枝自行撤除", new { maxX, wallX = settled.x, before = hp, now = source.data.health });
+    }
+    if (section != "break")
+    {
+        var cast = await StartWall();
+        await Advance(Mathf.Max(.02f, duration - .09f - cast.Age));
+        var tail = Views(cast);
+        float groundX = CrossGround();
+        Check(cast.Age < duration && tail.Count == 1 && tail[0].Resource.Description.Id == "wood_wall" &&
+            tail[0].Dye?.a < .92f && Shapes(cast).Count == 33 && groundX == 64f,
+            "自然到期前沿原墙芯收势，仍能真实阻拦", new { cast.Age, groundX, opacity = tail.FirstOrDefault().Dye?.a });
+        await Advance(.16f);
+        Check(cast.Finished && Views(cast).Count == 0 && Shapes(cast).Count == 0 && CrossGround() == 70f,
+            "原时点自然结束，不产生破坏碎件，路线恢复", new { cast.Age, groundX = CrossGround() });
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Incoming;
+    ConstructedAbilityService.ClashConfirmed -= Clashed;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
+    ControllableUnit.clear(false);
+    camera.orthographicSize = oldSize;
+    camera.transform.position = oldCamera;
+    Config.paused = true;
+}
