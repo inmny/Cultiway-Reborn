@@ -1,0 +1,162 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_sword_grave.mjs",
+            "Entry": "makeSwordGrave",
+            "Parameters": [
+                {
+                    "Id": "shape",
+                    "Values": [
+                        -0.3400000035762787,
+                        5.480000019073486,
+                        -0.4300000071525574,
+                        6.389999866485596,
+                        -0.8700000047683716,
+                        4.710000038146973,
+                        -1.0299999713897705,
+                        2.1700000762939453,
+                        -0.9399999976158142,
+                        0.7400000095367432,
+                        -0.38999998569488525,
+                        0.5299999713897705
+                    ]
+                },
+                {
+                    "Id": "side",
+                    "Values": [
+                        -1
+                    ]
+                },
+                {
+                    "Id": "thickness",
+                    "Values": [
+                        0.29600000381469727
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "edge/clasp",
+                "Parent": "edge",
+                "Child": "clasp",
+                "Position": [
+                    -0.5199999809265137,
+                    0,
+                    2.0999999046325684
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material",
+            "separate"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "sword_grave_left",
+    "Forward": [
+        0,
+        0,
+        1
+    ],
+    "Up": [
+        0,
+        1,
+        0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "blade.edge"
+            ],
+            "Id": "edge",
+            "Surface": "metal",
+            "Pivot": [
+                -0.699999988079071,
+                0,
+                3.119999885559082
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/sword_grave_left_edge.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "weapon.clasp"
+            ],
+            "Id": "clasp",
+            "Surface": "bronze",
+            "Pivot": [
+                -0.5400000214576721,
+                0,
+                2.0999999046325684
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/sword_grave_left_clasp.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "Id": "running_edge",
+            "Part": 0,
+            "A": [
+                0,
+                0,
+                0
+            ],
+            "Footprint": {
+                "Points": [
+                    [
+                        -0.34,
+                        5.48
+                    ],
+                    [
+                        -0.43,
+                        6.39
+                    ],
+                    [
+                        -0.87,
+                        4.71
+                    ],
+                    [
+                        -1.03,
+                        2.17
+                    ],
+                    [
+                        -0.94,
+                        0.74
+                    ],
+                    [
+                        -0.39,
+                        0.53
+                    ]
+                ],
+                "HalfThickness": 0.148
+            }
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}
