@@ -78,8 +78,11 @@ internal sealed partial class BodyActionBinding
     /// <summary>已解析的握点，不在运行中查找名称。</summary>
     private readonly FormGrip grip;
 
-    /// <summary>手指闭合后器物穿过的掌内握点。</summary>
-    private readonly Vector3 handGrip;
+    /// <summary>器物已经交给构造主体，身体保持手势，不重复绘制或参与命中。</summary>
+    internal bool WeaponInConstruction;
+
+    /// <summary>松握取实际离手时点。</summary>
+    internal bool WeaponReleased;
 
     /// <summary>握持时逐节屈指，空手时不覆盖原始伸掌。</summary>
     private readonly Matrix4x4[] fingers;
@@ -231,7 +234,6 @@ internal sealed partial class BodyActionBinding
         weaponId = Weapon.data.id;
         weaponAsset = Weapon.getAsset();
         weapon = FormResources.Load(action.WeaponForm);
-        handGrip = Point(hand.Description.Anchors.Single(anchor => anchor.Id == action.Construction.HandGrip).Position);
         grip = weapon.Grip(action.Grip);
         fingers = new Matrix4x4[hand.Meshes.Length];
         fingers[0] = Matrix4x4.identity;
@@ -398,8 +400,11 @@ internal sealed partial class BodyActionBinding
     internal bool IsCurrent(Actor actor) => actor.asset == sourceAsset && (sourceAppearance == null || actor.animation_container == sourceAppearance) &&
         (SourceStateValid?.Invoke(actor) ?? true) && (Organ == null || Organ.Refresh()) &&
         (Joint == null || Joint.IsCurrent && (action.HasNamedSupportMotion || Joint.IsAtStart)) &&
-        (action.WeaponForm == null || Weapon.data?.id == weaponId && Weapon.getAsset() == weaponAsset &&
-         EquippedWeaponVisualService.IsCurrent(actor, Weapon));
+        (action.WeaponForm == null || IsWeaponCurrent(actor));
+
+    /// <summary>动作收势后仍可核对同一件实际器物，不能继续借用已换掉的装备。</summary>
+    internal bool IsWeaponCurrent(Actor actor) => Weapon?.data?.id == weaponId && Weapon.getAsset() == weaponAsset &&
+        EquippedWeaponVisualService.IsCurrent(actor, Weapon);
 
     /// <summary>让手部模型腕点准确连接到实际前臂末端。</summary>
     /// <param name="pose">已确定身体姿态。</param>
@@ -412,9 +417,7 @@ internal sealed partial class BodyActionBinding
 
     /// <summary>器物握点对准闭合手指内的握点，腕点只用于接合前臂。</summary>
     /// <param name="pose">已确定身体姿态。</param>
-    private Matrix4x4 WeaponMatrix(in BodyPose pose) => grip.Align(Matrix4x4.TRS(
-        HandMatrix(in pose).MultiplyPoint3x4(handGrip),
-        pose.Rotation, Vector3.one), pose.Height * action.WeaponSize);
+    private Matrix4x4 WeaponMatrix(in BodyPose pose) => action.HeldWeaponMatrix(in pose);
 
     /// <summary>取和碰撞与显示一致的真实掌面或持物面的朝向。</summary>
     /// <param name="pose">同一世界时点的姿态。</param>
@@ -450,6 +453,7 @@ internal sealed partial class BodyActionBinding
     /// <param name="includeEnd">是否取解除时点的末态。</param>
     internal void AppendContactShapes(in BodyPose pose, List<AbilityCapsule> output, bool includeEnd)
     {
+        if (WeaponInConstruction) return;
         if (action.Part.IsJoint)
         {
             if (pose.Joint.Supported && action.Construction.UsesContact(false, "joint", pose.WorldAge, includeEnd))
@@ -622,10 +626,10 @@ internal sealed partial class BodyActionBinding
             left ? BodyVisualSegment.UpperLeftArm : BodyVisualSegment.UpperRightArm);
         AddSegment(elbow, pose.Hand, pose.Height * CompiledBodyAction.LowerWidth, null,
             left ? BodyVisualSegment.LowerLeftArm : BodyVisualSegment.LowerRightArm);
-        output.Add(new FormVisualInstance(hand, HandMatrix(in pose), fingers, groundAnchor: ground,
+        output.Add(new FormVisualInstance(hand, HandMatrix(in pose), WeaponReleased ? null : fingers, groundAnchor: ground,
             groundActorId: actor, terrain: terrain,
             bodySegment: left ? BodyVisualSegment.LeftHand : BodyVisualSegment.RightHand, feedback: feedback));
-        if (weapon != null)
+        if (weapon != null && !WeaponInConstruction)
             output.Add(new FormVisualInstance(weapon, WeaponMatrix(in pose), groundAnchor: ground,
                 groundActorId: actor, terrain: terrain, feedback: feedback));
 

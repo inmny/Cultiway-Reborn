@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using Cultiway.Core.Skills;
 using Newtonsoft.Json;
@@ -14,13 +15,16 @@ public static class BodyActionCatalog
     /// <summary>万法阁可直接取用的架掌资料。</summary>
     public const string GuardId = "Cultiway.Body.PalmGuard";
 
+    /// <summary>原武器握持、离手和收回共用的正式参考动作。</summary>
+    public const string SwordReleaseId = "Cultiway.Body.SwordRelease";
+
     /// <summary>已经读取的基础动作资料。</summary>
     private static AbilityDefinition[] all;
 
     /// <summary>读取制作资料，不在每次出手时解释文件。</summary>
     internal static AbilityDefinition[] All => all ??= LoadAll();
 
-    /// <summary>把架掌放在原目录末尾，原创作使用的基础动作顺序保持不变。</summary>
+    /// <summary>新动作放在原目录末尾，已冻结的创作输入保持顺序。</summary>
     private static AbilityDefinition[] LoadAll()
     {
         AbilityDefinition palm = Load("palm-strike");
@@ -33,7 +37,64 @@ public static class BodyActionCatalog
         guard.TargetRange = 12f;
         guard.Body.MatchDistance = false;
         guard.Body.Guard = new BodyGuardDefinition { Capacity = 100f, Normal = new[] { 0f, 0f, 1f } };
-        return new[] { palm, Load("sweeping-palm"), Load("sword-thrust"), guard };
+        AbilityDefinition thrust = Load("sword-thrust");
+        return new[] { palm, Load("sweeping-palm"), thrust, guard, CreateSwordRelease(thrust) };
+    }
+
+    /// <summary>从同一铁剑握持动作起势，只改变离手后的运动和接触。</summary>
+    private static AbilityDefinition CreateSwordRelease(AbilityDefinition thrust)
+    {
+        const float release = .27f;
+        AbilityDefinition result = ConstructionEditing.Copy(thrust);
+        result.Id = SwordReleaseId;
+        result.Name = "掷剑回锋";
+        result.Revision = 1;
+        result.Lifetime = 2.2f;
+        result.Cooldown = .6f;
+        result.TargetRange = 4.6f;
+        result.Body.MatchDistance = false;
+        result.Binding = new ConstructionBinding { Anchor = AbilityAnchor.HeldWeapon, Follow = true };
+        result.Root = new ConstructionNode
+        {
+            Id = "sword", Form = "sword", ActiveFrom = release,
+            Operations = new[]
+            {
+                new ConstructionOperation
+                {
+                    Kind = ConstructionOperationKind.Fly, At = release, Vector = new[] { 0f, 0f, 12f },
+                    TurnRate = 360f, InheritVelocity = false,
+                    Goal = new ConstructionFlightGoal
+                    {
+                        Anchor = ConstructionFlightAnchor.Target,
+                        Arrival = ConstructionFlightArrival.Continue, Radius = .58f
+                    }
+                }
+            }
+        };
+        result.Steps = new[]
+        {
+            new ConstructionStep
+            {
+                Id = "return_to_owner",
+                Inputs = new Dictionary<string, ConstructionOutputReference> { ["part"] = new() { Node = "root" } },
+                Operation = new ConstructionOperation
+                {
+                    Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = new float[3],
+                    InheritVelocity = true, TurnRate = 520f,
+                    When = new ConstructionCondition
+                    {
+                        Source = "root", Trigger = ConstructionChangeTrigger.DistanceFromFlightStart, Threshold = 3.9f
+                    },
+                    Goal = new ConstructionFlightGoal
+                    {
+                        Anchor = ConstructionFlightAnchor.Source, Offset = new[] { 0f, 0f, .58f },
+                        Steering = new ConstructionFlightSteering { Side = 1.25f, Lift = .22f, Decay = 5f },
+                        Arrival = ConstructionFlightArrival.End, Radius = .70f
+                    }
+                }
+            }
+        };
+        return result;
     }
 
     /// <summary>原地直掌的完整资料。</summary>

@@ -147,6 +147,9 @@ public sealed class CompiledAbility
     /// <summary>已经复制的实际根连接，空值保留首次格式的固定根。</summary>
     internal CompiledBinding Binding { get; }
 
+    /// <summary>主体就是已借用的器物，握持和离手共用同一个形体。</summary>
+    internal bool UsesHeldWeapon => Binding?.Anchor == AbilityAnchor.HeldWeapon;
+
     /// <summary>已经验证的选择类别与使用场景，不改变真实作用的接触筛选。</summary>
     public CompiledConstructionUse Use { get; }
 
@@ -669,7 +672,7 @@ public static partial class AbilityCompiler
                 definition.Binding.Fraction.Value < 0f || definition.Binding.Fraction.Value > 1f))
                 Fail("Binding/Fraction", "两点间比例需要零至一的有限数");
             if (!Finite(definition.Binding.Height)) Fail("Binding/Height", "离地高度须为有限数");
-            if ((definition.Binding.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) && definition.Body == null)
+            if ((definition.Binding.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector or AbilityAnchor.HeldWeapon) && definition.Body == null)
                 Fail("Binding/Anchor", "手部连接缺少Body实际身体动作");
         }
 
@@ -697,6 +700,8 @@ public static partial class AbilityCompiler
         CompiledBodyAction body = definition.Body == null
             ? null
             : new CompiledBodyAction(definition.Body, definition.Lifetime);
+        if (definition.Binding?.Anchor == AbilityAnchor.HeldWeapon)
+            CheckHeldWeapon(definition, body, nodes);
         foreach (CompiledForm node in nodes)
             if (node.BodyWindow && (body == null || node.ContactKey != "body"))
                 Fail(node.Path + "/BodyWindow", "跟随身体作用须提供实际身体并共用body接触组");
@@ -756,6 +761,23 @@ public static partial class AbilityCompiler
         plans.Add(key, result);
         planOrder.Enqueue(key);
         return result;
+    }
+
+    /// <summary>借出同一件器物时，交接前的模型与尺寸由实际握持决定。</summary>
+    private static void CheckHeldWeapon(AbilityDefinition definition, CompiledBodyAction body, List<CompiledForm> nodes)
+    {
+        if (body?.WeaponForm == null || definition.Body.Guard != null || body.Construction.HasControlRelations ||
+            nodes.Count == 0 || nodes[0].Resource.Description.Id != body.WeaponForm)
+            Fail("Binding/HeldWeapon", "实际控器需要匹配的握持动作与根形体");
+        CompiledForm root = nodes[0];
+        var binding = definition.Binding;
+        if (!binding.Follow || binding.FaceTarget || binding.ScaleByBody || binding.Height != 0f ||
+            root.Offset != Vector3.zero || root.Rotation != Quaternion.identity || root.Scale != 1f ||
+            root.Presence.x != 0f || root.Activation != null || root.BodyWindow ||
+            root.FlyAt <= 0f || root.FlyAt >= body.Duration || root.ReleaseAt != root.FlyAt ||
+            root.Active.x < root.ReleaseAt || definition.Root.Operations.Any(operation =>
+                operation.When == null && operation.Kind != ConstructionOperationKind.Fly && operation.At < root.ReleaseAt))
+            Fail("Binding/HeldWeapon", "离手前须保持原器物握持姿态，动作结束前开始飞行，离手后再结算接触");
     }
 
     /// <summary>按挂点集合展开子体，检查首轮操作的时间及关系。</summary>

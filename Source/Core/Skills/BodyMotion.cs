@@ -523,6 +523,12 @@ public sealed partial class CompiledBodyAction
     /// <summary>本次已编译资源的真实器物尺寸，空手不使用。</summary>
     public float WeaponSize { get; }
 
+    private readonly Matrix4x4 heldWeaponLocal;
+
+    /// <summary>把编译得到的同一握点还原到当前腕点、朝向与实际身体尺寸。</summary>
+    internal Matrix4x4 HeldWeaponMatrix(in BodyPose pose) =>
+        Matrix4x4.TRS(pose.Hand, pose.Rotation, Vector3.one * pose.Height) * heldWeaponLocal;
+
     /// <summary>所选接触部位相对手腕的中心，按体高归一化，用于实际触达适配。</summary>
     public Vector3 WeaponContactPoint { get; }
 
@@ -853,6 +859,7 @@ public sealed partial class CompiledBodyAction
                 Matrix4x4.TRS(handMatrix.MultiplyPoint3x4(handGrip), Quaternion.identity, Vector3.one), WeaponSize);
         }
 
+        heldWeaponLocal = contactMatrix;
         var selectedContacts = resource.Contacts.Where(contact => Construction.UsesContact(WeaponForm != null, contact.Id)).ToArray();
         if (WeaponForm != null && selectedContacts.Length > 0)
         {

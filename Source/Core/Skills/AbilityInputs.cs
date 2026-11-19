@@ -22,7 +22,10 @@ public enum AbilityAnchor
     Carrier = 4,
 
     /// <summary>来源与目标之间按明确比例取得的位置。</summary>
-    Between = 5
+    Between = 5,
+
+    /// <summary>实际借用器物的完整握持姿态，到既有运动开始时交给自由部位。</summary>
+    HeldWeapon = 6
 }
 
 /// <summary>可保存的根连接，后续形体继续使用普通父子挂点。</summary>

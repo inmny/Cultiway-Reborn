@@ -1346,6 +1346,7 @@
   "Cultiway.Construction.ClashGroundBlock": "阻挡地面人物",
   "Cultiway.Construction.ClashGroundBlockHint": "阻止敌方可移动地面人物穿过。友方和飞行人物仍按原规则通行，不增加作用面。",
   "Cultiway.Construction.ClashReflectionLimit": "本部位反射次数上限",
+  "Cultiway.Construction.Anchor.HeldWeapon": "实际握持的器物",
   "Cultiway.Construction.Anchor.Between": "来源与目标之间",
   "Cultiway.Construction.BetweenRules": "两点位置",
   "Cultiway.Construction.BetweenRulesHint": "比例0在来源，1在目标，0.5为中点。跟随时使用两点的实际位置；原运动操作仍会继续影响部位，直接放置改造才会明确移除根部投送。",

@@ -487,6 +487,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         {
             body = BodyActionBinding.TryCreate(caster.Base, plan.Body, direction, point, targetHeight);
             if (body == null) return false;
+            body.WeaponInConstruction = plan.UsesHeldWeapon;
             frame = body.Frame(source, sourceHeight);
             if (!body.CanStart(frame.Value)) return false;
             if (plan.Body.ControlsStance && (!plan.Body.Part.HasPartRotation || plan.Body.HasNamedSupportMotion))
@@ -690,7 +691,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="caster">实际施法者。</param><param name="body">本次身体动作。</param>
     private static bool BodyAvailable(ActorExtend caster, CompiledBodyAction body) =>
         !BodyControlState.IsBusy(caster.Base.id, BodyActionBinding.Occupancy(caster.Base, body), body.Part.ControlPath) &&
-        (body.WeaponForm == null || !WeaponControlRuntimeService.IsCasting(caster)) &&
+        (body.WeaponForm == null || !WeaponControlRuntimeService.IsCasting(caster) && !HasReleasedWeapon(caster.Base.id)) &&
         !KnightTechniqueRuntimeService.IsBusy(caster) && !caster.Base.stats.hasTag("frozen_ai") &&
         !caster.Base.stats.hasTag("immovable");
 

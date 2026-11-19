@@ -77,6 +77,7 @@ public sealed partial class ConstructedAbilityService
         {
             binding = BodyActionBinding.BindBody(actor, plan.Body, forward, location, targetHeight, out string problem);
             if (problem != null) return problem;
+            binding.WeaponInConstruction = plan.UsesHeldWeapon;
             body = binding.Frame(source, height);
             if (!binding.CanStart(body.Value)) return "PreviewBodyStance";
             if (plan.Body.ControlsStance && (!plan.Body.Part.HasPartRotation || plan.Body.HasNamedSupportMotion))
@@ -139,6 +140,7 @@ public sealed partial class ConstructedAbilityService
             Cast.AppendContacts(contacts);
             if (Cast.Finished || binding == null || !Cast.BodyPose.HasValue) return;
             var pose = Cast.BodyPose.Value;
+            binding.WeaponReleased = Cast.Plan.UsesHeldWeapon && !Cast.IsInputAttached;
             if (actor.data != null && actor.isAlive()) binding.AppendVisuals(actor, in pose, visuals, terrain);
             binding.AppendContactShapes(in pose, contacts, false);
         }

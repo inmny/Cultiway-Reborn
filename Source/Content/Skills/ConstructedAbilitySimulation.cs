@@ -284,6 +284,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 running.Source.lookTowardsPosition(running.Source.current_position + (Vector2)pose.Forward);
             }
 
+            running.Body.WeaponReleased = running.Cast.Plan.UsesHeldWeapon && !running.Cast.IsInputAttached;
             running.Body.AppendVisuals(running.Source, in pose, visuals, terrain);
         }
 
@@ -336,6 +337,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
         bool sourceLive = running.InitialOwner.WorldSource || running.InitialOwner.IsLive,
             spatialLive = running.InitialOwner.WorldSource || running.SpatialSourceLive;
+        if (running.Cast.Plan.UsesHeldWeapon && (!sourceLive || !spatialLive || !running.Body.IsWeaponCurrent(running.Source)))
+        {
+            running.Cast.Cancel();
+            ReleaseBody(running);
+            return;
+        }
         running.InitialOwner.RefreshRelations();
         if (!sourceLive)
         {
