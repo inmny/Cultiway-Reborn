@@ -11,14 +11,15 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--section", choices=("values", "preview"), default="values")
+    parser.add_argument("--section", choices=("values", "preview", "diagnostics"), default="values")
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过 develop 的 dev.py exec 运行')
 
     import baseline_scenarios as baseline
     connection = baseline.connect(False, validate_runtime=False)
-    folder = Path(os.environ['CULTIWAY_DEV_OUTPUT']) / ('compiled-use' if args.section == 'values' else 'compiled-use-preview')
+    folders = {'values': 'compiled-use', 'preview': 'compiled-use-preview', 'diagnostics': 'editor-inputs-810'}
+    folder = Path(os.environ['CULTIWAY_DEV_OUTPUT']) / folders[args.section]
     folder.mkdir(parents=True, exist_ok=True)
     shutil.copytree(PROJECT / 'Scripts/WorldSaveTests/Fixtures/world-format-1', folder / 'input-world', dirs_exist_ok=True)
     scripts = Path(__file__).parent
@@ -30,7 +31,9 @@ def main():
     helpers = helpers.replace('if (fact.AbilityId.StartsWith("test.body-footwork."))', 'if (true)')
     if args.section == 'preview':
         helpers = helpers.replace('if (contact.AbilityId.StartsWith("test.body-footwork."))', 'if (true)')
-    case_name = 'verify_compiled_use.script' if args.section == 'values' else 'verify_compiled_performance.script'
+    cases = {'values': 'verify_compiled_use.script', 'preview': 'verify_compiled_performance.script',
+             'diagnostics': 'verify_editor_inputs.script'}
+    case_name = cases[args.section]
     case = (scripts / case_name).read_text()
     controls = (scripts / 'verify_process_time_world_editor.script').read_text().split('async Task Frames(', 1)[1].split('ConstructionOperation Native(', 1)[0]
     case = case.replace('// COMMON_CONTROLS', 'async Task Frames(' + controls)

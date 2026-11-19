@@ -32,7 +32,7 @@ internal static class ConstructionResources
     {
         if (id == "none") return null;
         SkillCastResourceAsset resource = Resolve(id);
-        if (resource == null) throw new InvalidDataException("Resource：未登记实际施法资源：" + id);
+        if (resource == null) throw ConstructionReferences.Error("Resource", "未登记实际施法资源：" + id, resourceKind: "Payment", resourceId: id);
         if (recovery && resource.MaximumAmount == null)
             throw new InvalidDataException("Resource：资源" + id + "没有实际回收容量，不能用于本构造的材料回收");
         return resource;

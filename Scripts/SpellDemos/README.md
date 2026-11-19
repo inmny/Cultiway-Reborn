@@ -2077,3 +2077,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 8.09 同一份构造预览与施放
 
 启动独立游戏后，使用 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_compiled_use.py --section values` 验证报价与正式选点。`--section preview` 复用同一世界和水剑，另验窗口的暂停、重播、冻结画面、实际接触轮廓、无世界副作用和关闭后的正常施放。两段分别输出证据。窗口播放采用选定时的地形及人物姿态；由命中、格挡或世界写入触发的后续需要实战确认。
+
+### 8.10 改造窗口的资源与输入提示
+
+用上面的同一入口改传 `--section diagnostics`，复用现成世界和水剑，检查必选人物提示、公共搜索、缺失形体定位、中英文显示，以及换回原形体后的恢复。输出至独立游戏当次的 `output/editor-inputs-810`，含复验结果和实际窗口截图。

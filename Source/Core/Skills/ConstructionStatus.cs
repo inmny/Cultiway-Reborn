@@ -81,8 +81,10 @@ public sealed class CompiledConstructionStatus
             (source.Stats?.Count ?? 0) + (source.TargetStatRatios?.Count ?? 0) > 64)
             throw new InvalidDataException(path + "：状态需要稳定编号、0至3600内的正时长、0至一百万的强度、有效合并方式及合计最多64项属性；最强规则必须明确固定值或目标比例");
         Asset = ModClass.L.StatusEffectLibrary.get(source.Id);
-        if (Asset == null || source.Application == ConstructionStatusApplication.Strongest && !Asset.SupportsStatOverwrite)
-            throw new InvalidDataException(path + "：未登记或不支持所选合并方式的共享状态：" + source.Id);
+        if (Asset == null)
+            throw ConstructionReferences.Error(path, "未登记共享状态：" + source.Id, resourceKind: "Status", resourceId: source.Id);
+        if (source.Application == ConstructionStatusApplication.Strongest && !Asset.SupportsStatOverwrite)
+            throw new InvalidDataException(path + "：共享状态不支持所选合并方式：" + source.Id);
         var stats = new Dictionary<string, float>(StringComparer.Ordinal);
         foreach (var pair in source.Stats ?? new Dictionary<string, float>())
         {

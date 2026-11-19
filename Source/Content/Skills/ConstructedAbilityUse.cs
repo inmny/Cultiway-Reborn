@@ -35,9 +35,7 @@ public sealed partial class ConstructedAbilityService
         {
             if (target.Object == null || target.Object.isRekt() || !target.Object.isActor()) return false;
             actor = target.Object.a;
-            if (!actor.isAlive() || !actor.hasHealth() ||
-                (caster != null && !SkillTargetRelationResolver.Matches(plan.Impact.Targets, caster.Base, actor, target.AttackKingdom) ||
-                 caster == null && !plan.Impact.SelectedTargetOnly)) return false;
+            if (!MatchesUseActor(caster, plan, actor, target.AttackKingdom)) return false;
         }
 
         if (actor != null)
@@ -51,4 +49,12 @@ public sealed partial class ConstructedAbilityService
                !float.IsInfinity(point.x) && !float.IsInfinity(point.y) && !float.IsInfinity(point.z) &&
                World.world.GetTile(Mathf.FloorToInt(point.x), Mathf.FloorToInt(point.y)) != null;
     }
+
+    /// <summary>正式选人和预览目录使用同一人物关系，不需要先采集姿态。</summary>
+    /// <param name="caster">实际施法者。</param><param name="plan">已编译规则。</param>
+    /// <param name="actor">待选人物。</param><param name="attackKingdom">正式出手可指定的阵营。</param>
+    private static bool MatchesUseActor(ActorExtend caster, CompiledAbility plan, Actor actor, Kingdom attackKingdom) =>
+        actor != null && !actor.isRekt() && actor.isAlive() && actor.hasHealth() &&
+        (caster != null ? SkillTargetRelationResolver.Matches(plan.Impact.Targets, caster.Base, actor, attackKingdom) : plan.Impact.SelectedTargetOnly);
+
 }

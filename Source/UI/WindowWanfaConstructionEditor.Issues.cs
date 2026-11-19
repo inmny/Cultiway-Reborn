@@ -27,11 +27,23 @@ public sealed partial class WindowWanfaConstructionEditor
     private void ShowConstructionIssue(Exception error)
     {
         constructionIssue = ConstructionIssue.From(error);
-        state.text = string.Format(T("Invalid"), error.Message);
+        state.text = constructionIssue?.ResourceKind == null ? string.Format(T("Invalid"), error.Message) :
+            string.Format(T("IssueResource"), T("IssueResource." + constructionIssue.ResourceKind),
+                string.IsNullOrEmpty(constructionIssue.ResourceId) ? T("IssueUnnamedResource") : constructionIssue.ResourceId, constructionIssue.Path);
         state.color = UiTheme.Current.Palette.Error;
         UiTooltip.Set(state.gameObject, T("LocateIssue"), state.text);
         locateIssueButton.gameObject.SetActive(constructionIssue != null &&
             (IssueTarget(constructionIssue.Path).HasValue || IssueTarget(constructionIssue.Related).HasValue));
+    }
+
+    /// <summary>原形体缺失时留出修复选择，不用缺失模型搭建有依赖的动作和挂点表单。</summary>
+    private bool ShowMissingForm()
+    {
+        if (constructionIssue?.ResourceKind != "Form" || !constructionIssue.Path.EndsWith("/Form", StringComparison.Ordinal) ||
+            DeclarationNode(constructionIssue.Declaration ?? constructionIssue.Path) is not { } node) return false;
+        Row("RepairMissingFormTitle", string.Format(T("RepairMissingForm"), PartName(parts.IndexOf(node))));
+        FormChoice(node);
+        return true;
     }
 
     /// <summary>单处直接跳转，两处在同一选择菜单中展开。</summary>
@@ -88,7 +100,11 @@ public sealed partial class WindowWanfaConstructionEditor
             return (5, parts.IndexOf(node), 0, index);
         }
         if (location == "root" || location.StartsWith("root/", StringComparison.Ordinal))
-            return (0, parts.IndexOf(DeclarationNode(constructionIssue.Declaration ?? location)), -1, -1);
+            return (location.EndsWith("/Anchor", StringComparison.Ordinal) ? 3 :
+                location.Contains("/Impact/") ? 4 : 0, parts.IndexOf(DeclarationNode(constructionIssue.Declaration ?? location)), -1, -1);
+        if (location == "Resource" || location == "InventoryAging" || location.StartsWith("Inventory/", StringComparison.Ordinal))
+            return (location == "InventoryAging" ? 4 : 0, -1, -1, -1);
+        if (location.StartsWith("构造/Impact/", StringComparison.Ordinal)) return (4, -1, -1, -1);
         if (location.StartsWith("Binding/", StringComparison.Ordinal)) return (3, -1, -1, -1);
         if (location.StartsWith("Body/", StringComparison.Ordinal)) return (2, -1, -1, -1);
         return null;

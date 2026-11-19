@@ -164,8 +164,8 @@ internal sealed partial class BodyActionBinding
                 throw new InvalidDataException("Body/Construction/Relations/" + relation.Id + "：尚无该实际部位的接触适配");
         }
 
-        ConstructionReferences.Resolve("Body/Effector/hand", () => FormResources.Load("hand"));
-        ConstructionReferences.Resolve("Body/Effector/limb", () => FormResources.Load("limb"));
+        ConstructionReferences.Resolve("Body/Effector/hand", () => FormResources.Load("hand"), "Form", "hand");
+        ConstructionReferences.Resolve("Body/Effector/limb", () => FormResources.Load("limb"), "Form", "limb");
         var contactResource = FormResources.Load(action.WeaponForm ?? "hand");
         foreach (var relation in action.Construction.Relations.Where(r =>
                      r.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect or BodyRelationKind.Disarm))
@@ -180,8 +180,8 @@ internal sealed partial class BodyActionBinding
 
         if (action.WeaponForm == null) return;
         FormResource form =
-            ConstructionReferences.Resolve("Body/WeaponForm", () => FormResources.Load(action.WeaponForm));
-        ConstructionReferences.Resolve("Body/Grip", () => form.Grip(action.Grip));
+            ConstructionReferences.Resolve("Body/WeaponForm", () => FormResources.Load(action.WeaponForm), "Form", action.WeaponForm);
+        ConstructionReferences.Resolve("Body/Grip", () => form.Grip(action.Grip), "Grip", form.Description.Id + " / " + action.Grip);
         if (form.Description.Held.Groups.Length == 0)
             throw new InvalidDataException("Body/WeaponForm：资源未声明可对应的实际装备类型：" + action.WeaponForm);
     }

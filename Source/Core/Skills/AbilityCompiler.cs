@@ -581,7 +581,7 @@ public static partial class AbilityCompiler
     internal static void ValidateMatterSurface(AbilityMatter matter, bool follows, string path)
     {
         string surface = follows ? matter.EditedSurface : matter.Surface;
-        if (surface != null) ConstructionReferences.Resolve(path, () => FormResources.Surface(surface, true));
+        if (surface != null) ConstructionReferences.Resolve(path, () => FormResources.Surface(surface, true), "Surface", surface);
     }
 
     /// <summary>同一世界可共用的完整资料缓存；内容不同也不会误用相同修订号。</summary>
@@ -811,9 +811,9 @@ public static partial class AbilityCompiler
         float appear = node.AppearAt ?? 0f, disappear = node.DisappearAt ?? lifetime;
         if (!Finite(appear) || !Finite(disappear) || appear < 0f || disappear <= appear || disappear > lifetime)
             Fail(path, "存在时段须从零至施放结束，结束必须晚于开始");
-        FormResource resource = ConstructionReferences.Resolve(path + "/Form", () => FormResources.Load(node.Form));
+        FormResource resource = ConstructionReferences.Resolve(path + "/Form", () => FormResources.Load(node.Form), "Form", node.Form, declarationPath);
         if (node.Surface != null)
-            ConstructionReferences.Resolve(path + "/Surface", () => FormResources.Surface(node.Surface, true));
+            ConstructionReferences.Resolve(path + "/Surface", () => FormResources.Surface(node.Surface, true), "Surface", node.Surface, declarationPath);
         AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, path + "/Matter");
         if (node.Correspondence != null && node.ContactRole == ConstructionContactRole.Decoration)
             Fail(path + "/Correspondence", "装饰部位没有真实交锋形状，不能传递映像作用");
@@ -984,7 +984,7 @@ public static partial class AbilityCompiler
                 case ConstructionOperationKind.Animate:
                     if (string.IsNullOrWhiteSpace(operation.Clip) || operation.Seconds < 0f) Fail(path, "动作名称或时长无效");
                     compiled.Motion = ConstructionReferences.Resolve(operationPath + "/Clip",
-                        () => resource.Rig.Motion(operation.Clip));
+                        () => resource.Rig.Motion(operation.Clip), "Motion", node.Form + " / " + operation.Clip, declarationPath);
                     compiled.MotionAt = operation.At;
                     compiled.MotionSpeed = operation.Seconds == 0 ? 1f : compiled.Motion.Duration / operation.Seconds;
                     if (operation.Hold != null)
@@ -1004,8 +1004,7 @@ public static partial class AbilityCompiler
                     break;
                 case ConstructionOperationKind.ConvertMatter:
                     if (changes.Count >= 16) Fail(path, "每部位物态变化不能超过16项");
-                    AbilityMatter target = AbilityMatters.Resolve(operation.Matter, operation.State,
-                        path + "/ConvertMatter[" + changes.Count + "]");
+                    AbilityMatter target = AbilityMatters.Resolve(operation.Matter, operation.State, operationPath + "/Matter");
                     ValidateMatterSurface(target, node.FollowMatter, operationPath + "/Matter/Surface");
                     changes.Add(new CompiledMatterChange(operation.At, operation.Trigger, target,
                         operation.WorldMatter == null
@@ -1036,10 +1035,10 @@ public static partial class AbilityCompiler
             compiled.ShapeActiveUntil = !string.IsNullOrEmpty(node.ActiveUntilMarker);
             if (compiled.Motion != null && compiled.ShapeActiveFrom)
                 compiled.Active.x = compiled.MotionAt + ConstructionReferences.Resolve(path + "/ActiveFromMarker",
-                    () => compiled.Motion.MarkerTime(node.ActiveFromMarker)) / compiled.MotionSpeed;
+                    () => compiled.Motion.MarkerTime(node.ActiveFromMarker), "Marker", node.ActiveFromMarker, declarationPath) / compiled.MotionSpeed;
             if (compiled.Motion != null && compiled.ShapeActiveUntil)
                 compiled.Active.y = compiled.MotionAt + ConstructionReferences.Resolve(path + "/ActiveUntilMarker",
-                    () => compiled.Motion.MarkerTime(node.ActiveUntilMarker)) / compiled.MotionSpeed;
+                    () => compiled.Motion.MarkerTime(node.ActiveUntilMarker), "Marker", node.ActiveUntilMarker, declarationPath) / compiled.MotionSpeed;
             if (compiled.Active.x > compiled.Active.y || compiled.Active.x > lifetime || compiled.Active.y > lifetime)
                 Fail(path, "动作阶段超出施放时长或结束早于开始");
         }
@@ -1090,9 +1089,10 @@ public static partial class AbilityCompiler
                     ? item.Id.StartsWith(selector, StringComparison.Ordinal)
                     : item.Id == selector).ToArray();
                 if (matches.Length == 0)
-                    Fail(childPath + "/Anchor",
+                    throw ConstructionReferences.Error(childPath + "/Anchor",
                         "父形体" + node.Form + "没有挂点：" + child.Anchor + "；可用挂点：" +
-                        string.Join("、", resource.Anchors.Select(point => point.Id)));
+                        string.Join("、", resource.Anchors.Select(point => point.Id)),
+                        declaration: declarationPath + "/" + child.Id, resourceKind: "Anchor", resourceId: node.Form + " / " + child.Anchor);
             }
             foreach (FormAnchorBinding point in matches)
             {

@@ -122,6 +122,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
         UiTooltip.Set(replaceButton.gameObject, "Cultiway.Construction.Replace", "Cultiway.Construction.ReplaceHint");
         menu = new UiOptionMenu(BackgroundTransform, canvas, context.ScrollbarTemplate, new UiOptionMenuConfig
         {
+            SearchThreshold = 0,
             SearchPlaceholder = "Cultiway.Construction.Search",
             EmptyText = "Cultiway.Construction.Empty",
             CloseText = "Cultiway.Construction.Close",
@@ -205,6 +206,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
             copyButton.interactable = valid && HasLearner;
             replaceButton.interactable = copyButton.interactable && access.List(learner.GetExtend()).Any(e => e.Id == session.SourceId);
             rows.Clear(); tabs.SetSelected(page);
+            if (ShowMissingForm()) return;
             if (page == 0) Properties(); else if (page == 1) PathPage(); else if (page == 2) BodyPage(); else if (page == 3) PlacementPage(); else if (page == 4) ImpactPage(); else StepsPage();
         }
         finally { refreshing = false; }
@@ -215,7 +217,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
     /// <summary>从真实部位生成友好的选择名称。</summary>
     /// <param name="index">草稿部位索引。</param>
     private string PartName(int index) => string.Format(T(index == 0 ? "RootPart" : "ChildPart"),
-        LocalizedTextManager.getText("Cultiway.Construction.Form." + parts[index].Form), index);
+        FormLabel(parts[index].Form), index);
 
     /// <summary>从所有实际部位中选择，不将展开的挂点集合误当成另一份资料。</summary>
     private void ChoosePart() => menu.Show(T("Part"), parts.Select((node, index) => new UiOptionMenuOption
@@ -230,11 +232,11 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
             return new UiOptionMenuOption
             {
                 Label = a.getName(),
-                SearchText = a.getName() + " " + a.asset.id.Localize(),
+                SearchText = a.getName() + " " + LMTools.GetOrFallback(a.asset.id, "") + " " + a.asset.id,
                 Selected = HasLearner && learnerId == id,
                 Select = () => { learner = World.world.units.get(id); learnerId = id; Refresh(); }
             };
-        }).ToArray(), true);
+        }).ToArray(), true, "Cultiway.Construction.EmptyLearners");
     }
 
     /// <summary>修改草稿并保留最多64步历史。</summary>

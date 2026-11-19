@@ -126,7 +126,7 @@ public static class ConstructionWorldActions
     internal static ConstructionWorldAction Resolve(string id, string path) =>
         id != null && actions.TryGetValue(id, out var action)
             ? action
-            : throw new InvalidDataException(path + "：尚未登记世界操作：" + id);
+            : throw ConstructionReferences.Error(path, "尚未登记世界操作：" + id, resourceKind: "WorldAction", resourceId: id);
 }
 
 /// <summary>已经复制和解析的地块接触规则。</summary>

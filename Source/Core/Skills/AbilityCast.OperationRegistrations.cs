@@ -158,7 +158,7 @@ public sealed partial class AbilityCast
     {
         var source = c.Source;
         if (string.IsNullOrWhiteSpace(source.Clip) || source.Seconds < 0) throw new InvalidDataException(c.Path + "：动作名称或历时无效");
-        var motion = ConstructionReferences.Resolve(c.Path + "/Clip", () => c.Resource.Rig.Motion(source.Clip));
+        var motion = ConstructionReferences.Resolve(c.Path + "/Clip", () => c.Resource.Rig.Motion(source.Clip), "Motion", c.Resource.Description.Id + " / " + source.Clip);
         float speed = source.Seconds == 0 ? 1f : motion.Duration / source.Seconds, blend = source.BlendSeconds ?? .15f;
         var hold = new CompiledConstructionHold(source.Hold, c.Lifetime, c.Path + "/Hold");
         if (source.Hold != null && source.At + (source.When?.Delay ?? 0f) + hold.At + hold.Seconds > (c.Node.DisappearAt ?? c.Lifetime) + .000001f)
@@ -166,8 +166,8 @@ public sealed partial class AbilityCast
         if (source.Hold != null && hold.At > motion.Duration / speed) throw new InvalidDataException(c.Path + "/Hold：维持时点超过本次动作长度");
         if (float.IsNaN(speed) || float.IsInfinity(speed) || motion.MaximumAngularRate * speed > 7200f || float.IsNaN(blend) || float.IsInfinity(blend) || blend <= 0 || blend > c.Lifetime)
             throw new InvalidDataException(c.Path + "：动作速度或姿态过渡历时无效，过渡须为正数");
-        float from = string.IsNullOrEmpty(c.Node.ActiveFromMarker) ? -1f : ConstructionReferences.Resolve(c.Path + "/ActiveFromMarker", () => motion.MarkerTime(c.Node.ActiveFromMarker));
-        float until = string.IsNullOrEmpty(c.Node.ActiveUntilMarker) ? -1f : ConstructionReferences.Resolve(c.Path + "/ActiveUntilMarker", () => motion.MarkerTime(c.Node.ActiveUntilMarker));
+        float from = string.IsNullOrEmpty(c.Node.ActiveFromMarker) ? -1f : ConstructionReferences.Resolve(c.Path + "/ActiveFromMarker", () => motion.MarkerTime(c.Node.ActiveFromMarker), "Marker", c.Node.ActiveFromMarker);
+        float until = string.IsNullOrEmpty(c.Node.ActiveUntilMarker) ? -1f : ConstructionReferences.Resolve(c.Path + "/ActiveUntilMarker", () => motion.MarkerTime(c.Node.ActiveUntilMarker), "Marker", c.Node.ActiveUntilMarker);
         if (from >= 0 && until >= 0 && from > until) throw new InvalidDataException(c.Path + "：当前动作阶段顺序相反");
         return new CompiledMotionParameters(motion, speed, blend, hold, from, until);
     }

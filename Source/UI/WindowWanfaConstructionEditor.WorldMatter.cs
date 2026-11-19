@@ -11,7 +11,7 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <param name="operation">当前独立草稿中的真实操作。</param>
     private void MatterConversionParameters(ConstructionNode node, ConstructionOperation operation)
     {
-        Choice("ProcessMatter", MaterialName(AbilityMatters.Resolve(operation.Matter, operation.State, "过程输出")), () =>
+        Choice("ProcessMatter", MaterialName(operation.Matter, operation.State), () =>
             menu.Show(T("ProcessMatter"),
                 AbilityMatters.All.Select(matter => new UiOptionMenuOption
                 {
@@ -46,7 +46,7 @@ public sealed partial class WindowWanfaConstructionEditor
         if (selection.FromMatter != null)
         {
             Choice("WorldMatterFrom",
-                MaterialName(AbilityMatters.Resolve(selection.FromMatter, selection.FromState, "来源筛选")), () =>
+                MaterialName(selection.FromMatter, selection.FromState), () =>
                     menu.Show(T("WorldMatterFrom"),
                         materials.Select(matter => new UiOptionMenuOption
                         {
@@ -61,7 +61,7 @@ public sealed partial class WindowWanfaConstructionEditor
                         }).ToArray(), true));
             Toggle("WorldMatterAnyState", selection.FromState == null,
                 enabled => selection.FromState =
-                    enabled ? null : AbilityMatters.Resolve(selection.FromMatter, null, "来源物态").State);
+                    enabled || !AbilityMatters.TryResolve(selection.FromMatter, null, out var standard) ? null : standard.State);
         }
 
         Toggle("WorldMatterOwned", selection.OwnedOnly, enabled => selection.OwnedOnly = enabled);
