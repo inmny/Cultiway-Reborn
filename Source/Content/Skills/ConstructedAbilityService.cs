@@ -759,6 +759,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ClearShadows();
         soulPacts.Clear();
         soulPactTransfers.Clear();
+        simulation.observedSignals.Clear();
         ClearConductionVisuals();
         ClearContactDebug();
         contactVolumes.Clear();

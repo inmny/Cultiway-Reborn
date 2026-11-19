@@ -1,4 +1,5 @@
 using System;
+using Cultiway.Core.Combat.Tactical;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -42,6 +43,8 @@ public sealed class ConstructionWorldReceipt
     public double WorldTime { get; }
     /// <summary>直接送达的内容；其他回执为空。</summary>
     public ConstructionSignalKind? Signal { get; }
+    /// <summary>送达时冻结的亲历方位；没有观察内容的讯号留空。</summary>
+    public CombatReportedContact? Observation { get; }
     /// <summary>直接送达的实际发送者；其他回执为零。</summary>
     public long SenderId { get; }
     /// <summary>真实转交或转换记录编号，不保存对象引用。</summary>
@@ -88,10 +91,10 @@ public sealed class ConstructionWorldReceipt
     /// <param name="signal">实际登记的讯号内容。</param><param name="senderId">实际发信人。</param>
     internal ConstructionWorldReceipt(ConstructionWorldResultKind kind, int node, double clock, int sequence = 1, long[] materials = null, long[] targets = null,
         double volume = 0, double resource = 0, double requested = 0, double granted = 0, int cells = 0, float spent = 0, float remaining = 0, ConstructionWorldReceipt previous = null, long[] materialIdentities = null, string[] items = null, double erodedVolume = 0, double erodedResource = 0, Vector3? destination = null,
-        ConstructionSignalKind? signal = null, long senderId = 0)
+        ConstructionSignalKind? signal = null, long senderId = 0, CombatReportedContact? observation = null)
     {
         Kind = kind; Node = node; WorldTime = clock; Sequence = sequence; Destination = destination;
-        Signal = signal; SenderId = senderId;
+        Signal = signal; SenderId = senderId; Observation = observation;
         Items = Array.AsReadOnly(items == null ? Array.Empty<string>() : (string[])items.Clone());
         Materials = Array.AsReadOnly(materials == null ? Array.Empty<long>() : (long[])materials.Clone());
         MaterialIdentities = Array.AsReadOnly((long[])(materialIdentities ?? materials ?? Array.Empty<long>()).Clone());
@@ -107,7 +110,7 @@ public sealed class ConstructionWorldReceipt
     {
         Items = source.Items; Destination = source.Destination; ErodedVolume = source.ErodedVolume; ErodedResource = source.ErodedResource;
         Kind = source.Kind; Node = node < 0 ? source.Node : node; WorldTime = source.WorldTime; Sequence = source.Sequence;
-        Signal = source.Signal; SenderId = source.SenderId;
+        Signal = source.Signal; SenderId = source.SenderId; Observation = source.Observation;
         Materials = source.Materials; MaterialIdentities = source.MaterialIdentities; Targets = source.Targets; Volume = source.Volume; Resource = source.Resource;
         Requested = source.Requested; Granted = source.Granted; Cells = source.Cells; Spent = source.Spent; Remaining = source.Remaining; Previous = previous;
     }

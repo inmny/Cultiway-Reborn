@@ -1,3 +1,4 @@
+using Cultiway.Core.SkillLibV3.Effects;
 using System;
 using System.Collections.Generic;
 using Cultiway.Const;
@@ -190,6 +191,8 @@ internal sealed class CombatObservation
 internal sealed class CombatActorRuntime
 {
     internal readonly Dictionary<long, CombatObservation> Observations = new();
+    internal CombatObservation LastConfirmedContact, ReportedContact;
+    internal double ReportedUntil;
     internal readonly Dictionary<long, double> RecentAttackers = new();
     internal readonly Dictionary<CombatThreatKey, CombatThreatSignal> IncomingThreats = new();
     internal readonly Dictionary<CombatActionKey, double> Cooldowns = new();
@@ -400,7 +403,7 @@ internal static class CombatObservationService
         shared?.Decay(now);
         if (own == null)
         {
-            own = CopySharedObservation(shared);
+            own = CopyObservation(shared);
             personal.Observations[targetId] = own;
             Trim(personal.Observations, TacticalCombatSettings.PersonalObservationLimit, targetId);
             return own;
@@ -463,6 +466,8 @@ internal static class CombatObservationService
             observation.EstimatedPower *= ineffective ? 1.12f : 1.04f;
         }
         observation.Confidence = Mathf.Clamp01(observation.Confidence + (ineffective ? 0.08f : 0.05f));
+        if (!ineffective && damage > 0f && SkillTargetRelationResolver.HasHostileRelation(attacker, target))
+            attackerRuntime.LastConfirmedContact = CopyObservation(observation, attackerRuntime.LastConfirmedContact);
         return observation;
     }
 
@@ -496,25 +501,24 @@ internal static class CombatObservationService
     }
 
     /// <summary>将军团情报复制为个人记忆，避免后续个人衰减直接修改共享对象。</summary>
-    private static CombatObservation CopySharedObservation(CombatObservation shared)
+    internal static CombatObservation CopyObservation(CombatObservation source, CombatObservation copy = null)
     {
-        return new CombatObservation
-        {
-            TargetObject = shared.TargetObject,
-            TargetId = shared.TargetId,
-            LastPosition = shared.LastPosition,
-            LastHealthRatio = shared.LastHealthRatio,
-            LastSize = shared.LastSize,
-            LastAirborne = shared.LastAirborne,
-            LastObservedAt = shared.LastObservedAt,
-            LastLocationAt = shared.LastLocationAt,
-            EstimatedPower = shared.EstimatedPower,
-            Confidence = shared.Confidence,
-            AttackAttempts = shared.AttackAttempts,
-            EffectiveHits = shared.EffectiveHits,
-            EffectiveDamage = shared.EffectiveDamage,
-            LastHitIneffective = shared.LastHitIneffective
-        };
+        copy ??= new CombatObservation();
+        copy.TargetObject = source.TargetObject;
+        copy.TargetId = source.TargetId;
+        copy.LastPosition = source.LastPosition;
+        copy.LastHealthRatio = source.LastHealthRatio;
+        copy.LastSize = source.LastSize;
+        copy.LastAirborne = source.LastAirborne;
+        copy.LastObservedAt = source.LastObservedAt;
+        copy.LastLocationAt = source.LastLocationAt;
+        copy.EstimatedPower = source.EstimatedPower;
+        copy.Confidence = source.Confidence;
+        copy.AttackAttempts = source.AttackAttempts;
+        copy.EffectiveHits = source.EffectiveHits;
+        copy.EffectiveDamage = source.EffectiveDamage;
+        copy.LastHitIneffective = source.LastHitIneffective;
+        return copy;
     }
 
     internal static void RemoveExpired(

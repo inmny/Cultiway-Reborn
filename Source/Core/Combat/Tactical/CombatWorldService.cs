@@ -1307,6 +1307,10 @@ public static partial class CombatWorldService
                 ref scannedCandidates);
         }
 
+        if (runtime.ReportedContact is { } report && ReportedFor(runtime, report.TargetId, now) != null)
+            AddEnemyCandidate(actor, report.TargetObject, runtime, armyRuntime, threatContexts, now,
+                explicitlyVisible: false, cap, selected, ref scannedCandidates);
+
         IReadOnlyList<BaseSimObject> primary = primaryCandidates ??
                                                EnemiesFinder.findEnemiesFrom(
                                                        actor.current_tile,
@@ -1397,10 +1401,11 @@ public static partial class CombatWorldService
         BaseSimObject target,
         bool visible,
         CombatActorRuntime runtime,
-        CombatGroupRuntime armyRuntime)
+        CombatGroupRuntime armyRuntime, double now)
     {
         long targetId = target.getID();
         if (visible) return target.current_position;
+        if (ReportedFor(runtime, targetId, now) is { } report) return report.LastPosition;
         if (runtime.Observations.TryGetValue(targetId, out CombatObservation personal))
             return personal.LastPosition;
         if (armyRuntime != null &&
@@ -1444,7 +1449,7 @@ public static partial class CombatWorldService
         float severity = hasThreat ? threat.Signal.Severity : 0f;
         Vector2 knownPosition = hasThreat && !visible
             ? threat.Signal.AttackerPosition
-            : ResolveKnownPosition(candidate, visible, runtime, armyRuntime);
+            : ResolveKnownPosition(candidate, visible, runtime, armyRuntime, now);
         var entry = new EnemyCandidateEntry(
             candidate,
             id,
@@ -1520,7 +1525,8 @@ public static partial class CombatWorldService
             bool hasThreat = threatContexts.TryGetValue(
                 enemy.getID(),
                 out CombatThreatContext threatContext);
-            CombatObservation observation = visible || !hasThreat
+            CombatObservation observation = !visible && !hasThreat ? ReportedFor(runtime, enemy.getID(), now) : null;
+            observation ??= visible || !hasThreat
                 ? CombatObservationService.ResolveKnown(
                     runtime,
                     armyRuntime,

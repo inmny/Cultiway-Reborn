@@ -173,7 +173,7 @@ public static class ConstructionPresentation
                 lines.Add(F("EquipmentRepair", targets, L("Cultiway.Construction.EquipmentSlot." + repair.Slot),
                     repair.MaterialInput, repair.Durability));
             if (impact.Signal is { } signal)
-                lines.Add(F("Signal", targets, signal.Asset.GetName(), signal.Duration));
+                lines.Add(F("Signal", targets, signal.DisplayName, signal.Duration));
             foreach (var conditional in impact.ConditionalContacts)
                 if (conditional.RequiredStatus != null)
                     lines.Add(F("RequiredStatus", targets, conditional.RequiredStatus.GetName()));
@@ -282,7 +282,7 @@ public static class ConstructionPresentation
                            T(retiming.World.OwnedOnly ? "OwnWorldMaterials" : "AnyWorldMaterials")) +
                        (retiming.Pace == null ? " " + T("RestoreProcessTime") : ProcessTimeDescription(retiming.Pace));
             case CompiledConstructionSignal signal when kind == ConstructionOperationKind.SendSignal:
-                return F("DirectSignal", signal.Asset.GetName(), signal.Duration);
+                return F("DirectSignal", signal.DisplayName, signal.Duration);
             case float radius when kind is ConstructionOperationKind.MapSpace or ConstructionOperationKind.MapArtifact:
                 return F("Mapping." + kind, radius);
             case ValueTuple<float, int?, float> mapping when kind == ConstructionOperationKind.MapActor:

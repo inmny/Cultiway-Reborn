@@ -1,0 +1,98 @@
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+var source = Make(64);
+var recipient = Make(72);
+var bystander = Make(68);
+var enemy = Make(67, "wolf");
+recipient.setKingdom(source.kingdom);
+bystander.setKingdom(source.kingdom);
+var manaStats = new BaseStats(); manaStats["mana"] = 100;
+var mana = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ObservedSignal.Mana") ??
+           Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ObservedSignal.Mana")
+               .SetStats(manaStats).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, mana, 10000, source);
+source.updateStats();
+var receipts = new List<ConstructedSignalReceipt>();
+var tactician = typeof(CombatWorldService);
+var actors = (IDictionary)tactician.GetField("ActorStates", F).GetValue(null);
+void Received(ConstructedSignalReceipt value) { if (value.Kind == ConstructionSignalKind.ObservedContact) receipts.Add(value); }
+ConstructedAbilityService.SignalReceived += Received;
+
+FormVisualInstance[] Tablets() => FormVisualScene.Instances.Where(value => value.Resource.Description.Id == "signal_sight_tablet").ToArray();
+object ReceiverObservation(Actor actor) => !actors.Contains(actor.id) ? null : Field(actors[actor.id], "ReportedContact");
+object ReportedFor(Actor actor) => !actors.Contains(actor.id) ? null : tactician.GetMethod("ReportedFor", F)
+    .Invoke(null, new object[] { actors[actor.id], enemy.id, World.world.getCurWorldTime() });
+Vector2 ChosenPosition(Actor actor) => (Vector2)tactician.GetMethod("ResolveKnownPosition", F)
+    .Invoke(null, new object[] { enemy, false, actors[actor.id], null, World.world.getCurWorldTime() });
+
+async Task<AbilityCast> Send()
+{
+    source.setMana(80);
+    await Fire(definition, source, recipient, aggro:false);
+    Check(Mathf.Abs(80f - source.getMana() - definition.Cost) < .01f, "经正式入口按一次施放扣除法力");
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    return ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Select(record => (AbilityCast)Field(record, "Cast")).Last(cast => cast.Plan.Id == definition.Id);
+}
+
+void MakeRealContact(Actor observer)
+{
+    observer.addAggro(enemy);
+    int before = enemy.data.health;
+    var element = ElementComposition.Static.Iron;
+    enemy.GetExtend().GetHit(28f, ref element, observer, AttackType.Weapon, ignore_damage_reduction: true,
+        attacker_power_level_override: observer.GetExtend().GetPowerLevel());
+    Check(before > enemy.data.health, "发信者参与一次真实交战，记录来自实际受击位置");
+}
+
+try
+{
+    var empty = await Send();
+    await Advance(.32f);
+    Check(empty.StepStateOf("send") == ConstructionStepState.Interrupted && receipts.Count == 0 &&
+        Tablets().Length == 0 && ReceiverObservation(recipient) == null,
+        "没有交战记录，正式送达不中造节点或情报");
+    await Advance(.62f);
+
+    Place(enemy, 66, 75);
+    MakeRealContact(source);
+    Vector2 observed = enemy.current_position;
+    Place(enemy, 106, 72);
+    recipient.addAggro(enemy);
+    Check(!(bool)tactician.GetMethod("IsInsideSightChunks", F).Invoke(null, new object[] { recipient, enemy }),
+        "目标已离开收件者的直接视野范围");
+    var sent = await Send();
+    await Advance(.38f);
+    Check(sent.TryGetOutput("send", "delivered", out var result) && receipts.Count == 1 &&
+        receipts[0].Observation.HasValue && result.Receipt.Observation.HasValue,
+        "一次正式送达发布同一份实际方位回执", new { state = sent.StepStateOf("send").ToString(), count = receipts.Count });
+    var report = receipts[0].Observation.Value;
+    Check(report.SubjectId == enemy.id && report.Position == observed && report.Position != enemy.current_position &&
+        result.Receipt.Observation.Value.Position == report.Position && receipts[0].RecipientId == recipient.id &&
+        ReceiverObservation(bystander) == null && ChosenPosition(recipient) == observed,
+        "收件者的实际战术采样只得到旧坐标，邻近友方没有收件", new { x = report.Position.x, y = report.Position.y });
+    Check(Tablets().Any(mark => Vector2.Distance(new Vector2(mark.Transform.m03, mark.Transform.m13), observed) < .20f) &&
+        Tablets().Any(mark => mark.Transform.m03 > 64.2f && mark.Transform.m03 < 71.8f && mark.Tint?.b == .38f) &&
+        Tablets().All(mark => mark.Transform.m03 < 78), "旧方位、发收两端和实体传递均来自实际收件");
+
+    await Advance(.28f);
+    Place(enemy, 93, 76);
+    MakeRealContact(recipient);
+    Check(ReportedFor(recipient) == null && ChosenPosition(recipient) == enemy.current_position &&
+        ((Vector2)Field(ReceiverObservation(recipient), "LastPosition")) == observed,
+        "新的亲历结果比旧讯号优先，讯号自身不随新坐标改写");
+    await Advance(2.65f);
+    Check(Tablets().Length == 0 && ReportedFor(recipient) == null, "方位有效期结束后只撤掉讯号画面和选敌线索");
+    var expired = await Send();
+    await Advance(.35f);
+    Check(expired.StepStateOf("send") == ConstructionStepState.Interrupted && receipts.Count == 1 && Tablets().Length == 0,
+        "旧交战记录过期后再次施放，不重发也不制造节点");
+    return new { passed = true, observedX = observed.x, observedY = observed.y, recipient = recipient.id };
+}
+finally
+{
+    ConstructedAbilityService.SignalReceived -= Received;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

@@ -1559,6 +1559,8 @@
   "Cultiway.Construction.RepairRules": "Repair rules",
   "Cultiway.Construction.RepairHint": "Repairs the original item in its slot. One material is consumed only when durability increases; unused material is returned.",
   "Cultiway.Construction.SignalKind.Warning": "Warning",
+  "Cultiway.Construction.SignalKind.ObservedContact": "Observed battle position",
+  "Cultiway.Construction.Form.signal_sight_tablet": "Bearing tablet",
   "Cultiway.Construction.SignalKind.Rally": "Rally",
   "Cultiway.Construction.SignalRules": "Delivery rules",
   "Cultiway.Construction.SignalHint": "Delivery requires actual contact. It leaves a temporary status on the recipient that can be checked or removed.",

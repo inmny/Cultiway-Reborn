@@ -301,6 +301,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         AppendLifeRepairs(now);
         AppendShadows(now);
         AppendSoulPactTransfers(now);
+        AppendObservedSignals(now);
         AppendContactVolumes(now);
         AppendMediumLinks(now);
         ConfirmedWorldTime = now;

@@ -1374,10 +1374,11 @@ public sealed partial class AbilityCast
         UpdateSteps();
     }
 
-    /// <summary>空装饰支点只组织后代，其后代全部结束后没有独立显示或作用要继续。</summary>
+    /// <summary>空支点只在自己还负责指定送达时有独立作用。</summary>
     /// <param name="node">实际编译部位。</param>
     private bool HasOwnWork(int node) => Plan.Nodes[node].Resource.Meshes.Length != 0 ||
-                                         Plan.Nodes[node].ContactRole != ConstructionContactRole.Decoration;
+                                         Plan.Nodes[node].ContactRole != ConstructionContactRole.Decoration ||
+                                         Array.Exists(Plan.DirectSignalSteps, index => Plan.Steps[index].Node == node);
 
     /// <summary>结束部位及仍依赖其连接的后代，离开的分支保持存在。</summary>
     /// <param name="node">实际结束的部位。</param>

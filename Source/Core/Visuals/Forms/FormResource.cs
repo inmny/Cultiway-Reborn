@@ -749,6 +749,8 @@ internal sealed partial class FormResourceGeneration
             "entropy_section" => (2f, new Color(.63f, .24f, .54f), .39f),
             "entropy_veil" => (12f, new Color(.30f, .10f, .46f, .55f), .9f),
             "entropy_depth" => (12f, new Color(.045f, .02f, .07f, .78f), .9f),
+            "signal_ceramic" => (2f, new Color(.16f, .52f, .55f), .51f),
+            "signal_gold" => (2f, new Color(.96f, .73f, .32f), .34f),
             "soul_seal_rim" => (2f, new Color(.48f, .45f, .53f), .41f),
             "soul_seal_glass" => (14f, new Color(.88f, .87f, .84f), .28f),
             "time_stamp_slate" => (16f, new Color(.24f, .27f, .34f), .68f),

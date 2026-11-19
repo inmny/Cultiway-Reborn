@@ -1551,6 +1551,8 @@
   "Cultiway.Construction.RepairRules": "修复规则",
   "Cultiway.Construction.RepairHint": "只修原栏位的原装备；有耐久实际恢复才扣一件，未用材料结束后归还。",
   "Cultiway.Construction.SignalKind.Warning": "告警",
+  "Cultiway.Construction.SignalKind.ObservedContact": "交战位置",
+  "Cultiway.Construction.Form.signal_sight_tablet": "方位讯牌",
   "Cultiway.Construction.SignalKind.Rally": "集结",
   "Cultiway.Construction.SignalRules": "收件规则",
   "Cultiway.Construction.SignalHint": "真实接触才送达。在收件人身上留下可读取、可解除的短时状态。",
