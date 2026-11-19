@@ -55,7 +55,7 @@
                 "support.surface"
             ],
             "Id": "leaf_0",
-            "Surface": "restoration_jade",
+            "Surface": "living_leaf",
             "Pivot": [
                 1.0499999523162842,
                 0.0,
@@ -77,7 +77,7 @@
                 "support.surface"
             ],
             "Id": "leaf_1",
-            "Surface": "restoration_jade",
+            "Surface": "living_leaf",
             "Pivot": [
                 0.5249999761581421,
                 0.9093266725540161,
@@ -99,7 +99,7 @@
                 "support.surface"
             ],
             "Id": "leaf_2",
-            "Surface": "restoration_jade",
+            "Surface": "living_leaf",
             "Pivot": [
                 -0.5249999761581421,
                 0.9093266725540161,
@@ -121,7 +121,7 @@
                 "support.surface"
             ],
             "Id": "leaf_3",
-            "Surface": "restoration_jade",
+            "Surface": "living_leaf",
             "Pivot": [
                 -1.0499999523162842,
                 1.2858791290399773e-16,
@@ -143,7 +143,7 @@
                 "support.surface"
             ],
             "Id": "leaf_4",
-            "Surface": "restoration_jade",
+            "Surface": "living_leaf",
             "Pivot": [
                 -0.5249999761581421,
                 -0.9093266725540161,
@@ -165,7 +165,7 @@
                 "support.surface"
             ],
             "Id": "leaf_5",
-            "Surface": "restoration_jade",
+            "Surface": "living_leaf",
             "Pivot": [
                 0.5249999761581421,
                 -0.9093266725540161,
@@ -187,7 +187,7 @@
                 "support.surface"
             ],
             "Id": "heart",
-            "Surface": "purification_pearl",
+            "Surface": "living_sap",
             "Pivot": [
                 0.0,
                 0.0,
@@ -195,6 +195,138 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/rejuvenation_bloom_heart.asset",
             "Control": "heart",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/rejuvenation_bloom_sap_0_mid.asset",
+                "Assets/Cultiway/Forms/rejuvenation_bloom_sap_0_far.asset"
+            ],
+            "Roles": [
+                "support.surface"
+            ],
+            "Id": "sap_0",
+            "Surface": "living_sap",
+            "Pivot": [
+                1.0499999523162842,
+                0.0,
+                0.23999999463558198
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/rejuvenation_bloom_sap_0.asset",
+            "Control": "leaf_0",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/rejuvenation_bloom_sap_1_mid.asset",
+                "Assets/Cultiway/Forms/rejuvenation_bloom_sap_1_far.asset"
+            ],
+            "Roles": [
+                "support.surface"
+            ],
+            "Id": "sap_1",
+            "Surface": "living_sap",
+            "Pivot": [
+                0.5249999761581421,
+                0.9093266725540161,
+                0.23999999463558198
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/rejuvenation_bloom_sap_1.asset",
+            "Control": "leaf_1",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/rejuvenation_bloom_sap_2_mid.asset",
+                "Assets/Cultiway/Forms/rejuvenation_bloom_sap_2_far.asset"
+            ],
+            "Roles": [
+                "support.surface"
+            ],
+            "Id": "sap_2",
+            "Surface": "living_sap",
+            "Pivot": [
+                -0.5249999761581421,
+                0.9093266725540161,
+                0.23999999463558198
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/rejuvenation_bloom_sap_2.asset",
+            "Control": "leaf_2",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/rejuvenation_bloom_sap_3_mid.asset",
+                "Assets/Cultiway/Forms/rejuvenation_bloom_sap_3_far.asset"
+            ],
+            "Roles": [
+                "support.surface"
+            ],
+            "Id": "sap_3",
+            "Surface": "living_sap",
+            "Pivot": [
+                -1.0499999523162842,
+                1.2858791290399773e-16,
+                0.23999999463558198
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/rejuvenation_bloom_sap_3.asset",
+            "Control": "leaf_3",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/rejuvenation_bloom_sap_4_mid.asset",
+                "Assets/Cultiway/Forms/rejuvenation_bloom_sap_4_far.asset"
+            ],
+            "Roles": [
+                "support.surface"
+            ],
+            "Id": "sap_4",
+            "Surface": "living_sap",
+            "Pivot": [
+                -0.5249999761581421,
+                -0.9093266725540161,
+                0.23999999463558198
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/rejuvenation_bloom_sap_4.asset",
+            "Control": "leaf_4",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/rejuvenation_bloom_sap_5_mid.asset",
+                "Assets/Cultiway/Forms/rejuvenation_bloom_sap_5_far.asset"
+            ],
+            "Roles": [
+                "support.surface"
+            ],
+            "Id": "sap_5",
+            "Surface": "living_sap",
+            "Pivot": [
+                0.5249999761581421,
+                -0.9093266725540161,
+                0.23999999463558198
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/rejuvenation_bloom_sap_5.asset",
+            "Control": "leaf_5",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -373,14 +505,14 @@
                 1.0
             ],
             "Minimum": [
-                -0.3499999940395355,
-                -0.6122400164604187,
-                0.10000000149011612
+                0.3499999940395355,
+                -0.20489400625228883,
+                0.09600300341844559
             ],
             "Maximum": [
-                2.450000047683716,
-                0.6122400164604187,
-                0.5600000023841858
+                2.390000104904175,
+                0.3951059877872467,
+                0.2199999988079071
             ]
         },
         {
@@ -398,14 +530,14 @@
                 1.0
             ],
             "Minimum": [
-                -0.2924709916114807,
-                -0.3256320059299469,
-                0.10000000149011612
+                0.13453100621700288,
+                0.30310899019241335,
+                0.09600300341844559
             ],
             "Maximum": [
-                1.447605013847351,
-                2.169426918029785,
-                0.5600000023841858
+                1.2592910528182984,
+                2.041533946990967,
+                0.2199999988079071
             ]
         },
         {
@@ -423,14 +555,14 @@
                 1.0
             ],
             "Minimum": [
-                -1.447605013847351,
-                -0.3256320059299469,
-                0.10000000149011612
+                -1.1823749542236329,
+                0.30172500014305117,
+                0.09600300341844559
             ],
             "Maximum": [
-                0.2924709916114807,
-                2.169426918029785,
-                0.5600000023841858
+                -0.1620659977197647,
+                2.0991899967193605,
+                0.2199999988079071
             ]
         },
         {
@@ -448,14 +580,14 @@
                 1.0
             ],
             "Minimum": [
-                -2.450000047683716,
-                -0.6122400164604187,
-                0.10000000149011612
+                -2.390000104904175,
+                -0.3951059877872467,
+                0.09600300341844559
             ],
             "Maximum": [
-                0.3499999940395355,
-                0.6122400164604187,
-                0.5600000023841858
+                -0.3499999940395355,
+                0.20489400625228883,
+                0.2199999988079071
             ]
         },
         {
@@ -473,14 +605,14 @@
                 1.0
             ],
             "Minimum": [
-                -1.447605013847351,
-                -2.169426918029785,
-                0.10000000149011612
+                -1.2592910528182984,
+                -2.041533946990967,
+                0.09600300341844559
             ],
             "Maximum": [
-                0.2924709916114807,
-                0.3256320059299469,
-                0.5600000023841858
+                -0.13453100621700288,
+                -0.30310899019241335,
+                0.2199999988079071
             ]
         },
         {
@@ -498,14 +630,14 @@
                 1.0
             ],
             "Minimum": [
-                -0.2924709916114807,
-                -2.169426918029785,
-                0.10000000149011612
+                0.1620659977197647,
+                -2.0991899967193605,
+                0.09600300341844559
             ],
             "Maximum": [
-                1.447605013847351,
-                0.3256320059299469,
-                0.5600000023841858
+                1.1823749542236329,
+                -0.30172500014305117,
+                0.2199999988079071
             ]
         },
         {
@@ -523,14 +655,14 @@
                 1.0
             ],
             "Minimum": [
-                -0.6600000262260437,
-                -0.6600000262260437,
-                -0.03700000047683716
+                -0.2800000011920929,
+                -0.2800000011920929,
+                0.031199999153614045
             ],
             "Maximum": [
-                0.6600000262260437,
-                0.6600000262260437,
-                0.5569999814033508
+                0.2800000011920929,
+                0.2800000011920929,
+                0.2888000011444092
             ]
         }
     ],
@@ -542,6 +674,7 @@
             "Keys": [
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.0,
                     "Positions": [
                         1.0499999523162842,
@@ -599,6 +732,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.02500000037252903,
                     "Positions": [
                         1.0499999523162842,
@@ -656,6 +790,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.05000000074505806,
                     "Positions": [
                         1.0499999523162842,
@@ -713,6 +848,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.07500000298023224,
                     "Positions": [
                         1.0499999523162842,
@@ -770,6 +906,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.10000000149011612,
                     "Positions": [
                         1.0499999523162842,
@@ -827,6 +964,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.125,
                     "Positions": [
                         1.0499999523162842,
@@ -884,6 +1022,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.15000000596046449,
                     "Positions": [
                         1.0499999523162842,
@@ -941,6 +1080,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.17499999701976777,
                     "Positions": [
                         1.0499999523162842,
@@ -998,6 +1138,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.20000000298023225,
                     "Positions": [
                         1.0499999523162842,
@@ -1055,6 +1196,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.22499999403953553,
                     "Positions": [
                         1.0499999523162842,
@@ -1112,6 +1254,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.25,
                     "Positions": [
                         1.0499999523162842,
@@ -1169,6 +1312,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.2750000059604645,
                     "Positions": [
                         1.0499999523162842,
@@ -1226,6 +1370,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.30000001192092898,
                     "Positions": [
                         1.0499999523162842,
@@ -1283,6 +1428,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.32499998807907107,
                     "Positions": [
                         1.0499999523162842,
@@ -1340,6 +1486,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.3499999940395355,
                     "Positions": [
                         1.0499999523162842,
@@ -1397,6 +1544,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.375,
                     "Positions": [
                         1.0499999523162842,
@@ -1454,6 +1602,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.4000000059604645,
                     "Positions": [
                         1.0499999523162842,
@@ -1511,6 +1660,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.42500001192092898,
                     "Positions": [
                         1.0499999523162842,
@@ -1568,6 +1718,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.44999998807907107,
                     "Positions": [
                         1.0499999523162842,
@@ -1625,6 +1776,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.4749999940395355,
                     "Positions": [
                         1.0499999523162842,
@@ -1682,6 +1834,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.5,
                     "Positions": [
                         1.0499999523162842,
@@ -1739,6 +1892,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.5249999761581421,
                     "Positions": [
                         1.0499999523162842,
@@ -1796,6 +1950,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.550000011920929,
                     "Positions": [
                         1.0499999523162842,
@@ -1853,6 +2008,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.574999988079071,
                     "Positions": [
                         1.0499999523162842,
@@ -1910,6 +2066,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.6000000238418579,
                     "Positions": [
                         1.0499999523162842,
@@ -1967,6 +2124,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.625,
                     "Positions": [
                         1.0499999523162842,
@@ -2024,6 +2182,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.6499999761581421,
                     "Positions": [
                         1.0499999523162842,
@@ -2081,6 +2240,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.675000011920929,
                     "Positions": [
                         1.0499999523162842,
@@ -2138,6 +2298,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.699999988079071,
                     "Positions": [
                         1.0499999523162842,
@@ -2195,6 +2356,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.7250000238418579,
                     "Positions": [
                         1.0499999523162842,
@@ -2252,6 +2414,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.75,
                     "Positions": [
                         1.0499999523162842,
@@ -2309,6 +2472,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.7749999761581421,
                     "Positions": [
                         1.0499999523162842,
@@ -2366,6 +2530,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.800000011920929,
                     "Positions": [
                         1.0499999523162842,
@@ -2423,6 +2588,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.824999988079071,
                     "Positions": [
                         1.0499999523162842,
@@ -2480,6 +2646,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.8500000238418579,
                     "Positions": [
                         1.0499999523162842,
@@ -2537,6 +2704,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.875,
                     "Positions": [
                         1.0499999523162842,
@@ -2594,6 +2762,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.8999999761581421,
                     "Positions": [
                         1.0499999523162842,
@@ -2651,6 +2820,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.925000011920929,
                     "Positions": [
                         1.0499999523162842,
@@ -2708,6 +2878,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.949999988079071,
                     "Positions": [
                         1.0499999523162842,
@@ -2765,6 +2936,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 0.9750000238418579,
                     "Positions": [
                         1.0499999523162842,
@@ -2822,6 +2994,7 @@
                 },
                 {
                     "Build": 1.0,
+                    "Fade": 0.0,
                     "At": 1.0,
                     "Positions": [
                         1.0499999523162842,

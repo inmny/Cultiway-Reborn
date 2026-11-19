@@ -131,6 +131,25 @@
             "HasSurfaceData": false,
             "HasBuildData": false,
             "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "channel.body"
+            ],
+            "Id": "solar_seed",
+            "Surface": "solar_kernel",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/solar_ray_luminous_solar_seed.asset",
+            "Control": "origin",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
         }
     ],
     "Anchors": [
@@ -263,7 +282,7 @@
             "Maximum": [
                 0.27000001072883608,
                 0.15000000596046449,
-                0.15000000596046449
+                0.2931640148162842
             ]
         },
         {

@@ -292,6 +292,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         AppendConductionVisuals(now);
         AppendWindScars(now);
         AppendYinTransfers(now);
+        AppendLifeRepairs(now);
         AppendShadows(now);
         AppendContactVolumes(now);
         AppendMediumLinks(now);
@@ -1187,7 +1188,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             CombatStatusEffects.RemoveStatus(target, effect.RemovedStatus,
                 effect.RemovalOwnSourceOnly ? owner.Actor : null, effect.RemovalMaximum);
         float amount = effect.Health + Mathf.RoundToInt((forceBasis ?? (node < 0 ? running.Power : running.Cast.RemainingForce(node))) * attenuation * effect.HealthPerForce);
-        if (amount > 0f) CombatResourceEffects.RestoreHealth(target, amount);
+        if (amount > 0f) RestoreLivingActor(target, amount);
         if (effect.HealthPerSecond > 0f && target.data.health < target.getMaxHealth() && owner.IsLive)
             CombatStatusEffects.ApplyStrongestTickingStatus(target, StatusEffects.Rejuvenating, effect.Duration,
                 effect.HealthPerSecond, effect.HealthPerSecond, owner.Damage.Element, owner.Actor);

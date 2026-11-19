@@ -1305,6 +1305,7 @@
   "Cultiway.Construction.NodeWorldPerTile": "Part · Maximum per tile (0: unlimited)",
   "Cultiway.Construction.NodeWorldTotal": "Part · Maximum total (0: unlimited)",
   "Cultiway.Construction.WorldAction.nature.grow": "Grow vegetation",
+  "Cultiway.Construction.WorldAction.nature.repair": "Repair damaged living plants",
   "Cultiway.Construction.WorldAction.land.cleanse": "Cleanse land",
   "Cultiway.Construction.WorldAction.crop.mature": "Mature crops",
   "Cultiway.Construction.WorldAction.terrain.raise": "Raise terrain",

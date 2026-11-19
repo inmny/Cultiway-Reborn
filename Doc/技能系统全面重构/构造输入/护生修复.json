@@ -1,0 +1,26 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.LivingRepair",
+  "Name": "护生修复",
+  "Resource": "mana",
+  "Cost": 6,
+  "Cooldown": 2.7,
+  "Lifetime": 2.85,
+  "Power": 1,
+  "TargetRange": 24,
+  "Use": {"Channels": "World", "Target": "Point"},
+  "Binding": {"Anchor": "Target"},
+  "Impact": {
+    "Targets": "Friendly", "DamageScale": 0,
+    "Restoration": {"Health": 31},
+    "WorldEffects": [
+      {"Action": "nature.repair", "MaximumTiles": 6,
+       "Contact": {"Mode": "Interval", "Interval": 0.68, "MaximumPerTarget": 4, "MaximumTotal": 12}}
+    ]
+  },
+  "Root": {
+    "Id": "root", "Form": "rejuvenation_bloom", "Matter": "vitality", "State": "energy", "Scale": 1.4,
+    "Contact": {"Mode": "Interval", "Interval": 0.68, "MaximumPerTarget": 4, "MaximumTotal": 12},
+    "Operations": [{"Kind": "Animate", "Clip": "run"}]
+  }
+}

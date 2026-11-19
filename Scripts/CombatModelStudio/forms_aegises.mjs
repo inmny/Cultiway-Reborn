@@ -10,6 +10,7 @@ export function makeAegises() {
   makeShield('wind_aegis','wind','flow');
   makeShield('lightning_aegis','aegis_lightning','facets');
   makeShield('solar_aegis','aegis_solar','solar');
+  makeSolarRelease();
 }
 
 /** 球面点使用地图竖直轴；焰瓣起伏和风带扭转同时进入网格与接触。 */
@@ -59,6 +60,7 @@ function makeShield(id,surface,kind) {
     const rows=flow?2:10,columns=flow||facets?24:4;
     controls.push({Id:control,Position:[0,0,.65],Rotation:[0,0,0,1]});
     parts.push(wallPart(control,shell(kind,a,b,c,d,rows,columns),surface,[0,0,.65],control));
+    if(kind==='solar') parts[panel].UseMatterSurface=false;
     const longitudes=flow||facets?24:3;
     for(let j=0;j<longitudes;j++)for(let i=0;i<rows;i++) {
       const phi=c+(d-c)*(j+.5)/longitudes;
@@ -69,11 +71,20 @@ function makeShield(id,surface,kind) {
   if(kind==='solar') {
     const control='sun_wheel',radius=1.73,width=.17,index=parts.length;
     controls.push({Id:control,Position:[0,0,.65],Rotation:[0,0,0,1]});
-    parts.push(wallPart(control,new T.TorusGeometry(radius,width,16,64).translate(0,0,.65),surface,[0,0,.65],control));
+    const crown=new T.TorusGeometry(radius,width,16,64).scale(1,1,1.16).translate(0,0,.65);
+    const belt=wallPart(control,crown,'solar_gold',[0,0,.65],control);
+    belt.UseMatterSurface=false;parts.push(belt);
     for(let i=0;i<48;i++) {
       const a=i*Math.PI*2/48,b=(i+1)*Math.PI*2/48;
       contacts.push({Id:`wheel_${i}`,Part:index,A:[radius*Math.cos(a),radius*Math.sin(a),.65],
         B:[radius*Math.cos(b),radius*Math.sin(b),.65],Radius:.15,AControl:control,BControl:control});
+    }
+    controls.push({Id:'solar_kernel',Position:[0,0,.65],Rotation:[0,0,0,1]});
+    for(let i=0;i<4;i++) {
+      const a=i*Math.PI*.5;
+      const g=new T.SphereGeometry(.49,24,16).scale(1,.57,1.26).translate(.18,0,.81).rotateZ(a);
+      const p=wallPart(`core_${i}`,g,i%2?'solar_beam_core':'solar_kernel',[0,0,.65],'solar_kernel');
+      p.UseMatterSurface=false;parts.push(p);
     }
   }
   const run=motion('run',kind==='flame'?.8:1.6,true,controls,40,(i,p)=>({
@@ -84,4 +95,25 @@ function makeShield(id,surface,kind) {
     {Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
     structure('surface','forms_aegises.mjs','makeAegises',{outer:1.90,inner:1.40,centre:.65,vertical:.88,panels},
       Object.fromEntries(parts.map(p=>[p.Id,['barrier.face',kind==='flow'?'wind.flow':kind==='flame'?'fire.body':kind==='solar'?'sun.wheel':facets?'energy.facet':'energy.panel']])),[]));
+}
+
+/** 破层仅留在真实结束点，数片厚甲瓣抬升、翻开后退光，不再成为另一张罩子。 */
+function makeSolarRelease() {
+  const parts=[],controls=[];
+  const duration=.38;
+  for(let i=0;i<5;i++) {
+    const a=(i+.5)*Math.PI*2/5,id=`fragment_${i}`,pivot=[.22*Math.cos(a),.22*Math.sin(a),.20+i*.019];
+    controls.push({Id:id,Position:pivot,Rotation:[0,0,0,1]});
+    const g=new T.SphereGeometry(.28,18,11).scale(1,.42,.36).rotateZ(a).rotateX(.35*Math.sin(a)).translate(...pivot);
+    const p=wallPart(id,g,i%2?'aegis_solar':'solar_gold',pivot,id);p.UseMatterSurface=false;parts.push(p);
+  }
+  const release=motion('release',duration,false,controls,24,(i,p,c)=>{
+    const a=(i+.5)*Math.PI*2/5,drift=.44*(1-(1-p)*(1-p));
+    return {position:[c.Position[0]+Math.cos(a)*drift,c.Position[1]+Math.sin(a)*drift,c.Position[2]+p*.39],
+      rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(Math.sin(a),-Math.cos(a),0),p*.85).toArray()};
+  });
+  const clip={...release,Keys:release.Keys.map(k=>({...k,Fade:T.MathUtils.smoothstep(k.At/duration,0,1)}))};
+  write('solar_scale_release',parts,[],[],controls,[clip],false,{Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
+    structure('articulated','forms_aegises.mjs','makeSolarRelease',{fragments:5},
+      Object.fromEntries(parts.map(p=>[p.Id,['barrier.face','sun.wheel']])),[]));
 }

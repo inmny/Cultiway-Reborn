@@ -1,0 +1,53 @@
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.Blueprints;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Content.Components.Skill;
+using Friflo.Engine.ECS;
+
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+source.setStatsDirty(); source.updateStats();
+var spent = new List<float>();
+void Debit(ActorExtend actor, in WakanMutation mutation)
+{
+    if (actor.Base == source && mutation.Kind == WakanMutationKind.Spend) spent.Add(-mutation.Delta);
+}
+WakanResourceService.RegisterMutationCommitted(Debit);
+var manager = Cultiway.ModClass.I.SkillV3;
+IReadOnlyList<Entity> Learned(Actor a) => (IReadOnlyList<Entity>)typeof(ActorExtend)
+    .GetMethod("GetLearnedSkillsInOrder", F).Invoke(a.GetExtend(), null);
+Entity Learn(Actor a, SkillEntityAsset asset)
+{
+    var builder = new SkillContainerBuilder(asset).UseAnimation(0);
+    if (asset == SkillEntities.RejuvenationField) builder.AddModifier(new RejuvenationModifier { Duration = 3.5f, HealPerSecond = 36f });
+    if (asset == SkillEntities.HealingLight) builder.AddModifier(new HealingModifier { Amount = 35f });
+    var definition = builder.Build(SkillContainerBuildMode.RuleOnly);
+    string signature = SkillContainerSignature.Build(definition);
+    a.GetExtend().LearnSkillV3(definition);
+    return Learned(a).First(s => SkillContainerSignature.Build(s) == signature);
+}
+
+void CastNative(Entity skill, Actor target, Vector3 position)
+{
+    Ready(source); Place(source, 64);
+    if (owner.HasCultisys<Xian>()) owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .85f;
+    var asset = skill.GetComponent<SkillContainer>().Asset;
+    var result = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(target, position, selectionArea: new SkillTargetSelectionArea(true, position, .1f)), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    ControllableUnit.clear(false);
+    Check(result, "正式学习入口受理" + asset.id);
+}
+
+bool Shows(string id) => FormVisualScene.Instances.Any(v => v.Resource.Description.Id == id);
+long LastCast() => seen.Keys.Last();
+
+void StopDebit()
+{
+    var observer = typeof(WakanResourceService).GetField("mutationCommitted", F);
+    observer.SetValue(null, Delegate.Remove((Delegate)observer.GetValue(null), (WakanMutationHandler)Debit));
+}

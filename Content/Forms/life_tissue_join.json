@@ -1,0 +1,179 @@
+{
+    "Structure": {
+        "Kind": "volume",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_support.mjs",
+            "Entry": "makeLifeTissue",
+            "Parameters": [
+                {
+                    "Id": "height",
+                    "Values": [
+                        0.8500000238418579
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "life_tissue_join",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/life_tissue_join_fibre_0_mid.asset",
+                "Assets/Cultiway/Forms/life_tissue_join_fibre_0_far.asset"
+            ],
+            "Roles": [
+                "support.surface"
+            ],
+            "Id": "fibre_0",
+            "Surface": "living_sap",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/life_tissue_join_fibre_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/life_tissue_join_fibre_1_mid.asset",
+                "Assets/Cultiway/Forms/life_tissue_join_fibre_1_far.asset"
+            ],
+            "Roles": [
+                "support.surface"
+            ],
+            "Id": "fibre_1",
+            "Surface": "living_tissue",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/life_tissue_join_fibre_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/life_tissue_join_fibre_2_mid.asset",
+                "Assets/Cultiway/Forms/life_tissue_join_fibre_2_far.asset"
+            ],
+            "Roles": [
+                "support.surface"
+            ],
+            "Id": "fibre_2",
+            "Surface": "living_sap",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/life_tissue_join_fibre_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/life_tissue_join_fibre_3_mid.asset",
+                "Assets/Cultiway/Forms/life_tissue_join_fibre_3_far.asset"
+            ],
+            "Roles": [
+                "support.surface"
+            ],
+            "Id": "fibre_3",
+            "Surface": "living_tissue",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/life_tissue_join_fibre_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/life_tissue_join_fibre_4_mid.asset",
+                "Assets/Cultiway/Forms/life_tissue_join_fibre_4_far.asset"
+            ],
+            "Roles": [
+                "support.surface"
+            ],
+            "Id": "fibre_4",
+            "Surface": "living_sap",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/life_tissue_join_fibre_4.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/life_tissue_join_stitch_mid.asset",
+                "Assets/Cultiway/Forms/life_tissue_join_stitch_far.asset"
+            ],
+            "Roles": [
+                "support.surface"
+            ],
+            "Id": "stitch",
+            "Surface": "living_sap",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/life_tissue_join_stitch.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [],
+    "Controls": [],
+    "Motions": []
+}

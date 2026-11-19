@@ -1517,6 +1517,21 @@ public sealed partial class AbilityCast
                     faded.a = 1f - pose.Fade;
                     dye = faded;
                 }
+                string visualId = Plan.Nodes[i].Resource.Description.Id;
+                if (visualId is "solar_ray_luminous" or "solar_aegis")
+                {
+                    Color faded = dye ?? Color.white;
+                    float age = NodeAge(i), remaining = Plan.Nodes[i].Presence.y - age;
+                    float reveal = Mathf.SmoothStep(.46f, 1f, Mathf.Clamp01(age / .09f));
+                    if (visualId == "solar_aegis")
+                    {
+                        float ratio = nodes[i].InitialForce > 0 ? Mathf.Clamp01(nodes[i].Force / nodes[i].InitialForce) : 0f;
+                        reveal *= .36f + .64f * Mathf.Sqrt(ratio);
+                    }
+                    else reveal *= Mathf.SmoothStep(.11f, 1f, Mathf.Clamp01(remaining / .15f));
+                    faded.a *= reveal;
+                    dye = faded;
+                }
                 output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
                     surface: appearance.Surface,
                     tint: nodes[i].Matter.Id == "fire"

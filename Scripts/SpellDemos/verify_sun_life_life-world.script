@@ -1,0 +1,49 @@
+owner.E.RemoveComponent<Xian>(); owner.NewCultisys(Cultisyses.Magic);
+source.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("white_staff"), pActor: source), source);
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var field = Learn(source, SkillEntities.RejuvenationField);
+var receipts = new List<ConstructedWorldContact>();
+void Receipt(ConstructedWorldContact contact)
+{
+    if (contact.Action=="nature.repair" && contact.SourceId==source.id) receipts.Add(contact);
+}
+ConstructedAbilityService.WorldContactConfirmed += Receipt;
+try
+{
+    victim.setKingdom(source.kingdom); Place(victim,69.25f);
+    var tile = World.world.GetTileSimple(70,72);
+    tile.building?.removeBuildingFinal();
+    Building tree = World.world.buildings.addBuilding("tree_green_1",tile);
+    await Advance(.12f);
+    Check(tree != null && !tree.isRekt() && tree.isAlive(), "复用同一伤员和活木位置");
+    tree.data.health = Math.Max(1,tree.getMaxHealth()/4);
+    int previousHealth=tree.getHealth();
+    victim.data.health=victim.getMaxHealth()-440;
+    int actorHealth=victim.getHealth();
+    int manaBefore = source.getMaxMana(); source.setMana(manaBefore);
+    CastNative(field,victim,victim.GetSimPos());
+    bool seenWood=false, seenTissue=false;
+    for (int i=0; i<45; i++)
+    {
+        await Advance(.06f);
+        seenWood |= Shows("life_wood_graft"); seenTissue |= Shows("life_tissue_join");
+        if (seenWood && seenTissue && Shows("life_wood_graft")) break;
+    }
+    Check(seenWood && seenTissue && receipts.Count>0 && tree.getHealth()>previousHealth && victim.getHealth()>actorHealth && source.getMana()<manaBefore,
+        "原复苏场仍实际消耗法力，原人物逐次恢复，同时给受损活木入账", new { seenWood,seenTissue, receipts=receipts.Count, actorHealth, after=victim.getHealth(), manaBefore, mana=source.getMana() });
+    int gains = receipts.Count; long id=LastCast(); var running=seen[id];
+    Check(!running.Finished && Shows("life_wood_graft"), "在余辉和法术仍活跃时切换世界");
+    World.world.save_manager.loadWorld(fixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(),1800);
+    await Advance(.14f);
+    Check(receipts.Count==gains && !Shows("life_tissue_join") && !Shows("life_wood_graft") && !Shows("rejuvenation_bloom"),
+        "换世界后原施放和已经确认的修复不移到另一个世界");
+    return new { passed=true, nativePlantRepairs=gains, clearedByWorldSwitch=true };
+}
+finally
+{
+    ConstructedAbilityService.WorldContactConfirmed -= Receipt;
+    StopDebit();
+    foreach (var cast in seen.Values) cast.Cancel();
+    ReleaseChecks();
+}
