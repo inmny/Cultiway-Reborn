@@ -2263,3 +2263,28 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中运行 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_five_phases.py --section main --record native`。复用同一块场地；用一招真实来刃打开岩壳，随后对照各相的施放时点、扣血、实际材料和水面边界。可将视角改为 `--record worldfall`，也可改为 `--section reordered` 检查水相之后先金后火。
 
 `--section interrupt` 检查未受拦截、岩壳被打尽和木相打空；`--section quench` 让外来火命中实际水层，核对后续收到的余量；`--section restore` 检查正式写读档；`--section editor` 核对表单添加交接、纠正来源和中英文重开。各段单独运行即可。
+
+### 9.26 折景渡物
+
+在已启动的独立游戏中，用 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_fold_gate.py --section view` 核对两端实际取景、地块更新、同一飞剑穿门与关门。改用 `--section blocked` 复用既有人物暂存场景，只查真实受阻、归还控制及对端画面撤去。`--section visual --view native` 或 `--section visual --view worldfall` 只对照实际画面；截图使用已安装 Worldfall 的同一环境，前者先退出三维观察。每次证据单独输出。可编辑资料见 [折景渡物](../../Doc/技能系统全面重构/构造输入/折景渡物.json)。
+
+### 9.26 借时催枯
+
+在已启动的独立游戏中，用 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/record_process_time.py --imprint-check --state "$HOME/.local/state/cultiway-dev/evidence/process-time-c2/use"` 复用时序创作的正式已学成品。对照两份实际木料，检查只在选中材料暂停、加速时显示印片，恢复常速撤去，扣除的材料与灵力保留。可编辑资料见 [借时催枯](../../Doc/技能系统全面重构/构造输入/借时催枯.json)。
+
+### 9.26 魂魄替负
+
+在已启动的独立游戏中，用 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_soul_pact.py` 检查真实双方、免伤与额度实际扣除、耗尽与死亡后的收束，以及正式保存与重开。可编辑资料见 [魂魄替负](../../Doc/技能系统全面重构/构造输入/魂魄替负.json)。
+
+### 9.26 D 照影传讯
+
+在已启动的独立游戏中，用 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_observed_signal.py` 验证真实交战、目标离场后仍传旧位置、收件者自己较新的所见优先，以及过期后的失效和撤去。旧告警复用 `verify_direct_signal.py`。可编辑资料见 [照影传讯](../../Doc/技能系统全面重构/构造输入/照影传讯.json)。
+
+### 9.26 原速录像
+
+使用已安装 Worldfall 的独立游戏，各段通过 `dev.py exec` 分开运行。
+
+- `dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/record_relations_926.py --case gate --view native`：`--case` 也可用 `pact`、`signal`；三维观察用 `--view worldfall`。各次都有自己的原帧、实机结果和影片。
+- `dev.py exec --timeout 325 -- python3 Scripts/SpellDemos/record_process_time.py --imprint-film --state "$HOME/.local/state/cultiway-dev/evidence/process-time-c2/use"`：三维观察额外加 `--worldfall`；通过成片原帧核对被选木料及未选木料。
+
+八段成片及复验证据总索引：`~/.local/state/cultiway-dev/evidence/world-relations-926/delivery.json`。

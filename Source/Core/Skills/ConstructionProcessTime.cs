@@ -64,6 +64,17 @@ internal sealed class CompiledProcessTime
         return cursor + remaining;
     }
 
+    /// <summary>读取所选过程在当前世界时点实际使用的倍率。</summary>
+    internal float RateAt(double elapsed)
+    {
+        foreach (var (start, end, rate, _) in windows)
+        {
+            if (elapsed < start) break;
+            if (elapsed < end) return (float)rate;
+        }
+        return 1f;
+    }
+
     /// <summary>独立材料保存编译时的窗口声明，不引用可编辑资料。</summary>
     internal ConstructionProcessWindow[] Describe()
     {

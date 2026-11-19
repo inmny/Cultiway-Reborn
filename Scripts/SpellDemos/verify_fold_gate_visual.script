@@ -1,0 +1,74 @@
+// 截图阶段复用同一构造和真实地图；让两扇门在镜头里都能看到正面。
+definition.Root.Children[1].Rotation[2] = 12f;
+Type external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+object mod = external.GetProperty("Instance", F).GetValue(null);
+object Get(string key) => external.GetProperty(key, F)?.GetValue(mod) ?? external.GetField(key, F)?.GetValue(mod);
+void Set(string key, object value) => external.GetField(key, F).SetValue(mod, value);
+object settings = Get("Settings");
+var timeMode = settings.GetType().GetField("TimeMode", F);
+object previousTimeMode = timeMode.GetValue(settings);
+bool threeD = view == "worldfall";
+try
+{
+    ControllableUnit.clear(false);
+    MoveCamera.clearFocusUnitOnly();
+    // 只处理本次展示两端的遮挡，保留原版地图和真正的沙地、河床与高地。
+    var scenery = new HashSet<Building>();
+    for (int x = 58; x <= 81; x++)
+    for (int y = 65; y <= 80; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        if (tile.building != null) scenery.Add(tile.building);
+        bool river = x >= 72 && y - x is -4 or -5;
+        bool bank = x >= 72 && y >= 74;
+        tile.Height = river ? 112 : bank ? 157 : 140;
+        tile.setTileTypes(river ? TileLibrary.shallow_waters : bank ? TileLibrary.hills : x <= 67 ? TileLibrary.sand : TileLibrary.soil_low, null, true);
+    }
+    foreach (Building building in scenery) building.removeBuildingFinal();
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.blockTooltips(20f);
+    foreach (var screen in Resources.FindObjectsOfTypeAll<LoadingScreen>()) screen.gameObject.SetActive(false);
+    var centre = new Vector2(69.5f, 73f);
+    World.world.camera.transform.position = new Vector3(centre.x, centre.y, 0f);
+    MoveCamera.instance.forceZoom(6.5f);
+    timeMode.SetValue(settings, 1);
+    external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+    external.GetMethod("SetGodView", F).Invoke(mod, new object[] { threeD });
+    if (threeD)
+    {
+        await Game.WaitUntil(() => (bool)Get("GodShown") && (float)Get("GodAlpha") >= .999f, 3600);
+        Set("_godFollow", centre); Set("_godFollowVel", Vector2.zero);
+        Set("_godTurn", .13f); Set("_godTurnRate", 0f);
+        Set("_godTip", .65f); Set("_godTipRate", 0f);
+        Set("_godClose", 12f); Set("_godCloseTarget", 12f);
+    }
+    else
+    {
+        await Game.WaitUntil(() => !(bool)Get("IsFirstPerson") && !(bool)Get("GodShown") && (bool)Get("DiveDone") && !(bool)Get("Flying"), 3600);
+        World.world.camera.transform.position = new Vector3(centre.x, centre.y, 0f);
+        MoveCamera.instance.forceZoom(6.5f);
+    }
+    var sampler = Get("_sampler");
+    sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
+    sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+    typeof(WorldTilemap).GetMethod("redrawTiles", F).Invoke(World.world.tilemap, new object[] { true });
+    Place(source, 64);
+    await Fire(definition, source, arrival, aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.34f);
+    Check(Views().Length == 2, "截图前两端都已经实际发布");
+    World.world.console.Hide();
+    await Game.NextFrame(); await Game.NextFrame();
+    Screen.Capture(Path.Combine(folder, "fold-gate-" + view + ".png"));
+    await Game.NextFrame();
+    return new { passed = true, view };
+}
+finally
+{
+    timeMode.SetValue(settings, previousTimeMode);
+    external.GetMethod("SetGodView", F).Invoke(mod, new object[] { false });
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

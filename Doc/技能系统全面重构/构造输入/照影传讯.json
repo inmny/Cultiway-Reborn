@@ -1,0 +1,22 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.ObservedSignal",
+  "Name": "照影传讯",
+  "Resource": "mana",
+  "Cost": 4,
+  "Lifetime": 0.8,
+  "Cooldown": 0.15,
+  "Power": 1,
+  "TargetRange": 18,
+  "Use": {"Channels": "World", "Target": "Object"},
+  "Impact": {"Targets": "Friendly", "SelectedTargetOnly": true, "DamageScale": 0},
+  "Binding": {"Anchor": "Source"},
+  "Root": {"Id": "report", "Form": "pivot", "Matter": "spirit", "State": "energy", "ContactRole": "Decoration"},
+  "Steps": [
+    {
+      "Id": "send",
+      "Operation": {"Kind": "SendSignal", "At": 0.2, "Signal": {"Kind": "ObservedContact", "Duration": 3.1}},
+      "Inputs": {"part": {"Node": "root"}}
+    }
+  ]
+}

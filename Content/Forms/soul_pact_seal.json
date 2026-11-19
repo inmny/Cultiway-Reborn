@@ -1,0 +1,159 @@
+{
+    "Structure": {
+        "Kind": "articulated",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_soul_pact.mjs",
+            "Entry": "makeSoulPactSeal",
+            "Parameters": [
+                {
+                    "Id": "outline",
+                    "Values": [
+                        -0.8799999952316284,
+                        0.0,
+                        -0.5799999833106995,
+                        -0.36000001430511477,
+                        -0.20000000298023225,
+                        -0.550000011920929,
+                        0.20000000298023225,
+                        -0.550000011920929,
+                        0.5799999833106995,
+                        -0.36000001430511477,
+                        0.8799999952316284,
+                        0.0,
+                        0.5799999833106995,
+                        0.36000001430511477,
+                        0.20000000298023225,
+                        0.550000011920929,
+                        -0.20000000298023225,
+                        0.550000011920929,
+                        -0.5799999833106995,
+                        0.36000001430511477
+                    ]
+                },
+                {
+                    "Id": "heart",
+                    "Values": [
+                        -0.5699999928474426,
+                        0.0,
+                        -0.23999999463558198,
+                        -0.10000000149011612,
+                        -0.09000000357627869,
+                        -0.25999999046325686,
+                        0.09000000357627869,
+                        -0.25999999046325686,
+                        0.23999999463558198,
+                        -0.10000000149011612,
+                        0.5699999928474426,
+                        0.0,
+                        0.23999999463558198,
+                        0.10000000149011612,
+                        0.09000000357627869,
+                        0.25999999046325686,
+                        -0.09000000357627869,
+                        0.25999999046325686,
+                        -0.23999999463558198,
+                        0.10000000149011612
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "case/heart",
+                "Parent": "case",
+                "Child": "heart",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.14000000059604646
+                ],
+                "Detachable": false
+            }
+        ],
+        "Changes": [
+            "transform"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "soul_pact_seal",
+    "Forward": [
+        1.0,
+        0.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "pact.anchor"
+            ],
+            "Id": "case",
+            "Surface": "soul_seal_rim",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/soul_pact_seal_case.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "pact.burden"
+            ],
+            "Id": "heart",
+            "Surface": "soul_seal_glass",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/soul_pact_seal_heart.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "chain",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                1.0,
+                0.0,
+                0.0
+            ],
+            "Control": "",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [],
+    "Controls": [],
+    "Motions": []
+}

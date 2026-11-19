@@ -1,0 +1,70 @@
+// 取景用当前发布的网格验证，不读取编辑器预告或初始地图的颜色。
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+Actor source = Make(64), gap = Make(70.5f, "wolf"), arrival = Make(75, "wolf");
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+Ready(source); await Advance(.15f);
+Place(source, 64); Place(gap, 70.5f, 73); Place(arrival, 75, 73.9f);
+owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+for (int x = 61; x <= 67; x++)
+for (int y = 70; y <= 74; y++)
+    World.world.GetTileSimple(x, y).setTileTypes(TileLibrary.sand, null, true);
+var ps = typeof(FormVisualInstance).GetField("Geometry", F);
+FormVisualInstance[] Views() => FormVisualScene.Instances.Where(v => v.Surface == "space_destination").OrderBy(v => v.Transform.m03).ToArray();
+WorldTile Beneath(FormVisualInstance v) => World.world.GetTileSimple(Mathf.FloorToInt(v.Transform.m03), Mathf.FloorToInt(v.Transform.m13));
+Vector3 Tone(FormVisualInstance v)
+{
+    var tones = new List<Vector4>();
+    ((Mesh)ps.GetValue(v)).GetUVs(5, tones);
+    return tones[(2 * 7 + 3) * 8];
+}
+Vector3 MapColor(WorldTile tile)
+{
+    Color32 building = tile.hasBuilding() ? tile.building.getColorForMinimap(tile) : default;
+    Color c = building.a != 0 ? building : (Color32)tile.getColor();
+    return new Vector3(c.r, c.g, c.b);
+}
+
+// CHECKS
+ConstructedAbilityService.ContactConfirmed += Hit;
+try
+{
+    int gapBefore = gap.data.health, arrivalBefore = arrival.data.health;
+    await Fire(definition, source, arrival);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Views().Length == 0, "出口尚未出现时，门内没有对端画面");
+    await Advance(.32f);
+    var pair = Views();
+    Check(pair.Length == 2, "两个实际端点同时出现，才发布两幅门景", pair.Select(v => v.Transform.GetColumn(3).ToString()).ToArray());
+    var left = Tone(pair[0]); var right = Tone(pair[1]);
+    Check((left - MapColor(Beneath(pair[1]))).magnitude < .01f &&
+          (right - MapColor(Beneath(pair[0]))).magnitude < .01f && (left - right).magnitude > .05f,
+        "门心颜色分别取自各自对端的真实地块", new { left = left.ToString(), right = right.ToString() });
+    var near = Beneath(pair[0]);
+    near.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low, true);
+    await Advance(.32f);
+    Check((Tone(Views()[1]) - MapColor(near)).magnitude < .01f && (Tone(Views()[1]) - right).magnitude > .05f,
+        "对端地貌变化会刷新，当前端门朝向和位置保持原样");
+    var cast = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Select(running => (AbilityCast)Field(running, "Cast")).Single(c => c.Plan.Id == definition.Id);
+    Check(cast.TryGetOutput("cross", "transferred", out var mapped) && mapped.Position.x > 74f,
+        "已确认同一形体按实际出口位置转移", new { mapped = mapped.Position.ToString(), mapped.Node });
+    await Advance(1.25f);
+    Check(Views().Length == 0, "门关后不保留对端地貌");
+    await Advance(.34f);
+    Check(gap.data.health == gapBefore && contacts.All(c => c.TargetId != gap.id) && arrival.data.health < arrivalBefore &&
+          contacts.Any(c => c.TargetId == arrival.id && c.SourceId == source.id && c.DamageAttempted) &&
+          endings.Any(e => e.Fact.AbilityId == definition.Id), "门间不命中，出口真实命中，结束后伤害保留",
+        new { gapBefore, gapAfter = gap.data.health, arrivalBefore, arrivalAfter = arrival.data.health });
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
+// ACTOR
+bool NoDestination() => FormVisualScene.Instances.All(v => v.Surface != "space_destination");

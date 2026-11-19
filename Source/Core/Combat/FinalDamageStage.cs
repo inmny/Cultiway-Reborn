@@ -20,4 +20,7 @@ public enum FinalDamageStage : byte
 
     /// <summary>在全部常规保命规则失败后执行最后手段。</summary>
     LastResort,
+
+    /// <summary>在护盾和单次上限之后、保命之前扣除实际由他人承担的份额。</summary>
+    Transfer,
 }

@@ -10,7 +10,9 @@ public enum ConstructionSignalKind
     /// <summary>通知收件人附近有危险。</summary>
     Warning = 0,
     /// <summary>通知收件人集结。</summary>
-    Rally = 1
+    Rally = 1,
+    /// <summary>传递一次真实交战所见的最近方位。</summary>
+    ObservedContact = 2
 }
 
 /// <summary>发送给真实收件人的讯号。</summary>
@@ -29,6 +31,7 @@ public sealed class CompiledConstructionSignal
     public ConstructionSignalKind Kind { get; }
     /// <summary>实际收件人登记的共享状态。</summary>
     public StatusEffectAsset Asset { get; }
+    internal string DisplayName => Asset?.GetName() ?? LocalizedTextManager.getText("Cultiway.Construction.SignalKind.ObservedContact");
     /// <summary>完整强度下的有效世界秒数。</summary>
     public float Duration { get; }
 
@@ -42,7 +45,8 @@ public sealed class CompiledConstructionSignal
             ConstructionSignalKind.Rally => nameof(Content.StatusEffects.SignalRally),
             _ => null
         };
-        if (id == null || (Asset = ModClass.L.StatusEffectLibrary.get(id)) == null ||
+        if ((source.Kind != ConstructionSignalKind.ObservedContact &&
+            (id == null || (Asset = ModClass.L.StatusEffectLibrary.get(id)) == null)) ||
             float.IsNaN(source.Duration) || source.Duration <= 0 || source.Duration > 3600)
             throw new InvalidDataException(path + "：需要有效的讯号种类和大于零、至多3600秒的有效时间");
         Kind = source.Kind;

@@ -1,0 +1,116 @@
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+var source = Make(64);
+var victim = Make(71);
+var enemy = Make(74, "wolf");
+victim.setKingdom(source.kingdom);
+var manaStats = new BaseStats(); manaStats["mana"] = 100;
+var mana = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SoulPact.Mana") ??
+           Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SoulPact.Mana")
+               .SetStats(manaStats).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, mana, 10000, source);
+source.updateStats();
+var shares = new List<SoulPactShare>();
+void OnShare(SoulPactShare value) => shares.Add(value);
+ConstructedAbilityService.SoulPactShared += OnShare;
+
+int Strike(Actor receiver, float damage)
+{
+    int health = receiver.data.health;
+    var element = ElementComposition.Static.Iron;
+    receiver.GetExtend().GetHit(damage, ref element, enemy, AttackType.Weapon, ignore_damage_reduction: true,
+        attacker_power_level_override: enemy.GetExtend().GetPowerLevel());
+    return health - receiver.data.health;
+}
+
+FormVisualInstance[] Seals() => FormVisualScene.Instances.Where(value => value.Resource.Description.Id == "soul_pact_seal" && value.Tint.HasValue).ToArray();
+FormVisualInstance[] Links() => Seals().Where(value => value.Tint.Value.b > .45f && value.Tint.Value.g != .85f).ToArray();
+FormVisualInstance[] Cargo() => Seals().Where(value => value.Tint.Value.g == .85f).ToArray();
+
+async Task Cast()
+{
+    source.setMana(80);
+    await Fire(definition, source, victim, aggro:false);
+    Check(Mathf.Abs(80f - source.getMana() - definition.Cost) < .01f, "按正常入口实际扣除法力");
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.49f);
+}
+
+try
+{
+    var bad = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+    bad.SoulPact.Fraction = 1.5f;
+    bool rejected = false;
+    try { AbilityCompiler.Compile(bad, false); }
+    catch (InvalidDataException problem) { rejected = problem.Message.Contains("SoulPact/Fraction"); }
+    Check(rejected, "完整构造拒绝超过一倍的分享比例");
+
+    int original = Strike(victim, 120f);
+    Check(original > 0 && shares.Count == 0, "没有魂契时原目标承担完整受击", new { original });
+    await Cast();
+    var anchors = Links();
+    Check(anchors.Length == 7 && anchors.Any(x => Math.Abs(x.Transform.m03 - 64) < .35f) &&
+        anchors.Any(x => Math.Abs(x.Transform.m03 - 71) < .35f) && Cargo().Length == 0,
+        "未受击时两端印记属于真实友方，途中没有虚构的替负结果", new { visual = anchors.Length });
+
+    source.addStatusEffect("invincible", .25f, pColorEffect:false);
+    Check(source.hasStatus("invincible"), "复用原版免伤状态");
+    int hp = source.data.health;
+    int unshared = Strike(victim, 120f);
+    await Advance(.1f);
+    Check(unshared == original && source.data.health == hp && shares.Count == 0 && Links().Length == 7 && Cargo().Length == 0,
+        "承受者免伤时无实际分担，原目标收到同样伤害，额度不减少", new { original, unshared });
+    await Advance(.35f);
+    Check(!source.hasStatus("invincible"), "承受者的短时免伤已自然到期");
+    source.updateStats();
+
+    hp = source.data.health;
+    int receiver = Strike(victim, 120f);
+    int bearer = hp - source.data.health;
+    Check(shares.Count == 1, "取得一次真实替负结果", new { receiver, bearer });
+    var confirmed = shares[0];
+    Check(confirmed.BearerId == source.id && confirmed.ProtectedId == victim.id &&
+        confirmed.Covered == bearer && receiver + bearer == original && confirmed.Remaining == 0 &&
+        confirmed.Covered == definition.SoulPact.Capacity,
+        "两人实际扣血合计等于未分担，契约只扣承受者真的承担量",
+        new { original, receiver, bearer, remaining = confirmed.Remaining });
+    await Advance(.18f);
+    var cargo = Cargo();
+    Check(Links().Length == 0 && cargo.Length == 1 && cargo[0].Transform.m03 > 64.25f && cargo[0].Transform.m03 < 70.75f,
+        "额度耗尽后两端退出，实际分担只余一个渡向承受者的实体", new { x = cargo.Select(x => x.Transform.m03).ToArray() });
+    await Advance(.55f);
+    Check(Seals().Length == 0 && Strike(victim, 120f) == original && shares.Count == 1,
+        "渡完后画面收净，后续伤害完整回到原目标");
+
+    await Cast();
+    Check(Links().Length == 7 && Cargo().Length == 0, "额度耗尽后可再次正式建立");
+    long sourceId = source.id;
+    ConstructedAbilityService.Learn(source.GetExtend(), definition.Id);
+    string savePath = Path.Combine(folder, "save");
+    SaveManager.saveWorldToDirectory(savePath);
+    source.dieAndDestroy(AttackType.None);
+    int afterDeath = Strike(victim, 120f);
+    await Advance(.10f);
+    Check(afterDeath == original && shares.Count == 1 && Links().Length == 0,
+        "实际承受者死亡立即断开，下一击完全归原目标", new { afterDeath });
+    World.world.save_manager.loadWorld(savePath);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var definitions = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    var loaded = definitions[definition.Id] as AbilityDefinition;
+    var restored = World.world.units.get(sourceId);
+    Check(loaded?.SoulPact != null && loaded.SoulPact.Fraction == definition.SoulPact.Fraction &&
+        loaded.SoulPact.Capacity == definition.SoulPact.Capacity && restored != null &&
+        restored.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids.Contains(definition.Id) &&
+        ((IDictionary)service.GetField("soulPacts", F).GetValue(null)).Count == 0 && Seals().Length == 0,
+        "正式重开恢复可编辑份额、额度与明确学习关系，旧契约已清理");
+    return new { passed = true, original, receiver, bearer };
+}
+finally
+{
+    ConstructedAbilityService.SoulPactShared -= OnShare;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

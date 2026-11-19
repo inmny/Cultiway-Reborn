@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -5,6 +7,44 @@ namespace Cultiway.Core.Skills;
 
 public sealed partial class AbilityCast
 {
+    internal const string SpatialGateForm = "space_fold_gate";
+
+    /// <summary>同一门可以被多个转移步骤使用；只有实际对端唯一时才显示门景。</summary>
+    internal static (int Near, int Far)[] CompileSpatialViews(CompiledForm[] forms, CompiledConstructionStep[] steps)
+    {
+        if (!Array.Exists(forms, form => form.Resource.Description.Id == SpatialGateForm)) return Array.Empty<(int, int)>();
+        var partners = new Dictionary<int, int>();
+        foreach (var step in steps)
+        {
+            if (step.MappingEntrance < 0) continue;
+            Pair(step.MappingEntrance, step.MappingExit);
+            Pair(step.MappingExit, step.MappingEntrance);
+        }
+        var pairs = new List<(int, int)>(partners.Count);
+        foreach (var pair in partners)
+            if (pair.Value >= 0) pairs.Add((pair.Key, pair.Value));
+        return pairs.ToArray();
+
+        void Pair(int near, int far)
+        {
+            if (forms[near].Resource.Description.Id != SpatialGateForm) return;
+            partners[near] = partners.TryGetValue(near, out int prior) && prior != far ? -1 : far;
+        }
+    }
+
+    /// <summary>仅在两端都实际出现时交给主线程取景，使用转移读取的同一世界姿态。</summary>
+    internal bool TrySpatialView((int Near, int Far) pair, out Matrix4x4 near, out Matrix4x4 far)
+    {
+        near = far = default;
+        if (Finished || !Visible(pair.Near) || !Visible(pair.Far)) return false;
+        near = nodes[pair.Near].Transform;
+        far = nodes[pair.Far].Transform;
+        return true;
+
+        bool Visible(int index) => nodes[index].Exists && nodes[index].Started && nodes[index].Visible &&
+                                   NodeAge(index) < Plan.Nodes[index].Presence.y;
+    }
+
     /// <summary>生成物和生灵采用同一入口大小约定。</summary>
     /// <param name="context">命名步骤的构造资料。</param>
     private static float CompileMappingRadius(ConstructionOperationCompileContext context)

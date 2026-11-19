@@ -73,6 +73,9 @@ public sealed class CompiledAbility
     /// <summary>是否有实际人物对应，普通构造无需额外实例记录。</summary>
     public bool HasCorrespondences { get; }
 
+    /// <summary>受击分担的参数副本；当次契约另存实际余额。</summary>
+    internal CompiledSoulPact SoulPact { get; }
+
     /// <summary>实际攻击部位及身体采用的最大推拉力绝对值，供自主决策估算。</summary>
     public float ContactForce { get; }
 
@@ -189,6 +192,9 @@ public sealed class CompiledAbility
     /// <summary>已经按依赖排序的命名操作，不在运行中解释原描述。</summary>
     internal CompiledConstructionStep[] Steps { get; }
 
+    /// <summary>带折景形体且出口唯一的映射端点，显示读取同一对已编译的部位。</summary>
+    internal (int Near, int Far)[] SpatialViewPairs { get; }
+
     /// <summary>只在实际人物接触时可执行的步骤索引。</summary>
     internal int[] ActorTransferSteps { get; }
 
@@ -241,6 +247,8 @@ public sealed class CompiledAbility
             nodes.Select(node => node.Impact).Append(Impact).Append(body?.Impact)
                 .Concat(body?.Stages.Select(stage => stage.Impact) ?? Enumerable.Empty<CompiledConstructionImpact>()));
         Use = new CompiledConstructionUse(definition.Use, Impact.Targets);
+        if (definition.SoulPact != null)
+            SoulPact = new CompiledSoulPact(definition.SoulPact, Use.Target, Impact.Targets);
         CompiledConstructionImpact[] impacts = nodes
             .Where(node => node.AffectsActors || node.Conduction != null ||
                            node.EventOperations.Any(op => op.Conduction != null))
@@ -289,6 +297,7 @@ public sealed class CompiledAbility
         HasPropagation = operations.Any(operation => operation.Propagation != null);
         NeedsRayTarget = operations.Any(operation => operation.Ray != null);
         Steps = steps;
+        SpatialViewPairs = AbilityCast.CompileSpatialViews(nodes, steps);
         ActorTransferSteps = Enumerable.Range(0, steps.Length).Where(i => steps[i].Action.Kind == ConstructionOperationKind.MapActor).ToArray();
         ArtifactTransferSteps = Enumerable.Range(0, steps.Length).Where(i => steps[i].Action.Kind == ConstructionOperationKind.MapArtifact).ToArray();
         DirectSignalSteps = Enumerable.Range(0, steps.Length).Where(i => steps[i].Action.Kind == ConstructionOperationKind.SendSignal).ToArray();

@@ -78,6 +78,10 @@ public sealed class AbilityDefinition
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionUse Use;
 
+    /// <summary>本次施放由来源为一名实际友方承担的伤害份额与总额。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionSoulPact SoulPact;
+
     /// <summary>构造的根部。</summary>
     public ConstructionNode Root;
 

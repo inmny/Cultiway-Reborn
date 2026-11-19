@@ -1,0 +1,17 @@
+    World.world.console.Hide();
+    await Game.NextFrame(); await Game.NextFrame();
+    Place(source, 64); Place(arrival, 75, 73.9f);
+    int hp = arrival.data.health;
+    source.addAggro(arrival); arrival.addAggro(source);
+    await Fire(definition, source, arrival, aggro:false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    bool hasView = false, afterClose = false;
+    const float duration = 2.45f;
+    var times = await Film(duration, () =>
+    {
+        if (Views().Length == 2) hasView = true;
+        if (hasView && Views().Length == 0) afterClose = true;
+    });
+    Check(hasView && afterClose && arrival.data.health < hp, "同一连续片显示真实取景与穿门命中，再收去门景",
+        new { hasView, afterClose, hp, after = arrival.data.health });
+    return new { passed = true, view, times, duration, scene = "construction", resource = definition.Resource, paid = definition.Cost, previewFrame = times.FindIndex(time => time >= .45) };
