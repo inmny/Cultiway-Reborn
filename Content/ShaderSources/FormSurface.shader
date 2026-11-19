@@ -144,6 +144,14 @@ Shader "Cultiway/FormSurface"
                 }
                 v.vertex = position; v.surface.x *= length(normal); v.normal = normalize(normal);
             }
+            if (_Kind > 19.5 && _Kind < 20.5)
+            {
+                // 只收拢中上段外焰。基部、作用芯和共同着地仍读取原火身。
+                float height = smoothstep(.23,.85,v.uv.y);
+                float angle = v.uv.x*6.2831853;
+                float roll = .5+.5*sin(angle*3-v.uv.y*8+_WorldTime*5.7);
+                v.vertex.xy *= 1-.17*height*roll;
+            }
             return v;
         }
         Varying nativeVertex(Input v)
@@ -470,7 +478,7 @@ Shader "Cultiway/FormSurface"
                 base += float3(.08,.095,.16) * shoulder * (.5+.5*cloud) * environmentLight;
                 alpha *= (.36+.23*cloud+.30*shoulder) * (1-.34*lip*(1-shoulder));
             }
-            else
+            else if (_Kind < 19.5)
             {
                 // 边缘沿实际厚面翻起；中间地面和着火的人物保持可见。
                 float3 q = i.material;
@@ -479,6 +487,23 @@ Shader "Cultiway/FormSurface"
                 base *= .66+.55*hot;
                 base += float3(.34,.22,.04)* (.23+.77*hot) * (1-.65*high);
                 alpha *= i.surface.y*(.54+.46*hot)*(.58+.42*abs(dot(n,eye)));
+            }
+            else
+            {
+                // 亮芯藏在有厚度的火身内；外焰随上行热流变化，薄处透出背景。
+                float3 q = i.material;
+                float bands = volumeNoise(q*float3(2.6,2.6,2.9)-float3(.08,.03,3.4)*_WorldTime);
+                float folds = volumeNoise(q*float3(4.8,4.8,5.2)-float3(.04,.08,5.2)*_WorldTime);
+                float height = saturate(uv.y);
+                float chord = sqrt(abs(dot(n,eye)));
+                float body = smoothstep(.035,.23,height)*(1-smoothstep(.63,1,height));
+                float hearth = body*chord*smoothstep(.20,.88,.72*bands+.28*folds);
+                float inner = smoothstep(.13,.65,hearth);
+                float outer = .52+.44*bands+.18*folds;
+                base = lerp(base*float3(.83,.34,.21)*outer,
+                    (tint.rgb*float3(1.15,1.35,1.5)+float3(.21,.32,.13))*dye.rgb,inner);
+                alpha *= (.40+.60*chord)*(.47+.42*body+.17*inner)*
+                         (1-smoothstep(.71,1.02,height)*(.51-.28*bands));
             }
             float contact = formFeedback(i);
             base += (base*.24 + float3(.035,.045,.05)*environmentLight)*contact;
