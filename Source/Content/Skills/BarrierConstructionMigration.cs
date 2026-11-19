@@ -152,8 +152,29 @@ internal static class BarrierConstructionMigration
         if (container.Asset == SkillEntities.EarthWall) SetEarthWallMotion(definition, lifetime, scale);
         else if (container.Asset == SkillEntities.SwordCurtain) SetSwordCurtainMotion(definition, lifetime, scale);
         else if (container.Asset == SkillEntities.WoodWall) SetWoodWallMotion(definition, lifetime);
+        else if (container.Asset == SkillEntities.YangShield) SetSolarShieldMotion(definition, lifetime);
         return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(),
             contactForceScale: emission.RuntimeData.ResolveEffectScale(), caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
+    }
+
+    /// <summary>真实护盾结束后只有短暂碎甲退光，保持原防护时长与容量。</summary>
+    /// <param name="definition">原阳盾展开后的构造。</param><param name="lifetime">原防护时长。</param>
+    private static void SetSolarShieldMotion(AbilityDefinition definition, float lifetime)
+    {
+        ConstructionNode shield = definition.Root;
+        shield.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "run" } };
+        float release = Mathf.Min(.38f, 3600f - lifetime);
+        if (release <= 0f) return;
+        definition.Lifetime += release;
+        shield.DisappearAt = shield.ActiveUntil = lifetime;
+        shield.Children = new[] { new ConstructionNode
+        {
+            Id = "retreat", Form = "solar_scale_release", Matter = "yang", State = "energy", Scale = shield.Scale,
+            ContactRole = ConstructionContactRole.Decoration, SourceLoss = ConstructionSourceLoss.Continue,
+            Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End },
+            DisappearAt = release,
+            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "release", Seconds = release } }
+        } };
     }
 
     /// <summary>固定屏障沿用地表承托。</summary>

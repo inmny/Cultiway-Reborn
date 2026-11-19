@@ -1,0 +1,75 @@
+var definition = Spell("护生修复");
+var action = new List<ConstructedWorldContact>();
+void WorldHit(ConstructedWorldContact fact) { if (fact.Action == "nature.repair") action.Add(fact); }
+ConstructedAbilityService.WorldContactConfirmed += WorldHit;
+try
+{
+    if (recordView.Length > 0) await SetCamera(6.5f);
+    victim.setKingdom(source.kingdom);
+    var healthyActor = Make(68); healthyActor.setKingdom(source.kingdom);
+    Place(healthyActor,68,72.5f); healthyActor.data.health = healthyActor.getMaxHealth();
+    Building Create(string id, int x, int y)
+    {
+        WorldTile tile = World.world.GetTileSimple(x,y);
+        tile.building?.removeBuildingFinal();
+        return World.world.buildings.addBuilding(id,tile);
+    }
+    var tree = Create("tree_green_1",70,72);
+    var full = Create("tree_green_1",70,75);
+    var chopped = Create("tree_green_1",67,72);
+    var house = Create("beehive",69,69);
+    await Advance(.12f);
+    Check(new[] { tree,full,chopped,house }.All(b => b != null && !b.isRekt() && b.isAlive()),
+        "同场准备各自保有原版占地的树木和建筑");
+    long originalId = tree.id;
+    tree.data.health = Math.Max(1,tree.getMaxHealth()/4);
+    full.data.health = full.getMaxHealth();
+    chopped.data.health = Math.Max(1,chopped.getMaxHealth()/2); chopped.chopped = true;
+    house.data.health = Math.Max(1,house.getMaxHealth()/2);
+    int treeBefore = tree.getHealth(), choppedBefore = chopped.getHealth(), houseBefore = house.getHealth();
+    // 使用真实选定的友军和地面，受伤数据与生命上限仍由原版人物提供。
+    victim.data.health = victim.getMaxHealth()-470;
+    int actorBefore = victim.getHealth();
+    Ready(source); Place(source,64); Place(victim,68.15f,70.43f); source.setMana(64);
+    await Fire(definition, source, victim, aim: new Vector3(69.3f,72.4f,0), aggro: false);
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    CombatStatusEffects.ApplyStatus(source,hold,10000,source); source.updateStats(); ControllableUnit.clear(false);
+    long id = LastCast(); var cast = seen[id];
+    Check(Math.Abs(64f-source.getMana()-definition.Cost)<.01f,"可组合的修复按正式入口扣费");
+    bool tissue = false, wood = false; int stage = 0, treeAtStop = 0, actorAtStop = 0, eventsAtStop = 0, healedByCast = 0;
+    double start = World.world.getCurWorldTime(), mark = -1;
+    const float duration = 3.03f;
+    void Stage()
+    {
+        double t = World.world.getCurWorldTime()-start;
+        tissue |= Shows("life_tissue_join"); wood |= Shows("life_wood_graft");
+        if (mark < 0 && t >= .30 && Shows("life_tissue_join") && Shows("life_wood_graft")) mark = t;
+        if (stage != 0 || t < 1.44) return;
+        stage++;
+        var hits = contacts.Where(f => f.CastId == id && f.TargetId == victim.id).ToArray();
+        healedByCast = hits.Sum(f => Math.Max(0,(f.TargetHealthAfter ?? f.TargetHealthBefore)-f.TargetHealthBefore));
+        treeAtStop = tree.getHealth(); actorAtStop = victim.getHealth(); eventsAtStop = action.Count;
+        Check(tissue && wood && healedByCast > 31 && actorAtStop > actorBefore && tree.id == originalId && treeAtStop > treeBefore && action.Count>=2,
+            "组织和活木有独立画面，均来自同一受损对象分段增益", new { tissue,wood,healedByCast,treeBefore,treeAtStop,actorBefore,actorAtStop,eventsAtStop });
+        Check(action.All(f => f.X==70 && f.Y==72 && (f.Result.Flags & SkillEffectOutcomeFlags.LivingPlantRepaired)!=0) &&
+            Math.Abs(action.Sum(f=>f.Result.Magnitude)-(treeAtStop-treeBefore))<.01f &&
+            healthyActor.getHealth() == healthyActor.getMaxHealth() && full.getHealth()==full.getMaxHealth() &&
+            house.getHealth()==houseBefore && (chopped.isRekt() || !chopped.isAlive() || chopped.getHealth()<=choppedBefore),
+            "没有治疗健康对象、枯木或房屋，也不把落空算作已恢复", new { action = action.Select(f => new {f.X,f.Y,f.Result.Magnitude}).ToArray() });
+        cast.Cancel();
+    }
+    var times = new List<double>();
+    if (recordView.Length > 0) times = await Film(duration, Stage);
+    else while (World.world.getCurWorldTime()-start<duration) { Stage(); await Advance(.055f); }
+    Check(stage == 1 && cast.Finished && tree.id==originalId && tree.getHealth()==treeAtStop && victim.getHealth()>=actorAtStop &&
+        eventsAtStop==action.Count && !Shows("life_tissue_join") && !Shows("life_wood_graft"),
+        "中断后停止下一段，保留原对象的已恢复生命并退场");
+    return new { passed=true, scene="construction", resource="mana", paid=definition.Cost, duration, times, view=recordView, stages=eventsAtStop, healedByCast, treeRestored=treeAtStop-treeBefore, previewFrame=times.FindIndex(t=>t>=mark) };
+}
+finally
+{
+    ConstructedAbilityService.WorldContactConfirmed -= WorldHit;
+    StopDebit();
+    foreach (var cast in seen.Values) cast.Cancel();
+    ReleaseChecks();
+}

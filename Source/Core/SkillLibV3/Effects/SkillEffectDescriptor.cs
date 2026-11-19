@@ -81,6 +81,9 @@ public enum SkillEffectOutcomeFlags : ulong
 
     /// <summary>尚未成熟的农作物被直接催熟。</summary>
     CropFertilized = 1UL << 14,
+
+    /// <summary>存活植被的原版生命值实际增加。</summary>
+    LivingPlantRepaired = 1UL << 15,
 }
 
 /// <summary>一次结构化效果的不可变结算结果。</summary>

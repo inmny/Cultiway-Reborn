@@ -1297,6 +1297,7 @@
   "Cultiway.Construction.NodeWorldPerTile": "部位·每块地最多次数（0不限）",
   "Cultiway.Construction.NodeWorldTotal": "部位·总作用次数（0不限）",
   "Cultiway.Construction.WorldAction.nature.grow": "催生",
+  "Cultiway.Construction.WorldAction.nature.repair": "修复受损活木",
   "Cultiway.Construction.WorldAction.land.cleanse": "净土",
   "Cultiway.Construction.WorldAction.crop.mature": "催熟",
   "Cultiway.Construction.WorldAction.terrain.raise": "抬地",

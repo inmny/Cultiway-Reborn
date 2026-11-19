@@ -33,19 +33,31 @@ function makeSeed() {
       Object.fromEntries(parts.map(p=>[p.Id,['support.carrier']])),[]));
 }
 
-/** 低矮叶面限定恢复范围，缓慢起伏不会把地面铺成巨大伤害圆球。 */
+/** 六支贴地叶脉各自承托既有接触区。叶尖和根茎逐渐收薄，中央留出受术者的轮廓。 */
 function makeBloom() {
-  const controls=[],parts=[],contacts=[];
+  const controls=[],parts=[],contacts=[],veins=[];
   for(let i=0;i<6;i++) {
-    const angle=i*Math.PI/3,centre=[Math.cos(angle)*1.05,Math.sin(angle)*1.05,.24],id=`leaf_${i}`;
+    const angle=i*Math.PI/3,dir=[Math.cos(angle),Math.sin(angle)],centre=[dir[0]*1.05,dir[1]*1.05,.24],id=`leaf_${i}`;
     controls.push({Id:id,Position:centre,Rotation:[0,0,0,1]});
-    parts.push(supportPart(id,leaf(1.4,.73,.23,angle-Math.PI/2,centre),'restoration_jade',centre,id));
-    const a=[Math.cos(angle)*.35,Math.sin(angle)*.35,.24],b=[Math.cos(angle)*2.17,Math.sin(angle)*2.17,.24];
+    const g=new T.SphereGeometry(1,34,18),p=g.getAttribute('position');
+    for(let k=0;k<p.count;k++) {
+      const u=p.getY(k),t=.5+.5*u,v=p.getX(k),w=p.getZ(k);
+      const r=.35+2.04*t,arc=.10*Math.sin(Math.PI*t*1.2);
+      const width=v*(.18+.12*Math.sin(Math.PI*t))*(1-.16*Math.pow(Math.cos(t*5*Math.PI),2));
+      p.setXYZ(k,dir[0]*r-dir[1]*(width+arc),dir[1]*r+dir[0]*(width+arc),.125+w*.044+(1-t)*.037);
+    }
+    g.computeVertexNormals();
+    parts.push(supportPart(id,g,'living_leaf',centre,id));
+    const a=[dir[0]*.35,dir[1]*.35,.24],b=[dir[0]*2.17,dir[1]*2.17,.24];
     contacts.push({Id:id,Part:i,A:a,B:b,Radius:.23,AControl:id,BControl:id});
+    // 将暖色叶心贴在每片厚叶的中部，连接而不向合拢面外画线。
+    const sap=leaf(.52,.10,.025,angle-Math.PI/2,[dir[0]*1.31-dir[1]*.07,dir[1]*1.31+dir[0]*.07,.105]);
+    veins.push(supportPart(`sap_${i}`,sap,'living_sap',centre,id));
   }
   controls.push({Id:'heart',Position:[0,0,.26],Rotation:[0,0,0,1]});
-  parts.push(supportPart('heart',new T.SphereGeometry(.66,28,16).scale(1,1,.45).translate(0,0,.26),'purification_pearl',[0,0,.26],'heart'));
+  parts.push(supportPart('heart',new T.SphereGeometry(.28,24,16).scale(1,1,.46).translate(0,0,.16),'living_sap',[0,0,.26],'heart'));
   contacts.push({Id:'heart',Part:6,A:[-.3,0,.26],B:[.3,0,.26],Radius:.24,AControl:'heart',BControl:'heart'});
+  parts.push(...veins);
   const run=motion('run',1,true,controls,40,(i,p,c)=>({position:[c.Position[0],c.Position[1],c.Position[2]+.025*Math.sin(p*Math.PI*2)]}));
   parts.forEach(p=>p.UseMatterSurface=false);
   write('rejuvenation_bloom',parts,[],contacts,controls,[run],false,{Forward:[0,1,0],Up:[0,0,1]},
@@ -123,5 +135,49 @@ function makeHaste() {
       Object.fromEntries(parts.map(p=>[p.Id,['support.carrier']])),[]));
 }
 
+/** 柔软接合面由几个宽厚、相扣的组织片围住实际人物，不描发光细线。 */
+function makeLifeTissue() {
+  const parts=[];
+  for(let i=0;i<5;i++) {
+    const angle=i*Math.PI*2/5;
+    const g=new T.SphereGeometry(1,22,12),p=g.getAttribute('position');
+    for(let k=0;k<p.count;k++) {
+      const u=p.getY(k),v=p.getX(k),w=p.getZ(k),a=angle+.78*u+.39*v;
+      const radius=.47+.051*w+.13*(1-u*u);
+      p.setXYZ(k,radius*Math.cos(a),radius*Math.sin(a),.53+.29*u+.055*v);
+    }
+    g.computeVertexNormals();
+    parts.push(supportPart(`fibre_${i}`,g,i%2?'living_tissue':'living_sap',[0,0,0]));
+  }
+  parts.push(supportPart('stitch',new T.SphereGeometry(.15,20,12).scale(1,.70,1.65).translate(.31,0,.58),'living_sap',[0,0,0]));
+  parts.forEach(p=>p.UseMatterSurface=false);
+  write('life_tissue_join',parts,[],[],[],[],false,{Forward:[0,1,0],Up:[0,0,1]},
+    structure('volume','forms_support.mjs','makeLifeTissue',{height:.85},Object.fromEntries(parts.map(p=>[p.Id,['support.surface']])),[]));
+}
+
+/** 活木保留可见的木芯、枝节与成对嫩叶，用不同受光把它和组织分开。 */
+function makeLifeWood() {
+  const parts=[];
+  const root=new T.SphereGeometry(.36,22,14).scale(1,1,.63).translate(0,0,.23);
+  parts.push(supportPart('stock',root,'living_bark',[0,0,0]));
+  for(let i=0;i<4;i++) {
+    const a=i*Math.PI*.5+.30, d=new T.Vector3(Math.cos(a),Math.sin(a),0);
+    const from=d.clone().multiplyScalar(.15).setZ(.15),to=d.clone().multiplyScalar(.54).setZ(.75+.09*(i%2));
+    const stem=to.clone().sub(from), mid=from.clone().addScaledVector(stem,.5);
+    const branch=new T.CylinderGeometry(.043,.10,stem.length(),10,3);
+    branch.applyQuaternion(new T.Quaternion().setFromUnitVectors(new T.Vector3(0,1,0),stem.normalize())).translate(...mid.toArray());
+    parts.push(supportPart(`branch_${i}`,branch,'living_bark',[0,0,0]));
+    for(let j=0;j<2;j++) {
+      const theta=a+(j===0?-.52:.64),centre=to.clone().multiplyScalar(.81+j*.18).setZ(to.z-.083+j*.13);
+      const g=leaf(.27,.115,.049,theta-Math.PI/2,[0,0,0]);
+      g.rotateY(.35*Math.sin(a)).rotateX(-.30*Math.cos(a)).translate(...centre.toArray());
+      parts.push(supportPart(`leaf_${i}_${j}`,g,j===0?'restoration_jade':'living_sap',[0,0,0]));
+    }
+  }
+  parts.forEach(p=>p.UseMatterSurface=false);
+  write('life_wood_graft',parts,[],[],[],[],false,{Forward:[0,1,0],Up:[0,0,1]},
+    structure('volume','forms_support.mjs','makeLifeWood',{branches:4,height:1.1},Object.fromEntries(parts.map(p=>[p.Id,['support.surface']])),[]));
+}
+
 /** 六个独立支持来源在共同资源入口发布。 */
-export function makeSupport(){makeSeed();makeBloom();makeWave();makeBattle();makeGuard();makeHaste();}
+export function makeSupport(){makeSeed();makeBloom();makeWave();makeBattle();makeGuard();makeHaste();makeLifeTissue();makeLifeWood();}

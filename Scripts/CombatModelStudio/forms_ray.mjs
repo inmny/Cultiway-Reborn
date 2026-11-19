@@ -56,9 +56,19 @@ export function makeLuminousRays() {
     ['solar_ray_luminous',.15,[[0,'solar_beam_edge'],[-.12,'solar_beam_flank'],[.12,'solar_beam_flank']],'solar_beam_core']
   ]) {
     const parts=[], contacts=[], roles={};
-    function addLayer(name,x,width,surface) {
-      // 亮芯与外缘共用圆端中心；缩短射线时不会有一层伸出实际末端。
-      const geometry=new T.CapsuleGeometry(width,length-radius*2,6,20).rotateX(Math.PI/2).translate(x,0,length*.5);
+    const solar=id==='solar_ray_luminous';
+    function addLayer(name,x,width,surface,inside=false) {
+      // 圆端与实际接触相合。阳光内部的长流改变截面厚度，不把多条笔直光柱并排。
+      const geometry=new T.CapsuleGeometry(width,length-radius*2,solar?8:6,solar?24:20).rotateX(Math.PI/2).translate(x,0,length*.5);
+      if(solar&&inside) {
+        const p=geometry.getAttribute('position');
+        for(let k=0;k<p.count;k++) {
+          const z=p.getZ(k),u=T.MathUtils.clamp((z-radius)/(length-2*radius),0,1);
+          const tide=.59+.32*Math.pow(Math.sin(Math.PI*(1.55*u+.13)),2);
+          p.setXYZ(k,(p.getX(k)-x)*tide+x+.023*Math.sin(u*Math.PI*2),p.getY(k)*tide,z);
+        }
+        geometry.computeVertexNormals();
+      }
       geometry.userData.keepNormals=true;
       const mesh=skin(geometry,p=>{
         const t=T.MathUtils.clamp((p.z-radius)/(length-radius*2),0,1);
@@ -75,7 +85,13 @@ export function makeLuminousRays() {
       addLayer(name,x,radius,surface);
       contacts.push({Id:name,Part:i,A:[x,0,radius],B:[x,0,length-radius],Radius:radius,AControl:'origin',BControl:'extent'});
     });
-    addLayer('luminous_core',0,radius*.43,core);
+    addLayer('luminous_core',0,radius*(solar?.68:.43),core,solar);
+    if(solar) {
+      const seed=part('solar_seed',new T.IcosahedronGeometry(.132,2).scale(1,1,1.03).translate(0,0,.16),'solar_kernel',[0,0,0],'origin');
+      for(let k=0;k<seed.Triangles.length;k+=3)
+        [seed.Triangles[k],seed.Triangles[k+2]]=[seed.Triangles[k+2],seed.Triangles[k]];
+      seed.UseMatterSurface=false;parts.push(seed);roles[seed.Id]=['channel.body'];
+    }
     write(id,parts,[{Id:'start',Part:0,Position:[0,0,0],Direction:[0,0,-1],Control:'origin'},
       {Id:'end',Part:0,Position:[0,0,length],Direction:[0,0,1],Control:'extent'}],
       contacts,controls,[],false,{Forward:[0,0,1],Up:[0,1,0]},

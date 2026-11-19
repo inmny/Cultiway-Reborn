@@ -139,7 +139,16 @@ internal static class SupportConstructionMigration
             Binding = new ConstructionBinding { Anchor = targeted ? AbilityAnchor.Source : AbilityAnchor.Target,
                 Height = targeted ? 0f : -emission.TargetPos.z },
             Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, SelectedTargetOnly = targeted, DamageScale = 0f, Restoration = restoration,
-                Statuses = blessing ? new[] { Blessing(skill, effectScale) } : null },
+                Statuses = blessing ? new[] { Blessing(skill, effectScale) } : null,
+                WorldEffects = rejuvenation ? new[]
+                {
+                    new ConstructionWorldEffect
+                    {
+                        Action = LivingPlantRestoration.ActionId, MaximumTiles = 16,
+                        Contact = new ConstructionContactPolicy
+                        { Mode = ConstructionContactMode.Pulse, Interval = 1f, MaximumPerTarget = 4, MaximumTotal = 32 }
+                    }
+                } : null },
             Root = new ConstructionNode
             {
                 Id = "support", Form = form,

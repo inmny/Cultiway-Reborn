@@ -2243,3 +2243,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 9.21 阴与影
 
 在独立游戏中运行 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_yin_combat.py --section intake` 查看实际接触、两边灵气变化、离场与来源失效。`--section shadow` 查看原对应人物的牵引、短限制和立影回落，也核对相邻人物不会承接联系。每段可加 `--record native` 或 `--record worldfall` 录制同一正式施放入口的常速原片。
+
+### 9.22 阳与生命
+
+在独立游戏中运行 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_sun_life.py --section solar`，核对原曜阳光束、阳罡护盾、箭与阴术撞击。`--section life` 施放可编辑的护生修复，比较同场受伤人物、活木和不适用对象，核对中断后的实际数据。两段可加 `--record native` 或 `--record worldfall` 录制常速实机原片。
+
+`--section life-world` 用原复苏场的正式已学入口检查法力、伤员、同一活树和换世界后的清理。此段无需录制。

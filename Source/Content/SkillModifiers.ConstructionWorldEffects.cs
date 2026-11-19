@@ -10,6 +10,8 @@ public partial class SkillModifiers
     {
         ConstructionWorldActions.Register(new ConstructionWorldAction("nature.grow",
             tile => CanGrowNature(default, tile), tile => ApplyNatureGrowth(default, tile)));
+        ConstructionWorldActions.Register(new ConstructionWorldAction(Skills.LivingPlantRestoration.ActionId,
+            Skills.LivingPlantRestoration.CanApply, Skills.LivingPlantRestoration.Apply, 0f));
         ConstructionWorldActions.Register(new ConstructionWorldAction("land.cleanse",
             tile => CanCleanLand(default, tile), tile => ApplyCleanLand(default, tile)));
         ConstructionWorldActions.Register(new ConstructionWorldAction("crop.mature",

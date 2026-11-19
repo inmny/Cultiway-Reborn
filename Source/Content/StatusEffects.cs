@@ -377,7 +377,7 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             if (!owner.HasComponent<ActorBinder>()) continue;
             Actor actor = owner.GetComponent<ActorBinder>().Actor;
             if (actor == null || !actor.isAlive()) continue;
-            Combat.CombatResourceEffects.RestoreHealth(actor, healing);
+            Skills.ConstructedAbilityService.RestoreLivingActor(actor, healing);
         }
     }
 }

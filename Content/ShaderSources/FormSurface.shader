@@ -551,6 +551,19 @@ Shader "Cultiway/FormSurface"
                 base += tint.rgb*(.14+.29*diffuse)*density;
                 alpha *= i.surface.y*(.48+.52*density)*(.29+.71*chord);
             }
+            else if (_Kind > 25.5)
+            {
+                // 暖质有宽的流层、受光面和深色薄边；流动藏在材质内，不额外画线。
+                float3 q = i.material;
+                float inner = volumeNoise(q * float3(2.1,2.1,2.9) - float3(.09,.04,2.7) * _WorldTime);
+                float cells = volumeNoise(q * float3(7.4,7.4,5.5) + float3(-.11,.12,-1.4) * _WorldTime);
+                float molten = smoothstep(.29,.76,.70*inner+.30*cells);
+                float face = sqrt(abs(dot(n,eye)));
+                float hot = molten*face*(.64+.36*diffuse);
+                base *= (.34+.72*molten) * max(float3(.78,.72,.64),.56*ambient+.58*direct);
+                base += (tint.rgb*.50+float3(.48,.33,.13))*hot + (.23+.23*molten)*specular*direct;
+                alpha *= (.47+.53*face)*(.69+.31*molten);
+            }
             else if (_Kind > 24.5)
             {
                 // 薄阴质压在地面，厚肩分出内外两层；散开的低边不用硬轮廓描圆。
