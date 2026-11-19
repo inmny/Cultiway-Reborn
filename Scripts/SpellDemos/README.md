@@ -2154,3 +2154,16 @@ python3 Scripts/SpellDemos/demo_spell.py TidalWave --cases base --view native --
 9.09 B 共用形体布局和轨迹：同一入口使用 `--section layouts`，在复用世界中正式施放剑列和水鲸列，比较转弯前后的部位间距、实际作用区和自然退场，记录原版与 Worldfall 画面。
 
 9.09 C 共用形体视距：同一入口使用 `--section scale-meshes` 核对游戏实际加载的全部形体、边界和顶点资料；`--section scale-frames` 按结构保存每件的原版三档静帧；`--section scale-worldfall` 保存有风险及各类代表的斜视静帧。后两段可用 `--forms warhammer,water_wave` 限定取景；原版可再加 `--full-reference` 补拍同距离的完整网格作对照。报告记录实际绘制使用的等级及网格，投影面积预警须结合画面判断。
+
+### 9.12 金系剑气与剑幕
+
+在独立游戏的 `dev.py exec --timeout 225 --` 后运行 `python3 Scripts/SpellDemos/verify_blades.py --section sword`，核对剑气锋口内外命中、支付和结束。`python3 Scripts/SpellDemos/verify_sword_curtain.py` 核对十五把剑的画面与拦截面、阵内外来弹及原时点退场。补测交锋及退场可加 `--section contact`，仅补退场用 `--section exit`。
+
+常速录像沿用单招入口：
+
+```bash
+python3 Scripts/SpellDemos/demo_spell.py SwordQi --cases base --scene single --view native --realm 2 --speed 1 --zoom 9.5 --duration 1.55 --fps 22 --motion-trace --keep-frames --output <剑气原版输出目录>
+python3 Scripts/SpellDemos/demo_spell.py SwordCurtain --cases base --scene shield --view native --realm 2 --speed 1 --zoom 12.5 --duration 5 --fps 22 --motion-trace --keep-frames --output <剑幕原版输出目录>
+```
+
+Worldfall 使用已加载其模组的独立游戏，改用 `--view worldfall` 和独立输出目录，剑气缩放为 `10.5`。剑幕迎击场景实际发射石弹；判断以拦截记录及剩余容量为准。分别保留四段影片、实际时点、接触及阶段原帧。

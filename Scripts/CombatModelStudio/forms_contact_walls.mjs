@@ -82,7 +82,30 @@ export function makeSwordCurtain(sword, distantGrip) {
       A:transform(source.A),B:transform(source.B),Radius:source.Radius*scale,AControl:id,BControl:id});
   }
   const run=motion('run',1.4,true,controls,40,(i,p,c)=>({position:[c.Position[0],0,.018*Math.sin(p*Math.PI*2+i*.6)]}));
-  write('sword_curtain',parts,wallAnchors(controls),contacts,controls,[run],true,{Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
+  // 落位时以刃面中点为支点倾斜，保持拦截带中轴，俯视也能看清剑柄和两道刃。
+  const pivot=new T.Vector3(0,0,1.15);
+  const pose=(x,y,z,tip,roll)=>{
+    const rotation=new T.Quaternion().setFromEuler(new T.Euler(tip,roll,0));
+    const position=new T.Vector3(x,y,z).add(pivot).sub(pivot.clone().applyQuaternion(rotation));
+    return {position:position.toArray(),rotation:rotation.toArray()};
+  };
+  const settledTip=row=>.46+.025*row;
+  // 中间先落稳，左右各三批接上。移动控制同时带动剑身和它自己的拦截面。
+  const gather=motion('gather',.52,false,controls,28,(i,p,c)=>{
+    const x=c.Position[0], row=Math.floor(Math.abs(i-7)/2), sign=Math.sign(x);
+    const t=T.MathUtils.smoothstep(p,.105*row,.48+.15*row),rest=1-t;
+    const settle=.055*Math.sin(Math.PI*t)*Math.sin(2*Math.PI*t);
+    return pose(x*(1-.16*rest),-(.50+.20*row)*rest, (.21+.22*row)*rest+settle,
+      settledTip(row)+(.18+.018*row)*rest,sign*(.045+.16*rest));
+  });
+  // 收招只画原剑离场。没有额外的伤害、拦截或遮挡。
+  const withdraw=motion('withdraw',.37,false,controls,20,(i,p,c)=>{
+    const x=c.Position[0], row=Math.floor(Math.abs(i-7)/2), sign=Math.sign(x);
+    const t=T.MathUtils.smoothstep(p,.035*(3-row),1);
+    return pose(x*(1+.11*t),-(.56+.11*row)*t,(.88+.13*row)*t,settledTip(row)+.23*t,sign*(.045+.18*t));
+  });
+  withdraw.Keys=withdraw.Keys.map(key=>({...key,Fade:T.MathUtils.smoothstep(key.At,.105,.37)}));
+  write('sword_curtain',parts,wallAnchors(controls),contacts,controls,[run,gather,withdraw],true,{Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
     structure('articulated','forms_contact_walls.mjs','makeSwordCurtain',{count,spacing,scale},
       Object.fromEntries(parts.map(p=>[p.Id,p.Id.endsWith('_blade')?['terrain.wall','barrier.face','blade.edge','blade.spine']:
         p.Id.endsWith('_grip')?['weapon.grip']:p.Id.endsWith('_guard')?['weapon.guard']:['weapon.pommel']])),[]));
