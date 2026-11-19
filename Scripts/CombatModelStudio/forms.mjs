@@ -27,6 +27,7 @@ import {makeImpactForms} from './forms_impacts.mjs';
 import {makeGroundWaves} from './forms_ground_waves.mjs';
 import {makeRemainingFields} from './forms_remaining_fields.mjs';
 import {makeSupport} from './forms_support.mjs';
+import {makePolarity} from './forms_polarity.mjs';
 
 makeHorn();
 makeOrganForms();
@@ -49,6 +50,7 @@ makeWindWall();
 makeRift();
 makeFields();
 makeSupport();
+makePolarity();
 makeAegises();
 makeWaterCurtain();
 makePiercingForms();

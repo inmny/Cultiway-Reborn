@@ -2249,3 +2249,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中运行 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_sun_life.py --section solar`，核对原曜阳光束、阳罡护盾、箭与阴术撞击。`--section life` 施放可编辑的护生修复，比较同场受伤人物、活木和不适用对象，核对中断后的实际数据。两段可加 `--record native` 或 `--record worldfall` 录制常速实机原片。
 
 `--section life-world` 用原复苏场的正式已学入口检查法力、伤员、同一活树和换世界后的清理。此段无需录制。
+
+### 9.23 两仪渡气
+
+在独立游戏中运行 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_polarity.py --section balance`，核对两端实际扣收、反向、比例持平、还有下一次作用机会时离场和再用。该段可加 `--record native` 或 `--record worldfall` 录制常速过程。`--section editor` 核对两种语言、无效额度拒绝及覆盖重开；`--section legacy` 用旧玄阴汲流抽查单向扣收。

@@ -1,0 +1,131 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_polarity.mjs",
+            "Entry": "makePolarity",
+            "Parameters": [
+                {
+                    "Id": "length",
+                    "Values": [
+                        1.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "wrapped_fins/leading_kernel",
+                "Parent": "wrapped_fins",
+                "Child": "leading_kernel",
+                "Position": [
+                    0.0,
+                    0.20000000298023225,
+                    0.03200000151991844
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "wrapped_fins/trailing_kernel",
+                "Parent": "wrapped_fins",
+                "Child": "trailing_kernel",
+                "Position": [
+                    0.054999999701976779,
+                    -0.25999999046325686,
+                    0.04500000178813934
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "separate"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "polarity_packet",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/polarity_packet_wrapped_fins_mid.asset",
+                "Assets/Cultiway/Forms/polarity_packet_wrapped_fins_far.asset"
+            ],
+            "Roles": [
+                "carrier.body"
+            ],
+            "Id": "wrapped_fins",
+            "Surface": "polarity_ink",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/polarity_packet_wrapped_fins.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "carrier.core"
+            ],
+            "Id": "leading_kernel",
+            "Surface": "polarity_core",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/polarity_packet_leading_kernel.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "carrier.tail"
+            ],
+            "Id": "trailing_kernel",
+            "Surface": "polarity_depth",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/polarity_packet_trailing_kernel.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [],
+    "Controls": [],
+    "Motions": []
+}

@@ -1,0 +1,34 @@
+var source = Make(64); var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level=2; owner.MarkCultiwayStatsDirty(); source.updateStats();
+var definition = Spell("两仪渡气");
+definition.Id="test.polarity.editor";
+definition.Impact.WakanTransferMode=ConstructionWakanTransferMode.Draw;
+ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner,definition.Id);
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(definition.Id,source);
+// UI HELPERS
+try
+{
+    Click("Page4"); Choose("WakanTransferMode",T("WakanTransferMode.Balance")); Set("WakanTransfer","7.5");
+    Check(Session().Draft.Impact.WakanTransfer==7.5f && Session().Draft.Impact.WakanTransferMode==ConstructionWakanTransferMode.Balance,
+        "真实表单选择双端渡气并填写上限");
+    Set("WakanTransfer","1001"); Check(!B("Replace").interactable,"不合法额度阻止覆盖"); Click("Undo");
+    Check(B("Replace").interactable && Session().Draft.Impact.WakanTransfer==7.5f,"撤销恢复最后一个可用额度");
+    await ShotRow("WakanTransferMode","polarity-cz");
+    LocalizedTextManager.instance.setLanguage("en"); Click("Page4");
+    Check(T("WakanTransferMode.Balance")=="Balance both energy reserves","双端选项有英文说明");
+    await ShotRow("WakanTransferMode","polarity-en");
+    Click("Replace"); var saved=ConstructionEditing.Access.Read(Session().SourceId);
+    File.WriteAllText(Path.Combine(folder,"saved-definition.json"),JsonConvert.SerializeObject(saved,Formatting.Indented));
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(saved.Id,source); await Frames(); Click("Page4");
+    Check(Session().Draft.Impact.WakanTransfer==7.5f && Session().Draft.Impact.WakanTransferMode==ConstructionWakanTransferMode.Balance,
+        "正式覆盖后再打开，方式和付款依据保留在同一条接触规则中");
+    Click("Close"); await Frames();
+    return new { passed=true, saved=saved.Id };
+}
+finally
+{
+    if (Field(editor,"session")!=null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow",F).Invoke(editor,null);
+    ConstructedAbilityService.ContactConfirmed-=Hit; ConstructedAbilityService.CastEnded-=Ended;
+    Config.paused=true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}
