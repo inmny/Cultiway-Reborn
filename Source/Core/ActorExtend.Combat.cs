@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Cultiway.Abstract;
 using Cultiway.Content;
+using Cultiway.Content.Combat;
 using Cultiway.Const;
 using Cultiway.Core.Combat;
 using Cultiway.Core.Combat.Tactical;
@@ -459,9 +460,11 @@ public partial class ActorExtend
     /// <param name="attacker">实际攻击者。</param><param name="attack_type_for_vanilla">原版伤害类型。</param>
     /// <param name="ignore_damage_reduction">是否略过部分抗性。</param>
     /// <param name="attacker_power_level_override">施放时冻结的境界。</param>
+    /// <param name="metallic_weapon">原版攻击冻结的材质，仅用于受伤显示。</param>
     [Hotfixable]
     internal DamageSettlement ResolveHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker,
-        AttackType attack_type_for_vanilla, bool ignore_damage_reduction, float? attacker_power_level_override)
+        AttackType attack_type_for_vanilla, bool ignore_damage_reduction, float? attacker_power_level_override,
+        bool? metallic_weapon = null)
     {
         if (Base == attacker) return default;
         if (Base.isAlive() && Base.data.health > 0)
@@ -619,6 +622,7 @@ public partial class ActorExtend
             pFlash: damage >= 1,
             pAttackType: attack_type_for_vanilla,
             pAttacker: attributionAttacker);
+        CombatImpactVisuals.OnHealthLost(this, attacker, lost, damage_composition, attack_type_for_vanilla, metallic_weapon);
         RestoreSpatialRetaliationTarget(attacker, attributionAttacker);
         return new DamageSettlement(lost, shield.Absorbed);
     }

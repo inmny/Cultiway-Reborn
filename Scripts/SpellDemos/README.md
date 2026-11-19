@@ -2138,3 +2138,5 @@ python3 Scripts/SpellDemos/demo_spell.py TidalWave --cases base --view native --
 在独立游戏运行 `dev.py exec --timeout 260 -- python3 Scripts/SpellDemos/verify_visual_cleanup.py --section weapons`，检查同一把铁剑的扫击与突刺、原碰撞宽度、超距拒绝、命中和归还，以及原版和 Worldfall 图片。只补突刺用 `--section thrust`。`--section materials` 复用原正式水幕、岩脊及雷矛，保存近远和三维斜视；`--section seams` 只比较带泡沫的水面及岩面在展开坐标两侧的真实输出。复用 `verify_chain.py --section appearance` 核对连锁雷击。各段独立保存输入、检查记录和实机画面。
 
 短片复验：`dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/demo_spell.py WaterCurtain --cases base --view native --zoom 22 --fps 15 --duration 2.2 --output <本次验收目录>`。
+
+9.05 的施放与命中检查使用 `dev.py exec --timeout 225 -- python3 Scripts/SpellDemos/verify_material_feedback.py --section weapon|spell|steam`（每次选一个段）。`weapon` 复用木剑御器，观察真实生命变化、局部碎屑、原版攻击对照和退场；`spell` 走仍保留的旧执行入口，在混沌弹上区分主体薄雾与通用覆盖；`steam` 对照隔开的水火与实际减水的接触。每段保存原版及 Worldfall 画面、脚本输入和检查结果。

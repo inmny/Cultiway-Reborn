@@ -149,7 +149,9 @@ public sealed class WeaponControlSkills : ExtendLibrary<SkillEntityAsset, Weapon
                        DamageOrigin.Primary,
                        context.RuntimeData.CorrelationId))
             {
-                MapBox.checkAttackFor(attack, target);
+                AttackDataResult result = MapBox.checkAttackFor(attack, target);
+                if (result.state is ApplyAttackState.Block or ApplyAttackState.Deflect)
+                    CombatImpactVisuals.OnDefended(target, owner);
             }
         }
         finally

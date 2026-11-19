@@ -17,6 +17,9 @@ public struct GetHitEvent
     /// <summary>原版或模组明确写入的伤害类别；未指定时沿用枚举默认值。</summary>
     public AttackType AttackType;
 
+    /// <summary>原版武器是否为金属；未提供时仍使用实际伤害元素。</summary>
+    internal bool? MetallicWeapon;
+
     /// <summary>本次伤害是否属于不应再次触发同类被动的二次反应。</summary>
     public DamageOrigin DamageOrigin;
 

@@ -89,22 +89,6 @@ internal static partial class BattleSpellVisualRuntime
             new Vector3(size*.075f,size*.075f,Vector3.Distance(start,end)),color);
     }
 
-    /// <summary>来源处短暂成形，留出人物周围的负空间，远景仍可识别施法起点。</summary>
-    /// <param name="cast">实际施放。</param><param name="age">年龄。</param><param name="output">共同模型。</param><param name="details">装饰预算。</param>
-    private static void DrawGathering(Cast cast,float age,List<SpatialVisualMeshInstance> output,ref int details)
-    {
-        if (cast.AssetId.StartsWith("Cultiway.KnightTechnique.") || cast.Form == SkillSpatialForm.Shield) return;
-        float fade=Mathf.Sin(Mathf.Clamp01(age/.5f)*Mathf.PI),radius=(.7f+cast.Growth*.5f)*(.7f+age);
-        Vector3 origin=cast.Origin;origin.z=.08f;
-        for(int i=0;i<4 && details>0;i++,details--)
-        {
-            float a=i*Mathf.PI*.5f+age;
-            Vector3 point=origin+new Vector3(Mathf.Cos(a),Mathf.Sin(a),.1f)*radius;
-            Mesh(output,SpatialEnergyGeometry.Cloud,Vector3.Lerp(point,origin,age*1.5f),Quaternion.identity,
-                new Vector3(radius*.35f,radius*.35f,radius*.22f),Alpha(cast.Color,.12f*fade));
-        }
-    }
-
     /// <summary>领域边界、内部运动与独有结构分层，实际作用半径只由既有领域决定。</summary>
     /// <param name="cast">真实领域。</param><param name="center">中心。</param><param name="radius">真实半径。</param>
     /// <param name="age">年龄。</param><param name="output">共同模型。</param><param name="details">装饰预算。</param>
@@ -174,7 +158,7 @@ internal static partial class BattleSpellVisualRuntime
         }
     }
 
-    /// <summary>实际落点后先出现主冲击，再向真实边界传播，最后收为细屑。</summary>
+    /// <summary>只保留各类招式自己的落点变化；没有对应变化时，由实际接触提示反馈。</summary>
     /// <param name="cast">已确认落点。</param><param name="age">落点后年龄。</param><param name="output">共同模型。</param><param name="details">装饰预算。</param>
     private static void DrawImpact(Cast cast,float age,List<SpatialVisualMeshInstance> output,ref int details)
     {
@@ -212,22 +196,16 @@ internal static partial class BattleSpellVisualRuntime
             case BattleSpellStyle.Earth:
                 if (cast.AssetId != SkillEntities.GroundSpike.id && cast.AssetId != SkillEntities.EarthRidge.id)
                     MaterialSpellVisuals.DrawEarthRise(output, center, MaterialSpellVisuals.Heading(cast.Direction), radius * .65f,
-                        age, Mathf.Max(0f, age - .15f), cast.Entity.Id % 4, ref details);
+                        age, Mathf.Max(0f, age - .15f), cast.Entity.Id % 4);
                 break;
             case BattleSpellStyle.Ice:
                 for(int i=0;i<9;i++)
                 {
                     float a=i*Mathf.PI*2f/9f;Vector3 point=center+new Vector3(Mathf.Cos(a),Mathf.Sin(a),0)*radius*.62f;
-                    Mesh(output,cast.Style==BattleSpellStyle.Earth?SpatialEnergyGeometry.Peak:SpatialEnergyGeometry.Crystal,
-                        point,Quaternion.Euler(0,cast.Style==BattleSpellStyle.Ice?i*4f:0f,a*Mathf.Rad2Deg),
-                        new Vector3(radius*.12f,radius*.12f,radius*(.3f+.15f*Mathf.Sin(i*3.1f))*rise*(1f-progress*.7f)),color,cast.Style!=BattleSpellStyle.Earth);
+                    Mesh(output, SpatialEnergyGeometry.Crystal, point, Quaternion.Euler(0, i * 4f, a * Mathf.Rad2Deg),
+                        new Vector3(radius * .12f, radius * .12f,
+                            radius * (.3f + .15f * Mathf.Sin(i * 3.1f)) * rise * (1f - progress * .7f)), color);
                 }
-                if(cast.Style==BattleSpellStyle.Earth)
-                    for(int i=0;i<5;i++)
-                    {
-                        float a=i*Mathf.PI*.4f;Vector3 dust=center+new Vector3(Mathf.Cos(a),Mathf.Sin(a),.15f)*radius*.65f*rise;
-                        Mesh(output,SpatialEnergyGeometry.Cloud,dust,Quaternion.identity,new Vector3(radius*.32f,radius*.26f,radius*.15f),new Color(.54f,.4f,.23f,.24f*fade));
-                    }
                 break;
             case BattleSpellStyle.Water:
                 if (cast.AssetId != SkillEntities.TidalWave.id)
@@ -251,25 +229,6 @@ internal static partial class BattleSpellVisualRuntime
                 Mesh(output,SpatialEnergyGeometry.Dragon,center,Quaternion.Euler(0,0,age*45f),
                     new Vector3(radius*.58f,radius*.58f,radius*.55f)*rise,Alpha(cast.Color,.72f*fade));
                 break;
-            case BattleSpellStyle.Sword:
-            case BattleSpellStyle.Body:
-                Mesh(output,SpatialEnergyGeometry.Cloud,center,Quaternion.identity,
-                    new Vector3(radius*rise,radius*rise,radius*.3f),Alpha(cast.Color,.22f*fade));
-                GlowOrb(output,center+Vector3.forward*radius*.1f,radius*.24f*rise,Alpha(cast.Color,.35f*fade));
-                break;
-            default:
-                Mesh(output,SpatialEnergyGeometry.Cloud,center,Quaternion.Euler(0,0,age*15f),
-                    new Vector3(radius*rise,radius*rise,radius*.45f),Alpha(cast.Color,.24f*fade));
-                break;
-        }
-        // 小碎屑先受预算限制，主冲击与真实边界保持完整。
-        for(int i=0;i<12 && details>0;i++,details--)
-        {
-            float angle=i*2.39996f;Vector3 velocity=new(Mathf.Cos(angle),Mathf.Sin(angle),0);
-            Vector3 point=center+velocity*radius*(.15f+progress*.8f);
-            point.z+=Mathf.Max(0f,radius*(progress*1.8f-progress*progress*1.7f))*(.4f+(i%3)*.2f);
-            Mesh(output,SpatialVisualGeometry.Spark,point,Quaternion.FromToRotation(Vector3.forward,velocity),
-                Vector3.one*radius*.032f*fade,Alpha(cast.Color,.65f*fade));
         }
     }
 

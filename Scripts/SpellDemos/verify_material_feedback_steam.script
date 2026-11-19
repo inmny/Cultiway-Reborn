@@ -1,0 +1,42 @@
+// 复用已经验证的真实水、火构造，增加同一场地的空隔对照。
+PrepareAppearanceBackdrop(61, 75, 69, 75);
+var source = Make(64);
+var target = Make(68, true);
+var steam = (IList)service.GetField("steam", F).GetValue(null);
+var changes = new List<ConstructedQuenching>();
+void Changed(ConstructedQuenching fact) => changes.Add(fact);
+ConstructedAbilityService.QuenchingConfirmed += Changed;
+AbilityDefinition Medium(string id, string matter, float offset)
+{
+    var d = Shot(id);
+    d.Lifetime = .15f;
+    d.Root.Operations = Array.Empty<ConstructionOperation>();
+    d.Root.Offset = new[] { offset, 0f, 0f };
+    d.Root.Matter = matter;
+    d.Root.Volume = 16;
+    return d;
+}
+try
+{
+    Fire(Medium("steam-water-apart", "water", -5), source, target);
+    Fire(Medium("steam-fire-apart", "fire", 4), source, target);
+    await Advance(.3f);
+    Check(changes.Count == 0 && steam.Count == 0, "水火隔开时，没有蒸散事实或烟雾");
+    Fire(Medium("steam-water", "water", 4), source, target);
+    Fire(Medium("steam-fire", "fire", 4), source, target);
+    await Advance(.3f);
+    Check(changes.Count > 0 && steam.Count > 0 && changes.All(e => e.Evaporated > 0 &&
+        Vector2.Distance(e.Point, target.current_position) < 2f), "水火接触并实际减水后才在接触处升起蒸汽",
+        new { count = steam.Count, evaporated = changes.Sum(e => e.Evaporated) });
+    var at = changes[0].Point;
+    await FrameAppearance("steam-native", at.x, at.y, 5f);
+    await FrameCleanupSide("steam-worldfall", at, 6f, -.25f);
+    await Advance(1f);
+    Check(steam.Count == 0 && !Running().Any(), "蒸汽自然消散，不残留技能执行体");
+    return new { passed = true };
+}
+finally
+{
+    ConstructedAbilityService.QuenchingConfirmed -= Changed;
+    Config.paused = true;
+}

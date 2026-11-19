@@ -1,0 +1,51 @@
+// 直接走保留的旧执行入口，避免实际已学入口迁移后根本没有验到这一路。
+PrepareAppearanceBackdrop(61, 75, 69, 75);
+await FrameAppearance("spell-before", 67, 72, 8f);
+var manager = Cultiway.ModClass.I.SkillV3;
+var skill = new SkillContainerBuilder(SkillEntities.ChaosOrb).UseAnimation(0).Build();
+var assembly = typeof(ActorExtend).Assembly;
+var runtime = assembly.GetType("Cultiway.Content.Visuals.BattleSpellVisualRuntime");
+var activeCasts = (IDictionary)runtime.GetField("active", F).GetValue(null);
+var spatial = assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem");
+var geometry = assembly.GetType("Cultiway.Core.Visuals.SpatialEnergyGeometry");
+object cloud = geometry.GetField("Cloud", F).GetValue(null);
+object Read(object obj, string field) => obj.GetType().GetField(field, F).GetValue(obj);
+int OverlayClouds() => ((IEnumerable)spatial.GetField("Meshes", F).GetValue(null)).Cast<object>().Count(v =>
+    ReferenceEquals(Read(v, "Model"), cloud) && (bool)Read(v, "Additive") && Vector2.Distance((Vector3)Read(v, "Position"), new Vector2(65, 72)) < 12f);
+var landings = new List<(Vector3 Point, float Radius)>();
+Entity cast = default;
+void Area(Entity entity, Vector3 point, float radius) { if (entity == cast) landings.Add((point, radius)); }
+SkillHitResolver.AreaResolved += Area;
+try
+{
+    int hp = enemy.data.health;
+    cast = manager.SpawnSkillAtPosition(skill, owner.Base, new Vector3(59, 72, .35f), enemy,
+        enemy.GetSimPos(), 45f, owner.GetPowerLevel());
+    Check(cast.IsAvailable() && activeCasts.Contains(cast), "真实旧执行进入高阶显示路径");
+    await Advance(.07f);
+    await Game.NextFrame();
+    int openingClouds = OverlayClouds();
+    Check(cast.IsAvailable() && landings.Count == 0 && openingClouds == 0, "未落地的混沌弹没有通用施法云团",
+        new { available = cast.IsAvailable(), landings = landings.Count, openingClouds });
+    await FrameAppearance("spell-release", 65, 72, 5f);
+    int clouds = 0;
+    for (int i = 0; i < 75 && (landings.Count == 0 || enemy.data.health >= hp); i++)
+    {
+        await Advance(.04f);
+        await Game.NextFrame();
+        clouds += OverlayClouds();
+    }
+    Check(landings.Count > 0 && enemy.data.health < hp && clouds == 0, "混沌弹实际落点扣血，不再叠加通用落点云团",
+        new { hits = landings.Count, hp, after = enemy.data.health, clouds });
+    var at = landings[0].Point;
+    await FrameAppearance("spell-impact-native", at.x, at.y, 5f);
+    await FrameCleanupSide("spell-impact-worldfall", at, 7f, -.25f);
+    await Advance(2f);
+    Check(!activeCasts.Contains(cast), "旧执行正常结束，不滞留显示记录");
+    return new { passed = true, hits = landings.Count };
+}
+finally
+{
+    SkillHitResolver.AreaResolved -= Area;
+    Config.paused = true;
+}

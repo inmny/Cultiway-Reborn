@@ -136,11 +136,7 @@ internal static partial class BattleSpellVisualRuntime
             {active.Remove(cast.Entity);casts.RemoveAt(i);continue;}
             float extent=Mathf.Max(cast.Radius,cast.Growth*3f);
             if(!SpatialVisualEffects.IsRelevant(cast.Position,extent) && !SpatialVisualEffects.IsRelevant(cast.Origin,extent))continue;
-            if(live)
-            {
-                DrawCast(cast,age,output,ref details);
-                if(age<.5f)DrawGathering(cast,age,output,ref details);
-            }
+            if (live) DrawCast(cast, age, output, ref details);
             if(cast.ImpactAt>=0d)DrawImpact(cast,(float)(now-cast.ImpactAt),output,ref details);
         }
     }

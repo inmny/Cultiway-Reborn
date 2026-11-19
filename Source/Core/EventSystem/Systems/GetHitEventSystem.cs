@@ -52,7 +52,8 @@ public class GetHitEventSystem : GenericEventSystem<GetHitEvent>
             return actor.GetExtend().ResolveHit(evt.Damage, ref element, attacker,
                 ignore_damage_reduction: evt.IgnoreDamageReduction,
                 attack_type_for_vanilla: evt.AttackType,
-                attacker_power_level_override: evt.AttackerPowerLevel);
+                attacker_power_level_override: evt.AttackerPowerLevel,
+                metallic_weapon: evt.MetallicWeapon);
         }
     }
 }

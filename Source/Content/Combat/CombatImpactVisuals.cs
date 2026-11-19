@@ -1,4 +1,5 @@
 using Cultiway.Core;
+using Cultiway.Content.Visuals;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
 using Friflo.Engine.ECS;
@@ -12,10 +13,9 @@ namespace Cultiway.Content.Combat;
 /// <summary>只在最终伤害为正数时显示接触碎屑，碰撞尝试不冒充受伤。</summary>
 internal static class CombatImpactVisuals
 {
-    /// <summary>接入现有最终伤害通知。</summary>
+    /// <summary>接入屏障实际消耗通知。</summary>
     internal static void Initialize()
     {
-        ActorExtend.RegisterActionOnDamageResolved(OnDamage);
         SkillHitResolver.BarrierContactResolved += OnBarrierContact;
     }
 
@@ -46,22 +46,27 @@ internal static class CombatImpactVisuals
                 new Color(.65f, .8f, 1f, .8f), .05f, .12f + i * .025f);
     }
 
-    /// <summary>在真实受伤部位产生少量集中反馈。</summary>
-    /// <param name="target">实际受伤者。</param><param name="attacker">实际来源。</param><param name="damage">最终伤害。</param>
-    /// <param name="composition">实际元素。</param><param name="attackType">原攻击类别。</param>
-    private static void OnDamage(ActorExtend target, BaseSimObject attacker, float damage, ElementComposition composition, AttackType attackType)
+    /// <summary>只在实际失去生命后显示接触；原版武器材质在受击入队时已冻结。</summary>
+    /// <param name="target">实际受伤者。</param>
+    /// <param name="attacker">实际来源。</param>
+    /// <param name="healthLost">本次实际扣除的生命。</param>
+    /// <param name="composition">实际结算的元素。</param>
+    /// <param name="attackType">原攻击类别。</param>
+    /// <param name="metallicWeapon">原版明确交来的武器材质；无资料时保留元素色。</param>
+    internal static void OnHealthLost(ActorExtend target, BaseSimObject attacker, int healthLost,
+        ElementComposition composition, AttackType attackType, bool? metallicWeapon)
     {
-        if (damage <= 0f || target.Base.isRekt()) return;
+        if (healthLost <= 0 || target.Base.isRekt()) return;
         Vector3 point = target.Base.GetSimPos();
         if (!SpatialVisualEffects.IsRelevant(point, .4f)) return;
-        if(attackType==AttackType.Weapon && attacker?.isActor()==true && !attacker.isRekt())
-            Cultiway.Content.Visuals.BattleSpellVisualRuntime.Contact(attacker.a,target.Base);
-        if (attackType == AttackType.Weapon && attacker?.isActor() == true)
-            Cultiway.Content.Visuals.BattleSpellVisualRuntime.Contact(attacker.a, target.Base);
-        Color color = Color.Lerp(SkillVfxColor.GetElementColor(composition), Color.white, .22f);
+        if (attackType == AttackType.Weapon && attacker?.isActor() == true && !attacker.isRekt())
+            BattleSpellVisualRuntime.Contact(attacker.a, target.Base);
+        Color color = metallicWeapon == false ? new Color(.61f, .45f, .31f, .76f) :
+            Color.Lerp(SkillVfxColor.GetElementColor(composition), Color.white, .22f);
         Vector3 direction = attacker != null && !attacker.isRekt() ? (point - attacker.GetSimPos()).normalized : Vector3.up;
         float size = Mathf.Clamp(target.Base.actor_scale * .8f, .035f, .16f);
-        for (int i = 0; i < 3; i++)
+        int count = metallicWeapon == false ? 2 : 3;
+        for (int i = 0; i < count; i++)
         {
             Vector3 velocity = direction * (.3f + i * .12f) + Vector3.forward * (.6f - i * .15f);
             SpatialVisualEffects.Particle(point, velocity, color, size, .14f + i * .025f, gravity: -3f);

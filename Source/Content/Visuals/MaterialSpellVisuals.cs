@@ -89,7 +89,7 @@ internal static partial class MaterialSpellVisuals
                         }
                     }
                 }
-                else DrawEarthRise(output, node.Position, Heading(delta), path.Radius, age, Mathf.Max(ending,age-1f), i, ref details);
+                else DrawEarthRise(output, node.Position, Heading(delta), path.Radius, age, Mathf.Max(ending,age-1f), i);
             }
         }
         foreach (Entity entity in finished) paths.Remove(entity);
@@ -100,7 +100,7 @@ internal static partial class MaterialSpellVisuals
     /// <param name="radius">实际范围。</param><param name="age">该段年龄。</param><param name="ending">执行结束时间。</param>
     /// <param name="seed">固定变化。</param><param name="details">装饰预算。</param>
     internal static void DrawEarthRise(List<SpatialVisualMeshInstance> output, Vector3 center, Quaternion heading,
-        float radius, float age, float ending, int seed, ref int details)
+        float radius, float age, float ending, int seed)
     {
         if(ending>1.5f)return;
         float rise = Mathf.SmoothStep(.02f, 1f, Mathf.Clamp01(age / .22f));
@@ -112,11 +112,6 @@ internal static partial class MaterialSpellVisuals
             Vector3 size = new(radius*.37f,radius*.33f,radius*(.5f+variant*.09f)*rise);
             DrawRock(output,variant,position,rotation,size,ending);
         }
-        float dust = Mathf.Max(1f - Mathf.Clamp01(age / .55f), Mathf.Clamp01((ending-.3f)/.35f)*(1f-Mathf.Clamp01((ending-.9f)/.6f)));
-        if (dust <= .01f || details <= 0) return;
-        details--;
-        SpatialVisualDraw.Mesh(output, SpatialEnergyGeometry.Cloud, center + Vector3.forward * radius * .1f, heading,
-            new Vector3(radius * .6f, radius, radius * .22f), new Color(.59f, .53f, .4f, dust * .2f), true, additive: false);
     }
 
     /// <summary>完整岩体先保持刚性，再按原来的体积分裂；碎块落地后留作短暂残骸。</summary>
