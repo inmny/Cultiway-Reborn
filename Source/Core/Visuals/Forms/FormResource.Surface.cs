@@ -33,7 +33,7 @@ public sealed partial class FormResource
         "stone_strata" => "stone",
         "wood_leaf" => "wood",
         "wind_open" or "wind_pressure" => "wind",
-        "meteor_heat" or "meteor_crown" => "flame",
+        "meteor_heat" or "meteor_crown" or "flame_body" => "flame",
         "aegis_jade" or "spirit_core" or "spirit_beam_edge" or "spirit_beam_core" => "spirit_pearl",
         "aegis_solar" or "solar_gold" or "solar_beam_edge" or "solar_beam_flank" or "solar_beam_core" => "solar_light",
         "aegis_lightning" or "thunder_core" or "thunder_body" or "thunder_corona" or "thunder_arc" or "thunder_arc_fork" => "lightning_dense",

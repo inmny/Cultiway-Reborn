@@ -14,7 +14,7 @@ internal sealed partial class FormResourceGeneration
     internal void CreateReactionForms()
     {
         CreateContactVolume();
-        CreateReactionForm("fire_body", "flame", true);
+        CreateReactionForm("fire_body", "flame_body", true);
         CreateReactionForm("reaction_steam", "foam", false);
     }
 

@@ -2180,3 +2180,16 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 Worldfall 改用 `--view worldfall` 和独立输出目录。检查 `result.json` 的扣费、真实接触、水面出现后的水量及末帧退出；画面看水鲸接成后流、沿坡铺开和薄边淡去。原版初稿和正式两视角原片分别保存。
+
+### 9.15 火系移动火体与附着燃烧
+
+在独立游戏运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_fire_presentation.py --section travel`，验证原火身接触面、正式支付、正面命中、侧外无伤与到期退出。改为 `--section burning`，验证真实点燃、烧损、冷却后剩余木料，以及熄灭和退场。两段可独立复验。
+
+常速录像复用构造演示入口，每段通过 `dev.py exec` 分开运行：
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/离体炎流.json --isolate-target --target-offset 16 0 --view native --speed 1 --duration 3.5 --zoom 22 --fps 20 --keep-frames --output <移动火体原版目录>
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/点木流火.json --opponent-construction Doc/技能系统全面重构/构造输入/可燃分枝.json --isolate-target --target-offset 20 0 --view native --speed 1 --duration 7 --zoom 16 --fps 18 --keep-frames --output <附着燃烧原版目录>
+```
+
+Worldfall 使用 `--view worldfall` 和另一输出目录。附着燃烧看 `result.json` 中实际的传热、烧损和末帧火体记录；这两段拍的是自然燃尽，水冷却由独立复验覆盖。

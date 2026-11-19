@@ -745,6 +745,7 @@ internal sealed partial class FormResourceGeneration
             "aegis_solar" => (14f, new Color(1f, .71f, .19f, .50f), .35f),
             "wind" => (13f, new Color(.55f, .81f, .86f, .57f), .32f),
             "flame" => (6f, new Color(1f, .31f, .035f), .8f),
+            "flame_body" => (20f, new Color(1f, .38f, .065f, .85f), .76f),
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
             "wood_leaf" => (2f, new Color(.31f, .53f, .12f), .88f),
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),

@@ -396,8 +396,7 @@ public sealed partial class WorldMaterialService
             .Select(r => r.Material.Visual(terrain, IndependentConductionFrame(r))).ToList();
         AddSolidVisuals(result);
         foreach (var row in rows.Values.Where(r => !r.Finished))
-            FormBurningPresentation.Append(result, row.Material.Transform, row.Material.Burning, row.Material.Volume,
-                terrain, row.Clock);
+            FormBurningPresentation.Append(result, row.Material.Transform, row.Material.Burning, row.Material.Volume, terrain);
         var groups = rows.Values.Where(r => !r.Finished && r.WorldGrid && !r.Recovering).GroupBy(WaterKey)
             .ToDictionary(g => g.Key, g => g.OrderBy(r => r.Id).ToArray());
         var totals = new Dictionary<(string, string, int, int, bool), AbilityFlow>();

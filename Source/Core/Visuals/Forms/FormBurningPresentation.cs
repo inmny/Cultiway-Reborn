@@ -18,16 +18,21 @@ internal static class FormBurningPresentation
     /// <summary>真实点火处随主体移动，短暂冷却不创建独立攻击实体。</summary>
     /// <param name="output">共同显示集合。</param><param name="matrix">实际主体变换。</param>
     /// <param name="burning">真实热量与点火位置。</param><param name="volume">尚存燃料。</param>
-    /// <param name="terrain">本轮共同地表。</param><param name="time">已完成的世界时钟。</param>
+    /// <param name="terrain">本轮共同地表。</param>
     internal static void Append(List<FormVisualInstance> output, Matrix4x4 matrix, AbilityBurning burning,
-        double volume, AbilityHeightField terrain, double time)
+        double volume, AbilityHeightField terrain)
     {
         if (!burning.Lit || burning.Heat <= 0 || volume <= 0) return;
         Vector3 point = matrix.MultiplyPoint3x4(new Vector3(burning.X, burning.Y, burning.Z));
-        float size = Mathf.Clamp((float)Math.Pow(volume, 1d / 3) * .55f, .15f, 6f);
-        float pulse = .94f + .06f * Mathf.Sin((float)(time % 1000) * 9);
+        // 余料缩短可覆盖的面积，真实余热决定焰高和透光；火纹的流动由两端共享的世界时钟负责。
+        double fuel = Math.Max(volume, burning.Fuel);
+        float heat = Mathf.Sqrt((float)(1d - Math.Exp(-burning.Heat / (fuel * .35))));
+        float size = Mathf.Clamp((float)Math.Pow(volume, 1d / 3) * .68f, .12f, 6f);
+        float width = size * (.65f + .35f * heat);
+        float height = size * (.42f + .88f * heat);
+        float alpha = .94f * heat * Mathf.Sqrt((float)(volume / fuel));
         output.Add(new FormVisualInstance(FormResources.Load("fire_body"),
-            Matrix4x4.TRS(point, Quaternion.identity, new Vector3(size, size, size * pulse)),
-            tint: new Color(1f, .31f, .035f, .83f), terrain: terrain));
+            Matrix4x4.TRS(point, Quaternion.identity, new Vector3(width, width, height)),
+            tint: new Color(1f, Mathf.Lerp(.16f, .42f, heat), .044f, alpha), terrain: terrain));
     }
 }

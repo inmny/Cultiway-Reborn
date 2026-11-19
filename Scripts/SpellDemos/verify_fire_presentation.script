@@ -1,0 +1,114 @@
+// 移动火身复验：原有接触芯、外焰的材质入口、正式作用及退场。
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(
+    Path.Combine(DEFINITION_ROOT, "离体炎流.json")));
+var source = Make(64);
+var target = Make(72, "wolf");
+var outside = Make(72, "wolf");
+await Advance(.18f);
+var views = new List<FormVisualInstance>();
+var shapes = new List<AbilityCapsule>();
+try
+{
+    Ready(source);
+    Place(source, 64);
+    Place(target, 72);
+    Place(outside, 72, 78);
+    foreach (Actor a in new[] { source, target, outside }) ConstructedAbilityService.NotifyActorChanged(a);
+    source.stats["mana"] = 10000;
+    source.setMana(10000);
+    float before = source.data.mana;
+    var hp = target.data.health;
+    var dryHp = outside.data.health;
+    await Fire(definition, source, target);
+    Check(Math.Abs(before - source.data.mana - definition.Cost) < .001f, "沿用原费用");
+    await Advance(.08f);
+    var cast = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Select(r => (AbilityCast)Field(r, "Cast")).Single(c => c.Plan.Id == definition.Id);
+    cast.AppendVisuals(views);
+    cast.AppendContacts(shapes);
+    var view = views.Single();
+    var hitShape = shapes.Single();
+    var fire = view.Resource;
+    var oldA = new Vector3(0, 0, .5f);
+    var oldB = new Vector3(0, 0, 1.1f);
+    Check(fire.Description.Id == "fire_body" && view.SurfaceFor(0) == "flame_body" &&
+          Mathf.Approximately(fire.Surface(view.SurfaceFor(0), true).GetFloat("_Kind"), 20) &&
+          Mathf.Approximately(fire.Surface(view.SurfaceFor(0), false).GetFloat("_Kind"), 20),
+        "两种视角实际火身都采用内外焰材质");
+    Check(Vector3.Distance(hitShape.A, view.Transform.MultiplyPoint3x4(oldA)) < .0001f &&
+          Vector3.Distance(hitShape.B, view.Transform.MultiplyPoint3x4(oldB)) < .0001f &&
+          Mathf.Approximately(hitShape.Radius, definition.Root.Scale * .5f), "仍由原火身接触芯结算");
+    await Advance(.65f);
+    Check(target.data.health < hp && outside.data.health == dryHp &&
+          contacts.Any(hit => hit.TargetId == target.id) && contacts.All(hit => hit.TargetId != outside.id),
+        "正面命中，侧外无接触和伤害", new { targetDamage = hp - target.data.health, outsideDamage = dryHp - outside.data.health });
+    await Advance(2.6f);
+    views.Clear(); shapes.Clear();
+    cast.AppendVisuals(views); cast.AppendContacts(shapes);
+    Check(views.Count == 0 && shapes.Count == 0 && endings.Count == 1 && !endings[0].Fact.Cancelled,
+        "到期火身和作用同时退出");
+    return new { passed = true, checks };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
+
+// 附着燃烧复验
+var burnedEvents = new List<ConstructedBurning>();
+void Burned(ConstructedBurning e) => burnedEvents.Add(e);
+ConstructedAbilityService.BurningConfirmed += Burned;
+var views = new List<FormVisualInstance>();
+try
+{
+    var wood = Wood("test.fire-presentation.wood");
+    Check(Fire(supply, supply, wood), "原木体正常施放");
+    var cast = Running(wood.Id);
+    await Advance(.08f);
+    cast.AppendVisuals(views);
+    Check(views.Count == 1 && views[0].Resource.Description.Id == "branch", "未点燃时没有附着火焰");
+    var flame = Flame("test.fire-presentation.ignition", .02f);
+    Check(Fire(source, target, flame), "原点木流火施放");
+    await Advance(1.6f);
+    views.Clear();
+    cast.AppendVisuals(views);
+    var body = views.Single(v => v.Resource.Description.Id == "branch");
+    var glow = views.Single(v => v.Resource.Description.Id == "fire_body");
+    var lit = cast.Burning(0);
+    var expected = body.Transform.MultiplyPoint3x4(new Vector3(lit.X, lit.Y, lit.Z));
+    Check(lit.Lit && lit.Burned > 0 && glow.Tint.Value.a > 0f && glow.SurfaceFor(0) == "flame_body" &&
+          Vector3.Distance(expected, (Vector3)glow.Transform.GetColumn(3)) < .0001f,
+        "热量真实点燃并烧损，火焰跟随已确认的接触点");
+
+    var water = Spell("蓄水御炎");
+    water.Id = "test.fire-presentation.cooling";
+    water.Root.Volume = 32;
+    water.Root.Operations.Single(o => o.Kind == ConstructionOperationKind.Flow).Flow.Size = 8;
+    Check(Fire(supply, supply, water), "原水体正常施放并冷却");
+    await Advance(.4f);
+    views.Clear();
+    cast.AppendVisuals(views);
+    var cooled = cast.Burning(0);
+    double remaining = cast.RemainingVolume(0);
+    Check(!cooled.Lit && cooled.Heat == 0 && remaining > 0 &&
+          views.Count == 1 && views[0].Resource.Description.Id == "branch" &&
+          burnedEvents.Any(e => e.Kind == "cool" && e.Transferred > 0),
+        "实际冷却后不再显示火焰，仍保留烧过的木料");
+    await Advance(.45f);
+    Check(cast.RemainingVolume(0) == remaining && cooled.Burned == cast.Burning(0).Burned,
+        "冷却后不继续烧损");
+    Cancel();
+    await Advance(.1f);
+    views.Clear();
+    cast.AppendVisuals(views);
+    Check(views.Count == 0, "主体退出后没有附着余焰");
+    return new { passed = true, checks, burn = lit.Burned, remaining };
+}
+finally
+{
+    ConstructedAbilityService.BurningConfirmed -= Burned;
+    Config.paused = true;
+}

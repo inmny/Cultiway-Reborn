@@ -1528,8 +1528,7 @@ public sealed partial class AbilityCast
                     matterSurface: appearance.MatterSurface, dye: dye, matter: nodes[i].Matter,
                     terrain: terrain, layer: flows?[i]?.Started == true ? ConductingFrame(i) : null,
                     buildProgress: poses[i]?.BuildProgress ?? 1f, followMatter: Plan.Nodes[i].FollowMatter));
-                FormBurningPresentation.Append(output, nodes[i].Transform, nodes[i].Burning, nodes[i].Volume, terrain,
-                    Age);
+                FormBurningPresentation.Append(output, nodes[i].Transform, nodes[i].Burning, nodes[i].Volume, terrain);
             }
     }
 
