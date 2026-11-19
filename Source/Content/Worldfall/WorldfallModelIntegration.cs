@@ -99,6 +99,7 @@ public sealed partial class WorldfallModelIntegration : ICanInit
                 postfix: Postfix(nameof(UseRiceGroundMaterial)));
             WorldfallLeafCards.Install(collector, ModelHarmony, ReadLeafCardSprite);
             WorldfallGroundPits.Install(collector, ModelHarmony, CustomModels);
+            WorldfallBuildingFoundations.Install(collector, ModelHarmony);
             PrepareBuildingPalettes();
             ModelHarmony.Patch(get, postfix: Postfix(nameof(ProvideCustomModel)));
             ModelHarmony.Patch(building, postfix: Postfix(nameof(SelectBuildingFamily)));
@@ -124,6 +125,8 @@ public sealed partial class WorldfallModelIntegration : ICanInit
                 postfix: Postfix(nameof(PoseCreature)));
             ModelHarmony.Patch(addCreature, prefix: Postfix(nameof(PrepareCreatureFrame)),
                 postfix: Postfix(nameof(FinishCreatureFrame)));
+            InstallTrainConsist(addCreature);
+            WorldfallRailTracks.Install(collector, ModelHarmony, CustomModels);
             ModelHarmony.Patch(AccessTools.Method(addCreature.DeclaringType, "AddFigure"),
                 prefix: Postfix(nameof(EnterCreatureFigure)), finalizer: Postfix(nameof(LeaveCreatureFigure)));
             ModelHarmony.Patch(AccessTools.Method(addCreature.DeclaringType, "DrawnAs"),

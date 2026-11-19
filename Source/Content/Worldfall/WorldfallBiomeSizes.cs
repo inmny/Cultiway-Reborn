@@ -33,10 +33,10 @@ internal static partial class WorldfallBiomeSizes
         ["Knowledge_tree"] = AdultHeight * 5.6f / 12.9375f,
         ["Rice_tree"] = AdultHeight * 3.6f / 14.0625f,
         ["Titans_tree"] = AdultHeight * 5.2f / 14.625f,
-        ["Nurgle_tree"] = AdultHeight * 3.8f / (16.875f * 34f / 35f),
-        ["Khorne_tree"] = AdultHeight * 3.6f / 15.125f,
-        ["Tzeentch_tree"] = AdultHeight * 3.6f / 15.125f,
-        ["Slaanesh_tree"] = AdultHeight * 3.6f / 15.125f
+        ["Nurgle_tree"] = AdultHeight * 7.6f / (16.875f * 34f / 35f),
+        ["Khorne_tree"] = AdultHeight * 7.2f / 15.125f,
+        ["Tzeentch_tree"] = AdultHeight * 7.2f / 15.125f,
+        ["Slaanesh_tree"] = AdultHeight * 7.2f / 15.125f
     };
 
     /// <summary>取得模组群系树木的等比调整量，原版物件保持原比例。</summary>

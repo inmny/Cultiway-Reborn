@@ -22,6 +22,10 @@ internal static class WorldfallGroundPits
     private static TerrainCache PitTerrain;
     /// <summary>场景本帧实际绘制的网格。</summary>
     private static FieldInfo SceneMeshes;
+    /// <summary>本帧地表花草和远景植被贴片。</summary>
+    private static FieldInfo SceneBillboards;
+    /// <summary>绘制编号对应的实际游戏对象，用于区分植物和单位。</summary>
+    private static FieldInfo SceneTagged;
     /// <summary>原生采样器持有的地表缓存。</summary>
     private static FieldInfo SamplerCache;
     /// <summary>上传显卡之前的地表副本。</summary>
@@ -45,6 +49,8 @@ internal static class WorldfallGroundPits
         }
         if (Shapes.Count == 0) return;
         SceneMeshes = AccessTools.Field(collector, "Meshes");
+        SceneBillboards = AccessTools.Field(collector, "Billboards");
+        SceneTagged = AccessTools.Field(collector, "Tagged");
         SamplerCache = AccessTools.Field(collector.Assembly.GetType("FirstPerson.WorldSampler"), "Cache");
         Type gpuTerrain = collector.Assembly.GetType("FirstPerson.Gpu.GpuTerrain", true);
         PackedTerrain = AccessTools.Field(gpuTerrain, "_packed");
@@ -58,8 +64,48 @@ internal static class WorldfallGroundPits
     /// <summary>从本帧真正显示的建筑取坑口，移除、换世界和切换距离档都会同步。</summary>
     /// <param name="__instance">原生场景收集器。</param>
     /// <param name="sampler">当前世界的采样器。</param>
-    private static void CollectPits(object __instance, object sampler) =>
-        UpdatePits((TerrainCache)SamplerCache.GetValue(sampler), (List<MeshInstance>)SceneMeshes.GetValue(__instance));
+    private static void CollectPits(object __instance, object sampler)
+    {
+        List<MeshInstance> meshes = (List<MeshInstance>)SceneMeshes.GetValue(__instance);
+        UpdatePits((TerrainCache)SamplerCache.GetValue(sampler), meshes);
+        HidePitVegetation(meshes, (List<Billboard>)SceneBillboards.GetValue(__instance),
+            (List<BaseSimObject>)SceneTagged.GetValue(__instance));
+    }
+
+    /// <summary>仅从本帧绘制列表移除坑口里的地表植被，不删除地图植物，也不隐藏单位和坑体。</summary>
+    /// <param name="meshes">本帧实际显示的模型。</param>
+    /// <param name="billboards">原生草丛及远景植被贴片。</param>
+    /// <param name="tagged">绘制编号对应的游戏对象。</param>
+    internal static void HidePitVegetation(List<MeshInstance> meshes, List<Billboard> billboards,
+        List<BaseSimObject> tagged)
+    {
+        if (Pits.Count == 0) return;
+        meshes.RemoveAll(mesh => IsVegetation(tagged, mesh.Tag) && InPit(mesh.Position.X, mesh.Position.Y));
+        billboards.RemoveAll(bill => (IsVegetation(tagged, bill.Tag) ||
+            bill.Tag < 0 && bill.Kind == BillboardKind.Cross) && InPit(bill.X, bill.Y));
+    }
+
+    /// <summary>原生草丛没有编号，其他植物则由实际建筑类别识别，人物和特效不会被当作植物。</summary>
+    /// <param name="tagged">本帧编号对应的游戏对象。</param>
+    /// <param name="tag">本次绘制编号。</param>
+    /// <returns>编号是否指向树木或地表花草。</returns>
+    private static bool IsVegetation(List<BaseSimObject> tagged, int tag) =>
+        tag >= 0 && tag < tagged.Count && tagged[tag] is Building building &&
+        building.asset.type is "type_tree" or "type_vegetation";
+
+    /// <summary>覆盖地表已被压低的整个坑口，包括坑缘的过渡圈。</summary>
+    /// <param name="x">本次植被的地图横坐标。</param>
+    /// <param name="y">本次植被的地图纵坐标。</param>
+    /// <returns>是否需要隐藏仍留在旧地表高度的植物。</returns>
+    private static bool InPit(float x, float y)
+    {
+        foreach (var pit in Pits)
+        {
+            float dx = x - pit.X, dy = y - pit.Y;
+            if (dx * dx + dy * dy < pit.Radius * pit.Radius) return true;
+        }
+        return false;
+    }
 
     /// <summary>先收集坑口，再比较前后位置，只有发生变化才要求重新上传地表。</summary>
     /// <param name="land">本帧的原生地表。</param>

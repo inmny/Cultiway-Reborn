@@ -217,10 +217,29 @@ public sealed partial class WorldfallModelIntegration
     private static void FacePersonHeldItemForward(PersonRig __instance, MeshInstance body,
         WeaponKind kind, float attack, float height, ref Vec3 position, ref Mat3 basis, bool __result)
     {
-        if (!__result || attack > 0f ||
+        if (!__result ||
             !body.Model.Name.StartsWith("person_cultiway_", StringComparison.Ordinal)) return;
-        position = __instance.HandWorld(body);
+        Vec3 palm = PersonPalm(__instance, body);
+        if (attack > 0f)
+        {
+            // 只补自建手臂与原生手臂的长度差，攻击原有的握柄偏移和挥动方向继续生效。
+            position += palm - __instance.HandWorld(body);
+            return;
+        }
+        position = palm;
         basis = ForwardHeldItemBasis(body, kind, Math.Max(0.3f, Math.Min(3f, height)));
+    }
+
+    /// <summary>有独立掌心标记的人物按真实手掌持物，其余人物沿用原生握点。</summary>
+    /// <param name="rig">当前人物的原生骨架。</param><param name="body">已经完成姿态的身体。</param>
+    /// <returns>随右前臂和整个身体变换后的实际掌心。</returns>
+    private static Vec3 PersonPalm(PersonRig rig, MeshInstance body)
+    {
+        MeshModel model = body.Model;
+        if (string.IsNullOrEmpty(model.Info("cultiway_hand_x"))) return rig.HandWorld(body);
+        Vec3 palm = new(model.InfoFloat("cultiway_hand_x", 0), model.InfoFloat("cultiway_hand_y", 0),
+            model.InfoFloat("cultiway_hand_z", 0));
+        return PersonRig.Transform(body, model.PartIndex("lower_arm_R"), palm);
     }
 
     /// <summary>以身体前方建立握物方向，枪口朝前，长矛前伸，其余长柄略向前上方。</summary>
