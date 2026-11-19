@@ -1,4 +1,11 @@
 {
+  "Cultiway.Construction.MotionKind.PassRemainder": "Pass remaining material",
+  "Cultiway.Construction.Form.five_phase_mantle": "Layered rock shield",
+  "Cultiway.Construction.Form.five_phase_roots": "Forked root crown",
+  "Cultiway.Construction.Form.five_phase_kiln": "Rolling fire kiln",
+  "Cultiway.Construction.Form.five_phase_press": "Forged metal cutter",
+  "Cultiway.Construction.Event.Handoff": "On confirmed handoff",
+  "Cultiway.Construction.EventHint.Handoff": "Starts only after the handoff. The previous part ends and the new part inherits its remaining force and material.",
     "Cultiway.Construction.Form.spirit_ray_luminous": "Spirit beam",
     "Cultiway.Construction.Form.solar_ray_luminous": "Solar beam",
   "Cultiway.UI.OptionMenu.FullLabel": "Full label",

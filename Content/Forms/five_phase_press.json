@@ -1,0 +1,150 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_five_phases.mjs",
+            "Entry": "makePress",
+            "Parameters": [
+                {
+                    "Id": "width",
+                    "Values": [
+                        2.940000057220459
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "jaw/edge",
+                "Parent": "jaw",
+                "Child": "edge",
+                "Position": [
+                    0.0,
+                    0.699999988079071,
+                    0.8799999952316284
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "jaw/mounts",
+                "Parent": "jaw",
+                "Child": "mounts",
+                "Position": [
+                    0.0,
+                    -0.10000000149011612,
+                    0.7400000095367432
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "separate"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "five_phase_press",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "blade.body"
+            ],
+            "Id": "jaw",
+            "Surface": "blade_steel",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/five_phase_press_jaw.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "blade.edge"
+            ],
+            "Id": "edge",
+            "Surface": "silver",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/five_phase_press_edge.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "structure.base"
+            ],
+            "Id": "mounts",
+            "Surface": "bronze",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/five_phase_press_mounts.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "cut",
+            "Part": 0,
+            "A": [
+                -0.9399999976158142,
+                0.7200000286102295,
+                0.8899999856948853
+            ],
+            "B": [
+                0.9399999976158142,
+                0.7200000286102295,
+                0.8899999856948853
+            ],
+            "Radius": 0.4399999976158142,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

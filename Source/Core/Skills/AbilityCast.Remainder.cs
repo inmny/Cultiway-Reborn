@@ -11,18 +11,19 @@ public sealed partial class AbilityCast
 
     /// <summary>先统计仍可接收的权重，再守恒分配和复制事实，最后清空来源。</summary>
     /// <param name="node">真正结束且只通知一次的来源。</param>
-    private void TransferRemainder(int node)
+    /// <param name="trigger">本次实际确认的交接条件。</param>
+    private bool TransferRemainder(int node, ConstructionChangeTrigger trigger)
     {
         int[] receivers = Plan.Nodes[node].RemainderReceivers;
         double total = 0; int left = 0;
         foreach (int index in receivers)
-            if (nodes[index].Exists && float.IsPositiveInfinity(nodes[index].BirthAt))
+            if (Receives(index))
             { total += Plan.Nodes[index].Strength; left++; }
-        if (left == 0) return;
+        if (left == 0) return false;
         NodeState source = nodes[node]; float remaining = source.Force; double volumeLeft = source.Volume, resourceLeft = source.Resource;
         foreach (int index in receivers)
         {
-            if (!nodes[index].Exists || !float.IsPositiveInfinity(nodes[index].BirthAt)) continue;
+            if (!Receives(index)) continue;
             float share = left == 1 ? remaining : Mathf.Min(remaining, (float)(source.Force * (Plan.Nodes[index].Strength / total)));
             double volume = left == 1 ? volumeLeft : System.Math.Min(volumeLeft, source.Volume * (Plan.Nodes[index].Strength / total));
             volumeLeft -= volume; remaining = Mathf.Max(0f, remaining - share); left--;
@@ -30,6 +31,24 @@ public sealed partial class AbilityCast
             resourceLeft -= resource; TransferBranch(index, share, volume, resource, in source);
         }
         nodes[node].Force = 0f; nodes[node].Volume = 0; nodes[node].Resource = 0;
+        return true;
+
+        bool Receives(int index) => Plan.Nodes[index].Activation.Trigger == trigger &&
+            nodes[index].Exists && float.IsPositiveInfinity(nodes[index].BirthAt);
+    }
+
+    /// <summary>从真实点交接尚存份额，再结束来源。失败或耗尽不会预演后续部位。</summary>
+    /// <param name="action">已经到时的明确交接操作。</param>
+    private bool PassRemainder(CompiledEventOperation action)
+    {
+        int node = action.Node;
+        ref NodeState state = ref nodes[node];
+        if (cancelled || Age >= Plan.Lifetime || !state.Exists || state.Force <= 0f || state.Volume <= 0 ||
+            !TransferRemainder(node, ConstructionChangeTrigger.Handoff)) return false;
+        Vector3 point = action.When == null ? state.Transform.GetColumn(3) : operations[action.Index].EventPoint;
+        SignalEvent(node, ConstructionChangeTrigger.Handoff, point);
+        EndNode(node);
+        return true;
     }
 
     /// <summary>分支内部仍按真实作用部位分配，嵌套子结构不能重新获得初始力量。</summary>

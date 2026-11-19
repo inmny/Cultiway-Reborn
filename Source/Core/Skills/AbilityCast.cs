@@ -921,6 +921,7 @@ public sealed partial class AbilityCast
         ResolveGround(i);
         ApplyMatterChanges(i, ConstructionChangeTrigger.Time);
         ApplyPendingOperations(i);
+        if (!state.Exists) return;
         if (propagations?[i] is AbilityPropagation wave)
         {
             if (!state.MovementStopped) AdvancePropagation(i, wave);

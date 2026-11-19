@@ -195,7 +195,7 @@ public sealed partial class AbilityCast
     {
         if (!nodes[node].Started || nodes[node].EndSent) return;
         nodes[node].EndSent = true;
-        if (!cancelled && Age < Plan.Lifetime) TransferRemainder(node);
+        if (!cancelled && Age < Plan.Lifetime) TransferRemainder(node, ConstructionChangeTrigger.End);
         SignalEvent(node, ConstructionChangeTrigger.End, point);
     }
 

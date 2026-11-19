@@ -2257,3 +2257,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 9.24 混沌解构
 
 在独立游戏中运行 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_entropy.py --section legacy`，用原已学入口核对侵蚀场的收费、伤害间隔、范围及转移空隙。`--section clash` 让「散相解构」与「解构验证联盾」实际对撞，核对被触部位、无害碎片、仍有作用的支座及本方剩余材料。两段均可加 `--record native` 或 `--record worldfall` 录制常速实机过程。
+
+### 9.25 五相周流
+
+在独立游戏中运行 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_five_phases.py --section main --record native`。复用同一块场地；用一招真实来刃打开岩壳，随后对照各相的施放时点、扣血、实际材料和水面边界。可将视角改为 `--record worldfall`，也可改为 `--section reordered` 检查水相之后先金后火。
+
+`--section interrupt` 检查未受拦截、岩壳被打尽和木相打空；`--section quench` 让外来火命中实际水层，核对后续收到的余量；`--section restore` 检查正式写读档；`--section editor` 核对表单添加交接、纠正来源和中英文重开。各段单独运行即可。
