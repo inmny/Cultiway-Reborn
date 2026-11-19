@@ -33,10 +33,7 @@ internal static class PatchMapBox
     private static void applyAttack_damage_scale_prefix(AttackData pData, out AttackScopeState __state)
     {
         float previousMultiplier = AttackDamageScaleContext.Enter(pData);
-        bool weaponControlProjectile = pData.is_projectile &&
-                                       pData.projectile_id.StartsWith(
-                                           WeaponControlProjectileProxyLibrary.ProxyIdPrefix,
-                                           StringComparison.Ordinal);
+        bool weaponControlProjectile = IsControlledProjectile(pData);
         DamageResolutionContext.Scope damageScope = weaponControlProjectile
             ? DamageResolutionContext.Enter(DamageOrigin.Primary, long.MinValue)
             : default;
@@ -51,6 +48,49 @@ internal static class PatchMapBox
         AttackDamageScaleContext.Restore(__state.PreviousMultiplier);
         return __exception;
     }
+
+    /// <summary>仅替换原版攻击检查里的两处击中显示，攻击结果仍由原版返回。</summary>
+    [HarmonyTranspiler, HarmonyPatch(typeof(MapBox), nameof(MapBox.checkAttackFor))]
+    private static IEnumerable<CodeInstruction> checkAttackFor_visual_transpiler(IEnumerable<CodeInstruction> codes)
+    {
+        var spawn = AccessTools.Method(typeof(EffectsLibrary), nameof(EffectsLibrary.spawnAt),
+            new[] { typeof(string), typeof(Vector3), typeof(float) });
+        var feedback = AccessTools.Method(typeof(PatchMapBox), nameof(SpawnAttackFeedback));
+        foreach (var instruction in codes)
+        {
+            if (!instruction.Calls(spawn))
+            {
+                yield return instruction;
+                continue;
+            }
+            yield return new CodeInstruction(OpCodes.Ldarg_0).MoveLabelsFrom(instruction).MoveBlocksFrom(instruction);
+            yield return new CodeInstruction(OpCodes.Ldarg_1);
+            yield return new CodeInstruction(OpCodes.Call, feedback);
+        }
+    }
+
+    /// <summary>战技和御器击中人物时使用实际扣血反馈；普通攻击和建筑保留原版显示。</summary>
+    /// <param name="id">原版普通或暴击预制件。</param>
+    /// <param name="position">原版落点。</param>
+    /// <param name="scale">原版大小。</param>
+    /// <param name="attack">真实攻击及来源。</param>
+    /// <param name="target">原版结算对象。</param>
+    private static BaseEffect SpawnAttackFeedback(string id, Vector3 position, float scale, AttackData attack,
+        BaseSimObject target)
+    {
+        if (id is "fx_hit" or "fx_hit_critical" && target.isActor())
+        {
+            bool controlled = attack.is_projectile ? IsControlledProjectile(attack) :
+                attack.attack_type == AttackType.Weapon && DamageResolutionContext.CurrentSourceScopeId != 0;
+            if (controlled) return null;
+        }
+        return EffectsLibrary.spawnAt(id, position, scale);
+    }
+
+    /// <summary>确认原版投射物是否来自御器自己的代理。</summary>
+    /// <param name="attack">当前原版攻击。</param>
+    private static bool IsControlledProjectile(AttackData attack) => attack.is_projectile &&
+        attack.projectile_id.StartsWith(WeaponControlProjectileProxyLibrary.ProxyIdPrefix, StringComparison.Ordinal);
 
     private readonly struct AttackScopeState
     {

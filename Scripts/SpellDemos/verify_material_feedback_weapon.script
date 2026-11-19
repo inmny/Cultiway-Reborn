@@ -1,0 +1,83 @@
+// 同一个持剑修士、同一只敌人：超距、施放、命中及原版对照。
+PrepareAppearanceBackdrop(61, 75, 69, 75);
+World.world.camera.transform.position = new Vector3(66, 72, World.world.camera.transform.position.z);
+MoveCamera.instance.forceZoom(8);
+await Game.NextFrame();
+void PlaceEnemy(float x)
+{
+    enemy.stopForce(); enemy.stopMovement(); enemy.batch.c_action_landed.Remove(enemy); enemy.position_height = 0;
+    enemy.current_position = new Vector2(x, 72);
+    enemy.setCurrentTile(World.world.GetTileSimple((int)x, 72)); enemy.updatePos();
+}
+bool Use() => ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script);
+var effectController = typeof(BaseEffect).GetField("controller", F);
+var effectAsset = typeof(BaseEffectController).GetField("asset", F);
+string Id(BaseEffect e) => effectController.GetValue(e) is BaseEffectController controller &&
+    effectAsset.GetValue(controller) is EffectAsset asset ? asset.id : null;
+int NativeHits() => Resources.FindObjectsOfTypeAll<BaseEffect>().Count(e => e.gameObject.activeInHierarchy &&
+    e.transform.position.x >= 63f && e.transform.position.x <= 71f && Mathf.Abs(e.transform.position.y - 72f) < 4f &&
+    Id(e) is "fx_hit" or "fx_hit_critical");
+var particleType = typeof(ActorExtend).Assembly.GetType("Cultiway.Core.Visuals.SpatialVisualEffects");
+IEnumerable<object> Debris() => ((IEnumerable)particleType.GetField("effects", F).GetValue(null)).Cast<object>().Where(e =>
+{
+    var point = (Vector3)e.GetType().GetField("Start", F).GetValue(e);
+    return Vector2.Distance(point, enemy.current_position) < 1f && e.GetType().GetField("Kind", F).GetValue(e).ToString() == "Particle";
+});
+int LocalDebris() => Debris().Count();
+var callback = typeof(ActorExtend).GetField("action_on_damage_resolved", F);
+var previous = callback.GetValue(null);
+float settled = 0f;
+ActorExtend.RegisterActionOnDamageResolved((victim, attacker, damage, element, type) =>
+{
+    if (victim.Base == enemy && attacker == owner.Base && type == AttackType.Weapon &&
+        Cultiway.Core.Combat.DamageResolutionContext.CurrentSourceScopeId > 0) settled += damage;
+});
+try
+{
+    PlaceEnemy(90);
+    Check(!Use() && !Casting() && NativeHits() == 0 && LocalDebris() == 0, "超出范围没有受理，也没有命中显示");
+    PlaceEnemy(67);
+    int hp = enemy.data.health;
+    Check(Use(), "木剑御器由正式入口受理", new { material = weaponAsset.material });
+    await FrameAppearance("weapon-release", 66, 72, 5f);
+    int native = 0;
+    for (int i = 0; i < 42 && settled <= 0f; i++)
+    {
+        await Advance(.03f);
+        native += NativeHits();
+    }
+    int pieces = LocalDebris();
+    bool muted = Debris().All(e =>
+    {
+        var color = (Color)e.GetType().GetField("Color", F).GetValue(e);
+        return color.r > color.g && color.g > color.b && color.r < .7f;
+    });
+    Check(settled > 0f && enemy.data.health < hp && native == 0 && pieces > 0 && muted && weaponAsset.material == "wood",
+        "真实扣血只产生低亮木色碎屑，没有原版重复击中", new { settled, hp, after = enemy.data.health, native, pieces, muted });
+    await FrameAppearance("weapon-contact-native", 66, 72, 4.5f);
+    await FrameCleanupSide("weapon-contact-worldfall", enemy.GetSimPos(), 6f, -.25f);
+    for (int i = 0; i < 36 && Casting(); i++) await Advance(.125f);
+    await Advance(.3f);
+    Check(!Casting() && LocalDebris() == 0 && owner.Base.getWeaponAsset() == weaponAsset, "反馈散尽并正常归还原兵器");
+    PlaceEnemy(65);
+    owner.Base.attack_timer = 0f;
+    Vector3 at = new(enemy.current_position.x, enemy.current_position.y, enemy.getHeight());
+    var attack = new AttackData(owner.Base, enemy.current_tile, at, owner.Base.current_position,
+        enemy, owner.Base.kingdom, AttackType.Weapon, owner.Base.haveMetallicWeapon(), true);
+    var usual = MapBox.checkAttackFor(attack, enemy);
+    Check(usual.state == ApplyAttackState.Hit && NativeHits() > 0, "普通原版攻击仍使用自己的击中特效", new { native = NativeHits(), state = usual.state.ToString() });
+    await Advance(.32f);
+    typeof(BaseSimObject).GetMethod("addStatusEffect", F, null,
+        new[] { typeof(string), typeof(float), typeof(bool) }, null).Invoke(enemy, new object[] { "invincible", 20f, false });
+    hp = enemy.data.health;
+    enemy.getHit(10, true, AttackType.Weapon, owner.Base, false);
+    await Advance(.08f);
+    Check(enemy.hasStatus("invincible") && hp == enemy.data.health && LocalDebris() == 0,
+        "真实免疫使生命不变，也没有受伤碎屑", new { hp, after = enemy.data.health, debris = LocalDebris() });
+    return new { passed = true, settled, pieces };
+}
+finally
+{
+    callback.SetValue(null, previous);
+    Config.paused = true;
+}
