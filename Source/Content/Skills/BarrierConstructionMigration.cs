@@ -149,6 +149,7 @@ internal static class BarrierConstructionMigration
             }
         };
         if (container.Asset == SkillEntities.EarthWall) SetEarthWallMotion(definition, lifetime, scale);
+        else if (container.Asset == SkillEntities.SwordCurtain) SetSwordCurtainMotion(definition, lifetime, scale);
         return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(),
             contactForceScale: emission.RuntimeData.ResolveEffectScale(), caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
     }
@@ -189,4 +190,40 @@ internal static class BarrierConstructionMigration
         } };
     }
 
+    /// <summary>剑身与接触面共用聚拢动作；实际屏障结束后仅留下撤去的剑影。</summary>
+    /// <param name="definition">原剑幕换算后的完整构造。</param>
+    /// <param name="lifetime">原剑幕能够拦截的世界秒数。</param>
+    /// <param name="scale">本次剑幕的实际地图尺寸倍率。</param>
+    private static void SetSwordCurtainMotion(AbilityDefinition definition, float lifetime, float scale)
+    {
+        ConstructionNode wall = definition.Root;
+        wall.Operations = new[]
+        {
+            FollowGround(), new ConstructionOperation
+            {
+                Kind = ConstructionOperationKind.Animate, Clip = "gather", Seconds = Mathf.Min(lifetime, .52f)
+            }
+        };
+        float withdraw = Mathf.Min(.37f, 3600f - lifetime);
+        if (withdraw <= 0f) return;
+        definition.Lifetime += withdraw;
+        wall.DisappearAt = wall.ActiveUntil = lifetime;
+        wall.Children = new[]
+        {
+            new ConstructionNode
+            {
+                Id = "withdraw", Form = wall.Form, Matter = wall.Matter, State = wall.State, Scale = scale,
+                SourceLoss = ConstructionSourceLoss.Continue, ContactRole = ConstructionContactRole.Decoration,
+                Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End },
+                DisappearAt = withdraw,
+                Operations = new[]
+                {
+                    FollowGround(), new ConstructionOperation
+                    {
+                        Kind = ConstructionOperationKind.Animate, Clip = "withdraw", Seconds = withdraw
+                    }
+                }
+            }
+        };
+    }
 }

@@ -1,0 +1,142 @@
+
+// 同一场景中四个时点检查剑身姿态；两个石锥走真实投射入口，位置分别在阵内与阵外。
+var clashes = new List<ConstructedClash>();
+var launched = new List<ConstructedCastStarted>();
+void Clashed(ConstructedClash e) => clashes.Add(e);
+void Launched(ConstructedCastStarted e) { if (e.SourceId == target.id) launched.Add(e); }
+AbilityCast Live(long id) => (AbilityCast)Field(((IEnumerable)service.GetField("casts", F).GetValue(null))
+    .Cast<object>().Single(r => (long)Field(r,"Id") == id), "Cast");
+float[][] Coordinates(Vector3[] points) => points.Select(v => new[] { v.x, v.y, v.z }).ToArray();
+
+// 用当前显示骨架和资源中的原端点还原每个接触点，再同实际运行的拦截面比对。
+(Vector3[] Centers, float Error) Poses(AbilityCast cast)
+{
+    var view = Views(cast).Single();
+    var shapes = Shapes(cast);
+    var desc = view.Resource.Description;
+    var centers = new List<Vector3>();
+    float max = 0f;
+    foreach (var capsule in shapes)
+    {
+        var contact = desc.Contacts[capsule.Shape];
+        int control = Array.FindIndex(desc.Controls, c => c.Id == contact.AControl);
+        Vector3 a = new Vector3(contact.A[0], contact.A[1], contact.A[2]);
+        var world = (view.Transform * view.Skin[control]).MultiplyPoint3x4(a);
+        max = Mathf.Max(max, Vector3.Distance(world, capsule.A));
+        if (contact.Id.EndsWith("_edge", StringComparison.Ordinal)) centers.Add((capsule.A + capsule.B) * .5f);
+    }
+    return (centers.ToArray(), max);
+}
+
+ConstructedAbilityService.ClashConfirmed += Clashed;
+ConstructedAbilityService.CastStarted += Launched;
+try
+{
+    var wall = Build();
+    var definition = Convert(wall, out _);
+    var plan = AbilityCompiler.Compile(definition, cache:false);
+    float duration = definition.Root.ActiveUntil;
+    Check(Mathf.Abs(duration - 4f) < .001f && definition.Root.BlocksGroundActors &&
+        definition.Root.Strength == 5 && definition.Lifetime > duration &&
+        definition.Root.Children.Single().ContactRole == ConstructionContactRole.Decoration,
+        "沿用剑幕容量、作用寿命和地面阻挡，只有退场是装饰", new { duration, definition.Lifetime });
+    ResetPeople();
+    float before = owner.GetCultisys<Xian>().wakan;
+    Check(Use(wall), "原已学剑幕由正式入口受理");
+    await Advance(.095f);
+    Check(starts.Count == 1 && oldWalls == 0, "只开启一份剑幕");
+    long id = starts.Single().CastId;
+    var cast = Live(id);
+    float initial = cast.RemainingForce(0);
+    if (/* pose */ true)
+    {
+        double bill = SkillCastResources.Wakan.Quote(owner, SkillCastCost.CalculateStepDemand(wall) *
+            Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, wall)));
+        Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - bill) < .001, "支付保持原值，只扣一次", new { bill });
+        float earlyAge = cast.Age;
+        var early = Poses(cast);
+        await Advance(Mathf.Max(.02f, .34f - cast.Age));
+        float midAge = cast.Age;
+        var mid = Poses(cast);
+        await Advance(Mathf.Max(.02f, .58f - cast.Age));
+        var settled = Poses(cast);
+        int center = settled.Centers.Length / 2, outer = settled.Centers.Length - 1;
+        float centerGap = Vector3.Distance(mid.Centers[center], settled.Centers[center]);
+        float wingGap = Vector3.Distance(mid.Centers[outer], settled.Centers[outer]);
+        Check(early.Centers.Length == 15 && mid.Centers.Length == 15 && settled.Centers.Length == 15 &&
+            early.Error < .002f && mid.Error < .002f && settled.Error < .002f &&
+            centerGap < .04f && wingGap > .03f && Vector3.Distance(early.Centers[outer], settled.Centers[outer]) > .4f,
+            "中间与两翼分批落位，十五把剑的拦截面随自己的显示骨架", new { earlyAge, midAge, centerGap, wingGap,
+            error = Mathf.Max(early.Error, mid.Error, settled.Error), early = Coordinates(early.Centers),
+            mid = Coordinates(mid.Centers), settled = Coordinates(settled.Centers) });
+    }
+    else await Advance(Mathf.Max(.02f, .58f - cast.Age));
+
+    var enemy = target.GetExtend();
+    Entity incoming = new SkillContainerBuilder(SkillEntities.StoneCone).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+    string signature = SkillContainerSignature.Build(incoming);
+    enemy.LearnSkillV3(incoming);
+    incoming = ((IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(enemy, null))
+        .First(s => SkillContainerSignature.Build(s) == signature);
+    var emit = manager.GetType().GetMethod("EmitSkill", F);
+    (long Id, AbilityCast Cast) Stone(float y)
+    {
+        var request = new SkillEmission { Source = target, SpatialSource = target,
+            SourcePos = new Vector3(64, y, .6f), TargetPos = new Vector3(70, y, .6f), Target = source,
+            HasSourcePosition = true, SkillContainer = incoming, Strength = 13f, PowerLevel = 0f,
+            AttackKingdom = target.kingdom };
+        Check((bool)emit.Invoke(manager, new object[] { request }), "石锥由真实发射入口受理", new { y });
+        long castId = launched.Last().CastId;
+        return (castId, Live(castId));
+    }
+    bool Between(ConstructedClash c, long other) => c.LeftCast == id && c.RightCast == other ||
+                                                    c.RightCast == id && c.LeftCast == other;
+    async Task<float> Crossing(AbilityCast projectile)
+    {
+        float maxX = 64;
+        for (int i = 0; i < 9 && maxX < 67.4f && !projectile.Finished; i++)
+        {
+            await Advance(.055f);
+            foreach (var view in Views(projectile)) maxX = Mathf.Max(maxX, view.Transform.m03);
+        }
+        return maxX;
+    }
+    if (/* contact */ true)
+    {
+        var inside = Stone(72);
+        float edgeY = Shapes(cast).Max(s => Mathf.Max(s.A.y, s.B.y) + s.Radius);
+        float outsideY = Mathf.Ceil(edgeY) + 2f;
+        var outside = Stone(outsideY);
+        float maxX = await Crossing(outside.Cast);
+        var hit = clashes.Where(c => Between(c, inside.Id)).ToArray();
+        Check(hit.Length > 0 && Mathf.Abs(initial - cast.RemainingForce(0) - 13f) < .001f &&
+            maxX > 66.8f && clashes.All(c => !Between(c, outside.Id)),
+            "阵内石锥被真实拦截并扣容量，阵外石锥越过屏障平面", new { initial, remaining = cast.RemainingForce(0), maxX, edgeY, outsideY,
+            hits = clashes.Where(c => Between(c, inside.Id) || Between(c, outside.Id))
+                .Select(c => new { inside = Between(c, inside.Id), c.Absorbed, point = c.Position.ToString() }).ToArray() });
+    }
+
+    await Advance(Mathf.Max(.02f, duration + .12f - cast.Age));
+    var retiring = Views(cast);
+    Check(Shapes(cast).Count == 0 && retiring.Count == 1 &&
+        retiring.Single().Resource.Description.Id == "sword_curtain" && retiring.Single().Dye?.a < 1f,
+        "拦截先在原时点终止，之后撤剑有画面", new { cast.Age,
+        activeShapes = Shapes(cast).Count, views = retiring.Count, fade = retiring.FirstOrDefault().Dye?.a });
+    var after = Stone(72);
+    float passX = await Crossing(after.Cast);
+    Check(passX > 66.8f && clashes.All(c => !Between(c, after.Id)),
+        "撤剑开始后，石锥沿原先被拦的路线越过原屏障", new { passX });
+    await Advance(.40f);
+    Check(cast.Finished && Views(cast).Count == 0 && Shapes(cast).Count == 0, "撤剑完成后无形体或作用残留");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ClashConfirmed -= Clashed;
+    ConstructedAbilityService.CastStarted -= Launched;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
+    ControllableUnit.clear(false); Config.paused = true;
+}

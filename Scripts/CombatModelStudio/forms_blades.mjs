@@ -36,16 +36,30 @@ function publish(id,pieces,contacts,parameters) {
       Object.fromEntries(parts.map(p=>[p.Id,['projectile.body','projectile.edge']])),[]));
 }
 
-/** 剑气用折锋与宽脊形成有尖端的金属弧面，保留明确刃背。 */
+/** 剑气沿实际锋线磨出窄斜面，后侧再加厚成分明的刃背。 */
 function sword() {
   const edge=u=>[u*1.85,0,.42-.55*Math.abs(u)];
-  const ridge=u=>[u*1.72,.07,.24-.49*Math.abs(u)];
+  // 各站点加厚的是刃后。中锋、肩部和两翼的后缘各有折角，前缘仍沿同一条作用线。
+  const wing=[[0,.78,.17],[.18,.59,.16],[.39,.52,.13],[.64,.57,.12],[.83,.30,.08],[.94,.12,.038],[1,.025,.013]];
+  const sections=[...wing.slice(1).reverse().map(([u,d,h])=>[-u,d,h]),...wing];
+  const rings=sections.map(([u,d,h])=>{
+    const [x,,z]=edge(u),bevel=Math.min(.076,d*.37);
+    return [[x,0,z+Math.min(.042,d*.52)],[x,-h*.25,z-bevel*.34],[x,-h*.76,z-bevel],
+      [x,-h,z-d*.57],[x,-h*.46,z-d],[x,h*.46,z-d],
+      [x,h,z-d*.57],[x,h*.76,z-bevel],[x,h*.25,z-bevel*.34]];
+  });
+  // 厚脊紧接同一刃背，集中在中段与肩部，翼端只留下锋口。
+  const backing=sections.filter(([u])=>Math.abs(u)<=.64).map(([u,d,h])=>{
+    const [x,,z]=edge(u), shoulder=Math.abs(u)===.64;
+    return [[x,0,z-d*.47],[x,-h*1.07,z-d*.61],[x,-h*(shoulder?.34:.76),z-d*.90],
+      [x,h*(shoulder?.34:.76),z-d*.90],[x,h*1.07,z-d*.61]];
+  });
   // 作用区沿现有折锋。保留两端的收尖余量和前缘两侧的空隙。
   const points=[-.9,0,.9].map(u=>{const [x,,z]=edge(u);return [x,z];});
   const contact={Id:'edge_0',Part:0,A:[0,0,0],AControl:'root',
     Path:{Points:points,HalfWidth:.10,HalfThickness:.05}};
-  publish('sword_qi',[['edge',ribbon(edge,.34,.14,32),'metal'],['ridge',ribbon(ridge,.10,.14,32),'gold']],
-    [contact],{span:3.7,profile:'angular',depth:.34});
+  publish('sword_qi',[['edge',column(rings,9),'metal'],['ridge',column(backing,5),'bronze']],
+    [contact],{span:3.7,bevel:.076,backDepth:.78});
 }
 
 /** 风刃由三道交错的宽弯流组成，分叉与留白可辨，不使用细线或烟团。 */
