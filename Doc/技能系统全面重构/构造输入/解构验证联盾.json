@@ -1,0 +1,92 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.EntropyLinkedGuard",
+  "Name": "解构验证联盾",
+  "Resource": "mana",
+  "Cost": 6,
+  "Cooldown": 0,
+  "Power": 1,
+  "Lifetime": 3.6,
+  "TargetRange": 24,
+  "Binding": {
+    "Anchor": "Source",
+    "FaceTarget": false
+  },
+  "Root": {
+    "Id": "brace",
+    "Form": "entropy_guard",
+    "Matter": "iron",
+    "ContactRole": "Barrier",
+    "Rotation": [
+      0,
+      0,
+      90
+    ],
+    "Strength": 1.05,
+    "Offset": [
+      -2.8,
+      -3,
+      0
+    ],
+    "Children": [
+      {
+        "Id": "front",
+        "Form": "entropy_guard",
+        "Matter": "iron",
+        "ContactRole": "Barrier",
+        "Offset": [
+          3,
+          0,
+          0
+        ],
+        "Strength": 0.3,
+        "Operations": [
+          {
+            "Kind": "Fracture",
+            "When": {
+              "Trigger": "ForceBelow",
+              "Threshold": 0.1
+            },
+            "Fracture": {
+              "Seconds": 1,
+              "Speed": 0.8,
+              "Spin": 80,
+              "Gravity": 3,
+              "ActiveParts": []
+            }
+          }
+        ]
+      },
+      {
+        "Id": "cheek",
+        "Form": "entropy_guard",
+        "Matter": "iron",
+        "ContactRole": "Barrier",
+        "Offset": [
+          6,
+          0,
+          0
+        ],
+        "Strength": 0.78,
+        "Operations": [
+          {
+            "Kind": "Fracture",
+            "When": {
+              "Trigger": "ForceBelow",
+              "Threshold": 0.8
+            },
+            "Fracture": {
+              "Seconds": 1.45,
+              "Speed": 0.94,
+              "Spin": 75,
+              "Gravity": 2.2,
+              "ActiveParts": [
+                "seat"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

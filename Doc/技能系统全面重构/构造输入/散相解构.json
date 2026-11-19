@@ -1,0 +1,114 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.EntropyDisassembly",
+  "Name": "散相解构",
+  "Resource": "mana",
+  "Cost": 10,
+  "Cooldown": 0,
+  "Power": 1,
+  "Lifetime": 4,
+  "TargetRange": 24,
+  "Binding": {
+    "Anchor": "Source",
+    "FaceTarget": false
+  },
+  "Root": {
+    "Id": "sweep",
+    "Form": "entropy_wedge",
+    "Matter": "entropy",
+    "State": "energy",
+    "Offset": [
+      1.8,
+      0,
+      0
+    ],
+    "Rotation": [
+      0,
+      0,
+      -90
+    ],
+    "Strength": 1.25,
+    "Volume": 4,
+    "DisappearAt": 1.6,
+    "Operations": [
+      {
+        "Kind": "Fly",
+        "Vector": [
+          3.1,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false
+      }
+    ],
+    "Children": [
+      {
+        "Id": "receiver",
+        "Form": "entropy_wedge",
+        "Matter": "entropy",
+        "State": "energy",
+        "Scale": 0.72,
+        "ContactRole": "Barrier",
+        "DisappearAt": 3.3,
+        "Activation": {
+          "Trigger": "End",
+          "InheritRemainder": true
+        },
+        "Operations": [
+          {
+            "Kind": "Spin",
+            "Vector": [
+              0,
+              0,
+              90
+            ]
+          }
+        ]
+      },
+      {
+        "Id": "shear",
+        "Form": "entropy_wedge",
+        "Matter": "entropy",
+        "State": "energy",
+        "Offset": [
+          -3,
+          -0.6,
+          0
+        ],
+        "Scale": 0.79,
+        "Strength": 0.35,
+        "DisappearAt": 1.8,
+        "Operations": [
+          {
+            "Kind": "Detach"
+          },
+          {
+            "Kind": "Fly",
+            "Vector": [
+              3.2,
+              0,
+              0
+            ],
+            "WorldVelocity": true,
+            "InheritVelocity": false
+          },
+          {
+            "Kind": "Fracture",
+            "When": {
+              "Trigger": "ForceBelow",
+              "Threshold": 0.05
+            },
+            "Fracture": {
+              "Seconds": 0.82,
+              "Speed": 0.7,
+              "Spin": 85,
+              "Gravity": 3,
+              "ActiveParts": []
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
