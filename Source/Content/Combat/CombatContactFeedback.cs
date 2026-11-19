@@ -37,7 +37,21 @@ internal static class CombatContactFeedback
         if (spent <= 0f) return;
         string sound = SoundFor(surface);
         SpatialCombatFeedback.Sound(sound == Metal ? MetalClash : sound, point);
-        if (remaining > 0f || spent < 4f || !SpatialCombatFeedback.Shake(point, .14f)) return;
+        Vector3 tangent = new(-normal.y, normal.x, 0f);
+        if (remaining > 0f)
+        {
+            if (sound == Wood)
+            {
+                // 还在承力的木面只掉两片靠近撞点的木屑，不震屏、不盖住墙面。
+                Color splinter = new(.69f, .53f, .31f, .86f);
+                for (int side = -1; side <= 1; side += 2)
+                    SpatialVisualEffects.Particle(point + tangent * (.036f * side),
+                        tangent * (.75f * side) + Vector3.forward * .40f, splinter, .09f, .16f,
+                        SpatialParticleMaterial.Fragment, -2f);
+            }
+            return;
+        }
+        if (spent < 4f || !SpatialCombatFeedback.Shake(point, .14f)) return;
 
         Color color = sound switch
         {
@@ -47,7 +61,6 @@ internal static class CombatContactFeedback
             Fire => new Color(.95f, .52f, .23f, .9f),
             _ => new Color(.73f, .79f, .85f, .9f),
         };
-        Vector3 tangent = new(-normal.y, normal.x, 0f);
         for (int i = -1; i <= 1; i++)
         {
             Vector3 offset = tangent * (i * .105f);

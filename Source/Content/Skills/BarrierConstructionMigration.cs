@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cultiway.Content.Components.Skill;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.Skills;
@@ -150,6 +151,7 @@ internal static class BarrierConstructionMigration
         };
         if (container.Asset == SkillEntities.EarthWall) SetEarthWallMotion(definition, lifetime, scale);
         else if (container.Asset == SkillEntities.SwordCurtain) SetSwordCurtainMotion(definition, lifetime, scale);
+        else if (container.Asset == SkillEntities.WoodWall) SetWoodWallMotion(definition, lifetime);
         return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(),
             contactForceScale: emission.RuntimeData.ResolveEffectScale(), caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
     }
@@ -188,6 +190,35 @@ internal static class BarrierConstructionMigration
                 Kind = ConstructionOperationKind.Animate, Clip = "collapse", Seconds = collapse
             } }
         } };
+    }
+
+    /// <summary>落根与收势共用真实墙面；仅容量耗尽才把现有部件拆成无作用碎枝。</summary>
+    /// <param name="definition">原木壁换算后的完整构造。</param>
+    /// <param name="lifetime">原木壁实际拦截的世界秒数。</param>
+    private static void SetWoodWallMotion(AbilityDefinition definition, float lifetime)
+    {
+        ConstructionNode wall = definition.Root;
+        float fragmentSeconds = Mathf.Min(.42f, 3600f - lifetime);
+        wall.DisappearAt = wall.ActiveUntil = lifetime;
+        wall.Operations = new[]
+        {
+            FollowGround(),
+            new ConstructionOperation
+            {
+                Kind = ConstructionOperationKind.Animate, Clip = "wall_lifetime", Seconds = lifetime
+            }
+        };
+        if (fragmentSeconds <= 0f) return;
+        definition.Lifetime += fragmentSeconds;
+        wall.Operations = wall.Operations.Append(new ConstructionOperation
+        {
+            Kind = ConstructionOperationKind.Fracture,
+            When = new ConstructionCondition { Trigger = ConstructionChangeTrigger.ForceBelow, Threshold = 0f },
+            Fracture = new ConstructionFracture
+            {
+                Seconds = fragmentSeconds, Speed = 2.2f, Spin = 135f, Gravity = 9f, ReleaseChildren = false
+            }
+        }).ToArray();
     }
 
     /// <summary>剑身与接触面共用聚拢动作；实际屏障结束后仅留下撤去的剑影。</summary>
