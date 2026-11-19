@@ -88,7 +88,7 @@ export function write(id, parts, anchors, contacts, controls = [], motions = [],
     {Minimum: boxes[i].min.toArray().map(round), Maximum: boxes[i].max.toArray().map(round)} : {})}));
   const {Roles, ...description} = structure;
   motions = motions.map(clip => ({...clip, Keys: clip.Keys.map(key => ({...key, Build: key.Build ?? 1}))}));
-  parts=parts.map((part,index)=>({...part,Details:details(part,controls,motions,
+  parts=parts.map(({KeepFullDetail,...part},index)=>({...part,Details:KeepFullDetail ? [] : details(part,controls,motions,
     [...anchors.filter(a=>a.Part===index).map(a=>a.Position),...contacts.filter(c=>c.Part===index).flatMap(c=>c.Path
       ? c.Path.Points.map(([x,z])=>[c.A[0]+x,c.A[1],c.A[2]+z])
       : [c.A,c.B].filter(Boolean))])}));

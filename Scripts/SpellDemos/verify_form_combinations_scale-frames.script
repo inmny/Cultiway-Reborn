@@ -1,0 +1,143 @@
+// 同一地图每排一个形体，从左到右是近、中、远三个实际显示等级。
+const string producer = "form-combination-scales";
+var native = Cultiway.ModClass.I.GeneralRenderSystems.ChildSystems.OfType<FormNativeRenderSystem>().Single();
+object Read(object value, string key) => value.GetType().GetField(key, F)?.GetValue(value) ??
+    value.GetType().GetProperty(key, F).GetValue(value);
+var views = (IList)Read(native, "views");
+var batches = JsonConvert.DeserializeObject<string[][]>(File.ReadAllText(Path.Combine(folder, "frames-input.json")));
+var reports = new List<object>();
+var failures = new List<object>();
+const float centerX = 67f, centerY = 72f, zoom = 9f;
+PrepareAppearanceBackdrop(50, 84, 61, 83);
+var camera = World.world.camera;
+
+Bounds OrientedBounds(Bounds bounds, Quaternion rotation)
+{
+    Bounds result = default;
+    for (int i = 0; i < 8; i++)
+    {
+        Vector3 point = rotation * (bounds.center + Vector3.Scale(bounds.extents,
+            new Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f)));
+        point.y += point.z;
+        if (i == 0) result = new Bounds(point, Vector3.zero); else result.Encapsulate(point);
+    }
+    return result;
+}
+
+try
+{
+    var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+    object mod = external.GetProperty("Instance", F).GetValue(null);
+    external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+    external.GetMethod("SetGodView", F).Invoke(mod, new object[] { false });
+    await Game.WaitUntil(() => !(bool)Read(mod, "GodShown") && (bool)Read(mod, "DiveDone"), 600);
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    var canvases = Resources.FindObjectsOfTypeAll<Canvas>().Where(canvas => canvas.enabled).ToArray();
+    try
+    {
+        foreach (Canvas canvas in canvases) canvas.enabled = false;
+        int page = 0;
+        foreach (var group in batches)
+        {
+            var instances = new List<FormVisualInstance>();
+            var layouts = new List<object>();
+            for (int row = 0; row < group.Length; row++)
+            {
+                var resource = FormResources.Load(group[row]);
+                if (resource.Meshes.Length == 0) throw new InvalidOperationException("无法取景 " + group[row]);
+                FormPose pose = resource.Rig.CreatePose();
+                if (pose != null) resource.Rig.Sample(null, 0, pose);
+                Bounds local = pose?.Bounds ?? resource.RestBounds;
+                Quaternion rotation = Quaternion.Euler(0, 0, 18f);
+                Bounds outline = OrientedBounds(local, rotation);
+                for (int level = 0; level < 3; level++)
+                {
+                    float pixels = new[] { 185f, 91f, 35f }[level];
+                    float scale = pixels * (2f * zoom / camera.pixelHeight) / Mathf.Max(outline.size.x, outline.size.y);
+                    float x = centerX + (level - 1) * 8f, y = centerY + (1 - row) * 5.4f;
+                    float z = Mathf.Max(.3f, .08f - outline.min.z * scale);
+                    var at = new Vector3(x - outline.center.x * scale, y - outline.center.y * scale - z, z);
+                    instances.Add(new FormVisualInstance(resource, Matrix4x4.TRS(at, rotation, Vector3.one * scale),
+                        skin: pose?.Skin, poseBounds: local));
+                    layouts.Add(new { id = group[row], level, x, y, scale });
+                }
+            }
+            FormVisualScene.Publish(producer, instances.ToArray());
+            for (int frame = 0; frame < 5; frame++)
+            {
+                World.world.console.Hide();
+                camera.transform.position = new Vector3(centerX, centerY, camera.transform.position.z);
+                MoveCamera.instance.forceZoom(zoom);
+                camera.orthographicSize = zoom;
+                World.world.setZoomOrthographic(zoom);
+                await Game.NextFrame();
+            }
+            int count = (int)Read(native, "ViewCount");
+            var draw = Enumerable.Range(0, count).Select(i => views[i]).ToArray();
+            var levels = new List<object>();
+            foreach (var id in group)
+            {
+                var resource = FormResources.Load(id);
+                var matching = draw.Where(view => ReferenceEquals(Read(view, "Resource"), resource)).ToArray();
+                var actual = matching.Select(view => (int)Read(view, "Detail")).ToArray();
+                bool matches = matching.Length == 3 * resource.Meshes.Length && matching.Select((view, i) =>
+                {
+                    int level = i / resource.Meshes.Length;
+                    return actual[i] == level && ReferenceEquals(((MeshFilter)Read(view, "Filter")).sharedMesh,
+                        resource.DetailMesh((int)Read(view, "Part"), level));
+                }).All(match => match);
+                var fullAtFar = matching.Where((view, i) => actual[i] == 2 &&
+                        ReferenceEquals(((MeshFilter)Read(view, "Filter")).sharedMesh, resource.Meshes[(int)Read(view, "Part")]))
+                    .Select(view => resource.Description.Parts[(int)Read(view, "Part")].Id).ToArray();
+                if (id == "warhammer" && !fullAtFar.Contains("handle")) matches = false;
+                if (!matches) failures.Add(new { id, actual, fullAtFar });
+                levels.Add(new { id, matched = matches, near = actual.Count(value => value == 0),
+                    middle = actual.Count(value => value == 1), far = actual.Count(value => value == 2), fullAtFar });
+            }
+            string name = $"native-{page++:00}-{group[0]}.png";
+            string file = Path.Combine(folder, name);
+            Screen.Capture(file);
+            await Game.WaitUntil(() => File.Exists(file), 300);
+            string reference = null;
+            if (fullReference)
+            {
+                var observer = new HarmonyLib.Harmony("cultiway.test.form-scale-full." + Guid.NewGuid().ToString("N"));
+                observer.Patch(typeof(FormDetail).GetMethod(nameof(FormDetail.Native)),
+                    postfix: new HarmonyLib.HarmonyMethod(typeof(FormScaleFullProbe), nameof(FormScaleFullProbe.UseFullMesh)));
+                try
+                {
+                    for (int frame = 0; frame < 4; frame++) await Game.NextFrame();
+                    bool replaced = draw.Where(view => group.Any(id => ReferenceEquals(Read(view, "Resource"), FormResources.Load(id))))
+                        .All(view => (int)Read(view, "Detail") != 2);
+                    if (!replaced) failures.Add(new { name, fullReferenceActive = false });
+                    reference = "full-" + name;
+                    string referenceFile = Path.Combine(folder, reference);
+                    Screen.Capture(referenceFile);
+                    await Game.WaitUntil(() => File.Exists(referenceFile), 300);
+                }
+                finally { observer.UnpatchSelf(); }
+            }
+            reports.Add(new { name, reference, forms = group, layouts, levels });
+        }
+    }
+    finally
+    {
+        foreach (Canvas canvas in canvases) if (canvas != null) canvas.enabled = true;
+    }
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    FormVisualScene.Publish(producer, Array.Empty<FormVisualInstance>());
+}
+File.WriteAllText(Path.Combine(folder, "frames.json"), JsonConvert.SerializeObject(new { reports, failures }, Formatting.Indented));
+return new { passed = failures.Count == 0, frames = reports.Count, failures = failures.Count,
+    process = System.Diagnostics.Process.GetCurrentProcess().Id };
+
+public static class FormScaleFullProbe
+{
+    public static void UseFullMesh(ref int __result)
+    {
+        if (__result == 2) __result = 0;
+    }
+}

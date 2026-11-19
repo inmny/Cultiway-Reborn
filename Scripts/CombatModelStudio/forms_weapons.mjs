@@ -69,7 +69,8 @@ export function makeWeaponForms() {
     [{Id:'grip',Anchor:'grip',Up:[0,1,0],Diameter:.11,Scale:[.2,.6]},
       {Id:'forward',Anchor:'forward',Up:[0,1,0],Diameter:.11,Scale:[.2,.6]}],[],{Groups:['spear'],Scale:.42});
 
-  const hammerParts=[part('handle',shaft(.06,2.4,.48),'wood'),part('head',hammerHead(),'metal'),
+  // 细锤柄的简化截面在远景会整段消失，保留原来 288 个三角面。
+  const hammerParts=[{...part('handle',shaft(.06,2.4,.48),'wood'),KeepFullDetail:true},part('head',hammerHead(),'metal'),
     part('collar',new T.TorusGeometry(.085,.025,8,20).translate(0,0,1.35),'metal'),
     part('pommel',new T.SphereGeometry(.095,16,8).scale(1,1,1.35).translate(0,0,-.71),'metal')];
   const hammerContacts=[];

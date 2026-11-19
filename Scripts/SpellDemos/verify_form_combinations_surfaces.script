@@ -1,0 +1,75 @@
+var source = Make(64);
+var target = Make(72, "wolf");
+PrepareAppearanceBackdrop(59, 78, 65, 79);
+await Advance(.2f);
+var records = new List<object>();
+string[] Surfaces(FormVisualInstance visual) => Enumerable.Range(0, visual.PartCount).Select(visual.SurfaceFor).ToArray();
+FormVisualInstance View(AbilityCast cast)
+{
+    var forms = new List<FormVisualInstance>();
+    cast.AppendVisuals(forms);
+    return forms.Single();
+}
+
+try
+{
+    foreach (var sample in new[]
+    {
+        (Id: "yang_bolt", Matter: "yang", State: "energy", NoSlots: false),
+        (Id: "poison_mist", Matter: "poison", State: "gas", NoSlots: true),
+        (Id: "sword", Matter: "iron", State: "solid", NoSlots: false)
+    })
+    {
+        var resource = FormResources.Load(sample.Id);
+        string[] authored = resource.Description.Parts.Select(p => p.Surface).ToArray();
+        var operations = new[]
+        {
+            new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = .44f, Matter = "earth", State = "solid" },
+            new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = .96f, Matter = sample.Matter, State = sample.State }
+        };
+        var d = new AbilityDefinition
+        {
+            Id = "test.form-combination." + sample.Id, Name = "换材层次", Resource = "none",
+            Cost = 0, Power = 0, Lifetime = 1.45f, TargetRange = 20,
+            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+            Root = new ConstructionNode { Id = "body", Form = sample.Id, Matter = sample.Matter, State = sample.State,
+                FollowMatter = true, ContactRole = ConstructionContactRole.Decoration, Operations = operations,
+                Offset = new[] { 4f, 0f, .6f } }
+        };
+        await Fire(d, source, target);
+        var list = (IEnumerable)service.GetField("casts", F).GetValue(null);
+        var cast = list.Cast<object>().Select(r => (AbilityCast)Field(r, "Cast")).Single(c => c.Plan.Id == d.Id);
+        await Advance(.18f);
+        var original = View(cast);
+        var center = (Vector3)original.Transform.GetColumn(3);
+        Check(Surfaces(original).SequenceEqual(authored) && authored.Distinct().Count() > 1,
+            "显式选择原材料保留全部制作层次：" + sample.Id, Surfaces(original));
+        await FrameAppearance(sample.Id + "-authored", center.x, center.y, 6.5f);
+        await Advance(.43f);
+        var changed = View(cast);
+        string first = authored[0];
+        string[] expected = resource.Description.Parts.Select(p =>
+            (sample.NoSlots ? p.Surface == first : p.UseMatterSurface) ? "stone" : p.Surface).ToArray();
+        Check(changed.Resource == original.Resource && changed.Transform == original.Transform &&
+              cast.Matter(0).Id == "earth" && Surfaces(changed).SequenceEqual(expected) && !expected.SequenceEqual(authored),
+              "真正换材只替换应变的表面，保留同一形体：" + sample.Id, Surfaces(changed));
+        await FrameAppearance(sample.Id + "-converted", center.x, center.y, 6.5f);
+        await Advance(.46f);
+        var restored = View(cast);
+        Check(cast.Matter(0).Id == sample.Matter && cast.Matter(0).State == sample.State && Surfaces(restored).SequenceEqual(authored),
+            "换回原材料恢复分层表面：" + sample.Id, Surfaces(restored));
+        if (sample.NoSlots) await FrameCleanupSide(sample.Id + "-restored-worldfall", center, 8f, -.25f);
+        await Advance(.52f);
+        Check(cast.Finished && endings.Count(e => e.Fact.AbilityId == d.Id) == 1, "同一次施放自然退场：" + sample.Id);
+        records.Add(new { sample.Id, authored, changed = expected, restored = Surfaces(restored) });
+    }
+    var old = new FormVisualInstance(FormResources.Load("poison_mist"), Matrix4x4.identity, surface: "wood");
+    Check(Surfaces(old).All(s => s == "wood"), "旧资料的明确整件覆盖沿用原样");
+    return new { passed = true, checks, records };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

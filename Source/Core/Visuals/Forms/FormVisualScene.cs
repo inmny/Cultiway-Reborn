@@ -51,6 +51,8 @@ public readonly struct FormVisualInstance
     public readonly Bounds? PoseBounds;
     /// <summary>实际材料选择的主体表面。</summary>
     public readonly string MatterSurface;
+    /// <summary>无材料槽的部件是否允许更换主体表面。</summary>
+    private readonly bool followMatter;
     /// <summary>只影响显示的染色倍率；透明通道保留动作淡去后的可见比例。</summary>
     public readonly Color? Dye;
     /// <summary>与此完成姿态一同发布的实际材料及物态。</summary>
@@ -83,17 +85,18 @@ public readonly struct FormVisualInstance
     /// <param name="layer">已经完成推进的动态浅层曲面。</param>
     /// <param name="bodySegment">需要按实际身体比例连接的肢段。</param>
     /// <param name="buildProgress">与同一姿态确认的成形进度。</param>
+    /// <param name="followMatter">是否明确要求主体跟随材料。</param>
     /// <param name="feedback">同一姿态的局部接触反馈。</param>
     public FormVisualInstance(FormResource resource, Matrix4x4 transform, Matrix4x4[] parts = null, string surface = null,
         Color? tint = null, Vector2? groundAnchor = null, long groundActorId = 0, Matrix4x4[] skin = null, Bounds? poseBounds = null,
         string matterSurface = null, Color? dye = null, AbilityMatter matter = null, AbilityHeightField terrain = null, FormLayerFrame layer = null,
-        BodyVisualSegment bodySegment = BodyVisualSegment.None, float buildProgress = 1f, FormSurfaceFeedback feedback = default)
+        BodyVisualSegment bodySegment = BodyVisualSegment.None, float buildProgress = 1f, FormSurfaceFeedback feedback = default, bool followMatter = false)
     {
         Resource = resource; Transform = transform; Parts = parts; Surface = surface;
         BuildProgress = buildProgress;
         Tint = tint; GroundAnchor = groundAnchor ?? (Vector2)(Vector3)transform.GetColumn(3); GroundActorId = groundActorId;
         Skin = skin; PoseBounds = poseBounds;
-        MatterSurface = matterSurface; Dye = dye; Matter = matter; Terrain = terrain; Layer = layer;
+        MatterSurface = matterSurface; this.followMatter = followMatter; Dye = dye; Matter = matter; Terrain = terrain; Layer = layer;
         BodySegment = bodySegment; Feedback = feedback; Geometry = null;
     }
 
@@ -106,20 +109,7 @@ public readonly struct FormVisualInstance
 
     /// <summary>明确覆盖优先，其次是主体材料，握柄、眼部及泡沫保留资源自身表面。</summary>
     /// <param name="part">发布资源中的部件。</param>
-    public string SurfaceFor(int part)
-    {
-        FormPartDescription piece = Resource.Description.Parts[part];
-        // 同材料的制作表面保留自身质感，改用其他材料时跟随实际材料。
-        string authoredMaterial = piece.Surface switch
-        {
-            "stone_strata" => "stone",
-            "wind_open" or "wind_pressure" => "wind",
-            "yin_basin" => "yin_depth",
-            "meteor_heat" or "meteor_crown" => "flame",
-            _ => null
-        };
-        return Surface ?? (piece.UseMatterSurface && MatterSurface != authoredMaterial ? MatterSurface : null) ?? piece.Surface;
-    }
+    public string SurfaceFor(int part) => Resource.SelectPartSurface(part, Surface, MatterSurface, followMatter);
 
     /// <summary>取得用于模型、挂点和作用形状的相同部位变换。</summary>
     /// <param name="part">部件索引。</param>

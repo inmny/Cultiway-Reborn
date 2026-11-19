@@ -1,0 +1,89 @@
+// 对真正发布的所有等级逐件比较。输出轮廓预警给实际画面复核。
+var failures = new List<object>();
+var warnings = new List<object>();
+var catalog = new List<object>();
+int parts = 0;
+float[] XYZ(Vector3 value) => new[] { value.x, value.y, value.z };
+
+// 正交投影累计面积是薄度预警，重叠面相加，不能代替画面轮廓判定。
+Vector3 ProjectedAreas(Vector3[] vertices, int[] triangles)
+{
+    Vector3 area = Vector3.zero;
+    for (int i = 0; i < triangles.Length; i += 3)
+    {
+        Vector3 start = vertices[triangles[i]];
+        Vector3 cross = Vector3.Cross(vertices[triangles[i + 1]] - start, vertices[triangles[i + 2]] - start);
+        area += new Vector3(Mathf.Abs(cross.x), Mathf.Abs(cross.y), Mathf.Abs(cross.z)) * .5f;
+    }
+    return area;
+}
+
+foreach (string id in FormResources.Ids)
+{
+    var resource = FormResources.Load(id);
+    var form = new List<object>();
+    for (int part = 0; part < resource.Meshes.Length; part++)
+    {
+        parts++;
+        Mesh full = resource.Meshes[part];
+        var p = full.vertices;
+        var n = full.normals;
+        var uv = full.uv;
+        var streams = Enumerable.Range(1, 4).Select(channel =>
+        {
+            var values = new List<Vector4>(); full.GetUVs(channel, values); return values;
+        }).ToArray();
+        var source = Enumerable.Range(0, p.Length).ToLookup(index => p[index]);
+        var border = Border(full);
+        var triangles = full.triangles;
+        var area = ProjectedAreas(p, triangles);
+        var description = resource.Description.Parts[part];
+        string name = description.Id;
+        bool[] used = { description.Skin, description.Skin, description.HasSurfaceData, description.HasBuildData };
+        if (Enumerable.Range(0, 4).Any(channel => streams[channel].Count != (used[channel] ? p.Length : 0)))
+            failures.Add(new { id, name, level = 0, channels = streams.Select(stream => stream.Count), used });
+        var levels = new List<object>();
+        for (int level = 0; level < 3; level++)
+        {
+            Mesh mesh = resource.DetailMesh(part, level);
+            var size = mesh.bounds.size;
+            if (ReferenceEquals(mesh, full))
+            {
+                levels.Add(new { level, full = true, triangles = triangles.Length / 3, size = XYZ(size), areas = XYZ(area) });
+                continue;
+            }
+            var reduced = mesh.vertices;
+            var reducedNormals = mesh.normals;
+            var reducedUv = mesh.uv;
+            var reducedIndices = mesh.triangles;
+            var data = Enumerable.Range(1, 4).Select(channel =>
+            {
+                var values = new List<Vector4>(); mesh.GetUVs(channel, values); return values;
+            }).ToArray();
+            bool attributes = reducedNormals.Length == reduced.Length && reducedUv.Length == reduced.Length &&
+                n.Length == p.Length && uv.Length == p.Length &&
+                Enumerable.Range(0, 4).All(channel => streams[channel].Count == 0 ? data[channel].Count == 0 :
+                    data[channel].Count == reduced.Length && streams[channel].Count == p.Length) &&
+                Enumerable.Range(0, reduced.Length).All(index => source[reduced[index]].Any(original =>
+                    n[original].Equals(reducedNormals[index]) && uv[original].Equals(reducedUv[index]) &&
+                    Enumerable.Range(0, 4).All(channel => streams[channel].Count == 0 ||
+                        streams[channel][original].Equals(data[channel][index]))));
+            bool edges = border.IsSubsetOf(new HashSet<Vector3>(reduced));
+            bool extents = (full.bounds.min - mesh.bounds.min).sqrMagnitude < 4e-10f &&
+                (full.bounds.max - mesh.bounds.max).sqrMagnitude < 4e-10f;
+            if (!attributes || !edges || !extents || reducedIndices.Length == 0 || reducedIndices.Length > triangles.Length)
+                failures.Add(new { id, name, level, attributes, edges, extents, sourceSize = XYZ(full.bounds.size), size = XYZ(size) });
+            Vector3 projected = ProjectedAreas(reduced, reducedIndices);
+            float minArea = Mathf.Max(area.x, area.y, area.z) * .02f;
+            float loss = Enumerable.Range(0, 3).Where(axis => area[axis] > minArea)
+                .Select(axis => Mathf.Abs(1f - projected[axis] / area[axis])).DefaultIfEmpty().Max();
+            if (loss > .10f) warnings.Add(new { id, name, level, loss, sourceArea = XYZ(area), area = XYZ(projected) });
+            levels.Add(new { level, full = false, triangles = reducedIndices.Length / 3, size = XYZ(size), areas = XYZ(projected), loss });
+        }
+        form.Add(new { name, roles = resource.Description.Parts[part].Roles, levels });
+    }
+    catalog.Add(new { id, kind = resource.Structure.Kind, parts = form });
+}
+File.WriteAllText(Path.Combine(folder, "mesh-audit.json"), JsonConvert.SerializeObject(new { catalog, failures, warnings }, Formatting.Indented));
+return new { passed = failures.Count == 0, count = catalog.Count, parts, failures = failures.Count, warnings = warnings.Count,
+    process = System.Diagnostics.Process.GetCurrentProcess().Id };

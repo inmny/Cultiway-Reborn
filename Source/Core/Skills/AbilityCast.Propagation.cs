@@ -126,7 +126,7 @@ public sealed partial class AbilityCast
             var frame = new FormLayerFrame(owner, origin, size, pair.Value, bed);
             output.Add(new FormVisualInstance(Plan.Nodes[node].Resource, Matrix4x4.identity,
                 surface: appearance.Surface, matterSurface: appearance.MatterSurface, matter: nodes[node].Matter,
-                dye: Plan.Nodes[node].Dye, terrain: terrain, layer: frame));
+                dye: Plan.Nodes[node].Dye, terrain: terrain, layer: frame, followMatter: Plan.Nodes[node].FollowMatter));
         }
     }
 }
