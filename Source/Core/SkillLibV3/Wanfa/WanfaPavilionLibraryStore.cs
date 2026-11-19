@@ -4,6 +4,7 @@ using System.Linq;
 using Cultiway.Core.Persistence;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Wanfa.Persistence;
+using Cultiway.Core.Skills;
 
 namespace Cultiway.Core.SkillLibV3.Wanfa;
 
@@ -13,15 +14,47 @@ namespace Cultiway.Core.SkillLibV3.Wanfa;
 internal sealed class WanfaPavilionLibraryStore
 {
     private readonly SaveDocument<WanfaPavilionData> _document;
+    private readonly SaveDocument<WanfaConstructionFavorites> _constructions;
     private WanfaPavilionData Data => _document.Data;
 
     public WanfaPavilionLibraryStore(ModSaveManager saveManager)
     {
         _document = saveManager.Register(WanfaPavilionSaveDefinition.Create());
+        _constructions = saveManager.Register(WanfaConstructionFavorites.Create());
     }
 
     public IReadOnlyList<SkillBlueprint> Blueprints => Data.Blueprints;
     public IReadOnlyList<string> SelectedBlueprintIds => Data.SelectedBlueprintIds;
+
+    /// <summary>收藏以一份确认的修订为单位；返回供窗口读取的条目。</summary>
+    internal IReadOnlyList<AbilityDefinition> ConstructionFavorites => _constructions.Data.Entries;
+
+    /// <summary>同时保留旧收藏和世界目录，直到本机文件确实保存。</summary>
+    internal bool SetConstructionFavorite(AbilityDefinition definition, bool favorite)
+    {
+        var previous = _constructions.Data;
+        var entries = new List<AbilityDefinition>(previous.Entries);
+        int index = entries.FindIndex(item => item.Id == definition.Id && item.Revision == definition.Revision);
+        if (favorite)
+        {
+            if (index >= 0)
+            {
+                if (!ConstructionShare.Matches(entries[index], definition)) throw new ConstructionShareException("ShareConflictingId");
+                return false;
+            }
+            entries.Add(ConstructionEditing.Copy(definition));
+        }
+        else
+        {
+            if (index < 0) return false;
+            entries.RemoveAt(index);
+        }
+        _constructions.Data = new WanfaConstructionFavorites { Entries = entries };
+        bool saved = false;
+        try { _constructions.Save(); saved = true; }
+        finally { if (!saved) _constructions.Data = previous; }
+        return true;
+    }
 
     public SkillBlueprint Get(string id)
     {

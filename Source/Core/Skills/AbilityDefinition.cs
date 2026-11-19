@@ -22,6 +22,10 @@ public sealed class AbilityDefinition
     /// <summary>创造者的长期人物编号，预制资料使用零。</summary>
     public long Creator;
 
+    /// <summary>作者编号属于分享来源，不能在当前世界按号码寻找人物。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool ExternalCreator;
+
     /// <summary>创造时使用的种子，载入不得重新生成结构。</summary>
     public int Seed;
 

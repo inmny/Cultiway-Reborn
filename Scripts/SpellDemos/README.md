@@ -2081,3 +2081,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 8.10 改造窗口的资源与输入提示
 
 用上面的同一入口改传 `--section diagnostics`，复用现成世界和水剑，检查必选人物提示、公共搜索、缺失形体定位、中英文显示，以及换回原形体后的恢复。输出至独立游戏当次的 `output/editor-inputs-810`，含复验结果和实际窗口截图。
+
+### 8.11 构造收藏、分享和修订
+
+在独立游戏中运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_construction_collection.py`。使用水剑验证万法阁收藏、剪贴板导入导出、编号冲突、独立副本、替换、重开编辑，并输出正式世界档。记下输出里的 `output` 目录；用同一环境先 `stop` 再 `start`，将该目录传给同一命令的 `--reload-from`，核对共同编号、修订、掌握、冷却和本机收藏。冷启动输出在 `output/construction-collection-reload`，同时从普通世界视图拍摄中文收藏清单和英文导入确认，并记下读取报告。冷启动段完成后会从测试收藏移出第二个样例，世界法术仍保留。

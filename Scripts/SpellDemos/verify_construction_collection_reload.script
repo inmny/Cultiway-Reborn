@@ -1,0 +1,104 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Wanfa;
+using Cultiway.Utils.Extension;
+using Cultiway.UI;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using UnityEngine.UI;
+
+string prior = __PRIOR_OUTPUT__, folder = __OUTPUT__;
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(prior, "expected.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+var checks = new List<string>();
+void Check(bool value, string name)
+{
+    if (!value) throw new InvalidOperationException(name);
+    checks.Add(name); File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(checks, Formatting.Indented));
+}
+Check(process != (int)expected["process"], "使用与保存不同的游戏进程");
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+var service = WanfaPavilionService.Instance;
+var collectionProperty = service.GetType().GetProperty("ConstructionFavorites", F);
+IEnumerable<AbilityDefinition> AllFavorites() => (IEnumerable<AbilityDefinition>)collectionProperty.GetValue(service);
+Check(expected["favorites"].All(row => AllFavorites().Any(item => item.Id == (string)row["Id"] && item.Revision == (int)row["Revision"])),
+    "尚未载入该世界档时，收藏已从本机资料恢复");
+Config.paused = true; Game.Resume();
+World.world.save_manager.loadWorld(Path.Combine(prior, "save"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true;
+var access = ConstructionEditing.Access;
+// 两边都从正式 JSON 读入，按同一数字表示比较完整快照。
+JObject ReadSnapshot(AbilityDefinition value) => value == null ? null :
+    JObject.Parse(ConstructionDefinitionLayers.Snapshot(value).ToString(Formatting.None));
+Check(expected["definitions"].All(row => JToken.DeepEquals(row, ReadSnapshot(access.Read((string)row["Id"])))),
+    "正式存档恢复原术、独立副本、两次替换和导入资料的完整定义");
+var source = World.world.units.get((long)expected["source"]).GetExtend();
+var reader = World.world.units.get((long)expected["reader"]).GetExtend();
+Check(access.List(source).Select(entry => entry.Id).SequenceEqual(expected["known"].Values<string>()) &&
+    access.List(reader).Select(entry => entry.Id).SequenceEqual(expected["readerKnown"].Values<string>()), "重新载入后各修士仍掌握自己原来的版本");
+string latest = (string)expected["latest"];
+var control = ActiveAbilityService.ResolveControlState(source, new ActiveAbilityHandle("content.constructed", source.E, latest));
+Check(control.CooldownRemaining > 0 && control.BlockReason == ActiveAbilityControlBlockReason.Cooldown, "最新修订仍继承未结束的冷却");
+var favorites = expected["favorites"].Select(row => AllFavorites().Single(item => item.Id == (string)row["Id"] && item.Revision == (int)row["Revision"])).ToArray();
+Check(JToken.DeepEquals(expected["favorites"], new JArray(favorites.Select(ReadSnapshot))), "本机收藏保留各自原修订，包括未跟进到第三版的第二修订");
+var setFavorite = service.GetType().GetMethod("SetConstructionFavorite", F);
+Check(!(bool)setFavorite.Invoke(service, new object[] { favorites[0], true }), "重复收藏不产生新的份数");
+var state = Cultiway.ModClass.I.WorldSaves.LastReport;
+var skipped = state.Skipped.ToArray();
+File.WriteAllText(Path.Combine(folder, "save-skipped.json"), JsonConvert.SerializeObject(skipped, Formatting.Indented));
+Check(!skipped.Any(issue => issue.Contains(" / 自创能力构造：") || issue.Contains(" / 自创能力掌握：") ||
+    issue.Contains("ability_constructions") || issue.Contains("ability_knowledge")), "本项验证的构造与人物掌握区段均未跳过");
+
+// 没有接管人物，避免 Worldfall 的第一人称画面覆盖万法阁。
+Check(!ControllableUnit.isControllingUnit(), "以普通世界视图打开万法阁");
+async Task Frames(int count = 4) { for (int i = 0; i < count; i++) await Game.NextFrame(); }
+object Field(object target, string name) => target.GetType().GetField(name, F).GetValue(target);
+async Task Shot(string name)
+{
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+string previousClipboard = GUIUtility.systemCopyBuffer;
+try
+{
+    LocalizedTextManager.instance.setLanguage("cz");
+    await Frames(); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    ScrollWindow.showWindow(WindowWanfaPavilion.Id);
+    await Frames();
+    await Game.WaitUntil(() => UnityEngine.Object.FindObjectOfType<WindowWanfaPavilion>() != null && !ScrollWindow.isAnimationActive(), 300);
+    var pavilion = UnityEngine.Object.FindObjectOfType<WindowWanfaPavilion>();
+    var menu = Field(pavilion, "_optionMenu");
+    void Choose(string key)
+    {
+        string label = LocalizedTextManager.getText("Cultiway.Construction." + key);
+        var options = (IList)Field(menu, "_options");
+        int index = Enumerable.Range(0, options.Count).Single(i => (string)Field(options[i], "Label") == label);
+        ((Button)((IList)Field(menu, "_optionButtons"))[index]).onClick.Invoke();
+    }
+    void Library()
+    {
+        pavilion.GetComponentsInChildren<Button>(false).Single(button => button.name == "New").onClick.Invoke();
+        Choose("ConstructionLibrary");
+    }
+    Library(); await Shot("construction-collection-cz");
+    LocalizedTextManager.instance.setLanguage("en");
+    GUIUtility.systemCopyBuffer = File.ReadAllText(Path.Combine(prior, "original-share.json"));
+    Library(); Choose("SharePaste"); await Shot("construction-import-en");
+}
+finally
+{
+    GUIUtility.systemCopyBuffer = previousClipboard;
+    LocalizedTextManager.instance.setLanguage("cz");
+}
+Check((bool)setFavorite.Invoke(service, new object[] { favorites[1], false }) && access.Read(favorites[1].Id).Revision == 2,
+    "取消收藏只变更本机清单，世界内的第二修订仍可查到");
+return new { passed = true, process, checks };

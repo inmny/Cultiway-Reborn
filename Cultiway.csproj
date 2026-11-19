@@ -85,6 +85,9 @@
         <Reference Include="UnityEngine.CoreModule">
             <HintPath>$(GameRootPath)/worldbox_Data/Managed\UnityEngine.CoreModule.dll</HintPath>
         </Reference>
+        <Reference Include="UnityEngine.IMGUIModule">
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\UnityEngine.IMGUIModule.dll</HintPath>
+        </Reference>
         <Reference Include="FMODUnity">
             <HintPath>$(GameRootPath)/worldbox_Data/Managed\FMODUnity.dll</HintPath>
         </Reference>
