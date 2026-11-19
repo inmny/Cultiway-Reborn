@@ -2193,3 +2193,16 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 Worldfall 使用 `--view worldfall` 和另一输出目录。附着燃烧看 `result.json` 中实际的传热、烧损和末帧火体记录；这两段拍的是自然燃尽，水冷却由独立复验覆盖。
+
+### 9.16 土系地脉与土墙
+
+在独立游戏用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_ground_waves.py --section earth` 复验原已学「地脉」。检查岩片是否随自身接触面抬升和落稳，扣费、正面命中和侧外无伤是否维持原规则，以及停止推进后是否只剩无作用的碎落。`verify_wall_migration.py --section earth-motion` 复验「土墙」成形期阻挡、原时限、碎块阶段恢复通行与自然撤除。两段分别运行。
+
+常速录像各通过 `dev.py exec` 分开运行。下面是原版视角；Worldfall 改成 `--view worldfall`，并使用另一个输出目录。
+
+```bash
+python3 Scripts/SpellDemos/demo_spell.py EarthRidge --cases base --scene single --view native --realm 1 --target-offset 6 0 --speed 1 --duration 1.65 --zoom 16 --fps 30 --motion-trace --keep-frames --output <地脉原版目录>
+python3 Scripts/SpellDemos/demo_spell.py EarthWall --cases base --scene single --view native --realm 2 --target-offset 8 6 --speed 1 --duration 4.75 --zoom 17 --fps 23 --terrain-slope 2 --motion-trace --keep-frames --output <土墙原版目录>
+```
+
+`motionFrames` 中的形体和地面阻挡记录用来定位落稳、断裂和撤除。固定镜头原片供画面验收，命中与步行通行分别以上面的实机复验为依据。

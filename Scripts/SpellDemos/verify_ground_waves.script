@@ -32,10 +32,10 @@ Entity Build(bool boost=false,bool extra=false,bool homing=false,bool contact=tr
 }
 var converter=service.Assembly.GetType("Cultiway.Content.Skills.ProjectileConstructionMigration").GetMethod("Convert",F);
 /// <summary>读取实际发射将转换的自足资料。</summary><param name="skill">原已学来源。</param><param name="damage">原本体力量及境界。</param>
-AbilityDefinition Convert(Entity skill,out GetHitEvent damage)
+AbilityDefinition Convert(Entity skill,out GetHitEvent damage,SkillCastRuntimeData runtime=default)
 {
     object[] args={new SkillEmission{Source=source,SpatialSource=source,SkillContainer=skill,Target=target,
-        SourcePos=new Vector3(64,72,.3f),TargetPos=new Vector3(70,72,.3f),Strength=40,PowerLevel=1.25f},default(GetHitEvent),Vector3.zero};
+        SourcePos=new Vector3(64,72,.3f),TargetPos=new Vector3(70,72,.3f),Strength=40,PowerLevel=1.25f,RuntimeData=runtime},default(GetHitEvent),Vector3.zero};
     var result=(AbilityDefinition)converter.Invoke(null,args);damage=(GetHitEvent)args[1];return result;
 }
 /// <summary>记录本批真正开始的来源。</summary><param name="fact">正式受理事实。</param>
@@ -116,10 +116,11 @@ try
     if(section!="common")foreach(var entry in new[]{(Asset:SkillEntities.EarthRidge,Form:"earth_ridge",Matter:"earth",State:"solid"),
         (Asset:SkillEntities.TidalWave,Form:"tidal_wave",Matter:"water",State:"liquid"),(Asset:SkillEntities.SpiritVine,Form:"creeping_vine",Matter:"wood",State:"solid")})
     {
-        if(section=="tidal"&&entry.Asset!=SkillEntities.TidalWave)continue;
+        if(section=="tidal"&&entry.Asset!=SkillEntities.TidalWave||section=="earth"&&entry.Asset!=SkillEntities.EarthRidge)continue;
+        bool ridge=entry.Asset==SkillEntities.EarthRidge;
         currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
         var normal=Build();
-        if(section!="visuals")foreach(var skill in section=="tidal"?new[]{normal}:new[]{normal,Build(true)})
+        if(section!="visuals")foreach(var skill in section is "tidal" or "earth"?new[]{normal}:new[]{normal,Build(true)})
         {
             var d=Convert(skill,out GetHitEvent damage);var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
             var plan=AbilityCompiler.Compile(restored,false);bool boost=skill.HasComponent<HugeModifier>();
@@ -127,12 +128,21 @@ try
                 d.Root.Operations[0].Ground==ConstructionGroundResponse.Follow&&d.Root.Operations[0].Goal.DirectArrival&&d.Root.Operations[0].Goal.Arrival==ConstructionFlightArrival.Continue&&
                 d.Root.Operations.Any(o=>o.Kind==ConstructionOperationKind.Animate&&o.Clip=="travel"&&Math.Abs(o.Seconds-.9f)<.001f)&&
                 d.Root.OnContact==ConstructionContactResponse.Continue&&d.Root.Contact.Mode==ConstructionContactMode.Once&&d.Root.Contact.MaximumPerTarget==1&&
-                Math.Abs(d.Root.Impact.DamageScale-.8f)<.0001f&&Math.Abs(d.Lifetime-.9f)<.0001f&&Math.Abs(d.Root.Scale-(boost?1.4f:1f))<.0001f&&
+                Math.Abs(d.Root.Impact.DamageScale-.8f)<.0001f&&Math.Abs(d.Lifetime-(ridge?1.24f:.9f))<.0001f&&(!ridge||d.Root.ActiveUntil==.9f&&d.Root.DisappearAt==.9f&&
+                    d.Root.Children.Single().ContactRole==ConstructionContactRole.Decoration)&&Math.Abs(d.Root.Scale-(boost?1.4f:1f))<.0001f&&
                 Math.Abs(damage.Damage-(boost?37.44f:40f))<.001f&&damage.AttackerPowerLevel==1.25f&&damage.Element.Equals(entry.Asset.Element),
                 entry.Form+"原强度、境界、范围词条、贴地越过目标和寿命可保存编译");
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
         }
-        if(section!="visuals"&&section!="tidal")Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射作用保留原入口");
+        if(section=="earth")
+        {
+            var converted=Convert(normal,out _,new SkillCastRuntimeData{HasElementOverride=true,ElementOverride=ElementComposition.Static.Wood});
+            AbilityCompiler.Compile(converted,false);
+            var residue=converted.Root.Children.Single();
+            Check(residue.Matter=="wood"&&residue.Volume==0f&&residue.ContactRole==ConstructionContactRole.Decoration,
+                "换成可燃材质的碎落仍没有可参与作用的材料量");
+        }
+        if(section!="visuals"&&section!="tidal"&&section!="earth")Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射作用保留原入口");
         ResetPeople();
         // 潮浪原路径会横摆，负侧对照与实测的正侧扫掠分开。
         if(section=="tidal"){Place(outside,70,67);ConstructedAbilityService.NotifyActorChanged(outside);}
@@ -145,9 +155,9 @@ try
             return point.z-(Views(live).Single().Terrain?.Sample(point.x,point.y)??0f);
         }
         float earlyLip=section=="tidal"?Lip():0f;
-        var skin=(Matrix4x4[])Views(live).Single().Skin.Clone();Pose(live,entry.Form+"前段");if(section!="tidal")await Shot(entry.Form+"-front");
+        var skin=(Matrix4x4[])Views(live).Single().Skin.Clone();Pose(live,entry.Form+"前段");if(section is not ("tidal" or "earth"))await Shot(entry.Form+"-front");
         await Advance(.18f);var later=Views(live).Single();Pose(live,entry.Form+"后段");
-        Check(later.Skin.Where((m,i)=>!m.Equals(skin[i])).Any(),entry.Form+"真实推进后内部姿态连续改变");if(section!="tidal")await Shot(entry.Form+"-later");
+        Check(later.Skin.Where((m,i)=>!m.Equals(skin[i])).Any(),entry.Form+"真实推进后内部姿态连续改变");if(section is not ("tidal" or "earth"))await Shot(entry.Form+"-later");
         float crestLip=section=="tidal"?Lip():0f;
         await Advance(.24f);
         if(section=="tidal")
@@ -158,7 +168,27 @@ try
                 "正式卷唇抬起后下落，水脚没有重新反弹",new{earlyLip,crestLip,fallLip,spreadLip});
         }
         else FollowingTargets(live);
-        await Advance(.76f);
+        if(ridge)
+        {
+            var settled=Views(live).Single();
+            Check(skin.Zip(settled.Skin,(a,b)=>Quaternion.Angle(a.rotation,b.rotation)).Max()>2f&&
+                skin.Zip(settled.Skin,(a,b)=>Vector3.Distance(a.lossyScale,b.lossyScale)).Max()<.001f&&
+                settled.SurfaceFor(0)=="stone_ridge", "各石块实际转过角度，保持刚性和岩层表面");
+            await Advance(.27f);
+            Check(Views(live).Single().Skin.Zip(settled.Skin,(a,b)=>a==b).All(unchanged=>unchanged),"岩层落稳后保持姿态");
+            await Advance(.21f);
+            var residue=Views(live).Single();
+            var nodes=(Array)typeof(AbilityCast).GetField("nodes",F).GetValue(live);
+            var stopped=(Vector3)Field(nodes.GetValue(0),"Position");
+            Check(Shapes(live).Count==0&&!live.Finished&&residue.Resource.Description.Id==entry.Form&&
+                Vector3.Distance(stopped,(Vector3)residue.Transform.GetColumn(3))<.01f&&
+                residue.Skin.Zip(settled.Skin,(a,b)=>Quaternion.Angle(a.rotation,b.rotation)).Max()>2f,
+                "原推进结束，碎落接在真实落点，只有画面，没有伤害",new{live.Age,point=stopped.ToString()});
+            int hits=damageEvents.Count;
+            await Advance(.35f);
+            Check(damageEvents.Count==hits,"碎落没有再结算伤害");
+        }
+        else await Advance(.76f);
         var finalState=((Array)typeof(AbilityCast).GetField("nodes",F).GetValue(live)).GetValue(0);
         var finalPoint=(Vector3)Field(finalState,"Position");var finalVelocity=(Vector3)Field(finalState,"Velocity");
         if(section!="visuals")

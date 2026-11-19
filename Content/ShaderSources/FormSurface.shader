@@ -446,10 +446,12 @@ Shader "Cultiway/FormSurface"
                 base *= .95 + (.37-.18*_Roughness)*stream;
                 alpha *= chord*(.8+.2*stream);
             }
-            else if (_Kind < 16.5)
+            else if (_Kind < 16.5 || _Kind > 20.5)
             {
                 // 岩层色随制作坐标固定；厚层缓慢变色，矿粒只在近处补出不均匀的粗面。
                 float3 q = i.material;
+                // 地脉资料以 Y 为高，其余岩层以 Z 为高。
+                if (_Kind > 20.5) q = q.xzy;
                 float warp = .25 * volumeNoise(q * float3(1.8, 3.0, .75));
                 float layer = smoothstep(.12, .86, .5 + .5 * sin((q.z + warp) * 11.5 + q.x * .8));
                 float grains = volumeNoise(q * float3(8, 18, 10));

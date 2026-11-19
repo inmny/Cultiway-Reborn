@@ -9,29 +9,60 @@ import {woodSprig} from './forms_wood_detail.mjs';
 /** 发布普通动作和地面遮挡，不引入独立播放循环。 */
 function publish(id,parts,contacts,controls,clip,parameters,roles={}) {
   write(id,parts,[{Id:'root',Part:0,Position:[0,0,0],Direction:[0,0,1],Control:controls[0].Id}],
-    contacts,controls,[clip],false,{Forward:[0,0,1],Up:[0,1,0],HideBelowGround:true},
+    contacts,controls,Array.isArray(clip)?clip:[clip],false,{Forward:[0,0,1],Up:[0,1,0],HideBelowGround:true},
     structure('articulated','forms_ground_waves.mjs','makeGroundWaves',parameters,
       Object.fromEntries(parts.map(p=>[p.Id,roles[p.Id]??['ground.front','projectile.body']])),[]));
 }
 
-/** 土脊由错落封闭石锋叠在连续石床上，局部石锋错时承接，避免整座山上下抽动。 */
+/** 切出正Y向封闭断面，每一级独立保留折角与受光面。 */
+function ridgeStone(rings,sides) {
+  const geometry=column(rings,sides),index=geometry.index;
+  for(let n=0;n<index.count;n+=3) {
+    const v=index.getX(n); index.setX(n,index.getX(n+2)); index.setX(n+2,v);
+  }
+  return geometry;
+}
+
+/** 岩片由埋入地脚绕轴俯转，各自的接触芯、层面和石块始终同姿态。 */
 function earth() {
-  const controls=[{Id:'bed',Position:[0,0,0],Rotation:[0,0,0,1]}];
-  const parts=[wallPart('bed',new T.BoxGeometry(2.18,.14,.92).translate(0,.07,0),'stone',[0,0,0],'bed')],contacts=[];
+  const controls=[{Id:'bed',Position:[0,0,0],Rotation:[0,0,0,1]}],contacts=[];
+  const bed=ridgeStone([[-.37,.86], [-.13,1], [.032,.86]].map(([y,scale],row)=>Array.from({length:10},(_,j)=>{
+    const a=j*Math.PI/5;
+    return [1.09*Math.cos(a)*scale,y+.021*Math.sin(j*2.07+row),.50*Math.sin(a)*scale*(.90+.10*Math.cos(j*2.8))];
+  })),10);
+  const parts=[wallPart('bed',bed,'stone_ridge',[0,0,0],'bed')];
   for(let i=0;i<5;i++) {
     const x=(i-2)*.43,height=.78+.20*Math.cos(i*1.9),id=`slab_${i}`;
-    controls.push({Id:id,Position:[x,0,0],Rotation:[0,0,0,1]});
-    const rings=[[0,.30],[.16,.32],[height*.72,.26],[height,.025]].map(([y,r],row)=>Array.from({length:8},(_,j)=>{
-      const a=j*Math.PI/4;return [x+Math.cos(a)*r,y+.035*Math.sin(i+j)*row/3,Math.sin(a)*r*1.42+.07*Math.sin(i*2)];
-    }));
-    // 截面按局部正Y上行，顺序与正Z长体相反。
-    const geometry=column(rings,8);const index=geometry.index;
-    for(let n=0;n<index.count;n+=3){const v=index.getX(n);index.setX(n,index.getX(n+2));index.setX(n+2,v);}
-    parts.push(wallPart(id,geometry,'stone',[x,0,0],id));
+    const pivot=[x,0,0];
+    controls.push({Id:id,Position:pivot,Rotation:[0,0,0,1]});
+    const rings=[[-.13,.31],[.10,.34],[height*.47,.3],[height*.69,.245],[height*.86,.215],[height,.132]]
+      .map(([y,r],row)=>Array.from({length:8},(_,j)=>{
+        const a=j*Math.PI/4+.15*Math.sin(i*2.1),rough=1+.13*Math.sin(j*2.6+i*.9);
+        const upper=row/5,breakPoint=Math.cos(j*2.11+i*.7);
+        return [x+Math.cos(a)*r*rough+upper*.068*Math.cos(i*1.9),
+          y+.034*breakPoint*upper,Math.sin(a)*r*(1.36+.18*Math.sin(i*1.7))+.056*Math.sin(i*2)+.11*upper];
+      }));
+    parts.push(wallPart(id,ridgeStone(rings,8),'stone_ridge',pivot,id));
     contacts.push({Id:id,Part:i+1,A:[x,.23,-.09],B:[x,height*.68,.09],Radius:.20,AControl:id,BControl:id});
   }
-  const clip=motion('travel',.9,false,controls,30,(i,p,c)=>({position:[c.Position[0],i?.035*Math.sin(p*Math.PI*2+i*.8):0,0]}));
-  publish('earth_ridge',parts,contacts,controls,clip,{width:2.18,slabs:5,duration:.9});
+  const axis=new T.Vector3(1,0,0),riseOrder=[.07,.035,0,.052,.097];
+  const travel=motion('travel',.9,false,controls,30,(i,p,c)=>{
+    if(!i)return {};
+    const begin=riseOrder[i-1],at=p*.9;
+    const rise=T.MathUtils.smoothstep(at,begin,begin+.124);
+    const seat=T.MathUtils.smoothstep(at,begin+.112,begin+.251);
+    const lean=-.23*(1-rise)+(.19+.03*Math.sin(i*2.1))*(rise-seat);
+    return {position:[c.Position[0],-.09*(1-rise),-.08*(1-rise)],rotation:new T.Quaternion().setFromAxisAngle(axis,lean).toArray()};
+  });
+  const collapse=motion('collapse',.34,false,controls,24,(i,p,c)=>{
+    const wait=i===0?.23:.02+(5-i)%3*.029,at=p*.34;
+    const tip=T.MathUtils.smoothstep(at,wait,wait+.188),sink=T.MathUtils.smoothstep(at,wait+.045,.34);
+    if(!i)return {position:[0,-.44*sink,0]};
+    const fractureAxis=new T.Vector3(.62,0,(i%2?1:-1)*.78).normalize();
+    return {position:[c.Position[0]+(i-3)*.055*tip,-1.03*sink,.38*tip],
+      rotation:new T.Quaternion().setFromAxisAngle(fractureAxis,(1.15+.15*Math.sin(i*2.1))*tip).toArray()};
+  });
+  publish('earth_ridge',parts,contacts,controls,[travel,collapse],{width:2.18,slabs:5,duration:.9,collapse:.34});
 }
 
 /** 厚浪只翻落一次：背部托起波峰，卷唇伸出，随后压成向前摊开的水脚。 */
@@ -139,7 +170,7 @@ function wood() {
   }), p=>T.MathUtils.smoothstep(p,0,.44));
   parts.push(...sprigs);
   write('creeping_vine',parts,[{Id:'root',Part:0,Position:[0,0,0],Direction:[0,0,1],Control:controls[0].Id}],
-    contacts,controls,[clip],false,{Forward:[0,0,1],Up:[0,1,0],HideBelowGround:true},
+    contacts,controls,Array.isArray(clip)?clip:[clip],false,{Forward:[0,0,1],Up:[0,1,0],HideBelowGround:true},
     structure('branch','forms_ground_waves.mjs','makeGroundWaves',{roots:3,sharedBase:true},
       Object.fromEntries(parts.map(p=>[p.Id,[p.Id.endsWith('_leaf')?'branch.leaf':p.Id.includes('sprig')?'branch.shoot':p.Id==='root_1'?'branch.trunk':'branch.lateral']])),[]));
 }

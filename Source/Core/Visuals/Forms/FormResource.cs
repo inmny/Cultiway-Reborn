@@ -751,6 +751,7 @@ internal sealed partial class FormResourceGeneration
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),
             "stone" => (2f, new Color(.34f, .31f, .27f), .96f),
             "stone_strata" => (16f, new Color(.46f, .39f, .30f), .96f),
+            "stone_ridge" => (21f, new Color(.48f, .41f, .31f), .96f),
             "wind_open" => (17f, new Color(.72f, .88f, .84f, .76f), .55f),
             "wind_pressure" => (17f, new Color(.48f, .70f, .69f, .78f), .68f),
             "yin_basin" => (18f, new Color(.13f, .13f, .32f, .88f), .62f),

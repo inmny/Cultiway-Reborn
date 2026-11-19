@@ -30,7 +30,7 @@ public sealed partial class FormResource
     /// <param name="surface">制作时选择的表面。</param>
     private static string MaterialFamily(string surface) => surface switch
     {
-        "stone_strata" => "stone",
+        "stone_strata" or "stone_ridge" => "stone",
         "wood_leaf" => "wood",
         "wind_open" or "wind_pressure" => "wind",
         "meteor_heat" or "meteor_crown" or "flame_body" => "flame",
