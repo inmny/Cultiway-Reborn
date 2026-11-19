@@ -2279,3 +2279,12 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 9.26 D 照影传讯
 
 在已启动的独立游戏中，用 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_observed_signal.py` 验证真实交战、目标离场后仍传旧位置、收件者自己较新的所见优先，以及过期后的失效和撤去。旧告警复用 `verify_direct_signal.py`。可编辑资料见 [照影传讯](../../Doc/技能系统全面重构/构造输入/照影传讯.json)。
+
+### 9.26 原速录像
+
+使用已安装 Worldfall 的独立游戏，各段通过 `dev.py exec` 分开运行。
+
+- `dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/record_relations_926.py --case gate --view native`：`--case` 也可用 `pact`、`signal`；三维观察用 `--view worldfall`。各次都有自己的原帧、实机结果和影片。
+- `dev.py exec --timeout 325 -- python3 Scripts/SpellDemos/record_process_time.py --imprint-film --state "$HOME/.local/state/cultiway-dev/evidence/process-time-c2/use"`：三维观察额外加 `--worldfall`；通过成片原帧核对被选木料及未选木料。
+
+八段成片及复验证据总索引：`~/.local/state/cultiway-dev/evidence/world-relations-926/delivery.json`。

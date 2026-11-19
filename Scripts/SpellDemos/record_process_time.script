@@ -54,7 +54,7 @@ string Caption()
 object Detail()
 {
     var (a, b) = Read();
-    return new { left, right, leftVolume = Volume(a), rightVolume = Volume(b), leftClock = Elapsed(a),
+    return new { left, right, imprints = Imprints().Length, leftVolume = Volume(a), rightVolume = Volume(b), leftClock = Elapsed(a),
         rightClock = Elapsed(b), selectedSchedule = Schedule(a), leftProgress = Progress(a), rightProgress = Progress(b) };
 }
 async Task<float> CastAt(AbilityDefinition definition, float x)

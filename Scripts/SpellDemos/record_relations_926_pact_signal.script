@@ -1,0 +1,73 @@
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+Actor source = Make(64), peer = Make(71), enemy = Make(74, "wolf");
+peer.setKingdom(source.kingdom);
+var manaStats = new BaseStats(); manaStats["mana"] = 100;
+var mana = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.RelationsFilm.Mana") ??
+           Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.RelationsFilm.Mana")
+               .SetStats(manaStats).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, mana, 10000, source); source.updateStats();
+var shares = new List<SoulPactShare>();
+var receipts = new List<ConstructedSignalReceipt>();
+void Share(SoulPactShare value) => shares.Add(value);
+void Signal(ConstructedSignalReceipt value) { if (value.Observation.HasValue) receipts.Add(value); }
+ConstructedAbilityService.SoulPactShared += Share;
+ConstructedAbilityService.SignalReceived += Signal;
+
+async Task Pay()
+{
+    source.setMana(80);
+    await Fire(definition, source, peer, aggro:false);
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    Check(Mathf.Abs(80f - source.getMana() - definition.Cost) < .01f, "用正式入口实际支付一次");
+}
+void Strike(Actor from, Actor to, float damage)
+{
+    from.addAggro(to);
+    var element = ElementComposition.Static.Iron;
+    to.GetExtend().GetHit(damage, ref element, from, AttackType.Weapon, ignore_damage_reduction:true,
+        attacker_power_level_override: from.GetExtend().GetPowerLevel());
+}
+
+try
+{
+    await SetCamera(5.2f);
+    Place(source, 64); Place(peer, 71);
+    bool seen = false, after = false, action = false;
+    float duration = sceneCase == "pact" ? 2.85f : 3.5f;
+    string observedForm = sceneCase == "pact" ? "soul_pact_seal" : "signal_sight_tablet";
+    if (sceneCase == "signal")
+    {
+        Place(enemy, 68.5f, 75.25f);
+        Strike(source, enemy, 28f);
+        Place(enemy, 82f, 75.5f);
+    }
+    int before = peer.data.health;
+    await Pay();
+    double startedAt = World.world.getCurWorldTime();
+    var times = await Film(duration, () =>
+    {
+        double age = World.world.getCurWorldTime() - startedAt;
+        if (!action && sceneCase == "pact" && age >= .85d)
+        {
+            action = true;
+            Strike(enemy, peer, 120f);
+        }
+        int count = FormVisualScene.Instances.Count(form => form.Resource.Description.Id == observedForm && form.Tint.HasValue);
+        seen |= count >= 2;
+        if (seen && count == 0) after = true;
+    });
+    bool confirmed = sceneCase == "pact"
+        ? shares.Count == 1 && shares[0].Covered > 0f && peer.data.health < before
+        : receipts.Count == 1 && receipts[0].Observation.Value.Position.x < 69f;
+    Check(confirmed && seen && after, "同一常速原片覆盖真实结果和撤去画面", new { confirmed, seen, after });
+    return new { passed = true, view = recordView, times, duration, scene = "construction", resource = definition.Resource, paid = definition.Cost };
+}
+finally
+{
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
+    ConstructedAbilityService.SoulPactShared -= Share;
+    ConstructedAbilityService.SignalReceived -= Signal;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true; ControllableUnit.clear(false);
+}
