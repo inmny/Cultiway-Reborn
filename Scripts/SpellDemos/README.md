@@ -2101,3 +2101,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 - `--section strike --basis <cast 输出的 paid.json>`：确认剑尖在后段的实际伤害，并在下一次动作用着身体时保存。
 - 在同一独立环境退出重启后，`--section restore --restore <strike 输出目录>`：核对完整修订、原剑、剩余冷却，验证再次支付和归还身体。
 - `--section film --basis <cast 输出的 paid.json>`：复用正式动作的连续取景，记录画面与事实并编码视频。铁剑格挡仍使用 `verify_body_guard.py --section weapon`。
+
+### 8.14 身体、器物提示与跨形态改造
+
+在独立游戏中运行 `dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_body_form_inputs.py --section inputs --source <8.13 剑尖段目录>`，确认万法阁用中英文说明缺剑，并在装回同一把剑后恢复预演。`--section transform` 复用同一个 `--source`，验证形体缺失接触面时拒绝写入、保存独立风刃成品、再次打开。`--section cast --basis <transform 输出的 saved.json>`（仍要传 `--source`）从窗口成品直接复验实际握持、扣费、风刃离手命中和身体控制归还。每段的 `result.json`、`checks.json` 及窗口截图在当次 `output/body-form-<分段名>-814`，施放段可以独立重跑。

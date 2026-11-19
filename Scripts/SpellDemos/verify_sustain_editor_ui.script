@@ -53,6 +53,10 @@ var corners=new Vector3[4];((RectTransform)editor.transform.Find("Background")).
 Click("Close");await Frames();UnityEngine.Screen.SetResolution(width,height,full);LocalizedTextManager.instance.setLanguage("cz");await Frames(8);
 WindowWanfaConstructionEditor.Open(BodyActionCatalog.PalmId,actor);await Frames();Argument("SustainConstruction","0.8");Action("SustainConstruction");Click("Page2");
 Check(Input("HoldAt").text=="0.255"&&Input("HoldSeconds").text=="0.8"&&((Text)Field(Row("EffectiveBodyUntil"),"_detail")).text=="1.055","身体页显示原姿态时点、维持秒数及实际发力终点");
-Action("ProjectBody");Check(Mathf.Abs(Session().Draft.Root.ActiveFrom-1.055f)<.0001f,"从维持身体继续显化读取实际离手时点");
+Action("ProjectBody");
+var formMenu=Field(editor,"menu");var formOptions=(IList)Field(formMenu,"_options");
+int hand=Enumerable.Range(0,formOptions.Count).Single(i=>(string)Field(formOptions[i],"Label")==T("Form.hand"));
+((Button)((IList)Field(formMenu,"_optionButtons"))[hand]).onClick.Invoke();
+Check(Mathf.Abs(Session().Draft.Root.ActiveFrom-1.055f)<.0001f,"从维持身体继续显化读取实际离手时点");
 Click("Undo");Click("Undo");Click("Close");await Frames();
 var result=new{passed=true,checks,id};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

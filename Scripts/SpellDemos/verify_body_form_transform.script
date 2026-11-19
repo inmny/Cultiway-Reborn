@@ -1,0 +1,147 @@
+// 8.14：窗口拒绝缺触面资源，把原来的实际持剑动作显化成风刃，再由正式入口施放。
+void ChooseForm(string form)
+{
+    Action("ProjectBody");
+    var menu = Field(editor, "menu");
+    var options = (IList)Field(menu, "_options");
+    string label = LMTools.GetOrFallback("Cultiway.Construction.Form." + form, form);
+    int index = Enumerable.Range(0, options.Count).Single(i => (string)Field(options[i], "Label") == label);
+    ((Button)((IList)Field(menu, "_optionButtons"))[index]).onClick.Invoke();
+}
+void Place(Actor actor, float x)
+{
+    actor.stopMovement(); actor.stopForce(); actor.cancelAllBeh();
+    actor.current_position = new Vector2(x, 72);
+    actor.setCurrentTile(World.world.GetTileSimple((int)x, 72)); actor.updatePos();
+}
+var access = ConstructionEditing.Access;
+var owner = source.GetExtend();
+var service = typeof(ConstructedAbilityService);
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until &&
+        (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until, 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+}
+string created = null;
+var contacts = new List<ConstructedContact>();
+ConstructedCastEnded? ending = null;
+Item held = null;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId != created || fact.SourceId != source.id) return;
+    var active = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(c => (long)Field(c, "Id") == fact.CastId);
+    held = (Item)Field(Field(active, "Body"), "Weapon");
+}
+void Hit(ConstructedContact fact)
+{
+    if (fact.AbilityId == created && fact.SourceId == source.id && fact.TargetId == target.id) contacts.Add(fact);
+}
+void Ended(ConstructedCastEnded fact)
+{
+    if (fact.AbilityId == created && fact.SourceId == source.id) ending = fact;
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Hit;
+ConstructedAbilityService.CastEnded += Ended;
+try
+{
+    string basis = __BASIS__;
+    AbilityDefinition saved;
+    if (basis != null)
+    {
+        saved = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(basis));
+        created = saved.Id;
+        Check(saved.Root?.Form == "wind_blade" && saved.Body.WeaponForm == session.Draft.Body.WeaponForm,
+            "仅复验施放，读取前段真实窗口成品");
+        ConstructedAbilityService.Register(saved); ConstructedAbilityService.Learn(owner, created);
+        Click("Close"); await Frames();
+    }
+    else
+    {
+        LocalizedTextManager.instance.setLanguage("cz");
+        Click("Page2");
+        ChooseForm("limb");
+        string reason = ((Text)Field(editor, "state")).text;
+        Check(reason.Contains(T("IssueResource.FormContact")) && reason.Contains("limb") &&
+              JsonConvert.SerializeObject(session.Draft) == before && (bool)Field(editor, "valid"),
+            "可见但没有命中形状的资源明确被拒，原草稿保留", reason);
+        await Shot("form-without-contact");
+        ChooseForm("wind_blade");
+        string originalBody = JsonConvert.SerializeObject(access.Read(id).Body);
+        var chosen = session.Draft;
+        Check(chosen.Root?.Form == "wind_blade" && chosen.Binding.Anchor == AbilityAnchor.Hand &&
+              chosen.Root.Operations.Any(operation => operation.Kind == ConstructionOperationKind.Detach) &&
+              JsonConvert.SerializeObject(chosen.Body) == originalBody && access.Read(id).Root == null,
+            "风刃用自己的投送形体，原铁剑握持、动作和原招都保留");
+        Click("Undo");
+        Check(JsonConvert.SerializeObject(session.Draft) == before, "一次撤销回到原持剑战技");
+        ChooseForm("wind_blade");
+        Click("LearnCopy");
+        created = ((ConstructionEditSession)Field(editor, "session")).SourceId;
+        saved = access.Read(created);
+        Check(created != id && saved?.Root?.Form == "wind_blade" && access.Read(id).Root == null &&
+              access.List(owner).Any(entry => entry.Id == id) && access.List(owner).Any(entry => entry.Id == created),
+            "正式学习另存为新招，保留原战技");
+        Click("Close"); await Frames();
+        WindowWanfaConstructionEditor.Open(created, source); await Frames();
+        var reopened = ((ConstructionEditSession)Field(editor, "session")).Draft;
+        Check(JsonConvert.SerializeObject(reopened) == JsonConvert.SerializeObject(saved), "窗口重新打开完整恢复改造资料");
+        await Shot("saved-weapon-and-form");
+        File.WriteAllText(Path.Combine(folder, "saved.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+        Click("Close"); await Frames();
+        return new { passed = true, id = created, form = saved.Root.Form };
+    }
+
+    var xian = new Xian { level = 2, wakan = 1000 };
+    if (owner.HasCultisys<Xian>()) owner.GetCultisys<Xian>() = xian; else owner.AddComponent(xian);
+    source.setStatsDirty(); source.updateStats();
+    var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
+    var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.BodyForm814.Quiet")
+        .SetStats(quietStats).SetDuration(10000).Build();
+    CombatStatusEffects.ApplyStatus(target, quiet, 10000, target); target.updateStats();
+    ControllableUnit.setControllableCreature(source);
+    await Advance(.15f);
+    Place(source, (float)expected["origin"]); Place(target, 71f);
+    source.addAggro(target); target.addAggro(source); source.attack_timer = 0;
+    float balance = owner.GetCultisys<Xian>().wakan;
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, created);
+    var choice = new ActiveAbilityTarget(target, target.GetSimPos());
+    var provider = (IActiveAbilityProvider)service.GetField("simulation", F).GetValue(null);
+    var state = provider.ResolveControlState(owner, handle);
+    bool canUse = provider.CanUse(owner, handle, choice);
+    float range = ActiveAbilityService.ResolveRange(owner, handle, target);
+    bool attackPossible = source.isAttackPossible();
+    bool used = ActiveAbilityService.TryUse(owner, handle, choice, ActiveAbilityUseOrigin.Player);
+    Check(used && ReferenceEquals(held, sword) && BodyControlState.IsBusy(source.id) &&
+          Mathf.Abs(balance - owner.GetCultisys<Xian>().wakan - saved.Cost) < .001f,
+        "正式施放握持原铁剑，真实发力且只支付一次", new { used, canUse, block = state.BlockReason.ToString(), state.CooldownRemaining, range,
+            distance = Vector2.Distance(source.current_position, target.current_position), attackPossible,
+            held = held?.getAsset().id, cost = saved.Cost, balance, after = owner.GetCultisys<Xian>().wakan });
+    source.attack_timer = 999;
+    await Advance(saved.Lifetime + .2f);
+    float release = saved.Root.Operations.Single(operation => operation.Kind == ConstructionOperationKind.Detach).At;
+    Check(contacts.Count == 1 && contacts[0].Node == 0 && contacts[0].Age > release && contacts[0].DamageAttempted,
+        "实际接触来自离手风刃，远处没有被原剑触面或抓握作用", new
+        {
+            release,
+            contacts = contacts.Select(fact => new { fact.Age, fact.Node, fact.TargetId, fact.DamageAttempted,
+                healthLost = fact.Damage.HealthLost, point = new[] { fact.Position.x, fact.Position.y, fact.Position.z } }).ToArray()
+        });
+    Check(ending.HasValue && !ending.Value.Cancelled && !BodyControlState.IsBusy(source.id) &&
+          !BodyControlState.IsBusy(target.id) && ReferenceEquals(source.getWeapon(), sword), "整招自然结束，归还控制并保留铁剑", ending);
+    return new { passed = true, id = created, form = saved.Root.Form, hitAt = contacts[0].Age, release };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    if (Field(editor, "session") != null) type.GetMethod("CloseNow", F).Invoke(editor, null);
+    ControllableUnit.clear(false); Config.paused = true;
+}

@@ -105,7 +105,7 @@ internal sealed partial class BodyActionBinding
     /// <summary>核对本轮已有的实际身体与器物适配。</summary>
     /// <param name="actor">实际身体。</param>
     /// <param name="action">当前编译动作。</param>
-    internal static bool CanBind(ActorExtend actor, CompiledBodyAction action) => CanUse(actor, action, null, null);
+    internal static bool CanBind(ActorExtend actor, CompiledBodyAction action) => InputProblem(actor, action) == null;
 
     /// <summary>实际绑定补上承接身体的控制，其他预留仍由共同构造推导。</summary>
     /// <param name="actor">实际身体。</param><param name="action">本次构造。</param>
@@ -115,30 +115,33 @@ internal sealed partial class BodyActionBinding
     /// <summary>本次已绑定实际身体需要的控制。</summary>
     internal BodyOccupancy RequiredOccupancy => action.Occupancy | (Organ?.RequiredOccupancy ?? BodyOccupancy.None);
 
-    /// <summary>新施放读取当前资料，已开始的动作保持自己实际绑定的握持版本。</summary>
+    /// <summary>同一检查用于施放与预演；返回缺项名称，通过时返回空。</summary>
     /// <param name="actor">实际身体。</param><param name="action">本次动作。</param>
     /// <param name="boundGrip">旧施放已经取得的握持；新施放为空。</param>
     /// <param name="boundForm">旧施放已经取得的资源；新施放为空。</param>
-    private static bool CanUse(ActorExtend actor, CompiledBodyAction action, FormResource boundForm, FormGrip boundGrip)
+    internal static string InputProblem(ActorExtend actor, CompiledBodyAction action, FormResource boundForm = null, FormGrip boundGrip = null)
     {
         Actor body = actor.Base;
-        if (action.HasSupportMotion && body.under_forces) return false;
-        if (action.Part.IsJoint) return CanUseJoint(actor) && BodyJointBinding.TryCreate(body, action.Part.Id) != null;
+        if (SkillCasterContextService.Resolve(actor).Kind != SkillCarrierKind.Physical) return "PreviewBodyPhysical";
+        if (body.isFlying() || action.HasSupportMotion && body.under_forces) return "PreviewBodyStance";
+        if ((action.Part.IsJoint || action.Part.IsOrgan && action.HasNamedSupportMotion) &&
+            (body.isAffectedByLiquid() || body.position_height != 0f && !ConstructedAbilityService.OnSurface(body)))
+            return "PreviewBodyStance";
+        if (action.Part.IsJoint)
+            return BodyJointBinding.TryCreate(body, action.Part.Id) != null ? null : "PreviewBodyJoint";
         if (action.Part.IsOrgan)
-            return (FitProvider == null || BodyOrganBinding.ModelProvider != null) && !body.isFlying() &&
-                   (!action.HasNamedSupportMotion || CanUseJoint(actor)) &&
-                   SkillCasterContextService.Resolve(actor).Kind == SkillCarrierKind.Physical &&
-                   BodyOrganBinding.CanBind(body, action.Part.OrganPath);
-        if (!body.asset.is_humanoid || body.isFlying() ||
-            SkillCasterContextService.Resolve(actor).Kind != SkillCarrierKind.Physical) return false;
-        if (action.WeaponForm == null) return !action.Part.IsArm || action.Part.Left || !body.hasWeapon();
+            return (FitProvider == null || BodyOrganBinding.ModelProvider != null) && BodyOrganBinding.CanBind(body, action.Part.OrganPath)
+                ? null : "PreviewBodyOrgan";
+        if (!body.asset.is_humanoid) return "PreviewBodyLimb";
+        if (action.WeaponForm == null)
+            return action.Part.IsArm && !action.Part.Left && body.hasWeapon() ? "PreviewBodyFreeHand" : null;
         // 原版只有一个实际武器槽，当前对应右手；左手不能再次借用同一物件。
+        if (action.Effector != "hand.right") return "PreviewBodyHeldSide";
+        if (!body.hasWeapon() || !EquippedWeaponVisualService.IsCurrent(body, body.getWeapon())) return "PreviewBodyHeldMissing";
         FormResource form = boundForm ?? FormResources.Load(action.WeaponForm);
-        return action.Effector == "hand.right" && body.hasWeapon() &&
-               form.Description.Held.Groups.Contains(body.getWeaponAsset().group_id) &&
-               EquippedWeaponVisualService.IsCurrent(body, body.getWeapon()) &&
-               (boundGrip ?? form.Grip(action.Grip)).Fits(action.WeaponSize,
-                   .035f * HandScale, .08f * HandScale);
+        if (!form.Description.Held.Groups.Contains(body.getWeaponAsset().group_id)) return "PreviewBodyHeldKind";
+        return (boundGrip ?? form.Grip(action.Grip)).Fits(action.WeaponSize, .035f * HandScale, .08f * HandScale)
+            ? null : "PreviewBodyGripFit";
     }
 
     /// <summary>原地实际兽足只接受具有物理身体且仍在承托上的来源。</summary>
@@ -164,9 +167,11 @@ internal sealed partial class BodyActionBinding
                 throw new InvalidDataException("Body/Construction/Relations/" + relation.Id + "：尚无该实际部位的接触适配");
         }
 
-        ConstructionReferences.Resolve("Body/Effector/hand", () => FormResources.Load("hand"), "Form", "hand");
+        var handForm = ConstructionReferences.Resolve("Body/Effector/hand", () => FormResources.Load("hand"), "Form", "hand");
         ConstructionReferences.Resolve("Body/Effector/limb", () => FormResources.Load("limb"), "Form", "limb");
-        var contactResource = FormResources.Load(action.WeaponForm ?? "hand");
+        FormResource form = action.WeaponForm == null ? null :
+            ConstructionReferences.Resolve("Body/WeaponForm", () => FormResources.Load(action.WeaponForm), "Form", action.WeaponForm);
+        var contactResource = form ?? handForm;
         foreach (var relation in action.Construction.Relations.Where(r =>
                      r.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect or BodyRelationKind.Disarm))
         {
@@ -178,9 +183,7 @@ internal sealed partial class BodyActionBinding
                 throw new InvalidDataException("Body/Construction/Relations/" + relation.Id + "：实际作用资源缺少所选接触形状");
         }
 
-        if (action.WeaponForm == null) return;
-        FormResource form =
-            ConstructionReferences.Resolve("Body/WeaponForm", () => FormResources.Load(action.WeaponForm), "Form", action.WeaponForm);
+        if (form == null) return;
         ConstructionReferences.Resolve("Body/Grip", () => form.Grip(action.Grip), "Grip", form.Description.Id + " / " + action.Grip);
         if (form.Description.Held.Groups.Length == 0)
             throw new InvalidDataException("Body/WeaponForm：资源未声明可对应的实际装备类型：" + action.WeaponForm);
@@ -247,34 +250,58 @@ internal sealed partial class BodyActionBinding
     /// <param name="direction">本手瞄准方向。</param><param name="targetFoot">目标实际脚下。</param>
     /// <param name="targetHeight">目标实际体高。</param>
     internal static BodyActionBinding TryCreate(Actor actor, CompiledBodyAction action, Vector3 direction,
-        Vector3 targetFoot, float targetHeight)
+        Vector3 targetFoot, float targetHeight) => BindBody(actor, action, direction, targetFoot, targetHeight, out _);
+
+    /// <summary>绑定真实动作资料，明确区分缺少身体结构和站姿未就绪。</summary>
+    /// <param name="actor">实际身体。</param><param name="action">本次动作。</param>
+    /// <param name="direction">瞄准方向。</param><param name="targetFoot">目标脚下。</param>
+    /// <param name="targetHeight">目标高度。</param><param name="problem">没有绑定时的缺项名称。</param>
+    internal static BodyActionBinding BindBody(Actor actor, CompiledBodyAction action, Vector3 direction,
+        Vector3 targetFoot, float targetHeight, out string problem)
     {
+        problem = null;
         if (action.Part.IsJoint)
         {
             BodyJointBinding joint = BodyJointBinding.TryCreate(actor, action.Part.Id);
-            return joint == null || action.HasNamedSupportMotion && !joint.HasFeet(action.Support(0f).Parts.Select(foot => foot.Part))
-                ? null : new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, null) { Joint = joint };
+            if (joint == null) problem = "PreviewBodyJoint";
+            else if (action.HasNamedSupportMotion && !joint.HasFeet(action.Support(0f).Parts.Select(foot => foot.Part)))
+                problem = "PreviewBodyNamedFeet";
+            return problem == null ? new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, null) { Joint = joint } : null;
         }
-        if (action.HasSupportMotion && actor.position_height != 0f &&
-            !ConstructedAbilityService.OnSurface(actor)) return null;
+        if (action.HasSupportMotion && actor.position_height != 0f && !ConstructedAbilityService.OnSurface(actor))
+        {
+            problem = "PreviewBodyStance";
+            return null;
+        }
         if (action.Part.IsOrgan)
         {
-            if (FitProvider != null && BodyOrganBinding.ModelProvider == null) return null;
-            BodyOrganBinding organ = BodyOrganBinding.TryCreate(actor, action.Part.OrganPath);
-            if (organ == null) return null;
+            BodyOrganBinding organ = FitProvider != null && BodyOrganBinding.ModelProvider == null
+                ? null : BodyOrganBinding.TryCreate(actor, action.Part.OrganPath);
+            if (organ == null)
+            {
+                problem = "PreviewBodyOrgan";
+                return null;
+            }
             BodyJointBinding joint = action.HasNamedSupportMotion ? BodyJointBinding.TrySupport(actor, organ) : null;
-            if (action.HasNamedSupportMotion && (joint == null || !joint.HasFeet(action.Support(0f).Parts.Select(foot => foot.Part)))) return null;
+            if (action.HasNamedSupportMotion && (joint == null || !joint.HasFeet(action.Support(0f).Parts.Select(foot => foot.Part))))
+            {
+                problem = "PreviewBodyNamedFeet";
+                return null;
+            }
             return new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, null)
             { Organ = organ, Joint = joint, mountedOrgan = joint?.OrganFrame(organ) };
         }
 
         BodyFit fit = FitProvider?.Invoke(actor, action.Part.Left);
-        if ((action.Part.IsLeg || action.HasSupportMotion) && fit != null &&
-            (fit.LeftLegData == null || fit.RightLegData == null)) return null;
-        if (FitProvider != null && fit == null || action.Part.IsHead && fit != null && fit.HeadData == null)
-            return null;
+        if (FitProvider != null && fit == null) problem = "PreviewBodyLimbMotion";
+        else if ((action.Part.IsLeg || action.HasSupportMotion) && fit != null &&
+                 (fit.LeftLegData == null || fit.RightLegData == null)) problem = "PreviewBodyLegMotion";
+        else if (action.Part.IsHead && fit != null && fit.HeadData == null) problem = "PreviewBodyHeadMotion";
+        if (problem != null) return null;
         var binding = new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, fit);
-        return action.Part.IsHead && binding.nativeHead == null ? null : binding;
+        if (!action.Part.IsHead || binding.nativeHead != null) return binding;
+        problem = "PreviewBodyHeadMotion";
+        return null;
     }
 
     /// <summary>发布施放前，以明确所选的真实目标部位完成瞄准；工作线程仍只取得冻结后的身体输入。</summary>
@@ -358,7 +385,7 @@ internal sealed partial class BodyActionBinding
 
     /// <summary>借用器物被换走、损坏或失去时立即失效，不能用旧外观继续结算。</summary>
     /// <param name="actor">来源身体。</param>
-    internal bool IsValid(Actor actor) => IsCurrent(actor) && (Joint == null ? CanUse(actor.GetExtend(), action, weapon, grip) :
+    internal bool IsValid(Actor actor) => IsCurrent(actor) && (Joint == null ? InputProblem(actor.GetExtend(), action, weapon, grip) == null :
         CanUseJoint(actor.GetExtend(), action.HasNamedSupportMotion) &&
         (action.HasNamedSupportMotion || CanStart(Frame(ConstructedAbilityService.BodyFoot(actor), SpatialActorPose.Height(actor)))));
 

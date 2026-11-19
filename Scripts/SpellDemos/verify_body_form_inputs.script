@@ -1,0 +1,109 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
+using Cultiway.Content.Skills;
+using Cultiway.Core.Skills;
+using Cultiway.UI;
+using Cultiway.UI.Prefab;
+using Cultiway.Utils.Extension;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using UnityEngine.UI;
+
+const BindingFlags F = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public;
+string prior = __PRIOR__, folder = __OUTPUT__;
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(prior, "expected.json")));
+var checks = new List<object>();
+void Check(bool ok, string name, object data = null)
+{
+    checks.Add(new { ok, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(checks, Formatting.Indented));
+    if (!ok) throw new InvalidOperationException(name);
+}
+object Field(object obj, string name) => obj.GetType().GetField(name, F).GetValue(obj);
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+async Task Frames()
+{
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    Canvas.ForceUpdateCanvases();
+}
+async Task Shot(string name)
+{
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+Game.Resume(); Config.paused = true;
+World.world.save_manager.loadWorld(Path.Combine(prior, "save"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true; await Frames();
+Actor source = World.world.units.get((long)expected["sourceId"]), target = World.world.units.get((long)expected["targetId"]);
+string id = (string)expected["Id"];
+Check(source?.hasWeapon() == true && target?.isAlive() == true && ConstructionEditing.Access.Read(id)?.Body?.WeaponForm != null,
+    "加载原人物、铁剑和已学战技");
+var sword = source.getWeapon();
+var slot = source.equipment.getSlot(sword.getAsset().equipment_type);
+source.addAggro(target); source.stopForce(); source.setStatsDirty(); source.updateStats();
+WindowWanfaConstructionEditor.Open(id, source); await Frames();
+var type = typeof(WindowWanfaConstructionEditor);
+var editor = (WindowWanfaConstructionEditor)type.GetField("instance", F).GetValue(null);
+var session = (ConstructionEditSession)Field(editor, "session");
+string before = JsonConvert.SerializeObject(session.Draft);
+void Click(string name) => editor.GetComponentsInChildren<Button>(false).Single(button => button.name == name).onClick.Invoke();
+void Action(string key)
+{
+    var row = editor.GetComponentsInChildren<WanfaEditorRow>(false).First(candidate => ((Text)Field(candidate, "_title")).text == T(key));
+    ((Button)Field(row, "_action")).onClick.Invoke();
+}
+void Equip()
+{
+    if (!source.hasWeapon()) slot.setItem(sword, source);
+    source.setStatsDirty(); source.updateStats();
+}
+void Detach()
+{
+    slot.takeAwayItem();
+    source.setStatsDirty(); source.updateStats();
+}
+string Status() => ((Text)Field(editor, "performanceStatus")).text;
+// INPUT_CHECKS
+try
+{
+    string form = session.Draft.Body.WeaponForm;
+    Action("PreviewPerformance"); Click("PreviewTarget"); await Frames();
+    var menu = Field(editor, "menu");
+    var options = (IList)Field(menu, "_options");
+    int index = Enumerable.Range(0, options.Count).Single(i => (string)Field(options[i], "Label") == target.getName());
+    ((Button)((IList)Field(menu, "_optionButtons"))[index]).onClick.Invoke();
+    Check(Field(editor, "performance") != null, "原有铁剑可以开始预演", Status());
+    Detach();
+    foreach (string lang in new[] { "cz", "en" })
+    {
+        LocalizedTextManager.instance.setLanguage(lang);
+        Click("PreviewReplay");
+        string formLabel = LMTools.GetOrFallback("Cultiway.Construction.Form." + form, form);
+        Check(Field(editor, "performance") == null && Status() == string.Format(T("PreviewBodyHeldMissing"), formLabel),
+            "缺实际装备时显示需要的形体名称（" + lang + "）", Status());
+        await Shot("missing-weapon-" + lang);
+    }
+    Equip(); Click("PreviewReplay");
+    Check(Field(editor, "performance") != null && ReferenceEquals(source.getWeapon(), sword) &&
+          JsonConvert.SerializeObject(session.Draft) == before && !BodyControlState.IsBusy(source.id),
+        "同一铁剑装回后原草稿恢复预演，不改变草稿也不接管人物", Status());
+    await Shot("recovered-weapon-en");
+    Click("PreviewClose"); Click("Close"); await Frames();
+    Check(Field(editor, "session") == null, "改回合适输入后可以直接关闭窗口");
+    return new { passed = true, source = source.id, target = target.id, form };
+}
+finally
+{
+    Equip();
+    if (Field(editor, "session") != null) type.GetMethod("CloseNow", F).Invoke(editor, null);
+    Config.paused = true; LocalizedTextManager.instance.setLanguage("cz");
+}

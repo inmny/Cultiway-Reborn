@@ -687,17 +687,15 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="caster">实际来源。</param>
     /// <param name="plan">当前计划。</param>
     private static bool BodyReady(ActorExtend caster, CompiledAbility plan) => plan.Body == null ||
-                                                                               BodyActionBinding.CanBind(caster,
-                                                                                   plan.Body) &&
-                                                                               !BodyControlState.IsBusy(caster.Base.id,
-                                                                                   BodyActionBinding.Occupancy(caster.Base, plan.Body), plan.Body.Part.ControlPath) &&
-                                                                               (plan.Body.WeaponForm == null ||
-                                                                                   !WeaponControlRuntimeService
-                                                                                       .IsCasting(caster)) &&
-                                                                               !KnightTechniqueRuntimeService.IsBusy(
-                                                                                   caster) &&
-                                                                               !caster.Base.stats.hasTag("frozen_ai") &&
-                                                                               !caster.Base.stats.hasTag("immovable");
+        BodyActionBinding.CanBind(caster, plan.Body) && BodyAvailable(caster, plan.Body);
+
+    /// <summary>暂时不能接管身体时，与缺少身体资料分别提示。</summary>
+    /// <param name="caster">实际施法者。</param><param name="body">本次身体动作。</param>
+    private static bool BodyAvailable(ActorExtend caster, CompiledBodyAction body) =>
+        !BodyControlState.IsBusy(caster.Base.id, BodyActionBinding.Occupancy(caster.Base, body), body.Part.ControlPath) &&
+        (body.WeaponForm == null || !WeaponControlRuntimeService.IsCasting(caster)) &&
+        !KnightTechniqueRuntimeService.IsBusy(caster) && !caster.Base.stats.hasTag("frozen_ai") &&
+        !caster.Base.stats.hasTag("immovable");
 
     /// <summary>原有徒手入口可用性，不借用另一人物或已经失效的身体。</summary>
     /// <param name="caster">实际身体。</param>

@@ -210,12 +210,18 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <summary>目录读取已发布形体；缺失的原编号仍显示到换为可用资源。</summary>
     /// <param name="node">需要替换的原部位。</param>
     private void FormChoice(ConstructionNode node) => Choice("Form", FormLabel(node.Form), () =>
-        menu.Show(T("Form"), FormResources.Ids.Where(id => FormResources.Load(id).Meshes.Length > 0).Select(id =>
+        ShowFormChoices("Form", node.Form, id => Change(() => node.Form = id)));
+
+    /// <summary>形体替换与身体显化共用可搜索目录。</summary>
+    /// <param name="title">目录标题。</param><param name="selected">当前建议的形体。</param>
+    /// <param name="select">选中实际形体后的改造。</param>
+    private void ShowFormChoices(string title, string selected, Action<string> select) =>
+        menu.Show(T(title), FormResources.Ids.Where(id => FormResources.Load(id).Meshes.Length > 0).Select(id =>
             new UiOptionMenuOption
             {
                 Label = FormLabel(id), SearchText = FormLabel(id) + " " + id,
-                Selected = node.Form == id, Select = () => Change(() => node.Form = id)
-            }).ToArray(), true, "Cultiway.Construction.EmptyForms"));
+                Selected = selected == id, Select = () => select(id)
+            }).ToArray(), true, "Cultiway.Construction.EmptyForms");
 
     /// <summary>使用资源的显示名，未登记翻译时保留编号以便搜索及修正。</summary>
     /// <param name="id">形体的长期编号。</param>
