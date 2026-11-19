@@ -142,19 +142,28 @@ internal static partial class ProjectileConstructionMigration
         if (blast)
         {
             bool contact = !configured || settings.ContactEnabled;
+            bool meteor = container.Asset == SkillEntities.FlameMeteor;
+            float burstDuration = Mathf.Min(.22f, lifetime);
             definition.Root.Children = new[] { new ConstructionNode
             {
-                Id = "burst", Form = container.Asset == SkillEntities.FlameMeteor ? "flame_meteor_impact" : sourceForm.Matter + "_burst",
+                Id = "burst", Form = meteor ? "flame_meteor_impact_motion" : sourceForm.Matter + "_burst",
                 Matter = sourceForm.Matter, State = sourceForm.State,
                 Scale = scale * container.Asset.ImpactProfile.EffectRadius * container.Asset.ImpactTuning.EffectRadiusMultiplier / .9f,
-                DisappearAt = Mathf.Min(.22f, lifetime), ActiveUntil = Mathf.Min(.025f, lifetime),
+                DisappearAt = burstDuration, ActiveUntil = Mathf.Min(.025f, lifetime),
                 Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End,
                     Placement = ConstructionEventPlacement.Event, InheritRemainder = contact, ResetContacts = contact },
                 Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 },
                 Impact = new ConstructionImpact { DamageScale = damageMultiplier },
                 ContactRole = contact ? ConstructionContactRole.Attack : ConstructionContactRole.Decoration,
-                Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Stop,
-                    When = new ConstructionCondition { Source = "..", Trigger = ConstructionChangeTrigger.End } } }
+                // 余力交接也带来入射速度；炎陨在事件落点清掉这份速度，骨架仍可继续收势。
+                Operations = meteor
+                    ? new[]
+                    {
+                        new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new float[3], InheritVelocity = false },
+                        new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "spread", Seconds = burstDuration }
+                    }
+                    : new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Stop,
+                        When = new ConstructionCondition { Source = "..", Trigger = ConstructionChangeTrigger.End } } }
             } };
         }
         return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, contactForceScale: !continues && !blast ? 1f / damageMultiplier : 1f, caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);

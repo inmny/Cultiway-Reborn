@@ -2117,3 +2117,5 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 9.02 主体与视距
 
 在独立游戏运行 `dev.py exec --timeout 245 -- python3 Scripts/SpellDemos/verify_form_detail.py --appearance all`，复用同一世界和修士，从正式已学入口拍摄灵盾、水幕、剑气、雷枪、土脊和炎陨的近、中、远景。`--appearance meteor` 只补验炎陨，另核对真实落点仅结算一次、火体按原时限撤去。截图、输入和检查结果保存在当次 `output/form-visibility-*`；画面要对照落点人物查看。
+
+炎陨的连续动作使用 `dev.py exec --timeout 245 -- python3 Scripts/SpellDemos/verify_form_detail.py --appearance meteor-motion`。同一落点依次核对正常命中和再次施放落空，保存下坠、触地、火肩展开、余焰四张图以及真实作用范围和时间记录。

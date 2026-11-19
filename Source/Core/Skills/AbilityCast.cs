@@ -1507,6 +1507,13 @@ public sealed partial class AbilityCast
                     continue;
                 }
                 var appearance = MatterAppearance(i);
+                Color? dye = Plan.Nodes[i].Dye;
+                if (poses[i] is { Fade: > 0f } pose)
+                {
+                    Color faded = dye ?? Color.white;
+                    faded.a = 1f - pose.Fade;
+                    dye = faded;
+                }
                 output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
                     surface: appearance.Surface,
                     tint: nodes[i].Matter.Id == "fire"
@@ -1515,7 +1522,7 @@ public sealed partial class AbilityCast
                         : FormBurningPresentation.Char(nodes[i].Burning, nodes[i].Volume),
                     groundAnchor: Plan.Nodes[i].FragmentSource >= 0 ? (Vector2?)nodes[i].Position : null,
                     skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
-                    matterSurface: appearance.MatterSurface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter,
+                    matterSurface: appearance.MatterSurface, dye: dye, matter: nodes[i].Matter,
                     terrain: terrain, layer: flows?[i]?.Started == true ? ConductingFrame(i) : null,
                     buildProgress: poses[i]?.BuildProgress ?? 1f));
                 FormBurningPresentation.Append(output, nodes[i].Transform, nodes[i].Burning, nodes[i].Volume, terrain,

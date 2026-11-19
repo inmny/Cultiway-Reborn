@@ -1,6 +1,6 @@
 /** 投射和坠落来源的实体，以及由真实余力交接形成的六类爆发厚体。 */
 import * as T from 'three';
-import {write,structure,surfaceData} from './form_export.mjs';
+import {write,structure,surfaceData,motion,round} from './form_export.mjs';
 import {wallPart,column} from './forms_solid_walls.mjs';
 
 /** 封闭的分层长体；局部正Z是前方，尖端与内部接触共同朝向实际运动。 */
@@ -94,6 +94,7 @@ function meteorImpact() {
   const floor=new T.LatheGeometry([[0,.006],[.73,.006],[.89,.01],[.90,.018],[.83,.05],[.56,.077],[0,.055]]
     .map(p=>new T.Vector2(...p)),64).rotateX(-Math.PI/2);
   const pieces=[['heat',surfaceData(floor,.11,p=>.47+.23*(1-Math.hypot(p.x,p.y)/.90)),'meteor_heat']];
+  const shoulders=[];
   for(const [index,start,span] of [[0,.20,2.03],[1,2.66,1.46],[2,4.57,1.42]]) {
     const sections=30,sides=12;
     const rings=Array.from({length:sections+1},(_,i)=>{
@@ -106,8 +107,37 @@ function meteorImpact() {
     });
     const arc=column(rings,sides);
     pieces.push([`fold_${index}`,surfaceData(arc,.18,p=>T.MathUtils.smoothstep(-p.z,.013,.10)),'meteor_crown']);
+    shoulders.push(start+span*.5);
   }
   publish('flame_meteor_impact',pieces,[[[0,0,0],[0,0,0],.9]],{contactRadius:.9,folds:3});
+  publishMeteorMotion(pieces,shoulders);
+}
+
+/** 落点的低焰标出整块作用面；独立火肩错时翻开再贴地，始终不移动球形作用。 */
+function publishMeteorMotion(pieces,shoulders) {
+  const identity=[0,0,0,1],origin=[0,0,0],ease=T.MathUtils.smoothstep,duration=.22;
+  const directions=shoulders.map(angle=>new T.Vector3(Math.cos(angle),Math.sin(angle),0));
+  const controls=[{Id:'root',Position:origin,Rotation:identity},...directions.map((axis,i)=>({
+    Id:`fold_${i}`,Parent:'root',Position:axis.clone().multiplyScalar(.62).toArray(),Rotation:identity
+  }))];
+  const parts=pieces.map(([name,g,s],i)=>wallPart(name,g,s,controls[i].Position,controls[i].Id));
+  const clip=motion('spread',duration,false,controls,22,(i,phase,control)=>{
+    if(!i)return {};
+    const at=phase*duration,axis=directions[i-1];
+    const start=(i-1)*.009,open=ease(at,start,start+.052),settle=ease(at,.073+(i-1)*.007,.21);
+    const position=new T.Vector3(...control.Position).addScaledVector(axis,-.28*(1-open)+.062*settle);
+    position.z=.14*(1-open)+.17*settle;
+    const tangent=new T.Vector3(-axis.y,axis.x,0);
+    const rotation=new T.Quaternion().setFromAxisAngle(tangent,-.68*(1-open)+.16*open-.62*settle);
+    return {position:position.toArray(),rotation:rotation.toArray()};
+  },[{Id:'spread',At:.07},{Id:'settle',At:.10}]);
+  for(const key of clip.Keys)key.Fade=round(.33*(1-ease(key.At,0,.035))+ease(key.At,.072,duration));
+  const anchors=[{Id:'root',Part:0,Position:origin,Direction:[0,0,1],Control:'root'}];
+  const contacts=[{Id:'core_0',Part:0,A:origin,B:origin,Radius:.9,AControl:'root',BControl:'root'}];
+  write('flame_meteor_impact_motion',parts,anchors,contacts,controls,[clip],false,
+    {Forward:[0,0,1],Up:[0,1,0],HideBelowGround:true},
+    structure('articulated','forms_impacts.mjs','makeImpactForms',{contactRadius:.9,folds:3,duration},
+      Object.fromEntries(parts.map(p=>[p.Id,['projectile.body','impact.volume']])),[]));
 }
 
 /** 发布八种来源主体、六类通用爆发和炎陨独立落地形体。 */

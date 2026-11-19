@@ -101,7 +101,7 @@ try
         (Asset:SkillEntities.Icefall,Form:"icefall",Matter:"ice",State:"solid",Radius:2.5f,Multiplier:1.2f)})
     {
         currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
-        string burstForm=entry.Asset==SkillEntities.FlameMeteor?"flame_meteor_impact":entry.Matter+"_burst";
+        string burstForm=entry.Asset==SkillEntities.FlameMeteor?"flame_meteor_impact_motion":entry.Matter+"_burst";
         var normal=Build();
         if(section!="visuals")foreach(var skill in new[]{normal,Build(true)})
         {
