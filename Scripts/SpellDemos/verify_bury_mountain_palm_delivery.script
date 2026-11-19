@@ -1,0 +1,80 @@
+// C 段：真实侧向分支、正式存档，或用同一场地录制完整施放。
+var original = definition;
+var variant = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "variant.json")));
+var catalog = (IDictionary)service.GetField("definitions", F).GetValue(null);
+try
+{
+    if (recordView != "")
+    {
+        await SetCamera(5.7f);
+        Stage();
+        // 摄像机准备不更改实际用招入口。预留少量原速画面看清近身距离。
+        await Advance(.14f);
+        Stage();
+        await Pay();
+        var times = await Film(3.5f, () => World.world.console.Hide());
+        Check(contacts.Any(c => c.TargetId == touch.id && c.Node == -1) && contacts.Any(c => c.TargetId == far.id && c.Node == 0) &&
+            endings.Any(e => e.Fact.AbilityId == original.Id && !e.Fact.Cancelled) && !VisibleWave(),
+            "一段连续常速录像覆盖掌击、后段实际受击及岩面撤去", Trace());
+        return new { passed = true, times, duration = 3.5, previewFrame = Math.Max(0, times.FindIndex(t => t >= .80)),
+            hit = Trace(), view = recordView, scene = "construction", resource = "wakan", paid = original.Cost };
+    }
+
+    // 保留同一侧靶和冻结的人工智能，但像其他两个实靶一样允许受力。
+    CombatStatusEffects.RemoveStatus(side, hold);
+    CombatStatusEffects.ApplyStatus(side, quiet, 10000, side);
+    side.updateStats();
+    JToken originalInput = JToken.FromObject(original), variantInput = JToken.FromObject(variant);
+    Stage(); await Pay(); await Advance(2.65f);
+    Check(contacts.Any(c => c.TargetId == touch.id && c.Node == -1) && contacts.Any(c => c.TargetId == far.id && c.Node == 0) &&
+        contacts.All(c => c.TargetId != side.id) && side.data.health > 0,
+        "正式原招保持前向传播，侧面目标不受击", Trace());
+    var originalHit = Trace();
+    contacts.Clear();
+    definition = variant;
+    Stage();
+    int sideLife = side.data.health;
+    await Pay(); await Advance(1.46f);
+    var turn = contacts.SingleOrDefault(c => c.TargetId == side.id);
+    Check(contacts.Any(c => c.TargetId == near.id && c.Node == 0) && turn.Node == 1 && turn.Age > .7f &&
+        turn.ForceApplied && turn.VelocityChange.y > 0f && side.data.health < sideLife,
+        "走到真实前沿才从第二部位向侧面命中并推压；主脊仍然工作", Trace());
+    var variantHit = Trace();
+    await Advance(1.2f);
+    Check(endings.Count == 2 && !endings.Any(e => e.Fact.Cancelled) && !BodyControlState.IsBusy(source.id) && !VisibleWave(),
+        "两个构造自然结束，归还身体，不留下岩片");
+
+    long savedOwner = source.id;
+    ConstructedAbilityService.Learn(owner, original.Id);
+    ConstructedAbilityService.Learn(owner, variant.Id);
+    string saved = Path.Combine(folder, "world");
+    SaveManager.saveWorldToDirectory(saved);
+    World.world.save_manager.loadWorld(saved);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var restored = World.world.units.get(savedOwner)?.GetExtend();
+    var first = (AbilityDefinition)catalog[original.Id];
+    var second = (AbilityDefinition)catalog[variant.Id];
+    Check(first != null && second != null && JToken.DeepEquals(originalInput, JToken.FromObject(first)) &&
+        JToken.DeepEquals(variantInput, JToken.FromObject(second)) && restored != null &&
+        restored.E.GetComponent<ConstructedKnowledge>().Ids.Contains(first.Id) &&
+        restored.E.GetComponent<ConstructedKnowledge>().Ids.Contains(second.Id) && !VisibleWave(),
+        "世界重开保留原招、派生和学习；结束的岩层不作为存档效果恢复");
+    var edited = ConstructionEditing.Copy(second);
+    edited.Revision++;
+    edited.Root.Children.Single().Operations.Single().Propagation.TiltDegrees = 44f;
+    ConstructedAbilityService.Register(edited);
+    Check(((AbilityDefinition)catalog[edited.Id]).Root.Children.Single().Operations.Single().Propagation.TiltDegrees == 44f &&
+        first.Root.Children.Length == 0 && JToken.DeepEquals(originalInput, JToken.FromObject(catalog[first.Id])),
+        "重开后再次编辑和登记派生，原资料保持完整");
+    return new { passed = true, originalHit, variantHit, saved };
+}
+finally
+{
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

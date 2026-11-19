@@ -152,6 +152,10 @@ public sealed class FormContactDescription
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public FormContactPath Path;
 
+    /// <summary>使用与模型相同的不规则凸轮廓及厚度。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public FormContactFootprint Footprint;
+
     internal FormContactDescription WithPart(int part)
     {
         var copy = (FormContactDescription)MemberwiseClone();
@@ -507,7 +511,7 @@ public sealed partial class FormResource
         foreach (FormContactDescription contact in description.Contacts)
         {
             if (contact.Part < -1 || contact.Part >= meshes.Length || contact.A?.Length != 3 ||
-                (contact.Sector == null && contact.Path == null && (contact.HalfExtents == null
+                (contact.Sector == null && contact.Path == null && contact.Footprint == null && (contact.HalfExtents == null
                     ? contact.B?.Length != 3 || !FormRig.Finite(contact.Radius) || contact.Radius <= 0f
                     : contact.HalfExtents.Length != 3 || contact.B != null || contact.Radius != 0f ||
                       contact.BControl != null || contact.BInfluences != null || contact.BuildAlong)))
