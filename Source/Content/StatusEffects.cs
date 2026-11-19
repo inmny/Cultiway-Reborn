@@ -90,7 +90,8 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .SetNegative()
             .SetIconPath("cultiway/icons/element_root/wood")
             .SetDuration(5f)
-            .EnableParticle(new Color(0.35f, 0.85f, 0.35f), 1, 0.1f)
+            .SetSpatialVisual(new StatusSpatialSettings
+                { Form = StatusSpatialForm.Poison, Color = new Color(.49f, .64f, .13f, .89f), RadiusRatio = .48f })
             .EnableTick(PoisonTickInterval, OnPoisonTick)
             .Build();
         Freeze = StatusEffectAsset.StartBuild(nameof(Freeze))

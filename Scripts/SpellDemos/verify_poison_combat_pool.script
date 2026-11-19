@@ -1,0 +1,46 @@
+var definition = Spell("蚀甲毒潭");
+Item armor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: victim);
+victim.equipment.setItem(armor, victim); victim.setStatsDirty(); victim.updateStats();
+int before = armor.getDurabilityCurrent();
+var losses = new List<ConstructedEquipmentErosion>();
+void Worn(ConstructedEquipmentErosion fact) { if (fact.SourceId == source.id && fact.AbilityId == definition.Id) losses.Add(fact); }
+bool HasPit() => FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "poison_pit");
+ConstructedAbilityService.EquipmentErosionConfirmed += Worn;
+try
+{
+    var first = await Use(definition);
+    Check(!HasPit() && armor.getDurabilityCurrent() == before, "预备动作没有凭空损坏原甲或显示蚀孔");
+    bool WornOriginal() => losses.Count >= 2 && losses.All(f => f.ItemId == armor.id && f.TargetId == victim.id && f.After < f.Before) &&
+        armor.getActor() == victim && !CombatStatusEffects.HasStatus(victim, StatusEffects.Poison, source);
+    if (recordView.Length > 0)
+    {
+        await SetCamera(5.9f);
+        const float duration = 2.85f;
+        double mark = -1, start = World.world.getCurWorldTime();
+        var times = await Film(duration, () => { if (mark < 0 && HasPit() && losses.Count > 0) mark = World.world.getCurWorldTime() - start; });
+        Check(WornOriginal() && mark >= 0 && first.Cast.Finished && !HasPit(), "常速录到原甲腐蚀、真实蚀孔和退出", losses);
+        return new { passed = true, scene = "construction", resource = "mana", paid = definition.Cost, view = recordView,
+            before, after = armor.getDurabilityCurrent(), losses, duration, times, previewFrame = times.FindIndex(t => t >= mark) };
+    }
+    for (int step = 0; step < 23 && losses.Count < 2; step++) await Advance(.08f);
+    Check(WornOriginal() && HasPit(), "潭内分次腐蚀同一件原甲，蚀孔随已确认耐久损耗出现；没有凭空附毒", losses);
+    Place(victim, 69, 77);
+    int held = armor.getDurabilityCurrent(), count = losses.Count;
+    await Advance(2.4f);
+    Check(first.Cast.Finished && !HasPit() && losses.Count == count && armor.getDurabilityCurrent() == held,
+          "离开实际范围不再扣耐久；留下的损耗不回滚，蚀孔和潭体退出");
+    var unarmored = Make(69);
+    unarmored.setKingdom(victim.kingdom);
+    Place(unarmored, 69, 72); Place(victim, 74, 72);
+    Ready(source); Place(source, 64); source.setMana(64);
+    await Fire(definition, source, unarmored);
+    var second = seen.Last();
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.56f);
+    Check(contacts.Any(x => x.CastId == second.Key && x.TargetId == unarmored.id) && !HasPit() && losses.Count == count,
+          "能再次施放并命中无甲者；真实接触本身不会凭空产生蚀孔");
+    await Advance(2.1f);
+    Check(second.Value.Finished && !HasPit() && losses.Count == count, "第二次完整结束，无残留蚀孔");
+    return new { passed = true, item = armor.id, before, after = held, losses };
+}
+finally { ConstructedAbilityService.EquipmentErosionConfirmed -= Worn; ReleaseChecks(); }

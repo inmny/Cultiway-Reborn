@@ -64,8 +64,11 @@ public sealed partial class ConstructedAbilityService
             item.getDamaged(damage);
             int after = item.getDurabilityCurrent();
             if (after == before) continue;
-            if (node >= 0 && running.Cast.Matter(node).Id == "wind" && contact is Vector3 point)
-                AddWindScar(running, node, target, point, true);
+            if (node >= 0 && contact is Vector3 point)
+            {
+                string element = running.Cast.Matter(node).Id;
+                if (element is "wind" or "poison") AddWindScar(running, node, target, point, true, element == "poison");
+            }
             target.setStatsDirty();
             target.updateStats();
             EquipmentErosionConfirmed?.Invoke(new ConstructedEquipmentErosion(running.Id, running.SourceId, owner,

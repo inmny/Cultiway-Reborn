@@ -51,6 +51,8 @@ public enum StatusSpatialForm
     Bind,
     /// <summary>冻结状态的冰棱。</summary>
     Freeze,
+    /// <summary>实际染毒后贴身消退的黏斑。</summary>
+    Poison,
 }
 
 /// <summary>状态的空间形式、颜色和相对体型。</summary>

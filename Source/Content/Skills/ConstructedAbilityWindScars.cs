@@ -14,7 +14,8 @@ public sealed partial class ConstructedAbilityService
     /// <param name="running">实际受理的施放。</param><param name="node">碰到人物的部位。</param>
     /// <param name="target">实际承伤人物。</param><param name="point">已经确认的相交点。</param>
     /// <param name="armor">是否真正削去了护甲耐久。</param>
-    private static void AddWindScar(RunningCast running, int node, Actor target, Vector3 point, bool armor)
+    /// <param name="poison">来自毒液腐蚀时使用蚀孔。</param>
+    private static void AddWindScar(RunningCast running, int node, Actor target, Vector3 point, bool armor, bool poison = false)
     {
         if (windScars.Count >= 24) windScars.RemoveAt(0);
         Vector3 foot = SpatialActorPose.Foot(target);
@@ -24,32 +25,34 @@ public sealed partial class ConstructedAbilityService
         if (direction.sqrMagnitude < .0001f) direction = Vector2.up;
         Vector3 offset = point - foot;
         if (armor) offset.z = Mathf.Max(offset.z, SpatialActorPose.Height(target) * .35f);
-        windScars.Add(new WindScar(target, target.id, offset, direction.normalized, simulation.contactTime, armor));
+        windScars.Add(new WindScar(target, target.id, offset, direction.normalized, simulation.contactTime, armor, poison));
     }
 
-    /// <summary>短剪面沿真正来向揭开，主体和受击点共用两种显示的空间资料。</summary>
+    /// <summary>风沿来向留下短剪面；毒在接触处留下短暂的蚀孔。</summary>
     /// <param name="now">已经确认的共同世界时间。</param>
     private void AppendWindScars(double now)
     {
         if (windScars.Count == 0) return;
-        FormResource model = FormResources.Load("baleful_wind_mark");
         for (int i = windScars.Count - 1; i >= 0; i--)
         {
             WindScar mark = windScars[i];
             float age = (float)(now - mark.At);
-            if (age >= .34f || mark.Target.data?.id != mark.TargetId)
+            float duration = mark.Poison ? .48f : .34f;
+            if (age >= duration || mark.Target.data?.id != mark.TargetId)
             {
                 windScars.RemoveAt(i);
                 continue;
             }
             Vector3 foot = SpatialActorPose.Foot(mark.Target);
             foot.z += terrain?.Sample(foot.x, foot.y) ?? 0f;
-            float travel = Mathf.SmoothStep(0f, 1f, age / .34f);
-            Vector3 position = foot + mark.Offset + (Vector3)mark.Direction * (travel * .38f);
+            float travel = Mathf.SmoothStep(0f, 1f, age / duration);
+            Vector3 position = foot + mark.Offset + (Vector3)mark.Direction * (mark.Poison ? 0f : travel * .38f);
             float scale = (mark.Armor ? .95f : .68f) + travel * .22f;
             float turn = Mathf.Atan2(-mark.Direction.x, mark.Direction.y) * Mathf.Rad2Deg;
-            Matrix4x4 pose = Matrix4x4.TRS(position, Quaternion.Euler(0f, 18f, turn + 22f * travel), Vector3.one * scale);
-            float opacity = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(.035f, .34f, age));
+            Quaternion rotation = mark.Poison ? Quaternion.Euler(24f, 0f, turn) : Quaternion.Euler(0f, 18f, turn + 22f * travel);
+            Matrix4x4 pose = Matrix4x4.TRS(position, rotation, Vector3.one * scale);
+            float opacity = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(mark.Poison ? .17f : .035f, duration, age));
+            FormResource model = FormResources.Load(mark.Poison ? "poison_pit" : "baleful_wind_mark");
             visuals.Add(new FormVisualInstance(model, pose, dye: new Color(1f, 1f, 1f, opacity), terrain: terrain));
         }
     }
@@ -68,12 +71,15 @@ public sealed partial class ConstructedAbilityService
         internal readonly double At;
         /// <summary>确实减少了原护甲的耐久。</summary>
         internal readonly bool Armor;
+        /// <summary>是否由毒液腐蚀而非风切留下。</summary>
+        internal readonly bool Poison;
 
         /// <summary>保留到期前绘制所需的已确认资料。</summary>
         /// <param name="target">原人物。</param><param name="targetId">原编号。</param>
         /// <param name="offset">接触偏移。</param><param name="direction">风向。</param>
         /// <param name="at">接触时点。</param><param name="armor">护甲是否真正受损。</param>
-        internal WindScar(Actor target, long targetId, Vector3 offset, Vector2 direction, double at, bool armor)
+        /// <param name="poison">是否显示蚀孔。</param>
+        internal WindScar(Actor target, long targetId, Vector3 offset, Vector2 direction, double at, bool armor, bool poison)
         {
             Target = target;
             TargetId = targetId;
@@ -81,6 +87,7 @@ public sealed partial class ConstructedAbilityService
             Direction = direction;
             At = at;
             Armor = armor;
+            Poison = poison;
         }
     }
 }

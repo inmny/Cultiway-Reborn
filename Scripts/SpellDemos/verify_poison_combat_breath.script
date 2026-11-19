@@ -1,0 +1,57 @@
+var definition = Spell("拂地毒息");
+Actor side = Make(69), outside = Make(69);
+foreach (Actor actor in new[] { side, outside }) actor.setKingdom(victim.kingdom);
+Place(side, 69, 75.25f); Place(outside, 68.2f, 78.1f);
+var spreads = new List<ConstructedSpread>();
+void Spread(ConstructedSpread fact) { if (seen.ContainsKey(fact.CastId)) spreads.Add(fact); }
+ConstructedAbilityService.SpreadConfirmed += Spread;
+var frames = (IList)typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Systems.Render.RenderStatusAnimationSystem")
+    .GetField("Meshes", F).GetValue(null);
+bool Marked(Actor actor) => frames.Cast<object>().Any(item => ReferenceEquals(Field(item, "GroundActor"), actor) &&
+    (string)Field(Field(item, "Model"), "Name") == "poison_stain" && ((Color)Field(item, "Tint")).a > .01f);
+bool Poisoned(Actor actor) => CombatStatusEffects.HasStatus(actor, StatusEffects.Poison, source);
+int initial = victim.data.health, sideInitial = side.data.health;
+try
+{
+    var first = await Use(definition);
+    Check(!Poisoned(victim) && !Poisoned(side) && !Marked(victim) && spreads.Count == 0, "真实接触以前没有毒态、黏斑或传播");
+    bool DirectAndSpread() => contacts.Count(x => x.CastId == first.Id && x.TargetId == victim.id) == 1 &&
+        !contacts.Any(x => x.CastId == first.Id && (x.TargetId == side.id || x.TargetId == outside.id)) &&
+        spreads.Count == 1 && spreads[0].ContactId == victim.id && spreads[0].Actors.Contains(side.id) &&
+        !spreads[0].Actors.Contains(outside.id);
+    object Result() => new { target = victim.id, propagated = side.id, excluded = outside.id, contacts = contacts
+        .Where(x => x.CastId == first.Id).Select(x => new { x.TargetId, x.Damage.HealthLost }), spreads = spreads.Select(x => new { x.ContactId, x.Actors, x.Radius, center = x.Center.ToString() }).ToArray() };
+    if (recordView.Length > 0)
+    {
+        await SetCamera(6.8f);
+        const float duration = 6.1f;
+        double start = World.world.getCurWorldTime(), moment = -1;
+        bool remained = false;
+        var times = await Film(duration, () => {
+            if (moment < 0 && Marked(victim) && Marked(side) && !first.Cast.Finished) moment = World.world.getCurWorldTime() - start;
+            if (first.Cast.Finished && Marked(victim) && Marked(side)) remained = true;
+        });
+        Check(moment >= 0 && remained && DirectAndSpread() && first.Cast.Finished && !Marked(victim) && !Marked(side) &&
+              !Poisoned(victim) && !Poisoned(side) && !Poisoned(outside) && victim.data.health < initial && side.data.health < sideInitial,
+              "两种真实附着随主体消退后仍持续，最终由原状态自然结束", Result());
+        return new { passed = true, scene = "construction", resource = "mana", paid = definition.Cost, view = recordView,
+            duration, times, previewFrame = times.FindIndex(t => t >= moment), remained, facts = Result() };
+    }
+    var begin = Forms(first.Cast).First().Transform.GetColumn(3);
+    for (int step = 0; step < 18 && !Poisoned(side); step++) await Advance(.10f);
+    await Game.NextFrame();
+    var active = Forms(first.Cast).Select(x => x.Transform.GetColumn(3)).FirstOrDefault();
+    Check(active.x > begin.x + 1f && DirectAndSpread() && Poisoned(victim) && Poisoned(side) && !Poisoned(outside) &&
+          Marked(victim) && Marked(side) && !Marked(outside), "贴地毒息按来向推进，传播者在直接作用区外且只由传播染毒",
+          new { begin = begin.ToString(), active = active.ToString(), facts = Result(), victim = victim.current_position.ToString(), side = side.current_position.ToString() });
+    await Advance(Mathf.Max(.08f, definition.Lifetime - first.Cast.Age + .08f));
+    Check(first.Cast.Finished && Marked(victim) && Marked(side), "主体散去后，两人身上仍有实际毒斑");
+    int lastHp = victim.data.health;
+    Check(CombatStatusEffects.RemoveStatus(side, StatusEffects.Poison, source) == 1, "既有解毒入口清掉传播来的状态");
+    await Advance(1.07f);
+    Check(victim.data.health < lastHp && !Poisoned(side) && !Marked(side) && !Marked(outside), "离开毒雾仍真实掉血，解毒后不再显示附着");
+    await Advance(3f);
+    Check(!Poisoned(victim) && !Marked(victim), "自然到期时清掉原毒态和黏斑");
+    return new { passed = true, facts = Result() };
+}
+finally { ConstructedAbilityService.SpreadConfirmed -= Spread; ReleaseChecks(); }
