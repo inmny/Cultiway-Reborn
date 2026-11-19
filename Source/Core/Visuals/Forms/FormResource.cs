@@ -749,6 +749,8 @@ internal sealed partial class FormResourceGeneration
             "entropy_section" => (2f, new Color(.63f, .24f, .54f), .39f),
             "entropy_veil" => (12f, new Color(.30f, .10f, .46f, .55f), .9f),
             "entropy_depth" => (12f, new Color(.045f, .02f, .07f, .78f), .9f),
+            "time_stamp_slate" => (16f, new Color(.24f, .27f, .34f), .68f),
+            "time_stamp_brass" => (2f, new Color(.80f, .58f, .28f), .6f),
             "space_destination" => (27f, Color.white, .87f),
             "space_gate_stone" => (16f, new Color(.23f, .31f, .36f), .85f),
             "space_gate_inlay" => (2f, new Color(.56f, .49f, .34f), .66f),

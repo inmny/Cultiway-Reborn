@@ -1,4 +1,5 @@
 // 同一世界留置两块实材；用 C2 已学成品只改左侧的侵蚀。
+const bool imprintCheck = false;
 var definitions = JObject.Parse(File.ReadAllText(Path.Combine(folder, "definition.json")));
 var learned = definitions["learned"].ToObject<AbilityDefinition>();
 var leftWood = definitions["residue"].ToObject<AbilityDefinition>();
@@ -37,6 +38,8 @@ double Volume(JToken material) => (double)material["Volume"];
 double Progress(JToken material) => (double)material["Erosion"]["Progress"];
 double Elapsed(JToken material) => (double)material["Erosion"]["Elapsed"];
 double? Schedule(JToken material) => (double?)material["Erosion"]["WorldElapsed"];
+Matrix4x4[] Imprints() => FormVisualScene.Instances.Where(v => v.Resource.Description.Id == "time_fold_imprint")
+    .Select(v => v.Transform).ToArray();
 string Caption()
 {
     var (a, b) = Read();
@@ -70,7 +73,12 @@ try
     var before = Read();
     Check(left != right && left > 0 && right > 0 && Schedule(before.Left) == null && Schedule(before.Right) == null &&
         Elapsed(before.Left) > 0 && Elapsed(before.Right) > 0, "两份实际留置材料开始独立侵蚀", Detail());
-    await BeginFilm(caster, caster, 69.3f, 72, learned, "retimeErosion", Caption, Detail);
+    if (imprintCheck)
+    {
+        Check(Imprints().Length == 0, "常速推进的两块木料都没有时间印片");
+        await Advance(.28f);
+    }
+    else await BeginFilm(caster, caster, 69.3f, 72, learned, "retimeErosion", Caption, Detail);
     float paid = await CastAt(learned, 66);
     Check(Math.Abs(paid - learned.Cost) < .002f, "只施放一次已学成品并按原费用支付", new { paid, learned.Cost });
     await Advance(windows[0].At + windows[0].Seconds * .27f);
@@ -78,15 +86,31 @@ try
     Check(applied.SequenceEqual(new[] { left }) && Schedule(paused.Right) == null &&
         Schedule(paused.Left) >= windows[0].At && Schedule(paused.Left) < windows[0].At + windows[0].Seconds,
         "正式调整只选左侧，进入实际暂停", Detail());
+    var pausedMarks = imprintCheck ? Imprints() : Array.Empty<Matrix4x4>();
+    if (imprintCheck) Check(pausedMarks.Length > 0 && pausedMarks.All(pose => Math.Abs(pose.m03 - 66) < 2f),
+        "只在实际暂停的左边附着印片", pausedMarks.Select(p => p.GetColumn(3).ToString()).ToArray());
     await Advance(.10f);
     var still = Read();
     Check(Elapsed(paused.Left) == Elapsed(still.Left) && Volume(paused.Left) == Volume(still.Left) &&
         Elapsed(still.Right) > Elapsed(paused.Right) && Volume(still.Right) < Volume(paused.Right),
         "同一段世界时间内左侧停留，右侧继续扣量", Detail());
+    if (imprintCheck)
+    {
+        Check(Imprints().SequenceEqual(pausedMarks), "暂停期间印片随实际进度一起停住");
+        await Advance(windows[1].At + .12f - (float)Schedule(still.Left).Value);
+        var fast = Read();
+        var fastMarks = Imprints();
+        Check(Schedule(fast.Left) >= windows[1].At && Schedule(fast.Left) < windows[1].At + windows[1].Seconds &&
+              fastMarks.Length > 0 && fastMarks.All(pose => Math.Abs(pose.m03 - 66) < 2f) &&
+              !fastMarks.SequenceEqual(pausedMarks), "实际加速时在同一块材料上展开印片", Detail());
+        still = fast;
+    }
     await Advance(windows[1].At + windows[1].Seconds - (float)Schedule(still.Left).Value + .10f);
     var resumed = Read();
     Check(Elapsed(resumed.Left) > Elapsed(still.Left) && Volume(resumed.Left) < Volume(still.Left),
         "恢复从左侧实际余量接续", Detail());
+    if (imprintCheck) Check(Imprints().Length == 0 && Progress(resumed.Left) < 1 && Schedule(resumed.Right) == null,
+        "未完成材料恢复常速便撤去印片，对照仍未受调整", Detail());
     await Advance((float)(3.4 - Math.Min(Elapsed(resumed.Left), Elapsed(resumed.Right))) + .28f);
     var finished = Read();
     Check(Progress(finished.Left) == 1 && Progress(finished.Right) == 1 &&
@@ -96,7 +120,7 @@ try
 }
 finally
 {
-    await EndFilm();
+    if (!imprintCheck) await EndFilm();
     WorldMaterialService.Changed -= MaterialChange;
     ConstructedAbilityService.ContactConfirmed -= Hit;
     ConstructedAbilityService.CastEnded -= Ended;

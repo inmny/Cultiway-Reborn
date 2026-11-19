@@ -1,0 +1,215 @@
+{
+    "Structure": {
+        "Kind": "articulated",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_time_imprint.mjs",
+            "Entry": "makeTimeImprint",
+            "Parameters": [
+                {
+                    "Id": "outline",
+                    "Values": [
+                        -0.6100000143051148,
+                        -0.17000000178813935,
+                        -0.4300000071525574,
+                        -0.4699999988079071,
+                        0.41999998688697817,
+                        -0.4699999988079071,
+                        0.6100000143051148,
+                        -0.17000000178813935,
+                        0.47999998927116396,
+                        0.25999999046325686,
+                        0.2199999988079071,
+                        0.5299999713897705,
+                        -0.20999999344348908,
+                        0.5299999713897705,
+                        -0.47999998927116396,
+                        0.25999999046325686
+                    ]
+                },
+                {
+                    "Id": "crest",
+                    "Values": [
+                        -0.33000001311302187,
+                        -0.28999999165534975,
+                        0.33000001311302187,
+                        -0.28999999165534975,
+                        0.23999999463558198,
+                        -0.12999999523162843,
+                        0.10000000149011612,
+                        0.0,
+                        0.23000000417232514,
+                        0.20000000298023225,
+                        0.15000000596046449,
+                        0.30000001192092898,
+                        -0.15000000596046449,
+                        0.30000001192092898,
+                        -0.23000000417232514,
+                        0.20000000298023225,
+                        -0.10000000149011612,
+                        0.0,
+                        -0.23999999463558198,
+                        -0.12999999523162843
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "slate/crest",
+                "Parent": "slate",
+                "Child": "crest",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.18000000715255738
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "slate/left",
+                "Parent": "slate",
+                "Child": "left",
+                "Position": [
+                    -0.4099999964237213,
+                    -0.03999999910593033,
+                    0.20000000298023225
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "slate/right",
+                "Parent": "slate",
+                "Child": "right",
+                "Position": [
+                    0.4099999964237213,
+                    -0.03999999910593033,
+                    0.20000000298023225
+                ],
+                "Detachable": false
+            }
+        ],
+        "Changes": [
+            "transform"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "time_fold_imprint",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "time.anchor"
+            ],
+            "Id": "slate",
+            "Surface": "time_stamp_slate",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/time_fold_imprint_slate.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "time.imprint"
+            ],
+            "Id": "crest",
+            "Surface": "time_stamp_brass",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/time_fold_imprint_crest.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "time.fastening"
+            ],
+            "Id": "left",
+            "Surface": "time_stamp_brass",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/time_fold_imprint_left.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "time.fastening"
+            ],
+            "Id": "right",
+            "Surface": "time_stamp_brass",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/time_fold_imprint_right.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "clasp",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [],
+    "Controls": [],
+    "Motions": []
+}

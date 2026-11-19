@@ -2267,3 +2267,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 9.26 折景渡物
 
 在已启动的独立游戏中，用 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_fold_gate.py --section view` 核对两端实际取景、地块更新、同一飞剑穿门与关门。改用 `--section blocked` 复用既有人物暂存场景，只查真实受阻、归还控制及对端画面撤去。`--section visual --view native` 或 `--section visual --view worldfall` 只对照实际画面；截图使用已安装 Worldfall 的同一环境，前者先退出三维观察。每次证据单独输出。可编辑资料见 [折景渡物](../../Doc/技能系统全面重构/构造输入/折景渡物.json)。
+
+### 9.26 借时催枯
+
+在已启动的独立游戏中，用 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/record_process_time.py --imprint-check --state "$HOME/.local/state/cultiway-dev/evidence/process-time-c2/use"` 复用时序创作的正式已学成品。对照两份实际木料，检查只在选中材料暂停、加速时显示印片，恢复常速撤去，扣除的材料与灵力保留。可编辑资料见 [借时催枯](../../Doc/技能系统全面重构/构造输入/借时催枯.json)。

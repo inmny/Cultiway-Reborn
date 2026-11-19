@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import tempfile
 import zlib
 
 from common import PROJECT, version_stamp, write_json
@@ -16,14 +17,14 @@ SCRIPTS = Path(__file__).parent
 CASE = 'two-processes'
 
 
-def record(folder, worldfall, state):
+def record(folder, worldfall, state, imprint_check=False):
     import baseline_scenarios as baseline
 
     connection = baseline.connect(False, validate_runtime=False)
     installed = baseline.call('eval', '''return new {
         worldfall = System.Linq.Enumerable.Any(System.AppDomain.CurrentDomain.GetAssemblies(), a => a.GetType("FirstPerson.WorldBoxMod", false) != null),
         renderer = UnityEngine.SystemInfo.graphicsDeviceName };''')
-    if installed['worldfall'] != worldfall:
+    if not imprint_check and installed['worldfall'] != worldfall:
         raise RuntimeError('实际加载的模组与指定视角不符')
     result = json.loads((state / 'result.json').read_text())
     if not result.get('passed') or not result.get('learnedId'):
@@ -41,9 +42,7 @@ def record(folder, worldfall, state):
     write_json(folder / 'metadata.json', dict(connection=connection, installed=installed, version=version_stamp()[0],
                                              source=str(state), mapSha256=hashlib.sha256(raw).hexdigest()))
     helpers = (SCRIPTS / 'verify_body_footwork.script').read_text().split('var bindingType =', 1)[0]
-    helpers = helpers.replace('Path.Combine(root, "artifacts/skill_rebuild/body-footwork")',
-                              'Path.Combine(Environment.GetEnvironmentVariable("CULTIWAY_DEV_OUTPUT"), "process-time-films", "' +
-                              ('worldfall' if worldfall else 'native') + '", "' + CASE + '")')
+    helpers = helpers.replace('Path.Combine(root, "artifacts/skill_rebuild/body-footwork")', json.dumps(str(folder)))
     helpers = helpers.replace('Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")', 'Path.Combine(folder, "input-world")')
     helpers = helpers.replace('async Task Advance(', 'bool filmCapturing = false;\nasync Task Advance(', 1)
     helpers = helpers.replace('    Config.paused = false;\n    double until',
@@ -53,7 +52,10 @@ def record(folder, worldfall, state):
     film = film_helpers()
     film = film[:film.index('string Stage()')] + 'string Stage() => resultCaption();\n' + film[film.index('void Capture()'):]
     script = folder / 'input.script'
-    script.write_text(helpers + '\n' + film + '\n' + (SCRIPTS / 'record_process_time.script').read_text())
+    body = (SCRIPTS / 'record_process_time.script').read_text()
+    if imprint_check:
+        body = body.replace('const bool imprintCheck = false;', 'const bool imprintCheck = true;')
+    script.write_text(helpers + '\n' + film + '\n' + body)
     try:
         result = baseline.call('run', str(script), '300000')
     except RuntimeError as error:
@@ -85,12 +87,23 @@ def verify_frames(folder):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--state', type=Path, help='C2 的实际学会并重存输出目录（use 或完整 creation-restart）')
+    parser.add_argument('--imprint-check', action='store_true', help='只核对被选材料的时序印片，不录制视频')
     parser.add_argument('--worldfall', action='store_true')
     parser.add_argument('--encode-only', type=Path, help='从已有视角目录重新编码')
     args = parser.parse_args()
     mode = 'worldfall' if args.worldfall else 'native'
     if not args.encode_only and (not args.state or not os.environ.get('CULTIWAY_DEV_ACTIVE')):
         parser.error('请通过 dev.py exec 录制，并提供 C2 实机通过的 --state')
+    if args.imprint_check:
+        if args.encode_only or args.worldfall:
+            parser.error('--imprint-check 复用当前游戏，不使用录像参数')
+        folder = Path(tempfile.mkdtemp(prefix='time-imprint-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
+        record(folder, False, args.state, imprint_check=True)
+        result = json.loads((folder / 'result.json').read_text())
+        if not result.get('passed'):
+            raise RuntimeError(f'时序印片未通过：{folder}')
+        print(json.dumps(dict(output=str(folder), result=result), ensure_ascii=False))
+        return
     output = args.encode_only or Path(os.environ['CULTIWAY_DEV_OUTPUT']) / 'process-time-films' / mode
     folder = output / CASE
     if not args.encode_only:

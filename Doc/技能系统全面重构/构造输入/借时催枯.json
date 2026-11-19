@@ -1,0 +1,137 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.BorrowedTime",
+  "Revision": 1,
+  "Name": "借时催枯",
+  "Lifetime": 1.5,
+  "Cost": 6.3918786,
+  "Resource": "wakan",
+  "AdditionalResources": [],
+  "ResourceMode": 0,
+  "Cooldown": 0.1787719,
+  "Calculation": {
+    "Resource": "wakan",
+    "Demand": 6.391878615330323,
+    "Recovery": 0.17877190503296583
+  },
+  "Power": 0.0,
+  "TargetRange": 15.0,
+  "Use": {
+    "Channels": 1,
+    "Target": 3
+  },
+  "Root": {
+    "Id": "root",
+    "Form": "sword",
+    "Matter": "wood",
+    "Offset": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Rotation": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Scale": 1.0,
+    "Volume": 1.0,
+    "ActiveFrom": 0.0,
+    "ActiveUntil": -1.0,
+    "OnContact": 0,
+    "ContactRole": 0,
+    "Strength": 1.0,
+    "Interception": 0,
+    "ReflectionLimit": 8,
+    "Operations": [
+      {
+        "Id": "weather",
+        "Erosion": {
+          "Fraction": 0.3
+        },
+        "Kind": 20,
+        "At": 0.0,
+        "Seconds": 1.0,
+        "Vector": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "TurnRate": 0.0,
+        "Trigger": 0,
+        "InheritVelocity": true
+      }
+    ],
+    "Children": []
+  },
+  "Steps": [
+    {
+      "Id": "original",
+      "Operation": {
+        "Kind": 17,
+        "At": 0.0,
+        "Seconds": 0.0,
+        "Vector": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "TurnRate": 0.0,
+        "Trigger": 0,
+        "InheritVelocity": true
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root",
+          "Stage": 0
+        },
+        "after": {
+          "Node": "root",
+          "Operation": "weather",
+          "Output": "erosion",
+          "Stage": 0
+        }
+      }
+    },
+    {
+      "Id": "retimeErosion",
+      "Operation": {
+        "Kind": 24,
+        "At": 0.0,
+        "Seconds": 0.0,
+        "Vector": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "TurnRate": 0.0,
+        "WorldMatter": {
+          "FromMatter": "wood",
+          "FromState": "solid",
+          "OwnedOnly": false,
+          "MaximumVolume": 10.0
+        },
+        "TimeWindows": [
+          {
+            "At": 0.207569465,
+            "Seconds": 0.439300716,
+            "Rate": 0.0
+          },
+          {
+            "At": 0.8703465,
+            "Seconds": 0.439300716,
+            "Rate": 2.0
+          }
+        ],
+        "Trigger": 0,
+        "InheritVelocity": true
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root",
+          "Stage": 0
+        }
+      }
+    }
+  ]
+}

@@ -28,6 +28,9 @@ public struct MaterialErosionProcess
     [JsonIgnore]
     public bool Active => Seconds > 0 && Progress < 1 && !Interrupted;
 
+    /// <summary>显示只读已实际推进到的时段，无活动调整时为常速。</summary>
+    internal float CurrentRate => Active ? pace?.RateAt(WorldElapsed) ?? 1f : 1f;
+
     /// <summary>从边界已经核对的配置开始。</summary>
     /// <param name="settings">真实留置配置。</param>
     internal MaterialErosionProcess(CompiledErosion settings)
