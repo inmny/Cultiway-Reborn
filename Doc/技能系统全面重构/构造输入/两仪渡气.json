@@ -1,0 +1,19 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.PolarBalance",
+  "Name": "两仪渡气",
+  "Resource": "mana",
+  "Cost": 6,
+  "Cooldown": 3,
+  "Lifetime": 3.75,
+  "Power": 1,
+  "TargetRange": 20,
+  "Use": {"Channels": "World", "Target": "Object"},
+  "Binding": {"Anchor": "Target"},
+  "Impact": {"Targets": "Friendly", "SelectedTargetOnly": true, "DamageScale": 0, "WakanTransfer": 10, "WakanTransferMode": "Balance"},
+  "Root": {
+    "Id": "junction", "Form": "polarity_seal", "Matter": "spirit", "State": "energy",
+    "ActiveFrom": 0.24, "ActiveUntil": 3.60,
+    "Contact": {"Mode": "Interval", "Interval": 0.62, "MaximumPerTarget": 6, "MaximumTotal": 6}
+  }
+}

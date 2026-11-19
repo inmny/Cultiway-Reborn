@@ -1,0 +1,133 @@
+var definition = Spell("两仪渡气");
+File.WriteAllText(Path.Combine(folder,"active-definition.json"),JsonConvert.SerializeObject(definition,Formatting.Indented));
+var bystander = Make(70);
+foreach (var actor in new[] { source, victim, bystander })
+{
+    actor.setKingdom(source.kingdom);
+    actor.GetExtend().AddComponent(new Xian { level = actor == source ? 2 : 1, wakan = 0 });
+    actor.GetExtend().MarkCultiwayStatsDirty(); actor.setStatsDirty(); actor.updateStats();
+}
+float Energy(Actor actor) => actor.GetExtend().GetCultisys<Xian>().wakan;
+float Maximum(Actor actor) => actor.stats[BaseStatses.MaxWakan.id];
+void Set(Actor actor, float level) => actor.GetExtend().GetCultisys<Xian>().wakan = level;
+var movements = new List<(Actor Actor, WakanMutation Mutation)>();
+var pairs = new List<(long Sender, long Receiver, float Moved, double At)>();
+void Observe(ActorExtend owner, in WakanMutation value)
+{
+    Actor actor = owner.Base;
+    if (actor != source && actor != victim && actor != bystander) return;
+    if (value.Kind == WakanMutationKind.Gain && movements.Count > 0)
+    {
+        var prior = movements.Last();
+        if (prior.Actor != actor && prior.Mutation.Kind == WakanMutationKind.Spend && value.Delta > 0f &&
+            Mathf.Abs(value.Delta + prior.Mutation.Delta) < .006f && value.Delta <= definition.Impact.WakanTransfer + .006f)
+            pairs.Add((prior.Actor.id, actor.id, value.Delta, World.world.getCurWorldTime()));
+    }
+    movements.Add((actor, value));
+}
+FormVisualInstance? Part(string id)
+{
+    foreach (var part in FormVisualScene.Instances)
+        if (part.Resource.Description.Id == id) return part;
+    return null;
+}
+bool AllGone() => Part("polarity_sender") == null && Part("polarity_receiver") == null && Part("polarity_packet") == null;
+int Hits(long id) => contacts.Count(c => c.CastId == id && c.TargetId == victim.id);
+async Task<(long Id, AbilityCast Cast)> Cast()
+{
+    Ready(source); Place(source,64); Place(victim,70); Place(bystander,70.25f,72.08f);
+    source.setMana(64);
+    await Fire(definition,source,victim,aggro:false);
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    CombatStatusEffects.ApplyStatus(source,hold,10000,source); source.updateStats(); ControllableUnit.clear(false);
+    Check(Mathf.Abs(64f-source.getMana()-definition.Cost)<.01f,"正式已学入口实际支付法力");
+    return (seen.Keys.Last(), seen.Values.Last());
+}
+void Layout(bool forward, List<float> positions)
+{
+    var dark = Part("polarity_sender"); var light = Part("polarity_receiver"); var packet = Part("polarity_packet");
+    if (!dark.HasValue || !light.HasValue || !packet.HasValue) return;
+    float dx = dark.Value.Transform.m03, lx = light.Value.Transform.m03, px = packet.Value.Transform.m03;
+    if ((forward ? dx < lx : dx > lx) && px > Mathf.Min(dx,lx) + .15f && px < Mathf.Max(dx,lx) - .15f &&
+         (forward ? packet.Value.Transform.m01 > 0f : packet.Value.Transform.m01 < 0f)) positions.Add(px);
+}
+WakanResourceService.RegisterMutationCommitted(Observe);
+try
+{
+    if (recordView.Length > 0) await SetCamera(6.6f);
+    Check(Maximum(source)>20f && Maximum(victim)>20f && Mathf.Abs(Maximum(source)-Maximum(victim))>.1f,
+        "复用两位上限不同的修士及一位邻近友军",new { sourceMax=Maximum(source), targetMax=Maximum(victim) });
+    Set(source,Maximum(source)*.84f); Set(victim,Maximum(victim)*.35f); Set(bystander,Maximum(bystander)*.04f);
+    var first = await Cast();
+    Check(AllGone() && pairs.Count==0,"实际接触以前没有实体渡流");
+    double start=World.world.getCurWorldTime(), mark=-1;
+    const float duration=4.19f;
+    var forward = new List<float>(); var reverse = new List<float>();
+    int stage=0, forwardCount=0, reverseCount=0, nearCount=0, nearContacts=0, exitContacts=0;
+    void Stage()
+    {
+        double at = World.world.getCurWorldTime()-start;
+        if (stage==0)
+        {
+            Layout(true,forward);
+            if (mark<0d && forward.Count>0) mark=at;
+            if (at<1.12) return;
+            forwardCount=pairs.Count;
+            Check(forwardCount>0 && pairs.All(x=>x.Sender==source.id && x.Receiver==victim.id) && forward.Count>0,
+                "实际灵气从较满的施术者扣收，暗端与明端跟随同一方向",new { forwardCount, forward, hits=Hits(first.Id), energy=Energy(source), target=Energy(victim) });
+            Check(WakanResourceService.TrySpend(source.GetExtend(),Energy(source)-Maximum(source)*.08f),"另一次真实灵气消耗改变原有压差");
+            stage++;
+        }
+        else if (stage==1)
+        {
+            Layout(false,reverse);
+            if (at<1.97) return;
+            reverseCount=pairs.Count-forwardCount;
+            Check(reverseCount>0 && pairs.Skip(forwardCount).All(x=>x.Sender==victim.id && x.Receiver==source.id) && reverse.Count>1 && reverse[0]>reverse.Last()+.5f,
+                "同一施放从另一端扣收，两个形体和渡流随实际方向反转",new { reverseCount, reverse, hits=Hits(first.Id) });
+            Set(source,Maximum(source)*.4f+3f); Set(victim,Maximum(victim)*.4f);
+            stage++;
+        }
+        else if (stage==2 && at>=2.43)
+        {
+            nearCount=pairs.Count;
+            nearContacts=Hits(first.Id);
+            float a=Energy(source)/Maximum(source), b=Energy(victim)/Maximum(victim);
+            Check(nearCount==forwardCount+reverseCount+1 && pairs.Last().Moved>0f && pairs.Last().Moved<3f && Mathf.Abs(a-b)<.0002f,
+                "不同灵气上限按比例持平，最后一段不会用完额度或跨过平衡",new { a,b,nearCount,nearContacts,last=pairs.Last().Moved });
+            stage++;
+        }
+        else if (stage==3 && at>=2.99)
+        {
+            exitContacts=Hits(first.Id);
+            Check(exitContacts>nearContacts && pairs.Count==nearCount && AllGone() &&
+                contacts.All(c=>c.CastId!=first.Id || c.TargetId==victim.id),
+                "比例持平仍可实际接触，但不扣收也不产生渡流，重叠友军不承接",new { nearCount, exitContacts, nearContacts, pairs=pairs.Count });
+            float lastAge=contacts.Last(c=>c.CastId==first.Id).Age;
+            Check(lastAge+definition.Root.Contact.Interval < definition.Root.ActiveUntil && exitContacts<definition.Root.Contact.MaximumPerTarget,
+                "离开后原接触印还有一次作用机会，停止不是到期造成的",new { lastAge, activeUntil=definition.Root.ActiveUntil });
+            Place(victim,70,77);
+            Set(victim,Maximum(victim)*.82f);
+            stage++;
+        }
+    }
+    var times = new List<double>();
+    if (recordView.Length>0) times=await Film(duration,Stage);
+    else while (World.world.getCurWorldTime()-start<duration) { Stage(); await Advance(.035f); }
+    Check(stage==4 && first.Cast.Finished && AllGone() && pairs.Count==nearCount && Hits(first.Id)==exitContacts,
+        "目标已离场且有新压差也不会再扣收，已入账结果保留并自然结束");
+    var again=await Cast();
+    for (int i=0;i<17 && Hits(again.Id)==0;i++) await Advance(.06f);
+    Check(again.Id!=first.Id && Hits(again.Id)>0 && pairs.Count>nearCount && pairs.Last().Sender==victim.id,
+        "结束后能正式重新施放并按当时余量渡气");
+    return new { passed=true, scene="construction", resource="mana", paid=definition.Cost, duration, times, view=recordView,
+        forward=forwardCount, reverse=reverseCount, nearEqual=pairs[nearCount-1].Moved, stoppedAt=exitContacts,
+        previewFrame=times.FindIndex(t=>t>=mark) };
+}
+finally
+{
+    var hook=typeof(WakanResourceService).GetField("mutationCommitted",F);
+    hook.SetValue(null,Delegate.Remove((Delegate)hook.GetValue(null),(WakanMutationHandler)Observe));
+    foreach (var cast in seen.Values) cast.Cancel();
+    ReleaseChecks();
+}

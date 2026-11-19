@@ -1,0 +1,132 @@
+{
+    "Structure": {
+        "Kind": "surface",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_polarity.mjs",
+            "Entry": "makePolarity",
+            "Parameters": [
+                {
+                    "Id": "radius",
+                    "Values": [
+                        0.23999999463558198
+                    ]
+                },
+                {
+                    "Id": "length",
+                    "Values": [
+                        0.5199999809265137
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "junction_wall/junction_inlay",
+                "Parent": "junction_wall",
+                "Child": "junction_inlay",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "separate"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "polarity_seal",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/polarity_seal_junction_wall_mid.asset",
+                "Assets/Cultiway/Forms/polarity_seal_junction_wall_far.asset"
+            ],
+            "Roles": [
+                "junction.contact"
+            ],
+            "Id": "junction_wall",
+            "Surface": "polarity_pearl",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/polarity_seal_junction_wall.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/polarity_seal_junction_inlay_mid.asset",
+                "Assets/Cultiway/Forms/polarity_seal_junction_inlay_far.asset"
+            ],
+            "Roles": [
+                "junction.inlay"
+            ],
+            "Id": "junction_inlay",
+            "Surface": "polarity_depth",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/polarity_seal_junction_inlay.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "junction",
+            "Part": 0,
+            "A": [
+                0.0,
+                -0.25999999046325686,
+                0.03999999910593033
+            ],
+            "B": [
+                0.0,
+                0.25999999046325686,
+                0.03999999910593033
+            ],
+            "Radius": 0.23999999463558198,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

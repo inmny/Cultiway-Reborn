@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Content.Combat;
+using Cultiway.Core.Skills;
 using Cultiway.Core.Visuals.Forms;
 using UnityEngine;
 
@@ -14,9 +15,15 @@ public sealed partial class ConstructedAbilityService
     /// <param name="recipient">当前可接受灵气的人物归属。</param>
     /// <param name="donor">实际接触且仍有效的人物。</param>
     /// <param name="amount">已经过接触衰减的单次上限。</param>
-    private static void TransferContactWakan(CastAuthority recipient, Actor donor, float amount)
+    /// <param name="mode">单向汲取或按现有灵气比例平衡。</param>
+    private static void TransferContactWakan(CastAuthority recipient, Actor donor, float amount, ConstructionWakanTransferMode mode)
     {
         if (!recipient.IsLive) return;
+        if (mode == ConstructionWakanTransferMode.Balance)
+        {
+            BalanceWakan(recipient.Actor, donor, amount);
+            return;
+        }
         long generation = worldGeneration;
         Vector3 start = YinEndpoint(donor, .38f), end = YinEndpoint(recipient.Actor, .48f);
         float moved = CombatResourceEffects.TransferWakan(donor, recipient.Actor, amount);

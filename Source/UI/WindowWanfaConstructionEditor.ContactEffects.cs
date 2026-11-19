@@ -24,6 +24,9 @@ public sealed partial class WindowWanfaConstructionEditor
     private void ContactEffectRows(ConstructionImpact impact, string prefix, bool followMatter)
     {
         Toggle(prefix + "SelectedTargetOnly", impact.SelectedTargetOnly, v => impact.SelectedTargetOnly = v);
+        Number(prefix + "WakanTransfer", impact.WakanTransfer, v => impact.WakanTransfer = v);
+        if (impact.WakanTransfer > 0f)
+            ImpactOption(prefix, "WakanTransferMode", impact.WakanTransferMode, v => impact.WakanTransferMode = v);
         ImpactOption(prefix, "DamageBasis", impact.DamageBasis, v => impact.DamageBasis = v);
         if (followMatter)
         {

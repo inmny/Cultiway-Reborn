@@ -292,6 +292,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         AppendConductionVisuals(now);
         AppendWindScars(now);
         AppendYinTransfers(now);
+        AppendBalancedWakan(now);
         AppendLifeRepairs(now);
         AppendShadows(now);
         AppendContactVolumes(now);
@@ -1130,7 +1131,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (result == ApplyAttackState.Hit && impact.WakanTransfer > 0f &&
             actor.Actor.data?.id == actor.Id && actor.Actor.isAlive() && actor.Actor.hasHealth() &&
             (response.Damage.ShieldAbsorbed <= 0f || response.Damage.HealthLost > 0))
-            TransferContactWakan(contactOwner, actor.Actor, impact.WakanTransfer * strength);
+            TransferContactWakan(contactOwner, actor.Actor, impact.WakanTransfer * strength, impact.WakanTransferMode);
         if (contactGeneration != worldGeneration) return;
         if (result == ApplyAttackState.Hit && node >= 0 && running.Cast.Plan.Nodes[node].Correspondence?.ShowBody == true &&
             (response.ForceApplied || response.StaggerSeconds > 0f || response.BindSeconds > 0f) &&

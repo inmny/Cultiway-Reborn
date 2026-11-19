@@ -19,6 +19,15 @@ public enum ConstructionGrabRelease
     Rescue = 2
 }
 
+/// <summary>真实接触时决定灵气交付方向。</summary>
+public enum ConstructionWakanTransferMode
+{
+    /// <summary>从接触对象转给当前归属者，保留原来的汲取行为。</summary>
+    Draw = 0,
+    /// <summary>每段从灵气比例较高的一端渡向较低的一端，到持平为止。</summary>
+    Balance = 1
+}
+
 /// <summary>实际接触后产生的作用，与显示和选取距离分开保存。</summary>
 public sealed class ConstructionImpact
 {
@@ -48,9 +57,13 @@ public sealed class ConstructionImpact
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public int AgeYears;
 
-    /// <summary>每次实际命中可从受术者交给当前归属者的灵气上限。</summary>
+    /// <summary>每次实际命中可转移的灵气上限。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public float WakanTransfer;
+
+    /// <summary>缺省保持单向汲取；选择平衡时由两个现有余额决定送出方。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public ConstructionWakanTransferMode WakanTransferMode;
 
     /// <summary>本次真实命中腐蚀的明确装备栏，空值表示没有装备腐蚀。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
@@ -211,6 +224,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>经检查的单次灵气转移上限；零表示不转移。</summary>
     public float WakanTransfer { get; }
 
+    /// <summary>已核对的单向汲取或双端平衡规则。</summary>
+    public ConstructionWakanTransferMode WakanTransferMode { get; }
+
     /// <summary>已经独立复制的明确组成；空值继续读取接触当时的真实材料。</summary>
     public ElementComposition? Element { get; }
 
@@ -308,6 +324,9 @@ public sealed class CompiledConstructionImpact
         WakanTransfer = source?.WakanTransfer ?? 0f;
         if (float.IsNaN(WakanTransfer) || WakanTransfer < 0f || WakanTransfer > 1000f)
             throw new InvalidDataException(path + "/WakanTransfer：单次灵气转移需在0到1000之间");
+        WakanTransferMode = source?.WakanTransferMode ?? ConstructionWakanTransferMode.Draw;
+        if (WakanTransferMode is not (ConstructionWakanTransferMode.Draw or ConstructionWakanTransferMode.Balance))
+            throw new InvalidDataException(path + "/WakanTransferMode：未知灵气交付方式");
         AgeYears = source?.AgeYears ?? 0;
         if (AgeYears < 0 || AgeYears > 1000000)
             throw new InvalidDataException(path + "/AgeYears：每次老化需0至一百万整数年");

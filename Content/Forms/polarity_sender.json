@@ -1,0 +1,137 @@
+{
+    "Structure": {
+        "Kind": "volume",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_polarity.mjs",
+            "Entry": "makePolarity",
+            "Parameters": [
+                {
+                    "Id": "angles",
+                    "Values": [
+                        0.785398006439209,
+                        2.303834915161133,
+                        3.769911050796509,
+                        4.921827793121338
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "outer_wall/folded_lining",
+                "Parent": "outer_wall",
+                "Child": "folded_lining",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "folded_lining/settled_seed",
+                "Parent": "folded_lining",
+                "Child": "settled_seed",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "separate"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "polarity_sender",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/polarity_sender_outer_wall_mid.asset",
+                "Assets/Cultiway/Forms/polarity_sender_outer_wall_far.asset"
+            ],
+            "Roles": [
+                "aura.body"
+            ],
+            "Id": "outer_wall",
+            "Surface": "polarity_ink",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/polarity_sender_outer_wall.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/polarity_sender_folded_lining_mid.asset",
+                "Assets/Cultiway/Forms/polarity_sender_folded_lining_far.asset"
+            ],
+            "Roles": [
+                "aura.fold"
+            ],
+            "Id": "folded_lining",
+            "Surface": "polarity_depth",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/polarity_sender_folded_lining.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "aura.core"
+            ],
+            "Id": "settled_seed",
+            "Surface": "polarity_depth",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/polarity_sender_settled_seed.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [],
+    "Controls": [],
+    "Motions": []
+}
