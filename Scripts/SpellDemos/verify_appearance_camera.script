@@ -1,0 +1,59 @@
+// 只清理施法走廊的植被，保留相同角色、地面和远景。
+void PrepareAppearanceBackdrop(int left, int right, int bottom, int top)
+{
+    for (int x = left; x <= right; x++)
+    for (int y = bottom; y <= top; y++)
+    {
+        var tile = World.world.GetTileSimple(x, y);
+        if (tile.building != null) tile.building.removeBuildingFinal();
+    }
+}
+
+// 每次控制施法者后，等 Worldfall 真正退出第一人称和三维俯瞰，再拍原版视角。
+async Task FrameAppearance(string name, float x, float y, float zoom)
+{
+    ControllableUnit.clear(false);
+    World.world.console.Hide();
+    MoveCamera.instance.forceZoom(22);
+    var external = AppDomain.CurrentDomain.GetAssemblies()
+        .Select(assembly => assembly.GetType("FirstPerson.WorldBoxMod", false))
+        .FirstOrDefault(type => type != null);
+    if (external != null)
+    {
+        object view = external.GetProperty("Instance", F).GetValue(null);
+        external.GetMethod("ViewForTest", F).Invoke(view, new object[] { false });
+        external.GetMethod("SetGodView", F).Invoke(view, new object[] { false });
+        bool NativeReady() => !(bool)external.GetProperty("IsFirstPerson", F).GetValue(view) &&
+                              !(bool)external.GetProperty("GodShown", F).GetValue(view) &&
+                              (bool)external.GetProperty("DiveDone", F).GetValue(view);
+        await Game.WaitUntil(NativeReady, 360);
+        for (int frame = 0; frame < 18; frame++) await Game.NextFrame();
+        Check(NativeReady(), "截图使用原版俯视", new { name, zoom });
+    }
+    var canvases = Resources.FindObjectsOfTypeAll<Canvas>().Where(canvas => canvas.enabled).ToArray();
+    try
+    {
+        foreach (var canvas in canvases) canvas.enabled = false;
+        for (int frame = 0; frame < 8; frame++)
+        {
+            World.world.console.Hide();
+            var camera = World.world.camera;
+            camera.transform.position = new Vector3(x, y, camera.transform.position.z);
+            MoveCamera.instance.forceZoom(zoom);
+            if (zoom < 10)
+            {
+                camera.orthographicSize = zoom;
+                World.world.setZoomOrthographic(zoom);
+            }
+            await Game.NextFrame();
+        }
+        string file = Path.Combine(folder, name + ".png");
+        File.Delete(file);
+        Screen.Capture(file);
+        await Game.WaitUntil(() => File.Exists(file), 600);
+    }
+    finally
+    {
+        foreach (var canvas in canvases) if (canvas != null) canvas.enabled = true;
+    }
+}

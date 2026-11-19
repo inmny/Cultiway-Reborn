@@ -9,6 +9,8 @@
 
 近距光束外观用 `dev.py exec --timeout 315 -- python3 Scripts/SpellDemos/verify_beams.py --section appearance` 复验。会检查旧资料半径、实机区内外、新版束体自然收束，并输出原版俯视的近、中、远景图。直接运行 `verify_beams.py` 仍进入原光束来源规则检查。
 
+连锁雷体外观用 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_chain.py --section appearance` 复验。检查一次实际短链、下一跳的触发与无伤旁观者，保存原版近远图；直接运行 `verify_chain.py` 仍执行原完整来源检查。
+
 ## 使用前
 
 - 本机需要 Python 3.10 以上、ffmpeg，以及 WorldBox/NML 和已启用的 DebugToolbox。

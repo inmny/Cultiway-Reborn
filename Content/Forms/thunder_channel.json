@@ -50,7 +50,7 @@
                 "channel.surface"
             ],
             "Id": "body",
-            "Surface": "thunder_body",
+            "Surface": "thunder_corona",
             "Pivot": [
                 0.0,
                 0.0,
@@ -73,13 +73,53 @@
                 "channel.surface"
             ],
             "Id": "core",
-            "Surface": "thunder_core",
+            "Surface": "thunder_arc",
             "Pivot": [
                 0.0,
                 0.0,
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/thunder_channel_core.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "channel.body",
+                "channel.surface"
+            ],
+            "Id": "fork_left",
+            "Surface": "thunder_arc_fork",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/thunder_channel_fork_left.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "channel.body",
+                "channel.surface"
+            ],
+            "Id": "fork_right",
+            "Surface": "thunder_arc_fork",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/thunder_channel_fork_right.asset",
             "Control": "",
             "Skin": true,
             "HasSurfaceData": false,
@@ -168,14 +208,14 @@
                 1.0
             ],
             "Minimum": [
-                -0.09395399689674378,
-                -0.10743100196123123,
+                -0.11999999731779099,
+                -0.11999999731779099,
                 0.0
             ],
             "Maximum": [
-                0.11751700192689896,
-                0.11347199976444245,
-                0.11999999731779099
+                0.11999999731779099,
+                0.11999999731779099,
+                1.7699999809265137
             ]
         },
         {
@@ -193,13 +233,13 @@
                 1.0
             ],
             "Minimum": [
-                -0.11688899993896485,
-                -0.11354699730873108,
-                1.8799999952316285
+                -0.11999999731779099,
+                -0.11999999731779099,
+                0.28999999165534975
             ],
             "Maximum": [
-                0.09428399801254273,
-                0.1075500026345253,
+                0.11999999731779099,
+                0.11999999731779099,
                 2.0
             ]
         }

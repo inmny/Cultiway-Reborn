@@ -34,6 +34,12 @@ def main():
         folder.mkdir(parents=True, exist_ok=True)
     helpers = Path(__file__).with_name('verify_body_footwork.script').read_text().split('var bindingType =', 1)[0]
     helpers = helpers.replace('artifacts/skill_rebuild/body-footwork', str(folder))
+    if development:
+        world = PROJECT / 'Scripts/WorldSaveTests/Fixtures/world-format-1'
+        if not (world / 'map.wbox').is_file():
+            raise FileNotFoundError(world / 'map.wbox')
+        helpers = helpers.replace('Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")',
+                                  json.dumps(str(world)))
     helpers = helpers.replace('if (contact.AbilityId.StartsWith("test.body-footwork.")) contacts.Add(contact);', 'contacts.Add(contact);')
     helpers = helpers.replace('if (fact.AbilityId.StartsWith("test.body-footwork."))\n        ', '')
     imports = ('using Cultiway.Core.SkillLibV3;\nusing Cultiway.Core.SkillLibV3.Components;\n'
@@ -44,7 +50,8 @@ def main():
     script = folder / 'input.script'
     program = Path(__file__).with_suffix('.script').read_text()
     if args.section == 'appearance':
-        program = program.split('// SOURCE_CHECKS', 1)[0] + Path(__file__).with_name('verify_beams_appearance.script').read_text()
+        camera = Path(__file__).with_name('verify_appearance_camera.script').read_text()
+        program = program.split('// SOURCE_CHECKS', 1)[0] + camera + Path(__file__).with_name('verify_beams_appearance.script').read_text()
         fixture = Path(__file__).with_name('fixtures') / 'beams-b18.json'
         json.loads(fixture.read_text())
         program = program.replace('__B18_BEAM_EVIDENCE__', json.dumps(str(fixture.resolve())))
