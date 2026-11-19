@@ -15,7 +15,7 @@ using UnityEngine;
 
 namespace Cultiway.Content;
 [Dependency(typeof(Actors), typeof(Buildings), typeof(Drops), typeof(Biomes), typeof(TopTileTypes))]
-public class GodPowers : ExtendLibrary<GodPower, GodPowers>
+public partial class GodPowers : ExtendLibrary<GodPower, GodPowers>
 {
     [CloneSource(PowerLibrary.TEMPLATE_SPAWN_ACTOR)]
     public static GodPower Plant { get; private set; }
@@ -53,6 +53,8 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         SetupCommonBuildingPlacePower();
         SetupCommonDropPlacePower();
         SetupBiomePowers();
+        SetupRailwayPowers();
+        SetupTerritoryPowers();
     }
 
     private static bool CycleEasternHumanSkinAction(WorldTile tile, string power_id)

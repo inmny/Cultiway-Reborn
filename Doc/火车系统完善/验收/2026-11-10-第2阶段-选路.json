@@ -1,0 +1,15 @@
+{
+  "fastestMultiStopChosen": true,
+  "estimateAndStopsAgree": true,
+  "multiStopTripCompletes": true,
+  "ownerAndWarWithdrawConnection": true,
+  "permissionRestores": true,
+  "all16RailSpritesLoaded": true,
+  "chosenStops": [
+    6,
+    8,
+    7
+  ],
+  "estimate": 15.666667,
+  "errors": []
+}

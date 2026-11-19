@@ -20,7 +20,9 @@ public sealed class PathRequest
         bool pathOnWater,
         bool walkOnBlocks,
         bool walkOnLava,
-        int regionLimit)
+        int regionLimit,
+        long transportCountry = 0,
+        bool transportMilitary = false)
     {
         AgentKey = agentKey;
         StartTileId = startTileId;
@@ -34,6 +36,8 @@ public sealed class PathRequest
         WalkOnBlocks = walkOnBlocks;
         WalkOnLava = walkOnLava;
         RegionLimit = regionLimit;
+        TransportCountry = transportCountry;
+        TransportMilitary = transportMilitary;
     }
 
     public PathAgentKey AgentKey { get; }
@@ -42,6 +46,10 @@ public sealed class PathRequest
     public bool WalkOnBlocks { get; }
     public bool WalkOnLava { get; }
     public int RegionLimit { get; }
+    /// <summary>运输所用的国家许可快照。</summary>
+    public long TransportCountry { get; }
+    /// <summary>军队只使用允许运兵的连接。</summary>
+    public bool TransportMilitary { get; }
     public int StartTileId { get; }
     public int TargetTileId { get; }
     internal PathNavigationGrid NavigationGrid { get; }
@@ -110,7 +118,10 @@ public sealed class PathRequest
             pathOnWater,
             walkOnBlocks,
             walkOnLava,
-            regionLimit);
+            regionLimit,
+            actor != null && actor.hasCity() && actor.isSapient() && !actor.isFighting() &&
+                !ControllableUnit.isControllingUnit(actor) ? actor.kingdom.id : 0,
+            actor?.army != null);
     }
 
     internal static PathRequest CreateSubWorld(
@@ -165,7 +176,9 @@ public sealed class PathRequest
             PathOnWater,
             WalkOnBlocks,
             WalkOnLava,
-            RegionLimit);
+            RegionLimit,
+            TransportCountry,
+            TransportMilitary);
     }
 
     internal bool HasSameTargetAndOptions(int targetTileId, bool pathOnWater, bool walkOnBlocks,

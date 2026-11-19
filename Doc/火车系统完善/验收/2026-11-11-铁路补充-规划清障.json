@@ -1,0 +1,17 @@
+{
+  "plannerCrossesActualCityWall": true,
+  "planningDoesNotDemolish": true,
+  "basicHouseAllowed": true,
+  "unpaidBatchPreservesHouse": true,
+  "paidBatchUsesNativeDemolition": true,
+  "clearedWallAndHouseBecomeOperatingTrack": true,
+  "treeUsesNativeDemolition": true,
+  "plantsCleared": true,
+  "mineralsCleared": true,
+  "majorBuildingsProtected": true,
+  "advancedHousingProtected": true,
+  "wallTiles": 128,
+  "plantAsset": "flower_tree_1",
+  "mineralAsset": "mineral_bones",
+  "errors": []
+}

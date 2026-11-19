@@ -1,6 +1,7 @@
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.MapModeVisuals;
+using Cultiway.Content.Territories;
 using Cultiway.Core.Libraries;
 using NeoModLoader.api.attributes;
 using UnityEngine;
@@ -13,11 +14,25 @@ public class MapModes : ExtendLibrary<CustomMapModeAsset, MapModes>
     public static CustomMapModeAsset DirtyWakan { get; private set; }
     public static CustomMapModeAsset StrategicKingdom { get; private set; }
     public static CustomMapModeAsset SpiritVein { get; private set; }
+    /// <summary>选中车站的铁路运营显示。</summary>
+    public static CustomMapModeAsset Railway { get; private set; }
+    /// <summary>玩家绘制的地区边界、名称与当前选区。</summary>
+    public static CustomMapModeAsset Territories { get; private set; }
 
     protected override bool AutoRegisterAssets() => false;
 
     protected override void OnInit()    
     {
+        Territories = Add(new CustomMapModeAsset
+        {
+            id = "custom_territories", icon_path = "ui/icons/iconCityZones",
+            toggle_name = TerritoryMapOverlay.ToggleName, kernel_func = TerritoryMapOverlay.Render
+        });
+        Railway = Add(new CustomMapModeAsset
+        {
+            id = "railway", icon_path = "cultiway/icons/plots/iconTrainNet", toggle_name = "cultiway_railway_layer",
+            kernel_func = RailwayMapOverlay.Render
+        });
         Wakan = Add(new CustomMapModeAsset()
         {
             id = nameof(Wakan),

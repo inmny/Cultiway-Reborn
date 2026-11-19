@@ -64,12 +64,19 @@ namespace Cultiway.Core.Pathfinding
                 {
                     continue;
                 }
-                if (r.Portals.Any(p => p.ToLoad.Contains(actor)))
+                if (r.Portals.Any(p => p.ToLoad.Contains(actor) || p.ToUnload.Contains(actor)))
                 {
                     return r;
                 }
             }
             return null;
+        }
+
+        /// <summary>将世界存档中恢复的运输任务交回正常调度。</summary>
+        /// <param name="request">已恢复站点、乘客和载具引用的任务。</param>
+        internal static void RestoreRequest(PortalRequest request)
+        {
+            Instance._requests.Add(request);
         }
         public static void CancelDriverRequest(Actor actor)
         {
@@ -123,6 +130,9 @@ namespace Cultiway.Core.Pathfinding
                 return false;
             }
 
+            if (portal_type.ResolveRoute != null)
+                return NewRoutedRequest(start_portal, target_portal, passenger, startTile, targetTile);
+
             PortalRequest request = null;
 
             int startIdx = -1;
@@ -131,7 +141,7 @@ namespace Cultiway.Core.Pathfinding
             // 尝试复用已有请求：路径中包含起点，且终点在起点之后（不回头），否则尝试向前扩展
             foreach (var r in Instance._requests)
             {
-                if (r.Portals == null || r.Portals.Count == 0)
+                if (r.IsCompleted() || r.Portals == null || r.Portals.Count == 0)
                 {
                     continue;
                 }
@@ -139,6 +149,7 @@ namespace Cultiway.Core.Pathfinding
                 {
                     continue;
                 }
+                if (portal_type.FreezeAfterAssignment && r.Driver != null) continue;
 
                 startIdx = r.Portals.FindIndex(p => p.PortalBuilding == startBuilding);
                 if (startIdx < 0)
@@ -211,6 +222,7 @@ namespace Cultiway.Core.Pathfinding
 
             request.Portals[startIdx].AddLoad(passenger, startTile);
             request.Portals[targetIdx].AddUnload(passenger, targetTile);
+            portal_type.PassengerRequested?.Invoke(passenger, start_portal, target_portal);
             return true;
         }
 
@@ -233,64 +245,53 @@ namespace Cultiway.Core.Pathfinding
                 return targetTile;
             }
 
-            return building.getConstructionTile();
+            return portal.Asset.PassengerTile != null
+                ? portal.Asset.PassengerTile(portal)
+                : building.getConstructionTile();
         }
 
-        public static bool NewEmptyRequest(Portal start_portal, Portal target_portal, bool experimentalRide = false)
+        /// <summary>固定站序的运输只合并同一路线，防止合并改变已经选定的行程。</summary>
+        /// <param name="start">上车站。</param>
+        /// <param name="target">下车站。</param>
+        /// <param name="passenger">实际候车者。</param>
+        /// <param name="startTile">寻路选定的上车点。</param>
+        /// <param name="targetTile">寻路选定的下车点。</param>
+        private static bool NewRoutedRequest(Portal start, Portal target, Actor passenger,
+            WorldTile startTile, WorldTile targetTile)
         {
-            if (start_portal == null || target_portal == null)
+            if (start.Asset.CanRequest != null && !start.Asset.CanRequest(passenger, start, target)) return false;
+            var path = start.Asset.ResolveRoute(start, target, passenger);
+            if (path == null || path.Count < 2) return false;
+            string group = start.Asset.PassengerGroupKey?.Invoke(passenger);
+            var request = Instance._requests.FirstOrDefault(r => !r.IsCompleted() && r.GroupKey == group &&
+                r.PortalType == start.Asset &&
+                (r.Driver == null || start.Asset.CanJoinJourney?.Invoke(passenger, r, start, target) == true) &&
+                r.Portals.SkipWhile(p => p.PortalBuilding != start.building)
+                    .TakeWhile(p => p.PortalBuilding != target.building).Select(p => p.PortalBuilding)
+                    .Concat(new[] { target.building }).SequenceEqual(path.Select(p => p.building)));
+            if (request == null)
             {
-                return false;
-            }
-
-            var startBuilding = start_portal.building;
-            var targetBuilding = target_portal.building;
-            if (startBuilding == null || targetBuilding == null || startBuilding == targetBuilding)
-            {
-                return false;
-            }
-
-            var portal_type = start_portal.Asset;
-            if (portal_type == null || target_portal.Asset != portal_type)
-            {
-                return false;
-            }
-
-            var has_pending = Instance._requests.Any(r =>
-                !r.IsCompleted()
-                && r.PortalType == portal_type
-                && r.Portals != null
-                && r.Portals.Count > 0
-                && r.Portals[0].PortalBuilding == startBuilding);
-            if (has_pending)
-            {
-                return false;
-            }
-
-            var path = FindPortalPath(start_portal, target_portal, null);
-            if (path == null || path.Count == 0)
-            {
-                return false;
-            }
-
-            var request = new PortalRequest
-            {
-                Driver = null,
-                PortalType = portal_type,
-                State = PortalRequestState.WaitingDriver,
-                AllowEmptyRide = true,
-                IsExperimentalRide = experimentalRide,
-                Portals = path.Select(p => new PortalRequest.SinglePortal
+                request = new PortalRequest
                 {
-                    PortalBuilding = p.building,
-                    PortalTile = p.building.getConstructionTile(),
-                    ToLoad = new HashSet<Actor>(),
-                    ToUnload = new HashSet<Actor>()
-                }).ToList()
-            };
-            Instance._requests.Add(request);
+                    PortalType = start.Asset,
+                    GroupKey = group,
+                    State = PortalRequestState.WaitingDriver,
+                    Portals = path.Select(p => new PortalRequest.SinglePortal
+                    {
+                        PortalBuilding = p.building,
+                        PortalTile = ResolvePortalTile(p, start.building, target.building, startTile, targetTile),
+                        ToLoad = new HashSet<Actor>(), ToUnload = new HashSet<Actor>()
+                    }).ToList()
+                };
+                Instance._requests.Add(request);
+            }
+            int startIndex = request.Portals.FindIndex(p => p.PortalBuilding == start.building);
+            request.Portals[startIndex].AddLoad(passenger, startTile);
+            request.Portals.Skip(startIndex + 1).First(p => p.PortalBuilding == target.building).AddUnload(passenger, targetTile);
+            start.Asset.PassengerRequested?.Invoke(passenger, start, target);
             return true;
         }
+
 
         private static List<Portal> FindPortalPath(Portal start, Portal target, HashSet<Building> blocked)
         {

@@ -105,95 +105,31 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         BuildTrainStation.can_be_done_by_king = false;
         BuildTrainStation.can_be_done_by_leader = true;
         BuildTrainStation.requires_diplomacy = false;
-        BuildTrainStation.check_is_possible = delegate(Actor a)
+        BuildTrainStation.check_is_possible = a => Railways.RailwayStationService.GetBuildBlockReason(a) == null;
+        BuildTrainStation.check_can_be_forced = BuildTrainStation.check_is_possible;
+        BuildTrainStation.try_to_start_advanced = (a, asset, force) =>
         {
-            return a.hasCity()
-                && !World.world.plots.isPlotTypeAlreadyRunning(a, BuildTrainStation)
-                && !a.city.hasBuildingType(Buildings.TrainStation.type)
-                && FindTileForTrainStation(a.city) != null;
-        };
-        BuildTrainStation.try_to_start_advanced = delegate(Actor a, PlotAsset asset, bool force)
-        {
+            var partner = Railways.RailwayStationService.FindPartner(a.city);
+            if (partner == null) return false;
             var plot = World.world.plots.newPlot(a, asset, force);
-            if (plot == null || !plot.checkInitiatorAndTargets())
-            {
-                return false;
-            }
-            var targets = GetTrainTargets(a.city);
-            if (targets.Count == 0)
-            {
-                if (FindTileForTrainStation(a.city) == null)
-                {
-                    return false;
-                }
-            }
-            foreach (var target_city in targets)
-            {
-                if (target_city.leader.isRekt())
-                    continue;
-                target_city.leader.setPlot(plot);
-            }
+            if (plot == null || !plot.checkInitiatorAndTargets()) return false;
+            if (!Railways.RailwayStationService.HasStation(partner) && !partner.leader.isRekt())
+                partner.leader.setPlot(plot);
             return true;
         };
-        BuildTrainStation.check_should_continue = a =>
-        {
-            foreach (var aa in a.plot.units)
-            {
-                if (aa.city.isRekt())
-                {
-                    return false;
-                }
-                if (aa.kingdom != a.kingdom && !aa.kingdom.isOpinionTowardsKingdomGood(a.kingdom))
-                {
-                    return false;
-                }
-            }
-            return true;
-        };
-        BuildTrainStation.check_can_be_forced = a =>
-        {
-            return a.hasCity() && FindTileForTrainStation(a.city) != null;
-        };
+        BuildTrainStation.check_should_continue = a => a.hasCity() &&
+            Railways.RailwayStationService.CanAffordStation(a.city) &&
+            Railways.RailwayStationService.FindPartner(a.city) != null;
         BuildTrainStation.action = a =>
         {
-            var plot = a.plot;
-
-            var cities = new HashSet<City>();
-            foreach (var aa in plot.units)
-            {
-                if (aa.city.isRekt())
-                    continue;
-                if (aa.kingdom != a.kingdom && !aa.kingdom.isOpinionTowardsKingdomGood(a.kingdom))
-                    continue;
-                if (aa != aa.city.leader)
-                    continue;
-                cities.Add(aa.city);
-            }
-
-            foreach (var aa in plot.units)
-            {
-                aa.leavePlot();
-            }
-            if (cities.Count == 0)
-            {
-                return false;
-            }
-            var actually_built = 0;
-            foreach (var city in cities)
-            {
-                if (city.hasBuildingType(Buildings.TrainStation.type))
-                {
-                    continue;
-                }
-                var tile = FindTileForTrainStation(city);
-                if (tile == null)
-                {
-                    continue;
-                }
-                World.world.buildings.addBuilding(Buildings.TrainStation.id, tile);
-                actually_built++;
-            }
-            return actually_built > 0;
+            var participants = a.plot.units.ToArray();
+            var cities = participants.Where(p => p.hasCity() && p == p.city.leader &&
+                    Railways.RailTrackRoutePlanner.HasPermission(a.kingdom, p.kingdom))
+                .Select(p => p.city).Distinct().ToArray();
+            foreach (var participant in participants) participant.leavePlot();
+            bool built = false;
+            foreach (var city in cities) built |= Railways.RailwayStationService.TryBuild(city);
+            return built;
         };
 
         BuildTrainTrack.path_icon = "cultiway/icons/plots/iconTrainNet";
@@ -201,85 +137,31 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         BuildTrainTrack.can_be_done_by_king = false;
         BuildTrainTrack.can_be_done_by_leader = true;
         BuildTrainTrack.requires_diplomacy = false;
-        BuildTrainTrack.check_is_possible = delegate(Actor a)
+        BuildTrainTrack.check_is_possible = a => a.hasCity() &&
+            !World.world.plots.isPlotTypeAlreadyRunning(a, BuildTrainTrack) && GetTrainTrackTargets(a.city).Count > 0;
+        BuildTrainTrack.check_can_be_forced = BuildTrainTrack.check_is_possible;
+        BuildTrainTrack.try_to_start_advanced = (a, asset, force) =>
         {
-            return a.hasCity() && GetTrainTrackTargets(a.city).Count > 0;
-        };
-        BuildTrainTrack.check_can_be_forced = delegate(Actor a)
-        {
-            return a.hasCity() && GetTrainTrackTargets(a.city).Count > 0;
-        };
-        BuildTrainTrack.try_to_start_advanced = delegate(Actor a, PlotAsset asset, bool force)
-        {
-            var targets = GetTrainTrackTargets(a.city);
-            if (targets.Count == 0)
-            {
-                return false;
-            }
-
+            var target = GetTrainTrackTargets(a.city).FirstOrDefault();
+            if (target == null || target.leader.isRekt()) return false;
             var plot = World.world.plots.newPlot(a, asset, force);
-            if (plot == null || !plot.checkInitiatorAndTargets())
-            {
-                return false;
-            }
-            foreach (var target_city in targets)
-            {
-                target_city.leader.setPlot(plot);
-            }
+            if (plot == null || !plot.checkInitiatorAndTargets()) return false;
+            target.leader.setPlot(plot);
             return true;
         };
-        BuildTrainTrack.check_should_continue = delegate(Actor a)
+        BuildTrainTrack.check_should_continue = a => a.hasCity() &&
+            a.plot.units.All(p => p.hasCity() && p == p.city.leader &&
+                p.city.hasBuildingType(Buildings.TrainStation.type) &&
+                Railways.RailTrackRoutePlanner.HasPermission(a.kingdom, p.kingdom));
+        BuildTrainTrack.action = a =>
         {
-            foreach (var aa in a.plot.units)
-            {
-                if (aa.city.isRekt())
-                    return false;
-                if (aa.kingdom != a.kingdom && !aa.kingdom.isOpinionTowardsKingdomGood(a.kingdom))
-                    return false;
-                if (aa != aa.city.leader)
-                    return false;
-                if (!aa.city.hasBuildingType(Buildings.TrainStation.type))
-                    return false;
-            }
-            return true;
-        };
-        BuildTrainTrack.action = delegate(Actor a)
-        {
-            var source_city = a.city;
-            var targets = new List<City>();
-            foreach (var aa in a.plot.units)
-            {
-                if (aa == a)
-                    continue;
-                targets.Add(aa.city);
-                aa.leavePlot();
-            }
-            if (targets.Count == 0)
-            {
-                return false;
-            }
-            var source_station = source_city.getBuildingOfType(Buildings.TrainStation.type);
-            var any_built = false;
-            foreach (var target_city in targets)
-            {
-                var target_station = target_city.getBuildingOfType(Buildings.TrainStation.type);
-                if (target_station == null)
-                    continue;
-                var source_tile = source_station.current_tile;
-                var target_tile = target_station.current_tile;
-                if (source_tile == null || target_tile == null)
-                    continue;
-                var path = GetTrainTrackDirection(source_tile, target_tile);
-                if (path.Count == 0)
-                    continue;
-                foreach (var tile in path)
-                {
-                    MapAction.terraformTop(tile, TopTileTypes.TrainTrack, Terraforms.TrainTrack, false);
-                }
-                TrainTrackRepairSystem.RegisterLink(source_station, target_station, path);
-                any_built = true;
-            }
-            return any_built;
+            var participants = a.plot.units.ToArray();
+            var target = participants.FirstOrDefault(p => p != a)?.city;
+            var source = a.city;
+            foreach (var participant in participants) participant.leavePlot();
+            return target != null && TrainTrackRepairSystem.StartConstruction(
+                source.getBuildingOfType(Buildings.TrainStation.type),
+                target.getBuildingOfType(Buildings.TrainStation.type), source);
         };
 
         // 召唤恶魔：单位依据自身特质，有几率召唤对应的混沌魔塔、扭转纪元，化身为对应大魔，并把同村凡人(无灵根)化为该系列随机恶魔
@@ -304,40 +186,22 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         SetupBuildCityWallPlot(BuildCityWall, "cultiway/icons/Tower");
     }
 
-    private static List<WorldTile> GetTrainTrackDirection(
-        WorldTile source_tile,
-        WorldTile target_tile
-    )
-    {
-        return TrainTrackPathHelper.BuildPath(source_tile, target_tile);
-    }
-
+    /// <summary>仅选择尚无工程或运营通路的最近许可邻站。</summary>
+    /// <param name="city">提出铺轨的城市。</param>
     private static List<City> GetTrainTrackTargets(City city)
     {
-        if (!city.hasBuildingType(Buildings.TrainStation.type))
-            return new List<City>();
-        var targets = new List<City>();
-        foreach (var target_city in city.neighbours_cities)
-        {
-            if (
-                target_city.kingdom != city.kingdom
-                && !target_city.kingdom.isOpinionTowardsKingdomGood(city.kingdom)
-            )
-                continue;
-            if (!target_city.hasBuildingType(Buildings.TrainStation.type))
-                continue;
-            targets.Add(target_city);
-        }
-        return targets;
-    }
-
-    private static WorldTile FindTileForTrainStation(City city)
-    {
-        var zones = new List<TileZone>();
-        CityBehBuild.fillPossibleZones(Buildings.TrainStation, city, zones);
-        if (zones.Count == 0)
-            return null;
-        return CityBehBuild.tryToBuildInZones(zones, Buildings.TrainStation, city, false);
+        var source = city.getBuildingOfType(Buildings.TrainStation.type);
+        if (source == null || !source.isNormal()) return new List<City>();
+        var interrupted = new HashSet<long>(TrainTrackRepairSystem.InterruptedNeighbours(source.id));
+        return city.neighbours_cities.Concat(interrupted.Select(id => World.world.buildings.get(id)?.city)
+                .Where(c => c != null)).Distinct().Where(c =>
+                Railways.RailTrackRoutePlanner.HasPermission(city.kingdom, c.kingdom) &&
+                c.getBuildingOfType(Buildings.TrainStation.type) is { } station && station.isNormal() &&
+                !TrainTrackRepairSystem.HasProjectOrConnection(source.id, station.id))
+            .OrderBy(c => !interrupted.Contains(c.getBuildingOfType(Buildings.TrainStation.type).id))
+            .ThenBy(c => Toolbox.SquaredDistTile(source.current_tile,
+                c.getBuildingOfType(Buildings.TrainStation.type).current_tile))
+            .ThenBy(c => c.id).Take(1).ToList();
     }
 
     /// <summary>
@@ -553,7 +417,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
 
         // 可行：有城 + 规模达标 + 大厅等级达标 + 可推进阶段(未满 或 已满但被摧毁) + 没有同类 plot 在跑
         plot.check_is_possible = a => a.hasCity()
-                                     && HasHallHearth(a.city)
+                                     && HasCityWalls(a.city)
                                      && a.city.zones.Count >= WALL_MIN_ZONES
                                      && HasRequiredHallLevel(a.city)
                                      && CanInitiateWallUpgrade(a.city)
@@ -561,7 +425,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                                      && !World.world.plots.isPlotTypeAlreadyRunning(a, plot);
         plot.check_can_be_forced   = plot.check_is_possible;
         plot.check_should_continue = a => a.hasCity()
-                                          && HasHallHearth(a.city)
+                                          && HasCityWalls(a.city)
                                           && a.city.zones.Count >= WALL_MIN_ZONES
                                           && HasRequiredHallLevel(a.city)
                                           && CanInitiateWallUpgrade(a.city)
@@ -569,8 +433,9 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
 
         plot.action = a =>
         {
-            if (!a.hasCity()) return false;
+            if (!a.hasCity() || !HasCityWalls(a.city)) return false;
             var city  = a.city;
+            if (IsMoatActive(city)) FillDestroyedCityMoats(city);
             var wallContext = WallShapeHelper.CreateContext(city);
             int stage = GetWallStage(city);
             // 篝火已重建但不在内墙范围内（城市核心迁到新区域）→ 重置城墙，在新篝火区域重新生成木墙内墙
@@ -610,12 +475,6 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                 {
                     EnsureWallCoreReachable(city, wallContext, inner.Value, 2, inner.Value, 2);
                 }
-                if (HasMoat(city))
-                {
-                    PlaceStoneWallMoat(city, wallContext, inner.Value, 2,
-                                       city.isCapitalCity() ? outer : null, 1);
-                    SetMoatActive(city, true);
-                }
                 SetWallStage(city, WALL_STAGE_BOTH);
             }
             else
@@ -626,14 +485,9 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                 PlaceWallRing(a, inner.Value, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL, wallContext);
                 ReplaceOuterWall(a, outer.Value, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL, wallContext);
                 EnsureWallCoreReachable(city, wallContext, inner.Value, 2, outer.Value, 2);
-                if (HasMoat(city))
-                {
-                    PlaceStoneWallMoat(city, wallContext, inner.Value, 2, outer, 2);
-                    PlaceStoneWallMoat(city, wallContext, outer.Value, 2);
-                    SetMoatActive(city, true);
-                }
                 SetWallStage(city, WALL_STAGE_FORTRESS);
             }
+            TryUpdateCityMoat(city);
             return true;
         };
     }
@@ -718,6 +572,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             var tile = pair.Key;
             int distance = pair.Value;
             if (distance < moatStart || distance > moatEnd) continue;
+            if (IsMountainTerrain(tile)) continue;
             if (!WallShapeHelper.IsInsideWall(bounds, wallWidth, context, tile.x, tile.y))
                 moatTiles.Add(tile);
         }
@@ -790,6 +645,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         for (int lane = 0; lane < laneCount; lane++)
         {
             var origin = edge[start + lane];
+            if (IsMountainTerrain(origin)) continue;
             roads.Add(origin);
 
             int requiredOutwardLength = roadLength;
@@ -812,6 +668,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                 int y = origin.y + directionY * step;
                 if (x < 0 || y < 0 || x >= MapBox.width || y >= MapBox.height) break;
                 var tile = World.world.GetTileSimple(x, y);
+                if (IsMountainTerrain(tile)) break;
                 roads.Add(tile);
                 if (step >= requiredOutwardLength && tile.Type?.road == true) break;
             }
@@ -823,10 +680,19 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                 int y = origin.y - directionY * step;
                 if (x < 0 || y < 0 || x >= MapBox.width || y >= MapBox.height) break;
                 var tile = World.world.GetTileSimple(x, y);
+                if (IsMountainTerrain(tile)) break;
                 roads.Add(tile);
                 if (tile.Type?.road == true) break;
             }
         }
+    }
+
+    /// <summary>检查原始地形，避免道路等表层遮住山体标记后仍把山挖平。</summary>
+    /// <param name="tile">待检查的地块。</param>
+    /// <returns>高山或山峰返回真。</returns>
+    private static bool IsMountainTerrain(WorldTile tile)
+    {
+        return tile.main_type.mountains || tile.main_type.summit;
     }
 
     /// <summary>该 tile 是否为本城市领土内的可通行陆地。城墙与箭塔都只在此范围内生成。</summary>
@@ -1034,6 +900,14 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         return city != null && city.hasCulture() && city.culture.hasTrait(CultureTraits.HallHearthId);
     }
 
+    /// <summary>判断城市文化是否允许新建和升级城墙，不影响已经建成的墙体。</summary>
+    /// <param name="city">需要检查的城市。</param>
+    /// <returns>选择了城墙结构时返回真。</returns>
+    private static bool HasCityWalls(City city)
+    {
+        return city != null && city.hasCulture() && city.culture.hasTrait(CultureTraits.CityWallsId);
+    }
+
     /// <summary>判断城市文化是否选择了护城河结构。</summary>
     /// <param name="city">需要检查的城市。</param>
     /// <returns>选择了护城河时返回真。</returns>
@@ -1063,12 +937,9 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     internal static int GetHallHearthPlacementTier(
         City city, BuildingAsset asset, WorldTile tile, WallShapeHelper.WallComputationContext context = null)
     {
-        if (!HasHallHearth(city) || asset == null || tile == null) return -1;
-        if (asset.docks || asset.type == "type_mine" || asset.type == "type_barracks"
-            || asset.needs_farms_ground || asset.type == "type_crops") return -1;
+        if (tile == null || !UsesHallHearthPlacement(city, asset)) return -1;
 
         var inner = GetInnerBounds(city);
-        if (inner == null) return -1;
         var outer = GetOuterBounds(city);
         int stage = GetWallStage(city);
         int innerWidth = stage >= WALL_STAGE_BOTH ? 2 : 1;
@@ -1096,6 +967,19 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         }
         if (inInner) return 0;
         return inOuter ? 1 : 2;
+    }
+
+    /// <summary>先判断建筑是否需要按城墙内外选址，避免为不受限制的建筑扫描全城地形。</summary>
+    /// <param name="city">准备建造的城市。</param>
+    /// <param name="asset">准备建造的建筑。</param>
+    /// <returns>需要优先填充城墙内部时返回真。</returns>
+    internal static bool UsesHallHearthPlacement(City city, BuildingAsset asset)
+    {
+        return HasHallHearth(city) && asset != null && !asset.docks
+               && asset.type != "type_mine" && asset.type != "type_barracks"
+               && (!asset.needs_farms_ground || asset.type == "type_windmill" &&
+                   KingdomPolicies.KingdomPolicyService.Has(city, KingdomPolicies.KingdomPolicyCard.PrivateFarms)) && asset.type != "type_crops"
+               && GetInnerBounds(city) != null;
     }
 
     /// <summary>内墙与外墙是否都基本完好（现存比例均 ≥ 阈值）。用记录的（固定）bounds 检测——
@@ -1153,7 +1037,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         TryUpdateCityMoat(city);
         string race = city.data.original_actor_asset;
         if (race != HUMAN_ID && race != EASTERN_HUMAN_ID) return;
-        if (!HasHallHearth(city)) return;
+        if (!HasCityWalls(city)) return;
         if (!city.hasBuildingType("type_hall")) return;
         int stage = GetWallStage(city);
         if (stage >= WALL_STAGE_FORTRESS) return;
@@ -1165,7 +1049,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         if (initiator == null || initiator.isRekt()) return;
         if (World.world.plots.isPlotTypeAlreadyRunning(initiator, BuildCityWall)) return;
 
-        int now_year = (int)(World.world.getCurWorldTime() / TimeScales.SecPerYear);
+        int now_year = Date.getCurrentYear() - 1;
         if (now_year < GetScheduleYear(city)) return;
 
         var plot = World.world.plots.newPlot(initiator, BuildCityWall, true);
@@ -1176,10 +1060,10 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     }
 
     /// <summary>
-    /// 按文化选项维护护城河。先清理已经取消的护城河，再按厅火之邑或主要建筑选择范围。
+    /// 按文化选项维护护城河。先处理取消与城墙配套，再按已完工的大厅等级更新独立护城河。
     /// </summary>
     /// <param name="city">需要更新的城市。</param>
-    private static void TryUpdateCityMoat(City city)
+    internal static void TryUpdateCityMoat(City city)
     {
         if (!HasMoat(city))
         {
@@ -1188,14 +1072,14 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         }
 
         var standalone = GetStandaloneMoatBounds(city);
-        if (HasHallHearth(city))
+        if (HasCityWalls(city))
         {
+            // 同时选择时先清除独立护城河，无墙和木墙阶段都等待石墙建成。
             if (standalone != null) FillDestroyedCityMoats(city);
-            if (IsMoatActive(city)) return;
-
             int stage = GetWallStage(city);
             var inner = GetInnerBounds(city);
-            if (stage < WALL_STAGE_BOTH || inner == null) return;
+            if (stage < WALL_STAGE_BOTH || inner == null || IsMoatActive(city)) return;
+
             var context = WallShapeHelper.CreateContext(city);
             var outer = GetOuterBounds(city);
             PlaceStoneWallMoat(city, context, inner.Value, 2,
@@ -1204,6 +1088,18 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             if (stage >= WALL_STAGE_FORTRESS && outer != null)
                 PlaceStoneWallMoat(city, context, outer.Value, 2);
             SetMoatActive(city, true);
+            return;
+        }
+
+        // 原版只返回施工已完成且可用的大厅，升级开工时提前切换的等级不算完成。
+        var hall = city.getBuildingOfType("type_hall");
+        if (hall == null) return;
+        int level = hall.asset.upgrade_level;
+        city.data.get(ContentCityDataKeys.CityMoatHallLevel_int, out int previousLevel, -1);
+        if (IsMoatActive(city) && standalone != null && level <= previousLevel)
+        {
+            // 大厅被毁后低级重建只更新起点，下一次真正升级仍然能够触发。
+            if (level < previousLevel) city.data.set(ContentCityDataKeys.CityMoatHallLevel_int, level);
             return;
         }
 
@@ -1216,23 +1112,12 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             hx = buildings.Value.hx + WALL_MARGIN,
             hy = buildings.Value.hy + WALL_MARGIN
         };
-        if (IsMoatActive(city) && standalone != null && SameBounds(standalone.Value, desired)) return;
-
         if (IsMoatActive(city)) FillDestroyedCityMoats(city);
         var moatContext = WallShapeHelper.CreateContext(city);
         PlaceStoneWallMoat(city, moatContext, desired, 1);
         SetStandaloneMoatBounds(city, desired);
         SetMoatActive(city, true);
-    }
-
-    /// <summary>判断两个护城河范围是否相同。</summary>
-    /// <param name="first">第一个范围。</param>
-    /// <param name="second">第二个范围。</param>
-    /// <returns>中心和大小均相同时返回真。</returns>
-    private static bool SameBounds(WallShapeHelper.Bounds first, WallShapeHelper.Bounds second)
-    {
-        return first.cx == second.cx && first.cy == second.cy
-               && first.hx == second.hx && first.hy == second.hy;
+        city.data.set(ContentCityDataKeys.CityMoatHallLevel_int, level);
     }
 
     /// <summary>
@@ -1279,6 +1164,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         }
         SetStandaloneMoatBounds(city, default);
         SetMoatActive(city, false);
+        city.data.removeInt(ContentCityDataKeys.CityMoatHallLevel_int);
     }
 
     /// <summary>读取城市是否有本模组生成的护城河。</summary>
@@ -1299,7 +1185,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         city?.data?.set(ContentCityDataKeys.CityMoatActive_int, active ? 1 : 0);
     }
 
-    /// <summary>读取无厅火之邑时记录的护城河范围。</summary>
+    /// <summary>读取围绕主要建筑生成的独立护城河范围。</summary>
     /// <param name="city">需要读取的城市。</param>
     /// <returns>已记录的范围；没有记录时返回空。</returns>
     private static WallShapeHelper.Bounds? GetStandaloneMoatBounds(City city)
@@ -1313,7 +1199,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         return new WallShapeHelper.Bounds { cx = cx, cy = cy, hx = hx, hy = hy };
     }
 
-    /// <summary>记录无厅火之邑时使用的护城河范围。</summary>
+    /// <summary>记录围绕主要建筑生成的独立护城河范围。</summary>
     /// <param name="city">需要记录的城市。</param>
     /// <param name="bounds">护城河范围；默认值表示清空。</param>
     private static void SetStandaloneMoatBounds(City city, WallShapeHelper.Bounds bounds)
@@ -1326,7 +1212,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     }
 
     /// <summary>取得记录的内墙 bounds（固定，木墙阶段建墙时记录）；无记录返回 null。</summary>
-    private static WallShapeHelper.Bounds? GetInnerBounds(City city)
+    internal static WallShapeHelper.Bounds? GetInnerBounds(City city)
     {
         if (city?.data == null) return null;
         city.data.get(ContentCityDataKeys.CityWallInnerHX_int, out int hx, 0);
@@ -1345,6 +1231,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         city.data.set(ContentCityDataKeys.CityWallInnerCY_int, b.cy);
         city.data.set(ContentCityDataKeys.CityWallInnerHX_int, b.hx);
         city.data.set(ContentCityDataKeys.CityWallInnerHY_int, b.hy);
+        FamilyFarming.FamilyFarmService.InvalidateLand(city);
     }
 
     /// <summary>
@@ -1492,22 +1379,4 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         return CityBehBuild.tryToBuildInZones(zones, asset, city, false);
     }
 
-    private static List<City> GetTrainTargets(City city)
-    {
-        var targets = new List<City>();
-        foreach (var target_city in city.neighbours_cities)
-        {
-            if (
-                target_city.kingdom != city.kingdom
-                && !target_city.kingdom.isOpinionTowardsKingdomGood(city.kingdom)
-            )
-                continue;
-
-            var tile = FindTileForTrainStation(target_city);
-            if (tile == null)
-                continue;
-            targets.Add(target_city);
-        }
-        return targets;
-    }
 }

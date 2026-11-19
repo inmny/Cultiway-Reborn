@@ -1,0 +1,15 @@
+{
+  "normalLongJourneyNotTimedOut": true,
+  "pauseDoesNotCount": true,
+  "elapsedSavedAndReloaded": true,
+  "passengerIdentitySurvivesReload": true,
+  "survivesBeforeFiveMinutes": true,
+  "destroyedAfterFiveMinutes": true,
+  "fleetSlotReleased": true,
+  "cargoDestroyed": true,
+  "passengerReleasedSafely": true,
+  "noCargoDepositOrRefund": true,
+  "returnRouteRecoveryResetsTimer": true,
+  "simulatedTimeoutSeconds": 300,
+  "errors": []
+}

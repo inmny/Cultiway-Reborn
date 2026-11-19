@@ -1,0 +1,17 @@
+{
+  "ordinaryServedAfterThreePriorityTasks": true,
+  "militaryBatchKeepsArmy": true,
+  "stationOrderChangeCancels": true,
+  "newOrderCanRequestAgain": true,
+  "inTransitOrderWaitsForSafeStation": true,
+  "safeUnloadPreservesArmy": true,
+  "foreignPassengerCannotUseAnotherCountryFleet": true,
+  "militaryForeignStationRejected": true,
+  "batchProgressMatchesPassengers": true,
+  "batchProgressSavedWithArmy": true,
+  "cancelledBatchFinishesCounts": true,
+  "repeatedTargetGetsNewBatch": true,
+  "deathReleasesBatchCount": true,
+  "soldiers": 20,
+  "errors": []
+}

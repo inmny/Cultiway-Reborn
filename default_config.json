@@ -79,12 +79,6 @@
             "Type": "SWITCH",
             "BoolVal": true,
             "Callback": "GeneralSettings:SwitchTacticalCombat"
-        },
-        {
-            "Id": "TRAIN_STATION_TIMED_DISPATCH_EXPERIMENTAL",
-            "Type": "SWITCH",
-            "BoolVal": false,
-            "Callback": "GeneralSettings:SwitchTrainExperimentalTimedDispatch"
         }
     ],
     "PerformanceSettings": [

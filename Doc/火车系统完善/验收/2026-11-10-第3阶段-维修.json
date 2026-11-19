@@ -1,0 +1,15 @@
+{
+  "emptyMoveUsesRealTrack": true,
+  "emptyJourneyReload": true,
+  "returnPreservesVehicle": true,
+  "damagedVehicleRepairsAtHome": true,
+  "repairUsesSimulationTime": true,
+  "repairDisallowsComposition": true,
+  "repairReloadContinues": true,
+  "repairReturnsIdle": true,
+  "noFreeReplacement": true,
+  "destroyedVehicleCostsAgain": true,
+  "constructionCooldown": true,
+  "cooldownEndsNormally": true,
+  "errors": []
+}

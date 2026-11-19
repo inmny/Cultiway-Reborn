@@ -1,0 +1,14 @@
+{
+  "brokenReturnPreservesGold": true,
+  "brokenReturnRetreatsToSafeStation": true,
+  "brokenReturnDoesNotDeposit": true,
+  "blockedReturnReloadPreservesGold": true,
+  "destroyedHomeCanBeAdopted": true,
+  "adoptingCityReceivesActualBag": true,
+  "previousCityIsNotPaidAgain": true,
+  "destroyedTrainReleasesFleetSlot": true,
+  "destroyedTrainDoesNotReimburseCity": true,
+  "noDestinationMeansNoTradeTrip": true,
+  "noDestinationMeansNoIncome": true,
+  "errors": []
+}

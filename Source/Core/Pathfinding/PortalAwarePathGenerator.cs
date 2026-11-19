@@ -334,6 +334,7 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
             for (int connectionIndex = 0; connectionIndex < entry.Connections.Length; connectionIndex++)
             {
                 PortalConnection connection = entry.Connections[connectionIndex];
+                if (!connection.Accepts(request.TransportCountry, request.TransportMilitary)) continue;
                 if (!TryFindPortal(portals, connection.TargetId, out PathPortalSnapshot exit)) continue;
                 int exitDistance = Math.Abs(targetX - exit.X) + Math.Abs(targetY - exit.Y);
                 if (exitDistance + 4 >= directDistance) continue;

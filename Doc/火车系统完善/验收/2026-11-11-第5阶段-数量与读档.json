@@ -1,0 +1,15 @@
+{
+  "onePassengerTwoCargoHas20Seats80Cargo": true,
+  "reserveDoesNotDeductStock": true,
+  "reservationIndexesRestored": true,
+  "loadDeductsOnlyActualMaterials": true,
+  "sourceKeepsConstructionReserve": true,
+  "loadedReloadConservesQuantity": true,
+  "transitReloadConservesQuantity": true,
+  "unloadConservesWoodAndStone": true,
+  "materialJourneyDoesNotCreateTradeGold": true,
+  "unloadedReloadDoesNotDuplicate": true,
+  "originalWood": 100,
+  "originalStone": 80,
+  "errors": []
+}

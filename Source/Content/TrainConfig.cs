@@ -9,9 +9,9 @@ internal static class TrainConfig
 {
     /// <summary>车站间最小发车间隔（秒）。</summary>
     public const float MinDepartInterval = 5f;
-
-    /// <summary>始发前聚客的最长等待时间（秒）。</summary>
-    public const float PrepareWaitMax = 5f;
+    /// <summary>移动和寻路估时统一使用每模拟秒的轨道格数。</summary>
+    public static float TrackSpeed => Actors.Train.base_stats[strings.S.speed] *
+                                     Core.Pathfinding.PathfindingConfig.Default.WalkSpeedScale;
 
     /// <summary>每站基础停靠时间（秒）。</summary>
     public const float StopBaseWait = 3f;
@@ -19,13 +19,8 @@ internal static class TrainConfig
     /// <summary>额外等待迟到乘客的最长时间（秒）。</summary>
     public const float StopExtraWaitMax = 7f;
 
-    /// <summary>单个乘客被视为迟到并放弃的阈值（秒）。</summary>
-    public const float LateIgnoreTime = 10f;
+    /// <summary>连续无法返回归属站五分钟后自爆，使用随游戏倍速推进的模拟秒。</summary>
+    public const float StrandedTimeout = 300f;
 
-    /// <summary>实验功能：启用后车站会定时发空车（无乘客也发车）。</summary>
-    public static bool ExperimentalTimedDispatchEnabled = false;
-
-    /// <summary>实验功能：同一车站空车发车周期（秒）。</summary>
-    public const float ExperimentalTimedDispatchInterval = 20f;
 }
 

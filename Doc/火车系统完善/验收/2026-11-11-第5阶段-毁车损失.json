@@ -1,0 +1,12 @@
+{
+  "loadedCargoSurvivesInterruption": true,
+  "fiveMinuteLimitStillApplies": true,
+  "passengerReleasedAlive": true,
+  "allActualCargoDestroyed": true,
+  "sourceStockNotRefunded": true,
+  "lossOf40ExplainsConservation": true,
+  "incomingAndReservationReleased": true,
+  "fleetSlotReleased": true,
+  "lostWood": 40,
+  "errors": []
+}

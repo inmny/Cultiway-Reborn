@@ -1,0 +1,60 @@
+{
+  "headAndCarSpacing5_9And5_3": true,
+  "horizontalBodiesDoNotOverlap": true,
+  "gaps": [
+    0.200000763,
+    0.200000763,
+    0.200000763
+  ],
+  "allPassengerFramesUseNativeCountryColours": true,
+  "nonPurplePixelsUnchanged": true,
+  "nativeColourCacheReused": true,
+  "countryColourChangeRefreshesCoach": true,
+  "ownerChangeRefreshesCoach": true,
+  "checkedFrames": 10,
+  "checkedColourPixels": 252,
+  "bothStationsUseSideAtVerticalMidpoint": true,
+  "boardingPointBesideTrack": true,
+  "largeStepPushesEveryPassedUnit": true,
+  "flyingUnitsUntouched": true,
+  "offTrackUnitsUntouched": true,
+  "onboardPassengerUntouched": true,
+  "noDirectCollisionDamage": true,
+  "chimneyEmitsNativeSmoke": true,
+  "smokeFollowsHead": true,
+  "stationaryTrainDoesNotEmit": true,
+  "hiddenHeadDoesNotEmit": true,
+  "reverseMovementPushesUnits": true,
+  "smokeCount": 1,
+  "emission": "(36.45, 16.10, 0.00)",
+  "errors": [
+    {
+      "Sequence": 26,
+      "TimestampUtc": "2026-11-11T07:49:52.2463031Z",
+      "Frame": 42632,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": null,
+      "Message": "LocalizedTextManager: missing text: cultiway_baibao_u_i_state_no_selection",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 27,
+      "TimestampUtc": "2026-11-11T07:49:52.2463031Z",
+      "Frame": 42632,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": null,
+      "Message": "LocalizedTextManager: missing text: cultiway_baibao_u_i_detail_select_artifact",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    }
+  ]
+}

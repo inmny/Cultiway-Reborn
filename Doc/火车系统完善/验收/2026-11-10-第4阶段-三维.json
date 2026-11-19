@@ -1,0 +1,10 @@
+{
+  "actualSceneHasOrderedLocomotiveAndCars": true,
+  "curveMatchesSharedTrack": true,
+  "reverseMatchesSharedTrack": true,
+  "enteringStationHidesSectionsProgressively": true,
+  "parkedWholeTrainHidden": true,
+  "twoAndThreeDimensionalSwitchKeepsComposition": true,
+  "temporaryCameraPatchRemoved": true,
+  "errors": []
+}

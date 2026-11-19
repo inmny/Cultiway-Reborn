@@ -1,0 +1,8 @@
+{
+  "captureDoesNotTransferVehicleCountry": true,
+  "oldHomeReleased": true,
+  "sameCountryStationAdopts": true,
+  "adoptionKeepsVehicleId": true,
+  "adoptionReloadStable": true,
+  "errors": []
+}

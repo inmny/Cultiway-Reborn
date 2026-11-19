@@ -1,0 +1,14 @@
+{
+  "nativeLoopBoardsActualPassenger": true,
+  "nativeLoopAdvancesExistingTrain": true,
+  "nativeLoopUnloadsAtPromisedStation": true,
+  "nativeLoopGeneratesOneTradeEarning": true,
+  "nativeLoopReturnsAndDeposits": true,
+  "nativeLoopKeepsSameVehicle": true,
+  "nativeLoopKeepsFleetCount": true,
+  "nativeLoopDoesNotStartSecondTrip": true,
+  "nativeClockActuallyAdvanced": true,
+  "realSeconds": 41.4318848,
+  "simulationSeconds": 47.919998928904533,
+  "errors": []
+}

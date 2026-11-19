@@ -1,0 +1,11 @@
+{
+  "sameFrameDuplicateStationRejected": true,
+  "jointStationBuildWorks": true,
+  "budgetShortageBuildsNothing": true,
+  "cancelledRailsAndCostStay": true,
+  "restartedProjectChargesOnlyMissing": true,
+  "completeRailReuseIsFree": true,
+  "firstPaidUnits": 1,
+  "restartedPaidUnits": 8,
+  "errors": []
+}

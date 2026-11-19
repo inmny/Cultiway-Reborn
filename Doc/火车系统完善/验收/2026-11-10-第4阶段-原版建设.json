@@ -1,0 +1,13 @@
+{
+  "cityNewBuildingsRespectExistingRail": true,
+  "playerBuildingPlacementRemainsAvailable": true,
+  "ordinaryCityBuildingPlacementRemainsAvailable": true,
+  "railSurvivesNativeRoadDecay": true,
+  "ordinaryRoadsStillDecay": true,
+  "nativeDecayCalls": 5000,
+  "ordinaryRoadsBefore": 10,
+  "ordinaryRoadsAfter": 0,
+  "railTilesBefore": 217,
+  "railTilesAfter": 217,
+  "errors": []
+}

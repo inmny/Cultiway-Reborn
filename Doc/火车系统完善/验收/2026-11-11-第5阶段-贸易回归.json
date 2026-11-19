@@ -1,0 +1,8 @@
+{
+  "tradeRemainsAvailableWithoutMaterialDemand": true,
+  "oneVisitStillGivesFiveGold": true,
+  "tradeDepositUsesActualFive": true,
+  "partialTradeDepositKeepsThree": true,
+  "tradeCompletesAfterCapacityFreed": true,
+  "errors": []
+}

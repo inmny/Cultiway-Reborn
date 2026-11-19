@@ -1,0 +1,263 @@
+{
+  "trainOverviewSummarisesService": true,
+  "carPageListsActualConsist": true,
+  "freightPageShowsSourceTargetAndActualLoad": true,
+  "linesPageShowsActualStops": true,
+  "fourStationPagesWork": true,
+  "singleStationCityOpensDetails": true,
+  "nativeScrollbarRetained": true,
+  "compactRows44High": true,
+  "rowsDoNotBlockWheel": true,
+  "labelsStayOutsideActionButtons": true,
+  "tabSwitchResetsScroll": true,
+  "repeatedOpensReuseRows": true,
+  "drawShortcutSelectsNativePower": true,
+  "eraseShortcutSelectsNativePower": true,
+  "cityMapShortcutUsesActualStation": true,
+  "englishAndLongNamesAt1280Work": true,
+  "invalidSelectionHasEmptyState": true,
+  "trainAndStationShowActualRouteDiagram": true,
+  "diagramDoesNotBlockWheel": true,
+  "diagramReusesTexture": true,
+  "pooledRows": 7,
+  "errors": [
+    {
+      "Sequence": 8,
+      "TimestampUtc": "2026-11-11T07:49:12.1829800Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.UI.WindowYaoOrganEditor Title",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 9,
+      "TimestampUtc": "2026-11-11T07:49:12.1839808Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.UI.WindowWorldWakan Title",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 10,
+      "TimestampUtc": "2026-11-11T07:49:12.1849810Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.UI.WindowActorTargetFilter Title",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 11,
+      "TimestampUtc": "2026-11-11T07:49:12.1859851Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.UI.WindowWanfaPavilion Title",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 12,
+      "TimestampUtc": "2026-11-11T07:49:12.1859851Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.UI.WindowWanfaSkillEditor Title",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 13,
+      "TimestampUtc": "2026-11-11T07:49:12.1869810Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.UI.WindowWanfaGrantConflict Title",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 14,
+      "TimestampUtc": "2026-11-11T07:49:12.1879797Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.UI.WindowMagicWebBrowser Title",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 15,
+      "TimestampUtc": "2026-11-11T07:49:12.1889806Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.UI.WindowBaibaoPavilion Title",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 16,
+      "TimestampUtc": "2026-11-11T07:49:12.1889806Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.UI.WindowBaibaoForge Title",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 17,
+      "TimestampUtc": "2026-11-11T07:49:12.1899822Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.UI.WindowBaibaoArchive Title",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 18,
+      "TimestampUtc": "2026-11-11T07:49:12.1909812Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.UI.WindowUpgradeRainConfig Title",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 19,
+      "TimestampUtc": "2026-11-11T07:49:12.1909812Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.UI.WindowElementRootRainConfig Title",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 20,
+      "TimestampUtc": "2026-11-11T07:49:12.1919814Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.UI.WindowSourcelessDamageLevelConfig Title",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 21,
+      "TimestampUtc": "2026-11-11T07:49:12.1929809Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.UI.WindowNewCreatureInfo Title",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 22,
+      "TimestampUtc": "2026-11-11T07:49:12.1939817Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.SelectedGeoRegion.Overview",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 23,
+      "TimestampUtc": "2026-11-11T07:49:12.1949873Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.SelectedGeoRegion.Related",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 24,
+      "TimestampUtc": "2026-11-11T07:49:12.1949873Z",
+      "Frame": 40278,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": "5cb1ee6083fb42bb8cc1069d3384fa5b",
+      "Message": "LocalizedTextManager: missing text: Cultiway.SelectedGeoRegion.Adjacent",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "twoVehiclesCannotOverReserve": true,
+  "cancelBeforeLoadingKeepsSourceStock": true,
+  "cancellationReleasesDemand": true,
+  "newProductionCanReserveSecondVehicle": true,
+  "twoReservationsReloaded": true,
+  "sourceConsumptionShrinksLoading": true,
+  "sourceReserveProtected": true,
+  "targetReceivesOnlyActual30": true,
+  "finishedReservationsAndIncomingCleared": true,
+  "errors": []
+}

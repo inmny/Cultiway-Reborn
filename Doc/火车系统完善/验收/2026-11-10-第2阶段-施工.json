@@ -1,0 +1,18 @@
+{
+  "stationCostsSeparate": true,
+  "legalDetour": true,
+  "obstaclesPreserved": true,
+  "batchLimited": true,
+  "incompleteHidden": true,
+  "proposerPays": true,
+  "constructionReload": true,
+  "cumulativeCostCorrect": true,
+  "duplicateRejected": true,
+  "aId": 3,
+  "bId": 4,
+  "payerId": 1,
+  "pathLength": 236,
+  "newTiles": 217,
+  "paidUnits": 28,
+  "errors": []
+}

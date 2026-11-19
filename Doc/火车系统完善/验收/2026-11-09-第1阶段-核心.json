@@ -1,0 +1,13 @@
+{
+  "composition": true,
+  "realCarrier": true,
+  "latePassengerStayed": true,
+  "positionSynced": true,
+  "inTransitSaveReload": true,
+  "deathReleasedSeat": true,
+  "arrivedClearedTransport": true,
+  "successfulCompletion": true,
+  "trainId": 6,
+  "distanceBeforeSave": 3,
+  "errors": []
+}

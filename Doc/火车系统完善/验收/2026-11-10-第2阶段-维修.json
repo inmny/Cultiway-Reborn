@@ -1,0 +1,12 @@
+{
+  "damageWithdrawsImmediately": true,
+  "gapStopsMovement": true,
+  "repairChargesNewTiles": true,
+  "floodReroutesWithoutFillingSea": true,
+  "newBuildingPreserved": true,
+  "resourceShortagePauses": true,
+  "resourceReturnContinuesOnce": true,
+  "threeFailuresSuspend": true,
+  "terrainChangeReactivates": true,
+  "errors": []
+}

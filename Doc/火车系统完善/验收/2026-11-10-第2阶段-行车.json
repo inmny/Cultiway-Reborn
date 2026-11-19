@@ -1,0 +1,15 @@
+{
+  "opposingWaitsAtStation": true,
+  "headArrivalKeepsOccupancy": true,
+  "tailClearReleases": true,
+  "inFlightOccupancyReload": true,
+  "queueOrderReload": true,
+  "opposingTripsComplete": true,
+  "crossingsBlocked": true,
+  "followingBlocked": true,
+  "independentSegmentsRun": true,
+  "firstRequestWins": true,
+  "stationPointStableWhenCityCenterChanges": true,
+  "stationPointStableAfterReload": true,
+  "errors": []
+}

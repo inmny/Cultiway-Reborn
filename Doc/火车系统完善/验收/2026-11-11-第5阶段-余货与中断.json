@@ -1,0 +1,15 @@
+{
+  "destroyedWarehouseKeepsCargo": true,
+  "restoredWarehouseReceivesOnce": true,
+  "changedDemandUnloadsOnlyFive": true,
+  "remainingCargoReturned": true,
+  "nativeWarehouseHardLimitRespected": true,
+  "partialDepositUsesActualDifference": true,
+  "fullWarehouseKeeps26Onboard": true,
+  "freedWarehouseSpaceReceivesRemainder": true,
+  "capturedTargetReceivesNothing": true,
+  "loadedCargoReturnsToSource": true,
+  "vehicleCountryPreserved": true,
+  "destroyedCityNotRecreated": true,
+  "errors": []
+}

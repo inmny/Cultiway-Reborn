@@ -1,0 +1,9 @@
+{
+  "capturedTargetNotSupplied": true,
+  "loadedCargoRedirectsToDomesticNeed": true,
+  "actualThirdCityReceives40": true,
+  "noSourceRefundDuringRedirection": true,
+  "vehicleCountryAndSettlementPreserved": true,
+  "foreignSurplusNotReservedOrTaken": true,
+  "errors": []
+}

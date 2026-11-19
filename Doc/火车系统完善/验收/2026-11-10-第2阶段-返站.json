@@ -1,0 +1,10 @@
+{
+  "unbuildableAheadEvacuates": true,
+  "passengerRequestCleared": true,
+  "retreatMovesContinuously": true,
+  "brokenRetreatStaysInPlace": true,
+  "restoredOldTrackContinues": true,
+  "retreatSaveReload": true,
+  "returnReleasesForReroute": true,
+  "errors": []
+}

@@ -203,12 +203,14 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         TrainStation.build_place_batch = false;
         TrainStation.priority = 100;
         TrainStation.group = "train_station";
+        TrainStation.cost = Railways.RailwayStationService.StationCost;
+        TrainStation.can_be_living_house = false;
     }
 
     private void SetupTeleportArray()
     {
         TeleportArray.sprite_path = "buildings/Cultiway.TeleportArray";
-        SetFootprint(TeleportArray, 11, 4);
+        SetFootprint(TeleportArray, 11, 11);
         TeleportArray.has_sprite_construction = false;
         TeleportArray.city_building = false;
         TeleportArray.can_be_abandoned = false;

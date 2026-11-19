@@ -1,0 +1,12 @@
+{
+  "freightYieldsAtSafeStation": true,
+  "loadedCargoSurvivesPassengerReassignment": true,
+  "deliveryDuringPickupUsesSameCargo": true,
+  "passengerBoardsAndCompletes": true,
+  "existingPassengerJourneyAcceptsAlongRouteCargo": true,
+  "promisedStopsUnchanged": true,
+  "passengerAndCargoCapacitySeparate": true,
+  "passengerAndCargoFinishSeparately": true,
+  "noTradeGoldForMaterialLeg": true,
+  "errors": []
+}

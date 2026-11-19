@@ -15,6 +15,12 @@ namespace Cultiway.Content
         /// <summary>护城河文化特性的编号。</summary>
         public const string MoatId = "Cultiway.Moat";
 
+        /// <summary>城墙文化特性的编号。</summary>
+        public const string CityWallsId = "Cultiway.CityWalls";
+
+        /// <summary>官道文化特性的编号。</summary>
+        public const string OfficialRoadsId = "Cultiway.OfficialRoads";
+
         /// <summary>文化建筑风格特性。</summary>
         public static CultureTrait CultureSkin { get; private set; }
 
@@ -23,6 +29,12 @@ namespace Cultiway.Content
 
         /// <summary>允许城市修建护城河的结构特性。</summary>
         public static CultureTrait Moat { get; private set; }
+
+        /// <summary>允许城市修建和升级城墙的独立结构特性。</summary>
+        public static CultureTrait CityWalls { get; private set; }
+
+        /// <summary>允许有大厅的村庄修建通往本国首都路网的陆地官道。</summary>
+        public static CultureTrait OfficialRoads { get; private set; }
 
         /// <summary>允许自动注册本类声明的文化特性。</summary>
         protected override bool AutoRegisterAssets() => true;
@@ -33,9 +45,13 @@ namespace Cultiway.Content
             CultureSkin.group_id = S_TraitGroup.miscellaneous;
             CultureSkin.path_icon = "cultiway/icons/traits/iconCultureSkin";
 
-            // 原版“结构”栏目对应 architecture；护城河独立于城市布局，可以与任意布局同时选择。
+            // 原版“结构”栏目对应 architecture；城墙与护城河可以独立选择，也不排斥城市布局。
             Moat.group_id = "architecture";
             Moat.path_icon = "ui/Icons/culture_traits/culture_trait_city_layout_rings";
+            CityWalls.group_id = "architecture";
+            CityWalls.path_icon = "ui/Icons/culture_traits/culture_trait_tower_lovers";
+            OfficialRoads.group_id = "architecture";
+            OfficialRoads.path_icon = "ui/Icons/culture_traits/culture_trait_roads";
 
             // 厅火之邑：鬼族 / 东方人族的城市布局标记 trait（自动 id Cultiway.HallHearth）。
             // 纯标记——不设 town_layout_plan 谓词（=> 不触发区过滤，城市密集填满），

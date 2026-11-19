@@ -1,0 +1,20 @@
+{
+  "restored": true,
+  "units": 4,
+  "width": 256,
+  "height": 256,
+  "autosaves": false,
+  "paused": false,
+  "runInBackground": true,
+  "template": "continent",
+  "size": "standard",
+  "currentSavePath": "",
+  "currentSlot": 0,
+  "language": "cz",
+  "screenWidth": 2560,
+  "screenHeight": 1346,
+  "screenMode": 3,
+  "cameraPatchRemoved": true,
+  "testProcessClosed": true,
+  "debugToolboxDisabled": true
+}

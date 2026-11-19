@@ -1,0 +1,23 @@
+{
+  "automaticBuildWithoutPassengers": true,
+  "constructionCostCorrect": true,
+  "vehiclesNotPopulation": true,
+  "mixedCapacityAndPartsCost": true,
+  "removedCarsReused": true,
+  "spareCarsRetained": true,
+  "occupiedAdjustmentRejected": true,
+  "sameVehicleServesRepeatedly": true,
+  "tripDoesNotChargeAgain": true,
+  "capacity40Queue25": true,
+  "all65EventuallyArrive": true,
+  "remotePickupUsesExistingFleet": true,
+  "noRequestSpawnedVehicles": true,
+  "idleFleetReload": true,
+  "homeAndDepotReload": true,
+  "trainIds": [
+    111,
+    112
+  ],
+  "maxPassengers": 40,
+  "errors": []
+}

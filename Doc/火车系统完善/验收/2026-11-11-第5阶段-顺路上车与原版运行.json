@@ -1,0 +1,13 @@
+{
+  "directBoardingReusesActiveFreightJourney": true,
+  "freightModeCarriesPassengerAndMaterials": true,
+  "samePassengerDisembarksAlive": true,
+  "nativeSimulationClockAdvances": true,
+  "nativeMovementAndMaterialDeliveryComplete": true,
+  "noTradeSettlementInMaterialJourney": true,
+  "damagedPassengerTrainDoesNotAcceptNewFreight": true,
+  "realSeconds": 21.565239299999998,
+  "simulationSeconds": 23.479999475181103,
+  "unloaded": 40,
+  "errors": []
+}

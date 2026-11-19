@@ -1,0 +1,33 @@
+key,cz,en
+cultiway_territory_create,新建地区,New region
+cultiway_territory_create_description,点击开始一个地区，然后拖动绘制。在已有村庄上点击会纳入它的全部领地。,Click to start a region and continue painting. Clicking a village includes its existing land.
+cultiway_territory_select,选中地区,Select region
+cultiway_territory_select_description,点击已有地区查看名称、所属村庄和面积，并继续绘制。,Click a region to see its name and village and continue painting.
+cultiway_territory_draw,绘制地区,Paint region
+cultiway_territory_draw_description,拖动扩展当前地区；每个地区最多一个村庄，村庄只能在本地区内扩张。未划定的地方保留原版规则。,Drag to expand the selected region. Each region holds one village confined to its borders. Unmarked land follows normal rules.
+cultiway_territory_erase,擦除地区,Erase region
+cultiway_territory_erase_description,拖动擦除当前地区的空闲部分。村庄已经占用的格子不能擦除。,Drag to erase unused parts of the selected region. Occupied village land is preserved.
+cultiway_territory_delete,删除地区,Delete region
+cultiway_territory_delete_description,点击删除整个地区的定制范围并解除边界限制。村庄、建筑和地形保留。,Click to delete an entire custom region and release its borders. Villages and terrain remain.
+cultiway_territory_rename,编辑地区名称,Rename region
+cultiway_territory_rename_description,点击地图上的地区，输入新名称并保存。名称会显示在地区图层上，并随世界存档保留。,Click a region to edit its name. Names appear on the region layer and are saved with the world.
+cultiway_territories_layer,地区图层,Regions layer
+cultiway_territories_layer_description,显示玩家绘制的地区边界和名称；亮色为当前编辑地区。,Show custom region borders and names. The selected region is highlighted.
+Cultiway.Territories.DefaultName,地区 {0},Region {0}
+Cultiway.Territories.Selected,{0} · {1} · {2} 格,{0} · {1} · {2} zones
+Cultiway.Territories.Vacant,尚未建村,No village yet
+Cultiway.Territories.Deleted,已删除地区范围，村庄与地形保留。,Custom region removed. Villages and terrain remain.
+Cultiway.Territories.Overlap,这里与另一个地区重叠，请先选中或擦除原区域。,This overlaps another region. Select or erase that region first.
+Cultiway.Territories.NoRegion,这里尚未划定地区，或该地区已经被删除。,No custom region here or the region has been deleted.
+Cultiway.Territories.ChooseRegion,请先新建或选中要编辑的地区。,Create or select a region first.
+Cultiway.Territories.SecondCity,每个地区只能有一个村庄，不能圈入第二个村庄。,A region can hold only one village.
+Cultiway.Territories.CityAssigned,这个村庄已经属于另一个地区。,This village already belongs to another region.
+Cultiway.Territories.Occupied,村庄已经占用这里；如要解除边界，请使用删除地区。,This zone is occupied. Use Delete region to release the entire boundary.
+Cultiway.Territories.NamePlaceholder,输入地区名称,Enter region name
+Cultiway.Territories.InvalidName,请输入 1～40 个字符的单行地区名称。,Enter a region name of 1 to 40 characters on one line.
+Cultiway.Territories.EditorSummary,地区编号 {0} · {1} · {2} 格,Region {0} · {1} · {2} zones
+Cultiway.Territories.SaveName,保存名称,Save name
+Cultiway.Territories.Cancel,取消,Cancel
+Cultiway.Territories.Renamed,地区名称已改为“{0}”。,Region renamed to {0}.
+Cultiway.UI.WindowRegionName Title,编辑地区名称,Rename region
+Cultiway.UI.WindowRegionName Title Description,修改地区名称并保存到当前世界。,Edit a region name and save it with the world.

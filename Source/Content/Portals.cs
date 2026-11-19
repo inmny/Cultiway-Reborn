@@ -20,6 +20,16 @@ namespace Cultiway.Content
         protected override void OnInit()
         {
             TrainStation.Buildings.Add(Buildings.TrainStation);
+            TrainStation.CancelOnMissingBuilding = true;
+            TrainStation.FreezeAfterAssignment = true;
+            TrainStation.PassengerRequested = Railways.TrainPassengerService.RememberJourney;
+            TrainStation.PassengerTile = portal => Railways.RailwayStationService.GetPassengerTile(portal.building);
+            TrainStation.ResolveRoute = Railways.RailwayRouteService.GetRoute;
+            TrainStation.CanRequest = Railways.RailwayPassengerRules.CanRequest;
+            TrainStation.PassengerGroupKey = Railways.RailwayPassengerRules.GroupKey;
+            TrainStation.CanJoinJourney = (actor, request, start, target) =>
+                TrainTransportSystem.Instance.CanJoinJourney(actor, request, start, target);
+            TrainStation.RequestRebuildGraph = _ => TrainTrackRepairSystem.RequestRebuild();
             TeleportArray.Buildings.Add(Buildings.TeleportArray);
             TeleportArray.RequestRebuildGraph = _ => TeleportArraySystem.RequestRebuild();
         }

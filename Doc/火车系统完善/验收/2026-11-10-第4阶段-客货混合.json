@@ -1,0 +1,15 @@
+{
+  "mixedUsesOneJourney": true,
+  "passengersOnlyUseCoaches": true,
+  "returnPassengerMatchesLaterRepeatedStation": true,
+  "sameStopUnloadsBoardsAndTrades": true,
+  "mixedTradeHasNoDetour": true,
+  "mixedTradeExactlyFive": true,
+  "mixedRoundTripCompletes": true,
+  "militaryDoesNotMergeIntoTrade": true,
+  "noMidSegmentReassignment": true,
+  "tradeYieldsAtSafeStop": true,
+  "earnedGoldSurvivesReassignment": true,
+  "passengerArrivalCanDepositExistingEarnings": true,
+  "errors": []
+}

@@ -1,0 +1,7 @@
+{
+  "roadChangeUpdatesStationPoint": true,
+  "stationPointBuildingPreserved": true,
+  "floodedStationPointWithdrawn": true,
+  "stationAccessReloadStable": true,
+  "errors": []
+}

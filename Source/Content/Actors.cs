@@ -25,7 +25,8 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
         
     }
     [CloneSource("$mob$")] public static ActorAsset Plant { get; private set; }
-    [CloneSource(SA.crabzilla)] public static ActorAsset Train { get; private set; }
+    /// <summary>由火车头与有序车厢组成的机械载具。</summary>
+    public static ActorAsset Train { get; private set; }
     protected override void OnInit()
     {
         SetupPlant();
@@ -167,6 +168,36 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
     {
         Train.kingdom_id_wild = SK.nature;
         Train.avatar_prefab = "p_train";
+        Train.name_locale = "Cultiway.Railways.Train";
+        Train.icon = "iconBoat";
+        Train.special = true;
+        Train.skip_save = false;
+        Train.count_as_unit = false;
+        Train.has_ai_system = false;
+        Train.split_ai_update = false;
+        Train.skip_fight_logic = true;
+        Train.ignore_generic_render = true;
+        Train.has_sprite_renderer = false;
+        Train.can_be_killed_by_stuff = true;
+        Train.can_be_hurt_by_powers = true;
+        Train.can_be_moved_by_powers = false;
+        Train.can_be_inspected = true;
+        Train.can_flip = false;
+        Train.shadow = false;
+        Train.update_z = false;
+        Train.ignore_blocks = false;
+        Train.die_on_blocks = false;
+        Train.move_from_block = false;
+        Train.disable_jump_animation = true;
+        Train.show_task_icon = false;
+        Train.show_controllable_tip = false;
+        Train.allowed_status_tiers = StatusTier.None;
+        Train.base_stats[S.health] = 500f;
+        Train.base_stats[S.speed] = 30f;
+        Train.base_stats[S.scale] = 0.3f;
+        Train.base_stats[S.size] = 8f;
+        Train.base_stats["mass_2"] = 2000f;
+        Train.get_override_sprite = _ => SpriteTextureLoader.getSprite("actors/train/head/right/1");
     }
 
     protected override void PostInit(ActorAsset asset)

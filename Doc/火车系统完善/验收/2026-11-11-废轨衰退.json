@@ -1,0 +1,14 @@
+{
+  "sharedTrackKept": true,
+  "abandonedTrackEligible": true,
+  "occupiedOldTrackProtected": true,
+  "releasingOccupancyAllowsDecay": true,
+  "abandonedTrackDecaysNatively": true,
+  "ordinaryRoadDecayUnchanged": true,
+  "lastLinkCancellationReleasesMaintenance": true,
+  "nativeDecayCalls": 10000,
+  "abandonedBefore": 12,
+  "abandonedRemoved": 12,
+  "sharedRetained": 195,
+  "errors": []
+}

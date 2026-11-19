@@ -1,0 +1,12 @@
+{
+  "actualJourneyBlocked": true,
+  "passengerRemainsUntilTimeout": true,
+  "occupiedIntervalKept": true,
+  "blockedJourneyReloaded": true,
+  "blockedTimerReloaded": true,
+  "blockedTrainExpiresAtFiveMinutes": true,
+  "passengerReleased": true,
+  "cargoLost": true,
+  "journeyAndOccupancyReleased": true,
+  "errors": []
+}

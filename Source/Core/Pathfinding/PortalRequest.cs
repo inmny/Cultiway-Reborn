@@ -13,14 +13,36 @@ namespace Cultiway.Core.Pathfinding
         Driving,
         Completed
     }
+    /// <summary>运输结束的实际原因。</summary>
+    public enum PortalCompletionReason
+    {
+        /// <summary>尚未结束。</summary>
+        None,
+        /// <summary>正常完成。</summary>
+        Arrived,
+        /// <summary>主动取消。</summary>
+        Cancelled,
+        /// <summary>站点或线路不可用。</summary>
+        Unavailable
+    }
     public class PortalRequest
     {
+        /// <summary>内容层确定的同国或同命令批次，普通运输可为空。</summary>
+        public string GroupKey;
         public Actor Driver;
         public PortalRequestState State;
         public List<SinglePortal> Portals;
         public PortalAsset PortalType;
         public bool AllowEmptyRide;
-        public bool IsExperimentalRide;
+        /// <summary>结束原因独立于运行状态保存，供载具清理和旅客恢复使用。</summary>
+        public PortalCompletionReason CompletionReason;
+
+        /// <summary>从本次行程的所有上下客记录中移除一个乘客。</summary>
+        /// <param name="actor">取消本次乘坐的乘客。</param>
+        public void RemovePassenger(Actor actor)
+        {
+            foreach (var portal in Portals) portal.RemovePassenger(actor);
+        }
         public class SinglePortal
         {
             public Building PortalBuilding;
@@ -148,20 +170,24 @@ namespace Cultiway.Core.Pathfinding
 
         internal void Clear()
         {
+            GroupKey = null;
             Portals.Clear();
             Driver = null;
             PortalType = null;
             AllowEmptyRide = false;
-            IsExperimentalRide = false;
+            CompletionReason = PortalCompletionReason.None;
         }
         public void Cancel()
         {
+            Finish(PortalCompletionReason.Cancelled);
+        }
+
+        /// <summary>保留站序供载具清理，同时记录明确的完成结果。</summary>
+        /// <param name="reason">本次行程结束的原因。</param>
+        public void Finish(PortalCompletionReason reason)
+        {
             State = PortalRequestState.Completed;
-            Driver = null;
-            Portals.Clear();
-            PortalType = null;
-            AllowEmptyRide = false;
-            IsExperimentalRide = false;
+            CompletionReason = reason;
         }
 
         internal void RemoveDeadUnits()
@@ -181,6 +207,13 @@ namespace Cultiway.Core.Pathfinding
         }
         internal void RemoveDeadBuildings()
         {
+            if (PortalType?.CancelOnMissingBuilding == true &&
+                Portals.Any(p => p.PortalBuilding == null || p.PortalBuilding.isRekt() ||
+                                 !p.PortalBuilding.isNormal()))
+            {
+                Finish(PortalCompletionReason.Unavailable);
+                return;
+            }
             for (int i = 0; i < Portals.Count;)
             {
                 var portal = Portals[i];

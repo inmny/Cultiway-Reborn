@@ -1,0 +1,13 @@
+{
+  "gapStopsMovement": true,
+  "noGapFiltering": true,
+  "capacityLimited": true,
+  "occupiedCompositionRejected": true,
+  "destructionEvacuates": true,
+  "cargoCannotBoard": true,
+  "headHasNoCapacity": true,
+  "vanillaBoatStillWorks": true,
+  "missingStationCancels": true,
+  "renderers": 3,
+  "errors": []
+}

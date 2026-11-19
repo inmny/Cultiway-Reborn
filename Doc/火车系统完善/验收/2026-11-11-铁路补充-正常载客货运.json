@@ -1,0 +1,14 @@
+{
+  "oldEntranceAnchorRejected": true,
+  "oldCityLineMovesToSideVerticalMidpoint": true,
+  "migrationWoodCost": 0,
+  "directBoardingReusesFreightJourney": true,
+  "freightCarriesSamePassengerAndActualMaterials": true,
+  "passengerDisembarksAlive": true,
+  "nativeSimulationTimeAdvances": true,
+  "nativeJourneyDelivers40Materials": true,
+  "materialJourneyDoesNotCreateTradeGold": true,
+  "realSeconds": 20.785643099999998,
+  "simulationSeconds": 23.359999477863312,
+  "errors": []
+}

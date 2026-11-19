@@ -57,10 +57,9 @@ internal static class PatchCityBehBuild
         BuildingAsset targetAsset = buildings[0].asset?.upgrade_to == null
             ? null
             : AssetManager.buildings.get(buildings[0].asset.upgrade_to);
-        var wallContext = WallShapeHelper.CreateContext(city);
-        if (targetAsset == null
-            || Plots.GetHallHearthPlacementTier(city, targetAsset, city?.getTile(), wallContext) < 0)
+        if (!Plots.UsesHallHearthPlacement(city, targetAsset))
             return buildings.GetRandom();
+        var wallContext = WallShapeHelper.CreateContext(city);
 
         int minimumTier = 2;
         foreach (Building building in buildings)
@@ -95,16 +94,20 @@ internal static class PatchCityBehBuild
         return false;
     }
 
+    /// <summary>只在本次建造需要筛选城墙内外层级时计算，避免选址查询反复扫描全城。</summary>
+    /// <param name="pTile">候选建筑位置。</param>
+    /// <param name="pAsset">准备建造的建筑。</param>
+    /// <param name="pCity">准备建造的城市。</param>
+    /// <param name="__result">原版选址检查的结果。</param>
     [HarmonyPostfix, HarmonyPatch(typeof(CityBehBuild), nameof(CityBehBuild.isGoodTileForBuilding))]
     private static void isGoodTileForBuilding_hall_hearth_postfix(
         WorldTile pTile, BuildingAsset pAsset, City pCity, ref bool __result)
     {
-        if (!__result || pCity == null || pAsset == null || pTile == null) return;
+        if (!__result || pCity == null || pAsset == null || pTile == null
+            || hallHearthMinimumPlacementTier < 0
+            || pCity != hallHearthPlacementCity || pAsset != hallHearthPlacementAsset) return;
         int tier = Plots.GetHallHearthPlacementTier(pCity, pAsset, pTile, hallHearthWallContext);
-        if (tier < 0) return;
-        if (hallHearthMinimumPlacementTier >= 0
-            && pCity == hallHearthPlacementCity && pAsset == hallHearthPlacementAsset)
-            __result = tier == hallHearthMinimumPlacementTier;
+        if (tier >= 0) __result = tier == hallHearthMinimumPlacementTier;
     }
 
     [HarmonyPrefix, HarmonyPatch(typeof(CityBehBuild), nameof(CityBehBuild.tryToBuild))]
@@ -113,15 +116,15 @@ internal static class PatchCityBehBuild
         hallHearthPlacementCity = pCity;
         hallHearthPlacementAsset = pBuildingAsset;
         hallHearthMinimumPlacementTier = -1;
+        hallHearthWallContext = null;
+        if (!Plots.UsesHallHearthPlacement(pCity, pBuildingAsset)) return;
         hallHearthWallContext = WallShapeHelper.CreateContext(pCity);
-        if (Plots.GetHallHearthPlacementTier(pCity, pBuildingAsset, pCity?.getTile(), hallHearthWallContext) < 0)
-            return;
+        if (!pBuildingAsset.build_prefer_replace_house) return;
 
         var possibleZones = new List<TileZone>();
         CityBehBuild.fillPossibleZones(pBuildingAsset, pCity, possibleZones);
         hallHearthMinimumPlacementTier = FindMinimumPlacementTier(possibleZones, pBuildingAsset, pCity);
 
-        if (!pBuildingAsset.build_prefer_replace_house) return;
         foreach (Building building in pCity.buildings)
         {
             if (building.asset.priority > pBuildingAsset.priority || !building.asset.hasHousingSlots()) continue;
@@ -189,6 +192,7 @@ internal static class PatchCityBehBuild
                 int candidateTier = Plots.GetHallHearthPlacementTier(
                     city, buildingAsset, candidate, hallHearthWallContext);
                 if (candidateTier < 0) return -1;
+                if (candidateTier == 0) return 0;
                 if (candidateTier < minimumTier) minimumTier = candidateTier;
             }
         }

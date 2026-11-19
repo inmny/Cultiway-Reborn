@@ -1,0 +1,49 @@
+{
+  "autoCargoUsesExistingHead": true,
+  "onlyNewPartsCharged": true,
+  "separatePassengerAndCargoCapacity": true,
+  "nativeInventoryIsOnlyGoldSource": true,
+  "outboundReloadNoEarnings": true,
+  "externalVisitExactlyFiveGold": true,
+  "multipleCargoCarsDoNotMultiplyIncome": true,
+  "emptyTargetInventoryUnaffected": true,
+  "visitedReloadNoDuplicate": true,
+  "realReturnJourneyCarriesGold": true,
+  "returnReloadNoPrematureDeposit": true,
+  "nativeHomeStockpileReceivesFive": true,
+  "depositedReloadNoDuplicate": true,
+  "tradeWaitBlocksImmediateRepeat": true,
+  "trainId": 111,
+  "goldBefore": 444,
+  "goldAfter": 449,
+  "errors": [
+    {
+      "Sequence": 22,
+      "TimestampUtc": "2026-11-10T08:59:39.2690605Z",
+      "Frame": 10790,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": null,
+      "Message": "LocalizedTextManager: missing text: cultiway_baibao_u_i_state_no_selection",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    },
+    {
+      "Sequence": 23,
+      "TimestampUtc": "2026-11-10T08:59:39.2700605Z",
+      "Frame": 10790,
+      "Category": "unity",
+      "Level": "error",
+      "ScriptId": null,
+      "Message": "LocalizedTextManager: missing text: cultiway_baibao_u_i_detail_select_artifact",
+      "Data": {
+        "logType": "Error",
+        "stackTrace": "",
+        "frames": []
+      }
+    }
+  ]
+}

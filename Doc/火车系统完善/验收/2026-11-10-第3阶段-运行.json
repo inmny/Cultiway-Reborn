@@ -1,0 +1,7 @@
+{
+  "pauseKeepsSimulationStill": true,
+  "persistentPassengerTransitReload": true,
+  "largerSimulationStepsCompleteOnce": true,
+  "largerStepsKeepFleetCount": true,
+  "errors": []
+}

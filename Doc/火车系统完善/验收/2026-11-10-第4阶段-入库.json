@@ -1,0 +1,7 @@
+{
+  "missingStockpileKeepsNativeBag": true,
+  "missingStockpileDoesNotMarkSettled": true,
+  "restoredStockpileReceivesActualGold": true,
+  "repeatedManagementDoesNotDuplicateDeposit": true,
+  "errors": []
+}

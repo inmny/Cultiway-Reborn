@@ -1,0 +1,11 @@
+{
+  "damagedLinkAllowsRetry": true,
+  "oppositeEndpointCanPayRepair": true,
+  "onlyNewTrackCharged": true,
+  "healthyLinkRejectsDuplicate": true,
+  "resourceShortagePauses": true,
+  "pausedLinkAllowsRetry": true,
+  "retryCanChangePayer": true,
+  "terrainBlockReroutesWithoutFillingWater": true,
+  "errors": []
+}

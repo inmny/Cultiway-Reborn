@@ -6,6 +6,7 @@ using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Content;
 using Cultiway.Content.Const;
+using Cultiway.Content.Railways;
 using Cultiway.Core.BuildingComponents;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
@@ -173,6 +174,8 @@ internal static class PatchBuilding
             {
                 WorldTile tile = World.world.GetTile(startX + x, startY + y);
                 if (tile == null || tile.zone?.city != upgrading.city) return false;
+                // 扩建只能占用铁路预留带以外的新格子，既有占地不变的升级仍可继续。
+                if (tile.building != upgrading && RailTrackRoutePlanner.IsReservedForTrack(tile)) return false;
 
                 bool wall = tile.top_type?.wall == true;
                 if (wall)

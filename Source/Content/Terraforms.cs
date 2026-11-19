@@ -22,8 +22,8 @@ namespace Cultiway.Content
 
         protected override void OnInit()
         {
-            TrainTrack.destroy_only = null;
-            TrainTrack.ignore_buildings = new List<string> { Buildings.TrainStation.id };
+            TrainTrack.destroy_buildings = false;
+            TrainTrack.make_ruins = false;
         }
     }
 }

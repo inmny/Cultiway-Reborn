@@ -1,0 +1,14 @@
+{
+  "nativeCityEntryOpens": true,
+  "trainPageEntryExists": true,
+  "pooledRowsStableAfterTenOpens": true,
+  "stationFleetAndLineInfoVisible": true,
+  "orderedCarsAndTradeStateVisible": true,
+  "originalScrollbarAttached": true,
+  "longNamesDoNotOverlapButtons": true,
+  "smallResolutionLayoutBoundsChecked": true,
+  "selectedNetworkOverlayWorks": true,
+  "railwayRows": 10,
+  "networkTiles": 236,
+  "errors": []
+}

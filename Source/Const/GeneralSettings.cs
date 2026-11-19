@@ -127,8 +127,4 @@ public static class GeneralSettings
         TacticalCombatSettings.SetEnabled(value);
     }
 
-    public static void SwitchTrainExperimentalTimedDispatch(bool value)
-    {
-        TrainConfig.ExperimentalTimedDispatchEnabled = value;
-    }
 }

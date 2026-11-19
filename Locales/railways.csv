@@ -1,0 +1,156 @@
+key,cz,en
+Cultiway.Railways.Train,火车,Train
+Cultiway.Railways.Passenger,载客车厢,Passenger coach
+Cultiway.Railways.Cargo,货运车厢,Freight wagon
+Cultiway.Railways.Waiting,停站候车,Boarding
+Cultiway.Railways.Travelling,沿轨运行,Travelling
+Cultiway.Railways.BetweenStations,区间运行中,Between stations
+Cultiway.Railways.Blocked,前方轨道受损,Damaged track ahead
+Cultiway.Railways.Title,铁路信息,Railway information
+Cultiway.Railways.Overview,概况,Overview
+Cultiway.Railways.Vehicles,车辆编组,Trains and cars
+Cultiway.Railways.Lines,线路,Lines
+Cultiway.Railways.RouteDiagram,路线简图,Route diagram
+Cultiway.Railways.RouteDiagramLegend,白点：车站 · 黄点：列车 · 线路颜色对应运营状态,White: stations · Yellow: train · Line colours show service state
+Cultiway.Railways.Draw,绘轨,Draw rails
+Cultiway.Railways.Erase,擦轨,Erase rails
+Cultiway.Railways.Stranded,无法返站,Unable to return
+Cultiway.Railways.StrandedValue,持续无法返站，约 {0} 后自爆并释放乘客，全部货物损失。,If still stranded for {0} the train self-destructs. Passengers are released and cargo is lost.
+Cultiway.Railways.FleetSummary,本站车辆 {0} 列 · 总座位 {1} / 总货位 {2},Trains here: {0} · Total seats: {1} / cargo: {2}
+Cultiway.Railways.Entrance,轨道进站口,Track entrance
+Cultiway.Railways.EntranceDescription,轨道从车站左右两侧进入，高度在建筑上下居中处；上下客点避开铁轨。,Tracks enter from either side at the vertical midpoint of the building. Boarding points avoid the track.
+Cultiway.Railways.StopPassengers,本站计划上车 {0} 人 / 下车 {1} 人,Planned boarding: {0} / alighting: {1}
+Cultiway.Railways.DrawnLine,玩家绘制,Player drawn
+Cultiway.Railways.CityLine,城市建设,City built
+Cultiway.Railways.PlayerErased,玩家已拆除轨道,Track erased by player
+Cultiway.Railways.CityInfo,铁路,Railway
+Cultiway.Railways.Open,查看铁路详情,Railway details
+Cultiway.Railways.OpenTip,查看车辆、车站与线路详情。,View trains and stations and lines.
+Cultiway.Railways.Locate,定位,Locate
+Cultiway.Railways.LocateTip,关闭详情并将镜头移到实际位置。,Close details and focus the actual location.
+Cultiway.Railways.Map,查看铁路图,Show railway map
+Cultiway.Railways.MapTip,只显示选中车站所在网络；绿色可运营，黄色施工或维修，红色受损，灰色暂停。预计时间不含额外排队。,Show the selected network. Green: operating; yellow: work; red: damage; grey: suspended. Estimates exclude extra queues.
+Cultiway.Railways.NoStation,城市尚无车站,No station in this city
+Cultiway.Railways.NoStationTip,城市会在具备建站条件和资源时自动建设车站。,Cities build stations when suitable land and resources are available.
+Cultiway.Railways.BuildBlocked.NoCity,该人物没有所属城市,This person has no city
+Cultiway.Railways.BuildBlocked.Leader,请由城主发起建站,Select a city leader to propose a station
+Cultiway.Railways.BuildBlocked.ExistingStation,本城已经有车站或在建车站,This city already has a station or one under construction
+Cultiway.Railways.BuildBlocked.Population,城市人口不足：{0}/{1},Insufficient city population: {0}/{1}
+Cultiway.Railways.BuildBlocked.Resources,建站所需的城市库存不足,The city lacks station construction resources
+Cultiway.Railways.BuildBlocked.PlotBusy,世界中已有建站谋划进行中,A station proposal is already active in the world
+Cultiway.Railways.BuildBlocked.NoSite,城内缺少可用的10×5陆地及连通站口,No usable 10×5 site with a connected entrance in this city
+Cultiway.Railways.BuildBlocked.NoPartner,没有符合建站条件的友好邻城,No friendly neighbouring city has a station or meets station requirements
+Cultiway.Railways.BuildReady,当前条件满足，可以发起建站,Current conditions allow a station proposal
+Cultiway.Railways.BuildPopulation,城市人口：{0}/{1},City population: {0}/{1}
+Cultiway.Railways.BuildResources,城市库存：木材{0}/{1}；石头{2}/{3}；普通金属{4}/{5}；金币{6}/{7},City stock: wood {0}/{1}; stone {2}/{3}; common metals {4}/{5}; gold {6}/{7}
+Cultiway.Railways.BuildSiteRule,需要10×5安全陆地和可步行到达的站口；草地可用，建筑与农田避让。邻城需已有站或也能建站。,Requires 10×5 safe land and a walkable entrance. Grass is allowed. Buildings and farms are avoided. A neighbouring city needs a station or an eligible station site.
+Cultiway.Railways.InvalidSelection,选择已失效,Selection unavailable
+Cultiway.Railways.InvalidSelectionTip,该对象已被移除，请重新选择列车或城市。,Choose a train or city again.
+Cultiway.Railways.Ownership,车辆归属,Ownership
+Cultiway.Railways.OwnershipValue,国家：{0} · 城市：{1},Country: {0} · City: {1}
+Cultiway.Railways.Home,归属车站,Home station
+Cultiway.Railways.None,无,None
+Cultiway.Railways.Locomotive,火车头,Locomotive
+Cultiway.Railways.HealthValue,生命 {0}/{1},Health {0}/{1}
+Cultiway.Railways.CarNumber,第 {0} 节 · {1},Car {0} · {1}
+Cultiway.Railways.CapacityValue,已用 {0} / 容量 {1},Used {0} / capacity {1}
+Cultiway.Railways.PassengerTotal,整列载客,Passengers
+Cultiway.Railways.PassengersValue,已乘 {0}/{1} · 本次沿途候车 {2} 人,Aboard {0}/{1} · Waiting along this journey: {2}
+Cultiway.Railways.CargoTotal,整列载货,Cargo
+Cultiway.Railways.Journey,当前去向,Journey
+Cultiway.Railways.JourneyValue,当前站：{0} → 下一站：{1} · 约 {2},Current: {0} → Next: {1} · About {2}
+Cultiway.Railways.Trade,贸易运营,Trade
+Cultiway.Railways.TradeValue,目标：{0} · {1} · 车上收益 {2} 金币 · 返站约 {3},Target: {0} · {1} · Earnings aboard: {2} gold · Return: {3}
+Cultiway.Railways.TradeSettled,已入库,Deposited
+Cultiway.Railways.TradeVisited,已交易，待返站入库,Traded; awaiting home deposit
+Cultiway.Railways.TradeOutbound,前往交易站,Outbound
+Cultiway.Railways.TradeIdle,等待贸易需求,Awaiting trade
+Cultiway.Railways.Onboard,本车实际乘客,Aboard this train
+Cultiway.Railways.Station,车站情况,Station
+Cultiway.Railways.StationValue,国家：{0} · {1} · {2},Country: {0} · {1} · {2}
+Cultiway.Railways.Ready,可用,Available
+Cultiway.Railways.Incomplete,车站尚未完工或已损毁,Station incomplete or destroyed
+Cultiway.Railways.NoEntrance,没有安全上下客点,No safe boarding point
+Cultiway.Railways.EntranceReady,上下客点可用,Boarding point available
+Cultiway.Railways.Demand,候车与运营,Demand and service
+Cultiway.Railways.DemandValue,本站候车 {0} 人 · {1},Waiting here: {0} · {1}
+Cultiway.Railways.NoLine,线路尚未可运营,No operating line
+Cultiway.Railways.NoVehicle,没有可用列车,No available train
+Cultiway.Railways.NoVehicleTip,归属车辆会自动建造；资源不足、车站失效或线路太短时需要等待。,Trains are built automatically. Resources and a valid station and enough track length are required.
+Cultiway.Railways.VehicleValue,{0} · 当前站：{1} · 座位 {2} / 货位 {3},{0} · At: {1} · Seats: {2} / cargo: {3}
+Cultiway.Railways.Reachable,许可可达,Permitted destination
+Cultiway.Railways.NoReachable,暂无许可可达站,No permitted destination
+Cultiway.Railways.NoReachableTip,检查线路是否完工、轨道是否受损，以及沿途国家的通行许可。,Check construction and damaged track and passage permission.
+Cultiway.Railways.LineValue,{0} · {1} · 长 {2} 格 / 约 {3} · 区间占用 {4} 列 · 工程 {5}/{6},{0} · {1} · {2} tiles / about {3} · Occupying: {4} · Work: {5}/{6}
+Cultiway.Railways.NextOccupied,等待下一段区间放行,Waiting for the next section
+Cultiway.Railways.Repairing,列车维修中,Train under repair
+Cultiway.Railways.NoPermission,无通行许可,No passage permission
+Cultiway.Railways.TerrainBlocked,地形或建筑阻挡,Blocked by terrain or buildings
+Cultiway.Railways.NoResources,建设资源不足,Insufficient construction resources
+Cultiway.Railways.StationGone,端点车站已失效,Endpoint station unavailable
+Cultiway.Railways.Revoked,工程已撤销,Construction revoked
+Cultiway.Railways.NoIssue,无故障,No fault
+Cultiway.Railways.NoRoute,暂无可执行路线,No executable route
+Cultiway.Railways.Seconds,{0} 秒,{0} seconds
+Cultiway.Railways.StationName,{0}车站,{0} station
+Cultiway.Railways.Legend,铁路图例,Railway map legend
+Cultiway.Railways.LegendValue,绿色：可运营 · 黄色：施工/维修 · 红色：受损 · 灰色：暂停/撤销,Green: operating · Yellow: work · Red: damage · Grey: suspended/revoked
+Cultiway.Railways.Mode.Idle,站内空闲,Idle at station
+Cultiway.Railways.Mode.Pickup,前往接客,Going to collect passengers
+Cultiway.Railways.Mode.Passenger,执行客运,Passenger service
+Cultiway.Railways.Mode.Returning,空车返站,Returning
+Cultiway.Railways.Mode.Repairing,列车维修中,Under repair
+Cultiway.Railways.Mode.Stopped,停驶，等待安全路线或接管车站,Stopped; awaiting a safe route or home station
+Cultiway.Railways.Mode.Trade,贸易往返,Trade journey
+Cultiway.Railways.Mode.Freight,实物补给,Material supply
+Cultiway.Railways.Freight,实物货运,Material freight
+Cultiway.Railways.FreightSource,出货城市,Source city
+Cultiway.Railways.FreightTarget,收货城市,Receiving city
+Cultiway.Railways.FreightReceived,实际入库,Actual unloading
+Cultiway.Railways.FreightReceivedValue,已卸 {0} · 最近入库：{1},Unloaded {0} · Last receiver: {1}
+Cultiway.Railways.FreightAmountValue,预留 {0} · 车上待卸 {1},Reserved {0} · On board {1}
+Cultiway.Railways.FreightCityStock,库存 {0} · 保有/目标 {1} · 预留输出 {2} · 预计到货 {3},Stock {0} · Reserve/target {1} · Reserved out {2} · Incoming {3}
+Cultiway.Railways.CargoEmpty,空货位,Empty cargo space
+Cultiway.Railways.FreightState.None,暂无实物补给,No material shipment
+Cultiway.Railways.FreightState.Reserved,已预留，待装车,Reserved; awaiting loading
+Cultiway.Railways.FreightState.Loaded,已装车，待入库,Loaded; awaiting unloading
+Cultiway.Railways.FreightState.Delivered,本批已全部入库,Shipment fully unloaded
+Cultiway.Railways.FreightState.Cancelled,未装货任务已取消,Unloaded shipment cancelled
+Cultiway.Railways.FreightReason.,同国建设材料自动补给,Automatic supply within one country
+Cultiway.Railways.FreightReason.OwnershipChanged,城市或车站归属改变,City or station ownership changed
+Cultiway.Railways.FreightReason.NoRoute,等待合法线路或同国接收站,Awaiting a permitted route or domestic receiver
+Cultiway.Railways.FreightReason.StockChanged,源城库存或目标需求已改变,Source stock or destination demand changed
+Cultiway.Railways.FreightReason.StorageOrDemand,仓库未接收全部货物，保留余货,Warehouse did not accept all cargo; remainder kept on board
+Cultiway.Railways.FreightReason.Returning,退还源城或同国归属站,Returning cargo to source or domestic home station
+Cultiway.Railways.FreightReason.Redirected,改送其他同国需求城市,Redirected to another domestic city in need
+Cultiway.Railways.FreightReason.PassengerPriority,为客运或军令撤销未装货预留,Unloaded reservation released for passengers or military orders
+Cultiway.Railways.FreightReason.JourneyInterrupted,行程中断，已装货物继续留车,Journey interrupted; loaded materials remain on board
+Cultiway.Railways.Line.Construction,施工中,Under construction
+Cultiway.Railways.Line.Normal,可运营,Operating
+Cultiway.Railways.Line.Damaged,轨道受损,Damaged
+Cultiway.Railways.Line.Repairing,线路维修中,Track under repair
+Cultiway.Railways.Line.Paused,暂停,Suspended
+Cultiway.Railways.Line.Revoked,已撤销,Revoked
+Cultiway.Railways.Log.Built,城市造好一列火车,A city built a train
+Cultiway.Railways.Log.Assigned,列车已分配运行任务,A train was assigned a journey
+Cultiway.Railways.Log.Departed,列车离站,A train departed
+Cultiway.Railways.Log.Arrived,列车到站,A train arrived
+Cultiway.Railways.Log.Damaged,铁路区间受损,A railway section was damaged
+Cultiway.Railways.Log.Repaired,铁路区间恢复运营,A railway section resumed service
+Cultiway.Railways.Log.Repair,列车开始维修,A train began repairs
+Cultiway.Railways.Log.Cancelled,列车任务中止,A train journey ended early
+Cultiway.Railways.Log.Destroyed,列车被毁,A train was destroyed
+Cultiway.Railways.Log.StrandedLost,列车连续五分钟无法返站，自爆并损失全部货物,A train self-destructed after five minutes stranded; all cargo was lost
+Cultiway.Railways.Log.FreightReserved,列车预留同国补给材料,A train reserved domestic construction materials
+Cultiway.Railways.Log.FreightLoaded,列车从源城实际装货,A train loaded materials from its source city
+Cultiway.Railways.Log.FreightUnloaded,列车实物补给已入库,A train unloaded construction materials
+Cultiway.Railways.Log.FreightCancelled,列车释放未装货的资源预留,A train released an unloaded material reservation
+Cultiway.Railways.Log.CargoLost,毁车损失货物：{0},Cargo lost with destroyed train: {0}
+Cultiway.Railways.Log.Settled,列车贸易收益已入库,Train trade earnings were deposited
+Cultiway.UI.WindowRailwayInfo Title,铁路信息,Railway information
+cultiway_railway_layer,铁路运营图,Railway service map
+cultiway_railway_layer_description,从城市或列车详情选择车站查看所在网络。绿色可运营；黄色施工维修；红色受损；灰色暂停。,Select a station from city or train details. Green operating; yellow work; red damage; grey suspended.
+cultiway_draw_rails,绘制铁路,Draw railway
+cultiway_draw_rails_description,按住拖动绘制单格铁路。允许拆城墙、平房、植物、树木和矿石，避开水面、山体、农田与重要建筑。从两站左右侧上下居中处连接即可运营；城市造车仍需资源。,Hold and drag to draw track. Walls and basic houses and natural obstacles may be cleared. Avoid water and mountains and farms and major buildings. Join the stations from either side at their vertical midpoint. Cities still pay to build trains.
+cultiway_erase_rails,擦除铁路,Erase railway
+cultiway_erase_rails_description,只擦除铁轨，保留地面与建筑；经过该处的线路撤销，列车等待安全返站。重新绘制或由城市再次连接后恢复运营。,Erase track while preserving terrain and buildings. Affected lines are revoked and trains seek a safe return. Redraw or ask the city to reconnect to resume service.

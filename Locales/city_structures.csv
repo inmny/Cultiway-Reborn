@@ -1,0 +1,10 @@
+key,cz,en
+culture_trait_Cultiway.CityWalls,城墙,City walls
+culture_trait_Cultiway.CityWalls_info,允许城市按发展阶段修建和升级城墙,Allows cities to build and upgrade walls as they develop
+culture_trait_Cultiway.CityWalls_info_2,取消后停止新建和升级，已有城墙保留,Removing this option stops new construction and upgrades. Existing walls remain
+culture_trait_Cultiway.Moat,护城河,Moat
+culture_trait_Cultiway.Moat_info,允许城市在外围修建三格宽的护城河,Allows cities to dig a moat three tiles wide around their outskirts
+culture_trait_Cultiway.Moat_info_2,同时选择城墙时等待石墙建成；单独选择时首次大厅完工及每次升级完成后重建,With city walls selected waits for stone walls. Alone builds when the first hall is finished and rebuilds after each completed hall upgrade
+culture_trait_Cultiway.OfficialRoads,官道,Official roads
+culture_trait_Cultiway.OfficialRoads_info,大厅建成后修建官道，优先连接附近已通往本国首都的村庄,After a hall is completed builds roads to nearby villages already connected to the national capital
+culture_trait_Cultiway.OfficialRoads_info_2,仅走陆地并绕开山体与城墙，隔海村庄暂不接通；取消后已有道路保留,Uses existing land and avoids mountains and walls. Overseas villages remain disconnected. Existing roads remain when removed
