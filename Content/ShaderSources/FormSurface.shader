@@ -276,6 +276,28 @@ Shader "Cultiway/FormSurface"
             }
             else if(_Kind < 2.5)
                 base *= (.34*ambient+diffuse*.6*direct) * (.65+detail*.5);
+            else if(_Kind < 3.5 && formClosed(i) > .5)
+            {
+                // 封闭厚水体直接按曲面法向和真实截面受光，水纹只在材料内流动。
+                // 贴地水层仍从自身输运资料读取干边和前沿泡沫。
+                float3 q = i.material;
+                float current = volumeNoise(q*float3(2.4,1.1,.8) + float3(.008,-.64,.02)*_WorldTime);
+                float broad = volumeNoise(q*float3(.74,.55,1.8) - float3(.01,.21,0)*_WorldTime);
+                float thickness = max(.025,i.surface.x)/max(.28,facing);
+                float depth = 1-exp(-thickness*(.92+.23*broad));
+                float3 shallow = base*1.18 + float3(.024,.10,.12);
+                float3 deep = base*float3(.38,.73,.87);
+                float3 body = lerp(shallow,deep,depth)*(.68*ambient+.32*diffuse*direct);
+                float fresnel = .055+.945*pow(1-facing,4);
+                float sky = smoothstep(-.2,.8,reflect(-eye,n).z);
+                float3 reflection = lerp(float3(.09,.26,.34),float3(.54,.76,.83),sky);
+                float stream = smoothstep(.38,.75,current);
+                base = lerp(body,reflection*environmentLight,saturate(.56*fresnel+.10*stream));
+                base += specular*(.18+.33*stream)*direct;
+                float foam = saturate(i.surface.y*(.52+.60*current));
+                base = lerp(base,float3(.75,.93,.95)*(.72*ambient+.23*diffuse*direct),foam);
+                alpha = lerp(saturate(alpha*(.52+.44*depth)+fresnel*.18),.93,foam);
+            }
             else if(_Kind < 3.5)
             {
                 float h;
@@ -339,21 +361,27 @@ Shader "Cultiway/FormSurface"
             }
             else if(_Kind < 4.5)
             {
-                // 霜面固定在材料坐标上；冻结后不再沿用液态流动，也不伪造损伤裂纹。
-                float crystal = .65*volumeNoise(i.material*8)+.35*volumeNoise(i.material*2.2);
-                float frost = smoothstep(.52,.82,crystal)*.5;
-                float thickness = max(.025,i.surface.x)/max(.2,facing);
-                float layers=volumeNoise(i.material*.9);
-                float depth = 1-exp(-thickness*(.58+.24*layers));
-                float fresnel = .055+.945*pow(1-facing,5);
+                // 霜白集中在实在的薄缘和泡沫；厚冰的雾芯和内层固定在材料坐标。
+                // 损伤裂面由真实分件露出，冰材本身不随时间画出裂纹。
+                float3 q = i.material;
+                float detail = resolvedDetail(ddx(q*10),ddy(q*10));
+                float grain = lerp(.5,volumeNoise(q*10),detail);
+                float cloud = volumeNoise(q*1.9);
+                float frost = saturate((.22 + .75*i.surface.y)*smoothstep(.29,.76,.5*cloud+.5*grain));
+                float thickness = max(.025,i.surface.x)/max(.22,facing);
+                float broad = volumeNoise(q*float3(1.7,2.1,3.2) + float3(.34,-.15,.28));
+                float depth = 1-exp(-thickness*(.78 + .48*broad));
+                float frostCore = depth*smoothstep(.46,.8,.6*broad+.4*cloud);
+                float fresnel = .045+.955*pow(1-facing,5);
                 float sky = smoothstep(-.2,.8,reflect(-eye,n).z);
-                float3 environment = lerp(float3(.14,.28,.34),float3(.66,.82,.89),sky);
-                float3 body = lerp(base*1.08,base*float3(.42,.72,.84),depth);
-                body *= .68*ambient+diffuse*.3*direct;
-                body = lerp(body,float3(.82,.92,.95)*(.7*ambient+.25*diffuse*direct),frost);
-                base = lerp(body,environment*environmentLight,fresnel*.65)+specular*lerp(.45,.12,frost)*direct;
-                alpha = saturate(alpha*(.32+.65*depth)+fresnel*.18);
-                alpha = lerp(alpha,.84,frost);
+                float3 environment = lerp(float3(.13,.28,.37),float3(.72,.88,.96),sky);
+                float3 body = lerp(base*1.18,base*float3(.31,.66,.85),depth);
+                body = lerp(body,float3(.63,.82,.89),frostCore*.42);
+                body *= .70*ambient+diffuse*.3*direct;
+                body = lerp(body,float3(.85,.94,.98)*(.72*ambient+.26*diffuse*direct),frost);
+                base = lerp(body,environment*environmentLight,fresnel*.68)+specular*lerp(.50,.12,frost)*direct;
+                alpha = saturate(alpha*(.28+.78*depth)+fresnel*.22);
+                alpha = lerp(alpha,.88,frost);
             }
             else if(_Kind < 5.5)
                 base *= .84*ambient+.16*diffuse*direct;

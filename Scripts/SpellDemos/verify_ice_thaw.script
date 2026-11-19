@@ -1,0 +1,87 @@
+// 9.17 B：同一正式水体的真实接触、凝冰保形、解冻续动及未接触反例。
+const string inputRoot = "";
+var wave = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(
+    Path.Combine(inputRoot, "厚浪凝冰与解冻.json")));
+var source = Make(64);
+var target = Make(72);
+var otherKingdom = Make(12, "wolf");
+target.setKingdom(otherKingdom.kingdom);
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+await Advance(.18f);
+Ready(source);
+Place(source, 64);
+var active = new List<(ConstructedCastStarted Fact, AbilityCast Cast)>();
+void WaveStarted(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId != wave.Id) return;
+    foreach (var run in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(run, "Id") == fact.CastId) active.Add((fact, (AbilityCast)Field(run, "Cast")));
+}
+List<FormVisualInstance> Views(AbilityCast cast)
+{
+    var forms = new List<FormVisualInstance>();
+    cast.AppendVisuals(forms);
+    return forms;
+}
+float Difference(Matrix4x4[] a, Matrix4x4[] b) => a.Zip(b, (left, right) =>
+    Enumerable.Range(0, 16).Max(i => Mathf.Abs(left[i] - right[i]))).Max();
+var stages = new List<object>();
+FormVisualInstance Stage(string phase, AbilityCast cast)
+{
+    var view = Views(cast).Single();
+    stages.Add(new { phase, cast.Age, shapeAge = cast.ShapeAge(0), surface = view.SurfaceFor(0),
+        view.Matter.State, volume = cast.RemainingVolume(0), center = new[] { view.Transform.m03, view.Transform.m13, view.Transform.m23 } });
+    File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(stages, Formatting.Indented));
+    return view;
+}
+ConstructedAbilityService.CastStarted += WaveStarted;
+try
+{
+    Place(target, 72, 84);
+    await Fire(wave, source, target);
+    await Advance(1.65f);
+    var miss = active.Single();
+    var plain = Stage("miss", miss.Cast);
+    Check(plain.SurfaceFor(0) == "water" && miss.Cast.Matter(0).State == "liquid" && !miss.Cast.IsShapeHeld(0) &&
+          contacts.All(c => c.CastId != miss.Fact.CastId), "波面错过目标时保持实际液态，不显示冰层");
+    await Advance(2.80f);
+    Place(source, 64);
+    Place(target, 72);
+    float previous = owner.GetCultisys<Xian>().wakan;
+    await Fire(wave, source, target);
+    Check(Mathf.Abs(previous - owner.GetCultisys<Xian>().wakan - wave.Cost) < .01f, "厚浪正式支付一次");
+    await Advance(.4f);
+    var (started, live) = active.Last();
+    var early = Stage("flowing", live);
+    Check(early.SurfaceFor(0) == "water" && !live.IsShapeHeld(0), "接触以前显示仍是实际水面");
+    await Advance(1.03f);
+    var icy = Stage("frozen", live);
+    float frozenAge = live.ShapeAge(0);
+    double volume = live.RemainingVolume(0);
+    Check(icy.SurfaceFor(0) == "ice" && icy.Matter.State == "solid" && live.IsShapeHeld(0) &&
+          contacts.Count(c => c.CastId == started.CastId && c.TargetId == target.id) == 1,
+        "真实接触之后同一厚浪显示为冰，本体锁住", new { live.Age, frozenAge, volume });
+    await Advance(.55f);
+    var held = Stage("held", live);
+    Check(Difference(icy.Skin, held.Skin) < .00001f && live.ShapeAge(0) == frozenAge &&
+          Vector3.Distance(icy.Transform.GetColumn(3), held.Transform.GetColumn(3)) > .2f,
+          "冻结只锁住内部厚度和形状，真实整体路线照常推进");
+    await Advance(1.29f);
+    var thawed = Stage("thawed", live);
+    Check(thawed.SurfaceFor(0) == "water" && thawed.Matter.State == "liquid" && !live.IsShapeHeld(0) &&
+          live.ShapeAge(0) > frozenAge + .1f && live.ShapeAge(0) < frozenAge + .55f &&
+          Difference(icy.Skin, thawed.Skin) > .001f && live.RemainingVolume(0) == volume && active.Count == 2,
+          "三秒后同一份体量解冻，从冻结进度接着走，未重造或重复施放");
+    await Advance(1.18f);
+    Check(live.Finished && Views(live).Count == 0, "解冻水体按原时限退净，不遗留假冰");
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.CastStarted -= WaveStarted;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
+return new { passed = true, output = folder, process = System.Diagnostics.Process.GetCurrentProcess().Id };

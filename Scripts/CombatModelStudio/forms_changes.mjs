@@ -3,7 +3,7 @@ import * as T from 'three';
 import {part,write,structure,motion,surfaceData} from './form_export.mjs';
 
 /** 对凸多边形按种子中垂线裁切，所有片共享相同的真实分区边。 */
-function cell(outline,seed,seeds) {
+export function fractureCell(outline,seed,seeds) {
   let polygon=outline.map(p=>new T.Vector2(...p));
   for(const other of seeds) {
     if(other===seed)continue;
@@ -24,7 +24,7 @@ function cell(outline,seed,seeds) {
 export function makeFractureSlab() {
   const outline=[[-2.4,-1.4],[-1.6,-2.1],[1.7,-1.9],[2.6,-.5],[2.2,1.4],[.8,2.1],[-1.7,1.8],[-2.6,.4]];
   const seeds=[[-1.55,-.8],[-.2,-1.1],[1.4,-.9],[-1.6,.5],[0,.1],[1.8,.45],[-.65,1.2],[.9,1.3]];
-  const thickness=.42,polygons=seeds.map(seed=>cell(outline,seed,seeds));
+  const thickness=.42,polygons=seeds.map(seed=>fractureCell(outline,seed,seeds));
   const controls=[],parts=[],anchors=[],contacts=[],centres=[];
   polygons.forEach((polygon,index)=>{
     const centre=polygon.reduce((sum,p)=>sum.add(p),new T.Vector2()).multiplyScalar(1/polygon.length);centres.push(centre);

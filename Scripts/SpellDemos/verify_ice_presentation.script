@@ -1,0 +1,134 @@
+// 9.17 A：正常命中、尚未合拢、实际阻挡、受击分片和自然结束；落空作为反例。
+const string inputRoot = "";
+AbilityDefinition Read(string name) => JsonConvert.DeserializeObject<AbilityDefinition>(
+    File.ReadAllText(Path.Combine(inputRoot, name + ".json")));
+var shell = Read("触生冰壳");
+var strike = Read("破冰验证来袭");
+var source = Make(64);
+var target = Make(70);
+var otherKingdom = Make(12, "wolf");
+target.setKingdom(otherKingdom.kingdom);
+var owner = source.GetExtend();
+var rival = target.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+rival.AddComponent(new Xian { level = 2, wakan = 10000 });
+await Advance(.18f);
+Ready(source);
+Place(source, 64);
+
+var plan = AbilityCompiler.Compile(shell);
+AbilityCompiler.Compile(strike);
+Check(plan.FormCount == 11, "两份构造能正式编译，九个真实分件在施放前已有明确定义", new { plan.FormCount });
+
+var actual = new List<(ConstructedCastStarted Fact, AbilityCast Cast)>();
+var clashes = new List<ConstructedClash>();
+void Start(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId != shell.Id) return;
+    foreach (var run in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(run, "Id") == fact.CastId) actual.Add((fact, (AbilityCast)Field(run, "Cast")));
+}
+void Clash(ConstructedClash fact) => clashes.Add(fact);
+List<FormVisualInstance> Views(AbilityCast cast)
+{
+    var forms = new List<FormVisualInstance>();
+    cast.AppendVisuals(forms);
+    return forms;
+}
+List<AbilityCapsule> Shapes(AbilityCast cast)
+{
+    var shapes = new List<AbilityCapsule>();
+    cast.AppendContacts(shapes);
+    return shapes;
+}
+var barrierManager = typeof(Cultiway.Core.SkillLibV3.Manager);
+var restriction = barrierManager.Assembly.GetType("Cultiway.Core.SkillLibV3.ISkillBarrierBridge")
+    .GetMethod("RestrictGroundActor", F);
+float Walk(Vector2 from, Vector2 into) => ((Vector2)restriction.Invoke(
+    barrierManager.GetField("Barriers", F).GetValue(null), new object[] { target, from, into })).x;
+int ShellHits(long cast) => contacts.Count(contact => contact.CastId == cast && contact.TargetId == target.id);
+var trace = new List<object>();
+void Stage(string phase, AbilityCast cast)
+{
+    trace.Add(new
+    {
+        phase, cast.Age, shellAge = cast.NodeAge(1), state = cast.Matter(1).State,
+        shapes = Shapes(cast).Select(shape => new { shape.Node, a = new[] { shape.A.x, shape.A.y, shape.A.z }, shape.Radius }).ToArray(),
+        forms = Views(cast).Select(view => new
+        {
+            id = view.Resource.Description.Id, view.BuildProgress, surface = view.SurfaceFor(0), view.Matter.State,
+            center = new[] { view.Transform.m03, view.Transform.m13, view.Transform.m23 }
+        }).ToArray()
+    });
+    File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(trace, Formatting.Indented));
+}
+
+ConstructedAbilityService.CastStarted += Start;
+ConstructedAbilityService.ClashConfirmed += Clash;
+try
+{
+    Place(target, 82);
+    await Fire(shell, source, target);
+    await Advance(1.35f);
+    var miss = actual.Single();
+    Stage("miss", miss.Cast);
+    Check(ShellHits(miss.Fact.CastId) == 0 && miss.Cast.NodeAge(1) < 0 && Views(miss.Cast).Count == 0,
+        "投送未抵达，没有冰壳或假命中");
+    await Advance(2.35f);
+    Place(source, 64);
+    Place(target, 70);
+    float pilotBalance = owner.GetCultisys<Xian>().wakan, rivalBalance = rival.GetCultisys<Xian>().wakan;
+    await Fire(shell, source, target);
+    await Fire(strike, target, source);
+    Check(Mathf.Abs(pilotBalance - owner.GetCultisys<Xian>().wakan - 6) < .01f &&
+          Mathf.Abs(rivalBalance - rival.GetCultisys<Xian>().wakan - 3) < .01f, "两次正式入口按原价各支付一次");
+    await Advance(.70f);
+    var (started, live) = actual.Last();
+    Stage("growing", live);
+    var before = Views(live).Single(view => view.Resource.Description.Id == "ice_shell");
+    var origin = new Vector2(before.Transform.m03, before.Transform.m13);
+    Vector2 from = origin + new Vector2(-2.5f, 0), into = origin + new Vector2(2.5f, 0);
+    Check(ShellHits(started.CastId) == 1 && before.BuildProgress > 0 && before.BuildProgress < .85f &&
+          live.Matter(1).State == "liquid" && Shapes(live).Count == 0 && Walk(from, into) == into.x,
+        "实际接触才出现霜缘，合拢前无作用形状，地面空隙能过", new { live.Age, before.BuildProgress });
+
+    await Advance(.78f);
+    Stage("joined", live);
+    var complete = Views(live).Single(view => view.Resource.Description.Id == "ice_shell");
+    var cover = Shapes(live);
+    var stopped = Walk(from, into);
+    Check(complete.BuildProgress == 1 && live.Matter(1).State == "solid" && live.IsShapeHeld(1) &&
+          cover.Count > 0 && cover.All(shape => shape.Node == 1) && stopped < into.x - .10f &&
+          clashes.All(clash => clash.LeftCast != started.CastId && clash.RightCast != started.CastId),
+        "厚面完全合拢后实际凝冰并挡路，未受击没有分片", new { live.Age, stopped, expected = into.x, count = cover.Count });
+
+    await Advance(.63f);
+    Stage("fractured", live);
+    var meetings = clashes.Where(clash => clash.LeftCast == started.CastId || clash.RightCast == started.CastId).ToArray();
+    var pieces = Views(live);
+    Check(meetings.Length == 1 && meetings[0].Absorbed > 0 && pieces.Count == 9 &&
+          pieces.All(view => view.Resource.Description.Parts.Length == 1 && view.Matter.State == "solid") &&
+          Shapes(live).Count == 0 && Walk(from, into) == into.x,
+        "实际交锋消耗后原冰面拆开，实体冰片仍下落，整墙阻挡解除", new
+        {
+            live.Age, pieces = pieces.Count,
+            meetings = meetings.Select(meeting => new
+            {
+                meeting.LeftCast, meeting.RightCast, meeting.Absorbed,
+                point = new[] { meeting.Position.x, meeting.Position.y, meeting.Position.z }
+            }).ToArray()
+        });
+    await Advance(1.22f);
+    Stage("cleared", live);
+    Check(live.Finished && Views(live).Count == 0 && Shapes(live).Count == 0, "碎片按实际寿命退场，无残余阻挡");
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Start;
+    ConstructedAbilityService.ClashConfirmed -= Clash;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
+return new { passed = true, output = folder, process = System.Diagnostics.Process.GetCurrentProcess().Id };

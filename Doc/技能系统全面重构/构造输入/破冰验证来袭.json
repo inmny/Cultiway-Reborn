@@ -1,0 +1,15 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.IceShellStriker",
+  "Name": "破冰验证来袭",
+  "Resource": "wakan", "Cost": 3, "Cooldown": 0, "Power": 2,
+  "Lifetime": 3, "TargetRange": 24,
+  "Binding": {"Anchor": "Source"},
+  "Root": {
+    "Id": "stone", "Form": "stone_cone", "Matter": "earth", "Offset": [3, 0, 0.75],
+    "Rotation": [0, -90, 0], "Scale": 0.75,
+    "AppearAt": 1.56, "ActiveFrom": 1.56,
+    "Operations": [{"Kind": "Fly", "At": 1.56, "Vector": [-15, 0, 0],
+      "WorldVelocity": true, "InheritVelocity": false}]
+  }
+}
