@@ -134,6 +134,7 @@ editor.GetComponentsInChildren<ScrollRect>(false).First(r => r.name == "Paramete
     .verticalNormalizedPosition = 0f;
 await Shot("body-poses-cz");
 Action("ProjectBody");
+Select(T("Form.hand"));
 Check(
     Session().Draft.Root.Form == "hand" && Session().Draft.Binding.Anchor == AbilityAnchor.Hand &&
     Session().Draft.Cost == 4 && Session().Draft.TargetRange == 16, "身体页实际完成显化、连接、投送、消耗及距离改造");

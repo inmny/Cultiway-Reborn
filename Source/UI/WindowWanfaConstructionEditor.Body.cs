@@ -2,7 +2,6 @@ using System;
 using System.Linq;
 using Cultiway.Core.Skills;
 using Cultiway.Core.Visuals.Forms;
-using Cultiway.Utils.Extension;
 using Cultiway.UI.Prefab;
 using UnityEngine;
 
@@ -174,7 +173,7 @@ public sealed partial class WindowWanfaConstructionEditor
             ActionRow("AddPose", T("AddPoseHint"), () => ApplyConstructionEdit(() => BodyConstructionEdits.AppendPose(session.Draft)));
     }
 
-    /// <summary>手部沿用掌形显化，其他实际部位由玩家明确选择已有形体。</summary>
+    /// <summary>保留实际发力和装备，由玩家选择离手的形体。</summary>
     private void ProjectBody()
         => TransformBody(false);
 
@@ -184,30 +183,29 @@ public sealed partial class WindowWanfaConstructionEditor
 
     /// <summary>由已装备的真实法宝承载作用，施放时再取得对应原物件。</summary>
     private void CarryBody()
-        => TransformBody(true, true);
+        => TransformBody(false, true);
 
-    /// <summary>沿共用资料命令改造，非掌部必须先明确选择已有形体。</summary>
+    /// <summary>实际发力部位或握持的装备只给出默认建议；新显化体使用自己的接触形状。</summary>
     /// <param name="extend">是否保留身体连接而不离手投送。</param>
     /// <param name="carrier">是否改为外部真实载体的连接。</param>
     private void TransformBody(bool extend, bool carrier = false)
     {
-        /// <summary>同一入口建立可编辑资料，不把本次实体编号写入知识。</summary>
-        /// <param name="form">玩家明确选择的形体，掌部可缺省。</param>
-        AbilityDefinition Transform(string form = null) => carrier
-            ? BodyConstructionEdits.Carry(session.Draft, new BodyProjection { Form = form })
-            : extend ? BodyConstructionEdits.Extend(session.Draft, new BodyExtension { Form = form }) :
-            BodyConstructionEdits.Project(session.Draft, new BodyProjection { Form = form });
-        if (previewPlan?.Body?.Part.Contact == BodyContactPart.Hand)
+        CompiledBodyAction body = previewPlan?.Body;
+        string suggested = body?.Part.Contact == BodyContactPart.Hand ? body.WeaponForm ?? "hand" : null;
+        ShowFormChoices("ManifestationForm", suggested, form => ApplyConstructionEdit(() =>
         {
-            ApplyConstructionEdit(() => Transform());
-            return;
-        }
-
-        menu.Show(T("Form"), FormResources.Ids.Where(id => FormResources.Load(id).Meshes.Length > 0)
-            .Select(id => new UiOptionMenuOption
+            var resource = FormResources.Load(form);
+            if (resource.Contacts.Length == 0)
+                throw ConstructionReferences.Error("Body/Manifestation", "形体没有用于命中的接触形状",
+                    resourceKind: "FormContact", resourceId: form);
+            if (carrier)
             {
-                Label = LMTools.GetOrFallback("Cultiway.Construction.Form." + id, id),
-                Select = () => ApplyConstructionEdit(() => Transform(id))
-            }).ToArray(), true);
+                AbilityDefinition carried = BodyConstructionEdits.Carry(session.Draft, new BodyProjection { Form = form });
+                AbilityCompiler.Compile(carried, cache: false);
+                return carried;
+            }
+            return extend ? BodyConstructionEdits.Extend(session.Draft, new BodyExtension { Form = form }) :
+                BodyConstructionEdits.Project(session.Draft, new BodyProjection { Form = form });
+        }));
     }
 }

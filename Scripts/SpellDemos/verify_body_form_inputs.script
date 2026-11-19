@@ -72,6 +72,7 @@ void Detach()
     source.setStatsDirty(); source.updateStats();
 }
 string Status() => ((Text)Field(editor, "performanceStatus")).text;
+// INPUT_CHECKS
 try
 {
     string form = session.Draft.Body.WeaponForm;
