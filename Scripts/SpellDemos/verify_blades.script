@@ -86,6 +86,7 @@ try
         (Asset:SkillEntities.FireBlade,Form:"fire_blade",Matter:"fire",State:"energy"),
         (Asset:SkillEntities.YinBlade,Form:"yin_blade",Matter:"yin",State:"energy")})
     {
+        if(section=="sword"&&entry.Asset!=SkillEntities.SwordQi)continue;
         currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
         var normal=Build();
         if(section=="visuals")
@@ -96,8 +97,8 @@ try
             Check(accepted.Single().Finished&&Views(accepted.Single()).Count==0&&Shapes(accepted.Single()).Count==0,
                 entry.Form+"补拍后显示与接触退出");continue;
         }
-        var boosted=Build(true);
-        foreach(var skill in new[]{normal,boosted})
+        var samples=section=="sword"?new[]{normal}:new[]{normal,Build(true)};
+        foreach(var skill in samples)
         {
             var d=Convert(skill,out GetHitEvent damage);bool boost=skill.HasComponent<HugeModifier>();
             var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));var plan=AbilityCompiler.Compile(restored,cache:false);
@@ -108,11 +109,12 @@ try
                 entry.Form+"独立主体、实际材料、原强度与刃波规则可保存编译",new{damage.Damage,d.Root.Scale,d.Lifetime});
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
         }
-        Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射作用保留原入口");
+        if(section!="sword")Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射作用保留原入口");
         ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;int hp=target.data.health,hp2=other.data.health;
         Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.12f);
         var live=accepted.Single();Check(oldExecutions==0&&starts.Count==1&&Views(live).Single().Resource.Description.Id==entry.Form,
-            entry.Form+"只运行自身新主体且无旧执行");await Shot(entry.Form);
+            entry.Form+"只运行自身新主体且无旧执行");
+        if(section!="sword")await Shot(entry.Form);
         await Advance(1f);
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(normal)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,normal)));
         Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f,entry.Form+"只支付一次",new{cost,balance,after=owner.GetCultisys<Xian>().wakan});
@@ -124,7 +126,7 @@ try
             entry.Form+"刃波前后两人（后者偏离中轴1格）且每人一次，后续伤害和本体量不凭空衰减",new{hits=damageEvents.Select(e=>new{e.TargetID,e.Damage}).ToArray(),force=forceAfterHit.ToArray(),hp,after=target.data.health,hp2,after2=other.data.health});
         Check(live.Finished&&Views(live).Count==0&&Shapes(live).Count==0&&!BodyControlState.IsBusy(source.id),entry.Form+"原寿命结束后显示接触与控制恢复");
     }
-    if(section!="sources"&&section!="visuals")
+    if(section!="sources"&&section!="visuals"&&section!="sword")
     {
     // 加速、范围和强化后两次逐发只验证共用路径；同时覆盖合击与齐射的单发衰减。
     currentAsset=SkillEntities.WindBlade;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
