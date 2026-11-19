@@ -1,5 +1,5 @@
 {
-  "Cultiway.ConstructionText.Basics": "Costs {0:0.##} {1}; lasts at most {2:0.##}s; cooldown {3:0.##}s.",
+  "Cultiway.ConstructionText.Basics": "Base demand {0:0.##} {1}; lasts at most {2:0.##}s; cooldown {3:0.##}s.",
   "Cultiway.ConstructionText.Forms": "Up to {0} forms: {1}.",
   "Cultiway.ConstructionText.BodyOnly": "Uses the actual body and held weapon without an independent form.",
   "Cultiway.ConstructionText.Body": "Body contact window: {0:0.##}–{1:0.##}s.",

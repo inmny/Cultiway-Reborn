@@ -104,51 +104,57 @@ public static class ConstructionPresentation
     }
 
     /// <summary>列出实际声明的全部资源，任选与同时支付采用明确连接词。</summary>
-    /// <param name="definition">当前完整资料。</param>
-    private static string ResourceNames(AbilityDefinition definition)
+    /// <param name="plan">实际计划。</param>
+    internal static string ResourceNames(CompiledAbility plan)
     {
-        string Name(string id) => L("Cultiway.Construction.Resource." + id);
-        string[] names = new[] { definition.Resource }.Concat(definition.AdditionalResources).Select(Name).ToArray();
+        string[] names = plan.Resources.Select(ResourceName).ToArray();
         return names.Length == 1
             ? names[0]
             : string.Join(
-                T(definition.ResourceMode == Cultiway.Core.SkillLibV3.SkillCastResourceRequirementMode.AnyOf
+                T(plan.ResourceMode == Cultiway.Core.SkillLibV3.SkillCastResourceRequirementMode.AnyOf
                     ? "PaymentAny"
                     : "PaymentAll"), names);
+    }
+
+    /// <summary>保存的短编号与正式报价中的长期编号共用显示名称。</summary>
+    internal static string ResourceName(string id)
+    {
+        const string prefix = "Cultiway.SkillCastResource.";
+        if (id.StartsWith(prefix, StringComparison.Ordinal))
+            id = id.Substring(prefix.Length) switch { "NativeMana" => "mana", "YaoPower" => "yao_power", var name => name.ToLowerInvariant() };
+        return LMTools.GetOrFallback("Cultiway.Construction.Resource." + id, id);
     }
 
     /// <summary>说明当前完整资料，不储存可能因改造过时的说明副本。</summary>
     /// <param name="definition">当前独立草稿或正式定义。</param>
     /// <param name="plan">同一资料的实际编译结果。</param>
-    public static string Explain(AbilityDefinition definition, CompiledAbility plan)
+    public static string Explain(AbilityDefinition definition, CompiledAbility plan) => Explain(plan);
+
+    /// <summary>说明直接来自正式运行使用的计划。</summary>
+    /// <param name="plan">已编译的法术。</param>
+    public static string Explain(CompiledAbility plan)
     {
         var lines = new List<string>
         {
-            F("Basics", definition.Cost, ResourceNames(definition),
-                plan.Lifetime, definition.Cooldown),
+            F("Basics", plan.Cost, ResourceNames(plan), plan.Lifetime, plan.Cooldown),
             plan.Nodes.Any(n => n.Resource.Meshes.Length > 0)
                 ? F("Forms", plan.Nodes.Count(n => n.Resource.Meshes.Length > 0),
                     string.Join("、", plan.Nodes.Where(n => n.Resource.Meshes.Length > 0)
                         .Select(n => Material(n.Matter) + " " + Form(n.Resource.Description.Id)).Distinct()))
                 : T("BodyOnly")
         };
-        foreach (var input in definition.Inventory ?? Array.Empty<ConstructionInventoryInput>())
+        foreach (var input in plan.Inventory)
             lines.Add(F("InventoryInput", input.Id, LMTools.GetOrFallback(input.Shape, input.Shape.Substring(input.Shape.LastIndexOf('.') + 1)), input.Count));
         lines.AddRange(plan.Nodes.SelectMany(node => (node.Impact ?? plan.Impact).WorldEffects
             .Where(effect => effect.MaterialVolume > 0).Select(effect => F("WorldMaterial", Form(node.Resource.Description.Id),
                 L("Cultiway.Construction.WorldAction." + effect.Action.Id), effect.MaterialVolume))).Distinct());
-        string[] distributions = Nodes(definition.Root).Where(node => node.Distribution != null)
-            .Select(node => L("Cultiway.Construction.DistributionSource." + node.Distribution.Source)).Distinct().ToArray();
+        string[] distributions = plan.Nodes.Where(node => node.DistributionSource.HasValue)
+            .Select(node => L("Cultiway.Construction.DistributionSource." + node.DistributionSource.Value)).Distinct().ToArray();
         if (distributions.Length > 0) lines.Add(F("Distributions", string.Join("、", distributions)));
         if (plan.Body != null) lines.Add(F("Body", plan.Body.ActiveFrom, plan.Body.ActiveUntil));
         if (plan.ContactDamageScale > 0f)
             lines.Add(F("Damage", string.Join("、",
-                plan.Nodes.Where(n => n.AffectsActors || n.Conduction != null ||
-                                      n.EventOperations.Any(operation => operation.Conduction != null))
-                    .Select(n => (n.Impact ?? plan.Impact).Targets).Concat(plan.Body == null
-                        ? Array.Empty<SkillLibV3.Usage.SkillUseTargetRelation>()
-                        : new[] { (plan.Body.Impact ?? plan.Impact).Targets })
-                    .Distinct().Select(relation => T("Target." + relation))), plan.ContactDamageScale));
+                plan.ActorImpacts.Select(impact => impact.Targets).Distinct().Select(relation => T("Target." + relation))), plan.ContactDamageScale));
         lines.AddRange(plan.Nodes.Where(node => node.RadialMotion != null).Select(node =>
             F("RadialMotion", Form(node.Resource.Description.Id), node.RadialMotion.Radius,
                 node.RadialMotion.Speed, node.RadialMotion.Interval, T("Target." + node.RadialMotion.Targets))).Distinct());
@@ -188,147 +194,125 @@ public static class ConstructionPresentation
                         shape.Substring(shape.LastIndexOf('.') + 1))))));
         }
         if (plan.HasBarrier) lines.Add(T("Barrier"));
-        if (definition.Binding != null)
-            lines.Add(F("Placement", L("Cultiway.Construction.Anchor." + definition.Binding.Anchor),
-                T(definition.Binding.Follow ? "Following" : "Fixed")));
+        if (plan.Binding != null)
+            lines.Add(F("Placement", L("Cultiway.Construction.Anchor." + plan.Binding.Anchor),
+                T(plan.Binding.Follow ? "Following" : "Fixed")));
         if (plan.ConcurrentLimit > 0) lines.Add(F("ConcurrentLimit", plan.ConcurrentLimit));
-        if (definition.Binding?.Anchor == AbilityAnchor.Between)
-            lines.Add(F("BetweenFraction", definition.Binding.Fraction ?? .5f));
-        if (definition.Binding?.ContactAtDestination == true) lines.Add(T("DestinationOnly"));
+        if (plan.Binding?.Anchor == AbilityAnchor.Between)
+            lines.Add(F("BetweenFraction", plan.Binding.Fraction));
+        if (plan.Binding?.ContactAtDestination == true) lines.Add(T("DestinationOnly"));
         if (plan.Nodes.Any(node => node.SourceLoss == ConstructionSourceLoss.Continue)) lines.Add(T("IndependentSourceLoss"));
-        if (definition.Binding?.Anchor == AbilityAnchor.Target && !definition.Binding.Follow &&
-            definition.Root != null && !definition.Root.Operations.Any(operation => operation.Kind is ConstructionOperationKind.Fly or ConstructionOperationKind.Ray))
+        if (plan.Binding?.Anchor == AbilityAnchor.Target && !plan.Binding.Follow &&
+            !plan.Nodes[0].Operations.Any(operation => operation.Contract.Kind is ConstructionOperationKind.Fly or ConstructionOperationKind.Ray))
             lines.Add(T("DirectPlacement"));
         var processes = new List<string>();
-        foreach (ConstructionNode node in Nodes(definition.Root))
+        foreach (CompiledForm node in plan.Nodes)
         {
+            string form = Form(node.Resource.Description.Id);
             if (node.Correspondence is { } link)
             {
                 string[] effects = new[] { ConstructionCorrespondenceEffects.Restoration, ConstructionCorrespondenceEffects.Status, ConstructionCorrespondenceEffects.Force }
                     .Where(effect => (link.Effects & effect) != 0).Select(effect => L("Cultiway.Construction.CorrespondenceEffect." + effect)).ToArray();
-                string window = link.ActiveUntil is float until ? F("CorrespondenceWindow", link.ActiveFrom, until) : F("CorrespondenceOpen", link.ActiveFrom);
-                lines.Add(F("Correspondence", Form(node.Form), link.Id, L("Cultiway.Construction.CorrespondenceTarget." + link.Target),
+                string window = float.IsPositiveInfinity(link.ActiveUntil) ? F("CorrespondenceOpen", link.ActiveFrom) : F("CorrespondenceWindow", link.ActiveFrom, link.ActiveUntil);
+                lines.Add(F("Correspondence", form, link.Id, L("Cultiway.Construction.CorrespondenceTarget." + link.Target),
                     link.DamageFraction, effects.Length == 0 ? T("CorrespondenceNoExtras") : string.Join("、", effects), window));
             }
-            if (node.Activation != null) processes.Add(F("Appears", Form(node.Form), Condition(node.Activation)));
-            foreach (ConstructionOperation operation in node.Operations)
+            if (node.Activation != null) processes.Add(F("Appears", form, Condition(node.Activation)));
+            int changeIndex = 0;
+            foreach (CompiledOperationRequirement operation in node.Operations)
             {
-                string action = T("Operation." + operation.Kind);
-                if (operation.Kind == ConstructionOperationKind.ConvertMatter)
-                    action = F("Convert", Material(AbilityMatters.Resolve(operation.Matter, operation.State, "法术说明")));
-                if (operation.Kind == ConstructionOperationKind.Fly && operation.TurnRate > 0f) action = T("Homing");
-                if (operation.Kind == ConstructionOperationKind.Fly && operation.Path != null) action = T("Curve");
-                if (operation.Kind == ConstructionOperationKind.Fly && operation.Ground == ConstructionGroundResponse.Follow) action = T("GroundFlight");
-                if (operation.Kind == ConstructionOperationKind.Fly && operation.WorldVelocity && operation.Acceleration?[2] < 0f) action = T("Falling");
-                if (operation.Ray != null) action = RayDescription(operation.Ray);
-                if (operation.Kind == ConstructionOperationKind.Leave)
-                    action = ResidueDescription(operation.Residue);
-                if (operation.Kind == ConstructionOperationKind.Erode) action = ErosionDescription(operation);
-                if (operation.Kind == ConstructionOperationKind.RetimeErosion) action = RetimingDescription(operation);
-                string when = operation.When != null
-                    ? Condition(operation.When)
-                    : operation.Trigger != ConstructionChangeTrigger.Time
-                        ? T("Condition." + operation.Trigger)
-                        : F("At", operation.At);
-                if (operation.When != null && operation.At > 0f) when = F("Gated", operation.At, when);
-                processes.Add(F("Process", when, Form(node.Form), action));
+                if (operation.Location.StartsWith("Steps/", StringComparison.Ordinal)) continue;
+                var action = node.EventOperations.FirstOrDefault(value => value.Path == operation.Location);
+                var kind = operation.Contract.Kind;
+                CompiledMatterChange? change = kind == ConstructionOperationKind.ConvertMatter && action == null
+                    ? node.Changes[changeIndex++] : null;
+                string when = action == null && change.HasValue && change.Value.Trigger != ConstructionChangeTrigger.Time
+                    ? T("Condition." + change.Value.Trigger) : When(operation.At, action?.When);
+                processes.Add(F("Process", when, form, DescribeOperation(node, kind, action, change?.Matter)));
             }
         }
-
-        foreach (ConstructionStep step in definition.Steps.Where(step => step.Operation.Ray != null))
+        foreach (var step in plan.Steps.Where(value => value.Id != null && !value.Native))
         {
-            var operation = step.Operation;
-            string when = operation.When != null ? Condition(operation.When) : F("At", operation.At);
-            processes.Add(F("Process", when, Form(plan.Nodes[plan.Steps.Single(value => value.Id == step.Id).Node].Resource.Description.Id), RayDescription(operation.Ray)));
-        }
-
-        foreach (ConstructionStep step in definition.Steps.Where(step => step.Operation.Kind is ConstructionOperationKind.Erode or ConstructionOperationKind.RetimeErosion ||
-                     step.Operation.Kind == ConstructionOperationKind.Leave && step.Operation.Residue?.Erosion != null))
-            processes.Add(F("NamedProcess", step.Id, step.Operation.Kind switch
-            {
-                ConstructionOperationKind.Erode => ErosionDescription(step.Operation),
-                ConstructionOperationKind.RetimeErosion => RetimingDescription(step.Operation),
-                _ => ResidueDescription(step.Operation.Residue)
-            }));
-
-        foreach (int index in plan.DirectSignalSteps)
-        {
-            var step = plan.Steps[index];
-            var signal = (CompiledConstructionSignal)step.Action.Parameters;
-            processes.Add(F("NamedProcess", step.Id, F("DirectSignal", signal.Asset.GetName(), signal.Duration)));
-        }
-
-        foreach (ConstructionStep step in definition.Steps.Where(step => step.Operation.Kind is
-                     ConstructionOperationKind.MapSpace or ConstructionOperationKind.MapActor or ConstructionOperationKind.MapArtifact))
-        {
-            var operation = step.Operation;
-            string detail = F("Mapping." + operation.Kind, operation.MappingRadius ?? 1f);
-            if (operation.MappingCapacity is int capacity) detail += " " + F("MappingCapacity", capacity);
-            if (operation.MappingWaitSeconds is float seconds) detail += " " + F("MappingWait", seconds);
-            processes.Add(F("NamedProcess", step.Id, detail));
+            var action = step.Action;
+            var node = plan.Nodes[step.Node];
+            string detail = DescribeOperation(node, action.Kind, action);
+            if (action.Kind == ConstructionOperationKind.Ray)
+                processes.Add(F("Process", When(action.At, action.When), Form(node.Resource.Description.Id), detail));
+            else processes.Add(F("NamedProcess", step.Id, detail));
         }
 
         string[] unique = processes.Distinct().ToArray();
         lines.AddRange(unique.Take(12));
         if (unique.Length > 12) lines.Add(F("More", unique.Length - 12));
-        if (definition.Parent != null)
-            lines.Add(F("Parent", ChangeName(definition.Parent.Change), definition.Parent.Revision));
+        if (plan.Parent is { } parent) lines.Add(F("Parent", ChangeName(parent.Change), parent.Revision));
         return string.Join("\n", lines);
     }
 
-    /// <summary>留置后的侵蚀独立于原施放容器，与普通留置时长分别说明。</summary>
-    /// <param name="residue">真实留置声明。</param>
-    private static string ResidueDescription(ConstructionResidue residue)
+    /// <summary>把已经解析的操作及参数换成当前语言。</summary>
+    private static string DescribeOperation(CompiledForm node, ConstructionOperationKind kind,
+        CompiledEventOperation action, AbilityMatter matter = null)
     {
-        string text = residue?.Lifetime > 0f ? F("Residue", residue.Lifetime) : T("ResiduePermanent");
-        return residue?.Erosion == null ? text : text + " " +
-            F("ResidueErosion", residue.ErosionSeconds, residue.Erosion.Fraction) + ProcessTimeDescription(residue.Erosion.TimeWindows);
+        if (kind == ConstructionOperationKind.ConvertMatter) return F("Convert", Material(action?.Matter ?? matter));
+        if (kind == ConstructionOperationKind.Fly)
+        {
+            var flight = action?.Flight ?? node.Flight;
+            if (flight.WorldVelocity && flight.Acceleration.z < 0f) return T("Falling");
+            if (flight.Ground == ConstructionGroundResponse.Follow) return T("GroundFlight");
+            if (flight.Path != null) return T("Curve");
+            if (flight.TurnRate > 0f) return T("Homing");
+        }
+        if (action?.Ray is { } ray) return F("Ray", ray.Length, T(ray.FollowTarget ? "RayFollowing" : "RayFixed"), ray.TurnRate);
+        if (kind == ConstructionOperationKind.Leave)
+        {
+            var residue = node.Residue;
+            string text = residue.Lifetime > 0f ? F("Residue", residue.Lifetime) : T("ResiduePermanent");
+            return residue.Erosion == null ? text : text + " " +
+                F("ResidueErosion", residue.Erosion.Seconds, residue.Erosion.Fraction) + ProcessTimeDescription(residue.Erosion.Pace);
+        }
+        switch (action?.Parameters)
+        {
+            case CompiledErosion erosion:
+                return (erosion.World == null ? F("SelfErosion", erosion.Seconds, erosion.Fraction) :
+                    F("WorldErosion", erosion.Seconds, erosion.Fraction, WorldSelectionName(erosion.World), erosion.World.MaximumVolume,
+                        T(erosion.World.OwnedOnly ? "OwnWorldMaterials" : "AnyWorldMaterials"))) + ProcessTimeDescription(erosion.Pace);
+            case CompiledErosionRetiming retiming:
+                return F("RetimeErosion", WorldSelectionName(retiming.World), retiming.World.MaximumVolume,
+                           T(retiming.World.OwnedOnly ? "OwnWorldMaterials" : "AnyWorldMaterials")) +
+                       (retiming.Pace == null ? " " + T("RestoreProcessTime") : ProcessTimeDescription(retiming.Pace));
+            case CompiledConstructionSignal signal when kind == ConstructionOperationKind.SendSignal:
+                return F("DirectSignal", signal.Asset.GetName(), signal.Duration);
+            case float radius when kind is ConstructionOperationKind.MapSpace or ConstructionOperationKind.MapArtifact:
+                return F("Mapping." + kind, radius);
+            case ValueTuple<float, int?, float> mapping when kind == ConstructionOperationKind.MapActor:
+                string detail = F("Mapping." + kind, mapping.Item1);
+                if (mapping.Item2.HasValue) detail += " " + F("MappingCapacity", mapping.Item2.Value);
+                if (mapping.Item3 > 0f) detail += " " + F("MappingWait", mapping.Item3);
+                return detail;
+        }
+        return T("Operation." + kind);
     }
 
-    /// <summary>区分原主体和真实世界选择，份额仍要经过实际材料耐受。</summary>
-    /// <param name="operation">完整已校验操作。</param>
-    private static string ErosionDescription(ConstructionOperation operation)
-    {
-        float fraction = operation.Erosion?.Fraction ?? .75f;
-        string time = ProcessTimeDescription(operation.Erosion?.TimeWindows);
-        if (operation.WorldMatter == null) return F("SelfErosion", operation.Seconds, fraction) + time;
-        var selection = operation.WorldMatter;
-        return F("WorldErosion", operation.Seconds, fraction, WorldSelectionName(selection), selection.MaximumVolume,
-            T(selection.OwnedOnly ? "OwnWorldMaterials" : "AnyWorldMaterials")) + time;
-    }
+    private static string WorldSelectionName(CompiledWorldMatter selection) => selection.DisplayMatter == null ? T("AllWorldMaterials") :
+        selection.FromState == null ? F("AllMaterialStates", Material(selection.DisplayMatter)) : Material(selection.DisplayMatter);
 
-    private static string RetimingDescription(ConstructionOperation operation)
-    {
-        var selection = operation.WorldMatter;
-        return F("RetimeErosion", WorldSelectionName(selection), selection.MaximumVolume,
-                   T(selection.OwnedOnly ? "OwnWorldMaterials" : "AnyWorldMaterials")) +
-               (operation.TimeWindows.Length == 0 ? " " + T("RestoreProcessTime") : ProcessTimeDescription(operation.TimeWindows));
-    }
-
-    private static string WorldSelectionName(ConstructionWorldMatter selection) => selection.FromMatter == null ? T("AllWorldMaterials") :
-        selection.FromState == null ? F("AllMaterialStates", Material(AbilityMatters.Resolve(selection.FromMatter, null, "侵蚀说明"))) :
-        Material(AbilityMatters.Resolve(selection.FromMatter, selection.FromState, "侵蚀说明"));
-
-    private static string ProcessTimeDescription(ConstructionProcessWindow[] windows) => windows is not { Length: > 0 } ? "" :
-        " " + F("ProcessTime", string.Join(T("ProcessTimeSeparator"), windows.Select(window =>
+    private static string ProcessTimeDescription(CompiledProcessTime pace) => pace == null ? "" :
+        " " + F("ProcessTime", string.Join(T("ProcessTimeSeparator"), pace.Describe().Select(window =>
             F(window.Rate == 0f ? "ProcessTimePause" : "ProcessTimeRate", window.At, window.Seconds, window.Rate))));
+
+    private static string When(float at, CompiledConstructionCondition condition) => condition == null ? F("At", at) :
+        at > 0f ? F("Gated", at, Condition(condition)) : Condition(condition);
 
     /// <summary>条件说明与真实时钟、阈值和额外等待一致。</summary>
     /// <param name="condition">实际开始条件。</param>
-    private static string Condition(ConstructionCondition condition)
+    private static string Condition(CompiledConstructionCondition condition)
     {
         string text = T("Condition." + condition.Trigger);
-        if (condition.Threshold.HasValue)
-            text += F(condition.Trigger == ConstructionChangeTrigger.GroundRouteDistance ? "GroundRouteThreshold" : "Threshold",
-                condition.Threshold.Value);
+        if (condition.Trigger is ConstructionChangeTrigger.ForceBelow or ConstructionChangeTrigger.SizeAbove or ConstructionChangeTrigger.SizeBelow or
+            ConstructionChangeTrigger.DistanceFromFlightStart or ConstructionChangeTrigger.GroundRouteDistance)
+            text += F(condition.Trigger == ConstructionChangeTrigger.GroundRouteDistance ? "GroundRouteThreshold" : "Threshold", condition.Threshold);
         if (condition.Delay > 0f) text += F("Delay", condition.Delay);
         return text;
     }
-
-    /// <summary>明确基础长度随主体尺寸缩放，转向和目标更新继续实际世界时钟。</summary>
-    /// <param name="ray">同一份保存参数。</param>
-    private static string RayDescription(ConstructionRay ray) => F("Ray", ray.Length,
-        T(ray.FollowTarget ? "RayFollowing" : "RayFixed"), ray.TurnRate);
 
     /// <summary>直接来源的规则名称采用当前语言，原法术的专名仍保持。</summary>
     /// <param name="change">正式记录的改变。</param>

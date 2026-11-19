@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Cultiway.Core;
 using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 
 namespace Cultiway.Content.Skills;
@@ -31,6 +32,11 @@ public sealed partial class ConstructedAbilityService : IConstructionEditingAcce
     /// <summary>界面预览与正式登记共同检查资料、材料、身体资源和实际支付。</summary>
     /// <param name="definition">当前独立草稿。</param>
     CompiledAbility IConstructionEditingAccess.Validate(AbilityDefinition definition) => ValidateDefinition(definition);
+
+    IReadOnlyList<SkillCastPaymentEntry> IConstructionEditingAccess.PreviewPayment(ActorExtend actor, CompiledAbility plan) =>
+        ConstructionResources.Preview(actor, plan);
+
+    float IConstructionEditingAccess.PreviewRange(ActorExtend actor, CompiledAbility plan) => Range(actor, plan, null);
 
     /// <summary>主线程采集当前实际可制作部位，编辑与后续创法共用稳定名称。</summary>
     /// <param name="actor">真实身体。</param>

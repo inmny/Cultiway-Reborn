@@ -228,6 +228,8 @@ public sealed class CompiledOperationRequirement
     public int Index { get; }
     /// <summary>原部位操作或命名步骤的位置，用于检查同部位冲突。</summary>
     internal string Location { get; }
+    /// <summary>定时操作在法术时钟上的起点。</summary>
+    internal float At { get; }
     /// <summary>共同的输入输出和参数约定。</summary>
     public ConstructionOperationContract Contract { get; }
     /// <summary>按本次真实参数补齐的状态需求。</summary>
@@ -244,6 +246,7 @@ public sealed class CompiledOperationRequirement
     internal CompiledOperationRequirement(string path, int index, ConstructionOperation source, ConstructionOperationContract contract, string location)
     {
         NodePath = path; Index = index; Location = location; Contract = contract; State = contract.State; Resources = contract.Resources; Effects = contract.Effects;
+        At = source.At;
         bool eventInput = source.When != null || source.Trigger != ConstructionChangeTrigger.Time;
         if (eventInput) State |= ConstructionOperationState.Event;
         if (source.Kind == ConstructionOperationKind.Fly)

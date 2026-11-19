@@ -92,34 +92,61 @@ public sealed class SkillCastPayment : IDisposable
     {
         if (payer?.Base == null || payer.Base.isRekt() || IsPending(payer)) return false;
         if (resources.Count == 0) return demand == 0;
-        if (mode != SkillCastResourceRequirementMode.AllOf || resources.Count == 1)
-        {
-            foreach (var resource in resources)
-            {
-                if (!resource.IsAvailable(payer))
-                {
-                    if (mode == SkillCastResourceRequirementMode.AnyOf) continue;
-                    return false;
-                }
+        return mode != SkillCastResourceRequirementMode.AllOf || resources.Count == 1
+            ? Select(payer, resources, mode == SkillCastResourceRequirementMode.AnyOf, demand).Resource != null
+            : Collect(payer, resources, mode, demand, new List<Row>());
+    }
 
-                if (resource.ReadAmount(payer) >= Quote(payer, resource, demand)) return true;
-                if (mode == SkillCastResourceRequirementMode.Single) return false;
-            }
+    /// <summary>查看与正式扣除相同的报价及余额合计；无需锁定人物，空表表示免费，空值表示当前付不起。</summary>
+    internal static IReadOnlyList<SkillCastPaymentEntry> Preview(ActorExtend payer,
+        IReadOnlyList<SkillCastResourceAsset> resources, SkillCastResourceRequirementMode mode, float demand)
+    {
+        if (payer?.Base == null || payer.Base.isRekt() || IsPending(payer)) return null;
+        var rows = new List<Row>();
+        return Collect(payer, resources, mode, demand, rows)
+            ? rows.Select(row => new SkillCastPaymentEntry(row.Resource, row.Cost, 0)).ToArray()
+            : null;
+    }
 
-            return false;
-        }
-
-        var costs = new Dictionary<string, (SkillCastResourceAsset Resource, double Cost)>(StringComparer.Ordinal);
+    /// <summary>单项或任选仍按声明顺序，跳过当前不合格的任选通道。</summary>
+    private static (SkillCastResourceAsset Resource, float Cost) Select(ActorExtend payer,
+        IReadOnlyList<SkillCastResourceAsset> resources, bool any, float demand)
+    {
         foreach (var resource in resources)
         {
+            if (resource == null) throw new ArgumentException("支付通道不能缺失", nameof(resources));
+            if (resource.IsAvailable(payer))
+            {
+                float cost = Quote(payer, resource, demand);
+                if (resource.ReadAmount(payer) >= cost) return (resource, cost);
+            }
+            if (!any) break;
+        }
+        return default;
+    }
+
+    /// <summary>预览和扣费共用报价顺序；全部支付先按真实余额合计。</summary>
+    private static bool Collect(ActorExtend payer, IReadOnlyList<SkillCastResourceAsset> resources,
+        SkillCastResourceRequirementMode mode, float demand, List<Row> rows)
+    {
+        if (resources.Count == 0) return demand == 0;
+        if (mode != SkillCastResourceRequirementMode.AllOf || resources.Count == 1)
+        {
+            var selection = Select(payer, resources, mode == SkillCastResourceRequirementMode.AnyOf, demand);
+            if (selection.Resource == null) return false;
+            rows.Add(new Row { Resource = selection.Resource, Cost = selection.Cost });
+            return true;
+        }
+        foreach (var resource in resources)
+        {
+            if (resource == null) throw new ArgumentException("支付通道不能缺失", nameof(resources));
             if (!resource.IsAvailable(payer)) return false;
             float cost = Quote(payer, resource, demand);
-            if (costs.TryGetValue(resource.BalanceId, out var previous))
-                costs[resource.BalanceId] = (previous.Resource, previous.Cost + cost);
-            else costs.Add(resource.BalanceId, (resource, cost));
+            var existing = rows.FirstOrDefault(row => row.Resource.BalanceId == resource.BalanceId);
+            if (existing == null) rows.Add(new Row { Resource = resource, Cost = cost });
+            else existing.Cost += cost;
         }
-
-        return costs.Values.All(row => row.Resource.ReadAmount(payer) >= row.Cost);
+        return rows.All(row => row.Resource.ReadAmount(payer) >= row.Cost);
     }
 
     /// <summary>一次冻结报价，先核对所有余额，再实际扣费；失败没有部分收费。</summary>
@@ -136,27 +163,7 @@ public sealed class SkillCastPayment : IDisposable
         bool ready = false;
         try
         {
-            foreach (var resource in resources)
-            {
-                if (resource == null) throw new ArgumentException("支付通道不能缺失", nameof(resources));
-                if (!resource.IsAvailable(payer))
-                {
-                    if (mode == SkillCastResourceRequirementMode.AnyOf) continue;
-                    return null;
-                }
-
-                float cost = Quote(payer, resource, demand);
-                if (mode == SkillCastResourceRequirementMode.AnyOf && resource.ReadAmount(payer) < cost) continue;
-                var existing = payment.rows.FirstOrDefault(row => row.Resource.BalanceId == resource.BalanceId);
-                if (existing == null) payment.rows.Add(new Row { Resource = resource, Cost = cost });
-                else existing.Cost += cost;
-                if (mode != SkillCastResourceRequirementMode.AllOf) break;
-            }
-
-            if (resources.Count > 0 && payment.rows.Count == 0) return null;
-            foreach (var row in payment.rows)
-                if (!(row.Resource.ReadAmount(payer) >= row.Cost))
-                    return null;
+            if (!Collect(payer, resources, mode, demand, payment.rows)) return null;
             foreach (var row in payment.rows)
             {
                 // 前一个通道的通知可以使来源失效；未正式开始时由同一支付撤销已扣部分。

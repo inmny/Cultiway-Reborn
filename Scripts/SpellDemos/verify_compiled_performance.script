@@ -1,0 +1,105 @@
+// 与报价段复用原世界、同一地面位置和同一水剑形体；这一段只验证新增的图形播放。
+var source = Make(64);
+var owner = source.GetExtend();
+var edited = new AbilityDefinition
+{
+    Id = "test.compiled-use.preview", Name = "试炼剑胚", Resource = "stamina", Cost = 2.25f,
+    Power = 2f, Cooldown = .3f, Lifetime = 1.35f, TargetRange = 5.25f,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+    Root = new ConstructionNode { Id = "sword", Form = "sword", Matter = "water", State = "liquid", FollowMatter = true,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = .40f, Matter = "water", State = "solid" } } }
+};
+ConstructedAbilityService.Register(edited); ConstructedAbilityService.Learn(owner, edited.Id);
+LocalizedTextManager.instance.setLanguage("cz"); WindowWanfaConstructionEditor.Open(edited.Id, source);
+// COMMON_CONTROLS
+AbilityCast Cast() => Field(editor, "performance") is object run ? (AbilityCast)Field(run, "Cast") : null;
+T Find<T>(string name) where T : Component => editor.GetComponentsInChildren<T>(false).Single(control => control.name == name);
+void UpdatePreview() => typeof(WindowWanfaConstructionEditor).GetMethod("DrawPerformancePreview", F).Invoke(editor, null);
+void PreviewCoordinate(string name, string value) => Find<InputField>(name).text = value;
+Color32[] Pixels(string output)
+{
+    var displayed = (RenderTexture)Find<RawImage>("PreviewImage").texture;
+    var previous = RenderTexture.active; RenderTexture.active = displayed;
+    var image = new Texture2D(displayed.width, displayed.height, TextureFormat.RGBA32, false);
+    image.ReadPixels(new Rect(0, 0, displayed.width, displayed.height), 0, 0); image.Apply();
+    RenderTexture.active = previous;
+    var pixels = image.GetPixels32(); File.WriteAllBytes(Path.Combine(folder, output + ".png"), image.EncodeToPNG());
+    UnityEngine.Object.Destroy(image);
+    return pixels;
+}
+int CastCount() => ((ICollection)service.GetField("casts", F).GetValue(null)).Count;
+int Coverage(Color32[] pixels) => pixels.Count(pixel => !pixel.Equals(pixels[0]));
+async Task Shot(string name)
+{
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(4); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+try
+{
+    string description = ConstructedAbilityService.Explain(edited.Id);
+    CompiledAbility plan = (CompiledAbility)Field(editor, "previewPlan");
+    var changed = ConstructionEditing.Copy(edited);
+    changed.Root.Operations[0].At = .8f; changed.Root.Operations[0].Matter = "fire";
+    Check(description == ConstructionPresentation.Explain(changed, plan) && description.Contains("0.4") && !description.Contains("0.8"),
+        "正式说明读取已编译的物态时钟，未编译的新草稿不会污染旧说明", description);
+    Place(source, 64); source.data.stamina = 20; Config.paused = true;
+    int before = CastCount(); int published = Cultiway.Core.Visuals.Forms.FormVisualScene.Instances.Count;
+    var beforeTile = World.world.GetTileSimple(69, 72).Type.id;
+    Action("PreviewPerformance");
+    PreviewCoordinate("PreviewX", "69.30"); PreviewCoordinate("PreviewY", "72"); Click("PreviewReplay");
+    Check(Cast() == null && Find<Text>("PreviewStatus").text.Contains("5.25"), "预览拒绝和正式入口相同的超界坐标", Find<Text>("PreviewStatus").text);
+    PreviewCoordinate("PreviewX", "69.25"); Click("PreviewReplay");
+    Check(Cast() != null, "使用真实人物及边界内坐标播放", Find<Text>("PreviewStatus").text);
+    Click("PreviewPause");
+    AbilityCast playing = Cast();
+    var beforeChange = Pixels("water-viewport");
+    Check(ReferenceEquals(playing.Plan, plan) && playing.Matter(0).State == "liquid" && Coverage(beforeChange) > 80,
+        "播放画面读同一份计划，水面已经实际绘制", new { covered = Coverage(beforeChange) });
+    await Frames(5);
+    Check(playing.Age == 0f, "暂停保持当前动作时间");
+    playing.Advance(.6f, new Vector3(69.25f, 72f, 0)); UpdatePreview();
+    var afterChange = Pixels("ice-viewport");
+    Check(playing.Matter(0).State == "solid" && Coverage(afterChange) > 80 && !afterChange.SequenceEqual(beforeChange),
+        "同一播放时钟把水变成冰，图形像素随正式物态变换", new { covered = Coverage(afterChange) });
+    var shapes = (List<AbilityCapsule>)Field(editor, "performanceShapes");
+    Check(shapes.Count > 0, "窗口取得该时刻的真实接触边界");
+    var footprint = shapes.Select(shape => new { shape.A, shape.B, shape.Radius }).ToArray();
+    Click("PreviewContacts");
+    Check(!Pixels("ice-contact-viewport").SequenceEqual(afterChange), "打开轮廓只改变附加显示");
+    await Shot("performance-cz");
+    Check(CastCount() == before && Cultiway.Core.Visuals.Forms.FormVisualScene.Instances.Count == published &&
+        source.data.stamina == 20 && World.world.GetTileSimple(69, 72).Type.id == beforeTile && contacts.Count == 0 && endings.Count == 0,
+        "预览没有扣费、创建正式运行、发布世界形体、修改地块或确认命中");
+    Click("PreviewClose");
+    Check(Field(editor, "performanceViewport") == null && Cast() == null && B("Close").IsActive(), "关闭归还窗口操作并释放预览");
+    Click("Close"); await Frames();
+    LocalizedTextManager.instance.setLanguage("en"); WindowWanfaConstructionEditor.Open(edited.Id, source); await Frames();
+    Action("PreviewPerformance"); PreviewCoordinate("PreviewX", "69.25"); PreviewCoordinate("PreviewY", "72"); Click("PreviewReplay");
+    Click("PreviewPause"); Cast().Advance(.62f, new Vector3(69.25f, 72, 0)); UpdatePreview();
+    await Shot("performance-en"); Click("PreviewReplay"); Click("PreviewPause");
+    Check(Cast().Age == 0 && Cast().Matter(0).State == "liquid", "重播完整回到同一水形体和起势时间");
+    Click("PreviewClose"); Click("Close"); await Frames();
+    Place(source, 64); source.data.stamina = 20;
+    var target = new ActiveAbilityTarget(null, new Vector3(69.25f, 72f, 0));
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, edited.Id);
+    Check(ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script) && source.data.stamina == 17,
+        "关闭预览后按原游戏规则支付并正式出手");
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(record => ((AbilityCast)Field(record, "Cast")).Plan.Id == edited.Id);
+    var live = (AbilityCast)Field(running, "Cast");
+    await Advance(.64f);
+    var actual = new List<AbilityCapsule>(); live.AppendContacts(actual);
+    Check(ReferenceEquals(live.Plan, plan) && live.Matter(0).State == "solid" && actual.Select(shape => new { shape.A, shape.B, shape.Radius }).SequenceEqual(footprint),
+        "同一落点和物态的接触边界与正式施放一致");
+    await Advance(1f);
+    Check(endings.Count(entry => entry.Fact.AbilityId == edited.Id) == 1, "正式实例正常结束");
+    return new { passed = true, plan.Id, plan.TargetRange };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

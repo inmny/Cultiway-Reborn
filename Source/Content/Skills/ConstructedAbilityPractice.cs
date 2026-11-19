@@ -48,7 +48,7 @@ public sealed partial class ConstructedAbilityService
             if (!TryPracticePlan(ability, out var plan)) continue;
             var handle = new ActiveAbilityHandle(ProviderId, owner.E, ability);
             if (!simulation.ResolveControlState(owner, handle).CanUse ||
-                !Start(owner, definitions[ability], plan, target, ActiveAbilityUseOrigin.Practice, out _, practice: true)) continue;
+                !Start(owner, plan, target, ActiveAbilityUseOrigin.Practice, out _, practice: true)) continue;
             seconds = Mathf.Max(plan.Lifetime, plan.Body.Duration);
             return true;
         }
