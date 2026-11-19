@@ -1,0 +1,38 @@
+try
+{
+    int health = target.data.health;
+    var d = Blade("interrupt", 1.45f);
+    d.Binding.Follow = true;
+    d.Root.ContactRole = ConstructionContactRole.Decoration;
+    d.Root.Children = new[]
+    {
+        new ConstructionNode
+        {
+            Id = "delayed", Form = "sword", Matter = "iron", Offset = new[] { 8f, 0f, 0f }, AppearAt = .7f
+        }
+    };
+    await Fire(d, source, target);
+    var cast = Live(d.Id);
+    await Advance(.16f);
+    Check(Draw(cast).Length == 1 && Published("content.constructed").Length == 1 && target.data.health == health,
+        "来源活着时已显示起势主体，后续攻体尚未展开");
+    var point = Position(Draw(cast).Single());
+    await FrameAppearance("source-present", point.x + 1f, point.y, 6f);
+    source.dieAndDestroy(AttackType.None);
+    for (int i = 0; i < 8 && Live(d.Id) != null; i++) await Advance(.04f);
+    var done = endings.Where(e => e.Fact.AbilityId == d.Id).ToArray();
+    Check(done.Length == 1 && done[0].Fact.Age < .7f && Live(d.Id) == null && Draw(cast).Length == 0 &&
+          Published("content.constructed").Length == 0, "来源真实死亡后取消尚未发生的攻体，旧主体不悬空",
+          new { age = done.Select(x => x.Fact.Age).ToArray(), drawn = Published("content.constructed").Length });
+    await FrameAppearance("source-interrupted", point.x + 1f, point.y, 6f);
+    await Advance(1.5f);
+    Check(contacts.Count == 0 && target.data.health == health && Published("content.constructed").Length == 0,
+        "经过原先的展开时点，仍无迟到伤害和后续形体");
+    return new { passed = true, checks };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

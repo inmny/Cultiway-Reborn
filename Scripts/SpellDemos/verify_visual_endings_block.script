@@ -1,0 +1,48 @@
+var blocked = new List<ConstructedClash>();
+void Clashed(ConstructedClash clash)
+{
+    if (clash.LeftSource == source.id || clash.RightSource == source.id) blocked.Add(clash);
+}
+ConstructedAbilityService.ClashConfirmed += Clashed;
+try
+{
+    int health = target.data.health;
+    var ward = Blade("ward", .95f, "wood");
+    ward.Power = 150f / target.stats["damage"];
+    ward.Root.ContactRole = ConstructionContactRole.Barrier;
+    ward.Root.Offset = new[] { -4f, 0f, 0f };
+    var attack = Blade("blocked");
+    attack.Root.Operations = new[]
+    {
+        new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { 40f, 0f, 0f } }
+    };
+    await Fire(ward, target, source);
+    await Fire(attack, source, target);
+    var guard = Live(ward.Id);
+    var shot = Live(attack.Id);
+    await Advance(.025f);
+    Check(Published("content.constructed").Any(frame => frame.Matter.Id == "iron") && Draw(shot).Length == 1,
+        "被拦截前攻体确实在共同画面中");
+    var middle = Position(Draw(guard).Single());
+    await FrameAppearance("before-block", middle.x, middle.y, 6f);
+    for (int i = 0; i < 10 && (blocked.Count == 0 || Draw(shot).Length != 0); i++) await Advance(.025f);
+    var frames = Published("content.constructed");
+    Check(blocked.Count == 1 && Mathf.Abs(blocked[0].Absorbed - 100f) < .1f && contacts.Count == 0 && target.data.health == health &&
+          Draw(shot).Length == 0 && !frames.Any(frame => frame.Matter.Id == "iron") &&
+          frames.Any(frame => frame.Matter.Id == "wood") && Draw(guard).Length == 1,
+          "攻体归零后从共同画面移除，有余量的屏障继续存在，后方无伤",
+          new { blocked = blocked.Select(c => c.Absorbed).ToArray(), surfaces = frames.Select(f => f.Matter.Id).ToArray() });
+    await FrameCleanupSide("ward-remains", middle, 7f, -.25f);
+    await Advance(1.45f);
+    Check(contacts.Count == 0 && target.data.health == health && Draw(guard).Length == 0 &&
+          endings.Count(e => e.Fact.AbilityId == ward.Id || e.Fact.AbilityId == attack.Id) == 2 &&
+          Published("content.constructed").Length == 0, "有余量的屏障按自己的期限退场，不保留过期形体");
+    return new { passed = true, checks };
+}
+finally
+{
+    ConstructedAbilityService.ClashConfirmed -= Clashed;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

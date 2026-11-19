@@ -1,0 +1,40 @@
+// 只观察正式施放当前公布的共同形体及结算，不生成额外测试表现。
+var source = Make(64);
+var target = Make(72, "wolf");
+Check(source.kingdom.isEnemy(target.kingdom), "复用现成世界的敌对双方");
+PrepareAppearanceBackdrop(61, 75, 69, 77);
+await Advance(.22f);
+void Move(Actor actor, float x, float y)
+{
+    Place(actor, x, y);
+    ConstructedAbilityService.NotifyActorChanged(actor);
+}
+
+AbilityCast Live(string id) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Select(cast => (AbilityCast)Field(cast, "Cast")).SingleOrDefault(cast => cast.Plan.Id == id);
+FormVisualInstance[] Draw(AbilityCast cast)
+{
+    var frames = new List<FormVisualInstance>();
+    cast?.AppendVisuals(frames);
+    return frames.ToArray();
+}
+Vector3 Position(FormVisualInstance frame) => frame.Transform.GetColumn(3);
+float[] XY(Vector3 point) => new[] { point.x, point.y };
+
+AbilityDefinition Blade(string id, float lifetime = 1.4f, string matter = "iron", string state = "solid") => new()
+{
+    Id = "test.visual-ending." + id, Name = "剑形去向检查", Resource = "none", Cost = 0, Cooldown = 0,
+    TargetRange = 30, Lifetime = lifetime, Power = 100f / source.stats["damage"],
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+    Root = new ConstructionNode
+    {
+        Id = "blade", Form = "sword", Matter = matter, State = state,
+        OnContact = ConstructionContactResponse.End
+    }
+};
+
+FormVisualInstance[] Published(string provider)
+{
+    var published = (Dictionary<string, FormVisualInstance[]>)typeof(FormVisualScene).GetField("sources", F).GetValue(null);
+    return published.TryGetValue(provider, out var frames) ? frames : Array.Empty<FormVisualInstance>();
+}
