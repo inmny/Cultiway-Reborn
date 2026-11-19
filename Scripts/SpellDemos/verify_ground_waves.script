@@ -116,9 +116,10 @@ try
     if(section!="common")foreach(var entry in new[]{(Asset:SkillEntities.EarthRidge,Form:"earth_ridge",Matter:"earth",State:"solid"),
         (Asset:SkillEntities.TidalWave,Form:"tidal_wave",Matter:"water",State:"liquid"),(Asset:SkillEntities.SpiritVine,Form:"creeping_vine",Matter:"wood",State:"solid")})
     {
+        if(section=="tidal"&&entry.Asset!=SkillEntities.TidalWave)continue;
         currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
         var normal=Build();
-        if(section!="visuals")foreach(var skill in new[]{normal,Build(true)})
+        if(section!="visuals")foreach(var skill in section=="tidal"?new[]{normal}:new[]{normal,Build(true)})
         {
             var d=Convert(skill,out GetHitEvent damage);var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
             var plan=AbilityCompiler.Compile(restored,false);bool boost=skill.HasComponent<HugeModifier>();
@@ -131,21 +132,46 @@ try
                 entry.Form+"原强度、境界、范围词条、贴地越过目标和寿命可保存编译");
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
         }
-        if(section!="visuals")Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射作用保留原入口");
-        ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;int hp=target.data.health,hp2=other.data.health;
+        if(section!="visuals"&&section!="tidal")Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射作用保留原入口");
+        ResetPeople();
+        // 潮浪原路径会横摆，负侧对照与实测的正侧扫掠分开。
+        if(section=="tidal"){Place(outside,70,67);ConstructedAbilityService.NotifyActorChanged(outside);}
+        float balance=owner.GetCultisys<Xian>().wakan;int hp=target.data.health,hp2=other.data.health,outsideHp=outside.data.health;
         Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.08f);var live=accepted.Single();
         Check(oldExecutions==0&&starts.Count==1&&Views(live).Single().Resource.Description.Id==entry.Form,entry.Form+"只运行自身新主体");
-        var skin=(Matrix4x4[])Views(live).Single().Skin.Clone();Pose(live,entry.Form+"前段");await Shot(entry.Form+"-front");
+        float Lip()
+        {
+            var front=Shapes(live).Last();Vector3 point=(front.A+front.B)*.5f;
+            return point.z-(Views(live).Single().Terrain?.Sample(point.x,point.y)??0f);
+        }
+        float earlyLip=section=="tidal"?Lip():0f;
+        var skin=(Matrix4x4[])Views(live).Single().Skin.Clone();Pose(live,entry.Form+"前段");if(section!="tidal")await Shot(entry.Form+"-front");
         await Advance(.18f);var later=Views(live).Single();Pose(live,entry.Form+"后段");
-        Check(later.Skin.Where((m,i)=>!m.Equals(skin[i])).Any(),entry.Form+"真实推进后内部姿态连续改变");await Shot(entry.Form+"-later");
-        await Advance(.24f);FollowingTargets(live);await Advance(.76f);
+        Check(later.Skin.Where((m,i)=>!m.Equals(skin[i])).Any(),entry.Form+"真实推进后内部姿态连续改变");if(section!="tidal")await Shot(entry.Form+"-later");
+        float crestLip=section=="tidal"?Lip():0f;
+        await Advance(.24f);
+        if(section=="tidal")
+        {
+            await Advance(.16f);float fallLip=Lip();Pose(live,"潮浪水唇落下");
+            await Advance(.09f);float spreadLip=Lip();
+            Check(crestLip>earlyLip+.05f&&crestLip>fallLip+.2f&&spreadLip<=fallLip+.05f,
+                "正式卷唇抬起后下落，水脚没有重新反弹",new{earlyLip,crestLip,fallLip,spreadLip});
+        }
+        else FollowingTargets(live);
+        await Advance(.76f);
         var finalState=((Array)typeof(AbilityCast).GetField("nodes",F).GetValue(live)).GetValue(0);
         var finalPoint=(Vector3)Field(finalState,"Position");var finalVelocity=(Vector3)Field(finalState,"Velocity");
         if(section!="visuals")
         {
             double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(normal)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,normal)));
             Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f,entry.Form+"只支付一次",new{cost});
-            Check(damageEvents.Count==2&&damageEvents[0].TargetID==target.id&&damageEvents[1].TargetID==other.id&&
+            if(section=="tidal")Check(damageEvents.Count==1&&damageEvents[0].TargetID==target.id&&
+                Math.Abs(damageEvents[0].Damage-80f)<.01f&&damageEvents[0].Element.Equals(entry.Asset.Element)&&target.data.health<hp&&
+                outside.data.health==outsideHp&&contacts.All(c=>c.TargetId!=outside.id)&&finalPoint.x>target.current_position.x,
+                "潮浪真实扫过前敌一次，侧外无伤",new{final=finalPoint.ToString(),target=target.current_position.ToString(),
+                    arrived=Field(finalState,"FlightArrived"),hp,after=target.data.health,outsideHp,outsideAfter=outside.data.health,
+                    hits=damageEvents.Select(e=>new{e.TargetID,e.Damage}).ToArray(),contacts=contacts.Select(c=>c.TargetId).ToArray()});
+            else Check(damageEvents.Count==2&&damageEvents[0].TargetID==target.id&&damageEvents[1].TargetID==other.id&&
                 damageEvents.All(e=>Math.Abs(e.Damage-80f)<.01f&&e.Element.Equals(entry.Asset.Element))&&contacts.All(c=>c.TargetId!=outside.id)&&
                 target.data.health<hp&&other.data.health<hp2&&forceAfterHit.All(f=>Math.Abs(f-100)<.01f),
                 entry.Form+"越过前敌扫到后方偏轴敌人，每人一次且侧外安全，本体力量保留",new{following=new[]{other.current_position.x,other.current_position.y},sideOutside=new[]{outside.current_position.x,outside.current_position.y},actualScale=SkillEffectRadius.ResolveCasterGrowth(owner,normal),final=new[]{finalPoint.x,finalPoint.y,finalPoint.z},velocity=new[]{finalVelocity.x,finalVelocity.y,finalVelocity.z},arrived=Field(finalState,"FlightArrived"),target=target.id,other=other.id,outside=outside.id,source=new[]{source.current_position.x,source.current_position.y},hp,hp2,after=target.data.health,after2=other.data.health,hits=damageEvents.Select(e=>new{e.TargetID,e.Damage,element=e.Element.Equals(entry.Asset.Element)}).ToArray(),contacts=contacts.Select(c=>new{c.TargetId,pos=new[]{c.Position.x,c.Position.y,c.Position.z}}).ToArray(),force=forceAfterHit.ToArray()});

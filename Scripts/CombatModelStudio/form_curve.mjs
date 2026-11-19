@@ -15,7 +15,9 @@ export function waterCurve(points) {
 }
 
 /** 两面、两端和两侧均封口，厚度和表面坐标独立保留。 */
-export function thickSheet(curve, {width, thickness, controls, rows = 80, columns = 56, foam = () => 0}) {
+export function thickSheet(curve, {width, thickness, controls, rows = 80, columns = 56, foam = () => 0,
+  edgeThickness = across => .15 + .85 * Math.pow(1 - across * across, .35),
+  section = (point, along) => {point.z += Math.sin(point.x * .8 + along * 4) * .11 * T.MathUtils.smoothstep(along, .35, .85);}}) {
   const positions = [], uv = [], indices = [], weights = [], controlIndices = [], surface = [];
   const stride = columns + 1, faceCount = (rows + 1) * stride;
   for (let face = 0; face < 2; face++) for (let row = 0; row <= rows; row++) {
@@ -23,10 +25,10 @@ export function thickSheet(curve, {width, thickness, controls, rows = 80, column
     const normal = new T.Vector3(0, -tangent.z, tangent.y).normalize(), blend = curveInfluences(along, controls);
     for (let column = 0; column <= columns; column++) {
       const across = column / columns * 2 - 1;
-      const half = thickness(along) * (.15 + .85 * Math.pow(1 - across * across, .35));
+      const half = thickness(along) * edgeThickness(across);
       const p = centre.clone().addScaledVector(normal, (face ? -1 : 1) * half);
       p.x = across * width(along);
-      p.z += Math.sin(p.x * .8 + along * 4) * .11 * T.MathUtils.smoothstep(along, .35, .85);
+      section(p, along, across);
       positions.push(...p.toArray()); uv.push(column / columns, along);
       surface.push(half * 2, foam(along, across, face));
       controlIndices.push(blend[0][0], blend[1][0], 0, 0); weights.push(blend[0][1], blend[1][1], 0, 0);
