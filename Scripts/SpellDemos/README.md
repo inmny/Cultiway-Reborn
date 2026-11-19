@@ -2206,3 +2206,16 @@ python3 Scripts/SpellDemos/demo_spell.py EarthWall --cases base --scene single -
 ```
 
 `motionFrames` 中的形体和地面阻挡记录用来定位落稳、断裂和撤除。固定镜头原片供画面验收，命中与步行通行分别以上面的实机复验为依据。
+
+### 9.17 冰壳与厚浪冻融
+
+在独立游戏里用 `dev.py exec` 分别运行 `python3 Scripts/SpellDemos/verify_ice_presentation.py --section shell` 和 `--section thaw`。前一段对照投送落空、未合拢时的空隙、合拢后阻挡及受击后的通行与退场；后一段对照同一浪体的实际物态、形状时钟、位置和体量。输出 `checks.json` 与 `timeline.json`。
+
+常速录像也通过 `dev.py exec` 分开运行。Worldfall 改成 `--view worldfall`，并使用另一个输出目录。
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/触生冰壳.json --opponent-construction Doc/技能系统全面重构/构造输入/破冰验证来袭.json --isolate-target --target-offset 6 0 --view native --speed 1 --duration 4.45 --zoom 14 --fps 22 --keep-frames --output <冰壳原版目录>
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/厚浪凝冰与解冻.json --isolate-target --target-offset 8 0 --view native --speed 1 --duration 4.7 --zoom 17 --fps 22 --keep-frames --output <冻融原版目录>
+```
+
+查看每段的 `result.json`，确认实际命中、对手支付与交锋时点，或同一浪体的水、冰、水三个阶段。通行与形状是否锁定仍以对应实机复验为准。
