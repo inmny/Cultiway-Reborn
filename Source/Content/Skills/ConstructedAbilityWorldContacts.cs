@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cultiway.Core.Skills;
 using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Visuals;
+using Cultiway.Core.Visuals;
 using Newtonsoft.Json;
 using UnityEngine;
 
@@ -269,9 +270,12 @@ public sealed partial class ConstructedAbilityService
         {
             long triggerOwner = running.Owner(node).Id;
             if (running.Cast.ConfirmWorldContact(node, hit.Point))
+            {
+                if (node >= 0) SpatialCombatFeedback.Sound(Combat.CombatContactFeedback.SoundFor(running.Cast.Matter(node)), hit.Point);
                 WorldContactConfirmed?.Invoke(new ConstructedWorldContact(running.Id, running.SourceId, triggerOwner,
                     running.Cast.Plan.Id, null, node, hit.Tile.pos.x, hit.Tile.pos.y, hit.Point, hit.Normal,
                     LogicTime, running.Cast.Age, SkillEffectResult.None, 0));
+            }
             return;
         }
         CompiledConstructionWorldEffect rule = running.Cast.Impact(node).WorldEffects[effect];

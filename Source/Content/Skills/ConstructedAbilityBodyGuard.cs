@@ -137,6 +137,8 @@ public sealed partial class ConstructedAbilityService
         }
         ConfirmBodyFeedback(guard, hit.Point);
         if (guard.BodyGuardRemaining <= 0f) RespondToBodyResult(guard, BodyActionResult.Blocked);
+        Combat.CombatContactFeedback.Clash(hit.Point, hit.Normal, node < 0 ? AbilityMatters.Resolve("physical", null, "body guard") : attack.Cast.Matter(node),
+            spent, guard.BodyGuardRemaining);
         ClashConfirmed?.Invoke(new ConstructedClash(attack.Id, guard.Id, attack.Owner(node).Id, guard.Owner(-1).Id,
             node, -1, hit.Point, hit.Normal, LogicTime, attack.Cast.Age, guard.Cast.Age, spent,
             after, guard.BodyGuardRemaining, attack.SourceId, guard.SourceId, before - after,

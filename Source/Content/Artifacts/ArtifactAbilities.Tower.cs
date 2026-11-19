@@ -409,11 +409,10 @@ public partial class ArtifactAbilities
                 )
                 .Signal(
                     ArtifactVisualChannels.Trigger,
-                    new ArtifactImpactVisualCue
+                    new ArtifactAudioVisualCue
                     {
                         anchor = ArtifactVisualAnchorKind.Point,
                         sound = "event:/SFX/WEAPONS/WeaponRockLand",
-                        shake_intensity = 0.11f,
                     },
                     0.3f
                 )

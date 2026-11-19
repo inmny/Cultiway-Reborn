@@ -1,0 +1,9 @@
+
+// 观察原版播放器已经创建并启动的声音实例，避免把请求路径当作实际播放。
+public static class CombatFeedbackPlaybackProbe
+{
+    public static Action<FMOD.GUID, Vector3, FMOD.Studio.EventInstance> Played;
+
+    public static void AfterPlay(FMOD.GUID __0, Vector3 __1, FMOD.Studio.EventInstance __result) =>
+        Played?.Invoke(__0, __1, __result);
+}

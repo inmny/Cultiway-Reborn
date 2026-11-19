@@ -31,6 +31,8 @@ internal static class CombatImpactVisuals
         Vector3 center = entity.GetComponent<Position>().value;
         Vector2 outward = (point - (Vector2)center).normalized;
         Vector2 tangent = new(-outward.y, outward.x);
+        SpatialCombatFeedback.Sound(entity.GetComponent<SkillEntity>().VfxElement.ImpactSound,
+            new Vector3(point.x, point.y, center.z + .18f));
         for (int i = -1; i <= 1; i++)
         {
             Vector2 velocity = outward * .46f + tangent * (i * .35f);

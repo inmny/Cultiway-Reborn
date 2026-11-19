@@ -1,0 +1,84 @@
+// 同一御器使用木剑与铁剑；声音实例启动时查看真实生命值。
+const string wood = "event:/SFX/HIT/HitWood";
+const string metal = "event:/SFX/HIT/HitMetal";
+string nativeHit = enemy.asset.sound_hit;
+bool originalSound = MusicBox.sounds_on;
+var paths = new Dictionary<FMOD.GUID, string>();
+foreach (string path in new[] { wood, metal, nativeHit, "event:/SFX/HIT/HitSwordSword" }.Distinct())
+{
+    var result = FMODUnity.RuntimeManager.StudioSystem.getEvent(path, out var sound);
+    Check(result == FMOD.RESULT.OK && sound.getID(out var _) == FMOD.RESULT.OK, "音库存在 " + path);
+    sound.getID(out var id);
+    paths[id] = path;
+}
+var played = new List<(string Path, int Health, string State)>();
+var harmony = new Harmony("cultiway.test.feedback-907-weapon-" + Guid.NewGuid().ToString("N"));
+CombatFeedbackPlaybackProbe.Played = (id, point, instance) =>
+{
+    if (!paths.TryGetValue(id, out var path) || Vector2.Distance(point, enemy.current_position) > 1f) return;
+    var result = instance.getPlaybackState(out var state);
+    if (result == FMOD.RESULT.OK) played.Add((path, enemy.data.health, state.ToString()));
+};
+harmony.Patch(typeof(MusicBox).GetMethod("PlayOneShot", F),
+    postfix: new HarmonyMethod(typeof(CombatFeedbackPlaybackProbe), nameof(CombatFeedbackPlaybackProbe.AfterPlay)));
+void PlaceEnemy(float x)
+{
+    enemy.stopForce(); enemy.stopMovement(); enemy.batch.c_action_landed.Remove(enemy); enemy.position_height = 0;
+    enemy.current_position = new Vector2(x, 72);
+    enemy.setCurrentTile(World.world.GetTileSimple((int)x, 72)); enemy.updatePos();
+}
+bool Use()
+{
+    handles.Clear(); ActiveAbilityService.Collect(owner, handles);
+    return ActiveAbilityService.TryUse(owner, handles.Single(h => h.ProviderId == "content.weapon_control"),
+        new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script);
+}
+object Evidence() => played.Select(p => new { p.Path, p.Health, p.State }).ToArray();
+try
+{
+    MusicBox.sounds_on = true;
+    PrepareAppearanceBackdrop(61, 75, 69, 75);
+    World.world.camera.transform.position = new Vector3(66, 72, World.world.camera.transform.position.z);
+    MoveCamera.instance.forceZoom(8);
+    await Game.NextFrame();
+    owner.Base.attack_timer = enemy.attack_timer = 999;
+    PlaceEnemy(90);
+    Check(!Use() && played.Count == 0, "超距未受理且无受击声");
+    foreach (var test in new[] { (Id: "sword_wood", Path: wood), (Id: "sword_iron", Path: metal) }
+        .Where(test => materialOnly == null || test.Id == "sword_" + materialOnly))
+    {
+        owner.Base.createNewWeapon(test.Id); owner.Base.setStatsDirty(); owner.Base.updateStats();
+        PlaceEnemy(67); enemy.restoreHealth(enemy.getMaxHealth()); played.Clear();
+        int before = enemy.data.health;
+        Check(Use(), "御器受理：" + test.Id);
+        for (int i = 0; i < 42 && played.Count == 0 && enemy.data.health == before; i++) await Advance(.03f);
+        Check(enemy.data.health < before && played.Count == 1 && played[0].Path == test.Path && played[0].Health < before,
+            "真正扣血后只播放一次对应受击声：" + test.Id, new { before, after = enemy.data.health, played = Evidence() });
+        for (int i = 0; i < 36 && Casting(); i++) await Advance(.125f);
+        float cooldown = SkillCooldownService.GetRemaining(owner, handle.Source);
+        await Advance(Mathf.Max(.35f, cooldown + .1f));
+        Check(!Casting(), "御器结束可切换兵器：" + test.Id);
+    }
+    if (materialOnly == "wood") return new { passed = true, checks };
+    PlaceEnemy(65); played.Clear(); owner.Base.attack_timer = 0f;
+    var attack = new AttackData(owner.Base, enemy.current_tile, enemy.GetSimPos(), owner.Base.current_position,
+        enemy, owner.Base.kingdom, AttackType.Weapon, owner.Base.haveMetallicWeapon(), true);
+    var usual = MapBox.checkAttackFor(attack, enemy);
+    await Advance(.12f);
+    Check(usual.state == ApplyAttackState.Hit && played.Any(s => s.Path == nativeHit) && played.All(s => s.Path != metal),
+        "原版普通攻击保留自身受击声音", Evidence());
+    await Advance(.3f);
+    typeof(BaseSimObject).GetMethod("addStatusEffect", F, null,
+        new[] { typeof(string), typeof(float), typeof(bool) }, null).Invoke(enemy, new object[] { "invincible", 20f, false });
+    PlaceEnemy(67); var hp = enemy.data.health; played.Clear();
+    Check(Use(), "免疫时仍可正常施放");
+    await Advance(.9f);
+    Check(enemy.hasStatus("invincible") && enemy.data.health == hp && played.Count == 0,
+        "免疫不假装受伤发声", new { hp, after = enemy.data.health, played = Evidence() });
+    return new { passed = true, checks };
+}
+finally
+{
+    harmony.UnpatchSelf(); CombatFeedbackPlaybackProbe.Played = null;
+    MusicBox.sounds_on = originalSound; Config.paused = true;
+}

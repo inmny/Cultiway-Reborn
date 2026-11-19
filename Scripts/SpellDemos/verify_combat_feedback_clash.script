@@ -1,0 +1,120 @@
+// 同一剑形屏障，比较防住和打穿。仅观察正常运行产生的实际接触和显示快照。
+const string wood = "event:/SFX/HIT/HitWood";
+string[] sounds = { wood, "event:/SFX/HIT/HitMetal", "event:/SFX/HIT/HitSwordSword", "event:/SFX/HIT/HitGeneric",
+    "event:/SFX/WEAPONS/WeaponRockLand", "event:/SFX/DROPS/DropWaterBomb", "event:/SFX/WEAPONS/WeaponFreezeOrbLand",
+    "event:/SFX/WEAPONS/WeaponFireballLand", "event:/SFX/WEAPONS/WeaponFireballStart", "event:/SFX/WEAPONS/WeaponPlasmaBallLand" };
+var paths = new Dictionary<FMOD.GUID, string>();
+foreach (string path in sounds)
+{
+    var result = FMODUnity.RuntimeManager.StudioSystem.getEvent(path, out var sound);
+    Check(result == FMOD.RESULT.OK && sound.getID(out var _) == FMOD.RESULT.OK, "音库存在 " + path);
+    sound.getID(out var id); paths[id] = path;
+}
+var played = new List<string>();
+var harmony = new Harmony("cultiway.test.feedback-907-clash-" + Guid.NewGuid().ToString("N"));
+CombatFeedbackPlaybackProbe.Played = (id, point, instance) =>
+{
+    if (paths.TryGetValue(id, out var path) && Vector2.Distance(point, new Vector2(68, 72)) < 1.8f &&
+        instance.getPlaybackState(out _) == FMOD.RESULT.OK) played.Add(path);
+};
+harmony.Patch(typeof(MusicBox).GetMethod("PlayOneShot", F),
+    postfix: new HarmonyMethod(typeof(CombatFeedbackPlaybackProbe), nameof(CombatFeedbackPlaybackProbe.AfterPlay)));
+var assembly = typeof(AbilityCast).Assembly;
+var effects = assembly.GetType("Cultiway.Core.Visuals.SpatialVisualEffects");
+var feedback = assembly.GetType("Cultiway.Core.Visuals.SpatialCombatFeedback");
+var meshType = assembly.GetType("Cultiway.Core.Visuals.SpatialVisualMeshInstance");
+object Field(object item, string name) => item.GetType().GetField(name, F).GetValue(item);
+double ShakeTime() => (double)feedback.GetField("lastShake", F).GetValue(null);
+object[] Held() => ((IEnumerable)effects.GetField("effects", F).GetValue(null)).Cast<object>()
+    .Where(effect => (float)Field(effect, "Hold") > 0f).ToArray();
+Vector3[] DrawNear(Vector3 point)
+{
+    var list = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(meshType));
+    effects.GetMethod("Append", F).Invoke(null, new object[] { list, 64 });
+    return list.Cast<object>().Where(mesh => (bool)Field(mesh, "DrawNative"))
+        .Select(mesh => (Vector3)Field(mesh, "Position")).Where(pos => Vector3.Distance(pos, point) < .38f).ToArray();
+}
+void UseWard(string name, float capacity)
+{
+    var ward = Definition(name, right, capacity, role: ConstructionContactRole.Barrier, x: -4);
+    ward.Root.Matter = "wood";
+    Fire(ward, right, left);
+    Fire(Definition(name + ".shot", left, 100, 600), left, right);
+}
+bool originalSound = MusicBox.sounds_on;
+double originalTimeScale = Time.timeScale;
+Vector3[] atContact = null;
+Vector3[] start = null;
+void Observed(ConstructedClash clash)
+{
+    Clash(clash);
+    var held = Held();
+    if (held.Length == 0) return;
+    start = held.Select(effect => (Vector3)Field(effect, "Start")).ToArray();
+    atContact = DrawNear(clash.Position);
+}
+ConstructedAbilityService.ContactConfirmed += Hit;
+ConstructedAbilityService.ClashConfirmed += Observed;
+try
+{
+    MusicBox.sounds_on = true;
+    PrepareAppearanceBackdrop(61, 75, 69, 75);
+    for (int x = 61; x <= 75; x++)
+    for (int y = 69; y <= 75; y++)
+    {
+        var tile = World.world.GetTileSimple(x, y);
+        tile.Height = 140;
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    }
+    await FrameAppearance("starting-position", 68, 72, 5f);
+    double previous = ShakeTime();
+    if (part != "break")
+    {
+        Reset("普通交锋"); played.Clear();
+        UseWard("ordinary", 150);
+        await Advance(.25f);
+        Check(clashes.Count == 1 && impacts.Count == 0 && Mathf.Abs(clashes[0].Absorbed - 100f) < .01f,
+            "实际挡住且后方不受伤", new { ContactCount = impacts.Count, ClashCount = clashes.Count,
+            Absorbed = clashes.Select(c => c.Absorbed).ToArray() });
+        Check(played.SequenceEqual(new[] { wood }) && ShakeTime() == previous && Held().Length == 0,
+            "木障实际挡下一击，只放木声，无短停或镜头震动：" + string.Join(",", played));
+        await Advance(.42f);
+    }
+    await Advance(.22f);
+    Reset("关键交锋"); played.Clear();
+    int before = right.data.health;
+    UseWard("break", 40);
+    for (int i = 0; i < 10 && clashes.Count == 0; i++) await Advance(.012f);
+    Check(clashes.Count == 1 && Mathf.Abs(clashes[0].Absorbed - 40f) < .01f && ShakeTime() > previous,
+        "实际破防触发一次震动", new { ClashCount = clashes.Count,
+        Absorbed = clashes.Select(c => c.Absorbed).ToArray(), Shaken = ShakeTime() > previous });
+    var point = clashes[0].Position;
+    Check(start?.Length == 3 && start.All(pos => atContact.Any(mesh => Vector3.Distance(pos, mesh) < .001f)),
+        "真实接触时快照有三块停在接触处的碎面");
+    double shake = ShakeTime();
+    int voicesAtClash = played.Count;
+    Check(played.Count(s => s == wood) == 1, "破防只播放一次屏障材质声");
+    await FrameAppearance("break-native", point.x, point.y, 4.8f);
+    await FrameCleanupSide("break-worldfall", point, 6f, -.25f);
+    Check(played.Count == voicesAtClash && ShakeTime() == shake && Held().Length == 3, "切换视角不重播、不重新触发震动");
+    await Advance(.10f);
+    Vector3[] flying = DrawNear(point);
+    Check(start.All(pos => flying.All(mesh => Vector3.Distance(pos, mesh) > .005f)) && Held().Length == 3,
+        "短停之后碎面离开接触点，仍处于正常消散阶段");
+    for (int wait = 0; wait < 5 && impacts.Count == 0; wait++) await Advance(.03f);
+    Check(impacts.Count == 1 && right.data.health < before && Time.timeScale == originalTimeScale,
+        "余力在破防后继续打中，未改世界计时", new { before, after = right.data.health,
+        hits = impacts.Select(hit => new { hit.TargetId, hit.Damage.HealthLost, hit.Damage.ShieldAbsorbed }).ToArray(),
+        expectedScale = originalTimeScale, scale = Time.timeScale });
+    await Advance(.25f);
+    Check(Held().Length == 0 && ShakeTime() == shake, "短停表现自然清除，没有补发震动");
+    return new { passed = true, checks, voicesAtClash, holdSeconds = .055f, struck = before - right.data.health,
+        effectsAfter = Held().Length, worldScale = Time.timeScale };
+}
+finally
+{
+    harmony.UnpatchSelf(); CombatFeedbackPlaybackProbe.Played = null;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.ClashConfirmed -= Observed;
+    MusicBox.sounds_on = originalSound; Config.paused = true;
+}

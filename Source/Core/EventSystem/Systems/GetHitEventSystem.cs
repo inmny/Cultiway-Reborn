@@ -1,4 +1,5 @@
 using Cultiway.Core.Combat;
+using Cultiway.Core.Visuals;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Utils.Extension;
 
@@ -49,11 +50,14 @@ public class GetHitEventSystem : GenericEventSystem<GetHitEvent>
         using (DamageResolutionContext.Enter(evt.DamageOrigin, evt.SourceScopeId))
         {
             var element = evt.Element;
-            return actor.GetExtend().ResolveHit(evt.Damage, ref element, attacker,
+            UnityEngine.Vector3 contact = !string.IsNullOrEmpty(evt.ContactSound) ? actor.GetSimPos() : default;
+            var result = actor.GetExtend().ResolveHit(evt.Damage, ref element, attacker,
                 ignore_damage_reduction: evt.IgnoreDamageReduction,
                 attack_type_for_vanilla: evt.AttackType,
                 attacker_power_level_override: evt.AttackerPowerLevel,
                 metallic_weapon: evt.MetallicWeapon);
+            if (result.HealthLost > 0) SpatialCombatFeedback.Sound(evt.ContactSound, contact);
+            return result;
         }
     }
 }

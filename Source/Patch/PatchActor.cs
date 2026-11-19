@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using Cultiway.Content;
+using Cultiway.Content.Combat;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Core.EventSystem;
@@ -329,8 +330,17 @@ internal static class PatchActor
         {
             var change = AccessTools.Method(typeof(BaseSimObject), nameof(BaseSimObject.changeHealth));
             var measure = AccessTools.Method(typeof(PatchActor), nameof(MeasureHealthChange));
+            var originalSound = AccessTools.Method(typeof(MusicBox), nameof(MusicBox.playSound),
+                new[] { typeof(string), typeof(WorldTile), typeof(bool), typeof(bool) });
+            var hitSound = AccessTools.Method(typeof(PatchActor), nameof(PlayNativeHitSound));
             foreach (var instruction in instructions)
             {
+                if (instruction.Calls(originalSound))
+                {
+                    instruction.operand = hitSound;
+                    yield return instruction;
+                    continue;
+                }
                 if (!instruction.Calls(change)) { yield return instruction; continue; }
                 // 原版的八个参数占 0 到 7；第九个是本副本追加的本次扣血输出。
                 yield return new CodeInstruction(OpCodes.Ldarg_S, (byte)8).MoveLabelsFrom(instruction);
@@ -372,6 +382,13 @@ internal static class PatchActor
         return list;
     }
 
+    /// <summary>战技和御器由扣血结果发声，原版攻击保持自己的声音。</summary>
+    private static void PlayNativeHitSound(string sound, WorldTile tile, bool gameplay, bool visible)
+    {
+        if (DamageResolutionContext.CurrentSourceScopeId == 0)
+            MusicBox.playSound(sound, tile, gameplay, visible);
+    }
+
     [Hotfixable]
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.getHit))]
     private static bool getHit_prefix(Actor __instance, float pDamage, bool pFlash = true,
@@ -387,6 +404,7 @@ internal static class PatchActor
         pDamage = AttackDamageScaleContext.Apply(pDamage);
         var element = EnumUtils.DamageCompositionFromDamageType(pAttackType);
         long sourceScopeId = DamageResolutionContext.CurrentSourceScopeId;
+        bool controlledWeapon = sourceScopeId != 0 && pAttackType == AttackType.Weapon;
         if (sourceScopeId == 0) sourceScopeId = PatchLightning.CurrentSkyLightningScopeId;
         var evt = new GetHitEvent
         {
@@ -397,6 +415,8 @@ internal static class PatchActor
             MetallicWeapon = pAttackType == AttackType.Weapon ? pMetallicWeapon : null,
             DamageOrigin = DamageResolutionContext.CurrentOrigin,
             SourceScopeId = sourceScopeId,
+            ContactSound = !controlledWeapon ? null : pMetallicWeapon ? CombatContactFeedback.Metal :
+                pAttacker?.a?.getWeaponAsset()?.material == "wood" ? CombatContactFeedback.Wood : CombatContactFeedback.Physical,
             IgnoreDamageReduction = !pCheckDamageReduction
         };
         evt.BindAttacker(pAttacker);

@@ -1030,6 +1030,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             long leftOwner = running.Owner(node).Id, rightOwner = right.Running.Owner(right.To.Node).Id;
             float leftBefore = running.Cast.RemainingForce(node), rightBefore = right.Running.Cast.RemainingForce(right.To.Node);
             float absorbed = Mathf.Min(leftBefore, rightBefore);
+            bool leftSurface = running.Cast.Role(node) == ConstructionContactRole.Barrier ||
+                right.Running.Cast.Role(right.To.Node) != ConstructionContactRole.Barrier && leftBefore <= rightBefore;
+            AbilityMatter contactSurface = leftSurface ? running.Cast.Matter(node) : right.Running.Cast.Matter(right.To.Node);
             if (hit.LeftRayLength >= 0f && absorbed >= running.Cast.RemainingForce(node))
                 running.Cast.ClipRay(node, hit.LeftRayLength);
             if (hit.RightRayLength >= 0f && absorbed >= right.Running.Cast.RemainingForce(right.To.Node))
@@ -1046,6 +1049,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (clashGeneration != worldGeneration) return;
             ApplyCorrespondence(hit.Left, right, rightReceiver, absorbed, hit.Point);
             if (clashGeneration != worldGeneration) return;
+            CombatContactFeedback.Clash(hit.Point, hit.Normal, contactSurface, leftSurface ? leftBefore - leftAfter : rightBefore - rightAfter,
+                leftSurface ? leftAfter : rightAfter);
             ClashConfirmed?.Invoke(new ConstructedClash(running.Id, right.Running.Id, leftOwner, rightOwner,
                 node, right.To.Node, hit.Point, hit.Normal, LogicTime, running.Cast.Age, right.Running.Cast.Age, absorbed,
                 leftAfter, rightAfter, running.SourceId, right.Running.SourceId, leftBefore - leftAfter,
@@ -1090,6 +1095,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             damage.Damage = running.Cast.DamageForce(node) * impact.DamageScale *
                 strength;
             damage.Element = running.Cast.FixedDamageElement(node, impact) ?? Composition(beforeMatter.DamageKind);
+            damage.ContactSound = CombatContactFeedback.SoundFor(beforeMatter);
             primaryDamage = GetHitEventSystem.Resolve(damage);
         }
 
