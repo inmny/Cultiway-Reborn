@@ -182,10 +182,17 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         return plan;
     }
 
+    private static CompiledAbility palmExecution;
+
+    /// <summary>徒手入口读取当前制作姿态；已经保存的原掌击构造仍从独立目录读取。</summary>
+    internal static CompiledAbility PalmExecution => palmExecution?.ResourceVersion == FormResources.Version
+        ? palmExecution : palmExecution = ValidateDefinition(BodyActionCatalog.PalmExecution);
+
     /// <summary>资源提交前验证完整正式目录，不改写定义、学习和正在运行的施放。</summary>
     private static void ValidateReloadedResources()
     {
         foreach (AbilityDefinition definition in definitions.Values) ValidateDefinition(definition);
+        ValidateDefinition(BodyActionCatalog.PalmExecution);
     }
 
     /// <summary>在创建边界复制完整定义，编译成功后才登记。</summary>
@@ -370,14 +377,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
     /// <summary>原有身体能力的入口沿用统一执行，不要求每个人预先学会一份临时容器。</summary>
     /// <param name="caster">真实身体。</param>
-    /// <param name="id">已经登记的构造。</param>
+    /// <param name="plan">本入口的制作计划。</param>
     /// <param name="target">实际目标。</param>
     /// <param name="origin">实际调用方式。</param>
-    internal static bool Start(ActorExtend caster, string id, in ActiveAbilityTarget target,
-        ActiveAbilityUseOrigin origin)
-    {
-        return Start(caster, PlanFor(id), target, origin, out _);
-    }
+    internal static bool Start(ActorExtend caster, CompiledAbility plan, in ActiveAbilityTarget target,
+        ActiveAbilityUseOrigin origin) => Start(caster, plan, target, origin, out _);
 
     /// <summary>已经由实际来源收费的功能步骤直接进入共同执行，不授予另一份知识或再次支付。</summary>
     /// <param name="caster">实际归属人物。</param><param name="definition">本步骤的完整纯资料。</param>
@@ -650,16 +654,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         }
     }
 
-    /// <summary>身体动作的真实触达范围，仅用于选择目标；命中仍使用实际掌面或器物。</summary>
-    /// <param name="caster">真实身体。</param>
-    /// <param name="id">当前构造。</param>
-    /// <param name="target">候选对象。</param>
-    internal static float Range(ActorExtend caster, string id, BaseSimObject target)
-        => Range(caster, PlanFor(id), target);
-
     /// <summary>普通目录与外部来源共用已编译范围，不要求外部步骤重复登记为已学能力。</summary>
     /// <param name="caster">真实人物。</param><param name="plan">本次计划。</param><param name="target">实际目标。</param>
-    private static float Range(ActorExtend caster, CompiledAbility plan, BaseSimObject target, Entity carrier = default)
+    internal static float Range(ActorExtend caster, CompiledAbility plan, BaseSimObject target, Entity carrier = default)
     {
         StartingPose(caster.Base, out Vector3 sourceFoot, out float height);
         float targetHeight = 0f;
@@ -699,19 +696,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
     /// <summary>原有徒手入口可用性，不借用另一人物或已经失效的身体。</summary>
     /// <param name="caster">实际身体。</param>
-    /// <param name="id">已登记的基础动作。</param>
-    internal static bool CanStartBody(ActorExtend caster, string id) =>
+    /// <param name="plan">本入口的制作计划。</param>
+    internal static bool CanStartBody(ActorExtend caster, CompiledAbility plan) =>
         GeneralSettings.EnableSkillSystems && caster != null &&
-        !caster.Base.isRekt() && caster.Base.isAlive() && caster.Base.hasHealth() && BodyReady(caster, PlanFor(id));
+        !caster.Base.isRekt() && caster.Base.isAlive() && caster.Base.hasHealth() && BodyReady(caster, plan);
 
     /// <summary>是否具有动作需要的真实身体，不因动作正在运行就让能力栏消失。</summary>
     /// <param name="caster">实际身体。</param>
-    /// <param name="id">已经登记的动作。</param>
-    internal static bool HasBodyFor(ActorExtend caster, string id) => caster != null && !caster.Base.isRekt() &&
-                                                                      caster.Base.isAlive() &&
-                                                                      PlanFor(id).Body != null &&
-                                                                      BodyActionBinding.CanBind(caster,
-                                                                          PlanFor(id).Body);
+    /// <param name="plan">本入口的制作计划。</param>
+    internal static bool HasBodyFor(ActorExtend caster, CompiledAbility plan) => caster != null &&
+        !caster.Base.isRekt() && caster.Base.isAlive() && plan.Body != null && BodyActionBinding.CanBind(caster, plan.Body);
 
     /// <summary>不接受其他人物或伪造来源的句柄。</summary>
     /// <param name="caster">当前人物。</param>

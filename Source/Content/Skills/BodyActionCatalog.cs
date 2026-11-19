@@ -39,6 +39,10 @@ public static class BodyActionCatalog
     /// <summary>原地直掌的完整资料。</summary>
     public static AbilityDefinition Palm => All[0];
 
+    /// <summary>徒手战斗的制作姿态，不覆盖原可学习的构造及派生底稿。</summary>
+    internal static AbilityDefinition PalmExecution => palmExecution ??= Load("palm-strike-motion");
+    private static AbilityDefinition palmExecution;
+
     /// <summary>由共用动作创建可正式学习、自由编辑和保存的构造，不增加固定技能登记。</summary>
     /// <param name="id">新构造的稳定编号。</param><param name="name">显示名称。</param>
     /// <param name="request">实际部位与动作参数。</param>
