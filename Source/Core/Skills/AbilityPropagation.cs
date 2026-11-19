@@ -50,6 +50,8 @@ internal sealed class AbilityPropagation
     internal readonly CompiledPropagation Settings;
     /// <summary>实际开始年龄及输入尺寸。</summary>
     internal readonly float StartedAt, Scale;
+    /// <summary>由实际接触时的出手方向冻结的岩片朝向。</summary>
+    internal readonly Quaternion Heading;
     /// <summary>稳定地块编号到路线位置，不为每次命中遍历整张地图。</summary>
     private readonly Dictionary<int, int> index = new();
     /// <summary>实际地块行宽。</summary>
@@ -77,12 +79,14 @@ internal sealed class AbilityPropagation
     {
         Settings = settings; ground = surface; StartedAt = at; Scale = scale;
         Width = surface?.Land.Width ?? 0;
+        Vector2 direction = ((Vector2)forward).normalized;
+        if (settings.TiltDegrees > 0f)
+            Heading = Quaternion.LookRotation(direction.sqrMagnitude > 0f ? (Vector3)direction : Vector3.right, Vector3.forward);
         var route = new List<Cell>();
         int sx = Mathf.FloorToInt(origin.x), sy = Mathf.FloorToInt(origin.y);
         if (surface == null || !surface.Contains(sx, sy)) { Route = Array.Empty<Cell>(); return; }
         float above = origin.z - surface.Height(sx, sy);
         if (above < -.02f || above > Mathf.Max(.02f, settings.GroundReach)) { Route = Array.Empty<Cell>(); return; }
-        Vector2 direction = ((Vector2)forward).normalized;
         var queue = new SortedSet<(float Distance, int Id, int Parent)>();
         var distances = new Dictionary<int, float>();
         var visited = new HashSet<int>();
@@ -124,7 +128,7 @@ internal sealed class AbilityPropagation
         get
         {
             float next = cursor < Route.Length ? Route[cursor].At : float.PositiveInfinity;
-            next = Mathf.Min(next, Future(Settings.Seconds * .5f));
+            next = Mathf.Min(next, Future(Settings.Seconds * (Settings.TiltDegrees > 0f ? FoldPeak : .5f)));
             return Mathf.Min(next, Future(Settings.Seconds));
 
             float Future(float offset)
@@ -185,6 +189,24 @@ internal sealed class AbilityPropagation
         return !Reachable(i) || t < 0f || t > 1f ? 0f :
             Settings.Height * Scale * cell.Strength * Mathf.Max(0f, Mathf.Sin(Mathf.PI * t));
     }
+    /// <summary>每格首次达到最大翻起高度的进度，也是扫掠需要取样的转折点。</summary>
+    private const float FoldPeak = .29f;
+
+    /// <summary>同一刚性波面姿态供绘制和作用使用，模型原点是岩片后沿。</summary>
+    /// <param name="i">已到达路线的位置。</param><param name="phase">本格从入地到落稳的进度。</param>
+    internal Matrix4x4 FoldedCell(int i, out float phase)
+    {
+        Cell cell = Route[i];
+        phase = Mathf.Clamp01((Age - cell.At) / Settings.Seconds);
+        float rise = phase <= FoldPeak ? Mathf.SmoothStep(0f, 1f, phase / FoldPeak) :
+            1f - Mathf.SmoothStep(0f, 1f, (phase - .32f) / .68f);
+        float height = Settings.Height * Scale * cell.Strength;
+        Vector3 hinge = new Vector3(cell.X + .5f, cell.Y + .5f, ground.Height(cell.X, cell.Y) - .05f + rise * .40f * height)
+            + Heading * new Vector3(0f, 0f, -.5f);
+        Quaternion orientation = Heading * Quaternion.AngleAxis(-rise * Settings.TiltDegrees, Vector3.right);
+        return Matrix4x4.TRS(hinge, orientation, new Vector3(1f, height, 1f));
+    }
+
     /// <summary>当前仍由实际介质承接的路线，不以零厚度伪装断路。</summary><param name="i">路线位置。</param>
     internal bool Reachable(int i) => Route[i].Distance >= Settings.InnerRadius * Scale &&
         !blocked.Contains(i) && ground.Contains(Route[i].X, Route[i].Y);

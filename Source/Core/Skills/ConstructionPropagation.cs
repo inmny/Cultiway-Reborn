@@ -20,6 +20,9 @@ public sealed class ConstructionPropagation
     /// <summary>起点正下方允许入地的最大距离；零仍要求直接触地。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public float GroundReach;
+    /// <summary>每块刚性形体绕后沿翻起的最大角度；零使用原来的起伏波面。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float TiltDegrees;
     /// <summary>前向扇面的总夹角；360表示向四周传开。</summary>
     public float Angle = 360f;
     /// <summary>每格路程的强度衰减率，强度按指数连续下降。</summary>
@@ -39,6 +42,8 @@ internal sealed class CompiledPropagation
     internal readonly float Range, Speed, Seconds, Height;
     /// <summary>入口安静半径及向下触地的最大距离。</summary>
     internal readonly float InnerRadius, GroundReach;
+    /// <summary>刚性形体的最大翻起角度。</summary>
+    internal readonly float TiltDegrees;
     /// <summary>方向边界、衰减、地形边界及每格消耗。</summary>
     internal readonly float MinimumDot, Attenuation, MaximumStep, CellCost;
     /// <summary>实际处理数量上限。</summary>
@@ -52,12 +57,12 @@ internal sealed class CompiledPropagation
         if (source == null || !Valid(source.Range, .01f, 4096f) || !Valid(source.Speed, .01f, 10000f) ||
             !Valid(source.Seconds, 1f / 60f, 3600f) || !Valid(source.Height, .01f, 100f) ||
             !Valid(source.InnerRadius, 0f, source.Range) || source.InnerRadius >= source.Range || !Valid(source.GroundReach, 0f, 100f) ||
-            !Valid(source.Angle, 1f, 360f) || !Valid(source.Attenuation, 0f, 10f) ||
+            !Valid(source.TiltDegrees, 0f, 80f) || !Valid(source.Angle, 1f, 360f) || !Valid(source.Attenuation, 0f, 10f) ||
             !Valid(source.MaximumStep, 0f, 100f) || !Valid(source.CellCost, .000001f, 1000000f) ||
             source.MaximumCells < 1 || source.MaximumCells > 262144)
             throw new InvalidDataException(path + "：地表传播需要有效的距离、速度、波面、方向、消耗及1至262144格上限");
         Range = source.Range; Speed = source.Speed; Seconds = source.Seconds; Height = source.Height;
-        InnerRadius = source.InnerRadius; GroundReach = source.GroundReach;
+        InnerRadius = source.InnerRadius; GroundReach = source.GroundReach; TiltDegrees = source.TiltDegrees;
         MinimumDot = (float)Math.Cos(source.Angle * .5d * Math.PI / 180d);
         Attenuation = source.Attenuation; MaximumStep = source.MaximumStep; CellCost = source.CellCost;
         MaximumCells = source.MaximumCells;

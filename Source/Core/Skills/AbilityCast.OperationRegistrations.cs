@@ -148,6 +148,9 @@ public sealed partial class AbilityCast
                 if (form.FlowSettings != null || form.Fracture != null || form.Residue != null || form.Recovery != null ||
                     form.EventOperations.Count(o => o.Propagation != null) != 1)
                     throw new InvalidDataException(path + "：同一部位需要一套明确传播，流散、碎解及材料交接请使用独立后续部位");
+                if (p.TiltDegrees > 0f && (form.Resource.Rig.Count != 0 || form.Resource.Contacts.Length != 1 ||
+                    !form.Resource.Contacts[0].IsPrism || p.MaximumCells > 2048))
+                    throw new InvalidDataException(path + "：刚性翻起需要无骨架、只有一个实体作用面的形体，最多传播2048格");
             });
         ConstructionOperations.Register<object>(ConstructionOperationKind.Detach, c => null,
             (cast, action, p) => { cast.ReleaseNode(action.Node); return true; }, immediate: p => true, direct: true);

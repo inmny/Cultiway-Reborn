@@ -19,6 +19,15 @@ public sealed class FormContactPath
     public float[] Starts;
 }
 
+/// <summary>制作坐标 XZ 的逆时针凸轮廓，沿 Y 两侧保留同一厚度。</summary>
+public sealed class FormContactFootprint
+{
+    /// <summary>每项为相对于作用面中心的 X、Z。</summary>
+    public float[][] Points;
+    /// <summary>实际局部半厚度。</summary>
+    public float HalfThickness;
+}
+
 /// <summary>加载形体时拆出有限的凸片；各片的身份不会随成形进度变化。</summary>
 internal static class FormContactRegions
 {
@@ -29,17 +38,47 @@ internal static class FormContactRegions
     {
         var sector = source.Sector;
         var path = source.Path;
-        if (sector == null && path == null)
+        var footprint = source.Footprint;
+        if (sector == null && path == null && footprint == null)
         {
             contacts.Add(new FormContactBinding(source, rig, control));
             return;
         }
 
-        if (sector != null && path != null || source.HalfExtents != null || source.B != null || source.Radius != 0f ||
+        if (sector != null && path != null || footprint != null && (sector != null || path != null) || source.HalfExtents != null || source.B != null || source.Radius != 0f ||
             source.BControl != null || source.BInfluences != null || source.BuildRange != null || source.BuildAlong)
             throw Invalid(source, "区域不能同时声明其他作用形状或成形区间");
         if (sector != null) AddSector(contacts, source, rig, control, sector);
-        else AddPath(contacts, source, rig, control, path);
+        else if (path != null) AddPath(contacts, source, rig, control, path);
+        else contacts.Add(new FormContactBinding(source, rig, control, ConvexOutline(source, footprint), footprint.HalfThickness));
+    }
+
+    /// <summary>只在加载时核对凸边；顺序、重边或交叉错误不能产生比模型更大的接触面。</summary>
+    /// <param name="source">资源作用定义。</param><param name="footprint">制作导出的轮廓。</param>
+    private static Vector2[] ConvexOutline(FormContactDescription source, FormContactFootprint footprint)
+    {
+        if (footprint.Points?.Length is not (>= 3 and <= 12) || !Positive(footprint.HalfThickness))
+            throw Invalid(source, "实体轮廓须有3至12个点，并指定正半厚");
+        int count = footprint.Points.Length;
+        var points = new Vector2[count];
+        for (int i = 0; i < count; i++)
+        {
+            float[] point = footprint.Points[i];
+            if (point?.Length != 2 || !FormRig.Finite(point[0]) || !FormRig.Finite(point[1]))
+                throw Invalid(source, "每个轮廓点需要有限的 X、Z 坐标");
+            points[i] = new Vector2(point[0], point[1]);
+        }
+        for (int i = 0; i < count; i++)
+        {
+            Vector2 edge = points[(i + 1) % count] - points[i];
+            for (int j = 2; j < count; j++)
+            {
+                Vector2 other = points[(i + j) % count] - points[i];
+                if (edge.x * other.y - edge.y * other.x <= 0f)
+                    throw Invalid(source, "实体轮廓须按逆时针顺序形成凸形，无重叠或平直折点");
+            }
+        }
+        return points;
     }
 
     private static void AddSector(List<FormContactBinding> contacts, FormContactDescription source, FormRig rig, string control, FormContactSector sector)

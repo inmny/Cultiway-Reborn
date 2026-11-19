@@ -8,7 +8,7 @@ const destination = join(root, 'Content/Forms');
 const files = selected ? [`${selected}.json`] : readdirSync(source).filter(file => file.endsWith('.json')).sort();
 for (const file of files) {
   const authored = JSON.parse(readFileSync(join(source, file), 'utf8'));
-  if (!authored.Contacts.some(contact => contact.HalfExtents || contact.Sector || contact.Path)) continue;
+  if (!authored.Contacts.some(contact => contact.HalfExtents || contact.Sector || contact.Path || contact.Footprint)) continue;
   const path = join(destination, file);
   const published = JSON.parse(readFileSync(path, 'utf8'));
   if (published.Id !== authored.Id || published.Version !== authored.Version ||

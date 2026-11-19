@@ -42,6 +42,7 @@ public sealed partial class WindowWanfaConstructionEditor
         Number("PropagationHeight", settings.Height, value => settings.Height = value);
         Number("PropagationInner", settings.InnerRadius, value => settings.InnerRadius = value);
         Number("PropagationGroundReach", settings.GroundReach, value => settings.GroundReach = value);
+        Number("PropagationTilt", settings.TiltDegrees, value => settings.TiltDegrees = value);
         Number("PropagationAngle", settings.Angle, value => settings.Angle = value);
         Number("PropagationAttenuation", settings.Attenuation, value => settings.Attenuation = value);
         Number("PropagationStep", settings.MaximumStep, value => settings.MaximumStep = value);

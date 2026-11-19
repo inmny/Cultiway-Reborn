@@ -35,7 +35,50 @@ void Stage()
         ConstructedAbilityService.NotifyActorChanged(enemy);
     }
 }
-bool VisibleWave() => FormVisualScene.Instances.Any(instance => instance.Layer != null && instance.Resource.Description.Id == definition.Root.Form);
+FormVisualInstance[] Rocks() => FormVisualScene.Instances.Where(instance => instance.Resource.Description.Id == definition.Root.Form).ToArray();
+bool VisibleWave() => Rocks().Length != 0;
+AbilityCast Live() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Select(entry => (AbilityCast)Field(entry, "Cast")).FirstOrDefault(cast => cast.Plan.Id == definition.Id);
+var volumes = new List<AbilityCapsule>();
+var prismField = typeof(AbilityCapsule).GetField("Prism", F);
+const int gap = 69;
+int width = MapBox.width;
+bool Tilted(FormVisualInstance instance) => Mathf.Abs(instance.Transform.m22) > .12f;
+object Sample(bool blocked)
+{
+    var rocks = Rocks();
+    volumes.Clear(); Live()?.AppendContacts(volumes);
+    var solid = volumes.Where(c => c.Node >= 0).ToArray();
+    int front = solid.Length == 0 ? 0 : solid.Max(c => (c.Shape - 1) % width);
+    bool aligned = rocks.All(view =>
+    {
+        var shape = view.Resource.Description.Contacts.Single();
+        var center = new Vector3(shape.A[0], shape.A[1], shape.A[2]);
+        var match = solid.FirstOrDefault(c => (c.A - view.Transform.MultiplyPoint3x4(center)).sqrMagnitude < .000001f);
+        object prism = prismField.GetValue(match);
+        if (prism == null) return false;
+        object pose = prism.GetType().GetProperty("Pose", F).GetValue(prism);
+        var vertex = pose.GetType().GetMethod("Vertex", F);
+        var corners = Enumerable.Range(0, shape.Footprint.Points.Length * 2).Select(j => (Vector3)vertex.Invoke(pose, new object[] { j })).ToArray();
+        foreach (float[] edge in shape.Footprint.Points)
+        for (int y = -1; y <= 1; y += 2)
+        {
+            var fromMesh = view.Transform.MultiplyPoint3x4(center + new Vector3(edge[0], y * shape.Footprint.HalfThickness, edge[1]));
+            if (!corners.Any(corner => (corner - fromMesh).sqrMagnitude < .000001f)) return false;
+        }
+        return true;
+    });
+    Check(aligned && (!blocked || front < gap), "岩面与实际作用角点一致；断路处没有更远作用面",
+        new { blocked, front, rocks = rocks.Length, solid = solid.Length });
+    return new { front, rocks = rocks.Length, tilted = rocks.Count(Tilted),
+        fragments = rocks.Count(rock => rock.Parts.Skip(3).Any(p => p.m13 > .01f)) };
+}
+async Task Shot(string name)
+{
+    World.world.console.Hide(); WorldTip.hideNow();
+    await Game.NextFrame(); await Game.NextFrame();
+    Screen.Capture(Path.Combine(folder, name + ".png")); await Game.NextFrame();
+}
 object Trace() => contacts.Select(fact => new { fact.TargetId, fact.Node, fact.Age, x = fact.Position.x, y = fact.Position.y,
     z = fact.Position.z, fact.TargetHealthBefore, fact.TargetHealthAfter, fact.ForceApplied, push = fact.VelocityChange.x }).ToArray();
 async Task Pay()
@@ -51,6 +94,14 @@ try
 {
     CompiledAbility plan = AbilityCompiler.Compile(definition, false);
     Check(plan.HasPropagation && plan.Body != null, "同一构造有身体接触及有限地表过程");
+    var cameraType = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+    object camera = cameraType.GetProperty("Instance", F).GetValue(null);
+    object View(string key) => cameraType.GetProperty(key, F)?.GetValue(camera) ?? cameraType.GetField(key, F)?.GetValue(camera);
+    cameraType.GetMethod("ViewForTest", F).Invoke(camera, new object[] { false });
+    cameraType.GetMethod("SetGodView", F).Invoke(camera, new object[] { false });
+    await Game.WaitUntil(() => !(bool)View("IsFirstPerson") && !(bool)View("GodShown") && (bool)View("DiveDone") && !(bool)View("Flying"), 1800);
+    World.world.camera.transform.position = new Vector3(68f, 72.5f, 0f);
+    MoveCamera.instance.forceZoom(6.5f);
     Stage();
     int touchLife = touch.data.health, nearLife = near.data.health, farLife = far.data.health,
         sideLife = side.data.health, behindLife = behind.data.health;
@@ -68,30 +119,42 @@ try
     Check(contacts.Count == 1 && contacts[0].TargetId == touch.id && contacts[0].Node == -1 &&
         touch.data.health < touchLife && near.data.health == nearLife && far.data.health == farLife,
         "触点先承伤，后排尚未承伤", new { early, contacts = Trace(), touchLife, after = touch.data.health });
-    await Advance(.26f);
+    await Advance(.31f);
     Check(VisibleWave() && !BodyControlState.IsBusy(source.id) && near.data.health < nearLife && far.data.health == farLife,
         "收掌归还身体后，先抵达较近后排，较远处尚未命中", Trace());
-    await Advance(.5f);
+    var earlyRocks = Sample(false);
+    await Advance(.35f);
+    var lateRocks = Sample(false);
+    Check(Rocks().Any(Tilted) && Rocks().Any(rock => rock.Parts.Skip(3).Any(p => p.m13 > .01f)),
+        "已翻裂地块从岩面分出无伤害碎石");
+    await Shot("ridge");
     Check(far.data.health < farLife && side.data.health == sideLife && behind.data.health == behindLife &&
         contacts.Count(c => c.TargetId == touch.id) == 1, "只向前方传播，触点不重复扣血，侧面和身后不受击", Trace());
     var rear = contacts.Where(c => c.TargetId == near.id || c.TargetId == far.id).OrderBy(c => c.Age).ToArray();
     Check(rear.Length == 2 && rear[0].TargetId == near.id && rear[1].TargetId == far.id && rear.All(c => c.Node >= 0 && c.ForceApplied && c.VelocityChange.x > 0f),
         "两次后段伤害由推进中的波面造成，受力朝出掌方向", Trace());
-    await Advance(1.4f);
+    await Advance(.8f);
+    volumes.Clear(); Live()?.AppendContacts(volumes);
+    Check(!VisibleWave() && !volumes.Any(c => c.Node >= 0), "落稳后的岩层及作用面同时清空");
+    await Advance(.65f);
     Check(!VisibleWave() && endings.Count == 1 && !endings[0].Fact.Cancelled, "传播独立自然结束并撤去");
     var hit = Trace(); contacts.Clear();
 
-    Stage(); await Pay();
-    Place(touch, 64.85f, 76.5f); ConstructedAbilityService.NotifyActorChanged(touch);
-    float elapsed = 0f;
-    while (elapsed < 2.6f)
-    {
-        await Advance(.13f); elapsed += .13f;
-        if (VisibleWave() || contacts.Count != 0) break;
-    }
-    Check(contacts.Count == 0 && !VisibleWave() && endings.Count == 2 && !BodyControlState.IsBusy(source.id),
-        "再次受理后，真实空掌不造波，照常归还身体", Trace());
-    return new { passed = true, hit, noHitNaturalEnd = true };
+    for (int y = 66; y <= 79; y++) World.world.GetTileSimple(gap, y).setTileTypes(TileLibrary.deep_ocean, null);
+    await Advance(.16f);
+    Stage(); nearLife = near.data.health; farLife = far.data.health;
+    await Pay(); await Advance(.63f);
+    var blockedEarly = Sample(true);
+    await Advance(.27f);
+    var blockedLate = Sample(true);
+    await Shot("gap");
+    Check(near.data.health < nearLife && far.data.health == farLife &&
+        contacts.Any(c => c.TargetId == near.id) && contacts.All(c => c.TargetId != far.id),
+        "水隙之前的岩面仍命中，水隙另一侧没有碰撞和伤害", Trace());
+    await Advance(1.7f);
+    Check(!VisibleWave() && endings.Count == 2 && !endings.Any(e => e.Fact.Cancelled) && !BodyControlState.IsBusy(source.id),
+        "再次施放成功，断路后也自然收尾并归还身体");
+    return new { passed = true, hit, earlyRocks, lateRocks, blockedEarly, blockedLate, blockedHit = Trace() };
 }
 finally
 {

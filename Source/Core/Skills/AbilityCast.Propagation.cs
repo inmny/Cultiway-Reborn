@@ -81,6 +81,7 @@ public sealed partial class AbilityCast
     private void AppendPropagationContacts(int node, AbilityPropagation wave, List<AbilityCapsule> output, bool includeEnd)
     {
         NodeState state = nodes[node];
+        FormResource resource = Plan.Nodes[node].Resource;
         float step = includeEnd ? state.LastStep : 0f;
         int first = wave.Lower(wave.Age - wave.Settings.Seconds - step);
         for (int i = first; i < wave.End; i++)
@@ -89,12 +90,19 @@ public sealed partial class AbilityCast
             var cell = wave.Route[i];
             float remaining = cell.At + wave.Settings.Seconds - wave.Age;
             if (remaining < 0f && !includeEnd) continue;
+            float until = remaining >= 0f ? 1f : step > 0f ? Mathf.Clamp01(1f + remaining / step) : 0f;
+            int shape = resource.Contacts.Length + cell.X + cell.Y * wave.Width;
+            if (wave.Settings.TiltDegrees > 0f)
+            {
+                // 收尾的入地姿态仍可作为本步扫过的终点，不能在峰顶直接断掉作用面。
+                if (resource.Contacts[0].World(null, wave.FoldedCell(i, out _), node, shape, state.Revision,
+                    state.Matter, until, out var prism)) output.Add(prism);
+                continue;
+            }
             float height = wave.Height(i), floor = propagationGround.Height(cell.X, cell.Y);
             var center = new Vector3(cell.X + .5f, cell.Y + .5f, floor + height * .5f);
-            float until = remaining >= 0f ? 1f : step > 0f ? Mathf.Clamp01(1f + remaining / step) : 0f;
             output.Add(new AbilityCapsule(node, center, center, 0f, state.Matter.Id,
-                Plan.Nodes[node].Resource.Contacts.Length + cell.X + cell.Y * wave.Width,
-                state.Revision, state.Matter, new Vector3(.5f, .5f, height * .5f), until));
+                shape, state.Revision, state.Matter, new Vector3(.5f, .5f, height * .5f), until));
         }
     }
 
@@ -103,6 +111,11 @@ public sealed partial class AbilityCast
     /// <param name="output">共同显示集合。</param>
     private void AppendPropagationVisuals(int node, AbilityPropagation wave, List<FormVisualInstance> output)
     {
+        if (wave.Settings.TiltDegrees > 0f)
+        {
+            AppendFoldedCells(node, wave, output);
+            return;
+        }
         const int size = 16;
         var regions = new Dictionary<(int X, int Y), float[]>();
         for (int i = wave.First; i < wave.End; i++)
@@ -127,6 +140,39 @@ public sealed partial class AbilityCast
             output.Add(new FormVisualInstance(Plan.Nodes[node].Resource, Matrix4x4.identity,
                 surface: appearance.Surface, matterSurface: appearance.MatterSurface, matter: nodes[node].Matter,
                 dye: Plan.Nodes[node].Dye, terrain: terrain, layer: frame, followMatter: Plan.Nodes[node].FollowMatter));
+        }
+    }
+
+    /// <summary>绘制仍在地面的活动岩片；无作用面的散落部件从这些岩片脱落。</summary>
+    /// <param name="node">传播部位。</param><param name="wave">接触使用的同一传播。</param>
+    /// <param name="output">两个视角共用的显示缓冲。</param>
+    private void AppendFoldedCells(int node, AbilityPropagation wave, List<FormVisualInstance> output)
+    {
+        FormResource resource = Plan.Nodes[node].Resource;
+        var appearance = MatterAppearance(node);
+        FormPartDescription[] parts = resource.Description.Parts;
+        for (int i = wave.First; i < wave.End; i++)
+        {
+            if (!wave.Reachable(i)) continue;
+            Matrix4x4 matrix = wave.FoldedCell(i, out float phase);
+            if (phase <= 0f || phase >= 1f) continue;
+            Matrix4x4[] pieces = null;
+            for (int part = 0; part < parts.Length; part++)
+            {
+                if (Array.IndexOf(parts[part].Roles, "terrain.scree") < 0) continue;
+                if (pieces == null)
+                {
+                    pieces = new Matrix4x4[parts.Length];
+                    for (int j = 0; j < parts.Length; j++) pieces[j] = Matrix4x4.identity;
+                }
+                // 岩片开始落下后，零碎飞离裂口；随真实地块的寿命入地。
+                float travel = Mathf.Clamp01((phase - .29f) / .62f), arc = 4f * travel * (1f - travel);
+                float sign = ((wave.Route[i].X + wave.Route[i].Y + part) & 1) == 0 ? -1f : 1f;
+                pieces[part] = Matrix4x4.TRS(new Vector3(sign * .23f * travel, .24f * arc - .83f * travel * travel,
+                    .24f * travel), Quaternion.Euler(37f * travel, sign * 47f * travel, sign * 26f * travel), Vector3.one);
+            }
+            output.Add(new FormVisualInstance(resource, matrix, parts: pieces, surface: appearance.Surface,
+                matterSurface: appearance.MatterSurface, matter: nodes[node].Matter, dye: Plan.Nodes[node].Dye, terrain: terrain, followMatter: Plan.Nodes[node].FollowMatter));
         }
     }
 }

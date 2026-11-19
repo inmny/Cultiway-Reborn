@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""在独立游戏里复验寸掌葬岳的命中、空掌与归还。"""
+"""在独立游戏里复验寸掌葬岳的命中、岩片落稳、地表断路与归还。"""
 import json
 import os
 from pathlib import Path
@@ -32,7 +32,7 @@ def main():
         raise
     write_json(folder / 'result.json', result)
     if not result.get('passed'):
-        raise RuntimeError(f'寸掌葬岳传力未通过：{folder}')
+        raise RuntimeError(f'寸掌葬岳岩层未通过：{folder}')
     print(json.dumps(dict(output=str(folder), result=result), ensure_ascii=False))
 
 
