@@ -1,4 +1,4 @@
-// 9.02 C：复用 B21 的土墙、场地和人物，只复验画面与实际通行边缘。
+// 复用 B21 的土墙、场地和人物；按入口选择通行边缘或 9.03 B 的出现与收势。
 async Task FrameEarthWallSide(Vector3 center)
 {
     var external = AppDomain.CurrentDomain.GetAssemblies()
@@ -33,6 +33,7 @@ async Task FrameEarthWallSide(Vector3 center)
 }
 
 const bool captureWall = true;
+const bool verifyMotion = false;
 AbilityCast live = null;
 try
 {
@@ -42,11 +43,11 @@ try
     source.addAggro(target);
     target.addAggro(source);
     Check(Use(skill), "原已学土墙正常受理");
-    await Advance(.25f);
+    await Advance(verifyMotion ? .045f : .30f);
     live = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
         .Where(run => starts.Count != 0 && (long)Field(run, "Id") == starts.Last().CastId)
         .Select(run => (AbilityCast)Field(run, "Cast")).SingleOrDefault();
-    Check(live != null && oldWalls == 0 && Views(live).Single().Resource.Description.Id == "earth_wall_strata" &&
+    Check(live != null && oldWalls == 0 && Views(live).Single().Resource.Description.Id == "earth_wall_strata_motion" &&
           Views(live).Single().SurfaceFor(0) == "stone_strata" && Shapes(live).Count == 11,
         "原入口实际使用新岩壁和分层石面，且沿用原 11 段阻挡");
     Vector3 center = Center(live);
@@ -76,6 +77,56 @@ try
         update.Invoke(target, new object[] { distance / movement });
         return target.current_position.x;
     }
+    if (verifyMotion)
+    {
+        var timeline = new List<object>();
+        void Stage(string phase, List<AbilityCapsule> shapes, List<FormVisualInstance> frames, float walk)
+        {
+            timeline.Add(new { phase, live.Age, contacts = shapes.Select(shape => new
+            {
+                bottom = new[] { shape.A.x, shape.A.y, shape.A.z },
+                top = new[] { shape.B.x, shape.B.y, shape.B.z }, shape.Radius
+            }).ToArray(), forms = frames.Select(frame => frame.Resource.Description.Id).ToArray(), walk });
+            File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(timeline, Formatting.Indented));
+        }
+        var earlyShapes = Shapes(live);
+        float earlyWalk = Walk(72);
+        Stage("support", earlyShapes, Views(live), earlyWalk);
+        Check(earlyShapes.Count == 11 && earlyWalk == 64, "岩层未落稳时，地脚已经实际挡路");
+        await FrameAppearance("earth-wall-support", center.x, 73, 5);
+        await Advance(.30f);
+        var settled = Shapes(live);
+        var lifted = settled.Zip(earlyShapes, (after, before) => after.B.z - before.B.z).ToArray();
+        float settledWalk = Walk(72);
+        Stage("settled", settled, Views(live), settledWalk);
+        Check(settled.Count == 11 && settledWalk == 64 && lifted.Max() > .15f &&
+              settled.Zip(earlyShapes, (after, before) => Vector3.Distance(after.A, before.A) < .001f &&
+                  Mathf.Abs(after.Radius - before.Radius) < .001f).All(kept => kept),
+            "上层接触随岩层落稳，十一处地脚和宽度没有漂移", new { lifted });
+        await FrameAppearance("earth-wall-settled", center.x, 73, 5);
+        var asset = SkillEntities.EarthWall;
+        float lifespan = (float)typeof(SkillEntityAsset).GetMethod("ResolveRuntimeLifetime", F).Invoke(asset,
+            new object[] { skill, asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier });
+        await Advance(lifespan - live.Age - .075f);
+        float lastWalk = Walk(72);
+        Stage("before-end", Shapes(live), Views(live), lastWalk);
+        Check(live.Age < lifespan && Shapes(live).Count == 11 && lastWalk == 64,
+            "原作用时长以内，完整墙身继续挡路", new { live.Age, lifespan });
+        await Advance(lifespan - live.Age + .16f);
+        var rubble = Views(live);
+        float through = Walk(72);
+        Stage("rubble", Shapes(live), rubble, through);
+        Check(rubble.Count == 1 && rubble[0].Resource.Description.Id == "earth_wall_strata_rubble" &&
+              rubble[0].Resource.Description.Parts.Length == 7 && rubble[0].Skin != null && !live.Finished && Shapes(live).Count == 0 && through > center.x + 1,
+            "原寿命到期后只有独立碎块，真实人物已经穿过原墙面", new { live.Age, lifespan, through });
+        await FrameAppearance("earth-wall-rubble", center.x, 73, 5);
+        await Advance(.45f);
+        Stage("clear", Shapes(live), Views(live), through);
+        Check(live.Finished && Views(live).Count == 0 && Shapes(live).Count == 0 &&
+              endings.Any(e => e.Fact.CastId == starts.Last().CastId && !e.Fact.Cancelled), "碎块自然沉入地表并撤除");
+        await FrameAppearance("earth-wall-cleared", center.x, 73, 5);
+        return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
     var shapes = Shapes(live);
     float end = shapes.Max(shape => Mathf.Max(shape.A.y, shape.B.y) + shape.Radius);
     float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose")
@@ -88,11 +139,11 @@ try
     Check(front == 64 && edge == 64 && around > farFace && partial == 64,
         "实际一步在墙正面和端部内侧停下，从端部外可绕行",
         new { center = new[] { center.x, center.y, center.z }, end, height, farFace, inside, outside, front, edge, around, partial });
-    await Advance(4.1f);
+    await Advance(4.6f);
     float cleared = Walk(72);
     Check(live.Finished && Views(live).Count == 0 && Shapes(live).Count == 0 && cleared > farFace &&
           endings.Any(e => e.Fact.CastId == starts.Last().CastId && !e.Fact.Cancelled),
-        "原寿命自然结束后，墙身和阻挡同时消失，正面步行恢复", new { cleared, farFace });
+        "自然结束后，墙身、碎块和阻挡已撤除，正面步行恢复", new { cleared, farFace });
     await FrameAppearance("earth-wall-cleared", center.x, 73, 5);
     return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
 }

@@ -48,7 +48,7 @@ internal static class BarrierConstructionMigration
 
     /// <summary>已完整映射的原墙与护盾分别提供自身形体和实际材料。</summary>
     /// <param name="asset">原来源登记。</param>
-    private static string Form(SkillEntityAsset asset) => asset == SkillEntities.EarthWall ? "earth_wall_strata" :
+    private static string Form(SkillEntityAsset asset) => asset == SkillEntities.EarthWall ? "earth_wall_strata_motion" :
         asset == SkillEntities.IceWall ? "ice_wall" : asset == SkillEntities.WoodWall ? "wood_wall" :
         asset == SkillEntities.FireWall ? "fire_wall" : asset == SkillEntities.WindWall ? "wind_wall" :
         asset == SkillEntities.SwordCurtain ? "sword_curtain" :
@@ -122,10 +122,10 @@ internal static class BarrierConstructionMigration
         } : null;
         string matter = form switch { "ice_wall" => "ice", "wood_wall" => "wood", "fire_wall" => "fire",
             "wind_wall" or "wind_aegis" => "wind", "sword_curtain" => "iron", "flame_aegis" => "fire",
-            "water_curtain" => "water", "earth_wall_strata" => "earth",
+            "water_curtain" => "water", "earth_wall_strata_motion" => "earth",
             "spirit_aegis" => "spirit", "lightning_aegis" => "lightning", "solar_aegis" => "yang", _ => "physical" };
         Vector3 angles = shield ? Vector3.zero : FormResource.ReadFacing(new[] {0f, 1f, 0f}, new[] {0f, 0f, 1f}, form).eulerAngles;
-        return ContactEffectMigration.Bind(new AbilityDefinition
+        var definition = new AbilityDefinition
         {
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(),
             Lifetime = lifetime, ConcurrentLimit = container.Asset.ImpactProfile.PersistentLimit,
@@ -145,11 +145,48 @@ internal static class BarrierConstructionMigration
                 ContactRole = ConstructionContactRole.Barrier, BlocksGroundActors = !shield,
                 Strength = container.Asset.ImpactProfile.DurabilityMultiplier,
                 SourceLoss = shield ? ConstructionSourceLoss.End : ConstructionSourceLoss.Continue,
-                Operations = shield ? Array.Empty<ConstructionOperation>() : new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
-                    Vector = new float[3], WorldVelocity = true, Ground = ConstructionGroundResponse.Follow } }
-
+                Operations = shield ? Array.Empty<ConstructionOperation>() : new[] { FollowGround() }
             }
-        }, skill, emission.RuntimeData.ResolveEffectScale(), contactForceScale: emission.RuntimeData.ResolveEffectScale(), caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
+        };
+        if (container.Asset == SkillEntities.EarthWall) SetEarthWallMotion(definition, lifetime, scale);
+        return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(),
+            contactForceScale: emission.RuntimeData.ResolveEffectScale(), caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
+    }
+
+    /// <summary>固定屏障沿用地表承托。</summary>
+    private static ConstructionOperation FollowGround() => new()
+    {
+        Kind = ConstructionOperationKind.Fly, Vector = new float[3], WorldVelocity = true,
+        Ground = ConstructionGroundResponse.Follow
+    };
+
+    /// <summary>落稳仍是原挡墙。只有实际挡墙结束事件才开始无接触的岩块。</summary>
+    /// <param name="definition">本次已从原入口换算好的构造。</param>
+    /// <param name="lifetime">原本能够阻挡的世界秒数。</param>
+    /// <param name="scale">本次原墙的实际地图尺寸倍率。</param>
+    private static void SetEarthWallMotion(AbilityDefinition definition, float lifetime, float scale)
+    {
+        ConstructionNode wall = definition.Root;
+        wall.Operations = new[] { FollowGround(), new ConstructionOperation
+        {
+            Kind = ConstructionOperationKind.Animate, Clip = "settle", Seconds = Mathf.Min(lifetime, .27f)
+        } };
+        float collapse = Mathf.Min(.42f, 3600f - lifetime);
+        if (collapse <= 0f) return;
+        definition.Lifetime += collapse;
+        wall.DisappearAt = wall.ActiveUntil = lifetime;
+        wall.Children = new[] { new ConstructionNode
+        {
+            Id = "rubble", Form = "earth_wall_strata_rubble", Matter = "earth", State = "solid", Scale = scale,
+            SourceLoss = ConstructionSourceLoss.Continue, ContactRole = ConstructionContactRole.Decoration,
+            Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End },
+            DisappearAt = collapse,
+            // 用墙真正结束时的固定位置与朝向；碎块不申请地面碰撞。
+            Operations = new[] { new ConstructionOperation
+            {
+                Kind = ConstructionOperationKind.Animate, Clip = "collapse", Seconds = collapse
+            } }
+        } };
     }
 
 }
