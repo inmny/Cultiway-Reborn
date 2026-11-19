@@ -91,7 +91,7 @@ public sealed class CompiledConstructionRestoration
         if (source.RemoveStatus is not { } removal) return;
         if (string.IsNullOrWhiteSpace(removal.Id) ||
             (RemovedStatus = ModClass.L.StatusEffectLibrary.get(removal.Id)) == null)
-            throw new InvalidDataException(path + "/RemoveStatus：需要已登记的共享状态编号");
+            throw ConstructionReferences.Error(path + "/RemoveStatus", "需要已登记的共享状态编号", resourceKind: "Status", resourceId: removal.Id);
         if (removal.Maximum < 1 || removal.Maximum > 1024)
             throw new InvalidDataException(path + "/RemoveStatus：解除层数需要在1至1024之间");
         RemovalMaximum = removal.Maximum;

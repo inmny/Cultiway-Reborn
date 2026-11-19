@@ -59,7 +59,7 @@ public sealed class CompiledSpreadMedium
         if (source.Matter != null) Matter = AbilityMatters.Resolve(source.Matter, source.State, path + "/Matter");
         if (source.LinkForm != null)
         {
-            Link = ConstructionReferences.Resolve(path + "/LinkForm", () => FormResources.Load(source.LinkForm));
+            Link = ConstructionReferences.Resolve(path + "/LinkForm", () => FormResources.Load(source.LinkForm), "Form", source.LinkForm);
             if (Link.Span == null) throw new InvalidDataException(path + "：介质反馈模型须明确支持纵向伸展");
         }
     }

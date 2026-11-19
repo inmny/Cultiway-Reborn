@@ -55,10 +55,10 @@ public sealed partial class WindowWanfaConstructionEditor
         Toggle(prefix + "SpreadMatterFilter", medium.Matter != null, next => { medium.Matter = next ? "water" : null; medium.State = null; });
         if (medium.Matter != null)
         {
-            var matter = AbilityMatters.Resolve(medium.Matter, medium.State, "编辑介质");
-            Choice(prefix + "SpreadMatter", MaterialName(matter), () => menu.Show(T(prefix + "SpreadMatter"), AbilityMatters.All.Select(item => new UiOptionMenuOption
+            AbilityMatters.TryResolve(medium.Matter, medium.State, out var matter);
+            Choice(prefix + "SpreadMatter", MaterialName(medium.Matter, medium.State), () => menu.Show(T(prefix + "SpreadMatter"), AbilityMatters.All.Select(item => new UiOptionMenuOption
             {
-                Label = MaterialName(item), Selected = item.Id == matter.Id && item.State == matter.State,
+                Label = MaterialName(item), Selected = item == matter,
                 Select = () => Change(() => { medium.Matter = item.Id; medium.State = item.State; })
             }).ToArray()));
         }

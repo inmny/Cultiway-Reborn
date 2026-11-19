@@ -80,11 +80,20 @@ public static class AbilityMatters
     /// <param name="path">构造中的具体位置。</param>
     public static AbilityMatter Resolve(string id, string state, string path)
     {
-        if (string.IsNullOrEmpty(id) || !defaults.TryGetValue(id, out string standard))
-            throw new InvalidDataException(path + "：未提供实际材料规则：" + id);
-        if (state == null) state = standard;
-        if (entries.TryGetValue((id, state), out AbilityMatter value)) return value;
-        throw new InvalidDataException(path + "：材料未提供物态：" + id + "/" + state);
+        if (TryResolve(id, state, out AbilityMatter value)) return value;
+        string key = state == null ? id : id + "/" + state;
+        throw ConstructionReferences.Error(path, "未提供实际材料或物态：" + key,
+            resourceKind: "Matter", resourceId: key);
+    }
+
+    /// <summary>取已登记的实际材料；编辑缺失引用时可保留原名等待修正。</summary>
+    /// <param name="id">实际材料。</param><param name="state">明确物态，空值使用默认。</param>
+    /// <param name="value">登记的材料及物态。</param>
+    internal static bool TryResolve(string id, string state, out AbilityMatter value)
+    {
+        value = null;
+        return !string.IsNullOrEmpty(id) && defaults.TryGetValue(id, out string standard) &&
+               entries.TryGetValue((id, state ?? standard), out value);
     }
 }
 

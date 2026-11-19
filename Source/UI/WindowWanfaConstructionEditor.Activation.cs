@@ -77,7 +77,7 @@ public sealed partial class WindowWanfaConstructionEditor
         if (gate.Trigger != ConstructionChangeTrigger.MatterChanged) return;
         Toggle("EventMaterialFilter", gate.Matter != null, value => { gate.Matter = value ? "ice" : null; gate.State = null; });
         if (gate.Matter == null) return;
-        Choice("EventOutputMatter", MaterialName(AbilityMatters.Resolve(gate.Matter, gate.State, "事件输出")), () => menu.Show(T("EventOutputMatter"),
+        Choice("EventOutputMatter", MaterialName(gate.Matter, gate.State), () => menu.Show(T("EventOutputMatter"),
             AbilityMatters.All.Select(matter => new UiOptionMenuOption
             {
                 Label = MaterialName(matter), Selected = gate.Matter == matter.Id && (gate.State == null || gate.State == matter.State),

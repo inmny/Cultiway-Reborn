@@ -822,7 +822,7 @@ public sealed partial class CompiledBodyAction
         if (Part.Contact != BodyContactPart.Hand)
         {
             var limb = ConstructionReferences.Resolve("Body/Effector/limb",
-                () => Cultiway.Core.Visuals.Forms.FormResources.Load("limb"));
+                () => Cultiway.Core.Visuals.Forms.FormResources.Load("limb"), "Form", "limb");
             JointRadius = limb.Meshes.SelectMany(mesh => mesh.vertices)
                 .Max(point => new Vector2(point.x, point.y).magnitude) * UpperWidth;
             ContactReach = MaximumTorsoOffset + ShoulderSide + JointRadius +
@@ -831,11 +831,11 @@ public sealed partial class CompiledBodyAction
         }
 
         var hand = ConstructionReferences.Resolve("Body/Effector/hand",
-            () => Cultiway.Core.Visuals.Forms.FormResources.Load("hand"));
+            () => Cultiway.Core.Visuals.Forms.FormResources.Load("hand"), "Form", "hand");
         var resource = WeaponForm == null
             ? hand
             : ConstructionReferences.Resolve("Body/WeaponForm",
-                () => Cultiway.Core.Visuals.Forms.FormResources.Load(WeaponForm));
+                () => Cultiway.Core.Visuals.Forms.FormResources.Load(WeaponForm), "Form", WeaponForm);
         Matrix4x4 handMatrix =
             Matrix4x4.TRS(Vector3.zero, WeaponForm == null ? Quaternion.identity : Quaternion.Euler(0, -90, 0),
                 Vector3.one * HandScale) * Matrix4x4.Translate(new Vector3(0, .04f, 0));
@@ -849,7 +849,7 @@ public sealed partial class CompiledBodyAction
             if (handAnchor < 0)
                 throw new InvalidDataException("Body/Construction/Relations/Grip：手部缺少实际握点：" + Construction.HandGrip);
             Vector3 handGrip = hand.Anchors[handAnchor].Transform.GetColumn(3);
-            contactMatrix = ConstructionReferences.Resolve("Body/Grip", () => resource.Grip(Grip)).Align(
+            contactMatrix = ConstructionReferences.Resolve("Body/Grip", () => resource.Grip(Grip), "Grip", WeaponForm + " / " + Grip).Align(
                 Matrix4x4.TRS(handMatrix.MultiplyPoint3x4(handGrip), Quaternion.identity, Vector3.one), WeaponSize);
         }
 

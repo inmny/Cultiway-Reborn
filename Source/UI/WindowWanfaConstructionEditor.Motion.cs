@@ -68,7 +68,7 @@ public sealed partial class WindowWanfaConstructionEditor
         if (condition.Trigger == ConstructionChangeTrigger.MatterChanged)
         {
             Toggle("MotionMaterialFilter", condition.Matter != null, value => { condition.Matter = value ? "ice" : null; condition.State = null; });
-            if (condition.Matter != null) Choice("MotionOutputMatter", MaterialName(AbilityMatters.Resolve(condition.Matter, condition.State, "运动条件")), () => menu.Show(T("MotionOutputMatter"),
+            if (condition.Matter != null) Choice("MotionOutputMatter", MaterialName(condition.Matter, condition.State), () => menu.Show(T("MotionOutputMatter"),
                 AbilityMatters.All.Select(matter => new UiOptionMenuOption { Label = MaterialName(matter), Selected = condition.Matter == matter.Id && (condition.State == null || condition.State == matter.State),
                     Select = () => Change(() => { condition.Matter = matter.Id; condition.State = matter.State; }) }).ToArray(), true));
         }

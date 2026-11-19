@@ -30,10 +30,10 @@ public sealed partial class WindowWanfaConstructionEditor
     private void ActualPartRows(string effector)
     {
         string[] choices = access.PartChoices(HasLearner ? learner.GetExtend() : null).Effectors;
-        if (choices.Length == 0) { Row("ActualPart", T("ActualPartHint")); return; }
+        if (choices.Length == 0) { Row("ActualPart", T(HasLearner ? "EmptyActualParts" : "PreviewNeedsLearner")); return; }
         Choice("ActualPart", ActualPartName(effector), () => menu.Show(T("ActualPart"), choices.Select(part => new UiOptionMenuOption
         {
-            Label = ActualPartName(part), Selected = part == effector,
+            Label = ActualPartName(part), SearchText = ActualPartName(part) + " " + part, Selected = part == effector,
             Select = () => ApplyConstructionEdit(() => BodyConstructionEdits.RetargetPart(session.Draft, part))
         }).ToArray(), true));
     }
@@ -45,6 +45,7 @@ public sealed partial class WindowWanfaConstructionEditor
         string[] actual = access.PartChoices(HasLearner ? learner.GetExtend() : null).Feet;
         if (actual.Length > 0)
             ActionRow("UseActualFeet", T("UseActualFeetHint"), () => ApplyConstructionEdit(() => BodyConstructionEdits.NamedFeet(session.Draft, actual)));
+        else Row("UseActualFeet", T(HasLearner ? "EmptyActualFeet" : "PreviewNeedsLearner"));
         string[] names = body.Keys.SelectMany(key => key.Support?.Parts?.Keys ?? Enumerable.Empty<string>()).Distinct(StringComparer.Ordinal).OrderBy(part => part, StringComparer.Ordinal).ToArray();
         if (names.Length == 0) { bodyFoot = null; return; }
         if (!names.Contains(bodyFoot)) bodyFoot = names[0];

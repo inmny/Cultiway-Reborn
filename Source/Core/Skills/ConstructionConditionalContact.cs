@@ -66,7 +66,7 @@ public sealed class CompiledConstructionConditionalContact
         MaximumHealthRatio = source.MaximumHealthRatio;
         if (source.RequiredStatus != null && (string.IsNullOrWhiteSpace(source.RequiredStatus) ||
                                              (RequiredStatus = ModClass.L.StatusEffectLibrary.get(source.RequiredStatus)) == null))
-            throw new InvalidDataException(path + "/RequiredStatus：需要已登记的共享状态编号");
+            throw ConstructionReferences.Error(path + "/RequiredStatus", "需要已登记的共享状态编号", resourceKind: "Status", resourceId: source.RequiredStatus);
         Outcome = new CompiledConstructionContactOutcome(source.Outcome, path + "/Outcome");
         if (source.Otherwise != null) Otherwise = new CompiledConstructionContactOutcome(source.Otherwise, path + "/Otherwise");
         if (source.OnKill != null) OnKill = new CompiledConstructionContactOutcome(source.OnKill, path + "/OnKill");

@@ -14,6 +14,13 @@ namespace Cultiway.Content.Skills;
 
 public sealed partial class ConstructedAbilityService
 {
+    /// <summary>列出真实可选的预览人物。距离在确认坐标时检查，仍可解释超出距离。</summary>
+    /// <param name="actor">选择的实际施法者。</param><param name="plan">已编译规则。</param>
+    /// <param name="target">候选人物。</param>
+    internal static bool PreviewTargetMatches(ActorExtend actor, CompiledAbility plan, Actor target) =>
+        MatchesUseActor(actor, plan, target, null) &&
+        (plan.Body?.Construction.HasControlRelations != true || actor.Base != target);
+
     /// <summary>使用地图现有的输入创建隔离的播放实例，不取得身体、法宝、材料或资源的控制。</summary>
     internal static string TryBuildPreview(Actor actor, CompiledAbility plan, Actor target, Vector3 location,
         out PerformancePreview preview, out float? range)
@@ -22,11 +29,15 @@ public sealed partial class ConstructedAbilityService
         range = null;
         if (actor?.data == null || !actor.isAlive() || !actor.hasHealth()) return "PreviewNeedsLearner";
         ActorExtend owner = actor.GetExtend();
-        if (!TryResolveUseTarget(owner, plan, new ActiveAbilityTarget(target, location), out target, out location, out float targetHeight) ||
-            (target == null && plan.Nodes.Any(node => node.Correspondence?.Target == ConstructionCorrespondenceTarget.Target)))
-            return "PreviewInvalidTarget";
+        bool needsActor = plan.Use.Target == ActiveAbilityTargetMode.Object || plan.Body?.Construction.HasControlRelations == true ||
+                          plan.Nodes.Any(node => node.Correspondence?.Target == ConstructionCorrespondenceTarget.Target);
+        if (target == null && needsActor && plan.Use.Target != ActiveAbilityTargetMode.Self) return "PreviewNeedsTargetActor";
+        if (plan.Use.Target is ActiveAbilityTargetMode.Object or ActiveAbilityTargetMode.ObjectOrPoint &&
+            target != null && !PreviewTargetMatches(owner, plan, target)) return "PreviewWrongTargetActor";
+        if (!TryResolveUseTarget(owner, plan, new ActiveAbilityTarget(target, location), out target, out location, out float targetHeight))
+            return "PreviewInvalidCoordinates";
         if (plan.Body?.Construction.HasControlRelations == true && (target == null || target == actor))
-            return "PreviewInvalidTarget";
+            return "PreviewWrongTargetActor";
 
         var carrier = default(Friflo.Engine.ECS.Entity);
         Matrix4x4? carrierPose = null;
@@ -58,15 +69,16 @@ public sealed partial class ConstructedAbilityService
         BodyFrame? body = null;
         if (plan.Body != null)
         {
-            if (!BodyReady(owner, plan)) return "PreviewNeedsBody";
+            if (!BodyReady(owner, plan))
+                return BodyActionBinding.CanBind(owner, plan.Body) ? "PreviewBodyUnavailable" : "PreviewNeedsBody";
             binding = BodyActionBinding.TryCreate(actor, plan.Body, forward, location, targetHeight);
             if (binding == null) return "PreviewNeedsBody";
             body = binding.Frame(source, height);
-            if (!binding.CanStart(body.Value)) return "PreviewNeedsBody";
+            if (!binding.CanStart(body.Value)) return "PreviewBodyStance";
             if (plan.Body.ControlsStance && (!plan.Body.Part.HasPartRotation || plan.Body.HasNamedSupportMotion))
             {
                 movement = new BodyLocomotion(actor, plan.Body, body.Value, terrain, binding.Joint);
-                if (!movement.CanStart(terrain)) return "PreviewNeedsBody";
+                if (!movement.CanStart(terrain)) return "PreviewBodyStance";
                 BodyLocomotion.Pose pose = movement.Sample(0f, height, terrain);
                 body = binding.Frame(pose.Root, height, pose.Support);
             }

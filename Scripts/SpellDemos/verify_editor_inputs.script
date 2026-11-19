@@ -1,0 +1,79 @@
+// 8.10：复用已有水剑和地图；只检查窗口说明及恢复，不重跑播放或伤害规则。
+var source = Make(64);
+var target = Make(68);
+target.data.name = "River Target 810";
+source.addAggro(target);
+var owner = source.GetExtend();
+var edited = new AbilityDefinition
+{
+    Id = "test.editor-inputs.810", Name = "试炼剑胚", Resource = "stamina", Cost = 2.25f,
+    Power = 2f, Cooldown = .3f, Lifetime = 1.35f, TargetRange = 5.25f,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Object },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+    Root = new ConstructionNode { Id = "sword", Form = "sword", Matter = "water", State = "liquid", FollowMatter = true,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = .40f, Matter = "water", State = "solid" } } }
+};
+ConstructedAbilityService.Register(edited); ConstructedAbilityService.Learn(owner, edited.Id);
+LocalizedTextManager.instance.setLanguage("cz"); WindowWanfaConstructionEditor.Open(edited.Id, source);
+// COMMON_CONTROLS
+InputField Search() => editor.GetComponentsInChildren<InputField>(false).Single(input => input.name == "Search");
+Button Option(string label) => editor.GetComponentsInChildren<Button>(false).Single(button =>
+    button.name.StartsWith("Option") && button.GetComponentInChildren<Text>().text == label);
+string PreviewStatus() => ((Text)Field(editor, "performanceStatus")).text;
+string State() => ((Text)Field(editor, "state")).text;
+var type = typeof(WindowWanfaConstructionEditor);
+async Task Shot(string name)
+{
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(4); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+try
+{
+    Action("PreviewPerformance");
+    Check(Field(editor, "performance") == null && PreviewStatus() == T("PreviewNeedsTargetActor"),
+        "人物必选时明确提示缺目标", PreviewStatus());
+    await Shot("missing-target-cz");
+    Click("PreviewTarget"); await Frames();
+    Search().text = "unmatched query 810"; await Frames();
+    var optionMenu = Field(editor, "menu");
+    var emptyState = Field(optionMenu, "_empty");
+    var empty = (Text)emptyState.GetType().GetProperty("Text", F).GetValue(emptyState);
+    Check(empty.gameObject.activeInHierarchy && empty.text == T("Empty"),
+        "有候选但没有搜索结果时显示通用无匹配提示", new { empty.text, empty.gameObject.activeInHierarchy, expected = T("Empty"), value = Search().text });
+    Search().text = "river target";
+    Option(target.getName()).onClick.Invoke();
+    Check(Field(editor, "performance") != null && (long)Field(editor, "performanceTargetId") == target.id,
+        "通过公共搜索选中真实人物后恢复播放", PreviewStatus());
+    Click("PreviewClose");
+
+    Click("Page5");
+    const string missing = "test.missing.form.810";
+    type.GetMethod("Change", F).Invoke(editor, new object[] { (Action)(() => Session().Draft.Root.Form = missing) });
+    string cz = State();
+    Check(!(bool)Field(editor, "valid") && cz.Contains(missing) && cz.Contains(T("IssueResource.Form")) && cz.Contains("/Form"),
+        "缺失的真实形体定位到种类、稳定编号和声明位置，窗口继续提供替换", cz);
+    Click("LocateIssue");
+    Check((int)Field(editor, "page") == 0 && (int)Field(editor, "part") == 0, "定位回到实际可修改的部位");
+    await ShotRow("RepairMissingFormTitle", "missing-form-cz");
+    LocalizedTextManager.instance.setLanguage("en");
+    type.GetMethod("Refresh", F).Invoke(editor, null);
+    string en = State();
+    Check(en.Contains("Form “" + missing + "” is unavailable") && en.Contains("/Form"), "英文保留同一资源位置和编号", en);
+    await ShotRow("RepairMissingFormTitle", "missing-form-en");
+    Action("Form");
+    Search().text = "sword";
+    Option(T("Form.sword")).onClick.Invoke();
+    Check((bool)Field(editor, "valid") && Field(editor, "previewPlan") is CompiledAbility &&
+        Session().Draft.Root.Form == "sword" && Session().Draft.Root.Matter == "water" &&
+        Session().Draft.Use.Target == ActiveAbilityTargetMode.Object,
+        "由公共搜索修复原形体，其他资料保留，预览重新可用");
+    Click("Close"); await Frames();
+    Check(Field(editor, "session") == null, "修复到原资料后可直接关闭窗口");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) type.GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; LocalizedTextManager.instance.setLanguage("cz");
+}

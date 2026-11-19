@@ -70,15 +70,7 @@ public sealed partial class WindowWanfaConstructionEditor
         }
 
         ConstructionNode node = parts[part];
-        Choice("Form", LMTools.GetOrFallback("Cultiway.Construction.Form." + node.Form, node.Form), () =>
-            menu.Show(T("Form"),
-                FormResources.Ids.Where(id => FormResources.Load(id).Meshes.Length > 0).Select(id =>
-                    new UiOptionMenuOption
-                    {
-                        Label = LMTools.GetOrFallback("Cultiway.Construction.Form." + id, id),
-                        Selected = node.Form == id,
-                        Select = () => Change(() => node.Form = id)
-                    }).ToArray(), true));
+        FormChoice(node);
         ConnectionText("MediumChannel", node.MediumChannel ?? "", value => node.MediumChannel = string.IsNullOrEmpty(value) ? null : value);
         Number("Scale", node.Scale, value => node.Scale = value);
         Toggle("ExplicitVolume", node.Volume.HasValue, value => node.Volume = value ? 1f : (float?)null);
@@ -189,12 +181,13 @@ public sealed partial class WindowWanfaConstructionEditor
                 value => node.Rotation[axis] = value);
         }
 
-        AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, "编辑部位");
-        Choice("Material", MaterialName(matter), () => menu.Show(T("Material"), AbilityMatters.All.Select(item =>
+        AbilityMatters.TryResolve(node.Matter, node.State, out var matter);
+        Choice("Material", MaterialName(node.Matter, node.State), () => menu.Show(T("Material"), AbilityMatters.All.Select(item =>
             new UiOptionMenuOption
             {
                 Label = MaterialName(item),
-                Selected = item.Id == matter.Id && item.State == matter.State,
+                SearchText = MaterialName(item) + " " + item.Id + "/" + item.State,
+                Selected = item == matter,
                 Select = () => Change(() =>
                 {
                     node.Matter = item.Id;
@@ -212,6 +205,26 @@ public sealed partial class WindowWanfaConstructionEditor
                 Number(new[] { "Red", "Green", "Blue" }[i], node.Tint[i], value => node.Tint[channel] = value);
             }
     }
+
+    /// <summary>目录读取已发布形体；缺失的原编号仍显示到换为可用资源。</summary>
+    /// <param name="node">需要替换的原部位。</param>
+    private void FormChoice(ConstructionNode node) => Choice("Form", FormLabel(node.Form), () =>
+        menu.Show(T("Form"), FormResources.Ids.Where(id => FormResources.Load(id).Meshes.Length > 0).Select(id =>
+            new UiOptionMenuOption
+            {
+                Label = FormLabel(id), SearchText = FormLabel(id) + " " + id,
+                Selected = node.Form == id, Select = () => Change(() => node.Form = id)
+            }).ToArray(), true, "Cultiway.Construction.EmptyForms"));
+
+    /// <summary>使用资源的显示名，未登记翻译时保留编号以便搜索及修正。</summary>
+    /// <param name="id">形体的长期编号。</param>
+    private static string FormLabel(string id) => LMTools.GetOrFallback("Cultiway.Construction.Form." + id,
+        string.IsNullOrEmpty(id) ? T("IssueUnnamedResource") : id);
+
+    /// <summary>资料尚未修正时也能显示并更换材料。</summary>
+    /// <param name="matter">保存的材料编号。</param><param name="state">保存的物态。</param>
+    private static string MaterialName(string matter, string state) => AbilityMatters.TryResolve(matter, state, out var value)
+        ? MaterialName(value) : (state == null ? matter : matter + "/" + state);
 
     /// <summary>显示当前飞行与曲线的实际资料。</summary>
     private void PathPage()

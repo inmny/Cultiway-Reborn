@@ -53,6 +53,8 @@ internal sealed class UiOptionMenu
     private readonly InputField _search;
     private readonly UiScrollPane _optionsPane;
     private readonly UiEmptyState _empty;
+    /// <summary>按每次打开的用途指定空目录文字，语言切换仍使用原版组件。</summary>
+    private readonly LocalizedText _emptyLocale;
     private readonly UiModal _modal;
     private readonly List<Button> _optionButtons = new();
     private readonly List<UiOptionMenuOption> _options = new();
@@ -103,15 +105,23 @@ internal sealed class UiOptionMenu
         if (config.LocalizeLabels)
         {
             ((Text)_search.placeholder).gameObject.AddComponent<LocalizedText>().setKeyAndUpdate(config.SearchPlaceholder);
-            _empty.Text.gameObject.AddComponent<LocalizedText>().setKeyAndUpdate(config.EmptyText);
+            _emptyLocale = _empty.Text.gameObject.AddComponent<LocalizedText>();
+            _emptyLocale.setKeyAndUpdate(config.EmptyText);
             close.GetComponentInChildren<Text>().gameObject.AddComponent<LocalizedText>().setKeyAndUpdate(config.CloseText);
         }
         _modal = new UiModal(_frame.Root.gameObject, owner);
     }
 
-    public void Show(string title, IReadOnlyList<UiOptionMenuOption> options, bool searchable = false)
+    /// <summary>使用同一搜索和滚动展示选项。</summary>
+    /// <param name="title">已翻译的菜单标题。</param><param name="options">本次可选项。</param>
+    /// <param name="searchable">候选达到门槛时显示搜索。</param>
+    /// <param name="emptyText">目录本身为空时的专用文字，遵循配置的本地化方式；筛不到选项仍用默认文字。</param>
+    public void Show(string title, IReadOnlyList<UiOptionMenuOption> options, bool searchable = false, string emptyText = null)
     {
         _title.text = title;
+        string empty = options.Count == 0 ? emptyText ?? _config.EmptyText : _config.EmptyText;
+        if (_emptyLocale != null) _emptyLocale.setKeyAndUpdate(empty);
+        else _empty.Text.text = empty;
         ClearOptions();
         for (int i = 0; i < options.Count; i++)
         {

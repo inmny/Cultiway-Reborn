@@ -42,6 +42,7 @@ public sealed partial class WindowWanfaConstructionEditor
         performanceImage.transform.SetParent(layout, false);
         UiLayout.SetSize(performanceImage.transform, 378f, 189f);
         performanceImage.raycastTarget = false;
+        performanceImage.enabled = false;
         performanceStatus = UiElements.CreateText(layout, "PreviewStatus", "", 378f, 20f, 8);
         var controls = UiLayout.Create(layout, "PreviewControls", true, 378f, 23f, 4f).transform;
         BindText(UiElements.CreateButton(controls, "PreviewReplay", T("PreviewReplay"), 88f, 23f, RestartPerformancePreview).GetComponentInChildren<Text>(), "PreviewReplay");
@@ -83,34 +84,48 @@ public sealed partial class WindowWanfaConstructionEditor
 
     private void ChoosePerformanceTarget()
     {
+        if (!HasLearner) { RestartPerformancePreview(); return; }
         ClosePerformancePreview();
         var options = new List<UiOptionMenuOption>();
         if (previewPlan.Use.Target == ActiveAbilityTargetMode.ObjectOrPoint)
             options.Add(new UiOptionMenuOption { Label = T("PreviewPoint"), Selected = performanceTargetId == 0,
                 Select = () => { performanceTargetId = 0; ShowPerformancePreview(); } });
-        options.AddRange(World.world.units.getSimpleList().Where(actor => actor.isAlive() && actor.hasHealth()).Select(actor =>
+        var owner = learner.GetExtend();
+        options.AddRange(World.world.units.getSimpleList().Where(actor =>
+            ConstructedAbilityService.PreviewTargetMatches(owner, previewPlan, actor)).Select(actor =>
         {
             long id = actor.id;
-            return new UiOptionMenuOption { Label = actor.getName(), Selected = id == performanceTargetId,
+            return new UiOptionMenuOption
+            {
+                Label = actor.getName(), SearchText = actor.getName() + " " + LMTools.GetOrFallback(actor.asset.id, "") + " " + actor.asset.id,
+                Selected = id == performanceTargetId,
                 Select = () => { performanceTargetId = id; ShowPerformancePreview(); } };
         }));
-        menu.Show(T("PreviewTarget"), options.ToArray(), true);
+        menu.Show(T("PreviewTarget"), options.ToArray(), true, "Cultiway.Construction.EmptyPreviewTargets");
     }
 
     private void RestartPerformancePreview()
     {
         ReleasePerformanceViewport();
-        if (previewPlan == null || !HasLearner) { performanceStatus.text = T("PreviewNeedsLearner"); return; }
+        if (previewPlan == null) { performanceStatus.text = T("InvalidSummary"); return; }
+        if (!HasLearner)
+        {
+            performanceX.interactable = performanceY.interactable = performanceTarget.interactable = false;
+            performanceStatus.text = T("PreviewNeedsLearner");
+            return;
+        }
         Actor target = performanceTargetId == 0 ? null : World.world.units.get(performanceTargetId);
         ActiveAbilityTargetMode mode = previewPlan.Use.Target;
         bool coordinates = mode is ActiveAbilityTargetMode.Point or ActiveAbilityTargetMode.ObjectOrPoint && target == null;
         performanceX.interactable = performanceY.interactable = coordinates;
         performanceTarget.interactable = mode is ActiveAbilityTargetMode.Object or ActiveAbilityTargetMode.ObjectOrPoint;
         UiElements.SetButtonLabel(performanceTarget, target == null ? T("PreviewTarget") : target.getName());
+        if (performanceTargetId != 0 && (target == null || !target.isAlive() || !target.hasHealth()))
+        { performanceStatus.text = T("PreviewTargetGone"); return; }
         var point = Vector3.zero;
         if (coordinates && (!float.TryParse(performanceX.text, NumberStyles.Float, CultureInfo.CurrentCulture, out point.x) ||
             !float.TryParse(performanceY.text, NumberStyles.Float, CultureInfo.CurrentCulture, out point.y)))
-        { performanceStatus.text = T("PreviewInvalidTarget"); return; }
+        { performanceStatus.text = T("PreviewInvalidCoordinates"); return; }
 
         string reason = ConstructedAbilityService.TryBuildPreview(learner, previewPlan, target, point, out performance, out performanceRange);
         if (reason != null)
@@ -120,6 +135,7 @@ public sealed partial class WindowWanfaConstructionEditor
         }
         performanceViewport = new FormPreviewViewport(performance.Source, performance.Target);
         performanceImage.texture = performanceViewport.Image;
+        performanceImage.enabled = true;
         performancePause.interactable = performanceContacts.interactable = true;
         previewPaused = false;
         UiElements.SetButtonLabel(performancePause, T("PreviewPause"));
@@ -151,8 +167,16 @@ public sealed partial class WindowWanfaConstructionEditor
     private void ReleasePerformanceViewport()
     {
         performance = null;
-        if (performanceImage != null) performanceImage.texture = null;
-        if (performancePause != null) performancePause.interactable = performanceContacts.interactable = false;
+        if (performanceImage != null)
+        {
+            performanceImage.enabled = false;
+            performanceImage.texture = null;
+        }
+        if (performancePause != null)
+        {
+            performancePause.interactable = performanceContacts.interactable = false;
+            UiElements.SetButtonLabel(performancePause, T("PreviewPause"));
+        }
         performanceViewport?.Dispose(); performanceViewport = null;
         performanceVisuals.Clear(); performanceShapes.Clear();
     }
