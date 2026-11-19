@@ -412,7 +412,7 @@ Shader "Cultiway/FormSurface"
                 base += tint.rgb * .16 * broad;
                 alpha *= i.surface.y * (.54+.46*broad) * (.24+.76*chord);
             }
-            else
+            else if (_Kind < 18.5)
             {
                 // 玄阴由低处浅影和内凹高肩构成；提高的是宽面深度，人物轮廓仍可看见。
                 float3 q = i.material;
@@ -422,6 +422,16 @@ Shader "Cultiway/FormSurface"
                 base *= (.31+.52*cloud+.78*shoulder) * max(float3(.68,.68,.68),.52*ambient+.31*direct);
                 base += float3(.08,.095,.16) * shoulder * (.5+.5*cloud) * environmentLight;
                 alpha *= (.36+.23*cloud+.30*shoulder) * (1-.34*lip*(1-shoulder));
+            }
+            else
+            {
+                // 边缘沿实际厚面翻起；中间地面和着火的人物保持可见。
+                float3 q = i.material;
+                float hot = volumeNoise(q * float3(4,4,2) + float3(.1,.07,1.9)*_WorldTime);
+                float high = smoothstep(.04,.35,-q.z);
+                base *= .66+.55*hot;
+                base += float3(.34,.22,.04)* (.23+.77*hot) * (1-.65*high);
+                alpha *= i.surface.y*(.54+.46*hot)*(.58+.42*abs(dot(n,eye)));
             }
             float contact = formFeedback(i);
             base += (base*.24 + float3(.035,.045,.05)*environmentLight)*contact;

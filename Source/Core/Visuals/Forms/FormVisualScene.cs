@@ -115,6 +115,7 @@ public readonly struct FormVisualInstance
             "stone_strata" => "stone",
             "wind_open" or "wind_pressure" => "wind",
             "yin_basin" => "yin_depth",
+            "meteor_heat" or "meteor_crown" => "flame",
             _ => null
         };
         return Surface ?? (piece.UseMatterSurface && MatterSurface != authoredMaterial ? MatterSurface : null) ?? piece.Surface;

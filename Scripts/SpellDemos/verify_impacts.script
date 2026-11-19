@@ -101,6 +101,7 @@ try
         (Asset:SkillEntities.Icefall,Form:"icefall",Matter:"ice",State:"solid",Radius:2.5f,Multiplier:1.2f)})
     {
         currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
+        string burstForm=entry.Asset==SkillEntities.FlameMeteor?"flame_meteor_impact":entry.Matter+"_burst";
         var normal=Build();
         if(section!="visuals")foreach(var skill in new[]{normal,Build(true)})
         {
@@ -109,7 +110,7 @@ try
             var plan=AbilityCompiler.Compile(restored,cache:false);bool boost=skill.HasComponent<HugeModifier>();
             Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.State==entry.State&&
                 d.Root.OnContact==ConstructionContactResponse.End&&d.Root.Impact.DamageScale==0&&
-                burst.Form==entry.Matter+"_burst"&&burst.Activation.InheritRemainder&&burst.Activation.ResetContacts&&
+                burst.Form==burstForm&&burst.Activation.InheritRemainder&&burst.Activation.ResetContacts&&
                 burst.Activation.Trigger==ConstructionChangeTrigger.End&&burst.ActiveUntil==.025f&&burst.DisappearAt==.22f&&
                 Math.Abs(burst.Scale-(boost?1.4f:1f)*entry.Radius/.9f)<.001f&&Math.Abs(burst.Impact.DamageScale-entry.Multiplier)<.0001f&&
                 Math.Abs(damage.Damage-(boost?37.44f:40f))<.001f&&damage.AttackerPowerLevel==1.25f&&damage.Element.Equals(entry.Asset.Element),
@@ -121,9 +122,9 @@ try
         Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.08f);var live=accepted.Single();
         Check(starts.Count==1&&oldExecutions==0&&Views(live).Single().Resource.Description.Id==entry.Form&&live.NodeAge(1)<0,
             entry.Form+"只有飞行主体，爆发未提前形成");await Shot(entry.Form+"-flight");
-        await Burst(live);var burstView=Views(live).Single(v=>v.Resource.Description.Id==entry.Matter+"_burst");
+        await Burst(live);var burstView=Views(live).Single(v=>v.Resource.Description.Id==burstForm);
         Vector3 centre=burstView.Transform.GetColumn(3);await Shot(entry.Form+"-burst");
-        await Advance(.08f);var afterView=Views(live).Single(v=>v.Resource.Description.Id==entry.Matter+"_burst");
+        await Advance(.08f);var afterView=Views(live).Single(v=>v.Resource.Description.Id==burstForm);
         Check(Vector3.Distance(centre,afterView.Transform.GetColumn(3))<.001f&&Shapes(live).Count==0,
             entry.Form+"爆发停在真实结束点，显示收势不继续攻击",new{centre=new[]{centre.x,centre.y,centre.z}});
         await Advance(.4f);

@@ -1,0 +1,81 @@
+// 9.02 收尾：同一世界和人物，只从正式已学入口取既有主体的画面。
+const bool onlyMeteor = false;
+var source=Make(64);var target=Make(70);var wolf=Make(12,"wolf");target.setKingdom(wolf.kingdom);
+var owner=source.GetExtend();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=0;
+owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();await Advance(.2f);
+PrepareAppearanceBackdrop(62,76,68,77);
+var samples=new[]{
+    (Asset:SkillEntities.SpiritShield,Form:"spirit_aegis",Self:true,Phase:.2f,Arrival:false),
+    (Asset:SkillEntities.WaterCurtain,Form:"water_curtain",Self:false,Phase:.2f,Arrival:false),
+    (Asset:SkillEntities.SwordQi,Form:"sword_qi",Self:false,Phase:.15f,Arrival:false),
+    (Asset:SkillEntities.LightningSpear,Form:"lightning_spear",Self:false,Phase:.1f,Arrival:false),
+    (Asset:SkillEntities.EarthRidge,Form:"earth_ridge",Self:false,Phase:.23f,Arrival:false),
+    (Asset:SkillEntities.FlameMeteor,Form:"flame_meteor_impact",Self:false,Phase:.08f,Arrival:true)
+};
+var running=service.GetField("casts",F);
+var view=new List<FormVisualInstance>();
+FormVisualInstance? Visual(AbilityCast cast,string form)
+{
+    view.Clear();cast.AppendVisuals(view);
+    return view.Where(v=>v.Resource.Description.Id==form).Select(v=>(FormVisualInstance?)v).FirstOrDefault();
+}
+ConstructedCastStarted? started=null;
+void Started(ConstructedCastStarted value){if(value.SourceId==source.id)started=value;}
+AbilityCast live=null;
+ConstructedAbilityService.CastStarted+=Started;
+try
+{
+    foreach(var sample in samples)
+    {
+        if(onlyMeteor&&!sample.Arrival)continue;
+        contacts.Clear();int hp=target.data.health;
+        var made=new SkillContainerBuilder(sample.Asset).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+        string signature=SkillContainerSignature.Build(made);owner.LearnSkillV3(made);
+        var skills=(IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(owner,null);
+        var skill=skills.First(s=>SkillContainerSignature.Build(s)==signature);
+        Ready(source);Place(source,64);Place(target,70);source.addAggro(target);target.addAggro(source);
+        owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
+        ConstructedAbilityService.NotifyActorChanged(source);ConstructedAbilityService.NotifyActorChanged(target);
+        started=null;
+        var chosen=sample.Self?source:target;
+        bool used=ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",skill),
+            new ActiveAbilityTarget(chosen,chosen.GetSimPos(),selectionArea:sample.Self?default:new SkillTargetSelectionArea(true,chosen.GetSimPos(),.1f)),
+            ActiveAbilityUseOrigin.Script);
+        source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();ControllableUnit.clear(false);
+        Check(used,sample.Form+"原已学入口受理");await Advance(sample.Phase);
+        Check(started.HasValue&&started.Value.AbilityId==sample.Asset.id,sample.Form+"确认为对应正式施放");
+        live=((IEnumerable)running.GetValue(null)).Cast<object>().Where(row=>(long)Field(row,"Id")==started.Value.CastId)
+            .Select(row=>(AbilityCast)Field(row,"Cast")).Single();
+        if(sample.Arrival)for(int i=0;i<40&&!Visual(live,sample.Form).HasValue&&!live.Finished;i++) await Advance(.035f);
+        var model=Visual(live,sample.Form);Check(model.HasValue,sample.Form+"实际主体可取景");
+        if(sample.Arrival)
+        {
+            var landing=contacts.Where(c=>c.CastId==started.Value.CastId&&c.Node==1&&c.TargetId==target.id&&c.DamageAttempted).ToArray();
+            Check(model.Value.SurfaceFor(0)=="meteor_heat"&&model.Value.SurfaceFor(1)=="meteor_crown"&&
+                landing.Length==1&&target.data.health<hp,"炎陨落地使用半透明火肩，并对真实落点人物结算一次",
+                new{count=landing.Length,before=hp,after=target.data.health});
+        }
+        var center=model.Value.Transform.GetColumn(3);
+        var sizes=new List<float>();
+        foreach(var shot in new[]{(Name:"near",Zoom:5f),(Name:"mid",Zoom:16f),(Name:"far",Zoom:22f)})
+        {
+            await FrameAppearance(sample.Form+"-"+shot.Name,center.x,center.y+Mathf.Max(0,center.z-1.6f),shot.Zoom);
+            sizes.Add(World.world.camera.orthographicSize);
+        }
+        Check(sizes[0]<sizes[1]&&sizes[1]<sizes[2],sample.Form+"三个实际镜头距离",sizes);
+        if(sample.Arrival)
+        {
+            await Advance(.35f);
+            Check(!Visual(live,sample.Form).HasValue,"落地火体按原时限撤除");
+        }
+        else live.Cancel();
+        await Advance(.08f);
+    }
+    return new{passed=true};
+}
+finally
+{
+    if(live!=null&&!live.Finished)live.Cancel();
+    ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;
+    ConstructedAbilityService.CastEnded-=Ended;ControllableUnit.clear(false);Config.paused=true;
+}

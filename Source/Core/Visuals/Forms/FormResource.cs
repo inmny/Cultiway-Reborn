@@ -752,6 +752,8 @@ internal sealed partial class FormResourceGeneration
             "wind_open" => (17f, new Color(.72f, .88f, .84f, .76f), .55f),
             "wind_pressure" => (17f, new Color(.48f, .70f, .69f, .78f), .68f),
             "yin_basin" => (18f, new Color(.13f, .13f, .32f, .88f), .62f),
+            "meteor_heat" => (19f, new Color(.96f, .29f, .024f, .64f), .62f),
+            "meteor_crown" => (19f, new Color(1f, .43f, .04f, .91f), .54f),
             "skin" => (2f, new Color(.86f, .65f, .48f), .65f),
             "horn" => (2f, new Color(.56f, .73f, .79f), .34f),
             "ivory" => (2f, new Color(.78f, .73f, .55f), .4f),
