@@ -47,6 +47,42 @@ export function makeSourceRays() {
   }
 }
 
+/** 发光外缘与可接触体使用同一截面，内部亮芯只负责显示。旧形体仍可从正式构造加载。 */
+export function makeLuminousRays() {
+  const length=2;
+  const controls=['origin','extent'].map(Id=>({Id,Parent:null,Position:[0,0,0],Rotation:[0,0,0,1]}));
+  for(const [id,radius,lanes,core] of [
+    ['spirit_ray_luminous',.30,[[0,'spirit_beam_edge']],'spirit_beam_core'],
+    ['solar_ray_luminous',.15,[[0,'solar_beam_edge'],[-.12,'solar_beam_flank'],[.12,'solar_beam_flank']],'solar_beam_core']
+  ]) {
+    const parts=[], contacts=[], roles={};
+    function addLayer(name,x,width,surface) {
+      // 亮芯与外缘共用圆端中心；缩短射线时不会有一层伸出实际末端。
+      const geometry=new T.CapsuleGeometry(width,length-radius*2,6,20).rotateX(Math.PI/2).translate(x,0,length*.5);
+      geometry.userData.keepNormals=true;
+      const mesh=skin(geometry,p=>{
+        const t=T.MathUtils.clamp((p.z-radius)/(length-radius*2),0,1);
+        return [[0,1-t],[1,t]];
+      });
+      const item=part(name,mesh,surface);item.UseMatterSurface=false;
+      for(let k=0;k<item.Triangles.length;k+=3)
+        [item.Triangles[k],item.Triangles[k+2]]=[item.Triangles[k+2],item.Triangles[k]];
+      parts.push(item);
+      roles[name]=['channel.body','channel.surface'];
+    }
+    lanes.forEach(([x,surface],i)=>{
+      const name=`channel${i}`;
+      addLayer(name,x,radius,surface);
+      contacts.push({Id:name,Part:i,A:[x,0,radius],B:[x,0,length-radius],Radius:radius,AControl:'origin',BControl:'extent'});
+    });
+    addLayer('luminous_core',0,radius*.43,core);
+    write(id,parts,[{Id:'start',Part:0,Position:[0,0,0],Direction:[0,0,-1],Control:'origin'},
+      {Id:'end',Part:0,Position:[0,0,length],Direction:[0,0,1],Control:'extent'}],
+      contacts,controls,[],false,{Forward:[0,0,1],Up:[0,1,0]},
+      structure('volume','forms_ray.mjs','makeLuminousRays',{'span.length':length,'span.radius':radius},roles,[],['span']));
+  }
+}
+
 /** 连锁使用有厚度的扭转雷体；亮芯位于外层内部，不额外增加作用次数。 */
 export function makeThunderChannel() {
   const radius=.12,length=2,parts=[],roles={};

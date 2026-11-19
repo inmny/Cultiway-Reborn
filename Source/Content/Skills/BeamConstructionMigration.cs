@@ -101,7 +101,7 @@ internal static class BeamConstructionMigration
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Follow = follow },
             Root = new ConstructionNode
             {
-                Id = "channel", Form = container.Asset == SkillEntities.SolarBeam ? "solar_ray" : "spirit_ray",
+                Id = "channel", Form = container.Asset == SkillEntities.SolarBeam ? "solar_ray_luminous" : "spirit_ray_luminous",
                 Matter = container.Asset == SkillEntities.SolarBeam ? "yang" : "spirit", State = "energy", Scale = scale,
                 Contact = container.Asset.ImpactProfile.RepeatHitInterval > 0f
                     ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval, Interval = container.Asset.ImpactProfile.RepeatHitInterval }

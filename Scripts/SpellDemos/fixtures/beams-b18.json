@@ -1,0 +1,196 @@
+{
+  "source": "5.05 B18 正式已学光束复验输出",
+  "evidenceSha256": "c1e664b13d9ea2c19b88a181031001c2031fd0bc5ed2cf201e174a61ab1cd7af",
+  "forms": [
+    {
+      "sha256": "f9487ab1a112f6a5d2f096d1a812a1e457eefb3253694906e111872c13bddc2c",
+      "radius": 1.38000011,
+      "definition": {
+        "Version": 1,
+        "Id": "Cultiway.SpiritBeam",
+        "Revision": 1,
+        "Name": "灵光",
+        "Creator": 0,
+        "Seed": 0,
+        "Lifetime": 0.16,
+        "Cost": 0.0,
+        "Resource": "none",
+        "AdditionalResources": [],
+        "ResourceMode": 0,
+        "Cooldown": 0.0,
+        "Power": 1.0,
+        "TargetRange": 10000.0,
+        "Use": {
+          "Channels": 3,
+          "Target": 4
+        },
+        "Root": {
+          "Id": "channel",
+          "Form": "spirit_ray",
+          "Surface": null,
+          "Matter": "spirit",
+          "State": "energy",
+          "Tint": null,
+          "Anchor": null,
+          "Offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Scale": 2.3,
+          "ActiveFrom": 0.0,
+          "ActiveUntil": -1.0,
+          "ActiveFromMarker": null,
+          "ActiveUntilMarker": null,
+          "ContactGroup": null,
+          "Contact": {
+            "Mode": 0,
+            "Interval": 0.25,
+            "MaximumPerTarget": 0,
+            "MaximumTotal": 0
+          },
+          "OnContact": 0,
+          "ContactRole": 0,
+          "Strength": 1.0,
+          "Interception": 0,
+          "ReflectionLimit": 8,
+          "Operations": [
+            {
+              "Clip": null,
+              "Kind": 15,
+              "At": 0.0,
+              "Seconds": 0.0,
+              "Vector": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "TurnRate": 0.0,
+              "Ray": {
+                "Length": 10000.0,
+                "FollowTarget": false,
+                "TurnRate": 0.0
+              },
+              "Matter": null,
+              "State": null,
+              "Trigger": 0,
+              "Path": null,
+              "InheritVelocity": true
+            }
+          ],
+          "Children": []
+        },
+        "Body": null,
+        "Binding": {
+          "Anchor": 1,
+          "Follow": false,
+          "ContactAtDestination": false,
+          "FaceTarget": false,
+          "ScaleByBody": false,
+          "Height": 0.0
+        },
+        "Steps": []
+      }
+    },
+    {
+      "sha256": "dad7ad2b4619ef499a55f710aa1d367d1373908f485810eb58aada415b294434",
+      "radius": 0.575000048,
+      "definition": {
+        "Version": 1,
+        "Id": "Cultiway.SolarBeam",
+        "Revision": 1,
+        "Name": "曜阳光",
+        "Creator": 0,
+        "Seed": 0,
+        "Lifetime": 0.6,
+        "Cost": 0.0,
+        "Resource": "none",
+        "AdditionalResources": [],
+        "ResourceMode": 0,
+        "Cooldown": 0.0,
+        "Power": 1.0,
+        "TargetRange": 10000.0,
+        "Use": {
+          "Channels": 3,
+          "Target": 4
+        },
+        "Root": {
+          "Id": "channel",
+          "Form": "solar_ray",
+          "Surface": null,
+          "Matter": "yang",
+          "State": "energy",
+          "Tint": null,
+          "Anchor": null,
+          "Offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Scale": 2.3,
+          "ActiveFrom": 0.0,
+          "ActiveUntil": -1.0,
+          "ActiveFromMarker": null,
+          "ActiveUntilMarker": null,
+          "ContactGroup": null,
+          "Contact": {
+            "Mode": 1,
+            "Interval": 0.12,
+            "MaximumPerTarget": 0,
+            "MaximumTotal": 0
+          },
+          "OnContact": 0,
+          "ContactRole": 0,
+          "Strength": 1.0,
+          "Interception": 0,
+          "ReflectionLimit": 8,
+          "Operations": [
+            {
+              "Clip": null,
+              "Kind": 15,
+              "At": 0.0,
+              "Seconds": 0.0,
+              "Vector": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "TurnRate": 0.0,
+              "Ray": {
+                "Length": 10000.0,
+                "FollowTarget": true,
+                "TurnRate": 0.0
+              },
+              "Matter": null,
+              "State": null,
+              "Trigger": 0,
+              "Path": null,
+              "InheritVelocity": true
+            }
+          ],
+          "Children": []
+        },
+        "Body": null,
+        "Binding": {
+          "Anchor": 1,
+          "Follow": true,
+          "ContactAtDestination": false,
+          "FaceTarget": false,
+          "ScaleByBody": false,
+          "Height": 0.0
+        },
+        "Steps": []
+      }
+    }
+  ]
+}

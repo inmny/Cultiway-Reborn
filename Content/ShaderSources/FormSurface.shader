@@ -153,6 +153,7 @@ Shader "Cultiway/FormSurface"
             v = posedVertex(v,state);
             Varying o = baseVertex(v,state);
             o.material = material;
+            if (_Kind > 14.5) o.material.z = v.vertex.z;
             float elevation = o.world.z;
             if (_TerrainEnabled > .5)
             {
@@ -175,6 +176,7 @@ Shader "Cultiway/FormSurface"
             v = posedVertex(v,state);
             Varying o = baseVertex(v,state);
             o.material = material;
+            if (_Kind > 14.5) o.material.z = v.vertex.z;
             o.vertex = mul(_FP_VP, float4(o.world,1));
             o.eye = _FP_Eye.xyz - o.world; o.light = _FP_LightDir.xyz;
             return o;
@@ -371,7 +373,7 @@ Shader "Cultiway/FormSurface"
                 base+=tint.rgb*pow(1-facing,2)*.18*environmentLight;
                 alpha*=.68+.25*broad;
             }
-            else
+            else if (_Kind < 14.5)
             {
                 // 护盾通过宽面明暗和侧缘光泽呈现能量厚度，不借用水波或画满细线。
                 float energy=.5+.5*sin(i.material.z*2.4+sin(i.material.x*1.7)*.6-_WorldTime*2.5);
@@ -379,6 +381,15 @@ Shader "Cultiway/FormSurface"
                 base*=.56*ambient+(.25+.15*energy)*direct;
                 base+=tint.rgb*(edge*.26+energy*.10)*environmentLight;
                 alpha*=.55+.30*edge+.15*energy;
+            }
+            else
+            {
+                // 自发光截面按视线穿过的厚度淡出，侧缘无实体柱的高光与硬线。
+                float chord = pow(abs(dot(n, eye)), 1.35);
+                float stream = volumeNoise(float3(i.material.x*13, i.material.y*13,
+                    i.material.z*2.1-_WorldTime*4.8));
+                base *= .95 + (.37-.18*_Roughness)*stream;
+                alpha *= chord*(.8+.2*stream);
             }
             float contact = formFeedback(i);
             base += (base*.24 + float3(.035,.045,.05)*environmentLight)*contact;
@@ -391,9 +402,9 @@ Shader "Cultiway/FormSurface"
         {
             i.normal *= side;
             float4 color=shadeSurface(i,worldfall);
-            if (formClosed(i)>.5 && _Kind>=2.5 && _Kind<4.5)
+            if (_Kind>14.5 || (formClosed(i)>.5 && _Kind>=2.5 && _Kind<4.5))
             {
-                // 封闭水冰的前后两面共同形成体积，不把同一光程重复算成两份。
+                // 封闭光束及有体积的水冰使用前后两面，不把同一光程重复算成两份。
                 float alpha=1-sqrt(1-color.a);
                 color.rgb *= alpha/max(color.a,.00001); color.a=alpha;
             }

@@ -7,6 +7,8 @@
 
 命名步骤与同部位混合操作的修改窗口使用 `python3 Scripts/SpellDemos/verify_step_editor.py`：复用既有测试世界，通过真实行和选择菜单编辑名称、输出引用、阶段及飞行曲线，检查非法循环、撤销恢复、正式保存再打开及依赖的实际执行。结果与中英窗口图写入 `artifacts/skill_rebuild/trajectories/step-editor/`。加 `--section runtime` 只补由表单已保存资料的实际运行与结束，不重跑编辑流程；`--section capture`只补已保存资料的正常输入画面。此入口不重跑身体装备或旧材料矩阵，正式世界冷启动与集中录像在5.05 C交付点执行。
 
+近距光束外观用 `dev.py exec --timeout 315 -- python3 Scripts/SpellDemos/verify_beams.py --section appearance` 复验。会检查旧资料半径、实机区内外、新版束体自然收束，并输出原版俯视的近、中、远景图。直接运行 `verify_beams.py` 仍进入原光束来源规则检查。
+
 ## 使用前
 
 - 本机需要 Python 3.10 以上、ffmpeg，以及 WorldBox/NML 和已启用的 DebugToolbox。
