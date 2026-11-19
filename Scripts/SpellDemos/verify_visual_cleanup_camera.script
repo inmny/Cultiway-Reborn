@@ -1,0 +1,33 @@
+// 沿用土墙斜视取景，等待 Worldfall 真正发布再保存实机画面。
+async Task FrameCleanupSide(string name, Vector3 center, float distance, float angle)
+{
+    var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+    object view = external.GetProperty("Instance", F).GetValue(null);
+    object Read(string key) => external.GetField(key, F)?.GetValue(view) ?? external.GetProperty(key, F).GetValue(view);
+    void Set(string key, object value) => external.GetField(key, F).SetValue(view, value);
+    var setView = external.GetMethod("SetGodView", F);
+    var canvases = Resources.FindObjectsOfTypeAll<Canvas>().Where(c => c.enabled).ToArray();
+    try
+    {
+        World.world.console.Hide();
+        foreach (var canvas in canvases) canvas.enabled = false;
+        var camera = World.world.camera;
+        camera.transform.position = new Vector3(center.x, center.y, camera.transform.position.z);
+        MoveCamera.instance.forceZoom(8);
+        setView.Invoke(view, new object[] { true });
+        await Game.WaitUntil(() => (bool)Read("GodShown") && (float)Read("GodAlpha") >= .999f, 600);
+        Set("_godClose", distance); Set("_godCloseTarget", distance); Set("_godPull", 1f);
+        Set("_godTurn", angle); Set("_godTurnRate", 0f); Set("_godTip", .35f); Set("_godTipRate", 0f);
+        int before = (int)Read("_godGpuApplied");
+        await Game.WaitUntil(() => (int)Read("_godGpuApplied") >= before + 3, 600);
+        string file = Path.Combine(folder, name + ".png");
+        Screen.Capture(file);
+        await Game.WaitUntil(() => File.Exists(file), 600);
+    }
+    finally
+    {
+        setView.Invoke(view, new object[] { false });
+        foreach (var canvas in canvases) if (canvas != null) canvas.enabled = true;
+    }
+    await Game.WaitUntil(() => !(bool)Read("GodShown") && (bool)Read("DiveDone"), 600);
+}

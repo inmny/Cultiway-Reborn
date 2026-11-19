@@ -189,11 +189,27 @@ Shader "Cultiway/FormSurface"
             q = frac(sin(q)*43758.5453);
             return lerp(lerp(q.x,q.y,f.x),lerp(q.z,q.w,f.x),f.y);
         }
+        // 一个像素容不下完整细纹时，让它趋近所在材料的平均色，避免远景网点和跳动。
+        float resolvedDetail(float2 cellDx, float2 cellDy)
+        {
+            return 1-smoothstep(.35,1.25,max(length(cellDx),length(cellDy)));
+        }
+        float resolvedVolumeDetail(float3 p)
+        {
+            return 1-smoothstep(.35,1.25,max(length(ddx(p)),length(ddy(p))));
+        }
         // 绑定空间连续取样；同一接缝两侧、平移、转向与骨架变形均保留原材料位置。
         float volumeNoise(float3 p)
         {
+            float detail = resolvedVolumeDetail(p);
             float z=floor(p.z),blend=frac(p.z); blend=blend*blend*(3-2*blend);
-            return lerp(waterNoise(p.xy+z*float2(13.1,7.7)),waterNoise(p.xy+(z+1)*float2(13.1,7.7)),blend);
+            float noise = lerp(waterNoise(p.xy+z*float2(13.1,7.7)),waterNoise(p.xy+(z+1)*float2(13.1,7.7)),blend);
+            return lerp(.5,noise,detail);
+        }
+        float circularWaterNoise(float2 flow, float period, float seam)
+        {
+            float detail = resolvedDetail(ddx(flow),ddy(flow));
+            return lerp(.5,lerp(waterNoise(flow),waterNoise(flow-float2(period,0)),seam),detail);
         }
         // 强度由共同世界时钟发布；绘制只在实际表面附近改变反光，不生成独立图形。
         float formFeedback(Varying i)
@@ -244,8 +260,10 @@ Shader "Cultiway/FormSurface"
                 base = base*((.34+detail*.16)*ambient+diffuse*.55*direct) + specular*.65*direct + float3(.16,.21,.24)*rim*environmentLight;
             else if(_Kind < 1.5)
             {
-                float grain = .8 + .16*sin(uv.y*88 + sin(uv.x*12)*2.5);
-                base *= grain * (.32*ambient+diffuse*.65*direct) * (.75+detail*.35);
+                float3 q = i.material;
+                float grain = volumeNoise(q*float3(5,9,15));
+                float strata = volumeNoise(q*float3(1.4,1.4,5));
+                base *= (.64+.22*grain+.13*strata) * (.32*ambient+diffuse*.65*direct);
             }
             else if(_Kind < 2.5)
                 base *= (.34*ambient+diffuse*.6*direct) * (.65+detail*.5);
@@ -255,8 +273,8 @@ Shader "Cultiway/FormSurface"
                 float2 flow = uv * float2(8,4) + float2(.025,-.075) * _WorldTime;
                 // 环向坐标两端取相同值及导数，闭合表面不会因流动露出接缝。
                 float seam = smoothstep(0,1,uv.x);
-                float h = lerp(waterNoise(flow),waterNoise(flow-float2(8,0)),seam);
-                h += .35*lerp(waterNoise(flow*1.73+float2(.31,.27)),waterNoise((flow-float2(8,0))*1.73+float2(.31,.27)),seam);
+                float h = circularWaterNoise(flow,8,seam);
+                h += .35*circularWaterNoise(flow*1.73+float2(.31,.27),8*1.73,seam);
                 float3 dx = ddx(i.world), dy = ddy(i.world);
                 float3 across = cross(dy,n), along = cross(n,dx);
                 float determinant = dot(dx,across);
@@ -278,7 +296,8 @@ Shader "Cultiway/FormSurface"
                 base = lerp(shallow,deep,depth)*(.58*ambient+.38*diffuse*direct);
                 base = lerp(base,environment*environmentLight,fresnel*.45) + (broad*.04 + shine*.25)*direct;
                 alpha = saturate(alpha*(.28+.67*depth)+fresnel*.35);
-                float foam = saturate(i.surface.y*(.45+.7*waterNoise(uv*float2(24,6))));
+                // 泡沫随材料位置连起来，展开坐标翻边时不会换一块纹理。
+                float foam = saturate(i.surface.y*(.45+.7*volumeNoise(i.material*float3(9,9,6))));
                 base = lerp(base,float3(.72,.91,.92)*(.75*ambient+.2*diffuse*direct),foam);
                 alpha = lerp(alpha,.94,foam);
             }
@@ -304,7 +323,7 @@ Shader "Cultiway/FormSurface"
                 base *= .84*ambient+.16*diffuse*direct;
             else if(_Kind < 6.5)
             {
-                float flow = waterNoise(uv*float2(8,4)+float2(.03,-.12)*_WorldTime);
+                float flow = volumeNoise(i.material*float3(4,4,3)+float3(.04,-.12,.03)*_WorldTime);
                 float crust = smoothstep(.3,.75,flow);
                 base = lerp(base,base*float3(.38,.22,.14),crust*.72);
                 base *= .85+.15*diffuse;

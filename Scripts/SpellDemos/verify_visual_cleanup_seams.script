@@ -1,0 +1,30 @@
+// 在设备上切换同一片材料的展开边，必须命中真正像素，排除只比较两个空背景。
+try
+{
+    mesh.SetUVs(3, Enumerable.Repeat(new Vector2(.8f, .85f), 4).ToList());
+    foreach (string surface in new[] { "water", "stone" })
+    {
+        Color[] Edge(float u)
+        {
+            mesh.uv = Enumerable.Repeat(new Vector2(u, .37f), 4).ToArray();
+            Begin(); cmd.SetRenderTarget(color, color.depthBuffer);
+            Draw(surface, Matrix4x4.identity, false, 1, new Color(.6f, .75f, .9f, .95f), closed: 1f);
+            return Pixels();
+        }
+        var left = Edge(0f); var right = Edge(1f);
+        float error = Difference(left, right);
+        int visible = left.Count(c => c.a > .05f);
+        Check(visible > 2000 && error < .0001f, surface + "同一闭合边的实际材质与透明度一致", new { visible, error });
+    }
+}
+finally
+{
+    RenderTexture.active = previous; cmd.Release(); color.Release(); data.Release();
+    UnityEngine.Object.Destroy(color); UnityEngine.Object.Destroy(data); UnityEngine.Object.Destroy(read);
+    UnityEngine.Object.Destroy(mesh); UnityEngine.Object.Destroy(go);
+    foreach (var item in globals) Shader.SetGlobalVector(item.Key, item.Value);
+    Shader.SetGlobalMatrix("_FP_VP", previousMatrix);
+}
+var passed = checks.All(c => (bool)Get(c, "pass"));
+File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(new { passed, checks }, Formatting.Indented));
+return new { passed };

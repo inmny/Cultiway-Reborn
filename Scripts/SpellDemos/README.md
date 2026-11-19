@@ -2132,3 +2132,9 @@ python3 Scripts/SpellDemos/demo_spell.py TidalWave --cases base --view native --
 ```
 
 `result.json` 的 `start` 是首帧世界时间，`motionFrames` 的时间相对首帧，实际接触和伤害仍以原世界时间记录。时间线用于对齐实拍，施放成功不能替代画面验收。
+
+### 9.04 线状效果与表面接缝
+
+在独立游戏运行 `dev.py exec --timeout 260 -- python3 Scripts/SpellDemos/verify_visual_cleanup.py --section weapons`，检查同一把铁剑的扫击与突刺、原碰撞宽度、超距拒绝、命中和归还，以及原版和 Worldfall 图片。只补突刺用 `--section thrust`。`--section materials` 复用原正式水幕、岩脊及雷矛，保存近远和三维斜视；`--section seams` 只比较带泡沫的水面及岩面在展开坐标两侧的真实输出。复用 `verify_chain.py --section appearance` 核对连锁雷击。各段独立保存输入、检查记录和实机画面。
+
+短片复验：`dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/demo_spell.py WaterCurtain --cases base --view native --zoom 22 --fps 15 --duration 2.2 --output <本次验收目录>`。

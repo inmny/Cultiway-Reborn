@@ -66,8 +66,8 @@ public struct MotionRibbonTrail : IComponent
     /// <summary>扫掠扇面柔光层在实体层之外继续扩展的距离。</summary>
     public float SweepGlowExpansion;
 
-    /// <summary>轴向枪芒起点沿攻击方向离开来源中心的距离。</summary>
-    public float ThrustStartOffset;
+    /// <summary>轨迹在武器末端附近能延伸的最大世界距离。</summary>
+    public float LocalLength;
 
     /// <summary>轴向枪芒尖端超过武器运动点的距离。</summary>
     public float ThrustTipExtension;

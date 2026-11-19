@@ -12,7 +12,7 @@ internal sealed class ThrustSheetMeshBuffer
     internal readonly List<int> Triangles = new(42);
 }
 
-/// <summary>把来源中心与武器端点连接成中段饱满、两端收尖的连续枪芒。</summary>
+/// <summary>围绕武器尖端生成短促、两端收尖的枪芒。</summary>
 internal static class ThrustSheetMesh
 {
     private static readonly float[] SectionPositions = { 0f, 0.1f, 0.24f, 0.44f, 0.66f, 0.84f, 0.95f, 1f };
@@ -24,7 +24,7 @@ internal static class ThrustSheetMesh
         ThrustSheetMeshBuffer buffer,
         Vector3 sourceOrigin,
         Vector3 weaponPoint,
-        float startOffset,
+        float tipDepth,
         float tipExtension,
         float width,
         Color color,
@@ -39,8 +39,7 @@ internal static class ThrustSheetMesh
         }
 
         direction /= sourceDistance;
-        float clampedStartOffset = Mathf.Min(Mathf.Max(0f, startOffset), sourceDistance * 0.42f);
-        Vector3 start = sourceOrigin + direction * clampedStartOffset;
+        Vector3 start = weaponPoint - direction * Mathf.Min(tipDepth, sourceDistance * 0.35f);
         Vector3 end = weaponPoint + direction * Mathf.Max(0f, tipExtension);
         Vector3 normal = new(-direction.y, direction.x, 0f);
 

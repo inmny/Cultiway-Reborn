@@ -602,7 +602,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             : resolved;
     }
 
-    /// <summary>让突刺命中胶囊覆盖可见钻头主体，其余动作保留原有碰撞宽度。</summary>
+    /// <summary>保留御器原有的突刺与各器形碰撞宽度，不随显示拖尾缩短。</summary>
     private float ResolveCollisionRadius(EquippedWeaponMotionKind kind, float trailCoreWidth)
     {
         float baseRadius = category switch
@@ -655,7 +655,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         {
             EquippedWeaponMotionKind.Crush => new AnimAfterimage
             {
-                Count = 8,
+                Count = 2,
                 Layout = AnimAfterimageLayout.Angular,
                 NewestAlpha = 0.4f,
                 OldestAlpha = 0.035f,
@@ -684,7 +684,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         };
     }
 
-    /// <summary>按器形构造覆盖角色近身到武器外缘的双层扫掠扇面。</summary>
+    /// <summary>按器形构造刃口附近的双层短扫掠面。</summary>
     private MotionRibbonTrail CreateSweepTrail(float worldVisualScale)
     {
         float coreWidth = category switch
@@ -696,19 +696,12 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             WeaponControlCategory.Sword => 0.3f,
             _ => 0.28f,
         } * worldVisualScale;
-        float innerRadiusRatio = category switch
-        {
-            WeaponControlCategory.Axe => 0.2f,
-            WeaponControlCategory.Hammer => 0.22f,
-            WeaponControlCategory.Staff => 0.34f,
-            WeaponControlCategory.Spear => 0.32f,
-            _ => 0.27f,
-        };
         return new MotionRibbonTrail
         {
             Enabled = true,
             Shape = MotionRibbonShape.RadialSweep,
-            HistorySeconds = category == WeaponControlCategory.Axe ? 0.28f : 0.24f,
+            HistorySeconds = 0.10f,
+            LocalLength = 1.35f * worldVisualScale,
             MinSampleDistance = 0.055f * worldVisualScale,
             MaxPoints = 36,
             CoreWidth = coreWidth,
@@ -716,7 +709,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             CoreColor = trailCoreColor,
             GlowColor = trailGlowColor,
             SourceOrigin = Caster.Base.GetSimPos(),
-            SweepInnerRadiusRatio = innerRadiusRatio,
+            SweepInnerRadiusRatio = category == WeaponControlCategory.Axe ? 0.72f : 0.78f,
             SweepOuterExtension = coreWidth * 0.7f,
             SweepGlowExpansion = 0.16f * worldVisualScale,
             CoreAlpha = 0.72f,
@@ -726,7 +719,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         };
     }
 
-    /// <summary>按相对体型和实际突刺长度构造足够宽厚的双层轴向钻头。</summary>
+    /// <summary>按器形设置短枪芒与原有近战碰撞宽度。</summary>
     private MotionRibbonTrail CreateThrustTrail(float worldVisualScale, float reach)
     {
         float minimumWidth = category switch
@@ -752,7 +745,8 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         {
             Enabled = true,
             Shape = MotionRibbonShape.AxialThrust,
-            HistorySeconds = 0.18f,
+            HistorySeconds = 0.085f,
+            LocalLength = 0.95f * worldVisualScale,
             MinSampleDistance = 0.04f * worldVisualScale,
             MaxPoints = 20,
             CoreWidth = coreWidth,
@@ -760,8 +754,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             CoreColor = trailCoreColor,
             GlowColor = trailGlowColor,
             SourceOrigin = Caster.Base.GetSimPos(),
-            ThrustStartOffset = 0.28f * worldVisualScale,
-            ThrustTipExtension = tipExtension,
+            ThrustTipExtension = tipExtension * 0.4f,
             CoreAlpha = 0.88f,
             GlowAlpha = 0.3f,
             TileLength = 0.3f * worldVisualScale,

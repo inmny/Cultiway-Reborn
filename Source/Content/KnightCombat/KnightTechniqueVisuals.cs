@@ -170,7 +170,8 @@ internal static class KnightTechniqueVisuals
         {
             Enabled = true,
             Shape = shape,
-            HistorySeconds = kind == EquippedWeaponMotionKind.Crush ? 0.2f : 0.16f,
+            HistorySeconds = 0.09f,
+            LocalLength = 1.25f * worldScale,
             MinSampleDistance = 0.045f * worldScale,
             MaxPoints = 36,
             CoreWidth = width,
@@ -178,11 +179,10 @@ internal static class KnightTechniqueVisuals
             CoreColor = core,
             GlowColor = glow,
             SourceOrigin = owner.GetSimPos(),
-            SweepInnerRadiusRatio = style == KnightTrailStyle.Guardian ? 0.18f : 0.27f,
+            SweepInnerRadiusRatio = style == KnightTrailStyle.Guardian ? 0.72f : 0.78f,
             SweepOuterExtension = width * 0.75f,
             SweepGlowExpansion = width * 0.4f,
-            ThrustStartOffset = 0.28f * worldScale,
-            ThrustTipExtension = Mathf.Min(0.75f * worldScale, reach * 0.32f),
+            ThrustTipExtension = Mathf.Min(0.24f * worldScale, reach * 0.12f),
             CoreAlpha = style == KnightTrailStyle.DuelistFinisher ? 0.9f : 0.78f,
             GlowAlpha = 0.14f,
             TileLength = 0.32f * worldScale,
@@ -200,7 +200,7 @@ internal static class KnightTechniqueVisuals
         {
             return new AnimAfterimage
             {
-                Count = kind == EquippedWeaponMotionKind.ForwardAnchor ? 6 : 4,
+                Count = 2,
                 Layout = AnimAfterimageLayout.Linear,
                 SpacingRatio = 0.09f,
                 MinSpacing = 0.18f,
@@ -213,7 +213,7 @@ internal static class KnightTechniqueVisuals
 
         return new AnimAfterimage
         {
-            Count = kind == EquippedWeaponMotionKind.Crush || style == KnightTrailStyle.DuelistFinisher ? 7 : 4,
+            Count = 2,
             Layout = AnimAfterimageLayout.Angular,
             NewestAlpha = 0.36f,
             OldestAlpha = 0.035f,

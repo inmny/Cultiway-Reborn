@@ -8,7 +8,6 @@ using Cultiway.Content.Combat;
 using Cultiway.Content.CreatureCompositions.Visuals;
 using Cultiway.Content.KnightCombat;
 using Cultiway.Core.Combat.Tactical;
-using Cultiway.Core.Systems.Render;
 using Cultiway.Core.Visuals;
 using HarmonyLib;
 using UnityEngine;
@@ -166,9 +165,6 @@ internal static class WorldfallVisualBridge
     /// <summary>最近一次实际提交的模型数量。</summary>
     internal static int LastMeshCount { get; private set; }
 
-    /// <summary>最近一次实际提交的路径数量。</summary>
-    internal static int LastLineCount { get; private set; }
-
     /// <summary>最近一次转换与追加耗时，不含外部模组绘制。</summary>
     internal static double LastSubmitMilliseconds { get; private set; }
 
@@ -261,7 +257,6 @@ internal static class WorldfallVisualBridge
             BodyOrganWorldfall.Install(pendingAssembly);
             terrainSource.Install();
             bodyObstacles.Install();
-            RenderMotionRibbonTrailSystem.SpatialHistoryRequested = true;
             Status = "已接入 Worldfall 0.9.8 共用空间战斗表现";
             ModClass.LogInfo(Status);
         }
@@ -384,13 +379,11 @@ internal static class WorldfallVisualBridge
             });
             BodyOrganWorldfall.AppendScene();
             IList targetMeshes = (IList)binding.SceneMeshes.GetValue(__instance);
-            IList targetLines = (IList)binding.SceneStreaks.GetValue(__instance);
             listenerPosition = new Vector3(eyeX, eyeY);
             listenerRight = new Vector3(Mathf.Sin(yaw), -Mathf.Cos(yaw));
             listenerFrame = Time.frameCount;
             SpatialVisualEffects.SetView(new Vector2(eyeX, eyeY), __1);
             LastMeshCount = 0;
-            LastLineCount = 0;
             for (int i = 0; i < CombatSpatialVisualSystem.Meshes.Count; i++)
             {
                 SpatialVisualMeshInstance draw = CombatSpatialVisualSystem.Meshes[i];
@@ -431,24 +424,6 @@ internal static class WorldfallVisualBridge
                 binding.Instance.Set(instance, "Tag", -2);
                 binding.Instance.Set(instance, "KeepSmall", true);
                 targetMeshes.Add(instance);
-            }
-
-            for (int i = 0; i < RenderMotionRibbonTrailSystem.SpatialLines.Count; i++)
-            {
-                SpatialVisualLine line = RenderMotionRibbonTrailSystem.SpatialLines[i];
-                if (Vector2.Distance(line.End, new Vector2(eyeX, eyeY)) > __1 + 8f) continue;
-                object streak = Activator.CreateInstance(binding.Streak.Type);
-                binding.Streak.Set(streak, "A", binding.Vector(line.Start.x, line.Start.y,
-                    ground(line.Start.x, line.Start.y) + line.Start.z));
-                binding.Streak.Set(streak, "B", binding.Vector(line.End.x, line.End.y,
-                    ground(line.End.x, line.End.y) + line.End.z));
-                binding.Streak.Set(streak, "Color", Pack(line.Color));
-                binding.Streak.Set(streak, "AlphaA", line.Color.a);
-                binding.Streak.Set(streak, "AlphaB", line.Color.a);
-                binding.Streak.Set(streak, "Width", line.Width);
-                binding.Streak.Set(streak, "Glow", 0.15f);
-                targetLines.Add(streak);
-                LastLineCount++;
             }
         }
         catch (Exception exception)
@@ -612,7 +587,6 @@ internal static class WorldfallVisualBridge
         Skills.BodyLocomotion.CeilingHeight = null;
         Skills.BodyActionBinding.FitProvider = null;
         Skills.BodyActionBinding.SourceStateValid = null;
-        RenderMotionRibbonTrailSystem.SpatialHistoryRequested = false;
         Status = "Worldfall 空间显示接入已停用：" + exception.Message;
         ModClass.LogError(Status + "\n" + exception);
     }
@@ -632,7 +606,7 @@ internal static class WorldfallVisualBridge
         sceneFrame = -1;
         standingHeights.Clear();
         spriteFrame = -1;
-        LastMeshCount = LastLineCount = 0;
+        LastMeshCount = 0;
         listenerFrame = -10;
     }
 
@@ -715,9 +689,6 @@ internal static class WorldfallVisualBridge
         /// <summary>场景模型列表。</summary>
         internal readonly FieldInfo SceneMeshes;
 
-        /// <summary>场景路径列表。</summary>
-        internal readonly FieldInfo SceneStreaks;
-
         /// <summary>地表采样资料。</summary>
         internal readonly FieldInfo SamplerCache;
 
@@ -727,8 +698,8 @@ internal static class WorldfallVisualBridge
         /// <summary>视点三维坐标及平面朝向。</summary>
         internal readonly FieldInfo ViewX, ViewY, ViewZ, ViewYaw;
 
-        /// <summary>局部模型、部件、实例和路径所需字段。</summary>
-        internal readonly Shape Model, Part, Instance, Streak;
+        /// <summary>局部模型、部件和实例所需字段。</summary>
+        internal readonly Shape Model, Part, Instance;
 
         /// <summary>外部向量构造方法。</summary>
         private readonly ConstructorInfo vector;
@@ -778,7 +749,6 @@ internal static class WorldfallVisualBridge
             DrawThrown = scene.GetMethod("DrawThrown", BindingFlags.Instance | BindingFlags.NonPublic) ??
                          throw new MissingMethodException(scene.FullName, "DrawThrown");
             SceneMeshes = scene.GetField("Meshes") ?? throw new MissingFieldException(scene.FullName, "Meshes");
-            SceneStreaks = scene.GetField("Streaks") ?? throw new MissingFieldException(scene.FullName, "Streaks");
             SamplerCache = assembly.GetType("FirstPerson.WorldSampler", true).GetField("Cache") ??
                            throw new MissingFieldException("FirstPerson.WorldSampler", "Cache");
             SampleHeight = SamplerCache.FieldType.GetMethod("SampleHeight", new[] { typeof(float), typeof(float) }) ??
@@ -794,7 +764,6 @@ internal static class WorldfallVisualBridge
             Part = new Shape(assembly, "MeshPart", "Name", "Parent", "Pos", "Nrm", "Tri", "Slot", "Axis");
             Instance = new Shape(assembly, "MeshInstance", "Model", "Position", "Basis", "Multiply", "Fade", "Emissive",
                 "Tag", "KeepSmall");
-            Streak = new Shape(assembly, "Streak", "A", "B", "Color", "AlphaA", "AlphaB", "Width", "Glow");
             Type vec = assembly.GetType("FirstPerson.Core.Vec3", true);
             vector = vec.GetConstructor(new[] { typeof(float), typeof(float), typeof(float) }) ??
                      throw new MissingMethodException(vec.FullName, ".ctor");
