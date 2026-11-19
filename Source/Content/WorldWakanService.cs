@@ -34,6 +34,10 @@ public static class WorldWakanService
     private static float[] dirtyValues;
     private static float[] displayCleanValues = Array.Empty<float>();
     private static float[] displayDirtyValues = Array.Empty<float>();
+    /// <summary>下一次公布洁净灵气时复用的备用数组。</summary>
+    private static float[] displayCleanBuffer = Array.Empty<float>();
+    /// <summary>下一次公布浊气时复用的备用数组。</summary>
+    private static float[] displayDirtyBuffer = Array.Empty<float>();
     private static int width;
     private static int height;
     private static int displayRevision;
@@ -78,6 +82,8 @@ public static class WorldWakanService
 
         displayCleanValues = (float[])cleanValues.Clone();
         displayDirtyValues = (float[])dirtyValues.Clone();
+        displayCleanBuffer = new float[tileCount];
+        displayDirtyBuffer = new float[tileCount];
         initialized = true;
         displayPending = false;
         Interlocked.Increment(ref displayRevision);
@@ -90,6 +96,8 @@ public static class WorldWakanService
         dirtyValues = null;
         displayCleanValues = Array.Empty<float>();
         displayDirtyValues = Array.Empty<float>();
+        displayCleanBuffer = Array.Empty<float>();
+        displayDirtyBuffer = Array.Empty<float>();
         width = 0;
         height = 0;
         initialized = false;
@@ -271,13 +279,15 @@ public static class WorldWakanService
     }
 
     /// <summary>
-    /// 公布一次地图显示快照。快照只在这里替换，地图绘制线程不会读取运行中的数组。
+    /// 先复制到备用数组，再公布给地图绘制线程；上次的显示数组留作下次复用。
     /// </summary>
     public static void PublishDisplayValues(bool force = false)
     {
         if (!initialized || (!force && !displayPending)) return;
-        Volatile.Write(ref displayCleanValues, (float[])cleanValues.Clone());
-        Volatile.Write(ref displayDirtyValues, (float[])dirtyValues.Clone());
+        Array.Copy(cleanValues, displayCleanBuffer, cleanValues.Length);
+        Array.Copy(dirtyValues, displayDirtyBuffer, dirtyValues.Length);
+        displayCleanBuffer = Interlocked.Exchange(ref displayCleanValues, displayCleanBuffer);
+        displayDirtyBuffer = Interlocked.Exchange(ref displayDirtyValues, displayDirtyBuffer);
         displayPending = false;
         Interlocked.Increment(ref displayRevision);
         ModClass.I?.CustomMapModeManager?.SetRasterMapDirty();

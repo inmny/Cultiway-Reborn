@@ -32,7 +32,7 @@ public static class YuanshenAdvancedNodeService
     public const double ManifestationDuration = 12d;
 
     /// <summary>稳定化身载体准备时间。</summary>
-    public const double AvatarPreparationDuration = Cultiway.Const.TimeScales.SecPerYear;
+    public static double AvatarPreparationDuration => Cultiway.Const.TimeScales.SecPerYear;
 
     /// <summary>法相启动消耗的最大灵气比例。</summary>
     private const float DharmaStartWakanRatio = 0.2f;

@@ -16,13 +16,13 @@ public static class YuanshenBodyRecoveryService
     public const float PossessionRange = 6f;
 
     /// <summary>化神夺舍引导时长。</summary>
-    public const double PossessionChannelDuration = 2d * Cultiway.Const.TimeScales.SecPerMonth;
+    public static double PossessionChannelDuration => 2d * Cultiway.Const.TimeScales.SecPerMonth;
 
     /// <summary>夺舍失败后的冷却。</summary>
-    public const double PossessionFailureCooldown = 2d * Cultiway.Const.TimeScales.SecPerYear;
+    public static double PossessionFailureCooldown => 2d * Cultiway.Const.TimeScales.SecPerYear;
 
     /// <summary>本相塑体需要推进的世界时间。</summary>
-    public const double ReconstructionDuration = 3d * Cultiway.Const.TimeScales.SecPerYear;
+    public static double ReconstructionDuration => 3d * Cultiway.Const.TimeScales.SecPerYear;
 
     /// <summary>夺舍开始消耗的最大灵气比例。</summary>
     private const float PossessionWakanRatio = 0.1f;
@@ -34,7 +34,7 @@ public static class YuanshenBodyRecoveryService
     private const float NewBodyWakanRatio = 0.1f;
 
     /// <summary>自愿承载同意持续时长。</summary>
-    private const double ConsentDuration = 6d * Cultiway.Const.TimeScales.SecPerMonth;
+    private static double ConsentDuration => 6d * Cultiway.Const.TimeScales.SecPerMonth;
 
     /// <summary>普通人物向明确友方无身化神作出限时自愿承载声明。</summary>
     /// <param name="host">自愿提供肉身的人物。</param>

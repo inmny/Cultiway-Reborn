@@ -1,0 +1,163 @@
+{
+  "pid": 41620,
+  "beforeYear": 80,
+  "beforeMonth": 9,
+  "year": 80,
+  "month": 9,
+  "rawDate": [
+    16,
+    9,
+    80
+  ],
+  "text": "",
+  "rectHeight": 6.0,
+  "preferredHeight": 4.90341759,
+  "agesPreserved": true,
+  "beforeAges": [
+    51,
+    17,
+    52,
+    51,
+    43,
+    46,
+    51,
+    48,
+    64,
+    72,
+    62,
+    46,
+    78,
+    75,
+    74,
+    49,
+    77,
+    61,
+    54,
+    75
+  ],
+  "afterAges": [
+    51,
+    17,
+    52,
+    51,
+    43,
+    46,
+    51,
+    48,
+    64,
+    72,
+    62,
+    46,
+    78,
+    75,
+    74,
+    49,
+    77,
+    61,
+    54,
+    75
+  ],
+  "ages": [
+    {
+      "id": 388,
+      "expected": 51,
+      "actual": 51
+    },
+    {
+      "id": 793,
+      "expected": 17,
+      "actual": 17
+    },
+    {
+      "id": 377,
+      "expected": 52,
+      "actual": 52
+    },
+    {
+      "id": 399,
+      "expected": 51,
+      "actual": 51
+    },
+    {
+      "id": 475,
+      "expected": 43,
+      "actual": 43
+    },
+    {
+      "id": 445,
+      "expected": 46,
+      "actual": 46
+    },
+    {
+      "id": 398,
+      "expected": 51,
+      "actual": 51
+    },
+    {
+      "id": 420,
+      "expected": 48,
+      "actual": 48
+    },
+    {
+      "id": 232,
+      "expected": 64,
+      "actual": 64
+    },
+    {
+      "id": 136,
+      "expected": 72,
+      "actual": 72
+    },
+    {
+      "id": 259,
+      "expected": 62,
+      "actual": 62
+    },
+    {
+      "id": 434,
+      "expected": 46,
+      "actual": 46
+    },
+    {
+      "id": 44,
+      "expected": 78,
+      "actual": 78
+    },
+    {
+      "id": 72,
+      "expected": 75,
+      "actual": 75
+    },
+    {
+      "id": 99,
+      "expected": 74,
+      "actual": 74
+    },
+    {
+      "id": 411,
+      "expected": 49,
+      "actual": 49
+    },
+    {
+      "id": 61,
+      "expected": 77,
+      "actual": 77
+    },
+    {
+      "id": 275,
+      "expected": 61,
+      "actual": 61
+    },
+    {
+      "id": 353,
+      "expected": 54,
+      "actual": 54
+    },
+    {
+      "id": 73,
+      "expected": 75,
+      "actual": 75
+    }
+  ],
+  "errors": []
+}

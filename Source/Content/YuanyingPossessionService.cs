@@ -26,10 +26,10 @@ public static class YuanyingPossessionRules
     public const float NewBodyWakanRatio = 0.10f;
     public const float MinimumSeedStrengthLoss = 0.10f;
     public const float MaximumSeedStrengthLoss = 0.35f;
-    public const float SoulLifetime = 12f * TimeScales.SecPerMonth;
-    public const float ChannelDuration = TimeScales.SecPerMonth;
-    public const float BodyDisharmonyDuration = TimeScales.SecPerYear;
-    public const float SoulTraumaDuration = 2f * TimeScales.SecPerYear;
+    public static float SoulLifetime => 12f * TimeScales.SecPerMonth;
+    public static float ChannelDuration => TimeScales.SecPerMonth;
+    public static float BodyDisharmonyDuration => TimeScales.SecPerYear;
+    public static float SoulTraumaDuration => 2f * TimeScales.SecPerYear;
 
     internal const float SearchInterval = 0.5f;
     internal const float BehaviourInterval = 0.2f;

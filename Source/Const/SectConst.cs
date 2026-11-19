@@ -41,7 +41,7 @@ public static class SectConst
     public const float SectLectureNewCultibookGain = 12f;
     public const float SectLectureKnownCultibookGain = 8f;
     public const float SectLectureCultibookMasteryCap = 50f;
-    public const float SectConstructionCheckInterval = TimeScales.SecPerMonth;
+    public static float SectConstructionCheckInterval => TimeScales.SecPerMonth;
     public const int SectConstructionMaxBuilders = 3;
     public const int SectConstructionMembersPerBuilder = 6;
     public const int SectConstructionDecisionCooldown = 50;

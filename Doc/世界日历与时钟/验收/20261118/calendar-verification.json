@@ -1,0 +1,38 @@
+{
+  "passed": 11,
+  "total": 11,
+  "checks": {
+    "cz日期行已显示且文字未裁切": true,
+    "cz年份显示与日历一致": true,
+    "en日期行已显示且文字未裁切": true,
+    "en年份显示与日历一致": true,
+    "较小窗口日期文字未裁切": true,
+    "暂停后原始计时和小时都停止": true,
+    "正常运行时动作秒继续推进": true,
+    "日历与动作秒按新比例推进": true,
+    "短期推进保持年和人物年龄": true,
+    "原版日期返回合法的年月日": true,
+    "本功能没有异常或缺失文字": true
+  },
+  "displays": [
+    {
+      "locale": "cz",
+      "text": "第 25 日 · 06 时",
+      "year": "80 年",
+      "month": "霜寒月"
+    },
+    {
+      "locale": "en",
+      "text": "Day 25 · 08:00",
+      "year": "Year 80",
+      "month": "Novembear"
+    }
+  ],
+  "rawSeconds": 19.999998807907104,
+  "calendarDays": 0.33333331346511841,
+  "hours": 7.9999995231628418,
+  "realSeconds": 2.02026367,
+  "year": 80,
+  "month": 11,
+  "errors": []
+}

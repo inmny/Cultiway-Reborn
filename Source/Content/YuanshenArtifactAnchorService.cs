@@ -16,7 +16,7 @@ public static class YuanshenArtifactAnchorService
     public const float AnchorTetherDistance = 240f;
 
     /// <summary>致命转移后再次建立备用锚点需要等待的时间。</summary>
-    public const double RescueRebindCooldown = Cultiway.Const.TimeScales.SecPerYear;
+    public static double RescueRebindCooldown => Cultiway.Const.TimeScales.SecPerYear;
 
     /// <summary>当前世界进程内下一枚不重复绑定令牌。</summary>
     private static int nextBindingToken = 1;

@@ -16,7 +16,7 @@ namespace Cultiway.Core.CollectiveProjects;
 public static class CollectiveProjectService
 {
     private const double AssignmentStartGrace = 1d;
-    private const double FinishedRecordLifetime = TimeScales.SecPerYear;
+    private static double FinishedRecordLifetime => TimeScales.SecPerYear;
     private const double ProjectSweepInterval = 0.25d;
     private const int ProjectSweepBudget = 32;
 
