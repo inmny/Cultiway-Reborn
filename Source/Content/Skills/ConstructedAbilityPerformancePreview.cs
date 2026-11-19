@@ -38,6 +38,12 @@ public sealed partial class ConstructedAbilityService
             return "PreviewInvalidCoordinates";
         if (plan.Body?.Construction.HasControlRelations == true && (target == null || target == actor))
             return "PreviewWrongTargetActor";
+        if (plan.Body != null)
+        {
+            string problem = BodyActionBinding.InputProblem(owner, plan.Body);
+            if (problem != null) return problem;
+            if (!BodyAvailable(owner, plan.Body)) return "PreviewBodyUnavailable";
+        }
 
         var carrier = default(Friflo.Engine.ECS.Entity);
         Matrix4x4? carrierPose = null;
@@ -69,10 +75,8 @@ public sealed partial class ConstructedAbilityService
         BodyFrame? body = null;
         if (plan.Body != null)
         {
-            if (!BodyReady(owner, plan))
-                return BodyActionBinding.CanBind(owner, plan.Body) ? "PreviewBodyUnavailable" : "PreviewNeedsBody";
-            binding = BodyActionBinding.TryCreate(actor, plan.Body, forward, location, targetHeight);
-            if (binding == null) return "PreviewNeedsBody";
+            binding = BodyActionBinding.BindBody(actor, plan.Body, forward, location, targetHeight, out string problem);
+            if (problem != null) return problem;
             body = binding.Frame(source, height);
             if (!binding.CanStart(body.Value)) return "PreviewBodyStance";
             if (plan.Body.ControlsStance && (!plan.Body.Part.HasPartRotation || plan.Body.HasNamedSupportMotion))

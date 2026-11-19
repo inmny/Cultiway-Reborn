@@ -130,7 +130,7 @@ public sealed partial class WindowWanfaConstructionEditor
         string reason = ConstructedAbilityService.TryBuildPreview(learner, previewPlan, target, point, out performance, out performanceRange);
         if (reason != null)
         {
-            performanceStatus.text = performanceRange.HasValue ? string.Format(T(reason), performanceRange.Value) : T(reason);
+            performanceStatus.text = PerformanceProblem(reason);
             return;
         }
         performanceViewport = new FormPreviewViewport(performance.Source, performance.Target);
@@ -140,6 +140,24 @@ public sealed partial class WindowWanfaConstructionEditor
         previewPaused = false;
         UiElements.SetButtonLabel(performancePause, T("PreviewPause"));
         DrawPerformancePreview();
+    }
+
+    /// <summary>说明这次预演实际缺哪份资料，不把选定的部位或器物写回草稿。</summary>
+    /// <param name="reason">共同检查返回的缺项名称。</param>
+    private string PerformanceProblem(string reason)
+    {
+        CompiledBodyAction body = previewPlan.Body;
+        string Part() => body.Part.HasPartRotation ? ActualPartName(body.Effector) : T(body.Part.Label);
+        string Weapon() => LMTools.GetOrFallback("Cultiway.Construction.Form." + body.WeaponForm, body.WeaponForm);
+        return reason switch
+        {
+            "PreviewOutsideRange" => string.Format(T(reason), performanceRange.Value),
+            "PreviewBodyJoint" or "PreviewBodyOrgan" or "PreviewBodyLimb" or "PreviewBodyLimbMotion" or
+                "PreviewBodyFreeHand" => string.Format(T(reason), Part()),
+            "PreviewBodyHeldMissing" or "PreviewBodyHeldKind" => string.Format(T(reason), Weapon()),
+            "PreviewBodyGripFit" => string.Format(T(reason), Weapon(), body.Grip),
+            _ => T(reason)
+        };
     }
 
     private void Update()
