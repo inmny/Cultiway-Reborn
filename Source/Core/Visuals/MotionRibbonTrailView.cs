@@ -114,8 +114,7 @@ internal sealed class MotionRibbonTrailView : MonoBehaviour
 
     /// <summary>刷新双层路径网格；返回 false 表示离体轨迹已经完全消散。</summary>
     /// <param name="now">现有世界时间。</param>
-    /// <param name="drawNative">当前是否需要原版投影网格。</param>
-    internal bool Render(float now, bool drawNative = true)
+    internal bool Render(float now)
     {
         EnsureState();
         PruneExpired(now);
@@ -126,7 +125,7 @@ internal sealed class MotionRibbonTrailView : MonoBehaviour
             return false;
         }
 
-        if (points.Count < minimumPoints || !drawNative)
+        if (points.Count < minimumPoints)
         {
             HideLayers();
             return true;
@@ -134,13 +133,7 @@ internal sealed class MotionRibbonTrailView : MonoBehaviour
 
         projectedPoints.Clear();
         projectedOrigins.Clear();
-        for (int i = 0; i < points.Count; i++)
-        {
-            Vector3 point = points[i];
-            Vector3 origin = origins[i];
-            projectedPoints.Add(new Vector3(point.x, point.y + point.z));
-            projectedOrigins.Add(new Vector3(origin.x, origin.y + origin.z));
-        }
+        CopyLocalSamples(now);
         float fade = detached
             ? 1f - Mathf.Clamp01((now - times[^1]) / ResolveHistory())
             : 1f;
@@ -158,6 +151,34 @@ internal sealed class MotionRibbonTrailView : MonoBehaviour
         RenderPath(now, fade);
         return true;
     }
+
+    /// <summary>只复制兵器末端附近的最新一段。按实际运动距离限制长度，避免低帧率下扫满整条路径。</summary>
+    private void CopyLocalSamples(float now)
+    {
+        int newest = points.Count - 1;
+        projectedPoints.Add(Project(points[newest]));
+        projectedOrigins.Add(Project(origins[newest]));
+        if (settings.Shape == MotionRibbonShape.AxialThrust) return;
+
+        float history = ResolveHistory();
+        float remaining = settings.LocalLength;
+        for (int i = newest; i > 0 && remaining > 0f; i--)
+        {
+            float age = now - times[i];
+            if (age >= history) break;
+            float step = Vector3.Distance(points[i], points[i - 1]);
+            float part = Mathf.Min(1f, Mathf.Min(remaining / Mathf.Max(step, 0.0001f),
+                (history - age) / Mathf.Max(times[i] - times[i - 1], 0.0001f)));
+            projectedPoints.Add(Project(Vector3.Lerp(points[i], points[i - 1], part)));
+            projectedOrigins.Add(Project(Vector3.Lerp(origins[i], origins[i - 1], part)));
+            if (part < 1f) break;
+            remaining -= step;
+        }
+        projectedPoints.Reverse();
+        projectedOrigins.Reverse();
+    }
+
+    private static Vector3 Project(Vector3 point) => new(point.x, point.y + point.z);
 
     /// <summary>使用通用透明材质绘制固定宽度路径带。</summary>
     private void RenderPath(float now, float fade)
@@ -194,7 +215,7 @@ internal sealed class MotionRibbonTrailView : MonoBehaviour
         glowRenderer.enabled = glowMesh.vertexCount > 0;
     }
 
-    /// <summary>使用专用 Shader 绘制来源中心到武器端点之间的双层轴向枪芒。</summary>
+    /// <summary>使用专用 Shader 绘制兵器尖端附近的双层突刺芒。</summary>
     private void RenderThrustSheet(float fade)
     {
         SetMaterials(
@@ -207,9 +228,9 @@ internal sealed class MotionRibbonTrailView : MonoBehaviour
             thrustSheetBuffer,
             origin,
             point,
-            settings.ThrustStartOffset,
+            settings.LocalLength * 0.8f,
             settings.ThrustTipExtension,
-            Mathf.Max(0.01f, settings.CoreWidth),
+            Mathf.Min(settings.CoreWidth, settings.LocalLength * 0.5f),
             settings.CoreColor,
             Mathf.Clamp01(settings.CoreAlpha) * fade);
         ThrustSheetMesh.Build(
@@ -217,9 +238,9 @@ internal sealed class MotionRibbonTrailView : MonoBehaviour
             thrustSheetBuffer,
             origin,
             point,
-            settings.ThrustStartOffset * 0.82f,
+            settings.LocalLength,
             settings.ThrustTipExtension * 1.18f,
-            Mathf.Max(settings.CoreWidth, settings.GlowWidth),
+            Mathf.Min(settings.GlowWidth, settings.LocalLength * 0.7f),
             settings.GlowColor,
             Mathf.Clamp01(settings.GlowAlpha) * fade);
         ApplyProceduralProperties(coreRenderer, ref coreBlock);
@@ -228,7 +249,7 @@ internal sealed class MotionRibbonTrailView : MonoBehaviour
         glowRenderer.enabled = glowMesh.vertexCount > 0;
     }
 
-    /// <summary>使用专用 Shader 绘制来源中心到武器轨迹之间的成片扫掠扇面。</summary>
+    /// <summary>使用专用 Shader 绘制刃口附近的短扫掠面。</summary>
     private void RenderSweepSheet(float fade)
     {
         SetMaterials(
@@ -249,7 +270,7 @@ internal sealed class MotionRibbonTrailView : MonoBehaviour
             sweepSheetBuffer,
             projectedPoints,
             projectedOrigins,
-            Mathf.Max(0.05f, innerRatio - 0.075f),
+            Mathf.Max(0.05f, innerRatio - 0.05f),
             settings.SweepOuterExtension + Mathf.Max(0f, settings.SweepGlowExpansion),
             settings.GlowColor,
             Mathf.Clamp01(settings.GlowAlpha) * fade);
@@ -273,26 +294,6 @@ internal sealed class MotionRibbonTrailView : MonoBehaviour
         detached = false;
         settings = default;
         HideLayers();
-    }
-
-    /// <summary>将同一份完整空间历史交给三维视角，不重新采样或推进。</summary>
-    internal void AppendSpatialLines(List<SpatialVisualLine> output, float now)
-    {
-        if (points == null || points.Count == 0) return;
-        float fade = detached ? 1f - Mathf.Clamp01((now - times[^1]) / ResolveHistory()) : 1f;
-        Color color = settings.CoreColor;
-        color.a = Mathf.Clamp01(settings.CoreAlpha) * fade;
-        if (settings.Shape == MotionRibbonShape.AxialThrust)
-        {
-            output.Add(new SpatialVisualLine(origins[^1], points[^1], settings.CoreWidth * 0.35f, color));
-            return;
-        }
-        for (int i = 1; i < points.Count; i++)
-        {
-            Color segment = color;
-            segment.a *= Mathf.Clamp01(1f - (now - times[i]) / ResolveHistory());
-            output.Add(new SpatialVisualLine(points[i - 1], points[i], settings.CoreWidth * 0.35f, segment));
-        }
     }
 
     /// <summary>建立网格渲染子节点并使用统一透明材质。</summary>
@@ -384,7 +385,7 @@ internal sealed class MotionRibbonTrailView : MonoBehaviour
     private void PruneExpired(float now)
     {
         float history = ResolveHistory();
-        while (points.Count > 2 && now - times[0] > history)
+        while (points.Count > 2 && now - times[1] >= history)
         {
             points.RemoveAt(0);
             origins.RemoveAt(0);
@@ -392,10 +393,10 @@ internal sealed class MotionRibbonTrailView : MonoBehaviour
         }
     }
 
-    /// <summary>返回经过下限约束的历史保留时间。</summary>
+    /// <summary>返回拖尾的短时可见窗口。</summary>
     private float ResolveHistory()
     {
-        return Mathf.Max(0.05f, settings.HistorySeconds);
+        return Mathf.Clamp(settings.HistorySeconds, 0.05f, 0.10f);
     }
 
     /// <summary>隐藏两层渲染器而不改变对象池激活状态。</summary>

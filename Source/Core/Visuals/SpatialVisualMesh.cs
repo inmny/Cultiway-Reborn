@@ -116,32 +116,6 @@ internal readonly struct SpatialVisualMeshInstance
     internal Vector3 TransformPoint(Vector3 point) => Position + Rotation * Vector3.Scale(point, Scale);
 }
 
-/// <summary>保留高度的短线段，供不同视角读取同一份运动历史。</summary>
-internal readonly struct SpatialVisualLine
-{
-    /// <summary>线段起点。</summary>
-    internal readonly Vector3 Start;
-    /// <summary>线段终点。</summary>
-    internal readonly Vector3 End;
-    /// <summary>世界宽度。</summary>
-    internal readonly float Width;
-    /// <summary>颜色与消散透明度。</summary>
-    internal readonly Color Color;
-
-    /// <summary>记录一段真实路径，不产生额外碰撞。</summary>
-    /// <param name="start">空间起点。</param>
-    /// <param name="end">空间终点。</param>
-    /// <param name="width">世界宽度。</param>
-    /// <param name="color">颜色与透明度。</param>
-    internal SpatialVisualLine(Vector3 start, Vector3 end, float width, Color color)
-    {
-        Start = start;
-        End = end;
-        Width = width;
-        Color = color;
-    }
-}
-
 /// <summary>将小型凸面拆为共用三角形，保留每面的硬边。</summary>
 internal sealed class SpatialVisualMeshBuilder
 {
