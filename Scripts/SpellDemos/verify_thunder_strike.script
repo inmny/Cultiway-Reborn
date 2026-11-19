@@ -1,0 +1,99 @@
+// 9.18 A：复用同一施法者和目标，验证一次命中与一次锁位后走开。
+const string inputRoot = "";
+var strike = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(inputRoot, "聚雷下击.json")));
+var source = Make(64);
+var target = Make(70);
+target.setKingdom(Make(12, "wolf").kingdom);
+var manaStats = new BaseStats();
+manaStats["mana"] = 100;
+var mana = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Thunder.Mana")
+    .SetStats(manaStats).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, mana, 10000, source);
+await Advance(.18f);
+Ready(source);
+Place(source, 64);
+Place(target, 70);
+source.setMana(64);
+
+var actual = new List<(ConstructedCastStarted Fact, AbilityCast Cast)>();
+void Start(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != strike.Id) return;
+    foreach (var run in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(run, "Id") == fact.CastId) actual.Add((fact, (AbilityCast)Field(run, "Cast")));
+}
+var trace = new List<object>();
+float LobeX(FormVisualInstance form) => form.PartTransform(1).m03 - form.Transform.m03;
+FormVisualInstance[] Stage(string name, AbilityCast cast)
+{
+    var forms = new List<FormVisualInstance>();
+    cast.AppendVisuals(forms);
+    var shapes = new List<AbilityCapsule>();
+    cast.AppendContacts(shapes);
+    trace.Add(new
+    {
+        name, cast.Age, endings = endings.Count, hp = target.data.health,
+        shapes = shapes.Select(shape => new { shape.Node, a = new[] { shape.A.x, shape.A.y, shape.A.z },
+            b = new[] { shape.B.x, shape.B.y, shape.B.z }, shape.Radius }),
+        forms = forms.Select(v => new
+        {
+            key = v.Resource.Description.Id, x = v.Transform.m03, y = v.Transform.m13, z = v.Transform.m23,
+            alpha = v.Dye?.a, lobeX = v.Resource.Description.Id == "lightning_charge" ? LobeX(v) : 0f
+        })
+    });
+    File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(trace, Formatting.Indented));
+    return forms.ToArray();
+}
+FormVisualInstance? Find(IEnumerable<FormVisualInstance> forms, string id) => forms
+    .Where(v => v.Resource.Description.Id == id).Select(v => (FormVisualInstance?)v).FirstOrDefault();
+int Hits(long id) => contacts.Count(hit => hit.CastId == id && hit.TargetId == target.id);
+
+ConstructedAbilityService.CastStarted += Start;
+try
+{
+    float hp = target.data.health, balance = source.getMana();
+    await Fire(strike, source, target);
+    Check(Mathf.Abs(balance - source.getMana() - 8) < .01f, "正式入口支付一次八点法力");
+    var hit = actual.Single();
+    await Advance(.19f);
+    var first = Stage("蓄力初段", hit.Cast);
+    var open = Find(first, "lightning_charge");
+    await Advance(.22f);
+    var second = Stage("蓄力收束", hit.Cast);
+    var tight = Find(second, "lightning_charge");
+    Check(open.HasValue && tight.HasValue && Mathf.Abs(LobeX(open.Value)) > Mathf.Abs(LobeX(tight.Value)) + .15f &&
+          Find(second, "lightning_strike_focused") == null && Find(second, "lightning_contact") == null &&
+          Hits(hit.Fact.CastId) == 0 && target.data.health == hp, "实体雷瓣收束，提前无伤也无撞击");
+    await Advance(Mathf.Max(.02f, .60f - hit.Cast.Age));
+    var falling = Stage("主雷下落", hit.Cast);
+    Check(Find(falling, "lightning_strike_focused").HasValue && Find(falling, "lightning_contact") == null &&
+          Hits(hit.Fact.CastId) == 0, "蓄力之后先出现仍未命中的主雷");
+    while (Hits(hit.Fact.CastId) == 0 && hit.Cast.Age < 1.16f && !hit.Cast.Finished) await Advance(.06f);
+    var release = Stage("真实接触", hit.Cast);
+    Check(Hits(hit.Fact.CastId) == 1 && Find(release, "lightning_contact").HasValue && target.data.health < hp,
+        "主干实际接触伤害一次，击点才张开余电");
+    await Advance(Mathf.Max(.12f, strike.Lifetime + .10f - hit.Cast.Age));
+    Check(hit.Cast.Finished && Stage("结束", hit.Cast).Length == 0 && endings.Any(e => e.Fact.CastId == hit.Fact.CastId),
+        "结束后不留下形体或接触");
+    Place(source, 64);
+    Place(target, 70);
+    await Fire(strike, source, target);
+    var miss = actual.Last();
+    await Advance(.20f);
+    Place(target, 70, 75);
+    await Advance(.72f);
+    Check(miss.Fact.CastId != hit.Fact.CastId && Hits(miss.Fact.CastId) == 0 &&
+          miss.Cast.NodeAge(2) < 0 && Find(Stage("走开后空落", miss.Cast), "lightning_contact") == null,
+        "目标走出实际作用面可避开，空落不出现人物命中反馈");
+    await Advance(1f);
+    Check(miss.Cast.Finished && Stage("空落退场", miss.Cast).Length == 0, "空落同样自然退出");
+    return new { passed = true, folder };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Start;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

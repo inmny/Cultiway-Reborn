@@ -56,8 +56,7 @@ function falling() {
   const trunk=shaft([[-1.05,.30,-.03],[-.63,.37],[.40,.32,.04],[1.18,.20,.02]],12);
   const branch=shaft([[0,.13],[.52,.10],[.86,.025]],8).rotateY(.9).translate(.13,0,-.29);
   publish('falling_timber',[['trunk',trunk,'wood'],['broken_branch',branch,'wood']],[[[0,0,-.75],[.025,0,.82],.19]],{profile:'broken_trunk'});
-  const bolt=shaft([[-1.45,.055,.21],[-.92,.23,-.17],[-.48,.27,.16],[.04,.24,-.17],[.48,.22,.12],[1.34,.004,.02]],6);
-  publish('lightning_strike',[['channel',bolt,'lightning_dense']],[[[0,0,-.7],[0,0,.72],.10]],{profile:'thick_stepped_bolt'});
+  lightningStrike();
   const pieces=[],contacts=[];
   for(let i=0;i<4;i++) {
     const a=i*Math.PI/2,x=Math.cos(a)*.23,y=Math.sin(a)*.23,length=1.05+.24*Math.sin(i*2);
@@ -65,6 +64,64 @@ function falling() {
     contacts.push([[x,y,-.44],[x,y,.61],.10,i]);
   }
   publish('icefall',pieces,contacts,{profile:'crystal_cluster',crystals:4});
+}
+
+/** 前端折面套在原接触芯外，后段才分岔，保留原尺寸与下落基准。 */
+function lightningStrike() {
+  const bolt=shaft([[-1.45,.07,.15],[-.99,.25,-.16],[-.54,.29,.13],[-.14,.24,-.13],
+    [.33,.23,.08],[.71,.145,-.04],[.83,.11,.04],[1.34,.005,.02]],7);
+  const pieces=[['channel',bolt,'thunder_arc']];
+  for(const [i,angle] of [.25,2.30,4.11].entries()) {
+    const start=-1.04+i*.26;
+    const fork=shaft([[start,.14],[start+.28,.175,.36],[start+.56,.11,.50],
+      [start+.84,.008,.86-i*.11]],6).rotateZ(angle);
+    pieces.push([`fork_${i}`,fork,'thunder_arc_fork']);
+  }
+  publish('lightning_strike',pieces,[[[0,0,-.7],[0,0,.72],.10]],{profile:'forked_channel',forks:3});
+  // 旧术保留原芯。新落雷的前芯抵到实体尖端，小体型不会在接触前就判为落地。
+  publish('lightning_strike_focused',pieces,[[[0,0,-.7],[0,0,1.23],.13]],{profile:'forked_channel',forks:3});
+}
+
+/** 蓄力先收雷瓣；确认接触时余瓣才由击点向外翻，随后在同一动作中消散。 */
+function lightningStages() {
+  const zero=[0,0,0],identity=[0,0,0,1],ease=T.MathUtils.smoothstep;
+  for(const charge of [true,false]) {
+    const duration=charge?.58:.40, count=charge?4:5, clipId=charge?'gather':'release';
+    const axes=Array.from({length:count},(_,i)=>new T.Vector3(Math.cos(i*2.4),Math.sin(i*2.4),0));
+    const controls=[{Id:'root',Position:zero,Rotation:identity},...axes.map((axis,i)=>({
+      Id:`lobe_${i}`,Parent:'root',Position:zero,Rotation:identity
+    }))];
+    const parts=[wallPart('heart',new T.IcosahedronGeometry(charge?.25:.17,1).scale(1,1,charge?1.2:.65),
+      'thunder_arc',zero,'root')];
+    for(const [i,axis] of axes.entries()) {
+      const length=charge?.62+.09*(i%3):.50+.12*(i%3);
+      const shard=shaft([[0,.038], [length*.28,.125], [length*.64,.19,-.16],[length,.01,-.095]],6)
+        .applyQuaternion(new T.Quaternion().setFromUnitVectors(new T.Vector3(0,0,1),axis));
+      parts.push(wallPart(controls[i+1].Id,shard,'thunder_arc_fork',zero,controls[i+1].Id));
+    }
+    const clip=motion(clipId,duration,false,controls,24,(index,phase)=>{
+      if(!index)return {};
+      const i=index-1, axis=axes[i], time=phase*duration;
+      const start=.017*i;
+      const opening=ease(time,start,charge?.48:.14+start);
+      const settling=ease(time,.18+start,duration);
+      const radius=charge?1.13*(1-opening):.56*opening+.16*settling;
+      const position=axis.clone().multiplyScalar(radius);
+      position.z=charge?(.23-.12*i)*(1-opening):-(.06+.16*opening)*(1-settling);
+      const hinge=new T.Vector3(-axis.y,axis.x,0);
+      const amount=charge?(1-opening)*(.75-.14*i):opening*(.50+.06*i)-settling*.49;
+      const tilt=new T.Quaternion().setFromAxisAngle(hinge,amount);
+      if(charge)tilt.premultiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),(.85-.05*i)*(1-opening)));
+      return {position:position.toArray(),rotation:tilt.toArray()};
+    });
+    for(const key of clip.Keys)key.Fade=round(charge
+      ?.72*(1-ease(key.At,0,.17))+ease(key.At,.49,duration)
+      :.42*(1-ease(key.At,0,.055))+ease(key.At,.13,duration));
+    write(charge?'lightning_charge':'lightning_contact',parts,
+      [{Id:'root',Part:0,Position:zero,Direction:[0,0,1],Control:'root'}],[],controls,[clip],false,
+      {Forward:[0,0,1],Up:[0,1,0],HideBelowGround:true},structure('articulated','forms_impacts.mjs','makeImpactForms',
+        {lobes:count,duration},Object.fromEntries(parts.map(p=>[p.Id,['impact.volume']])),[]));
+  }
 }
 
 /** 六类爆发保留闭合实体内核；内部球形作用区半径0.9，与运行的原作用半径共同缩放。 */
@@ -140,5 +197,5 @@ function publishMeteorMotion(pieces,shoulders) {
       Object.fromEntries(parts.map(p=>[p.Id,['projectile.body','impact.volume']])),[]));
 }
 
-/** 发布八种来源主体、六类通用爆发和炎陨独立落地形体。 */
-export function makeImpactForms() {fireball();thunder();chaos();falling();bursts();meteorImpact();}
+/** 发布八种来源主体、六类通用爆发及落地、蓄雷形体。 */
+export function makeImpactForms() {fireball();thunder();chaos();falling();lightningStages();bursts();meteorImpact();}

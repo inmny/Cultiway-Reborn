@@ -12,6 +12,12 @@
                     "Values": [
                         0.0
                     ]
+                },
+                {
+                    "Id": "forks",
+                    "Values": [
+                        3.0
+                    ]
                 }
             ]
         },
@@ -45,13 +51,73 @@
                 "impact.volume"
             ],
             "Id": "channel",
-            "Surface": "lightning_dense",
+            "Surface": "thunder_arc",
             "Pivot": [
                 0.0,
                 0.0,
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_channel.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "fork_0",
+            "Surface": "thunder_arc_fork",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_fork_0.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "fork_1",
+            "Surface": "thunder_arc_fork",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_fork_1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "fork_2",
+            "Surface": "thunder_arc_fork",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_fork_2.asset",
             "Control": "root",
             "Skin": false,
             "HasSurfaceData": false,
@@ -123,13 +189,13 @@
                 1.0
             ],
             "Minimum": [
-                -0.4099999964237213,
-                -0.23382699489593507,
+                -0.5075380206108093,
+                -0.5345720052719116,
                 -1.4500000476837159
             ],
             "Maximum": [
-                0.4300000071525574,
-                0.23382699489593507,
+                0.8410159945487976,
+                0.5668780207633972,
                 1.340000033378601
             ]
         }
