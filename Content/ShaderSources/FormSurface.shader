@@ -436,6 +436,7 @@ Shader "Cultiway/FormSurface"
             float contact = formFeedback(i);
             base += (base*.24 + float3(.035,.045,.05)*environmentLight)*contact;
             if (_Kind < .5) base += pow(saturate(dot(n,normalize(light+eye))),16)*contact*.12*direct;
+            alpha *= dye.a; // 原版和三维均读取同一姿态的显示淡去。
             return float4(base*alpha,alpha);
         }
         float4 shadeNative(Varying i):SV_Target { return shadeSurface(i,false); }

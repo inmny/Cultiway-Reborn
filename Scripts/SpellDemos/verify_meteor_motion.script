@@ -1,0 +1,119 @@
+// 9.03 A：在同一次正式下坠的时间线上检查落地、翻卷、余焰和清理。
+const string landingForm = "flame_meteor_impact_motion";
+var source = Make(64); var target = Make(70); var wolf = Make(12, "wolf"); target.setKingdom(wolf.kingdom);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 0;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+PrepareAppearanceBackdrop(62, 76, 68, 77);
+var made = new SkillContainerBuilder(SkillEntities.FlameMeteor).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+string signature = SkillContainerSignature.Build(made); owner.LearnSkillV3(made);
+var skills = (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+var skill = skills.First(s => SkillContainerSignature.Build(s) == signature);
+var running = service.GetField("casts", F);
+var views = new List<FormVisualInstance>(); var shapes = new List<AbilityCapsule>();
+var timeline = new List<object>(); var landingCenters = new List<Vector3>();
+ConstructedCastStarted? started = null;
+AbilityCast live = null;
+void Started(ConstructedCastStarted fact) { if (fact.SourceId == source.id) started = fact; }
+FormVisualInstance? View(string id)
+{
+    views.Clear(); live.AppendVisuals(views);
+    return views.Where(v => v.Resource.Description.Id == id).Select(v => (FormVisualInstance?)v).FirstOrDefault();
+}
+async Task ToAge(float age)
+{
+    if (live.Finished || live.NodeAge(1) >= age) return;
+    Config.paused = false;
+    await Game.WaitUntil(() => live.Finished || live.NodeAge(1) >= age, 900);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 900);
+}
+Vector3 Center(in FormVisualInstance visual) => visual.Transform.GetColumn(3);
+Vector3 Fold(in FormVisualInstance visual, int part)
+{
+    float[] pivot = visual.Resource.Description.Parts[part].Pivot;
+    return visual.PartTransform(part).MultiplyPoint3x4(new Vector3(pivot[0], pivot[1], pivot[2]));
+}
+float Opacity(in FormVisualInstance visual) => visual.Dye?.a ?? 1f;
+void Read(string run, string phase, FormVisualInstance? visual)
+{
+    shapes.Clear(); live.AppendContacts(shapes);
+    Vector3? center = visual.HasValue ? Center(visual.Value) : (Vector3?)null;
+    timeline.Add(new { run, phase, age = live.Age, landingAge = live.NodeAge(1), id = started.Value.CastId,
+        opacity = visual.HasValue ? Opacity(visual.Value) : (float?)null,
+        center = center.HasValue ? new[] { center.Value.x, center.Value.y, center.Value.z } : null,
+        contacts = shapes.Where(c => c.Node == 1).Select(c => c.Radius).ToArray() });
+    File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(timeline, Formatting.Indented));
+}
+ConstructedAbilityService.CastStarted += Started;
+try
+{
+    Place(target, 70);
+    var aim = target.GetSimPos();
+    foreach (bool miss in new[] { false, true })
+    {
+        string run = miss ? "empty" : "hit";
+        float recovery = SkillCooldownService.GetRemaining(owner, skill);
+        if (recovery > 0f) await Advance(recovery + .05f);
+        Ready(source); Place(source, 64); Place(target, miss ? 14 : 70, miss ? 14 : 72);
+        source.addAggro(target); target.addAggro(source);
+        owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+        ConstructedAbilityService.NotifyActorChanged(source); ConstructedAbilityService.NotifyActorChanged(target);
+        int hp = target.data.health; contacts.Clear(); started = null;
+        bool used = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+            new ActiveAbilityTarget(miss ? null : target, aim, selectionArea: new SkillTargetSelectionArea(true, aim, .1f)),
+            ActiveAbilityUseOrigin.Script);
+        source.attack_timer = 999; CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+        source.updateStats(); ControllableUnit.clear(false);
+        Check(used, run + "：炎陨经原已学入口受理"); await Advance(.04f);
+        Check(started.HasValue && started.Value.AbilityId == SkillEntities.FlameMeteor.id, run + "：只有原炎陨开始");
+        live = ((IEnumerable)running.GetValue(null)).Cast<object>().Where(row => (long)Field(row,"Id") == started.Value.CastId)
+            .Select(row => (AbilityCast)Field(row,"Cast")).Single();
+        var flight = View("flame_meteor");
+        Check(flight.HasValue && live.NodeAge(1) < 0f && !View(landingForm).HasValue,
+            run + "：空中只有真实下坠主体，落地火焰未提前出现", new { age = live.Age, landing = live.NodeAge(1) });
+        Read(run, "flight", flight);
+        if (!miss) await FrameAppearance("01-flight", aim.x, aim.y + 3f, 10);
+        await ToAge(0f);
+        var impact = View(landingForm);
+        Check(impact.HasValue && !View("flame_meteor").HasValue && live.NodeAge(1) < .075f,
+            run + "：只在真实下坠结束后开始落地动作", new { landing = live.NodeAge(1) });
+        var ground = Center(impact.Value);
+        var initialShoulders = Enumerable.Range(1, 3).Select(i => Fold(impact.Value, i)).ToArray();
+        landingCenters.Add(ground); Read(run, "impact", impact);
+        if (!miss) await FrameAppearance("02-impact", ground.x, ground.y, 10);
+
+        await ToAge(.076f);
+        var spread = View(landingForm);
+        var centerDelta = spread.HasValue ? Vector3.Distance(Center(spread.Value), ground) : -1f;
+        var foldDeltas = spread.HasValue ? Enumerable.Range(1, 3)
+            .Select(i => Vector3.Distance(Fold(spread.Value, i), initialShoulders[i - 1])).ToArray() : Array.Empty<float>();
+        Read(run, "spread", spread);
+        if (!miss && spread.HasValue) await FrameAppearance("03-spread", ground.x, ground.y, 10);
+        Check(spread.HasValue && centerDelta < .001f && foldDeltas.All(d => d > .045f),
+            run + "：三片火肩真实翻开而作用中心没有移动", new { landing = live.NodeAge(1), centerDelta, foldDeltas });
+        Check(!shapes.Any(c => c.Node == 1), run + "：展开后的余焰已经不再伤人");
+
+        await ToAge(.166f);
+        var settle = View(landingForm);
+        Check(settle.HasValue && Opacity(settle.Value) < Opacity(spread.Value) - .25f &&
+            Vector3.Distance(Center(settle.Value), ground) < .001f,
+            run + "：贴地收势变淡，保持原落点", new { landing = live.NodeAge(1), visible = settle.HasValue ? Opacity(settle.Value) : 0f });
+        Read(run, "settle", settle);
+        if (!miss) await FrameAppearance("04-settle", ground.x, ground.y, 10);
+        await ToAge(.33f); Read(run, "clear", View(landingForm));
+        var hits = contacts.Where(c => c.CastId == started.Value.CastId && c.DamageAttempted).ToArray();
+        Check(!View(landingForm).HasValue && !shapes.Any(c => c.Node == 1) &&
+            (miss ? hits.Length == 0 && target.data.health == hp : hits.Length == 1 && hits[0].Node == 1 &&
+             hits[0].TargetId == target.id && target.data.health < hp), run + "：自然撤除；落空零伤害，命中仅结算一次",
+            new { hits = hits.Length, before = hp, after = target.data.health });
+    }
+    Check(Vector2.Distance((Vector2)landingCenters[0], (Vector2)landingCenters[1]) < .01f,
+        "同点再次施放落空，也完整播放同一收势");
+    return new { passed = true };
+}
+finally
+{
+    if (live != null && !live.Finished) live.Cancel();
+    ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended; ControllableUnit.clear(false); Config.paused = true;
+}

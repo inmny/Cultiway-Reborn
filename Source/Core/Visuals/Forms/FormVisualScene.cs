@@ -51,7 +51,7 @@ public readonly struct FormVisualInstance
     public readonly Bounds? PoseBounds;
     /// <summary>实际材料选择的主体表面。</summary>
     public readonly string MatterSurface;
-    /// <summary>只影响显示的RGB染色倍率。</summary>
+    /// <summary>只影响显示的染色倍率；透明通道保留动作淡去后的可见比例。</summary>
     public readonly Color? Dye;
     /// <summary>与此完成姿态一同发布的实际材料及物态。</summary>
     public readonly AbilityMatter Matter;

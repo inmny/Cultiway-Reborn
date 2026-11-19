@@ -346,6 +346,7 @@ def main(all_spells):
     parser.add_argument("--fps", type=int, default=20, help="每世界秒截图上限")
     parser.add_argument("--battle-artifact", help="自主交战时装备一件指定主动能力的法宝，由 AI 决定使用")
     parser.add_argument("--speed", choices=[1, 2, 3, 5], type=int, default=1, help="游戏自身的模拟速度；成片仍按世界时间播放")
+    parser.add_argument("--motion-trace", action="store_true", help="随单招原帧记录真实外形、方向、身体姿态和阻挡")
     parser.add_argument("--diagnostics", action="store_true", help="记录大块黄色精灵及粒子的材质来源")
     parser.add_argument("--view", choices=["native", "worldfall", "firstperson"], default="native", help="原版俯视、Worldfall 三维观察或实际附身第一人称")
     parser.add_argument("--lighting", choices=["day", "night"], default="day", help="Worldfall固定昼夜条件，用于材质和自发光对照")
@@ -455,7 +456,10 @@ def main(all_spells):
             raise ValueError("连接和准备期间代码或资源发生了修改，请重新运行")
         if latest > catalog["processStarted"]:
             raise ValueError("游戏启动后代码或资源发生了修改，请重启游戏再录制，避免把旧程序录为新效果")
-        manifest = dict(version=version, cases=cases, skipped=skipped, duration=args.duration, fps=args.fps, power=args.power, realm=args.realm, zoom=args.zoom, view=args.view, lighting=args.lighting, scene=args.scene, diagnostics=args.diagnostics, speed=args.speed, battleArtifact=battle_artifact)
+        fixture = PROJECT / "Scripts/WorldSaveTests/Fixtures/world-format-1"
+        if not (fixture / "map.wbox").is_file():
+            raise ValueError(f"缺少演示测试存档：{fixture}")
+        manifest = dict(version=version, fixture=str(fixture), motionTrace=args.motion_trace, cases=cases, skipped=skipped, duration=args.duration, fps=args.fps, power=args.power, realm=args.realm, zoom=args.zoom, view=args.view, lighting=args.lighting, scene=args.scene, diagnostics=args.diagnostics, speed=args.speed, battleArtifact=battle_artifact)
         if constructions is not None:
             manifest["casterWalk"] = args.caster_walk
             manifest["targetOffset"] = args.target_offset

@@ -1,0 +1,119 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.PalmStrike",
+  "Name": "掌击",
+  "Revision": 5,
+  "Lifetime": 0.48,
+  "Cost": 0,
+  "Cooldown": 0.48,
+  "Power": 1,
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": null,
+    "Grip": "grip",
+    "ActiveFrom": 0.15,
+    "ActiveUntil": 0.255,
+    "Occupancy": 5,
+    "Keys": [
+      {
+        "At": 0,
+        "Hand": [0.22, 0.2, 0.52],
+        "Torso": [0, 0, 0],
+        "Turn": 0,
+        "Rotation": [0, 0, 0]
+      },
+      {
+        "At": 0.062,
+        "Hand": [0.183, 0.23, 0.532],
+        "Torso": [-0.027, 0.013, -0.043],
+        "Turn": -6,
+        "Rotation": [0, -11, -8]
+      },
+      {
+        "At": 0.118,
+        "Hand": [0.114, 0.255, 0.56],
+        "Torso": [-0.051, 0.017, -0.075],
+        "Turn": -15,
+        "Rotation": [0, -18, -12],
+        "Id": "loaded"
+      },
+      {
+        "At": 0.15,
+        "Hand": [0.228, 0.219, 0.575],
+        "Torso": [-0.007, 0.012, -0.016],
+        "Turn": -5,
+        "Rotation": [0, 4, -5]
+      },
+      {
+        "At": 0.175,
+        "Hand": [0.4, 0.165, 0.605],
+        "Torso": [0.026, 0.002, -0.013],
+        "Turn": 5,
+        "Rotation": [0, 19, 0]
+      },
+      {
+        "At": 0.205,
+        "Hand": [0.55, 0.12, 0.62],
+        "Torso": [0.045, -0.01, -0.015],
+        "Turn": 12,
+        "Rotation": [0, 25, 0]
+      },
+      {
+        "At": 0.25,
+        "Hand": [0.53, 0.12, 0.62],
+        "Torso": [0.04, -0.01, -0.015],
+        "Turn": 10,
+        "Rotation": [0, 25, 0]
+      },
+      {
+        "At": 0.283,
+        "Hand": [0.476, 0.162, 0.592],
+        "Torso": [0.033, -0.002, -0.036],
+        "Turn": 8,
+        "Rotation": [0, 19, -4]
+      },
+      {
+        "At": 0.322,
+        "Hand": [0.353, 0.224, 0.56],
+        "Torso": [0.014, 0.013, -0.032],
+        "Turn": 4,
+        "Rotation": [0, 9, -7],
+        "Id": "unload"
+      },
+      {
+        "At": 0.392,
+        "Hand": [0.214, 0.228, 0.528],
+        "Torso": [-0.01, 0.009, -0.01],
+        "Turn": -2,
+        "Rotation": [0, -3, -3]
+      },
+      {
+        "At": 0.48,
+        "Hand": [0.22, 0.2, 0.52],
+        "Torso": [0, 0, 0],
+        "Turn": 0,
+        "Rotation": [0, 0, 0],
+        "Id": "rest"
+      }
+    ],
+    "ImpactRecoil": 0.035,
+    "Responses": [
+      {
+        "Result": 0,
+        "RecoverFrom": "unload",
+        "Seconds": 0.06
+      },
+      {
+        "Result": 1,
+        "RecoverFrom": "rest",
+        "Seconds": 0.08
+      },
+      {
+        "Result": 2,
+        "RecoverFrom": "rest",
+        "Seconds": 0.16
+      }
+    ]
+  },
+  "Resource": "none"
+}

@@ -53,6 +53,8 @@ function water() {
     const oldDirection=new T.Vector3(...basis(rest.getTangent(t))),newDirection=new T.Vector3(...basis(current.getTangent(t)));
     return {position:basis(current.getPoint(t)),rotation:new T.Quaternion().setFromUnitVectors(oldDirection,newDirection).toArray()};
   });
+  // 末段沿原卷唇姿态散去，只改变透明度，不缩小真实接触或提前失效。
+  clip.Keys = clip.Keys.map(key => ({...key, Fade:T.MathUtils.smoothstep(key.At,.72,.9)}));
   publish('tidal_wave',[body],contacts,controls,clip,{width:2.28,controls:count,duration:.9,rolledLip:true});
 }
 

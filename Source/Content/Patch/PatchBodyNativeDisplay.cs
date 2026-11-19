@@ -59,7 +59,8 @@ internal static class PatchBodyNativeDisplay
                     Color tint = renderer.color;
                     tint.a = actor.color.a;
                     renderer.color = tint;
-                    FormNativeSpriteDeformation.SetSurface(renderer, surface, false);
+                    FormNativeSpriteDeformation.SetSurface(renderer, surface,
+                        ConstructedAbilityService.NativeBodyGround(surface.Foot), false);
                     continue;
                 }
                 if (renderer.sprite == null || !hasBody)
@@ -104,7 +105,8 @@ internal static class PatchBodyNativeDisplay
             SpriteRenderer renderer = pictures[index++].sprite_renderer;
             if (ConstructedAbilityService.TryGetNativeBodySurface(manager.visible_units.array[i].id,
                     out BodySurfacePose surface))
-                FormNativeSpriteDeformation.SetSurface(renderer, surface, true);
+                FormNativeSpriteDeformation.SetSurface(renderer, surface,
+                    ConstructedAbilityService.NativeBodyGround(surface.Foot), true);
         }
     }
 }

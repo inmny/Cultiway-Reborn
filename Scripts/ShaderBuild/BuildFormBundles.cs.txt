@@ -629,6 +629,9 @@ namespace CultiwayAssets.Editor
             /// <summary>同一时点的成形进度。</summary>
             public float Build;
 
+            /// <summary>跟随姿态取样的显示淡去比例。</summary>
+            public float Fade;
+
             /// <summary>动作内世界时间。</summary>
             public float At;
 

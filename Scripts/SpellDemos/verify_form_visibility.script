@@ -10,7 +10,7 @@ var samples=new[]{
     (Asset:SkillEntities.SwordQi,Form:"sword_qi",Self:false,Phase:.15f,Arrival:false),
     (Asset:SkillEntities.LightningSpear,Form:"lightning_spear",Self:false,Phase:.1f,Arrival:false),
     (Asset:SkillEntities.EarthRidge,Form:"earth_ridge",Self:false,Phase:.23f,Arrival:false),
-    (Asset:SkillEntities.FlameMeteor,Form:"flame_meteor_impact",Self:false,Phase:.08f,Arrival:true)
+    (Asset:SkillEntities.FlameMeteor,Form:"flame_meteor_impact_motion",Self:false,Phase:.08f,Arrival:true)
 };
 var running=service.GetField("casts",F);
 var view=new List<FormVisualInstance>();

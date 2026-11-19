@@ -1,6 +1,7 @@
 /** 独立岩刺：封闭的不规则岩层、错落石锋和同一控制下的真实涌出。 */
 import * as T from 'three';
 import {part, write, structure, motion, skin} from './form_export.mjs';
+import {wallPart} from './forms_solid_walls.mjs';
 
 /** 每条石锋保留偏斜岩层及截面切面，接触段收在实际石体内部。 */
 function shard(index, centre, radius, height) {
@@ -106,7 +107,7 @@ function makeLegacyEarthWall() {
 
 /** 岩墙在原阻挡体内刻出岩层，骨架仍共同承托墙面、挂点和实际接触。 */
 function makeEarthWallStrata() {
-  const count = 13, length = 5, radius = .245, positions = [], uv = [], triangles = [];
+  const count = 13, length = 5, radius = .245;
   const crest = x => 2.05 + .12 * Math.sin(x * 3.1 + .4) + .08 * Math.cos(x * 5.3);
   const controls = Array.from({length: count}, (_, i) => ({Id: `bed_${i}`,
     Position: [-length / 2 + length * i / (count - 1), 0, 0], Rotation: [0, 0, 0, 1]}));
@@ -154,6 +155,19 @@ function makeEarthWallStrata() {
       rings.push(ring(next.x - .10, [next]));
     } else for (const offset of [.1, .17, .237]) rings.push(ring(column.x + offset, [column]));
   }
+  const geometry = earthWallShell(rings, length);
+  skin(geometry, weights);
+  const body = wallPart('wall', geometry, 'stone_strata');
+  const anchors = [['left', new T.Vector3(-2.5, 0, 0)], ['right', new T.Vector3(2.5, 0, 0)], ['crest', new T.Vector3(0, 0, crest(0))]]
+    .map(([Id, p]) => ({Id, Part: 0, Position: p.toArray(), Direction: [0, 0, 1], Influences: bind(p)}));
+  write('earth_wall_strata', [body], anchors, contacts, controls, [], true, {Forward: [0, 1, 0], Up: [0, 0, 1], HideBelowGround: true},
+    structure('surface', 'forms_earth.mjs', 'makeEarthWall', {length, radius, controls: count}, {wall: ['terrain.wall', 'barrier.face']}, []));
+  publishEarthWallMotion(rings, length, radius, geometry, controls, weights, anchors, contacts);
+}
+
+/** 墙和接地后分开的石块使用同一断面；每段都封口。 */
+function earthWallShell(rings, length) {
+  const positions = [], uv = [], triangles = [];
   const sides = rings[0].length;
   const append = p => { positions.push(...p); uv.push(p[0] / length + .5 + .045 * p[1], p[2] / 2.3); };
   for (let i = 0; i < rings.length - 1; i++) for (let side = 0; side < sides; side++) {
@@ -174,15 +188,61 @@ function makeEarthWallStrata() {
   geometry.setAttribute('position', new T.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
   geometry.setIndex(triangles);
-  skin(geometry, weights);
-  const body = part('wall', geometry, 'stone_strata');
-  // 计算外法线后，发布时转成 Unity 正面顺序。
-  for (let i = 0; i < body.Triangles.length; i += 3)
-    [body.Triangles[i], body.Triangles[i + 2]] = [body.Triangles[i + 2], body.Triangles[i]];
-  const anchors = [['left', new T.Vector3(-2.5, 0, 0)], ['right', new T.Vector3(2.5, 0, 0)], ['crest', new T.Vector3(0, 0, crest(0))]]
-    .map(([Id, p]) => ({Id, Part: 0, Position: p.toArray(), Direction: [0, 0, 1], Influences: bind(p)}));
-  write('earth_wall_strata', [body], anchors, contacts, controls, [], true, {Forward: [0, 1, 0], Up: [0, 0, 1], HideBelowGround: true},
-    structure('surface', 'forms_earth.mjs', 'makeEarthWall', {length, radius, controls: count}, {wall: ['terrain.wall', 'barrier.face']}, []));
+  return geometry;
+}
+
+/** 地脚先承力，上层错时落稳。墙面与实接触的顶端使用同一组控制。 */
+function publishEarthWallMotion(rings, length, radius, geometry, base, weights, anchors, contacts) {
+  const count = base.length, identity = [0, 0, 0, 1];
+  const facing = {Forward: [0, 1, 0], Up: [0, 0, 1], HideBelowGround: true};
+  const controls = [...base, ...base.map((control, i) => ({...control, Id: `crest_${i}`}))];
+  const bind = (point, upper) => weights(point).filter(([, w]) => w > 0)
+    .map(([i, Weight]) => ({Control: controls[i + (upper ? count : 0)].Id, Weight}));
+  skin(geometry, p => {
+    const upper = T.MathUtils.smoothstep(p.z, .26, 1.62);
+    return weights(p).flatMap(([i, w]) => [[i, w * (1 - upper)], [i + count, w * upper]]);
+  });
+  const settle = motion('settle', .27, false, controls, 24, (i, phase, control) => {
+    if (i < count) return {};
+    const distance = Math.abs(i - count - (count - 1) / 2) / ((count - 1) / 2);
+    const arrival = .021 + distance * .076;
+    const lift = T.MathUtils.smoothstep(phase * .27, arrival, arrival + .152);
+    const depth = .24 + .08 * Math.cos(i * .83);
+    return {position: [control.Position[0], 0, -depth * (1 - lift)]};
+  });
+  write('earth_wall_strata_motion', [wallPart('wall', geometry, 'stone_strata')],
+    anchors.map(anchor => anchor.Id === 'crest' ? {...anchor, Influences: bind(new T.Vector3(...anchor.Position), true)} : anchor),
+    contacts.map(contact => ({...contact, BInfluences: bind(new T.Vector3(...contact.B), true)})),
+    controls, [settle], true, facing,
+    structure('surface', 'forms_earth.mjs', 'makeEarthWall', {length, radius, controls: controls.length},
+      {wall: ['terrain.wall', 'barrier.face']}));
+
+  const sections = 7;
+  const spans = Array.from({length: sections}, (_, i) => {
+    const from = Math.round(i * (rings.length - 1) / sections);
+    const to = Math.round((i + 1) * (rings.length - 1) / sections);
+    return rings.slice(from, to + 1);
+  });
+  const blocks = spans.map((span, i) => ({Id: `block_${i}`, Rotation: identity,
+    Position: [(span[0][0][0] + span.at(-1)[0][0]) / 2, 0, .28]}));
+  const parts = spans.map((span, i) => {
+    const block = blocks[i];
+    return wallPart(block.Id, earthWallShell(span, length), 'stone_strata', block.Position, block.Id);
+  });
+  const collapse = motion('collapse', .42, false, blocks, 28, (i, phase, control) => {
+    const wait = (2 - i % 3) * .033, at = phase * .42;
+    const t = T.MathUtils.clamp((at - wait) / (.42 - wait), 0, 1);
+    const sign = i % 2 ? -1 : 1, lean = T.MathUtils.smoothstep(t, 0, .76);
+    const down = T.MathUtils.smoothstep(t, .28, 1);
+    const position = [control.Position[0] + (i - 3) * .041 * lean,
+      sign * (.12 + i * .028) * lean, .28 - (1.24 + (i % 3) * .11) * down];
+    const rotation = new T.Quaternion().setFromEuler(new T.Euler(sign * (1.23 + i * .054) * lean,
+      (i - 3) * .115 * lean, sign * .19 * lean));
+    return {position, rotation: rotation.toArray()};
+  });
+  write('earth_wall_strata_rubble', parts, [], [], blocks, [collapse], true, facing,
+    structure('articulated', 'forms_earth.mjs', 'makeEarthWall', {length, sections},
+      Object.fromEntries(parts.map(piece => [piece.Id, ['terrain.wall', 'debris']]))));
 }
 
 /** 旧自创资料仍引用原网格及其贴地基准。 */

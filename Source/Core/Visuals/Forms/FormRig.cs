@@ -61,6 +61,9 @@ public sealed class FormMotionKeyDescription
     /// <summary>本时刻已经建立的主体进度，普通动作保持完整。</summary>
     public float Build = 1f;
 
+    /// <summary>仅用于显示的淡去比例，不改变成形、挂点或接触。</summary>
+    public float Fade;
+
     /// <summary>动作内世界秒数。</summary>
     public float At;
 
@@ -98,6 +101,9 @@ public sealed class FormMotion
     /// <summary>与姿态同一时钟采样的成形进度。</summary>
     internal readonly float[] Builds;
 
+    /// <summary>同一动作时钟上的显示淡去比例。</summary>
+    internal readonly float[] Fades;
+
     /// <summary>此动作是否确实包含逐段成形阶段。</summary>
     internal readonly bool FormsOverTime;
 
@@ -129,6 +135,7 @@ public sealed class FormMotion
         Loop = source.Loop;
         Times = new float[source.Keys.Length];
         Builds = new float[Times.Length];
+        Fades = new float[Times.Length];
         Positions = new Vector3[Times.Length][];
         Rotations = new Quaternion[Times.Length][];
         var rates = new float[count];
@@ -139,6 +146,9 @@ public sealed class FormMotion
             if (data == null || !FormRig.Finite(data.Build) || data.Build < 0f || data.Build > 1f)
                 throw new InvalidDataException(path + "：成形进度须在0至1之间");
             Builds[key] = data.Build;
+            if (!FormRig.Finite(data.Fade) || data.Fade < 0f || data.Fade > 1f)
+                throw new InvalidDataException(path + "：显示淡去比例须在0至1之间");
+            Fades[key] = data.Fade;
             FormsOverTime |= data.Build < 1f;
             if (data == null || !FormRig.Finite(data.At) || data.At < 0 || data.At > Duration ||
                 key > 0 && data.At <= Times[key - 1] || data.Positions?.Length != count * 3 ||
@@ -164,7 +174,8 @@ public sealed class FormMotion
         }
 
         if (Times[0] != 0f || Times[Times.Length - 1] != Duration) throw new InvalidDataException(path + "：动作必须覆盖起止时间");
-        if (Loop && Builds[0] != Builds[Builds.Length - 1]) throw new InvalidDataException(path + "：循环成形进度不连续");
+        if (Loop && (Builds[0] != Builds[Builds.Length - 1] || Fades[0] != Fades[Fades.Length - 1]))
+            throw new InvalidDataException(path + "：循环成形或显示淡去不连续");
         for (int control = 0; control < count; control++)
         {
             MaximumAngularRate += rates[control];
@@ -336,7 +347,12 @@ public sealed class FormRig
         }
 
         pose.BuildProgress = motion == null ? 1f : Mathf.Lerp(motion.Builds[key], motion.Builds[key + 1], blend);
-        if (from != null) pose.BuildProgress = Mathf.Lerp(from.BuildProgress, pose.BuildProgress, transition);
+        pose.Fade = motion == null ? 0f : Mathf.Lerp(motion.Fades[key], motion.Fades[key + 1], blend);
+        if (from != null)
+        {
+            pose.BuildProgress = Mathf.Lerp(from.BuildProgress, pose.BuildProgress, transition);
+            pose.Fade = Mathf.Lerp(from.Fade, pose.Fade, transition);
+        }
         for (int i = 0; i < Count; i++)
         {
             Vector3 position = motion == null
@@ -465,6 +481,9 @@ public sealed class FormPose
     /// <summary>与控制姿态一同确认的主体成形进度。</summary>
     public float BuildProgress = 1f;
 
+    /// <summary>完成姿态的显示淡去比例，只有绘制读取。</summary>
+    public float Fade;
+
     /// <summary>当前完整局部位置与四元数，用于连续切换而不混合世界矩阵。</summary>
     internal readonly Vector3[] Positions;
 
@@ -500,5 +519,6 @@ public sealed class FormPose
         Array.Copy(Skin, destination.Skin, Skin.Length);
         destination.Bounds = Bounds;
         destination.BuildProgress = BuildProgress;
+        destination.Fade = Fade;
     }
 }

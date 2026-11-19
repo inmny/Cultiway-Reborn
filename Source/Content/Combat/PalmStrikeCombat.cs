@@ -21,7 +21,7 @@ internal sealed class PalmStrikeCombat : IActiveAbilityProvider
     /// <param name="output">统一能力集合。</param>
     public void Collect(ActorExtend caster, ICollection<ActiveAbilityHandle> output)
     {
-        if (GeneralSettings.EnableSkillSystems && ConstructedAbilityService.HasBodyFor(caster, BodyActionCatalog.PalmId))
+        if (GeneralSettings.EnableSkillSystems && ConstructedAbilityService.HasBodyFor(caster, ConstructedAbilityService.PalmExecution))
             output.Add(new ActiveAbilityHandle(ProviderId, caster.E));
     }
     /// <summary>现有掌击仍为战斗能力。</summary>
@@ -39,9 +39,9 @@ internal sealed class PalmStrikeCombat : IActiveAbilityProvider
     /// <param name="caster">当前身体。</param>
     /// <param name="handle">能力句柄。</param>
     public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle) =>
-        !ConstructedAbilityService.HasBodyFor(caster, BodyActionCatalog.PalmId) ? new(ActiveAbilityControlBlockReason.Unavailable) :
+        !ConstructedAbilityService.HasBodyFor(caster, ConstructedAbilityService.PalmExecution) ? new(ActiveAbilityControlBlockReason.Unavailable) :
         caster.Base.attack_timer > 0f ? new(ActiveAbilityControlBlockReason.Cooldown, caster.Base.attack_timer) :
-        ConstructedAbilityService.CanStartBody(caster, BodyActionCatalog.PalmId) ? ActiveAbilityControlState.Ready : new(ActiveAbilityControlBlockReason.Unavailable);
+        ConstructedAbilityService.CanStartBody(caster, ConstructedAbilityService.PalmExecution) ? ActiveAbilityControlState.Ready : new(ActiveAbilityControlBlockReason.Unavailable);
     /// <summary>受理前核对真实身体及恢复状态。</summary>
     /// <param name="caster">当前身体。</param>
     /// <param name="handle">能力句柄。</param>
@@ -72,7 +72,7 @@ internal sealed class PalmStrikeCombat : IActiveAbilityProvider
     /// <param name="caster">当前身体。</param>
     /// <param name="handle">能力句柄。</param>
     /// <param name="target">实际目标。</param>
-    public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) => ConstructedAbilityService.Range(caster, BodyActionCatalog.PalmId, target);
+    public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) => ConstructedAbilityService.Range(caster, ConstructedAbilityService.PalmExecution, target);
     /// <summary>没有独立圆形伤害范围。</summary>
     /// <param name="caster">当前身体。</param>
     /// <param name="handle">能力句柄。</param>
@@ -85,5 +85,5 @@ internal sealed class PalmStrikeCombat : IActiveAbilityProvider
     public bool TryUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target,
         ActiveAbilityUseOrigin origin) =>
         CanUse(caster, handle, target) &&
-        ConstructedAbilityService.Start(caster, BodyActionCatalog.PalmId, target, origin);
+        ConstructedAbilityService.Start(caster, ConstructedAbilityService.PalmExecution, target, origin);
 }

@@ -135,6 +135,7 @@ private readonly List<object> quenchingLog = new();
 private readonly List<object> burningLog = new();
 
 private readonly List<object> contactsLog = new();
+private readonly List<object> queuedDamageLog = new();
 private readonly List<object> areasLog = new();
 
 /// <summary>本段实际屏障接触和空间数据，供核对长轴、厚度与半径。</summary>
@@ -578,6 +579,7 @@ private void Update()
     ConstructedAbilityService.BurningConfirmed += OnBurning;
     WorldMaterialService.Changed += OnWorldMaterial;
     ConstructedAbilityService.ContactConfirmed += OnConstructedContact;
+    if ((bool?)request["motionTrace"] == true) ConstructedAbilityService.QueuedDamageConfirmed += OnQueuedDamage;
     ConstructedAbilityService.ClashConfirmed += OnConstructedClash;
     StartCoroutine(Guarded((string)request["action"] == "resources" ? ProbeFormResources() :
         (string)request["action"] == "construction" ? RecordConstructions() : Run()));
@@ -653,6 +655,7 @@ private IEnumerator Guarded(IEnumerator steps)
     ConstructedAbilityService.BurningConfirmed -= OnBurning;
     WorldMaterialService.Changed -= OnWorldMaterial;
     ConstructedAbilityService.ContactConfirmed -= OnConstructedContact;
+    ConstructedAbilityService.QueuedDamageConfirmed -= OnQueuedDamage;
     ConstructedAbilityService.ClashConfirmed -= OnConstructedClash;
     FormVisualScene.Clear();
     Write(Path.Combine(output, "status.json"),
@@ -1304,8 +1307,9 @@ private IEnumerator LoadFixture()
         external.GetMethod("ViewForTest", Flags).Invoke(view, new object[] { false });
     }
 
-    string fixture = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,
-        "Scripts/WorldSaveTests/Fixtures/world-format-1");
+    string fixture = (string)request["fixture"];
+    if (fixture == null || !File.Exists(Path.Combine(fixture, "map.wbox")))
+        throw new InvalidOperationException("缺少演示测试存档：" + fixture);
     World.world.save_manager.loadWorld(fixture);
     yield return null;
     while (SmoothLoader.isLoading()) yield return null;
@@ -1507,6 +1511,16 @@ private void Prepare(JObject item)
         if (cloud.active)
             cloud.kill();
     string id = (string)item["id"];
+    if (id == "Cultiway.PalmStrike" && (bool?)request["motionTrace"] == true && enemies[0].asset.id == "wolf")
+    {
+        // 动作验收沿用近身窗口已通过的徒手人物对靶，其余术仍使用原场地。
+        Actor prior = enemies[0];
+        var target = World.world.units.createNewUnit("human", prior.current_tile, pAdultAge: true);
+        target.data.name = prior.data.name;
+        target.addTrait("super_health");
+        target.setKingdom(prior.kingdom);
+        enemies[0] = target;
+    }
     artifactDetails = null;
     executionLog.Clear();
     worldContactsLog.Clear();
@@ -1516,6 +1530,7 @@ private void Prepare(JObject item)
     quenchingLog.Clear();
     burningLog.Clear();
     contactsLog.Clear();
+    queuedDamageLog.Clear();
     clashesLog.Clear();
     areasLog.Clear();
     yellowObjects.Clear();
@@ -1557,6 +1572,10 @@ private void Prepare(JObject item)
         enemies[index].addAggro(caster);
         caster.addAggro(enemies[index]);
     }
+
+    // 主朝向仍指向原目标，在现有潮行路径上放一位旁靶，便于对照同段真实接触。
+    if (id == "Cultiway.TidalWave" && (bool?)request["motionTrace"] == true)
+        Place(enemies[1], 62, 70);
 
     var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.SpellDemo.Hold");
     if (hold == null)
@@ -1660,10 +1679,7 @@ private void Prepare(JObject item)
 
     if (id == "Cultiway.PalmStrike")
     {
-        Place(caster, 69, 68);
-        enemies[0].current_position = new Vector2(69.55f, 68);
-        enemies[0].setCurrentTile(World.world.GetTileSimple(69, 68));
-        enemies[0].updatePos();
+        PositionPalmTarget();
     }
 
     owner.MarkCultiwayStatsDirty();
@@ -1671,6 +1687,20 @@ private void Prepare(JObject item)
     caster.updateStats();
     Camera();
     mod.CommandBuffer.Playback();
+}
+
+/// <summary>将原地掌击放回实际接触距离；动作取证沿用已核对的人形对靶。</summary>
+private void PositionPalmTarget()
+{
+    Place(caster, 69, 68);
+    float offset = .55f;
+    if ((bool?)request["motionTrace"] == true)
+    {
+        var spatial = typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose", true);
+        offset = (float)spatial.GetMethod("Height", Flags).Invoke(null, new object[] { caster }) * .4f;
+        caster.attack_timer = 0;
+    }
+    Place(enemies[0], 69 + offset, 68);
 }
 
 /// <summary>通过正式技能序列实际释放，并按世界时间截图，记录真实生成和受伤。</summary>
@@ -1749,10 +1779,7 @@ private IEnumerator Record(JObject item, string folder)
     if (id == "Cultiway.PalmStrike")
     {
         // 三维镜头切换会做人物避让，开拍时重新放回已核对的接触距离。
-        Place(caster, 69, 68);
-        enemies[0].current_position = new Vector2(69.55f, 68);
-        enemies[0].setCurrentTile(World.world.GetTileSimple(69, 68));
-        enemies[0].updatePos();
+        PositionPalmTarget();
     }
 
     if (id == "Cultiway.PalmStrike")
@@ -1799,6 +1826,8 @@ private IEnumerator Record(JObject item, string folder)
                                                 ? "；" + ActiveAbilityService.ResolveControlState(owner, ability)
                                                     .BlockReason
                                                 : ""));
+    // 正式冷却必须先通过；开始录制后才阻止无关的自动普攻。
+    if (id == "Cultiway.PalmStrike" && (bool?)request["motionTrace"] == true) caster.attack_timer = 999;
     mod.CommandBuffer.Playback();
     var times = new List<double>();
     var meshes = (IList)typeof(Cultiway.ModClass).Assembly
@@ -1808,6 +1837,7 @@ private IEnumerator Record(JObject item, string folder)
     double start = World.world.getCurWorldTime(),
         duration = Math.Max((double)request["duration"], id.EndsWith(".FivePhase") ? 10.5 : 0),
         nextCapture = 0;
+    var motionFrames = (bool?)request["motionTrace"] == true ? new List<object>() : null;
     double interval = 1d / (int)request["fps"];
     float nextStatus = Time.realtimeSinceStartup + 2;
     if ((string)request["scene"] == "shield")
@@ -1837,6 +1867,7 @@ private IEnumerator Record(JObject item, string folder)
             if ((bool?)request["diagnostics"] == true && times.Count % 5 == 0) InspectYellowSprites();
             InspectFootprints();
             times.Add(elapsed);
+            motionFrames?.Add(ReadMotionFrame(id, elapsed));
             new ScreenFacade().Capture(Path.Combine(folder, "frames",
                 (times.Count - 1).ToString("00000") + ".png"));
             nextCapture = (Math.Floor((elapsed + .00001) / interval) + 1) * interval;
@@ -1860,11 +1891,11 @@ private IEnumerator Record(JObject item, string folder)
     {
         passed = (spawned > 0 || dedicated && used) && errors.Count == 0 &&
                  ((string)request["scene"] != "shield" || probeUsed && barrierBefore > barrierLowest),
-        id, item, frames = times.Count, times,
+        id, item, frames = times.Count, times, start, motionFrames,
         duration = actual, spawned, peakMeshes, previewFrame, artifactDetails,
         view = (string)request["view"], lighting = (string)request["lighting"] ?? "day",
         lightingState = LightingState(), scene = (string)request["scene"], executionLog, contactsLog,
-        worldContactsLog, areasLog,
+        worldContactsLog, areasLog, queuedDamageLog,
         barrierLog, clashesLog, footprints = footprints.Values.ToArray(), yellowObjects,
         assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(),
         shield = new { probeUsed, barrierBefore, barrierLowest, absorbed = barrierLowest < barrierBefore },
@@ -1873,6 +1904,49 @@ private IEnumerator Record(JObject item, string folder)
         friendDied = Health(friend) == 0,
         damaged = enemies.Where((actor, index) => Health(actor) < health[index]).Count(), errors
     });
+}
+
+/// <summary>读同一个正式施放当前发布的姿态，随原帧保留数值，不推进模拟。</summary>
+private object ReadMotionFrame(string id, double time)
+{
+    float[] Point(Vector3 value) => new[] { value.x, value.y, value.z };
+    var live = (IEnumerable)typeof(ConstructedAbilityService).GetField("casts", Flags).GetValue(null);
+    var views = new List<FormVisualInstance>();
+    var samples = new List<object>();
+    foreach (object running in live)
+    {
+        Type type = running.GetType();
+        if ((long)type.GetField("SourceId", Flags).GetValue(running) != caster.id) continue;
+        var cast = (AbilityCast)type.GetField("Cast", Flags).GetValue(running);
+        if (cast.Finished || cast.Plan.Id != id) continue;
+        views.Clear();
+        cast.AppendVisuals(views);
+        var pose = cast.BodyPose;
+        samples.Add(new
+        {
+            cast = (long)type.GetField("Id", Flags).GetValue(running), cast.Age,
+            velocity = views.Count == 0 ? null : Point(cast.Velocity(0)),
+            body = pose.HasValue ? new { pose.Value.ActionAge, hip = Point(pose.Value.CenterOfMass),
+                palm = Point(pose.Value.Hand), elbow = Point(pose.Value.Elbow), turn = pose.Value.Turn } : null,
+            forms = views.Select(form =>
+            {
+                float[] forward = form.Resource.Description.Forward;
+                return new
+                {
+                    id = form.Resource.Description.Id, center = Point(form.Transform.GetColumn(3)),
+                    heading = Point(form.Transform.MultiplyVector(new Vector3(forward[0], forward[1], forward[2])).normalized),
+                    scale = Point(form.Transform.lossyScale), build = form.BuildProgress, opacity = form.Dye?.a ?? 1f,
+                    controls = form.Skin?.Take(form.Resource.Description.Controls.Length)
+                        .Select(matrix => Point(matrix.GetColumn(3))).ToArray()
+                };
+            }).ToArray()
+        });
+    }
+    object barriers = typeof(Cultiway.Core.SkillLibV3.Manager).GetField("Barriers", Flags).GetValue(null);
+    bool groundBarrier = barriers != null && (bool)typeof(Cultiway.Core.SkillLibV3.Manager).Assembly
+        .GetType("Cultiway.Core.SkillLibV3.ISkillBarrierBridge", true)
+        .GetProperty("HasGroundBarriers", Flags).GetValue(barriers);
+    return new { time, groundBarrier, bodyBusy = BodyControlState.IsBusy(caster.id), samples };
 }
 
 /// <summary>读取真实生命；吞噬或死亡后的对象按零记录，避免删去实际作用结果。</summary>
@@ -2083,6 +2157,14 @@ private void OnConstructedContact(ConstructedContact contact) => contactsLog.Add
     forceApplied = contact.ForceApplied, staggerSeconds = contact.StaggerSeconds,
     bindSeconds = contact.BindSeconds,
     result = contact.Result.ToString(), framework = "construction"
+});
+
+/// <summary>保留此次原画对应的实际近身扣血数值。</summary>
+private void OnQueuedDamage(ConstructedQueuedDamage hit) => queuedDamageLog.Add(new
+{
+    id = hit.AbilityId, cast = hit.CastId, source = hit.SourceId, target = hit.TargetId,
+    contactTime = hit.ContactWorldTime, time = hit.WorldTime,
+    count = hit.Damage.SettledCount, lost = hit.Damage.HealthLost, health = hit.TargetHealthAfter
 });
 
 /// <summary>收集本次运行的游戏错误，不把启动前的历史错误算入结果。</summary>

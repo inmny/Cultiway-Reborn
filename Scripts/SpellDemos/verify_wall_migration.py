@@ -12,12 +12,12 @@ from common import PROJECT, version_stamp, write_json
 def main():
     """复用已有世界、人物准备和调试通道，分别保存本批输入及实际结果。"""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('earth', 'earth-appearance', 'earth-walk', 'solid-walls', 'contact-walls', 'shields', 'water-curtain'), default='earth',
-                        help='土墙完整交互、土墙外观及通行边缘、只复验土墙步行、实体墙、接触墙、随身护盾或水幕')
+    parser.add_argument('--section', choices=('earth', 'earth-appearance', 'earth-walk', 'earth-motion', 'solid-walls', 'contact-walls', 'shields', 'water-curtain'), default='earth',
+                        help='土墙完整交互、土墙外观及通行边缘、只复验土墙步行、土墙收势、实体墙、接触墙、随身护盾或水幕')
     section = parser.parse_args().section
     development = os.environ.get('CULTIWAY_DEV_ACTIVE')
     if not development:
-        if section in ('earth-appearance', 'earth-walk'):
+        if section in ('earth-appearance', 'earth-walk', 'earth-motion'):
             parser.error('外观复验请通过 develop 的 dev.py exec 运行')
         install = PROJECT / 'artifacts/skill_rebuild/performance-baseline/cultiway'
         os.environ['CULTIWAY_BASELINE_ROOT'] = str(install)
@@ -51,12 +51,14 @@ def main():
     helpers += '\nAbilityDefinition Motion(' + motion
     script = folder / 'input.script'
     body = Path(__file__).with_suffix('.script').read_text()
-    if section in ('earth-appearance', 'earth-walk'):
+    if section in ('earth-appearance', 'earth-walk', 'earth-motion'):
         helpers = helpers.replace('y <= 78', 'y <= 80')
         camera = Path(__file__).with_name('verify_appearance_camera.script').read_text()
         appearance = Path(__file__).with_name('verify_earth_wall_appearance.script').read_text()
-        if section == 'earth-walk':
+        if section != 'earth-appearance':
             appearance = appearance.replace('const bool captureWall = true;', 'const bool captureWall = false;')
+        if section == 'earth-motion':
+            appearance = appearance.replace('const bool verifyMotion = false;', 'const bool verifyMotion = true;')
         body = body.split('var activeCasts', 1)[0] + camera + appearance
     elif section in ('solid-walls', 'contact-walls', 'shields', 'water-curtain'):
         shared = body.split('var activeCasts', 1)[0].replace('SkillEntities.EarthWall', 'wallAsset')
