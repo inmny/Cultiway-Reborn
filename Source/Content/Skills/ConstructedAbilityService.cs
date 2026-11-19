@@ -769,6 +769,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         foreach (RunningCast running in casts)
         {
             ReleaseActorTransferHolds(running);
+            ReleaseSpatialViews(running);
             ReleaseBodyConnection(running, "WorldChanged", fade: false, time: running.LastWorldTime);
             running.BodyLease?.Dispose();
             running.Carrier?.Dispose();
@@ -801,6 +802,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     private static void Finish(int index, RunningCast running)
     {
         ReleaseActorTransferHolds(running);
+        ReleaseSpatialViews(running);
         ReleaseBody(running);
         ReleaseMaterialReservation(running);
         running.Inventory?.Dispose();
@@ -885,6 +887,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         /// <summary>入口当前持有的原人物，沿真实接触顺序确认。</summary>
         internal List<ActorTransferHold> ActorTransferHolds;
+
+        /// <summary>只在带有实际配对的折景门时建立暂用地貌。</summary>
+        internal SpatialDestinationRelief[] SpatialViews;
 
         /// <summary>同一步骤只让原人物暂存一次，避免重复接触延长控制。</summary>
         internal HashSet<(int Step, long Actor)> StagedActors;

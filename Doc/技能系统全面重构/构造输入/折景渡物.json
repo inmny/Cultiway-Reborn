@@ -1,0 +1,29 @@
+{
+  "Id": "Cultiway.Demo.FoldGate",
+  "Name": "折景渡物",
+  "Cost": 3,
+  "Resource": "wakan",
+  "Power": 8,
+  "Cooldown": 0.1,
+  "Lifetime": 2.1,
+  "TargetRange": 20,
+  "Impact": {"DamageScale": 1},
+  "Binding": {"Anchor": "Source", "FaceTarget": false, "Height": 0.25},
+  "Root": {
+    "Id": "root",
+    "Form": "pivot",
+    "ContactRole": "Decoration",
+    "Children": [
+      {"Id": "entrance", "Form": "space_fold_gate", "ContactRole": "Decoration", "DisappearAt": 1.72},
+      {"Id": "exit", "Form": "space_fold_gate", "ContactRole": "Decoration", "Offset": [11, 0, 0], "Rotation": [0, 0, 90], "AppearAt": 0.18, "DisappearAt": 1.72},
+      {"Id": "sword", "Form": "sword", "Matter": "iron", "Scale": 0.55, "Offset": [0.3, 0, 0], "Operations": [
+        {"Kind": "Detach"},
+        {"Kind": "Fly", "WorldVelocity": true, "Vector": [2, 0, 0]}
+      ]}
+    ]
+  },
+  "Steps": [
+    {"Id": "cross", "Operation": {"Kind": "MapSpace", "At": 0.55, "MappingRadius": 2.5},
+      "Inputs": {"part": {"Node": "root/sword"}, "entrance": {"Node": "root/entrance"}, "exit": {"Node": "root/exit"}}}
+  ]
+}

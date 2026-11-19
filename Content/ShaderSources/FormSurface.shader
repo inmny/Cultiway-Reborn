@@ -551,6 +551,11 @@ Shader "Cultiway/FormSurface"
                 base += tint.rgb*(.14+.29*diffuse)*density;
                 alpha *= i.surface.y*(.48+.52*density)*(.29+.71*chord);
             }
+            else if (_Kind > 26.5)
+            {
+                // 对端实际地块的颜色和立体高差。退进门框后的石壁保留真实受光。
+                base = i.current.rgb * i.current.a * (.66 + .34 * diffuse);
+            }
             else if (_Kind > 25.5)
             {
                 // 暖质有宽的流层、受光面和深色薄边；流动藏在材质内，不额外画线。

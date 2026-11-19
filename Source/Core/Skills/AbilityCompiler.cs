@@ -189,6 +189,9 @@ public sealed class CompiledAbility
     /// <summary>已经按依赖排序的命名操作，不在运行中解释原描述。</summary>
     internal CompiledConstructionStep[] Steps { get; }
 
+    /// <summary>带折景形体且出口唯一的映射端点，显示读取同一对已编译的部位。</summary>
+    internal (int Near, int Far)[] SpatialViewPairs { get; }
+
     /// <summary>只在实际人物接触时可执行的步骤索引。</summary>
     internal int[] ActorTransferSteps { get; }
 
@@ -289,6 +292,7 @@ public sealed class CompiledAbility
         HasPropagation = operations.Any(operation => operation.Propagation != null);
         NeedsRayTarget = operations.Any(operation => operation.Ray != null);
         Steps = steps;
+        SpatialViewPairs = AbilityCast.CompileSpatialViews(nodes, steps);
         ActorTransferSteps = Enumerable.Range(0, steps.Length).Where(i => steps[i].Action.Kind == ConstructionOperationKind.MapActor).ToArray();
         ArtifactTransferSteps = Enumerable.Range(0, steps.Length).Where(i => steps[i].Action.Kind == ConstructionOperationKind.MapArtifact).ToArray();
         DirectSignalSteps = Enumerable.Range(0, steps.Length).Where(i => steps[i].Action.Kind == ConstructionOperationKind.SendSignal).ToArray();
