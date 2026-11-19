@@ -26,6 +26,8 @@ public sealed partial class WindowWanfaConstructionEditor
         Value("RadialRadius", node.RadialMotion.Radius, (next, value) => next.Radius = value);
         Value("RadialSpeed", node.RadialMotion.Speed, (next, value) => next.Speed = value);
         Value("RadialInterval", node.RadialMotion.Interval, (next, value) => next.Interval = value);
+        ContactInteger("RadialGroundItems", node.RadialMotion.GroundItemLimit,
+            value => Edit(next => next.GroundItemLimit = value), draftChange: false);
         Choice("RadialTargets", T("Relation." + node.RadialMotion.Targets), () => menu.Show(T("RadialTargets"),
             new[] { SkillUseTargetRelation.Hostile, SkillUseTargetRelation.Friendly, SkillUseTargetRelation.Self }
                 .Select(relation => new UiOptionMenuOption
@@ -34,7 +36,7 @@ public sealed partial class WindowWanfaConstructionEditor
                     Select = () => Edit(next => next.Targets = relation)
                 }).ToArray()));
 
-        // 候选只包含这四个独立数值，使用运行编译相同的边界检查。
+        // 先检查完整的运动资料再写草稿，任何一栏修改都保留其他内容。
         void Value(string key, float value, Action<ConstructionRadialMotion, float> set)
         {
             var input = Row(key);
@@ -46,7 +48,8 @@ public sealed partial class WindowWanfaConstructionEditor
             var current = node.RadialMotion;
             var next = new ConstructionRadialMotion
             {
-                Radius = current.Radius, Speed = current.Speed, Interval = current.Interval, Targets = current.Targets
+                Radius = current.Radius, Speed = current.Speed, Interval = current.Interval, Targets = current.Targets,
+                GroundItemLimit = current.GroundItemLimit
             };
             edit(next);
             Commit(next);

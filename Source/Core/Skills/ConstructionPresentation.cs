@@ -158,6 +158,8 @@ public static class ConstructionPresentation
         lines.AddRange(plan.Nodes.Where(node => node.RadialMotion != null).Select(node =>
             F("RadialMotion", Form(node.Resource.Description.Id), node.RadialMotion.Radius,
                 node.RadialMotion.Speed, node.RadialMotion.Interval, T("Target." + node.RadialMotion.Targets))).Distinct());
+        lines.AddRange(plan.Nodes.Where(node => node.RadialMotion is { GroundItemLimit: > 0 }).Select(node =>
+            F("RadialGroundItems", node.RadialMotion.GroundItemLimit)).Distinct());
         if (plan.ContactForce > 0f) lines.Add(F("Force", plan.ContactForce));
         if (plan.ContactStagger > 0f) lines.Add(F("Stagger", plan.ContactStagger));
         if (plan.ContactBind > 0f) lines.Add(F("Bind", plan.ContactBind));

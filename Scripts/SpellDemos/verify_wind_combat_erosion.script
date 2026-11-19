@@ -1,0 +1,45 @@
+// B：新赑风要从实际削甲记下贴身反馈；离开作用区不能继续扣耐久。
+var definition = Spell("赑风削甲");
+Item armor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: victim);
+victim.equipment.setItem(armor, victim); victim.setStatsDirty(); victim.updateStats();
+int before = armor.getDurabilityCurrent();
+var losses = new List<ConstructedEquipmentErosion>();
+void Worn(ConstructedEquipmentErosion fact) { if (fact.SourceId == source.id && fact.AbilityId == definition.Id) losses.Add(fact); }
+bool HasScar() => FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "baleful_wind_mark");
+ConstructedAbilityService.EquipmentErosionConfirmed += Worn;
+try
+{
+    MoveCamera.instance.transform.position = new Vector3(68, 72, MoveCamera.instance.transform.position.z);
+    MoveCamera.instance.forceZoom(7f);
+    var first = await Use(definition);
+    Check(!HasScar() && armor.getDurabilityCurrent() == before, "施放开始并未凭空削甲或留下余痕");
+    if (recordView.Length > 0)
+    {
+        await SetCamera(5.6f);
+        const float duration = 2.05f;
+        double mark = -1, movieStart = World.world.getCurWorldTime();
+        var times = await Film(duration, () => { if (mark < 0 && HasScar()) mark = World.world.getCurWorldTime() - movieStart; });
+        Check(losses.Count >= 2 && losses.All(f => f.ItemId == armor.id && f.After < f.Before) && mark >= 0 &&
+              first.Cast.Finished && !HasScar() && armor.getActor() == victim,
+              "原速原片拍到实际接触、削甲余痕及退场", losses.ToArray());
+        return new { passed = true, scene = "construction", resource = "mana", paid = definition.Cost, view = recordView,
+            item = armor.id, after = armor.getDurabilityCurrent(), duration, times, previewFrame = Math.Max(0, times.FindIndex(t => t >= mark)) };
+    }
+    while (losses.Count < 2 && !first.Cast.Finished) await Advance(.055f);
+    Check(losses.Count >= 2 && losses.All(f => f.ItemId == armor.id && f.TargetId == victim.id && f.After < f.Before) &&
+          armor.getDurabilityCurrent() < before && HasScar() && armor.getActor() == victim,
+          "实际接触分次削掉同一件护甲的耐久，贴身余痕只在结算后出现", losses.ToArray());
+    await Shot("shear-on-armor");
+    Place(victim, 70, 77);
+    int held = armor.getDurabilityCurrent(), count = losses.Count;
+    await Advance(1.9f);
+    Check(first.Cast.Finished && !HasScar() && armor.getDurabilityCurrent() == held && losses.Count == count,
+          "离开剪切面后不再侵蚀；原甲保留已有损耗，余痕退出");
+    var second = await Use(definition);
+    Place(victim, 70, 77);
+    await Advance(1.85f);
+    Check(second.Cast.Finished && !HasScar() && losses.Count == count && armor.getDurabilityCurrent() == held,
+          "结束后正式再次施放；完整落空既无贴身余痕也不扣甲");
+    return new { passed = true, item = armor.id, first = before, after = held, losses };
+}
+finally { ConstructedAbilityService.EquipmentErosionConfirmed -= Worn; ReleaseChecks(); }

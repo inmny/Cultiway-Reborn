@@ -53,6 +53,8 @@ public sealed partial class ConstructedAbilityService
                     InterruptContactBody(actor);
                     if (generation != worldGeneration) return;
                 }
+                if (field.GroundItemLimit > 0)
+                    Combat.GroundWeaponService.ApplyAirflow(centre, field.Radius, field.Speed, field.GroundItemLimit);
             }
         }
     }

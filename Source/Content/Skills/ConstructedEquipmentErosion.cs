@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Cultiway.Core.Skills;
+using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
@@ -45,9 +46,10 @@ public sealed partial class ConstructedAbilityService
     /// <param name="running">实际施放。</param><param name="node">作用部位。</param><param name="target">已确认存活人物。</param>
     /// <param name="effect">编译后的明确装备栏。</param><param name="result">真实攻击结果。</param>
     /// <param name="strength">接触或传播的衰减。</param>
+    /// <param name="contact">直接相交位置，或空表示由介质传到。</param>
     /// <returns>仍为同一世界的原存活人物时返回真。</returns>
     private static bool ApplyEquipmentErosion(RunningCast running, int node, Actor target,
-        CompiledEquipmentErosion effect, ApplyAttackState result, float strength)
+        CompiledEquipmentErosion effect, ApplyAttackState result, float strength, Vector3? contact)
     {
         if (effect == null || result != ApplyAttackState.Hit || target.equipment == null) return true;
         long epoch = worldGeneration, targetId = target.id, owner = running.Owner(node).Id;
@@ -62,6 +64,8 @@ public sealed partial class ConstructedAbilityService
             item.getDamaged(damage);
             int after = item.getDurabilityCurrent();
             if (after == before) continue;
+            if (node >= 0 && running.Cast.Matter(node).Id == "wind" && contact is Vector3 point)
+                AddWindScar(running, node, target, point, true);
             target.setStatsDirty();
             target.updateStats();
             EquipmentErosionConfirmed?.Invoke(new ConstructedEquipmentErosion(running.Id, running.SourceId, owner,

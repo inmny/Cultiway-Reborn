@@ -747,6 +747,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         simulation.WorldClearing?.Invoke();
         worldGeneration++;
         steam.Clear();
+        windScars.Clear();
         ClearConductionVisuals();
         ClearContactDebug();
         contactVolumes.Clear();

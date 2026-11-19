@@ -1,6 +1,6 @@
 /** 龙卷与玄阴领域各自保留连续厚体，共用原领域执行，不建立专用播放循环。 */
 import * as T from 'three';
-import {part,write,skin,motion,structure,surfaceData} from './form_export.mjs';
+import {part,write,skin,motion,structure,surfaceData,round} from './form_export.mjs';
 
 /** 按连续横截面构成封闭旋体，制作上向为Z。 */
 function body(profile,segments=64) {
@@ -80,15 +80,69 @@ function windFold(index) {
 }
 
 function windOpen() {
-  const controls=[{Id:'vortex',Position:[0,0,0],Rotation:[0,0,0,1]}];
+  const controls=['vortex','inlet','inner','outer'].map(Id=>({Id,Position:[0,0,0],Rotation:[0,0,0,1]}));
   const pressure=body([[0,.01],[2.27,.01],[2.50,.10],[2.51,.20],[2.34,.29],[1.34,.34],
     [.86,.62],[.80,1.25],[.81,2.50],[.78,3.0],[.62,3.35],[.29,3.64],[0,3.70]],64);
-  const pieces=[part('wind_body',surfaceData(pressure,.28,()=>.64),'wind_pressure',[0,0,0],'vortex'),
-    ...Array.from({length:3},(_,i)=>part(`fold_${i}`,windFold(i),'wind_open',[0,0,0],'vortex'))];
-  write('wind_vortex_open',pieces,[],windContacts(),controls,[windRun(controls)],false,
+  const pieces=[part('wind_body',surfaceData(pressure,.28,p=>.66-.30*T.MathUtils.smoothstep(p.z,.25,1.1)),'wind_pressure',[0,0,0],'vortex'),
+    ...Array.from({length:3},(_,i)=>part(`fold_${i}`,windFold(i),'wind_open',[0,0,0],controls[i+1].Id))];
+  const rates=[2,1,3,2];
+  const pose=(i,p)=>({rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),p*2*Math.PI*rates[i]).toArray()});
+  const run=motion('run',2.4,true,controls,96,pose);
+  const pressureRun=motion('pressure',2.45,false,controls,98,(i,p)=>{
+    const time=p*2.45, open=T.MathUtils.smoothstep(time,2.03,2.45);
+    return {...pose(i,time/2.4),position:[.12*open*Math.cos(i*2.09),.12*open*Math.sin(i*2.09),i*.08*open]};
+  });
+  for(const key of pressureRun.Keys)key.Fade=round(Math.max(1-T.MathUtils.smoothstep(key.At,0,.21),T.MathUtils.smoothstep(key.At,2.02,2.45)));
+  write('wind_vortex_open',pieces,[],windContacts(),controls,[run,pressureRun],false,
     {Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
-    structure('volume','forms_remaining_fields.mjs','windOpen',{radius:2.5,height:3.7,cycle:1.2,folds:3},
+    structure('volume','forms_remaining_fields.mjs','windOpen',{radius:2.5,height:3.7,cycle:2.4,folds:3},
       {wind_body:['wind.flow','field.body'],fold_0:['wind.flow'],fold_1:['wind.flow'],fold_2:['wind.flow']},[]));
+}
+
+/** 折叠的短剪切面：前段压紧，后段逐片错开，截面纯暗而不画发光边线。 */
+function cuttingLayer(index, count, size, column) {
+  const positions=[],uv=[],triangles=[],sides=8,segments=22;
+  for(let s=0;s<=segments;s++) {
+    const t=s/segments, edge=Math.max(.022,Math.sin(Math.PI*t)**.64), angle=index*2*Math.PI/count+t*(1.8+index*.13);
+    const r=size*(.94-.53*Math.sin(t*Math.PI*.72)+.11*Math.cos(index*2)),
+          height=size*((column?.19:.095) + (.64+.10*index)*t);
+    for(let j=0;j<=sides;j++) {
+      const a=j*2*Math.PI/sides, spread=Math.cos(a)*(.23+.15*t)*edge, z=Math.sin(a)*(.085-.03*t)*edge;
+      const radial=r+size*spread;
+      positions.push(radial*Math.cos(angle),radial*Math.sin(angle),Math.max(.007,height+size*(.27*spread+z)));
+      uv.push(t,j/sides);
+      if(s<segments&&j<sides) {
+        const k=s*(sides+1)+j,m=k+sides+1;
+        triangles.push(k,m,m+1,k,m+1,k+1);
+      }
+    }
+  }
+  for(let j=1;j<sides-1;j++) {
+    const last=segments*(sides+1);
+    triangles.push(0,j,j+1,last,last+j+1,last+j);
+  }
+  const geometry=new T.BufferGeometry();
+  geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));
+  geometry.setAttribute('uv',new T.Float32BufferAttribute(uv,2));
+  geometry.setIndex(triangles);
+  return surfaceData(geometry,.20,(_,i)=>Math.sin(Math.PI*uv[i*2])**.65);
+}
+
+/** 来袭风股用原旋转作用芯，原中央风柱无伤；余痕仅供真实结算后绘制。 */
+function baleful(id, column=false, mark=false) {
+  const count=column?5:3,size=mark?.61:2.5, contacts=column||mark?[]:windContacts();
+  const controls=Array.from({length:count},(_,i)=>({
+    Id:i===0&&contacts.length?'vortex':`cut_${i}`,Position:[0,0,0],Rotation:[0,0,0,1]
+  }));
+  const layers=Array.from({length:count},(_,i)=>part(`cut_${i}`,cuttingLayer(i,count,size,column),
+    i%2===0?'wind_shear':'wind_fold_dark',[0,0,0],controls[i].Id));
+  // 原索引零的作用芯仍绑向 vortex。新增控制只带动外部各片。
+  const clip=motion('run',1.2,true,controls,48,(i,p)=>({
+    rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),p*2*Math.PI*(i===0?1:i%2?2:1)).toArray()
+  }));
+  write(id,layers,[],contacts,controls,[clip],false,{Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
+    structure('volume','forms_remaining_fields.mjs','baleful',{size,count,column,mark},
+      Object.fromEntries(layers.map(layer=>[layer.Id,['wind.flow']])),[]));
 }
 
 /** 五项控制中的中心与相邻两个边缘共同承托连续暗面。 */
@@ -137,4 +191,7 @@ function publishYin(id,entry,geometry,surface,height) {
 }
 
 /** 一次导出两种剩余的原攻击领域。 */
-export function makeRemainingFields(){wind();yin();windOpen();yinBasin();}
+export function makeRemainingFields(){
+  wind();yin();windOpen();yinBasin();
+  baleful('baleful_wind_shear');baleful('baleful_wind_column',true);baleful('baleful_wind_mark',false,true);
+}

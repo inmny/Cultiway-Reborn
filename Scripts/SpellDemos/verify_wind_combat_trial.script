@@ -1,0 +1,47 @@
+// B：只核对实际劫程这次改动的外观、真实结算和退出，不复跑九波及保存流程。
+var wind = service.Assembly.GetType("Cultiway.Content.BalefulWindTribulationSkillService");
+var start = wind.GetMethod("Start", F, null, new[] { typeof(ActorExtend) }, null);
+var cleanup = wind.GetMethod("Cleanup", F, null, new[] { typeof(ActorExtend) }, null);
+const string wave = "Cultiway.Tribulation.BalefulWind.Wave";
+Actor trial = Make(68), witness = Make(69.2f);
+var extend = trial.GetExtend();
+extend.AddComponent(new Xian { level = 3, wakan = 9000 });
+extend.AddComponent(new Yuanying { formation = new CoreFormationSnapshot { refinement = 9 } });
+extend.MarkCultiwayStatsDirty(); trial.setStatsDirty(); trial.updateStats(); trial.restoreHealth(trial.getMaxHealth());
+var waves = new List<ConstructedCastStarted>();
+void Started(ConstructedCastStarted fact) { if (fact.AbilityId == wave) waves.Add(fact); }
+bool Shows(string id) => FormVisualScene.Instances.Any(v => v.Resource.Description.Id == id);
+ConstructedAbilityService.CastStarted += Started;
+try
+{
+    MoveCamera.instance.transform.position = new Vector3(68, 72, MoveCamera.instance.transform.position.z);
+    MoveCamera.instance.forceZoom(10f);
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.blockTooltips(30f);
+    foreach (var screen in Resources.FindObjectsOfTypeAll<LoadingScreen>()) screen.gameObject.SetActive(false);
+    int hp = witness.data.health;
+    Check((bool)start.Invoke(null, new object[] { extend }), "从原劫程正式入口受理");
+    await Advance(.10f);
+    Check(Shows("baleful_wind_column") && !Shows("baleful_wind_mark"), "暗风柱由原环境出手，先无贴身余痕", new { ids = FormVisualScene.Instances.Select(x => x.Resource.Description.Id).Distinct().ToArray() });
+    for (int i = 0; i < 45 && !contacts.Any(x => x.AbilityId == wave); i++) await Advance(.075f);
+    var hits = contacts.Where(x => x.AbilityId == wave).ToArray();
+    Check(waves.Count > 0 && waves.All(x => x.SourceId == 0) && hits.Length > 0 &&
+          hits.All(x => x.TargetId == trial.id && x.OriginalSourceId == 0 && x.Damage.HealthLost > 0) &&
+          witness.data.health == hp && Shows("baleful_wind_mark"), "真实无主风股只打中渡劫者；承伤后出余痕",
+          hits.Select(x => new { x.CastId, x.TargetId, x.OriginalSourceId, x.Damage.HealthLost, position = x.Position.ToString() }).ToArray());
+    await Game.NextFrame(); Screen.Capture(Path.Combine(folder, "trial-cut.png")); await Game.NextFrame();
+    cleanup.Invoke(null, new object[] { extend });
+    await Advance(1.2f);
+    Check(!Shows("baleful_wind_column") && !Shows("baleful_wind_shear") && !Shows("baleful_wind_mark"),
+          "原劫程结束机制清除风柱、风股和余痕");
+    return new { passed = true, hits = hits.Length, first = hits[0].Damage.HealthLost };
+}
+finally
+{
+    cleanup.Invoke(null, new object[] { extend });
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+}
