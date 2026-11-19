@@ -59,43 +59,51 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <param name="body">当前身体草稿。</param>
     private void BodyFootworkRows(BodyActionDefinition body)
     {
-        if (!body.Keys.All(key => key.Support?.Parts != null))
+        if (previewPlan?.Body?.HasSupportMotion != true)
         {
-            Row("BodyFootwork", T("UseActualFeetHint"));
+            Row("BodyFootwork", T(previewPlan?.Body?.Part.HasPartRotation == true ? "UseActualFeetHint" : "NativeFeetRequired"));
             return;
         }
-        Toggle("BodyFootworkEnabled", body.Construction?.Footwork != null, value =>
+        BodyMotionToggle("BodyFootworkEnabled", body.Construction?.Footwork != null, value => ApplyConstructionEdit(() =>
         {
-            AbilityDefinition next = BodyConstructionEdits.ExplicitRelations(session.Draft);
+            var next = BodyConstructionEdits.ExplicitRelations(session.Draft);
             next.Body.Construction.Footwork = value ? new ConstructionPath
             {
                 Forward = null, Keys = new[] { new ConstructionPathKey(), new ConstructionPathKey { At = body.Keys.Last().At } }
             } : null;
-            session.Draft = next;
-        });
+            AbilityCompiler.Compile(next, false);
+            return next;
+        }));
         ConstructionPath path = body.Construction?.Footwork;
         if (path == null) return;
         Row("BodyFootwork", T("BodyFootworkHint"));
         Choice("Handles", T(new[] { "Point", "InHandle", "OutHandle" }[handle]), () => menu.Show(T("Handles"),
             Enumerable.Range(0, 3).Select(index => new UiOptionMenuOption
             { Label = T(new[] { "Point", "InHandle", "OutHandle" }[index]), Selected = handle == index, Select = () => { handle = index; Refresh(); } }).ToArray()));
+        int selectedHandle = handle;
         for (int i = 0; i < path.Keys.Length; i++)
         {
             int index = i;
             ConstructionPathKey key = path.Keys[i];
             WanfaEditorRow row = rows.GetNext();
             row.Setup(string.Format(T("Key"), i + 1), "", T("RemovePoint"), true,
-                i > 0 && i < path.Keys.Length - 1 ? () => Change(() => path.Keys = path.Keys.Where((_, at) => at != index).ToArray()) : null, UiIcons.Delete);
+                i > 0 && i < path.Keys.Length - 1 ? () => EditBodyMotion(next =>
+                next.Construction.Footwork.Keys = next.Construction.Footwork.Keys.Where((_, at) => at != index).ToArray()) : null, UiIcons.Delete);
             Transform controls = row.UseInlineControls(260f);
-            FloatInput(controls, "At", key.At, value => key.At = value, i > 0, 48f);
-            float[] vector = handle == 0 ? key.Point : handle == 1 ? key.In : key.Out;
+            FloatInput(controls, "At", key.At, value => EditBodyMotion(next => next.Construction.Footwork.Keys[index].At = value),
+                i > 0, 48f, draftChange: false);
+            float[] vector = Coordinates(key);
             for (int axis = 0; axis < 2; axis++)
             {
                 int coordinate = axis;
-                FloatInput(controls, new[] { "FootworkForward", "FootworkSide" }[axis], vector[axis], value => vector[coordinate] = value, handle != 0 || i != 0, 56f);
+                FloatInput(controls, new[] { "FootworkForward", "FootworkSide" }[axis], vector[axis], value =>
+                    EditBodyMotion(next => Coordinates(next.Construction.Footwork.Keys[index])[coordinate] = value),
+                    selectedHandle != 0 || i != 0, 56f, draftChange: false);
             }
         }
         if (path.Keys.Length < 65)
             ActionRow("InsertFootworkPoint", T("InsertFootworkHint"), () => ApplyConstructionEdit(() => BodyConstructionEdits.InsertFootworkPoint(session.Draft)));
+
+        float[] Coordinates(ConstructionPathKey key) => selectedHandle == 0 ? key.Point : selectedHandle == 1 ? key.In : key.Out;
     }
 }

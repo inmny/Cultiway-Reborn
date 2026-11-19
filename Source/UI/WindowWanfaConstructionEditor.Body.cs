@@ -44,6 +44,7 @@ public sealed partial class WindowWanfaConstructionEditor
             Row("EffectiveBodyUntil", (body.ActiveUntil + body.Hold.Seconds).ToString("0.###"));
         }
 
+        BodyExertionRows(previewPlan?.Body);
         BodyStages();
         BodyResponses();
         BodyRelations();
@@ -61,8 +62,9 @@ public sealed partial class WindowWanfaConstructionEditor
         bool leg = previewPlan?.Body?.Part.IsLeg == true || body.Keys.Any(key => key.Foot != null);
         bool head = previewPlan?.Body?.Part.IsHead == true || body.Keys.Any(key => key.HeadRotation != null);
         string[] handles = rotating ? new[] { "PartRotation", "NamedFeet", "BodyFootwork" } :
-            head ? new[] { "HeadRotation", "TorsoPoint" } :
-            leg ? new[] { "FootPoint", "TorsoPoint" } : new[] { "HandPoint", "TorsoPoint", "HandRotation" };
+            head ? new[] { "HeadRotation", "TorsoPoint", "NativeFeet", "BodyFootwork" } :
+            leg ? new[] { "FootPoint", "TorsoPoint", "NativeFeet", "BodyFootwork" } :
+                new[] { "HandPoint", "TorsoPoint", "HandRotation", "NativeFeet", "BodyFootwork" };
         bodyHandle = Math.Min(bodyHandle, handles.Length - 1);
         Choice("BodyValues", T(handles[bodyHandle]), () =>
             menu.Show(T("BodyValues"),
@@ -76,9 +78,14 @@ public sealed partial class WindowWanfaConstructionEditor
                         Refresh();
                     }
                 }).ToArray()));
-        if (rotating && handles[bodyHandle] == "BodyFootwork")
+        if (handles[bodyHandle] == "BodyFootwork")
         {
             BodyFootworkRows(body);
+            return;
+        }
+        if (handles[bodyHandle] == "NativeFeet")
+        {
+            NativeFootRows(body, previewPlan?.Body);
             return;
         }
         bool feet = rotating && handles[bodyHandle] == "NamedFeet";
@@ -130,7 +137,15 @@ public sealed partial class WindowWanfaConstructionEditor
             for (int axis = 0; axis < 3; axis++)
             {
                 int coordinate = axis;
-                FloatInput(controls, new[] { "X", "Y", "Z" }[axis], vector[axis], value =>
+                string field = new[] { "X", "Y", "Z" }[axis];
+                if (leg && bodyHandle == 0 && key.Support != null)
+                {
+                    bool left = effector?.EndsWith(".left", StringComparison.Ordinal) == true;
+                    FloatInput(controls, field, vector[axis], value => EditBodyMotion(next =>
+                            SetNativeFoot(next.Keys[index], left, coordinate, value, true)), true, 48f, draftChange: false);
+                    continue;
+                }
+                FloatInput(controls, field, vector[axis], value =>
                     {
                         if (head && bodyHandle == 0)
                         {
