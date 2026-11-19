@@ -10,13 +10,15 @@ public static partial class FormNativeSpriteDeformation
 {
     /// <summary>原版图片池完成后，只发布已经确认的整身表面。</summary>
     /// <param name="renderer">实际身体或持物图片。</param><param name="surface">共同表面。</param>
+    /// <param name="ground">原版平面需要减去的同轮地表高度。</param>
     /// <param name="item">是否只绘制实际持物。</param>
-    internal static void SetSurface(SpriteRenderer renderer, BodySurfacePose surface, bool item)
+    internal static void SetSurface(SpriteRenderer renderer, BodySurfacePose surface, float ground, bool item)
     {
         if (!poses.TryGetValue(renderer, out Pose pose)) poses.Add(renderer, pose = new Pose());
         pose.Active = true;
         pose.SurfacePose = surface;
         pose.SurfaceItem = item;
+        pose.SurfaceGround = ground;
     }
 
     /// <summary>图片姿态复用原纹理，只在抓住的新表面换版时建立可见几何。</summary>
@@ -27,6 +29,9 @@ public static partial class FormNativeSpriteDeformation
 
         /// <summary>当前图片是否属于持物。</summary>
         internal bool SurfaceItem;
+
+        /// <summary>同轮身体承托的地表高度，原版投影只呈现离地部分。</summary>
+        internal float SurfaceGround;
 
         /// <summary>本次固定表面的原姿态，几何裁切与纹理坐标只制作一次。</summary>
         private BodySurfacePose rasterBasis;
@@ -62,7 +67,8 @@ public static partial class FormNativeSpriteDeformation
             else if (updateModel)
                 for (int i = 0; i < surfacePoints.Length; i++) surfacePoints[i] = surfaceAnchors[i].Point(basis);
             Vector3 foot = SurfacePose.Foot;
-            var root = new Vector3(foot.x, foot.y + foot.z, foot.z);
+            float height = foot.z - SurfaceGround;
+            var root = new Vector3(foot.x, foot.y + height, height);
             Matrix = Matrix4x4.Translate(root);
             Matrix4x4 motion = SurfacePose.RigidBasis == null ? Matrix4x4.identity : SurfacePose.RigidTransform.Matrix;
             HasVertexGround = true;
@@ -71,8 +77,8 @@ public static partial class FormNativeSpriteDeformation
             for (int i = 0; i < surfacePoints.Length; i++)
             {
                 Vector3 point = motion.MultiplyPoint3x4(surfacePoints[i]);
-                projectedPoints[i] = new Vector3(point.x - root.x, point.y + point.z - root.y, point.y - foot.y);
-                float depth = point.y - point.z;
+                projectedPoints[i] = new Vector3(point.x - root.x, point.y + point.z - foot.y - foot.z, point.y - foot.y);
+                float depth = point.y - (point.z - SurfaceGround);
                 MinimumDepth = Mathf.Min(MinimumDepth, depth);
                 MaximumDepth = Mathf.Max(MaximumDepth, depth);
             }

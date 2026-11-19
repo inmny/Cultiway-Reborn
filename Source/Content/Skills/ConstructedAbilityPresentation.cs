@@ -67,6 +67,11 @@ public sealed partial class ConstructedAbilityService
         return true;
     }
 
+    /// <summary>原版平面绘制使用已发布的同轮脚下地表。</summary>
+    /// <param name="foot">共同姿态的承托位置。</param>
+    internal static float NativeBodyGround(UnityEngine.Vector3 foot) =>
+        presentation.Terrain?.Sample(foot.x, foot.y) ?? 0f;
+
     /// <summary>一次读取同一轮的姿态与接管部位，避免遮蔽部位与显示手臂来自不同轮次。</summary>
     /// <param name="actor">真实身体编号。</param>
     /// <param name="pose">完成的姿态。</param>

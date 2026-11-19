@@ -2119,3 +2119,16 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 在独立游戏运行 `dev.py exec --timeout 245 -- python3 Scripts/SpellDemos/verify_form_detail.py --appearance all`，复用同一世界和修士，从正式已学入口拍摄灵盾、水幕、剑气、雷枪、土脊和炎陨的近、中、远景。`--appearance meteor` 只补验炎陨，另核对真实落点仅结算一次、火体按原时限撤去。截图、输入和检查结果保存在当次 `output/form-visibility-*`；画面要对照落点人物查看。
 
 炎陨的连续动作使用 `dev.py exec --timeout 245 -- python3 Scripts/SpellDemos/verify_form_detail.py --appearance meteor-motion`。同一落点依次核对正常命中和再次施放落空，保存下坠、触地、火肩展开、余焰四张图以及真实作用范围和时间记录。
+
+### 9.03 连续动作与收势
+
+`demo_spell.py` 和 `demo_all.py` 的 `--motion-trace` 按实际录像帧额外记录共同姿态、朝向、局部动作、阻挡与身体接管，也记录近身伤害真正出队后的扣血。演示读取仓库现成的 `world-format-1` 夹具；缺少地图时直接停止，避免给随机世界贴上相同的标签。复验仍从 `dev.py exec` 进入独立游戏。以下是录像入口示例；`--output` 可改为本次验收目录。
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --filter FlameMeteor,EarthWall --cases base --view native --speed 1 --duration 7 --fps 40 --zoom 10 --motion-trace --keep-frames --output artifacts/skill_rebuild/motion/field
+python3 Scripts/SpellDemos/demo_spell.py PalmStrike --cases base --view native --speed 1 --duration 1.4 --fps 50 --zoom 2.2 --motion-trace --keep-frames --output artifacts/skill_rebuild/motion/palm
+python3 Scripts/SpellDemos/demo_spell.py SwordQi --cases trajectory --trajectory SineWave --view native --speed 1 --duration 2.5 --fps 40 --zoom 10 --motion-trace --keep-frames --output artifacts/skill_rebuild/motion/sword
+python3 Scripts/SpellDemos/demo_spell.py TidalWave --cases base --view native --speed 1 --duration 1.8 --fps 50 --zoom 10 --motion-trace --keep-frames --output artifacts/skill_rebuild/motion/tide
+```
+
+`result.json` 的 `start` 是首帧世界时间，`motionFrames` 的时间相对首帧，实际接触和伤害仍以原世界时间记录。时间线用于对齐实拍，施放成功不能替代画面验收。

@@ -25,7 +25,8 @@ internal abstract partial class BodySurfaceBinding
             nativeModelParts = pose.Parts;
             nativeModelPicture = data.main_sprite_colored[index];
         }
-        Vector3 root = new(pose.Foot.x, pose.Foot.y + pose.Foot.z, pose.Foot.z);
+        float height = pose.Foot.z - ConstructedAbilityService.NativeBodyGround(pose.Foot);
+        Vector3 root = new(pose.Foot.x, pose.Foot.y + height, height);
         data.has_normal_render[index] = true;
         data.positions[index] = root;
         data.scales[index] = Vector3.one;
