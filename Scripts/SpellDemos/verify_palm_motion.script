@@ -1,4 +1,4 @@
-// 9.03 C：用正式徒手入口对照同一对手的真实触掌、挥空和收势。
+// 原地掌击：用正式徒手入口对照同一对手的真实触掌、挥空和收势。
 const bool missOnly = false;
 const string palm = "Cultiway.PalmStrike";
 Actor source = Make(66), target = Make(67), wolf = Make(12, "wolf");
@@ -68,7 +68,7 @@ try
         live = ((IEnumerable)running.GetValue(null)).Cast<object>()
             .Where(item => (long)Field(item, "Id") == started.Value.CastId)
             .Select(item => (AbilityCast)Field(item, "Cast")).Single();
-        Check(live.Plan.Revision == 5 && live.BodyPose.HasValue &&
+        Check(live.Plan.Revision == 6 && live.BodyPose.HasValue &&
               BodyControlState.IsBusy(source.id, BodyOccupancy.RightArm | BodyOccupancy.Stance),
             run + "：新版实际接管手臂与支撑");
         if (miss) Place(target, 71f);
@@ -119,16 +119,20 @@ try
                   palmDistance >= 0f && palmDistance <= height * .32f,
                 "真实掌面在原作用窗口中只触掌一次，再进入卸力", new { palmDistance, height, hits = hits.Select(h => new { h.Age, h.Node, h.TargetId, result = h.BodyResult?.ToString(), touch = Point(h.Position) }).ToArray() });
             await FrameAppearance("02-hit-contact", 66.28f, 72.45f, 2.3f);
-            await ToAge(hits[0].Age + .063f);
+            await ToAge(hits[0].Age + .08f);
             BodyPose released = live.BodyPose.Value;
             Record(run, "release", released);
-            await ToAge(hits[0].Age + .133f);
+            await ToAge(hits[0].Age + .175f);
             BodyPose recover = live.BodyPose.Value;
             Record(run, "unload", recover);
-            Check(live.BodyResult == BodyActionResult.Contact && released.ActionAge >= .32f &&
-                  released.ActionAge - released.WorldAge > .05f &&
-                  Vector3.Dot(released.Hand - recover.Hand, start.Forward) > .025f * height,
-                "触掌后进入对应卸力段，经过余势后手臂实际收回", new { release = Point(released.Hand), after = Point(recover.Hand), released.ActionAge, released.WorldAge });
+            float transfer = Vector3.Dot(released.CenterOfMass - start.CenterOfMass, start.Forward);
+            float recoverTravel = Vector3.Dot(released.Hand - recover.Hand, start.Forward);
+            Check(live.BodyResult == BodyActionResult.Contact && released.ActionAge >= .332f &&
+                  released.Turn > 6f && transfer > .012f * height && recoverTravel > .025f * height &&
+                  Vector3.Distance(released.LeftFoot, start.LeftFoot) < .02f &&
+                  Vector3.Distance(released.RightFoot, start.RightFoot) < .02f,
+                "触掌后身体继续承力，双足留在原位，随后收回手臂",
+                new { transfer, recoverTravel, released.Turn, released.ActionAge, released.WorldAge });
         }
 
         await Advance(.5f);
