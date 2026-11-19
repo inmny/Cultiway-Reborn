@@ -649,6 +649,7 @@
   "Cultiway.Construction.PropagationSeconds": "单处隆起时间",
   "Cultiway.Construction.PropagationHeight": "最高隆起厚度",
   "Cultiway.Construction.PropagationInner": "起点留空半径",
+  "Cultiway.Construction.PropagationGroundReach": "起点向下触地距离（0 为必须贴地）",
   "Cultiway.Construction.PropagationAngle": "传播扇面角度",
   "Cultiway.Construction.PropagationAttenuation": "每格路程衰减",
   "Cultiway.Construction.PropagationStep": "允许相邻地面落差",

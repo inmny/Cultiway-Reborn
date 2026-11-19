@@ -79,8 +79,9 @@ internal sealed class AbilityPropagation
         Width = surface?.Land.Width ?? 0;
         var route = new List<Cell>();
         int sx = Mathf.FloorToInt(origin.x), sy = Mathf.FloorToInt(origin.y);
-        if (surface == null || !surface.Contains(sx, sy) ||
-            Mathf.Abs(origin.z - surface.Height(sx, sy)) > .02f) { Route = route.ToArray(); return; }
+        if (surface == null || !surface.Contains(sx, sy)) { Route = Array.Empty<Cell>(); return; }
+        float above = origin.z - surface.Height(sx, sy);
+        if (above < -.02f || above > Mathf.Max(.02f, settings.GroundReach)) { Route = Array.Empty<Cell>(); return; }
         Vector2 direction = ((Vector2)forward).normalized;
         var queue = new SortedSet<(float Distance, int Id, int Parent)>();
         var distances = new Dictionary<int, float>();

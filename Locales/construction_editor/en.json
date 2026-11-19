@@ -657,6 +657,7 @@
   "Cultiway.Construction.PropagationSeconds": "Local wave duration",
   "Cultiway.Construction.PropagationHeight": "Maximum wave height",
   "Cultiway.Construction.PropagationInner": "Quiet radius at origin",
+  "Cultiway.Construction.PropagationGroundReach": "Downward reach to ground (0 requires direct contact)",
   "Cultiway.Construction.PropagationAngle": "Propagation arc angle",
   "Cultiway.Construction.PropagationAttenuation": "Attenuation per tile",
   "Cultiway.Construction.PropagationStep": "Allowed ground height step",
