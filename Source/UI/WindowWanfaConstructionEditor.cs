@@ -137,8 +137,6 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
         BindText(UiElements.CreateButton(content.transform, "Continue", T("Continue"), 252f, 24f, () => closeModal.Hide()).GetComponentInChildren<Text>(), "Continue");
         closeModal = new UiModal(confirm.Root.gameObject, canvas);
         InitPerformancePreview(canvas);
-        access.WorldClearing += ClearWorld;
-        Cultiway.Core.Visuals.Forms.FormResources.Reloaded += ResourcesReloaded;
     }
 
     /// <summary>绑定冻结的打开请求，或恢复原版关闭后弹出的未保存提示。</summary>
@@ -146,7 +144,13 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
     {
         if (resumeClose) { resumeClose = false; Refresh(); closeModal.Show(); return; }
         if (pendingId == null) return;
-        session = new ConstructionEditSession(access.Read(pendingId));
+        var next = new ConstructionEditSession(access.Read(pendingId));
+        if (session == null)
+        {
+            access.WorldClearing += ClearWorld;
+            Cultiway.Core.Visuals.Forms.FormResources.Reloaded += ResourcesReloaded;
+        }
+        session = next;
         learner = pendingActor; learnerId = learner?.data?.id ?? 0;
         pendingId = null; pendingActor = null;
         contactPanels.Clear();
@@ -286,6 +290,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
     private void ReleaseDraft()
     {
         ClosePerformancePreview();
+        StopListening();
         session = null; previewPlan = null; learner = null; learnerId = 0; ClearConstructionIssue();
         undo.Clear(); redo.Clear(); parts.Clear(); rows.Clear(); menu.Clear();
     }
@@ -298,7 +303,6 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
         if (gameObject.activeInHierarchy) GetComponent<ScrollWindow>().clickHide();
     }
 
-    /// <summary>解除窗口拥有的外部订阅。</summary>
     /// <summary>资源更新后重新编译当前草稿，保留未保存内容及撤销历史。</summary>
     /// <param name="version">已经发布的新资源版本。</param>
     private void ResourcesReloaded(int version)
@@ -312,9 +316,16 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
     private void OnDestroy()
     {
         ReleasePerformanceViewport();
+        StopListening();
+        if (instance == this) instance = null;
+    }
+
+    /// <summary>结束编辑时解除世界和资源通知；暂时关闭以弹出确认时保留订阅。</summary>
+    private void StopListening()
+    {
+        if (session == null) return;
         access.WorldClearing -= ClearWorld;
         Cultiway.Core.Visuals.Forms.FormResources.Reloaded -= ResourcesReloaded;
-        if (instance == this) instance = null;
     }
 
     /// <summary>本功能固定文本的统一入口。</summary>

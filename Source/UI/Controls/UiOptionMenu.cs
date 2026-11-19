@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Abstract;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -34,6 +35,8 @@ internal sealed class UiOptionMenuConfig
 /// <summary>可搜索、自动限高并使用原版滚动条的通用模态选项菜单。</summary>
 internal sealed class UiOptionMenu
 {
+    /// <summary>完整文本放在可换行的提示正文，原版提示标题只有固定高度。</summary>
+    private const string FullLabelKey = "Cultiway.UI.OptionMenu.FullLabel";
     private const float GridSpacing = 4f;
     private const float TitleHeight = 20f;
     private const float SearchHeight = 22f;
@@ -56,6 +59,8 @@ internal sealed class UiOptionMenu
     /// <summary>按每次打开的用途指定空目录文字，语言切换仍使用原版组件。</summary>
     private readonly LocalizedText _emptyLocale;
     private readonly UiModal _modal;
+    /// <summary>复用长目录的按钮，关闭菜单时清除旧点击与提示。</summary>
+    private readonly MonoObjPool<Button> _buttonPool;
     private readonly List<Button> _optionButtons = new();
     private readonly List<UiOptionMenuOption> _options = new();
     private bool _searchVisible;
@@ -82,6 +87,9 @@ internal sealed class UiOptionMenu
 
         _title = UiElements.CreateText(_frame.Content, "Title", string.Empty, _innerWidth, TitleHeight, 8,
             TextAnchor.MiddleCenter, FontStyle.Bold);
+        _title.resizeTextForBestFit = true;
+        _title.resizeTextMinSize = 6;
+        _title.resizeTextMaxSize = 8;
         _search = UiSearchField.Create(_frame.Content, "Search", string.Empty, config.SearchPlaceholder,
             _innerWidth, SearchHeight).Input;
         _search.onValueChanged.AddListener(FilterOptions);
@@ -95,6 +103,14 @@ internal sealed class UiOptionMenu
         _optionsPane.AttachOriginalScrollbar(scrollbarTemplate);
         _optionsPane.SetSurface(UiSurface.WindowInner, ViewportInset);
         _empty = new UiEmptyState(_optionsPane.Root, config.EmptyText, _scrollWidth - 8f, 24f);
+        Button template = UiElements.CreateIconTextButton(_optionsPane.Content, "OptionTemplate", config.DefaultIconPath,
+            string.Empty, _cellWidth, config.CellHeight, null);
+        Text templateLabel = template.GetComponentInChildren<Text>();
+        templateLabel.resizeTextForBestFit = true;
+        templateLabel.resizeTextMinSize = 5;
+        templateLabel.resizeTextMaxSize = 7;
+        template.gameObject.SetActive(false);
+        _buttonPool = new MonoObjPool<Button>(template, _optionsPane.Content);
 
         GameObject footer = UiLayout.Create(_frame.Content, "Footer", true, _innerWidth, FooterHeight, 0f,
             TextAnchor.MiddleCenter);
@@ -119,6 +135,8 @@ internal sealed class UiOptionMenu
     public void Show(string title, IReadOnlyList<UiOptionMenuOption> options, bool searchable = false, string emptyText = null)
     {
         _title.text = title;
+        if (_title.preferredWidth > _innerWidth) UiTooltip.Set(_title.gameObject, FullLabelKey, title);
+        else UiTooltip.Clear(_title.gameObject);
         string empty = options.Count == 0 ? emptyText ?? _config.EmptyText : _config.EmptyText;
         if (_emptyLocale != null) _emptyLocale.setKeyAndUpdate(empty);
         else _empty.Text.text = empty;
@@ -126,19 +144,19 @@ internal sealed class UiOptionMenu
         for (int i = 0; i < options.Count; i++)
         {
             UiOptionMenuOption option = options[i];
-            Button button = UiElements.CreateIconTextButton(_optionsPane.Content, $"Option{i}",
-                option.IconPath ?? _config.DefaultIconPath, option.Label, _cellWidth, _config.CellHeight, () =>
-                {
-                    Hide();
-                    option.Select();
-                });
+            Button button = _buttonPool.GetNext();
+            button.name = $"Option{i}";
+            Text label = button.GetComponentInChildren<Text>(true);
+            label.text = option.Label;
+            if (label.preferredWidth > _cellWidth - 18f) UiTooltip.Set(button.gameObject, FullLabelKey, option.Label);
+            button.onClick.AddListener(() =>
+            {
+                Hide();
+                option.Select();
+            });
             UiElements.SetButtonIcon(button,
                 option.Selected ? UiIcons.Confirm : option.IconPath ?? _config.DefaultIconPath);
             UiStateStyle.SetSelected(button, option.Selected);
-            Text label = button.GetComponentInChildren<Text>();
-            label.resizeTextForBestFit = true;
-            label.resizeTextMinSize = 5;
-            label.resizeTextMaxSize = 7;
             _optionButtons.Add(button);
             _options.Add(option);
         }
@@ -188,26 +206,27 @@ internal sealed class UiOptionMenu
         LayoutRebuilder.ForceRebuildLayoutImmediate(_frame.Content);
     }
 
+    /// <summary>归还按钮之前解除旧资料及提示，供下一个目录使用。</summary>
     private void ClearOptions()
     {
-        for (int i = 0; i < _optionButtons.Count; i++)
+        foreach (Button button in _optionButtons)
         {
-            _optionButtons[i].gameObject.SetActive(false);
-            UnityEngine.Object.Destroy(_optionButtons[i].gameObject);
+            button.onClick.RemoveAllListeners();
+            UiTooltip.Clear(button.gameObject);
         }
+        if (_optionButtons.Count > 0) _buttonPool.Clear();
         _optionButtons.Clear();
         _options.Clear();
     }
 
+    /// <summary>保留窗口，关闭弹层并释放本次候选的回调。</summary>
     public void Hide()
     {
         _modal.Hide();
-    }
-
-    /// <summary>关闭并释放当前选项和回调，供包含世界对象的菜单在窗口关闭或换世界时使用。</summary>
-    public void Clear()
-    {
-        Hide();
+        UiTooltip.Clear(_title.gameObject);
         ClearOptions();
     }
+
+    /// <summary>父窗口关闭或换世界时关闭弹层，释放当前候选。</summary>
+    public void Clear() => Hide();
 }

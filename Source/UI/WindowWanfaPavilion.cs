@@ -35,6 +35,8 @@ public sealed partial class WindowWanfaPavilion : AbstractWideWindow<WindowWanfa
     private Text _selectedCount;
     private UiOptionMenu _optionMenu;
     private CanvasGroup _rootCanvas;
+    /// <summary>防止原版重复显示同一窗口时重复注册回调。</summary>
+    private bool listening;
     private int _elementFilter;
     private int _entityFilter;
     private int _sort;
@@ -99,24 +101,39 @@ public sealed partial class WindowWanfaPavilion : AbstractWideWindow<WindowWanfa
                 CloseTooltipTitle = "Cultiway.UI.OptionMenu.Action.Close",
                 CloseTooltipDescription = "Cultiway.UI.OptionMenu.Tooltip.Close",
             });
-        WanfaPavilionService.Instance.Changed += Refresh;
-        WanfaPavilionService.Instance.WorldStateClearing += ClearConstructionMenus;
         RefreshVfxFilters();
         RefreshEntityIds();
     }
 
+    /// <summary>只在窗口打开时监听目录变更，重新打开时读回最新内容。</summary>
     public override void OnNormalEnable()
     {
+        if (!listening)
+        {
+            WanfaPavilionService.Instance.Changed += Refresh;
+            WanfaPavilionService.Instance.WorldStateClearing += ClearConstructionMenus;
+            listening = true;
+        }
         RefreshVfxFilters();
         RefreshEntityIds();
         Refresh();
     }
 
     /// <summary>目录包含世界构造时，关闭窗口即释放该次选择的回调。</summary>
-    public override void OnNormalDisable() => _optionMenu.Clear();
-
-    private void OnDestroy()
+    public override void OnNormalDisable()
     {
+        ClearConstructionMenus();
+        StopListening();
+    }
+
+    /// <summary>销毁时也解除可能还在工作的目录订阅。</summary>
+    private void OnDestroy() => StopListening();
+
+    /// <summary>解除窗口对长期服务的订阅。</summary>
+    private void StopListening()
+    {
+        if (!listening) return;
+        listening = false;
         WanfaPavilionService.Instance.Changed -= Refresh;
         WanfaPavilionService.Instance.WorldStateClearing -= ClearConstructionMenus;
     }
