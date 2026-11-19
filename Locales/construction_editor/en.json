@@ -1548,5 +1548,21 @@
   "Cultiway.Construction.NodeSignalDuration": "Part: Signal duration in seconds",
   "Cultiway.Construction.ContactRequiredStatus": "Required status for this branch",
   "Cultiway.Construction.BodyContactRequiredStatus": "Body: Required status for this branch",
-  "Cultiway.Construction.NodeContactRequiredStatus": "Part: Required status for this branch"
+  "Cultiway.Construction.NodeContactRequiredStatus": "Part: Required status for this branch",
+  "Cultiway.Construction.PreviewPerformance": "Play spell preview",
+  "Cultiway.Construction.PreviewPerformanceHint": "See the compiled motion and contact shapes.",
+  "Cultiway.Construction.PreviewSimulationHint": "Plays from the selected positions and terrain. Enter map coordinates and replay. Hits, blocks and terrain changes require live play.",
+  "Cultiway.Construction.PreviewTarget": "Choose target",
+  "Cultiway.Construction.PreviewPoint": "Use map coordinates",
+  "Cultiway.Construction.PreviewReplay": "Replay",
+  "Cultiway.Construction.PreviewPause": "Pause",
+  "Cultiway.Construction.PreviewResume": "Resume",
+  "Cultiway.Construction.PreviewShowContacts": "Show contacts",
+  "Cultiway.Construction.PreviewHideContacts": "Hide contacts",
+  "Cultiway.Construction.PreviewNeedsLearner": "Choose a living caster in the editor first.",
+  "Cultiway.Construction.PreviewInvalidTarget": "Choose a valid actor or map position for this spell.",
+  "Cultiway.Construction.PreviewOutsideRange": "Outside targeting range ({0:0.##} tiles). Choose a closer target and replay.",
+  "Cultiway.Construction.PreviewNeedsCarrier": "This caster has no available manifested artifact for this spell.",
+  "Cultiway.Construction.PreviewNeedsBody": "This caster cannot provide the required body part or stance.",
+  "Cultiway.Construction.PreviewTime": "{0:0.00} / {1:0.##} s · targeting range {2:0.##} tiles"
 }

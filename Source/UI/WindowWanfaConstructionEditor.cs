@@ -135,6 +135,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
         BindText(UiElements.CreateButton(content.transform, "Discard", T("Discard"), 252f, 24f, CloseNow).GetComponentInChildren<Text>(), "Discard");
         BindText(UiElements.CreateButton(content.transform, "Continue", T("Continue"), 252f, 24f, () => closeModal.Hide()).GetComponentInChildren<Text>(), "Continue");
         closeModal = new UiModal(confirm.Root.gameObject, canvas);
+        InitPerformancePreview(canvas);
         access.WorldClearing += ClearWorld;
         Cultiway.Core.Visuals.Forms.FormResources.Reloaded += ResourcesReloaded;
     }
@@ -154,6 +155,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
     /// <summary>保留原版窗口关闭流程，未保存时在下一帧恢复并显示确认。</summary>
     public override void OnNormalDisable()
     {
+        ClosePerformancePreview();
         menu.Clear(); closeModal.Hide();
         if (session == null || closingApproved) return;
         if (session.Matches(session.Draft)) { ReleaseDraft(); return; }
@@ -189,7 +191,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
                 summary.text = string.Format(T("Summary"), plan.FormCount, plan.Cost,
                     ConstructionPresentation.ResourceNames(plan), plan.Cooldown);
                 UiTooltip.Set(summary.gameObject, session.Draft.Name,
-                    ConstructionPresentation.Explain(session.Draft, plan));
+                    ConstructionPresentation.Explain(plan));
             }
             catch (Exception error) when (error is InvalidDataException or IOException or ArgumentException)
             {
@@ -281,6 +283,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
     /// <summary>释放编辑绑定和历史，不在正常关闭后保留人物引用。</summary>
     private void ReleaseDraft()
     {
+        ClosePerformancePreview();
         session = null; previewPlan = null; learner = null; learnerId = 0; ClearConstructionIssue();
         undo.Clear(); redo.Clear(); parts.Clear(); rows.Clear(); menu.Clear();
     }
@@ -298,6 +301,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
     /// <param name="version">已经发布的新资源版本。</param>
     private void ResourcesReloaded(int version)
     {
+        ClosePerformancePreview();
         previewPlan = null;
         if (session != null && gameObject.activeInHierarchy) Refresh();
     }
@@ -305,6 +309,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
     /// <summary>销毁窗口时解除世界和资源通知，不让旧预览继续持有资源。</summary>
     private void OnDestroy()
     {
+        ReleasePerformanceViewport();
         access.WorldClearing -= ClearWorld;
         Cultiway.Core.Visuals.Forms.FormResources.Reloaded -= ResourcesReloaded;
         if (instance == this) instance = null;

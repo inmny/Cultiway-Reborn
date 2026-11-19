@@ -27,6 +27,8 @@ internal sealed class CompiledWorldMatter
 
     /// <summary>来源筛选仍使用稳定材料与物态名。</summary>
     internal readonly string FromMatter, FromState;
+    /// <summary>同一筛选解析出的材料说明。</summary>
+    internal readonly AbilityMatter DisplayMatter;
 
     /// <summary>是否限制为当前控制者原支付的材料。</summary>
     internal readonly bool OwnedOnly;
@@ -41,7 +43,7 @@ internal sealed class CompiledWorldMatter
         if (float.IsNaN(source.MaximumVolume) || float.IsInfinity(source.MaximumVolume) || source.MaximumVolume <= 0 ||
             source.MaximumVolume > 1e9f || source.FromState != null && source.FromMatter == null)
             throw new InvalidDataException(path + "：世界材料转换需要正数容量，物态筛选须指定来源材料");
-        if (source.FromMatter != null) AbilityMatters.Resolve(source.FromMatter, source.FromState, path + "/From");
+        if (source.FromMatter != null) DisplayMatter = AbilityMatters.Resolve(source.FromMatter, source.FromState, path + "/From");
         Order = order;
         FromMatter = source.FromMatter;
         FromState = source.FromState;

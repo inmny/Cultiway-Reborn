@@ -32,7 +32,7 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>直接读取当前正式计划生成说明，切换语言后不沿用旧说明缓存。</summary>
     /// <param name="id">当前世界的确定版本。</param>
-    public static string Explain(string id) => ConstructionPresentation.Explain(definitions[id], PlanFor(id));
+    public static string Explain(string id) => ConstructionPresentation.Explain(PlanFor(id));
 
     /// <summary>写书只记录作者真正掌握的稳定版本；书本不会拥有或销毁世界能力定义。</summary>
     /// <param name="actor">实际执笔者。</param>

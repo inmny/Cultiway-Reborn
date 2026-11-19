@@ -48,6 +48,7 @@ public sealed partial class WindowWanfaConstructionEditor
         if (previewPlan != null)
         {
             var actor = HasLearner ? learner.GetExtend() : null;
+            ActionRow("PreviewPerformance", T("PreviewPerformanceHint"), OpenPerformancePreview);
             var quote = actor == null ? null : access.PreviewPayment(actor, previewPlan);
             Row("ActualPayment", actor == null ? T("ActualPaymentNeedsLearner") : quote == null ? T("ActualPaymentUnavailable") :
                 quote.Count == 0 ? T("Resource.none") : string.Join(" + ", quote.Select(entry =>

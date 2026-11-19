@@ -22,6 +22,9 @@ public sealed class CompiledAbility
     /// <summary>资料修订号。</summary>
     public int Revision { get; }
 
+    /// <summary>直接来源的修订和改造说明。</summary>
+    internal (int Revision, string Change)? Parent { get; }
+
     /// <summary>进入已登记资源报价的基础需求。</summary>
     public float Cost { get; }
 
@@ -214,6 +217,7 @@ public sealed class CompiledAbility
         ResourceVersion = FormResources.Version;
         Id = definition.Id;
         Revision = definition.Revision;
+        if (definition.Parent != null) Parent = (definition.Parent.Revision, definition.Parent.Change);
         Cost = definition.Cost;
         Resources = Array.AsReadOnly(new[] { definition.Resource }.Concat(definition.AdditionalResources).ToArray());
         ResourceMode = definition.ResourceMode;
@@ -327,6 +331,8 @@ public sealed class CompiledAbility
 /// <summary>只含运行需要的数值及解析后的资源引用，不持有可编辑定义。</summary>
 internal sealed class CompiledForm
 {
+    /// <summary>展开这个部件时实际使用的位置分布。</summary>
+    internal ConstructionDistributionSource? DistributionSource;
     /// <summary>已复制的当前控制者失效规则。</summary>
     internal ConstructionSourceLoss SourceLoss;
 
@@ -1094,6 +1100,7 @@ public static partial class AbilityCompiler
                 Expand(child, ownIndex, resource, point.Transform, childPath + "@" + point.Id, depth + 1, lifetime,
                     output,
                     anchorBlend: point.Blend, declarationPath: declarationPath + "/" + child.Id);
+                output[childStart].DistributionSource = child.Distribution?.Source;
                 output[childStart].AnchorBuild = point.BuildAt;
                 output[childStart].AnchorSurface = point.Surface;
             }
