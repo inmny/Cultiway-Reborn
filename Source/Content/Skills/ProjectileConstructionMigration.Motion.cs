@@ -238,6 +238,30 @@ internal static partial class ProjectileConstructionMigration
         };
     }
 
+    /// <summary>原作用结束后由同一落点的岩块收尾，碎块不再次参加接触。</summary>
+    /// <param name="definition">刚从正式旧术换算的构造。</param>
+    /// <param name="lifetime">原推进和结算时长。</param>
+    /// <param name="scale">本次词条给出的实际地图尺寸。</param>
+    private static void SetRidgeCollapse(AbilityDefinition definition, float lifetime, float scale)
+    {
+        float collapse = Mathf.Min(.34f, 3600f - lifetime);
+        if (collapse <= 0f) return;
+        ConstructionNode ridge = definition.Root;
+        ridge.DisappearAt = ridge.ActiveUntil = lifetime;
+        definition.Lifetime += collapse;
+        ridge.Children = new[] { new ConstructionNode
+        {
+            Id = "settled_ridge", Form = ridge.Form, Matter = ridge.Matter, State = ridge.State, Scale = scale,
+            Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End, Placement = ConstructionEventPlacement.Event },
+            ContactRole = ConstructionContactRole.Decoration, SourceLoss = ConstructionSourceLoss.Continue,
+            DisappearAt = collapse, Volume = 0,
+            Operations = new[] { new ConstructionOperation
+            {
+                Kind = ConstructionOperationKind.Animate, Clip = "collapse", Seconds = collapse
+            } }
+        } };
+    }
+
     /// <summary>辅助和领域保留原主体姿态，将路径偏移换到同一实际坐标；不改变自身作用及间隔。</summary>
     /// <param name="definition">已有完整来源作用。</param><param name="motion">已经展开的普通运动。</param>
     internal static void BindMotion(AbilityDefinition definition, AbilityDefinition motion)

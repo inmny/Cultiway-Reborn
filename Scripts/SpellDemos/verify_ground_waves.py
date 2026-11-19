@@ -13,7 +13,7 @@ from common import PROJECT, version_stamp, write_json
 def main():
     """复用现有世界、人物及调试通道，保留本批实际输入和结果。"""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('all', 'sources', 'common', 'visuals', 'tidal'), default='all')
+    parser.add_argument('--section', choices=('all', 'sources', 'common', 'visuals', 'tidal', 'earth'), default='all')
     section = parser.parse_args().section
     active = bool(os.environ.get('CULTIWAY_DEV_ACTIVE'))
     if not active:

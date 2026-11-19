@@ -1,5 +1,6 @@
 /** 独立岩刺：封闭的不规则岩层、错落石锋和同一控制下的真实涌出。 */
 import * as T from 'three';
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {part, write, structure, motion, skin} from './form_export.mjs';
 import {wallPart} from './forms_solid_walls.mjs';
 
@@ -162,7 +163,7 @@ function makeEarthWallStrata() {
     .map(([Id, p]) => ({Id, Part: 0, Position: p.toArray(), Direction: [0, 0, 1], Influences: bind(p)}));
   write('earth_wall_strata', [body], anchors, contacts, controls, [], true, {Forward: [0, 1, 0], Up: [0, 0, 1], HideBelowGround: true},
     structure('surface', 'forms_earth.mjs', 'makeEarthWall', {length, radius, controls: count}, {wall: ['terrain.wall', 'barrier.face']}, []));
-  publishEarthWallMotion(rings, length, radius, geometry, controls, weights, anchors, contacts);
+  publishEarthWallMotion(rings, length, radius, controls, anchors, contacts);
 }
 
 /** 墙和接地后分开的石块使用同一断面；每段都封口。 */
@@ -191,38 +192,54 @@ function earthWallShell(rings, length) {
   return geometry;
 }
 
-/** 地脚先承力，上层错时落稳。墙面与实接触的顶端使用同一组控制。 */
-function publishEarthWallMotion(rings, length, radius, geometry, base, weights, anchors, contacts) {
-  const count = base.length, identity = [0, 0, 0, 1];
+/** 地脚始终承力。上层沿现成断面分成七块，每块整块落位。 */
+function publishEarthWallMotion(rings, length, radius, base, anchors, contacts) {
+  const count = base.length, identity = [0, 0, 0, 1], sections = 7;
   const facing = {Forward: [0, 1, 0], Up: [0, 0, 1], HideBelowGround: true};
-  const controls = [...base, ...base.map((control, i) => ({...control, Id: `crest_${i}`}))];
-  const bind = (point, upper) => weights(point).filter(([, w]) => w > 0)
-    .map(([i, Weight]) => ({Control: controls[i + (upper ? count : 0)].Id, Weight}));
-  skin(geometry, p => {
-    const upper = T.MathUtils.smoothstep(p.z, .26, 1.62);
-    return weights(p).flatMap(([i, w]) => [[i, w * (1 - upper)], [i + count, w * upper]]);
-  });
-  const settle = motion('settle', .27, false, controls, 24, (i, phase, control) => {
-    if (i < count) return {};
-    const distance = Math.abs(i - count - (count - 1) / 2) / ((count - 1) / 2);
-    const arrival = .021 + distance * .076;
-    const lift = T.MathUtils.smoothstep(phase * .27, arrival, arrival + .152);
-    const depth = .24 + .08 * Math.cos(i * .83);
-    return {position: [control.Position[0], 0, -depth * (1 - lift)]};
-  });
-  write('earth_wall_strata_motion', [wallPart('wall', geometry, 'stone_strata')],
-    anchors.map(anchor => anchor.Id === 'crest' ? {...anchor, Influences: bind(new T.Vector3(...anchor.Position), true)} : anchor),
-    contacts.map(contact => ({...contact, BInfluences: bind(new T.Vector3(...contact.B), true)})),
-    controls, [settle], true, facing,
-    structure('surface', 'forms_earth.mjs', 'makeEarthWall', {length, radius, controls: controls.length},
-      {wall: ['terrain.wall', 'barrier.face']}));
-
-  const sections = 7;
   const spans = Array.from({length: sections}, (_, i) => {
     const from = Math.round(i * (rings.length - 1) / sections);
     const to = Math.round((i + 1) * (rings.length - 1) / sections);
     return rings.slice(from, to + 1);
   });
+  const nearest = x => Math.round(T.MathUtils.clamp((x / length + .5) * (count - 1), 0, count - 1));
+  const centre = span => (span[0][0][0] + span.at(-1)[0][0]) * .5;
+  const controls = [...base, ...spans.map(span => {
+    const control = base[nearest(centre(span))];
+    return {...control, Id: control.Id.replace('bed_', 'crest_')};
+  })];
+  const rigid = x => [{Control: controls[count + spans.findIndex(span => x <= span.at(-1)[0][0])].Id, Weight: 1}];
+  const footage = skin(earthWallShell(rings.map(ring => [...ring.slice(0, 4), ...ring.slice(-4)]), length), p => {
+    const at = T.MathUtils.clamp((p.x / length + .5) * (count - 1), 0, count - 1);
+    const left = Math.min(count - 2, Math.floor(at)), offset = at - left;
+    return [[left, 1 - offset], [left + 1, offset]];
+  });
+  const crowns = spans.map((span, i) => {
+    const bone = count + i;
+    // 接缝盖住岩层下缘。收紧只有横截面交界的一小片，露出削断的棱。
+    const cut = span.map((ring, j) => ring.slice(3, -3).map(([x, y, z]) => {
+      const end = j === 0 || j === span.length - 1, terminal = Math.abs(x) > 2.47;
+      return [x, y * (end && !terminal ? .90 : 1), z];
+    }));
+    return skin(earthWallShell(cut, length), () => [[bone, 1]]);
+  });
+  const stone = mergeGeometries([footage, ...crowns]);
+  const axis = new T.Vector3(1, 0, 0);
+  const settle = motion('settle', .27, false, controls, 24, (i, phase, control) => {
+    if (i < count) return {};
+    const distance = Math.abs(control.Position[0]) / (length / 2);
+    const arrival = .021 + distance * .076;
+    const lift = T.MathUtils.smoothstep(phase * .27, arrival, arrival + .152);
+    const rest = 1 - lift;
+    return {position: [control.Position[0], 0, -(.15 + .035 * Math.cos(i * .83)) * rest],
+      rotation: new T.Quaternion().setFromAxisAngle(axis, .058 * Math.sin(i * 1.67) * rest).toArray()};
+  });
+  write('earth_wall_strata_motion', [wallPart('wall', stone, 'stone_strata')],
+    anchors.map(anchor => anchor.Id === 'crest' ? {...anchor, Influences: rigid(anchor.Position[0])} : anchor),
+    contacts.map(contact => ({...contact, BInfluences: rigid(contact.B[0])})),
+    controls, [settle], true, facing,
+    structure('surface', 'forms_earth.mjs', 'makeEarthWall', {length, radius, controls: controls.length, sections},
+      {wall: ['terrain.wall', 'barrier.face']}));
+
   const blocks = spans.map((span, i) => ({Id: `block_${i}`, Rotation: identity,
     Position: [(span[0][0][0] + span.at(-1)[0][0]) / 2, 0, .28]}));
   const parts = spans.map((span, i) => {
@@ -233,9 +250,9 @@ function publishEarthWallMotion(rings, length, radius, geometry, base, weights, 
     const wait = (2 - i % 3) * .033, at = phase * .42;
     const t = T.MathUtils.clamp((at - wait) / (.42 - wait), 0, 1);
     const sign = i % 2 ? -1 : 1, lean = T.MathUtils.smoothstep(t, 0, .76);
-    const down = T.MathUtils.smoothstep(t, .28, 1);
+    const down = T.MathUtils.smoothstep(t, .34, 1);
     const position = [control.Position[0] + (i - 3) * .041 * lean,
-      sign * (.12 + i * .028) * lean, .28 - (1.24 + (i % 3) * .11) * down];
+      sign * (.12 + i * .028) * lean, .28 - (1.46 + (i % 3) * .11) * down];
     const rotation = new T.Quaternion().setFromEuler(new T.Euler(sign * (1.23 + i * .054) * lean,
       (i - 3) * .115 * lean, sign * .19 * lean));
     return {position, rotation: rotation.toArray()};
