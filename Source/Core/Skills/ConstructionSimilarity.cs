@@ -107,14 +107,13 @@ public sealed class ConstructionSimilarity
             CompiledContactPolicy contact = plan.ContactPolicies[actual[0].ContactGroup];
             node["Contact"] = Contact(contact);
             Condition(node["Activation"] as JObject, actual.Select(form => form.Activation.Source));
-            int eventIndex = 0;
-            foreach (JObject operation in (JArray)node["Operations"])
-                if (operation["When"] is JObject condition)
+            var operations = (JArray)node["Operations"];
+            for (int index = 0; index < operations.Count; index++)
+                if (operations[index]["When"] is JObject condition)
                 {
-                    int index = eventIndex++;
-                    // 定时执行的运行操作与步骤也在同一表中；这里只对应声明中的条件操作。
+                    // 已命名的原操作也有步骤编号；按原声明位置查找，避免把它和独立步骤混淆。
                     Condition(condition, actual.Select(form => form.EventOperations
-                        .Where(item => item.Step < 0 && item.When != null).ElementAt(index).When.Source));
+                        .Single(item => item.Path == $"{form.Path}/Operations[{index}]").When.Source));
                 }
 
             foreach (JObject child in (JArray)node["Children"])

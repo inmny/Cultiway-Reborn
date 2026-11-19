@@ -121,6 +121,24 @@
               15.33,
               21.08
             ]
+          },
+          {
+            "Id": "shear",
+            "Kind": "Fracture",
+            "When": {
+              "Source": "..",
+              "Trigger": "ActorContact"
+            },
+            "Fracture": {
+              "Seconds": 0.86,
+              "Speed": 0.78,
+              "Spin": 32,
+              "Gravity": 5.5,
+              "ActiveParts": [
+                "edge"
+              ],
+              "ReleaseChildren": false
+            }
           }
         ]
       }

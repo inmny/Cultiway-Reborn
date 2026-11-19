@@ -393,7 +393,10 @@ public sealed partial class AbilityCast
 
         for (int i = 0; i < nodes.Length; i++)
         {
-            float strength = plan.Nodes[i].RemainderRoot >= 0 ? 0f : force * plan.Nodes[i].Strength;
+            var form = plan.Nodes[i];
+            // 余量接收体和预留碎片在实际移交前没有自己的力和体积。
+            bool receivesRemainder = form.RemainderRoot >= 0 || form.FragmentSource >= 0;
+            float strength = receivesRemainder ? 0f : force * form.Strength;
             if (float.IsInfinity(strength)) throw new ArgumentOutOfRangeException(nameof(force), "部位强度超出有限作用量");
             nodes[i] = new NodeState
             {
@@ -402,7 +405,7 @@ public sealed partial class AbilityCast
                 Authority = i,
                 Force = strength,
                 InitialForce = strength,
-                Volume = plan.Nodes[i].RemainderRoot >= 0 ? 0 : plan.Nodes[i].Volume * Math.Pow(plan.Nodes[i].Scale, 3),
+                Volume = receivesRemainder ? 0 : form.Volume * Math.Pow(form.Scale, 3),
                 Matter = plan.Nodes[i].Matter,
                 ShapeHeld = plan.Nodes[i].Matter.HoldsShape,
                 Started = plan.Nodes[i].FragmentSource < 0 && startsTogether,
