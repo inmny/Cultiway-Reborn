@@ -34,6 +34,7 @@ public sealed partial class WindowWanfaConstructionEditor
                 : T("Form." + body.WeaponForm) + " / " + (previewPlan?.Body?.Grip ?? body.Grip));
         BodyOccupancyRows();
         if (rotating) ActualPartRows(effector);
+        MartialBindingRows(previewPlan?.Body);
         Number("BodyActiveFrom", body.ActiveFrom, value => body.ActiveFrom = value);
         Number("BodyActiveUntil", body.ActiveUntil, value => body.ActiveUntil = value);
         if (body.Hold != null)

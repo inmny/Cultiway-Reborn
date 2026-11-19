@@ -2089,3 +2089,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 8.12 万法阁的列表边界和窗口关闭
 
 通过独立游戏运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_wanfa_window_edges.py --source <8.11保存段的输出目录>`。复用该世界中的水剑，查看空收藏、长目录末项、长名搜索、960×540 下的六个编辑页，以及反复打开关闭、释放预览与切世界。全部结果位于当次 `output/wanfa-window-edges/all`，可加 `--section catalog` 或 `--section lifecycle` 只复验受影响段。
+
+### 8.13 战技部位、握持与过程改造
+
+部位与握持批次：在独立游戏中运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_martial_binding.py`。复用原世界和一把铁剑，走万法阁的徒手左右换手、持械握点与接触时段编辑、非法区间拒绝、撤销保存和重开。验证同时记录实际握持位置、剑尖生效区间和动作控制归还。如果只需补施放与恢复，传入 `--cast <窗口输出的 edited.json>` 即可，其余验证不会重跑。阶段、伤害和正式世界存读集中到 8.13 整体验收。
