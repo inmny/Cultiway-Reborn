@@ -1,0 +1,66 @@
+// 用正式已学法术排掉一处实有积水，其他地块即使在作用范围内也不发粒子。
+PrepareAppearanceBackdrop(61, 75, 69, 75);
+var pondTile = World.world.GetTileSimple(68, 72);
+pondTile.setTileTypes(TileLibrary.shallow_waters, null);
+var point = new Vector3(pondTile.pos.x, pondTile.pos.y, 0f);
+var actor = owner.Base;
+owner.AddComponent(new Magic { level = 2, spirit = 500 });
+var manaStats = new BaseStats { ["mana"] = 2000 };
+var mana = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.particle-terrain.mana")
+    .SetStats(manaStats).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(actor, mana, 10000, actor);
+actor.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("white_staff"), pActor: actor), actor);
+owner.MarkCultiwayStatsDirty();
+actor.setStatsDirty();
+actor.updateStats();
+await Advance(.15f);
+actor.setMana(1800, false);
+var spell = new SkillContainerBuilder(SkillEntities.DrainWater).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+owner.LearnSkillV3(spell);
+var signature = SkillContainerSignature.Build(spell);
+var learned = (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+spell = learned.First(s => SkillContainerSignature.Build(s) == signature);
+var particleRuntime = typeof(ActorExtend).Assembly.GetType("Cultiway.Core.Visuals.SpatialVisualEffects");
+object Field(object o, string name) => o.GetType().GetField(name, F).GetValue(o);
+object[] Drops() => ((IEnumerable)particleRuntime.GetField("effects", F).GetValue(null)).Cast<object>().Where(e =>
+    Field(e, "Kind").ToString() == "Particle" && Field(e, "Material").ToString() == "Water" &&
+    Vector2.Distance((Vector3)Field(e, "Start"), point) < 9f).ToArray();
+var results = new List<(int X, int Y, Vector3 Surface, bool Drained)>();
+void Contact(Cultiway.Content.Skills.ConstructedWorldContact value)
+{
+    if (value.Action != "water.drain" || value.SourceId != actor.id || !value.Result.Changed) return;
+    var affected = World.world.GetTileSimple(value.X, value.Y);
+    results.Add((value.X, value.Y, affected.posV3, !affected.Type.ocean));
+}
+Cultiway.Content.Skills.ConstructedAbilityService.WorldContactConfirmed += Contact;
+try
+{
+    await FrameAppearance("terrain-before", point.x, point.y, 6f);
+    Check(pondTile.Type.ocean && Drops().Length == 0, "仅有积水本身不会发法术粒子");
+    bool used = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", spell),
+        new ActiveAbilityTarget(null, point), ActiveAbilityUseOrigin.Script);
+    Check(used, "由正式入口施放排水法术", new { mana = actor.getMana(), staff = actor.getWeaponAsset()?.id });
+    for (int i = 0; i < 45 && results.Count == 0; i++) await Advance(.035f);
+    await Game.NextFrame();
+    var drops = Drops();
+    var realDrain = results.Where(c => c.Drained).ToArray();
+    int matched = drops.Count(e =>
+    {
+        var start = (Vector3)Field(e, "Start");
+        var velocity = (Vector3)Field(e, "End");
+        return realDrain.Any(c => Vector2.Distance(start, c.Surface) < .24f &&
+            Vector2.Dot((Vector2)(start - c.Surface), velocity) < 0f && velocity.z < 0f);
+    });
+    Check(realDrain.Length > 0 && matched > 0 && matched == drops.Length,
+        "水珠只在实际排水的地块出现，朝内下落",
+        new { drops = drops.Length, matched, changed = results.Count, drained = realDrain.Length });
+    await FrameCleanupSide("terrain-drained-worldfall", point, 6f, -.25f);
+    await Advance(.75f);
+    Check(Drops().Length == 0, "水珠散尽，没有继续从不变地块发射");
+    return new { passed = true, drops = drops.Length, changed = results.Count };
+}
+finally
+{
+    Cultiway.Content.Skills.ConstructedAbilityService.WorldContactConfirmed -= Contact;
+    Config.paused = true;
+}

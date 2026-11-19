@@ -13,7 +13,7 @@ public sealed class ArtifactParticleVisualCue : IArtifactVisualCue
 {
     public ArtifactVisualAnchorRef anchor = ArtifactVisualAnchorKind.Point;
     public ArtifactVisualColorRole color_role = ArtifactVisualColorRole.Glow;
-    public SkillFlyOverParticleStyle style = SkillFlyOverParticleStyle.Default;
+    public SkillParticleStyle style = SkillParticleStyle.Default;
     public Vector3 offset;
     public float spread = 0.25f;
     public float directional_speed;
@@ -56,7 +56,7 @@ public sealed class ArtifactParticleVisualCue : IArtifactVisualCue
             }
 
             float actorScale = cue.match_actor_scale ? ArtifactAbilityVisuals.ResolveActorScale(context) : 1f;
-            SkillFlyOverParticleStyle style = cue.style;
+            SkillParticleStyle style = cue.style;
             style.MinSize *= actorScale;
             style.MaxSize *= actorScale;
             style.MinRiseSpeed *= actorScale;
@@ -66,7 +66,7 @@ public sealed class ArtifactParticleVisualCue : IArtifactVisualCue
                 ? cue.particle_count
                 : Mathf.Max(1, Mathf.RoundToInt(style.ParticlesPerEmission * Mathf.Clamp(context.intensity, 0.5f, 3f)));
             Color color = ArtifactVisualCueTools.ResolveColor(context.theme, cue.color_role);
-            SkillFlyOverParticleEmitter.EmitBurst(
+            SkillParticleEmitter.EmitBurst(
                 position,
                 color,
                 style,

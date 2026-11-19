@@ -54,6 +54,15 @@ try
     });
     Check(settled > 0f && enemy.data.health < hp && native == 0 && pieces > 0 && muted && weaponAsset.material == "wood",
         "真实扣血只产生低亮木色碎屑，没有原版重复击中", new { settled, hp, after = enemy.data.health, native, pieces, muted });
+    Vector2 approach = (enemy.current_position - owner.Base.current_position).normalized;
+    bool directedFragments = Debris().All(e =>
+    {
+        var velocity = (Vector3)e.GetType().GetField("End", F).GetValue(e);
+        var point = (Vector3)e.GetType().GetField("Start", F).GetValue(e);
+        return e.GetType().GetField("Material", F).GetValue(e).ToString() == "Fragment" &&
+            Vector2.Dot(approach, velocity) > 0f && velocity.z > 0f && point.z > enemy.position_height;
+    });
+    Check(pieces > 0 && directedFragments, "木剑只在身体接触处抛出沿受击方向运动的实体碎屑");
     await FrameAppearance("weapon-contact-native", 66, 72, 4.5f);
     await FrameCleanupSide("weapon-contact-worldfall", enemy.GetSimPos(), 6f, -.25f);
     for (int i = 0; i < 36 && Casting(); i++) await Advance(.125f);

@@ -3,6 +3,19 @@ using UnityEngine;
 
 namespace Cultiway.Core.Visuals;
 
+/// <summary>不同材料共用空间粒子的时间和运动资料。</summary>
+internal enum SpatialParticleMaterial : byte
+{
+    /// <summary>稀疏灵光。</summary>
+    Energy,
+    /// <summary>生长和恢复时的叶片。</summary>
+    Leaf,
+    /// <summary>兵器、屏障和地面变化抛出的实体碎屑。</summary>
+    Fragment,
+    /// <summary>随真实积水变动的小水珠。</summary>
+    Water,
+}
+
 /// <summary>只保存已发生作用的短暂表现，按世界时间在两个视角中生成同一份粒子和连接。</summary>
 internal static class SpatialVisualEffects
 {
@@ -39,13 +52,13 @@ internal static class SpatialVisualEffects
 
     /// <summary>创建可组合的空间粒子，升高始终写入独立高度。</summary>
     /// <param name="position">起点。</param><param name="velocity">平面速度与升降速度。</param><param name="color">颜色。</param>
-    /// <param name="size">世界尺寸。</param><param name="duration">世界秒数。</param><param name="leaf">是否为向上生长的叶片。</param>
+    /// <param name="size">世界尺寸。</param><param name="duration">世界秒数。</param><param name="material">实际材料对应的形体和亮度。</param>
     /// <param name="gravity">独立高度方向的加速度。</param>
     internal static void Particle(Vector3 position, Vector3 velocity, Color color, float size, float duration,
-        bool leaf = false, float gravity = 0f)
+        SpatialParticleMaterial material = SpatialParticleMaterial.Energy, float gravity = 0f)
     {
         if (effects.Count >= Capacity || !IsRelevant(position, size)) return;
-        effects.Add(new Effect { Kind = leaf ? Kind.Leaf : Kind.Particle, Start = position, End = velocity, Color = color,
+        effects.Add(new Effect { Kind = Kind.Particle, Material = material, Start = position, End = velocity, Color = color,
             Size = size, Duration = duration, Started = World.world.getCurWorldTime(), Seed = ++serial, Gravity = gravity });
     }
 
@@ -106,9 +119,19 @@ internal static class SpatialVisualEffects
             {
                 details--;
                 Vector3 position = effect.Start + effect.End * age + Vector3.forward * effect.Gravity * age * age * .5f;
-                SpatialVisualDraw.Mesh(output, effect.Kind == Kind.Leaf ? SpatialVisualGeometry.Leaf : SpatialVisualGeometry.Spark,
-                    position, Quaternion.Euler(effect.Seed * 47f, age * 120f, effect.Seed * 71f),
-                    Vector3.one * effect.Size * (1f - progress * .55f), color, true);
+                SpatialVisualMesh model = effect.Material switch
+                {
+                    SpatialParticleMaterial.Leaf => SpatialVisualGeometry.Leaf,
+                    SpatialParticleMaterial.Fragment => SpatialVisualGeometry.Shard,
+                    SpatialParticleMaterial.Water => SpatialVisualGeometry.Stone,
+                    _ => SpatialVisualGeometry.Spark,
+                };
+                bool energy = effect.Material == SpatialParticleMaterial.Energy;
+                Vector3 scale = Vector3.one * effect.Size * (1f - progress * .55f);
+                if (effect.Material == SpatialParticleMaterial.Water) scale.z *= 1.45f;
+                SpatialVisualDraw.Mesh(output, model, position,
+                    Quaternion.Euler(effect.Seed * 47f, age * 120f, effect.Seed * 71f), scale, color, energy,
+                    additive: energy);
             }
         }
     }
@@ -121,8 +144,6 @@ internal static class SpatialVisualEffects
     {
         /// <summary>短暂碎屑。</summary>
         Particle,
-        /// <summary>上升的生命图元。</summary>
-        Leaf,
         /// <summary>真实连锁两端。</summary>
         Link,
         /// <summary>短暂作用波纹。</summary>
@@ -133,6 +154,8 @@ internal static class SpatialVisualEffects
     {
         /// <summary>实际形式。</summary>
         internal Kind Kind;
+        /// <summary>粒子的实体材质；连接不使用此项。</summary>
+        internal SpatialParticleMaterial Material;
         /// <summary>起点，以及连接终点或粒子速度。</summary>
         internal Vector3 Start, End;
         /// <summary>语义颜色。</summary>
