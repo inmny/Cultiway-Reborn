@@ -45,11 +45,12 @@ Shader "Cultiway/FormSurface"
         #endif
         // 参数由本入口按显式矩阵行读取，不借用Unity的每实例矩阵常量数组。
         void setupForm() {}
-        struct Input { float4 vertex:POSITION; float3 normal:NORMAL; float2 uv:TEXCOORD0; float4 controls:TEXCOORD1; float4 weights:TEXCOORD2; float2 surface:TEXCOORD3; float4 build:TEXCOORD4; UNITY_VERTEX_INPUT_INSTANCE_ID };
+        struct Input { float4 vertex:POSITION; float3 normal:NORMAL; float2 uv:TEXCOORD0; float4 controls:TEXCOORD1; float4 weights:TEXCOORD2; float2 surface:TEXCOORD3; float4 build:TEXCOORD4; float4 current:TEXCOORD5; UNITY_VERTEX_INPUT_INSTANCE_ID };
         struct Varying
         {
             float4 vertex:SV_POSITION; float3 world:TEXCOORD0; float3 normal:TEXCOORD1; float2 uv:TEXCOORD2;
             float3 eye:TEXCOORD3; float3 light:TEXCOORD4; float2 surface:TEXCOORD5; float buildAt:TEXCOORD6; float3 material:TEXCOORD7;
+            float4 current:TEXCOORD9;
             #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
             nointerpolation uint instance:TEXCOORD8;
             #endif
@@ -117,7 +118,7 @@ Shader "Cultiway/FormSurface"
             o.normal = normalize(normal); o.uv = v.uv;
             o.surface = v.surface; o.surface.x /= max(.00001,length(normal));
             o.vertex = 0; o.eye = 0; o.light = 0;
-            o.buildAt = v.build.w;
+            o.buildAt = v.build.w; o.current = v.current;
             o.material = v.vertex.xyz;
             #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
             o.instance=unity_InstanceID;
@@ -269,12 +270,37 @@ Shader "Cultiway/FormSurface"
                 base *= (.34*ambient+diffuse*.6*direct) * (.65+detail*.5);
             else if(_Kind < 3.5)
             {
-                // 使用随表面变形的坐标扰动反光，轮廓与真实作用形状保持原姿态。
-                float2 flow = uv * float2(8,4) + float2(.025,-.075) * _WorldTime;
-                // 环向坐标两端取相同值及导数，闭合表面不会因流动露出接缝。
-                float seam = smoothstep(0,1,uv.x);
-                float h = circularWaterNoise(flow,8,seam);
-                h += .35*circularWaterNoise(flow*1.73+float2(.31,.27),8*1.73,seam);
+                float h;
+                float wet = 1;
+                float front = 0;
+                float movingLight = 0;
+                if (i.current.z > 0)
+                {
+                    float speed = length(i.current.xy);
+                    float2 direction = i.current.xy / max(.25,speed);
+                    float2 p = i.material.xy * .85;
+                    // 宽水纹随流移动；较细的波面只影响反光，不改变水层轮廓。
+                    float2 drift = direction * min(speed,9)*.65;
+                    float phase = frac(_WorldTime*1.3);
+                    float blend = 1-abs(2*phase-1);
+                    float2 a = p - drift*phase, b = p - drift*frac(phase+.5);
+                    float broad = lerp(waterNoise(b),waterNoise(a),blend);
+                    float foamCuts = lerp(waterNoise(b*2.7+1.3),waterNoise(a*2.7+1.3),blend);
+                    float detail = resolvedDetail(ddx(p*2.7),ddy(p*2.7));
+                    float pattern = lerp(.5,foamCuts,detail);
+                    h = .74*broad + .35*pattern;
+                    wet = smoothstep(i.current.z,8*i.current.z,i.surface.x);
+                    movingLight = smoothstep(.28,.83,broad) * smoothstep(.25,3.5,speed) * wet;
+                    front = i.current.w*smoothstep(.33,.68,pattern)*.86;
+                }
+                else
+                {
+                    // 原形体继续使用随表面变形的环向纹理，闭合接缝两端取相同值与导数。
+                    float2 flow = uv * float2(8,4) + float2(.025,-.075) * _WorldTime;
+                    float seam = smoothstep(0,1,uv.x);
+                    h = circularWaterNoise(flow,8,seam);
+                    h += .35*circularWaterNoise(flow*1.73+float2(.31,.27),8*1.73,seam);
+                }
                 float3 dx = ddx(i.world), dy = ddy(i.world);
                 float3 across = cross(dy,n), along = cross(n,dx);
                 float determinant = dot(dx,across);
@@ -295,11 +321,13 @@ Shader "Cultiway/FormSurface"
                 float3 deep = base*float3(.25,.65,.8);
                 base = lerp(shallow,deep,depth)*(.58*ambient+.38*diffuse*direct);
                 base = lerp(base,environment*environmentLight,fresnel*.45) + (broad*.04 + shine*.25)*direct;
-                alpha = saturate(alpha*(.28+.67*depth)+fresnel*.35);
+                base = lerp(base,environment*environmentLight,movingLight*.37);
+                alpha = saturate(alpha*(.28+.67*depth)+fresnel*.35+movingLight*.18);
                 // 泡沫随材料位置连起来，展开坐标翻边时不会换一块纹理。
                 float foam = saturate(i.surface.y*(.45+.7*volumeNoise(i.material*float3(9,9,6))));
+                foam = max(foam,front);
                 base = lerp(base,float3(.72,.91,.92)*(.75*ambient+.2*diffuse*direct),foam);
-                alpha = lerp(alpha,.94,foam);
+                alpha = lerp(alpha,.94,foam)*wet;
             }
             else if(_Kind < 4.5)
             {

@@ -1,0 +1,117 @@
+// 检查真实已发布水层、上传网格与实际作用；只用原来的缓坡和绕障场景。
+AbilityDefinition Read(string name) => JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(
+    Path.Combine(root, "Doc/技能系统全面重构/构造输入", name + ".json")));
+var views = new List<FormVisualInstance>();
+var meshMethod = typeof(FormLayerFrame).Assembly.GetType("Cultiway.Core.Visuals.Forms.FormLayerMeshes")
+    .GetMethod("Get", F);
+FormLayerFrame Layer(AbilityCast cast)
+{
+    views.Clear();
+    cast.AppendVisuals(views);
+    return views.Single().Layer;
+}
+
+try
+{
+    // 沿用流散验证里的同一截高地，观察两边实际出水而中央仍干燥。
+    var ramp = new float[128 * 128];
+    for (int y = 72; y < 76; y++)
+    for (int x = 68; x < 70; x++)
+        ramp[y * 128 + x] = 4f;
+    var terrain = new AbilityHeightField(128, 128, new Vector2(128, 128), ramp);
+    var splitInput = Read("缓坡守恒流");
+    var inputs = new AbilityInputs(new Vector3(64, 74), new Vector3(76, 74), Vector3.right, 1);
+    var split = new AbilityCast(AbilityCompiler.Compile(splitInput), Matrix4x4.identity,
+        inputs: inputs, force: 20, terrain: terrain);
+    split.Advance(2.4f, Vector3.zero);
+    var layer = Layer(split);
+    var mesh = (Mesh)meshMethod.Invoke(null, new object[] { layer });
+    var depth = new List<Vector2>();
+    var current = new List<Vector4>();
+    mesh.GetUVs(3, depth);
+    mesh.GetUVs(5, current);
+    var positions = mesh.vertices;
+    var raw = (Vector3[])Field(layer, "Water");
+    int north = 0, south = 0, crest = 0, directions = 0, clipped = 0;
+    for (int i = 0; i < positions.Length; i++)
+    {
+        Vector3 p = positions[i];
+        Vector2 cell = ((Vector2)p - layer.Origin) / layer.Cell - Vector2.one * .5f;
+        int x = Mathf.RoundToInt(cell.x), y = Mathf.RoundToInt(cell.y);
+        if (Math.Abs(depth[i].x - layer.DryDepth) < .00001f) clipped++;
+        if (Math.Abs(cell.x - x) > .00001f || Math.Abs(cell.y - y) > .00001f) continue;
+        if (x < 0 || y < 0 || x >= layer.Cells || y >= layer.Cells) continue;
+        var water = raw[y * layer.Cells + x];
+        if (depth[i].x > layer.DryDepth && p.x > 70)
+        {
+            if (p.y > 75.5f) north++;
+            if (p.y < 72.5f) south++;
+        }
+        if (terrain.Sample(p.x, p.y) > 3f && depth[i].x > layer.DryDepth) crest++;
+        if (water.x > layer.DryDepth && new Vector2(water.y, water.z).sqrMagnitude > .00001f)
+        {
+            var expected = new Vector2(water.y, water.z) / water.x;
+            if (Vector2.Distance(expected, (Vector2)current[i]) < .0001f) directions++;
+        }
+    }
+    Check(north > 0 && south > 0 && crest == 0, "两侧已有水面，高地格中心保持干燥", new { north, south, crest });
+    Check(directions > 0 && clipped > 0 && current.Count == positions.Length &&
+          current.All(c => Math.Abs(c.z - layer.DryDepth) < .00001f) &&
+          depth.All(d => d.x >= layer.DryDepth - .00001f),
+        "实际流向上传到水面，边缘在共同干湿阈值裁切", new { directions, clipped, vertices = positions.Length });
+
+    for (int y = 60; y <= 84; y++)
+    for (int x = 54; x <= 90; x++)
+        World.world.GetTileSimple(x, y).Height = 100 + 2 * (x - 60);
+    var source = Make(64);
+    var target = Make(68, "wolf");
+    var outside = Make(68, "wolf");
+    var owner = source.GetExtend();
+    owner.NewCultisys(Cultisyses.Xian);
+    owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty();
+    source.setStatsDirty();
+    source.updateStats();
+    await Advance(.2f);
+    Ready(source);
+    Place(source, 64);
+    Place(target, 68);
+    Place(outside, 68, 84);
+    foreach (Actor actor in new[] { source, target, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float before = owner.GetCultisys<Xian>().wakan;
+    int hp = target.data.health, dryHp = outside.data.health;
+    var definition = Read("缓坡守恒流");
+    await Fire(definition, source, target);
+    Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f, "按原费用支付");
+    await Advance(.28f);
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => ((AbilityCast)Field(value, "Cast")).Plan.Id == definition.Id);
+    var cast = (AbilityCast)Field(running, "Cast");
+    var early = Layer(cast);
+    await Advance(3.5f);
+    var late = Layer(cast);
+    float Peak(FormLayerFrame frame) => ((Vector3[])Field(frame, "Water")).Max(v => v.x);
+    Check(late.Volume < early.Volume && late.Evaporated > early.Evaporated && Peak(late) < Peak(early),
+        "原有水量随地面铺开并逐渐变薄", new { early.Volume, lateVolume = late.Volume, earlyPeak = Peak(early), latePeak = Peak(late) });
+    Check(target.data.health < hp && outside.data.health == dryHp &&
+          contacts.Any(hit => hit.TargetId == target.id) && contacts.All(hit => hit.TargetId != outside.id),
+        "湿处实际扣血，干处无接触无伤", new { wetDamage = hp - target.data.health, dryDamage = dryHp - outside.data.health });
+    await Advance(2.1f);
+    views.Clear();
+    cast.AppendVisuals(views);
+    Check(endings.Count == 1 && !endings[0].Fact.Cancelled && views.Count == 0, "到期后退出并清除水面");
+
+    // 原来已验收的静态潮浪仍没有新水流通道；新着色分支只供动态有限水面。
+    var tide = Cultiway.Core.Visuals.Forms.FormResources.Load("tidal_wave");
+    Check(tide != null && tide.Meshes.All(part => !part.HasVertexAttribute(UnityEngine.Rendering.VertexAttribute.TexCoord5)),
+        "原版潮浪网格继续使用原材质分支");
+    return new { passed = true, checks };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

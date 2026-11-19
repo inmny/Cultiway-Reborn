@@ -14,6 +14,10 @@ internal static partial class FormLayerMeshes
     private static readonly List<Vector3> positions = new(), normals = new();
     /// <summary>表面坐标及厚度、泡沫。</summary>
     private static readonly List<Vector2> uv = new(), surface = new();
+    /// <summary>有限水层的横向速度、干湿阈值与前沿泡沫。</summary>
+    private static readonly List<Vector4> currents = new();
+    /// <summary>相邻两行格中心复用，避免为每个三角形重复取样。</summary>
+    private static Vertex[] lower = Array.Empty<Vertex>(), upper = Array.Empty<Vertex>();
     /// <summary>已经去掉干燥处的三角形。</summary>
     private static readonly List<int> indices = new();
     /// <summary>裁切缓冲复用，不为每个三角形分配小数组和列表。</summary>
@@ -31,7 +35,9 @@ internal static partial class FormLayerMeshes
             entry.Mesh.MarkDynamic(); entries.Add(entry);
         }
         if (entry.Frame != null && entry.Frame.TryGetTarget(out FormLayerFrame current) && ReferenceEquals(current, frame)) return entry.Mesh;
-        Build(frame); Mesh mesh = entry.Mesh; mesh.Clear(); mesh.SetVertices(positions); mesh.SetNormals(normals); mesh.SetUVs(0, uv); mesh.SetUVs(3, surface); mesh.SetTriangles(indices, 0); mesh.bounds = frame.Bounds;
+        Build(frame); Mesh mesh = entry.Mesh; mesh.Clear(keepVertexLayout: false); mesh.SetVertices(positions); mesh.SetNormals(normals); mesh.SetUVs(0, uv); mesh.SetUVs(3, surface);
+        if (currents.Count != 0) mesh.SetUVs(5, currents);
+        mesh.SetTriangles(indices, 0); mesh.bounds = frame.Bounds;
         entry.Frame = new WeakReference<FormLayerFrame>(frame); return mesh;
     }
 
@@ -39,33 +45,75 @@ internal static partial class FormLayerMeshes
     /// <param name="frame">完整发布状态。</param>
     private static void Build(FormLayerFrame frame)
     {
-        positions.Clear(); normals.Clear(); uv.Clear(); surface.Clear(); indices.Clear();
+        positions.Clear(); normals.Clear(); uv.Clear(); surface.Clear(); currents.Clear(); indices.Clear();
         if (frame.Columns) { BuildColumns(frame); return; }
-        for (int y = frame.SharedGrid ? 0 : -1; y < frame.Cells; y++) for (int x = frame.SharedGrid ? 0 : -1; x < frame.Cells; x++)
+        bool finite = !frame.SharedGrid;
+        float dry = frame.DryDepth;
+        int first = finite ? -1 : 0;
+        int samples = frame.Cells - first + 1;
+        if (lower.Length < samples)
         {
-            Vertex a = At(x, y), b = At(x + 1, y), c = At(x + 1, y + 1), d = At(x, y + 1);
-            Triangle(a, b, c); Triangle(a, c, d);
+            lower = new Vertex[samples];
+            upper = new Vertex[samples];
+        }
+        SampleRow(first, lower);
+        for (int y = first; y < frame.Cells; y++)
+        {
+            SampleRow(y + 1, upper);
+            for (int i = 0; i < samples - 1; i++)
+            {
+                Triangle(lower[i], lower[i + 1], upper[i + 1]);
+                Triangle(lower[i], upper[i + 1], upper[i]);
+            }
+            (lower, upper) = (upper, lower);
+        }
+
+        void SampleRow(int y, Vertex[] row)
+        {
+            for (int i = 0; i < samples; i++) row[i] = At(first + i, y);
         }
         Vertex At(int x, int y)
         {
-            int cx = Mathf.Clamp(x, 0, frame.Cells - 1), cy = Mathf.Clamp(y, 0, frame.Cells - 1), i = cy * frame.Cells + cx;
-            float depth = frame.WaterAt(x, y).x;
-            Vector3 velocity = frame.WaterAt(x, y);
-            float foam = depth > 0
-                ? Mathf.Clamp01(new Vector2(velocity.y, velocity.z).magnitude / Mathf.Max(depth, .00001f) * .045f)
-                : 0;
-            foam = Mathf.Max(foam, frame.ConductionAt(x, y));
+            Vector3 water = frame.WaterAt(x, y);
+            float depth = water.x;
+            Vector2 velocity = Velocity(water);
+            float foam = frame.ConductionAt(x, y);
+            Vector4 current = default;
+            if (finite)
+            {
+                float front = 0;
+                if (depth > dry)
+                {
+                    float speed = velocity.magnitude;
+                    if (speed > .35f)
+                    {
+                        // 前方水流变浅或减速才会起沫，整片快速平流不会泛白。
+                        float horizontal = Mathf.Abs(velocity.x), vertical = Mathf.Abs(velocity.y);
+                        Vector3 next = Vector3.Lerp(frame.WaterAt(x, y + (velocity.y < 0 ? -1 : 1)),
+                            frame.WaterAt(x + (velocity.x < 0 ? -1 : 1), y), horizontal / (horizontal + vertical));
+                        float shallower = Mathf.Clamp01((depth - next.x) / depth);
+                        float slower = Mathf.Clamp01(1f - Vector2.Dot(velocity, Velocity(next)) / (speed * speed));
+                        front = Mathf.Clamp01((speed - .35f) * .37f) * (.55f * shallower + .45f * slower) *
+                                Mathf.Clamp01((depth - 2f * dry) / (8f * dry));
+                    }
+                    current = new Vector4(velocity.x, velocity.y, dry, front);
+                }
+                else current.z = dry;
+            }
+            else foam = Mathf.Max(foam, Mathf.Clamp01(velocity.magnitude * .045f));
             Vector3 normal = new Vector3(-(Top(x + 1, y) - Top(x - 1, y)) / (2f * frame.Cell),
                 -(Top(x, y + 1) - Top(x, y - 1)) / (2f * frame.Cell), 1f).normalized;
-            return new Vertex { Position = new Vector3(frame.Origin.x + (x + .5f) * frame.Cell, frame.Origin.y + (y + .5f) * frame.Cell, frame.GroundAt(x, y) + depth), Normal = normal, Depth = depth, Foam = foam,
-                Cell = new Vector2Int(x, y)
+            return new Vertex
+            {
+                Position = new Vector3(frame.Origin.x + (x + .5f) * frame.Cell, frame.Origin.y + (y + .5f) * frame.Cell,
+                    frame.GroundAt(x, y) + depth),
+                Normal = normal, Depth = depth, Foam = foam, Current = current, Cell = new Vector2Int(x, y)
             };
         }
-        float Top(int x, int y)
-        {
-            int cx = Mathf.Clamp(x, 0, frame.Cells - 1), cy = Mathf.Clamp(y, 0, frame.Cells - 1), i = cy * frame.Cells + cx;
-            return frame.GroundAt(x, y) + frame.WaterAt(x, y).x;
-        }
+        Vector2 Velocity(Vector3 water) => water.x > (finite ? dry : 0)
+            ? new Vector2(water.y, water.z) / Mathf.Max(water.x, .00001f)
+            : Vector2.zero;
+        float Top(int x, int y) => frame.GroundAt(x, y) + frame.WaterAt(x, y).x;
         void Triangle(Vertex a, Vertex b, Vertex c)
         {
             // 三条边分别裁切，最多形成四边形；边缘位置与水深共同插值。
@@ -101,7 +149,14 @@ internal static partial class FormLayerMeshes
             if (count < 3) return;
             int start = positions.Count;
             for (int i = 0; i < count; i++)
-            { Vertex vertex = input[i]; positions.Add(vertex.Position); normals.Add(vertex.Normal); uv.Add((Vector2)vertex.Position * .3f); surface.Add(new Vector2(vertex.Depth, vertex.Foam)); }
+            {
+                Vertex vertex = input[i];
+                positions.Add(vertex.Position);
+                normals.Add(vertex.Normal);
+                uv.Add((Vector2)vertex.Position * .3f);
+                surface.Add(new Vector2(vertex.Depth, vertex.Foam));
+                if (finite) currents.Add(vertex.Current);
+            }
             for (int i = 1; i < count - 1; i++) { indices.Add(start); indices.Add(start + i + 1); indices.Add(start + i); }
         }
     }
@@ -158,9 +213,12 @@ internal static partial class FormLayerMeshes
 
         /// <summary>实际水深及同一流动产生的泡沫比例。</summary>
         internal float Depth, Foam;
+
+        /// <summary>有限水流的显示取样，与水深沿同一边插值。</summary>
+        internal Vector4 Current;
         /// <summary>干湿边界按共同水深线性插值。</summary>
         /// <param name="a">边起点。</param><param name="b">边终点。</param><param name="t">边上进度。</param>
         internal static Vertex Lerp(Vertex a, Vertex b, float t) => new() {
-            Weights = Vector3.Lerp(a.Weights, b.Weights, t), Position = Vector3.Lerp(a.Position, b.Position, t), Normal = Vector3.Lerp(a.Normal, b.Normal, t).normalized, Depth = Mathf.Lerp(a.Depth, b.Depth, t), Foam = Mathf.Lerp(a.Foam, b.Foam, t) };
+            Weights = Vector3.Lerp(a.Weights, b.Weights, t), Position = Vector3.Lerp(a.Position, b.Position, t), Normal = Vector3.Lerp(a.Normal, b.Normal, t).normalized, Depth = Mathf.Lerp(a.Depth, b.Depth, t), Foam = Mathf.Lerp(a.Foam, b.Foam, t), Current = Vector4.Lerp(a.Current, b.Current, t) };
     }
 }
