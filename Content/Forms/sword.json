@@ -30,8 +30,8 @@
                     "Id": "grip",
                     "Values": [
                         0.054999999701976779,
-                        0.06499999761581421,
-                        0.550000011920929
+                        0.06400000303983689,
+                        0.5759999752044678
                     ]
                 },
                 {
@@ -98,7 +98,10 @@
     ],
     "Parts": [
         {
-            "DetailMeshes": [],
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/sword_blade_mid.asset",
+                "Assets/Cultiway/Forms/sword_blade_far.asset"
+            ],
             "Roles": [
                 "blade.edge",
                 "blade.spine"

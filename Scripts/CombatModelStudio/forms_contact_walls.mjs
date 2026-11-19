@@ -59,7 +59,9 @@ export function makeWindWall() {
 }
 
 /** 原剑的刃脊、护手、柄与尾首完整保留，剑锋朝下形成可辨认的悬剑屏障。 */
-export function makeSwordCurtain(sword) {
+export function makeSwordCurtain(sword, distantGrip) {
+  // 群剑保留远处可读的完整轮廓，不给每一把复制近景包缠。
+  const swordParts = sword.Parts.map(p => p.Id === 'grip' ? distantGrip : p);
   const count=15,spacing=.34,scale=.72,parts=[],controls=[],contacts=[];
   for(let i=0;i<count;i++) {
     const id=`sword_${i}`,x=(i-7)*spacing,origin=new T.Vector3(x,0,1.98+.045*Math.sin(i));
@@ -67,7 +69,7 @@ export function makeSwordCurtain(sword) {
     controls.push({Id:id,Position:[x,0,0],Rotation:[0,0,0,1]});
     const transform=a=>new T.Vector3(...a).multiplyScalar(scale).applyQuaternion(rotation).add(origin).toArray().map(round);
     const offset=parts.length;
-    for(const source of sword.Parts) {
+    for(const source of swordParts) {
       const positions=[],normals=[];
       for(let j=0;j<source.Positions.length;j+=3) {
         positions.push(...transform(source.Positions.slice(j,j+3)));

@@ -21,13 +21,14 @@ def appearance(section):
     folder = Path(tempfile.mkdtemp(prefix="form-visibility-", dir=os.environ["CULTIWAY_DEV_OUTPUT"]))
     world = PROJECT / "Scripts/WorldSaveTests/Fixtures/world-format-1"
     directory = Path(__file__).parent
-    helpers = (directory / "verify_body_footwork.script").read_text().split("var bindingType =", 1)[0]
+    helper_end = "var bridge =" if section == "held-sword" else "var bindingType ="
+    helpers = (directory / "verify_body_footwork.script").read_text().split(helper_end, 1)[0]
     helpers = helpers.replace('"artifacts/skill_rebuild/body-footwork"', json.dumps(str(folder)))
     helpers = helpers.replace('Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")', json.dumps(str(world)))
     helpers = helpers.replace('if (contact.AbilityId.StartsWith("test.body-footwork.")) contacts.Add(contact);', 'contacts.Add(contact);')
     camera = (directory / "verify_appearance_camera.script").read_text()
     body_name = {"meteor-motion": "verify_meteor_motion.script", "palm-motion": "verify_palm_motion.script",
-                 "palm-motion-miss": "verify_palm_motion.script"}
+                 "palm-motion-miss": "verify_palm_motion.script", "held-sword": "verify_held_sword.script"}
     body = (directory / body_name.get(section, "verify_form_visibility.script")).read_text()
     if section.startswith("palm-motion"):
         camera = camera.replace("    ControllableUnit.clear(false);\n", "")
@@ -56,7 +57,7 @@ def main():
     """在独立游戏中读取真正资源，保存数值检查及可选的共同动作录像。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--record", action="store_true", help="录制原版和三维中的近中远主体")
-    parser.add_argument("--appearance", nargs="?", const="all", choices=("all", "meteor", "meteor-motion", "palm-motion", "palm-motion-miss"), help="既有形体视距、炎陨落地或掌击收势")
+    parser.add_argument("--appearance", nargs="?", const="all", choices=("all", "meteor", "meteor-motion", "palm-motion", "palm-motion-miss", "held-sword"), help="既有形体视距、炎陨落地、掌击收势或持剑")
     args = parser.parse_args()
     if args.appearance:
         appearance(args.appearance)
