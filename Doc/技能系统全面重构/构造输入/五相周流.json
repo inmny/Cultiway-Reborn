@@ -1,0 +1,272 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.FivePhaseLoop",
+  "Name": "五相周流",
+  "Resource": "mana",
+  "Cost": 12,
+  "Cooldown": 0,
+  "Power": 1.7,
+  "Lifetime": 8,
+  "TargetRange": 24,
+  "Binding": {
+    "Anchor": "Source",
+    "FaceTarget": false
+  },
+  "Root": {
+    "Id": "earth",
+    "Form": "five_phase_mantle",
+    "Matter": "earth",
+    "Volume": 12,
+    "ContactRole": "Barrier",
+    "Strength": 1.4,
+    "Offset": [
+      2.2,
+      0,
+      -0.14
+    ],
+    "Rotation": [
+      0,
+      0,
+      -90
+    ],
+    "DisappearAt": 2.0,
+    "Operations": [
+      {
+        "Kind": "PassRemainder",
+        "At": 0.12,
+        "When": {
+          "Trigger": "Clash",
+          "Delay": 0.22
+        }
+      }
+    ],
+    "Children": [
+      {
+        "Id": "wood",
+        "Form": "five_phase_roots",
+        "Matter": "wood",
+        "DisappearAt": 2.3,
+        "FollowMatter": true,
+        "Offset": [
+          0,
+          0,
+          -0.12
+        ],
+        "Activation": {
+          "Trigger": "Handoff",
+          "InheritRemainder": true,
+          "ResetContacts": true
+        },
+        "Contact": {
+          "Mode": "Interval",
+          "Interval": 0.24
+        },
+        "Impact": {
+          "DamageScale": 0.27,
+          "StaggerSeconds": 0.26
+        },
+        "Operations": [
+          {
+            "Kind": "ConvertMatter",
+            "Matter": "wood",
+            "State": "solid"
+          },
+          {
+            "Kind": "Animate",
+            "Clip": "rise"
+          },
+          {
+            "Kind": "Fly",
+            "At": 0.35,
+            "Vector": [
+              1.8,
+              0,
+              0
+            ],
+            "WorldVelocity": true,
+            "InheritVelocity": false
+          },
+          {
+            "Kind": "PassRemainder",
+            "At": 0.46,
+            "When": {
+              "Trigger": "ActorContact",
+              "Delay": 0.22
+            }
+          }
+        ],
+        "Children": [
+          {
+            "Id": "water",
+            "Form": "water_flow",
+            "Matter": "water",
+            "Scale": 0.52,
+            "DisappearAt": 2.34,
+            "FollowMatter": true,
+            "Offset": [
+              0,
+              0,
+              -0.12
+            ],
+            "Activation": {
+              "Trigger": "Handoff",
+              "InheritRemainder": true,
+              "ResetContacts": true
+            },
+            "Contact": {
+              "Mode": "Interval",
+              "Interval": 0.24
+            },
+            "Impact": {
+              "DamageScale": 0.2,
+              "Force": 0.18,
+              "SlideSeconds": 0.22
+            },
+            "Operations": [
+              {
+                "Kind": "ConvertMatter",
+                "Matter": "water",
+                "State": "liquid"
+              },
+              {
+                "Kind": "Flow",
+                "Flow": {
+                  "Cells": 20,
+                  "Size": 19,
+                  "Gravity": 1.08,
+                  "Drag": 0.13,
+                  "Evaporation": 0,
+                  "OpenBoundary": false
+                }
+              },
+              {
+                "Kind": "PassRemainder",
+                "At": 0.6,
+                "When": {
+                  "Trigger": "ActorContact",
+                  "Delay": 0.23
+                }
+              }
+            ],
+            "Children": [
+              {
+                "Id": "fire",
+                "Form": "five_phase_kiln",
+                "Matter": "fire",
+                "DisappearAt": 1.85,
+                "FollowMatter": true,
+                "Offset": [
+                  0,
+                  0,
+                  -0.25
+                ],
+                "Activation": {
+                  "Trigger": "Handoff",
+                  "InheritRemainder": true,
+                  "ResetContacts": true
+                },
+                "Contact": {
+                  "Mode": "Interval",
+                  "Interval": 0.24
+                },
+                "Impact": {
+                  "DamageScale": 0.63
+                },
+                "Operations": [
+                  {
+                    "Kind": "ConvertMatter",
+                    "Matter": "fire",
+                    "State": "energy"
+                  },
+                  {
+                    "Kind": "Animate",
+                    "Clip": "roll"
+                  },
+                  {
+                    "Kind": "PassRemainder",
+                    "At": 0.18,
+                    "When": {
+                      "Trigger": "ActorContact",
+                      "Delay": 0.34
+                    }
+                  }
+                ],
+                "Children": [
+                  {
+                    "Id": "iron",
+                    "Form": "five_phase_press",
+                    "Matter": "iron",
+                    "DisappearAt": 1.16,
+                    "FollowMatter": true,
+                    "Offset": [
+                      0,
+                      -0.65,
+                      -0.56
+                    ],
+                    "Activation": {
+                      "Trigger": "Handoff",
+                      "InheritRemainder": true,
+                      "ResetContacts": true
+                    },
+                    "Contact": {
+                      "Mode": "Interval",
+                      "Interval": 0.24
+                    },
+                    "Impact": {
+                      "DamageScale": 1.4
+                    },
+                    "Operations": [
+                      {
+                        "Kind": "ConvertMatter",
+                        "Matter": "iron",
+                        "State": "solid"
+                      },
+                      {
+                        "Kind": "Fly",
+                        "At": 0.24,
+                        "Vector": [
+                          2.3,
+                          0,
+                          0
+                        ],
+                        "WorldVelocity": true,
+                        "InheritVelocity": false
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "Id": "ledge",
+        "Form": "five_phase_mantle",
+        "Matter": "earth",
+        "Scale": 0.38,
+        "Offset": [
+          1.4,
+          -0.15,
+          -0.18
+        ],
+        "Strength": 0.33,
+        "Activation": {
+          "Trigger": "Handoff",
+          "InheritRemainder": true
+        },
+        "ContactRole": "Barrier",
+        "DisappearAt": 1.1,
+        "Operations": [
+          {
+            "Kind": "Leave",
+            "At": 0.25,
+            "Residue": {
+              "Lifetime": 30
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

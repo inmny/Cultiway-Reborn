@@ -349,7 +349,10 @@ public enum ConstructionOperationKind
     RetimeErosion = 24,
 
     /// <summary>向本次实际选中的人物送达讯号，不通过接触。</summary>
-    SendSignal = 25
+    SendSignal = 25,
+
+    /// <summary>结束一个仍有余量的生成部位，按实际触发点把余量交给等待交接的部位。</summary>
+    PassRemainder = 26
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>

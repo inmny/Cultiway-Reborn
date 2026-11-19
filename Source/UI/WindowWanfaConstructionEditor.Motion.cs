@@ -23,11 +23,14 @@ public sealed partial class WindowWanfaConstructionEditor
                     ConstructionOperationKind.ConvertMatter, ConstructionOperationKind.Gather,
                     ConstructionOperationKind.Fracture, ConstructionOperationKind.Flow,
                     ConstructionOperationKind.Recover, ConstructionOperationKind.Erode, ConstructionOperationKind.RetimeErosion,
-                    ConstructionOperationKind.Leave, ConstructionOperationKind.Conduct, ConstructionOperationKind.Propagate, ConstructionOperationKind.Ray
+                    ConstructionOperationKind.Leave, ConstructionOperationKind.Conduct, ConstructionOperationKind.Propagate,
+                    ConstructionOperationKind.Ray, ConstructionOperationKind.PassRemainder
                 }.Where(kind => kind != ConstructionOperationKind.Leave || !node.Operations.Any(o => o.Kind == kind))
                 .Where(kind => kind != ConstructionOperationKind.Ray ||
                     Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Span != null && !node.Operations.Any(o => o.Ray != null))
                 .Where(kind => kind != ConstructionOperationKind.RetimeErosion || Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Meshes.Length > 0)
+                .Where(kind => kind != ConstructionOperationKind.PassRemainder || node.ContactRole != ConstructionContactRole.Decoration &&
+                    Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Meshes.Length > 0)
                 .Where(kind => kind != ConstructionOperationKind.Gather || part > 0).Where(kind =>
                     kind != ConstructionOperationKind.Fracture ||
                     Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Meshes.Length > 1 &&
@@ -163,7 +166,8 @@ public sealed partial class WindowWanfaConstructionEditor
                 ? new ConstructionCondition { Trigger = ConstructionChangeTrigger.ForceBelow, Threshold = .5f }
                 : kind == ConstructionOperationKind.Propagate
                     ? new ConstructionCondition { Trigger = ConstructionChangeTrigger.WorldContact }
-                    : new ConstructionCondition(),
+                    : new ConstructionCondition { Trigger = kind == ConstructionOperationKind.PassRemainder && node.ContactRole == ConstructionContactRole.Barrier
+                        ? ConstructionChangeTrigger.Clash : ConstructionChangeTrigger.ActorContact },
             Seconds = kind is ConstructionOperationKind.Grow or ConstructionOperationKind.Gather or ConstructionOperationKind.Deform ? 1f :
                 kind == ConstructionOperationKind.Recover ? .6f : kind == ConstructionOperationKind.Erode ? Math.Min(1f, lifetime) : 0f,
             TargetScale = kind == ConstructionOperationKind.Grow ? 2f : null,

@@ -58,7 +58,9 @@ internal sealed class CompiledConstructionActivation : CompiledConstructionCondi
         if (Target != null && (Trigger != ConstructionChangeTrigger.ActorContact || Placement != ConstructionEventPlacement.Event || InheritRemainder))
             throw new InvalidDataException(path + "：附近选敌需要人物接触及事件处独立开始，不能同时接受结束余量");
         if (!Enum.IsDefined(typeof(ConstructionEventPlacement), Placement)) throw new InvalidDataException(path + "：事件放置无效");
-        if (InheritRemainder && (Trigger != ConstructionChangeTrigger.End || Placement != ConstructionEventPlacement.Event))
-            throw new InvalidDataException(path + "：余量交接需要来源结束事件及事件处独立开始");
+        if (InheritRemainder && (Trigger is not (ConstructionChangeTrigger.End or ConstructionChangeTrigger.Handoff) || Placement != ConstructionEventPlacement.Event))
+            throw new InvalidDataException(path + "：余量交接需要结束或明确交接事件，并在事件处独立开始");
+        if (Trigger == ConstructionChangeTrigger.Handoff && !InheritRemainder)
+            throw new InvalidDataException(path + "：等待交接的部位必须继承实际余量");
     }
 }

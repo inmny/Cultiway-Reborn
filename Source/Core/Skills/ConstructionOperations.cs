@@ -85,6 +85,9 @@ public static class ConstructionOperations
         var part = new ConstructionOperationPort("part", Value.Part);
         var material = new ConstructionOperationPort("material", Value.Material);
         var world = new ConstructionOperationPort("worldMaterials", Value.Material, false, true, true);
+        Add(ConstructionOperationKind.PassRemainder, new[] { part }, new[] { Port("passed", Value.Result) },
+            State.Pose | State.Matter | State.Connection, Resource.Matter, Effect.Matter | Effect.Connection,
+            Array.Empty<string>());
         Add(ConstructionOperationKind.SendSignal, new[] { part }, new[] { part, Port("delivered", Value.Result) },
             State.Event, Resource.Target, Effect.World, new[] { nameof(ConstructionOperation.Signal) }, new[] { nameof(ConstructionOperation.Signal) });
         Add(ConstructionOperationKind.MapArtifact, new[] { part, Port("entrance", Value.Part), Port("exit", Value.Part) },

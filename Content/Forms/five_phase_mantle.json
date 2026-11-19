@@ -1,0 +1,194 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_five_phases.mjs",
+            "Entry": "makeMantle",
+            "Parameters": [
+                {
+                    "Id": "cols",
+                    "Values": [
+                        -1.0399999618530274,
+                        0.0,
+                        1.0399999618530274
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "footing/crown",
+                "Parent": "footing",
+                "Child": "crown",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.6200000047683716
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "footing/seams",
+                "Parent": "footing",
+                "Child": "seams",
+                "Position": [
+                    0.0,
+                    0.4000000059604645,
+                    0.6000000238418579
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "separate"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "five_phase_mantle",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "structure.base"
+            ],
+            "Id": "footing",
+            "Surface": "stone",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/five_phase_mantle_footing.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "shield.face"
+            ],
+            "Id": "crown",
+            "Surface": "five_shale",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/five_phase_mantle_crown.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "surface.mark"
+            ],
+            "Id": "seams",
+            "Surface": "five_silt",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/five_phase_mantle_seams.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "bearing_0",
+            "Part": 0,
+            "A": [
+                -1.25,
+                0.25999999046325686,
+                0.47999998927116396
+            ],
+            "B": [
+                1.25,
+                0.25999999046325686,
+                0.47999998927116396
+            ],
+            "Radius": 0.5199999809265137,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "bearing_1",
+            "Part": 1,
+            "A": [
+                -1.25,
+                0.25999999046325686,
+                1.100000023841858
+            ],
+            "B": [
+                1.25,
+                0.25999999046325686,
+                1.100000023841858
+            ],
+            "Radius": 0.5199999809265137,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "bearing_2",
+            "Part": 1,
+            "A": [
+                -1.25,
+                0.25999999046325686,
+                1.6200000047683716
+            ],
+            "B": [
+                1.25,
+                0.25999999046325686,
+                1.6200000047683716
+            ],
+            "Radius": 0.5199999809265137,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

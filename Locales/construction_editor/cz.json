@@ -1,4 +1,11 @@
 {
+  "Cultiway.Construction.MotionKind.PassRemainder": "交接剩余材料",
+  "Cultiway.Construction.Form.five_phase_mantle": "交锋岩壳",
+  "Cultiway.Construction.Form.five_phase_roots": "双枝木冠",
+  "Cultiway.Construction.Form.five_phase_kiln": "翻焰火胆",
+  "Cultiway.Construction.Form.five_phase_press": "金属锻刃",
+  "Cultiway.Construction.Event.Handoff": "实际交接完成",
+  "Cultiway.Construction.EventHint.Handoff": "只有明确交接成功才会开始；原部位结束，其余力和未耗份额随新部位继续。",
     "Cultiway.Construction.Form.spirit_ray_luminous": "灵光束",
     "Cultiway.Construction.Form.solar_ray_luminous": "阳芒束",
   "Cultiway.UI.WindowWanfaConstructionEditor Title": "构造法术改造",

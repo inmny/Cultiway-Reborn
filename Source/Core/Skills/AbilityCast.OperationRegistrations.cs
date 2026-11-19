@@ -11,6 +11,13 @@ public sealed partial class AbilityCast
     /// <summary>旧专用定时入口保持原实现；所有条件及命名执行共用同一登记表。</summary>
     internal static void RegisterOperationImplementations()
     {
+        ConstructionOperations.Register<object>(ConstructionOperationKind.PassRemainder, _ => null,
+            (cast, action, _) => cast.PassRemainder(action), immediate: _ => true,
+            validate: (form, _, path) =>
+            {
+                if (form.BodyWindow || form.ContactRole == ConstructionContactRole.Decoration || form.Resource.Meshes.Length == 0)
+                    throw new InvalidDataException(path + "：交接需要有作用量的生成部位");
+            });
         ConstructionOperations.Register(ConstructionOperationKind.SendSignal,
             context => new CompiledConstructionSignal(context.Source.Signal, context.Path + "/Signal"),
             (cast, action, _) =>

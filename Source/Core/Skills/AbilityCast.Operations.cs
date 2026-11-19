@@ -83,9 +83,11 @@ public sealed partial class AbilityCast
     /// <param name="index">已经到时的操作。</param>
     private void ApplyOperation(int index)
     {
-        operations[index].Done = true;
         CompiledEventOperation operation = Plan.EventOperations[index]; var program = Plan.Program;
         CompiledCommand command = program.Commands[program.EventCommands[index]]; int node = command.Node;
+        // 交锋先扣减双方力量；监听派发完毕后再交接，避免把未扣减的力量交给下一部位。
+        if (operation.Kind == ConstructionOperationKind.PassRemainder && (dispatchingEvents || nodes[node].HasClashPoint)) return;
+        operations[index].Done = true;
         nodes[node].PendingOperations &= (ushort)(ushort.MaxValue ^ (1 << (index - program.NodeEvents[node].Start)));
         ref NodeState state = ref nodes[node];
         if (state.Recovering || state.Leaving) return;

@@ -21,7 +21,19 @@ public sealed partial class WindowWanfaConstructionEditor
                 Select = () => Change(() =>
                 {
                     condition.Trigger = trigger;
-                    if (condition is ConstructionActivation activation && trigger != ConstructionChangeTrigger.End) { activation.InheritRemainder = false; activation.ResetContacts = false; }
+                    if (condition is ConstructionActivation activation)
+                    {
+                        if (trigger == ConstructionChangeTrigger.Handoff)
+                        {
+                            activation.InheritRemainder = true;
+                            activation.Placement = ConstructionEventPlacement.Event;
+                        }
+                        else if (trigger != ConstructionChangeTrigger.End)
+                        {
+                            activation.InheritRemainder = false;
+                            activation.ResetContacts = false;
+                        }
+                    }
                     if (trigger != ConstructionChangeTrigger.MatterChanged) { condition.Matter = null; condition.State = null; }
                     condition.Threshold = trigger switch
                     {
@@ -45,7 +57,7 @@ public sealed partial class WindowWanfaConstructionEditor
         }
 
         if (condition.Trigger is ConstructionChangeTrigger.GroundRouteDistance or ConstructionChangeTrigger.WaterRouteArrival
-            or ConstructionChangeTrigger.SignalDelivery)
+            or ConstructionChangeTrigger.SignalDelivery or ConstructionChangeTrigger.Handoff)
             Row("ArrivalRules", T("EventHint." + condition.Trigger));
     }
 
@@ -63,6 +75,12 @@ public sealed partial class WindowWanfaConstructionEditor
         Choice("ActivationSource", sourceName, () => ChooseActivationSource(gate));
         ConditionTriggerRows(gate, "Activation");
         Number("ActivationDelay", gate.Delay, value => gate.Delay = value);
+        if (gate.Trigger == ConstructionChangeTrigger.Handoff)
+        {
+            Row("EventPlacement", T("EventPlacement.Event"));
+            Toggle("ResetContacts", gate.ResetContacts, value => gate.ResetContacts = value);
+            return;
+        }
         Choice("EventPlacement", T("EventPlacement." + gate.Placement), () => menu.Show(T("EventPlacement"),
             Enum.GetValues(typeof(ConstructionEventPlacement)).Cast<ConstructionEventPlacement>().Select(placement => new UiOptionMenuOption
             {
@@ -96,26 +114,32 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <param name="gate">正在修改的独立条件。</param>
     private void ChooseActivationSource(ConstructionCondition gate)
     {
-        AbilityDefinition structure = ConstructionEditing.Copy(session.Draft);
-        ClearConditions(structure.Root);
-        CompiledAbility plan;
-        try { plan = AbilityCompiler.Compile(structure); }
-        catch (InvalidDataException error) { state.text = string.Format(T("Invalid"), error.Message); return; }
+        CompiledAbility plan = previewPlan;
+        if (plan == null)
+        {
+            AbilityDefinition structure = ConstructionEditing.Copy(session.Draft);
+            ClearConditions(structure.Root, true);
+            try { plan = AbilityCompiler.Compile(structure); }
+            catch (InvalidDataException error) { state.text = string.Format(T("Invalid"), error.Message); return; }
+        }
         var options = plan.Nodes.Select((node, index) => new UiOptionMenuOption
         {
             Label = EventPartName(node, index), Selected = gate.Source == node.Path,
             Select = () => Change(() => gate.Source = node.Path)
         }).Prepend(new UiOptionMenuOption
         { Label = T("ActivationParent"), Selected = gate.Source == "..", Select = () => Change(() => gate.Source = "..") }).ToList();
-        if (structure.Body != null) options.Insert(0, new UiOptionMenuOption
+        if (session.Draft.Body != null) options.Insert(0, new UiOptionMenuOption
         { Label = T("BodyOnly"), Selected = gate.Source == "body", Select = () => Change(() => gate.Source = "body") });
         if (gate is not ConstructionActivation) options.Insert(0, new UiOptionMenuOption
         { Label = T("EventSelf"), Selected = gate.Source == ".", Select = () => Change(() => gate.Source = ".") });
         menu.Show(T("ActivationSource"), options, true);
-        void ClearConditions(ConstructionNode node)
+        void ClearConditions(ConstructionNode node, bool root = false)
         {
             if (node == null) return;
-            node.Activation = null;
+            // 只为列出可选来源。保留独立放置，避免已经能飞行的后段被当作仍附着。
+            node.Activation = !root && node.Activation?.Placement == ConstructionEventPlacement.Event
+                ? new ConstructionActivation { Source = "..", Trigger = ConstructionChangeTrigger.End }
+                : null;
             node.Operations = node.Operations.Where(operation => operation.When == null).ToArray();
             foreach (ConstructionNode child in node.Children) ClearConditions(child);
         }

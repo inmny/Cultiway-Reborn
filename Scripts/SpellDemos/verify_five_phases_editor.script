@@ -1,0 +1,82 @@
+var definition = Spell("五相周流");
+ConstructedAbilityService.Register(definition);
+ConstructedAbilityService.Learn(source.GetExtend(), definition.Id);
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(definition.Id, source);
+async Task Frames(int count = 3)
+{
+    for (int i = 0; i < count; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    Canvas.ForceUpdateCanvases();
+}
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+Button Button(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+void Click(string name)
+{
+    if (!Button(name).interactable) throw new InvalidOperationException("按钮不可用：" + name);
+    Button(name).onClick.Invoke();
+}
+WanfaEditorRow Row(string key) => editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r => ((Text)Field(r, "_title")).text == T(key));
+void Choose(string key, string text)
+{
+    ((Button)Field(Row(key), "_action")).onClick.Invoke();
+    editor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && b.GetComponentInChildren<Text>().text == text).onClick.Invoke();
+}
+void Child()
+{
+    Click("Page4"); Click("Part"); Click("Option1");
+}
+ConstructionActivation Gate() => Session().Draft.Root.Children[0].Activation;
+async Task Capture(string language)
+{
+    await Frames();
+    var row = (RectTransform)Row("ActivationTrigger").transform;
+    var scroll = row.GetComponentInParent<ScrollRect>();
+    var local = scroll.content.InverseTransformPoint(row.TransformPoint(row.rect.center));
+    float distance = scroll.content.rect.yMax - local.y - scroll.viewport.rect.height * .5f;
+    scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(distance / Mathf.Max(1f, scroll.content.rect.height - scroll.viewport.rect.height));
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(); await Shot("handoff-" + language);
+}
+try
+{
+    Child();
+    Check(Gate().Trigger == ConstructionChangeTrigger.Handoff && Gate().InheritRemainder && Button("Replace").interactable,
+        "已学资料的交接事件可以读入正式编辑器");
+    ((Button)Field(Row("ActivationSource"), "_action")).onClick.Invoke();
+    Click("Option6");
+    Check(!Button("Replace").interactable, "无交接操作的来源不能保存");
+    Choose("ActivationSource", T("ActivationParent"));
+    Check(Button("Replace").interactable, "草稿无效时仍可从菜单改回正确来源");
+    Choose("ActivationTrigger", T("Event.End"));
+    Choose("ActivationTrigger", T("Event.Handoff"));
+    Check(Gate().Placement == ConstructionEventPlacement.Event && Gate().InheritRemainder && Button("Replace").interactable,
+        "改回明确交接时自动恢复独立放置和继承所需条件");
+    Click("Part"); Click("Option0");
+    ((Button)Field(Row("RemoveMotion"), "_action")).onClick.Invoke();
+    Check(!Button("Replace").interactable, "删掉交接操作后，不让后段凭空生效");
+    Choose("AddMotion", T("MotionKind.PassRemainder"));
+    Check(Session().Draft.Root.Operations.Single().When.Trigger == ConstructionChangeTrigger.Clash && Button("Replace").interactable,
+        "岩壳可以在普通表单重新添加交接，默认等待真实交锋");
+    Click("Part"); Click("Option1");
+    Row("ResetContacts").GetComponentsInChildren<Toggle>(false).Single().isOn = false;
+    await Capture("cz");
+    Click("Replace"); var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(!saved.Root.Children[0].Activation.ResetContacts, "正式替换保存实际交接及接触次数设置");
+    Click("Close"); await Frames();
+    LocalizedTextManager.instance.setLanguage("en");
+    WindowWanfaConstructionEditor.Open(saved.Id, source); await Frames(); Child();
+    Check(Gate().Trigger == ConstructionChangeTrigger.Handoff && Gate().InheritRemainder && !Gate().ResetContacts &&
+        T("Event.Handoff") == "On confirmed handoff", "重开恢复交接定义，英文说明到位");
+    await Capture("en");
+    return new { passed = true, scene = "construction", resource = definition.Resource, paid = definition.Cost };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ReleaseChecks(); LocalizedTextManager.instance.setLanguage("cz");
+}

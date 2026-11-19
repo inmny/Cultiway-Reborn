@@ -16,6 +16,7 @@ import {makeRay,makeSourceRays,makeLuminousRays,makeThunderChannel} from './form
 import {makeEarthSpikes,makeEarthWall} from './forms_earth.mjs';
 import {makeRift} from './forms_rift.mjs';
 import {makeFields} from './forms_fields.mjs';
+import {makeFivePhases} from './forms_five_phases.mjs';
 import {makeIceWall,makeWoodWall} from './forms_solid_walls.mjs';
 import {makeFireWall,makeWindWall,makeSwordCurtain} from './forms_contact_walls.mjs';
 import {makeAegises} from './forms_aegises.mjs';
@@ -49,6 +50,7 @@ makeFireWall();
 makeWindWall();
 makeRift();
 makeFields();
+makeFivePhases();
 makeSupport();
 makePolarity();
 makeAegises();

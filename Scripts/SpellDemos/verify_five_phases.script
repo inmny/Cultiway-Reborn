@@ -1,0 +1,211 @@
+const string phaseCase = "";
+string sequenceName = phaseCase == "reordered" ? "五相换序" : "五相周流";
+var sequence = Spell(sequenceName);
+File.Copy(Path.Combine(inputRoot, sequenceName + ".json"), Path.Combine(folder, "definition.json"));
+CombatStatusEffects.ApplyStatus(victim, mana, 10000, victim);
+var clashes = new List<ConstructedClash>();
+var quenchings = new List<ConstructedQuenching>();
+void Meet(ConstructedClash fact) => clashes.Add(fact);
+void Quench(ConstructedQuenching fact) => quenchings.Add(fact);
+ConstructedAbilityService.ClashConfirmed += Meet;
+ConstructedAbilityService.QuenchingConfirmed += Quench;
+
+float targetX = 69f;
+async Task<(long Id, AbilityCast Cast)> Cast(AbilityDefinition definition, Actor from, Actor to)
+{
+    Place(source, 64); Place(victim, targetX); from.setMana(64);
+    ConstructedAbilityService.NotifyActorChanged(source);
+    ConstructedAbilityService.NotifyActorChanged(victim);
+    float balance = from.getMana();
+    await Fire(definition, from, to);
+    from.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    Check(Mathf.Abs(balance - from.getMana() - definition.Cost) < .01f, "正式入口支付：" + definition.Name);
+    return (seen.Last().Key, seen.Last().Value);
+}
+AbilityDefinition Opponent(float power, bool fire = false, Vector3? at = null)
+{
+    var point = at ?? new Vector3(targetX, 72, 0);
+    return new AbilityDefinition {
+        Id = "test.five-phase.opposition." + (fire ? "fire" : power > 1 ? "strong" : "weak"), Name = fire ? "试场火胆" : "试场来刃",
+        Cost = 3, Resource = "mana", Power = power, Lifetime = 2f, TargetRange = 24,
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false },
+        Root = new ConstructionNode {
+            Id = "root", Form = fire ? "five_phase_kiln" : "entropy_wedge", Matter = fire ? "fire" : "iron", Volume = 8,
+            Offset = new[] { point.x - targetX - (fire ? 0f : .2f), point.y - 72, -.16f }, Rotation = new[] { 0f, 0f, 90f },
+            Operations = fire ? new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "roll" } } :
+                new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { -4.5f, 0f, 0f }, WorldVelocity = true } }
+        }
+    };
+}
+JArray Materials() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "five-phase"))["sections"]["world_materials"]["data"]["Records"];
+Vector3 Point(FormVisualInstance visual) => visual.Transform.GetColumn(3);
+float[] XYZ(Vector3 p) => new[] { p.x, p.y, p.z };
+async Task<(List<double> times, float duration)> Run(string name, float incoming, bool moveAway = false, bool react = false, bool film = false)
+{
+    var before = new HashSet<long>(Materials().Select(row => (long)row["Id"]));
+    int clashStart = clashes.Count, quenchingStart = quenchings.Count;
+    var spell = await Cast(sequence, source, victim);
+    var cast = spell.Cast;
+    var planNodes = (Array)cast.Plan.GetType().GetProperty("Nodes", F).GetValue(cast.Plan);
+    var indices = Enumerable.Range(0, planNodes.Length).ToDictionary(i => i == 0 ? "earth" : ((string)Field(planNodes.GetValue(i), "Path")).Split('/').Last(), i => i);
+    var first = new Dictionary<string, (double volume, float force, double paid, float age, string form, string state, Vector3 at)>();
+    var last = new Dictionary<string, (double volume, float force, double paid)>();
+    var order = new List<string>();
+    bool sawFlow = false, moved = false, reactCast = false;
+    var positions = new Dictionary<string, float[]>();
+    double rim = 0;
+    (double Volume, double Paid) waterBefore = default;
+    var times = new List<double>();
+    Action sample = () =>
+    {
+        foreach (var visual in Forms(cast))
+        {
+            string role = visual.Matter?.Id;
+            if (role == null || !indices.TryGetValue(role, out int node) || role == "earth" && cast.RemainingResource(0) <= 0) continue;
+            double volume = cast.RemainingVolume(node), paid = cast.RemainingResource(node); float force = cast.RemainingForce(node);
+            if (volume <= 0 || force <= 0) continue;
+            if (!first.ContainsKey(role))
+            {
+                order.Add(role);
+                positions.Add(role, XYZ(victim.GetSimPos()));
+                first.Add(role, (volume, force, paid, cast.Age, visual.Resource.Description.Id, visual.Matter.State, Point(visual)));
+            }
+            last[role] = (volume, force, paid);
+            if (role == "water" && visual.Layer is FormLayerFrame layer)
+            {
+                sawFlow = true;
+                int edge = layer.Cells - 1;
+                int wet = 0;
+                for (int i = 1; i < edge; i++)
+                {
+                    if (layer.Depth(0, i) > layer.DryDepth) wet++;
+                    if (layer.Depth(edge, i) > layer.DryDepth) wet++;
+                    if (layer.Depth(i, 0) > layer.DryDepth) wet++;
+                    if (layer.Depth(i, edge) > layer.DryDepth) wet++;
+                }
+                rim = Math.Max(rim, wet / (4d * (edge - 1)));
+            }
+        }
+        if (moveAway && !moved && first.ContainsKey("wood"))
+        {
+            Place(victim, 74, 76);
+            ConstructedAbilityService.NotifyActorChanged(victim);
+            moved = true;
+        }
+    };
+    sample();
+    if (incoming > 0)
+    {
+        await Advance(.18f); sample();
+        await Cast(Opponent(incoming), victim, source);
+    }
+    const float duration = 6.4f;
+    if (film) times = await Film(duration, sample);
+    else for (int i = 0; i < 87; i++)
+    {
+        await Advance(.095f); sample();
+        if (!react || reactCast || !sawFlow) continue;
+        var water = Forms(cast).FirstOrDefault(v => v.Matter?.Id == "water" && v.Layer != null);
+        if (water.Layer == null) continue;
+        waterBefore = (cast.RemainingVolume(indices["water"]), cast.RemainingResource(indices["water"]));
+        await Cast(Opponent(.55f, true, first["water"].at), victim, source);
+        reactCast = true;
+    }
+    if (film) { await Advance(2f); sample(); }
+
+    var interceptions = clashes.Skip(clashStart).Where(c => c.LeftCast == spell.Id || c.RightCast == spell.Id).Select(c => new {
+        node = c.LeftCast == spell.Id ? c.LeftNode : c.RightNode, age = c.LeftCast == spell.Id ? c.LeftAge : c.RightAge,
+        spent = c.LeftCast == spell.Id ? c.LeftSpent : c.RightSpent, remaining = c.LeftCast == spell.Id ? c.LeftRemaining : c.RightRemaining,
+        present = c.LeftCast == spell.Id ? c.LeftPresent : c.RightPresent, c.Absorbed, point = XYZ(c.Position)
+    }).ToArray();
+    var touches = contacts.Where(c => c.CastId == spell.Id && c.TargetId == victim.id).Select(c => new {
+        c.Node, c.Age, c.DamageAttempted, healthLost = c.TargetHealthBefore - c.TargetHealthAfter, c.ForceApplied, point = XYZ(c.Position)
+    }).ToArray();
+    var reactions = quenchings.Skip(quenchingStart).Where(q => q.WaterCast == spell.Id).Select(q => new {
+        q.FireCast, q.Evaporated, q.Spent, q.Remaining, point = XYZ(q.Point)
+    }).ToArray();
+    var deposited = Materials().Where(row => !before.Contains((long)row["Id"]) && (string)row["Material"]["Matter"] == "earth").ToArray();
+    var result = new { order, first = first.ToDictionary(pair => pair.Key, pair => new {
+            pair.Value.volume, pair.Value.force, pair.Value.paid, pair.Value.age, pair.Value.form, pair.Value.state, point = XYZ(pair.Value.at)
+        }), last = last.ToDictionary(pair => pair.Key, pair => new { pair.Value.volume, pair.Value.force, pair.Value.paid }),
+        sawFlow, rim, interceptions, touches, reactions, deposited, positions, times, finished = cast.Finished, remainsVisible = Forms(cast).Length,
+        waterBefore = new { waterBefore.Volume, waterBefore.Paid } };
+    File.WriteAllText(Path.Combine(folder, name + ".json"), JsonConvert.SerializeObject(result, Formatting.Indented));
+    Check(cast.Finished && Forms(cast).Length == 0, "自然结束后回收所有在场部位：" + name);
+    if (incoming <= 0 || incoming > 1 || moveAway)
+    {
+        Check(order.SequenceEqual(moveAway ? new[] { "earth", "wood" } : new[] { "earth" }) &&
+            (incoming <= 0 ? interceptions.Length == 0 : incoming > 1 ? interceptions.Any(c => c.node == 0 && !c.present) : interceptions.Any(c => c.node == 0 && c.present)) &&
+            (moveAway ? deposited.Length == 1 : deposited.Length == 0), "条件未成功时不出下一相，已经落地的岩块保留：" + name, result);
+    }
+    else
+    {
+        string[] expected = phaseCase == "reordered" ? new[] { "earth", "wood", "water", "iron", "fire" } : new[] { "earth", "wood", "water", "fire", "iron" };
+        Check(order.SequenceEqual(expected) && sawFlow && rim < .85 && interceptions.Any(c => c.node == 0 && c.present && c.spent > 0) && deposited.Length == 1,
+            "实际拦截、实体水层和后续形体按资料顺序出现：" + name, result);
+        Check(first["earth"].form == "five_phase_mantle" && first["wood"].form == "five_phase_roots" &&
+            first["water"].form == "water_flow" && first["water"].state == "liquid" &&
+            first["fire"].form == "five_phase_kiln" && first["fire"].state == "energy" &&
+            first["iron"].form == "five_phase_press" && first["iron"].state == "solid", "各相形体和实际材料一致", result);
+        Check(expected.Skip(1).All(role => touches.Any(t => t.Node == indices[role] && t.healthLost > 0)), "每个后续实体都实际接触目标：" + name, result);
+        var initial = first["earth"]; var wood = first["wood"];
+        double spent = interceptions.Where(c => c.node == 0).Sum(c => c.spent);
+        double ratio = 1 / 1.33;
+        bool split = Math.Abs(initial.volume - wood.volume - (double)deposited[0]["Material"]["Volume"]) < .001 &&
+            Math.Abs((initial.force - spent) * ratio - wood.force) < .001 &&
+            Math.Abs(initial.paid * (1 - spent / initial.force) - wood.paid - (double)deposited[0]["Material"]["Resource"]) < .001;
+        bool continuous = expected.Zip(expected.Skip(1), (oldRole, nextRole) => (oldRole, nextRole)).Skip(1).All(step =>
+            Math.Abs(last[step.oldRole].volume - first[step.nextRole].volume) < .002 &&
+            Math.Abs(last[step.oldRole].paid - first[step.nextRole].paid) < .002 &&
+            Math.Abs(last[step.oldRole].force - first[step.nextRole].force) < .002);
+        Check(split && continuous && wood.paid > 0 && last["wood"].paid == 0 &&
+            expected.Skip(2).All(role => first[role].paid == 0) &&
+            expected.Take(expected.Length - 1).All(role => cast.RemainingResource(indices[role]) == 0),
+            "岩壳分流，首次命中消耗可回收份额，后续只交接剩余体积和作用量：" + name, result);
+        if (react)
+            Check(reactions.Length > 0 && reactions.All(r => r.Evaporated > 0 && r.Spent > 0) &&
+                Math.Abs(first["fire"].volume + reactions.Sum(r => r.Evaporated) - waterBefore.Volume) < .002,
+                "真实外来火接触水后，后续只收到未蒸发体积", result);
+    }
+    return (times, duration);
+}
+try
+{
+    await SetCamera(7.4f);
+    if (phaseCase == "interrupt")
+    {
+        await Run("no-incoming", 0);
+        await Run("broken-earth", 10);
+        await Run("wood-missed", .58f, moveAway: true);
+        return new { passed = true, scene = "construction", resource = sequence.Resource, paid = sequence.Cost };
+    }
+    if (phaseCase == "restore")
+    {
+        await Run("wood-missed", .58f, moveAway: true);
+        var saved = Materials().DeepClone();
+        Check(saved.Count() == 1, "有一段真实留下的岩壳可保存");
+        string savePath = Path.Combine(folder, "save");
+        ConstructedAbilityService.Learn(source.GetExtend(), sequence.Id);
+        SaveManager.saveWorldToDirectory(savePath);
+        World.world.save_manager.loadWorld(savePath);
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        var saves = Cultiway.ModClass.I.WorldSaves;
+        Check(saves.LastReport.Skipped.Count == 0 && saves.LastReport.BackupError == null && JToken.DeepEquals(saved, Materials()),
+            "正式写读档恢复同一岩壳编号、材料体积和本金");
+        var definitions = (IDictionary)service.GetField("definitions", F).GetValue(null);
+        Check(definitions.Contains(sequence.Id) && JToken.DeepEquals(JObject.FromObject(sequence), JObject.FromObject(definitions[sequence.Id])) &&
+            ((IList)service.GetField("casts", F).GetValue(null)).Count == 0, "已学术式带交接条件读回，旧施放未被重放");
+        return new { passed = true, scene = "construction", resource = sequence.Resource, paid = sequence.Cost };
+    }
+    var run = await Run(phaseCase, .58f, react: phaseCase == "quench", film: recordView.Length > 0);
+    return new { passed = true, times = run.times, duration = run.duration,
+        view = recordView, scene = "construction", resource = sequence.Resource, paid = sequence.Cost };
+}
+finally
+{
+    ConstructedAbilityService.ClashConfirmed -= Meet;
+    ConstructedAbilityService.QuenchingConfirmed -= Quench;
+    ReleaseChecks();
+}

@@ -137,7 +137,10 @@ public enum ConstructionChangeTrigger
     WaterRouteArrival = 11,
 
     /// <summary>真实收件人实际登记或更换讯号来源。</summary>
-    SignalDelivery = 12
+    SignalDelivery = 12,
+
+    /// <summary>明确交接成功，普通到期、取消和耗尽不产生此事件。</summary>
+    Handoff = 13
 }
 
 /// <summary>已经解析的有限物态变化；每次施放每项最多执行一次。</summary>
