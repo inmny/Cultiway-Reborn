@@ -1354,6 +1354,7 @@
   "Cultiway.Construction.ClashGroundBlock": "Block ground actors",
   "Cultiway.Construction.ClashGroundBlockHint": "Blocks movable hostile ground actors. Friendly and flying actors keep existing passage rules. Uses the actual part surface.",
   "Cultiway.Construction.ClashReflectionLimit": "Reflection limit for this part",
+  "Cultiway.Construction.Anchor.HeldWeapon": "Held equipment",
   "Cultiway.Construction.Anchor.Between": "Between source and target",
   "Cultiway.Construction.BetweenRules": "Position between inputs",
   "Cultiway.Construction.BetweenRulesHint": "0 is the source, 1 the target, and 0.5 the midpoint. Following uses actual inputs. Existing motion still affects the part; use placement conversion to explicitly remove root delivery.",

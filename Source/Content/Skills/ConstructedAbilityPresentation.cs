@@ -19,15 +19,19 @@ public sealed partial class ConstructedAbilityService
     private void PublishPresentation(double time)
     {
         var bodies = new Dictionary<long, PresentedBody>();
+        HashSet<long> releasedWeapons = null;
         foreach (RunningCast running in casts)
+        {
+            if (running.Cast.Plan.UsesHeldWeapon) (releasedWeapons ??= new()).Add(running.SourceId);
             if (running.BodyControlled)
             {
                 bodies.TryGetValue(running.SourceId, out PresentedBody previous);
                 bodies[running.SourceId] = new PresentedBody(previous, running.Cast.BodyPose.Value,
                     running.Cast.Plan.Body, running.Body.Weapon != null, running.Body.Organ);
             }
+        }
 
-        var completed = new PresentedFrame(time, visuals.ToArray(), bodies, terrain);
+        var completed = new PresentedFrame(time, visuals.ToArray(), bodies, terrain, releasedWeapons);
         // 两处发布都在主线程连续完成，中间不让出、不调用游戏或其他订阅者。
         FormVisualScene.Publish(ProviderId, completed.Forms);
         presentation = completed;
@@ -129,8 +133,17 @@ public sealed partial class ConstructedAbilityService
     /// <summary>原版与第一人称的静态持物随整份画面切换，受理但尚未发布时仍显示原持物。</summary>
     /// <param name="actor">当前真实人物。</param>
     public static bool IsWeaponBorrowed(Actor actor) => actor?.data != null &&
-                                                        presentation.Bodies.TryGetValue(actor.data.id,
-                                                            out PresentedBody body) && body.Weapon;
+        (presentation.ReleasedWeapons?.Contains(actor.data.id) == true ||
+         presentation.Bodies.TryGetValue(actor.data.id, out PresentedBody body) && body.Weapon);
+
+    /// <summary>身体收势与器物归还各有时点，同一件装备在离手时不能再借一次。</summary>
+    private static bool HasReleasedWeapon(long source)
+    {
+        foreach (RunningCast running in casts)
+            if (running.SourceId == source && running.Cast.Plan.UsesHeldWeapon && !running.Cast.Finished)
+                return true;
+        return false;
+    }
 
     /// <summary>实际借用控制在受理时取得，供玩法检查，不作为绘制状态使用。</summary>
     /// <param name="actor">实际人物。</param>
@@ -140,7 +153,8 @@ public sealed partial class ConstructedAbilityService
         if (ConstructedActorImpulse.TryBody(actor.data.id, out var body) &&
             Array.Exists(body.Basis.Parts, part => part.Attachment == "item")) return true;
         foreach (RunningCast running in casts)
-            if (running.SourceId == actor.data.id && running.BodyControlled && running.Body?.Weapon != null)
+            if (running.SourceId == actor.data.id && !running.Cast.Finished &&
+                (running.Cast.Plan.UsesHeldWeapon || running.BodyControlled && running.Body?.Weapon != null))
                 return true;
         return false;
     }
@@ -160,18 +174,22 @@ public sealed partial class ConstructedAbilityService
         /// <summary>与本轮身体同刻的不可变地表，用于原版投影。</summary>
         internal readonly AbilityHeightField Terrain;
 
+        internal readonly HashSet<long> ReleasedWeapons;
+
         /// <summary>接收已完成资料，后续不再修改集合。</summary>
         /// <param name="time">完成时间。</param>
         /// <param name="forms">共同形体。</param>
         /// <param name="bodies">共同身体。</param>
         /// <param name="terrain">同轮绝对高度地表，空值为原版平地。</param>
+        /// <param name="releasedWeapons">本轮仍借用装备的人物。</param>
         internal PresentedFrame(double time, FormVisualInstance[] forms, Dictionary<long, PresentedBody> bodies,
-            AbilityHeightField terrain = null)
+            AbilityHeightField terrain = null, HashSet<long> releasedWeapons = null)
         {
             Time = time;
             Forms = forms;
             Bodies = bodies;
             Terrain = terrain;
+            ReleasedWeapons = releasedWeapons;
         }
     }
 

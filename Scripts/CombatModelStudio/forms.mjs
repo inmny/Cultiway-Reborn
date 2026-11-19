@@ -56,22 +56,38 @@ makeImpactForms();
 makeGroundWaves();
 makeRemainingFields();
 
-// 剑刃由脊、刃面、窄边和逐段收尖构成；各面保留自己的表面方向。
+// 刃口保留原作用边界；折脊、主刃面和窄刃口分别接光，两端闭合。
 const positions = [], uv = [], triangles = [];
 const levels = [[0, .135, .035], [.13, .155, .038], [1.7, .13, .032], [2.15, .105, .028], [2.5, .003, .003]];
-for (let face = 0; face < 8; face++) {
-  for (const [z, width, depth] of levels) {
-    const ring = [[-width, 0], [-width * .8, -depth * .35], [0, -depth], [width * .8, -depth * .35],
-      [width, 0], [width * .8, depth * .35], [0, depth], [-width * .8, depth * .35]];
-    for (const corner of [face, (face + 1) % 8]) {
-      positions.push(...ring[corner], z);
-      uv.push(corner / 8, z / 2.5);
-    }
+const bladeRing = ([z, width, depth]) => [
+  [-1, 0], [-.82, -.61], [-.18, -.97], [.18, -.97], [.82, -.61],
+  [1, 0], [.82, .61], [.18, .97], [-.18, .97], [-.82, .61]
+].map(([x, y]) => [x * width, y * depth, z]);
+const rings = levels.map(bladeRing);
+const sides = rings[0].length;
+for (let face = 0; face < sides; face++) {
+  const offset = positions.length / 3;
+  for (const ring of rings) {
+    positions.push(...ring[face], ...ring[(face + 1) % sides]);
+    uv.push(face / sides, ring[0][2] / 2.5, (face + 1) / sides, ring[0][2] / 2.5);
   }
-  const offset = face * levels.length * 2;
   for (let row = 0; row < levels.length - 1; row++) {
     const a = offset + row * 2;
     triangles.push(a, a + 1, a + 3, a, a + 3, a + 2);
+  }
+}
+for (const i of [0, rings.length - 1]) {
+  const centre = positions.length / 3;
+  const [z, width, depth] = levels[i];
+  positions.push(0, 0, z);
+  uv.push(.5, .5);
+  for (const [x, y] of rings[i]) {
+    positions.push(x, y, z);
+    uv.push(.5 + .5 * x / width, .5 + .5 * y / depth);
+  }
+  for (let j = 0; j < sides; j++) {
+    const a = centre + 1 + j, b = centre + 1 + (j + 1) % sides;
+    triangles.push(centre, ...(i === 0 ? [b, a] : [a, b]));
   }
 }
 const blade = new T.BufferGeometry();
@@ -86,7 +102,15 @@ guardShape.lineTo(.43, -.025); guardShape.quadraticCurveTo(.27, .10, .13, .065);
 guardShape.lineTo(-.13, .065); guardShape.quadraticCurveTo(-.27, .10, -.43, -.025); guardShape.closePath();
 const guard = new T.ExtrudeGeometry(guardShape, {depth: .08, bevelEnabled: true, bevelSegments: 2, bevelSize: .012, bevelThickness: .012, steps: 1, curveSegments: 8});
 guard.rotateX(Math.PI / 2); guard.translate(0, .04, -.035);
-const grip = new T.CylinderGeometry(.055, .065, .55, 12, 6).rotateX(Math.PI / 2).translate(0, 0, -.35);
+// 柄中段压扁，几圈浅包缠延伸到手掌两侧；内端接入护手和剑首。
+const gripProfile = [[0, -.644], [.039, -.644], [.062, -.619], [.061, -.587]];
+for (let i = 0; i < 6; i++) {
+  const z = -.556 + .073 * i, radius = .060 - .001 * i;
+  gripProfile.push([radius, z], [radius + .004, z + .011], [radius + .002, z + .024], [radius, z + .030]);
+}
+gripProfile.push([.055, -.103], [.043, -.068], [0, -.068]);
+const grip = new T.LatheGeometry(gripProfile.map(point => new T.Vector2(...point)), 20)
+  .rotateX(Math.PI / 2).scale(.89, 1, 1);
 const pommel = new T.LatheGeometry([[0, -.78], [.045, -.775], [.08, -.73], [.075, -.675], [.04, -.64]].map(point => new T.Vector2(...point)), 16).rotateX(Math.PI / 2);
 const swordForm=write('sword', [part('blade', blade, 'metal'), part('guard', guard, 'metal'), part('grip', grip, 'leather'), part('pommel', pommel, 'metal')],
   [{Id: 'grip', Part: 2, Position: [0, 0, -.34], Direction: [0, 0, 1]},
@@ -97,13 +121,14 @@ const swordForm=write('sword', [part('blade', blade, 'metal'), part('guard', gua
     ...[-1, 1].flatMap(side => levels.slice(0, -1).map(([z,w],i) => ({Id:`edge/${side<0?'left':'right'}/${i}`,Part:0,
       A:[side*w,0,z+.012],B:[side*levels[i+1][1],0,levels[i+1][0]-.012],Radius:.012}))),
     {Id:'tip',Part:0,A:[0,0,2.43],B:[0,0,2.49],Radius:.01}], [], [], false, null,
-  structure('rigid','forms.mjs','sword',{bladeSections:levels,grip:[.055,.065,.55],guardDepth:.08},
+  structure('rigid','forms.mjs','sword',{bladeSections:levels,grip:[.055,.064,.576],guardDepth:.08},
     {blade:['blade.edge','blade.spine'],guard:['weapon.guard'],grip:['weapon.grip'],pommel:['weapon.pommel']},
     [['grip','guard',[0,0,-.035]],['guard','blade',[0,0,0]],['grip','pommel',[0,0,-.64]]]),
   [{Id:'grip',Anchor:'grip',Up:[0,1,0],Diameter:.13,Scale:[.2,.6]},
     {Id:'choke',Anchor:'choke',Up:[0,1,0],Diameter:.12,Scale:[.2,.6]}], [], {Groups:['sword'],Scale:.42});
 
-makeSwordCurtain(swordForm);
+const curtainGrip = new T.CylinderGeometry(.055, .065, .55, 12, 6).rotateX(Math.PI / 2).translate(0, 0, -.35);
+makeSwordCurtain(swordForm, part('grip', curtainGrip, 'leather'));
 
 // 分枝以独立部件输出，保留连接枢轴与末梢；生长及附着使用相同部位。
 const branchParts = [], tips = [], roots = [];

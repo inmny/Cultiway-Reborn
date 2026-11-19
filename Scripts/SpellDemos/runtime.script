@@ -68,6 +68,9 @@ private string output;
 /// <summary>错误时保留正在处理的稳定编号。</summary>
 private string currentCase;
 
+/// <summary>当前构造是否握持真实铁剑。</summary>
+private bool heldSwordDemo;
+
 /// <summary>是否正在录制。</summary>
 private bool busy;
 
@@ -618,7 +621,8 @@ private IEnumerator Guarded(IEnumerator steps)
 
     Config.paused = true;
     CleanExecutions();
-    ReleasePalmCamera();
+    ReleaseBodyCloseCamera();
+    heldSwordDemo = false;
     RestoreTerrainFirstPersonLook();
     ControllableUnit.clear(false);
     bool sceneRestored = false;
@@ -812,6 +816,8 @@ private IEnumerator RecordConstructions()
             new { done = false, index = ++index, current = item["key"], stage = "准备构造" });
         var recording = RecordConstruction(item);
         while (recording.MoveNext()) yield return recording.Current;
+        ReleaseBodyCloseCamera();
+        heldSwordDemo = false;
         RestoreTerrainFirstPersonLook();
     }
 }
@@ -831,6 +837,7 @@ private IEnumerator RecordConstruction(JObject item)
     while (World.world.getCurWorldTime() < settledAt) yield return null;
     Config.paused = true;
     AbilityDefinition definition = item["construction"].ToObject<AbilityDefinition>();
+    heldSwordDemo = definition.Body?.WeaponForm == "sword";
     ConstructedAbilityService.Register(definition);
     var owner = caster.GetExtend();
     ConstructedAbilityService.Learn(owner, definition.Id);
@@ -1300,7 +1307,7 @@ private IEnumerator Run()
             Config.paused = true;
         }
 
-        if (externalView != null && (WantsPalmCloseView() ||
+        if (externalView != null && (WantsBodyCloseView() ||
             !(bool)externalView.GetProperty("GodShown", Flags).GetValue(externalViewInstance)))
         {
             var enter = EnterView();
@@ -1309,7 +1316,7 @@ private IEnumerator Run()
 
         var record = (string)request["scene"] == "battle" ? RecordBattle(item, folder) : Record(item, folder);
         while (record.MoveNext()) yield return record.Current;
-        ReleasePalmCamera();
+        ReleaseBodyCloseCamera();
     }
 
     CleanExecutions();
@@ -1475,6 +1482,13 @@ private IEnumerator EnterView()
             yaw = -.34f;
             pitch = -43f;
         }
+        else if (heldSwordDemo)
+        {
+            // 低头偏向持剑手，让柄和刃同时入画。
+            Vector2 direction = enemies[0].current_position - caster.current_position;
+            yaw = Mathf.Atan2(direction.y, direction.x) - .22f;
+            pitch = -40f;
+        }
         else if (currentCase is "Cultiway.FlyingSword" or "Cultiway.GroundSpike")
         {
             Vector2 direction = enemies[0].current_position - caster.current_position;
@@ -1506,7 +1520,7 @@ private IEnumerator EnterView()
         externalView.GetField("_godTipRate", Flags).SetValue(externalViewInstance, 0f);
     }
 
-    if (WantsPalmCloseView())
+    if (WantsBodyCloseView())
     {
         // 沿用已经验证的相机锁人路径，不等待普通地图相机追上三维相机。
         void Set(string field, object value) => externalView.GetField(field, Flags).SetValue(externalViewInstance, value);
@@ -1542,7 +1556,7 @@ private IEnumerator EnterView()
             }
             yield return null;
         }
-        throw new InvalidOperationException($"三维掌击近景没有实际绘制到施法者：画面位置{screen}，一格跨度{span:F2}");
+        throw new InvalidOperationException($"三维近身镜头没有实际绘制到施法者：画面位置{screen}，一格跨度{span:F2}");
     }
 
     if ((float?)request["zoom"] < 10f && request["construction"]?["Body"] is JObject)
@@ -2569,14 +2583,14 @@ private void RestoreTerrainFirstPersonLook()
     previousTerrainMouseLookOff = null;
 }
 
-/// <summary>近身掌击在三维使用外部模组的贴近人物相机。</summary>
-private bool WantsPalmCloseView() => (string)request["view"] == "worldfall" &&
-    currentCase == "Cultiway.PalmStrike" && (float?)request["zoom"] < 10f;
+/// <summary>原地掌击和持剑在三维使用外部模组的贴近人物相机。</summary>
+private bool WantsBodyCloseView() => (string)request["view"] == "worldfall" &&
+    (currentCase == "Cultiway.PalmStrike" || heldSwordDemo) && (float?)request["zoom"] < 10f;
 
 /// <summary>当前段结束或中止时解除脚本设置的锁人，不干预用户自己的观察目标。</summary>
-private void ReleasePalmCamera()
+private void ReleaseBodyCloseCamera()
 {
-    if (externalView == null || !WantsPalmCloseView()) return;
+    if (externalView == null || !WantsBodyCloseView()) return;
     var locked = externalView.GetField("_godLock", Flags);
     if (caster == null || !ReferenceEquals(locked.GetValue(externalViewInstance), caster)) return;
     locked.SetValue(externalViewInstance, null);
@@ -2589,7 +2603,7 @@ private void Camera()
     if (externalView != null && (string)request["view"] == "firstperson" &&
         (bool)externalView.GetProperty("IsFirstPerson", Flags).GetValue(externalViewInstance)) return;
     bool body = request["construction"]?["Body"] is JObject;
-    if (externalView != null && (WantsPalmCloseView() || body && (float?)request["zoom"] < 10f) &&
+    if (externalView != null && (WantsBodyCloseView() || body && (float?)request["zoom"] < 10f) &&
         (bool)externalView.GetProperty("GodShown", Flags).GetValue(externalViewInstance)) return;
     bool placement = request["construction"] is JObject && request["targetOffset"] is JArray;
     if (currentCase == "Cultiway.PalmStrike")

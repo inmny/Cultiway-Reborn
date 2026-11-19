@@ -62,7 +62,7 @@ public sealed partial class AbilityCast
         {
             CancelAwaiters(-1);
             EndBodyWindows(true);
-            if (nodes.Length > 0 && (Plan.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) && !nodes[0].Free)
+            if (nodes.Length > 0 && (Plan.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector or AbilityAnchor.HeldWeapon) && !nodes[0].Free)
                 EndNode(0, true);
             FlushBirths(inputs.Target);
         }

@@ -1,0 +1,132 @@
+// 9.11：用同一把实际铁剑对照刺击、横扫及一次挥空，检查游戏实际使用的握持与作用形状。
+Actor source = Make(64), target = Make(70), wolf = Make(12, "wolf");
+target.setKingdom(wolf.kingdom);
+var item = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: source);
+source.equipment.setItem(item, source);
+source.setStatsDirty();
+source.updateStats();
+var running = service.GetField("casts", F);
+var settlements = new List<ConstructedQueuedDamage>();
+ConstructedCastStarted? started = null;
+AbilityCast live = null;
+void Started(ConstructedCastStarted fact) { if (fact.SourceId == source.id) started = fact; }
+void Settled(ConstructedQueuedDamage fact) { if (fact.CastId == started?.CastId) settlements.Add(fact); }
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+try
+{
+    foreach (Building building in World.world.buildings.getSimpleList().ToArray()) building.removeBuildingFinal();
+    Ready(source);
+    source.attack_timer = 999;
+    await Advance(1f);
+    float? thrustArc = null;
+    foreach (var (key, contact, kind, miss) in new[] {
+        ("thrust", "tip", BodyActionKind.Thrust, false), ("sweep", "edge", BodyActionKind.Sweep, false),
+        ("miss", "tip", BodyActionKind.Thrust, true) })
+    {
+        var definition = BodyActionCatalog.Create("test.body-footwork.held-sword." + key, "铁剑·" + key,
+            new BodyActionRequest { Effector = "hand.right", WeaponForm = "sword", Grip = "grip",
+                Contact = contact, Kind = kind, Seconds = 1.2f });
+        var plan = AbilityCompiler.Compile(definition, false);
+        if (!miss) File.WriteAllText(Path.Combine(folder, key + ".json"),
+            JsonConvert.SerializeObject(definition, Formatting.Indented));
+        Place(source, 64);
+        var fit = Frame(Binding(source, plan), source);
+        float aimDistance = Mathf.Max(.5f, plan.Body.WeaponContactPoint.z + .28f) * fit.Height;
+        Place(target, 64 + aimDistance, 71.87f);
+        target.attack_timer = 999;
+        int before = target.data.health;
+        started = null; contacts.Clear(); settlements.Clear();
+        await Fire(definition, source, target);
+        var actual = ((IEnumerable)running.GetValue(null)).Cast<object>()
+            .Single(value => (long)Field(value, "Id") == started.Value.CastId);
+        live = (AbilityCast)Field(actual, "Cast");
+        object bound = Field(actual, "Body");
+        Check(BodyControlState.IsBusy(source.id) && ReferenceEquals(source.getWeapon(), item), key + "：动作使用原铁剑");
+        if (miss) Place(target, 78);
+        float worstGrip = 0f, smallestGuard = float.PositiveInfinity, worstShape = 0f, arc = 0f;
+        Vector3? firstDirection = null;
+        bool sawActiveBlade = false;
+        var directions = new List<object>();
+        var visuals = new List<FormVisualInstance>();
+        var shapes = new List<AbilityCapsule>();
+        int[] selected = Enumerable.Range(0, FormResources.Load("sword").Contacts.Length)
+            .Where(i => CompiledBodyConstruction.MatchesContact(contact, FormResources.Load("sword").Description.Contacts[i].Id))
+            .ToArray();
+        var timer = Config.time_scale_asset;
+        float oldSpeed = timer.multiplier;
+        try
+        {
+            timer.multiplier = oldSpeed * .4f;
+            foreach (float age in new[] { .08f, .21f, .36f, .51f, .67f, .94f })
+            {
+                if (live.Age < age)
+                {
+                    Config.paused = false;
+                    await Game.WaitUntil(() => live.Finished || live.Age >= age, 900);
+                    Config.paused = true;
+                    await Game.WaitUntil(Boundary, 900);
+                }
+                if (!live.BodyPose.HasValue) break;
+                var pose = live.BodyPose.Value;
+                visuals.Clear(); shapes.Clear();
+                bindingType.GetMethod("AppendVisuals", F).Invoke(bound, new object[] { source, pose, visuals, null });
+                bindingType.GetMethod("AppendContacts", F).Invoke(bound, new object[] { pose, shapes });
+                var hand = visuals.Single(v => v.Resource.Description.Id == "hand");
+                var blade = visuals.Single(v => v.Resource.Description.Id == "sword");
+                var socket = hand.Resource.Anchors.Single(a => a.Id == "grip");
+                Vector3 at = hand.Transform.MultiplyPoint3x4(socket.Transform.GetColumn(3));
+                Vector3 onHilt = (blade.Transform * blade.Resource.Grip("grip").Frame()).GetColumn(3);
+                worstGrip = Mathf.Max(worstGrip, Vector3.Distance(at, onHilt));
+                var localHand = blade.Transform.inverse * hand.Transform;
+                float handFront = hand.Resource.Meshes.SelectMany((mesh, i) => mesh.vertices.Select(v =>
+                    localHand.MultiplyPoint3x4(hand.Parts[i].MultiplyPoint3x4(v)).z)).Max();
+                smallestGuard = Mathf.Min(smallestGuard, blade.Resource.Meshes[1].bounds.min.z - handFront);
+                if (shapes.Count > 0)
+                {
+                    Check(shapes.Count == selected.Length && selected.Length > 0, key + "：实际使用所选尖或刃");
+                    sawActiveBlade = true;
+                }
+                for (int i = 0; i < shapes.Count; i++)
+                {
+                    var shape = blade.Resource.Contacts[selected[i]];
+                    worstShape = Mathf.Max(worstShape,
+                        Vector3.Distance(blade.Transform.MultiplyPoint3x4(shape.A), shapes[i].A),
+                        Vector3.Distance(blade.Transform.MultiplyPoint3x4(shape.B), shapes[i].B));
+                }
+                Vector3 direction = blade.Transform.MultiplyVector(Vector3.forward).normalized;
+                firstDirection ??= direction;
+                arc = Mathf.Max(arc, Vector3.Angle(firstDirection.Value, direction));
+                directions.Add(new { live.Age, pose.ActionAge, forward = new[] { direction.x, direction.y, direction.z }, handFront });
+            }
+        }
+        finally { timer.multiplier = oldSpeed; }
+        Check(sawActiveBlade && directions.Count >= 2 && worstGrip < .00001f && smallestGuard > 0f && worstShape < .00001f,
+            key + "：护手和手指留有间距，握点和真实刀身作用一致",
+            new { worstGrip, smallestGuard, worstShape, sawActiveBlade, arc, directions });
+        if (key == "thrust") thrustArc = arc;
+        if (key == "sweep") Check(arc > thrustArc.Value + 10f, "横扫切过的角度明显大于直刺", new { arc, thrustArc });
+        await Advance(.5f);
+        var hits = contacts.Where(c => c.CastId == started.Value.CastId && c.Node < 0).ToArray();
+        int lost = before - target.data.health;
+        Check(miss ? hits.Length == 0 && settlements.Count == 0 && lost == 0 :
+                hits.Length == 1 && hits[0].TargetId == target.id && settlements.Count == 1 &&
+                settlements[0].Damage.SettledCount == 1 && lost > 0 && settlements[0].Damage.HealthLost == lost,
+            key + "：真实接触只结算一次，挥空不伤人", new { aimDistance, hits = hits.Length, settled = settlements.Count, lost });
+        Check(live.Finished && !BodyControlState.IsBusy(source.id) && ReferenceEquals(source.getWeapon(), item) &&
+              !ConstructedAbilityService.TryGetBodyPose(source.id, out _) &&
+              endings.Any(e => e.Fact.CastId == started.Value.CastId && !e.Fact.Cancelled),
+            key + "：自然收势后仍持原铁剑，归还手臂控制");
+    }
+    return new { passed = true, item = item.data.id, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (live != null && !live.Finished) live.Cancel();
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

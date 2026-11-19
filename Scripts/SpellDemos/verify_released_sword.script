@@ -1,0 +1,161 @@
+// 9.11：复用既有世界和原铁剑，检查交接、转弯、刃面作用和归还。
+Actor source = Make(64), target = Make(67), wolf = Make(12, "wolf");
+target.setKingdom(wolf.kingdom);
+var item = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: source);
+source.equipment.setItem(item, source);
+source.setStatsDirty();
+source.updateStats();
+var catalog = (AbilityDefinition[])typeof(BodyActionCatalog).GetProperty("All", F).GetValue(null);
+var definition = catalog.Single(d => d.Id == BodyActionCatalog.SwordReleaseId);
+var plan = AbilityCompiler.Compile(definition, false);
+var invalid = ConstructionEditing.Copy(definition);
+invalid.Root.Form = "hand";
+bool rejected = false;
+try { AbilityCompiler.Compile(invalid, false); }
+catch (InvalidDataException error) { rejected = error.Message.StartsWith("Binding/HeldWeapon"); }
+Check(rejected, "不允许借出与实际握持不匹配的主体");
+File.WriteAllText(Path.Combine(folder, "release.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+
+var running = service.GetField("casts", F);
+var attached = typeof(AbilityCast).GetProperty("IsInputAttached", F);
+var terrainField = typeof(AbilityCast).GetField("terrain", F);
+var visuals = new List<FormVisualInstance>();
+var shapes = new List<AbilityCapsule>();
+var samples = new List<object>();
+ConstructedCastStarted? start = null;
+ConstructedCastEnded? end = null;
+AbilityCast live = null;
+void Started(ConstructedCastStarted fact) { if (fact.SourceId == source.id && fact.AbilityId == definition.Id) start = fact; }
+void Finished(ConstructedCastEnded fact) { if (fact.CastId == start?.CastId) end = fact; }
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += Finished;
+var timer = Config.time_scale_asset;
+float oldSpeed = timer.multiplier;
+try
+{
+    PrepareAppearanceBackdrop(59, 75, 67, 78);
+    Ready(source);
+    source.attack_timer = 999;
+    await Advance(1f);
+    Place(source, 64);
+    Place(target, 67.7f, 72f);
+    int before = target.data.health;
+    await Fire(definition, source, target);
+    var actual = ((IEnumerable)running.GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == start.Value.CastId);
+    live = (AbilityCast)Field(actual, "Cast");
+    object bound = Field(actual, "Body");
+    Check(ReferenceEquals(Field(bound, "Weapon"), item) && ReferenceEquals(source.getWeapon(), item),
+        "正式施放借用装备栏同一把铁剑");
+
+    const float launch = .27f;
+    var frame = Frame(bound, source);
+    Vector3 aim = frame.Foot + Vector3.right * 3.7f;
+    var exact = new AbilityCast(plan, Matrix4x4.identity, frame, new AbilityInputs(frame.Foot, aim, frame.Forward, frame.Height));
+    while (exact.Age < launch) exact.Advance(exact.NextStep(launch - exact.Age), aim);
+    var releasePose = exact.BodyPose.Value;
+    var expected = (Matrix4x4)bindingType.GetMethod("WeaponMatrix", F).Invoke(bound, new object[] { releasePose });
+    Matrix4x4 departure = Sword(exact);
+    float mismatch = Enumerable.Range(0, 4).Max(i => (departure.GetColumn(i) - expected.GetColumn(i)).magnitude);
+    var hand = (Matrix4x4)bindingType.GetMethod("HandMatrix", F).Invoke(bound, new object[] { releasePose });
+    var socket = FormResources.Load("hand").Anchors.Single(a => a.Id == "grip");
+    Vector3 grip = (departure * FormResources.Load("sword").Grip("grip").Frame()).GetColumn(3);
+    float gripGap = Vector3.Distance(grip, hand.MultiplyPoint3x4(socket.Transform.GetColumn(3)));
+    Check(!(bool)attached.GetValue(exact) && mismatch < .0001f && gripGap < .0001f,
+        "交接边界逐列核对原握姿：位置、朝向和尺寸连续", new { exact.Age, mismatch, gripGap });
+
+    timer.multiplier = oldSpeed * .45f;
+    Vector3? previous = null, firstDirection = null;
+    float turn = 0, align = 1, worstBladeError = 0, width = 0, thickness = 0, lowest = float.PositiveInfinity;
+    bool oneHeld = false, oneInFlight = true, stillBorrowed = false, sawBladeContact = false;
+    foreach (float age in new[] { .14f, .29f, .36f, .46f, .56f, .67f, .76f, .86f, .96f, 1.06f, 1.16f, 1.27f })
+    {
+        Config.paused = false;
+        await Game.WaitUntil(() => live.Finished || live.Age >= age, 900);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 900);
+        if (live.Finished) break;
+        Matrix4x4 transform = Sword(live);
+        Vector3 p = transform.GetColumn(3), direction = transform.MultiplyVector(Vector3.forward).normalized;
+        var sword = FormResources.Load("sword");
+        var frameVisuals = (FormVisualInstance[])Field(service.GetField("presentation", F).GetValue(null), "Forms");
+        int count = frameVisuals.Count(v => v.Resource.Description.Id == "sword");
+        if (age < launch)
+        {
+            oneHeld = count == 1 && ConstructedAbilityService.IsWeaponBorrowed(source);
+            Check((bool)attached.GetValue(live) && before == target.data.health, "持剑起势仍附在原握点，尚未伤人");
+        }
+        else
+        {
+            oneInFlight &= count == 1 && ConstructedAbilityService.IsWeaponBorrowed(source);
+            var terrain = (AbilityHeightField)terrainField.GetValue(live);
+            foreach (Vector3 vertex in sword.Meshes[0].vertices)
+            {
+                Vector3 world = transform.MultiplyPoint3x4(vertex);
+                lowest = Mathf.Min(lowest, world.z - (terrain?.Sample(world.x, world.y) ?? 0f));
+            }
+            firstDirection ??= direction;
+            turn = Mathf.Max(turn, Vector3.Angle(firstDirection.Value, direction));
+            if (previous.HasValue && (p - previous.Value).sqrMagnitude > .005f)
+                align = Mathf.Min(align, Vector3.Dot(direction, (p - previous.Value).normalized));
+            previous = p;
+            shapes.Clear(); live.AppendContacts(shapes);
+            if (shapes.Count == sword.Contacts.Length && shapes.All(shape => shape.Node == 0))
+            {
+                sawBladeContact = true;
+                for (int i = 0; i < shapes.Count; i++)
+                {
+                    worstBladeError = Mathf.Max(worstBladeError,
+                        Vector3.Distance(transform.MultiplyPoint3x4(sword.Contacts[i].A), shapes[i].A),
+                        Vector3.Distance(transform.MultiplyPoint3x4(sword.Contacts[i].B), shapes[i].B));
+                }
+            }
+            var vertices = sword.Meshes[0].vertices.Where(v => v.z > .3f && v.z < 2.1f).ToArray();
+            if (vertices.Length > 0)
+            {
+                width = (vertices.Max(v => v.x) - vertices.Min(v => v.x)) * transform.lossyScale.x;
+                thickness = (vertices.Max(v => v.y) - vertices.Min(v => v.y)) * transform.lossyScale.y;
+            }
+            if (!BodyControlState.IsBusy(source.id) && !stillBorrowed)
+            {
+                var thrust = AbilityCompiler.Compile(catalog.Single(d => d.Id == "Cultiway.Body.SwordThrust"));
+                bool allowed = (bool)service.GetMethod("CanStartBody", F).Invoke(null, new object[] { source.GetExtend(), thrust });
+                Check(ConstructedAbilityService.HasWeaponControl(source) && !allowed,
+                    "身体收势后剑还未回，不能同时借出同一件装备");
+                stillBorrowed = true;
+            }
+        }
+        samples.Add(new { live.Age, position = new[] { p.x, p.y, p.z }, heading = new[] { direction.x, direction.y, direction.z } });
+    }
+    File.WriteAllText(Path.Combine(folder, "flight.json"), JsonConvert.SerializeObject(samples, Formatting.Indented));
+    Check(oneHeld && oneInFlight && stillBorrowed && turn > 85f && align > .65f && thickness > .002f && thickness < width && lowest >= 0f,
+        "同一剑身随轨迹转向，侧面有厚度且不穿过实际地表", new { turn, align, width, thickness, lowest, oneInFlight, stillBorrowed });
+    Check(sawBladeContact && worstBladeError < .0001f,
+        "飞行剑刃和实际作用体使用同一个变换", new { worstBladeError });
+    timer.multiplier = oldSpeed;
+    if (!live.Finished) await Advance(definition.Lifetime - live.Age + .12f);
+    var hits = contacts.Where(c => c.CastId == start.Value.CastId && c.TargetId == target.id).ToArray();
+    int lost = before - target.data.health;
+    Check(hits.Length == 1 && hits[0].Node == 0 && hits[0].Age >= launch && lost > 0 && hits[0].Damage.HealthLost == lost,
+        "同一剑刃离手后命中一次并真正扣血", new { hits = hits.Length, lost, ages = hits.Select(hit => hit.Age).ToArray() });
+    Check(end.HasValue && !end.Value.Cancelled && end.Value.Age < definition.Lifetime - .05f &&
+          !BodyControlState.IsBusy(source.id) && !ConstructedAbilityService.IsWeaponBorrowed(source) &&
+          !ConstructedAbilityService.HasWeaponControl(source) && ReferenceEquals(source.getWeapon(), item),
+        "剑自然回到来源后退场，恢复显示和实际装备使用", new { end = end?.Age, definition.Lifetime });
+    return new { passed = true, item = item.data.id, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    timer.multiplier = oldSpeed;
+    if (live != null && !live.Finished) live.Cancel();
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Finished;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+}
+
+Matrix4x4 Sword(AbilityCast cast)
+{
+    visuals.Clear(); cast.AppendVisuals(visuals);
+    return visuals.Single(v => v.Resource.Description.Id == "sword").Transform;
+}

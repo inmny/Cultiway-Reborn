@@ -692,7 +692,9 @@ public sealed partial class AbilityCast
             BodyPose = bodyResponse.HasValue
                 ? Plan.Body.SampleResponse(Age - bodyResponseDelay, in bodyFrame, bodyResponse.Value, BodyPose, Age)
                 : Plan.Body.Sample(Mathf.Min(Age, Plan.Body.Duration), in bodyFrame, bodyContactAt, BodyPose);
-        if (Plan.Binding != null && (bindInitial || Plan.Binding.Follow))
+        if (Plan.UsesHeldWeapon)
+            origin = Plan.Body.HeldWeaponMatrix(BodyPose.Value);
+        else if (Plan.Binding != null && (bindInitial || Plan.Binding.Follow))
             origin = inputs.Resolve(Plan.Binding, BodyPose);
         for (int i = 0; i < nodes.Length; i++) SampleNode(i, step, target, bindInitial);
         if (Plan.Body != null && !bodyInterrupted && !bodyEndSent && Age >= BodyUntil)
@@ -1038,7 +1040,7 @@ public sealed partial class AbilityCast
         CancelAwaiters(-1);
         EndBodyWindows(true);
         if (nodes.Length == 0) Cancel();
-        else if ((Plan.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) && !nodes[0].Free)
+        else if ((Plan.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector or AbilityAnchor.HeldWeapon) && !nodes[0].Free)
         {
             EndNode(0, true);
             if (aliveNodes == 0) Cancel();
