@@ -14,9 +14,9 @@ public sealed partial class ConstructedAbilityService
     private readonly List<int> bodyGuardCandidates = new();
 
     /// <summary>从真实运动与动作窗口中，选择来向正确的敌对防御面。</summary>
-    /// <param name="attack">已经具备攻击作用的真实部位。</param><param name="step">共同预测秒数。</param>
+    /// <param name="attack">已经具备攻击作用的真实部位。</param><param name="touchFrom">来势可用的真实攻击路径起点。</param><param name="step">共同预测秒数。</param>
     /// <param name="include">把成立的候选交给共同时间排序。</param>
-    private void FindBodyGuards(in ShapeMotion attack, float step, Action<ContactChoice> include)
+    private void FindBodyGuards(in ShapeMotion attack, float step, float touchFrom, Action<ContactChoice> include)
     {
         if (singleActingNode) return;
         RunningCast striker = attack.Running;
@@ -31,7 +31,8 @@ public sealed partial class ConstructedAbilityService
             ShapeMotion defense = shapes[index];
             RunningCast guard = defense.Running;
             if (defense.To.Node >= 0 || guard.BodyGuardRemaining <= 0f || guard == attack.Running ||
-                !guard.BodyControlled || !owner.IsHostileTo(guard.Owner(-1)) && !guard.Owner(-1).IsHostileTo(owner)) continue;
+                !guard.BodyControlled || !owner.IsHostileTo(guard.Owner(-1)) && !guard.Owner(-1).IsHostileTo(owner) ||
+                !TouchPath(defense, step, out float defenseFrom)) continue;
             var cast = guard.Cast;
             bool changed = cast.ContactScopeChanged(-1);
             for (int a = attackChanged ? 1 : 0; a >= 0; a--)
@@ -40,6 +41,7 @@ public sealed partial class ConstructedAbilityService
                 float from = 0f, until = 1f;
                 if (body && (BodyStrikeForce(striker, attackStage) <= 0f ||
                              !striker.Cast.ContactInterval(-1, attackStage, out from, out until))) continue;
+                from = Mathf.Max(from, Mathf.Max(touchFrom, defenseFrom));
                 if (attackChanged && a == 0) from = 1f;
                 if (changed) AddBodyGuardCandidate(attack, defense, cast.PreviousBodyStage, step, from, until, true, a == 1, include);
                 AddBodyGuardCandidate(attack, defense, cast.BodyStage, step, changed ? 1f : from, until, false, a == 1, include);

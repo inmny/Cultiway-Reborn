@@ -2095,3 +2095,5 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 部位与握持批次：在独立游戏中运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_martial_binding.py`。复用原世界和一把铁剑，走万法阁的徒手左右换手、持械握点与接触时段编辑、非法区间拒绝、撤销保存和重开。验证同时记录实际握持位置、剑尖生效区间和动作控制归还。如果只需补施放与恢复，传入 `--cast <窗口输出的 edited.json>` 即可，其余验证不会重跑。阶段、伤害和正式世界存读集中到 8.13 整体验收。
 
 步法与发力批次：在同一独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_martial_footwork.py`。可加 `--basis <部位与握持批次的 edited.json>` 使用上一批实际保存的成品。检查接地足滑动被拒绝、左右足逐点抬脚、撤销重做、平面曲线与发力参数保存重开，再核对换步、单次攻击接触和收势归还。失败时用 `--cast <本批输出的 edited.json>` 单独复验施放，保留前段的中英文画面与结果。
+
+阶段与接触条件批次：用 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_martial_process.py --section editor --basis <步法批次的 edited.json>` 核对姿态改名、接触和收势引用、阶段以及保存重开。`--section cast --basis <阶段批次的 edited.json>` 只复用窗口成品，确认费用不足与扣费、不可移动目标拒绝、真实抓握跨过攻击间隔并归还控制。后段剑尖伤害、正式冷读和连续录像另做，不用抓握站位代替命中验证。

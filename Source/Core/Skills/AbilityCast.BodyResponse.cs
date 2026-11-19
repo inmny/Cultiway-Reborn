@@ -24,9 +24,19 @@ public sealed partial class AbilityCast
     /// <summary>身体已经进入哪种实际结果，空值表示仍沿原动作。</summary>
     public BodyActionResult? BodyResult => bodyResponse?.Result;
 
-    /// <summary>实际收势期间保留显示与控制，但不能再次攻击。</summary>
-    internal bool BodyContactEnabled => Plan.Body != null && !bodyInterrupted && !bodyResponse.HasValue &&
-        exhaustedBodyStage != bodyStage && Plan.Body.IsActiveAt(Age);
+    /// <summary>收势或中断后不再产生新的主动接触。</summary>
+    private bool BodyCanInteract => Plan.Body != null && !bodyInterrupted && !bodyResponse.HasValue;
+
+    /// <summary>普通攻击和格挡服从内部作用窗口和该阶段的实际限额。</summary>
+    internal bool BodyContactEnabled => BodyCanInteract && exhaustedBodyStage != bodyStage && Plan.Body.IsActiveAt(Age);
+
+    /// <summary>路径内部仍属于预测起点的阶段；新阶段只能在边界接触。</summary>
+    internal bool BodyContactDuringStep(float age) => Plan.Body != null && !savedBodyInterrupted && !savedBodyResponse.HasValue &&
+        savedExhaustedBodyStage != savedBodyStage && Plan.Body.IsActiveAt(age);
+
+    /// <summary>粗筛同时保留普通作用和仍有效的控制形状，具体结算分别裁剪。</summary>
+    internal bool BodyShapeContactEnabled(bool includeEnd) => BodyContactEnabled ||
+        BodyCanInteract && Plan.Body.Construction.HasControlRelations && Plan.Body.Construction.HasControlContactAt(Age, includeEnd);
 
     /// <summary>结果恢复与普通恢复各自真实的结束时点。</summary>
     internal float BodyUntil => bodyResponse.HasValue ? bodyResponse.Value.Until + bodyResponseDelay : Plan.Body?.Duration ?? 0f;

@@ -18,8 +18,8 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>身体及借用兵器沿共同表面、作用窗口和接触限额寻找真实映像。</summary>
     /// <param name="shape">身体前后实际作用面。</param><param name="clock">共同起点。</param>
-    /// <param name="step">本轮世界步长。</param><param name="include">共同最早接触候选。</param>
-    private void FindBodyCorrespondences(ShapeMotion shape, double clock, float step, Action<ContactChoice> include)
+    /// <param name="step">本轮世界步长。</param><param name="touchFrom">普通接触可用的起点。</param><param name="include">共同最早接触候选。</param>
+    private void FindBodyCorrespondences(ShapeMotion shape, double clock, float step, float touchFrom, Action<ContactChoice> include)
     {
         RunningCast running = shape.Running;
         if (singleActingNode || !running.Cast.Plan.Body.Construction.HasTouchRelations || BodyCorrespondenceForce(running) <= 0f ||
@@ -51,7 +51,7 @@ public sealed partial class ConstructedAbilityService
                 var impact = running.Cast.ImpactAtStage(-1, stage);
                 if (!CorrespondenceAllows(running, -1, impact, relation, receiver) ||
                     !running.Cast.ContactInterval(-1, stage, out float from, out float until)) return;
-                float first = Mathf.Max(from, imageFromTime);
+                float first = Mathf.Max(Mathf.Max(from, touchFrom), imageFromTime);
                 float earliest = Mathf.Max(first, ContactFraction(shape, actor, originalFrom, originalTo, step, stage, first));
                 if (earliest > 1f || earliest > until || earliest >= imageUntil) return;
                 bool continuous = shape.Continuous && image.Continuous && !endpointOnly;

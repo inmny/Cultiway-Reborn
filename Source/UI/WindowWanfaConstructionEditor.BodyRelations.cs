@@ -25,72 +25,65 @@ public sealed partial class WindowWanfaConstructionEditor
             foreach (BodyRelationDefinition relation in construction.Relations.Where(r =>
                          r.Kind is BodyRelationKind.Grab or BodyRelationKind.Brace or BodyRelationKind.Deflect or BodyRelationKind.Disarm))
             {
+                string id = relation.Id;
                 WanfaEditorRow row = rows.GetNext();
                 row.Setup(T("BodyConnection"), T("ConnectionKind." + relation.Kind), T("RemoveConnection"), true,
-                    () => Change(() =>
+                    () => EditBodyMotion(next =>
                     {
-                        construction.Relations = construction.Relations.Where(r => r != relation).ToArray();
-                        construction.Parts = construction.Parts.Where(p => p.Id != relation.To ||
-                                                                           construction.Relations.Any(r =>
-                                                                               r.From == p.Id || r.To == p.Id))
-                            .ToArray();
-                    }),
-                    UiIcons.Delete);
+                        var parts = next.Construction;
+                        parts.Relations = parts.Relations.Where(r => r.Id != id).ToArray();
+                        if (!parts.Relations.Any(r => r.From == relation.To || r.To == relation.To))
+                            parts.Parts = parts.Parts.Where(p => p.Id != relation.To).ToArray();
+                    }), UiIcons.Delete);
                 Choice("ConnectionKind", T("ConnectionKind." + relation.Kind), () => menu.Show(T("ConnectionKind"),
                     new[] { BodyRelationKind.Grab, BodyRelationKind.Brace, BodyRelationKind.Deflect, BodyRelationKind.Disarm }.Select(kind => new UiOptionMenuOption
                     {
                         Label = T("ConnectionKind." + kind), Selected = relation.Kind == kind,
-                        Select = () => Change(() =>
+                        Select = () => Edit((parts, rule) =>
                         {
-                            relation.Kind = kind;
-                            if (kind != BodyRelationKind.Grab) relation.MoveTarget = relation.RotateTarget = false;
+                            rule.Kind = kind;
+                            if (kind != BodyRelationKind.Grab) rule.MoveTarget = rule.RotateTarget = false;
                             if (kind is BodyRelationKind.Deflect or BodyRelationKind.Disarm)
-                                construction.Parts.Single(p => p.Id == relation.To).Part = "item";
+                                BodyConstructionEdits.SetConnectionTarget(parts, rule, "item");
                         })
                     }).ToArray()));
                 bool held = construction.Parts.Single(p => p.Id == relation.From).Subject == BodyPartSubject.Held;
-                Choice("ConnectionSource",
-                    held ? T("ConnectionPart.item") : T(previewPlan?.Body?.Part.Label ?? "Effector"), () =>
-                        menu.Show(T("ConnectionSource"),
-                            construction.Parts.Where(p => session.Draft.Body.WeaponForm != null
-                                    ? p.Subject == BodyPartSubject.Held
-                                    : p.Subject == BodyPartSubject.Source && p.Id == session.Draft.Body.Effector)
-                                .Select(p => new UiOptionMenuOption
-                                {
-                                    Label = p.Subject == BodyPartSubject.Held
-                                        ? T("ConnectionPart.item")
-                                        : T(previewPlan?.Body?.Part.Label ?? "Effector"),
-                                    Selected = relation.From == p.Id,
-                                    Select = () => Change(() =>
-                                    {
-                                        relation.From = p.Id;
-                                        relation.FromAnchor = null;
-                                    })
-                                }).ToArray()));
+                Row("ConnectionSource", held ? T("ConnectionPart.item") : T(previewPlan?.Body?.Part.Label ?? "Effector"));
                 BodyPartInput target = construction.Parts.Single(p => p.Id == relation.To);
-                Choice("ConnectionTarget", ConnectionPartName(target.Part), () => menu.Show(T("ConnectionTarget"),
-                    connectionParts.Where(part => relation.Kind is not (BodyRelationKind.Deflect or BodyRelationKind.Disarm) || part == "item").Select(part => new UiOptionMenuOption
-                    {
-                        Label = ConnectionPartName(part), Selected = target.Part == part,
-                        Select = () => Change(() => target.Part = part)
-                    }).ToArray(), true));
-                ConnectionText("ConnectionCustomPart", target.Part, value => target.Part = value);
+                MartialChoice("ConnectionTarget", target.Part,
+                    connectionParts.Where(part => relation.Kind is not (BodyRelationKind.Deflect or BodyRelationKind.Disarm) || part == "item").ToArray(),
+                    ConnectionPartName, SetTarget);
+                ConnectionText("ConnectionCustomPart", target.Part, SetTarget, draftChange: false);
+                if (previewPlan?.Body is { } action)
+                    MartialChoice("ConnectionSurface", relation.FromAnchor, new[] { (string)null }.Concat(MartialContactShapes(action)).ToArray(),
+                        ShapeLabel, value => Edit((_, rule) => rule.FromAnchor = value));
                 ConnectionText("ConnectionContact", relation.FromAnchor ?? "", value =>
-                    relation.FromAnchor = string.IsNullOrWhiteSpace(value) ? null : value);
-                ConnectionMarker("ConnectionStart", relation.FromMarker, value => relation.FromMarker = value);
-                ConnectionMarker(relation.Kind == BodyRelationKind.Disarm ? "DisarmUntil" : "ConnectionUntil", relation.UntilMarker, value => relation.UntilMarker = value);
-                Number(relation.Kind == BodyRelationKind.Disarm ? "DisarmStrength" : "ConnectionStrength", relation.ControlStrength, value => relation.ControlStrength = value);
+                    Edit((_, rule) => rule.FromAnchor = string.IsNullOrWhiteSpace(value) ? null : value), draftChange: false);
+                string[] markers = BodyMarkerChoices();
+                MartialChoice("ConnectionStart", relation.FromMarker, markers, BodyMarkerName, value => Edit((_, rule) => rule.FromMarker = value));
+                MartialChoice(relation.Kind == BodyRelationKind.Disarm ? "DisarmUntil" : "ConnectionUntil", relation.UntilMarker,
+                    markers, BodyMarkerName, value => Edit((_, rule) => rule.UntilMarker = value));
+                RelationNumber(relation.Kind == BodyRelationKind.Disarm ? "DisarmStrength" : "ConnectionStrength", relation.ControlStrength,
+                    (rule, value) => rule.ControlStrength = value);
                 if (relation.Kind == BodyRelationKind.Grab)
-                    Toggle("ConnectionMove", relation.MoveTarget, value =>
+                    BodyMotionToggle("ConnectionMove", relation.MoveTarget, value => Edit((_, rule) =>
                     {
-                        relation.MoveTarget = value;
-                        if (!value) relation.RotateTarget = false;
-                    });
+                        rule.MoveTarget = value;
+                        if (!value) rule.RotateTarget = false;
+                    }));
                 if (relation.MoveTarget)
                 {
-                    Toggle("ConnectionRotate", relation.RotateTarget, value => relation.RotateTarget = value);
-                    Number("ConnectionCollision", relation.CollisionDamageScale, value => relation.CollisionDamageScale = value);
+                    BodyMotionToggle("ConnectionRotate", relation.RotateTarget, value => Edit((_, rule) => rule.RotateTarget = value));
+                    RelationNumber("ConnectionCollision", relation.CollisionDamageScale, (rule, value) => rule.CollisionDamageScale = value);
                 }
+
+                void Edit(Action<BodyConstructionDefinition, BodyRelationDefinition> edit) => EditBodyMotion(next =>
+                    edit(next.Construction, next.Construction.Relations.Single(r => r.Id == id)));
+
+                void SetTarget(string value) => Edit((parts, rule) => BodyConstructionEdits.SetConnectionTarget(parts, rule, value));
+
+                void RelationNumber(string key, float value, Action<BodyRelationDefinition, float> set) =>
+                    BodyMotionNumber(key, value, (next, number) => set(next.Construction.Relations.Single(r => r.Id == id), number));
             }
 
         if ((construction?.Relations.Length ?? 0) < 32 && (construction?.Parts.Length ?? 0) < 32)
@@ -115,6 +108,7 @@ public sealed partial class WindowWanfaConstructionEditor
                         To = id
                     }
                 }).ToArray();
+                access.Validate(next);
                 return next;
             }));
     }
@@ -140,18 +134,4 @@ public sealed partial class WindowWanfaConstructionEditor
         });
     }
 
-    /// <summary>阶段来自同一动作已有标记，不另建一套计时。</summary>
-    /// <param name="key">字段名称。</param><param name="value">当前标记。</param>
-    /// <param name="set">写入关系。</param>
-    private void ConnectionMarker(string key, string value, Action<string> set)
-    {
-        string[] builtIn = { "start", "active", "recover", "release", "end" };
-        Choice(key, builtIn.Contains(value) ? T("ConnectionMarker." + value) : value, () => menu.Show(T(key),
-            builtIn.Concat(session.Draft.Body.Keys.Where(k => k.Id != null).Select(k => k.Id))
-                .Select(marker => new UiOptionMenuOption
-                {
-                    Label = builtIn.Contains(marker) ? T("ConnectionMarker." + marker) : marker,
-                    Selected = value == marker, Select = () => Change(() => set(marker))
-                }).ToArray(), true));
-    }
 }

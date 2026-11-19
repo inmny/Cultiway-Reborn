@@ -1,0 +1,113 @@
+var source = Make(64.2f);
+foreach (Building building in World.world.buildings.getSimpleList().ToArray()) building.removeBuildingFinal();
+source.data.name = "持剑阶段验证";
+Item sword = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: source);
+source.equipment.setItem(sword, source);
+source.setStatsDirty(); source.updateStats();
+string fromBasis = __BASIS__;
+var basis = fromBasis == null
+    ? BodyConstructionEdits.ExplicitRelations(ConstructionEditing.Access.Read("Cultiway.Body.SwordThrust"))
+    : JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(fromBasis));
+var initialTouch = basis.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Touch);
+initialTouch.FromMarker = "active";
+initialTouch.FromAnchor = "tip";
+basis.Id = "test.body-footwork.martial-process";
+ConstructedAbilityService.Register(basis);
+ConstructedAbilityService.Learn(source.GetExtend(), basis.Id);
+
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+async Task Frames()
+{
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    Canvas.ForceUpdateCanvases();
+}
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(basis.Id, source);
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+var scroll = editor.GetComponentsInChildren<ScrollRect>(false).First(row => row.name == "Parameters");
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+void Click(string name) => editor.GetComponentsInChildren<Button>(false).Single(button => button.name == name).onClick.Invoke();
+WanfaEditorRow Row(string key, int index = 0) => editor.GetComponentsInChildren<WanfaEditorRow>(false)
+    .First(row => ((Text)Field(row, "_title")).text == (index == 0 ? T(key) : string.Format(T(key), index)));
+void Act(string key) => ((Button)Field(Row(key), "_action")).onClick.Invoke();
+void Select(string key, string label)
+{
+    Act(key);
+    var menu = Field(editor, "menu");
+    var options = (IList)Field(menu, "_options");
+    var buttons = (IList)Field(menu, "_optionButtons");
+    int index = Enumerable.Range(0, options.Count).Single(i => (string)Field(options[i], "Label") == label);
+    ((Button)buttons[index]).onClick.Invoke();
+}
+void Set(string key, string text, string row, int index = 0)
+{
+    var input = Row(row, index).GetComponentsInChildren<InputField>(false).Single(f => f.name == key);
+    input.text = text;
+    input.onEndEdit.Invoke(text);
+}
+BodyActionDefinition Body() => Session().Draft.Body;
+BodyRelationDefinition Touch() => Body().Construction.Relations.Single(r => r.Kind == BodyRelationKind.Touch);
+BodyRelationDefinition Grab() => Body().Construction.Relations.Single(r => r.Kind == BodyRelationKind.Grab);
+
+Click("Page2");
+Act("AddConnection");
+Select("ConnectionSurface", T("MartialShape.edge"));
+Select("BodyValues", T("BodyPoseMarkers"));
+Set("BodyPoseMarker", "sword-cut", "BodyKey", 3);
+Select("MartialTouchStart", "sword-cut");
+Select("ConnectionUntil", "sword-cut");
+Act("BodyResult.Contact");
+Set("BodyPoseMarker", "finish-cut", "BodyKey", 5);
+Check(Body().Responses.Single(r => r.Result == BodyActionResult.Contact).RecoverFrom == "finish-cut", "改名同步更新结果后的收势姿态引用");
+Set("BodyPoseMarker", "turn-to-thrust", "BodyKey", 3);
+Check(Touch().FromMarker == "turn-to-thrust" && Grab().UntilMarker == "turn-to-thrust" &&
+      Touch().FromAnchor == "tip" && Grab().FromAnchor == "edge", "改名同步保留两个不同表面的时段引用");
+string before = JsonConvert.SerializeObject(Body());
+Set("BodyPoseMarker", "", "BodyKey", 3);
+Check(JsonConvert.SerializeObject(Body()) == before, "拒绝删除仍被两条关系使用的标记");
+Click("Undo");
+Check(Touch().FromMarker == "sword-cut" && Grab().UntilMarker == "sword-cut", "撤销改名同时归还全部引用");
+Click("Redo");
+Act("SplitBodyStage");
+Select("BodyStage", string.Format(T("BodyStageNumber"), 2) + " / stage.2");
+Set("StageName", "thrust", "StageName");
+Select("StageFromPose", "turn-to-thrust");
+Check(Body().Stages[1].Id == "thrust" && Body().Stages[1].From == Body().Keys[2].At &&
+      Body().Stages[0].Until < Body().Stages[1].From, "从命名姿态取时刻并建立有空隙的真实阶段");
+
+World.world.console.Hide(); Tooltip.hideTooltipNow();
+foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+await Frames();
+scroll.verticalNormalizedPosition = 0f;
+await Frames(); Screen.Capture(Path.Combine(folder, "martial-markers-cz.png")); await Frames();
+LocalizedTextManager.instance.setLanguage("en");
+Click("Page2");
+Check(T("ConnectionSurface") == "Control contact surface", "英文表单使用真实表面选择");
+scroll.verticalNormalizedPosition = 0f;
+await Frames(); Screen.Capture(Path.Combine(folder, "martial-markers-en.png")); await Frames();
+Click("Replace");
+string id = Session().SourceId;
+var edited = ConstructionEditing.Access.Read(id);
+Click("Close"); await Frames();
+WindowWanfaConstructionEditor.Open(id, source); await Frames();
+Click("Page2");
+Check(JToken.DeepEquals(JObject.FromObject(Body()), JObject.FromObject(edited.Body)), "重开恢复整个控制、阶段和收势资料");
+Click("Close"); await Frames();
+File.WriteAllText(Path.Combine(folder, "edited.json"), JsonConvert.SerializeObject(edited, Formatting.Indented));
+
+// 用实际铁剑资源验证接触面边界。真正的控制、伤害结算和冷档在随后实战段共用这一成品。
+Ready(source); Place(source, 64.2f);
+var plan = ConstructionEditing.Access.Validate(edited);
+var binding = Binding(source, plan);
+Check(binding != null, "同一把铁剑能实际绑定窗口成品");
+var formContacts = FormResources.Load("sword").Description.Contacts;
+int edge = Array.FindIndex(formContacts, c => c.Id == "edge"), tip = Array.FindIndex(formContacts, c => c.Id == "tip");
+var uses = bindingType.GetMethod("UsesTouchShape", F);
+bool Uses(int shape, float age) => (bool)uses.Invoke(binding, new object[]{ shape, age });
+Check(edge >= 0 && tip >= 0 && !Uses(edge, .20f) && !Uses(edge, .30f) && !Uses(tip, .20f) &&
+      Uses(tip, .27f) && Uses(tip, .30f) && !Uses(tip, .33f),
+    "仅实际剑尖从标记开始到下个标记前参与普通接触，控制刃口没有被借用");
+ControllableUnit.clear(false);
+return new { passed = true, id, grip = plan.Body.Grip, stages = plan.Body.StageCount };

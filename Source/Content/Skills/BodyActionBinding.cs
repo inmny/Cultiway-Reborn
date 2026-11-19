@@ -189,9 +189,17 @@ internal sealed partial class BodyActionBinding
     /// <summary>确认当前实际部位或持物形状属于所选关系，不借用同次动作的其他接触面。</summary>
     /// <param name="relation">当前关系。</param><param name="shape">实际资源形状编号。</param>
     internal bool UsesRelationShape(in CompiledBodyRelation relation, int shape) =>
-        CompiledBodyConstruction.MatchesContact(relation.FromAnchor, action.Part.Contact == BodyContactPart.Hand
-            ? (weapon ?? hand).Contacts[shape].Id
-            : action.Part.Shape);
+        CompiledBodyConstruction.MatchesContact(relation.FromAnchor, ContactShapeName(shape));
+
+    /// <summary>攻击与主动格挡只读取各自声明的普通接触面和时间。</summary>
+    /// <param name="shape">当前实际形状编号。</param><param name="age">共同动作时间。</param>
+    internal bool UsesTouchShape(int shape, float age) => action.Construction.UsesTouch(weapon != null, ContactShapeName(shape), age);
+
+    /// <summary>将本次资源里的形状编号还原为可供关系匹配的名称。</summary>
+    /// <param name="shape">当前实际形状编号。</param>
+    private string ContactShapeName(int shape) => action.Part.Contact == BodyContactPart.Hand
+        ? (weapon ?? hand).Contacts[shape].Id
+        : action.Part.Shape;
 
     /// <summary>一次施放只绑定一次真实物件及手部关节。</summary>
     /// <param name="actor">已核对的实际身体。</param>

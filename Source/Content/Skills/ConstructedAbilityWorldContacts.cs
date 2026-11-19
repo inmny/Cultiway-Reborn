@@ -114,7 +114,9 @@ public sealed partial class ConstructedAbilityService
         RunningCast running = shape.Running;
         if (running.Cast.Role(shape.To.Node) == ConstructionContactRole.Decoration) return;
         int stage = bodyStage < 0 ? running.Cast.BodyStage : bodyStage;
-        if (!running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until)) return;
+        if (!running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until) ||
+            !TouchPath(shape, step, out float touchFrom)) return;
+        from = Mathf.Max(from, touchFrom);
         IReadOnlyList<CompiledConstructionWorldEffect> effects = running.Cast.ImpactAtStage(shape.To.Node, stage).WorldEffects;
         float ready = running.Cast.WorldContactReadyAt(shape.To.Node);
         bool signal = ready <= running.Cast.Age;

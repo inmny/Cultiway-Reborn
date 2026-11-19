@@ -61,10 +61,10 @@ public sealed partial class WindowWanfaConstructionEditor
             session.Draft.Root.BodyWindow ? "ExtensionHint" : "ManifestationHint"));
         bool leg = previewPlan?.Body?.Part.IsLeg == true || body.Keys.Any(key => key.Foot != null);
         bool head = previewPlan?.Body?.Part.IsHead == true || body.Keys.Any(key => key.HeadRotation != null);
-        string[] handles = rotating ? new[] { "PartRotation", "NamedFeet", "BodyFootwork" } :
-            head ? new[] { "HeadRotation", "TorsoPoint", "NativeFeet", "BodyFootwork" } :
-            leg ? new[] { "FootPoint", "TorsoPoint", "NativeFeet", "BodyFootwork" } :
-                new[] { "HandPoint", "TorsoPoint", "HandRotation", "NativeFeet", "BodyFootwork" };
+        string[] handles = rotating ? new[] { "PartRotation", "NamedFeet", "BodyFootwork", "BodyPoseMarkers" } :
+            head ? new[] { "HeadRotation", "TorsoPoint", "NativeFeet", "BodyFootwork", "BodyPoseMarkers" } :
+            leg ? new[] { "FootPoint", "TorsoPoint", "NativeFeet", "BodyFootwork", "BodyPoseMarkers" } :
+                new[] { "HandPoint", "TorsoPoint", "HandRotation", "NativeFeet", "BodyFootwork", "BodyPoseMarkers" };
         bodyHandle = Math.Min(bodyHandle, handles.Length - 1);
         Choice("BodyValues", T(handles[bodyHandle]), () =>
             menu.Show(T("BodyValues"),
@@ -88,6 +88,11 @@ public sealed partial class WindowWanfaConstructionEditor
             NativeFootRows(body, previewPlan?.Body);
             return;
         }
+        if (handles[bodyHandle] == "BodyPoseMarkers")
+        {
+            PoseMarkerRows(body);
+            return;
+        }
         bool feet = rotating && handles[bodyHandle] == "NamedFeet";
         if (feet) NamedFootRows(body);
         Row("BodyCoordinates",
@@ -101,10 +106,10 @@ public sealed partial class WindowWanfaConstructionEditor
             WanfaEditorRow row = rows.GetNext();
             row.Setup(string.Format(T("BodyKey"), i + 1), "", T("RemovePose"), true,
                 i > 0 && body.Keys.Length > 2
-                    ? () => Change(() => body.Keys = body.Keys.Where((_, at) => at != index).ToArray())
+                    ? () => EditBodyMotion(next => next.Keys = next.Keys.Where((_, at) => at != index).ToArray())
                     : null, UiIcons.Delete);
             Transform controls = row.UseInlineControls(260f);
-            FloatInput(controls, "At", key.At, value => key.At = value, i != 0, 48f);
+            FloatInput(controls, "At", key.At, value => EditBodyMotion(next => next.Keys[index].At = value), i != 0, 48f, draftChange: false);
             if (feet)
             {
                 if (bodyFoot != null && key.Support?.Parts?.TryGetValue(bodyFoot, out float[] foot) == true)

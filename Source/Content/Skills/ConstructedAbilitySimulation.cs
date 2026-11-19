@@ -712,7 +712,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         output.Clear();
         running.Cast.AppendContacts(output, includeEnd, includeMaterials: includeReactiveMaterials);
-        if (!running.Practice && running.BodyControlled && running.Cast.BodyContactEnabled)
+        if (!running.Practice && running.BodyControlled && running.Cast.BodyShapeContactEnabled(includeEnd))
         {
             int first = output.Count;
             running.Body.AppendContactShapes(running.Cast.BodyPose.Value, output, includeEnd);
@@ -760,7 +760,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ShapeMotion shape = shapes[index];
             RunningCast running = shape.Running;
             CastAuthority owner = running.Owner(shape.To.Node);
-            if (running.Cast.Plan.HasWorldEffects || running.Cast.Plan.HasWorldContactEvents)
+            bool canTouch = TouchPath(shape, step, out float touchFrom);
+            if (canTouch && (running.Cast.Plan.HasWorldEffects || running.Cast.Plan.HasWorldContactEvents))
             {
                 if (shape.To.Node < 0 && running.Cast.ContactScopeChanged(shape.To.Node))
                 {
@@ -773,10 +774,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             bool fire = powered && shape.To.Material?.Id == "fire" && shape.To.Material.State == "energy";
             bool ordinary = powered && running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
             bool thermalSource = fire || shape.To.Node >= 0 && running.Cast.Burning(shape.To.Node).Heat > 0;
-            bool attack = ordinary && running.Cast.Role(shape.To.Node) == ConstructionContactRole.Attack;
-            if (shape.To.Node < 0 && attack) FindBodyCorrespondences(shape, clock, step, Include);
+            bool attack = canTouch && ordinary && running.Cast.Role(shape.To.Node) == ConstructionContactRole.Attack;
+            if (shape.To.Node < 0 && attack) FindBodyCorrespondences(shape, clock, step, touchFrom, Include);
             if (attack && hasBodyGuardShapes)
-                FindBodyGuards(shape, step, Include);
+                FindBodyGuards(shape, step, touchFrom, Include);
             if (shape.To.Node >= 0 && (ordinary || thermalSource))
             {
                 if (!singleActingNode)
@@ -864,7 +865,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     // 双方关系仍按原整身资料选择目标，阶段覆盖只改变该次攻击作用。
                     if (owner.Matches((running.Cast.Plan.Body.Impact ?? running.Cast.Plan.Impact).Targets, actor.Actor))
                         FindBodyConnections(shape, actor, clock, step, Include);
-                    if (!running.Cast.Plan.Body.Construction.HasTouchRelations) continue;
+                    if (!canTouch) continue;
                 }
 
                 bool changed = running.Cast.ContactScopeChanged(shape.To.Node);
@@ -880,6 +881,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     CompiledConstructionImpact effect = running.Cast.ImpactAtStage(shape.To.Node, stage);
                     if (effect.SelectedTargetOnly && owner.TargetId != actor.Id || !owner.Matches(effect.Targets, actor.Actor) ||
                         !running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until)) return;
+                    from = Mathf.Max(from, touchFrom);
                     float earliest = Mathf.Max(from, ContactFraction(shape, actor, b0, b1, step, stage, from));
                     if (earliest > 1f || earliest > until) return;
                     bool pulse = running.Cast.Plan.ContactPolicies[running.Cast.ContactGroup(shape.To.Node)].Mode == ConstructionContactMode.Pulse;
@@ -916,6 +918,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 if (!first.HasValue || ContactChoice.Compare(value, first.Value) < 0) first = value;
                 return;
             }
+            // 预测边界可能正好是普通接触结束；即使为控制保留了形状，也不能在终点多结算一次。
+            if (value.Fraction == 1f &&
+                (value.BodyRelation < 0 && value.Left.To.Node < 0 && !TouchesAtEnd(value.Left) ||
+                 value.BodyGuardFacing != Vector3.zero && !TouchesAtEnd(value.Right.Value))) return;
             if (value.Fraction > value.Left.To.Until ||
                 value.Right.HasValue && value.Fraction > value.Right.Value.To.Until) return;
             if (!value.Left.Running.Cast.CanSweepAt(value.Left.To.Node, value.Fraction) ||
@@ -929,6 +935,24 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (!first.HasValue || ContactChoice.Compare(value, first.Value) < 0) first = value;
         }
     }
+
+    /// <summary>共同预测已按关系标记切段：内部可扫掠，边界新开的表面只接受末端接触。</summary>
+    /// <param name="shape">粗筛保留的共用形状。</param><param name="step">本段共同消耗的世界秒数。</param><param name="from">普通接触可用的路径起点。</param>
+    private static bool TouchPath(in ShapeMotion shape, float step, out float from)
+    {
+        from = 0f;
+        if (shape.To.Node >= 0) return true;
+        float mid = shape.Running.Cast.Age - step * .5f;
+        if (shape.Continuous && step > 0f && shape.Running.Cast.BodyContactDuringStep(mid) &&
+            shape.Running.Body.UsesTouchShape(shape.To.Shape, mid)) return true;
+        from = 1f;
+        return TouchesAtEnd(shape);
+    }
+
+    /// <summary>在同一预测终点核对普通接触，结束标记不属于该窗口。</summary>
+    /// <param name="shape">实际作用面。</param>
+    private static bool TouchesAtEnd(in ShapeMotion shape) => shape.Running.Cast.BodyContactEnabled &&
+        shape.Running.Body.UsesTouchShape(shape.To.Shape, shape.Running.Cast.Age);
 
     /// <summary>只在回到真实接触时点后修改状态及游戏，随后重新查询余段。</summary>
     /// <param name="hit">共同时间最早的真实接触。</param>

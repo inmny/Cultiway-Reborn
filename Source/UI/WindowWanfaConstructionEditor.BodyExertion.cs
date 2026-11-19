@@ -84,7 +84,7 @@ public sealed partial class WindowWanfaConstructionEditor
     {
         var candidate = ConstructionEditing.Copy(session.Draft);
         edit(candidate.Body);
-        AbilityCompiler.Compile(candidate, false);
+        access.Validate(candidate);
         return candidate;
     });
 

@@ -26,18 +26,8 @@ public sealed partial class WindowWanfaConstructionEditor
         }
 
         if (!action.Construction.HasTouchRelations) return;
-        if (action.Construction.HasControlRelations)
-        {
-            Row("MartialTouch", T("MartialTouchShared"));
-            return;
-        }
-
-        string[] shapes = action.Part.Contact == BodyContactPart.Hand
-            ? FormResources.Load(action.WeaponForm ?? "hand").Description.Contacts.SelectMany(contact => ShapeNames(contact.Id))
-                .Distinct(StringComparer.Ordinal).ToArray()
-            : new[] { action.Part.Shape };
-        string[] builtIn = { "start", "active", "release", "recover", "end" };
-        string[] markers = builtIn.Concat(session.Draft.Body.Keys.Select(key => key.Id).Where(id => id != null)).ToArray();
+        string[] shapes = MartialContactShapes(action);
+        string[] markers = BodyMarkerChoices();
         var touches = session.Draft.Body.Construction?.Relations.Where(relation => relation.Kind == BodyRelationKind.Touch).ToArray() ??
                       new[] { new BodyRelationDefinition { Id = "touch" } };
         foreach (BodyRelationDefinition touch in touches)
@@ -45,21 +35,27 @@ public sealed partial class WindowWanfaConstructionEditor
             if (touches.Length > 1) Row("MartialTouch", touch.Id);
             MartialChoice("MartialTouchShape", touch.FromAnchor, new[] { (string)null }.Concat(shapes).ToArray(),
                 ShapeLabel, value => Edit(relation => relation.FromAnchor = value));
-            MartialChoice("MartialTouchStart", touch.FromMarker, markers, MarkerLabel,
+            MartialChoice("MartialTouchStart", touch.FromMarker, markers, BodyMarkerName,
                 value => Edit(relation => relation.FromMarker = value));
-            MartialChoice("MartialTouchEnd", touch.UntilMarker, markers, MarkerLabel,
+            MartialChoice("MartialTouchEnd", touch.UntilMarker, markers, BodyMarkerName,
                 value => Edit(relation => relation.UntilMarker = value));
 
             void Edit(Action<BodyRelationDefinition> edit) =>
                 ApplyConstructionEdit(() => BodyConstructionEdits.ChangeTouch(session.Draft, touch.Id, edit));
         }
 
-        string MarkerLabel(string marker) => builtIn.Contains(marker) ? T("ConnectionMarker." + marker) : marker;
         string GripLabel(string grip) => grip switch
         {
             "grip" => T("MartialGripStandard"), "choke" => T("MartialGripChoke"), _ => grip
         };
     }
+
+    /// <summary>普通接触和控制关系选择同一资源提供的真实表面。</summary>
+    /// <param name="action">当前能编译的动作。</param>
+    private static string[] MartialContactShapes(CompiledBodyAction action) => action.Part.Contact == BodyContactPart.Hand
+        ? FormResources.Load(action.WeaponForm ?? "hand").Description.Contacts.SelectMany(contact => ShapeNames(contact.Id))
+            .Distinct(StringComparer.Ordinal).ToArray()
+        : new[] { action.Part.Shape };
 
     /// <summary>常见表面显示本地名称；自定义资源保留自身标识。</summary>
     private static string ShapeLabel(string id)
