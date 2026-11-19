@@ -161,6 +161,7 @@ private float barrierBefore, barrierLowest;
 private readonly HashSet<long> observedBarriers = new();
 private Type externalView;
 private object externalViewInstance;
+private bool? previousTerrainMouseLookOff;
 
 /// <summary>本招法宝或战技的正式能力句柄。</summary>
 private ActiveAbilityHandle ability;
@@ -617,6 +618,8 @@ private IEnumerator Guarded(IEnumerator steps)
 
     Config.paused = true;
     CleanExecutions();
+    ReleasePalmCamera();
+    RestoreTerrainFirstPersonLook();
     ControllableUnit.clear(false);
     bool sceneRestored = false;
     if ((string)request["action"] == "construction")
@@ -809,6 +812,7 @@ private IEnumerator RecordConstructions()
             new { done = false, index = ++index, current = item["key"], stage = "准备构造" });
         var recording = RecordConstruction(item);
         while (recording.MoveNext()) yield return recording.Current;
+        RestoreTerrainFirstPersonLook();
     }
 }
 
@@ -951,6 +955,23 @@ private IEnumerator RecordConstruction(JObject item)
     }
 
     Vector2 targetStart = target.current_position;
+    bool terrainFirstPerson = (string)request["view"] == "firstperson" &&
+        ((float?)request["terrainSlope"] ?? 0f) != 0f;
+    if (terrainFirstPerson)
+    {
+        if (!ControllableUnit.isControllingUnit(caster))
+            throw new InvalidOperationException("坡面录像未实际附身到施法者");
+        // 从实际施法位置朝向已经对位的目标。录制期间不接收桌面的鼠标转向。
+        Vector2 direction = targetStart - casterStart;
+        AimFirstPerson(Mathf.Atan2(direction.y, direction.x), -8f);
+        var mouseLookOff = externalView.GetField("MouseLookOff", Flags);
+        if (mouseLookOff != null)
+        {
+            previousTerrainMouseLookOff = (bool)mouseLookOff.GetValue(externalViewInstance);
+            mouseLookOff.SetValue(externalViewInstance, true);
+        }
+    }
+
     AbilityDefinition opponent = request["opponentConstruction"]?.ToObject<AbilityDefinition>();
     bool opponentUsed = false;
     float opponentPaid = 0f;
@@ -1279,8 +1300,8 @@ private IEnumerator Run()
             Config.paused = true;
         }
 
-        if (externalView != null &&
-            !(bool)externalView.GetProperty("GodShown", Flags).GetValue(externalViewInstance))
+        if (externalView != null && (WantsPalmCloseView() ||
+            !(bool)externalView.GetProperty("GodShown", Flags).GetValue(externalViewInstance)))
         {
             var enter = EnterView();
             while (enter.MoveNext()) yield return enter.Current;
@@ -1288,6 +1309,7 @@ private IEnumerator Run()
 
         var record = (string)request["scene"] == "battle" ? RecordBattle(item, folder) : Record(item, folder);
         while (record.MoveNext()) yield return record.Current;
+        ReleasePalmCamera();
     }
 
     CleanExecutions();
@@ -1446,7 +1468,20 @@ private IEnumerator EnterView()
         }
 
         if (!entered) throw new InvalidOperationException("实际附身第一人称镜头未就绪");
-        externalView.GetMethod("SetYaw", Flags).Invoke(externalViewInstance, new object[] { 0f });
+        float yaw = 0f, pitch = 0f;
+        if (currentCase == "Cultiway.PalmStrike")
+        {
+            // 正对近身目标只看见胸口，向出掌侧稍转并低头，保留掌面和目标边缘。
+            yaw = -.34f;
+            pitch = -43f;
+        }
+        else if (currentCase is "Cultiway.FlyingSword" or "Cultiway.GroundSpike")
+        {
+            Vector2 direction = enemies[0].current_position - caster.current_position;
+            yaw = Mathf.Atan2(direction.y, direction.x);
+            pitch = -4f;
+        }
+        AimFirstPerson(yaw, pitch);
         for (int frame = 0; frame < 4; frame++) yield return null;
         yield break;
     }
@@ -1469,6 +1504,45 @@ private IEnumerator EnterView()
         // 使用外部模组自身的倾斜观察，避免俯视时看不出浪唇、腹部等真实厚度。
         externalView.GetField("_godTip", Flags).SetValue(externalViewInstance, .55f);
         externalView.GetField("_godTipRate", Flags).SetValue(externalViewInstance, 0f);
+    }
+
+    if (WantsPalmCloseView())
+    {
+        // 沿用已经验证的相机锁人路径，不等待普通地图相机追上三维相机。
+        void Set(string field, object value) => externalView.GetField(field, Flags).SetValue(externalViewInstance, value);
+        Set("_godLock", caster);
+        Set("_godFollow", caster.current_position);
+        Set("_godFollowVel", Vector2.zero);
+        Set("_godClose", (float)request["zoom"]);
+        Set("_godCloseTarget", (float)request["zoom"]);
+        Set("_godPull", 1f);
+        Set("_godTurn", -.25f);
+        Set("_godTurnRate", 0f);
+        Set("_godTip", .2f);
+        Set("_godTipRate", 0f);
+        object cache = sampler.GetType().GetField("Cache", Flags).GetValue(sampler);
+        var sample = cache.GetType().GetMethod("SampleHeight", new[] { typeof(float), typeof(float) });
+        Vector2 point = caster.current_position;
+        float z = (float)sample.Invoke(cache, new object[] { point.x, point.y });
+        Vector4 focus = new Vector4(point.x, point.y, z + .4f, 1f);
+        Vector2 screen = Vector2.zero;
+        float span = 0f;
+        for (int frame = 0; frame < 180; frame++)
+        {
+            // 实际投影中能看到施法者，并且一格明显占画面宽度，才是确实拉近。
+            Matrix4x4 projection = Shader.GetGlobalMatrix("_FP_VP");
+            Vector4 centre = projection * focus;
+            Vector4 step = projection * (focus + new Vector4(1f, 0f, 0f, 0f));
+            if (centre.w > 0f && step.w > 0f)
+            {
+                screen = new Vector2(centre.x, centre.y) / centre.w;
+                span = Vector2.Distance(screen, new Vector2(step.x, step.y) / step.w);
+                if (frame >= 8 && Mathf.Abs(screen.x) < .8f && Mathf.Abs(screen.y) < .8f && span > .16f)
+                    yield break;
+            }
+            yield return null;
+        }
+        throw new InvalidOperationException($"三维掌击近景没有实际绘制到施法者：画面位置{screen}，一格跨度{span:F2}");
     }
 
     if ((float?)request["zoom"] < 10f && request["construction"]?["Body"] is JObject)
@@ -1790,6 +1864,17 @@ private IEnumerator Record(JObject item, string folder)
         yield return null;
     }
 
+    // 使用实际镜头和附身状态，防止有效的战斗画面被标为未经进入的视角。
+    var viewState = externalView == null ? null : new
+    {
+        firstPerson = (bool)externalView.GetProperty("IsFirstPerson", Flags).GetValue(externalViewInstance),
+        attached = ControllableUnit.isControllingUnit(caster),
+        godView = (bool)externalView.GetProperty("GodShown", Flags).GetValue(externalViewInstance),
+        godAlpha = (float)externalView.GetProperty("GodAlpha", Flags).GetValue(externalViewInstance)
+    };
+    if ((string)request["view"] == "firstperson" && (viewState == null || !viewState.firstPerson || !viewState.attached))
+        throw new InvalidOperationException("正式施放前未实际附身到施法者");
+
     bool used;
     if (dedicated)
     {
@@ -1925,7 +2010,7 @@ private IEnumerator Record(JObject item, string folder)
         palm = palm ? new { cast = palmCast, contacts = palmHits.Length, settlements = palmDamage.Length,
             lost = palmDamage.Sum(hit => (int?)hit["lost"] ?? 0), released = palmReleased,
             end = palmEnd?.WorldTime, age = palmEnd?.Age } : null,
-        view = (string)request["view"], lighting = (string)request["lighting"] ?? "day",
+        view = (string)request["view"], viewState, lighting = (string)request["lighting"] ?? "day",
         lightingState = LightingState(), scene = (string)request["scene"], executionLog, contactsLog,
         worldContactsLog, areasLog, queuedDamageLog,
         barrierLog, clashesLog, footprints = footprints.Values.ToArray(), yellowObjects,
@@ -1944,6 +2029,14 @@ private IEnumerator Record(JObject item, string folder)
 private object ReadMotionFrame(string id, double time)
 {
     float[] Point(Vector3 value) => new[] { value.x, value.y, value.z };
+    bool inspectPalmView = id == "Cultiway.PalmStrike" && (string)request["view"] == "firstperson";
+    Matrix4x4 viewProjection = inspectPalmView ? Shader.GetGlobalMatrix("_FP_VP") : default;
+    object Project(Vector3 value)
+    {
+        Vector4 clip = viewProjection * new Vector4(value.x, value.y, value.z, 1f);
+        return new { x = clip.w > 0f ? clip.x / clip.w : 0f, y = clip.w > 0f ? clip.y / clip.w : 0f,
+            depth = clip.w };
+    }
     var live = (IEnumerable)typeof(ConstructedAbilityService).GetField("casts", Flags).GetValue(null);
     var views = new List<FormVisualInstance>();
     var samples = new List<object>();
@@ -1961,7 +2054,8 @@ private object ReadMotionFrame(string id, double time)
             cast = (long)type.GetField("Id", Flags).GetValue(running), cast.Age,
             velocity = views.Count == 0 ? null : Point(cast.Velocity(0)),
             body = pose.HasValue ? new { pose.Value.ActionAge, hip = Point(pose.Value.CenterOfMass),
-                palm = Point(pose.Value.Hand), elbow = Point(pose.Value.Elbow), turn = pose.Value.Turn } : null,
+                palm = Point(pose.Value.Hand), elbow = Point(pose.Value.Elbow), turn = pose.Value.Turn,
+                palmView = inspectPalmView ? Project(pose.Value.Hand) : null } : null,
             forms = views.Select(form =>
             {
                 float[] forward = form.Resource.Description.Forward;
@@ -2460,13 +2554,42 @@ private IEnumerator RecordBattle(JObject item, string folder)
     });
 }
 
+/// <summary>通过外部模组自身的第一人称镜头设定朝向。</summary>
+private void AimFirstPerson(float yaw, float pitch)
+{
+    externalView.GetMethod("SetYaw", Flags).Invoke(externalViewInstance, new object[] { yaw });
+    externalView.GetMethod("SetPitchDegrees", Flags).Invoke(externalViewInstance, new object[] { pitch });
+}
+
+/// <summary>恢复坡面录像开始前的鼠标转向状态。</summary>
+private void RestoreTerrainFirstPersonLook()
+{
+    if (!previousTerrainMouseLookOff.HasValue) return;
+    externalView.GetField("MouseLookOff", Flags).SetValue(externalViewInstance, previousTerrainMouseLookOff.Value);
+    previousTerrainMouseLookOff = null;
+}
+
+/// <summary>近身掌击在三维使用外部模组的贴近人物相机。</summary>
+private bool WantsPalmCloseView() => (string)request["view"] == "worldfall" &&
+    currentCase == "Cultiway.PalmStrike" && (float?)request["zoom"] < 10f;
+
+/// <summary>当前段结束或中止时解除脚本设置的锁人，不干预用户自己的观察目标。</summary>
+private void ReleasePalmCamera()
+{
+    if (externalView == null || !WantsPalmCloseView()) return;
+    var locked = externalView.GetField("_godLock", Flags);
+    if (caster == null || !ReferenceEquals(locked.GetValue(externalViewInstance), caster)) return;
+    locked.SetValue(externalViewInstance, null);
+    externalView.GetField("_godPull", Flags).SetValue(externalViewInstance, 0f);
+}
+
 /// <summary>固定普通观察视角，所有法术使用同一尺度便于比较。</summary>
 private void Camera()
 {
     if (externalView != null && (string)request["view"] == "firstperson" &&
         (bool)externalView.GetProperty("IsFirstPerson", Flags).GetValue(externalViewInstance)) return;
     bool body = request["construction"]?["Body"] is JObject;
-    if (body && externalView != null && (float?)request["zoom"] < 10f &&
+    if (externalView != null && (WantsPalmCloseView() || body && (float?)request["zoom"] < 10f) &&
         (bool)externalView.GetProperty("GodShown", Flags).GetValue(externalViewInstance)) return;
     bool placement = request["construction"] is JObject && request["targetOffset"] is JArray;
     if (currentCase == "Cultiway.PalmStrike")
