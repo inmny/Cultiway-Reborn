@@ -1,0 +1,18 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.CorrosivePoisonPool",
+  "Name": "蚀甲毒潭",
+  "Resource": "mana",
+  "Cost": 8,
+  "Cooldown": 2.2,
+  "Lifetime": 2.1,
+  "Power": 3,
+  "TargetRange": 24,
+  "Binding": {"Anchor": "Target"},
+  "Impact": {"DamageScale": 0.12, "EquipmentErosion": {"Slots": ["Armor"], "Fraction": 0.12}},
+  "Root": {
+    "Id": "pool", "Form": "poison_pool", "Matter": "poison", "State": "liquid",
+    "Contact": {"Mode": "Interval", "Interval": 0.34},
+    "Operations": [{"Kind": "Animate", "Clip": "settle"}]
+  }
+}

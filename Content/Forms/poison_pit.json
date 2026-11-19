@@ -1,0 +1,121 @@
+{
+    "Structure": {
+        "Kind": "surface",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_fields.mjs",
+            "Entry": "makePits",
+            "Parameters": [
+                {
+                    "Id": "pits",
+                    "Values": [
+                        -0.20999999344348908,
+                        0.20000000298023225,
+                        0.20999999344348908,
+                        0.14000000059604646,
+                        0.009999999776482582,
+                        0.28999999165534975,
+                        0.03500000014901161,
+                        -0.33000001311302187,
+                        0.14000000059604646
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "poison_pit",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/poison_pit_pit_0_mid.asset",
+                "Assets/Cultiway/Forms/poison_pit_pit_0_far.asset"
+            ],
+            "Roles": [
+                "erosion.mark"
+            ],
+            "Id": "pit_0",
+            "Surface": "poison_etch",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/poison_pit_pit_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/poison_pit_pit_1_mid.asset",
+                "Assets/Cultiway/Forms/poison_pit_pit_1_far.asset"
+            ],
+            "Roles": [
+                "erosion.mark"
+            ],
+            "Id": "pit_1",
+            "Surface": "poison_etch",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/poison_pit_pit_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/poison_pit_pit_2_mid.asset",
+                "Assets/Cultiway/Forms/poison_pit_pit_2_far.asset"
+            ],
+            "Roles": [
+                "erosion.mark"
+            ],
+            "Id": "pit_2",
+            "Surface": "poison_etch",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/poison_pit_pit_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [],
+    "Controls": [],
+    "Motions": []
+}

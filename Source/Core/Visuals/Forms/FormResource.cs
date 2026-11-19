@@ -732,6 +732,8 @@ internal sealed partial class FormResourceGeneration
             "gold" => (0f, new Color(.96f, .68f, .16f), .22f),
             "lightning_dense" => (14f, new Color(.39f, .54f, 1f, .94f), .22f),
             "poison_liquid" => (10f, new Color(.17f, .36f, .035f, .9f), .23f),
+            "poison_film" => (23f, new Color(.32f, .42f, .052f, .94f), .24f),
+            "poison_etch" => (24f, new Color(.53f, .73f, .15f, .93f), .34f),
             "poison_vapor" => (11f, new Color(.31f, .53f, .07f, .48f), .9f),
             "poison_core" => (11f, new Color(.13f, .25f, .025f, .55f), .9f),
             "entropy_veil" => (12f, new Color(.30f, .10f, .46f, .55f), .9f),

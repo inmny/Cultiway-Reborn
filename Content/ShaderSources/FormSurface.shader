@@ -430,13 +430,16 @@ Shader "Cultiway/FormSurface"
             }
             else if(_Kind < 11.5)
             {
-                // 透明边缘和内部密度只改变雾的明暗，不画球壳轮廓。
-                float density=volumeNoise(i.material*1.6+float3(.025,-.03,.055)*_WorldTime);
-                float detail=volumeNoise(i.material*4.5+float3(-.018,.02,.025)*_WorldTime);
-                base*=((.42+.32*density)*ambient+.24*diffuse*direct);
-                base+=tint.rgb*detail*.09;
-                // 体积前后两侧的光程相同；不能让原版投影的双面方向把整个体积裁成透明。
-                alpha*=pow(abs(dot(n,eye)),.7)*(.42+.58*density);
+                // 平行于地面的疏密层；宽面上能看出前涌、背后拉长和逐渐混入空气。
+                float3 q = i.material;
+                float density = volumeNoise(q * float3(2.5,1.25,4.2) + float3(.12,-.85,.16)*_WorldTime);
+                float grain = volumeNoise(q * float3(4.8,2.4,7.0) - float3(.16,.47,.13)*_WorldTime);
+                float folds = smoothstep(.18,.76,.72*density+.28*grain);
+                base *= (.60+.56*folds)*max(float3(.68,.72,.61),.47*ambient+.50*direct);
+                base += tint.rgb*(.06+.29*folds)*(.47+.53*diffuse);
+                float chord = smoothstep(.01,.78,abs(dot(n,eye)));
+                float film = i.surface.x > .01 ? i.surface.y : 1;
+                alpha *= (.05+.95*chord)*(.53+.47*folds)*film;
             }
             else if (_Kind < 12.5)
             {
@@ -535,7 +538,7 @@ Shader "Cultiway/FormSurface"
                 alpha *= (.40+.60*chord)*(.47+.42*body+.17*inner)*
                          (1-smoothstep(.71,1.02,height)*(.51-.28*bands));
             }
-            else
+            else if (_Kind < 22.5)
             {
                 // 煞风的厚薄跟着剪切面走；暗面有疏密，折面受光，不描亮边。
                 float fold = volumeNoise(i.material * float3(2.7,2.7,5.9) - float3(.16,-.09,1.6)*_WorldTime);
@@ -544,6 +547,27 @@ Shader "Cultiway/FormSurface"
                 base *= (.54+.62*density)*max(float3(.78,.76,.82),.49*ambient+.54*direct);
                 base += tint.rgb*(.14+.29*diffuse)*density;
                 alpha *= i.surface.y*(.48+.52*density)*(.29+.71*chord);
+            }
+            else
+            {
+                // 毒潭的暗处是积液，颜色只在较薄的膜和蚀坑边缘略露出来。
+                float3 q = i.material;
+                float film = volumeNoise(q*float3(3.4,3.4,8.0) + float3(-.09,.06,0)*_WorldTime);
+                float grain = volumeNoise(q*float3(12,12,16));
+                float rim = smoothstep(.67,.98,i.surface.y + (grain-.5)*.20);
+                float thick = saturate(i.surface.x*2.5);
+                if (_Kind < 23.5)
+                {
+                    float pits = smoothstep(.30,.55,.68*grain+.32*film);
+                    base *= (.17+.31*pits+.22*rim)*max(float3(.7,.72,.53),ambient+.48*direct);
+                    base += tint.rgb*(.23*rim+.13*film)*(.52+.48*diffuse) + specular*(.14+.37*pits)*direct;
+                    alpha *= .63+.30*thick+.05*rim;
+                }
+                else
+                {
+                    base = (base*.13 + tint.rgb*rim*(.47+.24*grain)) * (.87+.23*diffuse);
+                    alpha *= .63+.32*rim;
+                }
             }
             float contact = formFeedback(i);
             base += (base*.24 + float3(.035,.045,.05)*environmentLight)*contact;

@@ -1,0 +1,28 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.SweepingPoisonBreath",
+  "Name": "拂地毒息",
+  "Resource": "mana",
+  "Cost": 7,
+  "Cooldown": 2,
+  "Lifetime": 1.85,
+  "Power": 3,
+  "TargetRange": 24,
+  "Binding": {"Anchor": "Source", "FaceTarget": true},
+  "Impact": {
+    "DamageScale": 0.14,
+    "Statuses": [{"Id": "Poison", "Duration": 4.2, "Application": "Refresh", "Tick": {"ForcePerSecond": 0.35, "Element": {"wood": 0.4, "water": 0.25, "neg": 0.35}}}],
+    "Spreads": [{"Radius": 4, "VisualSeconds": 0, "Outcome": {
+      "Statuses": [{"Id": "Poison", "Duration": 3.6, "Application": "Refresh", "Tick": {"ForcePerSecond": 0.32, "Element": {"wood": 0.4, "water": 0.25, "neg": 0.35}}}]
+    }}]
+  },
+  "Root": {
+    "Id": "breath", "Form": "poison_mist", "Matter": "poison", "State": "gas", "Scale": 0.94,
+    "Contact": {"Mode": "Once"},
+    "Rotation": [-90, 0, 0],
+    "Operations": [
+      {"Kind": "Animate", "Clip": "breath"},
+      {"Kind": "Fly", "At": 0.13, "Vector": [0, -4.9, 0], "InheritVelocity": false}
+    ]
+  }
+}

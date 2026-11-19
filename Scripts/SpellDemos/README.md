@@ -2233,3 +2233,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中，用 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_wind_combat.py --section carry` 核对空地、本来就在地面的同一件物品卷起落地、范围内外的人物受力和恢复拾取。`--section erosion` 核对实际护甲分次受损、离开有效区后停止、余痕退出和再次施放。`--section trial` 从原劫程入口核对无主风柱、指定人物承伤与清理，复用既有天劫保存验证结果。
 
 两类常速录像分别给 `carry` 和 `erosion` 加 `--record native` 或 `--record worldfall`。输出目录记录实际成功事件、姿势截图和 `demo.mp4`；相同材料的空场不生成装饰性携物。
+
+### 9.20 毒息与毒潭
+
+在独立游戏中运行 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_poison_combat.py --section breath`，核对毒息推进、直接接触和范围传播的区别、真实毒伤、解毒以及自然消退。`--section pool` 核对分次腐蚀、离开作用区、无甲命中和再次施放。
+
+两段各可加 `--record native` 或 `--record worldfall`，从同一个正式学习和施放入口录制常速画面，并记录付出的法力、传播结果或原甲的耐久变化。

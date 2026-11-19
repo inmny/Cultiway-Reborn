@@ -50,6 +50,18 @@ public sealed class RenderStatusAnimationSystem : QuerySystem<StatusComponent>, 
                             Quaternion.identity, Vector3.one * height * .06f, settings.Color, true, foot);
                     }
                 }
+                else if (settings.Form == StatusSpatialForm.Poison)
+                {
+                    float remaining = entity.GetComponent<AliveTimeLimit>().value - entity.GetComponent<AliveTimer>().value;
+                    float density = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(remaining / .85f));
+                    Color tint = settings.Color;
+                    tint.a *= density;
+                    float stretch = 1f + .16f * Mathf.Sin((float)now * 5f + actor.id % 5);
+                    SpatialVisualDraw.Mesh(Meshes, SpatialVisualGeometry.PoisonStain,
+                        center + new Vector3(radius * .36f, 0f, 0f), Quaternion.identity,
+                        new Vector3(radius, radius, radius * stretch) * (.85f + .15f * density), tint,
+                        false, foot, additive: false);
+                }
                 else if (settings.Form is StatusSpatialForm.Bind or StatusSpatialForm.Freeze)
                 {
                     for (int i = 0; i < 3; i++)
