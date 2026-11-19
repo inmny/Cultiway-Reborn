@@ -1,0 +1,202 @@
+var source = Make(64.2f);
+var target = Make(65.25f);
+foreach (Building building in World.world.buildings.getSimpleList().ToArray()) building.removeBuildingFinal();
+source.data.name = "持剑换步验证";
+Item sword = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: source);
+source.equipment.setItem(sword, source);
+source.setStatsDirty(); source.updateStats();
+string fromSaved = __CAST_STATE__;
+if (fromSaved != null)
+    return await Cast(JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(fromSaved)));
+
+string fromBasis = __BASIS__;
+var basis = fromBasis == null
+    ? BodyConstructionEdits.ExplicitRelations(ConstructionEditing.Access.Read("Cultiway.Body.SwordThrust"))
+    : JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(fromBasis));
+if (fromBasis == null)
+{
+    basis.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Touch).FromAnchor = "tip";
+    basis.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Grip).ToAnchor = "choke";
+    basis.Body.Grip = "choke";
+}
+basis.Id = "test.body-footwork.martial-steps";
+ConstructedAbilityService.Register(basis);
+ConstructedAbilityService.Learn(source.GetExtend(), basis.Id);
+
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+async Task Frames()
+{
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    Canvas.ForceUpdateCanvases();
+}
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(basis.Id, source);
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+var scroll = editor.GetComponentsInChildren<ScrollRect>(false).First(row => row.name == "Parameters");
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+void Click(string name) => editor.GetComponentsInChildren<Button>(false).Single(button => button.name == name).onClick.Invoke();
+WanfaEditorRow Row(string key, int index = 0) => editor.GetComponentsInChildren<WanfaEditorRow>(false)
+    .First(row => ((Text)Field(row, "_title")).text == (index == 0 ? T(key) : string.Format(T(key), index)));
+void Select(string key, string label)
+{
+    ((Button)Field(Row(key), "_action")).onClick.Invoke();
+    var menu = Field(editor, "menu");
+    var options = (IList)Field(menu, "_options");
+    var buttons = (IList)Field(menu, "_optionButtons");
+    int index = Enumerable.Range(0, options.Count).Single(i => (string)Field(options[i], "Label") == label);
+    ((Button)buttons[index]).onClick.Invoke();
+}
+void Set(string key, string text, string row, int index = 0)
+{
+    var input = Row(row, index).GetComponentsInChildren<InputField>(false).Single(f => f.name == key);
+    if (!input.interactable) throw new InvalidOperationException("数值不可编辑：" + key);
+    input.text = text;
+    input.onEndEdit.Invoke(text);
+}
+void Toggle(string key, bool on) => Row(key).GetComponentInChildren<Toggle>().isOn = on;
+
+Click("Page2");
+Select("MartialTouchStart", T("ConnectionMarker.active"));
+Toggle("BodyMatchDistance", true);
+Set("BodyRecoilDistance", ".12", "BodyRecoilDistance");
+Set("BodyRecoilSeconds", ".09", "BodyRecoilSeconds");
+Select("BodyValues", T("NativeFeet"));
+Toggle("NativeFeetEnabled", true);
+string original = JsonConvert.SerializeObject(Session().Draft);
+Set("FootForward", ".05", "BodyKey", 2);
+Check(original == JsonConvert.SerializeObject(Session().Draft) && ((Text)Field(editor, "state")).text.Length > 0,
+    "双足接地时不能直接换落点，拒绝后保留完整草稿");
+// 右足先迈，左足随后抬起。最后两足回到各自相对新脚下的自然落点。
+Select("NativeFoot", T("RightFoot"));
+Set("FootHeight", ".08", "BodyKey", 2);
+Set("FootHeight", ".025", "BodyKey", 3);
+Select("NativeFoot", T("LeftFoot"));
+Set("FootHeight", ".07", "BodyKey", 3);
+Set("FootHeight", ".04", "BodyKey", 4);
+Click("Undo");
+Check(Session().Draft.Body.Keys[3].Support.LeftFoot[2] == 0f, "抬脚可以单步撤销");
+Click("Redo");
+Check(Session().Draft.Body.Keys[3].Support.LeftFoot[2] == .04f, "重做恢复同一姿态时点的左足资料");
+
+World.world.console.Hide();
+Tooltip.hideTooltipNow();
+foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+await Shot("martial-footwork-cz.png");
+Select("BodyValues", T("BodyFootwork"));
+Toggle("BodyFootworkEnabled", true);
+Set("FootworkForward", ".22", "Key", 2);
+LocalizedTextManager.instance.setLanguage("en");
+Click("Page2");
+Check(T("BodyFootwork") == "Body movement curve" && Row("BodyFootworkEnabled") != null, "英文步法页显示同一条曲线");
+await Shot("martial-footwork-en.png");
+Click("Replace");
+string editedId = Session().SourceId;
+var saved = ConstructionEditing.Access.Read(editedId);
+Check(saved.Body.MatchDistance && saved.Body.ImpactRecoil == .12f &&
+      saved.Body.Keys[1].Support.RightFoot[2] == .08f && saved.Body.Construction.Footwork.Keys.Last().Point[0] == .22f,
+    "正式保存记录瞄准、回弹、双足与平面位移");
+Click("Close");
+await Frames();
+WindowWanfaConstructionEditor.Open(editedId, source);
+await Frames();
+Click("Page2");
+Check(JToken.DeepEquals(JObject.FromObject(Session().Draft.Body), JObject.FromObject(saved.Body)), "重开恢复完整身体资料");
+Click("Close");
+await Frames();
+File.WriteAllText(Path.Combine(folder, "edited.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+return await Cast(saved);
+
+async Task Shot(string name)
+{
+    await Frames();
+    scroll.verticalNormalizedPosition = 0f;
+    await Frames();
+    Screen.Capture(Path.Combine(folder, name));
+    await Frames();
+}
+
+async Task<object> Cast(AbilityDefinition edited)
+{
+    await Advance(.15f);
+    source.cancelAllBeh();
+    Ready(source);
+    const float start = 64.2f;
+    Place(source, start);
+    target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+    source.addAggro(target); target.addAggro(source); source.attack_timer = 0;
+    ConstructedAbilityService.Register(edited);
+    ConstructedAbilityService.Learn(source.GetExtend(), edited.Id);
+    var plan = AbilityCompiler.Compile(edited, false);
+    var binding = Binding(source, plan);
+    Check(binding != null, "同一把实际铁剑能够绑定换步动作");
+    BodyFrame frame = Frame(binding, source);
+    const float strike = .27f, after = .315f;
+    BodyPose pose = plan.Body.Sample(strike, in frame);
+    var ordinary = plan.Body.Sample(after, in frame);
+    var recoiled = plan.Body.Sample(after, in frame, strike);
+    float recoil = Vector3.Distance(ordinary.Shoulder, ordinary.Hand) - Vector3.Distance(recoiled.Shoulder, recoiled.Hand);
+    Check(recoil > .02f, "同一个已保存动作在接触之后实际回收手臂", new { recoil });
+    var shapes = new List<AbilityCapsule>();
+    bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
+    var tip = shapes.Single();
+    plan.Body.Footwork(strike, out Vector3 stride, out _);
+    // 和已有持剑验证一样，按本动作剑尖与前移量摆放同一个目标。
+    Place(target, (tip.A.x + tip.B.x) * .5f + stride.x * frame.Height);
+    var caster = source.GetExtend();
+    var handle = new ActiveAbilityHandle("content.constructed", caster.E, edited.Id);
+    var choice = new ActiveAbilityTarget(target, target.GetSimPos());
+    var landed = new List<ConstructedContact>();
+    var damage = new List<ConstructedQueuedDamage>();
+    void Settled(ConstructedQueuedDamage fact)
+    {
+        if (fact.AbilityId == edited.Id && fact.SourceId == source.id && fact.TargetId == target.id) damage.Add(fact);
+    }
+    Vector2 endPosition = default;
+    ConstructedCastEnded? end = null;
+    void Touch(ConstructedContact fact)
+    {
+        if (fact.AbilityId == edited.Id && fact.SourceId == source.id && fact.TargetId == target.id && fact.Node == -1)
+            landed.Add(fact);
+    }
+    void Finish(ConstructedCastEnded fact)
+    {
+        if (fact.AbilityId != edited.Id || fact.SourceId != source.id) return;
+        end = fact;
+        endPosition = source.current_position;
+    }
+    ConstructedAbilityService.ContactConfirmed += Touch;
+    ConstructedAbilityService.CastEnded += Finish;
+    ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+    try
+    {
+        int health = target.data.health;
+        var diagnostic = new { targetX = target.current_position.x, stride = stride.x, frame.Height,
+            range = ActiveAbilityService.ResolveRange(caster, handle, target) };
+        Check(ActiveAbilityService.TryUse(caster, handle, choice, ActiveAbilityUseOrigin.Script) &&
+              BodyControlState.HasControl(source.id, BodyOccupancy.Stance), "正式施放并取得实际站姿控制", diagnostic);
+        source.attack_timer = 999;
+        await Advance(edited.Lifetime + .15f);
+        Check(end.HasValue && !end.Value.Cancelled && end.Value.Age >= edited.Lifetime - .0001f &&
+              !BodyControlState.IsBusy(source.id) && ReferenceEquals(sword, source.getWeapon()),
+            "正常收势并归还身体控制，仍为同一把铁剑", new { end, busy = BodyControlState.IsBusy(source.id) });
+        float moved = endPosition.x - start;
+        int healthLost = damage.Sum(fact => fact.Damage.HealthLost) + landed.Sum(fact => fact.Damage.HealthLost);
+        Check(moved > .035f && landed.Count == 1 && landed[0].DamageAttempted,
+            "人物实际向前换步、只发生一次攻击接触", new
+            {
+                diagnostic, moved, health, after = target.data.health,
+                landed = landed.Select(fact => new { fact.Age, Result = fact.Result.ToString(), fact.DamageAttempted, fact.DamagePending, fact.Damage }).ToArray(),
+                damage = damage.Select(fact => new { fact.TargetContactNumber, fact.Damage, fact.TargetHealthAfter }).ToArray()
+            });
+        return new { passed = true, edited.Id, moved, hits = landed.Count, healthLost, result = landed[0].Result.ToString(), recoil };
+    }
+    finally
+    {
+        ConstructedAbilityService.ContactConfirmed -= Touch;
+        ConstructedAbilityService.CastEnded -= Finish;
+        ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+        ControllableUnit.clear(false);
+    }
+}

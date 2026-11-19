@@ -1,0 +1,143 @@
+foreach (Building building in World.world.buildings.getSimpleList().ToArray()) building.removeBuildingFinal();
+const float origin = 64.2f;
+Actor source = Make(origin), target = Make(65.0f);
+source.data.name = "持剑阶段验证";
+target.data.name = "持剑阶段对手";
+target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+Item sword = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: source);
+source.equipment.setItem(sword, source);
+source.setStatsDirty(); source.updateStats();
+var paid = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(__BASIS__));
+ConstructedAbilityService.Register(paid);
+ConstructedAbilityService.Learn(source.GetExtend(), paid.Id);
+
+// 在真正的编辑窗口为上一段保存的同一动作选择体力支付。
+async Task Frames()
+{
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    Canvas.ForceUpdateCanvases();
+}
+string T(string id) => LocalizedTextManager.getText("Cultiway.Construction." + id);
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(paid.Id, source); await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+void Click(string id) => editor.GetComponentsInChildren<Button>(false).Single(b => b.name == id).onClick.Invoke();
+WanfaEditorRow Row(string id) => editor.GetComponentsInChildren<WanfaEditorRow>(false)
+    .First(r => ((Text)Field(r, "_title")).text == T(id));
+var session = (ConstructionEditSession)Field(editor, "session");
+Click("Page0");
+((Button)Field(Row("Resource"), "_action")).onClick.Invoke();
+var menu = Field(editor, "menu");
+var options = (IList)Field(menu, "_options");
+var buttons = (IList)Field(menu, "_optionButtons");
+int selected = Enumerable.Range(0, options.Count).Single(i => (string)Field(options[i], "Label") == T("Resource.stamina"));
+((Button)buttons[selected]).onClick.Invoke();
+var cost = Row("Cost").GetComponentsInChildren<InputField>(false).Single();
+cost.text = "4"; cost.onEndEdit.Invoke("4");
+Check(session.Draft.Resource == "stamina" && session.Draft.Cost == 4f, "实际窗口为原动作改用体力支付");
+Click("Replace");
+paid = ConstructionEditing.Access.Read(((ConstructionEditSession)Field(editor, "session")).SourceId);
+Check(paid.Resource == "stamina" && paid.Cost == 4f && paid.Creator == source.id &&
+      ConstructionEditing.Access.List(source.GetExtend()).Any(entry => entry.Id == paid.Id),
+    "取得正式修订并学会，原构造未替代本次付费成品");
+Click("Close"); await Frames();
+File.WriteAllText(Path.Combine(folder, "paid.json"), JsonConvert.SerializeObject(paid, Formatting.Indented));
+
+var caster = source.GetExtend();
+var handle = new ActiveAbilityHandle("content.constructed", caster.E, paid.Id);
+var landed = new List<ConstructedContact>();
+var connections = new List<(ConstructedBodyConnection Fact, float Age, bool OwnsTarget)>();
+ConstructedCastEnded? end = null;
+AbilityCast cast = null;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != paid.Id) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(c => (long)Field(c, "Id") == fact.CastId);
+    cast = (AbilityCast)Field(running, "Cast");
+}
+void Landed(ConstructedContact fact)
+{
+    if (fact.AbilityId == paid.Id && fact.SourceId == source.id && fact.TargetId == target.id) landed.Add(fact);
+}
+void Connection(ConstructedBodyConnection fact)
+{
+    if (fact.SourceId == source.id && fact.TargetId == target.id)
+        connections.Add((fact, cast.Age, BodyControlState.HasControl(target.id, BodyOccupancy.Stance)));
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (fact.SourceId == source.id && fact.AbilityId == paid.Id) end = fact;
+}
+var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
+var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.MartialProcess.Quiet")
+    .SetStats(quietStats).SetDuration(10000).Build();
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Landed;
+ConstructedAbilityService.BodyConnectionChanged += Connection;
+ConstructedAbilityService.CastEnded += Finished;
+try
+{
+    object Details() => new { end, target = new [] { target.current_position.x, target.current_position.y },
+        connections = connections.Select(c => new { state = c.Fact.State.ToString(), c.Fact.Reason, c.Age, c.OwnsTarget }).ToArray(),
+        landed = landed.Select(hit => new { hit.Age, hit.DamageAttempted, hit.DamagePending, hit.Damage }).ToArray() };
+    void Reposition(float x)
+    {
+        Ready(source); source.cancelAllBeh(); target.cancelAllBeh();
+        Place(source, origin); Place(target, x);
+        source.addAggro(target); target.addAggro(source);
+    }
+    bool Use()
+    {
+        source.attack_timer = 0;
+        bool used = ActiveAbilityService.TryUse(caster, handle,
+            new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Player);
+        source.attack_timer = 999;
+        return used;
+    }
+    await Advance(.15f);
+    Reposition(65.0f);
+    source.data.stamina = 0;
+    source.attack_timer = 0;
+    Check(ActiveAbilityService.ResolveControlState(caster, handle).BlockReason == ActiveAbilityControlBlockReason.InsufficientResource &&
+          !Use() && source.data.stamina == 0 && cast == null && !BodyControlState.IsBusy(source.id),
+        "体力不足时不施放、不扣费、不接管身体");
+    source.data.stamina = 50;
+    int before = source.data.stamina;
+    source.attack_timer = 0;
+    var state = ActiveAbilityService.ResolveControlState(caster, handle);
+    bool used = Use();
+    Check(used && source.data.stamina == before - 4 && BodyControlState.IsBusy(source.id),
+        "按编辑页体力价格实际扣费并接管身体", new { before, after = source.data.stamina, used, state, end });
+    await Advance(1.1f);
+    Check(connections.Count == 1 && connections[0].Fact.State == ConstructedBodyConnectionState.Rejected &&
+          connections[0].Fact.Reason == "Immovable" && !connections[0].OwnsTarget && end.HasValue && !BodyControlState.IsBusy(source.id),
+        "实际刃口接触不可移动人物，明确拒绝抓握并按时归还来源控制", Details());
+    CombatStatusEffects.RemoveStatus(target, hold);
+    CombatStatusEffects.ApplyStatus(target, quiet, 10000, target);
+    target.updateStats();
+    connections.Clear(); landed.Clear(); end = null;
+    Reposition(65.0f);
+    Check(Use(), "归还身体并过冷却后能再施放");
+    await Advance(1.1f);
+    Check(connections.Count == 2 && connections[0].Fact.State == ConstructedBodyConnectionState.Active &&
+          connections[0].OwnsTarget && connections[0].Age < .27f &&
+          connections[0].Age < paid.Body.Stages[0].Until &&
+          connections[1].Fact.State == ConstructedBodyConnectionState.Released && !connections[1].OwnsTarget &&
+          connections[1].Age >= paid.Body.Stages[1].From &&
+          end.HasValue && !end.Value.Cancelled && !BodyControlState.IsBusy(source.id),
+        "真实抓握持续经过攻击空隙，到标记归还，来源正常收势", Details());
+    Check(landed.All(hit => hit.Age >= .27f && hit.Age < .33f), "刃口和早阶段不会借来普通伤害", Details());
+    return new { passed = true, paid.Id, connectionAt = connections[0].Age, releasedAt = connections[1].Age,
+        paid.Cost };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Landed;
+    ConstructedAbilityService.BodyConnectionChanged -= Connection;
+    ConstructedAbilityService.CastEnded -= Finished;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

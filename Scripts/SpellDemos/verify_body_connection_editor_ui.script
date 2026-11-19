@@ -134,9 +134,10 @@ try
     Check(ConstructionEditing.Access.Read(BodyActionCatalog.PalmId).Body.Construction == null,
         "关系编辑不修改原正式能力");
     Set("ConnectionStrength", "0");
-    Check(!B("Replace").interactable, "无效控制强度由正式编译阻止保存");
+    Check(B("Replace").interactable && Input("ConnectionStrength").text == "2.5", "无效控制强度被拒绝并保留草稿");
     Click("Undo");
-    Check(B("Replace").interactable && Input("ConnectionStrength").text == "2.5", "撤销恢复可保存的关系");
+    Check(Input("ConnectionStrength").text == "1", "被拒绝的输入不占用撤销步骤");
+    Click("Redo");
     Action("BodyConnection");
     Check(!Session().Draft.Body.Construction.Relations
               .Any(r => r.Kind is BodyRelationKind.Grab or BodyRelationKind.Brace) &&

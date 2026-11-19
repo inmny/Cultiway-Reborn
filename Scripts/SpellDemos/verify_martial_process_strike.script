@@ -1,0 +1,118 @@
+// 复用付费成品；正常命中、伤害出队和正式保存用同一组铁剑与对手。
+foreach (Building building in World.world.buildings.getSimpleList().ToArray()) building.removeBuildingFinal();
+const float origin = 64.2f;
+const float opposing = (float)__OPPOSING__;
+Actor source = Make(origin), target = Make(opposing);
+source.data.name = "持剑阶段验证";
+target.data.name = "持剑阶段对手";
+target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+Item sword = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: source);
+source.equipment.setItem(sword, source);
+source.setStatsDirty(); source.updateStats();
+var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
+var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.MartialProcess.StrikeQuiet")
+    .SetStats(quietStats).SetDuration(10000).Build();
+CombatStatusEffects.RemoveStatus(target, hold);
+CombatStatusEffects.ApplyStatus(target, quiet, 10000, target);
+target.updateStats();
+var paid = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(__BASIS__));
+Check(paid.Resource == "stamina" && paid.Cost == 4f, "使用前段实际保存的付费成品");
+ConstructedAbilityService.Register(paid);
+ConstructedAbilityService.Learn(source.GetExtend(), paid.Id);
+var caster = source.GetExtend();
+var handle = new ActiveAbilityHandle("content.constructed", caster.E, paid.Id);
+var landed = new List<ConstructedContact>();
+var damage = new List<ConstructedQueuedDamage>();
+var samples = new List<object>();
+object running = null;
+AbilityCast cast = null;
+ConstructedCastEnded? end = null;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != paid.Id) return;
+    running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(c => (long)Field(c, "Id") == fact.CastId);
+    cast = (AbilityCast)Field(running, "Cast");
+}
+void Landed(ConstructedContact fact)
+{
+    if (fact.AbilityId == paid.Id && fact.SourceId == source.id && fact.TargetId == target.id) landed.Add(fact);
+}
+void Settled(ConstructedQueuedDamage fact)
+{
+    if (fact.AbilityId == paid.Id && fact.SourceId == source.id && fact.TargetId == target.id) damage.Add(fact);
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (fact.SourceId == source.id && fact.AbilityId == paid.Id) end = fact;
+}
+object Detail() => new
+{
+    end, health = target.data.health,
+    landed = landed.Select(f => new { f.Age, f.Result, f.DamageAttempted, f.DamagePending, f.Damage }).ToArray(),
+    damage = damage.ToArray(), samples = samples.ToArray()
+};
+void Reposition()
+{
+    Ready(source); source.cancelAllBeh(); target.cancelAllBeh();
+    Place(source, origin); Place(target, opposing);
+    source.addAggro(target); target.addAggro(source);
+}
+bool Use()
+{
+    source.attack_timer = 0;
+    bool result = ActiveAbilityService.TryUse(caster, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Player);
+    source.attack_timer = 999;
+    return result;
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Landed;
+ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+ConstructedAbilityService.CastEnded += Finished;
+try
+{
+    await Advance(.15f);
+    Reposition(); source.data.stamina = 50;
+    int before = target.data.health;
+    Check(Use(), "付费成品从实际人物入口施放");
+    var append = bindingType.GetMethod("AppendContacts", F);
+    var shapes = new List<AbilityCapsule>();
+    float lastAge = -1f;
+    Config.paused = false;
+    double deadline = World.world.getCurWorldTime() + 1.55;
+    while (World.world.getCurWorldTime() < deadline)
+    {
+        await Game.NextFrame();
+        float age = cast.Age;
+        if (age == lastAge || age < .265f || age > .34f || !cast.BodyPose.HasValue) continue;
+        lastAge = age;
+        shapes.Clear(); append.Invoke(Field(running, "Body"), new object[] { cast.BodyPose.Value, shapes });
+        float[] Point(Vector3 p) => new[] { p.x, p.y, p.z };
+        samples.Add(new { age, source = Point(cast.BodyPose.Value.Foot), target = Point(target.GetSimPos()),
+            shapes = shapes.Select(s => new { a = Point(s.A), b = Point(s.B), s.Shape, s.Radius }).ToArray() });
+    }
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check(landed.Count == 1 && landed[0].Age >= paid.Body.Stages[1].From && landed[0].Age < paid.Body.Stages[1].Until,
+        "真实剑尖在所声明的后段只命中一次", Detail());
+    Check(damage.Count == 1 && damage[0].Damage.HealthLost > 0 &&
+          damage[0].TargetHealthAfter == before - damage[0].Damage.HealthLost && target.data.health < before,
+        "原版近身攻击经原伤害队列出队并扣血", new { before, detail = Detail() });
+    Check(end.HasValue && !end.Value.Cancelled && !BodyControlState.IsBusy(source.id), "命中后收势并归还控制");
+    Reposition(); source.data.stamina = 50;
+    Check(Use() && BodyControlState.IsBusy(source.id), "正式保存时同一战技确实在施放");
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "save"));
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+    { process = System.Diagnostics.Process.GetCurrentProcess().Id, sourceId = source.id, targetId = target.id, paid.Id,
+      definition = paid, origin, opposing }, Formatting.Indented));
+    return new { passed = true, paid.Id, before, after = damage[0].TargetHealthAfter, hitAt = landed[0].Age };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Landed;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+    ConstructedAbilityService.CastEnded -= Finished;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

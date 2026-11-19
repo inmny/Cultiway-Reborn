@@ -1,0 +1,57 @@
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(__RESTORE__, "expected.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check(process != (int)expected["process"], "正式存档从另一游戏进程冷读");
+Actor source = World.world.units.get((long)expected["sourceId"]), target = World.world.units.get((long)expected["targetId"]);
+Check(source?.hasWeapon() == true && source.getWeapon().getAsset().id == "sword_iron" && target?.isAlive() == true,
+    "载入原人物、铁剑和对手");
+string id = (string)expected["Id"];
+var access = ConstructionEditing.Access;
+var owner = source.GetExtend();
+var saved = access.Read(id);
+var wanted = expected["definition"].ToObject<AbilityDefinition>();
+string definition = JsonConvert.SerializeObject(saved, Formatting.Indented);
+File.WriteAllText(Path.Combine(folder, "restored-definition.json"), definition);
+bool known = access.List(owner).Any(entry => entry.Id == id);
+Check(saved != null && definition == JsonConvert.SerializeObject(wanted, Formatting.Indented) && known,
+    "已学战技的完整阶段、触面、收势和费用原样恢复", new { known, saved = saved?.Id });
+Check(!BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id), "冷读不续接旧的临时身体控制");
+ControllableUnit.setControllableCreature(source);
+source.cancelAllBeh(); target.cancelAllBeh();
+source.addAggro(target); target.addAggro(source);
+source.attack_timer = 0;
+var handle = new ActiveAbilityHandle("content.constructed", owner.E, id);
+var cooldown = ActiveAbilityService.ResolveControlState(owner, handle);
+Check(cooldown.BlockReason == ActiveAbilityControlBlockReason.Cooldown && cooldown.CooldownRemaining > 0f,
+    "正式存档恢复剩余冷却", cooldown);
+await Advance(cooldown.CooldownRemaining + .1f);
+source.stopMovement(); source.stopForce(); source.cancelAllBeh();
+source.current_position = new Vector2((float)expected["origin"], 72);
+source.setCurrentTile(World.world.GetTileSimple((int)source.current_position.x, 72));
+source.updatePos(); target.stopMovement(); target.stopForce(); target.cancelAllBeh();
+target.current_position = new Vector2((float)expected["opposing"], 72);
+target.setCurrentTile(World.world.GetTileSimple((int)target.current_position.x, 72));
+target.updatePos();
+source.addAggro(target); target.addAggro(source); source.attack_timer = 0;
+int before = source.data.stamina;
+ConstructedCastEnded? ended = null;
+void Finished(ConstructedCastEnded fact)
+{
+    if (fact.SourceId == source.id && fact.AbilityId == id) ended = fact;
+}
+ConstructedAbilityService.CastEnded += Finished;
+try
+{
+    Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Player) &&
+          source.data.stamina == before - 4 && BodyControlState.IsBusy(source.id), "冷读成品能真正付费出招");
+    source.attack_timer = 999;
+    await Advance(1f);
+    Check(ended.HasValue && !ended.Value.Cancelled && !BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id),
+        "冷读新施放能正常结束并归还双方控制", ended);
+    return new { passed = true, id, process, previousProcess = (int)expected["process"], ended };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Finished;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

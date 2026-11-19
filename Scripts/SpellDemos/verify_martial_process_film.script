@@ -1,0 +1,43 @@
+// 继续用通过实战段的付费成品和站位，只为录制再施放一次。
+foreach (Building building in World.world.buildings.getSimpleList().ToArray()) building.removeBuildingFinal();
+Actor source = Make(64.2f), target = Make((float)__OPPOSING__);
+source.data.name = "持剑修士";
+target.data.name = "斗法对手";
+target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+var sword = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: source);
+source.equipment.setItem(sword, source);
+source.setStatsDirty(); source.updateStats();
+var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
+var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.MartialProcess.FilmQuiet")
+    .SetStats(quietStats).SetDuration(10000).Build();
+CombatStatusEffects.RemoveStatus(target, hold);
+CombatStatusEffects.ApplyStatus(target, quiet, 10000, target);
+target.updateStats();
+var paid = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(__BASIS__));
+var damage = new List<ConstructedQueuedDamage>();
+void Settled(ConstructedQueuedDamage fact)
+{
+    if (fact.SourceId == source.id && fact.TargetId == target.id && fact.AbilityId == paid.Id) damage.Add(fact);
+}
+ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+try
+{
+    await Advance(.15f);
+    Ready(source); source.cancelAllBeh(); target.cancelAllBeh();
+    Place(source, 64.2f); Place(target, (float)__OPPOSING__);
+    await StartRelationFilm(paid, source, target);
+    source.data.stamina = 50;
+    await Fire(paid, source, target);
+    await Advance(1.25f);
+    Check(filmEndedAt.HasValue && !filmCancelled && filmControlsReturned && damage.Count == 1 && damage[0].Damage.HealthLost > 0,
+        "同一连续取景确实包含原招命中、扣血和控制归还", new { filmEndedAt, filmControlsReturned, damage });
+    filmSceneCompleted = true;
+}
+finally
+{
+    ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+    if (filmCamera != null) await FinishRelationFilm();
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
+return new { passed = true, paid.Id, damage = damage[0].Damage.HealthLost, filmEndedAt, filmControlsReturned };

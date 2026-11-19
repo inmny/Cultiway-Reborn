@@ -18,13 +18,15 @@ public sealed partial class WindowWanfaConstructionEditor
         if (body.Stages?.Length > 0)
         {
             bodyStageSelection = Math.Min(bodyStageSelection, body.Stages.Length - 1);
-            Choice("BodyStage", string.Format(T("BodyStageNumber"), bodyStageSelection + 1), () =>
+            Choice("BodyStage", StageLabel(bodyStageSelection), () =>
                 menu.Show(T("BodyStage"), Enumerable.Range(0, body.Stages.Length).Select(index => new UiOptionMenuOption
                 {
-                    Label = string.Format(T("BodyStageNumber"), index + 1), Selected = index == bodyStageSelection,
+                    Label = StageLabel(index), Selected = index == bodyStageSelection,
                     Select = () => { bodyStageSelection = index; Refresh(); }
                 }).ToArray()));
             return body.Stages[bodyStageSelection];
+
+            string StageLabel(int index) => string.Format(T("BodyStageNumber"), index + 1) + " / " + body.Stages[index].Id;
         }
         return null;
     }
@@ -37,6 +39,12 @@ public sealed partial class WindowWanfaConstructionEditor
         BodyActionStage stage = ChooseBodyStage(body);
         if (stage != null)
         {
+            ConnectionText("StageName", stage.Id, value =>
+            {
+                if (value != stage.Id) EditStage((next, index) => next[index].Id = value);
+            }, draftChange: false);
+            StagePose("StageFromPose", stage.From, (selected, value) => selected.From = value);
+            StagePose("StageUntilPose", stage.Until, (selected, value) => selected.Until = value);
             StageNumber("StageFrom", stage.From, (s, value) => s.From = value);
             StageNumber("StageUntil", stage.Until, (s, value) => s.Until = value);
             StageNumber("StagePulses", stage.Pulses, (s, value) =>
@@ -86,13 +94,29 @@ public sealed partial class WindowWanfaConstructionEditor
     private void StageNumber(string key, float value, Action<BodyActionStage, float> edit)
     {
         var row = Row(key);
-        FloatInput(row.UseInlineControls(96f), key, value, next => ApplyConstructionEdit(() =>
-        {
-            BodyActionStage[] stages = ConstructionEditing.Copy(session.Draft).Body.Stages;
-            edit(stages[bodyStageSelection], next);
-            return BodyConstructionEdits.Stages(session.Draft, stages);
-        }), true, 96f, draftChange: false);
+        FloatInput(row.UseInlineControls(96f), key, value, next => EditStage((stages, index) => edit(stages[index], next)),
+            true, 96f, draftChange: false);
     }
+
+    /// <summary>按当前已命名姿态设定这次的秒数，后续可独立编辑段落时间。</summary>
+    /// <param name="key">入口名称。</param><param name="time">本次已有的时间。</param><param name="edit">写入选定时点。</param>
+    private void StagePose(string key, float time, Action<BodyActionStage, float> edit)
+    {
+        var poses = session.Draft.Body.Keys.Where(pose => pose.Id != null).ToArray();
+        if (poses.Length == 0) return;
+        string current = poses.FirstOrDefault(pose => pose.At == time)?.Id;
+        MartialChoice(key, current, poses.Select(pose => pose.Id).ToArray(), name => name ?? T("StagePoseHint"), name =>
+            EditStage((stages, index) => edit(stages[index], poses.Single(pose => pose.Id == name).At)));
+    }
+
+    /// <summary>在共同候选中安排行为和报价，成功才替换草稿。</summary>
+    /// <param name="edit">明确修改当前阶段。</param>
+    private void EditStage(Action<BodyActionStage[], int> edit) => ApplyConstructionEdit(() =>
+    {
+        BodyActionStage[] stages = BodyConstructionEdits.CopyStages(session.Draft.Body.Stages);
+        edit(stages, bodyStageSelection);
+        return BodyConstructionEdits.Stages(session.Draft, stages);
+    });
 
     /// <summary>逐段覆盖与全招作用使用相同规则，关闭覆盖即恢复身体及整招继承。</summary>
     /// <param name="body">当前身体草稿。</param>
@@ -101,9 +125,9 @@ public sealed partial class WindowWanfaConstructionEditor
         if (body.Stages?.Length is not > 0) return;
         Row("StageImpact", T("StageImpactHint"));
         BodyActionStage stage = ChooseBodyStage(body);
-        Toggle("StageImpactOverride", stage.Impact != null, value => stage.Impact = value
+        BodyMotionToggle("StageImpactOverride", stage.Impact != null, value => EditStage((stages, index) => stages[index].Impact = value
             ? JsonConvert.DeserializeObject<ConstructionImpact>(JsonConvert.SerializeObject(
-                body.Impact ?? session.Draft.Impact ?? new ConstructionImpact())) : null);
+                body.Impact ?? session.Draft.Impact ?? new ConstructionImpact())) : null));
         if (stage.Impact != null) ImpactRows(stage.Impact, "");
     }
 }

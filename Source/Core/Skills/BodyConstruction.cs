@@ -407,6 +407,33 @@ public sealed class CompiledBodyConstruction
             ? part
             : throw new InvalidDataException("Body/Construction/Parts：缺少实际部位引用或对象不符：" + id);
 
+    /// <summary>抓握等控制使用自己的窗口，不受普通攻击阶段的间隔或限额影响。</summary>
+    internal bool HasControlContactAt(float age, bool includeEnd)
+    {
+        for (int i = 0; i < Relations.Count; i++)
+        {
+            var rule = Relations[i];
+            if (rule.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect or BodyRelationKind.Disarm &&
+                age >= rule.FromWorldTime && (includeEnd ? age <= rule.UntilWorldTime : age < rule.UntilWorldTime)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>只按普通接触的表面和时间判断攻击或主动格挡，控制关系不会打开此通道。</summary>
+    /// <param name="held">实际形状是否属于握持器物。</param><param name="shape">实际形状名。</param><param name="age">共同动作时间。</param>
+    internal bool UsesTouch(bool held, string shape, float age)
+    {
+        if (implicitRelations) return true;
+        var subject = held ? BodyPartSubject.Held : BodyPartSubject.Source;
+        for (int i = 0; i < Relations.Count; i++)
+        {
+            var rule = Relations[i];
+            if (rule.Kind == BodyRelationKind.Touch && rule.From.Subject == subject &&
+                age >= rule.FromWorldTime && age < rule.UntilWorldTime && MatchesContact(rule.FromAnchor, shape)) return true;
+        }
+        return false;
+    }
+
     /// <summary>只选声明的实际作用形状，完整包络与实际接触共用同一选择。</summary>
     /// <param name="held">是否来自借用器物。</param><param name="shape">资源作用形状名称。</param>
     /// <param name="age">施放世界时间，空值查询是否在任一时点使用。</param>

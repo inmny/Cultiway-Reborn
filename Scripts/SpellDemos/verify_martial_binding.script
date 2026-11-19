@@ -1,0 +1,201 @@
+string originalId = "Cultiway.Body.SwordThrust";
+var source = Make(64);
+var target = Make(65.25f);
+foreach (Building building in World.world.buildings.getSimpleList().ToArray()) building.removeBuildingFinal();
+source.data.name = "持剑改造验证";
+Item sword = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: source);
+source.equipment.setItem(sword, source);
+source.setStatsDirty();
+source.updateStats();
+string fromSavedEdit = __CAST_STATE__;
+if (fromSavedEdit != null)
+{
+    var prior = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(fromSavedEdit));
+    await Cast(prior);
+    return new { passed = true, edited = prior.Id };
+}
+var basis = ConstructionEditing.Access.Read(originalId);
+basis.Id = "test.body-footwork.martial-binding";
+basis.Name = "持剑改造验证";
+basis.Body.Keys[2].Id = "edge-ready";
+ConstructedAbilityService.Register(basis);
+ConstructedAbilityService.Learn(source.GetExtend(), basis.Id);
+ConstructedAbilityService.Learn(source.GetExtend(), BodyActionCatalog.PalmId);
+
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+async Task Frames()
+{
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    Canvas.ForceUpdateCanvases();
+}
+
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(BodyActionCatalog.PalmId, source);
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+var scroll = editor.GetComponentsInChildren<ScrollRect>(false).First(r => r.name == "Parameters");
+Button ButtonNamed(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+void Click(string name)
+{
+    var button = ButtonNamed(name);
+    if (!button.interactable) throw new InvalidOperationException("按钮不可用：" + name);
+    button.onClick.Invoke();
+}
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+WanfaEditorRow Row(string key) => editor.GetComponentsInChildren<WanfaEditorRow>(false)
+    .First(row => ((Text)Field(row, "_title")).text == T(key));
+void ActionRow(string key) => ((Button)Field(Row(key), "_action")).onClick.Invoke();
+void Select(string key, string label)
+{
+    ActionRow(key);
+    var menu = Field(editor, "menu");
+    var options = (IList)Field(menu, "_options");
+    var buttons = (IList)Field(menu, "_optionButtons");
+    int index = Enumerable.Range(0, options.Count).Single(i => (string)Field(options[i], "Label") == label);
+    ((Button)buttons[index]).onClick.Invoke();
+}
+BodyRelationDefinition Touch(AbilityDefinition definition) =>
+    definition.Body.Construction.Relations.Single(relation => relation.Kind == BodyRelationKind.Touch);
+CompiledBodyAction Action(AbilityDefinition definition) => AbilityCompiler.Compile(definition, false).Body;
+
+Click("Page2");
+float rightSide = Session().Draft.Body.Keys[2].Hand[1];
+ActionRow("MirrorBodySide");
+var mirrored = Session().Draft;
+Check(Action(mirrored).Effector == "hand.left" && mirrored.Body.Keys[2].Hand[1] == -rightSide &&
+      (Action(mirrored).Occupancy & BodyOccupancy.LeftArm) != 0 && (Action(mirrored).Occupancy & BodyOccupancy.RightArm) == 0,
+    "身体页把徒手姿态、实际发力部位与占用一起换到左手");
+Check((bool)bindingType.GetMethod("CanBind", F).Invoke(null, new object[] { source.GetExtend(), Action(mirrored) }),
+    "握有右手武器时，实际左手仍可执行徒手动作");
+Click("Undo");
+Check(Action(Session().Draft).Effector == "hand.right", "撤销可恢复原一侧");
+Click("Close");
+await Frames();
+WindowWanfaConstructionEditor.Open(basis.Id, source);
+await Frames();
+Click("Page2");
+Check(!((Button)Field(Row("MirrorBodySide"), "_action")).gameObject.activeSelf,
+    "持械动作只有原版右手装备槽，不提供无法施放的左手选择");
+Select("MartialGrip", T("MartialGripChoke"));
+Select("MartialTouchShape", T("MartialShape.tip"));
+Select("MartialTouchStart", "edge-ready");
+string unchanged = JsonConvert.SerializeObject(Session().Draft);
+Select("MartialTouchEnd", T("ConnectionMarker.start"));
+Check(unchanged == JsonConvert.SerializeObject(Session().Draft) && ((Text)Field(editor, "state")).text.Length > 0,
+    "不能把普通接触结束移到有效时段之前，完整草稿保持原样");
+Click("Undo");
+Check(Touch(Session().Draft).FromMarker == "active" && Touch(Session().Draft).FromAnchor == "tip",
+    "被拒绝的修改不占用撤销步骤");
+Click("Redo");
+
+World.world.console.Hide();
+Tooltip.hideTooltipNow();
+foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+await Frames();
+scroll.verticalNormalizedPosition = 0.72f;
+await Frames();
+Screen.Capture(Path.Combine(folder, "martial-binding-cz.png"));
+await Frames();
+LocalizedTextManager.instance.setLanguage("en");
+Click("Page2");
+await Frames();
+scroll.verticalNormalizedPosition = 0.72f;
+await Frames();
+Check(T("MartialGrip") == "Weapon grip" && Row("MartialTouchStart") != null, "切换英文后仍显示真实编辑表单");
+Screen.Capture(Path.Combine(folder, "martial-binding-en.png"));
+await Frames();
+Click("Replace");
+string editedId = Session().SourceId;
+var saved = ConstructionEditing.Access.Read(editedId);
+Check(Action(saved).Effector == "hand.right" && Action(saved).Grip == "choke" &&
+      Touch(saved).FromAnchor == "tip" && Touch(saved).FromMarker == "edge-ready" &&
+      Action(ConstructionEditing.Access.Read(originalId)).Grip == "grip", "正式保存记录实际出手侧、握点和接触窗口，原始动作保留");
+Click("Close");
+await Frames();
+WindowWanfaConstructionEditor.Open(editedId, source);
+await Frames();
+Click("Page2");
+Check(JsonConvert.SerializeObject(Session().Draft.Body) == JsonConvert.SerializeObject(saved.Body), "关闭重开恢复完整战技资料");
+Click("Close");
+await Frames();
+
+var plan = AbilityCompiler.Compile(saved, false);
+object binding = Binding(source, plan);
+Check(binding != null, "同一把实际铁剑可用修改后的靠护手握点绑定");
+BodyFrame frame = Frame(binding, source);
+var during = plan.Body.Sample(.3f, in frame);
+int[] Shapes(BodyPose pose)
+{
+    var shapes = new List<AbilityCapsule>();
+    bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
+    return shapes.Select(shape => shape.Shape).ToArray();
+}
+var form = FormResources.Load("sword");
+int tip = Array.FindIndex(form.Description.Contacts, contact => contact.Id == "tip");
+Check(tip >= 0 && Shapes(during).SequenceEqual(new[] { tip }) &&
+      Shapes(plan.Body.Sample(.23f, in frame)).Length == 0 && Shapes(plan.Body.Sample(.4f, in frame)).Length == 0,
+    "实际判定只使用剑尖，并且早于标记或收势后没有作用面");
+var visuals = new List<FormVisualInstance>();
+bindingType.GetMethod("AppendVisuals", F).Invoke(binding, new object[] { source, during, visuals, null });
+var held = visuals.Last(visual => visual.Resource.Description.Id == "sword");
+var hand = visuals.Last(visual => visual.Resource.Description.Id == "hand");
+Vector3 handPoint = hand.Transform.MultiplyPoint3x4(hand.Resource.Anchors.Single(anchor => anchor.Id == "grip").Transform.GetColumn(3));
+Vector3 heldPoint = held.Transform.MultiplyPoint3x4(form.Grip("choke").Transform.GetColumn(3));
+Vector3 oldPoint = held.Transform.MultiplyPoint3x4(form.Grip("grip").Transform.GetColumn(3));
+Check(Vector3.Distance(handPoint, heldPoint) < .0001f && Vector3.Distance(handPoint, oldPoint) > .01f,
+    "实际画面中换用的握点落在握手上，原握点已不在该位置");
+
+File.WriteAllText(Path.Combine(folder, "edited.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+await Cast(saved);
+return new { passed = true, edited = editedId, gripDifference = Vector3.Distance(handPoint, oldPoint), tip };
+
+async Task Cast(AbilityDefinition edited)
+{
+    await Advance(.15f);
+    source.cancelAllBeh();
+    Ready(source);
+    Place(source, 64);
+    target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+    source.addAggro(target);
+    target.addAggro(source);
+    source.attack_timer = 0;
+    ConstructedAbilityService.Register(edited);
+    ConstructedAbilityService.Learn(source.GetExtend(), edited.Id);
+    var caster = source.GetExtend();
+    var handle = new ActiveAbilityHandle("content.constructed", caster.E, edited.Id);
+    float castRange = ActiveAbilityService.ResolveRange(caster, handle, target);
+    Place(target, 64f + Mathf.Min(1.3f, castRange * .7f));
+    var choice = new ActiveAbilityTarget(target, target.GetSimPos());
+    Check(ActiveAbilityService.CanUse(caster, handle, choice), "改造后的动作可选择范围内的真实敌人", new
+    {
+        castRange, distance = Vector2.Distance(source.current_position, target.current_position),
+        canPrepare = ActiveAbilityService.CanPrepare(caster, handle, target),
+        hostile = SkillTargetRelationResolver.IsHostile(source, target),
+        combatReady = source.isAttackPossible()
+    });
+    ConstructedCastEnded? ending = null;
+    void Finished(ConstructedCastEnded fact)
+    {
+        if (fact.SourceId == source.id && fact.AbilityId == edited.Id) ending = fact;
+    }
+    ConstructedAbilityService.CastEnded += Finished;
+    try
+    {
+        Check(ActiveAbilityService.TryUse(caster, handle, choice, ActiveAbilityUseOrigin.Script), "保存的改造经正式主动入口施放");
+        Check(BodyControlState.HasControl(source.id, BodyOccupancy.RightArm) &&
+              !BodyControlState.HasControl(source.id, BodyOccupancy.LeftArm),
+            "正式持剑只取得实际武器槽所在的右臂控制");
+        source.attack_timer = 999;
+        await Advance(edited.Lifetime + .15f);
+        Check(ending.HasValue && !ending.Value.Cancelled && ending.Value.Age >= edited.Lifetime - .0001f &&
+              !BodyControlState.IsBusy(source.id) && ReferenceEquals(sword, source.getWeapon()),
+            "动作正常收势后还回身体控制，仍是同一把剑",
+            new { ending, busy = BodyControlState.IsBusy(source.id), sameSword = ReferenceEquals(sword, source.getWeapon()) });
+    }
+    finally
+    {
+        ConstructedAbilityService.CastEnded -= Finished;
+        ControllableUnit.clear(false);
+    }
+}
