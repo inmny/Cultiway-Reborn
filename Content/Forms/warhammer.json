@@ -79,10 +79,7 @@
     ],
     "Parts": [
         {
-            "DetailMeshes": [
-                "Assets/Cultiway/Forms/warhammer_handle_mid.asset",
-                "Assets/Cultiway/Forms/warhammer_handle_far.asset"
-            ],
+            "DetailMeshes": [],
             "Roles": [
                 "weapon.shaft",
                 "weapon.grip"

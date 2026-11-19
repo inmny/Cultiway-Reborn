@@ -51,7 +51,8 @@ namespace CultiwayAssets.Editor
                         AssetDatabase.CreateAsset(mesh, path);
                     }
 
-                    mesh.Clear();
+                    // 重新导入也从空通道开始，避免已删除的成形或骨架数据留在旧资源。
+                    mesh.Clear(keepVertexLayout: false);
                     mesh.name = form.Id + "/" + part.Id;
                     mesh.indexFormat = IndexFormat.UInt32;
                     mesh.vertices = Enumerable.Range(0, part.Positions.Length / 3).Select(i =>

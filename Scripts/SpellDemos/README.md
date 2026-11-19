@@ -2150,3 +2150,5 @@ python3 Scripts/SpellDemos/demo_spell.py TidalWave --cases base --view native --
 9.09 A 共用形体换材：`dev.py exec --timeout 230 -- python3 Scripts/SpellDemos/verify_form_combinations_909.py --section catalog` 读游戏实际加载的形体全集，核对两端表面并保留部件和变化资料；用 `--section surfaces` 检查同一正式施放原材、真正换材、换回及正常退场，保存实际画面。独立冰体交接复用 9.08 的 `--section material`。
 
 9.09 B 共用形体布局和轨迹：同一入口使用 `--section layouts`，在复用世界中正式施放剑列和水鲸列，比较转弯前后的部位间距、实际作用区和自然退场，记录原版与 Worldfall 画面。
+
+9.09 C 共用形体视距：同一入口使用 `--section scale-meshes` 核对游戏实际加载的全部形体、边界和顶点资料；`--section scale-frames` 按结构保存每件的原版三档静帧；`--section scale-worldfall` 保存有风险及各类代表的斜视静帧。后两段可用 `--forms warhammer,water_wave` 限定取景；原版可再加 `--full-reference` 补拍同距离的完整网格作对照。报告记录实际绘制使用的等级及网格，投影面积预警须结合画面判断。

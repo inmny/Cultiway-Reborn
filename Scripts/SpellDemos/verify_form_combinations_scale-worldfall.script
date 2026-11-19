@@ -1,0 +1,137 @@
+// 同组从 Worldfall 斜视取景，读取实际提交的部件和显示网格。
+const string producer = "form-combination-scales";
+var renderer = typeof(FormVisualScene).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer");
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+object mod = external.GetProperty("Instance", F).GetValue(null);
+object Read(object value, string key) => value.GetType().GetField(key, F)?.GetValue(value) ??
+    value.GetType().GetProperty(key, F).GetValue(value);
+void Set(string key, object value) => external.GetField(key, F).SetValue(mod, value);
+void GodView(bool enabled) => external.GetMethod("SetGodView", F).Invoke(mod, new object[] { enabled });
+var rows = JsonConvert.DeserializeObject<string[][]>(File.ReadAllText(Path.Combine(folder, "frames-input.json")));
+var boards = new List<object>();
+var failures = new List<object>();
+var flat = new AbilityHeightField(1, 1, new Vector2(256, 256), new[] { 0f });
+var canvases = Resources.FindObjectsOfTypeAll<Canvas>().Where(canvas => canvas.enabled).ToArray();
+var observer = new HarmonyLib.Harmony("cultiway.test.form-scales." + Guid.NewGuid().ToString("N"));
+var submitted = new List<object>();
+int submittedFrame = 0;
+FormScaleDrawProbe.Finished = () =>
+{
+    submitted.Clear();
+    foreach (string key in new[] { "solids", "transparent" })
+        foreach (object item in (IEnumerable)renderer.GetField(key, F).GetValue(null)) submitted.Add(item);
+    submittedFrame++;
+};
+observer.Patch(renderer.GetMethod("DrawSolid", F), postfix: new HarmonyLib.HarmonyMethod(typeof(FormScaleDrawProbe), nameof(FormScaleDrawProbe.After)));
+
+try
+{
+    PrepareAppearanceBackdrop(52, 82, 59, 88);
+    foreach (Canvas canvas in canvases) canvas.enabled = false;
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    World.world.console.Hide();
+    var camera = World.world.camera;
+    camera.transform.position = new Vector3(67, 72, camera.transform.position.z);
+    MoveCamera.instance.forceZoom(9);
+    GodView(true);
+    await Game.WaitUntil(() => (bool)Read(mod, "GodShown") && (float)Read(mod, "GodAlpha") >= .999f, 600);
+    Set("_godClose", 12f); Set("_godCloseTarget", 12f); Set("_godPull", 1f);
+    Set("_godTurn", -.25f); Set("_godTurnRate", 0f); Set("_godTip", .5f); Set("_godTipRate", 0f);
+    int initial = (int)Read(mod, "_godGpuApplied");
+    await Game.WaitUntil(() => (int)Read(mod, "_godGpuApplied") >= initial + 4, 600);
+    int page = 0;
+    foreach (var group in rows)
+    {
+        Matrix4x4 projection = (Matrix4x4)renderer.GetField("viewProjection", F).GetValue(null);
+        Matrix4x4 inverse = projection.inverse;
+        var resolution = (Vector2Int)renderer.GetField("outputPixels", F).GetValue(null);
+        Vector3 Plane(float x, float y, float height)
+        {
+            Vector3 Point(float depth)
+            {
+                Vector4 world = inverse * new Vector4(x, y, depth, 1);
+                return (Vector3)world / world.w;
+            }
+            Vector3 a = Point(.1f), b = Point(.8f);
+            return Vector3.LerpUnclamped(a, b, (height - a.z) / (b.z - a.z));
+        }
+        var instances = new List<FormVisualInstance>();
+        var recording = new List<object>();
+        for (int row = 0; row < group.Length; row++)
+        {
+            var resource = FormResources.Load(group[row]);
+            FormPose pose = resource.Rig.CreatePose();
+            if (pose != null) resource.Rig.Sample(null, 0, pose);
+            Bounds local = pose?.Bounds ?? resource.RestBounds;
+            Quaternion rotation = Quaternion.Euler(0, 0, 18f);
+            for (int level = 0; level < 3; level++)
+            {
+                float screenX = -.54f + level * .58f, screenY = 0f;
+                var center = Plane(screenX, screenY, 5f);
+                FormVisualInstance Visual(float scale)
+                {
+                    var position = center - rotation * (local.center * scale);
+                    return new FormVisualInstance(resource, Matrix4x4.TRS(position, rotation, Vector3.one * scale),
+                        skin: pose?.Skin, poseBounds: local, terrain: flat);
+                }
+                int MinDetail(FormVisualInstance visual) => Enumerable.Range(0, visual.PartCount).Min(part =>
+                    FormDetail.Projected(pose != null && resource.Description.Parts[part].Skin ? local : resource.Meshes[part].bounds,
+                        visual.PartTransform(part), projection, resolution));
+                int limit = level == 2 ? 1 : level;
+                float lower = 0, upper = 22f / local.size.magnitude;
+                for (int attempt = 0; attempt < 14; attempt++)
+                {
+                    float blend = (lower + upper) * .5f;
+                    if (MinDetail(Visual(blend)) <= limit) upper = blend; else lower = blend;
+                }
+                var instance = Visual(upper * (level == 2 ? .64f : 1.12f));
+                instances.Add(instance);
+                recording.Add(new { id = group[row], level, x = screenX, y = screenY });
+            }
+        }
+        int before = submittedFrame;
+        FormVisualScene.Publish(producer, instances.ToArray());
+        await Game.WaitUntil(() => submittedFrame >= before + 3, 600);
+        var visible = new List<object>();
+        for (int i = 0; i < instances.Count; i++)
+        {
+            FormVisualInstance instance = instances[i];
+            var selected = submitted.Where(item =>
+            {
+                if (!ReferenceEquals(Read(item, "Resource"), instance.Resource)) return false;
+                var transform = (Matrix4x4)Read(item, "Transform");
+                var expected = instance.PartTransform((int)Read(item, "Part"));
+                return Vector3.Distance(transform.GetColumn(3), expected.GetColumn(3)) < .01f;
+            }).ToArray();
+            var levels = selected.Select(item => (int)Read(item, "Detail")).ToArray();
+            bool matches = levels.Length == instance.PartCount && levels.Min() == i % 3 && selected.All(item => ReferenceEquals(
+                Read(item, "Mesh"), instance.Resource.DetailMesh((int)Read(item, "Part"), (int)Read(item, "Detail"))));
+            var record = new { id = group[i / 3], level = i % 3, actual = levels, matches };
+            if (!matches) failures.Add(record);
+            visible.Add(record);
+        }
+        string name = $"worldfall-{page++:00}-{group[0]}.png";
+        string file = Path.Combine(folder, name);
+        Screen.Capture(file);
+        await Game.WaitUntil(() => File.Exists(file), 300);
+        boards.Add(new { name, forms = group, layouts = recording, visible });
+    }
+}
+finally
+{
+    observer.UnpatchSelf();
+    FormScaleDrawProbe.Finished = null;
+    ConstructedAbilityService.CastEnded -= Ended;
+    FormVisualScene.Publish(producer, Array.Empty<FormVisualInstance>());
+    GodView(false);
+    foreach (Canvas canvas in canvases) if (canvas != null) canvas.enabled = true;
+}
+File.WriteAllText(Path.Combine(folder, "frames.json"), JsonConvert.SerializeObject(new { boards, failures }, Formatting.Indented));
+return new { passed = failures.Count == 0, frames = boards.Count, failures = failures.Count,
+    process = System.Diagnostics.Process.GetCurrentProcess().Id };
+
+public static class FormScaleDrawProbe
+{
+    public static Action Finished;
+    public static void After() => Finished?.Invoke();
+}
