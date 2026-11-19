@@ -228,6 +228,7 @@ public sealed partial class ConstructedAbilityService
         result.Id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
         result.Revision = 1;
         result.Creator = actor.Base.id;
+        result.ExternalCreator = false;
         result.Seed = seed;
         result.Parent = new AbilityParent
         {

@@ -13,7 +13,7 @@ using NeoModLoader.api;
 
 namespace Cultiway.UI;
 
-public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion>
+public sealed partial class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion>
 {
     public const string Id = "Cultiway.UI.WindowWanfaPavilion";
     public static readonly Vector2 WindowSize = new(600f, 360f);
@@ -100,6 +100,7 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
                 CloseTooltipDescription = "Cultiway.UI.OptionMenu.Tooltip.Close",
             });
         WanfaPavilionService.Instance.Changed += Refresh;
+        WanfaPavilionService.Instance.WorldStateClearing += ClearConstructionMenus;
         RefreshVfxFilters();
         RefreshEntityIds();
     }
@@ -117,6 +118,7 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
     private void OnDestroy()
     {
         WanfaPavilionService.Instance.Changed -= Refresh;
+        WanfaPavilionService.Instance.WorldStateClearing -= ClearConstructionMenus;
     }
 
     private void Refresh()
@@ -213,7 +215,8 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
         var options = new List<UiOptionMenuOption>
         {
             new() { Label = LocalizedTextManager.getText("Cultiway.Construction.LegacyDraft"), IconPath = UiIcons.Add,
-                Select = () => WindowWanfaSkillEditor.Open(WanfaPavilionService.Instance.CreateDraft(), false) }
+                Select = () => WindowWanfaSkillEditor.Open(WanfaPavilionService.Instance.CreateDraft(), false) },
+            new() { Label = ShareText("ConstructionLibrary"), IconPath = UiIcons.Favorite, Select = ShowConstructionLibrary }
         };
         foreach (ConstructionEntry entry in ConstructionEditing.Access.List().OrderBy(e => e.Name, StringComparer.Ordinal))
         {

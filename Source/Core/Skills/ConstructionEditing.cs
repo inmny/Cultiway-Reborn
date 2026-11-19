@@ -37,6 +37,9 @@ public interface IConstructionEditingAccess
     /// <summary>复制一份完整的独立草稿。</summary>
     /// <param name="id">构造编号。</param>
     AbilityDefinition Read(string id);
+    /// <summary>将已读出的分享构造登记到本世界；相同资料复用原编号，不授予人物。</summary>
+    /// <param name="definition">确认导入的独立构造。</param>
+    bool Import(AbilityDefinition definition);
     /// <summary>使用正式来源的完整编译及资源支付规则检查草稿，不登记世界资料。</summary>
     /// <param name="definition">独立草稿。</param>
     CompiledAbility Validate(AbilityDefinition definition);

@@ -11,6 +11,7 @@ using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Editor;
 using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Core.Components;
+using Cultiway.Core.Skills;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
@@ -99,6 +100,12 @@ public sealed class WanfaPavilionService
     public event Action WorldStateClearing;
     public IReadOnlyList<SkillBlueprint> Blueprints => _library.Blueprints;
     public int SelectedBlueprintCount => _selectedBlueprintIds.Count;
+    /// <summary>收藏固定在明确保存的编号和修订，不读取未提交的草稿。</summary>
+    internal IReadOnlyList<AbilityDefinition> ConstructionFavorites => _library.ConstructionFavorites;
+
+    internal bool SetConstructionFavorite(AbilityDefinition definition, bool favorite) =>
+        _library.SetConstructionFavorite(definition, favorite);
+
     /// <summary>赐法世界工具使用的角色目标筛选配置。</summary>
     public ActorFilterSettings GrantTargetFilter { get; } = new();
     public WanfaPavilionPolicyAsset ActivePolicy { get; private set; }

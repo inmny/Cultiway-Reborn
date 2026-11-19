@@ -16,6 +16,7 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <summary>建立实际支持的基本参数。</summary>
     private void Properties()
     {
+        ActionRow("ShareSavedConstruction", T("ShareSavedConstructionHint"), ShowSavedConstructionActions);
         Number("Power", session.Draft.Power, value => session.Draft.Power = value);
         Number("Lifetime", session.Draft.Lifetime, value => session.Draft.Lifetime = value);
         Number("Cooldown", session.Draft.Cooldown, value => session.Draft.Cooldown = value);

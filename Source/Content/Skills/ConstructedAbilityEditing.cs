@@ -22,12 +22,25 @@ public sealed partial class ConstructedAbilityService : IConstructionEditingAcce
         IEnumerable<string> ids = actor == null ? definitions.Keys :
             actor.E.TryGetComponent(out ConstructedKnowledge known) ? known.Ids : Array.Empty<string>();
         return ids.Where(definitions.ContainsKey).Select(id => new ConstructionEntry(id, definitions[id].Name,
-            definitions[id].Revision, PlanFor(id).FormCount, definitions[id].Creator)).ToArray();
+            definitions[id].Revision, PlanFor(id).FormCount, definitions[id].ExternalCreator ? 0 : definitions[id].Creator)).ToArray();
     }
 
     /// <summary>外部只能获得草稿副本，不能修改正式字典内的可变数组。</summary>
     /// <param name="id">已经存在的构造。</param>
     AbilityDefinition IConstructionEditingAccess.Read(string id) => ConstructionEditing.Copy(definitions[id]);
+
+    /// <summary>复用正式编译，但永远不让导入内容替换已经登记的原术。</summary>
+    bool IConstructionEditingAccess.Import(AbilityDefinition definition)
+    {
+        if (definitions.TryGetValue(definition.Id, out AbilityDefinition current))
+        {
+            if (!ConstructionShare.Matches(current, definition)) throw new ConstructionShareException("ShareConflictingId");
+            return false;
+        }
+        definition.ExternalCreator = definition.Creator != 0;
+        Register(definition);
+        return true;
+    }
 
     /// <summary>界面预览与正式登记共同检查资料、材料、身体资源和实际支付。</summary>
     /// <param name="definition">当前独立草稿。</param>
@@ -78,6 +91,7 @@ public sealed partial class ConstructedAbilityService : IConstructionEditingAcce
         AbilityDefinition next = edit.Resolve();
         next.Id = "Cultiway.Edited." + Guid.NewGuid().ToString("N");
         next.Creator = actor.Base.id;
+        next.ExternalCreator = false;
         next.Revision = replace ? original.Revision + 1 : 1;
         next.Parent = new AbilityParent
         {

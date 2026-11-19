@@ -1,0 +1,129 @@
+// 复用同一水剑、同一测试世界。本段从实际按钮进入收藏、分享及改造，保存供下一进程读取。
+var source = Make(64);
+var reader = Make(68);
+var owner = source.GetExtend();
+var access = ConstructionEditing.Access;
+string suffix = Guid.NewGuid().ToString("N");
+var original = new AbilityDefinition
+{
+    Id = "test.collection." + suffix, Name = "试炼水剑 " + suffix.Substring(0, 6), Creator = source.id,
+    Resource = "stamina", Cost = 2.25f, Power = 2, Cooldown = 5, Lifetime = 1.35f, TargetRange = 5.25f,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+    Root = new ConstructionNode { Id = "sword", Form = "sword", Matter = "water", State = "liquid", FollowMatter = true,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = .40f, Matter = "water", State = "solid" } } }
+};
+ConstructedAbilityService.Register(original);
+ConstructedAbilityService.Learn(owner, original.Id); ConstructedAbilityService.Learn(reader.GetExtend(), original.Id);
+Ready(source); Place(source, 64); source.data.stamina = 20;
+Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.constructed", owner.E, original.Id),
+    new ActiveAbilityTarget(null, new Vector3(67, 72, 0)), ActiveAbilityUseOrigin.Script), "原术正式支付并进入冷却");
+LocalizedTextManager.instance.setLanguage("cz");
+Config.paused = true;
+for (int i = 0; i < 3; i++) await Game.NextFrame();
+await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+ScrollWindow.showWindow(WindowWanfaPavilion.Id);
+for (int i = 0; i < 3; i++) await Game.NextFrame();
+await Game.WaitUntil(() => UnityEngine.Object.FindObjectOfType<WindowWanfaPavilion>() != null && !ScrollWindow.isAnimationActive(), 300);
+Canvas.ForceUpdateCanvases();
+var pavilion = UnityEngine.Object.FindObjectOfType<WindowWanfaPavilion>();
+void PavilionNew() => pavilion.GetComponentsInChildren<Button>(false).Single(b => b.name == "New").onClick.Invoke();
+void Select(Component window, string menuField, Func<string, bool> match)
+{
+    object menu = Field(window, menuField);
+    var options = (IList)Field(menu, "_options");
+    int index = Enumerable.Range(0, options.Count).Single(i => match((string)Field(options[i], "Label")));
+    ((Button)((IList)Field(menu, "_optionButtons"))[index]).onClick.Invoke();
+}
+PavilionNew(); Select(pavilion, "_optionMenu", label => label.Contains(original.Name));
+// COMMON_CONTROLS
+void EditOption(string key) => Select(editor, "menu", label => label == T(key));
+void PavilionOption(string key) => Select(pavilion, "_optionMenu", label => label == T(key));
+string ShareLabel(AbilityDefinition definition) => string.Format(T("ShareRevisionLabel"), definition.Name, definition.Revision);
+AbilityDefinition[] Favorites() => ((IEnumerable<AbilityDefinition>)typeof(WanfaPavilionService).GetProperty("ConstructionFavorites", F)
+    .GetValue(WanfaPavilionService.Instance)).Where(item => item.Id.StartsWith(original.Id, StringComparison.Ordinal) ||
+        item.Parent?.Id == original.Id).ToArray();
+JObject Snapshot(AbilityDefinition definition) => ConstructionDefinitionLayers.Snapshot(definition);
+bool Same(AbilityDefinition left, AbilityDefinition right) => JToken.DeepEquals(Snapshot(left), Snapshot(right));
+string[] Known(Actor actor) => access.List(actor.GetExtend()).Select(entry => entry.Id).ToArray();
+float Cooldown(string id) => ActiveAbilityService.ResolveControlState(owner, new ActiveAbilityHandle("content.constructed", owner.E, id)).CooldownRemaining;
+async Task Library()
+{
+    ScrollWindow.showWindow(WindowWanfaPavilion.Id); await Frames();
+    PavilionNew(); PavilionOption("ConstructionLibrary"); await Frames();
+}
+string previousClipboard = GUIUtility.systemCopyBuffer;
+try
+{
+    Check(Session().SourceId == original.Id && (Actor)Field(editor, "learner") == source, "从万法阁打开当前修士的正式原术");
+    Set("Cost", "3.25");
+    Action("ShareSavedConstruction"); EditOption("ShareFavorite");
+    Check(Favorites().Length == 1 && Same(Favorites()[0], original) && Session().Draft.Cost == 3.25f,
+        "收藏原修订，未提交的成本改动留在草稿");
+    Action("ShareSavedConstruction"); EditOption("ShareCopyText");
+    var initialShare = JObject.Parse(GUIUtility.systemCopyBuffer);
+    Check((string)initialShare["Format"] == "Cultiway.Construction" && (int)initialShare["Version"] == 1 &&
+        (string)initialShare["Definition"]["Id"] == original.Id && (float)initialShare["Definition"]["Cost"] == original.Cost,
+        "通过真实剪贴板复制原修订完整资料");
+    File.WriteAllText(Path.Combine(folder, "original-share.json"), initialShare.ToString(Formatting.Indented));
+    Click("LearnCopy"); var copied = access.Read(Session().SourceId);
+    Check(copied.Id != original.Id && copied.Revision == 1 && copied.Parent.Id == original.Id && copied.Parent.Revision == original.Revision &&
+        copied.Cost == 3.25f && Known(source).SequenceEqual(new[] { original.Id, copied.Id }) && Cooldown(copied.Id) > 0,
+        "独立副本有新编号和原术依据，保留原掌握并继承实际冷却");
+    Click("Close"); await Frames();
+    WindowWanfaConstructionEditor.Open(original.Id, source); await Frames();
+    Set("Cost", "4.25"); Click("Replace"); var revised = access.Read(Session().SourceId);
+    Check(revised.Id != original.Id && revised.Id != copied.Id && revised.Revision == 2 && revised.Parent.Id == original.Id &&
+        revised.Parent.Revision == 1 && Known(source).SequenceEqual(new[] { revised.Id, copied.Id }) && Known(reader).SequenceEqual(new[] { original.Id }) &&
+        Same(access.Read(original.Id), original) && Cooldown(revised.Id) > 0, "替换只交接本修士的掌握与冷却，旧修订未改写");
+    Action("ShareSavedConstruction"); EditOption("ShareFavorite");
+    Check(Favorites().Select(item => item.Revision).OrderBy(i => i).SequenceEqual(new[] { 1, 2 }), "原修订与明确收藏的新修订并存");
+    Click("Close"); await Frames(); WindowWanfaConstructionEditor.Open(revised.Id, source); await Frames();
+    Check(Session().SourceRevision == 2 && Session().Draft.Cost == 4.25f, "再次打开从当前修订继续编辑");
+    Set("Cost", "4.75"); Click("Replace"); var third = access.Read(Session().SourceId);
+    Check(third.Revision == 3 && third.Parent.Id == revised.Id && third.Parent.Revision == 2 && Favorites().Any(item => Same(item, revised)),
+        "重开编辑后的第三修订链接到第二修订，旧收藏未跟着改变");
+    Click("Close"); await Frames();
+
+    await Library();
+    Select(pavilion, "_optionMenu", label => label == ShareLabel(revised)); PavilionOption("ShareCopyText");
+    var exchange = JObject.Parse(GUIUtility.systemCopyBuffer);
+    string externalId = original.Id + ".shared";
+    exchange["Definition"]["Id"] = externalId;
+    GUIUtility.systemCopyBuffer = exchange.ToString(Formatting.None);
+    await Library(); PavilionOption("SharePaste"); await Frames();
+    Check(access.List().All(item => item.Id != externalId), "读取剪贴板和确认之间不把资料直接写进世界");
+    LocalizedTextManager.instance.setLanguage("en");
+    // 重读后用英语确认；切换语言不改变待导入的资料。
+    await Library(); PavilionOption("SharePaste"); await Frames();
+    PavilionOption("ShareConfirmImport"); await Frames();
+    var imported = access.Read(externalId);
+    Check(Session().SourceId == externalId && imported.Creator == source.id && imported.ExternalCreator &&
+        access.List().Single(entry => entry.Id == externalId).Creator == 0 && !Known(source).Contains(externalId) && !Known(reader).Contains(externalId),
+        "成功导入独立编号，保留来源编号、不误绑当前作者或授予掌握");
+    Action("ShareSavedConstruction"); EditOption("ShareCopyText");
+    Check(JToken.DeepEquals(JObject.Parse(GUIUtility.systemCopyBuffer), exchange), "再次导出仍保留完整结构、编号、修订、来源和费用");
+    Click("Close"); await Frames();
+    int count = access.List().Count();
+    await Library(); PavilionOption("SharePaste"); PavilionOption("ShareConfirmImport"); await Frames();
+    Check(access.List().Count() == count && Session().SourceId == externalId && Same(access.Read(externalId), imported), "完全相同的文本二次导入复用原件");
+    Click("Close"); await Frames();
+    exchange["Definition"]["Cost"] = 8f; GUIUtility.systemCopyBuffer = exchange.ToString(Formatting.None);
+    await Library(); PavilionOption("SharePaste"); PavilionOption("ShareConfirmImport"); await Frames();
+    Check(Field(editor, "session") == null && Same(access.Read(externalId), imported) && access.List().Count() == count && Favorites().Length == 2,
+        "真实编号冲突被拒绝，原资料和两份收藏完整保留");
+
+    var definitions = new[] { original, copied, revised, third, imported }.Select(Snapshot).ToArray();
+    var expected = new { process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, reader = reader.id,
+        definitions, known = Known(source), readerKnown = Known(reader), favorites = Favorites().Select(Snapshot).ToArray(), latest = third.Id };
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(expected, Formatting.Indented));
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "save"));
+    return new { passed = true, expected.process };
+}
+finally
+{
+    GUIUtility.systemCopyBuffer = previousClipboard;
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false); LocalizedTextManager.instance.setLanguage("cz");
+}
