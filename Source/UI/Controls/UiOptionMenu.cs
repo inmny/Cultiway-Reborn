@@ -51,6 +51,8 @@ internal sealed class UiOptionMenu
     private readonly InputField _search;
     private readonly UiScrollPane _optionsPane;
     private readonly UiEmptyState _empty;
+    /// <summary>切换语言后重新显示当前关闭文字。</summary>
+    private readonly Button _close;
     private readonly UiModal _modal;
     private readonly List<Button> _optionButtons = new();
     private readonly List<UiOptionMenuOption> _options = new();
@@ -95,10 +97,21 @@ internal sealed class UiOptionMenu
         GameObject footer = UiLayout.Create(_frame.Content, "Footer", true, _innerWidth, FooterHeight, 0f,
             TextAnchor.MiddleCenter);
         footer.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(6, 6, 4, 4);
-        Button close = UiElements.CreateIconTextButton(footer.transform, "Close", UiIcons.Cancel,
+        _close = UiElements.CreateIconTextButton(footer.transform, "Close", UiIcons.Cancel,
             config.CloseText, _innerWidth - 12f, CloseHeight, Hide);
-        UiTooltip.Set(close.gameObject, config.CloseTooltipTitle, config.CloseTooltipDescription);
+        UiTooltip.Set(_close.gameObject, config.CloseTooltipTitle, config.CloseTooltipDescription);
         _modal = new UiModal(_frame.Root.gameObject, owner);
+    }
+
+    /// <summary>打开菜单前同步当前语言，继续复用同一组控件。</summary>
+    /// <param name="search">搜索框提示。</param>
+    /// <param name="empty">没有选项时的文字。</param>
+    /// <param name="close">关闭按钮文字。</param>
+    public void SetLabels(string search, string empty, string close)
+    {
+        ((Text)_search.placeholder).text = search;
+        _empty.Text.text = empty;
+        _close.GetComponentInChildren<Text>().text = close;
     }
 
     public void Show(string title, IReadOnlyList<UiOptionMenuOption> options, bool searchable = false)

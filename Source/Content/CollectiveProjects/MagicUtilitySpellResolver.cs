@@ -51,6 +51,19 @@ internal static class MagicUtilitySpellResolver
         SkillSemantics.Effect.Fertilize,
     };
 
+    /// <summary>先检查城市是否有符合工程要求的法师，避免无人可执行时仍扫描全部地块。</summary>
+    /// <param name="city">需要规划工程的城市。</param>
+    /// <param name="allowWarriors">是否允许士兵参与。</param>
+    /// <returns>至少有一名符合条件的法师时返回真。</returns>
+    internal static bool HasCityCaster(City city, bool allowWarriors)
+    {
+        foreach (Actor actor in city.units)
+        {
+            if (IsEligibleCaster(actor, city, allowWarriors)) return true;
+        }
+        return false;
+    }
+
     /// <summary>收集城市内至少有一名当前可施放者掌握的不同法术容器。</summary>
     public static void CollectCityOptions(
         City city,

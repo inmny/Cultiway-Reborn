@@ -1,0 +1,96 @@
+{
+  "rowsFit": true,
+  "layout": [
+    {
+      "id": "builder",
+      "width": 308.0,
+      "height": 28.0,
+      "preferred": 9.985141,
+      "lines": 1
+    },
+    {
+      "id": "gatherer_bushes",
+      "width": 308.0,
+      "height": 28.0,
+      "preferred": 9.985141,
+      "lines": 1
+    },
+    {
+      "id": "gatherer_herbs",
+      "width": 308.0,
+      "height": 28.0,
+      "preferred": 9.985141,
+      "lines": 1
+    },
+    {
+      "id": "gatherer_honey",
+      "width": 308.0,
+      "height": 28.0,
+      "preferred": 9.985141,
+      "lines": 1
+    },
+    {
+      "id": "farmer",
+      "width": 308.0,
+      "height": 28.0,
+      "preferred": 9.985141,
+      "lines": 1
+    },
+    {
+      "id": "hunter",
+      "width": 308.0,
+      "height": 28.0,
+      "preferred": 9.985141,
+      "lines": 1
+    },
+    {
+      "id": "woodcutter",
+      "width": 308.0,
+      "height": 28.0,
+      "preferred": 9.985141,
+      "lines": 1
+    },
+    {
+      "id": "miner",
+      "width": 308.0,
+      "height": 28.0,
+      "preferred": 9.985141,
+      "lines": 1
+    },
+    {
+      "id": "miner_deposit",
+      "width": 308.0,
+      "height": 28.0,
+      "preferred": 9.985141,
+      "lines": 1
+    },
+    {
+      "id": "road_builder",
+      "width": 308.0,
+      "height": 28.0,
+      "preferred": 9.985141,
+      "lines": 1
+    },
+    {
+      "id": "cleaner",
+      "width": 308.0,
+      "height": 28.0,
+      "preferred": 9.985141,
+      "lines": 1
+    },
+    {
+      "id": "manure_cleaner",
+      "width": 308.0,
+      "height": 28.0,
+      "preferred": 9.985141,
+      "lines": 1
+    },
+    {
+      "id": "Cultiway.HerbCollector",
+      "width": 308.0,
+      "height": 28.0,
+      "preferred": 9.985141,
+      "lines": 1
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "seconds": 15.0328369,
+  "counts": {
+    "Till": 9,
+    "Harvest": 11,
+    "Plant": 10,
+    "Deliver": 1
+  },
+  "fieldsBefore": 14,
+  "fieldsAfter": 23,
+  "raw": 1,
+  "wheat": 0,
+  "actors": [
+    {
+      "id": 3,
+      "job": "farmer",
+      "task": "Cultiway.FamilyFarmWork",
+      "action": "Mill",
+      "is_moving": false,
+      "position": {
+        "x": 52,
+        "y": 52
+      },
+      "grain": 0
+    },
+    {
+      "id": 4,
+      "job": "farmer",
+      "task": "Cultiway.FamilyFarmWork",
+      "action": "Till",
+      "is_moving": false,
+      "position": {
+        "x": 82,
+        "y": 85
+      },
+      "grain": 0
+    },
+    {
+      "id": 5,
+      "job": "farmer",
+      "task": "Cultiway.FamilyFarmWork",
+      "action": "Mill",
+      "is_moving": true,
+      "position": {
+        "x": 92,
+        "y": 76
+      },
+      "grain": 0
+    },
+    {
+      "id": 6,
+      "job": "farmer",
+      "task": "Cultiway.FamilyFarmWork",
+      "action": "Deliver",
+      "is_moving": true,
+      "position": {
+        "x": 93,
+        "y": 81
+      },
+      "grain": 11
+    }
+  ],
+  "errors": []
+}

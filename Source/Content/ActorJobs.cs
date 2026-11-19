@@ -60,6 +60,12 @@ public partial class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     protected override string Prefix() => "Cultiway.ActorJob";
     protected override void OnInit()
     {
+        // 伐木和交付之后补种，最后仍由原版结束本轮工作。
+        var forestry = AssetManager.job_actor.get("woodcutter");
+        var forestryEnd = forestry.tasks[forestry.tasks.Count - 1];
+        forestry.tasks.RemoveAt(forestry.tasks.Count - 1);
+        forestry.addTask(ActorTasks.VillagePlantTree.id);
+        forestry.tasks.Add(forestryEnd);
         InitYaoJobs();
         XianCultivator.addTask(ActorTasks.SwitchCultibook.id);
         XianCultivator.addCondition(new CondCanSwitchCultibook());

@@ -1,0 +1,170 @@
+{
+  "pid": 37928,
+  "tests": [
+    {
+      "name": "唯一原版军队与现役名册",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "特殊正式指挥者由普通成员日常代理",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "默认十人队为队长后方3乘3",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "每笔原版击杀军功只增加一次",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "军功增加不会立即换将",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "全年休息取消例行活动并保留军籍",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "普通工人休息月不接岗位",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "管理者不受月历限制",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "三种特殊人员不受月历限制",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "原版岗位入口实际拒绝休息工人",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "明确军令打断休息并召集特殊军职",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "新撤退命令替换旧目标并传给所有小队",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "军令到期恢复休息",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "在途重编暂缓且保存可恢复",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "三层自定义及真实超额退役",
+      "pass": true,
+      "detail": {
+        "active": 12,
+        "reserve": 9,
+        "squads": 4,
+        "battalions": 2
+      }
+    },
+    {
+      "name": "后备平时没有职业和Army占位",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "无征召许可不能从原版入口再次入伍",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "整军阵列点位无重叠且只有一个前方统领",
+      "pass": true,
+      "detail": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": -1,
+          "y": -2
+        },
+        {
+          "x": 1,
+          "y": -2
+        },
+        {
+          "x": 5,
+          "y": -8
+        },
+        {
+          "x": 4,
+          "y": -10
+        },
+        {
+          "x": 6,
+          "y": -10
+        },
+        {
+          "x": 10,
+          "y": -18
+        },
+        {
+          "x": 9,
+          "y": -20
+        },
+        {
+          "x": 11,
+          "y": -20
+        },
+        {
+          "x": 15,
+          "y": -26
+        },
+        {
+          "x": 14,
+          "y": -28
+        },
+        {
+          "x": 16,
+          "y": -28
+        }
+      ]
+    },
+    {
+      "name": "名称月历军功和稳定槽位恢复",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "真实空缺优先征召后备并进入具体小队",
+      "pass": true,
+      "detail": {
+        "active": 12,
+        "reserveBefore": 9,
+        "reserveAfter": 8,
+        "gold": 1000
+      }
+    },
+    {
+      "name": "原版统领检查不随机覆盖军功任命",
+      "pass": true,
+      "detail": null
+    }
+  ],
+  "at": "2026-11-17T18:35:30.9828419+08:00"
+}

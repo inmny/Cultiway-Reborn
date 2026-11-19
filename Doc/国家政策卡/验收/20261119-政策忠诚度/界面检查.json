@@ -1,0 +1,79 @@
+{
+  "passed": 13,
+  "total": 13,
+  "checks": {
+    "政策卡展示三个明确的正负影响": true,
+    "其他政策明确显示零影响": true,
+    "草稿预览负十但不改变当前城市数值": true,
+    "应用后城市和合计同时刷新": true,
+    "撤销恢复已应用组合和合计": true,
+    "cz小窗口政策和忠诚度文本没有裁切或缺失": true,
+    "cz新增影响行均位于各自卡片内": true,
+    "cz原版城市忠诚度提示列出政策明细": true,
+    "en小窗口政策和忠诚度文本没有裁切或缺失": true,
+    "en新增影响行均位于各自卡片内": true,
+    "en原版城市忠诚度提示列出政策明细": true,
+    "新增卡片内容增加后仍可滚动并应用": true,
+    "本次界面没有新增异常": true
+  },
+  "observations": [
+    {
+      "locale": "cz",
+      "summary": "政策忠诚度修正：已生效 -5 → 草稿 -5；固定加减不逐月累积。",
+      "clipped": [],
+      "policies": [
+        {
+          "translation_key": "Cultiway.Policies.Education.Name",
+          "value": 10
+        },
+        {
+          "translation_key": "Cultiway.Policies.HomelessRelief.Name",
+          "value": -5
+        },
+        {
+          "translation_key": "Cultiway.Policies.ChildLabor.Name",
+          "value": -10
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "summary": "Policy loyalty: active -5 → draft -5. A fixed modifier; it does not accumulate over time.",
+      "clipped": [],
+      "policies": [
+        {
+          "translation_key": "Cultiway.Policies.Education.Name",
+          "value": 10
+        },
+        {
+          "translation_key": "Cultiway.Policies.HomelessRelief.Name",
+          "value": -5
+        },
+        {
+          "translation_key": "Cultiway.Policies.ChildLabor.Name",
+          "value": -10
+        }
+      ]
+    }
+  ],
+  "unrelatedLocaleMessages": [
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowYaoOrganEditor Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowWorldWakan Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowActorTargetFilter Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowWanfaPavilion Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowWanfaSkillEditor Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowWanfaGrantConflict Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowMagicWebBrowser Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowBaibaoPavilion Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowBaibaoForge Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowBaibaoArchive Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowUpgradeRainConfig Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowElementRootRainConfig Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowSourcelessDamageLevelConfig Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowNewCreatureInfo Title",
+    "LocalizedTextManager: missing text: Cultiway.SelectedGeoRegion.Overview",
+    "LocalizedTextManager: missing text: Cultiway.SelectedGeoRegion.Related",
+    "LocalizedTextManager: missing text: Cultiway.SelectedGeoRegion.Adjacent"
+  ],
+  "errors": []
+}

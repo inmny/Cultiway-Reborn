@@ -1,0 +1,38 @@
+{
+  "tests": [
+    {
+      "name": "真实世界文件恢复名称月历和全部槽位",
+      "pass": true
+    },
+    {
+      "name": "真实世界文件恢复个人军功",
+      "pass": true
+    },
+    {
+      "name": "读档后仍是一村一支原版军队",
+      "pass": true
+    },
+    {
+      "name": "读档后重新建立小队活动",
+      "pass": true
+    },
+    {
+      "name": "窗口外框完整位于屏幕内",
+      "pass": true
+    },
+    {
+      "name": "滚动区域直接绑定且有效",
+      "pass": true
+    }
+  ],
+  "residents": 190,
+  "averageMs": 0.06591379310344829,
+  "maximumMs": 0.6916,
+  "backgroundWidth": 640.0,
+  "backgroundHeight": 380.0,
+  "screen": {
+    "width": 2560,
+    "height": 1346
+  },
+  "pid": 37928
+}

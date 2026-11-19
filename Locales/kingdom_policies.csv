@@ -1,0 +1,50 @@
+key,cz,en
+Cultiway.UI.KingdomPolicies Title,国家政策,National policies
+Cultiway.Policies.Title,国家政策,National policies
+Cultiway.Policies.Open,查看与设置,View and configure
+Cultiway.Policies.Scope,政策对本国所有村庄生效。公有制与私有制二选一；家庭经营的收获仍进入村庄仓库。,Policies apply to all villages in this nation. Choose one land system; family harvests still enter village stores.
+Cultiway.Policies.ScopeHint,调整后点击应用；详细参数仍在村庄窗口设置。,Apply to save changes. Configure local details in the village window.
+Cultiway.Policies.DayLength,一天实际用时（秒）,Seconds per day
+Cultiway.Policies.DayHint,全世界共用；默认6秒。范围0.1–86400秒；按1倍速计算并随暂停及倍速变化。一天12时；改动保留日期与年龄。,Shared by the whole world. Default: 6 seconds; range: 0.1–86400 at 1×. Follows game speed and pause. Each day has 12 hours; dates and ages are preserved.
+Cultiway.Policies.Configure,参数,Details
+Cultiway.Policies.ChooseCity,选择参数所属村庄,Choose a village for local settings
+Cultiway.Policies.City,参数村庄,Village
+Cultiway.Policies.NoCity,暂无村庄,No village
+Cultiway.Policies.SearchCity,搜索村庄,Search villages
+Cultiway.Policies.Close,关闭,Close
+Cultiway.Policies.Apply,应用,Apply
+Cultiway.Policies.Cancel,撤销草稿,Discard draft
+Cultiway.Policies.Applied,已应用国家政策和世界日长。,National policies and world day length applied.
+Cultiway.Policies.Unsaved,草稿尚未应用；点击“应用”后生效。,Draft not applied. Click Apply to activate these changes.
+Cultiway.Policies.LoyaltySummary,政策忠诚度修正：已生效 {0} → 草稿 {1}；固定加减不逐月累积。,Policy loyalty: active {0} → draft {1}. A fixed modifier; it does not accumulate over time.
+Cultiway.Policies.LoyaltyEffect,启用时：城市忠诚度 {0},While enabled: city loyalty {0}
+Cultiway.Policies.SchoolAdmissionAge,入学年龄（岁）,Admission age (years)
+Cultiway.Policies.InvalidAdmissionAge,入学年龄请输入1至100之间的整数；成年后不再安排儿童课程。,Enter an admission age from 1 to 100. Adult residents no longer receive children's lessons.
+Cultiway.Policies.InvalidDayLength,日长请输入0.1至86400之间的秒数。,Enter a day length between 0.1 and 86400 seconds.
+Cultiway.Policies.InvalidKingdom,该国家已不存在。,This nation no longer exists.
+Cultiway.Policies.InactiveSettings,本国未启用对应政策；参数可保存供启用后使用。,This policy is disabled. Settings are retained for when it is enabled.
+Cultiway.Policies.NativeArmy,三级战团已关闭；当前采用原版军队行为。,Three-tier organization is disabled; this army uses native behavior.
+Cultiway.Policies.PublicFarms.Name,公有制农田,Public farmland
+Cultiway.Policies.PublicFarms.Description,村庄围绕风车统一开垦和耕作。切换后保留已有家庭田中的作物；空田逐步退出。,Villages use native farming around windmills. Existing family crops remain for harvest; empty family plots are released.
+Cultiway.Policies.PrivateFarms.Name,私有制农田,Family farmland
+Cultiway.Policies.PrivateFarms.Description,有农民的家庭在城区附近经营矩形田块。可设置起步宽高与每户面积；不清除切换前的作物。,Farming families work rectangular plots near town. Configure initial width and height and household area. Switching preserves existing crops.
+Cultiway.Policies.ChildLabor.Name,童工,Child labor
+Cultiway.Policies.ChildLabor.Description,允许达到原版工作门槛的孩童生产（默认8岁）。关闭后仅成年人生产；不允许未成年人入伍。,Allow children to produce from the native work age (8 by default). When disabled only adults produce. Children cannot enlist.
+Cultiway.Policies.WorkCalendar.Name,工作与休息月,Work and rest months
+Cultiway.Policies.WorkCalendar.Description,普通居民按村庄月历工作或休息。农时与紧急防卫可例外；管理者及特殊者仍自由活动。关闭后全年可工作。,Ordinary residents follow village work months with seasonal and defense exceptions. Managers and special residents remain free. Disable for year-round work.
+Cultiway.Policies.OccupationPlanning.Name,职业定员,Occupation staffing
+Cultiway.Policies.OccupationPlanning.Description,按物资和人口自动分配或手动指定各职业人数；农闲可临时支援。关闭后恢复原版职业分配并保留配置。,Allocate jobs from resources and population or set staffing manually. Farmers can help other jobs between seasons. Disable to use native staffing; settings are retained.
+Cultiway.Policies.ArmyOrganization.Name,三级战团,Three-tier army
+Cultiway.Policies.ArmyOrganization.Description,每村唯一Army采用全国统一的三级编制；按军功任命并列队操练巡逻。关闭后恢复原版军队；保留军功与配置。,Each village's single Army uses national unit sizes and names with merit appointments and formations. Disable for native army behavior; merit and settings remain.
+Cultiway.Policies.SeasonalFarming.Name,春麦与冬麦,Wheat seasons
+Cultiway.Policies.SeasonalFarming.Description,冬麦9–11月播种且次年5–6月收；春麦3–4月播种且7–9月收。农时可打断休息。关闭后恢复原版生长与全年播收。,Winter wheat: sow Sep–Nov and harvest May–Jun. Spring wheat: sow Mar–Apr and harvest Jul–Sep. Seasonal work can interrupt rest. Disable for native growth and year-round farming.
+Cultiway.Policies.GrainMilling.Name,风车加工,Grain milling
+Cultiway.Policies.GrainMilling.Description,收获原粮后送往风车加工成食物。关闭后直接收获可食用麦粮；已有原粮仍可加工。,Harvest raw grain and process it at a windmill. Disable to harvest edible wheat directly; existing raw grain can still be processed.
+Cultiway.Policies.FertilizerYield.Name,施肥增产,Fertilizer yield
+Cultiway.Policies.FertilizerYield.Description,未成熟小麦每株施肥一次并在收获时增加一倍基础产量。关闭后仅对不受农时限制的作物恢复原版催熟；已有增产保留。,Fertilize each unripe plant once for double base yield. Disable for native ripening on crops without seasonal limits. Previously earned yield bonuses remain.
+Cultiway.Policies.ConstructionPriority.Name,城建优先,Construction priority
+Cultiway.Policies.ConstructionPriority.Description,允许建筑使用农田地表；内城扩张使家庭田退耕且成熟作物可最后收取一次。关闭后恢复原版农田地表建造限制。,Buildings may use farmland. Inner-town expansion retires family plots with a final ripe harvest. Disable to restore native farmland construction restrictions.
+Cultiway.Policies.Education.Name,儿童教育,Children's education
+Cultiway.Policies.HomelessRelief.Name,流浪救助,Homeless relief
+Cultiway.Policies.HomelessRelief.Description,允许无住房的本国居民到本城空置住宅内睡觉；仅临时借宿且不改变住房归属。没有可用空房时仍露宿。默认关闭。,Homeless residents may sleep in empty homes in their own town. Temporary shelter does not change home ownership. Without an available home they sleep outdoors. Disabled by default.
+Cultiway.Policies.Education.Description,适龄孩童空闲时进入本村图书馆阅读城市藏书。童工任务优先；书籍和功法沿用原有学习效果与资格。默认关闭。,Eligible children read town books inside a local library when idle. Work comes first. Books and cultivation manuals keep their existing effects and requirements. Disabled by default.

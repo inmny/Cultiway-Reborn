@@ -1,0 +1,71 @@
+{
+  "process": 27028,
+  "checks": [
+    {
+      "name": "新增职业人数页与五个页签",
+      "pass": true
+    },
+    {
+      "name": "编辑职业人数只修改草稿",
+      "pass": true
+    },
+    {
+      "name": "负职业人数禁止提交",
+      "pass": true
+    },
+    {
+      "name": "撤销草稿恢复自动职业人数",
+      "pass": true
+    },
+    {
+      "name": "页签切换0",
+      "pass": true
+    },
+    {
+      "name": "页签切换1",
+      "pass": true
+    },
+    {
+      "name": "页签切换2",
+      "pass": true
+    },
+    {
+      "name": "页签切换3",
+      "pass": true
+    },
+    {
+      "name": "页签切换4",
+      "pass": true
+    },
+    {
+      "name": "军制显示所属国家与全国范围",
+      "pass": true
+    },
+    {
+      "name": "页面没有缺失本地化键",
+      "pass": true
+    },
+    {
+      "name": "重复开关仍能显示职业人数",
+      "pass": true
+    }
+  ],
+  "drillPunches": 29,
+  "drillActors": [
+    294,
+    280,
+    298,
+    135,
+    471,
+    287,
+    235,
+    567,
+    322
+  ],
+  "military": 35,
+  "squads": 4,
+  "forestryBiomeFix": true,
+  "errors": [],
+  "biomePlantSiteFound": true,
+  "plantSiteBiomeSurface": "enchanted_high"
+}

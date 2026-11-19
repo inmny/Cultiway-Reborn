@@ -1,0 +1,31 @@
+{
+  "results": [
+    {
+      "name": "驻守改为撤退会替换全部小队的旧目标",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "改令到期后恢复休息",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "五十人整编按三十二人预算分批完成",
+      "pass": true,
+      "detail": {
+        "firstBatch": 32,
+        "secondBatch": 50
+      }
+    },
+    {
+      "name": "超额退役也遵守同一轮预算",
+      "pass": true,
+      "detail": {
+        "afterFirst": 28,
+        "final": 10
+      }
+    }
+  ],
+  "process": 37928
+}

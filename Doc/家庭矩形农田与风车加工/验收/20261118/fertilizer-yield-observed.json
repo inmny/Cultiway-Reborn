@@ -1,0 +1,134 @@
+{
+  "realSeconds": 20.0,
+  "simulationSeconds": 18.699999582022429,
+  "completedFertilizing": 3,
+  "extraRawGrain": 0,
+  "before": [
+    {
+      "name": "玉集",
+      "fertilizer": 546,
+      "fertilized": 0,
+      "tasks": []
+    },
+    {
+      "name": "琼关",
+      "fertilizer": 38,
+      "fertilized": 0,
+      "tasks": []
+    },
+    {
+      "name": "松所",
+      "fertilizer": 112,
+      "fertilized": 0,
+      "tasks": []
+    },
+    {
+      "name": "南卫",
+      "fertilizer": 53,
+      "fertilized": 0,
+      "tasks": []
+    },
+    {
+      "name": "山镇",
+      "fertilizer": 74,
+      "fertilized": 0,
+      "tasks": []
+    },
+    {
+      "name": "宣京",
+      "fertilizer": 59,
+      "fertilized": 0,
+      "tasks": []
+    },
+    {
+      "name": "登台",
+      "fertilizer": 31,
+      "fertilized": 0,
+      "tasks": []
+    },
+    {
+      "name": "松卫",
+      "fertilizer": 16,
+      "fertilized": 0,
+      "tasks": []
+    },
+    {
+      "name": "柳关",
+      "fertilizer": 10,
+      "fertilized": 0,
+      "tasks": []
+    }
+  ],
+  "after": [
+    {
+      "name": "玉集",
+      "fertilizer": 521,
+      "fertilized": 3,
+      "tasks": [
+        {
+          "action": "Fertilize",
+          "count": 5
+        }
+      ]
+    },
+    {
+      "name": "琼关",
+      "fertilizer": 38,
+      "fertilized": 0,
+      "tasks": []
+    },
+    {
+      "name": "松所",
+      "fertilizer": 112,
+      "fertilized": 0,
+      "tasks": []
+    },
+    {
+      "name": "南卫",
+      "fertilizer": 53,
+      "fertilized": 0,
+      "tasks": [
+        {
+          "action": "CollectFertilizer",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "name": "山镇",
+      "fertilizer": 65,
+      "fertilized": 0,
+      "tasks": [
+        {
+          "action": "Fertilize",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "name": "宣京",
+      "fertilizer": 60,
+      "fertilized": 0,
+      "tasks": []
+    },
+    {
+      "name": "登台",
+      "fertilizer": 31,
+      "fertilized": 0,
+      "tasks": []
+    },
+    {
+      "name": "松卫",
+      "fertilizer": 17,
+      "fertilized": 0,
+      "tasks": []
+    },
+    {
+      "name": "柳关",
+      "fertilizer": 10,
+      "fertilized": 0,
+      "tasks": []
+    }
+  ],
+  "errors": []
+}

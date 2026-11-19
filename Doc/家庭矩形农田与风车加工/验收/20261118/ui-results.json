@@ -1,0 +1,30 @@
+{
+  "passed": 12,
+  "total": 12,
+  "checks": {
+    "非法宽度禁止提交": true,
+    "面积小于起步田块禁止提交": true,
+    "合法田块参数恢复提交": true,
+    "未提交输入不修改已有田地": true,
+    "cz页面文字未超出控件": true,
+    "cz没有缺失翻译或格式参数": true,
+    "en页面文字未超出控件": true,
+    "en没有缺失翻译或格式参数": true,
+    "小窗口仍显示六个页签": true,
+    "六页切换没有销毁农田页": true,
+    "家庭入口正确筛选本户": true,
+    "家庭农田相关界面无新增异常": true
+  },
+  "observations": [
+    {
+      "locale": "cz",
+      "clipped": []
+    },
+    {
+      "locale": "en",
+      "clipped": []
+    }
+  ],
+  "errors": [],
+  "otherLocaleWarnings": []
+}

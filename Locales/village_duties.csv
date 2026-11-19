@@ -1,0 +1,126 @@
+key,cz,en
+Cultiway.UI.WindowVillageDuties Title,村庄作息与军队,Village duties and army
+Cultiway.Village.Title,村庄作息与军队,Village duties and army
+Cultiway.Village.Personnel,身份与军功,Role and military merit
+Cultiway.Village.Open,查看与设置,View and configure
+Cultiway.Village.Overview,总览,Overview
+Cultiway.Village.Calendar,工作月历,Work calendar
+Cultiway.Village.Organization,国家军制,National army settings
+Cultiway.Village.People,人员名册,Residents
+Cultiway.Village.Occupations,职业人数,Occupation staffing
+Cultiway.Village.Automatic,自动,Auto
+Cultiway.Village.AutomaticOccupations,全部恢复自动分配,Reset all to automatic
+Cultiway.Village.OccupationHint,留空为自动；0为停用，正整数为定员。总人数包含有生产资格的童工，下行单列童工人数。特殊者与管理者自主参与另计；休息月保留职业。睡眠、进食、战斗和运输优先完成。,Blank uses automatic staffing; 0 disables a job. Totals include eligible child workers; the second line shows their counts. Special residents and managers participate autonomously. Jobs remain during rest months; basic needs and transport finish first.
+Cultiway.Village.WorkforceSummary,普通劳动力 {0}（成年{3} · 童工{4}） · 手动定员 {1} · 已分配 {2},Workforce {0} (adults {3} · children {4}) · Manual target {1} · Assigned {2}
+Cultiway.Village.ChildLaborEnabled,童工政策已启用 · 最低{0}岁 · 可分配童工{1}人,Child labor enabled · Minimum age {0} · Available child workers {1}
+Cultiway.Village.ChildLaborDisabled,童工政策未启用 · 未成年人不计入生产劳动力,Child labor disabled · Minors are excluded from the production workforce
+cultiway_school_study,图书馆学习,Studying in the library
+Cultiway.Village.OccupationChildren,其中童工：已分配{0} · 在岗{1} · 自主{2} · 临时支援{3},Children: assigned {0} · working {1} · autonomous {2} · temporary {3}
+Cultiway.Village.FixedOccupation,定员 {0} · 已分配 {1} · 在岗 {2} · 自主 {3} · 临时支援 {4},Target {0} · Assigned {1} · Working {2} · Autonomous {3} · Temporary {4}
+Cultiway.Village.AutomaticOccupation,自动计划 {0} · 已分配 {1} · 在岗 {2} · 自主 {3} · 临时支援 {4},Auto target {0} · Assigned {1} · Working {2} · Autonomous {3} · Temporary {4}
+Cultiway.Village.PlantTree,补种树木,Replanting trees
+Cultiway.Village.Occupation.builder,建筑工,Builder
+Cultiway.Village.Occupation.gatherer_bushes,果实采集工,Fruit gatherer
+Cultiway.Village.Occupation.gatherer_herbs,草药采集工,Herb gatherer
+Cultiway.Village.Occupation.gatherer_honey,蜂蜜采集工,Honey gatherer
+Cultiway.Village.Occupation.farmer,农民,Farmer
+Cultiway.Village.Occupation.hunter,猎人,Hunter
+Cultiway.Village.Occupation.woodcutter,林业工（伐木与种树）,Forester (logging and replanting)
+Cultiway.Village.Occupation.miner,矿工,Miner
+Cultiway.Village.Occupation.miner_deposit,矿藏采掘工,Deposit miner
+Cultiway.Village.Occupation.road_builder,筑路工,Road builder
+Cultiway.Village.Occupation.cleaner,废墟清理工,Ruins cleaner
+Cultiway.Village.Occupation.manure_cleaner,粪肥收集工,Manure collector
+Cultiway.Village.Occupation.HerbCollector,灵药采集工,Spiritual herb gatherer
+Cultiway.Village.Apply,应用,Apply
+Cultiway.Village.Cancel,撤销草稿,Reset draft
+Cultiway.Village.Close,关闭,Close
+Cultiway.Village.Confirm,确认,Confirm
+Cultiway.Village.InvalidCity,村庄已不存在，请重新选择。,Village no longer exists. Select another village.
+Cultiway.Village.Rules,普通士兵在工作月操练、巡逻和驻守；普通工人在工作月接受村庄岗位。休息月自由活动。国王、领主和修炼者、法师、骑士不受月历约束。特殊军职者保留编制并服从明确军令，平时不参加强制勤务。,Ordinary soldiers train and patrol during work months. Workers take village jobs. Rest months allow free activity. Kings and city leaders and cultivators and mages and knights are exempt. Special military members retain their posts and obey explicit orders.
+Cultiway.Village.Work,工作,Work
+Cultiway.Village.Rest,休息,Rest
+Cultiway.Village.AllWork,全年工作,All work
+Cultiway.Village.AllRest,全年休息,All rest
+Cultiway.Village.DefaultMonths,恢复默认,Default months
+Cultiway.Village.CalendarHint,勾选月份为工作月，取消勾选为休息月。默认2–11月工作，1月和12月休息。进食、自卫、避险和运输收尾照常进行；紧急防卫与明确军令可以打断士兵休息。,Checked months are work months. Defaults: work from February through November and rest in January and December. Basic needs and self-defense continue. Emergencies and explicit military orders may interrupt military rest.
+Cultiway.Village.CurrentMonth,当前第 {0} 月 · {1},Month {0} · {1}
+Cultiway.Village.ClassificationSummary,士兵 {0} · 工人 {1} · 管理者 {2} · 特殊者 {3},Soldiers {0} · Workers {1} · Managers {2} · Special {3}
+Cultiway.Village.MilitarySummary,现役 {0}（其中特殊军职 {1}） · 容量 {2} · 后备候选 {3},Active {0} (special military {1}) · Capacity {2} · Reserve candidates {3}
+Cultiway.Village.StructureSummary,已编成 {0} 个{1}、{2} 个{3},Organized into {0} {1} and {2} {3}
+Cultiway.Village.OrdersActive,军令或紧急防卫生效中,Military order or emergency defense active
+Cultiway.Village.NoOrders,当前无紧急军令,No emergency orders
+Cultiway.Village.PendingReorganization,调整已保存，交战或运输结束后重编。,Changes saved. Reorganization waits for combat or transport to finish.
+Cultiway.Village.OrganizationProgress,正在分批整编：已入队 {0}／现役 {1},Reorganizing in batches: assigned {0} / active {1}
+Cultiway.Village.KingdomOrganization,{0} · 全部 {1} 个村庄共用本套军制,{0} · Shared army settings for all {1} villages
+Cultiway.Village.OrganizationHint,名称、指挥称谓、数量和阵列列数对本国所有村庄生效。每村仍只有一支军队；第三层数量为每军下辖的营数。月历及具体军队、营队的专名仍属本村。空名称使用默认称呼。,Names and titles and quantities and formation columns apply to every village in this kingdom. Each village retains one Army. The third quantity is battalions per Army. Calendars and individual unit names remain local. Empty names use defaults.
+Cultiway.Village.Layer.0,第一层,Tier 1
+Cultiway.Village.Layer.1,第二层,Tier 2
+Cultiway.Village.Layer.2,第三层,Tier 3
+Cultiway.Village.LayerName,层级名称,Tier name
+Cultiway.Village.LeaderTitle,指挥者称谓,Commander title
+Cultiway.Village.Quantity,数量,Quantity
+Cultiway.Village.Quantity.0,人／第一层（含指挥）,Members per tier 1 (includes captain)
+Cultiway.Village.Quantity.1,第一层数／第二层,Tier 1 units per tier 2
+Cultiway.Village.Quantity.2,第二层数／唯一军队,Tier 2 units in the one Army
+Cultiway.Village.Squad,小队,Squad
+Cultiway.Village.Battalion,营,Battalion
+Cultiway.Village.Army,团,Regiment
+Cultiway.Village.SquadLeader,队长,Squad captain
+Cultiway.Village.BattalionLeader,营长,Battalion commander
+Cultiway.Village.ArmyLeader,团长,Army commander
+Cultiway.Village.Columns,队列列数（0 为自动）,Formation columns (0 = auto)
+Cultiway.Village.ArmyInstanceName,本村军队名称,Army name
+Cultiway.Village.Reappoint,按军功重新评定,Re-evaluate commanders
+Cultiway.Village.ArmyFormation,预览整军阵列,Preview Army formation
+Cultiway.Village.FormationLegend,黄：正式指挥 · 绿：日常代理 · 白：成员 · 灰：空位,Yellow: commanders · Green: acting captain · White: members · Gray: vacancies
+Cultiway.Village.FormationSize,占位宽 {0} × 深 {1} 格 · 默认十人队为队长与后方 3×3,Width {0} × depth {1} tiles · Default squad: captain ahead of a 3×3 rectangle
+Cultiway.Village.CapacityPreview,每村容量 {0} → {1} · 全国预计释放后备 {2} 人,Per-village capacity {0} → {1} · Kingdom reserve release {2}
+Cultiway.Village.InvalidPolicy,军制数量须为正整数且总容量不超过 2147483647；列数为 0 至每队人数。职业人数留空为自动，也可填写 0 或正整数，合计不得超过 2147483647。,Army quantities must be positive with capacity up to 2147483647. Columns range from 0 to squad size. Occupations accept blank for auto or nonnegative integers with a total up to 2147483647.
+Cultiway.Village.Applied,国家军制与本村作息、职业设置已保存。,National army settings and this village calendar and occupations saved.
+Cultiway.Village.UnitName,单位名称,Unit name
+Cultiway.Village.RenameHint,修改本营或本队的名称，留空则恢复层级默认名称。,Rename this battalion or squad. Leave empty to use the default tier name.
+Cultiway.Village.Rename,改名,Rename
+Cultiway.Village.AppointmentRule,按军功、军事能力、等级依次评定；同分时保持固定顺序。队长从队员选，营长从队长选，统领从营长选。,Rank by military merit then warfare then level. Ties use stable identity. Squad captains come from members. Higher commanders come from subordinate commanders.
+Cultiway.Village.AppointmentChange,{0}：{1} → {2},{0}: {1} → {2}
+Cultiway.Village.NoAppointmentChanges,当前任命无需调整。,No appointments would change.
+Cultiway.Village.BusyAppointment,存在交战、运输或直接操控的人员，请稍后重新评定。,Re-evaluation waits for combat or transport or direct control to end.
+Cultiway.Village.Commander,{0}：{1} · 军功 {2},{0}: {1} · Merit {2}
+Cultiway.Village.Members,{0}/{1} 人,{0}/{1} members
+Cultiway.Village.NoArmy,尚未建立军队,No Army yet
+Cultiway.Village.Vacant,空缺,Vacant
+Cultiway.Village.Expand,展开,Expand
+Cultiway.Village.Collapse,收起,Collapse
+Cultiway.Village.Formation,阵列,Formation
+Cultiway.Village.Acting,日常代理：{0},Routine acting captain: {0}
+Cultiway.Village.Free,自由活动,Free activity
+Cultiway.Village.Task.0,列队操练,Formation training
+Cultiway.Village.Task.1,小队巡逻,Squad patrol
+Cultiway.Village.Task.2,列队驻守,Formation guard
+Cultiway.Village.Task.Orders,执行军令,Military orders
+Cultiway.Village.Routine,小队勤务,Squad duty
+Cultiway.Village.Military,整军行动,Military operation
+Cultiway.Village.Search,搜索姓名,Search name
+Cultiway.Village.Filter,人员筛选,Filter residents
+Cultiway.Village.Sort,排序,Sort
+Cultiway.Village.SortMerit,军功优先,Military merit
+Cultiway.Village.SortName,姓名顺序,Name
+Cultiway.Village.Previous,上一页,Previous
+Cultiway.Village.Next,下一页,Next
+Cultiway.Village.Pages,第 {0}/{1} 页 · 共 {2} 人,Page {0}/{1} · {2} residents
+Cultiway.Village.All,全部人员,All residents
+Cultiway.Village.Kind.Soldier,士兵,Soldier
+Cultiway.Village.Kind.Worker,工人,Worker
+Cultiway.Village.Kind.Manager,管理者,Manager
+Cultiway.Village.Kind.Special,特殊者,Special
+Cultiway.Village.Reserve,后备候选,Reserve candidates
+Cultiway.Village.ActiveMilitary,现役军人,Active military
+Cultiway.Village.ReserveFree,后备候选 · 平时无军籍,Reserve candidate · Civilian until recalled
+Cultiway.Village.None,无,None
+Cultiway.Village.Merit,军功,Military merit
+Cultiway.Village.MeritValue,军功 {0},Military merit {0}
+Cultiway.Village.CalendarExempt,不受工作月限制,Calendar exempt
+Cultiway.Village.Inspect,详情,Details
+Cultiway.Village.Locate,定位,Locate
+Cultiway.Village.NoPeople,暂无符合条件的人员,No matching residents
+Cultiway.Village.NoPeopleHint,可以清空搜索或改选全部人员。,Clear the search or select all residents.

@@ -1,0 +1,161 @@
+{
+  "passed": 31,
+  "total": 31,
+  "checks": [
+    {
+      "name": "教育默认关闭",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "六岁可入学且不足六岁不入学",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "成年人不自动参加儿童课程",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "国家可调整入学年龄",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "童工固定岗位优先于教育",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "没有生产岗位的适龄童工可学习",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "正在生产的童工不被课程打断",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "已有明确任务不被课程替换",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "没有本城可用图书馆不派学生",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "没有真实藏书不派学生",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "课程准备使用真实本城图书馆",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "未到图书馆不能开始阅读",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "到馆后进入室内并阅读真实藏书",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "完成阅读结算原版收益且只结算一次",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "课程结束按原版流程出馆",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "图书馆失效后不结算旧课程",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "真实功法书沿用模组学习效果",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "普通儿童阅读功法不越过原有修行资格",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "空闲孩童回家权重提高且闲逛权重降低",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "有生产岗位的童工不受闲逛调整影响",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "有房者睡觉切换到回屋任务",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "有房者进入自己的房屋睡觉",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "救助关闭时无房者仍露宿且不分配房屋",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "露宿仍可按原版正常入睡",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "救助开启时只选择本城空置住宅",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "借宿可在室内睡觉且不改变住房登记",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "途中空房入住后不再允许借宿",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "途中关闭救助后恢复露宿",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "操练目的地均在本村军营周边八格内",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "没有本村军营时不选择远处操练",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "本轮功能没有产生游戏异常",
+      "ok": true,
+      "detail": []
+    }
+  ]
+}

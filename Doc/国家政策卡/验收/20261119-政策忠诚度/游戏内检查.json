@@ -1,0 +1,67 @@
+{
+  "pid": 4484,
+  "passed": 21,
+  "total": 21,
+  "checks": {
+    "三个政策项目各注册一次": true,
+    "默认政策没有忠诚度修正": true,
+    "ChildLabor立即影响同国首都和分城": true,
+    "ChildLabor不影响其他国家": true,
+    "ChildLabor进入原版忠诚度明细": true,
+    "HomelessRelief立即影响同国首都和分城": true,
+    "HomelessRelief不影响其他国家": true,
+    "HomelessRelief进入原版忠诚度明细": true,
+    "Education立即影响同国首都和分城": true,
+    "Education不影响其他国家": true,
+    "Education进入原版忠诚度明细": true,
+    "三项启用后的修正合计为负五": true,
+    "连续应用十次不会重复扣减": true,
+    "编辑草稿尚未改变真实城市忠诚度": true,
+    "国家存档保存开关且不重复保存计算结果": true,
+    "关闭后恢复原值且明细移除": true,
+    "无效草稿不会改变城市忠诚度": true,
+    "城市易主后立即改用新国家的加成": true,
+    "原版首都忠诚度保护保留": true,
+    "登记项目复用已有双语政策名称": true,
+    "本轮游戏内检查无异常": true
+  },
+  "observations": [
+    {
+      "card": "ChildLabor",
+      "amount": -10,
+      "loyalty": [
+        1217,
+        168,
+        1227
+      ]
+    },
+    {
+      "card": "HomelessRelief",
+      "amount": -5,
+      "loyalty": [
+        1222,
+        173,
+        1227
+      ]
+    },
+    {
+      "card": "Education",
+      "amount": 10,
+      "loyalty": [
+        1237,
+        188,
+        1227
+      ]
+    }
+  ],
+  "cityIds": [
+    1,
+    2,
+    3
+  ],
+  "kingdomIds": [
+    1,
+    2
+  ],
+  "errors": []
+}

@@ -1,0 +1,90 @@
+{
+  "passed": 17,
+  "total": 17,
+  "checks": {
+    "国家界面包含教育与救助共十二张卡": true,
+    "新卡编辑显示未应用提示且不直接改变政策": true,
+    "撤销恢复救助卡与入学年龄": true,
+    "非法入学年龄被拒绝并显示说明": true,
+    "应用保存国家教育年龄与救助卡": true,
+    "cz教育与救助卡文本无裁切或缺失翻译": true,
+    "en教育与救助卡文本无裁切或缺失翻译": true,
+    "cz职业行显示童工分配在岗自主和支援": true,
+    "cz童工已纳入劳动力总数并显示最低年龄": true,
+    "cz职业页文本无裁切或缺失翻译": true,
+    "en职业行显示童工分配在岗自主和支援": true,
+    "en童工已纳入劳动力总数并显示最低年龄": true,
+    "en职业页文本无裁切或缺失翻译": true,
+    "关闭童工后显示实际关闭状态": true,
+    "小窗口仍能滚动和编辑两张新增卡": true,
+    "小窗口职业页仍可显示童工人数": true,
+    "新窗口操作没有产生异常": true
+  },
+  "observations": [
+    {
+      "stage": "policies",
+      "locale": "cz",
+      "clipped": []
+    },
+    {
+      "stage": "policies",
+      "locale": "en",
+      "clipped": []
+    },
+    {
+      "stage": "occupations",
+      "locale": "cz",
+      "summary": "普通劳动力 7（成年4 · 童工3） · 手动定员 0 · 已分配 1",
+      "status": "童工政策已启用 · 最低8岁 · 可分配童工3人",
+      "row": "定员 0 · 已分配 1 · 在岗 1 · 自主 1 · 临时支援 0\n其中童工：已分配1 · 在岗1 · 自主1 · 临时支援0",
+      "clipped": []
+    },
+    {
+      "stage": "occupations",
+      "locale": "en",
+      "summary": "Workforce 7 (adults 4 · children 3) · Manual target 0 · Assigned 1",
+      "status": "Child labor enabled · Minimum age 8 · Available child workers 3",
+      "row": "Target 0 · Assigned 1 · Working 1 · Autonomous 1 · Temporary 0\nChildren: assigned 1 · working 1 · autonomous 1 · temporary 0",
+      "clipped": []
+    }
+  ],
+  "errors": [
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowYaoOrganEditor Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowWorldWakan Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowActorTargetFilter Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowWanfaPavilion Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowWanfaSkillEditor Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowWanfaGrantConflict Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowMagicWebBrowser Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowBaibaoPavilion Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowBaibaoForge Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowBaibaoArchive Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowUpgradeRainConfig Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowElementRootRainConfig Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowSourcelessDamageLevelConfig Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowNewCreatureInfo Title",
+    "LocalizedTextManager: missing text: Cultiway.SelectedGeoRegion.Overview",
+    "LocalizedTextManager: missing text: Cultiway.SelectedGeoRegion.Related",
+    "LocalizedTextManager: missing text: Cultiway.SelectedGeoRegion.Adjacent"
+  ],
+  "unrelatedLocaleMessages": [
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowYaoOrganEditor Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowWorldWakan Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowActorTargetFilter Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowWanfaPavilion Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowWanfaSkillEditor Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowWanfaGrantConflict Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowMagicWebBrowser Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowBaibaoPavilion Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowBaibaoForge Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowBaibaoArchive Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowUpgradeRainConfig Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowElementRootRainConfig Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowSourcelessDamageLevelConfig Title",
+    "LocalizedTextManager: missing text: Cultiway.UI.WindowNewCreatureInfo Title",
+    "LocalizedTextManager: missing text: Cultiway.SelectedGeoRegion.Overview",
+    "LocalizedTextManager: missing text: Cultiway.SelectedGeoRegion.Related",
+    "LocalizedTextManager: missing text: Cultiway.SelectedGeoRegion.Adjacent"
+  ],
+  "note": "全局切换语言触发了其他既有窗口的17条缺失文本提示；本次新增卡片和职业页翻译、控件检查均通过。"
+}

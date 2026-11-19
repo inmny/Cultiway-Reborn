@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "guest": 9,
+  "shelter": 26,
+  "slept": true,
+  "home": null,
+  "inside": 26,
+  "residents": [],
+  "task": "sleep_inside",
+  "action": "BehTrySleep",
+  "errors": []
+}

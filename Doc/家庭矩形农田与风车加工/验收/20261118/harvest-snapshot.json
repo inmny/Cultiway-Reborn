@@ -1,0 +1,1923 @@
+{
+  "pid": 19632,
+  "now": 6392.1391567699611,
+  "month": 7,
+  "paused": false,
+  "worldPaused": false,
+  "cities": [
+    {
+      "city": 1,
+      "name": "东京",
+      "population": 329,
+      "plots": 70,
+      "area": 629,
+      "workers": 43,
+      "crops": 167,
+      "ripe": 166,
+      "ready": 15,
+      "ageReadyNotVisible": 0,
+      "raw": 0,
+      "food": 0,
+      "mills": 1,
+      "monthWork": true,
+      "occupations": [
+        {
+          "job": "farmer",
+          "task": "Cultiway.FamilyFarmWork",
+          "action": "Till",
+          "count": 10
+        },
+        {
+          "job": "unit_citizen",
+          "task": "generate_loot",
+          "action": "Idle",
+          "count": 2
+        },
+        {
+          "job": "unit_citizen",
+          "task": "socialize_try_to_start_near_bonfire",
+          "action": "Idle",
+          "count": 2
+        },
+        {
+          "job": "unit_citizen",
+          "task": "city_idle_walking",
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "unit_citizen",
+          "task": "socialize_receiving",
+          "action": "Idle",
+          "count": 2
+        },
+        {
+          "job": "unit_citizen",
+          "task": "sleep_inside",
+          "action": "Idle",
+          "count": 6
+        },
+        {
+          "job": "farmer",
+          "task": "Cultiway.FamilyFarmWork",
+          "action": "Harvest",
+          "count": 4
+        },
+        {
+          "job": "unit_citizen",
+          "task": "random_move_near_house",
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "unit_citizen",
+          "task": "try_to_eat_city_food",
+          "action": "Idle",
+          "count": 2
+        },
+        {
+          "job": "unit_citizen",
+          "task": "poop_inside",
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "farmer",
+          "task": "Cultiway.FamilyFarmWork",
+          "action": "Plant",
+          "count": 3
+        },
+        {
+          "job": "farmer",
+          "task": "Cultiway.FamilyFarmWork",
+          "action": "Clear",
+          "count": 2
+        },
+        {
+          "job": "unit_citizen",
+          "task": "make_items",
+          "action": "Idle",
+          "count": 5
+        },
+        {
+          "job": "farmer",
+          "task": null,
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "unit_citizen",
+          "task": "sexual_reproduction_civ_wait",
+          "action": "Idle",
+          "count": 1
+        }
+      ],
+      "seasons": [
+        {
+          "type": 1,
+          "count": 16,
+          "ripe": 15,
+          "ready": 15
+        },
+        {
+          "type": 2,
+          "count": 151,
+          "ripe": 151,
+          "ready": 0
+        }
+      ],
+      "cropGroups": [
+        {
+          "owner": 179,
+          "total": 4,
+          "ripe": 4,
+          "ready": 4,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 568,
+              "job": "farmer",
+              "task": "Cultiway.FamilyFarmWork",
+              "action": "Plant",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": -0.05,
+              "is_moving": true,
+              "pos": {
+                "x": 87,
+                "y": 137
+              },
+              "target": {
+                "x": 85,
+                "y": 139
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": true
+            }
+          ]
+        },
+        {
+          "owner": 139,
+          "total": 3,
+          "ripe": 3,
+          "ready": 3,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 478,
+              "job": "unit_citizen",
+              "task": "try_to_eat_city_food",
+              "action": "Idle",
+              "support": null,
+              "hungry": true,
+              "grain": 0,
+              "timer_action": -0.02,
+              "is_moving": true,
+              "pos": {
+                "x": 105,
+                "y": 99
+              },
+              "target": {
+                "x": 105,
+                "y": 99
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": true
+            }
+          ]
+        },
+        {
+          "owner": 168,
+          "total": 3,
+          "ripe": 3,
+          "ready": 2,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 573,
+              "job": "unit_citizen",
+              "task": "sleep_inside",
+              "action": "Idle",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": 1.17723274,
+              "is_moving": false,
+              "pos": {
+                "x": 88,
+                "y": 130
+              },
+              "target": null,
+              "canChange": false,
+              "routine": true,
+              "seasonal": true
+            }
+          ]
+        },
+        {
+          "owner": 153,
+          "total": 2,
+          "ripe": 2,
+          "ready": 2,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 502,
+              "job": "unit_citizen",
+              "task": "random_move_near_house",
+              "action": "Idle",
+              "support": null,
+              "hungry": true,
+              "grain": 0,
+              "timer_action": 4.53225374,
+              "is_moving": false,
+              "pos": {
+                "x": 119,
+                "y": 133
+              },
+              "target": {
+                "x": 119,
+                "y": 133
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": true
+            }
+          ]
+        },
+        {
+          "owner": 125,
+          "total": 2,
+          "ripe": 2,
+          "ready": 1,
+          "farmers": 0,
+          "workers": []
+        },
+        {
+          "owner": 88,
+          "total": 3,
+          "ripe": 3,
+          "ready": 1,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 340,
+              "job": "unit_citizen",
+              "task": "sleep_inside",
+              "action": "Idle",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": 10.948101,
+              "is_moving": false,
+              "pos": {
+                "x": 112,
+                "y": 132
+              },
+              "target": null,
+              "canChange": false,
+              "routine": true,
+              "seasonal": true
+            }
+          ]
+        },
+        {
+          "owner": 132,
+          "total": 1,
+          "ripe": 1,
+          "ready": 1,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 472,
+              "job": "unit_citizen",
+              "task": "poop_inside",
+              "action": "Idle",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": 29.98433,
+              "is_moving": false,
+              "pos": {
+                "x": 100,
+                "y": 105
+              },
+              "target": null,
+              "canChange": false,
+              "routine": true,
+              "seasonal": true
+            }
+          ]
+        },
+        {
+          "owner": 130,
+          "total": 3,
+          "ripe": 3,
+          "ready": 1,
+          "farmers": 0,
+          "workers": []
+        },
+        {
+          "owner": 169,
+          "total": 12,
+          "ripe": 12,
+          "ready": 0,
+          "farmers": 0,
+          "workers": []
+        },
+        {
+          "owner": 129,
+          "total": 6,
+          "ripe": 6,
+          "ready": 0,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 486,
+              "job": "farmer",
+              "task": "Cultiway.FamilyFarmWork",
+              "action": "Harvest",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": 0.06000003,
+              "is_moving": false,
+              "pos": {
+                "x": 92,
+                "y": 110
+              },
+              "target": {
+                "x": 92,
+                "y": 110
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": false
+            }
+          ]
+        },
+        {
+          "owner": 141,
+          "total": 9,
+          "ripe": 9,
+          "ready": 0,
+          "farmers": 2,
+          "workers": [
+            {
+              "id": 500,
+              "job": "farmer",
+              "task": "Cultiway.FamilyFarmWork",
+              "action": "Till",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": -0.0206409972,
+              "is_moving": true,
+              "pos": {
+                "x": 69,
+                "y": 94
+              },
+              "target": {
+                "x": 69,
+                "y": 94
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": false
+            },
+            {
+              "id": 917,
+              "job": "farmer",
+              "task": "Cultiway.FamilyFarmWork",
+              "action": "Clear",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": -0.02296943,
+              "is_moving": true,
+              "pos": {
+                "x": 97,
+                "y": 115
+              },
+              "target": {
+                "x": 69,
+                "y": 93
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": false
+            }
+          ]
+        },
+        {
+          "owner": 66,
+          "total": 8,
+          "ripe": 8,
+          "ready": 0,
+          "farmers": 0,
+          "workers": []
+        },
+        {
+          "owner": 274,
+          "total": 12,
+          "ripe": 12,
+          "ready": 0,
+          "farmers": 2,
+          "workers": [
+            {
+              "id": 759,
+              "job": "farmer",
+              "task": "Cultiway.FamilyFarmWork",
+              "action": "Till",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": 0.5600004,
+              "is_moving": false,
+              "pos": {
+                "x": 83,
+                "y": 122
+              },
+              "target": {
+                "x": 83,
+                "y": 122
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": false
+            },
+            {
+              "id": 763,
+              "job": "farmer",
+              "task": "Cultiway.FamilyFarmWork",
+              "action": "Till",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": 0.120000377,
+              "is_moving": false,
+              "pos": {
+                "x": 84,
+                "y": 123
+              },
+              "target": {
+                "x": 84,
+                "y": 123
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": false
+            }
+          ]
+        },
+        {
+          "owner": 200,
+          "total": 8,
+          "ripe": 7,
+          "ready": 0,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 578,
+              "job": "farmer",
+              "task": "Cultiway.FamilyFarmWork",
+              "action": "Plant",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": -0.024014622,
+              "is_moving": true,
+              "pos": {
+                "x": 54,
+                "y": 112
+              },
+              "target": {
+                "x": 48,
+                "y": 112
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": false
+            }
+          ]
+        },
+        {
+          "owner": 233,
+          "total": 5,
+          "ripe": 5,
+          "ready": 0,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 742,
+              "job": "farmer",
+              "task": "Cultiway.FamilyFarmWork",
+              "action": "Till",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": -0.0292838942,
+              "is_moving": true,
+              "pos": {
+                "x": 95,
+                "y": 115
+              },
+              "target": {
+                "x": 82,
+                "y": 107
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": false
+            }
+          ]
+        },
+        {
+          "owner": 136,
+          "total": 4,
+          "ripe": 4,
+          "ready": 0,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 490,
+              "job": "unit_citizen",
+              "task": "try_to_eat_city_food",
+              "action": "Idle",
+              "support": null,
+              "hungry": true,
+              "grain": 0,
+              "timer_action": -0.02,
+              "is_moving": true,
+              "pos": {
+                "x": 111,
+                "y": 121
+              },
+              "target": {
+                "x": 121,
+                "y": 122
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": false
+            }
+          ]
+        },
+        {
+          "owner": 113,
+          "total": 6,
+          "ripe": 6,
+          "ready": 0,
+          "farmers": 0,
+          "workers": []
+        },
+        {
+          "owner": 82,
+          "total": 3,
+          "ripe": 3,
+          "ready": 0,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 890,
+              "job": "unit_citizen",
+              "task": "sexual_reproduction_civ_wait",
+              "action": "Idle",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": 1.83674967,
+              "is_moving": false,
+              "pos": {
+                "x": 79,
+                "y": 87
+              },
+              "target": null,
+              "canChange": false,
+              "routine": true,
+              "seasonal": false
+            }
+          ]
+        },
+        {
+          "owner": 162,
+          "total": 5,
+          "ripe": 5,
+          "ready": 0,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 853,
+              "job": "unit_citizen",
+              "task": "socialize_try_to_start_near_bonfire",
+              "action": "Idle",
+              "support": null,
+              "hungry": true,
+              "grain": 0,
+              "timer_action": -0.04779264,
+              "is_moving": true,
+              "pos": {
+                "x": 99,
+                "y": 128
+              },
+              "target": {
+                "x": 98,
+                "y": 132
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": false
+            }
+          ]
+        },
+        {
+          "owner": 115,
+          "total": 9,
+          "ripe": 9,
+          "ready": 0,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 398,
+              "job": "farmer",
+              "task": "Cultiway.FamilyFarmWork",
+              "action": "Till",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": 0.120000377,
+              "is_moving": false,
+              "pos": {
+                "x": 62,
+                "y": 109
+              },
+              "target": {
+                "x": 62,
+                "y": 109
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": false
+            }
+          ]
+        }
+      ],
+      "sample": [
+        {
+          "id": 7600,
+          "x": 88,
+          "y": 127,
+          "age": 134.8718993410468,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 125
+        },
+        {
+          "id": 7353,
+          "x": 89,
+          "y": 127,
+          "age": 188.87189612239598,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 125
+        },
+        {
+          "id": 7791,
+          "x": 100,
+          "y": 104,
+          "age": 98.631901501119131,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 88
+        },
+        {
+          "id": 7503,
+          "x": 102,
+          "y": 109,
+          "age": 154.07189819663762,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 169
+        },
+        {
+          "id": 7578,
+          "x": 102,
+          "y": 110,
+          "age": 140.87189898341893,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 169
+        },
+        {
+          "id": 7919,
+          "x": 103,
+          "y": 111,
+          "age": 68.871903274953368,
+          "season": 2,
+          "ready": false,
+          "targeted": true,
+          "by": 515,
+          "owner": 169
+        },
+        {
+          "id": 7571,
+          "x": 103,
+          "y": 109,
+          "age": 141.67189893573521,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 169
+        },
+        {
+          "id": 7582,
+          "x": 102,
+          "y": 111,
+          "age": 140.15189902633429,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 169
+        },
+        {
+          "id": 7156,
+          "x": 103,
+          "y": 110,
+          "age": 224.31189401000739,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 169
+        },
+        {
+          "id": 7355,
+          "x": 103,
+          "y": 108,
+          "age": 188.71189613193275,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 169
+        },
+        {
+          "id": 7345,
+          "x": 102,
+          "y": 108,
+          "age": 189.43189608901739,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 169
+        },
+        {
+          "id": 5437,
+          "x": 92,
+          "y": 109,
+          "age": 608.39187111705542,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 129
+        }
+      ]
+    },
+    {
+      "city": 2,
+      "name": "庆堡",
+      "population": 222,
+      "plots": 42,
+      "area": 341,
+      "workers": 29,
+      "crops": 11,
+      "ripe": 8,
+      "ready": 5,
+      "ageReadyNotVisible": 0,
+      "raw": 0,
+      "food": 0,
+      "mills": 1,
+      "monthWork": true,
+      "occupations": [
+        {
+          "job": "unit_citizen",
+          "task": "sexual_reproduction_civ_go",
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "unit_citizen",
+          "task": "generate_loot",
+          "action": "Idle",
+          "count": 5
+        },
+        {
+          "job": "unit_citizen",
+          "task": "socialize_receiving",
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "unit_citizen",
+          "task": "socialize_go_to_target",
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "farmer",
+          "task": "Cultiway.FamilyFarmWork",
+          "action": "Till",
+          "count": 9
+        },
+        {
+          "job": "unit_citizen",
+          "task": "random_move_near_house",
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "farmer",
+          "task": "Cultiway.FamilyFarmWork",
+          "action": "Plant",
+          "count": 2
+        },
+        {
+          "job": "unit_citizen",
+          "task": "sleep_inside",
+          "action": "Idle",
+          "count": 3
+        },
+        {
+          "job": "unit_citizen",
+          "task": "make_items",
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "farmer",
+          "task": "move_to_water",
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "farmer",
+          "task": null,
+          "action": "Idle",
+          "count": 2
+        },
+        {
+          "job": "unit_citizen",
+          "task": "store_resources",
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "decision",
+          "task": "happy_laughing",
+          "action": "Idle",
+          "count": 1
+        }
+      ],
+      "seasons": [
+        {
+          "type": 1,
+          "count": 8,
+          "ripe": 5,
+          "ready": 5
+        },
+        {
+          "type": 2,
+          "count": 3,
+          "ripe": 3,
+          "ready": 0
+        }
+      ],
+      "cropGroups": [
+        {
+          "owner": 0,
+          "total": 2,
+          "ripe": 2,
+          "ready": 2,
+          "farmers": 0,
+          "workers": []
+        },
+        {
+          "owner": 279,
+          "total": 2,
+          "ripe": 2,
+          "ready": 2,
+          "farmers": 0,
+          "workers": []
+        },
+        {
+          "owner": 165,
+          "total": 1,
+          "ripe": 1,
+          "ready": 1,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 521,
+              "job": "unit_citizen",
+              "task": "generate_loot",
+              "action": "Idle",
+              "support": null,
+              "hungry": true,
+              "grain": 0,
+              "timer_action": -0.02,
+              "is_moving": true,
+              "pos": {
+                "x": 71,
+                "y": 140
+              },
+              "target": {
+                "x": 74,
+                "y": 134
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": true
+            }
+          ]
+        },
+        {
+          "owner": 84,
+          "total": 3,
+          "ripe": 0,
+          "ready": 0,
+          "farmers": 2,
+          "workers": [
+            {
+              "id": 851,
+              "job": "unit_citizen",
+              "task": "generate_loot",
+              "action": "Idle",
+              "support": null,
+              "hungry": true,
+              "grain": 0,
+              "timer_action": 3.89910364,
+              "is_moving": false,
+              "pos": {
+                "x": 64,
+                "y": 150
+              },
+              "target": null,
+              "canChange": false,
+              "routine": true,
+              "seasonal": false
+            },
+            {
+              "id": 462,
+              "job": "unit_citizen",
+              "task": "socialize_go_to_target",
+              "action": "Idle",
+              "support": null,
+              "hungry": true,
+              "grain": 0,
+              "timer_action": -0.009999998,
+              "is_moving": true,
+              "pos": {
+                "x": 70,
+                "y": 139
+              },
+              "target": {
+                "x": 64,
+                "y": 144
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": false
+            }
+          ]
+        },
+        {
+          "owner": 117,
+          "total": 2,
+          "ripe": 2,
+          "ready": 0,
+          "farmers": 2,
+          "workers": [
+            {
+              "id": 432,
+              "job": "unit_citizen",
+              "task": "make_items",
+              "action": "Idle",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": 9.099436,
+              "is_moving": false,
+              "pos": {
+                "x": 66,
+                "y": 144
+              },
+              "target": null,
+              "canChange": false,
+              "routine": true,
+              "seasonal": false
+            },
+            {
+              "id": 855,
+              "job": "decision",
+              "task": "happy_laughing",
+              "action": "Idle",
+              "support": null,
+              "hungry": true,
+              "grain": 0,
+              "timer_action": 0.18,
+              "is_moving": false,
+              "pos": {
+                "x": 68,
+                "y": 145
+              },
+              "target": {
+                "x": 68,
+                "y": 145
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": false
+            }
+          ]
+        },
+        {
+          "owner": 92,
+          "total": 1,
+          "ripe": 1,
+          "ready": 0,
+          "farmers": 0,
+          "workers": []
+        }
+      ],
+      "sample": [
+        {
+          "id": 7685,
+          "x": 64,
+          "y": 165,
+          "age": 122.55190007537604,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 0
+        },
+        {
+          "id": 7734,
+          "x": 62,
+          "y": 165,
+          "age": 110.95190076678992,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 0
+        },
+        {
+          "id": 7837,
+          "x": 59,
+          "y": 165,
+          "age": 86.791902206838131,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 165
+        },
+        {
+          "id": 7602,
+          "x": 52,
+          "y": 154,
+          "age": 134.79189934581518,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 279
+        },
+        {
+          "id": 7735,
+          "x": 52,
+          "y": 155,
+          "age": 110.79190077632666,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 279
+        },
+        {
+          "id": 8159,
+          "x": 48,
+          "y": 148,
+          "age": 34.319904205203059,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 117
+        },
+        {
+          "id": 8164,
+          "x": 49,
+          "y": 148,
+          "age": 34.083904210478067,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 117
+        },
+        {
+          "id": 7364,
+          "x": 63,
+          "y": 176,
+          "age": 188.15189616531134,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 92
+        }
+      ]
+    },
+    {
+      "city": 3,
+      "name": "延驿",
+      "population": 113,
+      "plots": 25,
+      "area": 240,
+      "workers": 10,
+      "crops": 24,
+      "ripe": 24,
+      "ready": 20,
+      "ageReadyNotVisible": 0,
+      "raw": 0,
+      "food": 70,
+      "mills": 1,
+      "monthWork": true,
+      "occupations": [
+        {
+          "job": "unit_citizen",
+          "task": "make_items",
+          "action": "Idle",
+          "count": 2
+        },
+        {
+          "job": "farmer",
+          "task": "Cultiway.FamilyFarmWork",
+          "action": "Till",
+          "count": 3
+        },
+        {
+          "job": "farmer",
+          "task": "Cultiway.FamilyFarmWork",
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "farmer",
+          "task": "Cultiway.FamilyFarmWork",
+          "action": "Harvest",
+          "count": 1
+        },
+        {
+          "job": "unit_citizen",
+          "task": "poop_inside",
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "unit_citizen",
+          "task": "socialize_receiving",
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "unit_citizen",
+          "task": "sexual_reproduction_civ_go",
+          "action": "Idle",
+          "count": 1
+        }
+      ],
+      "seasons": [
+        {
+          "type": 1,
+          "count": 20,
+          "ripe": 20,
+          "ready": 20
+        },
+        {
+          "type": 2,
+          "count": 4,
+          "ripe": 4,
+          "ready": 0
+        }
+      ],
+      "cropGroups": [
+        {
+          "owner": 154,
+          "total": 8,
+          "ripe": 8,
+          "ready": 8,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 786,
+              "job": "farmer",
+              "task": "Cultiway.FamilyFarmWork",
+              "action": "Harvest",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": -0.02,
+              "is_moving": true,
+              "pos": {
+                "x": 179,
+                "y": 130
+              },
+              "target": {
+                "x": 173,
+                "y": 133
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": true
+            }
+          ]
+        },
+        {
+          "owner": 111,
+          "total": 3,
+          "ripe": 3,
+          "ready": 3,
+          "farmers": 0,
+          "workers": []
+        },
+        {
+          "owner": 210,
+          "total": 3,
+          "ripe": 3,
+          "ready": 3,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 696,
+              "job": "farmer",
+              "task": "Cultiway.FamilyFarmWork",
+              "action": "Idle",
+              "support": null,
+              "hungry": false,
+              "grain": 1,
+              "timer_action": 0.06,
+              "is_moving": false,
+              "pos": {
+                "x": 159,
+                "y": 137
+              },
+              "target": {
+                "x": 159,
+                "y": 137
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": true
+            }
+          ]
+        },
+        {
+          "owner": 148,
+          "total": 3,
+          "ripe": 3,
+          "ready": 3,
+          "farmers": 0,
+          "workers": []
+        },
+        {
+          "owner": 157,
+          "total": 2,
+          "ripe": 2,
+          "ready": 2,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 512,
+              "job": "unit_citizen",
+              "task": "make_items",
+              "action": "Idle",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": 8.919587,
+              "is_moving": false,
+              "pos": {
+                "x": 190,
+                "y": 144
+              },
+              "target": null,
+              "canChange": false,
+              "routine": true,
+              "seasonal": true
+            }
+          ]
+        },
+        {
+          "owner": 122,
+          "total": 1,
+          "ripe": 1,
+          "ready": 1,
+          "farmers": 0,
+          "workers": []
+        },
+        {
+          "owner": -1118,
+          "total": 4,
+          "ripe": 4,
+          "ready": 0,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 1118,
+              "job": "unit_citizen",
+              "task": "sexual_reproduction_civ_go",
+              "action": "Idle",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": -0.004605137,
+              "is_moving": true,
+              "pos": {
+                "x": 101,
+                "y": 67
+              },
+              "target": {
+                "x": 101,
+                "y": 67
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": false
+            }
+          ]
+        }
+      ],
+      "sample": [
+        {
+          "id": 7075,
+          "x": 152,
+          "y": 129,
+          "age": 242.55189292281867,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 111
+        },
+        {
+          "id": 8238,
+          "x": 153,
+          "y": 123,
+          "age": 26.691904375702144,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 157
+        },
+        {
+          "id": 8244,
+          "x": 153,
+          "y": 122,
+          "age": 26.475904380530118,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 157
+        },
+        {
+          "id": 7009,
+          "x": 153,
+          "y": 141,
+          "age": 254.87189218848943,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 111
+        },
+        {
+          "id": 7068,
+          "x": 152,
+          "y": 141,
+          "age": 243.91189284175636,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 111
+        },
+        {
+          "id": 8231,
+          "x": 159,
+          "y": 138,
+          "age": 27.623904354870319,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 210
+        },
+        {
+          "id": 8232,
+          "x": 159,
+          "y": 139,
+          "age": 27.407904359698296,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 210
+        },
+        {
+          "id": 8237,
+          "x": 160,
+          "y": 139,
+          "age": 26.739904374629258,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 210
+        },
+        {
+          "id": 7554,
+          "x": 146,
+          "y": 114,
+          "age": 146.47189864963292,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 122
+        },
+        {
+          "id": 7937,
+          "x": 173,
+          "y": 134,
+          "age": 64.29590353518725,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 154
+        },
+        {
+          "id": 7938,
+          "x": 173,
+          "y": 133,
+          "age": 64.083903539925814,
+          "season": 1,
+          "ready": true,
+          "targeted": true,
+          "by": 786,
+          "owner": 154
+        },
+        {
+          "id": 7940,
+          "x": 172,
+          "y": 133,
+          "age": 63.8639035448432,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 154
+        }
+      ]
+    },
+    {
+      "city": 4,
+      "name": "崖城",
+      "population": 57,
+      "plots": 12,
+      "area": 126,
+      "workers": 4,
+      "crops": 12,
+      "ripe": 12,
+      "ready": 8,
+      "ageReadyNotVisible": 0,
+      "raw": 0,
+      "food": 50,
+      "mills": 1,
+      "monthWork": true,
+      "occupations": [
+        {
+          "job": "unit_citizen",
+          "task": "socialize_do_talk",
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "farmer",
+          "task": "socialize_go_to_target",
+          "action": "Idle",
+          "count": 1
+        },
+        {
+          "job": "farmer",
+          "task": "Cultiway.FamilyFarmWork",
+          "action": "Plant",
+          "count": 1
+        },
+        {
+          "job": "farmer",
+          "task": "Cultiway.FamilyFarmWork",
+          "action": "Till",
+          "count": 1
+        }
+      ],
+      "seasons": [
+        {
+          "type": 1,
+          "count": 8,
+          "ripe": 8,
+          "ready": 8
+        },
+        {
+          "type": 2,
+          "count": 4,
+          "ripe": 4,
+          "ready": 0
+        }
+      ],
+      "cropGroups": [
+        {
+          "owner": 82,
+          "total": 3,
+          "ripe": 3,
+          "ready": 3,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 284,
+              "job": "unit_citizen",
+              "task": "socialize_do_talk",
+              "action": "Idle",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": 0.8698964,
+              "is_moving": false,
+              "pos": {
+                "x": 102,
+                "y": 67
+              },
+              "target": {
+                "x": 114,
+                "y": 55
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": true
+            }
+          ]
+        },
+        {
+          "owner": 171,
+          "total": 2,
+          "ripe": 2,
+          "ready": 2,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 869,
+              "job": "farmer",
+              "task": "socialize_go_to_target",
+              "action": "Idle",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": -0.009999998,
+              "is_moving": true,
+              "pos": {
+                "x": 102,
+                "y": 66
+              },
+              "target": {
+                "x": 126,
+                "y": 53
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": true
+            }
+          ]
+        },
+        {
+          "owner": 288,
+          "total": 1,
+          "ripe": 1,
+          "ready": 1,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 1119,
+              "job": "farmer",
+              "task": "Cultiway.FamilyFarmWork",
+              "action": "Plant",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": -0.03229508,
+              "is_moving": true,
+              "pos": {
+                "x": 122,
+                "y": 40
+              },
+              "target": {
+                "x": 122,
+                "y": 36
+              },
+              "canChange": true,
+              "routine": true,
+              "seasonal": true
+            }
+          ]
+        },
+        {
+          "owner": 133,
+          "total": 1,
+          "ripe": 1,
+          "ready": 1,
+          "farmers": 0,
+          "workers": []
+        },
+        {
+          "owner": 195,
+          "total": 1,
+          "ripe": 1,
+          "ready": 1,
+          "farmers": 0,
+          "workers": []
+        },
+        {
+          "owner": 196,
+          "total": 4,
+          "ripe": 4,
+          "ready": 0,
+          "farmers": 0,
+          "workers": []
+        }
+      ],
+      "sample": [
+        {
+          "id": 8348,
+          "x": 118,
+          "y": 53,
+          "age": 14.788360768556595,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 82
+        },
+        {
+          "id": 8342,
+          "x": 118,
+          "y": 54,
+          "age": 15.082095388323069,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 82
+        },
+        {
+          "id": 8352,
+          "x": 118,
+          "y": 52,
+          "age": 14.485915118455887,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 82
+        },
+        {
+          "id": 8036,
+          "x": 123,
+          "y": 36,
+          "age": 51.259903826564553,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 288
+        },
+        {
+          "id": 7435,
+          "x": 123,
+          "y": 58,
+          "age": 171.51189715713264,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 133
+        },
+        {
+          "id": 8375,
+          "x": 130,
+          "y": 50,
+          "age": 9.8396932344883687,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 196
+        },
+        {
+          "id": 8377,
+          "x": 130,
+          "y": 49,
+          "age": 9.5108827617019411,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 196
+        },
+        {
+          "id": 8379,
+          "x": 129,
+          "y": 49,
+          "age": 9.1921624053269628,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 196
+        },
+        {
+          "id": 8383,
+          "x": 128,
+          "y": 49,
+          "age": 8.8836954280734055,
+          "season": 2,
+          "ready": false,
+          "targeted": false,
+          "by": null,
+          "owner": 196
+        },
+        {
+          "id": 7899,
+          "x": 132,
+          "y": 36,
+          "age": 74.551902936398989,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 195
+        },
+        {
+          "id": 7676,
+          "x": 133,
+          "y": 39,
+          "age": 123.5919000133872,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 171
+        },
+        {
+          "id": 7684,
+          "x": 134,
+          "y": 39,
+          "age": 122.87190005630255,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 171
+        }
+      ]
+    },
+    {
+      "city": 5,
+      "name": "循州",
+      "population": 7,
+      "plots": 1,
+      "area": 12,
+      "workers": 1,
+      "crops": 3,
+      "ripe": 3,
+      "ready": 3,
+      "ageReadyNotVisible": 0,
+      "raw": 0,
+      "food": 27,
+      "mills": 0,
+      "monthWork": true,
+      "occupations": [
+        {
+          "job": null,
+          "task": "fighting",
+          "action": "Idle",
+          "count": 1
+        }
+      ],
+      "seasons": [
+        {
+          "type": 1,
+          "count": 3,
+          "ripe": 3,
+          "ready": 3
+        }
+      ],
+      "cropGroups": [
+        {
+          "owner": 182,
+          "total": 3,
+          "ripe": 3,
+          "ready": 3,
+          "farmers": 1,
+          "workers": [
+            {
+              "id": 590,
+              "job": null,
+              "task": "fighting",
+              "action": "Idle",
+              "support": null,
+              "hungry": false,
+              "grain": 0,
+              "timer_action": -0.009999998,
+              "is_moving": true,
+              "pos": {
+                "x": 71,
+                "y": 229
+              },
+              "target": null,
+              "canChange": false,
+              "routine": true,
+              "seasonal": true
+            }
+          ]
+        }
+      ],
+      "sample": [
+        {
+          "id": 8349,
+          "x": 94,
+          "y": 228,
+          "age": 14.761295206099749,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 182
+        },
+        {
+          "id": 8341,
+          "x": 95,
+          "y": 229,
+          "age": 15.356148759648203,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 182
+        },
+        {
+          "id": 8343,
+          "x": 95,
+          "y": 228,
+          "age": 15.050829884782434,
+          "season": 1,
+          "ready": true,
+          "targeted": false,
+          "by": null,
+          "owner": 182
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

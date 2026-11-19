@@ -1,0 +1,135 @@
+{
+  "seconds": 35.0358276,
+  "elapsedMonths": 41.199997544288635,
+  "month": 6,
+  "counts": {
+    "山县:1:Till:True": 1,
+    "山县:2:Till:True": 1,
+    "山县:2:Deliver:True": 1,
+    "山县:3:Mill:True": 2,
+    "山县:4:Plant:True": 7,
+    "山县:4:Till:True": 1,
+    "山县:5:Plant:False": 2,
+    "山县:5:Till:True": 2,
+    "山县:6:Till:True": 5,
+    "山县:6:Clear:True": 1,
+    "山县:7:Clear:True": 2,
+    "山县:7:Harvest:False": 3,
+    "山县:7:Till:True": 3,
+    "山县:8:Harvest:False": 1,
+    "山县:9:Till:False": 1,
+    "山县:2:CollectGrain:True": 1,
+    "山县:4:Deliver:True": 1,
+    "山县:4:Mill:True": 1,
+    "山县:7:Mill:False": 1,
+    "山县:8:Harvest:True": 1,
+    "山县:5:Harvest:True": 1,
+    "山县:6:Deliver:True": 1,
+    "山县:6:Harvest:False": 1,
+    "山县:7:Mill:True": 1,
+    "山县:8:Mill:False": 1,
+    "山县:1:Harvest:False": 1
+  },
+  "failures": [
+    {
+      "id": 210,
+      "action": "Plant",
+      "month": 5,
+      "grain": 0,
+      "moving": false,
+      "target": "(120.50, 52.50, 0.00)",
+      "pos": "(120.50, 52.50, 0.00)"
+    },
+    {
+      "id": 82,
+      "action": "Harvest",
+      "month": 7,
+      "grain": 0,
+      "moving": false,
+      "target": "(131.50, 60.50, 0.00)",
+      "pos": "(131.50, 60.50, 0.00)"
+    },
+    {
+      "id": 210,
+      "action": "Harvest",
+      "month": 7,
+      "grain": 0,
+      "moving": false,
+      "target": "(131.50, 60.50, 0.00)",
+      "pos": "(131.50, 60.50, 0.00)"
+    },
+    {
+      "id": 192,
+      "action": "Harvest",
+      "month": 8,
+      "grain": 0,
+      "moving": false,
+      "target": "(131.50, 61.50, 0.00)",
+      "pos": "(131.50, 61.50, 0.00)"
+    },
+    {
+      "id": 27,
+      "action": "Till",
+      "month": 9,
+      "grain": 0,
+      "moving": false,
+      "target": "(177.50, 60.50, 0.00)",
+      "pos": "(177.50, 60.50, 0.00)"
+    },
+    {
+      "id": 132,
+      "action": "Mill",
+      "month": 7,
+      "grain": 0,
+      "moving": false,
+      "target": "(124.50, 60.50, 0.00)",
+      "pos": "(124.50, 60.50, 0.00)"
+    },
+    {
+      "id": 65,
+      "action": "Plant",
+      "month": 5,
+      "grain": 0,
+      "moving": false,
+      "target": "(117.50, 54.50, 0.00)",
+      "pos": "(117.50, 54.50, 0.00)"
+    },
+    {
+      "id": 186,
+      "action": "Harvest",
+      "month": 6,
+      "grain": 0,
+      "moving": false,
+      "target": "(131.50, 61.50, 0.00)",
+      "pos": "(131.50, 61.50, 0.00)"
+    },
+    {
+      "id": 91,
+      "action": "Harvest",
+      "month": 7,
+      "grain": 0,
+      "moving": false,
+      "target": "(131.50, 60.50, 0.00)",
+      "pos": "(131.50, 60.50, 0.00)"
+    },
+    {
+      "id": 65,
+      "action": "Mill",
+      "month": 8,
+      "grain": 0,
+      "moving": false,
+      "target": "(124.50, 60.50, 0.00)",
+      "pos": "(124.50, 60.50, 0.00)"
+    },
+    {
+      "id": 228,
+      "action": "Harvest",
+      "month": 1,
+      "grain": 0,
+      "moving": false,
+      "target": "(117.50, 55.50, 0.00)",
+      "pos": "(117.50, 55.50, 0.00)"
+    }
+  ],
+  "errors": []
+}

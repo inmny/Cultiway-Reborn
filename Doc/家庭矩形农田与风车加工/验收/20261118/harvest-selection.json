@@ -1,0 +1,10 @@
+{
+  "month": 5,
+  "tested": 9,
+  "own": 0,
+  "borrowing": 0,
+  "selectionMilliseconds": 3.1907,
+  "rows": [],
+  "errors": [],
+  "note": "只选择目标，未派工、移动人物或改变世界时间；执行的是从修改后源码提取的选择方法。"
+}

@@ -1,0 +1,40 @@
+{
+  "passed": 5,
+  "total": 6,
+  "checks": {
+    "原版自然换任务入口会选择儿童课程": true,
+    "完整课程会实际步行进入图书馆": true,
+    "课程等待后自动结算且走出图书馆": true,
+    "原版回屋流程会实际步行进入自己的房屋并睡觉": true,
+    "救助开启后会实际步行进空房睡觉且不分配住房": false,
+    "实际推进游戏没有新增异常": true
+  },
+  "observations": [
+    {
+      "stage": "education",
+      "chosen": "Cultiway.ChildEducation",
+      "entered": true,
+      "completed": true,
+      "job": "Cultiway.ChildEducation",
+      "task": "Cultiway.ChildEducationStudy",
+      "action": "BehExitBuilding",
+      "timer_action": 0.0,
+      "book": 1
+    },
+    {
+      "stage": "own_sleep",
+      "ownSleep": true,
+      "task": "sleep_inside",
+      "action": "BehTrySleep"
+    },
+    {
+      "stage": "guest_sleep",
+      "guestSleep": false,
+      "task": "check_city_destroyed",
+      "action": "BehCheckCityDestroyed",
+      "home": null,
+      "building": null
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,74 @@
+{
+  "moved": 10,
+  "active": 10,
+  "simulatedSeconds": 20.359999544918537,
+  "nativeSlots": 90,
+  "stage": "Running",
+  "ready": 10,
+  "participants": 10,
+  "blocked": 0,
+  "failures": 0,
+  "practiceGained": 24,
+  "positions": [
+    {
+      "id": 6,
+      "x": 77.5,
+      "y": 81.5,
+      "task": "Cultiway.CoordinatedActivity"
+    },
+    {
+      "id": 7,
+      "x": 75.5,
+      "y": 79.5,
+      "task": "Cultiway.CoordinatedActivity"
+    },
+    {
+      "id": 8,
+      "x": 77.5,
+      "y": 79.5,
+      "task": "Cultiway.CoordinatedActivity"
+    },
+    {
+      "id": 9,
+      "x": 79.5,
+      "y": 79.5,
+      "task": "Cultiway.CoordinatedActivity"
+    },
+    {
+      "id": 10,
+      "x": 75.5,
+      "y": 77.5,
+      "task": "Cultiway.CoordinatedActivity"
+    },
+    {
+      "id": 11,
+      "x": 77.5,
+      "y": 77.5,
+      "task": "Cultiway.CoordinatedActivity"
+    },
+    {
+      "id": 12,
+      "x": 79.5,
+      "y": 77.5,
+      "task": "Cultiway.CoordinatedActivity"
+    },
+    {
+      "id": 13,
+      "x": 75.5,
+      "y": 75.5,
+      "task": "Cultiway.CoordinatedActivity"
+    },
+    {
+      "id": 15,
+      "x": 77.5,
+      "y": 75.5,
+      "task": "Cultiway.CoordinatedActivity"
+    },
+    {
+      "id": 17,
+      "x": 79.5,
+      "y": 75.5,
+      "task": "Cultiway.CoordinatedActivity"
+    }
+  ]
+}

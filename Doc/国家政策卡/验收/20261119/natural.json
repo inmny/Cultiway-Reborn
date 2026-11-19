@@ -1,0 +1,118 @@
+{
+  "passed": 7,
+  "total": 7,
+  "checks": {
+    "丢弃运行缓存后仍从国家资料恢复政策": true,
+    "村庄易主即采用新国家农田制度": true,
+    "易主不会清除原公有制内城未成熟作物": true,
+    "改回原国后恢复原国家政策": true,
+    "暂停时日历不推进": true,
+    "6秒日长按自然模拟时间正确推进": true,
+    "9.5秒日长按自然模拟时间正确推进": true
+  },
+  "observations": [
+    {
+      "seconds": 6.0,
+      "realSeconds": 4.01474,
+      "simulationSeconds": 4.6999998949468136,
+      "days": 0.783333315824469,
+      "speed": "x1",
+      "tasks": [
+        {
+          "task": "singing",
+          "count": 16
+        },
+        {
+          "task": "happy_laughing",
+          "count": 15
+        },
+        {
+          "task": "Cultiway.FamilyFarmWork",
+          "count": 3
+        },
+        {
+          "task": "Cultiway.DailyPlantXianCultivate",
+          "count": 1
+        },
+        {
+          "task": "Cultiway.VillagePlantTree",
+          "count": 2
+        },
+        {
+          "task": "socialize_do_talk",
+          "count": 3
+        },
+        {
+          "task": "socialize_receiving",
+          "count": 3
+        },
+        {
+          "task": "farmer_make_field",
+          "count": 3
+        },
+        {
+          "task": "socialize_go_to_target",
+          "count": 1
+        },
+        {
+          "task": "sleep_outside",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "seconds": 9.5,
+      "realSeconds": 4.015442,
+      "simulationSeconds": 4.7799998931586742,
+      "days": 0.50315788349038693,
+      "speed": "x1",
+      "tasks": [
+        {
+          "task": "singing",
+          "count": 16
+        },
+        {
+          "task": "socialize_go_to_target",
+          "count": 2
+        },
+        {
+          "task": "Cultiway.FamilyFarmWork",
+          "count": 3
+        },
+        {
+          "task": "Cultiway.DailyPlantXianCultivate",
+          "count": 1
+        },
+        {
+          "task": "chop_trees",
+          "count": 2
+        },
+        {
+          "task": "city_idle_walking",
+          "count": 2
+        },
+        {
+          "task": "socialize_do_talk",
+          "count": 3
+        },
+        {
+          "task": "happy_laughing",
+          "count": 10
+        },
+        {
+          "task": "socialize_receiving",
+          "count": 3
+        },
+        {
+          "task": "sleep_outside",
+          "count": 3
+        },
+        {
+          "task": "farmer_make_field",
+          "count": 3
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

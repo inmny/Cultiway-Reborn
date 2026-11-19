@@ -37,7 +37,7 @@ internal sealed class CityEmergencyMagicProjectPlanner : ICollectiveProjectPlann
         in CollectiveProjectOwnerContext owner,
         ICollection<CollectiveProjectProposal> output)
     {
-        if (owner.Owner is not City city) return;
+        if (owner.Owner is not City city || !MagicUtilitySpellResolver.HasCityCaster(city, true)) return;
         using var scope = new ListPool<WorldTile>();
         var request = new CollectiveProjectSpatialRequest(CollectiveProjectSpatialRequest.PrimaryAdjacent);
         if (!owner.Adapter.CollectTiles(city, in request, scope)) return;
@@ -94,7 +94,7 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
         in CollectiveProjectOwnerContext owner,
         ICollection<CollectiveProjectProposal> output)
     {
-        if (owner.Owner is not City city) return;
+        if (owner.Owner is not City city || !MagicUtilitySpellResolver.HasCityCaster(city, false)) return;
         using var scope = new ListPool<WorldTile>();
         var request = new CollectiveProjectSpatialRequest(CollectiveProjectSpatialRequest.PrimaryAdjacent);
         if (!owner.Adapter.CollectTiles(city, in request, scope)) return;

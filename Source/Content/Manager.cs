@@ -12,6 +12,7 @@ using Cultiway.Content.Sects;
 using Cultiway.Content.SpiritVeins;
 using Cultiway.Content.Systems.Logic;
 using Cultiway.Content.Systems.Render;
+using Cultiway.Content.Territories;
 using Cultiway.Core;
 using Cultiway.Core.Combat.Tactical;
 using Cultiway.Core.Pathfinding;
@@ -70,6 +71,7 @@ internal class Manager
         YuanshenNodeCastingService.Initialize();
         YuanshenAnchorNetworkService.Initialize();
         YuanshenNodeLockService.Initialize();
+        Cultiway.Patch.PatchMapBox.RegisterActionOnClearWorld(TerritoryService.Clear);
 
         new Patch.Manager().Init();
         ModClass.I.GeneralLogicSystems.Add(new FlyCancelSystem());
@@ -82,6 +84,7 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new WakanSpreadSystem());
         ModClass.I.GeneralLogicSystems.Add(new DirtyWakanSpreadSystem());
         ModClass.I.GeneralLogicSystems.Add(new WorldWakanDisplaySystem());
+        ModClass.I.GeneralLogicSystems.Add(new OfficialRoadSystem());
         ModClass.I.GeneralLogicSystems.Add(new TrainTrackRepairSystem());
         ModClass.I.GeneralLogicSystems.Add(new TrainTransportSystem());
         ModClass.I.GeneralLogicSystems.Add(new TeleportArraySystem());
@@ -142,6 +145,7 @@ internal class Manager
         CultivateMethodTriggers.Init();
         SkavenEvolution.Init();
         ChaosWarbandService.Init();
+        VillageMilitary.VillageMilitaryService.Init();
         KnightCombatTriggers.Init();
         KnightBloodline.Init();
         KnightForge.Init();

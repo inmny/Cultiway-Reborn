@@ -1,0 +1,45 @@
+{
+  "seconds": 35.0274353,
+  "elapsedMonths": 40.479997587203982,
+  "month": 6,
+  "counts": {
+    "山县:3:Till:True": 2,
+    "山县:3:Plant:True": 4,
+    "山县:4:Plant:True": 8,
+    "山县:5:Supporting:False": 1,
+    "山县:11:Till:True": 1,
+    "山县:11:Plant:True": 1,
+    "山县:12:Till:True": 1,
+    "山县:1:Till:True": 1,
+    "山县:1:Clear:True": 1,
+    "山县:2:Till:True": 1,
+    "山县:5:Till:True": 2,
+    "山县:5:Plant:False": 1,
+    "山县:7:CollectGrain:True": 1,
+    "山县:7:Harvest:True": 2,
+    "山县:8:Harvest:True": 3,
+    "山县:9:Harvest:True": 1,
+    "山县:3:CollectGrain:True": 1
+  },
+  "failures": [
+    {
+      "id": 10,
+      "action": "Supporting",
+      "month": 5,
+      "grain": 0,
+      "moving": false,
+      "target": "(144.50, 62.50, 0.00)",
+      "pos": "(144.50, 62.50, 0.00)"
+    },
+    {
+      "id": 10,
+      "action": "Plant",
+      "month": 5,
+      "grain": 0,
+      "moving": false,
+      "target": "(144.50, 61.50, 0.00)",
+      "pos": "(144.50, 61.50, 0.00)"
+    }
+  ],
+  "errors": []
+}

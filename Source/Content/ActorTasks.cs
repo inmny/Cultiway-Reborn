@@ -80,6 +80,8 @@ public partial class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     protected override void OnInit()
     {
         InitYaoTasks();
+        InitVillageOccupationTasks();
+        InitFamilyFarmTasks();
         YuanyingPossession.addBeh(new BehYuanyingPossession());
         YuanyingPossession.setIcon("cultiway/icons/achievements/nascent_soul_formed");
 

@@ -1,0 +1,39 @@
+key,cz,en
+Cultiway.RawGrain,原粮（待风车加工）,Raw grain (requires milling)
+cultiway_farm_work,经营家庭农田与运粮加工,Tending family fields and milling
+Cultiway.Village.Farms,家庭农田,Family farms
+Cultiway.Village.Farm.Hint,有实际农民的家庭按劳动力经营矩形田地。选址不再围绕风车；原粮必须送到风车加工。内城覆盖后立即停耕，成熟作物可最后收取一次。,Farming households manage rectangular plots. Fields need no nearby mill; raw grain requires milling. Inner-city fields retire immediately with one final ripe harvest.
+Cultiway.Village.Farm.FertilizerHint,每株未成熟小麦可施肥一次，消耗1份肥料，收获原粮翻倍；生长期与收获月份保持原样。,Each unripe wheat plant accepts one fertilizer for double raw grain at harvest. Growth time and harvest months stay the same.
+Cultiway.Village.Farm.Width,起步宽度,Starting width
+Cultiway.Village.Farm.Height,起步高度,Starting height
+Cultiway.Village.Farm.MaxArea,每户面积上限,Area per household
+Cultiway.Village.Farm.InvalidSettings,田块宽高须为1至12；每户上限须不小于起步面积且不超过144格。,Width and height must be 1–12. The area limit must cover the starting plot and cannot exceed 144 tiles.
+Cultiway.Village.Farm.SettingsPreview,起步 {0}×{1} · 每户最多 {2} 格,Starting plot {0}×{1} · Up to {2} tiles per household
+Cultiway.Village.Farm.Summary,农户 {0} · 实际农民 {1} · 可用田格 {2} · 退耕待收 {3},Households {0} · Farmers {1} · Valid tiles {2} · Final harvest tiles {3}
+Cultiway.Village.Farm.Stocks,仓库原粮 {0} · 搬运中 {1} · 可食用食物 {2} · 风车 {3}（加工 {4} 人）,Stored raw grain {0} · Carried {1} · Edible food {2} · Mills {3} (milling {4})
+Cultiway.Village.Farm.All,全部农户,All households
+Cultiway.Village.Farm.Unowned,无主田,Unclaimed fields
+Cultiway.Village.Farm.Household,本村农户,Local household
+Cultiway.Village.Farm.Family,家庭,Family
+Cultiway.Village.Farm.Row,农民 {0} · 可用 {1} 格 · 已耕 {2} 格,Farmers {0} · Valid tiles {1} · Tilled tiles {2}
+Cultiway.Village.Farm.Empty,暂无家庭田块,No household fields
+Cultiway.Village.Farm.EmptyHint,工作月安排农民后会分批寻找土地；无风车也可先开垦。,Assign farmers during a work month to request land. A mill is not required for reclamation.
+Cultiway.Village.Farm.State.NoFarmers,缺少农民 · 暂停扩张,No farmers · Expansion paused
+Cultiway.Village.Farm.State.Rest,休息月,Rest month
+Cultiway.Village.Farm.State.NoLand,未找到完整可用矩形,No suitable rectangle found
+Cultiway.Village.Farm.State.WaitingMill,等待风车或原粮加工,Waiting for a mill or milling
+Cultiway.Village.Farm.State.WaitingGrowth,等待作物生长,Waiting for crops
+Cultiway.Village.Farm.State.NoPath,目标暂时无法到达,Target currently unreachable
+Cultiway.Village.Farm.State.Working,经营中,Active
+Cultiway.Village.Farm.State.InnerRetirement,内城退耕 · 重新找地,Inner-city retirement · Finding new land
+Cultiway.Village.Farm.Action.Clear,清理植被,Clearing
+Cultiway.Village.Farm.Action.Till,翻土,Tilling
+Cultiway.Village.Farm.Action.Plant,播种,Planting
+Cultiway.Village.Farm.Action.Harvest,收割,Harvesting
+Cultiway.Village.Farm.Action.CollectGrain,搬取原粮,Collecting grain
+Cultiway.Village.Farm.Action.Deliver,运粮,Delivering grain
+Cultiway.Village.Farm.Action.Mill,风车加工,Milling
+Cultiway.Village.Farm.Action.CollectFertilizer,领取肥料,Collecting fertilizer
+Cultiway.Village.Farm.Action.Fertilize,施肥,Fertilizing
+Cultiway.Village.Farm.Action.Supporting,临时支援其他工作,Helping other jobs
+Cultiway.Village.Farm.CalendarHint,冬麦9–11月播种，生长7个月，次年5–6月收；春麦3–4月播种，生长4个月，7–9月收。农时可打断休息；农闲临时支援其他工作。,Winter wheat: sow Sep–Nov; grow 7 months; harvest May–Jun. Spring wheat: sow Mar–Apr; grow 4 months; harvest Jul–Sep. Sowing and harvest override rest; idle farmers may help other jobs.

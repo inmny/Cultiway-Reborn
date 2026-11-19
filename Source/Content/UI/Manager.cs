@@ -8,6 +8,11 @@ using Cultiway.Content.Libraries;
 using Cultiway.Content.YaoBeasts;
 using Cultiway.Content.Sects;
 using Cultiway.Content.UI.CreatureInfoPages;
+using Cultiway.Content.UI.Railways;
+using Cultiway.Content.UI.Territories;
+using Cultiway.Content.UI.VillageDuties;
+using Cultiway.Content.UI.KingdomPolicies;
+using Cultiway.Content.VillageDuties;
 using Cultiway.Content.Utils;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -54,6 +59,20 @@ public class Manager : ICanInit
     public void Init()
     {
         Instance = this;
+        WindowRegionName.CreateAndInit(WindowRegionName.Id, WindowRegionName.WindowSize);
+        TerritoryNameLayer.Initialize();
+        PatchMapBox.RegisterActionOnClearWorld(WindowRegionName.ClearWorldState);
+        PatchMapBox.RegisterActionOnClearWorld(TerritoryNameLayer.ClearWorldState);
+        PatchMapBox.RegisterActionOnClearWorld(WindowRailwayInfo.ClearWorldState);
+        WindowRailwayInfo.CreateAndInit(WindowRailwayInfo.Id, WindowRailwayInfo.WindowSize);
+        WindowNewCreatureInfo.RegisterPage(nameof(RailwayPage), a => a.asset == Actors.Train,
+            RailwayPage.Setup, RailwayPage.Show, _ => LocalizedTextManager.getText("Cultiway.Railways.Title"));
+        WindowVillageDuties.CreateAndInit(WindowVillageDuties.Id, WindowVillageDuties.WindowSize);
+        PatchMapBox.RegisterActionOnClearWorld(WindowVillageDuties.ClearWorldState);
+        WindowKingdomPolicies.CreateAndInit(WindowKingdomPolicies.Id, WindowKingdomPolicies.WindowSize);
+        PatchMapBox.RegisterActionOnClearWorld(WindowKingdomPolicies.ClearWorldState);
+        WindowNewCreatureInfo.RegisterPage(nameof(VillageMilitaryPage), VillageDutyService.IsResident,
+            VillageMilitaryPage.Setup, VillageMilitaryPage.Show, _ => WindowVillageDuties.T("Personnel"));
         PatchMapBox.RegisterActionOnClearWorld(WindowNewCreatureInfo.ClearWorldState);
         WindowNewCreatureInfo.RegisterPage(nameof(CultisysOverviewPage),
             a => Cultisyses.HasAnyCultisys(ResolveDisplayActor(a).GetExtend()),

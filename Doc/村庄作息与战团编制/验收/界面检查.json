@@ -1,0 +1,32 @@
+{
+  "checks": [
+    {
+      "name": "窗口可显示",
+      "pass": true
+    },
+    {
+      "name": "编辑月份不会提前写入制度",
+      "pass": true
+    },
+    {
+      "name": "撤销草稿恢复已应用月份",
+      "pass": true
+    },
+    {
+      "name": "名称弹窗提交到正确小队",
+      "pass": true
+    },
+    {
+      "name": "非法数量阻止应用",
+      "pass": true
+    },
+    {
+      "name": "恢复草稿可再次提交",
+      "pass": true
+    }
+  ],
+  "width": 222.0,
+  "height": 320.0,
+  "textCount": 272,
+  "missing": []
+}

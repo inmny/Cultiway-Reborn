@@ -1,0 +1,180 @@
+{
+  "checks": {
+    "人数计划使用实际普通劳动力": true,
+    "林业人数突破原版三人限制": true,
+    "矿工人数突破原版五人限制": true,
+    "普通人员实际领到生产任务": true,
+    "结束任务立即释放真实岗位": true,
+    "任务结束保留职业归属": true,
+    "空闲员工重新领取本职任务": true,
+    "休息月不派工但保留职业": true,
+    "恢复工作月能够重新开工": true,
+    "运行后岗位计数与真实人员一致": true,
+    "运行后仍有普通人员执行生产": true,
+    "基本生活没有被改成强制生产": true,
+    "职业页显示分配在岗及自主参与": true,
+    "职业页四个人数参数均已替换": true,
+    "运行和打开职业页没有新增异常": true
+  },
+  "passed": 15,
+  "total": 15,
+  "ordinary": 160,
+  "staff": 157,
+  "running": [
+    {
+      "job": "farmer",
+      "count": 82
+    },
+    {
+      "job": "unit_citizen",
+      "count": 15
+    },
+    {
+      "job": "woodcutter",
+      "count": 52
+    },
+    {
+      "job": "miner",
+      "count": 10
+    },
+    {
+      "job": "hunter",
+      "count": 1
+    }
+  ],
+  "roles": [
+    {
+      "id": "builder",
+      "target": 0,
+      "assigned": 0,
+      "ordinary": 0,
+      "autonomous": 2,
+      "occupied": 2,
+      "actual": 2
+    },
+    {
+      "id": "gatherer_bushes",
+      "target": 0,
+      "assigned": 0,
+      "ordinary": 0,
+      "autonomous": 0,
+      "occupied": 0,
+      "actual": 0
+    },
+    {
+      "id": "gatherer_herbs",
+      "target": 0,
+      "assigned": 0,
+      "ordinary": 0,
+      "autonomous": 0,
+      "occupied": 0,
+      "actual": 0
+    },
+    {
+      "id": "gatherer_honey",
+      "target": 0,
+      "assigned": 0,
+      "ordinary": 0,
+      "autonomous": 0,
+      "occupied": 0,
+      "actual": 0
+    },
+    {
+      "id": "farmer",
+      "target": 84,
+      "assigned": 82,
+      "ordinary": 82,
+      "autonomous": 0,
+      "occupied": 82,
+      "actual": 82
+    },
+    {
+      "id": "hunter",
+      "target": 3,
+      "assigned": 3,
+      "ordinary": 1,
+      "autonomous": 0,
+      "occupied": 1,
+      "actual": 1
+    },
+    {
+      "id": "woodcutter",
+      "target": 62,
+      "assigned": 61,
+      "ordinary": 52,
+      "autonomous": 0,
+      "occupied": 52,
+      "actual": 52
+    },
+    {
+      "id": "miner",
+      "target": 10,
+      "assigned": 10,
+      "ordinary": 10,
+      "autonomous": 0,
+      "occupied": 10,
+      "actual": 10
+    },
+    {
+      "id": "miner_deposit",
+      "target": 0,
+      "assigned": 0,
+      "ordinary": 0,
+      "autonomous": 0,
+      "occupied": 0,
+      "actual": 0
+    },
+    {
+      "id": "road_builder",
+      "target": 0,
+      "assigned": 0,
+      "ordinary": 0,
+      "autonomous": 0,
+      "occupied": 0,
+      "actual": 0
+    },
+    {
+      "id": "cleaner",
+      "target": 0,
+      "assigned": 0,
+      "ordinary": 0,
+      "autonomous": 0,
+      "occupied": 0,
+      "actual": 0
+    },
+    {
+      "id": "manure_cleaner",
+      "target": 0,
+      "assigned": 0,
+      "ordinary": 0,
+      "autonomous": 0,
+      "occupied": 0,
+      "actual": 0
+    },
+    {
+      "id": "Cultiway.HerbCollector",
+      "target": 1,
+      "assigned": 1,
+      "ordinary": 1,
+      "autonomous": 0,
+      "occupied": 1,
+      "actual": 1
+    }
+  ],
+  "ui": {
+    "builder": "自动计划 0 · 已分配 0 · 在岗 0 · 自主参与 2",
+    "gatherer_bushes": "自动计划 0 · 已分配 0 · 在岗 0 · 自主参与 0",
+    "gatherer_herbs": "自动计划 0 · 已分配 0 · 在岗 0 · 自主参与 0",
+    "gatherer_honey": "自动计划 0 · 已分配 0 · 在岗 0 · 自主参与 0",
+    "farmer": "自动计划 84 · 已分配 82 · 在岗 82 · 自主参与 0",
+    "hunter": "自动计划 3 · 已分配 3 · 在岗 1 · 自主参与 0",
+    "woodcutter": "自动计划 62 · 已分配 61 · 在岗 52 · 自主参与 0",
+    "miner": "自动计划 10 · 已分配 10 · 在岗 10 · 自主参与 0",
+    "miner_deposit": "自动计划 0 · 已分配 0 · 在岗 0 · 自主参与 0",
+    "road_builder": "自动计划 0 · 已分配 0 · 在岗 0 · 自主参与 0",
+    "cleaner": "自动计划 0 · 已分配 0 · 在岗 0 · 自主参与 0",
+    "manure_cleaner": "自动计划 0 · 已分配 0 · 在岗 0 · 自主参与 0",
+    "Cultiway.HerbCollector": "自动计划 1 · 已分配 1 · 在岗 1 · 自主参与 0"
+  },
+  "errors": []
+}
