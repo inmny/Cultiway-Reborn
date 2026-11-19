@@ -90,7 +90,9 @@ async Task<int> Trial(string name, float capacity, bool reverse = false, bool la
     Place(attacker, 73f, center.y);
     ConstructedAbilityService.NotifyActorChanged(attacker);
     int life = defender.data.health;
-    await Fire(Projectile(name, center.z), attacker, defender);
+    // 绑定高度是脚下的偏移；剑刃中心是已经包含地面的世界坐标。
+    float ground = ((Vector3)service.GetMethod("BodyFoot", F).Invoke(null, new object[] { attacker })).z;
+    await Fire(Projectile(name, center.z - ground), attacker, defender);
     caster.E.RemoveComponent<ConstructedKnowledge>();
     await Advance(.36f);
     var clashes = guards.Where(g => g.LeftCast == shot).ToArray();
@@ -105,7 +107,7 @@ async Task<int> Trial(string name, float capacity, bool reverse = false, bool la
             : clashes.Length == 0 && impacts.Length == 1 && lost > 0,
         name + "：用真实格挡结果和人物损耗核对", new { clashes = clashes.Select(Report).ToArray(), lost,
             expectedBlock, broken, impacts = impacts.Select(h => new { h.WorldTime, h.Damage.HealthLost }),
-            origin = new[] { 73f, center.y, center.z }, scale = face.Radius });
+            origin = new[] { 73f, center.y, center.z }, ground, scale = face.Radius });
     if (section == "lost")
         Check(!BodyControlState.IsBusy(defender.id) && endings.Any(e => e.Fact.AbilityId == block.Id),
             "器物失效时立即归还身体，即使原动作尚未到自然结束时点",
