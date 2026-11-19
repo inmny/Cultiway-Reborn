@@ -839,6 +839,9 @@ public static partial class AbilityCompiler
         AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, path + "/Matter");
         if (node.Correspondence != null && node.ContactRole == ConstructionContactRole.Decoration)
             Fail(path + "/Correspondence", "装饰部位没有真实交锋形状，不能传递映像作用");
+        if (node.Correspondence is { } relation &&
+            (relation.OriginalContactOnly || relation.ShowBody) && node.ContactRole != ConstructionContactRole.Attack)
+            Fail(path + "/Correspondence", "原身接触和立影需要有主动接触的部位");
         CompiledSpreadMedium.ValidateChannel(node.MediumChannel, path + "/MediumChannel");
         ValidateMatterSurface(matter, node.FollowMatter, path + "/Matter/Surface");
         Color? dye = null;

@@ -58,7 +58,11 @@ public static class CombatResourceEffects
     /// <summary>把来源灵气转移给目标，并把目标无法容纳的部分退还来源。</summary>
     public static float TransferWakan(Actor source, Actor target, float amount)
     {
-        float drained = DrainWakan(source, amount);
+        if (source == target || target == null || target.isRekt() || amount <= 0f) return 0f;
+        ActorExtend receiver = target.GetExtend();
+        if (!receiver.HasCultisys<Xian>()) return 0f;
+        float room = WakanResourceService.ResolveMaximum(receiver) - receiver.GetCultisys<Xian>().wakan;
+        float drained = DrainWakan(source, Mathf.Min(amount, room));
         float restored = RestoreWakan(target, drained);
         if (restored < drained) RestoreWakan(source, drained - restored);
         return restored;

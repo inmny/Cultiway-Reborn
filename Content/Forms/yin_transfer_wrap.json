@@ -1,0 +1,71 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "volume",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_remaining_fields.mjs",
+            "Entry": "yinTransfer",
+            "Parameters": [
+                {
+                    "Id": "cycle",
+                    "Values": [
+                        0.6800000071525574
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "yin_transfer_wrap",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/yin_transfer_wrap_yin_body_mid.asset",
+                "Assets/Cultiway/Forms/yin_transfer_wrap_yin_body_far.asset"
+            ],
+            "Roles": [
+                "yin.wrap"
+            ],
+            "Id": "yin_body",
+            "Surface": "yin_wrap",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/yin_transfer_wrap_yin_body.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [],
+    "Controls": [],
+    "Motions": []
+}

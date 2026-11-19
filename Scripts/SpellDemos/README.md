@@ -2239,3 +2239,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中运行 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_poison_combat.py --section breath`，核对毒息推进、直接接触和范围传播的区别、真实毒伤、解毒以及自然消退。`--section pool` 核对分次腐蚀、离开作用区、无甲命中和再次施放。
 
 两段各可加 `--record native` 或 `--record worldfall`，从同一个正式学习和施放入口录制常速画面，并记录付出的法力、传播结果或原甲的耐久变化。
+
+### 9.21 阴与影
+
+在独立游戏中运行 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_yin_combat.py --section intake` 查看实际接触、两边灵气变化、离场与来源失效。`--section shadow` 查看原对应人物的牵引、短限制和立影回落，也核对相邻人物不会承接联系。每段可加 `--record native` 或 `--record worldfall` 录制同一正式施放入口的常速原片。

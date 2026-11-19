@@ -1,0 +1,19 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.YinIntake",
+  "Name": "玄阴汲流",
+  "Resource": "mana",
+  "Cost": 8,
+  "Cooldown": 2.8,
+  "Lifetime": 2.65,
+  "Power": 2,
+  "TargetRange": 24,
+  "Binding": {"Anchor": "Target"},
+  "Impact": {"DamageScale": 0, "WakanTransfer": 4},
+  "Root": {
+    "Id": "basin", "Form": "yin_field_basin", "Matter": "yin", "State": "energy",
+    "ActiveFrom": 0.32, "ActiveUntil": 1.99,
+    "Contact": {"Mode": "Interval", "Interval": 0.43},
+    "Operations": [{"Kind": "Animate", "Clip": "gather"}]
+  }
+}

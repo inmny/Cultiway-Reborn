@@ -502,14 +502,17 @@ Shader "Cultiway/FormSurface"
             }
             else if (_Kind < 18.5)
             {
-                // 玄阴由低处浅影和内凹高肩构成；提高的是宽面深度，人物轮廓仍可看见。
+                // 宽的内折层在凹面向内移动；厚处暗透，转折的边缘才有窄光泽。
                 float3 q = i.material;
-                float cloud = volumeNoise(q * float3(1.35,1.35,1.0) + float3(.09,-.05,0)*_WorldTime);
-                float shoulder = smoothstep(.15,.62,q.z);
-                float lip = smoothstep(1.32,2.5,length(q.xy));
-                base *= (.31+.52*cloud+.78*shoulder) * max(float3(.68,.68,.68),.52*ambient+.31*direct);
-                base += float3(.08,.095,.16) * shoulder * (.5+.5*cloud) * environmentLight;
-                alpha *= (.36+.23*cloud+.30*shoulder) * (1-.34*lip*(1-shoulder));
+                float radius = length(q.xy);
+                float curl = q.z*1.2 + radius*2.5 + .42*sin(q.x*2.4-q.y*2.2);
+                float folds = .5+.5*sin(curl+_WorldTime*3.9);
+                float grain = volumeNoise(q*float3(2.5,2.5,3.4)+float3(.02,-.06,.10)*_WorldTime);
+                float shoulder = smoothstep(.12,.72,q.z);
+                float lightEdge = pow(1-facing,2)*(.28+.72*shoulder);
+                base *= (.38+.35*grain+.47*folds+.34*shoulder)*max(float3(.62,.62,.62),.55*ambient+.35*direct);
+                base += float3(.125,.10,.25)*lightEdge*(.70+.30*grain)*environmentLight;
+                alpha *= (.49+.15*grain+.23*folds+.10*shoulder)*(1-.28*smoothstep(1.3,2.46,radius)*(1-shoulder));
             }
             else if (_Kind < 19.5)
             {
@@ -547,6 +550,21 @@ Shader "Cultiway/FormSurface"
                 base *= (.54+.62*density)*max(float3(.78,.76,.82),.49*ambient+.54*direct);
                 base += tint.rgb*(.14+.29*diffuse)*density;
                 alpha *= i.surface.y*(.48+.52*density)*(.29+.71*chord);
+            }
+            else if (_Kind > 24.5)
+            {
+                // 薄阴质压在地面，厚肩分出内外两层；散开的低边不用硬轮廓描圆。
+                float3 q = i.material;
+                float r = length(q.xy);
+                float warped = r*3.4 + .68*sin(q.x*2.1+q.y*1.7) + .7*q.z;
+                float flow = .5+.5*sin(warped+_WorldTime*4.8);
+                float grain = volumeNoise(q*float3(4.4,4.4,4.1)+float3(.10,-.07,.01)*_WorldTime);
+                float thick = smoothstep(.11,.66,q.z);
+                float fringe = 1-smoothstep(1.84,2.62,r+(grain-.5)*.21);
+                float fold = smoothstep(.22,.88,flow)*(.36+.64*grain);
+                base = base*(.28+.74*thick+.59*fold)*(.64*ambient+.34*direct);
+                base += float3(.18,.13,.27)*thick*(.27+.73*fold)*(.44+.56*diffuse)*environmentLight;
+                alpha *= (.40+.34*fold+.34*thick)*(.16+.84*fringe)*smoothstep(.02,.10,q.z);
             }
             else
             {

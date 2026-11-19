@@ -291,6 +291,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         AppendSteamVisuals(now);
         AppendConductionVisuals(now);
         AppendWindScars(now);
+        AppendYinTransfers(now);
+        AppendShadows(now);
         AppendContactVolumes(now);
         AppendMediumLinks(now);
         ConfirmedWorldTime = now;
@@ -889,6 +891,15 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     CompiledConstructionImpact effect = running.Cast.ImpactAtStage(shape.To.Node, stage);
                     if (effect.SelectedTargetOnly && owner.TargetId != actor.Id || !owner.Matches(effect.Targets, actor.Actor) ||
                         !running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until)) return;
+                    int node = shape.To.Node;
+                    float originalUntil = float.PositiveInfinity;
+                    if (node >= 0 && running.Cast.Plan.Nodes[node].Correspondence?.OriginalContactOnly == true)
+                    {
+                        if (!owner.IsLive || CorrespondenceReceiver(running, node, current: false) != actor.Actor ||
+                            !running.Cast.CorrespondenceInterval(node, out float originalFrom, out originalUntil)) return;
+                        from = Mathf.Max(from, originalFrom);
+                        until = Mathf.Min(until, originalUntil);
+                    }
                     from = Mathf.Max(from, touchFrom);
                     float earliest = Mathf.Max(from, ContactFraction(shape, actor, b0, b1, step, stage, from));
                     if (earliest > 1f || earliest > until) return;
@@ -907,7 +918,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     }
                     else if (!AbilityPairSweep.Find(a0, pulse ? a0 : shape.To, target0, pulse ? target0 : b1, out at, out point, out normal)) return;
                     float fraction = Mathf.Lerp(earliest, 1f, at);
-                    if (fraction > until || oldScope && fraction >= 1f) return;
+                    if (fraction > until || fraction >= originalUntil || oldScope && fraction >= 1f) return;
                     Include(new ContactChoice(shape, actor, null, fraction, point, normal, step,
                         actorShape: Slice(b0, b1, fraction)));
                 }
@@ -1071,6 +1082,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) return;
         simulation.Sample(actor, simulation.contactTime, out Vector3 spreadCenter, out _);
         CastAuthority contactOwner = running.Owner(node);
+        if (node >= 0 && running.Cast.Plan.Nodes[node].Correspondence?.OriginalContactOnly == true &&
+            (!contactOwner.IsLive || CorrespondenceReceiver(running, node) != actor.Actor)) return;
         int reflections = running.Cast.Reflections(node);
         ContactMemory memory = RememberContact(running, node, actor.Id);
         AbilityMatter beforeMatter = node < 0 ? null : running.Cast.Matter(node);
@@ -1113,6 +1126,15 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             priorVelocity: priorVelocity, forceReceiver: forceReceiver,
             strength: strength, settled: primaryDamage, contact: hit.Point);
         if (contactGeneration != worldGeneration) return;
+        if (result == ApplyAttackState.Hit && impact.WakanTransfer > 0f &&
+            actor.Actor.data?.id == actor.Id && actor.Actor.isAlive() && actor.Actor.hasHealth() &&
+            (response.Damage.ShieldAbsorbed <= 0f || response.Damage.HealthLost > 0))
+            TransferContactWakan(contactOwner, actor.Actor, impact.WakanTransfer * strength);
+        if (contactGeneration != worldGeneration) return;
+        if (result == ApplyAttackState.Hit && node >= 0 && running.Cast.Plan.Nodes[node].Correspondence?.ShowBody == true &&
+            (response.ForceApplied || response.StaggerSeconds > 0f || response.BindSeconds > 0f) &&
+            CorrespondenceReceiver(running, node) == actor.Actor)
+            ShowShadow(running, node, actor.Actor);
         if (primaryDamage.HealthLost > 0 && running.Cast.Plan.Id == BalefulWindConstruction.WaveId)
             AddWindScar(running, node, actor.Actor, hit.Point, false);
         if (result == ApplyAttackState.Hit)

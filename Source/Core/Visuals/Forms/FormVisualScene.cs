@@ -102,7 +102,12 @@ public readonly struct FormVisualInstance
 
     /// <summary>发布世界绝对坐标中的短暂自有形体。</summary>
     internal FormVisualInstance(FormResource resource, Mesh geometry, Color tint, AbilityHeightField terrain)
-        : this(resource, Matrix4x4.identity, tint: tint, terrain: terrain)
+        : this(resource, geometry, Matrix4x4.identity, tint, terrain) { }
+
+    /// <summary>让短暂自有形体复用已经采集的模型，逐帧只改变显示姿态。</summary>
+    internal FormVisualInstance(FormResource resource, Mesh geometry, Matrix4x4 transform, Color tint, AbilityHeightField terrain,
+        string surface = null)
+        : this(resource, transform, surface: surface, tint: tint, terrain: terrain)
     {
         Geometry = geometry;
     }
