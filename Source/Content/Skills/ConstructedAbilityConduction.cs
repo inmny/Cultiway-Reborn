@@ -139,6 +139,7 @@ public sealed partial class ConstructedAbilityService
         var responses = new List<ConstructedTargetResponse>();
         var fronts = new List<ConductionFront>();
         var travel = new float[trace.Route.Count];
+        var visualIndex = new int[trace.Route.Count];
         var valid = new bool[trace.Route.Count];
         var currentWater = new ConductingWater[trace.Route.Count];
         int nextHit = 0;
@@ -155,7 +156,9 @@ public sealed partial class ConstructedAbilityService
                 int parent = trace.Parents[i];
                 Vector2 fromParent = parent < 0 ? Vector2.zero : area.center - currentWater[parent].Footprint(cell).center;
                 travel[i] = parent < 0 ? 0f : travel[parent] + fromParent.magnitude;
-                fronts.Add(new ConductionFront(area, waterCell.Bottom + waterCell.Depth, fromParent, travel[i]));
+                visualIndex[i] = fronts.Count + 1;
+                fronts.Add(new ConductionFront(area, waterCell.Bottom + waterCell.Depth,
+                    parent < 0 ? -1 : visualIndex[parent] - 1, travel[i]));
                 reached.Add(waterCell);
             }
             while (nextHit < trace.Hits.Count && trace.Hits[nextHit].Cell == i)

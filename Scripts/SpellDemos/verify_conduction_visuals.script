@@ -37,25 +37,80 @@ Mesh[] Verify(ConstructedConduction wave, string name)
 {
     Mesh[] meshes = Meshes();
     Vector3[] vertices = meshes.SelectMany(m => m.vertices).ToArray();
-    int quads = vertices.Length / 24;
-    var coverage = new Vector3[quads];
-    for (int i = 0; i < quads; i++)
+    const int verticesPerBranch = 15;
+    int halves = vertices.Length / verticesPerBranch;
+    var coverage = new Vector3[halves];
+    float tallest = 0f;
+    int joined = 0;
+    var gates = new HashSet<Vector2>();
+    for (int i = 0; i < halves; i++)
     {
-        var crest = vertices.Skip(i * 24).Take(24).ToArray();
-        coverage[i] = wave.Route.FirstOrDefault(c => crest.All(v => Mathf.Abs(v.x - c.x) <= .501f &&
-            Mathf.Abs(v.y - c.y) <= .501f && v.z > c.z && v.z <= c.z + .176f));
+        var half = vertices.Skip(i * verticesPerBranch).Take(verticesPerBranch).ToArray();
+        coverage[i] = wave.Route.FirstOrDefault(c => Mathf.Abs(half[2].x - c.x) < .002f &&
+            Mathf.Abs(half[2].y - c.y) < .002f && half.All(v => Mathf.Abs(v.x - c.x) <= .501f &&
+            Mathf.Abs(v.y - c.y) <= .501f && v.z > c.z && v.z <= c.z + .28f));
+        tallest = Mathf.Max(tallest, half[2].z - half[0].z);
+        if (!gates.Add(new Vector2(half[12].x, half[12].y))) joined++;
     }
-    snapshots.Add(new { name, wave.Pulse, route = wave.Route.Length, geometry = quads,
+    snapshots.Add(new { name, wave.Pulse, route = wave.Route.Length, halves, tallest, joined,
         bands = meshes.Select(m => m.vertexCount).ToArray(), age = World.world.getCurWorldTime() - wave.WorldTime,
         complete = coverage.Distinct().Count() });
-    Check(meshes.Length == 3 && vertices.Length % 24 == 0 && quads == wave.Route.Length &&
-        coverage.All(c => c != Vector3.zero) && coverage.Distinct().Count() == quads,
-        name + "：三个起伏阶段与本波真实水面逐格对应");
+    Check(meshes.Length == 3 && vertices.Length % verticesPerBranch == 0 && joined > 0 &&
+        coverage.All(c => c != Vector3.zero) && coverage.Distinct().Count() == wave.Route.Length && tallest > .16f,
+        name + "：三个阶段的立体分枝只经过本波真实水面，半段在实际水边相接");
     return meshes;
 }
 
 try
 {
+    if (recordView.Length != 0)
+    {
+        Camera(70);
+        if (recordView == "worldfall")
+        {
+            Call(mod, "SetGodView", true);
+            await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600);
+            Set(mod, "_godTip", .7f);
+            Set(mod, "_godTipRate", 0f);
+        }
+        await Frames();
+        var ability = Attack("test.visuals.film");
+        float before = source.GetExtend().GetCultisys<Xian>().wakan;
+        Check(Fire(source, target, ability), "录像使用正式施放入口");
+        float paid = before - source.GetExtend().GetCultisys<Xian>().wakan;
+        string images = Path.Combine(folder, "frames");
+        Directory.CreateDirectory(images);
+        const double duration = 1.84;
+        double start = World.world.getCurWorldTime(), next = 0;
+        bool froze = false;
+        var times = new List<double>();
+        Config.paused = false;
+        while (World.world.getCurWorldTime() - start < duration)
+        {
+            double time = World.world.getCurWorldTime() - start;
+            if (!froze && time >= .47)
+            {
+                for (int y = 70; y < 75; y++) World.world.GetTileSimple(71, y).setTopTileType(TopTileLibrary.ice);
+                froze = true;
+            }
+            if (time >= next)
+            {
+                Screen.Capture(Path.Combine(images, times.Count.ToString("00000") + ".png"));
+                times.Add(time);
+                next = time + .035;
+            }
+            await Game.NextFrame();
+        }
+        Config.paused = true;
+        await Frames();
+        var rounds = waves.Where(w => w.AbilityId == ability.Id).ToArray();
+        Check(rounds.Length == 4 && rounds[0].Targets.Contains(target.id) &&
+            rounds.Skip(1).All(w => !w.Targets.Contains(target.id) && w.Route.All(v => v.x < 71f)) && Meshes().Length == 0,
+            "原速录像记下实际命中、结冰截断和退场");
+        return new { passed = true, scene = "construction", view = recordView, resource = "wakan", paid, times, duration,
+            frames = times.Count, previewFrame = times.FindIndex(t => t >= .31),
+            rounds = rounds.Select(w => new { w.Pulse, at = w.WorldTime - start, cells = w.Route.Length, w.Targets }).ToArray() };
+    }
     if (section == "native")
     {
         Camera(70);

@@ -2219,3 +2219,11 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 查看每段的 `result.json`，确认实际命中、对手支付与交锋时点，或同一浪体的水、冰、水三个阶段。通行与形状是否锁定仍以对应实机复验为准。
+
+### 9.18 落雷与水面传导
+
+用独立游戏运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_thunder_strike.py`，核对正式付费、实体雷瓣收束、下落、人物接触后的余电，以及走出落点后的空落和退场。保留 `checks.json` 与 `timeline.json`。
+
+用 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_conduction_visuals.py --section native` 复用实测水道，核对确认后的水格和三批有厚度的雷脊、原版与 Worldfall 共用网格、冰面断路与回收。
+
+聚雷录像用 `demo_all.py --construction` 选择 `聚雷下击.json`（建议目标偏移 `5 0`、缩放 `12`），分别使用 `--view native` 和 `--view worldfall`。水道录像在上述水路复验命令上加 `--record native` 或 `--record worldfall`，原速对照结冰前后的两段水路。活动水体另用 `流水载雷.json`（偏移 `7 2`、缩放 `17`）演示。

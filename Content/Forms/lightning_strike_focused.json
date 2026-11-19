@@ -1,0 +1,204 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_impacts.mjs",
+            "Entry": "makeImpactForms",
+            "Parameters": [
+                {
+                    "Id": "profile",
+                    "Values": [
+                        0.0
+                    ]
+                },
+                {
+                    "Id": "forks",
+                    "Values": [
+                        3.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "lightning_strike_focused",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/lightning_strike_focused_channel_mid.asset",
+                "Assets/Cultiway/Forms/lightning_strike_focused_channel_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "channel",
+            "Surface": "thunder_arc",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_focused_channel.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "fork_0",
+            "Surface": "thunder_arc_fork",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_focused_fork_0.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "fork_1",
+            "Surface": "thunder_arc_fork",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_focused_fork_1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "fork_2",
+            "Surface": "thunder_arc_fork",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_focused_fork_2.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                -0.699999988079071
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.2300000190734864
+            ],
+            "Radius": 0.12999999523162843,
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.5075380206108093,
+                -0.5345720052719116,
+                -1.4500000476837159
+            ],
+            "Maximum": [
+                0.8410159945487976,
+                0.5668780207633972,
+                1.340000033378601
+            ]
+        }
+    ],
+    "Motions": []
+}

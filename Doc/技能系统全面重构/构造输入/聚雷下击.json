@@ -1,0 +1,32 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.GatherThunderStrike",
+  "Name": "聚雷下击",
+  "Resource": "mana",
+  "Cost": 8,
+  "Cooldown": 1,
+  "Lifetime": 1.8,
+  "Power": 5,
+  "TargetRange": 24,
+  "Binding": {"Anchor": "Target", "Height": 6},
+  "Root": {
+    "Id": "charge", "Form": "lightning_charge", "Matter": "lightning", "ContactRole": "Decoration",
+    "Operations": [{"Kind": "Animate", "Clip": "gather"}],
+    "Children": [{
+      "Id": "bolt", "Form": "lightning_strike_focused", "Matter": "lightning", "Scale": 1.6,
+      "Rotation": [0, 180, 0], "AppearAt": 0.56, "ActiveFrom": 0.56, "DisappearAt": 1.25,
+      "OnContact": "End",
+      "Operations": [
+        {"Kind": "Detach", "At": 0.56},
+        {"Kind": "Fly", "At": 0.56, "Vector": [0, 0, -16], "WorldVelocity": true,
+          "InheritVelocity": false, "Ground": "End"}
+      ],
+      "Children": [{
+        "Id": "release", "Form": "lightning_contact", "Matter": "lightning", "ContactRole": "Decoration",
+        "DisappearAt": 0.4, "Offset": [0, 0, -0.08],
+        "Activation": {"Source": "..", "Trigger": "ActorContact", "Placement": "Event"},
+        "Operations": [{"Kind": "Animate", "Clip": "release"}]
+      }]
+    }]
+  }
+}
