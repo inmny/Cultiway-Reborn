@@ -1,8 +1,9 @@
 /** 地面推进使用独立厚体；骨架同时驱动网格和接触，沿既有地面投送移动。 */
 import * as T from 'three';
-import {part,write,structure,motion} from './form_export.mjs';
+import {part,write,structure,motion,formation,forming,skin} from './form_export.mjs';
 import {wallPart,column} from './forms_solid_walls.mjs';
 import {waterCurve,thickSheet,curveInfluences} from './form_curve.mjs';
+import {woodSprig} from './forms_wood_detail.mjs';
 
 /** 发布普通动作和地面遮挡，不引入独立播放循环。 */
 function publish(id,parts,contacts,controls,clip,parameters) {
@@ -58,21 +59,51 @@ function water() {
   publish('tidal_wave',[body],contacts,controls,clip,{width:2.28,controls:count,duration:.9,rolledLip:true});
 }
 
-/** 灵藤是共根分开的三条低伏厚根；各条曲芯既是可见主体，也是实际接触。 */
+/** 灵藤主根先探、侧根后张，细梗及叶跟随原枝；根芯只在实际长到的位置接触。 */
 function wood() {
-  const controls=[],parts=[],contacts=[];
+  const controls=[],parts=[],contacts=[],sprigs=[];
+  const up=new T.Vector3(0,1,0);
   for(let branch=0;branch<3;branch++) {
-    const id=`root_${branch}`,side=branch-1;controls.push({Id:id,Position:[0,0,0],Rotation:[0,0,0,1]});
+    const id=`root_${branch}`,side=branch-1,main=side===0;
+    controls.push({Id:id,Position:[0,0,0],Rotation:[0,0,0,1]});
     const point=t=>new T.Vector3(side*.83*t+.06*Math.sin(t*8+branch)*Math.sin(t*Math.PI),.18+.17*Math.sin(t*Math.PI),-.54+1.13*t);
+    const start=main?0:.16+branch*.035, end=main?.70:.89;
+    const progress=t=>T.MathUtils.lerp(start,end,t);
     const rings=Array.from({length:25},(_,i)=>{
-      const t=i/24,p=point(t),r=.19*Math.pow(1-t,.35)+.012;
-      return Array.from({length:10},(_,j)=>{const a=j*Math.PI/5;return [p.x+Math.cos(a)*r,p.y+Math.sin(a)*r,p.z];});
+      const t=i/24,p=point(t),cap=T.MathUtils.smoothstep(t,8/9,1);
+      const r=T.MathUtils.lerp(.16+(main?.11:.06)*Math.pow(1-t,.7),.015,cap);
+      return Array.from({length:10},(_,j)=>{
+        const a=j*Math.PI/5,d=r*(1+.08*Math.sin(j*2.7+branch+t*16));
+        return [p.x+Math.cos(a)*d,p.y+Math.sin(a)*d*.9,p.z];
+      });
     });
-    parts.push(wallPart(id,column(rings,10),'wood',[0,0,0],id));
-    for(let i=0;i<8;i++)contacts.push({Id:`${id}_${i}`,Part:branch,A:point(i/9).toArray(),B:point((i+1)/9).toArray(),Radius:.13,AControl:id,BControl:id});
+    const root=column(rings,10), along=p=>T.MathUtils.clamp((p.z+.54)/1.13,0,1);
+    formation(root,p=>progress(along(p)),p=>point(along(p)));
+    parts.push(wallPart(id,skin(root,()=>[[branch,1]]),'wood'));
+    for(let i=0;i<8;i++) {
+      const a=i/9,b=(i+1)/9;
+      contacts.push({Id:`${id}_${i}`,Part:branch,A:point(a).toArray(),B:point(b).toArray(),Radius:.13,AControl:id,BControl:id,
+        BuildRange:[.96*progress(a),.96*progress(b)+.04],BuildAlong:true});
+    }
+    for(const [n,t] of (main?[.65]:[.38,.68]).entries()) {
+      const base=point(t),direction=side||1;
+      const path=[base,base.clone().add(new T.Vector3(direction*.11,.11,.13)),
+        base.clone().add(new T.Vector3(direction*(n===0?.27:.20),.20,.23))];
+      const begin=progress(t)+.05;
+      sprigs.push(...woodSprig(`${id}_sprig_${n}`,branch,path,begin,Math.min(.85,begin+.20),up));
+    }
   }
-  const clip=motion('travel',.9,false,controls,30,(i,p)=>({rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(0,1,0),.055*Math.sin(p*Math.PI*2+i*1.5)).toArray()}));
-  publish('creeping_vine',parts,contacts,controls,clip,{roots:3,duration:.9,sharedBase:true});
+  const clip=forming(motion('travel',.9,false,controls,36,(i,p)=>{
+    // 主根稳住中心；侧根像从同一根颈掰开，离地的叶梢随根轻摆。
+    const opened=T.MathUtils.smoothstep(p,.02+i*.025,.38),release=Math.sin(Math.PI*p);
+    const yaw=(i-1)*(-.33*(1-opened)+.10*release);
+    return {rotation:new T.Quaternion().setFromAxisAngle(up,yaw).toArray()};
+  }), p=>T.MathUtils.smoothstep(p,0,.44));
+  parts.push(...sprigs);
+  write('creeping_vine',parts,[{Id:'root',Part:0,Position:[0,0,0],Direction:[0,0,1],Control:controls[0].Id}],
+    contacts,controls,[clip],false,{Forward:[0,0,1],Up:[0,1,0],HideBelowGround:true},
+    structure('branch','forms_ground_waves.mjs','makeGroundWaves',{roots:3,sharedBase:true},
+      Object.fromEntries(parts.map(p=>[p.Id,[p.Id.endsWith('_leaf')?'branch.leaf':p.Id.includes('sprig')?'branch.shoot':p.Id==='root_1'?'branch.trunk':'branch.lateral']])),[]));
 }
 
 /** 一次制作三种原地面推进来源。 */

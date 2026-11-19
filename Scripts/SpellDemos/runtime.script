@@ -1848,6 +1848,10 @@ private IEnumerator Record(JObject item, string folder)
     BaseSimObject target = relation == SkillUseTargetRelation.Self ? caster :
         relation == SkillUseTargetRelation.Friendly ? friend : enemies[0];
     if (relation == SkillUseTargetRelation.WorldTile) target = enemies[0];
+    // 短程法术沿用同一对靶和规则，只在指定距离处观察实际接触。
+    if (request["targetOffset"] is JArray offset && target is Actor targetActor && targetActor != caster)
+        Place(targetActor, caster.current_position.x + (float)offset[0],
+            caster.current_position.y + (float)offset[1]);
     var owner = caster.GetExtend();
     owner.GetCultisys<Xian>().wakan = 10000;
     caster.setMana(10000, pClamp: false);

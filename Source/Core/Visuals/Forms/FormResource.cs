@@ -746,6 +746,7 @@ internal sealed partial class FormResourceGeneration
             "wind" => (13f, new Color(.55f, .81f, .86f, .57f), .32f),
             "flame" => (6f, new Color(1f, .31f, .035f), .8f),
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
+            "wood_leaf" => (2f, new Color(.31f, .53f, .12f), .88f),
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),
             "stone" => (2f, new Color(.34f, .31f, .27f), .96f),
             "stone_strata" => (16f, new Color(.46f, .39f, .30f), .96f),

@@ -353,7 +353,7 @@ def main(all_spells):
     parser.add_argument("--scene", choices=["single", "shield", "battle"], default="single", help="单招、护盾迎击或真正自主交战")
     parser.add_argument("--realm", type=int, default=2, choices=range(5), help="修炼境界 0～4")
     parser.add_argument("--caster-walk", type=float, default=0, help="构造演示中让施法者通过原版附体移动沿地图X轴行走指定格数")
-    parser.add_argument("--target-offset", type=float, nargs=2, metavar=("X", "Y"), help="构造演示目标相对施法者的地图位置")
+    parser.add_argument("--target-offset", type=float, nargs=2, metavar=("X", "Y"), help="单招演示目标相对施法者的地图位置")
     parser.add_argument("--terrain-slope", type=float, default=0, help="构造演示中每格地图X方向增加的原版地形高度，范围 -4 至 4")
     parser.add_argument("--zoom", type=float, default=22, help="镜头缩放；城域演示建议 38")
     parser.add_argument("--power", type=float, default=6, help="测试人物战力，默认便于观察单招")
@@ -365,8 +365,10 @@ def main(all_spells):
         parser.error("时长、战力须大于零，截图频率须为 1～60")
     if args.opponent_construction and not args.construction:
         parser.error("--opponent-construction 需要同时指定 --construction")
-    if (args.caster_walk or args.target_offset or args.terrain_slope or args.isolate_target) and not args.construction:
-        parser.error("行走与目标偏移只用于 --construction")
+    if (args.caster_walk or args.terrain_slope or args.isolate_target) and not args.construction:
+        parser.error("行走、地形坡度和移开旁观者只用于 --construction")
+    if args.target_offset and args.scene != "single":
+        parser.error("--target-offset 只用于单招场景")
     if not math.isfinite(args.terrain_slope) or abs(args.terrain_slope) > 4:
         parser.error("测试地形坡度须为 -4 至 4 的有限数")
     if not math.isfinite(args.caster_walk) or abs(args.caster_walk) > 20 or (args.target_offset and any(not math.isfinite(v) or abs(v) > 20 for v in args.target_offset)):
@@ -460,9 +462,10 @@ def main(all_spells):
         if not (fixture / "map.wbox").is_file():
             raise ValueError(f"缺少演示测试存档：{fixture}")
         manifest = dict(version=version, fixture=str(fixture), motionTrace=args.motion_trace, cases=cases, skipped=skipped, duration=args.duration, fps=args.fps, power=args.power, realm=args.realm, zoom=args.zoom, view=args.view, lighting=args.lighting, scene=args.scene, diagnostics=args.diagnostics, speed=args.speed, battleArtifact=battle_artifact)
+        if args.target_offset or constructions is not None:
+            manifest["targetOffset"] = args.target_offset
         if constructions is not None:
             manifest["casterWalk"] = args.caster_walk
-            manifest["targetOffset"] = args.target_offset
             manifest["isolateTarget"] = args.isolate_target
             manifest["terrainSlope"] = args.terrain_slope
             if opponent is not None:
