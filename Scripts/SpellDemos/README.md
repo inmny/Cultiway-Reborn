@@ -2167,3 +2167,16 @@ python3 Scripts/SpellDemos/demo_spell.py SwordCurtain --cases base --scene shiel
 ```
 
 Worldfall 使用已加载其模组的独立游戏，改用 `--view worldfall` 和独立输出目录，剑气缩放为 `10.5`。剑幕迎击场景实际发射石弹；判断以拦截记录及剩余容量为准。分别保留四段影片、实际时点、接触及阶段原帧。
+
+
+### 9.14 水系潮浪与贴地后流
+
+在独立游戏用 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_water_current.py` 核对后流分流、画面干湿边界、正式施放命中和自然退场。潮浪单独复验使用 `verify_ground_waves.py --section tidal`。
+
+贴地后流的常速录像走原有构造入口，沿用演示缓坡，不改技能参数：
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/鲸散守恒后流.json --target-offset 16 0 --terrain-slope 2 --view native --speed 1 --duration 5.7 --zoom 16 --fps 18 --keep-frames --output <后流原版输出目录>
+```
+
+Worldfall 改用 `--view worldfall` 和独立输出目录。检查 `result.json` 的扣费、真实接触、水面出现后的水量及末帧退出；画面看水鲸接成后流、沿坡铺开和薄边淡去。原版初稿和正式两视角原片分别保存。
