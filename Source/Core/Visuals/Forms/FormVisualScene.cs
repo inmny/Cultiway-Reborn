@@ -109,9 +109,15 @@ public readonly struct FormVisualInstance
     public string SurfaceFor(int part)
     {
         FormPartDescription piece = Resource.Description.Parts[part];
-        // 岩层是石材的一种制作表面；改用其他材质时，仍按实际材料显示。
-        return Surface ?? (piece.UseMatterSurface && !(piece.Surface == "stone_strata" && MatterSurface == "stone")
-            ? MatterSurface : null) ?? piece.Surface;
+        // 同材料的制作表面保留自身质感，改用其他材料时跟随实际材料。
+        string authoredMaterial = piece.Surface switch
+        {
+            "stone_strata" => "stone",
+            "wind_open" or "wind_pressure" => "wind",
+            "yin_basin" => "yin_depth",
+            _ => null
+        };
+        return Surface ?? (piece.UseMatterSurface && MatterSurface != authoredMaterial ? MatterSurface : null) ?? piece.Surface;
     }
 
     /// <summary>取得用于模型、挂点和作用形状的相同部位变换。</summary>

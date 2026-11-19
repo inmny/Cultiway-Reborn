@@ -139,7 +139,7 @@ internal static class FieldConstructionMigration
                 Follow = follow, ContactAtDestination = follow, Height = advance || follow ? 0f : -emission.TargetPos.z },
             Root = new ConstructionNode
             {
-                Id = "field", Form = wind ? "wind_vortex" : yin ? "yin_field" : entropy ? "entropy_field" : container.Asset == SkillEntities.PoisonPool ? "poison_pool" : "poison_mist",
+                Id = "field", Form = wind ? "wind_vortex_open" : yin ? "yin_field_basin" : entropy ? "entropy_field" : container.Asset == SkillEntities.PoisonPool ? "poison_pool" : "poison_mist",
                 Matter = wind ? "wind" : yin ? "yin" : entropy ? "entropy" : "poison",
                 State = wind || yin || entropy ? "energy" : container.Asset == SkillEntities.PoisonPool ? "liquid" : "gas", Scale = scale,
                 Impact = configured && !settings.ContactEnabled ? null : new ConstructionImpact { DamageScale = damageMultiplier },

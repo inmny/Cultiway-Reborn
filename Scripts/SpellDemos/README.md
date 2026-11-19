@@ -1383,6 +1383,8 @@ python3 Scripts/SpellDemos/verify_remaining_fields.py
 
 加`--section sources/common/visuals`可分别只验证来源、共用路径或补拍主体。输入、实际发射、资料、前后主体图及结果保存到`artifacts/skill_rebuild/trajectories/remaining-fields/`，分段结果保存到同名子目录；失败输入与结果保留。完整编辑、自主创作、正式保存冷启动及集中连续录像继续5.05 C，最终流派质感继续9.02。
 
+9.02 D 用 `dev.py exec --timeout 245 -- python3 Scripts/SpellDemos/verify_remaining_fields.py --section appearance` 在独立游戏对龙卷和玄阴拍近、中、远景，并核对实际边内命中、紧邻外侧无接触、原费用与自然结束。可加 `--form wind` 或 `--form yin` 只补对应一术，导出的原始结果位于独立环境的 `output/fields-appearance-*`。
+
 
 ```bash
 # 5.05 B32：减速、冰冻、硬直随新主体真实接触

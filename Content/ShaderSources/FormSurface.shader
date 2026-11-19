@@ -391,7 +391,7 @@ Shader "Cultiway/FormSurface"
                 base *= .95 + (.37-.18*_Roughness)*stream;
                 alpha *= chord*(.8+.2*stream);
             }
-            else
+            else if (_Kind < 16.5)
             {
                 // 岩层色随制作坐标固定；厚层缓慢变色，矿粒只在近处补出不均匀的粗面。
                 float3 q = i.material;
@@ -400,6 +400,28 @@ Shader "Cultiway/FormSurface"
                 float grains = volumeNoise(q * float3(8, 18, 10));
                 float3 mineral = lerp(float3(.66, .62, .57), float3(1.22, 1.18, 1.04), layer);
                 base *= mineral * (.76 + .43 * grains) * (max(float3(.57, .57, .57), .63 * ambient) + diffuse * .46 * direct);
+            }
+            else if (_Kind < 17.5)
+            {
+                // 疏密沿实际卷面向上流动，端部降低透光量，风底保留较暗的作用轮廓。
+                float3 q = i.material;
+                float flow = volumeNoise(q * float3(1.3,1.3,1.8) - float3(.06,.03,1.7)*_WorldTime);
+                float broad = smoothstep(.12,.84,flow);
+                float chord = sqrt(abs(dot(n,eye)));
+                base *= (.74 + .28*broad) * max(float3(.66,.66,.66),.47*ambient+.46*direct);
+                base += tint.rgb * .16 * broad;
+                alpha *= i.surface.y * (.54+.46*broad) * (.24+.76*chord);
+            }
+            else
+            {
+                // 玄阴由低处浅影和内凹高肩构成；提高的是宽面深度，人物轮廓仍可看见。
+                float3 q = i.material;
+                float cloud = volumeNoise(q * float3(1.35,1.35,1.0) + float3(.09,-.05,0)*_WorldTime);
+                float shoulder = smoothstep(.15,.62,q.z);
+                float lip = smoothstep(1.32,2.5,length(q.xy));
+                base *= (.31+.52*cloud+.78*shoulder) * max(float3(.68,.68,.68),.52*ambient+.31*direct);
+                base += float3(.08,.095,.16) * shoulder * (.5+.5*cloud) * environmentLight;
+                alpha *= (.36+.23*cloud+.30*shoulder) * (1-.34*lip*(1-shoulder));
             }
             float contact = formFeedback(i);
             base += (base*.24 + float3(.035,.045,.05)*environmentLight)*contact;
@@ -412,9 +434,9 @@ Shader "Cultiway/FormSurface"
         {
             i.normal *= side;
             float4 color=shadeSurface(i,worldfall);
-            if ((_Kind>14.5 && _Kind<15.5) || (formClosed(i)>.5 && _Kind>=2.5 && _Kind<4.5))
+            if ((_Kind>14.5 && _Kind<15.5) || _Kind>16.5 || (formClosed(i)>.5 && _Kind>=2.5 && _Kind<4.5))
             {
-                // 封闭光束及有体积的水冰使用前后两面，不把同一光程重复算成两份。
+                // 封闭光束、水冰和有厚度的领域使用前后两面，避免同一光程重复加深。
                 float alpha=1-sqrt(1-color.a);
                 color.rgb *= alpha/max(color.a,.00001); color.a=alpha;
             }
