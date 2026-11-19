@@ -155,7 +155,7 @@ public static class WakanResourceService
     }
 
     /// <summary>读取角色当前有效灵气上限。</summary>
-    private static float ResolveMaximum(ActorExtend actor)
+    internal static float ResolveMaximum(ActorExtend actor)
     {
         return Mathf.Max(0f, actor.Base.stats[BaseStatses.MaxWakan.id]);
     }

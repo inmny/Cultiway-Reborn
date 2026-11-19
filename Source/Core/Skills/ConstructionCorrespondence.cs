@@ -50,6 +50,14 @@ public sealed class ConstructionCorrespondence
     /// <summary>从此时点起停止传递，省略时随映像部位结束。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? ActiveUntil;
+
+    /// <summary>发起的主动接触只作用于关系有效时的原人物，且本次归属者必须存活。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool OriginalContactOnly;
+
+    /// <summary>首次确认作用后，以原人物的实际部位显示短暂立影。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool ShowBody;
 }
 
 /// <summary>边界检查后的独立对应资料，运行不读取编辑中的声明。</summary>
@@ -73,6 +81,12 @@ public sealed class CompiledCorrespondence
     /// <summary>停止传递的部位年龄，缺省随真实部位结束。</summary>
     public float ActiveUntil { get; }
 
+    /// <summary>主动接触限定到关系有效的原人物。</summary>
+    public bool OriginalContactOnly { get; }
+
+    /// <summary>确认作用后使用原人物身体显示映像。</summary>
+    public bool ShowBody { get; }
+
     /// <summary>只在完整构造边界核对名称、端点和有限份额。</summary>
     /// <param name="source">明确声明的对应。</param><param name="lifetime">本次施放总寿命。</param>
     /// <param name="path">所属部位资料路径。</param>
@@ -93,6 +107,8 @@ public sealed class CompiledCorrespondence
             throw new InvalidDataException(path + "：映像传递的起止时间需要在施放寿命内递增");
         Id = source.Id;
         Target = source.Target;
+        OriginalContactOnly = source.OriginalContactOnly;
+        ShowBody = source.ShowBody;
         DamageFraction = source.DamageFraction;
         Effects = source.Effects;
         ActiveFrom = source.ActiveFrom;

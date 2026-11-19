@@ -1,0 +1,21 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.YinShadowDraw",
+  "Name": "潜影牵身",
+  "Resource": "mana",
+  "Cost": 7,
+  "Cooldown": 2.6,
+  "Lifetime": 2.45,
+  "Power": 8,
+  "TargetRange": 18,
+  "Binding": {"Anchor": "Target", "Follow": true, "ContactAtDestination": true},
+  "Impact": {"DamageScale": 0, "Impulse": [-1.65, 0, 0], "SlideSeconds": 0.30, "StaggerSeconds": 0.24},
+  "Root": {
+    "Id": "trace", "Form": "yin_field_basin", "Matter": "yin", "State": "energy", "Scale": 0.43,
+    "Correspondence": {"Id": "shadow", "DamageFraction": 0, "OriginalContactOnly": true, "ShowBody": true,
+      "ActiveFrom": 0.33, "ActiveUntil": 1.74},
+    "ActiveFrom": 0.27, "ActiveUntil": 1.82,
+    "Contact": {"Mode": "Interval", "Interval": 0.34},
+    "Operations": [{"Kind": "Animate", "Clip": "run", "Fade": 0.2}]
+  }
+}

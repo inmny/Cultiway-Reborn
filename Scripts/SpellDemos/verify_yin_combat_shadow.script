@@ -1,0 +1,74 @@
+var definition = Spell("潜影牵身");
+FormVisualInstance[] Shadows() => FormVisualScene.Instances.Where(v => v.Surface == "yin_shadow").ToArray();
+ConstructedContact[] Hits(long id) => contacts.Where(f => f.CastId == id && f.TargetId == victim.id).ToArray();
+float X() => victim.current_position.x;
+CombatStatusEffects.RemoveStatus(victim, hold);
+var steady = new BaseStats(); steady.addTag("frozen_ai");
+var wait = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Yin.Steady")
+    .SetStats(steady).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(victim, wait, 10000, victim);
+victim.setStatsDirty(); victim.updateStats();
+try
+{
+    var first = await Use(definition);
+    float location = X(); int health = victim.data.health;
+    Check(Shadows().Length == 0, "没有真实作用前不显示对应立影");
+    if (recordView.Length > 0)
+    {
+        await SetCamera(5.5f);
+        const float duration = 3.22f;
+        double mark = -1, start = World.world.getCurWorldTime(); float highest = 0, width = 0;
+        var times = await Film(duration, () =>
+        {
+            var shown = Shadows();
+            if (shown.Length == 0) return;
+            highest = Mathf.Max(highest, shown[0].Transform.m22);
+            if (mark < 0 && highest >= 1.1f)
+            {
+                mark = World.world.getCurWorldTime() - start;
+                width = ((Mesh)Field(shown[0], "Geometry")).bounds.size.x * shown[0].Transform.m00;
+            }
+        });
+        Check(Hits(first.Id).Any(h => h.StaggerSeconds > 0) && mark >= 0 && width > .6f && first.Cast.Finished &&
+            victim.isAlive() && Hits(first.Id).All(h => !h.DamageAttempted && h.TargetHealthBefore == h.TargetHealthAfter) && Shadows().Length == 0,
+            "常速录到从真实作用抬起的原身映像、人物存活和影身退出",
+            new { hits = Hits(first.Id).Length, mark, highest, width, finished = first.Cast.Finished, x = X(),
+                alive = victim.isAlive(), health, finalHealth = victim.data.health, shadows = Shadows().Length });
+        return new { passed = true, scene = "construction", resource = "mana", paid = definition.Cost,
+            view = recordView, location, end = X(), highest, width, duration, times, previewFrame = times.FindIndex(t => t >= mark) };
+    }
+    for (int i = 0; i < 22 && !Hits(first.Id).Any(); i++) await Advance(.035f);
+    var firstHit = Hits(first.Id).FirstOrDefault();
+    var fact = new { firstHit.TargetId, firstHit.StaggerSeconds, firstHit.ForceApplied, vx = firstHit.VelocityChange.x, at = firstHit.WorldTime };
+    Check(firstHit.TargetId == victim.id && firstHit.StaggerSeconds > 0 && firstHit.ForceApplied && firstHit.VelocityChange.x < 0,
+        "原对应者同时受到实际牵引和短限制，力朝来源", fact);
+    var low = Shadows().Single();
+    Check(CombatStatusEffects.HasStatus(victim, Cultiway.Content.StatusEffects.Stagger, source), "确实收到短限制状态");
+    await Advance(.44f);
+    var up = Shadows().Single();
+    int vertices = ((Mesh)Field(up, "Geometry")).vertexCount;
+    Check(low.Transform.m22 < .5f && up.Transform.m22 > .9f && vertices > 0,
+        "脚下低影由同一身体表面站起来", new { low = low.Transform.m22, up = up.Transform.m22, vertices });
+    var bystander = Make(72);
+    bystander.setKingdom(victim.kingdom);
+    Place(bystander, X(), victim.current_position.y + .16f);
+    await Advance(1.11f);
+    int settled = Hits(first.Id).Length;
+    Check(!contacts.Any(f => f.CastId == first.Id && f.TargetId == bystander.id) && victim.isAlive() && victim.data.health == health,
+        "近旁人物不会代替原身承接联系，原身未被隐藏或扣血");
+    await Advance(.78f);
+    Check(first.Cast.Finished && Shadows().Length == 0 && Hits(first.Id).Length == settled && !BodyControlState.IsBusy(victim.id) && X() < location - .10f &&
+        !CombatStatusEffects.HasStatus(victim, Cultiway.Content.StatusEffects.Stagger, source) && World.world.GetTileSimple((int)X(), (int)victim.current_position.y) != null,
+        "联系到期后不再牵引，影身折回，原人物在合法地面自由行动",
+        new { x = X(), y = victim.current_position.y, settled });
+
+    var interrupted = await Use(definition);
+    for (int i = 0; i < 22 && Hits(interrupted.Id).Length == 0; i++) await Advance(.035f);
+    Check(Hits(interrupted.Id).Length == 1 && Shadows().Length == 1, "再施放能重新建立实际联系");
+    source.dieAndDestroy(AttackType.None);
+    await Advance(.92f);
+    Check(interrupted.Cast.Finished && Hits(interrupted.Id).Length == 1 && victim.isAlive() && Shadows().Length == 0 &&
+        !BodyControlState.IsBusy(victim.id) && !CombatStatusEffects.HasStatus(victim, Cultiway.Content.StatusEffects.Stagger, source), "来源中断后没有后续牵引，原身存活无滞留");
+    return new { passed = true, fact, original = location, end = X(), settled };
+}
+finally { ReleaseChecks(); }

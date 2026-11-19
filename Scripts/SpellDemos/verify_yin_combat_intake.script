@@ -1,0 +1,91 @@
+var definition = Spell("玄阴汲流");
+foreach (var actor in new[] { source, victim })
+{
+    actor.GetExtend().AddComponent(new Cultiway.Content.Components.Xian { level = 2, wakan = 0 });
+    actor.GetExtend().MarkCultiwayStatsDirty();
+    actor.setStatsDirty(); actor.updateStats();
+}
+float Balance(Actor actor) => actor.GetExtend().GetCultisys<Cultiway.Content.Components.Xian>().wakan;
+void Set(Actor actor, float value) => actor.GetExtend().GetCultisys<Cultiway.Content.Components.Xian>().wakan = value;
+float Max(Actor actor) => actor.stats[Cultiway.Content.BaseStatses.MaxWakan.id];
+bool Shows(string id) => FormVisualScene.Instances.Any(v => v.Resource.Description.Id == id);
+int Hits(long id) => contacts.Count(f => f.CastId == id && f.TargetId == victim.id);
+Check(Max(source) > 24 && Max(victim) > 24, "双方有真实灵气账户和一轮转移所需余额");
+var changes = new List<(bool Donor, WakanMutation Mutation)>();
+void Changed(ActorExtend actor, in WakanMutation change)
+{
+    if (actor.Base == victim || actor.Base == source) changes.Add((actor.Base == victim, change));
+}
+float Spent() => changes.Where(x => x.Donor && x.Mutation.Kind == WakanMutationKind.Spend).Sum(x => -x.Mutation.Delta);
+float Received()
+{
+    float sum = 0;
+    for (int i = 1; i < changes.Count; i++)
+    {
+        var from = changes[i - 1]; var to = changes[i];
+        // 一次转移在同一个调用中先扣后加，修炼单独增加的灵气不会计入。
+        if (from.Donor && from.Mutation.Kind == WakanMutationKind.Spend && !to.Donor && to.Mutation.Kind == WakanMutationKind.Gain)
+            sum += to.Mutation.Delta;
+    }
+    return sum;
+}
+WakanResourceService.RegisterMutationCommitted(Changed);
+Set(source, 8); Set(victim, 24);
+try
+{
+    var first = await Use(definition);
+    float ownerBefore = Balance(source), targetBefore = Balance(victim);
+    Check(!Shows("yin_transfer_wrap") && !Shows("yin_transfer_flow"), "接触前不出现裹身和转移画面");
+    if (recordView.Length > 0)
+    {
+        await SetCamera(5.9f);
+        const float duration = 3.48f;
+        double mark = -1, start = World.world.getCurWorldTime();
+        var times = await Film(duration, () =>
+        {
+            if (mark < 0 && Shows("yin_transfer_wrap") && Shows("yin_transfer_flow")) mark = World.world.getCurWorldTime() - start;
+        });
+        Check(Hits(first.Id) >= 2 && Spent() > 0 && Mathf.Abs(Received() - Spent()) < .01f && mark >= 0 && first.Cast.Finished && !Shows("yin_transfer_flow"),
+            "常速记录了实际入账、阴质包裹、流束和自然退场", new { hits = Hits(first.Id), mark, finished = first.Cast.Finished, owner = Balance(source) });
+        return new { passed = true, scene = "construction", resource = "mana", paid = definition.Cost,
+            view = recordView, ownerBefore, targetBefore, ownerAfter = Balance(source), targetAfter = Balance(victim),
+            actualTransfer = Spent(),
+            duration, times, previewFrame = times.FindIndex(t => t >= mark) };
+    }
+    for (int i = 0; i < 16 && Hits(first.Id) < 2; i++) await Advance(.06f);
+    float added = Received(), removed = Spent();
+    int hitCount = Hits(first.Id);
+    Check(hitCount >= 2 && added > 0f && Mathf.Abs(added - removed) < .01f && Shows("yin_transfer_wrap"),
+        "潭内分次真实转移，双方改变量相等，且只有入账后裹身", new { hitCount, added, removed });
+    Place(victim, 69, 77);
+    await Advance(3f);
+    Check(Hits(first.Id) == hitCount && Mathf.Abs(Received() - added) < .01f && Mathf.Abs(Spent() - removed) < .01f && first.Cast.Finished && !Shows("yin_transfer_flow"),
+        "离开作用面即停止；已经入账的转移保留，主体和余流自然退场");
+
+    changes.Clear();
+    Set(source, Max(source)); Set(victim, 13);
+    var full = await Use(definition);
+    await Advance(.82f);
+    Check(Hits(full.Id) > 0 && Spent() == 0 && !Shows("yin_transfer_wrap") && !Shows("yin_transfer_flow"),
+        "收受者已满仍可确实接触，但不能扣除受术者余额或产生假画面", new { hits = Hits(full.Id), victim = Balance(victim) });
+    await Advance(2.55f);
+
+    changes.Clear();
+    Set(source, 8); Set(victim, 1.5f);
+    var last = await Use(definition);
+    for (int i = 0; i < 14 && Hits(last.Id) == 0; i++) await Advance(.05f);
+    Check(Hits(last.Id) == 1 && Mathf.Abs(Spent() - 1.5f) < .01f && Mathf.Abs(Received() - Spent()) < .01f, "接触少量灵气时只转走真实余额", new { victim = Balance(victim), owner = Balance(source) });
+    changes.Clear();
+    Set(victim, 9);
+    source.dieAndDestroy(AttackType.None);
+    await Advance(1.15f);
+    Check(last.Cast.Finished && Spent() == 0 && !Shows("yin_transfer_wrap") && !Shows("yin_transfer_flow"),
+        "来源真实死亡后停止汲取，已入账的余流仅消退");
+    return new { passed = true, transferred = added, removed, hits = hitCount, fullContacts = Hits(full.Id) };
+}
+finally
+{
+    var observer = typeof(WakanResourceService).GetField("mutationCommitted", F);
+    observer.SetValue(null, Delegate.Remove((Delegate)observer.GetValue(null), (WakanMutationHandler)Changed));
+    ReleaseChecks();
+}

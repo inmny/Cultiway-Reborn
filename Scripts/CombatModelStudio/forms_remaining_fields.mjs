@@ -162,19 +162,51 @@ function yin() {
   publishYin('yin_field','yin',geometry,'yin_depth',.455);
 }
 
-/** 低处有连续作用面，偏离全圆的外缘有向内折的高肩和可见开口。 */
+/** 阴质从低凹面滑入，三处厚肩错开包向内侧，留出明确的缺口。 */
 function yinBasin() {
-  const geometry=body([[0,.015],[2.22,.015],[2.47,.075],[2.50,.15],[2.47,.24],
-    [2.35,.34],[2.16,.33],[1.84,.24],[1.36,.19],[.70,.165],[0,.16]],72);
+  const geometry=body([[0,.016],[2.24,.016],[2.44,.041],[2.50,.10],[2.47,.20],
+    [2.33,.34],[2.11,.39],[1.84,.31],[1.68,.22],[1.26,.13],[.76,.145],[0,.17]],96);
   const points=geometry.getAttribute('position');
   for(let i=0;i<points.count;i++) {
     const p=new T.Vector3().fromBufferAttribute(points,i), a=Math.atan2(p.y,p.x), r=Math.hypot(p.x,p.y);
-    const rim=T.MathUtils.smoothstep(r,1.38,2.36)*T.MathUtils.smoothstep(p.z,.13,.32);
-    const lift=.51*T.MathUtils.smoothstep(Math.sin(a*2-.6+Math.sin(a)*.56)+.24*Math.cos(a*3+1.1),-.53,1);
-    const depth=.055*Math.sin(a*3-r*3.4)*T.MathUtils.smoothstep(r,.25,1.9)*(1-rim);
-    points.setZ(i,p.z+rim*(lift-.08)+depth*T.MathUtils.smoothstep(p.z,.08,.18));
+    const rim=T.MathUtils.smoothstep(r,1.38,2.23)*T.MathUtils.smoothstep(p.z,.09,.34);
+    const shoulder=T.MathUtils.smoothstep(Math.cos(a*2.65 + .46*Math.sin(a*2) - r*.84),-.50,.94);
+    const gap=T.MathUtils.smoothstep(Math.cos(a-.55),.52,.96);
+    const lift=(.22+.73*shoulder)*(1-.96*gap);
+    const curl=a+.17*rim*lift;
+    const fold=.043*Math.sin(a*4-r*6.8)*T.MathUtils.smoothstep(r,.32,2)*(1-rim);
+    const edge=T.MathUtils.smoothstep(r,.78,2.48);
+    const radius=r+edge*(.13*Math.sin(a*3-.29)+.057*Math.sin(a*7+.38))-.21*rim*lift;
+    points.setXYZ(i, Math.cos(curl)*radius, Math.sin(curl)*radius,
+      p.z+rim*(lift-.07)+.10*rim*Math.cos(a*4+.9)+fold*T.MathUtils.smoothstep(p.z,.08,.17));
   }
-  publishYin('yin_field_basin','yinBasin',geometry,'yin_basin',.85);
+  publishYin('yin_field_basin','yinBasin',geometry,'yin_basin',1.24);
+}
+
+/** 裹身为向内弯合的厚膜，流束有连续起伏和闭合截面。二者只由实际转移发布。 */
+function yinTransfer() {
+  const wrap=body([[0,-.41],[.43,-.42],[.78,-.37],[.93,-.18],[1,.08],
+    [.91,.31],[.72,.51],[.59,.58],[.49,.52],[.54,.38],[.68,.24],
+    [.73,.04],[.68,-.19],[.41,-.32],[0,-.29]],64);
+  const points=wrap.getAttribute('position');
+  for(let i=0;i<points.count;i++) {
+    const x=points.getX(i), y=points.getY(i), z=points.getZ(i), angle=Math.atan2(y,x);
+    const upper=T.MathUtils.smoothstep(z,-.28,.48)*Math.hypot(x,y);
+    const notch=T.MathUtils.smoothstep(Math.cos(angle+.65-z*1.9),.10,.98);
+    const squeeze=1-.25*upper*Math.cos(angle*2+z*4);
+    points.setXYZ(i,x*squeeze,y*squeeze,z-upper*(.42*notch+.10*Math.sin(angle*3)));
+  }
+  const flow=new T.LatheGeometry([[0,0],[.23,.06],[.63,.19],[1,.34],
+    [.88,.53],[.60,.72],[.27,.90],[0,1]].map(p=>new T.Vector2(...p)),32);
+  const flowPoints=flow.getAttribute('position');
+  for(let i=0;i<flowPoints.count;i++) {
+    const x=flowPoints.getX(i), t=flowPoints.getY(i), z=flowPoints.getZ(i), bend=Math.sin(t*Math.PI);
+    flowPoints.setXYZ(i,x+.70*bend,t,z*(.66+.21*Math.sin(t*11))+.73*bend);
+  }
+  const face={Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true};
+  for (const [type, geometry, surface] of [['wrap',wrap,'yin_wrap'],['flow',flow,'yin_flow']])
+    write(`yin_transfer_${type}`,[part('yin_body',geometry,surface)],[],[],[],[],false,face,
+      structure('volume','forms_remaining_fields.mjs','yinTransfer',{cycle:.68}, {yin_body:[`yin.${type}`]},[]));
 }
 
 function publishYin(id,entry,geometry,surface,height) {
@@ -184,7 +216,20 @@ function publishYin(id,entry,geometry,surface,height) {
   const bind=p=>yinWeights(new T.Vector3(...p)).map(([i,Weight])=>({Control:controls[i].Id,Weight}));
   const contacts=floorContacts(0,(a,b)=>({AInfluences:bind(a),BInfluences:bind(b)}));
   const run=motion('run',2.4,true,controls,48,(i,p,c)=>({position:[c.Position[0],c.Position[1],i?.015*Math.sin(p*Math.PI*2+i):0]}));
-  write(id,[part('yin_surface',geometry,surface)],[],contacts,controls,[run],false,
+  const clips=[run];
+  if(surface==='yin_basin') {
+    const gather=motion('gather',2.65,false,controls,64,(i,p,c)=>{
+      const time=p*2.65, edge=i!==0;
+      const fold=T.MathUtils.smoothstep(time,0,.31)*(1-T.MathUtils.smoothstep(time,2.01,2.56));
+      const turn=edge ? .025*Math.sin(time*6.2 + i*.9)*fold : 0;
+      return {position:[c.Position[0]-c.Position[1]*turn,c.Position[1]+c.Position[0]*turn,
+        edge ? -.26*(1-fold)+.033*Math.sin(time*4+i*1.5)*fold : -.12*(1-fold)]};
+    });
+    for(const key of gather.Keys) key.Fade=round(Math.max(1-T.MathUtils.smoothstep(key.At,.025,.32),
+      T.MathUtils.smoothstep(key.At,2.03,2.60)));
+    clips.push(gather);
+  }
+  write(id,[part('yin_surface',geometry,surface)],[],contacts,controls,clips,false,
     {Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
     structure('surface','forms_remaining_fields.mjs',entry,{radius:2.5,height,cycle:2.4},
       {yin_surface:['yin.surface','field.body']},[]));
@@ -192,6 +237,6 @@ function publishYin(id,entry,geometry,surface,height) {
 
 /** 一次导出两种剩余的原攻击领域。 */
 export function makeRemainingFields(){
-  wind();yin();windOpen();yinBasin();
+  wind();yin();windOpen();yinBasin();yinTransfer();
   baleful('baleful_wind_shear');baleful('baleful_wind_column',true);baleful('baleful_wind_mark',false,true);
 }

@@ -340,6 +340,7 @@ public sealed class ConstructionMeasure
                 effects += impact.EquipmentRepair.Durability * .1d * strength;
             if (impact.Signal != null)
                 effects += .25d + impact.Signal.Duration * .25d * strength;
+            effects += impact.WakanTransfer * .5d * strength;
             if (impact.InventoryAging != null)
                 effects += impact.InventoryAging.MaximumItems * (double)impact.InventoryAging.Seconds * strength /
                            Const.TimeScales.SecPerYear;

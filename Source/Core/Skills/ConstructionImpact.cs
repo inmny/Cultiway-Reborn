@@ -48,6 +48,10 @@ public sealed class ConstructionImpact
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public int AgeYears;
 
+    /// <summary>每次实际命中可从受术者交给当前归属者的灵气上限。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float WakanTransfer;
+
     /// <summary>本次真实命中腐蚀的明确装备栏，空值表示没有装备腐蚀。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionEquipmentErosion EquipmentErosion;
@@ -204,6 +208,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>已复制并检查的库存物件寿命推进。</summary>
     public CompiledInventoryAging InventoryAging { get; }
 
+    /// <summary>经检查的单次灵气转移上限；零表示不转移。</summary>
+    public float WakanTransfer { get; }
+
     /// <summary>已经独立复制的明确组成；空值继续读取接触当时的真实材料。</summary>
     public ElementComposition? Element { get; }
 
@@ -271,7 +278,7 @@ public sealed class CompiledConstructionImpact
     internal bool HasActorEffectBesidesStatuses => EquipmentRepair != null || HasActorEffectBesidesStatusesAndRepair;
 
     /// <summary>扣除状态和修复后的作用，用于排除混合用途。</summary>
-    internal bool HasActorEffectBesidesStatusesAndRepair => Signal != null || ReleaseGrab != ConstructionGrabRelease.None || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) || Spreads.Any(spread => spread.HasEffect) ||
+    internal bool HasActorEffectBesidesStatusesAndRepair => WakanTransfer > 0f || Signal != null || ReleaseGrab != ConstructionGrabRelease.None || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) || Spreads.Any(spread => spread.HasEffect) ||
                                   StaggerSeconds > 0f || BindSeconds > 0f || StrainSeconds > 0f || ExposureSeconds > 0f;
 
     /// <summary>实际推拉中心。</summary>
@@ -298,6 +305,9 @@ public sealed class CompiledConstructionImpact
             throw new InvalidDataException(path + "/ReleaseGrab：需要有效的抓持解除方式");
         Targets = source?.Targets ?? SkillUseTargetRelation.Hostile;
         DamageScale = source?.DamageScale ?? 1f;
+        WakanTransfer = source?.WakanTransfer ?? 0f;
+        if (float.IsNaN(WakanTransfer) || WakanTransfer < 0f || WakanTransfer > 1000f)
+            throw new InvalidDataException(path + "/WakanTransfer：单次灵气转移需在0到1000之间");
         AgeYears = source?.AgeYears ?? 0;
         if (AgeYears < 0 || AgeYears > 1000000)
             throw new InvalidDataException(path + "/AgeYears：每次老化需0至一百万整数年");

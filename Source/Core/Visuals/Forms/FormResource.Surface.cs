@@ -37,7 +37,7 @@ public sealed partial class FormResource
         "aegis_jade" or "spirit_core" or "spirit_beam_edge" or "spirit_beam_core" => "spirit_pearl",
         "aegis_solar" or "solar_gold" or "solar_beam_edge" or "solar_beam_flank" or "solar_beam_core" => "solar_light",
         "aegis_lightning" or "thunder_core" or "thunder_body" or "thunder_corona" or "thunder_arc" or "thunder_arc_fork" => "lightning_dense",
-        "yin_basin" or "yin_moon" => "yin_depth",
+        "yin_basin" or "yin_moon" or "yin_wrap" or "yin_flow" => "yin_depth",
         "poison_core" => "poison_vapor",
         "entropy_depth" => "entropy_veil",
         _ => surface
