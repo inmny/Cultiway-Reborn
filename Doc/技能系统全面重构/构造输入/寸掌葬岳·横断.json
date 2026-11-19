@@ -1,0 +1,231 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.BuryMountainPalm.CrossRidge",
+  "Name": "寸掌葬岳·横断",
+  "Revision": 2,
+  "Lifetime": 2.4,
+  "Cost": 6.5,
+  "Cooldown": 0.78,
+  "Power": 2.2,
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": null,
+    "Grip": "grip",
+    "ActiveFrom": 0.15,
+    "ActiveUntil": 0.255,
+    "Occupancy": 5,
+    "Keys": [
+      {
+        "At": 0,
+        "Hand": [
+          0.22,
+          0.2,
+          0.52
+        ],
+        "Torso": [
+          0,
+          0,
+          0
+        ],
+        "Turn": 0,
+        "Rotation": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "At": 0.12,
+        "Hand": [
+          0.12,
+          0.25,
+          0.57
+        ],
+        "Torso": [
+          -0.025,
+          0,
+          0
+        ],
+        "Turn": -13,
+        "Rotation": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "At": 0.205,
+        "Hand": [
+          0.55,
+          0.12,
+          0.62
+        ],
+        "Torso": [
+          0.045,
+          -0.01,
+          -0.015
+        ],
+        "Turn": 12,
+        "Rotation": [
+          0,
+          25,
+          0
+        ]
+      },
+      {
+        "At": 0.25,
+        "Hand": [
+          0.53,
+          0.12,
+          0.62
+        ],
+        "Torso": [
+          0.04,
+          -0.01,
+          -0.015
+        ],
+        "Turn": 10,
+        "Rotation": [
+          0,
+          25,
+          0
+        ]
+      },
+      {
+        "At": 0.48,
+        "Hand": [
+          0.22,
+          0.2,
+          0.52
+        ],
+        "Torso": [
+          0,
+          0,
+          0
+        ],
+        "Turn": 0,
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Id": "rest"
+      }
+    ],
+    "ImpactRecoil": 0.035,
+    "Responses": [
+      {
+        "Result": 0,
+        "RecoverFrom": "rest",
+        "Seconds": 0.175
+      },
+      {
+        "Result": 1,
+        "RecoverFrom": "rest",
+        "Seconds": 0.08
+      },
+      {
+        "Result": 2,
+        "RecoverFrom": "rest",
+        "Seconds": 0.16
+      }
+    ],
+    "Impact": {
+      "DamageScale": 0.85,
+      "StaggerSeconds": 0.12
+    }
+  },
+  "Resource": "wakan",
+  "Root": {
+    "Id": "ground-front",
+    "Form": "folding_ground_slab",
+    "Matter": "physical",
+    "Scale": 1.0,
+    "Activation": {
+      "Source": "body",
+      "Trigger": 1,
+      "Delay": 0.075,
+      "Placement": 1
+    },
+    "Impact": {
+      "DamageScale": 0.34,
+      "Knockback": {
+        "Distance": 0.55,
+        "Height": 0
+      },
+      "StaggerSeconds": 0.18
+    },
+    "Operations": [
+      {
+        "Kind": 14,
+        "Propagation": {
+          "Range": 7.2,
+          "Speed": 9.5,
+          "Seconds": 0.69,
+          "Height": 1.18,
+          "InnerRadius": 1.4,
+          "GroundReach": 1.1,
+          "TiltDegrees": 53,
+          "Angle": 53,
+          "Attenuation": 0.085,
+          "MaximumStep": 0.42,
+          "CellCost": 0.012,
+          "MaximumCells": 44
+        }
+      }
+    ],
+    "ContactGroup": "ridge",
+    "Children": [
+      {
+        "Id": "cross-ridge",
+        "Form": "folding_ground_slab",
+        "Matter": "physical",
+        "Rotation": [
+          0,
+          90,
+          0
+        ],
+        "ContactGroup": "ridge",
+        "Activation": {
+          "Source": "root",
+          "Trigger": 10,
+          "Threshold": 3.7,
+          "Delay": 0.06,
+          "Placement": 1
+        },
+        "Impact": {
+          "DamageScale": 0.31,
+          "Knockback": {
+            "Distance": 0.6,
+            "Height": 0
+          },
+          "StaggerSeconds": 0.15
+        },
+        "Operations": [
+          {
+            "Kind": 14,
+            "Propagation": {
+              "Range": 3.9,
+              "Speed": 8.8,
+              "Seconds": 0.62,
+              "Height": 1.16,
+              "InnerRadius": 1.1,
+              "Angle": 41,
+              "Attenuation": 0.075,
+              "MaximumStep": 0.42,
+              "CellCost": 0.012,
+              "MaximumCells": 24,
+              "TiltDegrees": 59
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "Parent": {
+    "Id": "Cultiway.Demo.BuryMountainPalm",
+    "Revision": 2,
+    "Creator": 0,
+    "Change": "走足地面路程后，从实际到达格侧向翻起一道独立岩脊"
+  }
+}

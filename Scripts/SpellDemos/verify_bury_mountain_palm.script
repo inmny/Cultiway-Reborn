@@ -8,7 +8,8 @@ owner.NewCultisys(Cultisyses.Xian);
 owner.GetCultisys<Xian>().level = 2;
 owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
 var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
-var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.BuryMountainPalm.Quiet")
+var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.BuryMountainPalm.Quiet") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.BuryMountainPalm.Quiet")
     .SetStats(quietStats).SetDuration(10000).Build();
 foreach (Actor actor in new[] { near, far })
 {
@@ -80,7 +81,7 @@ async Task Shot(string name)
     Screen.Capture(Path.Combine(folder, name + ".png")); await Game.NextFrame();
 }
 object Trace() => contacts.Select(fact => new { fact.TargetId, fact.Node, fact.Age, x = fact.Position.x, y = fact.Position.y,
-    z = fact.Position.z, fact.TargetHealthBefore, fact.TargetHealthAfter, fact.ForceApplied, push = fact.VelocityChange.x }).ToArray();
+    z = fact.Position.z, fact.TargetHealthBefore, fact.TargetHealthAfter, fact.ForceApplied, push = fact.VelocityChange.x, lateralPush = fact.VelocityChange.y }).ToArray();
 async Task Pay()
 {
     float before = source.stats[BaseStatses.MaxWakan.id] * .82f;

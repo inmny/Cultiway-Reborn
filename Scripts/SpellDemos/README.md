@@ -2292,3 +2292,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 寸掌葬岳（9.27）
 
 在已启动的独立游戏中运行 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_bury_mountain_palm.py`。复用原掌击场地，核对真实前后两处命中、岩片和作用角点、遇水隙断开，以及落稳后再次施放。可编辑资料见 [寸掌葬岳](../../Doc/技能系统全面重构/构造输入/寸掌葬岳.json)。
+
+同一入口加 `--section save` 核对「横断」的侧脊、两份正式构造保存及重开编辑。`--section native` 或 `--section worldfall` 录制相应视角下的原招；两次均确认实际掌击、后排命中和回落后才编码。
