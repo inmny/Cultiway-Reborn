@@ -59,7 +59,7 @@ export function makeEarthSpikes() {
 
 
 /** 连续封闭墙面保留错落顶缘，横向控制共同承托显示、挂点和实际接触。 */
-export function makeEarthWall() {
+function makeLegacyEarthWall() {
   const count=13,length=5,halfThickness=.3,positions=[],uv=[],triangles=[];
   const crest=x=>2.05+.12*Math.sin(x*3.1+.4)+.08*Math.cos(x*5.3);
   const controls=Array.from({length:count},(_,i)=>({Id:`bed_${i}`,Position:[-length/2+length*i/(count-1),0,0],Rotation:[0,0,0,1]}));
@@ -102,4 +102,91 @@ export function makeEarthWall() {
     .map(([Id,p])=>({Id,Part:0,Position:p.toArray(),Direction:[0,0,1],Influences:bind(p)}));
   write('earth_wall',[body],anchors,contacts,controls,[],true,{Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
     structure('surface','forms_earth.mjs','makeEarthWall',{length,halfThickness,controls:count}, {wall:['terrain.wall','barrier.face']},[]));
+}
+
+/** 岩墙在原阻挡体内刻出岩层，骨架仍共同承托墙面、挂点和实际接触。 */
+function makeEarthWallStrata() {
+  const count = 13, length = 5, radius = .245, positions = [], uv = [], triangles = [];
+  const crest = x => 2.05 + .12 * Math.sin(x * 3.1 + .4) + .08 * Math.cos(x * 5.3);
+  const controls = Array.from({length: count}, (_, i) => ({Id: `bed_${i}`,
+    Position: [-length / 2 + length * i / (count - 1), 0, 0], Rotation: [0, 0, 0, 1]}));
+  const weights = p => {
+    const at = T.MathUtils.clamp((p.x / length + .5) * (count - 1), 0, count - 1);
+    const i = Math.min(count - 2, Math.floor(at)), u = at - i;
+    return [[i, 1 - u], [i + 1, u]];
+  };
+  const bind = p => weights(p).filter(([, weight]) => weight > 0).map(([i, Weight]) => ({Control: controls[i].Id, Weight}));
+  const columns = Array.from({length: 11}, (_, i) => {
+    const x = -2.25 + i * .45;
+    return {x, bottom: .245, top: crest(x) - .27};
+  });
+  const contacts = columns.map(({x, bottom, top}, i) => {
+    const a = new T.Vector3(x, 0, bottom), b = new T.Vector3(x, 0, top);
+    return {Id: `face_${i}`, Part: 0, A: a.toArray(), B: b.toArray(), Radius: radius, AInfluences: bind(a), BInfluences: bind(b)};
+  });
+  const span = (column, x, z) => Math.sqrt(Math.max(0, radius ** 2 - (x - column.x) ** 2 -
+    (z - T.MathUtils.clamp(z, column.bottom, column.top)) ** 2));
+  const ring = (x, shell) => {
+    const margin = Math.min(...shell.map(c => span(c, x, c.bottom)));
+    const end = T.MathUtils.smoothstep(Math.abs(x), 2.24, 2.49);
+    const base = radius - margin + .012;
+    const top = Math.min(crest(x) - end * .26, ...shell.map(c => c.top + margin - .022));
+    const profile = (side, z, width) => [x, side * width * Math.min(...shell.map(c => span(c, x, z))), z];
+    const sideProfile = side => {
+      const seam = .41 + .043 * Math.sin(x * 3.4 + side) + .019 * Math.cos(x * 8.5 - side);
+      const shoulder = .72 + .055 * Math.cos(x * 4.4 - side);
+      const broken = .5 + .5 * Math.sin(x * 5.7 + 1.8 * side + .6 * Math.cos(x * 2.9));
+      return [[0, .33], [.07, .82], [.20, .99 - .10 * broken], [seam - .08, .91],
+        [seam, .58 + .18 * broken], [seam + .045, .94], [shoulder, .98 - .14 * broken],
+        [.88, .79], [1, .40 - .11 * broken]].map(([level, width]) => profile(side, T.MathUtils.lerp(base, top, level), width));
+    };
+    return [...sideProfile(-1), ...sideProfile(1).reverse()];
+  };
+  // 每小段归属同一阻挡体，交界截面归属两侧。面的三角形留在原封闭范围内。
+  const rings = [];
+  for (let i = 0; i < columns.length; i++) {
+    const column = columns[i], next = columns[i + 1];
+    if (i === 0) for (const offset of [-.237, -.17, -.1]) rings.push(ring(column.x + offset, [column]));
+    rings.push(ring(column.x, [column]));
+    if (next) {
+      rings.push(ring(column.x + .11, [column]));
+      rings.push(ring((column.x + next.x) * .5, [column, next]));
+      rings.push(ring(next.x - .10, [next]));
+    } else for (const offset of [.1, .17, .237]) rings.push(ring(column.x + offset, [column]));
+  }
+  const sides = rings[0].length;
+  const append = p => { positions.push(...p); uv.push(p[0] / length + .5 + .045 * p[1], p[2] / 2.3); };
+  for (let i = 0; i < rings.length - 1; i++) for (let side = 0; side < sides; side++) {
+    const a = rings[i], b = rings[i + 1], next = (side + 1) % sides, start = positions.length / 3;
+    for (const p of [a[side], b[side], b[next], a[next]]) append(p);
+    triangles.push(start, start + 1, start + 2, start, start + 2, start + 3);
+  }
+  for (const end of [0, rings.length - 1]) {
+    const edge = rings[end], start = positions.length / 3;
+    append([edge[0][0], 0, (edge[0][2] + edge[sides / 2][2]) * .5]);
+    edge.forEach(append);
+    for (let side = 0; side < sides; side++) {
+      const a = start + 1 + side, b = start + 1 + (side + 1) % sides;
+      triangles.push(start, ...(end === 0 ? [a, b] : [b, a]));
+    }
+  }
+  const geometry = new T.BufferGeometry();
+  geometry.setAttribute('position', new T.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+  geometry.setIndex(triangles);
+  skin(geometry, weights);
+  const body = part('wall', geometry, 'stone_strata');
+  // 计算外法线后，发布时转成 Unity 正面顺序。
+  for (let i = 0; i < body.Triangles.length; i += 3)
+    [body.Triangles[i], body.Triangles[i + 2]] = [body.Triangles[i + 2], body.Triangles[i]];
+  const anchors = [['left', new T.Vector3(-2.5, 0, 0)], ['right', new T.Vector3(2.5, 0, 0)], ['crest', new T.Vector3(0, 0, crest(0))]]
+    .map(([Id, p]) => ({Id, Part: 0, Position: p.toArray(), Direction: [0, 0, 1], Influences: bind(p)}));
+  write('earth_wall_strata', [body], anchors, contacts, controls, [], true, {Forward: [0, 1, 0], Up: [0, 0, 1], HideBelowGround: true},
+    structure('surface', 'forms_earth.mjs', 'makeEarthWall', {length, radius, controls: count}, {wall: ['terrain.wall', 'barrier.face']}, []));
+}
+
+/** 旧自创资料仍引用原网格及其贴地基准。 */
+export function makeEarthWall() {
+  makeLegacyEarthWall();
+  makeEarthWallStrata();
 }

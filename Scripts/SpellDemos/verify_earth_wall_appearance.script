@@ -1,0 +1,108 @@
+// 9.02 C：复用 B21 的土墙、场地和人物，只复验画面与实际通行边缘。
+async Task FrameEarthWallSide(Vector3 center)
+{
+    var external = AppDomain.CurrentDomain.GetAssemblies()
+        .Select(assembly => assembly.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(type => type != null);
+    if (external == null) return;
+    object view = external.GetProperty("Instance", F).GetValue(null);
+    void Set(string field, object value) => external.GetField(field, F).SetValue(view, value);
+    object Read(string name) => external.GetField(name, F)?.GetValue(view) ?? external.GetProperty(name, F).GetValue(view);
+    var setView = external.GetMethod("SetGodView", F);
+    var canvases = Resources.FindObjectsOfTypeAll<Canvas>().Where(canvas => canvas.enabled).ToArray();
+    try
+    {
+        World.world.console.Hide();
+        foreach (var canvas in canvases) canvas.enabled = false;
+        World.world.camera.transform.position = new Vector3(center.x, center.y, World.world.camera.transform.position.z);
+        MoveCamera.instance.forceZoom(8);
+        setView.Invoke(view, new object[] { true });
+        await Game.WaitUntil(() => (bool)Read("GodShown") && (float)Read("GodAlpha") >= .999f, 600);
+        Set("_godClose", 7f); Set("_godCloseTarget", 7f); Set("_godPull", 1f);
+        Set("_godTurn", -.25f); Set("_godTurnRate", 0f); Set("_godTip", .35f); Set("_godTipRate", 0f);
+        int before = (int)Read("_godGpuApplied");
+        await Game.WaitUntil(() => (int)Read("_godGpuApplied") >= before + 3, 600);
+        string file = Path.Combine(folder, "earth-wall-side.png");
+        Screen.Capture(file);
+        await Game.WaitUntil(() => File.Exists(file), 600);
+    }
+    finally
+    {
+        setView.Invoke(view, new object[] { false });
+        foreach (var canvas in canvases) if (canvas != null) canvas.enabled = true;
+    }
+}
+
+const bool captureWall = true;
+AbilityCast live = null;
+try
+{
+    PrepareAppearanceBackdrop(60, 75, 67, 78);
+    var skill = Build();
+    ResetPeople();
+    source.addAggro(target);
+    target.addAggro(source);
+    Check(Use(skill), "原已学土墙正常受理");
+    await Advance(.25f);
+    live = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Where(run => starts.Count != 0 && (long)Field(run, "Id") == starts.Last().CastId)
+        .Select(run => (AbilityCast)Field(run, "Cast")).SingleOrDefault();
+    Check(live != null && oldWalls == 0 && Views(live).Single().Resource.Description.Id == "earth_wall_strata" &&
+          Views(live).Single().SurfaceFor(0) == "stone_strata" && Shapes(live).Count == 11,
+        "原入口实际使用新岩壁和分层石面，且沿用原 11 段阻挡");
+    Vector3 center = Center(live);
+    if (captureWall)
+    {
+        await FrameAppearance("earth-wall-near", center.x, 73, 5);
+        await FrameAppearance("earth-wall-far", center.x, 73, 20);
+        await FrameEarthWallSide(center);
+    }
+    CombatStatusEffects.RemoveStatus(target, hold);
+    target.updateStats();
+    Check(!target.isImmovable(), "路线人物解除测试定身");
+    typeof(Actor).GetField("is_immovable", F).SetValue(target, false);
+    var precalc = typeof(Actor).GetMethod("precalcMovementSpeed", F);
+    var update = typeof(Actor).GetMethod("u10_checkSmoothMovement", F);
+    var updated = typeof(Actor).GetField("_update_done", F);
+    var speed = typeof(Actor).GetField("_current_combined_movement_speed", F);
+    float Walk(float y, float distance = 6.05f)
+    {
+        target.position_height = 0;
+        Place(target, 64, y);
+        precalc.Invoke(target, new object[] { true });
+        float movement = (float)speed.GetValue(target);
+        if (movement <= 0) throw new InvalidOperationException("测试人物没有实际移动速度");
+        target.next_step_position = new Vector2(70, y);
+        updated.SetValue(target, false);
+        update.Invoke(target, new object[] { distance / movement });
+        return target.current_position.x;
+    }
+    var shapes = Shapes(live);
+    float end = shapes.Max(shape => Mathf.Max(shape.A.y, shape.B.y) + shape.Radius);
+    float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose")
+        .GetMethod("Height", F).Invoke(null, new object[] { target });
+    float radius = height * .24f;
+    float farFace = shapes.Max(shape => Mathf.Max(shape.A.x, shape.B.x) + shape.Radius) + radius;
+    float inside = end + radius - .06f, outside = end + radius + .06f;
+    float front = Walk(72), edge = Walk(inside), around = Walk(outside);
+    float partial = Walk(72, 4f);
+    Check(front == 64 && edge == 64 && around > farFace && partial == 64,
+        "实际一步在墙正面和端部内侧停下，从端部外可绕行",
+        new { center = new[] { center.x, center.y, center.z }, end, height, farFace, inside, outside, front, edge, around, partial });
+    await Advance(4.1f);
+    float cleared = Walk(72);
+    Check(live.Finished && Views(live).Count == 0 && Shapes(live).Count == 0 && cleared > farFace &&
+          endings.Any(e => e.Fact.CastId == starts.Last().CastId && !e.Fact.Cancelled),
+        "原寿命自然结束后，墙身和阻挡同时消失，正面步行恢复", new { cleared, farFace });
+    await FrameAppearance("earth-wall-cleared", center.x, 73, 5);
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (live != null && !live.Finished) live.Cancel();
+    ConstructedAbilityService.CastStarted -= Started;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

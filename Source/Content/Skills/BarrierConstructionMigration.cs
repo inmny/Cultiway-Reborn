@@ -48,7 +48,7 @@ internal static class BarrierConstructionMigration
 
     /// <summary>已完整映射的原墙与护盾分别提供自身形体和实际材料。</summary>
     /// <param name="asset">原来源登记。</param>
-    private static string Form(SkillEntityAsset asset) => asset == SkillEntities.EarthWall ? "earth_wall" :
+    private static string Form(SkillEntityAsset asset) => asset == SkillEntities.EarthWall ? "earth_wall_strata" :
         asset == SkillEntities.IceWall ? "ice_wall" : asset == SkillEntities.WoodWall ? "wood_wall" :
         asset == SkillEntities.FireWall ? "fire_wall" : asset == SkillEntities.WindWall ? "wind_wall" :
         asset == SkillEntities.SwordCurtain ? "sword_curtain" :
@@ -122,7 +122,7 @@ internal static class BarrierConstructionMigration
         } : null;
         string matter = form switch { "ice_wall" => "ice", "wood_wall" => "wood", "fire_wall" => "fire",
             "wind_wall" or "wind_aegis" => "wind", "sword_curtain" => "iron", "flame_aegis" => "fire",
-            "water_curtain" => "water", "earth_wall" => "earth",
+            "water_curtain" => "water", "earth_wall_strata" => "earth",
             "spirit_aegis" => "spirit", "lightning_aegis" => "lightning", "solar_aegis" => "yang", _ => "physical" };
         Vector3 angles = shield ? Vector3.zero : FormResource.ReadFacing(new[] {0f, 1f, 0f}, new[] {0f, 0f, 1f}, form).eulerAngles;
         return ContactEffectMigration.Bind(new AbilityDefinition

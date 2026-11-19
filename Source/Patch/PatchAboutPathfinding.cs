@@ -18,6 +18,7 @@ using life.taxi;
 using strings;
 using tools;
 using UnityEngine;
+using SkillManager = Cultiway.Core.SkillLibV3.Manager;
 
 namespace Cultiway.Patch
 {
@@ -498,6 +499,8 @@ namespace Cultiway.Patch
         {
             if (CombatWorldService.ShouldPauseMovement(actor)) return;
 
+            var barriers = SkillManager.Barriers;
+            bool checksWalls = barriers?.HasGroundBarriers == true;
             var movementBudget = actor._current_combined_movement_speed * elapsed;
             var canFlip = actor.asset.can_flip && actor.checkFlip();
             var customPathCursor = default(PathFinder.ReadyPathCursor);
@@ -523,17 +526,30 @@ namespace Cultiway.Patch
                 var distSq = dx * dx + dy * dy;
                 var deltaSq = movementDelta * movementDelta;
 
-                if (distSq >= deltaSq)
+                bool reachesTarget = distSq < deltaSq;
+                var destination = target;
+                if (!reachesTarget)
                 {
-                    if (movementDelta > 0f && distSq > 0f)
-                    {
-                        var scale = movementDelta / Mathf.Sqrt(distSq);
-                        actor.current_position = new Vector2(current.x + dx * scale, current.y + dy * scale);
-                    }
-                    return;
+                    if (movementDelta <= 0f || distSq <= 0f) return;
+                    var scale = movementDelta / Mathf.Sqrt(distSq);
+                    destination = new Vector2(current.x + dx * scale, current.y + dy * scale);
                 }
 
-                actor.current_position = target;
+                // 普通寻路直达这个入口。每一小段都要在写入位置、消费路径点之前检查墙面。
+                if (checksWalls)
+                {
+                    var allowed = barriers.RestrictGroundActor(actor, current, destination);
+                    if (allowed != destination)
+                    {
+                        actor.current_position = allowed;
+                        actor.dirty_current_tile = true;
+                        actor.stopMovement();
+                        return;
+                    }
+                }
+
+                actor.current_position = destination;
+                if (!reachesTarget) return;
                 var walked = GetBoundaryWalkedDistance(distSq);
 
                 if (CombatWorldService.TryCompletePendingMovementStop(actor)) return;

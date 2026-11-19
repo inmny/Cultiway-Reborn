@@ -748,6 +748,7 @@ internal sealed partial class FormResourceGeneration
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),
             "stone" => (2f, new Color(.34f, .31f, .27f), .96f),
+            "stone_strata" => (16f, new Color(.46f, .39f, .30f), .96f),
             "skin" => (2f, new Color(.86f, .65f, .48f), .65f),
             "horn" => (2f, new Color(.56f, .73f, .79f), .34f),
             "ivory" => (2f, new Color(.78f, .73f, .55f), .4f),
@@ -772,7 +773,7 @@ internal sealed partial class FormResourceGeneration
         found.SetColor("_Color", color);
         found.SetFloat("_Kind", kind);
         found.SetFloat("_Roughness", roughness);
-        found.SetFloat("_ZWrite", !transparent && (kind < 3f || kind >= 6f && kind < 10f) ? 1f : 0f);
+        found.SetFloat("_ZWrite", !transparent && (kind < 3f || kind >= 6f && kind < 10f || kind == 16f) ? 1f : 0f);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfall" : "Always", false);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfallTransparent" : "CultiwayNativeTransparent", false);
         if (native) found.SetShaderPassEnabled("CultiwayWorldfallSolid", false);

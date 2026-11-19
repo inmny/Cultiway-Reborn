@@ -34,6 +34,8 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 
 原土墙迁移与旧世界阻挡使用 `python3 Scripts/SpellDemos/verify_wall_migration.py`：复用独立测试游戏和现成世界，检查旧飞行法术、原版弹丸、地面走动/步法/受力、实际容量、结束恢复与失败退款。结果写入 `artifacts/skill_rebuild/trajectories/wall-migration/`。加 `--section solid-walls` 仅检查新增冰墙与木壁的独立形体、来源接管、真实阻挡及失败恢复，证据独立写入 `artifacts/skill_rebuild/trajectories/solid-walls/`，不覆盖土墙结果。完整编辑、自主创作、保存冷启动与集中录像仍在5.05的C交付点进行。
 
+土墙打磨只需 `dev.py exec --timeout 245 -- python3 Scripts/SpellDemos/verify_wall_migration.py --section earth-appearance`。沿用 B21 原已学来源和固定世界，检查人物正面、墙端内外与撤墙通行，输出近远、Worldfall 斜视与撤墙画面。已经拍过同一版资源时，使用 `--section earth-walk` 只复验普通寻路步行和撤墙。
+
 任意曲线路径使用 `verify_flight_path.script` 检查实际位置、解析速度、切向朝向、循环、延迟、速度继承、反射及预测回退；`verify_flight_contacts.script` 检查高弧线越过中间人物后实际命中后方，以及带非零横向速度的曲线反射。曲线资料、旧轨迹逐项接入范围及两份可复现输入见[曲线说明](../../Doc/技能系统全面重构/可编辑曲线与轨迹接入.md)。仍使用同一 `--construction` 录制入口，不增加单招专用工具。
 
 构造录像的每张 `materialFrames` 同时记录共同状态的地图位置 `position`，便于将路径、截图和实际接触对应。`absoluteHeight` 为真时，高度已包含共同地表；`groundHeight` 是同一快照中的局部地面高度，Worldfall 不再重复抬高。未接入共同地表的旧表现仍保留原来的相对高度。

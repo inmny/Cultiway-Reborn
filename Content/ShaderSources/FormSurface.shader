@@ -153,7 +153,7 @@ Shader "Cultiway/FormSurface"
             v = posedVertex(v,state);
             Varying o = baseVertex(v,state);
             o.material = material;
-            if (_Kind > 14.5) o.material.z = v.vertex.z;
+            if (_Kind > 14.5 && _Kind < 15.5) o.material.z = v.vertex.z;
             float elevation = o.world.z;
             if (_TerrainEnabled > .5)
             {
@@ -176,7 +176,7 @@ Shader "Cultiway/FormSurface"
             v = posedVertex(v,state);
             Varying o = baseVertex(v,state);
             o.material = material;
-            if (_Kind > 14.5) o.material.z = v.vertex.z;
+            if (_Kind > 14.5 && _Kind < 15.5) o.material.z = v.vertex.z;
             o.vertex = mul(_FP_VP, float4(o.world,1));
             o.eye = _FP_Eye.xyz - o.world; o.light = _FP_LightDir.xyz;
             return o;
@@ -382,7 +382,7 @@ Shader "Cultiway/FormSurface"
                 base+=tint.rgb*(edge*.26+energy*.10)*environmentLight;
                 alpha*=.55+.30*edge+.15*energy;
             }
-            else
+            else if (_Kind < 15.5)
             {
                 // 自发光截面按视线穿过的厚度淡出，侧缘无实体柱的高光与硬线。
                 float chord = pow(abs(dot(n, eye)), 1.35);
@@ -390,6 +390,16 @@ Shader "Cultiway/FormSurface"
                     i.material.z*2.1-_WorldTime*4.8));
                 base *= .95 + (.37-.18*_Roughness)*stream;
                 alpha *= chord*(.8+.2*stream);
+            }
+            else
+            {
+                // 岩层色随制作坐标固定；厚层缓慢变色，矿粒只在近处补出不均匀的粗面。
+                float3 q = i.material;
+                float warp = .25 * volumeNoise(q * float3(1.8, 3.0, .75));
+                float layer = smoothstep(.12, .86, .5 + .5 * sin((q.z + warp) * 11.5 + q.x * .8));
+                float grains = volumeNoise(q * float3(8, 18, 10));
+                float3 mineral = lerp(float3(.66, .62, .57), float3(1.22, 1.18, 1.04), layer);
+                base *= mineral * (.76 + .43 * grains) * (max(float3(.57, .57, .57), .63 * ambient) + diffuse * .46 * direct);
             }
             float contact = formFeedback(i);
             base += (base*.24 + float3(.035,.045,.05)*environmentLight)*contact;
@@ -402,7 +412,7 @@ Shader "Cultiway/FormSurface"
         {
             i.normal *= side;
             float4 color=shadeSurface(i,worldfall);
-            if (_Kind>14.5 || (formClosed(i)>.5 && _Kind>=2.5 && _Kind<4.5))
+            if ((_Kind>14.5 && _Kind<15.5) || (formClosed(i)>.5 && _Kind>=2.5 && _Kind<4.5))
             {
                 // 封闭光束及有体积的水冰使用前后两面，不把同一光程重复算成两份。
                 float alpha=1-sqrt(1-color.a);

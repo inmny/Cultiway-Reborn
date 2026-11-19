@@ -106,8 +106,13 @@ public readonly struct FormVisualInstance
 
     /// <summary>明确覆盖优先，其次是主体材料，握柄、眼部及泡沫保留资源自身表面。</summary>
     /// <param name="part">发布资源中的部件。</param>
-    public string SurfaceFor(int part) => Surface ??
-        (Resource.Description.Parts[part].UseMatterSurface ? MatterSurface : null) ?? Resource.Description.Parts[part].Surface;
+    public string SurfaceFor(int part)
+    {
+        FormPartDescription piece = Resource.Description.Parts[part];
+        // 岩层是石材的一种制作表面；改用其他材质时，仍按实际材料显示。
+        return Surface ?? (piece.UseMatterSurface && !(piece.Surface == "stone_strata" && MatterSurface == "stone")
+            ? MatterSurface : null) ?? piece.Surface;
+    }
 
     /// <summary>取得用于模型、挂点和作用形状的相同部位变换。</summary>
     /// <param name="part">部件索引。</param>
