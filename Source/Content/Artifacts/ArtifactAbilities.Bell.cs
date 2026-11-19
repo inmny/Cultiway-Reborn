@@ -353,11 +353,10 @@ public partial class ArtifactAbilities
                             12,
                             0.55f
                         ),
-                        new ArtifactImpactVisualCue
+                        new ArtifactAudioVisualCue
                         {
                             anchor = ArtifactVisualAnchorKind.Controller,
                             sound = "event:/SFX/HIT/HitMetal",
-                            shake_intensity = 0.13f,
                         },
                         Pulse(1.3f, 1f, 0.16f)
                     ),

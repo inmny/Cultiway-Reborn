@@ -434,11 +434,10 @@ public partial class ArtifactAbilities
                             12,
                             0.5f
                         ),
-                        new ArtifactImpactVisualCue
+                        new ArtifactAudioVisualCue
                         {
                             anchor = ArtifactVisualAnchorKind.Point,
                             sound = "event:/SFX/WEAPONS/WeaponRockLand",
-                            shake_intensity = 0.15f,
                         },
                         Pulse(1.45f, 0.92f, 0.1f)
                     ),

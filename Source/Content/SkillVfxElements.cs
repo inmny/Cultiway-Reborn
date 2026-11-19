@@ -59,28 +59,25 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
             .SetGroundImpact(ApplyIceImpact);
         Fire.SetVisualSemantic(ElementSemantic.Fire, 0.42f, 0.8f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaFire)
-            .SetImpactSound("event:/SFX/WEAPONS/WeaponFireballLand", areaShakeIntensity: 0.08f)
+            .SetImpactSound("event:/SFX/WEAPONS/WeaponFireballLand")
             .MatchAny(20, ElementSemantic.Fire, EffectSemantic.Burn)
             .SetGroundFlyOver(ApplyFireFlyOver)
             .SetGroundImpact(ApplyFireImpact);
         Earth.SetVisualSemantic(ElementSemantic.Earth, 0.4f, 0.78f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaEarth)
-            .SetImpactSound("event:/SFX/WEAPONS/WeaponRockLand", areaShakeIntensity: 0.1f)
+            .SetImpactSound("event:/SFX/WEAPONS/WeaponRockLand")
             .MatchAny(10, ElementSemantic.Earth)
             .SetGroundImpact(ApplyEarthImpact);
         Neg.SetVisualSemantic(ElementSemantic.Neg, 0.48f, 0.8f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaNeg)
-            .SetImpactSound("event:/SFX/WEAPONS/WeaponMadnessBallLand")
             .MatchAny(10, ElementSemantic.Neg)
             .SetGroundImpact(ApplyNegImpact);
         Pos.SetVisualSemantic(ElementSemantic.Pos, 0.45f, 0.8f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaPos)
-            .SetImpactSound("event:/SFX/WEAPONS/WeaponPlasmaBallLand")
             .MatchAny(10, ElementSemantic.Pos)
             .SetGroundImpact(ApplyPosImpact);
         Entropy.SetVisualSemantic(ElementSemantic.Entropy, 0.5f, 0.82f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaEntropy)
-            .SetImpactSound("event:/SFX/WEAPONS/WeaponMadnessBallLand", areaShakeIntensity: 0.08f)
             .MatchAny(68, ElementSemantic.Entropy, EffectSemantic.Random)
             .SetGroundImpact(ApplyEntropyImpact);
         Wind.SetVisualSemantic(ElementSemantic.Wind, 0.35f, 0.72f)
@@ -92,7 +89,7 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
             .SetGroundImpact(ApplyWindImpact);
         Lightning.SetVisualSemantic(ElementSemantic.Lightning, 0.55f, 0.86f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaLightning)
-            .SetImpactSound("event:/SFX/WEAPONS/WeaponPlasmaBallLand", areaShakeIntensity: 0.08f)
+            .SetImpactSound("event:/SFX/WEAPONS/WeaponPlasmaBallLand")
             .MatchAny(30, ElementSemantic.Lightning)
             .MatchAll(28, ElementSemantic.Water, ElementSemantic.Fire)
             .SetGroundImpact(ApplyLightningImpact);
@@ -104,18 +101,17 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
             .SetGroundImpact(ApplyPoisonImpact);
         Explosion.SetVisualSemantic(EffectSemantic.Blast, 0.55f, 0.86f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaExplosion)
-            .SetImpactSound("event:/SFX/WEAPONS/WeaponFireballLand", areaShakeIntensity: 0.16f)
+            .SetImpactSound("event:/SFX/WEAPONS/WeaponFireballLand")
             .MatchAny(60, EffectSemantic.Blast)
             .SetGroundImpact(ApplyExplosionImpact);
         Burnout.SetVisualSemantic(EffectSemantic.Burn, 0.62f, 0.9f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaBurnout)
-            .SetImpactSound("event:/SFX/WEAPONS/WeaponFireballLand", areaShakeIntensity: 0.12f)
+            .SetImpactSound("event:/SFX/WEAPONS/WeaponFireballLand")
             .MatchAll(75, EffectSemantic.Burn, EffectSemantic.Power)
             .SetGroundFlyOver(ApplyBurnoutFlyOver)
             .SetGroundImpact(ApplyBurnoutImpact);
         Gravity.SetVisualSemantic(EffectSemantic.Pull, 0.52f, 0.82f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaGravity)
-            .SetImpactSound("event:/SFX/WEAPONS/WeaponMadnessBallLand", areaShakeIntensity: 0.14f)
             .MatchAny(65, EffectSemantic.Pull)
             .SetGroundImpact(ApplyGravityImpact);
         Curse.SetVisualSemantic(EffectSemantic.Curse, 0.58f, 0.84f)

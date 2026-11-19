@@ -28,12 +28,13 @@ internal static class SpatialCombatFeedback
 
     /// <summary>只有较强的交锋保留短促震动，普通弹丸不会连续震屏。</summary>
     /// <param name="position">真实作用点。</param><param name="intensity">原有定义的强度。</param>
-    internal static void Shake(Vector3 position, float intensity)
+    internal static bool Shake(Vector3 position, float intensity)
     {
         double now = World.world.getCurWorldTime();
-        if (intensity < .12f || now - lastShake < .4d || !SpatialVisualEffects.IsRelevant(position, 3f)) return;
+        if (intensity < .12f || now - lastShake < .4d || !SpatialVisualEffects.IsRelevant(position, 3f)) return false;
         World.world.startShake(.06f, .02f, Mathf.Min(.16f, intensity));
         lastShake = now;
+        return true;
     }
 
     /// <summary>世界切换后清除事件时间，避免新世界时间较小时被错误静音。</summary>

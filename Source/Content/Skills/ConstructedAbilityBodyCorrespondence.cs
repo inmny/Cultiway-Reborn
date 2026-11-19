@@ -107,6 +107,8 @@ public sealed partial class ConstructedAbilityService
         RespondToBodyResult(running, blocked ? BodyActionResult.Blocked : BodyActionResult.Contact);
         bool leftBody = hit.Left.To.Node < 0;
         ShapeMotion right = hit.Right.Value;
+        Combat.CombatContactFeedback.Clash(hit.Point, hit.Normal, image.Running.Cast.Matter(image.To.Node),
+            imageBefore - imageAfter, imageAfter);
         ClashConfirmed?.Invoke(new ConstructedClash(hit.Left.Running.Id, right.Running.Id, leftOwner, rightOwner,
             hit.Left.To.Node, right.To.Node, hit.Point, hit.Normal, LogicTime, hit.Left.Running.Cast.Age,
             right.Running.Cast.Age, consumed, leftBody ? force - consumed : imageAfter,

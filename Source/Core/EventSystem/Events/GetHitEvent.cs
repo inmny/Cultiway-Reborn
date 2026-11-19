@@ -14,6 +14,9 @@ public struct GetHitEvent
     public float? AttackerPowerLevel;
     public bool IgnoreDamageReduction;
 
+    /// <summary>已冻结的模组接触声，只在实际扣血后使用。</summary>
+    internal string ContactSound;
+
     /// <summary>原版或模组明确写入的伤害类别；未指定时沿用枚举默认值。</summary>
     public AttackType AttackType;
 

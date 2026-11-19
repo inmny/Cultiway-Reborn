@@ -1,79 +1,31 @@
 using System;
-using System.Collections.Generic;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Libraries;
-using Cultiway.Core.SkillLibV3.Visuals;
-using Friflo.Engine.ECS;
+using Cultiway.Core.Visuals;
 using UnityEngine;
 
 namespace Cultiway.Content.Visuals;
 
-/// <summary>复用 SkillLibV3 全局发射器的粒子 cue，可跟随移动锚点持续发射或作为短时爆发。</summary>
+/// <summary>法宝动作信号只在真实锚点播放一次声音。</summary>
 public class ArtifactAudioVisualCue : IArtifactVisualCue
 {
     public ArtifactVisualAnchorRef anchor = ArtifactVisualAnchorKind.Point;
     public Func<ArtifactAbilityVisualContext, string> ResolveSound;
     public string sound;
-    public float shake_duration = 0.08f;
-    public float shake_speed = 0.02f;
-    public float shake_intensity;
 
     public IArtifactVisualLease Begin(ArtifactAbilityVisualContext context, double now, float duration)
     {
-        AudioLease lease = new(this);
-        lease.Refresh(context, now, duration);
-        return lease;
+        if (ArtifactAbilityVisuals.TryResolveAnchorPosition(context, anchor, out Vector3 position))
+            SpatialCombatFeedback.Sound(ResolveSound?.Invoke(context) ?? sound, position);
+        return AudioLease.Instance;
     }
-
-    private void Play(ArtifactAbilityVisualContext context)
-    {
-        ArtifactAbilityVisuals.TryResolveAnchorPosition(context, anchor, out Vector3 position);
-        string resolvedSound = ResolveSound?.Invoke(context) ?? sound;
-        if (!string.IsNullOrEmpty(resolvedSound))
-        {
-            Cultiway.Core.Visuals.SpatialCombatFeedback.Sound(resolvedSound, position);
-        }
-        if (shake_intensity > 0f)
-        {
-            Cultiway.Core.Visuals.SpatialCombatFeedback.Shake(position, shake_intensity * Mathf.Clamp(context.intensity, 0.25f, 2f));
-        }
-    }
-
+    // 声音不占用持续表现，组合回退与刷新无需重新播放。
     private sealed class AudioLease : IArtifactVisualLease
     {
-        private readonly ArtifactAudioVisualCue cue;
-        private bool alive = true;
-
-        public AudioLease(ArtifactAudioVisualCue cue)
-        {
-            this.cue = cue;
-        }
-
-        public bool IsAlive => alive;
-
-        public void Refresh(ArtifactAbilityVisualContext context, double now, float duration)
-        {
-            if (alive) cue.Play(context);
-        }
-
-        public void Update(ArtifactAbilityVisualContext context, double now)
-        {
-        }
-
-        public void End()
-        {
-            alive = false;
-        }
+        internal static readonly AudioLease Instance = new();
+        public bool IsAlive => false;
+        public void Refresh(ArtifactAbilityVisualContext context, double now, float duration) { }
+        public void Update(ArtifactAbilityVisualContext context, double now) { }
+        public void End() { }
     }
 }
-
-/// <summary>强调命中、落地和破碎等瞬间反馈的声音与震屏预设。</summary>
-public sealed class ArtifactImpactVisualCue : ArtifactAudioVisualCue
-{
-    public ArtifactImpactVisualCue()
-    {
-        shake_intensity = 0.12f;
-    }
-}
-
-/// <summary>直接改变法器世界本体的缩放与染色，用于蓄力、激活、受击和显化脉冲。</summary>

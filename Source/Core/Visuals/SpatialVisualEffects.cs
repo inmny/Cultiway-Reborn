@@ -54,12 +54,13 @@ internal static class SpatialVisualEffects
     /// <param name="position">起点。</param><param name="velocity">平面速度与升降速度。</param><param name="color">颜色。</param>
     /// <param name="size">世界尺寸。</param><param name="duration">世界秒数。</param><param name="material">实际材料对应的形体和亮度。</param>
     /// <param name="gravity">独立高度方向的加速度。</param>
+    /// <param name="hold">碎面在接触处固定的世界秒数；仅影响显示采样。</param>
     internal static void Particle(Vector3 position, Vector3 velocity, Color color, float size, float duration,
-        SpatialParticleMaterial material = SpatialParticleMaterial.Energy, float gravity = 0f)
+        SpatialParticleMaterial material = SpatialParticleMaterial.Energy, float gravity = 0f, float hold = 0f)
     {
         if (effects.Count >= Capacity || !IsRelevant(position, size)) return;
         effects.Add(new Effect { Kind = Kind.Particle, Material = material, Start = position, End = velocity, Color = color,
-            Size = size, Duration = duration, Started = World.world.getCurWorldTime(), Seed = ++serial, Gravity = gravity });
+            Size = size, Duration = duration, Started = World.world.getCurWorldTime(), Seed = ++serial, Gravity = gravity, Hold = hold });
     }
 
     /// <summary>保存真实两端，不把连锁、光束或牵引改成飞行弹丸。</summary>
@@ -93,7 +94,8 @@ internal static class SpatialVisualEffects
             float age = (float)(now - effect.Started);
             if (age >= effect.Duration) { effects.RemoveAt(i); continue; }
             if (age < 0f || !IsRelevant(effect.Start, effect.Size)) continue;
-            float progress = age / effect.Duration;
+            age = Mathf.Max(0f, age - effect.Hold);
+            float progress = age / (effect.Duration - effect.Hold);
             Color color = effect.Color; color.a *= (1f - progress) * (1f - progress);
             if (effect.Kind == Kind.Link)
             {
@@ -161,7 +163,7 @@ internal static class SpatialVisualEffects
         /// <summary>语义颜色。</summary>
         internal Color Color;
         /// <summary>尺寸、存活时间和高度加速度。</summary>
-        internal float Size, Duration, Gravity;
+        internal float Size, Duration, Gravity, Hold;
         /// <summary>开始世界时间。</summary>
         internal double Started;
         /// <summary>固定形状种子。</summary>

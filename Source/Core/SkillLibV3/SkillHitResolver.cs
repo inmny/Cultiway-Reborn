@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
+using Cultiway.Core.Visuals;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Utils;
@@ -117,10 +118,6 @@ public static class SkillHitResolver
             var position = skillEntity.GetComponent<Position>().value;
             var vfxElement = skillEntity.GetComponent<SkillEntity>().VfxElement;
             var effectRadius = SkillEffectRadius.Resolve(skillEntity, radius);
-            if (TryBeginImpactFeedback(skillEntity, vfxElement))
-            {
-                vfxElement.PlayImpactSound(position, isArea: true);
-            }
             SkillWorldVisualService.BeginArea(skillEntity, position, effectRadius);
             AreaResolved?.Invoke(skillEntity, position, effectRadius);
             if (asset.WorldVisualProfile?.SuppressDefaultGroundImpact != true)
@@ -132,7 +129,7 @@ public static class SkillHitResolver
             foreach (var obj in SkillUtils.IterEnemyInSphere(position, effectRadius, context.SourceObj,
                          context.ResolveAttackKingdom()))
             {
-                HitTarget(asset, ref context, skillContainer, skillEntity, obj, playImpact: false);
+                HitTarget(asset, ref context, skillContainer, skillEntity, obj, playImpact: true);
             }
 
             if (recycleOnHit)
@@ -151,15 +148,11 @@ public static class SkillHitResolver
         if (target == null || target.isRekt()) return;
 
         var vfxElement = skillEntity.GetComponent<SkillEntity>().VfxElement;
-        if (playImpact && TryBeginImpactFeedback(skillEntity, vfxElement))
-        {
-            vfxElement.PlayImpactSound(target.GetSimPos(), isArea: false);
-        }
         if (applyGroundFx && asset.WorldVisualProfile?.SuppressDefaultGroundImpact != true)
         {
             SkillGroundFx.OnImpact(target.GetSimPos(), vfxElement, 0, isArea: false, sourceObj: context.SourceObj);
         }
-        ApplyDamage(asset, ref context, target, damageMultiplier);
+        ApplyDamage(asset, ref context, target, damageMultiplier, playImpact ? vfxElement.ImpactSound : null);
         InvokeOnEffect(skillContainer, skillEntity, target);
         if (applyStructuredEffects) SkillEffectResolver.ResolveDirectImpact(skillEntity, target);
         NotifyContact(skillEntity,target);
@@ -182,10 +175,13 @@ public static class SkillHitResolver
         Vector3 position = skillEntity.GetComponent<Position>().value;
         SkillVfxElementAsset vfxElement = skillEntity.GetComponent<SkillEntity>().VfxElement;
         float effectRadius = SkillEffectRadius.Effect(skillEntity);
-        if (TryBeginImpactFeedback(skillEntity, vfxElement))
-        {
-            vfxElement.PlayImpactSound(position, isArea: true);
-        }
+        // 明确抵达地面的轨迹才放落地声。空中展开仍可伤到人，由实际受击发声。
+        WorldTile tile = SkillGroundFx.GetTile(position);
+        bool landed = skillEntity.HasComponent<SkillPositionImpactState>() &&
+                      skillEntity.GetComponent<SkillPositionImpactState>().Requested && tile != null &&
+                      position.z <= .55f;
+        if (landed && TryBeginImpactFeedback(skillEntity, vfxElement))
+            SpatialCombatFeedback.Sound(vfxElement.ImpactSound, position);
         SkillWorldVisualService.BeginArea(skillEntity, position, effectRadius);
         AreaResolved?.Invoke(skillEntity, position, effectRadius);
         if (asset.WorldVisualProfile?.SuppressDefaultGroundImpact != true)
@@ -198,7 +194,7 @@ public static class SkillHitResolver
         foreach (BaseSimObject obj in SkillUtils.IterEnemyInSphere(
                      position, effectRadius, context.SourceObj, context.ResolveAttackKingdom()))
         {
-            HitTarget(asset, ref context, skillContainer, skillEntity, obj, false,
+            HitTarget(asset, ref context, skillContainer, skillEntity, obj, !landed,
                 profile.DamageMultiplier * asset.ImpactTuning.DamageMultiplier,
                 applyGroundFx: false,
                 applyStructuredEffects: false);
@@ -258,7 +254,7 @@ public static class SkillHitResolver
     }
 
     private static void ApplyDamage(SkillEntityAsset asset, ref SkillContext context, BaseSimObject target,
-        float damageMultiplier)
+        float damageMultiplier, string contactSound)
     {
         float damage = context.Strength * context.EffectScale * damageMultiplier;
         if (!asset.DealsBaseDamage || damage <= 0f) return;
@@ -272,6 +268,7 @@ public static class SkillHitResolver
                 Damage = damage,
                 Element = context.ResolveElement(asset.Element),
                 AttackType = AttackType.Other,
+                ContactSound = contactSound,
                 AttackerPowerLevel = context.PowerLevel,
                 DamageOrigin = context.RuntimeData.DamageOrigin,
             };
@@ -280,7 +277,10 @@ public static class SkillHitResolver
             return;
         }
 
+        float before = target.getHealth();
+        Vector3 point = target.GetSimPos();
         target.b.getHit(damage, pAttacker: context.SourceObj);
+        if (target.getHealth() < before) SpatialCombatFeedback.Sound(contactSound, point);
     }
 
     private static long GetTargetKey(BaseSimObject target)

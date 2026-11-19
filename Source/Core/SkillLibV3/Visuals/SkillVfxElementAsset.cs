@@ -35,7 +35,6 @@ public class SkillVfxElementAsset : Asset
     public SkillVfxGroundImpact GroundImpact = NoImpact;
     public string ImpactSound;
     public float ImpactFeedbackInterval = 0.12f;
-    public float AreaShakeIntensity;
     public DropAsset GrantDrop;
 
     public SkillVfxElementAsset SetAccent(Color color, float blend = 0.35f, float alpha = 0.75f)
@@ -72,10 +71,9 @@ public class SkillVfxElementAsset : Asset
         return this;
     }
 
-    public SkillVfxElementAsset SetImpactSound(string impactSound, float areaShakeIntensity = 0f)
+    public SkillVfxElementAsset SetImpactSound(string impactSound)
     {
         ImpactSound = impactSound;
-        AreaShakeIntensity = areaShakeIntensity;
         return this;
     }
 
@@ -128,18 +126,5 @@ public class SkillVfxElementAsset : Asset
     public void ApplyGroundImpact(WorldTile tile, int radius, bool isArea, BaseSimObject sourceObj)
     {
         GroundImpact(tile, radius, isArea, sourceObj);
-    }
-
-    public void PlayImpactSound(Vector3 position, bool isArea)
-    {
-        if (ImpactSound.Length > 0)
-        {
-            Cultiway.Core.Visuals.SpatialCombatFeedback.Sound(ImpactSound, position);
-        }
-
-        if (isArea && AreaShakeIntensity > 0f)
-        {
-            Cultiway.Core.Visuals.SpatialCombatFeedback.Shake(position, AreaShakeIntensity);
-        }
     }
 }

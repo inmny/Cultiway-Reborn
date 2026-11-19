@@ -217,6 +217,8 @@ public sealed partial class ConstructedAbilityService
         ward.Running.Cast.ConfirmClash(guardNode, hit.Point, force);
         ward.Running.Cast.ConsumeForce(guardNode, force);
         float barrierAfter = ward.Running.Cast.RemainingForce(guardNode);
+        Combat.CombatContactFeedback.Clash(hit.Point, normal, ward.Running.Cast.Matter(guardNode),
+            barrierBefore - barrierAfter, barrierAfter);
         ReflectionConfirmed?.Invoke(new ConstructedReflection(attack.Running.Id, attack.Running.Cast.Plan.Id,
             node, attack.Running.SourceId, previous.Id, owner.Id, attack.Running.Cast.Reflections(node),
             LogicTime, attack.Running.Cast.Age, hit.Point, normal, incoming, attack.Running.Cast.Velocity(node),
