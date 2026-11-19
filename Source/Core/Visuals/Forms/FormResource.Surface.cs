@@ -13,11 +13,34 @@ public sealed partial class FormResource
     /// <summary>主体是否提供材料槽；拆开后仍保留其余部件自己的表面。</summary>
     private readonly bool HasMatterParts;
 
-    /// <summary>旧资料保留显式覆盖，换材时只在没有材料槽的主体上使用整件表面。</summary>
-    /// <param name="surface">原资料的固定表面。</param><param name="matter">当前真实材料。</param>
-    /// <param name="followMatter">是否按实际材料更新。</param>
-    internal string AppearanceOverride(string surface, AbilityMatter matter, bool followMatter) =>
-        followMatter ? HasMatterParts ? null : matter.EditedSurface : surface;
+    /// <summary>同材保留制作层次。没有材料槽时仅替换第一种主体表面，保留其余层。</summary>
+    /// <param name="part">实际显示部件。</param><param name="surface">原资料的固定表面。</param>
+    /// <param name="matterSurface">本次实际材料选出的表面。</param><param name="followMatter">是否主动跟随换材。</param>
+    internal string SelectPartSurface(int part, string surface, string matterSurface, bool followMatter)
+    {
+        FormPartDescription piece = Description.Parts[part];
+        if (surface != null) return surface;
+        if (matterSurface == null || MaterialFamily(piece.Surface) == matterSurface) return piece.Surface;
+        bool replace = HasMatterParts ? piece.UseMatterSurface : followMatter &&
+            piece.Surface == (whole ?? this).Description.Parts[0].Surface;
+        return replace ? matterSurface : piece.Surface;
+    }
+
+    /// <summary>制作表面的同材细分。真实材料或物态仍由构造单独决定。</summary>
+    /// <param name="surface">制作时选择的表面。</param>
+    private static string MaterialFamily(string surface) => surface switch
+    {
+        "stone_strata" => "stone",
+        "wind_open" or "wind_pressure" => "wind",
+        "meteor_heat" or "meteor_crown" => "flame",
+        "aegis_jade" or "spirit_core" or "spirit_beam_edge" or "spirit_beam_core" => "spirit_pearl",
+        "aegis_solar" or "solar_gold" or "solar_beam_edge" or "solar_beam_flank" or "solar_beam_core" => "solar_light",
+        "aegis_lightning" or "thunder_core" or "thunder_body" or "thunder_corona" or "thunder_arc" or "thunder_arc_fork" => "lightning_dense",
+        "yin_basin" or "yin_moon" => "yin_depth",
+        "poison_core" => "poison_vapor",
+        "entropy_depth" => "entropy_veil",
+        _ => surface
+    };
 
     /// <summary>本资源版本共享的各部件完整制作表面。</summary>
     private FormSurfaceMesh[] surfaces;

@@ -112,8 +112,15 @@ public sealed partial class AbilityMaterial
     /// <summary>此记录的表面是否随实际材料更新。</summary>
     private readonly bool followMatter;
 
-    /// <summary>对发布与外观分组提供相同的整件表面。</summary>
-    internal string VisualSurface => Form.AppearanceOverride(Surface, Matter, followMatter);
+    /// <summary>实际整件覆盖；随材料变更时交由共同部件规则。</summary>
+    private string SurfaceOverride => followMatter ? null : Surface;
+
+    /// <summary>用于显示的当前材料表面。</summary>
+    private string VisualMatterSurface => followMatter ? Matter.EditedSurface : Matter.Surface;
+
+    /// <summary>流层使用主体部件，与它的显示分组选择同一表面。</summary>
+    internal string VisualSurface => Form.Description.Parts.Length == 0 ? SurfaceOverride :
+        Form.SelectPartSurface(0, SurfaceOverride, VisualMatterSurface, followMatter);
 
     /// <summary>可选显示染色。</summary>
     internal readonly Color? Dye;
@@ -236,11 +243,11 @@ public sealed partial class AbilityMaterial
     /// <summary>从同一世界事实建立可发布显示，不推进材料。</summary>
     /// <param name="terrain">当前共同地表。</param>
     internal FormVisualInstance Visual(AbilityHeightField terrain, FormLayerFrame layer = null) => new(Form, Transform,
-        surface: VisualSurface, skin: Skin,
-        poseBounds: PoseBounds, matterSurface: followMatter ? Matter.EditedSurface : Matter.Surface,
+        surface: SurfaceOverride, skin: Skin,
+        poseBounds: PoseBounds, matterSurface: VisualMatterSurface,
         dye: Dye, matter: Matter, terrain: terrain,
         tint: FormBurningPresentation.Char(Burning, Volume),
-        layer: layer ?? (Flow == null ? null : new FormLayerFrame(Flow)), buildProgress: BuildProgress);
+        layer: layer ?? (Flow == null ? null : new FormLayerFrame(Flow)), buildProgress: BuildProgress, followMatter: followMatter);
 
     /// <summary>取得真实材料形状，选择与画面共用水深和固定姿态。</summary>
     /// <param name="output">复用选择缓冲。</param>

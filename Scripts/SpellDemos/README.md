@@ -2146,3 +2146,5 @@ python3 Scripts/SpellDemos/demo_spell.py TidalWave --cases base --view native --
 9.07 声音与节奏复验：在独立游戏运行 `dev.py exec --timeout 230 -- python3 Scripts/SpellDemos/verify_combat_feedback_907.py --section weapon`，比较同一御器的木、铁受击声、原版普攻和免疫；必要时用 `--material wood` 或 `--material iron` 单独补验。`--section landing` 对照同一坠石在空中结束和真实落地。`--section clash` 对照同一木障挡住与打穿，核对实际声音实例、两视角共用的短停碎面、震动和恢复。只补破防可加 `--part break`。每段保留脚本输入及结果；交锋另留两视角的接触帧。
 
 9.08 主体及残留去向：`dev.py exec --timeout 230 -- python3 Scripts/SpellDemos/verify_visual_endings_908.py --section motion`。复用固定与追随路线对照移动目标；另选 `block` 核对攻体从共同画面移除、剩余木障正常退场，`interrupt` 核对来源失效后延迟攻体不会出现，或 `material` 核对流水凝冰和有限冰体的世界交接。各段留正式施放结果和代表帧。
+
+9.09 A 共用形体换材：`dev.py exec --timeout 230 -- python3 Scripts/SpellDemos/verify_form_combinations_909.py --section catalog` 读游戏实际加载的形体全集，核对两端表面并保留部件和变化资料；用 `--section surfaces` 检查同一正式施放原材、真正换材、换回及正常退场，保存实际画面。独立冰体交接复用 9.08 的 `--section material`。

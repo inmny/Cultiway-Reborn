@@ -14,7 +14,7 @@ public sealed partial class AbilityCast
     {
         CompiledForm form = Plan.Nodes[node];
         AbilityMatter matter = nodes[node].Matter;
-        return (form.Resource.AppearanceOverride(form.Surface, matter, form.FollowMatter),
+        return (form.FollowMatter ? null : form.Surface,
             form.FollowMatter ? matter.EditedSurface : matter.Surface);
     }
 

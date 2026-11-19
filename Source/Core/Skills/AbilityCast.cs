@@ -1524,7 +1524,7 @@ public sealed partial class AbilityCast
                     skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
                     matterSurface: appearance.MatterSurface, dye: dye, matter: nodes[i].Matter,
                     terrain: terrain, layer: flows?[i]?.Started == true ? ConductingFrame(i) : null,
-                    buildProgress: poses[i]?.BuildProgress ?? 1f));
+                    buildProgress: poses[i]?.BuildProgress ?? 1f, followMatter: Plan.Nodes[i].FollowMatter));
                 FormBurningPresentation.Append(output, nodes[i].Transform, nodes[i].Burning, nodes[i].Volume, terrain,
                     Age);
             }
