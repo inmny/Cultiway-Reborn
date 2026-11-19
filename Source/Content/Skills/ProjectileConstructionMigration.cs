@@ -144,7 +144,8 @@ internal static partial class ProjectileConstructionMigration
             bool contact = !configured || settings.ContactEnabled;
             definition.Root.Children = new[] { new ConstructionNode
             {
-                Id = "burst", Form = sourceForm.Matter + "_burst", Matter = sourceForm.Matter, State = sourceForm.State,
+                Id = "burst", Form = container.Asset == SkillEntities.FlameMeteor ? "flame_meteor_impact" : sourceForm.Matter + "_burst",
+                Matter = sourceForm.Matter, State = sourceForm.State,
                 Scale = scale * container.Asset.ImpactProfile.EffectRadius * container.Asset.ImpactTuning.EffectRadiusMultiplier / .9f,
                 DisappearAt = Mathf.Min(.22f, lifetime), ActiveUntil = Mathf.Min(.025f, lifetime),
                 Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End,

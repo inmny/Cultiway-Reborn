@@ -7,6 +7,10 @@
 
 命名步骤与同部位混合操作的修改窗口使用 `python3 Scripts/SpellDemos/verify_step_editor.py`：复用既有测试世界，通过真实行和选择菜单编辑名称、输出引用、阶段及飞行曲线，检查非法循环、撤销恢复、正式保存再打开及依赖的实际执行。结果与中英窗口图写入 `artifacts/skill_rebuild/trajectories/step-editor/`。加 `--section runtime` 只补由表单已保存资料的实际运行与结束，不重跑编辑流程；`--section capture`只补已保存资料的正常输入画面。此入口不重跑身体装备或旧材料矩阵，正式世界冷启动与集中录像在5.05 C交付点执行。
 
+近距光束外观用 `dev.py exec --timeout 315 -- python3 Scripts/SpellDemos/verify_beams.py --section appearance` 复验。会检查旧资料半径、实机区内外、新版束体自然收束，并输出原版俯视的近、中、远景图。直接运行 `verify_beams.py` 仍进入原光束来源规则检查。
+
+连锁雷体外观用 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_chain.py --section appearance` 复验。检查一次实际短链、下一跳的触发与无伤旁观者，保存原版近远图；直接运行 `verify_chain.py` 仍执行原完整来源检查。
+
 ## 使用前
 
 - 本机需要 Python 3.10 以上、ffmpeg，以及 WorldBox/NML 和已启用的 DebugToolbox。
@@ -29,6 +33,8 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 状态检查同时在 `artifacts/skill_rebuild/` 生成 `matter-water.json` 和 `matter-iron.json`，用于开发中逐视角录制。每次只运行一个游戏测试或演示；资源包构建必须先退出游戏。`result.json` 的 `materialFrames` 记录每张截图对应的材料、物态、主体表面和染色，`contactsLog` 记录伤害前后材料；它们不能替代实际画面检查。
 
 原土墙迁移与旧世界阻挡使用 `python3 Scripts/SpellDemos/verify_wall_migration.py`：复用独立测试游戏和现成世界，检查旧飞行法术、原版弹丸、地面走动/步法/受力、实际容量、结束恢复与失败退款。结果写入 `artifacts/skill_rebuild/trajectories/wall-migration/`。加 `--section solid-walls` 仅检查新增冰墙与木壁的独立形体、来源接管、真实阻挡及失败恢复，证据独立写入 `artifacts/skill_rebuild/trajectories/solid-walls/`，不覆盖土墙结果。完整编辑、自主创作、保存冷启动与集中录像仍在5.05的C交付点进行。
+
+土墙打磨只需 `dev.py exec --timeout 245 -- python3 Scripts/SpellDemos/verify_wall_migration.py --section earth-appearance`。沿用 B21 原已学来源和固定世界，检查人物正面、墙端内外与撤墙通行，输出近远、Worldfall 斜视与撤墙画面。已经拍过同一版资源时，使用 `--section earth-walk` 只复验普通寻路步行和撤墙。
 
 任意曲线路径使用 `verify_flight_path.script` 检查实际位置、解析速度、切向朝向、循环、延迟、速度继承、反射及预测回退；`verify_flight_contacts.script` 检查高弧线越过中间人物后实际命中后方，以及带非零横向速度的曲线反射。曲线资料、旧轨迹逐项接入范围及两份可复现输入见[曲线说明](../../Doc/技能系统全面重构/可编辑曲线与轨迹接入.md)。仍使用同一 `--construction` 录制入口，不增加单招专用工具。
 
@@ -1377,6 +1383,8 @@ python3 Scripts/SpellDemos/verify_remaining_fields.py
 
 加`--section sources/common/visuals`可分别只验证来源、共用路径或补拍主体。输入、实际发射、资料、前后主体图及结果保存到`artifacts/skill_rebuild/trajectories/remaining-fields/`，分段结果保存到同名子目录；失败输入与结果保留。完整编辑、自主创作、正式保存冷启动及集中连续录像继续5.05 C，最终流派质感继续9.02。
 
+9.02 D 用 `dev.py exec --timeout 245 -- python3 Scripts/SpellDemos/verify_remaining_fields.py --section appearance` 在独立游戏对龙卷和玄阴拍近、中、远景，并核对实际边内命中、紧邻外侧无接触、原费用与自然结束。可加 `--form wind` 或 `--form yin` 只补对应一术，导出的原始结果位于独立环境的 `output/fields-appearance-*`。
+
 
 ```bash
 # 5.05 B32：减速、冰冻、硬直随新主体真实接触
@@ -2105,3 +2113,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 8.14 身体、器物提示与跨形态改造
 
 在独立游戏中运行 `dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_body_form_inputs.py --section inputs --source <8.13 剑尖段目录>`，确认万法阁用中英文说明缺剑，并在装回同一把剑后恢复预演。`--section transform` 复用同一个 `--source`，验证形体缺失接触面时拒绝写入、保存独立风刃成品、再次打开。`--section cast --basis <transform 输出的 saved.json>`（仍要传 `--source`）从窗口成品直接复验实际握持、扣费、风刃离手命中和身体控制归还。每段的 `result.json`、`checks.json` 及窗口截图在当次 `output/body-form-<分段名>-814`，施放段可以独立重跑。
+
+### 9.02 主体与视距
+
+在独立游戏运行 `dev.py exec --timeout 245 -- python3 Scripts/SpellDemos/verify_form_detail.py --appearance all`，复用同一世界和修士，从正式已学入口拍摄灵盾、水幕、剑气、雷枪、土脊和炎陨的近、中、远景。`--appearance meteor` 只补验炎陨，另核对真实落点仅结算一次、火体按原时限撤去。截图、输入和检查结果保存在当次 `output/form-visibility-*`；画面要对照落点人物查看。

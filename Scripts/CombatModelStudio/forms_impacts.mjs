@@ -1,6 +1,6 @@
 /** 投射和坠落来源的实体，以及由真实余力交接形成的六类爆发厚体。 */
 import * as T from 'three';
-import {write,structure} from './form_export.mjs';
+import {write,structure,surfaceData} from './form_export.mjs';
 import {wallPart,column} from './forms_solid_walls.mjs';
 
 /** 封闭的分层长体；局部正Z是前方，尖端与内部接触共同朝向实际运动。 */
@@ -89,5 +89,26 @@ function bursts() {
   }
 }
 
-/** 一次发布八种来源主体和六类接触后爆发主体。 */
-export function makeImpactForms() {fireball();thunder();chaos();falling();bursts();}
+/** 炎陨向前撞击，背向坠落方向翻开低厚火肩，落点仍可看穿。 */
+function meteorImpact() {
+  const floor=new T.LatheGeometry([[0,.006],[.73,.006],[.89,.01],[.90,.018],[.83,.05],[.56,.077],[0,.055]]
+    .map(p=>new T.Vector2(...p)),64).rotateX(-Math.PI/2);
+  const pieces=[['heat',surfaceData(floor,.11,p=>.47+.23*(1-Math.hypot(p.x,p.y)/.90)),'meteor_heat']];
+  for(const [index,start,span] of [[0,.20,2.03],[1,2.66,1.46],[2,4.57,1.42]]) {
+    const sections=30,sides=12;
+    const rings=Array.from({length:sections+1},(_,i)=>{
+      const t=i/sections,a=start+span*t,taper=Math.max(.018,Math.pow(Math.sin(Math.PI*t),.71));
+      const rim=.64+.053*Math.sin(a*5+index),height=.065+taper*(.115+.067*Math.sin(a*4+.4));
+      return Array.from({length:sides},(_,j)=>{
+        const b=j*2*Math.PI/sides,r=rim+.193*taper*Math.cos(b);
+        return [r*Math.cos(a),r*Math.sin(a),-Math.max(.01,height+.150*taper*Math.sin(b))];
+      });
+    });
+    const arc=column(rings,sides);
+    pieces.push([`fold_${index}`,surfaceData(arc,.18,p=>T.MathUtils.smoothstep(-p.z,.013,.10)),'meteor_crown']);
+  }
+  publish('flame_meteor_impact',pieces,[[[0,0,0],[0,0,0],.9]],{contactRadius:.9,folds:3});
+}
+
+/** 发布八种来源主体、六类通用爆发和炎陨独立落地形体。 */
+export function makeImpactForms() {fireball();thunder();chaos();falling();bursts();meteorImpact();}

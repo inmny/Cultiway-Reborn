@@ -1,0 +1,63 @@
+// 9.02 B：复用 B19 人物，在短链上比较新雷体、真实下一跳和同一接触外缘。
+try
+{
+    PrepareAppearanceBackdrop(58, 82, 64, 83);
+    var skill = Build(SkillEntities.ChainLightning);
+    var definition = Convert(skill, out _);
+    var numeric = new AbilityCast(AbilityCompiler.Compile(definition, cache: false), Matrix4x4.identity,
+        inputs: new AbilityInputs(new Vector3(64, 72, .3f), new Vector3(70, 72, .3f), Vector3.right, .8f));
+    numeric.Advance(.01f, new Vector3(70, 72, .3f));
+    Check(Views(numeric).Count == 1 && Shapes(numeric).Count == 1 && numeric.NodeAge(1) < 0 &&
+          Mathf.Abs(Shapes(numeric)[0].Radius - .12f * definition.Root.Scale) < .0001f,
+        "分梢只是外观，接触半径保持旧值；无真实接触不提前出现下一段");
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
+    {
+        if (!Ours(request.SkillContainer.GetComponent<SkillContainer>().Asset)) return original(request);
+        var result = original(request);
+        if (result == SkillEmissionResult.Accepted)
+        {
+            object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+                .Single(r => (long)Field(r, "Id") == starts.Last().CastId);
+            accepted.Add((AbilityCast)Field(running, "Cast"));
+        }
+        return result;
+    };
+    ResetPeople();
+    // 沿用 B19 的真实四段短链：旁观者靠近首段，但比下一名敌人离落点更远。
+    Place(along, 66, 72.82f);
+    ConstructedAbilityService.NotifyActorChanged(along);
+    var expected = new[] { target, second, third, fourth };
+    var measured = expected.Concat(new[] { along }).ToArray();
+    var health = measured.Select(actor => actor.data.health).ToArray();
+    Check(Use(skill), "短链通过正式已学入口受理");
+    await Advance(.07f);
+    var castIds = starts.Select(fact => fact.CastId).ToArray();
+    var visible = accepted.Select(cast => new { views = Views(cast).Count, shapes = Shapes(cast).Count }).ToArray();
+    Check(accepted.Count == castIds.Length && castIds.Length == 2 && visible.Any(cast => cast.views == expected.Length) &&
+          visible.All(cast => cast.views == cast.shapes && cast.views <= expected.Length),
+        "原一次使用仍发两次；有效雷段各有一个接触形状，分梢不另算", new { castIds, visible });
+    await FrameAppearance("chain-near", 71, 73, 8);
+    await FrameAppearance("chain-far", 71, 73, 22);
+    await Advance(.35f);
+    var hits = contacts.Where(c => castIds.Contains(c.CastId)).ToArray();
+    var loss = measured.Select((actor, index) => health[index] - actor.data.health).ToArray();
+    Check(hits.Length == castIds.Length * expected.Length && hits.GroupBy(c => c.CastId).All(cast =>
+              cast.Select(c => c.TargetId).SequenceEqual(expected.Select(actor => actor.id)) &&
+              cast.Select(c => c.Node).SequenceEqual(Enumerable.Range(0, expected.Length))) &&
+          loss.Take(expected.Length).All(value => value > 0) && loss.Last() == 0,
+        "正式首击、后续各跳按顺序扣血，分梢旁未被选中的人无伤", new { losses = loss });
+    Check(old == 0 && accepted.All(cast => cast.Finished && Views(cast).Count == 0 && Shapes(cast).Count == 0) &&
+          castIds.All(id => endings.Any(e => e.Fact.CastId == id && !e.Fact.Cancelled)), "自然结束后雷段和接触一起清理");
+    return new { passed = true, realCasts = castIds.Length, realHits = hits.Length, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    beforeField.SetValue(null, beforeHandler);
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
+    ConstructedAbilityService.CastStarted -= Started;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

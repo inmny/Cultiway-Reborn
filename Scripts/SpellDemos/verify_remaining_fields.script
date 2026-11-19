@@ -1,5 +1,6 @@
 // B31：剩余攻击领域与原人物倍率、本体力量分离，只核对受本批影响的内容。
 const string section="all";
+const string appearanceForm="both";
 var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var activeCasts=new List<AbilityCast>();
 var emissions=new List<object>();var damageEvents=new List<GetHitEvent>();var forceAfterHit=new List<float>();
@@ -43,7 +44,7 @@ void AfterContact(ConstructedContact contact){if(contact.AbilityId==currentAsset
 void ResetPeople()
 {
     starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
-    Ready(source);Place(source,64);Place(target,70);Place(edge,70,72.8f);Place(outside,70,78);
+    Ready(source);Place(source,64);Place(target,70);Place(edge,70,section=="appearance"?73.85f:72.8f);Place(outside,70,section=="appearance"?75f:78f);
     owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
     foreach(var actor in new[]{source,target,edge,outside})ConstructedAbilityService.NotifyActorChanged(actor);
 }
@@ -90,10 +91,13 @@ try
         }
         emissions.Add(new{asset=currentAsset.id,result=result.ToString(),request.Strength,request.PowerLevel,skill=request.SkillContainer.Id});return result;
     };
-    if(section!="common")foreach(var entry in new[]{(Asset:SkillEntities.Tornado,Form:"wind_vortex",Matter:"wind"),(Asset:SkillEntities.YinField,Form:"yin_field",Matter:"yin")})
+    if(section!="common")foreach(var entry in new[]{(Asset:SkillEntities.Tornado,Form:"wind_vortex_open",Matter:"wind"),(Asset:SkillEntities.YinField,Form:"yin_field_basin",Matter:"yin")})
     {
+        bool wind = entry.Asset == SkillEntities.Tornado;
+        if(section=="appearance"&&appearanceForm!="both"&&appearanceForm!=(wind?"wind":"yin"))continue;
         currentAsset=entry.Asset;ResetPeople();var normal=Build();
-        if(section!="visuals")foreach(var skill in new[]{normal,Build(true)})
+        if(section=="appearance")PrepareAppearanceBackdrop(63,76,68,77);
+        if(section!="visuals"&&section!="appearance")foreach(var skill in new[]{normal,Build(true)})
         {
             var definition=Convert(skill,out GetHitEvent damage);var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));AbilityCompiler.Compile(restored,false);
             bool boost=skill.HasComponent<HugeModifier>();
@@ -104,18 +108,38 @@ try
                 Math.Abs(definition.Root.Scale-(boost?1.4f:1f))<.001f,entry.Form+"原本体量、人物倍率、词条、间隔、寿命和并存上限可保存编译");
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(definition,Formatting.Indented));
         }
-        if(section!="visuals")Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射作用保留原入口");
+        if(section!="visuals"&&section!="appearance")Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射作用保留原入口");
         ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;int hp=target.data.health;var plan=SkillCastPlanner.CreatePlan(owner,normal,target,SkillCastCost.GetAffordableStepLimit(owner,normal),explicitTargetsOnly:true);
         Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.15f);var live=accepted.Single();
         Check(starts.Count==1&&oldExecutions==0&&Views(live).Single().Resource.Description.Id==entry.Form,entry.Form+"只运行自身新主体");
-        Vector3 before=Views(live).Single().Transform.GetColumn(3);var skin=(Matrix4x4[])Views(live).Single().Skin.Clone();Pose(live,entry.Form+"前段");await Shot(entry.Form+"-front");
+        var front=Views(live).Single();Vector3 before=front.Transform.GetColumn(3);
+        var skin=(Matrix4x4[])front.Skin.Clone();Pose(live,entry.Form+"前段");
+        if(section=="appearance")
+            Check(wind?front.PartCount==4&&front.SurfaceFor(0)=="wind_pressure"&&Enumerable.Range(1,3).All(i=>front.SurfaceFor(i)=="wind_open"):
+                front.PartCount==1&&front.SurfaceFor(0)=="yin_basin",entry.Form+"实机使用制作用材质与部位");
+        else await Shot(entry.Form+"-front");
         await Advance(.75f);var later=Views(live).Single();Pose(live,entry.Form+"后段");Vector3 after=later.Transform.GetColumn(3);
         Check(later.Skin.Where((m,i)=>!m.Equals(skin[i])).Any()&&(entry.Asset==SkillEntities.Tornado?after.x>before.x+1f:Vector3.Distance(before,after)<.001f),entry.Form+"主体动作推进，原投送移动或固定规则保持");
-        await Shot(entry.Form+"-later");await Advance(2f);
+        if(section=="appearance")
+        {
+            float focusY=after.y+(wind?1.5f:.15f);
+            await FrameAppearance(entry.Form+"-near",after.x,focusY,5);
+            float nearSize=World.world.camera.orthographicSize;
+            await FrameAppearance(entry.Form+"-mid",after.x,focusY,16);
+            float midSize=World.world.camera.orthographicSize;
+            await FrameAppearance(entry.Form+"-far",after.x,focusY,22);
+            float farSize=World.world.camera.orthographicSize;
+            Check(nearSize<midSize&&midSize<farSize,entry.Form+"实际镜头使用不同的近中远距离",new{nearSize,midSize,farSize});
+        }
+        else await Shot(entry.Form+"-later");
+        await Advance(2f);
         if(section!="visuals")
         {
             double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculatePlanDemand(normal,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,normal)));
             Check(starts.Count==plan.Steps.Count&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f,entry.Form+"只支付原逐发费用",new{cost});
+            if(section=="appearance")Check(contacts.Any(c=>c.TargetId==edge.id)&&contacts.All(c=>c.TargetId!=outside.id),
+                entry.Form+"实作用边内命中，邻近外侧无接触",new{insideY=edge.current_position.y,outsideY=outside.current_position.y,
+                    edgeHits=contacts.Count(c=>c.TargetId==edge.id),outsideHits=contacts.Count(c=>c.TargetId==outside.id)});
             Check(target.data.health<hp&&damageEvents.Count(e=>e.TargetID==target.id)>=2&&damageEvents.All(e=>Math.Abs(e.Damage-25f)<.001f&&e.Element.Equals(entry.Asset.Element))&&
                 contacts.All(c=>c.TargetId!=outside.id)&&Intervals()&&forceAfterHit.All(f=>Math.Abs(f-100)<.001f),entry.Form+"实际间隔伤害输入25，侧外安全，本体量仍100",new{damage=damageEvents.Select(e=>new{e.TargetID,e.Damage}).ToArray(),times=contacts.Where(c=>c.TargetId==target.id).Select(c=>c.Age).ToArray(),force=forceAfterHit.ToArray()});
         }

@@ -20,6 +20,10 @@
 
 `form_detail.mjs`使用固定版本meshoptimizer 1.3.0离线生成中远景网格，保留原顶点通道、接合边及控制信息；近景沿用完整模型。运行游戏无需该依赖。重新安装制作工具使用本目录的`npm ci`。显示级别及验证见[远近细节与批量绘制](../../Doc/技能系统全面重构/远近细节与批量绘制.md)。
 
+`forms_ray.mjs` 的 `makeLuminousRays` 分开制作光芯和可接触外缘。外缘与接触资料共用宽度及两端控制，光芯不另算命中。原 `spirit_ray`、`solar_ray` 仍供已保存构造读取。近距、放大及范围边界的复验见[主体轮廓与视距](../../Doc/技能系统全面重构/主体轮廓与视距.md#a把光束从实体柱改成有厚度的光)。
+
+同文件的 `makeThunderChannel` 保留连锁段的接触胶囊与两端挂点，用弱电晕、折转雷芯和两个渐尖分梢替换旧管状表面。分梢始终位于原接触体内，照常随端点伸展。
+
 发布时运行：
 
 ```bash
@@ -62,7 +66,7 @@ Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官�
 `forms_ray.mjs`的`makeThunderChannel()`提供独立`thunder_channel`雷体：封闭扭转截面采用亮色与蓝紫色外表面分区，顶点和真实作用共用末端伸展控制，亮区不增加第二次伤害。原连锁由有限四个普通部位构成，后续部位通过`ConstructionActivation.Target`在真实接触后选择附近未访问目标，并使用上一段实际余力乘声明倍率。原已学入口及失败恢复验证使用`python3 Scripts/SpellDemos/verify_chain.py`，复用现成世界和人物；原自动连发照常逐发验证和收费。最终流派美术、完整编辑和自主创作、正式冷启动及集中连续录像仍按总计划后续交付。
 
 
-`forms_earth.mjs`还制作`earth_wall`：封闭厚墙、错落顶缘、两端封口及长轴控制，实际地表承托同时改变显示与接触。使用`AbilityAnchor.Between`和`Binding.Fraction`在来源及目标之间放置，`ConstructionPlacementEdits.Between`可在固定和跟随之间改造；模型制作前上向要按资源声明转换。运行`python3 Scripts/SpellDemos/verify_wall.py`验证正式构造施放、比例/朝向、容量抵挡、结束及恢复，证据在`artifacts/skill_rebuild/trajectories/wall-binding/`。原土墙来源已在B21接通旧法术、原版弹丸和真实人物移动；玩家表单、自主创作及最终土法美术继续后项。
+`forms_earth.mjs` 还制作 `earth_wall_strata`：封闭岩层、内凹层缝、错落岩块和收窄断面。正式旧自创术继续使用原 `earth_wall` 及其贴地基准。制作时从原十一段阻挡反推主体；实际地表承托同时改变显示与接触。使用`AbilityAnchor.Between`和`Binding.Fraction`在来源及目标之间放置，`ConstructionPlacementEdits.Between`可在固定和跟随之间改造；模型制作前上向要按资源声明转换。运行`python3 Scripts/SpellDemos/verify_wall.py`验证正式构造施放、比例/朝向、容量抵挡、结束及恢复，证据在`artifacts/skill_rebuild/trajectories/wall-binding/`。原土墙来源已在 B21 接通旧法术、原版弹丸和真实人物移动；9.02 C 利用 `verify_wall_migration.py --section earth-appearance` 复验墙端通行与近远画面，土墙碎裂动作继续后项。
 
 
 `forms_solid_walls.mjs`分别制作`ice_wall`与`wood_wall`：前者为相接的封闭晶柱及错落尖冠，后者为粗根干及交错厚盘根，不使用土墙换色。各自地表控制、网格及实际作用共用姿态，材料分别为`ice/solid`和`wood/solid`。运行`python3 Scripts/SpellDemos/verify_wall_migration.py --section solid-walls`检查两种原已学来源、支付、真实墙面、容量及结束恢复，结果独立写入`artifacts/skill_rebuild/trajectories/solid-walls/`，不覆盖B21证据。火墙、风墙、剑幕的附加接触作用及护盾继续各自迁移。
@@ -98,4 +102,4 @@ Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官�
 `forms_ground_waves.mjs`制作原地面推进的`earth_ridge`、`tidal_wave`、`creeping_vine`。土脊由稳定石床与错落封闭石锋组成；潮浪沿连续厚水曲面前翻；灵藤由共根的三条低伏厚根组成。普通`travel`动作的骨架同时驱动网格和接触，实际底部由共用地面投送承托。原0.9秒寿命、0.8人物倍率及逐人一次在普通构造保留；到达目标后持续前行。运行`python3 Scripts/SpellDemos/verify_ground_waves.py`复现；`--section sources/common/visuals`可定向续验，完整编辑创作、正式冷启动与集中录像继续5.05 C，最终质感继续9.02。
 
 
-`forms_remaining_fields.mjs`制作`wind_vortex`与`yin_field`，制作前向Y、上向Z，声明地下遮挡。龙卷是封闭旋体、宽底和融入表面的宽曲脊，由普通`run`动作整圈旋转；玄阴是五项控制共同带动的连续低伏暗面，边缘小幅起伏。底部横向接触芯位于可见主体内，玄阴接触端点使用与表面相同的混合权重。复现入口为`python3 Scripts/SpellDemos/verify_remaining_fields.py`；实际推进或固定由原投送决定，不另加吸力或禁锢。最终风、阴质感继续9.02。
+`forms_remaining_fields.mjs`保留`wind_vortex`和`yin_field`，另为原龙卷、玄阴制作`wind_vortex_open`和`yin_field_basin`。龙卷的连续薄风底和压缩风芯覆盖原作用芯，三股错开的厚流面渐入、上升、散出，之间有真实空隙。玄阴由一件有厚度的低伏凹面和两处不等高的内折肩组成，底面和高肩由同一套五项控制带动。新旧接触芯、前向和动作相同；实际推进或固定由原投送决定。复验见[主体轮廓与视距](../../Doc/技能系统全面重构/主体轮廓与视距.md)。

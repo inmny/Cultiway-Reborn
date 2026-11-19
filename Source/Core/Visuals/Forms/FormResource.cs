@@ -710,9 +710,17 @@ internal sealed partial class FormResourceGeneration
             "restoration_jade" => (2f, new Color(.22f, .76f, .45f), .38f),
             "thunder_core" => (3f, new Color(.74f, .91f, 1f), .4f),
             "thunder_body" => (3f, new Color(.34f, .42f, .91f), .24f),
+            "thunder_corona" => (15f, new Color(.34f, .23f, 1f, .26f), .4f),
+            "thunder_arc" => (15f, new Color(.71f, .82f, 1f, .98f), .08f),
+            "thunder_arc_fork" => (15f, new Color(.48f, .62f, 1f, .83f), .27f),
             "spirit_pearl" => (2f, new Color(.57f, .88f, .94f), .25f),
             "solar_light" => (6f, new Color(1f, .84f, .39f), .32f),
             "solar_gold" => (6f, new Color(1f, .43f, .07f), .45f),
+            "spirit_beam_edge" => (15f, new Color(.26f, .74f, .93f, .59f), .42f),
+            "spirit_beam_core" => (15f, new Color(.69f, .96f, 1f, .92f), .2f),
+            "solar_beam_edge" => (15f, new Color(1f, .66f, .19f, .51f), .33f),
+            "solar_beam_flank" => (15f, new Color(1f, .32f, .045f, .43f), .54f),
+            "solar_beam_core" => (15f, new Color(1f, .93f, .52f, .94f), .23f),
             "battle_copper" => (2f, new Color(.91f, .32f, .16f), .34f),
             "guard_enamel" => (2f, new Color(.29f, .58f, .81f), .31f),
             "haste_gold" => (2f, new Color(.94f, .73f, .24f), .33f),
@@ -740,6 +748,12 @@ internal sealed partial class FormResourceGeneration
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),
             "stone" => (2f, new Color(.34f, .31f, .27f), .96f),
+            "stone_strata" => (16f, new Color(.46f, .39f, .30f), .96f),
+            "wind_open" => (17f, new Color(.72f, .88f, .84f, .76f), .55f),
+            "wind_pressure" => (17f, new Color(.48f, .70f, .69f, .78f), .68f),
+            "yin_basin" => (18f, new Color(.13f, .13f, .32f, .88f), .62f),
+            "meteor_heat" => (19f, new Color(.96f, .29f, .024f, .64f), .62f),
+            "meteor_crown" => (19f, new Color(1f, .43f, .04f, .91f), .54f),
             "skin" => (2f, new Color(.86f, .65f, .48f), .65f),
             "horn" => (2f, new Color(.56f, .73f, .79f), .34f),
             "ivory" => (2f, new Color(.78f, .73f, .55f), .4f),
@@ -764,7 +778,7 @@ internal sealed partial class FormResourceGeneration
         found.SetColor("_Color", color);
         found.SetFloat("_Kind", kind);
         found.SetFloat("_Roughness", roughness);
-        found.SetFloat("_ZWrite", !transparent && (kind < 3f || kind >= 6f && kind < 10f) ? 1f : 0f);
+        found.SetFloat("_ZWrite", !transparent && (kind < 3f || kind >= 6f && kind < 10f || kind == 16f) ? 1f : 0f);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfall" : "Always", false);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfallTransparent" : "CultiwayNativeTransparent", false);
         if (native) found.SetShaderPassEnabled("CultiwayWorldfallSolid", false);

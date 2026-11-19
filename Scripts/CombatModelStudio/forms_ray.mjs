@@ -47,33 +47,96 @@ export function makeSourceRays() {
   }
 }
 
-/** 连锁使用有厚度的扭转雷体；亮芯位于外层内部，不额外增加作用次数。 */
-export function makeThunderChannel() {
-  const radius=.12,length=2,parts=[],roles={};
+/** 发光外缘与可接触体使用同一截面，内部亮芯只负责显示。旧形体仍可从正式构造加载。 */
+export function makeLuminousRays() {
+  const length=2;
   const controls=['origin','extent'].map(Id=>({Id,Parent:null,Position:[0,0,0],Rotation:[0,0,0,1]}));
-  for(const [name,r,surface] of [['body',radius,'thunder_body'],['core',radius,'thunder_core']]) {
-    const geometry=new T.CapsuleGeometry(r,length-r*2,8,18).rotateX(Math.PI/2).translate(0,0,length*.5);
-    const position=geometry.getAttribute('position');
-    for(let i=0;i<position.count;i++) {
-      const x=position.getX(i),y=position.getY(i),z=position.getZ(i),angle=Math.atan2(y,x);
-      const fold=.87+.13*Math.cos(angle*3+z*4.2),turn=z*.8;
-      position.setXYZ(i,(x*Math.cos(turn)-y*Math.sin(turn))*fold,(x*Math.sin(turn)+y*Math.cos(turn))*fold,z);
+  for(const [id,radius,lanes,core] of [
+    ['spirit_ray_luminous',.30,[[0,'spirit_beam_edge']],'spirit_beam_core'],
+    ['solar_ray_luminous',.15,[[0,'solar_beam_edge'],[-.12,'solar_beam_flank'],[.12,'solar_beam_flank']],'solar_beam_core']
+  ]) {
+    const parts=[], contacts=[], roles={};
+    function addLayer(name,x,width,surface) {
+      // 亮芯与外缘共用圆端中心；缩短射线时不会有一层伸出实际末端。
+      const geometry=new T.CapsuleGeometry(width,length-radius*2,6,20).rotateX(Math.PI/2).translate(x,0,length*.5);
+      geometry.userData.keepNormals=true;
+      const mesh=skin(geometry,p=>{
+        const t=T.MathUtils.clamp((p.z-radius)/(length-radius*2),0,1);
+        return [[0,1-t],[1,t]];
+      });
+      const item=part(name,mesh,surface);item.UseMatterSurface=false;
+      for(let k=0;k<item.Triangles.length;k+=3)
+        [item.Triangles[k],item.Triangles[k+2]]=[item.Triangles[k+2],item.Triangles[k]];
+      parts.push(item);
+      roles[name]=['channel.body','channel.surface'];
     }
-    const selected=[],indices=geometry.index.array;
-    for(let i=0;i<indices.length;i+=3) {
-      const middle=new T.Vector3();
-      for(let j=0;j<3;j++)middle.add(new T.Vector3().fromBufferAttribute(position,indices[i+j]));
-      middle.multiplyScalar(1/3);
-      const bright=Math.cos(Math.atan2(middle.y,middle.x)*3-middle.z*.2)>.2;
-      if(bright===(name==='core'))selected.push(indices[i],indices[i+1],indices[i+2]);
-    }
-    geometry.setIndex(selected);
-    const mesh=skin(geometry,p=>{const t=T.MathUtils.clamp((p.z-radius)/(length-radius*2),0,1);return [[0,1-t],[1,t]];});
+    lanes.forEach(([x,surface],i)=>{
+      const name=`channel${i}`;
+      addLayer(name,x,radius,surface);
+      contacts.push({Id:name,Part:i,A:[x,0,radius],B:[x,0,length-radius],Radius:radius,AControl:'origin',BControl:'extent'});
+    });
+    addLayer('luminous_core',0,radius*.43,core);
+    write(id,parts,[{Id:'start',Part:0,Position:[0,0,0],Direction:[0,0,-1],Control:'origin'},
+      {Id:'end',Part:0,Position:[0,0,length],Direction:[0,0,1],Control:'extent'}],
+      contacts,controls,[],false,{Forward:[0,0,1],Up:[0,1,0]},
+      structure('volume','forms_ray.mjs','makeLuminousRays',{'span.length':length,'span.radius':radius},roles,[],['span']));
+  }
+}
+
+/** 连锁段保留原接触胶囊，电弧折芯和分梢始终收在同一外缘内。 */
+export function makeThunderChannel() {
+  const radius=.12,length=2,span=length-radius*2,parts=[],roles={};
+  const controls=['origin','extent'].map(Id=>({Id,Parent:null,Position:[0,0,0],Rotation:[0,0,0,1]}));
+  function addLayer(name,geometry,surface) {
+    const mesh=skin(geometry,p=>{
+      const t=T.MathUtils.clamp((p.z-radius)/span,0,1);
+      return [[0,1-t],[1,t]];
+    });
     const item=part(name,mesh,surface);item.UseMatterSurface=false;
     for(let k=0;k<item.Triangles.length;k+=3)
       [item.Triangles[k],item.Triangles[k+2]]=[item.Triangles[k+2],item.Triangles[k]];
     parts.push(item);roles[name]=['channel.body','channel.surface'];
   }
+  const envelope=new T.CapsuleGeometry(radius,span,6,16).rotateX(Math.PI/2).translate(0,0,length*.5);
+  envelope.userData.keepNormals=true;
+  addLayer('body',envelope,'thunder_corona');
+
+  // 折芯是连续的多面体。宽段和窄段错开，三个方向的凸起在不同镜头仍能读到。
+  function arc(sections) {
+    const sides=8,points=[],uv=[],faces=[];
+    sections.forEach(([z,x,y,width],level)=>{
+      const cap=Math.max(radius-z,z-(length-radius),0);
+      const limit=Math.sqrt(Math.max(0,radius*radius-cap*cap))-Math.hypot(x,y);
+      for(let side=0;side<sides;side++) {
+        const angle=2*Math.PI*side/sides;
+        const r=Math.min(width,Math.max(0,limit))*(.86+.14*Math.cos(angle*3+z*3.9));
+        points.push(x+r*Math.cos(angle),y+r*Math.sin(angle),z);
+        uv.push(side/sides,z/length);
+        if(level===0) continue;
+        const a=(level-1)*sides+side,b=(level-1)*sides+(side+1)%sides,c=level*sides+side,d=level*sides+(side+1)%sides;
+        if(sections[level-1][3]>0) faces.push(a,b,d);
+        if(width>0) faces.push(a,d,c);
+      }
+    });
+    const geometry=new T.BufferGeometry();
+    geometry.setAttribute('position',new T.Float32BufferAttribute(points,3));
+    geometry.setAttribute('uv',new T.Float32BufferAttribute(uv,2));
+    geometry.setIndex(faces);
+    return geometry;
+  }
+  addLayer('core',arc([
+    [0,0,0,0],[.12,0,0,.054],[.29,-.015,.010,.045],
+    [.48,.038,.017,.073],[.65,-.041,-.014,.033],[.90,.026,-.040,.072],
+    [1.12,.041,.011,.038],[1.34,-.038,.038,.060],[1.55,.016,-.020,.030],
+    [1.77,.023,.007,.057],[1.88,0,0,.046],[2,0,0,0]
+  ]),'thunder_arc');
+  addLayer('fork_left',arc([
+    [.29,-.015,.010,0],[.41,-.050,.027,.033],[.56,-.077,.025,.025],
+    [.72,-.099,-.021,.010],[.78,-.107,-.021,0]
+  ]),'thunder_arc_fork');
+  addLayer('fork_right',arc([
+    [1.12,.041,.011,0],[1.25,.064,-.035,.024],[1.39,.093,-.035,.016],[1.51,.096,.014,0]
+  ]),'thunder_arc_fork');
   write('thunder_channel',parts,
     [{Id:'start',Part:0,Position:[0,0,0],Direction:[0,0,-1],Control:'origin'},
       {Id:'end',Part:0,Position:[0,0,length],Direction:[0,0,1],Control:'extent'}],

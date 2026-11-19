@@ -1,0 +1,80 @@
+// 9.02 A：保留 B18 正式输入的范围，复用同场景比较新版光束的有效轮廓和渲染距离。
+
+try
+{
+    var legacy = JObject.Parse(File.ReadAllText(__B18_BEAM_EVIDENCE__));
+    Vector3 start = new Vector3(64, 72, .3f), end = new Vector3(70, 72, .3f);
+    foreach (JObject legacyBeamSample in legacy["forms"])
+    {
+        var saved = legacyBeamSample["definition"].ToObject<AbilityDefinition>();
+        var cast = new AbilityCast(AbilityCompiler.Compile(saved, cache: false), Matrix4x4.identity,
+            inputs: new AbilityInputs(start, end, Vector3.right, .8f));
+        cast.Advance(.01f, end);
+        var shapes = Shapes(cast);
+        Check(shapes.Count == (saved.Root.Form == "solar_ray" ? 3 : 1) &&
+              shapes.All(shape => Math.Abs(shape.Radius - legacyBeamSample.Value<float>("radius")) < .0001f),
+            "B18 的正式定义仍用原有范围", new { saved.Root.Form, radii = shapes.Select(s => s.Radius).ToArray() });
+    }
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
+    {
+        if (!Ours(request.SkillContainer.GetComponent<SkillContainer>().Asset)) return original(request);
+        var result = original(request);
+        if (result == SkillEmissionResult.Accepted)
+        {
+            object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+                .Single(r => (long)Field(r, "Id") == starts.Last().CastId);
+            accepted.Add((AbilityCast)Field(running, "Cast"));
+        }
+        return result;
+    };
+    PrepareAppearanceBackdrop(58, 76, 64, 80);
+    var skills = new[] { Build(SkillEntities.SpiritBeam), Build(SkillEntities.SolarBeam),
+        Build(SkillEntities.SpiritBeam, true), Build(SkillEntities.SolarBeam, true) };
+    for (int i = 0; i < skills.Length; i++)
+    {
+        ResetPeople();
+        bool solar = i % 2 == 1, boosted = i >= 2, near = i == 0;
+        if (near)
+        {
+            Place(target, 66.35f);
+            Place(along, 65.4f, 72.42f);
+            Place(outside, 65.4f, 73.65f);
+            foreach (Actor actor in new[] { target, along, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+        }
+        var definition = Convert(skills[i], out _);
+        string name = definition.Root.Form + (boosted ? "-enhanced" : near ? "-near" : "");
+        int inHealth = along.data.health, outHealth = outside.data.health;
+        int completedBefore = accepted.Count;
+        Check(Use(skills[i]), "通过正式入口施放新版光束", name);
+        await Advance(.035f);
+        Check(accepted.Count == completedBefore + 1, "只受理一发", name);
+        AbilityCast live = accepted.Last();
+        var spans = Shapes(live);
+        // 外缘与有效接触共享实际部位，不用从材质发光范围单独推断。
+        var visual = Views(live).Single();
+        float radius = definition.Root.Scale * (solar ? .15f : .30f);
+        Check(visual.Resource.Description.Id == definition.Root.Form && spans.Count == (solar ? 3 : 1) &&
+              spans.All(s => Mathf.Abs(s.Radius - radius) < .001f), "亮芯无隐藏接触，外缘共用实际尺寸",
+            new { name, radius, spans = spans.Select(s => new { from = XYZ(s.A), to = XYZ(s.B), s.Radius }).ToArray() });
+        await FrameAppearance(name, near ? 65.2f : 67, 72, near ? 6 : 10);
+        if (i == 1) await FrameAppearance(name + "-far", 67, 72, 22);
+        await Advance(definition.Lifetime + .18f);
+        long castId = starts.Last().CastId;
+        Check(along.data.health < inHealth && outside.data.health == outHealth && live.Finished &&
+              Shapes(live).Count == 0 && Views(live).Count == 0 && old == 0 &&
+              endings.Any(e => e.Fact.CastId == castId && !e.Fact.Cancelled),
+            "有接触者扣血，外侧无伤，束体自然退出",
+            new { name, insideLoss = inHealth - along.data.health, outsideLoss = outHealth - outside.data.health });
+    }
+    return new { passed = true, finished = accepted.Count, oldExecutions = old };
+}
+finally
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
+    ConstructedAbilityService.CastStarted -= Started;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

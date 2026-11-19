@@ -76,6 +76,7 @@ async Task Shot(string name)
     ControllableUnit.clear(false);World.world.console.Hide();World.world.camera.transform.position=new Vector3(67,72,0);MoveCamera.instance.forceZoom(12);
     Config.paused=true;await Game.NextFrame();string file=Path.Combine(folder,name+".png");File.Delete(file);Screen.Capture(file);await Game.WaitUntil(()=>File.Exists(file),600);
 }
+// SOURCE_CHECKS
 try
 {
     var skills=new[]{Build(SkillEntities.ChainLightning),Build(SkillEntities.ChainLightning,true)};

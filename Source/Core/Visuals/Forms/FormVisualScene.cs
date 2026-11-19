@@ -106,8 +106,20 @@ public readonly struct FormVisualInstance
 
     /// <summary>明确覆盖优先，其次是主体材料，握柄、眼部及泡沫保留资源自身表面。</summary>
     /// <param name="part">发布资源中的部件。</param>
-    public string SurfaceFor(int part) => Surface ??
-        (Resource.Description.Parts[part].UseMatterSurface ? MatterSurface : null) ?? Resource.Description.Parts[part].Surface;
+    public string SurfaceFor(int part)
+    {
+        FormPartDescription piece = Resource.Description.Parts[part];
+        // 同材料的制作表面保留自身质感，改用其他材料时跟随实际材料。
+        string authoredMaterial = piece.Surface switch
+        {
+            "stone_strata" => "stone",
+            "wind_open" or "wind_pressure" => "wind",
+            "yin_basin" => "yin_depth",
+            "meteor_heat" or "meteor_crown" => "flame",
+            _ => null
+        };
+        return Surface ?? (piece.UseMatterSurface && MatterSurface != authoredMaterial ? MatterSurface : null) ?? piece.Surface;
+    }
 
     /// <summary>取得用于模型、挂点和作用形状的相同部位变换。</summary>
     /// <param name="part">部件索引。</param>
