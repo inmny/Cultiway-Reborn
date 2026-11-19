@@ -73,6 +73,9 @@ public sealed class CompiledAbility
     /// <summary>是否有实际人物对应，普通构造无需额外实例记录。</summary>
     public bool HasCorrespondences { get; }
 
+    /// <summary>受击分担的参数副本；当次契约另存实际余额。</summary>
+    internal CompiledSoulPact SoulPact { get; }
+
     /// <summary>实际攻击部位及身体采用的最大推拉力绝对值，供自主决策估算。</summary>
     public float ContactForce { get; }
 
@@ -244,6 +247,8 @@ public sealed class CompiledAbility
             nodes.Select(node => node.Impact).Append(Impact).Append(body?.Impact)
                 .Concat(body?.Stages.Select(stage => stage.Impact) ?? Enumerable.Empty<CompiledConstructionImpact>()));
         Use = new CompiledConstructionUse(definition.Use, Impact.Targets);
+        if (definition.SoulPact != null)
+            SoulPact = new CompiledSoulPact(definition.SoulPact, Use.Target, Impact.Targets);
         CompiledConstructionImpact[] impacts = nodes
             .Where(node => node.AffectsActors || node.Conduction != null ||
                            node.EventOperations.Any(op => op.Conduction != null))

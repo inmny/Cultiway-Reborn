@@ -63,6 +63,7 @@ public sealed partial class WindowWanfaConstructionEditor
             else Row("ActualRange", T("ActualRangeNeedsLearner"));
         }
         InventoryRows();
+        SoulPactRows();
         MagnitudeRows();
         if (parts.Count == 0)
         {

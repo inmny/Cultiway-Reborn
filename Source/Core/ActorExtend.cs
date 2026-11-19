@@ -737,8 +737,17 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         AttackType attackType,
         ref float damage)
     {
-        for (var i = 0; i < action_on_final_damage.Length && damage > 0f; i++)
+        for (var i = 0; i < (int)FinalDamageStage.Transfer && damage > 0f; i++)
         {
+            if (i == (int)FinalDamageStage.Survival)
+            {
+                action_on_final_damage[(int)FinalDamageStage.Transfer]?.Invoke(this, attacker, composition, attackType, ref damage);
+                if (damage <= 0f)
+                {
+                    damage = 0f;
+                    break;
+                }
+            }
             action_on_final_damage[i]?.Invoke(this, attacker, composition, attackType, ref damage);
             damage = Mathf.Max(0f, damage);
         }

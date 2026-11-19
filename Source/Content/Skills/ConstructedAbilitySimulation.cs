@@ -280,6 +280,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 running.Cast.AppendVisuals(visuals);
                 AppendSpatialViews(running, now);
+                AppendSoulPact(running, now);
             }
             if (!running.BodyControlled) continue;
             BodyPose pose = running.Cast.BodyPose.Value;
@@ -299,6 +300,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         AppendBalancedWakan(now);
         AppendLifeRepairs(now);
         AppendShadows(now);
+        AppendSoulPactTransfers(now);
         AppendContactVolumes(now);
         AppendMediumLinks(now);
         ConfirmedWorldTime = now;

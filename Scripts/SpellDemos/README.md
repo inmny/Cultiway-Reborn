@@ -2271,3 +2271,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 9.26 借时催枯
 
 在已启动的独立游戏中，用 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/record_process_time.py --imprint-check --state "$HOME/.local/state/cultiway-dev/evidence/process-time-c2/use"` 复用时序创作的正式已学成品。对照两份实际木料，检查只在选中材料暂停、加速时显示印片，恢复常速撤去，扣除的材料与灵力保留。可编辑资料见 [借时催枯](../../Doc/技能系统全面重构/构造输入/借时催枯.json)。
+
+### 9.26 魂魄替负
+
+在已启动的独立游戏中，用 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_soul_pact.py` 检查真实双方、免伤与额度实际扣除、耗尽与死亡后的收束，以及正式保存与重开。可编辑资料见 [魂魄替负](../../Doc/技能系统全面重构/构造输入/魂魄替负.json)。

@@ -8,6 +8,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.KnightCombat;
 using Cultiway.Content.WeaponControl;
 using Cultiway.Core;
+using Cultiway.Core.Combat;
 using Cultiway.Core.Components;
 using Cultiway.Core.Persistence;
 using Cultiway.Core.EventSystem.Events;
@@ -90,6 +91,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ConstructedMatterCatalog.Initialize();
         Combat.GroundWeaponService.Initialize();
         var service = new ConstructedAbilityService();
+        ActorExtend.RegisterActionOnFinalDamage(FinalDamageStage.Transfer, ShareSoulPactDamage);
         ConstructionEditing.Access = service;
         simulation = service;
         Core.SkillLibV3.Manager.Barriers = service;
@@ -319,6 +321,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         CanPrepare(caster, handle, target.Object) &&
         (target.WorldScope == null || target.WorldScope.IsValid()) &&
         TryResolveUseTarget(caster, PlanFor(handle.EntryId), target, out Actor actor, out Vector3 point, out _) &&
+        (PlanFor(handle.EntryId).SoulPact == null || CanBeginSoulPact(caster.Base, actor)) &&
         StartingDistance(caster.Base, point) <= Range(caster, PlanFor(handle.EntryId), actor, handle.Source);
 
     /// <summary>作为独立法术参与已有自主释放选择。</summary>
@@ -450,6 +453,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         float targetHeight = 0f;
         if (!practice && !TryResolveUseTarget(caster, plan, target, out targetActor, out point, out targetHeight))
             return false;
+        if (plan.SoulPact != null && (practice || !CanBeginSoulPact(sourceActor, targetActor))) return false;
         if (plan.HasCorrespondences && plan.Nodes.Any(node => node.Correspondence != null &&
             (node.Correspondence.Target == ConstructionCorrespondenceTarget.Source ? sourceActor : targetActor) == null)) return false;
         if (caster != null && StartingDistance(spatialSource, point) > Range(caster, plan, targetActor, carrierSource) ||
@@ -624,6 +628,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (movement != null) Cultiway.Content.Persistence.ActorPositionSaveService.Remember(caster);
             if (payment != null && !payment.IsCommitted) payment.Commit();
             accepted = true;
+            if (plan.SoulPact != null) soulPacts[running.TargetId] = new SoulPact(running, plan.SoulPact);
             ReplaceExcessInstances(running);
             PublishBarriers();
             TrackWorldRecovery(running, true);
@@ -752,6 +757,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         balancedWakan.Clear();
         lifeRepairs.Clear();
         ClearShadows();
+        soulPacts.Clear();
+        soulPactTransfers.Clear();
         ClearConductionVisuals();
         ClearContactDebug();
         contactVolumes.Clear();
@@ -803,6 +810,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         ReleaseActorTransferHolds(running);
         ReleaseSpatialViews(running);
+        if (running.Cast.Plan.SoulPact != null && soulPacts.TryGetValue(running.TargetId, out var pact) && pact.Cast == running)
+            soulPacts.Remove(running.TargetId);
         ReleaseBody(running);
         ReleaseMaterialReservation(running);
         running.Inventory?.Dispose();
