@@ -15,15 +15,19 @@ public class RenderStatusParticleSystem : QuerySystem<StatusComponent, StatusPar
     /// <summary>按世界时间发射，长帧不补发历史粒子，纯视觉种子不消耗战斗随机数。</summary>
     protected override void OnUpdate()
     {
-        float delta = Tick.deltaTime;
+        double now = World.world.getCurWorldTime();
         Query.ForEachEntity((ref StatusComponent status, ref StatusParticleState state, Entity entity) =>
         {
             var settings = status.Type.ParticleSettings;
             if (!settings.enabled || settings.count <= 0) return;
-            state.timer += delta;
             float interval = Mathf.Max(.05f, settings.interval);
-            if (state.timer < interval) return;
-            state.timer %= interval;
+            if (state.NextAt == 0d)
+            {
+                state.NextAt = now + interval;
+                return;
+            }
+            if (now < state.NextAt) return;
+            state.NextAt = now + interval;
             foreach (Entity owner in entity.GetIncomingLinks<StatusRelation>().Entities)
             {
                 if (!owner.TryGetComponent(out ActorBinder binder)) continue;
@@ -34,9 +38,14 @@ public class RenderStatusParticleSystem : QuerySystem<StatusComponent, StatusPar
                 if (!SpatialVisualEffects.IsRelevant(foot, height)) continue;
                 for (int i = 0; i < settings.count; i++)
                 {
-                    float angle = (float)World.world.getCurWorldTime() * 1.7f + i * 2.4f + entity.Id;
-                    Vector3 point = foot + new Vector3(Mathf.Cos(angle) * .3f, Mathf.Sin(angle) * .2f, .3f + .2f * Mathf.Sin(angle * 2f)) * height;
-                    SpatialVisualEffects.Particle(point, Vector3.forward * height * .2f, settings.color, height * .07f, .6f);
+                    float angle = (float)(now * 1.7d % (Mathf.PI * 2f)) + i * 2.4f + entity.Id;
+                    Vector3 outward = new(Mathf.Cos(angle), Mathf.Sin(angle), 0f);
+                    Vector3 point = foot + Vector3.Scale(outward, new Vector3(.3f, .2f, 0f)) * height +
+                        Vector3.forward * ((.32f + .18f * Mathf.Sin(angle * 2f)) * height);
+                    Color color = settings.color;
+                    color.a *= .72f;
+                    SpatialVisualEffects.Particle(point, (outward * .08f + Vector3.forward * .22f) * height,
+                        color, height * .065f, .48f);
                 }
             }
         });

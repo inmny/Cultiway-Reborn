@@ -413,7 +413,7 @@ public partial class ArtifactAbilities
         {
             anchor = anchor,
             color_role = role,
-            style = SkillFlyOverParticleStyle.Default,
+            style = SkillParticleStyle.Default,
             particle_count = count,
             spread = spread,
         };

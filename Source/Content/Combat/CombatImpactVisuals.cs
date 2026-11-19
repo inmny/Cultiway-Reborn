@@ -1,4 +1,5 @@
 using Cultiway.Core;
+using Cultiway.Core.Components;
 using Cultiway.Content.Visuals;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
@@ -27,11 +28,15 @@ internal static class CombatImpactVisuals
         float size = Mathf.Clamp(Mathf.Sqrt(damage) * .02f, .08f, .3f);
         Color color = entity.GetComponent<SkillEntity>().VfxElement.AccentColor;
         color = Color.Lerp(color, Color.white, .5f);
-        for (int i = 0; i < 5; i++)
+        Vector3 center = entity.GetComponent<Position>().value;
+        Vector2 outward = (point - (Vector2)center).normalized;
+        Vector2 tangent = new(-outward.y, outward.x);
+        for (int i = -1; i <= 1; i++)
         {
-            float angle = i * Mathf.PI * 2 / 5;
-            SpatialVisualEffects.Particle(new Vector3(point.x, point.y, .3f),
-                new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), .5f) * .8f, color, size, .22f);
+            Vector2 velocity = outward * .46f + tangent * (i * .35f);
+            SpatialVisualEffects.Particle(new Vector3(point.x, point.y, center.z + .18f),
+                new Vector3(velocity.x, velocity.y, .58f), color, size, .24f - Mathf.Abs(i) * .04f,
+                SpatialParticleMaterial.Fragment, -2f);
         }
     }
 
@@ -57,19 +62,27 @@ internal static class CombatImpactVisuals
         ElementComposition composition, AttackType attackType, bool? metallicWeapon)
     {
         if (healthLost <= 0 || target.Base.isRekt()) return;
-        Vector3 point = target.Base.GetSimPos();
+        bool weapon = attackType == AttackType.Weapon;
+        Vector3 point = weapon
+            ? SpatialActorPose.Foot(target.Base) + Vector3.forward * (SpatialActorPose.Height(target.Base) * .55f)
+            : target.Base.GetSimPos();
         if (!SpatialVisualEffects.IsRelevant(point, .4f)) return;
-        if (attackType == AttackType.Weapon && attacker?.isActor() == true && !attacker.isRekt())
+        if (weapon && attacker?.isActor() == true && !attacker.isRekt())
             BattleSpellVisualRuntime.Contact(attacker.a, target.Base);
         Color color = metallicWeapon == false ? new Color(.61f, .45f, .31f, .76f) :
             Color.Lerp(SkillVfxColor.GetElementColor(composition), Color.white, .22f);
-        Vector3 direction = attacker != null && !attacker.isRekt() ? (point - attacker.GetSimPos()).normalized : Vector3.up;
+        Vector2 approach = attacker != null && !attacker.isRekt() ? (Vector2)(point - attacker.GetSimPos()) : Vector2.zero;
+        Vector3 direction = approach.normalized;
+        Vector3 side = new(-direction.y, direction.x, 0f);
         float size = Mathf.Clamp(target.Base.actor_scale * .8f, .035f, .16f);
         int count = metallicWeapon == false ? 2 : 3;
+        SpatialParticleMaterial material = weapon
+            ? SpatialParticleMaterial.Fragment : SpatialParticleMaterial.Energy;
         for (int i = 0; i < count; i++)
         {
-            Vector3 velocity = direction * (.3f + i * .12f) + Vector3.forward * (.6f - i * .15f);
-            SpatialVisualEffects.Particle(point, velocity, color, size, .14f + i * .025f, gravity: -3f);
+            Vector3 velocity = direction * (.34f + i * .12f) + side * ((i - (count - 1) * .5f) * .45f) +
+                Vector3.forward * (.6f - i * .12f);
+            SpatialVisualEffects.Particle(point, velocity, color, size, .16f + i * .025f, material, -3f);
         }
     }
 }

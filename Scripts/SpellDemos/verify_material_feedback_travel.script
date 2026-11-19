@@ -1,0 +1,63 @@
+// 混沌旧弹体必须真的走过并扣血；再用同一条走廊验证旧法术的地形结算仍执行。
+PrepareAppearanceBackdrop(59, 75, 69, 76);
+await FrameAppearance("travel-before", 65, 72, 6f);
+var particleRuntime = typeof(ActorExtend).Assembly.GetType("Cultiway.Core.Visuals.SpatialVisualEffects");
+object Field(object o, string name) => o.GetType().GetField(name, F).GetValue(o);
+object[] CorridorParticles() => ((IEnumerable)particleRuntime.GetField("effects", F).GetValue(null)).Cast<object>().Where(e =>
+{
+    var p = (Vector3)Field(e, "Start");
+    return Field(e, "Kind").ToString() == "Particle" && p.x >= 57f && p.x <= 75f && Math.Abs(p.y - 72f) < 3f;
+}).ToArray();
+var manager = Cultiway.ModClass.I.SkillV3;
+var chaos = new SkillContainerBuilder(SkillEntities.ChaosOrb).UseAnimation(0).Build();
+var cast = manager.SpawnSkillAtPosition(chaos, owner.Base, new Vector3(59, 72, .35f), enemy,
+    enemy.GetSimPos(), 45f, owner.GetPowerLevel());
+int hp = enemy.data.health;
+float flightX = 59f;
+int during = 0;
+// 等实际位置跨过一次地面采样长度，避免把尚未移动的起手误当成无粒子证据。
+for (int i = 0; i < 25 && cast.IsAvailable() && flightX < 59.7f && enemy.data.health == hp; i++)
+{
+    await Advance(.025f);
+    await Game.NextFrame();
+    if (cast.IsAvailable()) flightX = cast.GetComponent<Cultiway.Core.Components.Position>().value.x;
+    during += CorridorParticles().Length;
+}
+Check(flightX >= 59.7f && enemy.data.health == hp && during == 0, "混沌弹已移动但未命中，地面没有逐格粒子",
+    new { flightX, hp, after = enemy.data.health, during });
+await FrameAppearance("travel-no-ground-specks", 63, 72, 5f);
+for (int i = 0; i < 55 && enemy.data.health >= hp; i++)
+{
+    await Advance(.04f);
+    await Game.NextFrame();
+}
+Vector3 point = enemy.GetSimPos();
+var locals = CorridorParticles();
+Check(enemy.data.health < hp && locals.Length > 0 && locals.All(e => Vector2.Distance((Vector3)Field(e, "Start"), point) < 1f),
+    "混沌弹确实扣血，留下的粒子仅在实际接触处", new { hp, after = enemy.data.health, count = locals.Length });
+await FrameCleanupSide("travel-contact-worldfall", point, 7f, -.25f);
+await Advance(.8f);
+Check(CorridorParticles().Length == 0, "接触粒子按世界时间散尽");
+
+for (int i = 59; i <= 75; i++)
+{
+    var tile = World.world.GetTileSimple(i, 75);
+    tile.Height = 140;
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+}
+var frost = World.world.GetTileSimple(63, 75);
+frost.setTileTypes(TileLibrary.shallow_waters, null);
+Check(!frost.isTemporaryFrozen(), "原版水面在出手前未冻结");
+var ice = new SkillContainerBuilder(SkillEntities.IceLance).UseAnimation(0).Build();
+var iceCast = manager.SpawnSkillAtPosition(ice, owner.Base, new Vector3(60, 75, .35f), null,
+    new Vector3(74, 75, .35f), 45f, owner.GetPowerLevel());
+float iceX = 60f;
+for (int i = 0; i < 24 && !frost.isTemporaryFrozen() && iceCast.IsAvailable(); i++)
+{
+    await Advance(.04f);
+    if (iceCast.IsAvailable()) iceX = iceCast.GetComponent<Cultiway.Core.Components.Position>().value.x;
+}
+Check(iceCast.IsAvailable() && iceX >= 63f && iceX < 73f && frost.isTemporaryFrozen(),
+    "冰枪仍在途中，只有经过的水面按原地形规则冻结", new { iceX, frozen = frost.isTemporaryFrozen() });
+await FrameAppearance("travel-ground-frozen", 64, 74, 5f);
+return new { passed = true, iceX };

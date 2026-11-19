@@ -520,7 +520,6 @@ namespace Cultiway
             GeneralRenderSystems.Add(new RenderMotionRibbonTrailSystem());
             GeneralRenderSystems.Add(new RenderStatusParticleSystem());
             GeneralRenderSystems.Add(new RenderStatusAnimationSystem());
-            GeneralRenderSystems.Add(new RenderSkillFlyOverParticleSystem());
 
             CustomMapModeManager = new();
             CustomMapModeManager.Initialize();

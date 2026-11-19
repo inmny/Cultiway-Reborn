@@ -2140,3 +2140,5 @@ python3 Scripts/SpellDemos/demo_spell.py TidalWave --cases base --view native --
 短片复验：`dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/demo_spell.py WaterCurtain --cases base --view native --zoom 22 --fps 15 --duration 2.2 --output <本次验收目录>`。
 
 9.05 的施放与命中检查使用 `dev.py exec --timeout 225 -- python3 Scripts/SpellDemos/verify_material_feedback.py --section weapon|spell|steam`（每次选一个段）。`weapon` 复用木剑御器，观察真实生命变化、局部碎屑、原版攻击对照和退场；`spell` 走仍保留的旧执行入口，在混沌弹上区分主体薄雾与通用覆盖；`steam` 对照隔开的水火与实际减水的接触。每段保存原版及 Worldfall 画面、脚本输入和检查结果。
+
+9.06 粒子复验沿用同一入口，每次用 `--section` 选择一段：`travel`（混沌弹没有掠地粒子，冰枪仍冻结途经水面）、`weapon`（木剑碎屑的位置、方向与真实扣血）、`surface`（守护状态粒子的暂停、换视角、结束与换世界）、`terrain`（正式排水只在实际变化的地块生成下落水珠）。命令格式：`dev.py exec --timeout 225 -- python3 Scripts/SpellDemos/verify_material_feedback.py --section travel`。

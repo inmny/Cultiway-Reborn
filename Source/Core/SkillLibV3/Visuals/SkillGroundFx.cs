@@ -1,5 +1,4 @@
 using UnityEngine;
-using Cultiway.Core.Semantics;
 
 namespace Cultiway.Core.SkillLibV3.Visuals;
 
@@ -12,43 +11,10 @@ public static class SkillGroundFx
     /// <summary>
     /// 法术飞行掠过时对地面的轻量影响。由 <see cref="Systems.LogicSkillGroundFxRecordSystem"/> 按距离节流调用。
     /// </summary>
-    public static void OnFlyOver(
-        Vector3 pos,
-        float colliderRadius,
-        SkillVfxElementAsset element,
-        SemanticColorPalette colorPalette)
+    public static void OnFlyOver(Vector3 pos, SkillVfxElementAsset element)
     {
         var tile = GetTile(pos);
-        if (tile == null) return;
-
-        ActivateCollisionAreaParticles(pos, colliderRadius, element, colorPalette);
-        element.ApplyGroundFlyOver(tile);
-    }
-
-    private static void ActivateCollisionAreaParticles(Vector3 pos, float colliderRadius,
-        SkillVfxElementAsset element, SemanticColorPalette colorPalette)
-    {
-        // 与 LogicActorCollisionSystem 的距离阈值保持一致，覆盖扫掠碰撞实际检查的地块。
-        var radius = colliderRadius + 1f;
-        var radiusSqr = radius * radius;
-        var minX = Mathf.FloorToInt(pos.x - radius);
-        var maxX = Mathf.CeilToInt(pos.x + radius);
-        var minY = Mathf.FloorToInt(pos.y - radius);
-        var maxY = Mathf.CeilToInt(pos.y + radius);
-
-        for (var x = minX; x <= maxX; x++)
-        for (var y = minY; y <= maxY; y++)
-        {
-            var dx = pos.x - x;
-            var dy = pos.y - y;
-            if (dx * dx + dy * dy >= radiusSqr) continue;
-
-            var affectedTile = World.world.GetTile(x, y);
-            if (affectedTile != null)
-            {
-                SkillFlyOverParticleEmitter.Activate(affectedTile, element, colorPalette);
-            }
-        }
+        if (tile != null) element.ApplyGroundFlyOver(tile);
     }
 
     /// <summary>

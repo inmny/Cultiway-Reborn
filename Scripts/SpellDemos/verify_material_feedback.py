@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""用现成地图复验 9.05 的兵器、旧法术和水火蒸散。"""
+"""用现成地图复验 9.05 的施放与命中、9.06 的粒子来源与寿命。"""
 import argparse
 import json
 import os
@@ -11,7 +11,7 @@ from common import PROJECT, version_stamp, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--section", choices=("weapon", "spell", "steam"), required=True)
+    parser.add_argument("--section", choices=("weapon", "spell", "steam", "travel", "surface", "terrain"), required=True)
     args = parser.parse_args()
     if not os.environ.get("CULTIWAY_DEV_ACTIVE"):
         raise RuntimeError("请使用 develop 的 dev.py exec 运行")
@@ -47,7 +47,9 @@ for (int y = 69; y <= 75; y++)
 var stats''')
     camera = read("verify_appearance_camera.script") + read("verify_visual_cleanup_camera.script")
     script = folder / "input.script"
-    script.write_text(helper + '\n' + camera + '\n' + read(f"verify_material_feedback_{args.section}.script"))
+    tail = read(f"verify_material_feedback_{args.section}.script")
+    tail = tail.replace('Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")', json.dumps(str(fixture)))
+    script.write_text(helper + '\n' + camera + '\n' + tail)
     write_json(folder / "metadata.json", dict(version=version_stamp()[0], connection=connected, section=args.section))
     print(str(folder), flush=True)
     try:

@@ -1,0 +1,54 @@
+// 用已有守护祝福核对持续粒子冻结、恢复和换世界回收。
+PrepareAppearanceBackdrop(61, 75, 69, 75);
+await FrameAppearance("surface-before", 65, 72, 6f);
+var particleRuntime = typeof(ActorExtend).Assembly.GetType("Cultiway.Core.Visuals.SpatialVisualEffects");
+var status = StatusEffects.GuardBlessing;
+var color = status.ParticleSettings.color;
+object Field(object o, string name) => o.GetType().GetField(name, F).GetValue(o);
+object[] Live() => ((IEnumerable)particleRuntime.GetField("effects", F).GetValue(null)).Cast<object>().Where(e =>
+{
+    var tint = (Color)Field(e, "Color");
+    return Field(e, "Kind").ToString() == "Particle" &&
+        Math.Abs(tint.r - color.r) < .0001f && Math.Abs(tint.g - color.g) < .0001f && Math.Abs(tint.b - color.b) < .0001f;
+}).ToArray();
+bool OnSurface(object e)
+{
+    var point = (Vector3)Field(e, "Start");
+    var velocity = (Vector3)Field(e, "End");
+    var outwards = (Vector2)point - owner.Base.current_position;
+    return outwards.magnitude < 2f && point.z > owner.Base.position_height && velocity.z > 0f &&
+        Vector2.Dot(outwards, velocity) > 0f && (float)Field(e, "Duration") <= .5f;
+}
+Check(Live().Length == 0, "无守护状态时不会主动发射");
+CombatStatusEffects.ApplyStatus(owner.Base, status, .85f, owner.Base);
+Check(CombatStatusEffects.HasStatus(owner.Base, status), "真实施加守护祝福");
+await Advance(.28f);
+await Game.NextFrame();
+var initial = Live();
+Check(initial.Length > 0 && initial.All(OnSurface), "从角色表面稀疏发射，向外上升且寿命有限",
+    new { count = initial.Length });
+double now = World.world.getCurWorldTime();
+await FrameAppearance("surface-paused-native", 64, 72, 4.5f);
+await FrameCleanupSide("surface-paused-worldfall", owner.Base.GetSimPos(), 6f, -.25f);
+Check(World.world.getCurWorldTime() == now && initial.SequenceEqual(Live()),
+    "暂停并切换视角后仍是原有粒子，没有重发、推进或过期");
+await Advance(.25f);
+Check(Live().Any(e => !initial.Contains(e)), "恢复世界时间后才出现新粒子");
+await Advance(1.2f);
+await Game.NextFrame();
+Check(Live().Length == 0, "状态结束后没有继续发射，已有粒子散尽");
+
+CombatStatusEffects.ApplyStatus(owner.Base, status, 2f, owner.Base);
+await Advance(.28f);
+var outgoing = Live();
+Check(outgoing.Length > 0, "切换存档时还有真实活动粒子");
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+while (SmoothLoader.isLoading())
+{
+    Config.paused = true;
+    await Game.NextFrame();
+}
+await Boundary();
+await Game.NextFrame();
+Check(Live().Length == 0, "实际切换存档后没有旧世界粒子");
+return new { passed = true, originalCount = initial.Length, outgoingCount = outgoing.Length };

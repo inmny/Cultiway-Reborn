@@ -1,12 +1,11 @@
 namespace Cultiway.Core.SkillLibV3.Visuals;
 
 /// <summary>
-/// 法术掠过地面时的上升粒子参数。所有粒子由共享 ParticleSystem 批量发射。
+/// 从明确锚点发射时的空间粒子参数，两种视角共用。
 /// </summary>
-public struct SkillFlyOverParticleStyle
+public struct SkillParticleStyle
 {
     public int ParticlesPerEmission;
-    public float EmissionDuration;
     public float EmissionInterval;
     public float MinSize;
     public float MaxSize;
@@ -17,10 +16,9 @@ public struct SkillFlyOverParticleStyle
     public float HorizontalDrift;
     public float Alpha;
 
-    public static SkillFlyOverParticleStyle Default => new()
+    public static SkillParticleStyle Default => new()
     {
         ParticlesPerEmission = 1,
-        EmissionDuration = 1f,
         EmissionInterval = 0.18f,
         MinSize = 0.12f,
         MaxSize = 0.22f,

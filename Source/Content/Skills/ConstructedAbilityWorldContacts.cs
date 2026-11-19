@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Core.Skills;
 using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Core.SkillLibV3.Visuals;
 using Newtonsoft.Json;
 using UnityEngine;
 
@@ -293,10 +294,31 @@ public sealed partial class ConstructedAbilityService
             simulation.RefreshTerrainAt(hit.Tile);
         if (rule.MaterialVolume == 0) running.Cast.ConfirmWorldEffect(node, result.Changed);
         running.Cast.RecordActionContact(node, hit.Point, AbilityActionContactKind.World);
-        if (result.Changed) running.WorldChanges++;
+        if (result.Changed)
+        {
+            running.WorldChanges++;
+            ShowWorldChange(result.Flags, hit.Tile.posV3);
+        }
         WorldContactConfirmed?.Invoke(new ConstructedWorldContact(running.Id, running.SourceId, owner,
             running.Cast.Plan.Id, rule.Action.Id, node, hit.Tile.pos.x, hit.Tile.pos.y, hit.Point, hit.Normal,
             LogicTime, running.Cast.Age, result, memory.Count, materialVolume, materialResource));
+    }
+
+    /// <summary>从实际改变的地块取材质和位置；纯触发与空结果不出粒子。</summary>
+    /// <param name="flags">已提交结果的变化类别。</param><param name="position">变化地块的世界位置。</param>
+    private static void ShowWorldChange(SkillEffectOutcomeFlags flags, Vector3 position)
+    {
+        var profile = flags switch
+        {
+            _ when (flags & SkillEffectOutcomeFlags.WaterFilled) != 0 => SkillWorldVisualProfiles.FillWater,
+            _ when (flags & SkillEffectOutcomeFlags.WaterDrained) != 0 => SkillWorldVisualProfiles.DrainWater,
+            _ when (flags & SkillEffectOutcomeFlags.TerrainRaised) != 0 => SkillWorldVisualProfiles.RaiseTerrain,
+            _ when (flags & SkillEffectOutcomeFlags.TerrainLowered) != 0 => SkillWorldVisualProfiles.LowerTerrain,
+            _ when (flags & SkillEffectOutcomeFlags.FloraCreated) != 0 => SkillWorldVisualProfiles.NatureGrowthField,
+            _ when (flags & SkillEffectOutcomeFlags.CropFertilized) != 0 => SkillWorldVisualProfiles.Fertilize,
+            _ => null,
+        };
+        if (profile != null) SkillWorldVisualRuntime.ShowLocal(profile, position);
     }
 
     /// <summary>预估与正式提交共用同一接触次数、间隔和不同地块预算，不在这里改变世界。</summary>
