@@ -1,0 +1,120 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_entropy.mjs",
+            "Entry": "makeClashForms",
+            "Parameters": [
+                {
+                    "Id": "width",
+                    "Values": [
+                        2.5
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "mantle/exposure",
+                "Parent": "mantle",
+                "Child": "exposure",
+                "Position": [
+                    0.0,
+                    0.6000000238418579,
+                    0.800000011920929
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "separate"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "entropy_wedge",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "entropy.surface"
+            ],
+            "Id": "mantle",
+            "Surface": "entropy_obsidian",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/entropy_wedge_mantle.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "erosion.mark"
+            ],
+            "Id": "exposure",
+            "Surface": "entropy_section",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/entropy_wedge_exposure.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "sweeping_face",
+            "Part": 0,
+            "A": [
+                -0.6499999761581421,
+                0.47999998927116396,
+                0.6499999761581421
+            ],
+            "B": [
+                0.6499999761581421,
+                0.47999998927116396,
+                0.6499999761581421
+            ],
+            "Radius": 0.5099999904632568,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

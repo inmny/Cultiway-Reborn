@@ -1,0 +1,95 @@
+var attack = Spell("散相解构"); var guard = Spell("解构验证联盾");
+File.WriteAllText(Path.Combine(folder, "attack.json"), JsonConvert.SerializeObject(attack, Formatting.Indented));
+File.WriteAllText(Path.Combine(folder, "guard.json"), JsonConvert.SerializeObject(guard, Formatting.Indented));
+CombatStatusEffects.ApplyStatus(victim, mana, 10000, victim);
+var clashes = new List<ConstructedClash>();
+void Meet(ConstructedClash fact) { if (seen.ContainsKey(fact.LeftCast) && seen.ContainsKey(fact.RightCast)) clashes.Add(fact); }
+ConstructedAbilityService.ClashConfirmed += Meet;
+async Task<AbilityCast> Cast(AbilityDefinition definition, Actor from, Actor to)
+{
+    Ready(from); Place(source, 64); Place(victim, 72); from.setMana(64);
+    await Fire(definition, from, to);
+    from.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    CombatStatusEffects.ApplyStatus(from, hold, 10000, from); from.updateStats(); ControllableUnit.clear(false);
+    Check(Mathf.Abs(64 - from.getMana() - definition.Cost) < .01f, "按正式报价逐次支付：" + definition.Name);
+    return seen.Values.Last();
+}
+Array Nodes(AbilityCast value) => (Array)value.Plan.GetType().GetProperty("Nodes", F).GetValue(value.Plan);
+string PathOf(AbilityCast value, int node) => node < 0 ? "body" : (string)Field(Nodes(value).GetValue(node), "Path");
+int Node(AbilityCast value, string id) => Enumerable.Range(0, Nodes(value).Length)
+    .Single(i => (int)Field(Nodes(value).GetValue(i), "FragmentSource") < 0 && PathOf(value, i).EndsWith("/" + id));
+int[] Pieces(AbilityCast value, int node) => Enumerable.Range(0, Nodes(value).Length)
+    .Where(i => (int)Field(Nodes(value).GetValue(i), "FragmentSource") == node).ToArray();
+List<AbilityCapsule> Shapes(AbilityCast value) { var shapes = new List<AbilityCapsule>(); value.AppendContacts(shapes); return shapes; }
+try
+{
+    if (recordView.Length > 0) await SetCamera(7.4f);
+    await Advance(.18f);
+    var ward = await Cast(guard, victim, source); long wardId = seen.Keys.Last();
+    var cast = await Cast(attack, source, victim); long castId = seen.Keys.Last();
+    int front = Node(ward, "front"), cheek = Node(ward, "cheek"), brace = 0;
+    int sweep = 0, shear = Node(cast, "shear"), receiver = Node(cast, "receiver");
+    int[] spent = Pieces(ward, front), surviving = Pieces(ward, cheek), spentAttack = Pieces(cast, shear);
+    Check(spent.Length == 3 && surviving.Length == 3 && spentAttack.Length == 2, "真实模型预留可分离部件");
+    float braceBefore = ward.RemainingForce(brace), cheekBefore = ward.RemainingForce(cheek);
+    float sweepBefore = cast.RemainingForce(sweep);
+    double funded = cast.RemainingResource(sweep), volume = cast.RemainingVolume(sweep);
+    Check(funded > 0 && cast.RemainingForce(receiver) == 0 && cast.NodeAge(receiver) < 0,
+        "接收部位开始前没有付费材料或余力", new { funded, volume, sweepBefore, cheekBefore, braceBefore });
+    bool harmless = false, carried = false, supported = false, ownsRemainder = false, dropped = false;
+    double received = 0; float carriedForce = 0;
+    var falls = new Dictionary<string, float>();
+    void Sample()
+    {
+        var guardShapes = Shapes(ward); var attackShapes = Shapes(cast);
+        supported |= clashes.Count >= 2 && Mathf.Abs(ward.RemainingForce(brace) - braceBefore) < .001f && guardShapes.Any(s => s.Node == brace);
+        harmless |= spent.All(i => ward.NodeAge(i) >= 0 && ward.RemainingForce(i) == 0) &&
+            spentAttack.All(i => cast.NodeAge(i) >= 0 && cast.RemainingForce(i) == 0) &&
+            guardShapes.All(s => s.Node != front && !spent.Contains(s.Node)) &&
+            attackShapes.All(s => s.Node != shear && !spentAttack.Contains(s.Node));
+        var active = surviving.Where(i => ward.RemainingForce(i) > 0).ToArray();
+        if (active.Length == 1 && guardShapes.Any(s => s.Node == active[0]) && guardShapes.All(s => s.Node != cheek))
+        {
+            carried = true; carriedForce = ward.RemainingForce(active[0]);
+        }
+        foreach (var part in Forms(ward).Where(v => v.PartCount == 1))
+        {
+            string key = part.Resource.Description.Id + (part.Transform.m13 > 73.5f ? "high" : "middle");
+            float z = part.Transform.m23;
+            if (!falls.TryGetValue(key, out float prior)) falls[key] = z;
+            else if (z < prior - .035f) dropped = true;
+        }
+        if (cast.NodeAge(receiver) < 0 || cast.RemainingResource(receiver) <= 0) return;
+        received = cast.RemainingResource(receiver);
+        var hits = clashes.Where(c => c.LeftCast == castId && c.LeftNode == sweep || c.RightCast == castId && c.RightNode == sweep).ToArray();
+        float deduction = hits.Sum(c => c.LeftCast == castId ? c.LeftSpent : c.RightSpent);
+        ownsRemainder |= hits.Length > 0 && deduction > 0 && cast.RemainingResource(sweep) == 0 &&
+            Math.Abs(received - funded * (sweepBefore - deduction) / sweepBefore) < .001 &&
+            Math.Abs(cast.RemainingVolume(receiver) - volume) < .001 &&
+            Mathf.Abs(cast.RemainingForce(receiver) - (sweepBefore - deduction)) < .001f;
+    }
+    var times = new List<double>();
+    const float duration = 4.25f;
+    if (recordView.Length > 0) times = await Film(duration, Sample);
+    else for (int i = 0; i < 28; i++) { await Advance(.16f); Sample(); }
+    var points = clashes.Select(c => new { left = PathOf(seen[c.LeftCast], c.LeftNode), right = PathOf(seen[c.RightCast], c.RightNode),
+        c.Absorbed, c.LeftSpent, c.RightSpent, c.LeftRemaining, c.RightRemaining, at = new[] { c.Position.x, c.Position.y, c.Position.z } }).ToArray();
+    object evidence = new { points, supported, harmless, carried, dropped, carriedForce, received, ownsRemainder, funded };
+    Check(clashes.Any(c => c.LeftCast == wardId && c.LeftNode == front || c.RightCast == wardId && c.RightNode == front) &&
+        clashes.Any(c => c.LeftCast == wardId && c.LeftNode == cheek || c.RightCast == wardId && c.RightNode == cheek) &&
+        clashes.All(c => !(c.LeftCast == wardId && c.LeftNode == brace || c.RightCast == wardId && c.RightNode == brace)) && supported,
+        "实际侵蚀只落在前片和侧片，未受触的同一联盾仍承力", evidence);
+    // 原侧片会退场清零，交锋共同抵消量才是分件继承前实际消耗。
+    float sideSpent = clashes.Where(c => c.LeftCast == wardId && c.LeftNode == cheek || c.RightCast == wardId && c.RightNode == cheek)
+        .Sum(c => c.Absorbed);
+    Check(carried && Mathf.Abs(carriedForce - (cheekBefore - sideSpent)) < .001f && dropped && harmless,
+        "耗尽的分件实际落下且无害，只由侧片原有支座继承扣减后的承力", evidence);
+    Check(ownsRemainder && received > 0 && received < funded, "只把本方剩余的付费份额、作用量和原有体积转给接收部位", evidence);
+    Check(cast.Finished && ward.Finished && Forms(cast).Length == 0 && Forms(ward).Length == 0, "残留自然结束并回收");
+    var again = await Cast(attack, source, victim);
+    await Advance(4.1f);
+    Check(again.Finished && Forms(again).Length == 0, "离场后原招仍可正常再次施放并结束");
+    return new { passed = true, points, times, duration, carriedForce, funded, received,
+        view = recordView, scene = "construction", resource = attack.Resource, paid = attack.Cost };
+}
+finally { ConstructedAbilityService.ClashConfirmed -= Meet; ReleaseChecks(); }

@@ -1,0 +1,150 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_entropy.mjs",
+            "Entry": "makeClashForms",
+            "Parameters": [
+                {
+                    "Id": "width",
+                    "Values": [
+                        2.0999999046325685
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "seat/cheek",
+                "Parent": "seat",
+                "Child": "cheek",
+                "Position": [
+                    0.3400000035762787,
+                    0.3499999940395355,
+                    0.6600000262260437
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "seat/return",
+                "Parent": "seat",
+                "Child": "return",
+                "Position": [
+                    -0.28999999165534975,
+                    0.3199999928474426,
+                    0.6600000262260437
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "separate"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "entropy_guard",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "shield.face"
+            ],
+            "Id": "seat",
+            "Surface": "bronze",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/entropy_guard_seat.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "structure.edge"
+            ],
+            "Id": "cheek",
+            "Surface": "guard_enamel",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/entropy_guard_cheek.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "structure.edge"
+            ],
+            "Id": "return",
+            "Surface": "guard_enamel",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/entropy_guard_return.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "bearing",
+            "Part": 0,
+            "A": [
+                -0.4000000059604645,
+                0.33000001311302187,
+                0.6200000047683716
+            ],
+            "B": [
+                0.4000000059604645,
+                0.33000001311302187,
+                0.6200000047683716
+            ],
+            "Radius": 0.41999998688697817,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

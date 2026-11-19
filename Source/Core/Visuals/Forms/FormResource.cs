@@ -741,6 +741,8 @@ internal sealed partial class FormResourceGeneration
             "poison_etch" => (24f, new Color(.53f, .73f, .15f, .93f), .34f),
             "poison_vapor" => (11f, new Color(.31f, .53f, .07f, .48f), .9f),
             "poison_core" => (11f, new Color(.13f, .25f, .025f, .55f), .9f),
+            "entropy_obsidian" => (2f, new Color(.22f, .13f, .34f), .52f),
+            "entropy_section" => (2f, new Color(.63f, .24f, .54f), .39f),
             "entropy_veil" => (12f, new Color(.30f, .10f, .46f, .55f), .9f),
             "entropy_depth" => (12f, new Color(.045f, .02f, .07f, .78f), .9f),
             "rift_core" => (8f, new Color(.055f, .018f, .095f), .9f),

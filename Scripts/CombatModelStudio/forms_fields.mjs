@@ -1,5 +1,6 @@
 /** 持续领域：贴地积液、层次毒雾和不规则混沌体积，各自保留真实作用面。 */
 import * as T from 'three';
+import {makeEntropyForms} from './forms_entropy.mjs';
 import {part, write, skin, surfaceData, motion, structure} from './form_export.mjs';
 
 /** 低矮积液的九点控制，显示和接触使用同一组地表承托。 */
@@ -104,28 +105,5 @@ function makePits() {
     structure('surface','forms_fields.mjs','makePits',{pits},Object.fromEntries(parts.map(p=>[p.Id,['erosion.mark']])),[]));
 }
 
-/** 混沌场用不规则暗腔和宽面层次，不复用裂隙、刀刃或围绕目标的细线。 */
-function makeEntropy() {
-  const lobes=[[0,0,1.25,1.65],[-1.1,.4,.85,1.1],[.95,-.45,1.05,1.3],[.35,1.1,1.6,1.05]];
-  const controls=lobes.map(([x,y,z],i)=>({Id:`fold_${i}`,Position:[x,y,z],Rotation:[0,0,0,1]}));
-  const parts=[],contacts=[];
-  lobes.forEach(([x,y,z,r],i)=>{
-    const geometry=new T.SphereGeometry(r,30,20),position=geometry.getAttribute('position');
-    for(let v=0;v<position.count;v++) {
-      const q=new T.Vector3().fromBufferAttribute(position,v);
-      q.multiplyScalar(1+.06*Math.sin(q.x*2.3+.5)*Math.cos(q.z*2.8)*Math.sin(q.y*3.1));
-      position.setXYZ(v,q.x+x,q.y+y,q.z+z);
-    }
-    skin(geometry,()=>[[i,1]]);
-    const outer=part(`fold_${i}`,geometry,'entropy_veil');outer.UseMatterSurface=false;parts.push(outer);
-    const core=new T.SphereGeometry(r*.66,24,16).translate(x,y,z);skin(core,()=>[[i,1]]);
-    const inside=part(`depth_${i}`,core,'entropy_depth');inside.UseMatterSurface=false;parts.push(inside);
-    contacts.push({Id:`chaos_${i}`,Part:i*2,A:[x,y,z],B:[x,y,z],Radius:r*.93,AControl:controls[i].Id,BControl:controls[i].Id});
-  });
-  const run=motion('run',3.2,true,controls,48,(i,p,c)=>({position:[c.Position[0]+.03*Math.sin(p*Math.PI*2+i),c.Position[1]+.03*Math.cos(p*Math.PI*2+i),c.Position[2]+.04*Math.sin(p*Math.PI*2+i*1.4)]}));
-  write('entropy_field',parts,[],contacts,controls,[run],false,{Forward:[0,1,0],Up:[0,0,1]},
-    structure('volume','forms_fields.mjs','makeEntropy',{lobes},Object.fromEntries(parts.map(p=>[p.Id,['entropy.volume']])),[]));
-}
-
-/** 独立的三种领域资源由共同资源发布入口构建。 */
-export function makeFields(){makePool();makeMist();makePits();makeEntropy();}
+/** 领域资源由共同发布入口构建。 */
+export function makeFields(){makePool();makeMist();makePits();makeEntropyForms();}

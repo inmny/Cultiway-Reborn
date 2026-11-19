@@ -1,0 +1,58 @@
+var owner = source.GetExtend();
+var gap = Make(76);
+gap.setKingdom(victim.kingdom);
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+var skill = new SkillContainerBuilder(SkillEntities.EntropyField).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+string signature = SkillContainerSignature.Build(skill);
+owner.LearnSkillV3(skill);
+var learned = (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+skill = learned.Single(s => SkillContainerSignature.Build(s) == signature);
+try
+{
+    if (recordView.Length > 0) await SetCamera(8.5f);
+    await Advance(.2f);
+    Ready(source); Place(source, 64); Place(victim, 70); Place(gap, 76);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    var plan = SkillCastPlanner.CreatePlan(owner, skill, victim, SkillCastCost.GetAffordableStepLimit(owner, skill), explicitTargetsOnly: true);
+    double cost = SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculatePlanDemand(skill, plan) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    float before = owner.GetCultisys<Xian>().wakan;
+    int victimHp = victim.data.health, gapHp = gap.data.health;
+    Vector3 point = victim.GetSimPos();
+    Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(victim, point, selectionArea: new SkillTargetSelectionArea(true, point, .1f),
+            runtimeData: new SkillCastRuntimeData { CorrelationId = 924 }), ActiveAbilityUseOrigin.Script), "从原已学入口施放侵蚀场");
+    source.attack_timer = 999; CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats(); ControllableUnit.clear(false);
+    bool moved = false, follows = false, model = false;
+    double start = World.world.getCurWorldTime();
+    void Sample()
+    {
+        foreach (var cast in seen.Values)
+        {
+            var forms = Forms(cast);
+            model |= forms.Any(v => v.Resource.Description.Id == "entropy_field" && v.PartCount == 8);
+            follows |= moved && forms.Any(v => Mathf.Abs(v.Transform.m03 - 82) < .03f);
+        }
+        if (moved || World.world.getCurWorldTime() - start < 1.16) return;
+        moved = true; Place(victim, 82); ConstructedAbilityService.NotifyActorChanged(victim);
+        if (recordView.Length > 0) World.world.camera.transform.position = new Vector3(76f, 72f, 0);
+    }
+    var times = new List<double>();
+    const float duration = 4.4f;
+    if (recordView.Length > 0) times = await Film(duration, Sample);
+    else for (int i = 0; i < 28; i++) { await Advance(.17f); Sample(); }
+    var hits = contacts.Where(c => seen.ContainsKey(c.CastId) && c.TargetId == victim.id).OrderBy(c => c.Age).ToArray();
+    Check(model && follows && victim.data.health < victimHp && gap.data.health == gapHp && hits.Length >= 3 &&
+        hits.Zip(hits.Skip(1), (a,b) => b.Age - a.Age).All(delta => delta >= .399f),
+        "新断层随原目标转移，原伤害间隔不变，范围外和转移空隙无伤",
+        new { model, follows, victimHp, after = victim.data.health, gapHp, outside = gap.data.health, ages = hits.Select(h => h.Age).ToArray() });
+    Check(seen.Count == plan.Steps.Count && Math.Abs(before - owner.GetCultisys<Xian>().wakan - cost) < .001,
+        "原报价和支付保持，只有原计划发数", new { cost, before, after = owner.GetCultisys<Xian>().wakan, starts = seen.Count });
+    Check(seen.Values.All(cast => cast.Finished), "旧侵蚀场有限时长结束");
+    return new { passed = true, times, duration, hits = hits.Length, paid = cost,
+        view = recordView, scene = "construction", resource = "wakan" };
+}
+finally { ReleaseChecks(); }

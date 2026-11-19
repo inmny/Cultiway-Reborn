@@ -2253,3 +2253,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 9.23 两仪渡气
 
 在独立游戏中运行 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_polarity.py --section balance`，核对两端实际扣收、反向、比例持平、还有下一次作用机会时离场和再用。该段可加 `--record native` 或 `--record worldfall` 录制常速过程。`--section editor` 核对两种语言、无效额度拒绝及覆盖重开；`--section legacy` 用旧玄阴汲流抽查单向扣收。
+
+### 9.24 混沌解构
+
+在独立游戏中运行 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_entropy.py --section legacy`，用原已学入口核对侵蚀场的收费、伤害间隔、范围及转移空隙。`--section clash` 让「散相解构」与「解构验证联盾」实际对撞，核对被触部位、无害碎片、仍有作用的支座及本方剩余材料。两段均可加 `--record native` 或 `--record worldfall` 录制常速实机过程。
