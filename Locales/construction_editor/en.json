@@ -1,4 +1,7 @@
 {
+  "Cultiway.UI.OptionMenu.FullLabel": "Full label",
+  "Cultiway.UI.WindowWanfaPavilion Title": "Spell pavilion",
+  "Cultiway.UI.WindowWanfaPavilion Title Description": "Open the spell library and choose which spells are shared through the rain of teachings.",
   "Cultiway.UI.WindowWanfaConstructionEditor Title": "Constructed spell editor",
   "Cultiway.Construction.Name": "Spell name",
   "Cultiway.Construction.ChooseLearner": "Choose learner",

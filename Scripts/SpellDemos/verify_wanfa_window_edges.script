@@ -1,0 +1,219 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
+using Cultiway.Content.Skills;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.Wanfa;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.UI;
+using Cultiway.UI.Prefab;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using UnityEngine.UI;
+
+const BindingFlags F = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public;
+string prior = __PRIOR_OUTPUT__, folder = __OUTPUT__, section = __SECTION__;
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(prior, "expected.json")));
+var checks = new List<string>();
+void Check(bool ok, string name)
+{
+    if (!ok) throw new InvalidOperationException(name);
+    checks.Add(name);
+    File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(checks, Formatting.Indented));
+}
+object Field(object obj, string name) => obj.GetType().GetField(name, F).GetValue(obj);
+object Property(object obj, string name) => obj.GetType().GetProperty(name, F).GetValue(obj);
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+async Task Frames(int count = 4)
+{
+    for (int i = 0; i < count; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    Canvas.ForceUpdateCanvases();
+}
+async Task WaitWorld()
+{
+    Game.Resume();
+    World.world.save_manager.loadWorld(Path.Combine(prior, "save"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Frames();
+}
+Button B(Component host, string name) => host.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+IList Options(object menu) => (IList)Field(menu, "_options");
+Button[] Buttons(object menu) => ((IList)Field(menu, "_optionButtons")).Cast<Button>().ToArray();
+Button Choice(object menu, string label) => Buttons(menu)[Enumerable.Range(0, Options(menu).Count)
+    .Single(i => (string)Field(Options(menu)[i], "Label") == label)];
+RectTransform Rect(Transform t) => (RectTransform)t;
+Vector3[] Corners(RectTransform t) { var points = new Vector3[4]; t.GetWorldCorners(points); return points; }
+bool OnScreen(RectTransform t) => Corners(t).All(p => p.x >= -1 && p.y >= -1 && p.x <= UnityEngine.Screen.width + 1 && p.y <= UnityEngine.Screen.height + 1);
+async Task Shot(string name, bool keepTooltip = false)
+{
+    World.world.console.Hide(); if (!keepTooltip) Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames(); Screen.Capture(Path.Combine(folder, name + ".png")); await Frames();
+}
+int Listen(Type type, object source, string name, object target) => (type.GetField(name, F).GetValue(source) as Delegate)?
+    .GetInvocationList().Count(callback => callback.Target == target) ?? 0;
+void Close(Component window) => window.GetComponent<ScrollWindow>().clickHide();
+string id = (string)expected["definitions"][0]["Id"];
+var access = ConstructionEditing.Access;
+var service = WanfaPavilionService.Instance;
+int width = UnityEngine.Screen.width, height = UnityEngine.Screen.height;
+bool fullscreen = UnityEngine.Screen.fullScreen;
+Config.paused = true;
+await WaitWorld();
+Check(!ControllableUnit.isControllingUnit(), "复用正式世界与水剑，保持普通世界视图");
+try
+{
+    UnityEngine.Screen.SetResolution(960, 540, false); await Frames(8);
+    Check(UnityEngine.Screen.width == 960 && UnityEngine.Screen.height == 540, "实际游戏窗口缩到 960×540");
+    if (section != "lifecycle")
+    {
+        LocalizedTextManager.instance.setLanguage("cz");
+        ScrollWindow.showWindow(WindowWanfaPavilion.Id); await Frames();
+        var pavilion = UnityEngine.Object.FindObjectOfType<WindowWanfaPavilion>();
+        var menu = Field(pavilion, "_optionMenu");
+        var favorites = (IList)Property(service, "ConstructionFavorites");
+        var saved = favorites.Cast<AbilityDefinition>().ToArray();
+        // 只清空独立测试进程里的收藏目录，恢复后不改本机收藏文件。
+        favorites.Clear();
+        try
+        {
+            B(pavilion, "New").onClick.Invoke(); Choice(menu, T("ConstructionLibrary")).onClick.Invoke(); await Frames();
+            Check(((Text)Field(menu, "_title")).text == T("ShareEmptyLibrary") && Options(menu).Count == 1 &&
+                Choice(menu, T("SharePaste")).interactable, "空收藏仍说明状态并保留导入入口");
+            await Shot("empty-collection-cz-small");
+            B(pavilion, "Close").onClick.Invoke();
+        }
+        finally { foreach (var item in saved) favorites.Add(item); }
+
+        LocalizedTextManager.instance.setLanguage("en"); await Frames();
+        Check(pavilion.GetComponent<ScrollWindow>().titleText.text == "Spell pavilion", "万法阁使用英文标题而非文案键");
+        string longName = "ZZZ " + new string('W', 110) + " · last mark";
+        string prefix = "test.pavilion-812.";
+        for (int index = 0; index < 128; index++)
+        {
+            var definition = access.Read(id);
+            definition.Id = prefix + index;
+            definition.Name = index == 127 ? longName : "Layout sample " + index.ToString("D3");
+            definition.Creator = 0;
+            ConstructedAbilityService.Register(definition);
+        }
+        B(pavilion, "New").onClick.Invoke(); await Frames();
+        var pane = Field(menu, "_optionsPane");
+        var scroll = (ScrollRect)Property(pane, "ScrollRect");
+        var search = (InputField)Field(menu, "_search");
+        var firstButton = Buttons(menu)[0];
+        Check(Options(menu).Count >= 130 && search.gameObject.activeInHierarchy && scroll.verticalScrollbar.gameObject.activeInHierarchy &&
+            scroll.content.rect.height > scroll.viewport.rect.height, "真实构造长目录超过一屏且有搜索与滚动");
+        var lastButton = Buttons(menu).Last();
+        var longButton = Choice(menu, longName);
+        Check(Corners(Rect(lastButton.transform))[0].y < Corners(scroll.viewport)[0].y, "末项初始位于视口下方");
+        scroll.verticalScrollbar.value = 0; await Frames();
+        Check(Corners(Rect(lastButton.transform)).All(p => p.y >= Corners(scroll.viewport)[0].y - 2 && p.y <= Corners(scroll.viewport)[1].y + 2),
+            "拉到滚动条末端可以完整看到最后一项");
+        Check(longButton.GetComponent<TipButton>()?.textOnClickDescription == longName, "很长的名字仍能从提示读取完整");
+        await Shot("long-catalog-en-small");
+        search.text = "__no_such_construction__"; await Frames();
+        var empty = (Text)Property(Field(menu, "_empty"), "Text");
+        Check(empty.gameObject.activeInHierarchy && empty.text == T("Empty") && !Buttons(menu).Any(b => b.gameObject.activeSelf),
+            "搜索不到时显示空态，不残留可点条目");
+        await Shot("no-results-en-small");
+        search.text = "last mark"; await Frames();
+        Check(!empty.gameObject.activeSelf && Buttons(menu).Count(b => b.gameObject.activeSelf) == 1 &&
+            OnScreen(Rect(longButton.transform)) && OnScreen(Rect(B(pavilion, "Close").transform)) && OnScreen(Rect(pavilion.transform.Find("Background"))),
+            "按长名末尾找回条目，菜单与关闭按钮都在小窗口内");
+        longButton.GetComponent<TipButton>().showTooltipDefault();
+        await Frames();
+        var tooltip = Resources.FindObjectsOfTypeAll<Tooltip>().FirstOrDefault(t => t.gameObject.activeInHierarchy && t.description.text == longName);
+        Check(tooltip != null && OnScreen(tooltip.description.rectTransform) &&
+            tooltip.description.preferredHeight <= tooltip.description.rectTransform.rect.height + 1f,
+            "全名通过可换行的提示正文显示，画面内能看到末尾");
+        await Shot("full-label-en-small", keepTooltip: true);
+        Tooltip.hideTooltipNow();
+        B(pavilion, "Close").onClick.Invoke();
+        Check(Options(menu).Count == 0 && Buttons(menu).Length == 0 && !firstButton.gameObject.activeSelf,
+            "关弹层立即归还按钮并清除旧选项");
+        firstButton.onClick.Invoke();
+        Check(Options(menu).Count == 0 && pavilion.gameObject.activeInHierarchy, "归还的按钮已经移除旧点击");
+        B(pavilion, "New").onClick.Invoke(); await Frames();
+        Check(ReferenceEquals(firstButton, Buttons(menu)[0]), "长目录再次打开复用按钮");
+        ((InputField)Field(menu, "_search")).text = "last mark"; await Frames();
+        Choice(menu, longName).onClick.Invoke(); await Frames();
+        var editor = UnityEngine.Object.FindObjectOfType<WindowWanfaConstructionEditor>();
+        Check(((ConstructionEditSession)Field(editor, "session")).SourceId == prefix + "127" &&
+            editor.GetComponentsInChildren<InputField>(false).First(input => input.name == "Name").text == longName,
+            "从目录选择的就是长名条目，编辑器保留完整名字");
+        for (int page = 0; page < 6; page++)
+        {
+            B(editor, "Page" + page).onClick.Invoke(); await Frames(1);
+            Check((int)Field(editor, "page") == page && OnScreen(Rect(B(editor, "Close").transform)), "小窗口编辑页可切换并关闭：" + page);
+        }
+        B(editor, "Page0").onClick.Invoke(); await Shot("long-name-editor-en-small");
+        B(editor, "Close").onClick.Invoke(); await Frames();
+    }
+    if (section != "catalog")
+    {
+        var actor = World.world.units.get((long)expected["source"]);
+        LocalizedTextManager.instance.setLanguage("cz"); await Frames();
+        for (int cycle = 0; cycle < 3; cycle++)
+        {
+            ScrollWindow.showWindow(WindowWanfaPavilion.Id); await Frames();
+            var pavilion = UnityEngine.Object.FindObjectOfType<WindowWanfaPavilion>();
+            var pMenu = Field(pavilion, "_optionMenu");
+            B(pavilion, "New").onClick.Invoke();
+            ScrollWindow.showWindow(WindowWanfaPavilion.Id); await Frames();
+            Check(Listen(service.GetType(), service, "Changed", pavilion) == 1 &&
+                Listen(service.GetType(), service, "WorldStateClearing", pavilion) == 1, "同一万法阁始终只监听一次：" + cycle);
+            Close(pavilion); await Frames();
+            Check(Listen(service.GetType(), service, "Changed", pavilion) == 0 &&
+                Listen(service.GetType(), service, "WorldStateClearing", pavilion) == 0 && Options(pMenu).Count == 0,
+                "关万法阁解绑目录通知和菜单：" + cycle);
+            WindowWanfaConstructionEditor.Open(id, actor); await Frames();
+            var editor = UnityEngine.Object.FindObjectOfType<WindowWanfaConstructionEditor>();
+            var menu = Field(editor, "menu");
+            Check(Listen(access.GetType(), access, "WorldClearing", editor) == 1 && Listen(typeof(FormResources), null, "Reloaded", editor) == 1,
+                "每次打开改造只监听一次：" + cycle);
+            var row = editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r => ((Text)Field(r, "_title")).text == T("PreviewPerformance"));
+            ((Button)Field(row, "_action")).onClick.Invoke(); await Frames();
+            Check(Field(editor, "performanceViewport") != null && ((RawImage)Field(editor, "performanceImage")).texture != null,
+                "打开真实形体预览：" + cycle);
+            if (cycle == 0) await Shot("preview-cz-small");
+            Close(editor); await Frames();
+            Check(Field(editor, "performanceViewport") == null && ((RawImage)Field(editor, "performanceImage")).texture == null &&
+                Field(editor, "session") == null && Field(editor, "learner") == null && Options(menu).Count == 0 &&
+                Listen(access.GetType(), access, "WorldClearing", editor) == 0 && Listen(typeof(FormResources), null, "Reloaded", editor) == 0,
+                "关闭编辑释放实际预览、学习者、草稿和通知：" + cycle);
+        }
+        WindowWanfaConstructionEditor.Open(id, actor); await Frames();
+        var dirty = UnityEngine.Object.FindObjectOfType<WindowWanfaConstructionEditor>();
+        var name = dirty.GetComponentsInChildren<InputField>(false).First(input => input.name == "Name");
+        name.text = "仅当前世界的未保存名字"; name.onEndEdit.Invoke(name.text);
+        Close(dirty); await Frames(8);
+        Check(dirty.gameObject.activeInHierarchy && B(dirty, "Continue").interactable && Listen(access.GetType(), access, "WorldClearing", dirty) == 1,
+            "原版关闭未保存内容时仍有确认，确认期间不会漏掉换世界通知");
+        B(dirty, "Continue").onClick.Invoke(); B(dirty, "Learner").onClick.Invoke(); await Frames();
+        var staleMenu = Field(dirty, "menu");
+        Check(Options(staleMenu).Count > 0, "切换世界前实际选人菜单打开");
+        await WaitWorld();
+        Check(!dirty.gameObject.activeInHierarchy && Field(dirty, "session") == null && Field(dirty, "learner") == null &&
+            Options(staleMenu).Count == 0 && Listen(access.GetType(), access, "WorldClearing", dirty) == 0 &&
+            Listen(typeof(FormResources), null, "Reloaded", dirty) == 0, "换世界清除未保存的新名字、选人菜单和旧世界通知");
+        var freshActor = World.world.units.get((long)expected["source"]);
+        WindowWanfaConstructionEditor.Open(id, freshActor); await Frames();
+        Check(((ConstructionEditSession)Field(dirty, "session")).Draft.Name == (string)expected["definitions"][0]["Name"] &&
+             ReferenceEquals(Field(dirty, "learner"), freshActor), "换世界后重新打开只读取当前档的人物与原术");
+        B(dirty, "Close").onClick.Invoke(); await Frames();
+    }
+}
+finally
+{
+    UnityEngine.Screen.SetResolution(width, height, fullscreen);
+    LocalizedTextManager.instance.setLanguage("cz");
+    await Frames();
+}
+return new { passed = true, section, checks };

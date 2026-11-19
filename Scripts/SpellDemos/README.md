@@ -2085,3 +2085,7 @@ C3b已交付，索引为`/home/inmny/.local/state/cultiway-dev/evidence/ending-f
 ### 8.11 构造收藏、分享和修订
 
 在独立游戏中运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_construction_collection.py`。使用水剑验证万法阁收藏、剪贴板导入导出、编号冲突、独立副本、替换、重开编辑，并输出正式世界档。记下输出里的 `output` 目录；用同一环境先 `stop` 再 `start`，将该目录传给同一命令的 `--reload-from`，核对共同编号、修订、掌握、冷却和本机收藏。冷启动输出在 `output/construction-collection-reload`，同时从普通世界视图拍摄中文收藏清单和英文导入确认，并记下读取报告。冷启动段完成后会从测试收藏移出第二个样例，世界法术仍保留。
+
+### 8.12 万法阁的列表边界和窗口关闭
+
+通过独立游戏运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_wanfa_window_edges.py --source <8.11保存段的输出目录>`。复用该世界中的水剑，查看空收藏、长目录末项、长名搜索、960×540 下的六个编辑页，以及反复打开关闭、释放预览与切世界。全部结果位于当次 `output/wanfa-window-edges/all`，可加 `--section catalog` 或 `--section lifecycle` 只复验受影响段。

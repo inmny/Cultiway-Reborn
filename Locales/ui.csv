@@ -1027,6 +1027,7 @@ Cultiway.ActorTargetFilter.UI.Expression.Empty,逻辑表达式为空：所有角
 Cultiway.ActorTargetFilter.UI.Filter.Semantics,优先级：非 > 与 > 或。修炼体系条件按角色当前是否拥有判断。
 Cultiway.UI.OptionMenu.Placeholder.Search,搜索选项
 Cultiway.UI.OptionMenu.State.Empty,没有匹配的选项
+Cultiway.UI.OptionMenu.FullLabel,完整名称
 Cultiway.UI.OptionMenu.Action.Close,关闭
 Cultiway.UI.OptionMenu.Tooltip.Close,关闭当前选项菜单并返回原窗口。
 Cultiway.UI.WindowUpgradeRainConfig Title,帝流浆配置
