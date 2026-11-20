@@ -1,4 +1,10 @@
 {
+  "Cultiway.Construction.WorldContactShape": "Shape for terrain contact events",
+  "Cultiway.Construction.WorldContactShapeAny": "Any contact shape",
+  "Cultiway.Construction.WorldContactShapeTip": "Root tip",
+  "Cultiway.Construction.Form.hanging_tree": "Hanging ancient tree",
+  "Cultiway.Construction.Form.hanging_root": "Load-bearing root",
+  "Cultiway.Construction.Form.hanging_lateral_root": "Branching side root",
   "Cultiway.Construction.MotionKind.PassRemainder": "Pass remaining material",
   "Cultiway.Construction.Form.five_phase_mantle": "Layered rock shield",
   "Cultiway.Construction.Form.five_phase_roots": "Forked root crown",

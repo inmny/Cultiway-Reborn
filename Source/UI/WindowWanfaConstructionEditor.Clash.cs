@@ -1,5 +1,7 @@
 using System;
+using System.Linq;
 using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
 using Cultiway.UI.Prefab;
 
 namespace Cultiway.UI;
@@ -33,11 +35,31 @@ public sealed partial class WindowWanfaConstructionEditor
             UiTooltip.Set(toggle, "Cultiway.Construction.ClashGroundBlock", "Cultiway.Construction.ClashGroundBlockHint");
         }
         if (node.ContactRole != ConstructionContactRole.Decoration)
+        {
             ContactInteger("ClashReflectionLimit", node.ReflectionLimit, value => Commit(limit: value), draftChange: false);
+            WorldContactShapeRow(node);
+        }
 
         void Commit(ConstructionContactRole? role = null, ConstructionInterception? interception = null,
             bool? blocks = null, int? limit = null) => ApplyConstructionEdit(() => ConstructionContactEdits.SetClash(
                 session.Draft, node, role ?? node.ContactRole, interception ?? node.Interception,
                 blocks ?? node.BlocksGroundActors, limit ?? node.ReflectionLimit));
+    }
+
+    /// <summary>实际世界事件可只听一个形状，人物命中仍使用部位原有的作用面。</summary>
+    /// <param name="node">选择形状的部位。</param>
+    private void WorldContactShapeRow(ConstructionNode node)
+    {
+        if (!FormResources.Ids.Contains(node.Form)) return;
+        var shapes = FormResources.Load(node.Form).Contacts;
+        if (shapes.Length < 2 && node.WorldContactShape == null) return;
+        string any = T("WorldContactShapeAny");
+        string Label(string id) => id == null ? any : id == "tip" ? T("WorldContactShapeTip") : id;
+        Choice("WorldContactShape", Label(node.WorldContactShape), () => menu.Show(T("WorldContactShape"),
+            new[] { (string)null }.Concat(shapes.Select(shape => shape.Id).Distinct()).Select(id => new UiOptionMenuOption
+            {
+                Label = Label(id), SearchText = id, Selected = node.WorldContactShape == id,
+                Select = () => Change(() => node.WorldContactShape = id)
+            }).ToArray(), true));
     }
 }

@@ -530,6 +530,7 @@ public sealed partial class ConstructedAbilityService
     {
         CastAuthority caster = running.Owner(node);
         if (!caster.IsLive || !BodyControlState.HasControl(target.id, BodyOccupancy.Stance)) return;
+        if (TryReleaseSupportGrip(running, node, target, mode, strength, caster)) return;
         foreach (RunningCast holder in casts)
         {
             BodyConnection link = holder.Connection;

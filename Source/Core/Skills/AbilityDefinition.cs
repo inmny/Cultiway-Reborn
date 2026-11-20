@@ -138,6 +138,10 @@ public sealed class ConstructionNode
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public string MediumChannel;
 
+    /// <summary>仅用指定形状触发地块接触事件；不改变人物或环境作用的形状。缺省允许全部。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public string WorldContactShape;
+
     /// <summary>仅作用于显示的三个染色倍率，不改变实际材料和物态。</summary>
     public float[] Tint;
 
@@ -202,6 +206,10 @@ public sealed class ConstructionNode
     /// <summary>本部位明确覆盖整招的接触作用；空值使用整招规则。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionImpact Impact;
+
+    /// <summary>依靠实际父体的地面支撑，以本部位接触抓持和推挤人物。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionSupportGrip SupportGrip;
 
     /// <summary>围绕本部位真实中心的持续水平范围运动，不改变接触面、伤害或屏障容量。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]

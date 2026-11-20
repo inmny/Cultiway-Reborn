@@ -1,0 +1,270 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.HangingTree",
+  "Name": "森罗倒生",
+  "Resource": "wakan",
+  "Cost": 9.6,
+  "Power": 5.4,
+  "Cooldown": 1.15,
+  "Lifetime": 5.2,
+  "TargetRange": 27,
+  "Binding": {
+    "Anchor": "Target",
+    "Follow": false,
+    "FaceTarget": false,
+    "Height": 6.85
+  },
+  "Root": {
+    "Id": "tree",
+    "Form": "hanging_tree",
+    "Matter": "wood",
+    "ContactRole": "Decoration",
+    "Volume": 11,
+    "Operations": [
+      {
+        "Kind": "Animate",
+        "Clip": "settle"
+      }
+    ],
+    "Children": [
+      {
+        "Id": "main",
+        "Form": "hanging_root",
+        "Anchor": "main",
+        "Matter": "wood",
+        "Volume": 4.1,
+        "Scale": 1.13,
+        "AppearAt": 0.54,
+        "DisappearAt": 5.0,
+        "ContactRole": "Barrier",
+        "WorldContactShape": "tip",
+        "Operations": [
+          {
+            "Kind": "Grow",
+            "At": 0.54,
+            "Seconds": 1.45
+          },
+          {
+            "Kind": "Stop",
+            "When": {
+              "Trigger": "WorldContact"
+            }
+          }
+        ],
+        "ActiveUntil": 4.1,
+        "ActiveFrom": 0
+      },
+      {
+        "Id": "west",
+        "Form": "hanging_lateral_root",
+        "Anchor": "west",
+        "Matter": "wood",
+        "Volume": 2.65,
+        "Scale": 1.18,
+        "AppearAt": 0.77,
+        "DisappearAt": 5.0,
+        "ContactRole": "Barrier",
+        "WorldContactShape": "tip",
+        "Operations": [
+          {
+            "Kind": "Grow",
+            "At": 0.77,
+            "Seconds": 1.56
+          },
+          {
+            "Kind": "Stop",
+            "When": {
+              "Trigger": "WorldContact"
+            }
+          }
+        ],
+        "Children": [
+          {
+            "Id": "gather",
+            "Form": "hanging_grip",
+            "Matter": "wood",
+            "Anchor": "root_tip",
+            "Volume": 1.45,
+            "Scale": 1.02,
+            "Rotation": [
+              0,
+              0,
+              0
+            ],
+            "Activation": {
+              "Trigger": "WorldContact",
+              "Placement": "Attached"
+            },
+            "ActiveUntil": 2.14,
+            "DisappearAt": 2.86,
+            "SupportGrip": {
+              "EscapeDistance": 0.58,
+              "Pressure": 0.17,
+              "Strength": 3.7
+            },
+            "Contact": {
+              "Mode": "Interval",
+              "Interval": 0.17,
+              "MaximumPerTarget": 9
+            },
+            "Strength": 0.38,
+            "Impact": {
+              "Targets": "Hostile",
+              "DamageScale": 0.34
+            },
+            "Operations": [
+              {
+                "Kind": "Grow",
+                "Seconds": 0.6
+              },
+              {
+                "Kind": "Animate",
+                "Clip": "close",
+                "At": 0.13
+              }
+            ]
+          }
+        ],
+        "ActiveUntil": 4.1,
+        "ActiveFrom": 0
+      },
+      {
+        "Id": "east",
+        "Form": "hanging_lateral_root",
+        "Anchor": "east",
+        "Rotation": [
+          0,
+          0,
+          173
+        ],
+        "Matter": "wood",
+        "Volume": 2.65,
+        "Scale": 1.24,
+        "AppearAt": 0.91,
+        "DisappearAt": 5.0,
+        "ContactRole": "Barrier",
+        "WorldContactShape": "tip",
+        "Operations": [
+          {
+            "Kind": "Grow",
+            "At": 0.91,
+            "Seconds": 1.64
+          },
+          {
+            "Kind": "Stop",
+            "When": {
+              "Trigger": "WorldContact"
+            }
+          }
+        ],
+        "Children": [
+          {
+            "Id": "gather",
+            "Form": "hanging_grip",
+            "Matter": "wood",
+            "Anchor": "root_tip",
+            "Volume": 1.45,
+            "Scale": 1.02,
+            "Rotation": [
+              0,
+              0,
+              0
+            ],
+            "Activation": {
+              "Trigger": "WorldContact",
+              "Placement": "Attached"
+            },
+            "ActiveUntil": 2.14,
+            "DisappearAt": 2.86,
+            "SupportGrip": {
+              "EscapeDistance": 0.58,
+              "Pressure": 0.17,
+              "Strength": 3.7
+            },
+            "Contact": {
+              "Mode": "Interval",
+              "Interval": 0.17,
+              "MaximumPerTarget": 9
+            },
+            "Strength": 0.38,
+            "Impact": {
+              "Targets": "Hostile",
+              "DamageScale": 0.34
+            },
+            "Operations": [
+              {
+                "Kind": "Grow",
+                "Seconds": 0.6
+              },
+              {
+                "Kind": "Animate",
+                "Clip": "close",
+                "At": 0.13
+              }
+            ]
+          }
+        ],
+        "ActiveUntil": 4.1,
+        "ActiveFrom": 0
+      }
+    ]
+  },
+  "Steps": [
+    {
+      "Id": "gather-west",
+      "Operation": {
+        "Kind": "Grow",
+        "At": 4.18,
+        "Seconds": 0.66,
+        "TargetScale": 0
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root/west@west"
+        }
+      }
+    },
+    {
+      "Id": "gather-east",
+      "Operation": {
+        "Kind": "Grow",
+        "At": 4.28,
+        "Seconds": 0.66,
+        "TargetScale": 0
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root/east@east"
+        }
+      }
+    },
+    {
+      "Id": "gather-main",
+      "Operation": {
+        "Kind": "Grow",
+        "At": 4.34,
+        "Seconds": 0.65,
+        "TargetScale": 0
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root/main@main"
+        }
+      }
+    },
+    {
+      "Id": "gather-crown",
+      "Operation": {
+        "Kind": "Grow",
+        "At": 4.76,
+        "Seconds": 0.42,
+        "TargetScale": 0
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root"
+        }
+      }
+    }
+  ]
+}

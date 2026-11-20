@@ -131,6 +131,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 foreach (RunningCast running in casts)
                 {
                     ValidateSource(running);
+                    UpdateSupportGrips(running, clock);
                     if (running.Cast.Finished) continue;
                     if (running.LastWorldTime > clock)
                     {
@@ -211,6 +212,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 for (int i = 0; i < active.Count; i++)
                 {
                     RunningCast running = active[i];
+                    UpdateSupportGrips(running, clock);
+                    if (generation != worldGeneration) yield break;
                     if (running.ActorTransferHolds?.Count > 0) ConfirmActorTransferHolds(running, clock, generation);
                     if (generation != worldGeneration) yield break;
                     PublishActionEvents(running);
@@ -1087,6 +1090,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
 
         long contactGeneration = worldGeneration;
+        if (node >= 0 && running.Cast.Plan.Nodes[node].SupportGrip != null && !running.Cast.HasGripSupport(node)) return;
         ActorMotion actor = hit.Actor;
         if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) return;
         simulation.Sample(actor, simulation.contactTime, out Vector3 spreadCenter, out _);
@@ -1151,6 +1155,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (contactGeneration != worldGeneration) return;
         if (node >= 0 && result == ApplyAttackState.Hit && running.Cast.Plan.ActorTransferSteps.Length != 0)
             ResolveActorTransfer(running, node, actor.Actor, actor.Id, contactGeneration);
+        if (contactGeneration != worldGeneration) return;
+        if (result == ApplyAttackState.Hit) ConfirmSupportGrip(hit);
         if (contactGeneration != worldGeneration) return;
         running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id,
             hit.LeftRayLength >= 0f ? hit.LeftRayLength : null);

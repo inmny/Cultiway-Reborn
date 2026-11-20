@@ -1,0 +1,394 @@
+{
+    "Structure": {
+        "Kind": "branch",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_hanging_tree.mjs",
+            "Entry": "makeHangingTree",
+            "Parameters": [
+                {
+                    "Id": "path",
+                    "Values": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        -0.6399999856948853,
+                        0.25999999046325686,
+                        -1.2100000381469727,
+                        -1.690000057220459,
+                        0.4000000059604645,
+                        -2.880000114440918,
+                        -2.7699999809265138,
+                        0.25,
+                        -4.960000038146973,
+                        -3.200000047683716,
+                        0.5099999904632568,
+                        -7.340000152587891
+                    ]
+                },
+                {
+                    "Id": "radius",
+                    "Values": [
+                        0.46000000834465029
+                    ]
+                },
+                {
+                    "Id": "twigs",
+                    "Values": [
+                        0.4000000059604645,
+                        -0.4099999964237213,
+                        0.5099999904632568,
+                        -1.149999976158142,
+                        0.5199999809265137,
+                        0.15000000596046449,
+                        -0.75,
+                        -0.9800000190734863,
+                        0.6200000047683716,
+                        -0.6499999761581421,
+                        0.20000000298023225,
+                        -0.8799999952316284
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "root/fibres_0",
+                "Parent": "root",
+                "Child": "fibres_0",
+                "Position": [
+                    -1.6360994577407838,
+                    0.3991604149341583,
+                    -2.787132740020752
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "root/fibres_1",
+                "Parent": "root",
+                "Child": "fibres_1",
+                "Position": [
+                    -2.129850387573242,
+                    0.348948210477829,
+                    -3.6311240196228029
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "root/fibres_2",
+                "Parent": "root",
+                "Child": "fibres_2",
+                "Position": [
+                    -2.5146145820617677,
+                    0.272113561630249,
+                    -4.346838474273682
+                ],
+                "Detachable": false
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "hanging_lateral_root",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/hanging_lateral_root_root_mid.asset",
+                "Assets/Cultiway/Forms/hanging_lateral_root_root_far.asset"
+            ],
+            "Roles": [
+                "branch.trunk"
+            ],
+            "Id": "root",
+            "Surface": "wood",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_lateral_root_root.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/hanging_lateral_root_fibres_0_mid.asset",
+                "Assets/Cultiway/Forms/hanging_lateral_root_fibres_0_far.asset"
+            ],
+            "Roles": [
+                "branch.lateral"
+            ],
+            "Id": "fibres_0",
+            "Surface": "wood",
+            "Pivot": [
+                -1.6360994577407838,
+                0.3991604149341583,
+                -2.787132740020752
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_lateral_root_fibres_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/hanging_lateral_root_fibres_1_mid.asset",
+                "Assets/Cultiway/Forms/hanging_lateral_root_fibres_1_far.asset"
+            ],
+            "Roles": [
+                "branch.lateral"
+            ],
+            "Id": "fibres_1",
+            "Surface": "wood",
+            "Pivot": [
+                -2.129850387573242,
+                0.348948210477829,
+                -3.6311240196228029
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_lateral_root_fibres_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/hanging_lateral_root_fibres_2_mid.asset",
+                "Assets/Cultiway/Forms/hanging_lateral_root_fibres_2_far.asset"
+            ],
+            "Roles": [
+                "branch.lateral"
+            ],
+            "Id": "fibres_2",
+            "Surface": "wood",
+            "Pivot": [
+                -2.5146145820617677,
+                0.272113561630249,
+                -4.346838474273682
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_lateral_root_fibres_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root_tip",
+            "Part": 0,
+            "Position": [
+                -3.200000047683716,
+                0.5099999904632568,
+                -7.340000152587891
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "shaft_1",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "B": [
+                -0.5181689858436585,
+                0.22336944937705995,
+                -0.9938100576400757
+            ],
+            "Radius": 0.3937990963459015,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "shaft_2",
+            "Part": 0,
+            "A": [
+                -0.5181689858436585,
+                0.22336944937705995,
+                -0.9938100576400757
+            ],
+            "B": [
+                -1.2022699117660523,
+                0.36515581607818606,
+                -2.0965795516967775
+            ],
+            "Radius": 0.3466143012046814,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "shaft_3",
+            "Part": 0,
+            "A": [
+                -1.2022699117660523,
+                0.36515581607818606,
+                -2.0965795516967775
+            ],
+            "B": [
+                -1.8826582431793213,
+                0.388467401266098,
+                -3.2100987434387209
+            ],
+            "Radius": 0.2951004207134247,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "shaft_4",
+            "Part": 0,
+            "A": [
+                -1.8826582431793213,
+                0.388467401266098,
+                -3.2100987434387209
+            ],
+            "B": [
+                -2.4422574043273927,
+                0.2854621410369873,
+                -4.201080799102783
+            ],
+            "Radius": 0.24499818682670594,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "shaft_5",
+            "Part": 0,
+            "A": [
+                -2.4422574043273927,
+                0.2854621410369873,
+                -4.201080799102783
+            ],
+            "B": [
+                -2.880342483520508,
+                0.26912519335746767,
+                -5.339725971221924
+            ],
+            "Radius": 0.18306633830070496,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "shaft_6",
+            "Part": 0,
+            "A": [
+                -2.880342483520508,
+                0.26912519335746767,
+                -5.339725971221924
+            ],
+            "B": [
+                -3.0390844345092775,
+                0.3650133013725281,
+                -6.217880725860596
+            ],
+            "Radius": 0.1277865320444107,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "shaft_7",
+            "Part": 0,
+            "A": [
+                -3.0390844345092775,
+                0.3650133013725281,
+                -6.217880725860596
+            ],
+            "B": [
+                -3.127009391784668,
+                0.4534258544445038,
+                -6.8756232261657719
+            ],
+            "Radius": 0.07399647682905197,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "tip",
+            "Part": 0,
+            "A": [
+                -3.1562154293060304,
+                0.47906190156936648,
+                -7.075992107391357
+            ],
+            "B": [
+                -3.1887035369873049,
+                0.5028810501098633,
+                -7.27607536315918
+            ],
+            "Radius": 0.054999999701976779,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

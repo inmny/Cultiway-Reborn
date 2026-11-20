@@ -778,6 +778,7 @@ internal sealed partial class FormResourceGeneration
             "flame_body" => (20f, new Color(1f, .38f, .065f, .85f), .76f),
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
             "wood_leaf" => (2f, new Color(.31f, .53f, .12f), .88f),
+            "wood_leaf_shadow" => (2f, new Color(.17f, .32f, .115f), .94f),
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),
             "stone" => (2f, new Color(.34f, .31f, .27f), .96f),
             "stone_strata" => (16f, new Color(.46f, .39f, .30f), .96f),
