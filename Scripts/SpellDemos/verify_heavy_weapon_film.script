@@ -1,0 +1,102 @@
+    // 相机只记录已经完成的游戏帧。演员、兵器和招式来自同一个正式世界档。
+    const string hammerId = "Cultiway.Body.HeavyHammerDrop";
+    long hammerCast = 0, shieldCast = 0;
+    AbilityCast live = null;
+    var floorHits = new List<AbilityActionEvent>();
+    var shields = new List<ConstructedClash>();
+    void Started(ConstructedCastStarted value)
+    {
+        if (value.AbilityId == guardId && value.SourceId == target.id) shieldCast = value.CastId;
+        if (value.AbilityId != hammerId || value.SourceId != source.id) return;
+        hammerCast = value.CastId;
+        object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Single(entry => (long)Field(entry, "Id") == hammerCast);
+        live = (AbilityCast)Field(running, "Cast");
+    }
+    void ActionFact(ConstructedActionEvent value)
+    {
+        if (value.CastId == hammerCast && value.Fact.ContactKind == AbilityActionContactKind.World)
+            floorHits.Add(value.Fact);
+    }
+    void Clashed(ConstructedClash value)
+    {
+        if (value.LeftCast == hammerCast && value.RightCast == shieldCast) shields.Add(value);
+    }
+    ConstructedAbilityService.CastStarted += Started;
+    ConstructedAbilityService.ActionConfirmed += ActionFact;
+    ConstructedAbilityService.ClashConfirmed += Clashed;
+    try
+    {
+        Place(source, 64.35f);
+        Place(target, selectedMove == "miss" ? 65.38f : 64.98f);
+        source.attack_timer = target.attack_timer = 999;
+        target.setHealth(target.getMaxHealth());
+        int health = target.data.health;
+        Item hammer = source.getWeapon();
+        Check(hammer?.getAsset().id == "hammer_iron", "录像使用正式档里的原铁锤");
+        var definition = ConstructionEditing.Access.Read(hammerId);
+        Check(definition.Body.WeaponGround && definition.Revision >= 2, "录像使用正式触地和抬锤收势");
+        Item shield = selectedMove == "guard" ? await RaiseShield() : null;
+        await Game.NextFrame();
+        await Game.NextFrame();
+        Frame(hammerId);
+        source.data.stamina = 100;
+        await Fire(definition, source, target);
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        Check(live != null && Mathf.Abs(100 - source.data.stamina - definition.Cost) < .001f,
+            "重锤录像从正式施放和消耗开始");
+
+        double start = World.world.getCurWorldTime();
+        float duration = (selectedMove == "guard" ? 2.2f : definition.Lifetime) + .20f;
+        while (World.world.getCurWorldTime() - start < duration)
+        {
+            await Advance(1f / 30f);
+            await Game.NextFrame();
+            Frame(hammerId);
+        }
+
+        var hits = contacts.Where(hit => hit.CastId == hammerCast && hit.TargetId == target.id).ToArray();
+        var block = shields.FirstOrDefault();
+        int contactsShown;
+        string name;
+        if (selectedMove == "guard")
+        {
+            Check(shields.Count == 1 && block.GuardShape >= 0 && block.Absorbed > 0f && block.LeftRemaining == 0f &&
+                  live.BodyResult == BodyActionResult.Blocked && hits.Length == 0 && floorHits.Count == 0 &&
+                  target.data.health == health && ReferenceEquals(shield, target.getWeapon()) &&
+                  !BodyControlState.IsBusy(target.id), "镜头中实际盾面挡下重锤，持盾人物未扣血并归还控制",
+                new { shots = shields.Count, block.LeftAge, block.Absorbed, hitCount = hits.Length,
+                    health, after = target.data.health, bodyResult = live.BodyResult });
+            name = "伏腰落锤 · 盾面架挡";
+            contactsShown = shields.Count;
+        }
+        else
+        {
+            Check(floorHits.Count == 1 && live.BodyResult == BodyActionResult.Blocked,
+                "镜头中实际锤头落地后抬离地面",
+                new { times = floorHits.Select(fact => fact.Age).ToArray(), bodyResult = live.BodyResult });
+            if (selectedMove == "drop")
+                Check(hits.Length == 1 && hits[0].ForceApplied && hits[0].VelocityChange.z < 0f &&
+                      hits[0].Age < floorHits[0].Age && target.data.health < health,
+                    "镜头中实际命中和向下受力发生在触地之前",
+                    new { health, after = target.data.health, ages = hits.Select(hit => hit.Age).ToArray() });
+            else Check(hits.Length == 0 && target.data.health == health, "锤面没有碰到范围外的人物",
+                new { health, after = target.data.health, hits = hits.Select(hit => hit.Age).ToArray() });
+            name = selectedMove == "drop" ? "伏腰落锤 · 命中" : "伏腰落锤 · 空挥触地";
+            contactsShown = hits.Length + floorHits.Count;
+        }
+        Check(endings.Any(end => end.Fact.CastId == hammerCast && !end.Fact.Cancelled) &&
+              !BodyControlState.IsBusy(source.id) && ReferenceEquals(hammer, source.getWeapon()),
+            "镜头拍到完整收势和原铁锤归还");
+        recordings.Add(new { view, ability = hammerId, name, rate = 1, first = 0,
+            last = rows.Count - 1, contacts = contactsShown, duration, paid = definition.Cost });
+        SaveRecording();
+        return new { passed = true, selection, view, move = selectedMove, frames = rows.Count, checks };
+    }
+    finally
+    {
+        ConstructedAbilityService.CastStarted -= Started;
+        ConstructedAbilityService.ActionConfirmed -= ActionFact;
+        ConstructedAbilityService.ClashConfirmed -= Clashed;
+    }
+}

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Content.Combat;
 using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals;
 using UnityEngine;
 
 namespace Cultiway.Content.Skills;
@@ -22,8 +24,17 @@ public sealed partial class ConstructedAbilityService
         foreach ((RunningCast running, BodyPose before) in weaponsBefore)
         {
             if (!running.BodyControlled || !running.Cast.ControlsBody) continue;
+            BodyPose after = running.Cast.BodyPose.Value;
+            if (running.Cast.Plan.Body.WeaponGround && running.Body.FindWeaponGround(before, after, terrain, out var ground))
+            {
+                var surface = new AbilityCapsule(-1, ground.BodyPoint, ground.BodyPoint, 0f, null, shape: -1);
+                var shape = new ShapeMotion(running, surface, surface, true);
+                include(new ContactChoice(shape, default, null, ground.Fraction, ground.Point, -ground.Normal, step,
+                    environment: ground, heldWeaponObstacle: true));
+            }
+            if (!running.Cast.Plan.Body.WeaponObstacle) continue;
             running.Body.AppendWeaponObstacleShapes(before, weaponShapesBefore);
-            running.Body.AppendWeaponObstacleShapes(running.Cast.BodyPose.Value, weaponShapesAfter);
+            running.Body.AppendWeaponObstacleShapes(after, weaponShapesAfter);
             if (weaponShapesAfter.Count == 0) continue;
             Bounds bounds = AbilityContactIndex.Swept(weaponShapesBefore[0], weaponShapesAfter[0]);
             for (int i = 1; i < weaponShapesAfter.Count; i++)
@@ -58,6 +69,8 @@ public sealed partial class ConstructedAbilityService
         RunningCast running = hit.Left.Running;
         if (!running.Cast.ConfirmWorldContact(-1, hit.Left.To.Shape, hit.Point))
             running.Cast.RecordActionContact(-1, hit.Point, AbilityActionContactKind.World);
+        if (hit.Environment.Value.Reason == "GroundContact")
+            SpatialCombatFeedback.Sound(CombatContactFeedback.Stone, hit.Point);
         if (running.Connection?.Active == true)
             ReleaseBodyConnection(running, hit.Environment.Value.Reason, fade: false);
         if (!RespondToBodyResult(running, BodyActionResult.Blocked))

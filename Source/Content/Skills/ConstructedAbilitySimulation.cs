@@ -538,7 +538,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         {
             running.BeforeTorso = running.BodyControlled ? running.Cast.BodyPose.Value.Torso : Vector3.zero;
             running.BeforeJoint = running.BodyControlled && running.Cast.Plan.Body.Part.IsJoint ? running.Cast.BodyPose.Value.Joint : null;
-            if (running.BodyControlled && running.Cast.Plan.Body.WeaponObstacle && !running.Practice &&
+            if (running.BodyControlled && (running.Cast.Plan.Body.WeaponObstacle || running.Cast.Plan.Body.WeaponGround) && !running.Practice &&
                 !running.Body.WeaponInConstruction && running.Cast.BodyResult == null &&
                 running.Cast.Age < running.Cast.Plan.Body.ActiveUntil)
                 weaponsBefore.Add((running, running.Cast.BodyPose.Value));
