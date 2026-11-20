@@ -12,13 +12,13 @@ from common import PROJECT, encode, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('grip', 'drag', 'release', 'save', 'cold', 'film'), default='grip')
+    parser.add_argument('--section', choices=('grip', 'drag', 'release', 'save', 'variant', 'cold', 'film'), default='grip')
     parser.add_argument('--case', choices=('all', 'rescue', 'escape', 'death', 'world'), default='all')
     parser.add_argument('--view', choices=('native', 'worldfall'), default='native')
     parser.add_argument('--saved', type=Path)
     args = parser.parse_args()
-    if args.section == 'cold' and args.saved is None:
-        parser.error('--section cold 需要 --saved 指向 save 段输出目录')
+    if args.section in ('variant', 'cold') and args.saved is None:
+        parser.error('variant 和 cold 都需要 --saved 指向 save 段输出目录')
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过 dev.py exec 运行')
     baseline.connect(False, validate_runtime=False)
@@ -47,9 +47,10 @@ def main():
         body = grip
     elif args.section in ('drag', 'release'):
         body = grip.split('try\n{', 1)[0] + f'\nconst string section = "{args.section}", part = "{args.case}";\n' + drag
-    elif args.section in ('save', 'film'):
+    elif args.section in ('save', 'variant', 'film'):
+        saved = str(args.saved.resolve()) if args.saved else ''
         body = grip.split('try\n{', 1)[0] + drag.split('try\n{', 1)[0] + (
-            f'\nconst string section = "{args.section}";\n' +
+            f'\nconst string section = "{args.section}", existing = {json.dumps(saved)};\n' +
             (scripts / 'verify_shadow_burial_delivery.script').read_text())
     else:
         helpers = helpers.split('Game.Resume();', 1)[0]
