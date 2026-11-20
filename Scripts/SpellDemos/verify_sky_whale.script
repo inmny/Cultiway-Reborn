@@ -1,0 +1,133 @@
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+const float lane = 72.5f;
+Actor source = Make(64.5f), aim = Make(73.5f, "wolf"), side = Make(73.5f, "wolf");
+var owner = source.GetExtend();
+var forms = new List<FormVisualInstance>();
+var shapes = new List<AbilityCapsule>();
+var trace = new List<object>();
+var quietStats = new BaseStats();
+quietStats.addTag("frozen_ai");
+var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SkyWhale.Quiet") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SkyWhale.Quiet")
+        .SetStats(quietStats).SetDuration(10000).Build();
+
+AbilityCast Live() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Select(entry => (AbilityCast)Field(entry, "Cast")).FirstOrDefault(cast => cast.Plan.Id == definition.Id);
+
+async Task Pay()
+{
+    Place(source, 64.5f, lane); Place(aim, 73.5f, lane); Place(side, 73.5f, 79.5f);
+    source.lookTowardsPosition(aim.current_position);
+    source.addAggro(aim); aim.addAggro(source);
+    ConstructedAbilityService.NotifyActorChanged(aim);
+    float before = source.stats[BaseStatses.MaxWakan.id] * .82f;
+    owner.GetCultisys<Xian>().wakan = before;
+    await Fire(definition, source, aim, aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - definition.Cost) < .003f, "正式发动只支付一次真元");
+}
+
+async Task Shot(string name)
+{
+    string file = Path.Combine(folder, name + ".png");
+    await Game.NextFrame(); await Game.NextFrame();
+    Screen.Capture(file);
+    await Game.WaitUntil(() => File.Exists(file), 300);
+}
+
+try
+{
+    AbilityCompiler.Compile(definition, false);
+    owner.NewCultisys(Cultisyses.Xian);
+    owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+    Ready(source);
+    foreach (Actor wolf in new[] { aim, side })
+    {
+        CombatStatusEffects.RemoveStatus(wolf, hold);
+        CombatStatusEffects.ApplyStatus(wolf, quiet, 10000, wolf);
+        wolf.updateStats();
+    }
+    await SetCamera(9f);
+    for (int x = 62; x <= 84; x++)
+    for (int y = 66; y <= 81; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        tile.Height = 140;
+        tile.setTileTypes(TileLibrary.soil_low, null, true);
+    }
+    await Advance(.18f);
+    Check(!aim.isImmovable() && !side.isImmovable() && aim.asset.can_be_moved_by_powers && side.asset.can_be_moved_by_powers,
+        "目标和侧边对照都能真实受力");
+    await Pay();
+    var cast = Live();
+    Check(cast != null, "正式施放建立天鲸");
+    float below = float.PositiveInfinity, high = float.NegativeInfinity, lift = 0f, sideLift = 0f;
+    float headPitch = 0f;
+    int parts = 0, posedContacts = 0, startsBuried = 0;
+    bool photographed = false;
+    for (int i = 0; i < 28 && Live() != null; i++)
+    {
+        forms.Clear(); cast.AppendVisuals(forms);
+        var whale = forms.FirstOrDefault(view => view.Resource.Description.Id == "water_whale");
+        if (whale.Resource != null)
+        {
+            var m = whale.Transform;
+            var terrain = (AbilityHeightField)Field(cast, "terrain");
+            float floor = terrain.Sample(m.m03, m.m13);
+            var spine = m * whale.Skin[0];
+            var front = whale.Resource.Anchors.Single(a => a.Id == "front");
+            var nose = spine.MultiplyPoint3x4(front.Transform.GetColumn(3));
+            var facing = spine.MultiplyVector(Vector3.up).normalized;
+            shapes.Clear(); cast.AppendContacts(shapes);
+            if (cast.Age < .22f && nose.z < floor - 1f) startsBuried++;
+            below = Mathf.Min(below, m.m23 - floor);
+            high = Mathf.Max(high, m.m23 - floor);
+            headPitch = Mathf.Max(headPitch, facing.z);
+            parts = Mathf.Max(parts, whale.PartCount);
+            if (cast.Age > .22f && cast.Age < .88f) posedContacts = Mathf.Max(posedContacts, shapes.Count);
+            trace.Add(new { age = cast.Age, center = m.GetColumn(3).ToString("F3"), floor, nose = nose.ToString("F3"),
+                facing = facing.ToString("F3"), shapes = shapes.Select(s => new { a = s.A.ToString("F3"), b = s.B.ToString("F3"), s.Radius }).ToArray(),
+                targetHeight = aim.position_height, sideHeight = side.position_height });
+            if (!photographed && cast.Age >= .80f && cast.Age < 1.15f)
+            {
+                await Shot("breach-native");
+                photographed = true;
+            }
+        }
+        lift = Mathf.Max(lift, aim.position_height);
+        sideLift = Mathf.Max(sideLift, side.position_height);
+        await Advance(.068f);
+    }
+    await Advance(1.65f);
+    var hits = contacts.Select(r => new { r.Age, r.TargetId, r.Node, r.ForceApplied, r.TargetHealthBefore,
+        r.TargetHealthAfter, position = r.Position.ToString("F3"), velocity = r.VelocityChange.ToString("F3") }).ToArray();
+    File.WriteAllText(Path.Combine(folder, "trace.json"), JsonConvert.SerializeObject(new { trace, hits }, Formatting.Indented));
+    Check(startsBuried > 0 && below < -2f && high > 1f && headPitch > .25f && parts == 7 && posedContacts >= 4,
+        "鲸身从真实地下抬头，完整部件和作用形状都沿姿态升出", new { below, high, startsBuried, headPitch, parts, posedContacts });
+    Check(contacts.Any(r => r.TargetId == aim.id && r.Node == 0 && r.Age >= .22f && r.Age <= .90f && r.ForceApplied && r.VelocityChange.z > 0f)
+          && lift > .35f && !contacts.Any(r => r.TargetId == side.id) && sideLift <= .04f,
+        "上升中的真实鲸身接触托起目标，侧边对照未命中", new { aim.id, sideId = side.id, lift, sideLift, hits });
+    Check(aim.isAlive() && !aim.under_forces && aim.position_height <= .04f && Live() == null && endings.Count == 1 &&
+          !FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "water_whale"),
+        "落地后恢复，本次鲸身和作用都已清除", new { aim.position_height, aim.under_forces, endings = endings.Count });
+    Check(photographed, "上升后留存原版实机画面");
+    await Pay();
+    Check(Live() != null, "正常收尾后可以再发动");
+    await Advance(3.4f);
+    Check(Live() == null && endings.Count == 2, "再次发动也能自行结束");
+    return new { passed = true, checks };
+}
+catch (Exception error)
+{
+    File.WriteAllText(Path.Combine(folder, "failure.txt"), error.ToString());
+    return new { passed = false, failure = error.Message, checks };
+}
+finally
+{
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
