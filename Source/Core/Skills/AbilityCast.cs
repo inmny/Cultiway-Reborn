@@ -676,7 +676,9 @@ public sealed partial class AbilityCast
                 step = Mathf.Min(step, 6f / Plan.Body.MaximumAngularRate);
         }
 
-        return step;
+        // 局部动作能拆出比总时钟精度更短的步长。跨过这种边界，否则姿态可能一直停在同一刻。
+        float minimumStep = Age * 1.1920929e-7f;
+        return step < minimumStep ? Mathf.Min(minimumStep, Mathf.Min(maximum, CastUntil - Age)) : step;
 
         void Include(float marker)
         {
