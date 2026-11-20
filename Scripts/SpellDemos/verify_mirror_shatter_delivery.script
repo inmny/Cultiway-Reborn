@@ -4,23 +4,28 @@ JToken SavedDefinition(AbilityDefinition spell) => JToken.Parse(JsonConvert.Seri
 async Task<object> SavePair()
 {
     var variant = Spell("镜中碎身·裂冠");
-    var cast = await Use(definition);
-    for (int i = 0; i < 39 && !damage.Any(d => d.ImageCastId == cast.Id); i++) await Advance(.04f);
-    Check(damage.Any(d => d.ImageCastId == cast.Id && d.Settlement.HealthLost > 0) && !cast.Cast.Finished,
-        "正式档保存于镜面仍在、原身已收到实际裂势时");
-    ConstructedAbilityService.Register(variant);
-    ConstructedAbilityService.Learn(source.GetExtend(), definition.Id);
-    ConstructedAbilityService.Learn(source.GetExtend(), variant.Id);
-    int hp = victim.data.health;
-    long sourceId = source.id, targetId = victim.id;
-    string saved = Path.Combine(folder, "world");
-    var original = SavedDefinition(definition);
-    var derived = SavedDefinition(variant);
-    File.WriteAllText(Path.Combine(folder, "readback-expected.json"), JsonConvert.SerializeObject(new
+    string originalFolder = section == "restored" ? existing : folder;
+    string saved = Path.Combine(originalFolder, "world");
+    string expectedFile = Path.Combine(originalFolder, "readback-expected.json");
+    if (section == "save")
     {
-        sourceId, targetId, health = hp, original, derived
-    }, Formatting.Indented));
-    SaveManager.saveWorldToDirectory(saved);
+        var cast = await Use(definition);
+        for (int i = 0; i < 39 && !damage.Any(d => d.ImageCastId == cast.Id); i++) await Advance(.04f);
+        Check(damage.Any(d => d.ImageCastId == cast.Id && d.Settlement.HealthLost > 0) && !cast.Cast.Finished,
+            "正式档保存于镜面仍在、原身已收到实际裂势时");
+        ConstructedAbilityService.Register(variant);
+        ConstructedAbilityService.Learn(source.GetExtend(), definition.Id);
+        ConstructedAbilityService.Learn(source.GetExtend(), variant.Id);
+        File.WriteAllText(expectedFile, JsonConvert.SerializeObject(new
+        {
+            sourceId = source.id, targetId = victim.id, health = victim.data.health,
+            original = SavedDefinition(definition), derived = SavedDefinition(variant)
+        }, Formatting.Indented));
+        SaveManager.saveWorldToDirectory(saved);
+    }
+    var expected = JObject.Parse(File.ReadAllText(expectedFile));
+    long sourceId = (long)expected["sourceId"], targetId = (long)expected["targetId"];
+    int hp = (int)expected["health"];
     World.world.save_manager.loadWorld(saved);
     await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
     Config.paused = true;
@@ -31,13 +36,13 @@ async Task<object> SavePair()
     var prior = (AbilityDefinition)catalog[definition.Id];
     var restored = (AbilityDefinition)catalog[variant.Id];
     var known = source.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids;
-    Check(JToken.DeepEquals(original, SavedDefinition(prior)) && JToken.DeepEquals(derived, SavedDefinition(restored)) &&
+    Check(JToken.DeepEquals(expected["original"], SavedDefinition(prior)) && JToken.DeepEquals(expected["derived"], SavedDefinition(restored)) &&
         restored.Parent.Id == prior.Id && known.Contains(prior.Id) && known.Contains(restored.Id),
         "读档恢复原术与裂冠的完整资料、来历和已学关系");
     source.attack_timer = 999;
     int previous = damage.Count;
     Check(victim.data.health == hp, "读取瞬间保留正式存档前已结算的扣血", new { savedHealth = hp, restoredHealth = victim.data.health });
-    await Advance(.42f);
+    await Advance(prior.Cooldown + .12f);
     Check(damage.Count == previous && MirrorImages().Length == 0 && Glass().Length == 0,
         "旧镜面和未完成裂势没有重放");
 
@@ -101,9 +106,14 @@ async Task<object> Record()
         samples.Add(new { age = cast.Cast.Age, frame, images, panes, hits = damage.Count });
     });
     var reached = cracks.Where(c => c.Part != null).ToArray();
+    var permitted = definition.Root.Children[0].Correspondence.MirrorImage.Fracture.Parts;
+    bool delivered = reached.Length > 0 && reached.Length == damage.Count &&
+        reached.Select(c => c.Part).Distinct().Count() == reached.Length &&
+        reached.All(c => permitted.Contains(c.Part) && c.OriginalPoint.HasValue &&
+            (c.Settlement.HealthLost > 0 || c.Settlement.ShieldAbsorbed > 0f));
     var timeline = new { times, duration, samples, outcomes = Outcomes() };
     File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(timeline, Formatting.Indented));
-    Check(stable && drew && image && glass && falling && reached.Length == 2 && cast.Cast.Finished &&
+    Check(stable && drew && image && glass && falling && delivered && cast.Cast.Finished &&
         MirrorFrames().Length == 0 && Glass().Length == 0,
         "同一次正式施放原速录到镜像、局部裂势、原身反馈和下落碎片",
         new { stable, drew, image, glass, falling, count = reached.Length, finished = cast.Cast.Finished });
@@ -112,7 +122,7 @@ async Task<object> Record()
         previewFrame = Math.Max(0, times.FindIndex(t => t >= mark)), scene = "construction", resource = "mana", paid = definition.Cost };
 }
 
-try { return section == "save" ? await SavePair() : await Record(); }
+try { return section == "film" ? await Record() : await SavePair(); }
 finally
 {
     ConstructedAbilityService.MirrorCrackConfirmed -= Cracked;

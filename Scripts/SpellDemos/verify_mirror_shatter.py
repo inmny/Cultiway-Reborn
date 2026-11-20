@@ -12,12 +12,12 @@ from common import PROJECT, encode, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('image', 'travel', 'interrupt', 'save', 'cold', 'film'), default='image')
+    parser.add_argument('--section', choices=('image', 'travel', 'interrupt', 'save', 'restored', 'cold', 'film'), default='image')
     parser.add_argument('--view', choices=('native', 'worldfall'), default='native')
     parser.add_argument('--saved', type=Path)
     args = parser.parse_args()
-    if args.section == 'cold' and args.saved is None:
-        parser.error('--section cold 需要 --saved 指向 save 的输出目录')
+    if args.section in ('restored', 'cold') and args.saved is None:
+        parser.error('restored 和 cold 都需要 --saved 指向 save 的输出目录')
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过 dev.py exec 运行')
     baseline.connect(False, validate_runtime=False)
@@ -57,7 +57,8 @@ def main():
             if args.section == 'interrupt':
                 body += (scripts / 'verify_mirror_shatter_interrupt.script').read_text()
             else:
-                body += f'\nconst string section = "{args.section}";\n' + (
+                existing = str(args.saved.resolve()) if args.saved else ''
+                body += f'\nconst string section = "{args.section}", existing = {json.dumps(existing)};\n' + (
                     scripts / 'verify_mirror_shatter_delivery.script').read_text()
     script = output / 'input.script'
     script.write_text(helpers + '\n' + shared + '\n' + body)
