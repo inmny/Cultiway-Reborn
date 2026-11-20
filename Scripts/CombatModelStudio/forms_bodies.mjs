@@ -2,6 +2,7 @@
 import * as T from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {part,write,motion,structure} from './form_export.mjs';
+import {makeThunderColossus} from './forms_thunder_colossus.mjs';
 import {controlsFromPoints,blendWeights,rotation,phaseValue,implicitParts,influences} from './form_skeleton.mjs';
 
 /** 连续体积的制作输入，部位归属只用于切分语义，不改变共同表面。 */
@@ -112,6 +113,7 @@ function makeColossus() {
       Id,Motion:Id,Scale:[.5,3],Rate:[.5,2],Turn:[-35,35],
       Supports:['left','right'].map(side=>({Anchor:'foot.'+side,From:'gather',Until:'ready',Slack:.01})),
       Contacts:[{Id:'palm',Anchor,PartnerRole:'body.palm',From,Until:'recover',Gap:.08,Angle:20,Opposed:true}]})));
+  makeThunderColossus(parts,controls);
 }
 
 /** 有独立指节的连续灵臂，掌、指尖挂点和作用端点都用相同表面权重。 */

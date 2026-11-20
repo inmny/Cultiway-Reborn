@@ -1,0 +1,44 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.ThunderGodEarthbreaker",
+  "Name": "雷神凿世",
+  "Lifetime": 3.85,
+  "Cost": 16,
+  "Resource": "wakan",
+  "Cooldown": 5,
+  "Power": 8.2,
+  "TargetRange": 38,
+  "Use": {"Channels": "World", "Target": "Point"},
+  "Binding": {"Anchor": "Target", "Follow": false, "FaceTarget": true},
+  "Root": {
+    "Id": "summon",
+    "Form": "pivot",
+    "ContactRole": "Decoration",
+    "Children": [{
+      "Id": "god",
+      "Form": "thunder_colossus",
+      "Matter": "lightning",
+      "Scale": 2.55,
+      "Rotation": [-90, 0, 0],
+      "Offset": [0, -0.35, 0],
+      "Strength": 0.85,
+      "Volume": 4.5,
+      "ActiveFromMarker": "strike_start",
+      "ActiveUntilMarker": "strike_end",
+      "WorldContactShape": "hammer_face",
+      "DisappearAt": 3.20,
+      "Impact": {"DamageScale": 0.90},
+      "Operations": [{"Kind": "Animate", "Clip": "hammerfall"}],
+      "Children": [{
+        "Id": "hammer_trace",
+        "Form": "fracture_slab",
+        "Matter": "earth",
+        "ContactRole": "Decoration",
+        "Scale": 0.32,
+        "Offset": [0, 0, 0.03],
+        "DisappearAt": 0.86,
+        "Activation": {"Source": "..", "Trigger": "WorldContact", "Placement": "Event"}
+      }]
+    }]
+  }
+}

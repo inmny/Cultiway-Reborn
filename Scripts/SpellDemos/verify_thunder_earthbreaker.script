@@ -1,0 +1,163 @@
+// 9.34 A：复用施放、站位、相机和作用发布，真实地面只接受锤面。
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+var source = Make(68.5f);
+var target = Make(65.68f);
+var owner = source.GetExtend();
+var focus = new Vector3(68.5f, 75.5f, 0f);
+var forms = new List<FormVisualInstance>();
+var shapes = new List<AbilityCapsule>();
+var ground = new List<ConstructedWorldContact>();
+object Point(Vector3 p) => new { p.x, p.y, p.z };
+void Impact(ConstructedWorldContact hit)
+{
+    if (hit.AbilityId.StartsWith(definition.Id) && hit.TriggerOnly) ground.Add(hit);
+}
+AbilityCast Live(string id) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Select(item => (AbilityCast)Field(item, "Cast")).SingleOrDefault(cast => cast.Plan.Id == id);
+FormVisualInstance[] Display(AbilityCast cast)
+{
+    forms.Clear(); cast.AppendVisuals(forms); return forms.ToArray();
+}
+FormVisualInstance God(AbilityCast cast) => Display(cast).Single(form => form.Resource.Description.Id == "thunder_colossus");
+AbilityCapsule[] Faces(AbilityCast cast)
+{
+    shapes.Clear(); cast.AppendContacts(shapes); return shapes.ToArray();
+}
+Vector3 Hammer(FormVisualInstance display)
+{
+    var control = Array.FindIndex(display.Resource.Description.Controls, item => item.Id == "maul");
+    return display.Transform.MultiplyPoint3x4(display.Skin[control].MultiplyPoint3x4(
+        display.Resource.Anchors.Single(anchor => anchor.Id == "hammer.face").Transform.GetColumn(3)));
+}
+object Frame(AbilityCast cast, AbilityCapsule shape)
+{
+    var view = God(cast);
+    var matrix = (Matrix4x4)Field(Field(shape, "Prism"), "transform");
+    float minimum = float.PositiveInfinity;
+    for (int i = 0; i < 8; i++)
+    {
+        Vector3 point = matrix.MultiplyPoint3x4(new Vector3((i & 1) == 0 ? -1 : 1,
+            (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+        minimum = Mathf.Min(minimum, point.z - view.Terrain.Sample(Mathf.Floor(point.x) + .5f, Mathf.Floor(point.y) + .5f));
+    }
+    return new { cast.Age, centre = Point(shape.A), clearance = minimum, force = cast.RemainingForce(shape.Node) };
+}
+async Task At(AbilityCast cast, float age)
+{
+    if (cast.Age < age) await Advance(age - cast.Age);
+}
+async Task<AbilityCast> Cast(AbilityDefinition value, float x, float y)
+{
+    Place(source, 68.5f, 78.5f); Place(target, x, y);
+    ConstructedAbilityService.NotifyActorChanged(source);
+    ConstructedAbilityService.NotifyActorChanged(target);
+    await Advance(.12f);
+    ground.Clear(); contacts.Clear(); endings.Clear();
+    owner.SetPowerLevel(0); target.GetExtend().SetPowerLevel(0);
+    float balance = source.stats[BaseStatses.MaxWakan.id] * .85f;
+    owner.GetCultisys<Xian>().wakan = balance;
+    await Fire(value, source, target, aim: focus, aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Mathf.Abs(balance - owner.GetCultisys<Xian>().wakan - value.Cost) < .01f, "正式施放只付一次真元", value.Id);
+    return Live(value.Id);
+}
+
+ConstructedAbilityService.WorldContactConfirmed += Impact;
+try
+{
+    owner.NewCultisys(Cultisyses.Xian);
+    owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+    target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+    var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
+    var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ThunderEarthbreaker.Quiet") ??
+        Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ThunderEarthbreaker.Quiet")
+            .SetStats(quietStats).SetDuration(10000).Build();
+    foreach (var actor in new[] { source, target })
+    {
+        CombatStatusEffects.RemoveStatus(actor, hold);
+        CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+        actor.setStatsDirty(); actor.updateStats();
+    }
+    await SetCamera(14.5f);
+    await Advance(.18f);
+
+    if (section == "swing")
+    {
+        var cast = await Cast(definition, 65.68f, 70.05f);
+        int hp = target.data.health;
+        await At(cast, .40f);
+        var gathering = God(cast);
+        Check(gathering.BuildProgress is > .06f and < .7f && Faces(cast).Length == 0 && contacts.Count == 0 && ground.Count == 0,
+            "先显云腹和肩背，未成形的重锤没有作用面", new { gathering.BuildProgress, cast.Age });
+        await Shot("thunder-cloud");
+        await At(cast, 1.50f);
+        var lifted = God(cast);
+        Vector3 above = Hammer(lifted);
+        Check(lifted.BuildProgress >= .99f && above.z > 8f && Faces(cast).Length == 0 && ground.Count == 0 && target.data.health == hp,
+            "蓄力举锤在空中，既未伤人也未接地", new { above = Point(above), cast.Age });
+        await Shot("thunder-raised");
+        await At(cast, 2.01f);
+        Vector3 falling = Hammer(God(cast));
+        var face = Faces(cast).Single();
+        Check(face.Node == 1 && Field(face, "Prism") != null && Vector3.Distance(face.A, falling) < .001f && falling.z < above.z - 6f,
+            "实际下压时只有锤面参与作用，并与相同模型控制重合",
+            new { above = Point(above), falling = Point(falling), face = Point(face.A), cast.Age });
+        await Shot("thunder-fall");
+        var trace = new List<object>();
+        while (cast.Age < 2.27f && ground.Count == 0)
+        {
+            await Advance(.031f);
+            foreach (var current in Faces(cast)) trace.Add(Frame(cast, current));
+        }
+        await At(cast, 2.37f);
+        var worldHit = ground.SingleOrDefault();
+        var mark = Display(cast).FirstOrDefault(x => x.Resource.Description.Id == "fracture_slab");
+        Check(ground.Count == 1 && worldHit.Node == 1 && worldHit.Age is > 2f and < 2.26f && mark.Resource != null &&
+              Vector3.Distance(mark.Transform.GetColumn(3), worldHit.Position) < .06f,
+            "只有实际锤头触地，锤痕才从同一撞点出现在地面", new { ground = ground.ToArray(), trace, hp, after = target.data.health });
+        var hits = contacts.Where(hit => hit.TargetId == target.id && hit.Node == 1).ToArray();
+        Check(hits.Any(hit => hit.TargetHealthAfter < hit.TargetHealthBefore) && target.data.health < hp,
+            "下压扫过真实目标并扣血", new { hp, after = target.data.health,
+                hits = hits.Select(hit => new { hit.Age, position = Point(hit.Position), hit.TargetHealthBefore, hit.TargetHealthAfter }).ToArray() });
+        await Shot("thunder-contact");
+        await At(cast, 2.91f);
+        var retreat = God(cast);
+        Check(retreat.BuildProgress < .68f && Faces(cast).Length == 0 && ground.Count == 1,
+            "回腕退散后不再伤人或补发撞地", new { retreat.BuildProgress, cast.Age });
+        await Shot("thunder-recede");
+        await Advance(2.6f);
+        Check(Live(definition.Id) == null && Display(cast).Length == 0 && endings.Count == 1 && !endings[0].Fact.Cancelled,
+            "动作完成后巨神和地面表现自然清除");
+    }
+
+    var missed = await Cast(definition, 68.12f, 70.05f);
+    int missedHp = target.data.health;
+    await At(missed, 2.39f);
+    Check(ground.Count == 1 && target.data.health == missedHp && contacts.All(hit => hit.TargetId != target.id),
+        "同一次实际落锤，锤面侧边的目标没有扣血", new { ground = ground.ToArray(), missedHp, after = target.data.health });
+    await Advance(3.05f);
+    var higher = ConstructionEditing.Copy(definition);
+    higher.Id += ".Raised";
+    higher.Binding.Height += 4f;
+    var suspended = await Cast(higher, 65.68f, 70.05f);
+    int clearHp = target.data.health;
+    await At(suspended, 2.18f);
+    var suspendedFace = Faces(suspended).Single();
+    Check(suspendedFace.A.z > 3f, "同一姿态保持在空中", new { position = Point(suspendedFace.A), suspended.Age });
+    await At(suspended, 2.9f);
+    Check(ground.Count == 0 && contacts.All(hit => hit.TargetId != target.id) && target.data.health == clearHp &&
+          Display(suspended).All(form => form.Resource.Description.Id != "fracture_slab"), "悬空锤头打不到地面，不产生锤痕也不补伤害");
+    await Advance(1.1f);
+    Check(Live(higher.Id) == null && Display(suspended).Length == 0, "悬空失败也正常退场");
+    return new { passed = true, view = recordView, section, checks };
+}
+finally
+{
+    ConstructedAbilityService.WorldContactConfirmed -= Impact;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}
