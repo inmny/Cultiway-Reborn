@@ -1,0 +1,29 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.StraightPunch",
+  "Name": "贯锋直拳",
+  "Resource": "stamina",
+  "Cost": 4,
+  "Cooldown": 0.85,
+  "Lifetime": 0.68,
+  "Power": 1.35,
+  "Body": {
+    "Effector": "fist.right",
+    "ReleaseAt": 0.20,
+    "ActiveFrom": 0.235,
+    "ActiveUntil": 0.34,
+    "ImpactRecoil": 0.048,
+    "RecoilSeconds": 0.10,
+    "Contact": {"Mode": "Once"},
+    "Impact": {"Targets": "Hostile", "DamageScale": 1.45, "Force": 1.4, "StaggerSeconds": 0.13},
+    "Keys": [
+      {"Id": "ready", "At": 0, "Hand": [0.22, 0.21, 0.67], "Rotation": [28, 0, 0]},
+      {"Id": "load", "At": 0.18, "Hand": [0.075, 0.22, 0.565], "Torso": [-0.05, 0.025, -0.072], "Turn": -22, "Rotation": [18, -14, -12]},
+      {"At": 0.235, "Hand": [0.30, 0.16, 0.61], "Torso": [0.015, 0.005, -0.031], "Turn": 1, "Rotation": [59, -5, -2]},
+      {"Id": "drive", "At": 0.29, "Hand": [0.57, 0.055, 0.64], "Torso": [0.09, -0.012, -0.018], "Turn": 22, "Rotation": [87, 0, 0]},
+      {"At": 0.35, "Hand": [0.49, 0.07, 0.64], "Torso": [0.069, -0.009, -0.022], "Turn": 18, "Rotation": [78, 0, 0]},
+      {"Id": "withdraw", "At": 0.49, "Hand": [0.265, 0.20, 0.69], "Torso": [0.018, 0, -0.018], "Turn": 4, "Rotation": [37, -4, -4]},
+      {"Id": "rest", "At": 0.68, "Hand": [0.22, 0.21, 0.67], "Rotation": [28, 0, 0]}
+    ]
+  }
+}

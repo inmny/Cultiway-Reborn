@@ -12,13 +12,36 @@ public static partial class BodyConstructionEdits
     {
         if (part == null) return null;
         int split = part.IndexOf('.');
-        if (split < 0 || part.Substring(0, split) is not ("hand" or "elbow" or "shoulder" or "knee" or "foot")) return null;
+        if (split < 0 || part.Substring(0, split) is not ("hand" or "fist" or "elbow" or "shoulder" or "knee" or "foot")) return null;
         return part.Substring(split) switch
         {
             ".left" => part.Substring(0, split) + ".right",
             ".right" => part.Substring(0, split) + ".left",
             _ => null
         };
+    }
+
+    /// <summary>同一只空手可以伸掌或握拳，动作与接触时段保留，实际接触换成相应表面。</summary>
+    /// <param name="source">已有徒手动作。</param><param name="closed">是否握拳。</param>
+    internal static AbilityDefinition ChangeHandShape(AbilityDefinition source, bool closed)
+    {
+        CompiledBodyAction action = AbilityCompiler.Compile(source, cache: false).Body;
+        if (action?.Part.Contact != BodyContactPart.Hand || action.WeaponForm != null || action.Construction.HasControlRelations)
+            throw new InvalidDataException("自由掌形只用于未建立双方控制的徒手动作");
+        AbilityDefinition result = ConstructionEditing.Copy(source);
+        string effector = (closed ? "fist." : "hand.") + (action.Part.Left ? "left" : "right");
+        BodyConstructionDefinition construction = result.Body.Construction;
+        if (construction == null) result.Body.Effector = effector;
+        else
+        {
+            construction.Parts.Single(part => part.Id == result.Body.Effector).Part = effector;
+            foreach (BodyRelationDefinition touch in construction.Relations.Where(relation => relation.Kind == BodyRelationKind.Touch &&
+                         relation.From == result.Body.Effector && relation.FromAnchor != null))
+                touch.FromAnchor = closed ? "knuckles" : "palm";
+        }
+
+        AbilityCompiler.Compile(result, cache: false);
+        return result;
     }
 
     /// <summary>将同一种发力镜像到另一侧，保留关系编号、目标及独立制作的移动轨迹。</summary>

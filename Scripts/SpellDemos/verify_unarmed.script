@@ -1,0 +1,187 @@
+// 9.42：沿用同一人形身体与目标，复验正式术式和实际碰撞。
+var source = Make(64.35f);
+var target = Make(64.7f);
+target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+var quietStats = new BaseStats();
+quietStats.addTag("frozen_ai");
+var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.UnarmedQuiet") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.UnarmedQuiet")
+        .SetStats(quietStats).SetDuration(10000).Build();
+CombatStatusEffects.RemoveStatus(target, hold);
+CombatStatusEffects.ApplyStatus(target, quiet, 10000, target);
+target.updateStats();
+var owner = source.GetExtend();
+var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { source });
+AbilityCast live = null;
+long castId = 0;
+object binding = null;
+var damage = new List<ConstructedQueuedDamage>();
+var timeline = new List<object>();
+
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || !fact.AbilityId.StartsWith("Cultiway.Body.")) return;
+    object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(entry => (long)Field(entry, "Id") == fact.CastId);
+    castId = fact.CastId;
+    live = (AbilityCast)Field(running, "Cast");
+    binding = Field(running, "Body");
+}
+
+void Settled(ConstructedQueuedDamage fact)
+{
+    if (fact.SourceId == source.id) damage.Add(fact);
+}
+
+async Task ToAge(float age)
+{
+    Config.paused = false;
+    await Game.WaitUntil(() => live.Finished || live.Age >= age, 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+float[] Point(Vector3 value) => new[] { value.x, value.y, value.z };
+void Trace(string name)
+{
+    if (live.BodyPose is not BodyPose pose) return;
+    var surfaces = new List<AbilityCapsule>();
+    binding.GetType().GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, surfaces });
+    timeline.Add(new { name, pose.WorldAge, pose.ActionAge, pose.Turn, root = Point(pose.Foot),
+        shoulder = Point(pose.Shoulder), elbow = Point(pose.Elbow), wrist = Point(pose.Hand),
+        left = Point(pose.LeftFoot), right = Point(pose.RightFoot), contact = Point(pose.EffectorPoint),
+        target = Point(target.GetSimPos()), surfaces = surfaces.Select(s => new { a = Point(s.A), b = Point(s.B), s.Radius }) });
+    File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(timeline, Formatting.Indented));
+}
+
+var clock = Config.time_scale_asset;
+float speed = clock.multiplier;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+try
+{
+    Ready(source);
+    source.attack_timer = 999;
+    await Advance(.18f);
+    clock.multiplier = speed * .32f;
+    var cases = new[]
+    {
+        (key: "palm", id: "Cultiway.Body.PalmPush", range: .40f, load: .19f, strike: .36f, miss: false, shapes: 1),
+        (key: "punch", id: "Cultiway.Body.StraightPunch", range: .45f, load: .16f, strike: .29f, miss: false, shapes: 4),
+        (key: "elbow", id: "Cultiway.Body.FoldedElbow", range: .25f, load: .17f, strike: .35f, miss: false, shapes: 1),
+        (key: "miss", id: "Cultiway.Body.StraightPunch", range: .45f, load: .16f, strike: .29f, miss: true, shapes: 4),
+        (key: "knee", id: "Cultiway.Body.RisingKnee", range: .34f, load: .19f, strike: .43f, miss: false, shapes: 1),
+        (key: "sweep", id: "Cultiway.Body.LowSweep", range: .37f, load: .22f, strike: .45f, miss: false, shapes: 1),
+        (key: "shoulder", id: "Cultiway.Body.ShoulderDrive", range: .30f, load: .18f, strike: .45f, miss: false, shapes: 1),
+        (key: "sweep-miss", id: "Cultiway.Body.LowSweep", range: .37f, load: .22f, strike: .45f, miss: true, shapes: 1)
+    };
+    var selectedCases = section == "upper" ? cases.Take(4) : section == "lower" ? cases.Skip(4) : cases.Where(value => value.key == section);
+    foreach (var test in selectedCases)
+    {
+        AbilityDefinition definition = ConstructionEditing.Access.Read(test.id);
+        Check(definition != null && definition.Root == null && definition.Body != null, "正式目录提供徒手战技 " + test.key);
+        Place(source, 64.35f);
+        Place(target, 64.35f + height * test.range);
+        source.attack_timer = 0;
+        target.attack_timer = 999;
+        target.setHealth(target.getMaxHealth());
+        source.data.stamina = 100;
+        int before = target.data.health;
+        float paidFrom = source.data.stamina;
+        var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+        ConstructedAbilityService.Learn(owner, definition.Id);
+        source.addAggro(target);
+        target.addAggro(source);
+        live = null;
+        bool accepted = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()),
+            ActiveAbilityUseOrigin.Script);
+        source.attack_timer = 999;
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        Check(accepted && live != null && BodyControlState.IsBusy(source.id) &&
+              Mathf.Abs(paidFrom - source.data.stamina - definition.Cost) < .001f,
+            test.key + " 正式入口接管身体，按报价支付体力", new { accepted, definition.Cost, paid = paidFrom - source.data.stamina,
+                height, target = Point(target.GetSimPos()), block = ActiveAbilityService.ResolveControlState(owner, handle).BlockReason });
+        if (test.miss)
+        {
+            Place(target, 66.2f, 73f);
+            ConstructedAbilityService.NotifyActorChanged(target);
+        }
+
+        Trace(test.key + "/ready");
+        await ToAge(test.load);
+        BodyPose load = live.BodyPose.Value;
+        Trace(test.key + "/load");
+        Check(contacts.All(hit => hit.CastId != castId), test.key + " 蓄力阶段无伤");
+        await ToAge(test.strike);
+        BodyPose strike = live.BodyPose.Value;
+        Trace(test.key + "/strike");
+        var shapes = new List<AbilityCapsule>();
+        binding.GetType().GetMethod("AppendContacts", F).Invoke(binding, new object[] { strike, shapes });
+        bool leg = live.Plan.Body.Part.IsLeg;
+        bool stepping = test.key == "shoulder";
+        Check(shapes.Count == test.shapes && Mathf.Abs(strike.Turn - load.Turn) > 10 &&
+              (stepping ? Vector3.Dot(strike.LeftFoot - load.LeftFoot, strike.Forward) > height * .10f :
+                  Vector3.Distance(load.LeftFoot, strike.LeftFoot) < .03f &&
+                  (leg || Vector3.Distance(load.RightFoot, strike.RightFoot) < .03f)),
+            test.key + " 转体发力并保持支撑，使用指定部位的实际实体", new { shapes = shapes.Count, load.Turn, strikeTurn = strike.Turn });
+        if (leg)
+        {
+            var strikingLeg = strike.RightLeg.Value;
+            var selectedShape = shapes.Single();
+            bool knee = test.key == "knee";
+            bool sameShape = knee ? selectedShape.A == strikingLeg.Knee && selectedShape.B == strikingLeg.Knee :
+                selectedShape.A == strikingLeg.FootA && selectedShape.B == strikingLeg.FootB;
+            Vector3 side = Vector3.Cross(strike.Forward, Vector3.forward);
+            float rise = strikingLeg.Foot.z - strike.Foot.z;
+            float cross = Vector3.Dot(strikingLeg.Foot - load.RightLeg.Value.Foot, side);
+            Check(sameShape && (knee ? rise > height * .20f : rise < height * .18f && cross < -height * .12f),
+                test.key + " 抬膝或低位横扫使用可见身体部位", new { rise, cross, height, sameShape });
+        }
+        if (test.key == "shoulder") Check(shapes[0].A == strike.EffectorPoint &&
+                strike.EffectorPoint == (strike.OtherArm?.Shoulder ?? strike.Shoulder) &&
+                Vector3.Dot(strike.Foot - load.Foot, strike.Forward) > height * .12f &&
+                Vector3.Dot(strike.CenterOfMass - load.CenterOfMass, strike.Forward) > height * .23f,
+            "落脚后把实际肩点随重心送出，收拢的手不参与碰撞");
+        if (test.shapes == 4)
+        {
+            var hands = FormVisualScene.Instances.Where(row => row.GroundActorId == source.id && row.BodySegment == BodyVisualSegment.RightHand).ToArray();
+            Check(hands.Length == 1 && hands[0].Parts != null && hands[0].Parts.Skip(1).All(part => part != Matrix4x4.identity) &&
+                  shapes.All(shape => shape.Radius < .05f * height),
+                test.key + " 同一只手的指节握紧，接触来自四个指根");
+        }
+
+        await ToAge(live.Plan.Body.Duration - .045f);
+        Trace(test.key + "/withdraw");
+        await Advance(definition.Lifetime + .10f);
+        var hits = contacts.Where(hit => hit.CastId == castId && hit.TargetId == target.id).ToArray();
+        float realContact = (float)Field(live, "bodyContactAt");
+        float lost = hits.Sum(hit => hit.Damage.HealthLost) + damage.Where(fact => fact.CastId == castId && fact.TargetId == target.id)
+            .Sum(fact => fact.Damage.HealthLost);
+        bool after = endings.Any(e => e.Fact.CastId == castId && !e.Fact.Cancelled) &&
+                     !BodyControlState.IsBusy(source.id) && !ConstructedAbilityService.TryGetBodyPose(source.id, out _);
+        var hitInfo = new { realContact, lost, before, afterLife = target.data.health, hits = hits.Select(hit => new
+            { hit.Age, hit.Node, spot = Point(hit.Position), hit.ForceApplied, velocity = Point(hit.VelocityChange) }).ToArray() };
+        Check(test.miss ? hits.Length == 0 && lost == 0 && realContact < 0 && target.data.health == before :
+            hits.Length == 1 && hits[0].Node == -1 && hits[0].Age >= definition.Body.ActiveFrom - .001f &&
+            hits[0].Age <= definition.Body.ActiveUntil + .001f && lost > 0 && realContact >= 0,
+            test.key + " 有效时段内实际命中扣血，落空不会触发伤害或回弹", hitInfo);
+        if (test.key == "palm") Check(hits[0].ForceApplied && Vector3.Dot(hits[0].VelocityChange, strike.Forward) > 0,
+            "推掌实际把目标推向前方", hitInfo);
+        if (test.key == "sweep") Check(hits[0].StaggerSeconds > .15f, "扫足实击使目标绊顿", hitInfo);
+        Check(after, test.key + " 自然收势归还控制", new { endings = endings.Select(row => row.Fact).ToArray() });
+        await Advance(.2f);
+    }
+
+    return new { passed = true, section, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+    Config.paused = true;
+    clock.multiplier = speed;
+    ControllableUnit.clear(false);
+}

@@ -1,0 +1,29 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.PalmPush",
+  "Name": "拦门推掌",
+  "Resource": "stamina",
+  "Cost": 3,
+  "Cooldown": 0.92,
+  "Lifetime": 0.79,
+  "Power": 1.1,
+  "Body": {
+    "Effector": "hand.right",
+    "ReleaseAt": 0.23,
+    "ActiveFrom": 0.28,
+    "ActiveUntil": 0.45,
+    "ImpactRecoil": 0.032,
+    "RecoilSeconds": 0.11,
+    "Contact": {"Mode": "Once"},
+    "Impact": {"Targets": "Hostile", "DamageScale": 0.82, "Force": 3.2, "StaggerSeconds": 0.12},
+    "Keys": [
+      {"Id": "ready", "At": 0, "Hand": [0.21, 0.20, 0.54]},
+      {"Id": "load", "At": 0.20, "Hand": [0.10, 0.19, 0.54], "Torso": [-0.055, 0.02, -0.065], "Turn": -15, "Rotation": [0, -12, -6]},
+      {"At": 0.28, "Hand": [0.27, 0.15, 0.58], "Torso": [0.015, 0.01, -0.04], "Rotation": [0, 6, 0]},
+      {"Id": "extend", "At": 0.36, "Hand": [0.54, 0.09, 0.63], "Torso": [0.09, -0.01, -0.022], "Turn": 13, "Rotation": [0, 10, 0]},
+      {"At": 0.46, "Hand": [0.50, 0.105, 0.61], "Torso": [0.085, -0.01, -0.025], "Turn": 11, "Rotation": [0, 10, 0]},
+      {"Id": "settle", "At": 0.64, "Hand": [0.29, 0.18, 0.56], "Torso": [0.015, 0, -0.015], "Turn": 3},
+      {"Id": "rest", "At": 0.79, "Hand": [0.21, 0.20, 0.54]}
+    ]
+  }
+}

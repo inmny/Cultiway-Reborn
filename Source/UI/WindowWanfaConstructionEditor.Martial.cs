@@ -17,6 +17,11 @@ public sealed partial class WindowWanfaConstructionEditor
             ActionRow("MirrorBodySide", T(new BodyPartSelection(opposite).Label),
                 () => ApplyConstructionEdit(() => BodyConstructionEdits.MirrorSide(session.Draft, action)));
 
+        if (action.Part.Contact == BodyContactPart.Hand && action.WeaponForm == null && !action.Construction.HasControlRelations)
+            MartialChoice("MartialHandShape", action.Part.IsFist ? "closed" : "open", new[] { "open", "closed" },
+                value => T(value == "closed" ? "MartialClosedHand" : "MartialOpenHand"),
+                value => ApplyConstructionEdit(() => BodyConstructionEdits.ChangeHandShape(session.Draft, value == "closed")));
+
         if (action.WeaponForm != null)
         {
             Row("MirrorBodySide", T("MartialWeaponSlot"));
@@ -53,7 +58,8 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <summary>普通接触和控制关系选择同一资源提供的真实表面。</summary>
     /// <param name="action">当前能编译的动作。</param>
     private static string[] MartialContactShapes(CompiledBodyAction action) => action.Part.Contact == BodyContactPart.Hand
-        ? FormResources.Load(action.WeaponForm ?? "hand").Description.Contacts.SelectMany(contact => ShapeNames(contact.Id))
+        ? (action.Fist?.Knuckles.Select(contact => contact.Id) ??
+           FormResources.Load(action.WeaponForm ?? "hand").Description.Contacts.Select(contact => contact.Id)).SelectMany(ShapeNames)
             .Distinct(StringComparer.Ordinal).ToArray()
         : new[] { action.Part.Shape };
 

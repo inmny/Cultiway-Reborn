@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Cultiway.Content.Combat;
+using Cultiway.Content.CreatureCompositions.Visuals;
 using Cultiway.Core;
 using Cultiway.Core.Skills;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -29,6 +30,9 @@ internal sealed partial class BodyActionBinding
 
     /// <summary>原版实际头图的关节与包络，创建时读取。</summary>
     private readonly BodyHeadFit nativeHead;
+
+    /// <summary>起势时采集的原人物衣色和肤色，同一次动作共用。</summary>
+    private readonly (Color? Upper, Color? Lower, Color? Hand) armColors;
 
     /// <summary>已有实际器官的独立绑定，其他动作为空。</summary>
     internal BodyOrganBinding Organ { get; private set; }
@@ -174,15 +178,15 @@ internal sealed partial class BodyActionBinding
         ConstructionReferences.Resolve("Body/Effector/limb", () => FormResources.Load("limb"), "Form", "limb");
         FormResource form = action.WeaponForm == null ? null :
             ConstructionReferences.Resolve("Body/WeaponForm", () => FormResources.Load(action.WeaponForm), "Form", action.WeaponForm);
-        var contactResource = form ?? handForm;
+        var availableContacts = action.Fist?.Knuckles.Select(contact => contact.Id) ??
+                                (form ?? handForm).Description.Contacts.Select(contact => contact.Id);
         foreach (var relation in action.Construction.Relations.Where(r =>
                      r.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect or BodyRelationKind.Disarm))
         {
             if ((relation.From.Subject == BodyPartSubject.Held) != (action.WeaponForm != null) ||
                 relation.FromAnchor != null && (action.Part.Contact != BodyContactPart.Hand
                     ? relation.FromAnchor != action.Part.Shape
-                    : !contactResource.Description.Contacts.Any(c =>
-                        CompiledBodyConstruction.MatchesContact(relation.FromAnchor, c.Id))))
+                    : !availableContacts.Any(contact => CompiledBodyConstruction.MatchesContact(relation.FromAnchor, contact))))
                 throw new InvalidDataException("Body/Construction/Relations/" + relation.Id + "：实际作用资源缺少所选接触形状");
         }
 
@@ -204,8 +208,11 @@ internal sealed partial class BodyActionBinding
     /// <summary>将本次资源里的形状编号还原为可供关系匹配的名称。</summary>
     /// <param name="shape">当前实际形状编号。</param>
     private string ContactShapeName(int shape) => action.Part.Contact == BodyContactPart.Hand
-        ? (weapon ?? hand).Contacts[shape].Id
+        ? HandContacts[shape].Id
         : action.Part.Shape;
+
+    /// <summary>拳、掌或借用器物各自真正参与命中的表面。</summary>
+    private FormContactBinding[] HandContacts => action.Fist?.Knuckles ?? (weapon ?? hand).Contacts;
 
     /// <summary>一次施放只绑定一次真实物件及手部关节。</summary>
     /// <param name="actor">已核对的实际身体。</param>
@@ -227,8 +234,14 @@ internal sealed partial class BodyActionBinding
         aimHeight = targetFoot.z + targetHeight * .55f;
         aimPoint = targetFoot;
         if (action.Part.HasPartRotation) return;
+        if (action.Part.IsArm)
+        {
+            armColors = NativeBodyRegions.ArmColors(actor, action.Part.Left);
+            armColors.Upper ??= Color.Lerp(actor.kingdom.getColor().getColorMain(), Color.white, .2f);
+        }
         hand = FormResources.Load("hand");
         limb = FormResources.Load("limb");
+        fingers = action.Fist?.Fingers;
         if (action.WeaponForm == null) return;
         Weapon = actor.getWeapon();
         weaponId = Weapon.data.id;
@@ -521,11 +534,11 @@ internal sealed partial class BodyActionBinding
             return;
         }
 
-        FormResource resource = weapon ?? hand;
         Matrix4x4 transform = weapon == null ? HandMatrix(in pose) : WeaponMatrix(in pose);
-        for (int shape = 0; shape < resource.Contacts.Length; shape++)
+        var handContacts = HandContacts;
+        for (int shape = 0; shape < handContacts.Length; shape++)
         {
-            FormContactBinding contact = resource.Contacts[shape];
+            FormContactBinding contact = handContacts[shape];
             if (!action.Construction.UsesContact(weapon != null, contact.Id, pose.WorldAge, includeEnd)) continue;
             if (contact.IsPrism)
             {
@@ -546,7 +559,7 @@ internal sealed partial class BodyActionBinding
         if (action.Part.IsJoint) return pose.Joint.Contact;
         if (Organ != null && Organ.Model == null) return Organ.NativeSurface(in pose);
         surfaceForms.Clear();
-        AppendForms(0, in pose, surfaceForms, null, Color.white);
+        AppendForms(0, in pose, surfaceForms, null);
         if (actionSurfaceParts == null)
         {
             var parts = new List<BodySurfacePart>();
@@ -597,16 +610,16 @@ internal sealed partial class BodyActionBinding
     internal void AppendVisuals(Actor actor, in BodyPose pose, List<FormVisualInstance> output,
         AbilityHeightField terrain = null)
     {
-        Color sleeve = Color.Lerp(actor.kingdom.getColor().getColorMain(), Color.white, .2f);
-        AppendForms(actor.id, in pose, output, terrain, sleeve, SurfaceFeedback(in pose));
+        AppendForms(actor.id, in pose, output, terrain, armColors, SurfaceFeedback(in pose));
     }
 
     /// <summary>生成一份共同肢体姿态，不从绘制场景回读肩点，也不另求关节。</summary>
     /// <param name="actor">实际人物编号；纯数值查询不需要显示归属。</param><param name="pose">共同姿态。</param>
-    /// <param name="output">实际形体。</param><param name="terrain">共同地表。</param><param name="sleeve">衣色。</param>
+    /// <param name="output">实际形体。</param><param name="terrain">共同地表。</param><param name="colors">同侧肢段实际颜色。</param>
     /// <param name="feedback">仅在正式画面中发布的局部接触反馈。</param>
     private void AppendForms(long actor, in BodyPose pose, List<FormVisualInstance> output,
-        AbilityHeightField terrain, Color sleeve, FormSurfaceFeedback feedback = default)
+        AbilityHeightField terrain, (Color? Upper, Color? Lower, Color? Hand) colors = default,
+        FormSurfaceFeedback feedback = default)
     {
         if (Organ?.Model != null)
         {
@@ -622,11 +635,12 @@ internal sealed partial class BodyActionBinding
         // 两种显示和接触都使用适配后的实际臂链，不只共用腕点。
         Vector3 shoulder = pose.OtherArm?.Shoulder ?? pose.Shoulder;
         Vector3 elbow = pose.OtherArm?.Elbow ?? pose.Elbow;
-        AddSegment(shoulder, elbow, pose.Height * CompiledBodyAction.UpperWidth, sleeve,
+        AddSegment(shoulder, elbow, pose.Height * CompiledBodyAction.UpperWidth, colors.Upper,
             left ? BodyVisualSegment.UpperLeftArm : BodyVisualSegment.UpperRightArm);
-        AddSegment(elbow, pose.Hand, pose.Height * CompiledBodyAction.LowerWidth, null,
+        AddSegment(elbow, pose.Hand, pose.Height * CompiledBodyAction.LowerWidth, colors.Lower,
             left ? BodyVisualSegment.LowerLeftArm : BodyVisualSegment.LowerRightArm);
-        output.Add(new FormVisualInstance(hand, HandMatrix(in pose), WeaponReleased ? null : fingers, groundAnchor: ground,
+        output.Add(new FormVisualInstance(hand, HandMatrix(in pose), WeaponReleased ? null : fingers,
+            tint: colors.Hand, groundAnchor: ground,
             groundActorId: actor, terrain: terrain,
             bodySegment: left ? BodyVisualSegment.LeftHand : BodyVisualSegment.RightHand, feedback: feedback));
         if (weapon != null && !WeaponInConstruction)

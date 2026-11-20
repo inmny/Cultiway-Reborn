@@ -111,7 +111,7 @@ public static partial class BodyActionGenerator
         var part = new BodyPartSelection(request.Effector);
         if (part.HasPartRotation) return CreatePartRotation(request);
         if (request.OrganAxis != null) throw new InvalidDataException("局部发力轴只能用于实际器官或骨段，不能改变人形动作的通道");
-        if (request.WeaponForm != null && part.Contact != BodyContactPart.Hand)
+        if (request.WeaponForm != null && (part.Contact != BodyContactPart.Hand || part.IsFist))
             throw new InvalidDataException("共用动作借用器物需要真实手部，不能用其他部位冒充握点");
         float duration = request.Seconds / request.Speed;
         if (!Positive(duration)) throw new InvalidDataException("共用身体动作历时超过可表示范围");

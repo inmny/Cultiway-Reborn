@@ -1,0 +1,190 @@
+// 拍摄原版相机或 Worldfall 最终画面，保留实际命中前后的完整动作。
+var external = AppDomain.CurrentDomain.GetAssemblies()
+    .Select(assembly => assembly.GetType("FirstPerson.WorldBoxMod", false)).First(type => type != null);
+var mod = external.GetProperty("Instance", F).GetValue(null);
+object Get(object value, string name) => value.GetType().GetProperty(name, F)?.GetValue(value) ?? Field(value, name);
+void Set(string name, object value) => external.GetField(name, F).SetValue(mod, value);
+void CameraCall(string name, bool value) => external.GetMethod(name, F).Invoke(mod, new object[] { value });
+
+object settings = Get(mod, "Settings");
+var timeMode = settings.GetType().GetField("TimeMode", F);
+int previousMode = (int)timeMode.GetValue(settings);
+var clock = Config.time_scale_asset;
+float speed = clock.multiplier;
+var camera = World.world.camera;
+var nativeTarget = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32);
+nativeTarget.Create();
+Texture2D read = null;
+RenderTexture previous = RenderTexture.active;
+var rows = new List<object>();
+var recordings = new List<object>();
+string output = Path.Combine(folder, view, "frames");
+Directory.CreateDirectory(output);
+
+void SaveRecording() => File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new
+    { frames = rows, cases = recordings, checks }, Formatting.Indented));
+
+void Frame(string ability)
+{
+    RenderTexture image;
+    if (view == "native")
+    {
+        var before = camera.targetTexture;
+        float zoom = camera.orthographicSize;
+        try
+        {
+            camera.orthographicSize = 1.65f;
+            camera.targetTexture = nativeTarget;
+            camera.Render();
+        }
+        finally
+        {
+            camera.targetTexture = before;
+            camera.orthographicSize = zoom;
+        }
+        image = nativeTarget;
+    }
+    else image = (RenderTexture)Get(Get(mod, "GpuRendererForTest"), "Output");
+    if (read == null) read = new Texture2D(image.width, image.height, TextureFormat.RGBA32, false);
+    RenderTexture.active = image;
+    read.ReadPixels(new Rect(0, 0, image.width, image.height), 0, 0);
+    read.Apply();
+    RenderTexture.active = previous;
+    int index = rows.Count;
+    File.WriteAllBytes(Path.Combine(output, index.ToString("00000") + ".png"), read.EncodeToPNG());
+    rows.Add(new { view, frame = index, time = World.world.getCurWorldTime(), ability });
+}
+
+try
+{
+    CombatStatusEffects.RemoveStatus(source, hold);
+    source.updateStats();
+    var scenery = new HashSet<Building>();
+    bool threeDimensional = view == "worldfall";
+    for (int x = threeDimensional ? 59 : 61; x <= (threeDimensional ? 75 : 68); x++)
+    for (int y = threeDimensional ? 66 : 69; y <= (threeDimensional ? 79 : 76); y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        if (tile.building != null) scenery.Add(tile.building);
+        tile.setTileTypes(TileLibrary.soil_low, null, true);
+    }
+    foreach (Building building in scenery) building.removeBuildingFinal();
+    if (threeDimensional)
+    {
+        source.attack_timer = target.attack_timer = 999;
+        await Advance(.16f);
+    }
+    object sampler = Get(mod, "_sampler");
+    sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
+    sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+    if (threeDimensional)
+    {
+        object scene = Get(mod, "SceneForTest");
+        scene.GetType().GetMethod("Reset", F).Invoke(scene, null);
+    }
+    timeMode.SetValue(settings, 1);
+    ControllableUnit.clear(false);
+    if (threeDimensional) MoveCamera.clearFocusUnitOnly();
+    CameraCall("ViewForTest", false);
+    CameraCall("SetGodView", view == "worldfall");
+    camera.transform.position = new Vector3(64.73f, 72.34f, camera.transform.position.z);
+    MoveCamera.instance.forceZoom(1.65f);
+    await Game.WaitUntil(() => view == "worldfall"
+        ? (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f
+        : !(bool)Get(mod, "GodShown") && !(bool)Get(mod, "IsFirstPerson") && (bool)Get(mod, "DiveDone"), 3600);
+    if (view == "worldfall")
+    {
+        Place(source, 64.35f);
+        Place(target, 64.7f);
+        camera.transform.position = new Vector3(source.current_position.x, source.current_position.y, camera.transform.position.z);
+        Set("_godCamWas", camera.transform.position);
+        Set("_godCamSet", true);
+        Set("_godLock", source);
+        Set("_godFollow", source.current_position);
+        Set("_godFollowVel", Vector2.zero);
+        Set("_godClose", 1.6f);
+        Set("_godCloseTarget", 1.6f);
+        Set("_godPull", 1f);
+        Set("_godTurn", -.23f);
+        Set("_godTurnRate", 0f);
+        Set("_godTip", .45f);
+        Set("_godTipRate", 0f);
+        Set("_godHoming", false);
+        int drawn = (int)Field(mod, "_godGpuApplied");
+        await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= drawn + 3, 1800);
+    }
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    if (!threeDimensional)
+    {
+        source.attack_timer = target.attack_timer = 999;
+        await Advance(.16f);
+    }
+    // 用世界时间编码，采集时让软件渲染有余量，最终动作仍按原历时播放。
+    clock.multiplier = speed * .32f;
+    foreach (var item in cases.Where(item => !item.miss && (selectedMove == "" || selectedMove == item.key)))
+    {
+        Place(source, 64.35f);
+        Place(target, 64.35f + height * item.range);
+        source.lookTowardsPosition(target.current_position);
+        target.lookTowardsPosition(source.current_position);
+        source.attack_timer = target.attack_timer = 999;
+        target.setHealth(target.getMaxHealth());
+        source.data.stamina = 100;
+        var definition = ConstructionEditing.Access.Read(item.id);
+        var handle = new ActiveAbilityHandle("content.constructed", owner.E, item.id);
+        ConstructedAbilityService.Learn(owner, item.id);
+        source.addAggro(target);
+        target.addAggro(source);
+        await Game.NextFrame();
+        await Game.NextFrame();
+        int first = rows.Count;
+        Frame(item.id);
+        float paidFrom = source.data.stamina;
+        source.attack_timer = 0;
+        bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()),
+            ActiveAbilityUseOrigin.Script);
+        source.attack_timer = 999;
+        Check(used && Mathf.Abs(paidFrom - source.data.stamina - definition.Cost) < .001f,
+            item.key + " 实际施放并支付原招体力", new
+            {
+                used, paid = paidFrom - source.data.stamina,
+                block = ActiveAbilityService.ResolveControlState(owner, handle).BlockReason.ToString(),
+                source = source.current_position.ToString(), target = target.current_position.ToString()
+            });
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+
+        double started = World.world.getCurWorldTime();
+        while (World.world.getCurWorldTime() - started < definition.Lifetime + .24f)
+        {
+            await Advance(1f / 27f);
+            await Game.NextFrame();
+            Frame(item.id);
+        }
+        var touches = contacts.Where(hit => hit.AbilityId == item.id && hit.SourceId == source.id && hit.TargetId == target.id).ToArray();
+        Check(touches.Length == 1 && touches[0].Node == -1 && target.data.health < target.getMaxHealth() &&
+              endings.Any(end => end.Fact.AbilityId == item.id && end.Fact.SourceId == source.id && !end.Fact.Cancelled) &&
+              !BodyControlState.IsBusy(source.id), "录像中的实际命中、扣血和收势均完成 · " + definition.Name,
+            new { hits = touches.Select(hit => new { hit.Age, hit.DamageAttempted, hit.ForceApplied }), health = target.data.health });
+        recordings.Add(new { view, ability = item.id, name = definition.Name, rate = 1, first,
+            last = rows.Count - 1, contacts = touches.Length, duration = definition.Lifetime, paid = definition.Cost });
+        SaveRecording();
+    }
+    Check(recordings.Count == (selectedMove == "" ? 6 : 1), "所有指定动作均已拍到");
+    return new { passed = true, section, view, frames = rows.Count, cases = recordings.Count, checks };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    clock.multiplier = speed;
+    timeMode.SetValue(settings, previousMode);
+    RenderTexture.active = previous;
+    if (read != null) UnityEngine.Object.Destroy(read);
+    nativeTarget.Release();
+    UnityEngine.Object.Destroy(nativeTarget);
+    SaveRecording();
+}
