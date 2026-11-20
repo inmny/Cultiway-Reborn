@@ -2332,4 +2332,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 ### 山河叩首（9.32）
 
-在已启动的独立游戏中运行 `python3 .agents/skills/develop/scripts/dev.py exec -- python3 Scripts/SpellDemos/verify_bowing_mountains.py`。复用固定世界，正式施放[山河叩首](../../Doc/技能系统全面重构/构造输入/山河叩首.json)，对照两片岩体错时抬起、各自绕底边翻落。检查扫到的目标扣血、片间的目标安全、岩片到期清场；证据包括 `checks.json` 和抬起、俯压各一张原版截图。使用 `--view worldfall` 可切换到 Worldfall 角度。正式双视角常速录像属于 9.32 的完整交付。
+在已启动的独立游戏中运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_bowing_mountains.py --section ground`。复用固定世界，正式施放[山河叩首](../../Doc/技能系统全面重构/构造输入/山河叩首.json)，对照两片岩体错时抬起、绕底边翻落、真实接地、翻起褶皱和断块落稳；还验证扫到的目标扣血、片间安全和术后通行。保存 `checks.json` 及抬起、俯压、落稳的原版截图。`--view worldfall` 可切换观察角度，双视角常速录像留给整项交付。
+
+- `--section raised`：只抬高同一构造，验证悬空翻落不会触发地面结果。
+- `--section interrupted`：近片拆开后令施术者死亡，验证远片停止，近片碎块仍独立落稳。

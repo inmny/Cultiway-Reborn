@@ -66,7 +66,7 @@ public static partial class AbilityCompiler
                 Strength = fracture.Active[part] ? source.Strength / fracture.ActiveCount : 0f,
                 OnContact = source.OnContact, Interception = source.Interception,
                 ReflectionLimit = source.ReflectionLimit,
-                SourceLoss = source.SourceLoss,
+                SourceLoss = fracture.SourceLoss ?? source.SourceLoss,
                 Flight = fracture.Flight
             });
         }

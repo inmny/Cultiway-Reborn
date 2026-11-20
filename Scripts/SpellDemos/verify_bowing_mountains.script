@@ -1,17 +1,41 @@
-// 9.32 第一段：同场核对抬升、固定转轴、实际扫中和两片之间的空隙。
+// 9.32：同一场地验证岩片压地、完整收尾、悬空与来源中断。
 var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+if (section == "raised") definition.Binding.Height = 4.5f;
 var source = Make(64.5f);
 var reached = Make(67.5f, "wolf");
 var gap = Make(71.5f, "wolf");
 var owner = source.GetExtend();
 AbilityCast Live() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
     .Select(item => (AbilityCast)Field(item, "Cast")).FirstOrDefault(cast => cast.Plan.Id == definition.Id);
-var rock = FormResources.Load("earth_wall_strata");
-Vector3 Local(float[] p) => new Vector3(p[0], p[1], p[2]);
+var rock = FormResources.Load("bowing_mountain_slab");
 Vector3 Anchor(string id) => (Vector3)rock.Anchors.Single(a => a.Id == id).Transform.GetColumn(3);
 Vector3 left = Anchor("left"), right = Anchor("right"), crest = Anchor("crest");
 var visuals = new List<FormVisualInstance>();
 var shapes = new List<AbilityCapsule>();
+var strikes = new List<ConstructedWorldContact>();
+var births = new Dictionary<int, (Vector3[] Positions, Vector3[] Velocities)>();
+void GroundHit(ConstructedWorldContact hit)
+{
+    if (hit.AbilityId != definition.Id || !hit.TriggerOnly) return;
+    strikes.Add(hit);
+    var cast = Live();
+    int[] pieces = Pieces(cast, hit.Node);
+    births[hit.Node] = (pieces.Select(i => Centre(cast, i)).ToArray(), pieces.Select(cast.Velocity).ToArray());
+}
+Array Nodes(AbilityCast cast) => (Array)cast.Plan.GetType().GetProperty("Nodes", F).GetValue(cast.Plan);
+object State(AbilityCast cast, int node) => ((Array)Field(cast, "nodes")).GetValue(node);
+int Node(AbilityCast cast, string path) => Enumerable.Range(0, Nodes(cast).Length)
+    .Single(i => (string)Field(Nodes(cast).GetValue(i), "Path") == path);
+int[] Pieces(AbilityCast cast, int slab) => Enumerable.Range(0, Nodes(cast).Length)
+    .Where(i => (int)Field(Nodes(cast).GetValue(i), "FragmentSource") == slab).ToArray();
+Vector3 Centre(AbilityCast cast, int node) => (Vector3)Field(State(cast, node), "Position");
+bool Present(AbilityCast cast, int node) => (bool)Field(State(cast, node), "Exists");
+bool Born(AbilityCast cast, int node) => (bool)Field(State(cast, node), "Started");
+float Bottom(AbilityCast cast, int node) => (float)typeof(AbilityCast).GetMethod("MinimumHeight", F)
+    .Invoke(cast, new object[] { node, (Matrix4x4)Field(State(cast, node), "Transform"), ((Array)Field(cast, "poses")).GetValue(node), true });
+bool Settled(AbilityCast cast, int node) => (bool)Field(State(cast, node), "MovementStopped") && Mathf.Abs(Bottom(cast, node)) < .05f;
+Vector2 Block(Actor actor, Vector2 to) => (Vector2)typeof(Actor).GetMethod("checkVelocityAgainstBlock", F)
+    .Invoke(actor, new object[] { to });
 Matrix4x4[] Poses(AbilityCast cast)
 {
     visuals.Clear();
@@ -25,6 +49,7 @@ float Height(Matrix4x4 pose) => Vector3.Distance(Axis(pose), Point(pose, crest))
 bool Rigid(Matrix4x4 a, Matrix4x4 b) => Vector3.Distance(Axis(a), Axis(b)) < .025f &&
     Mathf.Abs(Across(a) - Across(b)) < .012f && Mathf.Abs(Height(a) - Height(b)) < .012f;
 
+ConstructedAbilityService.WorldContactConfirmed += GroundHit;
 try
 {
     AbilityCompiler.Compile(definition, false);
@@ -33,8 +58,11 @@ try
     owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
     await Advance(.14f);
     Ready(source);
-    await SetCamera(recordView == "worldfall" ? 12.5f : 11f);
-    if (recordView == "worldfall") await WaitForWorldfallDraw();
+    if (section == "ground")
+    {
+        await SetCamera(recordView == "worldfall" ? 12.5f : 11f);
+        if (recordView == "worldfall") await WaitForWorldfallDraw();
+    }
     for (int x = 72; x <= 79; x++)
     for (int y = 74; y <= 78; y++)
         World.world.GetTileSimple(x, y).Height = 152;
@@ -60,53 +88,103 @@ try
     Check(cast != null && Math.Abs(balance - owner.GetCultisys<Xian>().wakan - definition.Cost) < .003f,
         "正式入口只扣一次真元，两片岩体属于同一招");
     async Task At(float age) { if (cast.Age < age) await Advance(age - cast.Age); }
-    var initial = Poses(cast);
-    await At(.59f);
-    float riseAge = cast.Age;
-    var rising = Poses(cast);
-    cast.AppendContacts(shapes);
-    float nearRise = Axis(rising[0]).z - Axis(initial[0]).z;
-    float farRise = Axis(rising[1]).z - Axis(initial[1]).z;
+    int near = Node(cast, "root/near"), far = Node(cast, "root/far");
+    int nearFold = Node(cast, "root/near/fold"), farFold = Node(cast, "root/far/fold");
+    int nearKey = Node(cast, "root/near/keystone");
+    int[] nearPieces = Pieces(cast, near), farPieces = Pieces(cast, far);
     var terrain = (AbilityHeightField)Field(cast, "terrain");
-    float nearGround = terrain.Sample(67.5f, 68.9f), farGround = terrain.Sample(75.5f, 76.1f);
-    Check(nearRise > 3.1f && farRise > .25f && nearRise - farRise > .65f && farGround > nearGround &&
-          shapes.Count == 0 && contacts.Count == 0,
-        "两片岩体从高低地错时抬起，抬升不伤人", new { riseAge, nearRise, farRise, nearGround, farGround });
-    await At(.86f);
-    var upright = Poses(cast);
-    await Shot("upright-" + recordView);
-    await At(1.41f);
-    var turning = Poses(cast);
-    cast.AppendContacts(shapes);
-    bool matches = shapes.Count == rock.Description.Contacts.Length * 2 && shapes.All(shape =>
+    if (section == "ground")
     {
-        FormContactDescription form = rock.Description.Contacts[shape.Shape];
-        Matrix4x4 visible = turning[shape.Node - 1];
-        return Vector3.Distance(Point(visible, Local(form.A)), shape.A) < .015f &&
-               Vector3.Distance(Point(visible, Local(form.B)), shape.B) < .015f &&
-               Mathf.Abs(form.Radius * visible.lossyScale.x - shape.Radius) < .012f;
-    });
-    float nearSweep = (Point(turning[0], crest) - Point(upright[0], crest)).y;
-    float farSweep = (Point(upright[1], crest) - Point(turning[1], crest)).y;
-    Check(Rigid(upright[0], turning[0]) && Rigid(upright[1], turning[1]) &&
-          nearSweep > 2.2f && farSweep > .12f && nearSweep > farSweep + .65f && matches,
-        "两片各自绕底边向内翻落；岩壁不拉伸，全部接触形状与显示处在同一姿态",
-        new { cast.Age, nearSweep, farSweep, shapeCount = shapes.Count,
-            nearAxis = Axis(turning[0]).ToString("F3"), farAxis = Axis(turning[1]).ToString("F3") });
-    await Shot("bowing-" + recordView);
-    await At(2.1f);
-    var down = Poses(cast);
-    float lateSweep = (Point(upright[1], crest) - Point(down[1], crest)).y;
-    Check(Rigid(upright[1], down[1]) && lateSweep > 2.2f &&
-          contacts.Any(hit => hit.Node == 1 && hit.TargetId == reached.id && hit.Damage.HealthLost > 0) &&
-          contacts.All(hit => hit.TargetId != gap.id) && gap.data.health == gapHealth,
-          "先后俯压中，扫到的人扣血，两片之间的人无接触且生命不变",
-          new { cast.Age, lateSweep, reached = reached.id, gap = gap.id, gapHealth,
-              observed = contacts.Select(hit => new { hit.TargetId, hit.Node, hit.Age, hit.Damage.HealthLost,
-                  where = hit.Position.ToString("F3") }).ToArray() });
-    await At(definition.Lifetime + .2f);
-    Check(Live() == null && endings.Count == 1 && !endings[0].Fact.Cancelled &&
-          !FormVisualScene.Instances.Any(form => form.Resource == rock), "岩片正常到期，临时显示与作用一同清场");
+        var initial = Poses(cast);
+        await At(.59f);
+        var rising = Poses(cast);
+        cast.AppendContacts(shapes);
+        float nearRise = Axis(rising[0]).z - Axis(initial[0]).z, farRise = Axis(rising[1]).z - Axis(initial[1]).z;
+        Check(nearRise > 3.1f && farRise > .25f && nearRise - farRise > .65f && shapes.Count == 0 && strikes.Count == 0,
+            "新岩片仍错时抬起，抬升不触发人物或地面作用", new { cast.Age, nearRise, farRise });
+        await At(.86f);
+        var upright = Poses(cast);
+        await Shot("upright-" + recordView);
+        await At(1.16f);
+        var turning = Poses(cast);
+        cast.AppendContacts(shapes);
+        float sweep = (Point(turning[0], crest) - Point(upright[0], crest)).y;
+        Check(Rigid(upright[0], turning[0]) && sweep > 1.2f && shapes.Count(c => c.Node == near && Field(c, "Prism") != null) == 4 &&
+              strikes.Count == 0 && !Born(cast, nearFold) && nearPieces.All(i => !Born(cast, i)),
+            "显示和四块接触断面跟着底边翻转；仍悬空时没有褶皱或碎块", new { cast.Age, sweep, count = shapes.Count });
+        await Shot("bowing-" + recordView);
+    }
+    if (section == "raised")
+    {
+        await At(2.1f);
+        Check(strikes.Count == 0 && contacts.Count == 0 && Poses(cast).Length == 2 &&
+              !Born(cast, nearFold) && !Born(cast, farFold) && nearPieces.Concat(farPieces).All(i => !Born(cast, i)),
+            "相同动作只抬高位置时，两片翻落但悬空，不凭时钟触发褶皱或断块");
+    }
+    else
+    {
+        await At(1.22f);
+        while (strikes.Count == 0 && cast.Age < 1.66f) await Advance(.035f);
+        Check(strikes.Count == 1 && strikes[0].Node == near && !Present(cast, near) && Born(cast, nearFold) &&
+              nearPieces.All(i => Present(cast, i) && Born(cast, i) && (bool)Field(State(cast, i), "Free")),
+            "近片的真实最早地面接触才激活褶皱并分成四块", new { cast.Age, strikes, born = nearPieces.Select(i => Born(cast, i)).ToArray() });
+        var first = strikes[0];
+        bool AtSurface(ConstructedWorldContact hit) => Mathf.Abs(hit.Position.z - terrain.Sample(hit.X + .5f, hit.Y + .5f)) < .09f;
+        var fold = ((Array)Field(cast, "propagations")).GetValue(nearFold);
+        var route = ((IEnumerable)Field(fold, "Route")).Cast<object>().ToArray();
+        var startedAt = (float)Field(fold, "StartedAt");
+        Check(AtSurface(first) && startedAt >= first.Age - .002f && route.Length >= 2 &&
+              (int)Field(route[0], "X") == first.X && (int)Field(route[0], "Y") == first.Y,
+            "褶皱从实际接地格开始，只有前方相连的地面进入范围", new { first, startedAt, routeCount = route.Length });
+        var detached = births[near];
+        Check(detached.Velocities.Any(v => v.y > .3f && v.z > .25f) && nearPieces.Any(i => !Settled(cast, i)),
+            "撞击使分件沿俯压方向短促弹离，接下来的运动由重力接手",
+            detached.Velocities.Select(v => v.ToString("F3")).ToArray());
+        if (section == "interrupted")
+        {
+            source.dieSimpleNone();
+            await At(2.33f);
+            Check(!source.isAlive() && !Present(cast, far) && strikes.Count == 1 && !Born(cast, farFold) &&
+                  farPieces.All(i => !Born(cast, i)) && nearPieces.All(i => Present(cast, i) && Settled(cast, i)),
+                "施术者死亡只终止未压落的远片，已独立断开的近片继续落稳", new { cast.Age, strikes });
+        }
+        else
+        {
+            var reachedBefore = contacts.Where(hit => hit.TargetId == reached.id).ToArray();
+            var testCell = route.Last();
+            Place(reached, (int)Field(testCell, "X") + .5f, (int)Field(testCell, "Y") + .5f);
+            ConstructedAbilityService.NotifyActorChanged(reached);
+            await At(2.15f);
+            Check(strikes.Count == 2 && strikes[1].Node == far && AtSurface(strikes[1]) &&
+                  strikes[1].Age - first.Age > .18f && Mathf.Abs(strikes[1].Position.z - first.Position.z) > .09f,
+                "高低地决定两片各自的真实落点，远片后压", strikes.ToArray());
+            Check(reachedBefore.Any(hit => hit.Node == near && hit.Damage.HealthLost > 0) &&
+                  contacts.Any(hit => hit.Node == nearFold && hit.TargetId == reached.id && hit.Damage.HealthLost > 0) &&
+                  contacts.All(hit => hit.TargetId != gap.id) && gap.data.health == gapHealth,
+                "岩面直击和触地褶皱都真实扣血，两片之间无伤",
+                contacts.Select(hit => new { hit.TargetId, hit.Node, hit.Age, hit.Damage.HealthLost, point = hit.Position.ToString("F3") }).ToArray());
+            Vector3 key = ((Matrix4x4)Field(State(cast, nearKey), "Transform")).GetColumn(3);
+            Place(reached, key.x, key.y - 1.35f);
+            Vector2 walkTo = new Vector2(key.x, key.y + 1.55f);
+            Vector2 before = reached.current_position;
+            Vector2 stopped = Block(reached, walkTo);
+            Check(stopped == before, "活动岩唇使用正式地面阻挡规则", new { before = before.ToString("F3"), to = walkTo.ToString("F3"), stopped = stopped.ToString("F3") });
+            await At(2.52f);
+            var moved = nearPieces.Select((node, i) => Centre(cast, node) - detached.Positions[i]).ToArray();
+            var allPieces = nearPieces.Concat(farPieces).ToArray();
+            Check(allPieces.All(i => Present(cast, i) && Settled(cast, i)) && moved.Any(v => v.y > .15f),
+                "真实碎块沿近片俯压方向继续，落向各自下方地面后停住",
+                new { cast.Age, moved = moved.Select(v => v.ToString("F3")).ToArray(), clearance = allPieces.Select(i => Bottom(cast, i)).ToArray() });
+            await Shot("landed-" + recordView);
+            await At(definition.Lifetime + .2f);
+            Place(reached, before.x, before.y);
+            Check(Block(reached, walkTo) == walkTo, "同一条路在临时岩唇退出后恢复通行");
+        }
+    }
+    if (Live() != null) await At(definition.Lifetime + .2f);
+    Check(Live() == null && endings.Count == 1 &&
+          !FormVisualScene.Instances.Any(form => form.Resource.Description.Id == rock.Description.Id),
+        "临时岩体、碎块及作用范围自然收尾");
     return new { passed = true, checks };
 }
 catch (Exception error)
@@ -117,6 +195,7 @@ catch (Exception error)
 finally
 {
     if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
+    ConstructedAbilityService.WorldContactConfirmed -= GroundHit;
     ConstructedAbilityService.CastEnded -= Ended;
     ConstructedAbilityService.ContactConfirmed -= Hit;
     ControllableUnit.clear(false);

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""复用固定世界，核对山河叩首的刚性翻落和实际命中。"""
+"""复用固定世界，核对山河叩首的刚性翻落、触地和收尾。"""
 import argparse
 import json
 import os
@@ -12,13 +12,14 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--section', choices=('ground', 'raised', 'interrupted'), default='ground')
     parser.add_argument('--view', choices=('native', 'worldfall'), default='native')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过 dev.py exec 运行')
     import baseline_scenarios as baseline
     baseline.connect(False, validate_runtime=False)
-    folder = Path(tempfile.mkdtemp(prefix='bowing-mountains-axes-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
+    folder = Path(tempfile.mkdtemp(prefix=f'bowing-mountains-{args.section}-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
     fixture = 'Scripts/WorldSaveTests/Fixtures/world-format-1'
     shutil.copytree(PROJECT / fixture, folder / 'input-world')
     shutil.copy2(PROJECT / 'Doc/技能系统全面重构/构造输入/山河叩首.json', folder / 'definition.json')
@@ -42,7 +43,7 @@ def main():
     worldfall = worldfall[start:worldfall.index('\n}\n', worldfall.index('async Task WaitForWorldfallDraw()')) + 3]
     script = folder / 'input.script'
     script.write_text('using Cultiway.Const;\n' + helpers + f'\nconst string recordView = {json.dumps(args.view)};\n' +
-                      views + worldfall + (scripts / 'verify_bowing_mountains.script').read_text())
+                      f'const string section = {json.dumps(args.section)};\n' + views + worldfall + (scripts / 'verify_bowing_mountains.script').read_text())
     try:
         result = baseline.call('run', str(script), '145000')
     except RuntimeError as error:

@@ -129,7 +129,7 @@ public sealed partial class AbilityCast
             (cast, action, p) => { cast.StartGather(action.Node, p, cast.Age); return true; },
             (cast, action, p, native) => cast.GatherProgress(action, p, native), direct: true);
         ConstructionOperations.Register(ConstructionOperationKind.Fracture, c => c.Fracture,
-            (cast, action, p) => { cast.RequestFracture(action.Node); return true; },
+            (cast, action, p) => { cast.RequestFracture(action.Node, action.When?.Trigger == ConstructionChangeTrigger.WorldContact); return true; },
             (cast, action, p, native) => new ConstructionOperationProgress(cast.fractures[action.Node].Broken), direct: true);
         ConstructionOperations.Register(ConstructionOperationKind.Flow, c => new CompiledFlow(c.Source.Flow, c.Path),
             (cast, action, p) => { cast.StartFlow(action.Node); return true; },

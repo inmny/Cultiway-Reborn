@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using Cultiway.Core.Visuals.Forms;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Cultiway.Core.Skills;
@@ -17,10 +18,16 @@ public sealed class ConstructionFracture
     public float Spin = 90f;
     /// <summary>沿地图高度向下的加速度。</summary>
     public float Gravity = 4f;
+    /// <summary>真实地面撞碎时，按下压速度的比例弹离地面；零表示不反弹。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float GroundRebound;
     /// <summary>明确继续原作用的真实部件名；其余分件均为装饰。</summary>
     public string[] ActiveParts = Array.Empty<string>();
     /// <summary>已经存在且仍附着的普通子结构随破坏脱落，否则随主体结束。</summary>
     public bool ReleaseChildren = true;
+    /// <summary>脱落后可单独指定来源中断规则；未设置时沿用完整主体。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionSourceLoss? SourceLoss;
 }
 
 /// <summary>编译边界固定的分件、余力分配及后续运动，不持有可编辑资料。</summary>
@@ -33,9 +40,11 @@ internal sealed class CompiledFracture
     /// <summary>真正接受作用量的分件数。</summary>
     internal readonly int ActiveCount;
     /// <summary>存在窗口及分散和转动速度。</summary>
-    internal readonly float Seconds, Speed, Spin;
+    internal readonly float Seconds, Speed, Spin, GroundRebound;
     /// <summary>附属子结构的明确结束合同。</summary>
     internal readonly bool ReleaseChildren;
+    /// <summary>碎片自己的已检查来源中断规则，空值沿用主体。</summary>
+    internal readonly ConstructionSourceLoss? SourceLoss;
     /// <summary>原有飞行执行读取的后续下落与着地规则。</summary>
     internal readonly CompiledFlight Flight;
 
@@ -52,7 +61,8 @@ internal sealed class CompiledFracture
         if (source == null || resource.Meshes.Length < 2 || resource.Meshes.Length > 32 || source.ActiveParts == null ||
             !Finite(source.Seconds) || source.Seconds <= 0 || source.Seconds > lifetime ||
             !Finite(source.Speed) || source.Speed < 0 || source.Speed > 1000 ||
-            !Finite(source.Spin) || Math.Abs(source.Spin) > 7200 || !Finite(source.Gravity) || source.Gravity < 0 || source.Gravity > 1000)
+            !Finite(source.Spin) || Math.Abs(source.Spin) > 7200 || !Finite(source.Gravity) || source.Gravity < 0 || source.Gravity > 1000 ||
+            !Finite(source.GroundRebound) || source.GroundRebound < 0 || source.GroundRebound > 1)
             throw new InvalidDataException(path + "：碎解需要2至32个真实分件、明确作用部件、有效存在窗口及有界分散、转动和下落");
         if (source.ActiveParts.Distinct().Count() != source.ActiveParts.Length ||
             source.ActiveParts.Any(name => !resource.Description.Parts.Any(part => part.Id == name)) ||
@@ -63,7 +73,9 @@ internal sealed class CompiledFracture
             if (Active[part] && !resource.Description.Contacts.Any(contact => contact.Part == part))
                 throw new InvalidDataException(path + "：继续作用的分件缺少实际作用形状：" + resource.Description.Parts[part].Id);
         ActiveCount = Active.Count(value => value); Seconds = source.Seconds; Speed = source.Speed; Spin = source.Spin;
-        ReleaseChildren = source.ReleaseChildren;
+        if (source.SourceLoss.HasValue && !Enum.IsDefined(typeof(ConstructionSourceLoss), source.SourceLoss.Value))
+            throw new InvalidDataException(path + "/SourceLoss：碎片的来源中断规则无效");
+        ReleaseChildren = source.ReleaseChildren; SourceLoss = source.SourceLoss; GroundRebound = source.GroundRebound;
         Flight = new CompiledFlight(new ConstructionOperation
         {
             WorldVelocity = true,
