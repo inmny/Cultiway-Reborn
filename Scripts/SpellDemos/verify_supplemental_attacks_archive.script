@@ -59,7 +59,7 @@ foreach (var entry in archives)
               target.data.health == (int)expected["health"] && !CombatStatusEffects.HasStatus(target, StatusEffects.Poison, source),
             "原甲、实际耐久与人物生命读回，已经消退的毒态没有恢复");
     }
-    if (kind == "district")
+    if (kind is "district" or "parts")
     {
         var sections = JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "supplemental-attacks"))["sections"];
         var saved = (JArray)expected["deposits"];
@@ -68,7 +68,7 @@ foreach (var entry in archives)
         Check(saved.Count > 0 && saved.All(record => current.Any(restored =>
             (long)restored["Id"] == (long)record["Id"] && JToken.DeepEquals(record["Identity"], restored["Identity"]) &&
             physics.All(key => JToken.DeepEquals(record["Material"][key], restored["Material"][key])))),
-            "落地岩座和存下的五相材料保留原编号、尺寸和位置");
+            "已经落地的材料保留原编号、尺寸和位置");
     }
     if (kind == "organs")
     {

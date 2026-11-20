@@ -34,6 +34,7 @@
       "FollowMatter": true,
       "ContactRole": "Barrier",
       "BlocksGroundActors": true,
+      "Rotation": [30, 0, 0],
       "Scale": 1.21,
       "DisappearAt": 2.45,
       "Activation": {"Trigger": "Handoff", "InheritRemainder": true, "KeepSourcePosition": true, "ResetContacts": true},
