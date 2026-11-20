@@ -35,7 +35,7 @@ public sealed partial class ConstructedAbilityService
     private static readonly List<ShadowHold> shadowHolds = new();
     private static readonly Dictionary<long, ShadowHold> heldByShadow = new();
 
-    private sealed class ShadowHold
+    private sealed partial class ShadowHold
     {
         internal RunningCast Running;
         internal Mesh Body, Arms;
@@ -91,6 +91,7 @@ public sealed partial class ConstructedAbilityService
         if (target == null)
         {
             ReleaseShadowHold(running, !running.InitialOwner.IsLive ? "SourceLost" :
+                running.Target?.data?.id == running.TargetId && !running.Target.isAlive() ? "TargetDied" :
                 running.CorrespondenceEnded[node] ? "TargetLost" : "Ended", clock);
             return;
         }
@@ -102,6 +103,8 @@ public sealed partial class ConstructedAbilityService
                 ReleaseShadowHold(running, "Escaped", clock);
             else if (clock - hold.HeldAt >= rule.HoldSeconds)
                 ReleaseShadowHold(running, "Released", clock);
+            else if (rule.DragDistance > 0f)
+                AdvanceShadowBurial(hold, rule, clock);
             return;
         }
 
@@ -126,11 +129,22 @@ public sealed partial class ConstructedAbilityService
         if (!BodySurfacePose.Find(body, body, leftHand, leftHand, "torso", out _, out var a, out _) ||
             !BodySurfacePose.Find(body, body, rightHand, rightHand, "torso", out _, out var b, out _)) return false;
 
-        BodyControlLease lease = BodyControlState.TryAcquire(target.id, BodyOccupancy.Stance);
+        var rule = hold.Running.Cast.Plan.Nodes[node].Correspondence.ShadowHold;
+        BodyOccupancy occupancy = BodyOccupancy.Stance;
+        if (rule.DragDistance > 0f)
+        {
+            if (!selectionSurfaces.TryGetValue(target.id, out var selected)) return false;
+            hold.Binding = selected.Binding;
+            hold.CaughtBody = body;
+            occupancy |= BodyOccupancy.LeftArm | BodyOccupancy.RightArm | BodyOccupancy.Head;
+        }
+
+        BodyControlLease lease = BodyControlState.TryAcquire(target.id, occupancy);
         if (lease == null) return false;
         hold.Lease = lease;
         hold.HeldAt = clock;
         hold.Foot = PhysicsFoot(target);
+        hold.CaughtFoot = hold.Foot;
         hold.LeftContact = a.Point(body);
         hold.RightContact = b.Point(body);
         heldByShadow.Add(target.id, hold);
@@ -150,6 +164,13 @@ public sealed partial class ConstructedAbilityService
         heldByShadow.Remove(running.TargetId);
         hold.Lease.Dispose();
         hold.Lease = null;
+        hold.Pose = null;
+        Actor target = running.Target;
+        if (target?.data?.id == running.TargetId && target.isAlive() && reason != "WorldChanged")
+        {
+            selectionSurfaces.Remove(running.TargetId);
+            NotifyActorChanged(target);
+        }
         PublishShadowGrip(hold, clock, reason);
     }
 
@@ -179,7 +200,7 @@ public sealed partial class ConstructedAbilityService
     }
 
     private static Vector3 ShadowOrigin(ShadowHold hold, float rise) =>
-        hold.Origin + hold.Forward * (hold.Height * .92f * rise);
+        hold.Origin + hold.DragOffset + hold.Forward * (hold.Height * .92f * rise);
 
     private static ShadowArm ArmAt(ShadowHold hold, float side, float rise, float close)
     {
@@ -188,7 +209,10 @@ public sealed partial class ConstructedAbilityService
         Vector3 shoulder = ShadowOrigin(hold, rise) + Vector3.forward * (height * .63f * rise) + lateral * (height * .17f);
         Vector3 elbow = shoulder + lateral * (height * Mathf.Lerp(.31f, .15f, close)) -
                         hold.Forward * (height * Mathf.Lerp(.11f, .49f, close)) - Vector3.forward * (height * .12f);
-        Vector3 reach = hold.Origin + hold.Torso + lateral * (hold.HalfWidth * .48f);
+        Vector3 reach = hold.Origin + hold.DragOffset + hold.Torso + lateral * (hold.HalfWidth * .48f);
+        if (hold.Pose != null)
+            reach = hold.Pose.RigidTransform.Matrix.MultiplyPoint3x4(hold.Origin + hold.Torso +
+                lateral * (hold.HalfWidth * .48f));
         Vector3 palm = Vector3.Lerp(elbow + lateral * (height * .13f) + Vector3.forward * (height * .09f), reach, close);
         return new ShadowArm(shoulder, elbow, palm, Mathf.Clamp(height * .17f, .1f, .48f));
     }
@@ -214,8 +238,9 @@ public sealed partial class ConstructedAbilityService
             float close = Mathf.SmoothStep(0f, 1f, ((float)age - rule.RiseSeconds) / rule.CloseSeconds) * fade;
             Vector3 ground = ShadowOrigin(hold, rise);
             ground.z += .065f;
+            if (rule.DragDistance > 0f) AppendShadowPocket(hold, rise, fade);
             Matrix4x4 pose = Matrix4x4.TRS(ground, Quaternion.AngleAxis(180f * rise, Vector3.forward),
-                new Vector3(1.05f, .95f, .028f + rise * 1.02f));
+                new Vector3(1.05f, .95f, .028f + rise * (1.02f - hold.Cover * .40f)));
             pose.m02 += hold.Forward.x * (1f - rise) * .92f;
             pose.m12 += hold.Forward.y * (1f - rise) * .92f;
             var tone = new Color(.21f, .13f, .34f, (.63f + .33f * rise) * fade);

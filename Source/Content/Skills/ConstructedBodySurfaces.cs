@@ -191,6 +191,7 @@ public sealed partial class ConstructedAbilityService
     private static BodySurfacePose BodyContactSurfaceAt(long id, double time)
     {
         if (ConstructedActorImpulse.TryBody(id, out var flying)) return flying.At(time);
+        if (TryShadowBurialPose(id, out _, out var shadow)) return shadow;
         foreach (RunningCast running in casts)
             if (running.Connection?.Active == true && !running.Connection.WeaponOnly && running.Connection.TargetId == id)
                 return ConnectionSurface(running.Connection, time);
@@ -267,6 +268,7 @@ public sealed partial class ConstructedAbilityService
     private static BodySurfacePose BodySurfaceAt(long id, double time)
     {
         if (ConstructedActorImpulse.TryBody(id, out var flying)) return flying.Surface;
+        if (TryShadowBurialPose(id, out _, out var shadow)) return shadow;
         foreach (RunningCast running in casts)
             if (running.Connection?.Active == true && !running.Connection.WeaponOnly && running.Connection.TargetId == id)
                 return ConnectionSurface(running.Connection, time);
@@ -307,6 +309,13 @@ public sealed partial class ConstructedAbilityService
             body.Binding.PinsWholeBody = true;
             next[body.Motion.ActorId] = (body.Binding, body.Surface);
         }
+        foreach (long id in heldByShadow.Keys)
+            if (TryShadowBurialPose(id, out var binding, out var pose))
+            {
+                binding.IsPinned = true;
+                binding.PinsWholeBody = true;
+                next[id] = (binding, pose);
+            }
         presentedSurfaces = next;
     }
 

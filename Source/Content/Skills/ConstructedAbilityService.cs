@@ -89,6 +89,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ConstructedInventoryInputs.Initialize();
         ConstructedRainClouds.Initialize();
         ConstructedMatterCatalog.Initialize();
+        ActorExtend.RegisterActionOnDeath(ReleaseDeceasedShadowTarget);
         Combat.GroundWeaponService.Initialize();
         var service = new ConstructedAbilityService();
         ActorExtend.RegisterActionOnFinalDamage(FinalDamageStage.Transfer, ShareSoulPactDamage);

@@ -937,6 +937,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                                 pulse ? start : clock + step, out at, out point, out normal, out frost,
                                 out frostPose, out frostAnchor)) return;
                     }
+                    else if (TryShadowBurialPose(actor.Id, out _, out var buried))
+                    {
+                        if (!BodySurfacePose.Find(buried, buried, a0, pulse ? a0 : shape.To, "surface",
+                                out at, out var anchor, out normal)) return;
+                        point = anchor.Point(buried);
+                    }
                     else if (shape.To.Node < 0 && running.Cast.Plan.Body?.Part.IsJoint == true)
                     {
                         BodySurfacePose end = running.Cast.BodyPose.Value.Joint.Contact;

@@ -72,18 +72,21 @@ public sealed class ConstructionShadowHold
     public float HoldSeconds = .95f;
     public float EscapeDistance = .55f;
     public float Strength = 3f;
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float DragDistance;
 }
 
 /// <summary>运行时使用的独立参数，不引用原编辑资料。</summary>
 internal sealed class CompiledShadowHold
 {
-    internal readonly float RiseSeconds, CloseSeconds, HoldSeconds, EscapeDistance, Strength;
+    internal readonly float RiseSeconds, CloseSeconds, HoldSeconds, EscapeDistance, Strength, DragDistance;
 
     internal CompiledShadowHold(ConstructionShadowHold source, float window, string path)
     {
         if (!InRange(source.RiseSeconds, .12f, 3f) || !InRange(source.CloseSeconds, .12f, 3f) ||
             !InRange(source.HoldSeconds, .12f, 12f) || !InRange(source.EscapeDistance, .1f, 6f) ||
-            !InRange(source.Strength, .01f, 100f) || source.RiseSeconds + source.CloseSeconds + source.HoldSeconds > window)
+            !InRange(source.Strength, .01f, 100f) || !InRange(source.DragDistance, 0f, 8f) ||
+            source.RiseSeconds + source.CloseSeconds + source.HoldSeconds > window)
             throw new InvalidDataException(path + "：抱持的各阶段需要落在对应时段内，挣脱距离和强度须有限且为正");
 
         RiseSeconds = source.RiseSeconds;
@@ -91,6 +94,7 @@ internal sealed class CompiledShadowHold
         HoldSeconds = source.HoldSeconds;
         EscapeDistance = source.EscapeDistance;
         Strength = source.Strength;
+        DragDistance = source.DragDistance;
     }
 
     private static bool InRange(float value, float minimum, float maximum) => value >= minimum && value <= maximum;

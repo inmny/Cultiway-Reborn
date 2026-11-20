@@ -884,7 +884,7 @@ public static partial class AbilityCompiler
             (relation.OriginalContactOnly || relation.ShowBody) && node.ContactRole != ConstructionContactRole.Attack)
             Fail(path + "/Correspondence", "原身接触和立影需要有主动接触的部位");
         if (node.Correspondence?.ShadowHold != null &&
-            (node.Correspondence.ActiveFrom < appear || (node.Correspondence.ActiveUntil ?? lifetime) > disappear))
+            (node.Correspondence.ActiveUntil ?? lifetime) > disappear - appear)
             Fail(path + "/Correspondence/ShadowHold", "影身抱持的对应时段须落在实际部位的存在时段内");
         CompiledSpreadMedium.ValidateChannel(node.MediumChannel, path + "/MediumChannel");
         ValidateMatterSurface(matter, node.FollowMatter, path + "/Matter/Surface");

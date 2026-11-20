@@ -1,0 +1,23 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.ShadowBurial.FarFold",
+  "Parent": {"Id": "Cultiway.Demo.ShadowBurial", "Revision": 1, "Change": "拉长升起、合臂和承载时段，拖入点更深"},
+  "Name": "影中葬身·深折",
+  "Resource": "mana",
+  "Cost": 11,
+  "Cooldown": 2.8,
+  "Lifetime": 3.56,
+  "Power": 8,
+  "TargetRange": 18,
+  "Binding": {"Anchor": "Target"},
+  "Impact": {"DamageScale": 0, "SelectedTargetOnly": true},
+  "Root": {
+    "Id": "grasp", "Form": "pivot", "Matter": "yin", "State": "energy",
+    "Correspondence": {
+      "Id": "original_shadow", "DamageFraction": 0, "OriginalContactOnly": true,
+      "ActiveUntil": 3.40,
+      "ShadowHold": {"RiseSeconds": 0.64, "CloseSeconds": 0.43, "HoldSeconds": 1.85, "EscapeDistance": 0.55,
+        "Strength": 3, "DragDistance": 2.30}
+    }
+  }
+}

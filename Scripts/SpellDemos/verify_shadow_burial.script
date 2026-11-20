@@ -1,6 +1,13 @@
 var definition = Spell("影中葬身");
 var facts = new List<ConstructedShadowGrip>();
-void Grip(ConstructedShadowGrip fact) => facts.Add(fact);
+var gripState = new List<object>();
+void Grip(ConstructedShadowGrip fact)
+{
+    facts.Add(fact);
+    if (victim.data?.id != fact.TargetId) return;
+    gripState.Add(new { fact.CastId, fact.ReleaseReason, fact.WorldTime, victim.under_forces,
+        flying = victim.isFlying(), height = victim.position_height, foot = victim.current_position.ToString() });
+}
 bool Controlled(Actor a) => BodyControlState.HasControl(a.id, BodyOccupancy.Stance);
 FormVisualInstance[] Shadows() => FormVisualScene.Instances.Where(v => v.Surface == "yin_shadow").ToArray();
 Vector3 Ground(FormVisualInstance value) => value.Transform.GetColumn(3);
@@ -22,6 +29,8 @@ CombatStatusEffects.ApplyStatus(source, steady, 10000, source);
 source.updateStats();
 try
 {
+    definition.Root.Correspondence.ShadowHold.DragDistance = 0;
+    definition.Root.Correspondence.ShadowHold.HoldSeconds = .93f;
     var wrong = Spell("影中葬身");
     wrong.Root.Correspondence.ShadowHold.RiseSeconds = 4;
     bool rejected = false;
@@ -61,7 +70,7 @@ try
     var passerby = Make(69);
     passerby.setKingdom(victim.kingdom);
     Steady(passerby);
-    await Advance(2.45f);
+    await Advance(definition.Lifetime + .1f);
     Check(facts.Count == 2 && second.Cast.Finished && !Controlled(victim) && !Controlled(passerby) && Shadows().Length == 0,
         "原身走出合臂位置时落空，站在原地的旁人不会被抱持",
         new { actual = victim.current_position.ToString(), other = passerby.current_position.ToString() });

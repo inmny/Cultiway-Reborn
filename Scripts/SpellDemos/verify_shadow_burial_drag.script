@@ -1,0 +1,139 @@
+var entered = new List<ConstructedShadowBurial>();
+void Entered(ConstructedShadowBurial fact) => entered.Add(fact);
+ConstructedAbilityService.ShadowBurialConfirmed += Entered;
+Vector2 Position() => victim.current_position;
+ConstructedShadowGrip? Released(long cast) => facts.Where(f => f.CastId == cast && f.ReleaseReason != null)
+    .Select(f => (ConstructedShadowGrip?)f).SingleOrDefault();
+bool HasPinnedPose() => (bool)service.GetMethod("TryGetNativeBodySurface", F)
+    .Invoke(null, new object[] { victim.id, null });
+bool Legal() => victim.current_tile != null && !victim.current_tile.Type.block && !victim.current_tile.Type.liquid;
+async Task<long> Grasp()
+{
+    var cast = await Use(definition);
+    for (int i = 0; i < 35 && !facts.Any(f => f.CastId == cast.Id); i++) await Advance(.04f);
+    Check(facts.Count(f => f.CastId == cast.Id && f.ReleaseReason == null) == 1 && Controlled(victim),
+        "同一原人物双侧接触后被握住", new { cast.Id, cast.Cast.Age, victim = victim.id, position = Position().ToString() });
+    return cast.Id;
+}
+async Task<ConstructedShadowBurial> Arrive(long cast)
+{
+    for (int i = 0; i < 30 && !entered.Any(f => f.CastId == cast) && !Released(cast).HasValue; i++) await Advance(.04f);
+    var result = entered.SingleOrDefault(f => f.CastId == cast);
+    Check(result.CastId == cast && result.TargetId == victim.id && result.Foot.x - result.Entry.x > 1.4f &&
+        Vector2.Distance(Position(), result.Foot) < .06f && Controlled(victim) && Legal() && victim.isAlive(),
+        "活体沿真实路线被拖入同一深影，位置吻合且仍有控制",
+        new { cast, result.CastId, from = result.Entry.ToString(), to = result.Foot.ToString(), actual = Position().ToString(),
+            controlled = Controlled(victim), legal = Legal(), reason = Released(cast)?.ReleaseReason, gripState = gripState.ToArray() });
+    return result;
+}
+void CheckReturned(long cast, string reason, bool alive)
+{
+    Check(Released(cast)?.ReleaseReason == reason && !Controlled(victim) && victim.isAlive() == alive &&
+        (!alive || Legal()), "按实际原因归还控制：" + reason,
+        new { cast, actual = Released(cast)?.ReleaseReason, alive = victim.isAlive(), position = Position().ToString() });
+}
+try
+{
+    if (section == "drag")
+    {
+        int hp = victim.data.health;
+        long first = await Grasp();
+        var reached = await Arrive(first);
+        Check(HasPinnedPose() && FormVisualScene.Instances.Any(v => v.Surface == "yin_basin"),
+            "原人物的倾斜挣扎姿态和脚下深影同时发布");
+        await Advance(.30f);
+        Check(HasPinnedPose() && Controlled(victim), "合拢过程仍保留可见活体及实际控制");
+        await Advance(1.3f);
+        CheckReturned(first, "Released", true);
+        Check(victim.data.health == hp && Vector2.Distance(Position(), reached.Foot) < .06f &&
+            !HasPinnedPose() && Shadows().Length == 0, "自然松开后留在合法落脚处，身体恢复正常");
+
+        WorldTile blocker = World.world.GetTileSimple(70, 72);
+        blocker.setTileTypes(TileLibrary.deep_ocean, null, true);
+        long second = await Grasp();
+        await Advance(1.92f);
+        CheckReturned(second, "Released", true);
+        Check(!entered.Any(f => f.CastId == second) && Position().x < 70f && Legal(),
+            "障碍截断拖动，人物停在最后合法位置且未误报拖入", new { end = Position().ToString() });
+    }
+    if (section == "release" && (part == "all" || part == "rescue"))
+    {
+        long rescued = await Grasp();
+        var reached = await Arrive(rescued);
+        var rescuer = Make(72);
+        Steady(rescuer);
+        rescuer.setKingdom(victim.kingdom);
+        CombatStatusEffects.ApplyStatus(rescuer, mana, 10000, rescuer);
+        rescuer.updateStats();
+        rescuer.setMana(24);
+        var rescue = new AbilityDefinition
+        {
+            Id = "Cultiway.Demo.ShadowBurial.TestRescue", Name = "解救", Power = 24f, Cooldown = 0f, Lifetime = .24f,
+            Resource = "mana", TargetRange = 18f,
+            Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, SelectedTargetOnly = true,
+                DamageScale = 0f, ReleaseGrab = ConstructionGrabRelease.Rescue },
+            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = .35f },
+            Root = new ConstructionNode { Id = "release", Form = "fireball", Matter = "physical", Scale = 1.8f }
+        };
+        int hp = victim.data.health;
+        await Fire(rescue, rescuer, victim, aggro: false);
+        rescuer.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+        await Advance(.19f);
+        CheckReturned(rescued, "ReleasedByAbility", true);
+        Check(victim.data.health == hp && Vector2.Distance(Position(), reached.Foot) < .06f &&
+              contacts.Any(f => f.AbilityId == rescue.Id && f.TargetId == victim.id && !f.DamageAttempted),
+            "营救法术真正命中后归还活体，没有额外伤害或传送");
+        Place(rescuer, 15);
+        await Advance(2f);
+    }
+
+    if (section == "release" && (part == "all" || part == "escape"))
+    {
+        long escaped = await Grasp();
+        Place(victim, 67, 74);
+        await Advance(.12f);
+        CheckReturned(escaped, "Escaped", true);
+        Check(Vector2.Distance(Position(), new Vector2(67, 74)) < .06f, "挣脱不会被剩余影身拉回");
+        await Advance(2.3f);
+    }
+
+    if (section == "release" && (part == "all" || part == "death"))
+    {
+        long dead = await Grasp();
+        await Arrive(dead);
+        long deadId = victim.id;
+        victim.dieAndDestroy(AttackType.None);
+        await Advance(.55f);
+        Check(Released(dead)?.ReleaseReason == "TargetDied" &&
+            !BodyControlState.HasControl(deadId, BodyOccupancy.Stance) && Shadows().Length == 0,
+            "真实死亡立即归还本次占用，影身退场", new { reason = Released(dead)?.ReleaseReason });
+        if (part == "all")
+        {
+            victim = Make(69);
+            victim.setKingdom(Make(12, "wolf").kingdom);
+            Steady(victim);
+            await Advance(.8f);
+        }
+    }
+
+    if (section == "release" && (part == "all" || part == "world"))
+    {
+        long forgotten = await Grasp();
+        long oldId = victim.id;
+        World.world.save_manager.loadWorld(fixture);
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+        await Game.WaitUntil(Boundary, 1800);
+        Check(Released(forgotten)?.ReleaseReason == "WorldChanged" &&
+            !BodyControlState.HasControl(oldId, BodyOccupancy.Stance) && Shadows().Length == 0,
+            "换世界归还旧人物控制并清空影身", new { reason = Released(forgotten)?.ReleaseReason });
+    }
+
+    return new { passed = true, section, arrivals = entered.Count,
+        endings = facts.Where(f => f.ReleaseReason != null).Select(f => f.ReleaseReason).ToArray() };
+}
+finally
+{
+    ConstructedAbilityService.ShadowBurialConfirmed -= Entered;
+    ConstructedAbilityService.ShadowGripChanged -= Grip;
+    ReleaseChecks();
+}
