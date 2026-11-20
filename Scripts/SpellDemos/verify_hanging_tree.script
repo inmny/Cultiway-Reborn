@@ -35,15 +35,8 @@ void Sample(AbilityCast cast)
     File.WriteAllText(Path.Combine(folder, "trace.json"), JsonConvert.SerializeObject(new { trace, landings }, Formatting.Indented));
 }
 
-ConstructedAbilityService.WorldContactConfirmed += Land;
-try
+async Task Stage()
 {
-    AbilityCompiler.Compile(definition, false);
-    owner.NewCultisys(Cultisyses.Xian);
-    owner.GetCultisys<Xian>().level = 2;
-    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
-    Ready(source);
-    if (section is "growth" or "grip") await SetCamera(12.5f);
     for (int x = 63; x <= 84; x++)
     for (int y = 66; y <= 79; y++)
     {
@@ -51,7 +44,11 @@ try
         tile.setTileTypes(TileLibrary.soil_low, null, true);
         tile.Height = (byte)(x <= 71 ? 196 : x >= 76 ? 118 : 140);
     }
+    ControllableUnit.clear(false);
     await Advance(.20f);
+    Ready(source);
+    if (section is "growth" or "grip" or "native" or "worldfall") await SetCamera(section == "native" ? 14f : 12.5f);
+    if (section == "worldfall") await WaitForWorldfallDraw();
     Place(source, 64.5f, 72.5f); Place(target, 73.5f, 72.5f);
     if (gripping)
     {
@@ -64,10 +61,15 @@ try
             CombatStatusEffects.RemoveStatus(wolf, hold);
             CombatStatusEffects.ApplyStatus(wolf, quiet, 10000, wolf);
             wolf.updateStats();
+            wolf.data.health = (int)wolf.stats["health"];
             wolf.addAggro(source); source.addAggro(wolf);
         }
     }
-    float health = target.data.health;
+}
+
+async Task<AbilityCast> CastTree()
+{
+    landings.Clear(); contacts.Clear();
     float before = source.stats[BaseStatses.MaxWakan.id] * .82f;
     owner.GetCultisys<Xian>().wakan = before;
     await Fire(definition, source, target);
@@ -75,7 +77,21 @@ try
     var cast = Live();
     Check(cast != null && Math.Abs(before - owner.GetCultisys<Xian>().wakan - definition.Cost) < .003f,
         "正式施放产生倒悬树，只支付一次真元");
+    return cast;
+}
+
+ConstructedAbilityService.WorldContactConfirmed += Land;
+try
+{
+    AbilityCompiler.Compile(definition, false);
+    owner.NewCultisys(Cultisyses.Xian);
+    owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+    await Stage();
+    var cast = await CastTree();
+    if (section is "save" or "native" or "worldfall") return await Deliver(cast);
     if (gripping) return await VerifyGrip(definition, cast, source, target, flank, landings, Live);
+    float health = target.data.health;
     async Task At(float age) { if (cast.Age < age) await Advance(age - cast.Age); }
     if (section == "growth")
     {

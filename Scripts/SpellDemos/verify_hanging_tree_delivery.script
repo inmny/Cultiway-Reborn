@@ -1,0 +1,146 @@
+
+Type WorldfallType() => AppDomain.CurrentDomain.GetAssemblies()
+    .Select(assembly => assembly.GetType("FirstPerson.WorldBoxMod", false)).First(type => type != null);
+
+async Task WaitForWorldfallDraw()
+{
+    var type = WorldfallType();
+    var mod = type.GetProperty("Instance", F).GetValue(null);
+    Check((bool)type.GetProperty("GpuWanted", F).GetValue(mod), "当前 Worldfall 已启用法术模型使用的正常绘制路径");
+    var frames = type.GetField("_godGpuApplied", F);
+    int start = (int)frames.GetValue(mod);
+    await Game.WaitUntil(() => (int)frames.GetValue(mod) >= start + 4, 600);
+}
+
+async Task<object> Deliver(AbilityCast first)
+{
+    var grips = new List<ConstructedSupportGrip>();
+    var samples = new List<object>();
+    void Grip(ConstructedSupportGrip fact) => grips.Add(fact);
+    bool Held(Actor actor) => BodyControlState.HasControl(actor.id, BodyOccupancy.Stance);
+
+    void PositionTargets()
+    {
+        Place(target, 70.85f, 74.22f); Place(flank, 76.44f, 70.59f);
+        ConstructedAbilityService.NotifyActorChanged(target);
+        ConstructedAbilityService.NotifyActorChanged(flank);
+    }
+
+    ConstructedAbilityService.SupportGripChanged += Grip;
+    try
+    {
+        PositionTargets();
+        if (section is "native" or "worldfall")
+        {
+            float planted = float.NaN, lifted = float.NaN, next = 0;
+            bool crown = false, growing = false, grasped = false, released = false;
+            var published = new HashSet<string>();
+            var local = new List<FormVisualInstance>();
+            var viewType = WorldfallType();
+            var viewMod = viewType.GetProperty("Instance", F).GetValue(null);
+            var godShown = viewType.GetProperty("GodShown", F);
+            var firstPerson = viewType.GetProperty("IsFirstPerson", F);
+            var gpuShown = viewType.GetField("_gpuShown", F);
+            var lastDraw = typeof(AbilityCast).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer")
+                .GetProperty("LastDrawCount", F);
+            bool stableView = true, drewForms = recordView == "native";
+            const float duration = 5.56f;
+            var times = await Film(duration, () =>
+            {
+                stableView &= !(bool)firstPerson.GetValue(viewMod) &&
+                              (bool)godShown.GetValue(viewMod) == (recordView == "worldfall") &&
+                              (recordView != "worldfall" || (bool)gpuShown.GetValue(viewMod));
+                float age = first.Age;
+                if (age < next) return;
+                next = age + .065f;
+                local.Clear(); first.AppendVisuals(local);
+                string[] visible = FormVisualScene.Instances.Select(form => form.Resource.Description.Id)
+                    .Where(id => id.StartsWith("hanging_", StringComparison.Ordinal)).Distinct().ToArray();
+                drewForms |= visible.Contains("hanging_grip") && (int)lastDraw.GetValue(null) > 0;
+                foreach (string id in visible) published.Add(id);
+                crown |= age < .54f && visible.Contains("hanging_tree");
+                growing |= age < 1.5f && visible.Contains("hanging_root");
+                grasped |= Held(target) && Held(flank) && visible.Contains("hanging_grip");
+                if (age is >= 3.0f and < 4.08f) planted = Tip(first, 2).z;
+                if (age is >= 4.46f and < 4.75f && !Held(target) && !Held(flank) && visible.Contains("hanging_lateral_root"))
+                {
+                    lifted = Tip(first, 2).z;
+                    released |= lifted > planted + 1.2f;
+                }
+                samples.Add(new { age, visible, appended = local.Select(form => form.Resource.Description.Id).ToArray(),
+                    tip = Tip(first, 2).ToString("F3"), west = Held(target), east = Held(flank) });
+            });
+            File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(new { samples, landings, grips }, Formatting.Indented));
+            Check(stableView && drewForms && crown && growing && grasped && released && landings.Count(hit => hit.Node is 1 or 2 or 4) == 3 &&
+                  Live() == null && endings.Count == 1 && !endings[0].Fact.Cancelled &&
+                  !FormVisualScene.Instances.Any(form => form.Resource.Description.Id.StartsWith("hanging_")),
+                "同段原速施放经过倒悬、生长、钉地、双侧抓持、实际抬起收回和清场",
+                new { stableView, drewForms, crown, growing, grasped, released, planted, lifted, published, frames = times.Count });
+            return new { passed = true, times, duration, previewFrame = Math.Max(0, times.FindIndex(t => t >= 2.9)),
+                view = recordView, scene = "construction", resource = "wakan", paid = definition.Cost };
+        }
+
+        async Task<int[]> ContactsAndRelease(AbilityCast cast, bool both)
+        {
+            if (cast.Age < 3.17f) await Advance(3.17f - cast.Age);
+            int[] lateral = landings.Where(hit => hit.Node is 2 or 4).Select(hit => hit.Node).ToArray();
+            bool acquired(Actor a, int node) => grips.Any(hit => hit.Node == node && hit.TargetId == a.id && hit.ReleaseReason == null);
+            Check((both ? lateral.SequenceEqual(new[] { 2, 4 }) : lateral.SequenceEqual(new[] { 4 })) &&
+                  acquired(target, 3) == both && acquired(flank, 5) &&
+                  contacts.Any(hit => hit.Node == 5 && hit.TargetId == flank.id && hit.Damage.HealthLost > 0) &&
+                  contacts.Any(hit => hit.Node == 3 && hit.TargetId == target.id && hit.Damage.HealthLost > 0) == both,
+                both ? "原长度先钉住西侧根，两侧确实受抓持和伤害" : "缩短西根后先接地的是东根，西侧未受抓持或伤害",
+                new { lateral, grips = grips.ToArray() });
+            float before = Tip(cast, both ? 2 : 4).z;
+            await Advance(4.65f - cast.Age);
+            float after = Tip(cast, both ? 2 : 4).z;
+            Check(after > before + 1.2f && !Held(target) && !Held(flank), "松开人物后根尖实际抬起回收", new { before, after });
+            await Advance(definition.Lifetime + .22f - cast.Age);
+            Check(Live() == null && !Held(target) && !Held(flank) && !endings.Last().Fact.Cancelled,
+                "临时主体按时结束，控制已归还");
+            return lateral;
+        }
+
+        async Task Replay(AbilityDefinition nextDefinition, bool both)
+        {
+            definition = nextDefinition;
+            grips.Clear();
+            await Stage();
+            var cast = await CastTree();
+            PositionTargets();
+            await ContactsAndRelease(cast, both);
+        }
+
+        var original = definition;
+        var variant = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "variant.json")));
+        await ContactsAndRelease(first, true);
+        await Replay(variant, false);
+        long sourceId = source.id, targetId = target.id, flankId = flank.id;
+        JToken originalJson = JToken.FromObject(original), variantJson = JToken.FromObject(variant);
+        ConstructedAbilityService.Learn(owner, original.Id);
+        ConstructedAbilityService.Learn(owner, variant.Id);
+        string saved = Path.Combine(folder, "world");
+        SaveManager.saveWorldToDirectory(saved);
+        World.world.save_manager.loadWorld(saved);
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        var catalog = (IDictionary)service.GetField("definitions", F).GetValue(null);
+        source = World.world.units.get(sourceId); target = World.world.units.get(targetId); flank = World.world.units.get(flankId);
+        owner = source?.GetExtend();
+        var prior = (AbilityDefinition)catalog[original.Id]; var restored = (AbilityDefinition)catalog[variant.Id];
+        Check(prior != null && restored?.Parent?.Id == prior.Id && JToken.DeepEquals(originalJson, JToken.FromObject(prior)) &&
+              JToken.DeepEquals(variantJson, JToken.FromObject(restored)) && owner != null && target != null && flank != null &&
+              owner.E.GetComponent<ConstructedKnowledge>().Ids.Contains(prior.Id) &&
+              owner.E.GetComponent<ConstructedKnowledge>().Ids.Contains(restored.Id) && Live() == null,
+            "正式读档完整恢复原招、派生关系和人物学习，临时根系不会留进存档");
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        var edit = ConstructionEditing.Copy(restored);
+        edit.Revision++;
+        edit.Root.Children[1].Scale = prior.Root.Children[1].Scale;
+        await Replay(edit, true);
+        Check(JToken.DeepEquals(originalJson, JToken.FromObject(catalog[original.Id])), "改回西根长度能恢复西侧抓持，原招没有被覆盖");
+        return new { passed = true, checks, saved };
+    }
+    finally { ConstructedAbilityService.SupportGripChanged -= Grip; }
+}
