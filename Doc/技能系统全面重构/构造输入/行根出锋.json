@@ -1,0 +1,57 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.RootborneBlade",
+  "Name": "行根出锋",
+  "Resource": "mana",
+  "Cost": 11,
+  "Cooldown": 2.4,
+  "Lifetime": 3.6,
+  "Power": 3.2,
+  "TargetRange": 24,
+  "Use": {"Channels": "Combat, World", "Target": "ObjectOrPoint"},
+  "Binding": {"Anchor": "Source", "FaceTarget": true, "Height": 0.45},
+  "Root": {
+    "Id": "root_carrier",
+    "Form": "five_phase_roots",
+    "Matter": "wood",
+    "State": "solid",
+    "ContactRole": "Barrier",
+    "Rotation": [-90, 0, 0],
+    "Scale": 1.07,
+    "DisappearAt": 1.75,
+    "Operations": [
+      {"Kind": "Grow", "Seconds": 0.24},
+      {"Kind": "Animate", "Clip": "rise"},
+      {"Kind": "Fly", "At": 0.22, "Vector": [0, -5.8, 0], "InheritVelocity": false},
+      {"Kind": "PassRemainder", "When": {"Trigger": "Clash", "Delay": 0.12}}
+    ],
+    "Children": [{
+      "Id": "blade_route",
+      "Form": "pivot",
+      "ContactRole": "Decoration",
+      "Rotation": [90, 0, 0],
+      "DisappearAt": 1.18,
+      "Activation": {"Trigger": "Handoff", "InheritRemainder": true, "ResetContacts": true},
+      "Operations": [
+        {"Kind": "Fly", "Vector": [0, 0, 13], "TurnRate": 520, "InheritVelocity": false,
+         "Goal": {"Anchor": "Target", "Approach": true, "Arrival": "Stop", "Radius": 0.12}}
+      ],
+      "Children": [{
+        "Id": "blade",
+        "Form": "sword_grave_right",
+        "Matter": "iron",
+        "State": "solid",
+        "FollowMatter": true,
+        "ContactRole": "Attack",
+        "Offset": [-0.69, 0, 0],
+        "Scale": 0.94,
+        "Contact": {"Mode": "Once"},
+        "Impact": {"Targets": "Hostile", "DamageScale": 0.7},
+        "Operations": [
+          {"Kind": "ConvertMatter", "Matter": "iron", "State": "solid"},
+          {"Kind": "Grow", "Seconds": 0.14}
+        ]
+      }]
+    }]
+  }
+}

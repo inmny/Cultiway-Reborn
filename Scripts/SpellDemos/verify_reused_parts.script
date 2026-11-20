@@ -1,0 +1,106 @@
+bool screen = section == "screen", miss = section == "miss";
+var definition = Spell(screen ? "树脊留刃" : "行根出锋");
+var clashes = new List<ConstructedClash>();
+void Clash(ConstructedClash fact) => clashes.Add(fact);
+ConstructedAbilityService.ClashConfirmed += Clash;
+try
+{
+    var started = await Use(definition, screen ? 70f : 75f);
+    ControllableUnit.clear(false);
+    Place(source, 64);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.setStatsDirty(); source.updateStats();
+    var cast = started.Cast;
+    int blade = screen ? 1 : 2;
+    var states = (Array)Field(cast, "nodes");
+    Vector3 NodePosition(int node) => (Vector3)((Matrix4x4)Field(states.GetValue(node), "Transform")).GetColumn(3);
+    bool hasBlade = false, outsidePassed = false;
+    float bladeForce = 0f, farthest = 0f, groundStop = 0f;
+    Vector3 origin = default, detached = default;
+    Vector2 crossFrom = default, crossTo = default;
+    bool sideOpen = false;
+    var shapes = new List<AbilityCapsule>();
+    var probes = new HashSet<int>();
+    AbilityCast outside = null;
+    var manager = typeof(Cultiway.Core.SkillLibV3.Manager);
+    var barrier = manager.GetField("Barriers", F).GetValue(null);
+    var bridge = manager.Assembly.GetType("Cultiway.Core.SkillLibV3.ISkillBarrierBridge", true);
+    var restrict = bridge.GetMethod("RestrictGroundActor", F);
+    var present = bridge.GetProperty("HasGroundBarriers", F);
+    Vector2 Ground(Vector2 from, Vector2 to) => (Vector2)restrict.Invoke(barrier, new object[] { victim, from, to });
+    double began = World.world.getCurWorldTime();
+    while (World.world.getCurWorldTime() - began < definition.Lifetime + .15f)
+    {
+        await Advance(.10f);
+        if (outside != null && !outside.Finished)
+            outsidePassed |= Forms(outside).Any(view => view.Transform.m03 < 64f) && outside.RemainingForce(0) > 0f;
+        if (cast.Finished) continue;
+        shapes.Clear(); cast.AppendContacts(shapes);
+        if (!hasBlade && cast.NodeAge(blade) >= 0f)
+        {
+            Check(cast.Matter(blade).Id == "iron" && shapes.All(s => s.Node != 0), "旧根退去，同一余量建立实际金刃");
+            hasBlade = true;
+            origin = (Vector3)Field(states.GetValue(1), "EventPosition");
+            detached = NodePosition(0);
+            bladeForce = cast.RemainingForce(blade);
+        }
+        if (hasBlade) farthest = Mathf.Max(farthest, NodePosition(1).x - origin.x);
+        int node = hasBlade ? 1 : 0;
+        if ((!screen && node == 1) || probes.Contains(node) || cast.NodeAge(node) < (node == 0 ? .35f : .27f)) continue;
+        var active = shapes.Where(s => s.Node == node).OrderBy(s => Mathf.Abs((s.A.y + s.B.y) * .5f - 72f)).ToArray();
+        if (active.Length == 0) continue;
+        var shape = active[0];
+        Vector3 point = (shape.A + shape.B) * .5f;
+        if (screen && node == 1)
+        {
+            var prism = Field(shape, "Prism");
+            var surface = prism.GetType().GetProperty("Pose", F).GetValue(prism);
+            var surfaceType = surface.GetType();
+            var vertex = surfaceType.GetMethod("Vertex", F);
+            int count = (int)surfaceType.GetProperty("VertexCount", F).GetValue(surface);
+            Vector3[] corners = Enumerable.Range(0, count).Select(i => (Vector3)vertex.Invoke(surface, new object[] { i })).ToArray();
+            Vector3 foot = corners.OrderBy(p => p.z).Take(2).Aggregate(Vector3.zero, (sum, p) => sum + p) * .5f;
+            point = ((Bounds)surfaceType.GetMethod("Bounds", F).Invoke(surface, null)).center;
+            crossFrom = new Vector2(foot.x + 2.25f, foot.y);
+            crossTo = new Vector2(foot.x - 2.25f, foot.y);
+            groundStop = Vector2.Distance(crossTo, Ground(crossFrom, crossTo));
+            Vector2 side = Vector2.up * 5f;
+            sideOpen = Vector2.Distance(Ground(crossFrom + side, crossTo + side), crossTo + side) < .001f;
+        }
+        if (miss) point.y = active.Max(s => Mathf.Max(s.A.y, s.B.y) + (s.IsBox ? s.HalfExtents.y : s.Radius)) + 2.5f;
+        AbilityCast probe = Send(node == 0 ? "wood" : "iron", point + Vector3.right * 2.8f);
+        if (miss) outside = probe;
+        probes.Add(node);
+    }
+    var real = clashes.Where(fact => fact.LeftCast == started.Id || fact.RightCast == started.Id).Select(fact => new
+    {
+        node = fact.LeftCast == started.Id ? fact.LeftNode : fact.RightNode,
+        spent = fact.LeftCast == started.Id ? fact.LeftSpent : fact.RightSpent,
+        remaining = fact.LeftCast == started.Id ? fact.LeftRemaining : fact.RightRemaining,
+        point = fact.Position.ToString()
+    }).ToArray();
+    var blows = contacts.Where(fact => fact.CastId == started.Id && fact.Node == blade && fact.Damage.HealthLost > 0)
+        .Select(fact => new { fact.TargetId, damage = fact.Damage.HealthLost, point = fact.Position.ToString() }).ToArray();
+    if (miss)
+        Check(probes.Contains(0) && outsidePassed && real.Length == 0 && !hasBlade && blows.Length == 0,
+            "来势从根段外走过，气力仍在，金刃没有凭空生成", real);
+    else
+    {
+        Check(real.Length == (screen ? 2 : 1) && real.All(fact => fact.spent > 0) && hasBlade &&
+            Mathf.Abs(real[0].remaining - bladeForce) < .08f, "实际交锋后只传递根段剩余力量", new { real, bladeForce });
+        if (screen)
+            Check(real[1].node == 1 && Vector3.Distance(origin, detached) < .01f && farthest < .05f && groundStop > .18f && sideOpen,
+                "金面留在同一位置继续承力，并由同一形体阻挡地面", new { groundStop, sideOpen, farthest, origin = origin.ToString() });
+        else
+            Check(farthest > 2.2f && blows.Any(fact => fact.TargetId == victim.id),
+                "金刃独立前进并真实命中来袭者", new { farthest, blows });
+    }
+    Check(cast.Finished && Forms(cast).Length == 0 && !(bool)present.GetValue(barrier) &&
+        (!screen || Vector2.Distance(Ground(crossFrom, crossTo), crossTo) < .001f), "退场后原根段、刃片及阻挡都清理");
+    return new { passed = true, section, real, bladeForce, farthest, blows, groundStop };
+}
+finally
+{
+    ConstructedAbilityService.ClashConfirmed -= Clash;
+    ReleaseChecks();
+}
