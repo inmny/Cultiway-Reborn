@@ -40,6 +40,10 @@ public sealed class BodyActionDefinition
     /// <summary>空值使用所选实际身体部位；非空时由手部借用实际持有器物，并描述握点及刃部。</summary>
     public string WeaponForm;
 
+    /// <summary>本招借用器形的实际尺寸，以体高为单位。空值沿用器形的制作尺寸。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float? WeaponScale;
+
     /// <summary>器物上实际采用的握持挂点。</summary>
     public string Grip = "grip";
 
@@ -803,6 +807,8 @@ public sealed partial class CompiledBodyAction
         WeaponForm = definition.WeaponForm;
         if (definition.SlideGrip != null && WeaponForm == null)
             throw new InvalidDataException("Body/SlideGrip：滑握需要实际杆兵");
+        if (definition.WeaponScale.HasValue && (WeaponForm == null || !Finite(definition.WeaponScale.Value)))
+            throw new InvalidDataException("Body/WeaponScale：尺寸须为有限数且需要实际器形");
         if (WeaponForm != null && (Part.Contact != BodyContactPart.Hand || Part.IsFist))
             throw new InvalidDataException("Body/WeaponForm：实际借用器物需要手部握持，不能把肘肩当作握点");
         Grip = Construction.Grip;
@@ -894,12 +900,14 @@ public sealed partial class CompiledBodyAction
         {
             if (resource.Description.Held.Groups.Length == 0)
                 throw new InvalidDataException("Body/WeaponForm：资源未声明实际装备类型：" + WeaponForm);
-            WeaponSize = resource.Description.Held.Scale;
+            WeaponSize = definition.WeaponScale ?? resource.Description.Held.Scale;
             int handAnchor = Array.FindIndex(hand.Anchors, anchor => anchor.Id == Construction.HandGrip);
             if (handAnchor < 0)
                 throw new InvalidDataException("Body/Construction/Relations/Grip：手部缺少实际握点：" + Construction.HandGrip);
             Vector3 handGrip = hand.Anchors[handAnchor].Transform.GetColumn(3);
             var grip = ConstructionReferences.Resolve("Body/Grip", () => resource.Grip(Grip), "Grip", WeaponForm + " / " + Grip);
+            if (definition.WeaponScale.HasValue && !grip.Fits(WeaponSize, .035f * HandScale, .08f * HandScale))
+                throw new InvalidDataException("Body/WeaponScale：改变器形尺寸后，所选握点须保持可握持");
             var socket = Matrix4x4.TRS(handMatrix.MultiplyPoint3x4(handGrip), Quaternion.identity, Vector3.one);
             contactMatrix = grip.Align(socket, WeaponSize);
             if (definition.SlideGrip != null)

@@ -33,9 +33,22 @@ public sealed partial class WindowWanfaConstructionEditor
                     access.Validate(candidate);
                     return candidate;
                 }));
-            MartialChoice("MartialGrip", action.Grip,
-                FormResources.Load(action.WeaponForm).Description.Grips.Select(grip => grip.Id).ToArray(), GripLabel,
+            var form = FormResources.Load(action.WeaponForm).Description;
+            string[] grips = form.Grips.Select(grip => grip.Id).ToArray();
+            MartialChoice("MartialGrip", action.Grip, grips, GripLabel,
                 value => ApplyConstructionEdit(() => BodyConstructionEdits.ChangeGrip(session.Draft, value)));
+            if (action.UsesSupportingGrip)
+                MartialChoice("MartialSupportGrip", action.Construction.SupportGrip, grips, GripLabel,
+                    value => ApplyConstructionEdit(() => BodyConstructionEdits.ChangeGrip(session.Draft, value, supporting: true)));
+            if (session.Draft.Body.SlideGrip is string slide)
+                MartialChoice("MartialSlideGrip", slide, grips, GripLabel,
+                    value => EditBodyMotion(body => body.SlideGrip = value));
+            if (form.Parts.Any(part => part.Roles?.Contains("weapon.shaft") == true))
+            {
+                Row("MartialWeaponScaleHint", T("MartialWeaponScaleHintDetail"));
+                BodyMotionNumber("MartialWeaponScale", action.WeaponSize, (body, size) =>
+                    body.WeaponScale = size == form.Held.Scale ? null : size);
+            }
         }
 
         if (!action.Construction.HasTouchRelations) return;
@@ -59,7 +72,8 @@ public sealed partial class WindowWanfaConstructionEditor
 
         string GripLabel(string grip) => grip switch
         {
-            "grip" => T("MartialGripStandard"), "choke" => T("MartialGripChoke"), _ => grip
+            "grip" => T("MartialGripStandard"), "choke" => T("MartialGripChoke"),
+            "forward" => T("MartialGripForward"), "mid" => T("MartialGripMiddle"), _ => grip
         };
     }
 

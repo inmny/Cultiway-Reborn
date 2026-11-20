@@ -64,6 +64,7 @@ public sealed partial class WindowWanfaConstructionEditor
             head ? new[] { "HeadRotation", "TorsoPoint", "NativeFeet", "BodyFootwork", "BodyPoseMarkers" } :
             leg ? new[] { "FootPoint", "TorsoPoint", "NativeFeet", "BodyFootwork", "BodyPoseMarkers" } :
                 new[] { "HandPoint", "TorsoPoint", "HandRotation", "NativeFeet", "BodyFootwork", "BodyPoseMarkers" };
+        if (body.SlideGrip != null) handles = handles.Append("BodyGripSlide").ToArray();
         bodyHandle = Math.Min(bodyHandle, handles.Length - 1);
         Choice("BodyValues", T(handles[bodyHandle]), () =>
             menu.Show(T("BodyValues"),
@@ -93,9 +94,10 @@ public sealed partial class WindowWanfaConstructionEditor
             return;
         }
         bool feet = rotating && handles[bodyHandle] == "NamedFeet";
+        bool slide = handles[bodyHandle] == "BodyGripSlide";
         if (feet) NamedFootRows(body);
         Row("BodyCoordinates",
-            T(feet ? "NamedFeetHint" : rotating ? "PartRotationHint" :
+            T(slide ? "BodyGripSlideHint" : feet ? "NamedFeetHint" : rotating ? "PartRotationHint" :
                 head && bodyHandle == 0 ? "HeadRotationHint" :
                 bodyHandle == 2 ? "RotationHint" : "BodyCoordinatesHint"));
         for (int i = 0; i < body.Keys.Length; i++)
@@ -109,6 +111,12 @@ public sealed partial class WindowWanfaConstructionEditor
                     : null, UiIcons.Delete);
             Transform controls = row.UseInlineControls(260f);
             FloatInput(controls, "At", key.At, value => EditBodyMotion(next => next.Keys[index].At = value), i != 0, 48f, draftChange: false);
+            if (slide)
+            {
+                FloatInput(controls, "BodyGripSlide", key.GripSlide, value =>
+                    EditBodyMotion(next => next.Keys[index].GripSlide = value), true, 74f, draftChange: false);
+                continue;
+            }
             if (feet)
             {
                 if (bodyFoot != null && key.Support?.Parts?.TryGetValue(bodyFoot, out float[] foot) == true)

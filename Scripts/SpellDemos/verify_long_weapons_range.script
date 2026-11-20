@@ -1,0 +1,95 @@
+// 复验从编辑器实际保存的改造，不在运行前改写招式资料。
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(editedDefinitionPath));
+var plan = ConstructionEditing.Access.Validate(definition).Body;
+Item weapon = null;
+AbilityCast live = null;
+object binding = null;
+long castId = 0;
+var actualHits = new List<ConstructedContact>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId != definition.Id || fact.SourceId != source.id) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(entry => (long)Field(entry, "Id") == fact.CastId);
+    castId = fact.CastId;
+    live = (AbilityCast)Field(running, "Cast");
+    binding = Field(running, "Body");
+}
+void Contact(ConstructedContact fact)
+{
+    if (fact.CastId == castId && fact.TargetId == target.id) actualHits.Add(fact);
+}
+
+var clock = Config.time_scale_asset;
+float speed = clock.multiplier;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+try
+{
+    Ready(source);
+    source.attack_timer = target.attack_timer = 999;
+    await Advance(.18f);
+    clock.multiplier = speed * .32f;
+    weapon = Equip(source, "spear_iron");
+    Place(source, 64.35f);
+    target.setHealth(target.getMaxHealth());
+    int health = target.data.health;
+    float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose")
+        .GetMethod("Height", F).Invoke(null, new object[] { source });
+    Place(target, 64.35f + height * (plan.ContactReach + .50f));
+    source.addAggro(target);
+    target.addAggro(source);
+    ConstructedAbilityService.Register(definition);
+    ConstructedAbilityService.Learn(owner, definition.Id);
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+    source.data.stamina = 100;
+    source.attack_timer = 0;
+    bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999;
+    Check(!used && live == null && source.data.stamina == 100f && !BodyControlState.IsBusy(source.id),
+        "改造后的实际选取距离外拒绝出招，也没有消耗体力");
+
+    Place(target, 64.35f + height * 2.13f);
+    await Fire(definition, source, target);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(live != null && ReferenceEquals(weapon, Field(binding, "Weapon")) &&
+          Mathf.Abs(source.data.stamina - (100f - definition.Cost)) < .001f,
+        "尺寸改造仍借用原铁枪，正式出手只扣一次体力");
+    await Advance(.376f);
+    var pose = live.BodyPose.Value;
+    var form = FormResources.Load("spear");
+    var views = new List<FormVisualInstance>();
+    binding.GetType().GetMethod("AppendVisuals", F).Invoke(binding, new object[] { source, pose, views, null });
+    var held = views.Single(instance => instance.Resource == form);
+    var hand = views.Single(instance => instance.BodySegment == BodyVisualSegment.RightHand);
+    var grip = Vector3.Lerp(form.Grip(definition.Body.Grip).Transform.GetColumn(3),
+        form.Grip(definition.Body.SlideGrip).Transform.GetColumn(3), pose.GripSlide);
+    Vector3 socket = hand.Resource.Anchors.Single(anchor => anchor.Id == "grip").Transform.GetColumn(3);
+    var shapes = new List<AbilityCapsule>();
+    binding.GetType().GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
+    var actual = shapes.Single();
+    var tip = form.Contacts[actual.Shape];
+    Check(form.Description.Contacts[actual.Shape].Id == "tip" && pose.GripSlide > .999f &&
+          Mathf.Abs(held.Transform.lossyScale.x - definition.Body.WeaponScale.Value * height) < .0001f &&
+          Vector3.Distance(held.Transform.MultiplyPoint3x4(grip), hand.Transform.MultiplyPoint3x4(socket)) < .0001f &&
+          Vector3.Distance(actual.A, held.Transform.MultiplyPoint3x4(tip.A)) < .0001f &&
+          Vector3.Distance(actual.B, held.Transform.MultiplyPoint3x4(tip.B)) < .0001f,
+        "实机模型、手内握点与改造后的尖端作用使用同一尺寸",
+        new { scale = held.Transform.lossyScale.x, pose.GripSlide, pose.WorldAge });
+    await Advance(definition.Lifetime);
+    Check(actualHits.Count == 1 && target.data.health < health && !BodyControlState.IsBusy(source.id) &&
+          ReferenceEquals(weapon, source.getWeapon()),
+        "改造后实际尖端命中一次，随后归还原枪和身体控制",
+        new { health, after = target.data.health, ages = actualHits.Select(hit => hit.Age).ToArray() });
+    return new { passed = true, selection, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    clock.multiplier = speed;
+    ControllableUnit.clear(false);
+}

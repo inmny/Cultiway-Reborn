@@ -11,8 +11,13 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('all', 'strike', 'near', 'sweep', 'interrupt', 'press'), default='all')
+    parser.add_argument('--case', choices=('all', 'strike', 'near', 'sweep', 'interrupt', 'press', 'edit', 'range'), default='all')
+    parser.add_argument('--edited', type=Path, help='--case edit 生成的 edited-definition.json')
     args = parser.parse_args()
+    if (args.case == 'range') != (args.edited is not None):
+        parser.error('--case range 需且仅需搭配 --edited')
+    if args.edited is not None and not args.edited.is_file():
+        parser.error(f'找不到已改造的正式资料：{args.edited}')
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过 dev.py exec 运行')
 
@@ -35,9 +40,21 @@ def main():
     fighters = (scripts / 'verify_short_weapons.script').read_text()
     fighters = fighters[:fighters.index('var bindingType =')].replace('Cultiway.Body.ShortBlade', 'Cultiway.Body.LongSpear')
     script = output / 'input.script'
-    case_file = 'verify_long_weapons_press.script' if args.case == 'press' else 'verify_long_weapons.script'
-    script.write_text('using Friflo.Engine.ECS;\n' + base + fighters +
-                      f'\nconst string selection = "{args.case}";\n' + (scripts / case_file).read_text())
+    imports = 'using Friflo.Engine.ECS;\n'
+    if args.case == 'edit':
+        imports += 'using Cultiway.UI;\nusing Cultiway.UI.Prefab;\nusing UnityEngine.UI;\n'
+        helpers = (scripts / 'verify_unarmed_hand_editor.script').read_text().split('\ntry\n', 1)[0]
+        fighters = helpers.replace('Cultiway.Body.PalmPush', 'Cultiway.Body.LongSpearThrust')
+    case_file = {
+        'edit': 'verify_long_weapons_edit.script',
+        'press': 'verify_long_weapons_press.script',
+        'range': 'verify_long_weapons_range.script',
+    }.get(args.case, 'verify_long_weapons.script')
+    settings = f'\nconst string selection = "{args.case}";\n'
+    if args.edited:
+        settings += f'const string editedDefinitionPath = {json.dumps(str(args.edited.resolve()))};\n'
+    script.write_text(imports + base + fighters + settings +
+                      (scripts / case_file).read_text())
     try:
         result = baseline.call('run', str(script), '140000')
     except RuntimeError as error:
