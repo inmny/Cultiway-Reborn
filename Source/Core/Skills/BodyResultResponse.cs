@@ -195,6 +195,7 @@ public sealed partial class CompiledBodyAction
             Rotation = Curve(a.Rotation, b.Rotation, va.Rotation, vb.Rotation, span, t),
             Turn = Curve(a.Turn, b.Turn, va.Turn, vb.Turn, span, t),
             Heading = Curve(a.Heading, b.Heading, va.Heading, vb.Heading, span, t),
+            GripSlide = Curve(a.GripSlide, b.GripSlide, va.GripSlide, vb.GripSlide, span, t),
             PartRotation = Curve(a.PartRotation, b.PartRotation, va.PartRotation, vb.PartRotation, span, t)
         };
     }
@@ -207,6 +208,7 @@ public sealed partial class CompiledBodyAction
         Torso = Vector3.Lerp(a.Torso, b.Torso, t), Foot = Vector3.Lerp(a.Foot, b.Foot, t),
         HeadRotation = Vector3.Lerp(a.HeadRotation, b.HeadRotation, t), Rotation = Vector3.Lerp(a.Rotation, b.Rotation, t),
         Turn = Mathf.Lerp(a.Turn, b.Turn, t), Heading = Mathf.Lerp(a.Heading, b.Heading, t),
+        GripSlide = Mathf.Lerp(a.GripSlide, b.GripSlide, t),
         PartRotation = Vector3.Lerp(a.PartRotation, b.PartRotation, t)
     };
 }

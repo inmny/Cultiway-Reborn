@@ -54,7 +54,7 @@ public sealed partial class ConstructedAbilityService
             Bounds area = body.Flight.Bounds(body.Geometry, from, to);
             if (!body.Flight.Find(body.Geometry, from, to, terrain, CaptureBodyEnvironment(area, terrain), out BodySurfaceHit hit)) continue;
             include(new ContactChoice(default, default, null, hit.Fraction, hit.Point, hit.Normal, step,
-                carrying: hit, flight: body));
+                environment: hit, flight: body));
         }
     }
 

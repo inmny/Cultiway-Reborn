@@ -250,13 +250,14 @@ public sealed partial class ConstructedAbilityService
             bool left = action.Part.Left;
             Pose = previous.Pose.Height == 0f || action.ControlsStance || action.Part.IsHead ? pose : previous.Pose;
             Right = !action.Part.IsArm || left ? previous.Right : pose;
-            Left = action.Part.IsArm && left ? pose : previous.Left;
+            Left = pose.SupportingGrip.HasValue ? pose.SupportArm() : action.Part.IsArm && left ? pose : previous.Left;
             Head = action.Part.IsHead ? pose : previous.Head;
             Occupancy = previous.Occupancy | (action.Part.IsArm
                             ? left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm
                             : BodyOccupancy.None) |
                         (action.ControlsStance ? BodyOccupancy.Stance : BodyOccupancy.None) |
-                        (action.Part.IsHead ? BodyOccupancy.Head : BodyOccupancy.None);
+                        (action.Part.IsHead ? BodyOccupancy.Head : BodyOccupancy.None) |
+                        (pose.SupportingGrip.HasValue ? BodyOccupancy.LeftArm : BodyOccupancy.None);
             Weapon = previous.Weapon || weapon;
             Organs = previous.Organs ?? Array.Empty<PresentedOrgan>();
             OrganLayers = previous.OrganLayers ?? Array.Empty<string>();

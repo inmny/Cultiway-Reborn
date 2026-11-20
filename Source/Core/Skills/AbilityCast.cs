@@ -699,9 +699,17 @@ public sealed partial class AbilityCast
         samplingTarget = target;
         UpdateBodyStage();
         if (Plan.Body != null && !bodyInterrupted)
-            BodyPose = bodyResponse.HasValue
+        {
+            BodyPose pose = bodyResponse.HasValue
                 ? Plan.Body.SampleResponse(Age - bodyResponseDelay, in bodyFrame, bodyResponse.Value, BodyPose, Age)
                 : Plan.Body.Sample(Mathf.Min(Age, Plan.Body.Duration), in bodyFrame, bodyContactAt, BodyPose);
+            if (Plan.Body.UsesSupportingGrip && !pose.SupportingGrip.HasValue)
+            {
+                BodyPose ??= pose;
+                InterruptBody();
+            }
+            else BodyPose = pose;
+        }
         if (Plan.UsesHeldWeapon)
             origin = Plan.Body.HeldWeaponMatrix(BodyPose.Value);
         else if (Plan.Binding != null && (bindInitial || Plan.Binding.Follow))

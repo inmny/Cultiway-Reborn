@@ -13,6 +13,8 @@ internal sealed class WorldfallTerrainSource
     private readonly PropertyInfo root;
     /// <summary>外部根拥有的采集器。</summary>
     private readonly FieldInfo samplerField, cacheField, heightsVersion, flagsField, outsideField;
+    /// <summary>外部缓存中分开维护的墙脚与墙顶。</summary>
+    private readonly FieldInfo groundField, heightsField;
     /// <summary>初始化、区域刷新及实际高度入口。</summary>
     private readonly MethodInfo ensure, refresh, sample, liquid;
     /// <summary>当前外部采集器及已绑定委托，不在每个格点反射。</summary>
@@ -33,6 +35,8 @@ internal sealed class WorldfallTerrainSource
     private AbilityHeightField snapshot;
     /// <summary>保留影响采样的原格标记，用于识别没有改变格高的岸线变化。</summary>
     private byte[] flags;
+    /// <summary>只在主线程采集障碍时读，不把外部数组交给工作线程。</summary>
+    private float[] wallGround, wallTop;
 
     /// <summary>仅在可选模组边界解析已经使用的实际入口。</summary>
     /// <param name="assembly">已加载的外部程序集。</param>
@@ -44,6 +48,7 @@ internal sealed class WorldfallTerrainSource
         root = main.GetProperty("Instance", all); samplerField = main.GetField("_sampler", all);
         cacheField = reader.GetField("Cache", all); heightsVersion = reader.GetField("_heightsVersion", all);
         flagsField = terrain.GetField("Flags", all); outsideField = terrain.GetField("OutsideHeight", all);
+        groundField = terrain.GetField("Ground", all); heightsField = terrain.GetField("Heights", all);
         ensure = reader.GetMethod("EnsureWorld", all); refresh = reader.GetMethod("RefreshTiles", all);
         sample = terrain.GetMethod("SampleHeight", all, null, new[] { typeof(float), typeof(float) }, null);
         liquid = terrain.GetMethod("LiquidSurface", all, null, new[] { typeof(float), typeof(float) }, null);
@@ -56,6 +61,7 @@ internal sealed class WorldfallTerrainSource
     internal void Install()
     {
         ConstructedAbilityService.GroundProvider = Capture;
+        if (groundField != null && heightsField != null) ConstructedAbilityService.BodyWallHeights = WallHeights;
         WorldMaterialService.NativeWaterBottom = WaterBottom;
         Cultiway.Patch.PatchMapBox.RegisterActionOnClearWorld(Clear);
     }
@@ -66,7 +72,17 @@ internal sealed class WorldfallTerrainSource
         map = null;
         snapshot = null;
         flags = null;
+        wallGround = wallTop = null;
         version = -1;
+    }
+
+    /// <summary>墙顶同时属于地表，碰撞体仍须从外部发布的实际墙脚起算。</summary>
+    /// <param name="tile">本轮采集范围内的原版墙格。</param>
+    private Vector2? WallHeights(WorldTile tile)
+    {
+        if (wallGround == null) return null;
+        int index = tile.x + tile.y * MapBox.width;
+        return new Vector2(wallGround[index], wallTop[index]);
     }
 
     /// <summary>只读取已刷新区域的海水标记与实际承托；零高度的平海面仍按零厚面处理。</summary>
@@ -95,6 +111,7 @@ internal sealed class WorldfallTerrainSource
         if (!ReferenceEquals(current, sampler))
         {
             sampler = current; snapshot = null;
+            wallGround = wallTop = null;
             ensureWorld = (Func<bool>)Delegate.CreateDelegate(typeof(Func<bool>), current, ensure);
             refreshTiles = (Func<int, int, int, int, bool, int>)Delegate.CreateDelegate(typeof(Func<int, int, int, int, bool, int>), current, refresh);
             heightAt = (Func<float, float, float>)Delegate.CreateDelegate(typeof(Func<float, float, float>), cacheField.GetValue(current), sample);
@@ -110,6 +127,11 @@ internal sealed class WorldfallTerrainSource
                      version == (int)heightsVersion.GetValue(current);
         refreshTiles(x0, y0, x1, y1, true);
         object cache = cacheField.GetValue(current); byte[] actual = (byte[])flagsField.GetValue(cache);
+        if (groundField != null && heightsField != null && (wallGround == null || !ReferenceEquals(map, World.world.tiles_map)))
+        {
+            wallGround = (float[])groundField.GetValue(cache);
+            wallTop = (float[])heightsField.GetValue(cache);
+        }
         bool changed = snapshot == null || !ReferenceEquals(map, World.world.tiles_map) || version != (int)heightsVersion.GetValue(current);
         if (!changed)
             for (int y = y0; y < y1 && !changed; y++) for (int x = x0; x < x1; x++)

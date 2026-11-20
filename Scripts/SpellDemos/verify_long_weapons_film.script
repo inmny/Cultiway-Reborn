@@ -1,0 +1,138 @@
+    // 共用原版和 Worldfall 近景相机。两种画面都拍摄正式施放和结束后的原物归还。
+    const string incomingId = "Cultiway.Body.SwordThrust";
+    float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose")
+        .GetMethod("Height", F).Invoke(null, new object[] { source });
+    var cases = new[]
+    {
+        (key: "strike", ability: "Cultiway.Body.LongSpearThrust", range: height * 2.02f),
+        (key: "sweep", ability: "Cultiway.Body.LongSpearSweep", range: height * 1.12f),
+        (key: "press", ability: "Cultiway.Body.LongSpearDeflect", range: pressDistance)
+    };
+    Item spear = source.getWeapon()?.getAsset().id == "spear_iron" ? source.getWeapon() : Equip(source, "spear_iron");
+    Item sword = null;
+    var links = new List<(ConstructedBodyConnection Fact, float Age)>();
+    long spearCast = 0, swordCast = 0;
+    AbilityCast outgoing = null, incoming = null;
+    AbilityCast Running(long id)
+    {
+        object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Single(entry => (long)Field(entry, "Id") == id);
+        return (AbilityCast)Field(running, "Cast");
+    }
+    void Start(ConstructedCastStarted fact)
+    {
+        if (fact.SourceId == source.id && fact.AbilityId.StartsWith("Cultiway.Body.LongSpear"))
+        {
+            spearCast = fact.CastId;
+            outgoing = Running(spearCast);
+        }
+        if (fact.SourceId == target.id && fact.AbilityId == incomingId)
+        {
+            swordCast = fact.CastId;
+            incoming = Running(swordCast);
+        }
+    }
+    void Related(ConstructedBodyConnection fact)
+    {
+        if (fact.CastId == spearCast) links.Add((fact, outgoing.Age));
+    }
+    ConstructedAbilityService.CastStarted += Start;
+    ConstructedAbilityService.BodyConnectionChanged += Related;
+    try
+    {
+        foreach (var item in cases.Where(item => selectedMove == "" || selectedMove == item.key))
+        {
+            bool pressure = item.key == "press";
+            links.Clear();
+            spearCast = swordCast = 0;
+            outgoing = incoming = null;
+            var wrist = new List<Vector3>();
+            Place(source, 64.35f);
+            Place(target, 64.35f + item.range);
+            var from = source.current_position;
+            var to = target.current_position;
+            source.attack_timer = target.attack_timer = 999;
+            source.setHealth(source.getMaxHealth());
+            target.setHealth(target.getMaxHealth());
+            int sourceHealth = source.data.health, targetHealth = target.data.health;
+            var definition = ConstructionEditing.Access.Read(item.ability);
+            if (pressure)
+            {
+                Check(definition.Revision >= 2, "录像使用正式低杆架拨姿态");
+                sword = Equip(target, "sword_iron");
+                CombatStatusEffects.RemoveStatus(target, quiet);
+                target.updateStats();
+                target.cancelAllBeh();
+            }
+            await Game.NextFrame();
+            await Game.NextFrame();
+            int first = rows.Count;
+            Frame(item.ability);
+            source.data.stamina = 100;
+            await Fire(definition, source, target);
+            owner.E.RemoveComponent<ConstructedKnowledge>();
+            Check(Mathf.Abs(100 - source.data.stamina - definition.Cost) < .001f && spearCast != 0,
+                definition.Name + " 正式施放并支付体力");
+
+            double started = World.world.getCurWorldTime();
+            float incomingAge = 0;
+            while (World.world.getCurWorldTime() - started < definition.Lifetime + .24f)
+            {
+                float step = pressure ? .018f : 1f / 30f;
+                if (pressure && swordCast == 0)
+                    step = Mathf.Min(step, Mathf.Max(.00001f, pressDelay - outgoing.Age));
+                await Advance(step);
+                if (pressure && swordCast == 0 && outgoing.Age >= pressDelay - .000001f)
+                {
+                    incomingAge = outgoing.Age;
+                    await Fire(ConstructionEditing.Access.Read(incomingId), target, source);
+                    target.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+                }
+                if (incoming?.BodyPose is BodyPose pose && ConstructedAbilityService.GetBodyConnections().Any(link =>
+                    link.CastId == spearCast && Vector3.Distance(link.SourcePoint, link.TargetPoint) < .0001f))
+                    wrist.Add(pose.Hand);
+                await Game.NextFrame();
+                Frame(item.ability);
+            }
+
+            var hits = contacts.Where(hit => hit.CastId == spearCast && hit.TargetId == target.id).ToArray();
+            var began = links.FirstOrDefault(link => link.Fact.State == ConstructedBodyConnectionState.Active).Fact;
+            var release = links.FirstOrDefault(link => link.Fact.State == ConstructedBodyConnectionState.Released);
+            var ended = release.Fact;
+            Check(endings.Any(end => end.Fact.CastId == spearCast && !end.Fact.Cancelled) &&
+                  !BodyControlState.IsBusy(source.id) && ReferenceEquals(spear, source.getWeapon()),
+                definition.Name + " 收势归还原铁枪和身体");
+            if (pressure)
+            {
+                float wristTravel = wrist.Count < 2 ? 0f : Vector3.Distance(wrist[0], wrist.Last());
+                // 拍摄按帧推进。收杆开始后，实际撤离和腕点失去支撑都会解除相抵。
+                float returnAt = definition.Body.Keys.Single(key => key.Id == "press").At;
+                Check(swordCast > 0 && began.Kind == BodyRelationKind.Deflect && began.RelationId == "parry" &&
+                      ended.WorldTime - began.WorldTime > .075 &&
+                      release.Age >= returnAt && (ended.Reason == "Withdrawn" || ended.Reason == "OutOfReach") &&
+                      wristTravel > .001f && !ConstructedAbilityService.GetBodyConnections().Any(link => link.CastId == spearCast) &&
+                      source.current_position == from && target.current_position == to &&
+                      !contacts.Any(hit => hit.CastId == spearCast || hit.CastId == swordCast) &&
+                      source.data.health == sourceHealth && target.data.health == targetHealth &&
+                      !BodyControlState.IsBusy(target.id) && ReferenceEquals(sword, target.getWeapon()),
+                    "录像中的木杆持续拨开来剑，收杆正好解除接触",
+                    new { incomingAge, begin = began.WorldTime, release = ended.WorldTime, releaseAge = release.Age,
+                        ended.Reason, wristTravel, sourceHealth,
+                        sourceAfter = source.data.health, targetHealth, targetAfter = target.data.health });
+            }
+            else Check(hits.Length == 1 && hits[0].Node == -1 && target.data.health < targetHealth,
+                definition.Name + " 的实际枪段命中并扣血",
+                new { hit = hits.Select(value => new { value.Age, value.ForceApplied }).ToArray(), targetHealth, after = target.data.health });
+            recordings.Add(new { view, ability = item.ability, name = definition.Name, rate = 1, first,
+                last = rows.Count - 1, contacts = pressure ? 1 : hits.Length, duration = definition.Lifetime, paid = definition.Cost });
+            SaveRecording();
+        }
+        Check(recordings.Count == (selectedMove == "" ? cases.Length : 1), "所选正式出招全部拍到收势结束");
+        return new { passed = true, selection, view, frames = rows.Count, cases = recordings.Count, checks };
+    }
+    finally
+    {
+        ConstructedAbilityService.CastStarted -= Start;
+        ConstructedAbilityService.BodyConnectionChanged -= Related;
+    }
+}

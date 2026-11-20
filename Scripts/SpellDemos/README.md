@@ -2473,3 +2473,17 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--move cut` 验证斜切选择实际前刃，`--move sweep` 验证横扫中段及转体收势。`--move miss --item iron` 验证侧移避开斜切，`--move deflect --item iron` 验证真实剑身拨开斜切，双方各自收势。
 
 `--section archive` 使用万法阁身体页选择石剑外形和靠护手的握法，检查撤销、重开和正式写档。重启独立游戏后，用 `--section cold --archive <输出目录>` 读回原石剑与改造，再实际施放。`--section film --view native` 和 `--section film --view worldfall` 分别录制三招，可叠加 `--move thrust`、`--move cut` 或 `--move sweep` 补拍。
+
+### 长兵战技（9.44）
+
+在独立游戏用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_long_weapons.py`。检查正式铁枪刺的滑握、实际枪尖命中、近身落空、两手握杆横扫及原枪归还。用 `--case strike`、`--case near`、`--case sweep` 或 `--case interrupt` 单独复验。横扫检查左手占用拒绝、两手握点和实际臂长，换器检查同款新枪也会解除旧动作。
+
+`--case press --archive <输出目录>` 用正式对练档中的人物运行架杆拨锋与持剑刺击。检查接触点相合、杆身带动持剑手、收枪解除关系、双方原物归还，以及对方没有兵器时保留体力。
+
+`--case edit` 检查万法阁的实际握点、滑握比例、器物尺寸和普通接触面，并保存中英文画面和 `edited-definition.json`。使用 `--case range --edited <edited-definition.json 路径>` 实战核对该改造的选取距离、尖端接触以及原物归还。
+
+`--case obstacle --part tip` 和 `--case obstacle --part shaft` 分别检查原版城墙实际挡住哪一枪段。均核对畅通时的命中、受阻后的收势与原物归还，以及拆墙后再次命中。
+
+`--case archive` 在实际编辑器创建改造并写入原版世界档。停掉测试游戏并重新启动后，使用 `--case cold --archive <输出目录>` 读回原人物、铁枪和武技，再从人物已掌握的招式中施放改造。
+
+`--case film --view native --archive <输出目录>` 拍摄原版常速录像，`--view worldfall` 切换到 Worldfall。每招从同一个正式对练档重新加载，连续记录完整动作后拼接。使用 `--move strike`、`--move sweep` 或 `--move press` 单独补拍。三招一起拍时，给 `dev.py exec` 预留 750 秒。

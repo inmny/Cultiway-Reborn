@@ -53,6 +53,7 @@ public static partial class BodyConstructionEdits
             At = last.At + .1f, Hand = (float[])last.Hand.Clone(), Torso = (float[])last.Torso.Clone(),
             Rotation = (float[])last.Rotation.Clone(), Turn = last.Turn, Foot = (float[])last.Foot?.Clone(),
             HeadRotation = (float[])last.HeadRotation?.Clone(), PartRotation = (float[])last.PartRotation?.Clone(),
+            GripSlide = last.GripSlide,
             Support = last.Support == null ? null : new BodySupportMotion
             {
                 Rise = last.Support.Rise, LeftFoot = (float[])last.Support.LeftFoot.Clone(), RightFoot = (float[])last.Support.RightFoot.Clone(),

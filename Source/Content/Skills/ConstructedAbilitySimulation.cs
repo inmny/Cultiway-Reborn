@@ -503,6 +503,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         active.Clear();
         steps.Clear();
         weaponFollowers.Clear();
+        weaponsBefore.Clear();
         previousShapes.Clear();
         actingSurfaces.Clear();
         actingSurfacesFrom = actingSurfacesTo = 0d;
@@ -521,6 +522,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         shapes.Clear();
         shapeIndex.Clear();
+        weaponsBefore.Clear();
         hasBodyGuardShapes = false;
         includeReactiveMaterials = WorldMaterialService.HasHeat;
         foreach (RunningCast running in active)
@@ -536,6 +538,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         {
             running.BeforeTorso = running.BodyControlled ? running.Cast.BodyPose.Value.Torso : Vector3.zero;
             running.BeforeJoint = running.BodyControlled && running.Cast.Plan.Body.Part.IsJoint ? running.Cast.BodyPose.Value.Joint : null;
+            if (running.BodyControlled && running.Cast.Plan.Body.WeaponObstacle && !running.Practice &&
+                !running.Body.WeaponInConstruction && running.Cast.BodyResult == null &&
+                running.Cast.Age < running.Cast.Plan.Body.ActiveUntil)
+                weaponsBefore.Add((running, running.Cast.BodyPose.Value));
             if (running.BodyControlled && running.BodyGuardRemaining > 0f)
                 running.BeforeGuardNormal = running.Body.GuardNormal(running.Cast.BodyPose.Value);
             running.Cast.SaveStep();
@@ -773,11 +779,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         while (hit.HasValue && hit.Value.Fraction > 0f && hit.Value.Fraction < 1f)
         {
             ContactChoice candidate = hit.Value;
-            bool carrying = candidate.Carrying.HasValue && candidate.Flight == null;
+            bool environment = candidate.Environment.HasValue && candidate.Flight == null;
             bool weapon = candidate.BodyRelation >= 0 &&
                           candidate.Left.Running.Cast.Plan.Body.Construction.Relations[candidate.BodyRelation].Kind is BodyRelationKind.Brace or BodyRelationKind.Deflect or BodyRelationKind.Disarm &&
                           candidate.Left.Running.Cast.Plan.Body.Construction.Relations[candidate.BodyRelation].To.Part == "item";
-            if (!carrying && !weapon) break;
+            if (!environment && !weapon) break;
             float shorter = step * candidate.Fraction;
             if (shorter >= step) break;
             foreach (RunningCast running in active) running.Cast.RestoreStep();
@@ -794,6 +800,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         ContactChoice? first = null;
         contactEvaluation++;
+        FindWeaponObstacles(step, Include);
         for (int index = 0; index < shapes.Count; index++)
         {
             ShapeMotion shape = shapes[index];
@@ -979,7 +986,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
         void Include(ContactChoice value)
         {
-            if (value.Carrying.HasValue)
+            if (value.Environment.HasValue)
             {
                 if (!first.HasValue || ContactChoice.Compare(value, first.Value) < 0) first = value;
                 return;
@@ -1026,7 +1033,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         if (hit.Flight != null)
         {
-            ConstructedActorImpulse.ContactBody(hit.Flight, hit.Carrying.Value, simulation.contactTime);
+            ConstructedActorImpulse.ContactBody(hit.Flight, hit.Environment.Value, simulation.contactTime);
             return;
         }
         ValidateSource(hit.Left.Running);
@@ -1036,16 +1043,21 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ValidateSource(hit.Right.Value.Running);
             if (hit.Right.Value.Running.Replaced) return;
         }
-        if (hit.Carrying.HasValue)
+        if (hit.Environment.HasValue)
         {
+            if (hit.HeldWeaponObstacle)
+            {
+                ResolveWeaponObstacle(hit);
+                return;
+            }
             RunningCast carrier = hit.Left.Running;
             if (carrier.Connection?.Active == true)
             {
                 BodyConnection connection = carrier.Connection;
                 double time = simulation.contactTime;
-                connection.EnvironmentContact = hit.Carrying.Value;
-                ReleaseBodyConnection(carrier, hit.Carrying.Value.Reason, fade: false, time: time);
-                ResolveBodyImpact(connection.ImpactSource, hit.Carrying.Value,
+                connection.EnvironmentContact = hit.Environment.Value;
+                ReleaseBodyConnection(carrier, hit.Environment.Value.Reason, fade: false, time: time);
+                ResolveBodyImpact(connection.ImpactSource, hit.Environment.Value,
                     connection.Motion.Matrix.MultiplyPoint3x4(connection.Geometry.Center),
                     connection.LinearVelocity, connection.AngularVelocity, time);
             }
@@ -1612,8 +1624,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <summary>双方身体关系序号，负一表示普通接触。</summary>
         internal readonly int BodyRelation;
 
-        /// <summary>携带身体对真实环境的首次接触，其他候选为空。</summary>
-        internal readonly BodySurfaceHit? Carrying;
+        /// <summary>身体或持械对真实环境的首次接触，其他候选为空。</summary>
+        internal readonly BodySurfaceHit? Environment;
+
+        /// <summary>真实环境碰到的是手中器物，其他环境接触属于携带或离手身体。</summary>
+        internal readonly bool HeldWeaponObstacle;
 
         /// <summary>离手后的实际身体，其他接触为空。</summary>
         internal readonly ConstructedActorImpulse.BodyFlight Flight;
@@ -1692,7 +1707,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="bodyRelation">双方关系序号，负一表示普通命中。</param>
         /// <param name="bodySurface">接触时共同目标表面，普通命中为空。</param>
         /// <param name="bodyAnchor">目标原三角面内的位置。</param>
-        /// <param name="carrying">真实携带环境接触。</param>
+        /// <param name="environment">身体或持械的实际环境接触。</param>
+        /// <param name="heldWeaponObstacle">环境是否挡住手中的实际器物。</param>
         /// <param name="flight">真实离手身体。</param>
         /// <param name="actorShape">同一接触时点的真实人物作用体。</param>
         /// <param name="frostBinding">实际结霜模型。</param>
@@ -1701,13 +1717,14 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             Vector3 normal, float seconds, bool quenching = false, long worldRecord = 0,
             AbilityCapsule worldShape = default, ThermalReaction reaction = ThermalReaction.None,
             bool worldSource = false, WorldTile tile = null, int worldEffect = 0, int bodyRelation = -1,
-            BodySurfacePose bodySurface = null, BodySurfaceAnchor bodyAnchor = default, BodySurfaceHit? carrying = null, ConstructedActorImpulse.BodyFlight flight = null,
+            BodySurfacePose bodySurface = null, BodySurfaceAnchor bodyAnchor = default, BodySurfaceHit? environment = null, ConstructedActorImpulse.BodyFlight flight = null,
             AbilityCapsule actorShape = default, Vector3 bodyGuardFacing = default, BodySurfaceBinding frostBinding = null,
-            CompiledFrostCoating frostRule = null)
+            CompiledFrostCoating frostRule = null, bool heldWeaponObstacle = false)
         {
             BodyGuardFacing = bodyGuardFacing;
             BodyRelation = bodyRelation;
-            Carrying = carrying;
+            Environment = environment;
+            HeldWeaponObstacle = heldWeaponObstacle;
             Flight = flight;
             BodySurface = bodySurface;
             BodyAnchor = bodyAnchor;
@@ -1738,7 +1755,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             Point = point;
             Seconds = seconds;
             LeftRayLength = RightRayLength = -1f;
-            if (carrying.HasValue) return;
+            if (environment.HasValue) return;
             bool leftRay = Left.Running.Cast.IsRay(Left.To.Node),
                 rightRay = Right.HasValue && Right.Value.Running.Cast.IsRay(Right.Value.To.Node);
             if (!leftRay && !rightRay) return;
@@ -1770,7 +1787,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         {
             int order = a.Fraction.CompareTo(b.Fraction);
             if (order != 0) return order;
-            order = b.Carrying.HasValue.CompareTo(a.Carrying.HasValue);
+            order = b.Environment.HasValue.CompareTo(a.Environment.HasValue);
             if (order != 0) return order;
             order = (b.Flight != null).CompareTo(a.Flight != null);
             if (order != 0) return order;

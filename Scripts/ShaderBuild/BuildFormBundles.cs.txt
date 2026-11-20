@@ -563,6 +563,9 @@ namespace CultiwayAssets.Editor
             /// <summary>半径。</summary>
             public float Radius;
 
+            /// <summary>器物实际被手持时，此接触部位的材料。</summary>
+            public string HeldMatter;
+
             /// <summary>两个端点分别随动的控制。</summary>
             public string AControl, BControl;
 

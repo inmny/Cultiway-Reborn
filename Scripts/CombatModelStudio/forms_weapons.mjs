@@ -57,16 +57,18 @@ export function makeWeaponForms() {
     part('point',leaf([[3.10,.08,.035],[3.28,.19,.045],[3.58,.15,.035],[4.15,.002,.002]]),'metal'),
     part('butt',new T.ConeGeometry(.075,.24,16).rotateX(-Math.PI/2).translate(0,0,-1.69),'metal')];
   const spearAnchors=[{Id:'grip',Part:0,Position:[0,0,0],Direction:[0,0,1]},
+    {Id:'mid',Part:0,Position:[0,0,.4],Direction:[0,0,1]},
     {Id:'forward',Part:0,Position:[0,0,.8],Direction:[0,0,1]},
     {Id:'tip',Part:2,Position:[0,0,4.15],Direction:[0,0,1]},
     {Id:'shaft',Part:0,Position:[0,0,1.2],Direction:[1,0,0]}];
   write('spear',spearParts,spearAnchors,
     [{Id:'tip',Part:2,A:[0,0,4.04],B:[0,0,4.13],Radius:.018},
-      {Id:'shaft',Part:0,A:[0,0,-1.54],B:[0,0,2.69],Radius:.055}],[],[],false,null,
+      {Id:'shaft',Part:0,A:[0,0,-1.54],B:[0,0,2.69],Radius:.055,HeldMatter:'wood'}],[],[],false,null,
     structure('rigid','forms_weapons.mjs','spear',{length:5.96,shaftRadius:.055},
       {shaft:['weapon.shaft','weapon.grip'],socket:['weapon.socket'],point:['weapon.tip','blade.edge'],butt:['weapon.pommel']},
       [['shaft','socket',[0,0,2.75]],['socket','point',[0,0,3.10]],['shaft','butt',[0,0,-1.60]]]),
     [{Id:'grip',Anchor:'grip',Up:[0,1,0],Diameter:.11,Scale:[.2,.6]},
+      {Id:'mid',Anchor:'mid',Up:[0,1,0],Diameter:.11,Scale:[.2,.6]},
       {Id:'forward',Anchor:'forward',Up:[0,1,0],Diameter:.11,Scale:[.2,.6]}],[],{Groups:['spear'],Scale:.42});
 
   // 细锤柄的简化截面在远景会整段消失，保留原来 288 个三角面。

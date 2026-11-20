@@ -177,6 +177,23 @@
         },
         {
             "BuildAt": 0.0,
+            "Id": "mid",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.4000000059604645
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
             "Id": "forward",
             "Part": 0,
             "Position": [
@@ -231,6 +248,20 @@
         {
             "Id": "grip",
             "Anchor": "grip",
+            "Up": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "Diameter": 0.10999999940395355,
+            "Scale": [
+                0.20000000298023225,
+                0.6000000238418579
+            ]
+        },
+        {
+            "Id": "mid",
+            "Anchor": "mid",
             "Up": [
                 0.0,
                 1.0,
@@ -302,6 +333,7 @@
                 2.690000057220459
             ],
             "Radius": 0.054999999701976779,
+            "HeldMatter": "wood",
             "AControl": "",
             "BControl": "",
             "AInfluences": [],

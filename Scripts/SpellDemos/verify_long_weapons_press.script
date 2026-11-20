@@ -1,0 +1,161 @@
+// 正式架杆拨锋与正式铁剑刺击交锋，验证杆身实际带动来剑。
+const string pressId = "Cultiway.Body.LongSpearDeflect";
+const string incomingId = "Cultiway.Body.SwordThrust";
+var relations = new List<ConstructedBodyConnection>();
+var contactPoses = new List<object>();
+AbilityCast press = null, incoming = null;
+long pressCast = 0, incomingCast = 0;
+object pressRunning = null;
+
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId == pressId && fact.SourceId == source.id)
+    {
+        pressRunning = Running(fact.CastId);
+        press = (AbilityCast)Field(pressRunning, "Cast");
+        pressCast = fact.CastId;
+    }
+    if (fact.AbilityId == incomingId && fact.SourceId == target.id)
+    {
+        incoming = (AbilityCast)Field(Running(fact.CastId), "Cast");
+        incomingCast = fact.CastId;
+    }
+}
+
+object Running(long id) =>
+    ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(entry => (long)Field(entry, "Id") == id);
+
+void Related(ConstructedBodyConnection fact)
+{
+    if (fact.CastId != pressCast || fact.TargetId != target.id) return;
+    relations.Add(fact);
+    var relation = Field(pressRunning, "Connection");
+    contactPoses.Add(new
+    {
+        fact.State,
+        sourceAge = press.Age,
+        targetAge = incoming?.Age,
+        normal = relation == null ? null : ((Vector3)Field(relation, "Normal")).ToString("F7"),
+        source = Wrist(press.BodyPose),
+        target = Wrist(incoming?.BodyPose)
+    });
+
+    object Wrist(BodyPose? value) => value is BodyPose pose ? new
+    {
+        hand = pose.Hand.ToString("F7"),
+        shoulder = pose.Shoulder.ToString("F7"),
+        fittedShoulder = pose.OtherArm?.Shoulder.ToString("F7"),
+        forearm = Vector3.Distance(pose.Elbow, pose.Hand),
+        arm = Vector3.Distance(pose.Shoulder, pose.Elbow),
+        rotation = pose.Rotation.eulerAngles.ToString("F7")
+    } : null;
+}
+
+var clock = Config.time_scale_asset;
+float speed = clock.multiplier;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.BodyConnectionChanged += Related;
+try
+{
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Ready(source);
+    source.attack_timer = target.attack_timer = 999;
+    await Advance(.18f);
+    clock.multiplier = speed * .32f;
+    Item spear = source.getWeapon()?.getAsset().id == "spear_iron" ? source.getWeapon() : Equip(source, "spear_iron");
+    Place(source, 64.35f);
+    Place(target, 64.35f + pressDistance);
+    var originalSource = source.current_position;
+    var originalTarget = target.current_position;
+    source.addAggro(target);
+    target.addAggro(source);
+    var definition = ConstructionEditing.Access.Read(pressId);
+    Check(definition.Revision >= 2, "读取正式低杆架拨姿态");
+    ConstructedAbilityService.Learn(owner, pressId);
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, pressId);
+    source.data.stamina = 100;
+    source.attack_timer = 0;
+    bool rejected = !ActiveAbilityService.TryUse(owner, handle,
+        new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999;
+    Check(rejected && !BodyControlState.IsBusy(source.id) && source.data.stamina == 100,
+        "对方没有实际持物时拒绝拨压，身体和体力均保持");
+
+    var sword = Equip(target, "sword_iron");
+    CombatStatusEffects.RemoveStatus(target, quiet);
+    target.updateStats();
+    target.cancelAllBeh();
+    int leftHealth = source.data.health, rightHealth = target.data.health;
+    await Fire(definition, source, target);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Mathf.Abs(100 - source.data.stamina - definition.Cost) < .001f, "架杆拨锋按正式入口支付一次");
+    await Advance(pressDelay);
+    await Fire(ConstructionEditing.Access.Read(incomingId), target, source);
+    target.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+
+    var samples = new List<(float Remaining, float Age, float Gap, Vector3 Wrist)>();
+    var distances = new List<object>();
+    var surfaceAt = service.GetMethod("BodySurfaceAt", F);
+    var worldTime = service.GetProperty("ConfirmedWorldTime", F);
+    var binding = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Select(entry => ((long)Field(entry, "Id"), Field(entry, "Body"))).Single(entry => entry.Item1 == pressCast).Item2;
+    var append = binding.GetType().GetMethod("AppendContacts", F);
+    while (!press.Finished && press.Age < definition.Body.ActiveUntil + .04f)
+    {
+        await Advance(.018f);
+        foreach (var current in ConstructedAbilityService.GetBodyConnections().Where(value => value.CastId == pressCast))
+            samples.Add((current.Remaining, incoming.Age, Vector3.Distance(current.SourcePoint, current.TargetPoint),
+                incoming.BodyPose.Value.Hand));
+        var surface = surfaceAt.Invoke(null, new object[] { target.id, worldTime.GetValue(null) });
+        if (press.Finished || surface == null) continue;
+        var shapes = new List<AbilityCapsule>();
+        append.Invoke(binding, new object[] { press.BodyPose.Value, shapes });
+        if (shapes.Count == 0) continue;
+        var rod = shapes.Single();
+        var nearest = surface.GetType().GetMethod("Nearest", F);
+        var closest = Enumerable.Range(0, 13).Select(index =>
+        {
+            Vector3 at = Vector3.Lerp(rod.A, rod.B, index / 12f);
+            Vector3 other = (Vector3)nearest.Invoke(surface, new object[] { "item", at });
+            return new { distance = Vector3.Distance(at, other) - rod.Radius, delta = (other - at).ToString("F4") };
+        }).OrderBy(value => value.distance).First();
+        distances.Add(new { press.Age, incomingAge = incoming.Age, closest });
+    }
+    var began = relations.FirstOrDefault(value => value.State == ConstructedBodyConnectionState.Active);
+    var functional = samples.Where(sample => sample.Gap < .0001f).ToArray();
+    Check(began.Kind == BodyRelationKind.Deflect && began.RelationId == "parry" && functional.Length >= 2 &&
+          functional[0].Remaining > functional.Last().Remaining && functional[0].Age < functional.Last().Age &&
+          Vector3.Distance(functional[0].Wrist, functional.Last().Wrist) > .001f &&
+          source.current_position == originalSource && target.current_position == originalTarget,
+        "真实木杆碰到剑身后带动原持剑手，双脚保持原地",
+        new { press.Age, press.Phase, poseAge = press.BodyPose?.WorldAge, incomingAge = incoming.Age,
+            sourceHealth = source.data.health, leftHealth,
+            source = source.current_position.ToString("F4"),
+            target = target.current_position.ToString("F4"),
+            samples = samples.Select(s => new { s.Remaining, s.Age, s.Gap, wrist = s.Wrist.ToString("F4") }).ToArray(),
+            relations = relations.Select(r => new { r.State, r.Reason, r.WorldTime, r.Remaining,
+                gap = Vector3.Distance(r.SourcePoint, r.TargetPoint),
+                from = r.SourcePoint.ToString("F4"), to = r.TargetPoint.ToString("F4") }).ToArray(), contactPoses, distances });
+    await Advance(definition.Lifetime);
+    var released = relations.FirstOrDefault(value => value.State == ConstructedBodyConnectionState.Released);
+    Check(released.Reason == "Withdrawn" && released.WorldTime - began.WorldTime > .075 &&
+          !ConstructedAbilityService.GetBodyConnections().Any(value => value.CastId == pressCast) &&
+          !BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id) &&
+          ReferenceEquals(spear, source.getWeapon()) && ReferenceEquals(sword, target.getWeapon()) &&
+          source.data.health == leftHealth && target.data.health == rightHealth &&
+          !contacts.Any(hit => hit.CastId == pressCast || hit.CastId == incomingCast),
+        "收杆解除真实相抵，双方保有原装备且没有补伤",
+        new { seconds = released.WorldTime - began.WorldTime, released.Reason });
+    return new { passed = true, selection, checks };
+}
+finally
+{
+    ConstructedAbilityService.BodyConnectionChanged -= Related;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    clock.multiplier = speed;
+    ControllableUnit.clear(false);
+}

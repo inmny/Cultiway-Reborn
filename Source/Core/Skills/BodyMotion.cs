@@ -40,8 +40,20 @@ public sealed class BodyActionDefinition
     /// <summary>空值使用所选实际身体部位；非空时由手部借用实际持有器物，并描述握点及刃部。</summary>
     public string WeaponForm;
 
+    /// <summary>本招借用器形的实际尺寸，以体高为单位。空值沿用器形的制作尺寸。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float? WeaponScale;
+
+    /// <summary>持械过程是否会被真正的墙面或摆放物挡住。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool WeaponObstacle;
+
     /// <summary>器物上实际采用的握持挂点。</summary>
     public string Grip = "grip";
+
+    /// <summary>同一段直杆上的另一真实握点，供姿态沿轴滑握。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public string SlideGrip;
 
     /// <summary>按本次实际目标距离调整行程，仍由真实骨长夹紧；旧动作缺省保留原制作路径。</summary>
     public bool MatchDistance;
@@ -137,6 +149,10 @@ public sealed class BodyMotionKey
 
     /// <summary>掌面或握持轴相对出手方向的三个旋转角度。</summary>
     public float[] Rotation = new float[3];
+
+    /// <summary>沿原握点和另一个握点之间移动的比例。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float GripSlide;
 }
 
 /// <summary>从实际身体采集的数值输入，不持有人物、网格或外部模组对象。</summary>
@@ -171,6 +187,9 @@ public readonly struct BodyFrame
 
     /// <summary>其他实际身体呈现需要同时满足的固定安装及肢长，空值只有共同参考身体。</summary>
     public readonly BodyFit Fit;
+
+    /// <summary>左手托握时另行采集的实际三维肩点及臂长。</summary>
+    internal readonly BodyFit SupportFit;
 
     /// <summary>原版实际头图的几何，数值探针缺省采用共同参考。</summary>
     public readonly BodyHeadFit NativeHead;
@@ -212,11 +231,13 @@ public readonly struct BodyFrame
     /// <param name="poseConstraint">其他实际部位的接触姿态约束。</param>
     /// <param name="aimOffset">原动作在真实目标部位上的适配偏移。</param>
     /// <param name="joint">原身体真实骨段输入。</param>
+    /// <param name="supportFit">另一只手的真实三维骨架。</param>
     public BodyFrame(Vector3 foot, Vector3 forward, float height, Vector3 shoulder,
         float upperLength, float lowerLength, float bendSide, float aimHeight = 0f, BodyFit fit = null,
         Vector3? aimForward = null, BodyHeadFit nativeHead = null, BodyOrganFrame? organ = null,
         float aimDistance = -1f, BodySupportPose? support = null, BodyHandConstraint? handConstraint = null,
-        BodyPoseConstraint? poseConstraint = null, Vector3 aimOffset = default, BodyJointFrame joint = null)
+        BodyPoseConstraint? poseConstraint = null, Vector3 aimOffset = default, BodyJointFrame joint = null,
+        BodyFit supportFit = null)
     {
         Foot = foot;
         Forward = forward;
@@ -228,6 +249,7 @@ public readonly struct BodyFrame
         BendSide = bendSide;
         AimHeight = aimHeight;
         Fit = fit;
+        SupportFit = supportFit;
         NativeHead = nativeHead;
         Organ = organ;
         Joint = joint;
@@ -242,19 +264,19 @@ public readonly struct BodyFrame
     /// <param name="constraint">本步连接或解除后的渐变。</param>
     public BodyFrame WithHandConstraint(BodyHandConstraint? constraint) => new(Foot, Forward, Height, Shoulder,
         UpperLength, LowerLength, BendSide, AimHeight, Fit, AimForward, NativeHead, Organ, AimDistance, Support,
-        constraint, PoseConstraint, AimOffset, Joint);
+        constraint, PoseConstraint, AimOffset, Joint, SupportFit);
 
     /// <summary>保留真实接触姿态，仍使用当前脚下与骨长；外部搬移不能被旧姿态掩盖。</summary>
     /// <param name="constraint">本步维持或解除后的归还。</param>
     public BodyFrame WithPoseConstraint(BodyPoseConstraint? constraint) => new(Foot, Forward, Height, Shoulder,
         UpperLength, LowerLength, BendSide, AimHeight, Fit, AimForward, NativeHead, Organ, AimDistance, Support,
-        HandConstraint, constraint, AimOffset, Joint);
+        HandConstraint, constraint, AimOffset, Joint, SupportFit);
 
     /// <summary>带动已经取得的目标时保留抓住时的相对瞄准，不再反向追逐原世界点抵消自身移动。</summary>
     /// <param name="reference">实际抓住时的完整身体输入。</param>
     internal BodyFrame WithRelativeAim(in BodyFrame reference) => new(Foot, Forward, Height, Shoulder,
         UpperLength, LowerLength, BendSide, reference.AimHeight, Fit, AimForward, NativeHead, Organ,
-        reference.AimDistance, Support, HandConstraint, PoseConstraint, AimOffset, Joint);
+        reference.AimDistance, Support, HandConstraint, PoseConstraint, AimOffset, Joint, SupportFit);
 
     /// <summary>整身转向仍保留同一世界足底，瞄准与实际身体共同转动。</summary>
     /// <param name="angle">相对起势的转角。</param>
@@ -271,7 +293,7 @@ public readonly struct BodyFrame
 
         return new BodyFrame(Foot, rotation * Forward, Height, Shoulder, UpperLength, LowerLength, BendSide,
             AimHeight, Fit, rotation * AimForward, NativeHead, Organ, AimDistance, support, HandConstraint,
-            PoseConstraint, AimOffset, Joint);
+            PoseConstraint, AimOffset, Joint, SupportFit);
     }
 }
 
@@ -320,11 +342,17 @@ public readonly struct BodyPose
     /// <summary>另一套实际肩肘的同轮结果，与主身体共用同一个腕点。</summary>
     public readonly BodyArmPose? OtherArm;
 
+    /// <summary>在同一件兵器上已经求出的另一处真实握持。</summary>
+    internal readonly BodySupportingGrip? SupportingGrip;
+
     /// <summary>出手时锁定的水平前方，身体显示不从手掌旋转反推朝向。</summary>
     public readonly Vector3 Forward;
 
     /// <summary>本时刻的手部坐标系。</summary>
     public readonly Quaternion Rotation;
+
+    /// <summary>本时刻握点在直杆上的滑动比例。</summary>
+    public readonly float GripSlide;
 
     /// <summary>实际体高。</summary>
     public readonly float Height;
@@ -356,12 +384,15 @@ public readonly struct BodyPose
     /// <param name="head">已经完成的头部姿态。</param>
     /// <param name="organ">同轮真实器官姿态。</param>
     /// <param name="joint">原身体真实骨段姿态。</param>
+    /// <param name="gripSlide">实际握点的滑动比例。</param>
+    /// <param name="supportingGrip">左手托握的同轮姿态。</param>
     internal BodyPose(Vector3 foot, Vector3 shoulder, Vector3 elbow, Vector3 hand,
         Quaternion rotation, float height, Vector3 torso, float turn, Vector3 forward, float actionAge, Vector3 bend,
         BodyArmPose? otherArm = null, Vector3? leftFoot = null, Vector3? rightFoot = null,
         Vector3 centerOffset = default, float? worldAge = null, BodyContactPart contact = BodyContactPart.Hand,
         BodyLegPose? leftLeg = null, BodyLegPose? rightLeg = null, bool left = false, float? bodyHeight = null,
-        BodyHeadPose? head = null, BodyOrganPose? organ = null, BodyJointPose joint = null)
+        BodyHeadPose? head = null, BodyOrganPose? organ = null, BodyJointPose joint = null, float gripSlide = 0f,
+        BodySupportingGrip? supportingGrip = null)
     {
         Foot = foot;
         Shoulder = shoulder;
@@ -369,6 +400,7 @@ public readonly struct BodyPose
         Hand = hand;
         Forward = forward;
         Rotation = rotation;
+        GripSlide = gripSlide;
         Vector3 actualShoulder = otherArm?.Shoulder ?? shoulder, actualElbow = otherArm?.Elbow ?? elbow;
         EffectorPoint = contact switch
         {
@@ -413,11 +445,20 @@ public readonly struct BodyPose
         WorldAge = worldAge ?? actionAge;
         Bend = bend;
         OtherArm = otherArm;
+        SupportingGrip = supportingGrip;
         Vector3 side = Vector3.Cross(forward, Vector3.forward);
         LeftFoot = leftLeg?.Foot ?? leftFoot ?? foot - side * height * CompiledBodyAction.FootSide;
         RightFoot = rightLeg?.Foot ?? rightFoot ?? foot + side * height * CompiledBodyAction.FootSide;
         CenterOfMass = joint?.Center ?? (foot + torso + Vector3.forward * height * CompiledBodyAction.HipHeight + centerOffset);
         if (joint != null) LeftFoot = RightFoot = foot;
+    }
+
+    /// <summary>为两个绘制端与实际部件查询提供独立的左手臂链。</summary>
+    internal BodyPose SupportArm()
+    {
+        var grip = SupportingGrip.Value;
+        return new BodyPose(Foot, grip.Arm.Shoulder, grip.Arm.Elbow, grip.Hand, grip.Rotation, Height,
+            Torso, Turn, Forward, ActionAge, grip.Arm.Bend, grip.Adapted, worldAge: WorldAge);
     }
 }
 
@@ -527,7 +568,8 @@ public sealed partial class CompiledBodyAction
 
     /// <summary>把编译得到的同一握点还原到当前腕点、朝向与实际身体尺寸。</summary>
     internal Matrix4x4 HeldWeaponMatrix(in BodyPose pose) =>
-        Matrix4x4.TRS(pose.Hand, pose.Rotation, Vector3.one * pose.Height) * heldWeaponLocal;
+        Matrix4x4.TRS(pose.Hand, pose.Rotation, Vector3.one * pose.Height) *
+        (pose.GripSlide == 0f ? heldWeaponLocal : Matrix4x4.Translate(gripSlideOffset * pose.GripSlide) * heldWeaponLocal);
 
     /// <summary>所选接触部位相对手腕的中心，按体高归一化，用于实际触达适配。</summary>
     public Vector3 WeaponContactPoint { get; }
@@ -582,6 +624,9 @@ public sealed partial class CompiledBodyAction
 
     /// <summary>需要借用的器物形体。</summary>
     public string WeaponForm { get; }
+
+    /// <summary>是否扫掠本次实际持械的环境接触。</summary>
+    internal bool WeaponObstacle { get; }
 
     /// <summary>空手拳击共用的闭指与指根形状。其余手部动作仍采用原形体接触。</summary>
     internal BodyFist Fist { get; }
@@ -655,6 +700,9 @@ public sealed partial class CompiledBodyAction
                 !Finite(source.Turn) || source.At < 0 || source.At > lifetime ||
                 i > 0 && source.At <= keys[i - 1].At)
                 throw new InvalidDataException("Body/Keys[" + i + "]/At：姿态时间须为有限数且严格递增");
+            if (!Finite(source.GripSlide) || source.GripSlide < 0f || source.GripSlide > 1f ||
+                source.GripSlide != 0f && definition.SlideGrip == null)
+                throw new InvalidDataException("Body/Keys[" + i + "]/GripSlide：沿真实握点的比例须在0至1之间");
             keys[i] = new Key
             {
                 At = source.At,
@@ -666,7 +714,7 @@ public sealed partial class CompiledBodyAction
                 Torso = Vector(source.Torso, "Body/Keys[" + i + "]/Torso"),
                 Rotation = Vector(source.Rotation, "Body/Keys[" + i + "]/Rotation"),
                 PartRotation = source.PartRotation == null ? Vector3.zero : Vector(source.PartRotation, "Body/Keys[" + i + "]/PartRotation"),
-                Turn = source.Turn, Heading = source.Heading
+                Turn = source.Turn, Heading = source.Heading, GripSlide = source.GripSlide
             };
             if (i > 0)
                 for (int axis = 0; axis < 3; axis++)
@@ -748,6 +796,7 @@ public sealed partial class CompiledBodyAction
         if (!Finite(ReleaseAt) || ReleaseAt < 0f || ReleaseAt > definition.ActiveFrom)
             throw new InvalidDataException("Body/ReleaseAt：出手时点须从零开始且不晚于有效窗口起点");
         Occupancy = definition.Occupancy | Part.Occupancy;
+        if (UsesSupportingGrip) Occupancy |= BodyOccupancy.LeftArm;
         // 实际资料带动躯干时必须取得全身控制，不能靠省略声明让两个动作同时扭动身体。
         if (Part.IsLeg || Part.Contact == BodyContactPart.Shoulder || Construction.HasSupport ||
             Construction.HasControlRelations ||
@@ -763,6 +812,13 @@ public sealed partial class CompiledBodyAction
         actionUntil = definition.ActiveUntil;
         ActiveUntil = actionUntil + hold.Seconds;
         WeaponForm = definition.WeaponForm;
+        WeaponObstacle = definition.WeaponObstacle;
+        if (WeaponObstacle && WeaponForm == null)
+            throw new InvalidDataException("Body/WeaponObstacle：障碍接触需要实际借用器物");
+        if (definition.SlideGrip != null && WeaponForm == null)
+            throw new InvalidDataException("Body/SlideGrip：滑握需要实际杆兵");
+        if (definition.WeaponScale.HasValue && (WeaponForm == null || !Finite(definition.WeaponScale.Value)))
+            throw new InvalidDataException("Body/WeaponScale：尺寸须为有限数且需要实际器形");
         if (WeaponForm != null && (Part.Contact != BodyContactPart.Hand || Part.IsFist))
             throw new InvalidDataException("Body/WeaponForm：实际借用器物需要手部握持，不能把肘肩当作握点");
         Grip = Construction.Grip;
@@ -854,13 +910,20 @@ public sealed partial class CompiledBodyAction
         {
             if (resource.Description.Held.Groups.Length == 0)
                 throw new InvalidDataException("Body/WeaponForm：资源未声明实际装备类型：" + WeaponForm);
-            WeaponSize = resource.Description.Held.Scale;
+            WeaponSize = definition.WeaponScale ?? resource.Description.Held.Scale;
             int handAnchor = Array.FindIndex(hand.Anchors, anchor => anchor.Id == Construction.HandGrip);
             if (handAnchor < 0)
                 throw new InvalidDataException("Body/Construction/Relations/Grip：手部缺少实际握点：" + Construction.HandGrip);
             Vector3 handGrip = hand.Anchors[handAnchor].Transform.GetColumn(3);
-            contactMatrix = ConstructionReferences.Resolve("Body/Grip", () => resource.Grip(Grip), "Grip", WeaponForm + " / " + Grip).Align(
-                Matrix4x4.TRS(handMatrix.MultiplyPoint3x4(handGrip), Quaternion.identity, Vector3.one), WeaponSize);
+            var grip = ConstructionReferences.Resolve("Body/Grip", () => resource.Grip(Grip), "Grip", WeaponForm + " / " + Grip);
+            if (definition.WeaponScale.HasValue && !grip.Fits(WeaponSize, .035f * HandScale, .08f * HandScale))
+                throw new InvalidDataException("Body/WeaponScale：改变器形尺寸后，所选握点须保持可握持");
+            var socket = Matrix4x4.TRS(handMatrix.MultiplyPoint3x4(handGrip), Quaternion.identity, Vector3.one);
+            contactMatrix = grip.Align(socket, WeaponSize);
+            if (definition.SlideGrip != null)
+                gripSlideOffset = CompileGripSlide(resource, grip, definition.SlideGrip, socket, contactMatrix);
+            if (UsesSupportingGrip)
+                supportWristLocal = CompileSupportingGrip(resource, hand, grip, definition.SlideGrip, contactMatrix, handMatrix);
         }
 
         heldWeaponLocal = contactMatrix;
@@ -880,10 +943,7 @@ public sealed partial class CompiledBodyAction
             WeaponContactPoint = center / total;
         }
 
-        ContactReach = HandReach + selectedContacts.Select(contact =>
-                Mathf.Max(contactMatrix.MultiplyPoint3x4(contact.A).magnitude,
-                    contactMatrix.MultiplyPoint3x4(contact.B).magnitude) + contact.Radius * contactMatrix.lossyScale.x)
-            .DefaultIfEmpty(0f).Max();
+        ContactReach = HandReach + ContactExtent(contactMatrix, selectedContacts, definition.SlideGrip != null);
     }
 
     /// <summary>取样连续手路与转体，再用真实骨长解出肘部；不会延长手臂追赶越界目标。</summary>
@@ -950,8 +1010,10 @@ public sealed partial class CompiledBodyAction
                     Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((keys[keys.Length - 1].At - age) /
                                                            Mathf.Max(.0001f, keys[keys.Length - 1].At - actionUntil)));
         float distanceScale = 1f;
+        float gripSlide = Curve(a.GripSlide, b.GripSlide, va.GripSlide, vb.GripSlide, span, t);
         Vector3 weaponAim = MatchDistance
-            ? Quaternion.Euler(Curve(a.Rotation, b.Rotation, va.Rotation, vb.Rotation, span, t)) * WeaponContactPoint
+            ? Quaternion.Euler(Curve(a.Rotation, b.Rotation, va.Rotation, vb.Rotation, span, t)) *
+              (WeaponContactPoint + gripSlideOffset * gripSlide)
             : Vector3.zero;
         if (MatchDistance && frame.AimDistance >= 0f)
         {
@@ -1111,7 +1173,31 @@ public sealed partial class CompiledBodyAction
             handSpeed > 0f ? handSpeed * frame.Height * elapsed : -1f, out Vector3 elbow, out Vector3 hand,
             out Vector3 bend);
         BodyArmPose? otherArm = null;
-        if (frame.Fit != null)
+        BodySupportingGrip? supportingGrip = null;
+        if (UsesSupportingGrip)
+        {
+            Vector3 opposite = Quaternion.AngleAxis(turn, Vector3.forward) * ToWorld(new Vector3(0f, -ShoulderSide, .62f));
+            Vector3 leftShoulder = frame.Foot + offset + opposite * frame.Height;
+            Vector3 fittedLeft = frame.SupportFit == null ? leftShoulder : frame.Foot + offset +
+                Quaternion.AngleAxis(turn, Vector3.forward) * ToWorld(frame.SupportFit.Shoulder) * frame.Height;
+            Vector3 fittedRight = frame.Fit == null ? shoulder : frame.Foot + offset +
+                Quaternion.AngleAxis(turn, Vector3.forward) * ToWorld(frame.Fit.Shoulder) * frame.Height;
+            Vector3 gripDelta = rotation * (supportWristLocal + gripSlideOffset * gripSlide) * frame.Height;
+            // 双手的可达范围和本步移动上限一起求。先夹一次右手再回推左手，会让固定姿势持续漂移。
+            Vector3? oldWrist = previous.HasValue ? previousDirection * previousReach : null;
+            if (ProjectGrip(in frame, desired, shoulder, fittedRight, leftShoulder, fittedLeft, gripDelta, pole,
+                    oldWrist, handMoveSpeed * elapsed, out Vector3 wrist))
+            {
+                BodyJointSolver.Solve(shoulder, wrist, frame.UpperLength, frame.LowerLength, pole, previousDirection,
+                    previousBend, previousReach, -1f, -1f, out elbow, out hand, out bend);
+                if (frame.Fit != null)
+                    otherArm = FitArm(frame.Fit, fittedRight, hand, pole, forward, changedBasis, frame.Height,
+                        previous?.Hand, previous?.OtherArm);
+                supportingGrip = SolveSupportingGrip(in frame, leftShoulder, fittedLeft, hand + gripDelta,
+                    rotation, -side - Vector3.forward * .2f, changedBasis, previous?.SupportingGrip);
+            }
+        }
+        else if (frame.Fit != null)
         {
             BodyFit fit = frame.Fit;
             Vector3 otherShoulder = frame.Foot + offset +
@@ -1134,27 +1220,15 @@ public sealed partial class CompiledBodyAction
             hand = shoulder + common * frame.Height;
             BodyJointSolver.Solve(shoulder, hand, frame.UpperLength, frame.LowerLength, pole, previousDirection,
                 previousBend, previousReach, -1f, -1f, out elbow, out hand, out bend);
-            Vector3 priorDirection = forward;
-            Vector3? priorBend = null;
-            if (previous.HasValue && previous.Value.OtherArm.HasValue)
-            {
-                BodyArmPose beforeArm = previous.Value.OtherArm.Value;
-                Vector3 old = previous.Value.Hand - beforeArm.Shoulder;
-                priorDirection = changedBasis * (old / old.magnitude);
-                priorBend = changedBasis * beforeArm.Bend;
-            }
-
-            BodyJointSolver.Solve(otherShoulder, hand, fit.Upper * frame.Height, fit.Lower * frame.Height,
-                pole, priorDirection, priorBend, 0f, -1f, -1f, out Vector3 otherElbow, out _, out Vector3 otherBend);
-            otherArm = new BodyArmPose(otherShoulder, otherElbow, otherBend, fit.Upper * frame.Height,
-                fit.Lower * frame.Height, fit.HeightScale * frame.Height);
+            otherArm = FitArm(fit, otherShoulder, hand, pole, forward, changedBasis, frame.Height,
+                previous?.Hand, previous?.OtherArm);
         }
 
         return new BodyPose(frame.Foot, shoulder, elbow, hand, rotation, frame.Height, offset, turn, forward, age,
             bend, otherArm, frame.Foot + ToWorld(Construction.LeftFoot) * frame.Height,
             frame.Foot + ToWorld(Construction.RightFoot) * frame.Height,
             ToWorld(Construction.CenterOffset) * frame.Height, worldAge, Part.Contact,
-            leftLeg: supportLeft, rightLeg: supportRight);
+            leftLeg: supportLeft, rightLeg: supportRight, gripSlide: gripSlide, supportingGrip: supportingGrip);
     }
 
     /// <summary>足底不移动的站立动作，以两条腿的共同可达区域约束重心；原地动作不能凭空伸长腿。</summary>
@@ -1275,6 +1349,7 @@ public sealed partial class CompiledBodyAction
             result[i].PartRotation = Slope(keys[i - 1].PartRotation, keys[i].PartRotation, keys[i + 1].PartRotation, before, after);
             result[i].Turn = Slope(keys[i - 1].Turn, keys[i].Turn, keys[i + 1].Turn, before, after);
             result[i].Heading = Slope(keys[i - 1].Heading, keys[i].Heading, keys[i + 1].Heading, before, after);
+            result[i].GripSlide = Slope(keys[i - 1].GripSlide, keys[i].GripSlide, keys[i + 1].GripSlide, before, after);
         }
 
         return result;
@@ -1335,5 +1410,8 @@ public sealed partial class CompiledBodyAction
 
         /// <summary>手部朝向。</summary>
         internal Vector3 Rotation;
+
+        /// <summary>沿实际杆身的位置比例。</summary>
+        internal float GripSlide;
     }
 }

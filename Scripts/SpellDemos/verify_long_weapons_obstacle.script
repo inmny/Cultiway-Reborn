@@ -1,0 +1,189 @@
+// 同一对人物先取得真实枪尖或杆身的路径，再放入实际阻挡墙格验证。
+string ability = obstaclePart == "tip" ? "Cultiway.Body.LongSpearThrust" : "Cultiway.Body.LongSpearSweep";
+var definition = ConstructionEditing.Access.Read(ability);
+var form = FormResources.Load("spear");
+var bindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding");
+var append = bindingType.GetMethod("AppendWeaponObstacleShapes", F);
+var pair = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityPairSweep").GetMethod("Find", F);
+var capsule = typeof(AbilityCapsule).GetConstructors(F).Single();
+var history = new List<(float Age, AbilityCapsule[] Shapes)>();
+var solids = new List<(ConstructedActionEvent Event, string Part)>();
+AbilityCast live = null;
+object binding = null;
+long castId = 0;
+
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId != ability || fact.SourceId != source.id) return;
+    var run = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(entry => (long)Field(entry, "Id") == fact.CastId);
+    castId = fact.CastId;
+    live = (AbilityCast)Field(run, "Cast");
+    binding = Field(run, "Body");
+}
+AbilityCapsule[] Shapes()
+{
+    var shapes = new List<AbilityCapsule>();
+    append.Invoke(binding, new object[] { live.BodyPose.Value, shapes });
+    return shapes.ToArray();
+}
+void Fact(ConstructedActionEvent fact)
+{
+    if (fact.CastId != castId || fact.Fact.ContactKind != AbilityActionContactKind.World) return;
+    Vector3 point = fact.Fact.Point;
+    var shape = Shapes().OrderBy(s => Mathf.Abs(Vector3.Distance(point, s.ClosestAxisPoint(point)) - s.Radius)).First();
+    solids.Add((fact, form.Description.Contacts[shape.Shape].Id));
+}
+
+// 这里只用原路径选候选墙格。正式阻挡由游戏的真实环境表面重新确认。
+Rect PickWall(Vector2 from, Vector2 to, float targetHit)
+{
+    int wanted = Array.FindIndex(form.Description.Contacts, shape => shape.Id == obstaclePart);
+    float floor = live.BodyPose.Value.Foot.z;
+    Rect? result = null;
+    float best = 0;
+    for (int col = 0; col <= 42; col++)
+    for (int row = 0; row <= 48; row++)
+    {
+        var area = new Rect(from.x - 1.2f + col * .071f, from.y - 1.8f + row * .075f, 1f, 1f);
+        var free = new Rect(area.x - .20f, area.y - .20f, 1.4f, 1.4f);
+        if (free.Contains(from) || free.Contains(to)) continue;
+        if (obstaclePart == "shaft")
+        {
+            var interior = new Rect(area.x + .055f, area.y + .055f, .89f, .89f);
+            if (!history.Any(frame => frame.Age < targetHit - .022f && Enumerable.Range(0, 9)
+                .Any(i => interior.Contains(Vector3.Lerp(frame.Shapes[wanted].A, frame.Shapes[wanted].B, i / 8f))))) continue;
+        }
+        Vector3 centre = new Vector3(area.center.x, area.center.y, floor + 1.5f);
+        var wall = (AbilityCapsule)capsule.Invoke(new object[] { -1, centre, centre, 0f, null, 0, 0, null,
+            new Vector3(.5f, .5f, 1.5f), 1f, null, null });
+        float first = float.PositiveInfinity;
+        int part = -1;
+        for (int step = 1; step < history.Count && history[step - 1].Age < targetHit - .02f && part < 0; step++)
+        {
+            var a = history[step - 1];
+            var b = history[step];
+            for (int i = 0; i < b.Shapes.Length; i++)
+            {
+                var s = a.Shapes[i]; var t = b.Shapes[i];
+                float reach = Vector3.Distance(s.A, s.B) + Vector3.Distance(t.B, s.B) + s.Radius + .1f;
+                if (s.A.x < area.xMin - reach || s.A.x > area.xMax + reach ||
+                    s.A.y < area.yMin - reach || s.A.y > area.yMax + reach) continue;
+                var args = new object[] { s, t, wall, wall, 0f, Vector3.zero, Vector3.zero };
+                if (!(bool)pair.Invoke(null, args)) continue;
+                float when = Mathf.Lerp(a.Age, b.Age, (float)args[4]);
+                if (when < first) { first = when; part = s.Shape; }
+            }
+        }
+        if (part != wanted || first < .035f || first > targetHit - .028f || first <= best) continue;
+        best = first;
+        result = area;
+    }
+    Check(result.HasValue, "在同一实际枪路上选一格阻挡，两个人物可站在墙格之外",
+        new { obstaclePart, best, targetHit, wall = result?.position.ToString("F4"), from = from.ToString("F4"), to = to.ToString("F4") });
+    return result.Value;
+}
+
+var clock = Config.time_scale_asset;
+float speed = clock.multiplier;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ActionConfirmed += Fact;
+try
+{
+    Ready(source);
+    source.attack_timer = target.attack_timer = 999;
+    await Advance(.18f);
+    foreach (Building building in World.world.buildings.getSimpleList().ToArray())
+    {
+        WorldTile position = building.current_tile;
+        if (position != null && position.x >= 60 && position.x <= 75 && position.y >= 67 && position.y <= 78)
+            building.removeBuildingFinal();
+    }
+    clock.multiplier = speed * .32f;
+    Item weapon = Equip(source, "spear_iron");
+    float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose")
+        .GetMethod("Height", F).Invoke(null, new object[] { source });
+    Vector2 from = new Vector2(64.35f, 72), to = from + Vector2.right * (height * (obstaclePart == "tip" ? 2.02f : 1.12f));
+    Place(source, from.x, from.y);
+    Place(target, to.x, to.y);
+    target.setHealth(target.getMaxHealth());
+    await Fire(definition, source, target);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    while (live.Age < definition.Body.ActiveUntil && !live.Finished)
+    {
+        history.Add((live.Age, Shapes()));
+        await Advance(.016f);
+    }
+    await Advance(definition.Cooldown);
+    var normal = contacts.Single(hit => hit.CastId == castId && hit.TargetId == target.id);
+    Check(!solids.Any(value => value.Event.CastId == castId) && target.data.health < target.getMaxHealth(),
+        "原铁枪在畅通场景实际命中目标", new { normal.Age, point = normal.Position.ToString("F4") });
+    Rect wall = PickWall(from, to, normal.Age);
+    WorldTile tile = World.world.GetTileSimple(Mathf.RoundToInt(wall.x), Mathf.RoundToInt(wall.y));
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.wall_order);
+    Check(tile.Type.block && !tile.Type.mountains, "同一场景设置原版城墙地块", tile.pos.ToString());
+    Vector2 delta = new Vector2(tile.x, tile.y) - wall.min;
+    from += delta; to += delta;
+    Place(source, from.x, from.y);
+    Place(target, to.x, to.y);
+    target.setHealth(target.getMaxHealth());
+    int health = target.data.health;
+    source.data.stamina = 100;
+    await Fire(definition, source, target);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    var trace = new List<(float Age, AbilityCapsule[] Shapes)>();
+    while (!live.Finished && live.BodyResult == null && live.Age < normal.Age)
+    {
+        trace.Add((live.Age, Shapes()));
+        await Advance(.016f);
+    }
+    var nearbyWall = new Bounds(new Vector3(tile.x + .5f, tile.y + .5f, live.BodyPose.Value.Foot.z + 2f),
+        new Vector3(2f, 2f, 12f));
+    var terrain = service.GetProperty("BodyTerrain", F).GetValue(null);
+    var environment = (IEnumerable)service.GetMethod("CaptureBodyEnvironment", F).Invoke(null, new[] { (object)nearbyWall, terrain });
+    var surfaces = environment.Cast<object>().Select(obstacle =>
+    {
+        var bounds = (Bounds)Field(Field(obstacle, "Mesh"), "Bounds");
+        return new { reason = (string)Field(obstacle, "Reason"), min = bounds.min.ToString("F4"), max = bounds.max.ToString("F4") };
+    }).ToArray();
+    await Advance(definition.Cooldown + .08f);
+
+    var real = solids.Where(value => value.Event.CastId == castId).ToArray();
+    Vector3 point = real.Length == 1 ? real[0].Event.Fact.Point : default;
+    bool onWall = point.x >= tile.x - .0001f && point.x <= tile.x + 1.0001f &&
+        point.y >= tile.y - .0001f && point.y <= tile.y + 1.0001f;
+    Check(real.Length == 1 && real[0].Part == obstaclePart && live.BodyResult == BodyActionResult.Blocked &&
+          real[0].Event.Fact.Age < normal.Age &&
+          onWall && !contacts.Any(hit => hit.CastId == castId) && target.data.health == health,
+        "实际墙格先挡住所选枪段，后续人物命中停止",
+        new { tile = tile.pos.ToString(), blocked = real.Select(value => new { value.Part, value.Event.Fact.Age,
+            point = value.Event.Fact.Point.ToString("F4") }).ToArray(), normal.Age, live.BodyResult, health, after = target.data.health,
+            surfaces, path = real.Length != 0 ? null : trace.Select(frame => new { frame.Age, parts = frame.Shapes
+                .Select(shape => new { a = shape.A.ToString("F4"), b = shape.B.ToString("F4") }).ToArray() }).ToArray() });
+    Check(!BodyControlState.IsBusy(source.id) && ReferenceEquals(weapon, source.getWeapon()) &&
+          source.current_position == from && target.current_position == to,
+        "受阻收势归还身体控制和原铁枪，人物保持各自站位");
+
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    Place(source, from.x, from.y);
+    Place(target, to.x, to.y);
+    await Fire(definition, source, target);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(definition.Cooldown + .08f);
+    Check(contacts.Count(hit => hit.CastId == castId && hit.TargetId == target.id) == 1 &&
+          target.data.health < health && !BodyControlState.IsBusy(source.id) && ReferenceEquals(weapon, source.getWeapon()),
+        "拆除实际障碍后，原人持原枪重新命中并归还控制",
+        new { health, after = target.data.health, contacts = contacts.Count(hit => hit.CastId == castId),
+            busy = BodyControlState.IsBusy(source.id), live.BodyResult });
+    return new { passed = true, selection, obstaclePart, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ActionConfirmed -= Fact;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    clock.multiplier = speed;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

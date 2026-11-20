@@ -11,6 +11,9 @@ public sealed partial class ConstructedAbilityService
     /// <summary>可选环境冻结实际模型，只在采集边界读取游戏对象。</summary>
     internal static Func<Bounds, AbilityHeightField, BodySurfaceObstacle[]> BodyEnvironmentProvider;
 
+    /// <summary>可选三维环境提供原版墙格实际底面和顶面。</summary>
+    internal static Func<WorldTile, Vector2?> BodyWallHeights;
+
     /// <summary>实际取得目标的带动关系，普通人物取样不遍历全部施放。</summary>
     private static readonly Dictionary<long, BodyConnection> carriedBodies = new();
 
@@ -73,7 +76,7 @@ public sealed partial class ConstructedAbilityService
             var before = new AbilityCapsule(-1, connection.SourcePoint, connection.SourcePoint, 0f, null);
             var shape = new ShapeMotion(running, before, before, true);
             ActorMotion actor = actorIndices.TryGetValue(connection.TargetId, out int index) ? actors[index] : default;
-            include(new ContactChoice(shape, actor, null, hit.Fraction, hit.Point, hit.Normal, step, carrying: hit));
+            include(new ContactChoice(shape, actor, null, hit.Fraction, hit.Point, hit.Normal, step, environment: hit));
         }
     }
 
@@ -90,9 +93,11 @@ public sealed partial class ConstructedAbilityService
         {
             WorldTile tile = World.world.GetTileSimple(x, y);
             if (!tile.Type.block || BodyEnvironmentProvider != null && tile.Type.mountains) continue;
-            float ground = terrain?.Sample(x + .5f, y + .5f) ?? 0f;
+            Vector2? wall = tile.top_type?.wall == true ? BodyWallHeights?.Invoke(tile) : null;
+            float ground = wall?.x ?? terrain?.Sample(x + .5f, y + .5f) ?? 0f;
+            float wallTop = wall?.y ?? ground + tile.Type.block_height;
             result.Add(new BodySurfaceObstacle(-1L - x - y * MapBox.width,
-                BodySurfaceMesh.Box(new Rect(x, y, 1, 1), ground, ground + tile.Type.block_height), "WallContact"));
+                BodySurfaceMesh.Box(new Rect(x, y, 1, 1), ground, wallTop), "WallContact"));
         }
         float low = bounds.min.z - 1f, high = bounds.max.z + 1f;
         if (bounds.min.x < 0f) Boundary(new Rect(bounds.min.x - 1f, bounds.min.y - 1f, 1f - bounds.min.x, bounds.size.y + 2f));

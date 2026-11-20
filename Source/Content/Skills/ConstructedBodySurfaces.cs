@@ -140,6 +140,11 @@ public sealed partial class ConstructedAbilityService
                     arms |= BodyOccupancy.RightArm;
                 }
             }
+            if (action.SupportingGrip.HasValue)
+            {
+                left = action.SupportArm();
+                arms |= BodyOccupancy.LeftArm;
+            }
 
             BodySurfacePose replacement = running.Body.ActionSurface(in action);
             if (replacement.Parts.Length > 0)

@@ -93,13 +93,16 @@ public static partial class BodyConstructionEdits
     }
 
     /// <summary>换用器物资料中已存在的握法，同一关系继续连接所选手与真实装备。</summary>
-    internal static AbilityDefinition ChangeGrip(AbilityDefinition source, string grip)
+    internal static AbilityDefinition ChangeGrip(AbilityDefinition source, string grip, bool supporting = false)
     {
         AbilityDefinition result = ExplicitRelations(source);
         if (result.Body.WeaponForm == null || !FormResources.Load(result.Body.WeaponForm).Description.Grips.Any(option => option.Id == grip))
             throw new InvalidDataException("所选握法不在实际器物资料中");
-        result.Body.Construction.Relations.Single(relation => relation.Kind == BodyRelationKind.Grip).ToAnchor = grip;
-        result.Body.Grip = grip;
+        var parts = result.Body.Construction.Parts;
+        string effector = supporting ? "hand.left" : parts.Single(part => part.Id == result.Body.Effector).Part;
+        result.Body.Construction.Relations.Single(relation => relation.Kind == BodyRelationKind.Grip &&
+            parts.Any(part => part.Id == relation.From && part.Part == effector)).ToAnchor = grip;
+        if (!supporting) result.Body.Grip = grip;
         AbilityCompiler.Compile(result, cache: false);
         return result;
     }
