@@ -1,0 +1,69 @@
+// 9.34 C1：用正式原版存档恢复原术与派生，再看两者的真实撞点。
+async Task<object> SavePair()
+{
+    var variant = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "variant.json")));
+    long sourceId = source.id, targetId = target.id;
+    var originalJson = JToken.FromObject(definition);
+    var variantJson = JToken.FromObject(variant);
+    ConstructedAbilityService.Register(definition);
+    ConstructedAbilityService.Register(variant);
+    ConstructedAbilityService.Learn(owner, definition.Id);
+    ConstructedAbilityService.Learn(owner, variant.Id);
+    string saved = Path.Combine(folder, "world");
+    SaveManager.saveWorldToDirectory(saved);
+    World.world.save_manager.loadWorld(saved);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    source = World.world.units.get(sourceId);
+    target = World.world.units.get(targetId);
+    owner = source?.GetExtend();
+    var catalog = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    var prior = (AbilityDefinition)catalog[definition.Id];
+    var restored = (AbilityDefinition)catalog[variant.Id];
+    bool originals = JToken.DeepEquals(originalJson, JToken.FromObject(prior));
+    bool derived = JToken.DeepEquals(variantJson, JToken.FromObject(restored));
+    Check(source != null && target != null && owner.E.GetComponent<ConstructedKnowledge>().Ids.Contains(prior.Id) &&
+        owner.E.GetComponent<ConstructedKnowledge>().Ids.Contains(restored.Id) && originals && derived &&
+        restored.Parent.Id == prior.Id && restored.Parent.Revision == prior.Revision,
+        "正式存读保留两招完整资料、来历及学习关系", new { sourceId, targetId, originals, derived });
+    File.WriteAllText(Path.Combine(folder, "readback-expected.json"),
+        JsonConvert.SerializeObject(new { sourceId, targetId, original = originalJson, variant = variantJson }, Formatting.Indented));
+    var facts = new List<(Vector3 Point, Vector3 Bed, Vector3 Jet)>();
+    foreach (var spell in new[] { prior, restored })
+    {
+        foreach (var actor in new[] { source, target })
+        {
+            CombatStatusEffects.RemoveStatus(actor, hold);
+            var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ThunderEarthbreaker.Quiet");
+            CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+            actor.setStatsDirty(); actor.updateStats();
+        }
+        target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+        Place(source, 68.5f,78.5f); Place(target,69f,74f);
+        ConstructedAbilityService.NotifyActorChanged(source);
+        ConstructedAbilityService.NotifyActorChanged(target);
+        await Advance(.15f);
+        contacts.Clear(); ground.Clear(); edits.Clear();
+        owner.SetPowerLevel(0);
+        float balance = source.stats[BaseStatses.MaxWakan.id] * .85f;
+        owner.GetCultisys<Xian>().wakan = balance;
+        var handle = new ActiveAbilityHandle("content.constructed", owner.E, spell.Id);
+        Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null,focus), ActiveAbilityUseOrigin.Script) &&
+            Mathf.Abs(balance - owner.GetCultisys<Xian>().wakan - spell.Cost) < .01f,
+            "读档后直接支付并施放实际成品", new { spell.Id, spell.Cost });
+        var cast = Live(spell.Id);
+        var hit = await FirstImpact(cast);
+        await At(cast, hit.Age + .58f);
+        var bed = Display(cast).Single(v => v.Resource.Description.Id == "thunder_impact_bed");
+        var jet = Display(cast).Single(v => v.Resource.Description.Id == "thunder_eruption");
+        facts.Add((hit.Position, bed.Transform.GetColumn(3), jet.Transform.GetColumn(3)));
+        await Advance(2.55f);
+        Check(Live(spell.Id) == null && Display(cast).Length == 0 && edits.Count == 0,
+            "原招和派生均完成临时过程且未无许可改地", spell.Id);
+    }
+    Check(Vector2.Distance(facts[0].Point,facts[1].Point) > 1f && facts.All(v =>
+        Vector2.Distance(v.Point,v.Bed) < .01f && Vector2.Distance(v.Point,v.Jet) < .01f),
+        "偏雷真正移走撞点，压痕与雷柱也跟过去", facts.Select(v => new { impact = Point(v.Point), bed = Point(v.Bed), jet = Point(v.Jet) }).ToArray());
+    return new { passed = true, section, checks, saved };
+}

@@ -1,0 +1,134 @@
+// 9.34 B：各自沉降、分裂、喷发，正常无许可、架挡和许可单格分别核对。
+Array Nodes(AbilityCast cast) => (Array)cast.Plan.GetType().GetProperty("Nodes", F).GetValue(cast.Plan);
+int PartNode(AbilityCast cast, string path) => Enumerable.Range(0, Nodes(cast).Length)
+    .Single(i => ((string)Field(Nodes(cast).GetValue(i), "Path")).EndsWith(path, StringComparison.Ordinal));
+object NodeState(AbilityCast cast, int i) => ((Array)Field(cast, "nodes")).GetValue(i);
+int[] Debris(AbilityCast cast, int strata) => Enumerable.Range(0, Nodes(cast).Length)
+    .Where(i => (int)Field(Nodes(cast).GetValue(i), "FragmentSource") == strata).ToArray();
+bool IsVisible(AbilityCast cast, string id) => Display(cast).Any(v => v.Resource.Description.Id == id);
+object[] Damage(int node) => contacts.Where(hit => hit.TargetId == target.id && hit.Node == node && hit.DamageAttempted)
+    .Select(hit => (object)new { hit.Node, hit.Age, point = Point(hit.Position), hit.TargetHealthBefore, hit.TargetHealthAfter }).ToArray();
+
+async Task<ConstructedWorldContact> FirstImpact(AbilityCast cast)
+{
+    await At(cast, 2.05f);
+    while (cast.Age < 2.39f && ground.Count == 0) await Advance(.03f);
+    Check(ground.Count == 1 && ground[0].Node == 1, "实际锤面确认一次撞地", ground.ToArray());
+    return ground.Single();
+}
+
+async Task<object> Erupt()
+{
+    var cast = await Cast(definition, 68.85f, 73.55f);
+    int before = target.data.health;
+    await At(cast, 1.87f);
+    Check(ground.Count == 0 && !IsVisible(cast, "thunder_impact_bed") && !IsVisible(cast, "thunder_strata") &&
+        !IsVisible(cast, "thunder_eruption"), "尚未触地时没有凹痕、碎岩或预先喷出的雷柱");
+    var hit = await FirstImpact(cast);
+    var mark = Display(cast).Single(v => v.Resource.Description.Id == "thunder_impact_bed");
+    Check(Vector2.Distance(mark.Transform.GetColumn(3), hit.Position) < .001f &&
+        !IsVisible(cast, "thunder_strata") && !IsVisible(cast, "thunder_eruption") && edits.Count == 0,
+        "撞点先显出临时下压凹痕，无许可不写永久地形", new { impact = hit, mark = Point(mark.Transform.GetColumn(3)) });
+    await Shot("thunder-crater");
+    Check(target.data.health == before && contacts.All(item => item.TargetId != target.id || !item.DamageAttempted),
+        "不在锤面扫过的位置未被锤击");
+
+    await At(cast, hit.Age+.095f);
+    Place(target, hit.Position.x+.10f, hit.Position.y+.035f);
+    ConstructedAbilityService.NotifyActorChanged(target);
+    int jet = PartNode(cast, "/eruption"), strata = PartNode(cast, "/strata");
+    await At(cast, hit.Age+.205f);
+    Check(IsVisible(cast, "thunder_strata") && !IsVisible(cast, "thunder_eruption") &&
+        Damage(jet).Length == 0 && target.data.health == before, "压痕在先，裂层抬起在先，雷柱不提前伤人",
+        new { cast.Age, since = cast.Age-hit.Age, visible = Display(cast).Select(v => v.Resource.Description.Id).ToArray(),
+            before, hp = target.data.health, hits = contacts.Select(c => new { c.Node, c.Age, c.DamageAttempted }).ToArray() });
+    await At(cast, hit.Age+.422f);
+    var jets = Faces(cast).Where(s => s.Node == jet).ToArray();
+    Check(IsVisible(cast, "thunder_eruption") && jets.Length > 0 && Damage(jet).Length != 0 && target.data.health < before,
+        "雷从同一地层喷出，主雷实际作用面击中地面目标", new { hp = target.data.health, before, damage = Damage(jet),
+            shapes = jets.Select(s => new { a = Point(s.A), b = Point(s.B), s.Radius }).ToArray() });
+    await Shot("thunder-eruption");
+
+    int hp = target.data.health;
+    Place(target, hit.Position.x+2.54f, hit.Position.y+.03f);
+    ConstructedAbilityService.NotifyActorChanged(target);
+    await At(cast, hit.Age+.57f);
+    int[] pieces = Debris(cast, strata);
+    var split = Display(cast).Where(v => v.Resource.Description.Id.StartsWith("thunder_strata:", StringComparison.Ordinal)).ToArray();
+    Check(pieces.Length == 7 && split.Length == 7 && !IsVisible(cast, "thunder_strata") &&
+        pieces.Count(i => cast.Velocity(i).z > .5f) >= 3, "七块岩楔在真实上抬姿态分离，并继承向上的速度",
+        new { count = split.Length, velocities = pieces.Select(i => Point(cast.Velocity(i))).ToArray() });
+    await At(cast, hit.Age+1.30f);
+    var landed = pieces.Count(i => (bool)Field(NodeState(cast, i), "MovementStopped"));
+    var rocks = pieces.SelectMany(Damage).ToArray();
+    Check(landed > 0 && rocks.Length > 0 && target.data.health < hp,
+        "飞出的岩楔独立于雷柱命中并有碎片落下", new { landed, hp, after = target.data.health, rocks,
+            endpoints = Faces(cast).Where(s => pieces.Contains(s.Node)).Select(s => new { s.Node, a=Point(s.A), b=Point(s.B) }).ToArray() });
+    await Shot("thunder-rockfall");
+    await Advance(2.3f);
+    Check(Live(definition.Id) == null && Display(cast).Length == 0 && edits.Count == 0 && endings.Count == 1,
+        "全部地面后续按原规则退去，普通施放不改变地形");
+    var outside = await Cast(definition, hit.Position.x+.3f, hit.Position.y+3.65f);
+    int outsideHp = target.data.health;
+    await At(outside, 4.45f);
+    Check(ground.Count == 1 && target.data.health == outsideHp && !contacts.Any(c => c.TargetId == target.id && c.DamageAttempted),
+        "离开各束雷和碎岩路径的目标不因画面余光受伤");
+    return new { passed = true, view = recordView, section, checks };
+}
+
+async Task<object> Guard()
+{
+    var ward = new AbilityDefinition { Id = "test.thunder.ward", Name = "落锤架挡", Lifetime = 4.1f,
+        Power = 500f / Mathf.Max(1f, target.stats["damage"]), Resource = "none", Cost = 0, Cooldown = 0,
+        TargetRange = 24, Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = 2.6f },
+        Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+        Root = new ConstructionNode { Id = "shield", Form = "entropy_guard", Matter = "iron", Scale = 2.0f,
+            ContactRole = ConstructionContactRole.Barrier, Interception = ConstructionInterception.Absorb } };
+    Place(target, 65.68f, 70.05f);
+    target.addAggro(source); source.addAggro(target);
+    await Fire(ward, target, source, aim: new Vector3(65.68f, 69.06f, 0), aggro: false);
+    target.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    var clashes = new List<ConstructedClash>();
+    void Meet(ConstructedClash fact) { clashes.Add(fact); }
+    ConstructedAbilityService.ClashConfirmed += Meet;
+    try
+    {
+        var cast = await Cast(definition, 65.68f, 70.05f);
+        int hp = target.data.health;
+        await Advance(2.96f);
+        Check(clashes.Any(c => c.Absorbed > 0 && (c.LeftSource == source.id && c.LeftNode == 1 && c.LeftRemaining == 0f ||
+              c.RightSource == source.id && c.RightNode == 1 && c.RightRemaining == 0f)) && ground.Count == 0 &&
+              edits.Count == 0 && target.data.health == hp && Display(cast).Length == 0,
+              "真实屏障在地面前耗尽锤面，撞地余波不会越过拦截继续出现",
+              new { hp, after = target.data.health, count = ground.Count, force = cast.RemainingForce(1),
+                  clashes = clashes.Select(c => new { c.Absorbed, c.LeftAge, c.RightAge, c.LeftRemaining, c.RightRemaining, point = Point(c.Position) }).ToArray() });
+        await Advance(2.55f);
+        Check(Live(definition.Id) == null && Live(ward.Id) == null && !BodyControlState.IsBusy(target.id), "架挡后双方清理，不遗留控制");
+        var again = await Cast(definition, 65.68f, 70.05f);
+        var restarted = await FirstImpact(again);
+        Check(IsVisible(again, "thunder_impact_bed") && restarted.Age > 2f, "解除屏障后重放可正常接地");
+        await Advance(2.6f);
+        return new { passed = true, view = recordView, section, checks };
+    }
+    finally { ConstructedAbilityService.ClashConfirmed -= Meet; }
+}
+
+async Task<object> Permit()
+{
+    WorldTile allowed = World.world.GetTileSimple(66, 70);
+    string before = allowed.main_type.id;
+    string lowered = allowed.main_type.decrease_to?.id;
+    int height = allowed.Height;
+    var plan = new ConstructionWorldScope(() => true, (action, tile) => action == "terrain.lower" && tile == allowed);
+    var cast = await Cast(definition, 68.85f, 73.55f, plan);
+    var flush = await FirstImpact(cast);
+    await At(cast, flush.Age+.43f);
+    Check(lowered != null && edits.Count == 1 && edits[0].Result.Changed && edits[0].Action == "terrain.lower" &&
+        edits[0].X == 66 && edits[0].Y == 70 && allowed.main_type.id == lowered,
+        "同一落锤仅单独允许的实际地块降低，复用原版地形规则",
+        new { edits = edits.ToArray(), before, expected = lowered, after = allowed.main_type.id, previousHeight = height, height = allowed.Height });
+    await Advance(2.75f);
+    Check(Live(definition.Id) == null && allowed.main_type.id == lowered && Display(cast).Length == 0,
+        "临时雷和碎岩已退去，只有明确许可的地块变化留存");
+    return new { passed = true, view = recordView, section, checks };
+}

@@ -2351,3 +2351,11 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--section bloom --view worldfall` 检查同一冰瓣从闭合姿态盛放、真实裂成主瓣与瓣尖、碎片命中与擦空、落稳和恢复。输出 `bloom-open.png`、`bloom-fragments.png`、`bloom-settled.png`。
 
 `--section save` 验证原招与[狭瓣派生](../../Doc/技能系统全面重构/构造输入/霜花葬形·狭瓣.json)的正式存档、还原和两种实际冻结边界，使用 `dev.py exec --timeout 185`。`--section film --view native` 和 `--section film --view worldfall` 录制从蓄霜、闭环冻结到盛放碎裂及清场的一次常速施放，输出 `demo.mp4`、`preview.png` 和 `timeline.json`。
+
+### 雷神凿世（9.34）
+
+在独立游戏里运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_thunder_earthbreaker.py`。用同一名受术者核对[雷神凿世](../../Doc/技能系统全面重构/构造输入/雷神凿世.json)从云腹显形、举锤到实际接地与命中，再对照侧边擦空、悬空无地面后续和退场。输出五张阶段图及实际作用记录。`--section contrast` 只补跑侧边和悬空；`--view native` 切换原版取景。
+
+`--section eruption` 核对真实落锤、凹痕、地层抬升、岩片和雷柱各自的实际伤害及范围外对照，输出 `thunder-crater.png`、`thunder-eruption.png` 和 `thunder-rockfall.png`。`--section guard --view native` 只复验架挡及解除后重放；`--section permit --view native` 复验许可单格。
+
+`--section save --view native` 核对原术与[偏雷派生](../../Doc/技能系统全面重构/构造输入/雷神凿世·偏雷.json)正式存读，比较两次真实撞点、压痕和雷柱，使用 `dev.py exec --timeout 215`。`--section film --view native` 与 `--section film --view worldfall` 分别录一次常速过程，输出 `demo.mp4` 与阶段时间记录。

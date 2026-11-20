@@ -1,0 +1,51 @@
+// 9.34 C2：同一次正式出手常速经过显形、锤击、裂层、雷柱与清场。
+async Task<object> Record()
+{
+    if (recordView == "worldfall") await WaitForWorldfallDraw();
+    var type = WorldfallType();
+    var mod = type.GetProperty("Instance", F).GetValue(null);
+    var god = type.GetProperty("GodShown", F);
+    var firstPerson = type.GetProperty("IsFirstPerson", F);
+    var gpu = type.GetField("_gpuShown", F);
+    var lastDraw = typeof(AbilityCast).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer")
+        .GetProperty("LastDrawCount", F);
+    var cast = await Cast(definition, 66.05f,70.73f);
+    var samples = new List<object>();
+    int jet = PartNode(cast, "/eruption"), strata = PartNode(cast, "/strata");
+    int[] pieces = Debris(cast, strata);
+    bool stable = true, drew = recordView == "native", summoning = false, raised = false, swing = false,
+        pressed = false, lifted = false, volley = false, split = false, fell = false;
+    float next = 0f, duration = definition.Lifetime+.4f;
+    var times = await Film(duration, () =>
+    {
+        stable &= !(bool)firstPerson.GetValue(mod) && (bool)god.GetValue(mod) == (recordView == "worldfall") &&
+            (recordView != "worldfall" || (bool)gpu.GetValue(mod));
+        float age = cast.Age;
+        if (age < next) return;
+        next = age + .059f;
+        var scene = Display(cast);
+        var colossus = scene.FirstOrDefault(form => form.Resource.Description.Id == "thunder_colossus");
+        string[] visible = scene.Select(v => v.Resource.Description.Id).ToArray();
+        summoning |= colossus.Resource != null && colossus.BuildProgress is > .07f and < .9f;
+        raised |= colossus.Resource != null && age > 1.2f && age < 1.7f && Hammer(colossus).z > 8f;
+        swing |= colossus.Resource != null && Faces(cast).Any(shape => shape.Node == 1);
+        pressed |= ground.Count == 1 && visible.Contains("thunder_impact_bed");
+        lifted |= pressed && visible.Contains("thunder_strata") && !visible.Contains("thunder_eruption");
+        volley |= pressed && visible.Contains("thunder_eruption") && Faces(cast).Any(shape => shape.Node == jet);
+        split |= visible.Count(id => id.StartsWith("thunder_strata:", StringComparison.Ordinal)) == 7;
+        fell |= split && pieces.All(index => (bool)Field(NodeState(cast, index), "MovementStopped"));
+        drew |= visible.Length > 0 && (int)lastDraw.GetValue(null) > 0;
+        samples.Add(new { age, visible, hits = contacts.Count(item => item.DamageAttempted), impacts = ground.Count });
+    });
+    File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(new
+    {
+        samples, ground = ground.ToArray(), times, duration,
+        damage = contacts.Where(hit => hit.DamageAttempted).Select(hit => new { hit.Age, hit.Node, hit.TargetHealthBefore, hit.TargetHealthAfter }).ToArray()
+    }, Formatting.Indented));
+    Check(stable && drew && summoning && raised && swing && pressed && lifted && volley && split && fell && ground.Count == 1 &&
+        Live(definition.Id) == null && endings.Count == 1 && !endings[0].Fact.Cancelled,
+        "常速录像记录同次显形、真实落锤、喷雷、落石和消退",
+        new { stable, drew, summoning, raised, swing, pressed, lifted, volley, split, fell, frames = times.Count });
+    return new { passed = true, times, duration, previewFrame = Math.Max(0, times.FindIndex(t => t >= 2.85)),
+        view = recordView, scene = "construction", resource = "wakan", paid = definition.Cost, checks };
+}
