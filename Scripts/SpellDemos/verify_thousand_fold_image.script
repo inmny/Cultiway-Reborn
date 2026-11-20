@@ -1,0 +1,57 @@
+try
+{
+    var invalid = Spell("折界千重");
+    invalid.Root.Children[0].LandscapeSlice.Thickness = 0;
+    bool rejected = false;
+    try { AbilityCompiler.Compile(invalid); }
+    catch (InvalidDataException error) { rejected = error.Message.Contains("分景断面"); }
+    Check(rejected, "没有实际厚度的景物带不能进入游戏");
+    var first = await Use(definition);
+    await At(first.Cast, .14f);
+    var before = Pages().OrderBy(v => Centre(v).y).ToArray();
+    var surface = before.Select(Surface).ToArray();
+    Check(before.Length == 3 && Edges().Length == 3 && SceneryIntact() &&
+        surface.All(s => s.Colours >= 3 && s.Relief > .5f && s.Points > 200) &&
+        surface[1].Points > surface[0].Points && surface[2].Points > surface[0].Points,
+        "实际相邻带分别采集河岸、建筑和脊上的树，网格同时保留各自厚度",
+        new { surface, centres = before.Select(v => Centre(v).ToString()).ToArray(),
+            scenery = SceneryIntact() });
+    var aligned = before.Select(Centre).ToArray();
+    Check(aligned.Zip(aligned.Skip(1), (a, b) => Mathf.Abs(b.y - a.y - 3f) < .02f).All(v => v),
+        "三段采样首尾相接");
+    await At(first.Cast, .97f);
+    var opened = Pages().OrderBy(v => Centre(v).y).ToArray();
+    var positions = opened.Select(Centre).ToArray();
+    Check(opened.Select(MeshOf).SequenceEqual(before.Select(MeshOf)) &&
+        positions.Select((p, i) => Mathf.Abs(p.x - aligned[i].x)).Min() > 4.8f &&
+        positions[0].x > aligned[0].x && positions[1].x < aligned[1].x && positions[2].x > aligned[2].x &&
+        positions[2].z - positions[1].z > .6f && positions[1].z - positions[0].z > .6f && SceneryIntact(),
+        "同一批实景向相反方向错开，三层高度各异，原地图继续存在",
+        new { centres = positions.Select(v => v.ToString()).ToArray() });
+    string[] steps = { "first", "second", "third" };
+    float[] deadlines = { 2.18f, 2.77f, 3.35f };
+    for (int i = 0; i < deadlines.Length; i++)
+    {
+        await At(first.Cast, deadlines[i]);
+        var returning = Pages().OrderBy(v => Centre(v).y).Select(Centre).ToArray();
+        Check(returning.Length == 3 &&
+            returning.Take(i + 1).Select((p, j) => Mathf.Abs(p.x - aligned[j].x) < .035f).All(v => v) &&
+            (i == 2 || Mathf.Abs(returning[i + 1].x - aligned[i + 1].x) > 1f),
+            "按各自时点回到原地图位置 " + steps[i],
+            new { age = first.Cast.Age, centres = returning.Select(v => v.ToString()).ToArray() });
+    }
+    await Advance(1.3f);
+    Check(first.Cast.Finished && Pages().Length == 0 && Edges().Length == 0 && SceneryIntact(),
+        "自然结束后撤掉全部临时网格，原地图仍一致");
+    var second = await Use(definition);
+    await At(second.Cast, .62f);
+    var meshes = Pages().Select(MeshOf).Concat(Edges().Select(MeshOf)).ToArray();
+    Check(meshes.Length == 6 && meshes.All(mesh => mesh != null), "再次施放会重新采集");
+    service.GetMethod("Cancel", F).Invoke(null, new object[] { second.Id });
+    await Advance(.18f);
+    Check(second.Cast.Finished && Pages().Length == 0 && Edges().Length == 0 &&
+        meshes.All(mesh => mesh == null) && SceneryIntact(),
+        "主动撤销统一回收取景与切面，不留下临时物件");
+    return new { passed = true, surface, bands = opened.Length };
+}
+finally { ReleaseChecks(); }

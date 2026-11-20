@@ -121,6 +121,10 @@ public sealed class ConstructionNode
     /// <summary>共用形体资源编号。</summary>
     public string Form;
 
+    /// <summary>在实际部位上承载一条有厚度的真实景物带。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionLandscapeSlice LandscapeSlice;
+
     /// <summary>显示表面覆盖，空值保留各部件的默认表面。</summary>
     public string Surface;
 

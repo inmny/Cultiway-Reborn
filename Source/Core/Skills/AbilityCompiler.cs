@@ -78,6 +78,9 @@ public sealed class CompiledAbility
     /// <summary>实际承载了活动映像的镜面部位。</summary>
     internal int[] MirrorNodes { get; }
 
+    /// <summary>本次实际承载景物带的部位。</summary>
+    internal int[] LandscapeNodes { get; }
+
     /// <summary>受击分担的参数副本；当次契约另存实际余额。</summary>
     internal CompiledSoulPact SoulPact { get; }
 
@@ -247,6 +250,9 @@ public sealed class CompiledAbility
         Nodes = nodes;
         HasCorrespondences = nodes.Any(node => node.Correspondence != null);
         MirrorNodes = Enumerable.Range(0, nodes.Length).Where(i => nodes[i].Correspondence?.MirrorImage != null).ToArray();
+        LandscapeNodes = Enumerable.Range(0, nodes.Length).Where(i => nodes[i].LandscapeSlice != null).ToArray();
+        if (LandscapeNodes.Sum(i => nodes[i].LandscapeSlice.Width * nodes[i].LandscapeSlice.Length) > 640)
+            throw new InvalidDataException("LandscapeSlice：同一次施放最多采六百四十个景物格");
         foreach (int index in MirrorNodes)
         {
             var relation = nodes[index].Correspondence;
@@ -398,6 +404,9 @@ internal sealed class CompiledForm
 
     /// <summary>共用资源。</summary>
     internal FormResource Resource;
+
+    /// <summary>经过检查的实际景物带及实体回合边。</summary>
+    internal CompiledLandscapeSlice LandscapeSlice;
 
     /// <summary>父体索引，负一表示根。</summary>
     internal int Parent;
@@ -896,6 +905,11 @@ public static partial class AbilityCompiler
         if (node.Surface != null)
             ConstructionReferences.Resolve(path + "/Surface", () => FormResources.Surface(node.Surface, true), "Surface", node.Surface, declarationPath);
         AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, path + "/Matter");
+        var landscape = node.LandscapeSlice == null ? null :
+            new CompiledLandscapeSlice(node.LandscapeSlice, resource, path + "/LandscapeSlice");
+        if (landscape != null && (matter.State != "solid" ||
+            node.Operations.Any(operation => operation?.Kind is not (ConstructionOperationKind.Detach or ConstructionOperationKind.Fly))))
+            Fail(path + "/LandscapeSlice", "景物带以实体呈现，部位运动只用脱离和飞行曲线");
         if (node.InterruptFall != 0f && (!Finite(node.InterruptFall) || node.InterruptFall < 0f ||
             node.InterruptFall > lifetime || resource.Meshes.Length == 0 || resource.Contacts.Length == 0 || matter.State != "solid"))
             Fail(path + "/InterruptFall", "中断落下需要有真实形状的固体，存在秒数不能超过整次上限");
@@ -943,10 +957,11 @@ public static partial class AbilityCompiler
                 parent >= 0 && (!string.IsNullOrEmpty(node.Anchor) || node.Distribution != null) &&
                 node.Activation?.Placement != ConstructionEventPlacement.Event, lifetime, path + "/Outlet"),
             Resource = resource,
+            LandscapeSlice = landscape,
             Offset = offset,
             Rotation = Quaternion.Euler(rotation),
             Scale = node.Scale,
-            Volume = node.Volume ?? 1f,
+            Volume = node.Volume ?? (landscape == null ? 1f : landscape.Width * landscape.Length * landscape.Thickness),
             Presence = new Vector2(appear, disappear),
             Activation = node.Activation == null
                 ? null

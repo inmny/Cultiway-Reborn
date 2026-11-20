@@ -1,0 +1,144 @@
+JToken SavedDefinition(AbilityDefinition spell) => JToken.Parse(JsonConvert.SerializeObject(spell));
+ConstructedContact[] Cuts(long cast) => contacts.Where(hit => hit.CastId == cast && hit.Damage.HealthLost > 0).ToArray();
+
+async Task<object> SavePair()
+{
+    var altered = Spell("折界千重·折径");
+    string archive = section == "restored" ? existing : folder;
+    string directory = Path.Combine(archive, "world");
+    string manifest = Path.Combine(archive, "readback-expected.json");
+    if (section == "save")
+    {
+        var original = await Use(definition);
+        for (int i = 0; i < 45 && Cuts(original.Id).Length == 0; i++) await Advance(.045f);
+        Check(Cuts(original.Id).Any(hit => hit.TargetId == bankGuard.id) &&
+            Cuts(original.Id).All(hit => hit.TargetId != victim.id) && Pages().Length == 3,
+            "正式档保存在首层完成切割、其余两层尚未落下的时候");
+        ConstructedAbilityService.Register(altered);
+        ConstructedAbilityService.Learn(source.GetExtend(), definition.Id);
+        ConstructedAbilityService.Learn(source.GetExtend(), altered.Id);
+        File.WriteAllText(manifest, JsonConvert.SerializeObject(new
+        {
+            sourceId = source.id, targets = people.Select(actor => actor.id).ToArray(),
+            health = people.Select(actor => actor.data.health).ToArray(),
+            original = SavedDefinition(definition), altered = SavedDefinition(altered)
+        }, Formatting.Indented));
+        SaveManager.saveWorldToDirectory(directory);
+    }
+    var expected = JObject.Parse(File.ReadAllText(manifest));
+    long actorId = (long)expected["sourceId"];
+    long[] targetIds = expected["targets"].ToObject<long[]>();
+    int[] savedHealth = expected["health"].ToObject<int[]>();
+    World.world.save_manager.loadWorld(directory);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    source = World.world.units.get(actorId);
+    people = targetIds.Select(id => World.world.units.get(id)).ToArray();
+    victim = people[1];
+    var catalog = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    var originalSpell = (AbilityDefinition)catalog[definition.Id];
+    var alteredSpell = (AbilityDefinition)catalog[altered.Id];
+    var learned = source.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids;
+    Check(JToken.DeepEquals(expected["original"], SavedDefinition(originalSpell)) &&
+        JToken.DeepEquals(expected["altered"], SavedDefinition(alteredSpell)) &&
+        alteredSpell.Parent.Id == originalSpell.Id && learned.Contains(originalSpell.Id) && learned.Contains(alteredSpell.Id),
+        "读回原术、改造的完整资料，以及原来学到的两招");
+    source.attack_timer = 999;
+    Check(people.Select(actor => actor.data.health).SequenceEqual(savedHealth),
+        "正式读回保留首层已经结算的生命损失");
+    int previous = contacts.Count;
+    await Advance(definition.Cooldown + .22f);
+    Check(Pages().Length == 0 && Edges().Length == 0 && contacts.Count == previous,
+        "其余未完成的闭合和临时地貌没有重放");
+
+    CombatStatusEffects.ApplyStatus(source, steady, 10000, source);
+    CombatStatusEffects.ApplyStatus(source, mana, 10000, source);
+    source.setStatsDirty();
+    source.updateStats();
+    var kingdom = World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild);
+    var outcomes = new List<object>();
+    foreach (AbilityDefinition spell in new[] { originalSpell, alteredSpell })
+    {
+        for (int i = 0; i < people.Length; i++)
+        {
+            Actor actor = people[i];
+            actor.setKingdom(kingdom);
+            CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+            actor.setStatsDirty(); actor.updateStats();
+            actor.changeHealth(3000);
+            Place(actor, 69, i == 3 ? 77.5f : 69f + i * 3);
+        }
+        var cast = await Use(spell);
+        await At(cast.Cast, .95f);
+        float firstX = Centre(Pages().OrderBy(CentreY).First()).x;
+        float sign = spell == originalSpell ? 1 : -1;
+        Check(sign * (firstX - 69f) > 4.7f, "原术和改造按各自的真正轨迹从不同侧展开",
+            new { spell.Id, firstX, sign });
+        await At(cast.Cast, spell.Lifetime + .58f);
+        var damage = Cuts(cast.Id);
+        var sequence = damage.Select(hit => hit.TargetId).ToArray();
+        Check(cast.Cast.Finished && Pages().Length == 0 && Edges().Length == 0 &&
+            sequence.SequenceEqual(targetIds.Take(3)),
+            "改造和原术从各自方向实际切到范围内敌人并正常退场", new { spell.Id, sequence });
+        outcomes.Add(new { spell.Id, firstX, ages = damage.Select(hit => hit.Age).ToArray(), sequence });
+    }
+    return new { passed = true, archive, actorId, targetIds, savedHealth, outcomes };
+}
+
+float CentreY(FormVisualInstance value) => Centre(value).y;
+
+async Task<object> Record()
+{
+    var cast = await Use(definition);
+    await SetCamera(6.15f);
+    var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+    var mod = type.GetProperty("Instance", F).GetValue(null);
+    var god = type.GetProperty("GodShown", F);
+    var firstPerson = type.GetProperty("IsFirstPerson", F);
+    var gpu = type.GetField("_gpuShown", F);
+    var lastDraw = typeof(AbilityCast).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer")
+        .GetProperty("LastDrawCount", F);
+    if (recordView == "worldfall")
+    {
+        type.GetField("_godFollow", F).SetValue(mod, new Vector2(69, 72));
+        type.GetField("_godFollowVel", F).SetValue(mod, Vector2.zero);
+        type.GetField("_godTurn", F).SetValue(mod, .12f);
+        type.GetField("_godTurnRate", F).SetValue(mod, 0f);
+        type.GetField("_godClose", F).SetValue(mod, 12f);
+        type.GetField("_godCloseTarget", F).SetValue(mod, 12f);
+        var ready = type.GetField("_godGpuApplied", F);
+        int frame = (int)ready.GetValue(mod);
+        await Game.WaitUntil(() => (int)ready.GetValue(mod) >= frame + 4, 600);
+    }
+    else
+    {
+        World.world.camera.orthographicSize = 6.15f;
+        World.world.setZoomOrthographic(6.15f);
+    }
+    bool stable = true, drew = recordView == "native", spread = false, aligned = false;
+    var samples = new List<object>();
+    const float duration = 4.22f;
+    var times = await Film(duration, () =>
+    {
+        bool worldfall = recordView == "worldfall";
+        stable &= !(bool)firstPerson.GetValue(mod) && (bool)god.GetValue(mod) == worldfall && (!worldfall || (bool)gpu.GetValue(mod));
+        var frames = Pages().OrderBy(CentreY).Select(Centre).ToArray();
+        drew |= frames.Length == 3 && (int)lastDraw.GetValue(null) >= 3;
+        spread |= frames.Length == 3 && frames[0].x > 74 && frames[1].x < 64 && frames[2].z > frames[1].z;
+        aligned |= frames.Length == 3 && cast.Cast.Age >= 3.32f && frames.All(p => Mathf.Abs(p.x - 69f) < .04f);
+        samples.Add(new { age = cast.Cast.Age, centres = frames.Select(p => p.ToString()).ToArray(), cuts = Cuts(cast.Id).Length });
+    });
+    var reached = Cuts(cast.Id);
+    var outcomes = reached.Select(hit => new { hit.Node, hit.TargetId, hit.Age, loss = hit.Damage.HealthLost }).ToArray();
+    File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(
+        new { times, duration, samples, outcomes }, Formatting.Indented));
+    Check(stable && drew && spread && aligned && reached.Select(hit => hit.TargetId).SequenceEqual(people.Take(3).Select(actor => actor.id)) &&
+        cast.Cast.Finished && Pages().Length == 0,
+        "一次施放原速拍到真实分层、三次切割和对齐退场", new { stable, drew, spread, aligned, outcomes, cast.Cast.Finished });
+    return new { passed = true, view = recordView, duration, times,
+        previewFrame = Math.Max(0, times.FindIndex(t => t >= .97)), scene = "construction", resource = definition.Resource, paid = definition.Cost };
+}
+
+try { return section == "film" ? await Record() : await SavePair(); }
+finally { ReleaseChecks(); }

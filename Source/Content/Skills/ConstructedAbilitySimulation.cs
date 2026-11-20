@@ -288,6 +288,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (!contactDebugOnlyShapes || running.Id != contactDebugCast)
             {
                 running.Cast.AppendVisuals(visuals);
+                if (running.Cast.Plan.LandscapeNodes.Length > 0) AppendLandscapeSlices(running);
                 if (running.Cast.Plan.MirrorNodes.Length > 0) AppendMirrorImages(running, now);
                 AppendSpatialViews(running, now);
                 AppendSoulPact(running, now);

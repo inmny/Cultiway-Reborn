@@ -1,0 +1,38 @@
+Game.Resume();
+Config.paused = true;
+void Hit(ConstructedContact contact)
+{
+    if (contact.AbilityId.StartsWith("Cultiway.Demo.ThousandFold")) contacts.Add(contact);
+}
+ConstructedAbilityService.ContactConfirmed += Hit;
+try
+{
+    var expected = JObject.Parse(File.ReadAllText(Path.Combine(saved, "readback-expected.json")));
+    World.world.save_manager.loadWorld(Path.Combine(saved, "world"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    long actorId = (long)expected["sourceId"];
+    long[] targetIds = expected["targets"].ToObject<long[]>();
+    var source = World.world.units.get(actorId);
+    var catalog = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    var learned = source.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids;
+    Check(new[] { expected["original"], expected["altered"] }.All(spell => learned.Contains((string)spell["Id"]) &&
+        JToken.DeepEquals(spell, JToken.Parse(JsonConvert.SerializeObject(catalog[(string)spell["Id"]])))),
+        "冷启动恢复两招完整轨迹、断面尺寸和已学记录");
+    source.attack_timer = 999;
+    int[] health = targetIds.Select(id => World.world.units.get(id).data.health).ToArray();
+    Check(health.SequenceEqual(expected["health"].ToObject<int[]>()),
+        "冷读时首层的真实扣血仍在");
+    await Advance(3.55f);
+    Check(contacts.Count == 0 && !FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "pivot" &&
+        (v.Surface == "space_destination" || v.Surface == "space_gate_inlay")),
+        "冷读不会补放未完成的切面和临时地貌");
+    return new { passed = true, actorId, targetIds, health };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+}
