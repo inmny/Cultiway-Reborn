@@ -61,6 +61,9 @@ public sealed class BodyPartSelection
     /// <summary>是否驱动手臂及其实际掌形。</summary>
     public bool IsArm => Contact is BodyContactPart.Hand or BodyContactPart.Elbow or BodyContactPart.Shoulder;
 
+    /// <summary>手腕带动握紧的同一只手，实际接触改用指根。</summary>
+    public bool IsFist => Id is "fist.left" or "fist.right";
+
     /// <summary>是否驱动实际头部。</summary>
     public bool IsHead => Contact == BodyContactPart.Head;
 
@@ -86,6 +89,7 @@ public sealed class BodyPartSelection
         BodyContactPart.Head => "Head",
         BodyContactPart.Organ => "Organ",
         BodyContactPart.Joint => "Joint",
+        BodyContactPart.Hand when IsFist => Left ? "LeftFist" : "RightFist",
         _ => Left ? "LeftHand" : "RightHand"
     };
 
@@ -123,6 +127,8 @@ public sealed class BodyPartSelection
         {
             "hand.right" => (false, BodyContactPart.Hand),
             "hand.left" => (true, BodyContactPart.Hand),
+            "fist.right" => (false, BodyContactPart.Hand),
+            "fist.left" => (true, BodyContactPart.Hand),
             "elbow.right" => (false, BodyContactPart.Elbow),
             "elbow.left" => (true, BodyContactPart.Elbow),
             "shoulder.right" => (false, BodyContactPart.Shoulder),

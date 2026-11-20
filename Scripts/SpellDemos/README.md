@@ -2455,3 +2455,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_reused_parts.py --section blade`，检查真正交锋后的余力和独立飞刃命中。`--section screen` 检查原地接替、第二击、地面阻挡与旁路通行。`--section drop` 检查实际落地与原材料留置。`--section miss` 验证来势未触到根段时不会启动飞刃。
 
 三份实战构造可分别加 `--record native` 或 `--record worldfall`。`--section editor` 检查既有编辑入口、撤销及重开。`--section drop --save` 留下三份已学构造与铁刃材料，重启后用 `verify_supplemental_attacks_archive.py --parts <输出目录>` 集中读回。
+
+### 拦门推掌、贯锋直拳与贴身折肘（9.42）
+
+在独立游戏用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_unarmed.py --section upper`。同一个人形和目标复验三招发力、实际接触、支付与收势，再把直拳目标移到侧外验证落空。用 `--section palm`、`--section punch`、`--section elbow` 或 `--section miss` 可单独复验。`--section hand-edit` 在真实窗口切换伸掌和握拳，核对接触形状、撤销与正式改造重开。

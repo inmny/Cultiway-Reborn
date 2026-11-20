@@ -178,15 +178,15 @@ internal sealed partial class BodyActionBinding
         ConstructionReferences.Resolve("Body/Effector/limb", () => FormResources.Load("limb"), "Form", "limb");
         FormResource form = action.WeaponForm == null ? null :
             ConstructionReferences.Resolve("Body/WeaponForm", () => FormResources.Load(action.WeaponForm), "Form", action.WeaponForm);
-        var contactResource = form ?? handForm;
+        var availableContacts = action.Fist?.Knuckles.Select(contact => contact.Id) ??
+                                (form ?? handForm).Description.Contacts.Select(contact => contact.Id);
         foreach (var relation in action.Construction.Relations.Where(r =>
                      r.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect or BodyRelationKind.Disarm))
         {
             if ((relation.From.Subject == BodyPartSubject.Held) != (action.WeaponForm != null) ||
                 relation.FromAnchor != null && (action.Part.Contact != BodyContactPart.Hand
                     ? relation.FromAnchor != action.Part.Shape
-                    : !contactResource.Description.Contacts.Any(c =>
-                        CompiledBodyConstruction.MatchesContact(relation.FromAnchor, c.Id))))
+                    : !availableContacts.Any(contact => CompiledBodyConstruction.MatchesContact(relation.FromAnchor, contact))))
                 throw new InvalidDataException("Body/Construction/Relations/" + relation.Id + "：实际作用资源缺少所选接触形状");
         }
 
@@ -208,8 +208,11 @@ internal sealed partial class BodyActionBinding
     /// <summary>将本次资源里的形状编号还原为可供关系匹配的名称。</summary>
     /// <param name="shape">当前实际形状编号。</param>
     private string ContactShapeName(int shape) => action.Part.Contact == BodyContactPart.Hand
-        ? (weapon ?? hand).Contacts[shape].Id
+        ? HandContacts[shape].Id
         : action.Part.Shape;
+
+    /// <summary>拳、掌或借用器物各自真正参与命中的表面。</summary>
+    private FormContactBinding[] HandContacts => action.Fist?.Knuckles ?? (weapon ?? hand).Contacts;
 
     /// <summary>一次施放只绑定一次真实物件及手部关节。</summary>
     /// <param name="actor">已核对的实际身体。</param>
@@ -238,6 +241,7 @@ internal sealed partial class BodyActionBinding
         }
         hand = FormResources.Load("hand");
         limb = FormResources.Load("limb");
+        fingers = action.Fist?.Fingers;
         if (action.WeaponForm == null) return;
         Weapon = actor.getWeapon();
         weaponId = Weapon.data.id;
@@ -530,11 +534,11 @@ internal sealed partial class BodyActionBinding
             return;
         }
 
-        FormResource resource = weapon ?? hand;
         Matrix4x4 transform = weapon == null ? HandMatrix(in pose) : WeaponMatrix(in pose);
-        for (int shape = 0; shape < resource.Contacts.Length; shape++)
+        var handContacts = HandContacts;
+        for (int shape = 0; shape < handContacts.Length; shape++)
         {
-            FormContactBinding contact = resource.Contacts[shape];
+            FormContactBinding contact = handContacts[shape];
             if (!action.Construction.UsesContact(weapon != null, contact.Id, pose.WorldAge, includeEnd)) continue;
             if (contact.IsPrism)
             {

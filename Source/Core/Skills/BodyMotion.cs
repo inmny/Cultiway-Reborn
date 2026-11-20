@@ -583,6 +583,9 @@ public sealed partial class CompiledBodyAction
     /// <summary>需要借用的器物形体。</summary>
     public string WeaponForm { get; }
 
+    /// <summary>空手拳击共用的闭指与指根形状。其余手部动作仍采用原形体接触。</summary>
+    internal BodyFist Fist { get; }
+
     /// <summary>实际握点。</summary>
     public string Grip { get; }
 
@@ -760,7 +763,7 @@ public sealed partial class CompiledBodyAction
         actionUntil = definition.ActiveUntil;
         ActiveUntil = actionUntil + hold.Seconds;
         WeaponForm = definition.WeaponForm;
-        if (WeaponForm != null && Part.Contact != BodyContactPart.Hand)
+        if (WeaponForm != null && (Part.Contact != BodyContactPart.Hand || Part.IsFist))
             throw new InvalidDataException("Body/WeaponForm：实际借用器物需要手部握持，不能把肘肩当作握点");
         Grip = Construction.Grip;
         float maximum = 0f;
@@ -838,6 +841,7 @@ public sealed partial class CompiledBodyAction
 
         var hand = ConstructionReferences.Resolve("Body/Effector/hand",
             () => Cultiway.Core.Visuals.Forms.FormResources.Load("hand"), "Form", "hand");
+        if (Part.IsFist) Fist = new BodyFist(hand);
         var resource = WeaponForm == null
             ? hand
             : ConstructionReferences.Resolve("Body/WeaponForm",
@@ -860,7 +864,8 @@ public sealed partial class CompiledBodyAction
         }
 
         heldWeaponLocal = contactMatrix;
-        var selectedContacts = resource.Contacts.Where(contact => Construction.UsesContact(WeaponForm != null, contact.Id)).ToArray();
+        var selectedContacts = (Fist?.Knuckles ?? resource.Contacts)
+            .Where(contact => Construction.UsesContact(WeaponForm != null, contact.Id)).ToArray();
         if (WeaponForm != null && selectedContacts.Length > 0)
         {
             Vector3 center = Vector3.zero;

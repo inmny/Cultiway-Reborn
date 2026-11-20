@@ -1,0 +1,70 @@
+// 9.42：真实窗口切换掌拳，选择拳面，撤销并在正式入口重新打开。
+var source = Make(64.35f);
+const string basisId = "Cultiway.Body.PalmPush";
+var basis = ConstructionEditing.Access.Read(basisId);
+var original = JToken.FromObject(basis);
+ConstructedAbilityService.Learn(source.GetExtend(), basisId);
+
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+async Task Frames()
+{
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    Canvas.ForceUpdateCanvases();
+}
+
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(basisId, source);
+await Frames();
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+void Click(string name) => editor.GetComponentsInChildren<Button>(false).Single(button => button.name == name).onClick.Invoke();
+WanfaEditorRow Row(string key) => editor.GetComponentsInChildren<WanfaEditorRow>(false)
+    .First(row => ((Text)Field(row, "_title")).text == T(key));
+void Select(string key, string label)
+{
+    ((Button)Field(Row(key), "_action")).onClick.Invoke();
+    var menu = Field(editor, "menu");
+    var options = (IList)Field(menu, "_options");
+    var buttons = (IList)Field(menu, "_optionButtons");
+    int index = Enumerable.Range(0, options.Count).Single(i => (string)Field(options[i], "Label") == label);
+    ((Button)buttons[index]).onClick.Invoke();
+}
+
+try
+{
+    Click("Page2");
+    Select("MartialHandShape", T("MartialClosedHand"));
+    Select("MartialTouchShape", T("MartialShape.knuckles") + " / 2");
+    var fist = JToken.FromObject(Session().Draft);
+    var savedPart = AbilityCompiler.Compile(Session().Draft, cache: false).Body;
+    Check(savedPart.Effector == "fist.right" && savedPart.Construction.Relations.Single().FromAnchor == "knuckles/2" &&
+          JToken.DeepEquals(JToken.FromObject(Session().Draft.Body.Keys), original["Body"]["Keys"]),
+        "握拳与指定指根通过真实窗口完成，原各阶段动作保留");
+    Select("MartialHandShape", T("MartialOpenHand"));
+    var palm = AbilityCompiler.Compile(Session().Draft, cache: false).Body;
+    Check(palm.Effector == "hand.right" && palm.Construction.Relations.Single().FromAnchor == "palm",
+        "再展开掌时实际作用改回掌面");
+    Click("Undo");
+    Check(JToken.DeepEquals(fist, JToken.FromObject(Session().Draft)), "撤销恢复完整指根选择和原动作");
+    Click("Replace");
+    string editedId = Session().SourceId;
+    var edited = ConstructionEditing.Access.Read(editedId);
+    Check(editedId != basisId && JToken.DeepEquals(original, JToken.FromObject(ConstructionEditing.Access.Read(basisId))) &&
+          AbilityCompiler.Compile(edited, cache: false).Body.Construction.Relations.Single().FromAnchor == "knuckles/2",
+        "正式改造保存指根选择，原推掌完整保留");
+    Click("Close");
+    await Frames();
+    WindowWanfaConstructionEditor.Open(editedId, source);
+    await Frames();
+    Click("Page2");
+    Check(AbilityCompiler.Compile(Session().Draft, cache: false).Body.Effector == "fist.right" && Row("MartialHandShape") != null,
+        "重开正式改造显示原手形");
+    return new { passed = true, section, editedId, checks };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}
