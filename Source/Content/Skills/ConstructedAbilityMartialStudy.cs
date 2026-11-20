@@ -32,9 +32,9 @@ public sealed partial class ConstructedAbilityService
         string weapon = null, grip = null, contact = null;
         if (source.asset.is_humanoid && source.hasWeapon() && EquippedWeaponVisualService.IsCurrent(source, source.getWeapon()))
         {
-            string group = source.getWeaponAsset().group_id;
+            EquipmentAsset item = source.getWeaponAsset();
             var forms = FormResources.Ids.OrderBy(id => id, StringComparer.Ordinal)
-                .Where(id => FormResources.Load(id).Description.Held.Groups.Contains(group)).ToArray();
+                .Where(id => FormResources.Load(id).Description.Held.MatchesEquipment(item.group_id, item.id)).ToArray();
             if (forms.Length > 0)
             {
                 string id = forms[random.Next(forms.Length)];

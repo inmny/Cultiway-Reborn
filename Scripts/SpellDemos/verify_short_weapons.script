@@ -1,0 +1,140 @@
+// 9.43：同一人换实际武器，验证口径、握点、击中和原物归还。
+var source = Make(64.35f);
+var target = Make(65.2f);
+var owner = source.GetExtend();
+target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+var quietStats = new BaseStats();
+quietStats.addTag("frozen_ai");
+var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ShortWeaponsQuiet") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ShortWeaponsQuiet")
+        .SetStats(quietStats).SetDuration(10000).Build();
+CombatStatusEffects.RemoveStatus(target, hold);
+CombatStatusEffects.ApplyStatus(target, quiet, 10000, target);
+target.updateStats();
+const string shortBlade = "Cultiway.Body.ShortBladeThrust";
+var bindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding");
+AbilityCast live = null;
+object binding = null;
+long castId = 0;
+var damage = new List<ConstructedQueuedDamage>();
+
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || !fact.AbilityId.StartsWith("Cultiway.Body.ShortBlade")) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(entry => (long)Field(entry, "Id") == fact.CastId);
+    castId = fact.CastId;
+    live = (AbilityCast)Field(running, "Cast");
+    binding = Field(running, "Body");
+}
+
+void Settled(ConstructedQueuedDamage fact)
+{
+    if (fact.SourceId == source.id) damage.Add(fact);
+}
+
+Item Equip(string id)
+{
+    if (source.hasWeapon()) source.equipment.weapon.takeAwayItem();
+    var item = World.world.items.generateItem(AssetManager.items.get(id), pActor: source);
+    source.equipment.setItem(item, source);
+    source.setStatsDirty();
+    source.updateStats();
+    Check(ReferenceEquals(item, source.getWeapon()) && item.getAsset().id == id, "持有对应的实际原版兵器 · " + id);
+    return item;
+}
+
+var clock = Config.time_scale_asset;
+float speed = clock.multiplier;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+try
+{
+    Ready(source);
+    source.attack_timer = target.attack_timer = 999;
+    await Advance(.18f);
+    clock.multiplier = speed * .32f;
+    var iron = AbilityCompiler.Compile(ConstructionEditing.Access.Read(shortBlade), false).Body;
+    var stone = AbilityCompiler.Compile(ConstructionEditing.Access.Read(shortBlade + ".Stone"), false).Body;
+    Check(iron.ContactReach > stone.ContactReach + .13f && iron.Grip == stone.Grip,
+        "两件实际器形从各自握点和尖端推导不同触达长度", new { iron = iron.ContactReach, stone = stone.ContactReach });
+
+    foreach (var sample in new[]
+    {
+        (key: "iron", asset: "sword_iron", id: shortBlade, wrong: shortBlade + ".Stone", range: .88f, material: "iron"),
+        (key: "stone", asset: "sword_stone", id: shortBlade + ".Stone", wrong: shortBlade, range: .71f, material: "earth")
+    }.Where(sample => selected == "all" || selected == sample.key))
+    {
+        Item weapon = Equip(sample.asset);
+        Place(source, 64.35f);
+        Place(target, 64.35f + sample.range);
+        source.data.stamina = 100;
+        source.addAggro(target);
+        target.addAggro(source);
+        target.setHealth(target.getMaxHealth());
+        source.attack_timer = 0;
+        ConstructedAbilityService.Learn(owner, sample.wrong);
+        var wrong = new ActiveAbilityHandle("content.constructed", owner.E, sample.wrong);
+        var activeTarget = new ActiveAbilityTarget(target, target.GetSimPos());
+        var blocked = ActiveAbilityService.ResolveControlState(owner, wrong).BlockReason;
+        Check(!ActiveAbilityService.TryUse(owner, wrong, activeTarget, ActiveAbilityUseOrigin.Script) &&
+              !BodyControlState.IsBusy(source.id) && source.data.stamina == 100,
+            sample.key + " 拒绝同组但器形不匹配的战技，无消耗且未接管", new { blocked });
+
+        var definition = ConstructionEditing.Access.Read(sample.id);
+        ConstructedAbilityService.Learn(owner, sample.id);
+        var handle = new ActiveAbilityHandle("content.constructed", owner.E, sample.id);
+        float stamina = source.data.stamina;
+        live = null;
+        bool used = ActiveAbilityService.TryUse(owner, handle, activeTarget, ActiveAbilityUseOrigin.Script);
+        source.attack_timer = 999;
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        Check(used && live != null && BodyControlState.IsBusy(source.id) &&
+              Mathf.Abs(stamina - source.data.stamina - definition.Cost) < .001f &&
+              ReferenceEquals(weapon, Field(binding, "Weapon")), sample.key + " 正式短刺借用原物并支付体力",
+            new { used, paid = stamina - source.data.stamina });
+
+        await Advance(.30f);
+        BodyPose pose = live.BodyPose.Value;
+        var form = FormResources.Load(definition.Body.WeaponForm);
+        var instances = new List<FormVisualInstance>();
+        bindingType.GetMethod("AppendVisuals", F).Invoke(binding, new object[] { source, pose, instances, null });
+        var weaponView = instances.Single(part => part.Resource == form);
+        var hand = instances.Single(part => part.Resource.Description.Id == "hand");
+        Vector3 local = hand.Resource.Anchors.Single(anchor => anchor.Id == "grip").Transform.GetColumn(3);
+        Vector3 heldPoint = weaponView.Transform.MultiplyPoint3x4(form.Grip("choke").Transform.GetColumn(3));
+        Vector3 normalGrip = weaponView.Transform.MultiplyPoint3x4(form.Grip("grip").Transform.GetColumn(3));
+        var shapes = new List<AbilityCapsule>();
+        bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
+        int tip = Array.FindIndex(form.Description.Contacts, contact => contact.Id == "tip");
+        var actual = shapes.SingleOrDefault();
+        Vector3 expected = weaponView.Transform.MultiplyPoint3x4(form.Contacts[tip].A);
+        Check(Vector3.Distance(hand.Transform.MultiplyPoint3x4(local), heldPoint) < .0001f &&
+              Vector3.Distance(heldPoint, normalGrip) > .02f && hand.Parts != null &&
+              shapes.Count == 1 && actual.Shape == tip && Vector3.Distance(actual.A, expected) < .0001f &&
+              actual.Matter == sample.material, sample.key + " 画面与命中共用实际握点、尖端和材料",
+            new { live.Age, tip, held = heldPoint.ToString("F4"), point = actual.A.ToString("F4"), actual.Matter });
+
+        await Advance(definition.Lifetime);
+        var hits = contacts.Where(hit => hit.CastId == castId && hit.TargetId == target.id).ToArray();
+        float lost = hits.Sum(hit => hit.Damage.HealthLost) + damage.Where(fact => fact.CastId == castId && fact.TargetId == target.id)
+            .Sum(fact => fact.Damage.HealthLost);
+        Check(hits.Length == 1 && hits[0].Node == -1 && hits[0].Age >= definition.Body.ActiveFrom - .001f &&
+              hits[0].Age <= definition.Body.ActiveUntil + .001f && lost > 0, sample.key + " 仅实际短刺窗口命中一次",
+            new { lost, hits = hits.Select(hit => new { hit.Age, hit.Node, point = hit.Position.ToString("F4") }).ToArray() });
+        Check(endings.Any(end => end.Fact.CastId == castId && !end.Fact.Cancelled) &&
+              !BodyControlState.IsBusy(source.id) && ReferenceEquals(source.getWeapon(), weapon),
+            sample.key + " 自然收势，同一件兵器仍由原人物装备");
+    }
+    return new { passed = true, selected, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+    Config.paused = true;
+    clock.multiplier = speed;
+    ControllableUnit.clear(false);
+}

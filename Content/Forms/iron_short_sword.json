@@ -1,0 +1,356 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_short_swords.mjs",
+            "Entry": "shortSword",
+            "Parameters": [
+                {
+                    "Id": "stations",
+                    "Values": [
+                        0.0,
+                        -0.09399999678134918,
+                        0.11100000143051148,
+                        0.032999999821186069,
+                        0.2199999988079071,
+                        -0.11500000208616257,
+                        0.13600000739097596,
+                        0.04399999976158142,
+                        0.6800000071525574,
+                        -0.07900000363588333,
+                        0.15000000596046449,
+                        0.04500000178813934,
+                        1.0499999523162842,
+                        -0.0560000017285347,
+                        0.15800000727176667,
+                        0.03700000047683716,
+                        1.440000057220459,
+                        0.01899999938905239,
+                        0.10499999672174454,
+                        0.020999999716877939,
+                        1.6799999475479127,
+                        0.054999999701976779,
+                        0.05700000002980232,
+                        0.001500000013038516
+                    ]
+                },
+                {
+                    "Id": "handle",
+                    "Values": [
+                        0.12800000607967378,
+                        0.46000000834465029,
+                        0.3199999928474426
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "grip/guard",
+                "Parent": "grip",
+                "Child": "guard",
+                "Position": [
+                    0.0,
+                    0.0,
+                    -0.03999999910593033
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "guard/blade",
+                "Parent": "guard",
+                "Child": "blade",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material",
+            "separate"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "iron_short_sword",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "blade.edge",
+                "blade.spine"
+            ],
+            "Id": "blade",
+            "Surface": "metal",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/iron_short_sword_blade.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "weapon.guard"
+            ],
+            "Id": "guard",
+            "Surface": "metal",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/iron_short_sword_guard.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/iron_short_sword_grip_mid.asset",
+                "Assets/Cultiway/Forms/iron_short_sword_grip_far.asset"
+            ],
+            "Roles": [
+                "weapon.grip"
+            ],
+            "Id": "grip",
+            "Surface": "leather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/iron_short_sword_grip.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "tip",
+            "Part": 0,
+            "Position": [
+                0.0560000017285347,
+                0.0,
+                1.6799999475479127
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "grip",
+            "Part": 2,
+            "Position": [
+                0.0,
+                0.0,
+                -0.2549999952316284
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "choke",
+            "Part": 2,
+            "Position": [
+                0.0,
+                0.0,
+                -0.12999999523162843
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        }
+    ],
+    "Grips": [
+        {
+            "Id": "grip",
+            "Anchor": "grip",
+            "Up": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "Diameter": 0.12600000202655793,
+            "Scale": [
+                0.25,
+                0.550000011920929
+            ]
+        },
+        {
+            "Id": "choke",
+            "Anchor": "choke",
+            "Up": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "Diameter": 0.11999999731779099,
+            "Scale": [
+                0.25,
+                0.550000011920929
+            ]
+        }
+    ],
+    "Held": {
+        "Groups": [
+            "sword"
+        ],
+        "EquipmentIds": [
+            "sword_iron"
+        ],
+        "Scale": 0.41999998688697817
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "tip",
+            "Part": 0,
+            "A": [
+                0.0560000017285347,
+                0.0,
+                1.649999976158142
+            ],
+            "B": [
+                0.0560000017285347,
+                0.0,
+                1.6720000505447388
+            ],
+            "Radius": 0.008999999612569809,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/cut/0",
+            "Part": 0,
+            "A": [
+                0.15000000596046449,
+                0.0,
+                0.6800000071525574
+            ],
+            "B": [
+                0.15800000727176667,
+                0.0,
+                1.0499999523162842
+            ],
+            "Radius": 0.01600000075995922,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/cut/1",
+            "Part": 0,
+            "A": [
+                0.15800000727176667,
+                0.0,
+                1.0499999523162842
+            ],
+            "B": [
+                0.10499999672174454,
+                0.0,
+                1.440000057220459
+            ],
+            "Radius": 0.01600000075995922,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/sweep/0",
+            "Part": 0,
+            "A": [
+                -0.11500000208616257,
+                0.0,
+                0.2199999988079071
+            ],
+            "B": [
+                -0.07900000363588333,
+                0.0,
+                0.6800000071525574
+            ],
+            "Radius": 0.01600000075995922,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/sweep/1",
+            "Part": 0,
+            "A": [
+                0.13600000739097596,
+                0.0,
+                0.2199999988079071
+            ],
+            "B": [
+                0.15000000596046449,
+                0.0,
+                0.6800000071525574
+            ],
+            "Radius": 0.01600000075995922,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

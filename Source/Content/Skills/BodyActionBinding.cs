@@ -82,6 +82,9 @@ internal sealed partial class BodyActionBinding
     /// <summary>已解析的握点，不在运行中查找名称。</summary>
     private readonly FormGrip grip;
 
+    /// <summary>所借器物在实际接触中采用的材料。</summary>
+    private readonly string weaponMatter;
+
     /// <summary>器物已经交给构造主体，身体保持手势，不重复绘制或参与命中。</summary>
     internal bool WeaponInConstruction;
 
@@ -146,7 +149,8 @@ internal sealed partial class BodyActionBinding
         if (action.Effector != "hand.right") return "PreviewBodyHeldSide";
         if (!body.hasWeapon() || !EquippedWeaponVisualService.IsCurrent(body, body.getWeapon())) return "PreviewBodyHeldMissing";
         FormResource form = boundForm ?? FormResources.Load(action.WeaponForm);
-        if (!form.Description.Held.Groups.Contains(body.getWeaponAsset().group_id)) return "PreviewBodyHeldKind";
+        EquipmentAsset item = body.getWeaponAsset();
+        if (!form.Description.Held.MatchesEquipment(item.group_id, item.id)) return "PreviewBodyHeldKind";
         return (boundGrip ?? form.Grip(action.Grip)).Fits(action.WeaponSize, .035f * HandScale, .08f * HandScale)
             ? null : "PreviewBodyGripFit";
     }
@@ -248,6 +252,8 @@ internal sealed partial class BodyActionBinding
         weaponAsset = Weapon.getAsset();
         weapon = FormResources.Load(action.WeaponForm);
         grip = weapon.Grip(action.Grip);
+        weaponMatter = weapon.Description.Held.EquipmentIds.Length != 0 && weaponAsset.material == "stone"
+            ? "earth" : "iron";
         fingers = new Matrix4x4[hand.Meshes.Length];
         fingers[0] = Matrix4x4.identity;
         for (int finger = 0; finger < 5; finger++)
@@ -535,6 +541,7 @@ internal sealed partial class BodyActionBinding
         }
 
         Matrix4x4 transform = weapon == null ? HandMatrix(in pose) : WeaponMatrix(in pose);
+        string matter = weaponMatter ?? "physical";
         var handContacts = HandContacts;
         for (int shape = 0; shape < handContacts.Length; shape++)
         {
@@ -542,13 +549,12 @@ internal sealed partial class BodyActionBinding
             if (!action.Construction.UsesContact(weapon != null, contact.Id, pose.WorldAge, includeEnd)) continue;
             if (contact.IsPrism)
             {
-                if (contact.World(null, transform, -1, shape, 0, null, 1f, out var solid,
-                        weapon == null ? "physical" : "iron")) output.Add(solid);
+                if (contact.World(null, transform, -1, shape, 0, null, 1f, out var solid, matter)) output.Add(solid);
                 continue;
             }
             output.Add(new AbilityCapsule(-1, transform.MultiplyPoint3x4(contact.A),
                 transform.MultiplyPoint3x4(contact.B), contact.Radius * transform.lossyScale.x,
-                weapon == null ? "physical" : "iron", shape));
+                matter, shape));
         }
     }
 
