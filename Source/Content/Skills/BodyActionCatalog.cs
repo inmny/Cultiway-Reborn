@@ -39,9 +39,12 @@ public static class BodyActionCatalog
         guard.Body.Guard = new BodyGuardDefinition { Capacity = 100f, Normal = new[] { 0f, 0f, 1f } };
         AbilityDefinition thrust = Load("sword-thrust");
         AbilityDefinition shortThrust = Load("short-blade-thrust");
+        AbilityDefinition shortCut = Load("short-blade-cut");
+        AbilityDefinition shortSweep = Load("short-blade-sweep");
         return new[] { palm, Load("sweeping-palm"), thrust, guard, CreateSwordRelease(thrust),
             Load("beast-horn-thrust"), Load("beast-pounce"), Load("palm-push"), Load("straight-punch"), Load("folded-elbow"),
-            Load("rising-knee"), Load("low-sweep"), Load("shoulder-drive"), shortThrust, StoneSword(shortThrust) };
+            Load("rising-knee"), Load("low-sweep"), Load("shoulder-drive"), shortThrust, StoneSword(shortThrust),
+            shortCut, StoneSword(shortCut), shortSweep, StoneSword(shortSweep) };
     }
 
     /// <summary>保留完整手路及发力，石剑版本以本身的握点及刃口执行。</summary>

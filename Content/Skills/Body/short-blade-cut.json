@@ -1,0 +1,44 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.ShortBladeCut",
+  "Name": "压锋斜切",
+  "Revision": 1,
+  "Lifetime": 0.82,
+  "Cooldown": 1.04,
+  "Resource": "stamina",
+  "Cost": 5,
+  "Power": 1.2,
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": "iron_short_sword",
+    "Grip": "grip",
+    "ReleaseAt": 0.21,
+    "ActiveFrom": 0.285,
+    "ActiveUntil": 0.43,
+    "ImpactRecoil": 0.048,
+    "RecoilSeconds": 0.10,
+    "Contact": {"Mode": "Once"},
+    "Impact": {"Targets": "Hostile", "DamageScale": 1.27, "Force": 1.05, "StaggerSeconds": 0.14},
+    "Construction": {
+      "Parts": [
+        {"Id": "hand.right", "Part": "hand.right"},
+        {"Id": "sword", "Subject": "Held", "Part": "item"},
+        {"Id": "target", "Subject": "Target", "Part": "surface"}
+      ],
+      "Relations": [
+        {"Id": "hold", "Kind": "Grip", "From": "hand.right", "To": "sword", "FromAnchor": "grip", "ToAnchor": "grip", "FromMarker": "start", "UntilMarker": "end"},
+        {"Id": "cut", "Kind": "Touch", "From": "sword", "To": "target", "FromAnchor": "edge/cut"}
+      ]
+    },
+    "Keys": [
+      {"Id": "ready", "At": 0.0, "Hand": [0.20, 0.19, 0.57], "Rotation": [-9, -24, 11]},
+      {"Id": "raise", "At": 0.20, "Hand": [0.19, 0.24, 0.82], "Torso": [-0.027, 0.021, 0.008], "Turn": -23, "Rotation": [-36, -49, -19]},
+      {"At": 0.285, "Hand": [0.34, 0.16, 0.75], "Torso": [0.025, 0.014, 0.014], "Turn": -9, "Rotation": [-17, -20, -9]},
+      {"Id": "cut", "At": 0.36, "Hand": [0.44, 0.03, 0.60], "Torso": [0.066, -0.016, -0.019], "Turn": 13, "Rotation": [10, 10, 4]},
+      {"At": 0.44, "Hand": [0.35, -0.12, 0.46], "Torso": [0.054, -0.041, -0.042], "Turn": 25, "Rotation": [36, 41, 26]},
+      {"Id": "withdraw", "At": 0.61, "Hand": [0.23, 0.06, 0.48], "Torso": [0.017, -0.008, -0.015], "Turn": 7, "Rotation": [13, 14, 17]},
+      {"Id": "rest", "At": 0.82, "Hand": [0.20, 0.19, 0.57], "Rotation": [-9, -24, 11]}
+    ],
+    "Responses": [{"Result": "Blocked", "RecoverFrom": "withdraw", "Seconds": 0.15}]
+  }
+}
