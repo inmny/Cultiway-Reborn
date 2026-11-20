@@ -11,7 +11,7 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('all', 'strike', 'near', 'sweep'), default='all')
+    parser.add_argument('--case', choices=('all', 'strike', 'near', 'sweep', 'interrupt'), default='all')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过 dev.py exec 运行')

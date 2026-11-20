@@ -2,13 +2,16 @@ using UnityEngine;
 
 namespace Cultiway.Core.Skills;
 
-/// <summary>同一腕点同时满足两套固定臂长及本步位移；枚举有限球面交点，不做迭代追赶。</summary>
+/// <summary>在共同腕点上满足各条固定臂长及本步位移，使用有限球面交点。</summary>
 internal struct BodyReachProjector
 {
-    /// <summary>两套手臂的内外边界，以及可选的本步移动边界。</summary>
-    private Sphere firstInner, firstOuter, secondInner, secondOuter, motion;
+    /// <summary>两只手在原版及三维呈现的内外边界，以及可选的本步移动边界。</summary>
+    private Sphere firstInner, firstOuter, secondInner, secondOuter, thirdInner, thirdOuter, fourthInner, fourthOuter, motion;
 
-    /// <summary>本轮真正采用的边界数量。</summary>
+    /// <summary>实际加入的臂长边界数量。</summary>
+    private int armBounds;
+
+    /// <summary>本轮采用的全部边界数量。</summary>
     private int count;
 
     /// <summary>请求点、稳定的对称选择方向以及当前最近可用点。</summary>
@@ -26,40 +29,65 @@ internal struct BodyReachProjector
     internal static bool TryProject(Vector3 desired, Vector3 other, float upper, float lower, float otherUpper,
         float otherLower, Vector3 pole, Vector3? previous, float distance, out Vector3 result)
     {
-        var solver = new BodyReachProjector
-        {
-            requested = desired, preference = pole, score = float.PositiveInfinity,
-            firstInner = new Sphere(Vector3.zero, BodyJointSolver.MinimumReach(upper, lower), true),
-            firstOuter = new Sphere(Vector3.zero, (upper + lower) * BodyJointSolver.Extension, false),
-            secondInner = new Sphere(other, BodyJointSolver.MinimumReach(otherUpper, otherLower), true),
-            // 留出少量实际骨架取点误差，显示接合不再拉长肢体。
-            secondOuter = new Sphere(other, (otherUpper + otherLower) * .96f, false),
-            count = previous.HasValue ? 5 : 4
-        };
-        if (previous.HasValue)
-        {
-            solver.motion = new Sphere(previous.Value, distance, false);
-            solver.Consider(previous.Value);
-        }
-
-        solver.Consider(desired);
-        for (int i = 0; i < solver.count; i++)
-        {
-            Sphere a = solver.At(i);
-            Vector3 ray = desired - a.Centre;
-            solver.Consider(a.Centre + Direction(ray, pole) * a.Radius);
-            for (int j = i + 1; j < solver.count; j++) solver.Circle(a, solver.At(j), j);
-        }
-
-        result = solver.best;
-        return !float.IsPositiveInfinity(solver.score);
+        var solver = new BodyReachProjector();
+        solver.AddArm(Vector3.zero, upper, lower, BodyJointSolver.Extension);
+        // 给三维骨架的取点误差留余量。
+        solver.AddArm(other, otherUpper, otherLower, .96f);
+        return solver.Project(desired, pole, previous, distance, out result);
     }
 
-    /// <summary>固定五个数值边界，无逐步数组分配。</summary>
-    /// <param name="index">本轮有效索引。</param>
-    private Sphere At(int index) => index switch
+    /// <summary>把一条手臂的可达边界换算到同一个主手腕点。</summary>
+    /// <param name="centre">已扣除双手握距的肩点。</param><param name="upper">归一化上臂长。</param>
+    /// <param name="lower">归一化前臂长。</param><param name="extension">该臂允许的最大伸展比例。</param>
+    internal void AddArm(Vector3 centre, float upper, float lower, float extension)
     {
-        0 => firstInner, 1 => firstOuter, 2 => secondInner, 3 => secondOuter, _ => motion
+        var inner = new Sphere(centre, BodyJointSolver.MinimumReach(upper, lower), true);
+        var outer = new Sphere(centre, (upper + lower) * extension, false);
+        switch (armBounds)
+        {
+            case 0: firstInner = inner; firstOuter = outer; break;
+            case 2: secondInner = inner; secondOuter = outer; break;
+            case 4: thirdInner = inner; thirdOuter = outer; break;
+            case 6: fourthInner = inner; fourthOuter = outer; break;
+        }
+        armBounds += 2;
+    }
+
+    /// <summary>求各手臂都能到达的最近腕点，普通可达请求直接采用。</summary>
+    /// <param name="desired">请求点。</param><param name="pole">相等距离时采用的弯曲方向。</param>
+    /// <param name="previous">同一局部坐标的前次点。</param><param name="distance">本次最大移动距离。</param>
+    /// <param name="result">求得的共同腕点。</param>
+    internal bool Project(Vector3 desired, Vector3 pole, Vector3? previous, float distance, out Vector3 result)
+    {
+        requested = desired;
+        preference = pole;
+        score = float.PositiveInfinity;
+        count = armBounds + (previous.HasValue ? 1 : 0);
+        if (previous.HasValue)
+        {
+            motion = new Sphere(previous.Value, distance, false);
+            Consider(previous.Value);
+        }
+
+        Consider(desired);
+        for (int i = 0; score > 0f && i < count; i++)
+        {
+            Sphere a = At(i);
+            Vector3 ray = desired - a.Centre;
+            Consider(a.Centre + Direction(ray, pole) * a.Radius);
+            for (int j = i + 1; j < count; j++) Circle(a, At(j), j);
+        }
+
+        result = best;
+        return !float.IsPositiveInfinity(score);
+    }
+
+    /// <summary>固定数值边界，无逐步数组分配。</summary>
+    /// <param name="index">本轮有效索引。</param>
+    private Sphere At(int index) => index == armBounds ? motion : index switch
+    {
+        0 => firstInner, 1 => firstOuter, 2 => secondInner, 3 => secondOuter,
+        4 => thirdInner, 5 => thirdOuter, 6 => fourthInner, _ => fourthOuter
     };
 
     /// <summary>每个候选同时核对全部内外约束，只保存最近点。</summary>

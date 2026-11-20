@@ -226,6 +226,12 @@ public sealed class CompiledBodyConstruction
     /// <summary>已选择的器物握点。</summary>
     public string Grip { get; }
 
+    /// <summary>左手用来贴合枪杆的手内握点。</summary>
+    public string SupportHandGrip { get; }
+
+    /// <summary>左手在同一件器物上的托握位置。</summary>
+    public string SupportGrip { get; }
+
     /// <summary>相对脚下、以体高为单位的固定双足落点。</summary>
     public Vector3 LeftFoot { get; } = new(0, -CompiledBodyAction.FootSide, 0);
 
@@ -354,6 +360,7 @@ public sealed class CompiledBodyConstruction
             else markers.Add(key.Id, key.At);
         implicitRelations = source == null;
         var relations = new List<CompiledBodyRelation>();
+        bool primaryGrip = false;
         foreach (var relation in source?.Relations ?? Array.Empty<BodyRelationDefinition>())
         {
             if (relation == null || string.IsNullOrWhiteSpace(relation.Id) || relations.Any(r => r.Id == relation.Id) ||
@@ -373,13 +380,22 @@ public sealed class CompiledBodyConstruction
                 throw new InvalidDataException("Body/Construction/Relations/CollisionDamageScale：撞伤倍率须在0至1000之间");
             if (relation.Kind == BodyRelationKind.Grip)
             {
-                if (relations.Any(r => r.Kind == BodyRelationKind.Grip) || from.Subject != BodyPartSubject.Source ||
-                    from.Part != Effector || to.Subject != BodyPartSubject.Held || to.Part != "item" ||
+                if (from.Subject != BodyPartSubject.Source || to.Subject != BodyPartSubject.Held || to.Part != "item" ||
                     string.IsNullOrWhiteSpace(relation.FromAnchor) || string.IsNullOrWhiteSpace(relation.ToAnchor) ||
                     start != 0f || until != markers["end"])
-                    throw new InvalidDataException("Body/Construction/Relations/Grip：当前握持须连接实际发力手与整件器物，并覆盖完整动作");
-                HandGrip = relation.FromAnchor;
-                Grip = relation.ToAnchor;
+                    throw new InvalidDataException("Body/Construction/Relations/Grip：握持须连接实际手掌与整件器物，并覆盖完整动作");
+                if (!primaryGrip && from.Part == Effector)
+                {
+                    primaryGrip = true;
+                    HandGrip = relation.FromAnchor;
+                    Grip = relation.ToAnchor;
+                }
+                else if (Effector == "hand.right" && from.Part == "hand.left" && SupportGrip == null)
+                {
+                    SupportHandGrip = relation.FromAnchor;
+                    SupportGrip = relation.ToAnchor;
+                }
+                else throw new InvalidDataException("Body/Construction/Relations/Grip：每只实际手只提供一个握点，左手可辅助右手");
             }
             else if (relation.Kind == BodyRelationKind.Touch && (start < body.ActiveFrom || until > body.ActiveUntil))
                 throw new InvalidDataException("Body/Construction/Relations/Touch：接触区间须位于实际有效阶段内");
@@ -395,7 +411,7 @@ public sealed class CompiledBodyConstruction
             relations.Add(new CompiledBodyRelation(relation, from, to, start, until, holdAt, holdSeconds));
         }
 
-        if (source != null && body.WeaponForm != null && !relations.Any(r => r.Kind == BodyRelationKind.Grip))
+        if (source != null && body.WeaponForm != null && !primaryGrip)
             throw new InvalidDataException("Body/Construction/Relations：借用器物缺少实际握持关系");
         Relations = relations.AsReadOnly();
     }

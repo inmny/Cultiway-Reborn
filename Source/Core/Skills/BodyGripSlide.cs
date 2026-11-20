@@ -19,6 +19,15 @@ public sealed partial class CompiledBodyAction
     {
         FormGrip end = ConstructionReferences.Resolve("Body/SlideGrip", () => resource.Grip(destination),
             "Grip", resource.Description.Id + " / " + destination);
+        RequireShaft(resource, start, end, "Body/SlideGrip");
+        return end.Align(socket, WeaponSize).GetColumn(3) - original.GetColumn(3);
+    }
+
+    /// <summary>确认两处实际握点处于同一段有正确粗细、可闭合的直杆。</summary>
+    /// <param name="resource">实际持物资源。</param><param name="start">主手握点。</param>
+    /// <param name="end">另一实际握点。</param><param name="path">错误所对应的资料位置。</param>
+    private void RequireShaft(FormResource resource, FormGrip start, FormGrip end, string path)
+    {
         Vector3 from = start.Transform.GetColumn(3), to = end.Transform.GetColumn(3);
         int part = resource.Description.Anchors.Single(anchor => anchor.Id == start.Anchor).Part;
         if (part != resource.Description.Anchors.Single(anchor => anchor.Id == end.Anchor).Part ||
@@ -30,8 +39,7 @@ public sealed partial class CompiledBodyAction
             !resource.Contacts.Any(contact => contact.Part == part && !contact.IsPrism &&
                 Mathf.Abs(contact.Radius * 2f - start.Diameter) < .0001f &&
                 OnShaft(contact.A, contact.B, from) && OnShaft(contact.A, contact.B, to)))
-            throw new InvalidDataException("Body/SlideGrip：两个握点须沿同一段可握持的实心直杆");
-        return end.Align(socket, WeaponSize).GetColumn(3) - original.GetColumn(3);
+            throw new InvalidDataException(path + "：两个握点须沿同一段可握持的实心直杆");
     }
 
     /// <summary>握点应落在实际直杆轴线上，不允许从一个握柄穿到另一个部件。</summary>

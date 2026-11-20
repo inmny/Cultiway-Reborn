@@ -28,11 +28,17 @@ internal sealed partial class BodyActionBinding
     /// <summary>本次实际身体的固定比例，只向工作线程提供数字。</summary>
     private readonly BodyFit fit;
 
+    /// <summary>同时托握的左手实际三维骨架。</summary>
+    private readonly BodyFit supportFit;
+
     /// <summary>原版实际头图的关节与包络，创建时读取。</summary>
     private readonly BodyHeadFit nativeHead;
 
     /// <summary>起势时采集的原人物衣色和肤色，同一次动作共用。</summary>
     private readonly (Color? Upper, Color? Lower, Color? Hand) armColors;
+
+    /// <summary>左手托握采用同侧衣料和肤色。</summary>
+    private readonly (Color? Upper, Color? Lower, Color? Hand) supportColors;
 
     /// <summary>已有实际器官的独立绑定，其他动作为空。</summary>
     internal BodyOrganBinding Organ { get; private set; }
@@ -228,13 +234,15 @@ internal sealed partial class BodyActionBinding
     /// <param name="targetFoot">共同时间的实际目标脚下。</param>
     /// <param name="targetHeight">共同时间的实际目标高度。</param>
     /// <param name="fit">已在主线程采集的实际身体比例。</param>
+    /// <param name="supportFit">左手另行采集的实际比例。</param>
     private BodyActionBinding(Actor actor, CompiledBodyAction action, Vector3 direction, Vector3 targetFoot,
-        float targetHeight, BodyFit fit)
+        float targetHeight, BodyFit fit, BodyFit supportFit = null)
     {
         this.action = action;
         sourceAsset = actor.asset;
         sourceAppearance = action.Part.IsHead ? actor.animation_container : null;
         this.fit = fit;
+        this.supportFit = supportFit;
         nativeHead = action.Part.IsHead ? CaptureNativeHead(actor) : null;
         Direction = direction;
         Facing = BodyControlState.Facing(actor.id, direction);
@@ -245,6 +253,11 @@ internal sealed partial class BodyActionBinding
         {
             armColors = NativeBodyRegions.ArmColors(actor, action.Part.Left);
             armColors.Upper ??= Color.Lerp(actor.kingdom.getColor().getColorMain(), Color.white, .2f);
+        }
+        if (action.UsesSupportingGrip)
+        {
+            supportColors = NativeBodyRegions.ArmColors(actor, true);
+            supportColors.Upper ??= armColors.Upper;
         }
         hand = FormResources.Load("hand");
         limb = FormResources.Load("limb");
@@ -317,12 +330,13 @@ internal sealed partial class BodyActionBinding
         }
 
         BodyFit fit = FitProvider?.Invoke(actor, action.Part.Left);
-        if (FitProvider != null && fit == null) problem = "PreviewBodyLimbMotion";
+        BodyFit supportFit = action.UsesSupportingGrip ? FitProvider?.Invoke(actor, true) : null;
+        if (FitProvider != null && (fit == null || action.UsesSupportingGrip && supportFit == null)) problem = "PreviewBodyLimbMotion";
         else if ((action.Part.IsLeg || action.HasSupportMotion) && fit != null &&
                  (fit.LeftLegData == null || fit.RightLegData == null)) problem = "PreviewBodyLegMotion";
         else if (action.Part.IsHead && fit != null && fit.HeadData == null) problem = "PreviewBodyHeadMotion";
         if (problem != null) return null;
-        var binding = new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, fit);
+        var binding = new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, fit, supportFit);
         if (!action.Part.IsHead || binding.nativeHead != null) return binding;
         problem = "PreviewBodyHeadMotion";
         return null;
@@ -380,7 +394,7 @@ internal sealed partial class BodyActionBinding
             Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f), fit, Direction, nativeHead,
             mountedOrgan ?? Organ?.Frame(Direction), Vector2.Distance(aimPoint, foot), support, aimOffset: aimOffset,
             joint: support?.Joint ?? Joint?.Frame(foot, Quaternion.AngleAxis(support?.Heading ?? 0f, Vector3.forward) * Facing,
-                ConstructedAbilityService.BodyTerrain, support));
+                ConstructedAbilityService.BodyTerrain, support), supportFit: supportFit);
     }
 
     /// <summary>读取正式头图及其在身体帧中的实际位置，头部未提供时不造一个替代球体。</summary>
@@ -415,7 +429,8 @@ internal sealed partial class BodyActionBinding
 
     /// <summary>原地真实关节须先有自己的实际承托，受理前不支付。</summary>
     /// <param name="frame">同轮身体和地面。</param>
-    internal bool CanStart(in BodyFrame frame) => Joint == null || frame.Joint.Supported;
+    internal bool CanStart(in BodyFrame frame) => (Joint == null || frame.Joint.Supported) &&
+        (!action.UsesSupportingGrip || action.Sample(0f, in frame).SupportingGrip.HasValue);
 
     /// <summary>只核对旧绑定的身体及器物身份，不把暂时受力当作同一套可继续使用的骨长。</summary>
     /// <param name="actor">仍为原人物的实际身体。</param>
@@ -640,21 +655,29 @@ internal sealed partial class BodyActionBinding
 
         if (!action.Part.IsArm) return;
         Vector2 ground = pose.Foot;
-        bool left = action.Part.Left;
-        // 两种显示和接触都使用适配后的实际臂链，不只共用腕点。
-        Vector3 shoulder = pose.OtherArm?.Shoulder ?? pose.Shoulder;
-        Vector3 elbow = pose.OtherArm?.Elbow ?? pose.Elbow;
-        AddSegment(shoulder, elbow, pose.Height * CompiledBodyAction.UpperWidth, colors.Upper,
-            left ? BodyVisualSegment.UpperLeftArm : BodyVisualSegment.UpperRightArm);
-        AddSegment(elbow, pose.Hand, pose.Height * CompiledBodyAction.LowerWidth, colors.Lower,
-            left ? BodyVisualSegment.LowerLeftArm : BodyVisualSegment.LowerRightArm);
-        output.Add(new FormVisualInstance(hand, HandMatrix(in pose), WeaponReleased ? null : fingers,
-            tint: colors.Hand, groundAnchor: ground,
-            groundActorId: actor, terrain: terrain,
-            bodySegment: left ? BodyVisualSegment.LeftHand : BodyVisualSegment.RightHand, feedback: feedback));
+        AddArm(in pose, action.Part.Left, colors);
+        if (pose.SupportingGrip.HasValue)
+        {
+            BodyPose support = pose.SupportArm();
+            AddArm(in support, true, supportColors);
+        }
         if (weapon != null && !WeaponInConstruction)
             output.Add(new FormVisualInstance(weapon, WeaponMatrix(in pose), groundAnchor: ground,
                 groundActorId: actor, terrain: terrain, feedback: feedback));
+
+        void AddArm(in BodyPose arm, bool left, (Color? Upper, Color? Lower, Color? Hand) paint)
+        {
+            // 两种显示和接触都使用已经解好的真实臂链。
+            Vector3 shoulder = arm.OtherArm?.Shoulder ?? arm.Shoulder;
+            Vector3 elbow = arm.OtherArm?.Elbow ?? arm.Elbow;
+            AddSegment(shoulder, elbow, arm.Height * CompiledBodyAction.UpperWidth, paint.Upper,
+                left ? BodyVisualSegment.UpperLeftArm : BodyVisualSegment.UpperRightArm);
+            AddSegment(elbow, arm.Hand, arm.Height * CompiledBodyAction.LowerWidth, paint.Lower,
+                left ? BodyVisualSegment.LowerLeftArm : BodyVisualSegment.LowerRightArm);
+            output.Add(new FormVisualInstance(hand, HandMatrix(in arm), WeaponReleased ? null : fingers,
+                tint: paint.Hand, groundAnchor: ground, groundActorId: actor, terrain: terrain,
+                bodySegment: left ? BodyVisualSegment.LeftHand : BodyVisualSegment.RightHand, feedback: feedback));
+        }
 
         void AddSegment(Vector3 start, Vector3 end, float width, Color? color, BodyVisualSegment segment)
         {

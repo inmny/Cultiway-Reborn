@@ -11,7 +11,7 @@
   "Body": {
     "Effector": "hand.right",
     "WeaponForm": "spear",
-    "Grip": "forward",
+    "Grip": "grip",
     "ReleaseAt": 0.31,
     "ActiveFrom": 0.40,
     "ActiveUntil": 0.62,
@@ -22,11 +22,13 @@
     "Construction": {
       "Parts": [
         {"Id": "hand.right", "Part": "hand.right"},
+        {"Id": "hand.left", "Part": "hand.left"},
         {"Id": "spear", "Subject": "Held", "Part": "item"},
         {"Id": "target", "Subject": "Target", "Part": "surface"}
       ],
       "Relations": [
-        {"Id": "hold", "Kind": "Grip", "From": "hand.right", "To": "spear", "FromAnchor": "grip", "ToAnchor": "forward", "FromMarker": "start", "UntilMarker": "end"},
+        {"Id": "hold", "Kind": "Grip", "From": "hand.right", "To": "spear", "FromAnchor": "grip", "ToAnchor": "grip", "FromMarker": "start", "UntilMarker": "end"},
+        {"Id": "support", "Kind": "Grip", "From": "hand.left", "To": "spear", "FromAnchor": "grip", "ToAnchor": "forward", "FromMarker": "start", "UntilMarker": "end"},
         {"Id": "sweep", "Kind": "Touch", "From": "spear", "To": "target", "FromAnchor": "shaft"}
       ]
     },

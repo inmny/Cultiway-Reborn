@@ -25,7 +25,7 @@ try
     clock.multiplier = speed * .32f;
     Item weapon = Equip(source, "spear_iron");
     var form = FormResources.Load("spear");
-    if (selection != "sweep")
+    if (selection is "all" or "strike" or "near")
     {
         var thrust = ConstructionEditing.Access.Read(thrustId);
         var plan = ConstructionEditing.Access.Validate(thrust).Body;
@@ -45,12 +45,14 @@ try
     var heightMethod = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F);
     float height = (float)heightMethod.Invoke(null, new object[] { source });
 
-    foreach (string test in new[] { "strike", "near", "sweep" }.Where(value => selection == "all" || selection == value))
+    foreach (string test in new[] { "strike", "near", "sweep", "interrupt" }.Where(value => selection == "all" || selection == value))
     {
-        string ability = test == "sweep" ? sweepId : thrustId;
+        bool twoHands = test is "sweep" or "interrupt";
+        string ability = twoHands ? sweepId : thrustId;
         var definition = ConstructionEditing.Access.Read(ability);
-        float distance = test switch { "strike" => 2.02f, "sweep" => 1.12f, _ => .68f };
+        float distance = twoHands ? 1.12f : test == "strike" ? 2.02f : .68f;
         Place(source, 64.35f);
+        if (test == "sweep") await CheckLeftControl(definition, distance);
         Place(target, 64.35f + height * distance);
         target.setHealth(target.getMaxHealth());
         source.data.stamina = 100;
@@ -68,8 +70,23 @@ try
               Mathf.Abs(100f - source.data.stamina - definition.Cost) < .001f,
             test + " 正式施放借原铁枪并支付", new { height, used, paid = 100f - source.data.stamina });
 
-        var start = form.Grip("forward");
-        var rear = form.Grip("grip");
+        if (test == "interrupt")
+        {
+            await Advance(.21f);
+            Check(ConstructedAbilityService.TryGetBodyPose(source.id, BodyOccupancy.LeftArm, out _),
+                "起势时副手已实际握持");
+            Item replacement = Equip(source, "spear_iron");
+            await Advance(.11f);
+            Check(!BodyControlState.IsBusy(source.id) && ReferenceEquals(source.getWeapon(), replacement) &&
+                  !ReferenceEquals(replacement, weapon) &&
+                  endings.Any(end => end.Fact.CastId == castId && end.Fact.Cancelled) &&
+                  !contacts.Any(hit => hit.CastId == castId) && target.data.health == health,
+                "换同款真枪也中断旧动作，两手归还且旧杆没有补伤");
+            continue;
+        }
+
+        var start = form.Grip(definition.Body.Grip);
+        var rear = form.Grip(definition.Body.SlideGrip ?? definition.Body.Grip);
         if (test == "strike")
         {
             await Advance(.15f);
@@ -127,11 +144,29 @@ try
             var views = new List<FormVisualInstance>();
             bindingType.GetMethod("AppendVisuals", F).Invoke(binding, new object[] { source, pose, views, null });
             var held = views.Single(instance => instance.Resource == form);
-            var hand = views.Single(instance => instance.Resource.Description.Id == "hand");
+            var hand = views.Single(instance => instance.BodySegment == BodyVisualSegment.RightHand);
             Vector3 grip = Vector3.Lerp(start.Transform.GetColumn(3), rear.Transform.GetColumn(3), pose.GripSlide);
             Vector3 socket = hand.Resource.Anchors.Single(anchor => anchor.Id == "grip").Transform.GetColumn(3);
             Check(Vector3.Distance(held.Transform.MultiplyPoint3x4(grip), hand.Transform.MultiplyPoint3x4(socket)) < .0001f,
                 "枪杆实际握点与画面里的手内坐标重合", pose.WorldAge);
+            if (twoHands)
+            {
+                var leftHand = views.Single(instance => instance.BodySegment == BodyVisualSegment.LeftHand);
+                bool published = ConstructedAbilityService.TryGetBodyPose(source.id, BodyOccupancy.LeftArm, out BodyPose left);
+                Vector3 front = form.Grip("forward").Transform.GetColumn(3);
+                var frame = (BodyFrame)bindingType.GetMethod("Frame", F, null, new[] { typeof(Actor) }, null)
+                    .Invoke(binding, new object[] { source });
+                var adapted = left.OtherArm.GetValueOrDefault();
+                Check(published && left.OtherArm.HasValue && left.WorldAge == pose.WorldAge &&
+                      Vector3.Distance(held.Transform.MultiplyPoint3x4(front), leftHand.Transform.MultiplyPoint3x4(socket)) < .0001f &&
+                      Vector3.Distance(left.Hand, pose.Hand) > .20f * height &&
+                      Mathf.Abs(Vector3.Distance(left.Shoulder, left.Elbow) - frame.UpperLength) < .0002f &&
+                      Mathf.Abs(Vector3.Distance(left.Elbow, left.Hand) - frame.LowerLength) < .0002f &&
+                      Mathf.Abs(Vector3.Distance(adapted.Shoulder, adapted.Elbow) - adapted.Upper) < .0002f &&
+                      Mathf.Abs(Vector3.Distance(adapted.Elbow, left.Hand) - adapted.Lower) < .0002f,
+                    "同一根枪杆有前后两处闭合握持，原版与三维的左臂保持各自骨长",
+                    new { pose.WorldAge, right = pose.Hand.ToString("F4"), left = left.Hand.ToString("F4") });
+            }
             if (contact == null) return default;
             var shapes = new List<AbilityCapsule>();
             bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
@@ -146,6 +181,41 @@ try
         }
     }
     return new { passed = true, selection, checks };
+
+    async Task CheckLeftControl(AbilityDefinition sweep, float sweepDistance)
+    {
+        const BodyOccupancy both = BodyOccupancy.RightArm | BodyOccupancy.LeftArm;
+        var plan = ConstructionEditing.Access.Validate(sweep).Body;
+        Check((plan.Occupancy & both) == both && plan.Construction.SupportGrip == "forward",
+            "完整资料同时预留双手，从同一枪杆取到前握");
+        var invalid = ConstructionEditing.Copy(sweep);
+        invalid.Body.Construction.Relations.Single(relation => relation.Id == "support").ToAnchor = "grip";
+        bool refused = false;
+        try { ConstructionEditing.Access.Validate(invalid); }
+        catch (InvalidDataException error) { refused = error.Message.Contains("/Grip"); }
+        Check(refused, "双手引用同一握点时拒绝登记");
+
+        var guard = BodyActionCatalog.Create("test.long-spear.left-arm", "左手独立占用",
+            new BodyActionRequest { Effector = "hand.left", Kind = BodyActionKind.Guard, Seconds = .64f });
+        guard.Cost = 0f;
+        foreach (BodyMotionKey key in guard.Body.Keys) key.Torso = new float[3];
+        Check(ConstructionEditing.Access.Validate(guard).Body.Occupancy == BodyOccupancy.LeftArm,
+            "占用测试的架掌只取得左手");
+        Place(target, 64.35f + height * .42f);
+        await Fire(guard, source, target);
+        Place(target, 64.35f + height * sweepDistance);
+        ConstructedAbilityService.Learn(owner, sweep.Id);
+        var handle = new ActiveAbilityHandle("content.constructed", owner.E, sweep.Id);
+        source.data.stamina = 100;
+        source.attack_timer = 0;
+        bool blocked = !ActiveAbilityService.TryUse(owner, handle,
+            new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
+        source.attack_timer = 999;
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        Check(blocked && source.data.stamina == 100, "左手被占用时拒绝双手持枪，体力保持");
+        await Advance(guard.Lifetime + .06f);
+        Check(!BodyControlState.IsBusy(source.id), "左手结束后可再次受理双手动作");
+    }
 }
 finally
 {
