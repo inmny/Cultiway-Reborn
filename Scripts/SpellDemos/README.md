@@ -2487,3 +2487,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--case archive` 在实际编辑器创建改造并写入原版世界档。停掉测试游戏并重新启动后，使用 `--case cold --archive <输出目录>` 读回原人物、铁枪和武技，再从人物已掌握的招式中施放改造。
 
 `--case film --view native --archive <输出目录>` 拍摄原版常速录像，`--view worldfall` 切换到 Worldfall。每招从同一个正式对练档重新加载，连续记录完整动作后拼接。使用 `--move strike`、`--move sweep` 或 `--move press` 单独补拍。三招一起拍时，给 `dev.py exec` 预留 750 秒。
+
+### 重兵战技（9.45）
+
+在独立游戏通过 `dev.py exec` 运行 `python3 Scripts/SpellDemos/verify_heavy_weapons.py --case drop --archive <长兵对练档目录>`。取样铁锤、双手握点、脚底和重心，核对真实锤面命中、向下受力、回弹和归还。用 `--case miss` 在蓄势途中将同一目标移出落点，检查空挥和正常收势。
