@@ -75,6 +75,9 @@ public sealed class CompiledAbility
 
     internal int ShadowHoldNode { get; }
 
+    /// <summary>实际承载了活动映像的镜面部位。</summary>
+    internal int[] MirrorNodes { get; }
+
     /// <summary>受击分担的参数副本；当次契约另存实际余额。</summary>
     internal CompiledSoulPact SoulPact { get; }
 
@@ -243,6 +246,7 @@ public sealed class CompiledAbility
         TargetRange = definition.TargetRange;
         Nodes = nodes;
         HasCorrespondences = nodes.Any(node => node.Correspondence != null);
+        MirrorNodes = Enumerable.Range(0, nodes.Length).Where(i => nodes[i].Correspondence?.MirrorImage != null).ToArray();
         ShadowHoldNode = Array.FindIndex(nodes, node => node.Correspondence?.ShadowHold != null);
         if (ShadowHoldNode >= 0 && Array.FindIndex(nodes, ShadowHoldNode + 1, node => node.Correspondence?.ShadowHold != null) >= 0)
             throw new InvalidDataException("构造/Correspondence/ShadowHold：一次施放只能对应一具抱持影身");
@@ -942,7 +946,8 @@ public static partial class AbilityCompiler
             Impact = node.Impact == null ? null : new CompiledConstructionImpact(node.Impact, path + "/Impact"),
             RadialMotion = node.RadialMotion == null ? null : new CompiledConstructionRadialMotion(node.RadialMotion, path + "/RadialMotion"),
             SupportGrip = grip,
-            Correspondence = node.Correspondence == null ? null : new CompiledCorrespondence(node.Correspondence, lifetime, path + "/Correspondence"),
+            Correspondence = node.Correspondence == null ? null : new CompiledCorrespondence(node.Correspondence, lifetime,
+                path + "/Correspondence", resource),
             OnContact = node.OnContact,
             ContactRole = node.ContactRole,
             WorldContactShape = worldContactShape,

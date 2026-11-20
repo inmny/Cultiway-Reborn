@@ -105,7 +105,7 @@ public readonly struct FormVisualInstance
         : this(resource, geometry, Matrix4x4.identity, tint, terrain) { }
 
     /// <summary>让短暂自有形体复用已经采集的模型，逐帧只改变显示姿态。</summary>
-    internal FormVisualInstance(FormResource resource, Mesh geometry, Matrix4x4 transform, Color tint, AbilityHeightField terrain,
+    internal FormVisualInstance(FormResource resource, Mesh geometry, Matrix4x4 transform, Color? tint, AbilityHeightField terrain,
         string surface = null, long groundActorId = 0, Vector2? groundAnchor = null)
         : this(resource, transform, surface: surface, tint: tint, groundAnchor: groundAnchor, groundActorId: groundActorId,
             terrain: terrain)

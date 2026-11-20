@@ -26,7 +26,7 @@ public sealed partial class ConstructedAbilityService
     /// <param name="actor">实际来源或目标。</param>
     /// <param name="foot">该时点的脚下。</param>
     /// <param name="height">该时点的身体高度。</param>
-    private static void StartingPose(Actor actor, out Vector3 foot, out float height)
+    internal static void StartingPose(Actor actor, out Vector3 foot, out float height)
     {
         foot = PhysicsFoot(actor); height = SpatialActorPose.Height(actor);
         if (simulation?.confirmingContact != true || !simulation.actorIndices.TryGetValue(actor.id, out int index)) return;

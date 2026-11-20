@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Cultiway.Core.Visuals.Forms;
 using Newtonsoft.Json;
 
 namespace Cultiway.Core.Skills;
@@ -62,6 +63,10 @@ public sealed class ConstructionCorrespondence
     /// <summary>让原人物的影身先升起，再以两侧真实接触取得抱持。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionShadowHold ShadowHold;
+
+    /// <summary>在具名镜口显示原人物当前的真实表面。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionMirrorImage MirrorImage;
 }
 
 /// <summary>可组合的影身抱持规则，时间单位为世界秒。</summary>
@@ -129,10 +134,14 @@ public sealed class CompiledCorrespondence
 
     internal CompiledShadowHold ShadowHold { get; }
 
+    /// <summary>已核对的镜口和映照资料。</summary>
+    internal CompiledMirrorImage MirrorImage { get; }
+
     /// <summary>只在完整构造边界核对名称、端点和有限份额。</summary>
     /// <param name="source">明确声明的对应。</param><param name="lifetime">本次施放总寿命。</param>
-    /// <param name="path">所属部位资料路径。</param>
-    internal CompiledCorrespondence(ConstructionCorrespondence source, float lifetime, string path)
+    /// <param name="path">所属部位资料路径。</param><param name="resource">实际映像载体的形体。</param>
+    internal CompiledCorrespondence(ConstructionCorrespondence source, float lifetime, string path,
+        FormResource resource)
     {
         if (string.IsNullOrWhiteSpace(source.Id) || source.Id.Length > 128 ||
             Array.Exists(source.Id.ToCharArray(), character => !char.IsLetterOrDigit(character) && character != '_' && character != '-'))
@@ -155,6 +164,12 @@ public sealed class CompiledCorrespondence
         Effects = source.Effects;
         ActiveFrom = source.ActiveFrom;
         ActiveUntil = source.ActiveUntil ?? float.PositiveInfinity;
+        if (source.MirrorImage != null)
+        {
+            if (ShowBody || source.ShadowHold != null)
+                throw new InvalidDataException(path + "/MirrorImage：镜内映像与脚下立影不能由同一部位发起");
+            MirrorImage = new CompiledMirrorImage(source.MirrorImage, resource, path + "/MirrorImage");
+        }
         if (source.ShadowHold != null)
         {
             if (Target != ConstructionCorrespondenceTarget.Target || !OriginalContactOnly || ShowBody ||
