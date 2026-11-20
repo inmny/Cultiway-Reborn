@@ -216,6 +216,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     if (generation != worldGeneration) yield break;
                     if (running.ActorTransferHolds?.Count > 0) ConfirmActorTransferHolds(running, clock, generation);
                     if (generation != worldGeneration) yield break;
+                    ConfirmEnclosures(running, clock);
+                    if (generation != worldGeneration) yield break;
                     PublishActionEvents(running);
                     if (generation != worldGeneration) yield break;
                 }

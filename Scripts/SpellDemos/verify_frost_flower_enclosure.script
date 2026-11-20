@@ -1,0 +1,155 @@
+// 9.33 B：同一受术者在同一圈内等候、逃离、留在圈外及以战力抗住。
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+var source = Make(63.5f);
+var target = Make(68.5f);
+var owner = source.GetExtend();
+var focus = new Vector3(68.5f, 72.5f, 0);
+var capsules = new List<AbilityCapsule>();
+var views = new List<FormVisualInstance>();
+bool Frozen() => CombatStatusEffects.HasStatus(target, StatusEffects.Freeze);
+object Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .SingleOrDefault(item => ((AbilityCast)Field(item, "Cast")).Plan.Id == definition.Id);
+int Petals(object running)
+{
+    var cast = (AbilityCast)Field(running, "Cast");
+    views.Clear(); cast.AppendVisuals(views);
+    return views.Count(view => view.Resource.Description.Id == "frost_flower");
+}
+AbilityCapsule[] Sides(object running)
+{
+    capsules.Clear(); ((AbilityCast)Field(running, "Cast")).AppendContacts(capsules);
+    return capsules.Where(shape => shape.Node == 4).ToArray();
+}
+object SamplePetals(object running)
+{
+    var cast = (AbilityCast)Field(running, "Cast");
+    var nodes = (Array)Field(cast, "nodes");
+    object petals = nodes.GetValue(4);
+    float birth = (float)Field(petals, "BirthAt");
+    return new { cast.Age, views = Petals(running), shapes = Sides(running).Length,
+        route = Field(nodes.GetValue(1), "GroundRouteDistance"), force = cast.RemainingForce(4),
+        birth = float.IsPositiveInfinity(birth) ? (float?)null : birth,
+        started = Field(petals, "Started"), exists = Field(petals, "Exists"),
+        visible = Field(petals, "Visible"), shapeAge = cast.ShapeAge(4), matter = cast.Matter(4).State,
+        frozen = Frozen(), enclosed = Confirmed(running) };
+}
+bool Confirmed(object running) => Field(running, "EnclosedActors") is HashSet<(int, long)> visited && visited.Contains((4, target.id));
+async Task Cast(float x, float power = 0f, float? y = null)
+{
+    target.finishAngryStatus(); target.clearAttackTarget(); target.cancelAllBeh();
+    Place(target, x, y ?? focus.y); Place(source, 63.5f, focus.y);
+    ConstructedAbilityService.NotifyActorChanged(target);
+    ConstructedAbilityService.NotifyActorChanged(source);
+    await Advance(.12f);
+    owner.SetPowerLevel(0); target.GetExtend().SetPowerLevel(power);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .85f;
+    await Fire(definition, source, target, aim: focus, aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+}
+void Walk(int x)
+{
+    target.finishAngryStatus(); target.clearAttackTarget(); target.cancelAllBeh();
+    var path = target.goTo(World.world.GetTileSimple(x, (int)focus.y));
+    Check(path != ai.ExecuteEvent.False, "目标接受沿真实地面向外移动", new { path = path.ToString() });
+}
+
+try
+{
+    owner.NewCultisys(Cultisyses.Xian);
+    owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+    target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+    var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
+    var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.FrostFlower.Quiet") ??
+        Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.FrostFlower.Quiet")
+            .SetStats(quietStats).SetDuration(10000).Build();
+    foreach (var actor in new[] { source, target })
+    {
+        CombatStatusEffects.RemoveStatus(actor, hold);
+        CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+        actor.setStatsDirty(); actor.updateStats();
+    }
+    await SetCamera(7.3f, true);
+    await Advance(.18f);
+    Check(AbilityCompiler.Compile(definition, false).HasBarrier, "正式霜花挂接实体冰瓣");
+    int hp = target.data.health;
+    int closedFaces = 0;
+    if (enclosurePart == "all")
+    {
+        await Cast(focus.x);
+        object first = Running();
+        var trace = new List<object>();
+        var firstCast = (AbilityCast)Field(first, "Cast");
+        // Use the real barrier becoming present; a sampled frame can fall just before the route signal.
+        while (firstCast.Age < 1.4f && (Petals(first) == 0 || firstCast.ShapeAge(4) < .4f))
+        {
+            await Advance(.09f);
+            trace.Add(SamplePetals(first));
+        }
+        Check(Petals(first) > 0 && firstCast.Matter(4).State == "liquid" && !Frozen() && !Confirmed(first),
+            "冰瓣已开始长起，开口内的人未冻结", trace);
+        await Shot("petals-open");
+        var closing = new List<object>();
+        while (!Frozen() && firstCast.Age < 2.25f)
+        {
+            await Advance(.09f);
+            closing.Add(SamplePetals(first));
+        }
+        closedFaces = Sides(first).Length;
+        Check(closedFaces > 7 && Frozen() && Confirmed(first), "真实屏障形成包围后才冻结中心的人",
+            new { closing, x = target.current_position.x });
+        await Shot("petals-closed");
+        await Advance(1.24f);
+        Check(!Frozen() && !target.stats.hasTag("immovable") && Confirmed(first), "同一圈没有续刷，冻结按实际时长解除");
+        await Advance(3.8f);
+        Check(Running() == null, "冰瓣到期后真实屏障和施放退出");
+    }
+
+    // Keep the spell's ordinary enemy check while giving the walking actor no enemy to chase.
+    target.setKingdom(source.kingdom);
+    source.addAggro(target);
+    Check(Cultiway.Core.SkillLibV3.Effects.SkillTargetRelationResolver.IsHostile(source, target) &&
+          !Cultiway.Core.SkillLibV3.Effects.SkillTargetRelationResolver.IsHostile(target, source),
+        "受术者仍是有效敌对目标，自己不回头反击");
+    await Cast(focus.x + 1.85f);
+    object escaped = Running();
+    CombatStatusEffects.RemoveStatus(target, quiet); target.setStatsDirty(); target.updateStats();
+    float before = target.current_position.x;
+    Walk(74);
+    await Advance(.48f);
+    float walking = target.current_position.x;
+    await Advance(1.12f);
+    Check(target.current_position.x - before > 1.1f && target.current_position.x - focus.x > 3.1f &&
+        !Frozen() && !Confirmed(escaped), "人物从尚未闭合的缺口走出去，闭合时身在外面而未被冻结",
+        new { before, walking, after = target.current_position.x, frozen = Frozen(), enclosed = Confirmed(escaped), sides = Sides(escaped).Length });
+    await Shot("petals-escaped");
+    CombatStatusEffects.ApplyStatus(target, quiet, 10000, target);
+    target.setStatsDirty(); target.updateStats();
+    await Advance(4f);
+
+    await Cast(focus.x + 2.42f, y: focus.y + 2.46f);
+    object outside = Running();
+    await Advance(1.66f);
+    var sideBounds = Sides(outside);
+    Vector2 flank = target.current_position;
+    Check(sideBounds.Length > 7 && sideBounds.Max(s => Mathf.Max(s.A.x, s.B.x) + s.Radius) > flank.x &&
+        sideBounds.Max(s => Mathf.Max(s.A.y, s.B.y) + s.Radius) > flank.y && !Frozen() && !Confirmed(outside),
+        "落在屏障外包范围内、但身在冰瓣闭环外侧的人仍不冻结", new { flank.x, flank.y });
+    await Advance(4f);
+
+    await Cast(focus.x, 8f);
+    object resistant = Running();
+    await Advance(1.66f);
+    Check(Confirmed(resistant) && !Frozen() && !target.stats.hasTag("immovable"), "同一位置被围住时，正常战力压制仍可抵抗冻结");
+    await Advance(4f);
+    Check(Running() == null && target.data.health == hp && !Frozen(), "冰瓣合围只施加状态，术终不伤血也不遗留冻结");
+    return new { passed = true, view = recordView, part = enclosurePart, closed = closedFaces, checks };
+}
+finally
+{
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

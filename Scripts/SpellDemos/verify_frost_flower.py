@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""在同一现有世界检查霜花葬形的地面霜与部位附着。"""
+"""在同一现有世界检查霜花葬形的薄霜、附着和冰瓣围合。"""
 import argparse
 import json
 import os
@@ -12,7 +12,8 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('ground', 'coating'), default='ground')
+    parser.add_argument('--section', choices=('ground', 'coating', 'enclosure'), default='ground')
+    parser.add_argument('--enclosure-part', choices=('all', 'contrast'), default='all')
     parser.add_argument('--view', choices=('native', 'worldfall'), default='native')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
@@ -45,18 +46,20 @@ def main():
         '    string path = Path.Combine(folder, name + ".png");\n    Screen.Capture(path);\n'
         '    await Game.WaitUntil(() => File.Exists(path), 300);')
     script = folder / 'input.script'
-    verifier = 'verify_frost_flower.script' if args.section == 'ground' else 'verify_frost_flower_coatings.script'
-    script.write_text(helpers + f'\nconst string recordView = "{args.view}";\n' + camera +
+    verifier = {'ground': 'verify_frost_flower.script', 'coating': 'verify_frost_flower_coatings.script',
+                'enclosure': 'verify_frost_flower_enclosure.script'}[args.section]
+    script.write_text(helpers + f'\nconst string recordView = "{args.view}";\n' +
+                      f'const string enclosurePart = "{args.enclosure_part}";\n' + camera +
                       (scripts / verifier).read_text())
     try:
         result = baseline.call('run', str(script), '145000')
     except RuntimeError as error:
         write_json(folder / 'result.json', dict(passed=False, error=str(error)))
-        raise RuntimeError(f'薄霜未通过：{folder}') from error
+        raise RuntimeError(f'霜花葬形未通过：{folder}') from error
     write_json(folder / 'result.json', result)
     print(json.dumps({'output': str(folder), 'result': result}, ensure_ascii=False), flush=True)
     if not result.get('passed'):
-        raise SystemExit('薄霜未通过')
+        raise SystemExit('霜花葬形未通过')
 
 
 if __name__ == '__main__':

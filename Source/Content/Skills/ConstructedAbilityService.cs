@@ -902,6 +902,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         /// <summary>入口当前持有的原人物，沿真实接触顺序确认。</summary>
         internal List<ActorTransferHold> ActorTransferHolds;
 
+        /// <summary>围合后曾走过正常抗性结算的人物，不因同一圈持续而重复刷新状态。</summary>
+        internal HashSet<(int Node, long Actor)> EnclosedActors;
+
         /// <summary>只在带有实际配对的折景门时建立暂用地貌。</summary>
         internal SpatialDestinationRelief[] SpatialViews;
 

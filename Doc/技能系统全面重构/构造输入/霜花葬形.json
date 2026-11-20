@@ -62,6 +62,26 @@
         "Activation": {"Source": "../frost", "Trigger": "GroundRouteDistance", "Threshold": 1, "Placement": "Attached"},
         "Impact": {"DamageScale": 0, "FrostCoating": {"Radius": 0.44, "Seconds": 1.8}},
         "Operations": [{"Kind": "Detach"}, {"Kind": "Fly", "Vector": [-4, 0, 0.66], "WorldVelocity": true, "InheritVelocity": false}]
+      },
+      {
+        "Id": "petals",
+        "Form": "frost_flower",
+        "Surface": "ice",
+        "Matter": "water",
+        "State": "liquid",
+        "ContactRole": "Barrier",
+        "BlocksGroundActors": true,
+        "EnclosesActors": true,
+        "Volume": 8,
+        "Strength": 0.85,
+        "ActiveFrom": 0.99,
+        "DisappearAt": 2.85,
+        "Activation": {"Source": "../frost", "Trigger": "GroundRouteDistance", "Threshold": 2.2, "Delay": 0.16, "Placement": "Attached"},
+        "Impact": {"DamageScale": 0, "Statuses": [{"Id": "Freeze", "Duration": 1.05, "Application": "Refresh"}]},
+        "Operations": [
+          {"Kind": "Animate", "Clip": "close"},
+          {"Kind": "ConvertMatter", "At": 0.98, "Matter": "water", "State": "solid"}
+        ]
       }
     ]
   }

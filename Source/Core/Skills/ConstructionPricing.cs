@@ -237,7 +237,7 @@ public sealed class ConstructionMeasure
             foreach (var change in node.Changes)
                 if (change.WorldMatter != null)
                     work += change.WorldMatter.MaximumVolume * .1d;
-            if (node.AffectsActors)
+            if (node.AffectsActors || node.EnclosesActors)
             {
                 double from = Math.Max(node.Presence.x, node.Active.x), until = Math.Min(node.Presence.y, node.Active.y);
                 if (node.ContactGroup == plan.Nodes.Length && plan.Body != null)
