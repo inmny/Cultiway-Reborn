@@ -11,6 +11,7 @@
   "Body": {
     "Effector": "hand.right",
     "WeaponForm": "spear",
+    "WeaponObstacle": true,
     "Grip": "grip",
     "ReleaseAt": 0.31,
     "ActiveFrom": 0.40,

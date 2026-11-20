@@ -456,6 +456,21 @@ internal sealed partial class BodyActionBinding
     /// <param name="pose">已确定身体姿态。</param>
     private Matrix4x4 WeaponMatrix(in BodyPose pose) => action.HeldWeaponMatrix(in pose);
 
+    /// <summary>读取实物的枪尖、杆身等各段。起势尚无伤害时也需要扫过这些表面。</summary>
+    /// <param name="pose">同一时钟下的实际姿态。</param>
+    /// <param name="output">用于环境检查的复用形状集合。</param>
+    internal void AppendWeaponObstacleShapes(in BodyPose pose, List<AbilityCapsule> output)
+    {
+        output.Clear();
+        Matrix4x4 matrix = WeaponMatrix(in pose);
+        for (int i = 0; i < weapon.Contacts.Length; i++)
+        {
+            FormContactBinding contact = weapon.Contacts[i];
+            if (contact.World(null, matrix, -1, i, 0, null, 1f, out var shape, contact.HeldMatter ?? weaponMatter))
+                output.Add(shape);
+        }
+    }
+
     /// <summary>取和碰撞与显示一致的真实掌面或持物面的朝向。</summary>
     /// <param name="pose">同一世界时点的姿态。</param>
     internal Vector3 GuardNormal(in BodyPose pose) =>

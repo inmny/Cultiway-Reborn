@@ -44,6 +44,10 @@ public sealed class BodyActionDefinition
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? WeaponScale;
 
+    /// <summary>持械过程是否会被真正的墙面或摆放物挡住。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool WeaponObstacle;
+
     /// <summary>器物上实际采用的握持挂点。</summary>
     public string Grip = "grip";
 
@@ -621,6 +625,9 @@ public sealed partial class CompiledBodyAction
     /// <summary>需要借用的器物形体。</summary>
     public string WeaponForm { get; }
 
+    /// <summary>是否扫掠本次实际持械的环境接触。</summary>
+    internal bool WeaponObstacle { get; }
+
     /// <summary>空手拳击共用的闭指与指根形状。其余手部动作仍采用原形体接触。</summary>
     internal BodyFist Fist { get; }
 
@@ -805,6 +812,9 @@ public sealed partial class CompiledBodyAction
         actionUntil = definition.ActiveUntil;
         ActiveUntil = actionUntil + hold.Seconds;
         WeaponForm = definition.WeaponForm;
+        WeaponObstacle = definition.WeaponObstacle;
+        if (WeaponObstacle && WeaponForm == null)
+            throw new InvalidDataException("Body/WeaponObstacle：障碍接触需要实际借用器物");
         if (definition.SlideGrip != null && WeaponForm == null)
             throw new InvalidDataException("Body/SlideGrip：滑握需要实际杆兵");
         if (definition.WeaponScale.HasValue && (WeaponForm == null || !Finite(definition.WeaponScale.Value)))

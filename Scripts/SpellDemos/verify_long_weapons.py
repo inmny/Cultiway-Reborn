@@ -11,11 +11,14 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('all', 'strike', 'near', 'sweep', 'interrupt', 'press', 'edit', 'range'), default='all')
+    parser.add_argument('--case', choices=('all', 'strike', 'near', 'sweep', 'interrupt', 'press', 'edit', 'range', 'obstacle'), default='all')
     parser.add_argument('--edited', type=Path, help='--case edit 生成的 edited-definition.json')
+    parser.add_argument('--part', choices=('tip', 'shaft'), help='障碍复验使用的实物部位')
     args = parser.parse_args()
     if (args.case == 'range') != (args.edited is not None):
         parser.error('--case range 需且仅需搭配 --edited')
+    if (args.case == 'obstacle') != (args.part is not None):
+        parser.error('--case obstacle 需且仅需搭配 --part tip 或 --part shaft')
     if args.edited is not None and not args.edited.is_file():
         parser.error(f'找不到已改造的正式资料：{args.edited}')
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
@@ -49,10 +52,13 @@ def main():
         'edit': 'verify_long_weapons_edit.script',
         'press': 'verify_long_weapons_press.script',
         'range': 'verify_long_weapons_range.script',
+        'obstacle': 'verify_long_weapons_obstacle.script',
     }.get(args.case, 'verify_long_weapons.script')
     settings = f'\nconst string selection = "{args.case}";\n'
     if args.edited:
         settings += f'const string editedDefinitionPath = {json.dumps(str(args.edited.resolve()))};\n'
+    if args.part:
+        settings += f'const string obstaclePart = "{args.part}";\n'
     script.write_text(imports + base + fighters + settings +
                       (scripts / case_file).read_text())
     try:

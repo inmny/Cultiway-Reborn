@@ -2481,3 +2481,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--case press` 单独运行正式架杆拨锋与持剑刺击。检查双方实际接触点随时间保持相合、杆身带动持剑手、收枪解除关系、双方原物归还，以及对方没有兵器时保留体力。
 
 `--case edit` 检查万法阁的实际握点、滑握比例、器物尺寸和普通接触面，并保存中英文画面和 `edited-definition.json`。使用 `--case range --edited <edited-definition.json 路径>` 实战核对该改造的选取距离、尖端接触以及原物归还。
+
+`--case obstacle --part tip` 和 `--case obstacle --part shaft` 分别检查原版城墙实际挡住哪一枪段。均核对畅通时的命中、受阻后的收势与原物归还，以及拆墙后再次命中。
