@@ -12,7 +12,7 @@ from common import PROJECT, encode, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--section", choices=("release", "interrupt", "editor"), default="release")
+    parser.add_argument("--section", choices=("release", "interrupt", "editor", "save"), default="release")
     parser.add_argument("--record", choices=("native", "worldfall"))
     args = parser.parse_args()
     if args.record and args.section != "release":

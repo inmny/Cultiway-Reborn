@@ -2443,3 +2443,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 瘴潮凝潭（9.40 毒术）
 
 在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_poison_combat.py --section condense`。验证[瘴潮凝潭](../../Doc/技能系统全面重构/构造输入/瘴潮凝潭.json)的实际接触、传播、凝潭、甲衣损耗、离开液面及消退。`--miss` 复验飞空，`--record native` 或 `--record worldfall` 记录常速画面。`--save` 保留实际退场后的世界，供冷启动读回。
+
+### 9.40 正式存读
+
+用 `verify_weapon_chamber.py --section save` 保存器口确实暂存原剑时的世界。`verify_five_phase_district.py --save`、`verify_beast_attacks.py --section save`、`verify_poison_combat.py --section condense --save` 和 `verify_seal_relay.py --save` 分别保存落地材料、器官、铁甲和符箓结果。
+
+重启独立游戏后，用 `dev.py exec --timeout 248 -- python3 Scripts/SpellDemos/verify_supplemental_attacks_archive.py`，通过 `--weapon`、`--district`、`--organs`、`--poison` 和 `--seal` 传入对应的输出目录。可以只复验受影响的一份档。各目录应包含 `archive/map.wbox` 和原记录 `expected.json`。

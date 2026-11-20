@@ -72,7 +72,7 @@ try
         }
         if (thrownAt > 0d && (bool)Field(data, "Resting") && landedAt < 0d) landedAt = at;
 
-        if (fired || cast.Age < .60f || section == "interrupt") return;
+        if (fired || cast.Age < .60f || section is "interrupt" or "save") return;
         capsules.Clear();
         cast.AppendContacts(capsules);
         if (capsules.Count == 0) return;
@@ -88,7 +88,7 @@ try
     else
     {
         Config.paused = false;
-        while (World.world.getCurWorldTime() - start < (section == "interrupt" ? 1.16f : duration))
+        while (World.world.getCurWorldTime() - start < (section is "interrupt" or "save" ? 1.16f : duration))
         { Observe(); await Game.NextFrame(); }
         Config.paused = true;
         await Game.WaitUntil(Boundary, 1800);
@@ -100,6 +100,30 @@ try
     Check(Field(ground[outside.id], "WeaponChamber") == null && (bool)Field(outsideData, "Resting") &&
           Vector3.Distance(Vector(outsideData, "Position"), outsideAt) < .05f && ground.Count == originalCount,
           "口外原物没有被影响，器口没有额外生成兵器");
+    if (section == "save")
+    {
+        Check(Field(item, "WeaponChamber") != null && Borrowed(), "保存时原剑在器口，原法宝仍由本招借用");
+        var definitions = new[] { definition, Spell("地口行风"), Spell("明壳承阳") };
+        foreach (var saved in definitions)
+        {
+            ConstructedAbilityService.Register(saved);
+            ConstructedAbilityService.Learn(owner, saved.Id);
+        }
+        string archive = Path.Combine(folder, "archive");
+        SaveManager.saveWorldToDirectory(archive);
+        var identity = service.Assembly.GetType("Cultiway.Content.Persistence.WorldSaveIdentity");
+        var get = typeof(Entity).GetMethods().Single(method => method.Name == "TryGetComponent" &&
+            method.IsGenericMethodDefinition && method.GetParameters().Length == 1).MakeGenericMethod(identity);
+        object[] value = { null };
+        Check((bool)get.Invoke(artifact, value) && File.Exists(Path.Combine(archive, "map.wbox")), "正式世界已写入原法宝和暂存的原剑");
+        File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+        {
+            process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, item = sword.id, durability, definitions,
+            artifact = (string)identity.GetField("Id").GetValue(value[0]),
+            position = (float[])Field(data, "Position")
+        }, Formatting.Indented));
+        return new { passed = true, section, archive, original = sword.id };
+    }
     if (section == "interrupt")
     {
         Check(Field(item, "WeaponChamber") != null && Borrowed(), "中止前实际原剑和原法宝仍在控制中");

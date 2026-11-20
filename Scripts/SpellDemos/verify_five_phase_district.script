@@ -265,8 +265,20 @@ try
     Check(cast.Finished && Forms(cast).Length == 0 &&
           (!fromCarrier || carrierHeld && !Borrowed() && owner.IsArtifactEquipped(artifact)),
           "自然退场，保持已登记世界材料。借用时归还原法宝");
+    string archive = null;
+    if (save)
+    {
+        ConstructedAbilityService.Learn(owner, definition.Id);
+        archive = Path.Combine(folder, "archive");
+        SaveManager.saveWorldToDirectory(archive);
+        File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+        {
+            process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, definition, deposits
+        }, Formatting.Indented));
+        Check(File.Exists(Path.Combine(archive, "map.wbox")), "以正式入口保存仍在世界里的五相材料");
+    }
     return new { passed = true, name = definition.Name, scene = "construction", resource = definition.Resource,
-        paid = definition.Cost, view = recordView, duration, times,
+        paid = definition.Cost, view = recordView, duration, times, archive,
         previewFrame = times == null ? 0 : Math.Max(0, times.FindIndex(t => t >= pressAt + .12)), details,
         caption = section == "reordered" ? "原法宝承载 · 金火换序、交锋及原物归还"
             : fromCarrier ? "原法宝承载 · 五相交锋及原物归还" : "城域岩壳 · 实际换相、受力和落地支座" };

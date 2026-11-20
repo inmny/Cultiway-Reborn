@@ -14,7 +14,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--section", choices=("district", "carrier", "reordered", "editor"), default="district")
     parser.add_argument("--record", choices=("native", "worldfall"))
+    parser.add_argument("--save", action="store_true", help="保存放完后仍在世界里的五相材料")
     args = parser.parse_args()
+    if args.save and args.section == "editor":
+        parser.error("正式存档需要实战场景")
     if args.record and args.section == "editor":
         parser.error("编辑窗口输出截图")
     if not os.getenv("CULTIWAY_DEV_ACTIVE"):
@@ -67,7 +70,7 @@ def main():
     else:
         scenario = (scripts / "verify_five_phase_district.script").read_text()
     path = output / "input.script"
-    path.write_text("\n".join([imports + helpers, shared, f'const string section = "{args.section}";', scenario]))
+    path.write_text("\n".join([imports + helpers, shared, f'const string section = "{args.section}";\nconst bool save = {str(args.save).lower()};', scenario]))
     try:
         result = baseline.call("run", str(path), "145000")
     except RuntimeError as error:

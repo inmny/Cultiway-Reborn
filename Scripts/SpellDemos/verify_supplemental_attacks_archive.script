@@ -1,0 +1,88 @@
+JToken Json(object value) => JToken.Parse(JsonConvert.SerializeObject(value));
+var identities = service.Assembly.GetType("Cultiway.Content.Persistence.WorldSaveIdentity");
+var getIdentity = typeof(Entity).GetMethods().Single(method => method.Name == "TryGetComponent" &&
+    method.IsGenericMethodDefinition && method.GetParameters().Length == 1).MakeGenericMethod(identities);
+string StableId(Entity entity)
+{
+    object[] value = { null };
+    return (bool)getIdentity.Invoke(entity, value) ? (string)identities.GetField("Id").GetValue(value[0]) : null;
+}
+var carrier = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedArtifactCarrier");
+var groundType = service.Assembly.GetType("Cultiway.Content.Combat.GroundWeaponService");
+var ground = (IDictionary)groundType.GetField("entries", F).GetValue(null);
+var result = new List<string>();
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Config.paused = true;
+Game.Resume();
+foreach (var entry in archives)
+{
+    string kind = entry.Key, directory = entry.Value;
+    var expected = JObject.Parse(File.ReadAllText(Path.Combine(directory, "expected.json")));
+    Check((int)expected["process"] != process, "使用新游戏进程读回正式世界 · " + kind);
+    World.world.save_manager.loadWorld(Path.Combine(directory, "archive"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var source = World.world.units.get((long)expected["source"]);
+    var owner = source.GetExtend();
+    if (kind != "seal")
+    {
+        var known = expected["definitions"] ?? new JArray(expected["definition"]);
+        Check(known.All(definition => ConstructedAbilityService.Knows(owner, (string)definition["Id"]) &&
+            JToken.DeepEquals(definition, Json(ConstructionEditing.Access.Read((string)definition["Id"])))),
+            "正式读回完整构造和原学习关系 · " + kind);
+    }
+    Check(!BodyControlState.IsBusy(source.id) && !((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Any(),
+        "正式读回未重放旧施放或继续借用身体 · " + kind);
+    if (kind == "weapon")
+    {
+        var artifact = owner.GetEquippedArtifacts().SingleOrDefault(item => StableId(item) == (string)expected["artifact"]);
+        Check(!artifact.IsNull && !(bool)carrier.GetMethod("IsBorrowed", F).Invoke(null, new object[] { artifact }),
+            "原法宝以同一个稳定编号读回，仍装备且没有继续借用");
+        long id = (long)expected["item"];
+        var sword = World.world.items.get(id);
+        var drop = ground[id];
+        Check(sword != null && sword.getDurabilityCurrent() == (int)expected["durability"] &&
+              sword.getActor() == null && sword.getCity() == null && drop != null && Field(drop, "WeaponChamber") == null,
+            "器口内的同一把原剑与耐久读回，临时器口已经消失");
+        await Advance(.75f);
+        var data = Field(drop, "Data");
+        float[] point = (float[])Field(data, "Position"), stored = expected["position"].ToObject<float[]>();
+        Check((bool)Field(data, "Resting") && Vector2.Distance(new Vector2(point[0], point[1]), new Vector2(stored[0], stored[1])) < .08f &&
+              ReferenceEquals(sword, World.world.items.get(id)), "原剑在暂存位置落稳，不会重新抛出");
+    }
+    if (kind == "poison")
+    {
+        var target = World.world.units.get((long)expected["target"]);
+        var armor = target.equipment.getSlot(EquipmentType.Armor).getItem();
+        Check(armor != null && armor.id == (long)expected["item"] && armor.getDurabilityCurrent() == (int)expected["durability"] &&
+              target.data.health == (int)expected["health"] && !CombatStatusEffects.HasStatus(target, StatusEffects.Poison, source),
+            "原甲、实际耐久与人物生命读回，已经消退的毒态没有恢复");
+    }
+    if (kind == "district")
+    {
+        var sections = JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "supplemental-attacks"))["sections"];
+        var saved = (JArray)expected["deposits"];
+        var current = (JArray)sections["world_materials"]["data"]["Records"];
+        string[] physics = { "Form", "Matter", "State", "Transform", "Volume", "Resource" };
+        Check(saved.Count > 0 && saved.All(record => current.Any(restored =>
+            (long)restored["Id"] == (long)record["Id"] && JToken.DeepEquals(record["Identity"], restored["Identity"]) &&
+            physics.All(key => JToken.DeepEquals(record["Material"][key], restored["Material"][key])))),
+            "落地岩座和存下的五相材料保留原编号、尺寸和位置");
+    }
+    if (kind == "organs")
+    {
+        var active = new List<ActiveAbilityHandle>();
+        ActiveAbilityService.Collect(owner, active);
+        Check(owner.E.TryGetComponent(out YaoBody data) && data.TryGetForm(YaoFormIds.TrueForm, out var plan) &&
+              plan.Organs.Any(organ => organ.OrganId == "yao.gland.foxfire" && organ.Rank == 2) &&
+              plan.Organs.Any(organ => organ.OrganId == "yao.horn.thunder" && organ.Rank == 2) &&
+              active.Any(handle => handle.EntryId.EndsWith("/yao.gland.foxfire/Cultiway.FoxfireBreath", StringComparison.Ordinal)),
+            "原狐火腺和雷角的等级与正式吐息来源保留");
+    }
+    if (kind == "seal")
+        Check((int)expected["remaining"] == owner.GetItems().Count(item => item.HasComponent<Talisman>()),
+            "读回原持有人的物品，消耗过的符箓没有恢复");
+    result.Add(kind);
+}
+return new { passed = true, process, cases = result };

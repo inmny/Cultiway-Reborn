@@ -145,7 +145,19 @@ try
               leaves[0].Force > leaves[2].Force && leaves[2].Force > leaves[4].Force && leaves[4].Force > 0f,
               "后续的纸符等印面展开后才离开，实际余力逐次降低", stages);
     }
-    return new { passed = true, section, view = recordView, scene = "construction", times, duration,
+    string archive = null;
+    if (save)
+    {
+        archive = Path.Combine(folder, "archive");
+        SaveManager.saveWorldToDirectory(archive);
+        File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+        {
+            process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id,
+            remaining = owner.GetItems().Count(item => item.HasComponent<Talisman>())
+        }, Formatting.Indented));
+        Check(talisman.IsNull && File.Exists(Path.Combine(archive, "map.wbox")), "正式保存已消耗符箓后的原持有人");
+    }
+    return new { passed = true, section, view = recordView, scene = "construction", times, duration, archive,
         resource = "talisman", paid = 1, stages, previewFrame = times == null ? 0 :
             Math.Max(0, times.FindIndex(at => at > contacts[1].Age + .22f)) };
 }

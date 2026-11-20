@@ -14,6 +14,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--section", choices=("relay", "miss"), default="relay")
     parser.add_argument("--record", choices=("native", "worldfall"))
+    parser.add_argument("--save", action="store_true", help="保存真实消耗之后的一份世界")
     args = parser.parse_args()
     if args.record and args.section != "relay":
         parser.error("连续录像使用完整的传递流程")
@@ -50,7 +51,7 @@ def main():
                "using Cultiway.Core.SkillLibV3.Utils;\n")
     path = output / "input.script"
     path.write_text("\n".join([imports + script, f'const string section = "{args.section}";',
-                               f'const string recordView = "{args.record or ""}";',
+                               f'const string recordView = "{args.record or ""}";\nconst bool save = {str(args.save).lower()};',
                                visual, (scripts / "verify_seal_relay.script").read_text()]))
     try:
         result = baseline.call("run", str(path), "145000")
