@@ -125,7 +125,7 @@
                 "decoration.cloud"
             ],
             "Id": "cloud",
-            "Surface": "yin_depth",
+            "Surface": "time_stamp_slate",
             "Pivot": [
                 0,
                 0,
@@ -291,6 +291,25 @@
             "Roles": [
                 "spirit.body"
             ],
+            "Id": "cloud_hems",
+            "Surface": "yin_moon",
+            "Pivot": [
+                0,
+                0,
+                1.6699999570846558
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/thunder_colossus_cloud_hems.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": true,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "spirit.body"
+            ],
             "Id": "pauldron_left",
             "Surface": "metal",
             "Pivot": [
@@ -337,6 +356,63 @@
                 2.9700000286102295
             ],
             "MeshAsset": "Assets/Cultiway/Forms/thunder_colossus_breastplate.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": true,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "spirit.body"
+            ],
+            "Id": "shoulder_charge",
+            "Surface": "thunder_core",
+            "Pivot": [
+                -0.9399999976158142,
+                -0.3840000033378601,
+                3.430000066757202
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/thunder_colossus_shoulder_charge.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": true,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "spirit.body"
+            ],
+            "Id": "elbow_charge",
+            "Surface": "thunder_core",
+            "Pivot": [
+                -1.1299999952316284,
+                -0.1899999976158142,
+                2.450000047683716
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/thunder_colossus_elbow_charge.asset",
+            "Control": "",
+            "Skin": true,
+            "HasSurfaceData": false,
+            "HasBuildData": true,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "spirit.body"
+            ],
+            "Id": "cuff_charge",
+            "Surface": "thunder_core",
+            "Pivot": [
+                -1.1699999570846558,
+                -0.18000000715255737,
+                1.899999976158142
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/thunder_colossus_cuff_charge.asset",
             "Control": "",
             "Skin": true,
             "HasSurfaceData": false,
@@ -449,7 +525,7 @@
         {
             "BuildAt": 0,
             "Id": "hammer.face",
-            "Part": 13,
+            "Part": 17,
             "Position": [
                 -1.215000033378601,
                 -0.9399999976158142,
@@ -466,7 +542,7 @@
         {
             "BuildAt": 0,
             "Id": "hammer.grip",
-            "Part": 11,
+            "Part": 15,
             "Position": [
                 -1.215000033378601,
                 -0.08500000089406967,
@@ -490,7 +566,7 @@
     "Contacts": [
         {
             "Id": "hammer_face",
-            "Part": 13,
+            "Part": 17,
             "A": [
                 -1.2149999999999999,
                 -0.94,
@@ -750,7 +826,7 @@
             ],
             "Minimum": [
                 -1.5127400159835815,
-                -0.34424999356269836,
+                -0.4893999993801117,
                 1.6276750564575195
             ],
             "Maximum": [
@@ -774,7 +850,7 @@
                 1
             ],
             "Minimum": [
-                -1.3316060304641724,
+                -1.4129999876022339,
                 -0.30951300263404846,
                 1.5595099925994873
             ],
@@ -799,8 +875,8 @@
                 1
             ],
             "Minimum": [
-                -1.3895740509033203,
-                -0.21898800134658813,
+                -1.4459999799728394,
+                -0.25812000036239624,
                 1.4833329916000366
             ],
             "Maximum": [

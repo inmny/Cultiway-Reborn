@@ -26,7 +26,7 @@ function pauldron(side) {
 }
 
 /** 云腹采用同一低重心的大团块，少量硬折面只在外围露出。 */
-function cloudBed() {
+function cloudBed(fringe=false) {
   return mergeGeometries(Array.from({length:13},(_,i)=>{
     const a=i*2.399963, edge=i===0?0:.56+i*.105;
     const w=.60+.19*Math.cos(i*1.71)+.45/(1+i*.3);
@@ -38,7 +38,9 @@ function cloudBed() {
       p.multiplyScalar(warp);
       pos.setXYZ(j,p.x,p.y,p.z);
     }
-    return g.scale(w,w*.78,w*.42).rotateZ(a).translate(Math.cos(a)*edge,Math.sin(a)*edge*.72,1.43+.13*Math.sin(i*1.6));
+    const size=fringe ? .76 : 1;
+    return g.scale(w*size,w*.78*size,w*(fringe?.29:.42)).rotateZ(a)
+      .translate(Math.cos(a)*edge,Math.sin(a)*edge*.72,1.43+(fringe?.24:0)+.13*Math.sin(i*1.6));
   }));
 }
 
@@ -109,12 +111,21 @@ export function makeThunderColossus(original,bodyRig) {
       Surface:p.Id==='faceplate'?'metal':p.Id==='eyes'?'lightning_dense':'bronze'};
   });
   const joint = id=>controls.findIndex(control=>control.Id===id);
-  parts.unshift(formed('cloud',cloudBed(),'yin_depth',[0,0,1.42],joint('pelvis'),.035,.12));
+  parts.unshift(formed('cloud',cloudBed(),'time_stamp_slate',[0,0,1.42],joint('pelvis'),.035,.12));
+  parts.push(formed('cloud_hems',cloudBed(true),'yin_moon',[0,0,1.67],joint('pelvis'),.072,.13));
   for(const side of ['left','right'])parts.push(formed(`pauldron_${side}`,pauldron(side),'metal',
     [side==='left'?1:-1,0,3.3],joint(`clavicle_${side}`),.31,.16));
   const throat=plate([[-.52,.28],[-.18,.42],[0,.31],[.18,.42],[.52,.28],[.44,-.17],[0,-.39],[-.44,-.17]],.10,.035)
     .rotateX(Math.PI/2).translate(0,-.31,3.06);
   parts.push(formed('breastplate',throat,'metal',[0,0,2.97],joint('chest'),.27,.11));
+  const chargePieces=[['shoulder_charge','clavicle_right',[-.94,-.384,3.43],.17],
+    ['elbow_charge','upper_right',[-1.13,-.19,2.45],.133],['cuff_charge','lower_right',[-1.17,-.18,1.9],.126]];
+  for(const [id,control,centre,width] of chargePieces) {
+    const cores=mergeGeometries([0,1,2].map(i=>new T.OctahedronGeometry(width*(1-i*.17))
+      .scale(1,.62,.97).rotateY(i*1.03).translate(centre[0]+(i-1)*.15,centre[1]+i*.037,centre[2]+(i-1)*.19)));
+    parts.push(formed(id,cores,'thunder_core',centre,joint(control),.53,.18));
+  }
+
 
   const intoGrip=g=>g.translate(...pivot);
   const shaft=intoGrip(new T.CylinderGeometry(.090,.13,2.03,14,2).rotateX(Math.PI/2).translate(0,0,.48));

@@ -2,7 +2,7 @@
   "Version": 1,
   "Id": "Cultiway.Demo.ThunderGodEarthbreaker",
   "Name": "雷神凿世",
-  "Lifetime": 3.85,
+  "Lifetime": 4.55,
   "Cost": 16,
   "Resource": "wakan",
   "Cooldown": 5,
@@ -31,13 +31,40 @@
       "Operations": [{"Kind": "Animate", "Clip": "hammerfall"}],
       "Children": [{
         "Id": "hammer_trace",
-        "Form": "fracture_slab",
+        "Form": "thunder_impact_bed",
         "Matter": "earth",
-        "ContactRole": "Decoration",
-        "Scale": 0.32,
-        "Offset": [0, 0, 0.03],
-        "DisappearAt": 0.86,
-        "Activation": {"Source": "..", "Trigger": "WorldContact", "Placement": "Event"}
+        "Strength": 0.14,
+        "Offset": [0, 0, 0.16],
+        "DisappearAt": 1.18,
+        "Activation": {"Source": "..", "Trigger": "WorldContact", "Placement": "Event"},
+        "Impact": {"DamageScale": 0, "WorldEffects": [
+          {"Action": "terrain.lower", "MaximumTiles": 1, "TileCentreOnly": true, "RequireScope": true}
+        ]},
+        "Operations": [{"Kind": "Animate", "Clip": "press"}],
+        "Children": [
+          {
+            "Id": "strata", "Form": "thunder_strata", "Matter": "earth",
+            "Scale": 1.14, "Volume": 2.3, "Strength": 0.68, "SourceLoss": "Continue",
+            "AppearAt": 0.15, "ActiveFrom": 0.47, "DisappearAt": 1.14,
+            "ContactGroup": "strata",
+            "Operations": [
+              {"Kind": "Animate", "At": 0.15, "Clip": "heave"},
+              {"Kind": "Fracture", "At": 0.45, "Fracture": {
+                "Seconds": 1.52, "Speed": 2.2, "Spin": 58, "Gravity": 18, "ReleaseChildren": false,
+                "ActiveParts": ["stratum_0", "stratum_1", "stratum_2", "stratum_3", "stratum_4", "stratum_5", "stratum_6"],
+                "Impact": {"DamageScale": 1.0}
+              }}
+            ]
+          },
+          {
+            "Id": "eruption", "Form": "thunder_eruption", "Matter": "lightning",
+            "Strength": 0.57, "Scale": 1.45, "Volume": 1.3, "SourceLoss": "Continue",
+            "AppearAt": 0.29, "ActiveFrom": 0.29, "ActiveUntil": 0.94, "DisappearAt": 1.31,
+            "ContactGroup": "eruption",
+            "Impact": {"DamageScale": 0.77},
+            "Operations": [{"Kind": "Animate", "At": 0.29, "Clip": "burst"}]
+          }
+        ]
       }]
     }]
   }

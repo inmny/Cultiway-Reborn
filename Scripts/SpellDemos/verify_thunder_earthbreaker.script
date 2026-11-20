@@ -7,10 +7,13 @@ var focus = new Vector3(68.5f, 75.5f, 0f);
 var forms = new List<FormVisualInstance>();
 var shapes = new List<AbilityCapsule>();
 var ground = new List<ConstructedWorldContact>();
+var edits = new List<ConstructedWorldContact>();
 object Point(Vector3 p) => new { p.x, p.y, p.z };
 void Impact(ConstructedWorldContact hit)
 {
-    if (hit.AbilityId.StartsWith(definition.Id) && hit.TriggerOnly) ground.Add(hit);
+    if (!hit.AbilityId.StartsWith(definition.Id, StringComparison.Ordinal)) return;
+    if (hit.TriggerOnly) ground.Add(hit);
+    else edits.Add(hit);
 }
 AbilityCast Live(string id) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
     .Select(item => (AbilityCast)Field(item, "Cast")).SingleOrDefault(cast => cast.Plan.Id == id);
@@ -46,17 +49,17 @@ async Task At(AbilityCast cast, float age)
 {
     if (cast.Age < age) await Advance(age - cast.Age);
 }
-async Task<AbilityCast> Cast(AbilityDefinition value, float x, float y)
+async Task<AbilityCast> Cast(AbilityDefinition value, float x, float y, ConstructionWorldScope scope = null)
 {
     Place(source, 68.5f, 78.5f); Place(target, x, y);
     ConstructedAbilityService.NotifyActorChanged(source);
     ConstructedAbilityService.NotifyActorChanged(target);
     await Advance(.12f);
-    ground.Clear(); contacts.Clear(); endings.Clear();
+    ground.Clear(); edits.Clear(); contacts.Clear(); endings.Clear();
     owner.SetPowerLevel(0); target.GetExtend().SetPowerLevel(0);
     float balance = source.stats[BaseStatses.MaxWakan.id] * .85f;
     owner.GetCultisys<Xian>().wakan = balance;
-    await Fire(value, source, target, aim: focus, aggro: false);
+    await Fire(value, source, target, scope, aim: focus, aggro: false);
     owner.E.RemoveComponent<ConstructedKnowledge>();
     Check(Mathf.Abs(balance - owner.GetCultisys<Xian>().wakan - value.Cost) < .01f, "正式施放只付一次真元", value.Id);
     return Live(value.Id);
@@ -79,8 +82,14 @@ try
         CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
         actor.setStatsDirty(); actor.updateStats();
     }
-    await SetCamera(14.5f);
+    await SetCamera(section == "film" ? 17.5f : 14.5f);
     await Advance(.18f);
+
+    if (section == "eruption") return await Erupt();
+    if (section == "guard") return await Guard();
+    if (section == "permit") return await Permit();
+    if (section == "save") return await SavePair();
+    if (section == "film") return await Record();
 
     if (section == "swing")
     {
@@ -112,9 +121,9 @@ try
         }
         await At(cast, 2.37f);
         var worldHit = ground.SingleOrDefault();
-        var mark = Display(cast).FirstOrDefault(x => x.Resource.Description.Id == "fracture_slab");
+        var mark = Display(cast).FirstOrDefault(x => x.Resource.Description.Id == "thunder_impact_bed");
         Check(ground.Count == 1 && worldHit.Node == 1 && worldHit.Age is > 2f and < 2.26f && mark.Resource != null &&
-              Vector3.Distance(mark.Transform.GetColumn(3), worldHit.Position) < .06f,
+              Vector3.Distance(mark.Transform.GetColumn(3), worldHit.Position) < .19f,
             "只有实际锤头触地，锤痕才从同一撞点出现在地面", new { ground = ground.ToArray(), trace, hp, after = target.data.health });
         var hits = contacts.Where(hit => hit.TargetId == target.id && hit.Node == 1).ToArray();
         Check(hits.Any(hit => hit.TargetHealthAfter < hit.TargetHealthBefore) && target.data.health < hp,
@@ -123,7 +132,7 @@ try
         await Shot("thunder-contact");
         await At(cast, 2.91f);
         var retreat = God(cast);
-        Check(retreat.BuildProgress < .68f && Faces(cast).Length == 0 && ground.Count == 1,
+        Check(retreat.BuildProgress < .68f && Faces(cast).All(shape => shape.Node != 1) && ground.Count == 1,
             "回腕退散后不再伤人或补发撞地", new { retreat.BuildProgress, cast.Age });
         await Shot("thunder-recede");
         await Advance(2.6f);
@@ -147,7 +156,7 @@ try
     Check(suspendedFace.A.z > 3f, "同一姿态保持在空中", new { position = Point(suspendedFace.A), suspended.Age });
     await At(suspended, 2.9f);
     Check(ground.Count == 0 && contacts.All(hit => hit.TargetId != target.id) && target.data.health == clearHp &&
-          Display(suspended).All(form => form.Resource.Description.Id != "fracture_slab"), "悬空锤头打不到地面，不产生锤痕也不补伤害");
+          Display(suspended).All(form => form.Resource.Description.Id != "thunder_impact_bed"), "悬空锤头打不到地面，不产生锤痕也不补伤害");
     await Advance(1.1f);
     Check(Live(higher.Id) == null && Display(suspended).Length == 0, "悬空失败也正常退场");
     return new { passed = true, view = recordView, section, checks };
