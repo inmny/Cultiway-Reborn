@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
@@ -57,6 +58,7 @@ public sealed partial class ConstructedAbilityService
         target.updateStats();
         if (generation != worldGeneration || target.data?.id != targetId) return false;
         bool died = target.isAlive() && target.hasHealth() && target.checkNaturalDeath();
+        if (!died) AddTimeWear(new TimeWear(target, targetId, default, WearKind.Age, Mathf.Clamp(added * .12f, .55f, 1.5f), time));
         AgingConfirmed?.Invoke(new ConstructedAging(running.Id, running.SourceId, owner, targetId,
             running.Cast.Plan.Id, node, before, after, time, died));
         return generation == worldGeneration && target.data?.id == targetId && target.isAlive() && target.hasHealth();

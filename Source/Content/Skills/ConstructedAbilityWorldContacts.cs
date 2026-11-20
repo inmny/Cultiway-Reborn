@@ -301,6 +301,7 @@ public sealed partial class ConstructedAbilityService
         if (result.Changed)
         {
             running.WorldChanges++;
+            ShowTimeWear(hit.Tile, result, LogicTime);
             ShowWorldChange(result.Flags, hit.Tile.posV3);
         }
         WorldContactConfirmed?.Invoke(new ConstructedWorldContact(running.Id, running.SourceId, owner,

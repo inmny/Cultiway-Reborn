@@ -1,0 +1,60 @@
+try
+{
+    Check(roots.building == tree && masonry.building == stone && roots.getBiome() != null &&
+        outsidePlantHp > 0 && outsideBuildingHp > 0 && durability > 0,
+        "原版石屋、铁甲和两处植被均实际存在");
+    double start = World.world.getCurWorldTime();
+    int hp = victim.getHealth();
+    var cast = await Use(definition);
+    await At(cast.Cast, .69f);
+    var early = contacts.Where(hit => hit.CastId == cast.Id && hit.Damage.ShieldAbsorbed > 0f).ToArray();
+    Check(early.Length == 1 && early[0].TargetId == victim.id && early[0].Damage.HealthLost == 0 &&
+        Mathf.Abs(initialShield - shield - early[0].Damage.ShieldAbsorbed) < .01f &&
+        victim.getHealth() == hp && ages.Count == 0 && wear.Count == 0,
+        "第一段只扣确实承受冲击的原护持，后一个阶段未提前推进人物及甲衣",
+        new { cast.Cast.Age, shield, lost = initialShield - shield, hp, after = victim.getHealth(),
+            aged = ages.Count, worn = wear.Count, contact = early.Select(hit => hit.Damage.ShieldAbsorbed).ToArray() });
+    if (partly)
+    {
+        await At(cast.Cast, 1.25f);
+        int date = victim.getAge(), currentDurability = armor.getDurabilityCurrent();
+        int hits = world.Count, ageEvents = ages.Count;
+        Check(date > originalAge && currentDurability < durability, "取消前已结算至少一段");
+        service.GetMethod("Cancel", F).Invoke(null, new object[] { cast.Id });
+        await Advance(1.65f);
+        Check(cast.Cast.Finished && !Marks() && world.Count == hits && ages.Count == ageEvents &&
+            victim.getAge() == date && armor.getDurabilityCurrent() == currentDurability,
+            "撤销停止后续周期并清理残像，年龄和耐久已发生的变化保持");
+        return new { passed = true, outcomes = Outcomes() };
+    }
+
+    await At(cast.Cast, 5.35f);
+    var grown = plots.Where(p => p.Action == "nature.grow" || p.Action == "nature.renew").ToArray();
+    var withered = plots.Where(p => p.Action == "nature.wither").ToArray();
+    var erosion = plots.Where(p => p.Action == "building.weather").ToArray();
+    Check(grown.Length == 2 && withered.Length >= 4 && withered[1].Building == 0 &&
+        grown[0].Building != originalPlantId && grown[1].Building != grown[0].Building &&
+        withered[3].Building == 0 && roots.building?.id == grown[1].Building &&
+        grown[0].Age < withered[2].Age && withered[3].Age < grown[1].Age,
+        "同一处根部两轮确实枯死、腾地和长出原版植被", Outcomes());
+    Check(erosion.Length == 4 && erosion[0].Building == buildingId && erosion[0].Health < erosion[1].Health &&
+        erosion[1].Ruin && erosion[2].Ruin && erosion[3].Building == 0 &&
+        erosion[3].Tile == TileLibrary.sand.id && masonry.main_type == TileLibrary.sand,
+        "原石屋先受损，再真实成为废墟，末轮退出并在原地留下沙", Outcomes());
+    Check(ages.Count == 4 && ages.All(f => f.TargetId == victim.id && f.After - f.Before == 9) &&
+        victim.getAge() == originalAge + 36 && wear.Count == 4 &&
+        wear.All(f => f.ItemId == armor.id && f.After < f.Before) &&
+        armor.getActor() == victim && armor.getDurabilityCurrent() == wear.Last().After,
+        "只有原人物年龄和原铁甲耐久按实际接触逐次改变", Outcomes());
+    Check(bystander.getAge() == outsideAge && bystander.getHealth() == outsideHealth &&
+        referenceRoots.building == untouchedTree && untouchedTree.getHealth() == outsidePlantHp &&
+        referenceStone.building == wood && wood.getHealth() == outsideBuildingHp &&
+        World.world.getCurWorldTime() - start < 6.1 && Config.paused,
+        "场外人物和原地物保持，局部改变没有改变世界时间速率");
+    await Advance(1.25f);
+    Check(cast.Cast.Finished && !Marks() && victim.isAlive() && !BodyControlState.IsBusy(victim.id) &&
+        roots.building?.id == grown[1].Building && masonry.main_type == TileLibrary.sand,
+        "自然结束后回收印片和碎屑，植被实物、沙地及人物仍在原世界");
+    return new { passed = true, outcomes = Outcomes() };
+}
+finally { LeaveScene(); }

@@ -1,0 +1,32 @@
+JToken Normalized(object value) => JToken.Parse(JsonConvert.SerializeObject(value));
+JObject CurrentState(Actor target)
+{
+    Item item = target.equipment.getSlot(EquipmentType.Armor).getItem();
+    WorldTile plantTile = World.world.GetTileSimple(69, 69), stoneTile = World.world.GetTileSimple(73, 74);
+    Building plant = plantTile.building, building = stoneTile.building;
+    return (JObject)Normalized(new
+    {
+        extraAge = target.data.age_overgrowth, health = target.getHealth(),
+        armor = item?.id ?? 0, durability = item?.getDurabilityCurrent() ?? 0,
+        plant = plant?.id ?? 0, plantType = plant?.asset.id,
+        stone = building?.id ?? 0, stoneHp = building?.getHealth() ?? 0,
+        stoneRuined = building?.isRuin() == true, stoneTile = stoneTile.main_type.id
+    });
+}
+async Task<(Actor Caster, Actor Target)> ReadSave(string path, JObject expected, string phase)
+{
+    World.world.save_manager.loadWorld(Path.Combine(path, phase));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var catalog = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    Actor caster = World.world.units.get((long)expected["sourceId"]);
+    Actor target = World.world.units.get((long)expected["targetId"]);
+    var known = caster.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids;
+    Check(expected["forms"].All(form => known.Contains((string)form["Id"]) &&
+        JToken.DeepEquals(form, Normalized(catalog[(string)form["Id"]]))), "正式读回原术、停荣改造和原学习记录");
+    Check(JToken.DeepEquals(CurrentState(target), expected[phase]), "实际地物、原人物年龄、甲衣及生命按原结果读回",
+        new { phase, state = CurrentState(target), expected = expected[phase] });
+    caster.attack_timer = 999;
+    return (caster, target);
+}

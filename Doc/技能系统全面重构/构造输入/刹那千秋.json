@@ -1,0 +1,206 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.MomentOfAges",
+  "Name": "刹那千秋",
+  "Resource": "mana",
+  "Cost": 15,
+  "Power": 13,
+  "TargetRange": 28,
+  "Lifetime": 5.62,
+  "Cooldown": 6.1,
+  "Use": {
+    "Channels": "Combat, World",
+    "Target": "ObjectOrPoint"
+  },
+  "Binding": {
+    "Anchor": "Target",
+    "FaceTarget": false,
+    "Follow": false
+  },
+  "Root": {
+    "Id": "chronicle",
+    "Form": "pivot",
+    "ContactRole": "Decoration",
+    "Children": [
+      {
+        "Id": "ward",
+        "Form": "time_weathering_stamp",
+        "Matter": "physical",
+        "Offset": [0, 0, -0.08],
+        "Scale": 2.6,
+        "AppearAt": 0.15,
+        "ActiveFrom": 0.15,
+        "DisappearAt": 0.62,
+        "Strength": 0.86,
+        "Impact": {
+          "DamageScale": 0.65,
+          "SelectedTargetOnly": true
+        },
+        "Tint": [1, 0.94, 0.76]
+      },
+      {
+        "Id": "years",
+        "Form": "time_weathering_stamp",
+        "Matter": "physical",
+        "Offset": [0, 0, -0.08],
+        "Scale": 2.4,
+        "AppearAt": 0.84,
+        "ActiveFrom": 0.84,
+        "DisappearAt": 4.42,
+        "Strength": 0.86,
+        "Impact": {
+          "DamageScale": 0,
+          "SelectedTargetOnly": true,
+          "AgeYears": 9,
+          "EquipmentErosion": {
+            "Slots": [
+              "Armor"
+            ],
+            "Fraction": 0.27
+          }
+        },
+        "Contact": {
+          "Mode": "Interval",
+          "Interval": 0.94,
+          "MaximumPerTarget": 4
+        },
+        "Tint": [0.87, 0.74, 0.57]
+      },
+      {
+        "Id": "stone",
+        "Form": "time_weathering_stamp",
+        "Matter": "earth",
+        "Offset": [4, 2, -0.08],
+        "Scale": 2.75,
+        "AppearAt": 0.72,
+        "ActiveFrom": 0.72,
+        "DisappearAt": 5.18,
+        "Strength": 0.86,
+        "Impact": {
+          "DamageScale": 0,
+          "WorldEffects": [
+            {
+              "Action": "building.weather",
+              "MaximumTiles": 9,
+              "TileCentreOnly": true,
+              "Contact": {
+                "Mode": "Interval",
+                "Interval": 0.61,
+                "MaximumPerTarget": 6
+              }
+            }
+          ]
+        },
+        "Tint": [0.83, 0.77, 0.62]
+      },
+      {
+        "Id": "wither_first",
+        "Form": "time_weathering_stamp",
+        "Matter": "wood",
+        "Offset": [0, -3, -0.08],
+        "Scale": 1.52,
+        "AppearAt": 0.48,
+        "ActiveFrom": 0.48,
+        "DisappearAt": 1.43,
+        "Strength": 0.86,
+        "Impact": {
+          "DamageScale": 0,
+          "WorldEffects": [
+            {
+              "Action": "nature.wither",
+              "MaximumTiles": 1,
+              "TileCentreOnly": true,
+              "Contact": {
+                "Mode": "Interval",
+                "Interval": 0.36,
+                "MaximumPerTarget": 2
+              }
+            }
+          ]
+        },
+        "Tint": [0.96, 0.65, 0.33]
+      },
+      {
+        "Id": "renew_first",
+        "Form": "time_weathering_stamp",
+        "Matter": "wood",
+        "Offset": [0, -3, -0.08],
+        "Scale": 1.52,
+        "AppearAt": 1.48,
+        "ActiveFrom": 1.48,
+        "DisappearAt": 2.35,
+        "Strength": 0.86,
+        "Impact": {
+          "DamageScale": 0,
+          "WorldEffects": [
+            {
+              "Action": "nature.renew",
+              "MaximumTiles": 1,
+              "TileCentreOnly": true,
+              "Contact": {
+                "Mode": "Interval",
+                "Interval": 0.23,
+                "MaximumPerTarget": 3
+              }
+            }
+          ]
+        },
+        "Tint": [0.61, 0.87, 0.59]
+      },
+      {
+        "Id": "wither_second",
+        "Form": "time_weathering_stamp",
+        "Matter": "wood",
+        "Offset": [0, -3, -0.08],
+        "Scale": 1.52,
+        "AppearAt": 2.45,
+        "ActiveFrom": 2.45,
+        "DisappearAt": 3.44,
+        "Strength": 0.86,
+        "Impact": {
+          "DamageScale": 0,
+          "WorldEffects": [
+            {
+              "Action": "nature.wither",
+              "MaximumTiles": 1,
+              "TileCentreOnly": true,
+              "Contact": {
+                "Mode": "Interval",
+                "Interval": 0.38,
+                "MaximumPerTarget": 2
+              }
+            }
+          ]
+        },
+        "Tint": [0.96, 0.65, 0.33]
+      },
+      {
+        "Id": "renew_second",
+        "Form": "time_weathering_stamp",
+        "Matter": "wood",
+        "Offset": [0, -3, -0.08],
+        "Scale": 1.52,
+        "AppearAt": 3.48,
+        "ActiveFrom": 3.48,
+        "DisappearAt": 4.74,
+        "Strength": 0.86,
+        "Impact": {
+          "DamageScale": 0,
+          "WorldEffects": [
+            {
+              "Action": "nature.renew",
+              "MaximumTiles": 1,
+              "TileCentreOnly": true,
+              "Contact": {
+                "Mode": "Interval",
+                "Interval": 0.26,
+                "MaximumPerTarget": 4
+              }
+            }
+          ]
+        },
+        "Tint": [0.61, 0.87, 0.59]
+      }
+    ]
+  }
+}

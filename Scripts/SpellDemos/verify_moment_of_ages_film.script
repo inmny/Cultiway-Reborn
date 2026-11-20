@@ -1,0 +1,58 @@
+try
+{
+    // 先让原版新放置的建筑与三维地物采集完成，再从施放起点录像。
+    if (recordView == "worldfall") await Advance(2.2f);
+    var cast = await Use(definition);
+    await SetCamera(6f);
+    Type type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+    object mod = type.GetProperty("Instance", F).GetValue(null);
+    var god = type.GetProperty("GodShown", F);
+    var firstPerson = type.GetProperty("IsFirstPerson", F);
+    var gpu = type.GetField("_gpuShown", F);
+    var lastDraw = typeof(AbilityCast).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer")
+        .GetProperty("LastDrawCount", F);
+    if (recordView == "worldfall")
+    {
+        type.GetField("_godFollow", F).SetValue(mod, new Vector2(70, 72.5f));
+        type.GetField("_godFollowVel", F).SetValue(mod, Vector2.zero);
+        type.GetField("_godTurn", F).SetValue(mod, .12f);
+        type.GetField("_godTurnRate", F).SetValue(mod, 0f);
+        type.GetField("_godClose", F).SetValue(mod, 12f);
+        type.GetField("_godCloseTarget", F).SetValue(mod, 12f);
+        var ready = type.GetField("_godGpuApplied", F);
+        int frame = (int)ready.GetValue(mod);
+        await Game.WaitUntil(() => (int)ready.GetValue(mod) >= frame + 4, 600);
+        await Game.NextFrame();
+        WorldTip.hideNow();
+    }
+    else
+    {
+        World.world.camera.orthographicSize = 6f;
+        World.world.setZoomOrthographic(6f);
+    }
+    const float duration = 6.05f;
+    bool stable = true, drew = recordView == "native", stamp = false, leaves = false, fragments = false;
+    var samples = new List<object>();
+    List<double> times = await Film(duration, () =>
+    {
+        bool worldfall = recordView == "worldfall";
+        stable &= !(bool)firstPerson.GetValue(mod) && (bool)god.GetValue(mod) == worldfall && (!worldfall || (bool)gpu.GetValue(mod));
+        var forms = FormVisualScene.Instances.Select(v => v.Resource.Description.Id).ToArray();
+        stamp |= forms.Contains("time_weathering_stamp");
+        leaves |= forms.Contains("life_wood_graft");
+        fragments |= forms.Contains("rock_projectile") && forms.Contains("time_fold_imprint");
+        drew |= forms.Contains("time_weathering_stamp") && (int)lastDraw.GetValue(null) > 0;
+        samples.Add(new { age = cast.Cast.Age, forms, results = plots.Count, aged = ages.Count, weathered = wear.Count });
+    });
+    var outcomes = Outcomes();
+    File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(
+        new { times, duration, samples, outcomes }, Formatting.Indented));
+    Check(stable && drew && stamp && leaves && fragments && contacts.Any(hit => hit.Damage.ShieldAbsorbed > 0) &&
+        ages.Count == 4 && wear.Count == 4 && plots.Count(p => p.Action == "nature.renew") == 2 &&
+        masonry.main_type == TileLibrary.sand && roots.building != null && cast.Cast.Finished && !Marks(),
+        "完整原速画面中每类效果都对应真实变化和退场",
+        new { stable, drew, stamp, leaves, fragments, outcomes });
+    return new { passed = true, view = recordView, duration, times, previewFrame = Math.Max(0, times.FindIndex(t => t >= 1.57)),
+        scene = "construction", resource = definition.Resource, paid = definition.Cost };
+}
+finally { LeaveScene(); }
