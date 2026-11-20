@@ -1,0 +1,88 @@
+// 9.33 A1：正式薄霜传播，以同一场地观察到达、断路和清场。
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+var source = Make(64.5f);
+var reached = Make(70.5f, "wolf");
+var dry = Make(73.5f, "wolf");
+var owner = source.GetExtend();
+var views = new List<FormVisualInstance>();
+var shapes = new List<AbilityCapsule>();
+AbilityCast Live() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Select(item => (AbilityCast)Field(item, "Cast")).FirstOrDefault(cast => cast.Plan.Id == definition.Id);
+Dictionary<(int X, int Y), float> Frost(AbilityCast cast)
+{
+    views.Clear();
+    cast.AppendVisuals(views);
+    var cells = new Dictionary<(int, int), float>();
+    foreach (var view in views.Where(v => v.Layer != null))
+    {
+        var layer = view.Layer;
+        for (int y = 0; y < layer.Cells; y++)
+        for (int x = 0; x < layer.Cells; x++)
+        {
+            float depth = layer.Depth(x, y);
+            if (depth > layer.DryDepth) cells.Add(((int)layer.Origin.x + x, (int)layer.Origin.y + y), depth);
+        }
+    }
+    return cells;
+}
+
+try
+{
+    Check(AbilityCompiler.Compile(definition, false).HasPropagation, "普通构造可编译为真实地面传播");
+    owner.NewCultisys(Cultisyses.Xian);
+    owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+    await SetCamera(10.5f, true);
+    for (int y = 64; y <= 81; y++) World.world.GetTileSimple(72, y).setTileTypes(TileLibrary.deep_ocean, null);
+    var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
+    var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.FrostFlower.Quiet") ??
+        Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.FrostFlower.Quiet")
+            .SetStats(quietStats).SetDuration(10000).Build();
+    foreach (var actor in new[] { reached, dry })
+    {
+        CombatStatusEffects.RemoveStatus(actor, hold);
+        CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+        actor.updateStats();
+    }
+    await Advance(.14f);
+    Ready(source);
+    Place(source, 64.5f, 72.5f); Place(reached, 70.5f, 72.5f); Place(dry, 73.5f, 72.5f);
+    foreach (var actor in new[] { source, reached, dry }) ConstructedAbilityService.NotifyActorChanged(actor);
+    float balance = source.stats[BaseStatses.MaxWakan.id] * .82f;
+    owner.GetCultisys<Xian>().wakan = balance;
+    int reachedHp = reached.data.health, dryHp = dry.data.health;
+    await Fire(definition, source, reached, aim: new Vector3(68.5f, 72.5f, 0));
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Mathf.Abs(balance - owner.GetCultisys<Xian>().wakan - definition.Cost) < .01f, "地面薄霜按正式入口支付一次");
+    var cast = Live();
+    Check(cast != null, "正式施放存在");
+    await Advance(.17f);
+    var early = Frost(cast);
+    Check(early.ContainsKey((68, 72)) && !early.ContainsKey((70, 72)), "薄霜从实际落点开始，脚下远格不提前发白");
+    await Advance(.87f);
+    var spread = Frost(cast);
+    Check(spread.Count > early.Count && spread.ContainsKey((70, 72)), "同一薄霜先后抵达不同地格");
+    Check(spread.Keys.All(cell => cell.X < 72), "水隙及对岸均无薄霜");
+    Check(views.Where(view => view.Layer != null).All(view => view.Surface == "ground_frost"),
+        "地面只发布薄霜材质，原形体和普通冰壳不在此时出现");
+    cast.AppendContacts(shapes);
+    shapes.RemoveAll(shape => shape.Node != 1);
+    Check(shapes.Count == spread.Count && shapes.All(shape => spread.TryGetValue(((int)shape.A.x, (int)shape.A.y), out float depth) &&
+        Mathf.Abs(2f * shape.HalfExtents.z - depth) < .00001f), "薄霜显示的格子和厚度与真实作用面一致");
+    Check(reached.data.health == reachedHp && dry.data.health == dryHp &&
+        !CombatStatusEffects.HasStatus(reached, StatusEffects.Freeze) && !reached.stats.hasTag("immovable"),
+        "浅霜经过脚下后没有伤血或定住人物");
+    await SetCamera(10.5f, false);
+    await Shot("ground-frost");
+    await Advance(definition.Lifetime);
+    Check(Live() == null && Frost(cast).Count == 0 && endings.Count == 1, "自然结束后薄霜和施放均退出");
+    return new { passed = true, early = early.Count, spread = spread.Count, checks };
+}
+finally
+{
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

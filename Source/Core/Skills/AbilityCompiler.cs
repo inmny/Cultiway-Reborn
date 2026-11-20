@@ -210,6 +210,9 @@ public sealed class CompiledAbility
     /// <summary>只有存在命名回能时才分配确认份额，普通构造不增加逐部位账本处理。</summary>
     internal bool HasStepRecovery { get; }
 
+    /// <summary>实际要求用闭合屏障施加状态的部位；其他构造不采集闭环。</summary>
+    internal int[] EnclosureNodes { get; }
+
     /// <summary>复制已经验证的能力头部，保存有限展开结果。</summary>
     /// <param name="definition">已检查资料。</param>
     /// <param name="nodes">已经解析的部位。</param>
@@ -224,6 +227,7 @@ public sealed class CompiledAbility
     {
         InventoryOperations = operations.Where(operation => operation.Kind == ConstructionOperationKind.ConsumeInventory).ToArray();
         ResourceVersion = FormResources.Version;
+        EnclosureNodes = Enumerable.Range(0, nodes.Length).Where(i => nodes[i].EnclosesActors).ToArray();
         Id = definition.Id;
         Revision = definition.Revision;
         if (definition.Parent != null) Parent = (definition.Parent.Revision, definition.Parent.Change);
@@ -250,7 +254,7 @@ public sealed class CompiledAbility
         if (definition.SoulPact != null)
             SoulPact = new CompiledSoulPact(definition.SoulPact, Use.Target, Impact.Targets);
         CompiledConstructionImpact[] impacts = nodes
-            .Where(node => node.AffectsActors || node.Conduction != null ||
+            .Where(node => node.AffectsActors || node.EnclosesActors || node.Conduction != null ||
                            node.EventOperations.Any(op => op.Conduction != null))
             .SelectMany(node => node.BodyWindow && node.Impact == null
                 ? body.Stages.Select(stage => stage.Impact ?? Impact)
@@ -517,10 +521,13 @@ internal sealed class CompiledForm
 
     /// <summary>攻击形体沿用默认作用；屏障只有明确声明作用才接触人物。</summary>
     internal bool AffectsActors => ContactRole == ConstructionContactRole.Attack ||
-        ContactRole == ConstructionContactRole.Barrier && Impact != null;
+        ContactRole == ConstructionContactRole.Barrier && Impact != null && !EnclosesActors;
 
     /// <summary>按真实形状阻止敌方地面人物穿过。</summary>
     internal bool BlocksGroundActors;
+
+    /// <summary>本部位的实体闭环是状态生效的必要条件。</summary>
+    internal bool EnclosesActors;
 
     /// <summary>本部位初始作用强度倍率。</summary>
     internal float Strength;
@@ -932,6 +939,7 @@ public static partial class AbilityCompiler
             ContactRole = node.ContactRole,
             WorldContactShape = worldContactShape,
             BlocksGroundActors = node.BlocksGroundActors,
+            EnclosesActors = node.EnclosesActors,
             Strength = node.Strength,
             Interception = node.Interception,
             ReflectionLimit = node.ReflectionLimit,
@@ -939,6 +947,11 @@ public static partial class AbilityCompiler
             InterruptFallSeconds = node.InterruptFall,
             Active = new Vector2(node.ActiveFrom, node.ActiveUntil < 0 ? lifetime : node.ActiveUntil)
         };
+        if (compiled.EnclosesActors && (compiled.ContactRole != ConstructionContactRole.Barrier ||
+            compiled.Impact == null || compiled.Impact.Statuses.Count == 0 || compiled.Impact.HasActorEffectBesidesStatuses ||
+            compiled.Impact.HasAgingEffect || compiled.Impact.FrostCoating != null || compiled.Impact.WorldEffects.Count > 0 ||
+            resource.Contacts.Length is < 3 or > AbilityEnclosure.MaximumShapes || resource.Contacts.Any(contact => contact.IsPrism)))
+            Fail(path + "/EnclosesActors", "围合需要有3至48个实际胶囊的实体屏障，且部位作用只声明人物状态");
         var used = new Dictionary<ConstructionOperationKind, string>();
         var operationIds = new HashSet<string>(StringComparer.Ordinal);
         if (!Finite(compiled.Volume) || compiled.Volume < 0 || compiled.Volume > 1000000f) Fail(path, "体积须为0至一百万的有限数");

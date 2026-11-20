@@ -1,0 +1,92 @@
+// 9.33 C2：用正式存档检验原招、独立派生和真实的冻结边缘。
+var original = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+var variant = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "variant.json")));
+var source = Make(63.5f);
+var target = Make(70.62f);
+long sourceId = source.id, targetId = target.id;
+var owner = source.GetExtend();
+var focus = new Vector3(68.5f, 72.5f, 0f);
+var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
+var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.FrostFlower.Quiet") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.FrostFlower.Quiet")
+        .SetStats(quietStats).SetDuration(10000).Build();
+
+void Prepare()
+{
+    foreach (var actor in new[] { source, target })
+    {
+        CombatStatusEffects.RemoveStatus(actor, hold);
+        CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+        actor.setStatsDirty(); actor.updateStats();
+    }
+    target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+    Place(source, 63.5f, 72.5f); Place(target, 70.62f, 72.5f);
+    ConstructedAbilityService.NotifyActorChanged(source);
+    ConstructedAbilityService.NotifyActorChanged(target);
+}
+
+try
+{
+    owner.NewCultisys(Cultisyses.Xian);
+    owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+    Prepare();
+    // 先完成原版的人物入队，再保存两条学习关系。
+    await Advance(.18f);
+    ConstructedAbilityService.Register(original);
+    ConstructedAbilityService.Register(variant);
+    ConstructedAbilityService.Learn(owner, original.Id);
+    ConstructedAbilityService.Learn(owner, variant.Id);
+    var originalJson = JToken.FromObject(original);
+    var variantJson = JToken.FromObject(variant);
+    string saved = Path.Combine(folder, "world");
+    SaveManager.saveWorldToDirectory(saved);
+    World.world.save_manager.loadWorld(saved);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var catalog = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    source = World.world.units.get(sourceId);
+    target = World.world.units.get(targetId);
+    owner = source?.GetExtend();
+    var before = (AbilityDefinition)catalog[original.Id];
+    var after = (AbilityDefinition)catalog[variant.Id];
+    bool originalRestored = JToken.DeepEquals(originalJson, JToken.FromObject(before));
+    bool variantRestored = JToken.DeepEquals(variantJson, JToken.FromObject(after));
+    Check(owner != null && target != null && originalRestored && variantRestored &&
+        owner.E.GetComponent<ConstructedKnowledge>().Ids.Contains(original.Id) &&
+        owner.E.GetComponent<ConstructedKnowledge>().Ids.Contains(variant.Id) &&
+        after.Parent.Id == before.Id && after.Parent.Revision == before.Revision,
+        "正式存读恢复两份完整招式、派生来历与人物学习关系", new { originalRestored, variantRestored, sourceId, targetId, sourceLoaded = source != null, targetLoaded = target != null });
+    foreach (var definition in new[] { before, after })
+    {
+        Prepare();
+        await Advance(.18f);
+        owner.SetPowerLevel(0); target.GetExtend().SetPowerLevel(0);
+        float balance = source.stats[BaseStatses.MaxWakan.id] * .82f;
+        owner.GetCultisys<Xian>().wakan = balance;
+        var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+        Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, focus), ActiveAbilityUseOrigin.Script) &&
+            Mathf.Abs(balance - owner.GetCultisys<Xian>().wakan - definition.Cost) < .01f,
+            "直接使用读档后的招式并只支付一次", new { definition.Id, definition.Cost });
+        await Advance(1.64f);
+        bool frozen = CombatStatusEffects.HasStatus(target, StatusEffects.Freeze);
+        var cast = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Select(item => (AbilityCast)Field(item, "Cast")).Single(item => item.Plan.Id == definition.Id);
+        var shapes = new List<AbilityCapsule>(); cast.AppendContacts(shapes);
+        Check(shapes.Count(shape => shape.Node == 4) == 24 && frozen == (definition.Id == original.Id),
+            "同一位置原术能围住，狭瓣的真实闭环已收小", new { definition.Id, frozen, x = target.current_position.x });
+        await Advance(3.8f);
+        Check(cast.Finished && !CombatStatusEffects.HasStatus(target, StatusEffects.Freeze), "读档后一整次施放正常清理");
+    }
+    File.WriteAllText(Path.Combine(folder, "readback-expected.json"),
+        JsonConvert.SerializeObject(new { sourceId, targetId, original = original.Id, variant = variant.Id }, Formatting.Indented));
+    return new { passed = true, checks, saved };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

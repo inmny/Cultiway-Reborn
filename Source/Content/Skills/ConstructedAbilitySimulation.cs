@@ -216,6 +216,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     if (generation != worldGeneration) yield break;
                     if (running.ActorTransferHolds?.Count > 0) ConfirmActorTransferHolds(running, clock, generation);
                     if (generation != worldGeneration) yield break;
+                    ConfirmEnclosures(running, clock);
+                    if (generation != worldGeneration) yield break;
                     PublishActionEvents(running);
                     if (generation != worldGeneration) yield break;
                 }
@@ -299,6 +301,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         AppendSteamVisuals(now);
         AppendConductionVisuals(now);
         AppendWindScars(now);
+        AppendFrostCoatings(now);
         AppendYinTransfers(now);
         AppendBalancedWakan(now);
         AppendLifeRepairs(now);
@@ -444,6 +447,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             actorIndex.Add(AbilityContactIndex.Swept(from, to));
         }
 
+        RetireFrostProbes(now);
         CaptureBodySurfaces(now);
     }
 
@@ -920,7 +924,17 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     if (!shape.Continuous || endpointOnly) earliest = 1f;
                     AbilityCapsule a0 = Slice(shape.From, shape.To, earliest), target0 = Slice(b0, b1, earliest);
                     float at; Vector3 point, normal;
-                    if (shape.To.Node < 0 && running.Cast.Plan.Body?.Part.IsJoint == true)
+                    BodySurfaceBinding frost = null;
+                    BodySurfacePose frostPose = null;
+                    BodySurfaceAnchor frostAnchor = default;
+                    if (effect.FrostCoating != null)
+                    {
+                        double start = clock + step * earliest;
+                        if (!FindFrostSurface(actor, effect.FrostCoating, a0, pulse ? a0 : shape.To, start,
+                                pulse ? start : clock + step, out at, out point, out normal, out frost,
+                                out frostPose, out frostAnchor)) return;
+                    }
+                    else if (shape.To.Node < 0 && running.Cast.Plan.Body?.Part.IsJoint == true)
                     {
                         BodySurfacePose end = running.Cast.BodyPose.Value.Joint.Contact;
                         BodySurfacePose start = BodySurfacePose.Lerp(running.BeforeJoint.Contact, end, earliest);
@@ -932,7 +946,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     float fraction = Mathf.Lerp(earliest, 1f, at);
                     if (fraction > until || fraction >= originalUntil || oldScope && fraction >= 1f) return;
                     Include(new ContactChoice(shape, actor, null, fraction, point, normal, step,
-                        actorShape: Slice(b0, b1, fraction)));
+                        bodySurface: frostPose, bodyAnchor: frostAnchor, actorShape: Slice(b0, b1, fraction),
+                        frostBinding: frost, frostRule: effect.FrostCoating));
                 }
             }
         }
@@ -1148,6 +1163,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             (response.ForceApplied || response.StaggerSeconds > 0f || response.BindSeconds > 0f) &&
             CorrespondenceReceiver(running, node) == actor.Actor)
             ShowShadow(running, node, actor.Actor);
+        if (result == ApplyAttackState.Hit && hit.FrostBinding != null)
+            ConfirmFrostCoating(hit, hit.FrostRule);
         if (primaryDamage.HealthLost > 0 && running.Cast.Plan.Id == BalefulWindConstruction.WaveId)
             AddWindScar(running, node, actor.Actor, hit.Point, false);
         if (result == ApplyAttackState.Hit)
@@ -1587,6 +1604,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <summary>实际三角面上的连接位置。</summary>
         internal readonly BodySurfaceAnchor BodyAnchor;
 
+        /// <summary>实际结霜部位所用的原模型，没有结霜规则时为空。</summary>
+        internal readonly BodySurfaceBinding FrostBinding;
+
+        /// <summary>实际接触阶段的薄霜规则，跨越招式阶段边界时仍用这次接触的资料。</summary>
+        internal readonly CompiledFrostCoating FrostRule;
+
         /// <summary>左侧实际作用形状。</summary>
         internal readonly ShapeMotion Left;
 
@@ -1652,12 +1675,15 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="carrying">真实携带环境接触。</param>
         /// <param name="flight">真实离手身体。</param>
         /// <param name="actorShape">同一接触时点的真实人物作用体。</param>
+        /// <param name="frostBinding">实际结霜模型。</param>
+        /// <param name="frostRule">实际接触的薄霜规则。</param>
         internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point,
             Vector3 normal, float seconds, bool quenching = false, long worldRecord = 0,
             AbilityCapsule worldShape = default, ThermalReaction reaction = ThermalReaction.None,
             bool worldSource = false, WorldTile tile = null, int worldEffect = 0, int bodyRelation = -1,
             BodySurfacePose bodySurface = null, BodySurfaceAnchor bodyAnchor = default, BodySurfaceHit? carrying = null, ConstructedActorImpulse.BodyFlight flight = null,
-            AbilityCapsule actorShape = default, Vector3 bodyGuardFacing = default)
+            AbilityCapsule actorShape = default, Vector3 bodyGuardFacing = default, BodySurfaceBinding frostBinding = null,
+            CompiledFrostCoating frostRule = null)
         {
             BodyGuardFacing = bodyGuardFacing;
             BodyRelation = bodyRelation;
@@ -1665,6 +1691,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             Flight = flight;
             BodySurface = bodySurface;
             BodyAnchor = bodyAnchor;
+            FrostBinding = frostBinding;
+            FrostRule = frostRule;
             Tile = tile;
             WorldEffect = worldEffect;
             Quenching = quenching;

@@ -23,6 +23,9 @@ public sealed class ConstructionFracture
     public float GroundRebound;
     /// <summary>明确继续原作用的真实部件名；其余分件均为装饰。</summary>
     public string[] ActiveParts = Array.Empty<string>();
+    /// <summary>让指定的碎片沿自己的实际路径攻击；未设置时继续原部位的用途与作用。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionImpact Impact;
     /// <summary>已经存在且仍附着的普通子结构随破坏脱落，否则随主体结束。</summary>
     public bool ReleaseChildren = true;
     /// <summary>脱落后可单独指定来源中断规则；未设置时沿用完整主体。</summary>
@@ -39,6 +42,8 @@ internal sealed class CompiledFracture
     internal readonly bool[] Active;
     /// <summary>真正接受作用量的分件数。</summary>
     internal readonly int ActiveCount;
+    /// <summary>指定碎片使用自己的攻击作用，空值沿用原部位。</summary>
+    internal readonly CompiledConstructionImpact Impact;
     /// <summary>存在窗口及分散和转动速度。</summary>
     internal readonly float Seconds, Speed, Spin, GroundRebound;
     /// <summary>附属子结构的明确结束合同。</summary>
@@ -72,7 +77,13 @@ internal sealed class CompiledFracture
         for (int part = 0; part < Active.Length; part++)
             if (Active[part] && !resource.Description.Contacts.Any(contact => contact.Part == part))
                 throw new InvalidDataException(path + "：继续作用的分件缺少实际作用形状：" + resource.Description.Parts[part].Id);
-        ActiveCount = Active.Count(value => value); Seconds = source.Seconds; Speed = source.Speed; Spin = source.Spin;
+        ActiveCount = Active.Count(value => value);
+        if (source.Impact != null)
+        {
+            if (ActiveCount == 0) throw new InvalidDataException(path + "/Impact：碎片攻击需要指定有实际作用面的分件");
+            Impact = new CompiledConstructionImpact(source.Impact, path + "/Impact");
+        }
+        Seconds = source.Seconds; Speed = source.Speed; Spin = source.Spin;
         if (source.SourceLoss.HasValue && !Enum.IsDefined(typeof(ConstructionSourceLoss), source.SourceLoss.Value))
             throw new InvalidDataException(path + "/SourceLoss：碎片的来源中断规则无效");
         ReleaseChildren = source.ReleaseChildren; SourceLoss = source.SourceLoss; GroundRebound = source.GroundRebound;

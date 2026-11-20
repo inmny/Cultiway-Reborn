@@ -1,0 +1,100 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.FrostFlowerBurial.NarrowPetals",
+  "Parent": {"Id": "Cultiway.Demo.FrostFlowerBurial", "Revision": 1, "Change": "收小冰瓣围合范围，保留同一盛放与碎裂过程"},
+  "Name": "霜花葬形·狭瓣",
+  "Lifetime": 5,
+  "Cost": 14,
+  "Resource": "wakan",
+  "Cooldown": 3,
+  "Power": 8,
+  "TargetRange": 28,
+  "Use": {"Channels": "World", "Target": "Point"},
+  "Binding": {"Anchor": "Target", "Follow": false, "FaceTarget": false},
+  "Root": {
+    "Id": "burial",
+    "Form": "pivot",
+    "ContactRole": "Decoration",
+    "Children": [
+      {
+        "Id": "frost",
+        "Form": "fracture_slab",
+        "Matter": "ice",
+        "Surface": "ground_frost",
+        "Strength": 0.45,
+        "Impact": {"DamageScale": 0},
+        "Operations": [{
+          "Kind": "Propagate",
+          "Propagation": {
+            "Range": 7.5,
+            "Speed": 7,
+            "Seconds": 2.1,
+            "Height": 0.034,
+            "GroundReach": 0.2,
+            "Attenuation": 0.04,
+            "MaximumStep": 0.45,
+            "CellCost": 0.001,
+            "MaximumCells": 180
+          }
+        }]
+      },
+      {
+        "Id": "rime-east",
+        "Form": "ice_shard",
+        "Matter": "ice",
+        "Scale": 0.68,
+        "Offset": [0.15, 0, 0.2],
+        "Rotation": [0, 43, 0],
+        "Strength": 0.14,
+        "DisappearAt": 0.8,
+        "Activation": {"Source": "../frost", "Trigger": "GroundRouteDistance", "Threshold": 1, "Placement": "Attached"},
+        "Impact": {"DamageScale": 0, "FrostCoating": {"Radius": 0.44, "Seconds": 1.8}},
+        "Operations": [{"Kind": "Detach"}, {"Kind": "Fly", "Vector": [4.2, 0, 0.6], "WorldVelocity": true, "InheritVelocity": false}]
+      },
+      {
+        "Id": "rime-west",
+        "Form": "ice_shard",
+        "Matter": "ice",
+        "Scale": 0.63,
+        "Offset": [-0.1, 0, 0.16],
+        "Rotation": [0, -43, 0],
+        "Strength": 0.14,
+        "DisappearAt": 0.82,
+        "Activation": {"Source": "../frost", "Trigger": "GroundRouteDistance", "Threshold": 1, "Placement": "Attached"},
+        "Impact": {"DamageScale": 0, "FrostCoating": {"Radius": 0.44, "Seconds": 1.8}},
+        "Operations": [{"Kind": "Detach"}, {"Kind": "Fly", "Vector": [-4, 0, 0.66], "WorldVelocity": true, "InheritVelocity": false}]
+      },
+      {
+        "Id": "petals",
+        "Form": "frost_flower",
+        "Scale": 0.82,
+        "Surface": "ice",
+        "Matter": "water",
+        "State": "liquid",
+        "ContactRole": "Barrier",
+        "BlocksGroundActors": true,
+        "EnclosesActors": true,
+        "Volume": 8,
+        "Strength": 0.85,
+        "ActiveFrom": 0.99,
+        "ActiveUntil": 1.91,
+        "DisappearAt": 2.85,
+        "Activation": {"Source": "../frost", "Trigger": "GroundRouteDistance", "Threshold": 2.2, "Delay": 0.16, "Placement": "Attached"},
+        "Impact": {"DamageScale": 0, "Statuses": [{"Id": "Freeze", "Duration": 1.05, "Application": "Refresh"}]},
+        "Operations": [
+          {"Kind": "Animate", "Clip": "close"},
+          {"Kind": "ConvertMatter", "At": 0.98, "Matter": "water", "State": "solid"},
+          {"Kind": "ConvertMatter", "At": 1.91, "Matter": "water", "State": "liquid"},
+          {"Kind": "Animate", "Clip": "bloom", "BlendSeconds": 0.12,
+            "When": {"Trigger": "MatterChanged", "Matter": "water", "State": "liquid"}},
+          {"Kind": "ConvertMatter", "At": 2.49, "Matter": "water", "State": "solid"},
+          {"Kind": "Fracture", "At": 2.51, "Fracture": {
+            "Seconds": 1.72, "Speed": 4.8, "Gravity": 9, "Spin": 46, "ReleaseChildren": false,
+            "ActiveParts": ["petal_0", "petal_1", "petal_2", "petal_3", "petal_4", "petal_5", "petal_6", "petal_7"],
+            "Impact": {"DamageScale": 1.15}
+          }}
+        ]
+      }
+    ]
+  }
+}

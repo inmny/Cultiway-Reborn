@@ -1,0 +1,135 @@
+// 9.33 C1：同一世界与受术者，核对盛放、分件、真实接触及消退。
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+var focus = new Vector3(68.5f, 72.5f, 0f);
+var source = Make(63.5f);
+var target = Make(68.5f);
+var owner = source.GetExtend();
+var views = new List<FormVisualInstance>();
+const int petals = 4;
+AbilityCast Live() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Select(item => (AbilityCast)Field(item, "Cast")).SingleOrDefault(cast => cast.Plan.Id == definition.Id);
+FormVisualInstance[] Flower(AbilityCast cast)
+{
+    views.Clear(); cast.AppendVisuals(views);
+    return views.Where(v => v.Resource.Description.Id.StartsWith("frost_flower", StringComparison.Ordinal)).ToArray();
+}
+Vector3 Centre(FormVisualInstance view, int part, int control)
+{
+    var bound = view.Resource.Meshes[part].bounds.center;
+    return view.Transform.MultiplyPoint3x4(view.Skin[control].MultiplyPoint3x4(bound));
+}
+object Point(Vector3 p) => new { p.x, p.y, p.z };
+bool Frozen() => CombatStatusEffects.HasStatus(target, StatusEffects.Freeze);
+async Task<AbilityCast> Cast(float dx, float dy)
+{
+    target.finishAngryStatus(); target.clearAttackTarget(); target.cancelAllBeh();
+    Place(source, 63.5f, focus.y); Place(target, focus.x + dx, focus.y + dy);
+    ConstructedAbilityService.NotifyActorChanged(source);
+    ConstructedAbilityService.NotifyActorChanged(target);
+    await Advance(.12f);
+    contacts.Clear();
+    owner.SetPowerLevel(0); target.GetExtend().SetPowerLevel(0);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .85f;
+    await Fire(definition, source, target, aim: focus, aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    return Live();
+}
+async Task At(AbilityCast cast, float age)
+{
+    if (cast.Age < age) await Advance(age - cast.Age);
+}
+
+try
+{
+    owner.NewCultisys(Cultisyses.Xian);
+    owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+    target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+    var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
+    var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.FrostFlower.Quiet") ??
+        Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.FrostFlower.Quiet")
+            .SetStats(quietStats).SetDuration(10000).Build();
+    foreach (var actor in new[] { source, target })
+    {
+        CombatStatusEffects.RemoveStatus(actor, hold);
+        CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+        actor.setStatsDirty(); actor.updateStats();
+    }
+    await SetCamera(9.1f, true);
+    await Advance(.18f);
+    var hitCast = await Cast(6.38f, 0f);
+    int hp = target.data.health;
+    await At(hitCast, 1.62f);
+    var closed = Flower(hitCast).Single();
+    var closedCentre = Centre(closed, 0, 0);
+    Check(closed.Resource.Description.Id == "frost_flower" && hitCast.Matter(petals).State == "solid" && !Frozen(),
+        "合拢阶段仍为完整冰瓣，外侧目标不受冻");
+    await At(hitCast, 2.95f);
+    var bloom = Flower(hitCast).Single();
+    var bloomCentre = Centre(bloom, 0, 0);
+    Check(bloom.Resource == closed.Resource && bloomCentre.x > closedCentre.x + .6f &&
+        Vector3.Distance(bloomCentre, closedCentre) > .8f && target.data.health == hp,
+        "同一组冰瓣反向盛放，脱落前不造成伤害", new { closed = Point(closedCentre), bloom = Point(bloomCentre), hitCast.Age });
+    await Shot("bloom-open");
+    await At(hitCast, 3.03f);
+    var shards = Flower(hitCast);
+    var main = shards.Single(v => v.Resource.Description.Id == "frost_flower:petal_0");
+    var shardCentre = Centre(main, 0, 0);
+    Check(shards.Length == 16 && shards.All(v => v.Matter.State == "solid") &&
+        bloomCentre.x - .1f < shardCentre.x && Vector3.Distance(shardCentre, bloomCentre) < 1.1f,
+        "完整冰瓣裂为十六块真实分件，从最后连续姿态脱落",
+        new { count = shards.Length, age = hitCast.Age, last = Point(bloomCentre), first = Point(shardCentre) });
+    var trajectory = new List<object>();
+    var sampled = new List<AbilityCapsule>();
+    for (int i = 0; i < 10; i++)
+    {
+        await Advance(.065f);
+        sampled.Clear(); hitCast.AppendContacts(sampled);
+        trajectory.Add(new { hitCast.Age, speed = Point(hitCast.Velocity(5)),
+            shapes = sampled.Where(shape => shape.Node == 5).Select(shape => new
+                { a = Point(shape.A), b = Point(shape.B), shape.Radius }).ToArray() });
+        if (target.data.health < hp) break;
+    }
+    var hits = contacts.Where(hit => hit.TargetId == target.id && hit.Node > petals && hit.DamageAttempted).ToArray();
+    Check(hits.Any(hit => hit.TargetHealthAfter < hit.TargetHealthBefore) && target.data.health < hp && !Frozen(),
+        "主瓣碎片沿实际路径接触并扣血，不继承闭环冻结", new { hp, after = target.data.health, target = Point(target.GetSimPos()), trajectory,
+            hits = hits.Select(hit => new { hit.Node, hit.Age, position = Point(hit.Position), hit.TargetHealthBefore, hit.TargetHealthAfter }).ToArray() });
+    await Shot("bloom-fragments");
+    await At(hitCast, 4.39f);
+    var states = (Array)Field(hitCast, "nodes");
+    int grounded = Enumerable.Range(petals + 1, 16).Count(index => (bool)Field(states.GetValue(index), "MovementStopped"));
+    Check(grounded > 0 && Flower(hitCast).Length > 0, "真实碎片落稳，收尾仍有短暂留存", new { grounded });
+    await Shot("bloom-settled");
+    await Advance(1f);
+    Check(Live() == null && Flower(hitCast).Length == 0 && views.All(v => v.Layer == null), "碎片与外围残霜全部收尾");
+
+    var gap = await Cast(5.895f, 2.441f);
+    int gapHp = target.data.health;
+    await At(gap, 4.12f);
+    var gapShapes = new List<AbilityCapsule>();
+    gap.AppendContacts(gapShapes);
+    Check(gapShapes.Any(shape => shape.Node > petals) &&
+        contacts.All(hit => hit.TargetId != target.id || hit.Node <= petals || !hit.DamageAttempted) &&
+        target.data.health == gapHp && !Frozen(), "相邻主瓣之间保留真实空隙，擦空无伤",
+        new { gapHp, after = target.data.health, gap.Age, shapes = gapShapes.Count, target = Point(target.current_position) });
+    await Advance(2f);
+
+    var inside = await Cast(0f, 0f);
+    int insideHp = target.data.health;
+    await At(inside, 1.62f);
+    Check(Frozen() && target.data.health == insideHp, "切分网格后完整冰瓣仍按闭环冻结中心目标");
+    await At(inside, 2.88f);
+    Check(!Frozen() && !target.stats.hasTag("immovable") && target.data.health == insideHp &&
+        Flower(inside).Single().Resource == closed.Resource, "盛放时中心目标已经恢复行动，冰瓣尚未脱落");
+    await Advance(2.5f);
+    Check(Live() == null && !Frozen(), "完整招式自然结束，不遗留控制");
+    return new { passed = true, view = recordView, checks };
+}
+finally
+{
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

@@ -229,6 +229,10 @@ public sealed class ConstructionNode
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool BlocksGroundActors;
 
+    /// <summary>本部位的状态只在固态屏障形成真实闭环时施加，每人每部位只尝试一次。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool EnclosesActors;
+
     /// <summary>相对于本次基础作用量的初始强度；抵消后余量继续参与交锋及伤害。</summary>
     public float Strength = 1f;
 

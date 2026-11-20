@@ -2339,3 +2339,15 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 - `--section save`：核对无许可、显式拒绝和许可一格的真实地貌结果与岩量收支。正式存档后复核原招、[偏脊派生](../../Doc/技能系统全面重构/构造输入/山河叩首·偏脊.json)、人物学习状态和地形。输出 `material.json` 与实际存档。用 `dev.py exec --timeout 225`。
 - `--section native` 和 `--section worldfall`：分别录制原版和三维旁观的常速同招全过程。输出 `demo.mp4`、预览图和 `timeline.json`。三维录像同时核对正常绘制路径和实际岩体提交。
 - `--section delivery`：在同一游戏进程依次运行接地、中断、存读和双视角录像。用 `dev.py exec --timeout 480`；每段结果独立保留。
+
+### 霜花葬形（9.33）
+
+独立游戏启动后，运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_frost_flower.py`。地面段读取[霜花葬形构造](../../Doc/技能系统全面重构/构造输入/霜花葬形.json)，复用固定世界。核对正式出手与支付、薄霜先后抵达、水道断路、实际霜厚、人物不冻结和自然消退。输出 `checks.json`、`result.json` 和俯视图 `ground-frost.png`。其余分段见[交付条件](../../Doc/技能系统全面重构/霜花葬形实战表现.md)。
+
+`--section coating --view worldfall` 使用同一场地的一名持剑着甲人物。先检查正式招式在实际接触后留霜、到期消退，再以同一附着规则限定甲片和持物，核对擦空、移动和换装。输出 `frost-cast.png`、`frost-equipment.png`、`frost-moved.png`、`frost-replaced.png` 及检查记录。
+
+`--section enclosure --view worldfall` 复用同一场地和同一受术者，依次检查开口、闭合冻结、提前走出、闭环外侧和战力抵抗。它还检查同一轮围合不会不断补上冻结、施放结束后实体屏障会消失。输出 `petals-open.png`、`petals-closed.png`、`petals-escaped.png` 及检查记录。 只复验后三组对照时，追加 `--enclosure-part contrast`。
+
+`--section bloom --view worldfall` 检查同一冰瓣从闭合姿态盛放、真实裂成主瓣与瓣尖、碎片命中与擦空、落稳和恢复。输出 `bloom-open.png`、`bloom-fragments.png`、`bloom-settled.png`。
+
+`--section save` 验证原招与[狭瓣派生](../../Doc/技能系统全面重构/构造输入/霜花葬形·狭瓣.json)的正式存档、还原和两种实际冻结边界，使用 `dev.py exec --timeout 185`。`--section film --view native` 和 `--section film --view worldfall` 录制从蓄霜、闭环冻结到盛放碎裂及清场的一次常速施放，输出 `demo.mp4`、`preview.png` 和 `timeline.json`。

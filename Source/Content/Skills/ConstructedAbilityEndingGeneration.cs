@@ -61,7 +61,7 @@ public sealed partial class ConstructedAbilityService
             Scale = site.Scale * (.55f + (float)random.NextDouble() * .25f),
             Strength = 1 + random.Next(3), ContactRole = source.ContactRole, Impact = source.Impact,
             Interception = source.Interception, ReflectionLimit = source.ReflectionLimit,
-            BlocksGroundActors = source.BlocksGroundActors, MediumChannel = source.MediumChannel,
+            BlocksGroundActors = source.BlocksGroundActors, EnclosesActors = source.EnclosesActors, MediumChannel = source.MediumChannel,
             SourceLoss = source.SourceLoss,
             Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End, InheritRemainder = true }
         }).ToArray();
