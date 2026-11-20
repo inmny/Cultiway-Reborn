@@ -1,0 +1,92 @@
+// 防御档里的原铁锤在跃落腾空时出手，从真实命中观察动作中断。
+const string hammerId = "Cultiway.Body.HeavyHammerDrop";
+const string vaultId = "Cultiway.Body.BoundingStep";
+float speed = Config.time_scale_asset.multiplier;
+long hammerCast = 0, vaultCast = 0;
+AbilityCast jump = null;
+float airAtImpact = 0f, jumpAgeAtImpact = 0f;
+bool stopped = false;
+Vector2 hitRoot = Vector2.zero;
+var originalShield = target.getWeapon();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId == source.id && fact.AbilityId == hammerId) hammerCast = fact.CastId;
+    if (fact.SourceId != target.id || fact.AbilityId != vaultId) return;
+    vaultCast = fact.CastId;
+    var entry = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == vaultCast);
+    jump = (AbilityCast)Field(entry, "Cast");
+}
+void Contact(ConstructedContact fact)
+{
+    if (fact.CastId != hammerCast || fact.TargetId != target.id) return;
+    airAtImpact = target.position_height;
+    jumpAgeAtImpact = jump.Age;
+    stopped = jump != null && (jump.BodyResult == BodyActionResult.Interrupted || (bool)Field(jump, "bodyInterrupted"));
+    hitRoot = target.current_position;
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+try
+{
+    Place(source, 64.35f);
+    Place(target, 64.98f);
+    Ready(source);
+    CombatStatusEffects.RemoveStatus(target, quiet);
+    target.updateStats();
+    target.cancelAllBeh();
+    source.attack_timer = target.attack_timer = 999;
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    target.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.14f);
+    Place(source, 64.35f);
+    Place(target, 64.98f);
+    Check(source.getWeapon()?.getAsset().id == "hammer_iron" && originalShield?.getAsset().id == "cultiway_iron_shield",
+        "使用存档原人原物验证空中受击");
+    int health = target.data.health;
+    Config.time_scale_asset.multiplier = speed * .32f;
+    source.data.stamina = target.data.stamina = 100;
+    await Fire(ConstructionEditing.Access.Read(hammerId), source, target);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.27f);
+    var vault = ConstructionEditing.Access.Read(vaultId);
+    var flyer = target.GetExtend();
+    ConstructedAbilityService.Learn(flyer, vaultId);
+    target.attack_timer = 0;
+    bool used = ActiveAbilityService.TryUse(flyer, new ActiveAbilityHandle("content.constructed", flyer.E, vaultId),
+        new ActiveAbilityTarget(null, new Vector3(62, 72, 0)), ActiveAbilityUseOrigin.Player);
+    target.attack_timer = 999;
+    flyer.E.RemoveComponent<ConstructedKnowledge>();
+    Check(used && jump != null && Mathf.Abs(100f - target.data.stamina - vault.Cost) < .001f,
+        "受击前已从真实玩家入口起跳，只付一次体力");
+    await Advance(.23f);
+    float beforeImpact = target.position_height;
+    await Advance(.18f);
+    var hits = contacts.Where(fact => fact.CastId == hammerCast && fact.TargetId == target.id).ToArray();
+    await Advance(1.5f);
+    var detail = new
+    {
+        health, after = target.data.health, beforeImpact, airAtImpact, jumpAgeAtImpact, stopped,
+        hitAt = hitRoot.ToString("F5"), final = target.current_position.ToString("F5"),
+        height = target.position_height, jump.BodyResult,
+        hits = hits.Select(fact => new { fact.Age, fact.ForceApplied, velocity = fact.VelocityChange.ToString("F5") }).ToArray()
+    };
+    File.WriteAllText(Path.Combine(folder, "interruption.json"), JsonConvert.SerializeObject(detail, Formatting.Indented));
+    Check(airAtImpact > .06f && jumpAgeAtImpact < vault.Body.ActiveUntil &&
+          hits.Length == 1 && hits[0].ForceApplied && stopped &&
+          target.current_position.x > 64.5f &&
+          target.data.health < health && !BodyControlState.IsBusy(target.id) &&
+          target.position_height < .015f && ReferenceEquals(originalShield, target.getWeapon()),
+        "真实空中受击立即退出旧步法，沿实际受力落地并归还控制", detail);
+    return new { passed = true, selection, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.time_scale_asset.multiplier = speed;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

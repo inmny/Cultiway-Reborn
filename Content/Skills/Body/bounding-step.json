@@ -1,0 +1,44 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.BoundingStep",
+  "Name": "越坎落步",
+  "Lifetime": 1.16,
+  "Cooldown": 1.74,
+  "Resource": "stamina",
+  "Cost": 6,
+  "TargetRange": 5,
+  "Use": {"Target": "Point"},
+  "Body": {
+    "Effector": "lead",
+    "ReleaseAt": 0.22,
+    "ActiveFrom": 0.22,
+    "ActiveUntil": 0.92,
+    "Impact": {"DamageScale": 0},
+    "Construction": {
+      "Parts": [{"Id": "lead", "Part": "shoulder.left"}],
+      "Footwork": {
+        "Space": "Local",
+        "Forward": null,
+        "Keys": [
+          {"At": 0, "Point": [0, 0, 0]},
+          {"At": 0.22, "Point": [0, 0, 0]},
+          {"At": 0.42, "Point": [0.29, 0, 0]},
+          {"At": 0.67, "Point": [0.67, 0, 0]},
+          {"At": 0.84, "Point": [0.89, 0, 0]},
+          {"At": 1.16, "Point": [0.89, 0, 0]}
+        ]
+      }
+    },
+    "Keys": [
+      {"Id": "ready", "At": 0, "Hand": [0.15, -0.20, 0.62], "Support": {}},
+      {"Id": "crouch", "At": 0.16, "Hand": [-0.03, -0.16, 0.54], "Torso": [-0.06, 0, -0.15], "Turn": 14, "Support": {}},
+      {"Id": "push", "At": 0.22, "Hand": [0.11, -0.18, 0.75], "Torso": [0.075, 0, -0.04], "Support": {}},
+      {"Id": "lift", "At": 0.34, "Hand": [0.29, -0.19, 0.88], "Torso": [0.085, 0, -0.04], "Turn": -12, "Support": {"Rise": 0.28, "LeftFoot": [0.09, -0.10, 0.11], "RightFoot": [-0.09, 0.10, 0.05]}},
+      {"Id": "crest", "At": 0.49, "Hand": [0.28, -0.22, 0.83], "Torso": [0.055, 0, -0.055], "Turn": -19, "Support": {"Rise": 0.43, "LeftFoot": [0.17, -0.10, 0.16], "RightFoot": [-0.15, 0.10, 0.10]}},
+      {"Id": "extend", "At": 0.7, "Hand": [0.2, -0.22, 0.76], "Torso": [0.038, 0, -0.065], "Turn": -11, "Support": {"Rise": 0.22, "LeftFoot": [0.15, -0.10, 0.02], "RightFoot": [-0.08, 0.10, 0.09]}},
+      {"Id": "land", "At": 0.84, "Hand": [0.16, -0.22, 0.66], "Torso": [0.065, 0, -0.15], "Support": {"RightFoot": [-0.04, 0.10, 0.04]}},
+      {"Id": "absorb", "At": 0.94, "Hand": [0.09, -0.20, 0.57], "Torso": [0.055, 0, -0.17], "Support": {}},
+      {"Id": "rest", "At": 1.16, "Hand": [0.15, -0.20, 0.62], "Support": {}}
+    ]
+  }
+}

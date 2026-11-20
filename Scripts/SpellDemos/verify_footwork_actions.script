@@ -1,0 +1,223 @@
+// 只在正式入口施放，按共同世界时间观察实际姿态、人物位置、命中与结束。
+const string retreatId = "Cultiway.Body.AngledRetreat";
+const string chargeId = "Cultiway.Body.ChargingShoulder";
+const string vaultId = "Cultiway.Body.BoundingStep";
+bool cold = selection == "cold";
+bool retreat = selection == "retreat" || cold, wall = selection == "wall", vault = selection == "vault";
+var saved = cold ? JObject.Parse(File.ReadAllText(Path.Combine(archived, "expected.json"))) : null;
+string ability = cold ? (string)saved["edited"] : retreat ? retreatId : vault ? vaultId : chargeId;
+var definition = ConstructionEditing.Access.Read(ability);
+float actionSpeed = Config.time_scale_asset.multiplier;
+var sill = World.world.GetTileSimple(65, 72);
+var previousType = sill.main_type;
+var previousTop = sill.top_type;
+// 原版地块贴图只随已登记的原版种类。录原版墙时借用山体，结束后还原规则。
+var nativeWall = wall && view == "native" ? TileLibrary.mountains : null;
+bool originalBlocking = nativeWall?.block ?? false;
+float originalBlockHeight = nativeWall?.block_height ?? 0f;
+AbilityCast action = null;
+long cast = 0;
+Vector3 touchRoot = Vector3.zero;
+Vector2 end = Vector2.zero;
+Vector3 releasedFacing = Vector3.zero;
+bool finished = false;
+var samples = new List<(float age, Vector2 position, BodyPose pose, BodySupportPose support, float elevation)>();
+float[] P(Vector3 point) => new[] { point.x, point.y, point.z };
+void Started(ConstructedCastStarted value)
+{
+    if (value.SourceId != source.id || value.AbilityId != ability) return;
+    cast = value.CastId;
+    object entry = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(item => (long)Field(item, "Id") == cast);
+    action = (AbilityCast)Field(entry, "Cast");
+}
+void Touched(ConstructedContact value)
+{
+    if (value.CastId == cast && value.TargetId == target.id && action.BodyPose is BodyPose pose)
+        touchRoot = pose.Foot;
+}
+void Finished(ConstructedCastEnded value)
+{
+    if (value.CastId != cast || value.Cancelled) return;
+    finished = true;
+    end = source.current_position;
+}
+void FacingReleased(Actor actor, Vector3 direction)
+{
+    if (actor == source) releasedFacing = direction;
+}
+var facingField = service.Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding").GetField("FacingReleased", F);
+var previousFacing = (Action<Actor, Vector3>)facingField.GetValue(null);
+if (retreat) facingField.SetValue(null, previousFacing + FacingReleased);
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Touched;
+ConstructedAbilityService.CastEnded += Finished;
+try
+{
+    Check(definition?.Body.Construction.Footwork != null, "正式目录载入完整步法");
+    if (cold)
+    {
+        Check(System.Diagnostics.Process.GetCurrentProcess().Id != (int)saved["process"] &&
+              source.getWeapon()?.data.id == (long)saved["weapon"] && target.getWeapon()?.data.id == (long)saved["shield"],
+            "新的游戏进程读回原人与原物");
+        Check(saved["definitions"].All(previous =>
+        {
+            string id = (string)previous["Id"];
+            return ConstructedAbilityService.Knows(owner, id) &&
+                   JToken.DeepEquals(previous, JToken.Parse(JsonConvert.SerializeObject(ConstructionEditing.Access.Read(id))));
+        }) && definition.Body.Keys[2].Support.RightFoot[2] == .103f &&
+              definition.Body.Construction.Footwork.Keys.Last().Point[1] == -.21f,
+            "正式冷读档恢复原招及副本的完整学习关系和动作资料");
+    }
+    Place(source, retreat ? 64.55f : 64.71f);
+    if (captureFrame == null) Ready(source);
+    source.cancelAllBeh();
+    if (!cold) owner.E.RemoveComponent<ConstructedKnowledge>();
+    source.attack_timer = target.attack_timer = 999;
+    await Advance(.16f);
+    var originalWeapon = source.getWeapon();
+    Place(source, retreat ? 64.55f : 64.71f);
+    if (captureFrame != null)
+    {
+        // 对练者暂时收盾，让近景清楚显示脚步、肩面和地表。
+        if (target.hasWeapon()) target.equipment.weapon.takeAwayItem();
+        target.setStatsDirty();
+        target.updateStats();
+    }
+    Place(target, retreat ? 64.38f : 65.45f,
+        captureFrame != null && (retreat || vault) ? 74.5f : retreat ? 72.17f : 72f);
+    if (wall || vault)
+    {
+        string tileId = wall ? "Cultiway.Verify.Footwork.Wall" : "Cultiway.Verify.Footwork.Sill";
+        var barrier = nativeWall ?? AssetManager.tiles.get(tileId) ?? AssetManager.tiles.clone(tileId,
+            wall && captureFrame != null ? "mountains" : "soil_low");
+        barrier.block = true;
+        barrier.block_height = wall ? 3f : .1f;
+        sill.setTileTypes(barrier, null);
+        if (nativeWall != null)
+        {
+            World.world.redrawRenderedTile(sill);
+            World.world.redrawTiles();
+        }
+        Check(sill.Type.block && !source.current_tile.Type.block, "施展前方使用实际启用的阻挡地块",
+            new { sill.Type.id, sill.Type.block_height });
+    }
+
+    Vector2 start = source.current_position;
+    int health = target.data.health;
+    Config.time_scale_asset.multiplier = captureFrame == null ? actionSpeed * .32f : actionSpeed;
+    source.data.stamina = 100;
+    if (!retreat && !vault)
+    {
+        source.addAggro(target);
+        target.addAggro(source);
+    }
+    if (!cold) ConstructedAbilityService.Learn(owner, ability);
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, ability);
+    var selected = retreat || vault
+        ? new ActiveAbilityTarget(null, new Vector3(67, 72, 0))
+        : new ActiveAbilityTarget(target, target.GetSimPos());
+    if (captureFrame != null) await captureFrame(ability);
+    source.attack_timer = 0;
+    bool canUse = ActiveAbilityService.CanUse(owner, handle, selected);
+    string control = ActiveAbilityService.ResolveControlState(owner, handle).BlockReason.ToString();
+    bool attackPossible = source.isAttackPossible();
+    bool used = ActiveAbilityService.TryUse(owner, handle, selected, ActiveAbilityUseOrigin.Player);
+    source.attack_timer = 999;
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(used && action != null && BodyControlState.IsBusy(source.id) &&
+          Mathf.Abs(100 - source.data.stamina - definition.Cost) < .001f,
+        "玩家入口接受正式步法，只扣一次体力",
+        new { used, canUse, control, attackPossible, source.under_forces, source.position_height,
+            frozen = source.stats.hasTag("frozen_ai"), immovable = source.stats.hasTag("immovable"),
+            range = ActiveAbilityService.ResolveRange(owner, handle, selected.Object),
+            source = P(source.current_position), target = P(target.current_position) });
+    double deadline = World.world.getCurWorldTime() + definition.Lifetime + .4f;
+    while (!finished && World.world.getCurWorldTime() < deadline)
+    {
+        await Advance(.032f);
+        if (captureFrame != null) await captureFrame(ability);
+        if (action.BodyPose is BodyPose pose && BodyControlState.IsBusy(source.id))
+        {
+            BodyFrame frame = (BodyFrame)Field(action, "bodyFrame");
+            samples.Add((action.Age, source.current_position, pose, frame.Support.Value, source.position_height));
+        }
+    }
+    var hits = contacts.Where(value => value.CastId == cast && value.TargetId == target.id).ToArray();
+    var trace = samples.Select(s => new
+    {
+        s.age, position = P(s.position), root = P(s.pose.Foot), forward = P(s.pose.Forward),
+        left = P(s.pose.LeftFoot), right = P(s.pose.RightFoot), s.support.LeftPlanted, s.support.RightPlanted,
+        s.elevation, shoulder = P(s.pose.EffectorPoint), torso = P(s.pose.Torso)
+    }).ToArray();
+    var outcome = new
+    {
+        start = P(start), end = P(end), facing = P(releasedFacing), health, after = target.data.health, action.BodyResult,
+        touchRoot = P(touchRoot), hits = hits.Select(hit => new { hit.Age, point = P(hit.Position),
+            force = P(hit.VelocityChange), hit.ForceApplied }).ToArray(), trace
+    };
+    File.WriteAllText(Path.Combine(folder, "footwork-trace.json"), JsonConvert.SerializeObject(outcome, Formatting.Indented));
+    Check(samples.Count > 10 && samples.All(s => Vector2.Distance(s.position, s.pose.Foot) < .011f &&
+              s.pose.Foot.z >= Mathf.Min(s.pose.LeftFoot.z, s.pose.RightFoot.z) - .15f),
+        "实际人物和显示姿态跟随同一根点");
+    Check(finished && !BodyControlState.IsBusy(source.id) && ReferenceEquals(originalWeapon, source.getWeapon()),
+        "结束后归还实际人物控制并保留原物件");
+    if (retreat)
+    {
+        var rear = samples.Last(s => s.age < .36f);
+        var early = samples.First(s => s.age >= .14f);
+        var turn = samples.Last(s => s.age < .95f);
+        Check(rear.position.x < start.x - .12f && end.y > rear.position.y + .13f &&
+              Vector3.Distance(early.pose.LeftFoot, rear.pose.LeftFoot) < .023f &&
+              early.support.LeftPlanted && rear.support.LeftPlanted && turn.pose.Forward.x < .5f &&
+              Vector3.Dot(releasedFacing, turn.pose.Forward) > .999f &&
+              hits.Length == 0 && target.data.health == health,
+            "先后撤再侧移，原承重脚不滑动，整身实际转向，近旁人物无伤");
+        if (cold)
+            Check(Mathf.Abs(end.y - start.y - .21f * turn.pose.Height) < .05f,
+                "读回的副本实际走出改过的侧移距离", new { lateral = end.y - start.y, height = turn.pose.Height });
+    }
+    else if (vault)
+    {
+        var crest = samples.OrderByDescending(s => s.elevation).First();
+        var settled = samples.Last();
+        Check(crest.elevation > .22f && !crest.support.LeftPlanted && !crest.support.RightPlanted &&
+              samples.Any(s => s.position.x >= 65 && s.elevation > sill.Type.block_height) &&
+              end.x > 65.16f && settled.elevation < .015f && settled.support.LeftPlanted &&
+              settled.support.RightPlanted && hits.Length == 0 && target.data.health == health,
+            "实际腾起越过低坎入口，落到终点地表，途中人物无伤");
+    }
+    else if (wall)
+        Check(end.x < 65f && end.x > start.x + .17f && samples.All(s => s.position.x < 65f) &&
+              hits.Length == 0 && target.data.health == health, "实际冲步停在墙前，墙后人物无伤");
+    else
+        Check(hits.Length == 1 && hits[0].ForceApplied && target.data.health < health &&
+              touchRoot.x > start.x + .12f && Mathf.Abs(end.x - touchRoot.x) < .035f &&
+              action.BodyResult == BodyActionResult.Contact,
+            "实际冲步后肩面只命中一次，来力和收势来自真实接触");
+    if (captureFrame != null)
+    {
+        await Advance(.16f);
+        await captureFrame(ability);
+        saveFilm(ability, hits.Length, definition.Cost);
+    }
+    return new { passed = true, selection, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.ContactConfirmed -= Touched;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.CastEnded -= Finished;
+    if (retreat) facingField.SetValue(null, previousFacing);
+    sill.setTileTypes(previousType, previousTop);
+    if (nativeWall != null)
+    {
+        nativeWall.block = originalBlocking;
+        nativeWall.block_height = originalBlockHeight;
+    }
+    Config.time_scale_asset.multiplier = actionSpeed;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

@@ -1,0 +1,97 @@
+// 改造同一正式退步的侧程和抬脚。只从现有窗口学习独立副本。
+try
+{
+    Click("Page2");
+    if (selection == "archive-view")
+    {
+        Select("BodyValues", T("BodyFootwork"));
+        Check(ConstructedAbilityService.Knows(owner, basis.Id) &&
+              Session().Draft.Body.Construction.Footwork.Keys.Last().Point[1] == -.21f,
+            "从已存副本窗口读到实际侧移路线");
+        await Shot("footwork-edit-cz.png");
+        Click("Close");
+        await Frames();
+        LocalizedTextManager.instance.setLanguage("en");
+        WindowWanfaConstructionEditor.Open(basis.Id, source);
+        await Frames();
+        Click("Page2");
+        Select("BodyValues", T("BodyFootwork"));
+        await Shot("footwork-edit-en.png");
+        Click("Close");
+        await Frames();
+        return new { passed = true, selection, checks };
+    }
+    Select("BodyValues", T("NativeFeet"));
+    Select("NativeFoot", T("RightFoot"));
+    Set("FootHeight", ".103", "BodyKey", 3);
+    Check(Session().Draft.Body.Keys[2].Support.RightFoot[2] == .103f, "窗口修改正式步法的抬脚高度");
+    Select("BodyValues", T("BodyFootwork"));
+    Set("FootworkSide", "-.21", "Key", 5);
+    Set("FootworkSide", "-.21", "Key", 6);
+    Check(Session().Draft.Body.Construction.Footwork.Keys.Skip(4).All(key => key.Point[1] == -.21f),
+        "窗口修改真正的侧移路线");
+    await Shot("footwork-edit-cz.png");
+    string original = JsonConvert.SerializeObject(basis);
+    Click("LearnCopy");
+    var edited = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(edited.Id != basis.Id && ConstructedAbilityService.Knows(owner, edited.Id) &&
+          edited.Body.Keys[2].Support.RightFoot[2] == .103f &&
+          edited.Body.Construction.Footwork.Keys.Skip(4).All(key => key.Point[1] == -.21f) &&
+          original == JsonConvert.SerializeObject(ConstructionEditing.Access.Read(basis.Id)),
+        "同一人学会改造副本，原招资料保持原有内容");
+    Click("Close");
+    await Frames();
+    LocalizedTextManager.instance.setLanguage("en");
+    WindowWanfaConstructionEditor.Open(edited.Id, source);
+    await Frames();
+    Click("Page2");
+    Select("BodyValues", T("BodyFootwork"));
+    Check(Row("BodyFootworkEnabled") != null && T("BodyFootwork") == "Body movement curve" &&
+          Session().Draft.Body.Construction.Footwork.Keys.Last().Point[1] == -.21f,
+        "英文窗口可读回已改造的真实路线");
+    await Shot("footwork-edit-en.png");
+    Click("Close");
+    await Frames();
+
+    World.world.units.checkContainer();
+    World.world.items.checkLists();
+    foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+    CombatStatusEffects.RemoveStatus(target, quiet);
+    source.updateStats();
+    target.updateStats();
+    Place(source, 64.55f);
+    Place(target, 64.38f, 72.17f);
+    Check(source.getWeapon()?.getAsset().id == "hammer_iron" && target.getWeapon()?.getAsset().id == "cultiway_iron_shield",
+        "仍是防御对练档里的同一原人物和装备");
+    string destination = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(destination);
+    Check(File.Exists(Path.Combine(destination, "map.wbox")), "原版世界档已写入");
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+    {
+        process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, target = target.id,
+        weapon = source.getWeapon().data.id, shield = target.getWeapon().data.id, edited = edited.Id,
+        definitions = new[] { basis, edited }
+    }, Formatting.Indented));
+    return new { passed = true, selection, edited = edited.Id, checks };
+}
+finally
+{
+    LocalizedTextManager.instance.setLanguage("cz");
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}
+
+async Task Shot(string name)
+{
+    World.world.console.Hide();
+    Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames();
+    var row = (RectTransform)Row("Key", 5).transform;
+    var rowScroll = row.GetComponentInParent<ScrollRect>();
+    rowScroll.StopMovement();
+    rowScroll.content.anchoredPosition = Vector2.zero;
+    await Frames();
+    Screen.Capture(Path.Combine(folder, name));
+}
