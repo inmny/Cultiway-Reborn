@@ -112,7 +112,7 @@ public sealed partial class ConstructedAbilityService
     private static bool CorrespondenceAllows(in ShapeMotion attack, in ShapeMotion image)
     {
         Actor receiver = CorrespondenceReceiver(image.Running, image.To.Node);
-        return receiver != null && CorrespondenceAllows(attack.Running, attack.To.Node,
+        return receiver != null && IsMirrorInitiator(attack, image) && CorrespondenceAllows(attack.Running, attack.To.Node,
             attack.Running.Cast.Impact(attack.To.Node), image.Running.Cast.Plan.Nodes[image.To.Node].Correspondence, receiver);
     }
 
@@ -124,7 +124,8 @@ public sealed partial class ConstructedAbilityService
         from = float.PositiveInfinity;
         until = 0f;
         Actor receiver = CorrespondenceReceiver(image.Running, image.To.Node, current: false);
-        return receiver != null && CorrespondenceAllows(attack.Running, attack.To.Node, attack.Running.Cast.Impact(attack.To.Node),
+        return receiver != null && IsMirrorInitiator(attack, image) &&
+               CorrespondenceAllows(attack.Running, attack.To.Node, attack.Running.Cast.Impact(attack.To.Node),
                    image.Running.Cast.Plan.Nodes[image.To.Node].Correspondence, receiver) &&
                image.Running.Cast.CorrespondenceInterval(image.To.Node, out from, out until);
     }
@@ -196,6 +197,8 @@ public sealed partial class ConstructedAbilityService
         if (receiver.data?.id != id || consumed <= 0f || amount <= 0f && effects == 0 ||
             !CorrespondenceAllows(attack.Running, attack.To.Node, impact, relation, receiver) ||
             !contactConfirmed && !CorrespondenceContactReady(attack.Running, attack.To.Node, id)) return ApplyAttackState.Continue;
+        if (relation.MirrorImage?.Fracture != null)
+            return BeginMirrorCrack(attack, image, receiver, relation, consumed, point);
         RememberContact(attack.Running, attack.To.Node, id);
         float before = receiver.data.health;
         long generation = worldGeneration;

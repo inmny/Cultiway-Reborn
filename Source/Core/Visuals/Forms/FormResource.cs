@@ -768,6 +768,8 @@ internal sealed partial class FormResourceGeneration
             "mirror_echo_body" => (7f, new Color(.13f, .28f, .38f), .39f),
             "mirror_echo_armor" => (7f, new Color(.31f, .49f, .54f), .26f),
             "mirror_echo_detail" => (7f, new Color(.52f, .73f, .75f), .21f),
+            "mirror_cracked_dark" => (7f, new Color(.21f, .39f, .44f, .73f), .22f),
+            "mirror_cracked_light" => (7f, new Color(.47f, .68f, .75f, .83f), .13f),
             "furnace_bronze" => (0f, new Color(.67f, .39f, .18f), .52f),
             "furnace_rim" => (0f, new Color(.95f, .64f, .29f), .29f),
             "furnace_melt" => (28f, new Color(1f, .35f, .055f), .34f),

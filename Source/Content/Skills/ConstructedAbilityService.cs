@@ -780,7 +780,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         {
             ReleaseActorTransferHolds(running);
             ReleaseSpatialViews(running);
-            ReleaseMirrorImages(running);
+            ReleaseMirrorImages(running, worldChanged: true);
             ReleaseSupportGrips(running, "WorldChanged");
             ReleaseShadowHold(running, "WorldChanged", running.LastWorldTime);
             ReleaseBodyConnection(running, "WorldChanged", fade: false, time: running.LastWorldTime);
@@ -790,6 +790,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         }
 
         ClearShadowHolds();
+        ClearFallingMirrors();
         ConstructedInventoryInputs.Clear();
         worldNeedQueue.Clear();
         worldNeeds.Clear();
@@ -968,6 +969,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         internal ShadowHold ShadowHold;
         /// <summary>实际出现的镜内映照，普通施放不分配。</summary>
         internal Dictionary<int, MirrorReflection> MirrorImages;
+        /// <summary>由实际击镜建立的有限裂势，普通施放不分配。</summary>
+        internal Dictionary<int, MirrorCrack> MirrorCracks;
 
         /// <summary>本次已计入世界回收的占用，结束时只移除一次。</summary>
         internal bool WorldRecoveryTracked;

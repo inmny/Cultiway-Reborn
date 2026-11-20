@@ -1,0 +1,63 @@
+var shieldAction = typeof(ActorExtend).GetField("action_before_be_attacked", F);
+object original = shieldAction.GetValue(null);
+const float initialShield = 500f;
+float shield = initialShield;
+void Protect(ActorExtend target, BaseSimObject attacker, ref ElementComposition element, ref AttackType kind,
+    ref float amount, ref bool ignore)
+{
+    if (target.Base == victim && attacker == source)
+        CombatDamageEffects.AbsorbDamage(ref amount, ref shield, target);
+}
+int hp = victim.data.health;
+try
+{
+    ActorExtend.RegisterActionBeforeBeAttacked(Protect);
+    var guarded = await Use(definition);
+    await Advance(2.4f);
+    var shielded = cracks.Where(c => c.CastId == guarded.Id && c.Part != null).ToArray();
+    Check(shielded.Length > 0 && shielded.All(c => c.Settlement.HealthLost == 0 && c.Settlement.ShieldAbsorbed > 0f) &&
+        victim.data.health == hp && Mathf.Abs(initialShield - shield - shielded.Sum(c => c.Settlement.ShieldAbsorbed)) < .001f,
+        "真实护盾吸收取代扣血，同一份结算传到镜面和原身", Outcomes());
+    shieldAction.SetValue(null, original);
+
+    await Advance(definition.Cooldown - 2.35f);
+    var interrupted = await Use(definition);
+    for (int i = 0; i < 30 && !cracks.Any(c => c.CastId == interrupted.Id); i++) await Advance(.04f);
+    Check(cracks.Count(c => c.CastId == interrupted.Id && c.Part == null) == 1 &&
+        !damage.Any(d => d.ImageCastId == interrupted.Id), "原术起裂时还没有伤到本体");
+    var frame = MirrorFrames().Single();
+    Vector3 point = frame.Transform.MultiplyPoint3x4(frame.Resource.Anchors.Single(a => a.Id == "face").Frame().GetColumn(3));
+    var terrain = (AbilityHeightField)service.GetProperty("BodyTerrain", F).GetValue(null);
+    point.z -= terrain.Sample(point.x, point.y);
+    var shatter = new AbilityDefinition
+    {
+        Id = "Cultiway.Demo.MirrorShatter.Interrupt", Name = "破镜来击",
+        Resource = "none", Cost = 0f, Cooldown = 0f, Power = 96f, Lifetime = .18f, TargetRange = 18f,
+        Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point, Channels = ActiveAbilityChannel.Combat },
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+        Impact = new ConstructionImpact { DamageScale = 0f },
+        Root = new ConstructionNode { Id = "breaker", Form = "fireball", Matter = "iron", Scale = .88f }
+    };
+    await Fire(shatter, victim, source, aim: point, aggro: false);
+    victim.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.13f);
+    Check(clashes.Any(c => c.LeftCast == interrupted.Id && c.LeftNode == 1 && !c.LeftPresent ||
+        c.RightCast == interrupted.Id && c.RightNode == 1 && !c.RightPresent) &&
+        MirrorImages().Length == 0 && MirrorFrames().Length == 0,
+        "来击实际耗尽镜面后，映像和完整镜框当场消失");
+    Check(FormVisualScene.Instances.Any(v => v.Surface?.StartsWith("mirror_cracked_") == true),
+        "破镜只落下已经形成的裂片");
+    await Advance(1.5f);
+    Check(!damage.Any(c => c.ImageCastId == interrupted.Id) && victim.data.health == hp &&
+        !FormVisualScene.Instances.Any(v => v.Surface?.StartsWith("mirror_cracked_") == true),
+        "破镜后未抵达的裂势不再扣血，碎片到期回收");
+    return new { passed = true, absorbed = initialShield - shield, outcomes = Outcomes() };
+}
+finally
+{
+    shieldAction.SetValue(null, original);
+    ConstructedAbilityService.MirrorCrackConfirmed -= Cracked;
+    ConstructedAbilityService.CorrespondenceDamageConfirmed -= Damaged;
+    ConstructedAbilityService.ClashConfirmed -= Clashed;
+    ReleaseChecks();
+}

@@ -216,6 +216,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     if (generation != worldGeneration) yield break;
                     if (running.Cast.Plan.ShadowHoldNode >= 0) AdvanceShadowHold(running, clock);
                     if (generation != worldGeneration) yield break;
+                    if (running.MirrorCracks != null) AdvanceMirrorCracks(running, clock, generation);
+                    if (generation != worldGeneration) yield break;
                     if (running.ActorTransferHolds?.Count > 0) ConfirmActorTransferHolds(running, clock, generation);
                     if (generation != worldGeneration) yield break;
                     ConfirmEnclosures(running, clock);
@@ -310,6 +312,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         AppendLifeRepairs(now);
         AppendShadows(now);
         AppendShadowHolds(now);
+        AppendFallingMirrors(now);
         AppendSoulPactTransfers(now);
         AppendObservedSignals(now);
         AppendContactVolumes(now);
@@ -871,7 +874,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 }
             }
 
-            if (!powered || !running.Cast.AffectsActors(shape.To.Node)) continue;
+            if (!powered || !running.Cast.AffectsActors(shape.To.Node) ||
+                shape.To.Node >= 0 && running.Cast.Plan.Nodes[shape.To.Node].MirrorStrike) continue;
             // 已被真实器物接触抵住的兵器不能仅因进入伤害时段而穿透补伤；独立法术和其他肢体继续运行。
             if (shape.To.Node < 0 && (running.WeaponConstraint?.Active == true ||
                                     running.Connection?.Active == true && running.Connection.WeaponOnly)) continue;

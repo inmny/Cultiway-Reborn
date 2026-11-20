@@ -52,17 +52,6 @@ internal sealed class MirrorReflection : IDisposable
         if (Pose == null || Pose.Parts.Length == 0) return false;
 
         Projection = Project(mirror, rule, Pose.Bounds());
-        foreach (ReflectionLayer layer in layers) layer.Begin();
-        for (int i = 0; i < Pose.Parts.Length; i++)
-        {
-            BodySurfacePart part = Pose.Parts[i];
-            bool details = part.Matches("head") || part.Matches("hand.left") || part.Matches("hand.right");
-            bool armor = part.Attachment != null || part.Matches("armor.chest") || part.Matches("armor.helmet") ||
-                         part.Matches("armor.boots");
-            ReflectionLayer layer = layers[armor ? 1 : details ? 2 : 0];
-            Matrix4x4 mapping = Projection * Pose.Matrices[part.TransformIndex < 0 ? i : part.TransformIndex];
-            layer.Append(mapping, Pose.Vertices(i), part.Triangles);
-        }
         return true;
     }
 
@@ -87,12 +76,105 @@ internal sealed class MirrorReflection : IDisposable
         return projection;
     }
 
+    /// <summary>找实际裂片最早覆盖的许可表面，读取三角面的内侧和边缘。</summary>
+    /// <param name="rule">实际圆镜的中心和大小。</param><param name="origin">第一次撞击在镜口的点。</param>
+    /// <param name="part">可接收的原身部位。</param><param name="point">投影内首先被裂片覆盖的点。</param>
+    internal bool FindFirstCrackedArea(CompiledMirrorImage rule, Vector2 origin, string part, out Vector2 point)
+    {
+        point = default;
+        float nearest = float.PositiveInfinity;
+        for (int i = 0; i < Pose.Parts.Length; i++)
+        {
+            BodySurfacePart piece = Pose.Parts[i];
+            if (!piece.Matches(part)) continue;
+            Matrix4x4 transform = Projection * Pose.Matrices[piece.TransformIndex < 0 ? i : piece.TransformIndex];
+            Vector3[] points = Pose.Vertices(i);
+            int[] triangles = piece.Triangles;
+            for (int t = 0; t < triangles.Length; t += 3)
+            {
+                Vector2 a = Project(points[triangles[t]]), b = Project(points[triangles[t + 1]]),
+                    c = Project(points[triangles[t + 2]]);
+                float area = Cross(b - a, c - a);
+                if (Mathf.Abs(area) < .00000001f) continue;
+                float side = Mathf.Sign(area);
+                Vector2 candidate;
+                if (Cross(b - a, origin - a) * side >= 0f && Cross(c - b, origin - b) * side >= 0f &&
+                    Cross(a - c, origin - c) * side >= 0f)
+                    candidate = origin;
+                else
+                {
+                    candidate = ClosestOnEdge(origin, a, b);
+                    Vector2 edge = ClosestOnEdge(origin, b, c);
+                    if ((edge - origin).sqrMagnitude < (candidate - origin).sqrMagnitude) candidate = edge;
+                    edge = ClosestOnEdge(origin, c, a);
+                    if ((edge - origin).sqrMagnitude < (candidate - origin).sqrMagnitude) candidate = edge;
+                }
+
+                float distance = (candidate - origin).sqrMagnitude;
+                if (distance >= nearest) continue;
+                nearest = distance;
+                point = candidate;
+                if (nearest == 0f) return true;
+            }
+
+            Vector2 Project(Vector3 local)
+            {
+                Vector3 mapped = transform.MultiplyPoint3x4(local) - rule.Centre;
+                return new Vector2(mapped.x, mapped.z);
+            }
+        }
+        return !float.IsPositiveInfinity(nearest);
+    }
+
+    /// <summary>镜口平面内两条实际边的有向面积。</summary>
+    private static float Cross(Vector2 a, Vector2 b) => a.x * b.y - a.y * b.x;
+
+    /// <summary>从撞点向已投影的实际边取最短线。</summary>
+    private static Vector2 ClosestOnEdge(Vector2 origin, Vector2 a, Vector2 b)
+    {
+        Vector2 edge = b - a;
+        return a + edge * Mathf.Clamp01(Vector2.Dot(origin - a, edge) / edge.sqrMagnitude);
+    }
+
+    /// <summary>当前裂纹位置仍碰到许可的原身表面才交付。</summary>
+    internal bool FindMirrorPoint(CompiledMirrorImage rule, Vector2 point, string part, out Vector3 original)
+    {
+        AbilityCapsule line = ViewLine(Projection.inverse, rule, point, .012f);
+        if (BodySurfacePose.Find(Pose, Pose, line, line, part, out _, out var anchor, out _))
+        {
+            original = anchor.Point(Pose);
+            return true;
+        }
+        original = default;
+        return false;
+    }
+
+    /// <summary>从裂纹在镜口的点出发穿过镜内厚度，映回原身的实际表面坐标。</summary>
+    private static AbilityCapsule ViewLine(Matrix4x4 inverse, CompiledMirrorImage rule, Vector2 point, float radius)
+    {
+        Vector3 centre = rule.Centre + new Vector3(point.x, 0f, point.y);
+        Vector3 depth = Vector3.up * (rule.Radius * .33f);
+        return new AbilityCapsule(-1, inverse.MultiplyPoint3x4(centre - depth),
+            inverse.MultiplyPoint3x4(centre + depth), radius, null);
+    }
+
     /// <summary>按相同镜口姿态发布可见层。</summary>
     /// <param name="resource">实际镜框资源。</param><param name="mirror">完整地图姿态。</param>
     /// <param name="terrain">本轮绝对地表。</param><param name="output">共用显示缓冲。</param>
     internal void Append(FormResource resource, Matrix4x4 mirror, AbilityHeightField terrain,
         List<FormVisualInstance> output)
     {
+        foreach (ReflectionLayer layer in layers) layer.Begin();
+        for (int i = 0; i < Pose.Parts.Length; i++)
+        {
+            BodySurfacePart part = Pose.Parts[i];
+            bool details = part.Matches("head") || part.Matches("hand.left") || part.Matches("hand.right");
+            bool armor = part.Attachment != null || part.Matches("armor.chest") || part.Matches("armor.helmet") ||
+                         part.Matches("armor.boots");
+            ReflectionLayer layer = layers[armor ? 1 : details ? 2 : 0];
+            Matrix4x4 mapping = Projection * Pose.Matrices[part.TransformIndex < 0 ? i : part.TransformIndex];
+            layer.Append(mapping, Pose.Vertices(i), part.Triangles);
+        }
         foreach (ReflectionLayer layer in layers)
             if (layer.Upload())
                 output.Add(new FormVisualInstance(resource, layer.Mesh, mirror, null, terrain, layer.Surface));
