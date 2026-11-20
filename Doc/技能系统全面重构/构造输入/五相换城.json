@@ -1,0 +1,133 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.FivePhaseDistrict",
+  "Name": "五相换城",
+  "Resource": "mana",
+  "Cost": 38,
+  "Cooldown": 4.8,
+  "Power": 5.4,
+  "Lifetime": 8.5,
+  "TargetRange": 40,
+  "Use": {"Channels": "Combat, World", "Target": "ObjectOrPoint"},
+  "Binding": {"Anchor": "Source", "FaceTarget": true, "Follow": true},
+  "Root": {
+    "Id": "site",
+    "Form": "pivot",
+    "ContactRole": "Decoration",
+    "Children": [{
+      "Id": "earth",
+      "Form": "five_phase_mantle",
+      "Matter": "earth",
+      "State": "solid",
+      "Scale": 5.6,
+      "Volume": 0.96,
+      "Offset": [0, 0, 3.75],
+      "Rotation": [-90, 0, 180],
+      "ContactRole": "Barrier",
+      "BlocksGroundActors": true,
+      "AppearAt": 0.08,
+      "DisappearAt": 2.7,
+      "Operations": [
+        {"Kind": "Detach", "At": 0.04},
+        {"Kind": "Fly", "At": 0.06, "Vector": [0, 0, 0], "WorldVelocity": true, "Ground": "Follow", "InheritVelocity": false},
+        {"Kind": "Grow", "At": 0.08, "Seconds": 0.6},
+        {"Kind": "PassRemainder", "When": {"Trigger": "Clash", "Delay": 0.36}}
+      ],
+      "Children": [{
+        "Id": "wood",
+        "Form": "five_phase_roots",
+        "Matter": "wood",
+        "State": "solid",
+        "FollowMatter": true,
+        "Scale": 5.15,
+        "ContactRole": "Barrier",
+        "BlocksGroundActors": true,
+        "DisappearAt": 2.5,
+        "Impact": {"Targets": "Hostile", "DamageScale": 0.26, "StaggerSeconds": 0.22},
+        "Activation": {
+          "Trigger": "Handoff", "InheritRemainder": true, "KeepSourcePosition": true, "ResetContacts": true
+        },
+        "Operations": [
+          {"Kind": "ConvertMatter", "Matter": "wood", "State": "solid"},
+          {"Kind": "Fly", "Vector": [0, 0, 0], "WorldVelocity": true, "Ground": "Follow", "InheritVelocity": false},
+          {"Kind": "Animate", "Clip": "rise"},
+          {"Kind": "PassRemainder", "When": {"Trigger": "Clash", "Delay": 0.36}}
+        ],
+        "Children": [{
+          "Id": "water",
+          "Form": "water_flow",
+          "Matter": "water",
+          "State": "liquid",
+          "FollowMatter": true,
+          "Scale": 1.05,
+          "ContactRole": "Barrier",
+          "DisappearAt": 2.4,
+          "Impact": {"Targets": "Hostile", "DamageScale": 0.3, "Force": 0.8, "SlideSeconds": 0.26},
+          "Activation": {
+            "Trigger": "Handoff", "InheritRemainder": true, "KeepSourcePosition": true, "ResetContacts": true
+          },
+          "Operations": [
+            {"Kind": "ConvertMatter", "Matter": "water", "State": "liquid"},
+            {"Kind": "Flow", "Flow": {"Cells": 20, "Size": 19, "Gravity": 1.2, "Drag": 0.24, "Evaporation": 0, "OpenBoundary": false}},
+            {"Kind": "PassRemainder", "When": {"Trigger": "Clash", "Delay": 0.42}}
+          ],
+          "Children": [{
+            "Id": "fire",
+            "Form": "five_phase_kiln",
+            "Matter": "fire",
+            "State": "energy",
+            "FollowMatter": true,
+            "Scale": 4.85,
+            "ContactRole": "Barrier",
+            "DisappearAt": 2.3,
+            "Impact": {"Targets": "Hostile", "DamageScale": 0.65},
+            "Activation": {
+              "Trigger": "Handoff", "InheritRemainder": true, "KeepSourcePosition": true, "ResetContacts": true
+            },
+            "Operations": [
+              {"Kind": "ConvertMatter", "Matter": "fire", "State": "energy"},
+              {"Kind": "Fly", "Vector": [0, 0, 0], "WorldVelocity": true, "Ground": "Follow", "InheritVelocity": false},
+              {"Kind": "Animate", "Clip": "roll"},
+              {"Kind": "PassRemainder", "When": {"Trigger": "Clash", "Delay": 0.37}}
+            ],
+            "Children": [{
+              "Id": "iron",
+              "Form": "five_phase_press",
+              "Matter": "iron",
+              "State": "solid",
+              "FollowMatter": true,
+              "Scale": 4.8,
+              "ContactRole": "Barrier",
+              "BlocksGroundActors": true,
+              "DisappearAt": 2.1,
+              "Impact": {"Targets": "Hostile", "DamageScale": 1.3, "Force": 1.1, "SlideSeconds": 0.18},
+              "Activation": {
+                "Trigger": "Handoff", "InheritRemainder": true, "KeepSourcePosition": true, "ResetContacts": true
+              },
+              "Operations": [
+                {"Kind": "ConvertMatter", "Matter": "iron", "State": "solid"},
+                {"Kind": "Fly", "Vector": [4.8, 0, 0], "WorldVelocity": true, "Ground": "Follow", "InheritVelocity": false},
+                {"Kind": "Leave", "When": {"Trigger": "Clash", "Delay": 0.88}, "Residue": {"Lifetime": 45}}
+              ]
+            }]
+          }]
+        }]
+      }, {
+        "Id": "footing",
+        "Form": "five_phase_mantle",
+        "Matter": "earth",
+        "State": "solid",
+        "Scale": 1.35,
+        "Strength": 0.21,
+        "Offset": [-6.1, -1.8, 0],
+        "ContactRole": "Barrier",
+        "DisappearAt": 1.05,
+        "Activation": {"Trigger": "Handoff", "InheritRemainder": true, "KeepSourcePosition": true},
+        "Operations": [
+          {"Kind": "Fly", "Vector": [0, 0, 0], "WorldVelocity": true, "Ground": "Follow", "InheritVelocity": false},
+          {"Kind": "Leave", "At": 0.24, "Residue": {"Lifetime": 90}}
+        ]
+      }]
+    }]
+  }
+}

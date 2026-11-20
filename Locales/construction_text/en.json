@@ -82,6 +82,7 @@
   "Cultiway.ConstructionText.Change.RadialMotion": "Radial motion",
   "Cultiway.ConstructionText.WindChannel": "{0} opens a wind channel {1:0.##} tiles long with an inlet half-width of {2:0.##}. Drives {5} at speed {3:0.##}, sampled every {4:0.##} s.",
   "Cultiway.ConstructionText.AbsorbedForceOutlet": "{0} holds absorbed force for {2:0.##} s, then releases it outward from the first contact through {1}.",
+  "Cultiway.ConstructionText.KeepSourcePosition": "{0} takes over at the actual position of {1}.",
   "Cultiway.ConstructionText.RadialGroundItems": "Lifts up to {0} unowned ground items. They fall when the wind stops.",
   "Cultiway.ConstructionText.Change.ClashRules": "Clash rules",
   "Cultiway.ConstructionText.Change.Persistence": "Persistence",

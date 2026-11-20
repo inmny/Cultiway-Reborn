@@ -2415,3 +2415,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_solar_reservoir.py --section behavior`。验证[明壳承阳](../../Doc/技能系统全面重构/构造输入/明壳承阳.json)的种核成形、两次来袭实际入壳、延迟蓄力、裂口出光、原壳退场和护生。 `--section miss` 让来势走壳外，核对空壳无反击，并验证反射屏障不能同时重复计入吸收量。
 
 `--section film --view native` 和 `--section film --view worldfall` 使用同一人物和地块输出原速录像。裂口、光束起点和回击力量均以实机交锋记录核对。 `--section editor` 检查开关、撤销、正式替换和中英文重开。
+
+### 五相换城（9.40 五相）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_five_phase_district.py --section district`。验证[五相换城](../../Doc/技能系统全面重构/构造输入/五相换城.json)的岩壳宽度、壳外来势、五次实际承力、位置与余量接替、角色受击及世界材料。 `--section carrier` 让同一构造从实际原法宝的位置开始。 `--section reordered` 保留器承，调换金火两相。两种改造资料均写入各自结果目录的 `definition.json`。
+
+对应场景可加 `--record native` 或 `--record worldfall` 输出真实来势和换相过程。 `--section editor` 验证沿用来源位置开关、撤销、保存及中英文重开。

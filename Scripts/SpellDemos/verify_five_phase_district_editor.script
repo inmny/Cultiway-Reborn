@@ -1,0 +1,29 @@
+try
+{
+    Child();
+    Check(Gate().KeepSourcePosition && Button("Replace").interactable, "正式编辑器恢复沿用来源位置");
+    Row("KeepSourcePosition").GetComponentsInChildren<Toggle>(false).Single().isOn = false;
+    Check(!Gate().KeepSourcePosition && Button("Replace").interactable, "关闭后仍可按原碰撞位置交接");
+    Click("Undo");
+    Check(Gate().KeepSourcePosition && Button("Replace").interactable, "撤销恢复接替位置规则");
+    await Capture("cz");
+    Click("Replace");
+    var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(saved.Root.Children[0].Children[0].Activation.KeepSourcePosition, "正式替换保留位置选项");
+    Click("Close");
+    await Frames();
+    LocalizedTextManager.instance.setLanguage("en");
+    WindowWanfaConstructionEditor.Open(saved.Id, source);
+    await Frames();
+    Child();
+    Check(Gate().KeepSourcePosition && Row("KeepSourcePosition").GetComponentsInChildren<Toggle>(false).Single().isOn,
+        "重开英文窗口恢复正确选项");
+    await Capture("en");
+    return new { passed = true };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ReleaseChecks();
+    LocalizedTextManager.instance.setLanguage("cz");
+}

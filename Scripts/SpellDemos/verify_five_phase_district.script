@@ -1,0 +1,278 @@
+var clashes = new List<ConstructedClash>();
+void Clash(ConstructedClash value) => clashes.Add(value);
+ConstructedAbilityService.ClashConfirmed += Clash;
+JArray Materials() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "five-phase-district"))["sections"]["world_materials"]["data"]["Records"];
+Vector3 PositionOf(Matrix4x4 pose) => pose.GetColumn(3);
+
+AbilityDefinition Build()
+{
+    var value = Spell("五相换城");
+    if (section == "district") return value;
+    value.Binding.Anchor = AbilityAnchor.Carrier;
+    value.Id += section == "reordered" ? ".Reordered" : ".Carrier";
+    value.Name += section == "reordered" ? "·换序" : "·器承";
+    if (section != "reordered") return value;
+
+    var water = value.Root.Children[0].Children[0].Children[0];
+    var fire = water.Children.Single();
+    var iron = fire.Children.Single();
+    var transfer = fire.Operations.Single(op => op.Kind == ConstructionOperationKind.PassRemainder);
+    fire.Operations = fire.Operations.Where(op => op.Kind != ConstructionOperationKind.PassRemainder).ToArray();
+    iron.Operations = iron.Operations.Where(op => op.Kind != ConstructionOperationKind.Leave).Append(transfer).ToArray();
+    water.Children = new[] { iron };
+    iron.Children = new[] { fire };
+    fire.Children = Array.Empty<ConstructionNode>();
+    return value;
+}
+
+AbilityCast Send(string key, Vector3 start)
+{
+    var attack = new AbilityDefinition
+    {
+        Id = "Cultiway.Demo.FivePhaseDistrict.Probe." + key,
+        Name = "来袭阴丸",
+        Resource = "none", Cost = 0f, Power = .42f,
+        Lifetime = .93f, Cooldown = 0f, TargetRange = 42f,
+        Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+        Root = new ConstructionNode
+        {
+            Id = "probe", Form = "yin_bolt", Matter = "yin", State = "energy", Scale = .80f,
+            Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Hostile, DamageScale = .48f },
+            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+                Vector = new[] { -29f, 0f, 0f }, WorldVelocity = true, InheritVelocity = false } }
+        }
+    };
+    ConstructedAbilityService.Register(attack);
+    var attacker = victim.GetExtend();
+    ConstructedAbilityService.Learn(attacker, attack.Id);
+    var handle = new ActiveAbilityHandle("content.constructed", attacker.E, attack.Id);
+    var ground = (AbilityHeightField)service.GetProperty("BodyTerrain", F).GetValue(null);
+    var input = new Vector3(start.x, start.y, start.z - ground.Sample(start.x, start.y));
+    victim.attack_timer = 0;
+    bool accepted = ActiveAbilityService.TryUse(attacker, handle, new ActiveAbilityTarget(null, input), ActiveAbilityUseOrigin.Script);
+    victim.attack_timer = 999;
+    attacker.E.RemoveComponent<ConstructedKnowledge>();
+    Check(accepted, "真实来袭已受理 · " + key, start.ToString());
+    return seen.Last().Value;
+}
+
+var owner = source.GetExtend();
+var carrierType = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedArtifactCarrier");
+var artifactRenderer = typeof(Cultiway.Content.Artifacts.ArtifactAppearanceRenderer);
+var lifecycle = typeof(Cultiway.Content.Artifacts.ArtifactAbilityLifecycle);
+Entity artifact = default;
+bool Borrowed() => !artifact.IsNull && (bool)carrierType.GetMethod("IsBorrowed", F).Invoke(null, new object[] { artifact });
+Matrix4x4 CarrierPose()
+{
+    object[] sample = { artifact, null };
+    Check((bool)artifactRenderer.GetMethod("TryGetSpatialPose", F).Invoke(null, sample), "原法宝有真实空间姿态");
+    return (Matrix4x4)service.GetMethod("CarrierFrame", F).Invoke(null, new[] { sample[1] });
+}
+async Task<(long Id, AbilityCast Cast)> StartCarried(AbilityDefinition definition)
+{
+    owner.AddComponent(new Xian { level = 3, wakan = 10000f });
+    owner.SetPowerLevel(3); owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+    Ready(source); Place(source, 64); Place(victim, 78);
+    var design = Cultiway.Content.Artifacts.ArtifactComposer.ComposeDesign(new Cultiway.Content.Artifacts.ArtifactDesignRequest
+    {
+        Shape = ItemShapes.Sword, Atoms = new[] { ArtifactAtoms.SwordEdge, ArtifactAtoms.Iron },
+        Level = new ItemLevel { Stage = 1, Level = 3 }, Name = "五相承载飞剑"
+    });
+    var codec = Cultiway.Content.Artifacts.Baibao.ArtifactBlueprintCodec.FromComposeResult(design);
+    artifact = Cultiway.Content.Artifacts.Baibao.ArtifactBlueprintCodec.Materialize(codec, source.getName());
+    owner.AddSpecialItem(artifact);
+    Check(owner.EquipArtifact(artifact, true, ArtifactEquipMode.Standby, 100), "真实原法宝以待命模式准备");
+    void Sync() => lifecycle.GetMethod("Synchronize", F).Invoke(null, new object[] { artifact });
+    Sync(); await Advance(.14f);
+    Place(source, 64); Place(victim, 78);
+    source.setMana(64);
+    source.addAggro(victim); victim.addAggro(source);
+    owner.SetArtifactEquipMode(artifact, ArtifactEquipMode.ForcedOperating);
+    Sync();
+    ConstructedAbilityService.Register(definition);
+    ConstructedAbilityService.Learn(owner, definition.Id);
+    var handles = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, handles);
+    var handle = handles.Single(h => h.ProviderId == "content.constructed" && h.EntryId == definition.Id && h.Source == artifact);
+    float balance = source.getMana();
+    source.attack_timer = 0;
+    bool accepted = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(victim, victim.GetSimPos()), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999;
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(accepted && Borrowed() && Mathf.Abs(balance - source.getMana() - definition.Cost) < .01f,
+          "用原法宝的正式入口借用并只支付一次");
+    var launched = seen.Last();
+    var states = (Array)Field(launched.Value, "nodes");
+    Vector3 rootAt = PositionOf((Matrix4x4)Field(states.GetValue(0), "Transform"));
+    Vector3 carrierAt = PositionOf(CarrierPose());
+    Vector3 bodyAt = (Vector3)service.GetMethod("BodyFoot", F).Invoke(null, new object[] { source });
+    Check(Vector3.Distance(rootAt, carrierAt) < .04f && Vector3.Distance(carrierAt, bodyAt) > .10f,
+        "起点取自同一时点原法宝的实际位置", new { rootAt = rootAt.ToString(), artifact = carrierAt.ToString(), actor = bodyAt.ToString() });
+    return (launched.Key, launched.Value);
+}
+
+try
+{
+    var definition = Build();
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    var previousMaterials = new HashSet<long>(Materials().Select(row => (long)row["Id"]));
+    bool film = recordView.Length > 0, fromCarrier = section != "district";
+    if (film) await SetCamera(19.5f);
+    var launch = fromCarrier ? await StartCarried(definition) : await Use(definition, 78f);
+    ControllableUnit.clear(false);
+    if (film)
+    {
+        World.world.camera.transform.position = new Vector3(70f, 72f, 0);
+        MoveCamera.instance.forceZoom(19.5f);
+    }
+    Place(source, 64); Place(victim, 78);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.setStatsDirty(); source.updateStats();
+    var cast = launch.Cast;
+    var stateRows = (Array)Field(cast, "nodes");
+    var plans = (Array)cast.Plan.GetType().GetProperty("Nodes", F).GetValue(cast.Plan);
+    var nodes = Enumerable.Range(1, plans.Length - 1).ToDictionary(i => ((string)Field(plans.GetValue(i), "Path")).Split('/').Last());
+    string[] order = section == "reordered" ? new[] { "earth", "wood", "water", "iron", "fire" } : new[] { "earth", "wood", "water", "fire", "iron" };
+    string[] states = order.Select(key => key == "water" ? "liquid" : key == "fire" ? "energy" : "solid").ToArray();
+    float[] ready = order.Select(key => key == "earth" ? .78f : key == "wood" ? .53f : .29f).ToArray();
+    var authoredForms = new Dictionary<string, string> { ["earth"] = "five_phase_mantle", ["wood"] = "five_phase_roots",
+        ["water"] = "water_flow", ["fire"] = "five_phase_kiln", ["iron"] = "five_phase_press" };
+    var seenForms = new Dictionary<string, string>();
+    var entries = new Dictionary<string, (double Volume, float Force, double Paid, Vector3 Start, float Age)>();
+    var actualOrder = new List<string>();
+    var capsules = new List<AbilityCapsule>();
+    var fired = new HashSet<int>();
+    var handoffDistances = new List<float>();
+    float maxWidth = 0f, missX = float.PositiveInfinity, earthX = 0f;
+    bool wet = false, carrierHeld = false, flankPassed = false;
+    AbilityCast flank = null;
+    double zero = World.world.getCurWorldTime();
+    double pressAt = -1;
+    var touches = new List<string>();
+    Vector3 PosFor(int node) => PositionOf((Matrix4x4)Field(stateRows.GetValue(node), "Transform"));
+    float HalfY(AbilityCapsule hit) => hit.IsBox ? hit.HalfExtents.y : hit.Radius;
+    float FarX(AbilityCapsule hit) => Math.Max(hit.A.x, hit.B.x) + (hit.IsBox ? hit.HalfExtents.x : hit.Radius);
+
+    void Watch()
+    {
+        capsules.Clear();
+        cast.AppendContacts(capsules);
+        var views = Forms(cast);
+        foreach (var visual in views)
+            if (visual.Matter != null && authoredForms.ContainsKey(visual.Matter.Id))
+                seenForms[visual.Matter.Id] = visual.Resource.Description.Id;
+        wet |= views.Any(view => view.Layer != null && view.Matter?.Id == "water");
+        carrierHeld |= Borrowed();
+        if (flank != null && !flank.Finished && flank.RemainingForce(0) > 0f)
+        {
+            foreach (var marker in Forms(flank)) missX = Mathf.Min(missX, PositionOf(marker.Transform).x);
+            flankPassed |= missX < earthX - .6f;
+        }
+        for (int stage = 0; stage < order.Length; stage++)
+        {
+            string name = order[stage];
+            int node = nodes[name];
+            var surface = capsules.Where(shape => shape.Node == node).ToArray();
+            if (surface.Length == 0 || cast.Matter(node).Id != name || cast.RemainingForce(node) <= 0f) continue;
+            if (!entries.ContainsKey(name))
+            {
+                entries.Add(name, (cast.RemainingVolume(node), cast.RemainingForce(node), cast.RemainingResource(node), PosFor(node), cast.Age));
+                actualOrder.Add(name);
+                if (stage > 0)
+                {
+                    Vector3 inherited = (Vector3)Field(stateRows.GetValue(node), "EventPosition");
+                    int previous = nodes[order[stage - 1]];
+                    handoffDistances.Add(Vector3.Distance(inherited, PosFor(previous)));
+                    Check(capsules.All(shape => shape.Node != previous), "新相接替时旧相已退出 · " + name);
+                }
+                if (stage == 4) pressAt = World.world.getCurWorldTime() - zero;
+            }
+            float nearY = surface.Min(shape => Math.Min(shape.A.y, shape.B.y) - HalfY(shape));
+            float farY = surface.Max(shape => Math.Max(shape.A.y, shape.B.y) + HalfY(shape));
+            if (stage == 0) maxWidth = Math.Max(maxWidth, farY - nearY);
+            if (fired.Contains(node) || cast.NodeAge(node) < ready[stage]) continue;
+            AbilityCapsule before = surface.OrderBy(shape => Mathf.Abs(shape.A.z - PosFor(node).z - .8f))
+                .ThenBy(shape => Mathf.Abs((shape.A.y + shape.B.y) * .5f - victim.current_position.y)).First();
+            Vector3 aim = (before.A + before.B) * .5f;
+            if (stage == 0 && !fromCarrier && !film && !flankPassed)
+            {
+                if (flank == null)
+                {
+                    earthX = PosFor(node).x;
+                    flank = Send("outside", new Vector3(surface.Max(FarX) + 2.25f, farY + 2.8f, aim.z));
+                }
+                continue;
+            }
+            if (stage == 0) aim = Vector3.Lerp(before.A, before.B, .77f);
+            Send(name, new Vector3(surface.Max(FarX) + 2.20f, aim.y, aim.z));
+            fired.Add(node);
+        }
+    }
+
+    const float duration = 8.75f;
+    List<double> times = null;
+    if (film) times = await Film(duration, Watch);
+    else
+    {
+        Config.paused = false;
+        while (World.world.getCurWorldTime() - zero < duration) { Watch(); await Game.NextFrame(); }
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+    }
+    var bearing = clashes.Where(hit => hit.LeftCast == launch.Id || hit.RightCast == launch.Id)
+        .Select(hit => new
+        {
+            node = hit.LeftCast == launch.Id ? hit.LeftNode : hit.RightNode,
+            spent = hit.LeftCast == launch.Id ? hit.LeftSpent : hit.RightSpent,
+            remaining = hit.LeftCast == launch.Id ? hit.LeftRemaining : hit.RightRemaining,
+            at = hit.Position.ToString()
+        }).ToArray();
+    var deposits = Materials().Where(row => !previousMaterials.Contains((long)row["Id"])).ToArray();
+    var earth = deposits.SingleOrDefault(row => (string)row["Material"]["Matter"] == "earth");
+    touches.AddRange(contacts.Where(hit => hit.CastId == launch.Id && hit.TargetId == victim.id && hit.Damage.HealthLost > 0)
+        .Select(hit => hit.Node + ":" + hit.Damage.HealthLost));
+    var details = new
+    {
+        actualOrder, handoffDistances, bearing, maxWidth, missX = float.IsInfinity(missX) ? (float?)null : missX,
+        wet, seenForms, touches, deposits,
+        entries = entries.ToDictionary(pair => pair.Key, pair => new { pair.Value.Volume, pair.Value.Force,
+            pair.Value.Paid, start = pair.Value.Start.ToString(), pair.Value.Age })
+    };
+    File.WriteAllText(Path.Combine(folder, "phases.json"), JsonConvert.SerializeObject(details, Formatting.Indented));
+    Check(maxWidth > 17f && actualOrder.SequenceEqual(order) && wet &&
+          authoredForms.All(form => seenForms.TryGetValue(form.Key, out string activeForm) && activeForm == form.Value),
+          "岩壳跨城街，五相按真实次序替换并出现贴地水层", details);
+    Check(fromCarrier || film || flankPassed, "绕过宽岩壳的一击仍带着力量，已飞过岩壳位置", details);
+    Check(order.Select(name => nodes[name]).SequenceEqual(bearing.Select(hit => hit.node)) && bearing.All(hit => hit.spent > 0f && hit.remaining > 0f),
+          "五个不同作用面都确实消耗来势，各相交锋只发生一次", details);
+    Check(handoffDistances.Count == 4 && handoffDistances.All(distance => distance < .006f) &&
+          order.Select((key, index) => cast.Matter(nodes[key]).State == states[index] && cast.Plan.FormCount > nodes[key]).All(valid => valid),
+          "每次接替沿用正在退场部位的真实位置，并采用该相的实际物态", details);
+    double firstVolume = entries["earth"].Volume;
+    const double ratio = 1d / 1.21d;
+    Check(earth != null && Math.Abs(firstVolume - (double)earth["Material"]["Volume"] - entries["wood"].Volume) < .02d &&
+          Math.Abs(bearing[0].remaining * ratio - entries["wood"].Force) < .10f &&
+          order.Skip(1).Take(3).Select((name, i) => Math.Abs(entries[name].Volume - entries[order[i + 2]].Volume) < .08d &&
+              Math.Abs(bearing[i + 1].remaining - entries[order[i + 2]].Force) < .10f &&
+              entries[order[i + 2]].Paid <= entries[name].Paid + .0001d).All(valid => valid),
+          "已落地岩座仍在，各相继承的体积和力量与实际剩余一致", details);
+    var iron = deposits.SingleOrDefault(row => (string)row["Material"]["Matter"] == "iron");
+    Check(section == "reordered" ? deposits.Length == 1 : deposits.Length == 2 && iron != null &&
+          Math.Abs((double)iron["Material"]["Volume"] - entries["iron"].Volume) < .02d,
+           "金面实质落地时保留原材料，换序末尾的火相自然消散", details);
+    Check(touches.Count > 0, "换相后的形体也确实伤到来袭者", touches);
+    Check(cast.Finished && Forms(cast).Length == 0 &&
+          (!fromCarrier || carrierHeld && !Borrowed() && owner.IsArtifactEquipped(artifact)),
+          "自然退场，保持已登记世界材料。借用时归还原法宝");
+    return new { passed = true, name = definition.Name, scene = "construction", resource = definition.Resource,
+        paid = definition.Cost, view = recordView, duration, times,
+        previewFrame = times == null ? 0 : Math.Max(0, times.FindIndex(t => t >= pressAt + .12)), details,
+        caption = section == "reordered" ? "原法宝承载 · 金火换序、交锋及原物归还"
+            : fromCarrier ? "原法宝承载 · 五相交锋及原物归还" : "城域岩壳 · 实际换相、受力和落地支座" };
+}
+finally
+{
+    ConstructedAbilityService.ClashConfirmed -= Clash;
+    ReleaseChecks();
+}

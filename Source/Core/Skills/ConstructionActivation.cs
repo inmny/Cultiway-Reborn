@@ -14,6 +14,9 @@ public sealed class ConstructionActivation : ConstructionCondition
     /// <summary>来源结束时按权重交接实际余力、材料及控制身份，不重新使用初始威力。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool InheritRemainder;
+    /// <summary>余量交接时从来源部位的真实位置独立接替。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool KeepSourcePosition;
     /// <summary>只从屏障实际吸收的来势取得力量，并从首个吸收点朝外释放。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool InheritAbsorbedForce;
@@ -43,6 +46,8 @@ internal sealed class CompiledConstructionActivation : CompiledConstructionCondi
     internal readonly ConstructionEventPlacement Placement;
     /// <summary>是否接受来源结束时的真实剩余状态。</summary>
     internal readonly bool InheritRemainder;
+    /// <summary>继承余量时是否沿用来源部位的位置。</summary>
+    internal readonly bool KeepSourcePosition;
     /// <summary>是否从真实吸收累积力量，并取首个接触处作为出口。</summary>
     internal readonly bool InheritAbsorbedForce;
     /// <summary>余量交接后是否明确开始新接触组。</summary>
@@ -57,10 +62,13 @@ internal sealed class CompiledConstructionActivation : CompiledConstructionCondi
     internal CompiledConstructionActivation(ConstructionActivation source, float lifetime, string path) : base(source, lifetime, path)
     {
         Placement = source.Placement; InheritRemainder = source.InheritRemainder; ResetContacts = source.ResetContacts;
+        KeepSourcePosition = source.KeepSourcePosition;
         InheritAbsorbedForce = source.InheritAbsorbedForce;
         Target = source.Target == null ? null : new CompiledContactTarget(source.Target, path + "/Target");
         if (ResetContacts && !InheritRemainder)
             throw new InvalidDataException(path + "：开始新接触组需要明确继承来源剩余力量，不能凭空重建强度");
+        if (KeepSourcePosition && !InheritRemainder)
+            throw new InvalidDataException(path + "：沿用来源位置需要交接实际余量");
         if (Target != null && (Trigger != ConstructionChangeTrigger.ActorContact || Placement != ConstructionEventPlacement.Event || InheritRemainder))
             throw new InvalidDataException(path + "：附近选敌需要人物接触及事件处独立开始，不能同时接受结束余量");
         if (!Enum.IsDefined(typeof(ConstructionEventPlacement), Placement)) throw new InvalidDataException(path + "：事件放置无效");
