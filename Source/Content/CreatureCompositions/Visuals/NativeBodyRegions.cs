@@ -57,6 +57,44 @@ internal static class NativeBodyRegions
         "foot.left" => "leg.left.lower", "foot.right" => "leg.right.lower", _ => null
     };
 
+    /// <summary>动作起势时，按原人物已经着色的同侧部位采集上臂、前臂和手。</summary>
+    /// <param name="actor">实际人物。</param><param name="left">本次出手侧。</param>
+    internal static (Color? Upper, Color? Lower, Color? Hand) ArmColors(Actor actor, bool left)
+    {
+        if (!actor.asset.is_humanoid) return default;
+        Sprite native = actor.calculateMainSprite();
+        string[] regions = native == null ? null : Get(actor, native);
+        if (regions == null) return default;
+        Sprite body = actor.asset.need_colored_sprite ? actor.calculateColoredSprite(native) : native;
+        if (body == null) return default;
+        Sprite complete = CompleteHands(actor, body, native)?.Sprite ?? body;
+        Sprite visible = NativeEquipmentAppearance.ComposeFrame(actor, complete, native)?.Sprite ?? complete;
+
+        AssetManager.dynamic_sprites_library.checkDirty();
+        Color32[] pixels = CreatureAppearanceService.ReadPixels(visible);
+        int width = Mathf.RoundToInt(visible.rect.width), height = Mathf.RoundToInt(visible.rect.height),
+            nativeWidth = Mathf.RoundToInt(native.rect.width),
+            dx = Mathf.RoundToInt(visible.pivot.x - native.pivot.x),
+            dy = Mathf.RoundToInt(visible.pivot.y - native.pivot.y);
+        string side = left ? "left" : "right";
+        return (Sample("arm." + side + ".upper"), Sample("arm." + side + ".lower"),
+            Sample("hand." + side) ?? Sample(left ? "hand.right" : "hand.left"));
+
+        Color? Sample(string region)
+        {
+            for (int i = 0; i < regions.Length; i++)
+            {
+                if (regions[i] != region) continue;
+                int x = i % nativeWidth + dx, y = i / nativeWidth + dy;
+                if (x < 0 || x >= width || y < 0 || y >= height) continue;
+                Color32 pixel = pixels[y * width + x];
+                if (pixel.a == 255) return (Color)pixel;
+            }
+
+            return null;
+        }
+    }
+
     /// <summary>部分衣装省略了抬起的掌部；只在声明位置确实空白时补入实际肤色像素。</summary>
     /// <param name="actor">真实人物。</param><param name="body">已着色的原图。</param><param name="native">原动画帧。</param>
     internal static CreatureAppearanceFrame CompleteHands(Actor actor, Sprite body, Sprite native)

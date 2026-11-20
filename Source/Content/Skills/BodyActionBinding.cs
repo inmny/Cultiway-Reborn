@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Cultiway.Content.Combat;
+using Cultiway.Content.CreatureCompositions.Visuals;
 using Cultiway.Core;
 using Cultiway.Core.Skills;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -29,6 +30,9 @@ internal sealed partial class BodyActionBinding
 
     /// <summary>原版实际头图的关节与包络，创建时读取。</summary>
     private readonly BodyHeadFit nativeHead;
+
+    /// <summary>起势时采集的原人物衣色和肤色，同一次动作共用。</summary>
+    private readonly (Color? Upper, Color? Lower, Color? Hand) armColors;
 
     /// <summary>已有实际器官的独立绑定，其他动作为空。</summary>
     internal BodyOrganBinding Organ { get; private set; }
@@ -227,6 +231,11 @@ internal sealed partial class BodyActionBinding
         aimHeight = targetFoot.z + targetHeight * .55f;
         aimPoint = targetFoot;
         if (action.Part.HasPartRotation) return;
+        if (action.Part.IsArm)
+        {
+            armColors = NativeBodyRegions.ArmColors(actor, action.Part.Left);
+            armColors.Upper ??= Color.Lerp(actor.kingdom.getColor().getColorMain(), Color.white, .2f);
+        }
         hand = FormResources.Load("hand");
         limb = FormResources.Load("limb");
         if (action.WeaponForm == null) return;
@@ -546,7 +555,7 @@ internal sealed partial class BodyActionBinding
         if (action.Part.IsJoint) return pose.Joint.Contact;
         if (Organ != null && Organ.Model == null) return Organ.NativeSurface(in pose);
         surfaceForms.Clear();
-        AppendForms(0, in pose, surfaceForms, null, Color.white);
+        AppendForms(0, in pose, surfaceForms, null);
         if (actionSurfaceParts == null)
         {
             var parts = new List<BodySurfacePart>();
@@ -597,16 +606,16 @@ internal sealed partial class BodyActionBinding
     internal void AppendVisuals(Actor actor, in BodyPose pose, List<FormVisualInstance> output,
         AbilityHeightField terrain = null)
     {
-        Color sleeve = Color.Lerp(actor.kingdom.getColor().getColorMain(), Color.white, .2f);
-        AppendForms(actor.id, in pose, output, terrain, sleeve, SurfaceFeedback(in pose));
+        AppendForms(actor.id, in pose, output, terrain, armColors, SurfaceFeedback(in pose));
     }
 
     /// <summary>生成一份共同肢体姿态，不从绘制场景回读肩点，也不另求关节。</summary>
     /// <param name="actor">实际人物编号；纯数值查询不需要显示归属。</param><param name="pose">共同姿态。</param>
-    /// <param name="output">实际形体。</param><param name="terrain">共同地表。</param><param name="sleeve">衣色。</param>
+    /// <param name="output">实际形体。</param><param name="terrain">共同地表。</param><param name="colors">同侧肢段实际颜色。</param>
     /// <param name="feedback">仅在正式画面中发布的局部接触反馈。</param>
     private void AppendForms(long actor, in BodyPose pose, List<FormVisualInstance> output,
-        AbilityHeightField terrain, Color sleeve, FormSurfaceFeedback feedback = default)
+        AbilityHeightField terrain, (Color? Upper, Color? Lower, Color? Hand) colors = default,
+        FormSurfaceFeedback feedback = default)
     {
         if (Organ?.Model != null)
         {
@@ -622,11 +631,12 @@ internal sealed partial class BodyActionBinding
         // 两种显示和接触都使用适配后的实际臂链，不只共用腕点。
         Vector3 shoulder = pose.OtherArm?.Shoulder ?? pose.Shoulder;
         Vector3 elbow = pose.OtherArm?.Elbow ?? pose.Elbow;
-        AddSegment(shoulder, elbow, pose.Height * CompiledBodyAction.UpperWidth, sleeve,
+        AddSegment(shoulder, elbow, pose.Height * CompiledBodyAction.UpperWidth, colors.Upper,
             left ? BodyVisualSegment.UpperLeftArm : BodyVisualSegment.UpperRightArm);
-        AddSegment(elbow, pose.Hand, pose.Height * CompiledBodyAction.LowerWidth, null,
+        AddSegment(elbow, pose.Hand, pose.Height * CompiledBodyAction.LowerWidth, colors.Lower,
             left ? BodyVisualSegment.LowerLeftArm : BodyVisualSegment.LowerRightArm);
-        output.Add(new FormVisualInstance(hand, HandMatrix(in pose), WeaponReleased ? null : fingers, groundAnchor: ground,
+        output.Add(new FormVisualInstance(hand, HandMatrix(in pose), WeaponReleased ? null : fingers,
+            tint: colors.Hand, groundAnchor: ground,
             groundActorId: actor, terrain: terrain,
             bodySegment: left ? BodyVisualSegment.LeftHand : BodyVisualSegment.RightHand, feedback: feedback));
         if (weapon != null && !WeaponInConstruction)
