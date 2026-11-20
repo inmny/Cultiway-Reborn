@@ -2497,3 +2497,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--case archive` 在正式万法阁改造托握、器物尺寸与锤面，并写入同一对人物的正式世界档。停掉并重开独立游戏后，用 `--case cold --archive <新输出目录>` 读回改造与原铁锤并重施。
 
 `--case film --archive <新输出目录> --view native --move drop` 录制正式命中。用 `--view worldfall` 切换到 Worldfall，用 `--move miss` 拍摄空挥触地，用 `--move guard` 拍摄盾面接住重锤。每段都从同一个正式世界档开场。
+
+### 防御战技（9.46）
+
+在独立游戏通过 `dev.py exec` 运行 `python3 Scripts/SpellDemos/verify_defense.py --case front --archive <重兵对练档目录>`。用同一原铁锤验证正式盾面的迎面架挡、回弹和归还，`--case rear`、`--case late` 和 `--case overflow` 分别检查背面、过晚和破防后余力。
+
+`--case craft` 走万法阁学习、城市打造和玩家方向选取，核对真实耗材与原铁盾。测试从同一对练档里的原人物开始。

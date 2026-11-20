@@ -22,6 +22,14 @@ public sealed partial class ConstructedAbilityService
                                                               actor.E.TryGetComponent(out ConstructedKnowledge known) &&
                                                               known.Ids.Contains(id);
 
+    /// <summary>装备偏好读取实际学会的盾架，包括已经学会的独立副本和改造。</summary>
+    /// <param name="actor">实际掌握构造的人物。</param>
+    /// <param name="form">要用于架挡的实际器形。</param>
+    internal static bool KnowsHeldGuard(ActorExtend actor, string form) =>
+        actor.E.TryGetComponent(out ConstructedKnowledge known) &&
+        known.Ids.Any(id => compiled.TryGetValue(id, out var plan) &&
+                            plan.Body?.WeaponForm == form && plan.Body.Guard.Enabled && plan.Power > 0f);
+
     /// <summary>阅读前检查实际目录与掌握容量。</summary>
     /// <param name="actor">实际读者。</param>
     /// <param name="id">书中记录的能力。</param>

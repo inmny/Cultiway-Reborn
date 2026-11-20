@@ -271,6 +271,11 @@ public sealed partial class AbilityCast
             nodes[node].ClashPoint = point;
             ApplyMatterChanges(node, ConstructionChangeTrigger.Clash);
         }
+        else if (Plan.Body?.Guard.Enabled == true)
+        {
+            // 只有实际架挡的接触才使防御面回弹。仍有余量的架挡继续沿原动作维持。
+            bodyContactAt = Age;
+        }
         SignalEvent(node, ConstructionChangeTrigger.Clash, point);
         FlushBirths(inputs.Target);
         RecordActionTimeline();

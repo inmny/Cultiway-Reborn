@@ -1,0 +1,99 @@
+// 使用同一对练档中的盾手和原版仓储、打造入口。
+const string shieldAssetId = "cultiway_iron_shield";
+bool infinite = DebugConfig.isOn(DebugOption.CityInfiniteResources);
+try
+{
+    DebugConfig.setOption(DebugOption.CityInfiniteResources, false);
+    Place(target, 68, 72);
+    target.joinLanguage(World.world.languages.newLanguage(target, true));
+    target.setCulture(World.world.cultures.newCulture(target, true));
+    World.world.kingdoms.makeNewCivKingdom(target);
+    City city = World.world.cities.buildNewCity(target, target.current_tile.zone);
+    target.joinCity(city);
+    WorldTile tile = target.current_tile.zone.tiles.First(value => value.building == null);
+    var pile = World.world.buildings.addBuilding("stockpile", tile);
+    await Advance(.18f);
+    var shield = AssetManager.items.get(shieldAssetId);
+    string metal = shield.cost_resource_id_1;
+    pile.addResources(metal, 12);
+    int material = city.getResourcesAmount(metal);
+    Check(material >= shield.cost_resource_1 && target.getWeapon() == null,
+        "普通城市仓储拥有足够材料，人物尚无武器", new { material, pileCity = pile.city?.id, city = city.id });
+    var learned = await LearnShield();
+    target.addMoney(40);
+    int money = target.money;
+    bool crafted = ItemCrafting.craftItem(target, target.getName(), EquipmentType.Weapon, 1, city);
+    Check(crafted && target.getWeapon()?.getAsset() == shield &&
+          city.getResourcesAmount(metal) == material - shield.cost_resource_1 &&
+          target.money == money - shield.get_total_cost,
+        "掌握盾架的人物走正常城市打造，按实际价格支付并取得铁盾",
+        new { crafted, item = target.getWeapon()?.getAsset().id, material, after = city.getResourcesAmount(metal),
+            money, coinsAfter = target.money });
+    var sprite = shield.gameplay_sprites.Single();
+    Check(DynamicSpritesLibrary.items.getSprite(DynamicSprites.getItemSpriteID(sprite)) != null,
+        "原版缓存持物图后，圆盾可在普通持物状态显示");
+    CombatStatusEffects.RemoveStatus(target, quiet);
+    target.setStatsDirty();
+    target.updateStats();
+    target.data.stamina = 100;
+    target.attack_timer = 0;
+    var handle = new ActiveAbilityHandle("content.constructed", target.GetExtend().E, learned.Id);
+    bool used = ActiveAbilityService.TryUse(target.GetExtend(), handle,
+        new ActiveAbilityTarget(null, new Vector3(67.4f, 72f, 0f)), ActiveAbilityUseOrigin.Player);
+    target.attack_timer = 999;
+    Check(used && BodyControlState.IsBusy(target.id) && Mathf.Abs(100 - target.data.stamina - learned.Cost) < .001f,
+        "走玩家方向选取入口，用刚打造的盾施展已学副本");
+    await Advance(learned.Lifetime + .14f);
+    Check(!BodyControlState.IsBusy(target.id) && target.getWeapon()?.getAsset() == shield,
+        "正常收势归还玩家控制和铁盾");
+    return new { passed = true, selection, checks };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    DebugConfig.setOption(DebugOption.CityInfiniteResources, infinite);
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}
+async Task<AbilityDefinition> LearnShield()
+{
+    ControllableUnit.setControllableCreature(target);
+    LocalizedTextManager.instance.setLanguage("cz");
+    await Frames();
+    ScrollWindow.showWindow(WindowWanfaPavilion.Id, pSkipAnimation: true);
+    await Frames();
+    var window = ScrollWindow.getCurrentWindow();
+    var pavilion = window?.GetComponentInChildren<WindowWanfaPavilion>(true);
+    Check(pavilion != null, "普通入口已打开万法阁", window?.screen_id);
+    pavilion.GetComponentsInChildren<Button>(false).Single(b => b.name == "New").onClick.Invoke();
+    await Frames();
+    pavilion.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") &&
+        b.GetComponentInChildren<Text>().text == "沉肩架盾").onClick.Invoke();
+    await Frames();
+    var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+    Button learn = editor.GetComponentsInChildren<Button>(false).Single(button => button.name == "LearnCopy");
+    Check(learn.interactable, "万法阁正常入口允许尚未拿盾的人物先学架盾");
+    learn.onClick.Invoke();
+    await Frames();
+    var saved = ConstructionEditing.Access.Read(((ConstructionEditSession)Field(editor, "session")).SourceId);
+    Check(saved.Parent?.Id == BodyActionCatalog.ShieldGuardId && saved.Creator == target.id &&
+          ConstructedAbilityService.Knows(target.GetExtend(), saved.Id) &&
+          !ConstructedAbilityService.Knows(target.GetExtend(), BodyActionCatalog.ShieldGuardId),
+        "玩家学到的是正式副本，随该人物保存", new { saved.Id, saved.Creator, parent = saved.Parent.Id });
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    await Frames();
+    Screen.Capture(Path.Combine(folder, "learned-shield.png"));
+    await Frames();
+    editor.GetComponentsInChildren<Button>(false).Single(button => button.name == "Close").onClick.Invoke();
+    await Frames();
+    return saved;
+}
+
+async Task Frames()
+{
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    Canvas.ForceUpdateCanvases();
+}
