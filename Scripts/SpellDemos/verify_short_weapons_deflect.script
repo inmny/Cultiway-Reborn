@@ -1,0 +1,76 @@
+// 同一对人持原铁剑，守方真实拨开正式斜切。
+var relations = new List<ConstructedBodyConnection>();
+void Related(ConstructedBodyConnection fact)
+{
+    if (fact.SourceId == target.id && fact.TargetId == source.id) relations.Add(fact);
+}
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.BodyConnectionChanged += Related;
+try
+{
+    Ready(source);
+    source.attack_timer = target.attack_timer = 999;
+    await Advance(.18f);
+    var attack = ConstructionEditing.Access.Read(shortBlade + "Cut");
+    var guard = BodyActionCatalog.Create("test.short-blade.deflect", "拨开短兵",
+        new BodyActionRequest { Effector = "hand.right", Kind = BodyActionKind.Guard,
+            Seconds = .9f, WeaponForm = "sword", Contact = "edge" });
+    guard.Cost = 0;
+    guard.Cooldown = 0;
+    guard.Body.MatchDistance = false;
+    guard.Body.Impact = new ConstructionImpact { DamageScale = 0f };
+    // 高架沿身体外侧接住来剑，不改两件器形的刃面及大小。
+    for (int i = 1; i < guard.Body.Keys.Length - 1; i++)
+    {
+        guard.Body.Keys[i].Hand[1] = i == 1 ? .22f : .23f;
+        guard.Body.Keys[i].Hand[2] += .16f;
+    }
+    guard.Body.Construction.Parts.Single(part => part.Subject == BodyPartSubject.Target).Part = "item";
+    guard.Body.Construction.Relations.Single(relation => relation.Kind == BodyRelationKind.Touch).Kind = BodyRelationKind.Deflect;
+    var attackPlan = ConstructionEditing.Access.Validate(attack).Body;
+    ConstructionEditing.Access.Validate(guard);
+    Item weapon = Equip(source, "sword_iron"), defense = Equip(target, "sword_iron");
+    Place(source, 64.35f);
+    Place(target, 65.11f);
+    source.data.stamina = 100;
+    target.setHealth(target.getMaxHealth());
+
+    CombatStatusEffects.RemoveStatus(target, quiet);
+    target.updateStats();
+    target.cancelAllBeh();
+    float health = target.data.health;
+    await Fire(guard, target, source);
+    target.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.27f);
+    await Fire(attack, source, target);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Config.paused = false;
+    await Game.WaitUntil(() => live?.BodyResult == BodyActionResult.Blocked || live?.Finished == true ||
+                               live?.Age >= attackPlan.ActiveUntil, 1000);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 900);
+    Check(live?.BodyResult == BodyActionResult.Blocked && relations.Any(relation =>
+              relation.State == ConstructedBodyConnectionState.Active && relation.Kind == BodyRelationKind.Deflect) &&
+          relations.Any(relation => relation.State == ConstructedBodyConnectionState.Released && relation.Reason == "BodyResponse"),
+        "正式斜切被实际剑身拨开，沿自己的收势恢复并解除接触",
+        new { age = live?.Age, result = live?.BodyResult, health, after = target.data.health,
+            source = source.current_position.ToString("F4"), target = target.current_position.ToString("F4"),
+            relations = relations.Select(relation => new { relation.State, relation.Kind, relation.Reason, relation.WorldTime }) });
+    await Advance(attack.Lifetime);
+    Check(target.data.health == health && !contacts.Any(hit => hit.CastId == castId) &&
+          endings.Any(end => end.Fact.CastId == castId && !end.Fact.Cancelled) &&
+          !BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id) &&
+          ReferenceEquals(source.getWeapon(), weapon) && ReferenceEquals(target.getWeapon(), defense),
+        "斜切受阻后不补伤，双方完成动作并保有原兵器");
+    return new { passed = true, move, checks };
+}
+finally
+{
+    ConstructedAbilityService.BodyConnectionChanged -= Related;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

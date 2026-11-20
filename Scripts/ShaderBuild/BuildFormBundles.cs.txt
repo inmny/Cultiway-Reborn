@@ -446,6 +446,9 @@ namespace CultiwayAssets.Editor
             /// <summary>实际装备类型编号。</summary>
             public string[] Groups;
 
+            /// <summary>限制到明确提供了器形的真实装备编号。</summary>
+            public string[] EquipmentIds;
+
             /// <summary>模型单位与使用者体高之比。</summary>
             public float Scale;
         }

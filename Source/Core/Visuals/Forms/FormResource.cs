@@ -399,8 +399,10 @@ public sealed partial class FormResource
 
         FormHeldDescription held = Description.Held;
         if (held == null || held.Groups == null || held.Groups.Any(string.IsNullOrWhiteSpace) ||
+            held.EquipmentIds == null || held.EquipmentIds.Any(string.IsNullOrWhiteSpace) ||
+            held.EquipmentIds.Distinct().Count() != held.EquipmentIds.Length ||
             held.Groups.Distinct().Count() != held.Groups.Length || !FormRig.Finite(held.Scale) ||
-            (held.Groups.Length > 0 ? held.Scale <= 0f || grips.Count == 0 : held.Scale != 0f))
+            (held.Groups.Length > 0 ? held.Scale <= 0f || grips.Count == 0 : held.Scale != 0f || held.EquipmentIds.Length != 0))
             throw new InvalidDataException(Description.Id + "：实际装备需要明确类型、正有限尺寸及可用握点");
     }
 

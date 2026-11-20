@@ -38,9 +38,24 @@ public static class BodyActionCatalog
         guard.Body.MatchDistance = false;
         guard.Body.Guard = new BodyGuardDefinition { Capacity = 100f, Normal = new[] { 0f, 0f, 1f } };
         AbilityDefinition thrust = Load("sword-thrust");
+        AbilityDefinition shortThrust = Load("short-blade-thrust");
+        AbilityDefinition shortCut = Load("short-blade-cut");
+        AbilityDefinition shortSweep = Load("short-blade-sweep");
         return new[] { palm, Load("sweeping-palm"), thrust, guard, CreateSwordRelease(thrust),
             Load("beast-horn-thrust"), Load("beast-pounce"), Load("palm-push"), Load("straight-punch"), Load("folded-elbow"),
-            Load("rising-knee"), Load("low-sweep"), Load("shoulder-drive") };
+            Load("rising-knee"), Load("low-sweep"), Load("shoulder-drive"), shortThrust, StoneSword(shortThrust),
+            shortCut, StoneSword(shortCut), shortSweep, StoneSword(shortSweep) };
+    }
+
+    /// <summary>保留完整手路及发力，石剑版本以本身的握点及刃口执行。</summary>
+    /// <param name="original">以相同握持、接触名称制作的实际铁剑战技。</param>
+    private static AbilityDefinition StoneSword(AbilityDefinition original)
+    {
+        var result = ConstructionEditing.Copy(original);
+        result.Id += ".Stone";
+        result.Name += "·石剑";
+        result.Body.WeaponForm = "stone_short_sword";
+        return result;
     }
 
     /// <summary>从同一铁剑握持动作起势，只改变离手后的运动和接触。</summary>

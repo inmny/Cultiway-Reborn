@@ -1,0 +1,93 @@
+// 实际编辑窗口换器形和握法，保存原武器与玩家改造。
+async Task Shot(string name)
+{
+    World.world.console.Hide();
+    Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    var row = (RectTransform)Row("MartialWeaponForm").transform;
+    var scroll = row.GetComponentInParent<ScrollRect>();
+    var content = scroll.content;
+    Vector2 point = content.InverseTransformPoint(row.position);
+    float travel = content.rect.height - scroll.viewport.rect.height;
+    if (travel > 0)
+        scroll.verticalNormalizedPosition = Mathf.Clamp01(1f - (content.rect.yMax - point.y - 35f) / travel);
+    await Frames();
+    Screen.Capture(Path.Combine(folder, name + ".png"));
+    await Frames();
+}
+
+string Form(string id) => T("Form." + id);
+try
+{
+    Click("Page2");
+    Check(Row("MartialWeaponForm") != null, "短兵在身体页提供实际器物选择");
+    Select("MartialWeaponForm", Form("stone_short_sword"));
+    Select("MartialGrip", T("MartialGripChoke"));
+    var changed = JToken.FromObject(Session().Draft);
+    var stone = ConstructionEditing.Access.Validate(Session().Draft).Body;
+    var iron = ConstructionEditing.Access.Validate(basis).Body;
+    var grip = stone.Construction.Relations.Single(relation => relation.Kind == BodyRelationKind.Grip);
+    Check(stone.WeaponForm == "stone_short_sword" && stone.Grip == "choke" && grip.ToAnchor == "choke" &&
+          stone.Construction.Relations.Single(relation => relation.Kind == BodyRelationKind.Touch).FromAnchor == "edge/cut" &&
+          JToken.DeepEquals(changed["Body"]["Keys"], original["Body"]["Keys"]) && stone.ContactReach < iron.ContactReach,
+        "实际窗口换为石剑和靠护手的握点，保留斜切手路和前刃，重新取得触达范围",
+        new { stone = stone.ContactReach, iron = iron.ContactReach });
+    Click("Undo");
+    Check(ConstructionEditing.Access.Validate(Session().Draft).Body.Grip == "grip", "先撤销握法");
+    Click("Undo");
+    Check(JToken.DeepEquals(original, JToken.FromObject(Session().Draft)), "再撤销器形，获得开启时的完整资料");
+    Select("MartialWeaponForm", Form("stone_short_sword"));
+    Select("MartialGrip", T("MartialGripChoke"));
+    await Shot("short-weapon-editor-cz");
+    Click("Replace");
+    string edited = Session().SourceId;
+    var result = ConstructionEditing.Access.Read(edited);
+    Check(edited != basisId && JToken.DeepEquals(changed["Body"], JToken.FromObject(result)["Body"]) &&
+          JToken.DeepEquals(original, JToken.FromObject(ConstructionEditing.Access.Read(basisId))),
+        "正式应用保持新的器形和握持，原件资料完整保留");
+    Click("Close");
+    await Frames();
+    LocalizedTextManager.instance.setLanguage("en");
+    WindowWanfaConstructionEditor.Open(edited, source);
+    await Frames();
+    Click("Page2");
+    Check(ConstructionEditing.Access.Validate(Session().Draft).Body.WeaponForm == "stone_short_sword" &&
+          Row("MartialWeaponForm") != null, "英文窗口重新打开保存后的石剑改造");
+    await Shot("short-weapon-editor-en");
+    Click("Close");
+    await Frames();
+
+    var target = Make(64.96f);
+    target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+    CombatStatusEffects.RemoveStatus(source, hold);
+    CombatStatusEffects.RemoveStatus(target, hold);
+    var weapon = World.world.items.generateItem(AssetManager.items.get("sword_stone"), pActor: source);
+    source.equipment.setItem(weapon, source);
+    foreach (Actor actor in new[] { source, target })
+    {
+        actor.setStatsDirty();
+        actor.updateStats();
+        actor.attack_timer = 999;
+    }
+    var ids = new[] { "Cultiway.Body.ShortBladeThrust", basisId, "Cultiway.Body.ShortBladeSweep.Stone", edited };
+    foreach (string id in ids) ConstructedAbilityService.Learn(source.GetExtend(), id);
+    await Advance(.18f);
+    Check(World.world.units.getSimpleList().Contains(source) && World.world.units.getSimpleList().Contains(target),
+        "人物和真实石剑随同正式世界归档");
+    string archive = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(archive);
+    Check(File.Exists(Path.Combine(archive, "map.wbox")), "写入原版正式世界");
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+    {
+        process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, target = target.id,
+        edited, weapon = weapon.data.id, definitions = ids.Select(ConstructionEditing.Access.Read).ToArray()
+    }, Formatting.Indented));
+    return new { passed = true, section, edited, archive, checks };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    LocalizedTextManager.instance.setLanguage("cz");
+    Config.paused = true;
+}

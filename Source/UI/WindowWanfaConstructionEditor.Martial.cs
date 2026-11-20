@@ -25,6 +25,14 @@ public sealed partial class WindowWanfaConstructionEditor
         if (action.WeaponForm != null)
         {
             Row("MirrorBodySide", T("MartialWeaponSlot"));
+            string[] forms = BodyConstructionEdits.WeaponFormChoices(session.Draft, action);
+            if (forms.Length > 1)
+                MartialChoice("MartialWeaponForm", action.WeaponForm, forms, FormLabel, value => ApplyConstructionEdit(() =>
+                {
+                    AbilityDefinition candidate = BodyConstructionEdits.ChangeWeaponForm(session.Draft, action, value);
+                    access.Validate(candidate);
+                    return candidate;
+                }));
             MartialChoice("MartialGrip", action.Grip,
                 FormResources.Load(action.WeaponForm).Description.Grips.Select(grip => grip.Id).ToArray(), GripLabel,
                 value => ApplyConstructionEdit(() => BodyConstructionEdits.ChangeGrip(session.Draft, value)));
@@ -67,9 +75,12 @@ public sealed partial class WindowWanfaConstructionEditor
     private static string ShapeLabel(string id)
     {
         if (id == null) return T("MartialTouchAll");
+        const string prefix = "Cultiway.Construction.MartialShape.";
+        string exact = LMTools.GetOrFallback(prefix + id, null);
+        if (exact != null) return exact;
         int split = id.IndexOf('/');
         string group = split < 0 ? id : id.Substring(0, split);
-        return LMTools.GetOrFallback("Cultiway.Construction.MartialShape." + group, group) +
+        return LMTools.GetOrFallback(prefix + group, group) +
                (split < 0 ? "" : " / " + id.Substring(split + 1));
     }
 

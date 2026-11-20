@@ -104,6 +104,29 @@ public static partial class BodyConstructionEdits
         return result;
     }
 
+    /// <summary>列出与纯持械动作共享装备类别的明确器形。</summary>
+    internal static string[] WeaponFormChoices(AbilityDefinition source, CompiledBodyAction action)
+    {
+        if (source.Root != null || action.WeaponForm == null) return Array.Empty<string>();
+        var current = FormResources.Load(action.WeaponForm).Description.Held;
+        if (current.EquipmentIds.Length == 0) return Array.Empty<string>();
+        return FormResources.Ids.Where(id =>
+        {
+            var held = FormResources.Load(id).Description.Held;
+            return held.EquipmentIds.Length > 0 && held.Groups.Intersect(current.Groups, StringComparer.Ordinal).Any();
+        }).ToArray();
+    }
+
+    /// <summary>更换原物对应器形，握点、刃面引用和动作时间仍以原资料为准。</summary>
+    internal static AbilityDefinition ChangeWeaponForm(AbilityDefinition source, CompiledBodyAction action, string form)
+    {
+        if (!WeaponFormChoices(source, action).Contains(form))
+            throw new InvalidDataException("所选器形需要适配同类实际装备且动作没有生成形体");
+        AbilityDefinition result = ConstructionEditing.Copy(source);
+        result.Body.WeaponForm = form;
+        return result;
+    }
+
     /// <summary>修改既有普通接触；不自动添加、移除或替换其他关系。</summary>
     internal static AbilityDefinition ChangeTouch(AbilityDefinition source, string id, Action<BodyRelationDefinition> edit)
     {

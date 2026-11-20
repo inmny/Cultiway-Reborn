@@ -10,8 +10,16 @@ public sealed class FormHeldDescription
     /// <summary>原版装备类型编号；不同外观可声明同一实际类型。</summary>
     public string[] Groups = Array.Empty<string>();
 
+    /// <summary>仅适用所列真实装备。空集合沿用只按装备类型匹配的旧资料。</summary>
+    public string[] EquipmentIds = Array.Empty<string>();
+
     /// <summary>模型单位与使用者体高之比，改变资源长度会同时改变实际触达。</summary>
     public float Scale;
+
+    /// <summary>制作资料必须同时接受物品种类与具体外形。</summary>
+    /// <param name="group">实际物品类型。</param><param name="id">实际物品编号。</param>
+    public bool MatchesEquipment(string group, string id) => Array.IndexOf(Groups, group) >= 0 &&
+        (EquipmentIds.Length == 0 || Array.IndexOf(EquipmentIds, id) >= 0);
 }
 
 /// <summary>制作时声明的器物握持帧及真实柄粗，不从名字猜方向。</summary>
