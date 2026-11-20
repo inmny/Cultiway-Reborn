@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""在同一现有世界检查霜花葬形的薄霜、附着和冰瓣围合。"""
+"""在同一现有世界检查霜花葬形的薄霜、附着、围合与碎裂。"""
 import argparse
 import json
 import os
@@ -7,12 +7,12 @@ from pathlib import Path
 import shutil
 import tempfile
 
-from common import PROJECT, write_json
+from common import PROJECT, encode, write_json
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('ground', 'coating', 'enclosure'), default='ground')
+    parser.add_argument('--section', choices=('ground', 'coating', 'enclosure', 'bloom', 'save', 'film'), default='ground')
     parser.add_argument('--enclosure-part', choices=('all', 'contrast'), default='all')
     parser.add_argument('--view', choices=('native', 'worldfall'), default='native')
     args = parser.parse_args()
@@ -25,6 +25,8 @@ def main():
     fixture = 'Scripts/WorldSaveTests/Fixtures/world-format-1'
     shutil.copytree(PROJECT / fixture, folder / 'input-world')
     shutil.copy2(PROJECT / 'Doc/技能系统全面重构/构造输入/霜花葬形.json', folder / 'definition.json')
+    if args.section == 'save':
+        shutil.copy2(PROJECT / 'Doc/技能系统全面重构/构造输入/霜花葬形·狭瓣.json', folder / 'variant.json')
     scripts = Path(__file__).parent
     helpers = (scripts / 'verify_body_footwork.script').read_text().split('var bindingType =', 1)[0]
     helpers = helpers.replace('Path.Combine(root, "artifacts/skill_rebuild/body-footwork")', json.dumps(str(folder)))
@@ -34,6 +36,8 @@ def main():
                               'var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SourceLoss.Hold") ?? '
                               'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild')
     camera = (scripts / 'verify_wind_combat.script').read_text()
+    film_at = camera.index('async Task<List<double>> Film')
+    film = camera[film_at:camera.index('\n}\n', film_at) + 3]
     camera = (camera[camera.index('object cameraSettings'):camera.index('void ReleaseChecks()')] +
               camera[camera.index('async Task Shot('):camera.index('async Task<List<double>> Film')])
     # Capture calls reuse the camera setup without changing the already frozen test ground.
@@ -47,16 +51,29 @@ def main():
         '    await Game.WaitUntil(() => File.Exists(path), 300);')
     script = folder / 'input.script'
     verifier = {'ground': 'verify_frost_flower.script', 'coating': 'verify_frost_flower_coatings.script',
-                'enclosure': 'verify_frost_flower_enclosure.script'}[args.section]
+                'enclosure': 'verify_frost_flower_enclosure.script',
+                'bloom': 'verify_frost_flower_bloom.script', 'save': 'verify_frost_flower_save.script', 'film': 'verify_frost_flower_film.script'}[args.section]
+    body = (scripts / verifier).read_text()
+    if args.section == 'film':
+        worldfall = (scripts / 'verify_hanging_tree_delivery.script').read_text()
+        start = worldfall.index('Type WorldfallType()')
+        end = worldfall.index('\n}\n', worldfall.index('async Task WaitForWorldfallDraw()')) + 3
+        camera += film + worldfall[start:end]
+        setup = (scripts / 'verify_frost_flower_bloom.script').read_text()
+        before, setup = setup.split('\ntry\n{', 1)
+        body = before + '\n{\n' + setup.split('    var hitCast =', 1)[0] + '}\n' + (scripts / 'verify_frost_flower_film.script').read_text()
     script.write_text(helpers + f'\nconst string recordView = "{args.view}";\n' +
                       f'const string enclosurePart = "{args.enclosure_part}";\n' + camera +
-                      (scripts / verifier).read_text())
+                      body)
     try:
         result = baseline.call('run', str(script), '145000')
     except RuntimeError as error:
         write_json(folder / 'result.json', dict(passed=False, error=str(error)))
         raise RuntimeError(f'霜花葬形未通过：{folder}') from error
     write_json(folder / 'result.json', result)
+    if result.get('passed') and args.section == 'film':
+        encode(folder.parent, dict(key=folder.name, name='霜花葬形', label='正式施放', variant=1,
+                                  trajectory='static', modifiers=[], caption='贴地薄霜、冰瓣闭合、盛放碎裂'), keep_frames=True)
     print(json.dumps({'output': str(folder), 'result': result}, ensure_ascii=False), flush=True)
     if not result.get('passed'):
         raise SystemExit('霜花葬形未通过')

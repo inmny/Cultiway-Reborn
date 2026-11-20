@@ -1,0 +1,55 @@
+// 9.33 C3：从付费出手到清场连续录制，镜头不改变共同数值时间。
+var flank = Make(74.88f);
+flank.setKingdom(target.kingdom);
+Place(flank, 74.88f, 72.5f);
+ConstructedAbilityService.NotifyActorChanged(flank);
+if (recordView == "worldfall") await WaitForWorldfallDraw();
+var type = WorldfallType();
+var mod = type.GetProperty("Instance", F).GetValue(null);
+var god = type.GetProperty("GodShown", F);
+var firstPerson = type.GetProperty("IsFirstPerson", F);
+var gpu = type.GetField("_gpuShown", F);
+var lastDraw = typeof(AbilityCast).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer")
+    .GetProperty("LastDrawCount", F);
+var samples = new List<object>();
+float next = 0f;
+bool stable = true, drew = recordView == "native", frost = false, closed = false, bloomed = false, fractured = false, settled = false, hitFlank = false;
+try
+{
+    var cast = await Cast(0f, 0f);
+    flank.GetExtend().SetPowerLevel(0);
+    float duration = definition.Lifetime + .35f;
+    var times = await Film(duration, () =>
+    {
+        stable &= !(bool)firstPerson.GetValue(mod) && (bool)god.GetValue(mod) == (recordView == "worldfall") &&
+            (recordView != "worldfall" || (bool)gpu.GetValue(mod));
+        if (cast.Age < next) return;
+        next = cast.Age + .07f;
+        var flowers = Flower(cast);
+        bool surface = views.Any(view => view.Layer != null);
+        frost |= surface;
+        bool solid = flowers.Length == 1 && cast.Matter(petals).State == "solid";
+        closed |= solid && Frozen();
+        bloomed |= closed && !solid && flowers.Length == 1 && cast.Age > 2.55f;
+        int pieces = flowers.Count(view => view.Resource.Description.Id.StartsWith("frost_flower:", StringComparison.Ordinal));
+        fractured |= pieces == 16 && Enumerable.Range(5, 16).Any(i => cast.Velocity(i).sqrMagnitude > .5f);
+        settled |= pieces > 0 && Enumerable.Range(5, 16).All(i => cast.Velocity(i).sqrMagnitude < .001f);
+        hitFlank |= contacts.Any(hit => hit.TargetId == flank.id && hit.Node > petals && hit.TargetHealthAfter < hit.TargetHealthBefore);
+        drew |= flowers.Length > 0 && (int)lastDraw.GetValue(null) > 0;
+        samples.Add(new { age = cast.Age, surface, solid, ice = flowers.Length, pieces, frozen = Frozen(), hitFlank });
+    });
+    File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(new { samples, duration, times }, Formatting.Indented));
+    Check(stable && drew && frost && closed && bloomed && fractured && settled && hitFlank && !Frozen() && Live() == null && endings.Count == 1,
+        "常速同一施放确实经过薄霜、闭合冻结、盛放、碎片命中、落稳和清场",
+        new { stable, drew, frost, closed, bloomed, fractured, settled, hitFlank, frames = times.Count });
+    return new { passed = true, times, duration, previewFrame = Math.Max(0, times.FindIndex(t => t >= 2.93)),
+        view = recordView, scene = "construction", resource = "wakan", paid = definition.Cost, checks };
+}
+finally
+{
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

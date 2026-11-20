@@ -100,22 +100,34 @@ export function makeFrostFlower() {
     };
     controls.push({Id:id,Position:pivot.toArray(),Rotation:[0,0,0,1]});
     directions.push({out,across});
-    const geometry=new T.ExtrudeGeometry(new T.Shape(outline.map(([x,z])=>new T.Vector2(x,z))),
-      {depth:1,bevelEnabled:false,steps:1,curveSegments:1});
-    const vertices=geometry.getAttribute('position');
-    for(let j=0;j<vertices.count;j++)vertices.setXYZ(j,...point(vertices.getX(j),vertices.getY(j),vertices.getZ(j)).toArray());
-    surfaceData(geometry,p=>.59-.32*T.MathUtils.smoothstep(p.z,1.6,top),
-      p=>.62*(1-T.MathUtils.smoothstep(p.z,baseHeight,.7))+.13*T.MathUtils.smoothstep(p.z,1.5,top));
-    geometry.userData.smoothSeams=false;
-    formation(geometry,p=>.12+.80*T.MathUtils.smoothstep(p.z,baseHeight,top),p=>{
-      const foot=p.clone(); foot.z=baseHeight; return foot;
+    // 裂缝共用同一条切边：完整时严丝合缝，脱落后是真正封闭的两块冰。
+    const cut=(x,z)=>z-1.59-.18*x*(i%2===0?1:-1);
+    const section=side=>outline.flatMap((a,j)=>{
+      const b=outline[(j+1)%outline.length], lo=side*cut(...a), hi=side*cut(...b);
+      const vertices=lo>=0?[new T.Vector2(...a)]:[];
+      if ((lo>=0)!==(hi>=0)) vertices.push(new T.Vector2(...a).lerp(new T.Vector2(...b),lo/(lo-hi)));
+      return vertices;
     });
-    parts.push(part(id,skin(geometry,()=>[[i,1]]),'ice',pivot.toArray()));
-    anchors.push({Id:`petal_${i}`,Part:i,Position:point(lean,top).toArray(),Direction:[0,0,1],Control:id});
+    const body=parts.length, tip=`tip_${i}`;
+    for(const [name,side,centre] of [[id,-1,point(0,.71)],[tip,1,point(lean,1.96)]]) {
+      const geometry=new T.ExtrudeGeometry(new T.Shape(section(side)),
+        {depth:1,bevelEnabled:false,steps:1,curveSegments:1});
+      const vertices=geometry.getAttribute('position');
+      for(let j=0;j<vertices.count;j++)vertices.setXYZ(j,...point(vertices.getX(j),vertices.getY(j),vertices.getZ(j)).toArray());
+      surfaceData(geometry,p=>.59-.32*T.MathUtils.smoothstep(p.z,1.6,top),
+        p=>.62*(1-T.MathUtils.smoothstep(p.z,baseHeight,.7))+.13*T.MathUtils.smoothstep(p.z,1.5,top));
+      geometry.userData.smoothSeams=false;
+      formation(geometry,p=>.12+.80*T.MathUtils.smoothstep(p.z,baseHeight,top),p=>{
+        const foot=p.clone(); foot.z=baseHeight; return foot;
+      });
+      parts.push(part(name,skin(geometry,()=>[[i,1]]),'ice',centre.toArray()));
+    }
+    anchors.push({Id:id,Part:body+1,Position:point(lean,top).toArray(),Direction:[0,0,1],Control:id});
+    connections.push([id,tip,point(0,1.59).toArray()]);
     for(const [row,z] of rows.entries()) {
       // 同一高度的胶囊沿真实冰瓣腰部取样，厚度留在冰体之内；两个邻瓣在接合后才连通。
       const w=ringWidth(z)-.033;
-      contacts.push({Id:`${id}_wall_${row}`,Part:i,A:point(-w,z).toArray(),B:point(w,z).toArray(),
+      contacts.push({Id:`${id}_wall_${row}`,Part:body,A:point(-w,z).toArray(),B:point(w,z).toArray(),
         Radius:.24+(row===1?.016:0),AControl:id,BControl:id,BuildRange:[.24+row*.12,.46+row*.13],BuildAlong:false});
     }
     if(i>0)connections.push([`petal_${i-1}`,id,point(-ringWidth(.42),.42).toArray()]);
@@ -130,8 +142,21 @@ export function makeFrostFlower() {
     const rotation=new T.Quaternion().setFromAxisAngle(across,(.59+.05*Math.sin(i))*opened);
     return {position:position.toArray(),rotation:rotation.toArray()};
   },[{Id:'lifted',At:.24},{Id:'closed',At:duration}]),p=>T.MathUtils.smoothstep(p,.025,.83));
-  write('frost_flower',parts,anchors,contacts,controls,[close],false,
+  const bloomDuration=.58;
+  const bloom=motion('bloom',bloomDuration,false,controls,35,(i,p,control)=>{
+    const {out,across}=directions[i];
+    const delay=(i%2)*.09+.025*(i%3);
+    const t=T.MathUtils.smoothstep(p,delay,.82+delay);
+    const windup=Math.sin(Math.PI*T.MathUtils.clamp(p/.22,0,1))*(1-t);
+    const position=new T.Vector3().fromArray(control.Position).addScaledVector(out,
+      t*(.48+.12*Math.cos(i*2.5))-.09*windup);
+    position.z+=t*(.63+.095*Math.sin(i*1.8));
+    const rotation=new T.Quaternion().setFromAxisAngle(across,t*(1.09+.08*Math.sin(i*2.4))-.10*windup);
+    return {position:position.toArray(),rotation:rotation.toArray()};
+  },[{Id:'bloom_open',At:.48},{Id:'bloom_edge',At:bloomDuration}]);
+  write('frost_flower',parts,anchors,contacts,controls,[close,bloom],false,
     {Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
-    structure('articulated','forms_ice_shell.mjs','makeFrostFlower',{count,radius,duration,rows},
-      Object.fromEntries(parts.map(p=>[p.Id,['ice.shell','flower.petal','barrier.face','fracture.piece']])),connections));
+    structure('articulated','forms_ice_shell.mjs','makeFrostFlower',{count,radius,duration,bloomDuration,rows},
+      Object.fromEntries(parts.map(p=>[p.Id,['ice.shell','flower.petal','fracture.piece',
+        p.Id.startsWith('tip_')?'flower.tip':'barrier.face']])),connections));
 }

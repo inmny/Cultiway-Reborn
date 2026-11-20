@@ -52,6 +52,7 @@ public static partial class AbilityCompiler
         for (int part = 0; part < fracture.Pieces.Length; part++)
         {
             fracture.Pieces[part] = output.Count;
+            bool active = fracture.Active[part];
             output.Add(new CompiledForm
             {
                 Path = source.Path + "/$piece/" + source.Resource.Description.Parts[part].Id,
@@ -61,9 +62,11 @@ public static partial class AbilityCompiler
                 Hold = new CompiledConstructionHold(null, lifetime, source.Path + "/碎片维持"),
                 Surface = source.Surface, Matter = source.Matter, FollowMatter = source.FollowMatter,
                 Dye = source.Dye, MediumChannel = source.MediumChannel,
-                ContactKey = source.ContactKey, ContactPolicy = source.ContactPolicy, Impact = source.Impact,
-                ContactRole = fracture.Active[part] ? source.ContactRole : ConstructionContactRole.Decoration,
-                Strength = fracture.Active[part] ? source.Strength / fracture.ActiveCount : 0f,
+                ContactKey = source.ContactKey, ContactPolicy = source.ContactPolicy,
+                Impact = active && fracture.Impact != null ? fracture.Impact : source.Impact,
+                ContactRole = !active ? ConstructionContactRole.Decoration :
+                    fracture.Impact == null ? source.ContactRole : ConstructionContactRole.Attack,
+                Strength = active ? source.Strength / fracture.ActiveCount : 0f,
                 OnContact = source.OnContact, Interception = source.Interception,
                 ReflectionLimit = source.ReflectionLimit,
                 SourceLoss = fracture.SourceLoss ?? source.SourceLoss,
