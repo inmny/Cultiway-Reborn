@@ -1317,7 +1317,8 @@ public sealed partial class AbilityCast
 
     /// <summary>实际人物接触资格与防御角色分别判断。</summary>
     /// <param name="node">展开部位，负一为身体。</param>
-    internal bool AffectsActors(int node) => node < 0 ? !Plan.Body.Guard.Enabled : Plan.Nodes[node].AffectsActors;
+    internal bool AffectsActors(int node) => node < 0 ? !Plan.Body.Guard.Enabled :
+        Plan.Nodes[node].AffectsActors && (Plan.Nodes[node].SupportGrip == null || HasGripSupport(node));
 
     /// <summary>按明确规则取得伤害强度，不改变实际交锋容量。</summary>
     /// <param name="node">生成部位。</param>
@@ -1798,6 +1799,9 @@ public sealed partial class AbilityCast
 
         /// <summary>尺寸及内部动作分别停止，不影响独立运动的恢复。</summary>
         internal bool GrowthStopped, MotionStopped;
+
+        /// <summary>本部位在实际地块接触之后保持姿态。</summary>
+        internal bool GroundSupported;
 
         /// <summary>条件成形当前倍率及前一时点倍率。</summary>
         internal float GrowthValue, PreviousGrowth;

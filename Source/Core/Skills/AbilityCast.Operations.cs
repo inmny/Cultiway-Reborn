@@ -145,6 +145,7 @@ public sealed partial class AbilityCast
     /// <param name="at">真实开始的世界时点。</param>
     private void StartFlight(ref NodeState state, CompiledFlight flight, float at)
     {
+        state.GroundSupported = false;
         state.Flight = flight; state.FlightStartedAt = at; state.Flying = true; state.MovementStopped = false;
         state.FlightArrived = state.FlightEnded = false;
         state.SteeringProgress = 0d; state.TransferCount = 0;

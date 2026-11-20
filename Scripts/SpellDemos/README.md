@@ -2324,3 +2324,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 森罗倒生（9.31）
 
 在已启动的独立游戏中运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_hanging_tree.py --section growth --view worldfall`。使用[森罗倒生构造](../../Doc/技能系统全面重构/构造输入/森罗倒生.json)，观察树冠先落定、主根和侧根各自生长，对照实际根尖在高低地面先后钉住、保持原位并清场。`--section short --view native` 只检查缩短侧根后确实够不到地面，另两条根与自然收尾照常。`trace.json` 保留实际接触，`growth` 另保存两张所选视角的截图。
+
+抓持阶段用 `--section grip --view worldfall` 检查两侧根枝先接地再实际抓持、推挤、扣血及正常结束复放。`--section cut`、`escape`、`source-loss`、`ungrounded` 各用同一场地核对断根、被外力拉开、来源死亡及短根不伤人；这些入口可用 `--view native`。`grips.json` 记录真实几何、接触、控制和解除时点。录像在整项交付时集中录制。

@@ -778,6 +778,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         {
             ReleaseActorTransferHolds(running);
             ReleaseSpatialViews(running);
+            ReleaseSupportGrips(running, "WorldChanged");
             ReleaseBodyConnection(running, "WorldChanged", fade: false, time: running.LastWorldTime);
             running.BodyLease?.Dispose();
             running.Carrier?.Dispose();
@@ -810,6 +811,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     private static void Finish(int index, RunningCast running)
     {
         ReleaseActorTransferHolds(running);
+        ReleaseSupportGrips(running, "Finished");
         ReleaseSpatialViews(running);
         if (running.Cast.Plan.SoulPact != null && soulPacts.TryGetValue(running.TargetId, out var pact) && pact.Cast == running)
             soulPacts.Remove(running.TargetId);
@@ -844,6 +846,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 running.SourceInstance != accepted.SourceInstance || running.Cast.Plan.Id != accepted.Cast.Plan.Id) continue;
             if (++count <= limit) continue;
             running.Replaced = true;
+            ReleaseSupportGrips(running, "Replaced");
             ReleaseActorTransferHolds(running);
             running.Inventory?.Dispose();
             running.Cast.Cancel();
@@ -1011,6 +1014,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>已确认的双方连接或解除中的手部归还。</summary>
         internal BodyConnection Connection;
+
+        /// <summary>独立部位取得的实际支撑抓持；每个分支本次只取得一次。</summary>
+        internal List<SupportedGrip> SupportGrips;
+        internal HashSet<int> UsedGripBranches;
 
         /// <summary>另一件真实兵器对本动作的约束；每步直接读取，不遍历全部施放。</summary>
         internal BodyConnection WeaponConstraint;

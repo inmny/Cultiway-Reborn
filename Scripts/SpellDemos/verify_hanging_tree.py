@@ -12,7 +12,7 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('growth', 'short'), default='growth')
+    parser.add_argument('--section', choices=('growth', 'short', 'grip', 'cut', 'escape', 'source-loss', 'ungrounded'), default='growth')
     parser.add_argument('--view', choices=('native', 'worldfall'), default='worldfall')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
@@ -41,6 +41,7 @@ def main():
     script = folder / 'input.script'
     script.write_text('using Cultiway.Const;\n' + helpers + f'\nconst string recordView = {json.dumps(args.view)};\n' +
                       f'const string section = {json.dumps(args.section)};\n' + views +
+                      (scripts / 'verify_hanging_tree_grip.script').read_text() +
                       (scripts / 'verify_hanging_tree.script').read_text())
     try:
         result = baseline.call('run', str(script), '145000')

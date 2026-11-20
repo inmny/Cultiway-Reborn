@@ -1,6 +1,8 @@
 Config.paused = true;
 var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
-if (section == "short")
+bool gripping = section != "growth" && section != "short";
+if (!gripping) foreach (var stemNode in definition.Root.Children) stemNode.Children = Array.Empty<ConstructionNode>();
+if (section is "short" or "ungrounded")
 {
     definition.Id += ".Short";
     definition.Root.Children[2].Scale = .69f;
@@ -8,6 +10,7 @@ if (section == "short")
 var source = Make(64.5f);
 var target = Make(73.5f, "wolf");
 var owner = source.GetExtend();
+Actor flank = gripping ? Make(75f, "wolf") : null;
 var landings = new List<ConstructedWorldContact>();
 var shapes = new List<AbilityCapsule>();
 var forms = new List<FormVisualInstance>();
@@ -40,7 +43,7 @@ try
     owner.GetCultisys<Xian>().level = 2;
     owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
     Ready(source);
-    if (section == "growth") await SetCamera(12.5f);
+    if (section is "growth" or "grip") await SetCamera(12.5f);
     for (int x = 63; x <= 84; x++)
     for (int y = 66; y <= 79; y++)
     {
@@ -50,6 +53,20 @@ try
     }
     await Advance(.20f);
     Place(source, 64.5f, 72.5f); Place(target, 73.5f, 72.5f);
+    if (gripping)
+    {
+        var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
+        var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.HangingTree.Quiet") ??
+            Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.HangingTree.Quiet")
+                .SetStats(quietStats).SetDuration(10000).Build();
+        foreach (Actor wolf in new[] { target, flank })
+        {
+            CombatStatusEffects.RemoveStatus(wolf, hold);
+            CombatStatusEffects.ApplyStatus(wolf, quiet, 10000, wolf);
+            wolf.updateStats();
+            wolf.addAggro(source); source.addAggro(wolf);
+        }
+    }
     float health = target.data.health;
     float before = source.stats[BaseStatses.MaxWakan.id] * .82f;
     owner.GetCultisys<Xian>().wakan = before;
@@ -58,6 +75,7 @@ try
     var cast = Live();
     Check(cast != null && Math.Abs(before - owner.GetCultisys<Xian>().wakan - definition.Cost) < .003f,
         "正式施放产生倒悬树，只支付一次真元");
+    if (gripping) return await VerifyGrip(definition, cast, source, target, flank, landings, Live);
     async Task At(float age) { if (cast.Age < age) await Advance(age - cast.Age); }
     if (section == "growth")
     {

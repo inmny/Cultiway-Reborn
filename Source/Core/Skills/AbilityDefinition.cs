@@ -207,6 +207,10 @@ public sealed class ConstructionNode
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionImpact Impact;
 
+    /// <summary>依靠实际父体的地面支撑，以本部位接触抓持和推挤人物。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionSupportGrip SupportGrip;
+
     /// <summary>围绕本部位真实中心的持续水平范围运动，不改变接触面、伤害或屏障容量。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionRadialMotion RadialMotion;

@@ -16,6 +16,7 @@ public sealed partial class AbilityCast
             {
                 ref NodeState state = ref cast.nodes[action.Node];
                 state.Ray = parameters; state.RayTarget = state.HasTarget ? state.Target : cast.samplingTarget;
+                state.GroundSupported = false;
                 state.RayInitialized = false; state.RayClipped = false; state.MovementStopped = false;
                 cast.SampleRay(action.Node, 0f, cast.samplingTarget);
                 foreach (int child in cast.Plan.Nodes[action.Node].Children) cast.QueueBirth(child);

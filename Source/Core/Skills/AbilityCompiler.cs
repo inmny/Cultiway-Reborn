@@ -500,6 +500,9 @@ internal sealed class CompiledForm
     /// <summary>独立的有限范围运动，空值不分配相关运行记录。</summary>
     internal CompiledConstructionRadialMotion RadialMotion;
 
+    /// <summary>可选的父体支撑抓持；仅当前实际接触能取得。</summary>
+    internal CompiledSupportGrip SupportGrip;
+
     /// <summary>实际接触后的过程变化。</summary>
     internal ConstructionContactResponse OnContact;
 
@@ -887,6 +890,12 @@ public static partial class AbilityCompiler
                 Fail(path + "/WorldContactShape", "需选择非装饰部位的实际作用形状");
         }
 
+        var grip = node.SupportGrip == null ? null : new CompiledSupportGrip(node.SupportGrip, path + "/SupportGrip");
+        if (grip != null && (parent < 0 || node.ContactRole != ConstructionContactRole.Attack ||
+            resource.Contacts.Length == 0 || node.Activation?.Placement != ConstructionEventPlacement.Attached ||
+            node.Activation.Trigger != ConstructionChangeTrigger.WorldContact || node.Activation.Source != ".." ||
+            node.Contact?.Mode != ConstructionContactMode.Interval || node.OnContact != ConstructionContactResponse.Continue))
+            Fail(path + "/SupportGrip", "抓持需要附着在实际父体，在其接地后开始，并使用可再次接触的穿过型攻击");
         var compiled = new CompiledForm
         {
             Path = path,
@@ -917,6 +926,7 @@ public static partial class AbilityCompiler
             ContactPolicy = node.Contact == null ? null : new CompiledContactPolicy(node.Contact, path),
             Impact = node.Impact == null ? null : new CompiledConstructionImpact(node.Impact, path + "/Impact"),
             RadialMotion = node.RadialMotion == null ? null : new CompiledConstructionRadialMotion(node.RadialMotion, path + "/RadialMotion"),
+            SupportGrip = grip,
             Correspondence = node.Correspondence == null ? null : new CompiledCorrespondence(node.Correspondence, lifetime, path + "/Correspondence"),
             OnContact = node.OnContact,
             ContactRole = node.ContactRole,

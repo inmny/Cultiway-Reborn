@@ -110,8 +110,41 @@ function makeRoot(id, points, radius, twigs) {
     structure('branch', 'forms_hanging_tree.mjs', 'makeHangingTree', {path:points,radius,twigs:twigs.map(([at,point])=>[at,...point])}, role, links));
 }
 
+/** 两股从钉地端弯出，合拢时木体和包络由同一组控制点带动。 */
+function makeGrip() {
+  const id = 'hanging_grip', parts = [], controls = [], contacts = [], links = [], roles = {}, branches = [];
+  const taper = t => Math.pow(Math.max(0, 1 - t), .57);
+  for (const side of [-1, 1]) {
+    const name = `claw_${side < 0 ? 'inner' : 'outer'}`;
+    const points = [[0,0,.14],[.51,side*.68,.31],[1.45,side*1.16,.65],[2.67,side*.87,.71],[3.29,side*.34,.62]];
+    const path = pathOf(points), slot = parts.length;
+    branches.push(points);
+    controls.push({Id:name, Parent:null, Position:[0,0,0], Rotation:[0,0,0,1]});
+    parts.push(part(name, bark(path, .39, taper, side + 1.8, 40, 15), 'wood', points[0], name));
+    roles[name] = ['branch.lateral'];
+    const offshoot = path.getPointAt(.51);
+    const twigName = `${name}_offshoot`;
+    const twig = [offshoot.toArray(), offshoot.clone().add(v([.40, side*.20, .14])).toArray(),
+      offshoot.clone().add(v([.81, side*.06, .10])).toArray()];
+    parts.push(part(twigName, bark(pathOf(twig), .11, taper, side + 1, 18, 10), 'wood', twig[0], name));
+    roles[twigName] = ['branch.lateral']; links.push([name, twigName, twig[0], false]);
+    const spans = [.07,.24,.43,.63,.79,.91,.98];
+    for (let i = 0; i < spans.length - 1; i++) {
+      contacts.push({Id:`${name}_${i}`,Part:slot,A:path.getPointAt(spans[i]).toArray(),B:path.getPointAt(spans[i+1]).toArray(),
+        Radius:.37*taper(spans[i+1]),AControl:name,BControl:name});
+    }
+  }
+  const draw = motion('close', 1.15, false, controls, 34, (i, t) => {
+    const phase = t*t*(3-2*t), side = i === 0 ? -1 : 1;
+    return {rotation: new T.Quaternion().setFromEuler(new T.Euler(0, .09 * (1-phase), side*(.32 - .46*phase))).toArray()};
+  }, [{Id:'closed',At:1.15}]);
+  write(id, parts, [], contacts, controls, [draw], false, basis,
+    structure('branch', 'forms_hanging_tree.mjs', 'makeHangingTree', {branches}, roles, links));
+}
+
 export function makeHangingTree() {
   makeCrown();
+  makeGrip();
   makeRoot('hanging_root', [[0,0,0],[.20,.16,-1.55],[.55,-.20,-3.33],[-.05,-.41,-5.45],[.21,-.23,-7.68]], .67,
     [[.37,[.52,-.66,-.99]],[.53,[-.65,.33,-1.04]],[.72,[.49,.40,-.86]]]);
   makeRoot('hanging_lateral_root', [[0,0,0],[-.64,.26,-1.21],[-1.69,.40,-2.88],[-2.77,.25,-4.96],[-3.20,.51,-7.34]], .46,

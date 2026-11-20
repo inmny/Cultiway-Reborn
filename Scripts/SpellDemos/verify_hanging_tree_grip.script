@@ -1,0 +1,165 @@
+
+async Task<object> VerifyGrip(AbilityDefinition definition, AbilityCast cast, Actor source, Actor west, Actor east,
+    List<ConstructedWorldContact> landings, Func<AbilityCast> live)
+{
+    var links = new List<ConstructedSupportGrip>();
+    var collisions = new List<ConstructedClash>();
+    var samples = new List<object>();
+    var shapes = new List<AbilityCapsule>();
+    var planNodes = (Array)cast.Plan.GetType().GetProperty("Nodes", F).GetValue(cast.Plan);
+    int Node(string path) => Enumerable.Range(0, planNodes.Length).Single(i =>
+        ((string)Field(planNodes.GetValue(i), "DeclarationPath")).EndsWith("/" + path, StringComparison.Ordinal));
+    int westRoot = Node("west"), eastRoot = Node("east"), westGrip = Node("west/gather"), eastGrip = Node("east/gather");
+    bool Held(Actor actor) => BodyControlState.HasControl(actor.id, BodyOccupancy.Stance);
+    void Link(ConstructedSupportGrip fact) => links.Add(fact);
+    void Clash(ConstructedClash fact) => collisions.Add(fact);
+    void Sample()
+    {
+        shapes.Clear(); cast.AppendContacts(shapes);
+        samples.Add(new { cast.Age, west = west.current_position.ToString("F3"), east = east.current_position.ToString("F3"),
+            westHeld = Held(west), eastHeld = Held(east), westHp = west.data.health, eastHp = east.data.health,
+            shapes = shapes.Where(p => p.Node == westGrip || p.Node == eastGrip)
+                .Select(p => new { p.Node, a = p.A.ToString("F3"), b = p.B.ToString("F3"), p.Radius }).ToArray() });
+        File.WriteAllText(Path.Combine(folder, "grips.json"), JsonConvert.SerializeObject(new { samples, links, landings,
+            hits = contacts.Select(c => new { c.Node, c.TargetId, c.Age, c.Damage.HealthLost, at = c.Position.ToString("F3") }),
+            clashes = collisions.Select(c => new { c.LeftCast, c.LeftNode, c.RightCast, c.RightNode, c.LeftPresent, c.RightPresent }) }, Formatting.Indented));
+    }
+    async Task At(float age)
+    {
+        if (cast.Age < age)
+        {
+            double until = World.world.getCurWorldTime() + (age - cast.Age);
+            Config.paused = false;
+            try
+            {
+                int frames = 0;
+                double confirmed = 0;
+                await Game.WaitUntil(() =>
+                {
+                    double world = World.world.getCurWorldTime();
+                    confirmed = (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null);
+                    if (frames++ % 12 == 0)
+                        File.AppendAllText(Path.Combine(folder, "time.jsonl"), JsonConvert.SerializeObject(new {
+                            age, until, world, confirmed, cast.Age, west = cast.NodeAge(westGrip), east = cast.NodeAge(eastGrip),
+                            landings = landings.Count, hits = contacts.Count, links = links.Count, boundary = Boundary() }) + "\n");
+                    return world >= until && confirmed >= until;
+                }, 900);
+            }
+            finally { Config.paused = true; }
+            await Game.WaitUntil(Boundary, 900);
+        }
+        Sample();
+    }
+    void Move(Actor actor, float x, float y)
+    {
+        Place(actor, x, y);
+        ConstructedAbilityService.NotifyActorChanged(actor);
+    }
+    async Task CutWest()
+    {
+        shapes.Clear(); cast.AppendContacts(shapes);
+        var stem = shapes.Where(p => p.Node == westRoot).OrderByDescending(p => p.A.z).Skip(2).First();
+        Vector3 point = Vector3.Lerp(stem.A, stem.B, .65f);
+        Actor cutter = Make(68f, "wolf");
+        var mana = new BaseStats(); mana["mana"] = 100;
+        var stock = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.HangingTree.Mana") ??
+            Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.HangingTree.Mana")
+                .SetStats(mana).SetDuration(10000).Build();
+        CombatStatusEffects.ApplyStatus(cutter, stock, 10000, cutter);
+        cutter.updateStats(); Ready(cutter);
+        Move(cutter, point.x - 1.2f, point.y - 1.3f); cutter.setMana(70);
+        var knife = new AbilityDefinition {
+            Id = "test.hanging-tree.cutter", Name = "断根来刃", Cost = 2f, Resource = "mana", Power = 100f,
+            Lifetime = .45f, TargetRange = 14f, Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point },
+            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, FaceTarget = false },
+            Root = new ConstructionNode { Id = "cut", Form = "entropy_wedge", Matter = "iron", Scale = .22f, Volume = .3f }
+        };
+        var ground = (AbilityHeightField)Field(cast, "terrain");
+        Vector3 aim = point;
+        aim.z -= ground.Sample(point.x, point.y);
+        await Fire(knife, cutter, source, aim: aim);
+        cutter.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+        await Advance(.12f); Sample();
+    }
+
+    ConstructedAbilityService.SupportGripChanged += Link;
+    ConstructedAbilityService.ClashConfirmed += Clash;
+    try
+    {
+        // 两位目标分别站在实机记录中有厚度的前半段；根尖间的空隙仍然不会命中。
+        Move(west, 70.85f, 74.22f);
+        Move(east, 76.44f, 70.59f);
+        Vector2 westStart = west.current_position, eastStart = east.current_position;
+        int westHp = west.data.health, eastHp = east.data.health;
+        await At(1.36f);
+        Check(links.Count == 0 && contacts.Count == 0 && !Held(west) && !Held(east),
+            "根还未取得支撑时，两侧人物仍未被抓持或扣血");
+        for (float age = 2.45f; age <= 3.42f && !(Held(west) && (section == "ungrounded" || Held(east))); age += .12f)
+            await At(age);
+        Check(Held(west) && (section == "ungrounded" ? !Held(east) : Held(east)),
+            "仅实际接地后扫到人物的根枝取得独立抓持", links.ToArray());
+        var acquired = links.Where(link => link.ReleaseReason == null).ToArray();
+        Check(acquired.All(link => landings.Any(touch => touch.Node == link.Support && touch.WorldTime < link.WorldTime) &&
+                 contacts.Any(hit => hit.Node == link.Node && hit.TargetId == link.TargetId && hit.DamageAttempted)),
+            "每条实际抓持都晚于各自根尖接地，也对应一次真实人物接触");
+        if (section == "grip")
+        {
+            await Shot("gathered-" + recordView);
+            await At(Mathf.Min(4.1f, cast.Age + .22f));
+            Check(Vector2.Distance(westStart, west.current_position) > .04f && west.data.health < westHp &&
+                  Vector2.Distance(eastStart, east.current_position) > .04f && east.data.health < eastHp,
+                "实际根形推挤两边人物，实际接触造成扣血");
+        }
+        else if (section == "cut")
+        {
+            await CutWest();
+            Check(cast.RemainingForce(westRoot) <= 0f && cast.RemainingForce(eastRoot) > 0f &&
+                  links.Any(l => l.TargetId == west.id && l.Support == westRoot && l.ReleaseReason == "SupportLost") &&
+                  !Held(west) && Held(east) && collisions.Count > 0,
+                "实际敌刃断开一条承力根，仅解除它维系的抓持");
+        }
+        else if (section == "escape")
+        {
+            Vector2 old = west.current_position;
+            // 原版水平受力也需要非零初速；斜向外甩，让人物确实脱离抓点。
+            Check(west.GetExtend().TryGetForce(source, -10f, 5f, .7f), "实际外力受理并拉离根枝");
+            await Advance(.14f); Sample();
+            float distance = Vector2.Distance(old, west.current_position);
+            Check(links.Any(l => l.TargetId == west.id && l.ReleaseReason == "Escaped") && !Held(west) && Held(east) &&
+                  distance > .08f, "脱离实际抓点后解除本条抓持，另一条仍在", new { distance, west.under_forces });
+        }
+        else if (section == "source-loss")
+        {
+            source.dieSimpleNone();
+            await Advance(.12f); Sample();
+            Check(!Held(west) && !Held(east) && links.Count(l => l.ReleaseReason == "SourceLost") == 2,
+                "真实来源死亡，所有相关抓持同时归还");
+        }
+        else
+        {
+            Check(!landings.Any(l => l.Node == eastRoot) && cast.NodeAge(eastGrip) < 0f && east.data.health == eastHp &&
+                  !contacts.Any(hit => hit.TargetId == east.id), "短根没有接地，另一侧人物既未受控也未受伤");
+        }
+        if (live() != null) await At(definition.Lifetime + .2f);
+        Check(!Held(west) && !Held(east) && live() == null, "到期后不留旧控制或形体");
+        if (section == "grip")
+        {
+            var lease = BodyControlState.TryAcquire(west.id, BodyOccupancy.Stance);
+            Check(lease != null, "自然解除后原人物的移动控制可再次使用");
+            lease.Dispose();
+            Move(west, 73.5f, 72.5f);
+            var xian = source.GetExtend().GetCultisys<Xian>();
+            xian.wakan = source.stats[BaseStatses.MaxWakan.id] * .82f;
+            await Fire(definition, source, west);
+            source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+            Check(live() != null && live() != cast, "同一人物可以再次正式施放");
+            await Advance(definition.Lifetime + .2f);
+        }
+        return new { passed = true, checks, links };
+    }
+    finally
+    {
+        ConstructedAbilityService.SupportGripChanged -= Link;
+        ConstructedAbilityService.ClashConfirmed -= Clash;
+    }
+}

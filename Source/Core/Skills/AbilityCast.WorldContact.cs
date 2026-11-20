@@ -31,8 +31,24 @@ public sealed partial class AbilityCast
         if (WorldContactReadyAt(source, shape) > Age) return false;
         RecordActionContact(source, point, AbilityActionContactKind.World);
         SignalEvent(source, ConstructionChangeTrigger.WorldContact, point);
+        if (source >= 0) nodes[source].GroundSupported = nodes[source].MovementStopped;
         FlushBirths(inputs.Target);
         RecordActionTimeline();
         return true;
     }
+
+    /// <summary>抓持期间仍须保持在原承力部位；仅仅发生过接地不保证支撑仍可用。</summary>
+    /// <param name="node">使用支撑的部位。</param>
+    internal bool HasGripSupport(int node)
+    {
+        int parent = Plan.Nodes[node].Parent;
+        return !cancelled && parent >= 0 && !nodes[node].Free &&
+               nodes[parent].Exists && nodes[parent].GroundSupported && nodes[parent].MovementStopped &&
+               !nodes[parent].Recovering && !nodes[parent].Leaving && nodes[parent].Force > 0f;
+    }
+
+    /// <summary>收势时保留模型也可以结束人物占用。</summary>
+    /// <param name="node">正在使用的实际抓持部位。</param>
+    internal bool GripPartActive(int node) => nodes[node].Exists && nodes[node].Started &&
+        !nodes[node].Recovering && !nodes[node].Leaving && nodes[node].Force > 0f && ProcessIsActive(node, includeEnd: false);
 }
