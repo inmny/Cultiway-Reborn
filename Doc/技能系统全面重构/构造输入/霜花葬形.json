@@ -1,0 +1,35 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.FrostFlowerBurial",
+  "Name": "霜花葬形",
+  "Lifetime": 5,
+  "Cost": 14,
+  "Resource": "wakan",
+  "Cooldown": 3,
+  "Power": 8,
+  "TargetRange": 28,
+  "Use": {"Channels": "World", "Target": "Point"},
+  "Binding": {"Anchor": "Target", "Follow": false},
+  "Root": {
+    "Id": "frost",
+    "Form": "fracture_slab",
+    "Matter": "ice",
+    "Surface": "ground_frost",
+    "Strength": 0.45,
+    "Impact": {"DamageScale": 0},
+    "Operations": [{
+      "Kind": "Propagate",
+      "Propagation": {
+        "Range": 7.5,
+        "Speed": 7,
+        "Seconds": 2.1,
+        "Height": 0.034,
+        "GroundReach": 0.2,
+        "Attenuation": 0.04,
+        "MaximumStep": 0.45,
+        "CellCost": 0.001,
+        "MaximumCells": 180
+      }
+    }]
+  }
+}

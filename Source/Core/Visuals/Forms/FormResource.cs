@@ -808,6 +808,7 @@ internal sealed partial class FormResourceGeneration
             "foam" => (5f, new Color(.84f, .96f, .97f, .93f), .95f),
             "water" => (3f, new Color(.06f, .38f, .57f, .84f), .14f),
             "ice" => (4f, new Color(.48f, .79f, .88f, .73f), .16f),
+            "ground_frost" => (29f, new Color(.81f, .92f, .98f, .94f), .91f),
             _ => throw new InvalidDataException("形体未提供显示表面：" + surface)
         };
         EnsureBaseAssets();
