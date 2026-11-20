@@ -1,0 +1,34 @@
+    // 录像使用前一步已经确认的实际位置，碰撞导致取景松开时重新跟随同一人。
+    double? firstFrameAt = null;
+    Func<string, Task> captureFrame = async ability =>
+    {
+        if (view == "worldfall" && !ReferenceEquals(Field(mod, "_godLock"), source))
+        {
+            MoveCamera.clearFocusUnitOnly();
+            Set("_godCamSet", false);
+            Set("_godLock", source);
+            Set("_godFollow", source.current_position);
+            Set("_godFollowVel", Vector2.zero);
+            Set("_godClose", 1.6f);
+            Set("_godCloseTarget", 1.6f);
+            Set("_godPull", 1f);
+            int drawn = (int)Field(mod, "_godGpuApplied");
+            await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= drawn + 2, 1800);
+        }
+        await Game.NextFrame();
+        firstFrameAt ??= World.world.getCurWorldTime();
+        Frame(ability);
+    };
+    Action<string, int, float> saveFilm = (ability, count, cost) =>
+    {
+        string name = selection switch
+        {
+            "retreat" => "斜撤转身 · 换足侧移",
+            "charge" => "沉步撞肩 · 实际命中",
+            "wall" => "沉步撞肩 · 墙前止步",
+            _ => "越坎落步 · 腾起落地"
+        };
+        recordings.Add(new { view, ability, name, rate = 1, first = 0, last = rows.Count - 1,
+            contacts = count, duration = World.world.getCurWorldTime() - firstFrameAt.Value, paid = cost });
+        SaveRecording();
+    };

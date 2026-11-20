@@ -2509,3 +2509,11 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--case archive` 在万法阁改造盾架，保存原人物、实际兵器和两份已学招式。重开独立游戏后，用 `--case cold --archive <新输出目录>` 从正式存档读回并施展改造副本。
 
 `--case film --archive <新输出目录> --view native --move front` 常速录制迎面架挡。用 `--view worldfall` 切换画面，用 `--move overflow` 或 `--move yield` 拍摄破防余力或转肩卸力。每段录像都在实际命中、受力和收势符合预期后输出。
+
+### 步法战技（9.47）
+
+通过 `dev.py exec` 运行 `python3 Scripts/SpellDemos/verify_footwork_actions.py --case retreat --archive <防御对练正式档>`。沿用同一对人物，核对后撤、侧移、承重脚和收势方向。改为 `--case charge` 检查真实冲撞和接触收势，改为 `--case wall` 或 `--case vault` 分别检查墙前止步和跨过低坎后落地。
+
+`--case archive` 在原窗口修改抬脚高度和侧移路线，学会副本后保存世界。新进程使用 `--case cold --archive <新输出目录>` 从原版世界档恢复两份招式并施展副本。
+
+`--case interrupt` 用档中的原铁锤打断实际空中的跃落，核对中断发生的高度和后续落地。常速录制时，在四个步法场景任选其一并附 `--view native` 或 `--view worldfall`。录像中对练者收起铁盾，以便看清脚步与肩面。
