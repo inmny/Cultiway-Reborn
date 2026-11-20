@@ -70,9 +70,14 @@ try
         (key: "palm", id: "Cultiway.Body.PalmPush", range: .40f, load: .19f, strike: .36f, miss: false, shapes: 1),
         (key: "punch", id: "Cultiway.Body.StraightPunch", range: .45f, load: .16f, strike: .29f, miss: false, shapes: 4),
         (key: "elbow", id: "Cultiway.Body.FoldedElbow", range: .25f, load: .17f, strike: .35f, miss: false, shapes: 1),
-        (key: "miss", id: "Cultiway.Body.StraightPunch", range: .45f, load: .16f, strike: .29f, miss: true, shapes: 4)
+        (key: "miss", id: "Cultiway.Body.StraightPunch", range: .45f, load: .16f, strike: .29f, miss: true, shapes: 4),
+        (key: "knee", id: "Cultiway.Body.RisingKnee", range: .34f, load: .19f, strike: .43f, miss: false, shapes: 1),
+        (key: "sweep", id: "Cultiway.Body.LowSweep", range: .37f, load: .22f, strike: .45f, miss: false, shapes: 1),
+        (key: "shoulder", id: "Cultiway.Body.ShoulderDrive", range: .30f, load: .18f, strike: .45f, miss: false, shapes: 1),
+        (key: "sweep-miss", id: "Cultiway.Body.LowSweep", range: .37f, load: .22f, strike: .45f, miss: true, shapes: 1)
     };
-    foreach (var test in cases.Where(value => section == "upper" || value.key == section))
+    var selectedCases = section == "upper" ? cases.Take(4) : section == "lower" ? cases.Skip(4) : cases.Where(value => value.key == section);
+    foreach (var test in selectedCases)
     {
         AbilityDefinition definition = ConstructionEditing.Access.Read(test.id);
         Check(definition != null && definition.Root == null && definition.Body != null, "正式目录提供徒手战技 " + test.key);
@@ -80,6 +85,7 @@ try
         Place(target, 64.35f + height * test.range);
         source.attack_timer = 0;
         target.attack_timer = 999;
+        target.setHealth(target.getMaxHealth());
         source.data.stamina = 100;
         int before = target.data.health;
         float paidFrom = source.data.stamina;
@@ -112,9 +118,31 @@ try
         Trace(test.key + "/strike");
         var shapes = new List<AbilityCapsule>();
         binding.GetType().GetMethod("AppendContacts", F).Invoke(binding, new object[] { strike, shapes });
-        Check(shapes.Count == test.shapes && strike.Turn > load.Turn + 10 &&
-              Vector3.Distance(load.LeftFoot, strike.LeftFoot) < .03f && Vector3.Distance(load.RightFoot, strike.RightFoot) < .03f,
+        bool leg = live.Plan.Body.Part.IsLeg;
+        bool stepping = test.key == "shoulder";
+        Check(shapes.Count == test.shapes && Mathf.Abs(strike.Turn - load.Turn) > 10 &&
+              (stepping ? Vector3.Dot(strike.LeftFoot - load.LeftFoot, strike.Forward) > height * .10f :
+                  Vector3.Distance(load.LeftFoot, strike.LeftFoot) < .03f &&
+                  (leg || Vector3.Distance(load.RightFoot, strike.RightFoot) < .03f)),
             test.key + " 转体发力并保持支撑，使用指定部位的实际实体", new { shapes = shapes.Count, load.Turn, strikeTurn = strike.Turn });
+        if (leg)
+        {
+            var strikingLeg = strike.RightLeg.Value;
+            var selectedShape = shapes.Single();
+            bool knee = test.key == "knee";
+            bool sameShape = knee ? selectedShape.A == strikingLeg.Knee && selectedShape.B == strikingLeg.Knee :
+                selectedShape.A == strikingLeg.FootA && selectedShape.B == strikingLeg.FootB;
+            Vector3 side = Vector3.Cross(strike.Forward, Vector3.forward);
+            float rise = strikingLeg.Foot.z - strike.Foot.z;
+            float cross = Vector3.Dot(strikingLeg.Foot - load.RightLeg.Value.Foot, side);
+            Check(sameShape && (knee ? rise > height * .20f : rise < height * .18f && cross < -height * .12f),
+                test.key + " 抬膝或低位横扫使用可见身体部位", new { rise, cross, height, sameShape });
+        }
+        if (test.key == "shoulder") Check(shapes[0].A == strike.EffectorPoint &&
+                strike.EffectorPoint == (strike.OtherArm?.Shoulder ?? strike.Shoulder) &&
+                Vector3.Dot(strike.Foot - load.Foot, strike.Forward) > height * .12f &&
+                Vector3.Dot(strike.CenterOfMass - load.CenterOfMass, strike.Forward) > height * .23f,
+            "落脚后把实际肩点随重心送出，收拢的手不参与碰撞");
         if (test.shapes == 4)
         {
             var hands = FormVisualScene.Instances.Where(row => row.GroundActorId == source.id && row.BodySegment == BodyVisualSegment.RightHand).ToArray();
@@ -140,6 +168,7 @@ try
             test.key + " 有效时段内实际命中扣血，落空不会触发伤害或回弹", hitInfo);
         if (test.key == "palm") Check(hits[0].ForceApplied && Vector3.Dot(hits[0].VelocityChange, strike.Forward) > 0,
             "推掌实际把目标推向前方", hitInfo);
+        if (test.key == "sweep") Check(hits[0].StaggerSeconds > .15f, "扫足实击使目标绊顿", hitInfo);
         Check(after, test.key + " 自然收势归还控制", new { endings = endings.Select(row => row.Fact).ToArray() });
         await Advance(.2f);
     }

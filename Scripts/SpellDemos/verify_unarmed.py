@@ -11,7 +11,8 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('upper', 'palm', 'punch', 'elbow', 'miss', 'hand-edit'), default='upper')
+    parser.add_argument('--section', choices=('upper', 'palm', 'punch', 'elbow', 'miss', 'lower',
+                                              'knee', 'sweep', 'shoulder', 'sweep-miss', 'hand-edit'), default='upper')
     section = parser.parse_args().section
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过 dev.py exec 运行')

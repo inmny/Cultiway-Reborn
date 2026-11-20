@@ -1,0 +1,27 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.RisingKnee",
+  "Name": "托山提膝",
+  "Resource": "stamina",
+  "Cost": 4,
+  "Cooldown": 1.2,
+  "Lifetime": 1.01,
+  "Power": 1.3,
+  "Body": {
+    "Effector": "knee.right",
+    "ReleaseAt": 0.24,
+    "ActiveFrom": 0.32,
+    "ActiveUntil": 0.52,
+    "Contact": {"Mode": "Once"},
+    "Impact": {"Targets": "Hostile", "DamageScale": 1.3, "Force": 1.55, "StaggerSeconds": 0.19},
+    "Keys": [
+      {"Id": "ready", "At": 0, "Foot": [0, 0.10, 0], "Support": {"RightFoot": [0, 0.10, 0]}},
+      {"Id": "load", "At": 0.19, "Foot": [0.035, 0.13, 0.075], "Torso": [-0.045, -0.05, -0.062], "Turn": -12, "Support": {"RightFoot": [0.035, 0.13, 0.075]}},
+      {"At": 0.32, "Foot": [0.10, 0.11, 0.22], "Torso": [0.025, -0.054, -0.037], "Turn": -2, "Support": {"RightFoot": [0.10, 0.11, 0.22]}},
+      {"Id": "raise", "At": 0.43, "Foot": [0.19, 0.085, 0.32], "Torso": [0.105, -0.055, -0.022], "Turn": 14, "Support": {"RightFoot": [0.19, 0.085, 0.32]}},
+      {"At": 0.55, "Foot": [0.15, 0.085, 0.26], "Torso": [0.078, -0.055, -0.038], "Turn": 11, "Support": {"RightFoot": [0.15, 0.085, 0.26]}},
+      {"Id": "lower", "At": 0.79, "Foot": [0.035, 0.12, 0.085], "Torso": [0.015, -0.041, -0.043], "Turn": 4, "Support": {"RightFoot": [0.035, 0.12, 0.085]}},
+      {"Id": "rest", "At": 1.01, "Foot": [0, 0.10, 0], "Support": {"RightFoot": [0, 0.10, 0]}}
+    ]
+  }
+}

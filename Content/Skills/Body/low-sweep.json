@@ -1,0 +1,27 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.LowSweep",
+  "Name": "贴地扫足",
+  "Resource": "stamina",
+  "Cost": 4,
+  "Cooldown": 1.25,
+  "Lifetime": 1.04,
+  "Power": 1.2,
+  "Body": {
+    "Effector": "foot.right",
+    "ReleaseAt": 0.24,
+    "ActiveFrom": 0.31,
+    "ActiveUntil": 0.55,
+    "Contact": {"Mode": "Once"},
+    "Impact": {"Targets": "Hostile", "DamageScale": 0.96, "Force": 2.05, "StaggerSeconds": 0.28},
+    "Keys": [
+      {"Id": "ready", "At": 0, "Foot": [0, 0.10, 0], "Support": {"RightFoot": [0, 0.10, 0]}},
+      {"Id": "load", "At": 0.22, "Foot": [0.035, 0.28, 0.095], "Torso": [-0.038, -0.05, -0.06], "Turn": -23, "Support": {"RightFoot": [0.035, 0.28, 0.095]}},
+      {"At": 0.31, "Foot": [0.21, 0.27, 0.10], "Torso": [0.025, -0.055, -0.085], "Turn": -15, "Support": {"RightFoot": [0.21, 0.27, 0.10]}},
+      {"Id": "cross", "At": 0.45, "Foot": [0.34, 0.065, 0.078], "Torso": [0.055, -0.048, -0.10], "Turn": 18, "Support": {"RightFoot": [0.34, 0.065, 0.078]}},
+      {"At": 0.57, "Foot": [0.21, -0.125, 0.11], "Torso": [0.041, -0.038, -0.075], "Turn": 28, "Support": {"RightFoot": [0.21, -0.125, 0.11]}},
+      {"Id": "drawback", "At": 0.81, "Foot": [0.07, 0.07, 0.15], "Torso": [0.016, -0.039, -0.048], "Turn": 11, "Support": {"RightFoot": [0.07, 0.07, 0.15]}},
+      {"Id": "rest", "At": 1.04, "Foot": [0, 0.10, 0], "Support": {"RightFoot": [0, 0.10, 0]}}
+    ]
+  }
+}
