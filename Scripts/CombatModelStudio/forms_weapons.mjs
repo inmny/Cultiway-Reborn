@@ -81,6 +81,7 @@ export function makeWeaponForms() {
   hammerContacts.push({Id:'shaft',Part:0,A:[0,0,-.65],B:[0,0,1.30],Radius:.06});
   write('warhammer',hammerParts,[{Id:'grip',Part:0,Position:[0,0,-.35],Direction:[0,0,1]},
     {Id:'short',Part:0,Position:[0,0,.65],Direction:[0,0,1]},
+    {Id:'mid',Part:0,Position:[0,0,.125],Direction:[0,0,1]},
     {Id:'face/right',Part:1,Position:[.575,0,1.72],Direction:[1,0,0]},
     {Id:'face/left',Part:1,Position:[-.575,0,1.72],Direction:[-1,0,0]},
     {Id:'face',Part:1,Position:[.575,0,1.72],Direction:[1,0,0]}],hammerContacts,[],[],false,
@@ -89,6 +90,7 @@ export function makeWeaponForms() {
       {handle:['weapon.shaft','weapon.grip'],head:['weapon.hammer.face'],collar:['weapon.socket'],pommel:['weapon.pommel']},
       [['handle','head',[0,0,1.4]],['handle','collar',[0,0,1.35]],['handle','pommel',[0,0,-.6]]]),
     [{Id:'grip',Anchor:'grip',Up:[0,1,0],Diameter:.12,Scale:[.2,.6]},
+      {Id:'mid',Anchor:'mid',Up:[0,1,0],Diameter:.12,Scale:[.2,.6]},
       {Id:'short',Anchor:'short',Up:[0,1,0],Diameter:.12,Scale:[.2,.6]}],[],{Groups:['hammer'],Scale:.42});
 
   const rim=new T.TorusGeometry(1,.045,8,48).scale(.88,1.16,1).translate(0,0,.05);

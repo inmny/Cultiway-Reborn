@@ -2491,3 +2491,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 重兵战技（9.45）
 
 在独立游戏通过 `dev.py exec` 运行 `python3 Scripts/SpellDemos/verify_heavy_weapons.py --case drop --archive <长兵对练档目录>`。取样铁锤、双手握点、脚底和重心，核对真实锤面命中、向下受力、回弹和归还。用 `--case miss` 在蓄势途中将同一目标移出落点，检查空挥和正常收势。
+
+`--case guard` 用既有测试盾验证真实盾面能接住铁锤。用 `--case interrupt` 检查蓄势中换上同款铁锤会解除原动作，原人物随后能持新锤重施。
+
+`--case archive` 在正式万法阁改造托握、器物尺寸与锤面，并写入同一对人物的正式世界档。停掉并重开独立游戏后，用 `--case cold --archive <新输出目录>` 读回改造与原铁锤并重施。
+
+`--case film --archive <新输出目录> --view native --move drop` 录制正式命中。用 `--view worldfall` 切换到 Worldfall，用 `--move miss` 拍摄空挥触地，用 `--move guard` 拍摄盾面接住重锤。每段都从同一个正式世界档开场。

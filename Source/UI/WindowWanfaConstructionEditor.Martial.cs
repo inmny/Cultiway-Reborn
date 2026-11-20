@@ -73,6 +73,7 @@ public sealed partial class WindowWanfaConstructionEditor
         string GripLabel(string grip) => grip switch
         {
             "grip" => T("MartialGripStandard"), "choke" => T("MartialGripChoke"),
+            "short" => T("MartialGripShort"),
             "forward" => T("MartialGripForward"), "mid" => T("MartialGripMiddle"), _ => grip
         };
     }

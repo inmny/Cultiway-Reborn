@@ -1,6 +1,5 @@
 // 原版铁锤的受阻与换器共用正式受理和身体释放。
 const string hammerId = "Cultiway.Body.HeavyHammerDrop";
-const string guardId = "test.heavy-hammer.shield";
 long hammerCast = 0, guardCast = 0;
 AbilityCast live = null;
 var clashes = new List<ConstructedClash>();
@@ -33,39 +32,7 @@ try
     Place(source, 64.35f);
     Place(target, 64.98f);
     int health = target.data.health;
-    Item shield = null;
-    if (selection == "guard")
-    {
-        // 原版缺少盾装备。沿用兵器专项的测试登记，运行时仍使用真实物件和盾面。
-        if (AssetManager.item_groups.get("shield") == null)
-            AssetManager.item_groups.add(new ItemGroupAsset { id = "shield", name = "shield", color = "#808080" });
-        const string shieldId = "Cultiway.Verify.BodyWeapons.Shield";
-        var asset = AssetManager.items.get(shieldId) ?? AssetManager.items.clone(shieldId, "hammer_iron");
-        asset.group_id = "shield";
-        shield = Equip(target, shieldId);
-        CombatStatusEffects.RemoveStatus(target, quiet);
-        target.updateStats();
-        target.cancelAllBeh();
-        var guard = BodyActionCatalog.Create(guardId, "测试架盾",
-            new BodyActionRequest { Kind = BodyActionKind.Guard, Seconds = 2.2f, WeaponForm = "shield", Grip = "grip", Contact = "face" });
-        guard.Body.MatchDistance = false;
-        guard.Body.ActiveFrom = 0f;
-        guard.Body.ReleaseAt = 0f;
-        guard.Body.ActiveUntil = 1.85f;
-        guard.Body.Guard = new BodyGuardDefinition { Capacity = 100f };
-        Quaternion facing = Quaternion.AngleAxis(-35f, Vector3.right) *
-            Quaternion.Euler(new Vector3(guard.Body.Keys[2].Rotation[0], guard.Body.Keys[2].Rotation[1], guard.Body.Keys[2].Rotation[2]));
-        Vector3 angles = facing.eulerAngles;
-        foreach (BodyMotionKey key in guard.Body.Keys)
-        {
-            key.Hand = new[] { .13f, .12f, .76f };
-            key.Rotation = new[] { angles.x, angles.y, angles.z };
-        }
-        target.data.stamina = 100;
-        await Fire(guard, target, source);
-        target.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
-        target.attack_timer = 999;
-    }
+    Item shield = selection == "guard" ? await RaiseShield() : null;
 
     var definition = ConstructionEditing.Access.Read(hammerId);
     source.data.stamina = 100;

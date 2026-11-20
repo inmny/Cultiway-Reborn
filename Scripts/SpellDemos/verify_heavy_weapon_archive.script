@@ -1,0 +1,109 @@
+// 使用正式万法阁修改同一柄铁锤的托握、作用面和尺寸，再写入原世界。
+try
+{
+    Click("Page2");
+    Check(((Text)Field(Row("HeldForm"), "_detail")).text.StartsWith("战锤"), "中文身体页显示实际战锤");
+    Select("MartialSupportGrip", T("MartialGripStandard"));
+    Check(JToken.DeepEquals(original, JToken.FromObject(Session().Draft)), "两个手掌引用同一握点时拒绝修改");
+    Select("MartialSupportGrip", T("MartialGripMiddle"));
+    Check(ConstructionEditing.Access.Validate(Session().Draft).Body.Construction.SupportGrip == "mid",
+        "左手采用铁锤木柄上的实际中握");
+
+    var right = JToken.FromObject(Session().Draft);
+    Select("MartialTouchShape", T("MartialShape.face/left"));
+    bool leftOnly = ConstructionEditing.Access.Validate(Session().Draft).Body.Construction.Relations
+        .Single(relation => relation.Kind == BodyRelationKind.Touch).FromAnchor == "face/left";
+    Click("Undo");
+    Check(leftOnly && JToken.DeepEquals(right, JToken.FromObject(Session().Draft)),
+        "左击面可以独立选择，撤销恢复右击面和原握法");
+
+    float stamina = source.data.stamina;
+    SetSize(".46");
+    var scaled = JToken.FromObject(Session().Draft);
+    SetSize(".52");
+    Check(JToken.DeepEquals(scaled, JToken.FromObject(Session().Draft)) && source.data.stamina == stamina,
+        "柄粗超过闭合掌宽时保留有效改造及原体力");
+    var changed = ConstructionEditing.Access.Validate(Session().Draft).Body;
+    var former = ConstructionEditing.Access.Validate(basis).Body;
+    Check(Session().Draft.Body.WeaponScale == .46f && changed.ContactReach > former.ContactReach &&
+          Session().Draft.Body.WeaponGround,
+        "真实器物尺寸改变触达，触地和实际锤面随整件器物",
+        new { oldReach = former.ContactReach, reach = changed.ContactReach });
+    await Shot("heavy-weapon-edit-cz");
+    Click("Replace");
+    string edited = Session().SourceId;
+    Check(edited != basisId && JToken.DeepEquals(scaled["Body"], JToken.FromObject(ConstructionEditing.Access.Read(edited))["Body"]) &&
+          JToken.DeepEquals(original, JToken.FromObject(ConstructionEditing.Access.Read(basisId))),
+        "正式改造保存原尺寸、双手托握和实际地面规则");
+    Click("Close");
+    await Frames();
+    LocalizedTextManager.instance.setLanguage("en");
+    WindowWanfaConstructionEditor.Open(edited, source);
+    await Frames();
+    Click("Page2");
+    Check(((Text)Field(Row("HeldForm"), "_detail")).text.StartsWith("Warhammer") &&
+          Session().Draft.Body.WeaponScale == .46f &&
+          ConstructionEditing.Access.Validate(Session().Draft).Body.Construction.SupportGrip == "mid",
+        "英文窗口重开后读回实际中握及尺寸");
+    await Shot("heavy-weapon-edit-en");
+    Click("Close");
+    await Frames();
+    SaveWorld(edited);
+    return new { passed = true, selection, edited, checks };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    LocalizedTextManager.instance.setLanguage("cz");
+    Config.paused = true;
+}
+
+void SetSize(string value)
+{
+    var input = Row("MartialWeaponScale").GetComponentsInChildren<InputField>(false)
+        .Single(field => field.name == "MartialWeaponScale");
+    input.text = value;
+    input.onEndEdit.Invoke(value);
+}
+
+async Task Shot(string name)
+{
+    World.world.console.Hide();
+    Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    var row = (RectTransform)Row("MartialWeaponScale").transform;
+    var scroll = row.GetComponentInParent<ScrollRect>();
+    Vector2 point = scroll.content.InverseTransformPoint(row.position);
+    float travel = scroll.content.rect.height - scroll.viewport.rect.height;
+    if (travel > 0)
+        scroll.verticalNormalizedPosition = Mathf.Clamp01(1f - (scroll.content.rect.yMax - point.y - 35f) / travel);
+    await Frames();
+    Screen.Capture(Path.Combine(folder, name + ".png"));
+    await Frames();
+}
+
+void SaveWorld(string edited)
+{
+    string[] ids = { basisId, edited };
+    foreach (string id in ids) ConstructedAbilityService.Learn(owner, id);
+    World.world.units.checkContainer();
+    World.world.items.checkLists();
+    foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+    CombatStatusEffects.RemoveStatus(target, quiet);
+    source.updateStats();
+    target.updateStats();
+    source.attack_timer = target.attack_timer = 999;
+    Place(source, 64.35f);
+    Place(target, 65.01f);
+    Check(ReferenceEquals(hammer, source.getWeapon()) && World.world.items.list.Contains(hammer),
+        "两名原人物和手中的实际铁锤进入正式保存");
+    string archive = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(archive);
+    Check(File.Exists(Path.Combine(archive, "map.wbox")), "正式世界档已经写入");
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+    {
+        process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, target = target.id,
+        weapon = hammer.data.id, edited, definitions = ids.Select(ConstructionEditing.Access.Read).ToArray()
+    }, Formatting.Indented));
+}

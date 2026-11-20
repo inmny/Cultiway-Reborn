@@ -1,0 +1,35 @@
+const string guardId = "test.heavy-hammer.shield";
+
+async Task<Item> RaiseShield()
+{
+    // 原版缺少盾装备。沿用兵器专项的测试登记，运行时仍使用真实物件和盾面。
+    if (AssetManager.item_groups.get("shield") == null)
+        AssetManager.item_groups.add(new ItemGroupAsset { id = "shield", name = "shield", color = "#808080" });
+    const string shieldId = "Cultiway.Verify.BodyWeapons.Shield";
+    var asset = AssetManager.items.get(shieldId) ?? AssetManager.items.clone(shieldId, "hammer_iron");
+    asset.group_id = "shield";
+    Item shield = Equip(target, shieldId);
+    CombatStatusEffects.RemoveStatus(target, quiet);
+    target.updateStats();
+    target.cancelAllBeh();
+    var guard = BodyActionCatalog.Create(guardId, "测试架盾",
+        new BodyActionRequest { Kind = BodyActionKind.Guard, Seconds = 2.2f, WeaponForm = "shield", Grip = "grip", Contact = "face" });
+    guard.Body.MatchDistance = false;
+    guard.Body.ActiveFrom = 0f;
+    guard.Body.ReleaseAt = 0f;
+    guard.Body.ActiveUntil = 1.85f;
+    guard.Body.Guard = new BodyGuardDefinition { Capacity = 100f };
+    float[] ready = guard.Body.Keys[2].Rotation;
+    Vector3 angles = (Quaternion.AngleAxis(-35f, Vector3.right) *
+                      Quaternion.Euler(ready[0], ready[1], ready[2])).eulerAngles;
+    foreach (BodyMotionKey key in guard.Body.Keys)
+    {
+        key.Hand = new[] { .13f, .12f, .76f };
+        key.Rotation = new[] { angles.x, angles.y, angles.z };
+    }
+    target.data.stamina = 100;
+    await Fire(guard, target, source);
+    target.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    target.attack_timer = 999;
+    return shield;
+}
