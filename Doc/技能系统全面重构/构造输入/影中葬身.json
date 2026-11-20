@@ -1,0 +1,21 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.ShadowBurial",
+  "Name": "影中葬身",
+  "Resource": "mana",
+  "Cost": 9,
+  "Cooldown": 2.8,
+  "Lifetime": 2.38,
+  "Power": 8,
+  "TargetRange": 18,
+  "Binding": {"Anchor": "Target"},
+  "Impact": {"DamageScale": 0, "SelectedTargetOnly": true},
+  "Root": {
+    "Id": "grasp", "Form": "pivot", "Matter": "yin", "State": "energy",
+    "Correspondence": {
+      "Id": "original_shadow", "DamageFraction": 0, "OriginalContactOnly": true,
+      "ActiveUntil": 2.16,
+      "ShadowHold": {"RiseSeconds": 0.52, "CloseSeconds": 0.34, "HoldSeconds": 0.93, "EscapeDistance": 0.55, "Strength": 3}
+    }
+  }
+}

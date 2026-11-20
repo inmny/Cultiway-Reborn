@@ -199,6 +199,8 @@ public sealed class ConstructionMeasure
                 foreach (var effect in new[] { ConstructionCorrespondenceEffects.Restoration, ConstructionCorrespondenceEffects.Status, ConstructionCorrespondenceEffects.Force })
                     if ((relation.Effects & effect) != 0) channels += .5d;
                 CorrespondenceWork += control * node.Strength * window * channels * .25d;
+                if (relation.ShadowHold is { } hold)
+                    CorrespondenceWork += hold.Strength * hold.HoldSeconds * .25d;
             }
             foreach (CompiledEventOperation operation in node.EventOperations)
                 if (operation.Ray != null)

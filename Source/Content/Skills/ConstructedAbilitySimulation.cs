@@ -214,6 +214,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     RunningCast running = active[i];
                     UpdateSupportGrips(running, clock);
                     if (generation != worldGeneration) yield break;
+                    if (running.Cast.Plan.ShadowHoldNode >= 0) AdvanceShadowHold(running, clock);
+                    if (generation != worldGeneration) yield break;
                     if (running.ActorTransferHolds?.Count > 0) ConfirmActorTransferHolds(running, clock, generation);
                     if (generation != worldGeneration) yield break;
                     ConfirmEnclosures(running, clock);
@@ -306,6 +308,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         AppendBalancedWakan(now);
         AppendLifeRepairs(now);
         AppendShadows(now);
+        AppendShadowHolds(now);
         AppendSoulPactTransfers(now);
         AppendObservedSignals(now);
         AppendContactVolumes(now);

@@ -16,6 +16,20 @@ public sealed partial class ConstructedAbilityService
         if (shadows.Exists(value => value.Cast == running && value.Node == node)) return;
         BodySurfacePose body = BodySelectionSurface(target);
         if (body == null) return;
+        Mesh mesh = BuildShadowMesh(body);
+        if (mesh == null) return;
+        if (shadows.Count == 16) RemoveShadow(0);
+        Vector3 toward = running.Owner(node).LastFoot - body.Foot;
+        toward.z = 0f;
+        // 立影离开真实人物的轮廓，沿来向的反面和侧边抬起，两个视角都能认出原身和投影。
+        Vector3 side = new(toward.y, -toward.x, 0);
+        side = side * .52f - toward;
+        if (side.sqrMagnitude < .001f) side = Vector3.right;
+        shadows.Add(new BodyShadow(running, node, mesh, body.Foot, side.normalized, simulation.contactTime));
+    }
+
+    private static Mesh BuildShadowMesh(BodySurfacePose body)
+    {
         var vertices = new List<Vector3>();
         var triangles = new List<int>();
         for (int i = 0; i < body.Parts.Length; i++)
@@ -27,20 +41,13 @@ public sealed partial class ConstructedAbilityService
             foreach (Vector3 p in body.Vertices(i)) vertices.Add(matrix.MultiplyPoint3x4(p) - body.Foot);
             foreach (int index in part.Triangles) triangles.Add(index + offset);
         }
-        if (triangles.Count == 0) return;
+        if (triangles.Count == 0) return null;
         var mesh = new Mesh { name = "Cultiway Body Shadow" };
         if (vertices.Count > 65535) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         mesh.SetVertices(vertices);
         mesh.SetTriangles(triangles, 0);
         mesh.RecalculateNormals();
-        if (shadows.Count == 16) RemoveShadow(0);
-        Vector3 toward = running.Owner(node).LastFoot - body.Foot;
-        toward.z = 0f;
-        // 立影离开真实人物的轮廓，沿来向的反面和侧边抬起，两个视角都能认出原身和投影。
-        Vector3 side = new(toward.y, -toward.x, 0);
-        side = side * .52f - toward;
-        if (side.sqrMagnitude < .001f) side = Vector3.right;
-        shadows.Add(new BodyShadow(running, node, mesh, body.Foot, side.normalized, simulation.contactTime));
+        return mesh;
     }
 
     /// <summary>立影从脚下抬起；联系无效即开始原地折回，不跟随别的人物。</summary>
