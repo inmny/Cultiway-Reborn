@@ -48,8 +48,12 @@ public sealed partial class AbilityCast
     {
         ref NodeState state = ref nodes[node]; CompiledRay ray = state.Ray;
         if (ray == null) return;
-        Vector3 start = state.Transform.GetColumn(3), aim = (ray.FollowTarget ? state.HasTarget ? state.Target : target : state.RayTarget) - start;
+        Vector3 start = state.Transform.GetColumn(3);
         float scale = MaximumScale(state.Transform), minimum = ray.Span.Radius * 2f;
+        CompiledForm form = Plan.Nodes[node];
+        Vector3 aim = form.Activation?.InheritAbsorbedForce == true
+            ? state.EventRotation * form.Rotation * ray.Span.Axis * (ray.Length * scale)
+            : (ray.FollowTarget ? state.HasTarget ? state.Target : target : state.RayTarget) - start;
         if (!state.MovementStopped)
         {
             if (aim.sqrMagnitude > .00000001f)

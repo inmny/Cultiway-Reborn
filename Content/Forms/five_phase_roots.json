@@ -67,7 +67,7 @@
                 "wood.branch"
             ],
             "Id": "shoot_0",
-            "Surface": "living_bark",
+            "Surface": "five_root",
             "Pivot": [
                 0.0,
                 0.0,
@@ -86,7 +86,7 @@
                 "leaf.crown"
             ],
             "Id": "leaves_0",
-            "Surface": "living_leaf",
+            "Surface": "five_crown",
             "Pivot": [
                 0.0,
                 0.0,
@@ -108,7 +108,7 @@
                 "wood.branch"
             ],
             "Id": "shoot_1",
-            "Surface": "living_bark",
+            "Surface": "five_root",
             "Pivot": [
                 0.0,
                 0.0,
@@ -127,7 +127,7 @@
                 "leaf.crown"
             ],
             "Id": "leaves_1",
-            "Surface": "living_leaf",
+            "Surface": "five_crown",
             "Pivot": [
                 0.0,
                 0.0,

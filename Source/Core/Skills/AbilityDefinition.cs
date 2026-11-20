@@ -223,6 +223,10 @@ public sealed class ConstructionNode
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionMaterialVortex MaterialVortex;
 
+    /// <summary>在本部位的实际开口暂留并抛出一件无主兵器。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionWeaponChamber WeaponChamber;
+
     /// <summary>本部位对应的原人物及明确允许的作用；空值沿原交锋规则。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionCorrespondence Correspondence;

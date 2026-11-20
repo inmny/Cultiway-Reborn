@@ -1,0 +1,31 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.FoxfireBreath",
+  "Name": "狐火吐息",
+  "Resource": "none",
+  "Cost": 0,
+  "Cooldown": 1.15,
+  "Lifetime": 1.18,
+  "Power": 1,
+  "TargetRange": 6,
+  "Use": {"Channels": "Combat", "Target": "Object"},
+  "Binding": {"Anchor": "Source", "FaceTarget": true},
+  "Root": {
+    "Id": "breath",
+    "Form": "fox_breath",
+    "Matter": "fire",
+    "State": "energy",
+    "Contact": {"Mode": "Once"},
+    "ActiveFrom": 0.13,
+    "ActiveUntil": 0.79,
+    "Impact": {"Targets": "Hostile", "DamageScale": 0.92, "Force": 0.85},
+    "Operations": [
+      {"Kind": "Grow", "Seconds": 0.27},
+      {"Kind": "Spin", "Vector": [0, 0, 79]}
+    ]
+  },
+  "Steps": [
+    {"Id": "exhaust", "Operation": {"Kind": "Grow", "At": 0.79, "Seconds": 0.32, "TargetScale": 0},
+     "Inputs": {"part": {"Node": "root"}}}
+  ]
+}

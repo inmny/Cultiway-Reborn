@@ -84,6 +84,9 @@ public sealed class CompiledAbility
     /// <summary>具有实际散料牵引的深口部位。</summary>
     internal int[] MaterialVortexNodes { get; }
 
+    /// <summary>具有真实器口的有限部位。</summary>
+    internal int[] WeaponChamberNodes { get; }
+
     /// <summary>受击分担的参数副本；当次契约另存实际余额。</summary>
     internal CompiledSoulPact SoulPact { get; }
 
@@ -255,6 +258,8 @@ public sealed class CompiledAbility
         MirrorNodes = Enumerable.Range(0, nodes.Length).Where(i => nodes[i].Correspondence?.MirrorImage != null).ToArray();
         LandscapeNodes = Enumerable.Range(0, nodes.Length).Where(i => nodes[i].LandscapeSlice != null).ToArray();
         MaterialVortexNodes = Enumerable.Range(0, nodes.Length).Where(i => nodes[i].MaterialVortex != null).ToArray();
+        WeaponChamberNodes = Enumerable.Range(0, nodes.Length).Where(i => nodes[i].WeaponChamber != null).ToArray();
+        if (WeaponChamberNodes.Length > 4) throw new InvalidDataException("WeaponChamber：同一次施放最多四处器口");
         if (MaterialVortexNodes.Length > 4) throw new InvalidDataException("MaterialVortex：同一次施放最多四处深口");
         if (LandscapeNodes.Sum(i => nodes[i].LandscapeSlice.Width * nodes[i].LandscapeSlice.Length) > 640)
             throw new InvalidDataException("LandscapeSlice：同一次施放最多采六百四十个景物格");
@@ -396,6 +401,9 @@ internal sealed class CompiledForm
     /// <summary>本部位正常结束时接受实际余量的有限后段。</summary>
     internal int[] RemainderReceivers = Array.Empty<int>();
 
+    /// <summary>本次真实吸收的唯一接收部位。负一表示普通屏障。</summary>
+    internal int AbsorbedForceOutlet = -1;
+
     /// <summary>本部位及普通后代所属的接收分支，负一表示使用原始作用量。</summary>
     internal int RemainderRoot = -1;
 
@@ -416,6 +424,9 @@ internal sealed class CompiledForm
 
     /// <summary>以真实部位为中心的散料牵引与喉口。</summary>
     internal CompiledMaterialVortex MaterialVortex;
+
+    /// <summary>实际器口的世界尺寸及离口速度。</summary>
+    internal CompiledWeaponChamber WeaponChamber;
 
     /// <summary>父体索引，负一表示根。</summary>
     internal int Parent;
@@ -920,6 +931,10 @@ public static partial class AbilityCompiler
             node.ActiveFromMarker != null || node.ActiveUntilMarker != null ||
             !(appear < node.ActiveFrom && node.ActiveFrom < node.ActiveUntil && node.ActiveUntil < disappear)))
             Fail(path + "/MaterialVortex", "深口部位须单独承载牵引，并声明依次展开、牵引和闭合的三个有限时段");
+        if (node.WeaponChamber != null && (landscape != null || node.MaterialVortex != null || node.BodyWindow ||
+            node.ActiveFromMarker != null || node.ActiveUntilMarker != null ||
+            !(appear < node.ActiveFrom && node.ActiveUntil - node.ActiveFrom >= .7f && node.ActiveUntil < disappear)))
+            Fail(path + "/WeaponChamber", "器口须声明展开、至少0.7秒的接入蓄积、以及抛出后的闭合时段");
         if (landscape != null && (matter.State != "solid" ||
             node.Operations.Any(operation => operation?.Kind is not (ConstructionOperationKind.Detach or ConstructionOperationKind.Fly))))
             Fail(path + "/LandscapeSlice", "景物带以实体呈现，部位运动只用脱离和飞行曲线");
@@ -972,6 +987,7 @@ public static partial class AbilityCompiler
             Resource = resource,
             LandscapeSlice = landscape,
             MaterialVortex = node.MaterialVortex == null ? null : new CompiledMaterialVortex(node.MaterialVortex, path + "/MaterialVortex"),
+            WeaponChamber = node.WeaponChamber == null ? null : new CompiledWeaponChamber(node.WeaponChamber, path + "/WeaponChamber"),
             Offset = offset,
             Rotation = Quaternion.Euler(rotation),
             Scale = node.Scale,

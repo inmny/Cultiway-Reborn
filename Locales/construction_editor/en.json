@@ -377,6 +377,8 @@
   "Cultiway.Construction.Piece.branch_2": "Second branch",
   "Cultiway.Construction.Piece.palm": "Palm",
   "Cultiway.Construction.InheritRemainder": "Inherit remaining force and matter",
+  "Cultiway.Construction.KeepSourcePosition": "Take over at the source part's position",
+  "Cultiway.Construction.InheritAbsorbedForce": "Release only force absorbed by the shield, outward from contact",
   "Cultiway.Construction.Ground.Follow": "Continue along ground",
   "Cultiway.Construction.Form.water_flow": "Ground water layer",
   "Cultiway.Construction.ExplicitVolume": "Set material volume",
@@ -1377,6 +1379,7 @@
   "Cultiway.Construction.RadialMotion": "Part · Continuous radial motion",
   "Cultiway.Construction.RadialMotionHint": "Uses world distance from the actual part centre. Positive speed pushes outward; negative speed pulls inward. It moves grounded actors and can lift unowned objects from the ground.",
   "Cultiway.Construction.RadialRadius": "Radius (world distance)",
+  "Cultiway.Construction.RadialChannelLength": "Wind channel length (0: circle; radius is inlet half-width)",
   "Cultiway.Construction.RadialSpeed": "Centre speed (+push, -pull)",
   "Cultiway.Construction.RadialInterval": "Retarget interval (seconds)",
   "Cultiway.Construction.RadialGroundItems": "Lift unowned ground items (0 to 8, 0 off)",
@@ -1718,5 +1721,10 @@
   "Cultiway.Construction.MartialShape.foot": "Foot",
   "Cultiway.Construction.MartialShape.head": "Head",
   "Cultiway.Construction.MartialShape.organ": "Organ surface",
-  "Cultiway.Construction.MartialShape.joint": "Limb surface"
+  "Cultiway.Construction.MartialShape.joint": "Limb surface",
+  "Cultiway.Construction.WeaponChamber": "Weapon chamber",
+  "Cultiway.Construction.WeaponChamberHint": "Receives one unowned weapon early in the active phase, holds it, and throws it through the opening. Set when the part appears, becomes active, and disappears first.",
+  "Cultiway.Construction.WeaponChamberRadius": "Mouth radius (tiles)",
+  "Cultiway.Construction.WeaponChamberDepth": "Chamber depth (tiles)",
+  "Cultiway.Construction.WeaponChamberSpeed": "Exit speed (tiles per second)"
 }

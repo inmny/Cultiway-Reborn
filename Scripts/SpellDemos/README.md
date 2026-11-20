@@ -2403,3 +2403,49 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--section combat` 加入一个真实敌方术式和一件原版落地铁剑，核对交锋、牵引及落地。`--section film --view native` 与 `--section film --view worldfall` 用同一场景录制完整过程。
 
 `--section save` 留下卷动中和退场后的两份正式档，读回后实放[狭喉](../../Doc/技能系统全面重构/构造输入/归墟开口·狭喉.json)。重启游戏后运行 `--section cold --saved <输出目录>`，检查两份档及各材料的实际去向。
+
+### 地口行风（9.40 风）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_groundmouth_wind.py --section behavior`。复用现有地块和铁剑，核对[地口行风](../../Doc/技能系统全面重构/构造输入/地口行风.json)的槽内外受力、原物越过实际出口、落地拾取及卸压。 `--section variant` 验证[短槽斜口](../../Doc/技能系统全面重构/构造输入/地口行风_斜口.json)的朝向、尺寸、非法参数和退场。
+
+`--section film --view native` 和 `--section film --view worldfall` 同时记录实际行为和按世界时间编码的录像。两段均使用现有地貌，实测人物和原物的放置写在脚本里。
+
+### 明壳承阳（9.40 阳）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_solar_reservoir.py --section behavior`。验证[明壳承阳](../../Doc/技能系统全面重构/构造输入/明壳承阳.json)的种核成形、两次来袭实际入壳、延迟蓄力、裂口出光、原壳退场和护生。 `--section miss` 让来势走壳外，核对空壳无反击，并验证反射屏障不能同时重复计入吸收量。
+
+`--section film --view native` 和 `--section film --view worldfall` 使用同一人物和地块输出原速录像。裂口、光束起点和回击力量均以实机交锋记录核对。 `--section editor` 检查开关、撤销、正式替换和中英文重开。
+
+### 五相换城（9.40 五相）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_five_phase_district.py --section district`。验证[五相换城](../../Doc/技能系统全面重构/构造输入/五相换城.json)的岩壳宽度、壳外来势、五次实际承力、位置与余量接替、角色受击及世界材料。 `--section carrier` 让同一构造从实际原法宝的位置开始。 `--section reordered` 保留器承，调换金火两相。两种改造资料均写入各自结果目录的 `definition.json`。
+
+对应场景可加 `--record native` 或 `--record worldfall` 输出真实来势和换相过程。 `--section editor` 验证沿用来源位置开关、撤销、保存及中英文重开。
+
+### 鸣铗纳锋（9.40 法宝）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 162 -- python3 Scripts/SpellDemos/verify_weapon_chamber.py --section release`。用真法宝和原版落地的兵器验证[鸣铗纳锋](../../Doc/技能系统全面重构/构造输入/鸣铗纳锋.json)。输出器口与原物的位置、高度、随动和抛出记录，并检查实际护口交锋、口外无作用和拾回原物。
+
+`--section interrupt` 在暂存时中止，核对最后位置落地和原法宝归还。 `--section editor` 核对尺寸编辑、无效输入、撤销、中英文重开。释放流程可加 `--record native` 或 `--record worldfall`。
+
+### 连印走符（9.40 符箓）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_seal_relay.py --section relay`。通过正式物品入口消耗一张真实符箓，核对[构造资料](../../Content/Skills/Attack/SealRelay.json)的三次实际命中、留印位置、余力衰减和退场。 `--section miss` 让首张纸符飞空，检查原物消费和失效请求保留，以及后续形体是否停在源头。
+
+正常传递可加 `--record native` 或 `--record worldfall`。输出同时记录每次作用面的准确位置与伤害。
+
+### 狐火吐息、伏首雷角刺与伏地扑（9.40 妖兽器官）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 265 -- python3 Scripts/SpellDemos/verify_beast_attacks.py --section attacks`。在同一狼形上复验吻端出火、真实雷角接触和四足起落后以前爪命中。结果记录每招的支付、命中位置、动作和身体控制归还。加 `--part breath`、`--part horn` 或 `--part pounce` 可只复验一招。
+
+`--record native` 或 `--record worldfall` 输出对应视角的常速录像。`--section bounds` 检查火息范围外无伤、撤下雷角后角刺拒绝且不扣体力。`--section save` 将同一狼形的器官和两招学习记录写入正式世界，供整项冷启动复验。
+
+### 瘴潮凝潭（9.40 毒术）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_poison_combat.py --section condense`。验证[瘴潮凝潭](../../Doc/技能系统全面重构/构造输入/瘴潮凝潭.json)的实际接触、传播、凝潭、甲衣损耗、离开液面及消退。`--miss` 复验飞空，`--record native` 或 `--record worldfall` 记录常速画面。`--save` 保留实际退场后的世界，供冷启动读回。
+
+### 9.40 正式存读
+
+用 `verify_weapon_chamber.py --section save` 保存器口确实暂存原剑时的世界。`verify_five_phase_district.py --save`、`verify_beast_attacks.py --section save`、`verify_poison_combat.py --section condense --save` 和 `verify_seal_relay.py --save` 分别保存落地材料、器官、铁甲和符箓结果。
+
+重启独立游戏后，用 `dev.py exec --timeout 248 -- python3 Scripts/SpellDemos/verify_supplemental_attacks_archive.py`，通过 `--weapon`、`--district`、`--organs`、`--poison` 和 `--seal` 传入对应的输出目录。可以只复验受影响的一份档。各目录应包含 `archive/map.wbox` 和原记录 `expected.json`。

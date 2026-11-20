@@ -25,12 +25,14 @@ public sealed partial class ConstructedAbilityService
             {
                 CompiledConstructionRadialMotion field = running.Cast.Plan.Nodes[node].RadialMotion;
                 if (field == null || !running.Cast.TryRadialMotion(node, out Vector3 centre)) continue;
+                bool inChannel = running.Cast.TryWindChannel(node, out var channel);
+                if (inChannel && !channel.Pressing) continue;
                 int tick = Mathf.FloorToInt((running.Cast.Age + .000001f) / field.Interval);
                 running.RadialTicks ??= new int[running.Cast.Plan.FormCount];
                 if (tick <= running.RadialTicks[node]) continue;
                 running.RadialTicks[node] = tick;
                 CastAuthority owner = running.Owner(node);
-                actorIndex.Query(new Bounds(centre, Vector3.one * (field.Radius * 2f)), radialTargets);
+                actorIndex.Query(inChannel ? channel.Bounds : new Bounds(centre, Vector3.one * (field.Radius * 2f)), radialTargets);
                 foreach (int index in radialTargets)
                 {
                     ActorMotion candidate = actors[index]; Actor actor = candidate.Actor;
@@ -38,23 +40,37 @@ public sealed partial class ConstructedAbilityService
                         !actor.asset.can_be_moved_by_powers || actor.isImmovable() || actor.position_height > 0f ||
                         !owner.Matches(field.Targets, actor)) continue;
                     Sample(candidate, clock, out Vector3 foot, out _);
-                    Vector3 delta = foot - centre;
-                    float fade = 1f - delta.magnitude / field.Radius;
-                    Vector2 direction = delta;
-                    if (fade <= 0f || direction.sqrMagnitude < .000001f) continue;
+                    Vector2 velocity;
+                    if (inChannel)
+                    {
+                        if (!channel.Sample(foot, out float along, out float lateral)) continue;
+                        velocity = channel.Velocity(field.Speed, along, lateral);
+                    }
+                    else
+                    {
+                        Vector3 delta = foot - centre;
+                        float fade = 1f - delta.magnitude / field.Radius;
+                        Vector2 direction = delta;
+                        if (fade <= 0f || direction.sqrMagnitude < .000001f) continue;
+                        velocity = direction.normalized * (field.Speed * fade);
+                    }
                     float response = actor.GetExtend().ForceResponseScale(owner.IsLive ? owner.Actor : null,
                         owner.Damage.AttackerPowerLevel);
                     if (response <= 0f) continue;
-                    direction = direction.normalized * (field.Speed * fade * response);
                     // 每次明确本段速度，不把旧逐帧力度或上段速度再次叠加；竖直速度始终为零。
-                    ConstructedActorImpulse.BeginRadial(actor, new Vector3(direction.x, direction.y, 0f),
-                        field.Interval, clock, terrain);
+                    ConstructedActorImpulse.BeginRadial(actor, velocity * response, field.Interval, clock, terrain);
                     if (generation != worldGeneration) return;
                     InterruptContactBody(actor);
                     if (generation != worldGeneration) return;
                 }
-                if (field.GroundItemLimit > 0)
-                    Combat.GroundWeaponService.ApplyAirflow(centre, field.Radius, field.Speed, field.GroundItemLimit);
+                if (field.GroundItemLimit == 0) continue;
+                if (inChannel)
+                {
+                    running.ChannelItems ??= new List<long>[running.Cast.Plan.FormCount];
+                    running.ChannelItems[node] ??= new List<long>(field.GroundItemLimit);
+                    Combat.GroundWeaponService.ApplyChannel(channel, field.Speed, field.GroundItemLimit, running.ChannelItems[node]);
+                }
+                else Combat.GroundWeaponService.ApplyAirflow(centre, field.Radius, field.Speed, field.GroundItemLimit);
             }
         }
     }

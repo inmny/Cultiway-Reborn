@@ -65,7 +65,7 @@
                 "structure.base"
             ],
             "Id": "footing",
-            "Surface": "stone",
+            "Surface": "stone_strata",
             "Pivot": [
                 0.0,
                 0.0,

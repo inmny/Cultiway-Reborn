@@ -1,0 +1,69 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.SolarReservoir",
+  "Name": "明壳承阳",
+  "Resource": "mana",
+  "Cost": 32,
+  "Cooldown": 3.1,
+  "Lifetime": 5.1,
+  "Power": 28,
+  "TargetRange": 46,
+  "Use": {"Channels": "Combat, World", "Target": "ObjectOrPoint"},
+  "Binding": {"Anchor": "Source"},
+  "Root": {
+    "Id": "seed",
+    "Form": "pivot",
+    "Matter": "yang",
+    "ContactRole": "Decoration",
+    "Children": [
+      {
+        "Id": "shell",
+        "Form": "solar_aegis",
+        "Matter": "yang",
+        "State": "energy",
+        "ContactRole": "Barrier",
+        "Interception": "Absorb",
+        "Scale": 4.8,
+        "AppearAt": 0.38,
+        "ActiveFrom": 0.38,
+        "DisappearAt": 3.2,
+        "Strength": 1,
+        "Operations": [
+          {"Kind": "Grow", "At": 0.38, "Seconds": 0.71},
+          {"Kind": "Animate", "Clip": "run"}
+        ]
+      },
+      {
+        "Id": "vent",
+        "Form": "solar_ray_luminous",
+        "Matter": "yang",
+        "State": "energy",
+        "ContactRole": "Attack",
+        "Scale": 5.65,
+        "DisappearAt": 0.64,
+        "Activation": {
+          "Source": "root/shell",
+          "Trigger": "Clash",
+          "Placement": "Event",
+          "Delay": 0.74,
+          "InheritAbsorbedForce": true
+        },
+        "Contact": {"Mode": "Once"},
+        "Impact": {"Targets": "Hostile", "DamageScale": 1},
+        "Operations": [{"Kind": "Ray", "Ray": {"Length": 4.625, "FollowTarget": false}}]
+      },
+      {
+        "Id": "recovery",
+        "Form": "healing_seed",
+        "Matter": "vitality",
+        "State": "energy",
+        "Scale": 3,
+        "DisappearAt": 0.76,
+        "Activation": {"Source": "root/shell", "Trigger": "Clash", "Placement": "Attached", "Delay": 0.74},
+        "Contact": {"Mode": "Once"},
+        "Impact": {"Targets": "Self", "DamageScale": 0, "Restoration": {"Health": 31}},
+        "Operations": [{"Kind": "Animate", "Clip": "run"}]
+      }
+    ]
+  }
+}

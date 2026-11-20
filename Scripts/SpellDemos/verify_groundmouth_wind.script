@@ -1,0 +1,123 @@
+var driftStats = new BaseStats();
+driftStats.addTag("frozen_ai");
+var drift = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.GroundmouthWind.NoAI") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.GroundmouthWind.NoAI")
+        .SetStats(driftStats).SetDuration(10000).Build();
+
+Actor Opponent(float x, float y)
+{
+    Actor actor = Make(x);
+    actor.setKingdom(victim.kingdom);
+    CombatStatusEffects.RemoveStatus(actor, hold);
+    CombatStatusEffects.ApplyStatus(actor, drift, 10000, actor);
+    actor.setStatsDirty();
+    actor.updateStats();
+    Place(actor, x, y);
+    return actor;
+}
+
+FormVisualInstance Wall(AbilityCast cast) => Forms(cast).FirstOrDefault(frame => frame.Surface == "wind");
+Vector3 Origin(FormVisualInstance frame) => frame.Transform.GetColumn(3);
+Vector3 Along(FormVisualInstance frame) => frame.Transform.GetColumn(0);
+
+try
+{
+    if (section == "variant")
+    {
+        var shortWind = Spell("地口行风_斜口");
+        var bad = Spell("地口行风_斜口");
+        bad.Root.Children[0].RadialMotion.Speed = -2;
+        try { AbilityCompiler.Compile(bad, false); Check(false, "向后速度不应被当作风槽"); }
+        catch (InvalidDataException) { Check(true, "非法反向速度拒绝编译"); }
+        var turned = await Use(shortWind, 80);
+        await Advance(.58f);
+        var opened = Wall(turned.Cast);
+        Vector3 first = Origin(opened), heading = Along(opened).normalized;
+        await Advance(.5f);
+        var moved = Wall(turned.Cast);
+        Check(Mathf.Abs(Along(moved).magnitude - 12f) < .01f && Mathf.Abs(heading.y) > .25f &&
+              Vector3.Dot(Origin(moved) - first, heading) > .55f, "斜口实际改为短槽，沿当次朝向推进",
+              new { first = first.ToString(), moved = Origin(moved).ToString(), heading = heading.ToString() });
+        await Advance(2.6f);
+        Check(turned.Cast.Finished && Forms(turned.Cast).Length == 0, "短槽也完整卸压退场");
+        return new { passed = true, heading = heading.ToString() };
+    }
+
+    bool film = section == "film";
+    Item sword = await LooseItem(68.2f, 76.7f);
+    Item outside = await LooseItem(73f, 86.5f);
+    await Advance(.62f);
+    var swordData = Data(sword);
+    var outsideData = Data(outside);
+    int durability = sword.getDurabilityCurrent();
+    Vector3 start = Vector(swordData, "Position"), untouched = Vector(outsideData, "Position");
+    Check((bool)Field(swordData, "Resting") && (bool)Field(outsideData, "Resting"), "两件原物都由正式掉落入口放下并落稳");
+    Actor inLane = Opponent(73.5f, 77.8f), outOfLane = Opponent(73.5f, 86f);
+    Vector2 insideStart = inLane.current_position, outsideStart = outOfLane.current_position;
+    var definition = Spell("地口行风");
+    var cast = await Use(definition, 94f);
+    source.addAggro(inLane);
+    source.addAggro(outOfLane);
+    if (film) await SetCamera(23f);
+    float high = start.z, carriedAt = -1f, expelledAt = -1f, beyondAt = -1f, finalAt = -1f;
+    float firstWidth = 0f, leastWidth = float.PositiveInfinity, lastWidth = 0f, releasedAlong = 0f;
+    float maxForward = 0f, maxAlong = 0f;
+    Vector3 early = Vector3.zero, late = Vector3.zero;
+    double recordStart = World.world.getCurWorldTime();
+    void Observe()
+    {
+        float at = (float)(World.world.getCurWorldTime() - recordStart);
+        Vector3 point = Vector(swordData, "Position"), velocity = Vector(swordData, "Velocity");
+        var visual = Wall(cast.Cast);
+        Vector3 direction = Along(visual);
+        high = Mathf.Max(high, point.z);
+        if (direction.sqrMagnitude > 1f)
+        {
+            float scale = ((Vector3)visual.Transform.GetColumn(1)).magnitude;
+            if (early == Vector3.zero) { early = Origin(visual); firstWidth = scale; }
+            late = Origin(visual);
+            lastWidth = scale;
+            leastWidth = Mathf.Min(leastWidth, scale);
+            Vector3 bearing = direction.normalized;
+            float along = .5f + Vector3.Dot(point - late, bearing) / direction.magnitude;
+            float forward = Vector3.Dot(velocity, bearing);
+            maxForward = Mathf.Max(maxForward, forward); maxAlong = Mathf.Max(maxAlong, along);
+            if (carriedAt < 0f && point.z > start.z + .25f && forward > 2f && along < .84f) carriedAt = at;
+            if (carriedAt >= 0f && expelledAt < 0f && forward > 30f && velocity.z > 0f)
+            { expelledAt = at; releasedAlong = along; }
+            if (expelledAt >= 0f && beyondAt < 0f && along > 1f && point.z > start.z + .25f) beyondAt = at;
+        }
+        if (expelledAt >= 0f && finalAt < 0f && (bool)Field(swordData, "Resting")) finalAt = at;
+    }
+
+    List<double> times = null;
+    const float duration = 5.85f;
+    if (film) times = await Film(duration, Observe);
+    else while (World.world.getCurWorldTime() - recordStart < duration) { await Advance(.075f); Observe(); }
+    var path = new { carriedAt, expelledAt, beyondAt, finalAt, releasedAlong, high, maxForward, maxAlong,
+        start = start.ToString(), final = Vector(swordData, "Position").ToString() };
+    Check(Vector3.Distance(early, late) > 2f && firstWidth - leastWidth > 1.2f && lastWidth - leastWidth > 1.2f,
+          "同一个风槽实际推进，先夹压再开口", new { early = early.ToString(), late = late.ToString(), firstWidth, leastWidth, lastWidth, path });
+    Check(carriedAt >= 0f && expelledAt > carriedAt && releasedAlong > .83f && beyondAt >= expelledAt && finalAt > beyondAt,
+          "同一件原剑先入流，再由窄口实际抛出并落稳", path);
+    Check(inLane.current_position.x > insideStart.x + .7f && contacts.Count == 0 &&
+          Vector2.Distance(outOfLane.current_position, outsideStart) < .12f &&
+          Vector3.Distance(Vector(outsideData, "Position"), untouched) < .05f && (bool)Field(outsideData, "Resting"),
+          "槽内人物向出口受力，风槽无直接命中，槽外人物和原物不动",
+          new { insideStart = insideStart.ToString(), inside = inLane.current_position.ToString(),
+              outsideStart = outsideStart.ToString(), outside = outOfLane.current_position.ToString(),
+              outsideItemStart = untouched.ToString(), outsideItem = Vector(outsideData, "Position").ToString(),
+              directContacts = contacts.Count });
+    Check(cast.Cast.Finished && Forms(cast.Cast).Length == 0 && (bool)Field(swordData, "Resting") &&
+          ReferenceEquals(Field(ground[sword.id], "Item"), sword) && sword.getActor() == null && sword.getCity() == null &&
+          sword.getDurabilityCurrent() == durability, "卸压后保留原物身份、原耐久和自然落地");
+    Vector2 atRest = inLane.current_position;
+    await Advance(.26f);
+    Check(Vector2.Distance(atRest, inLane.current_position) < .12f && !BodyControlState.IsBusy(inLane.id),
+          "卸压后无持续牵引且人物无被占用的身体控制");
+    PickUp(sword, swordData);
+    return new { passed = true, section, scene = "construction", view = film ? recordView : "",
+        path, times, duration, resource = definition.Resource, paid = definition.Cost,
+        previewFrame = times == null ? 0 : Math.Max(0, times.FindIndex(at => at > expelledAt - .15f)) };
+}
+finally { ReleaseChecks(); }

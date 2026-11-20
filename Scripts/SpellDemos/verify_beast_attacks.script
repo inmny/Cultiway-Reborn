@@ -1,0 +1,287 @@
+string resultFolder = folder;
+Actor source = Make(64, "wolf"), target = Make(66);
+var owner = source.GetExtend();
+Check(YaoAwakeningService.TryAwakenByRain(owner), "复用既有狼形的正式启灵入口");
+target.setKingdom(World.world.units.getSimpleList().First(actor => source.kingdom.isEnemy(actor.kingdom)).kingdom);
+var organs = new[]
+{
+    new YaoOrganRecord { SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1, Origin = YaoOrganOrigin.Innate },
+    new YaoOrganRecord { SlotId = YaoContent.Slots.Head, OrganId = "yao.horn.thunder", Rank = 2, Origin = YaoOrganOrigin.GodEdited },
+    new YaoOrganRecord { SlotId = YaoContent.Slots.Breath, OrganId = "yao.gland.foxfire", Rank = 2, Origin = YaoOrganOrigin.GodEdited }
+};
+Check(YaoFormPlanService.TrySetOrgans(owner, YaoFormIds.TrueForm, organs), "原狼形的器官容量实际允许雷角及狐火腺");
+source.setStatsDirty(); source.updateStats(); source.finishScale(); source.checkAnimationContainer();
+owner.GetCultisys<Yao>().yao_power = 50f;
+var activeHandles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, activeHandles);
+const string breathEntry = "/yao.gland.foxfire/Cultiway.FoxfireBreath";
+Check(activeHandles.Any(handle => handle.EntryId.EndsWith(breathEntry, StringComparison.Ordinal)),
+      "实际狐火腺公开吐息句柄", new { entries = activeHandles.Select(handle => handle.EntryId).ToArray() });
+var breathHandle = activeHandles.Single(handle => handle.EntryId.EndsWith(breathEntry, StringComparison.Ordinal));
+foreach (var handle in activeHandles.Where(handle => !handle.EntryId.EndsWith(breathEntry, StringComparison.Ordinal)))
+    SkillCooldownService.Start(owner, handle.Source, 30f);
+var moments = new List<ConstructedCastStarted>();
+var endings = new List<ConstructedCastEnded>();
+var damage = new List<ConstructedQueuedDamage>();
+var casts = new Dictionary<long, AbilityCast>();
+var runtime = new Dictionary<long, object>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    moments.Add(fact);
+    var running = Running().FirstOrDefault(value => (long)Field(value, "Id") == fact.CastId);
+    if (running == null) return;
+    casts.Add(fact.CastId, (AbilityCast)Field(running, "Cast"));
+    runtime.Add(fact.CastId, running);
+}
+void End(ConstructedCastEnded fact) { if (casts.ContainsKey(fact.CastId)) endings.Add(fact); }
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += End;
+void Settled(ConstructedQueuedDamage fact) { if (casts.ContainsKey(fact.CastId)) damage.Add(fact); }
+ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+
+AbilityDefinition Load(string file) =>
+    JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Content/Skills", file + ".json")));
+var breath = Load("Attack/FoxfireBreath");
+var horn = Load("Body/beast-horn-thrust");
+var pounce = Load("Body/beast-pounce");
+Vector3 Foot(Actor animal) => (Vector3)service.GetMethod("BodyFoot", F).Invoke(null, new object[] { animal });
+float Height(Actor animal) => (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose")
+    .GetMethod("Height", F).Invoke(null, new object[] { animal });
+var muzzle = service.Assembly.GetType("Cultiway.Content.Skills.FoxfireBreathConstruction").GetMethod("TryMuzzle", F);
+(bool Ok, Vector3 Point, Vector3 Dir) Mouth()
+{
+    var values = new object[] { owner, null, null };
+    bool ok = (bool)muzzle.Invoke(null, values);
+    return (ok, (Vector3)values[1], (Vector3)values[2]);
+}
+object simulation = service.GetField("simulation", F).GetValue(null);
+void RefreshTerrain() => service.GetMethod("CaptureTerrain", F).Invoke(simulation, new object[] { Rect.MinMaxRect(60, 68, 76, 77), true });
+bool film = recordView.Length > 0;
+
+// 用原方案确认可接触的站位。运行时仍使用完整正式出招入口。
+async Task<Vector3> ContactSpot(AbilityDefinition definition)
+{
+    CompiledAbility plan = AbilityCompiler.Compile(definition, false);
+    object body = null;
+    await Game.WaitUntil(() => (body = Binding(source, plan)) != null, 180);
+    Check(body != null, "实际身体有本动作需要的器官、前足和承接");
+    var ground = (AbilityHeightField)Field(simulation, "terrain");
+    var frameMethod = bindingType.GetMethod("Frame", F, null,
+        new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null);
+    var frame = (BodyFrame)frameMethod.Invoke(body, new object[] { Foot(source), Height(source), null });
+    object movement = null;
+    Type movementType = service.Assembly.GetType("Cultiway.Content.Skills.BodyLocomotion");
+    if (definition.Body.Construction?.Footwork != null)
+        movement = movementType.GetConstructors(F).Single().Invoke(new[] { source, plan.Body, (object)frame, ground,
+            bindingType.GetProperty("Joint", F).GetValue(body) });
+    var points = new List<Vector3>();
+    var shapes = new List<AbilityCapsule>();
+    for (int i = 0; i <= 12; i++)
+    {
+        float at = Mathf.Lerp(definition.Body.ActiveFrom, definition.Body.ActiveUntil - .001f, i / 12f);
+        BodyFrame now = frame;
+        if (movement != null)
+        {
+            var trial = movementType.GetMethod("Sample", F).Invoke(movement, new object[] { at, frame.Height, ground });
+            now = (BodyFrame)frameMethod.Invoke(body, new[] { Field(trial, "Root"), (object)frame.Height, Field(trial, "Support") });
+        }
+        var numeric = new AbilityCast(plan, Matrix4x4.identity, frame);
+        numeric.UpdateBody(now); numeric.Advance(at, Vector3.right);
+        shapes.Clear();
+        bindingType.GetMethod("AppendContacts", F).Invoke(body, new object[] { numeric.BodyPose.Value, shapes });
+        foreach (var shape in shapes)
+        {
+            Vector3 point = (shape.A + shape.B) * .5f;
+            float z = point.z - (ground?.Sample(point.x, point.y) ?? 0f);
+            if (z > .04f && z < Height(target) && point.x > source.current_position.x + .1f) points.Add(point);
+        }
+    }
+    Check(points.Count != 0, "从原身体、原地面和动作中取得真实站立接触点");
+    return points.OrderByDescending(point => point.x).First();
+}
+
+async Task<object> Play(string key, AbilityDefinition definition, bool off = false)
+{
+    folder = Path.Combine(resultFolder, key); Directory.CreateDirectory(folder);
+    CombatStatusEffects.RemoveStatus(source, hold);
+    source.updateStats();
+    const float startX = 64.25f, laneY = 72.5f;
+    Place(source, startX, laneY); Place(target, 66, laneY);
+    source.flip = false;
+    source.attack_timer = 999;
+    source.data.stamina = 80;
+    source.addAggro(target); target.addAggro(source);
+    await Game.NextFrame();
+    RefreshTerrain();
+    (bool Ok, Vector3 Point, Vector3 Dir) initial = default;
+    if (key == "breath")
+    {
+        await Game.WaitUntil(() => (initial = Mouth()).Ok, 180);
+        Check(initial.Ok && Mathf.Abs(initial.Dir.x) > .8f && Vector2.Distance(initial.Point, Foot(source)) > .1f,
+              "真实头部有当前朝向的吻端", new { mouth = initial.Point.ToString(), forward = initial.Dir.ToString() });
+        Place(target, initial.Point.x + initial.Dir.x * 2.45f, initial.Point.y + (off ? 2.5f : 0f));
+    }
+    else
+    {
+        Vector3 expected = await ContactSpot(definition);
+        Place(target, expected.x, expected.y);
+    }
+
+    double balance = key == "breath" ? owner.GetCultisys<Yao>().yao_power : source.data.stamina;
+    var goal = new ActiveAbilityTarget(target, target.GetSimPos());
+    var handle = key == "breath" ? breathHandle : new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+    if (key != "breath") ConstructedAbilityService.Learn(owner, definition.Id);
+    int count = moments.Count;
+    int hp = target.data.health;
+    Vector3 foot = Foot(source);
+    source.attack_timer = 0;
+    bool accepted = ActiveAbilityService.TryUse(owner, handle, goal, ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999;
+    target.attack_timer = 999;
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(accepted, "从正式入口接受 " + definition.Name, new { target = target.current_position.ToString(), balance });
+    if (key == "breath")
+    {
+        Place(source, startX, laneY);
+        CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+        source.updateStats();
+    }
+    Vector3 firstPose = default, observedMouth = initial.Point;
+    Quaternion? startHorn = null;
+    float maxRise = 0f, maxTravel = 0f, sourceArc = 0f;
+    bool borrowed = false;
+    var pounceTrace = new List<object>();
+    float lastObserved = -1f;
+    double paid = double.NaN, origin = World.world.getCurWorldTime();
+    void Watch()
+    {
+        if (film)
+        {
+            var camera = World.world.camera.transform;
+            camera.position = new Vector3(65.2f, laneY, camera.position.z);
+        }
+        if (moments.Count <= count || !casts.TryGetValue(moments[count].CastId, out var cast)) return;
+        if (key == "pounce" && (!cast.Finished || pounceTrace.Count == 0 || lastObserved != cast.Age))
+        {
+            lastObserved = cast.Age;
+            var running = runtime[moments[count].CastId];
+            var motion = Field(running, "Movement");
+            var body = Field(running, "Body");
+            pounceTrace.Add(new { cast.Age, cast.Finished, position = source.current_position.ToString("F5"), source.position_height,
+                source.under_forces, flying = source.isFlying(), frozen = source.stats.hasTag("frozen_ai"),
+                foot = cast.BodyPose?.Foot.ToString("F5"), valid = bindingType.GetMethod("IsValid", F).Invoke(body, new object[] { source }),
+                owns = motion.GetType().GetProperty("OwnsPosition", F).GetValue(motion), height = Field(motion, "expectedHeight"),
+                root = motion.GetType().GetProperty("Root", F).GetValue(motion).ToString() });
+        }
+        if (cast.Finished) return;
+        if (double.IsNaN(paid)) paid = balance - (key == "breath" ? owner.GetCultisys<Yao>().yao_power : source.data.stamina);
+        if (key == "breath" && firstPose == Vector3.zero && Forms(cast).Length > 0)
+        {
+            firstPose = Forms(cast)[0].Transform.GetColumn(3);
+            var mouth = Mouth();
+            if (mouth.Ok) observedMouth = mouth.Point;
+        }
+        if (cast.BodyPose is BodyPose pose)
+        {
+            borrowed |= BodyControlState.IsBusy(source.id);
+            if (key == "horn" && pose.Organ.HasValue)
+            {
+                Quaternion orientation = pose.Organ.Value.PixelRotation;
+                startHorn ??= orientation;
+                sourceArc = Mathf.Max(sourceArc, Quaternion.Angle(startHorn.Value, orientation));
+            }
+            Vector3 now = Foot(source);
+            maxRise = Mathf.Max(maxRise, now.z - foot.z);
+            maxTravel = Mathf.Max(maxTravel, Vector2.Distance(now, foot));
+        }
+    }
+    const float duration = 2.12f;
+    List<double> times = null;
+    if (film) times = await Film(duration, Watch);
+    else
+    {
+        Config.paused = false;
+        while (World.world.getCurWorldTime() - origin < duration) { Watch(); await Game.NextFrame(); }
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+    }
+    if (key == "pounce") File.WriteAllText(Path.Combine(folder, "movement.json"),
+        JsonConvert.SerializeObject(pounceTrace, Formatting.Indented));
+    Check(moments.Count == count + 1 && endings.Any(end => end.CastId == moments[count].CastId && !end.Cancelled) &&
+          !BodyControlState.IsBusy(source.id) && Mathf.Abs(source.position_height) < .08f,
+          "本次只受理一次，自然退场并归还身体控制", new { key, began = moments.Skip(count).ToArray(),
+              endings, source.position_height, busy = BodyControlState.IsBusy(source.id) });
+    long id = moments[count].CastId;
+    var hits = contacts.Where(contact => contact.CastId == id && contact.TargetId == target.id).ToArray();
+    var actualHits = hits.Select(hit => new { hit.Age, hit.Node, hit.Result, hit.DamagePending,
+        lost = hit.Damage.HealthLost + damage.Where(fact => fact.CastId == id && fact.TargetId == hit.TargetId &&
+            fact.TargetContactNumber == hit.TargetContactNumber).Sum(fact => fact.Damage.HealthLost),
+        point = hit.Position.ToString() }).ToArray();
+    if (off) Check(hits.Length == 0 && target.data.health == hp, "离开实际火息范围仍完成施法，目标无伤");
+    else Check(actualHits.Length == 1 && actualHits[0].lost > 0 && actualHits[0].Node == (key == "breath" ? 0 : -1),
+            "真实作用面只接触目标一次并结算伤害", actualHits);
+    if (key == "breath")
+        Check(Vector3.Distance(firstPose, observedMouth) < .08f && paid > 3.5 && paid < 4.5,
+              "火息从吻端而非身体中心开始，扣除一次真实妖力", new { muzzle = observedMouth.ToString(), actual = firstPose.ToString(), paid });
+    else
+        Check(borrowed && Math.Abs(paid - definition.Cost) < .02f &&
+              (key == "horn" ? sourceArc > 17f : maxRise > .09f && maxTravel > .22f),
+              "实际雷角或前爪接管成功，动作与体力各只推进一次",
+              new { sourceArc, maxRise, maxTravel, paid });
+    var result = new { passed = true, key, name = definition.Name, scene = "construction", view = recordView, times, duration,
+        resource = key == "breath" ? "yao_power" : "stamina", paid, maxTravel, maxRise, sourceArc,
+        caption = key == "breath" ? "实际吻端、厚火息的接触与消退" : key == "horn" ? "真实雷角、触及与收势" : "四足起落、真实前爪命中",
+        origin = firstPose.ToString(),
+        hits = actualHits,
+        previewFrame = times == null || hits.Length == 0 ? 0 : Math.Max(0, times.FindIndex(t => t >= hits[0].Age + .05)) };
+    File.WriteAllText(Path.Combine(folder, "result.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
+    return result;
+}
+
+try
+{
+    for (int i = 0; i < 8; i++) await Game.NextFrame();
+    if (section == "save")
+    {
+        var definitions = new[] { horn, pounce };
+        foreach (var defined in definitions) ConstructedAbilityService.Learn(owner, defined.Id);
+        string archive = Path.Combine(folder, "archive");
+        SaveManager.saveWorldToDirectory(archive);
+        File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+        {
+            process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, definitions
+        }, Formatting.Indented));
+        Check(File.Exists(Path.Combine(archive, "map.wbox")), "以正式入口写入原器官和两招学习关系");
+        return new { passed = true, archive };
+    }
+    if (film) await SetCamera(5.6f);
+    if (section == "bounds")
+    {
+        var miss = await Play("breath", breath, off: true);
+        var noHorn = new YaoOrganRecord { SlotId = YaoContent.Slots.Head, OrganId = "yao.spirit.sense", Rank = 1, Origin = YaoOrganOrigin.GodEdited };
+        Check(YaoFormPlanService.TrySetOrgans(owner, YaoFormIds.TrueForm,
+            organs.Where(organ => organ.OrganId != "yao.horn.thunder").Append(noHorn).ToArray()), "移除原雷角保留同一狼形");
+        CombatStatusEffects.RemoveStatus(source, hold);
+        source.updateStats(); Place(source, 64); Place(target, 65);
+        source.attack_timer = 0;
+        ConstructedAbilityService.Learn(owner, horn.Id);
+        var handle = new ActiveAbilityHandle("content.constructed", owner.E, horn.Id);
+        int stamina = source.data.stamina;
+        Check(!ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script) &&
+              source.data.stamina == stamina && !BodyControlState.IsBusy(source.id), "缺失雷角时原角刺拒绝且不占用身体或体力");
+        return new { passed = true, miss };
+    }
+    var cases = new List<object>();
+    foreach (var attack in new[] { ("breath", breath), ("horn", horn), ("pounce", pounce) })
+        if (only.Length == 0 || only == attack.Item1) cases.Add(await Play(attack.Item1, attack.Item2));
+    folder = resultFolder;
+    return new { passed = true, view = recordView, actor = source.id, victim = target.id, cases };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= End;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+    ReleaseChecks();
+}

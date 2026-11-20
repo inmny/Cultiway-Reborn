@@ -25,6 +25,7 @@ public sealed partial class WindowWanfaConstructionEditor
         if (node.RadialMotion == null) return;
         Value("RadialRadius", node.RadialMotion.Radius, (next, value) => next.Radius = value);
         Value("RadialSpeed", node.RadialMotion.Speed, (next, value) => next.Speed = value);
+        Value("RadialChannelLength", node.RadialMotion.ChannelLength, (next, value) => next.ChannelLength = value);
         Value("RadialInterval", node.RadialMotion.Interval, (next, value) => next.Interval = value);
         ContactInteger("RadialGroundItems", node.RadialMotion.GroundItemLimit,
             value => Edit(next => next.GroundItemLimit = value), draftChange: false);
@@ -49,7 +50,7 @@ public sealed partial class WindowWanfaConstructionEditor
             var next = new ConstructionRadialMotion
             {
                 Radius = current.Radius, Speed = current.Speed, Interval = current.Interval, Targets = current.Targets,
-                GroundItemLimit = current.GroundItemLimit
+                GroundItemLimit = current.GroundItemLimit, ChannelLength = current.ChannelLength
             };
             edit(next);
             Commit(next);

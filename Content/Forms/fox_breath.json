@@ -1,0 +1,302 @@
+{
+    "Structure": {
+        "Kind": "volume",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_fox_breath.mjs",
+            "Entry": "makeFoxBreath",
+            "Parameters": [
+                {
+                    "Id": "envelope",
+                    "Values": [
+                        0.0,
+                        0.003000000026077032,
+                        0.15000000596046449,
+                        0.10499999672174454,
+                        0.5400000214576721,
+                        0.2199999988079071,
+                        1.059999942779541,
+                        0.3499999940395355,
+                        1.6399999856948853,
+                        0.5,
+                        2.2799999713897707,
+                        0.6499999761581421,
+                        2.940000057220459,
+                        0.7599999904632568,
+                        3.4000000953674318,
+                        0.7400000095367432,
+                        3.740000009536743,
+                        0.5199999809265137,
+                        4.019999980926514,
+                        0.28999999165534975,
+                        4.199999809265137,
+                        0.003000000026077032
+                    ]
+                },
+                {
+                    "Id": "inner",
+                    "Values": [
+                        0.0,
+                        0.0014100000262260438,
+                        0.14100000262260438,
+                        0.04935000091791153,
+                        0.5076000094413757,
+                        0.10339999943971634,
+                        0.996399998664856,
+                        0.16449999809265138,
+                        1.541599988937378,
+                        0.23499999940395356,
+                        2.143199920654297,
+                        0.30550000071525576,
+                        2.7636001110076906,
+                        0.3571999967098236,
+                        3.196000099182129,
+                        0.34779998660087588,
+                        3.5155999660491945,
+                        0.004000000189989805
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "fox_breath",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/fox_breath_envelope_mid.asset",
+                "Assets/Cultiway/Forms/fox_breath_envelope_far.asset"
+            ],
+            "Roles": [
+                "breath.body",
+                "breath.contact"
+            ],
+            "Id": "envelope",
+            "Surface": "flame_body",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fox_breath_envelope.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/fox_breath_core_mid.asset",
+                "Assets/Cultiway/Forms/fox_breath_core_far.asset"
+            ],
+            "Roles": [
+                "breath.heat"
+            ],
+            "Id": "core",
+            "Surface": "meteor_crown",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fox_breath_core.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "mouth",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "breath_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0049139815382659439,
+                0.2800000011920929
+            ],
+            "B": [
+                0.0,
+                0.021000312641263009,
+                0.5899999737739563
+            ],
+            "Radius": 0.1599999964237213,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "breath_1",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.028203213587403299,
+                0.6899999976158142
+            ],
+            "B": [
+                0.0,
+                0.06834902614355087,
+                1.1399999856948853
+            ],
+            "Radius": 0.27000001072883608,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "breath_2",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.08003648370504379,
+                1.2599999904632569
+            ],
+            "B": [
+                0.0,
+                0.12355703860521317,
+                1.75
+            ],
+            "Radius": 0.4000000059604645,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "breath_3",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.13548730313777924,
+                1.9299999475479127
+            ],
+            "B": [
+                0.0,
+                0.1499825119972229,
+                2.4000000953674318
+            ],
+            "Radius": 0.5299999713897705,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "breath_4",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.14932356774806977,
+                2.5199999809265138
+            ],
+            "B": [
+                0.0,
+                0.12076951563358307,
+                3.119999885559082
+            ],
+            "Radius": 0.6399999856948853,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "breath_5",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.112681083381176,
+                3.2200000286102297
+            ],
+            "B": [
+                0.0,
+                0.07742875069379807,
+                3.5999999046325685
+            ],
+            "Radius": 0.6299999952316284,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "breath_6",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.07060668617486954,
+                3.6700000762939455
+            ],
+            "B": [
+                0.0,
+                0.04692963883280754,
+                3.9200000762939455
+            ],
+            "Radius": 0.25,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

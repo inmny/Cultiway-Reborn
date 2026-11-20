@@ -80,6 +80,9 @@
   "Cultiway.ConstructionText.Change.Ray": "Ray change",
   "Cultiway.ConstructionText.RadialMotion": "Within world radius {1:0.##} of {0}, moves {4} horizontally at centre speed {2:0.##} tiles/s (+outward, -inward), retargeting every {3:0.###}s. Fades to zero at the edge, independent of contact shape.",
   "Cultiway.ConstructionText.Change.RadialMotion": "Radial motion",
+  "Cultiway.ConstructionText.WindChannel": "{0} opens a wind channel {1:0.##} tiles long with an inlet half-width of {2:0.##}. Drives {5} at speed {3:0.##}, sampled every {4:0.##} s.",
+  "Cultiway.ConstructionText.AbsorbedForceOutlet": "{0} holds absorbed force for {2:0.##} s, then releases it outward from the first contact through {1}.",
+  "Cultiway.ConstructionText.KeepSourcePosition": "{0} takes over at the actual position of {1}.",
   "Cultiway.ConstructionText.RadialGroundItems": "Lifts up to {0} unowned ground items. They fall when the wind stops.",
   "Cultiway.ConstructionText.Change.ClashRules": "Clash rules",
   "Cultiway.ConstructionText.Change.Persistence": "Persistence",
@@ -154,5 +157,6 @@
   "Cultiway.ConstructionText.RequiredStatus": "The branch checks whether {0} still have {1} on contact.",
   "Cultiway.ConstructionText.RemoveStatus": "Removes up to {1} stacks of {0} ({2}).",
   "Cultiway.ConstructionText.OwnStatusSource": "caster’s stacks only",
-  "Cultiway.ConstructionText.AnyStatusSource": "any source"
+  "Cultiway.ConstructionText.AnyStatusSource": "any source",
+  "Cultiway.ConstructionText.WeaponChamber": "The chamber is {0:0.##} tiles wide in radius and {1:0.##} tiles deep. It holds the original weapon and ejects it at {2:0.##} tiles per second."
 }

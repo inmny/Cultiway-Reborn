@@ -1,0 +1,168 @@
+var source = Make(64);
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 400f });
+owner.MarkCultiwayStatsDirty();
+source.setStatsDirty();
+source.updateStats();
+var opposing = Make(12, "wolf").kingdom;
+Actor Opponent(float x, float y)
+{
+    Actor actor = Make(x);
+    actor.setKingdom(opposing);
+    Place(actor, x, y);
+    return actor;
+}
+Actor first = Opponent(69.5f, 72f), second = Opponent(72.8f, 74f);
+Actor third = Opponent(75.1f, 77.3f), outside = Opponent(68.7f, 79.6f);
+Actor[] targets = { first, second, third, outside };
+int[] health = targets.Select(actor => actor.data.health).ToArray();
+var starts = new List<ConstructedCastStarted>();
+AbilityCast cast = null;
+void Started(ConstructedCastStarted value)
+{
+    if (value.SourceId != source.id || value.AbilityId != "Cultiway.SealRelay") return;
+    starts.Add(value);
+    foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+        if ((long)Field(running, "Id") == value.CastId) cast = (AbilityCast)Field(running, "Cast");
+}
+ConstructedAbilityService.CastStarted += Started;
+
+try
+{
+    var definitionPath = Path.Combine(root, "Content/Skills/Attack/SealRelay.json");
+    var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(definitionPath));
+    var compiled = AbilityCompiler.Compile(definition, false);
+    Check(compiled.FormCount == 6, "发布的折纸、朱印及普通部位资料可编译");
+    bool film = recordView.Length > 0;
+    if (film)
+    {
+        var foreground = new HashSet<Building>();
+        for (int x = 68; x <= 76; x++)
+        for (int y = 71; y <= 78; y++)
+        {
+            Building plant = World.world.GetTileSimple(x, y).building;
+            if (plant != null) foreground.Add(plant);
+        }
+        foreach (var plant in foreground) plant.removeBuildingFinal();
+        await SetCamera(12.8f);
+    }
+    await Advance(.22f);
+    var payload = new SkillContainerBuilder(SkillEntities.SealRelay).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+    var talisman = SpecialItemUtils.StartBuild(ItemShapes.Talisman, Cultiway.WorldboxGame.I.GetWorldTime(), source.getName(), 1).Build();
+    talisman.AddComponent(new Talisman { SkillContainer = payload, PowerLevel = 1, Strength = 11f });
+    talisman.AddRelation(new SkillMasterRelation { SkillContainer = payload });
+    owner.AddSpecialItem(talisman);
+    var handle = new ActiveAbilityHandle("content.talisman", talisman);
+    bool miss = section == "miss";
+    bool live = false;
+    var scope = new ConstructionWorldScope(() => live, (_, _) => true);
+    var request = new ActiveAbilityTarget(miss ? null : first, miss ? new Vector3(69.5f, 68.6f) : first.GetSimPos(),
+        runtimeData: new SkillCastRuntimeData { CorrelationId = 9402 }, worldScope: scope);
+    source.addAggro(first); first.addAggro(source);
+    Ready(source);
+    Place(source, 64);
+    float wakan = owner.GetComponent<Xian>().wakan;
+    Check(!ActiveAbilityService.TryUse(owner, handle, request, ActiveAbilityUseOrigin.Script) && !talisman.IsNull,
+          "任务失效时保留真实封存物品");
+    live = true;
+    Check(ActiveAbilityService.TryUse(owner, handle, request, ActiveAbilityUseOrigin.Script) && talisman.IsNull,
+          "真实符箓入口受理后消耗一次");
+    source.attack_timer = 0;
+    Check(!ActiveAbilityService.TryUse(owner, handle, request, ActiveAbilityUseOrigin.Script) &&
+          Mathf.Abs(owner.GetComponent<Xian>().wakan - wakan) < .01f, "同一符箓无法再用，已预付的来源没有向人物重复扣灵气");
+    source.attack_timer = 999;
+    ControllableUnit.clear(false);
+    Place(source, 64);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.setStatsDirty(); source.updateStats();
+
+    var marks = new Dictionary<int, (Vector3 Point, float At)>();
+    var leaves = new Dictionary<int, (Vector3 Point, float At, float Force)>();
+    void Watch()
+    {
+        if (film)
+        {
+            var camera = World.world.camera.transform;
+            camera.position = new Vector3(70f, 74f, camera.position.z);
+        }
+        if (cast == null) return;
+        var state = (Array)Field(cast, "nodes");
+        for (int index = 0; index < 6; index++)
+        {
+            if (cast.NodeAge(index) < 0f) continue;
+            var current = state.GetValue(index);
+            if ((bool)Field(current, "Visible") == false) continue;
+            Vector3 point = ((Matrix4x4)Field(current, "Transform")).GetColumn(3);
+            if (index % 2 == 1)
+            {
+                if (!marks.ContainsKey(index)) marks[index] = (point, cast.Age);
+            }
+            else if (!leaves.ContainsKey(index))
+                leaves[index] = (point, cast.Age, cast.RemainingForce(index));
+        }
+    }
+
+    const float duration = 4.25f;
+    List<double> times = null;
+    if (film) times = await Film(duration, Watch);
+    else
+    {
+        double start = World.world.getCurWorldTime();
+        Config.paused = false;
+        while (World.world.getCurWorldTime() - start < duration)
+        { Watch(); await Game.NextFrame(); }
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+    }
+    var actual = contacts.Select(hit => new { hit.CastId, hit.TargetId, hit.Node, hit.Age, lost = hit.Damage.HealthLost,
+        position = hit.Position.ToString() }).ToArray();
+    var stages = new
+    {
+        leaves = leaves.ToDictionary(pair => pair.Key, pair => new { point = pair.Value.Point.ToString(), pair.Value.At, pair.Value.Force }),
+        marks = marks.ToDictionary(pair => pair.Key, pair => new { point = pair.Value.Point.ToString(), pair.Value.At }), actual
+    };
+    File.WriteAllText(Path.Combine(folder, "stages.json"), JsonConvert.SerializeObject(stages, Formatting.Indented));
+    Check(starts.Count == 1 && starts[0].CorrelationId == 9402 && cast.Finished && Forms(cast).Length == 0 &&
+          endings.Count(fact => fact.Fact.CastId == starts[0].CastId) == 1, "一次受理只开始和结束一次",
+          new { started = starts.Select(fact => fact.CastId).ToArray(), ended = endings.Select(fact => fact.Fact.CastId).ToArray(),
+                phase = cast?.Phase.ToString() });
+    if (miss)
+    {
+        Check(actual.Length == 0 && marks.Count == 0 && leaves.Keys.SequenceEqual(new[] { 0 }) &&
+              targets.Select(actor => actor.data.health).SequenceEqual(health),
+              "原符飞空后没有损伤，不起朱印，也不生成第二张符", stages);
+    }
+    else
+    {
+        Check(actual.Select(hit => hit.TargetId).SequenceEqual(targets.Take(3).Select(actor => actor.id)) &&
+              actual.Select(hit => hit.Node).SequenceEqual(new[] { 0, 2, 4 }) &&
+              actual.All(hit => hit.lost > 0) && outside.data.health == health[3],
+              "三张符都沿实际路线依次接触，场外目标无伤", actual);
+        Check(marks.Count == 3 && leaves.Count == 3 && contacts.All(hit => marks.TryGetValue(hit.Node + 1, out var mark) &&
+              Vector3.Distance(mark.Point, hit.Position) < .08f && mark.At >= hit.Age - .002f),
+              "每一次朱印都从实际接触点开始", stages);
+        Check(leaves[2].At >= contacts[0].Age + .32f && leaves[4].At >= contacts[1].Age + .32f &&
+              leaves[0].Force > leaves[2].Force && leaves[2].Force > leaves[4].Force && leaves[4].Force > 0f,
+              "后续的纸符等印面展开后才离开，实际余力逐次降低", stages);
+    }
+    string archive = null;
+    if (save)
+    {
+        archive = Path.Combine(folder, "archive");
+        SaveManager.saveWorldToDirectory(archive);
+        File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+        {
+            process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id,
+            remaining = owner.GetItems().Count(item => item.HasComponent<Talisman>())
+        }, Formatting.Indented));
+        Check(talisman.IsNull && File.Exists(Path.Combine(archive, "map.wbox")), "正式保存已消耗符箓后的原持有人");
+    }
+    return new { passed = true, section, view = recordView, scene = "construction", times, duration, archive,
+        resource = "talisman", paid = 1, stages, previewFrame = times == null ? 0 :
+            Math.Max(0, times.FindIndex(at => at > contacts[1].Age + .22f)) };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ReleaseChecks();
+}

@@ -1,0 +1,237 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.SealRelay",
+  "Name": "连印走符",
+  "Resource": "none",
+  "Cost": 0,
+  "Cooldown": 0,
+  "Lifetime": 4,
+  "Power": 1,
+  "TargetRange": 16,
+  "Use": {
+    "Channels": "Combat, World",
+    "Target": "ObjectOrPoint"
+  },
+  "Binding": {
+    "Anchor": "Source",
+    "FaceTarget": true,
+    "Height": 0.59
+  },
+  "Root": {
+    "Id": "leaf0",
+    "Form": "talisman_folded_leaf",
+    "Matter": "wood",
+    "Scale": 1.65,
+    "Rotation": [
+      28,
+      0,
+      0
+    ],
+    "ContactRole": "Attack",
+    "ContactGroup": "seal_contacts",
+    "DisappearAt": 1.4,
+    "OnContact": "End",
+    "Impact": {
+      "Targets": "Hostile",
+      "DamageScale": 1.0,
+      "SelectedTargetOnly": false
+    },
+    "Operations": [
+      {
+        "Kind": "Grow",
+        "Seconds": 0.16
+      },
+      {
+        "Kind": "Fly",
+        "At": 0.15,
+        "Vector": [
+          0,
+          0,
+          13.2
+        ],
+        "InheritVelocity": false,
+        "Goal": {
+          "Anchor": "Target",
+          "Follow": false,
+          "Approach": true,
+          "Arrival": "Stop",
+          "Radius": 0.08
+        }
+      }
+    ],
+    "Children": [
+      {
+        "Id": "mark",
+        "Form": "talisman_contact_seal",
+        "Matter": "wood",
+        "ContactRole": "Decoration",
+        "Rotation": [
+          -68,
+          0,
+          0
+        ],
+        "Scale": 1.75,
+        "DisappearAt": 0.72,
+        "Activation": {
+          "Trigger": "ActorContact"
+        },
+        "Operations": [
+          {
+            "Kind": "Grow",
+            "Seconds": 0.28
+          }
+        ]
+      },
+      {
+        "Id": "leaf1",
+        "Form": "talisman_folded_leaf",
+        "Matter": "wood",
+        "Scale": 1.39,
+        "Rotation": [
+          28,
+          0,
+          0
+        ],
+        "ContactRole": "Attack",
+        "ContactGroup": "seal_contacts",
+        "DisappearAt": 0.9,
+        "OnContact": "End",
+        "Impact": {
+          "Targets": "Hostile",
+          "DamageScale": 1.0,
+          "SelectedTargetOnly": true
+        },
+        "Activation": {
+          "Trigger": "ActorContact",
+          "Delay": 0.34,
+          "Target": {
+            "Radius": 5.4,
+            "ForceMultiplier": 0.74
+          }
+        },
+        "Operations": [
+          {
+            "Kind": "Grow",
+            "Seconds": 0.075
+          },
+          {
+            "Kind": "Fly",
+            "At": 0.075,
+            "Vector": [
+              0,
+              0,
+              11.5
+            ],
+            "InheritVelocity": false,
+            "Goal": {
+              "Anchor": "Target",
+              "Follow": false,
+              "Approach": true,
+              "Arrival": "Stop",
+              "Radius": 0.08
+            }
+          }
+        ],
+        "Children": [
+          {
+            "Id": "mark",
+            "Form": "talisman_contact_seal",
+            "Matter": "wood",
+            "ContactRole": "Decoration",
+            "Rotation": [
+              -68,
+              0,
+              0
+            ],
+            "Scale": 1.75,
+            "DisappearAt": 0.72,
+            "Activation": {
+              "Trigger": "ActorContact"
+            },
+            "Operations": [
+              {
+                "Kind": "Grow",
+                "Seconds": 0.28
+              }
+            ]
+          },
+          {
+            "Id": "leaf2",
+            "Form": "talisman_folded_leaf",
+            "Matter": "wood",
+            "Scale": 1.22,
+            "Rotation": [
+              28,
+              0,
+              0
+            ],
+            "ContactRole": "Attack",
+            "ContactGroup": "seal_contacts",
+            "DisappearAt": 0.9,
+            "OnContact": "End",
+            "Impact": {
+              "Targets": "Hostile",
+              "DamageScale": 1.0,
+              "SelectedTargetOnly": true
+            },
+            "Activation": {
+              "Trigger": "ActorContact",
+              "Delay": 0.34,
+              "Target": {
+                "Radius": 5.4,
+                "ForceMultiplier": 0.72
+              }
+            },
+            "Operations": [
+              {
+                "Kind": "Grow",
+                "Seconds": 0.075
+              },
+              {
+                "Kind": "Fly",
+                "At": 0.075,
+                "Vector": [
+                  0,
+                  0,
+                  11.5
+                ],
+                "InheritVelocity": false,
+                "Goal": {
+                  "Anchor": "Target",
+                  "Follow": false,
+                  "Approach": true,
+                  "Arrival": "Stop",
+                  "Radius": 0.08
+                }
+              }
+            ],
+            "Children": [
+              {
+                "Id": "mark",
+                "Form": "talisman_contact_seal",
+                "Matter": "wood",
+                "ContactRole": "Decoration",
+                "Rotation": [
+                  -68,
+                  0,
+                  0
+                ],
+                "Scale": 1.75,
+                "DisappearAt": 0.72,
+                "Activation": {
+                  "Trigger": "ActorContact"
+                },
+                "Operations": [
+                  {
+                    "Kind": "Grow",
+                    "Seconds": 0.28
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

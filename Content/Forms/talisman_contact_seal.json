@@ -1,0 +1,171 @@
+{
+    "Structure": {
+        "Kind": "articulated",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_talisman.mjs",
+            "Entry": "makeTalismanForms",
+            "Parameters": [
+                {
+                    "Id": "stamp",
+                    "Values": [
+                        -0.6200000047683716,
+                        -0.3700000047683716,
+                        -0.38999998569488528,
+                        -0.5899999737739563,
+                        0.4099999964237213,
+                        -0.5299999713897705,
+                        0.6200000047683716,
+                        -0.28999999165534975,
+                        0.5899999737739563,
+                        0.36000001430511477,
+                        0.33000001311302187,
+                        0.5799999833106995,
+                        -0.38999998569488528,
+                        0.5099999904632568,
+                        -0.6100000143051148,
+                        0.30000001192092898
+                    ]
+                },
+                {
+                    "Id": "seal",
+                    "Values": [
+                        -0.3199999928474426,
+                        0.2800000011920929,
+                        0.27000001072883608,
+                        0.2800000011920929,
+                        0.28999999165534975,
+                        0.05000000074505806,
+                        0.019999999552965165,
+                        0.03999999910593033,
+                        0.029999999329447748,
+                        -0.10000000149011612,
+                        0.3100000023841858,
+                        -0.10000000149011612,
+                        0.30000001192092898,
+                        -0.3100000023841858,
+                        -0.28999999165534975,
+                        -0.30000001192092898,
+                        -0.2800000011920929,
+                        -0.07999999821186066,
+                        -0.10000000149011612,
+                        -0.07000000029802323,
+                        -0.10999999940395355,
+                        0.07000000029802323,
+                        -0.3199999928474426,
+                        0.07000000029802323
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "imprint/symbol",
+                "Parent": "imprint",
+                "Child": "symbol",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.029999999329447748
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "imprint/ridge",
+                "Parent": "imprint",
+                "Child": "ridge",
+                "Position": [
+                    0.0,
+                    0.33000001311302187,
+                    0.03999999910593033
+                ],
+                "Detachable": false
+            }
+        ],
+        "Changes": [
+            "transform"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "talisman_contact_seal",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "talisman.contact"
+            ],
+            "Id": "imprint",
+            "Surface": "talisman_imprint",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/talisman_contact_seal_imprint.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "talisman.symbol"
+            ],
+            "Id": "symbol",
+            "Surface": "talisman_paper",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/talisman_contact_seal_symbol.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "talisman.rim"
+            ],
+            "Id": "ridge",
+            "Surface": "talisman_fold",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/talisman_contact_seal_ridge.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [],
+    "Controls": [],
+    "Motions": []
+}

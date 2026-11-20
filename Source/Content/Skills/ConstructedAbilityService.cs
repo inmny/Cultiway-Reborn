@@ -76,7 +76,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         SkillModifiers.RegisterConstructionWorldEffects();
         Core.SkillLibV3.Manager.ConstructionEmission = emission =>
         {
-            SkillEmissionResult result = UtilityConstructionMigration.Emit(emission);
+            SkillEmissionResult result = FoxfireBreathConstruction.Emit(emission);
+            if (result == SkillEmissionResult.Unhandled) result = SealRelayConstruction.Emit(emission);
+            if (result == SkillEmissionResult.Unhandled) result = UtilityConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = ProjectileConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = GroundSpikeConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = RiftConstructionMigration.Emit(emission);
@@ -394,14 +396,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="direction">来源确定的完整出手方向，空值保留普通身体的水平朝向。</param>
     /// <param name="sourceInstance">原来源的运行容器编号，仅用于本世界并存计数，不写入能力资料。</param>
     /// <param name="spatialSource">实际提供出生及随动位置的人物载体，省略时使用归属人物。</param>
+    /// <param name="sourceIsWorld">已从同轮身体表面取得绝对坐标，无需再叠加地表。</param>
     internal static bool StartPrepaid(ActorExtend caster, AbilityDefinition definition,
         in ActiveAbilityTarget target, Vector3 sourcePosition, SkillCastPayment payment = null,
-        GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0, BaseSimObject spatialSource = null)
+        GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0, BaseSimObject spatialSource = null,
+        bool sourceIsWorld = false)
     {
         if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
         return Start(caster, ValidateDefinition(definition), target, target.RuntimeData.Origin, out _, sourcePosition,
             true, payment, sourceDamage: damage, sourceDirection: direction, sourceInstance: sourceInstance,
-            spatialSource: spatialSource?.a);
+            spatialSource: spatialSource?.a, sourceIsWorld: sourceIsWorld);
     }
 
     /// <summary>固定环境位置直接进入共同执行，零编号表示未受理，不借人物提供身份或资源。</summary>
@@ -438,11 +442,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="sourceInstance">原运行容器的并存分组，普通构造为零。</param>
     /// <param name="spatialSource">本次真实人物载体，与资源及伤害归属分开保存。</param>
     /// <param name="practice">是否由实际训练任务练习姿态而不产生战斗接触。</param>
+    /// <param name="sourceIsWorld">明确出生点已经采集世界高度。</param>
     private static bool Start(ActorExtend caster, CompiledAbility plan,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, out long castId, Vector3? sourcePosition = null,
         bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
         GetHitEvent? sourceDamage = null, Vector3? sourceDirection = null, int sourceInstance = 0, Actor spatialSource = null,
-        bool practice = false)
+        bool practice = false, bool sourceIsWorld = false)
     {
         castId = 0;
         Actor sourceActor = caster?.Base;
@@ -479,7 +484,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (sourcePosition.HasValue)
         {
             source = sourcePosition.Value;
-            source.z += simulation.terrain?.Sample(source.x, source.y) ?? 0f;
+            if (!sourceIsWorld) source.z += simulation.terrain?.Sample(source.x, source.y) ?? 0f;
         }
 
         Vector3 direction = sourceDirection ?? point - source;
@@ -783,6 +788,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             ReleaseSpatialViews(running);
             ReleaseLandscapeSlices(running);
             ReleaseMaterialVortices(running);
+            ReleaseWeaponChambers(running);
             ReleaseMirrorImages(running, worldChanged: true);
             ReleaseSupportGrips(running, "WorldChanged");
             ReleaseShadowHold(running, "WorldChanged", running.LastWorldTime);
@@ -825,6 +831,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ReleaseSpatialViews(running);
         ReleaseLandscapeSlices(running);
         ReleaseMaterialVortices(running);
+        ReleaseWeaponChambers(running);
         ReleaseMirrorImages(running);
         if (running.Cast.Plan.SoulPact != null && soulPacts.TryGetValue(running.TargetId, out var pact) && pact.Cast == running)
             soulPacts.Remove(running.TargetId);
@@ -1074,6 +1081,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>范围运动已经处理的共同整点；只有实际声明范围运动的施放才分配。</summary>
         internal int[] RadialTicks;
+
+        /// <summary>每个槽携带的原物编号；结束时物件仍由原地面系统推进。</summary>
+        internal List<long>[] ChannelItems;
+
+        /// <summary>索引对应已编译的实际器口部位。</summary>
+        internal Combat.GroundWeaponService.Chamber[] WeaponChambers;
 
         /// <summary>本次实际受理的世界时间，动作事实采用同一原点。</summary>
         internal double StartedAt;

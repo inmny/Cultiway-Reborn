@@ -1,0 +1,114 @@
+var definition = Spell("瘴潮凝潭");
+Actor side = Make(69), outside = Make(69);
+foreach (Actor actor in new[] { side, outside }) actor.setKingdom(victim.kingdom);
+Place(side, 69, 75.25f); Place(outside, 68.2f, 78.1f);
+Item armor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: victim);
+victim.equipment.setItem(armor, victim); victim.setStatsDirty(); victim.updateStats();
+int initial = armor.getDurabilityCurrent(), sideHealth = side.data.health, outsideHealth = outside.data.health;
+var spreads = new List<ConstructedSpread>();
+var losses = new List<ConstructedEquipmentErosion>();
+void Spread(ConstructedSpread fact) { if (seen.ContainsKey(fact.CastId)) spreads.Add(fact); }
+void Worn(ConstructedEquipmentErosion fact) { if (seen.ContainsKey(fact.CastId)) losses.Add(fact); }
+ConstructedAbilityService.SpreadConfirmed += Spread;
+ConstructedAbilityService.EquipmentErosionConfirmed += Worn;
+bool Poisoned(Actor actor) => CombatStatusEffects.HasStatus(actor, StatusEffects.Poison, source);
+bool Etched() => FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "poison_pit");
+try
+{
+    if (miss)
+    {
+        Place(victim, 69, 76.5f);
+        await Advance(.14f);
+        Ready(source); Place(source, 64); source.setMana(64);
+        ConstructedAbilityService.Register(definition);
+        ConstructedAbilityService.Learn(source.GetExtend(), definition.Id);
+        var handle = new ActiveAbilityHandle("content.constructed", source.GetExtend().E, definition.Id);
+        Check(ActiveAbilityService.TryUse(source.GetExtend(), handle,
+            new ActiveAbilityTarget(null, new Vector3(69, 72, 0)), ActiveAbilityUseOrigin.Script), "点向空地仍正式接受并支付");
+        source.attack_timer = 999;
+        var empty = seen.Last();
+        source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+        float peak = 0f;
+        for (int i = 0; i < Mathf.CeilToInt(definition.Lifetime / .25f) + 1 && !empty.Value.Finished; i++)
+        {
+            await Advance(.25f);
+            peak = Mathf.Max(peak, empty.Value.NodeAge(1));
+        }
+        Check(empty.Value.Finished && peak == 0f && !contacts.Any(x => x.CastId == empty.Key) && spreads.Count == 0 && losses.Count == 0 &&
+              !Poisoned(victim) && !Poisoned(side) && !Etched() && initial == armor.getDurabilityCurrent(),
+            "错开实际毒息后没有凝潭、扩散、蚀痕或耐久损失");
+        return new { passed = true, miss };
+    }
+    var first = await Use(definition);
+    if (recordView.Length > 0) await SetCamera(6.8f);
+    Check(spreads.Count == 0 && losses.Count == 0 && initial == armor.getDurabilityCurrent(), "未接触时尚无传播和蚀甲");
+    float maxRadius = 0f, finalRadius = -1f;
+    int armorAfterExit = 0, exitCount = -1;
+    double preview = -1, start = World.world.getCurWorldTime();
+    bool lingering = false, tracedEtch = false;
+    Vector3 condensed = default;
+    void Watch()
+    {
+        foreach (var form in Forms(first.Cast).Where(v => v.Resource.Description.Id == "poison_pool"))
+        {
+            float radius = form.Transform.lossyScale.x;
+            maxRadius = Mathf.Max(maxRadius, radius);
+            if (first.Cast.NodeAge(1) >= 1.60f) finalRadius = radius;
+            condensed = form.Transform.GetColumn(3);
+        }
+        if (first.Cast.Finished && Poisoned(side)) lingering = true;
+        if (losses.Count > 0 && Etched())
+        {
+            tracedEtch = true;
+            if (preview < 0) preview = World.world.getCurWorldTime() - start;
+        }
+        if (losses.Count < 2 || exitCount >= 0) return;
+        armorAfterExit = armor.getDurabilityCurrent();
+        exitCount = losses.Count;
+        Place(victim, 69, 69.3f);
+    }
+    const float duration = 6.1f;
+    List<double> times = null;
+    if (recordView.Length > 0) times = await Film(duration, Watch);
+    else for (int i = 0; i < 56; i++) { await Advance(.11f); Watch(); }
+    var hit = contacts.Where(c => c.CastId == first.Id && c.Node == 0).ToArray();
+    var contact = hit.FirstOrDefault();
+    var hitRows = hit.Select(fact => new { fact.TargetId, fact.Age, fact.StateBefore,
+        lost = fact.Damage.HealthLost, point = fact.Position.ToString() }).ToArray();
+    var spreadRows = spreads.Select(fact => new { fact.ContactId, fact.Actors, fact.Radius,
+        center = fact.Center.ToString() }).ToArray();
+    Check(hit.Length == 1 && contact.TargetId == victim.id && contact.StateBefore == "gas" && spreads.Count == 1 &&
+          spreads[0].ContactId == victim.id && spreads[0].Actors.Contains(side.id) && !spreads[0].Actors.Contains(outside.id) &&
+          side.data.health < sideHealth && outside.data.health == outsideHealth,
+        "气态真实命中一次，侧面人物才经传播掉血，场外无伤", new { hits = hitRows, spreads = spreadRows });
+    Check(exitCount >= 2 && losses.Count == exitCount && losses.All(loss => loss.Node == 1 && loss.TargetId == victim.id &&
+          loss.ItemId == armor.id && loss.After < loss.Before) && armor.getActor() == victim && armorAfterExit < initial &&
+          armorAfterExit == armor.getDurabilityCurrent() && tracedEtch && !Etched() &&
+          contacts.Any(c => c.CastId == first.Id && c.Node == 1 && c.StateBefore == "liquid"),
+        "只有真实液态接触损伤同一件铁甲，离开停止，腐蚀痕迹退去", losses);
+    Check(Vector2.Distance(contact.Position, condensed) < .08f && maxRadius > .5f && finalRadius >= 0f &&
+          finalRadius < maxRadius * .5f && first.Cast.Finished && lingering && !Poisoned(side) && !Poisoned(victim),
+        "只在实际触点凝成地面毒潭，作用面收缩，残毒随后消退", new { maxRadius, finalRadius, position = condensed.ToString(), lingering });
+    string archive = null;
+    if (save)
+    {
+        ConstructedAbilityService.Learn(source.GetExtend(), definition.Id);
+        archive = Path.Combine(folder, "archive");
+        SaveManager.saveWorldToDirectory(archive);
+        File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+        {
+            process = System.Diagnostics.Process.GetCurrentProcess().Id, definition, source = source.id, target = victim.id, item = armor.id,
+            durability = armor.getDurabilityCurrent(), victim.data.health
+        }, Formatting.Indented));
+        Check(File.Exists(Path.Combine(archive, "map.wbox")), "正式存档保留原甲损耗与已学构造");
+    }
+    return new { passed = true, scene = "construction", resource = "mana", paid = definition.Cost, view = recordView,
+        duration, times, previewFrame = times?.FindIndex(t => t >= preview) ?? 0, hits = hitRows, spreads = spreadRows, losses,
+        maxRadius, finalRadius, initial, armorAfterExit, lingering, archive };
+}
+finally
+{
+    ConstructedAbilityService.SpreadConfirmed -= Spread;
+    ConstructedAbilityService.EquipmentErosionConfirmed -= Worn;
+    ReleaseChecks();
+}

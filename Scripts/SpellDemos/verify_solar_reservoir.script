@@ -1,0 +1,183 @@
+// 同一人物和地块验证成壳、两次真实吸收、向外释放和护生。
+var clashes = new List<ConstructedClash>();
+void Clap(ConstructedClash fact) => clashes.Add(fact);
+ConstructedAbilityService.ClashConfirmed += Clap;
+
+AbilityDefinition ShotDefinition(string name, float power) => new AbilityDefinition
+{
+    Id = "Cultiway.Demo.SolarReservoir.Incoming." + name,
+    Name = "来袭阴丸",
+    Resource = "none",
+    Cost = 0f,
+    Cooldown = .05f,
+    Power = power,
+    Lifetime = 1.4f,
+    TargetRange = 36,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat, Target = ActiveAbilityTargetMode.ObjectOrPoint },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = true, Height = .65f },
+    Root = new ConstructionNode
+    {
+        Id = "incoming", Form = "yin_bolt", Matter = "yin", State = "energy", ContactRole = ConstructionContactRole.Attack,
+        Scale = 1.25f,
+        Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Hostile, DamageScale = .75f },
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { 0f, 0f, 26f }, InheritVelocity = false } }
+    }
+};
+
+void Send(AbilityDefinition definition, Actor target)
+{
+    victim.addAggro(target);
+    target.addAggro(victim);
+    ConstructedAbilityService.Register(definition);
+    var attacker = victim.GetExtend();
+    ConstructedAbilityService.Learn(attacker, definition.Id);
+    var handle = new ActiveAbilityHandle("content.constructed", attacker.E, definition.Id);
+    victim.attack_timer = 0;
+    bool used = ActiveAbilityService.TryUse(attacker, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
+    victim.attack_timer = 999;
+    attacker.E.RemoveComponent<ConstructedKnowledge>();
+    Check(used, definition.Name + "从真实来源施放", new { definition.Id, target = target.id, start = victim.current_position.ToString() });
+}
+
+try
+{
+    var definition = Spell("明壳承阳");
+    if (section == "miss")
+    {
+        var invalid = Spell("明壳承阳");
+        invalid.Root.Children[0].Interception = ConstructionInterception.Reflect;
+        try { AbilityCompiler.Compile(invalid, false); Check(false, "反射屏障不能把同一来势再存一份"); }
+        catch (InvalidDataException) { Check(true, "反射屏障不能作为吸收来源"); }
+    }
+
+    bool miss = section == "miss", film = section == "film";
+    var shotA = ShotDefinition("first", 6f);
+    var shotB = ShotDefinition("second", 9f);
+    var screen = Make(62);
+    Place(screen, 62, miss ? 84 : 84.5f);
+    if (film) await SetCamera(16f);
+    var ward = await Use(definition, 81);
+    ControllableUnit.clear(false);
+    if (film)
+    {
+        World.world.camera.transform.position = new Vector3(73f, 72f, 0);
+        MoveCamera.instance.forceZoom(16f);
+    }
+    Place(source, 64);
+    Place(victim, 81, miss ? 84 : 72);
+    source.data.health = source.getMaxHealth() - 110;
+    int wounded = source.data.health;
+    var cast = ward.Cast;
+    Check(cast.Plan.FormCount == 4 && cast.RemainingForce(2) == 0f && cast.NodeAge(2) < 0f,
+          "后段在收到真实来势前没有预置力量也未开始");
+
+    const float duration = 5.35f;
+    bool sentA = false, sentB = false, kernelSeen = false, fullShell = false, held = false, opened = false, shieldGone = false;
+    AbilityCast missedShot = null;
+    float passX = float.PositiveInfinity;
+    float stored = 0f, outForce = 0f, fullScale = 0f, facing = -1f;
+    Vector3 shellCentre = Vector3.zero, release = Vector3.zero, firstContact = Vector3.zero;
+    double openingTime = -1, zero = World.world.getCurWorldTime();
+    var capsules = new List<AbilityCapsule>();
+    var confirmed = new List<ConstructedClash>();
+    void Observe()
+    {
+        double at = World.world.getCurWorldTime() - zero;
+        var visible = Forms(cast);
+        kernelSeen |= visible.Any(view => view.Resource.Description.Id == "solar_aegis" && view.Surface == "solar_kernel");
+        foreach (var view in visible.Where(view => view.Resource.Description.Id == "solar_aegis" && view.Surface == null))
+        {
+            fullScale = Mathf.Max(fullScale, view.Transform.lossyScale.x);
+            shellCentre = view.Transform.GetColumn(3);
+            fullShell |= fullScale > 4.6f;
+        }
+        if (!sentA && at >= 1.28)
+        {
+            Send(shotA, miss ? screen : source);
+            if (miss) missedShot = seen.Last().Value;
+            sentA = true;
+        }
+        if (!miss && !sentB && at >= 1.50)
+        {
+            Send(shotB, source);
+            sentB = true;
+        }
+        if (missedShot != null && missedShot.RemainingForce(0) > 0f)
+            foreach (var view in Forms(missedShot))
+            {
+                Vector3 point = view.Transform.GetColumn(3);
+                if (Mathf.Abs(point.y - shellCentre.y) > 10f) passX = Mathf.Min(passX, point.x);
+            }
+        confirmed.Clear();
+        confirmed.AddRange(clashes.Where(hit => hit.LeftCast == ward.Id && hit.LeftNode == 1 ||
+                                                  hit.RightCast == ward.Id && hit.RightNode == 1));
+        if (confirmed.Count > 0)
+        {
+            firstContact = confirmed[0].Position;
+            if (cast.NodeAge(2) < 0f)
+            {
+                stored = Mathf.Max(stored, cast.RemainingForce(2));
+                held |= stored > 0f && visible.Any(view => view.Resource.Description.Id == "solar_aegis" &&
+                    view.Surface == "solar_gold" &&
+                    Vector3.Distance(view.Transform.GetColumn(3), firstContact) < .03f);
+            }
+        }
+        var beam = visible.FirstOrDefault(view => view.Resource.Description.Id == "solar_ray_luminous");
+        if (!opened && beam.Resource != null)
+        {
+            opened = true; openingTime = at;
+            outForce = cast.RemainingForce(2);
+            release = beam.Transform.GetColumn(3);
+            Vector3 direction = beam.Transform.GetColumn(2);
+            Vector3 bearing = firstContact - shellCentre; bearing.z = 0f;
+            facing = Vector3.Dot(direction.normalized, bearing.normalized);
+            capsules.Clear(); cast.AppendContacts(capsules);
+            shieldGone = capsules.All(shape => shape.Node != 1) && capsules.Any(shape => shape.Node == 2);
+        }
+    }
+
+    List<double> times = null;
+    if (film) times = await Film(duration, Observe);
+    else
+    {
+        Config.paused = false;
+        while (World.world.getCurWorldTime() - zero < duration) { Observe(); await Game.NextFrame(); }
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+    }
+
+    var phase = new { sentA, sentB, kernelSeen, fullShell, fullScale, held, stored, opened, shieldGone, outForce, facing, openingTime,
+        firstContact = firstContact.ToString(), release = release.ToString(), absorbed = confirmed.Select(hit => hit.Absorbed).ToArray(),
+        shellCentre = shellCentre.ToString(), passX = float.IsInfinity(passX) ? (float?)null : passX,
+        wounded, healed = source.data.health };
+    Check(kernelSeen && fullShell, "颗粒种核后撑起城域厚壳", phase);
+    if (miss)
+    {
+        Check(sentA && confirmed.Count == 0 && !held && !opened && cast.RemainingForce(2) == 0 &&
+              passX < shellCentre.x - .5f && source.data.health == wounded,
+              "来势保有力量并从壳外飞过，空壳全程未反击或恢复生命", phase);
+    }
+    else
+    {
+        Check(sentA && sentB && confirmed.Count == 2 && held &&
+              Mathf.Abs(stored - confirmed.Sum(hit => hit.Absorbed)) < .01f &&
+              contacts.All(hit => hit.TargetId != source.id || hit.Damage.HealthLost == 0),
+              "两次来势都实际被吸收，等待期间只有保留的实际力量", phase);
+        Check(opened && shieldGone && facing > .96f && Vector3.Distance(firstContact, release) < .045f &&
+              Mathf.Abs(outForce - confirmed.Sum(hit => hit.Absorbed)) < .01f &&
+              openingTime >= confirmed[0].WorldTime - zero + .70 &&
+              contacts.Any(hit => hit.CastId == ward.Id && hit.TargetId == victim.id && hit.Damage.HealthLost > 0) &&
+              contacts.All(hit => hit.CastId != ward.Id || hit.TargetId != screen.id),
+              "沿真实裂口向外结算伤害，出光后原壳当即停止拦截", phase);
+        Check(source.data.health >= wounded + 31, "使用原有护生结算恢复实际生命", phase);
+    }
+    Check(cast.Finished && Forms(cast).Length == 0 && !BodyControlState.IsBusy(source.id),
+          "原壳、裂口、余光及占用一同退场");
+    return new { passed = true, scene = "construction", resource = definition.Resource, paid = definition.Cost,
+        section, view = recordView, phase, duration, times, previewFrame = times == null ? 0 : Math.Max(0, times.FindIndex(t => t >= openingTime)) };
+}
+finally
+{
+    ConstructedAbilityService.ClashConfirmed -= Clap;
+    ReleaseChecks();
+}

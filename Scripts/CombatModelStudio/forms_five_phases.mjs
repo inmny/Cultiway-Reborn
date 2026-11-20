@@ -29,7 +29,7 @@ function makeMantle() {
     .rotateY((1 - i) * .19).rotateX(.19).translate(x, .04, .59));
   const lime = cols.map((x, i) => slab([[-.54,-.20],[.49,-.22],[.50,.085],[.24,.27],[-.46,.15]], .16, .055)
     .rotateY((i - 1) * .12).translate(x, .46, .63 + .1 * (i % 2)));
-  const parts = [shell('footing', lower, 'stone'), shell('crown', crowns, 'five_shale'), shell('seams', lime, 'five_silt')];
+  const parts = [shell('footing', lower, 'stone_strata'), shell('crown', crowns, 'five_shale'), shell('seams', lime, 'five_silt')];
   const contacts = [.48, 1.1, 1.62].map((z, i) => capsule(`bearing_${i}`, i === 0 ? 0 : 1, [-1.25,.26,z], [1.25,.26,z], .52));
   write('five_phase_mantle', parts, [], contacts, [], [], false, facing,
     structure('rigid', source, 'makeMantle', {cols}, {footing: ['structure.base'], crown: ['shield.face'], seams: ['surface.mark']},
@@ -61,8 +61,8 @@ function makeRootFork() {
         .translate(tip[0]+sign*(i-2)*.12,tip[1]-.11+(i%2)*.13,tip[2]-.09+(i%3)*.14);
     });
     controls.push({Id: id, Position: path[0], Rotation: [0,0,0,1]});
-    parts.push(shell(id, spurs, 'living_bark', id));
-    parts.push(shell(`leaves_${side}`, leaves, 'living_leaf', id));
+    parts.push(shell(id, spurs, 'five_root', id));
+    parts.push(shell(`leaves_${side}`, leaves, 'five_crown', id));
     connections.push([id, `leaves_${side}`, tip]);
     contacts.push({...capsule(`snare_${side}`, side * 2, path[1], tip, .48), AControl: id, BControl: id});
   }

@@ -36,7 +36,7 @@ public sealed partial class AbilityCast
     /// <summary>真实生成部位取得份额；借用身体和空连接点没有可回收材料。</summary>
     /// <param name="node">编译部位。</param>
     private bool HasInitialResource(int node) => Plan.Nodes[node].FragmentSource < 0 && Plan.Nodes[node].RemainderRoot < 0 &&
-        Plan.Nodes[node].Resource.Meshes.Length > 0;
+        Plan.Nodes[node].Activation?.InheritAbsorbedForce != true && Plan.Nodes[node].Resource.Meshes.Length > 0;
 
     /// <summary>开始收束即停止作用，附属结构解除连接后保留自己的事实。</summary>
     /// <param name="node">真正收束的生成主体。</param>

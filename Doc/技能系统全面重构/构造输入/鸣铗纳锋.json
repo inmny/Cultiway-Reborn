@@ -1,0 +1,50 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.WeaponChamber",
+  "Name": "鸣铗纳锋",
+  "Resource": "mana",
+  "Cost": 24,
+  "Cooldown": 4.2,
+  "Lifetime": 3.8,
+  "Power": 16,
+  "TargetRange": 30,
+  "Use": {"Channels": "Combat, World", "Target": "ObjectOrPoint"},
+  "Binding": {"Anchor": "Carrier", "FaceTarget": true, "Follow": true},
+  "Root": {
+    "Id": "carrier",
+    "Form": "pivot",
+    "ContactRole": "Decoration",
+    "Children": [{
+      "Id": "mouth",
+      "Form": "pivot",
+      "Matter": "iron",
+      "ContactRole": "Decoration",
+      "Offset": [0, 0.57, 3.4],
+      "AppearAt": 0.06,
+      "ActiveFrom": 0.46,
+      "ActiveUntil": 2.48,
+      "DisappearAt": 3.02,
+      "WeaponChamber": {"Radius": 1.85, "Depth": 4.3, "ReleaseSpeed": 17},
+      "Operations": [
+        {"Kind": "Detach", "At": 0.9},
+        {"Kind": "Fly", "At": 0.92, "Vector": [0, 0, 0.86], "InheritVelocity": false}
+      ],
+      "Children": [
+        {
+          "Id": "guard_left", "Form": "shield", "Matter": "iron", "FollowMatter": true, "Scale": 1.12,
+          "Offset": [-2.3, 0.3, -0.08], "Rotation": [0, -25, 0], "AppearAt": 0.22,
+          "ActiveFrom": 0.46, "ActiveUntil": 2.52, "DisappearAt": 2.94,
+          "ContactRole": "Barrier", "Interception": "Absorb",
+          "Operations": [{"Kind": "Grow", "At": 0.22, "Seconds": 0.24}]
+        },
+        {
+          "Id": "guard_right", "Form": "shield", "Matter": "iron", "FollowMatter": true, "Scale": 1.12,
+          "Offset": [2.3, 0.3, -0.08], "Rotation": [0, 25, 0], "AppearAt": 0.22,
+          "ActiveFrom": 0.46, "ActiveUntil": 2.52, "DisappearAt": 2.94,
+          "ContactRole": "Barrier", "Interception": "Absorb",
+          "Operations": [{"Kind": "Grow", "At": 0.22, "Seconds": 0.24}]
+        }
+      ]
+    }]
+  }
+}

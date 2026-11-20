@@ -41,6 +41,8 @@ internal sealed partial class GroundWeaponService : BaseSystem
         internal float Ground;
         /// <summary>已经推进的世界时点。</summary>
         internal double Time;
+        /// <summary>临时器口占用，只保留在本次施放期间。</summary>
+        internal Chamber WeaponChamber;
     }
 
     /// <summary>地面资料独立升级；实际物品自身仍由原版保存。</summary>
@@ -164,7 +166,7 @@ internal sealed partial class GroundWeaponService : BaseSystem
             entry.Ground = ground?.Sample(location.x, location.y) ?? 0f;
             float remaining = (float)Math.Max(0d, now - entry.Time);
             entry.Time = now;
-            if (entry.Data.Resting || remaining <= 0f) continue;
+            if (entry.WeaponChamber != null || entry.Data.Resting || remaining <= 0f) continue;
             Vector3 point = Vector(entry.Data.Position), velocity = Vector(entry.Data.Velocity);
             while (remaining > 0f && !entry.Data.Resting)
             {

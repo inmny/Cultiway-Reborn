@@ -24,8 +24,24 @@ public partial class SkillEntities
     /// <summary>环绕施术者并随其移动，用于拦截来袭弹丸的炎盾实体。</summary>
     public static SkillEntityAsset FlameShield { get; private set; }
 
+    /// <summary>只有实际狐火腺与吻端可用时才经器官来源开放。</summary>
+    public static SkillEntityAsset FoxfireBreath { get; private set; }
+
     private static void ConfigureFire()
     {
+        FoxfireBreath.Type = SkillEntityType.Attack;
+        FoxfireBreath.Element = ElementComposition.Static.Fire;
+        FoxfireBreath.AddSemantics(SkillSemantics.Element.Fire, SkillSemantics.Role.Offensive);
+        FoxfireBreath.SetupCommonPrefab(Anim(Fireball, 0), false);
+        FoxfireBreath.SetupImpactProfile(SkillImpactProfileLibrary.Piercing,
+                ResolveCollider(SkillUseProfileLibrary.SingleEnemyObjectOrPoint, true))
+            .SetupDefaultTraj(SkillTrajectories.TowardsPosition)
+            .SetupUseProfile(SkillUseProfileLibrary.SingleEnemyObjectOrPoint)
+            .AcceptTrajectoryDomains(SkillTrajectoryDomain.FlyingBody)
+            .RequireCarrier(SkillCarrierRequirement.PhysicalBody)
+            .RequireCastResource(SkillCastResources.YaoPower)
+            .SetBaseCastDemand(4f);
+
         Configure(
             Fireball,
             ElementComposition.Static.Fire,

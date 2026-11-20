@@ -369,6 +369,8 @@
   "Cultiway.Construction.Piece.branch_2": "第二分枝",
   "Cultiway.Construction.Piece.palm": "掌面",
   "Cultiway.Construction.InheritRemainder": "继承来源剩余力量和材料",
+  "Cultiway.Construction.KeepSourcePosition": "在来源部位的位置独立接替",
+  "Cultiway.Construction.InheritAbsorbedForce": "只用屏障吸收的力量，从接触处朝外释放",
   "Cultiway.Construction.Ground.Follow": "沿真实地表继续推进",
   "Cultiway.Construction.Form.water_flow": "贴地水层",
   "Cultiway.Construction.ExplicitVolume": "明确材料体积",
@@ -1369,6 +1371,7 @@
   "Cultiway.Construction.RadialMotion": "部位·持续范围推拉",
   "Cultiway.Construction.RadialMotionHint": "围绕部位真实中心，以世界距离确定范围；正速度向外推，负速度向内拉，边缘衰减为零。推动可移动的地面人物，也可卷起地面无主物。",
   "Cultiway.Construction.RadialRadius": "范围半径（世界距离）",
+  "Cultiway.Construction.RadialChannelLength": "风槽长度（0 为圆形；启用后半径为入口半宽）",
   "Cultiway.Construction.RadialSpeed": "中心速度（正推、负拉）",
   "Cultiway.Construction.RadialInterval": "重新选人间隔秒数",
   "Cultiway.Construction.RadialGroundItems": "卷起地面无主物（0 至 8 件，0 关闭）",
@@ -1710,5 +1713,10 @@
   "Cultiway.Construction.MartialShape.foot": "足部",
   "Cultiway.Construction.MartialShape.head": "头部",
   "Cultiway.Construction.MartialShape.organ": "器官表面",
-  "Cultiway.Construction.MartialShape.joint": "骨段接触面"
+  "Cultiway.Construction.MartialShape.joint": "骨段接触面",
+  "Cultiway.Construction.WeaponChamber": "实物器口",
+  "Cultiway.Construction.WeaponChamberHint": "在有效时段前段接入一件无主兵器，暂存后从实际口沿抛出。需先在部位设置显现、有效和消失时点。",
+  "Cultiway.Construction.WeaponChamberRadius": "器口半径（格）",
+  "Cultiway.Construction.WeaponChamberDepth": "器腹深度（格）",
+  "Cultiway.Construction.WeaponChamberSpeed": "离口速度（格每秒）"
 }

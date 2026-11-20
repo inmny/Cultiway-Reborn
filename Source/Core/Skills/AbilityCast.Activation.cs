@@ -34,6 +34,9 @@ public sealed partial class AbilityCast
         /// <summary>真实位置及朝向。</summary>
         internal readonly Vector3 Point;
 
+        /// <summary>事件发生时来源部位的实际位置，可供余量接替使用。</summary>
+        internal readonly Vector3 SourcePosition;
+
         /// <summary>事件当时的朝向。</summary>
         internal readonly Quaternion Rotation;
 
@@ -47,16 +50,18 @@ public sealed partial class AbilityCast
         /// <param name="source">实际来源。</param>
         /// <param name="trigger">事件种类。</param>
         /// <param name="point">实际位置。</param>
+        /// <param name="sourcePosition">来源部位的实际位置。</param>
         /// <param name="rotation">实际朝向。</param>
         /// <param name="matter">实际材料。</param>
         /// <param name="before">真实变化前值。</param>
         /// <param name="after">真实变化后值。</param>
-        internal ConditionEvent(int source, ConstructionChangeTrigger trigger, Vector3 point, Quaternion rotation,
+        internal ConditionEvent(int source, ConstructionChangeTrigger trigger, Vector3 point, Vector3 sourcePosition, Quaternion rotation,
             AbilityMatter matter, float before, float after)
         {
             Source = source;
             Trigger = trigger;
             Point = point;
+            SourcePosition = sourcePosition;
             Rotation = rotation;
             Matter = matter;
             Before = before;
@@ -78,7 +83,7 @@ public sealed partial class AbilityCast
         float after = 0f)
     {
         if (Plan.EventListeners.Length == 0 || cancelled || Age >= Plan.Lifetime) return;
-        conditionEvents.Enqueue(new ConditionEvent(source, trigger, point,
+        conditionEvents.Enqueue(new ConditionEvent(source, trigger, point, source < 0 ? point : nodes[source].Transform.GetColumn(3),
             source < 0 ? Quaternion.LookRotation(bodyFrame.Forward, Vector3.forward) : nodes[source].Transform.rotation,
             source < 0 ? null : nodes[source].Matter, before, after));
         if (dispatchingEvents) return;
@@ -98,7 +103,7 @@ public sealed partial class AbilityCast
 
                 ref NodeState state = ref nodes[index];
                 CompiledConstructionActivation gate = Plan.Nodes[index].Activation;
-                if (!state.Exists || !float.IsPositiveInfinity(state.BirthAt) ||
+                if (gate.InheritAbsorbedForce || !state.Exists || !float.IsPositiveInfinity(state.BirthAt) ||
                     !gate.Crossed(fact.Before, fact.After) ||
                     gate.Matter != null && !ReferenceEquals(gate.Matter, fact.Matter)) continue;
                 state.BirthAt = Age + gate.Delay;
@@ -106,7 +111,7 @@ public sealed partial class AbilityCast
                 {
                     state.Free = true;
                     state.EventPlaced = true;
-                    state.EventPosition = fact.Point;
+                    state.EventPosition = gate.KeepSourcePosition ? fact.SourcePosition : fact.Point;
                     state.EventRotation = fact.Rotation;
                 }
 
@@ -195,6 +200,7 @@ public sealed partial class AbilityCast
             state.StartedAt = Mathf.Max(state.StartedAt, Age);
         state.Started = true;
         state.Revision++;
+        if (form.Activation?.InheritAbsorbedForce == true) EndNode(form.Activation.Source);
         foreach (int child in form.Children) QueueBirth(child);
     }
 

@@ -1,0 +1,206 @@
+{
+    "Structure": {
+        "Kind": "articulated",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_talisman.mjs",
+            "Entry": "makeTalismanForms",
+            "Parameters": [
+                {
+                    "Id": "paper",
+                    "Values": [
+                        -0.36000001430511477,
+                        -0.5099999904632568,
+                        -0.1599999964237213,
+                        -0.6399999856948853,
+                        0.23000000417232514,
+                        -0.6100000143051148,
+                        0.3700000047683716,
+                        -0.4300000071525574,
+                        0.3400000035762787,
+                        0.5299999713897705,
+                        0.1899999976158142,
+                        0.6299999952316284,
+                        -0.3199999928474426,
+                        0.5899999737739563
+                    ]
+                },
+                {
+                    "Id": "fold",
+                    "Values": [
+                        -0.33000001311302187,
+                        0.5600000023841858,
+                        0.18000000715255738,
+                        0.6000000238418579,
+                        0.3499999940395355,
+                        0.49000000953674319,
+                        0.17000000178813935,
+                        0.3100000023841858,
+                        -0.07999999821186066,
+                        0.36000001430511477
+                    ]
+                },
+                {
+                    "Id": "seal",
+                    "Values": [
+                        -0.3199999928474426,
+                        0.2800000011920929,
+                        0.27000001072883608,
+                        0.2800000011920929,
+                        0.28999999165534975,
+                        0.05000000074505806,
+                        0.019999999552965165,
+                        0.03999999910593033,
+                        0.029999999329447748,
+                        -0.10000000149011612,
+                        0.3100000023841858,
+                        -0.10000000149011612,
+                        0.30000001192092898,
+                        -0.3100000023841858,
+                        -0.28999999165534975,
+                        -0.30000001192092898,
+                        -0.2800000011920929,
+                        -0.07999999821186066,
+                        -0.10000000149011612,
+                        -0.07000000029802323,
+                        -0.10999999940395355,
+                        0.07000000029802323,
+                        -0.3199999928474426,
+                        0.07000000029802323
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "paper/fold",
+                "Parent": "paper",
+                "Child": "fold",
+                "Position": [
+                    0.0,
+                    0.3700000047683716,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "paper/ink",
+                "Parent": "paper",
+                "Child": "ink",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.04699999839067459
+                ],
+                "Detachable": false
+            }
+        ],
+        "Changes": [
+            "transform"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "talisman_folded_leaf",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "talisman.body"
+            ],
+            "Id": "paper",
+            "Surface": "talisman_paper",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/talisman_folded_leaf_paper.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "talisman.fold"
+            ],
+            "Id": "fold",
+            "Surface": "talisman_fold",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/talisman_folded_leaf_fold.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "talisman.symbol"
+            ],
+            "Id": "ink",
+            "Surface": "talisman_ink",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/talisman_folded_leaf_ink.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "paper",
+            "Part": 0,
+            "A": [
+                0.0,
+                -0.27000001072883608,
+                0.0
+            ],
+            "B": [
+                0.0,
+                0.25,
+                0.0
+            ],
+            "Radius": 0.33000001311302187,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

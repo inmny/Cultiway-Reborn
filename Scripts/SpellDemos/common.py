@@ -252,7 +252,10 @@ def encode(output, case, keep_frames):
     if data.get("scene") == "battle":
         title = f"修士自主交战 · {view}\n法术：{'、'.join(case['spellNames'])}"
     elif data.get("scene") == "construction":
-        resource = {"none": "无消耗", "wakan": "真元", "vigor": "斗气", "mana": "法力", "stamina": "体力"}[data["resource"]]
+        resource = {
+            "none": "无消耗", "wakan": "真元", "vigor": "斗气",
+            "mana": "法力", "stamina": "体力", "talisman": "张符箓", "yao_power": "妖力",
+        }[data["resource"]]
         detail = case.get('caption', '真实接触验证')
         title = f"{case['name']} · {view} · 实际施放\n消耗：{data['paid']:g} {resource}　{detail}"
     elif data.get("scene") == "resources":

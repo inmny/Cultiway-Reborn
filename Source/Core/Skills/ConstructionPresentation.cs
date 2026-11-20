@@ -155,11 +155,22 @@ public static class ConstructionPresentation
         if (plan.ContactDamageScale > 0f)
             lines.Add(F("Damage", string.Join("、",
                 plan.ActorImpacts.Select(impact => impact.Targets).Distinct().Select(relation => T("Target." + relation))), plan.ContactDamageScale));
-        lines.AddRange(plan.Nodes.Where(node => node.RadialMotion != null).Select(node =>
+        lines.AddRange(plan.Nodes.Where(node => node.RadialMotion is { ChannelLength: 0f }).Select(node =>
             F("RadialMotion", Form(node.Resource.Description.Id), node.RadialMotion.Radius,
+                node.RadialMotion.Speed, node.RadialMotion.Interval, T("Target." + node.RadialMotion.Targets))).Distinct());
+        lines.AddRange(plan.Nodes.Where(node => node.RadialMotion is { ChannelLength: > 0f }).Select(node =>
+            F("WindChannel", Form(node.Resource.Description.Id), node.RadialMotion.ChannelLength, node.RadialMotion.Radius,
                 node.RadialMotion.Speed, node.RadialMotion.Interval, T("Target." + node.RadialMotion.Targets))).Distinct());
         lines.AddRange(plan.Nodes.Where(node => node.RadialMotion is { GroundItemLimit: > 0 }).Select(node =>
             F("RadialGroundItems", node.RadialMotion.GroundItemLimit)).Distinct());
+        lines.AddRange(plan.Nodes.Where(node => node.WeaponChamber != null).Select(node =>
+            F("WeaponChamber", node.WeaponChamber.Radius, node.WeaponChamber.Depth, node.WeaponChamber.ReleaseSpeed)).Distinct());
+        lines.AddRange(plan.Nodes.Where(node => node.Activation?.InheritAbsorbedForce == true).Select(node =>
+            F("AbsorbedForceOutlet", Form(plan.Nodes[node.Activation.Source].Resource.Description.Id),
+                Form(node.Resource.Description.Id), node.Activation.Delay)).Distinct());
+        lines.AddRange(plan.Nodes.Where(node => node.Activation?.KeepSourcePosition == true).Select(node =>
+            F("KeepSourcePosition", Form(node.Resource.Description.Id),
+                Form(plan.Nodes[node.Activation.Source].Resource.Description.Id))).Distinct());
         if (plan.ContactForce > 0f) lines.Add(F("Force", plan.ContactForce));
         if (plan.ContactStagger > 0f) lines.Add(F("Stagger", plan.ContactStagger));
         if (plan.ContactBind > 0f) lines.Add(F("Bind", plan.ContactBind));
