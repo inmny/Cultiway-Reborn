@@ -1,0 +1,117 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.BowingMountains",
+  "Name": "山河叩首",
+  "Resource": "wakan",
+  "Cost": 8.4,
+  "Power": 5.2,
+  "Cooldown": 1.15,
+  "Lifetime": 2.7,
+  "TargetRange": 29,
+  "Binding": {
+    "Anchor": "Target",
+    "Follow": false,
+    "FaceTarget": false
+  },
+  "Root": {
+    "Id": "foundation",
+    "Form": "pivot",
+    "ContactRole": "Decoration",
+    "Children": [
+      {
+        "Id": "near",
+        "Form": "earth_wall_strata",
+        "Matter": "earth",
+        "State": "solid",
+        "Volume": 5,
+        "Scale": 1.46,
+        "Strength": 0.65,
+        "Offset": [-4, -3.6, -3.1799999999999997],
+        "ActiveFrom": 0.92,
+        "ActiveUntil": 1.62,
+        "Impact": {
+          "Targets": "Hostile",
+          "DamageScale": 1.0
+        },
+        "Operations": [
+          {
+            "Id": "rise",
+            "Kind": "Gather",
+            "At": 0.1,
+            "Seconds": 0.4,
+            "Vector": [-4, -3.6, 0.12],
+            "GatherRotation": [0, 0, 0]
+          }
+        ]
+      },
+      {
+        "Id": "far",
+        "Form": "earth_wall_strata",
+        "Matter": "earth",
+        "State": "solid",
+        "Volume": 5,
+        "Scale": 1.46,
+        "Strength": 0.65,
+        "Offset": [4, 3.6, -2.8899999999999997],
+        "ActiveFrom": 1.28,
+        "ActiveUntil": 1.98,
+        "Impact": {
+          "Targets": "Hostile",
+          "DamageScale": 1.0
+        },
+        "Operations": [
+          {
+            "Id": "rise",
+            "Kind": "Gather",
+            "At": 0.42,
+            "Seconds": 0.4,
+            "Vector": [4, 3.6, 0.41],
+            "GatherRotation": [0, 0, 0]
+          }
+        ]
+      }
+    ]
+  },
+  "Steps": [
+    {
+      "Id": "near_bow",
+      "Operation": {
+        "Kind": "Gather",
+        "At": 0.92,
+        "Seconds": 0.62,
+        "Vector": [-4, -3.6, 0.12],
+        "GatherRotation": [-82, 0, 0]
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root/near"
+        },
+        "after": {
+          "Node": "root/near",
+          "Operation": "rise",
+          "Output": "gathering"
+        }
+      }
+    },
+    {
+      "Id": "far_bow",
+      "Operation": {
+        "Kind": "Gather",
+        "At": 1.28,
+        "Seconds": 0.62,
+        "Vector": [4, 3.6, 0.41],
+        "GatherRotation": [82, 0, 0]
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root/far"
+        },
+        "after": {
+          "Node": "root/far",
+          "Operation": "rise",
+          "Output": "gathering"
+        }
+      }
+    }
+  ]
+}

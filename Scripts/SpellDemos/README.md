@@ -2329,3 +2329,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 - `--section save` 对照原招和[偏庭](../../Doc/技能系统全面重构/构造输入/森罗倒生·偏庭.json)的接地顺序与抓持，正式存档重开，再改回西根长度复放。用 `dev.py exec --timeout 250`。
 - `--section native` 和 `--section worldfall` 各录一段从倒悬到完全回收的常速实机录像，输出 `demo.mp4`、预览及实际过程记录。用 `dev.py exec --timeout 175`。Worldfall 必须实际启用正常绘制路径，进了后备绘制会提示验证未开始。
+
+### 山河叩首（9.32）
+
+在已启动的独立游戏中运行 `python3 .agents/skills/develop/scripts/dev.py exec -- python3 Scripts/SpellDemos/verify_bowing_mountains.py`。复用固定世界，正式施放[山河叩首](../../Doc/技能系统全面重构/构造输入/山河叩首.json)，对照两片岩体错时抬起、各自绕底边翻落。检查扫到的目标扣血、片间的目标安全、岩片到期清场；证据包括 `checks.json` 和抬起、俯压各一张原版截图。使用 `--view worldfall` 可切换到 Worldfall 角度。正式双视角常速录像属于 9.32 的完整交付。

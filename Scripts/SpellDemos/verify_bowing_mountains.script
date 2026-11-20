@@ -1,0 +1,124 @@
+// 9.32 第一段：同场核对抬升、固定转轴、实际扫中和两片之间的空隙。
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+var source = Make(64.5f);
+var reached = Make(67.5f, "wolf");
+var gap = Make(71.5f, "wolf");
+var owner = source.GetExtend();
+AbilityCast Live() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Select(item => (AbilityCast)Field(item, "Cast")).FirstOrDefault(cast => cast.Plan.Id == definition.Id);
+var rock = FormResources.Load("earth_wall_strata");
+Vector3 Local(float[] p) => new Vector3(p[0], p[1], p[2]);
+Vector3 Anchor(string id) => (Vector3)rock.Anchors.Single(a => a.Id == id).Transform.GetColumn(3);
+Vector3 left = Anchor("left"), right = Anchor("right"), crest = Anchor("crest");
+var visuals = new List<FormVisualInstance>();
+var shapes = new List<AbilityCapsule>();
+Matrix4x4[] Poses(AbilityCast cast)
+{
+    visuals.Clear();
+    cast.AppendVisuals(visuals);
+    return visuals.Where(form => form.Resource == rock).Select(form => form.Transform).ToArray();
+}
+Vector3 Point(Matrix4x4 pose, Vector3 at) => pose.MultiplyPoint3x4(at);
+Vector3 Axis(Matrix4x4 pose) => (Point(pose, left) + Point(pose, right)) * .5f;
+float Across(Matrix4x4 pose) => Vector3.Distance(Point(pose, left), Point(pose, right));
+float Height(Matrix4x4 pose) => Vector3.Distance(Axis(pose), Point(pose, crest));
+bool Rigid(Matrix4x4 a, Matrix4x4 b) => Vector3.Distance(Axis(a), Axis(b)) < .025f &&
+    Mathf.Abs(Across(a) - Across(b)) < .012f && Mathf.Abs(Height(a) - Height(b)) < .012f;
+
+try
+{
+    AbilityCompiler.Compile(definition, false);
+    owner.NewCultisys(Cultisyses.Xian);
+    owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+    await Advance(.14f);
+    Ready(source);
+    await SetCamera(recordView == "worldfall" ? 12.5f : 11f);
+    if (recordView == "worldfall") await WaitForWorldfallDraw();
+    for (int x = 72; x <= 79; x++)
+    for (int y = 74; y <= 78; y++)
+        World.world.GetTileSimple(x, y).Height = 152;
+    Place(source, 64.5f, 72.5f); Place(reached, 67.5f, 70.7f); Place(gap, 71.5f, 72.5f);
+    var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
+    var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.BowingMountains.Quiet") ??
+        Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.BowingMountains.Quiet")
+            .SetStats(quietStats).SetDuration(10000).Build();
+    foreach (var wolf in new[] { reached, gap })
+    {
+        CombatStatusEffects.RemoveStatus(wolf, hold);
+        CombatStatusEffects.ApplyStatus(wolf, quiet, 10000, wolf);
+        wolf.updateStats();
+        wolf.data.health = (int)wolf.stats["health"];
+        wolf.addAggro(source); source.addAggro(wolf);
+    }
+    int gapHealth = gap.data.health;
+    float balance = source.stats[BaseStatses.MaxWakan.id] * .82f;
+    owner.GetCultisys<Xian>().wakan = balance;
+    await Fire(definition, source, gap);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    var cast = Live();
+    Check(cast != null && Math.Abs(balance - owner.GetCultisys<Xian>().wakan - definition.Cost) < .003f,
+        "正式入口只扣一次真元，两片岩体属于同一招");
+    async Task At(float age) { if (cast.Age < age) await Advance(age - cast.Age); }
+    var initial = Poses(cast);
+    await At(.59f);
+    float riseAge = cast.Age;
+    var rising = Poses(cast);
+    cast.AppendContacts(shapes);
+    float nearRise = Axis(rising[0]).z - Axis(initial[0]).z;
+    float farRise = Axis(rising[1]).z - Axis(initial[1]).z;
+    var terrain = (AbilityHeightField)Field(cast, "terrain");
+    float nearGround = terrain.Sample(67.5f, 68.9f), farGround = terrain.Sample(75.5f, 76.1f);
+    Check(nearRise > 3.1f && farRise > .25f && nearRise - farRise > .65f && farGround > nearGround &&
+          shapes.Count == 0 && contacts.Count == 0,
+        "两片岩体从高低地错时抬起，抬升不伤人", new { riseAge, nearRise, farRise, nearGround, farGround });
+    await At(.86f);
+    var upright = Poses(cast);
+    await Shot("upright-" + recordView);
+    await At(1.41f);
+    var turning = Poses(cast);
+    cast.AppendContacts(shapes);
+    bool matches = shapes.Count == rock.Description.Contacts.Length * 2 && shapes.All(shape =>
+    {
+        FormContactDescription form = rock.Description.Contacts[shape.Shape];
+        Matrix4x4 visible = turning[shape.Node - 1];
+        return Vector3.Distance(Point(visible, Local(form.A)), shape.A) < .015f &&
+               Vector3.Distance(Point(visible, Local(form.B)), shape.B) < .015f &&
+               Mathf.Abs(form.Radius * visible.lossyScale.x - shape.Radius) < .012f;
+    });
+    float nearSweep = (Point(turning[0], crest) - Point(upright[0], crest)).y;
+    float farSweep = (Point(upright[1], crest) - Point(turning[1], crest)).y;
+    Check(Rigid(upright[0], turning[0]) && Rigid(upright[1], turning[1]) &&
+          nearSweep > 2.2f && farSweep > .12f && nearSweep > farSweep + .65f && matches,
+        "两片各自绕底边向内翻落；岩壁不拉伸，全部接触形状与显示处在同一姿态",
+        new { cast.Age, nearSweep, farSweep, shapeCount = shapes.Count,
+            nearAxis = Axis(turning[0]).ToString("F3"), farAxis = Axis(turning[1]).ToString("F3") });
+    await Shot("bowing-" + recordView);
+    await At(2.1f);
+    var down = Poses(cast);
+    float lateSweep = (Point(upright[1], crest) - Point(down[1], crest)).y;
+    Check(Rigid(upright[1], down[1]) && lateSweep > 2.2f &&
+          contacts.Any(hit => hit.Node == 1 && hit.TargetId == reached.id && hit.Damage.HealthLost > 0) &&
+          contacts.All(hit => hit.TargetId != gap.id) && gap.data.health == gapHealth,
+          "先后俯压中，扫到的人扣血，两片之间的人无接触且生命不变",
+          new { cast.Age, lateSweep, reached = reached.id, gap = gap.id, gapHealth,
+              observed = contacts.Select(hit => new { hit.TargetId, hit.Node, hit.Age, hit.Damage.HealthLost,
+                  where = hit.Position.ToString("F3") }).ToArray() });
+    await At(definition.Lifetime + .2f);
+    Check(Live() == null && endings.Count == 1 && !endings[0].Fact.Cancelled &&
+          !FormVisualScene.Instances.Any(form => form.Resource == rock), "岩片正常到期，临时显示与作用一同清场");
+    return new { passed = true, checks };
+}
+catch (Exception error)
+{
+    File.WriteAllText(Path.Combine(folder, "failure.txt"), error.ToString());
+    return new { passed = false, error = error.Message, checks };
+}
+finally
+{
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
