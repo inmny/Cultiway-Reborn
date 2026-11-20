@@ -1,0 +1,36 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.GroundmouthWind",
+  "Name": "地口行风",
+  "Resource": "mana",
+  "Cost": 36,
+  "Cooldown": 5.2,
+  "Lifetime": 4.8,
+  "Power": 12,
+  "TargetRange": 52,
+  "Use": {"Channels": "Combat, World", "Target": "ObjectOrPoint"},
+  "Binding": {"Anchor": "Between", "Fraction": 0.48, "FaceTarget": true},
+  "Root": {
+    "Id": "channel",
+    "Form": "pivot",
+    "Matter": "wind",
+    "ContactRole": "Decoration",
+    "Operations": [{"Kind": "Fly", "At": 0.12, "Vector": [0, 0, 1.1], "InheritVelocity": false}],
+    "Children": [{
+      "Id": "pressure",
+      "Form": "pivot",
+      "Matter": "wind",
+      "ContactRole": "Decoration",
+      "AppearAt": 0.1,
+      "DisappearAt": 4.6,
+      "RadialMotion": {
+        "Radius": 8,
+        "ChannelLength": 28,
+        "Speed": 26,
+        "Interval": 0.08,
+        "Targets": "Hostile",
+        "GroundItemLimit": 2
+      }
+    }]
+  }
+}

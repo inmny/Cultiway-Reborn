@@ -1075,6 +1075,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         /// <summary>范围运动已经处理的共同整点；只有实际声明范围运动的施放才分配。</summary>
         internal int[] RadialTicks;
 
+        /// <summary>每个槽携带的原物编号；结束时物件仍由原地面系统推进。</summary>
+        internal List<long>[] ChannelItems;
+
         /// <summary>本次实际受理的世界时间，动作事实采用同一原点。</summary>
         internal double StartedAt;
 

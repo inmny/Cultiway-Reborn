@@ -133,9 +133,10 @@ public sealed class ConstructionMeasure
                          Matrix4x4.TRS(node.Offset, node.Rotation, Vector3.one * (float)(node.Scale * growth));
             double span = Math.Max(0, node.Presence.y - node.Presence.x);
             if (node.RadialMotion != null)
-                RadialMotionWork += Math.PI * node.RadialMotion.Radius * node.RadialMotion.Radius *
+                RadialMotionWork += node.RadialMotion.Area *
                                     Math.Abs(node.RadialMotion.Speed) * span * .1d +
-                                    Math.Min(8f, Math.Abs(node.RadialMotion.Speed)) * node.RadialMotion.GroundItemLimit * span * .12d;
+                                    Math.Min(node.RadialMotion.ChannelLength > 0f ? 32f : 8f, Math.Abs(node.RadialMotion.Speed)) *
+                                    node.RadialMotion.GroundItemLimit * span * .12d;
             if (node.MaterialVortex is { } vortex)
                 RadialMotionWork += vortex.MaximumVolume * .4d + Math.PI * vortex.Radius * vortex.Radius *
                     vortex.Speed * (node.Active.y - node.Active.x) * .065d;

@@ -1369,6 +1369,7 @@
   "Cultiway.Construction.RadialMotion": "部位·持续范围推拉",
   "Cultiway.Construction.RadialMotionHint": "围绕部位真实中心，以世界距离确定范围；正速度向外推，负速度向内拉，边缘衰减为零。推动可移动的地面人物，也可卷起地面无主物。",
   "Cultiway.Construction.RadialRadius": "范围半径（世界距离）",
+  "Cultiway.Construction.RadialChannelLength": "风槽长度（0 为圆形；启用后半径为入口半宽）",
   "Cultiway.Construction.RadialSpeed": "中心速度（正推、负拉）",
   "Cultiway.Construction.RadialInterval": "重新选人间隔秒数",
   "Cultiway.Construction.RadialGroundItems": "卷起地面无主物（0 至 8 件，0 关闭）",

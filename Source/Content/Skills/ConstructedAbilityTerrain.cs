@@ -70,7 +70,12 @@ public sealed partial class ConstructedAbilityService
                     Vector3 centre = running.Cast.ContactOrigin(i);
                     Include(centre);
                     CompiledConstructionRadialMotion field = running.Cast.Plan.Nodes[i].RadialMotion;
-                    if (field != null)
+                    if (running.Cast.TryWindChannel(i, out var channel))
+                    {
+                        Include(channel.Bounds.min);
+                        Include(channel.Bounds.max);
+                    }
+                    else if (field != null)
                     {
                         Include(centre - new Vector3(field.Radius, field.Radius, 0f));
                         Include(centre + new Vector3(field.Radius, field.Radius, 0f));

@@ -155,8 +155,11 @@ public static class ConstructionPresentation
         if (plan.ContactDamageScale > 0f)
             lines.Add(F("Damage", string.Join("、",
                 plan.ActorImpacts.Select(impact => impact.Targets).Distinct().Select(relation => T("Target." + relation))), plan.ContactDamageScale));
-        lines.AddRange(plan.Nodes.Where(node => node.RadialMotion != null).Select(node =>
+        lines.AddRange(plan.Nodes.Where(node => node.RadialMotion is { ChannelLength: 0f }).Select(node =>
             F("RadialMotion", Form(node.Resource.Description.Id), node.RadialMotion.Radius,
+                node.RadialMotion.Speed, node.RadialMotion.Interval, T("Target." + node.RadialMotion.Targets))).Distinct());
+        lines.AddRange(plan.Nodes.Where(node => node.RadialMotion is { ChannelLength: > 0f }).Select(node =>
+            F("WindChannel", Form(node.Resource.Description.Id), node.RadialMotion.ChannelLength, node.RadialMotion.Radius,
                 node.RadialMotion.Speed, node.RadialMotion.Interval, T("Target." + node.RadialMotion.Targets))).Distinct());
         lines.AddRange(plan.Nodes.Where(node => node.RadialMotion is { GroundItemLimit: > 0 }).Select(node =>
             F("RadialGroundItems", node.RadialMotion.GroundItemLimit)).Distinct());

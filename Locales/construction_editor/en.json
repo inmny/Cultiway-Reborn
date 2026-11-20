@@ -1377,6 +1377,7 @@
   "Cultiway.Construction.RadialMotion": "Part · Continuous radial motion",
   "Cultiway.Construction.RadialMotionHint": "Uses world distance from the actual part centre. Positive speed pushes outward; negative speed pulls inward. It moves grounded actors and can lift unowned objects from the ground.",
   "Cultiway.Construction.RadialRadius": "Radius (world distance)",
+  "Cultiway.Construction.RadialChannelLength": "Wind channel length (0: circle; radius is inlet half-width)",
   "Cultiway.Construction.RadialSpeed": "Centre speed (+push, -pull)",
   "Cultiway.Construction.RadialInterval": "Retarget interval (seconds)",
   "Cultiway.Construction.RadialGroundItems": "Lift unowned ground items (0 to 8, 0 off)",

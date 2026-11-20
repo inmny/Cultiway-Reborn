@@ -2403,3 +2403,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--section combat` 加入一个真实敌方术式和一件原版落地铁剑，核对交锋、牵引及落地。`--section film --view native` 与 `--section film --view worldfall` 用同一场景录制完整过程。
 
 `--section save` 留下卷动中和退场后的两份正式档，读回后实放[狭喉](../../Doc/技能系统全面重构/构造输入/归墟开口·狭喉.json)。重启游戏后运行 `--section cold --saved <输出目录>`，检查两份档及各材料的实际去向。
+
+### 地口行风（9.40 风）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_groundmouth_wind.py --section behavior`。复用现有地块和铁剑，核对[地口行风](../../Doc/技能系统全面重构/构造输入/地口行风.json)的槽内外受力、原物越过实际出口、落地拾取及卸压。 `--section variant` 验证[短槽斜口](../../Doc/技能系统全面重构/构造输入/地口行风_斜口.json)的朝向、尺寸、非法参数和退场。
+
+`--section film --view native` 和 `--section film --view worldfall` 同时记录实际行为和按世界时间编码的录像。两段均使用现有地貌，实测人物和原物的放置写在脚本里。

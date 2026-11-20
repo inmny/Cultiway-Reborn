@@ -1,0 +1,37 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.GroundmouthWind.Oblique",
+  "Name": "地口行风·斜口",
+  "Resource": "mana",
+  "Cost": 15,
+  "Cooldown": 2.7,
+  "Lifetime": 3.2,
+  "Power": 12,
+  "TargetRange": 40,
+  "Use": {"Channels": "Combat, World", "Target": "ObjectOrPoint"},
+  "Binding": {"Anchor": "Between", "Fraction": 0.5, "FaceTarget": true},
+  "Root": {
+    "Id": "turn",
+    "Form": "pivot",
+    "Matter": "wind",
+    "ContactRole": "Decoration",
+    "Rotation": [0, 26, 0],
+    "Operations": [{"Kind": "Fly", "At": 0.12, "Vector": [0, 0, 2.3], "InheritVelocity": false}],
+    "Children": [{
+      "Id": "short_pressure",
+      "Form": "pivot",
+      "Matter": "wind",
+      "ContactRole": "Decoration",
+      "AppearAt": 0.08,
+      "DisappearAt": 2.98,
+      "RadialMotion": {
+        "Radius": 3,
+        "ChannelLength": 12,
+        "Speed": 13,
+        "Interval": 0.08,
+        "Targets": "Hostile",
+        "GroundItemLimit": 1
+      }
+    }]
+  }
+}

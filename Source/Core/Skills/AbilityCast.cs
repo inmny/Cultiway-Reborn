@@ -1398,6 +1398,7 @@ public sealed partial class AbilityCast
     private bool HasOwnWork(int node) => Plan.Nodes[node].Resource.Meshes.Length != 0 ||
                                          Plan.Nodes[node].LandscapeSlice != null ||
                                          Plan.Nodes[node].MaterialVortex != null ||
+                                         Plan.Nodes[node].RadialMotion is { ChannelLength: > 0f } ||
                                          Plan.Nodes[node].ContactRole != ConstructionContactRole.Decoration ||
                                          Array.Exists(Plan.DirectSignalSteps, index => Plan.Steps[index].Node == node);
 
@@ -1530,6 +1531,8 @@ public sealed partial class AbilityCast
     {
         if (Finished) return;
         for (int i = 0; i < nodes.Length; i++)
+        {
+            if (Plan.Nodes[i].RadialMotion is { ChannelLength: > 0f }) AppendWindChannel(i, output);
             if (nodes[i].Visible && (!Plan.Nodes[i].HasRay || nodes[i].Ray != null) && NodeAge(i) < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0)
             {
                 if (propagations?[i] is AbilityPropagation wave)
@@ -1576,6 +1579,7 @@ public sealed partial class AbilityCast
                     buildProgress: poses[i]?.BuildProgress ?? 1f, followMatter: Plan.Nodes[i].FollowMatter));
                 FormBurningPresentation.Append(output, nodes[i].Transform, nodes[i].Burning, nodes[i].Volume, terrain);
             }
+        }
     }
 
     /// <summary>从相同部位姿态生成有效胶囊；未长出的部分不会提前造成作用。</summary>

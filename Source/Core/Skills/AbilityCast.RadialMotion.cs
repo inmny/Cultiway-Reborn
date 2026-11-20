@@ -15,4 +15,15 @@ public sealed partial class AbilityCast
         return !Finished && state.Exists && state.Started && age >= form.Presence.x && age < form.Presence.y &&
             form.RadialMotion != null && form.RadialMotion.Speed != 0f;
     }
+
+    /// <summary>地口、共同受力和出口都从同一步部位姿态取样。</summary>
+    internal bool TryWindChannel(int node, out ConstructionWindChannel channel)
+    {
+        CompiledForm form = Plan.Nodes[node];
+        channel = default;
+        if (form.RadialMotion is not { ChannelLength: > 0f } rule || !TryRadialMotion(node, out _)) return false;
+        float progress = (NodeAge(node) - form.Presence.x) / (form.Presence.y - form.Presence.x);
+        channel = new ConstructionWindChannel(nodes[node].Transform, rule, progress);
+        return true;
+    }
 }
