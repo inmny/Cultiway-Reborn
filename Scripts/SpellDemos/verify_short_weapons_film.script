@@ -1,0 +1,7 @@
+// 只用正式动作及原物拍摄实际连续出招。
+var cases = new[]
+{
+    (key: "thrust", asset: "sword_iron", id: shortBlade + "Thrust", range: .88f, miss: false),
+    (key: "cut", asset: "sword_iron", id: shortBlade + "Cut", range: .77f, miss: false),
+    (key: "sweep", asset: "sword_stone", id: shortBlade + "Sweep.Stone", range: .62f, miss: false)
+};

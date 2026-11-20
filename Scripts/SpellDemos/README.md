@@ -2469,3 +2469,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 短兵战技（9.43）
 
 在独立游戏用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_short_weapons.py`。验证真实铁剑、石剑的实际握点、刃尖位置、错装备拒绝、命中和原物归还。`--item iron` 或 `--item stone` 只复验对应器形。
+
+`--move cut` 验证斜切选择实际前刃，`--move sweep` 验证横扫中段及转体收势。`--move miss --item iron` 验证侧移避开斜切，`--move deflect --item iron` 验证真实剑身拨开斜切，双方各自收势。
+
+`--section archive` 使用万法阁身体页选择石剑外形和靠护手的握法，检查撤销、重开和正式写档。重启独立游戏后，用 `--section cold --archive <输出目录>` 读回原石剑与改造，再实际施放。`--section film --view native` 和 `--section film --view worldfall` 分别录制三招，可叠加 `--move thrust`、`--move cut` 或 `--move sweep` 补拍。

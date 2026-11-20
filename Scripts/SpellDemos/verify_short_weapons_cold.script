@@ -1,0 +1,108 @@
+// 新进程只从原世界存档读回兵器和改造，沿正式入口出招。
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(archived, "expected.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check(process != (int)expected["process"], "用新进程读回正式世界");
+Game.Resume();
+Config.paused = true;
+Config.setWorldSpeed("x1", false);
+World.world.save_manager.loadWorld(Path.Combine(archived, "archive"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+Actor source = World.world.units.get((long)expected["source"]), target = World.world.units.get((long)expected["target"]);
+Item weapon = source?.getWeapon();
+Check(source != null && target != null && weapon?.getAsset().id == "sword_stone" &&
+      JToken.DeepEquals(JToken.FromObject(weapon.data.id), expected["weapon"]),
+    "从世界读回两名人物和原石剑的唯一编号");
+var owner = source.GetExtend();
+Check(expected["definitions"].All(before =>
+{
+    string id = (string)before["Id"];
+    var current = ConstructionEditing.Access.Read(id);
+    return ConstructedAbilityService.Knows(owner, id) &&
+           JToken.DeepEquals(before, JToken.Parse(JsonConvert.SerializeObject(current)));
+}), "原战技和换器形后的改造都完整读回，原人物仍然掌握");
+Check(!BodyControlState.IsBusy(source.id) && !((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Any(),
+    "冷读后的持械状态已可接收新动作");
+
+string editedId = (string)expected["edited"];
+var editorType = typeof(WindowWanfaConstructionEditor);
+foreach (var language in new[] { (id: "cz", label: "前段外刃"), (id: "en", label: "Forward cutting edge") })
+{
+    LocalizedTextManager.instance.setLanguage(language.id);
+    WindowWanfaConstructionEditor.Open(editedId, source);
+    await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    var editor = (WindowWanfaConstructionEditor)editorType.GetField("instance", F).GetValue(null);
+    void Click(string key) => editor.GetComponentsInChildren<Button>(false).Single(button => button.name == key).onClick.Invoke();
+    Click("Page2");
+    string title = LocalizedTextManager.getText("Cultiway.Construction.MartialTouchShape");
+    var row = editor.GetComponentsInChildren<WanfaEditorRow>(false).First(value => ((Text)Field(value, "_title")).text == title);
+    Check(((Text)Field(row, "_detail")).text == language.label, "读回的斜切显示对应语言的前刃名称 · " + language.id);
+    Click("Close");
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+}
+LocalizedTextManager.instance.setLanguage("cz");
+
+void Place(Actor actor, float x)
+{
+    actor.stopMovement();
+    actor.stopForce();
+    actor.batch.c_action_landed.Remove(actor);
+    actor.current_position = new Vector2(x, 72f);
+    actor.setCurrentTile(World.world.GetTileSimple((int)x, 72));
+    actor.updatePos();
+}
+
+var idle = new BaseStats();
+idle.addTag("frozen_ai");
+var still = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ShortWeaponColdIdle")
+    .SetStats(idle).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(target, still, 10000, target);
+target.updateStats();
+target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+ControllableUnit.clear(false);
+ControllableUnit.setControllableCreature(source);
+source.attack_timer = target.attack_timer = 999;
+await Advance(.20f);
+Place(source, 64.35f);
+Place(target, 64.96f);
+source.addAggro(target);
+target.addAggro(source);
+target.setHealth(target.getMaxHealth());
+var edited = ConstructionEditing.Access.Read(editedId);
+var handle = new ActiveAbilityHandle("content.constructed", owner.E, edited.Id);
+var observed = new List<ConstructedContact>();
+ConstructedCastEnded? end = null;
+void Touch(ConstructedContact hit) { if (hit.SourceId == source.id && hit.AbilityId == edited.Id) observed.Add(hit); }
+void End(ConstructedCastEnded fact) { if (fact.SourceId == source.id && fact.AbilityId == edited.Id) end = fact; }
+ConstructedAbilityService.ContactConfirmed += Touch;
+ConstructedAbilityService.CastEnded += End;
+try
+{
+    int health = target.data.health;
+    source.data.stamina = 100;
+    source.attack_timer = 0;
+    bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999;
+    Check(used && Mathf.Abs(100f - source.data.stamina - edited.Cost) < .001f &&
+          edited.Body.WeaponForm == "stone_short_sword" && edited.Body.Grip == "choke",
+        "读回的靠护手石剑斜切正式受理并支付保存后的体力");
+    await Advance(edited.Lifetime + .14f);
+    var hit = observed.SingleOrDefault();
+    Check(observed.Count == 1 && hit.Node == -1 && hit.TargetId == target.id &&
+          hit.Age >= edited.Body.ActiveFrom - .001f && hit.Age <= edited.Body.ActiveUntil + .001f &&
+          target.data.health < health && end.HasValue && !end.Value.Cancelled &&
+          !BodyControlState.IsBusy(source.id) && ReferenceEquals(weapon, source.getWeapon()),
+        "改造从石剑实际前刃造成一次伤害，收势后原石剑仍在手中",
+        new { hits = observed.Select(value => new { value.Age, value.Node, value.DamageAttempted }), health, after = target.data.health });
+    return new { passed = true, section, process, edited = edited.Id, checks };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Touch;
+    ConstructedAbilityService.CastEnded -= End;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}
