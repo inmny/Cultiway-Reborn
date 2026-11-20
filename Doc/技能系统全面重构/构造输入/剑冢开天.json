@@ -37,6 +37,7 @@
       {
         "Id": "left_edge",
         "Form": "sword_grave_left",
+        "InterruptFall": 0.92,
         "Anchor": "seam",
         "Matter": "iron",
         "ContactGroup": "grave-cleave",
@@ -82,6 +83,7 @@
       {
         "Id": "right_edge",
         "Form": "sword_grave_right",
+        "InterruptFall": 0.92,
         "Anchor": "seam",
         "Matter": "iron",
         "ContactGroup": "grave-cleave",

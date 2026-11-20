@@ -234,6 +234,10 @@ public sealed class ConstructionNode
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public ConstructionSourceLoss SourceLoss;
 
+    /// <summary>已显现的部件受中断时保留为无作用落物的秒数，零表示直接结束。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float InterruptFall;
+
     /// <summary>本形体采用的共用操作。</summary>
     public ConstructionOperation[] Operations = Array.Empty<ConstructionOperation>();
 

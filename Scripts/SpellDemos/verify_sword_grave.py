@@ -7,13 +7,14 @@ from pathlib import Path
 import shutil
 import tempfile
 
-from common import PROJECT, write_json
+from common import PROJECT, encode, write_json
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--section", choices=("all", "finish", "visual"), default="all")
+    parser.add_argument("--section", choices=("all", "finish", "visual", "fracture", "blocked", "interrupted", "save", "native", "worldfall"), default="all")
     section = parser.parse_args().section
+    view = section if section in ('native', 'worldfall') else ''
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过 dev.py exec 运行')
     import baseline_scenarios as baseline
@@ -21,7 +22,10 @@ def main():
     folder = Path(tempfile.mkdtemp(prefix=f'sword-grave-{section}-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
     fixture = 'Scripts/WorldSaveTests/Fixtures/world-format-1'
     shutil.copytree(PROJECT / fixture, folder / 'input-world')
-    shutil.copy2(PROJECT / 'Doc/技能系统全面重构/构造输入/剑冢开天.json', folder / 'definition.json')
+    documents = PROJECT / 'Doc/技能系统全面重构/构造输入'
+    shutil.copy2(documents / '剑冢开天.json', folder / 'definition.json')
+    if section == 'save':
+        shutil.copy2(documents / '剑冢开天·逆锋.json', folder / 'variant.json')
     scripts = Path(__file__).parent
     helpers = (scripts / 'verify_body_footwork.script').read_text().split('var bindingType =', 1)[0]
     helpers = helpers.replace('Path.Combine(root, "artifacts/skill_rebuild/body-footwork")', json.dumps(str(folder)))
@@ -31,8 +35,16 @@ def main():
                               'var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SourceLoss.Hold") ?? '
                               'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild')
     script = folder / 'input.script'
+    body = (scripts / 'verify_sword_grave.script').read_text()
+    setup, verify = body.split('// 实机入口。', 1)
+    fracture = (scripts / 'verify_sword_grave_fracture.script').read_text()
+    camera = (scripts / 'verify_wind_combat.script').read_text().split('object cameraSettings', 1)[1]
+    camera = 'object cameraSettings' + camera
+    camera = camera[:camera.index('void ReleaseChecks()')] + camera[camera.index('async Task SetCamera('):]
+    delivery = (scripts / 'verify_sword_grave_delivery.script').read_text()
+    body = setup + fracture + f'\nconst string recordView = {json.dumps(view)};\n' + camera + delivery + verify
     script.write_text('using Cultiway.Const;\n' + helpers + f'\nconst string section = {json.dumps(section)};\n' +
-                      (scripts / 'verify_sword_grave.script').read_text())
+                      body)
     try:
         result = baseline.call('run', str(script), '125000')
     except RuntimeError as error:
@@ -40,7 +52,10 @@ def main():
         raise
     write_json(folder / 'result.json', result)
     if not result.get('passed'):
-        raise RuntimeError(f'剑冢开天起兵重斩未通过：{folder}')
+        raise RuntimeError(f'剑冢开天 {section} 未通过：{folder}')
+    if view:
+        encode(folder.parent, dict(key=folder.name, name='剑冢开天：起兵、合刃、重斩与落片', label='原速',
+                                   variant=0, trajectory='', modifiers=[], caption='外刃在实际接触后带斩势飞出'), keep_frames=True)
     print(json.dumps(dict(output=str(folder), result=result), ensure_ascii=False))
 
 

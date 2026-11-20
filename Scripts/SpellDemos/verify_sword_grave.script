@@ -53,9 +53,11 @@ async Task Pay()
     Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - definition.Cost) < .003f,
         "每次合剑只付一次真元");
 }
+// 实机入口。
 try
 {
     AbilityCompiler.Compile(definition, false);
+    if (section == "save" || recordView.Length != 0) return await Deliver();
     if (section == "visual")
     {
         // 与既有录像共用同一场地，只收拾镜头内遮住刃口的植被。
@@ -79,6 +81,9 @@ try
     World.world.camera.transform.position = new Vector3(68.5f, lane, 0f);
     MoveCamera.instance.forceZoom(7.5f);
     Stage();
+    if (section == "fracture") return await Fracture();
+    if (section == "blocked") return await Blocked();
+    if (section == "interrupted") return await Interrupted();
     int nearLife = near.data.health, aimLife = aim.data.health, outsideLife = outside.data.health;
     await Pay();
     if (section == "visual")
@@ -128,6 +133,7 @@ try
 }
 finally
 {
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
     ConstructedAbilityService.ContactConfirmed -= Hit;
     ConstructedAbilityService.CastEnded -= Ended;
     Config.paused = true;

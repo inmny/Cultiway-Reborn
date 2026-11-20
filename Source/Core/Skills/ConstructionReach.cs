@@ -60,6 +60,7 @@ public sealed class ConstructionReach
         {
             if (done[i]) return;
             CompiledForm node = plan.Nodes[i];
+            if (node.IsInterruptFall) { done[i] = true; return; }
             bool placed = node.Activation?.Placement == ConstructionEventPlacement.Event;
             int source = placed ? node.Activation.Source : node.Parent;
             if (source >= 0) Calculate(source);

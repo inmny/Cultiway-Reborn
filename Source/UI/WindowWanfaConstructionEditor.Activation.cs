@@ -122,10 +122,11 @@ public sealed partial class WindowWanfaConstructionEditor
             try { plan = AbilityCompiler.Compile(structure); }
             catch (InvalidDataException error) { state.text = string.Format(T("Invalid"), error.Message); return; }
         }
-        var options = plan.Nodes.Select((node, index) => new UiOptionMenuOption
+        var options = plan.Nodes.Select((node, index) => (node, index)).Where(item => !item.node.IsInterruptFall)
+            .Select(item => new UiOptionMenuOption
         {
-            Label = EventPartName(node, index), Selected = gate.Source == node.Path,
-            Select = () => Change(() => gate.Source = node.Path)
+            Label = EventPartName(item.node, item.index), Selected = gate.Source == item.node.Path,
+            Select = () => Change(() => gate.Source = item.node.Path)
         }).Prepend(new UiOptionMenuOption
         { Label = T("ActivationParent"), Selected = gate.Source == "..", Select = () => Change(() => gate.Source = "..") }).ToList();
         if (session.Draft.Body != null) options.Insert(0, new UiOptionMenuOption

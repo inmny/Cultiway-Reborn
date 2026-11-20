@@ -1395,6 +1395,7 @@ public sealed partial class AbilityCast
                 interrupted ? AbilityActionEventKind.Interrupted : AbilityActionEventKind.Completed);
         SignalEnd(node, nodes[node].Transform.GetColumn(3));
         if (!nodes[node].Exists) return;
+        if (interrupted) DropInterruptedPart(node);
         nodes[node].Resource = 0;
         nodes[node].Exists = false;
         nodes[node].Visible = false;

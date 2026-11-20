@@ -381,6 +381,13 @@ internal sealed class CompiledForm
     /// <summary>预先展开的真实碎片所属主体，负一表示普通部位。</summary>
     internal int FragmentSource = -1;
 
+    /// <summary>中断时从本部位原姿态出发的无作用落物。</summary>
+    internal int InterruptFall = -1;
+    /// <summary>为编译时预留落物读取的存在窗口。</summary>
+    internal float InterruptFallSeconds;
+    /// <summary>仅保存中断画面的落物，没有独立的施法范围或费用。</summary>
+    internal bool IsInterruptFall;
+
     /// <summary>真实分件及后续规则。</summary>
     internal CompiledFracture Fracture;
 
@@ -688,6 +695,7 @@ public static partial class AbilityCompiler
         if (definition.Root != null)
             Expand(definition.Root, -1, null, Matrix4x4.identity, "root", 0, definition.Lifetime, nodes, connectedRoot);
         CompiledConstructionStep[] steps = CompileSteps(definition, nodes);
+        AppendInterruptedFalls(definition.Lifetime, nodes);
         foreach (var node in nodes)
         {
             CheckRayMotionConflict(node);
@@ -846,6 +854,9 @@ public static partial class AbilityCompiler
         if (node.Surface != null)
             ConstructionReferences.Resolve(path + "/Surface", () => FormResources.Surface(node.Surface, true), "Surface", node.Surface, declarationPath);
         AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, path + "/Matter");
+        if (node.InterruptFall != 0f && (!Finite(node.InterruptFall) || node.InterruptFall < 0f ||
+            node.InterruptFall > lifetime || resource.Meshes.Length == 0 || resource.Contacts.Length == 0 || matter.State != "solid"))
+            Fail(path + "/InterruptFall", "中断落下需要有真实形状的固体，存在秒数不能超过整次上限");
         if (node.Correspondence != null && node.ContactRole == ConstructionContactRole.Decoration)
             Fail(path + "/Correspondence", "装饰部位没有真实交锋形状，不能传递映像作用");
         if (node.Correspondence is { } relation &&
@@ -897,6 +908,7 @@ public static partial class AbilityCompiler
             Interception = node.Interception,
             ReflectionLimit = node.ReflectionLimit,
             SourceLoss = node.SourceLoss,
+            InterruptFallSeconds = node.InterruptFall,
             Active = new Vector2(node.ActiveFrom, node.ActiveUntil < 0 ? lifetime : node.ActiveUntil)
         };
         var used = new Dictionary<ConstructionOperationKind, string>();
