@@ -1,0 +1,49 @@
+try
+{
+    await PlaceRubble();
+    var variant = Spell("归墟开口·狭喉");
+    var cast = await Use(definition);
+    ConstructedAbilityService.Register(variant);
+    ConstructedAbilityService.Learn(source.GetExtend(), definition.Id);
+    ConstructedAbilityService.Learn(source.GetExtend(), variant.Id);
+    long[] ids = placed.Values.Select(p => p.Id).ToArray();
+    await At(cast.Cast, .96f);
+    Check(changes.Any(e => e.CastId == cast.Id && e.Kind == "vortex-draw") && !cast.Cast.Finished,
+        "首档保存于已经发生位移、深口仍在时");
+    var moving = CurrentRows(ids);
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "moving"));
+    await At(cast.Cast, 5.42f);
+    var finished = CurrentRows(ids);
+    long absorbed = placed["stone"].Id, retained = placed["large"].Id;
+    Check(!finished.Any(row => (long)row["Id"] == absorbed) && finished.Any(row => (long)row["Id"] == retained),
+        "第二份档在实际消解后保存，原大块仍在世界中", finished);
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "finished"));
+    var expected = (JObject)RoundTrip(new
+    {
+        source = source.id, target = victim.id, opponent = hostile.id, ids, moving, finished,
+        definitions = new[] { RoundTrip(definition), RoundTrip(variant) }
+    });
+    File.WriteAllText(Path.Combine(folder, "expected.json"), expected.ToString(Formatting.Indented));
+    source = await ReadArchive(folder, "finished", expected);
+    victim = World.world.units.get((long)expected["target"]);
+    hostile = World.world.units.get((long)expected["opponent"]);
+    Stabilize(source);
+    Stabilize(victim, true);
+    Stabilize(hostile, true);
+    victim.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+    await Advance(definition.Cooldown + .26f);
+    Check(Rift().Length == 0, "正式读回后没有恢复旧裂口");
+    await PlaceMatter("narrow", "rock_projectile", "earth", new Vector3(68.10f, 71.60f, .26f), .63f, 1.2f, source);
+    var fragment = placed["narrow"];
+    var recovered = (AbilityDefinition)((IDictionary)service.GetField("definitions", F).GetValue(null))[variant.Id];
+    Check(recovered.Parent.Id == definition.Id, "狭喉的原派生关系保持");
+    var narrow = await Use(recovered);
+    await At(narrow.Cast, 5.65f);
+    Check(records.Contains(fragment.Id) && changes.Any(e => e.CastId == narrow.Id && e.Id == fragment.Id && e.Kind == "vortex-draw") &&
+        fragment.Material.Volume < fragment.Volume && Vector3.Distance(Centre(fragment.Material), Original("narrow")) > .15f &&
+        !changes.Any(e => e.CastId == narrow.Id && e.Id == fragment.Id && e.Kind == "vortex-dissolve") &&
+        Field(fragment.Row, "Vortex") == null && Rift().Length == 0,
+        "读回后的狭喉实际接纳同尺寸散件但留下原余料", Remaining());
+    return new { passed = true, absorbed, retained, narrow = fragment.Id, volume = fragment.Material.Volume };
+}
+finally { ReleaseScene(); }

@@ -1,0 +1,32 @@
+JToken RoundTrip(object value) => JToken.Parse(JsonConvert.SerializeObject(value));
+JArray CurrentRows(long[] ids)
+{
+    var document = JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "returning-abyss"));
+    var rows = (JArray)document["sections"]["world_materials"]["data"]["Records"];
+    return new JArray(rows.Where(row => ids.Contains((long)row["Id"])).OrderBy(row => (long)row["Id"])
+        .Select(row => new JObject
+        {
+            ["Id"] = row["Id"], ["Identity"] = row["Identity"], ["Provider"] = row["Provider"],
+            ["Controller"] = row["Controller"], ["Form"] = row["Material"]["Form"],
+            ["Position"] = new JArray(((JArray)row["Material"]["Transform"]).Skip(12).Take(3)),
+            ["Transform"] = row["Material"]["Transform"], ["Volume"] = row["Material"]["Volume"],
+            ["Resource"] = row["Material"]["Resource"]
+        }));
+}
+async Task<Actor> ReadArchive(string location, string state, JObject expected)
+{
+    World.world.save_manager.loadWorld(Path.Combine(location, state));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Actor caster = World.world.units.get((long)expected["source"]);
+    var catalog = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    var known = caster.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids;
+    Check(expected["definitions"].All(item => known.Contains((string)item["Id"]) &&
+        JToken.DeepEquals(item, RoundTrip(catalog[(string)item["Id"]]))), "读回原术、狭喉、完整参数和原学习关系");
+    long[] ids = expected["ids"].ToObject<long[]>();
+    var actual = CurrentRows(ids);
+    Check(JToken.DeepEquals(actual, expected[state]), "真实材料恢复原身份、姿态、体积和支付份额", new { state, actual });
+    caster.attack_timer = 999;
+    return caster;
+}

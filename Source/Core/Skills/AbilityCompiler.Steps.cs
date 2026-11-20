@@ -95,7 +95,9 @@ public static partial class AbilityCompiler
                 if (operation.Kind == ConstructionOperationKind.Gather && (node.Parent < 0 || node.FragmentSource >= 0 || node.Activation?.Placement == ConstructionEventPlacement.Event))
                     Fail(path, "聚合需要仍存在的父连接，已脱落碎片的重新连接继续按后续动作实现");
                 if (node.EventOperations.Length >= ConstructionBudget.MaximumEventOperations || sorted.Count >= ConstructionBudget.MaximumSteps) Fail(path, "单部位操作超过16项或展开步骤超过128项");
-                if ((operation.Kind is ConstructionOperationKind.Recover or ConstructionOperationKind.Leave or ConstructionOperationKind.Conduct || operation.WorldMatter != null) && node.Resource.Meshes.Length == 0)
+                if ((operation.Kind is ConstructionOperationKind.Recover or ConstructionOperationKind.Leave or ConstructionOperationKind.Conduct ||
+                     operation.WorldMatter != null) && node.Resource.Meshes.Length == 0 &&
+                    (node.MaterialVortex == null || operation.Kind != ConstructionOperationKind.Erode))
                     Fail(path, "世界操作需要实际生成主体，空支点不能制造材料或回能");
                 if (operation.WorldMatter != null && operation.Kind == ConstructionOperationKind.ConvertMatter && AbilityMatters.Resolve(operation.Matter, operation.State, path).State is not ("liquid" or "solid"))
                     Fail(path, "世界材料转换需要明确的液态或固态输出");

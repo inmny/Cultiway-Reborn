@@ -1,0 +1,82 @@
+var definition = Spell("归墟开口");
+var states = new BaseStats();
+states.addTag("frozen_ai");
+var steady = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ReturningAbyss.Steady") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ReturningAbyss.Steady")
+        .SetStats(states).SetDuration(10000).Build();
+void Stabilize(Actor actor, bool still = false)
+{
+    CombatStatusEffects.ApplyStatus(actor, mana, 10000, actor);
+    CombatStatusEffects.ApplyStatus(actor, steady, 10000, actor);
+    if (still) CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+    actor.setStatsDirty(); actor.updateStats();
+}
+Stabilize(source);
+Stabilize(victim);
+var hostile = Make(74);
+hostile.setKingdom(victim.kingdom);
+Stabilize(hostile, true);
+var changes = new List<WorldMaterialChange>();
+void Changed(WorldMaterialChange fact) => changes.Add(fact);
+WorldMaterialService.Changed += Changed;
+var records = (IDictionary)typeof(WorldMaterialService).GetField("rows", F).GetValue(null);
+var placed = new Dictionary<string, (long Id, object Row, AbilityMaterial Material, Matrix4x4 Pose, double Volume, double Resource)>();
+
+async Task PlaceMatter(string label, string form, string matter, Vector3 at, float scale, float volume, Actor payer)
+{
+    var input = new AbilityDefinition
+    {
+        Id = "Cultiway.Fixture.Abyss." + label, Name = label, Resource = "mana", Cost = 3, Cooldown = 0,
+        Power = 0, Lifetime = 1, TargetRange = 36,
+        Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+        Root = new ConstructionNode
+        {
+            Id = "piece", Form = form, Matter = matter, State = "solid", Scale = scale, Volume = volume,
+            Impact = new ConstructionImpact { DamageScale = 0 },
+            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Leave, At = .05f,
+                Residue = new ConstructionResidue() } }
+        }
+    };
+    Ready(payer); Place(payer, payer == source ? 64 : 74);
+    payer.setMana(64);
+    await Fire(input, payer, victim, aim: at, aggro: false);
+    payer.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    Stabilize(payer, payer != source);
+    await Advance(.18f);
+    WorldMaterialChange leave = changes.Single(e => e.AbilityId == input.Id && e.Kind == "leave");
+    object row = records[leave.Id];
+    var material = (AbilityMaterial)Field(row, "Material");
+    placed[label] = (leave.Id, row, material, (Matrix4x4)Field(material, "Transform"), material.Volume, material.Resource);
+}
+async Task PlaceRubble()
+{
+    await PlaceMatter("stone", "rock_projectile", "earth", new Vector3(68.10f, 71.60f, .26f), .63f, 1.2f, source);
+    await PlaceMatter("sword", "sword", "iron", new Vector3(71.72f, 71.40f, .43f), .36f, 1.3f, source);
+    await PlaceMatter("large", "rock_projectile", "earth", new Vector3(71.55f, 73.80f, .38f), 2.58f, .56f, source);
+    await PlaceMatter("enemy", "rock_projectile", "earth", new Vector3(67.18f, 74.10f, .30f), .70f, 1.35f, hostile);
+    await PlaceMatter("outside", "rock_projectile", "earth", new Vector3(76.1f, 75.6f, .40f), .72f, 1.2f, source);
+}
+Matrix4x4 Pose(AbilityMaterial material) => (Matrix4x4)Field(material, "Transform");
+Vector3 Centre(AbilityMaterial material) => Pose(material).GetColumn(3);
+Vector3 Original(string label) => placed[label].Pose.GetColumn(3);
+FormVisualInstance[] Rift() => FormVisualScene.Instances.Where(v => v.Resource.Description.Id == "pivot" &&
+    (v.Surface == "rift_core" || v.Surface == "rift_lip")).ToArray();
+async Task At(AbilityCast cast, float age)
+{
+    if (cast.Age < age) await Advance(age - cast.Age);
+}
+object Remaining() => placed.Select(p =>
+{
+    var item = p.Value;
+    return new { name = p.Key, item.Id, exists = records.Contains(item.Id),
+        position = Centre(item.Material).ToString(), origin = Original(p.Key).ToString(),
+        item.Material.Volume, item.Material.Resource, lost = item.Material.Weathering.LostVolume,
+        spent = item.Material.Weathering.SpentResource,
+        control = (long)Field(item.Row, "Controller"), claimed = Field(item.Row, "Vortex") != null };
+}).ToArray();
+void ReleaseScene()
+{
+    WorldMaterialService.Changed -= Changed;
+    ReleaseChecks();
+}

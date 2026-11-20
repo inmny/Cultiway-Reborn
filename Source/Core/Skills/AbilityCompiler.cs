@@ -81,6 +81,9 @@ public sealed class CompiledAbility
     /// <summary>本次实际承载景物带的部位。</summary>
     internal int[] LandscapeNodes { get; }
 
+    /// <summary>具有实际散料牵引的深口部位。</summary>
+    internal int[] MaterialVortexNodes { get; }
+
     /// <summary>受击分担的参数副本；当次契约另存实际余额。</summary>
     internal CompiledSoulPact SoulPact { get; }
 
@@ -251,6 +254,8 @@ public sealed class CompiledAbility
         HasCorrespondences = nodes.Any(node => node.Correspondence != null);
         MirrorNodes = Enumerable.Range(0, nodes.Length).Where(i => nodes[i].Correspondence?.MirrorImage != null).ToArray();
         LandscapeNodes = Enumerable.Range(0, nodes.Length).Where(i => nodes[i].LandscapeSlice != null).ToArray();
+        MaterialVortexNodes = Enumerable.Range(0, nodes.Length).Where(i => nodes[i].MaterialVortex != null).ToArray();
+        if (MaterialVortexNodes.Length > 4) throw new InvalidDataException("MaterialVortex：同一次施放最多四处深口");
         if (LandscapeNodes.Sum(i => nodes[i].LandscapeSlice.Width * nodes[i].LandscapeSlice.Length) > 640)
             throw new InvalidDataException("LandscapeSlice：同一次施放最多采六百四十个景物格");
         foreach (int index in MirrorNodes)
@@ -316,6 +321,7 @@ public sealed class CompiledAbility
             .DefaultIfEmpty(0f).Max();
         HasBarrier = body?.Guard.Enabled == true || nodes.Any(node => node.ContactRole == ConstructionContactRole.Barrier);
         HasWorldMaterials = nodes.Any(node =>
+            node.MaterialVortex != null ||
             node.Residue != null || node.Conduction != null || node.EventOperations.Any(op => op.Conduction != null) ||
             node.Recovery?.WorldMaterials == true ||
             node.Changes.Any(change => change.WorldMatter != null) ||
@@ -407,6 +413,9 @@ internal sealed class CompiledForm
 
     /// <summary>经过检查的实际景物带及实体回合边。</summary>
     internal CompiledLandscapeSlice LandscapeSlice;
+
+    /// <summary>以真实部位为中心的散料牵引与喉口。</summary>
+    internal CompiledMaterialVortex MaterialVortex;
 
     /// <summary>父体索引，负一表示根。</summary>
     internal int Parent;
@@ -907,6 +916,10 @@ public static partial class AbilityCompiler
         AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, path + "/Matter");
         var landscape = node.LandscapeSlice == null ? null :
             new CompiledLandscapeSlice(node.LandscapeSlice, resource, path + "/LandscapeSlice");
+        if (node.MaterialVortex != null && (landscape != null || node.ContactRole != ConstructionContactRole.Decoration ||
+            node.ActiveFromMarker != null || node.ActiveUntilMarker != null ||
+            !(appear < node.ActiveFrom && node.ActiveFrom < node.ActiveUntil && node.ActiveUntil < disappear)))
+            Fail(path + "/MaterialVortex", "深口部位须单独承载牵引，并声明依次展开、牵引和闭合的三个有限时段");
         if (landscape != null && (matter.State != "solid" ||
             node.Operations.Any(operation => operation?.Kind is not (ConstructionOperationKind.Detach or ConstructionOperationKind.Fly))))
             Fail(path + "/LandscapeSlice", "景物带以实体呈现，部位运动只用脱离和飞行曲线");
@@ -958,6 +971,7 @@ public static partial class AbilityCompiler
                 node.Activation?.Placement != ConstructionEventPlacement.Event, lifetime, path + "/Outlet"),
             Resource = resource,
             LandscapeSlice = landscape,
+            MaterialVortex = node.MaterialVortex == null ? null : new CompiledMaterialVortex(node.MaterialVortex, path + "/MaterialVortex"),
             Offset = offset,
             Rotation = Quaternion.Euler(rotation),
             Scale = node.Scale,
@@ -1027,8 +1041,9 @@ public static partial class AbilityCompiler
             Vector3 vector = ReadVector(operation.Vector, operationPath + "/Vector");
             if (operation.WorldMatter != null)
             {
-                if (resource.Meshes.Length == 0)
-                    Fail(path, "世界材料选择只用于真实生成主体的材料转换");
+                if (resource.Meshes.Length == 0 &&
+                    (compiled.MaterialVortex == null || operation.Kind != ConstructionOperationKind.Erode))
+                    Fail(path, "世界材料选择需要生成主体或带实际范围的深口侵蚀");
                 if (operation.Kind == ConstructionOperationKind.ConvertMatter && AbilityMatters.Resolve(operation.Matter, operation.State, path).State is not ("liquid" or "solid"))
                     Fail(path, "世界材料转换需要明确的液态或固态输出");
             }

@@ -1,0 +1,197 @@
+var groundType = service.Assembly.GetType("Cultiway.Content.Combat.GroundWeaponService");
+var ground = (IDictionary)groundType.GetField("entries", F).GetValue(null);
+object Data(Item item) => Field(ground[item.id], "Data");
+Vector3 GroundVector(Item item, string name)
+{
+    var values = (float[])Field(Data(item), name);
+    return new Vector3(values[0], values[1], values[2]);
+}
+async Task<Item> LooseWeapon()
+{
+    Place(victim, 68.25f, 70.50f);
+    Item item = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: victim);
+    victim.equipment.setItem(item, victim); item.removeMod("cursed");
+    victim.setStatsDirty(); victim.updateStats();
+    victim.checkAnimationContainer();
+    object weapon = null;
+    for (int attempt = 0; attempt < 8 && weapon == null; attempt++)
+    {
+        await Advance(.065f);
+        weapon = service.GetMethod("BodySelectionSurface", F).Invoke(null, new object[] { victim });
+    }
+    Check(weapon != null, "等待原人物和手持兵器已有实际外观");
+    object[] args = { victim, weapon, Vector3.zero, World.world.getCurWorldTime(), null, null };
+    Check((bool)groundType.GetMethod("TryDrop", F).Invoke(null, args) && ReferenceEquals(Field(ground[item.id], "Item"), item),
+        "通过实际落地接口放下原版铁剑", args[5]);
+    await Advance(.55f);
+    return item;
+}
+
+var clashes = new List<ConstructedClash>();
+void Clash(ConstructedClash value)
+{
+    if (value.LeftSource == source.id && value.RightSource == hostile.id ||
+        value.RightSource == source.id && value.LeftSource == hostile.id) clashes.Add(value);
+}
+ConstructedAbilityService.ClashConfirmed += Clash;
+async Task<(long Id, AbilityCast Cast)> Guard()
+{
+    var guard = new AbilityDefinition
+    {
+        Id = "Cultiway.Fixture.Abyss.Guard", Name = "相连的两片石卫", Lifetime = 6.2f, Power = 3, Cost = 3,
+        Resource = "mana", TargetRange = 40,
+        Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+        Root = new ConstructionNode
+        {
+            Id = "support", Form = "pivot", ContactRole = ConstructionContactRole.Decoration,
+            Children = new[] {
+                new ConstructionNode { Id = "front", Form = "rock_projectile", Matter = "earth", State = "solid",
+                    ContactRole = ConstructionContactRole.Barrier, Scale = 1.05f, Volume = 2f, Strength = .83f },
+                new ConstructionNode { Id = "brace", Form = "rock_projectile", Matter = "earth", State = "solid",
+                    ContactRole = ConstructionContactRole.Barrier, Scale = 1.05f, Volume = 2f, Strength = 1.03f,
+                    Offset = new[]{ -4f, 2f, 0f } }
+            }
+        }
+    };
+    long id = 0;
+    AbilityCast active = null;
+    void StartedGuard(ConstructedCastStarted fact)
+    {
+        if (fact.AbilityId != guard.Id) return;
+        id = fact.CastId;
+        foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
+            if ((long)Field(running, "Id") == id) active = (AbilityCast)Field(running, "Cast");
+    }
+    ConstructedAbilityService.CastStarted += StartedGuard;
+    try
+    {
+        Ready(hostile); Place(hostile, 74); hostile.setMana(64);
+        await Fire(guard, hostile, victim, aim: new Vector3(67.94f, 71.25f, 1.35f), aggro: false);
+        hostile.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+        Stabilize(hostile, true);
+        Check(id != 0 && active != null, "敌方石卫通过正常入口受理");
+        return (id, active);
+    }
+    finally { ConstructedAbilityService.CastStarted -= StartedGuard; }
+}
+
+try
+{
+    if (record) await PlaceRubble();
+    Item weapon = await LooseWeapon();
+    int durability = weapon.getDurabilityCurrent();
+    Vector3 beforeWeapon = GroundVector(weapon, "Position");
+    var guard = await Guard();
+    float front = guard.Cast.RemainingForce(1), brace = guard.Cast.RemainingForce(2);
+    var cast = await Use(definition);
+    CombatStatusEffects.RemoveStatus(victim, hold);
+    Stabilize(victim);
+    Place(victim, 67.50f, 70.83f);
+    Vector2 beforeActor = victim.current_position, gate = new(69.5f, 72.5f);
+    int hp = victim.getHealth();
+    bool lifted = false, dragged = false, realClash = false, nearStayed = false, viewStable = true, drawn = false;
+    var samples = new List<object>();
+    object edgeSample = null;
+
+    void Observe()
+    {
+        Vector3 blade = GroundVector(weapon, "Position");
+        lifted |= blade.z > beforeWeapon.z + .13f && Vector2.Distance(blade, beforeWeapon) > .10f &&
+            weapon.getActor() == null && weapon.getDurabilityCurrent() == durability;
+        dragged |= Vector2.Distance(victim.current_position, gate) + .07f < Vector2.Distance(beforeActor, gate);
+        realClash |= clashes.Any(value => (value.LeftCast == guard.Id && value.LeftNode == 1 ||
+                      value.RightCast == guard.Id && value.RightNode == 1) && value.Absorbed > 0) &&
+            guard.Cast.RemainingForce(1) < front;
+        if (!guard.Cast.Finished && realClash)
+            nearStayed |= Mathf.Abs(guard.Cast.RemainingForce(2) - brace) < .001f;
+        if (edgeSample == null && cast.Cast.Age >= .50f)
+        {
+            var shapes = new List<AbilityCapsule>();
+            cast.Cast.AppendContacts(shapes);
+            edgeSample = new { cast.Cast.Age, foot = victim.current_position.ToString(), height = victim.getHeight(),
+                edges = shapes.Select(shape => new { shape.Node, a = shape.A.ToString(), b = shape.B.ToString(), shape.Radius }).ToArray() };
+        }
+        if (record)
+            samples.Add(new { age = cast.Cast.Age, mouth = Rift().Length, clashes = clashes.Count,
+                weapon = blade.ToString(), victim = victim.current_position.ToString(),
+                changes = changes.Count(e => e.CastId == cast.Id && e.Kind.StartsWith("vortex-")) });
+    }
+
+    const float duration = 6.02f;
+    var times = new List<double>();
+    if (record)
+    {
+        await SetCamera(6.05f);
+        var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+        var mod = type.GetProperty("Instance", F).GetValue(null);
+        var god = type.GetProperty("GodShown", F);
+        var firstPerson = type.GetProperty("IsFirstPerson", F);
+        var gpu = type.GetField("_gpuShown", F);
+        var lastDraw = typeof(AbilityCast).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer")
+            .GetProperty("LastDrawCount", F);
+        if (recordView == "worldfall")
+        {
+            type.GetField("_godFollow", F).SetValue(mod, gate);
+            type.GetField("_godFollowVel", F).SetValue(mod, Vector2.zero);
+            type.GetField("_godTurn", F).SetValue(mod, .14f);
+            type.GetField("_godTurnRate", F).SetValue(mod, 0f);
+            type.GetField("_godClose", F).SetValue(mod, 12f);
+            type.GetField("_godCloseTarget", F).SetValue(mod, 12f);
+            var ready = type.GetField("_godGpuApplied", F);
+            int frame = (int)ready.GetValue(mod);
+            await Game.WaitUntil(() => (int)ready.GetValue(mod) >= frame + 4, 600);
+        }
+        else
+        {
+            World.world.camera.orthographicSize = 6.05f;
+            World.world.setZoomOrthographic(6.05f);
+        }
+        times = await Film(duration, () =>
+        {
+            bool worldfall = recordView == "worldfall";
+            viewStable &= !(bool)firstPerson.GetValue(mod) && (bool)god.GetValue(mod) == worldfall &&
+                          (!worldfall || (bool)gpu.GetValue(mod));
+            drawn |= Rift().Length > 0 && (!worldfall || (int)lastDraw.GetValue(null) >= 2);
+            Observe();
+        });
+    }
+    else
+    {
+        for (int i = 0; i < 22; i++) { await Advance(.115f); Observe(); }
+        await Advance(3.35f);
+    }
+
+    var actorContacts = contacts.Where(c => c.CastId == cast.Id && c.TargetId == victim.id).ToArray();
+    var hits = actorContacts.Where(c => c.Damage.HealthLost > 0).ToArray();
+    Check(realClash && nearStayed && hits.Length > 0 && victim.getHealth() < hp && dragged,
+        "外沿真实击中敌术的前片及人物，未触支撑保留，后续范围受力拉近同一人物",
+        new { clashes = clashes.Select(c => new { c.LeftCast, c.RightCast, c.LeftNode, c.RightNode, c.Absorbed }).ToArray(),
+            realClash, nearStayed, dragged, edgeSample,
+            hits = actorContacts.Select(c => new { c.Age, c.Node, c.Result, loss = c.Damage.HealthLost }).ToArray(),
+            hp, after = victim.getHealth() });
+    Check(lifted && ReferenceEquals(World.world.items.get(weapon.id), weapon) && ground.Contains(weapon.id) &&
+        (bool)Field(Data(weapon), "Resting") && weapon.getDurabilityCurrent() == durability &&
+        cast.Cast.Finished && Rift().Length == 0,
+        "原铁剑卷起后仍按原持物规则落稳，身份、耐久和控制均保持",
+        new { lifted, landed = GroundVector(weapon, "Position").ToString(), before = beforeWeapon.ToString(), weapon = weapon.id });
+    if (record)
+    {
+        var dissolves = changes.Where(e => e.CastId == cast.Id && e.Kind == "vortex-dissolve").ToArray();
+        File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(new
+        {
+            times, duration, samples, changes = Remaining(), dissolved = dissolves.Select(e => new { e.Id, e.ConvertedVolume }),
+            weapon = weapon.id, clashes = clashes.Count, affected = hits.Length
+        }, Formatting.Indented));
+        Check(viewStable && drawn && dissolves.Length != 0 && records.Contains(placed["large"].Id),
+            "连续原速画面包含外缘实际交锋、真实消解和留下的较大散件");
+    }
+    return new { passed = true, times, duration, view = recordView, scene = "construction",
+        resource = definition.Resource, paid = definition.Cost, weapon = weapon.id, clashes = clashes.Count,
+        previewFrame = Math.Max(0, times.FindIndex(t => t >= 1.1f)) };
+}
+finally
+{
+    ConstructedAbilityService.ClashConfirmed -= Clash;
+    ReleaseScene();
+}

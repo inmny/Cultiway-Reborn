@@ -1,0 +1,137 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.ReturningAbyss",
+  "Name": "归墟开口",
+  "Lifetime": 5.24,
+  "Resource": "mana",
+  "Cost": 18,
+  "Power": 11,
+  "Cooldown": 5.55,
+  "TargetRange": 36,
+  "Use": {
+    "Channels": "Combat, World",
+    "Target": "Point"
+  },
+  "Binding": {
+    "Anchor": "Target",
+    "Follow": false,
+    "FaceTarget": false,
+    "Height": 1.43
+  },
+  "Root": {
+    "Id": "abyss",
+    "Form": "pivot",
+    "ContactRole": "Decoration",
+    "ActiveFrom": 0.61,
+    "ActiveUntil": 4.21,
+    "DisappearAt": 5.2,
+    "MaterialVortex": {
+      "Radius": 4.23,
+      "Throat": 0.78,
+      "Depth": 1.38,
+      "Speed": 2.74,
+      "MaximumVolume": 14
+    },
+    "Operations": [
+      {
+        "Id": "erode_earth",
+        "Kind": "Erode",
+        "At": 0.6,
+        "Seconds": 0.88,
+        "Erosion": {
+          "Fraction": 0.68
+        },
+        "WorldMatter": {
+          "FromMatter": "earth",
+          "FromState": "solid",
+          "OwnedOnly": false,
+          "MaximumVolume": 18
+        }
+      },
+      {
+        "Id": "erode_iron",
+        "Kind": "Erode",
+        "At": 0.6,
+        "Seconds": 0.88,
+        "Erosion": {
+          "Fraction": 0.68
+        },
+        "WorldMatter": {
+          "FromMatter": "iron",
+          "FromState": "solid",
+          "OwnedOnly": false,
+          "MaximumVolume": 18
+        }
+      }
+    ],
+    "Children": [
+      {
+        "Id": "airflow",
+        "Form": "pivot",
+        "ContactRole": "Decoration",
+        "AppearAt": 0.61,
+        "DisappearAt": 4.21,
+        "Offset": [0, 0, -1.32],
+        "RadialMotion": {
+          "Radius": 4.23,
+          "Speed": -2.35,
+          "Interval": 0.12,
+          "Targets": "Hostile",
+          "GroundItemLimit": 4
+        }
+      },
+      {
+        "Id": "lip_left",
+        "Form": "entropy_wedge",
+        "Matter": "entropy",
+        "State": "energy",
+        "Offset": [-2.25, -1.15, -1.55],
+        "Rotation": [0, 0, -90],
+        "Scale": 1.39,
+        "Strength": 1.62,
+        "Volume": 2.8,
+        "AppearAt": 0.36,
+        "ActiveFrom": 0.5,
+        "ActiveUntil": 3.9,
+        "DisappearAt": 4.62,
+        "ContactGroup": "lip_left",
+        "Impact": {
+          "DamageScale": 0.52
+        },
+        "Operations": [
+          {
+            "Kind": "Spin",
+            "At": 0.38,
+            "Vector": [0, 0, 24]
+          }
+        ]
+      },
+      {
+        "Id": "lip_right",
+        "Form": "entropy_wedge",
+        "Matter": "entropy",
+        "State": "energy",
+        "Offset": [2.31, 1.08, -1.55],
+        "Rotation": [0, 0, 90],
+        "Scale": 1.39,
+        "Strength": 1.62,
+        "Volume": 2.8,
+        "AppearAt": 0.36,
+        "ActiveFrom": 0.5,
+        "ActiveUntil": 3.9,
+        "DisappearAt": 4.62,
+        "ContactGroup": "lip_right",
+        "Impact": {
+          "DamageScale": 0.52
+        },
+        "Operations": [
+          {
+            "Kind": "Spin",
+            "At": 0.38,
+            "Vector": [0, 0, 24]
+          }
+        ]
+      }
+    ]
+  }
+}

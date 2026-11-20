@@ -90,6 +90,9 @@ internal sealed class WorldMaterialRecord
     /// <summary>数值过程本轮已经结束，主线程随后移除。</summary>
     internal bool Finished;
 
+    /// <summary>暂时牵引此散件的唯一深口，不进入世界资料。</summary>
+    internal WorldVortexRun Vortex;
+
     /// <summary>本次运行已经报告的累计烧损，读档从当前值开始避免重放。</summary>
     internal double ReportedBurned;
 

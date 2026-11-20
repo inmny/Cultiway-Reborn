@@ -1,0 +1,62 @@
+try
+{
+    var malformed = Spell("归墟开口");
+    malformed.Root.MaterialVortex.Throat = malformed.Root.MaterialVortex.Radius;
+    bool rejected = false;
+    try { AbilityCompiler.Compile(malformed); }
+    catch (InvalidDataException error) { rejected = error.Message.Contains("/MaterialVortex"); }
+    Check(rejected, "没有可区别的喉口时不能建立深口");
+    await PlaceRubble();
+    var cast = await Use(definition);
+    await At(cast.Cast, .40f);
+    var open = Rift();
+    Check(open.Length == 3 && changes.All(c => c.CastId != cast.Id) &&
+        open.All(v => ((Mesh)Field(v, "Geometry")).bounds.size.z > .1f),
+        "三层裂口先成形，有真实厚度，尚未取得原件",
+        new { cast.Cast.Age, count = open.Length, state = Remaining() });
+    await At(cast.Cast, .94f);
+    var left = placed["large"];
+    Matrix4x4 pose = Pose(left.Material);
+    Vector3 scale = pose.lossyScale;
+    bool stretched = Mathf.Abs(scale.x - scale.y) > .04f ||
+        Mathf.Abs(Vector3.Dot(((Vector3)pose.GetColumn(0)).normalized, ((Vector3)pose.GetColumn(1)).normalized)) > .045f;
+    bool sameView = FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "rock_projectile" &&
+        Vector3.Distance(v.Transform.GetColumn(3), pose.GetColumn(3)) < .035f);
+    Check(Field(left.Row, "Vortex") != null && Vector3.Distance(Original("large"), Centre(left.Material)) > .12f &&
+        stretched && left.Material.Weathering.LostVolume > 0 && sameView,
+        "原散件经过真实侵蚀后开始移动和拉伸，两种读法定位到同一个实体", Remaining());
+
+    if (interrupt)
+    {
+        Vector3 stop = Centre(left.Material);
+        service.GetMethod("Cancel", F).Invoke(null, new object[] { cast.Id });
+        await Advance(1.2f);
+        Check(cast.Cast.Finished && Rift().Length == 0 && records.Contains(left.Id) && Field(left.Row, "Vortex") == null &&
+            Vector3.Distance(stop, Centre(left.Material)) < .003f &&
+            changes.All(e => e.CastId != cast.Id || e.Kind != "vortex-dissolve"),
+            "撤销释放尚未到达的原件，先前位移和真实侵蚀仍保留", Remaining());
+        return new { passed = true, remains = Remaining() };
+    }
+
+    await At(cast.Cast, 4.62f);
+    var closing = Rift().OrderBy(v => v.Transform.m23).ToArray();
+    Check(closing.Length >= 2 && closing.Max(v => v.Transform.lossyScale.x) > 1f &&
+        (closing.Length == 2 || closing[0].Transform.lossyScale.x < closing[2].Transform.lossyScale.x),
+        "喉口先收束，外唇仍保持可见宽度", new { cast.Cast.Age, widths = closing.Select(v => v.Transform.lossyScale.x).ToArray() });
+    await Advance(1f);
+    var small = placed["stone"]; var enemy = placed["enemy"]; var outside = placed["outside"];
+    var dissolved = changes.Where(e => e.CastId == cast.Id && e.Kind == "vortex-dissolve").ToArray();
+    Check(dissolved.Any(e => e.Id == small.Id && e.ConvertedVolume > 0) && !records.Contains(small.Id) &&
+        records.Contains(left.Id) && Field(left.Row, "Vortex") == null &&
+        enemy.Material.Volume < enemy.Volume && Vector3.Distance(Original("enemy"), Centre(enemy.Material)) < .002f &&
+        outside.Material.Volume == outside.Volume && Pose(outside.Material) == outside.Pose,
+        "小块真实入喉消解，大块滞留，敌物受蚀仍在原位，范围外完整",
+        new { remains = Remaining(), dissolved = dissolved.Select(e => new { e.Id, e.ConvertedVolume }).ToArray() });
+    Check(placed.Values.All(p =>
+        Math.Abs(p.Volume - p.Material.Volume - p.Material.Weathering.LostVolume) < .002 &&
+        Math.Abs(p.Resource - p.Material.Resource - p.Material.Weathering.SpentResource) < .002) &&
+        !changes.Any(e => e.Kind == "credit") && cast.Cast.Finished && Rift().Length == 0,
+        "相同体积和原支付额分成剩余与真实损耗，收尾没有回能或临时裂口", Remaining());
+    return new { passed = true, remains = Remaining(), consumed = dissolved.Select(e => new { e.Id, e.ConvertedVolume }).ToArray() };
+}
+finally { ReleaseScene(); }

@@ -246,6 +246,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     if (generation != worldGeneration) yield break;
                     ConfirmWorldMaterial(running, clock);
                     if (generation != worldGeneration) yield break;
+                    ConfirmMaterialVortices(running, clock);
+                    if (generation != worldGeneration) yield break;
                 }
 
                 if (generation != worldGeneration) yield break;
@@ -289,6 +291,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 running.Cast.AppendVisuals(visuals);
                 if (running.Cast.Plan.LandscapeNodes.Length > 0) AppendLandscapeSlices(running);
+                if (running.Cast.Plan.MaterialVortexNodes.Length > 0) AppendMaterialVortices(running);
                 if (running.Cast.Plan.MirrorNodes.Length > 0) AppendMirrorImages(running, now);
                 AppendSpatialViews(running, now);
                 AppendSoulPact(running, now);
