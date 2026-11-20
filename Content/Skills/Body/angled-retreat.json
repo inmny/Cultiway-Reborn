@@ -1,0 +1,43 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.AngledRetreat",
+  "Name": "斜撤转身",
+  "Lifetime": 1.04,
+  "Cooldown": 1.5,
+  "Resource": "stamina",
+  "Cost": 3,
+  "TargetRange": 4,
+  "Use": {"Target": "Point"},
+  "Body": {
+    "Effector": "lead",
+    "ReleaseAt": 0.17,
+    "ActiveFrom": 0.17,
+    "ActiveUntil": 0.81,
+    "Impact": {"DamageScale": 0},
+    "Construction": {
+      "Parts": [{"Id": "lead", "Part": "shoulder.left"}],
+      "Footwork": {
+        "Space": "Local",
+        "Forward": null,
+        "Keys": [
+          {"At": 0, "Point": [0, 0, 0]},
+          {"At": 0.11, "Point": [0, 0, 0]},
+          {"At": 0.35, "Point": [-0.24, 0, 0]},
+          {"At": 0.45, "Point": [-0.24, 0, 0]},
+          {"At": 0.72, "Point": [-0.24, -0.29, 0]},
+          {"At": 1.04, "Point": [-0.24, -0.29, 0]}
+        ]
+      }
+    },
+    "Keys": [
+      {"Id": "ready", "At": 0, "Hand": [0.14, -0.19, 0.64], "Support": {}},
+      {"Id": "gather", "At": 0.12, "Hand": [0.12, -0.12, 0.71], "Torso": [-0.03, 0.03, -0.07], "Support": {"RightFoot": [-0.08, 0.10, 0.04]}},
+      {"Id": "recede", "At": 0.26, "Hand": [0.21, -0.11, 0.72], "Torso": [-0.055, 0.025, -0.065], "Turn": 8, "Support": {"RightFoot": [-0.10, 0.10, 0.084]}},
+      {"Id": "rear_plant", "At": 0.36, "Hand": [0.18, -0.15, 0.70], "Torso": [-0.02, 0.015, -0.075], "Turn": 8, "Support": {"RightFoot": [-0.09, 0.10, 0]}},
+      {"Id": "sidestep", "At": 0.53, "Hand": [0.12, -0.22, 0.65], "Torso": [-0.015, -0.045, -0.07], "Turn": 16, "Heading": 25, "Support": {"LeftFoot": [0.06, -0.13, 0.088], "RightFoot": [-0.09, 0.10, 0]}},
+      {"Id": "lateral_plant", "At": 0.72, "Hand": [0.10, -0.20, 0.63], "Torso": [0.015, -0.055, -0.08], "Turn": 11, "Heading": 72, "Support": {"RightFoot": [-0.09, 0.10, 0]}},
+      {"Id": "bring_in", "At": 0.85, "Hand": [0.13, -0.18, 0.64], "Torso": [0.025, -0.02, -0.04], "Heading": 78, "Support": {"RightFoot": [-0.03, 0.10, 0.06]}},
+      {"Id": "rest", "At": 1.04, "Hand": [0.14, -0.19, 0.64], "Heading": 78, "Support": {}}
+    ]
+  }
+}
