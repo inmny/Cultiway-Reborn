@@ -1,0 +1,117 @@
+// 原版铁锤的受阻与换器共用正式受理和身体释放。
+const string hammerId = "Cultiway.Body.HeavyHammerDrop";
+const string guardId = "test.heavy-hammer.shield";
+long hammerCast = 0, guardCast = 0;
+AbilityCast live = null;
+var clashes = new List<ConstructedClash>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId == guardId && fact.SourceId == target.id) guardCast = fact.CastId;
+    if (fact.AbilityId != hammerId || fact.SourceId != source.id) return;
+    hammerCast = fact.CastId;
+    var state = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(entry => (long)Field(entry, "Id") == hammerCast);
+    live = (AbilityCast)Field(state, "Cast");
+}
+void Clashed(ConstructedClash value)
+{
+    if (value.LeftCast == hammerCast && value.RightCast == guardCast) clashes.Add(value);
+}
+
+var clock = Config.time_scale_asset;
+float speed = clock.multiplier;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ClashConfirmed += Clashed;
+try
+{
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Ready(source);
+    source.attack_timer = target.attack_timer = 999;
+    await Advance(.18f);
+    clock.multiplier = speed * .32f;
+    Item hammer = Equip(source, "hammer_iron");
+    Place(source, 64.35f);
+    Place(target, 64.98f);
+    int health = target.data.health;
+    Item shield = null;
+    if (selection == "guard")
+    {
+        // 原版缺少盾装备。沿用兵器专项的测试登记，运行时仍使用真实物件和盾面。
+        if (AssetManager.item_groups.get("shield") == null)
+            AssetManager.item_groups.add(new ItemGroupAsset { id = "shield", name = "shield", color = "#808080" });
+        const string shieldId = "Cultiway.Verify.BodyWeapons.Shield";
+        var asset = AssetManager.items.get(shieldId) ?? AssetManager.items.clone(shieldId, "hammer_iron");
+        asset.group_id = "shield";
+        shield = Equip(target, shieldId);
+        CombatStatusEffects.RemoveStatus(target, quiet);
+        target.updateStats();
+        target.cancelAllBeh();
+        var guard = BodyActionCatalog.Create(guardId, "测试架盾",
+            new BodyActionRequest { Kind = BodyActionKind.Guard, Seconds = 2.2f, WeaponForm = "shield", Grip = "grip", Contact = "face" });
+        guard.Body.MatchDistance = false;
+        guard.Body.ActiveFrom = 0f;
+        guard.Body.ReleaseAt = 0f;
+        guard.Body.ActiveUntil = 1.85f;
+        guard.Body.Guard = new BodyGuardDefinition { Capacity = 100f };
+        Quaternion facing = Quaternion.AngleAxis(-35f, Vector3.right) *
+            Quaternion.Euler(new Vector3(guard.Body.Keys[2].Rotation[0], guard.Body.Keys[2].Rotation[1], guard.Body.Keys[2].Rotation[2]));
+        Vector3 angles = facing.eulerAngles;
+        foreach (BodyMotionKey key in guard.Body.Keys)
+        {
+            key.Hand = new[] { .13f, .12f, .76f };
+            key.Rotation = new[] { angles.x, angles.y, angles.z };
+        }
+        target.data.stamina = 100;
+        await Fire(guard, target, source);
+        target.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+        target.attack_timer = 999;
+    }
+
+    var definition = ConstructionEditing.Access.Read(hammerId);
+    source.data.stamina = 100;
+    await Fire(definition, source, target);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    if (selection == "guard")
+    {
+        await Advance(2.3f);
+        var clash = clashes.FirstOrDefault();
+        Check(clashes.Count == 1 && clash.LeftNode == -1 && clash.GuardShape >= 0 && clash.GuardFacing != Vector3.zero &&
+              clash.Absorbed > 0f && clash.LeftRemaining == 0f && clash.RightRemaining > 0f &&
+              live.BodyResult == BodyActionResult.Blocked && !contacts.Any(hit => hit.CastId == hammerCast) &&
+              target.data.health == health && !BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id) &&
+              ReferenceEquals(source.getWeapon(), hammer) && ReferenceEquals(target.getWeapon(), shield),
+            "实际盾面抵住锤头，扣去双方作用余量，从相交点收势并归还原物",
+            new { hits = contacts.Count, health, after = target.data.health, result = live.BodyResult,
+                clash.LeftAge, clash.RightAge, clash.Absorbed, clash.LeftRemaining, clash.RightRemaining,
+                point = clash.Position.ToString("F5"), facing = clash.GuardFacing.ToString("F5") });
+    }
+    else
+    {
+        long first = hammerCast;
+        await Advance(.30f);
+        Item replacement = Equip(source, "hammer_iron");
+        await Advance(definition.Cooldown);
+        Check(!ReferenceEquals(hammer, replacement) && !BodyControlState.IsBusy(source.id) &&
+              endings.Any(end => end.Fact.CastId == first && end.Fact.Cancelled) &&
+              !contacts.Any(hit => hit.CastId == first) && target.data.health == health,
+            "蓄势中更换同款铁锤，旧锤不继续命中，双手解除");
+        source.data.stamina = 100;
+        await Fire(definition, source, target);
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        await Advance(definition.Lifetime + .05f);
+        Check(hammerCast != first && contacts.Count(hit => hit.CastId == hammerCast && hit.TargetId == target.id) == 1 &&
+              target.data.health < health && !BodyControlState.IsBusy(source.id) &&
+              ReferenceEquals(source.getWeapon(), replacement), "归还后同一人物持新锤再次实际命中");
+    }
+    return new { passed = true, selection, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ClashConfirmed -= Clashed;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    clock.multiplier = speed;
+    ControllableUnit.clear(false);
+}

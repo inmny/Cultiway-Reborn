@@ -6,6 +6,12 @@ float speed = clock.multiplier;
 long castId = 0;
 AbilityCast live = null;
 object binding = null;
+var world = new List<AbilityActionEvent>();
+void ActionFact(ConstructedActionEvent value)
+{
+    if (value.CastId == castId && value.Fact.ContactKind == AbilityActionContactKind.World)
+        world.Add(value.Fact);
+}
 void Started(ConstructedCastStarted fact)
 {
     if (fact.SourceId != source.id || fact.AbilityId != abilityId) return;
@@ -16,6 +22,7 @@ void Started(ConstructedCastStarted fact)
     binding = Field(state, "Body");
 }
 ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ActionConfirmed += ActionFact;
 try
 {
     owner.E.RemoveComponent<ConstructedKnowledge>();
@@ -36,7 +43,10 @@ try
         "正式伏腰落锤借用原版铁锤并支付一次");
 
     bool moved = false;
-    var samples = new List<(BodyPose Pose, Vector3 Face, float GripError, float Recoil, string[] Shapes)>();
+    var samples = new List<(BodyPose Pose, Vector3 Face, float GripError, float Recoil, string[] Shapes, float Clearance)>();
+    var groundProvider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+    var terrain = groundProvider?.Invoke(new Rect(62, 70, 6, 5));
+    Vector3[] meshPoints = form.Meshes.SelectMany(mesh => mesh.vertices).Distinct().ToArray();
     var selectedFace = form.Anchors.Single(anchor => anchor.Id == "face/right");
     var visual = binding.GetType().GetMethod("AppendVisuals", F);
     var shape = binding.GetType().GetMethod("AppendContacts", F);
@@ -58,9 +68,14 @@ try
         var frame = (BodyFrame)Field(live, "bodyFrame");
         BodyPose unrecoiled = live.Plan.Body.Sample(pose.WorldAge, in frame);
         float recoil = Vector3.Distance(unrecoiled.Shoulder, unrecoiled.Hand) - Vector3.Distance(pose.Shoulder, pose.Hand);
+        float clearance = meshPoints.Min(point =>
+        {
+            Vector3 p = held.Transform.MultiplyPoint3x4(point);
+            return p.z - Height(p);
+        });
         samples.Add((pose, face, Mathf.Max(GripError("grip", BodyVisualSegment.RightHand),
             GripError("short", BodyVisualSegment.LeftHand)), recoil,
-            shapes.Select(capsule => form.Description.Contacts[capsule.Shape].Id).ToArray()));
+            shapes.Select(capsule => form.Description.Contacts[capsule.Shape].Id).ToArray(), clearance));
 
         float GripError(string grip, BodyVisualSegment segment)
         {
@@ -76,24 +91,25 @@ try
         age = sample.Pose.WorldAge, face = (sample.Face - sample.Pose.Foot).ToString("F5"),
         center = (sample.Pose.CenterOfMass - sample.Pose.Foot).ToString("F5"),
         leftFoot = sample.Pose.LeftFoot.ToString("F5"), rightFoot = sample.Pose.RightFoot.ToString("F5"),
-        sample.GripError, sample.Recoil, sample.Shapes
+        sample.GripError, sample.Recoil, sample.Shapes, sample.Clearance
     }).ToArray();
     File.WriteAllText(Path.Combine(folder, "pose-trajectory.json"), JsonConvert.SerializeObject(new
     {
-        selection, contactAt, health, after = target.data.health,
+        selection, contactAt, health, after = target.data.health, result = live.BodyResult,
         touches = touches.Select(hit => new { hit.Age, hit.ForceApplied, hit.Result, hit.BodyResult,
             velocity = hit.VelocityChange.ToString("F5"), point = hit.Position.ToString("F5") }).ToArray(),
+        ground = world.Select(fact => new { fact.Age, point = fact.Point.ToString("F5"), height = Height(fact.Point) }),
         trajectory
     }, Formatting.Indented));
     var initial = samples.First();
     var poised = samples.First(sample => sample.Pose.WorldAge >= .54f);
     var falling = samples.First(sample => sample.Pose.WorldAge >= .70f);
-    var lowered = samples.First(sample => sample.Pose.WorldAge >= .94f);
     Check(samples.All(sample => sample.GripError < .0001f &&
           Vector3.Distance(sample.Pose.LeftFoot, initial.Pose.LeftFoot) < .0001f &&
           Vector3.Distance(sample.Pose.RightFoot, initial.Pose.RightFoot) < .0001f) &&
           poised.Pose.CenterOfMass.x < poised.Pose.Foot.x - .015f &&
-          lowered.Pose.CenterOfMass.x > lowered.Pose.Foot.x + .06f &&
+          samples.Any(sample => sample.Pose.WorldAge > .60f && sample.Pose.WorldAge < .97f &&
+              sample.Pose.CenterOfMass.x > sample.Pose.Foot.x + .06f) &&
           poised.Face.z - initial.Face.z > .5f && poised.Face.z - falling.Face.z > .45f &&
           falling.Shapes.Length > 0 && falling.Shapes.All(name => name.StartsWith("face/right/")),
         "双脚承托下两手始终贴合原锤，重心前移时实际锤面加速下落");
@@ -106,16 +122,28 @@ try
                   sample.Pose.WorldAge < contactAt + definition.Body.RecoilSeconds && sample.Recoil > .004f),
             "铁锤下落实际命中一次，向前向下施力并因接触回弹");
     }
-    else Check(moved && touches.Length == 0 && contactAt < 0f && target.data.health == health,
-        "蓄势途中侧移到锤面之外，空挥落完且未发生伤害或接触回弹");
+    else
+    {
+        Check(moved && touches.Length == 0 && contactAt < 0f && target.data.health == health,
+            "蓄势途中侧移到锤面之外，挥锤没有造成伤害");
+        var ground = world.SingleOrDefault();
+        Check(world.Count == 1 && live.BodyResult == BodyActionResult.Blocked &&
+              Mathf.Abs(ground.Point.z - Height(ground.Point)) < .0001f &&
+              samples.Min(sample => sample.Clearance) >= -.001f &&
+              samples.Last().Clearance > .05f,
+            "实际锤头落到地面一次，从原落点收势且未穿地");
+    }
     Check(endings.Any(end => end.Fact.CastId == castId && !end.Fact.Cancelled) &&
           !BodyControlState.IsBusy(source.id) && ReferenceEquals(hammer, source.getWeapon()),
         "动作收完后归还双手控制和原铁锤");
     return new { passed = true, selection, checks };
+
+    float Height(Vector3 point) => terrain?.Sample(point.x, point.y) ?? 0f;
 }
 finally
 {
     ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ActionConfirmed -= ActionFact;
     ConstructedAbilityService.ContactConfirmed -= Hit;
     ConstructedAbilityService.CastEnded -= Ended;
     Config.paused = true;

@@ -11,7 +11,7 @@ from common import write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('drop', 'miss'), required=True)
+    parser.add_argument('--case', choices=('drop', 'miss', 'guard', 'interrupt'), required=True)
     parser.add_argument('--archive', type=Path, required=True, help='长兵复验生成的正式对练档目录')
     args = parser.parse_args()
     archive = args.archive.resolve()
@@ -37,7 +37,8 @@ def main():
     fighters = (scripts / 'verify_short_weapons.script').read_text().split('var bindingType =', 1)[0]
     fighters = fighters.replace('Make(64.35f)', f'World.world.units.get({int(expected["source"])}L)')
     fighters = fighters.replace('Make(65.2f)', f'World.world.units.get({int(expected["target"])}L)')
-    body = Path(__file__).with_suffix('.script').read_text()
+    body_name = 'verify_heavy_weapon_block.script' if args.case in ('guard', 'interrupt') else 'verify_heavy_weapons.script'
+    body = (scripts / body_name).read_text()
     script = output / 'input.script'
     script.write_text('using Friflo.Engine.ECS;\n' + base + fighters +
                       f'\nconst string selection = "{args.case}";\n' + body)

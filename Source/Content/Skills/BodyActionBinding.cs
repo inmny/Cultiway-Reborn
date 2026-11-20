@@ -201,6 +201,8 @@ internal sealed partial class BodyActionBinding
         }
 
         if (form == null) return;
+        if (action.WeaponGround && form.Structure.Kind != "rigid")
+            throw new InvalidDataException("Body/WeaponGround：触地需要刚性器物表面");
         ConstructionReferences.Resolve("Body/Grip", () => form.Grip(action.Grip), "Grip", form.Description.Id + " / " + action.Grip);
         if (form.Description.Held.Groups.Length == 0)
             throw new InvalidDataException("Body/WeaponForm：资源未声明可对应的实际装备类型：" + action.WeaponForm);
