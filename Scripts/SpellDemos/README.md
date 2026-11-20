@@ -2427,3 +2427,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 162 -- python3 Scripts/SpellDemos/verify_weapon_chamber.py --section release`。用真法宝和原版落地的兵器验证[鸣铗纳锋](../../Doc/技能系统全面重构/构造输入/鸣铗纳锋.json)。输出器口与原物的位置、高度、随动和抛出记录，并检查实际护口交锋、口外无作用和拾回原物。
 
 `--section interrupt` 在暂存时中止，核对最后位置落地和原法宝归还。 `--section editor` 核对尺寸编辑、无效输入、撤销、中英文重开。释放流程可加 `--record native` 或 `--record worldfall`。
+
+### 连印走符（9.40 符箓）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_seal_relay.py --section relay`。通过正式物品入口消耗一张真实符箓，核对[构造资料](../../Content/Skills/Attack/SealRelay.json)的三次实际命中、留印位置、余力衰减和退场。 `--section miss` 让首张纸符飞空，检查原物消费和失效请求保留，以及后续形体是否停在源头。
+
+正常传递可加 `--record native` 或 `--record worldfall`。输出同时记录每次作用面的准确位置与伤害。

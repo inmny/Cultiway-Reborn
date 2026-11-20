@@ -5,6 +5,8 @@ namespace Cultiway.Core.SkillLibV3.Usage;
 public sealed class SkillUseProfileLibrary : AssetLibrary<SkillUseProfileAsset>
 {
     public static SkillUseProfileAsset EnemyObjectOrPoint { get; private set; }
+    /// <summary>只有一次起手，后续段由本次施放的实际条件决定。</summary>
+    public static SkillUseProfileAsset SingleEnemyObjectOrPoint { get; private set; }
     public static SkillUseProfileAsset EnemyPoint { get; private set; }
     public static SkillUseProfileAsset EnemyArea { get; private set; }
     public static SkillUseProfileAsset CasterSelf { get; private set; }
@@ -18,6 +20,9 @@ public sealed class SkillUseProfileLibrary : AssetLibrary<SkillUseProfileAsset>
         base.init();
         EnemyObjectOrPoint = Add("EnemyObjectOrPoint", ActiveAbilityTargetMode.ObjectOrPoint,
             SkillUsePlacement.EnemyObjectOrPoint, 1, 0);
+        SingleEnemyObjectOrPoint = Add("SingleEnemyObjectOrPoint", ActiveAbilityTargetMode.ObjectOrPoint,
+            SkillUsePlacement.EnemyObjectOrPoint, 1, 0);
+        SingleEnemyObjectOrPoint.Multiplicity = SkillUseMultiplicity.Single;
         EnemyPoint = Add("EnemyPoint", ActiveAbilityTargetMode.Point,
             SkillUsePlacement.EnemyPoint, 2, 0);
         EnemyArea = Add("EnemyArea", ActiveAbilityTargetMode.Area,

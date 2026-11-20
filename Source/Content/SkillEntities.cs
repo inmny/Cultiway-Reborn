@@ -33,6 +33,7 @@ public partial class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntiti
         ConfigureSupport();
         ConfigureUtility();
         ConfigureGeneric();
+        ConfigureSealRelay();
         Visuals.SkillSpatialVisualCatalog.Register();
     }
 
