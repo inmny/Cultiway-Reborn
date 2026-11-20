@@ -31,7 +31,15 @@
         "ActiveUntil": 1.73,
         "Impact": {
           "Targets": "Hostile",
-          "DamageScale": 1.0
+          "DamageScale": 1.0,
+          "WorldEffects": [
+            {
+              "Action": "terrain.raise",
+              "MaximumTiles": 1,
+              "MaterialVolume": 0.625,
+              "RequireScope": true
+            }
+          ]
         },
         "Operations": [
           {
@@ -46,7 +54,8 @@
             "Id": "break_on_ground",
             "Kind": "Fracture",
             "When": {
-              "Trigger": "WorldContact"
+              "Trigger": "WorldContact",
+              "Delay": 0.035
             },
             "Fracture": {
               "Seconds": 1.41,
@@ -135,7 +144,15 @@
         "ActiveUntil": 2.09,
         "Impact": {
           "Targets": "Hostile",
-          "DamageScale": 1.0
+          "DamageScale": 1.0,
+          "WorldEffects": [
+            {
+              "Action": "terrain.raise",
+              "MaximumTiles": 1,
+              "MaterialVolume": 0.625,
+              "RequireScope": true
+            }
+          ]
         },
         "Operations": [
           {
@@ -150,7 +167,8 @@
             "Id": "break_on_ground",
             "Kind": "Fracture",
             "When": {
-              "Trigger": "WorldContact"
+              "Trigger": "WorldContact",
+              "Delay": 0.035
             },
             "Fracture": {
               "Seconds": 1.41,
@@ -270,5 +288,5 @@
       }
     }
   ],
-  "Revision": 2
+  "Revision": 3
 }
