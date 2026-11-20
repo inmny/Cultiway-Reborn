@@ -238,6 +238,10 @@ public sealed class ConstructionNode
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public float InterruptFall;
 
+    /// <summary>本部位只在实际父出口向下时开始，使用现有挂点的位置和朝向。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionOutlet Outlet;
+
     /// <summary>本形体采用的共用操作。</summary>
     public ConstructionOperation[] Operations = Array.Empty<ConstructionOperation>();
 
@@ -485,9 +489,13 @@ public sealed class ConstructionOperation
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float[] Acceleration;
 
-    /// <summary>速度和加速度是否按地图方向解释。</summary>
+    /// <summary>初速度是否按地图方向解释；同样作为加速度方向的缺省规则。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool WorldVelocity;
+
+    /// <summary>即使初速度随形体朝向，也按地图方向解释加速度。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool WorldAcceleration;
 
     /// <summary>实际作用形状接触地图零高度平面时的响应。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]

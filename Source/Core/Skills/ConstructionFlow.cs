@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Newtonsoft.Json;
 
 namespace Cultiway.Core.Skills;
 
@@ -18,6 +19,8 @@ public sealed class ConstructionFlow
     public float Evaporation = .03f;
     /// <summary>开放边界允许水流出，并记录去向；关闭时反射。</summary>
     public bool OpenBoundary = true;
+    /// <summary>可选的液态冷却与固体沉积。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public ConstructionFlowCooling Cooling;
 }
 
 /// <summary>输入边界核对一次的数值流散参数。</summary>
@@ -29,6 +32,8 @@ internal sealed class CompiledFlow
     internal readonly float Size, Gravity, Drag, Evaporation;
     /// <summary>是否记录越过区域的外流。</summary>
     internal readonly bool OpenBoundary;
+    /// <summary>普通流体不分配额外状态。</summary>
+    internal readonly ConstructionFlowCooling Cooling;
 
     /// <summary>拒绝无效参数及无界网格；不在每个计算步重复核对。</summary>
     /// <param name="source">实际外部资料。</param>
@@ -39,6 +44,7 @@ internal sealed class CompiledFlow
             !Finite(source.Gravity) || source.Gravity < 0 || source.Gravity > 100 || !Finite(source.Drag) || source.Drag < 0 || source.Drag > 100 ||
             !Finite(source.Evaporation) || source.Evaporation < 0 || source.Evaporation > 10)
             throw new InvalidDataException(path + "：流散需要16至64格、正数区域及有效重力、阻力和蒸散");
+        Cooling = source.Cooling?.Compile(path + "/Cooling");
         Cells = source.Cells; Size = source.Size; Gravity = source.Gravity; Drag = source.Drag; Evaporation = source.Evaporation; OpenBoundary = source.OpenBoundary;
     }
 

@@ -83,8 +83,9 @@ public sealed class FormLayerFrame
     /// <param name="owner">稳定显示缓存标识。</param><param name="border">不可变邻区水柱。</param>
     /// <param name="bed">不可变邻区地表。</param><param name="masks">同次发布的不可变外观分区。</param><param name="appearance">本外观序号。</param>
     /// <param name="sources">实际来源数。</param><param name="mixedCells">混流格数。</param><param name="conduction">实际导电的邻格明暗。</param>
+    /// <param name="crust">发布同一流层的凝壳而非移动熔料。</param>
     internal FormLayerFrame(AbilityFlow flow, object owner = null, Vector3[] border = null, float[] bed = null,
-        float[][] masks = null, int appearance = -1, int sources = 1, int mixedCells = 0, float[] conduction = null)
+        float[][] masks = null, int appearance = -1, int sources = 1, int mixedCells = 0, float[] conduction = null, bool crust = false)
     {
         conductionGlow = conduction;
         Sources = sources;
@@ -95,7 +96,12 @@ public sealed class FormLayerFrame
         AppearanceIndex = appearance;
         Owner = owner ?? flow.VisualOwner; Cells = flow.Settings.Cells; Cell = flow.Cell; Origin = flow.Origin;
         Water = (Vector3[])flow.Water.Clone(); Ground = (float[])flow.Ground.Clone();
-        Volume = flow.Volume; Escaped = flow.Escaped; Evaporated = flow.Evaporated; Recovered = flow.Recovered;
+        Volume = flow.Crust == null ? flow.Volume : crust ? flow.CrustVolume : flow.LiquidVolume;
+        if (flow.Crust != null)
+            for (int i = 0; i < Water.Length; i++)
+                if (crust) Water[i] = new Vector3(flow.Crust[i], 0f, 0f);
+                else Ground[i] = flow.FlowBed(i);
+        Escaped = flow.Escaped; Evaporated = flow.Evaporated; Recovered = flow.Recovered;
         float min = float.PositiveInfinity, max = float.NegativeInfinity;
         for (int i = 0; i < Water.Length; i++) { min = Mathf.Min(min, Ground[i]); max = Mathf.Max(max, Ground[i] + Water[i].x); }
 

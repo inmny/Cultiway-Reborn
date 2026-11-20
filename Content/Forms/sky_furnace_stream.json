@@ -1,0 +1,136 @@
+{
+    "Structure": {
+        "Kind": "surface",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_sky_furnace.mjs",
+            "Entry": "makeSkyFurnace",
+            "Parameters": [
+                {
+                    "Id": "profile",
+                    "Values": [
+                        0.0,
+                        -0.029999999329447748,
+                        0.03799999877810478,
+                        0.029999999329447748,
+                        0.07100000232458115,
+                        0.1599999964237213,
+                        0.10499999672174454,
+                        0.28999999165534975,
+                        0.15199999511241914,
+                        0.47999998927116396,
+                        0.17399999499320985,
+                        0.6499999761581421,
+                        0.20399999618530274,
+                        0.8199999928474426,
+                        0.23800000548362733,
+                        1.0199999809265137,
+                        0.24400000274181367,
+                        1.1799999475479127,
+                        0.18799999356269837,
+                        1.3300000429153443,
+                        0.0949999988079071,
+                        1.4299999475479127,
+                        0.0,
+                        1.4700000286102296
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "sky_furnace_stream",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/sky_furnace_stream_metal_mid.asset",
+                "Assets/Cultiway/Forms/sky_furnace_stream_metal_far.asset"
+            ],
+            "Roles": [
+                "fluid.body"
+            ],
+            "Id": "metal",
+            "Surface": "furnace_melt",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/sky_furnace_stream_metal.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "tail",
+            "Part": 0,
+            "A": [
+                0.02429456077516079,
+                0.0,
+                0.14000000059604646
+            ],
+            "B": [
+                0.03132922947406769,
+                0.0,
+                0.6800000071525574
+            ],
+            "Radius": 0.1899999976158142,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "front",
+            "Part": 0,
+            "A": [
+                0.023793593049049379,
+                0.0,
+                0.7300000190734863
+            ],
+            "B": [
+                -0.04789912700653076,
+                0.0,
+                1.2200000286102296
+            ],
+            "Radius": 0.25999999046325686,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

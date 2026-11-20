@@ -16,6 +16,7 @@ import {makeRay,makeSourceRays,makeLuminousRays,makeThunderChannel} from './form
 import {makeEarthSpikes,makeEarthWall} from './forms_earth.mjs';
 import {makeFoldingGround} from './forms_folding_ground.mjs';
 import {makeSwordGrave} from './forms_sword_grave.mjs';
+import {makeSkyFurnace} from './forms_sky_furnace.mjs';
 import {makeRift} from './forms_rift.mjs';
 import {makeSpatialGate} from './forms_spatial_gate.mjs';
 import {makeTimeImprint} from './forms_time_imprint.mjs';
@@ -52,6 +53,7 @@ makeEarthSpikes();
 makeEarthWall();
 makeFoldingGround();
 makeSwordGrave();
+makeSkyFurnace();
 makeIceWall();
 makeWoodWall();
 makeFireWall();

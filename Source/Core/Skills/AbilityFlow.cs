@@ -48,6 +48,7 @@ internal sealed partial class AbilityFlow
     {
         Settings = settings; int count = settings.Cells * settings.Cells;
         Water = new Vector3[count]; delta = new Vector3[count]; Ground = new float[count];
+        if (settings.Cooling != null) cooling = new CoolingState(count);
     }
 
     /// <summary>按实际投影范围分配已存在的体积，不添加第二份初始材料。</summary>
@@ -75,6 +76,7 @@ internal sealed partial class AbilityFlow
         }
         double factor = volume / (weight * Cell * Cell);
         for (int i = 0; i < Water.Length; i++) { float h = (float)(Water[i].x * factor); Water[i] = new Vector3(h, h * velocity.x, h * velocity.y); }
+        BeginCooling();
         Recount();
     }
 
@@ -105,6 +107,7 @@ internal sealed partial class AbilityFlow
             foreach (Vector3 u in Water)
                 if (u.x > .000001f) speed = Mathf.Max(speed, Mathf.Max(Mathf.Abs(u.y), Mathf.Abs(u.z)) / u.x + Mathf.Sqrt(Settings.Gravity * u.x));
             float dt = Mathf.Min(seconds, StableFraction * Cell / speed); Array.Clear(delta, 0, delta.Length);
+            if (cooling != null) Array.Clear(cooling.Change, 0, cooling.Change.Length);
             for (int y = 0; y < n; y++) for (int x = 0; x <= n; x++) Edge(x == 0 ? -1 : y * n + x - 1, x == n ? -1 : y * n + x, false, dt);
             for (int y = 0; y <= n; y++) for (int x = 0; x < n; x++) Edge(y == 0 ? -1 : (y - 1) * n + x, y == n ? -1 : y * n + x, true, dt);
             float friction = Mathf.Exp(-Settings.Drag * dt), retained = Mathf.Exp(-Settings.Evaporation * dt);
@@ -115,6 +118,7 @@ internal sealed partial class AbilityFlow
                 next *= retained; next.y *= friction; next.z *= friction;
                 if (next.x < .000001f) next.y = next.z = 0;
                 Water[i] = next;
+                CoolCell(i, dt, retained);
             }
             seconds = Mathf.Max(0f, seconds - dt);
         }
@@ -129,7 +133,7 @@ internal sealed partial class AbilityFlow
     private void Edge(int left, int right, bool vertical, float dt)
     {
         Vector3 a = left < 0 ? Vector3.zero : Water[left], b = right < 0 ? Vector3.zero : Water[right];
-        float za = Ground[left < 0 ? right : left], zb = Ground[right < 0 ? left : right];
+        float za = FlowBed(left < 0 ? right : left), zb = FlowBed(right < 0 ? left : right);
         if (vertical) { a = new Vector3(a.x, a.z, a.y); b = new Vector3(b.x, b.z, b.y); }
         if (!Settings.OpenBoundary || closedBoundary)
         {
@@ -149,6 +153,7 @@ internal sealed partial class AbilityFlow
         if (vertical) { fl = new Vector3(fl.x, fl.z, fl.y); fr = new Vector3(fr.x, fr.z, fr.y); }
         if (left >= 0) delta[left] -= fl * factor;
         if (right >= 0) delta[right] += fr * factor;
+        if (cooling != null) TransportHeat(left, right, flux.x * factor);
         if (left < 0) Escaped -= flux.x * dt * Cell;
         if (right < 0) Escaped += flux.x * dt * Cell;
     }
@@ -156,13 +161,17 @@ internal sealed partial class AbilityFlow
     /// <summary>用双精度统计实际剩余体积。</summary>
     private void Recount()
     {
-        double total = 0, px = 0, py = 0, pz = 0, qx = 0, qy = 0; int n = Settings.Cells;
+        double total = 0, crust = 0, px = 0, py = 0, pz = 0, qx = 0, qy = 0; int n = Settings.Cells;
         for (int i = 0; i < Water.Length; i++)
         {
             Vector3 u = Water[i]; total += u.x; qx += u.y; qy += u.z;
-            px += u.x * (Origin.x + (i % n + .5f) * Cell); py += u.x * (Origin.y + (i / n + .5f) * Cell); pz += u.x * (Ground[i] + u.x * .5f);
+            if (cooling != null) crust += cooling.Crust[i];
+            px += u.x * (Origin.x + (i % n + .5f) * Cell); py += u.x * (Origin.y + (i / n + .5f) * Cell); pz += u.x * (FlowBed(i) + u.x * .5f);
         }
-        Volume = total * Cell * Cell;
+        LiquidVolume = total * Cell * Cell;
+        CrustVolume = crust * Cell * Cell;
+        Volume = LiquidVolume + CrustVolume;
+        if (total == 0 && CrustVolume > 0) { Velocity = Vector3.zero; return; }
         if (total > 0) { Centre = new Vector3((float)(px / total), (float)(py / total), (float)(pz / total)); Velocity = new Vector3((float)(qx / total), (float)(qy / total), 0); }
         else Velocity = Vector3.zero;
     }
@@ -221,6 +230,7 @@ internal sealed partial class AbilityFlow
         for (int i = 0; i < Water.Length; i++)
         {
             Water[i] *= ratio;
+            if (cooling != null) { cooling.Heat[i] *= ratio; cooling.Crust[i] *= ratio; }
             if (Budget != null) Budget[i] *= ratio;
         }
 
@@ -241,6 +251,7 @@ internal sealed partial class AbilityFlow
         }
         else target.Budget = null;
 
+        CopyCooling(target);
         target.Started = Started; target.terrain = terrain;
         target.Centre = Centre; target.Velocity = Velocity;
         target.SourceTransform = SourceTransform;

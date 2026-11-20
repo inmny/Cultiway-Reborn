@@ -1,0 +1,3782 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_sky_furnace.mjs",
+            "Entry": "makeSkyFurnace",
+            "Parameters": [
+                {
+                    "Id": "profile",
+                    "Values": [
+                        0.0,
+                        0.15000000596046449,
+                        0.4000000059604645,
+                        0.15000000596046449,
+                        0.6299999952316284,
+                        0.3100000023841858,
+                        0.8299999833106995,
+                        0.6200000047683716,
+                        0.8700000047683716,
+                        0.8899999856948853,
+                        0.7900000214576721,
+                        1.1200000047683716,
+                        0.6399999856948853,
+                        1.2599999904632569,
+                        0.6200000047683716,
+                        1.409999966621399,
+                        0.550000011920929,
+                        1.409999966621399,
+                        0.5400000214576721,
+                        1.3200000524520875,
+                        0.6299999952316284,
+                        1.1799999475479127,
+                        0.7099999785423279,
+                        0.9399999976158142,
+                        0.699999988079071,
+                        0.6700000166893005,
+                        0.5899999737739563,
+                        0.38999998569488528,
+                        0.36000001430511477,
+                        0.2800000011920929,
+                        0.0,
+                        0.2800000011920929
+                    ]
+                },
+                {
+                    "Id": "outlets",
+                    "Values": [
+                        0.0,
+                        1.409999966621399,
+                        0.5899999737739563,
+                        -0.2849999964237213,
+                        1.409999966621399,
+                        0.5180000066757202,
+                        0.2849999964237213,
+                        1.409999966621399,
+                        0.5180000066757202
+                    ]
+                },
+                {
+                    "Id": "timeline",
+                    "Values": [
+                        0.0,
+                        0.0,
+                        -0.5,
+                        0.0,
+                        0.0,
+                        0.05645199865102768,
+                        0.0,
+                        -0.23000000417232514,
+                        0.0,
+                        0.0,
+                        0.18548400700092317,
+                        0.0,
+                        1.5399999618530274,
+                        0.11999999731779099,
+                        0.0,
+                        0.27688199281692507,
+                        0.0,
+                        1.590000033378601,
+                        0.12999999523162843,
+                        9.0,
+                        0.3897849917411804,
+                        0.0,
+                        1.7899999618530274,
+                        0.33000001311302187,
+                        57.0,
+                        0.49193501472473147,
+                        0.0,
+                        1.7300000190734864,
+                        0.5,
+                        69.0,
+                        0.6263440251350403,
+                        0.0,
+                        1.7200000286102296,
+                        0.41999998688697817,
+                        65.0,
+                        0.7822579741477966,
+                        0.0,
+                        1.5199999809265137,
+                        0.20000000298023225,
+                        9.0,
+                        0.8897849917411804,
+                        0.0,
+                        1.3300000429153443,
+                        0.15000000596046449,
+                        0.0,
+                        1.0,
+                        0.0,
+                        -0.49000000953674319,
+                        0.15000000596046449,
+                        0.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "body/rim",
+                "Parent": "body",
+                "Child": "rim",
+                "Position": [
+                    0.0,
+                    1.309999942779541,
+                    0.0
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "body/bands",
+                "Parent": "body",
+                "Child": "bands",
+                "Position": [
+                    0.0,
+                    0.9800000190734863,
+                    0.0
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "body/feet",
+                "Parent": "body",
+                "Child": "feet",
+                "Position": [
+                    0.0,
+                    0.3100000023841858,
+                    0.0
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "body/ears",
+                "Parent": "body",
+                "Child": "ears",
+                "Position": [
+                    0.0,
+                    1.0700000524520875,
+                    0.0
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "separate",
+            "motion"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "sky_furnace",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/sky_furnace_body_mid.asset",
+                "Assets/Cultiway/Forms/sky_furnace_body_far.asset"
+            ],
+            "Roles": [
+                "vessel.wall"
+            ],
+            "Id": "body",
+            "Surface": "furnace_bronze",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/sky_furnace_body.asset",
+            "Control": "vessel",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/sky_furnace_rim_mid.asset",
+                "Assets/Cultiway/Forms/sky_furnace_rim_far.asset"
+            ],
+            "Roles": [
+                "vessel.mouth"
+            ],
+            "Id": "rim",
+            "Surface": "furnace_rim",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/sky_furnace_rim.asset",
+            "Control": "vessel",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/sky_furnace_bands_mid.asset",
+                "Assets/Cultiway/Forms/sky_furnace_bands_far.asset"
+            ],
+            "Roles": [
+                "vessel.band"
+            ],
+            "Id": "bands",
+            "Surface": "furnace_rim",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/sky_furnace_bands.asset",
+            "Control": "vessel",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/sky_furnace_feet_mid.asset",
+                "Assets/Cultiway/Forms/sky_furnace_feet_far.asset"
+            ],
+            "Roles": [
+                "vessel.support"
+            ],
+            "Id": "feet",
+            "Surface": "furnace_bronze",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/sky_furnace_feet.asset",
+            "Control": "vessel",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/sky_furnace_ears_mid.asset",
+                "Assets/Cultiway/Forms/sky_furnace_ears_far.asset"
+            ],
+            "Roles": [
+                "vessel.handle"
+            ],
+            "Id": "ears",
+            "Surface": "furnace_bronze",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/sky_furnace_ears.asset",
+            "Control": "vessel",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "mouth",
+            "Part": 1,
+            "Position": [
+                0.0,
+                1.409999966621399,
+                0.5899999737739563
+            ],
+            "Direction": [
+                0.0,
+                0.36000001430511477,
+                1.0
+            ],
+            "Control": "vessel",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "mouth.left",
+            "Part": 1,
+            "Position": [
+                -0.2849999964237213,
+                1.409999966621399,
+                0.5180000066757202
+            ],
+            "Direction": [
+                -0.2222999930381775,
+                0.36000001430511477,
+                1.0
+            ],
+            "Control": "vessel",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "mouth.right",
+            "Part": 1,
+            "Position": [
+                0.2849999964237213,
+                1.409999966621399,
+                0.5180000066757202
+            ],
+            "Direction": [
+                0.2222999930381775,
+                0.36000001430511477,
+                1.0
+            ],
+            "Control": "vessel",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_0_0",
+            "Part": 1,
+            "A": [
+                0.0,
+                1.409999966621399,
+                0.5899999737739563
+            ],
+            "B": [
+                0.29499998688697817,
+                1.409999966621399,
+                0.5109549760818481
+            ],
+            "Radius": 0.06599999964237213,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_0_1",
+            "Part": 1,
+            "A": [
+                0.29499998688697817,
+                1.409999966621399,
+                0.5109549760818481
+            ],
+            "B": [
+                0.5109549760818481,
+                1.409999966621399,
+                0.29499998688697817
+            ],
+            "Radius": 0.06599999964237213,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_0_2",
+            "Part": 1,
+            "A": [
+                0.5109549760818481,
+                1.409999966621399,
+                0.29499998688697817
+            ],
+            "B": [
+                0.5899999737739563,
+                1.409999966621399,
+                3.612708016602898e-17
+            ],
+            "Radius": 0.06599999964237213,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_0_3",
+            "Part": 1,
+            "A": [
+                0.5899999737739563,
+                1.409999966621399,
+                3.612708016602898e-17
+            ],
+            "B": [
+                0.5109549760818481,
+                1.409999966621399,
+                -0.29499998688697817
+            ],
+            "Radius": 0.06599999964237213,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_0_4",
+            "Part": 1,
+            "A": [
+                0.5109549760818481,
+                1.409999966621399,
+                -0.29499998688697817
+            ],
+            "B": [
+                0.29499998688697817,
+                1.409999966621399,
+                -0.5109549760818481
+            ],
+            "Radius": 0.06599999964237213,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_0_5",
+            "Part": 1,
+            "A": [
+                0.29499998688697817,
+                1.409999966621399,
+                -0.5109549760818481
+            ],
+            "B": [
+                7.225416033205796e-17,
+                1.409999966621399,
+                -0.5899999737739563
+            ],
+            "Radius": 0.06599999964237213,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_0_6",
+            "Part": 1,
+            "A": [
+                7.225416033205796e-17,
+                1.409999966621399,
+                -0.5899999737739563
+            ],
+            "B": [
+                -0.29499998688697817,
+                1.409999966621399,
+                -0.5109549760818481
+            ],
+            "Radius": 0.06599999964237213,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_0_7",
+            "Part": 1,
+            "A": [
+                -0.29499998688697817,
+                1.409999966621399,
+                -0.5109549760818481
+            ],
+            "B": [
+                -0.5109549760818481,
+                1.409999966621399,
+                -0.29499998688697817
+            ],
+            "Radius": 0.06599999964237213,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_0_8",
+            "Part": 1,
+            "A": [
+                -0.5109549760818481,
+                1.409999966621399,
+                -0.29499998688697817
+            ],
+            "B": [
+                -0.5899999737739563,
+                1.409999966621399,
+                -1.0838124049808695e-16
+            ],
+            "Radius": 0.06599999964237213,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_0_9",
+            "Part": 1,
+            "A": [
+                -0.5899999737739563,
+                1.409999966621399,
+                -1.0838124049808695e-16
+            ],
+            "B": [
+                -0.5109549760818481,
+                1.409999966621399,
+                0.29499998688697817
+            ],
+            "Radius": 0.06599999964237213,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_0_10",
+            "Part": 1,
+            "A": [
+                -0.5109549760818481,
+                1.409999966621399,
+                0.29499998688697817
+            ],
+            "B": [
+                -0.29499998688697817,
+                1.409999966621399,
+                0.5109549760818481
+            ],
+            "Radius": 0.06599999964237213,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_0_11",
+            "Part": 1,
+            "A": [
+                -0.29499998688697817,
+                1.409999966621399,
+                0.5109549760818481
+            ],
+            "B": [
+                -1.4450832066411593e-16,
+                1.409999966621399,
+                0.5899999737739563
+            ],
+            "Radius": 0.06599999964237213,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_1_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.8600000143051148,
+                0.7900000214576721
+            ],
+            "B": [
+                0.39500001072883608,
+                0.8600000143051148,
+                0.684160053730011
+            ],
+            "Radius": 0.12999999523162843,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_1_1",
+            "Part": 0,
+            "A": [
+                0.39500001072883608,
+                0.8600000143051148,
+                0.684160053730011
+            ],
+            "B": [
+                0.684160053730011,
+                0.8600000143051148,
+                0.39500001072883608
+            ],
+            "Radius": 0.12999999523162843,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_1_2",
+            "Part": 0,
+            "A": [
+                0.684160053730011,
+                0.8600000143051148,
+                0.39500001072883608
+            ],
+            "B": [
+                0.7900000214576721,
+                0.8600000143051148,
+                4.837354869188066e-17
+            ],
+            "Radius": 0.12999999523162843,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_1_3",
+            "Part": 0,
+            "A": [
+                0.7900000214576721,
+                0.8600000143051148,
+                4.837354869188066e-17
+            ],
+            "B": [
+                0.684160053730011,
+                0.8600000143051148,
+                -0.39500001072883608
+            ],
+            "Radius": 0.12999999523162843,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_1_4",
+            "Part": 0,
+            "A": [
+                0.684160053730011,
+                0.8600000143051148,
+                -0.39500001072883608
+            ],
+            "B": [
+                0.39500001072883608,
+                0.8600000143051148,
+                -0.684160053730011
+            ],
+            "Radius": 0.12999999523162843,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_1_5",
+            "Part": 0,
+            "A": [
+                0.39500001072883608,
+                0.8600000143051148,
+                -0.684160053730011
+            ],
+            "B": [
+                9.674709738376132e-17,
+                0.8600000143051148,
+                -0.7900000214576721
+            ],
+            "Radius": 0.12999999523162843,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_1_6",
+            "Part": 0,
+            "A": [
+                9.674709738376132e-17,
+                0.8600000143051148,
+                -0.7900000214576721
+            ],
+            "B": [
+                -0.39500001072883608,
+                0.8600000143051148,
+                -0.684160053730011
+            ],
+            "Radius": 0.12999999523162843,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_1_7",
+            "Part": 0,
+            "A": [
+                -0.39500001072883608,
+                0.8600000143051148,
+                -0.684160053730011
+            ],
+            "B": [
+                -0.684160053730011,
+                0.8600000143051148,
+                -0.39500001072883608
+            ],
+            "Radius": 0.12999999523162843,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_1_8",
+            "Part": 0,
+            "A": [
+                -0.684160053730011,
+                0.8600000143051148,
+                -0.39500001072883608
+            ],
+            "B": [
+                -0.7900000214576721,
+                0.8600000143051148,
+                -1.4512064607564199e-16
+            ],
+            "Radius": 0.12999999523162843,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_1_9",
+            "Part": 0,
+            "A": [
+                -0.7900000214576721,
+                0.8600000143051148,
+                -1.4512064607564199e-16
+            ],
+            "B": [
+                -0.684160053730011,
+                0.8600000143051148,
+                0.39500001072883608
+            ],
+            "Radius": 0.12999999523162843,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_1_10",
+            "Part": 0,
+            "A": [
+                -0.684160053730011,
+                0.8600000143051148,
+                0.39500001072883608
+            ],
+            "B": [
+                -0.39500001072883608,
+                0.8600000143051148,
+                0.684160053730011
+            ],
+            "Radius": 0.12999999523162843,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_1_11",
+            "Part": 0,
+            "A": [
+                -0.39500001072883608,
+                0.8600000143051148,
+                0.684160053730011
+            ],
+            "B": [
+                -1.9349419476752265e-16,
+                0.8600000143051148,
+                0.7900000214576721
+            ],
+            "Radius": 0.12999999523162843,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_2_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.38999998569488528,
+                0.6100000143051148
+            ],
+            "B": [
+                0.3050000071525574,
+                0.38999998569488528,
+                0.5282754898071289
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_2_1",
+            "Part": 0,
+            "A": [
+                0.3050000071525574,
+                0.38999998569488528,
+                0.5282754898071289
+            ],
+            "B": [
+                0.5282754898071289,
+                0.38999998569488528,
+                0.3050000071525574
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_2_2",
+            "Part": 0,
+            "A": [
+                0.5282754898071289,
+                0.38999998569488528,
+                0.3050000071525574
+            ],
+            "B": [
+                0.6100000143051148,
+                0.38999998569488528,
+                3.735172768035864e-17
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_2_3",
+            "Part": 0,
+            "A": [
+                0.6100000143051148,
+                0.38999998569488528,
+                3.735172768035864e-17
+            ],
+            "B": [
+                0.5282754898071289,
+                0.38999998569488528,
+                -0.3050000071525574
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_2_4",
+            "Part": 0,
+            "A": [
+                0.5282754898071289,
+                0.38999998569488528,
+                -0.3050000071525574
+            ],
+            "B": [
+                0.3050000071525574,
+                0.38999998569488528,
+                -0.5282754898071289
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_2_5",
+            "Part": 0,
+            "A": [
+                0.3050000071525574,
+                0.38999998569488528,
+                -0.5282754898071289
+            ],
+            "B": [
+                7.470345536071728e-17,
+                0.38999998569488528,
+                -0.6100000143051148
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_2_6",
+            "Part": 0,
+            "A": [
+                7.470345536071728e-17,
+                0.38999998569488528,
+                -0.6100000143051148
+            ],
+            "B": [
+                -0.3050000071525574,
+                0.38999998569488528,
+                -0.5282754898071289
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_2_7",
+            "Part": 0,
+            "A": [
+                -0.3050000071525574,
+                0.38999998569488528,
+                -0.5282754898071289
+            ],
+            "B": [
+                -0.5282754898071289,
+                0.38999998569488528,
+                -0.3050000071525574
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_2_8",
+            "Part": 0,
+            "A": [
+                -0.5282754898071289,
+                0.38999998569488528,
+                -0.3050000071525574
+            ],
+            "B": [
+                -0.6100000143051148,
+                0.38999998569488528,
+                -1.1205517973235348e-16
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_2_9",
+            "Part": 0,
+            "A": [
+                -0.6100000143051148,
+                0.38999998569488528,
+                -1.1205517973235348e-16
+            ],
+            "B": [
+                -0.5282754898071289,
+                0.38999998569488528,
+                0.3050000071525574
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_2_10",
+            "Part": 0,
+            "A": [
+                -0.5282754898071289,
+                0.38999998569488528,
+                0.3050000071525574
+            ],
+            "B": [
+                -0.3050000071525574,
+                0.38999998569488528,
+                0.5282754898071289
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "wall_2_11",
+            "Part": 0,
+            "A": [
+                -0.3050000071525574,
+                0.38999998569488528,
+                0.5282754898071289
+            ],
+            "B": [
+                -1.4940691072143457e-16,
+                0.38999998569488528,
+                0.6100000143051148
+            ],
+            "Radius": 0.11999999731779099,
+            "AControl": "vessel",
+            "BControl": "vessel",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "vessel",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.878000020980835,
+                -0.0872580036520958,
+                -0.8700000047683716
+            ],
+            "Maximum": [
+                0.878000020980835,
+                1.4709999561309815,
+                0.8700000047683716
+            ]
+        }
+    ],
+    "Motions": [
+        {
+            "Id": "lift_and_pour",
+            "Duration": 3.7200000286102297,
+            "Loop": false,
+            "Keys": [
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.0,
+                    "Positions": [
+                        0.0,
+                        -0.5,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.04894699901342392,
+                    "Positions": [
+                        0.0,
+                        -0.4628329873085022,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.09789499640464783,
+                    "Positions": [
+                        0.0,
+                        -0.3786819875240326,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.14684200286865235,
+                    "Positions": [
+                        0.0,
+                        -0.28857600688934328,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.19578899443149568,
+                    "Positions": [
+                        0.0,
+                        -0.23354199528694154,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.24473699927330018,
+                    "Positions": [
+                        0.0,
+                        -0.20353199541568757,
+                        0.0017940000398084522
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.2936840057373047,
+                    "Positions": [
+                        0.0,
+                        -0.08736100047826767,
+                        0.009669999592006207
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.342631995677948,
+                    "Positions": [
+                        0.0,
+                        0.10074000060558319,
+                        0.022422999143600465
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.3915790021419525,
+                    "Positions": [
+                        0.0,
+                        0.33824101090431216,
+                        0.03852500021457672
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.44052600860595705,
+                    "Positions": [
+                        0.0,
+                        0.6026239991188049,
+                        0.05644899979233742
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.48947399854660036,
+                    "Positions": [
+                        0.0,
+                        0.8713719844818115,
+                        0.0746690034866333
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.5384209752082825,
+                    "Positions": [
+                        0.0,
+                        1.1219500303268433,
+                        0.09165800362825394
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.5873680114746094,
+                    "Positions": [
+                        0.0,
+                        1.3318439722061158,
+                        0.1058880016207695
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.6363160014152527,
+                    "Positions": [
+                        0.0,
+                        1.4785319566726685,
+                        0.11583299934864044
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.6852629780769348,
+                    "Positions": [
+                        0.0,
+                        1.539486050605774,
+                        0.11996500194072724
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.6899999976158142,
+                    "Positions": [
+                        0.0,
+                        1.5399999618530274,
+                        0.11999999731779099
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.7342110276222229,
+                    "Positions": [
+                        0.0,
+                        1.54231595993042,
+                        0.12046299874782562
+                    ],
+                    "Rotations": [
+                        0.003639000002294779,
+                        0.0,
+                        0.0,
+                        0.9999930262565613
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.783158004283905,
+                    "Positions": [
+                        0.0,
+                        1.5492039918899537,
+                        0.12184099853038788
+                    ],
+                    "Rotations": [
+                        0.01445700041949749,
+                        0.0,
+                        0.0,
+                        0.9998949766159058
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.8321049809455872,
+                    "Positions": [
+                        0.0,
+                        1.5589020252227784,
+                        0.12377999722957611
+                    ],
+                    "Rotations": [
+                        0.029687000438570977,
+                        0.0,
+                        0.0,
+                        0.9995589852333069
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.8810529708862305,
+                    "Positions": [
+                        0.0,
+                        1.5696200132369996,
+                        0.1259240061044693
+                    ],
+                    "Rotations": [
+                        0.04651099815964699,
+                        0.0,
+                        0.0,
+                        0.9989179968833923
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.9300000071525574,
+                    "Positions": [
+                        0.0,
+                        1.5795680284500123,
+                        0.12791399657726289
+                    ],
+                    "Rotations": [
+                        0.06211400032043457,
+                        0.0,
+                        0.0,
+                        0.9980689883232117
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.9789469838142395,
+                    "Positions": [
+                        0.0,
+                        1.5869569778442383,
+                        0.12939099967479707
+                    ],
+                    "Rotations": [
+                        0.07369200140237808,
+                        0.0,
+                        0.0,
+                        0.997281014919281
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.0278949737548829,
+                    "Positions": [
+                        0.0,
+                        1.589993953704834,
+                        0.12999899685382844
+                    ],
+                    "Rotations": [
+                        0.07845000177621842,
+                        0.0,
+                        0.0,
+                        0.9969180226325989
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.0299999713897706,
+                    "Positions": [
+                        0.0,
+                        1.590000033378601,
+                        0.12999999523162843
+                    ],
+                    "Rotations": [
+                        0.0784590020775795,
+                        0.0,
+                        0.0,
+                        0.9969170093536377
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.076841950416565,
+                    "Positions": [
+                        0.0,
+                        1.5969079732894898,
+                        0.13690799474716187
+                    ],
+                    "Rotations": [
+                        0.09287399798631668,
+                        0.0,
+                        0.0,
+                        0.9956780076026917
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.1257890462875367,
+                    "Positions": [
+                        0.0,
+                        1.6164640188217164,
+                        0.15646399557590486
+                    ],
+                    "Rotations": [
+                        0.1335660070180893,
+                        0.0,
+                        0.0,
+                        0.9910399913787842
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.1747369766235352,
+                    "Positions": [
+                        0.0,
+                        1.6448839902877808,
+                        0.1848839968442917
+                    ],
+                    "Rotations": [
+                        0.1922840029001236,
+                        0.0,
+                        0.0,
+                        0.9813389778137207
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.2236839532852173,
+                    "Positions": [
+                        0.0,
+                        1.6783690452575684,
+                        0.2183690071105957
+                    ],
+                    "Rotations": [
+                        0.260576993227005,
+                        0.0,
+                        0.0,
+                        0.965453028678894
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.2726320028305054,
+                    "Positions": [
+                        0.0,
+                        1.7131210565567017,
+                        0.2531209886074066
+                    ],
+                    "Rotations": [
+                        0.33009499311447146,
+                        0.0,
+                        0.0,
+                        0.943947970867157
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.3215789794921876,
+                    "Positions": [
+                        0.0,
+                        1.7453399896621705,
+                        0.28534001111984255
+                    ],
+                    "Rotations": [
+                        0.39299100637435915,
+                        0.0,
+                        0.0,
+                        0.9195420145988464
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.3705259561538697,
+                    "Positions": [
+                        0.0,
+                        1.7712270021438599,
+                        0.3112269937992096
+                    ],
+                    "Rotations": [
+                        0.4422450065612793,
+                        0.0,
+                        0.0,
+                        0.8968939781188965
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.4194740056991578,
+                    "Positions": [
+                        0.0,
+                        1.7869839668273926,
+                        0.3269839882850647
+                    ],
+                    "Rotations": [
+                        0.4715979993343353,
+                        0.0,
+                        0.0,
+                        0.8818140029907227
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.4684209823608399,
+                    "Positions": [
+                        0.0,
+                        1.7895909547805787,
+                        0.3311600089073181
+                    ],
+                    "Rotations": [
+                        0.47778600454330447,
+                        0.0,
+                        0.0,
+                        0.8784760236740112
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.517367959022522,
+                    "Positions": [
+                        0.0,
+                        1.7850110530853272,
+                        0.34413498640060427
+                    ],
+                    "Rotations": [
+                        0.48479199409484866,
+                        0.0,
+                        0.0,
+                        0.874629020690918
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.56631600856781,
+                    "Positions": [
+                        0.0,
+                        1.7765769958496094,
+                        0.3680329918861389
+                    ],
+                    "Rotations": [
+                        0.4976150095462799,
+                        0.0,
+                        0.0,
+                        0.8673980236053467
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.6152629852294922,
+                    "Positions": [
+                        0.0,
+                        1.7658259868621827,
+                        0.39849400520324709
+                    ],
+                    "Rotations": [
+                        0.5138019919395447,
+                        0.0,
+                        0.0,
+                        0.8579090237617493
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.6642110347747803,
+                    "Positions": [
+                        0.0,
+                        1.7542970180511475,
+                        0.43115898966789248
+                    ],
+                    "Rotations": [
+                        0.5309600234031677,
+                        0.0,
+                        0.0,
+                        0.8473970293998718
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.7131580114364625,
+                    "Positions": [
+                        0.0,
+                        1.743528962135315,
+                        0.461667001247406
+                    ],
+                    "Rotations": [
+                        0.5467900037765503,
+                        0.0,
+                        0.0,
+                        0.8372700214385986
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.7621049880981446,
+                    "Positions": [
+                        0.0,
+                        1.7350620031356812,
+                        0.4856579899787903
+                    ],
+                    "Rotations": [
+                        0.5591040253639221,
+                        0.0,
+                        0.0,
+                        0.8290979862213135
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.8110530376434327,
+                    "Positions": [
+                        0.0,
+                        1.7304329872131348,
+                        0.498773992061615
+                    ],
+                    "Rotations": [
+                        0.5657839775085449,
+                        0.0,
+                        0.0,
+                        0.8245540261268616
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.8600000143051148,
+                    "Positions": [
+                        0.0,
+                        1.7298959493637086,
+                        0.4991709887981415
+                    ],
+                    "Rotations": [
+                        0.566107988357544,
+                        0.0,
+                        0.0,
+                        0.8243309855461121
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.9089469909667969,
+                    "Positions": [
+                        0.0,
+                        1.7293310165405274,
+                        0.49464601278305056
+                    ],
+                    "Rotations": [
+                        0.5644800066947937,
+                        0.0,
+                        0.0,
+                        0.8254470229148865
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.957895040512085,
+                    "Positions": [
+                        0.0,
+                        1.7283719778060914,
+                        0.4869750142097473
+                    ],
+                    "Rotations": [
+                        0.5617129802703857,
+                        0.0,
+                        0.0,
+                        0.8273320198059082
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.0068418979644777,
+                    "Positions": [
+                        0.0,
+                        1.727131962776184,
+                        0.47705700993537905
+                    ],
+                    "Rotations": [
+                        0.5581279993057251,
+                        0.0,
+                        0.0,
+                        0.8297550082206726
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.055788993835449,
+                    "Positions": [
+                        0.0,
+                        1.7257239818572999,
+                        0.4657920002937317
+                    ],
+                    "Rotations": [
+                        0.5540429949760437,
+                        0.0,
+                        0.0,
+                        0.8324880003929138
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.1047370433807375,
+                    "Positions": [
+                        0.0,
+                        1.7242599725723267,
+                        0.45408201217651369
+                    ],
+                    "Rotations": [
+                        0.5497819781303406,
+                        0.0,
+                        0.0,
+                        0.8353080153465271
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.15368390083313,
+                    "Positions": [
+                        0.0,
+                        1.7228529453277588,
+                        0.4428279995918274
+                    ],
+                    "Rotations": [
+                        0.5456730127334595,
+                        0.0,
+                        0.0,
+                        0.8379979729652405
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.202631950378418,
+                    "Positions": [
+                        0.0,
+                        1.7216160297393799,
+                        0.43292900919914248
+                    ],
+                    "Rotations": [
+                        0.542048990726471,
+                        0.0,
+                        0.0,
+                        0.8403469920158386
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.2515790462493898,
+                    "Positions": [
+                        0.0,
+                        1.7206610441207886,
+                        0.42528700828552248
+                    ],
+                    "Rotations": [
+                        0.5392439961433411,
+                        0.0,
+                        0.0,
+                        0.8421499729156494
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.3005259037017824,
+                    "Positions": [
+                        0.0,
+                        1.7201000452041627,
+                        0.4208010137081146
+                    ],
+                    "Rotations": [
+                        0.5375940203666687,
+                        0.0,
+                        0.0,
+                        0.8432040214538574
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.3299999237060549,
+                    "Positions": [
+                        0.0,
+                        1.7200000286102296,
+                        0.41999998688697817
+                    ],
+                    "Rotations": [
+                        0.5372999906539917,
+                        0.0,
+                        0.0,
+                        0.8433910012245178
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.3494739532470705,
+                    "Positions": [
+                        0.0,
+                        1.7193390130996705,
+                        0.4192729890346527
+                    ],
+                    "Rotations": [
+                        0.5359359979629517,
+                        0.0,
+                        0.0,
+                        0.8442580103874207
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.398421049118042,
+                    "Positions": [
+                        0.0,
+                        1.7123069763183594,
+                        0.4115380048751831
+                    ],
+                    "Rotations": [
+                        0.5213519930839539,
+                        0.0,
+                        0.0,
+                        0.8533419966697693
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.4473679065704347,
+                    "Positions": [
+                        0.0,
+                        1.6987450122833253,
+                        0.3966200053691864
+                    ],
+                    "Rotations": [
+                        0.4927929937839508,
+                        0.0,
+                        0.0,
+                        0.8701469898223877
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.4963159561157228,
+                    "Positions": [
+                        0.0,
+                        1.6800960302352906,
+                        0.37610501050949099
+                    ],
+                    "Rotations": [
+                        0.4526430070400238,
+                        0.0,
+                        0.0,
+                        0.8916919827461243
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.5452630519866945,
+                    "Positions": [
+                        0.0,
+                        1.6578010320663453,
+                        0.35158100724220278
+                    ],
+                    "Rotations": [
+                        0.40342000126838686,
+                        0.0,
+                        0.0,
+                        0.9150149822235107
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.5942111015319826,
+                    "Positions": [
+                        0.0,
+                        1.6333039999008179,
+                        0.32463398575782778
+                    ],
+                    "Rotations": [
+                        0.3479590117931366,
+                        0.0,
+                        0.0,
+                        0.9375100135803223
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.643157958984375,
+                    "Positions": [
+                        0.0,
+                        1.6080470085144044,
+                        0.2968519926071167
+                    ],
+                    "Rotations": [
+                        0.2894760072231293,
+                        0.0,
+                        0.0,
+                        0.9571849703788757
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.6921050548553469,
+                    "Positions": [
+                        0.0,
+                        1.5834729671478272,
+                        0.2698200047016144
+                    ],
+                    "Rotations": [
+                        0.23151400685310365,
+                        0.0,
+                        0.0,
+                        0.9728320240974426
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.7410531044006349,
+                    "Positions": [
+                        0.0,
+                        1.5610229969024659,
+                        0.24512499570846559
+                    ],
+                    "Rotations": [
+                        0.17782700061798097,
+                        0.0,
+                        0.0,
+                        0.9840620160102844
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.7899999618530275,
+                    "Positions": [
+                        0.0,
+                        1.5421409606933594,
+                        0.22435499727725984
+                    ],
+                    "Rotations": [
+                        0.13225199282169343,
+                        0.0,
+                        0.0,
+                        0.9912160038948059
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.838947057723999,
+                    "Positions": [
+                        0.0,
+                        1.5282690525054932,
+                        0.2090959995985031
+                    ],
+                    "Rotations": [
+                        0.09858500212430954,
+                        0.0,
+                        0.0,
+                        0.9951289892196655
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.887895107269287,
+                    "Positions": [
+                        0.0,
+                        1.5208489894866944,
+                        0.20093399286270142
+                    ],
+                    "Rotations": [
+                        0.08052799850702286,
+                        0.0,
+                        0.0,
+                        0.9967520236968994
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.9368419647216799,
+                    "Positions": [
+                        0.0,
+                        1.5175479650497437,
+                        0.19935500621795655
+                    ],
+                    "Rotations": [
+                        0.0774490013718605,
+                        0.0,
+                        0.0,
+                        0.9969959855079651
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.9857890605926515,
+                    "Positions": [
+                        0.0,
+                        1.5021220445632935,
+                        0.19529500603675843
+                    ],
+                    "Rotations": [
+                        0.07108999788761139,
+                        0.0,
+                        0.0,
+                        0.9974700212478638
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.0347371101379396,
+                    "Positions": [
+                        0.0,
+                        1.4760940074920655,
+                        0.18844600021839143
+                    ],
+                    "Rotations": [
+                        0.06035400182008743,
+                        0.0,
+                        0.0,
+                        0.9981769919395447
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.083683967590332,
+                    "Positions": [
+                        0.0,
+                        1.443642020225525,
+                        0.1799059957265854
+                    ],
+                    "Rotations": [
+                        0.04695900157094002,
+                        0.0,
+                        0.0,
+                        0.9988970160484314
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.13263201713562,
+                    "Positions": [
+                        0.0,
+                        1.408944010734558,
+                        0.17077499628067017
+                    ],
+                    "Rotations": [
+                        0.03262700140476227,
+                        0.0,
+                        0.0,
+                        0.9994680285453796
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.181579113006592,
+                    "Positions": [
+                        0.0,
+                        1.3761769533157349,
+                        0.1621520072221756
+                    ],
+                    "Rotations": [
+                        0.01908699981868267,
+                        0.0,
+                        0.0,
+                        0.9998180270195007
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.2305259704589845,
+                    "Positions": [
+                        0.0,
+                        1.3495210409164429,
+                        0.15513700246810914
+                    ],
+                    "Rotations": [
+                        0.008069000206887722,
+                        0.0,
+                        0.0,
+                        0.9999669790267944
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.2794740200042726,
+                    "Positions": [
+                        0.0,
+                        1.3331509828567505,
+                        0.1508290022611618
+                    ],
+                    "Rotations": [
+                        0.0013020000187680126,
+                        0.0,
+                        0.0,
+                        0.9999989867210388
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.309999942779541,
+                    "Positions": [
+                        0.0,
+                        1.3300000429153443,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.328421115875244,
+                    "Positions": [
+                        0.0,
+                        1.3193080425262452,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.3773679733276369,
+                    "Positions": [
+                        0.0,
+                        1.1987359523773194,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.426316022872925,
+                    "Positions": [
+                        0.0,
+                        0.9736689925193787,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.4752631187438967,
+                    "Positions": [
+                        0.0,
+                        0.6812760233879089,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.5242109298706056,
+                    "Positions": [
+                        0.0,
+                        0.3587090075016022,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.573158025741577,
+                    "Positions": [
+                        0.0,
+                        0.04314199835062027,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.6221048831939699,
+                    "Positions": [
+                        0.0,
+                        -0.22827200591564179,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.671052932739258,
+                    "Positions": [
+                        0.0,
+                        -0.41837599873542788,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.7200000286102297,
+                    "Positions": [
+                        0.0,
+                        -0.49000000953674319,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                }
+            ],
+            "Markers": [
+                {
+                    "Id": "raised",
+                    "At": 0.6899999976158142
+                },
+                {
+                    "Id": "tilt",
+                    "At": 1.0299999713897706
+                },
+                {
+                    "Id": "return",
+                    "At": 2.3299999237060549
+                },
+                {
+                    "Id": "upright",
+                    "At": 3.309999942779541
+                }
+            ]
+        },
+        {
+            "Id": "hold_upright",
+            "Duration": 3.7200000286102297,
+            "Loop": false,
+            "Keys": [
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.0,
+                    "Positions": [
+                        0.0,
+                        -0.5,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.04894699901342392,
+                    "Positions": [
+                        0.0,
+                        -0.4628329873085022,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.09789499640464783,
+                    "Positions": [
+                        0.0,
+                        -0.3786819875240326,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.14684200286865235,
+                    "Positions": [
+                        0.0,
+                        -0.28857600688934328,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.19578899443149568,
+                    "Positions": [
+                        0.0,
+                        -0.23354199528694154,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.24473699927330018,
+                    "Positions": [
+                        0.0,
+                        -0.20353199541568757,
+                        0.0017940000398084522
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.2936840057373047,
+                    "Positions": [
+                        0.0,
+                        -0.08736100047826767,
+                        0.009669999592006207
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.342631995677948,
+                    "Positions": [
+                        0.0,
+                        0.10074000060558319,
+                        0.022422999143600465
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.3915790021419525,
+                    "Positions": [
+                        0.0,
+                        0.33824101090431216,
+                        0.03852500021457672
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.44052600860595705,
+                    "Positions": [
+                        0.0,
+                        0.6026239991188049,
+                        0.05644899979233742
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.48947399854660036,
+                    "Positions": [
+                        0.0,
+                        0.8713719844818115,
+                        0.0746690034866333
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.5384209752082825,
+                    "Positions": [
+                        0.0,
+                        1.1219500303268433,
+                        0.09165800362825394
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.5873680114746094,
+                    "Positions": [
+                        0.0,
+                        1.3318439722061158,
+                        0.1058880016207695
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.6363160014152527,
+                    "Positions": [
+                        0.0,
+                        1.4785319566726685,
+                        0.11583299934864044
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.6852629780769348,
+                    "Positions": [
+                        0.0,
+                        1.539486050605774,
+                        0.11996500194072724
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.6899999976158142,
+                    "Positions": [
+                        0.0,
+                        1.5399999618530274,
+                        0.11999999731779099
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.7342110276222229,
+                    "Positions": [
+                        0.0,
+                        1.54231595993042,
+                        0.12046299874782562
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.783158004283905,
+                    "Positions": [
+                        0.0,
+                        1.5492039918899537,
+                        0.12184099853038788
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.8321049809455872,
+                    "Positions": [
+                        0.0,
+                        1.5589020252227784,
+                        0.12377999722957611
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.8810529708862305,
+                    "Positions": [
+                        0.0,
+                        1.5696200132369996,
+                        0.1259240061044693
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.9300000071525574,
+                    "Positions": [
+                        0.0,
+                        1.5795680284500123,
+                        0.12791399657726289
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.9789469838142395,
+                    "Positions": [
+                        0.0,
+                        1.5869569778442383,
+                        0.12939099967479707
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.0278949737548829,
+                    "Positions": [
+                        0.0,
+                        1.589993953704834,
+                        0.12999899685382844
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.0299999713897706,
+                    "Positions": [
+                        0.0,
+                        1.590000033378601,
+                        0.12999999523162843
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.076841950416565,
+                    "Positions": [
+                        0.0,
+                        1.5969079732894898,
+                        0.13690799474716187
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.1257890462875367,
+                    "Positions": [
+                        0.0,
+                        1.6164640188217164,
+                        0.15646399557590486
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.1747369766235352,
+                    "Positions": [
+                        0.0,
+                        1.6448839902877808,
+                        0.1848839968442917
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.2236839532852173,
+                    "Positions": [
+                        0.0,
+                        1.6783690452575684,
+                        0.2183690071105957
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.2726320028305054,
+                    "Positions": [
+                        0.0,
+                        1.7131210565567017,
+                        0.2531209886074066
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.3215789794921876,
+                    "Positions": [
+                        0.0,
+                        1.7453399896621705,
+                        0.28534001111984255
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.3705259561538697,
+                    "Positions": [
+                        0.0,
+                        1.7712270021438599,
+                        0.3112269937992096
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.4194740056991578,
+                    "Positions": [
+                        0.0,
+                        1.7869839668273926,
+                        0.3269839882850647
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.4684209823608399,
+                    "Positions": [
+                        0.0,
+                        1.7895909547805787,
+                        0.3311600089073181
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.517367959022522,
+                    "Positions": [
+                        0.0,
+                        1.7850110530853272,
+                        0.34413498640060427
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.56631600856781,
+                    "Positions": [
+                        0.0,
+                        1.7765769958496094,
+                        0.3680329918861389
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.6152629852294922,
+                    "Positions": [
+                        0.0,
+                        1.7658259868621827,
+                        0.39849400520324709
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.6642110347747803,
+                    "Positions": [
+                        0.0,
+                        1.7542970180511475,
+                        0.43115898966789248
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.7131580114364625,
+                    "Positions": [
+                        0.0,
+                        1.743528962135315,
+                        0.461667001247406
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.7621049880981446,
+                    "Positions": [
+                        0.0,
+                        1.7350620031356812,
+                        0.4856579899787903
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.8110530376434327,
+                    "Positions": [
+                        0.0,
+                        1.7304329872131348,
+                        0.498773992061615
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.8600000143051148,
+                    "Positions": [
+                        0.0,
+                        1.7298959493637086,
+                        0.4991709887981415
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.9089469909667969,
+                    "Positions": [
+                        0.0,
+                        1.7293310165405274,
+                        0.49464601278305056
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 1.957895040512085,
+                    "Positions": [
+                        0.0,
+                        1.7283719778060914,
+                        0.4869750142097473
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.0068418979644777,
+                    "Positions": [
+                        0.0,
+                        1.727131962776184,
+                        0.47705700993537905
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.055788993835449,
+                    "Positions": [
+                        0.0,
+                        1.7257239818572999,
+                        0.4657920002937317
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.1047370433807375,
+                    "Positions": [
+                        0.0,
+                        1.7242599725723267,
+                        0.45408201217651369
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.15368390083313,
+                    "Positions": [
+                        0.0,
+                        1.7228529453277588,
+                        0.4428279995918274
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.202631950378418,
+                    "Positions": [
+                        0.0,
+                        1.7216160297393799,
+                        0.43292900919914248
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.2515790462493898,
+                    "Positions": [
+                        0.0,
+                        1.7206610441207886,
+                        0.42528700828552248
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.3005259037017824,
+                    "Positions": [
+                        0.0,
+                        1.7201000452041627,
+                        0.4208010137081146
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.3299999237060549,
+                    "Positions": [
+                        0.0,
+                        1.7200000286102296,
+                        0.41999998688697817
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.3494739532470705,
+                    "Positions": [
+                        0.0,
+                        1.7193390130996705,
+                        0.4192729890346527
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.398421049118042,
+                    "Positions": [
+                        0.0,
+                        1.7123069763183594,
+                        0.4115380048751831
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.4473679065704347,
+                    "Positions": [
+                        0.0,
+                        1.6987450122833253,
+                        0.3966200053691864
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.4963159561157228,
+                    "Positions": [
+                        0.0,
+                        1.6800960302352906,
+                        0.37610501050949099
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.5452630519866945,
+                    "Positions": [
+                        0.0,
+                        1.6578010320663453,
+                        0.35158100724220278
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.5942111015319826,
+                    "Positions": [
+                        0.0,
+                        1.6333039999008179,
+                        0.32463398575782778
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.643157958984375,
+                    "Positions": [
+                        0.0,
+                        1.6080470085144044,
+                        0.2968519926071167
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.6921050548553469,
+                    "Positions": [
+                        0.0,
+                        1.5834729671478272,
+                        0.2698200047016144
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.7410531044006349,
+                    "Positions": [
+                        0.0,
+                        1.5610229969024659,
+                        0.24512499570846559
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.7899999618530275,
+                    "Positions": [
+                        0.0,
+                        1.5421409606933594,
+                        0.22435499727725984
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.838947057723999,
+                    "Positions": [
+                        0.0,
+                        1.5282690525054932,
+                        0.2090959995985031
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.887895107269287,
+                    "Positions": [
+                        0.0,
+                        1.5208489894866944,
+                        0.20093399286270142
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.9368419647216799,
+                    "Positions": [
+                        0.0,
+                        1.5175479650497437,
+                        0.19935500621795655
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 2.9857890605926515,
+                    "Positions": [
+                        0.0,
+                        1.5021220445632935,
+                        0.19529500603675843
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.0347371101379396,
+                    "Positions": [
+                        0.0,
+                        1.4760940074920655,
+                        0.18844600021839143
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.083683967590332,
+                    "Positions": [
+                        0.0,
+                        1.443642020225525,
+                        0.1799059957265854
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.13263201713562,
+                    "Positions": [
+                        0.0,
+                        1.408944010734558,
+                        0.17077499628067017
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.181579113006592,
+                    "Positions": [
+                        0.0,
+                        1.3761769533157349,
+                        0.1621520072221756
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.2305259704589845,
+                    "Positions": [
+                        0.0,
+                        1.3495210409164429,
+                        0.15513700246810914
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.2794740200042726,
+                    "Positions": [
+                        0.0,
+                        1.3331509828567505,
+                        0.1508290022611618
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.309999942779541,
+                    "Positions": [
+                        0.0,
+                        1.3300000429153443,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.328421115875244,
+                    "Positions": [
+                        0.0,
+                        1.3193080425262452,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.3773679733276369,
+                    "Positions": [
+                        0.0,
+                        1.1987359523773194,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.426316022872925,
+                    "Positions": [
+                        0.0,
+                        0.9736689925193787,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.4752631187438967,
+                    "Positions": [
+                        0.0,
+                        0.6812760233879089,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.5242109298706056,
+                    "Positions": [
+                        0.0,
+                        0.3587090075016022,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.573158025741577,
+                    "Positions": [
+                        0.0,
+                        0.04314199835062027,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.6221048831939699,
+                    "Positions": [
+                        0.0,
+                        -0.22827200591564179,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.671052932739258,
+                    "Positions": [
+                        0.0,
+                        -0.41837599873542788,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 3.7200000286102297,
+                    "Positions": [
+                        0.0,
+                        -0.49000000953674319,
+                        0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                }
+            ],
+            "Markers": [
+                {
+                    "Id": "raised",
+                    "At": 0.6899999976158142
+                },
+                {
+                    "Id": "tilt",
+                    "At": 1.0299999713897706
+                },
+                {
+                    "Id": "return",
+                    "At": 2.3299999237060549
+                },
+                {
+                    "Id": "upright",
+                    "At": 3.309999942779541
+                }
+            ]
+        }
+    ]
+}

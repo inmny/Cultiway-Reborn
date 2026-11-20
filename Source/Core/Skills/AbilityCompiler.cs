@@ -403,6 +403,9 @@ internal sealed class CompiledForm
     /// <summary>父挂点所需的实际成形进度。</summary>
     internal float AnchorBuild;
 
+    /// <summary>尚未开始的部位使用的出口朝向条件。</summary>
+    internal CompiledOutlet Outlet;
+
     /// <summary>本体初始局部位置。</summary>
     internal Vector3 Offset;
 
@@ -880,6 +883,9 @@ public static partial class AbilityCompiler
             Parent = parent,
             Anchor = anchor,
             AnchorBlend = anchorBlend,
+            Outlet = node.Outlet == null ? null : new CompiledOutlet(node.Outlet,
+                parent >= 0 && (!string.IsNullOrEmpty(node.Anchor) || node.Distribution != null) &&
+                node.Activation?.Placement != ConstructionEventPlacement.Event, lifetime, path + "/Outlet"),
             Resource = resource,
             Offset = offset,
             Rotation = Quaternion.Euler(rotation),
@@ -1063,12 +1069,21 @@ public static partial class AbilityCompiler
 
         compiled.Changes = changes.ToArray();
         compiled.EventOperations = reactions.ToArray();
+        if (compiled.FlowSettings?.Cooling != null && (compiled.Matter.Id != "iron" || compiled.Matter.State != "liquid" ||
+            compiled.Residue != null || node.Operations.Any(operation => operation.Kind == ConstructionOperationKind.ConvertMatter) ||
+            compiled.FlowSettings.OpenBoundary || compiled.FlowSettings.Evaporation != 0f))
+            Fail(path + "/Flow/Cooling", "冷却当前用于有边界、不蒸散的液态铁；整层不能直接转换或留存为一种材料");
         if (compiled.FlowSettings != null)
         {
             if (resource.Meshes.Length == 0) Fail(path, "流散需要可用形体和表面");
+            // 立即脱离并投送必先于自身触地；触地启动流散时会清除空中的投送。
+            bool launchBeforeGroundFlow = compiled.FlowAt < 0 && compiled.ReleaseAt == 0 &&
+                compiled.EventOperations.Where(operation => operation.Flow != null).All(operation =>
+                    operation.When.SourcePath == "." && operation.When.Trigger == ConstructionChangeTrigger.WorldContact);
             if (node.Operations.Any(operation => operation.Kind == ConstructionOperationKind.Fly &&
-                                                 (operation.When != null || compiled.FlowAt < 0 ||
-                                                  operation.At > compiled.FlowAt) &&
+                                                 (operation.When != null ||
+                                                  !(launchBeforeGroundFlow && operation.At == 0) &&
+                                                  (compiled.FlowAt < 0 || operation.At > compiled.FlowAt)) &&
                                                  (operation.Path != null || operation.Vector[2] != 0 ||
                                                   operation.Acceleration != null && operation.Acceleration[2] != 0)))
                 Fail(path, "浅层流散的后续投送当前支持水平速度、追踪及加速度，三维曲面投送继续待办");

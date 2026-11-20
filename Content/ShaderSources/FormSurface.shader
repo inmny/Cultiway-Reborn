@@ -551,6 +551,29 @@ Shader "Cultiway/FormSurface"
                 base += tint.rgb*(.14+.29*diffuse)*density;
                 alpha *= i.surface.y*(.48+.52*density)*(.29+.71*chord);
             }
+            else if (_Kind > 27.5)
+            {
+                float3 q = i.material;
+                if (i.current.z > .000001)
+                {
+                    // 铺地后按实际液深和缓慢移动的宽褶区分厚脊和薄边。
+                    // 这里仅画数值层发布的液面，另一个铁壳表面独自保留到收束。
+                    float fold = volumeNoise(q*float3(1.25,1.25,.65) + float3(-.33,-.22,0)*_WorldTime);
+                    float ridge = smoothstep(.04,.21,i.surface.x);
+                    float heat = saturate(.18+.60*ridge+.28*fold);
+                    base = lerp(float3(.20,.033,.015),tint.rgb,heat) * (.78+.22*diffuse);
+                    base += float3(.72,.35,.08)*heat*heat + specular*float3(.40,.16,.028)*ridge;
+                }
+                else
+                {
+                    // 炉口流束的明暗沿流向延展，暗处也是同一截面内流动的铁料。
+                    float folds = volumeNoise(q*float3(9,9,1.9) + float3(0,0,-1.7)*_WorldTime);
+                    float heat = (.22+.78*smoothstep(.25,.77,folds)) * (.80+.20*diffuse);
+                    float3 skin = float3(.22,.044,.018)*(.78+.22*diffuse);
+                    base = lerp(skin,tint.rgb*(.62+.38*diffuse),heat);
+                    base += float3(.81,.48,.13)*pow(heat,3) + specular*float3(.57,.27,.065)*(.35+.65*heat);
+                }
+            }
             else if (_Kind > 26.5)
             {
                 // 对端实际地块的颜色和立体高差。退进门框后的石壁保留真实受光。
@@ -639,7 +662,7 @@ Shader "Cultiway/FormSurface"
             float depth = _FP_Cam.z <= .5 ? ahead :
                 (_FP_Cam.w <= .5 ? cameraDepth : max(ahead,cameraDepth*.05));
             // 普通实体类别为3；编号0代表无人物，不能借用真实人物的拾取编号。
-            o.data = float4(depth,0,3,_Kind >= 5.5 && _Kind < 6.5 ? 1 : 0);
+            o.data = float4(depth,0,3,(_Kind >= 5.5 && _Kind < 6.5) || _Kind > 27.5 ? 1 : 0);
             return o;
         }
         ENDCG

@@ -1,0 +1,228 @@
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+const float lane = 72.5f;
+Actor source = Make(64.5f), aim = Make(74f, "wolf");
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+World.world.camera.transform.position = new Vector3(68.5f, lane, 0f);
+MoveCamera.instance.forceZoom(7.5f);
+for (int x = 61; x <= 78; x++)
+for (int y = 66; y <= 79; y++)
+{
+    WorldTile tile = World.world.GetTileSimple(x, y);
+    tile.setTileTypes(TileLibrary.soil_low, null, true);
+    // 同一落点前后缓降，中脊两边是低处。由真实高度提供器采样。
+    int fall = Mathf.Clamp(x - 67, 0, 7) * 3;
+    int flank = Mathf.Clamp(Mathf.Abs(y - 72), 0, 3) * 9;
+    tile.Height = (byte)(140 - fall - flank);
+}
+Ready(source); await Advance(.16f);
+void Stage()
+{
+    Place(source, 64.5f, lane); Place(aim, 74f, lane);
+    source.position_height = 0; source.move_jump_offset = Vector2.zero; source.shake_offset = Vector2.zero;
+    source.lookTowardsPosition(aim.current_position);
+    source.addAggro(aim); aim.addAggro(source);
+    ConstructedAbilityService.NotifyActorChanged(aim);
+}
+AbilityCast Live(string id) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Select(entry => (AbilityCast)Field(entry, "Cast")).FirstOrDefault(cast => cast.Plan.Id == id);
+object Node(AbilityCast cast, int i) => ((Array)Field(cast, "nodes")).GetValue(i);
+object FlowAt(AbilityCast cast, int i) => ((Array)Field(cast, "flows")).GetValue(i);
+bool Flowing(AbilityCast cast, int i) => (bool)Field(FlowAt(cast, i), "Started");
+var forms = new List<FormVisualInstance>();
+FormVisualInstance Furnace(AbilityCast cast)
+{
+    forms.Clear(); cast.AppendVisuals(forms);
+    return forms.Single(view => view.Resource.Description.Id == "sky_furnace");
+}
+Matrix4x4 Outlet(FormVisualInstance vessel, string id) => vessel.PartTransform(1) * vessel.Resource.Anchors.Single(anchor => anchor.Id == id).Transform;
+async Task Shot(string name)
+{
+    World.world.console.Hide(); WorldTip.hideNow(); Tooltip.blockTooltips(4f);
+    await Game.NextFrame(); await Game.NextFrame();
+    Screen.Capture(Path.Combine(folder, name + ".png"));
+    await Game.WaitUntil(() => File.Exists(Path.Combine(folder, name + ".png")), 300);
+}
+async Task Pay(AbilityDefinition d)
+{
+    Stage();
+    float before = source.stats[BaseStatses.MaxWakan.id] * .82f;
+    owner.GetCultisys<Xian>().wakan = before;
+    await Fire(d, source, aim, aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - d.Cost) < .003f, "每次发动只支付一次真元");
+}
+
+var groundContacts = new List<ConstructedWorldContact>();
+void Land(ConstructedWorldContact fact)
+{
+    if (fact.AbilityId == definition.Id && fact.TriggerOnly) groundContacts.Add(fact);
+}
+// 实机入口。
+ConstructedAbilityService.WorldContactConfirmed += Land;
+try
+{
+    AbilityCompiler.Compile(definition, false);
+    if (section == "save" || recordView.Length != 0) return await DeliverFurnace();
+    if (section == "cooling") return await Cooling();
+    if (section == "cutoff") return await Cutoff();
+    if (section == "damage") return await Damage();
+    if (section == "visual")
+    {
+        ControllableUnit.clear(false);
+        var scenery = new HashSet<Building>();
+        for (int x = 61; x <= 78; x++) for (int y = 66; y <= 79; y++)
+        {
+            var building = World.world.GetTileSimple(x, y).building;
+            if (building != null) scenery.Add(building);
+        }
+        foreach (var building in scenery) building.removeBuildingFinal();
+        var cameraType = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+        var camera = cameraType.GetProperty("Instance", F).GetValue(null);
+        object View(string key) => cameraType.GetProperty(key, F)?.GetValue(camera) ?? cameraType.GetField(key, F)?.GetValue(camera);
+        cameraType.GetMethod("ViewForTest", F).Invoke(camera, new object[] { false });
+        cameraType.GetMethod("SetGodView", F).Invoke(camera, new object[] { false });
+        await Game.WaitUntil(() => !(bool)View("IsFirstPerson") && !(bool)View("GodShown") && (bool)View("DiveDone") && !(bool)View("Flying"), 1800);
+        World.world.camera.transform.position = new Vector3(69.5f, lane + 1f, 0f);
+        MoveCamera.instance.forceZoom(7.5f);
+        await Advance(.16f);
+        await Pay(definition);
+        var cast = Live(definition.Id);
+        async Task At(float age, string frame)
+        {
+            if (age > cast.Age) await Advance(age - cast.Age);
+            await Shot(frame);
+        }
+        await At(.74f, "lift");
+        await At(2.22f, "pour");
+        await At(2.95f, "ground");
+        await Advance(definition.Lifetime - cast.Age + .25f);
+        return new { passed = true, checks };
+    }
+    if (section != "upright")
+    {
+        var outOfOrder = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
+        outOfOrder.Root.Children[0].Operations[1].At = .2f;
+        bool refused = false;
+        try { AbilityCompiler.Compile(outOfOrder, false); }
+        catch (InvalidDataException error) when (error.Message.Contains("浅层流散的后续投送")) { refused = true; }
+        Check(refused, "不能证明先投送后触地时，拒绝对浅层进行三维投送");
+        await Pay(definition);
+        var cast = Live(definition.Id);
+        await Advance(.18f);
+        float initialRim = Outlet(Furnace(cast), "mouth").m23;
+        await Advance(.53f);
+        float raisedRim = Outlet(Furnace(cast), "mouth").m23;
+        Check(raisedRim > initialRim + .18f && Enumerable.Range(1, 3).All(i => cast.NodeAge(i) < 0),
+            "炉身先抬升，未倾时三个口都不出流", new { initialRim, raisedRim, cast.Age });
+        await Shot("lift");
+        var launches = new List<object>();
+        var launchTimes = new float[4];
+        var firstGround = new float[4];
+        var lastMouth = new Matrix4x4[4];
+        var seen = new bool[4];
+        double initialVolume = 0d;
+        bool pictured = false;
+        for (int step = 0; step < 85 && cast.Age < 3.32f; step++)
+        {
+            var kiln = Furnace(cast);
+            for (int i = 1; i <= 3; i++) lastMouth[i] = Outlet(kiln, definition.Root.Children[i - 1].Anchor);
+            await Advance(.035f);
+            kiln = Furnace(cast);
+            for (int i = 1; i <= 3; i++)
+            {
+                var child = definition.Root.Children[i - 1];
+                if (!seen[i] && cast.NodeAge(i) >= 0)
+                {
+                    seen[i] = true;
+                    var state = Node(cast, i);
+                    var at = (float)Field(state, "StartedAt"); launchTimes[i] = at;
+                    var from = (Vector3)Field(state, "FlightOrigin");
+                    var actualDirection = (Vector3)Field(state, "FlightDirection");
+                    var acceleration = (Vector3)Field(state, "Acceleration");
+                    var nowMouth = Outlet(kiln, child.Anchor);
+                    var before = lastMouth[i];
+                    var to = (Vector3)nowMouth.GetColumn(3);
+                    var prior = (Vector3)before.GetColumn(3);
+                    float gap = Math.Min((from - to).magnitude, (from - prior).magnitude);
+                    float alignment = Vector3.Dot(actualDirection.normalized, ((Vector3)nowMouth.GetColumn(2)).normalized);
+                    var volume = cast.RemainingVolume(i); initialVolume += volume;
+                    Check(at >= child.Outlet.After - .002f && gap < .45f && alignment > .96f &&
+                          actualDirection.z <= -Mathf.Sin(child.Outlet.DownDegrees * Mathf.Deg2Rad) + .008f &&
+                          (acceleration - Vector3.back * 7f).sqrMagnitude < .0001f && !Flowing(cast, i) && volume > 0,
+                        "出流经过实际口沿，方向向下，空中未铺地：" + child.Anchor,
+                        new { at, from = from.ToString("F3"), to = to.ToString("F3"), prior = prior.ToString("F3"), gap, alignment,
+                            direction = actualDirection.ToString("F3"), acceleration = acceleration.ToString("F3"), volume, flowing = Flowing(cast, i) });
+                    launches.Add(new { node = i, at, volume });
+                }
+                if (seen[i] && firstGround[i] == 0f && Flowing(cast, i)) firstGround[i] = cast.Age;
+            }
+            if (!pictured && seen[1] && !Flowing(cast, 1)) { pictured = true; await Shot("pour"); }
+        }
+        Check(seen.Skip(1).All(v => v) && launchTimes[1] < launchTimes[2] && launchTimes[2] < launchTimes[3] &&
+              Enumerable.Range(1, 3).All(i => firstGround[i] > launchTimes[i] + .07f &&
+                  groundContacts.Count(c => c.Node == i && c.Age >= launchTimes[i] && c.Age <= firstGround[i] + .001f) == 1),
+            "三处按次序各出一股，实际触地后才铺开", new { launches, firstGround, groundContacts });
+        var patches = Enumerable.Range(1, 3).Select(i =>
+        {
+            object flow = FlowAt(cast, i);
+            var origin = (Vector2)Field(flow, "Origin");
+            var cell = (float)Field(flow, "Cell");
+            var ground = (float[])Field(flow, "Ground");
+            var water = (Vector3[])Field(flow, "Water");
+            var crust = (float[])Read(flow, "Crust");
+            var lower = 0d; var upper = 0d; var total = 0d; var groundLow = float.PositiveInfinity; var groundHigh = float.NegativeInfinity;
+            for (int j = 0; j < water.Length; j++)
+            {
+                float thickness = water[j].x + (crust?[j] ?? 0f);
+                if (thickness < cell * .008f) continue;
+                float y = origin.y + (j / 20 + .5f) * cell;
+                float volume = thickness * cell * cell;
+                total += volume;
+                if (y < lane - .9f) lower += volume;
+                if (y > lane + .9f) upper += volume;
+                groundLow = Math.Min(groundLow, ground[j]); groundHigh = Math.Max(groundHigh, ground[j]);
+            }
+            return new { lower, upper, total, groundLow, groundHigh };
+        }).ToArray();
+        forms.Clear(); cast.AppendVisuals(forms);
+        double remaining = Enumerable.Range(1, 3).Sum(i => cast.RemainingVolume(i));
+        double expected = definition.Root.Children.Sum(child => child.Volume.GetValueOrDefault() * Math.Pow(definition.Root.Scale * child.Scale, 3));
+        Check(forms.Count(view => view.Layer != null) >= 3 && patches.Sum(p => p.lower) > .06 && patches.Sum(p => p.upper) > .06 &&
+              patches.All(p => p.groundHigh > p.groundLow + .02f) && Math.Abs(initialVolume - expected) < .02 && Math.Abs(remaining - initialVolume) < .02,
+            "薄层覆盖两侧低处，读到实际地面落差；闭合范围内无添料或丢料", new { patches, remaining, initialVolume, expected });
+        await Shot("ground");
+        await Advance(definition.Lifetime - cast.Age + .25f);
+        Check(Live(definition.Id) == null && endings.Count == 1 && !endings[0].Fact.Cancelled,
+            "三股熔流和炉身自然收束");
+    }
+    if (section != "launch")
+    {
+        var upright = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
+        upright.Id += ".Upright"; upright.Root.Operations[0].Clip = "hold_upright";
+        await Pay(upright);
+        var still = Live(upright.Id);
+        await Advance(2.81f);
+        Check(Enumerable.Range(1, 3).All(i => still.NodeAge(i) < 0 && !Flowing(still, i)) &&
+              ((Vector3)Outlet(Furnace(still), "mouth").GetColumn(2)).normalized.z > -.01f,
+            "同一炉口保持直立时不出流", new { still.Age });
+        await Advance(upright.Lifetime);
+        Check(Live(upright.Id) == null && !endings.Last().Fact.Cancelled, "直立施放也会自然结束");
+        await Pay(definition);
+        await Advance(2.25f);
+        Check(Live(definition.Id).NodeAge(1) >= 0, "直立支路结束后可再次正常倾倒");
+        await Advance(definition.Lifetime - 2.25f + .45f);
+        Check(Live(definition.Id) == null && !endings.Last().Fact.Cancelled, "再次倾倒能完整收束");
+    }
+    return new { passed = true, checks };
+}
+finally
+{
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
+    ConstructedAbilityService.WorldContactConfirmed -= Land;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

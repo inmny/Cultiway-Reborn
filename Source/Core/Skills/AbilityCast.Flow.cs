@@ -72,6 +72,15 @@ public sealed partial class AbilityCast
             if (beforeVolume > 0) state.Resource *= System.Math.Max(0, 1 - loss / beforeVolume);
         }
 
+        FollowFlow(node);
+    }
+
+    /// <summary>液面位置始终对应数值过程，也保留壳与液料合计。</summary>
+    /// <param name="node">实际流散部位。</param>
+    private void FollowFlow(int node)
+    {
+        AbilityFlow flow = flows[node];
+        ref NodeState state = ref nodes[node];
         state.Volume = flow.Volume;
         state.Position = flow.Centre;
         state.Velocity = flow.Velocity;
@@ -96,7 +105,7 @@ public sealed partial class AbilityCast
                     if (before < dry) continue;
                     until = Mathf.Clamp01((before - dry) / (before - depth));
                 }
-                var centre = new Vector3(flow.Origin.x + (x + .5f) * flow.Cell, flow.Origin.y + (y + .5f) * flow.Cell, flow.Ground[index] + depth * .5f);
+                var centre = new Vector3(flow.Origin.x + (x + .5f) * flow.Cell, flow.Origin.y + (y + .5f) * flow.Cell, flow.FlowBed(index) + depth * .5f);
                 output.Add(new AbilityCapsule(node, centre, centre, 0f, state.Matter.Id, Plan.Nodes[node].Resource.Contacts.Length + index, state.Revision, state.Matter,
                     new Vector3(flow.Cell * .5f, flow.Cell * .5f, depth * .5f), until));
             }
