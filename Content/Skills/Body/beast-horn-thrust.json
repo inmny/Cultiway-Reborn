@@ -1,0 +1,26 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.BeastHornThrust",
+  "Name": "伏首雷角刺",
+  "Resource": "stamina",
+  "Cost": 3,
+  "Cooldown": 1.35,
+  "Lifetime": 1.24,
+  "Power": 1.4,
+  "TargetRange": 3,
+  "Body": {
+    "Effector": "organ:yao.horn.thunder",
+    "ReleaseAt": 0.30,
+    "ActiveFrom": 0.41,
+    "ActiveUntil": 0.80,
+    "Contact": {"Mode": "Once"},
+    "Impact": {"Targets": "Hostile", "DamageScale": 1.15, "Force": 1.2, "StaggerSeconds": 0.14},
+    "Keys": [
+      {"Id": "idle", "At": 0, "PartRotation": [0, 0, 0]},
+      {"Id": "takeweight", "At": 0.24, "PartRotation": [-13.5, 0, 0]},
+      {"Id": "strike", "At": 0.56, "PartRotation": [45, 0, 0]},
+      {"Id": "pullback", "At": 0.83, "PartRotation": [24.75, 0, 0]},
+      {"Id": "rest", "At": 1.24, "PartRotation": [0, 0, 0]}
+    ]
+  }
+}

@@ -175,7 +175,7 @@ public sealed class YaoContent : ICanInit, ICanReload
             .WithRank(2, 4, stats: [Stat("accuracy", 8f), Stat("diplomacy", 3f)], visuals: ["yao.layer.eye_glow"]);
         AddOrgan("yao.gland.foxfire", CreatureOrganCategoryMask.Breath, Slots.Breath)
             .WithSemantics(SkillSemantics.Element.Fire, 1f)
-            .WithRank(2, 5, stats: [Stat("damage", 4f)], skills: ["Cultiway.YinBolt"]);
+            .WithRank(2, 5, stats: [Stat("damage", 4f)], skills: ["Cultiway.FoxfireBreath"]);
 
         // ===== 金乌与凤凰 =====
         AddOrgan("yao.vent.truefire", CreatureOrganCategoryMask.Breath, Slots.Breath)

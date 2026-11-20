@@ -38,7 +38,8 @@ public static class BodyActionCatalog
         guard.Body.MatchDistance = false;
         guard.Body.Guard = new BodyGuardDefinition { Capacity = 100f, Normal = new[] { 0f, 0f, 1f } };
         AbilityDefinition thrust = Load("sword-thrust");
-        return new[] { palm, Load("sweeping-palm"), thrust, guard, CreateSwordRelease(thrust) };
+        return new[] { palm, Load("sweeping-palm"), thrust, guard, CreateSwordRelease(thrust),
+            Load("beast-horn-thrust"), Load("beast-pounce") };
     }
 
     /// <summary>从同一铁剑握持动作起势，只改变离手后的运动和接触。</summary>

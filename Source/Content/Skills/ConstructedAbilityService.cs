@@ -76,7 +76,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         SkillModifiers.RegisterConstructionWorldEffects();
         Core.SkillLibV3.Manager.ConstructionEmission = emission =>
         {
-            SkillEmissionResult result = SealRelayConstruction.Emit(emission);
+            SkillEmissionResult result = FoxfireBreathConstruction.Emit(emission);
+            if (result == SkillEmissionResult.Unhandled) result = SealRelayConstruction.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = UtilityConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = ProjectileConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = GroundSpikeConstructionMigration.Emit(emission);
@@ -395,14 +396,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="direction">来源确定的完整出手方向，空值保留普通身体的水平朝向。</param>
     /// <param name="sourceInstance">原来源的运行容器编号，仅用于本世界并存计数，不写入能力资料。</param>
     /// <param name="spatialSource">实际提供出生及随动位置的人物载体，省略时使用归属人物。</param>
+    /// <param name="sourceIsWorld">已从同轮身体表面取得绝对坐标，无需再叠加地表。</param>
     internal static bool StartPrepaid(ActorExtend caster, AbilityDefinition definition,
         in ActiveAbilityTarget target, Vector3 sourcePosition, SkillCastPayment payment = null,
-        GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0, BaseSimObject spatialSource = null)
+        GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0, BaseSimObject spatialSource = null,
+        bool sourceIsWorld = false)
     {
         if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
         return Start(caster, ValidateDefinition(definition), target, target.RuntimeData.Origin, out _, sourcePosition,
             true, payment, sourceDamage: damage, sourceDirection: direction, sourceInstance: sourceInstance,
-            spatialSource: spatialSource?.a);
+            spatialSource: spatialSource?.a, sourceIsWorld: sourceIsWorld);
     }
 
     /// <summary>固定环境位置直接进入共同执行，零编号表示未受理，不借人物提供身份或资源。</summary>
@@ -439,11 +442,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="sourceInstance">原运行容器的并存分组，普通构造为零。</param>
     /// <param name="spatialSource">本次真实人物载体，与资源及伤害归属分开保存。</param>
     /// <param name="practice">是否由实际训练任务练习姿态而不产生战斗接触。</param>
+    /// <param name="sourceIsWorld">明确出生点已经采集世界高度。</param>
     private static bool Start(ActorExtend caster, CompiledAbility plan,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, out long castId, Vector3? sourcePosition = null,
         bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
         GetHitEvent? sourceDamage = null, Vector3? sourceDirection = null, int sourceInstance = 0, Actor spatialSource = null,
-        bool practice = false)
+        bool practice = false, bool sourceIsWorld = false)
     {
         castId = 0;
         Actor sourceActor = caster?.Base;
@@ -480,7 +484,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (sourcePosition.HasValue)
         {
             source = sourcePosition.Value;
-            source.z += simulation.terrain?.Sample(source.x, source.y) ?? 0f;
+            if (!sourceIsWorld) source.z += simulation.terrain?.Sample(source.x, source.y) ?? 0f;
         }
 
         Vector3 direction = sourceDirection ?? point - source;

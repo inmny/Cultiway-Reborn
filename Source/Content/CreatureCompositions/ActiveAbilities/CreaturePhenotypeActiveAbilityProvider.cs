@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cultiway.Content.CreatureCompositions.Components;
 using Cultiway.Content.CreatureCompositions.Models;
 using Cultiway.Content.CreatureCompositions.Services;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
@@ -100,7 +101,9 @@ internal sealed class CreaturePhenotypeActiveAbilityProvider : IActiveAbilityPro
         if (!SkillCooldownService.IsReady(caster, container)) return false;
         if (!SkillCastCost.CanPayStep(caster, container)) return false;
         if (target == null || target.isRekt()) return false;
-        return ResolveSkillAsset(handle)?.Type != SkillEntityType.Attack ||
+        SkillEntityAsset asset = ResolveSkillAsset(handle);
+        if (asset == SkillEntities.FoxfireBreath && !FoxfireBreathConstruction.CanBreathe(caster, target)) return false;
+        return asset?.Type != SkillEntityType.Attack ||
                SkillTargetRelationResolver.IsHostile(caster.Base, target);
     }
 

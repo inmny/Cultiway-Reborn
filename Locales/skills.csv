@@ -1,6 +1,8 @@
 key,cz
 Cultiway.SealRelay,连印走符
 Cultiway.SealRelay.Description,折纸触到敌人后展开朱印并从接触处放出下一张小符。至多接触三人，传递逐次减弱。
+Cultiway.FoxfireBreath,狐火吐息
+Cultiway.FoxfireBreath.Description,具有狐火腺的妖兽从当前吻端向前喷出狐火，以实际火形伤及前方一段距离。
 Cultiway.PalmStrike,原地掌击
 Cultiway.PalmStrike.Description,徒手收掌后短促前送，接触原目标一次。伤害与恢复沿用徒手普攻；目标走出手臂可达范围时落空。
 Cultiway.WeaponControl,御器

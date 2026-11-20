@@ -25,7 +25,7 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>只有根点超出普通选择距离时才采集外伸，已在出招的身体直接读取当前共同表面。</summary>
     /// <param name="target">实际目标。</param>
-    private static BodySurfacePose BodySelectionSurface(Actor target)
+    internal static BodySurfacePose BodySelectionSurface(Actor target)
     {
         if (ConstructedActorImpulse.TryBody(target.id, out var flying)) return flying.Surface;
         if (bodySurfaces.TryGetValue(target.id, out BodySurfaceBinding activeBinding) &&

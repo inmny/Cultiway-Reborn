@@ -1,0 +1,333 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.BeastPounce",
+  "Name": "伏地扑",
+  "Resource": "stamina",
+  "Cost": 4,
+  "Cooldown": 1.4,
+  "Lifetime": 1.24,
+  "Power": 1.35,
+  "TargetRange": 4,
+  "Body": {
+    "Effector": "claw",
+    "ReleaseAt": 0.3,
+    "ActiveFrom": 0.42,
+    "ActiveUntil": 0.92,
+    "Contact": {
+      "Mode": "Once"
+    },
+    "Impact": {
+      "Targets": "Hostile",
+      "DamageScale": 1.05,
+      "Force": 1.5,
+      "StaggerSeconds": 0.18
+    },
+    "Keys": [
+      {
+        "Id": "rest",
+        "At": 0,
+        "PartRotation": [
+          0,
+          0,
+          0
+        ],
+        "Support": {
+          "Rise": 0,
+          "Parts": {
+            "part:leg_fl": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_fr": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_bl": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_br": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "Id": "brace",
+        "At": 0.18,
+        "PartRotation": [
+          -15,
+          0,
+          0
+        ],
+        "Support": {
+          "Rise": 0,
+          "Parts": {
+            "part:leg_fl": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_fr": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_bl": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_br": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "Id": "gather",
+        "At": 0.31,
+        "PartRotation": [
+          -38,
+          0,
+          0
+        ],
+        "Support": {
+          "Rise": 0.16,
+          "Parts": {
+            "part:leg_fl": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_fr": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_bl": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_br": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "Id": "fall",
+        "At": 0.55,
+        "PartRotation": [
+          -65,
+          0,
+          0
+        ],
+        "Support": {
+          "Rise": 0.25,
+          "Parts": {
+            "part:leg_fl": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_fr": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_bl": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_br": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "Id": "reach",
+        "At": 0.72,
+        "PartRotation": [
+          -48,
+          0,
+          0
+        ],
+        "Support": {
+          "Rise": 0.2,
+          "Parts": {
+            "part:leg_fl": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_fr": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_bl": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_br": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "Id": "land",
+        "At": 0.93,
+        "PartRotation": [
+          -13,
+          0,
+          0
+        ],
+        "Support": {
+          "Rise": 0,
+          "Parts": {
+            "part:leg_fl": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_fr": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_bl": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_br": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "Id": "settled",
+        "At": 1.24,
+        "PartRotation": [
+          0,
+          0,
+          0
+        ],
+        "Support": {
+          "Rise": 0,
+          "Parts": {
+            "part:leg_fl": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_fr": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_bl": [
+              0,
+              0,
+              0
+            ],
+            "part:leg_br": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      }
+    ],
+    "Construction": {
+      "Parts": [
+        {
+          "Id": "claw",
+          "Part": "part:leg_fl",
+          "Subject": "Source"
+        },
+        {
+          "Id": "target",
+          "Part": "surface",
+          "Subject": "Target"
+        }
+      ],
+      "Relations": [
+        {
+          "Id": "pounce_contact",
+          "From": "claw",
+          "To": "target",
+          "Kind": "Touch"
+        }
+      ],
+      "Footwork": {
+        "Forward": null,
+        "Keys": [
+          {
+            "At": 0,
+            "Point": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "At": 0.18,
+            "Point": [
+              0.04,
+              0,
+              0
+            ]
+          },
+          {
+            "At": 0.55,
+            "Point": [
+              0.6,
+              0,
+              0
+            ]
+          },
+          {
+            "At": 0.9,
+            "Point": [
+              0.98,
+              0,
+              0
+            ]
+          },
+          {
+            "At": 1.24,
+            "Point": [
+              1.0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

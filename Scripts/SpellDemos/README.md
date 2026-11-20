@@ -2433,3 +2433,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_seal_relay.py --section relay`。通过正式物品入口消耗一张真实符箓，核对[构造资料](../../Content/Skills/Attack/SealRelay.json)的三次实际命中、留印位置、余力衰减和退场。 `--section miss` 让首张纸符飞空，检查原物消费和失效请求保留，以及后续形体是否停在源头。
 
 正常传递可加 `--record native` 或 `--record worldfall`。输出同时记录每次作用面的准确位置与伤害。
+
+### 狐火吐息、伏首雷角刺与伏地扑（9.40 妖兽器官）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 265 -- python3 Scripts/SpellDemos/verify_beast_attacks.py --section attacks`。在同一狼形上复验吻端出火、真实雷角接触和四足起落后以前爪命中。结果记录每招的支付、命中位置、动作和身体控制归还。加 `--part breath`、`--part horn` 或 `--part pounce` 可只复验一招。
+
+`--record native` 或 `--record worldfall` 输出对应视角的常速录像。`--section bounds` 检查火息范围外无伤、撤下雷角后角刺拒绝且不扣体力。`--section save` 将同一狼形的器官和两招学习记录写入正式世界，供整项冷启动复验。
