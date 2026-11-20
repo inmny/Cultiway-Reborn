@@ -96,7 +96,10 @@ public class SkillNameGenerator : EntityNameGenerator<SkillNameGenerator>
         return start < 0 ? string.Empty : text.Substring(start, end - start + 1);
     }
 
-    public void GenerateFor(Entity skill_container_entity)
+    public void GenerateFor(Entity skill_container_entity) => GenerateFor(skill_container_entity, null);
+
+    /// <summary>生成法术名称。专属法术采用创法者的文化和语言。</summary>
+    internal void GenerateFor(Entity skill_container_entity, Actor namingActor)
     {
         if (skill_container_entity.IsNull || !skill_container_entity.HasComponent<SkillContainer>())
         {
@@ -109,19 +112,32 @@ public class SkillNameGenerator : EntityNameGenerator<SkillNameGenerator>
             return;
         }
 
-        ApplyName(skill_container_entity, SkillRuleNameComposer.Compose(context));
+        ApplyName(skill_container_entity, ComposeRuleName(context, namingActor));
 
         _ = GenerateAiNameAsync(context, skill_container_entity);
     }
 
-    public string GenerateRuleFor(Entity skillContainerEntity)
+    public string GenerateRuleFor(Entity skillContainerEntity) => GenerateRuleFor(skillContainerEntity, null);
+
+    /// <summary>生成并写入法术的规则名称，可指定创法者。</summary>
+    internal string GenerateRuleFor(Entity skillContainerEntity, Actor namingActor)
     {
         var context = SkillRuleNameComposer.CreateContext(skillContainerEntity);
         if (context == null) return string.Empty;
 
-        var name = SkillRuleNameComposer.Compose(context);
+        var name = ComposeRuleName(context, namingActor);
         ApplyName(skillContainerEntity, name);
         return name;
+    }
+
+    /// <summary>生成法术的规则名称。装有中文名时先使用当前世界的命名学。</summary>
+    private static string ComposeRuleName(SkillNamingContext context, Actor namingActor)
+    {
+#if CHINESENAME
+        var result = ChineseNameIntegration.GenerateSpell(context, namingActor);
+        if (result.Success) return result.Text;
+#endif
+        return SkillRuleNameComposer.Compose(context);
     }
 
     public void RequestAiNameFor(Entity skillContainerEntity)

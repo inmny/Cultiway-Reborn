@@ -1,0 +1,57 @@
+{
+  "format": 1,
+  "id": "cultiway:eastern-human",
+  "label": "东方人族",
+  "supplemental": true,
+  "requires": { "chinesename:classic": 1 },
+  "rules": {
+    "worldbox:person": [
+      {
+        "id": "cultiway-eastern-human",
+        "priority": 50,
+        "when": { "species": "Cultiway.EasternHuman" },
+        "parts": [
+          { "id": "surname", "pool": "chinesename:surname" },
+          { "id": "given", "pool": "cultiway:eastern-given" }
+        ]
+      }
+    ],
+    "worldbox:city": [
+      { "id": "cultiway-eastern-human", "priority": 50, "when": { "species": "Cultiway.EasternHuman" },
+        "parts": [{ "id": "place", "pool": "cultiway:eastern-local" }, { "id": "ending", "literal": "府" }] }
+    ],
+    "worldbox:kingdom": [
+      { "id": "cultiway-eastern-human", "priority": 50, "when": { "species": "Cultiway.EasternHuman" },
+        "parts": [{ "id": "place", "pool": "cultiway:eastern-local" }, { "id": "ending", "literal": "国" }] }
+    ],
+    "worldbox:culture": [
+      { "id": "cultiway-eastern-human", "priority": 50, "when": { "species": "Cultiway.EasternHuman" },
+        "parts": [{ "id": "place", "pool": "cultiway:eastern-local" }, { "id": "ending", "literal": "文脉" }] }
+    ],
+    "worldbox:language": [
+      { "id": "cultiway-eastern-human", "priority": 50, "when": { "species": "Cultiway.EasternHuman" },
+        "parts": [{ "id": "place", "pool": "cultiway:eastern-local" }, { "id": "ending", "literal": "话" }] }
+    ]
+  },
+  "words": [
+    { "id": "cultiway:zhiyuan", "text": "知远" }, { "id": "cultiway:yunchuan", "text": "云川" },
+    { "id": "cultiway:minghe", "text": "鸣鹤" }, { "id": "cultiway:shuhan", "text": "舒涵" },
+    { "id": "cultiway:jingxing", "text": "景行" }, { "id": "cultiway:wanning", "text": "晚宁" },
+    { "id": "cultiway:wenxi", "text": "闻溪" }, { "id": "cultiway:yunzhou", "text": "云舟" },
+    { "id": "cultiway:ruozhu", "text": "若竹" }, { "id": "cultiway:qinghe", "text": "清和" },
+    { "id": "cultiway:chengjiang", "text": "澄江" }, { "id": "cultiway:wuling", "text": "雾陵" },
+    { "id": "cultiway:yujing", "text": "玉京" }, { "id": "cultiway:baishu", "text": "白渚" },
+    { "id": "cultiway:guizhou", "text": "归舟" }, { "id": "cultiway:cangwu", "text": "苍梧" }
+  ],
+  "pools": {
+    "cultiway:eastern-given": {
+      "cultiway:zhiyuan": 1, "cultiway:yunchuan": 1, "cultiway:minghe": 1, "cultiway:shuhan": 1,
+      "cultiway:jingxing": 1, "cultiway:wanning": 1, "cultiway:wenxi": 1, "cultiway:yunzhou": 1,
+      "cultiway:ruozhu": 1, "cultiway:qinghe": 1
+    },
+    "cultiway:eastern-local": {
+      "cultiway:chengjiang": 1, "cultiway:wuling": 1, "cultiway:yujing": 1,
+      "cultiway:baishu": 1, "cultiway:guizhou": 1, "cultiway:cangwu": 1
+    }
+  }
+}

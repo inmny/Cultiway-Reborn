@@ -533,6 +533,9 @@ namespace Cultiway
             _patch.Init();
             SkillV3.Init();
             _content.Init();
+#if CHINESENAME
+            Core.AIGCLib.ChineseNameIntegration.Register(GetDeclaration().FolderPath);
+#endif
             SubWorldManager = new SubWorldManager(W.JobRunner);
             SimulationTickBenchmark.Initialize();
             Wanfa = new WanfaPavilionService();

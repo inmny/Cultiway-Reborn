@@ -82,6 +82,13 @@ internal static class SkillRuleNameComposer
         return FinalizeName(TrimKnownSuffix(param[0], "术"));
     }
 
+#if CHINESENAME
+    /// <summary>选出最能代表此法术效果的命名词条。</summary>
+    internal static SkillNameAtomAsset PrimaryModifier(SkillNamingContext context) =>
+        SelectModifierAtoms(context).OrderByDescending(candidate => candidate.Score)
+            .ThenByDescending(candidate => candidate.Atom.priority).FirstOrDefault()?.Atom;
+#endif
+
     public static string BuildPrompt(SkillNamingContext context)
     {
         if (context == null) return "为未知法术生成一个简洁名称";

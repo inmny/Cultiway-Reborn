@@ -373,7 +373,7 @@ public static class ActorExtendTools
         }
 
         // 创建技能容器
-        var skillContainer = new SkillContainerBuilder(skillEntityAsset).Build();
+        var skillContainer = new SkillContainerBuilder(skillEntityAsset).Build(SkillContainerBuildMode.Runtime, ae.Base);
 
         // 学习技能
         ae.LearnSkillV3(skillContainer, false);
@@ -517,7 +517,7 @@ public static class ActorExtendTools
         var builder = new SkillContainerBuilder(targetSkill);
         if (!(chosenAsset.OnAddOrUpgrade?.Invoke(builder) ?? false)) return false;
 
-        builder.Build();
+        builder.Build(SkillContainerBuildMode.Runtime, ae.Base);
         return true;
     }
 
@@ -583,7 +583,7 @@ public static class ActorExtendTools
         candidates.Shuffle();
         foreach (var candidate in candidates)
         {
-            var prototype = new SkillContainerBuilder(candidate).Build();
+            var prototype = new SkillContainerBuilder(candidate).Build(SkillContainerBuildMode.Runtime, ae.Base);
             if (prototype.IsNull || !prototype.HasComponent<SkillContainer>())
             {
                 if (!prototype.IsNull) prototype.AddTag<TagRecycle>();

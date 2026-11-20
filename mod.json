@@ -4,6 +4,7 @@
     "version": "0.0.29",
     "description": "预览版，支持可升级世界存档",
     "GUID": "CULTIWAY",
+    "OptionalDependencies": ["CHINESENAME"],
     "RepoUrl": "https://github.com/inmny/Cultiway-Reborn",
     "iconPath": "icon.png",
     "tags": [

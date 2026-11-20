@@ -121,7 +121,10 @@ public class SkillContainerBuilder
         _modifiersToRemove.Add(typeof(TModifier), default(TModifier));
     }
 
-    public Entity Build(SkillContainerBuildMode mode = SkillContainerBuildMode.Runtime)
+    public Entity Build(SkillContainerBuildMode mode = SkillContainerBuildMode.Runtime) => Build(mode, null);
+
+    /// <summary>构建法术。创法者可为生成名称提供文化和语言。</summary>
+    public Entity Build(SkillContainerBuildMode mode, Actor namingActor)
     {
         ApplyRequiredModifiers();
         if (_containerEntity.IsNull)
@@ -195,11 +198,11 @@ public class SkillContainerBuilder
         SkillContainerEvaluator.Refresh(_containerEntity);
         if (mode == SkillContainerBuildMode.Runtime)
         {
-            SkillNameGenerator.Instance.GenerateFor(_containerEntity);
+            SkillNameGenerator.Instance.GenerateFor(_containerEntity, namingActor);
         }
         else if (mode != SkillContainerBuildMode.SourceGranted)
         {
-            SkillNameGenerator.Instance.GenerateRuleFor(_containerEntity);
+            SkillNameGenerator.Instance.GenerateRuleFor(_containerEntity, namingActor);
         }
 
         if (mode == SkillContainerBuildMode.Preview)
