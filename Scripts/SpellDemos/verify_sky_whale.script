@@ -1,6 +1,10 @@
 var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
 const float lane = 72.5f;
-Actor source = Make(64.5f), aim = Make(73.5f, "wolf"), side = Make(73.5f, "wolf");
+string replayPath = Path.Combine(folder, "replay.json");
+var replay = File.Exists(replayPath) ? JObject.Parse(File.ReadAllText(replayPath)) : null;
+Actor source = replay == null ? Make(64.5f) : World.world.units.get((long)replay["sourceId"]);
+Actor aim = replay == null ? Make(73.5f, "wolf") : World.world.units.get((long)replay["targetId"]);
+Actor side = replay == null ? Make(73.5f, "wolf") : World.world.units.get((long)replay["sideId"]);
 var owner = source.GetExtend();
 var forms = new List<FormVisualInstance>();
 var shapes = new List<AbilityCapsule>();
@@ -40,6 +44,7 @@ async Task Shot(string name)
 try
 {
     AbilityCompiler.Compile(definition, false);
+    if (replay != null) return await Landing();
     owner.NewCultisys(Cultisyses.Xian);
     owner.GetCultisys<Xian>().level = 2;
     owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
@@ -61,6 +66,7 @@ try
     await Advance(.18f);
     Check(!aim.isImmovable() && !side.isImmovable() && aim.asset.can_be_moved_by_powers && side.asset.can_be_moved_by_powers,
         "目标和侧边对照都能真实受力");
+    if (section is "impact" or "save" or "native" or "worldfall") return await Landing();
     await Pay();
     var cast = Live();
     Check(cast != null, "正式施放建立天鲸");
@@ -110,7 +116,7 @@ try
     Check(startsBuried > 0 && below < -2f && high > 1f && headPitch > .25f && parts == 7 && posedContacts >= 4,
         "鲸身从真实地下抬头，完整部件和作用形状都沿姿态升出", new { below, high, startsBuried, headPitch, parts, posedContacts });
     Check(contacts.Any(r => r.TargetId == aim.id && r.Node == 0 && r.Age >= .22f && r.Age <= .90f && r.ForceApplied && r.VelocityChange.z > 0f)
-          && lift > .35f && !contacts.Any(r => r.TargetId == side.id) && sideLift <= .04f,
+          && lift > .35f && !contacts.Any(r => r.TargetId == side.id && r.Node == 0 && r.Age <= .90f) && sideLift <= .04f,
         "上升中的真实鲸身接触托起目标，侧边对照未命中", new { aim.id, sideId = side.id, lift, sideLift, hits });
     Check(aim.isAlive() && !aim.under_forces && aim.position_height <= .04f && Live() == null && endings.Count == 1 &&
           !FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "water_whale"),

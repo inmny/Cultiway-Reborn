@@ -16,7 +16,8 @@ public sealed partial class ConstructedAbilityService
     {
         applied = false;
         if (knockback?.HasEffect != true || result != ApplyAttackState.Hit || !target.isAlive() ||
-            !target.asset.can_be_moved_by_powers || target.position_height > 0f || strength <= 0f)
+            !target.asset.can_be_moved_by_powers || target.position_height > 0f || strength <= 0f ||
+            knockback.OnlyWhileRising && !running.Cast.IsRising(node))
             return Vector3.zero;
 
         StartingPose(target, out Vector3 position, out _);

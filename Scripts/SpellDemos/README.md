@@ -2315,4 +2315,8 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 在已启动的独立游戏中运行 `dev.py exec --timeout 115 -- python3 Scripts/SpellDemos/verify_sky_whale.py`。使用[天鲸覆城构造](../../Doc/技能系统全面重构/构造输入/天鲸覆城.json)，核对起跃姿态与实际接触、正式扣费、目标离地和侧边未命中、落地恢复与再次施放。输出原版开发截图 `breach-native.png` 以及实际接触和高度 `trace.json`。默认只运行起跃托举。
 
-`--section spill` 验证整身翻转、腹部挂点朝下放水、实际触地与水量；`--section cutoff` 验证来源消失后只有已离体的水继续；`--section stones` 记录地面接触、三块碎石的升空和落地。分段可独立运行，完整交付时再采集连续画面。
+`--section spill` 验证整身翻转、腹部挂点朝下放水、实际触地与水量；`--section cutoff` 验证来源消失后只有已离体的水继续；`--section stones` 记录地面接触、三块碎石的升空和落地。分段可独立运行。
+
+- `--section impact` 检查上升托举、下压伤害、触地后只传递剩余水量、实际绕流和自然退场。接触高度以命中的地块为准，水面分流仍使用沿地面插值得到的高度。
+- `--section save` 通过正式存档比对原招与[逆卷](../../Doc/技能系统全面重构/构造输入/天鲸覆城·逆卷.json)的实际落点、派生关系、可编辑数据及学习记录，再改回前腹角度复放。完整存读用 `dev.py exec --timeout 255`；已有正式世界和落点记录时可加 `--resume-save <上次输出目录>`，只核对重开与改角后的复放。
+- `--section native` 和 `--section worldfall` 各录一段连续实机录像，包含起跃、卷石、翻身、垂流、撞散、奔流和收尾，按游戏时间输出 `demo.mp4`。录像用 `dev.py exec --timeout 180`。

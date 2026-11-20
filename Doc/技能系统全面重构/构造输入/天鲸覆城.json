@@ -18,14 +18,14 @@
     "Rotation": [-90, 180, 0],
     "Scale": 0.96,
     "Volume": 34.12,
-    "DisappearAt": 2.10,
+    "DisappearAt": 2.15,
     "Strength": 0.7,
     "ContactGroup": "breach",
     "ActiveFromMarker": "breach",
-    "ActiveUntilMarker": "crest",
+    "Contact": { "Mode": "Interval", "Interval": 0.7, "MaximumPerTarget": 2 },
     "Impact": {
       "DamageScale": 0.58,
-      "Knockback": { "Distance": 0.6, "Height": 3.2 }
+      "Knockback": { "Distance": 0.6, "Height": 3.2, "OnlyWhileRising": true }
     },
     "Operations": [
       { "Kind": "Animate", "Clip": "overturn" },
@@ -45,7 +45,8 @@
             { "At": 2.10, "Point": [0, 1.8, 0], "In": [0, -0.12, 3.2] }
           ]
         }
-      }
+      },
+      { "Kind": "PassRemainder", "At": 1.83, "When": { "Trigger": "WorldContact" } }
     ],
     "Children": [
       {
@@ -137,6 +138,22 @@
         "Operations": [
           { "Kind": "Spin", "Vector": [70, 55, 48] },
           { "Kind": "Fly", "At": 0, "Vector": [-0.8, -1.8, 4.4], "WorldVelocity": true, "Acceleration": [0, 0, -12], "Ground": "Stop", "InheritVelocity": false }
+        ]
+      },
+      {
+        "Id": "groundwater",
+        "Form": "water_flow",
+        "Matter": "water",
+        "FollowMatter": true,
+        "SourceLoss": "Continue",
+        "Volume": 0,
+        "Scale": 1.15,
+        "Activation": { "Trigger": "Handoff", "InheritRemainder": true, "ResetContacts": true },
+        "ContactGroup": "groundwater",
+        "Contact": { "Mode": "Interval", "Interval": 0.58 },
+        "Impact": { "DamageScale": 0.32, "Impulse": [1.1, 0, 0] },
+        "Operations": [
+          { "Kind": "Flow", "Flow": { "Cells": 28, "Size": 20, "Gravity": 3.6, "Drag": 1.25, "Evaporation": 0, "OpenBoundary": false } }
         ]
       }
     ]

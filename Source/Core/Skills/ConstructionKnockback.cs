@@ -11,6 +11,10 @@ public sealed class ConstructionKnockback
 
     /// <summary>无抗性及阻挡时的最高腾起高度；零表示在0.25世界秒内沿地击退，避免腾起公式除零。</summary>
     public float Height;
+
+    /// <summary>只有本次实际接触的生成部位正在向上移动才击退，缺省仍按原规则。</summary>
+    [Newtonsoft.Json.JsonProperty(DefaultValueHandling = Newtonsoft.Json.DefaultValueHandling.Ignore)]
+    public bool OnlyWhileRising;
 }
 
 /// <summary>检查并复制后的接触击退资料，不保存人物或旧执行回调。</summary>
@@ -22,6 +26,9 @@ public sealed class CompiledConstructionKnockback
     /// <summary>已经固定的腾起幅度。</summary>
     public float Height { get; }
 
+    /// <summary>击退需要生成部位的实际向上速度。</summary>
+    public bool OnlyWhileRising { get; }
+
     /// <summary>本次声明是否有实际位移作用。</summary>
     public bool HasEffect => Distance > 0f || Height > 0f;
 
@@ -31,6 +38,7 @@ public sealed class CompiledConstructionKnockback
     {
         Distance = source.Distance;
         Height = source.Height;
+        OnlyWhileRising = source.OnlyWhileRising;
         if (float.IsNaN(Distance) || float.IsInfinity(Distance) || Distance < 0f || Distance > 1000f ||
             float.IsNaN(Height) || float.IsInfinity(Height) || Height < 0f || Height > 100f)
             throw new InvalidDataException(path + "：击退幅度须为0至1000，腾起幅度须为0至100的有限值");
