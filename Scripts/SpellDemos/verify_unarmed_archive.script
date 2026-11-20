@@ -1,0 +1,73 @@
+// 同一肩撞可改动实际作用时段、力道和步幅，正式世界同时保存原招和改造。
+WanfaEditorRow MotionPoint(int index) => editor.GetComponentsInChildren<WanfaEditorRow>(false)
+    .Single(row => ((Text)Field(row, "_title")).text == string.Format(T("Key"), index));
+void SetNumber(WanfaEditorRow row, string key, string value)
+{
+    var input = row.GetComponentsInChildren<InputField>(false).Single(field => field.name == key);
+    if (!input.interactable) throw new InvalidOperationException("数值不可编辑：" + key);
+    input.text = value;
+    input.onEndEdit.Invoke(value);
+}
+try
+{
+    Click("Page2");
+    ((Button)Field(Row("SplitBodyStage"), "_action")).onClick.Invoke();
+    Check(Session().Draft.Body.Stages?.Length == 2, "身体页增加两个实际作用阶段");
+    SetNumber(Row("StageUntil"), "StageUntil", ".37");
+    var valid = JToken.FromObject(Session().Draft);
+    SetNumber(Row("StageUntil"), "StageUntil", ".25");
+    Check(JToken.DeepEquals(valid, JToken.FromObject(Session().Draft)), "结束早于开始时保留上一份有效草稿");
+    Select("BodyStage", string.Format(T("BodyStageNumber"), 2) + " / " + Session().Draft.Body.Stages[1].Id);
+    SetNumber(Row("StageFrom"), "StageFrom", ".4");
+
+    Select("BodyValues", T("BodyFootwork"));
+    SetNumber(MotionPoint(3), "FootworkForward", ".29");
+    SetNumber(MotionPoint(4), "FootworkForward", ".29");
+    Click("Page4");
+    SetNumber(Row("BodyForce"), "BodyForce", "4.25");
+    var changed = Session().Draft.Body;
+    Check(changed.Stages[0].Until == .37f && changed.Stages[1].From == .4f && changed.Impact.Force == 4.25f &&
+          changed.Construction.Footwork.Keys.Skip(2).All(key => key.Point[0] == .29f),
+        "真实窗口改动两个阶段、身体推力和短进步");
+
+    Click("Replace");
+    string edited = Session().SourceId;
+    var definition = ConstructionEditing.Access.Read(edited);
+    Check(edited != basisId && JToken.DeepEquals(original, JToken.FromObject(ConstructionEditing.Access.Read(basisId))) &&
+          definition.Body.Impact.Force == 4.25f && definition.Body.Stages[1].From == .4f &&
+          definition.Body.Construction.Footwork.Keys.Last().Point[0] == .29f,
+        "正式改造保存新数值，原招保持原样");
+    Click("Close");
+    await Frames();
+
+    var ids = new[] { "Cultiway.Body.PalmPush", "Cultiway.Body.StraightPunch", "Cultiway.Body.FoldedElbow",
+        "Cultiway.Body.RisingKnee", "Cultiway.Body.LowSweep", basisId, edited };
+    foreach (string id in ids) ConstructedAbilityService.Learn(source.GetExtend(), id);
+    var target = Make(64.7f);
+    target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+    foreach (Actor actor in new[] { source, target })
+    {
+        CombatStatusEffects.RemoveStatus(actor, hold);
+        actor.updateStats();
+        actor.attack_timer = 999;
+    }
+    await Advance(.18f);
+    foreach (Actor actor in new[] { source, target }) Place(actor, actor == source ? 64.35f : 64.7f);
+    Check(World.world.units.getSimpleList().Contains(source) && World.world.units.getSimpleList().Contains(target),
+        "等两名人物都进入原版保存列表后再保存");
+    string archive = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(archive);
+    Check(File.Exists(Path.Combine(archive, "map.wbox")), "写入实际原版世界存档");
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+    {
+        process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, target = target.id, edited,
+        definitions = ids.Select(ConstructionEditing.Access.Read).ToArray()
+    }, Formatting.Indented));
+    return new { passed = true, section, edited, archive, checks };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

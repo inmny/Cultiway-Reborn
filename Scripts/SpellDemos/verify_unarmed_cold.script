@@ -1,0 +1,98 @@
+// 用新游戏进程还原实际世界和已学战技，再用原人物施放保存的改造。
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(archived, "expected.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check(process != (int)expected["process"], "在新游戏进程读回世界");
+Game.Resume();
+Config.paused = true;
+Config.setWorldSpeed("x1", false);
+World.world.save_manager.loadWorld(Path.Combine(archived, "archive"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+Actor source = World.world.units.get((long)expected["source"]), target = World.world.units.get((long)expected["target"]);
+Check(source != null && target != null, "从正式世界读回原施术者和目标");
+var owner = source.GetExtend();
+Check(expected["definitions"].All(before =>
+{
+    string id = (string)before["Id"];
+    var current = ConstructionEditing.Access.Read(id);
+    return current != null && ConstructedAbilityService.Knows(owner, id) &&
+           JToken.DeepEquals(before, JToken.Parse(JsonConvert.SerializeObject(current)));
+}), "六份原战技和改造完整读回且原人物仍掌握");
+var running = service.GetField("casts", F);
+Check(!BodyControlState.IsBusy(source.id) && !((IEnumerable)running.GetValue(null)).Cast<object>().Any(),
+    "旧施放没有重放，也未占用原人物身体");
+
+void Place(Actor actor, float x, float y)
+{
+    actor.stopMovement();
+    actor.stopForce();
+    actor.batch.c_action_landed.Remove(actor);
+    actor.current_position = new Vector2(x, y);
+    actor.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
+    actor.updatePos();
+}
+
+var idle = new BaseStats();
+idle.addTag("frozen_ai");
+var still = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.UnarmedColdIdle")
+    .SetStats(idle).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(target, still, 10000, target);
+target.updateStats();
+// 用读回的两名人物重新摆出和其他实测相同的对练关系。
+target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+ControllableUnit.clear(false);
+ControllableUnit.setControllableCreature(source);
+source.attack_timer = target.attack_timer = 999;
+await Advance(.20f);
+var heightMethod = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F);
+float height = (float)heightMethod.Invoke(null, new object[] { source });
+Place(source, 64.35f, 72f);
+Place(target, 64.35f + height * .30f, 72f);
+source.addAggro(target);
+target.addAggro(source);
+Check(SkillTargetRelationResolver.IsHostile(source, target), "读回的两名人物进入实际敌对对练");
+target.setHealth(target.getMaxHealth());
+var edited = ConstructionEditing.Access.Read((string)expected["edited"]);
+var handle = new ActiveAbilityHandle("content.constructed", owner.E, edited.Id);
+var observed = new List<ConstructedContact>();
+ConstructedCastEnded? end = null;
+void Touched(ConstructedContact hit) { if (hit.SourceId == source.id && hit.AbilityId == edited.Id) observed.Add(hit); }
+void End(ConstructedCastEnded fact) { if (fact.SourceId == source.id && fact.AbilityId == edited.Id) end = fact; }
+ConstructedAbilityService.ContactConfirmed += Touched;
+ConstructedAbilityService.CastEnded += End;
+try
+{
+    int health = target.data.health;
+    source.data.stamina = 100;
+    float paidFrom = source.data.stamina;
+    Vector2 before = source.current_position;
+    source.attack_timer = 0;
+    bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999;
+    Check(used && Mathf.Abs(paidFrom - source.data.stamina - edited.Cost) < .001f,
+        "读回的改造经原人物正式受理并支付保存后的报价", new { used, edited.Cost, paid = paidFrom - source.data.stamina });
+    await Advance(.49f);
+    bool controlled = ConstructedAbilityService.TryGetBodyPose(source.id, out BodyPose strike);
+    float step = strike.Foot.x - before.x;
+    await Advance(edited.Lifetime - .49f + .15f);
+    var hit = observed.SingleOrDefault();
+    float delta = source.current_position.x - before.x;
+    Check(observed.Count == 1 && hit.Node == -1 && hit.TargetId == target.id &&
+          hit.Age >= edited.Body.Stages[1].From && hit.Age <= edited.Body.Stages[1].Until &&
+          target.data.health < health && hit.ForceApplied && hit.VelocityChange.x >= 4.2f &&
+          controlled && Mathf.Abs(step - edited.Body.Construction.Footwork.Keys.Last().Point[0] * height) < .025f &&
+          end.HasValue && !end.Value.Cancelled && !BodyControlState.IsBusy(source.id),
+        "改造从第二阶段真实碰肩，使用新力道和步幅，随后归还控制",
+        new { hits = observed.Select(value => new { value.Age, value.Node, value.TargetId, value.ForceApplied,
+            value.Result, value.DamageAttempted, forceX = value.VelocityChange.x }), health, after = target.data.health, step, delta, height, end });
+    return new { passed = true, section, process, edited = edited.Id, checks };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Touched;
+    ConstructedAbilityService.CastEnded -= End;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

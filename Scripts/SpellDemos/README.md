@@ -2461,3 +2461,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_unarmed.py --section upper`。同一个人形和目标复验三招发力、实际接触、支付与收势，再把直拳目标移到侧外验证落空。用 `--section palm`、`--section punch`、`--section elbow` 或 `--section miss` 可单独复验。`--section hand-edit` 在真实窗口切换伸掌和握拳，核对接触形状、撤销与正式改造重开。
 
 `--section lower` 复验托山提膝、贴地扫足、倚身靠肩和扫足落空。可用 `--section knee`、`--section sweep`、`--section shoulder` 或 `--section sweep-miss` 只复验受影响的一段。记录包含实际支撑足、发力部位、扣血、身体位移和控制归还。
+
+`--section archive` 从编辑器调整原肩撞的两个作用阶段、推力和短进步，保存该改造与六份原战技。重启独立游戏后，用 `--section cold --archive <输出目录>` 从正式世界恢复原人物、构造和掌握关系，并施放改造后的肩撞。
+
+`--section film --view native` 和 `--section film --view worldfall` 分别录制六招，按实际世界时间编码成一段连续视频。`--move` 可以只补拍指定招式。拍摄用正式施放入口并核对支付、命中与收势。
