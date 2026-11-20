@@ -2421,3 +2421,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_five_phase_district.py --section district`。验证[五相换城](../../Doc/技能系统全面重构/构造输入/五相换城.json)的岩壳宽度、壳外来势、五次实际承力、位置与余量接替、角色受击及世界材料。 `--section carrier` 让同一构造从实际原法宝的位置开始。 `--section reordered` 保留器承，调换金火两相。两种改造资料均写入各自结果目录的 `definition.json`。
 
 对应场景可加 `--record native` 或 `--record worldfall` 输出真实来势和换相过程。 `--section editor` 验证沿用来源位置开关、撤销、保存及中英文重开。
+
+### 鸣铗纳锋（9.40 法宝）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 162 -- python3 Scripts/SpellDemos/verify_weapon_chamber.py --section release`。用真法宝和原版落地的兵器验证[鸣铗纳锋](../../Doc/技能系统全面重构/构造输入/鸣铗纳锋.json)。输出器口与原物的位置、高度、随动和抛出记录，并检查实际护口交锋、口外无作用和拾回原物。
+
+`--section interrupt` 在暂存时中止，核对最后位置落地和原法宝归还。 `--section editor` 核对尺寸编辑、无效输入、撤销、中英文重开。释放流程可加 `--record native` 或 `--record worldfall`。

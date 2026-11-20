@@ -163,6 +163,8 @@ public static class ConstructionPresentation
                 node.RadialMotion.Speed, node.RadialMotion.Interval, T("Target." + node.RadialMotion.Targets))).Distinct());
         lines.AddRange(plan.Nodes.Where(node => node.RadialMotion is { GroundItemLimit: > 0 }).Select(node =>
             F("RadialGroundItems", node.RadialMotion.GroundItemLimit)).Distinct());
+        lines.AddRange(plan.Nodes.Where(node => node.WeaponChamber != null).Select(node =>
+            F("WeaponChamber", node.WeaponChamber.Radius, node.WeaponChamber.Depth, node.WeaponChamber.ReleaseSpeed)).Distinct());
         lines.AddRange(plan.Nodes.Where(node => node.Activation?.InheritAbsorbedForce == true).Select(node =>
             F("AbsorbedForceOutlet", Form(plan.Nodes[node.Activation.Source].Resource.Description.Id),
                 Form(node.Resource.Description.Id), node.Activation.Delay)).Distinct());

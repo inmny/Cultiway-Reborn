@@ -248,6 +248,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     if (generation != worldGeneration) yield break;
                     ConfirmMaterialVortices(running, clock);
                     if (generation != worldGeneration) yield break;
+                    ConfirmWeaponChambers(running, clock);
                 }
 
                 if (generation != worldGeneration) yield break;

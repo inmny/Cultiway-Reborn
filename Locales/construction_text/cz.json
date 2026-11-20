@@ -157,5 +157,6 @@
   "Cultiway.ConstructionText.RequiredStatus": "接触{0}时读取「{1}」作为分支条件。",
   "Cultiway.ConstructionText.RemoveStatus": "最多解除{1}层「{0}」（{2}）。",
   "Cultiway.ConstructionText.OwnStatusSource": "仅当前施术者",
-  "Cultiway.ConstructionText.AnyStatusSource": "任意来源"
+  "Cultiway.ConstructionText.AnyStatusSource": "任意来源",
+  "Cultiway.ConstructionText.WeaponChamber": "器口半径{0:0.##}格、深{1:0.##}格，可暂存原兵器并以每秒{2:0.##}格抛出。"
 }

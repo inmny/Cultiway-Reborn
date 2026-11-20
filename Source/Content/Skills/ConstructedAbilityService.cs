@@ -783,6 +783,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             ReleaseSpatialViews(running);
             ReleaseLandscapeSlices(running);
             ReleaseMaterialVortices(running);
+            ReleaseWeaponChambers(running);
             ReleaseMirrorImages(running, worldChanged: true);
             ReleaseSupportGrips(running, "WorldChanged");
             ReleaseShadowHold(running, "WorldChanged", running.LastWorldTime);
@@ -825,6 +826,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ReleaseSpatialViews(running);
         ReleaseLandscapeSlices(running);
         ReleaseMaterialVortices(running);
+        ReleaseWeaponChambers(running);
         ReleaseMirrorImages(running);
         if (running.Cast.Plan.SoulPact != null && soulPacts.TryGetValue(running.TargetId, out var pact) && pact.Cast == running)
             soulPacts.Remove(running.TargetId);
@@ -1077,6 +1079,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>每个槽携带的原物编号；结束时物件仍由原地面系统推进。</summary>
         internal List<long>[] ChannelItems;
+
+        /// <summary>索引对应已编译的实际器口部位。</summary>
+        internal Combat.GroundWeaponService.Chamber[] WeaponChambers;
 
         /// <summary>本次实际受理的世界时间，动作事实采用同一原点。</summary>
         internal double StartedAt;

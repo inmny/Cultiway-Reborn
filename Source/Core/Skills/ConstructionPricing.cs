@@ -140,6 +140,9 @@ public sealed class ConstructionMeasure
             if (node.MaterialVortex is { } vortex)
                 RadialMotionWork += vortex.MaximumVolume * .4d + Math.PI * vortex.Radius * vortex.Radius *
                     vortex.Speed * (node.Active.y - node.Active.x) * .065d;
+            if (node.WeaponChamber is { } chamber)
+                RadialMotionWork += Math.PI * chamber.Radius * chamber.Radius *
+                    (node.Active.y - node.Active.x) * .15d + chamber.Depth * chamber.ReleaseSpeed * .12d;
             bool material = node.FragmentSource < 0 && node.RemainderRoot < 0 &&
                             (node.Resource.Meshes.Length > 0 || node.LandscapeSlice != null);
             double volume = material ? node.Volume * scales[i] : 0d;

@@ -1,0 +1,138 @@
+var clashes = new List<ConstructedClash>();
+void Clash(ConstructedClash value) => clashes.Add(value);
+ConstructedAbilityService.ClashConfirmed += Clash;
+
+try
+{
+    var definition = Spell("鸣铗纳锋");
+    var badTiming = Spell("鸣铗纳锋");
+    badTiming.Root.Children[0].ActiveUntil = .68f;
+    try { AbilityCompiler.Compile(badTiming, false); Check(false, "没有蓄积时段的器口不应接受"); }
+    catch (InvalidDataException) { Check(true, "共同编译拒绝没有蓄积时段的器口"); }
+    bool film = recordView.Length > 0;
+    if (film) await SetCamera(12.8f);
+
+    Item sword = await LooseItem(68.15f, 72f);
+    Item outside = await LooseItem(68.15f, 76.2f);
+    await Advance(.65f);
+    object item = ground[sword.id], data = Data(sword), outsideData = Data(outside);
+    int originalCount = ground.Count;
+    int durability = sword.getDurabilityCurrent();
+    Vector3 initial = Vector(data, "Position"), outsideAt = Vector(outsideData, "Position");
+    Check((bool)Field(data, "Resting") && (bool)Field(outsideData, "Resting"), "复用原版掉落的场内和场外兵器已经落稳");
+    var launch = await StartCarried(definition);
+    var cast = launch.Cast;
+    ControllableUnit.clear(false);
+    Place(source, 64); Place(victim, 78);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.setStatsDirty(); source.updateStats();
+    if (film) MoveCamera.instance.forceZoom(12.8f);
+    const int mouthNode = 1;
+    double start = World.world.getCurWorldTime(), caughtAt = -1d, thrownAt = -1d, landedAt = -1d;
+    Vector3 heldPoint = default, heldMouth = default, velocityOut = default, thrownMouth = default, thrownPoint = default;
+    Vector3 initialMouth = default;
+    float bestFollow = 0f, releaseDot = 0f, exitDistance = 0f;
+    bool fired = false;
+    var capsules = new List<AbilityCapsule>();
+    var trace = new List<object>();
+    var stateRows = (Array)Field(cast, "nodes");
+
+    void Observe()
+    {
+        if (film)
+        {
+            var camera = World.world.camera.transform;
+            camera.position = new Vector3(77f, 72.4f, camera.position.z);
+        }
+        if (cast.NodeAge(mouthNode) < .18f) return;
+        var pose = (Matrix4x4)Field(stateRows.GetValue(mouthNode), "Transform");
+        Vector3 mouth = PositionOf(pose), point = Vector(data, "Position"), velocity = Vector(data, "Velocity");
+        var forward = Vector3.ProjectOnPlane(pose.GetColumn(2), Vector3.forward).normalized;
+        if (initialMouth == Vector3.zero) initialMouth = mouth;
+        double at = World.world.getCurWorldTime() - start;
+        bool held = Field(item, "WeaponChamber") != null;
+        if (trace.Count == 0 || trace.Count < at * 10f)
+            trace.Add(new { at, held, mouth = mouth.ToString(), point = point.ToString(), speed = velocity.ToString() });
+        if (held)
+        {
+            if (caughtAt < 0d) caughtAt = at;
+            if (cast.Age > .86f && cast.Age < 2.10f)
+            {
+                if (heldMouth == Vector3.zero) { heldMouth = mouth; heldPoint = point; }
+                if (Vector3.Distance(point - heldPoint, mouth - heldMouth) < .13f)
+                    bestFollow = Mathf.Max(bestFollow, Vector3.Distance(mouth, heldMouth));
+            }
+        }
+        else if (caughtAt >= 0d && thrownAt < 0d && Vector3.Dot(velocity, forward) > 12f)
+        {
+            thrownAt = at; velocityOut = velocity; thrownMouth = mouth;
+            thrownPoint = point;
+            exitDistance = Vector3.Dot(point - mouth, forward);
+            releaseDot = Vector3.Dot(velocity.normalized, forward);
+        }
+        if (thrownAt > 0d && (bool)Field(data, "Resting") && landedAt < 0d) landedAt = at;
+
+        if (fired || cast.Age < .60f || section == "interrupt") return;
+        capsules.Clear();
+        cast.AppendContacts(capsules);
+        if (capsules.Count == 0) return;
+        AbilityCapsule guard = capsules.First(shape => shape.Node > mouthNode);
+        Vector3 centre = (guard.A + guard.B) * .5f;
+        Send("guard", centre + new Vector3(3.8f, 0f, 0f));
+        fired = true;
+    }
+
+    List<double> times = null;
+    const float duration = 4.65f;
+    if (film) times = await Film(duration, Observe);
+    else
+    {
+        Config.paused = false;
+        while (World.world.getCurWorldTime() - start < (section == "interrupt" ? 1.16f : duration))
+        { Observe(); await Game.NextFrame(); }
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        Observe();
+    }
+    File.WriteAllText(Path.Combine(folder, "positions.json"), JsonConvert.SerializeObject(trace, Formatting.Indented));
+    Check(caughtAt >= 0d && Vector3.Distance(initialMouth, initial) < 3.2f, "实际器口只接入正面的原铁剑",
+          new { caughtAt, initial = initial.ToString(), mouth = initialMouth.ToString(), length = Field(data, "Length") });
+    Check(Field(ground[outside.id], "WeaponChamber") == null && (bool)Field(outsideData, "Resting") &&
+          Vector3.Distance(Vector(outsideData, "Position"), outsideAt) < .05f && ground.Count == originalCount,
+          "口外原物没有被影响，器口没有额外生成兵器");
+    if (section == "interrupt")
+    {
+        Check(Field(item, "WeaponChamber") != null && Borrowed(), "中止前实际原剑和原法宝仍在控制中");
+        Vector3 atCancel = Vector(data, "Position");
+        service.GetMethod("Cancel", F).Invoke(null, new object[] { launch.Id });
+        await Advance(1.3f);
+        Check(cast.Finished && !Borrowed() && owner.IsArtifactEquipped(artifact) && Field(item, "WeaponChamber") == null &&
+              (bool)Field(data, "Resting") && Vector2.Distance(Vector(data, "Position"), atCancel) < .05f,
+              "中断后原法宝归还，剑从最后真实位置落地");
+    }
+    else
+    {
+        Check(bestFollow > .58f && thrownAt - caughtAt > 1.25f && landedAt > thrownAt && releaseDot > .95f &&
+              exitDistance > .8f && exitDistance < 3.2f,
+              "开口移动时同一剑随动，从真实开口抛出后自然落稳",
+              new { bestFollow, caughtAt, thrownAt, landedAt, releaseDot, exitDistance, thrownPoint = thrownPoint.ToString(),
+                    thrownMouth = thrownMouth.ToString(), velocityOut = velocityOut.ToString() });
+        Check(fired && clashes.Any(hit => (hit.RightCast == launch.Id && hit.RightNode > mouthNode && hit.RightSpent > 0f) ||
+                                         (hit.LeftCast == launch.Id && hit.LeftNode > mouthNode && hit.LeftSpent > 0f)),
+              "护口甲片实际挡下了一次来势");
+        Check(cast.Finished && !Borrowed() && owner.IsArtifactEquipped(artifact) && Field(item, "WeaponChamber") == null,
+              "护口收完后原法宝已归还");
+    }
+    Check(ReferenceEquals(World.world.items.get(sword.id), sword) && sword.getDurabilityCurrent() == durability &&
+          sword.getActor() == null && sword.getCity() == null, "抛放与中断均保留原剑、原耐久和无主关系");
+    PickUp(sword, data);
+    return new { passed = true, section, view = recordView, scene = "construction", times, duration,
+        resource = definition.Resource, paid = definition.Cost, original = sword.id, outside = outside.id,
+        caughtAt, thrownAt, landedAt, bestFollow, releaseDot,
+        previewFrame = times == null ? 0 : Math.Max(0, times.FindIndex(at => at > thrownAt - .10f)) };
+}
+finally
+{
+    ConstructedAbilityService.ClashConfirmed -= Clash;
+    ReleaseChecks();
+}

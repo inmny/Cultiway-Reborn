@@ -1402,6 +1402,7 @@ public sealed partial class AbilityCast
     private bool HasOwnWork(int node) => Plan.Nodes[node].Resource.Meshes.Length != 0 ||
                                          Plan.Nodes[node].LandscapeSlice != null ||
                                          Plan.Nodes[node].MaterialVortex != null ||
+                                         Plan.Nodes[node].WeaponChamber != null ||
                                          Plan.Nodes[node].RadialMotion is { ChannelLength: > 0f } ||
                                          Plan.Nodes[node].ContactRole != ConstructionContactRole.Decoration ||
                                          Array.Exists(Plan.DirectSignalSteps, index => Plan.Steps[index].Node == node);
@@ -1537,6 +1538,7 @@ public sealed partial class AbilityCast
         for (int i = 0; i < nodes.Length; i++)
         {
             if (Plan.Nodes[i].RadialMotion is { ChannelLength: > 0f }) AppendWindChannel(i, output);
+            if (Plan.Nodes[i].WeaponChamber != null) AppendWeaponChamber(i, output);
             if (Plan.Nodes[i].AbsorbedForceOutlet >= 0) AppendSolarReservoir(i, output);
             if (nodes[i].Visible && (!Plan.Nodes[i].HasRay || nodes[i].Ray != null) && NodeAge(i) < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0)
             {

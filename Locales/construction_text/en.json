@@ -157,5 +157,6 @@
   "Cultiway.ConstructionText.RequiredStatus": "The branch checks whether {0} still have {1} on contact.",
   "Cultiway.ConstructionText.RemoveStatus": "Removes up to {1} stacks of {0} ({2}).",
   "Cultiway.ConstructionText.OwnStatusSource": "caster’s stacks only",
-  "Cultiway.ConstructionText.AnyStatusSource": "any source"
+  "Cultiway.ConstructionText.AnyStatusSource": "any source",
+  "Cultiway.ConstructionText.WeaponChamber": "The chamber is {0:0.##} tiles wide in radius and {1:0.##} tiles deep. It holds the original weapon and ejects it at {2:0.##} tiles per second."
 }

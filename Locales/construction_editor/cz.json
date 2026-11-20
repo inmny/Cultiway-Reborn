@@ -1713,5 +1713,10 @@
   "Cultiway.Construction.MartialShape.foot": "足部",
   "Cultiway.Construction.MartialShape.head": "头部",
   "Cultiway.Construction.MartialShape.organ": "器官表面",
-  "Cultiway.Construction.MartialShape.joint": "骨段接触面"
+  "Cultiway.Construction.MartialShape.joint": "骨段接触面",
+  "Cultiway.Construction.WeaponChamber": "实物器口",
+  "Cultiway.Construction.WeaponChamberHint": "在有效时段前段接入一件无主兵器，暂存后从实际口沿抛出。需先在部位设置显现、有效和消失时点。",
+  "Cultiway.Construction.WeaponChamberRadius": "器口半径（格）",
+  "Cultiway.Construction.WeaponChamberDepth": "器腹深度（格）",
+  "Cultiway.Construction.WeaponChamberSpeed": "离口速度（格每秒）"
 }

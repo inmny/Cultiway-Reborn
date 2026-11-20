@@ -99,7 +99,8 @@ internal sealed partial class GroundWeaponService
     private static Vector3 AirflowPoint(Entry entry) => Vector(entry.Data.Position) + Vector3.forward * entry.Bottom;
 
     private static bool AirflowEligible(Entry entry) =>
-        entry.Item.isAlive() && !entry.Item.shouldbe_removed && !entry.Item.hasActor() && !entry.Item.hasCity();
+        entry.WeaponChamber == null && entry.Item.isAlive() && !entry.Item.shouldbe_removed &&
+        !entry.Item.hasActor() && !entry.Item.hasCity();
 
     private static void SelectAirflow(Entry entry, float distance, int limit)
     {
