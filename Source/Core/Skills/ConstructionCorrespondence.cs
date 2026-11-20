@@ -58,6 +58,46 @@ public sealed class ConstructionCorrespondence
     /// <summary>首次确认作用后，以原人物的实际部位显示短暂立影。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool ShowBody;
+
+    /// <summary>让原人物的影身先升起，再以两侧真实接触取得抱持。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionShadowHold ShadowHold;
+}
+
+/// <summary>可组合的影身抱持规则，时间单位为世界秒。</summary>
+public sealed class ConstructionShadowHold
+{
+    public float RiseSeconds = .52f;
+    public float CloseSeconds = .34f;
+    public float HoldSeconds = .95f;
+    public float EscapeDistance = .55f;
+    public float Strength = 3f;
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float DragDistance;
+}
+
+/// <summary>运行时使用的独立参数，不引用原编辑资料。</summary>
+internal sealed class CompiledShadowHold
+{
+    internal readonly float RiseSeconds, CloseSeconds, HoldSeconds, EscapeDistance, Strength, DragDistance;
+
+    internal CompiledShadowHold(ConstructionShadowHold source, float window, string path)
+    {
+        if (!InRange(source.RiseSeconds, .12f, 3f) || !InRange(source.CloseSeconds, .12f, 3f) ||
+            !InRange(source.HoldSeconds, .12f, 12f) || !InRange(source.EscapeDistance, .1f, 6f) ||
+            !InRange(source.Strength, .01f, 100f) || !InRange(source.DragDistance, 0f, 8f) ||
+            source.RiseSeconds + source.CloseSeconds + source.HoldSeconds > window)
+            throw new InvalidDataException(path + "：抱持的各阶段需要落在对应时段内，挣脱距离和强度须有限且为正");
+
+        RiseSeconds = source.RiseSeconds;
+        CloseSeconds = source.CloseSeconds;
+        HoldSeconds = source.HoldSeconds;
+        EscapeDistance = source.EscapeDistance;
+        Strength = source.Strength;
+        DragDistance = source.DragDistance;
+    }
+
+    private static bool InRange(float value, float minimum, float maximum) => value >= minimum && value <= maximum;
 }
 
 /// <summary>边界检查后的独立对应资料，运行不读取编辑中的声明。</summary>
@@ -87,6 +127,8 @@ public sealed class CompiledCorrespondence
     /// <summary>确认作用后使用原人物身体显示映像。</summary>
     public bool ShowBody { get; }
 
+    internal CompiledShadowHold ShadowHold { get; }
+
     /// <summary>只在完整构造边界核对名称、端点和有限份额。</summary>
     /// <param name="source">明确声明的对应。</param><param name="lifetime">本次施放总寿命。</param>
     /// <param name="path">所属部位资料路径。</param>
@@ -113,5 +155,13 @@ public sealed class CompiledCorrespondence
         Effects = source.Effects;
         ActiveFrom = source.ActiveFrom;
         ActiveUntil = source.ActiveUntil ?? float.PositiveInfinity;
+        if (source.ShadowHold != null)
+        {
+            if (Target != ConstructionCorrespondenceTarget.Target || !OriginalContactOnly || ShowBody ||
+                DamageFraction != 0f || Effects != ConstructionCorrespondenceEffects.None)
+                throw new InvalidDataException(path + "/ShadowHold：需要只与所选原身接触，不能同时转交伤害或附带作用");
+            ShadowHold = new CompiledShadowHold(source.ShadowHold, (source.ActiveUntil ?? lifetime) - ActiveFrom,
+                path + "/ShadowHold");
+        }
     }
 }

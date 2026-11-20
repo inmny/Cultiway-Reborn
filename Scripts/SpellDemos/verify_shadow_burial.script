@@ -1,0 +1,84 @@
+var definition = Spell("影中葬身");
+var facts = new List<ConstructedShadowGrip>();
+var gripState = new List<object>();
+void Grip(ConstructedShadowGrip fact)
+{
+    facts.Add(fact);
+    if (victim.data?.id != fact.TargetId) return;
+    gripState.Add(new { fact.CastId, fact.ReleaseReason, fact.WorldTime, victim.under_forces,
+        flying = victim.isFlying(), height = victim.position_height, foot = victim.current_position.ToString() });
+}
+bool Controlled(Actor a) => BodyControlState.HasControl(a.id, BodyOccupancy.Stance);
+FormVisualInstance[] Shadows() => FormVisualScene.Instances.Where(v => v.Surface == "yin_shadow").ToArray();
+Vector3 Ground(FormVisualInstance value) => value.Transform.GetColumn(3);
+ConstructedAbilityService.ShadowGripChanged += Grip;
+var stats = new BaseStats();
+stats.addTag("frozen_ai");
+var steady = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ShadowBurial.Steady") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ShadowBurial.Steady")
+        .SetStats(stats).SetDuration(10000).Build();
+void Steady(Actor actor)
+{
+    CombatStatusEffects.RemoveStatus(actor, hold);
+    CombatStatusEffects.ApplyStatus(actor, steady, 10000, actor);
+    actor.setStatsDirty();
+    actor.updateStats();
+}
+Steady(victim);
+CombatStatusEffects.ApplyStatus(source, steady, 10000, source);
+source.updateStats();
+try
+{
+    definition.Root.Correspondence.ShadowHold.DragDistance = 0;
+    definition.Root.Correspondence.ShadowHold.HoldSeconds = .93f;
+    var wrong = Spell("影中葬身");
+    wrong.Root.Correspondence.ShadowHold.RiseSeconds = 4;
+    bool rejected = false;
+    try { AbilityCompiler.Compile(wrong); }
+    catch (InvalidDataException) { rejected = true; }
+    Check(rejected, "编译拒绝超出实际部位存在时段的升起规则");
+
+    var cast = await Use(definition);
+    var victimId = victim.id;
+    float hp = victim.data.health;
+    await Advance(.16f);
+    var low = Shadows().FirstOrDefault();
+    Check(Shadows().Length > 0 && low.Transform.m22 < .6f && !Controlled(victim),
+        "影身从原人物脚下出现，升起时仍未控制人物", new { height = low.Transform.m22, at = Ground(low).ToString() });
+    await Advance(.42f);
+    var standing = Shadows().FirstOrDefault();
+    Check(Shadows().Length == 2 && standing.Transform.m22 > .9f && standing.Transform.m00 < 0 &&
+        Ground(standing).x > Ground(low).x && !Controlled(victim),
+        "原身轮廓转到反面站起，双臂显形先于控制", new { height = standing.Transform.m22, turn = standing.Transform.m00 });
+    for (int i = 0; i < 12 && facts.Count == 0; i++) await Advance(.06f);
+    var grasp = facts.SingleOrDefault();
+    Check(grasp.CastId == cast.Id && grasp.TargetId == victimId && grasp.ReleaseReason == null &&
+        Vector3.Distance(grasp.LeftContact, grasp.RightContact) > .02f && Controlled(victim),
+        "两侧触面各自命中同一原身后才取得站姿控制",
+        new { cast = cast.Id, grasp.CastId, grasp.TargetId, victimId, left = grasp.LeftContact.ToString(), right = grasp.RightContact.ToString(),
+            elapsed = cast.Cast.Age, immovable = victim.isImmovable(), flying = victim.isFlying(), underForces = victim.under_forces,
+            controlled = Controlled(victim), count = Shadows().Length });
+    await Advance(1.46f);
+    Check(facts.Count == 2 && facts[1].CastId == cast.Id && facts[1].ReleaseReason == "Released" &&
+        !Controlled(victim) && victim.isAlive() && victim.data.health == hp && Shadows().Length == 0,
+        "自然松抱归还控制，本体无附带伤害，影身折回", new { release = facts.Last().ReleaseReason, shadows = Shadows().Length });
+
+    await Advance(.8f);
+    var second = await Use(definition);
+    await Advance(.24f);
+    Place(victim, 73);
+    var passerby = Make(69);
+    passerby.setKingdom(victim.kingdom);
+    Steady(passerby);
+    await Advance(definition.Lifetime + .1f);
+    Check(facts.Count == 2 && second.Cast.Finished && !Controlled(victim) && !Controlled(passerby) && Shadows().Length == 0,
+        "原身走出合臂位置时落空，站在原地的旁人不会被抱持",
+        new { actual = victim.current_position.ToString(), other = passerby.current_position.ToString() });
+    return new { passed = true, victim = victimId, left = grasp.LeftContact.ToString(), right = grasp.RightContact.ToString(),
+        heldSeconds = facts[1].WorldTime - grasp.WorldTime, release = facts[1].ReleaseReason };
+}
+finally
+{
+    ConstructedAbilityService.ShadowGripChanged -= Grip;
+    ReleaseChecks();
+}

@@ -2359,3 +2359,13 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--section eruption` 核对真实落锤、凹痕、地层抬升、岩片和雷柱各自的实际伤害及范围外对照，输出 `thunder-crater.png`、`thunder-eruption.png` 和 `thunder-rockfall.png`。`--section guard --view native` 只复验架挡及解除后重放；`--section permit --view native` 复验许可单格。
 
 `--section save --view native` 核对原术与[偏雷派生](../../Doc/技能系统全面重构/构造输入/雷神凿世·偏雷.json)正式存读，比较两次真实撞点、压痕和雷柱，使用 `dev.py exec --timeout 215`。`--section film --view native` 与 `--section film --view worldfall` 分别录一次常速过程，输出 `demo.mp4` 与阶段时间记录。
+
+### 影中葬身（9.35）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 150 -- python3 Scripts/SpellDemos/verify_shadow_burial.py --section grip`，确认[影中葬身](../../Doc/技能系统全面重构/构造输入/影中葬身.json)的影身从原身脚下反向站起，左右真实接触后才取得抱持。此段关闭拖拽，也对照了原身提前离开的情况。
+
+`--section drag` 对照合法拖入和受阻停下。`--section release` 复验真实救援、挣脱、死亡和换世界。`--case rescue|escape|death|world` 可以只补跑对应分支。
+
+`--section save` 在抱持期间正式存档，核对原术和[深折派生](../../Doc/技能系统全面重构/构造输入/影中葬身·深折.json)的学习、来历和实放。`--section variant --saved <输出目录>` 用同一档单独复验深折。重启后用 `--section cold --saved <输出目录>` 核对冷启动。
+
+`--section film --view native` 和 `--section film --view worldfall` 各录一段原速完整过程，输出 `demo.mp4` 与 `timeline.json`。

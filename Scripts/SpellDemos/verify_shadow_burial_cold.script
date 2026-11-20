@@ -1,0 +1,28 @@
+Game.Resume();
+Config.paused = true;
+try
+{
+    var expected = JObject.Parse(File.ReadAllText(Path.Combine(saved, "readback-expected.json")));
+    World.world.save_manager.loadWorld(Path.Combine(saved, "world"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    long sourceId = (long)expected["sourceId"], targetId = (long)expected["targetId"];
+    var source = World.world.units.get(sourceId);
+    var target = World.world.units.get(targetId);
+    var catalog = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    var variants = new[] { expected["original"], expected["derived"] };
+    var knowledge = source.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids;
+    Check(variants.All(definition => knowledge.Contains((string)definition["Id"]) &&
+        JToken.DeepEquals(definition, JToken.Parse(JsonConvert.SerializeObject(catalog[(string)definition["Id"]])))),
+        "冷启动恢复原术、深折以及学习关系");
+    Check(target.isAlive() && Vector2.Distance(target.current_position, new Vector2((float)expected["x"], (float)expected["y"])) < .06f &&
+          !BodyControlState.HasControl(targetId, BodyOccupancy.Stance) && !FormVisualScene.Instances.Any(v => v.Surface == "yin_shadow"),
+        "冷启动恢复活体合法坐标，旧控制与画面已经清空");
+    return new { passed = true, sourceId, targetId, position = target.current_position.ToString() };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastEnded -= Ended;
+}

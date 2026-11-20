@@ -214,6 +214,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     RunningCast running = active[i];
                     UpdateSupportGrips(running, clock);
                     if (generation != worldGeneration) yield break;
+                    if (running.Cast.Plan.ShadowHoldNode >= 0) AdvanceShadowHold(running, clock);
+                    if (generation != worldGeneration) yield break;
                     if (running.ActorTransferHolds?.Count > 0) ConfirmActorTransferHolds(running, clock, generation);
                     if (generation != worldGeneration) yield break;
                     ConfirmEnclosures(running, clock);
@@ -306,6 +308,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         AppendBalancedWakan(now);
         AppendLifeRepairs(now);
         AppendShadows(now);
+        AppendShadowHolds(now);
         AppendSoulPactTransfers(now);
         AppendObservedSignals(now);
         AppendContactVolumes(now);
@@ -933,6 +936,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                         if (!FindFrostSurface(actor, effect.FrostCoating, a0, pulse ? a0 : shape.To, start,
                                 pulse ? start : clock + step, out at, out point, out normal, out frost,
                                 out frostPose, out frostAnchor)) return;
+                    }
+                    else if (TryShadowBurialPose(actor.Id, out _, out var buried))
+                    {
+                        if (!BodySurfacePose.Find(buried, buried, a0, pulse ? a0 : shape.To, "surface",
+                                out at, out var anchor, out normal)) return;
+                        point = anchor.Point(buried);
                     }
                     else if (shape.To.Node < 0 && running.Cast.Plan.Body?.Part.IsJoint == true)
                     {

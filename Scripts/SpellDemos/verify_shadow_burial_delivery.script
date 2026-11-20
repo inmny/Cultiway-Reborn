@@ -1,0 +1,147 @@
+async Task<object> SavePair()
+{
+    var variant = Spell("影中葬身·深折");
+    string saved = Path.Combine(section == "variant" ? existing : folder, "world");
+    string expectedPath = Path.Combine(section == "variant" ? existing : folder, "readback-expected.json");
+    if (section == "save")
+    {
+        long active = await Grasp();
+        var reached = await Arrive(active);
+        ConstructedAbilityService.Register(variant);
+        ConstructedAbilityService.Learn(source.GetExtend(), definition.Id);
+        ConstructedAbilityService.Learn(source.GetExtend(), variant.Id);
+        File.WriteAllText(expectedPath, JsonConvert.SerializeObject(new
+        {
+            sourceId = source.id, targetId = victim.id, original = JToken.FromObject(definition),
+            derived = JToken.FromObject(variant), x = reached.Foot.x, y = reached.Foot.y
+        }, Formatting.Indented));
+        SaveManager.saveWorldToDirectory(saved);
+    }
+    var expected = JObject.Parse(File.ReadAllText(expectedPath));
+    long sourceId = (long)expected["sourceId"], targetId = (long)expected["targetId"];
+    var landing = new Vector2((float)expected["x"], (float)expected["y"]);
+    World.world.save_manager.loadWorld(saved);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    source = World.world.units.get(sourceId);
+    victim = World.world.units.get(targetId);
+    var catalog = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    var prior = (AbilityDefinition)catalog[definition.Id];
+    var restored = (AbilityDefinition)catalog[variant.Id];
+    var learned = source.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids;
+    bool originalMatches = JToken.DeepEquals(expected["original"], JToken.Parse(JsonConvert.SerializeObject(prior)));
+    bool variantMatches = JToken.DeepEquals(expected["derived"], JToken.Parse(JsonConvert.SerializeObject(restored)));
+    Check(originalMatches && variantMatches && learned.Contains(prior.Id) && learned.Contains(restored.Id) &&
+        restored.Parent.Id == prior.Id, "正式读档保留完整参数、派生来历及学习关系",
+        new { originalMatches, variantMatches, learned, parent = restored.Parent.Id });
+    Check(!Controlled(victim) && victim.isAlive() && Vector2.Distance(Position(), landing) < .06f &&
+        Shadows().Length == 0 && Legal(),
+        "抱持期间保存也能恢复到最后合法坐标，活体可行动", new { expected = landing.ToString(), actual = Position().ToString() });
+    var mana = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ShadowBurial.Mana");
+    Steady(source);
+    Steady(victim);
+    CombatStatusEffects.ApplyStatus(source, mana, 10000, source);
+    source.updateStats();
+    victim.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+
+    // 长一点的派生仍走同一条路，只在开场清掉旧世界在终点留下的建筑。
+    var scenery = new HashSet<Building>();
+    for (int x = 71; x <= 72; x++)
+    for (int y = 71; y <= 73; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        if (tile.building != null) scenery.Add(tile.building);
+        tile.setTileTypes(TileLibrary.soil_low, null, true);
+    }
+    foreach (Building building in scenery) building.removeBuildingFinal();
+    var results = new List<ConstructedShadowBurial>();
+    foreach (AbilityDefinition spell in section == "variant" ? new[] { restored } : new[] { prior, restored })
+    {
+        definition = spell;
+        long cast = await Grasp();
+        results.Add(await Arrive(cast));
+        await Advance(spell.Lifetime);
+        CheckReturned(cast, "Released", true);
+    }
+
+    Check(results.Last().Foot.x - results.Last().Entry.x > 2.25f && results.All(item =>
+        Mathf.Abs(item.Foot.y - item.Entry.y) < .10f) &&
+        (results.Count < 2 || results[1].Foot.x - results[0].Foot.x > .75f),
+        "深折在实战沿同一条路径把原人物带得更远");
+    return new { passed = true, saved, sourceId, targetId, distances = results.Select(f => f.Foot.x - f.Entry.x).ToArray() };
+}
+
+async Task<object> Record()
+{
+    var cast = await Use(definition);
+    await SetCamera(3.1f);
+    if (recordView == "native")
+    {
+        World.world.camera.orthographicSize = 3.1f;
+        World.world.setZoomOrthographic(3.1f);
+    }
+    var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+    var mod = type.GetProperty("Instance", F).GetValue(null);
+    var god = type.GetProperty("GodShown", F);
+    var gpu = type.GetField("_gpuShown", F);
+    var firstPerson = type.GetProperty("IsFirstPerson", F);
+    if (recordView == "worldfall")
+    {
+        var applied = type.GetField("_godGpuApplied", F);
+        int earlier = (int)applied.GetValue(mod);
+        await Game.WaitUntil(() => (int)applied.GetValue(mod) >= earlier + 4, 600);
+    }
+    var lastDraw = typeof(AbilityCast).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer")
+        .GetProperty("LastDrawCount", F);
+    bool stable = true, drew = recordView == "native", low = false, high = false, held = false, pocket = false;
+    float duration = definition.Lifetime + .48f;
+    double started = World.world.getCurWorldTime(), mark = -1d;
+    var samples = new List<object>();
+    var times = await Film(duration, () =>
+    {
+        bool worldfall = recordView == "worldfall";
+        stable &= !(bool)firstPerson.GetValue(mod) && (bool)god.GetValue(mod) == worldfall && (!worldfall || (bool)gpu.GetValue(mod));
+        var forms = Shadows();
+        float rise = forms.Length == 0 ? 0f : forms[0].Transform.m22;
+        low |= rise > .05f && rise < .6f && !Controlled(victim);
+        high |= rise > .9f && !Controlled(victim);
+        held |= Controlled(victim);
+        if (entered.Count == 1 && BuriedPose(worldfall) && FormVisualScene.Instances.Any(v => v.Surface == "yin_basin"))
+        {
+            pocket = true;
+            if (mark < 0d) mark = World.world.getCurWorldTime() - started;
+        }
+        drew |= forms.Length > 0 && (int)lastDraw.GetValue(null) > 0;
+        samples.Add(new { age = cast.Cast.Age, rise, grip = Controlled(victim), inside = entered.Count == 1,
+            x = Position().x, y = Position().y });
+    });
+    File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(new
+    {
+        times, duration, samples,
+        entered = entered.Select(f => new { f.CastId, f.TargetId, f.WorldTime,
+            entry = new[] { f.Entry.x, f.Entry.y, f.Entry.z }, foot = new[] { f.Foot.x, f.Foot.y, f.Foot.z } }).ToArray(),
+        grips = facts.Select(f => new { f.WorldTime, f.TargetId, f.ReleaseReason }).ToArray()
+    }, Formatting.Indented));
+    Check(stable && drew && low && high && held && pocket && entered.Count == 1 && cast.Cast.Finished &&
+        Released(cast.Id)?.ReleaseReason == "Released" && victim.isAlive() && !Controlled(victim) && Shadows().Length == 0,
+        "原速录到同一次立影、合臂、拖入及活体归还", new { stable, drew, low, high, held, pocket, shots = times.Count });
+    return new { passed = true, view = recordView, duration, times, previewFrame = Math.Max(0, times.FindIndex(t => t >= mark)),
+        scene = "construction", resource = "mana", paid = definition.Cost };
+
+    bool BuriedPose(bool worldfall)
+    {
+        if (!worldfall) return HasPinnedPose();
+        object[] args = { victim.id, null, null };
+        return (bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, args) &&
+               args[2].GetType().GetProperty("RigidBasis", F).GetValue(args[2]) != null;
+    }
+}
+
+try { return section == "film" ? await Record() : await SavePair(); }
+finally
+{
+    ConstructedAbilityService.ShadowBurialConfirmed -= Entered;
+    ConstructedAbilityService.ShadowGripChanged -= Grip;
+    ReleaseChecks();
+}

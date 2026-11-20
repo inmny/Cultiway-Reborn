@@ -73,6 +73,8 @@ public sealed class CompiledAbility
     /// <summary>是否有实际人物对应，普通构造无需额外实例记录。</summary>
     public bool HasCorrespondences { get; }
 
+    internal int ShadowHoldNode { get; }
+
     /// <summary>受击分担的参数副本；当次契约另存实际余额。</summary>
     internal CompiledSoulPact SoulPact { get; }
 
@@ -241,6 +243,9 @@ public sealed class CompiledAbility
         TargetRange = definition.TargetRange;
         Nodes = nodes;
         HasCorrespondences = nodes.Any(node => node.Correspondence != null);
+        ShadowHoldNode = Array.FindIndex(nodes, node => node.Correspondence?.ShadowHold != null);
+        if (ShadowHoldNode >= 0 && Array.FindIndex(nodes, ShadowHoldNode + 1, node => node.Correspondence?.ShadowHold != null) >= 0)
+            throw new InvalidDataException("构造/Correspondence/ShadowHold：一次施放只能对应一具抱持影身");
         Operations = Array.AsReadOnly(nodes.SelectMany(node => node.Operations).ToArray());
         OperationResources = Operations.Aggregate(ConstructionOperationResource.None,
             (current, operation) => current | operation.Resources);
@@ -878,6 +883,9 @@ public static partial class AbilityCompiler
         if (node.Correspondence is { } relation &&
             (relation.OriginalContactOnly || relation.ShowBody) && node.ContactRole != ConstructionContactRole.Attack)
             Fail(path + "/Correspondence", "原身接触和立影需要有主动接触的部位");
+        if (node.Correspondence?.ShadowHold != null &&
+            (node.Correspondence.ActiveUntil ?? lifetime) > disappear - appear)
+            Fail(path + "/Correspondence/ShadowHold", "影身抱持的对应时段须落在实际部位的存在时段内");
         CompiledSpreadMedium.ValidateChannel(node.MediumChannel, path + "/MediumChannel");
         ValidateMatterSurface(matter, node.FollowMatter, path + "/Matter/Surface");
         Color? dye = null;

@@ -89,6 +89,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ConstructedInventoryInputs.Initialize();
         ConstructedRainClouds.Initialize();
         ConstructedMatterCatalog.Initialize();
+        ActorExtend.RegisterActionOnDeath(ReleaseDeceasedShadowTarget);
         Combat.GroundWeaponService.Initialize();
         var service = new ConstructedAbilityService();
         ActorExtend.RegisterActionOnFinalDamage(FinalDamageStage.Transfer, ShareSoulPactDamage);
@@ -780,12 +781,14 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             ReleaseActorTransferHolds(running);
             ReleaseSpatialViews(running);
             ReleaseSupportGrips(running, "WorldChanged");
+            ReleaseShadowHold(running, "WorldChanged", running.LastWorldTime);
             ReleaseBodyConnection(running, "WorldChanged", fade: false, time: running.LastWorldTime);
             running.BodyLease?.Dispose();
             running.Carrier?.Dispose();
             running.Inventory?.Dispose();
         }
 
+        ClearShadowHolds();
         ConstructedInventoryInputs.Clear();
         worldNeedQueue.Clear();
         worldNeeds.Clear();
@@ -813,6 +816,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         ReleaseActorTransferHolds(running);
         ReleaseSupportGrips(running, "Finished");
+        ReleaseShadowHold(running, "Finished", running.LastWorldTime);
         ReleaseSpatialViews(running);
         if (running.Cast.Plan.SoulPact != null && soulPacts.TryGetValue(running.TargetId, out var pact) && pact.Cast == running)
             soulPacts.Remove(running.TargetId);
@@ -848,6 +852,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (++count <= limit) continue;
             running.Replaced = true;
             ReleaseSupportGrips(running, "Replaced");
+            ReleaseShadowHold(running, "Replaced", LogicTime);
             ReleaseActorTransferHolds(running);
             running.Inventory?.Dispose();
             running.Cast.Cancel();
@@ -958,6 +963,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>原人物失效后该部位的对应终止，不借用复活或对象池替身重新接续。</summary>
         internal bool[] CorrespondenceEnded;
+        internal ShadowHold ShadowHold;
 
         /// <summary>本次已计入世界回收的占用，结束时只移除一次。</summary>
         internal bool WorldRecoveryTracked;
