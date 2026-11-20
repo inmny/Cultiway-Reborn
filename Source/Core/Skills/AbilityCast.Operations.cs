@@ -156,7 +156,7 @@ public sealed partial class AbilityCast
         state.Velocity = (flight.InheritVelocity ? state.Velocity : Vector3.zero) + (flight.WorldVelocity ? flight.Velocity : state.Rotation * flight.Velocity);
         state.FlightDirection = state.Velocity.sqrMagnitude > 1e-8f ? state.Velocity.normalized : state.Rotation * Vector3.forward;
         state.ApproachSpeed = state.Velocity.magnitude;
-        state.Acceleration = flight.WorldVelocity ? flight.Acceleration : state.Rotation * flight.Acceleration;
+        state.Acceleration = flight.WorldAcceleration ? flight.Acceleration : state.Rotation * flight.Acceleration;
         if (flight.Path != null) StartPath(ref state);
         if (flight.Transfer != null) state.Velocity = Vector3.zero;
     }

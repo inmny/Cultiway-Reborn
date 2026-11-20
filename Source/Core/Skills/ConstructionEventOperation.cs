@@ -27,7 +27,7 @@ internal sealed class CompiledFlight
     /// <summary>启动时明确提供的速度及加速度。</summary>
     internal readonly Vector3 Velocity, Acceleration;
     /// <summary>是否采用地图方向；否则按启动时形体朝向解释。</summary>
-    internal readonly bool WorldVelocity, InheritVelocity;
+    internal readonly bool WorldVelocity, WorldAcceleration, InheritVelocity;
     /// <summary>每秒允许的追踪转角。</summary>
     internal readonly float TurnRate;
     /// <summary>可选共用曲线。</summary>
@@ -44,7 +44,8 @@ internal sealed class CompiledFlight
     /// <param name="path">错误位置。</param>
     internal CompiledFlight(ConstructionOperation source, Vector3 velocity, string path)
     {
-        Velocity = velocity; WorldVelocity = source.WorldVelocity; InheritVelocity = source.InheritVelocity; TurnRate = source.TurnRate; Ground = source.Ground;
+        Velocity = velocity; WorldVelocity = source.WorldVelocity; WorldAcceleration = source.WorldVelocity || source.WorldAcceleration;
+        InheritVelocity = source.InheritVelocity; TurnRate = source.TurnRate; Ground = source.Ground;
         if (source.Acceleration != null)
         {
             if (source.Acceleration.Length != 3) throw new InvalidDataException(path + "：加速度需要三个坐标");

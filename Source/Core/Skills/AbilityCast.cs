@@ -335,7 +335,7 @@ public sealed partial class AbilityCast
             savedPropagations = new AbilityPropagation[plan.FormCount];
         }
         bool startsTogether = plan.EventListeners.Length == 0 &&
-                              Array.TrueForAll(plan.Nodes, form => form.AnchorBuild == 0f && form.AnchorSurface == null);
+                              Array.TrueForAll(plan.Nodes, form => form.AnchorBuild == 0f && form.AnchorSurface == null && form.Outlet == null);
         bodyFrame = body.GetValueOrDefault();
         this.inputs = inputs.GetValueOrDefault();
         nodes = new NodeState[plan.Nodes.Length];
@@ -499,6 +499,7 @@ public sealed partial class AbilityCast
             if (!state.Started)
             {
                 Include(state.BirthAt);
+                if (form.Outlet != null && nodes[form.Parent].Started) Include(nodes[form.Parent].StartedAt + form.Outlet.After);
                 continue;
             }
 
@@ -781,19 +782,11 @@ public sealed partial class AbilityCast
                               Quaternion.Euler(state.Spin * Mathf.Max(0f, Age - state.SpinAt));
         Matrix4x4 parent = state.EventPlaced ? Matrix4x4.TRS(state.EventPosition, state.EventRotation, Vector3.one) :
             form.Parent < 0 ? origin : nodes[form.Parent].Transform;
-        Matrix4x4 anchor = state.EventPlaced ? Matrix4x4.identity : form.Anchor;
         if (form.AnchorSurface != null && !state.EventPlaced && !state.Free)
         {
             if (!form.AnchorSurface.Ready(poses[form.Parent])) { EndNode(i, true); return; }
-            anchor = form.AnchorSurface.Frame(poses[form.Parent]);
         }
-        else if (form.AnchorBlend.HasControls && !state.EventPlaced)
-        {
-            anchor = form.AnchorBlend.Matrix(poses[form.Parent]) * anchor;
-            // 表面点和朝向跟随混合变形，附着物本身不继承骨架混合造成的压缩与剪切。
-            anchor = Matrix4x4.TRS(anchor.GetColumn(3),
-                Quaternion.LookRotation(anchor.GetColumn(2), anchor.GetColumn(1)), Vector3.one);
-        }
+        Matrix4x4 anchor = state.EventPlaced ? Matrix4x4.identity : AttachedAnchor(form, !state.Free);
 
         Matrix4x4 attached = parent * anchor *
                              Matrix4x4.TRS(localOffset, rotation, Vector3.one * form.Scale);

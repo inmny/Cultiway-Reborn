@@ -137,7 +137,30 @@ public sealed partial class AbilityCast
                (form.Activation?.Target == null || state.HasTarget) &&
                (form.RemainderRoot < 0 || form.RemainderRoot == index || nodes[form.RemainderRoot].Started) &&
                (state.Free || form.Parent < 0 ||
-                nodes[form.Parent].Started && nodes[form.Parent].Exists && AnchorBuilt(index));
+                nodes[form.Parent].Started && nodes[form.Parent].Exists && AnchorBuilt(index) && OutletReady(form));
+    }
+
+    /// <summary>只有当前出口的真实朝向合格才出流；没有移动这个部位的布置或改写方位。</summary>
+    /// <param name="form">等待放出的部位。</param>
+    private bool OutletReady(CompiledForm form)
+    {
+        CompiledOutlet outlet = form.Outlet;
+        if (outlet == null) return true;
+        NodeState parent = nodes[form.Parent];
+        if (!parent.Visible || Age - parent.StartedAt < outlet.After) return false;
+        Vector3 forward = (parent.Transform * AttachedAnchor(form, true)).GetColumn(2);
+        return -forward.normalized.z + .000001f >= outlet.Downward;
+    }
+
+    /// <summary>附着及出流共用实际挂点；混合变形不额外拉扯附着物。</summary>
+    /// <param name="form">使用挂点的部位。</param>
+    /// <param name="useSurface">仍附着时采用实际变形表面。</param>
+    private Matrix4x4 AttachedAnchor(CompiledForm form, bool useSurface)
+    {
+        if (useSurface && form.AnchorSurface != null) return form.AnchorSurface.Frame(poses[form.Parent]);
+        if (!form.AnchorBlend.HasControls) return form.Anchor;
+        Matrix4x4 anchor = form.AnchorBlend.Matrix(poses[form.Parent]) * form.Anchor;
+        return Matrix4x4.TRS(anchor.GetColumn(3), Quaternion.LookRotation(anchor.GetColumn(2), anchor.GetColumn(1)), Vector3.one);
     }
 
     /// <summary>实际部位尚未形成时不借用未来挂点；独立和事件放置遵守原规则。</summary>
@@ -168,7 +191,8 @@ public sealed partial class AbilityCast
         if (form.RemainderRoot >= 0 && form.RemainderRoot != index)
             parentStart = Mathf.Max(parentStart, nodes[form.RemainderRoot].StartedAt);
         state.StartedAt = form.Activation == null ? parentStart : Mathf.Max(state.BirthAt, parentStart);
-        if (form.AnchorBuild > 0f || form.Parent >= 0 && Plan.Nodes[form.Parent].HasRay) state.StartedAt = Mathf.Max(state.StartedAt, Age);
+        if (form.Outlet != null || form.AnchorBuild > 0f || form.Parent >= 0 && Plan.Nodes[form.Parent].HasRay)
+            state.StartedAt = Mathf.Max(state.StartedAt, Age);
         state.Started = true;
         state.Revision++;
         foreach (int child in form.Children) QueueBirth(child);
