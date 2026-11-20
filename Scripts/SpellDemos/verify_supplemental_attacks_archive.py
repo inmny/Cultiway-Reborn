@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""在新游戏进程读回 9.40 的原物、器官、铁甲及世界材料。"""
+"""在新游戏进程读回原物、器官、铁甲及世界材料。"""
 import argparse
 import json
 import os
@@ -12,7 +12,7 @@ from common import write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    kinds = ('weapon', 'poison', 'district', 'organs', 'seal')
+    kinds = ('weapon', 'poison', 'district', 'organs', 'seal', 'parts')
     for kind in kinds:
         parser.add_argument(f'--{kind}', type=Path, help='对应复验的输出目录')
     args = parser.parse_args()

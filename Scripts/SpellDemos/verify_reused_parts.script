@@ -1,0 +1,158 @@
+bool screen = section == "screen", miss = section == "miss", drop = section == "drop";
+var definition = Spell(drop ? "坠锋留材" : screen ? "树脊留刃" : "行根出锋");
+var clashes = new List<ConstructedClash>();
+var groundContacts = new List<ConstructedWorldContact>();
+void TouchedGround(ConstructedWorldContact fact) { if (fact.AbilityId == definition.Id) groundContacts.Add(fact); }
+ConstructedAbilityService.WorldContactConfirmed += TouchedGround;
+JArray Materials() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "reused-parts"))
+    ["sections"]["world_materials"]["data"]["Records"];
+void Clash(ConstructedClash fact) => clashes.Add(fact);
+ConstructedAbilityService.ClashConfirmed += Clash;
+try
+{
+    var existing = drop ? new HashSet<long>(Materials().Select(row => (long)row["Id"])) : null;
+    var started = await Use(definition, screen || drop ? 70f : 75f);
+    ControllableUnit.clear(false);
+    Place(source, 64);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.setStatsDirty(); source.updateStats();
+    var cast = started.Cast;
+    int blade = screen || drop ? 1 : 2;
+    var states = (Array)Field(cast, "nodes");
+    Vector3 NodePosition(int node) => (Vector3)((Matrix4x4)Field(states.GetValue(node), "Transform")).GetColumn(3);
+    bool hasBlade = false, outsidePassed = false;
+    float bladeForce = 0f, farthest = 0f, groundStop = 0f;
+    Vector3 origin = default, detached = default;
+    double incomingVolume = 0d;
+    float descent = 0f;
+    Vector2 crossFrom = default, crossTo = default;
+    bool sideOpen = false;
+    var shapes = new List<AbilityCapsule>();
+    var probes = new HashSet<int>();
+    AbilityCast outside = null;
+    var manager = typeof(Cultiway.Core.SkillLibV3.Manager);
+    var barrier = manager.GetField("Barriers", F).GetValue(null);
+    var bridge = manager.Assembly.GetType("Cultiway.Core.SkillLibV3.ISkillBarrierBridge", true);
+    var restrict = bridge.GetMethod("RestrictGroundActor", F);
+    var present = bridge.GetProperty("HasGroundBarriers", F);
+    Vector2 Ground(Vector2 from, Vector2 to) => (Vector2)restrict.Invoke(barrier, new object[] { victim, from, to });
+    bool film = recordView.Length > 0;
+    if (film) await SetCamera(10.6f);
+    double began = World.world.getCurWorldTime(), bladeAtTime = -1d;
+    float duration = definition.Lifetime + .15f;
+    void Watch()
+    {
+        if (outside != null && !outside.Finished)
+            outsidePassed |= Forms(outside).Any(view => view.Transform.m03 < 64f) && outside.RemainingForce(0) > 0f;
+        if (cast.Finished) return;
+        shapes.Clear(); cast.AppendContacts(shapes);
+        if (!hasBlade && cast.NodeAge(blade) >= 0f)
+        {
+            Check(cast.Matter(blade).Id == "iron" && shapes.All(s => s.Node != 0), "旧根退去，同一余量建立实际金刃");
+            hasBlade = true;
+            bladeAtTime = World.world.getCurWorldTime() - began;
+            origin = (Vector3)Field(states.GetValue(1), "EventPosition");
+            detached = NodePosition(0);
+            bladeForce = cast.RemainingForce(blade);
+            incomingVolume = cast.RemainingVolume(blade);
+        }
+        if (hasBlade)
+        {
+            var bladeAt = NodePosition(1);
+            farthest = Mathf.Max(farthest, bladeAt.x - origin.x);
+            if (drop && shapes.Any(shape => shape.Node == blade)) descent = Mathf.Max(descent, origin.z - bladeAt.z);
+        }
+        int node = hasBlade ? 1 : 0;
+        if ((!screen && node == 1) || probes.Contains(node) || cast.NodeAge(node) < (node == 0 ? .35f : .27f)) return;
+        var active = shapes.Where(s => s.Node == node).OrderBy(s => Mathf.Abs((s.A.y + s.B.y) * .5f - 72f)).ToArray();
+        if (active.Length == 0) return;
+        var shape = active[0];
+        Vector3 point = (shape.A + shape.B) * .5f;
+        if (screen && node == 1)
+        {
+            var prism = Field(shape, "Prism");
+            var surface = prism.GetType().GetProperty("Pose", F).GetValue(prism);
+            var surfaceType = surface.GetType();
+            var vertex = surfaceType.GetMethod("Vertex", F);
+            int count = (int)surfaceType.GetProperty("VertexCount", F).GetValue(surface);
+            Vector3[] corners = Enumerable.Range(0, count).Select(i => (Vector3)vertex.Invoke(surface, new object[] { i })).ToArray();
+            Vector3 foot = corners.OrderBy(p => p.z).Take(2).Aggregate(Vector3.zero, (sum, p) => sum + p) * .5f;
+            point = ((Bounds)surfaceType.GetMethod("Bounds", F).Invoke(surface, null)).center;
+            crossFrom = new Vector2(foot.x + 2.25f, foot.y);
+            crossTo = new Vector2(foot.x - 2.25f, foot.y);
+            groundStop = Vector2.Distance(crossTo, Ground(crossFrom, crossTo));
+            Vector2 side = Vector2.up * 5f;
+            sideOpen = Vector2.Distance(Ground(crossFrom + side, crossTo + side), crossTo + side) < .001f;
+        }
+        if (miss) point.y = active.Max(s => Mathf.Max(s.A.y, s.B.y) + (s.IsBox ? s.HalfExtents.y : s.Radius)) + 2.5f;
+        AbilityCast probe = Send(node == 0 ? "wood" : "iron", point + Vector3.right * 2.8f);
+        if (miss) outside = probe;
+        probes.Add(node);
+    }
+    List<double> times = null;
+    if (film) times = await Film(duration, Watch);
+    else while (World.world.getCurWorldTime() - began < duration) { await Advance(.10f); Watch(); }
+    var real = clashes.Where(fact => fact.LeftCast == started.Id || fact.RightCast == started.Id).Select(fact => new
+    {
+        node = fact.LeftCast == started.Id ? fact.LeftNode : fact.RightNode,
+        spent = fact.LeftCast == started.Id ? fact.LeftSpent : fact.RightSpent,
+        remaining = fact.LeftCast == started.Id ? fact.LeftRemaining : fact.RightRemaining,
+        point = fact.Position.ToString()
+    }).ToArray();
+    JToken[] deposited = Array.Empty<JToken>();
+    var blows = contacts.Where(fact => fact.CastId == started.Id && fact.Node == blade && fact.Damage.HealthLost > 0)
+        .Select(fact => new { fact.TargetId, damage = fact.Damage.HealthLost, point = fact.Position.ToString() }).ToArray();
+    if (miss)
+        Check(probes.Contains(0) && outsidePassed && real.Length == 0 && !hasBlade && blows.Length == 0,
+            "来势从根段外走过，气力仍在，金刃没有凭空生成", real);
+    else
+    {
+        Check(real.Length == (screen ? 2 : 1) && real.All(fact => fact.spent > 0) && hasBlade &&
+            Mathf.Abs(real[0].remaining - bladeForce) < .08f, "实际交锋后只传递根段剩余力量", new { real, bladeForce });
+        if (drop)
+        {
+            deposited = Materials().Where(row => !existing.Contains((long)row["Id"])).ToArray();
+            var ground = groundContacts.Where(contact => contact.CastId == started.Id && contact.Node == blade).ToArray();
+            Check(descent > .18f && ground.Length > 0 && deposited.Length == 1 &&
+                (string)deposited[0]["Material"]["Form"] == "sword_grave_right" &&
+                (string)deposited[0]["Material"]["Matter"] == "iron" &&
+                Math.Abs((double)deposited[0]["Material"]["Volume"] - incomingVolume) < .04d,
+                "实际落地才将同一刃片和原材料体积交给世界", new { descent, incomingVolume, ground, deposited });
+        }
+        else if (screen)
+            Check(real[1].node == 1 && Vector3.Distance(origin, detached) < .01f && farthest < .05f && groundStop > .18f && sideOpen,
+                "金面留在同一位置继续承力，并由同一形体阻挡地面", new { groundStop, sideOpen, farthest, origin = origin.ToString() });
+        else
+            Check(farthest > 2.2f && blows.Any(fact => fact.TargetId == victim.id),
+                "金刃独立前进并真实命中来袭者", new { farthest, blows });
+    }
+    Check(cast.Finished && Forms(cast).Length == 0 && !(bool)present.GetValue(barrier) &&
+        (!screen || Vector2.Distance(Ground(crossFrom, crossTo), crossTo) < .001f), "退场后原根段、刃片及阻挡都清理");
+    string archive = null;
+    if (save)
+    {
+        var definitions = new[] { Spell("行根出锋"), Spell("树脊留刃"), definition };
+        foreach (var saved in definitions)
+        {
+            ConstructedAbilityService.Register(saved);
+            ConstructedAbilityService.Learn(source.GetExtend(), saved.Id);
+        }
+        archive = Path.Combine(folder, "archive");
+        SaveManager.saveWorldToDirectory(archive);
+        File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+        {
+            process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, definitions, deposits = deposited
+        }, Formatting.Indented));
+        Check(File.Exists(Path.Combine(archive, "map.wbox")), "正式保存三份实际构造和留下的同一刃片");
+    }
+    return new { passed = true, section, scene = "construction", name = definition.Name, resource = definition.Resource,
+        paid = definition.Cost, view = recordView, duration, times, archive, real, bladeForce, farthest, blows, groundStop,
+        caption = drop ? "实接后垂落，触地留材" : screen ? "同一位置两段实际承力" : "共享根段受力，刃片脱离命中",
+        previewFrame = times == null ? 0 : Math.Max(0, times.FindIndex(time => time > bladeAtTime + .24)) };
+}
+finally
+{
+    ConstructedAbilityService.ClashConfirmed -= Clash;
+    ConstructedAbilityService.WorldContactConfirmed -= TouchedGround;
+    ReleaseChecks();
+}

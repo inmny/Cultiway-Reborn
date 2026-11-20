@@ -1,0 +1,50 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.DepositedBlade",
+  "Name": "坠锋留材",
+  "Resource": "mana",
+  "Cost": 12,
+  "Cooldown": 2.8,
+  "Lifetime": 4.8,
+  "Power": 3.2,
+  "TargetRange": 24,
+  "Use": {"Channels": "Combat, World", "Target": "ObjectOrPoint"},
+  "Binding": {"Anchor": "Target", "FaceTarget": true},
+  "Root": {
+    "Id": "root_carrier",
+    "Form": "five_phase_roots",
+    "Matter": "wood",
+    "State": "solid",
+    "ContactRole": "Barrier",
+    "BlocksGroundActors": true,
+    "Rotation": [-90, 0, 0],
+    "Scale": 1.54,
+    "DisappearAt": 2.2,
+    "Operations": [
+      {"Kind": "Grow", "Seconds": 0.31},
+      {"Kind": "Animate", "Clip": "rise"},
+      {"Kind": "Fly", "Vector": [0, 0, 0], "WorldVelocity": true, "Ground": "Follow", "InheritVelocity": false},
+      {"Kind": "PassRemainder", "When": {"Trigger": "Clash", "Delay": 0.18}}
+    ],
+    "Children": [{
+      "Id": "blade",
+      "Form": "sword_grave_right",
+      "Matter": "iron",
+      "State": "solid",
+      "FollowMatter": true,
+      "ContactRole": "Attack",
+      "Rotation": [90, 0, 0],
+      "Scale": 0.70,
+      "DisappearAt": 2.25,
+      "Impact": {"Targets": "Hostile", "DamageScale": 0.28},
+      "Activation": {"Trigger": "Handoff", "InheritRemainder": true, "ResetContacts": true},
+      "Operations": [
+        {"Kind": "ConvertMatter", "Matter": "iron", "State": "solid"},
+        {"Kind": "Grow", "Seconds": 0.18},
+        {"Kind": "Fly", "Vector": [0, 0, -3.7], "WorldVelocity": true, "InheritVelocity": false},
+        {"Kind": "Stop", "When": {"Trigger": "WorldContact"}},
+        {"Kind": "Leave", "When": {"Trigger": "WorldContact", "Delay": 0.15}, "Residue": {"Lifetime": 60}}
+      ]
+    }]
+  }
+}

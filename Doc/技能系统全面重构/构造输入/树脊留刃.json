@@ -1,0 +1,48 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.GroundedBladeScreen",
+  "Name": "树脊留刃",
+  "Resource": "mana",
+  "Cost": 12,
+  "Cooldown": 2.8,
+  "Lifetime": 4.8,
+  "Power": 3.2,
+  "TargetRange": 24,
+  "Use": {"Channels": "Combat, World", "Target": "ObjectOrPoint"},
+  "Binding": {"Anchor": "Target", "FaceTarget": true},
+  "Root": {
+    "Id": "root_carrier",
+    "Form": "five_phase_roots",
+    "Matter": "wood",
+    "State": "solid",
+    "ContactRole": "Barrier",
+    "BlocksGroundActors": true,
+    "Rotation": [-90, 0, 0],
+    "Scale": 1.54,
+    "DisappearAt": 2.2,
+    "Operations": [
+      {"Kind": "Grow", "Seconds": 0.31},
+      {"Kind": "Animate", "Clip": "rise"},
+      {"Kind": "Fly", "Vector": [0, 0, 0], "WorldVelocity": true, "Ground": "Follow", "InheritVelocity": false},
+      {"Kind": "PassRemainder", "When": {"Trigger": "Clash", "Delay": 0.18}}
+    ],
+    "Children": [{
+      "Id": "blade",
+      "Form": "sword_grave_right",
+      "Matter": "iron",
+      "State": "solid",
+      "FollowMatter": true,
+      "ContactRole": "Barrier",
+      "BlocksGroundActors": true,
+      "Rotation": [30, 0, 0],
+      "Scale": 1.21,
+      "DisappearAt": 2.45,
+      "Activation": {"Trigger": "Handoff", "InheritRemainder": true, "KeepSourcePosition": true, "ResetContacts": true},
+      "Operations": [
+        {"Kind": "ConvertMatter", "Matter": "iron", "State": "solid"},
+        {"Kind": "Grow", "Seconds": 0.18},
+        {"Kind": "Fly", "Vector": [0, 0, 0], "WorldVelocity": true, "Ground": "Follow", "InheritVelocity": false}
+      ]
+    }]
+  }
+}
