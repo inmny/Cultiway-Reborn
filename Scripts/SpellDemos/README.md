@@ -2395,3 +2395,11 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--section save` 在同一次施放中保存进行中和完成后的两份正式世界。完整读回后使用[停荣](../../Doc/技能系统全面重构/构造输入/刹那千秋·停荣.json)。重启游戏后运行 `--section cold --saved <输出目录>`，核对两份档的恢复和未完成阶段不重放。
 
 `--section film --view native` 和 `--section film --view worldfall` 录制同一场景的两种视角，并导出已经发生的世界、生命及装备变化。
+
+### 归墟开口（9.39）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 150 -- python3 Scripts/SpellDemos/verify_returning_abyss.py --section materials`。同一场地用正式施放放置生成石块、剑和敌方材料，随后核对[归墟开口](../../Doc/技能系统全面重构/构造输入/归墟开口.json)的实际选取、拉伸、消解及原支付份额。`--section cancel` 验证撤销后仍由世界维护的散件。
+
+`--section combat` 加入一个真实敌方术式和一件原版落地铁剑，核对交锋、牵引及落地。`--section film --view native` 与 `--section film --view worldfall` 用同一场景录制完整过程。
+
+`--section save` 留下卷动中和退场后的两份正式档，读回后实放[狭喉](../../Doc/技能系统全面重构/构造输入/归墟开口·狭喉.json)。重启游戏后运行 `--section cold --saved <输出目录>`，检查两份档及各材料的实际去向。
