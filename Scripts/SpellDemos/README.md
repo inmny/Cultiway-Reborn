@@ -2439,3 +2439,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 265 -- python3 Scripts/SpellDemos/verify_beast_attacks.py --section attacks`。在同一狼形上复验吻端出火、真实雷角接触和四足起落后以前爪命中。结果记录每招的支付、命中位置、动作和身体控制归还。加 `--part breath`、`--part horn` 或 `--part pounce` 可只复验一招。
 
 `--record native` 或 `--record worldfall` 输出对应视角的常速录像。`--section bounds` 检查火息范围外无伤、撤下雷角后角刺拒绝且不扣体力。`--section save` 将同一狼形的器官和两招学习记录写入正式世界，供整项冷启动复验。
+
+### 瘴潮凝潭（9.40 毒术）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_poison_combat.py --section condense`。验证[瘴潮凝潭](../../Doc/技能系统全面重构/构造输入/瘴潮凝潭.json)的实际接触、传播、凝潭、甲衣损耗、离开液面及消退。`--miss` 复验飞空，`--record native` 或 `--record worldfall` 记录常速画面。`--save` 保留实际退场后的世界，供冷启动读回。

@@ -1,0 +1,170 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.CondensingPoison",
+  "Name": "瘴潮凝潭",
+  "Resource": "mana",
+  "Cost": 10,
+  "Cooldown": 2.8,
+  "Lifetime": 3.7,
+  "Power": 3,
+  "TargetRange": 24,
+  "Binding": {
+    "Anchor": "Source",
+    "FaceTarget": true
+  },
+  "Root": {
+    "Id": "breath",
+    "Form": "poison_mist",
+    "Matter": "poison",
+    "State": "gas",
+    "Scale": 0.94,
+    "Contact": {
+      "Mode": "Once"
+    },
+    "Rotation": [
+      -90,
+      0,
+      0
+    ],
+    "Operations": [
+      {
+        "Kind": "Animate",
+        "Clip": "breath"
+      },
+      {
+        "Kind": "Fly",
+        "At": 0.13,
+        "Vector": [
+          0,
+          -4.9,
+          0
+        ],
+        "InheritVelocity": false
+      },
+      {
+        "Kind": "PassRemainder",
+        "When": {
+          "Trigger": "ActorContact",
+          "Delay": 0.13
+        }
+      }
+    ],
+    "DisappearAt": 1.65,
+    "Impact": {
+      "DamageScale": 0.14,
+      "Statuses": [
+        {
+          "Id": "Poison",
+          "Duration": 4.2,
+          "Application": "Refresh",
+          "Tick": {
+            "ForcePerSecond": 0.35,
+            "Element": {
+              "wood": 0.4,
+              "water": 0.25,
+              "neg": 0.35
+            }
+          }
+        }
+      ],
+      "Spreads": [
+        {
+          "Radius": 4,
+          "VisualSeconds": 0,
+          "Outcome": {
+            "Statuses": [
+              {
+                "Id": "Poison",
+                "Duration": 3.6,
+                "Application": "Refresh",
+                "Tick": {
+                  "ForcePerSecond": 0.32,
+                  "Element": {
+                    "wood": 0.4,
+                    "water": 0.25,
+                    "neg": 0.35
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "Children": [
+      {
+        "Id": "condensate",
+        "Form": "poison_pool",
+        "Matter": "poison",
+        "State": "liquid",
+        "Contact": {
+          "Mode": "Interval",
+          "Interval": 0.34
+        },
+        "Operations": [
+          {
+            "Kind": "ConvertMatter",
+            "Matter": "poison",
+            "State": "liquid"
+          },
+          {
+            "Kind": "Fly",
+            "Vector": [
+              0,
+              0,
+              0
+            ],
+            "WorldVelocity": true,
+            "Ground": "Follow",
+            "InheritVelocity": false
+          },
+          {
+            "Kind": "Grow",
+            "Seconds": 0.42
+          },
+          {
+            "Kind": "Animate",
+            "Clip": "settle"
+          }
+        ],
+        "Scale": 0.97,
+        "FollowMatter": true,
+        "DisappearAt": 1.85,
+        "Impact": {
+          "DamageScale": 0.05,
+          "EquipmentErosion": {
+            "Slots": [
+              "Armor"
+            ],
+            "Fraction": 0.09
+          }
+        },
+        "Activation": {
+          "Trigger": "Handoff",
+          "InheritRemainder": true,
+          "ResetContacts": true
+        }
+      }
+    ]
+  },
+  "Use": {
+    "Channels": "Combat, World",
+    "Target": "ObjectOrPoint"
+  },
+  "Steps": [
+    {
+      "Id": "dry_out",
+      "Inputs": {
+        "part": {
+          "Node": "root/condensate"
+        }
+      },
+      "Operation": {
+        "Kind": "Grow",
+        "At": 1.23,
+        "Seconds": 0.55,
+        "TargetScale": 0
+      }
+    }
+  ]
+}
