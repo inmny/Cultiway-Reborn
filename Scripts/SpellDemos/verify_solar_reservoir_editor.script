@@ -1,0 +1,29 @@
+try
+{
+    Child();
+    Check(Gate().InheritAbsorbedForce && Button("Replace").interactable, "原术从正式编辑窗口恢复吸收规则");
+    Row("InheritAbsorbedForce").GetComponentsInChildren<Toggle>(false).Single().isOn = false;
+    Check(!Gate().InheritAbsorbedForce && Button("Replace").interactable, "关闭后可以保存为普通交锋后段");
+    Click("Undo");
+    Check(Gate().InheritAbsorbedForce && Button("Replace").interactable, "撤销恢复完整吸收规则");
+    await Capture("cz");
+    Click("Replace");
+    var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(saved.Root.Children[1].Activation.InheritAbsorbedForce, "正式替换保留吸收开关");
+    Click("Close");
+    await Frames();
+    LocalizedTextManager.instance.setLanguage("en");
+    WindowWanfaConstructionEditor.Open(saved.Id, source);
+    await Frames();
+    Child();
+    Check(Gate().InheritAbsorbedForce && Row("InheritAbsorbedForce").GetComponentsInChildren<Toggle>(false).Single().isOn,
+        "重开英文窗口仍恢复正确开关");
+    await Capture("en");
+    return new { passed = true };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ReleaseChecks();
+    LocalizedTextManager.instance.setLanguage("cz");
+}

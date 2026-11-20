@@ -399,7 +399,8 @@ public sealed partial class AbilityCast
             var form = plan.Nodes[i];
             // 余量接收体和预留碎片在实际移交前没有自己的力和体积。
             bool receivesRemainder = form.RemainderRoot >= 0 || form.FragmentSource >= 0;
-            float strength = receivesRemainder ? 0f : force * form.Strength;
+            bool receivesAbsorption = form.Activation?.InheritAbsorbedForce == true;
+            float strength = receivesRemainder || receivesAbsorption ? 0f : force * form.Strength;
             if (float.IsInfinity(strength)) throw new ArgumentOutOfRangeException(nameof(force), "部位强度超出有限作用量");
             nodes[i] = new NodeState
             {
@@ -1366,8 +1367,11 @@ public sealed partial class AbilityCast
         // 浮点乘除产生的百万分之一以下余差不成为新的攻击，更不能被最低伤害放大。
         if (state.Force <= Mathf.Max(before, amount) * .000001f) state.Force = 0f;
         if (before > 0) state.Resource *= state.Force / before;
-        Vector3 point = state.HasClashPoint ? state.ClashPoint : (Vector3)state.Transform.GetColumn(3);
+        bool absorbed = state.HasClashPoint;
+        Vector3 point = absorbed ? state.ClashPoint : (Vector3)state.Transform.GetColumn(3);
         state.HasClashPoint = false;
+        if (absorbed && state.Exists && Plan.Nodes[node].AbsorbedForceOutlet >= 0)
+            RetainAbsorbedForce(node, point, Mathf.Min(amount, before - state.Force));
         if (state.Force < before && state.InitialForce > 0)
             SignalEvent(node, ConstructionChangeTrigger.ForceBelow, point, before / state.InitialForce,
                 state.Force / state.InitialForce);
@@ -1533,6 +1537,7 @@ public sealed partial class AbilityCast
         for (int i = 0; i < nodes.Length; i++)
         {
             if (Plan.Nodes[i].RadialMotion is { ChannelLength: > 0f }) AppendWindChannel(i, output);
+            if (Plan.Nodes[i].AbsorbedForceOutlet >= 0) AppendSolarReservoir(i, output);
             if (nodes[i].Visible && (!Plan.Nodes[i].HasRay || nodes[i].Ray != null) && NodeAge(i) < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0)
             {
                 if (propagations?[i] is AbilityPropagation wave)
@@ -1605,7 +1610,8 @@ public sealed partial class AbilityCast
                 !includeEnd && age >= form.Presence.y ||
                 form.ContactRole == ConstructionContactRole.Decoration && !water ||
                 !water && !world &&
-                (form.FragmentSource >= 0 || form.RemainderRoot >= 0 || flows?[i]?.Started == true) &&
+                (form.FragmentSource >= 0 || form.RemainderRoot >= 0 || form.Activation?.InheritAbsorbedForce == true ||
+                 flows?[i]?.Started == true) &&
                 state.Force <= 0f && !ending || !water && !ProcessIsActive(i, includeEnd)) continue;
             if (propagations?[i] is AbilityPropagation wave)
             {

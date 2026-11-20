@@ -35,6 +35,17 @@ public static partial class AbilityCompiler
                 Fail(node.Path, "附近选敌的余力需要真实生成主体，不能从身体取得额外力量");
             if (gate.InheritRemainder && (gate.Source < 0 || nodes[gate.Source].ContactRole == ConstructionContactRole.Decoration))
                 Fail(node.Path, "余量交接需要具有真实作用量的生成主体，不能从身体或装饰取得额外力量");
+            if (gate.InheritAbsorbedForce)
+            {
+                CompiledForm source = nodes[gate.Source];
+                if (source.ContactRole != ConstructionContactRole.Barrier || source.Strength <= 0f ||
+                    source.Interception != ConstructionInterception.Absorb || source.AbsorbedForceOutlet >= 0)
+                    Fail(node.Path, "有实际容量的吸收屏障只允许一个释放部位");
+                if (node.ContactRole != ConstructionContactRole.Attack || node.Resource.Contacts.Length == 0 ||
+                    node.Children.Length != 0)
+                    Fail(node.Path, "释放吸收力量需要一个具有实际接触的独立攻击部位");
+                source.AbsorbedForceOutlet = i;
+            }
             if (gate.Trigger == ConstructionChangeTrigger.End && gate.Placement == ConstructionEventPlacement.Attached)
                 for (int parent = node.Parent; parent >= 0; parent = nodes[parent].Parent)
                     if (parent == gate.Source) Fail(node.Path, "结束事件不能继续附着在已结束的来源链，请改用事件处独立生成");

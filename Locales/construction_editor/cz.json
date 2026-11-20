@@ -369,6 +369,7 @@
   "Cultiway.Construction.Piece.branch_2": "第二分枝",
   "Cultiway.Construction.Piece.palm": "掌面",
   "Cultiway.Construction.InheritRemainder": "继承来源剩余力量和材料",
+  "Cultiway.Construction.InheritAbsorbedForce": "只用屏障吸收的力量，从接触处朝外释放",
   "Cultiway.Construction.Ground.Follow": "沿真实地表继续推进",
   "Cultiway.Construction.Form.water_flow": "贴地水层",
   "Cultiway.Construction.ExplicitVolume": "明确材料体积",

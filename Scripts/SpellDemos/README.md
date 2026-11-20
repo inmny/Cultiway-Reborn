@@ -2409,3 +2409,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_groundmouth_wind.py --section behavior`。复用现有地块和铁剑，核对[地口行风](../../Doc/技能系统全面重构/构造输入/地口行风.json)的槽内外受力、原物越过实际出口、落地拾取及卸压。 `--section variant` 验证[短槽斜口](../../Doc/技能系统全面重构/构造输入/地口行风_斜口.json)的朝向、尺寸、非法参数和退场。
 
 `--section film --view native` 和 `--section film --view worldfall` 同时记录实际行为和按世界时间编码的录像。两段均使用现有地貌，实测人物和原物的放置写在脚本里。
+
+### 明壳承阳（9.40 阳）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_solar_reservoir.py --section behavior`。验证[明壳承阳](../../Doc/技能系统全面重构/构造输入/明壳承阳.json)的种核成形、两次来袭实际入壳、延迟蓄力、裂口出光、原壳退场和护生。 `--section miss` 让来势走壳外，核对空壳无反击，并验证反射屏障不能同时重复计入吸收量。
+
+`--section film --view native` 和 `--section film --view worldfall` 使用同一人物和地块输出原速录像。裂口、光束起点和回击力量均以实机交锋记录核对。 `--section editor` 检查开关、撤销、正式替换和中英文重开。

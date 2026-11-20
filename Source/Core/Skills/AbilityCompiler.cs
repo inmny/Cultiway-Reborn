@@ -396,6 +396,9 @@ internal sealed class CompiledForm
     /// <summary>本部位正常结束时接受实际余量的有限后段。</summary>
     internal int[] RemainderReceivers = Array.Empty<int>();
 
+    /// <summary>本次真实吸收的唯一接收部位。负一表示普通屏障。</summary>
+    internal int AbsorbedForceOutlet = -1;
+
     /// <summary>本部位及普通后代所属的接收分支，负一表示使用原始作用量。</summary>
     internal int RemainderRoot = -1;
 

@@ -98,7 +98,7 @@ public sealed partial class AbilityCast
 
                 ref NodeState state = ref nodes[index];
                 CompiledConstructionActivation gate = Plan.Nodes[index].Activation;
-                if (!state.Exists || !float.IsPositiveInfinity(state.BirthAt) ||
+                if (gate.InheritAbsorbedForce || !state.Exists || !float.IsPositiveInfinity(state.BirthAt) ||
                     !gate.Crossed(fact.Before, fact.After) ||
                     gate.Matter != null && !ReferenceEquals(gate.Matter, fact.Matter)) continue;
                 state.BirthAt = Age + gate.Delay;
@@ -195,6 +195,7 @@ public sealed partial class AbilityCast
             state.StartedAt = Mathf.Max(state.StartedAt, Age);
         state.Started = true;
         state.Revision++;
+        if (form.Activation?.InheritAbsorbedForce == true) EndNode(form.Activation.Source);
         foreach (int child in form.Children) QueueBirth(child);
     }
 

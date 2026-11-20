@@ -81,6 +81,7 @@
   "Cultiway.ConstructionText.RadialMotion": "{0}中心的世界半径{1:0.##}内，对{4}施加水平推拉，中心速度{2:0.##}格/秒（正推负拉），每{3:0.###}秒重新选人；边缘衰减为零，独立于接触面。",
   "Cultiway.ConstructionText.Change.RadialMotion": "范围推拉",
   "Cultiway.ConstructionText.WindChannel": "{0}形成长{1:0.##}、入口全宽为半宽{2:0.##}两倍的风槽；以速度{3:0.##}推送{5}，每{4:0.##}秒确认。",
+  "Cultiway.ConstructionText.AbsorbedForceOutlet": "{0}吸收来势后蓄力{2:0.##}秒，再用{1}从首个接触处向外释放已吸收的力量。",
   "Cultiway.ConstructionText.RadialGroundItems": "最多卷起{0}件地面无主物；风停后原物自然落地。",
   "Cultiway.ConstructionText.Change.ClashRules": "交锋规则",
   "Cultiway.ConstructionText.Change.Persistence": "存续规则",

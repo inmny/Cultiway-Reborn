@@ -377,6 +377,7 @@
   "Cultiway.Construction.Piece.branch_2": "Second branch",
   "Cultiway.Construction.Piece.palm": "Palm",
   "Cultiway.Construction.InheritRemainder": "Inherit remaining force and matter",
+  "Cultiway.Construction.InheritAbsorbedForce": "Release only force absorbed by the shield, outward from contact",
   "Cultiway.Construction.Ground.Follow": "Continue along ground",
   "Cultiway.Construction.Form.water_flow": "Ground water layer",
   "Cultiway.Construction.ExplicitVolume": "Set material volume",
