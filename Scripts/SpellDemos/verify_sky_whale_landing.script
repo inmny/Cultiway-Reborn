@@ -1,0 +1,213 @@
+
+async Task<object> Landing()
+{
+    const int runoff = 6;
+    var ground = new List<ConstructedWorldContact>();
+    var original = definition;
+    void Land(ConstructedWorldContact hit)
+    {
+        if (hit.AbilityId == definition.Id && hit.TriggerOnly) ground.Add(hit);
+    }
+    object Node(AbilityCast cast, int index) => ((Array)Field(cast, "nodes")).GetValue(index);
+    object Water(AbilityCast cast, int index) => ((Array)Field(cast, "flows")).GetValue(index);
+    bool Flowing(AbilityCast cast, int index) => (bool)Field(Water(cast, index), "Started");
+    bool Exists(AbilityCast cast, int index) => (bool)Field(Node(cast, index), "Exists");
+    IEnumerable<ConstructedWorldContact> RootTouches() => ground.Where(hit => hit.Node == 0);
+    bool IsWhale(FormVisualInstance form) => form.Resource.Description.Id == "water_whale";
+    double Liquid(AbilityCast cast, int index) => (double)Field(Water(cast, index), "LiquidVolume");
+    async Task WaitTo(AbilityCast cast, float age)
+    {
+        if (cast.Age < age) await Advance(age - cast.Age);
+    }
+    void Equalize()
+    {
+        Ready(source);
+        foreach (Actor wolf in new[] { aim, side })
+        {
+            CombatStatusEffects.RemoveStatus(wolf, hold);
+            CombatStatusEffects.ApplyStatus(wolf, quiet, 10000, wolf);
+            wolf.updateStats();
+        }
+    }
+    async Task Finish(AbilityCast cast, int endedBefore)
+    {
+        await Advance(Mathf.Max(.28f, definition.Lifetime + .28f - cast.Age));
+        forms.Clear(); cast.AppendVisuals(forms);
+        Check(Live() == null && endings.Count == endedBefore + 1 && !endings.Last().Fact.Cancelled && forms.Count == 0 &&
+              !FormVisualScene.Instances.Any(IsWhale), "覆压、垂流和余水都已自然退场");
+    }
+    async Task<(float y, double volume)> Press(AbilityCast cast, bool detailed)
+    {
+        int endedBefore = endings.Count;
+        var terrain = (AbilityHeightField)Field(cast, "terrain");
+        await WaitTo(cast, 1.83f);
+        double remainder = cast.RemainingVolume(0);
+        Check(RootTouches().Count() == 1 && remainder > 20 && !Flowing(cast, runoff), "覆压前只有起跃接地，余水仍留在鲸身",
+            new { cast.Age, remainder, touches = RootTouches().Select(hit => hit.Age).ToArray() });
+        if (detailed)
+        {
+            // 仍用原侧边对照，对准这次真实下降的头部作用面，起跃时已在外侧。
+            shapes.Clear(); cast.AppendContacts(shapes);
+            var head = shapes.First(shape => shape.Node == 0 && shape.Shape == 0);
+            var belowHead = Vector3.Lerp(head.A, head.B, .39f);
+            Place(side, belowHead.x, belowHead.y);
+            side.position_height = 0f;
+            side.addAggro(source); source.addAggro(side);
+            ConstructedAbilityService.NotifyActorChanged(side);
+        }
+        Vector3 actualDescend = cast.Velocity(0);
+        while (!Flowing(cast, runoff) && cast.Age < 2.32f && Live() != null)
+        {
+            actualDescend = cast.Velocity(0);
+            await Advance(.025f);
+        }
+        var touches = RootTouches().ToArray();
+        // 世界碰撞取命中格中心的高度；格边的水层插值是另一套表面。
+        float TileGap(ConstructedWorldContact hit) => hit.Position.z - terrain.Sample(hit.X + .5f, hit.Y + .5f);
+        var records = ground.Select(hit => new { hit.Node, hit.Age, point = hit.Position.ToString("F3"),
+            hit.X, hit.Y, above = TileGap(hit) }).ToArray();
+        File.WriteAllText(Path.Combine(folder, "landings-" + definition.Id + ".json"),
+            JsonConvert.SerializeObject(records, Formatting.Indented));
+        Check(Flowing(cast, runoff) && !Exists(cast, 0) && touches.Length == 2 && touches[1].Age > 1.83f &&
+              Mathf.Abs(TileGap(touches[1])) < .25f &&
+              actualDescend.z < -3f && cast.Velocity(runoff).x > .15f,
+            "下降中的真实鲸身压到地面后才撞散，向前速度传入浅流",
+            new { cast.Age, touches = records, previous = actualDescend.ToString("F3"), runoff = cast.Velocity(runoff).ToString("F3") });
+        if (detailed)
+        {
+            var hits = contacts.Where(hit => hit.TargetId == side.id).Select(hit => new { hit.Node, hit.Age,
+                hit.TargetHealthBefore, hit.TargetHealthAfter, hit.ForceApplied, z = hit.VelocityChange.z }).ToArray();
+            Check(hits.Count(hit => hit.Node == 0) == 1 &&
+                  hits.Any(hit => hit.Node == 0 && hit.Age >= 1.83f && hit.TargetHealthBefore > hit.TargetHealthAfter &&
+                                  !hit.ForceApplied && hit.z <= 0f) &&
+                  contacts.Any(hit => hit.TargetId == aim.id && hit.Node == 0 && hit.Age < .88f && hit.VelocityChange.z > 0f), "下降中的鲸体接触确实造成覆压伤害，没有再托举", hits);
+        }
+        await WaitTo(cast, 3.5f);
+        Check(ground.Count(hit => hit.Node is 1 or 2) == 2 && Math.Abs(Liquid(cast, runoff) - remainder) < .02f &&
+              Math.Abs(Liquid(cast, 1) + Liquid(cast, 2) + Liquid(cast, runoff) - 36 * Math.Pow(definition.Root.Scale, 3)) < .025f,
+            "腹流和主鲸余水全部有去向，主鲸部位已不再保留原水量",
+            new { remainder, bellyFront = Liquid(cast, 1), bellyBack = Liquid(cast, 2), remaining = Liquid(cast, runoff) });
+        if (detailed)
+        {
+            var layer = Water(cast, runoff);
+            var water = (Vector3[])Field(layer, "Water");
+            var floor = (float[])Field(layer, "Ground");
+            int n = (int)Field(Field(layer, "Settings"), "Cells");
+            float cell = (float)Field(layer, "Cell");
+            Vector2 at = (Vector2)Field(layer, "Origin");
+            double north = 0d, south = 0d, ridge = 0d;
+            for (int i = 0; i < water.Length; i++)
+            {
+                Vector2 point = at + new Vector2(i % n + .5f, i / n + .5f) * cell;
+                if (point.x < touches[1].Position.x + .55f) continue;
+                double volume = water[i].x * cell * cell;
+                if (point.y >= lane + 1.65f) north += volume;
+                else if (point.y <= lane - 1.65f) south += volume;
+                else if (floor[i] > terrain.Sample(touches[1].Position.x, lane) + .6f) ridge += volume;
+            }
+            Check(north > .12 && south > .12 && ridge < Math.Min(north, south),
+                "余水沿实际地形绕向两侧低处，高处没有冒出同样厚的水", new { north, south, ridge });
+            shapes.Clear(); cast.AppendContacts(shapes);
+            Check(shapes.Any(shape => shape.Node == runoff && shape.IsBox) && shapes.All(shape => shape.Node != 0),
+                "地面仅留下与实际水层一致的作用面");
+            await Shot("runoff-native");
+        }
+        var outflow = ground.Single(hit => hit.Node == 1);
+        await Finish(cast, endedBefore);
+        return (outflow.Position.y, remainder);
+    }
+    void RunoffTerrain()
+    {
+        for (int x = 62; x <= 86; x++)
+        for (int y = 64; y <= 83; y++)
+        {
+            var tile = World.world.GetTileSimple(x,y);
+            tile.setTileTypes(TileLibrary.soil_low, null, true);
+            int ridge = x is >= 79 and <= 83 && y is 72 or 73 ? 38 : 0;
+            int fall = Mathf.Clamp(x - 73, 0, 8) * 3 + Mathf.Clamp(Mathf.Abs(y - 72), 0, 5) * 3;
+            tile.Height = (byte)(140 + ridge - fall);
+        }
+    }
+    async Task<AbilityCast> Restage()
+    {
+        RunoffTerrain(); await Advance(.16f);
+        ground.Clear(); contacts.Clear(); await Pay();
+        return Live();
+    }
+
+    ConstructedAbilityService.WorldContactConfirmed += Land;
+    try
+    {
+        if (section is "native" or "worldfall")
+        {
+            var cast = await Restage();
+            int before = endings.Count;
+            bool whale = false, rolling = false, stones = false, spill = false, water = false;
+            var times = await Film(definition.Lifetime + .36f, () =>
+            {
+                forms.Clear(); cast.AppendVisuals(forms);
+                whale |= cast.Age > .63f && cast.Age < .95f && forms.Any(IsWhale);
+                var view = forms.FirstOrDefault(IsWhale);
+                if (view.Resource != null && cast.Age > 1.10f && cast.Age < 1.34f)
+                    rolling |= (view.Transform * view.Skin[0]).MultiplyVector(Vector3.forward).normalized.z < -.7f;
+                stones |= new[] { 3,4,5 }.All(i => cast.NodeAge(i) >= 0f);
+                spill |= forms.Any(form => form.Resource.Description.Id == "water_whale_spill" && form.Layer == null);
+                water |= Flowing(cast, runoff) && !Exists(cast, 0) && forms.Any(form => form.Layer != null);
+            });
+            Check(whale && rolling && stones && spill && water && RootTouches().Count() == 2 &&
+                  ground.Count(hit => hit.Node is 1 or 2) == 2 && endings.Count == before + 1 && Live() == null,
+                "同段原速录像拍到起跃、翻转、卷石、垂流、撞散和自然退场", new { whale, rolling, stones, spill, water });
+            return new { passed = true, times, duration = definition.Lifetime + .36f,
+                previewFrame = Math.Max(0, times.FindIndex(t => t >= 1.73)), view = recordView, scene = "construction",
+                resource = "wakan", paid = definition.Cost };
+        }
+        if (section == "impact") return new { passed = true, result = await Press(await Restage(), true), checks };
+        var variant = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "variant.json")));
+        (float y, double volume) initial, altered;
+        long sourceId = source.id, targetId = aim.id, sideId = side.id;
+        JToken originalJson = JToken.FromObject(original), variantJson = JToken.FromObject(variant);
+        string saved = Path.Combine(folder, replay == null ? "world" : "input-world");
+        if (replay == null)
+        {
+            initial = await Press(await Restage(), false);
+            definition = variant;
+            altered = await Press(await Restage(), false);
+            Check(Math.Abs(initial.y - altered.y) > .85f && Math.Abs(initial.volume - altered.volume) < .012f,
+                "只改腹部朝向就改变实际落点，余水预算不受影响", new { initial.y, altered = altered.y, initial.volume });
+            ConstructedAbilityService.Learn(owner, original.Id);
+            ConstructedAbilityService.Learn(owner, variant.Id);
+            SaveManager.saveWorldToDirectory(saved);
+            File.WriteAllText(replayPath, JsonConvert.SerializeObject(new { sourceId, targetId, sideId, initial.y,
+                altered = altered.y, initial.volume, alteredVolume = altered.volume }, Formatting.Indented));
+            World.world.save_manager.loadWorld(saved);
+            await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+            Config.paused = true;
+            await Game.WaitUntil(Boundary, 1800);
+        }
+        else
+        {
+            initial = ((float)replay["y"], (double)replay["volume"]);
+            altered = ((float)replay["altered"], (double)replay["alteredVolume"]);
+        }
+        var catalog = (IDictionary)service.GetField("definitions", F).GetValue(null);
+        source = World.world.units.get(sourceId); aim = World.world.units.get(targetId); side = World.world.units.get(sideId);
+        owner = source?.GetExtend();
+        var previous = (AbilityDefinition)catalog[original.Id]; var restored = (AbilityDefinition)catalog[variant.Id];
+        Check(previous != null && restored?.Parent?.Id == previous.Id && JToken.DeepEquals(originalJson, JToken.FromObject(previous)) &&
+              JToken.DeepEquals(variantJson, JToken.FromObject(restored)) && aim != null && side != null && owner != null &&
+              owner.E.GetComponent<ConstructedKnowledge>().Ids.Contains(previous.Id) &&
+              owner.E.GetComponent<ConstructedKnowledge>().Ids.Contains(restored.Id) && Live() == null,
+            "正式存档重开保留原术、派生关系、完整可编辑输入和人物学会状态");
+        definition = ConstructionEditing.Copy(restored);
+        definition.Revision++;
+        definition.Root.Children[0].Rotation = new float[3];
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        Equalize();
+        var edited = await Press(await Restage(), false);
+        Check(Math.Abs(edited.y - initial.y) < .22f && Math.Abs(edited.y - altered.y) > .85f &&
+              JToken.DeepEquals(originalJson, JToken.FromObject(catalog[previous.Id])),
+            "重开后改回前腹角度能复原实际落点，原招不被改写", new { moved = edited.y, initial.y, before = altered.y });
+        return new { passed = true, checks, saved };
+    }
+    finally { ConstructedAbilityService.WorldContactConfirmed -= Land; }
+}

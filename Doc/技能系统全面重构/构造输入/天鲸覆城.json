@@ -1,0 +1,161 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.SkyWhale",
+  "Name": "天鲸覆城",
+  "Resource": "wakan",
+  "Cost": 10.2,
+  "Power": 7.8,
+  "Cooldown": 1.1,
+  "Lifetime": 5.6,
+  "TargetRange": 28,
+  "Binding": { "Anchor": "Target", "Follow": false, "FaceTarget": true },
+  "Root": {
+    "Id": "whale",
+    "Form": "water_whale",
+    "Matter": "water",
+    "FollowMatter": true,
+    "Offset": [0, -7.6, -1.6],
+    "Rotation": [-90, 180, 0],
+    "Scale": 0.96,
+    "Volume": 34.12,
+    "DisappearAt": 2.15,
+    "Strength": 0.7,
+    "ContactGroup": "breach",
+    "ActiveFromMarker": "breach",
+    "Contact": { "Mode": "Interval", "Interval": 0.7, "MaximumPerTarget": 2 },
+    "Impact": {
+      "DamageScale": 0.58,
+      "Knockback": { "Distance": 0.6, "Height": 3.2, "OnlyWhileRising": true }
+    },
+    "Operations": [
+      { "Kind": "Animate", "Clip": "overturn" },
+      {
+        "Kind": "Fly",
+        "InheritVelocity": false,
+        "Path": {
+          "Space": "Local",
+          "Forward": null,
+          "Keys": [
+            { "At": 0, "Point": [0, 0, 0], "Out": [0, 0, 0] },
+            { "At": 0.30, "Point": [0, 0.1, 1.3], "In": [0, -0.06, -1.2], "Out": [0, 0.065, 1.3] },
+            { "At": 0.59, "Point": [0, 0.54, 7.6], "In": [0, -0.20, -1.6], "Out": [0, 0.13, 1.18] },
+            { "At": 0.93, "Point": [0, 0.95, 10.2], "In": [0, -0.11, 0], "Out": [0, 0.1, 0] },
+            { "At": 1.44, "Point": [0, 1.3, 11.15], "In": [0, -0.12, 0], "Out": [0, 0.10, 0] },
+            { "At": 1.75, "Point": [0, 1.48, 10.85], "In": [0, -0.09, 0.2], "Out": [0, 0.10, -0.65] },
+            { "At": 2.10, "Point": [0, 1.8, 0], "In": [0, -0.12, 3.2] }
+          ]
+        }
+      },
+      { "Kind": "PassRemainder", "At": 1.83, "When": { "Trigger": "WorldContact" } }
+    ],
+    "Children": [
+      {
+        "Id": "fore_spill",
+        "Form": "water_whale_spill",
+        "Anchor": "belly_front",
+        "Outlet": { "After": 1.35, "DownDegrees": 34 },
+        "Matter": "water",
+        "FollowMatter": true,
+        "SourceLoss": "Continue",
+        "Scale": 0.98,
+        "Volume": 1.28,
+        "Strength": 0.25,
+        "ContactGroup": "belly_flow",
+        "Contact": { "Mode": "Interval", "Interval": 0.6 },
+        "Impact": { "DamageScale": 0.22 },
+        "Operations": [
+          { "Kind": "Detach", "At": 0 },
+          { "Kind": "Fly", "At": 0, "Vector": [0, 0, 5.6], "WorldAcceleration": true, "Acceleration": [0, 0, -10], "InheritVelocity": false },
+          { "Kind": "Flow", "When": { "Trigger": "WorldContact" }, "Flow": { "Cells": 20, "Size": 9, "Gravity": 3, "Drag": 1.5, "Evaporation": 0, "OpenBoundary": false } }
+        ]
+      },
+      {
+        "Id": "aft_spill",
+        "Form": "water_whale_spill",
+        "Anchor": "belly_back",
+        "Outlet": { "After": 1.64, "DownDegrees": 42 },
+        "Matter": "water",
+        "FollowMatter": true,
+        "SourceLoss": "Continue",
+        "Scale": 0.84,
+        "Volume": 1.14,
+        "Strength": 0.25,
+        "ContactGroup": "belly_flow",
+        "Contact": { "Mode": "Interval", "Interval": 0.6 },
+        "Impact": { "DamageScale": 0.22 },
+        "Operations": [
+          { "Kind": "Detach", "At": 0 },
+          { "Kind": "Fly", "At": 0, "Vector": [0, 0, 5.6], "WorldAcceleration": true, "Acceleration": [0, 0, -10], "InheritVelocity": false },
+          { "Kind": "Flow", "When": { "Trigger": "WorldContact" }, "Flow": { "Cells": 20, "Size": 9, "Gravity": 3, "Drag": 1.5, "Evaporation": 0, "OpenBoundary": false } }
+        ]
+      },
+      {
+        "Id": "shale",
+        "Form": "rock_projectile",
+        "Matter": "earth",
+        "ContactRole": "Decoration",
+        "SourceLoss": "Continue",
+        "Activation": { "Trigger": "WorldContact" },
+        "Scale": 0.46,
+        "Volume": 0,
+        "Offset": [-0.44, -0.22, 0.50],
+        "Rotation": [31, 41, 12],
+        "DisappearAt": 1.7,
+        "Operations": [
+          { "Kind": "Spin", "Vector": [70, 55, 48] },
+          { "Kind": "Fly", "At": 0, "Vector": [1.7, 0.5, 4.9], "WorldVelocity": true, "Acceleration": [0, 0, -12], "Ground": "Stop", "InheritVelocity": false }
+        ]
+      },
+      {
+        "Id": "flint",
+        "Form": "falling_rock",
+        "Matter": "earth",
+        "ContactRole": "Decoration",
+        "SourceLoss": "Continue",
+        "Activation": { "Trigger": "WorldContact" },
+        "Scale": 0.25,
+        "Volume": 0,
+        "Offset": [0.27, 0.39, 0.29],
+        "Rotation": [18, 7, -23],
+        "DisappearAt": 1.7,
+        "Operations": [
+          { "Kind": "Spin", "Vector": [70, 55, 48] },
+          { "Kind": "Fly", "At": 0, "Vector": [0.8, -1.4, 5.5], "WorldVelocity": true, "Acceleration": [0, 0, -12], "Ground": "Stop", "InheritVelocity": false }
+        ]
+      },
+      {
+        "Id": "pebble",
+        "Form": "rock_projectile",
+        "Matter": "earth",
+        "ContactRole": "Decoration",
+        "SourceLoss": "Continue",
+        "Activation": { "Trigger": "WorldContact" },
+        "Scale": 0.31,
+        "Volume": 0,
+        "Offset": [0.4, -0.2, 0.27],
+        "Rotation": [-23, 8, 51],
+        "DisappearAt": 1.7,
+        "Operations": [
+          { "Kind": "Spin", "Vector": [70, 55, 48] },
+          { "Kind": "Fly", "At": 0, "Vector": [-0.8, -1.8, 4.4], "WorldVelocity": true, "Acceleration": [0, 0, -12], "Ground": "Stop", "InheritVelocity": false }
+        ]
+      },
+      {
+        "Id": "groundwater",
+        "Form": "water_flow",
+        "Matter": "water",
+        "FollowMatter": true,
+        "SourceLoss": "Continue",
+        "Volume": 0,
+        "Scale": 1.15,
+        "Activation": { "Trigger": "Handoff", "InheritRemainder": true, "ResetContacts": true },
+        "ContactGroup": "groundwater",
+        "Contact": { "Mode": "Interval", "Interval": 0.58 },
+        "Impact": { "DamageScale": 0.32, "Impulse": [1.1, 0, 0] },
+        "Operations": [
+          { "Kind": "Flow", "Flow": { "Cells": 28, "Size": 20, "Gravity": 3.6, "Drag": 1.25, "Evaporation": 0, "OpenBoundary": false } }
+        ]
+      }
+    ]
+  }
+}

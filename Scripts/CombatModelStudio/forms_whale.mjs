@@ -1,6 +1,7 @@
 /** 连续水鲸：脊柱、胸鳍和水平尾鳍共用骨架，表面坐标与真实控制一并导出。 */
 import * as T from 'three';
 import {part, write, skin, motion, surfaceData, structure} from './form_export.mjs';
+import {phaseValue} from './form_skeleton.mjs';
 
 const spineY = [4.5, 2.5, .5, -1.5, -3.3, -5.1, -6.2];
 const spineZ = [2.65, 2.6, 2.5, 2.3, 2.15, 2.05, 2.05];
@@ -91,7 +92,9 @@ export function makeWhale() {
   const anchors = [{Id: 'front', Part: 0, Position: [0, 5.8, 2.65], Direction: [0, 1, 0], Control: 'head'},
     {Id: 'tail_tip', Part: 3, Position: [0, -7.5, 2.05], Direction: [0, -1, 0], Control: 'fluke'},
     {Id: 'fin_left', Part: 1, Position: [4.6, -2, 1.6], Direction: [1, 0, 0], Control: 'fin_left'},
-    {Id: 'fin_right', Part: 2, Position: [-4.6, -2, 1.6], Direction: [-1, 0, 0], Control: 'fin_right'}];
+    {Id: 'fin_right', Part: 2, Position: [-4.6, -2, 1.6], Direction: [-1, 0, 0], Control: 'fin_right'},
+    {Id: 'belly_front', Part: 0, Position: [0, 2.1, .91], Direction: [0, 0, -1], Control: 'neck'},
+    {Id: 'belly_back', Part: 0, Position: [0, -.8, 1.26], Direction: [0, 0, -1], Control: 'waist'}];
   const swim = motion('swim', 2.4, true, controls, 48, (index, phase) => {
     const angle = index < 7 ? [1.5, 2, 3, 5, 12, 18, 12][index] * Math.sin(phase * Math.PI * 2 - index * .58) :
       18 * (index === 7 ? 1 : -1) * Math.sin(phase * Math.PI * 2 - .8);
@@ -105,11 +108,53 @@ export function makeWhale() {
     const angle = index<7 ? [0,0,2,6,16,24,18][index]*bend : (index===7?1:-1)*10*bend;
     return {rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),angle*Math.PI/180).toArray()};
   },[{Id:'gather',At:0},{Id:'contact',At:1.104},{Id:'recover',At:1.512},{Id:'ready',At:2.4}]);
-  write('water_whale', parts, anchors, contacts, controls, [swim,tailSweep], false, {Forward:[0,1,0],Up:[0,0,1]},
-    structure('skinned','forms_whale.mjs','makeWhale',{spineY,spineZ,bodySampling:[88,48]},
+  // 仰身和翻转都绕胸腔。挂点、接触和表面共同读取这个骨架。
+  const chest = new T.Vector3(0,1.1,2.4);
+  const breachPoses = [[0,[-6,16,18,0]],[.31,[14,-13,-13,0]],[.54,[28,-7,-10,0]],[.84,[19,13,8,0]],
+    [1.06,[4,-6,17,0]],[1.38,[-11,-16,-7,0]],[1.78,[-9,4,8,0]]];
+  const overturnPoses = [...breachPoses.slice(0,3),[.82,[20,9,5,25]],[1.04,[9,14,14,105]],
+    [1.24,[3,-8,-14,180]],[1.42,[-2,-16,-21,245]],[1.62,[-8,-3,-7,309]],
+    [1.83,[-13,10,9,352]],[2.10,[-17,5,15,360]]];
+  function rise(id,poses,markers) {
+    const duration=poses.at(-1)[0];
+    const keys=poses.map(([at,value])=>[at/duration,value]);
+    return motion(id,duration,false,controls,(id==='breach'?58:68),(index,phase,control)=>{
+      const [pitch,tail,fin,roll]=phaseValue(phase,keys);
+      const turn=(axis,degrees)=>new T.Quaternion().setFromAxisAngle(axis,T.MathUtils.degToRad(degrees));
+      if(index===0) {
+        const root=turn(new T.Vector3(1,0,0),pitch).multiply(turn(new T.Vector3(0,1,0),roll));
+        const position=new T.Vector3(...control.Position).sub(chest).applyQuaternion(root).add(chest);
+        return {position:position.toArray(),rotation:root.toArray()};
+      }
+      if(index<7) return {rotation:turn(new T.Vector3(1,0,0),tail*[0,-.08,0,.16,.34,.68,.72][index]).toArray()};
+      return {rotation:turn(new T.Vector3(0,1,0),fin*(index===7?1:-1)).toArray()};
+    },markers.map(([Id,At])=>({Id,At})));
+  }
+  const breach=rise('breach',breachPoses,[['breach',.22],['crest',.88],['settle',1.38]]);
+  const overturn=rise('overturn',overturnPoses,[['breach',.22],['crest',.88],['inverted',1.24],['press',1.83]]);
+  write('water_whale', parts, anchors, contacts, controls, [swim,tailSweep,breach,overturn], false, {Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
+    structure('skinned','forms_whale.mjs','makeWhale',{spineY,spineZ,bodySampling:[88,48],breachPoses,overturnPoses},
       {body:['body.trunk'],fin_left:['body.fin'],fin_right:['body.fin'],flukes:['body.tail'],dorsal:['body.fin.dorsal'],eye_left:['body.eye'],eye_right:['body.eye']},
       [['body','fin_left',[1.05,.8,2.3]],['body','fin_right',[-1.05,.8,2.3]],['body','flukes',[0,-6.2,2.05]],
         ['body','dorsal',[0,-1.2,3.5]],['body','eye_left',[1.38,4.65,2.85]],['body','eye_right',[-1.38,4.65,2.85]]]),[],[
       {Id:'tail_sweep',Motion:'tail_sweep',Scale:[.1,3],Rate:[.5,2],Turn:[-60,60],Supports:[],Contacts:[
         {Id:'tail',Anchor:'tail_tip',PartnerRole:'body.trunk',From:'contact',Until:'recover',Gap:.2,Angle:30,Opposed:true}]}]);
+  bellySpill();
+}
+
+/** 腹部落水为连续有厚度的水帘，接触面就在同一段湿体上。 */
+function bellySpill() {
+  const profile=[[0,.06,.04],[.22,.27,.11],[.78,.51,.17],[1.43,.60,.24],[2.1,.51,.27],[2.46,.28,.18],[2.57,.015,.012]];
+  const curve=new T.CatmullRomCurve3(profile.map(p=>new T.Vector3(...p)),false,'catmullrom',.28);
+  const mesh=surface(38,28,(along,around)=>{
+    const p=curve.getPoint(along), a=-around*2*Math.PI;
+    const x=p.y*Math.cos(a)*(1+.10*Math.sin(a*3+along*9));
+    const y=p.z*Math.sin(a)*(1+.17*Math.sin(a*5-along*8));
+    return [x,y+Math.sin(along*Math.PI)*.13,p.x];
+  });
+  const contact=(Id,z0,z1,Radius)=>({Id,Part:0,A:[0,.09,z0],B:[0,.09,z1],Radius});
+  write('water_whale_spill',[part('sheet',surfaceData(mesh,point=>.12+.30*Math.sin(point.z/2.57*Math.PI)),'water')],[],[
+    contact('neck',.20,.60,.24),contact('body',.82,1.53,.47),contact('lip',1.78,2.20,.45)],[],[],false,
+    {Forward:[0,0,1],Up:[0,1,0],HideBelowGround:true},
+    structure('surface','forms_whale.mjs','makeWhale',{profile},{sheet:['fluid.body']}));
 }

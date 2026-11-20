@@ -1,0 +1,60 @@
+
+async Task<object> Stones(AbilityCast cast)
+{
+    var touches = new List<ConstructedWorldContact>();
+    void Touch(ConstructedWorldContact hit)
+    {
+        if (hit.AbilityId == definition.Id && hit.TriggerOnly && hit.Node == 0) touches.Add(hit);
+    }
+    object Node(int i) => ((Array)Field(cast, "nodes")).GetValue(i);
+    Vector3 Position(int i) => (Vector3)Field(Node(i), "Position");
+    var terrain = (AbilityHeightField)Field(cast, "terrain");
+    float Height(Vector3 p) => p.z - terrain.Sample(p.x, p.y);
+    var peaks = new float[3];
+    var release = new Vector3[3];
+    var stopped = new bool[3];
+    var land = new Vector3[3];
+    var around = Enumerable.Range(3, 3).ToArray();
+    ConstructedAbilityService.WorldContactConfirmed += Touch;
+    try
+    {
+        await Advance(.16f);
+        Check(around.All(i => cast.NodeAge(i) < 0f) && touches.Count == 0,
+            "鲸身尚在地下时没有凭空生成碎石");
+        while (cast.Age < .88f && touches.Count == 0) await Advance(.035f);
+        Check(touches.Count == 1 && around.All(i => cast.NodeAge(i) >= 0f), "鲸身真实扫过地表才卷起碎石",
+            new { cast.Age, times = around.Select(cast.NodeAge).ToArray(), touches = touches.Select(t => t.Age).ToArray() });
+        Vector3 point = touches[0].Position;
+        foreach (int i in around) release[i - 3] = Position(i);
+        Check(release.All(p => (p - point).sqrMagnitude < 1f) && Mathf.Abs(Height(point)) < .2f,
+            "碎石从同一小片地表出发", new { point = point.ToString("F3"), release = release.Select(p => p.ToString("F3")) });
+        bool shot = false;
+        for (int step = 0; step < 38 && !stopped.All(value => value); step++)
+        {
+            foreach (int i in around)
+            {
+                int n = i - 3;
+                var position = Position(i);
+                peaks[n] = Mathf.Max(peaks[n], Height(position));
+                if (!(bool)Field(Node(i), "MovementStopped")) continue;
+                stopped[n] = true;
+                land[n] = position;
+            }
+            if (!shot && peaks.Min() > .8f)
+            {
+                await Shot("earth-chips-native");
+                shot = true;
+            }
+            await Advance(.045f);
+        }
+        var record = new { at = touches[0].Age, peaks, stopped, lands = land.Select(p => p.ToString("F3")),
+            heights = land.Select(Height), travel = land.Select((p, i) => Vector2.Distance(p, release[i])) };
+        File.WriteAllText(Path.Combine(folder, "stones-trace.json"), JsonConvert.SerializeObject(record, Formatting.Indented));
+        Check(peaks.Min() > .85f && stopped.All(x => x) && land.All(p => Height(p) < .58f) &&
+              land.Select((p, i) => Vector2.Distance(p, release[i])).Min() > .35f && shot,
+            "碎石真实升空、依原重力落回，并按各自形状停止在地面", record);
+        Check(!contacts.Any(hit => hit.Node >= 3) && touches.Count == 1, "碎石没有额外伤害面，只卷起一次");
+        return new { passed = true, checks };
+    }
+    finally { ConstructedAbilityService.WorldContactConfirmed -= Touch; }
+}

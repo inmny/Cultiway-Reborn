@@ -28,6 +28,7 @@ public sealed partial class WindowWanfaConstructionEditor
         {
             Number(prefix + "KnockbackDistance", knockback.Distance, value => knockback.Distance = value);
             Number(prefix + "KnockbackHeight", knockback.Height, value => knockback.Height = value);
+            Toggle(prefix + "KnockbackOnlyWhileRising", knockback.OnlyWhileRising, value => knockback.OnlyWhileRising = value);
         }
     }
 }

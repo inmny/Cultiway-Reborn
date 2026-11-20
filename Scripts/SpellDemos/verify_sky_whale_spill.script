@@ -1,0 +1,107 @@
+async Task<object> Spill(AbilityCast cast, bool cut)
+{
+    var ground = new List<ConstructedWorldContact>();
+    void Land(ConstructedWorldContact hit)
+    {
+        if (hit.AbilityId == definition.Id && hit.TriggerOnly && hit.Node is 1 or 2) ground.Add(hit);
+    }
+    object Node(int i) => ((Array)Field(cast, "nodes")).GetValue(i);
+    object Flow(int i) => ((Array)Field(cast, "flows")).GetValue(i);
+    bool StartedFlow(int i) => (bool)Field(Flow(i), "Started");
+    bool Exists(int i) => (bool)Field(Node(i), "Exists");
+    bool Free(int i) => (bool)Field(Node(i), "Free");
+    Matrix4x4 Transform(int i) => (Matrix4x4)Field(Node(i), "Transform");
+    Matrix4x4 Mouth(int i)
+    {
+        var rig = (FormPose)((Array)Field(cast,"poses")).GetValue(0);
+        return Transform(0) * forms.Single(v => v.Resource.Description.Id == "water_whale").Resource.Anchors
+            .Single(a => a.Id == definition.Root.Children[i - 1].Anchor).Frame(rig);
+    }
+    var ages = new float[3];
+    var distances = new float[3];
+    var directions = new float[3];
+    var startHeights = new float[3];
+    var volume = new double[3];
+    var terrain = (AbilityHeightField)Field(cast, "terrain");
+    double budget = 36d * Math.Pow(definition.Root.Scale, 3);
+    float bellyRise = -1f, bellyFall = 1f;
+    bool delayedByPose = false;
+    ConstructedAbilityService.WorldContactConfirmed += Land;
+    try
+    {
+        await Advance(1.24f);
+        Check(cast.NodeAge(1) < 0f && cast.NodeAge(2) < 0f && ground.Count == 0,
+            "鲸腹朝上时没有提前出流或落地", new { cast.Age });
+        bool shot = false;
+        for (int step = 0; step < 48 && cast.Age < 2.9f; step++)
+        {
+            forms.Clear(); cast.AppendVisuals(forms);
+            bool hasWhale = forms.Any(v => v.Resource.Description.Id == "water_whale");
+            if (hasWhale)
+            {
+                float up = ((Vector3)Mouth(1).GetColumn(2)).normalized.z;
+                bellyRise = Mathf.Max(bellyRise, up);
+                bellyFall = Mathf.Min(bellyFall, up);
+                if (cast.Age >= definition.Root.Children[0].Outlet.After && cast.NodeAge(1) < 0f && up > 0f)
+                    delayedByPose = true;
+                for (int i = 1; i <= 2; i++)
+                {
+                    if (ages[i] != 0f || cast.NodeAge(i) < 0f) continue;
+                    Matrix4x4 mouth = Mouth(i);
+                    Vector3 origin = mouth.GetColumn(3), location = Transform(i).GetColumn(3);
+                    ages[i] = cast.Age - cast.NodeAge(i);
+                    distances[i] = Vector3.Distance(location, origin);
+                    directions[i] = -((Vector3)mouth.GetColumn(2)).normalized.z;
+                    startHeights[i] = location.z - terrain.Sample(location.x, location.y);
+                    volume[i] = cast.RemainingVolume(i);
+                    Check(Free(i) && !StartedFlow(i) && distances[i] < .78f && startHeights[i] > 1.3f &&
+                          directions[i] > Mathf.Sin(definition.Root.Children[i - 1].Outlet.DownDegrees * Mathf.Deg2Rad) - .10f,
+                        "水帘从实际朝下的腹部挂点离体，尚未落地", new { node = i, at = ages[i], gap = distances[i], down = directions[i], height = startHeights[i], volume = volume[i] });
+                }
+                if (cut && ages[1] > 0f)
+                {
+                    Check(ages[2] == 0f && cast.NodeAge(2) < 0f, "打断前只有前腹水帘已离体");
+                    ControllableUnit.clear(false);
+                    source.dieAndDestroy(AttackType.None);
+                    await Game.NextFrame();
+                    await Advance(1.35f);
+                    Check(!source.isAlive() && !Exists(0) && !Exists(2) && Exists(1) && StartedFlow(1) && ground.Count == 1,
+                        "来源真实失效后只留下已经离体的水，未释放支路退出");
+                    break;
+                }
+                if (!cut && ages[1] > 0f && ages[2] > 0f && !shot)
+                {
+                    await Shot("belly-spill-native");
+                    shot = true;
+                }
+            }
+            if (!cut && ground.Any(hit => hit.Node == 1) && ground.Any(hit => hit.Node == 2)) break;
+            await Advance(.045f);
+        }
+        var landings = ground.Select(hit => new { hit.Node, hit.Age, point = hit.Position.ToString("F3"),
+            above = hit.Position.z - terrain.Sample(hit.Position.x, hit.Position.y) }).ToArray();
+        File.WriteAllText(Path.Combine(folder, "spill-trace.json"), JsonConvert.SerializeObject(new
+        { ages, distances, directions, startHeights, volume, landings, bellyRise, bellyFall }, Formatting.Indented));
+        int count = cut ? 1 : 2;
+        Check(ground.Count == count && ground.All(hit => hit.Node >= 1 && hit.Node <= count && StartedFlow(hit.Node) &&
+            hit.Age > ages[hit.Node] + .16f && Mathf.Abs(hit.Position.z - terrain.Sample(hit.Position.x, hit.Position.y)) < .2f),
+            "已离体的水束只在实际接触地面后转换成浅流", landings);
+        Check(Enumerable.Range(1, count).All(i => volume[i] > 0 &&
+              Math.Abs(cast.RemainingVolume(i) - volume[i]) < .01 &&
+              Math.Abs((double)Field(Flow(i), "LiquidVolume") - volume[i]) < .01),
+            "分出的水量原样进入浅流，没有另生成一份", new { volume });
+        if (!cut)
+        {
+            Check(ages[1] >= definition.Root.Children[0].Outlet.After && ages[2] > ages[1] &&
+                  bellyRise > .75f && bellyFall < -.70f && delayedByPose && shot,
+                "鲸身完整翻过，前后挂点在两个实际时点放水", new { ages, bellyRise, bellyFall, delayedByPose });
+            Check(Math.Abs(definition.Root.Volume.GetValueOrDefault() * Math.Pow(definition.Root.Scale, 3) + volume.Sum() - budget) < .02,
+                "主鲸和两股垂流共用有限的材料预算", new { budget, volume });
+        }
+        await Advance(Mathf.Max(.3f, definition.Lifetime + .3f - cast.Age));
+        Check(Live() == null && endings.Count == 1 && !FormVisualScene.Instances.Any(v => v.Resource.Description.Id.StartsWith("water_whale")),
+            "垂流结束后没有滞留的鲸身或水帘");
+        return new { passed = true, checks };
+    }
+    finally { ConstructedAbilityService.WorldContactConfirmed -= Land; }
+}

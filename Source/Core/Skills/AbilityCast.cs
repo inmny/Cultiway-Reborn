@@ -1441,6 +1441,10 @@ public sealed partial class AbilityCast
     /// <param name="node">生成部位。</param>
     public Vector3 Velocity(int node) => nodes[node].Velocity;
 
+    /// <summary>读取实际移动，固定连接与独立运动共用世界高度方向。</summary>
+    /// <param name="node">正在接触的生成部位；身体没有这条运动记录。</param>
+    internal bool IsRising(int node) => node >= 0 && (nodes[node].Free ? nodes[node].Velocity.z : nodes[node].AttachedVelocity.z) > .00001f;
+
     /// <summary>必须是仍存在、独立运动且尚有次数的部位；附着的身体或器物不会被凭空抛走。</summary>
     /// <param name="node">生成部位。</param>
     internal bool CanReflect(int node) => nodes[node].Exists && nodes[node].Free && !nodes[node].MovementStopped &&
