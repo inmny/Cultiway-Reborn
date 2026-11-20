@@ -18,8 +18,8 @@ public sealed partial class FormResource
     /// <param name="matterSurface">本次实际材料选出的表面。</param><param name="followMatter">是否主动跟随换材。</param>
     internal string SelectPartSurface(int part, string surface, string matterSurface, bool followMatter)
     {
-        FormPartDescription piece = Description.Parts[part];
         if (surface != null) return surface;
+        FormPartDescription piece = Description.Parts[part];
         if (matterSurface == null || MaterialFamily(piece.Surface) == matterSurface) return piece.Surface;
         bool replace = HasMatterParts ? piece.UseMatterSurface : followMatter &&
             piece.Surface == (whole ?? this).Description.Parts[0].Surface;

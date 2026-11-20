@@ -1086,6 +1086,18 @@ public sealed partial class AbilityCast
     /// <param name="node">实际部位。</param>
     internal Matrix4x4 NodeTransform(int node) => nodes[node].Transform;
 
+    /// <summary>读取景物原始取景和当前共同碰撞姿态。</summary>
+    /// <param name="node">实际景物带。</param><param name="actual">当前姿态。</param>
+    /// <param name="origin">这次移动前与原地图相接的位置。</param>
+    internal bool TryLandscapeFrame(int node, out Matrix4x4 actual, out Matrix4x4 origin)
+    {
+        NodeState state = nodes[node];
+        actual = origin = state.Transform;
+        if (!state.Visible || !state.Exists) return false;
+        if (state.Flying) origin.SetColumn(3, new Vector4(state.FlightOrigin.x, state.FlightOrigin.y, state.FlightOrigin.z, 1f));
+        return true;
+    }
+
     /// <summary>成功产生真实世界收益后，消耗本部位原支付份额，不伪造人物碰撞或重复回能。</summary>
     /// <param name="node">已经提交的实际部位，身体为负一。</param>
     /// <param name="changed">原版世界是否实际改变。</param>
@@ -1384,6 +1396,7 @@ public sealed partial class AbilityCast
     /// <summary>空支点只在自己还负责指定送达时有独立作用。</summary>
     /// <param name="node">实际编译部位。</param>
     private bool HasOwnWork(int node) => Plan.Nodes[node].Resource.Meshes.Length != 0 ||
+                                         Plan.Nodes[node].LandscapeSlice != null ||
                                          Plan.Nodes[node].ContactRole != ConstructionContactRole.Decoration ||
                                          Array.Exists(Plan.DirectSignalSteps, index => Plan.Steps[index].Node == node);
 
@@ -1592,6 +1605,12 @@ public sealed partial class AbilityCast
             if (propagations?[i] is AbilityPropagation wave)
             {
                 AppendPropagationContacts(i, wave, output, includeEnd);
+                continue;
+            }
+            if (form.LandscapeSlice is { } landscape)
+            {
+                if (form.ContactRole != ConstructionContactRole.Decoration)
+                    output.Add(landscape.Contact(i, state.Transform, state.Revision, state.Matter));
                 continue;
             }
             bool flowing = flows?[i]?.Started == true;

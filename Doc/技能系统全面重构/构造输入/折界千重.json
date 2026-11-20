@@ -1,0 +1,159 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.ThousandFold",
+  "Name": "折界千重",
+  "Lifetime": 4.02,
+  "Resource": "mana",
+  "Cost": 13,
+  "Cooldown": 4.5,
+  "Power": 10,
+  "TargetRange": 30,
+  "Use": {
+    "Channels": "World",
+    "Target": "Point"
+  },
+  "Binding": {
+    "Anchor": "Target",
+    "Follow": false,
+    "FaceTarget": false
+  },
+  "Root": {
+    "Id": "landscape",
+    "Form": "pivot",
+    "ContactRole": "Decoration",
+    "Children": [
+      {
+        "Id": "riverbank",
+        "Form": "pivot",
+        "Matter": "earth",
+        "State": "solid",
+        "Offset": [0, -3, 0],
+        "Strength": 0.78,
+        "LandscapeSlice": {
+          "Width": 8,
+          "Length": 3,
+          "Thickness": 0.56,
+          "Edge": -1,
+          "EdgeWidth": 0.19,
+          "EdgeHeight": 0.94
+        },
+        "ActiveFrom": 1.28,
+        "ActiveUntil": 2.16,
+        "DisappearAt": 3.69,
+        "ContactGroup": "riverbank",
+        "Impact": {
+          "DamageScale": 0.76
+        },
+        "Operations": [
+          {
+            "Kind": "Detach"
+          },
+          {
+            "Kind": "Fly",
+            "InheritVelocity": false,
+            "Path": {
+              "Space": "Local",
+              "Forward": null,
+              "Keys": [
+                {"At": 0, "Point": [0, 0, 0]},
+                {"At": 0.38, "Point": [0, 0, 0.528]},
+                {"At": 0.91, "Point": [5.5, 0, 1.2]},
+                {"At": 1.04, "Point": [5.5, 0, 1.2]},
+                {"At": 1.28, "Point": [5.5, 0, 0.2]},
+                {"At": 2.16, "Point": [0, 0, 0]}
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "Id": "terraces",
+        "Form": "pivot",
+        "Matter": "earth",
+        "State": "solid",
+        "Offset": [0, 0, 0],
+        "Strength": 0.78,
+        "LandscapeSlice": {
+          "Width": 8,
+          "Length": 3,
+          "Thickness": 0.66,
+          "Edge": 1,
+          "EdgeWidth": 0.19,
+          "EdgeHeight": 0.94
+        },
+        "ActiveFrom": 1.83,
+        "ActiveUntil": 2.74,
+        "DisappearAt": 3.69,
+        "ContactGroup": "terraces",
+        "Impact": {
+          "DamageScale": 0.76
+        },
+        "Operations": [
+          {
+            "Kind": "Detach"
+          },
+          {
+            "Kind": "Fly",
+            "InheritVelocity": false,
+            "Path": {
+              "Space": "Local",
+              "Forward": null,
+              "Keys": [
+                {"At": 0, "Point": [0, 0, 0]},
+                {"At": 0.38, "Point": [0, 0, 0.9107999999999999]},
+                {"At": 0.91, "Point": [-5.8, 0, 2.07]},
+                {"At": 1.59, "Point": [-5.8, 0, 2.07]},
+                {"At": 1.83, "Point": [-5.8, 0, 0.2]},
+                {"At": 2.74, "Point": [0, 0, 0]}
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "Id": "ridge",
+        "Form": "pivot",
+        "Matter": "earth",
+        "State": "solid",
+        "Offset": [0, 3, 0],
+        "Strength": 0.78,
+        "LandscapeSlice": {
+          "Width": 8,
+          "Length": 3,
+          "Thickness": 0.78,
+          "Edge": -1,
+          "EdgeWidth": 0.19,
+          "EdgeHeight": 0.94
+        },
+        "ActiveFrom": 2.38,
+        "ActiveUntil": 3.32,
+        "DisappearAt": 3.69,
+        "ContactGroup": "ridge",
+        "Impact": {
+          "DamageScale": 0.76
+        },
+        "Operations": [
+          {
+            "Kind": "Detach"
+          },
+          {
+            "Kind": "Fly",
+            "InheritVelocity": false,
+            "Path": {
+              "Space": "Local",
+              "Forward": null,
+              "Keys": [
+                {"At": 0, "Point": [0, 0, 0]},
+                {"At": 0.38, "Point": [0, 0, 1.364]},
+                {"At": 0.91, "Point": [5.5, 0, 3.1]},
+                {"At": 2.14, "Point": [5.5, 0, 3.1]},
+                {"At": 2.38, "Point": [5.5, 0, 0.2]},
+                {"At": 3.32, "Point": [0, 0, 0]}
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

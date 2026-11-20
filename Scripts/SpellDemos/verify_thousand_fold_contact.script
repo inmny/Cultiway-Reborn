@@ -1,0 +1,44 @@
+try
+{
+    var first = await Use(definition);
+    int[] health = people.Select(actor => actor.data.health).ToArray();
+    await At(first.Cast, 1.06f);
+    var boxes = new List<AbilityCapsule>();
+    first.Cast.AppendContacts(boxes);
+    Check(Edges().Length == 3 && boxes.Count == 0 && !contacts.Any(hit => hit.CastId == first.Id) &&
+        people.Select(actor => actor.data.health).SequenceEqual(health),
+        "开启时显现的边沿经过敌人仍不会产生接触",
+        new { first.Cast.Age, centres = Edges().Select(Centre).Select(p => p.ToString()).ToArray() });
+
+    await At(first.Cast, 1.45f);
+    first.Cast.AppendContacts(boxes);
+    var blade = boxes.Single();
+    var prism = Field(blade, "Prism");
+    Matrix4x4 real = (Matrix4x4)Field(prism, "transform");
+    var frame = Edges().OrderBy(v => Centre(v).y).First();
+    Bounds bounds = MeshOf(frame).bounds;
+    Matrix4x4 shown = frame.Transform * Matrix4x4.TRS(bounds.center, Quaternion.identity, bounds.extents);
+    Check(Enumerable.Range(0, 16).All(index => Mathf.Abs(real[index] - shown[index]) < .001f),
+        "闭合时实际接触体与眼前的边沿逐项同姿态同大小",
+        new { blade.Node, width = bounds.size.x, height = bounds.size.z, blade = blade.A.ToString() });
+    await At(first.Cast, 3.53f);
+    var hits = contacts.Where(hit => hit.CastId == first.Id).ToArray();
+    var damage = hits.Where(hit => hit.DamageAttempted && hit.Damage.HealthLost > 0).ToArray();
+    var evidence = hits.Select(hit => new
+    {
+        hit.TargetId, hit.Node, hit.Age, loss = hit.Damage.HealthLost, point = hit.Position.ToString()
+    }).ToArray();
+    Check(damage.Select(hit => hit.TargetId).SequenceEqual(people.Take(3).Select(actor => actor.id)) &&
+        hits.All(hit => hit.Node >= 1 && hit.Node <= 3 &&
+            hit.Age >= definition.Root.Children[hit.Node - 1].ActiveFrom &&
+            hit.Age <= definition.Root.Children[hit.Node - 1].ActiveUntil) &&
+        outside.data.health == health[3] && people.Take(3).Select((a, i) => a.data.health < health[i]).All(value => value),
+        "只有逐条闭合经过的三名敌人实际受伤，范围外的人保持原生命",
+        new { evidence, outside = outside.id, health, after = people.Select(value => value.data.health).ToArray() });
+    await Advance(.65f);
+    Check(first.Cast.Finished && Pages().Length == 0 && Edges().Length == 0 && SceneryIntact() &&
+        people.All(actor => World.world.units.get(actor.id) == actor && actor.isAlive() && !BodyControlState.IsBusy(actor.id)),
+        "结束后人物仍在原地图、正常可控，地貌归还与真实伤害互不抵消");
+    return new { passed = true, evidence, outside = outside.id };
+}
+finally { ReleaseChecks(); }

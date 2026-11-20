@@ -136,7 +136,8 @@ public sealed class ConstructionMeasure
                 RadialMotionWork += Math.PI * node.RadialMotion.Radius * node.RadialMotion.Radius *
                                     Math.Abs(node.RadialMotion.Speed) * span * .1d +
                                     Math.Min(8f, Math.Abs(node.RadialMotion.Speed)) * node.RadialMotion.GroundItemLimit * span * .12d;
-            bool material = node.FragmentSource < 0 && node.RemainderRoot < 0 && node.Resource.Meshes.Length > 0;
+            bool material = node.FragmentSource < 0 && node.RemainderRoot < 0 &&
+                            (node.Resource.Meshes.Length > 0 || node.LandscapeSlice != null);
             double volume = material ? node.Volume * scales[i] : 0d;
             if (material) Materials++;
             Volume += volume;
@@ -158,9 +159,16 @@ public sealed class ConstructionMeasure
                 ErosionWork += ErosionDemand(residue, volume);
                 ProcessTimeWork += ErosionTimeDemand(residue, volume, node.Residue.Lifetime > 0 ? node.Residue.Lifetime : double.PositiveInfinity);
             }
-            if (node.Resource.Meshes.Length == 0 && node.Resource.Contacts.Length == 0) continue;
+            if (node.Resource.Meshes.Length == 0 && node.Resource.Contacts.Length == 0 && node.LandscapeSlice == null) continue;
             double area = 0;
-            if (node.Resource.Meshes.Length == 0)
+            if (node.LandscapeSlice is { } landscape)
+            {
+                Vector3 scale = layouts[i].lossyScale;
+                area = landscape.Width * landscape.Length * Mathf.Abs(scale.x * scale.y);
+                Area += area;
+                work += area * (.1d + span * .025d);
+            }
+            else if (node.Resource.Meshes.Length == 0)
             {
                 var minimum = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
                 var maximum = new Vector2(float.NegativeInfinity, float.NegativeInfinity);

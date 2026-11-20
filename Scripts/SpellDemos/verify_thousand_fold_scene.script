@@ -1,0 +1,64 @@
+var definition = Spell("折界千重");
+var stats = new BaseStats();
+stats.addTag("frozen_ai");
+var steady = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ThousandFold.Steady") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ThousandFold.Steady")
+        .SetStats(stats).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, steady, 10000, source);
+source.updateStats();
+
+Actor Opponent(float x, float y)
+{
+    Actor actor = Make(x);
+    actor.setKingdom(victim.kingdom);
+    Place(actor, x, y);
+    return actor;
+}
+
+var bankGuard = Opponent(69, 69);
+var ridgeGuard = Opponent(69, 75);
+var outside = Opponent(69, 77.5f);
+Actor[] people = { bankGuard, victim, ridgeGuard, outside };
+var region = new List<WorldTile>();
+var clutter = new HashSet<Building>();
+for (int x = 63; x <= 75; x++)
+for (int y = 66; y <= 78; y++)
+{
+    WorldTile tile = World.world.GetTileSimple(x, y);
+    if (tile.building != null) clutter.Add(tile.building);
+    bool river = x <= 68 && Mathf.Abs(x - (66 + (y - 69) / 3)) < 1.6f;
+    bool ridge = x >= 71 && y >= 73;
+    tile.Height = river ? 120 : ridge ? 153 + (y - 73) * 2 + (x - 71) : 140;
+    tile.setTileTypes(river ? TileLibrary.shallow_waters : ridge ? TileLibrary.hills :
+        x <= 66 ? TileLibrary.sand : TileLibrary.soil_low,
+        river || ridge ? null : TopTileLibrary.grass_low, true);
+    region.Add(tile);
+}
+foreach (Building building in clutter) building.removeBuildingFinal();
+var millTile = World.world.GetTileSimple(71, 72);
+var treeTile = World.world.GetTileSimple(72, 75);
+var mill = World.world.buildings.addBuilding("windmill_human_0", millTile);
+var tree = World.world.buildings.addBuilding("tree_green_1", treeTile);
+// 原版会自行更新表层草木。比较本术应完整保留的地貌和原景物。
+var terrainBefore = region.Select(t => (t.Height, t.main_type)).ToArray();
+bool SceneryIntact() => region.Select(t => (t.Height, t.main_type)).SequenceEqual(terrainBefore) &&
+    millTile.building == mill && treeTile.building == tree && mill.isAlive() && tree.isAlive();
+
+FormVisualInstance[] Pages() => FormVisualScene.Instances.Where(v =>
+    v.Resource.Description.Id == "pivot" && v.Surface == "space_destination").ToArray();
+FormVisualInstance[] Edges() => FormVisualScene.Instances.Where(v =>
+    v.Resource.Description.Id == "pivot" && v.Surface == "space_gate_inlay").ToArray();
+Mesh MeshOf(FormVisualInstance visual) => (Mesh)Field(visual, "Geometry");
+Vector3 Centre(FormVisualInstance visual) => (Vector3)visual.Transform.GetColumn(3);
+(int Colours, float Relief, int Points) Surface(FormVisualInstance visual)
+{
+    Mesh mesh = MeshOf(visual);
+    var samples = new List<Vector4>();
+    mesh.GetUVs(5, samples);
+    return (samples.Select(v => new Vector3(v.x, v.y, v.z)).Distinct().Count(),
+        mesh.bounds.max.z - mesh.bounds.min.z, mesh.vertexCount);
+}
+async Task At(AbilityCast cast, float age)
+{
+    if (cast.Age < age) await Advance(age - cast.Age);
+}
