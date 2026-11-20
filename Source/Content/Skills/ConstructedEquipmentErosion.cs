@@ -68,6 +68,8 @@ public sealed partial class ConstructedAbilityService
             {
                 string element = running.Cast.Matter(node).Id;
                 if (element is "wind" or "poison") AddWindScar(running, node, target, point, true, element == "poison");
+                else AddTimeWear(new TimeWear(target, targetId, default, WearKind.Armor,
+                    1.16f - .56f * after / Mathf.Max(1, item.getDurabilityMax()), simulation.contactTime));
             }
             target.setStatsDirty();
             target.updateStats();

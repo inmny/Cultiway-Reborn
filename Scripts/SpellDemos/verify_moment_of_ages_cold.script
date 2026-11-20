@@ -1,0 +1,27 @@
+Game.Resume();
+Config.paused = true;
+var changes = new List<ConstructedWorldContact>();
+void Changed(ConstructedWorldContact fact)
+{
+    if (fact.AbilityId.StartsWith("Cultiway.Demo.MomentOfAges")) changes.Add(fact);
+}
+ConstructedAbilityService.WorldContactConfirmed += Changed;
+try
+{
+    var expected = JObject.Parse(File.ReadAllText(Path.Combine(saved, "expected.json")));
+    var loaded = await ReadSave(saved, expected, "pending");
+    await Advance(6f);
+    var actual = CurrentState(loaded.Target);
+    string[] stable = { "extraAge", "armor", "durability", "stone", "stoneHp", "stoneTile" };
+    Check(changes.Count == 0 && stable.All(key => JToken.DeepEquals(actual[key], expected["pending"][key])) &&
+        !FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "time_weathering_stamp"),
+        "重开后没有重放尚未到来的阶段，也没有恢复短暂旧印", actual);
+    loaded = await ReadSave(saved, expected, "completed");
+    return new { passed = true, completed = CurrentState(loaded.Target) };
+}
+finally
+{
+    ConstructedAbilityService.WorldContactConfirmed -= Changed;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

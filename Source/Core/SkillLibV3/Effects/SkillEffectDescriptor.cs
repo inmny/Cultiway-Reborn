@@ -84,6 +84,15 @@ public enum SkillEffectOutcomeFlags : ulong
 
     /// <summary>存活植被的原版生命值实际增加。</summary>
     LivingPlantRepaired = 1UL << 15,
+
+    /// <summary>原植被确实失去生命。</summary>
+    FloraWithered = 1UL << 16,
+
+    /// <summary>原石造建筑确实受损、成为废墟或风化移除。</summary>
+    StoneWeathered = 1UL << 17,
+
+    /// <summary>废墟原址的有效地块实际留下沙地。</summary>
+    WeatheredSand = 1UL << 18,
 }
 
 /// <summary>一次结构化效果的不可变结算结果。</summary>

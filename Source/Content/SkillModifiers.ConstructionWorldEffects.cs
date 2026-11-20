@@ -12,6 +12,12 @@ public partial class SkillModifiers
             tile => CanGrowNature(default, tile), tile => ApplyNatureGrowth(default, tile)));
         ConstructionWorldActions.Register(new ConstructionWorldAction(Skills.LivingPlantRestoration.ActionId,
             Skills.LivingPlantRestoration.CanApply, Skills.LivingPlantRestoration.Apply, 0f));
+        ConstructionWorldActions.Register(new ConstructionWorldAction(Skills.TerrainWeathering.WitherAction,
+            Skills.TerrainWeathering.CanWither, Skills.TerrainWeathering.Wither, 0f));
+        ConstructionWorldActions.Register(new ConstructionWorldAction(Skills.TerrainWeathering.RenewAction,
+            Skills.TerrainWeathering.CanRenew, Skills.TerrainWeathering.Renew, 0f));
+        ConstructionWorldActions.Register(new ConstructionWorldAction(Skills.TerrainWeathering.StoneAction,
+            Skills.TerrainWeathering.CanWeatherStone, Skills.TerrainWeathering.WeatherStone, 0f));
         ConstructionWorldActions.Register(new ConstructionWorldAction("land.cleanse",
             tile => CanCleanLand(default, tile), tile => ApplyCleanLand(default, tile)));
         ConstructionWorldActions.Register(new ConstructionWorldAction("crop.mature",

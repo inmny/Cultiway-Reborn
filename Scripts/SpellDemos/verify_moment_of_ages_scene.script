@@ -1,0 +1,100 @@
+var definition = Spell("刹那千秋");
+var stats = new BaseStats();
+stats.addTag("frozen_ai");
+var steady = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.MomentOfAges.Steady") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.MomentOfAges.Steady")
+        .SetStats(stats).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, steady, 10000, source);
+source.updateStats();
+
+Actor bystander = Make(66);
+bystander.setKingdom(victim.kingdom);
+Place(bystander, 66, 75);
+Place(victim, 69.5f, 72.5f);
+var furniture = new HashSet<Building>();
+for (int x = 63; x <= 76; x++)
+for (int y = 66; y <= 78; y++)
+{
+    WorldTile tile = World.world.GetTileSimple(x, y);
+    if (tile.building != null) furniture.Add(tile.building);
+    tile.Height = 140;
+    TopTileType top = y == 76 && x >= 69 ? TopTileLibrary.road : TopTileLibrary.grass_low;
+    tile.setTileTypes(TileLibrary.soil_low, top, true);
+}
+foreach (Building building in furniture) building.removeBuildingFinal();
+var roots = World.world.GetTileSimple(69, 69);
+var masonry = World.world.GetTileSimple(73, 74);
+var referenceRoots = World.world.GetTileSimple(66, 68);
+var referenceStone = World.world.GetTileSimple(66, 77);
+Building tree = World.world.buildings.addBuilding("tree_green_1", roots);
+Building stone = World.world.buildings.addBuilding("house_human_2", masonry);
+Building untouchedTree = World.world.buildings.addBuilding("tree_green_1", referenceRoots);
+Building wood = World.world.buildings.addBuilding("house_human_0", referenceStone);
+int outsidePlantHp = untouchedTree.getHealth(), outsideBuildingHp = wood.getHealth();
+int outsideAge = bystander.getAge(), outsideHealth = bystander.getHealth();
+int originalAge = victim.getAge();
+Item armor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: victim);
+victim.equipment.setItem(armor, victim);
+victim.setStatsDirty(); victim.updateStats();
+int durability = armor.getDurabilityCurrent();
+long originalPlantId = tree.id, buildingId = stone.id;
+
+var ages = new List<ConstructedAging>();
+var wear = new List<ConstructedEquipmentErosion>();
+var world = new List<ConstructedWorldContact>();
+var plots = new List<(string Action, int X, int Y, float Age, long Building, int Health, bool Ruin, string Tile)>();
+void Aged(ConstructedAging fact)
+{
+    if (fact.SourceId == source.id) ages.Add(fact);
+}
+void Worn(ConstructedEquipmentErosion fact)
+{
+    if (fact.SourceId == source.id) wear.Add(fact);
+}
+void Changed(ConstructedWorldContact fact)
+{
+    if (fact.SourceId != source.id || !fact.Result.Changed) return;
+    world.Add(fact);
+    WorldTile tile = World.world.GetTileSimple(fact.X, fact.Y);
+    Building building = tile.building;
+    plots.Add((fact.Action,fact.X,fact.Y,fact.Age,building?.id ?? 0L,
+        building?.getHealth() ?? 0,building?.isRuin() == true,tile.main_type.id));
+}
+ConstructedAbilityService.AgingConfirmed += Aged;
+ConstructedAbilityService.EquipmentErosionConfirmed += Worn;
+ConstructedAbilityService.WorldContactConfirmed += Changed;
+bool law = WorldLawLibrary.world_law_old_age.isEnabled();
+WorldLawLibrary.world_law_old_age.toggle(false);
+var shieldAction = typeof(ActorExtend).GetField("action_before_be_attacked", F);
+object original = shieldAction.GetValue(null);
+const float initialShield = 350f;
+float shield = initialShield;
+void Protect(ActorExtend target, BaseSimObject attacker, ref ElementComposition element, ref AttackType kind,
+    ref float amount, ref bool ignore)
+{
+    if (target.Base == victim && attacker == source)
+        CombatDamageEffects.AbsorbDamage(ref amount, ref shield, target);
+}
+ActorExtend.RegisterActionBeforeBeAttacked(Protect);
+
+async Task At(AbilityCast cast, float age)
+{
+    if (cast.Age < age) await Advance(age - cast.Age);
+}
+bool Marks() => FormVisualScene.Instances.Any(v => v.Resource.Description.Id is
+    "time_weathering_stamp" or "time_fold_imprint" or "life_wood_graft" or "rock_projectile");
+object Outcomes() => new
+{
+    age = ages.Select(f => new { f.TargetId, f.Before, f.After, f.WorldTime }).ToArray(),
+    armor = wear.Select(f => new { f.ItemId, f.Before, f.After, f.WorldTime }).ToArray(),
+    land = plots.Select(p => new { p.Action, p.X, p.Y, p.Age, p.Building, p.Health, p.Ruin, p.Tile }).ToArray()
+};
+void LeaveScene()
+{
+    WorldLawLibrary.world_law_old_age.toggle(law);
+    shieldAction.SetValue(null, original);
+    ConstructedAbilityService.AgingConfirmed -= Aged;
+    ConstructedAbilityService.EquipmentErosionConfirmed -= Worn;
+    ConstructedAbilityService.WorldContactConfirmed -= Changed;
+    ReleaseChecks();
+}

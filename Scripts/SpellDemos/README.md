@@ -2387,3 +2387,11 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--section save` 在首层已造成伤害时保存，读回[原术](../../Doc/技能系统全面重构/构造输入/折界千重.json)与[折径](../../Doc/技能系统全面重构/构造输入/折界千重·折径.json)，等冷却后分别实放。`--section restored --saved <输出目录>` 可对同一档补跑读回后的施放。退出并重新启动游戏后，运行 `--section cold --saved <输出目录>`。
 
 用 `--section film --view native` 和 `--section film --view worldfall` 分别录制同一场战斗。输出附有世界时间、每次实际切割及视频。
+
+### 刹那千秋（9.38）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 150 -- python3 Scripts/SpellDemos/verify_moment_of_ages.py --section mechanics`，观察[原术](../../Doc/技能系统全面重构/构造输入/刹那千秋.json)的护持、铁甲、人物老化、两轮枯荣和石屋风化。`--section interrupt` 在第一轮已结算后撤销，检查后续停止及已实现的效果保留。
+
+`--section save` 在同一次施放中保存进行中和完成后的两份正式世界。完整读回后使用[停荣](../../Doc/技能系统全面重构/构造输入/刹那千秋·停荣.json)。重启游戏后运行 `--section cold --saved <输出目录>`，核对两份档的恢复和未完成阶段不重放。
+
+`--section film --view native` 和 `--section film --view worldfall` 录制同一场景的两种视角，并导出已经发生的世界、生命及装备变化。

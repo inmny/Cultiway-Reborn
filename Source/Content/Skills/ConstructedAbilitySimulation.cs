@@ -311,6 +311,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         AppendYinTransfers(now);
         AppendBalancedWakan(now);
         AppendLifeRepairs(now);
+        AppendTimeWear(now);
         AppendShadows(now);
         AppendShadowHolds(now);
         AppendFallingMirrors(now);

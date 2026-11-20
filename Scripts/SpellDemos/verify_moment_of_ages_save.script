@@ -1,0 +1,51 @@
+try
+{
+    var altered = Spell("刹那千秋·停荣");
+    var cast = await Use(definition);
+    ConstructedAbilityService.Register(altered);
+    ConstructedAbilityService.Learn(source.GetExtend(), definition.Id);
+    ConstructedAbilityService.Learn(source.GetExtend(), altered.Id);
+    await At(cast.Cast, 1.2f);
+    Check(ages.Count == 1 && wear.Count == 1 && !cast.Cast.Finished, "第一段已结算且下一段仍在等待");
+    var pending = CurrentState(victim);
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "pending"));
+    await At(cast.Cast, 5.36f);
+    var completed = CurrentState(victim);
+    Check((string)completed["stoneTile"] == TileLibrary.sand.id && (long)completed["plant"] > 0 &&
+        (int)completed["extraAge"] > (int)pending["extraAge"],
+        "原术完成后正式保存活植被、原地沙、真正老化与甲衣损耗", new { pending, completed });
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed"));
+    var expected = (JObject)Normalized(new
+    {
+        sourceId = source.id, targetId = victim.id,
+        forms = new[] { Normalized(definition), Normalized(altered) }, pending, completed
+    });
+    File.WriteAllText(Path.Combine(folder, "expected.json"), expected.ToString(Formatting.Indented));
+    var loaded = await ReadSave(folder, expected, "completed");
+    source = loaded.Caster;
+    victim = loaded.Target;
+    await Advance(definition.Cooldown + .25f);
+    Check(!Marks(), "正式读回只恢复已完成的改变，没有恢复时序画面");
+    CombatStatusEffects.ApplyStatus(source, steady, 10000, source);
+    CombatStatusEffects.ApplyStatus(source, mana, 10000, source);
+    CombatStatusEffects.ApplyStatus(victim, hold, 10000, victim);
+    victim.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+    source.setStatsDirty(); source.updateStats();
+    victim.setStatsDirty(); victim.updateStats();
+    masonry = World.world.GetTileSimple(73, 74);
+    roots = World.world.GetTileSimple(69, 69);
+    masonry.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low, true);
+    stone = World.world.buildings.addBuilding("house_human_2", masonry);
+    int regrowthBefore = world.Count(f => f.Action == "nature.renew");
+    var prior = (AbilityDefinition)((IDictionary)service.GetField("definitions", F).GetValue(null))[altered.Id];
+    Check(prior.Parent.Id == definition.Id, "停荣保留与原术的派生关系");
+    var changed = await Use(prior);
+    await At(changed.Cast, 6);
+    var result = CurrentState(victim);
+    Check(changed.Cast.Finished && masonry.building == stone && stone.isRuin() &&
+        masonry.main_type != TileLibrary.sand && roots.building == null &&
+        world.Count(f => f.Action == "nature.renew") == regrowthBefore + 1 && !Marks(),
+        "读回的停荣实放后留废墟和空地，只少发生的阶段有对应差异", result);
+    return new { passed = true, pending, completed, altered = result };
+}
+finally { LeaveScene(); }
