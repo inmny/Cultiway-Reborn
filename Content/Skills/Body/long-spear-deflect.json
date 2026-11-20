@@ -1,0 +1,42 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.LongSpearDeflect",
+  "Name": "架杆拨锋",
+  "Revision": 1,
+  "Lifetime": 1.17,
+  "Cooldown": 1.43,
+  "Resource": "stamina",
+  "Cost": 6,
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": "spear",
+    "Grip": "grip",
+    "ReleaseAt": 0.27,
+    "ActiveFrom": 0.34,
+    "ActiveUntil": 0.71,
+    "Impact": {"Targets": "Hostile", "DamageScale": 0},
+    "Construction": {
+      "Parts": [
+        {"Id": "hand.right", "Part": "hand.right"},
+        {"Id": "hand.left", "Part": "hand.left"},
+        {"Id": "spear", "Subject": "Held", "Part": "item"},
+        {"Id": "incoming", "Subject": "Target", "Part": "item"}
+      ],
+      "Relations": [
+        {"Id": "hold", "Kind": "Grip", "From": "hand.right", "To": "spear", "FromAnchor": "grip", "ToAnchor": "grip", "FromMarker": "start", "UntilMarker": "end"},
+        {"Id": "support", "Kind": "Grip", "From": "hand.left", "To": "spear", "FromAnchor": "grip", "ToAnchor": "forward", "FromMarker": "start", "UntilMarker": "end"},
+        {"Id": "parry", "Kind": "Deflect", "From": "spear", "To": "incoming", "FromAnchor": "shaft", "ControlStrength": 1.9}
+      ]
+    },
+    "Keys": [
+      {"Id": "ready", "At": 0.0, "Hand": [0.18, 0.24, 0.61], "Rotation": [-12, -21, 7]},
+      {"Id": "raise", "At": 0.13, "Hand": [0.12, 0.24, 0.69], "Torso": [-0.03, 0.014, -0.026], "Turn": -18, "Rotation": [-6, -34, 8]},
+      {"Id": "meet", "At": 0.24, "Hand": [0.264, 0.116, 0.586], "Torso": [0.039, -0.005, -0.037], "Turn": 4, "Rotation": [0.5, 3.3, 3.7]},
+      {"Id": "brace", "At": 0.31, "Hand": [0.264, 0.116, 0.586], "Torso": [0.039, -0.005, -0.037], "Turn": 4, "Rotation": [0.5, 3.3, 3.7]},
+      {"Id": "press", "At": 0.625, "Hand": [0.35, 0.116, 0.586], "Torso": [0.093, -0.005, -0.037], "Turn": 4, "Rotation": [0.5, 3.3, 3.7]},
+      {"At": 0.73, "Hand": [0.253, 0.082, 0.622], "Torso": [0.025, -0.012, -0.043], "Turn": 10, "Rotation": [-3, 11, 1]},
+      {"Id": "withdraw", "At": 0.93, "Hand": [0.19, 0.08, 0.6], "Torso": [0.008, -0.009, -0.02], "Turn": 7, "Rotation": [-4, 14, 2]},
+      {"Id": "rest", "At": 1.17, "Hand": [0.18, 0.24, 0.61], "Rotation": [-12, -21, 7]}
+    ]
+  }
+}

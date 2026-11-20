@@ -11,7 +11,7 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('all', 'strike', 'near', 'sweep', 'interrupt'), default='all')
+    parser.add_argument('--case', choices=('all', 'strike', 'near', 'sweep', 'interrupt', 'press'), default='all')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过 dev.py exec 运行')
@@ -26,14 +26,18 @@ def main():
     base = base.replace('Path.Combine(root, "artifacts/skill_rebuild/body-footwork")', json.dumps(str(output)))
     base = base.replace(f'Path.Combine(root, "{fixture}")', json.dumps(str(PROJECT / fixture)))
     base = base.replace('StartsWith("test.body-footwork.")', 'StartsWith("Cultiway.Body.LongSpear")')
+    if args.case == 'press':
+        base = base.replace('contact.AbilityId.StartsWith("Cultiway.Body.LongSpear")',
+                            'contact.AbilityId.StartsWith("Cultiway.Body.LongSpear") || contact.AbilityId == "Cultiway.Body.SwordThrust"')
     base = base.replace('var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild',
                         'var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SourceLoss.Hold") ?? '
                         'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild')
     fighters = (scripts / 'verify_short_weapons.script').read_text()
     fighters = fighters[:fighters.index('var bindingType =')].replace('Cultiway.Body.ShortBlade', 'Cultiway.Body.LongSpear')
     script = output / 'input.script'
+    case_file = 'verify_long_weapons_press.script' if args.case == 'press' else 'verify_long_weapons.script'
     script.write_text('using Friflo.Engine.ECS;\n' + base + fighters +
-                      f'\nconst string selection = "{args.case}";\n' + Path(__file__).with_suffix('.script').read_text())
+                      f'\nconst string selection = "{args.case}";\n' + (scripts / case_file).read_text())
     try:
         result = baseline.call('run', str(script), '140000')
     except RuntimeError as error:

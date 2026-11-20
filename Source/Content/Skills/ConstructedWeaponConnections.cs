@@ -105,18 +105,21 @@ public sealed partial class ConstructedAbilityService
         else if (time >= connection.Until - .0000001d) reason = "PhaseEnded";
         else
         {
+            // 结算前后可能在同一个时点检查两次，接触点的修正不代表兵器撤回。
+            bool advanced = time > connection.LastTime;
             float scale = connection.Target.GetExtend()
                 .ForceResponseScale(owner.Source, owner.InitialOwner.Damage.AttackerPowerLevel);
             if (scale <= 0f) reason = "Resistance";
             else connection.Remaining = Mathf.Max(0f,
                 connection.Remaining - (float)System.Math.Max(0d, time - connection.LastTime) / scale);
             if (reason == null && connection.Remaining <= .000001f) reason = "Exhausted";
-            if (reason == null && connection.Relation.Kind == BodyRelationKind.Deflect &&
+            if (reason == null && advanced && connection.Relation.Kind == BodyRelationKind.Deflect &&
                 Vector3.Dot(connection.SourcePoint - connection.Point, connection.Normal) < -owner.LastSourceHeight * .00001f)
                 reason = "Withdrawn";
             if (reason == null && Vector3.Distance(connection.SourcePoint, connection.TargetPoint) >
                 owner.LastSourceHeight * .0001f) reason = connection.Relation.Kind == BodyRelationKind.Deflect ? "OutOfReach" : "Separated";
-            if (reason == null && connection.Relation.Kind == BodyRelationKind.Deflect) connection.Point = connection.TargetPoint;
+            if (reason == null && advanced && connection.Relation.Kind == BodyRelationKind.Deflect)
+                connection.Point = connection.TargetPoint;
         }
 
         connection.LastTime = time;

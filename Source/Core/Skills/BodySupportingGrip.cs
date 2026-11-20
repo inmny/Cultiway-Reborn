@@ -72,9 +72,12 @@ public sealed partial class CompiledBodyAction
     /// <param name="shoulder">主手原版肩点。</param><param name="adaptedRight">主手三维肩点。</param>
     /// <param name="left">左手原版肩点。</param><param name="adaptedLeft">左手三维肩点。</param>
     /// <param name="gripDelta">两手共用枪杆决定的腕点差。</param><param name="pole">对称时的弯曲方向。</param>
+    /// <param name="previous">上一实际主腕点相对本次肩点的位置。</param>
+    /// <param name="distance">本步允许的腕点位移，以体高为单位。</param>
     /// <param name="wrist">两手都能到达时，求出的主腕点。</param>
     private static bool ProjectGrip(in BodyFrame frame, Vector3 desired, Vector3 shoulder, Vector3 adaptedRight,
-        Vector3 left, Vector3 adaptedLeft, Vector3 gripDelta, Vector3 pole, out Vector3 wrist)
+        Vector3 left, Vector3 adaptedLeft, Vector3 gripDelta, Vector3 pole, Vector3? previous, float distance,
+        out Vector3 wrist)
     {
         var projector = new BodyReachProjector();
         float height = frame.Height;
@@ -85,7 +88,8 @@ public sealed partial class CompiledBodyAction
             projector.AddArm((adaptedRight - shoulder) / height, frame.Fit.Upper, frame.Fit.Lower, .96f);
         if (frame.SupportFit != null)
             projector.AddArm((adaptedLeft - shoulder - gripDelta) / height, frame.SupportFit.Upper, frame.SupportFit.Lower, .96f);
-        bool available = projector.Project((desired - shoulder) / height, pole, null, 0f, out Vector3 point);
+        bool available = projector.Project((desired - shoulder) / height, pole, previous / height, distance,
+            out Vector3 point);
         wrist = shoulder + point * height;
         return available;
     }

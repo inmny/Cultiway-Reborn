@@ -1165,7 +1165,10 @@ public sealed partial class CompiledBodyAction
             Vector3 fittedRight = frame.Fit == null ? shoulder : frame.Foot + offset +
                 Quaternion.AngleAxis(turn, Vector3.forward) * ToWorld(frame.Fit.Shoulder) * frame.Height;
             Vector3 gripDelta = rotation * (supportWristLocal + gripSlideOffset * gripSlide) * frame.Height;
-            if (ProjectGrip(in frame, hand, shoulder, fittedRight, leftShoulder, fittedLeft, gripDelta, pole, out Vector3 wrist))
+            // 双手的可达范围和本步移动上限一起求。先夹一次右手再回推左手，会让固定姿势持续漂移。
+            Vector3? oldWrist = previous.HasValue ? previousDirection * previousReach : null;
+            if (ProjectGrip(in frame, desired, shoulder, fittedRight, leftShoulder, fittedLeft, gripDelta, pole,
+                    oldWrist, handMoveSpeed * elapsed, out Vector3 wrist))
             {
                 BodyJointSolver.Solve(shoulder, wrist, frame.UpperLength, frame.LowerLength, pole, previousDirection,
                     previousBend, previousReach, -1f, -1f, out elbow, out hand, out bend);
