@@ -2294,3 +2294,12 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在已启动的独立游戏中运行 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_bury_mountain_palm.py`。复用原掌击场地，核对真实前后两处命中、岩片和作用角点、遇水隙断开，以及落稳后再次施放。可编辑资料见 [寸掌葬岳](../../Doc/技能系统全面重构/构造输入/寸掌葬岳.json)。
 
 同一入口加 `--section save` 核对「横断」的侧脊、两份正式构造保存及重开编辑。`--section native` 或 `--section worldfall` 录制相应视角下的原招；两次均确认实际掌击、后排命中和回落后才编码。
+
+
+### 剑冢开天（9.28）
+
+在已启动的独立游戏中运行 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_sword_grave.py`。读取[剑冢开天构造](../../Doc/技能系统全面重构/构造输入/剑冢开天.json)，检查残兵起出、接缝扣合、合拢期无伤、正式落斩和收尾重放。`--section finish` 单独复验落斩至重放；`--section visual` 只采集原版的起兵、扣合、落斩和下沉截图。
+
+- `--section fracture` 核对实际碎刃如何继承运动、交接余力、命中侧靶及落稳。`--section blocked` 验证强盾耗尽主剑后仍连接的刃不会攻击；`--section interrupted` 核对中断时两块外刃实际下落、无伤、落稳和清理。
+- `--section save` 核对原招与[逆锋](../../Doc/技能系统全面重构/构造输入/剑冢开天·逆锋.json)的扣合次序、材质和脱刃方向，保存再打开，确认两份结构和人物的学习记录都保留。
+- `--section native` 和 `--section worldfall` 分别录制同一招实战。每段先核对真实重斩、碎刃命中、回落和结束，再按实际经过的世界时间编码为 `demo.mp4`。

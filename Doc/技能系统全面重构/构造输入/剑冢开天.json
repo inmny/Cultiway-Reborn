@@ -1,0 +1,207 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.SwordGrave",
+  "Name": "剑冢开天",
+  "Lifetime": 2.78,
+  "Cooldown": 1.0,
+  "Cost": 8.4,
+  "Power": 5.6,
+  "TargetRange": 15.0,
+  "Binding": {
+    "Anchor": "Source",
+    "Follow": false,
+    "FaceTarget": true
+  },
+  "Root": {
+    "Id": "spine",
+    "Form": "sword_grave_spine",
+    "Matter": "iron",
+    "ContactGroup": "grave-cleave",
+    "Strength": 0.52,
+    "ActiveFromMarker": "cleave",
+    "ActiveUntilMarker": "brake",
+    "Impact": {
+      "DamageScale": 1.1,
+      "Knockback": {
+        "Distance": 1.2,
+        "Height": 0
+      }
+    },
+    "Operations": [
+      {
+        "Kind": "Animate",
+        "Clip": "falling_cleave"
+      }
+    ],
+    "Children": [
+      {
+        "Id": "left_edge",
+        "Form": "sword_grave_left",
+        "InterruptFall": 0.92,
+        "Anchor": "seam",
+        "Matter": "iron",
+        "ContactGroup": "grave-cleave",
+        "Strength": 0.24,
+        "Offset": [
+          -2.64,
+          0.12,
+          1.17
+        ],
+        "Rotation": [
+          4,
+          -24,
+          -28
+        ],
+        "ActiveFrom": 1.7,
+        "ActiveUntil": 2.14,
+        "Impact": {
+          "DamageScale": 1.0,
+          "Knockback": {
+            "Distance": 0.82,
+            "Height": 0
+          }
+        },
+        "Operations": [
+          {
+            "Id": "rise",
+            "Kind": "Gather",
+            "At": 0.04,
+            "Seconds": 0.36,
+            "Vector": [
+              -2.64,
+              0.57,
+              1.17
+            ],
+            "GatherRotation": [
+              8,
+              -17.52,
+              -17.36
+            ]
+          }
+        ]
+      },
+      {
+        "Id": "right_edge",
+        "Form": "sword_grave_right",
+        "InterruptFall": 0.92,
+        "Anchor": "seam",
+        "Matter": "iron",
+        "ContactGroup": "grave-cleave",
+        "Strength": 0.24,
+        "Offset": [
+          2.55,
+          0.03,
+          -0.4
+        ],
+        "Rotation": [
+          5,
+          21,
+          34
+        ],
+        "ActiveFrom": 1.7,
+        "ActiveUntil": 2.14,
+        "Impact": {
+          "DamageScale": 1.0,
+          "Knockback": {
+            "Distance": 0.82,
+            "Height": 0
+          }
+        },
+        "Operations": [
+          {
+            "Id": "rise",
+            "Kind": "Gather",
+            "At": 0.09,
+            "Seconds": 0.36,
+            "Vector": [
+              2.55,
+              0.48,
+              -0.4
+            ],
+            "GatherRotation": [
+              8,
+              15.33,
+              21.08
+            ]
+          },
+          {
+            "Id": "shear",
+            "Kind": "Fracture",
+            "When": {
+              "Source": "..",
+              "Trigger": "ActorContact"
+            },
+            "Fracture": {
+              "Seconds": 0.86,
+              "Speed": 0.78,
+              "Spin": 32,
+              "Gravity": 5.5,
+              "ActiveParts": [
+                "edge"
+              ],
+              "ReleaseChildren": false
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "Steps": [
+    {
+      "Id": "left_lock",
+      "Operation": {
+        "Kind": "Gather",
+        "At": 0.48,
+        "Seconds": 0.56,
+        "Vector": [
+          0,
+          0,
+          0
+        ],
+        "GatherRotation": [
+          0,
+          0,
+          0
+        ]
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root/left_edge@seam"
+        },
+        "after": {
+          "Node": "root/left_edge@seam",
+          "Operation": "rise",
+          "Output": "gathering"
+        }
+      }
+    },
+    {
+      "Id": "right_lock",
+      "Operation": {
+        "Kind": "Gather",
+        "At": 0.56,
+        "Seconds": 0.54,
+        "Vector": [
+          0,
+          0,
+          0
+        ],
+        "GatherRotation": [
+          0,
+          0,
+          0
+        ]
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root/right_edge@seam"
+        },
+        "after": {
+          "Node": "root/right_edge@seam",
+          "Operation": "rise",
+          "Output": "gathering"
+        }
+      }
+    }
+  ]
+}

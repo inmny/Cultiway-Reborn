@@ -1,0 +1,85 @@
+// 原招与逆锋都用正式施放和存档入口；录像只记同一战斗真实经过的时间。
+int Edge(AbilityCast cast) => Enumerable.Range(0, CompiledParts(cast).Length)
+    .Single(i => PartPath(cast, i).EndsWith("/$piece/edge"));
+bool SwordVisible() => FormVisualScene.Instances.Any(view => view.Resource.Description.Id.StartsWith("sword_grave_"));
+async Task<object> Deliver()
+{
+    if (recordView.Length != 0)
+    {
+        await SetCamera(7.5f);
+        await Advance(.13f);
+        Stage(); Place(near, 68.5f, 73.85f);
+        await Pay();
+        AbilityCast cast = Live();
+        int edge = Edge(cast);
+        bool separated = false, landed = false;
+        var times = await Film(3.42f, () =>
+        {
+            World.world.console.Hide();
+            if (cast.NodeAge(edge) < 0) return;
+            separated = true;
+            landed |= (bool)Field(CastState(cast, edge), "MovementStopped");
+        });
+        Check(separated && landed && contacts.Any(hit => hit.TargetId == aim.id && hit.Node == 0) &&
+              contacts.Any(hit => hit.TargetId == near.id && hit.Node == edge) &&
+              endings.Count == 1 && !endings[0].Fact.Cancelled && !SwordVisible(),
+            "连续录像覆盖起兵、实际重斩、脱片再击及落稳后清场", Trace());
+        return new { passed = true, times, duration = 3.42, previewFrame = Math.Max(0, times.FindIndex(t => t >= 1.98)),
+            hit = Trace(), view = recordView, scene = "construction", resource = "wakan", paid = definition.Cost };
+    }
+
+    var original = definition;
+    var variant = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "variant.json")));
+    JToken originalInput = JToken.FromObject(original), variantInput = JToken.FromObject(variant);
+    var catalog = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    async Task<float> Run(AbilityDefinition spell, string side, string matter)
+    {
+        definition = spell;
+        contacts.Clear(); Stage();
+        await Pay(); await AdvanceTo(.95f);
+        var mid = Pose();
+        float left = (mid[1] - mid[0]).magnitude, right = (mid[2] - mid[0]).magnitude;
+        await AdvanceTo(1.53f);
+        var joined = Pose();
+        Check((joined[1] - joined[0]).sqrMagnitude < .001f && (joined[2] - joined[0]).sqrMagnitude < .001f,
+            "不同扣合次序都在实际斩落前合拢", new { spell.Id, left, right, joined = Describe(joined) });
+        await AdvanceTo(2.03f);
+        AbilityCast cast = Live(); int edge = Edge(cast);
+        string path = PartPath(cast, edge);
+        var edgeMatter = (AbilityMatter)Field(CastState(cast, edge), "Matter");
+        Check(cast.NodeAge(edge) > 0 && path.Contains("/" + side + "_edge@") && edgeMatter.Id == matter &&
+              contacts.Any(hit => hit.Node == 0), "正式施放按改造选择外刃和真实材料", new { spell.Id, path, matter = edgeMatter.Id, contacts = Trace() });
+        Check(Enumerable.Range(0, CompiledParts(cast).Length).Where(i => PartPath(cast, i).EndsWith("/$interrupt_fall"))
+            .All(i => cast.NodeAge(i) < 0 && cast.RemainingForce(i) == 0), "自然落斩没有启动中断落物");
+        await Advance(.95f);
+        Check(Live() == null && !SwordVisible(), "这次合剑和碎片正常收尾", spell.Id);
+        return left;
+    }
+    float firstLeft = await Run(original, "right", "iron");
+    float secondLeft = await Run(variant, "left", "gold");
+    Check(firstLeft < 1f && secondLeft > 3f && endings.Count == 2 && endings.All(end => !end.Fact.Cancelled),
+        "逆锋实测先合右边，再让远处左刃扣合；原招仍保有自己的次序", new { firstLeft, secondLeft });
+    long savedOwner = source.id;
+    ConstructedAbilityService.Learn(owner, original.Id); ConstructedAbilityService.Learn(owner, variant.Id);
+    string saved = Path.Combine(folder, "world");
+    SaveManager.saveWorldToDirectory(saved);
+    World.world.save_manager.loadWorld(saved);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var restored = World.world.units.get(savedOwner)?.GetExtend();
+    var first = (AbilityDefinition)catalog[original.Id]; var second = (AbilityDefinition)catalog[variant.Id];
+    Check(first != null && second?.Parent?.Id == first.Id && JToken.DeepEquals(originalInput, JToken.FromObject(first)) &&
+          JToken.DeepEquals(variantInput, JToken.FromObject(second)) && restored != null &&
+          restored.E.GetComponent<ConstructedKnowledge>().Ids.Contains(first.Id) &&
+          restored.E.GetComponent<ConstructedKnowledge>().Ids.Contains(second.Id) && !SwordVisible(),
+        "世界重开保留原招、逆锋、传承和人物学习；已结束的碎片没有恢复");
+    var edited = ConstructionEditing.Copy(second);
+    edited.Revision++;
+    edited.Root.Children.Single(part => part.Id == "left_edge").Operations.Single(op => op.Id == "shear").Fracture.Gravity = 7.25f;
+    ConstructedAbilityService.Register(edited);
+    var stored = (AbilityDefinition)catalog[edited.Id];
+    Check(stored.Root.Children.Single(part => part.Id == "left_edge").Operations.Single(op => op.Id == "shear").Fracture.Gravity == 7.25f &&
+          JToken.DeepEquals(originalInput, JToken.FromObject(catalog[original.Id])), "重开后可以编辑逆锋的实际碎解，原招保持完整");
+    return new { passed = true, checks, saved };
+}

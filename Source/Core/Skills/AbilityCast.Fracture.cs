@@ -11,6 +11,28 @@ public sealed partial class AbilityCast
     /// <summary>各真实分件上一姿态的数值运动资料，不读取网格。</summary>
     private readonly FragmentMotion[] fragmentMotion, savedFragmentMotion;
 
+    /// <summary>原部位结束时只继承可见姿态，落物不继承作用量、材料或控制关系。</summary>
+    private void DropInterruptedPart(int node)
+    {
+        int index = Plan.Nodes[node].InterruptFall;
+        if (index < 0 || !nodes[node].Visible || !nodes[index].Exists) return;
+        NodeState source = nodes[node];
+        ref NodeState drop = ref nodes[index];
+        drop.Started = drop.Free = drop.Visible = true;
+        drop.BirthAt = drop.StartedAt = drop.ReleasedAt = Age;
+        drop.Transform = drop.PreviousTransform = source.Transform;
+        drop.Position = source.Transform.GetColumn(3);
+        drop.Rotation = source.Transform.rotation;
+        drop.Scale = source.Transform.lossyScale;
+        drop.GrowthValue = drop.PreviousGrowth = 1f;
+        drop.Matter = source.Matter;
+        drop.ShapeHeld = drop.MotionStopped = drop.GrowthStopped = true;
+        drop.SampleEpoch = sampleEpoch;
+        poses[node]?.CopyTo(poses[index]);
+        StartFlight(ref drop, Plan.Nodes[index].Flight, Age);
+        drop.Revision++;
+    }
+
     /// <summary>在改变源体姿态前保存各分件真实中心和主要朝向，供脱落继承。</summary>
     /// <param name="node">正在推进的完整主体。</param>
     private void CaptureFragmentMotion(int node)

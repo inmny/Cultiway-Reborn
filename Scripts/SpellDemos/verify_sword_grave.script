@@ -1,0 +1,140 @@
+// 三个真实部件从散开到合拢；与正式伤害和收尾使用同一个施放对象。
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+Actor source = Make(64.5f), near = Make(68.1f, "wolf"), aim = Make(70.5f, "wolf"), outside = Make(68.1f, "wolf");
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+Ready(source); await Advance(.16f);
+const float lane = 72.5f;
+void Stage()
+{
+    Place(source, 64.5f, lane); Place(near, 68.1f, lane);
+    Place(aim, 70.5f, lane); Place(outside, 68.1f, 76.2f);
+    source.position_height = 0; source.move_jump_offset = Vector2.zero; source.shake_offset = Vector2.zero;
+    source.lookTowardsPosition(aim.current_position);
+    foreach (Actor enemy in new[] { near, aim, outside })
+    {
+        source.addAggro(enemy); enemy.addAggro(source);
+        ConstructedAbilityService.NotifyActorChanged(enemy);
+    }
+}
+AbilityCast Live() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Select(entry => (AbilityCast)Field(entry, "Cast")).FirstOrDefault(cast => cast.Plan.Id == definition.Id);
+var forms = new List<FormVisualInstance>();
+Vector3[] Pose()
+{
+    forms.Clear(); Live()?.AppendVisuals(forms);
+    return new[] { "spine", "left", "right" }.Select(id =>
+        (Vector3)forms.Single(view => view.Resource.Description.Id == "sword_grave_" + id).PartTransform(0).GetColumn(3)).ToArray();
+}
+async Task AdvanceTo(float age)
+{
+    float dt = age - Live().Age;
+    if (dt > 0) await Advance(dt);
+}
+object Describe(Vector3[] pose) => pose.Select(p => p.ToString("F3")).ToArray();
+object Trace() => contacts.Select(hit => new { hit.TargetId, hit.Node, hit.Age, hit.TargetContactNumber, hit.GroupContactNumber,
+    position = hit.Position.ToString("F3"), hit.TargetHealthBefore, hit.TargetHealthAfter }).ToArray();
+async Task Shot(string name)
+{
+    World.world.console.Hide(); WorldTip.hideNow();
+    Tooltip.blockTooltips(4f);
+    await Game.NextFrame(); await Game.NextFrame();
+    Screen.Capture(Path.Combine(folder, name + ".png"));
+    await Game.WaitUntil(() => File.Exists(Path.Combine(folder, name + ".png")), 300);
+}
+async Task Pay()
+{
+    float before = source.stats[BaseStatses.MaxWakan.id] * .82f;
+    owner.GetCultisys<Xian>().wakan = before;
+    await Fire(definition, source, aim, aggro:false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - definition.Cost) < .003f,
+        "每次合剑只付一次真元");
+}
+// 实机入口。
+try
+{
+    AbilityCompiler.Compile(definition, false);
+    if (section == "save" || recordView.Length != 0) return await Deliver();
+    if (section == "visual")
+    {
+        // 与既有录像共用同一场地，只收拾镜头内遮住刃口的植被。
+        ControllableUnit.clear(false);
+        var scenery = new HashSet<Building>();
+        for (int x = 61; x <= 76; x++)
+        for (int y = 66; y <= 79; y++)
+        {
+            WorldTile tile = World.world.GetTileSimple(x, y);
+            if (tile.building != null) scenery.Add(tile.building);
+            tile.setTileTypes(TileLibrary.soil_low, null, true);
+        }
+        foreach (Building building in scenery) building.removeBuildingFinal();
+    }
+    var cameraType = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+    object camera = cameraType.GetProperty("Instance", F).GetValue(null);
+    object View(string key) => cameraType.GetProperty(key, F)?.GetValue(camera) ?? cameraType.GetField(key, F)?.GetValue(camera);
+    cameraType.GetMethod("ViewForTest", F).Invoke(camera, new object[] { false });
+    cameraType.GetMethod("SetGodView", F).Invoke(camera, new object[] { false });
+    await Game.WaitUntil(() => !(bool)View("IsFirstPerson") && !(bool)View("GodShown") && (bool)View("DiveDone") && !(bool)View("Flying"), 1800);
+    World.world.camera.transform.position = new Vector3(68.5f, lane, 0f);
+    MoveCamera.instance.forceZoom(7.5f);
+    Stage();
+    if (section == "fracture") return await Fracture();
+    if (section == "blocked") return await Blocked();
+    if (section == "interrupted") return await Interrupted();
+    int nearLife = near.data.health, aimLife = aim.data.health, outsideLife = outside.data.health;
+    await Pay();
+    if (section == "visual")
+    {
+        await AdvanceTo(.40f); await Shot("raise");
+        await AdvanceTo(1.27f); await Shot("seated");
+        await AdvanceTo(1.90f); await Shot("cleave");
+        await AdvanceTo(2.52f); await Shot("settle");
+        await Advance(.5f);
+        return new { passed = true, checks, hits = Trace() };
+    }
+    if (section == "all")
+    {
+        await AdvanceTo(.12f);
+        var born = Pose();
+        await AdvanceTo(.40f);
+        var rose = Pose();
+        Check(Enumerable.Range(0, 3).All(i => rose[i].z > born[i].z + .12f) &&
+              (rose[1] - rose[0]).magnitude > 1.8f && (rose[2] - rose[0]).magnitude > 1.8f,
+            "三个残兵都离地，抬升后仍各自分开", new { born = Describe(born), rose = Describe(rose) });
+        await Shot("raise");
+        await AdvanceTo(1.27f);
+        var seated = Pose();
+        var volumes = new List<AbilityCapsule>();
+        Live().AppendContacts(volumes);
+        Check((seated[1] - seated[0]).sqrMagnitude < .001f && (seated[2] - seated[0]).sqrMagnitude < .001f &&
+              contacts.Count == 0 && volumes.Count == 0 && near.data.health == nearLife && aim.data.health == aimLife,
+            "两片轮廓按接缝扣合；合拢时没有攻击面或伤害", new { seated = Describe(seated), volumes = volumes.Count });
+        await Shot("seated");
+        await AdvanceTo(1.90f);
+        await Shot("cleave");
+    }
+    await AdvanceTo(2.26f);
+    Check((near.data.health < nearLife || aim.data.health < aimLife) && outside.data.health == outsideLife &&
+          contacts.Count > 0 && contacts.All(hit => hit.Age >= 1.699f && hit.Age <= 2.141f &&
+              hit.TargetId != outside.id && hit.TargetContactNumber == 1) &&
+          contacts.GroupBy(hit => hit.TargetId).All(group => group.Count() == 1),
+        "实际刃面只在落斩时命中；共同接触组只结算一次，外侧无伤", Trace());
+    await Advance(.75f);
+    Check(Live() == null && endings.Count == 1 && !endings[0].Fact.Cancelled &&
+          !FormVisualScene.Instances.Any(view => view.Resource.Description.Id.StartsWith("sword_grave_")),
+        "整剑自然收尾并撤去全部部件");
+    Stage(); await Pay(); await Advance(2.95f);
+    Check(Live() == null && endings.Count == 2 && !endings[1].Fact.Cancelled,
+        "收尾后可再次正式施放并结束");
+    return new { passed = true, checks, hits = Trace() };
+}
+finally
+{
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

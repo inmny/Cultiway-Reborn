@@ -119,6 +119,7 @@ public sealed class ConstructionMeasure
         for (int i = 0; i < plan.Nodes.Length; i++)
         {
             CompiledForm node = plan.Nodes[i];
+            if (node.IsInterruptFall) continue;
             double growth = Math.Max(1d,
                 node.EventOperations.Where(operation => operation.Kind == ConstructionOperationKind.Grow)
                     .Select(operation => (double)operation.TargetScale).DefaultIfEmpty(1d).Max());

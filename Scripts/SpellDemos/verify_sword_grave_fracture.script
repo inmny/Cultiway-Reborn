@@ -1,0 +1,160 @@
+// 作用归属、脱落点和落地从真实施放读取，不另造一段飞剑。
+Array CompiledParts(AbilityCast cast) => (Array)cast.Plan.GetType().GetProperty("Nodes", F).GetValue(cast.Plan);
+string PartPath(AbilityCast cast, int index) => (string)Field(CompiledParts(cast).GetValue(index), "Path");
+object CastState(AbilityCast cast, int index) => ((Array)Field(cast, "nodes")).GetValue(index);
+Vector3 PartCentre(AbilityCast cast, int index) => (Vector3)Field(CastState(cast, index), "Position");
+Vector3 PartSpeed(AbilityCast cast, int index) => (Vector3)Field(CastState(cast, index), "Velocity");
+async Task<object> Fracture()
+{
+    Place(near, 68.5f, 73.85f);
+    int nearLife = near.data.health, aimLife = aim.data.health, outsideLife = outside.data.health;
+    await Pay();
+    AbilityCast cast = Live();
+    int right = Enumerable.Range(0, CompiledParts(cast).Length).Single(i => PartPath(cast, i).EndsWith("/right_edge@seam"));
+    int edge = Enumerable.Range(0, CompiledParts(cast).Length).Single(i => PartPath(cast, i).EndsWith("/$piece/edge"));
+    int clasp = Enumerable.Range(0, CompiledParts(cast).Length).Single(i => PartPath(cast, i).EndsWith("/$piece/clasp"));
+    Check(cast.NodeAge(edge) < 0 && cast.RemainingForce(edge) == 0f && cast.RemainingVolume(edge) == 0d &&
+          cast.RemainingForce(clasp) == 0f && cast.RemainingVolume(clasp) == 0d, "预留分件未脱落前没有额外的作用量或体积");
+    float before = cast.RemainingForce(right), full = Enumerable.Range(0, CompiledParts(cast).Length).Sum(cast.RemainingForce);
+    bool separated = false;
+    Vector3 start = Vector3.zero, inherited = Vector3.zero, actual = Vector3.zero, spin = Vector3.zero, oldClasp = Vector3.zero;
+    float separationTime = 0f, heldForce = 0f, directionGap = 0f, centreGap = 0f;
+    void Separated(ConstructedContact contact)
+    {
+        if (separated || contact.AbilityId != definition.Id || contact.Node != 0 || cast.NodeAge(edge) < 0) return;
+        separated = true; separationTime = cast.Age;
+        object fracture = ((Array)Field(cast, "fractures")).GetValue(right);
+        object history = ((Array)Field(cast, "fragmentMotion")).GetValue(edge);
+        float step = (float)Field(fracture, "MotionStep");
+        oldClasp = PartCentre(cast, clasp);
+        start = PartCentre(cast, edge); actual = PartSpeed(cast, edge);
+        inherited = (start - (Vector3)Field(history, "Centre")) / step;
+        spin = (Vector3)Field(CastState(cast, edge), "Spin");
+        var parent = (Matrix4x4)Field(CastState(cast, right), "Transform");
+        var child = (Matrix4x4)Field(CastState(cast, edge), "Transform");
+        centreGap = ((Vector3)child.GetColumn(3) - (Vector3)parent.GetColumn(3)).magnitude;
+        directionGap = Quaternion.Angle(parent.rotation, child.rotation);
+        heldForce = Enumerable.Range(0, CompiledParts(cast).Length).Sum(cast.RemainingForce);
+    }
+    ConstructedAbilityService.ContactConfirmed += Separated;
+    try
+    {
+        await AdvanceTo(1.94f);
+        Check(separated && aim.data.health < aimLife && cast.RemainingForce(right) == 0 &&
+              Mathf.Abs(before - cast.RemainingForce(edge)) < .002f && cast.RemainingForce(clasp) == 0 &&
+              Mathf.Abs(full - heldForce) < .002f && centreGap < .002f && directionGap < .1f &&
+              inherited.magnitude > .5f && (actual - inherited).magnitude < .79f && spin.magnitude > 25f,
+            "主剑真实接触才脱片；刃片接走原余力、姿态和自己的点速度，铜扣不攻击",
+            new { separationTime, path = PartPath(cast, edge), before, full, heldForce, edgeForce = cast.RemainingForce(edge),
+                claspForce = cast.RemainingForce(clasp), centreGap, directionGap, start = start.ToString("F3"),
+                inherited = inherited.ToString("F3"), actual = actual.ToString("F3"), spin = spin.ToString("F3"), hits = Trace() });
+        await Shot("separated");
+        var trail = new List<object>();
+        Vector3 rest = Vector3.zero;
+        bool landed = false, rested = false, visibleSeparate = false;
+        for (int i = 0; i < 14 && cast.Age < 2.65f; i++)
+        {
+            object state = CastState(cast, edge);
+            bool stopped = (bool)Field(state, "MovementStopped");
+            var point = PartCentre(cast, edge);
+            var claspPoint = PartCentre(cast, clasp);
+            visibleSeparate |= (claspPoint - oldClasp).sqrMagnitude > .01f && (point - start).sqrMagnitude > .01f &&
+                (point - claspPoint).sqrMagnitude > .04f && !stopped && cast.NodeAge(edge) > 0;
+            trail.Add(new { cast.Age, point = point.ToString("F3"), speed = PartSpeed(cast, edge).ToString("F3"), stopped });
+            if (stopped && landed) rested |= (point - rest).sqrMagnitude < .000001f;
+            if (stopped && !landed) { landed = true; rest = point; }
+            await Advance(.039f);
+        }
+        Check(near.data.health < nearLife && contacts.Any(hit => hit.Node == edge && hit.TargetId == near.id && hit.Age > separationTime) &&
+              contacts.GroupBy(hit => hit.TargetId).All(group => group.Count() == 1) && outside.data.health == outsideLife,
+            "脱出的实刃击中独立靶；原命中对象没有被同组重复伤害", new { hits = Trace(), trail });
+        Check(landed && rested && visibleSeparate && (rest - start).sqrMagnitude > .04f,
+            "碎片从脱离点继续运动并落稳", new { start = start.ToString("F3"), rest = rest.ToString("F3"), trail });
+        await Shot("landed");
+        await Advance(.55f);
+        Check(Live() == null && endings.Count == 1 && !endings[0].Fact.Cancelled &&
+              !FormVisualScene.Instances.Any(view => view.Resource.Description.Id.StartsWith("sword_grave_")), "碎片收尾后没有残件");
+        Stage(); await Pay(); await Advance(2.97f);
+        Check(Live() == null && endings.Count == 2 && !endings[1].Fact.Cancelled, "有碎片的完整施放仍可重放");
+        return new { passed = true, checks, trail, hits = Trace() };
+    }
+    finally { ConstructedAbilityService.ContactConfirmed -= Separated; }
+}
+
+async Task<object> Blocked()
+{
+    var ward = new AbilityDefinition { Id = "test.sword-grave.ward", Name = "挡剑盾", Lifetime = 3.2f, Power = 80f,
+        Resource = "none", Cost = 0f, Cooldown = 0f, TargetRange = 15f,
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Follow = false, FaceTarget = true },
+        Root = new ConstructionNode { Id = "ward", Form = "entropy_guard", Matter = "iron", Scale = 2f,
+            ContactRole = ConstructionContactRole.Barrier, Interception = ConstructionInterception.Absorb } };
+    const float shieldX = 70.35f;
+    Place(outside, shieldX, lane);
+    Place(aim, 72.2f, lane);
+    Place(near, 70.8f, 72.95f);
+    var clashes = new List<ConstructedClash>();
+    void Meet(ConstructedClash hit) { if (hit.LeftSource == outside.id || hit.RightSource == outside.id) clashes.Add(hit); }
+    ConstructedAbilityService.ClashConfirmed += Meet;
+    try
+    {
+        int nearLife = near.data.health, aimLife = aim.data.health;
+        await Fire(ward, outside, source);
+        outside.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+        await Pay();
+        var cast = Live();
+        await Advance(2.24f);
+        var hits = clashes.Select(fact => new { fact.LeftNode, fact.RightNode, fact.LeftSource, fact.RightSource,
+            fact.LeftAge, fact.RightAge, fact.Absorbed, fact.LeftSpent, fact.RightSpent, fact.LeftRemaining, fact.RightRemaining,
+            point = fact.Position.ToString("F3") }).ToArray();
+        var parts = new List<FormVisualInstance>(); cast.AppendVisuals(parts);
+        var volumes = new List<AbilityCapsule>(); cast.AppendContacts(volumes);
+        Check(clashes.Any(fact => fact.Absorbed > 0 && (fact.LeftSource == source.id && fact.LeftNode == 0 && fact.LeftRemaining == 0 ||
+                fact.RightSource == source.id && fact.RightNode == 0 && fact.RightRemaining == 0)) &&
+            parts.Count == 0 && volumes.Count == 0 && contacts.Count == 0 && near.data.health == nearLife && aim.data.health == aimLife,
+            "真盾耗尽主剑，仍连接的外刃和后续碎片都不再攻击", new { hits, contacts = Trace(), parts = parts.Count, volumes = volumes.Count });
+        await Advance(1.05f);
+        Check(Live() == null && endings.Count == 1, "拦截后施放按共同规则结束");
+        return new { passed = true, checks, hits };
+    }
+    finally { ConstructedAbilityService.ClashConfirmed -= Meet; }
+}
+
+async Task<object> Interrupted()
+{
+    await Pay(); await AdvanceTo(.65f);
+    var cast = Live();
+    var before = Pose();
+    Check((before[1] - before[0]).sqrMagnitude > .05f && (before[2] - before[0]).sqrMagnitude > .05f && contacts.Count == 0,
+        "失去来源时，两块外刃尚未扣合", Describe(before));
+    var indices = Enumerable.Range(0, CompiledParts(cast).Length).ToArray();
+    var drops = new[] { "left", "right" }.Select(side => indices.Single(i => PartPath(cast, i).EndsWith("/" + side + "_edge@seam/$interrupt_fall"))).ToArray();
+    var pieces = indices.Where(i => PartPath(cast, i).Contains("/$piece/")).ToArray();
+    var volumes = new List<AbilityCapsule>();
+    int nearLife = near.data.health, aimLife = aim.data.health;
+    source.dieAndDestroy(AttackType.None);
+    await Game.NextFrame(); await Advance(.035f);
+    cast.AppendContacts(volumes, true, true);
+    var after = drops.Select(i => PartCentre(cast, i)).ToArray();
+    var oldOrigins = drops.Select(i => (Vector3)((Matrix4x4)Field(CastState(cast, (int)Field(CompiledParts(cast).GetValue(i), "FragmentSource")), "Transform")).GetColumn(3)).ToArray();
+    Check(Live() == cast && drops.All(i => cast.NodeAge(i) >= 0 && cast.RemainingForce(i) == 0 && cast.RemainingVolume(i) == 0) &&
+          pieces.All(i => cast.NodeAge(i) < 0) && Enumerable.Range(0, 2).All(i => ((Vector2)(oldOrigins[i] - after[i])).sqrMagnitude < .00001f) && volumes.Count == 0,
+        "只有原位坠下的两块无作用外刃，未开启斩击脱片", new { old = Describe(oldOrigins), after = Describe(after), volumes = volumes.Count });
+    await Shot("fall-start");
+    await Advance(.16f);
+    var flight = drops.Select(i => PartCentre(cast, i)).ToArray();
+    Check(Enumerable.Range(0, 2).All(i => flight[i].z < after[i].z - .03f), "两块外刃沿地图高度下落", Describe(flight));
+    await Shot("falling");
+    await Advance(.42f);
+    var rest = drops.Select(i => PartCentre(cast, i)).ToArray();
+    Check(drops.All(i => (bool)Field(CastState(cast, i), "MovementStopped")) &&
+          Enumerable.Range(0, 2).All(i => rest[i].z < flight[i].z), "外刃贴住真实地面后停止", Describe(rest));
+    await Shot("fall-rest");
+    await Advance(.075f);
+    Check(Enumerable.Range(0, 2).All(i => (rest[i] - PartCentre(cast, drops[i])).sqrMagnitude < .00001f), "落稳后位置保持");
+    await Advance(.36f);
+    var parts = new List<FormVisualInstance>(); cast.AppendVisuals(parts);
+    volumes.Clear(); cast.AppendContacts(volumes, true, true);
+    Check(Live() == null && endings.Count == 1 && parts.Count == 0 && volumes.Count == 0 && contacts.Count == 0 &&
+          near.data.health == nearLife && aim.data.health == aimLife, "中断后没有迟发伤害，落物如期清理");
+    return new { passed = true, checks, after = Describe(after), flight = Describe(flight), rest = Describe(rest) };
+}
