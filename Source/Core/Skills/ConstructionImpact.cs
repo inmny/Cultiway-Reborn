@@ -50,6 +50,10 @@ public sealed class ConstructionImpact
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionStatus[] Statuses;
 
+    /// <summary>本作用面改用真实身体表面接触，并在碰到的可见部件上留下薄霜。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionFrostCoating FrostCoating;
+
     /// <summary>真实伤害倍率；零表示只接触和推拉，不调用伤害或近战攻击。</summary>
     public float DamageScale = 1f;
 
@@ -194,6 +198,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>是否只接受本次选中人物。</summary>
     public bool SelectedTargetOnly { get; }
 
+    /// <summary>实际部件接触和附着霜渍资料；空值沿用普通人物接触。</summary>
+    public CompiledFrostCoating FrostCoating { get; }
+
     /// <summary>已检查并复制的恢复与净化资料。</summary>
     public CompiledConstructionRestoration Restoration { get; }
 
@@ -315,6 +322,8 @@ public sealed class CompiledConstructionImpact
         Statuses = source?.Statuses == null ? Array.Empty<CompiledConstructionStatus>() :
             Array.AsReadOnly(source.Statuses.Select((status, index) => new CompiledConstructionStatus(status, path + "/Statuses/" + index)).ToArray());
         SelectedTargetOnly = source?.SelectedTargetOnly == true;
+        if (source?.FrostCoating != null)
+            FrostCoating = new CompiledFrostCoating(source.FrostCoating, path + "/FrostCoating");
         if (source?.Restoration != null) Restoration = new CompiledConstructionRestoration(source.Restoration, path + "/Restoration");
         ReleaseGrab = source?.ReleaseGrab ?? ConstructionGrabRelease.None;
         if (!Enum.IsDefined(typeof(ConstructionGrabRelease), ReleaseGrab))

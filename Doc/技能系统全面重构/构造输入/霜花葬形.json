@@ -9,27 +9,60 @@
   "Power": 8,
   "TargetRange": 28,
   "Use": {"Channels": "World", "Target": "Point"},
-  "Binding": {"Anchor": "Target", "Follow": false},
+  "Binding": {"Anchor": "Target", "Follow": false, "FaceTarget": false},
   "Root": {
-    "Id": "frost",
-    "Form": "fracture_slab",
-    "Matter": "ice",
-    "Surface": "ground_frost",
-    "Strength": 0.45,
-    "Impact": {"DamageScale": 0},
-    "Operations": [{
-      "Kind": "Propagate",
-      "Propagation": {
-        "Range": 7.5,
-        "Speed": 7,
-        "Seconds": 2.1,
-        "Height": 0.034,
-        "GroundReach": 0.2,
-        "Attenuation": 0.04,
-        "MaximumStep": 0.45,
-        "CellCost": 0.001,
-        "MaximumCells": 180
+    "Id": "burial",
+    "Form": "pivot",
+    "ContactRole": "Decoration",
+    "Children": [
+      {
+        "Id": "frost",
+        "Form": "fracture_slab",
+        "Matter": "ice",
+        "Surface": "ground_frost",
+        "Strength": 0.45,
+        "Impact": {"DamageScale": 0},
+        "Operations": [{
+          "Kind": "Propagate",
+          "Propagation": {
+            "Range": 7.5,
+            "Speed": 7,
+            "Seconds": 2.1,
+            "Height": 0.034,
+            "GroundReach": 0.2,
+            "Attenuation": 0.04,
+            "MaximumStep": 0.45,
+            "CellCost": 0.001,
+            "MaximumCells": 180
+          }
+        }]
+      },
+      {
+        "Id": "rime-east",
+        "Form": "ice_shard",
+        "Matter": "ice",
+        "Scale": 0.68,
+        "Offset": [0.15, 0, 0.2],
+        "Rotation": [0, 43, 0],
+        "Strength": 0.14,
+        "DisappearAt": 0.8,
+        "Activation": {"Source": "../frost", "Trigger": "GroundRouteDistance", "Threshold": 1, "Placement": "Attached"},
+        "Impact": {"DamageScale": 0, "FrostCoating": {"Radius": 0.44, "Seconds": 1.8}},
+        "Operations": [{"Kind": "Detach"}, {"Kind": "Fly", "Vector": [4.2, 0, 0.6], "WorldVelocity": true, "InheritVelocity": false}]
+      },
+      {
+        "Id": "rime-west",
+        "Form": "ice_shard",
+        "Matter": "ice",
+        "Scale": 0.63,
+        "Offset": [-0.1, 0, 0.16],
+        "Rotation": [0, -43, 0],
+        "Strength": 0.14,
+        "DisappearAt": 0.82,
+        "Activation": {"Source": "../frost", "Trigger": "GroundRouteDistance", "Threshold": 1, "Placement": "Attached"},
+        "Impact": {"DamageScale": 0, "FrostCoating": {"Radius": 0.44, "Seconds": 1.8}},
+        "Operations": [{"Kind": "Detach"}, {"Kind": "Fly", "Vector": [-4, 0, 0.66], "WorldVelocity": true, "InheritVelocity": false}]
       }
-    }]
+    ]
   }
 }

@@ -1,0 +1,152 @@
+// 9.33 A2：使用正式招式及同一结霜规则，验证真实表面、跟随、擦空和换装。
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+var source = Make(64.5f);
+var target = Make(70.5f);
+var owner = source.GetExtend();
+var coatings = (IList)service.GetField("frostCoatings", F).GetValue(null);
+var surfaceType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+var spatialType = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+void Equip(string id)
+{
+    target.equipment.setItem(World.world.items.generateItem(AssetManager.items.get(id), pActor: target), target);
+    target.setStatsDirty(); target.updateStats();
+    ConstructedAbilityService.NotifyActorChanged(target);
+}
+Vector3 SurfacePoint(string selected)
+{
+    object binding = surfaceType.GetMethod("Create", F).Invoke(null, new object[] { target });
+    Vector3 foot = (Vector3)spatialType.GetMethod("Foot", F).Invoke(null, new object[] { target });
+    float height = (float)spatialType.GetMethod("Height", F).Invoke(null, new object[] { target });
+    surfaceType.GetMethod("Capture", F).Invoke(binding, new object[] { foot, height, World.world.getCurWorldTime() });
+    object pose = Field(binding, "To");
+    Array parts = (Array)Field(pose, "Parts");
+    var faces = new List<(Vector3 Point, float Area)>();
+    for (int i = 0; i < parts.Length; i++)
+    {
+        object part = parts.GetValue(i);
+        if (!(bool)part.GetType().GetMethod("Matches", F).Invoke(part, new object[] { selected })) continue;
+        int[] indices = (int[])Field(part, "Triangles");
+        for (int face = 0; face < indices.Length; face += 3)
+        foreach (var poly in (IEnumerable<Vector3[]>)pose.GetType().GetMethod("Fragments", F).Invoke(pose, new object[] { i, face }))
+        for (int j = 1; j + 1 < poly.Length; j++)
+            faces.Add(((poly[0] + poly[j] + poly[j + 1]) / 3f,
+                Vector3.Cross(poly[j] - poly[0], poly[j + 1] - poly[0]).sqrMagnitude));
+    }
+    Check(faces.Count > 0, "实际可见部位存在：" + selected, parts.Cast<object>().Select(p => Field(p, "Id")).Distinct());
+    return faces.OrderByDescending(f => f.Area).First().Point;
+}
+string Attachment(object mark) => (string)Field(Field(mark, "Part"), "Attachment");
+Mesh MeshOf(object mark) => (Mesh)Field(Field(mark, "Patch"), "Mesh");
+float[] Point(Vector3 p) => new[] { p.x, p.y, p.z };
+object[] Marks() => coatings.Cast<object>().Where(m => ReferenceEquals(Field(Field(m, "Binding"), "Actor"), target)).ToArray();
+async Task Use(AbilityDefinition chosen, Vector3 aim)
+{
+    await Fire(chosen, source, target, aim: aim);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+}
+AbilityDefinition Probe(string id, string part)
+{
+    var clone = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
+    clone.Id += ".coating-" + id;
+    clone.Lifetime = .6f;
+    clone.Cost = 1;
+    clone.Root = new ConstructionNode { Id = "test", Form = "ice_shard", Scale = .26f, Matter = "ice",
+        Impact = new ConstructionImpact { DamageScale = 0,
+            FrostCoating = new ConstructionFrostCoating { Part = part, Radius = .42f, Seconds = 1.8f } } };
+    return clone;
+}
+
+try
+{
+    owner.NewCultisys(Cultisyses.Xian);
+    owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+    target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+    Equip("armor_iron"); Equip("sword_iron");
+    var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
+    var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.FrostFlower.Quiet") ??
+        Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.FrostFlower.Quiet")
+            .SetStats(quietStats).SetDuration(10000).Build();
+    foreach (var actor in new[] { source, target })
+    {
+        CombatStatusEffects.RemoveStatus(actor, hold);
+        CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+        actor.setStatsDirty(); actor.updateStats();
+    }
+    await SetCamera(5.1f, true);
+    await Advance(.18f);
+    Place(source, 64.5f, 72.5f); Place(target, 70.5f, 72.5f);
+    foreach (var actor in new[] { source, target }) ConstructedAbilityService.NotifyActorChanged(actor);
+    await Advance(.13f);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .85f;
+    int hp = target.data.health;
+    Vector3 chest = SurfacePoint("armor.chest");
+    Vector3 sword = SurfacePoint("item");
+    await Use(definition, new Vector3(chest.x - 1.9f, chest.y, 0));
+    await Advance(.44f);
+    var cast = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Select(item => (AbilityCast)Field(item, "Cast")).Single(item => item.Plan.Id == definition.Id);
+    var shapes = new List<AbilityCapsule>();
+    cast.AppendContacts(shapes);
+    var sweep = shapes.Where(shape => shape.Node >= 2).Select(shape => new { shape.Node, a = Point(shape.A),
+        b = Point(shape.B), shape.Radius }).ToArray();
+    await Advance(.39f);
+    var authored = Marks().Select(mark => new { part = Field(Field(mark, "Part"), "Id"), attach = Attachment(mark),
+        center = Point(MeshOf(mark).bounds.center), vertices = MeshOf(mark).vertexCount }).ToArray();
+    Check(authored.Length > 0 && authored.All(mark => mark.vertices > 0), "正式薄霜带确实接触实物并留下网格",
+        new { authored, chest = Point(chest), sword = Point(sword), sweep, contacts = contacts.Select(c => new { c.TargetId, c.Node, position = Point(c.Position) }).ToArray() });
+    await Shot("frost-cast");
+    await Advance(2f);
+    Check(Marks().Length == 0, "正式薄霜自然退去");
+
+    // 窄测试形体共用同一接触、渲染和支付入口，只限定此次接触所用部位。
+    sword = SurfacePoint("item");
+    await Use(Probe("miss", "item"), sword + new Vector3(0, .52f, 0));
+    await Advance(.21f);
+    Check(Marks().Length == 0, "擦过兵器外侧没有附着");
+    chest = SurfacePoint("armor.chest"); sword = SurfacePoint("item");
+    await Use(Probe("chest", "armor.chest"), chest);
+    await Use(Probe("sword", "item"), sword);
+    await Advance(.24f);
+    var attached = Marks();
+    Check(attached.Select(Attachment).OrderBy(name => name).SequenceEqual(new[] { "armor.chest", "item" }) &&
+        attached.All(mark => MeshOf(mark).vertexCount > 0), "甲片和持剑分别在真实接触位置附着", new
+        { chest = Point(chest), sword = Point(sword), marks = attached.Select(m => new { part = Attachment(m), center = Point(MeshOf(m).bounds.center) }).ToArray() });
+    var centers = attached.Select(mark => MeshOf(mark).bounds.center).ToArray();
+    World.world.camera.transform.position = new Vector3(71f, 72.5f, 0);
+    MoveCamera.instance.forceZoom(2.65f);
+    await Game.NextFrame();
+    await Shot("frost-equipment");
+    Vector2 position = target.current_position;
+    CombatStatusEffects.RemoveStatus(target, quiet); target.setStatsDirty(); target.updateStats();
+    target.finishAngryStatus(); target.clearAttackTarget(); target.cancelAllBeh();
+    target.goTo(World.world.GetTileSimple((int)position.x + 2, (int)position.y));
+    await Advance(.7f);
+    Vector2 walked = target.current_position - position;
+    var followed = attached.Select((mark, i) =>
+    {
+        Vector3 center = MeshOf(mark).bounds.center;
+        Vector3 surface = SurfacePoint(Attachment(mark));
+        return new { part = Attachment(mark), movement = center.x - centers[i].x,
+            distance = Vector2.Distance(center, surface), center = Point(center), surface = Point(surface) };
+    }).ToArray();
+    Check(walked.x > .4f && Marks().SequenceEqual(attached) &&
+        followed.All(part => part.movement > .4f && part.distance < .45f), "原霜渍跟着真实部位走出原地",
+        new { walked = Point(walked), followed });
+    await Shot("frost-moved");
+    long oldSword = target.getWeapon().data.id;
+    target.equipment.weapon.takeAwayItem(); Equip("sword_iron");
+    await Advance(.1f);
+    Check(target.getWeapon().data.id != oldSword && Marks().Length == 0, "换下兵器后旧霜没有挂到新装备上");
+    Check(target.data.health == hp && !CombatStatusEffects.HasStatus(target, StatusEffects.Freeze), "浅层附着不伤血也不冻结");
+    await Shot("frost-replaced");
+    return new { passed = true, view = recordView, authored, checks };
+}
+finally
+{
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

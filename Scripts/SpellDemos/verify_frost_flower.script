@@ -63,9 +63,10 @@ try
     var spread = Frost(cast);
     Check(spread.Count > early.Count && spread.ContainsKey((70, 72)), "同一薄霜先后抵达不同地格");
     Check(spread.Keys.All(cell => cell.X < 72), "水隙及对岸均无薄霜");
-    Check(views.All(view => view.Layer != null && view.Surface == "ground_frost"),
+    Check(views.Where(view => view.Layer != null).All(view => view.Surface == "ground_frost"),
         "地面只发布薄霜材质，原形体和普通冰壳不在此时出现");
     cast.AppendContacts(shapes);
+    shapes.RemoveAll(shape => shape.Node != 1);
     Check(shapes.Count == spread.Count && shapes.All(shape => spread.TryGetValue(((int)shape.A.x, (int)shape.A.y), out float depth) &&
         Mathf.Abs(2f * shape.HalfExtents.z - depth) < .00001f), "薄霜显示的格子和厚度与真实作用面一致");
     Check(reached.data.health == reachedHp && dry.data.health == dryHp &&

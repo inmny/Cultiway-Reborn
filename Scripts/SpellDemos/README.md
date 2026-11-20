@@ -2343,3 +2343,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 霜花葬形（9.33）
 
 独立游戏启动后，运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_frost_flower.py`。地面段读取[霜花葬形构造](../../Doc/技能系统全面重构/构造输入/霜花葬形.json)，复用固定世界。核对正式出手与支付、薄霜先后抵达、水道断路、实际霜厚、人物不冻结和自然消退。输出 `checks.json`、`result.json` 和俯视图 `ground-frost.png`。其余分段见[交付条件](../../Doc/技能系统全面重构/霜花葬形实战表现.md)。
+
+`--section coating --view worldfall` 使用同一场地的一名持剑着甲人物。先检查正式招式在实际接触后留霜、到期消退，再以同一附着规则限定甲片和持物，核对擦空、移动和换装。输出 `frost-cast.png`、`frost-equipment.png`、`frost-moved.png`、`frost-replaced.png` 及检查记录。

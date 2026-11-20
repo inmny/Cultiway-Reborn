@@ -753,6 +753,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         worldGeneration++;
         steam.Clear();
         windScars.Clear();
+        ClearFrostCoatings();
         yinTransfers.Clear();
         balancedWakan.Clear();
         lifeRepairs.Clear();
