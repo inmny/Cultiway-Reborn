@@ -51,8 +51,9 @@ public sealed partial class AbilityCast
             (cast, action, settings, native) => settings.World == null ? cast.ErosionProgress(action) : default,
             validate: (form, settings, path) =>
             {
-                if (form.BodyWindow || settings.World == null && form.FlowSettings != null || form.Resource.Meshes.Length == 0)
-                    throw new InvalidDataException(path + "：本批侵蚀用于真实生成实体，身体及动态流散由对应入口维护");
+                if (form.BodyWindow || settings.World == null && form.FlowSettings != null ||
+                    form.Resource.Meshes.Length == 0 && (settings.World == null || form.MaterialVortex == null))
+                    throw new InvalidDataException(path + "：侵蚀需要生成实体或深口的实际材料范围");
             });
         ConstructionOperations.Register(ConstructionOperationKind.RetimeErosion,
             context => new CompiledErosionRetiming(context.Source, context.Path, context.Order),

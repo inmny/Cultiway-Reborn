@@ -1,0 +1,35 @@
+Game.Resume();
+Config.paused = true;
+var changes = new List<WorldMaterialChange>();
+void Changed(WorldMaterialChange fact)
+{
+    if (fact.AbilityId?.StartsWith("Cultiway.Demo.ReturningAbyss") == true) changes.Add(fact);
+}
+WorldMaterialService.Changed += Changed;
+try
+{
+    var expected = JObject.Parse(File.ReadAllText(Path.Combine(saved, "expected.json")));
+    var source = await ReadArchive(saved, "moving", expected);
+    var stats = new BaseStats(); stats.addTag("frozen_ai");
+    var steady = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Abyss.ColdSteady")
+        .SetStats(stats).SetDuration(1000).Build();
+    CombatStatusEffects.ApplyStatus(source, steady, 1000, source);
+    source.setStatsDirty(); source.updateStats();
+    long[] ids = expected["ids"].ToObject<long[]>();
+    var before = CurrentRows(ids);
+    await Advance(5.30f);
+    var after = CurrentRows(ids);
+    Check(changes.Count == 0 && before.Count == after.Count &&
+        before.Zip(after, (a, b) => JToken.DeepEquals(a["Id"], b["Id"]) &&
+            JToken.DeepEquals(a["Position"], b["Position"]) && (double)b["Volume"] <= (double)a["Volume"]).All(value => value) &&
+        !FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "pivot" && v.Surface?.StartsWith("rift_") == true),
+        "重启后独立侵蚀可以正常完成，临时牵引和消解没有继续", after);
+    await ReadArchive(saved, "finished", expected);
+    return new { passed = true, rows = CurrentRows(ids) };
+}
+finally
+{
+    WorldMaterialService.Changed -= Changed;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

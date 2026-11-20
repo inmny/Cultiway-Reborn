@@ -219,6 +219,10 @@ public sealed class ConstructionNode
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionRadialMotion RadialMotion;
 
+    /// <summary>从本部位牵引已解构的独立材料，结束后保留其真实结果。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionMaterialVortex MaterialVortex;
+
     /// <summary>本部位对应的原人物及明确允许的作用；空值沿原交锋规则。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionCorrespondence Correspondence;

@@ -1397,6 +1397,7 @@ public sealed partial class AbilityCast
     /// <param name="node">实际编译部位。</param>
     private bool HasOwnWork(int node) => Plan.Nodes[node].Resource.Meshes.Length != 0 ||
                                          Plan.Nodes[node].LandscapeSlice != null ||
+                                         Plan.Nodes[node].MaterialVortex != null ||
                                          Plan.Nodes[node].ContactRole != ConstructionContactRole.Decoration ||
                                          Array.Exists(Plan.DirectSignalSteps, index => Plan.Steps[index].Node == node);
 

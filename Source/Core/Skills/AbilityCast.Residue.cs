@@ -79,7 +79,12 @@ public sealed partial class AbilityCast
     internal void MaterialSelection(int node, List<AbilityCapsule> output)
     {
         if (cancelled || !nodes[node].Exists) return;
-        if (flows?[node]?.Started == true) AppendFlowContacts(node, output, false);
+        if (Plan.Nodes[node].MaterialVortex is { } vortex)
+        {
+            if (TryMaterialVortex(node, out var centre, out var phase, out _) && phase.x > .001f)
+                output.Add(vortex.Selection(node, centre, phase.x));
+        }
+        else if (flows?[node]?.Started == true) AppendFlowContacts(node, output, false);
         else
             output.AddRange(AbilityMaterial.BuildShapes(Plan.Nodes[node].Resource, poses[node], nodes[node].Transform));
     }

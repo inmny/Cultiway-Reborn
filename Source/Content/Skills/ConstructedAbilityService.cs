@@ -782,6 +782,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             ReleaseActorTransferHolds(running);
             ReleaseSpatialViews(running);
             ReleaseLandscapeSlices(running);
+            ReleaseMaterialVortices(running);
             ReleaseMirrorImages(running, worldChanged: true);
             ReleaseSupportGrips(running, "WorldChanged");
             ReleaseShadowHold(running, "WorldChanged", running.LastWorldTime);
@@ -823,6 +824,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ReleaseShadowHold(running, "Finished", running.LastWorldTime);
         ReleaseSpatialViews(running);
         ReleaseLandscapeSlices(running);
+        ReleaseMaterialVortices(running);
         ReleaseMirrorImages(running);
         if (running.Cast.Plan.SoulPact != null && soulPacts.TryGetValue(running.TargetId, out var pact) && pact.Cast == running)
             soulPacts.Remove(running.TargetId);
@@ -974,6 +976,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         internal Dictionary<int, MirrorReflection> MirrorImages;
         /// <summary>仅景物构造保存实际带状取景。</summary>
         internal LandscapeSnapshot[] Landscapes;
+        /// <summary>只有真实深口才保存散件牵引及临时厚面。</summary>
+        internal VortexInstance[] Vortices;
         /// <summary>由实际击镜建立的有限裂势，普通施放不分配。</summary>
         internal Dictionary<int, MirrorCrack> MirrorCracks;
 
