@@ -1,0 +1,140 @@
+// 同一张图、同一炉、同一只狼；每次只登记正式施放的实际材料与作用。
+object Read(object data, string key) => data.GetType().GetProperty(key, F) is PropertyInfo property ? property.GetValue(data) : Field(data, key);
+(double Volume, double Liquid, double Crust, double Hot, double Lost, double Broken, Vector3 Crack) Phase(AbilityCast cast, int node)
+{
+    var flow = FlowAt(cast, node);
+    return ((double)Read(flow, "Volume"), (double)Read(flow, "LiquidVolume"), (double)Read(flow, "CrustVolume"),
+        (double)Read(flow, "ThermalEnergy"), (double)Read(flow, "HeatLost"), (double)Read(flow, "CrustBroken"),
+        (Vector3)Read(flow, "LastCrack"));
+}
+object PhaseSnapshot(AbilityCast cast) => Enumerable.Range(1, 3).Select(i =>
+{
+    var state = Phase(cast, i);
+    return new { node = i, state.Volume, state.Liquid, state.Crust, state.Hot, state.Lost, state.Broken, crack = state.Crack.ToString("F3") };
+}).ToArray();
+void Snapshot(string name, object data) => File.WriteAllText(Path.Combine(folder, name + ".json"),
+    JsonConvert.SerializeObject(data, Formatting.Indented));
+async Task GetTo(AbilityCast cast, float age)
+{
+    if (age > cast.Age) await Advance(age - cast.Age);
+}
+bool VisibleFurnace() => FormVisualScene.Instances.Any(v => v.Resource.Description.Id.StartsWith("sky_furnace"));
+
+async Task<object> Cooling()
+{
+    await Pay(definition);
+    AbilityCast cast = Live(definition.Id);
+    await GetTo(cast, 2.11f);
+    var early = Phase(cast, 1);
+    forms.Clear(); cast.AppendVisuals(forms);
+    bool hadEmbers = forms.Any(frame => frame.Resource.Description.Id == "fire_body");
+    var rows = new List<object>();
+    var allCracks = new List<object>();
+    var oldBroken = new double[4];
+    float firstCrust = 0f, firstBreak = 0f;
+    for (int step = 0; step < 65 && cast.Age < 5.82f; step++)
+    {
+        await Advance(.075f);
+        if (firstCrust == 0 && Phase(cast, 1).Crust > .015) firstCrust = cast.Age;
+        for (int i = 1; i <= 3; i++)
+        {
+            var state = Phase(cast, i);
+            if (state.Broken <= oldBroken[i]) continue;
+            allCracks.Add(new { cast.Age, node = i, state.Broken, point = state.Crack.ToString("F3"),
+                landed = groundContacts.Where(c => c.Age <= cast.Age).Select(c => c.Node).ToArray() });
+            oldBroken[i] = state.Broken;
+            if (firstBreak == 0f) firstBreak = cast.Age;
+        }
+        forms.Clear(); cast.AppendVisuals(forms);
+        hadEmbers |= forms.Any(frame => frame.Resource.Description.Id == "fire_body");
+        rows.Add(new { cast.Age, layers = PhaseSnapshot(cast) });
+    }
+    Snapshot("temperature-history", rows);
+    Snapshot("cracks", allCracks);
+    var volumes = Enumerable.Range(1, 3).Select(i => Phase(cast, i)).ToArray();
+    double expectedVolume = definition.Root.Children.Sum(child => child.Volume.GetValueOrDefault() * Math.Pow(definition.Root.Scale * child.Scale, 3));
+    double expectedEnergy = definition.Root.Children.Sum(child => child.Volume.GetValueOrDefault() * Math.Pow(definition.Root.Scale * child.Scale, 3) *
+        (1 + child.Operations.Last().Flow.Cooling.Heat));
+    Check(early.Liquid > 0 && firstCrust > 0 && groundContacts.Count == 3 && firstCrust < groundContacts.Max(c => c.Age),
+        "早落的一股有液态高温，薄处在最后一股落地前已经结壳", new { early.Liquid, firstCrust, groundContacts });
+    Check(firstBreak > firstCrust && volumes.Sum(s => s.Broken) > .004 &&
+          firstBreak >= groundContacts.Where(c => c.Node != 1).Min(c => c.Age),
+        "真实晚到的液态流接触低处冷壳后打开缺口", new { firstBreak, allCracks });
+    Check(Math.Abs(volumes.Sum(s => s.Liquid + s.Crust) - expectedVolume) < .012 &&
+          Math.Abs(volumes.Sum(s => s.Hot + s.Lost) - expectedEnergy) < .026 &&
+          volumes.All(s => Math.Abs(s.Volume - s.Liquid - s.Crust) < .001),
+        "液料、冷壳和已散热量全部有去向", new { expectedVolume, expectedEnergy, final = PhaseSnapshot(cast) });
+    var areas = new List<AbilityCapsule>(); cast.AppendContacts(areas);
+    Check(hadEmbers && !forms.Any(v => v.Resource.Description.Id == "fire_body") &&
+          volumes.Sum(s => s.Liquid) < .015 && forms.Any(v => v.Surface == "iron_crust") && areas.Count == 0,
+        "余火随真实热量熄灭，冷壳仍显示且没有熔流伤害面", new { hadEmbers, areas = areas.Count, final = PhaseSnapshot(cast) });
+    await GetTo(cast, definition.Lifetime + .24f);
+    Check(Live(definition.Id) == null && !VisibleFurnace() && endings.Count == 1 && !endings[0].Fact.Cancelled,
+        "冷壳在招式结束时正常撤去，场地无滞留部件");
+    return new { passed = true, checks };
+}
+
+async Task<object> Cutoff()
+{
+    await Pay(definition);
+    var cast = Live(definition.Id);
+    await GetTo(cast, 1.54f);
+    Check(cast.NodeAge(1) > 0f && cast.NodeAge(2) < 0f && cast.NodeAge(3) < 0f && !Flowing(cast, 1),
+        "中断时只有中央熔料已经离口");
+    double committed = cast.RemainingVolume(1);
+    ControllableUnit.clear(false);
+    source.dieAndDestroy(AttackType.None);
+    await Game.NextFrame(); await GetTo(cast, 2.31f);
+    Check(!source.isAlive() && Live(definition.Id) == cast && !(bool)Field(Node(cast, 0), "Exists") &&
+          !(bool)Field(Node(cast, 2), "Exists") && !(bool)Field(Node(cast, 3), "Exists") && Flowing(cast, 1) && groundContacts.Count == 1,
+        "施术者真实失效后撤掉炉和待放分支，已离炉的一股继续坠地", new { groundContacts, after = PhaseSnapshot(cast) });
+    await GetTo(cast, 5.82f);
+    var left = Phase(cast, 1);
+    Check(groundContacts.Count == 1 && Math.Abs(left.Crust - committed) < .013 && left.Liquid < .009 &&
+          left.Broken == 0 && left.Lost > 0,
+        "断供后没有新的流束或假破裂，原本已经脱离的材料自行冷却",
+        new { committed, left.Crust, left.Liquid, left.Broken, left.Lost });
+    await GetTo(cast, definition.Lifetime + .25f);
+    Check(Live(definition.Id) == null && !VisibleFurnace() && endings.Count == 1,
+        "断供后真实残余也会完整结束");
+    return new { passed = true, checks };
+}
+
+async Task<object> Damage()
+{
+    await Pay(definition);
+    var cast = Live(definition.Id);
+    await GetTo(cast, 1.34f);
+    var terrain = (AbilityHeightField)Field(cast, "terrain");
+    var caps = new List<AbilityCapsule>(); cast.AppendContacts(caps);
+    var inAir = caps.First(c => c.Node == 1);
+    var point = inAir.A;
+    Place(aim, point.x + .47f, point.y);
+    aim.position_height = Mathf.Max(.3f, point.z - (terrain?.Sample(point.x, point.y) ?? 0f) - .24f);
+    ConstructedAbilityService.NotifyActorChanged(aim);
+    await Advance(.14f);
+    float plane = (terrain?.Sample(point.x, point.y) ?? 0f);
+    object Hits() => contacts.Where(hit => hit.TargetId == aim.id).Select(hit => new
+    {
+        hit.Node, hit.Age, hit.TargetHealthBefore, hit.TargetHealthAfter, velocity = hit.VelocityChange.ToString("F3"),
+        at = hit.Position.ToString("F3")
+    }).ToArray();
+    Check(!Flowing(cast, 1) && contacts.Any(hit => hit.TargetId == aim.id && hit.Node == 1 &&
+          hit.Position.z > plane + .8f && hit.TargetHealthAfter < hit.TargetHealthBefore),
+        "实际高处的流束接触正常扣血，未借用地表范围", new { hits = Hits(), point = point.ToString("F3"), height = aim.position_height });
+    await GetTo(cast, 2.43f);
+    // 同一目标移到实际确认过且尚有足够厚度的液态格；不改变技能或命中规则。
+    var flow = FlowAt(cast, 1);
+    var water = (Vector3[])Field(flow, "Water");
+    var max = Enumerable.Range(0, water.Length).OrderByDescending(i => water[i].x).First();
+    var origin = (Vector2)Field(flow, "Origin"); float cell = (float)Field(flow, "Cell");
+    var at = origin + new Vector2(max % 20 + .5f, max / 20 + .5f) * cell;
+    Place(aim, at.x, at.y);
+    aim.position_height = 0;
+    ConstructedAbilityService.NotifyActorChanged(aim);
+    await Advance(.23f);
+    Check(contacts.Any(hit => hit.TargetId == aim.id && groundContacts.Any(land => land.Node == hit.Node && land.Age < hit.Age) &&
+          hit.TargetHealthAfter < hit.TargetHealthBefore), "实际液态地层接触也正常扣血", new { hits = Hits(), at = at.ToString("F3") });
+    await GetTo(cast, definition.Lifetime + .24f);
+    return new { passed = true, checks };
+}

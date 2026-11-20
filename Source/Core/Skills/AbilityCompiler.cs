@@ -1069,6 +1069,10 @@ public static partial class AbilityCompiler
 
         compiled.Changes = changes.ToArray();
         compiled.EventOperations = reactions.ToArray();
+        if (compiled.FlowSettings?.Cooling != null && (compiled.Matter.Id != "iron" || compiled.Matter.State != "liquid" ||
+            compiled.Residue != null || node.Operations.Any(operation => operation.Kind == ConstructionOperationKind.ConvertMatter) ||
+            compiled.FlowSettings.OpenBoundary || compiled.FlowSettings.Evaporation != 0f))
+            Fail(path + "/Flow/Cooling", "冷却当前用于有边界、不蒸散的液态铁；整层不能直接转换或留存为一种材料");
         if (compiled.FlowSettings != null)
         {
             if (resource.Meshes.Length == 0) Fail(path, "流散需要可用形体和表面");

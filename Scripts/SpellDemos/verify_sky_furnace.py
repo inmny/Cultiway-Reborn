@@ -12,7 +12,7 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('launch', 'upright', 'visual', 'all'), default='all')
+    parser.add_argument('--section', choices=('launch', 'upright', 'visual', 'cooling', 'cutoff', 'damage', 'all'), default='all')
     section = parser.parse_args().section
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过 dev.py exec 运行')
@@ -31,8 +31,10 @@ def main():
                               'var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SourceLoss.Hold") ?? '
                               'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild')
     script = folder / 'input.script'
+    body = (scripts / 'verify_sky_furnace.script').read_text()
+    thermal = (scripts / 'verify_sky_furnace_cooling.script').read_text()
     script.write_text('using Cultiway.Const;\n' + helpers + f'\nconst string section = {json.dumps(section)};\n' +
-                      (scripts / 'verify_sky_furnace.script').read_text())
+                      body.replace('// 实机入口。', thermal))
     try:
         result = baseline.call('run', str(script), '90000')
     except RuntimeError as error:

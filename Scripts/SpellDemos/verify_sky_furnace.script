@@ -60,10 +60,14 @@ void Land(ConstructedWorldContact fact)
 {
     if (fact.AbilityId == definition.Id && fact.TriggerOnly) groundContacts.Add(fact);
 }
+// 实机入口。
 ConstructedAbilityService.WorldContactConfirmed += Land;
 try
 {
     AbilityCompiler.Compile(definition, false);
+    if (section == "cooling") return await Cooling();
+    if (section == "cutoff") return await Cutoff();
+    if (section == "damage") return await Damage();
     if (section == "visual")
     {
         ControllableUnit.clear(false);
@@ -91,9 +95,9 @@ try
             await Shot(frame);
         }
         await At(.74f, "lift");
-        await At(1.76f, "pour");
-        await At(2.81f, "ground");
-        await Advance(1.9f);
+        await At(2.22f, "pour");
+        await At(2.95f, "ground");
+        await Advance(definition.Lifetime - cast.Age + .25f);
         return new { passed = true, checks };
     }
     if (section != "upright")
@@ -167,12 +171,14 @@ try
             var cell = (float)Field(flow, "Cell");
             var ground = (float[])Field(flow, "Ground");
             var water = (Vector3[])Field(flow, "Water");
+            var crust = (float[])Read(flow, "Crust");
             var lower = 0d; var upper = 0d; var total = 0d; var groundLow = float.PositiveInfinity; var groundHigh = float.NegativeInfinity;
             for (int j = 0; j < water.Length; j++)
             {
-                if (water[j].x < cell * .008f) continue;
+                float thickness = water[j].x + (crust?[j] ?? 0f);
+                if (thickness < cell * .008f) continue;
                 float y = origin.y + (j / 20 + .5f) * cell;
-                float volume = water[j].x * cell * cell;
+                float volume = thickness * cell * cell;
                 total += volume;
                 if (y < lane - .9f) lower += volume;
                 if (y > lane + .9f) upper += volume;
@@ -183,11 +189,11 @@ try
         forms.Clear(); cast.AppendVisuals(forms);
         double remaining = Enumerable.Range(1, 3).Sum(i => cast.RemainingVolume(i));
         double expected = definition.Root.Children.Sum(child => child.Volume.GetValueOrDefault() * Math.Pow(definition.Root.Scale * child.Scale, 3));
-        Check(forms.Count(view => view.Layer != null) == 3 && patches.Sum(p => p.lower) > .06 && patches.Sum(p => p.upper) > .06 &&
+        Check(forms.Count(view => view.Layer != null) >= 3 && patches.Sum(p => p.lower) > .06 && patches.Sum(p => p.upper) > .06 &&
               patches.All(p => p.groundHigh > p.groundLow + .02f) && Math.Abs(initialVolume - expected) < .02 && Math.Abs(remaining - initialVolume) < .02,
             "薄层覆盖两侧低处，读到实际地面落差；闭合范围内无添料或丢料", new { patches, remaining, initialVolume, expected });
         await Shot("ground");
-        await Advance(1.3f);
+        await Advance(definition.Lifetime - cast.Age + .25f);
         Check(Live(definition.Id) == null && endings.Count == 1 && !endings[0].Fact.Cancelled,
             "三股熔流和炉身自然收束");
     }
@@ -201,12 +207,12 @@ try
         Check(Enumerable.Range(1, 3).All(i => still.NodeAge(i) < 0 && !Flowing(still, i)) &&
               ((Vector3)Outlet(Furnace(still), "mouth").GetColumn(2)).normalized.z > -.01f,
             "同一炉口保持直立时不出流", new { still.Age });
-        await Advance(1.9f);
+        await Advance(upright.Lifetime);
         Check(Live(upright.Id) == null && !endings.Last().Fact.Cancelled, "直立施放也会自然结束");
         await Pay(definition);
         await Advance(2.25f);
         Check(Live(definition.Id).NodeAge(1) >= 0, "直立支路结束后可再次正常倾倒");
-        await Advance(2.45f);
+        await Advance(definition.Lifetime - 2.25f + .45f);
         Check(Live(definition.Id) == null && !endings.Last().Fact.Cancelled, "再次倾倒能完整收束");
     }
     return new { passed = true, checks };

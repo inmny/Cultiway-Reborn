@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cultiway.Core.Visuals.Forms;
 using UnityEngine;
 
@@ -342,6 +343,8 @@ public sealed partial class AbilityCast
         savedNodes = new NodeState[nodes.Length];
         if (Array.Exists(plan.Nodes, form => form.FlowSettings != null))
         {
+            if (Array.Exists(plan.Nodes, form => form.FlowSettings?.Cooling != null))
+                coolingNodes = Enumerable.Range(0, plan.Nodes.Length).Where(i => plan.Nodes[i].FlowSettings?.Cooling != null).ToArray();
             flows = new AbilityFlow[nodes.Length];
             savedFlows = new AbilityFlow[nodes.Length];
             for (int i = 0; i < flows.Length; i++)
@@ -701,6 +704,7 @@ public sealed partial class AbilityCast
         else if (Plan.Binding != null && (bindInitial || Plan.Binding.Follow))
             origin = inputs.Resolve(Plan.Binding, BodyPose);
         for (int i = 0; i < nodes.Length; i++) SampleNode(i, step, target, bindInitial);
+        if (step > 0f && coolingNodes != null) AdvanceCoolingContacts(step);
         if (Plan.Body != null && !bodyInterrupted && !bodyEndSent && Age >= BodyUntil)
         {
             bodyEndSent = true;
@@ -1531,6 +1535,9 @@ public sealed partial class AbilityCast
                     faded.a *= reveal;
                     dye = faded;
                 }
+                bool cooling = flows?[i]?.Started == true && flows[i].Settings.Cooling != null;
+                if (cooling) AppendCoolingVisuals(i, output);
+                if (cooling && flows[i].LiquidVolume <= 0d) continue;
                 output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
                     surface: appearance.Surface,
                     tint: nodes[i].Matter.Id == "fire"
