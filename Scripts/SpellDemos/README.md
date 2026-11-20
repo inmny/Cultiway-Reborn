@@ -2379,3 +2379,11 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--section save` 在实际扣血后保存，读回原术与[裂冠派生](../../Doc/技能系统全面重构/构造输入/镜中碎身·裂冠.json)，等保存的冷却走完再实放。`--section restored --saved <输出目录>` 用同一档补跑读回后的施放。重启游戏后用 `--section cold --saved <输出目录>` 核对冷启动。
 
 `--section film --view native` 与 `--section film --view worldfall` 各录完整原速过程，输出 `demo.mp4`、`timeline.json` 和真实结算记录。
+
+### 折界千重（9.37）
+
+在独立游戏中运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 150 -- python3 Scripts/SpellDemos/verify_thousand_fold.py --section image`。它复用同一片地图，检查三条带里的实际景物、错层、依次归位和撤销。换成 `--section contact`，核对开启时无伤、闭合边沿与实际作用同形、范围外无伤及退场。
+
+`--section save` 在首层已造成伤害时保存，读回[原术](../../Doc/技能系统全面重构/构造输入/折界千重.json)与[折径](../../Doc/技能系统全面重构/构造输入/折界千重·折径.json)，等冷却后分别实放。`--section restored --saved <输出目录>` 可对同一档补跑读回后的施放。退出并重新启动游戏后，运行 `--section cold --saved <输出目录>`。
+
+用 `--section film --view native` 和 `--section film --view worldfall` 分别录制同一场战斗。输出附有世界时间、每次实际切割及视频。
