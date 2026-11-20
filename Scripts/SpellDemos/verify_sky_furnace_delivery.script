@@ -1,0 +1,119 @@
+// 同一场地比较原招和偏口构造。实机录像使用同一个游戏时钟。
+(float Y, double Volume) CrustPosition(AbilityCast cast, int node)
+{
+    object flow = FlowAt(cast, node);
+    float[] crust = (float[])Read(flow, "Crust");
+    float cell = (float)Field(flow, "Cell");
+    int n = (int)Field(Field(flow, "Settings"), "Cells");
+    float y = ((Vector2)Field(flow, "Origin")).y;
+    double mass = 0, weighted = 0;
+    for (int i = 0; i < crust.Length; i++)
+    {
+        double volume = crust[i] * cell * cell;
+        mass += volume;
+        weighted += volume * (y + (i / n + .5f) * cell);
+    }
+    return ((float)(weighted / Math.Max(mass, .000001)), mass);
+}
+
+async Task<object> DeliverFurnace()
+{
+    if (recordView.Length != 0)
+    {
+        await SetCamera(7.75f);
+        await Advance(.13f);
+        await Pay(definition);
+        var cast = Live(definition.Id);
+        bool lifted = false, tilted = false, cooled = false, broke = false, hot = false;
+        float firstCrust = -1, firstBreak = -1, extinguished = -1;
+        var times = await Film(7f, () =>
+        {
+            if (cast.Age < 3.5f)
+            {
+                var mouth = Outlet(Furnace(cast), "mouth");
+                lifted |= cast.Age < 1f && mouth.MultiplyPoint3x4(Vector3.zero).z > 7f && cast.NodeAge(1) < 0;
+                tilted |= cast.NodeAge(1) >= 0 && mouth.MultiplyVector(Vector3.forward).z < -.3f;
+            }
+            if (!Flowing(cast, 1)) return;
+            var phase = Phase(cast, 1);
+            if (phase.Crust > .015 && firstCrust < 0) firstCrust = cast.Age;
+            if (phase.Broken > .004 && firstBreak < 0) firstBreak = cast.Age;
+            broke |= phase.Broken > .004;
+            forms.Clear(); cast.AppendVisuals(forms);
+            hot |= forms.Any(form => form.Resource.Description.Id == "fire_body");
+            if (cast.Age < definition.Lifetime && groundContacts.Count == 3 &&
+                Enumerable.Range(1, 3).All(i => Phase(cast, i).Liquid < .005) &&
+                forms.All(form => form.Resource.Description.Id != "fire_body"))
+            {
+                cooled = true;
+                if (extinguished < 0) extinguished = cast.Age;
+            }
+        });
+        Check(lifted && tilted && groundContacts.Count == 3 && hot && broke && cooled &&
+              firstCrust > 0 && firstBreak > firstCrust && extinguished > firstBreak &&
+              endings.Count == 1 && !endings[0].Fact.Cancelled && Live(definition.Id) == null && !VisibleFurnace(),
+            "录像内实际抬升、倾倒、三次触地、结壳、破裂、熄灭并自然结束",
+            new { lifted, tilted, groundContacts, firstCrust, firstBreak, extinguished, endings = endings.Count });
+        return new { passed = true, times, duration = 7, previewFrame = Math.Max(0, times.FindIndex(t => t >= 1.7)),
+            phases = new { firstCrust, firstBreak, extinguished }, view = recordView, scene = "construction", resource = "wakan", paid = definition.Cost };
+    }
+
+    var original = definition;
+    var variant = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "variant.json")));
+    JToken originalInput = JToken.FromObject(original), variantInput = JToken.FromObject(variant);
+    async Task<(float landingY, float crustY)> Run(AbilityDefinition spell)
+    {
+        definition = spell;
+        groundContacts.Clear();
+        int outlet = spell.Root.Children.Length;
+        int ends = endings.Count;
+        await Pay(spell);
+        var cast = Live(spell.Id);
+        await GetTo(cast, 4.45f);
+        var crust = CrustPosition(cast, outlet);
+        Check(groundContacts.Count == outlet && groundContacts.Any(fact => fact.Node == outlet) &&
+              crust.Volume > .18, "所有配置的熔流都在实际触地后形成铁壳",
+            new { spell.Id, outlets = spell.Root.Children.Select(child => child.Anchor).ToArray(), landings = groundContacts.ToArray(), crust.Y, crust.Volume });
+        float landingY = groundContacts.Single(fact => fact.Node == outlet).Position.y;
+        await GetTo(cast, spell.Lifetime + .25f);
+        Check(endings.Count == ends + 1 && !endings.Last().Fact.Cancelled && Live(spell.Id) == null && !VisibleFurnace(),
+            "熔流与残壳自然收尾", spell.Id);
+        return (landingY, crust.Y);
+    }
+    var right = await Run(original);
+    var left = await Run(variant);
+    Check(right.landingY - left.landingY > .8f && right.crustY - left.crustY > .8f,
+        "从右口移到左口后，实际落点和凝壳重心一起改变",
+        new { right = new { right.landingY, right.crustY }, left = new { left.landingY, left.crustY } });
+    long casterId = source.id, aimId = aim.id;
+    ConstructedAbilityService.Learn(owner, original.Id);
+    ConstructedAbilityService.Learn(owner, variant.Id);
+    string saved = Path.Combine(folder, "world");
+    SaveManager.saveWorldToDirectory(saved);
+    World.world.save_manager.loadWorld(saved);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var catalog = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    source = World.world.units.get(casterId); aim = World.world.units.get(aimId);
+    owner = source?.GetExtend();
+    var first = (AbilityDefinition)catalog[original.Id]; var second = (AbilityDefinition)catalog[variant.Id];
+    Check(first != null && second?.Parent?.Id == first.Id && JToken.DeepEquals(originalInput, JToken.FromObject(first)) &&
+          JToken.DeepEquals(variantInput, JToken.FromObject(second)) && owner != null && aim != null &&
+          owner.E.GetComponent<ConstructedKnowledge>().Ids.Contains(first.Id) &&
+          owner.E.GetComponent<ConstructedKnowledge>().Ids.Contains(second.Id) &&
+          Live(first.Id) == null && Live(second.Id) == null && !VisibleFurnace(),
+        "正式重开保留两份完整构造、来源、散热设置和人物学习，没有恢复旧熔流");
+    var edited = ConstructionEditing.Copy(second);
+    edited.Revision++;
+    edited.Root.Children.Last().Anchor = "mouth.right";
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    CombatStatusEffects.ApplyStatus(aim, hold, 10000, aim);
+    Ready(source); await Advance(.16f);
+    var moved = await Run(edited);
+    Check(moved.landingY - left.landingY > .8f && moved.crustY - left.crustY > .8f &&
+          JToken.DeepEquals(originalInput, JToken.FromObject(catalog[first.Id])),
+        "重开后改口再施放，会再次移动实际落点和铁壳，原招保持完整",
+        new { moved.landingY, moved.crustY, edited.Revision });
+    return new { passed = true, checks, saved };
+}

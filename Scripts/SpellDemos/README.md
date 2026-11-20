@@ -2309,3 +2309,4 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在已启动的独立游戏中运行 `dev.py exec --timeout 115 -- python3 Scripts/SpellDemos/verify_sky_furnace.py`。使用[天炉倾海构造](../../Doc/技能系统全面重构/构造输入/天炉倾海.json)，核对实际炉口、离口速度、三次触地、分流、总量和自然结束。`--section launch` 只验证出流至落地，`--section upright` 只验证保持直立及再施放，`--section visual` 采集原版开发截图。
 
 - `--section cooling` 复验落地后先结壳、后到热流接触破壳、热量与材料去向，以及冷透后撤掉伤害面。`--section cutoff` 验证施术者死亡后只保留已离炉的熔料。`--section damage` 分别验证空中的流束和触地后的液层确有伤害。
+- `--section save` 比较原招和[偏口](../../Doc/技能系统全面重构/构造输入/天炉倾海·偏口.json)的实际落点与铁壳位置，通过正式存档重开，再改口复放。`--section native` 和 `--section worldfall` 分别录制真实抬炉、出流、结壳、破裂和熄灭，按游戏内经过的时间输出 `demo.mp4`。录像使用 `dev.py exec --timeout 180`。

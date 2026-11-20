@@ -65,6 +65,7 @@ ConstructedAbilityService.WorldContactConfirmed += Land;
 try
 {
     AbilityCompiler.Compile(definition, false);
+    if (section == "save" || recordView.Length != 0) return await DeliverFurnace();
     if (section == "cooling") return await Cooling();
     if (section == "cutoff") return await Cutoff();
     if (section == "damage") return await Damage();
@@ -219,6 +220,7 @@ try
 }
 finally
 {
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
     ConstructedAbilityService.WorldContactConfirmed -= Land;
     ConstructedAbilityService.ContactConfirmed -= Hit;
     ConstructedAbilityService.CastEnded -= Ended;

@@ -189,7 +189,7 @@
                 "vessel.wall"
             ],
             "Id": "body",
-            "Surface": "bronze",
+            "Surface": "furnace_bronze",
             "Pivot": [
                 0.0,
                 0.0,
@@ -211,7 +211,7 @@
                 "vessel.mouth"
             ],
             "Id": "rim",
-            "Surface": "bronze",
+            "Surface": "furnace_rim",
             "Pivot": [
                 0.0,
                 0.0,
@@ -233,7 +233,7 @@
                 "vessel.band"
             ],
             "Id": "bands",
-            "Surface": "bronze",
+            "Surface": "furnace_rim",
             "Pivot": [
                 0.0,
                 0.0,
@@ -255,7 +255,7 @@
                 "vessel.support"
             ],
             "Id": "feet",
-            "Surface": "bronze",
+            "Surface": "furnace_bronze",
             "Pivot": [
                 0.0,
                 0.0,
@@ -277,7 +277,7 @@
                 "vessel.handle"
             ],
             "Id": "ears",
-            "Surface": "bronze",
+            "Surface": "furnace_bronze",
             "Pivot": [
                 0.0,
                 0.0,

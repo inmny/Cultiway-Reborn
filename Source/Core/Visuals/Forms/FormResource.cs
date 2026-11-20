@@ -765,6 +765,9 @@ internal sealed partial class FormResourceGeneration
             "rift_core" => (8f, new Color(.055f, .018f, .095f), .9f),
             "rift_lip" => (9f, new Color(.37f, .10f, .61f), .55f),
             "mirror" => (7f, new Color(.72f, .81f, .84f), .045f),
+            "furnace_bronze" => (0f, new Color(.67f, .39f, .18f), .52f),
+            "furnace_rim" => (0f, new Color(.95f, .64f, .29f), .29f),
+            "furnace_melt" => (28f, new Color(1f, .35f, .055f), .34f),
             "molten_iron" => (6f, new Color(1f, .31f, .035f), .28f),
             "iron_crust" => (16f, new Color(.24f, .15f, .12f), .79f),
             "aegis_jade" => (14f, new Color(.38f, .77f, .73f, .44f), .3f),
@@ -818,7 +821,7 @@ internal sealed partial class FormResourceGeneration
         found.SetColor("_Color", color);
         found.SetFloat("_Kind", kind);
         found.SetFloat("_Roughness", roughness);
-        found.SetFloat("_ZWrite", !transparent && (kind < 3f || kind >= 6f && kind < 10f || kind == 16f || kind == 27f) ? 1f : 0f);
+        found.SetFloat("_ZWrite", !transparent && (kind < 3f || kind >= 6f && kind < 10f || kind == 16f || kind == 27f || kind == 28f) ? 1f : 0f);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfall" : "Always", false);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfallTransparent" : "CultiwayNativeTransparent", false);
         if (native) found.SetShaderPassEnabled("CultiwayWorldfallSolid", false);

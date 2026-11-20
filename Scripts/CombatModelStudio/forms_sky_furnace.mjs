@@ -15,7 +15,7 @@ function furnace() {
     [.55,1.41],[.54,1.32],[.63,1.18],[.71,.94],[.70,.67],[.59,.39],[.36,.28],[0,.28]];
   const swing = 'vessel';
   const controls = [{Id:swing, Position:[0,0,0], Rotation:upright}];
-  const bronze = (id, geometry) => ({...part(id,geometry,'bronze',[0,0,0],swing),UseMatterSurface:false});
+  const bronze = (id, geometry, surface = 'furnace_bronze') => ({...part(id,geometry,surface,[0,0,0],swing),UseMatterSurface:false});
   const wall = new T.LatheGeometry(profile.map(p=>new T.Vector2(...p)),48);
   wall.userData.smoothSeams = true;
   const collar = (r,y,thick) => new T.TorusGeometry(r,thick,8,48).rotateX(Math.PI/2).translate(0,y,0);
@@ -27,8 +27,8 @@ function furnace() {
     const a = i*Math.PI*.2;
     return new T.SphereGeometry(.10,10,7).scale(.78,1.85,.49).rotateY(a).translate(...at(.789,a,.72));
   });
-  const pieces = [bronze('body',wall),bronze('rim',collar(.585,1.41,.061)),
-    bronze('bands',mergeGeometries([collar(.817,.98,.034),collar(.714,.44,.042),...lobes])),
+  const pieces = [bronze('body',wall),bronze('rim',collar(.585,1.41,.061),'furnace_rim'),
+    bronze('bands',mergeGeometries([collar(.817,.98,.034),collar(.714,.44,.042),...lobes]),'furnace_rim'),
     bronze('feet',mergeGeometries([.81,2.905,5].map(foot))),bronze('ears',mergeGeometries(handles))];
   const outlets = [[0,1.41,.59],[-.285,1.41,.518],[.285,1.41,.518]];
   const anchors = ['mouth','mouth.left','mouth.right'].map((id,i)=>({Id:id,Part:1,Control:swing,
@@ -53,17 +53,19 @@ function furnace() {
 
 /** 稠流从窄尾拉到厚头，各段接触沿同一截面的中心及半径。 */
 function metalStream() {
-  const profile = [[0,0],[.17,.07],[.215,.29],[.22,.58],[.29,.87],[.32,1.11],[.27,1.31],[.17,1.43],[0,1.49]];
+  const profile = [[0,-.03],[.038,.03],[.071,.16],[.105,.29],[.152,.48],[.174,.65],[.204,.82],[.238,1.02],[.244,1.18],[.188,1.33],[.095,1.43],[0,1.47]];
   const geometry = new T.LatheGeometry(profile.map(p=>new T.Vector2(...p)),24).rotateX(Math.PI/2);
   const points = geometry.getAttribute('position');
   for(let i=0;i<points.count;i++) {
     const z = points.getZ(i), t = z/1.49, twist = Math.sin(t*5.4)*.05;
-    points.setXY(i,points.getX(i)*(1+.10*Math.sin(t*12)) + twist,points.getY(i)*.84);
+    const angle = Math.atan2(points.getY(i),points.getX(i));
+    const swell = 1 + .065*Math.sin(angle*3-t*8) + .035*Math.cos(angle*5+t*10);
+    points.setXY(i,points.getX(i)*swell + twist,points.getY(i)*swell*.82);
   }
   geometry.userData.smoothSeams = true;
   const contact = (id,z0,z1,r) => ({Id:id,Part:0,A:[Math.sin(z0/1.49*5.4)*.05,0,z0],
     B:[Math.sin(z1/1.49*5.4)*.05,0,z1],Radius:r});
-  write('sky_furnace_stream',[part('metal',geometry,'molten_iron')],[],[
+  write('sky_furnace_stream',[part('metal',geometry,'furnace_melt')],[],[
     contact('tail',.14,.68,.19),contact('front',.73,1.22,.26)],[],[],false,facing,
     structure('surface',source,'makeSkyFurnace',{profile},{metal:['fluid.body']}));
 }
