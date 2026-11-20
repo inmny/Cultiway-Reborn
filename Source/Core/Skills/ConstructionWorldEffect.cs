@@ -16,6 +16,10 @@ public sealed class ConstructionWorldEffect
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool TileCentreOnly;
 
+    /// <summary>只允许带有明确地块许可的施放提交该世界结果。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool RequireScope;
+
     /// <summary>针对同一地块的频率及次数；空值表示每块一次。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionContactPolicy Contact;
@@ -147,6 +151,9 @@ public sealed class CompiledConstructionWorldEffect
     /// <summary>本次成功必须交出的真实生成材料体积。</summary>
     public double MaterialVolume { get; }
 
+    /// <summary>没有明确的地块许可时不可提交。</summary>
+    public bool RequireScope { get; }
+
     /// <summary>沿用共同接触规则的数值副本。</summary>
     internal readonly CompiledContactPolicy Contact;
 
@@ -169,6 +176,7 @@ public sealed class CompiledConstructionWorldEffect
         Duration = source.Duration ?? Action.DefaultDuration;
         MaximumTiles = source.MaximumTiles;
         TileCentreOnly = source.TileCentreOnly;
+        RequireScope = source.RequireScope;
         Contact = new CompiledContactPolicy(source.Contact, path + "/Contact");
     }
 }

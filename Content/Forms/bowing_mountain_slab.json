@@ -1,0 +1,413 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_bowing_mountains.mjs",
+            "Entry": "makeBowingMountains",
+            "Parameters": [
+                {
+                    "Id": "outlines",
+                    "Values": [
+                        -2.4200000762939453,
+                        0.10000000149011612,
+                        -2.119999885559082,
+                        0,
+                        -1.159999966621399,
+                        0,
+                        -1.0299999713897705,
+                        1.5399999618530273,
+                        -1.850000023841858,
+                        1.399999976158142,
+                        -2.4600000381469727,
+                        0.6399999856948853,
+                        -1.1299999952316284,
+                        0,
+                        0.10999999940395355,
+                        0,
+                        0.3400000035762787,
+                        1.940000057220459,
+                        0.1599999964237213,
+                        2.190000057220459,
+                        -0.5199999809265137,
+                        2.0199999809265137,
+                        -1,
+                        1.5399999618530273,
+                        0.14000000059604645,
+                        0,
+                        1.3700000047683716,
+                        0,
+                        1.190000057220459,
+                        1.4500000476837158,
+                        0.3700000047683716,
+                        1.9299999475479126,
+                        1.399999976158142,
+                        0,
+                        2.2699999809265137,
+                        0,
+                        2.4800000190734863,
+                        0.44999998807907104,
+                        2.309999942779541,
+                        1.100000023841858,
+                        1.6799999475479126,
+                        1.3799999952316284,
+                        1.2200000286102295,
+                        1.4500000476837158
+                    ]
+                },
+                {
+                    "Id": "depths",
+                    "Values": [
+                        0.1679999977350235,
+                        0.2150000035762787,
+                        0.18400000035762787,
+                        0.1509999930858612
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "stratum_0/stratum_1",
+                "Parent": "stratum_0",
+                "Child": "stratum_1",
+                "Position": [
+                    -1.0700000524520874,
+                    0,
+                    0.6800000071525574
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "stratum_1/stratum_2",
+                "Parent": "stratum_1",
+                "Child": "stratum_2",
+                "Position": [
+                    0.25,
+                    0,
+                    0.6800000071525574
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "stratum_2/stratum_3",
+                "Parent": "stratum_2",
+                "Child": "stratum_3",
+                "Position": [
+                    1.309999942779541,
+                    0,
+                    0.6800000071525574
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material",
+            "separate"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "bowing_mountain_slab",
+    "Forward": [
+        0,
+        1,
+        0
+    ],
+    "Up": [
+        0,
+        0,
+        1
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "terrain.slab",
+                "terrain.stratum"
+            ],
+            "Id": "stratum_0",
+            "Surface": "stone_strata",
+            "Pivot": [
+                -1.840000033378601,
+                0,
+                0.6133333444595337
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/bowing_mountain_slab_stratum_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "terrain.slab",
+                "terrain.stratum"
+            ],
+            "Id": "stratum_1",
+            "Surface": "stone_strata",
+            "Pivot": [
+                -0.3400000035762787,
+                0,
+                1.28166663646698
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/bowing_mountain_slab_stratum_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "terrain.slab",
+                "terrain.stratum"
+            ],
+            "Id": "stratum_2",
+            "Surface": "stone_strata",
+            "Pivot": [
+                0.7674999833106995,
+                0,
+                0.8450000286102295
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/bowing_mountain_slab_stratum_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "terrain.slab",
+                "terrain.stratum"
+            ],
+            "Id": "stratum_3",
+            "Surface": "stone_strata",
+            "Pivot": [
+                1.8933333158493042,
+                0,
+                0.7300000190734863
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/bowing_mountain_slab_stratum_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0,
+            "Id": "left",
+            "Part": 0,
+            "Position": [
+                -2.4200000762939453,
+                0,
+                0
+            ],
+            "Direction": [
+                0,
+                1,
+                0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0,
+            "Id": "right",
+            "Part": 3,
+            "Position": [
+                2.2699999809265137,
+                0,
+                0
+            ],
+            "Direction": [
+                0,
+                1,
+                0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0,
+            "Id": "crest",
+            "Part": 1,
+            "Position": [
+                0.1599999964237213,
+                0,
+                2.190000057220459
+            ],
+            "Direction": [
+                0,
+                1,
+                0
+            ],
+            "Control": "",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "Id": "stratum_0",
+            "Part": 0,
+            "A": [
+                0,
+                0,
+                0
+            ],
+            "Footprint": {
+                "Points": [
+                    [
+                        -2.42,
+                        0.1
+                    ],
+                    [
+                        -2.12,
+                        0
+                    ],
+                    [
+                        -1.16,
+                        0
+                    ],
+                    [
+                        -1.03,
+                        1.54
+                    ],
+                    [
+                        -1.85,
+                        1.4
+                    ],
+                    [
+                        -2.46,
+                        0.64
+                    ]
+                ],
+                "HalfThickness": 0.168
+            }
+        },
+        {
+            "Id": "stratum_1",
+            "Part": 1,
+            "A": [
+                0,
+                0,
+                0
+            ],
+            "Footprint": {
+                "Points": [
+                    [
+                        -1.13,
+                        0
+                    ],
+                    [
+                        0.11,
+                        0
+                    ],
+                    [
+                        0.34,
+                        1.94
+                    ],
+                    [
+                        0.16,
+                        2.19
+                    ],
+                    [
+                        -0.52,
+                        2.02
+                    ],
+                    [
+                        -1,
+                        1.54
+                    ]
+                ],
+                "HalfThickness": 0.215
+            }
+        },
+        {
+            "Id": "stratum_2",
+            "Part": 2,
+            "A": [
+                0,
+                0,
+                0
+            ],
+            "Footprint": {
+                "Points": [
+                    [
+                        0.14,
+                        0
+                    ],
+                    [
+                        1.37,
+                        0
+                    ],
+                    [
+                        1.19,
+                        1.45
+                    ],
+                    [
+                        0.37,
+                        1.93
+                    ]
+                ],
+                "HalfThickness": 0.184
+            }
+        },
+        {
+            "Id": "stratum_3",
+            "Part": 3,
+            "A": [
+                0,
+                0,
+                0
+            ],
+            "Footprint": {
+                "Points": [
+                    [
+                        1.4,
+                        0
+                    ],
+                    [
+                        2.27,
+                        0
+                    ],
+                    [
+                        2.48,
+                        0.45
+                    ],
+                    [
+                        2.31,
+                        1.1
+                    ],
+                    [
+                        1.68,
+                        1.38
+                    ],
+                    [
+                        1.22,
+                        1.45
+                    ]
+                ],
+                "HalfThickness": 0.151
+            }
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

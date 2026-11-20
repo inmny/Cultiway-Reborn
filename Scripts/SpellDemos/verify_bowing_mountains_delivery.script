@@ -1,0 +1,188 @@
+// 9.32 第三段：许可、材料账、派生存读和两种视角的正式施放。
+async Task<object> VerifyDelivery()
+{
+    var original = definition;
+    var variant = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "variant.json")));
+    var originalJson = JToken.FromObject(original);
+    var variantJson = JToken.FromObject(variant);
+    WorldTile Tile(int x, int y) => World.world.GetTileSimple(x, y);
+    string Land(int x, int y)
+    {
+        var tile = Tile(x, y);
+        return $"{tile.main_type.id}/{tile.top_type?.id}";
+    }
+    // 自然植被的地表贴层可变化，这里只记录正式抬升会改动的地形和高度。
+    (string Type, int Height) Terrain(int x, int y)
+    {
+        var tile = Tile(x, y);
+        return (tile.main_type.id, tile.Height);
+    }
+    var patch = new Dictionary<(int X, int Y), (string Type, int Height)>();
+    for (int x = 62; x <= 80; x++)
+    for (int y = 66; y <= 80; y++) patch[(x, y)] = Terrain(x, y);
+    var table = new List<object>();
+    void WriteMaterial() => File.WriteAllText(Path.Combine(folder, "material.json"), JsonConvert.SerializeObject(table, Formatting.Indented));
+    // 材料账单独观察：人物命中会先消耗整份可回收支付量。
+    void ClearSweep()
+    {
+        PositionPeople();
+        Place(reached, 63.5f, 67.5f);
+        ConstructedAbilityService.NotifyActorChanged(reached);
+    }
+    double StartingRock(AbilityCast cast, int node) => (double)Field(State(cast, node), "Volume");
+    (int X, int Y)[] ChangedTerrain() => patch.Where(cell => Terrain(cell.Key.X, cell.Key.Y) != cell.Value)
+        .Select(cell => cell.Key).ToArray();
+    bool SameLand() => ChangedTerrain().Length == 0;
+    double RockLeft(AbilityCast cast, int node) => Pieces(cast, node).Where(i => Present(cast, i))
+        .Sum(i => (double)Field(State(cast, i), "Volume"));
+    double ResourceLeft(AbilityCast cast, int node) => Pieces(cast, node).Where(i => Present(cast, i))
+        .Sum(i => (double)Field(State(cast, i), "Resource"));
+    async Task<(ConstructedWorldContact[] Touches, double NearRock, double FarRock, double NearResource)> Half(AbilityCast cast)
+    {
+        await At(cast, 2.42f);
+        int n = Node(cast, "root/near"), f = Node(cast, "root/far");
+        var values = (strikes.ToArray(), RockLeft(cast, n), RockLeft(cast, f), ResourceLeft(cast, n));
+        table.Add(new { id = definition.Id, strikes = values.Item1, material = changes.ToArray(), near = values.Item2,
+            far = values.Item3, paidNear = values.Item4, c = contacts.Where(hit => hit.Damage.HealthLost > 0)
+                .Select(hit => new { hit.Node, hit.TargetId, hit.Damage.HealthLost }).ToArray() });
+        WriteMaterial();
+        Check(values.Item1.Length == 2 && Pieces(cast, n).Concat(Pieces(cast, f)).All(i => Born(cast, i)) &&
+              Born(cast, Node(cast, "root/near/fold")) && Born(cast, Node(cast, "root/far/fold")),
+            "两片在真实接地后都产生临时褶皱与断块");
+        return values;
+    }
+    async Task Clear(AbilityCast cast)
+    {
+        await At(cast, definition.Lifetime + .24f);
+        Check(Live() == null && endings.Count == 1 && !endings[0].Fact.Cancelled,
+            "地形操作不会阻碍临时部位自然清理");
+    }
+    ClearSweep();
+    var noScopeCast = await Cast();
+    await At(noScopeCast, .75f);
+    var initialNear = StartingRock(noScopeCast, Node(noScopeCast, "root/near"));
+    var initialFar = StartingRock(noScopeCast, Node(noScopeCast, "root/far"));
+    var noScope = await Half(noScopeCast);
+    Check(changes.Count == 0 && SameLand() && initialNear > 0 && initialFar > 0 && noScope.NearResource > 0 &&
+          Math.Abs(noScope.NearRock - initialNear) < .0001 && Math.Abs(noScope.FarRock - initialFar) < .0001,
+        "没有主动授予地块许可，临时岩片照常破裂，两片岩量保留且没有地形写入", new { initialNear, initialFar, noScope.NearRock, noScope.FarRock, noScope.NearResource, changeCount = changes.Count, changedTiles = ChangedTerrain() });
+    await Clear(noScopeCast);
+
+    definition = variant;
+    ClearSweep();
+    var pivotCast = await Cast(new ConstructionWorldScope(() => true, (_, _) => false));
+    var rotated = await Half(pivotCast);
+    var old = noScope.Touches[0]; var adjusted = rotated.Touches[0];
+    var farBefore = noScope.Touches[1]; var farAfter = rotated.Touches[1];
+    // 岩面恰好横跨地格边界时，先命中的相邻格可因数值步长不同而改变。
+    bool retainedFar = Vector3.Distance(farAfter.Position, farBefore.Position) < .08f;
+    bool pivoted = Vector2.Distance(old.Position, adjusted.Position) > .65f && (old.X != adjusted.X || old.Y != adjusted.Y) &&
+        retainedFar && changes.Count == 0 && SameLand() && Math.Abs(rotated.NearRock - initialNear) < .0001 &&
+        Math.Abs(rotated.FarRock - initialFar) < .0001;
+    var pivotFacts = new { old, adjusted, farBefore, farAfter, rotated.NearRock, rotated.FarRock,
+        changeCount = changes.Count, changedTiles = ChangedTerrain() };
+    table.Add(pivotFacts);
+    WriteMaterial();
+    await Clear(pivotCast);
+
+    definition = original;
+    ClearSweep();
+    int grantRequests = 0;
+    var permit = new ConstructionWorldScope(() => true, (action, tile) =>
+    {
+        grantRequests++;
+        return action == "terrain.raise" && tile.pos.x == old.X && tile.pos.y == old.Y;
+    });
+    var grantedCast = await Cast(permit);
+    var granted = await Half(grantedCast);
+    var edits = changes.Where(hit => hit.Result.Changed).ToArray();
+    var changed = ChangedTerrain();
+    const double deposit = .625;
+    Check(grantRequests > 0 && edits.Length == 1 && edits[0].Action == "terrain.raise" &&
+          edits[0].X == old.X && edits[0].Y == old.Y && changed.SequenceEqual(new[] { (old.X, old.Y) }) &&
+          Math.Abs(edits[0].MaterialVolume - deposit) < .0001 && Math.Abs(granted.NearRock + deposit - noScope.NearRock) < .0001 &&
+          Math.Abs(granted.FarRock - noScope.FarRock) < .0001 && edits[0].MaterialResource > 0 &&
+          Math.Abs(granted.NearResource + edits[0].MaterialResource - noScope.NearResource) < .0001,
+        "许可点只抬升一格一次；交出的岩量及支付份额从近片断块扣除，未获许可的远片不扣",
+        new { grantRequests, edits, changed, granted.NearRock, granted.FarRock, granted.NearResource, beforeResource = noScope.NearResource });
+    await Clear(grantedCast);
+
+    long sourceId = source.id;
+    string saved = Path.Combine(folder, "world");
+    string expectedLand = Land(old.X, old.Y);
+    // 原版存主地形和地表层，读档按地形类型重建数值高度。
+    int expectedHeight = Tile(old.X, old.Y).Type.height_min;
+    ConstructedAbilityService.Learn(owner, original.Id);
+    ConstructedAbilityService.Learn(owner, variant.Id);
+    SaveManager.saveWorldToDirectory(saved);
+    File.WriteAllText(Path.Combine(folder, "readback-expected.json"), JsonConvert.SerializeObject(new
+        { sourceId, old.X, old.Y, expectedLand, expectedHeight }, Formatting.Indented));
+    World.world.save_manager.loadWorld(saved);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var catalog = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    source = World.world.units.get(sourceId);
+    owner = source?.GetExtend();
+    var prior = (AbilityDefinition)catalog[original.Id];
+    var restored = (AbilityDefinition)catalog[variant.Id];
+    bool known = owner != null && owner.E.GetComponent<ConstructedKnowledge>().Ids.Contains(original.Id) &&
+        owner.E.GetComponent<ConstructedKnowledge>().Ids.Contains(variant.Id);
+    bool sameOriginal = JToken.DeepEquals(originalJson, JToken.FromObject(prior));
+    bool sameVariant = JToken.DeepEquals(variantJson, JToken.FromObject(restored));
+    bool clear = Live() == null && !FormVisualScene.Instances.Any(form => form.Resource.Description.Id == rock.Description.Id);
+    string land = Land(old.X, old.Y);
+    int height = Tile(old.X, old.Y).Height;
+    Check(sameOriginal && sameVariant && restored?.Parent?.Id == prior?.Id && known && clear &&
+          land == expectedLand && height == expectedHeight,
+        "正式重开完整恢复两招、派生来历、学习关系和确认的地形，临时断块不入档",
+        new { sameOriginal, sameVariant, known, clear, land, expectedLand, height, expectedHeight });
+    var edit = ConstructionEditing.Copy(restored);
+    edit.Revision++;
+    edit.Steps[0].Operation.GatherRotation = prior.Steps[0].Operation.GatherRotation.ToArray();
+    AbilityCompiler.Compile(edit, false);
+    Check(JToken.DeepEquals(originalJson, JToken.FromObject(catalog[original.Id])) &&
+          JToken.DeepEquals(variantJson, JToken.FromObject(restored)), "重开后可独立改写落向并重新编译，原招和已存派生没有被覆盖");
+    Check(pivoted, "偏脊改变近片落点，远片的真实落点保持；显式拒绝也不写地形或扣岩量", pivotFacts);
+    return new { passed = true, checks, saved };
+}
+
+async Task<object> Record(AbilityCast cast)
+{
+    var type = WorldfallType();
+    var mod = type.GetProperty("Instance", F).GetValue(null);
+    var god = type.GetProperty("GodShown", F);
+    var firstPerson = type.GetProperty("IsFirstPerson", F);
+    var gpu = type.GetField("_gpuShown", F);
+    var lastDraw = typeof(AbilityCast).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer")
+        .GetProperty("LastDrawCount", F);
+    int near = Node(cast, "root/near"), far = Node(cast, "root/far"), fold = Node(cast, "root/near/fold");
+    int[] pieces = Pieces(cast, near).Concat(Pieces(cast, far)).ToArray();
+    var samples = new List<object>();
+    bool stable = true, drew = recordView == "native", rising = false, turn = false, pressure = false, breakApart = false, rested = false;
+    float next = 0;
+    const float duration = 3.93f;
+    var times = await Film(duration, () =>
+    {
+        stable &= !(bool)firstPerson.GetValue(mod) && (bool)god.GetValue(mod) == (recordView == "worldfall") &&
+                  (recordView != "worldfall" || (bool)gpu.GetValue(mod));
+        float age = cast.Age;
+        if (age < next) return;
+        next = age + .055f;
+        string[] visible = FormVisualScene.Instances.Select(form => form.Resource.Description.Id).Distinct().ToArray();
+        drew |= visible.Contains(rock.Description.Id) && (int)lastDraw.GetValue(null) > 0;
+        rising |= age is > .33f and < .85f && visible.Contains(rock.Description.Id);
+        turn |= age is > 1.0f and < 1.36f && visible.Contains(rock.Description.Id);
+        pressure |= strikes.Count > 0 && Born(cast, fold) && visible.Contains("folding_ground_slab");
+        breakApart |= pieces.Any(i => Born(cast, i) && Present(cast, i) && cast.Velocity(i).sqrMagnitude > .1f);
+        rested |= pieces.All(i => Born(cast, i) && Present(cast, i) && Settled(cast, i));
+        samples.Add(new { age, visible, impacts = strikes.Count, livePieces = pieces.Count(i => Born(cast, i) && Present(cast, i)) });
+    });
+    File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(new { samples, strikes, changes }, Formatting.Indented));
+    Check(stable && drew && rising && turn && pressure && breakApart && rested && strikes.Count == 2 && changes.Count == 0 &&
+          Live() == null && endings.Count == 1 && !endings[0].Fact.Cancelled,
+        "常速同一段施放实际显示抬升、俯压、褶皱、断块落稳及清场",
+        new { stable, drew, rising, turn, pressure, breakApart, rested, frames = times.Count });
+    return new { passed = true, times, duration, previewFrame = Math.Max(0, times.FindIndex(t => t >= 1.64)),
+        view = recordView, scene = "construction", resource = "wakan", paid = definition.Cost, checks };
+}

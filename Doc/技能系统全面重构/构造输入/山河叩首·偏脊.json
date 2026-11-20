@@ -1,0 +1,298 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.BowingMountains.TurnedRidge",
+  "Name": "山河叩首·偏脊",
+  "Resource": "wakan",
+  "Cost": 8.4,
+  "Power": 5.2,
+  "Cooldown": 1.15,
+  "Lifetime": 3.65,
+  "TargetRange": 29,
+  "Binding": {
+    "Anchor": "Target",
+    "Follow": false,
+    "FaceTarget": false
+  },
+  "Root": {
+    "Id": "foundation",
+    "Form": "pivot",
+    "ContactRole": "Decoration",
+    "Children": [
+      {
+        "Id": "near",
+        "Form": "bowing_mountain_slab",
+        "Matter": "earth",
+        "State": "solid",
+        "Volume": 5,
+        "Scale": 1.46,
+        "Strength": 0.65,
+        "Offset": [-4, -3.6, -3.18],
+        "ActiveFrom": 0.92,
+        "ActiveUntil": 1.73,
+        "Impact": {
+          "Targets": "Hostile",
+          "DamageScale": 1.0,
+          "WorldEffects": [
+            {
+              "Action": "terrain.raise",
+              "MaximumTiles": 1,
+              "MaterialVolume": 0.625,
+              "RequireScope": true
+            }
+          ]
+        },
+        "Operations": [
+          {
+            "Id": "rise",
+            "Kind": "Gather",
+            "At": 0.1,
+            "Seconds": 0.4,
+            "Vector": [-4, -3.6, 0.12],
+            "GatherRotation": [0, 0, 28]
+          },
+          {
+            "Id": "break_on_ground",
+            "Kind": "Fracture",
+            "When": {
+              "Trigger": "WorldContact",
+              "Delay": 0.035
+            },
+            "Fracture": {
+              "Seconds": 1.41,
+              "Speed": 1.75,
+              "Spin": 18,
+              "Gravity": 12,
+              "GroundRebound": 0.52,
+              "ReleaseChildren": false,
+              "SourceLoss": "Continue"
+            }
+          }
+        ],
+        "SourceLoss": "End",
+        "Children": [
+          {
+            "Id": "fold",
+            "Form": "folding_ground_slab",
+            "Matter": "earth",
+            "State": "solid",
+            "Volume": 0,
+            "SourceLoss": "Continue",
+            "Strength": 0.45,
+            "ContactGroup": "ground_fold",
+            "Activation": {
+              "Trigger": "WorldContact"
+            },
+            "Rotation": [5, 0, 0],
+            "Impact": {
+              "Targets": "Hostile",
+              "DamageScale": 0.44,
+              "Knockback": {
+                "Distance": 0.6,
+                "Height": 0
+              },
+              "StaggerSeconds": 0.16
+            },
+            "Operations": [
+              {
+                "Kind": "Propagate",
+                "Propagation": {
+                  "Range": 2.75,
+                  "Speed": 6.6,
+                  "Seconds": 0.58,
+                  "Height": 0.67,
+                  "GroundReach": 0.32,
+                  "TiltDegrees": 49,
+                  "Angle": 38,
+                  "Attenuation": 0.11,
+                  "MaximumStep": 0.37,
+                  "CellCost": 0.02,
+                  "MaximumCells": 13
+                }
+              }
+            ]
+          },
+          {
+            "Id": "keystone",
+            "Form": "folding_ground_slab",
+            "Matter": "earth",
+            "State": "solid",
+            "Volume": 0,
+            "SourceLoss": "Continue",
+            "Strength": 0.72,
+            "ContactRole": "Barrier",
+            "BlocksGroundActors": true,
+            "Activation": {
+              "Trigger": "WorldContact"
+            },
+            "Scale": 1.05,
+            "Offset": [0, 0, -0.62],
+            "Rotation": [5, 0, 0],
+            "DisappearAt": 1.08
+          }
+        ],
+        "Rotation": [0, 0, 28]
+      },
+      {
+        "Id": "far",
+        "Form": "bowing_mountain_slab",
+        "Matter": "earth",
+        "State": "solid",
+        "Volume": 5,
+        "Scale": 1.46,
+        "Strength": 0.65,
+        "Offset": [4, 3.6, -2.89],
+        "ActiveFrom": 1.28,
+        "ActiveUntil": 2.09,
+        "Impact": {
+          "Targets": "Hostile",
+          "DamageScale": 1.0,
+          "WorldEffects": [
+            {
+              "Action": "terrain.raise",
+              "MaximumTiles": 1,
+              "MaterialVolume": 0.625,
+              "RequireScope": true
+            }
+          ]
+        },
+        "Operations": [
+          {
+            "Id": "rise",
+            "Kind": "Gather",
+            "At": 0.42,
+            "Seconds": 0.4,
+            "Vector": [4, 3.6, 0.41],
+            "GatherRotation": [0, 0, 0]
+          },
+          {
+            "Id": "break_on_ground",
+            "Kind": "Fracture",
+            "When": {
+              "Trigger": "WorldContact",
+              "Delay": 0.035
+            },
+            "Fracture": {
+              "Seconds": 1.41,
+              "Speed": 1.75,
+              "Spin": 18,
+              "Gravity": 12,
+              "GroundRebound": 0.52,
+              "ReleaseChildren": false,
+              "SourceLoss": "Continue"
+            }
+          }
+        ],
+        "SourceLoss": "End",
+        "Children": [
+          {
+            "Id": "fold",
+            "Form": "folding_ground_slab",
+            "Matter": "earth",
+            "State": "solid",
+            "Volume": 0,
+            "SourceLoss": "Continue",
+            "Strength": 0.45,
+            "ContactGroup": "ground_fold",
+            "Activation": {
+              "Trigger": "WorldContact"
+            },
+            "Rotation": [-5, 0, 0],
+            "Impact": {
+              "Targets": "Hostile",
+              "DamageScale": 0.44,
+              "Knockback": {
+                "Distance": 0.6,
+                "Height": 0
+              },
+              "StaggerSeconds": 0.16
+            },
+            "Operations": [
+              {
+                "Kind": "Propagate",
+                "Propagation": {
+                  "Range": 2.75,
+                  "Speed": 6.6,
+                  "Seconds": 0.58,
+                  "Height": 0.67,
+                  "GroundReach": 0.32,
+                  "TiltDegrees": 49,
+                  "Angle": 38,
+                  "Attenuation": 0.11,
+                  "MaximumStep": 0.37,
+                  "CellCost": 0.02,
+                  "MaximumCells": 13
+                }
+              }
+            ]
+          },
+          {
+            "Id": "keystone",
+            "Form": "folding_ground_slab",
+            "Matter": "earth",
+            "State": "solid",
+            "Volume": 0,
+            "SourceLoss": "Continue",
+            "Strength": 0.72,
+            "ContactRole": "Barrier",
+            "BlocksGroundActors": true,
+            "Activation": {
+              "Trigger": "WorldContact"
+            },
+            "Scale": 1.05,
+            "Offset": [0, 0, -0.62],
+            "Rotation": [-5, 0, 180],
+            "DisappearAt": 1.08
+          }
+        ]
+      }
+    ]
+  },
+  "Steps": [
+    {
+      "Id": "near_bow",
+      "Operation": {
+        "Kind": "Gather",
+        "At": 0.92,
+        "Seconds": 0.62,
+        "Vector": [-4, -3.6, 0.12],
+        "GatherRotation": [-58.0753, -121.4159, 117.4022]
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root/near"
+        },
+        "after": {
+          "Node": "root/near",
+          "Operation": "rise",
+          "Output": "gathering"
+        }
+      }
+    },
+    {
+      "Id": "far_bow",
+      "Operation": {
+        "Kind": "Gather",
+        "At": 1.28,
+        "Seconds": 0.62,
+        "Vector": [4, 3.6, 0.41],
+        "GatherRotation": [106, 0, 0]
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root/far"
+        },
+        "after": {
+          "Node": "root/far",
+          "Operation": "rise",
+          "Output": "gathering"
+        }
+      }
+    }
+  ],
+  "Revision": 1,
+  "Parent": {
+    "Id": "Cultiway.Demo.BowingMountains",
+    "Revision": 3,
+    "Change": "近片的底轴转向二十八度，改变实际压地落点"
+  }
+}

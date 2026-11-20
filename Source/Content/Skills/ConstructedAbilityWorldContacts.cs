@@ -354,5 +354,6 @@ public sealed partial class ConstructedAbilityService
     /// <param name="tile">当前地块。</param>
     private static bool WorldOperationAllowed(RunningCast running, int node, int shape, CompiledConstructionWorldEffect rule, WorldTile tile)
         => running.Cast.CanUseWorldMaterial(node, shape, rule.MaterialVolume) &&
-           (running.WorldScope == null || running.WorldScope.IsValid() && running.WorldScope.Allows(rule.Action.Id, tile));
+           (running.WorldScope == null ? !rule.RequireScope :
+               running.WorldScope.IsValid() && running.WorldScope.Allows(rule.Action.Id, tile));
 }

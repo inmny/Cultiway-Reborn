@@ -2329,3 +2329,13 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 - `--section save` 对照原招和[偏庭](../../Doc/技能系统全面重构/构造输入/森罗倒生·偏庭.json)的接地顺序与抓持，正式存档重开，再改回西根长度复放。用 `dev.py exec --timeout 250`。
 - `--section native` 和 `--section worldfall` 各录一段从倒悬到完全回收的常速实机录像，输出 `demo.mp4`、预览及实际过程记录。用 `dev.py exec --timeout 175`。Worldfall 必须实际启用正常绘制路径，进了后备绘制会提示验证未开始。
+
+### 山河叩首（9.32）
+
+在已启动的独立游戏中运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_bowing_mountains.py --section ground`。复用固定世界，正式施放[山河叩首](../../Doc/技能系统全面重构/构造输入/山河叩首.json)，对照两片岩体错时抬起、绕底边翻落、真实接地、翻起褶皱和断块落稳；还验证扫到的目标扣血、片间安全和术后通行。保存 `checks.json` 及抬起、俯压、落稳的原版截图。`--view worldfall` 可切换观察角度。
+
+- `--section raised`：只抬高同一构造，验证悬空翻落不会触发地面结果。
+- `--section interrupted`：近片拆开后令施术者死亡，验证远片停止，近片碎块仍独立落稳。
+- `--section save`：核对无许可、显式拒绝和许可一格的真实地貌结果与岩量收支。正式存档后复核原招、[偏脊派生](../../Doc/技能系统全面重构/构造输入/山河叩首·偏脊.json)、人物学习状态和地形。输出 `material.json` 与实际存档。用 `dev.py exec --timeout 225`。
+- `--section native` 和 `--section worldfall`：分别录制原版和三维旁观的常速同招全过程。输出 `demo.mp4`、预览图和 `timeline.json`。三维录像同时核对正常绘制路径和实际岩体提交。
+- `--section delivery`：在同一游戏进程依次运行接地、中断、存读和双视角录像。用 `dev.py exec --timeout 480`；每段结果独立保留。

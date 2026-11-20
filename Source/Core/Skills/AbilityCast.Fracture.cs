@@ -64,11 +64,12 @@ public sealed partial class AbilityCast
 
     /// <summary>交锋尚未扣减时只登记请求，其他已确认过程可立即碎解。</summary>
     /// <param name="node">实际接受碎解的主体。</param>
-    private void RequestFracture(int node)
+    /// <param name="groundImpact">此次碎解是否由实际地面接触确认。</param>
+    private void RequestFracture(int node, bool groundImpact = false)
     {
         ref FractureState state = ref fractures[node];
         if (state.Broken || !nodes[node].Exists || !nodes[node].Started) return;
-        state.Pending = true;
+        state.Pending = true; state.GroundImpact = groundImpact;
         if (!state.AwaitingSpend) FractureNode(node);
     }
 
@@ -114,13 +115,27 @@ public sealed partial class AbilityCast
             piece.Burning = source.Burning;
             piece.Burning.Retain(1d / fracture.Pieces.Length);
             piece.Resource = source.Resource / fracture.Pieces.Length;
-            piece.Spin = spin + new Vector3(fracture.Spin * .37f, fracture.Spin * (part % 2 == 0 ? 1f : -1f),
+            float rebound = execution.GroundImpact ? fracture.GroundRebound : 0f;
+            piece.Spin = spin * (1f - rebound) + new Vector3(fracture.Spin * .37f, fracture.Spin * (part % 2 == 0 ? 1f : -1f),
                 fracture.Spin * .21f);
             piece.SpinAt = Age;
             piece.SpinOffset = Quaternion.identity;
             piece.Velocity = velocity + direction.normalized * fracture.Speed;
             fragmentMotion[index].Bounds = resource.PosedBounds(poses[node]);
-            poses[node]?.CopyTo(poses[index]); StartFlight(ref piece, fracture.Flight, Age); piece.Revision++;
+            poses[node]?.CopyTo(poses[index]);
+            if (rebound > 0f && piece.Velocity.z < 0f)
+            {
+                piece.Velocity.z *= -rebound;
+                // 沿用撞点当时的横向位置；只消除共同接触误差造成的入地，再交给普通飞行。
+                float clearance = MinimumHeight(index, piece.Transform, poses[index]);
+                if (clearance < 0f)
+                {
+                    piece.Position.z -= clearance;
+                    piece.Transform.m23 -= clearance;
+                    piece.PreviousTransform = piece.Transform;
+                }
+            }
+            StartFlight(ref piece, fracture.Flight, Age); piece.Revision++;
         }
         if (fracture.ReleaseChildren)
             for (int child = node + 1; child < nodes.Length; child++)
@@ -137,6 +152,8 @@ public sealed partial class AbilityCast
         internal bool Pending, Broken, Captured;
         /// <summary>正在等待此次交锋的真实扣减。</summary>
         internal bool AwaitingSpend;
+        /// <summary>本次碎解来自已经确认的地面撞击。</summary>
+        internal bool GroundImpact;
         /// <summary>最近可稳定求差的实际步长，微小边界余步不清除点运动。</summary>
         internal float MotionStep;
         /// <summary>本数值边界之后已确认的整体速度改变。</summary>
