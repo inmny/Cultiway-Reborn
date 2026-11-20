@@ -35,6 +35,8 @@ async Task Shot(string name)
     await Game.WaitUntil(() => File.Exists(file), 300);
 }
 
+// 翻身和垂流。
+
 try
 {
     AbilityCompiler.Compile(definition, false);
@@ -62,6 +64,8 @@ try
     await Pay();
     var cast = Live();
     Check(cast != null, "正式施放建立天鲸");
+    if (section == "stones") return await Stones(cast);
+    if (section != "breach") return await Spill(cast, section == "cutoff");
     float below = float.PositiveInfinity, high = float.NegativeInfinity, lift = 0f, sideLift = 0f;
     float headPitch = 0f;
     int parts = 0, posedContacts = 0, startsBuried = 0;
@@ -99,7 +103,7 @@ try
         sideLift = Mathf.Max(sideLift, side.position_height);
         await Advance(.068f);
     }
-    await Advance(1.65f);
+    await Advance(Mathf.Max(.3f, definition.Lifetime + .3f - cast.Age));
     var hits = contacts.Select(r => new { r.Age, r.TargetId, r.Node, r.ForceApplied, r.TargetHealthBefore,
         r.TargetHealthAfter, position = r.Position.ToString("F3"), velocity = r.VelocityChange.ToString("F3") }).ToArray();
     File.WriteAllText(Path.Combine(folder, "trace.json"), JsonConvert.SerializeObject(new { trace, hits }, Formatting.Indented));
@@ -114,7 +118,7 @@ try
     Check(photographed, "上升后留存原版实机画面");
     await Pay();
     Check(Live() != null, "正常收尾后可以再发动");
-    await Advance(3.4f);
+    await Advance(definition.Lifetime + .3f);
     Check(Live() == null && endings.Count == 2, "再次发动也能自行结束");
     return new { passed = true, checks };
 }

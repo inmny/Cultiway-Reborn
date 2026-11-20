@@ -1,0 +1,155 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "surface",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_whale.mjs",
+            "Entry": "makeWhale",
+            "Parameters": [
+                {
+                    "Id": "profile",
+                    "Values": [
+                        0.0,
+                        0.05999999865889549,
+                        0.03999999910593033,
+                        0.2199999988079071,
+                        0.27000001072883608,
+                        0.10999999940395355,
+                        0.7799999713897705,
+                        0.5099999904632568,
+                        0.17000000178813935,
+                        1.4299999475479127,
+                        0.6000000238418579,
+                        0.23999999463558198,
+                        2.0999999046325685,
+                        0.5099999904632568,
+                        0.27000001072883608,
+                        2.4600000381469728,
+                        0.2800000011920929,
+                        0.18000000715255738,
+                        2.569999933242798,
+                        0.014999999664723874,
+                        0.012000000104308129
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "water_whale_spill",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/water_whale_spill_sheet_mid.asset",
+                "Assets/Cultiway/Forms/water_whale_spill_sheet_far.asset"
+            ],
+            "Roles": [
+                "fluid.body"
+            ],
+            "Id": "sheet",
+            "Surface": "water",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/water_whale_spill_sheet.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "neck",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.09000000357627869,
+                0.20000000298023225
+            ],
+            "B": [
+                0.0,
+                0.09000000357627869,
+                0.6000000238418579
+            ],
+            "Radius": 0.23999999463558198,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "body",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.09000000357627869,
+                0.8199999928474426
+            ],
+            "B": [
+                0.0,
+                0.09000000357627869,
+                1.5299999713897706
+            ],
+            "Radius": 0.4699999988079071,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "lip",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.09000000357627869,
+                1.7799999713897706
+            ],
+            "B": [
+                0.0,
+                0.09000000357627869,
+                2.200000047683716
+            ],
+            "Radius": 0.44999998807907107,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}
