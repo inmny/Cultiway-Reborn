@@ -1,0 +1,40 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.PalmYield",
+  "Name": "转肩沉掌",
+  "Revision": 1,
+  "Lifetime": 1.62,
+  "Cooldown": 1.94,
+  "Resource": "stamina",
+  "Cost": 7,
+  "TargetRange": 4,
+  "Use": {"Target": "ObjectOrPoint"},
+  "Body": {
+    "Effector": "hand.left",
+    "ReleaseAt": 0.24,
+    "ActiveFrom": 0.34,
+    "ActiveUntil": 1.12,
+    "Impact": {"Targets": "Hostile", "DamageScale": 0},
+    "Construction": {"Parts": [{"Id": "hand.left", "Part": "hand.left"}]},
+    "ForceResponse": {
+      "Capacity": 2.7,
+      "Routing": {
+        "MaximumDepth": 0,
+        "MaximumActors": 1,
+        "Routes": [
+          {"Destination": "Support", "Share": 0.63},
+          {"Destination": "Body", "Share": 0.37, "Direction": [0, 1, 0]}
+        ]
+      }
+    },
+    "Keys": [
+      {"Id": "ready", "At": 0.00, "Hand": [0.12, -0.23, 0.54], "Support": {}},
+      {"Id": "step", "At": 0.13, "Hand": [0.13, -0.18, 0.60], "Torso": [-0.04, 0.033, -0.032], "Turn": 6, "Rotation": [9, 18, 38], "Support": {"LeftFoot": [0.02, -0.16, 0.065]}},
+      {"Id": "plant", "At": 0.30, "Hand": [0.27, -0.14, 0.66], "Torso": [-0.025, -0.049, -0.043], "Turn": -9, "Rotation": [6, 22, 68], "Support": {"LeftFoot": [-0.06, -0.22, 0]}},
+      {"Id": "yield", "At": 0.68, "Hand": [0.22, 0.03, 0.62], "Torso": [-0.072, -0.088, -0.044], "Turn": -26, "Rotation": [11, 55, 63], "Support": {"LeftFoot": [-0.06, -0.22, 0]}},
+      {"Id": "clear", "At": 1.13, "Hand": [0.14, 0.08, 0.55], "Torso": [-0.05, -0.066, -0.043], "Turn": -20, "Rotation": [18, 63, 38], "Support": {"LeftFoot": [-0.06, -0.22, 0]}},
+      {"Id": "gather", "At": 1.38, "Hand": [0.14, -0.16, 0.56], "Torso": [-0.02, -0.04, -0.026], "Turn": -6, "Rotation": [12, 25, 18], "Support": {"LeftFoot": [-0.02, -0.15, 0.07]}},
+      {"Id": "rest", "At": 1.62, "Hand": [0.12, -0.23, 0.54], "Support": {}}
+    ]
+  }
+}

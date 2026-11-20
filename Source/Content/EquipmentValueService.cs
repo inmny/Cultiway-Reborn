@@ -1,7 +1,9 @@
 using System;
+using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
 
@@ -35,6 +37,8 @@ public static class EquipmentValueService
             bonus += MagicSetting.MagicStaffWeaponPreferenceBonus;
         if (actorExtend.HasCultisys<Knight>() && MatchesMasteredKnightStyle(actorExtend, asset))
             bonus += KnightSetting.KnightWeaponPreferenceBonus;
+        if (asset.id == ShieldEquipment.IronId && ConstructedAbilityService.KnowsHeldGuard(actorExtend, "shield"))
+            bonus += 15;
         return bonus;
     }
 

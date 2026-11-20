@@ -15,6 +15,9 @@ public static class BodyActionCatalog
     /// <summary>万法阁可直接取用的架掌资料。</summary>
     public const string GuardId = "Cultiway.Body.PalmGuard";
 
+    /// <summary>使用实际铁盾架挡的正式战技。</summary>
+    public const string ShieldGuardId = "Cultiway.Body.ShieldGuard";
+
     /// <summary>原武器握持、离手和收回共用的正式参考动作。</summary>
     public const string SwordReleaseId = "Cultiway.Body.SwordRelease";
 
@@ -45,7 +48,7 @@ public static class BodyActionCatalog
             Load("beast-horn-thrust"), Load("beast-pounce"), Load("palm-push"), Load("straight-punch"), Load("folded-elbow"),
             Load("rising-knee"), Load("low-sweep"), Load("shoulder-drive"), shortThrust, StoneSword(shortThrust),
             shortCut, StoneSword(shortCut), shortSweep, StoneSword(shortSweep), Load("long-spear-thrust"), Load("long-spear-sweep"),
-            Load("long-spear-deflect"), Load("heavy-hammer-drop") };
+            Load("long-spear-deflect"), Load("heavy-hammer-drop"), Load("shield-guard"), Load("palm-yield") };
     }
 
     /// <summary>保留完整手路及发力，石剑版本以本身的握点及刃口执行。</summary>

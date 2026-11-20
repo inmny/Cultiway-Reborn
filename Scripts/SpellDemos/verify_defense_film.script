@@ -1,0 +1,128 @@
+    // 只采集已确认的游戏帧，录像的锤、盾和人物都来自正式世界档。
+    bool bare = selectedMove == "yield", overflow = selectedMove == "overflow";
+    const string hammerId = "Cultiway.Body.HeavyHammerDrop";
+    string attackId = overflow ? hammerId + ".Overflow" : hammerId;
+    string defenseId = bare ? "Cultiway.Body.PalmYield" : BodyActionCatalog.ShieldGuardId;
+    long attackCast = 0, defenseCast = 0;
+    var clashes = new List<ConstructedClash>();
+    var transfers = new List<ConstructedForceTransfer>();
+    void Started(ConstructedCastStarted fact)
+    {
+        if (fact.AbilityId == attackId && fact.SourceId == source.id) attackCast = fact.CastId;
+        if (fact.AbilityId == defenseId && fact.SourceId == target.id) defenseCast = fact.CastId;
+    }
+    void Clashed(ConstructedClash fact)
+    {
+        if (fact.LeftCast == attackCast && fact.RightCast == defenseCast) clashes.Add(fact);
+    }
+    void Transferred(ConstructedForceTransfer fact)
+    {
+        if (fact.CastId == attackCast) transfers.Add(fact);
+    }
+    ConstructedAbilityService.CastStarted += Started;
+    ConstructedAbilityService.ClashConfirmed += Clashed;
+    ConstructedAbilityService.ForceTransferConfirmed += Transferred;
+    try
+    {
+        Place(source, 64.35f);
+        Place(target, 64.98f);
+        source.attack_timer = target.attack_timer = 999;
+        var hammer = source.getWeapon();
+        var shield = target.getWeapon();
+        Check(hammer?.getAsset().id == "hammer_iron" && shield?.getAsset().id == "cultiway_iron_shield",
+            "开场人物持有正式世界档的原铁锤和铁盾");
+        if (bare) target.equipment.weapon.takeAwayItem();
+        CombatStatusEffects.RemoveStatus(target, quiet);
+        target.setStatsDirty();
+        target.updateStats();
+        target.cancelAllBeh();
+        target.setHealth(target.getMaxHealth());
+        int health = target.data.health;
+        await Game.NextFrame();
+        await Game.NextFrame();
+        Frame(defenseId);
+        var defense = ConstructionEditing.Access.Read(defenseId);
+        var heavy = ConstructionEditing.Access.Read(hammerId);
+        if (overflow)
+        {
+            heavy.Id = attackId;
+            heavy.Power *= 1.8f;
+        }
+        target.data.stamina = source.data.stamina = 100;
+        await Fire(defense, target, source);
+        target.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+        target.attack_timer = 999;
+        await Fire(heavy, source, target);
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        Check(defenseCast != 0 && attackCast != 0 && Mathf.Abs(100 - target.data.stamina - defense.Cost) < .001f,
+            "双方正式出招，防御人物实际支付本招费用");
+        double start = World.world.getCurWorldTime();
+        float duration = Mathf.Max(heavy.Lifetime, defense.Lifetime) + .24f;
+        while (World.world.getCurWorldTime() - start < duration)
+        {
+            await Advance(1f / 30f);
+            if (view == "worldfall" && !ReferenceEquals(Field(mod, "_godLock"), source))
+            {
+                // 原版镜头受力偏移可能被识别为手动移镜。录像重新跟随原人物。
+                MoveCamera.clearFocusUnitOnly();
+                Set("_godCamSet", false);
+                Set("_godLock", source);
+                Set("_godFollow", source.current_position);
+                Set("_godFollowVel", Vector2.zero);
+                Set("_godClose", 1.6f);
+                Set("_godCloseTarget", 1.6f);
+                Set("_godPull", 1f);
+                int drawn = (int)Field(mod, "_godGpuApplied");
+                await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= drawn + 2, 1800);
+            }
+            await Game.NextFrame();
+            Frame(defenseId);
+        }
+
+        var hits = contacts.Where(fact => fact.CastId == attackCast && fact.TargetId == target.id).ToArray();
+        var clash = clashes.FirstOrDefault();
+        var outcome = new
+        {
+            health, after = target.data.health, maxHealth = target.getMaxHealth(),
+            clashes = clashes.Count, clash.LeftAge, clash.RightAge, clash.Absorbed,
+            clash.LeftRemaining, clash.RightRemaining, hits = hits.Length,
+            force = hits.Select(hit => hit.VelocityChange.ToString("F5")).ToArray()
+        };
+        string title;
+        int count = hits.Length + clashes.Count;
+        if (bare)
+        {
+            var result = transfers.FirstOrDefault();
+            Check(hits.Length == 1 && result != null && result.Routes.Any(route =>
+                      route.ResponseCast == defenseCast && route.Destination == ConstructionForceDestination.Support) &&
+                  result.Routes.Any(route => route.ResponseCast == defenseCast && route.Destination == ConstructionForceDestination.Body) &&
+                  result.Recipients.Any(recipient => recipient.ActorId == target.id && recipient.AppliedImpulse.y > .5f) &&
+                  target.data.health < health && !target.hasWeapon(),
+                "录像中空手落脚卸力，实际余力使人物侧移");
+            title = "转肩沉掌 · 落脚卸力";
+        }
+        else
+        {
+            Check(clashes.Count == 1 && clash.GuardShape >= 0 && clash.Absorbed > 0f &&
+                  ReferenceEquals(shield, target.getWeapon()), "同一正式盾面实际与锤头接触", outcome);
+            if (overflow)
+                Check(clash.RightRemaining == 0f && clash.LeftRemaining > 0f && hits.Length == 1 &&
+                      hits[0].ForceApplied && target.data.health < health, "实际破防后保留伤害和推力", outcome);
+            else Check(clash.LeftRemaining == 0f && clash.RightRemaining > 0f && hits.Length == 0 &&
+                       target.data.health == health, "迎面架盾拦下整记重锤", outcome);
+            title = overflow ? "沉肩架盾 · 破防余力" : "沉肩架盾 · 迎面架挡";
+        }
+        Check(!BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id) &&
+              ReferenceEquals(hammer, source.getWeapon()), "完整动作结束后双方归还控制");
+        recordings.Add(new { view, ability = defenseId, name = title, rate = 1, first = 0,
+            last = rows.Count - 1, contacts = count, duration, paid = defense.Cost });
+        SaveRecording();
+        return new { passed = true, selection, view, move = selectedMove, frames = rows.Count, checks };
+    }
+    finally
+    {
+        ConstructedAbilityService.CastStarted -= Started;
+        ConstructedAbilityService.ClashConfirmed -= Clashed;
+        ConstructedAbilityService.ForceTransferConfirmed -= Transferred;
+    }
+}

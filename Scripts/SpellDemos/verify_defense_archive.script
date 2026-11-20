@@ -1,0 +1,93 @@
+// 改造真实盾面的防守方向、额度和时间。原人物与正式铁盾写入原版档。
+try
+{
+    Click("Page2");
+    Check(((Text)Field(Row("HeldForm"), "_detail")).text.StartsWith("圆盾"), "万法阁显示正式圆盾器形");
+    Select("MartialTouchShape", T("MartialShape.rim"));
+    var rim = ConstructionEditing.Access.Validate(Session().Draft).Body.Construction.Relations
+        .Single(relation => relation.Kind == BodyRelationKind.Touch);
+    Check(rim.FromAnchor == "rim", "盾缘可选作实际防守面");
+    Click("Undo");
+    Check(JToken.DeepEquals(original, JToken.FromObject(Session().Draft)), "撤销还原完整盾面和朝向");
+    Set("MartialGuardCapacity", "82");
+    Set("MartialGuardAngle", "52");
+    Set("MartialGuardNormalY", ".12");
+    Set("BodyActiveFrom", ".28");
+    var changed = JToken.FromObject(Session().Draft);
+    Set("MartialGuardAngle", "95");
+    Check(JToken.DeepEquals(changed, JToken.FromObject(Session().Draft)) &&
+          Session().Draft.Body.Guard is { Capacity: 82f, HalfAngle: 52f } &&
+          Session().Draft.Body.Guard.Normal[1] == .12f && Session().Draft.Body.ActiveFrom == .28f,
+        "编辑额度、方向和起挡时间，越界角度保留上次合法资料");
+    await Shot("shield-edit-cz");
+    Click("LearnCopy");
+    string edited = Session().SourceId;
+    Check(edited != basisId && ConstructedAbilityService.Knows(target.GetExtend(), edited) &&
+          JToken.DeepEquals(changed["Body"], JToken.FromObject(ConstructionEditing.Access.Read(edited))["Body"]) &&
+          JToken.DeepEquals(original, JToken.FromObject(ConstructionEditing.Access.Read(basisId))),
+        "将改造学为正式副本，完整原招仍可用");
+    Click("Close");
+    await Frames();
+    LocalizedTextManager.instance.setLanguage("en");
+    WindowWanfaConstructionEditor.Open(edited, target);
+    await Frames();
+    Click("Page2");
+    Check(((Text)Field(Row("HeldForm"), "_detail")).text.StartsWith("Round shield") &&
+          Session().Draft.Body.Guard.HalfAngle == 52f && Session().Draft.Body.Guard.Capacity == 82f,
+        "英文窗口重开后保留盾架改造");
+    await Shot("shield-edit-en");
+    Click("Close");
+    await Frames();
+
+    World.world.units.checkContainer();
+    World.world.items.checkLists();
+    foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+    CombatStatusEffects.RemoveStatus(target, quiet);
+    source.updateStats();
+    target.updateStats();
+    source.attack_timer = target.attack_timer = 999;
+    Place(source, 64.35f);
+    Place(target, 64.98f);
+    Check(World.world.items.list.Contains(shield) && ReferenceEquals(shield, target.getWeapon()) &&
+          source.getWeapon()?.getAsset().id == "hammer_iron", "原铁锤、正式铁盾和两名人物已进入世界保存");
+    string archive = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(archive);
+    Check(File.Exists(Path.Combine(archive, "map.wbox")), "正式世界档已经写入");
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+    {
+        process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, target = target.id,
+        weapon = source.getWeapon().data.id, shield = shield.data.id, edited,
+        definitions = new[] { basisId, edited }.Select(ConstructionEditing.Access.Read).ToArray()
+    }, Formatting.Indented));
+    return new { passed = true, selection, edited, checks };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    LocalizedTextManager.instance.setLanguage("cz");
+    Config.paused = true;
+}
+
+void Set(string key, string value)
+{
+    var input = Row(key).GetComponentsInChildren<InputField>(false).Single(field => field.name == key);
+    input.text = value;
+    input.onEndEdit.Invoke(value);
+}
+
+async Task Shot(string name)
+{
+    World.world.console.Hide();
+    Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    var row = (RectTransform)Row("MartialGuardCapacity").transform;
+    var scroll = row.GetComponentInParent<ScrollRect>();
+    Vector2 point = scroll.content.InverseTransformPoint(row.position);
+    float travel = scroll.content.rect.height - scroll.viewport.rect.height;
+    if (travel > 0)
+        scroll.verticalNormalizedPosition = Mathf.Clamp01(1f - (scroll.content.rect.yMax - point.y - 35f) / travel);
+    await Frames();
+    Screen.Capture(Path.Combine(folder, name + ".png"));
+    await Frames();
+}

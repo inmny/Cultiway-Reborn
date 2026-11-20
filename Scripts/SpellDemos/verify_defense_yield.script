@@ -1,0 +1,103 @@
+// 复用同一战锤和两名已经保存的人物。
+const string hammerId = "Cultiway.Body.HeavyHammerDrop";
+const string yieldId = "Cultiway.Body.PalmYield";
+long attackCast = 0, yieldCast = 0;
+AbilityCast action = null;
+bool interrupted = false;
+var transfers = new List<ConstructedForceTransfer>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId == hammerId && fact.SourceId == source.id) attackCast = fact.CastId;
+    if (fact.AbilityId != yieldId || fact.SourceId != target.id) return;
+    yieldCast = fact.CastId;
+    var state = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(entry => (long)Field(entry, "Id") == yieldCast);
+    action = (AbilityCast)Field(state, "Cast");
+}
+void Transfer(ConstructedForceTransfer value)
+{
+    if (value.CastId != attackCast) return;
+    transfers.Add(value);
+    // 传力通知在实际施力后发布，此时可以检查中断是否早于原有效段结束。
+    interrupted = action.Age < action.Plan.Body.ActiveUntil && !action.ControlsBody &&
+                  (bool)Field(action, "bodyInterrupted");
+}
+var clock = Config.time_scale_asset;
+float speed = clock.multiplier;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ForceTransferConfirmed += Transfer;
+try
+{
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Ready(source);
+    source.attack_timer = target.attack_timer = 999;
+    await Advance(.18f);
+    clock.multiplier = speed * .32f;
+    Place(source, 64.35f);
+    Place(target, 64.98f);
+    CombatStatusEffects.RemoveStatus(target, quiet);
+    target.updateStats();
+    target.cancelAllBeh();
+    var draft = ConstructionEditing.Access.Read(yieldId);
+    target.data.stamina = 100;
+    await Fire(draft, target, source);
+    target.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    var hammer = source.getWeapon();
+    Check(hammer?.getAsset().id == "hammer_iron" && !target.hasWeapon() && action != null,
+        "保持原重锤和实际空手防御者");
+    int health = target.data.health;
+    Vector2 start = target.current_position;
+    source.data.stamina = 100;
+    var attack = ConstructionEditing.Access.Read(hammerId);
+    await Fire(attack, source, target);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.145f);
+    BodyPose lifted = action.BodyPose.Value;
+    var inAir = ((BodyFrame)Field(action, "bodyFrame")).Support.Value;
+    await Advance(.32f);
+    BodyPose planted = action.BodyPose.Value;
+    var onGround = ((BodyFrame)Field(action, "bodyFrame")).Support.Value;
+    await Advance(1.25f);
+    var transfer = transfers.FirstOrDefault();
+    var receiver = transfer?.Recipients.SingleOrDefault(value => value.ActorId == target.id) ?? default;
+    var routes = transfer?.Routes.Select(route => new
+    {
+        route.Destination, route.Amount, route.ResponseCast, point = route.Position.ToString("F5"), axis = route.Direction.ToString("F5")
+    }).ToArray();
+    var detail = new
+    {
+        health, after = target.data.health, motion = (target.current_position - start).ToString("F5"),
+        firstFeet = new[] { lifted.LeftFoot.ToString("F5"), lifted.RightFoot.ToString("F5") },
+        laterFeet = new[] { planted.LeftFoot.ToString("F5"), planted.RightFoot.ToString("F5") },
+        receiver.ResponseCast, receiver.CapacityBefore, receiver.CapacityAfter,
+        incoming = receiver.Incoming.ToString("F5"), remaining = receiver.Remaining.ToString("F5"),
+        actual = receiver.AppliedImpulse.ToString("F5"), routes, interrupted, bodyResult = action.BodyResult,
+        leftRaised = !inAir.LeftPlanted, leftPlanted = onGround.LeftPlanted, rightPlanted = onGround.RightPlanted,
+        hits = contacts.Where(hit => hit.CastId == attackCast).Select(hit => new { hit.Age, hit.ForceApplied }).ToArray()
+    };
+    File.WriteAllText(Path.Combine(folder, "yield-pose.json"), JsonConvert.SerializeObject(detail, Formatting.Indented));
+    Check(!inAir.LeftPlanted && inAir.RightPlanted && onGround.LeftPlanted && onGround.RightPlanted &&
+          lifted.LeftFoot.z > planted.LeftFoot.z + .025f &&
+          Vector2.Distance(lifted.LeftFoot, planted.LeftFoot) > .045f,
+        "先真实抬足换位，随后重新落稳", detail);
+    Check(transfers.Count == 1 && receiver.ResponseCast == yieldCast && receiver.CapacityAfter < .0001f &&
+          transfer.Routes.Any(route => route.Destination == ConstructionForceDestination.Support && route.To == 0 &&
+              (Vector3.Distance(route.Position, planted.LeftFoot) < .0001f ||
+               Vector3.Distance(route.Position, planted.RightFoot) < .0001f)) &&
+          transfer.Routes.Any(route => route.Destination == ConstructionForceDestination.Body && route.Direction.y > .99f) &&
+          receiver.Applied && receiver.Remaining.x > .5f && receiver.AppliedImpulse.y > .5f &&
+          target.data.health < health && interrupted &&
+          !BodyControlState.IsBusy(target.id) && ReferenceEquals(hammer, source.getWeapon()),
+        "掌身接触站稳后分向卸力，余额耗尽但余伤余力和中断仍然成立", detail);
+    return new { passed = true, selection, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ForceTransferConfirmed -= Transfer;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    clock.multiplier = speed;
+    ControllableUnit.clear(false);
+}

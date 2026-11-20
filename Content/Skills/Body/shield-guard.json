@@ -1,0 +1,54 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.ShieldGuard",
+  "Name": "沉肩架盾",
+  "Revision": 1,
+  "Lifetime": 1.76,
+  "Cooldown": 2.12,
+  "Resource": "stamina",
+  "Cost": 8,
+  "TargetRange": 4,
+  "Use": {"Target": "ObjectOrPoint"},
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": "shield",
+    "Grip": "grip",
+    "ReleaseAt": 0.18,
+    "ActiveFrom": 0.26,
+    "ActiveUntil": 1.18,
+    "ImpactRecoil": 0.09,
+    "RecoilSeconds": 0.16,
+    "Guard": {"Capacity": 70, "Normal": [0, 0, 1], "HalfAngle": 60},
+    "Impact": {"Targets": "Hostile", "DamageScale": 0},
+    "Construction": {
+      "Parts": [
+        {"Id": "hand.right", "Part": "hand.right"},
+        {"Id": "pelvis", "Part": "pelvis"},
+        {"Id": "left.foot", "Part": "foot.left"},
+        {"Id": "right.foot", "Part": "foot.right"},
+        {"Id": "shield", "Subject": "Held", "Part": "item"},
+        {"Id": "incoming", "Subject": "Target", "Part": "surface"}
+      ],
+      "Support": {
+        "Center": "pelvis",
+        "Points": [
+          {"Part": "left.foot", "Position": [0.12, -0.11, 0]},
+          {"Part": "right.foot", "Position": [-0.14, 0.12, 0]}
+        ]
+      },
+      "Relations": [
+        {"Id": "hold", "Kind": "Grip", "From": "hand.right", "To": "shield", "FromAnchor": "grip", "ToAnchor": "grip", "FromMarker": "start", "UntilMarker": "end"},
+        {"Id": "guard", "Kind": "Touch", "From": "shield", "To": "incoming", "FromAnchor": "face"}
+      ]
+    },
+    "Keys": [
+      {"Id": "ready", "At": 0.0, "Hand": [0.15, 0.22, 0.48], "Rotation": [0, 86, 16]},
+      {"Id": "lift", "At": 0.15, "Hand": [0.105, 0.15, 0.66], "Torso": [-0.025, 0.0, -0.032], "Rotation": [0, 90, -12]},
+      {"Id": "brace", "At": 0.26, "Hand": [0.13, 0.12, 0.76], "Torso": [-0.028, 0.003, -0.04], "Rotation": [0, 90, -35]},
+      {"Id": "hold", "At": 1.02, "Hand": [0.13, 0.12, 0.76], "Torso": [-0.028, 0.003, -0.04], "Rotation": [0, 90, -35]},
+      {"Id": "lower", "At": 1.44, "Hand": [0.11, 0.19, 0.54], "Torso": [-0.04, 0.013, -0.019], "Rotation": [0, 85, 5]},
+      {"Id": "rest", "At": 1.76, "Hand": [0.15, 0.22, 0.48], "Rotation": [0, 86, 16]}
+    ],
+    "Responses": [{"Result": "Blocked", "RecoverFrom": "lower", "Seconds": 0.22}]
+  }
+}

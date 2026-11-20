@@ -169,9 +169,7 @@ public sealed partial class ConstructedAbilityService
             Feet = body?.Body.Joint != null && Pose?.Joint != null
                 ? body.Body.Joint.FootPoints(Pose.Value.Joint.Surface).ToArray()
                 : Pose.HasValue ? new[] { Pose.Value.LeftFoot, Pose.Value.RightFoot } : new[] { Foot };
-            Response = body?.Cast.Plan.Body.ForceResponse != null &&
-                       body.Cast.Age >= body.Cast.Plan.Body.ActiveFrom &&
-                       body.Cast.Age <= body.Cast.Plan.Body.ActiveUntil
+            Response = body?.Cast.Plan.Body.ForceResponse != null && body.Cast.BodyContactEnabled
                 ? body
                 : null;
         }
