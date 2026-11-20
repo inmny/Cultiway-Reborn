@@ -75,6 +75,9 @@ public sealed class CompiledAbility
 
     internal int ShadowHoldNode { get; }
 
+    /// <summary>实际承载了活动映像的镜面部位。</summary>
+    internal int[] MirrorNodes { get; }
+
     /// <summary>受击分担的参数副本；当次契约另存实际余额。</summary>
     internal CompiledSoulPact SoulPact { get; }
 
@@ -243,6 +246,21 @@ public sealed class CompiledAbility
         TargetRange = definition.TargetRange;
         Nodes = nodes;
         HasCorrespondences = nodes.Any(node => node.Correspondence != null);
+        MirrorNodes = Enumerable.Range(0, nodes.Length).Where(i => nodes[i].Correspondence?.MirrorImage != null).ToArray();
+        foreach (int index in MirrorNodes)
+        {
+            var relation = nodes[index].Correspondence;
+            if (relation.MirrorImage.Fracture is not { } mirror) continue;
+            int trigger = Array.FindIndex(nodes, node => node.Path == mirror.Trigger);
+            if (trigger < 0 || trigger == index || nodes[trigger].ContactRole != ConstructionContactRole.Attack ||
+                nodes[trigger].Resource.Contacts.Length == 0 || nodes[trigger].MirrorStrike ||
+                nodes[index].ContactRole != ConstructionContactRole.Barrier ||
+                relation.DamageFraction <= 0f || relation.Target != ConstructionCorrespondenceTarget.Target ||
+                relation.Effects != ConstructionCorrespondenceEffects.None)
+                throw new InvalidDataException(nodes[index].Path + "/MirrorImage/Fracture：需要一个实际的击镜攻击部位和可向原身传伤的镜面");
+            mirror.TriggerNode = trigger;
+            nodes[trigger].MirrorStrike = true;
+        }
         ShadowHoldNode = Array.FindIndex(nodes, node => node.Correspondence?.ShadowHold != null);
         if (ShadowHoldNode >= 0 && Array.FindIndex(nodes, ShadowHoldNode + 1, node => node.Correspondence?.ShadowHold != null) >= 0)
             throw new InvalidDataException("构造/Correspondence/ShadowHold：一次施放只能对应一具抱持影身");
@@ -517,6 +535,9 @@ internal sealed class CompiledForm
 
     /// <summary>明确的攻击、屏障或装饰用途。</summary>
     internal ConstructionContactRole ContactRole;
+
+    /// <summary>这个实际攻击只用来击镜，可交锋但不直接命中人物。</summary>
+    internal bool MirrorStrike;
 
     /// <summary>地块接触需要的形状，负一沿用所有形状。</summary>
     internal int WorldContactShape = -1;
@@ -942,7 +963,8 @@ public static partial class AbilityCompiler
             Impact = node.Impact == null ? null : new CompiledConstructionImpact(node.Impact, path + "/Impact"),
             RadialMotion = node.RadialMotion == null ? null : new CompiledConstructionRadialMotion(node.RadialMotion, path + "/RadialMotion"),
             SupportGrip = grip,
-            Correspondence = node.Correspondence == null ? null : new CompiledCorrespondence(node.Correspondence, lifetime, path + "/Correspondence"),
+            Correspondence = node.Correspondence == null ? null : new CompiledCorrespondence(node.Correspondence, lifetime,
+                path + "/Correspondence", resource),
             OnContact = node.OnContact,
             ContactRole = node.ContactRole,
             WorldContactShape = worldContactShape,

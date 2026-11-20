@@ -780,6 +780,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         {
             ReleaseActorTransferHolds(running);
             ReleaseSpatialViews(running);
+            ReleaseMirrorImages(running, worldChanged: true);
             ReleaseSupportGrips(running, "WorldChanged");
             ReleaseShadowHold(running, "WorldChanged", running.LastWorldTime);
             ReleaseBodyConnection(running, "WorldChanged", fade: false, time: running.LastWorldTime);
@@ -789,6 +790,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         }
 
         ClearShadowHolds();
+        ClearFallingMirrors();
         ConstructedInventoryInputs.Clear();
         worldNeedQueue.Clear();
         worldNeeds.Clear();
@@ -818,6 +820,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ReleaseSupportGrips(running, "Finished");
         ReleaseShadowHold(running, "Finished", running.LastWorldTime);
         ReleaseSpatialViews(running);
+        ReleaseMirrorImages(running);
         if (running.Cast.Plan.SoulPact != null && soulPacts.TryGetValue(running.TargetId, out var pact) && pact.Cast == running)
             soulPacts.Remove(running.TargetId);
         ReleaseBody(running);
@@ -964,6 +967,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         /// <summary>原人物失效后该部位的对应终止，不借用复活或对象池替身重新接续。</summary>
         internal bool[] CorrespondenceEnded;
         internal ShadowHold ShadowHold;
+        /// <summary>实际出现的镜内映照，普通施放不分配。</summary>
+        internal Dictionary<int, MirrorReflection> MirrorImages;
+        /// <summary>由实际击镜建立的有限裂势，普通施放不分配。</summary>
+        internal Dictionary<int, MirrorCrack> MirrorCracks;
 
         /// <summary>本次已计入世界回收的占用，结束时只移除一次。</summary>
         internal bool WorldRecoveryTracked;

@@ -1082,6 +1082,10 @@ public sealed partial class AbilityCast
     /// <param name="node">实际部位。</param>
     internal bool IsNodePresent(int node) => nodes[node].Exists;
 
+    /// <summary>取得已经确认的同一生成部位姿态。</summary>
+    /// <param name="node">实际部位。</param>
+    internal Matrix4x4 NodeTransform(int node) => nodes[node].Transform;
+
     /// <summary>成功产生真实世界收益后，消耗本部位原支付份额，不伪造人物碰撞或重复回能。</summary>
     /// <param name="node">已经提交的实际部位，身体为负一。</param>
     /// <param name="changed">原版世界是否实际改变。</param>

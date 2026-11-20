@@ -1,0 +1,79 @@
+var cracks = new List<ConstructedMirrorCrack>();
+var damage = new List<ConstructedCorrespondenceDamage>();
+var clashes = new List<ConstructedClash>();
+void Cracked(ConstructedMirrorCrack value) => cracks.Add(value);
+void Damaged(ConstructedCorrespondenceDamage value) => damage.Add(value);
+void Clashed(ConstructedClash value) => clashes.Add(value);
+ConstructedAbilityService.MirrorCrackConfirmed += Cracked;
+ConstructedAbilityService.CorrespondenceDamageConfirmed += Damaged;
+ConstructedAbilityService.ClashConfirmed += Clashed;
+object[] Outcomes() => cracks.Select(c => (object)new
+    { c.CastId, c.Part, c.WorldTime, mirror = c.MirrorPoint.ToString(), original = c.OriginalPoint?.ToString(),
+      healthLoss = c.Settlement.HealthLost, shield = c.Settlement.ShieldAbsorbed }).ToArray();
+
+try
+{
+    var invalid = Spell("镜中碎身");
+    invalid.Root.Children[0].Correspondence.MirrorImage.Fracture.Trigger = "root/absent";
+    string rejection = null;
+    try { AbilityCompiler.Compile(invalid); }
+    catch (InvalidDataException e) { rejection = e.Message; }
+    Check(rejection?.Contains("/Fracture") == true, "只接受同招声明中实际存在的击镜部位", rejection);
+
+    var bystander = Make(68.8f);
+    bystander.setKingdom(victim.kingdom);
+    Steady(bystander);
+    Place(bystander, 68.8f, 73.25f);
+    int hp = victim.data.health, otherHp = bystander.data.health;
+    var cast = await Use(definition);
+    var path = new List<object>();
+    for (int i = 0; i < 30 && cracks.Count == 0; i++)
+    {
+        await Advance(.04f);
+        var shapes = new List<AbilityCapsule>();
+        cast.Cast.AppendContacts(shapes);
+        var marker = shapes.FirstOrDefault(s => s.Node == 2);
+        if (marker.Node == 2) path.Add(new { age = cast.Cast.Age, from = marker.A.ToString(), to = marker.B.ToString(), marker.Radius });
+    }
+    var origin = cracks.SingleOrDefault(c => c.Part == null);
+    Check(origin.CastId == cast.Id && origin.TargetId == victim.id && origin.OriginalPoint == null &&
+        clashes.Count > 0 && victim.data.health == hp && damage.Count == 0,
+        "实际碰镜才起裂，撞点时本体尚未结算", new { cast.Id, cast.Cast.Age, clashes = clashes.Count, facts = Outcomes(), path });
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(c => (long)Field(c, "Id") == cast.Id);
+    var wave = ((IDictionary)Field(running, "MirrorCracks"))[1];
+    var schedule = ((IEnumerable)Field(wave, "Arrivals")).Cast<object>()
+        .Select(r => new { part = (string)Field(r, "Part"), at = (double)Field(r, "At"),
+            point = Field(r, "Point").ToString() }).ToArray();
+    await Advance(1.1f);
+    var reached = cracks.Where(c => c.CastId == cast.Id && c.Part != null).ToArray();
+    Check(reached.Length == 2 && reached.Select(c => c.Part).Distinct().Count() == 2 &&
+        reached.All(c => c.TargetId == victim.id && c.OriginalPoint.HasValue && c.WorldTime > origin.WorldTime) &&
+        reached[1].WorldTime > reached[0].WorldTime &&
+        damage.Count == reached.Length && damage.All(d => d.HealthAfter < d.HealthBefore) &&
+        bystander.data.health == otherHp && contacts.All(c => !c.DamageAttempted),
+        "两个许可部位依真实传播时序各结算一次，旁人无伤，也没有第二份直接伤害", new { schedule, actual = Outcomes() });
+    Check(MirrorFrames().Length == 0 && FormVisualScene.Instances.Any(v =>
+        v.Surface?.StartsWith("mirror_cracked_") == true), "镜框结束后同批裂片仍短暂下落");
+    int after = victim.data.health;
+    await Advance(1.9f);
+    Check(cast.Cast.Finished && victim.data.health == after && MirrorImages().Length == 0 &&
+        !FormVisualScene.Instances.Any(v => v.Surface?.StartsWith("mirror_cracked_") == true),
+        "结束后不会继续结算已传递的裂势");
+
+    var missed = Spell("镜中碎身");
+    missed.Id += ".Miss";
+    missed.Root.Children[0].Children[0].Offset[0] = 1.4f;
+    var second = await Use(missed);
+    await Advance(missed.Lifetime + .16f);
+    Check(second.Cast.Finished && cracks.All(c => c.CastId != second.Id) && victim.data.health == after &&
+        bystander.data.health == otherHp, "实际击镜面打偏时没有裂纹或本体伤害");
+    return new { passed = true, hits = reached.Length, outcomes = Outcomes() };
+}
+finally
+{
+    ConstructedAbilityService.MirrorCrackConfirmed -= Cracked;
+    ConstructedAbilityService.CorrespondenceDamageConfirmed -= Damaged;
+    ConstructedAbilityService.ClashConfirmed -= Clashed;
+    ReleaseChecks();
+}

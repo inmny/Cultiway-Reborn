@@ -2369,3 +2369,13 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--section save` 在抱持期间正式存档，核对原术和[深折派生](../../Doc/技能系统全面重构/构造输入/影中葬身·深折.json)的学习、来历和实放。`--section variant --saved <输出目录>` 用同一档单独复验深折。重启后用 `--section cold --saved <输出目录>` 核对冷启动。
 
 `--section film --view native` 和 `--section film --view worldfall` 各录一段原速完整过程，输出 `demo.mp4` 与 `timeline.json`。
+
+### 镜中碎身（9.36）
+
+在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 150 -- python3 Scripts/SpellDemos/verify_mirror_shatter.py --section image`。用同一人物验证[镜中碎身](../../Doc/技能系统全面重构/构造输入/镜中碎身.json)的镜框、实时反照、装备变化和映像退出。该段只开启映照。
+
+`--section travel` 验证实碰镜面、两个许可部位按时受伤、打偏、落片和回收。`--section interrupt` 复验护盾的实际吸收以及提前击碎镜面。
+
+`--section save` 在实际扣血后保存，读回原术与[裂冠派生](../../Doc/技能系统全面重构/构造输入/镜中碎身·裂冠.json)，等保存的冷却走完再实放。`--section restored --saved <输出目录>` 用同一档补跑读回后的施放。重启游戏后用 `--section cold --saved <输出目录>` 核对冷启动。
+
+`--section film --view native` 与 `--section film --view worldfall` 各录完整原速过程，输出 `demo.mp4`、`timeline.json` 和真实结算记录。

@@ -1,0 +1,104 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.MirrorShatter",
+  "Name": "镜中碎身",
+  "Resource": "mana",
+  "Cost": 10,
+  "Cooldown": 3.4,
+  "Lifetime": 3.0,
+  "Power": 20,
+  "TargetRange": 18,
+  "Binding": {
+    "Anchor": "Between",
+    "Fraction": 0.6
+  },
+  "Impact": {
+    "DamageScale": 0,
+    "SelectedTargetOnly": true
+  },
+  "Root": {
+    "Id": "stage",
+    "Form": "pivot",
+    "ContactRole": "Decoration",
+    "Children": [
+      {
+        "Id": "mirror",
+        "Form": "ritual_mirror",
+        "Matter": "iron",
+        "State": "solid",
+        "ContactRole": "Barrier",
+        "Strength": 1.35,
+        "Scale": 2.35,
+        "Rotation": [
+          -23,
+          0,
+          -13
+        ],
+        "Offset": [
+          0,
+          0.37,
+          -0.25
+        ],
+        "AppearAt": 0.14,
+        "DisappearAt": 2.85,
+        "Correspondence": {
+          "Id": "image",
+          "Target": "Target",
+          "DamageFraction": 0.8,
+          "ActiveFrom": 0.12,
+          "ActiveUntil": 2.54,
+          "MirrorImage": {
+            "Fill": 0.83,
+            "Fracture": {
+              "Trigger": "root/mirror/strike",
+              "TravelSeconds": 0.88,
+              "Parts": [
+                "torso",
+                "head"
+              ]
+            }
+          }
+        },
+        "Children": [
+          {
+            "Id": "strike",
+            "Form": "fireball",
+            "Matter": "iron",
+            "State": "solid",
+            "Scale": 0.24,
+            "Strength": 0.7,
+            "Offset": [
+              -0.37,
+              -0.7,
+              0.84
+            ],
+            "AppearAt": 0.54,
+            "DisappearAt": 1.38,
+            "Impact": {
+              "DamageScale": 1,
+              "SelectedTargetOnly": true
+            },
+            "Operations": [
+              {
+                "Kind": "Detach",
+                "At": 0.54
+              },
+              {
+                "Kind": "Fly",
+                "At": 0.54,
+                "Vector": [
+                  0,
+                  4,
+                  0
+                ],
+                "WorldVelocity": false,
+                "InheritVelocity": false
+              }
+            ],
+            "ActiveFrom": 0.54
+          }
+        ]
+      }
+    ]
+  }
+}

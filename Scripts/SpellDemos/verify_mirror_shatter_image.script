@@ -1,0 +1,104 @@
+var definition = Spell("镜中碎身");
+var stats = new BaseStats();
+stats.addTag("frozen_ai");
+var steady = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.MirrorShatter.Steady") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.MirrorShatter.Steady")
+        .SetStats(stats).SetDuration(10000).Build();
+void Steady(Actor actor)
+{
+    CombatStatusEffects.RemoveStatus(actor, hold);
+    CombatStatusEffects.ApplyStatus(actor, steady, 10000, actor);
+    actor.setStatsDirty();
+    actor.updateStats();
+}
+Steady(victim);
+CombatStatusEffects.ApplyStatus(source, steady, 10000, source);
+source.updateStats();
+FormVisualInstance[] MirrorImages() => FormVisualScene.Instances
+    .Where(v => v.Surface?.StartsWith("mirror_echo_", StringComparison.Ordinal) == true).ToArray();
+FormVisualInstance[] MirrorFrames() => FormVisualScene.Instances.Where(v =>
+    v.Resource.Description.Id == "ritual_mirror" && Field(v, "Geometry") == null).ToArray();
+Mesh MeshOf(FormVisualInstance value) => (Mesh)Field(value, "Geometry");
+object Mirror(long id)
+{
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .SingleOrDefault(value => (long)Field(value, "Id") == id);
+    if (running == null) return null;
+    var mirrors = (IDictionary)Field(running, "MirrorImages");
+    return mirrors?.Values.Cast<object>().SingleOrDefault();
+}
+object Property(object value, string name) => value.GetType().GetProperty(name, F).GetValue(value);
+Vector3 Foot(object image) => (Vector3)Field(Property(image, "Pose"), "Foot");
+Vector3[] ImagePoints() => MirrorImages().SelectMany(v => MeshOf(v).vertices).ToArray();
+
+try
+{
+    definition.Root.Children[0].Correspondence.MirrorImage.Fracture = null;
+    definition.Root.Children[0].Children = Array.Empty<ConstructionNode>();
+    var malformed = Spell("镜中碎身");
+    malformed.Root.Children[0].Form = "sword";
+    bool rejected = false;
+    try { AbilityCompiler.Compile(malformed); }
+    catch (InvalidDataException error) { rejected = error.Message.Contains("/MirrorImage"); }
+    Check(rejected, "没有实际镜口与镜面作用的形体拒绝承载映像");
+
+    long victimId = victim.id;
+    int hp = victim.data.health;
+    var first = await Use(definition);
+    Check(MirrorImages().Length == 0, "实际镜面存在前不提前绘出映像");
+    for (int i = 0; i < 16 && MirrorImages().Length == 0; i++) await Advance(.04f);
+    var frame = MirrorFrames().Single();
+    var surface = frame.Resource.Description.Parts.Select(part => part.Id).ToArray();
+    Vector3 centre = frame.Resource.Anchors.Single(value => value.Id == "face").Frame().GetColumn(3);
+    float radius = frame.Resource.Meshes[0].bounds.extents.x;
+    float copperDepth = frame.Resource.RestBounds.size.y * frame.Transform.lossyScale.y;
+    var points = ImagePoints();
+    var image = Mirror(first.Id);
+    Check(surface.Contains("frame") && surface.Contains("back") && surface.Contains("reflector") && copperDepth > .35f &&
+        points.Length > 0 && image != null && (long)Field(image, "ActorId") == victimId &&
+        points.All(p => Vector2.Distance(new Vector2(p.x, p.z), new Vector2(centre.x, centre.z)) < radius),
+        "铜框、背板与镜面有实际厚度，原身网格落在自己的圆形镜口内",
+        new { points = points.Length, copperDepth, radius, mirror = frame.Transform.GetColumn(3).ToString() });
+    Matrix4x4 projection = (Matrix4x4)Property(image, "Projection");
+    Check(projection.determinant < 0 && points.Max(p => p.y) - points.Min(p => p.y) > .002f &&
+        MirrorImages().All(v => v.Transform == frame.Transform),
+        "实际网格左右反照，保留薄层深度，随同一个镜框显示");
+
+    var armor = World.world.items.generateItem(AssetManager.items.get("armor_steel"), pActor: victim);
+    victim.equipment.setItem(armor, victim);
+    victim.setStatsDirty(); victim.updateStats();
+    victim.checkAnimationContainer();
+    victim.flip = !victim.flip;
+    Vector3 previous = Foot(image);
+    Place(victim, 70, 73.25f);
+    var other = Make(69);
+    other.setKingdom(victim.kingdom);
+    Steady(other);
+    await Advance(.22f);
+    var after = ImagePoints();
+    Check(ReferenceEquals(Mirror(first.Id), image) && (long)Field(image, "ActorId") == victimId &&
+        Vector2.Distance(Foot(image), previous) > .75f && (after.Length != points.Length || !points.SequenceEqual(after)) &&
+        MirrorImages().Any(v => v.Surface == "mirror_echo_armor"),
+        "换上真实衣甲并改变姿态时映像更新，站在原处的旁人没有替换原身份",
+        new { before = points.Length, after = after.Length, original = Foot(image).ToString(),
+            victim = victimId, other = other.id, layers = MirrorImages().Select(v => v.Surface).ToArray() });
+
+    await Advance(definition.Lifetime);
+    Check(first.Cast.Finished && MirrorImages().Length == 0 && MirrorFrames().Length == 0 &&
+        victim.isAlive() && victim.data.health == hp && !BodyControlState.IsBusy(victim.id),
+        "自然结束撤掉镜像及镜框，原人物的生命和控制保持正常");
+
+    await Advance(.5f);
+    var interrupted = await Use(definition);
+    for (int i = 0; i < 16 && MirrorImages().Length == 0; i++) await Advance(.04f);
+    Check(Mirror(interrupted.Id) != null, "再次施放重新取得原人物的真实映像");
+    victim.dieAndDestroy(AttackType.None);
+    await Advance(.24f);
+    Check(MirrorImages().Length == 0 && Mirror(interrupted.Id) == null &&
+        MirrorFrames().Length == 1 && other.isAlive(),
+        "失去原身后映照立即退去，镜框剩余时段独立结束，旁人不会接替");
+    await Advance(definition.Lifetime);
+    Check(MirrorFrames().Length == 0 && interrupted.Cast.Finished, "剩余镜框正常退场");
+    return new { passed = true, originalId = victimId, copperDepth, points = points.Length, dressedPoints = after.Length };
+}
+finally { ReleaseChecks(); }

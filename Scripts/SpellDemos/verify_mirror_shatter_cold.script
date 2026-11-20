@@ -1,0 +1,35 @@
+Game.Resume();
+Config.paused = true;
+int matches = 0;
+void Mapped(ConstructedCorrespondenceDamage value) => matches++;
+ConstructedAbilityService.CorrespondenceDamageConfirmed += Mapped;
+try
+{
+    var expected = JObject.Parse(File.ReadAllText(Path.Combine(saved, "readback-expected.json")));
+    World.world.save_manager.loadWorld(Path.Combine(saved, "world"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    long sourceId = (long)expected["sourceId"], targetId = (long)expected["targetId"];
+    var source = World.world.units.get(sourceId);
+    var target = World.world.units.get(targetId);
+    var catalog = (IDictionary)service.GetField("definitions", F).GetValue(null);
+    var knowledge = source.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids;
+    var spells = new[] { expected["original"], expected["derived"] };
+    Check(spells.All(spell => knowledge.Contains((string)spell["Id"]) &&
+        JToken.DeepEquals(spell, JToken.Parse(JsonConvert.SerializeObject(catalog[(string)spell["Id"]])))),
+        "冷启动恢复原术、裂冠和各自的已学许可");
+    source.attack_timer = 999;
+    Check(target.isAlive() && target.data.health == (int)expected["health"], "冷读时原身保留已结算生命");
+    await Advance(.52f);
+    Check(matches == 0 &&
+        !FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "ritual_mirror"),
+        "未完成的裂势和短期镜片不重放");
+    return new { passed = true, sourceId, targetId, health = target.data.health };
+}
+finally
+{
+    ConstructedAbilityService.CorrespondenceDamageConfirmed -= Mapped;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}
