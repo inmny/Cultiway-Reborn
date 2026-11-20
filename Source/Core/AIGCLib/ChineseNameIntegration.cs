@@ -18,6 +18,7 @@ internal static class ChineseNameIntegration
     internal static void Register(string folder)
     {
         var service = NamingApi.Current;
+        GeoRegions.GeoRegionNamingIntegration.Register();
         service.RegisterType(new NameType(Spell, "修仙法术", [
             new("element", InputKind.Text, label: "元素", example: "semantic.element.fire"),
             new("form", InputKind.Text, label: "形态", example: "semantic.form.ball"),
