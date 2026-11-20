@@ -198,6 +198,9 @@ internal sealed partial class BodyActionBinding
         ConstructionReferences.Resolve("Body/Grip", () => form.Grip(action.Grip), "Grip", form.Description.Id + " / " + action.Grip);
         if (form.Description.Held.Groups.Length == 0)
             throw new InvalidDataException("Body/WeaponForm：资源未声明可对应的实际装备类型：" + action.WeaponForm);
+        foreach (FormContactBinding contact in form.Contacts)
+            if (contact.HeldMatter != null)
+                AbilityMatters.Resolve(contact.HeldMatter, null, "Body/WeaponForm/" + form.Description.Id + "/" + contact.Id);
     }
 
     /// <summary>确认当前实际部位或持物形状属于所选关系，不借用同次动作的其他接触面。</summary>
@@ -541,12 +544,12 @@ internal sealed partial class BodyActionBinding
         }
 
         Matrix4x4 transform = weapon == null ? HandMatrix(in pose) : WeaponMatrix(in pose);
-        string matter = weaponMatter ?? "physical";
         var handContacts = HandContacts;
         for (int shape = 0; shape < handContacts.Length; shape++)
         {
             FormContactBinding contact = handContacts[shape];
             if (!action.Construction.UsesContact(weapon != null, contact.Id, pose.WorldAge, includeEnd)) continue;
+            string matter = weapon == null ? "physical" : contact.HeldMatter ?? weaponMatter;
             if (contact.IsPrism)
             {
                 if (contact.World(null, transform, -1, shape, 0, null, 1f, out var solid, matter)) output.Add(solid);

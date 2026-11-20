@@ -302,6 +302,7 @@
                 2.690000057220459
             ],
             "Radius": 0.054999999701976779,
+            "HeldMatter": "wood",
             "AControl": "",
             "BControl": "",
             "AInfluences": [],

@@ -1,12 +1,12 @@
 // 真正的铁枪沿同一杆身滑动，手内握点和实际枪尖同刻比较。
-const string ability = "Cultiway.Body.LongSpearThrust";
+const string thrustId = "Cultiway.Body.LongSpearThrust", sweepId = "Cultiway.Body.LongSpearSweep";
 var bindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding");
 AbilityCast live = null;
 object binding = null;
 long castId = 0;
 void Started(ConstructedCastStarted fact)
 {
-    if (fact.SourceId != source.id || fact.AbilityId != ability) return;
+    if (fact.SourceId != source.id || !fact.AbilityId.StartsWith("Cultiway.Body.LongSpear")) return;
     var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
         .Single(entry => (long)Field(entry, "Id") == fact.CastId);
     live = (AbilityCast)Field(running, "Cast");
@@ -25,27 +25,33 @@ try
     clock.multiplier = speed * .32f;
     Item weapon = Equip(source, "spear_iron");
     var form = FormResources.Load("spear");
-    var definition = ConstructionEditing.Access.Read(ability);
-    var plan = ConstructionEditing.Access.Validate(definition).Body;
-    var fixedForward = ConstructionEditing.Copy(definition);
-    fixedForward.Body.SlideGrip = null;
-    foreach (BodyMotionKey key in fixedForward.Body.Keys) key.GripSlide = 0f;
-    float shortReach = ConstructionEditing.Access.Validate(fixedForward).Body.ContactReach;
-    Check(plan.ContactReach > shortReach + .30f, "后握送尖才取得较长的实际范围",
-        new { forward = shortReach, rear = plan.ContactReach });
-    var invalid = ConstructionEditing.Copy(definition);
-    invalid.Body.SlideGrip = invalid.Body.Grip;
-    bool refused = false;
-    try { ConstructionEditing.Access.Validate(invalid); }
-    catch (InvalidDataException error) { refused = error.Message.Contains("SlideGrip"); }
-    Check(refused, "相同握点没有可滑动的实杆，拒绝登记");
+    if (selection != "sweep")
+    {
+        var thrust = ConstructionEditing.Access.Read(thrustId);
+        var plan = ConstructionEditing.Access.Validate(thrust).Body;
+        var fixedForward = ConstructionEditing.Copy(thrust);
+        fixedForward.Body.SlideGrip = null;
+        foreach (BodyMotionKey key in fixedForward.Body.Keys) key.GripSlide = 0f;
+        float shortReach = ConstructionEditing.Access.Validate(fixedForward).Body.ContactReach;
+        Check(plan.ContactReach > shortReach + .30f, "后握送尖才取得较长的实际范围",
+            new { forward = shortReach, rear = plan.ContactReach });
+        var invalid = ConstructionEditing.Copy(thrust);
+        invalid.Body.SlideGrip = invalid.Body.Grip;
+        bool refused = false;
+        try { ConstructionEditing.Access.Validate(invalid); }
+        catch (InvalidDataException error) { refused = error.Message.Contains("SlideGrip"); }
+        Check(refused, "相同握点没有可滑动的实杆，拒绝登记");
+    }
     var heightMethod = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F);
     float height = (float)heightMethod.Invoke(null, new object[] { source });
 
-    foreach (string test in new[] { "strike", "near" }.Where(value => selection == "all" || selection == value))
+    foreach (string test in new[] { "strike", "near", "sweep" }.Where(value => selection == "all" || selection == value))
     {
+        string ability = test == "sweep" ? sweepId : thrustId;
+        var definition = ConstructionEditing.Access.Read(ability);
+        float distance = test switch { "strike" => 2.02f, "sweep" => 1.12f, _ => .68f };
         Place(source, 64.35f);
-        Place(target, 64.35f + height * (test == "strike" ? 2.02f : .68f));
+        Place(target, 64.35f + height * distance);
         target.setHealth(target.getMaxHealth());
         source.data.stamina = 100;
         int health = target.data.health;
@@ -62,47 +68,39 @@ try
               Mathf.Abs(100f - source.data.stamina - definition.Cost) < .001f,
             test + " 正式施放借原铁枪并支付", new { height, used, paid = 100f - source.data.stamina });
 
+        var start = form.Grip("forward");
+        var rear = form.Grip("grip");
         if (test == "strike")
         {
-            var start = form.Grip("forward");
-            var rear = form.Grip("grip");
             await Advance(.15f);
             var gather = live.BodyPose.Value;
-            VerifyPose(gather, requireTip: false);
+            VerifyPose(gather);
             Check(gather.GripSlide > 0f && gather.GripSlide < 1f, "起势中使用两处真实握点之间的位置",
                 new { gather.WorldAge, gather.GripSlide });
             await Advance(.371f - live.Age);
             var thrust = live.BodyPose.Value;
-            VerifyPose(thrust, requireTip: true);
+            VerifyPose(thrust, "tip", "iron");
             Check(thrust.GripSlide > .999f, "送尖时手已到后握",
                 new { thrust.WorldAge, thrust.GripSlide });
             await Advance(.755f - live.Age);
             var withdraw = live.BodyPose.Value;
-            VerifyPose(withdraw, requireTip: false);
+            VerifyPose(withdraw);
             Check(withdraw.GripSlide > 0f && withdraw.GripSlide < gather.GripSlide + .16f,
                 "收枪沿杆抽回前握",
                 new { withdraw.WorldAge, withdraw.GripSlide });
 
-            void VerifyPose(BodyPose pose, bool requireTip)
-            {
-                var views = new List<FormVisualInstance>();
-                bindingType.GetMethod("AppendVisuals", F).Invoke(binding, new object[] { source, pose, views, null });
-                var held = views.Single(instance => instance.Resource == form);
-                var hand = views.Single(instance => instance.Resource.Description.Id == "hand");
-                Vector3 grip = Vector3.Lerp(start.Transform.GetColumn(3), rear.Transform.GetColumn(3), pose.GripSlide);
-                Vector3 socket = hand.Resource.Anchors.Single(anchor => anchor.Id == "grip").Transform.GetColumn(3);
-                Check(Vector3.Distance(held.Transform.MultiplyPoint3x4(grip), hand.Transform.MultiplyPoint3x4(socket)) < .0001f,
-                    "滑动后的枪杆握点与画面里的手内坐标重合", pose.WorldAge);
-                if (!requireTip) return;
-                var shapes = new List<AbilityCapsule>();
-                bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
-                int tip = Array.FindIndex(form.Description.Contacts, part => part.Id == "tip");
-                var shape = shapes.SingleOrDefault();
-                Check(shapes.Count == 1 && shape.Shape == tip &&
-                      Vector3.Distance(shape.A, held.Transform.MultiplyPoint3x4(form.Contacts[tip].A)) < .0001f &&
-                      Vector3.Distance(shape.B, held.Transform.MultiplyPoint3x4(form.Contacts[tip].B)) < .0001f,
-                    "实际刺击只使用画面中的枪尖", new { tip, point = shape.B.ToString("F4"), pose.WorldAge });
-            }
+        }
+        if (test == "sweep")
+        {
+            await Advance(.408f);
+            BodyPose entering = live.BodyPose.Value;
+            AbilityCapsule first = VerifyPose(entering, "shaft", "wood");
+            await Advance(.559f - live.Age);
+            BodyPose through = live.BodyPose.Value;
+            AbilityCapsule last = VerifyPose(through, "shaft", "wood");
+            float butt = Vector3.Distance(first.A, last.A), front = Vector3.Distance(first.B, last.B);
+            Check(butt > .12f && front > .12f && through.Turn > entering.Turn + 22f,
+                "转胯带动两段实际杆端横过站位", new { butt, front, entering = entering.Turn, through = through.Turn });
         }
 
         await Advance(definition.Cooldown + .08f);
@@ -112,11 +110,40 @@ try
                   hits[0].Age <= definition.Body.ActiveUntil + .001f && target.data.health < health,
                 "枪尖在正式刺入时段命中一次",
                 new { health, after = target.data.health, hits = hits.Select(hit => new { hit.Age, point = hit.Position.ToString("F4") }) });
+        else if (test == "sweep")
+            Check(hits.Length == 1 && hits[0].Node == -1 && hits[0].Age >= definition.Body.ActiveFrom - .001f &&
+                  hits[0].Age <= definition.Body.ActiveUntil + .001f && hits[0].ForceApplied && target.data.health < health,
+                "实际木杆横扫只击中一次，并对目标实际施力",
+                new { health, after = target.data.health, hits = hits.Select(hit => new
+                    { hit.Age, point = hit.Position.ToString("F4"), force = hit.VelocityChange.ToString("F4") }) });
         else
             Check(hits.Length == 0 && target.data.health == health, "目标在枪尖内侧，仅杆身经过时无伤害");
         Check(!BodyControlState.IsBusy(source.id) && ReferenceEquals(weapon, source.getWeapon()) &&
               endings.Any(end => end.Fact.CastId == castId && !end.Fact.Cancelled),
             test + " 自然收势并归还实际控制，原铁枪仍在原手");
+
+        AbilityCapsule VerifyPose(BodyPose pose, string contact = null, string matter = null)
+        {
+            var views = new List<FormVisualInstance>();
+            bindingType.GetMethod("AppendVisuals", F).Invoke(binding, new object[] { source, pose, views, null });
+            var held = views.Single(instance => instance.Resource == form);
+            var hand = views.Single(instance => instance.Resource.Description.Id == "hand");
+            Vector3 grip = Vector3.Lerp(start.Transform.GetColumn(3), rear.Transform.GetColumn(3), pose.GripSlide);
+            Vector3 socket = hand.Resource.Anchors.Single(anchor => anchor.Id == "grip").Transform.GetColumn(3);
+            Check(Vector3.Distance(held.Transform.MultiplyPoint3x4(grip), hand.Transform.MultiplyPoint3x4(socket)) < .0001f,
+                "枪杆实际握点与画面里的手内坐标重合", pose.WorldAge);
+            if (contact == null) return default;
+            var shapes = new List<AbilityCapsule>();
+            bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
+            int index = Array.FindIndex(form.Description.Contacts, part => part.Id == contact);
+            var shape = shapes.SingleOrDefault();
+            Check(shapes.Count == 1 && shape.Shape == index && shape.Matter == matter &&
+                  Vector3.Distance(shape.A, held.Transform.MultiplyPoint3x4(form.Contacts[index].A)) < .0001f &&
+                  Vector3.Distance(shape.B, held.Transform.MultiplyPoint3x4(form.Contacts[index].B)) < .0001f,
+                "实际接触从指定部位取得，并沿用该段材质",
+                new { contact, shape.Matter, a = shape.A.ToString("F4"), b = shape.B.ToString("F4"), pose.WorldAge });
+            return shape;
+        }
     }
     return new { passed = true, selection, checks };
 }

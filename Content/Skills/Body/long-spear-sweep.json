@@ -1,0 +1,45 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.LongSpearSweep",
+  "Name": "压杆横摆",
+  "Revision": 1,
+  "Lifetime": 1.19,
+  "Cooldown": 1.43,
+  "Resource": "stamina",
+  "Cost": 7,
+  "Power": 1.25,
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": "spear",
+    "Grip": "forward",
+    "ReleaseAt": 0.31,
+    "ActiveFrom": 0.40,
+    "ActiveUntil": 0.62,
+    "ImpactRecoil": 0.067,
+    "RecoilSeconds": 0.12,
+    "Contact": {"Mode": "Once"},
+    "Impact": {"Targets": "Hostile", "DamageScale": 0.92, "Force": 1.8, "StaggerSeconds": 0.23},
+    "Construction": {
+      "Parts": [
+        {"Id": "hand.right", "Part": "hand.right"},
+        {"Id": "spear", "Subject": "Held", "Part": "item"},
+        {"Id": "target", "Subject": "Target", "Part": "surface"}
+      ],
+      "Relations": [
+        {"Id": "hold", "Kind": "Grip", "From": "hand.right", "To": "spear", "FromAnchor": "grip", "ToAnchor": "forward", "FromMarker": "start", "UntilMarker": "end"},
+        {"Id": "sweep", "Kind": "Touch", "From": "spear", "To": "target", "FromAnchor": "shaft"}
+      ]
+    },
+    "Keys": [
+      {"Id": "ready", "At": 0.0, "Hand": [0.18, 0.25, 0.61], "Rotation": [-12, -21, 7]},
+      {"Id": "coil", "At": 0.27, "Hand": [0.15, 0.32, 0.56], "Torso": [-0.045, 0.029, -0.052], "Turn": -30, "Rotation": [-6, -75, 13]},
+      {"At": 0.40, "Hand": [0.33, 0.24, 0.55], "Torso": [0.025, 0.022, -0.059], "Turn": -13, "Rotation": [-5, -48, 12]},
+      {"Id": "cross", "At": 0.49, "Hand": [0.46, 0.045, 0.55], "Torso": [0.07, -0.018, -0.05], "Turn": 14, "Rotation": [0, 0, 8]},
+      {"At": 0.57, "Hand": [0.365, -0.12, 0.58], "Torso": [0.049, -0.035, -0.052], "Turn": 35, "Rotation": [2, 40, -5]},
+      {"Id": "through", "At": 0.65, "Hand": [0.245, -0.19, 0.62], "Torso": [0.026, -0.05, -0.044], "Turn": 44, "Rotation": [0, 72, -13]},
+      {"Id": "withdraw", "At": 0.83, "Hand": [0.23, 0.03, 0.65], "Torso": [0.018, -0.008, -0.025], "Turn": 19, "Rotation": [-8, 36, -5]},
+      {"Id": "rest", "At": 1.19, "Hand": [0.18, 0.25, 0.61], "Rotation": [-12, -21, 7]}
+    ],
+    "Responses": [{"Result": "Blocked", "RecoverFrom": "withdraw", "Seconds": 0.18}]
+  }
+}

@@ -62,7 +62,7 @@ export function makeWeaponForms() {
     {Id:'shaft',Part:0,Position:[0,0,1.2],Direction:[1,0,0]}];
   write('spear',spearParts,spearAnchors,
     [{Id:'tip',Part:2,A:[0,0,4.04],B:[0,0,4.13],Radius:.018},
-      {Id:'shaft',Part:0,A:[0,0,-1.54],B:[0,0,2.69],Radius:.055}],[],[],false,null,
+      {Id:'shaft',Part:0,A:[0,0,-1.54],B:[0,0,2.69],Radius:.055,HeldMatter:'wood'}],[],[],false,null,
     structure('rigid','forms_weapons.mjs','spear',{length:5.96,shaftRadius:.055},
       {shaft:['weapon.shaft','weapon.grip'],socket:['weapon.socket'],point:['weapon.tip','blade.edge'],butt:['weapon.pommel']},
       [['shaft','socket',[0,0,2.75]],['socket','point',[0,0,3.10]],['shaft','butt',[0,0,-1.60]]]),

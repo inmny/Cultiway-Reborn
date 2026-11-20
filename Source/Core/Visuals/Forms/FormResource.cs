@@ -130,6 +130,10 @@ public sealed class FormContactDescription
     /// <summary>形状编号。</summary>
     public string Id;
 
+    /// <summary>真实持物时该接触部位的材料。省略时沿用器物材料。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public string HeldMatter;
+
     /// <summary>所属部件索引；负一表示根区域，不要求存在显示网格。</summary>
     public int Part;
 
@@ -194,6 +198,8 @@ public readonly struct FormContactBinding
     private readonly float startsAt;
 
     internal readonly string Id;
+    /// <summary>手持器物的实际接触材料，独立显化沿用本身材料。</summary>
+    internal readonly string HeldMatter;
     internal readonly int Part;
     internal readonly float Extent;
 
@@ -214,6 +220,7 @@ public readonly struct FormContactBinding
         Vector2[] footprint = null, float thickness = 0f, float startsAt = 0f)
     {
         Id = source.Id;
+        HeldMatter = string.IsNullOrEmpty(source.HeldMatter) ? null : source.HeldMatter;
         Part = source.Part;
         this.startsAt = startsAt;
         A = FormRig.Vector(source.A, 0, source.Id);

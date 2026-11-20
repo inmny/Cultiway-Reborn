@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""用原版铁枪复验滑握、尖端刺入、近处落空和完整回收。"""
+"""用原版铁枪复验滑握、枪尖和杆身各自的实际作用及完整回收。"""
 import argparse
 import json
 import os
@@ -11,7 +11,7 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('all', 'strike', 'near'), default='all')
+    parser.add_argument('--case', choices=('all', 'strike', 'near', 'sweep'), default='all')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过 dev.py exec 运行')

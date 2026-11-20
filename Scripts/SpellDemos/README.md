@@ -2476,4 +2476,4 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 ### 长兵战技（9.44）
 
-在独立游戏用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_long_weapons.py`。检查正式铁枪刺的滑握、实际枪尖命中、近身落空和原枪归还。用 `--case strike` 或 `--case near` 单独复验。
+在独立游戏用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_long_weapons.py`。检查正式铁枪刺的滑握、实际枪尖命中、近身落空、木杆两端的横扫及原枪归还。用 `--case strike`、`--case near` 或 `--case sweep` 单独复验。
