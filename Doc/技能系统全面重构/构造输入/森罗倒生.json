@@ -1,0 +1,71 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.HangingTree",
+  "Name": "森罗倒生",
+  "Resource": "wakan",
+  "Cost": 9.6,
+  "Power": 5.4,
+  "Cooldown": 1.15,
+  "Lifetime": 5.2,
+  "TargetRange": 27,
+  "Binding": { "Anchor": "Target", "Follow": false, "FaceTarget": false, "Height": 6.85 },
+  "Root": {
+    "Id": "tree",
+    "Form": "hanging_tree",
+    "Matter": "wood",
+    "ContactRole": "Decoration",
+    "Volume": 11,
+    "Operations": [{ "Kind": "Animate", "Clip": "settle" }],
+    "Children": [
+      {
+        "Id": "main",
+        "Form": "hanging_root",
+        "Anchor": "main",
+        "Matter": "wood",
+        "Volume": 4.1,
+        "Scale": 1.13,
+        "AppearAt": 0.54,
+        "DisappearAt": 4.9,
+        "ContactRole": "Barrier",
+        "WorldContactShape": "tip",
+        "Operations": [
+          { "Kind": "Grow", "At": 0.54, "Seconds": 1.45 },
+          { "Kind": "Stop", "When": { "Trigger": "WorldContact" } }
+        ]
+      },
+      {
+        "Id": "west",
+        "Form": "hanging_lateral_root",
+        "Anchor": "west",
+        "Matter": "wood",
+        "Volume": 2.65,
+        "Scale": 1.18,
+        "AppearAt": 0.77,
+        "DisappearAt": 4.9,
+        "ContactRole": "Barrier",
+        "WorldContactShape": "tip",
+        "Operations": [
+          { "Kind": "Grow", "At": 0.77, "Seconds": 1.56 },
+          { "Kind": "Stop", "When": { "Trigger": "WorldContact" } }
+        ]
+      },
+      {
+        "Id": "east",
+        "Form": "hanging_lateral_root",
+        "Anchor": "east",
+        "Rotation": [0, 0, 173],
+        "Matter": "wood",
+        "Volume": 2.65,
+        "Scale": 1.24,
+        "AppearAt": 0.91,
+        "DisappearAt": 4.9,
+        "ContactRole": "Barrier",
+        "WorldContactShape": "tip",
+        "Operations": [
+          { "Kind": "Grow", "At": 0.91, "Seconds": 1.64 },
+          { "Kind": "Stop", "When": { "Trigger": "WorldContact" } }
+        ]
+      }
+    ]
+  }
+}

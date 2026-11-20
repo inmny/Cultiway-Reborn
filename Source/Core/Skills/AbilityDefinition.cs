@@ -138,6 +138,10 @@ public sealed class ConstructionNode
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public string MediumChannel;
 
+    /// <summary>仅用指定形状触发地块接触事件；不改变人物或环境作用的形状。缺省允许全部。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public string WorldContactShape;
+
     /// <summary>仅作用于显示的三个染色倍率，不改变实际材料和物态。</summary>
     public float[] Tint;
 

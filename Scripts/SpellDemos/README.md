@@ -2320,3 +2320,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 - `--section impact` 检查上升托举、下压伤害、触地后只传递剩余水量、实际绕流和自然退场。接触高度以命中的地块为准，水面分流仍使用沿地面插值得到的高度。
 - `--section save` 通过正式存档比对原招与[逆卷](../../Doc/技能系统全面重构/构造输入/天鲸覆城·逆卷.json)的实际落点、派生关系、可编辑数据及学习记录，再改回前腹角度复放。完整存读用 `dev.py exec --timeout 255`；已有正式世界和落点记录时可加 `--resume-save <上次输出目录>`，只核对重开与改角后的复放。
 - `--section native` 和 `--section worldfall` 各录一段连续实机录像，包含起跃、卷石、翻身、垂流、撞散、奔流和收尾，按游戏时间输出 `demo.mp4`。录像用 `dev.py exec --timeout 180`。
+
+### 森罗倒生（9.31）
+
+在已启动的独立游戏中运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_hanging_tree.py --section growth --view worldfall`。使用[森罗倒生构造](../../Doc/技能系统全面重构/构造输入/森罗倒生.json)，观察树冠先落定、主根和侧根各自生长，对照实际根尖在高低地面先后钉住、保持原位并清场。`--section short --view native` 只检查缩短侧根后确实够不到地面，另两条根与自然收尾照常。`trace.json` 保留实际接触，`growth` 另保存两张所选视角的截图。

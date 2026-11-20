@@ -506,6 +506,9 @@ internal sealed class CompiledForm
     /// <summary>明确的攻击、屏障或装饰用途。</summary>
     internal ConstructionContactRole ContactRole;
 
+    /// <summary>地块接触需要的形状，负一沿用所有形状。</summary>
+    internal int WorldContactShape = -1;
+
     /// <summary>本真实部位与受理时原人物的不可变对应。</summary>
     internal CompiledCorrespondence Correspondence;
 
@@ -876,6 +879,14 @@ public static partial class AbilityCompiler
             dye = new Color(tint.x, tint.y, tint.z, 1f);
         }
 
+        int worldContactShape = -1;
+        if (node.WorldContactShape != null)
+        {
+            worldContactShape = Array.FindIndex(resource.Contacts, shape => shape.Id == node.WorldContactShape);
+            if (worldContactShape < 0 || node.ContactRole == ConstructionContactRole.Decoration)
+                Fail(path + "/WorldContactShape", "需选择非装饰部位的实际作用形状");
+        }
+
         var compiled = new CompiledForm
         {
             Path = path,
@@ -909,6 +920,7 @@ public static partial class AbilityCompiler
             Correspondence = node.Correspondence == null ? null : new CompiledCorrespondence(node.Correspondence, lifetime, path + "/Correspondence"),
             OnContact = node.OnContact,
             ContactRole = node.ContactRole,
+            WorldContactShape = worldContactShape,
             BlocksGroundActors = node.BlocksGroundActors,
             Strength = node.Strength,
             Interception = node.Interception,

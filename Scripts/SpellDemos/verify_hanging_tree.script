@@ -1,0 +1,123 @@
+Config.paused = true;
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+if (section == "short")
+{
+    definition.Id += ".Short";
+    definition.Root.Children[2].Scale = .69f;
+}
+var source = Make(64.5f);
+var target = Make(73.5f, "wolf");
+var owner = source.GetExtend();
+var landings = new List<ConstructedWorldContact>();
+var shapes = new List<AbilityCapsule>();
+var forms = new List<FormVisualInstance>();
+var trace = new List<object>();
+
+void Land(ConstructedWorldContact hit)
+{
+    if (hit.AbilityId == definition.Id && hit.TriggerOnly) landings.Add(hit);
+}
+AbilityCast Live() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Select(item => (AbilityCast)Field(item, "Cast")).FirstOrDefault(cast => cast.Plan.Id == definition.Id);
+object State(AbilityCast cast, int node) => ((Array)Field(cast, "nodes")).GetValue(node);
+Vector3 RootTip(AbilityCast cast, int node, string form) => ((Matrix4x4)Field(State(cast, node), "Transform"))
+    .MultiplyPoint3x4(FormResources.Load(form).Anchors.Single(anchor => anchor.Id == "root_tip").Transform.GetColumn(3));
+Vector3 Tip(AbilityCast cast, int node) => RootTip(cast, node, node == 1 ? "hanging_root" : "hanging_lateral_root");
+bool Pinned(AbilityCast cast, int node) => (bool)Field(State(cast, node), "MovementStopped");
+void Sample(AbilityCast cast)
+{
+    shapes.Clear(); cast.AppendContacts(shapes);
+    trace.Add(new { cast.Age, contacts = shapes.GroupBy(hit => hit.Node).Select(g => new { node = g.Key, count = g.Count() }),
+        roots = Enumerable.Range(1, 3).Select(i => new { i, tip = Tip(cast, i).ToString("F3"), pinned = Pinned(cast, i) }).ToArray() });
+    File.WriteAllText(Path.Combine(folder, "trace.json"), JsonConvert.SerializeObject(new { trace, landings }, Formatting.Indented));
+}
+
+ConstructedAbilityService.WorldContactConfirmed += Land;
+try
+{
+    AbilityCompiler.Compile(definition, false);
+    owner.NewCultisys(Cultisyses.Xian);
+    owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+    Ready(source);
+    if (section == "growth") await SetCamera(12.5f);
+    for (int x = 63; x <= 84; x++)
+    for (int y = 66; y <= 79; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        tile.setTileTypes(TileLibrary.soil_low, null, true);
+        tile.Height = (byte)(x <= 71 ? 196 : x >= 76 ? 118 : 140);
+    }
+    await Advance(.20f);
+    Place(source, 64.5f, 72.5f); Place(target, 73.5f, 72.5f);
+    float health = target.data.health;
+    float before = source.stats[BaseStatses.MaxWakan.id] * .82f;
+    owner.GetCultisys<Xian>().wakan = before;
+    await Fire(definition, source, target);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    var cast = Live();
+    Check(cast != null && Math.Abs(before - owner.GetCultisys<Xian>().wakan - definition.Cost) < .003f,
+        "正式施放产生倒悬树，只支付一次真元");
+    async Task At(float age) { if (cast.Age < age) await Advance(age - cast.Age); }
+    if (section == "growth")
+    {
+        await At(.27f); Sample(cast);
+        cast.AppendVisuals(forms);
+        Check(forms.Count == 1 && forms[0].Resource.Description.Id == "hanging_tree" && forms[0].PartCount >= 15 && shapes.Count == 0,
+            "树冠先落定，未出现的根没有接触形状", new { cast.Age, parts = forms.Select(f => f.PartCount).ToArray() });
+        await At(.94f); Sample(cast);
+        float midway = Tip(cast, 1).z;
+        Check(midway > ((AbilityHeightField)Field(cast, "terrain")).Sample(73.5f, 72.5f) + 3f && shapes.Any(hit => hit.Node == 1) && landings.Count == 0,
+            "主根生长时只有当前长度的实际形状，未触地不钉住", new { cast.Age, midway });
+        await Shot("growing-" + recordView);
+    }
+    await At(2.82f); Sample(cast);
+    var terrain = (AbilityHeightField)Field(cast, "terrain");
+    bool RealPin(ConstructedWorldContact hit)
+    {
+        Vector3 tip = Tip(cast, hit.Node);
+        return Pinned(cast, hit.Node) && Vector2.Distance(hit.Position, tip) < .24f &&
+               Mathf.Abs(hit.Position.z - tip.z) < .24f &&
+               Mathf.Abs(hit.Position.z - terrain.Sample(hit.X + .5f, hit.Y + .5f)) < .08f;
+    }
+    int expected = section == "short" ? 2 : 3;
+    Check(landings.Count == expected && landings.Select(hit => hit.Node).Distinct().Count() == expected && landings.All(RealPin),
+        "实际根尖接触地块才定住；根身其余作用面不能抢先钉地", landings.ToArray());
+    var west = landings.Single(hit => hit.Node == 2);
+    if (section == "growth")
+    {
+        var east = landings.Single(hit => hit.Node == 3);
+        Check(east.Age - west.Age > .14f && west.Position.z - east.Position.z > .20f,
+            "同一场的高低地面让两侧根尖先后钉在不同高度", new { west, east });
+        await Shot("planted-" + recordView);
+    }
+    else
+    {
+        Vector3 tip = Tip(cast, 3);
+        Check(!Pinned(cast, 3) && tip.z - terrain.Sample(tip.x, tip.y) > .85f,
+            "缩短的侧根够不到地面，不取得支撑", new { tip = tip.ToString("F3") });
+    }
+    Vector3 pinnedTip = Tip(cast, 2);
+    await At(3.39f);
+    Check(Vector3.Distance(pinnedTip, Tip(cast, 2)) < .004f && target.data.health == health && contacts.Count == 0,
+        "支撑期间根尖保持在原位；本段不提前接管或伤害目标");
+    await At(definition.Lifetime + .2f);
+    Check(Live() == null && endings.Count == 1 && !endings[0].Fact.Cancelled &&
+          !FormVisualScene.Instances.Any(form => form.Resource.Description.Id.StartsWith("hanging_")),
+        "根和树体到期清场，没有留下临时支撑或形体");
+    return new { passed = true, checks, landings };
+}
+catch (Exception error)
+{
+    File.WriteAllText(Path.Combine(folder, "failure.txt"), error.ToString());
+    return new { passed = false, error = error.Message, checks };
+}
+finally
+{
+    if (cameraSettings != null) cameraSettings.GetType().GetField("TimeMode", F).SetValue(cameraSettings, previousTimeMode);
+    ConstructedAbilityService.WorldContactConfirmed -= Land;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

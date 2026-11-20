@@ -1,0 +1,1304 @@
+{
+    "Structure": {
+        "Kind": "branch",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_hanging_tree.mjs",
+            "Entry": "makeHangingTree",
+            "Parameters": [
+                {
+                    "Id": "trunk",
+                    "Values": [
+                        0.0,
+                        0.0,
+                        -0.1599999964237213,
+                        0.10000000149011612,
+                        0.05999999865889549,
+                        0.6499999761581421,
+                        -0.20999999344348908,
+                        0.2199999988079071,
+                        1.600000023841858,
+                        -0.11999999731779099,
+                        0.4699999988079071,
+                        2.5999999046325685,
+                        0.2800000011920929,
+                        0.6600000262260437,
+                        3.0299999713897707
+                    ]
+                },
+                {
+                    "Id": "branches",
+                    "Values": [
+                        -0.07000000029802323,
+                        0.14000000059604646,
+                        1.149999976158142,
+                        -0.8700000047683716,
+                        0.3499999940395355,
+                        1.7000000476837159,
+                        -1.899999976158142,
+                        0.49000000953674319,
+                        2.3299999237060549,
+                        -3.0399999618530275,
+                        0.7599999904632568,
+                        2.5799999237060549,
+                        -0.07999999821186066,
+                        0.25999999046325686,
+                        1.6200000047683716,
+                        0.9100000262260437,
+                        0.5699999928474426,
+                        2.0899999141693117,
+                        1.850000023841858,
+                        1.4500000476837159,
+                        2.569999933242798,
+                        2.9100000858306886,
+                        2.0399999618530275,
+                        2.7799999713897707,
+                        -0.09000000357627869,
+                        0.18000000715255738,
+                        1.3799999952316285,
+                        0.3199999928474426,
+                        -0.6299999952316284,
+                        1.909999966621399,
+                        0.6700000166893005,
+                        -1.3799999952316285,
+                        2.3399999141693117,
+                        0.9200000166893005,
+                        -2.640000104904175,
+                        2.619999885559082,
+                        -0.1899999976158142,
+                        0.30000001192092898,
+                        1.850000023841858,
+                        -0.699999988079071,
+                        0.9599999785423279,
+                        2.5799999237060549,
+                        -0.9100000262260437,
+                        1.7999999523162842,
+                        3.049999952316284,
+                        -1.3700000047683716,
+                        2.640000104904175,
+                        3.259999990463257,
+                        -0.019999999552965165,
+                        0.3700000047683716,
+                        2.2100000381469728,
+                        0.6600000262260437,
+                        0.4000000059604645,
+                        2.8299999237060549,
+                        1.600000023841858,
+                        0.25999999046325686,
+                        3.3399999141693117,
+                        2.3399999141693117,
+                        -0.03999999910593033,
+                        3.4700000286102297
+                    ]
+                },
+                {
+                    "Id": "sockets",
+                    "Values": [
+                        -0.25,
+                        0.029999999329447748,
+                        0.17000000178813935,
+                        -0.6000000238418579,
+                        0.1599999964237213,
+                        0.3499999940395355,
+                        0.5199999809265137,
+                        -0.11999999731779099,
+                        0.28999999165534975
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "trunk/bough_0",
+                "Parent": "trunk",
+                "Child": "bough_0",
+                "Position": [
+                    -0.07000000029802323,
+                    0.14000000059604646,
+                    1.149999976158142
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "bough_0/bough_0_crown_0",
+                "Parent": "bough_0",
+                "Child": "bough_0_crown_0",
+                "Position": [
+                    -1.6634000539779664,
+                    0.5737000107765198,
+                    2.567500114440918
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "bough_0/bough_0_crown_1",
+                "Parent": "bough_0",
+                "Child": "bough_0_crown_1",
+                "Position": [
+                    -2.91186261177063,
+                    1.1757715940475464,
+                    2.880000114440918
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "bough_0/bough_0_crown_2",
+                "Parent": "bough_0",
+                "Child": "bough_0_crown_2",
+                "Position": [
+                    -3.140214204788208,
+                    0.14818115532398225,
+                    2.7125000953674318
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "trunk/bough_1",
+                "Parent": "trunk",
+                "Child": "bough_1",
+                "Position": [
+                    -0.07999999821186066,
+                    0.25999999046325686,
+                    1.6200000047683716
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "bough_1/bough_1_crown_0",
+                "Parent": "bough_1",
+                "Child": "bough_1_crown_0",
+                "Position": [
+                    1.7130812406539918,
+                    2.01995587348938,
+                    2.795099973678589
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "bough_1/bough_1_crown_1",
+                "Parent": "bough_1",
+                "Child": "bough_1_crown_1",
+                "Position": [
+                    2.4433279037475588,
+                    1.175649881362915,
+                    3.0959999561309816
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "bough_1/bough_1_crown_2",
+                "Parent": "bough_1",
+                "Child": "bough_1_crown_2",
+                "Position": [
+                    3.306344509124756,
+                    2.286391496658325,
+                    2.9168999195098879
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "trunk/bough_2",
+                "Parent": "trunk",
+                "Child": "bough_2",
+                "Position": [
+                    -0.09000000357627869,
+                    0.18000000715255738,
+                    1.3799999952316285
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "bough_2/bough_2_crown_0",
+                "Parent": "bough_2",
+                "Child": "bough_2_crown_0",
+                "Position": [
+                    0.8921022415161133,
+                    -2.381385326385498,
+                    2.5868000984191896
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "bough_2/bough_2_crown_1",
+                "Parent": "bough_2",
+                "Child": "bough_2_crown_1",
+                "Position": [
+                    1.2152005434036255,
+                    -1.668216586112976,
+                    2.9079999923706056
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "bough_2/bough_2_crown_2",
+                "Parent": "bough_2",
+                "Child": "bough_2_crown_2",
+                "Position": [
+                    0.30867260694503786,
+                    -2.410508155822754,
+                    2.7492001056671144
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "trunk/bough_3",
+                "Parent": "trunk",
+                "Child": "bough_3",
+                "Position": [
+                    -0.1899999976158142,
+                    0.30000001192092898,
+                    1.850000023841858
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "bough_3/bough_3_crown_0",
+                "Parent": "bough_3",
+                "Child": "bough_3_crown_0",
+                "Position": [
+                    -0.8152679204940796,
+                    2.6371817588806154,
+                    3.275099992752075
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "bough_3/bough_3_crown_1",
+                "Parent": "bough_3",
+                "Child": "bough_3_crown_1",
+                "Position": [
+                    -1.7669658660888672,
+                    2.19417405128479,
+                    3.5759999752044679
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "bough_3/bough_3_crown_2",
+                "Parent": "bough_3",
+                "Child": "bough_3_crown_2",
+                "Position": [
+                    -0.911047637462616,
+                    2.092878580093384,
+                    3.396899938583374
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "trunk/bough_4",
+                "Parent": "trunk",
+                "Child": "bough_4",
+                "Position": [
+                    -0.019999999552965165,
+                    0.3700000047683716,
+                    2.2100000381469728
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "bough_4/bough_4_crown_0",
+                "Parent": "bough_4",
+                "Child": "bough_4_crown_0",
+                "Position": [
+                    1.310280680656433,
+                    -0.1323930323123932,
+                    3.540299892425537
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "bough_4/bough_4_crown_1",
+                "Parent": "bough_4",
+                "Child": "bough_4_crown_1",
+                "Position": [
+                    2.5655806064605715,
+                    -0.2144749015569687,
+                    3.818000078201294
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "bough_4/bough_4_crown_2",
+                "Parent": "bough_4",
+                "Child": "bough_4_crown_2",
+                "Position": [
+                    2.198035478591919,
+                    0.6196719408035278,
+                    3.6157000064849855
+                ],
+                "Detachable": false
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material",
+            "motion"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "hanging_tree",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/hanging_tree_trunk_mid.asset",
+                "Assets/Cultiway/Forms/hanging_tree_trunk_far.asset"
+            ],
+            "Roles": [
+                "branch.trunk"
+            ],
+            "Id": "trunk",
+            "Surface": "wood",
+            "Pivot": [
+                0.0,
+                0.0,
+                -0.1599999964237213
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_trunk.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/hanging_tree_bough_0_mid.asset",
+                "Assets/Cultiway/Forms/hanging_tree_bough_0_far.asset"
+            ],
+            "Roles": [
+                "branch.lateral"
+            ],
+            "Id": "bough_0",
+            "Surface": "wood",
+            "Pivot": [
+                -0.07000000029802323,
+                0.14000000059604646,
+                1.149999976158142
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_0.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.foliage"
+            ],
+            "Id": "bough_0_crown_0",
+            "Surface": "wood_leaf_shadow",
+            "Pivot": [
+                -1.6634000539779664,
+                0.5737000107765198,
+                2.567500114440918
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_0_crown_0.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.foliage"
+            ],
+            "Id": "bough_0_crown_1",
+            "Surface": "wood_leaf",
+            "Pivot": [
+                -2.91186261177063,
+                1.1757715940475464,
+                2.880000114440918
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_0_crown_1.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.foliage"
+            ],
+            "Id": "bough_0_crown_2",
+            "Surface": "wood_leaf_shadow",
+            "Pivot": [
+                -3.140214204788208,
+                0.14818115532398225,
+                2.7125000953674318
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_0_crown_2.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/hanging_tree_bough_1_mid.asset",
+                "Assets/Cultiway/Forms/hanging_tree_bough_1_far.asset"
+            ],
+            "Roles": [
+                "branch.lateral"
+            ],
+            "Id": "bough_1",
+            "Surface": "wood",
+            "Pivot": [
+                -0.07999999821186066,
+                0.25999999046325686,
+                1.6200000047683716
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_1.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.foliage"
+            ],
+            "Id": "bough_1_crown_0",
+            "Surface": "wood_leaf_shadow",
+            "Pivot": [
+                1.7130812406539918,
+                2.01995587348938,
+                2.795099973678589
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_1_crown_0.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.foliage"
+            ],
+            "Id": "bough_1_crown_1",
+            "Surface": "wood_leaf",
+            "Pivot": [
+                2.4433279037475588,
+                1.175649881362915,
+                3.0959999561309816
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_1_crown_1.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.foliage"
+            ],
+            "Id": "bough_1_crown_2",
+            "Surface": "wood_leaf_shadow",
+            "Pivot": [
+                3.306344509124756,
+                2.286391496658325,
+                2.9168999195098879
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_1_crown_2.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/hanging_tree_bough_2_mid.asset",
+                "Assets/Cultiway/Forms/hanging_tree_bough_2_far.asset"
+            ],
+            "Roles": [
+                "branch.lateral"
+            ],
+            "Id": "bough_2",
+            "Surface": "wood",
+            "Pivot": [
+                -0.09000000357627869,
+                0.18000000715255738,
+                1.3799999952316285
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_2.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.foliage"
+            ],
+            "Id": "bough_2_crown_0",
+            "Surface": "wood_leaf_shadow",
+            "Pivot": [
+                0.8921022415161133,
+                -2.381385326385498,
+                2.5868000984191896
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_2_crown_0.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.foliage"
+            ],
+            "Id": "bough_2_crown_1",
+            "Surface": "wood_leaf",
+            "Pivot": [
+                1.2152005434036255,
+                -1.668216586112976,
+                2.9079999923706056
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_2_crown_1.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.foliage"
+            ],
+            "Id": "bough_2_crown_2",
+            "Surface": "wood_leaf_shadow",
+            "Pivot": [
+                0.30867260694503786,
+                -2.410508155822754,
+                2.7492001056671144
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_2_crown_2.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/hanging_tree_bough_3_mid.asset",
+                "Assets/Cultiway/Forms/hanging_tree_bough_3_far.asset"
+            ],
+            "Roles": [
+                "branch.lateral"
+            ],
+            "Id": "bough_3",
+            "Surface": "wood",
+            "Pivot": [
+                -0.1899999976158142,
+                0.30000001192092898,
+                1.850000023841858
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_3.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.foliage"
+            ],
+            "Id": "bough_3_crown_0",
+            "Surface": "wood_leaf_shadow",
+            "Pivot": [
+                -0.8152679204940796,
+                2.6371817588806154,
+                3.275099992752075
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_3_crown_0.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.foliage"
+            ],
+            "Id": "bough_3_crown_1",
+            "Surface": "wood_leaf",
+            "Pivot": [
+                -1.7669658660888672,
+                2.19417405128479,
+                3.5759999752044679
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_3_crown_1.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.foliage"
+            ],
+            "Id": "bough_3_crown_2",
+            "Surface": "wood_leaf_shadow",
+            "Pivot": [
+                -0.911047637462616,
+                2.092878580093384,
+                3.396899938583374
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_3_crown_2.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/hanging_tree_bough_4_mid.asset",
+                "Assets/Cultiway/Forms/hanging_tree_bough_4_far.asset"
+            ],
+            "Roles": [
+                "branch.lateral"
+            ],
+            "Id": "bough_4",
+            "Surface": "wood",
+            "Pivot": [
+                -0.019999999552965165,
+                0.3700000047683716,
+                2.2100000381469728
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_4.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.foliage"
+            ],
+            "Id": "bough_4_crown_0",
+            "Surface": "wood_leaf_shadow",
+            "Pivot": [
+                1.310280680656433,
+                -0.1323930323123932,
+                3.540299892425537
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_4_crown_0.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.foliage"
+            ],
+            "Id": "bough_4_crown_1",
+            "Surface": "wood_leaf",
+            "Pivot": [
+                2.5655806064605715,
+                -0.2144749015569687,
+                3.818000078201294
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_4_crown_1.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "branch.foliage"
+            ],
+            "Id": "bough_4_crown_2",
+            "Surface": "wood_leaf_shadow",
+            "Pivot": [
+                2.198035478591919,
+                0.6196719408035278,
+                3.6157000064849855
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hanging_tree_bough_4_crown_2.asset",
+            "Control": "crown",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "main",
+            "Part": 0,
+            "Position": [
+                -0.25,
+                0.029999999329447748,
+                0.17000000178813935
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "crown",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "west",
+            "Part": 0,
+            "Position": [
+                -0.6000000238418579,
+                0.1599999964237213,
+                0.3499999940395355
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "crown",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "east",
+            "Part": 0,
+            "Position": [
+                0.5199999809265137,
+                -0.11999999731779099,
+                0.28999999165534975
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "crown",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [],
+    "Controls": [
+        {
+            "Id": "crown",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -4.5252509117126469,
+                -3.337183952331543,
+                -0.27489399909973147
+            ],
+            "Maximum": [
+                4.514651775360107,
+                3.5483109951019289,
+                4.42277717590332
+            ]
+        }
+    ],
+    "Motions": [
+        {
+            "Id": "settle",
+            "Duration": 0.5600000023841858,
+            "Loop": false,
+            "Keys": [
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.0,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        1.149999976158142
+                    ],
+                    "Rotations": [
+                        0.038683000952005389,
+                        -0.024644000455737115,
+                        0.054016001522541049,
+                        0.9974859952926636
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.02153800055384636,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.9809290170669556
+                    ],
+                    "Rotations": [
+                        0.034970998764038089,
+                        -0.023499999195337297,
+                        0.052032001316547397,
+                        0.9977560043334961
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.043076999485492709,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.8272899985313416
+                    ],
+                    "Rotations": [
+                        0.02732199989259243,
+                        -0.02217400074005127,
+                        0.050126999616622928,
+                        0.9981229901313782
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.06461499631404877,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.6905009746551514
+                    ],
+                    "Rotations": [
+                        0.016966000199317933,
+                        -0.02074900083243847,
+                        0.048259999603033069,
+                        0.9984750151634216
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.08615399897098541,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.5713520050048828
+                    ],
+                    "Rotations": [
+                        0.005371000152081251,
+                        -0.019308000802993776,
+                        0.04639299958944321,
+                        0.9987220168113709
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.10769200325012207,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.47001299262046816
+                    ],
+                    "Rotations": [
+                        -0.005946999881416559,
+                        -0.017924999818205835,
+                        0.04449399933218956,
+                        0.9988309741020203
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.12923100590705872,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.3859879970550537
+                    ],
+                    "Rotations": [
+                        -0.015633000060915948,
+                        -0.016659000888466836,
+                        0.042541999369859698,
+                        0.9988330006599426
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.15076899528503419,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.3182069957256317
+                    ],
+                    "Rotations": [
+                        -0.022641999647021295,
+                        -0.015540000051259995,
+                        0.04052799940109253,
+                        0.9988009929656982
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.17230799794197083,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.26506999135017397
+                    ],
+                    "Rotations": [
+                        -0.02636300027370453,
+                        -0.014577999711036682,
+                        0.03845199942588806,
+                        0.9988059997558594
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.19384600222110749,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.22460000216960908
+                    ],
+                    "Rotations": [
+                        -0.02665100060403347,
+                        -0.013756999745965004,
+                        0.03632200136780739,
+                        0.9988899827003479
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.21538500487804414,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.19454799592494965
+                    ],
+                    "Rotations": [
+                        -0.023817000910639764,
+                        -0.013043000362813473,
+                        0.03415000066161156,
+                        0.9990479946136475
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.2369229942560196,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.1725669950246811
+                    ],
+                    "Rotations": [
+                        -0.018543999642133714,
+                        -0.012396000325679779,
+                        0.03195299953222275,
+                        0.999239981174469
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.25846201181411745,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.15634499490261079
+                    ],
+                    "Rotations": [
+                        -0.011766999959945679,
+                        -0.011770999990403653,
+                        0.02974499948322773,
+                        0.9994189739227295
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.2800000011920929,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.14374999701976777
+                    ],
+                    "Rotations": [
+                        -0.004523000214248896,
+                        -0.011129000224173069,
+                        0.027542000636458398,
+                        0.9995480179786682
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.30153799057006838,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.1329450011253357
+                    ],
+                    "Rotations": [
+                        0.0021979999728500845,
+                        -0.010444000363349915,
+                        0.02535500004887581,
+                        0.9996219873428345
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.323076993227005,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.12247800081968308
+                    ],
+                    "Rotations": [
+                        0.0075889998115599159,
+                        -0.009697999805212021,
+                        0.023190999403595926,
+                        0.99965500831604
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.34461501240730288,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.11133900284767151
+                    ],
+                    "Rotations": [
+                        0.011126000434160233,
+                        -0.008891000412404538,
+                        0.021051999181509019,
+                        0.9996770024299622
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.3661539852619171,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0989769995212555
+                    ],
+                    "Rotations": [
+                        0.012609999626874924,
+                        -0.008028999902307988,
+                        0.018936000764369966,
+                        0.9997090101242065
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.38769200444221499,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.08528599888086319
+                    ],
+                    "Rotations": [
+                        0.012171000242233277,
+                        -0.007129000034183264,
+                        0.016836000606417657,
+                        0.9997590184211731
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.4092310070991516,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.07055100053548813
+                    ],
+                    "Rotations": [
+                        0.010216999799013138,
+                        -0.006209000013768673,
+                        0.01474399957805872,
+                        0.9998199939727783
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.4307689964771271,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.055369000881910327
+                    ],
+                    "Rotations": [
+                        0.0073379999957978729,
+                        -0.005286000203341246,
+                        0.012652999721467495,
+                        0.999879002571106
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.4523079991340637,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.04054500162601471
+                    ],
+                    "Rotations": [
+                        0.00419999985024333,
+                        -0.004372000228613615,
+                        0.010557999834418297,
+                        0.999925971031189
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.4738459885120392,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.02697799913585186
+                    ],
+                    "Rotations": [
+                        0.0014250000240281225,
+                        -0.003473999910056591,
+                        0.008456000126898289,
+                        0.9999570250511169
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.49538499116897585,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.015538999810814858
+                    ],
+                    "Rotations": [
+                        -0.0005119999987073243,
+                        -0.002592999953776598,
+                        0.006347000133246183,
+                        0.9999759793281555
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.5169230103492737,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.006957999896258116
+                    ],
+                    "Rotations": [
+                        -0.0013559999642893673,
+                        -0.001724999980069697,
+                        0.0042329998686909679,
+                        0.9999889731407166
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.5384619832038879,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0017219999572262169
+                    ],
+                    "Rotations": [
+                        -0.0011050000321120024,
+                        -0.0008629999938420951,
+                        0.002116000046953559,
+                        0.9999970197677612
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.5600000023841858,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                }
+            ],
+            "Markers": [
+                {
+                    "Id": "stable",
+                    "At": 0.5600000023841858
+                }
+            ]
+        }
+    ]
+}

@@ -1,4 +1,10 @@
 {
+  "Cultiway.Construction.WorldContactShape": "地块接触事件的形状",
+  "Cultiway.Construction.WorldContactShapeAny": "全部作用面",
+  "Cultiway.Construction.WorldContactShapeTip": "根尖",
+  "Cultiway.Construction.Form.hanging_tree": "倒悬古树",
+  "Cultiway.Construction.Form.hanging_root": "承力主根",
+  "Cultiway.Construction.Form.hanging_lateral_root": "分枝侧根",
   "Cultiway.Construction.MotionKind.PassRemainder": "交接剩余材料",
   "Cultiway.Construction.Form.five_phase_mantle": "交锋岩壳",
   "Cultiway.Construction.Form.five_phase_roots": "双枝木冠",

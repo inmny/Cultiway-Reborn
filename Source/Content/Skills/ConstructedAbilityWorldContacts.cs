@@ -120,7 +120,7 @@ public sealed partial class ConstructedAbilityService
             !TouchPath(shape, step, out float touchFrom)) return;
         from = Mathf.Max(from, touchFrom);
         IReadOnlyList<CompiledConstructionWorldEffect> effects = running.Cast.ImpactAtStage(shape.To.Node, stage).WorldEffects;
-        float ready = running.Cast.WorldContactReadyAt(shape.To.Node);
+        float ready = running.Cast.WorldContactReadyAt(shape.To.Node, shape.To.Shape);
         bool signal = ready <= running.Cast.Age;
         if (effects.Count == 0 && !signal) return;
         int left = Mathf.Max(0, Mathf.FloorToInt(shape.Bounds.min.x));
@@ -269,7 +269,7 @@ public sealed partial class ConstructedAbilityService
         if (effect < 0)
         {
             long triggerOwner = running.Owner(node).Id;
-            if (running.Cast.ConfirmWorldContact(node, hit.Point))
+            if (running.Cast.ConfirmWorldContact(node, hit.Left.To.Shape, hit.Point))
             {
                 if (node >= 0) SpatialCombatFeedback.Sound(Combat.CombatContactFeedback.SoundFor(running.Cast.Matter(node)), hit.Point);
                 WorldContactConfirmed?.Invoke(new ConstructedWorldContact(running.Id, running.SourceId, triggerOwner,
