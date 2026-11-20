@@ -1,0 +1,108 @@
+// 新进程读回原铁枪和人物掌握的资料，沿正式入口重施编辑器成品。
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(archived, "expected.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check(process != (int)expected["process"], "由新进程读回正式档");
+Game.Resume();
+Config.paused = true;
+Config.setWorldSpeed("x1", false);
+ControllableUnit.clear(false);
+World.world.save_manager.loadWorld(Path.Combine(archived, "archive"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+
+Actor source = World.world.units.get((long)expected["source"]), target = World.world.units.get((long)expected["target"]);
+Item weapon = source?.getWeapon();
+Check(source != null && target != null && weapon?.getAsset().id == "spear_iron" &&
+      JToken.DeepEquals(JToken.FromObject(weapon.data.id), expected["weapon"]),
+    "两名人物与铁枪的实际身份从原版世界档恢复",
+    new { source = source?.id, target = target?.id, weapon = weapon?.data.id, asset = weapon?.getAsset().id });
+var owner = source.GetExtend();
+var restored = expected["definitions"].Select(before =>
+{
+    string id = (string)before["Id"];
+    var current = ConstructionEditing.Access.Read(id);
+    return new { id, known = ConstructedAbilityService.Knows(owner, id),
+        same = JToken.DeepEquals(before, JToken.Parse(JsonConvert.SerializeObject(current))) };
+}).ToArray();
+Check(restored.All(value => value.known && value.same), "三招原战技及改造的完整资料和人物掌握关系从档中恢复", restored);
+Check(!BodyControlState.IsBusy(source.id) && !((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Any(),
+    "没有残余施放和身体占用，读回的人物可再次出招");
+
+void Place(Actor actor, float x)
+{
+    actor.stopMovement();
+    actor.stopForce();
+    actor.batch.c_action_landed.Remove(actor);
+    actor.current_position = new Vector2(x, 72f);
+    actor.setCurrentTile(World.world.GetTileSimple((int)x, 72));
+    actor.updatePos();
+}
+
+var idle = new BaseStats();
+idle.addTag("frozen_ai");
+var still = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.LongWeaponColdIdle")
+    .SetStats(idle).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(target, still, 10000, target);
+target.updateStats();
+target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+ControllableUnit.setControllableCreature(source);
+source.attack_timer = target.attack_timer = 999;
+await Advance(.20f);
+float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose")
+    .GetMethod("Height", F).Invoke(null, new object[] { source });
+Place(source, 64.35f);
+Place(target, 64.35f + 2.13f * height);
+source.addAggro(target);
+target.addAggro(source);
+target.setHealth(target.getMaxHealth());
+var edited = ConstructionEditing.Access.Read((string)expected["edited"]);
+var handle = new ActiveAbilityHandle("content.constructed", owner.E, edited.Id);
+var observed = new List<ConstructedContact>();
+var settled = new List<ConstructedQueuedDamage>();
+ConstructedCastEnded? end = null;
+void Touch(ConstructedContact hit) { if (hit.SourceId == source.id && hit.AbilityId == edited.Id) observed.Add(hit); }
+void Settled(ConstructedQueuedDamage hit) { if (hit.SourceId == source.id && hit.AbilityId == edited.Id) settled.Add(hit); }
+void End(ConstructedCastEnded fact) { if (fact.SourceId == source.id && fact.AbilityId == edited.Id) end = fact; }
+var clock = Config.time_scale_asset;
+float speed = clock.multiplier;
+ConstructedAbilityService.ContactConfirmed += Touch;
+ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+ConstructedAbilityService.CastEnded += End;
+try
+{
+    clock.multiplier = speed * .32f;
+    int health = target.data.health;
+    source.data.stamina = 100;
+    source.attack_timer = 0;
+    bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999;
+    Check(used && Mathf.Abs(100f - source.data.stamina - edited.Cost) < .001f &&
+          edited.Body.WeaponObstacle && edited.Body.WeaponScale == .49f && edited.Body.Grip == "forward" &&
+          edited.Body.SlideGrip == "mid" && edited.Body.Keys[1].GripSlide == .5f &&
+          edited.Body.Construction.Relations.Single(relation => relation.Kind == BodyRelationKind.Touch).FromAnchor == "tip",
+        "按档中的握法、接触与消耗正式施放改造后的铁枪刺");
+    await Advance(edited.Lifetime + .14f);
+    var hit = observed.SingleOrDefault();
+    Check(observed.Count == 1 && hit.Node == -1 && hit.TargetId == target.id &&
+          hit.Age >= edited.Body.ActiveFrom - .001f && hit.Age <= edited.Body.ActiveUntil + .001f &&
+          settled.Any(value => value.CastId == hit.CastId && value.Damage.HealthLost > 0 && value.TargetId == target.id) &&
+          target.data.health < health && end.HasValue && !end.Value.Cancelled &&
+          !BodyControlState.IsBusy(source.id) && ReferenceEquals(weapon, source.getWeapon()),
+        "真正枪尖造成一次命中，收势后归还原人物的铁枪和身体控制",
+        new { hits = observed.Select(value => new { value.Age, value.Node, value.Result, value.DamagePending }),
+            losses = settled.Select(value => value.Damage.HealthLost), health, after = target.data.health,
+            ended = end.HasValue, busy = BodyControlState.IsBusy(source.id), sourceKingdom = source.kingdom?.id,
+            targetKingdom = target.kingdom?.id });
+    return new { passed = true, selection, process, edited = edited.Id, checks };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Touch;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+    ConstructedAbilityService.CastEnded -= End;
+    ConstructedAbilityService.CastEnded -= Ended;
+    clock.multiplier = speed;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

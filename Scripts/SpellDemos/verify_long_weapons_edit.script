@@ -29,6 +29,7 @@ async Task Shot(string key, string name)
 try
 {
     Click("Page2");
+    Check(((Text)Field(Row("HeldForm"), "_detail")).text.StartsWith("长枪"), "中文身体页显示长枪名称");
     Select("MartialGrip", T("MartialGripMiddle"));
     Check(Session().Draft.Body.Grip == "mid", "主手可以改用同一枪杆上的中握");
     Click("Undo");
@@ -69,6 +70,7 @@ try
     WindowWanfaConstructionEditor.Open(edited, source);
     await Frames();
     Click("Page2");
+    Check(((Text)Field(Row("HeldForm"), "_detail")).text.StartsWith("Long spear"), "英文身体页显示长枪名称");
     Check(Session().Draft.Body.WeaponScale == .49f && Session().Draft.Body.SlideGrip == "mid",
         "正式改造重开后仍显示改造尺寸和滑握终点");
     await Shot("MartialWeaponScale", "long-weapon-edit-en");
@@ -91,6 +93,7 @@ try
     await Frames();
     File.WriteAllText(Path.Combine(folder, "edited-definition.json"),
         JsonConvert.SerializeObject(ConstructionEditing.Access.Read(edited), Formatting.Indented));
+    if (selection == "archive") SaveWorld(edited);
     return new { passed = true, selection, edited, checks };
 }
 finally
@@ -99,4 +102,39 @@ finally
     ConstructedAbilityService.CastEnded -= Ended;
     LocalizedTextManager.instance.setLanguage("cz");
     Config.paused = true;
+}
+
+void SaveWorld(string edited)
+{
+    var target = Make(66f);
+    target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+    Item weapon = World.world.items.generateItem(AssetManager.items.get("spear_iron"), pActor: source);
+    source.equipment.setItem(weapon, source);
+    foreach (Actor actor in new[] { source, target })
+    {
+        CombatStatusEffects.RemoveStatus(actor, hold);
+        actor.setStatsDirty();
+        actor.updateStats();
+        actor.attack_timer = 999;
+    }
+
+    var ids = new[] { basisId, "Cultiway.Body.LongSpearSweep", "Cultiway.Body.LongSpearDeflect", edited };
+    foreach (string id in ids) ConstructedAbilityService.Learn(source.GetExtend(), id);
+    World.world.units.checkContainer();
+    World.world.items.checkLists();
+    foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+    Place(source, 64.35f);
+    Place(target, 66f);
+    Check(ReferenceEquals(weapon, source.getWeapon()) && World.world.units.getSimpleList().Contains(source) &&
+          World.world.units.getSimpleList().Contains(target) && World.world.items.list.Contains(weapon),
+        "原铁枪和两名对练人物已进入世界保存",
+        new { source = source.id, target = target.id, weapon = weapon.data.id });
+    string archive = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(archive);
+    Check(File.Exists(Path.Combine(archive, "map.wbox")), "正式世界档已经写入");
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+    {
+        process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, target = target.id,
+        weapon = weapon.data.id, edited, definitions = ids.Select(ConstructionEditing.Access.Read).ToArray()
+    }, Formatting.Indented));
 }

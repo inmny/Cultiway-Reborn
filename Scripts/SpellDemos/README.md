@@ -2483,3 +2483,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--case edit` 检查万法阁的实际握点、滑握比例、器物尺寸和普通接触面，并保存中英文画面和 `edited-definition.json`。使用 `--case range --edited <edited-definition.json 路径>` 实战核对该改造的选取距离、尖端接触以及原物归还。
 
 `--case obstacle --part tip` 和 `--case obstacle --part shaft` 分别检查原版城墙实际挡住哪一枪段。均核对畅通时的命中、受阻后的收势与原物归还，以及拆墙后再次命中。
+
+`--case archive` 在实际编辑器创建改造并写入原版世界档。停掉测试游戏并重新启动后，使用 `--case cold --archive <输出目录>` 读回原人物、铁枪和武技，再从人物已掌握的招式中施放改造。
