@@ -58,18 +58,20 @@ ConstructedAbilityService.CastStarted += Started;
 ConstructedAbilityService.BodyConnectionChanged += Related;
 try
 {
+    owner.E.RemoveComponent<ConstructedKnowledge>();
     Ready(source);
     source.attack_timer = target.attack_timer = 999;
     await Advance(.18f);
     clock.multiplier = speed * .32f;
-    Item spear = Equip(source, "spear_iron");
+    Item spear = source.getWeapon()?.getAsset().id == "spear_iron" ? source.getWeapon() : Equip(source, "spear_iron");
     Place(source, 64.35f);
-    Place(target, 65.49f);
+    Place(target, 64.35f + pressDistance);
     var originalSource = source.current_position;
     var originalTarget = target.current_position;
     source.addAggro(target);
     target.addAggro(source);
     var definition = ConstructionEditing.Access.Read(pressId);
+    Check(definition.Revision >= 2, "读取正式低杆架拨姿态");
     ConstructedAbilityService.Learn(owner, pressId);
     var handle = new ActiveAbilityHandle("content.constructed", owner.E, pressId);
     source.data.stamina = 100;
@@ -88,7 +90,7 @@ try
     await Fire(definition, source, target);
     owner.E.RemoveComponent<ConstructedKnowledge>();
     Check(Mathf.Abs(100 - source.data.stamina - definition.Cost) < .001f, "架杆拨锋按正式入口支付一次");
-    await Advance(.286f);
+    await Advance(pressDelay);
     await Fire(ConstructionEditing.Access.Read(incomingId), target, source);
     target.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
 
@@ -136,13 +138,15 @@ try
                 gap = Vector3.Distance(r.SourcePoint, r.TargetPoint),
                 from = r.SourcePoint.ToString("F4"), to = r.TargetPoint.ToString("F4") }).ToArray(), contactPoses, distances });
     await Advance(definition.Lifetime);
-    Check(relations.Any(value => value.State == ConstructedBodyConnectionState.Released) &&
+    var released = relations.FirstOrDefault(value => value.State == ConstructedBodyConnectionState.Released);
+    Check(released.Reason == "Withdrawn" && released.WorldTime - began.WorldTime > .075 &&
           !ConstructedAbilityService.GetBodyConnections().Any(value => value.CastId == pressCast) &&
           !BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id) &&
           ReferenceEquals(spear, source.getWeapon()) && ReferenceEquals(sword, target.getWeapon()) &&
           source.data.health == leftHealth && target.data.health == rightHealth &&
           !contacts.Any(hit => hit.CastId == pressCast || hit.CastId == incomingCast),
-        "收杆解除真实相抵，双方保有原装备且没有补伤");
+        "收杆解除真实相抵，双方保有原装备且没有补伤",
+        new { seconds = released.WorldTime - began.WorldTime, released.Reason });
     return new { passed = true, selection, checks };
 }
 finally
