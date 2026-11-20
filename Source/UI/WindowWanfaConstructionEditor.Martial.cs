@@ -51,6 +51,16 @@ public sealed partial class WindowWanfaConstructionEditor
             }
         }
 
+        if (session.Draft.Body.Guard is { } guard)
+        {
+            Row("MartialGuardRules", T("MartialGuardRulesDetail"));
+            BodyMotionNumber("MartialGuardCapacity", guard.Capacity, (body, value) => body.Guard.Capacity = value);
+            BodyMotionNumber("MartialGuardAngle", guard.HalfAngle, (body, value) => body.Guard.HalfAngle = value);
+            BodyMotionNumber("MartialGuardNormalX", guard.Normal[0], (body, value) => body.Guard.Normal[0] = value);
+            BodyMotionNumber("MartialGuardNormalY", guard.Normal[1], (body, value) => body.Guard.Normal[1] = value);
+            BodyMotionNumber("MartialGuardNormalZ", guard.Normal[2], (body, value) => body.Guard.Normal[2] = value);
+        }
+
         if (!action.Construction.HasTouchRelations) return;
         string[] shapes = MartialContactShapes(action);
         string[] markers = BodyMarkerChoices();
@@ -76,6 +86,7 @@ public sealed partial class WindowWanfaConstructionEditor
             "short" => T("MartialGripShort"),
             "forward" => T("MartialGripForward"), "mid" => T("MartialGripMiddle"), _ => grip
         };
+
     }
 
     /// <summary>普通接触和控制关系选择同一资源提供的真实表面。</summary>

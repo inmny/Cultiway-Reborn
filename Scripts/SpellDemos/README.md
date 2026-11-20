@@ -2503,3 +2503,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏通过 `dev.py exec` 运行 `python3 Scripts/SpellDemos/verify_defense.py --case front --archive <重兵对练档目录>`。用同一原铁锤验证正式盾面的迎面架挡、回弹和归还，`--case rear`、`--case late` 和 `--case overflow` 分别检查背面、过晚和破防后余力。
 
 `--case craft` 走万法阁学习、城市打造和玩家方向选取，核对真实耗材与原铁盾。测试从同一对练档里的原人物开始。
+
+`--case yield` 用同一记重锤验证转肩沉掌，取样左右脚的抬落、实际承托点、侧向卸力和推退后的控制归还。
+
+`--case archive` 在万法阁改造盾架，保存原人物、实际兵器和两份已学招式。重开独立游戏后，用 `--case cold --archive <新输出目录>` 从正式存档读回并施展改造副本。
+
+`--case film --archive <新输出目录> --view native --move front` 常速录制迎面架挡。用 `--view worldfall` 切换画面，用 `--move overflow` 或 `--move yield` 拍摄破防余力或转肩卸力。每段录像都在实际命中、受力和收势符合预期后输出。

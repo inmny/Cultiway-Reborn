@@ -2,7 +2,10 @@
 const string shieldAssetId = "cultiway_iron_shield";
 const string hammerId = "Cultiway.Body.HeavyHammerDrop";
 string attackId = selection == "overflow" ? hammerId + ".Overflow" : hammerId;
-string guardId = BodyActionCatalog.ShieldGuardId;
+bool cold = selection == "cold";
+bool fullBlock = selection == "front" || cold;
+var saved = cold ? JObject.Parse(File.ReadAllText(Path.Combine(archived, "expected.json"))) : null;
+string guardId = cold ? (string)saved["edited"] : BodyActionCatalog.ShieldGuardId;
 long attackCast = 0, guardCast = 0;
 AbilityCast attackLive = null, guardLive = null;
 var clashes = new List<ConstructedClash>();
@@ -43,6 +46,28 @@ try
     clock.multiplier = speed * .32f;
     var guard = ConstructionEditing.Access.Read(guardId);
     var hammer = source.getWeapon();
+    if (cold)
+    {
+        Check(System.Diagnostics.Process.GetCurrentProcess().Id != (int)saved["process"] &&
+              hammer?.data.id == (long)saved["weapon"] && target.getWeapon()?.data.id == (long)saved["shield"],
+            "新进程读回原人物及同一铁锤、铁盾");
+        var restored = saved["definitions"].Select(before =>
+        {
+            string id = (string)before["Id"];
+            var definition = ConstructionEditing.Access.Read(id);
+            var snapshot = JToken.Parse(JsonConvert.SerializeObject(definition));
+            return new { id, knows = ConstructedAbilityService.Knows(target.GetExtend(), id),
+                same = JToken.DeepEquals(before, snapshot), snapshot };
+        }).ToArray();
+        if (restored.Any(value => !value.knows || !value.same))
+            File.WriteAllText(Path.Combine(folder, "restored-definitions.json"),
+                JsonConvert.SerializeObject(restored, Formatting.Indented));
+        Check(restored.All(value => value.knows && value.same) &&
+              guard?.Body.Guard is { Capacity: 82f, HalfAngle: 52f } &&
+              guard.Body.Guard.Normal[1] == .12f && guard.Body.ActiveFrom == .28f,
+            "新进程恢复原招及改造的完整资料和学习关系",
+            restored.Select(value => new { value.id, value.knows, value.same }).ToArray());
+    }
     var shieldAsset = AssetManager.items.get(shieldAssetId);
     Check(hammer?.getAsset().id == "hammer_iron" && shieldAsset?.group_id == "shield" &&
           shieldAsset.gameplay_sprites?.Length == 1 && shieldAsset.gameplay_sprites[0] != null &&
@@ -68,7 +93,7 @@ try
             "没有真正铁盾时架盾拒绝，保留体力和控制");
     }
 
-    Item shield = Equip(target, shieldAssetId);
+    Item shield = cold ? target.getWeapon() : Equip(target, shieldAssetId);
     var heavy = ConstructionEditing.Access.Read(hammerId);
     if (selection == "overflow")
     {
@@ -86,7 +111,7 @@ try
         await Guard();
     }
     float recoil = 0;
-    if (selection == "front")
+    if (fullBlock)
     {
         await Advance(.69f);
         if (guardLive.BodyPose is BodyPose pose)
@@ -108,9 +133,10 @@ try
         attackResult = attackLive.BodyResult, guardResult = guardLive.BodyResult,
         hits = touch.Select(hit => new { hit.Age, hit.ForceApplied, change = hit.VelocityChange.ToString("F5") }).ToArray()
     };
-    if (selection == "front")
+    if (fullBlock)
         Check(clashes.Count == 1 && clash.GuardShape >= 0 && clash.LeftRemaining == 0f && clash.RightRemaining > 0f &&
-              attackLive.BodyResult == BodyActionResult.Blocked && touch.Length == 0 && target.data.health == health && recoil > .005f,
+              attackLive.BodyResult == BodyActionResult.Blocked && touch.Length == 0 && target.data.health == health &&
+              recoil > .005f && Mathf.Abs(clash.Absorbed + clash.RightRemaining - guard.Body.Guard.Capacity) < .001f,
             "正式盾面迎接锤头，截住全部来势并沿实际握持回弹", detail);
     else if (selection == "overflow")
         Check(clashes.Count == 1 && clash.GuardShape >= 0 && clash.RightRemaining == 0f && clash.LeftRemaining > 0f &&
@@ -129,7 +155,17 @@ try
     {
         target.data.stamina = 100;
         Vector3? behind = selection == "rear" ? new Vector3(65.66f, 72f, 0f) : (Vector3?)null;
-        await Fire(guard, target, source, aim: behind);
+        if (cold)
+        {
+            var defender = target.GetExtend();
+            var handle = new ActiveAbilityHandle("content.constructed", defender.E, guardId);
+            target.attack_timer = 0;
+            bool used = ActiveAbilityService.TryUse(defender, handle,
+                new ActiveAbilityTarget(source, source.GetSimPos()), ActiveAbilityUseOrigin.Player);
+            target.attack_timer = 999;
+            Check(used, "新进程直接从已学副本入口架盾");
+        }
+        else await Fire(guard, target, source, aim: behind);
         target.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
         Check(guardLive != null && Mathf.Abs(100 - target.data.stamina - guard.Cost) < .001f,
             "正式盾架成功受理且只支付一次");

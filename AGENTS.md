@@ -42,4 +42,6 @@
 
 遵循 `git log -5` 中现有的 Conventional Commit 风格，例如 `feat:`、`bugfix:`、`feat(scope): 描述`。摘要保持简短、现在时，并限定在单一变更范围内。提交信息应使用中文。
 
+开发中可将阶段成果提交到工作分支。等路线图中一项完整的编号 TODO 达成结束条件，完成必要验证并备齐交付物，再合并到 `codex/dev` 并推送。
+
 Pull Request 需要说明玩法影响，包含复现或验证步骤；涉及 UI 的变更应附截图或 GIF。关联相关路线图条目或 issue，标明 `GameResources/` 下新增的资源文件，并说明是否需要 Mod 用户执行手动迁移步骤。

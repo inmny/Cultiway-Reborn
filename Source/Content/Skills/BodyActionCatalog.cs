@@ -48,7 +48,7 @@ public static class BodyActionCatalog
             Load("beast-horn-thrust"), Load("beast-pounce"), Load("palm-push"), Load("straight-punch"), Load("folded-elbow"),
             Load("rising-knee"), Load("low-sweep"), Load("shoulder-drive"), shortThrust, StoneSword(shortThrust),
             shortCut, StoneSword(shortCut), shortSweep, StoneSword(shortSweep), Load("long-spear-thrust"), Load("long-spear-sweep"),
-            Load("long-spear-deflect"), Load("heavy-hammer-drop"), Load("shield-guard") };
+            Load("long-spear-deflect"), Load("heavy-hammer-drop"), Load("shield-guard"), Load("palm-yield") };
     }
 
     /// <summary>保留完整手路及发力，石剑版本以本身的握点及刃口执行。</summary>
