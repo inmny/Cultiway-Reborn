@@ -1,0 +1,37 @@
+key,cz,en
+inmny.godtools.ranking.cultiway.realm,修仙境界,Cultivation realm
+inmny.godtools.ranking.cultiway.mortal,凡人,Mortal
+inmny.godtools.ranking.cultiway.magic,魔法境界,Magic realm
+inmny.godtools.ranking.cultiway.knight,骑士境界,Knight realm
+inmny.godtools.ranking.cultiway.no_magic,无魔法,No magic
+inmny.godtools.ranking.cultiway.no_knight,无骑士境界,No knighthood
+inmny.godtools.ranking.cultiway.talent,修仙天赋,Cultivation talent
+inmny.godtools.ranking.cultiway.skill_count,法术数量,Number of spells
+inmny.godtools.ranking.cultiway.book_grade,主修功法品阶,Main manual grade
+inmny.godtools.ranking.cultiway.no_book,无功法,No manual
+inmny.godtools.ranking.cultiway.apprentices,徒弟数量,Apprentices
+inmny.godtools.ranking.cultiway.grade,品阶,Grade
+inmny.godtools.ranking.cultiway.learners,修炼人数,Practitioners
+inmny.godtools.ranking.cultiway.spells,可领悟法术数,Learnable spells
+inmny.godtools.ranking.cultiway.books,Cultiway · 功法榜,Cultiway · Cultivation manuals
+inmny.godtools.ranking.cultiway.name,名称,Name
+inmny.godtools.ranking.cultiway.spell_board,Cultiway · 魔网法术榜,Cultiway · Magic Web Spells
+inmny.godtools.ranking.cultiway.ring,环阶,Spell ring
+inmny.godtools.ranking.cultiway.element,主元素,Primary element
+inmny.godtools.ranking.cultiway.publisher,发布者,Publisher
+inmny.godtools.ranking.cultiway.semantics,法术语义,Spell semantics
+inmny.godtools.ranking.cultiway.region_board,Cultiway · 地区榜,Cultiway · Regions
+inmny.godtools.ranking.cultiway.population,地区人口,Regional population
+inmny.godtools.ranking.cultiway.tiles,地块数,Tile count
+inmny.godtools.ranking.cultiway.region_category,地区类别,Region category
+inmny.godtools.ranking.cultiway.artifact_board,Cultiway · 法宝榜,Cultiway · Artifacts
+inmny.godtools.ranking.cultiway.abilities,能力数量,Number of abilities
+inmny.godtools.ranking.cultiway.holder,当前持有者,Current holder
+inmny.godtools.ranking.cultiway.shape,法宝形制,Artifact shape
+inmny.godtools.ranking.cultiway.material_board,Cultiway · 材料榜,Cultiway · Materials
+inmny.godtools.ranking.cultiway.material_shape,材料种类,Material type
+inmny.godtools.ranking.cultiway.talisman_board,Cultiway · 符箓榜,Cultiway · Talismans
+inmny.godtools.ranking.cultiway.sealed_spell,封存法术,Sealed spell
+inmny.godtools.ranking.cultiway.talisman_strength,封存灵力,Stored spiritual power
+inmny.godtools.ranking.cultiway.talisman_power,施法层次,Casting level
+inmny.godtools.ranking.cultiway.creator,制作者或来源,Creator or source

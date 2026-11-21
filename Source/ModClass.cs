@@ -595,6 +595,7 @@ namespace Cultiway
         {
             base.PostInit();
             _ui.PostInit();
+            Content.Compatibility.GodTools.CultiwayRankings.Register();
         }
 
         private void LoadLocales()
