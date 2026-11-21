@@ -507,6 +507,129 @@ try
             Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
         }
     }
+    if (caseName == "support" || Allowed("life-return") || Allowed("cleanse"))
+    {
+        Place(ally, source.current_position.x, source.current_position.y);
+        ConstructedAbilityService.NotifyActorChanged(ally);
+        CombatStatusEffects.ApplyStatus(ally, StatusEffects.Weaken, 100f, ally);
+        Strike(enemy, ally, ally.getMaxHealth() * .25f);
+        int bystanderHealth = ally.data.health;
+        var actualGains = new List<float>();
+        void Gain(ActorExtend actor, in WakanMutation mutation)
+        {
+            if (actor == owner && mutation.Kind == WakanMutationKind.Gain) actualGains.Add(mutation.Delta);
+        }
+        WakanResourceService.RegisterMutationCommitted(Gain);
+        var emissions = new List<SkillEmission>();
+        var originalEmitter = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+        Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        {
+            if (emission.Source == source && chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id))
+                emissions.Add(emission);
+            return originalEmitter(emission);
+        };
+
+        float EffectScale(string name) => emissions.Single(emission =>
+            emission.SkillContainer.GetComponent<SkillContainer>().Asset.id == Id(name)).RuntimeData.ResolveEffectScale();
+
+        async Task<ConstructedContact> Support(string name, int expected)
+        {
+            var cast = started.Single(row => row.AbilityId == Id(name));
+            var contact = contacts.Single(row => row.CastId == cast.CastId);
+            int restored = contact.TargetHealthAfter.GetValueOrDefault() - contact.TargetHealthBefore;
+            Check(!legacy.Contains(Id(name)) && contact.TargetId == source.id && restored == expected &&
+                contact.Damage.SettledCount == 0 && ally.data.health == bystanderHealth &&
+                CombatStatusEffects.HasStatus(ally, StatusEffects.Weaken, ally), name + "只恢复原人物且按来源倍率",
+                new { restored, expected, contact.TargetId });
+            int spent = spends.Count;
+            await Advance(.89f);
+            Check(endings.Any(row => row.Fact.CastId == cast.CastId && !row.Fact.Cancelled) &&
+                contacts.Count(row => row.CastId == cast.CastId) == 1 && spent == spends.Count,
+                name + "自然收势，未重复恢复或收费");
+            resultRows.Add(new { id = Id(name), contact.CastId, restored });
+            return contact;
+        }
+
+        try
+        {
+            if (caseName == "support" || Allowed("life-return"))
+            {
+                var wood = Install(CoreFormationAtoms.ElementWood, "wood", CoreFormationRealm.Jindan);
+                Strike(enemy, source, source.getMaxHealth() * .30f);
+                int injured = source.data.health;
+                owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .45f;
+                Strike(source, outside, outside.getMaxHealth() * 2f);
+                outside.checkDeath();
+                await Advance(.22f);
+                Check(!outside.isAlive() && source.data.health == injured && started.All(row => row.AbilityId != Id("WoodLifeReturn")),
+                    "实际普通击杀未触发木行回补");
+                for (int i = 0; i < 42 && !SkillCooldownService.IsReady(owner, wood.Definition.CooldownSkill); i++)
+                    await Advance(.12f);
+                for (int i = 0; i < 100 && SkillCooldownService.IsReady(owner, wood.Definition.CooldownSkill); i++)
+                    Strike(source, enemy, 120);
+                await Advance(.22f);
+                Check(CombatStatusEffects.HasStatus(enemy, StatusEffects.Poison, source),
+                    "击杀前目标实际承受本来源木毒");
+                int paid = spends.Count;
+                actualGains.Clear();
+                Strike(source, enemy, enemy.getMaxHealth() * 2f);
+                enemy.checkDeath();
+                await Advance(.27f);
+                Check(!enemy.isAlive(), "木毒目标实际死亡");
+                float scale = EffectScale("WoodLifeReturn");
+                await Support("WoodLifeReturn", Mathf.RoundToInt(source.stats["health"] * .025f * scale));
+                Check(actualGains.Count(amount => Mathf.Abs(amount - 6f * scale) < .002f) == 1 && paid == spends.Count,
+                    "木行回补实际增加一次原灵气量且未支付",
+                    new { expected = 6f * scale, actualGains });
+            }
+
+            if (caseName == "support" || Allowed("cleanse"))
+            {
+                var draft = new SkillContainerBuilder(SkillEntities.SpiritShield).UseAnimation(0)
+                    .Build(SkillContainerBuildMode.RuleOnly);
+                string signature = SkillContainerSignature.Build(draft);
+                owner.LearnSkillV3(draft);
+                var available = new List<ActiveAbilityHandle>();
+                ActiveAbilityService.Collect(owner, available);
+                var shield = available.Single(handle => handle.ProviderId == "core.learned_skill" &&
+                    SkillContainerSignature.Build(handle.Source) == signature);
+                foreach (var row in new[] { (CoreFormationAtoms.ElementYang, "YangCleanse", CoreFormationRealm.Jindan),
+                             (CoreFormationAtoms.TransformPureYang, "PureYangCleanse", CoreFormationRealm.Yuanying) })
+                {
+                    var yang = Install(row.Item1, "yang", row.Item3);
+                    CombatStatusEffects.ApplyStatus(source, StatusEffects.Weaken, 18f, ally);
+                    CombatStatusEffects.ApplyStatus(source, StatusEffects.ArmorBreak, 18f, ally);
+                    Strike(ally, source, source.getMaxHealth() * .30f);
+                    int RemainingNegatives() => new[] { StatusEffects.Weaken, StatusEffects.ArmorBreak }
+                        .Count(effect => CombatStatusEffects.HasStatus(source, effect, ally));
+                    Check(RemainingNegatives() == 2, "原付费施法前确实持有两种负面状态 " + row.Item2);
+                    int beforeSpending = spends.Count, attempts = 0;
+                    for (; attempts < 40 && SkillCooldownService.IsReady(owner, yang.Definition.CooldownSkill); attempts++)
+                    {
+                        owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+                        int paid = spends.Count;
+                        var target = new ActiveAbilityTarget(source, source.GetSimPos());
+                        Check(ActiveAbilityService.TryUse(owner, shield, target, ActiveAbilityUseOrigin.Player),
+                            "正式已学护盾受理 " + row.Item2);
+                        for (int frame = 0; frame < 5 && spends.Count == paid; frame++) await Advance(.12f);
+                        Check(spends.Count == paid + 1, "正式已学护盾真实支付 " + row.Item2);
+                    }
+                    await Advance(.20f);
+                    float maxHealth = source.stats["health"];
+                    float scale = EffectScale(row.Item2);
+                    await Support(row.Item2, Mathf.RoundToInt(Mathf.Min(maxHealth * .075f, maxHealth * .03f * scale)));
+                    Check(RemainingNegatives() == 1 && spends.Count - beforeSpending == attempts,
+                        "仅去除一个负面状态且净化无需再次支付", new { attempts });
+                    CombatStatusEffects.RemoveStatus(source, StatusEffects.Weaken, ally);
+                    CombatStatusEffects.RemoveStatus(source, StatusEffects.ArmorBreak, ally);
+                }
+            }
+        }
+        finally
+        {
+            Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
+        }
+    }
     return new { passed = true, resultRows, checks };
 }
 finally

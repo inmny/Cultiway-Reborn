@@ -89,7 +89,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (result == SkillEmissionResult.Unhandled) result = FormationSelfConstruction.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = FormationAreaConstruction.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = FormationCueConstruction.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = FormationStrikeConstruction.Emit(emission);
+            if (result == SkillEmissionResult.Unhandled) result = FormationTargetConstruction.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = BeamConstructionMigration.Emit(emission);
             return result == SkillEmissionResult.Unhandled ? ChainConstructionMigration.Emit(emission) : result;
         };
@@ -414,7 +414,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null, LegacyGroundTravel groundTravel = null,
         SkillVfxElementAsset groundContact = null, LegacyBuildingContact buildingContact = null,
         string formationFamily = null, FormationAreaContact? formationArea = null, bool explicitReactionTarget = false,
-        FormationTargetEffect formationTarget = FormationTargetEffect.None)
+        FormationTargetContact formationTarget = default)
     {
         if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
         // 原发射已核对点名建筑。共同空间输入使用它的位置，建筑身份仍由本次接触规则校验。
@@ -482,7 +482,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         LegacyGroundTravel groundTravel = null, SkillVfxElementAsset groundContact = null,
         LegacyBuildingContact buildingContact = null, string formationFamily = null,
         FormationAreaContact? formationArea = null, bool explicitReactionTarget = false,
-        FormationTargetEffect formationTarget = FormationTargetEffect.None)
+        FormationTargetContact formationTarget = default)
     {
         castId = 0;
         Actor sourceActor = caster?.Base;
@@ -972,7 +972,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         internal FormationAreaContact? FormationArea;
 
         /// <summary>由点名修炼反应在真实接触时提交的效果。</summary>
-        internal FormationTargetEffect FormationTarget;
+        internal FormationTargetContact FormationTarget;
 
         /// <summary>原修炼反应在真实接触后只对原事件点名的人物结算。</summary>
         internal bool ExplicitReactionTarget;

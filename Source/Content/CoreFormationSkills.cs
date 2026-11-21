@@ -15,7 +15,6 @@ using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
-using strings;
 using UnityEngine;
 
 namespace Cultiway.Content;
@@ -81,7 +80,7 @@ internal sealed class CoreFormationSkills : ICanInit
             0f, false, true);
         WoodLifeReturn = BuildTarget(
             "WoodLifeReturn", "wood_life_return", 0.08f, ElementComposition.Static.Wood,
-            0f, false, true, OnWoodLifeReturn, SkillUseProfileLibrary.CasterSelf);
+            0f, false, true, useProfile: SkillUseProfileLibrary.CasterSelf);
         WaterFrostBind = BuildTarget(
             "WaterFrostBind", "water_frost_bind", 0.09f, ElementComposition.Static.Water,
             0f, false, true);
@@ -102,10 +101,10 @@ internal sealed class CoreFormationSkills : ICanInit
             0f, true, false, OnYinDrain);
         YangCleanse = BuildTarget(
             "YangCleanse", "yang_cleanse", 0.1f, Element(ElementIndex.Pos),
-            0f, false, true, OnYangCleanse, SkillUseProfileLibrary.CasterSelf);
+            0f, false, true, useProfile: SkillUseProfileLibrary.CasterSelf);
         PureYangCleanse = BuildTarget(
             "PureYangCleanse", "yang_cleanse", 0.12f, Element(ElementIndex.Pos),
-            0f, false, true, OnYangCleanse, SkillUseProfileLibrary.CasterSelf);
+            0f, false, true, useProfile: SkillUseProfileLibrary.CasterSelf);
         ChaosEcho = BuildTarget(
             "ChaosEcho", "chaos_echo", 0.1f, Element(ElementIndex.Entropy),
             0.3f, false, true);
@@ -409,14 +408,6 @@ internal sealed class CoreFormationSkills : ICanInit
         return true;
     }
 
-    /// <summary>恢复施法者的生命与灵气。</summary>
-    private static void OnWoodLifeReturn(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out _)) return;
-        CombatResourceEffects.RestoreHealth(source, source.stats[S.health] * 0.025f * context.EffectScale);
-        CombatResourceEffects.RestoreWakan(source, 6f * context.EffectScale);
-    }
-
     /// <summary>消耗目标的同源灼烧，并在目标周围产生火行爆发。</summary>
     private static void OnFireEmberBurst(Entity skillEntity, BaseSimObject value)
     {
@@ -447,16 +438,6 @@ internal sealed class CoreFormationSkills : ICanInit
             context.Strength * context.EffectScale * 0.25f,
             Element(ElementIndex.Neg),
             attackerPowerLevel: context.PowerLevel);
-    }
-
-    /// <summary>净化一个负面状态并恢复施法者生命。</summary>
-    private static void OnYangCleanse(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out _)) return;
-        CombatStatusEffects.CleanseNegativeStatuses(source, 1);
-        float maxHealth = Mathf.Max(1f, source.stats[S.health]);
-        float heal = Mathf.Min(maxHealth * 0.075f, maxHealth * 0.03f * context.EffectScale);
-        CombatResourceEffects.RestoreHealth(source, heal);
     }
 
     /// <summary>在明确目标处释放凝元范围伤害。</summary>

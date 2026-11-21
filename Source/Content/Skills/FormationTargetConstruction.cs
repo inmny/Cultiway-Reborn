@@ -13,7 +13,7 @@ using UnityEngine;
 namespace Cultiway.Content.Skills;
 
 /// <summary>修炼反应在原事件点名的人物身边显形，由共用接触结算状态和伤害。</summary>
-internal static class FormationStrikeConstruction
+internal static class FormationTargetConstruction
 {
     /// <summary>保留原碰撞大小、时间、伤害和本次触发确定的元素。</summary>
     /// <param name="emission">原修炼效果排入的实际发射步骤。</param>
@@ -36,6 +36,12 @@ internal static class FormationStrikeConstruction
                 (CoreFormationEffectFamilies.Water, "frost_flower", "water", FormationTargetEffect.FrostBind),
             var entry when entry == CoreFormationSkills.FireBrand =>
                 (CoreFormationEffectFamilies.Fire, "fire_burst", "fire", FormationTargetEffect.Burn),
+            var entry when entry == CoreFormationSkills.WoodLifeReturn =>
+                (CoreFormationEffectFamilies.Wood, "healing_seed", "wood", FormationTargetEffect.LifeReturn),
+            var entry when entry == CoreFormationSkills.YangCleanse =>
+                (CoreFormationEffectFamilies.Yang, "purification_surge", "yang", FormationTargetEffect.YangCleanse),
+            var entry when entry == CoreFormationSkills.PureYangCleanse =>
+                (CoreFormationEffectFamilies.Yang, "solar_scale_release", "yang", FormationTargetEffect.YangCleanse),
             _ => default
         };
         if (family == null) return SkillEmissionResult.Unhandled;
@@ -43,8 +49,10 @@ internal static class FormationStrikeConstruction
             !emission.Source.a.isAlive() || emission.Target.isRekt() || !emission.Target.isActor())
             return SkillEmissionResult.Rejected;
         var caster = emission.Source.a.GetExtend();
-        if (!CoreFormationEffectResolver.TryResolveFamily(caster, family, out var effect) ||
-            effect.Definition.TriggerSkill != skill)
+        bool self = contact is FormationTargetEffect.LifeReturn or FormationTargetEffect.YangCleanse;
+        if (self && emission.Target != emission.Source ||
+            !CoreFormationEffectResolver.TryResolveFamily(caster, family, out var effect) ||
+            effect.Definition.TriggerSkill != skill && contact != FormationTargetEffect.LifeReturn)
             return SkillEmissionResult.Rejected;
 
         var asset = skill.GetComponent<SkillContainer>().Asset;
@@ -63,16 +71,17 @@ internal static class FormationStrikeConstruction
 
         float radius = SkillEffectRadius.ResolveForCaster(caster, skill, asset.ImpactProfile.CollisionRadius);
         float duration = asset.ResolveRuntimeLifetime(skill, asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier);
-        float strength = emission.Strength * emission.RuntimeData.ResolveEffectScale();
+        float effectScale = emission.RuntimeData.ResolveEffectScale();
         var definition = new AbilityDefinition
         {
             Id = asset.id, Name = effect.Definition.GetName(), Resource = "none", Cost = 0f, Cooldown = 0f,
             Lifetime = duration, TargetRange = 10000f,
-            Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat, Target = ActiveAbilityTargetMode.Object },
+            Use = new ConstructionUse
+                { Channels = ActiveAbilityChannel.Combat, Target = self ? ActiveAbilityTargetMode.Self : ActiveAbilityTargetMode.Object },
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
             Impact = new ConstructionImpact
             {
-                SelectedTargetOnly = true, Targets = SkillUseTargetRelation.Hostile, Element = element,
+                SelectedTargetOnly = true, Targets = self ? SkillUseTargetRelation.Self : SkillUseTargetRelation.Hostile, Element = element,
                 DamageBasis = ConstructionDamageBasis.InitialForce,
                 DamageScale = asset.ImpactProfile.DamageMultiplier * asset.ImpactTuning.DamageMultiplier
             },
@@ -107,7 +116,7 @@ internal static class FormationStrikeConstruction
             attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         var damage = new GetHitEvent
         {
-            Damage = strength, Element = element, AttackType = AttackType.Other,
+            Damage = emission.Strength * effectScale, Element = element, AttackType = AttackType.Other,
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin
         };
         var attacker = emission.SpatialSource.isRekt() ? emission.Source : emission.SpatialSource;
@@ -115,7 +124,7 @@ internal static class FormationStrikeConstruction
         return ConstructedAbilityService.StartPrepaid(caster, definition, target, emission.SourcePos, emission.Payment,
             damage, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
             groundContact: ConstructedAbilityService.LegacyContactElement(in emission), explicitReactionTarget: true,
-            formationTarget: contact)
+            formationTarget: new FormationTargetContact(contact, effectScale))
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 }

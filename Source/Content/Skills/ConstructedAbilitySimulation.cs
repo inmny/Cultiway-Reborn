@@ -1232,7 +1232,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ApplyRestoration(running, node, actor.Actor, impact.Restoration, strength);
         ConstructedTargetResponse response = running.FormationArea is { } formation
             ? ApplyFormationAreaContact(running, node, actor.Actor, formation)
-            : running.FormationTarget != FormationTargetEffect.None
+            : running.FormationTarget.Effect != FormationTargetEffect.None
             ? ApplyFormationTargetContact(contactOwner, actor.Actor, running.FormationTarget)
             : ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
                 priorVelocity: priorVelocity, forceReceiver: forceReceiver,

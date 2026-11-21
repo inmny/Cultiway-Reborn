@@ -15,17 +15,21 @@ SECTIONS = {
     'poison': ('WoodVenomBloom',),
     'frost': ('WaterFrostBind',),
     'burn': ('FireBrand',),
+    'life-return': ('WoodLifeReturn', 'WoodVenomBloom'),
+    'cleanse': ('YangCleanse', 'PureYangCleanse'),
 }
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('all', 'status', *SECTIONS), default='all')
+    parser.add_argument('--section', choices=('all', 'status', 'support', *SECTIONS), default='all')
     section = parser.parse_args().section
     if section == 'all':
-        abilities = sum(SECTIONS.values(), ())
+        abilities = tuple(dict.fromkeys(sum(SECTIONS.values(), ())))
     elif section == 'status':
         abilities = sum((SECTIONS[name] for name in ('armor', 'poison', 'frost', 'burn')), ())
+    elif section == 'support':
+        abilities = SECTIONS['life-return'] + SECTIONS['cleanse']
     else:
         abilities = SECTIONS[section]
     run(tuple(f'Cultiway.CoreFormation.Skill.{name}' for name in abilities),
