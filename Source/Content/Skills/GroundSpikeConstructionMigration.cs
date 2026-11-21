@@ -111,6 +111,7 @@ internal static class GroundSpikeConstructionMigration
             {
                 Id = "spires", Form = "earth_spikes_" + container.AnimationIndex, Matter = "earth", Scale = scale,
                 Rotation = new[] { 90f, 0f, 0f }, ActiveFrom = strike, ActiveUntil = strike + .004f,
+                ContactActorCenter = true,
                 Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Pulse, Interval = strike, MaximumPerTarget = 1 },
                 ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
                 Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate,

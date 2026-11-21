@@ -147,18 +147,29 @@ async Task PlaySpike(SkillEntityAsset asset, string form, int index)
     float interval = skill.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
     float rise = Seconds(animation.Appearance, interval), fade = Seconds(animation.Dissipation, interval);
     string model = form + "_" + index;
+    bool edge = caseName == "legacy-edge" || caseName == "edge";
     var point = new Vector3(71, 72, source.GetSimPos().z);
     Ready(source);
     Place(source, 64);
     Place(target, 71);
-    Place(second, 71.52f, 72.97f);
-    Place(outside, 72.08f, 73.72f);
+    if (edge)
+    {
+        Place(second, point.x + 1.38f, point.y);
+        Place(outside, point.x + 1.42f, point.y);
+    }
+    else
+    {
+        Place(second, 71.52f, 72.97f);
+        Place(outside, 72.08f, 73.72f);
+    }
+    float[] distances = new[] { target, second, outside }
+        .Select(actor => Vector2.Distance(actor.current_position, point)).ToArray();
     foreach (var actor in new[] { source, target, second, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
     owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
     float before = owner.GetCultisys<Xian>().wakan;
     double price = SkillCastResources.Wakan.Quote(owner,
         SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
-    bool legacy = caseName == "legacy";
+    bool legacy = caseName == "legacy" || caseName == "legacy-edge";
     int count = casts.Count;
     Entity originalCast = default;
     double firstFrame = 0, eventAge = -1;
@@ -206,7 +217,7 @@ async Task PlaySpike(SkillEntityAsset asset, string form, int index)
                   (index == 0 ? eventAge >= rise - .035 && eventAge <= rise + .075 : eventAge < .06),
                 "旧执行的地刺作用时点、半径和两名实际目标已取样", new { index, rise, eventAge, originalRadius, oldTargets });
             recordings.Add(new { asset = asset.id, index, rise, fade, eventAge, originalRadius,
-                originalPoint = new[] { originalPoint.x, originalPoint.y, originalPoint.z }, hits = oldTargets });
+                originalPoint = new[] { originalPoint.x, originalPoint.y, originalPoint.z }, distances, hits = oldTargets });
             return;
         }
 
@@ -233,7 +244,7 @@ async Task PlaySpike(SkillEntityAsset asset, string form, int index)
               Views(cast).Length == 0 && Math.Abs(before - owner.GetCultisys<Xian>().wakan - price) < .001f,
             "地刺只作用一轮，范围外安全，原价支付并自然结束", new { model, price,
                 hits = damage.Select(hit => new { hit.TargetId, hit.Age, hit.Damage.HealthLost }).ToArray(), cast.Age, cast.Finished });
-        recordings.Add(new { asset = asset.id, index, form = model, rise, fade, price,
+        recordings.Add(new { asset = asset.id, index, form = model, rise, fade, price, distances,
             hits = damage.Select(hit => hit.TargetId).ToArray(), times = damage.Select(hit => hit.Age).ToArray() });
     }
     finally

@@ -311,6 +311,28 @@
             "BControl": "slab_4",
             "AInfluences": [],
             "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "bed",
+            "Part": 0,
+            "A": [
+                -0.6800000071525574,
+                -0.10000000149011612,
+                0.0
+            ],
+            "B": [
+                0.6800000071525574,
+                -0.10000000149011612,
+                0.0
+            ],
+            "Radius": 0.23999999463558197,
+            "HeldMatter": "",
+            "AControl": "bed",
+            "BControl": "bed",
+            "AInfluences": [],
+            "BInfluences": []
         }
     ],
     "Controls": [

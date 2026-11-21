@@ -1661,7 +1661,11 @@ private void Prepare(JObject item)
         actor.attack_timer = 0;
     }
 
-    Place(caster, 53, 72);
+    Vector2 sourcePosition = request["casterPosition"] is JArray start
+        ? new Vector2((float)start[0], (float)start[1]) : new Vector2(53, 72);
+    if (World.world.GetTile(Mathf.FloorToInt(sourcePosition.x), Mathf.FloorToInt(sourcePosition.y)) == null)
+        throw new ArgumentException("施法者位置须在当前演示地图内");
+    Place(caster, sourcePosition.x, sourcePosition.y);
     Place(friend, 70, 76);
     for (int index = 0; index < enemies.Count; index++)
     {
@@ -1850,8 +1854,13 @@ private IEnumerator Record(JObject item, string folder)
     if (relation == SkillUseTargetRelation.WorldTile) target = enemies[0];
     // 短程法术沿用同一对靶和规则，只在指定距离处观察实际接触。
     if (request["targetOffset"] is JArray offset && target is Actor targetActor && targetActor != caster)
+    {
         Place(targetActor, caster.current_position.x + (float)offset[0],
             caster.current_position.y + (float)offset[1]);
+        ConstructedAbilityService.NotifyActorChanged(targetActor);
+    }
+    if (request["casterPosition"] is JArray)
+        ConstructedAbilityService.NotifyActorChanged(caster);
     var owner = caster.GetExtend();
     owner.GetCultisys<Xian>().wakan = 10000;
     caster.setMana(10000, pClamp: false);
@@ -1934,8 +1943,11 @@ private IEnumerator Record(JObject item, string folder)
     else
     {
         long currentCase = executionCase;
-        var plan = SkillCastPlanner.CreatePlan(owner, skill, target,
-            SkillCastCost.GetAffordableStepLimit(owner, skill));
+        int steps = SkillCastCost.GetAffordableStepLimit(owner, skill);
+        var plan = request["aimOffset"] is JArray aim
+            ? SkillCastPlanner.CreatePointPlan(owner, skill,
+                caster.GetSimPos() + new Vector3((float)aim[0], (float)aim[1], 0f), steps)
+            : SkillCastPlanner.CreatePlan(owner, skill, target, steps);
         used = mod.SkillV3.StartSkillSequence(owner, skill, plan, SkillContext.DefaultStrength,
             runtime_data: new SkillCastRuntimeData
             {
@@ -2096,7 +2108,8 @@ private object ReadMotionFrame(string id, double time)
     bool groundBarrier = barriers != null && (bool)typeof(Cultiway.Core.SkillLibV3.Manager).Assembly
         .GetType("Cultiway.Core.SkillLibV3.ISkillBarrierBridge", true)
         .GetProperty("HasGroundBarriers", Flags).GetValue(barriers);
-    return new { time, groundBarrier, bodyBusy = BodyControlState.IsBusy(caster.id), samples };
+    return new { time, groundBarrier, bodyBusy = BodyControlState.IsBusy(caster.id),
+        source = Point(caster.GetSimPos()), primary = Point(enemies[0].GetSimPos()), samples };
 }
 
 /// <summary>读取真实生命；吞噬或死亡后的对象按零记录，避免删去实际作用结果。</summary>
@@ -2629,6 +2642,9 @@ private void Camera()
     if (currentCase == "Cultiway.PalmStrike")
         World.world.camera.transform.position = new Vector3(caster.current_position.x + .3f,
             caster.current_position.y + .5f, World.world.camera.transform.position.z);
+    else if (request["casterPosition"] is JArray start)
+        World.world.camera.transform.position = new Vector3((float)start[0] + 3f,
+            (float)start[1] + 1f, World.world.camera.transform.position.z);
     else
         World.world.camera.transform.position = new Vector3(
             placement ? caster.current_position.x : body ? 66.5f : 67,

@@ -286,6 +286,9 @@ public sealed class CompiledAbility
         Impact = definition.Impact == null
             ? CompiledConstructionImpact.Default
             : new CompiledConstructionImpact(definition.Impact, "构造/Impact");
+        foreach (CompiledForm node in nodes)
+            if (node.GroundCircleRadius > 0f && (node.Impact ?? Impact).FrostCoating != null)
+                throw new InvalidDataException(node.Path + "/ContactActorCenter：冰壳需要真实身体表面接触");
         Inventory = AbilityCompiler.CompileInventory(definition, operations,
             nodes.Select(node => node.Impact).Append(Impact).Append(body?.Impact)
                 .Concat(body?.Stages.Select(stage => stage.Impact) ?? Enumerable.Empty<CompiledConstructionImpact>()));
@@ -418,6 +421,9 @@ internal sealed class CompiledForm
 
     /// <summary>共用资源。</summary>
     internal FormResource Resource;
+
+    /// <summary>按人物地图位置结算的圆形半径，零表示仍按实体接触。</summary>
+    internal float GroundCircleRadius;
 
     /// <summary>经过检查的实际景物带及实体回合边。</summary>
     internal CompiledLandscapeSlice LandscapeSlice;
@@ -968,6 +974,17 @@ public static partial class AbilityCompiler
                 Fail(path + "/WorldContactShape", "需选择非装饰部位的实际作用形状");
         }
 
+        float groundCircleRadius = 0f;
+        if (node.ContactActorCenter)
+        {
+            var contacts = resource.Description.Contacts;
+            var sector = contacts?.Length == 1 ? contacts[0].Sector : null;
+            if (sector?.Angle != 360f || landscape != null || node.BodyWindow ||
+                node.Contact?.Mode != ConstructionContactMode.Pulse)
+                Fail(path + "/ContactActorCenter", "需要单独的完整圆形作用面和定时结算");
+            groundCircleRadius = sector.Radius;
+        }
+
         var grip = node.SupportGrip == null ? null : new CompiledSupportGrip(node.SupportGrip, path + "/SupportGrip");
         if (grip != null && (parent < 0 || node.ContactRole != ConstructionContactRole.Attack ||
             resource.Contacts.Length == 0 || node.Activation?.Placement != ConstructionEventPlacement.Attached ||
@@ -985,6 +1002,7 @@ public static partial class AbilityCompiler
                 parent >= 0 && (!string.IsNullOrEmpty(node.Anchor) || node.Distribution != null) &&
                 node.Activation?.Placement != ConstructionEventPlacement.Event, lifetime, path + "/Outlet"),
             Resource = resource,
+            GroundCircleRadius = groundCircleRadius,
             LandscapeSlice = landscape,
             MaterialVortex = node.MaterialVortex == null ? null : new CompiledMaterialVortex(node.MaterialVortex, path + "/MaterialVortex"),
             WeaponChamber = node.WeaponChamber == null ? null : new CompiledWeaponChamber(node.WeaponChamber, path + "/WeaponChamber"),

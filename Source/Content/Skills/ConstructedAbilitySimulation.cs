@@ -892,7 +892,19 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             // 已被真实器物接触抵住的兵器不能仅因进入伤害时段而穿透补伤；独立法术和其他肢体继续运行。
             if (shape.To.Node < 0 && (running.WeaponConstraint?.Active == true ||
                                     running.Connection?.Active == true && running.Connection.WeaponOnly)) continue;
-            actorIndex.Query(shape.Bounds, nearby);
+            CompiledForm form = shape.To.Node < 0 ? null : running.Cast.Plan.Nodes[shape.To.Node];
+            float groundRadius = form?.GroundCircleRadius > 0f && shape.To.Shape >= 0 &&
+                                 shape.To.Shape < form.Resource.Contacts.Length
+                ? form.GroundCircleRadius : 0f;
+            if (groundRadius > 0f)
+            {
+                // 实际圆面被拆成多块实体轮廓；人物在定时点只查询一次完整圆面。
+                if (shape.To.Shape != 0) continue;
+                var extent = shape.Bounds.extents;
+                float scale = Mathf.Max(shape.From.Prism.OutlineScale, shape.To.Prism.OutlineScale);
+                actorIndex.QueryPlane(shape.Bounds.center, Mathf.Max(extent.x, extent.y) + groundRadius * scale, nearby);
+            }
+            else actorIndex.Query(shape.Bounds, nearby);
             // 双方关系只查询已选目标；长尾等真实表面可能超出原版人物粗筛球。
             if (shape.To.Node < 0 && running.Cast.Plan.Body.Construction.HasControlRelations &&
                 actorIndices.TryGetValue(running.TargetId, out int selected) && !nearby.Contains(selected))
@@ -948,7 +960,17 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     BodySurfaceBinding frost = null;
                     BodySurfacePose frostPose = null;
                     BodySurfaceAnchor frostAnchor = default;
-                    if (effect.FrostCoating != null)
+                    if (groundRadius > 0f)
+                    {
+                        Vector3 foot = Vector3.Lerp(fromFoot, toFoot, earliest);
+                        Vector2 offset = foot - a0.A;
+                        float radius = groundRadius * a0.Prism.OutlineScale;
+                        if (offset.sqrMagnitude > radius * radius) return;
+                        at = 0f;
+                        point = new Vector3(foot.x, foot.y, a0.A.z);
+                        normal = offset.sqrMagnitude > 0f ? (Vector3)offset.normalized : Vector3.forward;
+                    }
+                    else if (effect.FrostCoating != null)
                     {
                         double start = clock + step * earliest;
                         if (!FindFrostSurface(actor, effect.FrostCoating, a0, pulse ? a0 : shape.To, start,

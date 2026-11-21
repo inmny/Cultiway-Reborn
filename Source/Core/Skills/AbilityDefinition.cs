@@ -146,6 +146,10 @@ public sealed class ConstructionNode
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public string WorldContactShape;
 
+    /// <summary>圆形范围在结算时按人物的地图位置选人，不计身体宽度和高度。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool ContactActorCenter;
+
     /// <summary>仅作用于显示的三个染色倍率，不改变实际材料和物态。</summary>
     public float[] Tint;
 

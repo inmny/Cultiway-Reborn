@@ -2611,3 +2611,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py ground-spike --case legacy` 记录旧地刺的结算时点、范围和接触对象。用 `ground-forms` 一次检查七个索引，必要时可指定 `ground-spike --variant 0`、`earth-ridge`、`tidal-wave` 或 `spirit-vine`。批次的 `--case archive` 保存全部索引，重启后用 `--case cold --archive <保存输出目录>` 读回并重放。
 
 原版和 Worldfall 分别用 `demo_all.py --filter Cultiway.GroundSpike,Cultiway.EarthRidge,Cultiway.TidalWave,Cultiway.SpiritVine --variants all --cases base --realm 0 --target-offset 7 0 --zoom 19 --duration 1.65 --fps 30` 录制。
+
+地刺边界用 `ground-spike --case legacy-edge --variant 0` 和 `ground-spike --case edge` 对照。在同一岩床的中心及距中心 1.38、1.42 格处放靶。
+
+地脊放大后的岩床接触可用 `demo_all.py --filter Cultiway.EarthRidge --variants all --cases base --realm 0 --caster-position 64 72 --target-offset 5 0 --aim-offset 7 0 --zoom 15 --duration 1.65 --fps 30 --motion-trace` 补拍。原地面对练的人物仍在同一张图上。分别选 `--view native` 和 `--view worldfall`，在输出的 `result.json` 核对实际接触和受伤人数。

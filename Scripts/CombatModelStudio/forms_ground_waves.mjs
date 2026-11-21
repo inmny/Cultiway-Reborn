@@ -63,7 +63,9 @@ function earth() {
       rotation:new T.Quaternion().setFromAxisAngle(fractureAxis,(1.15+.15*Math.sin(i*2.1))*tip).toArray()};
   });
   publish('earth_ridge',parts,contacts,controls,[travel,collapse],{width:2.18,slabs:5,duration:.9,collapse:.34});
-  publish('earth_ridge_0',parts,contacts,controls,[travel,collapse],{width:2.18,slabs:5,duration:.9,collapse:.34});
+  // 岩床提供贴地接触，避免放大后石锋的接触芯从矮小目标上方掠过。
+  const bedContact={Id:'bed',Part:0,A:[-.68,-.10,0],B:[.68,-.10,0],Radius:.24,AControl:'bed',BControl:'bed'};
+  publish('earth_ridge_0',parts,[...contacts,bedContact],controls,[travel,collapse],{width:2.18,slabs:5,duration:.9,collapse:.34});
 }
 
 /** 厚浪只翻落一次：背部托起波峰，卷唇伸出，随后压成向前摊开的水脚。 */

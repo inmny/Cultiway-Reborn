@@ -16,6 +16,9 @@ internal sealed class AbilityPrism
     }
 
     internal Frame Pose => new(outline, transform);
+    /// <summary>轮廓两轴的实际缩放，供以同一形体定义圆形范围的结算使用。</summary>
+    internal float OutlineScale => Mathf.Max(transform.GetColumn(0).magnitude, transform.GetColumn(2).magnitude);
+
     internal AbilityPrism Move(Matrix4x4 world) => new(outline, world * transform);
     internal AbilityPrism At(AbilityPrism to, in AbilitySweepTurn turn, float at) =>
         at <= 0f ? this : at >= 1f ? to : new(outline, turn.Frame(transform, to.transform, at));

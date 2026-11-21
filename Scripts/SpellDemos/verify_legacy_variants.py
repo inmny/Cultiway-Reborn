@@ -100,7 +100,8 @@ def main():
     parser.add_argument('spell', choices=('fireball', 'fire-family', *batches, *projectile_spells))
     parser.add_argument('--variant', type=int, choices=range(18), action='append',
                         help='只复验指定旧索引，可重复指定')
-    parser.add_argument('--case', choices=('hit', 'miss', 'tracking', 'landing', 'cancel', 'scatter', 'gravity', 'archive', 'cold', 'legacy'))
+    ground_checks = ('legacy', 'legacy-edge', 'edge')
+    parser.add_argument('--case', choices=('hit', 'miss', 'tracking', 'landing', 'cancel', 'scatter', 'gravity', 'archive', 'cold', *ground_checks))
     parser.add_argument('--archive', type=Path, help='冷启动使用之前实际保存的目录')
     args = parser.parse_args()
     if args.spell in batches or args.spell in projectile_spells:
@@ -113,10 +114,10 @@ def main():
             variants = []
         else:
             asset, count = projectile_spells[args.spell]
-            if case not in ('hit', 'miss', 'tracking', 'landing', 'cancel', 'scatter', 'legacy') or any(i >= count for i in args.variant or []):
+            if case not in ('hit', 'miss', 'tracking', 'landing', 'cancel', 'scatter', *ground_checks) or any(i >= count for i in args.variant or []):
                 parser.error('单术实测需选择该法术已有的旧索引')
-            if case == 'legacy' and args.spell != 'ground-spike':
-                parser.error('旧执行对照使用地刺')
+            if case in ground_checks and args.spell != 'ground-spike':
+                parser.error('旧执行对照与圆形边界复验使用地刺')
             if case == 'tracking' and args.spell not in ('water-orb', 'wind-bullet', 'thunder-orb', 'wood-spear', 'yin-bolt', 'poison-needle'):
                 parser.error('改轨迹复验使用水球、风弹、雷珠、木枪、阴煞弹或毒针')
             if case == 'landing' and args.spell not in ('thunder-orb', 'lightning-strike', 'falling-rock', 'falling-timber', 'chaos-orb', 'flame-meteor'):
@@ -129,7 +130,7 @@ def main():
             default_index = min(1, count - 1)
             if case in ('landing', 'cancel') and args.spell in ('lightning-strike', 'falling-rock', 'falling-timber'):
                 default_index = 0
-            variants = args.variant or (list(range(count)) if case in ('hit', 'legacy') else [default_index])
+            variants = args.variant or (list(range(count)) if case in ('hit', *ground_checks) else [default_index])
         archive = args.archive.resolve() if args.archive else None
         if case == 'cold' and (not archive or not all(
                 (archive / file).is_file() for file in ('archive/map.wbox', 'expected.json'))):
