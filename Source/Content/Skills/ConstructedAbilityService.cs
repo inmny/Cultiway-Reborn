@@ -86,6 +86,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (result == SkillEmissionResult.Unhandled) result = FieldConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = BarrierConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = SupportConstructionMigration.Emit(emission);
+            if (result == SkillEmissionResult.Unhandled) result = FormationSelfConstruction.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = BeamConstructionMigration.Emit(emission);
             return result == SkillEmissionResult.Unhandled ? ChainConstructionMigration.Emit(emission) : result;
         };
@@ -406,7 +407,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         in ActiveAbilityTarget target, Vector3 sourcePosition, SkillCastPayment payment = null,
         GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0, BaseSimObject spatialSource = null,
         bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null, LegacyGroundTravel groundTravel = null,
-        SkillVfxElementAsset groundContact = null, LegacyBuildingContact buildingContact = null)
+        SkillVfxElementAsset groundContact = null, LegacyBuildingContact buildingContact = null, string formationFamily = null)
     {
         if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
         // 原发射已核对点名建筑。共同空间输入使用它的位置，建筑身份仍由本次接触规则校验。
@@ -418,7 +419,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         return Start(caster, ValidateDefinition(definition), aim, target.RuntimeData.Origin, out _, sourcePosition,
             true, payment, sourceDamage: damage, sourceDirection: direction, sourceInstance: sourceInstance,
             spatialSource: spatialSource?.a, sourceIsWorld: sourceIsWorld, legacyArea: legacyArea,
-            groundTravel: groundTravel, groundContact: groundContact, buildingContact: buildingContact);
+            groundTravel: groundTravel, groundContact: groundContact, buildingContact: buildingContact,
+            formationFamily: formationFamily);
     }
 
     /// <summary>固定环境位置直接进入共同执行，零编号表示未受理，不借人物提供身份或资源。</summary>
@@ -460,13 +462,14 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="groundTravel">已学法术原有的行进掠地规则。</param>
     /// <param name="groundContact">已学法术原有的命中地块规则。</param>
     /// <param name="buildingContact">已学法术原来允许接触建筑的规则。</param>
+    /// <param name="formationFamily">实际修炼来源携带的自身法相，在首个生效时点提交。</param>
     private static bool Start(ActorExtend caster, CompiledAbility plan,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, out long castId, Vector3? sourcePosition = null,
         bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
         GetHitEvent? sourceDamage = null, Vector3? sourceDirection = null, int sourceInstance = 0, Actor spatialSource = null,
         bool practice = false, bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null,
         LegacyGroundTravel groundTravel = null, SkillVfxElementAsset groundContact = null,
-        LegacyBuildingContact buildingContact = null)
+        LegacyBuildingContact buildingContact = null, string formationFamily = null)
     {
         castId = 0;
         Actor sourceActor = caster?.Base;
@@ -618,6 +621,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 GroundTravel = groundTravel,
                 GroundContact = groundContact,
                 BuildingContact = buildingContact,
+                FormationFamily = formationFamily,
                 CorrespondenceEnded = plan.HasCorrespondences ? new bool[plan.FormCount] : null,
                 WorldScope = target.WorldScope,
                 Practice = practice,
@@ -945,6 +949,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <summary>单次施放的主线程对象绑定与去重记录。</summary>
     private sealed class RunningCast
     {
+        /// <summary>在本次出手生效后提交一次的修炼来源。</summary>
+        internal string FormationFamily;
+
         /// <summary>入口当前持有的原人物，沿真实接触顺序确认。</summary>
         internal List<ActorTransferHold> ActorTransferHolds;
 

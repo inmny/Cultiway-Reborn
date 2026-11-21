@@ -1,0 +1,209 @@
+var ownerActor = Make(64.5f);
+var enemy = caseName == "carrier" ? null : Make(68.5f, "wolf");
+var owner = ownerActor.GetExtend();
+if (enemy != null)
+{
+    ownerActor.addAggro(enemy);
+    enemy.addAggro(ownerActor);
+}
+owner.AddComponent(new Xian { level = Cultiway.Content.Const.XianLevels.Yuanying, wakan = 10000 });
+var boost = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.FormationSelf.Resources") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.FormationSelf.Resources")
+        .SetStats(new BaseStats
+            { [BaseStatses.MaxWakan.id] = 10000, [nameof(Cultiway.WorldboxGame.BaseStats.DivineSense)] = 10000 })
+        .SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(ownerActor, boost, 10000, ownerActor);
+
+var sourceAtoms = new[] { CoreFormationAtoms.ManifestSwordEmbryo, CoreFormationAtoms.ManifestSpiritPlatform,
+    CoreFormationAtoms.ManifestPrimalBody, CoreFormationAtoms.TransformFivePhase };
+var snapshot = new CoreFormationSnapshot
+{
+    version = CoreFormationSnapshot.CurrentVersion, signature = "verify.formation.self",
+    canonical_name = "自身法相实测", finalized = true, realm = CoreFormationRealm.Yuanying,
+    strength = 4f, refinement = 5, composition = ElementComposition.Static.Earth,
+    atoms = sourceAtoms.Select(asset => new CoreFormationAtomState
+        { atom_id = asset.id, weight = 1f, awakening_stage = 0 }).ToArray(),
+    stats = Array.Empty<CoreFormationStatValue>(),
+    semantics = Array.Empty<Cultiway.Core.Semantics.SemanticContribution>()
+};
+if (caseName == "carrier")
+{
+    snapshot.realm = CoreFormationRealm.Yuanshen;
+    owner.GetCultisys<Xian>().level = Cultiway.Content.Const.XianLevels.Huashen;
+    owner.AddComponent(new Yuanshen
+        { formation = snapshot, original_body = new PhysicalBodySnapshot { actor_asset_id = "human" } });
+}
+else owner.AddComponent(new Yuanying { formation = snapshot });
+owner.MarkCultiwayStatsDirty();
+ownerActor.setStatsDirty();
+ownerActor.updateStats();
+await Advance(.2f);
+ownerActor.attack_timer = 0;
+
+var started = new List<ConstructedCastStarted>();
+var actions = new List<ConstructedActionEvent>();
+var outcomes = new List<object>();
+void Started(ConstructedCastStarted fact)
+{
+    if (chosenAssets.Contains(fact.AbilityId) && fact.SourceId == ownerActor.id) started.Add(fact);
+}
+void ActionConfirmed(ConstructedActionEvent fact)
+{
+    if (chosenAssets.Contains(fact.AbilityId) && fact.SourceId == ownerActor.id) actions.Add(fact);
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ActionConfirmed += ActionConfirmed;
+
+bool Use(ActiveAbilityHandle handle) => ActiveAbilityService.TryUse(owner, handle,
+    new ActiveAbilityTarget(ownerActor, ownerActor.GetSimPos()), ActiveAbilityUseOrigin.Script);
+Entity Status(Cultiway.Content.Libraries.CoreFormationResolvedEffect effect) =>
+    CombatStatusEffects.TryGetStatus(ownerActor, effect.Definition.StateStatus, ownerActor, out Entity status)
+        ? status : default;
+float Balance() => owner.GetCultisys<Xian>().wakan;
+
+int StrikeOwner()
+{
+    ownerActor.restoreHealth(ownerActor.getMaxHealth());
+    int before = ownerActor.data.health;
+    var hit = new Cultiway.Core.EventSystem.Events.GetHitEvent
+    {
+        TargetID = ownerActor.id, Damage = before * .42f, AttackType = AttackType.Other,
+        IgnoreDamageReduction = true, DamageOrigin = Cultiway.Core.Combat.DamageOrigin.Reaction
+    };
+    hit.BindAttacker(enemy);
+    typeof(Cultiway.Core.EventSystem.Systems.GetHitEventSystem).GetMethod("Resolve", F)
+        .Invoke(null, new object[] { hit });
+    return before - ownerActor.data.health;
+}
+
+try
+{
+    var handles = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, handles);
+    var granted = handles.Where(handle => handle.ProviderId == "content.core_formation").ToArray();
+    string Id(ActiveAbilityHandle handle) => handle.Source.GetComponent<SkillContainer>().SkillEntityAssetID;
+    Check(granted.Select(Id).OrderBy(id => id).SequenceEqual(chosenAssets.OrderBy(id => id)),
+        "元婴组合只授予四个对应的玩家主动入口", granted.Select(Id).ToArray());
+    var effects = new List<Cultiway.Content.Libraries.CoreFormationResolvedEffect>();
+    CoreFormationEffectResolver.Resolve(owner, effects);
+
+    if (caseName == "carrier")
+    {
+        owner.GetCultisys<Xian>().wakan = 10000;
+        Actor carrier = null;
+        Check(YuanshenTravelService.TryTravelTo(owner, new Vector3(70, 72),
+            YuanshenTravelStance.Balanced) && YuanshenTravelService.TryGetSoulCarrier(owner, out carrier),
+            "正常出窍创建真实命魂载体");
+        await Advance(1.3f);
+        float separation = Vector2.Distance(ownerActor.current_position, carrier.current_position);
+        Check(separation > 1f, "命魂的位置已与肉身分开", separation);
+
+        var body = granted.Single(item => Id(item).EndsWith(".PrimalBody"));
+        var swordSkill = granted.Single(item => Id(item).EndsWith(".SwordEmbryoAura"));
+        var aim = new ActiveAbilityTarget(carrier, carrier.GetSimPos());
+        float before = Balance();
+        Check(!ActiveAbilityService.TryUse(carrier.GetExtend(), body, aim, ActiveAbilityUseOrigin.Script) &&
+            Balance() == before, "离身命魂不能施展要求肉身的真身镇劫");
+        var control = ActiveAbilityService.ResolveControlState(carrier.GetExtend(), swordSkill);
+        Check(ActiveAbilityService.TryUse(carrier.GetExtend(), swordSkill, aim, ActiveAbilityUseOrigin.Script) &&
+            Balance() < before, "命魂仍可用原入口施展剑胎显锋",
+            new { control = control.BlockReason.ToString(), paid = before - Balance() });
+        await Advance(.26f);
+        var activeAt = actions.Single(item => item.AbilityId == Id(swordSkill) &&
+            item.Fact.Kind == AbilityActionEventKind.Active).Fact.Point;
+        Check(Vector2.Distance(activeAt, carrier.current_position) <
+            Vector2.Distance(activeAt, ownerActor.current_position) &&
+            !Status(effects.Single(effect => effect.Definition.active?.SkillContainer == swordSkill.Source)).IsNull,
+            "起手实际位于命魂，持续状态仍归修炼者", new { x = activeAt.x, y = activeAt.y });
+        Check(YuanshenTravelService.RequestReturn(owner), "发出真实归返请求");
+        await Advance(3f);
+        Check(!YuanshenTravelService.TryGetSoulCarrier(owner, out _) && Use(body),
+            "命魂归返后可用真身镇劫");
+        await Advance(.24f);
+        Check(!Status(effects.Single(effect => effect.Definition.active?.SkillContainer == body.Source)).IsNull,
+            "归返后真身状态实际生效");
+        return new { passed = true, caseName, checks };
+    }
+
+    owner.GetCultisys<Xian>().wakan = 0;
+    Check(!Use(granted[0]) && Balance() == 0 && started.Count == 0, "灵气不足不受理、不出手");
+    int baselineDamage = StrikeOwner();
+    Check(baselineDamage > ownerActor.getMaxHealth() * .25f, "真身未生效时真实攻击超过伤害上限", baselineDamage);
+    foreach (string id in chosenAssets)
+    {
+        ActiveAbilityHandle handle = granted.Single(item => Id(item) == id);
+        var effect = effects.Single(item => item.Definition.active?.SkillContainer == handle.Source);
+        var plan = new SkillCastPlan();
+        plan.Steps.Add(new SkillCastStep(ownerActor, 0f));
+        float demand = SkillCastCost.CalculatePlanDemand(handle.Source, plan) *
+            Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, handle.Source));
+        float fee = SkillCastPayment.Quote(owner, SkillCastResources.Wakan, demand);
+        owner.GetCultisys<Xian>().wakan = 10000;
+        float before = Balance();
+        Check(Use(handle) && Mathf.Abs(before - Balance() - fee) < .015f && fee > 0f &&
+            Status(effect).IsNull, id + "原入口按原价只支付了一次，生效时点前没有状态",
+            new { fee, paid = before - Balance() });
+        before = Balance();
+        Check(!Use(handle) && Balance() == before, id + "冷却阻止重复受理");
+        await Advance(.24f);
+
+        Entity state = Status(effect);
+        var cast = started.FirstOrDefault(item => item.AbilityId == id);
+        var active = actions.Where(item => item.CastId == cast.CastId &&
+            item.Fact.Kind == AbilityActionEventKind.Active).ToArray();
+        Check(cast.CastId > 0 && active.Length == 1 && !state.IsNull,
+            id + "由共同施放的生效时点建立真实状态",
+            new { cast = cast.CastId, activations = active.Length, statuses = owner.GetStatuses().Count });
+        float duration = state.GetComponent<AliveTimeLimit>().value;
+        Check(Mathf.Abs(duration - effect.Definition.active.duration) < .01f,
+            id + "实际状态保有原时长", duration);
+        var data = state.GetComponent<CoreFormationEffectState>();
+        if (id.EndsWith(".SpiritPlatform"))
+            Check(data.charges == 4, "灵台显神出手后保有四次回响", data.charges);
+        if (id.EndsWith(".PrimalBody"))
+        {
+            int capped = StrikeOwner();
+            Check(capped > 0 && capped <= Mathf.CeilToInt(ownerActor.getMaxHealth() * .15f) &&
+                capped < baselineDamage, "真身镇劫实际压低扣血", new { baselineDamage, capped });
+        }
+        if (id.EndsWith(".FivePhase"))
+        {
+            Check(data.phase == 0, "五相轮转从金相开始");
+            await Advance(2.15f);
+            Check(Status(effect).GetComponent<CoreFormationEffectState>().phase == 1,
+                "经过两秒后真实相位进入木相");
+        }
+        outcomes.Add(new { id, fee, cast = cast.CastId, activeAt = active[0].Fact.Age, duration });
+    }
+
+    await Advance(12f);
+    Check(effects.All(effect => Status(effect).IsNull), "原速度下四种持续状态均自然到期");
+    Check(endings.Count == 4 && endings.All(item => !item.Fact.Cancelled) && contacts.Count == 0,
+        "四种起手均自然收势且没有外部接触",
+        new { endings = endings.Select(item => new { item.Fact.AbilityId, item.Fact.Cancelled, item.Fact.Age }),
+            contacts = contacts.Count });
+    Check(StrikeOwner() == baselineDamage, "真身结束后相同攻击恢复原扣血");
+    owner.GetCultisys<Xian>().wakan = 10000;
+    var sword = granted.Single(item => Id(item).EndsWith(".SwordEmbryoAura"));
+    Config.paused = false;
+    await Game.WaitUntil(() => SkillCooldownService.IsReady(owner, sword.Source), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check(Use(sword), "冷却及状态结束后可以从原入口再次施展");
+    await Advance(.23f);
+    Check(!Status(effects.Single(effect => effect.Definition.active?.SkillContainer == sword.Source)).IsNull,
+        "再次施放真实恢复剑胎法相");
+    owner.E.RemoveComponent<Yuanying>();
+    await Advance(.19f);
+    Check(effects.All(effect => Status(effect).IsNull) && !Use(sword), "失去修炼来源后清除状态并拒绝原入口");
+    return new { passed = true, outcomes, baselineDamage, checks };
+}
+finally
+{
+    Config.setWorldSpeed("x1", false);
+    Config.paused = true;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ActionConfirmed -= ActionConfirmed;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+}

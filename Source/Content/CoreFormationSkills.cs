@@ -151,23 +151,23 @@ internal sealed class CoreFormationSkills : ICanInit
 
         SwordEmbryoAura = BuildTarget(
             "SwordEmbryoAura", "sword_embryo_aura", 0.1f, ElementComposition.Static.Iron,
-            0f, false, true, OnActivateSwordEmbryo, SkillUseProfileLibrary.CasterSelf, 32f,
-            SkillEntityType.Defense);
+            0f, false, true, useProfile: SkillUseProfileLibrary.CasterSelf, cost: 32f,
+            type: SkillEntityType.Defense);
         DragonAspectBurst = BuildArea(
             "DragonAspectBurst", "dragon_aspect_burst", 0.16f, ElementComposition.Static.Earth,
             4f, 0f, OnDragonAspectBurst, 40f);
         SpiritPlatform = BuildTarget(
             "SpiritPlatform", "spirit_platform", 0.13f, Element(ElementIndex.Pos),
-            0f, false, true, OnActivateSpiritPlatform, SkillUseProfileLibrary.CasterSelf, 48f,
-            SkillEntityType.Defense);
+            0f, false, true, useProfile: SkillUseProfileLibrary.CasterSelf, cost: 48f,
+            type: SkillEntityType.Defense);
         PrimalBody = BuildTarget(
             "PrimalBody", "primal_body", 0.12f, ElementComposition.Static.Earth,
-            0f, false, true, OnActivatePrimalBody, SkillUseProfileLibrary.CasterSelf, 40f,
-            SkillEntityType.Defense);
+            0f, false, true, useProfile: SkillUseProfileLibrary.CasterSelf, cost: 40f,
+            type: SkillEntityType.Defense);
         FivePhase = BuildTarget(
             "FivePhase", "five_phase", 0.14f, Element(ElementIndex.Entropy),
-            0f, false, true, OnActivateFivePhase, SkillUseProfileLibrary.CasterSelf, 48f,
-            SkillEntityType.Defense);
+            0f, false, true, useProfile: SkillUseProfileLibrary.CasterSelf, cost: 48f,
+            type: SkillEntityType.Defense);
         PureYangDomain = BuildArea(
             "PureYangDomain", "pure_yang_domain", 0.17f, Element(ElementIndex.Pos),
             5f, 0f, OnPureYangDomain, 56f);
@@ -566,70 +566,6 @@ internal sealed class CoreFormationSkills : ICanInit
         ShowResolvedArea(skillEntity);
     }
 
-    /// <summary>剑胎主动技能建立持续形态，并清除被动追击的一秒节流。</summary>
-    private static void OnActivateSwordEmbryo(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryResolveActive(skillEntity, value, CoreFormationEffectFamilies.Sword,
-                out ActorExtend owner, out CoreFormationResolvedEffect effect)) return;
-        Entity status = CoreFormationStateService.Activate(
-            owner,
-            effect,
-            effect.Definition.active.duration,
-            true,
-            out CoreFormationEffectState state);
-        if (status.IsNull) return;
-        CoreFormationStateService.Save(status, state);
-        SkillCooldownService.Clear(owner, effect.Definition.CooldownSkill);
-    }
-
-    /// <summary>灵台主动技能建立持续形态并补充四次回响。</summary>
-    private static void OnActivateSpiritPlatform(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryResolveActive(skillEntity, value, CoreFormationEffectFamilies.Spiritual,
-                out ActorExtend owner, out CoreFormationResolvedEffect effect)) return;
-        Entity status = CoreFormationStateService.Activate(
-            owner,
-            effect,
-            effect.Definition.active.duration,
-            true,
-            out CoreFormationEffectState state);
-        if (status.IsNull) return;
-        state.charges = 4;
-        CoreFormationStateService.Save(status, state);
-    }
-
-    /// <summary>真身主动技能建立提供伤害上限和抗击退的持续状态。</summary>
-    private static void OnActivatePrimalBody(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryResolveActive(skillEntity, value, CoreFormationEffectFamilies.Body,
-                out ActorExtend owner, out CoreFormationResolvedEffect effect)) return;
-        Entity status = CoreFormationStateService.Activate(
-            owner,
-            effect,
-            effect.Definition.active.duration,
-            true,
-            out CoreFormationEffectState state);
-        if (!status.IsNull) CoreFormationStateService.Save(status, state);
-    }
-
-    /// <summary>五相主动技能从金相开始建立两秒一相的持续轮转。</summary>
-    private static void OnActivateFivePhase(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryResolveActive(skillEntity, value, CoreFormationEffectFamilies.FivePhase,
-                out ActorExtend owner, out CoreFormationResolvedEffect effect)) return;
-        Entity status = CoreFormationStateService.Activate(
-            owner,
-            effect,
-            effect.Definition.active.duration,
-            true,
-            out CoreFormationEffectState state);
-        if (status.IsNull) return;
-        state.phase = 0;
-        state.auxiliary_timer = 2f;
-        state.secondary_value = 0f;
-        CoreFormationStateService.Save(status, state);
-    }
-
     /// <summary>纯阳领域分别处理同国友军和施法者实际可攻击的目标。</summary>
     private static void OnPureYangDomain(Entity skillEntity, BaseSimObject value)
     {
@@ -673,23 +609,6 @@ internal sealed class CoreFormationSkills : ICanInit
         var asset=entity.GetComponent<SkillEntity>().Asset;
         BattleSpellVisualRuntime.OnAreaResolved(entity,entity.GetComponent<Position>().value,
             SkillEffectRadius.Resolve(entity,asset.ImpactProfile.EffectRadius*asset.ImpactTuning.EffectRadiusMultiplier));
-    }
-
-    /// <summary>验证主动技能的明确自身目标，并解析当前仍生效的效果定义。</summary>
-    private static bool TryResolveActive(
-        Entity skillEntity,
-        BaseSimObject value,
-        string familyId,
-        out ActorExtend owner,
-        out CoreFormationResolvedEffect effect)
-    {
-        owner = null;
-        effect = default;
-        if (!TryGetActors(skillEntity, value, out _, out Actor source, out Actor target) ||
-            source != target) return false;
-        owner = source.GetExtend();
-        return CoreFormationEffectResolver.TryResolveFamily(owner, familyId, out effect) &&
-               effect.Definition.active != null;
     }
 
     /// <summary>构造单一元素组成。</summary>

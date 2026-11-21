@@ -2701,3 +2701,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_base_spell_archive.py --case archive`。退出并重新启动后，用同一入口的 `--case cold --archive <保存输出目录>` 核对全部 127 个旧索引及冻结的学习资料。
 
 用 `python3 Scripts/SpellDemos/build_base_spell_reels.py <分批证据目录> <交付目录>` 合成原版和 Worldfall 录像。脚本按制作清单核对各索引都有已验证的原片，并生成章节及逐索引时间表。
+
+### 自身法相的主动入口（10.02）
+
+在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_formation_self.py`。脚本沿用现成对练，核对剑胎显锋、灵台显神、真身镇劫及五相轮转的实扣费用、生效阶段、持续时长和自然结束。状态和冷却按原游戏速度等待。
+
+同一入口加 `--case carrier` 检查真实命魂出窍、肉身要求、出手位置、状态归属和归返后的再次使用。录像可用 `demo_spell.py` 指定对应能力；演示会从修炼者实际拥有的主动入口施放。
