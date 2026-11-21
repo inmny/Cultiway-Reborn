@@ -1224,6 +1224,12 @@ public sealed partial class AbilityCast
     internal void ConfirmBuildingContact(int node, Vector3 point, long buildingId, float? rayLength, bool chain)
     {
         RecordActionContact(node, point, AbilityActionContactKind.Building, buildingId);
+        if (node < 0)
+        {
+            if (bodyContactAt < 0f) bodyContactAt = Age;
+            RecordActionTimeline();
+            return;
+        }
         ref NodeState state = ref nodes[node];
         if (!state.Exists || state.Recovering || state.Leaving) return;
         state.Resource = 0;

@@ -837,8 +837,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             bool ordinary = powered && running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
             bool thermalSource = fire || shape.To.Node >= 0 && running.Cast.Burning(shape.To.Node).Heat > 0;
             bool attack = canTouch && ordinary && running.Cast.Role(shape.To.Node) == ConstructionContactRole.Attack;
-            if (canTouch && ordinary && shape.To.Node >= 0 && running.BuildingContact != null)
-                FindLegacyBuildingContacts(shape, owner, step, Include);
+            if (canTouch && ordinary && running.BuildingContact != null &&
+                (shape.To.Node >= 0 || running.BuildingContact.BodyWeapon && running.Body.Weapon != null &&
+                 running.WeaponConstraint?.Active != true && !(running.Connection?.Active == true && running.Connection.WeaponOnly)))
+                FindLegacyBuildingContacts(shape, owner, step, Include, touchFrom);
             if (shape.To.Node < 0 && attack) FindBodyCorrespondences(shape, clock, step, touchFrom, Include);
             if (attack && hasBodyGuardShapes)
                 FindBodyGuards(shape, step, touchFrom, Include);
@@ -1216,8 +1218,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (node < 0 && impact.DamageScale > 0f)
         {
             var owner = running.Source.GetExtend();
-            observation = ObserveQueuedContact(running.Id, running.Cast.Plan.Id, contactOwner.Id, actor.Id,
-                memory.Count, LogicTime);
+            observation = ObserveQueuedContact(running, contactOwner.Id, actor.Actor, actor.Id,
+                memory.Count, LogicTime, impact, strength);
             AttackDataResult strike = running.Body.Weapon == null
                 ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, actor.Actor, null, running.Power * impact.DamageScale * strength,
                     observer: observation)
@@ -1235,6 +1237,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             damage.ContactSound = CombatContactFeedback.SoundFor(beforeMatter);
             primaryDamage = GetHitEventSystem.Resolve(damage);
         }
+        if (contactGeneration != worldGeneration) return;
+        if (primaryDamage.HealthLost > 0 || observation is { Pending: false, Result.HealthLost: > 0 })
+            ApplyDamageStatuses(running, node, actor.Actor, actor.Id, impact, strength);
         if (contactGeneration != worldGeneration) return;
         ApplyRestoration(running, node, actor.Actor, impact.Restoration, strength);
         ConstructedTargetResponse response = running.FormationArea is { } formation
@@ -1285,6 +1290,18 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             afterMatter?.Id, afterMatter?.State,
             impact.DamageScale > 0f || response.AdditionalDamageAttempted, response.VelocityChange, response.ForceApplied, response.StaggerSeconds,
             response.BindSeconds, response.StrainSeconds, response.ExposureSeconds));
+
+    }
+
+    /// <summary>一次实际扣血只触发该接触保存的状态，目标失效后跳过。</summary>
+    /// <param name="running">实际施放。</param><param name="node">接触部位。</param>
+    /// <param name="target">原受击人物。</param><param name="targetId">受击时身份。</param>
+    /// <param name="impact">受击时的作用。</param><param name="strength">受击时的实际强度。</param>
+    private static void ApplyDamageStatuses(RunningCast running, int node, Actor target, long targetId,
+        CompiledConstructionImpact impact, float strength)
+    {
+        if (impact.HasStatusesAfterDamage && target.data?.id == targetId && target.isAlive() && target.hasHealth())
+            ApplyStatuses(running, node, target, impact.Statuses, strength, afterDamage: true);
     }
 
     /// <summary>是否仍留下真实部位；存在的部位也可能已没有攻击余力。</summary>
@@ -1324,14 +1341,16 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="target">已确认的人物。</param><param name="effects">已编译属性状态。</param>
     /// <param name="attenuation">真实接触位置或传播路程给出的本体强度倍率。</param>
     /// <param name="forceBasis">实际映像交锋消耗，省略时读取原部位作用量。</param>
+    /// <param name="afterDamage">此时已经确认本次本体伤害扣血。</param>
     private static void ApplyStatuses(RunningCast running, int node, Actor target, IReadOnlyList<CompiledConstructionStatus> effects,
-        float attenuation = 1f, float? forceBasis = null)
+        float attenuation = 1f, float? forceBasis = null, bool afterDamage = false)
     {
         if (effects.Count == 0) return;
         CastAuthority owner = running.Owner(node);
         if (!owner.IsLive) return;
         foreach (CompiledConstructionStatus effect in effects)
         {
+            if (effect.AfterDamage != afterDamage) continue;
             BaseStats stats = null;
             if (effect.Stats != null)
             {

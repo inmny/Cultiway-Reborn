@@ -27,6 +27,13 @@ public static class BodyActionCatalog
     /// <summary>旧规则生成以及已有创法请求使用的掌击底稿。</summary>
     private static AbilityDefinition historicalPalm;
 
+    /// <summary>破甲突刺的原出手与万法阁共用制作资料。</summary>
+    private static AbilityDefinition knightArmorPiercingThrust;
+
+    /// <summary>借用实际枪身并以枪尖触达的骑士动作。</summary>
+    internal static AbilityDefinition KnightArmorPiercingThrust =>
+        knightArmorPiercingThrust ??= Load("knight-armor-piercing-thrust");
+
     /// <summary>读取制作资料，不在每次出手时解释文件。</summary>
     internal static AbilityDefinition[] All => all ??= LoadAll();
 
@@ -53,7 +60,8 @@ public static class BodyActionCatalog
             shortCut, StoneSword(shortCut), shortSweep, StoneSword(shortSweep), Load("long-spear-thrust"), Load("long-spear-sweep"),
             Load("long-spear-deflect"), Load("heavy-hammer-drop"), Load("shield-guard"), Load("palm-yield"),
             Load("angled-retreat"), Load("charging-shoulder"), Load("bounding-step"),
-            Load("turning-throw"), Load("pressing-throw"), Load("beast-tail-sweep"), Load("beast-wing-cut") };
+            Load("turning-throw"), Load("pressing-throw"), Load("beast-tail-sweep"), Load("beast-wing-cut"),
+            KnightArmorPiercingThrust };
     }
 
     /// <summary>保留完整手路及发力，石剑版本以本身的握点及刃口执行。</summary>

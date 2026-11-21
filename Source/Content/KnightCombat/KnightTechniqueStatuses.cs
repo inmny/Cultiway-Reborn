@@ -64,11 +64,6 @@ internal static class KnightTechniqueStatuses
         ApplyGlobal(target, GuardianBulwark, 4f, source);
     }
 
-    public static void ApplyArmorBreak(Actor target, Actor source)
-    {
-        ApplyGlobal(target, ArmorBreak, 3f, source);
-    }
-
     public static bool TryGetBound(
         Actor target,
         StatusEffectAsset effect,

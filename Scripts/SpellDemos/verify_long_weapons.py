@@ -13,7 +13,8 @@ from common import PROJECT, write_json
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case', choices=('all', 'strike', 'near', 'sweep', 'interrupt', 'press', 'edit', 'range',
-                                           'obstacle', 'archive', 'cold', 'film'), default='all')
+                                           'obstacle', 'archive', 'cold', 'film', 'knight', 'knight-immune',
+                                           'knight-miss', 'knight-swap', 'knight-building'), default='all')
     parser.add_argument('--edited', type=Path, help='--case edit 生成的 edited-definition.json')
     parser.add_argument('--part', choices=('tip', 'shaft'), help='障碍复验使用的实物部位')
     parser.add_argument('--archive', type=Path, help='--case archive 的实际世界和外部核对记录目录')
@@ -89,7 +90,10 @@ def run(args, output):
         fighters = fighters.replace('Make(65.2f)', f'World.world.units.get({int(expected["target"])}L)')
     script = output / 'input.script'
     imports = 'using Friflo.Engine.ECS;\n'
-    if args.case in ('edit', 'archive'):
+    if args.case.startswith('knight'):
+        base = base.replace('"Cultiway.Body.LongSpear"', '"Cultiway.KnightTechnique.ArmorPiercingThrust"')
+        imports += 'using Cultiway.Content.KnightCombat;\nusing Cultiway.Core.SkillLibV3;\nusing Cultiway.Core.SkillLibV3.Utils;\n'
+    elif args.case in ('edit', 'archive'):
         imports += 'using Cultiway.UI;\nusing Cultiway.UI.Prefab;\nusing UnityEngine.UI;\n'
         helpers = (scripts / 'verify_unarmed_hand_editor.script').read_text().split('\ntry\n', 1)[0]
         fighters = helpers.replace('Cultiway.Body.PalmPush', 'Cultiway.Body.LongSpearThrust')
@@ -105,6 +109,8 @@ def run(args, output):
         'obstacle': 'verify_long_weapons_obstacle.script',
         'film': 'verify_long_weapons_film.script',
     }.get(args.case, 'verify_long_weapons.script')
+    if args.case.startswith('knight'):
+        case_file = 'verify_knight_thrust.script'
     body = (scripts / case_file).read_text()
     settings = f'\nconst string selection = "{args.case}";\n'
     if args.case in ('press', 'film'):

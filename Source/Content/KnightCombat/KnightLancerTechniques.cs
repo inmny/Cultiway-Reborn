@@ -1,5 +1,6 @@
 using Cultiway.Content.Combat;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Skills;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Usage;
@@ -30,7 +31,7 @@ internal static class KnightLancerTechniques
                 1.8f, 0f, 0f, 0.5f, 2f, 5f, 1f, SkillImpactKind.Piercing),
             ResolveRange = _ => 1.9f,
             ResolveEffectRadius = _ => 0f,
-            TryUse = UseArmorPiercingThrust,
+            Construction = BodyActionCatalog.KnightArmorPiercingThrust,
         };
     }
 
@@ -74,38 +75,6 @@ internal static class KnightLancerTechniques
             ResolveEffectRadius = _ => 2f,
             TryUse = UseSkyfallStrike,
         };
-    }
-
-    private static bool UseArmorPiercingThrust(KnightTechniqueContext context, ActiveAbilityUseOrigin origin)
-    {
-        KnightTechniqueRuntimeService.BeginAction(context.Caster, 0.34f);
-        Vector3 direction = KnightTechniqueRuntimeService.ResolveDirection(context.Caster.Base, context.Target);
-        KnightTechniqueVisuals.SpawnWeaponMotion(
-            context,
-            EquippedWeaponMotionKind.Thrust,
-            direction,
-            0.3f,
-            2.25f,
-            0f,
-            0f,
-            KnightTrailStyle.Lancer,
-            1.18f);
-        context.Caster.Base.punchTargetAnimation(context.Target.current_position, true, true);
-        KnightActionSequence sequence = KnightTechniqueRuntimeService.CreateSequence(context, context.Target, 1.9f);
-        DelayedActionsManager.addAction(() =>
-        {
-            if (!sequence.TryContinue(out KnightTechniqueContext active)) return;
-            KnightWeaponStrikeResolver.TryStrike(
-                active.Caster,
-                active.Weapon,
-                active.Target,
-                1.2f,
-                onPositiveActorDamage: (target, _) =>
-                {
-                    KnightTechniqueStatuses.ApplyArmorBreak(target, active.Caster.Base);
-                });
-        }, 0.14f);
-        return true;
     }
 
     private static bool UseFormationCharge(KnightTechniqueContext context, ActiveAbilityUseOrigin origin)

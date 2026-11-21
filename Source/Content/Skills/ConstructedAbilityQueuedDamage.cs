@@ -1,5 +1,6 @@
 using System;
 using Cultiway.Core.Combat;
+using Cultiway.Core.Skills;
 
 namespace Cultiway.Content.Skills;
 
@@ -51,19 +52,23 @@ public sealed partial class ConstructedAbilityService
     /// <summary>近身接触引发的原版伤害实际出队后触发；不会再次发布接触。</summary>
     public static event Action<ConstructedQueuedDamage> QueuedDamageConfirmed;
 
-    /// <summary>只保留身份和时点；换世界由现有队列清理，不在新世界补发旧接触。</summary>
-    /// <param name="cast">原施放。</param><param name="ability">原构造。</param>
-    /// <param name="source">实际来源。</param><param name="target">实际目标。</param>
+    /// <summary>用原队列的实际扣血触发状态与取证，换世界时不补发旧接触。</summary>
+    /// <param name="running">原施放，身体接触仍采用这个来源。</param>
+    /// <param name="source">实际来源。</param><param name="target">实际目标。</param><param name="targetId">接触时的目标身份。</param>
     /// <param name="number">原接触次数。</param><param name="time">真实接触时点。</param>
-    private static DamageObservation ObserveQueuedContact(long cast, string ability, long source, long target,
-        int number, double time)
+    /// <param name="impact">该次身体接触的实际作用。</param><param name="strength">确认接触时的实际强度。</param>
+    private static DamageObservation ObserveQueuedContact(RunningCast running, long source, Actor target, long targetId,
+        int number, double time, CompiledConstructionImpact impact, float strength)
     {
         long generation = worldGeneration;
-        return new DamageObservation(source, target, damage =>
+        return new DamageObservation(source, targetId, damage =>
         {
             if (generation != worldGeneration) return;
-            int? health = World.world.units.get(target)?.data?.health;
-            QueuedDamageConfirmed?.Invoke(new ConstructedQueuedDamage(cast, ability, source, target, number,
+            if (damage.HealthLost > 0)
+                ApplyDamageStatuses(running, -1, target, targetId, impact, strength);
+            if (generation != worldGeneration) return;
+            int? health = World.world.units.get(targetId)?.data?.health;
+            QueuedDamageConfirmed?.Invoke(new ConstructedQueuedDamage(running.Id, running.Cast.Plan.Id, source, targetId, number,
                 time, World.world.getCurWorldTime(), damage, health));
         });
     }

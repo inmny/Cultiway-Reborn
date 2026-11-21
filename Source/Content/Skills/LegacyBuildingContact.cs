@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Content.KnightCombat;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
@@ -30,9 +31,11 @@ internal sealed class LegacyBuildingContact
     internal readonly float ChainStartRadius;
     /// <summary>原攻击实际使用的命中声音。</summary>
     internal readonly string ImpactSound;
+    /// <summary>点名建筑使用真实手持兵器接触和原版兵器结算。</summary>
+    internal readonly bool BodyWeapon;
 
     private LegacyBuildingContact(ColliderConfig collider, long selectedBuilding, bool area, bool dealsBaseDamage,
-        float heightAllowance, float chainStartRadius, string impactSound)
+        float heightAllowance, float chainStartRadius, string impactSound, bool bodyWeapon = false)
     {
         this.collider = collider;
         SelectedBuilding = selectedBuilding;
@@ -41,7 +44,14 @@ internal sealed class LegacyBuildingContact
         HeightAllowance = heightAllowance;
         ChainStartRadius = chainStartRadius;
         ImpactSound = impactSound;
+        BodyWeapon = bodyWeapon;
     }
+
+    /// <summary>保留近身战技本次点名的原建筑，不扩大为其他建筑都可受击。</summary>
+    /// <param name="building">原入口已经核对的建筑，人物施放时为空。</param>
+    internal static LegacyBuildingContact ForWeapon(Building building) => building == null ? null :
+        new LegacyBuildingContact(new ColliderConfig { ExplicitTargetOnly = true }, building.getID(),
+            false, true, float.PositiveInfinity, 0f, null, bodyWeapon: true);
 
     /// <summary>沿用原发射是否允许扫描建筑的规则。</summary>
     /// <param name="emission">原入口已经接受的实际施放。</param>
@@ -89,14 +99,17 @@ public sealed partial class ConstructedAbilityService
     /// <param name="owner">当前部位控制者。</param>
     /// <param name="step">本次共同预测的世界时长。</param>
     /// <param name="include">加入共同接触候选。</param>
-    private void FindLegacyBuildingContacts(ShapeMotion shape, CastAuthority owner, float step, Action<ContactChoice> include)
+    /// <param name="touchFrom">实际身体接触时段进入当前形状的起点。</param>
+    private void FindLegacyBuildingContacts(ShapeMotion shape, CastAuthority owner, float step,
+        Action<ContactChoice> include, float touchFrom)
     {
         RunningCast running = shape.Running;
         int node = shape.To.Node, stage = running.Cast.BodyStage;
         LegacyBuildingContact rule = running.BuildingContact;
         bool chain = rule.ChainStartRadius > 0f;
         long chosen = 0;
-        if (node != 0)
+        if (node < 0) chosen = rule.SelectedBuilding;
+        else if (node != 0)
         {
             if (running.ChainBuildings == null || !running.ChainBuildings.TryGetValue(node, out chosen)) return;
         }
@@ -106,7 +119,7 @@ public sealed partial class ConstructedAbilityService
             if (running.Cast.Reflections(node) == 0) chosen = rule.SelectedBuilding;
         }
         if (!running.Cast.ContactInterval(node, stage, out float from, out float until)) return;
-        if (!shape.Continuous) from = 1f;
+        from = shape.Continuous ? Mathf.Max(from, touchFrom) : 1f;
         if (!LimitLegacyBuildingHeight(shape, running.LastTargetFoot.z + running.BuildingContact.HeightAllowance,
                 ref from, ref until)) return;
         Bounds bounds = shape.Bounds;
@@ -178,9 +191,15 @@ public sealed partial class ConstructedAbilityService
         int node = hit.Left.To.Node;
         CastAuthority owner = running.Owner(node);
         Building building = hit.Building;
-        if (!running.Cast.IsNodePresent(node) || building.getID() != hit.BuildingId ||
+        if ((node < 0 ? !running.BodyControlled || !running.Cast.BodyContactEnabled : !running.Cast.IsNodePresent(node)) ||
+            building.getID() != hit.BuildingId ||
             !rule.Allows(building, owner.AttackKingdom(), running.Cast.Reflections(node))) return;
         RememberContact(running, node, -hit.BuildingId);
+        if (node < 0)
+        {
+            ResolveBodyBuildingContact(hit, building);
+            return;
+        }
         long generation = worldGeneration;
         Vector3 foot = building.GetSimPos();
         bool chain = rule.ChainStartRadius > 0f;
@@ -204,5 +223,24 @@ public sealed partial class ConstructedAbilityService
             hit.LeftRayLength >= 0f ? hit.LeftRayLength : null, chain);
         if (chain) simulation.SelectContactTargets(running, node, foot);
         EndExhaustedContactGroup(running, node);
+    }
+
+    /// <summary>兵器尖端的真实接触沿用一次原版建筑受击，并使身体进入该次收势。</summary>
+    /// <param name="hit">已经确认的真实接触及身体形状。</param>
+    /// <param name="building">本次原入口选定的建筑。</param>
+    private static void ResolveBodyBuildingContact(in ContactChoice hit, Building building)
+    {
+        RunningCast running = hit.Left.Running;
+        Actor actor = running.Source;
+        CompiledConstructionImpact impact = running.Cast.Impact(-1);
+        long generation = worldGeneration;
+        bool damaged = actor.canAttackTarget(building) && impact.DamageScale > 0f &&
+                       KnightWeaponStrikeResolver.StrikeBorrowed(actor.GetExtend(), running.Body.Weapon, building,
+                           running.Power * impact.DamageScale * running.BodyStrikeScale(running.Cast.BodyStage)).state == ApplyAttackState.Hit;
+        if (generation != worldGeneration) return;
+        running.Cast.ConfirmBuildingContact(-1, hit.Point, hit.BuildingId, null, false);
+        ConfirmBodyFeedback(running, hit.Point);
+        if (damaged) RespondToBodyResult(running, BodyActionResult.Contact);
+        EndExhaustedContactGroup(running, -1);
     }
 }

@@ -2478,6 +2478,8 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 在独立游戏用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_long_weapons.py`。检查正式铁枪刺的滑握、实际枪尖命中、近身落空、两手握杆横扫及原枪归还。用 `--case strike`、`--case near`、`--case sweep` 或 `--case interrupt` 单独复验。横扫检查左手占用拒绝、两手握点和实际臂长，换器检查同款新枪也会解除旧动作。
 
+同一入口加 `--case knight` 可走原枪骑学习与使用流程，核对一笔斗气、枪尖扣血后破甲、免伤、落空和换枪归还。需要单独补验时可用 `knight-immune`、`knight-miss`、`knight-swap`。使用 `--case knight-building` 核对原入口点名的建筑经实际枪尖接触受击。
+
 `--case press --archive <输出目录>` 用正式对练档中的人物运行架杆拨锋与持剑刺击。检查接触点相合、杆身带动持剑手、收枪解除关系、双方原物归还，以及对方没有兵器时保留体力。
 
 `--case edit` 检查万法阁的实际握点、滑握比例、器物尺寸和普通接触面，并保存中英文画面和 `edited-definition.json`。使用 `--case range --edited <edited-definition.json 路径>` 实战核对该改造的选取距离、尖端接触以及原物归还。

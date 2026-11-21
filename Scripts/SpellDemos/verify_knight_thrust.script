@@ -1,0 +1,145 @@
+// 10.03：从正式枪骑学习、支付和施放入口验证实际枪尖与扣血后破甲。
+var technique = KnightTechniques.ArmorPiercingThrust;
+AbilityDefinition basis = ConstructionEditing.Access.Read(technique.id);
+var armorBreak = Cultiway.ModClass.L.StatusEffectLibrary.get("KnightArmorBreak");
+Check(basis.Body.WeaponForm == "spear" && basis.Body.Construction.Relations.Any(r => r.FromAnchor == "tip") &&
+      basis.Impact.Statuses.Single().AfterDamage && armorBreak != null, "正式目录包含实际枪尖和扣血后的破甲");
+
+owner.AddComponent(new Knight { level = 0, vigor = 80f });
+var supply = new BaseStats { [BaseStatses.MaxVigor.id] = 100f };
+var supplyEffect = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.KnightVigor") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.KnightVigor")
+        .SetStats(supply).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, supplyEffect, 10000, source);
+var protectedArmor = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.KnightArmor") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.KnightArmor")
+        .SetStats(new BaseStats { [strings.S.armor] = .5f }).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(target, protectedArmor, 10000, target);
+Ready(source);
+source.attack_timer = 999f;
+await Advance(.18f);
+
+var oldWeapon = Equip(source, "spear_iron");
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+Check(!handles.Any(h => h.EntryId == technique.id), "枪骑未掌握流派时没有原战技");
+KnightStyleMasteryService.Master(owner, KnightStyles.Lancer);
+KnightTechniqueSkills.LearnStyle(owner, KnightStyles.Lancer);
+handles.Clear();
+ActiveAbilityService.Collect(owner, handles);
+var handle = handles.Single(h => h.ProviderId == "content.knight_techniques" && h.EntryId == technique.id);
+double cost = SkillCastResources.Vigor.Quote(owner, SkillCastCost.CalculateStepDemand(handle.Source) *
+    Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, handle.Source)));
+Check(cost > 0f, "使用原执行容器计价", new { cost });
+float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose")
+    .GetMethod("Height", F).Invoke(null, new object[] { source });
+
+long castId = 0;
+AbilityCast live = null;
+var settled = new List<ConstructedQueuedDamage>();
+var buildingContacts = new List<long>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != technique.id) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(entry => (long)Field(entry, "Id") == fact.CastId);
+    castId = fact.CastId;
+    live = (AbilityCast)Field(running, "Cast");
+    Check(ReferenceEquals(Field(Field(running, "Body"), "Weapon"), oldWeapon),
+        "真实动作借用原装备槽的同一把枪");
+}
+void Damage(ConstructedQueuedDamage fact) { if (fact.CastId == castId) settled.Add(fact); }
+void ActionObserved(ConstructedActionEvent value)
+{
+    if (value.CastId == castId && value.Fact.ContactKind == AbilityActionContactKind.Building)
+        buildingContacts.Add(value.Fact.TargetId);
+}
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.QueuedDamageConfirmed += Damage;
+ConstructedAbilityService.ActionConfirmed += ActionObserved;
+try
+{
+    string[] cases = selection == "knight" ? new[] { "hit", "immune", "miss", "swap" }
+        : new[] { selection.Substring("knight-".Length) };
+    foreach (string scenario in cases)
+    {
+        Place(source, 64.35f);
+        Place(target, 64.35f + height * 2.02f);
+        target.setHealth(target.getMaxHealth());
+        source.addAggro(target);
+        target.addAggro(source);
+        CombatStatusEffects.RemoveStatus(target, armorBreak);
+        target.updateStats();
+        float armorBefore = target.stats[strings.S.armor];
+        if (scenario == "immune") target.addStatusEffect("invincible", .75f, pColorEffect: false);
+        Building building = null;
+        if (scenario == "building")
+        {
+            Place(target, 73f);
+            building = World.world.buildings.addBuilding("beehive", World.world.GetTileSimple(66, 72));
+            building.setKingdom(target.kingdom);
+        }
+        BaseSimObject chosen = (BaseSimObject)building ?? target;
+        int before = chosen.getHealth();
+        source.attack_timer = 0f;
+        owner.GetCultisys<Knight>().vigor = 80f;
+        castId = 0;
+        contacts.Clear();
+        settled.Clear();
+        var aim = new ActiveAbilityTarget(chosen, chosen.GetSimPos());
+        Check(ActiveAbilityService.TryUse(owner, handle, aim, ActiveAbilityUseOrigin.Script) && castId != 0,
+            scenario + "：原主动入口受理共同构造",
+            new { control = ActiveAbilityService.ResolveControlState(owner, handle).BlockReason.ToString(), height });
+        Check(BodyControlState.IsBusy(source.id) && Mathf.Abs(80f - owner.GetCultisys<Knight>().vigor - (float)cost) < .001f &&
+              SkillCooldownService.GetRemaining(owner, handle.Source) == technique.Cooldown,
+            scenario + "：一次斗气及原执行容器冷却，身体处于实际占用");
+        source.attack_timer = 999f;
+        if (scenario == "miss") Place(target, 70f);
+        Item replaced = scenario == "swap" ? Equip(source, "spear_iron") : oldWeapon;
+        await Advance(.55f);
+        Check(live.Finished && !BodyControlState.IsBusy(source.id) &&
+              !ConstructedAbilityService.TryGetBodyPose(source.id, out _) && ReferenceEquals(source.getWeapon(), replaced),
+            scenario + "：身体收势并保留当时装备的实际器物");
+        var hits = contacts.Where(h => h.CastId == castId).ToArray();
+        bool broken = CombatStatusEffects.HasStatus(target, armorBreak);
+        if (scenario == "hit")
+        {
+            target.updateStats();
+            float armorAfter = target.stats[strings.S.armor];
+            Check(hits.Length == 1 && hits[0].Node == -1 && before > chosen.getHealth() && settled.Count == 1 &&
+                  settled[0].Damage.HealthLost == before - chosen.getHealth() && broken && armorAfter < armorBefore,
+                "真实枪尖只结算一次，扣血后产生破甲",
+                new { hits = hits.Length, before, health = chosen.getHealth(), settled = settled.Count, broken, armorBefore, armorAfter });
+        }
+        else if (scenario == "immune")
+        {
+            Check(hits.Length == 1 && before == chosen.getHealth() && !broken,
+                "真实枪尖接触免伤人物后既不扣血也不破甲",
+                new { hits = hits.Length, before, health = chosen.getHealth(), broken });
+        }
+        else if (scenario == "building")
+        {
+            Check(buildingContacts.SequenceEqual(new[] { building.getID() }) && before > chosen.getHealth(),
+                "同一次真实枪尖接触伤到原入口点名的建筑",
+                new { buildingContacts, before, health = chosen.getHealth() });
+        }
+        else
+        {
+            Check(hits.Length == 0 && before == chosen.getHealth() && !broken,
+                scenario + "：枪尖未接触便没有伤害或破甲");
+        }
+        if (scenario != cases.Last()) await Advance(2.65f);
+    }
+    return new { passed = true, selection, cases };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Damage;
+    ConstructedAbilityService.ActionConfirmed -= ActionObserved;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

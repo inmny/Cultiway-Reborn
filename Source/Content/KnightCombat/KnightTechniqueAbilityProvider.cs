@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -192,10 +193,32 @@ internal sealed class KnightTechniqueAbilityProvider : IActiveAbilityProvider
             !TryResolveContext(caster, technique, target, true, out KnightTechniqueContext context)) return false;
         using SkillCastPayment payment =
             SkillCastCost.TryBeginStep(caster, container, SkillCastFundingSource.CasterResources);
-        if (payment == null || !technique.ActiveUse.TryUse(context, origin)) return false;
-        payment.Commit();
+        if (payment == null) return false;
+        bool started = technique.ActiveUse.Construction == null
+            ? technique.ActiveUse.TryUse(context, origin)
+            : UseConstruction(context, origin, payment, container.Id);
+        if (!started) return false;
+        if (!payment.IsCommitted) payment.Commit();
         SkillCooldownService.Start(caster, container, technique.Cooldown);
         return true;
+    }
+
+    /// <summary>将原入口已选定的对象和本次斗气交给共同动作。</summary>
+    /// <param name="context">已核对原兵器、掌握和目标的实际来源。</param>
+    /// <param name="origin">真实调用方式。</param>
+    /// <param name="payment">原来源的本次费用。</param>
+    /// <param name="sourceInstance">本次已学执行容器。</param>
+    private static bool UseConstruction(KnightTechniqueContext context, ActiveAbilityUseOrigin origin,
+        SkillCastPayment payment, int sourceInstance)
+    {
+        ActiveAbilityTarget choice = context.ActiveTarget;
+        var runtime = choice.RuntimeData;
+        runtime.Origin = origin;
+        var target = new ActiveAbilityTarget(choice.Object, choice.Position, choice.SelectionArea,
+            choice.ExplicitTargets, choice.AttackKingdom, runtime, choice.WorldScope);
+        return ConstructedAbilityService.StartPrepaid(context.Caster, context.Technique.ActiveUse.Construction,
+            target, null, payment, sourceInstance: sourceInstance,
+            buildingContact: LegacyBuildingContact.ForWeapon(choice.Object as Building), selectionAlreadyChecked: true);
     }
 
     private bool TryResolveHandle(

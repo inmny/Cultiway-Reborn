@@ -209,6 +209,8 @@ public sealed class CompiledConstructionImpact
 
     /// <summary>已解析并复制的属性状态作用。</summary>
     public IReadOnlyList<CompiledConstructionStatus> Statuses { get; }
+    /// <summary>这份作用包含等待本次实际伤害的状态。</summary>
+    internal bool HasStatusesAfterDamage { get; }
 
     /// <summary>真实伤害倍率。</summary>
     public float DamageScale { get; }
@@ -320,7 +322,9 @@ public sealed class CompiledConstructionImpact
             : Array.AsReadOnly(effects);
         if (source?.Statuses?.Length > 16) throw new InvalidDataException(path + "：每个作用面最多声明十六种属性状态");
         Statuses = source?.Statuses == null ? Array.Empty<CompiledConstructionStatus>() :
-            Array.AsReadOnly(source.Statuses.Select((status, index) => new CompiledConstructionStatus(status, path + "/Statuses/" + index)).ToArray());
+            Array.AsReadOnly(source.Statuses.Select((status, index) => new CompiledConstructionStatus(status,
+                path + "/Statuses/" + index, source.DamageScale > 0f)).ToArray());
+        HasStatusesAfterDamage = Statuses.Any(status => status.AfterDamage);
         SelectedTargetOnly = source?.SelectedTargetOnly == true;
         if (source?.FrostCoating != null)
             FrostCoating = new CompiledFrostCoating(source.FrostCoating, path + "/FrostCoating");
