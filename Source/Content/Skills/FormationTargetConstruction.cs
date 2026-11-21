@@ -36,6 +36,10 @@ internal static class FormationTargetConstruction
                 (CoreFormationEffectFamilies.Water, "frost_flower", "water", FormationTargetEffect.FrostBind),
             var entry when entry == CoreFormationSkills.FireBrand =>
                 (CoreFormationEffectFamilies.Fire, "fire_burst", "fire", FormationTargetEffect.Burn),
+            var entry when entry == CoreFormationSkills.FireEmberBurst =>
+                (CoreFormationEffectFamilies.Fire, "flame_meteor_impact", "fire", FormationTargetEffect.EmberBurst),
+            var entry when entry == CoreFormationSkills.CondensedRelease =>
+                (CoreFormationEffectFamilies.Condensed, "entropy_wedge", "entropy", FormationTargetEffect.CondensedRelease),
             var entry when entry == CoreFormationSkills.WoodLifeReturn =>
                 (CoreFormationEffectFamilies.Wood, "healing_seed", "wood", FormationTargetEffect.LifeReturn),
             var entry when entry == CoreFormationSkills.YangCleanse =>
@@ -52,7 +56,8 @@ internal static class FormationTargetConstruction
         bool self = contact is FormationTargetEffect.LifeReturn or FormationTargetEffect.YangCleanse;
         if (self && emission.Target != emission.Source ||
             !CoreFormationEffectResolver.TryResolveFamily(caster, family, out var effect) ||
-            effect.Definition.TriggerSkill != skill && contact != FormationTargetEffect.LifeReturn)
+            effect.Definition.TriggerSkill != skill &&
+            contact is not (FormationTargetEffect.LifeReturn or FormationTargetEffect.EmberBurst))
             return SkillEmissionResult.Rejected;
 
         var asset = skill.GetComponent<SkillContainer>().Asset;
@@ -72,6 +77,7 @@ internal static class FormationTargetConstruction
         float radius = SkillEffectRadius.ResolveForCaster(caster, skill, asset.ImpactProfile.CollisionRadius);
         float duration = asset.ResolveRuntimeLifetime(skill, asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier);
         float effectScale = emission.RuntimeData.ResolveEffectScale();
+        var formation = new FormationTargetContact(contact, effectScale);
         var definition = new AbilityDefinition
         {
             Id = asset.id, Name = effect.Definition.GetName(), Resource = "none", Cost = 0f, Cooldown = 0f,
@@ -112,19 +118,31 @@ internal static class FormationTargetConstruction
                 }
             }
         };
+        if (formation.UsesPlanarSpread)
+            definition.Impact.Spreads = new[]
+            {
+                new ConstructionContactSpread
+                {
+                    Radius = contact == FormationTargetEffect.EmberBurst ? 2.5f : 2f,
+                    Outcome = new ConstructionContactOutcome
+                        { Damage = new[] { new ConstructionContactDamage { PerForce = .35f, Element = element } } }
+                }
+            };
+
         var target = new ActiveAbilityTarget(emission.Target, emission.Target.GetSimPos(),
             attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         var damage = new GetHitEvent
         {
             Damage = emission.Strength * effectScale, Element = element, AttackType = AttackType.Other,
-            AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin
+            AttackerPowerLevel = formation.UsesPlanarSpread ? null : emission.PowerLevel,
+            DamageOrigin = emission.RuntimeData.DamageOrigin
         };
-        var attacker = emission.SpatialSource.isRekt() ? emission.Source : emission.SpatialSource;
+        var attacker = formation.UsesPlanarSpread || emission.SpatialSource.isRekt() ? emission.Source : emission.SpatialSource;
         damage.BindAttacker(attacker);
         return ConstructedAbilityService.StartPrepaid(caster, definition, target, emission.SourcePos, emission.Payment,
             damage, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
             groundContact: ConstructedAbilityService.LegacyContactElement(in emission), explicitReactionTarget: true,
-            formationTarget: new FormationTargetContact(contact, effectScale))
+            formationTarget: formation)
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 }

@@ -507,6 +507,156 @@ try
             Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
         }
     }
+    if (Allowed("blasts") || caseName == "blast-lost")
+    {
+        Place(source, 64.5f, 72.5f);
+        Place(enemy, 69.5f, 72.5f);
+        Place(ally, 70.25f, 72.5f);
+        source.addAggro(enemy);
+        source.addAggro(outside);
+        foreach (Actor actor in new[] { source, enemy, ally, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+        var spreads = new List<ConstructedSpread>();
+        void ObserveSpread(ConstructedSpread fact) { if (fact.OwnerId == source.id) spreads.Add(fact); }
+        ConstructedAbilityService.SpreadConfirmed += ObserveSpread;
+        var reactionDamage = new List<(long Target, ElementComposition Element, float Height)>();
+        var resolvedField = typeof(ActorExtend).GetField("action_on_damage_resolved", F);
+        object priorResolved = resolvedField.GetValue(null);
+        ActorExtend.RegisterActionOnDamageResolved((receiver, attacker, damage, element, _) =>
+        {
+            if (attacker == source && damage > 0f && CombatDamageEffects.IsResolvingReaction)
+                reactionDamage.Add((receiver.Base.id, element, receiver.Base.GetSimPos().z));
+        });
+
+        async Task WaitReady(Cultiway.Content.Libraries.CoreFormationResolvedEffect effect)
+        {
+            for (int frame = 0; frame < 45 && !SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill); frame++)
+                await Advance(.12f);
+        }
+
+        void TriggerFire(Cultiway.Content.Libraries.CoreFormationResolvedEffect effect)
+        {
+            Check(SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill), "火行原冷却已结束");
+            for (int i = 0; i < 100 && SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill); i++)
+                Strike(source, enemy, 145);
+            Check(!SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill), "原攻击触发火行反应");
+        }
+
+        FormVisualInstance[] CircleVisuals()
+        {
+            object frame = service.GetField("presentation", F).GetValue(null);
+            return ((FormVisualInstance[])Field(frame, "Forms"))
+                .Where(form => form.Resource.Description.Id == "contact_volume").ToArray();
+        }
+
+        async Task VerifyBlast(string name, float radius, int elementIndex, bool airborne,
+            int initialOutside, int friendBefore, int paid)
+        {
+            var cast = started.Single(row => row.AbilityId == Id(name));
+            var contact = contacts.Single(row => row.CastId == cast.CastId);
+            var circle = spreads.Single(row => row.CastId == cast.CastId);
+            Check(!legacy.Contains(Id(name)) && contact.TargetId == enemy.id && contact.Damage.SettledCount == 0 &&
+                circle.GroundPlane && Math.Abs(circle.Radius - radius) < .001f &&
+                circle.ContactId == enemy.id && circle.Actors.Contains(enemy.id) &&
+                !circle.Actors.Contains(ally.id) && circle.Buildings.Length == 0,
+                name + "只由原点名接触展开一次，按原投影半径选择敌人",
+                new { circle.Radius, circle.Actors, circle.ContactId });
+            Check(airborne
+                    ? circle.Actors.Contains(outside.id) && outside.data.health < initialOutside &&
+                        reactionDamage.Any(row => row.Target == outside.id && row.Height > 3f && row.Element[elementIndex] == 1f)
+                    : !circle.Actors.Contains(outside.id) && outside.data.health == initialOutside,
+                name + (airborne ? "圈内空中敌人受到原元素伤害" : "贴着圈外的敌人未受伤"),
+                new { initialOutside, outside.data.health, position = outside.GetSimPos().ToString() });
+            var drawn = CircleVisuals().Single(form => Vector2.Distance(form.Transform.GetColumn(3), circle.Center) < .03f);
+            Vector3 scale = drawn.Transform.lossyScale;
+            Check(Math.Abs(scale.x - radius) < .001f && Math.Abs(scale.y - radius) < .001f && scale.z < .25f,
+                name + "实际发布的贴地圆形与作用半径一致",
+                new { scale = scale.ToString(), center = circle.Center.ToString() });
+            Check(ally.data.health == friendBefore && spends.Count == paid &&
+                reactionDamage.Any(row => row.Target == enemy.id && row.Element[elementIndex] == 1f),
+                name + "真实追加采用原元素，友人和灵气支付未被波及");
+            await Advance(.84f);
+            Check(endings.Any(row => row.Fact.CastId == cast.CastId && !row.Fact.Cancelled) &&
+                spreads.Count(row => row.CastId == cast.CastId) == 1 && CircleVisuals().Length == 0,
+                name + "爆发与范围显示自然收束，只分送一次");
+            resultRows.Add(new { id = Id(name), cast = cast.CastId, circle.Radius, circle.Actors });
+        }
+
+        try
+        {
+            var fire = Install(CoreFormationAtoms.ElementFire, "fire", CoreFormationRealm.Jindan);
+            if (caseName == "blast-lost")
+            {
+                CombatStatusEffects.ApplyStatus(enemy, StatusEffects.Burn, 4f, source);
+                TriggerFire(fire);
+                Strike(source, enemy, enemy.getMaxHealth() * 2f);
+                enemy.checkDeath();
+                await Advance(.7f);
+                Check(!enemy.isAlive() && started.All(row => row.AbilityId != Id("FireEmberBurst")) &&
+                    !legacy.Contains(Id("FireEmberBurst")) && spreads.Count == 0 && CircleVisuals().Length == 0,
+                    "原目标在排入后、接触前实际死亡，没有爆发、伤害面或画面");
+            }
+            else
+            {
+                Place(outside, 72.10f, 72.5f);
+                ConstructedAbilityService.NotifyActorChanged(outside);
+                TriggerFire(fire);
+                await Advance(.21f);
+                Check(CombatStatusEffects.HasStatus(enemy, StatusEffects.Burn, source), "首次真实攻击产生自身灼烧");
+                await WaitReady(fire);
+                CombatStatusEffects.ApplyStatus(enemy, StatusEffects.Burn, 4f, ally);
+                reactionDamage.Clear();
+                int outsideHealth = outside.data.health, allyHealth = ally.data.health, paid = spends.Count;
+                TriggerFire(fire);
+                await Advance(.16f);
+                Check(!CombatStatusEffects.HasStatus(enemy, StatusEffects.Burn, source) &&
+                    CombatStatusEffects.HasStatus(enemy, StatusEffects.Burn, ally),
+                    "焚烬只移除原目标身上的同源火印");
+                await VerifyBlast("FireEmberBurst", 2.5f, Cultiway.Const.ElementIndex.Fire, false, outsideHealth, allyHealth, paid);
+
+                var condensed = Install(CoreFormationAtoms.StructureCondensed, "condensed", CoreFormationRealm.Jindan);
+                var draft = new SkillContainerBuilder(SkillEntities.SpiritShield).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+                string signature = SkillContainerSignature.Build(draft);
+                owner.LearnSkillV3(draft);
+                var available = new List<ActiveAbilityHandle>();
+                ActiveAbilityService.Collect(owner, available);
+                var shield = available.Single(handle => handle.ProviderId == "core.learned_skill" &&
+                    SkillContainerSignature.Build(handle.Source) == signature);
+                await WaitReady(condensed);
+                for (int attempt = 0; attempt < 30 && SkillCooldownService.IsReady(owner, condensed.Definition.CooldownSkill); attempt++)
+                {
+                    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .65f;
+                    int before = spends.Count;
+                    Check(ActiveAbilityService.TryUse(owner, shield, new ActiveAbilityTarget(source, source.GetSimPos()),
+                        ActiveAbilityUseOrigin.Player), "凝元蓄势的已学护盾正式受理");
+                    for (int frame = 0; frame < 5 && spends.Count == before; frame++) await Advance(.12f);
+                    Check(spends.Count == before + 1, "蓄势来源法术确实支付一次");
+                }
+                Check(!State(condensed).IsNull && State(condensed).GetComponent<CoreFormationEffectState>().charges == 1,
+                    "真实已付费法术建立一次凝元蓄势");
+                Place(outside, 71.4f, 72.5f);
+                typeof(BaseSimObject).GetField("position_height", F).SetValue(outside, 5f);
+                ConstructedAbilityService.NotifyActorChanged(outside);
+                outsideHealth = outside.data.health;
+                allyHealth = ally.data.health;
+                paid = spends.Count;
+                reactionDamage.Clear();
+                float balance = owner.GetCultisys<Xian>().wakan;
+                Strike(source, enemy, 145);
+                float restored = owner.GetCultisys<Xian>().wakan - balance;
+                Check(State(condensed).IsNull && Math.Abs(restored - condensed.Potency * 8f) < .003f,
+                    "首次实际命中消耗凝元并按原值回气", new { restored, expected = condensed.Potency * 8f });
+                Strike(source, enemy, 145);
+                await Advance(.16f);
+                await VerifyBlast("CondensedRelease", 2f, Cultiway.Const.ElementIndex.Earth, true, outsideHealth, allyHealth, paid);
+                Place(outside, 91.5f, 72.5f);
+            }
+        }
+        finally
+        {
+            ConstructedAbilityService.SpreadConfirmed -= ObserveSpread;
+            resolvedField.SetValue(null, priorResolved);
+        }
+    }
     if (caseName == "support" || Allowed("life-return") || Allowed("cleanse"))
     {
         Place(ally, source.current_position.x, source.current_position.y);

@@ -89,7 +89,7 @@ internal sealed class CoreFormationSkills : ICanInit
             0f, false, true);
         FireEmberBurst = BuildTarget(
             "FireEmberBurst", "fire_ember_burst", 0.1f, ElementComposition.Static.Fire,
-            0f, false, true, OnFireEmberBurst);
+            0f, false, true);
         EarthWard = BuildVisual("EarthWard", "earth_ward", 0.09f, ElementComposition.Static.Earth);
         EarthWardImpact = BuildVisual(
             "EarthWardImpact", "earth_ward_impact", 0.085f, ElementComposition.Static.Earth);
@@ -117,7 +117,7 @@ internal sealed class CoreFormationSkills : ICanInit
             "ReservoirOrb", "reservoir_orb", 0.08f, ElementComposition.Static.Wood);
         CondensedRelease = BuildTarget(
             "CondensedRelease", "condensed_release", 0.09f, Element(ElementIndex.Entropy),
-            0f, false, true, OnCondensedRelease);
+            0f, false, true);
         SpiritEcho = BuildVisual(
             "SpiritEcho", "spirit_echo", 0.08f, Element(ElementIndex.Pos));
         SwordChase = BuildTarget(
@@ -408,19 +408,6 @@ internal sealed class CoreFormationSkills : ICanInit
         return true;
     }
 
-    /// <summary>消耗目标的同源灼烧，并在目标周围产生火行爆发。</summary>
-    private static void OnFireEmberBurst(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target)) return;
-        CombatStatusEffects.RemoveStatus(target, StatusEffects.Burn, source);
-        CombatDamageEffects.DealAreaReactionDamage(
-            source,
-            target.current_position,
-            2.5f,
-            context.Strength * context.EffectScale * 0.35f,
-            ElementComposition.Static.Fire);
-    }
-
     /// <summary>汲取目标灵气；无灵气可取时施加衰弱和阴行伤害。</summary>
     private static void OnYinDrain(Entity skillEntity, BaseSimObject value)
     {
@@ -438,18 +425,6 @@ internal sealed class CoreFormationSkills : ICanInit
             context.Strength * context.EffectScale * 0.25f,
             Element(ElementIndex.Neg),
             attackerPowerLevel: context.PowerLevel);
-    }
-
-    /// <summary>在明确目标处释放凝元范围伤害。</summary>
-    private static void OnCondensedRelease(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target)) return;
-        CombatDamageEffects.DealAreaReactionDamage(
-            source,
-            target.current_position,
-            2f,
-            context.Strength * context.EffectScale * 0.35f,
-            context.ResolveElement(Element(ElementIndex.Entropy)));
     }
 
     /// <summary>把炼体反击碰撞命中的明确攻击者推离施法者。</summary>

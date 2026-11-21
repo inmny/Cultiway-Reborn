@@ -1252,7 +1252,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (primaryDamage.HealthLost > 0 && running.Cast.Plan.Id == BalefulWindConstruction.WaveId)
             AddWindScar(running, node, actor.Actor, hit.Point, false);
         if (result == ApplyAttackState.Hit)
-            ApplyContactSpreads(running, node, actor.Id, impact, spreadCenter, simulation.contactTime, strength);
+            ApplyContactSpreads(running, node, actor.Id, impact, spreadCenter, simulation.contactTime, strength,
+                groundPlane: running.FormationTarget.UsesPlanarSpread);
         if (contactGeneration != worldGeneration) return;
         if (node >= 0 && result == ApplyAttackState.Hit && running.Cast.Plan.ActorTransferSteps.Length != 0)
             ResolveActorTransfer(running, node, actor.Actor, actor.Id, contactGeneration);

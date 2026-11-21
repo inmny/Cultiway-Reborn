@@ -20,6 +20,10 @@ internal enum FormationTargetEffect
     FrostBind,
     /// <summary>施加原火行周期伤害。</summary>
     Burn,
+    /// <summary>清除点名目标的同源灼烧并展开平面爆发。</summary>
+    EmberBurst,
+    /// <summary>点名接触展开平面凝元爆发。</summary>
+    CondensedRelease,
     /// <summary>回补木毒击杀者的生命和灵气。</summary>
     LifeReturn,
     /// <summary>移除一项负面状态并恢复生命。</summary>
@@ -33,6 +37,9 @@ internal readonly struct FormationTargetContact
     internal readonly FormationTargetEffect Effect;
     /// <summary>本次原修炼来源和载体合计的作用倍率。</summary>
     internal readonly float EffectScale;
+
+    /// <summary>原派生按地面半径判断，不用三维球体改变圈外或空中的受击规则。</summary>
+    internal bool UsesPlanarSpread => Effect is FormationTargetEffect.EmberBurst or FormationTargetEffect.CondensedRelease;
 
     /// <summary>保存实际发射的作用和倍率，结算时不重新计算。</summary>
     /// <param name="effect">点名反应。</param>
@@ -80,6 +87,9 @@ public sealed partial class ConstructedAbilityService
             case FormationTargetEffect.Burn:
                 CombatStatusEffects.ApplyTickingStatus(target, StatusEffects.Burn, 4f, strength * .2f / 4f,
                     ElementComposition.Static.Fire, source);
+                break;
+            case FormationTargetEffect.EmberBurst:
+                CombatStatusEffects.RemoveStatus(target, StatusEffects.Burn, source);
                 break;
             case FormationTargetEffect.LifeReturn:
                 CombatResourceEffects.RestoreHealth(source, source.stats[S.health] * .025f * contact.EffectScale);

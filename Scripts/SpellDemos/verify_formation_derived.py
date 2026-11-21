@@ -17,6 +17,8 @@ SECTIONS = {
     'burn': ('FireBrand',),
     'life-return': ('WoodLifeReturn', 'WoodVenomBloom'),
     'cleanse': ('YangCleanse', 'PureYangCleanse'),
+    'blasts': ('FireEmberBurst', 'FireBrand', 'CondensedRelease', 'ReservoirOrb'),
+    'blast-lost': ('FireEmberBurst',),
 }
 
 
