@@ -1,0 +1,85 @@
+// 正式御器、飞剑与剑阵复用的玩家、对练对象和原件入口。
+const string bowProvider = "content.weapon_control";
+const string artifactProvider = "content.artifact";
+string swordId = ArtifactAbilities.FlyingSwordAttack.id;
+string arrayId = ArtifactAbilities.SplittingSwordArray.id;
+var flightType = service.Assembly.GetType("Cultiway.Content.WeaponControl.WeaponControlFlight");
+var flights = flightType.GetField("active", F).GetValue(null);
+var flightCount = flights.GetType().GetProperty("Count", F);
+var sessions = (IDictionary)service.Assembly.GetType("Cultiway.Content.WeaponControl.WeaponControlRuntimeService")
+    .GetField("Sessions", F).GetValue(null);
+var projectiles = (HashSet<Projectile>)service.Assembly.GetType("Cultiway.Content.Combat.NativeProjectileFlights")
+    .GetField("Active", F).GetValue(null);
+var lifecycle = typeof(ArtifactAbilityLifecycle).GetMethod("Synchronize", F);
+var boost = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ArtifactSword") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ArtifactSword")
+        .SetStats(new BaseStats { [BaseStatses.MaxWakan.id] = 10000,
+            [nameof(Cultiway.WorldboxGame.BaseStats.DivineSense)] = 10000 })
+        .SetDuration(10000).Build();
+
+Entity MakeArtifact(ActorExtend owner, string abilityId, params Cultiway.Content.Libraries.ArtifactAtomAsset[] atoms)
+{
+    var design = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+    {
+        Shape = ItemShapes.Sword, Atoms = atoms, Level = new ItemLevel { Stage = 1, Level = 3 },
+        Name = "御器存档 " + abilityId
+    });
+    var blueprint = ArtifactBlueprintCodec.FromComposeResult(design);
+    var ability = blueprint.AbilitySet.abilities.Single(value => value.ability_id == abilityId);
+    blueprint.AbilitySet = new ArtifactAbilitySet { abilities = new[] { ability } };
+    Entity artifact = ArtifactBlueprintCodec.Materialize(blueprint, owner.Base.getName());
+    owner.AddSpecialItem(artifact);
+    Check(owner.EquipArtifact(artifact, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+        "正式装备原件 " + abilityId);
+    return artifact;
+}
+ActiveAbilityHandle Bow(ActorExtend owner)
+{
+    var handles = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, handles);
+    return handles.Single(handle => handle.ProviderId == bowProvider);
+}
+ArtifactAbilityInstance Definition(Entity artifact, string id) =>
+    artifact.GetComponent<ArtifactAbilitySet>().abilities.Single(value => value.ability_id == id);
+ArtifactAbilityRuntimeEntry Entry(Entity artifact, string id) =>
+    artifact.GetComponent<ArtifactAbilityRuntime>().abilities.Single(value => value.instance_id == Definition(artifact, id).instance_id);
+ActiveAbilityHandle ArtifactHandle(Entity artifact, string id) =>
+    new ActiveAbilityHandle(artifactProvider, artifact, Definition(artifact, id).instance_id);
+int Projections() => Cultiway.ModClass.I.W.Query<ArtifactSpatialProjection>().Count;
+int Flights() => (int)flightCount.GetValue(flights);
+bool Use(ActorExtend owner, ActiveAbilityHandle handle, Actor target)
+{
+    owner.Base.attack_timer = 0;
+    bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()),
+        ActiveAbilityUseOrigin.Script);
+    owner.Base.attack_timer = 999;
+    return used;
+}
+async Task Setup(Actor source, Actor target)
+{
+    foreach (var actor in World.world.units.getSimpleList().Where(a => a != source).ToArray())
+    {
+        CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+        if (actor != target) Place(actor, 12, 12);
+    }
+    var owner = source.GetExtend();
+    CombatStatusEffects.ApplyStatus(source, boost, 10000, source);
+    owner.MarkCultiwayStatsDirty();
+    Ready(source);
+    source.attack_timer = target.attack_timer = 999;
+    await Advance(.16f);
+    Place(source, 64.35f);
+    Place(target, 66.55f);
+    source.addAggro(target);
+    target.addAggro(source);
+    owner.GetCultisys<Xian>().wakan = 9000;
+    target.restoreHealth(target.getMaxHealth());
+}
+async Task WaitFor(Func<bool> condition, float limit)
+{
+    double deadline = World.world.getCurWorldTime() + limit;
+    Config.paused = false;
+    await Game.WaitUntil(() => condition() || World.world.getCurWorldTime() >= deadline, 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}

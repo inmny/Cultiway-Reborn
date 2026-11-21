@@ -2769,3 +2769,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用 `--section artifact-sword` 从正式合成和装备入口检查原飞剑。记录原位起飞、两个视角共用姿态、刃段实际扣血、失去目标后巡航、召回过程中停伤、回到移动后的持有者，以及重新出剑后的控制失效清理。
 
 用 `--section artifact-array` 检查正式分光剑阵的一次付费、成阵、实际单刃接触、同一刃归阵和自然收束。用 `--section artifact-array-recall` 单独检查主动收阵立即停伤、全部剑影回到原物位置、再次施放及运行资格撤除后的清理。
+
+用 `dev.py exec --timeout 170 -- python3 Scripts/SpellDemos/verify_weapon_flight_archive.py --section prepare`，让原弓、飞剑和分光剑阵同时运行，正式保存并在同一进程换世界。退出并重新启动后，用同一脚本的 `--section cold --archive <prepare 输出目录>`，核对原件、完整参数、冷却、临时对象清理和再次施放。`--section legacy --archive <5.15 留下的 variant-save 目录>` 从原档本身提取预期，再用原法宝命中并召回。
