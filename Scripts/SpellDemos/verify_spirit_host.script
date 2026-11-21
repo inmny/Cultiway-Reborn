@@ -129,6 +129,53 @@ try
     owner.GetCultisys<Xian>().wakan = 9000f;
     Check(Soul() == 0f && !Activate() && starts.Count == 0 && fees.Count == 0 && Host().Length == 0 && !HasGate(),
         "空幡拒绝发起，真元和画面都未提交");
+    if (triggersOnly)
+    {
+        var visuals = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Visuals.ArtifactSpatialVisualRuntime")
+            .GetField("entries", F).GetValue(null);
+        var meshes = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem")
+            .GetField("Meshes", F).GetValue(null);
+        object ghost = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Visuals.SpatialEnergyGeometry")
+            .GetField("Avatar", F).GetValue(null);
+        ArtifactAbilityVisualContext[] Harvest() => visuals.Cast<object>()
+            .Where(entry => (double)Field(entry, "Closing") < 0d)
+            .Select(entry => (ArtifactAbilityVisualContext)Field(entry, "Context"))
+            .Where(value => value.artifact == banner && value.channel == "drain").ToArray();
+        object ImageOfSoul() => meshes.Cast<object>().SingleOrDefault(item => ReferenceEquals(Field(item, "Model"), ghost));
+
+        Place(witness, 67.5f);
+        source.addAggro(witness);
+        witness.addAggro(source);
+        long witnessId = witness.id;
+        int health = witness.data.health;
+        var composition = ElementComposition.Static.Iron;
+        witness.GetExtend().GetHit(80f, ref composition, source, AttackType.Weapon, ignore_damage_reduction: true);
+        await Game.NextFrame();
+        Check(witness.data.health < health && witness.isAlive() && kills.Count == 0 && Soul() == 0f && Harvest().Length == 0,
+            "真实非致死伤害未入账或出现魂影");
+        Vector2 fallen = witness.current_position;
+        witness.GetExtend().GetHit(witness.getMaxHealth() * 4f, ref composition, source, AttackType.Weapon,
+            ignore_damage_reduction: true);
+        await WaitFor(() => kills.Contains(witnessId), .70f);
+        await Game.NextFrame();
+        var received = Harvest();
+        Check(kills.SequenceEqual(new[] { witnessId }) && Close(Soul(), perKill) && received.Length == 1 &&
+              Vector2.Distance(received[0].position, fallen) < .025f && Close(received[0].intensity, perKill) &&
+              ImageOfSoul() != null && (World.world.units.get(witnessId) == null || !World.world.units.get(witnessId).isAlive()),
+            "实际击杀只入账一次，魂影从原位置出现", new { witnessId, stored = Soul(), perKill, fallen = fallen.ToString() });
+        Vector3 before = (Vector3)Field(ImageOfSoul(), "Position");
+        await Advance(.15f);
+        Vector3 after = (Vector3)Field(ImageOfSoul(), "Position");
+        Check(after.x < before.x - .12f && Harvest().Length == 1 && Close(Soul(), perKill),
+            "同一魂影朝原幡收束，存量保持单次实账", new { before = before.ToString(), after = after.ToString() });
+        if (shots)
+            await CaptureArtifactViews("soul-harvest", source.current_position, 2.7f,
+                () => Harvest().Length == 1 && ImageOfSoul() != null, nativeZoom: 2.9f, closeSubject: source);
+        await Advance(.60f);
+        Check(Harvest().Length == 0 && ImageOfSoul() == null && Close(Soul(), perKill) && Held(),
+            "魂影收束后原物存量仍在，未重复入账");
+        return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
     await CollectSouls(soulCost * 2f);
     float stored = Soul();
     owner.GetCultisys<Xian>().wakan = 0f;

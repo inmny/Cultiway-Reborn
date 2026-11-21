@@ -47,6 +47,12 @@ void Paid(ActorExtend actor, in WakanMutation change)
 ArtifactAbilityRuntimeEntry Current() => Entry(robe, asset.id);
 bool Active() => Current().activity_kind != ArtifactAbilityActivityKind.None;
 bool Hidden() => CombatStatusEffects.HasStatus(source, StatusEffects.Concealed);
+var cues = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Visuals.ArtifactSpatialVisualRuntime")
+    .GetField("entries", F).GetValue(null);
+ArtifactAbilityVisualContext[] Feedback(string channel) => cues.Cast<object>()
+    .Where(entry => (double)Field(entry, "Closing") < 0d)
+    .Select(entry => (ArtifactAbilityVisualContext)Field(entry, "Context"))
+    .Where(value => value.artifact == robe && value.asset == asset && value.channel == channel).ToArray();
 object[] Drapes() => visuals.Cast<object>().Where(item =>
     (string)Field(Field(item, "Model"), "Name") == "heavenly_concealment_drape").ToArray();
 Vector3 DrapePosition() => (Vector3)Field(Drapes().Single(), "Position");
@@ -75,13 +81,14 @@ try
     WorldTip.hideNow();
     Tooltip.hideTooltipNow();
     owner.GetCultisys<Xian>().wakan = 0f;
-    Check(!Activate() && fees.Count == 0 && !Active() && !Hidden() && Drapes().Length == 0,
-        "启动费不足时无隐匿或披帛");
+    if (!triggersOnly)
+        Check(!Activate() && fees.Count == 0 && !Active() && !Hidden() && Drapes().Length == 0,
+            "启动费不足时无隐匿或披帛");
     // 同一件正式衣物带有受击护盾和护主充能。先用真实来伤消耗它们，
     // 然后在它们各自的恢复时间内比较同一穿戴者的两次伤害。
     int guardedHit = await MeasureDamage(enemy, source);
     int original = await MeasureDamage(enemy, source);
-    Check(guardedHit > 0 && guardedHit < original && original == 800,
+    Check(guardedHit > 0 && guardedHit < original && original == 800 && Feedback("guard").Length == 0,
         "先用实际来伤消耗被动护持，再记录同等来伤的基准", new { guardedHit, original });
     source.restoreHealth(source.getMaxHealth());
     source.updateStats();
@@ -94,36 +101,52 @@ try
     Check(Mathf.Abs(Speed() - baseSpeed - speedBonus) < .02f, "移速增加原参数值",
         new { baseSpeed, activeSpeed = Speed(), speedBonus });
     int protectedHit = await MeasureDamage(enemy, source);
-    Check(protectedHit > 0 && Mathf.Abs(protectedHit - original * (1f - damageReduction)) <= 2f && Active() && Hidden(),
+    await Game.NextFrame();
+    var guard = Feedback("guard");
+    Check(protectedHit > 0 && Mathf.Abs(protectedHit - original * (1f - damageReduction)) <= 2f && Active() && Hidden() &&
+          guard.Length == 1 && guard[0].target == enemy && Mathf.Abs(guard[0].intensity - damageReduction) < .005f,
         "同等实际来伤按原比例降低，受击后仍持续",
         new { original, protectedHit, reduction = damageReduction });
 
-    await WaitFor(() => fees.Count >= 2, .70f);
-    Check(fees.Count == 2 && Mathf.Abs(fees[1] - upkeep) < .003f && Drapes().Length == 1,
-        "原间隔支付原维持费，贴身显示一件披帛", new { upkeep, paid = fees.LastOrDefault() });
-    Vector3 originalPoint = DrapePosition();
     if (shots)
     {
         ControllableUnit.clear(false);
         MoveCamera.clearFocusUnitOnly();
         await Game.NextFrame();
-        await CaptureArtifactViews("robe", originalPoint, 3.8f,
-            () => Hidden() && Drapes().Length == 1 && Vector2.Distance(DrapePosition(), source.current_position) < .02f,
-            nativeZoom: 2.3f, closeSubject: source);
+        await CaptureArtifactViews("veil-guard", source.current_position, 1.8f,
+            () => Hidden() && Feedback("guard").Length == 1, nativeZoom: 2.6f, closeSubject: source);
     }
-    Place(source, originalPoint.x + 2f, originalPoint.y);
-    await Advance(.08f);
-    Vector3 movedPoint = DrapePosition();
-    Check(Vector2.Distance(movedPoint, source.current_position) < .02f && movedPoint.x > originalPoint.x + 1.9f,
-        "同一层衣面随实际穿戴者移动", new { from = originalPoint.x, to = movedPoint.x });
+    if (!triggersOnly)
+    {
+        await WaitFor(() => fees.Count >= 2, .70f);
+        Check(fees.Count == 2 && Mathf.Abs(fees[1] - upkeep) < .003f,
+            "原间隔支付原维持费", new { upkeep, paid = fees.LastOrDefault() });
+        await WaitFor(() => Drapes().Length == 1, .44f);
+        Vector3 originalPoint = DrapePosition();
+        if (shots)
+            await CaptureArtifactViews("robe", originalPoint, 3.8f,
+                () => Hidden() && Drapes().Length == 1 && Vector2.Distance(DrapePosition(), source.current_position) < .02f,
+                nativeZoom: 2.3f, closeSubject: source);
+        Place(source, originalPoint.x + 2f, originalPoint.y);
+        await Advance(.08f);
+        Vector3 movedPoint = DrapePosition();
+        Check(Vector2.Distance(movedPoint, source.current_position) < .02f && movedPoint.x > originalPoint.x + 1.9f,
+            "同一层衣面随实际穿戴者移动", new { from = originalPoint.x, to = movedPoint.x });
+    }
 
     int outgoing = await MeasureDamage(source, enemy);
+    await Game.NextFrame();
     source.updateStats();
-    Check(outgoing > 0 && !Active() && !Hidden() && Mathf.Abs(Speed() - baseSpeed) < .02f,
+    Check(outgoing > 0 && !Active() && !Hidden() && Mathf.Abs(Speed() - baseSpeed) < .02f &&
+          Feedback("veil_reveal").Length == 1,
         "穿戴者造成实际伤害即破隐，移速归还", new { outgoing, recoveredSpeed = Speed() });
-    await Advance(.20f);
+    if (shots && triggersOnly)
+        await CaptureArtifactViews("veil-reveal", source.current_position, 1.8f,
+            () => !Hidden() && Feedback("veil_reveal").Length == 1, nativeZoom: 2.6f, closeSubject: source);
+    await Advance(.46f);
     Check(Drapes().Length == 0 && owner.GetItems().Contains(robe) && owner.GetEquippedArtifacts().Contains(robe),
         "披帛收束并继续穿戴原件");
+    if (triggersOnly) return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
     float wait = (float)(Current().cooldown_until - World.world.getCurWorldTime());
     if (wait > 0f) await Advance(wait + .08f);
     owner.GetCultisys<Xian>().wakan = 1200f;

@@ -342,8 +342,7 @@ public partial class ArtifactAbilities
                 ability,
                 runtime,
                 ArtifactVisualChannels.Drain,
-                evt.Victim.current_position,
-                target: evt.Victim,
+                new Vector3(evt.Victim.current_position.x, evt.Victim.current_position.y, evt.Victim.position_height + .18f),
                 intensity: stored);
         }
     }
@@ -389,12 +388,20 @@ public partial class ArtifactAbilities
 
     private static void ConfigureBannerAbilityVisuals()
     {
+        ArtifactLocalVisualCue harvest = new(ArtifactLocalVisualKind.SoulGathering)
+        {
+            anchor = ArtifactVisualAnchorKind.Point,
+            color_role = ArtifactVisualColorRole.Glow,
+            scale = .075f,
+            alpha = .88f,
+            loop = false,
+        };
         SpiritHostManifestation.Visualize(
             Theme(SkillVfxElements.Entropy.AccentColor)
                 .Signal(
                     ArtifactVisualChannels.Drain,
-                    Burst(ArtifactVisualAnchorKind.Point, ArtifactVisualColorRole.Glow, 4, .35f),
-                    .35f,
+                    harvest,
+                    .52f,
                     "artifact.spirit_host.harvest",
                     ArtifactVisualStackPolicy.MergeIntensity
                 )

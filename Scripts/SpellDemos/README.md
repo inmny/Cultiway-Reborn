@@ -2877,3 +2877,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 破甲剑芒与连珠共鸣（10.06）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_artifact_hit_cast_passives.py` 核对实际扣血、破甲和到期回归，以及新构造和旧序列的真元扣费、回注与冷却。用 `--section armor|resonance` 指定能力，或用 `--skip-views` 只检查游戏行为。
+
+### 阴兵储魂与遁形受击（10.06）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_spirit_host.py --triggers-only` 核对非致死伤害、实际击杀储魂和魂影收束。用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_robe_concealment.py --triggers-only` 核对受击减伤、隐匿状态和造成伤害后的收衣。两个入口均可加 `--skip-views` 只检查游戏行为。

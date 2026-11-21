@@ -361,13 +361,13 @@ internal static class ArtifactSpatialVisualRuntime
                 SpatialVisualDraw.Ring(meshes, point, size, color, Quaternion.identity); break;
             case ArtifactLocalVisualKind.Veil:
                 Actor carrier = context.controller.GetComponent<ActorBinder>().Actor;
-                float height = SpatialActorPose.Height(carrier);
+                float height = cue.loop ? SpatialActorPose.Height(carrier) : size;
                 float opening = Mathf.SmoothStep(.42f, 1f, Mathf.Clamp01(age / .22f));
                 float sway = Mathf.Sin(age * 6f) * .04f;
                 Vector3 drape = new(height * opening * (1f + sway), height * opening * (1f - sway), height);
                 Quaternion facing = Quaternion.Euler(0f, 0f, carrier.flip ? 180f : 0f);
                 SpatialVisualDraw.Mesh(meshes, ArtifactVeilGeometry.Drape, point, facing, drape, color, false,
-                    carrier.current_position, additive: false);
+                    cue.loop ? (Vector3)carrier.current_position : point, additive: false);
                 break;
             case ArtifactLocalVisualKind.FoldedShield:
                 Actor protectedActor = context.controller.GetComponent<ActorBinder>().Actor;
@@ -414,6 +414,16 @@ internal static class ArtifactSpatialVisualRuntime
                         size * new Vector3(.28f, .15f, .09f), i == 0 ? edge : color, false, point,
                         additive: false, surface: SpatialSurface.Metal);
                 }
+                break;
+            case ArtifactLocalVisualKind.SoulGathering:
+                if (!Resolve(context, ArtifactVisualAnchorKind.Artifact, Vector3.forward * .14f, false, out Vector3 banner)) return;
+                float drawn = Mathf.SmoothStep(0f, 1f, progress);
+                Vector3 spirit = Vector3.Lerp(point, banner, drawn) +
+                    Vector3.forward * (Mathf.Sin(drawn * Mathf.PI) * size * .48f);
+                float remnant = size * Mathf.Lerp(1f, .18f, drawn);
+                SpatialVisualDraw.Mesh(meshes, SpatialEnergyGeometry.Avatar, spirit, Quaternion.identity,
+                    new Vector3(remnant * .7f, remnant * .55f, remnant), color, true, spirit,
+                    additive: false, surface: SpatialSurface.Energy);
                 break;
             default:
                 SpatialVisualDraw.Mesh(meshes, SpatialVisualGeometry.Spark, point, Quaternion.Euler(age * 90f, age * 45f, 0f), Vector3.one * size, color, true); break;

@@ -1,4 +1,5 @@
 using Cultiway.Content.Artifacts;
+using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
@@ -20,7 +21,7 @@ public partial class ArtifactAbilities
     /// <summary>充能护体被动；维持可自动恢复的云袍护盾池，吸收持有者受到的伤害。</summary>
     public static ArtifactAbilityAsset CloudRobeShield { get; private set; }
 
-    /// <summary>持续隐匿主动；提供隐匿、移速和减伤，受击或活动结束时解除。</summary>
+    /// <summary>持续隐匿主动；提供隐匿、移速和减伤，造成伤害或活动结束时解除。</summary>
     public static ArtifactAbilityAsset HeavenlyConcealment { get; private set; }
 
     /// <summary>受击卸力被动；转移部分所受伤害反击攻击者，并对其施加推拉力。</summary>
@@ -189,6 +190,7 @@ public partial class ArtifactAbilities
         ArtifactDamageDealtEvent _)
     {
         ArtifactAbilityLifecycle.InterruptActivity(context, ability, ref runtime);
+        ArtifactAbilityVisuals.Emit(context, ability, runtime, "veil_reveal");
     }
 
     private static void EndHeavenlyConcealment(
@@ -209,7 +211,18 @@ public partial class ArtifactAbilities
         ArtifactIncomingDamageEvent evt)
     {
         float reduction = ability.GetNumber(DamageReduction) * context.effect_scale;
+        float incoming = evt.Damage;
         evt.Damage *= 1f - reduction;
+        if (evt.Damage >= incoming) return;
+        Actor carrier = context.ResolveCarrierActor();
+        Vector3 towardAttacker = evt.Attacker == null || evt.Attacker.isRekt()
+            ? Vector3.zero
+            : (Vector2)evt.Attacker.current_position - carrier.current_position;
+        float height = SpatialActorPose.Height(carrier);
+        Vector3 point = evt.ContactPoint ?? SpatialActorPose.Foot(carrier) +
+            Vector3.forward * height * .5f + towardAttacker.normalized * (height * .22f);
+        ArtifactAbilityVisuals.Emit(context, ability, runtime, ArtifactVisualChannels.Guard, point,
+            target: evt.Attacker, intensity: reduction, contactPoint: evt.ContactPoint);
     }
 
     private static void ConfigureDamageDiversion()
@@ -308,6 +321,22 @@ public partial class ArtifactAbilities
             color_role = ArtifactVisualColorRole.Primary,
             alpha = .88f,
         };
+        ArtifactLocalVisualCue fold = new(ArtifactLocalVisualKind.Veil)
+        {
+            anchor = ArtifactVisualAnchorKind.Point,
+            color_role = ArtifactVisualColorRole.Glow,
+            scale = .067f,
+            alpha = .8f,
+            loop = false,
+        };
+        ArtifactLocalVisualCue reveal = new(ArtifactLocalVisualKind.Veil)
+        {
+            anchor = ArtifactVisualAnchorKind.Controller,
+            color_role = ArtifactVisualColorRole.Primary,
+            scale = .11f,
+            alpha = .72f,
+            loop = false,
+        };
         HeavenlyConcealment.Visualize(
             Theme(SkillVfxElements.Wind.AccentColor)
                 .Loop(
@@ -317,6 +346,9 @@ public partial class ArtifactAbilities
                     "artifact.heavenly_concealment",
                     ArtifactVisualStackPolicy.Strongest
                 )
+                .Signal(ArtifactVisualChannels.Guard, fold, .24f, "artifact.heavenly_concealment.hit",
+                    ArtifactVisualStackPolicy.SinglePerController)
+                .Signal("veil_reveal", reveal, .28f)
         );
     }
 
