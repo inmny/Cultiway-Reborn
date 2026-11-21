@@ -73,6 +73,10 @@ def main():
         'falling-rock': ('Cultiway.FallingRock', 3),
         'wood-spear': ('Cultiway.WoodSpear', 2),
         'falling-timber': ('Cultiway.FallingTimber', 2),
+        'spirit-bolt': ('Cultiway.SpiritBolt', 1),
+        'yin-bolt': ('Cultiway.YinBolt', 1),
+        'yang-bolt': ('Cultiway.YangBolt', 1),
+        'chaos-orb': ('Cultiway.ChaosOrb', 1),
     }
     batches = {
         'water-family': ('water-arrow', 'water-orb', 'water-blade'),
@@ -81,6 +85,7 @@ def main():
         'ice-projectiles': ('ice-shard', 'ice-lance', 'icefall'),
         'earth-projectiles': ('rock-projectile', 'stone-cone', 'falling-rock'),
         'wood-projectiles': ('wood-spear', 'falling-timber'),
+        'energy-bolts': ('spirit-bolt', 'yin-bolt', 'yang-bolt', 'chaos-orb'),
     }
     parser.add_argument('spell', choices=('fireball', 'fire-family', *batches, *projectile_spells))
     parser.add_argument('--variant', type=int, choices=range(18), action='append',
@@ -100,10 +105,10 @@ def main():
             asset, count = projectile_spells[args.spell]
             if case not in ('hit', 'miss', 'tracking', 'landing', 'cancel', 'scatter') or any(i >= count for i in args.variant or []):
                 parser.error('单术实测需选择该法术已有的旧索引，支持 hit、miss、tracking、landing、cancel 或 scatter')
-            if case == 'tracking' and args.spell not in ('water-orb', 'wind-bullet', 'thunder-orb', 'wood-spear'):
-                parser.error('改轨迹复验使用水球、风弹、雷珠或木枪')
-            if case == 'landing' and args.spell not in ('thunder-orb', 'lightning-strike', 'falling-rock', 'falling-timber'):
-                parser.error('指定地点爆发复验使用雷珠、落雷、落石或落木')
+            if case == 'tracking' and args.spell not in ('water-orb', 'wind-bullet', 'thunder-orb', 'wood-spear', 'yin-bolt'):
+                parser.error('改轨迹复验使用水球、风弹、雷珠、木枪或阴煞弹')
+            if case == 'landing' and args.spell not in ('thunder-orb', 'lightning-strike', 'falling-rock', 'falling-timber', 'chaos-orb'):
+                parser.error('指定地点爆发复验使用雷珠、落雷、落石、落木或混沌珠')
             if case == 'scatter' and args.spell != 'icefall':
                 parser.error('重复施放核对散落使用冰雨')
             if case == 'cancel' and args.spell != 'lightning-strike':

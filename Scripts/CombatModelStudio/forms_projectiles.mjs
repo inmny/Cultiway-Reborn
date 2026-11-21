@@ -2,6 +2,7 @@
 import * as T from 'three';
 import {write, structure, dissolve} from './form_export.mjs';
 import {wallPart, column} from './forms_solid_walls.mjs';
+import {makeEnergyBoltForms} from './forms_energy_bolts.mjs';
 
 /** 生成各自的表面、实际核心和共同控制，所有运动继续由普通投射构造提供。 */
 function publish(id, pieces, contacts, parameters, ending=false) {
@@ -103,4 +104,4 @@ function ice() {
 }
 
 /** 一次发布本组独立普通投射。 */
-export function makeProjectileForms() { spirit();wind();rock();yin();yang();ice(); }
+export function makeProjectileForms() { spirit();wind();rock();yin();yang();ice();makeEnergyBoltForms(); }

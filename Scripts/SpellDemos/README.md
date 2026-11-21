@@ -2593,3 +2593,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py wood-projectiles` 逐个验证四个旧索引。`wood-spear --case tracking --variant 1` 核对改轨迹后仍用原木桩并命中移动目标，`falling-timber --case landing` 检查真正着地，`falling-timber --case miss --variant 1` 检查提前到期。用 `wood-projectiles --case archive` 保存，重启后用同批次的 `--case cold --archive <保存输出目录>` 读回并重放。
 
 录像用 `demo_all.py --filter Cultiway.WoodSpear,Cultiway.FallingTimber --variants all --cases base --realm 0 --target-offset 7 0 --zoom 19 --duration 1.55 --fps 30`，分别选择 `--view native` 和 `--view worldfall`。
+
+### 灵弹、阴煞弹、纯阳弹、混沌珠旧变体（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py energy-bolts` 验证四个旧索引。`yin-bolt --case tracking` 核对改追踪后保留形体，`chaos-orb --case landing` 检查指定点爆发，`chaos-orb --case miss` 检查提前到期。批次支持 `--case archive`，重启后用 `--case cold --archive <保存输出目录>` 读回并重放四种法术。
+
+录像用 `demo_all.py --filter Cultiway.SpiritBolt,Cultiway.YinBolt,Cultiway.YangBolt,Cultiway.ChaosOrb --variants all --cases base --realm 0 --target-offset 7 0 --zoom 19 --duration 1.55 --fps 30`，分别选择 `--view native` 和 `--view worldfall`。

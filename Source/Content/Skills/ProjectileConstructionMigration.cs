@@ -39,12 +39,12 @@ internal static partial class ProjectileConstructionMigration
         asset == SkillEntities.LightningSpear ? ("lightning_spear", "lightning", "energy") :
         asset == SkillEntities.WaterArrow ? ("water_arrow", "water", "liquid") :
         asset == SkillEntities.WoodSpear ? ("wood_spear", "wood", "solid") :
-        asset == SkillEntities.SpiritBolt ? ("spirit_bolt", "spirit", "energy") :
+        asset == SkillEntities.SpiritBolt ? ("spirit_bolt_0", "spirit", "energy") :
         asset == SkillEntities.WindBullet ? ("wind_bullet", "wind", "energy") :
         asset == SkillEntities.WaterOrb ? ("water_orb", "water", "liquid") :
         asset == SkillEntities.RockProjectile ? ("rock_projectile", "earth", "solid") :
-        asset == SkillEntities.YinBolt ? ("yin_bolt", "yin", "energy") :
-        asset == SkillEntities.YangBolt ? ("yang_bolt", "yang", "energy") :
+        asset == SkillEntities.YinBolt ? ("yin_bolt_0", "yin", "energy") :
+        asset == SkillEntities.YangBolt ? ("yang_bolt_0", "yang", "energy") :
         asset == SkillEntities.IceShard ? ("ice_shard", "ice", "solid") :
         asset == SkillEntities.SwordQi ? ("sword_qi", "iron", "solid") :
         asset == SkillEntities.WindBlade ? ("wind_blade", "wind", "energy") :
@@ -53,7 +53,7 @@ internal static partial class ProjectileConstructionMigration
         asset == SkillEntities.YinBlade ? ("yin_blade", "yin", "energy") :
         asset == SkillEntities.Fireball ? ("fireball", "fire", "energy") :
         asset == SkillEntities.ThunderOrb ? ("thunder_orb", "lightning", "energy") :
-        asset == SkillEntities.ChaosOrb ? ("chaos_orb", "entropy", "energy") :
+        asset == SkillEntities.ChaosOrb ? ("chaos_orb_0", "entropy", "energy") :
         asset == SkillEntities.FlameMeteor ? ("flame_meteor", "fire", "energy") :
         asset == SkillEntities.FallingRock ? ("falling_rock", "earth", "solid") :
         asset == SkillEntities.FallingTimber ? ("falling_timber", "wood", "solid") :
@@ -124,6 +124,7 @@ internal static partial class ProjectileConstructionMigration
         bool icefall = container.Asset == SkillEntities.Icefall;
         bool fallingRock = container.Asset == SkillEntities.FallingRock;
         bool fallingTimber = container.Asset == SkillEntities.FallingTimber;
+        bool chaosOrb = container.Asset == SkillEntities.ChaosOrb;
         bool fireBlade = container.Asset == SkillEntities.FireBlade;
         int variantCount = MigratedVariantCount(sourceForm.Form);
         bool phased = fireBlade || variantCount > 0;
@@ -168,7 +169,8 @@ internal static partial class ProjectileConstructionMigration
             bool meteor = container.Asset == SkillEntities.FlameMeteor;
             string burstForm = meteor ? "flame_meteor_impact_motion" : thunderOrb ? "thunder_orb_impact" :
                 lightningStrike ? "lightning_strike_impact" : icefall ? "icefall_impact" :
-                fallingRock ? "falling_rock_impact" : fallingTimber ? "falling_timber_impact" : null;
+                fallingRock ? "falling_rock_impact" : fallingTimber ? "falling_timber_impact" :
+                chaosOrb ? "chaos_orb_impact" : null;
             float burstDuration = Mathf.Min(.22f, lifetime);
             definition.Root.Children = new[] { new ConstructionNode
             {
@@ -178,7 +180,8 @@ internal static partial class ProjectileConstructionMigration
                 DisappearAt = burstDuration, ActiveUntil = Mathf.Min(.025f, lifetime),
                 Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End,
                     Placement = ConstructionEventPlacement.Event, InheritRemainder = contact, ResetContacts = contact,
-                    BeforeSourceExpires = thunderOrb || lightningStrike || icefall || fallingRock || fallingTimber || container.Asset == SkillEntities.Fireball },
+                    BeforeSourceExpires = thunderOrb || lightningStrike || icefall || fallingRock || fallingTimber ||
+                                          chaosOrb || container.Asset == SkillEntities.Fireball },
                 Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 },
                 Impact = contact ? new ConstructionImpact { DamageScale = damageMultiplier } : null,
                 ContactRole = contact ? ConstructionContactRole.Attack : ConstructionContactRole.Decoration,
@@ -247,7 +250,8 @@ internal static partial class ProjectileConstructionMigration
         "water_arrow" or "water_blade" or "thunder_orb" => 4,
         "falling_rock" => 3,
         "flying_sword" or "sword_qi" or "wind_bullet" or "wind_blade" or "wood_spear" or "falling_timber" => 2,
-        "golden_needle" or "lightning_spear" or "ice_shard" or "ice_lance" or "icefall" or "rock_projectile" or "stone_cone" => 1,
+        "golden_needle" or "lightning_spear" or "ice_shard" or "ice_lance" or "icefall" or "rock_projectile" or "stone_cone" or
+            "spirit_bolt_0" or "yin_bolt_0" or "yang_bolt_0" or "chaos_orb_0" => 1,
         _ => 0
     };
 

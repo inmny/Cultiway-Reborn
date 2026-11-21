@@ -83,12 +83,12 @@ try
         emissions.Add(new{asset=currentAsset.id,result=result.ToString(),request.Strength,request.PowerLevel,request.InitialAngleOffsetDegrees});return result;
     };
     if(section=="all"||section=="sources"||section=="polarity-visuals")
-    foreach(var entry in new[]{(Asset:SkillEntities.SpiritBolt,Form:"spirit_bolt",Matter:"spirit",State:"energy",Arc:false),
+    foreach(var entry in new[]{(Asset:SkillEntities.SpiritBolt,Form:"spirit_bolt_0",Matter:"spirit",State:"energy",Arc:false),
         (Asset:SkillEntities.WindBullet,Form:"wind_bullet",Matter:"wind",State:"energy",Arc:false),
         (Asset:SkillEntities.WaterOrb,Form:"water_orb",Matter:"water",State:"liquid",Arc:true),
         (Asset:SkillEntities.RockProjectile,Form:"rock_projectile",Matter:"earth",State:"solid",Arc:true),
-        (Asset:SkillEntities.YinBolt,Form:"yin_bolt",Matter:"yin",State:"energy",Arc:false),
-        (Asset:SkillEntities.YangBolt,Form:"yang_bolt",Matter:"yang",State:"energy",Arc:false),
+        (Asset:SkillEntities.YinBolt,Form:"yin_bolt_0",Matter:"yin",State:"energy",Arc:false),
+        (Asset:SkillEntities.YangBolt,Form:"yang_bolt_0",Matter:"yang",State:"energy",Arc:false),
         (Asset:SkillEntities.IceShard,Form:"ice_shard",Matter:"ice",State:"solid",Arc:false)})
     {
         if(section=="polarity-visuals"&&entry.Asset!=SkillEntities.YinBolt&&entry.Asset!=SkillEntities.YangBolt)continue;
@@ -101,7 +101,8 @@ try
         }
         var boosted=Build(true);
         float duration=5f, appearance=0f;
-        if(entry.Asset==SkillEntities.WaterOrb||entry.Asset==SkillEntities.WindBullet||entry.Asset==SkillEntities.IceShard||entry.Asset==SkillEntities.RockProjectile)
+        if(entry.Asset==SkillEntities.WaterOrb||entry.Asset==SkillEntities.WindBullet||entry.Asset==SkillEntities.IceShard||entry.Asset==SkillEntities.RockProjectile||
+            entry.Asset==SkillEntities.SpiritBolt||entry.Asset==SkillEntities.YinBolt||entry.Asset==SkillEntities.YangBolt)
         {
             var animation=entry.Asset.GetAnimation(0);
             float interval=normal.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
