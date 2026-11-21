@@ -50,7 +50,7 @@ public static class BodyActionCatalog
             shortCut, StoneSword(shortCut), shortSweep, StoneSword(shortSweep), Load("long-spear-thrust"), Load("long-spear-sweep"),
             Load("long-spear-deflect"), Load("heavy-hammer-drop"), Load("shield-guard"), Load("palm-yield"),
             Load("angled-retreat"), Load("charging-shoulder"), Load("bounding-step"),
-            Load("turning-throw"), Load("pressing-throw") };
+            Load("turning-throw"), Load("pressing-throw"), Load("beast-tail-sweep"), Load("beast-wing-cut") };
     }
 
     /// <summary>保留完整手路及发力，石剑版本以本身的握点及刃口执行。</summary>

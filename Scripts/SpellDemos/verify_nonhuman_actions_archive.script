@@ -1,0 +1,99 @@
+// 原万法窗口选择两条真实冠尾，再通过原版世界档保存完整副本。
+async Task<object> Archive()
+{
+    var expected = new List<AbilityDefinition>();
+    string Title(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+    LocalizedTextManager.instance.setLanguage("cz");
+    WindowWanfaConstructionEditor editor = null;
+    try
+    {
+        ConstructedAbilityService.Learn(owner, tail.Id);
+        foreach (string part in new[] { "tail.0", "tail.2" })
+        {
+            WindowWanfaConstructionEditor.Open(tail.Id, source);
+            await Frames();
+            editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+            Button Button(string name) => editor.GetComponentsInChildren<Button>(false).Single(item => item.name == name);
+            ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+            Button("Page2").onClick.Invoke();
+            var row = editor.GetComponentsInChildren<WanfaEditorRow>(false)
+                .First(item => ((Text)Field(item, "_title")).text == Title("ActualPart"));
+            ((Button)Field(row, "_action")).onClick.Invoke();
+            object menu = Field(editor, "menu");
+            var options = (IList)Field(menu, "_options");
+            var buttons = (IList)Field(menu, "_optionButtons");
+            int picked = Enumerable.Range(0, options.Count)
+                .Single(i => ((string)Field(options[i], "Label")).EndsWith("/ " + part, StringComparison.Ordinal));
+            ((Button)buttons[picked]).onClick.Invoke();
+            Check(AbilityCompiler.Compile(Session().Draft, false).Body.Part.OrganPart == part, "编辑使用身体提供的真实部件 " + part);
+            await Frames();
+            Button("LearnCopy").onClick.Invoke();
+            string id = Session().SourceId;
+            var copy = ConstructionEditing.Access.Read(id);
+            Check(id != tail.Id && expected.All(item => item.Id != id) && ConstructedAbilityService.Knows(owner, id) &&
+                  AbilityCompiler.Compile(copy, false).Body.Part.OrganPart == part &&
+                  JToken.DeepEquals(JToken.FromObject(tail), JToken.FromObject(ConstructionEditing.Access.Read(tail.Id))),
+                "实际学习完整独立副本，正式原招保留 " + part);
+            expected.Add(copy);
+            Button("Close").onClick.Invoke();
+            await Frames();
+        }
+    }
+    finally
+    {
+        if (editor != null && Field(editor, "session") != null)
+            typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    }
+    foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+    source.updateStats();
+    target.updateStats();
+    otherTarget.updateStats();
+    string destination = Path.Combine(folder, "archive");
+    World.world.units.checkContainer();
+    SaveManager.saveWorldToDirectory(destination);
+    Check(File.Exists(Path.Combine(destination, "map.wbox")), "原版世界保存三尾狐和两份正式招式");
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+    {
+        process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, target = target.id,
+        otherTarget = otherTarget.id, definitions = expected.Prepend(tail)
+    }, Formatting.Indented));
+    return new { passed = true, selection, checks };
+
+    async Task Frames()
+    {
+        for (int i = 0; i < 3; i++) await Game.NextFrame();
+        await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+        Canvas.ForceUpdateCanvases();
+    }
+}
+
+async Task<AbilityDefinition[]> RestoredCopies()
+{
+    Check((int)saved["process"] != System.Diagnostics.Process.GetCurrentProcess().Id, "读档在另一游戏进程中进行");
+    Check(owner.E.TryGetComponent(out YaoBody body) && body.TryGetActiveForm(out YaoFormRecord form) &&
+          form.Organs.Any(organ => organ.OrganId == "yao.crown.tails" && organ.Rank == 3),
+        "原妖兽档实际读回三阶冠尾");
+    Place(source, 64.25f, 72.5f);
+    Place(target, 65f, 72.5f);
+    Place(otherTarget, 66f, 72.5f);
+    await Game.NextFrame();
+    string[] parts = null;
+    bool HasTails() => new[] { "tail.0", "tail.1", "tail.2" }.All(part => parts.Contains("organ:yao.crown.tails/" + part));
+    await Game.WaitUntil(() =>
+    {
+        parts = ConstructedAbilityService.BodyPartChoices(owner).Effectors;
+        return HasTails();
+    }, 180);
+    Check(HasTails(),
+        "从世界档读回该狐的三个真实命名尾，不重建身体", parts);
+    var result = new List<AbilityDefinition>();
+    foreach (AbilityDefinition definition in saved["definitions"].ToObject<AbilityDefinition[]>())
+    {
+        var actual = ConstructionEditing.Access.Read(definition.Id);
+        Check(actual != null && ConstructedAbilityService.Knows(owner, definition.Id) &&
+              JToken.DeepEquals(JToken.FromObject(actual), JToken.FromObject(definition)),
+            "正式保存恢复原招、完整副本与掌握关系", definition.Id);
+        if (definition.Id != tail.Id) result.Add(actual);
+    }
+    return result.ToArray();
+}
