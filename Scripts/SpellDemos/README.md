@@ -2727,3 +2727,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用 `--section counters` 复验炼体反打与真身反打。核对近身武器受击、远处及非武器拒绝、实际土行扣血、沿地推退和原冷却。
 
 用 `--section tracking` 验证两种剑道追击与两种阴行汲灵。两组可通过 `--section sword-flight`、`--section yin-flight` 单独检查。用 `--section flight-lost` 检查真实飞行途中失去对象是否停止。
+
+### 修炼组合的正式存读（10.02）
+
+在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_formation_archive.py archive`，记录返回的输出目录。正常退出并重新启动独立游戏后，运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_formation_archive.py cold --archive <前段输出目录>`。脚本核对跨进程恢复三个代表境界、状态及冷却、原条件再次触发和撤去来源后的清除。

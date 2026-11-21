@@ -1,0 +1,212 @@
+bool cold = caseName == "cold";
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+JObject expected = cold ? JObject.Parse(File.ReadAllText(Path.Combine(archivePath, "expected.json"))) : null;
+var names = new[] { "condensed", "sword", "five_phase" };
+var formations = new Cultiway.Content.Libraries.CoreFormationResolvedEffect[3];
+Actor[] actors = cold ? ((JArray)expected["Actors"]).Select(row => World.world.units.get((long)row)).ToArray()
+    : new[] { Make(64.5f), Make(65.5f), Make(66.5f) };
+Actor target = cold ? World.world.units.get((long)expected["Target"]) : Make(72.25f, "wolf");
+Check(actors.All(actor => actor != null && actor.isAlive()) && target != null && target.isAlive(),
+    "正式场景中的三个境界及对练对象均有效");
+var owners = actors.Select(actor => actor.GetExtend()).ToArray();
+var started = new List<ConstructedCastStarted>();
+void Started(ConstructedCastStarted fact) { if (actors.Any(a => a.id == fact.SourceId)) started.Add(fact); }
+ConstructedAbilityService.CastStarted += Started;
+var matrix = typeof(Cultiway.Core.EventSystem.Systems.GetHitEventSystem).GetMethod("Resolve", F);
+int Damage(Actor source, Actor receiver)
+{
+    var hit = new Cultiway.Core.EventSystem.Events.GetHitEvent
+    {
+        TargetID = receiver.id, Damage = 145f, IgnoreDamageReduction = true,
+        AttackType = AttackType.Other, Element = ElementComposition.Static.Earth,
+        DamageOrigin = Cultiway.Core.Combat.DamageOrigin.Primary,
+    };
+    hit.BindAttacker(source);
+    return ((Cultiway.Core.Combat.DamageSettlement)matrix.Invoke(null, new object[] { hit })).HealthLost;
+}
+List<ActiveAbilityHandle> Abilities(ActorExtend actor)
+{
+    var output = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(actor, output);
+    return output;
+}
+string Id(ActiveAbilityHandle handle) => handle.Source.GetComponent<SkillContainer>().Asset.id;
+ActiveAbilityHandle Skill(ActorExtend actor, string provider, string id) =>
+    Abilities(actor).Single(handle => handle.ProviderId == provider && Id(handle) == id);
+bool Use(ActorExtend actor, ActiveAbilityHandle handle) =>
+    ActiveAbilityService.TryUse(actor, handle, new ActiveAbilityTarget(actor.Base, actor.Base.GetSimPos()), ActiveAbilityUseOrigin.Player);
+Entity State(int index) => CombatStatusEffects.TryGetStatus(actors[index], formations[index].Definition.StateStatus,
+    actors[index], out Entity result) ? result : default;
+string[] Granted(ActorExtend actor) => Abilities(actor).Where(handle => handle.ProviderId == "content.core_formation")
+    .Select(Id).OrderBy(id => id, StringComparer.Ordinal).ToArray();
+const string prefix = "Cultiway.CoreFormation.Skill.";
+var stateSkills = new[] { "ReservoirOrb", "SwordEmbryoAura", "FivePhase" };
+var reactionSkills = new[] { "CondensedRelease", "SwordEmbryoStrike", "FivePhaseStrike" };
+
+CoreFormationSnapshot Snapshot(CoreFormationRealm realm, int stage,
+    params Cultiway.Content.Libraries.CoreFormationAtomAsset[] atoms) => new()
+{
+    version = CoreFormationSnapshot.CurrentVersion, signature = "archive.formation." + realm,
+    canonical_name = "修炼正式存档对练 " + realm, finalized = true, realm = realm, strength = 4f,
+    refinement = stage, composition = ElementComposition.Static.Earth, quality_score = 62,
+    atoms = atoms.Select(atom => new CoreFormationAtomState { atom_id = atom.id, weight = 1f }).ToArray(),
+    stats = Array.Empty<CoreFormationStatValue>(),
+    semantics = Array.Empty<Cultiway.Core.Semantics.SemanticContribution>(),
+};
+void Resolve()
+{
+    for (int i = 0; i < owners.Length; i++)
+        Check(CoreFormationEffectResolver.TryResolveFamily(owners[i], names[i], out formations[i]), "实际境界授予 " + names[i]);
+}
+Entity Cooling(int index) => index == 0 ? formations[index].Definition.CooldownSkill : formations[index].Definition.active.SkillContainer;
+JObject Record(int index)
+{
+    var owner = owners[index];
+    Check(CoreFormationEffectResolver.TryGetFormation(owner, out var formation), "存在可用组合 " + names[index]);
+    Entity entity = State(index);
+    Check(!entity.IsNull, "正式施法留下实际状态 " + names[index]);
+    var state = entity.GetComponent<CoreFormationEffectState>();
+    float remaining = entity.GetComponent<AliveTimeLimit>().value - entity.GetComponent<AliveTimer>().value;
+    float cooldown = SkillCooldownService.GetRemaining(owner, Cooling(index));
+    Check(remaining > 0f && cooldown > 0f, "实际状态与冷却未结束 " + names[index], new { remaining, cooldown });
+    return JObject.FromObject(new
+    {
+        Snapshot = formation.Snapshot, formation.Stage, formation.Strength, Potency = formations[index].Potency,
+        State = state, Remaining = remaining, Cooldown = cooldown, Active = Granted(owner),
+        actors[index].data.health, Wakan = owner.GetCultisys<Xian>().wakan
+    });
+}
+
+try
+{
+    if (!cold)
+    {
+        var stats = new BaseStats { [BaseStatses.MaxWakan.id] = 10000 };
+        var resources = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.FormationArchive.Resources") ??
+            Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.FormationArchive.Resources")
+                .SetStats(stats).SetDuration(10000).Build();
+        var dan = Snapshot(CoreFormationRealm.Jindan, 5, CoreFormationAtoms.StructureCondensed);
+        var infant = Snapshot(CoreFormationRealm.Yuanying, 9, CoreFormationAtoms.ManifestSwordEmbryo, CoreFormationAtoms.TransformFivePhase);
+        infant.source_signature = dan.signature;
+        infant.source_name = dan.canonical_name;
+        infant.source_refinement = dan.refinement;
+        var soul = Cultiway.Content.Libraries.CoreFormationComposer.ComposeYuanshen(infant);
+        Check(soul.source_signature == infant.signature && soul.source_refinement == infant.refinement &&
+            soul.atoms.All(atom => atom.inherited) &&
+            soul.atoms.Select(atom => atom.atom_id).SequenceEqual(infant.atoms.Select(atom => atom.atom_id)),
+            "原九转元婴按正式组成规则继承为化神资料");
+        var levels = new[] { Cultiway.Content.Const.XianLevels.Jindan, Cultiway.Content.Const.XianLevels.Yuanying,
+            Cultiway.Content.Const.XianLevels.Huashen };
+        for (int i = 0; i < owners.Length; i++)
+            owners[i].AddComponent(new Xian { level = levels[i] });
+        owners[0].AddComponent(new Jindan { formation = dan });
+        owners[1].AddComponent(new Yuanying { formation = infant });
+        owners[2].AddComponent(new Yuanshen(soul, new PhysicalBodySnapshot { actor_asset_id = actors[2].asset.id }));
+        for (int i = 0; i < owners.Length; i++)
+        {
+            CombatStatusEffects.ApplyStatus(actors[i], resources, 10000, actors[i]);
+            owners[i].MarkCultiwayStatsDirty();
+            actors[i].updateStats();
+            owners[i].GetCultisys<Xian>().wakan = actors[i].stats[BaseStatses.MaxWakan.id] * .7f;
+        }
+        Resolve();
+        Entity draft = new SkillContainerBuilder(SkillEntities.SpiritShield).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+        owners[0].LearnSkillV3(draft);
+        var shield = Skill(owners[0], "core.learned_skill", SkillEntities.SpiritShield.id);
+        for (int attempt = 0; attempt < 30 && State(0).IsNull; attempt++)
+        {
+            Check(Use(owners[0], shield), "用于蓄势的已学护盾正式受理");
+            await Advance(.16f);
+        }
+        Check(!State(0).IsNull && State(0).GetComponent<CoreFormationEffectState>().charges == 1,
+            "保存前通过正式付费法术留下凝元充能");
+        // 先蓄势再启动有时限的状态，保存时三种状态都仍生效。
+        for (int i = 1; i < owners.Length; i++)
+        {
+            float balance = owners[i].GetCultisys<Xian>().wakan;
+            Check(Use(owners[i], Skill(owners[i], "content.core_formation", prefix + stateSkills[i])) &&
+                owners[i].GetCultisys<Xian>().wakan < balance,
+                "保存前由原主动入口实付灵气 " + names[i]);
+        }
+        await Advance(.28f);
+        // 测试用定身和灵气容量不进入正式档，读回要求全部内容在正式登记中存在。
+        foreach (Actor actor in World.world.units.getSimpleList().ToArray())
+            CombatStatusEffects.RemoveStatus(actor, hold);
+        for (int i = 0; i < owners.Length; i++)
+        {
+            CombatStatusEffects.RemoveStatus(actors[i], resources);
+            owners[i].MarkCultiwayStatsDirty();
+            actors[i].updateStats();
+            owners[i].GetCultisys<Xian>().wakan = actors[i].stats[BaseStatses.MaxWakan.id] * .7f;
+        }
+        var data = new
+        {
+            Process = process, Actors = actors.Select(actor => actor.id).ToArray(), Target = target.id,
+            Records = Enumerable.Range(0, owners.Length).Select(Record).ToArray(),
+        };
+        string world = Path.Combine(folder, "archive");
+        Directory.CreateDirectory(world);
+        SaveManager.saveWorldToDirectory(world);
+        Check(File.Exists(Path.Combine(world, "map.wbox")), "正式地图写出完成");
+        File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(data, Formatting.Indented));
+        return new { passed = true, process, world, checks };
+    }
+
+    Check(process != (int)expected["Process"], "在另一游戏进程读取原地图");
+    var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+    Check(report.Skipped.Count == 0 && report.BackupError == null, "正式地图恢复无资料跳过");
+    Resolve();
+    for (int i = 0; i < owners.Length; i++)
+    {
+        // 按与归档相同的 JSON 表示比较浮点值，避开内存中单精度与读档后双精度的类型差异。
+        var current = JObject.Parse(Record(i).ToString(Formatting.None));
+        var previous = (JObject)expected["Records"][i];
+        float remaining = (float)current["Remaining"], cooldown = (float)current["Cooldown"];
+        Check(JToken.DeepEquals(previous["Snapshot"], current["Snapshot"]) &&
+            JToken.DeepEquals(previous["State"], current["State"]) &&
+            JToken.DeepEquals(previous["Active"], current["Active"]) &&
+            JToken.DeepEquals(previous["health"], current["health"]) &&
+            Math.Abs((float)previous["Potency"] - (float)current["Potency"]) < .0001f &&
+            Math.Abs((float)previous["Wakan"] - (float)current["Wakan"]) < .003f &&
+            Math.Abs((float)previous["Remaining"] - remaining) < .075f &&
+            Math.Abs((float)previous["Cooldown"] - cooldown) < .075f,
+            names[i] + "组合、授予、状态、资源与冷却读回一致",
+            new { remaining, cooldown, previous, current });
+    }
+    Place(target, 72.25f);
+    ConstructedAbilityService.NotifyActorChanged(target);
+    for (int i = 0; i < owners.Length; i++)
+    {
+        Place(actors[i], 64.5f + i);
+        actors[i].addAggro(target);
+        ConstructedAbilityService.NotifyActorChanged(actors[i]);
+        Check(Damage(actors[i], target) > 0, "读回人物造成实际伤害 " + names[i]);
+    }
+    await Advance(.53f);
+    for (int i = 0; i < owners.Length; i++)
+    {
+        var actorId = actors[i].id;
+        Check(started.Count(row => row.SourceId == actorId && row.AbilityId == prefix + reactionSkills[i]) == 1,
+            "原保存状态让读回人物触发一次派生 " + names[i]);
+    }
+    Check(State(0).IsNull, "读回的凝元充能确实被首次攻击消耗");
+    float prior = owners[2].GetCultisys<Xian>().wakan;
+    Check(Use(owners[2], Skill(owners[2], "content.core_formation", prefix + "SwordEmbryoAura")) &&
+        owners[2].GetCultisys<Xian>().wakan < prior, "读回化神角色经原入口施展继承的剑胎显锋");
+    await Advance(.24f);
+    Check(started.Any(row => row.SourceId == actors[2].id && row.AbilityId == prefix + "SwordEmbryoAura"),
+        "实际继承主动在读回角色身上生效");
+    Entity oldCooldown = Cooling(1);
+    owners[1].E.RemoveComponent<Yuanying>();
+    Check(!CoreFormationEffectResolver.Synchronize(owners[1]) && Granted(owners[1]).Length == 0 &&
+        State(1).IsNull && SkillCooldownService.IsReady(owners[1], oldCooldown),
+        "撤去当前来源后立即失去主动、状态及对应冷却");
+    return new { passed = true, process, savedBy = (int)expected["Process"], checks };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+}
