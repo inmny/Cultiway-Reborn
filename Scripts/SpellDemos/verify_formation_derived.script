@@ -77,12 +77,12 @@ Cultiway.Content.Libraries.CoreFormationResolvedEffect Install(Cultiway.Content.
     return effect;
 }
 
-Cultiway.Core.Combat.DamageSettlement Strike(Actor attacker, Actor target, float damage)
+Cultiway.Core.Combat.DamageSettlement Strike(Actor attacker, Actor target, float damage, AttackType attackType = AttackType.Other)
 {
     var hit = new Cultiway.Core.EventSystem.Events.GetHitEvent
     {
         TargetID = target.id, Damage = damage, IgnoreDamageReduction = true,
-        AttackType = AttackType.Other, Element = ElementComposition.Static.Earth,
+        AttackType = attackType, Element = ElementComposition.Static.Earth,
         DamageOrigin = Cultiway.Core.Combat.DamageOrigin.Primary
     };
     hit.BindAttacker(attacker);
@@ -505,6 +505,121 @@ try
         finally
         {
             Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
+        }
+    }
+    if (Allowed("counters"))
+    {
+        var fixedAi = new BaseStats();
+        fixedAi.addTag("frozen_ai");
+        var calm = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.FormationDerived.Calm") ??
+            Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.FormationDerived.Calm")
+                .SetStats(fixedAi).SetDuration(10000).Build();
+        CombatStatusEffects.RemoveStatus(enemy, hold);
+        CombatStatusEffects.ApplyStatus(enemy, calm, 10000, enemy);
+        enemy.updateStats();
+        var emissions = new List<SkillEmission>();
+        var originalEmitter = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+        Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        {
+            if (emission.Source == source && chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id))
+                emissions.Add(emission);
+            return originalEmitter(emission);
+        };
+        void Move(Actor actor, float x)
+        {
+            Place(actor, x, 72.5f);
+            ConstructedAbilityService.NotifyActorChanged(actor);
+        }
+
+        try
+        {
+            foreach (var variant in new[] { (CoreFormationAtoms.PathBody, "BodyCounter", CoreFormationRealm.Jindan),
+                         (CoreFormationAtoms.ManifestPrimalBody, "PrimalBodyCounter", CoreFormationRealm.Yuanying) })
+            {
+                var body = Install(variant.Item1, "body", variant.Item3);
+                Move(source, 64.5f);
+                Move(ally, 66.25f);
+                Move(enemy, 66.25f);
+                int allyHealth = ally.data.health, paid = spends.Count;
+
+                if (variant.Item3 == CoreFormationRealm.Jindan)
+                {
+                    Move(enemy, 89f);
+                    for (int i = 0; i < 12; i++) Strike(enemy, source, 140, AttackType.Weapon);
+                    Move(enemy, 66.25f);
+                    for (int i = 0; i < 12; i++) Strike(enemy, source, 140);
+                    await Advance(.16f);
+                    Check(SkillCooldownService.IsReady(owner, body.Definition.CooldownSkill) &&
+                        started.All(row => row.AbilityId != Id(variant.Item2)),
+                        "远处武器及近处非武器受击均不进入反打");
+                }
+
+                async Task Trigger(int expected)
+                {
+                    Check(SkillCooldownService.IsReady(owner, body.Definition.CooldownSkill), "原反打冷却已结束");
+                    Move(enemy, 66.25f);
+                    enemy.restoreHealth(enemy.getMaxHealth());
+                    for (int attempt = 0; attempt < 100 && SkillCooldownService.IsReady(owner, body.Definition.CooldownSkill); attempt++)
+                    {
+                        source.restoreHealth(source.getMaxHealth());
+                        Strike(enemy, source, 290, AttackType.Weapon);
+                    }
+                    Check(!SkillCooldownService.IsReady(owner, body.Definition.CooldownSkill), "真实近战受击触发反打");
+                    await Advance(.24f);
+                    var casts = started.Where(row => row.AbilityId == Id(variant.Item2)).ToArray();
+                    Check(casts.Length == expected && !legacy.Contains(Id(variant.Item2)), "真实近战只启动一次共同反打");
+                    var contact = contacts.Single(row => row.CastId == casts.Last().CastId);
+                    var emission = emissions.Last(step => step.SkillContainer.GetComponent<SkillContainer>().Asset.id == Id(variant.Item2));
+                    Check(contact.TargetId == enemy.id && contact.SourceId == source.id &&
+                        contact.Damage.SettledCount == 1 && contact.Damage.HealthLost > 0 &&
+                        contact.ForceApplied && contact.VelocityChange.x > 0f &&
+                        Math.Abs(contact.VelocityChange.z) < .001f && enemy.current_position.x > 66.28f &&
+                        ally.data.health == allyHealth && spends.Count == paid,
+                        variant.Item2 + "只伤害原攻击者并沿地推离身体",
+                        new { contact.Damage.SettledCount, contact.Damage.HealthLost,
+                            velocity = contact.VelocityChange.ToString(), position = enemy.current_position.ToString() });
+                    var comparison = new Cultiway.Core.EventSystem.Events.GetHitEvent
+                    {
+                        Damage = emission.Strength * emission.RuntimeData.ResolveEffectScale() * .40f, Element = ElementComposition.Static.Earth,
+                        TargetID = enemy.id, AttackType = AttackType.Other, AttackerPowerLevel = emission.PowerLevel,
+                        DamageOrigin = Cultiway.Core.Combat.DamageOrigin.Reaction
+                    };
+                    comparison.BindAttacker(source);
+                    var original = (Cultiway.Core.Combat.DamageSettlement)matrix.Invoke(null, new object[] { comparison });
+                    enemy.restoreHealth(original.HealthLost);
+                    Check(original.HealthLost == contact.Damage.HealthLost, "原土行伤害与实际反打结算一致",
+                        new { original = original.HealthLost, actual = contact.Damage.HealthLost });
+                    if (expected == 1 && variant.Item3 == CoreFormationRealm.Jindan)
+                    {
+                        Move(enemy, 66.25f);
+                        Strike(enemy, source, 290, AttackType.Weapon);
+                        await Advance(.16f);
+                        Check(started.Count(row => row.AbilityId == Id(variant.Item2)) == 1, "原冷却内不重复反打");
+                    }
+                    await Advance(.83f);
+                    Check(endings.Any(row => row.Fact.CastId == contact.CastId && !row.Fact.Cancelled) &&
+                        contacts.Count(row => row.CastId == contact.CastId) == 1,
+                        variant.Item2 + "只结算一次并自然收势");
+                    resultRows.Add(new { id = Id(variant.Item2), contact.CastId, contact.Damage.HealthLost });
+                }
+
+                await Trigger(1);
+                if (variant.Item3 == CoreFormationRealm.Jindan)
+                {
+                    for (int frame = 0; frame < 50 && !SkillCooldownService.IsReady(owner, body.Definition.CooldownSkill); frame++)
+                        await Advance(.12f);
+                    await Trigger(2);
+                    for (int frame = 0; frame < 50 && !SkillCooldownService.IsReady(owner, body.Definition.CooldownSkill); frame++)
+                        await Advance(.12f);
+                }
+            }
+        }
+        finally
+        {
+            Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
+            CombatStatusEffects.RemoveStatus(enemy, calm);
+            CombatStatusEffects.ApplyStatus(enemy, hold, 10000, enemy);
+            enemy.updateStats();
         }
     }
     if (Allowed("blasts") || caseName == "blast-lost")

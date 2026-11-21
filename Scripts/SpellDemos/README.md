@@ -2723,3 +2723,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用 `--section support` 连续复验木行回补与两种阳行净化。可用 `--section life-return` 对比实际普通击杀与木毒击杀，也可用 `--section cleanse` 单独核对正式付费施法后的净化、生命恢复和收势。
 
 用 `--section blasts` 复验焚烬与凝元实际爆发，核对圈内、紧贴圈外、空中敌人及圆面尺寸。用 `--section blast-lost` 在单独一轮核对点名目标实际死亡后不会展开。
+
+用 `--section counters` 复验炼体反打与真身反打。核对近身武器受击、远处及非武器拒绝、实际土行扣血、沿地推退和原冷却。

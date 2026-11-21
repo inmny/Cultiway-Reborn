@@ -38,6 +38,10 @@ internal static class FormationTargetConstruction
                 (CoreFormationEffectFamilies.Fire, "fire_burst", "fire", FormationTargetEffect.Burn),
             var entry when entry == CoreFormationSkills.FireEmberBurst =>
                 (CoreFormationEffectFamilies.Fire, "flame_meteor_impact", "fire", FormationTargetEffect.EmberBurst),
+            var entry when entry == CoreFormationSkills.BodyCounter =>
+                (CoreFormationEffectFamilies.Body, "earth_wall_strata_rubble", "earth", FormationTargetEffect.BodyCounter),
+            var entry when entry == CoreFormationSkills.PrimalBodyCounter =>
+                (CoreFormationEffectFamilies.Body, "earth_burst", "earth", FormationTargetEffect.BodyCounter),
             var entry when entry == CoreFormationSkills.CondensedRelease =>
                 (CoreFormationEffectFamilies.Condensed, "entropy_wedge", "entropy", FormationTargetEffect.CondensedRelease),
             var entry when entry == CoreFormationSkills.WoodLifeReturn =>
@@ -59,6 +63,14 @@ internal static class FormationTargetConstruction
             effect.Definition.TriggerSkill != skill &&
             contact is not (FormationTargetEffect.LifeReturn or FormationTargetEffect.EmberBurst))
             return SkillEmissionResult.Rejected;
+
+        if (contact == FormationTargetEffect.BodyCounter)
+        {
+            if (!SkillCasterContextService.TryGetCurrent(caster, out SkillCasterContext context))
+                context = SkillCasterContextService.Resolve(caster);
+            if (!context.IsValid || context.Kind != SkillCarrierKind.Physical || !context.HasPhysicalBody)
+                return SkillEmissionResult.Rejected;
+        }
 
         var asset = skill.GetComponent<SkillContainer>().Asset;
         var element = emission.RuntimeData.ResolveElement(asset.Element);

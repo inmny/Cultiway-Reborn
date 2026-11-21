@@ -128,10 +128,10 @@ internal sealed class CoreFormationSkills : ICanInit
             0.35f, true, false);
         BodyCounter = BuildTarget(
             "BodyCounter", "body_counter", 0.09f, ElementComposition.Static.Earth,
-            0.4f, false, true, OnBodyCounter);
+            0.4f, false, true);
         PrimalBodyCounter = BuildTarget(
             "PrimalBodyCounter", "primal_body_counter", 0.11f, ElementComposition.Static.Earth,
-            0.4f, false, true, OnBodyCounter);
+            0.4f, false, true);
         IllusionDecoy = BuildVisual(
             "IllusionDecoy", "illusion_decoy", 0.1f, Element(ElementIndex.Neg));
         DragonMight = BuildArea(
@@ -425,18 +425,6 @@ internal sealed class CoreFormationSkills : ICanInit
             context.Strength * context.EffectScale * 0.25f,
             Element(ElementIndex.Neg),
             attackerPowerLevel: context.PowerLevel);
-    }
-
-    /// <summary>把炼体反击碰撞命中的明确攻击者推离施法者。</summary>
-    private static void OnBodyCounter(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target)) return;
-        CombatForceEffects.ApplyRadialForce(
-            source,
-            target,
-            source.current_position,
-            2f * context.EffectScale,
-            false);
     }
 
     /// <summary>构造单一元素组成。</summary>

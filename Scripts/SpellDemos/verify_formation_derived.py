@@ -19,6 +19,7 @@ SECTIONS = {
     'cleanse': ('YangCleanse', 'PureYangCleanse'),
     'blasts': ('FireEmberBurst', 'FireBrand', 'CondensedRelease', 'ReservoirOrb'),
     'blast-lost': ('FireEmberBurst',),
+    'counters': ('BodyCounter', 'PrimalBodyCounter'),
 }
 
 

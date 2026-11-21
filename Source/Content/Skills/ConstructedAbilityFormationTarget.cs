@@ -24,6 +24,8 @@ internal enum FormationTargetEffect
     EmberBurst,
     /// <summary>点名接触展开平面凝元爆发。</summary>
     CondensedRelease,
+    /// <summary>在反打伤害后推开近身攻击者。</summary>
+    BodyCounter,
     /// <summary>回补木毒击杀者的生命和灵气。</summary>
     LifeReturn,
     /// <summary>移除一项负面状态并恢复生命。</summary>
@@ -56,11 +58,14 @@ public sealed partial class ConstructedAbilityService
     /// <summary>对真实接触者施加状态，同源条件继续使用共享状态的来源规则。</summary>
     /// <param name="owner">点名出手的修炼者及本次强度。</param>
     /// <param name="target">共同作用面已经确认的人物。</param>
+    /// <param name="targetId">接触时确认的人物身份。</param>
     /// <param name="contact">本次形成反应和已经确定的倍率。</param>
-    private static ConstructedTargetResponse ApplyFormationTargetContact(CastAuthority owner, Actor target,
-        FormationTargetContact contact)
+    /// <param name="settled">点名接触已经完成的原伤害。</param>
+    private static ConstructedTargetResponse ApplyFormationTargetContact(CastAuthority owner, Actor target, long targetId,
+        FormationTargetContact contact, DamageSettlement settled)
     {
-        if (!owner.IsLive) return default;
+        if (!owner.IsLive || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
+            return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, damage: settled);
         Actor source = owner.Actor;
         float strength = owner.Damage.Damage;
         switch (contact.Effect)
@@ -74,7 +79,7 @@ public sealed partial class ConstructedAbilityService
                 damage.TargetID = target.id;
                 var result = GetHitEventSystem.Resolve(damage);
                 return new ConstructedTargetResponse(damage.TargetID, Vector3.zero, false, 0f, 0f,
-                    additionalDamage: damage.Damage > 0f, damage: result);
+                    additionalDamage: damage.Damage > 0f, damage: settled + result);
             case FormationTargetEffect.Poison:
                 CombatStatusEffects.ApplyTickingStatus(target, StatusEffects.Poison, 5f, strength * .35f / 5f,
                     ElementComposition.Static.Wood, source);
@@ -91,6 +96,14 @@ public sealed partial class ConstructedAbilityService
             case FormationTargetEffect.EmberBurst:
                 CombatStatusEffects.RemoveStatus(target, StatusEffects.Burn, source);
                 break;
+            case FormationTargetEffect.BodyCounter:
+                Vector2 direction = target.current_position - source.current_position;
+                if (direction.sqrMagnitude < .0001f) direction = Vector2.up;
+                Vector2 force = direction.normalized * (2f * contact.EffectScale);
+                Vector3 before = ConstructedActorImpulse.Velocity(target);
+                bool pushed = ApplyLegacyGroundSlide(target, source, force.x, force.y);
+                return new ConstructedTargetResponse(targetId, ConstructedActorImpulse.Velocity(target) - before,
+                    pushed, 0f, 0f, damage: settled);
             case FormationTargetEffect.LifeReturn:
                 CombatResourceEffects.RestoreHealth(source, source.stats[S.health] * .025f * contact.EffectScale);
                 CombatResourceEffects.RestoreWakan(source, 6f * contact.EffectScale);
@@ -103,6 +116,6 @@ public sealed partial class ConstructedAbilityService
                 break;
         }
 
-        return default;
+        return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, damage: settled);
     }
 }
