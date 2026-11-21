@@ -24,13 +24,16 @@ public static class BodyActionCatalog
     /// <summary>已经读取的基础动作资料。</summary>
     private static AbilityDefinition[] all;
 
+    /// <summary>旧规则生成以及已有创法请求使用的掌击底稿。</summary>
+    private static AbilityDefinition historicalPalm;
+
     /// <summary>读取制作资料，不在每次出手时解释文件。</summary>
     internal static AbilityDefinition[] All => all ??= LoadAll();
 
     /// <summary>新动作放在原目录末尾，已冻结的创作输入保持顺序。</summary>
     private static AbilityDefinition[] LoadAll()
     {
-        AbilityDefinition palm = Load("palm-strike");
+        AbilityDefinition palm = Load("palm-strike-motion");
         AbilityDefinition guard = CreateFrom(palm, GuardId, "架掌",
             new BodyActionRequest
             {
@@ -123,9 +126,11 @@ public static class BodyActionCatalog
     /// <summary>原地直掌的完整资料。</summary>
     public static AbilityDefinition Palm => All[0];
 
-    /// <summary>徒手战斗的制作姿态，不覆盖原可学习的构造及派生底稿。</summary>
-    internal static AbilityDefinition PalmExecution => palmExecution ??= Load("palm-strike-motion");
-    private static AbilityDefinition palmExecution;
+    /// <summary>延续最早两种创法底稿及其抽取顺序，保证旧请求可按原规则重现。</summary>
+    /// <param name="index">旧规则在直掌和横扫中选取的位置。</param>
+    internal static AbilityDefinition HistoricalCreationBase(int index) => index == 0
+        ? historicalPalm ??= Load("palm-strike")
+        : All[index];
 
     /// <summary>由共用动作创建可正式学习、自由编辑和保存的构造，不增加固定技能登记。</summary>
     /// <param name="id">新构造的稳定编号。</param><param name="name">显示名称。</param>

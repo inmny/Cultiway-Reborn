@@ -244,7 +244,8 @@ public sealed partial class ConstructedAbilityService
             return independent ? synthesisResources.Copy() : synthesisResources;
         string[] baseIds = SynthesisResources.RequiredForms.Concat(new[] { "energy_ray", "root_network", "spirit_vine" }).ToArray();
         synthesisResources = new SynthesisResources(baseIds.Select(CaptureSynthesisForm).ToArray(),
-            BodyActionCatalog.All.Take(2).Select(ConstructionEditing.Copy).ToArray(), deformationForms:
+            Enumerable.Range(0, 2).Select(index => ConstructionEditing.Copy(BodyActionCatalog.HistoricalCreationBase(index)))
+                .ToArray(), deformationForms:
             FormResources.Ids.Where(id => !baseIds.Contains(id) && FormResources.Load(id).Deformable).OrderBy(id => id, StringComparer.Ordinal)
                 .Select(CaptureSynthesisForm).ToArray());
         synthesisResourceVersion = FormResources.Version;

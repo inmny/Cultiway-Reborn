@@ -194,15 +194,15 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
     private static CompiledAbility palmExecution;
 
-    /// <summary>徒手入口读取当前制作姿态；已经保存的原掌击构造仍从独立目录读取。</summary>
+    /// <summary>徒手入口与新世界目录使用同一制作动作；读档恢复的已学版本保留自己的资料。</summary>
     internal static CompiledAbility PalmExecution => palmExecution?.ResourceVersion == FormResources.Version
-        ? palmExecution : palmExecution = ValidateDefinition(BodyActionCatalog.PalmExecution);
+        ? palmExecution : palmExecution = ValidateDefinition(BodyActionCatalog.Palm);
 
     /// <summary>资源提交前验证完整正式目录，不改写定义、学习和正在运行的施放。</summary>
     private static void ValidateReloadedResources()
     {
         foreach (AbilityDefinition definition in definitions.Values) ValidateDefinition(definition);
-        ValidateDefinition(BodyActionCatalog.PalmExecution);
+        ValidateDefinition(BodyActionCatalog.Palm);
     }
 
     /// <summary>在创建边界复制完整定义，编译成功后才登记。</summary>
