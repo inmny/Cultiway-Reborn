@@ -59,7 +59,9 @@ public sealed partial class ConstructedAbilityService
             if (running.Movement != null)
             {
                 bodyMovement = true;
-                float travel = running.Cast.Plan.Body.Construction.FootworkTravel * running.LastSourceHeight;
+                var construction = running.Cast.Plan.Body.Construction;
+                float travel = construction.FootworkTravel *
+                               Mathf.Max(running.LastSourceHeight, construction.FootworkTargetDistance);
                 Include(running.LastSourceFoot + new Vector3(travel, travel, 0f));
                 Include(running.LastSourceFoot - new Vector3(travel, travel, 0f));
             }

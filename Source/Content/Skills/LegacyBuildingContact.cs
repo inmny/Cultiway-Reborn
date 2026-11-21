@@ -33,6 +33,7 @@ internal sealed class LegacyBuildingContact
     internal readonly string ImpactSound;
     /// <summary>点名建筑使用真实手持兵器接触和原版兵器结算。</summary>
     internal readonly bool BodyWeapon;
+    internal bool SweepsBuildings => !collider.ExplicitTargetOnly;
 
     private LegacyBuildingContact(ColliderConfig collider, long selectedBuilding, bool area, bool dealsBaseDamage,
         float heightAllowance, float chainStartRadius, string impactSound, bool bodyWeapon = false)
@@ -47,10 +48,11 @@ internal sealed class LegacyBuildingContact
         BodyWeapon = bodyWeapon;
     }
 
-    /// <summary>保留近身战技本次点名的原建筑，不扩大为其他建筑都可受击。</summary>
+    /// <summary>近身战技允许点名建筑，明确扫掠时才查找沿途敌方建筑。</summary>
     /// <param name="building">原入口已经核对的建筑，人物施放时为空。</param>
-    internal static LegacyBuildingContact ForWeapon(Building building) => building == null ? null :
-        new LegacyBuildingContact(new ColliderConfig { ExplicitTargetOnly = true }, building.getID(),
+    /// <param name="sweep">资料是否允许作用于沿途建筑。</param>
+    internal static LegacyBuildingContact ForWeapon(Building building, bool sweep = false) => building == null && !sweep ? null :
+        new LegacyBuildingContact(new ColliderConfig { ExplicitTargetOnly = !sweep, Enemy = sweep }, building?.getID() ?? 0,
             false, true, float.PositiveInfinity, 0f, null, bodyWeapon: true);
 
     /// <summary>沿用原发射是否允许扫描建筑的规则。</summary>
@@ -106,9 +108,10 @@ public sealed partial class ConstructedAbilityService
         RunningCast running = shape.Running;
         int node = shape.To.Node, stage = running.Cast.BodyStage;
         LegacyBuildingContact rule = running.BuildingContact;
+        if (rule.BodyWeapon && node >= 0) return;
         bool chain = rule.ChainStartRadius > 0f;
         long chosen = 0;
-        if (node < 0) chosen = rule.SelectedBuilding;
+        if (node < 0) chosen = rule.SweepsBuildings ? 0 : rule.SelectedBuilding;
         else if (node != 0)
         {
             if (running.ChainBuildings == null || !running.ChainBuildings.TryGetValue(node, out chosen)) return;

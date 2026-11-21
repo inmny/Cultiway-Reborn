@@ -1,0 +1,85 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.KnightTechnique.FormationCharge",
+  "Name": "破阵冲锋",
+  "Lifetime": 0.90,
+  "Cooldown": 7,
+  "Resource": "vigor",
+  "Cost": 45,
+  "Power": 1,
+  "TargetRange": 6,
+  "Use": {"Target": "ObjectOrPoint", "Channels": "Combat"},
+  "Impact": {
+    "Targets": "Hostile",
+    "DamageScale": 1.1,
+    "Impulse": [1.8, 0, 0],
+    "SlideSeconds": 0.18,
+    "ForceAfterDamage": true,
+    "Statuses": [{"Id": "Stagger", "Duration": 0.4, "Application": "Refresh", "AfterDamage": true}],
+    "Spreads": [
+      {"Radius": 0.9, "GroundPlane": true, "ExcludeContactActor": true, "AfterDamage": true,
+        "VisualSeconds": 0.14, "Outcome": {"Knockback": {"Distance": 0.2}}}
+    ]
+  },
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": "spear",
+    "WeaponObstacle": true,
+    "GroundActorsOnly": true,
+    "ContactHostileBuildings": true,
+    "Occupancy": 5,
+    "ReleaseAt": 0.12,
+    "ActiveFrom": 0.12,
+    "ActiveUntil": 0.735,
+    "Stages": [{"Id": "advance", "From": 0.12, "Until": 0.735}],
+    "Contact": {"Mode": "Once", "MaximumTotal": 1},
+    "Construction": {
+      "Parts": [
+        {"Id": "hand.right", "Part": "hand.right"},
+        {"Id": "spear", "Subject": "Held", "Part": "item"},
+        {"Id": "target", "Subject": "Target", "Part": "surface"}
+      ],
+      "Relations": [
+        {"Id": "hold", "Kind": "Grip", "From": "hand.right", "To": "spear", "FromAnchor": "grip", "ToAnchor": "forward",
+          "FromMarker": "start", "UntilMarker": "end"},
+        {"Id": "point", "Kind": "Touch", "From": "spear", "To": "target", "FromAnchor": "tip"}
+      ],
+      "FootworkTargetDistance": 6,
+      "Footwork": {
+        "Space": "Local",
+        "Forward": null,
+        "Keys": [
+          {"At": 0, "Point": [0, 0, 0]},
+          {"At": 0.12, "Point": [0, 0, 0]},
+          {"At": 0.25, "Point": [0.21, 0, 0]},
+          {"At": 0.44, "Point": [0.55, 0, 0]},
+          {"At": 0.64, "Point": [0.88, 0, 0]},
+          {"At": 0.735, "Point": [1, 0, 0]},
+          {"At": 0.90, "Point": [1, 0, 0]}
+        ]
+      }
+    },
+    "Keys": [
+      {"Id": "ready", "At": 0, "Hand": [0.18, 0.25, 0.61], "Rotation": [-9, -17, 5], "Support": {}},
+      {"Id": "coil", "At": 0.08, "Hand": [0.10, 0.23, 0.60], "Torso": [-0.06, 0.01, -0.105], "Turn": -13,
+        "Rotation": [-4, -9, 3], "Support": {}},
+      {"Id": "launch", "At": 0.12, "Hand": [0.35, 0.13, 0.59], "Torso": [0.07, -0.01, -0.066], "Turn": 6,
+        "Rotation": [0, -3, 0], "Support": {"LeftFoot": [0.15, -0.11, 0.028], "RightFoot": [-0.155, 0.11, 0.054]}},
+      {"At": 0.28, "Hand": [0.41, 0.11, 0.59], "Torso": [0.10, -0.012, -0.076], "Turn": 11,
+        "Rotation": [0, -2, 0], "Support": {"LeftFoot": [-0.11, -0.11, 0.065], "RightFoot": [0.13, 0.11, 0.012]}},
+      {"At": 0.43, "Hand": [0.43, 0.10, 0.59], "Torso": [0.10, -0.012, -0.069], "Turn": 13,
+        "Rotation": [0, -2, 0], "Support": {"LeftFoot": [0.14, -0.11, 0.012], "RightFoot": [-0.12, 0.11, 0.066]}},
+      {"At": 0.60, "Hand": [0.43, 0.10, 0.59], "Torso": [0.095, -0.012, -0.075], "Turn": 11,
+        "Rotation": [0, -2, 0], "Support": {"LeftFoot": [-0.10, -0.11, 0.061], "RightFoot": [0.14, 0.11, 0.013]}},
+      {"At": 0.735, "Hand": [0.40, 0.12, 0.58], "Torso": [0.082, -0.01, -0.09], "Turn": 7,
+        "Rotation": [0, -2, 0], "Support": {"LeftFoot": [0.13, -0.11, 0.018], "RightFoot": [-0.13, 0.11, 0.012]}},
+      {"Id": "brake", "At": 0.77, "Hand": [0.29, 0.16, 0.57], "Torso": [0.031, -0.01, -0.105],
+        "Rotation": [-4, -6, 2], "Support": {}},
+      {"Id": "rest", "At": 0.90, "Hand": [0.18, 0.25, 0.61], "Rotation": [-9, -17, 5], "Support": {}}
+    ],
+    "Responses": [
+      {"Result": "Contact", "RecoverFrom": "rest", "Seconds": 0.12},
+      {"Result": "Blocked", "RecoverFrom": "rest", "Seconds": 0.12}
+    ]
+  }
+}

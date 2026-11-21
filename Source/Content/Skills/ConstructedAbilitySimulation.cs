@@ -936,7 +936,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 ActorMotion actor = actors[id];
                 if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) continue;
-                if (form?.GroundActorsOnly == true && actor.Actor.isFlying()) continue;
+                if ((form?.GroundActorsOnly ?? running.Cast.Plan.Body.GroundActorsOnly) && actor.Actor.isFlying()) continue;
                 Sample(actor, clock, out Vector3 fromFoot, out float fromHeight);
                 Sample(actor, clock + step, out Vector3 toFoot, out float toHeight);
                 var b0 = ActorHitBoundary.Create(fromFoot, fromHeight,
@@ -1198,7 +1198,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ActorMotion actor = hit.Actor;
         if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) return;
         CompiledForm form = node < 0 ? null : running.Cast.Plan.Nodes[node];
-        if (form?.GroundActorsOnly == true && actor.Actor.isFlying()) return;
+        if ((form?.GroundActorsOnly ?? running.Cast.Plan.Body.GroundActorsOnly) && actor.Actor.isFlying()) return;
         simulation.Sample(actor, simulation.contactTime, out Vector3 spreadCenter, out _);
         CastAuthority contactOwner = running.Owner(node);
         if (node >= 0 && running.Cast.Plan.Nodes[node].Correspondence?.OriginalContactOnly == true &&
@@ -1230,7 +1230,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         {
             var owner = running.Source.GetExtend();
             observation = ObserveQueuedContact(running, node, contactOwner.Id, actor.Actor, actor.Id,
-                memory.Count, LogicTime, impact, strength, effectCenter, priorVelocity, forceReceiver);
+                memory.Count, LogicTime, impact, strength, effectCenter, spreadCenter, priorVelocity, forceReceiver);
             float multiplier = running.Power * damageScale * strength;
             bodyDamageMultiplier = multiplier;
             // 每个实际动作阶段已有独立限额，上一击的闪动不应吞掉后续段。
@@ -1256,7 +1256,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (contactGeneration != worldGeneration) return;
         if (primaryDamage.HealthLost > 0 || observation is { Pending: false, Result.HealthLost: > 0 })
             ApplyDamageEffects(running, node, actor.Actor, actor.Id, impact, strength,
-                effectCenter, priorVelocity, forceReceiver);
+                effectCenter, spreadCenter, LogicTime, priorVelocity, forceReceiver);
         if (contactGeneration != worldGeneration) return;
         ApplyRestoration(running, node, actor.Actor, impact.Restoration, strength);
         ConstructedTargetResponse response = running.FormationArea is { } formation
@@ -1310,29 +1310,35 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
     }
 
-    /// <summary>实际扣血触发该接触保存的状态及推拉，目标失效后跳过。</summary>
+    /// <summary>实际扣血触发该接触保存的状态、推拉与范围作用。</summary>
     /// <param name="running">实际施放。</param><param name="node">接触部位。</param>
     /// <param name="target">原受击人物。</param><param name="targetId">受击时身份。</param>
     /// <param name="impact">受击时的作用。</param><param name="strength">受击时的实际强度。</param>
     /// <param name="effectCenter">实际接触的形体中心。</param>
+    /// <param name="spreadCenter">命中时被击者所在的范围作用中心。</param>
+    /// <param name="time">确认伤害的共同时间。</param>
     /// <param name="priorVelocity">同次原版命中产生受力之前的速度。</param>
     /// <param name="forceReceiver">同次接触中采集的承力身体。</param>
     private static void ApplyDamageEffects(RunningCast running, int node, Actor target, long targetId,
-        CompiledConstructionImpact impact, float strength, Vector3 effectCenter,
+        CompiledConstructionImpact impact, float strength, Vector3 effectCenter, Vector3 spreadCenter, double time,
         Vector3? priorVelocity, ForceReceiver? forceReceiver)
     {
-        if ((!impact.HasStatusesAfterDamage && !impact.ForceAfterDamage) ||
-            target.data?.id != targetId || !target.isAlive() || !target.hasHealth()) return;
         long generation = worldGeneration;
-        if (impact.ForceAfterDamage)
+        if ((impact.HasStatusesAfterDamage || impact.ForceAfterDamage) &&
+            target.data?.id == targetId && target.isAlive() && target.hasHealth())
         {
-            ApplyContactForce(running, node, target, impact, ApplyAttackState.Hit, out bool applied,
-                effectCenter, priorVelocity, forceReceiver, strength);
-            if (applied && !impact.Impulse.HasValue) InterruptContactBody(target);
+            if (impact.ForceAfterDamage)
+            {
+                ApplyContactForce(running, node, target, impact, ApplyAttackState.Hit, out bool applied,
+                    effectCenter, priorVelocity, forceReceiver, strength);
+                if (applied && !impact.Impulse.HasValue) InterruptContactBody(target);
+            }
+            if (impact.HasStatusesAfterDamage && generation == worldGeneration && target.data?.id == targetId &&
+                target.isAlive() && target.hasHealth())
+                ApplyStatuses(running, node, target, impact.Statuses, strength, afterDamage: true);
         }
-        if (impact.HasStatusesAfterDamage && generation == worldGeneration && target.data?.id == targetId &&
-            target.isAlive() && target.hasHealth())
-            ApplyStatuses(running, node, target, impact.Statuses, strength, afterDamage: true);
+        if (impact.HasSpreadsAfterDamage && generation == worldGeneration)
+            ApplyContactSpreads(running, node, targetId, impact, spreadCenter, time, strength, afterDamage: true);
     }
 
     /// <summary>是否仍留下真实部位；存在的部位也可能已没有攻击余力。</summary>

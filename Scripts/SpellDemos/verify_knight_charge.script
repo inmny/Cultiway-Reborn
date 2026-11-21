@@ -1,0 +1,167 @@
+// 10.03：同一枪骑和铁枪，按原入口验证直线通路与第一段真实接触。
+var technique = KnightTechniques.FormationCharge;
+string id = technique.id;
+var basis = ConstructionEditing.Access.Read(id);
+var plan = ConstructionEditing.Access.Validate(basis);
+Check(plan.Body.WeaponForm == "spear" && basis.Body.Construction.FootworkTargetDistance == 6f &&
+      basis.Body.Construction.Relations.Any(relation => relation.FromAnchor == "tip") &&
+      basis.Impact.Spreads.Single().AfterDamage, "正式目录保存按距离推进的步法、真实枪尖与扣血后侧向作用");
+
+owner.AddComponent(new Knight { level = 3, vigor = 200f });
+var reserve = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.DuelistVigor") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.DuelistVigor")
+        .SetStats(new BaseStats { [BaseStatses.MaxVigor.id] = 1000f }).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, reserve, 10000, source);
+Ready(source);
+source.attack_timer = 999;
+await Advance(.18f);
+Item weapon = Equip(source, "spear_iron");
+KnightStyleMasteryService.Master(owner, KnightStyles.Lancer);
+KnightTechniqueSkills.LearnStyle(owner, KnightStyles.Lancer);
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var handle = handles.Single(value => value.ProviderId == "content.knight_techniques" && value.EntryId == id);
+
+long castId = 0;
+var issued = new List<ConstructedQueuedDamage>();
+var spread = new List<ConstructedSpread>();
+var buildingHits = new List<long>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != id) return;
+    castId = fact.CastId;
+    object exact = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == castId);
+    Check(ReferenceEquals(Field(Field(exact, "Body"), "Weapon"), weapon), "本次冲锋使用原铁枪");
+}
+void Damage(ConstructedQueuedDamage fact) { if (fact.CastId == castId) issued.Add(fact); }
+void Spread(ConstructedSpread fact) { if (fact.CastId == castId) spread.Add(fact); }
+void Action(ConstructedActionEvent fact)
+{
+    if (fact.CastId == castId && fact.Fact.ContactKind == AbilityActionContactKind.Building)
+        buildingHits.Add(fact.Fact.TargetId);
+}
+Actor Enemy(float x, float y)
+{
+    Actor actor = Make(x);
+    actor.setKingdom(target.kingdom);
+    actor.addAggro(source);
+    source.addAggro(actor);
+    Place(actor, x, y);
+    actor.setHealth(actor.getMaxHealth());
+    return actor;
+}
+
+const float origin = 64.35f, chosenX = 69.65f;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.QueuedDamageConfirmed += Damage;
+ConstructedAbilityService.SpreadConfirmed += Spread;
+ConstructedAbilityService.ActionConfirmed += Action;
+try
+{
+    Place(source, origin);
+    Place(target, chosenX);
+    source.addAggro(target);
+    target.addAggro(source);
+    target.setHealth(target.getMaxHealth());
+    Actor first = null, neighbor = null;
+    Building building = null;
+    if (selection == "charge")
+    {
+        first = Enemy(67.45f, 72);
+        neighbor = Enemy(67.50f, 72.74f);
+        CombatStatusEffects.RemoveStatus(first, hold);
+        CombatStatusEffects.ApplyStatus(first, quiet, 10000, first);
+        CombatStatusEffects.RemoveStatus(neighbor, hold);
+        CombatStatusEffects.ApplyStatus(neighbor, quiet, 10000, neighbor);
+        first.updateStats();
+        neighbor.updateStats();
+        first.setHealth(first.getMaxHealth());
+        neighbor.setHealth(neighbor.getMaxHealth());
+    }
+    if (selection == "charge-building")
+    {
+        building = World.world.buildings.addBuilding("beehive", World.world.GetTileSimple(68, 72));
+        building.setKingdom(target.kingdom);
+    }
+    BaseSimObject chosen = (BaseSimObject)building ?? target;
+    var aim = new ActiveAbilityTarget(chosen, chosen.GetSimPos());
+    int initial = chosen.getHealth(), firstHealth = first?.getHealth() ?? 0, sideHealth = neighbor?.getHealth() ?? 0;
+    owner.GetCultisys<Knight>().vigor = 200f;
+    source.attack_timer = 0;
+    WorldTile wall = World.world.GetTileSimple(67, 72);
+    TileType barrier = null;
+    if (selection == "charge-wall")
+    {
+        barrier = AssetManager.tiles.get("Cultiway.Verify.BodyFootwork.Wall") ??
+                  AssetManager.tiles.clone("Cultiway.Verify.BodyFootwork.Wall", "mountains");
+        barrier.block = true;
+        barrier.block_height = 3f;
+        wall.setTileTypes(barrier, null);
+        Check(wall.Type.block && !ActiveAbilityService.TryUse(owner, handle, aim, ActiveAbilityUseOrigin.Script) &&
+              owner.GetCultisys<Knight>().vigor == 200f && SkillCooldownService.GetRemaining(owner, handle.Source) == 0f &&
+              !BodyControlState.IsBusy(source.id), "原入口拒绝有墙的起势且不收费");
+        wall.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    }
+
+    var accepted = ActiveAbilityService.TryUse(owner, handle, aim, ActiveAbilityUseOrigin.Script);
+    Check(accepted && castId != 0 && BodyControlState.HasControl(source.id, BodyOccupancy.Stance) &&
+          Math.Abs(owner.GetCultisys<Knight>().vigor - 155f) < .001 &&
+          SkillCooldownService.GetRemaining(owner, handle.Source) == 7f,
+        "原入口在通路可走时受理，只扣45点斗气", new { accepted, castId, vigor = owner.GetCultisys<Knight>().vigor });
+    source.attack_timer = 999f;
+    await Advance(.18f);
+    float early = source.current_position.x;
+    Check(early > origin + .03f && early < origin + 1.1f && Math.Abs(source.current_position.y - 72) < .05f,
+        "起势后逐段真实前进，保持锁定直线", new { early, y = source.current_position.y });
+    if (selection == "charge-wall") wall.setTileTypes(barrier, null);
+    if (selection == "charge-swap") weapon = Equip(source, "spear_iron");
+    await Advance(.74f);
+    float endX = source.current_position.x;
+    var hits = contacts.Where(fact => fact.CastId == castId).ToArray();
+    if (selection == "charge")
+    {
+        Check(hits.Length == 1 && hits[0].Node == -1 && hits[0].TargetId == first.id &&
+              hits[0].BodyDamageMultiplier is float multiplier && Math.Abs(multiplier - 1.1f) < .001f &&
+              issued.Count == 1 && issued[0].TargetId == first.id && issued[0].Damage.HealthLost > 0 &&
+              firstHealth - first.data.health == issued[0].Damage.HealthLost && target.getHealth() == initial,
+            "枪尖先命中沿途敌人，原点名目标没有额外伤害",
+            new { hits = hits.Select(value => new { value.TargetId, position = value.Position.ToString("F3"), value.Age, value.BodyDamageMultiplier }),
+                issued = issued.Select(value => new { value.TargetId, value.Damage.HealthLost }),
+                firstHealth, current = first.data.health, endX });
+        Check(spread.Count == 1 && spread[0].ContactId == first.id && spread[0].GroundPlane &&
+              Math.Abs(spread[0].Radius - .9f) < .001 && spread[0].Actors.SequenceEqual(new[] { neighbor.id }) &&
+              neighbor.getHealth() == sideHealth && neighbor.current_position.y > 72.78f,
+            "实际扣血后只推动半径0.9格内的侧方，不再造成伤害",
+            new { neighbors = spread.Select(value => value.Actors), y = neighbor.current_position.y });
+        Check(endX > early + .5f && endX < 67.45f && BodyControlState.HasControl(source.id, BodyOccupancy.Stance) == false,
+            "枪尖接触后在实际位置收势", new { early, endX });
+    }
+    else if (selection == "charge-building")
+    {
+        Check(buildingHits.SequenceEqual(new[] { building.getID() }) && chosen.getHealth() < initial &&
+              hits.Length == 0 && spread.Count == 0,
+            "选定建筑由实际枪尖结算一次，人物未被附带伤害",
+            new { buildingHits, initial, health = chosen.getHealth(), endX });
+    }
+    else
+    {
+        Check(hits.Length == 0 && issued.Count == 0 && chosen.getHealth() == initial &&
+              endX < (selection == "charge-wall" ? 67f : early + .1f),
+            "通路出现实际墙体或同款换枪后，旧冲锋不会跨过阻挡或追加伤害", new { early, endX });
+    }
+    Check(!BodyControlState.IsBusy(source.id) && ReferenceEquals(source.getWeapon(), weapon),
+        "收势、中断或阻挡后归还身体及实际兵器");
+    return new { passed = true, selection, early, endX };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Damage;
+    ConstructedAbilityService.SpreadConfirmed -= Spread;
+    ConstructedAbilityService.ActionConfirmed -= Action;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

@@ -52,7 +52,7 @@ internal static class KnightLancerTechniques
                 2.2f, 0.4f, 0f, 1.2f, 2.8f, 45f, 2f, SkillImpactKind.Piercing, 1f),
             ResolveRange = _ => 6f,
             ResolveEffectRadius = _ => 0.9f,
-            TryUse = UseFormationCharge,
+            Construction = BodyActionCatalog.KnightFormationCharge,
         };
     }
 
@@ -75,18 +75,6 @@ internal static class KnightLancerTechniques
             ResolveEffectRadius = _ => 2f,
             TryUse = UseSkyfallStrike,
         };
-    }
-
-    private static bool UseFormationCharge(KnightTechniqueContext context, ActiveAbilityUseOrigin origin)
-    {
-        KnightTechniqueRuntimeService.BeginAction(context.Caster, 0.77f);
-        DelayedActionsManager.addAction(() =>
-        {
-            if (KnightTechniqueRuntimeService.IsCurrentTechniqueWeapon(
-                    context.Caster, context.Technique, context.Weapon))
-                KnightTechniqueMovement.StartCharge(context);
-        }, 0.12f);
-        return true;
     }
 
     private static bool UseSkyfallStrike(KnightTechniqueContext context, ActiveAbilityUseOrigin origin)

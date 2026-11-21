@@ -60,18 +60,20 @@ public sealed partial class ConstructedAbilityService
     /// <param name="number">原接触次数。</param><param name="time">真实接触时点。</param>
     /// <param name="impact">该次兵器接触的实际作用。</param><param name="strength">确认接触时的实际强度。</param>
     /// <param name="effectCenter">实际接触的形体中心。</param>
+    /// <param name="spreadCenter">命中时被击者所在的范围作用中心。</param>
     /// <param name="priorVelocity">原版命中附带推力提交前的速度。</param>
     /// <param name="forceReceiver">接触时的实际承力身体。</param>
     private static DamageObservation ObserveQueuedContact(RunningCast running, int node, long source, Actor target,
         long targetId, int number, double time, CompiledConstructionImpact impact, float strength,
-        Vector3 effectCenter, Vector3? priorVelocity, ForceReceiver? forceReceiver)
+        Vector3 effectCenter, Vector3 spreadCenter, Vector3? priorVelocity, ForceReceiver? forceReceiver)
     {
         long generation = worldGeneration;
         return new DamageObservation(source, targetId, damage =>
         {
             if (generation != worldGeneration) return;
             if (damage.HealthLost > 0)
-                ApplyDamageEffects(running, node, target, targetId, impact, strength, effectCenter, priorVelocity, forceReceiver);
+                ApplyDamageEffects(running, node, target, targetId, impact, strength, effectCenter, spreadCenter,
+                    LogicTime, priorVelocity, forceReceiver);
             if (generation != worldGeneration) return;
             int? health = World.world.units.get(targetId)?.data?.health;
             QueuedDamageConfirmed?.Invoke(new ConstructedQueuedDamage(running.Id, running.Cast.Plan.Id, source, targetId, node, number,

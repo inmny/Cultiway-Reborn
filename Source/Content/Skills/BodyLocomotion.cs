@@ -37,6 +37,9 @@ internal sealed partial class BodyLocomotion
     /// <summary>起势坐标系，路径不因人物转身被重复旋转。</summary>
     private readonly Vector3 forward, side;
 
+    /// <summary>起势锁定的前进尺度。横向步态仍按身体尺寸计算。</summary>
+    private readonly float? forwardStepScale;
+
     /// <summary>只在确认后替换的完整运动与落脚状态。</summary>
     private State current;
 
@@ -113,6 +116,8 @@ internal sealed partial class BodyLocomotion
         fit = frame.Fit;
         forward = frame.Forward;
         side = Vector3.Cross(forward, Vector3.forward);
+        if (action.Construction.FootworkTargetDistance > 0f)
+            forwardStepScale = Mathf.Clamp(frame.AimDistance, 0f, action.Construction.FootworkTargetDistance);
         this.joint = joint;
         naturalFeet = joint?.NaturalFeet(frame.Joint, frame.Foot, forward, frame.Height);
         current = new State
@@ -187,11 +192,11 @@ internal sealed partial class BodyLocomotion
         while (value.Age < age)
         {
             float next = Mathf.Min(age, value.Age + Mathf.Min(.02f,
-                action.FootworkStep(value.Age) / Mathf.Max(1f, height)));
+                action.FootworkStep(value.Age) / Mathf.Max(1f, Mathf.Max(height, forwardStepScale ?? height))));
             if (next <= value.Age) next = age;
             action.Footwork(value.Age, out Vector3 before, out _);
             action.Footwork(next, out Vector3 after, out _);
-            Vector3 requested = value.Root + Map(after - before) * height;
+            Vector3 requested = value.Root + FootworkDelta(after - before, height);
             BodySupportPose support = action.Support(next);
             State candidate = value;
             candidate.Age = next;
@@ -365,7 +370,7 @@ internal sealed partial class BodyLocomotion
             action.Flight(value.Age, out float progress, out float until);
             action.Footwork(value.Age, out Vector3 here, out _);
             action.Footwork(until, out Vector3 landing, out _);
-            float destination = Floor(terrain, value.Root + Map(landing - here) * value.Height,
+            float destination = Floor(terrain, value.Root + FootworkDelta(landing - here, value.Height),
                 value.FlightGround + .00001f, value.Height * .16f, value.Height * 1.04f);
             baseline = Mathf.Lerp(value.FlightGround, destination, Mathf.SmoothStep(0f, 1f, progress));
         }
@@ -408,6 +413,12 @@ internal sealed partial class BodyLocomotion
 
     /// <summary>制作坐标转地图方向。</summary><param name="value">前、侧、高。</param>
     private Vector3 Map(Vector3 value) => forward * value.x + side * value.y + Vector3.forward * value.z;
+
+    /// <summary>只对步法前进量应用起势时的目标尺度。</summary>
+    private Vector3 FootworkDelta(Vector3 delta, float height) =>
+        forwardStepScale is float distance
+            ? forward * (delta.x * distance) + side * (delta.y * height)
+            : Map(delta) * height;
 
     /// <summary>地图方向转固定制作坐标。</summary><param name="value">地图位移。</param>
     private Vector3 Local(Vector3 value) => new(Vector3.Dot(value, forward), Vector3.Dot(value, side), value.z);

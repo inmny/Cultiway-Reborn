@@ -14,7 +14,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case', choices=('all', 'strike', 'near', 'sweep', 'interrupt', 'press', 'edit', 'range',
                                            'obstacle', 'archive', 'cold', 'film', 'knight', 'knight-immune',
-                                           'knight-miss', 'knight-swap', 'knight-building'), default='all')
+                                           'knight-miss', 'knight-swap', 'knight-building', 'charge',
+                                           'charge-wall', 'charge-swap', 'charge-building'), default='all')
     parser.add_argument('--edited', type=Path, help='--case edit 生成的 edited-definition.json')
     parser.add_argument('--part', choices=('tip', 'shaft'), help='障碍复验使用的实物部位')
     parser.add_argument('--archive', type=Path, help='--case archive 的实际世界和外部核对记录目录')
@@ -90,8 +91,9 @@ def run(args, output):
         fighters = fighters.replace('Make(65.2f)', f'World.world.units.get({int(expected["target"])}L)')
     script = output / 'input.script'
     imports = 'using Friflo.Engine.ECS;\n'
-    if args.case.startswith('knight'):
-        base = base.replace('"Cultiway.Body.LongSpear"', '"Cultiway.KnightTechnique.ArmorPiercingThrust"')
+    if args.case.startswith(('knight', 'charge')):
+        ability = 'FormationCharge' if args.case.startswith('charge') else 'ArmorPiercingThrust'
+        base = base.replace('"Cultiway.Body.LongSpear"', f'"Cultiway.KnightTechnique.{ability}"')
         imports += 'using Cultiway.Content.KnightCombat;\nusing Cultiway.Core.SkillLibV3;\nusing Cultiway.Core.SkillLibV3.Utils;\n'
     elif args.case in ('edit', 'archive'):
         imports += 'using Cultiway.UI;\nusing Cultiway.UI.Prefab;\nusing UnityEngine.UI;\n'
@@ -111,6 +113,8 @@ def run(args, output):
     }.get(args.case, 'verify_long_weapons.script')
     if args.case.startswith('knight'):
         case_file = 'verify_knight_thrust.script'
+    elif args.case.startswith('charge'):
+        case_file = 'verify_knight_charge.script'
     body = (scripts / case_file).read_text()
     settings = f'\nconst string selection = "{args.case}";\n'
     if args.case in ('press', 'film'):

@@ -6,6 +6,18 @@ namespace Cultiway.Core.Skills;
 /// <summary>真实命中时一次分送的普通球形作用；结果不能再次声明范围。</summary>
 public sealed class ConstructionContactSpread
 {
+    /// <summary>本体伤害确实扣血才分送。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool AfterDamage;
+
+    /// <summary>沿地图平面距离取人，空中高度不改变半径。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool GroundPlane;
+
+    /// <summary>跳过本体接触的人物，只作用于其附近对象。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool ExcludeContactActor;
+
     /// <summary>实际三维球体的世界半径；选择介质时须为零，不选择介质时零表示不分送。</summary>
     public float Radius;
 
@@ -27,6 +39,10 @@ public sealed class ConstructionContactSpread
 /// <summary>独立编译的有限球形作用，不持有玩家可修改的数组或结果。</summary>
 public sealed class CompiledConstructionContactSpread
 {
+    internal bool AfterDamage { get; }
+    internal bool GroundPlane { get; }
+    internal bool ExcludeContactActor { get; }
+
     /// <summary>与显示共用的真实世界半径。</summary>
     public float Radius { get; }
 
@@ -53,11 +69,14 @@ public sealed class CompiledConstructionContactSpread
             throw new InvalidDataException(path + "：半径和建筑比例需要零至10000内有限值，显示需要零至10世界秒");
         if (source.Medium != null)
         {
-            if (source.Radius != 0f)
-                throw new InvalidDataException(path + "：介质分送不同时声明球形半径");
+            if (source.Radius != 0f || source.AfterDamage || source.GroundPlane || source.ExcludeContactActor)
+                throw new InvalidDataException(path + "：介质分送不同时声明圆面、扣血触发或圆面目标排除");
             Medium = new CompiledSpreadMedium(source.Medium, path + "/Medium");
         }
         Radius = source.Radius;
+        AfterDamage = source.AfterDamage;
+        GroundPlane = source.GroundPlane;
+        ExcludeContactActor = source.ExcludeContactActor;
         BuildingDamagePerForce = source.BuildingDamagePerForce;
         VisualSeconds = source.VisualSeconds;
         if (source.Outcome != null) Outcome = new CompiledConstructionContactOutcome(source.Outcome, path + "/Outcome");

@@ -425,13 +425,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         FormationTargetContact formationTarget = default, bool selectionAlreadyChecked = false)
     {
         if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
+        CompiledAbility plan = ValidateDefinition(definition);
+        if (plan.Body?.ContactHostileBuildings == true)
+            buildingContact = LegacyBuildingContact.ForWeapon(target.Object as Building, sweep: true);
         // 原发射已核对点名建筑。共同空间输入使用它的位置，建筑身份仍由本次接触规则校验。
         ActiveAbilityTarget aim = target;
         if (buildingContact is { SelectedBuilding: > 0 } && target.Object?.isBuilding() == true &&
             !target.Object.isRekt() && target.Object.getID() == buildingContact.SelectedBuilding)
             aim = new ActiveAbilityTarget(null, target.Position, target.SelectionArea, target.ExplicitTargets,
                 target.AttackKingdom, target.RuntimeData, target.WorldScope);
-        return Start(caster, ValidateDefinition(definition), aim, target.RuntimeData.Origin, out _, sourcePosition,
+        return Start(caster, plan, aim, target.RuntimeData.Origin, out _, sourcePosition,
             true, payment, sourceDamage: damage, sourceDirection: direction, sourceInstance: sourceInstance,
             spatialSource: spatialSource?.a, sourceIsWorld: sourceIsWorld, legacyArea: legacyArea,
             groundTravel: groundTravel, groundContact: groundContact, buildingContact: buildingContact,
@@ -505,6 +508,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         castId = 0;
         Actor sourceActor = caster?.Base;
+        if (!practice && plan.Body?.ContactHostileBuildings == true)
+            buildingContact ??= LegacyBuildingContact.ForWeapon(null, sweep: true);
         spatialSource ??= sourceActor;
         if (spatialSource != null && (!spatialSource.isAlive() || !spatialSource.hasHealth())) return false;
         string id = plan.Id;

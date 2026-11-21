@@ -283,6 +283,7 @@ public sealed class CompiledConstructionImpact
 
     /// <summary>已检查并独立复制的球形范围作用。</summary>
     public IReadOnlyList<CompiledConstructionContactSpread> Spreads { get; }
+    internal bool HasSpreadsAfterDamage { get; }
 
     /// <summary>已复制的三向世界速度变化，不持有可编辑数组。</summary>
     public Vector3? Impulse { get; }
@@ -400,6 +401,9 @@ public sealed class CompiledConstructionImpact
         if (source?.Spreads?.Length > 8) throw new InvalidDataException(path + "：每个作用面最多八份范围分送");
         Spreads = source?.Spreads == null ? Array.Empty<CompiledConstructionContactSpread>() :
             Array.AsReadOnly(source.Spreads.Select((spread, index) => new CompiledConstructionContactSpread(spread, path + "/Spreads/" + index)).ToArray());
+        HasSpreadsAfterDamage = Spreads.Any(spread => spread.AfterDamage && spread.HasEffect);
+        if (HasSpreadsAfterDamage && DamageScale <= 0f)
+            throw new InvalidDataException(path + "/Spreads：扣血后分送须有正本体伤害");
         if (source?.Impulse != null)
         {
             if (source.Impulse.Length != 3 || source.Impulse.Any(value =>

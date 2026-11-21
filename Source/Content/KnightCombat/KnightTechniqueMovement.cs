@@ -14,15 +14,8 @@ using UnityEngine;
 
 namespace Cultiway.Content.KnightCombat;
 
-internal enum KnightMovementKind
-{
-    Charge,
-    Skyfall,
-}
-
 internal struct KnightMovementState : IComponent
 {
-    public KnightMovementKind Kind;
     public KnightTechniqueAsset Technique;
     public Item Weapon;
     public Vector2 Start;
@@ -34,49 +27,16 @@ internal struct KnightMovementState : IComponent
     public Kingdom AttackKingdom;
 }
 
-/// <summary>启动并结算破阵冲锋与苍穹坠击。</summary>
+/// <summary>启动并结算苍穹坠击。</summary>
 internal static class KnightTechniqueMovement
 {
-    public static bool StartCharge(KnightTechniqueContext context)
-    {
-        Vector2 start = context.Caster.Base.current_position;
-        Vector2 end = context.ActiveTarget.Position;
-        if (end == Vector2.zero && context.Target != null) end = context.Target.current_position;
-        if (!KnightTechniqueRuntimeService.IsStraightPathClear(start, end)) return false;
-        return Start(context, KnightMovementKind.Charge, start, end, 0.65f, 0f);
-    }
-
     public static bool StartSkyfall(KnightTechniqueContext context)
     {
         Vector2 start = context.Caster.Base.current_position;
         Vector2 end = context.ActiveTarget.Position;
         if (end == Vector2.zero && context.Target != null) end = context.Target.current_position;
         if (!KnightTechniqueRuntimeService.IsStraightPathClear(start, end)) return false;
-        return Start(context, KnightMovementKind.Skyfall, start, end, 0.48f, 2.8f);
-    }
-
-    public static void CompleteCharge(ActorExtend caster, in KnightMovementState state, BaseSimObject hitTarget)
-    {
-        if (hitTarget == null || hitTarget.isRekt() ||
-            !KnightTechniqueRuntimeService.IsCurrentTechniqueWeapon(caster, state.Technique, state.Weapon)) return;
-        if (!TryCreateContext(caster, state, hitTarget, out KnightTechniqueContext context)) return;
-        Vector2 impactCenter = hitTarget.current_position;
-        KnightWeaponStrikeResolver.TryStrike(
-            caster,
-            state.Weapon,
-            hitTarget,
-            1.1f,
-            state.AttackKingdom,
-            onPositiveActorDamage: (primary, _) =>
-            {
-                CombatForceEffects.ApplyRadialForce(caster.Base, primary, caster.Base.current_position, 1.8f, false);
-                CombatStatusEffects.ApplyStatus(primary, StatusEffects.Daze, 0.4f, caster.Base);
-                CombatTargeting.ForEachHostile(caster.Base, impactCenter, 0.9f, sideTarget =>
-                {
-                    if (sideTarget == primary) return;
-                    CombatForceEffects.ApplyRadialForce(caster.Base, sideTarget, impactCenter, 0.8f, false);
-                });
-            });
+        return Start(context, start, end, 0.48f, 2.8f);
     }
 
     public static void CompleteSkyfall(ActorExtend caster, in KnightMovementState state)
@@ -128,7 +88,6 @@ internal static class KnightTechniqueMovement
 
     private static bool Start(
         KnightTechniqueContext context,
-        KnightMovementKind kind,
         Vector2 start,
         Vector2 end,
         float duration,
@@ -140,7 +99,6 @@ internal static class KnightTechniqueMovement
         actor.stopMovement();
         context.Caster.E.AddComponent(new KnightMovementState
         {
-            Kind = kind,
             Technique = context.Technique,
             Weapon = context.Weapon,
             Start = start,
@@ -156,11 +114,11 @@ internal static class KnightTechniqueMovement
             EquippedWeaponMotionKind.ForwardAnchor,
             direction,
             duration,
-            kind == KnightMovementKind.Skyfall ? 1.55f : 1.35f,
+            1.55f,
             0f,
             0f,
             KnightTrailStyle.Movement,
-            kind == KnightMovementKind.Skyfall ? 1.28f : 1.16f);
+            1.28f);
         return true;
     }
 
@@ -204,32 +162,21 @@ internal sealed class KnightTechniqueMovementSystem : QuerySystem<ActorBinder, K
             if (!actor.TryGetExtend(out ActorExtend extend) ||
                 !KnightTechniqueRuntimeService.IsCurrentTechniqueWeapon(extend, state.Technique, state.Weapon))
             {
-                completions.Add(new MovementCompletion(entity, extend, state, null, true));
+                completions.Add(new MovementCompletion(entity, extend, state, true));
                 return;
             }
 
-            Vector2 previous = actor.current_position;
             state.Elapsed += Tick.deltaTime;
             float progress = Mathf.Clamp01(state.Elapsed / Mathf.Max(0.05f, state.Duration));
             actor.current_position = Vector2.Lerp(state.Start, state.End, progress);
-            actor.position_height = state.Kind == KnightMovementKind.Skyfall
-                ? 4f * state.ApexHeight * progress * (1f - progress)
-                : 0f;
+            actor.position_height = 4f * state.ApexHeight * progress * (1f - progress);
             actor.dirty_current_tile = true;
             WorldTile tile = World.world.GetTile(
                 Mathf.FloorToInt(actor.current_position.x),
                 Mathf.FloorToInt(actor.current_position.y));
             if (tile != null) actor.setCurrentTile(tile);
 
-            if (state.Kind == KnightMovementKind.Charge &&
-                TryFindFirstHostile(actor, previous, actor.current_position, state.AttackKingdom, out BaseSimObject hit))
-            {
-                completions.Add(new MovementCompletion(entity, extend, state, hit, false));
-            }
-            else if (progress >= 1f)
-            {
-                completions.Add(new MovementCompletion(entity, extend, state, null, false));
-            }
+            if (progress >= 1f) completions.Add(new MovementCompletion(entity, extend, state, false));
         });
 
         for (var i = 0; i < completions.Count; i++) Complete(completions[i]);
@@ -252,47 +199,7 @@ internal sealed class KnightTechniqueMovementSystem : QuerySystem<ActorBinder, K
         if (tile != null) actor.setCurrentTilePosition(tile);
         completion.Entity.RemoveComponent<KnightMovementState>();
         if (completion.Cancelled) return;
-        if (completion.State.Kind == KnightMovementKind.Charge)
-            KnightTechniqueMovement.CompleteCharge(extend, completion.State, completion.HitTarget);
-        else
-            KnightTechniqueMovement.CompleteSkyfall(extend, completion.State);
-    }
-
-    private static bool TryFindFirstHostile(
-        Actor source,
-        Vector2 start,
-        Vector2 end,
-        Kingdom attackKingdom,
-        out BaseSimObject result)
-    {
-        result = null;
-        BaseSimObject found = null;
-        if (source.current_tile == null) return false;
-        float bestProgress = float.MaxValue;
-        foreach (Actor candidate in Finder.getUnitsFromChunk(source.current_tile, 1))
-            Consider(candidate);
-        foreach (Building candidate in Finder.getBuildingsFromChunk(source.current_tile, 1, 18))
-            Consider(candidate);
-        result = found;
-        return found != null;
-
-        void Consider(BaseSimObject candidate)
-        {
-            if (candidate == null || candidate.isRekt() || candidate == source ||
-                candidate.isActor() && candidate.a.isFlying() ||
-                !SkillTargetRelationResolver.IsHostile(source, candidate, attackKingdom)) return;
-            Vector2 segment = end - start;
-            float lengthSquared = segment.sqrMagnitude;
-            float progress = lengthSquared <= 0.0001f
-                ? 0f
-                : Mathf.Clamp01(Vector2.Dot(candidate.current_position - start, segment) / lengthSquared);
-            Vector2 closest = start + segment * progress;
-            float radius = 0.58f + candidate.stats[S.size];
-            if ((candidate.current_position - closest).sqrMagnitude > radius * radius || progress >= bestProgress)
-                return;
-            bestProgress = progress;
-            found = candidate;
-        }
+        KnightTechniqueMovement.CompleteSkyfall(extend, completion.State);
     }
 
     private readonly struct MovementCompletion
@@ -300,20 +207,17 @@ internal sealed class KnightTechniqueMovementSystem : QuerySystem<ActorBinder, K
         public readonly Entity Entity;
         public readonly ActorExtend Extend;
         public readonly KnightMovementState State;
-        public readonly BaseSimObject HitTarget;
         public readonly bool Cancelled;
 
         public MovementCompletion(
             Entity entity,
             ActorExtend extend,
             KnightMovementState state,
-            BaseSimObject hitTarget,
             bool cancelled)
         {
             Entity = entity;
             Extend = extend;
             State = state;
-            HitTarget = hitTarget;
             Cancelled = cancelled;
         }
     }
