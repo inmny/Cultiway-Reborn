@@ -2498,6 +2498,8 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 `--case skyfall` 复验苍穹坠击的实际高度、落地时点和主次伤害。`skyfall-evade` 核对点名对象移出中心后的范围伤害，`skyfall-swap` 核对换枪后下落及归还，`skyfall-building` 核对原入口点名建筑的落点伤害。
 
+`verify_migrated_martial_film.py --view native` 和 `--view worldfall` 拍摄 10.03 的原地掌击和九项骑士战技。在独立游戏中用 `dev.py exec --timeout 640` 启动。录像从起势前拍到收势后，以实际世界时间编码，随片记录费用、命中、格挡承力或护持。可重复传入 `--move` 补拍指定招式。
+
 `--case press --archive <输出目录>` 用正式对练档中的人物运行架杆拨锋与持剑刺击。检查接触点相合、杆身带动持剑手、收枪解除关系、双方原物归还，以及对方没有兵器时保留体力。
 
 `--case edit` 检查万法阁的实际握点、滑握比例、器物尺寸和普通接触面，并保存中英文画面和 `edited-definition.json`。使用 `--case range --edited <edited-definition.json 路径>` 实战核对该改造的选取距离、尖端接触以及原物归还。
