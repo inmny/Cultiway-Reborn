@@ -80,56 +80,14 @@ public partial class ArtifactAbilities
             event_minimum_state = ArtifactControlState.Ready,
             tick_minimum_state = ArtifactControlState.Operating,
             tick_interval = 0.5f,
-            OnAttached = ClampCelestialPearlGuard,
+            OnAttached = ClampRecoveringShield,
             CanTick = (_, ability, runtime) =>
                 runtime.GetNumber(ShieldCurrent) < ability.GetNumber(ShieldCapacity),
-            OnTick = RechargeCelestialPearlGuard,
+            OnTick = RechargeArtifactShield,
         });
         CelestialPearlGuard.Handle<ArtifactIncomingDamageEvent>(
             (_, _, runtime, evt) => evt.Damage > 0f && runtime.GetNumber(ShieldCurrent) > 0f,
-            AbsorbWithCelestialPearlGuard);
-    }
-
-    private static void ClampCelestialPearlGuard(
-        ArtifactAbilityExecutionContext _,
-        ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry runtime)
-    {
-        runtime.SetNumber(
-            ShieldCurrent,
-            Mathf.Clamp(runtime.GetNumber(ShieldCurrent), 0f, ability.GetNumber(ShieldCapacity)));
-    }
-
-    private static void RechargeCelestialPearlGuard(
-        ArtifactAbilityExecutionContext _,
-        ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry runtime,
-        float elapsed)
-    {
-        runtime.SetNumber(
-            ShieldCurrent,
-            Mathf.Min(
-                ability.GetNumber(ShieldCapacity),
-                runtime.GetNumber(ShieldCurrent) + ability.GetNumber(ShieldRegen) * elapsed));
-    }
-
-    private static void AbsorbWithCelestialPearlGuard(
-        ArtifactAbilityExecutionContext context,
-        ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry runtime,
-        ArtifactIncomingDamageEvent evt)
-    {
-        float sharedShield = runtime.GetNumber(ShieldCurrent);
-        float shield = Mathf.Min(sharedShield, ability.GetNumber(ShieldCapacity) * context.effect_scale);
-        float absorbed = CombatDamageEffects.AbsorbDamage(ref evt.Damage, ref shield, evt.Target);
-        runtime.SetNumber(ShieldCurrent, Mathf.Max(0f, sharedShield - absorbed));
-        ArtifactAbilityVisuals.Emit(
-            context,
-            ability,
-            runtime,
-            ArtifactVisualChannels.Guard,
-            target: evt.Attacker,
-            intensity: absorbed / Mathf.Max(1f, ability.GetNumber(ShieldCapacity)));
+            AbsorbWithRecoveringShield);
     }
 
     private static void ConfigureFivePhasePearlStrike()
@@ -347,51 +305,11 @@ public partial class ArtifactAbilities
             pulse_amplitude = 0.07f,
             radial_facing = false,
         };
-        ArtifactAreaVisualCue shield = Area(
-            ArtifactVisualAnchorKind.Controller,
-            context => 0.68f * ArtifactAbilityVisuals.ResolveActorScale(context),
-            ArtifactVisualColorRole.Glow,
-            0.28f,
-            0.018f,
-            ArtifactVfxStyles.Pearl
-        );
-        CelestialPearlGuard.Visualize(
-            Theme(SkillVfxElements.Water.AccentColor)
-                .Loop(
-                    "celestial_pearl_guard",
-                    new ArtifactCompositeVisualCue(pearls, shield),
-                    context =>
-                        context.runtime.GetNumber(ShieldCurrent) > 0f
-                        && ArtifactAbilityLifecycle.MeetsState(
-                            context.control_state,
-                            ArtifactControlState.Ready
-                        ),
-                    "artifact.celestial_pearl_guard",
-                    ArtifactVisualStackPolicy.Strongest,
-                    context =>
-                        context.runtime.GetNumber(ShieldCurrent)
-                        / Mathf.Max(1f, context.ability.GetNumber(ShieldCapacity))
-                )
-                .Signal(
-                    ArtifactVisualChannels.Guard,
-                    new ArtifactCompositeVisualCue(
-                        ExpandingArea(
-                            ArtifactVisualAnchorKind.Controller,
-                            (ArtifactAbilityVisualContext _) => 0.8f,
-                            ArtifactVisualColorRole.Glow,
-                            ArtifactVfxStyles.Pearl
-                        ),
-                        Burst(
-                            ArtifactVisualAnchorKind.Controller,
-                            ArtifactVisualColorRole.Primary,
-                            6
-                        )
-                    ),
-                    0.38f,
-                    "artifact.celestial_pearl_guard.hit",
-                    ArtifactVisualStackPolicy.Strongest
-                )
-        );
+        CelestialPearlGuard.Visualize(Theme(SkillVfxElements.Water.AccentColor)
+            .Loop("celestial_pearl_guard", pearls, HasRecoveringShield, "artifact.celestial_pearl_guard",
+                ArtifactVisualStackPolicy.Strongest, RecoveringShieldRatio)
+            .Signal(ArtifactVisualChannels.Guard, ShieldImpact(.11f), .3f,
+                "artifact.celestial_pearl_guard.hit", ArtifactVisualStackPolicy.Strongest));
     }
 
     private static void ConfigureFivePhasePearlStrikeVisuals()

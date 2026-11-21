@@ -2849,3 +2849,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 金钟护界的实际吸收（10.06）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_golden_bell_absorption.py` 复验正式金钟的全额吸收、实际撞点、破盾后余伤，以及冷却后同一原件对普通受击的吸收。加 `--skip-views` 可只核对行为与画面锚点。
+
+### 云衣护体与周天珠护（10.06）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_recovering_artifact_shields.py` 复验正式原件的实际吸收、待命、恢复和再次护持。用 `--section robe|pearl` 选择器形。用 `--skip-views` 核对行为，或用 `--views-only` 只补拍吸收画面。

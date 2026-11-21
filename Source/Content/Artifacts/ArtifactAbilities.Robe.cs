@@ -72,54 +72,12 @@ public partial class ArtifactAbilities
             tick_minimum_state = ArtifactControlState.Operating,
             tick_interval = 1f,
             CanTick = (_, ability, runtime) => runtime.GetNumber(ShieldCurrent) < ability.GetNumber(ShieldCapacity),
-            OnTick = RechargeCloudRobeShield,
-            OnAttached = ClampCloudRobeShield,
+            OnTick = RechargeArtifactShield,
+            OnAttached = ClampRecoveringShield,
         });
         CloudRobeShield.Handle<ArtifactIncomingDamageEvent>(
             (_, _, runtime, evt) => evt.Damage > 0f && runtime.GetNumber(ShieldCurrent) > 0f,
-            AbsorbWithCloudRobeShield);
-    }
-
-    private static void ClampCloudRobeShield(
-        ArtifactAbilityExecutionContext _,
-        ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry runtime)
-    {
-        runtime.SetNumber(
-            ShieldCurrent,
-            Mathf.Clamp(runtime.GetNumber(ShieldCurrent), 0f, ability.GetNumber(ShieldCapacity)));
-    }
-
-    private static void RechargeCloudRobeShield(
-        ArtifactAbilityExecutionContext _,
-        ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry runtime,
-        float elapsed)
-    {
-        runtime.SetNumber(
-            ShieldCurrent,
-            Mathf.Min(
-                ability.GetNumber(ShieldCapacity),
-                runtime.GetNumber(ShieldCurrent) + ability.GetNumber(ShieldRegen) * elapsed));
-    }
-
-    private static void AbsorbWithCloudRobeShield(
-        ArtifactAbilityExecutionContext context,
-        ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry runtime,
-        ArtifactIncomingDamageEvent evt)
-    {
-        float sharedShield = runtime.GetNumber(ShieldCurrent);
-        float shield = Mathf.Min(sharedShield, ability.GetNumber(ShieldCapacity) * context.effect_scale);
-        float absorbed = CombatDamageEffects.AbsorbDamage(ref evt.Damage, ref shield, evt.Target);
-        runtime.SetNumber(ShieldCurrent, Mathf.Max(0f, sharedShield - absorbed));
-        ArtifactAbilityVisuals.Emit(
-            context,
-            ability,
-            runtime,
-            ArtifactVisualChannels.Guard,
-            target: evt.Attacker,
-            intensity: absorbed / Mathf.Max(1f, ability.GetNumber(ShieldCapacity)));
+            AbsorbWithRecoveringShield);
     }
 
     private static void ConfigureHeavenlyConcealment()
@@ -344,53 +302,17 @@ public partial class ArtifactAbilities
 
     private static void ConfigureCloudRobeShieldVisuals()
     {
-        ArtifactAreaVisualCue shieldField = Area(
-            ArtifactVisualAnchorKind.Controller,
-            context => 0.75f * ArtifactAbilityVisuals.ResolveActorScale(context),
-            ArtifactVisualColorRole.Glow,
-            0.34f,
-            0.025f,
-            ArtifactVfxStyles.Ward
-        );
-        shieldField.inner_rotation_speed = 12f;
-        ArtifactLocalVisualCue shieldHit = new ArtifactLocalVisualCue(ArtifactLocalVisualKind.Shield)
+        var ward = new ArtifactLocalVisualCue(ArtifactLocalVisualKind.FoldedShield)
         {
             anchor = ArtifactVisualAnchorKind.Controller,
-            color_role = ArtifactVisualColorRole.Glow,
-            offset = new Vector3(0f, 0.08f, 0.2f),
-            scale = 0.1f,
-
-            alpha = 0.9f,
-            loop = false,
+            color_role = ArtifactVisualColorRole.Primary,
+            alpha = .84f,
         };
-        CloudRobeShield.Visualize(
-            Theme(SkillVfxElements.Water.AccentColor)
-                .Loop(
-                    "cloud_robe_shield",
-                    shieldField,
-                    context =>
-                        context.runtime.GetNumber(ShieldCurrent) > 0f
-                        && ArtifactAbilityLifecycle.MeetsState(
-                            context.control_state,
-                            ArtifactControlState.Ready
-                        ),
-                    "artifact.cloud_robe_shield",
-                    ArtifactVisualStackPolicy.Strongest,
-                    context =>
-                        context.runtime.GetNumber(ShieldCurrent)
-                        / Mathf.Max(1f, context.ability.GetNumber(ShieldCapacity))
-                )
-                .Signal(
-                    ArtifactVisualChannels.Guard,
-                    new ArtifactCompositeVisualCue(
-                        shieldHit,
-                        Burst(ArtifactVisualAnchorKind.Controller, ArtifactVisualColorRole.Glow, 4)
-                    ),
-                    0.4f,
-                    "artifact.cloud_robe_shield.hit",
-                    ArtifactVisualStackPolicy.Strongest
-                )
-        );
+        CloudRobeShield.Visualize(Theme(SkillVfxElements.Water.AccentColor)
+            .Loop("cloud_robe_shield", ward, HasRecoveringShield, "artifact.cloud_robe_shield",
+                ArtifactVisualStackPolicy.Strongest, RecoveringShieldRatio)
+            .Signal(ArtifactVisualChannels.Guard, ShieldImpact(.08f), .27f,
+                "artifact.cloud_robe_shield.hit", ArtifactVisualStackPolicy.Strongest));
     }
 
     private static void ConfigureHeavenlyConcealmentVisuals()

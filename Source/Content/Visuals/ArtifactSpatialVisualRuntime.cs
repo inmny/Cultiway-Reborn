@@ -365,6 +365,21 @@ internal static class ArtifactSpatialVisualRuntime
                 SpatialVisualDraw.Mesh(meshes, ArtifactVeilGeometry.Drape, point, facing, drape, color, false,
                     carrier.current_position, additive: false);
                 break;
+            case ArtifactLocalVisualKind.FoldedShield:
+                Actor protectedActor = context.controller.GetComponent<ActorBinder>().Actor;
+                color.a *= Mathf.Lerp(.4f, 1f, Mathf.Clamp01(context.intensity));
+                SpatialVisualDraw.Mesh(meshes, ArtifactFoldedShield.Surface, point, Quaternion.identity,
+                    Vector3.one * SpatialActorPose.Height(protectedActor), color, false,
+                    protectedActor.current_position, additive: false);
+                break;
+            case ArtifactLocalVisualKind.ShieldImpact:
+                Vector3 outward = (context.contact_point.HasValue ? context.contact_point.Value - point : context.direction).normalized;
+                Vector3 contact = context.contact_point ?? point + outward * size * .45f;
+                float glow = size * (.65f + Mathf.Clamp01(context.intensity)) * (1f + .35f * progress);
+                Quaternion tilt = Quaternion.FromToRotation(Vector3.forward, outward.sqrMagnitude > .001f ? outward : Vector3.forward);
+                SpatialVisualDraw.Mesh(meshes, SpatialEnergyGeometry.Crystal, contact, tilt, new Vector3(glow, glow, glow * .38f),
+                    color, true, point);
+                break;
             default:
                 SpatialVisualDraw.Mesh(meshes, SpatialVisualGeometry.Spark, point, Quaternion.Euler(age * 90f, age * 45f, 0f), Vector3.one * size, color, true); break;
         }

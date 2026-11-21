@@ -1,0 +1,160 @@
+// 两种原件分别走同一套受击场景，只复用这一对人物。
+const float originX = 64f, guardedX = 70.3f;
+PrepareArtifactArena(58, 77, 66, 78);
+Actor defender = Make(guardedX), attacker = Make(originX);
+var owner = defender.GetExtend();
+var opponent = attacker.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+opponent.AddComponent(new Xian { level = 4, wakan = 9000f });
+owner.SetPowerLevel(4);
+opponent.SetPowerLevel(4);
+await Setup(defender, attacker);
+ControllableUnit.clear(false);
+MoveCamera.clearFocusUnitOnly();
+await Advance(.10f);
+CombatStatusEffects.ApplyStatus(defender, hold, 10000f, defender);
+defender.updateStats();
+World.world.console.Hide();
+WorldTip.hideNow();
+Tooltip.hideTooltipNow();
+const string prefix = "test.recovering-shield.";
+var facts = new List<ConstructedContact>();
+void Confirmed(ConstructedContact result)
+{
+    if (result.AbilityId.StartsWith(prefix) && result.SourceId == attacker.id && result.TargetId == defender.id)
+        facts.Add(result);
+}
+async Task<ConstructedContact> Strike(string key, float damageScale)
+{
+    var spell = new AbilityDefinition
+    {
+        Id = prefix + key, Name = "实际护盾试剑", Lifetime = .092f,
+        TargetRange = 12f, Resource = "wakan", Cost = 1.25f, Power = 2f,
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = .28f },
+        Impact = new ConstructionImpact { DamageScale = damageScale },
+        Root = new ConstructionNode
+        {
+            Id = "blade", Form = "sword_qi", Matter = "iron", Rotation = [-90f, 0f, 0f],
+            OnContact = ConstructionContactResponse.Continue,
+            Operations = [new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+                WorldVelocity = true, InheritVelocity = false, Vector = [780f, 0f, 0f] }]
+        }
+    };
+    opponent.GetCultisys<Xian>().wakan = 9000f;
+    await Fire(spell, attacker, defender);
+    opponent.E.RemoveComponent<ConstructedKnowledge>();
+    await WaitFor(() => facts.Any(value => value.AbilityId == spell.Id), .40f);
+    await Game.NextFrame();
+    return facts.Single(value => value.AbilityId == spell.Id);
+}
+var meshes = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem")
+    .GetField("Meshes", F).GetValue(null);
+var geometry = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Visuals.SpatialEnergyGeometry");
+object crystal = geometry.GetField("Crystal", F).GetValue(null);
+var renderer = typeof(ArtifactAppearanceRenderer).GetMethod("TryGetSpatialPose", F);
+
+ConstructedAbilityService.ContactConfirmed += Confirmed;
+try
+{
+    foreach (bool robe in new[] { true, false })
+    {
+        string key = robe ? "robe" : "pearl";
+        if (section != "all" && section != key) continue;
+        Place(defender, guardedX);
+        Place(attacker, originX);
+        defender.position_height = attacker.position_height = 0f;
+        ConstructedAbilityService.NotifyActorChanged(defender);
+        ConstructedAbilityService.NotifyActorChanged(attacker);
+        defender.attack_timer = attacker.attack_timer = 999f;
+        defender.restoreHealth(defender.getMaxHealth());
+        var asset = robe ? ArtifactAbilities.CloudRobeShield : ArtifactAbilities.CelestialPearlGuard;
+        var blueprint = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+        {
+            Shape = robe ? ItemShapes.Robe : ItemShapes.Pearl, Level = new ItemLevel { Stage = 3, Level = 8 },
+            Atoms = robe
+                ? [ArtifactAtoms.CloudRobe, ArtifactAtoms.VoidSilk, ArtifactAtoms.VoidMark, ArtifactAtoms.CloudPattern]
+                : [ArtifactAtoms.OrbitPearl, ArtifactAtoms.FrostJade, ArtifactAtoms.ResonanceRings, ArtifactAtoms.GuardianHalo],
+            Name = asset.GetName() + "实测"
+        }));
+        Check(blueprint.AbilitySet.abilities.Any(value => value.ability_id == asset.id), "正式配方取得 " + asset.GetName(),
+            blueprint.AbilitySet.abilities.Select(value => value.ability_id).ToArray());
+        Entity shield = ArtifactBlueprintCodec.Materialize(blueprint, defender.getName());
+        owner.AddSpecialItem(shield);
+        Check(owner.EquipArtifact(shield, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100), "正式装备原件 " + asset.GetName());
+        void Switch(ArtifactEquipMode mode)
+        {
+            ArtifactEquipmentTools.SetArtifactEquipMode(owner, shield, mode);
+            ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+            lifecycle.Invoke(null, new object[] { shield });
+        }
+        Switch(ArtifactEquipMode.ForcedOperating);
+        await Game.NextFrame();
+        var ability = Definition(shield, asset.id);
+        float Max() => ability.GetNumber("shield_capacity");
+        float Current() => Entry(shield, asset.id).GetNumber("shield_current");
+        var before = Current();
+        Check(Mathf.Abs(before - Max()) < .003f, "原件启用原存量", before);
+        object[] pose = { shield, null };
+        Check((bool)renderer.Invoke(null, pose), "取得实际原件的模型");
+        object model = Field(pose[1], "Model");
+        bool Shows() => meshes.Cast<object>().Any(item => robe
+            ? (string)Field(Field(item, "Model"), "Name") == "artifact_cloud_ward"
+            : ReferenceEquals(Field(item, "Model"), model) &&
+              (bool)Field(item, "Emissive") && (float)((Color)Field(item, "Tint")).a < .98f);
+        bool ImpactAt(Vector3 where) => meshes.Cast<object>().Any(item =>
+            ReferenceEquals(Field(item, "Model"), crystal) && Vector2.Distance((Vector3)Field(item, "Position"), where) < .006f);
+
+        int hp = defender.data.health;
+        var small = await Strike(key + "-absorb", .65f);
+        Check(small.Damage.HealthLost == 0 && defender.data.health == hp && small.Damage.ShieldAbsorbed > 0f &&
+              Mathf.Abs(before - Current() - small.Damage.ShieldAbsorbed) < .003f && Current() > 0 && Shows(),
+            "实际剑气只消耗一次，在同一原件留下余量", new { before, current = Current(), spent = small.Damage.ShieldAbsorbed });
+        Check(ImpactAt(small.Position), "本次局部反馈和已确认撞点同位", small.Position.ToString());
+        if (shots)
+        {
+            camera.transform.position = new Vector3(defender.current_position.x, defender.current_position.y + .2f, camera.transform.position.z);
+            MoveCamera.instance.forceZoom(2.5f);
+            await CaptureArtifactViews(key + "-recovering-shield", defender.current_position, 1.8f,
+                () => Shows() && ImpactAt(small.Position), nativeZoom: 2.5f, closeSubject: defender);
+        }
+        if (viewsOnly)
+        {
+            owner.UnequipArtifact(shield, suppressAutoEquip: true);
+            await Advance(.38f);
+            continue;
+        }
+
+        // 停止恢复后再破盾，可把这次实际消耗和下一轮恢复分开核对。
+        Switch(ArtifactEquipMode.Standby);
+        await Advance(.07f);
+        before = Current();
+        var strong = await Strike(key + "-break", 19f);
+        Check(strong.Damage.SettledCount == 1 && Mathf.Abs(strong.Damage.ShieldAbsorbed - before) < .003f &&
+              strong.Damage.HealthLost > 0 && Current() == 0f,
+            "待命仍吸收已有存量，余伤实际扣血", new { before, absorbed = strong.Damage.ShieldAbsorbed, lost = strong.Damage.HealthLost });
+        await Advance(asset.lifecycle.tick_interval + .36f);
+        Check(Current() == 0f && !Shows(), "待命超过原周期仍不恢复，护体已收束");
+
+        Switch(ArtifactEquipMode.ForcedOperating);
+        await WaitFor(() => Current() > 0f, asset.lifecycle.tick_interval + .30f);
+        await Game.NextFrame();
+        float expected = ability.GetNumber("shield_regen") * asset.lifecycle.tick_interval;
+        var restored = Current();
+        Check(Mathf.Abs(restored - expected) < .003f && Shows(),
+            "重新运转后按原间隔和原恢复量再次显形", new { expected, restored });
+        Switch(ArtifactEquipMode.Standby);
+        hp = defender.data.health;
+        CombatDamageEffects.DealDamage(attacker, defender, restored * .5f, ElementComposition.Static.Iron,
+            ignoreDamageReduction: true, attackerPowerLevel: 4f);
+        await WaitFor(() => Current() < restored, .40f);
+        Check(defender.data.health == hp && Current() > 0f && Current() < restored && owner.GetItems().Contains(shield),
+            "恢复后的原件可再次吸收普通受击", new { restored, current = Current() });
+        owner.UnequipArtifact(shield, suppressAutoEquip: true);
+        await Advance(.38f);
+    }
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Confirmed;
+}
