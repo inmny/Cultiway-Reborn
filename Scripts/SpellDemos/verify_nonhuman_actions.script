@@ -1,0 +1,266 @@
+const string tailId = "Cultiway.Body.BeastTailSweep", wingId = "Cultiway.Body.BeastWingCut";
+var tail = ConstructionEditing.Access.Read(tailId);
+var wing = ConstructionEditing.Access.Read(wingId);
+Check(tail?.Body.Effector == "organ:yao.crown.tails" && wing?.Body.Effector == "organ:yao.wing.fierce",
+    "两招在正式目录内，来源为实际冠尾和凶翼");
+
+var saved = archived == null ? null : JObject.Parse(File.ReadAllText(Path.Combine(archived, "expected.json")));
+Actor source = saved == null ? Make(64, selection == "tail" ? "wolf" : "fox") : World.world.units.get((long)saved["source"]);
+Actor target = saved == null ? Make(65) : World.world.units.get((long)saved["target"]);
+Actor otherTarget = saved != null ? World.world.units.get((long)saved["otherTarget"]) :
+    (selection == "archive" || selection == "pair" && view.Length == 0 ? Make(66) : target);
+var owner = source.GetExtend();
+if (saved == null) Check(YaoAwakeningService.TryAwakenByRain(owner), "沿用实际启灵和原身体");
+var organs = new List<YaoOrganRecord>
+{
+    new() { SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1, Origin = YaoOrganOrigin.Innate },
+    new() { SlotId = YaoContent.Slots.Head, OrganId = "yao.spirit.sense", Rank = 1, Origin = YaoOrganOrigin.GodEdited },
+    new() { SlotId = YaoContent.Slots.Tail, OrganId = "yao.crown.tails", Rank = selection == "archive" ? 3 : 1,
+        Origin = YaoOrganOrigin.GodEdited }
+};
+if (selection is "pair" or "loss")
+    organs.Add(new YaoOrganRecord { SlotId = YaoContent.Slots.Limbs, OrganId = "yao.wing.fierce", Rank = 2, Origin = YaoOrganOrigin.GodEdited });
+
+void SetOrgans(IEnumerable<YaoOrganRecord> values)
+{
+    Check(YaoFormPlanService.TrySetOrgans(owner, YaoFormIds.TrueForm, values.ToArray()), "同一实际身体按原容量更新器官");
+    source.setStatsDirty();
+    source.updateStats();
+    source.finishScale();
+    source.checkAnimationContainer();
+}
+
+void PreventOtherAbilities()
+{
+    var abilities = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, abilities);
+    foreach (var ability in abilities)
+        if (!ability.EntryId.StartsWith("Cultiway.Body.Beast", StringComparison.Ordinal))
+            SkillCooldownService.Start(owner, ability.Source, 30f);
+}
+
+if (saved == null) SetOrgans(organs);
+PreventOtherAbilities();
+// 开始本段
+var started = new List<ConstructedCastStarted>();
+var ended = new List<(ConstructedCastEnded Fact, bool Busy)>();
+var casts = new Dictionary<long, AbilityCast>();
+var damage = new List<ConstructedQueuedDamage>();
+var poses = new List<object>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    started.Add(fact);
+    var current = Running().Single(value => (long)Field(value, "Id") == fact.CastId);
+    casts.Add(fact.CastId, (AbilityCast)Field(current, "Cast"));
+}
+void Ended(ConstructedCastEnded fact)
+{
+    if (casts.ContainsKey(fact.CastId)) ended.Add((fact, BodyControlState.IsBusy(source.id)));
+}
+void Settled(ConstructedQueuedDamage fact)
+{
+    if (casts.ContainsKey(fact.CastId)) damage.Add(fact);
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += Ended;
+ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+object simulation = service.GetField("simulation", F).GetValue(null);
+var spatialActorPose = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+float Height(Actor actor) => (float)spatialActorPose.GetMethod("Height", F).Invoke(null, new object[] { actor });
+
+async Task PositionTargets(params (AbilityDefinition Definition, Actor Victim)[] moves)
+{
+    source.cancelAllBeh();
+    source.clearAttackTarget();
+    CombatStatusEffects.RemoveStatus(source, hold);
+    source.updateStats();
+    Place(source, 64.25f, 72.5f);
+    source.flip = false;
+    source.attack_timer = 999;
+    foreach (var move in moves) Place(move.Victim, 66f, 72.5f);
+    await Game.NextFrame();
+    service.GetMethod("CaptureTerrain", F).Invoke(simulation, new object[] { Rect.MinMaxRect(60, 68, 76, 77), true });
+    var ground = (AbilityHeightField)Field(simulation, "terrain");
+    foreach (var move in moves)
+    {
+        CompiledAbility plan = AbilityCompiler.Compile(move.Definition, false);
+        object binding = null;
+        await Game.WaitUntil(() => (binding = Binding(source, plan)) != null, 180);
+        var frameMethod = bindingType.GetMethod("Frame", F, null, new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null);
+        var foot = (Vector3)service.GetMethod("BodyFoot", F).Invoke(null, new object[] { source });
+        var frame = (BodyFrame)frameMethod.Invoke(binding, new object[] { foot, Height(source), null });
+        var points = new List<Vector3>();
+        var closePoints = new List<Vector3>();
+        var edgeSamples = new List<Vector3>();
+        float targetHeight = Height(move.Victim);
+        var boundary = (AbilityCapsule)typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.ActorHitBoundary")
+            .GetMethod("Create", F).Invoke(null, new object[] { Vector3.zero, targetHeight, Vector3.zero });
+        var shapes = new List<AbilityCapsule>();
+        for (int step = 0; step <= 18; step++)
+        {
+            float at = Mathf.Lerp(move.Definition.Body.ActiveFrom, move.Definition.Body.ActiveUntil - .001f, step / 18f);
+            var trial = new AbilityCast(plan, Matrix4x4.identity, frame);
+            trial.Advance(at, Vector3.right);
+            shapes.Clear();
+            bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { trial.BodyPose.Value, shapes });
+            foreach (var shape in shapes)
+            {
+                for (int sample = 0; sample < 3; sample++)
+                {
+                    Vector3 point = Vector3.Lerp(shape.A, shape.B, sample * .5f);
+                    float z = point.z - (ground?.Sample(point.x, point.y) ?? 0);
+                    edgeSamples.Add(new Vector3(point.x - foot.x, point.y - foot.y, z));
+                    if (point.x > foot.x && Vector2.Distance(point, source.current_position) < move.Definition.TargetRange &&
+                        z > 0 && z < targetHeight) points.Add(point);
+                    if (selection == "cold" && point.x <= foot.x && z >= boundary.A.z && z <= boundary.B.z)
+                    {
+                        // 尾梢还在身后时，使用站立目标本身的真实宽度寻找仍可相接的近身位置。
+                        var near = new Vector3(foot.x + .05f, point.y, point.z);
+                        if (near.x - point.x < boundary.Radius + shape.Radius) closePoints.Add(near);
+                    }
+                }
+            }
+        }
+        if (points.Count == 0) points.AddRange(closePoints);
+        Check(points.Count > 0, "实际可见部件的路径能触及站立目标", new
+        {
+            part = move.Definition.Body.Effector, targetHeight,
+            sampleCount = edgeSamples.Count,
+            minimum = edgeSamples.Count == 0 ? null : P(new Vector3(edgeSamples.Min(p => p.x), edgeSamples.Min(p => p.y), edgeSamples.Min(p => p.z))),
+            maximum = edgeSamples.Count == 0 ? null : P(new Vector3(edgeSamples.Max(p => p.x), edgeSamples.Max(p => p.y), edgeSamples.Max(p => p.z)))
+        });
+        Vector3 pointAt = points.OrderByDescending(point => point.x - .55f * Mathf.Abs(point.y - foot.y)).First();
+        Place(move.Victim, pointAt.x, pointAt.y);
+    }
+}
+
+long Use(AbilityDefinition definition, Actor victim, bool learn = true)
+{
+    if (learn) ConstructedAbilityService.Learn(owner, definition.Id);
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+    source.addAggro(victim);
+    victim.addAggro(source);
+    source.attack_timer = 0;
+    int before = source.data.stamina;
+    bool accepted = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(victim, victim.GetSimPos()),
+        ActiveAbilityUseOrigin.Player);
+    source.attack_timer = 999;
+    Check(accepted && before - source.data.stamina == definition.Cost && started.Last().AbilityId == definition.Id,
+        "按各自费用正式受理 " + definition.Name, new
+        {
+            accepted, paid = before - source.data.stamina,
+            from = source.current_position.ToString(), to = victim.current_position.ToString()
+        });
+    return started.Last().CastId;
+}
+
+async Task PlayFor(float seconds, string ability)
+{
+    double until = World.world.getCurWorldTime() + seconds;
+    do
+    {
+        if (captureFrame != null) await captureFrame(ability);
+        foreach (var item in casts)
+        {
+            if (item.Value.Finished || item.Value.BodyPose?.Organ is not BodyOrganPose pose) continue;
+            poses.Add(new { cast = item.Key, item.Value.Age, pivot = P(pose.Pivot), angles = P(pose.Rotation.eulerAngles) });
+        }
+        if (World.world.getCurWorldTime() < until) await Advance(1f / 27f);
+    } while (World.world.getCurWorldTime() < until);
+}
+
+void Confirm(long id, Actor victim, int health)
+{
+    var hits = contacts.Where(contact => contact.CastId == id && contact.TargetId == victim.id).ToArray();
+    var losses = hits.Select(hit => hit.Damage.HealthLost + damage.Where(fact =>
+        fact.CastId == id && fact.TargetId == victim.id && fact.TargetContactNumber == hit.TargetContactNumber)
+        .Sum(fact => fact.Damage.HealthLost)).ToArray();
+    Check(hits.Length == 1 && hits[0].Node == -1 && losses[0] > 0 && victim.data.health < health &&
+          ended.Any(value => value.Fact.CastId == id && !value.Fact.Cancelled),
+        "实际器官一次接触、结算伤害并正常收势",
+        new { id, health, after = victim.data.health, losses, hits = hits.Select(hit => new { hit.Age, point = P(hit.Position) }).ToArray() });
+}
+
+try
+{
+    if (selection == "archive") return await Archive();
+    var copies = saved == null ? Array.Empty<AbilityDefinition>() : await RestoredCopies();
+    var moves = selection switch
+    {
+        "tail" => new[] { (tail, target) },
+        "pair" => new[] { (tail, target), (wing, otherTarget) },
+        "cold" => new[] { (copies[0], target), (copies[1], otherTarget) },
+        _ => new[] { (wing, target) }
+    };
+    await PositionTargets(moves);
+    if (captureFrame != null) await captureFrame(moves[0].Item1.Id);
+    source.data.stamina = 80;
+    int[] health = moves.Select(move => move.Item2.data.health).ToArray();
+    var ids = new long[moves.Length];
+    for (int i = 0; i < moves.Length; i++)
+    {
+        if (selection == "cold" && i > 0)
+        {
+            // 中间这段时间让第一条尾先行，避免自动施展抢先使用刚读回的第二招。
+            var knowledge = owner.E.GetComponent<ConstructedKnowledge>();
+            owner.E.RemoveComponent<ConstructedKnowledge>();
+            await Advance(.2f);
+            owner.E.AddComponent(knowledge);
+        }
+        ids[i] = Use(moves[i].Item1, moves[i].Item2, learn: saved == null);
+    }
+    if (selection == "cold")
+        Check(copies.All(copy => BodyControlState.IsBusy(source.id, BodyOccupancy.None, copy.Body.Effector)) &&
+              !BodyControlState.IsBusy(source.id, BodyOccupancy.None, "organ:yao.crown.tails/tail.1"),
+            "两条命名尾各自占用，中间一条尾保留原控制");
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    if (selection == "loss")
+    {
+        await Advance(.22f);
+        Check(!casts[ids[0]].Finished && BodyControlState.IsBusy(source.id), "撤去翼之前已有正式动作占用");
+        SetOrgans(organs.Where(organ => organ.OrganId != "yao.wing.fierce"));
+        PreventOtherAbilities();
+        source.attack_timer = 999;
+        await Advance(.3f);
+        Check(ended.Any(value => value.Fact.CastId == ids[0] && value.Fact.Cancelled && value.Fact.Age < wing.Body.ActiveFrom) &&
+              contacts.All(hit => hit.CastId != ids[0]) && target.data.health == health[0] && !BodyControlState.IsBusy(source.id),
+            "器官失去时及时解除，旧翼接触与伤害均未发生",
+            new { before = health[0], after = target.data.health, busy = BodyControlState.IsBusy(source.id) });
+        await PositionTargets((tail, target));
+        int tailHealth = target.data.health;
+        long retained = Use(tail, target);
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        await PlayFor(tail.Lifetime + .32f, tail.Id);
+        Confirm(retained, target, tailHealth);
+        SetOrgans(organs);
+        PreventOtherAbilities();
+        await PositionTargets((wing, target));
+        ids[0] = Use(wing, target);
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        health[0] = target.data.health;
+    }
+    await PlayFor(moves.Max(move => move.Item1.Lifetime) + .34f, moves[0].Item1.Id);
+    for (int i = 0; i < moves.Length; i++) Confirm(ids[i], moves[i].Item2, health[i]);
+    if (selection is "pair" or "cold")
+        Check(ended.Any(value => value.Fact.CastId == ids[0] && value.Busy) &&
+              ended.Any(value => value.Fact.CastId == ids[1] && !value.Busy),
+            "第一部位先收回，第二部位仍独立占用，最后全部归还");
+    Check(!BodyControlState.IsBusy(source.id) && Mathf.Abs(source.position_height) < .08f, "身体与地面支撑归还");
+    saveFilm?.Invoke(moves[0].Item1.Id, contacts.Count(hit => ids.Contains(hit.CastId)), moves.Sum(move => move.Item1.Cost));
+    return new { passed = true, selection, checks };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+    Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "nonhuman-trace.json"), JsonConvert.SerializeObject(new
+    {
+        source = source.id, started, ended = ended.Select(value => new { outcome = value.Fact, busy = value.Busy }),
+        contacts = contacts.Select(hit => new { hit.CastId, hit.TargetId, hit.Age, point = P(hit.Position), loss = hit.Damage.HealthLost }),
+        damage = damage.Select(fact => new { fact.CastId, fact.TargetId, loss = fact.Damage.HealthLost }), poses
+    }, Formatting.Indented));
+}

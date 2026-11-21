@@ -2525,3 +2525,11 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--case archive` 修改压摔撞伤倍率并保存副本。新进程用 `--case cold --archive <新输出目录>` 读回并施展改造版，核对实际碰撞的倍率。录制两招时，给 `--case throw` 或 `--case press` 附加 `--view native` 或 `--view worldfall`。
 
 `--case archive-view --archive <新输出目录>` 可重新打开已保存的副本并截取中英文窗口。每次复验的记录、截图或录像路径由脚本返回。9.48 的验收文件汇总于 `~/.local/state/cultiway-dev/evidence/grappling-948/delivery.json`。
+
+### 非人身体战技（9.49）
+
+在独立游戏中通过 `dev.py exec` 运行 `python3 Scripts/SpellDemos/verify_nonhuman_actions.py --case tail` 验证卷尾横扫。`--case pair` 在同一狐形上施放尾扫和翼切，观察实际接触、分别付费以及不同收势时刻。`--case loss` 在翼切蓄势中撤下凶翼，核对接触消失、尾部仍可施展，以及恢复凶翼后的再施展。
+
+`--case archive` 在游戏内选择两条真实命名尾并保存完整副本。换一个游戏进程后使用 `--case cold --archive <上一段输出目录>` 读回原体和招式，验证两条尾各自出手。
+
+`tail` 和 `pair` 可附 `--view native` 或 `--view worldfall` 录制常速画面。雷角和前爪的录像复用 9.40 的 `verify_beast_attacks.py --part horn|pounce --record native|worldfall`。
