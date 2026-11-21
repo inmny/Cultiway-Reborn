@@ -1,0 +1,179 @@
+// 正式存读用相同的一对人物和各批已经验证过的三件原物。
+const string fieldForm = "suppression_field", pearlForm = "pearl_phase";
+var fieldAsset = ArtifactAbilities.SuppressionField;
+var pearlAsset = ArtifactAbilities.FivePhasePearlStrike;
+var robeAsset = ArtifactAbilities.HeavenlyConcealment;
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+var identityType = service.Assembly.GetType("Cultiway.Content.Persistence.WorldSaveIdentity");
+var getIdentity = typeof(Entity).GetMethods(F).Single(method => method.Name == "TryGetComponent" &&
+    method.IsGenericMethodDefinition && method.GetParameters().Length == 1).MakeGenericMethod(identityType);
+string Identity(Entity item)
+{
+    object[] value = { null };
+    return (bool)getIdentity.Invoke(item, value) ? (string)Field(value[0], "Id") : null;
+}
+JToken Snapshot(object value) => JToken.Parse(JsonConvert.SerializeObject(value));
+object Record(ActorExtend owner, Entity item, string id)
+{
+    var state = Entry(item, id);
+    var relation = owner.E.GetRelation<EquippedArtifactRelation, Entity>(item);
+    return new
+    {
+        identity = Identity(item), definition = item.GetComponent<ArtifactAbilitySet>(), appearance = item.GetComponent<ArtifactAppearance>(),
+        relation = new { relation.locked, relation.priority, relation.mode },
+        activity = new { state.instance_id, state.activity_kind, state.activity_carrier_actor_id, state.activity_started_at,
+            state.activity_until, state.last_triggered_at, state.next_tick_at, state.cooldown_until },
+        remaining = id == pearlAsset.id ? state.GetInteger("pulses_remaining") : 0
+    };
+}
+bool Shows(string form) => FormVisualScene.Instances.Any(view => view.Resource.Description.Id == form);
+var meshes = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem").GetField("Meshes", F).GetValue(null);
+bool Veil() => meshes.Cast<object>().Any(item => (string)Field(Field(item, "Model"), "Name") == "heavenly_concealment_drape");
+Entity MakeItem(ActorExtend owner, ArtifactShapeAsset shape, ArtifactAbilityAsset asset, params ArtifactAtomAsset[] atoms)
+{
+    var blueprint = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+    {
+        Shape = shape, Atoms = atoms, Level = new ItemLevel { Stage = 3, Level = 8 }, Name = asset.GetName() + "存档"
+    }));
+    Check(blueprint.AbilitySet.abilities.Any(row => row.ability_id == asset.id), "正式取得" + asset.GetName());
+    Entity item = ArtifactBlueprintCodec.Materialize(blueprint, owner.Base.getName());
+    owner.AddSpecialItem(item);
+    Check(owner.EquipArtifact(item, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+        "装备" + asset.GetName() + "原件");
+    return item;
+}
+bool UseArtifact(ActorExtend owner, Entity item, ArtifactAbilityAsset asset, Vector3 point, bool self = false)
+{
+    owner.Base.attack_timer = 0f;
+    bool used = ActiveAbilityService.TryUse(owner, ArtifactHandle(item, asset.id),
+        new ActiveAbilityTarget(self ? owner.Base : null, point), ActiveAbilityUseOrigin.Script);
+    owner.Base.attack_timer = 999f;
+    return used;
+}
+
+try
+{
+    Vector3 center = new Vector3(68.25f, 72f);
+    if (saved == null)
+    {
+        Actor source = Make(64.35f), target = Make(69f, "wolf");
+        var owner = source.GetExtend();
+        owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+        await Setup(source, target);
+        CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+        source.updateStats();
+        // 同一人同时佩戴天衣。存档前让对练者留在圈外，避免连珠真伤提前破隐。
+        Place(target, center.x + 12f, center.y);
+        Entity sword = MakeItem(owner, ItemShapes.Sword, fieldAsset, ArtifactAtoms.SwordBreaker,
+            ArtifactAtoms.EarthCore, ArtifactAtoms.VoidStone, ArtifactAtoms.LayeredRealmMark);
+        Entity pearl = MakeItem(owner, ItemShapes.Pearl, pearlAsset, ArtifactAtoms.ElementPearl,
+            ArtifactAtoms.SunfireGlass, ArtifactAtoms.StarlightMarrow, ArtifactAtoms.TransformationPattern);
+        Entity robe = MakeItem(owner, ItemShapes.Robe, robeAsset, ArtifactAtoms.CloudRobe,
+            ArtifactAtoms.VoidSilk, ArtifactAtoms.VoidMark, ArtifactAtoms.CloudPattern);
+        ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+        foreach (Entity item in new[] { sword, pearl, robe }) lifecycle.Invoke(null, new object[] { item });
+        await Game.NextFrame();
+        Check(UseArtifact(owner, sword, fieldAsset, center) && UseArtifact(owner, robe, robeAsset, source.GetSimPos(), true) &&
+              UseArtifact(owner, pearl, pearlAsset, center), "三种原活动从实际入口启动");
+        await WaitFor(() => Shows(fieldForm) && Shows(pearlForm) && Veil(), .95f);
+        int remaining = Entry(pearl, pearlAsset.id).GetInteger("pulses_remaining");
+        Check(Shows(fieldForm) && Shows(pearlForm) && Veil() && CombatStatusEffects.HasStatus(source, StatusEffects.Concealed) &&
+              sword.HasComponent<ArtifactDeployment>() && remaining > 0 &&
+              remaining < Definition(pearl, pearlAsset.id).GetInteger("pulse_count"),
+            "原剑法域、未结束的连珠和遁形同时存在", remaining);
+        World.world.units.checkContainer();
+        World.world.items.checkLists();
+        foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+        CombatStatusEffects.RemoveStatus(source, boost);
+        string path = Path.Combine(folder, "archive");
+        SaveManager.saveWorldToDirectory(path);
+        Check(File.Exists(Path.Combine(path, "map.wbox")) &&
+              new[] { sword, pearl, robe }.All(item => Identity(item) != null), "原活动写入真实正式世界");
+        File.WriteAllText(Path.Combine(folder, "expected.json"), Snapshot(new
+        {
+            process, source = source.id, target = target.id, wakan = owner.GetCultisys<Xian>().wakan,
+            sword = Record(owner, sword, fieldAsset.id), pearl = Record(owner, pearl, pearlAsset.id),
+            robe = Record(owner, robe, robeAsset.id)
+        }).ToString(Formatting.Indented));
+
+        ControllableUnit.clear(false);
+        World.world.save_manager.loadWorld(fixture);
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        await Game.NextFrame();
+        Check(!Shows(fieldForm) && !Shows(pearlForm) && !Veil() &&
+            !Cultiway.ModClass.I.W.Query<ArtifactDeployment>().Entities.Any(), "切换原场景清除旧活动和显示");
+        return new { passed = true, process, archive = path };
+    }
+
+    Check(process != (int)saved["process"], "新建游戏进程读回原档", new { process, previous = saved["process"] });
+    var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+    Check(report != null && report.BackupError == null && report.Skipped.Count == 0,
+        "正式恢复报告", new { skipped = report?.Skipped, backupError = report?.BackupError });
+    Actor restored = World.world.units.get((long)saved["source"]), foe = World.world.units.get((long)saved["target"]);
+    Check(restored != null && restored.isAlive() && foe != null && foe.isAlive(), "读回原互动人物");
+    var restoredOwner = restored.GetExtend();
+    Entity Recover(string key, ArtifactAbilityAsset asset)
+    {
+        var expected = saved[key];
+        Entity item = restoredOwner.GetEquippedArtifacts().Single(candidate => Identity(candidate) == (string)expected["identity"]);
+        Check(restoredOwner.GetItems().Contains(item) && JToken.DeepEquals(Snapshot(Record(restoredOwner, item, asset.id)), expected),
+            asset.GetName() + "完整读回原件、资料、装备与活动时间");
+        return item;
+    }
+
+    var restoredSword = Recover("sword", fieldAsset);
+    var restoredPearl = Recover("pearl", pearlAsset);
+    var restoredRobe = Recover("robe", robeAsset);
+    Check(restoredSword.HasComponent<ArtifactDeployment>() &&
+          Vector2.Distance(ArtifactManifestationTools.ResolveWorldAnchor(restoredSword, ArtifactBodyAnchorKind.ForwardTip), center) < .02f &&
+          CombatStatusEffects.HasStatus(restored, StatusEffects.Concealed) &&
+          Mathf.Abs(restoredOwner.GetCultisys<Xian>().wakan - (float)saved["wakan"]) < .002f &&
+          !Shows(fieldForm) && !Shows(pearlForm),
+        "部署与真正隐匿保留，上一进程的单轮形体未重播");
+    foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.ApplyStatus(actor, hold, 10000f, actor);
+    restored.attack_timer = foe.attack_timer = 999f;
+    restored.addAggro(foe);
+    foe.addAggro(restored);
+    var resumed = new List<ConstructedCastStarted>();
+    void Started(ConstructedCastStarted value)
+    {
+        if (value.SourceId == restored.id && (value.AbilityId == fieldAsset.id || value.AbilityId == pearlAsset.id))
+            resumed.Add(value);
+    }
+    ConstructedAbilityService.CastStarted += Started;
+    try
+    {
+        int left = (int)saved["pearl"]["remaining"];
+        double nextField = Entry(restoredSword, fieldAsset.id).next_tick_at, nextPearl = Entry(restoredPearl, pearlAsset.id).next_tick_at;
+        await Advance(.03f);
+        Check(CombatStatusEffects.HasStatus(restored, StatusEffects.Concealed) && Veil() &&
+              Entry(restoredRobe, robeAsset.id).activity_kind != ArtifactAbilityActivityKind.None,
+            "实际隐匿读回后，披帛从原穿戴活动恢复");
+        Place(foe, center.x + 1f, center.y);
+        int beforeHealth = foe.data.health;
+        await WaitFor(() => resumed.Any(cast => cast.AbilityId == fieldAsset.id) &&
+                            Entry(restoredPearl, pearlAsset.id).GetInteger("pulses_remaining") == 0, 1.2f);
+        await Advance(.13f);
+        Check(resumed.Count(cast => cast.AbilityId == pearlAsset.id) == left && foe.data.health < beforeHealth &&
+              resumed.First(cast => cast.AbilityId == pearlAsset.id).WorldTime >= nextPearl - .012d &&
+              resumed.First(cast => cast.AbilityId == fieldAsset.id).WorldTime >= nextField - .012d &&
+              CombatStatusEffects.HasStatus(foe, StatusEffects.Weaken, restored) &&
+              !CombatStatusEffects.HasStatus(restored, StatusEffects.Concealed) &&
+              Entry(restoredRobe, robeAsset.id).activity_kind == ArtifactAbilityActivityKind.None,
+            "原剑和原珠从下一轮继续，剩余次数只兑现一次，实际造成伤害后破隐",
+            new { left, pearlPulses = resumed.Count(cast => cast.AbilityId == pearlAsset.id), nextField, nextPearl,
+                damage = beforeHealth - foe.data.health });
+    }
+    finally
+    {
+        ConstructedAbilityService.CastStarted -= Started;
+    }
+    return new { passed = true, process };
+}
+finally
+{
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

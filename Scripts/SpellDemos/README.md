@@ -2835,3 +2835,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 镇压法域（10.05）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_suppression_field.py` 复验法剑的实际剑尖、圈内外减速与弱化、费用以及停费归还。用 `--skip-views` 只查行为，用 `--views-only` 补拍石面与作用边界。
+
+### 法宝主动的正式存读（10.05）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_artifact_actives_archive.py --section prepare` 保存原法剑、法珠和天衣正在活动的世界，并检查换世界清理。退出该游戏并重新启动独立游戏，再用同一命令将 `--section prepare` 换成 `--section cold --archive <prepare 输出目录>`，验证原档校验值、三件原物和持续活动恢复。
