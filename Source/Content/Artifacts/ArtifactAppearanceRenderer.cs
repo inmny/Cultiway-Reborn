@@ -276,7 +276,6 @@ public static class ArtifactAppearanceRenderer
         float pulse = 1f;
         double now = World.world.getCurWorldTime();
         Color tint = manifestation.control_state.GetStateColor((float)now);
-        ArtifactModelPulseVisualState.Apply(item, now, ref pulse, ref tint);
         Vector3 position = positionOverride ?? item.GetComponent<Position>().value;
         Actor body = null;
         Vector3 groundAnchor = position;
@@ -303,6 +302,7 @@ public static class ArtifactAppearanceRenderer
         }
         Rotation facing = rotationOverride ?? item.GetComponent<Rotation>();
         float yaw = facing.z;
+        ArtifactModelPulseVisualState.Apply(item, now, ref pulse, ref tint, ref yaw);
         GoldenBellSpatialVisualCue.ApplyBodyMotion(item, now, ref position, ref yaw);
         Vector3 scale = new Vector3(manifestation.flip_x ? -size : size, size, size) * pulse;
         Quaternion rotation = Quaternion.AngleAxis(yaw, Vector3.forward);

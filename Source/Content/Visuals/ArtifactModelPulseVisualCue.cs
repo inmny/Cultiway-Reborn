@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Cultiway.Content.Visuals;
 
-/// <summary>复用 SkillLibV3 全局发射器的粒子 cue，可跟随移动锚点持续发射或作为短时爆发。</summary>
+/// <summary>对真实法宝的模型短暂施加颜色、缩放及振动。</summary>
 public sealed class ArtifactModelPulseVisualCue : IArtifactVisualCue
 {
     public ArtifactVisualColorRole color_role = ArtifactVisualColorRole.Glow;
@@ -16,6 +16,8 @@ public sealed class ArtifactModelPulseVisualCue : IArtifactVisualCue
     public float end_scale = 1f;
     public float pulse_amplitude = 0.12f;
     public float pulse_speed = 7f;
+    /// <summary>相对真实朝向的短暂摆动角度，缺省保持原朝向。</summary>
+    public float yaw_amplitude;
     public float tint_blend = 0.45f;
     public bool fade_out;
 
@@ -42,7 +44,7 @@ internal static class ArtifactModelPulseVisualState
         return new PulseLease(token);
     }
 
-    internal static void Apply(Entity artifact, double now, ref float scale, ref Color color)
+    internal static void Apply(Entity artifact, double now, ref float scale, ref Color color, ref float yaw)
     {
         float combinedScale = 1f;
         float strongestBlend = 0f;
@@ -55,8 +57,9 @@ internal static class ArtifactModelPulseVisualState
                 ? Mathf.Clamp01((float)((now - entry.started_at) / (entry.expires_at - entry.started_at)))
                 : 0f;
             float transition = Mathf.Lerp(entry.cue.start_scale, entry.cue.end_scale, progress);
-            combinedScale *= transition *
-                             (1f + Mathf.Sin(elapsed * entry.cue.pulse_speed) * entry.cue.pulse_amplitude);
+            float pulse = Mathf.Sin(elapsed * entry.cue.pulse_speed);
+            combinedScale *= transition * (1f + pulse * entry.cue.pulse_amplitude);
+            yaw += pulse * entry.cue.yaw_amplitude * (1f - progress);
             float fade = entry.cue.fade_out ? 1f - progress : 1f;
             float blend = entry.cue.tint_blend * fade * Mathf.Clamp01(entry.context.intensity);
             if (blend <= strongestBlend) continue;

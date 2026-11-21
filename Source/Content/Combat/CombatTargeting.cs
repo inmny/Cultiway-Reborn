@@ -37,15 +37,23 @@ public static class CombatTargeting
         foreach (Actor target in Finder.getUnitsFromChunk(tile, chunkRadius))
         {
             if (target == null || target.isRekt()) continue;
-            bool hostile = SkillTargetRelationResolver.IsHostile(source, target);
-            if (disposition == TargetDisposition.Hostile && !hostile) continue;
-            if (disposition == TargetDisposition.Friendly &&
-                (target != source && target.kingdom != source.kingdom ||
-                 SkillTargetRelationResolver.HasHostileRelation(source, target))) continue;
+            if (!MatchesDisposition(source, target, disposition)) continue;
             if (Toolbox.SquaredDistVec2Float(center, target.current_position) > radiusSquared) continue;
             action(target);
         }
     }
+
+    /// <summary>沿用内容范围能力的敌我关系，友方使用同一王国和个人敌意。</summary>
+    /// <param name="source">实际作用来源。</param><param name="target">真实人物。</param>
+    /// <param name="disposition">要求的阵营关系。</param>
+    internal static bool MatchesDisposition(Actor source, Actor target, TargetDisposition disposition) =>
+        disposition switch
+        {
+            TargetDisposition.Hostile => SkillTargetRelationResolver.IsHostile(source, target),
+            TargetDisposition.Friendly => (target == source || target.kingdom == source.kingdom) &&
+                !SkillTargetRelationResolver.HasHostileRelation(source, target),
+            _ => true
+        };
 
     /// <summary>枚举圆形范围内来源可以攻击的单位。</summary>
     public static void ForEachHostile(Actor source, Vector2 center, float radius, Action<Actor> action)

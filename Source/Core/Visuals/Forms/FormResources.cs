@@ -52,6 +52,7 @@ public static class FormResources
     private static void LoadAll(FormResourceGeneration generation)
     {
         generation.CreateReactionForms();
+        generation.CreatePulseForms();
         foreach (string id in Directory
                      .GetFiles(Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content", "Forms"), "*.json")
                      .Select(Path.GetFileNameWithoutExtension).OrderBy(id => id, StringComparer.Ordinal))

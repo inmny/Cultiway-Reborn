@@ -2773,3 +2773,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用 `dev.py exec --timeout 170 -- python3 Scripts/SpellDemos/verify_weapon_flight_archive.py --section prepare`，让原弓、飞剑和分光剑阵同时运行，正式保存并在同一进程换世界。退出并重新启动后，用同一脚本的 `--section cold --archive <prepare 输出目录>`，核对原件、完整参数、冷却、临时对象清理和再次施放。`--section legacy --archive <5.15 留下的 variant-save 目录>` 从原档本身提取预期，再用原法宝命中并召回。
 
 连续实录使用 `dev.py exec --timeout 600 -- python3 Scripts/SpellDemos/record_weapon_flight.py --view native|worldfall --output <录像目录>`。原版用未安装 Worldfall 的独立游戏，三维用已安装 Worldfall 的独立游戏。可重复传入 `--move arrow-rain|sky-volley|sweep|thrust|crush|flying-sword|sword-array` 只补指定招式，同一视角可续写到同一目录。七段齐备后生成 `all.mp4`，每段和合辑均按实际世界时间播放。`--encode-only <原始画面目录>` 可直接从已通过的实机画面再编码。
+
+### 法钟的范围与净化（10.05）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_artifact_chime.py` 检查原法钟的共同范围。`--section shake` 核对真实扣血、眩晕、沿地外推、圈外落空和再次施放。`--section cleanse` 核对原数量上限、敌我状态解除、圈外状态保留与恢复。双视角使用已安装 Worldfall 的独立游戏。调材质时用 `--section views` 只补拍两个视角及范围；仅查共同范围与游戏行为时可加 `--skip-views`。

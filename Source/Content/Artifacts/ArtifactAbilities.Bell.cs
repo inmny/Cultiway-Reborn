@@ -3,6 +3,8 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Semantics;
+using Cultiway.Content.Skills;
+using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
@@ -96,26 +98,14 @@ public partial class ArtifactAbilities
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
-        in ActiveAbilityTarget _,
-        ActiveAbilityUseOrigin __)
+        in ActiveAbilityTarget target,
+        ActiveAbilityUseOrigin origin)
     {
-        Actor controller = Controller(context);
-        Vector2 center = ControllerPosition(context);
-        CombatTargeting.ForEachHostile(controller, center, ability.GetNumber(EffectRadius), target =>
-        {
-            CombatDamageEffects.DealDamage(
-                controller,
-                target,
-                SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
-                SoulComposition);
-            CombatStatusEffects.ApplyStatus(target, StatusEffects.Daze, ability.GetNumber(StatusDuration), controller);
-            CombatForceEffects.ApplyRadialForce(
-                controller,
-                target,
-                center,
-                ability.GetNumber(ForceStrength) * context.effect_scale,
-                pull: false);
-        });
+        var contact = new ArtifactChimeContact(ability.GetNumber(StatusDuration) * context.effect_scale,
+            ability.GetNumber(ForceStrength) * context.effect_scale);
+        if (!ArtifactChimeConstruction.Start(context, SoulShakingChime, target, origin, ControllerPosition(context),
+                ability.GetNumber(EffectRadius), ability.GetNumber(EffectDuration), contact, SoulComposition,
+                SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier))) return false;
         ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime);
         return true;
     }
@@ -182,25 +172,13 @@ public partial class ArtifactAbilities
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
-        in ActiveAbilityTarget _,
-        ActiveAbilityUseOrigin __)
+        in ActiveAbilityTarget target,
+        ActiveAbilityUseOrigin origin)
     {
-        Actor controller = Controller(context);
-        int count = ability.GetInteger(EffectCount);
-        float radius = ability.GetNumber(EffectRadius);
-        int changed = 0;
-        Vector2 center = ControllerPosition(context);
-        CombatTargeting.ForEachFriendly(controller, center, radius, target =>
-            changed += CombatStatusEffects.CleanseNegativeStatuses(target, count));
-        CombatTargeting.ForEachHostile(controller, center, radius, target =>
-            changed += CombatStatusEffects.DispelPositiveStatuses(target, count));
-        ArtifactAbilityVisuals.Emit(
-            context,
-            ability,
-            runtime,
-            ArtifactVisualChannels.Cleanse,
-            center,
-            intensity: Mathf.Max(1f, changed));
+        var contact = new ArtifactChimeContact(ability.GetInteger(EffectCount));
+        if (!ArtifactChimeConstruction.Start(context, PurifyingChime, target, origin, ControllerPosition(context),
+                ability.GetNumber(EffectRadius), ability.GetNumber(EffectDuration), contact,
+                ElementComposition.Static.empty)) return false;
         ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime);
         return true;
     }
@@ -333,75 +311,41 @@ public partial class ArtifactAbilities
 
     private static void ConfigureSoulShakingChimeVisuals()
     {
-        ArtifactAreaVisualCue wave = ExpandingArea(
-            ArtifactVisualAnchorKind.Controller,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Primary,
-            ArtifactVfxStyles.Soul
-        );
-        wave.show_inner_ring = true;
-        wave.inner_radius_ratio = 0.55f;
         SoulShakingChime.Visualize(
             Theme(SkillVfxElements.Neg.AccentColor)
                 .Signal(
                     ArtifactVisualChannels.Trigger,
                     new ArtifactCompositeVisualCue(
-                        wave,
-                        Burst(
-                            ArtifactVisualAnchorKind.Controller,
-                            ArtifactVisualColorRole.Glow,
-                            12,
-                            0.55f
-                        ),
                         new ArtifactAudioVisualCue
                         {
-                            anchor = ArtifactVisualAnchorKind.Controller,
+                            anchor = ArtifactVisualAnchorKind.Artifact,
                             sound = "event:/SFX/HIT/HitMetal",
                         },
-                        Pulse(1.3f, 1f, 0.16f)
+                        ChimeBodyPulse(5f)
                     ),
-                    0.62f
+                    0.24f
                 )
         );
     }
 
     private static void ConfigurePurifyingChimeVisuals()
     {
-        ArtifactAreaVisualCue cleanse = ExpandingArea(
-            ArtifactVisualAnchorKind.Controller,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Glow,
-            ArtifactVfxStyles.Purification
-        );
-        ArtifactGlyphVisualCue glyph = Glyph(
-            ArtifactVisualAnchorKind.Controller,
-            context => context.ability.GetNumber(EffectRadius) * 0.72f,
-            ArtifactVisualColorRole.Primary,
-            ArtifactVfxStyles.Purification
-        );
-        glyph.sides = 12;
-        glyph.fade_out = true;
-        glyph.rotation_speed = 20f;
         PurifyingChime.Visualize(
             Theme(SkillVfxElements.Pos.AccentColor)
-                .Signal(
-                    ArtifactVisualChannels.Cleanse,
-                    new ArtifactCompositeVisualCue(
-                        cleanse,
-                        glyph,
-                        Burst(
-                            ArtifactVisualAnchorKind.Controller,
-                            ArtifactVisualColorRole.Glow,
-                            14,
-                            0.58f
-                        )
-                    ),
-                    0.7f,
-                    "artifact.purifying_chime",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
+                .Signal(ArtifactVisualChannels.Trigger, ChimeBodyPulse(2.8f), 0.24f)
         );
     }
+
+    /// <summary>原钟共用同一段短促摆动，衰减后回到实际朝向。</summary>
+    /// <param name="yaw">本次钟响的最大摆动角。</param>
+    private static ArtifactModelPulseVisualCue ChimeBodyPulse(float yaw) => new()
+    {
+        pulse_amplitude = 0f,
+        pulse_speed = 52f,
+        yaw_amplitude = yaw,
+        tint_blend = 0.18f,
+        fade_out = true
+    };
 
     private static void ConfigureGoldenBellBarrierVisuals()
     {

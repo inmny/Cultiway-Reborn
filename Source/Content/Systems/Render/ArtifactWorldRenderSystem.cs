@@ -100,7 +100,8 @@ public class ArtifactWorldRenderSystem
             view.shadow_renderer.sprite = sprites.Shadow;
             Color color = manifestation.control_state.GetStateColor(time);
             float pulseScale = 1f;
-            ArtifactModelPulseVisualState.Apply(artifact, worldTime, ref pulseScale, ref color);
+            float visualYaw = rotation.z;
+            ArtifactModelPulseVisualState.Apply(artifact, worldTime, ref pulseScale, ref color, ref visualYaw);
             view.sprite_renderer.color = color;
             view.emission_renderer.color = color;
             view.shadow_renderer.color = new Color(1f, 1f, 1f, color.a);
@@ -110,7 +111,6 @@ public class ArtifactWorldRenderSystem
             view.emission_renderer.enabled = sprites.Emission != null;
             view.shadow_renderer.enabled = sprites.Shadow != null;
             Vector3 visualPosition = position.value;
-            float visualYaw = rotation.z;
             GoldenBellSpatialVisualCue.ApplyBodyMotion(artifact, worldTime, ref visualPosition, ref visualYaw);
             view.transform.localPosition = visualPosition;
             view.transform.localRotation = Quaternion.Euler(0f, 0f, visualYaw);

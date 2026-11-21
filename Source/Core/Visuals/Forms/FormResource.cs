@@ -756,6 +756,8 @@ internal sealed partial class FormResourceGeneration
             "bronze" => (0f, new Color(.52f, .31f, .12f), .30f),
             "spirit_core" => (14f, new Color(.55f, .85f, .94f, .92f), .24f),
             "spirit_warm" => (14f, new Color(.95f, .70f, .42f, .9f), .34f),
+            "pressure_wave" => (14f, new Color(1f, .67f, .24f, .68f), .25f),
+            "purifying_curtain" => (14f, new Color(.48f, 1f, .84f, .53f), .21f),
             "yin_depth" => (14f, new Color(.055f, .075f, .16f, .96f), .32f),
             "yin_moon" => (14f, new Color(.42f, .48f, .72f, .78f), .24f),
             "gold" => (0f, new Color(.96f, .68f, .16f), .22f),

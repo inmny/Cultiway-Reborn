@@ -1,0 +1,306 @@
+// 同一个原钟释放两次不同用途的钟声。用原世界实际位置验证范围。
+const float centerX = 64.35f, centerY = 72f;
+Actor source = Make(centerX), near = Make(centerX + 2f, "wolf"), far = Make(centerX + 7f, "wolf"), ally = Make(centerX - 2f);
+ActorExtend owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000 });
+owner.SetPowerLevel(4);
+await Setup(source, near);
+ally.setKingdom(source.kingdom);
+source.addAggro(far);
+far.addAggro(source);
+var design = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Bell, Atoms = new[] { ArtifactAtoms.PurifyingBell, ArtifactAtoms.ResonantBronze,
+        ArtifactAtoms.ResonanceRings, ArtifactAtoms.SoulJade },
+    Level = new ItemLevel { Stage = 2, Level = 4 }, Name = "同一口法钟"
+});
+var blueprint = ArtifactBlueprintCodec.FromComposeResult(design);
+string shockId = ArtifactAbilities.SoulShakingChime.id, cleanseId = ArtifactAbilities.PurifyingChime.id;
+Check(blueprint.AbilitySet.abilities.Any(value => value.ability_id == shockId) &&
+      blueprint.AbilitySet.abilities.Any(value => value.ability_id == cleanseId),
+    "同一件正式组合钟含两种钟声",
+    blueprint.AbilitySet.abilities.Select(value => value.ability_id).ToArray());
+Entity bell = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+owner.AddSpecialItem(bell);
+Check(owner.EquipArtifact(bell, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "装备同一口真实法钟");
+ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+lifecycle.Invoke(null, new object[] { bell });
+await Game.NextFrame();
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var shake = handles.Single(handle => handle.Source == bell && handle.EntryId == Definition(bell, shockId).instance_id);
+var cleanse = handles.Single(handle => handle.Source == bell && handle.EntryId == Definition(bell, cleanseId).instance_id);
+
+var starts = new List<ConstructedCastStarted>();
+var ended = new List<ConstructedCastEnded>();
+var hits = new List<ConstructedContact>();
+var fees = new List<float>();
+var payments = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object oldPayments = payments.GetValue(null);
+void Started(ConstructedCastStarted fact) { if (fact.SourceId == source.id) starts.Add(fact); }
+void Finished(ConstructedCastEnded fact) { if (fact.SourceId == source.id) ended.Add(fact); }
+void Contact(ConstructedContact fact) { if (fact.SourceId == source.id) hits.Add(fact); }
+void Paid(ActorExtend caster, in WakanMutation mutation)
+{
+    if (caster == owner && mutation.Kind == WakanMutationKind.Spend) fees.Add(-mutation.Delta);
+}
+
+var camera = World.world.camera;
+Type external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false))
+    .FirstOrDefault(type => type != null);
+object fall = external?.GetProperty("Instance", F).GetValue(null);
+object Read(object value, string name) => value.GetType().GetProperty(name, F)?.GetValue(value) ?? Field(value, name);
+void Set(string key, object value) => external.GetField(key, F).SetValue(fall, value);
+float Radius(string id) => Definition(bell, id).GetNumber("effect_radius");
+string FormId(FormVisualInstance instance) => instance.Resource.Description.Id;
+IEnumerable<ConstructedContact> Contacts(long cast) => hits.Where(value => value.CastId == cast);
+float ExpectedCost(ArtifactAbilityAsset asset, string id)
+{
+    var relation = owner.E.GetRelation<EquippedArtifactRelation, Entity>(bell);
+    var context = new ArtifactAbilityExecutionContext(owner.E, bell, relation.state);
+    float cost = asset.lifecycle.ResolveActivationCost(context, Definition(bell, id));
+    return relation.state == ArtifactControlState.Overloaded ? cost * asset.lifecycle.overload_resource_multiplier : cost;
+}
+
+void Arrange(float radius)
+{
+    Place(source, centerX, centerY);
+    Place(near, centerX + radius - .18f, centerY);
+    Place(far, centerX + radius + .22f, centerY);
+    Place(ally, centerX - radius + .18f, centerY);
+    source.lookTowardsPosition(near.current_position);
+    near.lookTowardsPosition(source.current_position);
+    camera.transform.position = new Vector3(centerX, centerY + .2f, camera.transform.position.z);
+    MoveCamera.instance.forceZoom(radius + 1.5f);
+}
+long Activate(ActiveAbilityHandle handle, ArtifactAbilityAsset asset, bool checkDelay = true)
+{
+    int before = starts.Count, spends = fees.Count;
+    float amount = ExpectedCost(asset, asset.id);
+    Check(Use(owner, handle, source) && starts.Count == before + 1 && starts.Last().AbilityId == asset.id &&
+          fees.Count == spends + 1 && Mathf.Abs(fees.Last() - amount) < .002f,
+        "原法宝入口预付一次并发布本次共同施放", new { asset.id, expected = amount, actual = fees.ToArray() });
+    long cast = starts.Last().CastId;
+    if (checkDelay)
+        Check(!Contacts(cast).Any() && !Use(owner, handle, source) && fees.Count == spends + 1,
+            "等待圆面抵达，冷却拒绝不重复收费");
+    return cast;
+}
+void WriteImage(RenderTexture image, string filename)
+{
+    RenderTexture previous = RenderTexture.active;
+    Texture2D pixels = new Texture2D(image.width, image.height, TextureFormat.RGBA32, false);
+    try
+    {
+        RenderTexture.active = image;
+        pixels.ReadPixels(new Rect(0, 0, image.width, image.height), 0, 0);
+        pixels.Apply();
+        File.WriteAllBytes(Path.Combine(folder, filename), pixels.EncodeToPNG());
+    }
+    finally
+    {
+        RenderTexture.active = previous;
+        UnityEngine.Object.Destroy(pixels);
+    }
+}
+async Task RecordView(string name, string form, float radius)
+{
+    await Game.NextFrame();
+    await Game.NextFrame();
+    FormVisualInstance pose = FormVisualScene.Instances.Single(value => FormId(value) == form);
+    var sector = pose.Resource.Description.Contacts.Single().Sector;
+    float extent = sector.Radius * pose.Transform.MultiplyVector(Vector3.right).magnitude;
+    Check(Mathf.Abs(extent - radius) < .006f &&
+          Vector2.Distance((Vector3)pose.Transform.GetColumn(3), new Vector2(centerX, centerY)) < .002f,
+        "已发布共用画面圆面达到原半径及中心",
+        new { name, form, extent, radius, pos = ((Vector3)pose.Transform.GetColumn(3)).ToString() });
+    if (!shots) return;
+    Check(fall != null, "独立游戏加载了 Worldfall");
+    var native = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32);
+    native.Create();
+    var target = camera.targetTexture;
+    double time = World.world.getCurWorldTime();
+    external.GetMethod("ViewForTest", F).Invoke(fall, new object[] { false });
+    external.GetMethod("SetGodView", F).Invoke(fall, new object[] { false });
+    await Game.WaitUntil(() => !(bool)Read(fall, "GodShown") && !(bool)Read(fall, "IsFirstPerson") &&
+                               (bool)Read(fall, "DiveDone"), 2700);
+    try
+    {
+        camera.targetTexture = native;
+        camera.Render();
+        WriteImage(native, name + "-native.png");
+    }
+    finally
+    {
+        camera.targetTexture = target;
+        native.Release();
+        UnityEngine.Object.Destroy(native);
+    }
+    object settings = Read(fall, "Settings");
+    var mode = settings.GetType().GetField("TimeMode", F);
+    object previousMode = mode.GetValue(settings);
+    try
+    {
+        mode.SetValue(settings, 1);
+        MoveCamera.clearFocusUnitOnly();
+        external.GetMethod("SetGodView", F).Invoke(fall, new object[] { true });
+        await Game.WaitUntil(() => (bool)Read(fall, "GodShown") && (float)Read(fall, "GodAlpha") >= .999f, 2700);
+        camera.transform.position = new Vector3(centerX, centerY + .2f, camera.transform.position.z);
+        MoveCamera.instance.forceZoom(radius + 2f);
+        Set("_godCamWas", camera.transform.position);
+        Set("_godCamSet", true);
+        Set("_godLock", null);
+        Set("_godFollow", new Vector2(centerX, centerY));
+        Set("_godFollowVel", Vector2.zero);
+        Set("_godClose", 10f);
+        Set("_godCloseTarget", 10f);
+        Set("_godTurn", -.14f);
+        Set("_godTurnRate", 0f);
+        Set("_godTip", .5f);
+        Set("_godTipRate", 0f);
+        Set("_godHoming", false);
+        int drawn = (int)Field(fall, "_godGpuApplied");
+        await Game.WaitUntil(() => (int)Field(fall, "_godGpuApplied") >= drawn + 3, 1800);
+        WriteImage((RenderTexture)Read(Read(fall, "GpuRendererForTest"), "Output"), name + "-worldfall.png");
+        var published = FormVisualScene.Instances.Single(value => FormId(value) == form);
+        Check(Math.Abs(World.world.getCurWorldTime() - time) < .0001 &&
+              Vector3.Distance(published.Transform.GetColumn(3), pose.Transform.GetColumn(3)) < .001f,
+            "两个视角读取同一时刻与中心，切换显示不停留额外施放");
+    }
+    finally
+    {
+        mode.SetValue(settings, previousMode);
+        external.GetMethod("SetGodView", F).Invoke(fall, new object[] { false });
+    }
+}
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += Finished;
+ConstructedAbilityService.ContactConfirmed += Contact;
+WakanResourceService.RegisterMutationCommitted(Paid);
+try
+{
+    CombatStatusEffects.RemoveStatus(near, hold);
+    near.updateStats();
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    source.attack_timer = near.attack_timer = far.attack_timer = ally.attack_timer = 999f;
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+
+    if (section == "views")
+    {
+        foreach (var sample in new[]
+        {
+            (name: "shake", form: "pressure_wave", handle: shake, asset: ArtifactAbilities.SoulShakingChime),
+            (name: "cleanse", form: "purifying_curtain", handle: cleanse, asset: ArtifactAbilities.PurifyingChime)
+        })
+        {
+            float radius = Radius(sample.asset.id);
+            Arrange(radius);
+            if (sample.handle == cleanse)
+            {
+                CombatStatusEffects.ApplyStatus(ally, StatusEffects.ArmorBreak, 18f, far);
+                CombatStatusEffects.ApplyStatus(near, StatusEffects.GuardBlessing, 18f, near);
+            }
+            Activate(sample.handle, sample.asset, checkDelay: false);
+            await Advance(.20f);
+            await RecordView(sample.name, sample.form, radius);
+            await Advance(.65f);
+        }
+        return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
+
+    if (section != "cleanse")
+    {
+        float radius = Radius(shockId);
+        Arrange(radius);
+        owner.GetCultisys<Xian>().wakan = 0f;
+        Check(!Use(owner, shake, source) && starts.Count == 0 && fees.Count == 0, "灵气不足时没有钟声和收费");
+        owner.GetCultisys<Xian>().wakan = 9000f;
+        int health = near.data.health, outside = far.data.health;
+        float beforePush = near.current_position.x;
+        long cast = Activate(shake, ArtifactAbilities.SoulShakingChime);
+        await Advance(.20f);
+        var contact = Contacts(cast).ToArray();
+        Check(contact.Length == 1 && contact[0].TargetId == near.id && near.data.health < health &&
+              far.data.health == outside && CombatStatusEffects.HasStatus(near, StatusEffects.Daze, source) &&
+              !CombatStatusEffects.HasStatus(far, StatusEffects.Daze, source),
+            "只有圆面内的敌人实际扣血和眩晕",
+            new { radius, health, hp = near.data.health, outside, outsideNow = far.data.health,
+                positions = new[] { source.current_position.ToString(), near.current_position.ToString(), far.current_position.ToString() },
+                contacts = contact.Select(hit => new { hit.TargetId, hit.Age, hit.ForceApplied, hit.StaggerSeconds }).ToArray() });
+        Check(contact[0].ForceApplied && near.velocity.x > 0f,
+            "接触确认向圆心外的力", new { velocity = near.velocity.ToString() });
+        await RecordView("shake", "pressure_wave", radius);
+        await Advance(.12f);
+        Check(near.current_position.x > beforePush + .002f,
+            "受力后实际向圆心外滑动", new { beforePush, current = near.current_position.x });
+        await Advance(.56f);
+        Check(ended.Any(end => end.CastId == cast && !end.Cancelled) && Contacts(cast).Count() == 1,
+            "震魂钟声自然收束且同一敌人只结算一次");
+        CombatStatusEffects.RemoveStatus(near, StatusEffects.Daze);
+    }
+
+    if (section != "shake")
+    {
+        float radius = Radius(cleanseId);
+        int limit = Definition(bell, cleanseId).GetInteger("effect_count");
+        Arrange(radius);
+        var blessing = StatusEffects.GuardBlessing;
+        var curse = StatusEffects.ArmorBreak;
+        var penalties = new[] { curse, StatusEffects.Weaken, StatusEffects.Slow };
+        var benefits = new[] { blessing, StatusEffects.BattleBlessing, StatusEffects.HasteBlessing };
+        foreach (var penalty in penalties) CombatStatusEffects.ApplyStatus(ally, penalty, 18f, far);
+        CombatStatusEffects.ApplyStatus(ally, blessing, 18f, source);
+        foreach (var benefit in benefits) CombatStatusEffects.ApplyStatus(near, benefit, 18f, near);
+        CombatStatusEffects.ApplyStatus(near, curse, 18f, source);
+        CombatStatusEffects.ApplyStatus(far, blessing, 18f, far);
+        Check(penalties.All(status => CombatStatusEffects.HasStatus(ally, status)) &&
+              benefits.All(status => CombatStatusEffects.HasStatus(near, status)) &&
+              CombatStatusEffects.HasStatus(far, blessing), "原有共享状态都已实际存在");
+        int hp = near.data.health;
+        long cast = Activate(cleanse, ArtifactAbilities.PurifyingChime);
+        await Advance(.20f);
+        var targets = Contacts(cast).Select(hit => hit.TargetId).OrderBy(id => id).ToArray();
+        int allyRemoved = penalties.Count(status => !CombatStatusEffects.HasStatus(ally, status));
+        int enemyRemoved = benefits.Count(status => !CombatStatusEffects.HasStatus(near, status));
+        Check(allyRemoved == Math.Min(penalties.Length, limit) && enemyRemoved == Math.Min(benefits.Length, limit) &&
+              CombatStatusEffects.HasStatus(ally, blessing) && CombatStatusEffects.HasStatus(near, curse) &&
+              CombatStatusEffects.HasStatus(far, blessing) && near.data.health == hp &&
+              targets.SequenceEqual(new[] { source.id, near.id, ally.id }.OrderBy(id => id)),
+            "清音按原敌我关系解除，范围外状态保留",
+            new { radius, limit, allyRemoved, enemyRemoved, targets, source = source.id, near = near.id,
+                ally = ally.id, far = far.id });
+        await RecordView("cleanse", "purifying_curtain", radius);
+        await Advance(.60f);
+        Check(ended.Any(end => end.CastId == cast && !end.Cancelled) && Contacts(cast).Count() == 3,
+            "清音自然收束且同次目标不重复解除");
+    }
+
+    string firstId = section == "shake" ? shockId : cleanseId;
+    ActiveAbilityHandle repeat = section == "shake" ? shake : cleanse;
+    var repeatedAsset = section == "shake" ? ArtifactAbilities.SoulShakingChime : ArtifactAbilities.PurifyingChime;
+    float remaining = (float)(Entry(bell, firstId).cooldown_until - World.world.getCurWorldTime());
+    await Advance(Mathf.Max(.1f, remaining + .12f));
+    Arrange(Radius(firstId));
+    long again = Activate(repeat, repeatedAsset, false);
+    await Advance(.85f);
+    Check(ended.Any(end => end.CastId == again && !end.Cancelled) &&
+          owner.GetEquippedArtifacts().Contains(bell) && owner.GetItems().Contains(bell) &&
+          !bell.HasComponent<SkillExecutionBodyLease>(), "冷却后同一法钟可再用并正常结束");
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Finished;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    payments.SetValue(null, oldPayments);
+    ControllableUnit.clear(false);
+}
