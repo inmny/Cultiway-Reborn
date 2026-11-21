@@ -2,6 +2,7 @@ using Cultiway.Content.Combat;
 using Cultiway.Core.Combat;
 using Cultiway.Core.EventSystem.Systems;
 using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.Visuals;
 using Cultiway.Utils.Extension;
 using UnityEngine;
@@ -25,9 +26,16 @@ public sealed partial class ConstructedAbilityService
     /// <summary>圆形接触沿用原法宝的敌我判断，净化也可以接触原有友方。</summary>
     /// <param name="owner">本次真实归属。</param><param name="target">候选人物。</param>
     /// <param name="contact">本击的原作用。</param>
-    private static bool MatchesArtifactArea(CastAuthority owner, Actor target, ArtifactAreaContact contact) =>
-        owner.IsLive && (CombatTargeting.MatchesDisposition(owner.Actor, target, contact.Disposition) ||
-            contact.Purifies && CombatTargeting.MatchesDisposition(owner.Actor, target, CombatTargeting.TargetDisposition.Friendly));
+    private static bool MatchesArtifactArea(CastAuthority owner, Actor target, ArtifactAreaContact contact)
+    {
+        if (!owner.IsLive) return false;
+        Actor source = owner.Actor;
+        if (contact.RevealsConcealment)
+            return CombatTargeting.MatchesDisposition(source, target, CombatTargeting.TargetDisposition.Friendly) ||
+                   source != target && SkillTargetRelationResolver.HasHostileRelation(source, target);
+        return CombatTargeting.MatchesDisposition(source, target, contact.Disposition) ||
+               contact.Purifies && CombatTargeting.MatchesDisposition(source, target, CombatTargeting.TargetDisposition.Friendly);
+    }
 
     /// <summary>圆面确认到人物后，兑现原法宝的伤害、震退或实际解除。</summary>
     /// <param name="running">本次施放。</param><param name="node">真正接触的圆面。</param>

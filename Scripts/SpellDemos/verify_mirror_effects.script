@@ -1,0 +1,231 @@
+// 两种本来互斥的能力各用一件正式法镜，同一场地和人物。
+const float centerX = 67.5f, centerY = 72f;
+Vector3 center = new Vector3(centerX, centerY, 0f);
+PrepareArtifactArena(54, 82, 59, 85);
+Actor source = Make(64.35f), near = Make(68f, "wolf"), far = Make(74f, "wolf");
+var owner = source.GetExtend();
+var inside = near.GetExtend();
+var outside = far.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+inside.AddComponent(new Xian { level = 4, wakan = 100f });
+outside.AddComponent(new Xian { level = 4, wakan = 100f });
+owner.SetPowerLevel(4);
+await Setup(source, near);
+CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+source.updateStats();
+source.addAggro(far);
+far.addAggro(source);
+
+var truth = ArtifactAbilities.TruthRevealingMirror;
+var stasis = ArtifactAbilities.SoulCapturingStasis;
+var starts = new List<ConstructedCastStarted>();
+var hits = new List<ConstructedContact>();
+var fees = new List<float>();
+var nearSpent = new List<WakanMutation>();
+var farSpent = new List<WakanMutation>();
+var restored = new List<float>();
+var payment = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = payment.GetValue(null);
+
+async Task<Entity> Equip(ArtifactAbilityAsset asset, ArtifactAtomAsset[] atoms)
+{
+    var blueprint = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+    {
+        Shape = ItemShapes.Mirror, Atoms = atoms,
+        Level = new ItemLevel { Stage = 3, Level = 8 }, Name = asset.GetName() + "实测"
+    }));
+    var ids = blueprint.AbilitySet.abilities.Select(entry => entry.ability_id).ToArray();
+    Check(ids.Contains(asset.id), "正式配方生成" + asset.GetName(), ids);
+    Entity mirror = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+    owner.AddSpecialItem(mirror);
+    Check(owner.EquipArtifact(mirror, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+        "装备正式法镜");
+    ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+    lifecycle.Invoke(null, new object[] { mirror });
+    await Game.NextFrame();
+    await Game.NextFrame();
+    return mirror;
+}
+
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId == source.id && (fact.AbilityId == truth.id || fact.AbilityId == stasis.id)) starts.Add(fact);
+}
+void Contact(ConstructedContact fact)
+{
+    if (fact.SourceId == source.id && (fact.AbilityId == truth.id || fact.AbilityId == stasis.id)) hits.Add(fact);
+}
+void Paid(ActorExtend caster, in WakanMutation change)
+{
+    if (caster == owner && change.Kind == WakanMutationKind.Gain) restored.Add(change.Delta);
+    if (change.Kind != WakanMutationKind.Spend) return;
+    if (caster == owner) fees.Add(-change.Delta);
+    if (caster == inside) nearSpent.Add(change);
+    if (caster == outside) farSpent.Add(change);
+}
+ArtifactAbilityExecutionContext Execution(Entity mirror) =>
+    new ArtifactAbilityExecutionContext(owner.E, mirror, owner.E.GetRelation<EquippedArtifactRelation, Entity>(mirror).state);
+float Cost(Entity mirror, ArtifactAbilityAsset asset, bool upkeep = false)
+{
+    var execution = Execution(mirror);
+    var ability = Definition(mirror, asset.id);
+    float baseCost = upkeep ? asset.lifecycle.ResolveMaintenanceCost(execution, ability) :
+        asset.lifecycle.ResolveActivationCost(execution, ability);
+    return baseCost * (owner.E.GetRelation<EquippedArtifactRelation, Entity>(mirror).state == ArtifactControlState.Overloaded
+        ? asset.lifecycle.overload_resource_multiplier : 1f);
+}
+bool Activate(Entity mirror, ArtifactAbilityAsset asset, Actor target, Vector3 point)
+{
+    var handles = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, handles);
+    var entry = Definition(mirror, asset.id);
+    var handle = handles.Single(value => value.Source == mirror && value.EntryId == entry.instance_id);
+    source.attack_timer = 0f;
+    bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, point), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999f;
+    return used;
+}
+bool Held(Entity mirror) => owner.GetItems().Contains(mirror) && owner.GetEquippedArtifacts().Contains(mirror);
+bool Close(float actual, float expected) => Mathf.Abs(actual - expected) < .003f;
+bool HasForm(string id) => FormVisualScene.Instances.Any(value => value.Resource.Description.Id == id);
+FormVisualInstance FormFor(string id) => FormVisualScene.Instances.Single(value => value.Resource.Description.Id == id);
+Vector3 Pose(string id) => FormFor(id).Transform.GetColumn(3);
+bool Has(Actor actor, Cultiway.Core.Libraries.StatusEffectAsset effect) => CombatStatusEffects.HasStatus(actor, effect);
+void Apply(Actor actor, Cultiway.Core.Libraries.StatusEffectAsset effect) =>
+    CombatStatusEffects.ApplyStatus(actor, effect, 10000f, actor);
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+WakanResourceService.RegisterMutationCommitted(Paid);
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    if (section != "stasis")
+    {
+        Entity mirror = await Equip(truth, new[] { ArtifactAtoms.SoulMirror, ArtifactAtoms.MoonWater,
+            ArtifactAtoms.FrostJade, ArtifactAtoms.PureYang });
+        var ability = Definition(mirror, truth.id);
+        float radius = ability.GetNumber("effect_radius");
+        int remove = ability.GetInteger("effect_count");
+        var positive = new[] { hold, StatusEffects.GuardBlessing, StatusEffects.BattleBlessing,
+            StatusEffects.HasteBlessing, StatusEffects.Rejuvenating, StatusEffects.Enlighten };
+        Place(near, centerX + radius - .20f, centerY);
+        Place(far, centerX + radius + .20f, centerY);
+        Place(source, centerX - radius + .35f, centerY);
+        foreach (var enemy in new[] { near, far })
+        {
+            foreach (var effect in positive) Apply(enemy, effect);
+            Apply(enemy, StatusEffects.Concealed);
+            Apply(enemy, StatusEffects.ArmorBreak);
+        }
+        Apply(source, StatusEffects.ArmorBreak);
+        Apply(source, StatusEffects.GuardBlessing);
+        int before = positive.Count(effect => Has(near, effect));
+        Check(Has(near, StatusEffects.Concealed) && Has(far, StatusEffects.Concealed) &&
+              Has(source, StatusEffects.ArmorBreak) && before > 0 &&
+              SkillTargetRelationResolver.HasHostileRelation(source, near),
+            "圈内外敌人与圈内友方都有待处理的实际状态", new { before, remove });
+        float activation = Cost(mirror, truth), upkeep = Cost(mirror, truth, true);
+        Check(Activate(mirror, truth, null, center) && fees.Count == 1 && Close(fees[0], activation) &&
+              Has(near, StatusEffects.Concealed), "按原费用部署，等待真正照影", new { activation });
+        await WaitFor(() => hits.Count >= 2, 1.2f);
+        await Game.NextFrame();
+        int after = positive.Count(effect => Has(near, effect));
+        Check(starts.Count == 1 && hits.Count == 2 && hits.Any(hit => hit.TargetId == source.id) &&
+              hits.Any(hit => hit.TargetId == near.id) && fees.Count == 2 && Close(fees[1], upkeep) &&
+              !Has(near, StatusEffects.Concealed) && after == Math.Max(0, before - remove) &&
+              Has(near, StatusEffects.ArmorBreak) && Has(far, StatusEffects.Concealed) &&
+              positive.Count(effect => Has(far, effect)) == before &&
+              !Has(source, StatusEffects.ArmorBreak) && Has(source, StatusEffects.GuardBlessing),
+            "付原维持费后照出圈内敌人并按原数量驱散，友方净化，圈外无变化",
+            new { before, after, remove, upkeep, fees = fees.ToArray(), hits = hits.Select(hit => hit.TargetId).ToArray(),
+                nearHidden = Has(near, StatusEffects.Concealed), farHidden = Has(far, StatusEffects.Concealed),
+                ownNegative = Has(source, StatusEffects.ArmorBreak), nearNegative = Has(near, StatusEffects.ArmorBreak),
+                farPositive = positive.Count(effect => Has(far, effect)) });
+        var form = FormFor("truth_mirror");
+        float reach = form.Resource.Description.Contacts.Single().Sector.Radius *
+                      form.Transform.MultiplyVector(Vector3.right).magnitude;
+        Check(mirror.HasComponent<ArtifactDeployment>() && Vector2.Distance(Pose("truth_mirror"), center) < .01f &&
+              Mathf.Abs(reach - radius) < .025f, "照影的实体面与实际部署点、原半径一致", new { reach, radius });
+        if (shots)
+            await CaptureArtifactViews("truth", center, Mathf.Max(10f, radius + 1.2f),
+                () => HasForm("truth_mirror") && Vector2.Distance(Pose("truth_mirror"), center) < .01f,
+                nativeZoom: radius + 1.8f);
+
+        owner.GetCultisys<Xian>().wakan = 0f;
+        Apply(near, StatusEffects.Concealed);
+        await Advance(.80f);
+        Check(fees.Count == 2 && starts.Count == 1 && hits.Count == 2 && Has(near, StatusEffects.Concealed) &&
+              !HasForm("truth_mirror") && !mirror.HasComponent<ArtifactDeployment>() && Held(mirror),
+            "后续维持费不足时收镜，无第二次照影并保留原件");
+        CombatStatusEffects.RemoveStatus(near, StatusEffects.Concealed);
+        CombatStatusEffects.RemoveStatus(far, StatusEffects.Concealed);
+    }
+
+    if (section != "truth")
+    {
+        Entity mirror = await Equip(stasis, new[] { ArtifactAtoms.VoidMirror, ArtifactAtoms.SoulJade,
+            ArtifactAtoms.SoulCore, ArtifactAtoms.SoulBindingScript });
+        var ability = Definition(mirror, stasis.id);
+        float cost = Cost(mirror, stasis);
+        float drain = ability.GetNumber("drain_amount") * Execution(mirror).effect_scale;
+        float ratio = ability.GetNumber("restore_ratio");
+        int feeBefore = fees.Count, hitsBefore = hits.Count, startBefore = starts.Count;
+        owner.GetCultisys<Xian>().wakan = 7000f;
+        inside.GetCultisys<Xian>().wakan = 5f;
+        outside.GetCultisys<Xian>().wakan = 100f;
+        Place(source, 64.35f, centerY);
+        Place(near, 66.2f, centerY);
+        Place(far, 66.42f, centerY - .08f);
+        int health = near.data.health;
+        Check(!Activate(mirror, stasis, source, source.GetSimPos()) && fees.Count == feeBefore,
+            "摄魂拒绝友方点名，且不支付费用");
+        int gainBefore = restored.Count;
+        Check(Activate(mirror, stasis, near, near.GetSimPos()) && fees.Count == feeBefore + 1 &&
+              Close(fees.Last(), cost) && hits.Count == hitsBefore,
+            "点名受理只收一次原费用，随后真实接触才结算", new { cost, drain, ratio });
+        await WaitFor(() => hits.Count > hitsBefore, .45f);
+        await Game.NextFrame();
+        var deducted = nearSpent.SingleOrDefault();
+        Check(hits.Count == hitsBefore + 1 && starts.Count == startBefore + 1 && hits.Last().TargetId == near.id &&
+              nearSpent.Count == 1 && deducted.Previous > 0f && deducted.Previous < drain && Close(deducted.Current, 0f) &&
+              restored.Skip(gainBefore).Any(gain => Close(gain, -deducted.Delta * ratio)) &&
+              farSpent.Count == 0 && near.data.health == health && Has(near, StatusEffects.Daze) &&
+              Has(near, StatusEffects.Silence) && !Has(far, StatusEffects.Daze) && !Has(far, StatusEffects.Silence) &&
+              Vector2.Distance(Pose("soul_stasis_mirror"), near.current_position) < .025f,
+            "只定住点名敌人，抽干现有真元，按实扣乘原比例返还",
+            new { drain, ratio, previous = deducted.Previous, current = deducted.Current,
+                gains = restored.Skip(gainBefore).ToArray(), hits = hits.Skip(hitsBefore).Select(hit => hit.TargetId).ToArray(),
+                farSpent = farSpent.Count, daze = Has(near, StatusEffects.Daze), silence = Has(near, StatusEffects.Silence) });
+        if (shots)
+        {
+            ControllableUnit.clear(false);
+            MoveCamera.clearFocusUnitOnly();
+            await Game.NextFrame();
+            await CaptureArtifactViews("stasis", near.current_position, 2.4f,
+                () => HasForm("soul_stasis_mirror") && Vector2.Distance(Pose("soul_stasis_mirror"), near.current_position) < .025f,
+                nativeZoom: 2.8f, closeSubject: near);
+        }
+        var runtime = Entry(mirror, stasis.id);
+        await Advance(Mathf.Max(.12f, (float)(runtime.cooldown_until - World.world.getCurWorldTime()) + .12f));
+        CombatStatusEffects.ApplyStatus(near, hold, 10000f, near);
+        near.attack_timer = far.attack_timer = 999f;
+        Place(source, 64.35f, centerY);
+        Place(near, 66.2f, centerY);
+        Place(far, 66.42f, centerY - .08f);
+        inside.GetCultisys<Xian>().wakan = 5f;
+        Check(!HasForm("soul_stasis_mirror") && Held(mirror) && Activate(mirror, stasis, near, near.GetSimPos()) &&
+              fees.Count == feeBefore + 2 && Close(fees.Last(), cost), "收束和原冷却结束后，同一原镜再次施展");
+        await WaitFor(() => hits.Count > hitsBefore + 1, .45f);
+        Check(hits.Count == hitsBefore + 2 && nearSpent.Count == 2 && farSpent.Count == 0, "再次施展只结算点名敌人一次");
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    payment.SetValue(null, previous);
+}

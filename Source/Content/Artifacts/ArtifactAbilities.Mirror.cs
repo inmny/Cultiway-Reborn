@@ -3,6 +3,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Semantics;
+using Cultiway.Content.Skills;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using NeoModLoader.General;
 using UnityEngine;
@@ -10,6 +11,7 @@ using System;
 using Cultiway.Content.Visuals;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Visuals;
+using Cultiway.Core.Visuals;
 
 namespace Cultiway.Content;
 
@@ -162,6 +164,7 @@ public partial class ArtifactAbilities
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = SkillCastResources.Wakan,
             OnTick = ApplyTruthRevealingField,
+            OnActivityEnded = EndArtifactConstruction,
         });
         TruthRevealingMirror.Activate(new ArtifactActiveAbilityProfile
         {
@@ -195,37 +198,26 @@ public partial class ArtifactAbilities
     private static void ApplyTruthRevealingField(
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry runtime,
-        float _)
+        ref ArtifactAbilityRuntimeEntry _,
+        float interval)
     {
-        Actor controller = Controller(context);
-        ArtifactDeployment deployment = context.artifact.GetComponent<ArtifactDeployment>();
-        Vector2 position = ArtifactManifestationTools.ResolveWorldAnchor(
-            context.artifact,
-            deployment.ResolveBodyAnchor());
         int maxCount = ability.GetInteger(EffectCount);
-        int affected = 0;
-        CombatTargeting.ForEachFriendly(controller, position, ability.GetNumber(EffectRadius), target =>
-            affected += CombatStatusEffects.CleanseNegativeStatuses(target, maxCount));
-        CombatTargeting.ForEachEnemyIncludingConcealed(
-            controller,
-            position,
-            ability.GetNumber(EffectRadius),
-            target =>
-            {
-                affected += CombatStatusEffects.RemoveStatus(target, StatusEffects.Concealed);
-                affected += CombatStatusEffects.DispelPositiveStatuses(target, maxCount);
-            });
-        if (affected > 0)
+        var contact = new ArtifactAreaContact((source, target) =>
         {
-            ArtifactAbilityVisuals.Emit(
-                context,
-                ability,
-                runtime,
-                ArtifactVisualChannels.Cleanse,
-                position,
-                intensity: affected);
-        }
+            int affected;
+            if (CombatTargeting.MatchesDisposition(source, target, CombatTargeting.TargetDisposition.Friendly))
+                affected = CombatStatusEffects.CleanseNegativeStatuses(target, maxCount);
+            else
+            {
+                affected = CombatStatusEffects.RemoveStatus(target, StatusEffects.Concealed);
+                affected += CombatStatusEffects.DispelPositiveStatuses(target, maxCount);
+            }
+            if (affected > 0)
+                SpatialVisualEffects.Particle(SpatialActorPose.Foot(target) + Vector3.forward * .4f,
+                    Vector3.forward * .72f, new Color(.72f, .95f, 1f, .83f), .16f, .26f);
+        }, revealsConcealment: true);
+        StartPaidArtifactArea(context, TruthRevealingMirror, ability, interval, "truth_mirror", contact,
+            Cultiway.Core.ElementComposition.Static.empty);
     }
 
     private static void ConfigureSoulCapturingStasis()
@@ -294,38 +286,30 @@ public partial class ArtifactAbilities
     private static bool ApplySoulCapturingStasis(
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry runtime,
+        ref ArtifactAbilityRuntimeEntry _,
         in ActiveAbilityTarget target,
-        ActiveAbilityUseOrigin _)
+        ActiveAbilityUseOrigin origin)
     {
-        Actor controller = Controller(context);
         Actor victim = target.Object.a;
-        float drained = CombatResourceEffects.DrainWakan(
-            victim,
-            ability.GetNumber(DrainAmount) * context.effect_scale);
-        CombatResourceEffects.RestoreWakan(controller, drained * ability.GetNumber(RestoreRatio));
+        float drain = ability.GetNumber(DrainAmount) * context.effect_scale;
+        float ratio = ability.GetNumber(RestoreRatio);
         float duration = ability.GetNumber(StatusDuration);
-        CombatStatusEffects.ApplyStatus(victim, StatusEffects.Daze, duration, controller);
-        CombatStatusEffects.ApplyStatus(victim, StatusEffects.Silence, duration, controller);
-        ArtifactAbilityVisuals.Emit(
-            context,
-            ability,
-            runtime,
-            ArtifactVisualChannels.Drain,
-            victim.current_position,
-            target: victim,
-            intensity: drained);
-        return true;
+        var carrier = ArtifactAbilityLifecycle.ResolveSkillContext(context);
+        var contact = new ArtifactAreaContact((source, recipient) =>
+        {
+            using var scope = SkillCasterContextService.Enter(in carrier);
+            float drawn = CombatResourceEffects.DrainWakan(recipient, drain);
+            CombatResourceEffects.RestoreWakan(source, drawn * ratio);
+            CombatStatusEffects.ApplyStatus(recipient, StatusEffects.Daze, duration, source);
+            CombatStatusEffects.ApplyStatus(recipient, StatusEffects.Silence, duration, source);
+        });
+        float radius = Mathf.Clamp(SpatialActorPose.Height(victim) * .80f, .45f, 3f);
+        return ArtifactAreaConstruction.Start(context, SoulCapturingStasis, target, origin, victim.current_position,
+            radius, .58f, contact, "soul_stasis_mirror", Cultiway.Core.ElementComposition.Static.empty,
+            strike: .045f, selectedTargetOnly: true);
     }
 
     private static void ConfigureMirrorAbilityVisuals()
-    {
-        ConfigureSpellReflectionVisuals();
-        ConfigureTruthRevealingMirrorVisuals();
-        ConfigureSoulCapturingStasisVisuals();
-    }
-
-    private static void ConfigureSpellReflectionVisuals()
     {
         ArtifactBeamVisualCue reflection = Beam(
             ArtifactVisualAnchorRef.Appearance("surface", "center"),
@@ -345,91 +329,6 @@ public partial class ArtifactAbilities
                         Pulse(1.22f, 1f, 0.2f)
                     ),
                     0.38f
-                )
-        );
-    }
-
-    private static void ConfigureTruthRevealingMirrorVisuals()
-    {
-        ArtifactGlyphVisualCue truthGlyph = Glyph(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Glow,
-            ArtifactVfxStyles.Purification
-        );
-        truthGlyph.sides = 10;
-        truthGlyph.rotation_speed = 16f;
-        ArtifactAreaVisualCue truthField = Area(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Primary,
-            0.52f,
-            0.035f,
-            ArtifactVfxStyles.Purification
-        );
-        ArtifactAreaVisualCue cleanse = Area(
-            ArtifactVisualAnchorKind.Point,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Glow,
-            0.7f,
-            0.04f,
-            ArtifactVfxStyles.Purification
-        );
-        cleanse.start_scale = 0.2f;
-        cleanse.end_scale = 1.1f;
-        cleanse.fade_out = true;
-        TruthRevealingMirror.Visualize(
-            Theme(SkillVfxElements.Pos.AccentColor)
-                .Loop(
-                    "truth_revealing",
-                    new ArtifactCompositeVisualCue(truthField, truthGlyph),
-                    IsDeploymentActive
-                )
-                .Signal(
-                    ArtifactVisualChannels.Cleanse,
-                    new ArtifactCompositeVisualCue(
-                        cleanse,
-                        Burst(ArtifactVisualAnchorKind.Point, ArtifactVisualColorRole.Glow, 8)
-                    ),
-                    0.5f,
-                    "artifact.truth_revealing.cleanse",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
-        );
-    }
-
-    private static void ConfigureSoulCapturingStasisVisuals()
-    {
-        ArtifactTetherVisualCue soulTether = new ArtifactTetherVisualCue
-        {
-            style_key = ArtifactVfxStyles.Soul,
-            from = ArtifactVisualAnchorRef.Appearance("surface", "center"),
-            to = ArtifactVisualAnchorKind.Target,
-            color_role = ArtifactVisualColorRole.Primary,
-            width = 0.05f,
-            curvature = -0.25f,
-            wave_amplitude = 0.055f,
-            wave_speed = -4f,
-            match_actor_scale = false,
-        };
-        ArtifactGlyphVisualCue stasis = Glyph(
-            ArtifactVisualAnchorKind.Target,
-            (ArtifactAbilityVisualContext _) => 0.55f,
-            ArtifactVisualColorRole.Secondary,
-            ArtifactVfxStyles.Soul,
-            matchActorScale: true
-        );
-        stasis.rotation_speed = -28f;
-        SoulCapturingStasis.Visualize(
-            Theme(SkillVfxElements.Neg.AccentColor)
-                .Signal(
-                    ArtifactVisualChannels.Drain,
-                    new ArtifactCompositeVisualCue(
-                        soulTether,
-                        stasis,
-                        Burst(ArtifactVisualAnchorKind.Target, ArtifactVisualColorRole.Glow, 5)
-                    ),
-                    0.7f
                 )
         );
     }
