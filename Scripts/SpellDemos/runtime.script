@@ -1745,12 +1745,39 @@ private void Prepare(JObject item)
     }
 
     if (id.EndsWith("CleanLandField"))
-        for (int x = 69; x <= 77; x += 2)
-            World.world.GetTileSimple(x, 69).startFire();
+        for (int x = 69; x <= 77; x++)
+        for (int y = 69; y <= 75; y++)
+        {
+            float edge = new Vector2((x - 72.8f) * .8f, y - 71.8f).sqrMagnitude;
+            if (edge > 13f + ((x * 3 + y) % 4)) continue;
+            var tile = World.world.GetTileSimple(x, y);
+            tile.burned_stages = 2;
+            tile.heat = 50;
+            if ((x + y) % 4 == 0) tile.startFire();
+        }
     if (id.EndsWith("Fertilize"))
-        for (int x = 68; x <= 80; x += 2)
-        for (int y = 63; y <= 77; y += 2)
-            World.world.buildings.addBuilding("wheat", World.world.GetTileSimple(x, y));
+    {
+        // 让演示麦田走原版城市维护，避免无归属植株在施放前被原版回收。
+        if (caster.city == null)
+        {
+            caster.joinLanguage(World.world.languages.newLanguage(caster, true));
+            caster.setCulture(World.world.cultures.newCulture(caster, true));
+            World.world.kingdoms.makeNewCivKingdom(caster);
+            caster.joinCity(World.world.cities.buildNewCity(caster, caster.current_tile.zone));
+        }
+        var city = caster.city;
+        for (int x = 60; x <= 82; x += 2)
+        for (int y = 64; y <= 82; y += 2)
+            city.addZone(World.world.GetTileSimple(x, y).zone);
+        World.world.buildings.addBuilding("windmill_human_0", World.world.GetTileSimple(75, 75));
+        for (int x = 69; x <= 78; x += 2)
+        for (int y = 66; y <= 78; y += 2)
+        {
+            var crop = World.world.buildings.addBuilding("wheat", World.world.GetTileSimple(x, y));
+            if (crop != null) crop.data.grow_time = -10000;
+        }
+        CityBehCheckFarms.check(city);
+    }
     if (id.EndsWith("PurificationWave"))
         CombatStatusEffects.ApplyStatus(friend, StatusEffects.Burn, 10, enemies[0]);
     friend.data.health = Mathf.Max(1, Mathf.CeilToInt(friend.stats["health"] * .35f));
@@ -2654,9 +2681,18 @@ private void Camera()
     if (externalView != null && (WantsBodyCloseView() || body && (float?)request["zoom"] < 10f) &&
         (bool)externalView.GetProperty("GodShown", Flags).GetValue(externalViewInstance)) return;
     bool placement = request["construction"] is JObject && request["targetOffset"] is JArray;
+    float zoom = (float?)request["zoom"] ?? 22;
     if (currentCase == "Cultiway.PalmStrike")
         World.world.camera.transform.position = new Vector3(caster.current_position.x + .3f,
             caster.current_position.y + .5f, World.world.camera.transform.position.z);
+    else if (currentCase == "Cultiway.SummonRainCloud")
+    {
+        // 原版云层画在地面上方并继续移动，放宽该段镜头，保留施法点和云。
+        Vector2 point = request["aimOffset"] is JArray aim
+            ? caster.current_position + new Vector2((float)aim[0], (float)aim[1]) : enemies[0].current_position;
+        World.world.camera.transform.position = new Vector3(point.x + 4f, point.y + 9f, World.world.camera.transform.position.z);
+        zoom = Mathf.Max(zoom, 21f);
+    }
     else if (request["casterPosition"] is JArray start)
         World.world.camera.transform.position = new Vector3((float)start[0] + 3f,
             (float)start[1] + 1f, World.world.camera.transform.position.z);
@@ -2664,7 +2700,6 @@ private void Camera()
         World.world.camera.transform.position = new Vector3(
             placement ? caster.current_position.x : body ? 66.5f : 67,
             placement ? caster.current_position.y : body ? 72.5f : 73, World.world.camera.transform.position.z);
-    float zoom = (float?)request["zoom"] ?? 22;
     MoveCamera.instance.forceZoom(zoom);
     // 原版滚轮最小为10；开发指定的更近取景不改游戏配置，只覆盖当前测试相机。
     if (zoom < 10f)

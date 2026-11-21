@@ -44,6 +44,7 @@ import {makeGroundWaves} from './forms_ground_waves.mjs';
 import {makeRemainingFields} from './forms_remaining_fields.mjs';
 import {makeSupport} from './forms_support.mjs';
 import {makeTerrainChanges} from './forms_terrain_changes.mjs';
+import {makeWorldUtility} from './forms_world_utility.mjs';
 import {makePolarity} from './forms_polarity.mjs';
 
 makeHorn();
@@ -83,6 +84,7 @@ makeFields();
 makeFivePhases();
 makeSupport();
 makeTerrainChanges();
+makeWorldUtility();
 makePolarity();
 makeAegises();
 makeWaterCurtain();

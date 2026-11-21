@@ -302,8 +302,9 @@ public sealed partial class ConstructedAbilityService
         {
             running.WorldChanges++;
             ShowTimeWear(hit.Tile, result, LogicTime);
-            if (node < 0 || !UtilityConstructionMigration.HasTerrainPulse(running.Cast.Plan.Id) ||
-                !AddTerrainChange(running, node, hit.Tile, result.Flags, LogicTime))
+            if (!AddWorldUtilityVisual(running, node, hit.Tile, result.Flags, LogicTime) &&
+                (node < 0 || !UtilityConstructionMigration.HasTerrainPulse(running.Cast.Plan.Id) ||
+                !AddTerrainChange(running, node, hit.Tile, result.Flags, LogicTime)))
                 ShowWorldChange(result.Flags, hit.Tile.posV3);
         }
         WorldContactConfirmed?.Invoke(new ConstructedWorldContact(running.Id, running.SourceId, owner,

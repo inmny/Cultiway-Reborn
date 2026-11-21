@@ -2663,3 +2663,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中，用 `dev.py exec -- python3 Scripts/SpellDemos/verify_terrain_variants.py --case legacy --archive <旧档输出目录>` 记录旧执行。改后用 `--case cold --archive <同一旧档输出目录> --baseline <旧执行的 result.json>` 逐格对照并检查收势。两者都核对八份归档学习资料，可用 `--spell RaiseTerrain` 等参数只重放受影响法术。水和邻格可能在施法以后继续由游戏更新，作用范围以实际结算记录为准。
 
 合辑用 `demo_all.py --scope base --filter Cultiway.RaiseTerrain,Cultiway.LowerTerrain,Cultiway.FillWater,Cultiway.DrainWater --cases base --variants all --realm 0 --caster-position 64 72 --aim-offset 6 0 --motion-trace`。分别传入 `--view native` 和 `--view worldfall`，从 `worldContactsLog` 核对真实变更的地块。
+
+### 植被催生、净土、召雨与催熟的旧索引
+
+在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_world_utility.py --case legacy --archive <旧档输出目录>`。用其 `result.json` 作为 `--baseline`，配合 `--case cold --archive <同一旧档输出目录>` 重放当前实现。两者均读取归档的八份世界法术；`--spell CleanLandField` 等选项可只重放对应法术。
+
+演示用 `demo_all.py --scope base --filter Cultiway.NatureGrowthField,Cultiway.CleanLandField,Cultiway.SummonRainCloud,Cultiway.Fertilize --cases base --variants all --duration 4.9 --motion-trace`。分别指定原版或 Worldfall，取实际地块操作查看前后状态。召雨段保留成云时间，完整天气存读仍通过原有 `verify_rain_process.script` 和 `verify_rain_process_restart.script` 复验。
