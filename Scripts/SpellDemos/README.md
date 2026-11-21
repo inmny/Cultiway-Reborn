@@ -2731,3 +2731,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 修炼组合的正式存读（10.02）
 
 在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_formation_archive.py archive`，记录返回的输出目录。正常退出并重新启动独立游戏后，运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_formation_archive.py cold --archive <前段输出目录>`。脚本核对跨进程恢复三个代表境界、状态及冷却、原条件再次触发和撤去来源后的清除。
+
+### 七种修炼主动能力实录（10.02）
+
+独立游戏就绪后运行 `dev.py exec --timeout 900 -- python3 Scripts/SpellDemos/record_formation_reels.py --output <实录目录>`。脚本依次使用七个真实主动入口，在两种视角分别生成连续片段、含章节的合辑与原片索引。用 `--view native` 或 `--view worldfall` 限定视角，已有原片可用 `--encode-only` 重新合成。

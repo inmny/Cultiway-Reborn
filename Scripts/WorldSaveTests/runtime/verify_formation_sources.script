@@ -1,0 +1,178 @@
+using System;
+using System.Linq;
+using System.IO;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.Libraries;
+using Cultiway.Core;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
+using Newtonsoft.Json;
+
+Config.paused = true;
+var atomLibrary = Cultiway.Content.Libraries.Manager.CoreFormationAtomLibrary;
+var atoms = atomLibrary.list.OrderBy(atom => atom.id, StringComparer.Ordinal).ToArray();
+var flags = BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public;
+var source = typeof(CoreFormationComposer).Assembly.GetType("Cultiway.Content.CoreFormationSkills", true);
+var skills = ((IEnumerable)source.GetField("SkillContainers", flags).GetValue(null)).Cast<Entity>()
+    .Select(SkillId).OrderBy(id => id, StringComparer.Ordinal).ToArray();
+string SkillId(Entity skill) => skill.IsNull ? null : skill.GetComponent<SkillContainer>().SkillEntityAssetID;
+void Require(bool valid, string failure)
+{
+    if (!valid) throw new InvalidOperationException(failure);
+}
+
+var stageRules = new[]
+{
+    (CoreFormationRealm.QiRefinement, CoreFormationRealmMask.QiRefinement, Cultiway.Content.Const.XianLevels.QiRefinement),
+    (CoreFormationRealm.Foundation, CoreFormationRealmMask.Foundation, Cultiway.Content.Const.XianLevels.XianBase),
+    (CoreFormationRealm.Jindan, CoreFormationRealmMask.Jindan, Cultiway.Content.Const.XianLevels.Jindan),
+    (CoreFormationRealm.Yuanying, CoreFormationRealmMask.Yuanying, Cultiway.Content.Const.XianLevels.Yuanying),
+    (CoreFormationRealm.Yuanshen, CoreFormationRealmMask.Yuanshen, Cultiway.Content.Const.XianLevels.Huashen)
+};
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true);
+var owner = actor.GetExtend();
+owner.E.RemoveComponent<Xian>();
+owner.AddComponent(new Xian());
+
+CoreFormationSnapshot Snapshot(CoreFormationRealm realm, CoreFormationAtomAsset atom, int awake, int stage) => new()
+{
+    version = CoreFormationSnapshot.CurrentVersion, signature = "verify.source." + atom.id,
+    canonical_name = "修炼来源验收", finalized = true, realm = realm, strength = 3f, refinement = stage,
+    composition = ElementComposition.Static.Earth, quality_score = 65f,
+    atoms = new[] { new CoreFormationAtomState { atom_id = atom.id, weight = 1f, awakening_stage = awake } },
+    stats = Array.Empty<CoreFormationStatValue>(), semantics = Array.Empty<Cultiway.Core.Semantics.SemanticContribution>()
+};
+bool Inherited(CoreFormationSnapshot snapshot, string atom) =>
+    snapshot.atoms.Any(row => row.atom_id == atom && row.inherited && row.awakening_stage == 0);
+
+void Install(CoreFormationSnapshot snapshot, int level)
+{
+    owner.GetCultisys<Xian>().level = level;
+    owner.E.RemoveComponent<QiRefinementState>();
+    owner.E.RemoveComponent<XianBase>();
+    owner.E.RemoveComponent<Jindan>();
+    owner.E.RemoveComponent<Yuanying>();
+    owner.E.RemoveComponent<Yuanshen>();
+    switch (snapshot.realm)
+    {
+        case CoreFormationRealm.QiRefinement: owner.AddComponent(new QiRefinementState { formation = snapshot }); break;
+        case CoreFormationRealm.Foundation: owner.AddComponent(new XianBase { formation = snapshot }); break;
+        case CoreFormationRealm.Jindan: owner.AddComponent(new Jindan { formation = snapshot }); break;
+        case CoreFormationRealm.Yuanying: owner.AddComponent(new Yuanying { formation = snapshot }); break;
+        case CoreFormationRealm.Yuanshen: owner.AddComponent(new Yuanshen { formation = snapshot }); break;
+    }
+}
+
+var rows = new List<object>();
+var mapped = new HashSet<string>(StringComparer.Ordinal);
+var extras = new Dictionary<string, (string id, string condition)[]>
+{
+    ["wood"] = new[] { ("WoodLifeReturn", "击杀拥有同源木毒的目标") },
+    ["fire"] = new[] { ("FireEmberBurst", "真实命中已有同源灼烧的目标") },
+    ["earth"] = new[] { ("EarthWard", "真实伤害建立护盾"), ("EarthWardImpact", "护盾实际吸收") },
+    ["condensed"] = new[] { ("ReservoirOrb", "已付费技能实际完成") },
+};
+try
+{
+    foreach (var atom in atoms)
+    {
+        var obtainable = stageRules.Where(row => (atom.realms & row.Item2) != 0).ToArray();
+        Require(obtainable.Length > 0 && atom.effects.Length > 0, "原子缺少来源或效果 " + atom.id);
+        var first = obtainable[0];
+        var snapshot = Snapshot(first.Item1, atom, 1, 0);
+        Install(snapshot, first.Item3);
+        var actual = new List<CoreFormationResolvedEffect>();
+        CoreFormationEffectResolver.Resolve(owner, actual);
+        Require(actual.Count == 0, "原子未显化已授予效果 " + atom.id);
+        snapshot.refinement = 1;
+        Install(snapshot, first.Item3);
+        CoreFormationEffectResolver.Resolve(owner, actual);
+        Require(actual.Count == atom.effects.Length &&
+            atom.effects.All(effect => actual.Any(row => ReferenceEquals(row.Definition, effect))),
+            "原子实际授予与声明不符 " + atom.id);
+
+        var transitions = new List<string>();
+        if (first.Item1 == CoreFormationRealm.QiRefinement)
+        {
+            var inherited = CoreFormationComposer.ComposeFoundation(owner, default, snapshot);
+            Require(Inherited(inherited, atom.id) && inherited.source_signature == snapshot.signature, "真气到仙基未继承 " + atom.id);
+            transitions.Add("真气→仙基");
+        }
+        if (first.Item1 is CoreFormationRealm.QiRefinement or CoreFormationRealm.Foundation)
+        {
+            var old = Snapshot(CoreFormationRealm.Foundation, atom, 1, 1);
+            var inherited = CoreFormationComposer.ComposeJindan(owner, new XianBase { formation = old }, 4f);
+            Require(Inherited(inherited, atom.id) && inherited.source_signature == old.signature, "仙基到金丹未继承 " + atom.id);
+            transitions.Add("仙基→金丹");
+        }
+        if (first.Item1 is CoreFormationRealm.QiRefinement or CoreFormationRealm.Foundation or CoreFormationRealm.Jindan)
+        {
+            var old = Snapshot(CoreFormationRealm.Jindan, atom, 2, 3);
+            var inherited = CoreFormationComposer.ComposeYuanying(owner, default, old, old.refinement, 4f);
+            Require(Inherited(inherited, atom.id) && inherited.source_signature == old.signature, "金丹到元婴未继承 " + atom.id);
+            transitions.Add("金丹→元婴");
+        }
+        if (first.Item1 != CoreFormationRealm.Yuanshen)
+        {
+            var old = Snapshot(CoreFormationRealm.Yuanying, atom, 9, 9);
+            var inherited = CoreFormationComposer.ComposeYuanshen(old);
+            Require(Inherited(inherited, atom.id) && inherited.source_signature == old.signature, "九转元婴到元神未继承 " + atom.id);
+            transitions.Add("九转元婴→元神");
+        }
+        var effects = new List<object>();
+        foreach (var effect in atom.effects)
+        {
+            string active = effect.active == null ? null : SkillId(effect.active.SkillContainer);
+            string trigger = SkillId(effect.TriggerSkill);
+            if (trigger != null) mapped.Add(trigger);
+            if (active != null) mapped.Add(active);
+            var followups = extras.TryGetValue(effect.family_id, out var values) ? values.Select(value =>
+                new { id = "Cultiway.CoreFormation.Skill." + value.id, value.condition }).ToArray() : null;
+            if (followups != null) foreach (var item in followups) mapped.Add(item.id);
+            effects.Add(new { key = "core_effect:" + atom.id + "/" + effect.family_id + "/" + effect.rank,
+                family = effect.family_id, effect.rank, name = effect.GetName(), trigger, active,
+                events = effect.triggers.ToString(), followups });
+        }
+        rows.Add(new { id = atom.id, key = "core_atom:" + atom.id, name = atom.GetName(),
+            category = atom.category.ToString(), stages = obtainable.Select(row => row.Item1.ToString()).ToArray(),
+            transitions, effects });
+    }
+    var yin = Snapshot(CoreFormationRealm.Yuanying, CoreFormationAtoms.ElementYin, 0, 1);
+    yin.atoms = yin.atoms.Append(new CoreFormationAtomState
+        { atom_id = CoreFormationAtoms.TransformMysteriousYin.id, weight = 1f }).ToArray();
+    Install(yin, Cultiway.Content.Const.XianLevels.Yuanying);
+    Require(CoreFormationEffectResolver.TryResolveFamily(owner, "yin", out var merged) &&
+        merged.Definition.rank == 2 && SkillId(merged.Definition.TriggerSkill).EndsWith(".MysteriousYinDrain"),
+        "元婴升阶没有以高阶效果替换原同族效果");
+    var latent = Snapshot(CoreFormationRealm.Yuanying, CoreFormationAtoms.ManifestSwordEmbryo, 10, 9);
+    latent.atoms = latent.atoms.Append(new CoreFormationAtomState
+        { atom_id = CoreFormationAtoms.ElementEarth.id, weight = 1f }).ToArray();
+    Require(!CoreFormationComposer.ComposeYuanshen(latent).atoms.Any(row => row.atom_id == latent.atoms[0].atom_id),
+        "九转尚未显化的原子不应继承到元神");
+    var ordinary = Snapshot(CoreFormationRealm.Jindan, CoreFormationAtoms.ElementEarth, 0, 1);
+    ordinary.representative_skill_id = SkillEntities.SpiritShield.id;
+    var grantRepresentative = typeof(Cultisyses).GetMethod("GrantRepresentativeSkill", flags);
+    Require((bool)grantRepresentative.Invoke(null, new object[] { owner, ordinary }) &&
+        !(bool)grantRepresentative.Invoke(null, new object[] { owner, ordinary }),
+        "已掌握的代表法术不应重复授予");
+    Require(atoms.Length == 26 && atoms.Sum(atom => atom.effects.Length) == 27, "来源清单数量与本项范围不符");
+    Require(skills.Length == 35 && mapped.SetEquals(skills), "派生或主动技能不能全部追溯到原子");
+    Require(atoms.SelectMany(atom => atom.effects).Where(effect => effect.active != null)
+        .Select(effect => SkillId(effect.active.SkillContainer)).Distinct().Count() == 7, "主动入口范围与验收不符");
+    string report = Path.Combine(Path.GetTempPath(), "formation-sources-" + Guid.NewGuid().ToString("N") + ".json");
+    File.WriteAllText(report, JsonConvert.SerializeObject(new
+    {
+        passed = true, atoms = rows, skills, higherRank = SkillId(merged.Definition.TriggerSkill),
+        representativeLearnedOnce = ordinary.representative_skill_id
+    }, Formatting.Indented));
+    return new { passed = true, report };
+}
+finally
+{
+    actor.dieAndDestroy(AttackType.Other);
+}
