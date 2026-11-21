@@ -28,6 +28,9 @@ namespace Cultiway.Core;
 
 public partial class ActorExtend
 {
+    /// <summary>通知仍存活的原目标已经实际扣除生命，携带本次已确认的接触位置。</summary>
+    internal static event Action<Actor, BaseSimObject, Vector3?> HealthLossConfirmed;
+
     public static void RegisterCombatActionOnAttack(Action<ActorExtend, BaseSimObject, ListPool<CombatActionAsset>> action)
     {
         action_on_attack += action;
@@ -616,12 +619,16 @@ public partial class ActorExtend
         {
             OnDamageResolved(attacker, damage, damage_composition, attack_type_for_vanilla);
         }
+        Actor victim = Base;
+        long victimId = victim.id;
         int lost = PatchActor.MeasureHit(
-            Base,
+            victim,
             damage,
             pFlash: damage >= 1,
             pAttackType: attack_type_for_vanilla,
             pAttacker: attributionAttacker);
+        if (lost > 0 && victim.id == victimId && victim.isAlive() && victim.hasHealth())
+            HealthLossConfirmed?.Invoke(victim, attacker, contactPoint);
         CombatImpactVisuals.OnHealthLost(this, attacker, lost, damage_composition, attack_type_for_vanilla, metallic_weapon);
         RestoreSpatialRetaliationTarget(attacker, attributionAttacker);
         return new DamageSettlement(lost, shield.Absorbed);

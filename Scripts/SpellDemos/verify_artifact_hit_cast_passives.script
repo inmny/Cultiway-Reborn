@@ -1,0 +1,250 @@
+// 同一对修士只换两件正式原物，验证真实来伤和正式施放。
+const float originX = 64f, victimX = 70.3f, centerY = 72f;
+PrepareArtifactArena(59, 78, 65, 80);
+Actor source = Make(originX), victim = Make(victimX);
+var owner = source.GetExtend();
+var enemy = victim.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 500f });
+enemy.AddComponent(new Xian { level = 4, wakan = 500f });
+owner.SetPowerLevel(4f);
+enemy.SetPowerLevel(4f);
+CombatStatusEffects.ApplyStatus(source, boost, 10000f, source);
+var armorPrimer = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ArmorBonus") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ArmorBonus")
+        .SetStats(new BaseStats { [S.armor] = 40f }).SetDuration(10000f).Build();
+CombatStatusEffects.ApplyStatus(victim, armorPrimer, 10000f, source);
+owner.MarkCultiwayStatsDirty();
+enemy.MarkCultiwayStatsDirty();
+await Advance(.20f);
+source.updateStats();
+victim.updateStats();
+Place(source, originX, centerY);
+Place(victim, victimX, centerY);
+source.position_height = victim.position_height = 0f;
+ConstructedAbilityService.NotifyActorChanged(source);
+ConstructedAbilityService.NotifyActorChanged(victim);
+source.addAggro(victim);
+victim.addAggro(source);
+World.world.console.Hide();
+WorldTip.hideNow();
+Tooltip.hideTooltipNow();
+
+var entries = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Visuals.ArtifactSpatialVisualRuntime")
+    .GetField("entries", F).GetValue(null);
+ArtifactAbilityVisualContext[] Feedback(Entity item, string channel) => entries.Cast<object>()
+    .Where(value => (double)Field(value, "Closing") < 0d)
+    .Select(value => (ArtifactAbilityVisualContext)Field(value, "Context"))
+    .Where(value => value.artifact == item && value.channel == channel).ToArray();
+bool EqualAmount(float a, float b) => Mathf.Abs(a - b) < .015f;
+void SetBalance(float value) => WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), value);
+Vector3 DisplayPoint(Vector3 point)
+{
+    var terrain = (AbilityHeightField)service.GetProperty("BodyTerrain", F).GetValue(null);
+    point.z -= terrain?.Sample(point.x, point.y) ?? 0f;
+    return point;
+}
+
+var contactsByCast = new List<ConstructedContact>();
+var started = new List<ConstructedCastStarted>();
+void Impact(ConstructedContact hit)
+{
+    if (hit.SourceId == source.id && hit.TargetId == victim.id) contactsByCast.Add(hit);
+}
+void Committed(ConstructedCastStarted fact)
+{
+    if (fact.SourceId == source.id) started.Add(fact);
+}
+
+var mutations = new List<WakanMutation>();
+var wakanField = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object oldObserver = wakanField.GetValue(null);
+void Changed(ActorExtend participant, in WakanMutation mutation)
+{
+    if (participant == owner) mutations.Add(mutation);
+}
+float[] Gains() => mutations.Where(value => value.Kind == WakanMutationKind.Gain).Select(value => value.Delta).ToArray();
+float[] Costs() => mutations.Where(value => value.Kind == WakanMutationKind.Spend).Select(value => -value.Delta).ToArray();
+
+var legacyResults = new List<(Entity skill, int count)>();
+var completion = typeof(ActorExtend).GetField("action_on_skill_cast_completed", F);
+object formerCompletion = completion.GetValue(null);
+void Completed(ActorExtend payer, Entity skill, int count, SkillCastFundingSource funding)
+{
+    if (payer == owner) legacyResults.Add((skill, count));
+}
+ActorExtend.RegisterActionOnSkillCastCompleted(Completed);
+WakanResourceService.RegisterMutationCommitted(Changed);
+ConstructedAbilityService.ContactConfirmed += Impact;
+ConstructedAbilityService.CastStarted += Committed;
+try
+{
+    foreach (bool armor in new[] { true, false })
+    {
+        string key = armor ? "armor" : "resonance";
+        if (section != "all" && section != key) continue;
+        var abilityAsset = armor ? ArtifactAbilities.ArmorPiercingSwordAura : ArtifactAbilities.LinkedPearlResonance;
+        var recipe = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+        {
+            Shape = armor ? ItemShapes.Sword : ItemShapes.Pearl,
+            Atoms = armor ? [ArtifactAtoms.SwordBreaker, ArtifactAtoms.Iron, ArtifactAtoms.MagneticIron, ArtifactAtoms.MountainPattern]
+                : [ArtifactAtoms.OrbitPearl, ArtifactAtoms.FrostJade, ArtifactAtoms.ResonanceRings, ArtifactAtoms.GuardianHalo],
+            Level = new ItemLevel { Stage = 3, Level = 8 }, Name = abilityAsset.GetName() + "复验"
+        }));
+        var abilities = recipe.AbilitySet.abilities.Select(value => value.ability_id).ToArray();
+        Check(abilities.Contains(abilityAsset.id), "正式炼成原件 " + abilityAsset.GetName(), abilities);
+        Entity item = ArtifactBlueprintCodec.Materialize(recipe, source.getName());
+        owner.AddSpecialItem(item);
+        Check(owner.EquipArtifact(item, locked: true,
+            mode: armor ? ArtifactEquipMode.ForcedOperating : ArtifactEquipMode.Standby, priority: 100), "装备原件");
+        await Advance(.25f);
+        var ability = Definition(item, abilityAsset.id);
+        var control = owner.E.GetRelation<EquippedArtifactRelation, Entity>(item).state;
+        var execution = new ArtifactAbilityExecutionContext(owner.E, item, control);
+
+        var spell = new AbilityDefinition
+        {
+            Id = "test.artifact-hit-cast." + key, Name = "实测剑气", Lifetime = .092f, TargetRange = 12f,
+            Resource = "wakan", Cost = 6f, Power = 2f, Cooldown = armor ? 2f : 0f,
+            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = .28f },
+            Impact = new ConstructionImpact { DamageScale = 3f },
+            Root = new ConstructionNode
+            {
+                Id = "blade", Form = "sword_qi", Matter = "iron", Rotation = [-90f, 0f, 0f],
+                OnContact = ConstructionContactResponse.Continue,
+                Operations = [new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+                    WorldVelocity = true, InheritVelocity = false, Vector = [780f, 0f, 0f] }]
+            }
+        };
+        ConstructedAbilityService.Register(spell);
+        ConstructedAbilityService.Learn(owner, spell.Id);
+        var knowledge = owner.E.GetComponent<ConstructedKnowledge>();
+        var handle = new ActiveAbilityHandle("content.constructed", owner.E, spell.Id);
+
+        bool CastBlade()
+        {
+            Place(source, originX, centerY);
+            Place(victim, victimX, centerY);
+            ConstructedAbilityService.NotifyActorChanged(source);
+            ConstructedAbilityService.NotifyActorChanged(victim);
+            source.attack_timer = 0f;
+            if (!owner.E.HasComponent<ConstructedKnowledge>()) owner.E.AddComponent(knowledge);
+            bool accepted = ActiveAbilityService.TryUse(owner, handle,
+                new ActiveAbilityTarget(victim, victim.GetSimPos()), ActiveAbilityUseOrigin.Script);
+            owner.E.RemoveComponent<ConstructedKnowledge>();
+            source.attack_timer = 999f;
+            return accepted;
+        }
+        if (armor)
+        {
+            SetBalance(source.stats[BaseStatses.MaxWakan.id] * .60f);
+            float baseline = victim.stats[S.armor];
+            bool Status(out Entity result) => CombatStatusEffects.TryGetStatus(victim, StatusEffects.ArmorBreak, source, out result);
+            void Invincible(float seconds) => typeof(BaseSimObject)
+                .GetMethod("addStatusEffect", F, null, new[] { typeof(string), typeof(float), typeof(bool) }, null)
+                .Invoke(victim, new object[] { "invincible", seconds, false });
+            async Task<ConstructedContact> Strike()
+            {
+                Check(CastBlade(), "原剑持有者正式施放剑气");
+                long cast = started.Last(value => value.AbilityId == spell.Id).CastId;
+                await WaitFor(() => contactsByCast.Any(value => value.CastId == cast), .42f);
+                await Game.NextFrame();
+                return contactsByCast.Single(value => value.CastId == cast);
+            }
+            Check(baseline >= 40f && ArtifactAbilityLifecycle.MeetsState(control, ArtifactControlState.Operating), "原剑运转，测试实际护甲", baseline);
+            Invincible(.70f);
+            Check(victim.hasStatus("invincible"), "对象实际免疫来伤");
+            var blocked = await Strike();
+            Check(blocked.Damage.HealthLost == 0 && !Status(out _) && Feedback(item, "hit").Length == 0,
+                "真实接触被免疫，未破甲且无碎甲");
+            await Advance(Mathf.Max(.74f, spell.Cooldown + .05f));
+            int health = victim.data.health;
+            var contact = await Strike();
+            var sparks = Feedback(item, "hit");
+            bool applied = Status(out Entity debuff);
+            victim.updateStats();
+            float expected = Mathf.Max(1f, baseline * ability.GetNumber("status_strength")) * execution.effect_scale;
+            Check(contact.Damage.HealthLost > 0 && health - victim.data.health == contact.Damage.HealthLost &&
+                  applied && EqualAmount(baseline - victim.stats[S.armor], expected) &&
+                  sparks.Length == 1 && Vector3.Distance(sparks[0].position, DisplayPoint(contact.Position)) < .005f,
+                "真实扣血后才削减护甲，碎片从实际接触处出现",
+                new { lost = contact.Damage.HealthLost, baseline, current = victim.stats[S.armor], expected, contact = contact.Position.ToString() });
+            if (shots)
+                await CaptureArtifactViews("armor-contact", victim.current_position, 1.8f,
+                    () => Feedback(item, "hit").Length == 1 && Status(out _), nativeZoom: 2.65f, closeSubject: victim);
+            await Advance(ability.GetNumber("status_duration") + .55f);
+            victim.updateStats();
+            Check(!Status(out _) && EqualAmount(victim.stats[S.armor], baseline) && Feedback(item, "hit").Length == 0,
+                "破甲和碎片自然结束，原护甲恢复");
+        }
+        else
+        {
+            float max = source.stats[BaseStatses.MaxWakan.id];
+            float amount = ability.GetNumber("resonance_restore") * execution.effect_scale;
+            float CooldownLeft() => Mathf.Max(0f, (float)(Entry(item, abilityAsset.id).cooldown_until - World.world.getCurWorldTime()));
+            Check(control == ArtifactControlState.Ready, "原珠待命即可共鸣");
+            SetBalance(max * .55f);
+            mutations.Clear();
+            int previousCasts = started.Count;
+            Check(CastBlade(), "新构造实际支付并受理");
+            await Game.NextFrame();
+            Check(started.Count == previousCasts + 1 && Costs().Length == 1 && EqualAmount(Costs()[0], spell.Cost) &&
+                  Gains().Count(value => EqualAmount(value, amount)) == 1 && Feedback(item, "restore").Length == 1 &&
+                  EqualAmount(Feedback(item, "restore")[0].intensity, amount) && CooldownLeft() > 0f,
+                "一次付费构造只回注一次，并显示原珠", new { cost = Costs(), gains = Gains(), amount });
+            if (shots)
+                await CaptureArtifactViews("resonance-paid-cast", source.current_position, 1.8f,
+                    () => Feedback(item, "restore").Length == 1, nativeZoom: 2.55f, closeSubject: source);
+            var until = Entry(item, abilityAsset.id).cooldown_until;
+            mutations.Clear();
+            Check(CastBlade(), "原珠冷却期间，构造仍能付费施放");
+            await Advance(.15f);
+            Check(Costs().Length == 1 && !Gains().Any(value => EqualAmount(value, amount)) &&
+                  Entry(item, abilityAsset.id).cooldown_until == until,
+                "新施放和持续接触均未在冷却内再次回注");
+
+            await Advance(Mathf.Max(.5f, CooldownLeft() + .10f));
+            SetBalance(0f);
+            previousCasts = started.Count;
+            mutations.Clear();
+            Check(!CastBlade() && started.Count == previousCasts && Costs().Length == 0 && Gains().Length == 0 &&
+                  Feedback(item, "restore").Length == 0 && CooldownLeft() == 0f, "欠费拒绝，无受理、回注或显示");
+            SetBalance(max * .55f);
+            mutations.Clear();
+            Check(CastBlade() && Costs().Length == 1 && Gains().Count(value => EqualAmount(value, amount)) == 1,
+                "恢复真元后同一原珠可以再次共鸣");
+            await Advance(Mathf.Max(.58f, CooldownLeft() + .10f));
+
+            var old = new SkillContainerBuilder(SkillEntities.Fireball).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+            old.GetComponent<SkillContainer>().CastResourceRequirement = SkillCastResourceRequirement.Single(SkillCastResources.Wakan);
+            var plan = new SkillCastPlan();
+            plan.Steps.Add(new SkillCastStep(victim, 0f));
+            plan.Steps.Add(new SkillCastStep(victim, .10f));
+            SetBalance(max * .55f);
+            mutations.Clear();
+            previousCasts = started.Count;
+            Check(Cultiway.ModClass.I.SkillV3.StartSkillSequence(owner, old, plan, SkillContext.DefaultStrength,
+                    owner.GetPowerLevel(), options: new SkillCastSequenceOptions { PaymentTiming = SkillCastPaymentTiming.PerEmission }),
+                "原火球从正式旧序列入口受理");
+            await WaitFor(() => legacyResults.Any(value => value.skill == old), .78f);
+            await Game.NextFrame();
+            int legacyEmissions = legacyResults.Single(value => value.skill == old).count;
+            float paidLegacy = amount * Mathf.Sqrt(Mathf.Min(legacyEmissions, ability.GetInteger("effect_count")));
+            Check(legacyEmissions == 2 && started.Count - previousCasts == 2 && Costs().Length == 2 &&
+                  Gains().Count(value => EqualAmount(value, paidLegacy)) == 1 && !Gains().Any(value => EqualAmount(value, amount)) &&
+                  Feedback(item, "restore").Length == 1,
+                "旧火球两次实际发射完成后只发出一次共鸣，内部构造不重计",
+                new { legacyEmissions, costs = Costs(), gains = Gains(), expected = paidLegacy });
+        }
+        Check(owner.UnequipArtifact(item, suppressAutoEquip: true), "卸下原件");
+        await Advance(.65f);
+        Check(Feedback(item, armor ? "hit" : "restore").Length == 0, "原件显示已结束");
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Impact;
+    ConstructedAbilityService.CastStarted -= Committed;
+    wakanField.SetValue(null, oldObserver);
+    completion.SetValue(null, formerCompletion);
+}

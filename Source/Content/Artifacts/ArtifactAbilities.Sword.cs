@@ -282,34 +282,39 @@ public partial class ArtifactAbilities
         {
             event_minimum_state = ArtifactControlState.Operating,
         });
-        ArmorPiercingSwordAura.Handle<ArtifactDamageDealtEvent>(
-            (_, _, _, evt) => evt.Damage > 0f && evt.Target != null && !evt.Target.isRekt() && evt.Target.isActor(),
-            ApplyArmorPiercingSwordAura);
+        ArmorPiercingSwordAura.Handle<ArtifactHealthDamageEvent>(ApplyArmorPiercingSwordAura);
     }
 
     private static void ApplyArmorPiercingSwordAura(
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
-        ArtifactDamageDealtEvent evt)
+        ArtifactHealthDamageEvent evt)
     {
-        Actor target = evt.Target.a;
+        Actor target = evt.Target;
         float armorLoss = Mathf.Max(1f, target.stats[S.armor] * ability.GetNumber(StatusStrength));
-        CombatStatusEffects.ApplyStatus(
+        Entity fracture = CombatStatusEffects.ApplyStatusWithStat(
             target,
             StatusEffects.ArmorBreak,
             ability.GetNumber(StatusDuration),
             S.armor,
             -armorLoss,
             Controller(context));
+        if (fracture.IsNull) return;
+        Vector3 direction = (Vector2)target.current_position - evt.Attacker.current_position;
+        float height = SpatialActorPose.Height(target);
+        Vector3 point = evt.ContactPoint ?? SpatialActorPose.Foot(target) +
+            Vector3.forward * height * .5f - direction.normalized * (height * .23f);
         ArtifactAbilityVisuals.Emit(
             context,
             ability,
             runtime,
             ArtifactVisualChannels.Hit,
-            target.current_position,
+            point,
+            direction: direction,
             target: target,
-            intensity: armorLoss);
+            intensity: armorLoss,
+            contactPoint: evt.ContactPoint);
     }
 
     private static void ConfigureSwordAbilityVisuals()
@@ -362,26 +367,20 @@ public partial class ArtifactAbilities
 
     private static void ConfigureArmorPiercingSwordAuraVisuals()
     {
-        ArtifactDecalVisualCue fracture = new ArtifactDecalVisualCue
+        ArtifactLocalVisualCue fracture = new(ArtifactLocalVisualKind.ArmorFragments)
         {
-            style_key = ArtifactVfxStyles.Metal,
-            anchor = ArtifactVisualAnchorKind.Target,
+            anchor = ArtifactVisualAnchorKind.Point,
             color_role = ArtifactVisualColorRole.Primary,
-            radius = 0.36f,
-            sides = 6,
-            alpha = 0.8f,
-            match_actor_scale = true,
-            end_scale = 1.2f,
+            scale = .086f,
+            alpha = .96f,
+            loop = false,
         };
         ArmorPiercingSwordAura.Visualize(
             Theme(SkillVfxElements.Metal.AccentColor)
                 .Signal(
                     ArtifactVisualChannels.Hit,
-                    new ArtifactCompositeVisualCue(
-                        fracture,
-                        Burst(ArtifactVisualAnchorKind.Target, ArtifactVisualColorRole.Glow, 4)
-                    ),
-                    0.38f,
+                    fracture,
+                    .36f,
                     "artifact.armor_break",
                     ArtifactVisualStackPolicy.Strongest
                 )

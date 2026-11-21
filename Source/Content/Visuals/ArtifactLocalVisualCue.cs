@@ -25,7 +25,9 @@ public enum ArtifactLocalVisualKind
     /// <summary>卸力起点顺势打开的宽风面。</summary>
     WindFold,
     /// <summary>真元有余量时在法宝上聚集的灵光。</summary>
-    GatheredWakan
+    GatheredWakan,
+    /// <summary>护甲实际削弱后从接触位置散开的碎甲。</summary>
+    ArmorFragments
 }
 
 /// <summary>局部形态与实际挂点组合，不再依赖整张动画。</summary>

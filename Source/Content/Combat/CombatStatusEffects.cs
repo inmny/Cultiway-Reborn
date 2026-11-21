@@ -204,11 +204,15 @@ public static class CombatStatusEffects
         float duration,
         string statId,
         float statValue,
-        Actor source)
+        Actor source) => ApplyStatusWithStat(target, effect, duration, statId, statValue, source);
+
+    /// <summary>取得实际创建或刷新的状态，免疫与拒绝时返回空。</summary>
+    internal static Entity ApplyStatusWithStat(
+        Actor target, StatusEffectAsset effect, float duration, string statId, float statValue, Actor source)
     {
         float scale = ResolveCurrentCarrierScale(source);
         statValue *= scale;
-        ApplyConfiguredStatus(target, effect, duration, source,
+        return ApplyConfiguredStatus(target, effect, duration, source,
             (status, resolvedDuration) =>
                 ConfigureStatus(status, resolvedDuration, statId, statValue, source));
     }

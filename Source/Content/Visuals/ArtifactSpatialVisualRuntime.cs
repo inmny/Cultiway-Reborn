@@ -401,6 +401,20 @@ internal static class ArtifactSpatialVisualRuntime
                     new Vector3(width, width * .78f, depth), color, true, point,
                     additive: false, surface: SpatialSurface.Energy);
                 break;
+            case ArtifactLocalVisualKind.ArmorFragments:
+                Vector3 away = context.direction.sqrMagnitude > .001f ? -context.direction.normalized : Vector3.right;
+                Color edge = ColorOf(context, ArtifactVisualColorRole.Glow, color.a);
+                for (int i = -1; i <= 1; i++)
+                {
+                    Vector3 scatter = Quaternion.Euler(0f, 0f, i * 37f) * away;
+                    Vector3 chip = point + size * (scatter * (.08f + progress * .86f) +
+                        Vector3.forward * (Mathf.Sin(progress * Mathf.PI) * .27f + (i + 1) * .035f));
+                    SpatialVisualDraw.Mesh(meshes, SpatialEnergyGeometry.Crystal, chip,
+                        Quaternion.Euler(46f + i * 18f, progress * 100f, i * 54f + progress * 64f),
+                        size * new Vector3(.28f, .15f, .09f), i == 0 ? edge : color, false, point,
+                        additive: false, surface: SpatialSurface.Metal);
+                }
+                break;
             default:
                 SpatialVisualDraw.Mesh(meshes, SpatialVisualGeometry.Spark, point, Quaternion.Euler(age * 90f, age * 45f, 0f), Vector3.one * size, color, true); break;
         }

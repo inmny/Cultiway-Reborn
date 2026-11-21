@@ -5,6 +5,7 @@ using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
+using UnityEngine;
 
 namespace Cultiway.Content.Artifacts;
 
@@ -18,6 +19,7 @@ internal static class ArtifactAbilityRuntimeBridge
         ActorExtend.RegisterCachedStatsBuilder(ArtifactAbilityLifecycle.ContributeStats);
         ActorExtend.RegisterActionBeforeBeAttacked(BeforeBeAttacked);
         ActorExtend.RegisterActionOnDamageResolved(DamageResolved);
+        ActorExtend.HealthLossConfirmed += HealthLost;
         ActorExtend.RegisterActionOnKill(Killed);
         ActorExtend.RegisterActionOnSkillCastCompleted(SkillCastCompleted);
         ActorExtend.RegisterActionOnDeath(actor => ArtifactAbilityLifecycle.InterruptController(actor.E));
@@ -73,10 +75,8 @@ internal static class ArtifactAbilityRuntimeBridge
             });
         }
 
-        if (attacker == null || attacker.isRekt() || !attacker.isActor() || attacker.a == target.Base) return;
-        ActorExtend attackerRequested = attacker.a.GetExtend();
-        SkillCasterContext attackerContext = SkillCasterContextService.Resolve(attackerRequested);
-        ActorExtend attackerController = attackerContext.IsValid ? attackerContext.Owner : attackerRequested;
+        ActorExtend attackerController = AttackOwner(target.Base, attacker, out SkillCasterContext attackerContext);
+        if (attackerController == null) return;
         using SkillCasterContextService.Scope attackerScope =
             SkillCasterContextService.Enter(in attackerContext);
         ArtifactAbilityDispatcher.Dispatch(attackerController.E, new ArtifactDamageDealtEvent
@@ -86,6 +86,28 @@ internal static class ArtifactAbilityRuntimeBridge
             DamageComposition = composition,
             AttackType = attackType,
         });
+    }
+
+    private static void HealthLost(Actor target, BaseSimObject attacker, Vector3? contactPoint)
+    {
+        ActorExtend owner = AttackOwner(target, attacker, out SkillCasterContext context);
+        if (owner == null) return;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(in context);
+        ArtifactAbilityDispatcher.Dispatch(owner.E, new ArtifactHealthDamageEvent
+        {
+            Target = target,
+            Attacker = attacker,
+            ContactPoint = contactPoint,
+        });
+    }
+
+    private static ActorExtend AttackOwner(Actor target, BaseSimObject attacker, out SkillCasterContext context)
+    {
+        context = default;
+        if (attacker == null || attacker.isRekt() || !attacker.isActor() || attacker.a == target) return null;
+        ActorExtend requester = attacker.a.GetExtend();
+        context = SkillCasterContextService.Resolve(requester);
+        return context.IsValid ? context.Owner : requester;
     }
 
     private static void Killed(ActorExtend killer, Actor victim, Kingdom victimKingdom)
@@ -100,6 +122,10 @@ internal static class ArtifactAbilityRuntimeBridge
             VictimKingdom = victimKingdom,
         });
     }
+
+    /// <summary>一个构造只有一次共同启动，内部部位和后续接触不增加发射计数。</summary>
+    internal static void ConstructedCastCommitted(ActorExtend payer) =>
+        SkillCastCompleted(payer, default, 1, SkillCastFundingSource.CasterResources);
 
     private static void SkillCastCompleted(
         ActorExtend caster,

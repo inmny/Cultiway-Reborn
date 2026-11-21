@@ -267,12 +267,8 @@ public partial class ArtifactAbilities
         float restored = CombatResourceEffects.RestoreWakan(
             Controller(context),
             ability.GetNumber(ResonanceRestore) * Mathf.Sqrt(counted) * context.effect_scale);
-        ArtifactAbilityVisuals.Emit(
-            context,
-            ability,
-            runtime,
-            ArtifactVisualChannels.Trigger,
-            intensity: Mathf.Max(0.25f, restored));
+        if (restored > 0f)
+            ArtifactAbilityVisuals.Emit(context, ability, runtime, ArtifactVisualChannels.Restore, intensity: restored);
     }
 
     private static void ConfigurePearlAbilityVisuals()
@@ -338,35 +334,21 @@ public partial class ArtifactAbilities
         ArtifactOrbitProjectionVisualCue resonance = new ArtifactOrbitProjectionVisualCue
         {
             anchor = ArtifactVisualAnchorKind.Controller,
-            count = 5,
-            radius = 0.6f,
-            vertical_ratio = 0.5f,
-            angular_speed = 180f,
+            count = 3,
+            radius = .48f,
+            vertical_ratio = .34f,
+            angular_speed = 230f,
             rotation_offset = 0f,
-            alpha = 0.62f,
-            pulse_amplitude = 0.12f,
+            alpha = .78f,
+            pulse_amplitude = .07f,
             radial_facing = false,
         };
         LinkedPearlResonance.Visualize(
             Theme(SkillVfxElements.Pos.AccentColor)
                 .Signal(
-                    ArtifactVisualChannels.Trigger,
-                    new ArtifactCompositeVisualCue(
-                        resonance,
-                        ExpandingArea(
-                            ArtifactVisualAnchorKind.Controller,
-                            (ArtifactAbilityVisualContext _) => 1.05f,
-                            ArtifactVisualColorRole.Glow,
-                            ArtifactVfxStyles.Pearl
-                        ),
-                        Burst(
-                            ArtifactVisualAnchorKind.Controller,
-                            ArtifactVisualColorRole.Primary,
-                            10
-                        ),
-                        Pulse(1.2f, 1f, 0.15f)
-                    ),
-                    0.58f,
+                    ArtifactVisualChannels.Restore,
+                    resonance,
+                    .46f,
                     "artifact.linked_pearl_resonance",
                     ArtifactVisualStackPolicy.SinglePerController
                 )

@@ -2873,3 +2873,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 持续疗伤与灵葫储元（10.06）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_artifact_resource_passives.py` 核对实伤后的真实疗伤费用、生命变化以及原葫芦进出账。用 `--section healing|gourd` 指定能力，或用 `--skip-views` 只检查游戏行为。
+
+### 破甲剑芒与连珠共鸣（10.06）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_artifact_hit_cast_passives.py` 核对实际扣血、破甲和到期回归，以及新构造和旧序列的真元扣费、回注与冷却。用 `--section armor|resonance` 指定能力，或用 `--skip-views` 只检查游戏行为。

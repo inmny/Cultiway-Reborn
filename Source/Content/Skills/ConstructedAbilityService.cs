@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Cultiway.Const;
+using Cultiway.Content.Artifacts;
 using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Content.KnightCombat;
@@ -747,6 +748,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             CastStarted?.Invoke(new ConstructedCastStarted(running.Id, id, sourceId, origin, startedAt,
                 running.CorrelationId));
             if (generation == worldGeneration) PublishActionEvents(running);
+            if (generation == worldGeneration && !prepaid && !practice && damage.DamageOrigin == DamageOrigin.Primary &&
+                ownPayment.IsCommitted && ownPayment.Entries.Any(entry => entry.Spent > 0) &&
+                !sourceActor.isRekt() && sourceActor.id == sourceId && sourceActor.isAlive())
+                ArtifactAbilityRuntimeBridge.ConstructedCastCommitted(caster);
             return true;
         }
         finally

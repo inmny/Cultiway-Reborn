@@ -57,6 +57,14 @@ public sealed class ArtifactDamageDealtEvent
     public AttackType AttackType;
 }
 
+/// <summary>一次已经真实扣除生命且目标仍存活的攻击。</summary>
+internal sealed class ArtifactHealthDamageEvent
+{
+    internal Actor Target;
+    internal BaseSimObject Attacker;
+    internal Vector3? ContactPoint;
+}
+
 /// <summary>驾驭者完成一次击杀。能力可以据此充能、成长或产生后续效果。</summary>
 public sealed class ArtifactKillEvent
 {
@@ -64,7 +72,7 @@ public sealed class ArtifactKillEvent
     public Kingdom VictimKingdom;
 }
 
-/// <summary>驾驭者完成一次 SkillLibV3 施放序列。</summary>
+/// <summary>驾驭者完成旧施放序列，或自行支付并成功启动一次构造。</summary>
 public sealed class ArtifactSkillCastEvent
 {
     public Entity SkillContainer;
