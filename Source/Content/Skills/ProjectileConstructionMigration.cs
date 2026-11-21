@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cultiway.Content.Components.Skill;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.Skills;
@@ -118,7 +119,9 @@ internal static partial class ProjectileConstructionMigration
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
         if (scale <= 0f || scale > 64f || lifetime <= 0f || lifetime > 3600f) return null;
-        AbilityDefinition definition = Motion(emission, sourceForm.Form, scale, continues, lifetime, initialAngle, speedScale, out forward);
+        string form = container.Asset == SkillEntities.FireBlade ? FireBladeForm(container.AnimationIndex) : sourceForm.Form;
+        if (form == null) return null;
+        AbilityDefinition definition = Motion(emission, form, scale, continues, lifetime, initialAngle, speedScale, out forward);
         if (definition == null) return null;
         lifetime = definition.Lifetime;
         float strength = setupScale * emission.Strength * emission.RuntimeData.ResolveEffectScale();
@@ -167,8 +170,71 @@ internal static partial class ProjectileConstructionMigration
             } };
         }
         else if (container.Asset == SkillEntities.EarthRidge) SetRidgeCollapse(definition, lifetime, scale);
+        else if (container.Asset == SkillEntities.FireBlade && !SetFireBladeLifecycle(definition, container)) return null;
         return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, contactForceScale: !continues && !blast ? 1f / damageMultiplier : 1f, caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
     }
+
+    /// <summary>按原索引使用各自的实体；变化也反映在沿真实焰锋的接触形状。</summary>
+    /// <param name="index">原学习资料或存档保留的动画索引。</param>
+    private static string FireBladeForm(int index) => index switch
+    {
+        0 => "fire_blade",
+        1 => "fire_blade_fork",
+        2 => "fire_blade_bright",
+        3 => "fire_blade_hook",
+        _ => null
+    };
+
+    /// <summary>先成形再按原轨迹出手，余焰从实际结束点淡出。</summary>
+    /// <param name="definition">已经展开原轨迹和实际作用的火刃。</param>
+    /// <param name="container">提供原阶段开关和时长的实际学习资料。</param>
+    private static bool SetFireBladeLifecycle(AbilityDefinition definition, SkillContainer container)
+    {
+        SkillEntityAnimation animation = container.Asset.GetAnimation(container.AnimationIndex);
+        if (!animation.HasLifecycle) return true;
+        if (animation.AppearanceGameplay != SkillAnimationGameplayFlags.None) return false;
+        float frameInterval = container.MotionProfile.FrameInterval;
+        float appearance = ClipSeconds(animation.Appearance, frameInterval);
+        float dissipation = ClipSeconds(animation.Dissipation, frameInterval);
+        float end = appearance + definition.Lifetime;
+        if (end + dissipation > 3600f) return false;
+
+        ConstructionNode blade = definition.Root;
+        if (appearance > 0f)
+        {
+            blade.ActiveFrom = appearance;
+            foreach (ConstructionOperation operation in blade.Operations) operation.At += appearance;
+            foreach (ConstructionStep step in definition.Steps) step.Operation.At += appearance;
+            blade.Operations = new[] { new ConstructionOperation
+                { Kind = ConstructionOperationKind.Grow, Seconds = appearance } }.Concat(blade.Operations).ToArray();
+        }
+        blade.ActiveUntil = end;
+        blade.DisappearAt = end;
+        definition.Lifetime = end + dissipation;
+        if (dissipation <= 0f) return true;
+        blade.Children = new[]
+        {
+            new ConstructionNode
+            {
+                Id = "embers", Form = blade.Form, Matter = blade.Matter, State = blade.State, Scale = blade.Scale,
+                Activation = new ConstructionActivation
+                {
+                    Trigger = ConstructionChangeTrigger.End, Placement = ConstructionEventPlacement.Event
+                },
+                DisappearAt = dissipation, ContactRole = ConstructionContactRole.Decoration,
+                SourceLoss = ConstructionSourceLoss.Continue, Volume = 0,
+                Operations = new[] { new ConstructionOperation
+                    { Kind = ConstructionOperationKind.Animate, Clip = "dissolve", Seconds = dissipation } }
+            }
+        };
+        return true;
+    }
+
+    /// <summary>用原动画的实际帧数和有效帧间隔还原阶段时长。</summary>
+    /// <param name="clip">原出现或消散片段。</param>
+    /// <param name="inheritedInterval">原运动配置提供的帧间隔。</param>
+    private static float ClipSeconds(SkillEntityAnimationClip clip, float inheritedInterval) =>
+        clip == null ? 0f : clip.Frames.Length * clip.Settings.ResolveFrameInterval(inheritedInterval);
 
     /// <summary>保留基准生成高度；按真实主体底部抬高出生点，不让放大后的尖端出生即穿地。</summary>
     /// <param name="form">实际主体资源。</param>

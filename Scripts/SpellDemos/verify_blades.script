@@ -60,6 +60,15 @@ bool Use(Entity skill,ConstructionWorldScope scope=null)
 List<FormVisualInstance> Views(AbilityCast cast){var views=new List<FormVisualInstance>();cast.AppendVisuals(views);return views;}
 /// <summary>读取同一实际接触。</summary><param name="cast">真实施放。</param>
 List<AbilityCapsule> Shapes(AbilityCast cast){var shapes=new List<AbilityCapsule>();cast.AppendContacts(shapes);return shapes;}
+float BladeDuration(Entity skill)
+{
+    var container=skill.GetComponent<SkillContainer>();
+    if(container.Asset!=SkillEntities.FireBlade)return .75f;
+    var animation=container.Asset.GetAnimation(container.AnimationIndex);
+    float Seconds(SkillEntityAnimationClip clip)=>clip==null?0f:
+        clip.Frames.Length*clip.Settings.ResolveFrameInterval(container.MotionProfile.FrameInterval);
+    return .75f+Seconds(animation.Appearance)+Seconds(animation.Dissipation);
+}
 ConstructedAbilityService.CastStarted+=Started;ConstructedAbilityService.ContactConfirmed+=AfterContact;
 Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
 var hook=new HarmonyLib.Harmony("Cultiway.Verify.Blades");
@@ -93,7 +102,7 @@ try
         {
             ResetPeople();Check(Use(normal),entry.Form+"修正网格后的主体受理");await Advance(.12f);
             Check(starts.Count==1&&oldExecutions==0&&Views(accepted.Single()).Single().Resource.Description.Id==entry.Form,
-                entry.Form+"只显示修正后的独立主体");await Shot(entry.Form);await Advance(1f);
+                entry.Form+"只显示修正后的独立主体");await Shot(entry.Form);await Advance(BladeDuration(normal));
             Check(accepted.Single().Finished&&Views(accepted.Single()).Count==0&&Shapes(accepted.Single()).Count==0,
                 entry.Form+"补拍后显示与接触退出");continue;
         }
@@ -104,7 +113,7 @@ try
             var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));var plan=AbilityCompiler.Compile(restored,cache:false);
             Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.State==entry.State&&
                 d.Root.OnContact==ConstructionContactResponse.Continue&&d.Root.Contact.Mode==ConstructionContactMode.Once&&
-                d.Root.Contact.MaximumPerTarget==1&&Math.Abs(d.Root.Impact.DamageScale-.9f)<.0001f&&Math.Abs(d.Lifetime-.75f)<.0001f&&
+                d.Root.Contact.MaximumPerTarget==1&&Math.Abs(d.Root.Impact.DamageScale-.9f)<.0001f&&Math.Abs(d.Lifetime-BladeDuration(skill))<.0001f&&
                 Math.Abs(damage.Damage-(boost?37.44f:40f))<.001f&&damage.AttackerPowerLevel==1.25f&&damage.Element.Equals(entry.Asset.Element),
                 entry.Form+"独立主体、实际材料、原强度与刃波规则可保存编译",new{damage.Damage,d.Root.Scale,d.Lifetime});
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
@@ -115,7 +124,7 @@ try
         var live=accepted.Single();Check(oldExecutions==0&&starts.Count==1&&Views(live).Single().Resource.Description.Id==entry.Form,
             entry.Form+"只运行自身新主体且无旧执行");
         if(section!="sword")await Shot(entry.Form);
-        await Advance(1f);
+        await Advance(BladeDuration(normal));
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(normal)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,normal)));
         Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f,entry.Form+"只支付一次",new{cost,balance,after=owner.GetCultisys<Xian>().wakan});
         Check(contacts.Count(c=>c.AbilityId==entry.Asset.id&&c.TargetId==target.id)==1&&

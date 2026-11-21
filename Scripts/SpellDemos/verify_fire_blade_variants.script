@@ -1,0 +1,166 @@
+// 10.01 火刃。用原学习和逐发路径观察实际形体、时间、命中和退场。
+var asset = SkillEntities.FireBlade;
+var source = Make(64);
+var center = Make(68);
+var flank = Make(68);
+var wolf = Make(12, "wolf");
+center.setKingdom(wolf.kingdom);
+flank.setKingdom(wolf.kingdom);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 0;
+owner.MarkCultiwayStatsDirty();
+source.setStatsDirty();
+source.updateStats();
+await Advance(.2f);
+var forms = new[] { "fire_blade", "fire_blade_fork", "fire_blade_bright", "fire_blade_hook" };
+var casts = new Dictionary<long, AbilityCast>();
+var recordings = new List<object>();
+int oldExecutions = 0;
+
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != asset.id) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == fact.CastId);
+    casts.Add(fact.CastId, (AbilityCast)Field(running, "Cast"));
+}
+
+void LegacyExecution(Entity entity)
+{
+    if (entity.GetComponent<SkillEntity>().Asset == asset) oldExecutions++;
+}
+
+Entity Learn(int index, string trajectory)
+{
+    var builder = new SkillContainerBuilder(asset).UseAnimation(index);
+    if (trajectory != null) builder.AddModifier(new Trajectory { ID = trajectory });
+    var original = builder.Build(SkillContainerBuildMode.RuleOnly);
+    string signature = SkillContainerSignature.Build(original);
+    owner.LearnSkillV3(original);
+    var learned = (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+    var actual = learned.First(value => SkillContainerSignature.Build(value) == signature);
+    Check(actual.GetComponent<SkillContainer>().AnimationIndex == index, "已学容器保留原火刃索引", index);
+    return actual;
+}
+
+FormVisualInstance[] Views(AbilityCast cast)
+{
+    var output = new List<FormVisualInstance>();
+    cast.AppendVisuals(output);
+    return output.ToArray();
+}
+
+int ShapeCount(AbilityCast cast)
+{
+    var shapes = new List<AbilityCapsule>();
+    cast.AppendContacts(shapes);
+    return shapes.Count;
+}
+
+async Task Stage(AbilityCast cast, float until)
+{
+    if (cast.Age < until) await Advance(until - cast.Age);
+}
+
+async Task Play(int index, string trajectory = null)
+{
+    var skill = Learn(index, trajectory);
+    var container = skill.GetComponent<SkillContainer>();
+    if (trajectory != null)
+        Check(SkillBlueprintTrajectory.ResolveEffectiveId(skill) == trajectory, "原蓝图实际采用改造轨迹", trajectory);
+
+    Ready(source);
+    Place(source, 64);
+    Place(center, 68);
+    Place(flank, 68, index == 1 ? 73f : 77f);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    foreach (var actor in new[] { source, center, flank }) ConstructedAbilityService.NotifyActorChanged(actor);
+    float before = owner.GetCultisys<Xian>().wakan;
+    int health = center.data.health, flankHealth = flank.data.health;
+    var prior = casts.Count;
+    double payment = SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(center, center.GetSimPos(),
+            selectionArea: new SkillTargetSelectionArea(true, center.GetSimPos(), .1f)),
+        ActiveAbilityUseOrigin.Player), "火刃由原已学入口受理", index);
+    source.attack_timer = 999;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    await Advance(.10f);
+
+    Check(casts.Count == prior + 1 && oldExecutions == 0, "一发只进入共同执行一次", index);
+    var live = casts.Last();
+    var cast = live.Value;
+    float runtime = asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier;
+    var old = asset.GetAnimation(index);
+    float rise = old.Appearance == null ? 0f :
+        old.Appearance.Frames.Length * old.Appearance.Settings.ResolveFrameInterval(container.MotionProfile.FrameInterval);
+    float fade = old.Dissipation == null ? 0f :
+        old.Dissipation.Frames.Length * old.Dissipation.Settings.ResolveFrameInterval(container.MotionProfile.FrameInterval);
+    var firstView = Views(cast).Single();
+    Vector3 first = firstView.Transform.GetColumn(3);
+    Check(firstView.Resource.Description.Id == forms[index] && Math.Abs(cast.Plan.Lifetime - runtime - rise - fade) < .001f,
+        "索引、共同形体和原生效时长对应", new { index, form = firstView.Resource.Description.Id, rise, runtime, fade });
+    if (rise > 0f)
+        Check(cast.Age < rise && Mathf.Abs(first.x - 64f) < .05f && ShapeCount(cast) == 0 && contacts.All(hit => hit.CastId != live.Key),
+            "成形阶段留在起点且没有作用面", new { index, cast.Age, position = first.ToString() });
+    else
+        Check(first.x > 64.10f && ShapeCount(cast) > 0, "原直接运行的索引第一段已经前进并提供作用面", index);
+
+    await Stage(cast, rise + .34f);
+    var motion = Views(cast).Single();
+    Vector3 moving = motion.Transform.GetColumn(3);
+    Check(moving.x > first.x + .1f && ShapeCount(cast) > 0, "成形后沿实际轨迹推进，用自身锋口参与接触",
+        new { index, position = moving.ToString(), shapes = ShapeCount(cast) });
+
+    if (fade > 0f)
+    {
+        await Stage(cast, rise + runtime + fade * .18f);
+        Vector3 endPosition = Views(cast).Single().Transform.GetColumn(3);
+        float endAge = cast.NodeAge(1);
+        await Stage(cast, rise + runtime + fade * .57f);
+        var fading = Views(cast);
+        Vector3 fadePosition = fading.Single().Transform.GetColumn(3);
+        Check(!cast.Finished && endAge >= 0f && cast.NodeAge(1) > endAge && ShapeCount(cast) == 0 &&
+              Vector3.Distance(endPosition, fadePosition) < .01f,
+            "余焰在原结束位置继续收束，无接触能力",
+            new { index, cast.Age, end = endPosition.ToString(), fade = fadePosition.ToString() });
+    }
+    await Advance(fade > 0f ? fade : runtime);
+    var hits = contacts.Where(hit => hit.CastId == live.Key).ToArray();
+    bool fork = index == 1;
+    Check(hits.Length == 1 && hits[0].TargetId == (fork ? flank.id : center.id) &&
+          (fork ? flank.data.health < flankHealth && center.data.health == health
+              : center.data.health < health && flank.data.health == flankHealth) &&
+          hits.All(hit => hit.Age >= rise && hit.Age <= rise + runtime),
+        "真实锋口只伤实际接触者，焰锋间隙或侧外无伤",
+        new { index, centerBefore = health, centerAfter = center.data.health, flankBefore = flankHealth, flankAfter = flank.data.health,
+            hits = hits.Select(hit => new { hit.Age, hit.TargetId, point = hit.Position.ToString() }).ToArray() });
+    Check(cast.Finished && Views(cast).Length == 0 && ShapeCount(cast) == 0 &&
+          endings.Any(end => end.Fact.CastId == live.Key && !end.Fact.Cancelled) &&
+          Math.Abs(before - owner.GetCultisys<Xian>().wakan - payment) < .001,
+        "正常退场并只收原价", new { index, payment, before, after = owner.GetCultisys<Xian>().wakan });
+    recordings.Add(new { index, forms = forms[index], trajectory, cast = live.Key, rise, runtime, fade, payment,
+        hit = hits[0].TargetId, age = hits[0].Age });
+}
+
+ConstructedAbilityService.CastStarted += Started;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
+try
+{
+    foreach (int index in chosenVariants.Distinct()) await Play(index);
+    if (chosenVariants.Contains(3)) await Play(3, SkillTrajectories.Zigzag.id);
+    return new { passed = true, casts = recordings.Count };
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder, "variants.json"), JsonConvert.SerializeObject(recordings, Formatting.Indented));
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyExecution;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

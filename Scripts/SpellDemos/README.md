@@ -2535,3 +2535,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `tail` 和 `pair` 可附 `--view native` 或 `--view worldfall` 录制常速画面。雷角和前爪的录像复用 9.40 的 `verify_beast_attacks.py --part horn|pounce --record native|worldfall`。
 
 正式世界、八段录像及各场景的结果路径汇总于 `~/.local/state/cultiway-dev/evidence/nonhuman-949/delivery.json`。
+
+### 火刃旧变体（10.01）
+
+在独立游戏中运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_fire_blade_variants.py`。脚本通过原学习和付费入口逐个使用四个索引，核对锋口、双锋间隙、成形时点和收束位置，并用索引 3 复验折线路线。可重复传入 `--variant` 复验指定索引。每轮输出实际检查和施放记录。

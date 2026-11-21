@@ -1,6 +1,6 @@
 /** 五种推进刃波：宽面轮廓、封闭厚度与沿实际主体分布的接触芯共同导出。 */
 import * as T from 'three';
-import {write,structure,surfaceData} from './form_export.mjs';
+import {write,structure,surfaceData,motion,round} from './form_export.mjs';
 import {wallPart,column} from './forms_solid_walls.mjs';
 
 /** 横向弯曲的封闭刃面，末端连续收尖；宽度与厚度不是贴图或拖尾。 */
@@ -25,13 +25,26 @@ function cores(point,radius=.10,count=16) {
 }
 
 /** 共用前上向、根部和版本8制作结构；每种来源保留自身完整实体。 */
-function publish(id,pieces,contacts,parameters) {
+function publish(id,pieces,contacts,parameters,ending=false) {
   const controls=[{Id:'root',Position:[0,0,0],Rotation:[0,0,0,1]}];
-  const parts=pieces.map(([name,g,s])=>wallPart(name,g,s,[0,0,0],'root'));
+  const parts=pieces.map(([name,g,s,fixedSurface])=>{
+    const mesh=wallPart(name,g,s,[0,0,0],'root');
+    if(fixedSurface)mesh.UseMatterSurface=false;
+    return mesh;
+  });
   const shapes=contacts.map((contact,i)=>Array.isArray(contact)
     ? {Id:`edge_${i}`,Part:contact[3] ?? 0,A:contact[0],B:contact[1],Radius:contact[2],AControl:'root',BControl:'root'}
     : contact);
-  write(id,parts,[{Id:'root',Part:0,Position:[0,0,0],Direction:[0,0,1],Control:'root'}],shapes,controls,[],false,
+  const motions=[];
+  if(ending) {
+    const clip=motion('dissolve',.25,false,controls,12,(_index,p)=>({
+      position:[0,.16*p,-.06*p],
+      rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),-.12*p).toArray()
+    }));
+    for(const key of clip.Keys)key.Fade=round(T.MathUtils.smoothstep(key.At,0,clip.Duration));
+    motions.push(clip);
+  }
+  write(id,parts,[{Id:'root',Part:0,Position:[0,0,0],Direction:[0,0,1],Control:'root'}],shapes,controls,motions,false,
     {Forward:[0,0,1],Up:[0,1,0]},structure('rigid','forms_blades.mjs','makeBladeForms',parameters,
       Object.fromEntries(parts.map(p=>[p.Id,['projectile.body','projectile.edge']])),[]));
 }
@@ -94,7 +107,32 @@ function fire() {
       }));
     pieces.push([`tongue_${i}`,column(rings,10),'flame']);
   }
-  publish('fire_blade',pieces,cores(edge),{span:3.44,tongues:5,depth:.28});
+  publish('fire_blade',pieces,cores(edge),{span:3.44,tongues:5,depth:.28},true);
+
+  // 两股焰锋沿相反的局部弧弯折，接触芯也分开，中央没有补一段隐形作用。
+  const forkPieces=[],forkCores=[];
+  for(const sign of [-1,1]) {
+    const fork=u=>[sign*(1.02+.72*u),.08+sign*.08*u,.46-.37*u+.31*(1-u*u)];
+    forkCores.push(...cores(fork,.09,10).map(core=>[...core,forkPieces.length]));
+    forkPieces.push([`branch_${sign}`,ribbon(fork,.31,.16,28),'flame']);
+  }
+  publish('fire_blade_fork',forkPieces,forkCores,{span:3.48,gap:.60,branches:2},true);
+
+  // 亮刃的热脊很厚，刃口只露出窄面；两者为同一段封闭的短弧。
+  const bright=u=>[u*1.52,0,.40-.66*u*u];
+  const ridge=u=>[u*1.48,-.025,.17-.64*u*u];
+  publish('fire_blade_bright',[
+    ['ridge',ribbon(ridge,.38,.19,32),'flame'],
+    ['lip',ribbon(bright,.15,.09,32),'solar_kernel',true]
+  ],cores(bright,.08).map(core=>[...core,1]),{span:3.04,ridgeDepth:.38});
+
+  // 回钩把厚面偏到一翼，另一翼沿深弧收尖，接触沿实际前缘并留出弧内空隙。
+  const hook=u=>[u*1.70,.07*u,.65-1.10*u*u+.28*u*u*u];
+  const back=u=>[u*1.63,.04*u,.38-1.03*u*u+.25*u*u*u];
+  publish('fire_blade_hook',[
+    ['face',ribbon(back,.34,.16,36),'flame'],
+    ['tip',ribbon(hook,.19,.14,36),'flame']
+  ],cores(hook,.10).map(core=>[...core,1]),{span:3.40,arcDepth:1.10});
 }
 
 /** 阴刃偏斜成厚钩月，冷亮刃缘包住深色刃背，左右收尾明显不同。 */
