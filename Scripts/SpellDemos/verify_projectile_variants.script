@@ -33,7 +33,11 @@ var catalog = new[]
     (Asset: SkillEntities.SpiritVine, Form: "creeping_vine_0", Count: 1),
     (Asset: SkillEntities.EarthWall, Form: "earth_wall_strata_motion", Count: 1),
     (Asset: SkillEntities.IceWall, Form: "ice_wall", Count: 1),
-    (Asset: SkillEntities.WoodWall, Form: "wood_wall", Count: 1)
+    (Asset: SkillEntities.WoodWall, Form: "wood_wall", Count: 1),
+    (Asset: SkillEntities.FireWall, Form: "fire_wall", Count: 1),
+    (Asset: SkillEntities.WindWall, Form: "wind_wall", Count: 1),
+    (Asset: SkillEntities.SwordCurtain, Form: "sword_curtain", Count: 1),
+    (Asset: SkillEntities.WaterCurtain, Form: "water_curtain", Count: 1)
 }.Where(entry => chosenAssets.Contains(entry.Asset.id)).ToArray();
 
 bool CanTestTracking(SkillEntityAsset asset) => asset == SkillEntities.WaterOrb || asset == SkillEntities.WindBullet ||
@@ -263,6 +267,61 @@ async Task PlaySpike(SkillEntityAsset asset, string form, int index)
     }
 }
 
+async Task CheckWallContact(SkillEntityAsset asset, string form, long castId, AbilityCast cast)
+{
+    bool damage = asset.ImpactProfile.ContactDamage || asset.ImpactTuning.ContactDamage;
+    bool push = asset.ImpactTuning.ContactForce != 0f;
+    if (!damage && !push && asset != SkillEntities.WaterCurtain) return;
+    var frozen = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ContactWalls.Frozen");
+    if (frozen == null)
+    {
+        var stats = new BaseStats();
+        stats.addTag("frozen_ai");
+        frozen = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ContactWalls.Frozen")
+            .SetStats(stats).SetDuration(10000).Build();
+    }
+
+    if (push) Ready(target);
+    CombatStatusEffects.ApplyStatus(target, frozen, 10000, target);
+    target.updateStats();
+    // 零境界复验用原大小，人物站在墙面近侧的实际接触处。
+    const float start = 66.2f;
+    Place(target, start);
+    ConstructedAbilityService.NotifyActorChanged(target);
+    int before = target.data.health;
+    float capacity = cast.RemainingForce(0);
+    try
+    {
+        await Advance(damage ? .8f : .40f);
+        var hits = contacts.Where(hit => hit.CastId == castId && hit.TargetId == target.id).ToArray();
+        int after = target.data.health;
+        if (damage)
+        {
+            float interval = asset.ImpactProfile.RepeatHitInterval;
+            Check(hits.Length >= 2 && hits.All(hit => hit.Damage.HealthLost > 0) && after < before &&
+                  hits.Zip(hits.Skip(1), (first, next) => next.Age - first.Age).All(gap => Math.Abs(gap - interval) < .025f),
+                "墙在真实接触处按原间隔扣血", new { form, before, after, ages = hits.Select(hit => hit.Age).ToArray() });
+        }
+        else if (push)
+        {
+            Check(after == before && target.current_position.x < start - .05f && target.position_height < .05f &&
+                  hits.Any(hit => hit.ForceApplied && hit.VelocityChange.x < 0f),
+                "风墙实际沿地推出且无伤害", new { form, before, after, start, x = target.current_position.x,
+                    height = target.position_height, changes = hits.Select(hit => hit.VelocityChange.ToString()).ToArray() });
+        }
+        else
+            Check(hits.Length == 0 && after == before, "水幕阻挡之外无人物伤害", new { form, before, after });
+        Check(Math.Abs(cast.RemainingForce(0) - capacity) < .001f, "人物接触不扣防御容量", form);
+    }
+    finally
+    {
+        CombatStatusEffects.RemoveStatus(target, frozen);
+        target.updateStats();
+        Place(target, 64);
+        ConstructedAbilityService.NotifyActorChanged(target);
+    }
+}
+
 async Task PlayWall(SkillEntityAsset asset, string form, int index)
 {
     var skill = cold ? Learned().Single(item => item.GetComponent<SkillContainer>().AnimationIndex == index &&
@@ -294,6 +353,20 @@ async Task PlayWall(SkillEntityAsset asset, string form, int index)
     var view = Views(cast).Single();
     var center = (Vector3)view.Transform.GetColumn(3);
     float capacity = cast.RemainingForce(0);
+    if (asset == SkillEntities.FireWall || asset == SkillEntities.WindWall || asset == SkillEntities.WaterCurtain)
+    {
+        var firstShapes = new List<AbilityCapsule>();
+        var laterShapes = new List<AbilityCapsule>();
+        cast.AppendContacts(firstShapes);
+        await Advance(.137f);
+        cast.AppendContacts(laterShapes);
+        var laterSkin = Views(cast).Single().Skin;
+        float moved = firstShapes.Zip(laterShapes, (first, later) =>
+            Mathf.Max(Vector3.Distance(first.A, later.A), Vector3.Distance(first.B, later.B))).DefaultIfEmpty().Max();
+        Check(view.Skin.Length == laterSkin.Length && !view.Skin.SequenceEqual(laterSkin) &&
+              firstShapes.Count == laterShapes.Count && moved > .001f,
+            "运行中的墙面与真实接触形状同时随动作变化", new { form, moved, shapes = laterShapes.Count });
+    }
     CombatStatusEffects.RemoveStatus(target, hold);
     target.updateStats();
     Check(!target.isImmovable(), "解除对练人物的定身后再走", form);
@@ -318,6 +391,7 @@ async Task PlayWall(SkillEntityAsset asset, string form, int index)
         "真实墙体、两点位置和实际阻挡", new { form, actualForm = view.Resource.Description.Id,
             center = center.ToString(), capacity, shapes = ShapeCount(cast), blocked,
             hostile = SkillTargetRelationResolver.IsHostile(source, target), flying = target.isFlying() });
+    await CheckWallContact(asset, form, live.Key, cast);
     await Advance(cast.Plan.Lifetime - cast.Age + .10f);
     float cleared = Walk();
     bool endedNaturally = endings.Any(end => end.Fact.CastId == live.Key && !end.Fact.Cancelled);
@@ -339,7 +413,7 @@ async Task Play(SkillEntityAsset asset, string form, int index)
         await PlaySpike(asset, form, index);
         return;
     }
-    if (asset == SkillEntities.EarthWall || asset == SkillEntities.IceWall || asset == SkillEntities.WoodWall)
+    if (asset.ImpactProfile.Kind == Cultiway.Core.SkillLibV3.Impacts.SkillImpactKind.Wall)
     {
         await PlayWall(asset, form, index);
         return;

@@ -153,6 +153,12 @@ internal static class BarrierConstructionMigration
         else if (container.Asset == SkillEntities.SwordCurtain) SetSwordCurtainMotion(definition, lifetime, scale);
         else if (container.Asset == SkillEntities.WoodWall) SetWoodWallMotion(definition, lifetime);
         else if (container.Asset == SkillEntities.YangShield) SetSolarShieldMotion(definition, lifetime);
+        else if (form is "fire_wall" or "wind_wall" or "water_curtain")
+            definition.Root.Operations = new[]
+            {
+                FollowGround(),
+                new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "run" }
+            };
         return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(),
             contactForceScale: emission.RuntimeData.ResolveEffectScale(), caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
     }

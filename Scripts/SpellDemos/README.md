@@ -2621,3 +2621,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py solid-walls --case archive` 写入三份旧学习资料。换游戏进程后用同一入口的 `--case cold --archive <保存输出目录>` 读回并重放。默认的 `--case hit` 使用现成对练检查落位、实际行走、费用和结束恢复，可指定 `earth-wall`、`ice-wall` 或 `wood-wall`。
 
 补拍冰墙迎击用 `demo_all.py --filter Cultiway.IceWall --variants all --cases base --scene shield --realm 2 --target-offset 8 -5 --zoom 12.5 --duration 2.8 --fps 30 --motion-trace`，分别选择 `--view native` 和 `--view worldfall`。输出记录墙实际承受的力量。
+
+### 火墙、风墙、剑幕、水幕旧变体（10.01）
+
+用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py contact-walls --case archive` 保存四个旧索引。重启后用 `contact-walls --case cold --archive <保存输出目录>` 读回并施放。默认的 `--case hit` 可单独指定 `fire-wall`、`wind-wall`、`sword-curtain` 或 `water-curtain`。
+
+迎击录像用 `demo_all.py --filter Cultiway.FireWall,Cultiway.WindWall,Cultiway.SwordCurtain,Cultiway.WaterCurtain --variants all --cases base --scene shield --realm 2 --target-offset 8 -5 --duration 2.8 --fps 30 --motion-trace`。原版配 `--view native --zoom 12.5`，Worldfall 配 `--view worldfall --zoom 16.5`。输出记录实际拦截和墙面容量变化。

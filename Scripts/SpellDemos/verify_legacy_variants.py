@@ -87,6 +87,10 @@ def main():
         'earth-wall': ('Cultiway.EarthWall', 1),
         'ice-wall': ('Cultiway.IceWall', 1),
         'wood-wall': ('Cultiway.WoodWall', 1),
+        'fire-wall': ('Cultiway.FireWall', 1),
+        'wind-wall': ('Cultiway.WindWall', 1),
+        'sword-curtain': ('Cultiway.SwordCurtain', 1),
+        'water-curtain': ('Cultiway.WaterCurtain', 1),
     }
     batches = {
         'water-family': ('water-arrow', 'water-orb', 'water-blade'),
@@ -100,6 +104,7 @@ def main():
         'ground-forms': ('ground-spike', 'earth-ridge', 'tidal-wave', 'spirit-vine'),
         'ground-waves': ('earth-ridge', 'tidal-wave', 'spirit-vine'),
         'solid-walls': ('earth-wall', 'ice-wall', 'wood-wall'),
+        'contact-walls': ('fire-wall', 'wind-wall', 'sword-curtain', 'water-curtain'),
     }
     parser.add_argument('spell', choices=('fireball', 'fire-family', *batches, *projectile_spells))
     parser.add_argument('--variant', type=int, choices=range(18), action='append',
@@ -122,8 +127,8 @@ def main():
                 parser.error('单术实测需选择该法术已有的旧索引')
             if case in ground_checks and args.spell != 'ground-spike':
                 parser.error('旧执行对照与圆形边界复验使用地刺')
-            if args.spell in batches['solid-walls'] and case != 'hit':
-                parser.error('单道实体墙使用 hit。正式写读档使用 solid-walls 批次')
+            if args.spell in batches['solid-walls'] + batches['contact-walls'] and case != 'hit':
+                parser.error('单道墙使用 hit。正式写读档使用 solid-walls 或 contact-walls 批次')
             if case == 'tracking' and args.spell not in ('water-orb', 'wind-bullet', 'thunder-orb', 'wood-spear', 'yin-bolt', 'poison-needle'):
                 parser.error('改轨迹复验使用水球、风弹、雷珠、木枪、阴煞弹或毒针')
             if case == 'landing' and args.spell not in ('thunder-orb', 'lightning-strike', 'falling-rock', 'falling-timber', 'chaos-orb', 'flame-meteor'):
