@@ -1,0 +1,196 @@
+// 同一正式法塔、现成场地，检查原部署能力实际生效并能正常停费。
+const float centerX = 67.5f, centerY = 72f;
+Vector3 center = new Vector3(centerX, centerY, 0f);
+PrepareArtifactArena(48, 89, 58, 92);
+Actor source = Make(64.35f), near = Make(68f, "wolf"), far = Make(75f, "wolf"),
+    ally = Make(66f), farAlly = Make(78f);
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 1200f });
+owner.SetPowerLevel(4);
+await Setup(source, near);
+CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+source.updateStats();
+source.addAggro(far);
+far.addAggro(source);
+ally.setKingdom(source.kingdom);
+farAlly.setKingdom(source.kingdom);
+
+var quietStats = new BaseStats();
+quietStats.addTag("frozen_ai");
+var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.Tower.Quiet") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Tower.Quiet")
+        .SetStats(quietStats).SetDuration(10000f).Build();
+CombatStatusEffects.RemoveStatus(near, hold);
+CombatStatusEffects.ApplyStatus(near, quiet, 10000f, near);
+near.updateStats();
+
+var prison = ArtifactAbilities.TreasureTowerPrison;
+var ward = ArtifactAbilities.LayeredRealmWard;
+var primary = Blueprint(ArtifactAtoms.PrisonTower, ArtifactAtoms.EarthCore,
+    ArtifactAtoms.FrostJade, ArtifactAtoms.GuardianHalo);
+Check(primary.AbilitySet.abilities.Length > 0, "正式炼制主配方",
+    primary.AbilitySet.abilities.Select(row => row.ability_id).ToArray());
+Entity shared = default, equipped = default;
+ArtifactBlueprint Blueprint(params ArtifactAtomAsset[] atoms) => ArtifactBlueprintCodec.FromComposeResult(
+    ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+    {
+        Shape = ItemShapes.Tower, Atoms = atoms, Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "镇狱与界障实测"
+    }));
+
+async Task<Entity> Equip(ArtifactAbilityAsset asset)
+{
+    var blueprint = primary;
+    if (!primary.AbilitySet.abilities.Any(row => row.ability_id == asset.id))
+    {
+        blueprint = asset == prison
+            ? Blueprint(ArtifactAtoms.PrisonTower, ArtifactAtoms.VoidStone, ArtifactAtoms.EarthCore,
+                ArtifactAtoms.SoulBindingScript)
+            : Blueprint(ArtifactAtoms.RealmTower, ArtifactAtoms.FrostJade, ArtifactAtoms.EarthCore,
+                ArtifactAtoms.LayeredRealmMark);
+        Check(blueprint.AbilitySet.abilities.Any(row => row.ability_id == asset.id),
+            "正式补充配方取得" + asset.GetName(), blueprint.AbilitySet.abilities.Select(row => row.ability_id).ToArray());
+    }
+    Entity tower;
+    if (ReferenceEquals(blueprint, primary) && !shared.IsNull) tower = shared;
+    else
+    {
+        tower = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+        owner.AddSpecialItem(tower);
+        if (ReferenceEquals(blueprint, primary)) shared = tower;
+    }
+    if (equipped == tower) return tower;
+    if (!equipped.IsNull) owner.UnequipArtifact(equipped, suppressAutoEquip: true);
+    Check(owner.EquipArtifact(tower, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+        "正式装备本招原塔", new { asset.id, tower = tower.Id });
+    ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+    lifecycle.Invoke(null, new object[] { tower });
+    await Game.NextFrame();
+    await Game.NextFrame();
+    equipped = tower;
+    return tower;
+}
+
+var starts = new List<ConstructedCastStarted>();
+var towerHits = new List<ConstructedContact>();
+var fees = new List<float>();
+var payment = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = payment.GetValue(null);
+void Started(ConstructedCastStarted cast)
+{
+    if (cast.SourceId == source.id && (cast.AbilityId == prison.id || cast.AbilityId == ward.id)) starts.Add(cast);
+}
+void Contact(ConstructedContact hit)
+{
+    if (hit.SourceId == source.id && (hit.AbilityId == prison.id || hit.AbilityId == ward.id)) towerHits.Add(hit);
+}
+void Paid(ActorExtend actor, in WakanMutation change)
+{
+    if (actor == owner && change.Kind == WakanMutationKind.Spend) fees.Add(-change.Delta);
+}
+bool Activate(Entity tower, ArtifactAbilityAsset asset)
+{
+    source.attack_timer = 0f;
+    bool accepted = ActiveAbilityService.TryUse(owner, ArtifactHandle(tower, asset.id),
+        new ActiveAbilityTarget(null, center), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999f;
+    return accepted;
+}
+bool Close(float a, float b) => Mathf.Abs(a - b) < .003f;
+bool Has(Actor actor, Cultiway.Core.Libraries.StatusEffectAsset status) => CombatStatusEffects.HasStatus(actor, status, source);
+bool Shows(string form) => FormVisualScene.Instances.Any(view => view.Resource.Description.Id == form);
+FormVisualInstance Form(string form) => FormVisualScene.Instances.Single(view => view.Resource.Description.Id == form);
+
+WakanResourceService.RegisterMutationCommitted(Paid);
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    foreach (var asset in new[] { prison, ward }.Where(asset => section == "all" || (asset == prison ? "prison" : "ward") == section))
+    {
+        bool isPrison = asset == prison;
+        string form = isPrison ? "tower_prison" : "tower_ward";
+        Entity tower = await Equip(asset);
+        var ability = Definition(tower, asset.id);
+        ArtifactControlState state = owner.E.GetRelation<EquippedArtifactRelation, Entity>(tower).state;
+        var execution = new ArtifactAbilityExecutionContext(owner.E, tower, state);
+        float multiplier = state == ArtifactControlState.Overloaded ? asset.lifecycle.overload_resource_multiplier : 1f;
+        float activation = asset.lifecycle.ResolveActivationCost(execution, ability) * multiplier;
+        float upkeep = asset.lifecycle.ResolveMaintenanceCost(execution, ability) * multiplier;
+        float radius = ability.GetNumber("effect_radius");
+        Place(source, 64.35f, centerY);
+        Place(near, centerX + radius - .22f, centerY);
+        Place(far, centerX + radius + .19f, centerY);
+        Place(ally, centerX - radius + .20f, centerY);
+        Place(farAlly, centerX - radius - .20f, centerY);
+        int beforeFee = fees.Count, beforeStarts = starts.Count, beforeHits = towerHits.Count;
+        int nearHealth = near.data.health, farHealth = far.data.health;
+        float allyArmor = ally.stats["armor"], farArmor = farAlly.stats["armor"];
+        owner.GetCultisys<Xian>().wakan = 1200f;
+        Check(Activate(tower, asset) && fees.Count == beforeFee + 1 && Close(fees.Last(), activation) &&
+              starts.Count == beforeStarts && towerHits.Count == beforeHits, asset.GetName() + "部署仅收原启动费");
+        await WaitFor(() => towerHits.Count > beforeHits, .85f);
+        await Game.NextFrame();
+        var hits = towerHits.Skip(beforeHits).ToArray();
+        Check(tower.HasComponent<ArtifactDeployment>() && starts.Count == beforeStarts + 1 &&
+              fees.Count == beforeFee + 2 && Close(fees.Last(), upkeep), asset.GetName() + "原间隔付费后只展开一次",
+            new { activation, upkeep, fees = fees.Skip(beforeFee).ToArray() });
+
+        if (!viewsOnly && isPrison)
+        {
+            near.updateStats();
+            Check(hits.Length == 1 && hits[0].TargetId == near.id && near.data.health < nearHealth &&
+                  far.data.health == farHealth && Has(near, StatusEffects.Imprisoned) && Has(near, StatusEffects.Silence) &&
+                  near.isImmovable() && !Has(far, StatusEffects.Imprisoned) && !Has(ally, StatusEffects.Imprisoned),
+                "镇狱只囚禁范围内敌人，真实扣血且限制移动和施术",
+                new { healthLost = nearHealth - near.data.health, farHealth, farNow = far.data.health });
+        }
+        else if (!viewsOnly)
+        {
+            ally.updateStats();
+            farAlly.updateStats();
+            float armor = ability.GetNumber("armor_bonus");
+            Check(hits.Select(hit => hit.TargetId).OrderBy(id => id).SequenceEqual(new[] { source.id, ally.id }.OrderBy(id => id)) &&
+                  Has(ally, StatusEffects.LayeredWard) && Mathf.Abs(ally.stats["armor"] - allyArmor - armor) < .025f &&
+                  !Has(near, StatusEffects.LayeredWard) && !Has(farAlly, StatusEffects.LayeredWard) &&
+                  Close(farArmor, farAlly.stats["armor"]),
+                "界障只授予圈内友方原护甲，圈外友方和圈内敌人无变化",
+                new { armor, allyArmor, actual = ally.stats["armor"], farArmor, outside = farAlly.stats["armor"] });
+        }
+
+        var pose = Form(form);
+        float visualRadius = pose.Resource.Description.Contacts.Single().Sector.Radius *
+            pose.Transform.MultiplyVector(Vector3.right).magnitude;
+        Check(Vector2.Distance(center, (Vector3)pose.Transform.GetColumn(3)) < .02f &&
+              Mathf.Abs(visualRadius - radius) < .025f, asset.GetName() + "的可见外沿和部署作用一致",
+            new { radius, visualRadius });
+        if (shots)
+            await CaptureArtifactViews(isPrison ? "prison" : "ward", center, radius + 2.0f,
+                () => Shows(form) && Vector2.Distance(center, (Vector3)Form(form).Transform.GetColumn(3)) < .02f,
+                nativeZoom: radius + 1.6f);
+
+        owner.GetCultisys<Xian>().wakan = 0f;
+        await Advance(.58f);
+        Check(!tower.HasComponent<ArtifactDeployment>() && !Shows(form) && starts.Count == beforeStarts + 1 &&
+              fees.Count == beforeFee + 2 && towerHits.Count == beforeHits + hits.Length &&
+              owner.GetItems().Contains(tower) && owner.GetEquippedArtifacts().Contains(tower),
+            asset.GetName() + "付不起维持费便结束，原塔归还且停止新增作用");
+        if (!viewsOnly && isPrison)
+        {
+            float remain = CombatStatusEffects.GetStatusRemaining(near, StatusEffects.Imprisoned);
+            await Advance(Mathf.Max(.08f, remain + .12f));
+            near.updateStats();
+            Check(!Has(near, StatusEffects.Imprisoned) && !Has(near, StatusEffects.Silence) && !near.isImmovable(),
+                "原囚禁到期后恢复移动和施术");
+        }
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    payment.SetValue(null, previous);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+}

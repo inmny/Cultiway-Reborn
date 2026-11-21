@@ -2811,3 +2811,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 罡风横扫、离火焚风与清风涤障（10.05）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_fan_effects.py` 复验正式法扇的击退、燃烧、净化和原扇面边界。用 `--section gale|flame|cleanse` 单独复验指定招式，用 `--skip-views` 只查游戏行为，用 `--views-only` 补采同一实机时点的两个视角并检查网格高度与扇面范围。
+
+### 宝塔镇狱与九重界障（10.05）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_tower_deployed.py` 复验正式法塔的部署、维持、圈内外囚禁与护甲、停费和原件归还。用 `--section prison|ward` 单独复验一招，用 `--skip-views` 或 `--views-only` 分别复查游戏行为或双视角形体。

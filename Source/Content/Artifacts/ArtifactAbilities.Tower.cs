@@ -2,8 +2,11 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Semantics;
+using Cultiway.Content.Skills;
+using Cultiway.Core;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Usage;
 using NeoModLoader.General;
 using strings;
 using UnityEngine;
@@ -85,6 +88,7 @@ public partial class ArtifactAbilities
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = SkillCastResources.Wakan,
             OnTick = ApplyTreasureTowerPrison,
+            OnActivityEnded = EndArtifactConstruction,
         });
         TreasureTowerPrison.Activate(new ArtifactActiveAbilityProfile
         {
@@ -119,22 +123,17 @@ public partial class ArtifactAbilities
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry _,
-        float __)
+        float interval)
     {
-        Actor controller = Controller(context);
-        ArtifactDeployment deployment = context.artifact.GetComponent<ArtifactDeployment>();
-        Vector2 center = ArtifactManifestationTools.ResolveWorldAnchor(
-            context.artifact,
-            deployment.ResolveBodyAnchor());
-        CombatTargeting.ForEachHostile(controller, center, ability.GetNumber(EffectRadius), target =>
+        float duration = ability.GetNumber(StatusDuration);
+        var caster = ArtifactAbilityLifecycle.ResolveSkillContext(context);
+        var contact = new ArtifactAreaContact((source, target) =>
         {
-            CombatStatusEffects.ApplyImprisonment(target, ability.GetNumber(StatusDuration), controller);
-            CombatDamageEffects.DealDamage(
-                controller,
-                target,
-                SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
-                MaterialComposition(context));
-        });
+            using var scope = SkillCasterContextService.Enter(in caster);
+            CombatStatusEffects.ApplyImprisonment(target, duration, source);
+        }, damageFirst: false);
+        StartPaidArtifactArea(context, TreasureTowerPrison, ability, interval, "tower_prison", contact,
+            MaterialComposition(context), SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier));
     }
 
     private static void ConfigureLayeredRealmWard()
@@ -194,6 +193,7 @@ public partial class ArtifactAbilities
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = SkillCastResources.Wakan,
             OnTick = ApplyLayeredRealmWard,
+            OnActivityEnded = EndArtifactConstruction,
         });
         LayeredRealmWard.Activate(new ArtifactActiveAbilityProfile
         {
@@ -228,21 +228,18 @@ public partial class ArtifactAbilities
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry _,
-        float __)
+        float interval)
     {
-        Actor controller = Controller(context);
-        ArtifactDeployment deployment = context.artifact.GetComponent<ArtifactDeployment>();
-        Vector2 center = ArtifactManifestationTools.ResolveWorldAnchor(
-            context.artifact,
-            deployment.ResolveBodyAnchor());
-        CombatTargeting.ForEachFriendly(controller, center, ability.GetNumber(EffectRadius), target =>
-            CombatStatusEffects.ApplyStatus(
-                target,
-                StatusEffects.LayeredWard,
-                ability.GetNumber(StatusDuration),
-                S.armor,
-                ability.GetNumber(ArmorBonus),
-                controller));
+        float duration = ability.GetNumber(StatusDuration);
+        float armor = ability.GetNumber(ArmorBonus);
+        var caster = ArtifactAbilityLifecycle.ResolveSkillContext(context);
+        var contact = new ArtifactAreaContact((source, target) =>
+        {
+            using var scope = SkillCasterContextService.Enter(in caster);
+            CombatStatusEffects.ApplyStatus(target, StatusEffects.LayeredWard, duration, S.armor, armor, source);
+        }, CombatTargeting.TargetDisposition.Friendly);
+        StartPaidArtifactArea(context, LayeredRealmWard, ability, interval, "tower_ward", contact,
+            ElementComposition.Static.empty);
     }
 
     private static void ConfigureTowerShadowProjection()
@@ -356,118 +353,14 @@ public partial class ArtifactAbilities
 
     private static void ConfigureTowerAbilityVisuals()
     {
-        ConfigureTreasureTowerPrisonVisuals();
-        ConfigureLayeredRealmWardVisuals();
-        ConfigureTowerShadowProjectionVisuals();
-    }
-
-    private static void ConfigureTreasureTowerPrisonVisuals()
-    {
-        ArtifactAreaVisualCue prison = Area(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Primary,
-            0.62f,
-            0.09f,
-            ArtifactVfxStyles.Prison
-        );
-        prison.show_inner_ring = true;
-        prison.inner_radius_ratio = 0.48f;
-        prison.inner_rotation_speed = -30f;
-        ArtifactGlyphVisualCue seal = ActivityGlyph(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius) * 0.82f,
-            ArtifactVisualColorRole.Secondary,
-            8,
-            18f,
-            ArtifactVfxStyles.Prison
-        );
-        ArtifactParticleVisualCue fragments = Burst(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            ArtifactVisualColorRole.Glow,
-            3,
-            0.46f
-        );
-        fragments.emission_interval = 0.18f;
         TreasureTowerPrison.Visualize(
             Theme(SkillVfxElements.Entropy.AccentColor)
-                .Loop(
-                    "treasure_tower_prison",
-                    new ArtifactCompositeVisualCue(prison, seal, fragments, Pulse(1f, 1f, 0.07f)),
-                    IsDeploymentActive
-                )
-                .Signal(
-                    ArtifactVisualChannels.Tick,
-                    Burst(
-                        ArtifactVisualAnchorKind.DeploymentOrigin,
-                        ArtifactVisualColorRole.Glow,
-                        4
-                    ),
-                    0.3f,
-                    "artifact.treasure_tower_prison.tick",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
-                .Signal(
-                    ArtifactVisualChannels.Trigger,
-                    new ArtifactAudioVisualCue
-                    {
-                        anchor = ArtifactVisualAnchorKind.Point,
-                        sound = "event:/SFX/WEAPONS/WeaponRockLand",
-                    },
-                    0.3f
-                )
-        );
-    }
-
-    private static void ConfigureLayeredRealmWardVisuals()
-    {
-        ArtifactAreaVisualCue outer = Area(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Primary,
-            0.52f,
-            0.035f,
-            ArtifactVfxStyles.Ward
-        );
-        outer.show_inner_ring = true;
-        outer.inner_radius_ratio = 0.72f;
-        outer.inner_rotation_speed = 22f;
-        ArtifactAreaVisualCue inner = Area(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius) * 0.48f,
-            ArtifactVisualColorRole.Glow,
-            0.36f,
-            0.02f,
-            ArtifactVfxStyles.Ward
-        );
-        inner.inner_rotation_speed = -28f;
-        ArtifactGlyphVisualCue ward = ActivityGlyph(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius) * 0.86f,
-            ArtifactVisualColorRole.Secondary,
-            9,
-            10f,
-            ArtifactVfxStyles.Ward
-        );
-        LayeredRealmWard.Visualize(
-            Theme(SkillVfxElements.Earth.AccentColor)
-                .Loop(
-                    "layered_realm_ward",
-                    new ArtifactCompositeVisualCue(outer, inner, ward),
-                    IsDeploymentActive
-                )
-                .Signal(
-                    ArtifactVisualChannels.Tick,
-                    Burst(
-                        ArtifactVisualAnchorKind.DeploymentOrigin,
-                        ArtifactVisualColorRole.Glow,
-                        3
-                    ),
-                    0.24f,
-                    "artifact.layered_realm_ward.tick",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
-        );
+                .Signal(ArtifactVisualChannels.Trigger, new ArtifactAudioVisualCue
+                {
+                    anchor = ArtifactVisualAnchorKind.Point,
+                    sound = "event:/SFX/WEAPONS/WeaponRockLand"
+                }, .30f));
+        ConfigureTowerShadowProjectionVisuals();
     }
 
     private static void ConfigureTowerShadowProjectionVisuals()

@@ -29,6 +29,14 @@ internal sealed partial class FormResourceGeneration
         CreateRadialPanels("command_banner", 8, Vector3.forward * .029f,
             [new(0f, .28f, .056f), new(.16f, .51f, .085f), new(.16f, .91f, .133f),
                 new(0f, 1f, .11f), new(-.16f, .91f, .133f), new(-.16f, .51f, .085f)]);
+        CreatePulseForm("tower_prison", "tower_prison", .42f, 8,
+            [new(.65f, .027f), new(.69f, .106f), new(.71f, .238f), new(.74f, .253f),
+                new(.79f, .171f), new(.85f, .162f), new(.88f, .089f), new(.98f, .093f),
+                new(1f, .042f), new(.98f, .016f), new(.65f, .014f)]);
+        CreatePulseForm("tower_ward", "tower_ward", .19f, 9,
+            [new(.43f, .055f), new(.48f, .143f), new(.57f, .266f), new(.61f, .272f),
+                new(.70f, .138f), new(.79f, .128f), new(.85f, .149f), new(.93f, .093f),
+                new(1f, .039f), new(.98f, .018f), new(.43f, .014f)]);
         CreatePulseForm("gourd_vortex", "gourd_vortex", .60f, 6,
             [new(.24f, .09f), new(.30f, .16f), new(.42f, .11f), new(.54f, .18f),
                 new(.66f, .10f), new(.78f, .14f), new(.91f, .087f), new(1f, .034f),
