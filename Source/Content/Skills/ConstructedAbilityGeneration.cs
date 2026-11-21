@@ -128,7 +128,7 @@ public sealed partial class ConstructedAbilityService
         if (family == 0) return CreateGround(actor, random, seed, inspiration);
         if (family == 1)
         {
-            AbilityDefinition action = BodyActionCatalog.All[random.Next(2)];
+            AbilityDefinition action = BodyActionCatalog.HistoricalCreationBase(random.Next(2));
             AbilityDefinition projected = BodyConstructionEdits.Project(
                 ConstructionMagnitudeEdits.Sustain(action, .05f + (float)random.NextDouble() * .15f, reprice: false), new BodyProjection
                 {

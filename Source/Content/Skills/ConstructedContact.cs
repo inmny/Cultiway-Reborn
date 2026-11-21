@@ -136,6 +136,9 @@ public readonly struct ConstructedContact
     /// <summary>本次是否提交了伤害或近战攻击，不代表已突破抗性或免疫。</summary>
     public readonly bool DamageAttempted;
 
+    /// <summary>提交给原版近战入口的实际倍率；没有调用原版近战时为空。</summary>
+    public readonly float? BodyDamageMultiplier;
+
     /// <summary>本次已经结算到接触人物的扣血和护盾吸收，且不扣除同次恢复。</summary>
     public readonly DamageSettlement Damage;
 
@@ -197,6 +200,7 @@ public readonly struct ConstructedContact
     /// <param name="bodyResult">接触后的身体收势。</param>
     /// <param name="damage">已经实际扣除的生命和实际吸收量。</param><param name="damagePending">原版伤害是否排队。</param>
     /// <param name="healthBefore">接触前生命。</param><param name="healthAfter">接触作用后的生命。</param>
+    /// <param name="bodyDamageMultiplier">实际身体近战提交的倍率。</param>
     internal ConstructedContact(long cast, string ability, long source, long target, int node,
         Vector3 position, Vector3 normal, double worldTime, float age, ApplyAttackState result,
         bool partPresent, BodyActionResult? bodyResult, DamageSettlement damage, bool damagePending,
@@ -205,7 +209,8 @@ public readonly struct ConstructedContact
         int targetContactNumber = 1, int groupContactNumber = 1, string matterBefore = null, string stateBefore = null,
         string matterAfter = null, string stateAfter = null,
         bool damageAttempted = true, Vector3 velocityChange = default, bool forceApplied = false,
-        float staggerSeconds = 0f, float bindSeconds = 0f, float strainSeconds = 0f, float exposureSeconds = 0f)
+        float staggerSeconds = 0f, float bindSeconds = 0f, float strainSeconds = 0f, float exposureSeconds = 0f,
+        float? bodyDamageMultiplier = null)
     {
         CastId = cast;
         AbilityId = ability;
@@ -228,6 +233,7 @@ public readonly struct ConstructedContact
         MatterAfter = matterAfter;
         StateAfter = stateAfter;
         DamageAttempted = damageAttempted;
+        BodyDamageMultiplier = bodyDamageMultiplier;
         Damage = damage;
         DamagePending = damagePending;
         TargetHealthBefore = healthBefore;

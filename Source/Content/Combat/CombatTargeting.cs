@@ -59,6 +59,22 @@ public static class CombatTargeting
         ForEachActor(source, center, radius, TargetDisposition.Friendly, action);
     }
 
+    /// <summary>按实际空间和友方关系判断受击人物是否孤立。</summary>
+    /// <param name="target">需要检查身边友方的真实人物。</param>
+    /// <param name="radius">以目标为中心的实际世界距离。</param>
+    internal static bool IsIsolated(Actor target, float radius)
+    {
+        if (target == null || target.isRekt() || target.current_tile == null) return false;
+        Vector2 center = target.current_position;
+        float radiusSquared = radius * radius;
+        int chunkRadius = Mathf.CeilToInt(radius / 16f) + 1;
+        foreach (Actor candidate in Finder.getUnitsFromChunk(target.current_tile, chunkRadius))
+            if (candidate != target && candidate != null && !candidate.isRekt() &&
+                Toolbox.SquaredDistVec2Float(center, candidate.current_position) <= radiusSquared &&
+                SkillTargetRelationResolver.IsFriendly(target, candidate)) return false;
+        return true;
+    }
+
     /// <summary>按阵营关系枚举敌人，不经过目标可见性判定，供侦破和显形能力使用。</summary>
     public static void ForEachEnemyIncludingConcealed(
         Actor source,

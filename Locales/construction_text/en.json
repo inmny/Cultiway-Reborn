@@ -58,6 +58,7 @@
   "Cultiway.ConstructionText.Change.Orbit": "orbiting",
   "Cultiway.ConstructionText.Change.Repeat": "repetition",
   "Cultiway.ConstructionText.Change.Project": "projection",
+  "Cultiway.ConstructionText.Change.TuckWrist": "Tucked wrist",
   "Cultiway.ConstructionText.Change.Edit": "editing",
   "Cultiway.ConstructionText.Change.Copy": "copying",
   "Cultiway.ConstructionText.Change.Other": "derivation",

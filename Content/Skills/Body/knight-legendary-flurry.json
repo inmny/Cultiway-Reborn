@@ -1,0 +1,59 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.KnightTechnique.LegendaryFlurry",
+  "Name": "传奇连斩",
+  "Revision": 1,
+  "Lifetime": 0.7,
+  "Cooldown": 12,
+  "Resource": "vigor",
+  "Cost": 360,
+  "Power": 1,
+  "Use": {"Target": "ObjectOrPoint", "Channels": "Combat"},
+  "Impact": {"Targets": "Hostile", "SelectedTargetOnly": true, "DamageScale": 0.9},
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": "sword",
+    "Grip": "grip",
+    "WeaponObstacle": true,
+    "Occupancy": 5,
+    "ReleaseAt": 0.066,
+    "ActiveFrom": 0.091,
+    "ActiveUntil": 0.526,
+    "Contact": {"Mode": "Once"},
+    "Stages": [
+      {"Id": "forehand", "From": 0.091, "Until": 0.153, "Impact": {"Targets": "Hostile", "SelectedTargetOnly": true, "DamageScale": 0.55}},
+      {"Id": "backhand", "From": 0.237, "Until": 0.313, "Impact": {"Targets": "Hostile", "SelectedTargetOnly": true, "DamageScale": 0.65}},
+      {"Id": "finisher", "From": 0.427, "Until": 0.526}
+    ],
+    "ImpactRecoil": 0.032,
+    "RecoilSeconds": 0.045,
+    "Construction": {
+      "Parts": [
+        {"Id": "hand.right", "Part": "hand.right"},
+        {"Id": "sword", "Subject": "Held", "Part": "item"},
+        {"Id": "target", "Subject": "Target", "Part": "surface"}
+      ],
+      "Relations": [
+        {"Id": "hold", "Kind": "Grip", "From": "hand.right", "To": "sword", "FromAnchor": "grip", "ToAnchor": "grip", "FromMarker": "start", "UntilMarker": "end"},
+        {"Id": "slash", "Kind": "Touch", "From": "sword", "To": "target", "FromAnchor": "edge"}
+      ]
+    },
+    "Keys": [
+      {"Id": "ready", "At": 0, "Hand": [0.2, 0.19, 0.57], "Rotation": [-9, -24, 11]},
+      {"Id": "coil", "At": 0.066, "Hand": [0.18, 0.30, 0.57], "Torso": [-0.043, 0.03, -0.048], "Turn": -29, "Rotation": [-6, -64, 19]},
+      {"At": 0.091, "Hand": [0.32, 0.18, 0.57], "Torso": [0.01, 0.031, -0.04], "Turn": -16, "Rotation": [-3, -34, 10]},
+      {"Id": "first", "At": 0.12, "Hand": [0.45, 0.046, 0.56], "Torso": [0.051, -0.011, -0.04], "Turn": 7, "Rotation": [1, 4, 7]},
+      {"At": 0.157, "Hand": [0.31, -0.16, 0.55], "Torso": [0.038, -0.047, -0.037], "Turn": 37, "Rotation": [4, 43, -8]},
+      {"At": 0.203, "Hand": [0.18, -0.22, 0.55], "Torso": [-0.028, -0.04, -0.053], "Turn": 39, "Rotation": [8, 73, -16]},
+      {"At": 0.237, "Hand": [0.32, -0.14, 0.57], "Torso": [0.011, -0.024, -0.038], "Turn": 22, "Rotation": [3, 37, -10]},
+      {"Id": "second", "At": 0.276, "Hand": [0.46, 0.04, 0.58], "Torso": [0.058, -0.005, -0.035], "Turn": -7, "Rotation": [0, -2, 1]},
+      {"At": 0.321, "Hand": [0.30, 0.25, 0.66], "Torso": [0.02, 0.04, -0.042], "Turn": -33, "Rotation": [-11, -52, 8]},
+      {"Id": "raise", "At": 0.374, "Hand": [0.17, 0.27, 0.77], "Torso": [-0.057, 0.037, -0.055], "Turn": -35, "Rotation": [-38, -81, 21]},
+      {"At": 0.427, "Hand": [0.31, 0.19, 0.68], "Torso": [0.014, 0.031, -0.042], "Turn": -20, "Rotation": [-23, -38, 13]},
+      {"Id": "third", "At": 0.477, "Hand": [0.48, 0.037, 0.59], "Torso": [0.081, -0.022, -0.046], "Turn": 15, "Rotation": [7, 8, 6]},
+      {"At": 0.533, "Hand": [0.33, -0.17, 0.48], "Torso": [0.058, -0.053, -0.048], "Turn": 42, "Rotation": [35, 67, -11]},
+      {"Id": "withdraw", "At": 0.612, "Hand": [0.22, -0.025, 0.52], "Torso": [0.02, -0.022, -0.023], "Turn": 18, "Rotation": [12, 24, -6]},
+      {"Id": "rest", "At": 0.7, "Hand": [0.2, 0.19, 0.57], "Rotation": [-9, -24, 11]}
+    ]
+  }
+}

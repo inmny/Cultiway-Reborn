@@ -150,3 +150,11 @@ internal sealed class CreationV35ToV36 : ISaveMigration
     /// <param name="data">保存层提供的旧资料副本。</param>
     public JObject Apply(JObject data) => data;
 }
+
+/// <summary>旧正式请求保持完整来源、生成规则和费用。</summary>
+internal sealed class CreationV36ToV37 : ISaveMigration
+{
+    public int FromVersion => 36;
+
+    public JObject Apply(JObject data) => data;
+}

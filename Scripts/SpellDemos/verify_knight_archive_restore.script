@@ -1,0 +1,122 @@
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Actor source = World.world.units.get((long)saved[study ? "sourceId" : "source"]);
+Actor target = World.world.units.get((long)saved[study ? "targetId" : "target"]);
+Check(process != (int)saved["process"] && source != null && target != null, "不同游戏进程读回原对练人物");
+var owner = source.GetExtend();
+var access = ConstructionEditing.Access;
+var saves = Cultiway.ModClass.I.WorldSaves;
+var technique = KnightTechniques.ArmorPiercingThrust;
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var handle = handles.Single(value => value.ProviderId == "content.knight_techniques" && value.EntryId == technique.id);
+Item weapon = source.getWeapon();
+Check(weapon?.getAsset().id == "spear_iron" && weapon.data.id == (long)saved["weapon"] &&
+      KnightStyleMasteryService.IsMastered(owner, KnightStyles.Lancer) &&
+      !BodyControlState.IsBusy(source.id) && saves.LastReport.BackupError == null &&
+      !saves.LastReport.Skipped.Any(entry => entry.Contains(" / 创法机会与请求：")),
+    "读回枪骑原流派和原铁枪，之前的动作未重放",
+    new { expectedWeapon = saved["weapon"], weapon = weapon?.data.id, saves.LastReport.BackupError });
+if (!study)
+{
+    var executions = handles.Where(value => value.ProviderId == "content.knight_techniques")
+        .Select(value => value.Source.GetComponent<SkillContainer>().Asset.id).OrderBy(id => id, StringComparer.Ordinal).ToArray();
+    Check(owner.GetCultisys<Knight>().CurrLevel == (int)saved["level"] &&
+          JToken.DeepEquals(saved["executions"], JArray.FromObject(executions)), "迁移前保存的执行编号、等级和原物件身份保持");
+}
+else
+{
+    var state = owner.E.GetComponent<ConstructedCreationState>();
+    var section = JObject.Parse(saves.Actors.Capture(owner, "knight-archive"))["sections"]["ability_creation"];
+    File.WriteAllText(Path.Combine(folder, "restored-section.json"), section?.ToString(Formatting.Indented) ?? "null");
+    Check(state.Origin == ConstructionCreationOrigin.KnightPractice && (int)section["version"] == 37 &&
+          state.Inspiration?.Rules == 36 && state.Seed == (int)saved["section"]["data"]["Seed"],
+        "自然变式请求的原规则、来源和种子读回",
+        new { state.Pending, state.LastAbility, state.LastFailure, rules = state.Inspiration?.Rules });
+    // 载入后的第一个完整世界周期可能已经处理请求，此时用下方的完整成品比对证明结果。
+    if (state.Pending)
+    {
+        string[] different = new[] { "Source", "Resources", "Inspiration" }.Where(key =>
+            !JToken.DeepEquals(section["data"][key], saved["section"]["data"][key])).ToArray();
+        Check(different.Length == 0, "等待中的原招及费用输入原样读回", new { different });
+    }
+}
+
+var reserved = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.KnightVigor") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.KnightVigor")
+        .SetStats(new BaseStats { [BaseStatses.MaxVigor.id] = 100f }).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, reserved, 10000, source);
+CombatStatusEffects.ApplyStatus(target, hold, 10000, target);
+target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+Ready(source);
+source.attack_timer = target.attack_timer = 999;
+await Advance(.30f);
+string ability = technique.id;
+float cost;
+if (study)
+{
+    var state = owner.E.GetComponent<ConstructedCreationState>();
+    ability = state.LastAbility;
+    var learned = ability == null ? null : access.Read(ability);
+    var predicted = (JObject)saved["expected"].DeepClone();
+    predicted["Id"] = ability;
+    Check(!state.Pending && state.LastFailure == null && learned != null && ConstructedAbilityService.Knows(owner, ability) &&
+          access.List(owner).Count == (int)saved["known"] + 1 &&
+          JToken.DeepEquals(JToken.Parse(JsonConvert.SerializeObject(learned)), predicted),
+        "完整变式和预计费用读回，只授予一次", new { state.LastFailure, ability });
+    handle = new ActiveAbilityHandle("content.constructed", owner.E, ability);
+    cost = (float)SkillCastResources.Vigor.Quote(owner, learned.Cost);
+}
+else
+{
+    cost = (float)SkillCastResources.Vigor.Quote(owner, SkillCastCost.CalculateStepDemand(handle.Source) *
+        Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, handle.Source)));
+}
+
+var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { source });
+Place(source, 64.35f);
+Place(target, 64.35f + height * 2.02f);
+source.addAggro(target);
+target.addAggro(source);
+target.setHealth(target.getMaxHealth());
+int health = target.getHealth();
+source.attack_timer = 0f;
+owner.GetCultisys<Knight>().vigor = 80f;
+long castId = 0;
+var hits = new List<ConstructedQueuedDamage>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId == source.id && fact.AbilityId == ability) castId = fact.CastId;
+}
+void Settled(ConstructedQueuedDamage fact) { if (fact.CastId == castId) hits.Add(fact); }
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+try
+{
+    var aim = new ActiveAbilityTarget(target, target.GetSimPos());
+    Check(ActiveAbilityService.TryUse(owner, handle, aim, ActiveAbilityUseOrigin.Script) &&
+          castId != 0 && Mathf.Abs(80f - owner.GetCultisys<Knight>().vigor - cost) < .001f,
+        "读档后从相同已学入口实际施展，一次收费", new { ability, cost });
+    source.attack_timer = 999f;
+    await Advance(.62f);
+    Check(hits.Count == 1 && target.getHealth() < health && !BodyControlState.IsBusy(source.id) &&
+          ReferenceEquals(source.getWeapon(), weapon) && CombatStatusEffects.HasStatus(target,
+              Cultiway.ModClass.L.StatusEffectLibrary.get("KnightArmorBreak")),
+        "实际枪尖损伤和破甲，收势并归还原物", new { health, after = target.getHealth() });
+    if (study)
+    {
+        Check(access.List(owner).Count == (int)saved["known"] + 1, "继续推进世界也未重复授予");
+        SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+        Check(File.Exists(Path.Combine(folder, "completed-save", "map.wbox")), "完成后的真实世界再次保存");
+    }
+    return new { passed = true, study, process, ability, cost, damage = health - target.getHealth() };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

@@ -1,0 +1,49 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.KnightTechnique.CommittedStrike",
+  "Name": "蓄势重击",
+  "Revision": 1,
+  "Lifetime": 0.47,
+  "Cooldown": 2.5,
+  "Resource": "vigor",
+  "Cost": 5,
+  "Power": 1,
+  "Use": {"Target": "ObjectOrPoint", "Channels": "Combat"},
+  "Impact": {"Targets": "Hostile", "SelectedTargetOnly": true, "DamageScale": 1.25,
+    "IsolationRadius": 1.8, "IsolatedDamageMultiplier": 1.24},
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": "sword",
+    "Grip": "grip",
+    "WeaponObstacle": true,
+    "Occupancy": 5,
+    "ReleaseAt": 0.22,
+    "ActiveFrom": 0.272,
+    "ActiveUntil": 0.352,
+    "Contact": {"Mode": "Once"},
+    "ImpactRecoil": 0.044,
+    "RecoilSeconds": 0.07,
+    "Construction": {
+      "Parts": [
+        {"Id": "hand.right", "Part": "hand.right"},
+        {"Id": "sword", "Subject": "Held", "Part": "item"},
+        {"Id": "target", "Subject": "Target", "Part": "surface"}
+      ],
+      "Relations": [
+        {"Id": "hold", "Kind": "Grip", "From": "hand.right", "To": "sword", "FromAnchor": "grip", "ToAnchor": "grip", "FromMarker": "start", "UntilMarker": "end"},
+        {"Id": "strike", "Kind": "Touch", "From": "sword", "To": "target", "FromAnchor": "edge"}
+      ]
+    },
+    "Keys": [
+      {"Id": "ready", "At": 0, "Hand": [0.20, 0.19, 0.57], "Rotation": [-9, -24, 11]},
+      {"At": 0.105, "Hand": [0.18, 0.27, 0.67], "Torso": [-0.035, 0.021, -0.034], "Turn": -19, "Rotation": [-20, -49, 12]},
+      {"Id": "loaded", "At": 0.22, "Hand": [0.15, 0.31, 0.73], "Torso": [-0.066, 0.045, -0.061], "Turn": -36, "Rotation": [-37, -78, 14]},
+      {"At": 0.272, "Hand": [0.32, 0.16, 0.65], "Torso": [0.012, 0.032, -0.037], "Turn": -16, "Rotation": [-13, -29, 7]},
+      {"Id": "through", "At": 0.31, "Hand": [0.46, 0.032, 0.58], "Torso": [0.066, -0.016, -0.035], "Turn": 12, "Rotation": [5, 8, 2]},
+      {"At": 0.355, "Hand": [0.33, -0.17, 0.49], "Torso": [0.054, -0.049, -0.04], "Turn": 38, "Rotation": [22, 53, -11]},
+      {"Id": "withdraw", "At": 0.407, "Hand": [0.23, -0.013, 0.52], "Torso": [0.022, -0.02, -0.02], "Turn": 16, "Rotation": [11, 25, -6]},
+      {"Id": "rest", "At": 0.47, "Hand": [0.20, 0.19, 0.57], "Rotation": [-9, -24, 11]}
+    ],
+    "Responses": [{"Result": "Blocked", "RecoverFrom": "withdraw", "Seconds": 0.05}]
+  }
+}

@@ -10,6 +10,7 @@ using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.Visuals.Forms;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Content.Skills;
@@ -822,6 +823,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ShapeMotion shape = shapes[index];
             RunningCast running = shape.Running;
             CastAuthority owner = running.Owner(shape.To.Node);
+            CompiledForm form = shape.To.Node < 0 ? null : running.Cast.Plan.Nodes[shape.To.Node];
             bool canTouch = TouchPath(shape, step, out float touchFrom);
             if (canTouch && (running.Cast.Plan.HasWorldEffects || running.Cast.Plan.HasWorldContactEvents))
             {
@@ -834,11 +836,14 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             }
             bool powered = shape.To.Node < 0 || running.Cast.ContactSweepForce(shape.To.Node) > 0f;
             bool fire = powered && shape.To.Material?.Id == "fire" && shape.To.Material.State == "energy";
-            bool ordinary = powered && running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
+            bool ordinary = powered && form?.IgnoreFormClashes != true &&
+                            running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
             bool thermalSource = fire || shape.To.Node >= 0 && running.Cast.Burning(shape.To.Node).Heat > 0;
             bool attack = canTouch && ordinary && running.Cast.Role(shape.To.Node) == ConstructionContactRole.Attack;
-            if (canTouch && ordinary && shape.To.Node >= 0 && running.BuildingContact != null)
-                FindLegacyBuildingContacts(shape, owner, step, Include);
+            if (canTouch && ordinary && running.BuildingContact != null &&
+                (shape.To.Node >= 0 || running.BuildingContact.BodyWeapon && running.Body.Weapon != null &&
+                 running.WeaponConstraint?.Active != true && !(running.Connection?.Active == true && running.Connection.WeaponOnly)))
+                FindLegacyBuildingContacts(shape, owner, step, Include, touchFrom);
             if (shape.To.Node < 0 && attack) FindBodyCorrespondences(shape, clock, step, touchFrom, Include);
             if (attack && hasBodyGuardShapes)
                 FindBodyGuards(shape, step, touchFrom, Include);
@@ -858,6 +863,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                             (other <= index || IsQuenching(shape, right) ||
                              ThermalPair(right, shape) != ThermalReaction.None || !ordinary ||
                              right.Running.Cast.ContactSweepForce(right.To.Node) <= 0f ||
+                             right.Running.Cast.Plan.Nodes[right.To.Node].IgnoreFormClashes ||
                              running.Cast.Role(shape.To.Node) == ConstructionContactRole.Decoration ||
                              right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Decoration ||
                              running.Cast.Role(shape.To.Node) == ConstructionContactRole.Barrier &&
@@ -910,7 +916,6 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             // 已被真实器物接触抵住的兵器不能仅因进入伤害时段而穿透补伤；独立法术和其他肢体继续运行。
             if (shape.To.Node < 0 && (running.WeaponConstraint?.Active == true ||
                                     running.Connection?.Active == true && running.Connection.WeaponOnly)) continue;
-            CompiledForm form = shape.To.Node < 0 ? null : running.Cast.Plan.Nodes[shape.To.Node];
             float groundRadius = form?.GroundCircleRadius > 0f && shape.To.Shape >= 0 &&
                                  shape.To.Shape < form.Resource.Contacts.Length
                 ? form.GroundCircleRadius : 0f;
@@ -920,7 +925,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 if (shape.To.Shape != 0) continue;
                 var extent = shape.Bounds.extents;
                 float scale = Mathf.Max(shape.From.Prism.OutlineScale, shape.To.Prism.OutlineScale);
-                actorIndex.QueryPlane(shape.Bounds.center, Mathf.Max(extent.x, extent.y) + groundRadius * scale, nearby);
+                if (form.GroundCircleAddsTargetSize)
+                {
+                    nearby.Clear();
+                    if (actorIndices.TryGetValue(owner.TargetId, out int designated)) nearby.Add(designated);
+                }
+                else actorIndex.QueryPlane(shape.Bounds.center, Mathf.Max(extent.x, extent.y) + groundRadius * scale, nearby);
             }
             else actorIndex.Query(shape.Bounds, nearby);
             // 双方关系只查询已选目标；长尾等真实表面可能超出原版人物粗筛球。
@@ -931,6 +941,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 ActorMotion actor = actors[id];
                 if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) continue;
+                if ((form?.GroundActorsOnly ?? running.Cast.Plan.Body.GroundActorsOnly) && actor.Actor.isFlying()) continue;
                 Sample(actor, clock, out Vector3 fromFoot, out float fromHeight);
                 Sample(actor, clock + step, out Vector3 toFoot, out float toHeight);
                 var b0 = ActorHitBoundary.Create(fromFoot, fromHeight,
@@ -988,6 +999,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                         Vector3 foot = Vector3.Lerp(fromFoot, toFoot, earliest);
                         Vector2 offset = foot - a0.A;
                         float radius = groundRadius * a0.Prism.OutlineScale;
+                        if (form.GroundCircleAddsTargetSize) radius += actor.Actor.stats[strings.S.size];
                         if (offset.sqrMagnitude > radius * radius) return;
                         at = 0f;
                         point = new Vector3(foot.x, foot.y, a0.A.z);
@@ -1191,6 +1203,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (node >= 0 && running.Cast.Plan.Nodes[node].SupportGrip != null && !running.Cast.HasGripSupport(node)) return;
         ActorMotion actor = hit.Actor;
         if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) return;
+        CompiledForm form = node < 0 ? null : running.Cast.Plan.Nodes[node];
+        if ((form?.GroundActorsOnly ?? running.Cast.Plan.Body.GroundActorsOnly) && actor.Actor.isFlying()) return;
         simulation.Sample(actor, simulation.contactTime, out Vector3 spreadCenter, out _);
         CastAuthority contactOwner = running.Owner(node);
         if (node >= 0 && running.Cast.Plan.Nodes[node].Correspondence?.OriginalContactOnly == true &&
@@ -1209,32 +1223,46 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
         DamageSettlement primaryDamage = default;
         DamageObservation observation = null;
+        float? bodyDamageMultiplier = null;
+        float damageScale = impact.DamageScale;
+        if (impact.IsolatedDamageMultiplier > 0f && CombatTargeting.IsIsolated(actor.Actor, impact.IsolationRadius))
+            damageScale *= impact.IsolatedDamageMultiplier;
         // 明确发力继承接触前的运动；原版同次命中附带的击退不再重复计入。
         Vector3? priorVelocity = impact.Impulse.HasValue ? ConstructedActorImpulse.Velocity(actor.Actor) : null;
         ForceReceiver? forceReceiver = impact.Impulse.HasValue ? new ForceReceiver(actor.Actor) : null;
         ApplyAttackState result = ApplyAttackState.Hit;
-        if (node < 0 && impact.DamageScale > 0f)
+        Vector3 effectCenter = impact.ForceAfterDamage ? running.Cast.ContactOrigin(node) : default;
+        if ((node < 0 || form.BorrowedWeaponDamage) && damageScale > 0f)
         {
             var owner = running.Source.GetExtend();
-            observation = ObserveQueuedContact(running.Id, running.Cast.Plan.Id, contactOwner.Id, actor.Id,
-                memory.Count, LogicTime);
+            observation = ObserveQueuedContact(running, node, contactOwner.Id, actor.Actor, actor.Id,
+                memory.Count, LogicTime, impact, strength, effectCenter, spreadCenter, priorVelocity, forceReceiver);
+            float multiplier = running.Power * damageScale * strength;
+            bodyDamageMultiplier = multiplier;
+            // 每个实际动作阶段已有独立限额，上一击的闪动不应吞掉后续段。
+            bool skipIfShaking = running.Cast.BodyStage == 0;
             AttackDataResult strike = running.Body.Weapon == null
-                ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, actor.Actor, null, running.Power * impact.DamageScale * strength,
-                    observer: observation)
+                ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, actor.Actor, null, multiplier,
+                    observer: observation, damageOrigin: contactOwner.Damage.DamageOrigin, skipIfShaking: skipIfShaking)
                 : KnightWeaponStrikeResolver.StrikeBorrowed(owner, running.Body.Weapon, actor.Actor,
-                    running.Power * impact.DamageScale * strength, observer: observation);
+                    multiplier, observer: observation, damageOrigin: contactOwner.Damage.DamageOrigin,
+                    skipIfShaking: skipIfShaking);
             result = strike.state;
         }
-        else if (node >= 0 && impact.DamageScale > 0f)
+        else if (node >= 0 && damageScale > 0f)
         {
             var damage = contactOwner.Damage;
             damage.TargetID = actor.Id;
-            damage.Damage = running.Cast.DamageForce(node) * impact.DamageScale *
+            damage.Damage = running.Cast.DamageForce(node) * damageScale *
                 strength;
             damage.Element = running.Cast.FixedDamageElement(node, impact) ?? Composition(beforeMatter.DamageKind);
             damage.ContactSound = CombatContactFeedback.SoundFor(beforeMatter);
             primaryDamage = GetHitEventSystem.Resolve(damage);
         }
+        if (contactGeneration != worldGeneration) return;
+        if (primaryDamage.HealthLost > 0 || observation is { Pending: false, Result.HealthLost: > 0 })
+            ApplyDamageEffects(running, node, actor.Actor, actor.Id, impact, strength,
+                effectCenter, spreadCenter, LogicTime, priorVelocity, forceReceiver);
         if (contactGeneration != worldGeneration) return;
         ApplyRestoration(running, node, actor.Actor, impact.Restoration, strength);
         ConstructedTargetResponse response = running.FormationArea is { } formation
@@ -1284,7 +1312,39 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             memory.Count, running.GroupHits[running.Cast.ContactGroup(node)], beforeMatter?.Id, beforeMatter?.State,
             afterMatter?.Id, afterMatter?.State,
             impact.DamageScale > 0f || response.AdditionalDamageAttempted, response.VelocityChange, response.ForceApplied, response.StaggerSeconds,
-            response.BindSeconds, response.StrainSeconds, response.ExposureSeconds));
+            response.BindSeconds, response.StrainSeconds, response.ExposureSeconds, bodyDamageMultiplier));
+
+    }
+
+    /// <summary>实际扣血触发该接触保存的状态、推拉与范围作用。</summary>
+    /// <param name="running">实际施放。</param><param name="node">接触部位。</param>
+    /// <param name="target">原受击人物。</param><param name="targetId">受击时身份。</param>
+    /// <param name="impact">受击时的作用。</param><param name="strength">受击时的实际强度。</param>
+    /// <param name="effectCenter">实际接触的形体中心。</param>
+    /// <param name="spreadCenter">命中时被击者所在的范围作用中心。</param>
+    /// <param name="time">确认伤害的共同时间。</param>
+    /// <param name="priorVelocity">同次原版命中产生受力之前的速度。</param>
+    /// <param name="forceReceiver">同次接触中采集的承力身体。</param>
+    private static void ApplyDamageEffects(RunningCast running, int node, Actor target, long targetId,
+        CompiledConstructionImpact impact, float strength, Vector3 effectCenter, Vector3 spreadCenter, double time,
+        Vector3? priorVelocity, ForceReceiver? forceReceiver)
+    {
+        long generation = worldGeneration;
+        if ((impact.HasStatusesAfterDamage || impact.ForceAfterDamage) &&
+            target.data?.id == targetId && target.isAlive() && target.hasHealth())
+        {
+            if (impact.ForceAfterDamage)
+            {
+                ApplyContactForce(running, node, target, impact, ApplyAttackState.Hit, out bool applied,
+                    effectCenter, priorVelocity, forceReceiver, strength);
+                if (applied && !impact.Impulse.HasValue) InterruptContactBody(target);
+            }
+            if (impact.HasStatusesAfterDamage && generation == worldGeneration && target.data?.id == targetId &&
+                target.isAlive() && target.hasHealth())
+                ApplyStatuses(running, node, target, impact.Statuses, strength, afterDamage: true);
+        }
+        if (impact.HasSpreadsAfterDamage && generation == worldGeneration)
+            ApplyContactSpreads(running, node, targetId, impact, spreadCenter, time, strength, afterDamage: true);
     }
 
     /// <summary>是否仍留下真实部位；存在的部位也可能已没有攻击余力。</summary>
@@ -1324,47 +1384,61 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="target">已确认的人物。</param><param name="effects">已编译属性状态。</param>
     /// <param name="attenuation">真实接触位置或传播路程给出的本体强度倍率。</param>
     /// <param name="forceBasis">实际映像交锋消耗，省略时读取原部位作用量。</param>
+    /// <param name="afterDamage">此时已经确认本次本体伤害扣血。</param>
     private static void ApplyStatuses(RunningCast running, int node, Actor target, IReadOnlyList<CompiledConstructionStatus> effects,
-        float attenuation = 1f, float? forceBasis = null)
+        float attenuation = 1f, float? forceBasis = null, bool afterDamage = false)
     {
         if (effects.Count == 0) return;
         CastAuthority owner = running.Owner(node);
         if (!owner.IsLive) return;
         foreach (CompiledConstructionStatus effect in effects)
+            if (effect.AfterDamage == afterDamage)
+                ApplyStatus(target, owner, effect, attenuation,
+                    effect.Tick == null ? 0f : forceBasis ?? (node < 0 ? running.Power : running.Cast.RemainingForce(node)));
+    }
+
+    /// <summary>起势或接触共用同一状态结算，返回实际成功施加的对象。</summary>
+    /// <param name="target">实际接受者。</param><param name="owner">当前归属人物。</param>
+    /// <param name="effect">已编译状态。</param><param name="attenuation">接触或传播的实际衰减。</param>
+    /// <param name="forceBasis">用于周期伤害的实际作用量。</param>
+    private static Entity ApplyStatus(Actor target, CastAuthority owner, CompiledConstructionStatus effect,
+        float attenuation, float forceBasis)
+    {
+        BaseStats stats = null;
+        if (effect.Stats != null)
         {
-            BaseStats stats = null;
-            if (effect.Stats != null)
-            {
-                stats = new BaseStats();
-                foreach (var pair in effect.Stats) stats[pair.Key] = pair.Value;
-            }
-            if (effect.TargetStatRatios?.Count > 0)
-            {
-                // 未指定固定表时保留模板标记，比例项替换模板同名值；明确固定值则与比例相加。
-                stats ??= (BaseStats)effect.Asset.stats.Clone();
-                foreach (var pair in effect.TargetStatRatios)
-                {
-                    float fixedValue = effect.Stats != null && effect.Stats.TryGetValue(pair.Key, out float value) ? value : 0f;
-                    stats[pair.Key] = fixedValue + Mathf.Max(0f, target.stats[pair.Key]) * pair.Value;
-                }
-                // 空属性不能吞掉同一声明的周期作用；明确刷新还需能清除原来的值。
-                if (!stats.hasStats() && !stats.hasTags() && effect.Tick == null &&
-                    (effect.Application != ConstructionStatusApplication.Refresh ||
-                     !CombatStatusEffects.TryGetStatus(target, effect.Asset, null, out _))) continue;
-            }
-            if (effect.Application == ConstructionStatusApplication.Strongest)
-            {
-                bool applied = CombatStatusEffects.ApplyStrongestStatus(target, effect.Asset, effect.Duration, effect.Potency, owner.Actor, stats);
-                if (effect.WaitForDuration && applied && CombatStatusEffects.TryGetStatus(target, effect.Asset, null, out var strongest))
-                    target.makeWait(strongest.GetComponent<Core.Components.AliveTimeLimit>().value);
-                continue;
-            }
-            float tickValue = effect.Tick == null ? 0f : (forceBasis ?? (node < 0 ? running.Power : running.Cast.RemainingForce(node))) * attenuation * effect.Tick.ForcePerSecond;
-            if (effect.Tick != null && tickValue <= 0f) continue;
-            var status = CombatStatusEffects.ApplyStatusDeclaration(target, effect, owner.Actor,
-                owner.Damage.AttackerPowerLevel ?? 0f, stats, tickValue);
-            if (effect.WaitForDuration && !status.IsNull) target.makeWait(status.GetComponent<Core.Components.AliveTimeLimit>().value);
+            stats = new BaseStats();
+            foreach (var pair in effect.Stats) stats[pair.Key] = pair.Value;
         }
+        if (effect.TargetStatRatios?.Count > 0)
+        {
+            // 未指定固定表时保留模板标记，明确固定值则与比例相加。
+            stats ??= (BaseStats)effect.Asset.stats.Clone();
+            foreach (var pair in effect.TargetStatRatios)
+            {
+                float fixedValue = effect.Stats != null && effect.Stats.TryGetValue(pair.Key, out float value) ? value : 0f;
+                stats[pair.Key] = fixedValue + Mathf.Max(0f, target.stats[pair.Key]) * pair.Value;
+            }
+            if (!stats.hasStats() && !stats.hasTags() && effect.Tick == null &&
+                (effect.Application != ConstructionStatusApplication.Refresh ||
+                 !CombatStatusEffects.TryGetStatus(target, effect.Asset, null, out _))) return default;
+        }
+
+        Entity status;
+        if (effect.Application == ConstructionStatusApplication.Strongest)
+        {
+            if (!CombatStatusEffects.ApplyStrongestStatus(target, effect.Asset, effect.Duration, effect.Potency, owner.Actor, stats) ||
+                !CombatStatusEffects.TryGetStatus(target, effect.Asset, null, out status)) return default;
+        }
+        else
+        {
+            float tickValue = effect.Tick == null ? 0f : forceBasis * attenuation * effect.Tick.ForcePerSecond;
+            if (effect.Tick != null && tickValue <= 0f) return default;
+            status = CombatStatusEffects.ApplyStatusDeclaration(target, effect, owner.Actor,
+                owner.Damage.AttackerPowerLevel ?? 0f, stats, tickValue);
+        }
+        if (effect.WaitForDuration && !status.IsNull) target.makeWait(status.GetComponent<Core.Components.AliveTimeLimit>().value);
+        return status;
     }
 
     /// <summary>直接接触和真实水路等传播都从这一入口应用目标响应。</summary>
@@ -1436,8 +1510,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             return new ConstructedTargetResponse(targetId, conditional.VelocityChange, conditional.ForceApplied, 0f, 0f, additionalDamage: additionalDamage, damage: settled);
         ApplyContactReactions(target, impact, running.Owner(node), result, out float stagger, out float bound,
             out float strain, out float exposure);
-        Vector3 velocity = ApplyContactForce(running, node, target, impact, result, out bool force, origin,
-            priorVelocity, forceReceiver, strength);
+        bool force = false;
+        Vector3 velocity = impact.ForceAfterDamage ? Vector3.zero :
+            ApplyContactForce(running, node, target, impact, result, out force, origin, priorVelocity, forceReceiver, strength);
         velocity += ApplyContactKnockback(running, node, target, impact.Knockback, result, out bool knocked, origin, strength);
         velocity += conditional.VelocityChange;
         force |= knocked || conditional.ForceApplied;
@@ -1892,7 +1967,21 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 order = (b.Building != null).CompareTo(a.Building != null);
                 return order != 0 ? order : a.BuildingId.CompareTo(b.BuildingId);
             }
-            return a.Right.HasValue ? CompareShape(a.Right.Value, b.Right.Value) : a.Actor.Id.CompareTo(b.Actor.Id);
+            if (a.Right.HasValue) return CompareShape(a.Right.Value, b.Right.Value);
+            int node = a.Left.To.Node;
+            if (node >= 0 && a.Actor.Id != 0 && b.Actor.Id != 0 &&
+                a.Left.Running.Cast.Plan.Nodes[node].PreferWoundedAllies)
+            {
+                long source = a.Left.Running.Owner(node).Id;
+                order = (b.Actor.Id == source).CompareTo(a.Actor.Id == source);
+                if (order != 0) return order;
+                order = a.Actor.Actor.getHealthRatio().CompareTo(b.Actor.Actor.getHealthRatio());
+                if (order != 0) return order;
+                Vector2 center = Vector2.Lerp(a.Left.From.A, a.Left.To.A, a.Fraction);
+                order = ((Vector2)a.Point - center).sqrMagnitude.CompareTo(((Vector2)b.Point - center).sqrMagnitude);
+                if (order != 0) return order;
+            }
+            return a.Actor.Id.CompareTo(b.Actor.Id);
         }
 
         /// <summary>形体双方均使用来源、构造、施放和部位的稳定顺序，不受查询插入顺序影响。</summary>

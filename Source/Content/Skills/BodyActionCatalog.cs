@@ -24,13 +24,116 @@ public static class BodyActionCatalog
     /// <summary>已经读取的基础动作资料。</summary>
     private static AbilityDefinition[] all;
 
+    /// <summary>旧规则生成以及已有创法请求使用的掌击底稿。</summary>
+    private static AbilityDefinition historicalPalm;
+
+    /// <summary>破甲突刺的原出手与万法阁共用制作资料。</summary>
+    private static AbilityDefinition knightArmorPiercingThrust;
+
+    /// <summary>借用实际枪身并以枪尖触达的骑士动作。</summary>
+    internal static AbilityDefinition KnightArmorPiercingThrust =>
+        knightArmorPiercingThrust ??= Load("knight-armor-piercing-thrust");
+
+    private static AbilityDefinition knightFormationCharge;
+    private static AbilityDefinition knightSkyfallStrike;
+
+    /// <summary>枪骑锁定直线目标后，沿共同步法用实际枪尖破阵。</summary>
+    internal static AbilityDefinition KnightFormationCharge =>
+        knightFormationCharge ??= Load("knight-formation-charge");
+
+    /// <summary>实际腾起、落点及主次作用使用共用身体构造。</summary>
+    internal static AbilityDefinition KnightSkyfallStrike =>
+        knightSkyfallStrike ??= Load("knight-skyfall-strike");
+
+    /// <summary>蓄势重击的制作资料。</summary>
+    private static AbilityDefinition knightCommittedStrike;
+
+    /// <summary>传奇连斩的制作资料。</summary>
+    private static AbilityDefinition knightLegendaryFlurry;
+
+    /// <summary>借用实际剑刃的一次重击。</summary>
+    internal static AbilityDefinition KnightCommittedStrike =>
+        knightCommittedStrike ??= Load("knight-committed-strike");
+
+    /// <summary>借用同一把剑连续完成三段真实接触。</summary>
+    internal static AbilityDefinition KnightLegendaryFlurry =>
+        knightLegendaryFlurry ??= Load("knight-legendary-flurry");
+
+    private static AbilityDefinition knightGuard, knightAxeGuard, knightGuardResponse, knightAxeGuardResponse;
+    private static AbilityDefinition knightCounter, knightCounterRiposte;
+    private static AbilityDefinition knightRepulse, knightAxeRepulse;
+    private static AbilityDefinition knightBulwark, knightAxeBulwark;
+
+    /// <summary>格挡架势的共用锤柄动作。</summary>
+    internal static AbilityDefinition KnightGuard => knightGuard ??= Load("knight-guard-stance");
+
+    /// <summary>按守卫当前装备选择真实战斧或锤。</summary>
+    /// <param name="weaponGroup">当前装备所属兵器类型。</param>
+    internal static AbilityDefinition KnightGuardFor(string weaponGroup) => weaponGroup == "axe"
+        ? knightAxeGuard ??= WithWarAxe(KnightGuard) : KnightGuard;
+
+    /// <summary>格挡确实承力时复用对应握持。此段不再次建立架势。</summary>
+    /// <param name="weaponGroup">触发时仍持有的实际武器类型。</param>
+    internal static AbilityDefinition KnightGuardResponseFor(string weaponGroup) => weaponGroup == "axe"
+        ? knightAxeGuardResponse ??= GuardResponse(KnightGuardFor(weaponGroup))
+        : knightGuardResponse ??= GuardResponse(KnightGuard);
+
+    /// <summary>剑刃架势起手。</summary>
+    internal static AbilityDefinition KnightCounter => knightCounter ??= Load("knight-counter-stance");
+
+    /// <summary>收到真实武器伤害后执行的独立回锋。</summary>
+    internal static AbilityDefinition KnightCounterRiposte =>
+        knightCounterRiposte ??= Load("knight-counter-riposte");
+
+    /// <summary>落锤与斧扫使用同一地面作用面和原斗气条件。</summary>
+    internal static AbilityDefinition KnightRepulseFor(string weaponGroup) => weaponGroup == "axe"
+        ? knightAxeRepulse ??= AxeRepulse()
+        : knightRepulse ??= Load("knight-repulse");
+
+    /// <summary>按实际装备选择同一守护过程的斧、锤握持。</summary>
+    internal static AbilityDefinition KnightBulwarkFor(string weaponGroup) => weaponGroup == "axe"
+        ? knightAxeBulwark ??= WithWarAxe(KnightBulwarkFor("hammer"))
+        : knightBulwark ??= Load("knight-guardian-bulwark");
+
+    /// <summary>斧的横扫与锤的下落共用接触时点、半径和作用。</summary>
+    private static AbilityDefinition AxeRepulse()
+    {
+        var result = ConstructionEditing.Copy(KnightRepulseFor("hammer"));
+        result.Id += ".Axe";
+        result.Name += "·斧";
+        result.Body = JsonConvert.DeserializeObject<BodyActionDefinition>(ReadBodyFile("knight-repulse-axe-motion"));
+        return result;
+    }
+
+    /// <summary>使用相同手路时，由斧的制作资料提供自身的握点。</summary>
+    private static AbilityDefinition WithWarAxe(AbilityDefinition basis)
+    {
+        var result = ConstructionEditing.Copy(basis);
+        result.Id += ".Axe";
+        result.Name += "·斧";
+        result.Body.WeaponForm = "war_axe";
+        return result;
+    }
+
+    /// <summary>格挡确认后用同一件器物承力和收回，起势状态先由真实受击消耗。</summary>
+    /// <param name="stance">用于当前武器的原握持动作。</param>
+    private static AbilityDefinition GuardResponse(AbilityDefinition stance)
+    {
+        var response = ConstructionEditing.Copy(stance);
+        response.Id += ".Response";
+        response.Use.SelfStatus = null;
+        response.Resource = "none";
+        response.Cost = response.Cooldown = 0f;
+        return response;
+    }
+
     /// <summary>读取制作资料，不在每次出手时解释文件。</summary>
     internal static AbilityDefinition[] All => all ??= LoadAll();
 
     /// <summary>新动作放在原目录末尾，已冻结的创作输入保持顺序。</summary>
     private static AbilityDefinition[] LoadAll()
     {
-        AbilityDefinition palm = Load("palm-strike");
+        AbilityDefinition palm = Load("palm-strike-motion");
         AbilityDefinition guard = CreateFrom(palm, GuardId, "架掌",
             new BodyActionRequest
             {
@@ -50,7 +153,10 @@ public static class BodyActionCatalog
             shortCut, StoneSword(shortCut), shortSweep, StoneSword(shortSweep), Load("long-spear-thrust"), Load("long-spear-sweep"),
             Load("long-spear-deflect"), Load("heavy-hammer-drop"), Load("shield-guard"), Load("palm-yield"),
             Load("angled-retreat"), Load("charging-shoulder"), Load("bounding-step"),
-            Load("turning-throw"), Load("pressing-throw"), Load("beast-tail-sweep"), Load("beast-wing-cut") };
+            Load("turning-throw"), Load("pressing-throw"), Load("beast-tail-sweep"), Load("beast-wing-cut"),
+            KnightArmorPiercingThrust, KnightCommittedStrike, KnightLegendaryFlurry, KnightGuard,
+            KnightGuardFor("axe"), KnightCounter, KnightRepulseFor("hammer"), KnightRepulseFor("axe"),
+            KnightBulwarkFor("hammer"), KnightBulwarkFor("axe"), KnightFormationCharge, KnightSkyfallStrike };
     }
 
     /// <summary>保留完整手路及发力，石剑版本以本身的握点及刃口执行。</summary>
@@ -123,9 +229,11 @@ public static class BodyActionCatalog
     /// <summary>原地直掌的完整资料。</summary>
     public static AbilityDefinition Palm => All[0];
 
-    /// <summary>徒手战斗的制作姿态，不覆盖原可学习的构造及派生底稿。</summary>
-    internal static AbilityDefinition PalmExecution => palmExecution ??= Load("palm-strike-motion");
-    private static AbilityDefinition palmExecution;
+    /// <summary>延续最早两种创法底稿及其抽取顺序，保证旧请求可按原规则重现。</summary>
+    /// <param name="index">旧规则在直掌和横扫中选取的位置。</param>
+    internal static AbilityDefinition HistoricalCreationBase(int index) => index == 0
+        ? historicalPalm ??= Load("palm-strike")
+        : All[index];
 
     /// <summary>由共用动作创建可正式学习、自由编辑和保存的构造，不增加固定技能登记。</summary>
     /// <param name="id">新构造的稳定编号。</param><param name="name">显示名称。</param>
@@ -152,6 +260,9 @@ public static class BodyActionCatalog
     /// <summary>从内容目录读取一个已制作的动作。</summary>
     /// <param name="name">资料文件名。</param>
     private static AbilityDefinition Load(string name) => JsonConvert.DeserializeObject<AbilityDefinition>(
-        File.ReadAllText(
-            Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content/Skills/Body", name + ".json")));
+        ReadBodyFile(name));
+
+    /// <summary>读取本目录的完整资料或单个器物的替换动作。</summary>
+    private static string ReadBodyFile(string name) => File.ReadAllText(
+        Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content/Skills/Body", name + ".json"));
 }

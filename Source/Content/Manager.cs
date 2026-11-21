@@ -127,7 +127,6 @@ internal class Manager
         ActiveAbilityService.Register(new YuanshenBodyRecoveryActiveAbilityProvider());
         ActiveAbilityService.Register(new YuanshenAdvancedActiveAbilityProvider());
         ModClass.I.GeneralLogicSystems.Add(new CoreFormationEffectSystem());
-        ModClass.I.GeneralLogicSystems.Add(new KnightTechniqueMovementSystem());
         ModClass.I.GeneralLogicSystems.Add(new KnightTechniqueStatusSystem());
         ModClass.I.GeneralRenderSystems.Add(new BreakthroughVisualSystem());
         ModClass.I.GeneralRenderSystems.Add(new CloudRenderSystem());

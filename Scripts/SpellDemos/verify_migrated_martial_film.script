@@ -1,0 +1,233 @@
+    const float origin = 64.35f, lane = 72f;
+    var access = ConstructionEditing.Access;
+    var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+    float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { source });
+    var moves = new[]
+    {
+        (key: "palm", asset: KnightTechniques.ArmorPiercingThrust, item: "", range: height * .4f, hits: 1),
+        (key: "thrust", asset: KnightTechniques.ArmorPiercingThrust, item: "spear_iron", range: height * 2.02f, hits: 1),
+        (key: "committed", asset: KnightTechniques.CommittedStrike, item: "sword_iron", range: height * 1.17f, hits: 1),
+        (key: "guard", asset: KnightTechniques.GuardStance, item: "hammer_iron", range: .936f, hits: 0),
+        (key: "counter", asset: KnightTechniques.CounterStance, item: "sword_iron", range: .936f, hits: 1),
+        (key: "flurry", asset: KnightTechniques.LegendaryFlurry, item: "sword_iron", range: height * 1.17f, hits: 3),
+        (key: "repulse", asset: KnightTechniques.Repulse, item: "hammer_iron", range: 2.1f, hits: 1),
+        (key: "bulwark", asset: KnightTechniques.GuardianBulwark, item: "hammer_iron", range: .92f, hits: 0),
+        (key: "charge", asset: KnightTechniques.FormationCharge, item: "spear_iron", range: 5.3f, hits: 1),
+        (key: "skyfall", asset: KnightTechniques.SkyfallStrike, item: "spear_iron", range: 6f, hits: 2)
+    };
+    owner.AddComponent(new Knight { level = 7, vigor = 800f });
+    var supply = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.DuelistVigor") ??
+        Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.DuelistVigor")
+            .SetStats(new BaseStats { [BaseStatses.MaxVigor.id] = 1000f }).SetDuration(10000).Build();
+    CombatStatusEffects.ApplyStatus(source, supply, 10000, source);
+    foreach (var style in new[] { KnightStyles.Lancer, KnightStyles.Duelist, KnightStyles.Guardian })
+    {
+        KnightStyleMasteryService.Master(owner, style);
+        KnightTechniqueSkills.LearnStyle(owner, style);
+    }
+    var handles = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, handles);
+    var secondary = Make(68f);
+    var extra = Make(68f);
+    foreach (Actor actor in new[] { secondary, extra })
+    {
+        CombatStatusEffects.RemoveStatus(actor, hold);
+        CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+        actor.updateStats();
+    }
+    source.attack_timer = 999f;
+    await Advance(.18f);
+
+    var starts = new List<ConstructedCastStarted>();
+    var damage = new List<ConstructedQueuedDamage>();
+    void Started(ConstructedCastStarted fact)
+    {
+        if (fact.SourceId == source.id) starts.Add(fact);
+    }
+    void Settled(ConstructedQueuedDamage fact)
+    {
+        if (fact.SourceId == source.id) damage.Add(fact);
+    }
+    void AimCamera(float distance, bool wide)
+    {
+        shotZoom = wide ? 3.3f : distance >= 2f ? 2.35f : 1.8f;
+        if (threeDimensional)
+        {
+            float close = wide ? 3.9f : distance >= 2f ? 3.4f : 2.15f;
+            Set("_godLock", source);
+            Set("_godFollow", source.current_position);
+            Set("_godFollowVel", Vector2.zero);
+            Set("_godClose", close);
+            Set("_godCloseTarget", close);
+        }
+        else
+        {
+            shotPosition = new Vector3(origin + distance * .48f, lane + .44f, camera.transform.position.z);
+            camera.transform.position = shotPosition;
+            MoveCamera.instance.forceZoom(shotZoom);
+        }
+    }
+    void Opponent(Actor actor, float x, float y = lane)
+    {
+        actor.setKingdom(target.kingdom);
+        actor.addAggro(source);
+        source.addAggro(actor);
+        Place(actor, x, y);
+        actor.setHealth(actor.getMaxHealth());
+    }
+
+    ConstructedAbilityService.CastStarted += Started;
+    ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+    try
+    {
+        foreach (var move in moves.Where(move => selectedMoves.Length == 0 || selectedMoves.Contains(move.key)))
+        {
+            bool palm = move.key == "palm", guard = move.key == "guard", counter = move.key == "counter",
+                charge = move.key == "charge", skyfall = move.key == "skyfall", bulwark = move.key == "bulwark";
+            string ability = palm ? BodyActionCatalog.PalmId : move.asset.id;
+            var definition = access.Read(ability);
+            var handle = palm ? new ActiveAbilityHandle("content.palm_strike", owner.E) : handles.Single(value =>
+                value.ProviderId == "content.knight_techniques" && value.EntryId == move.asset.id);
+            Item weapon = palm ? null : source.getWeapon()?.getAsset().id == move.item ? source.getWeapon() : Equip(source, move.item);
+            if (guard || counter)
+            {
+                if (!target.hasWeapon()) Equip(target, "sword_iron");
+            }
+            Place(source, origin);
+            Opponent(target, origin + move.range, bulwark ? lane - .55f : lane);
+            Place(secondary, 50f);
+            Place(extra, 51f);
+            if (charge)
+            {
+                Opponent(secondary, 67.45f);
+                Opponent(extra, 67.5f, 72.74f);
+            }
+            if (skyfall) Opponent(secondary, origin + move.range, lane + 1.45f);
+            if (bulwark)
+            {
+                secondary.setKingdom(source.kingdom);
+                secondary.setHealth(secondary.getMaxHealth() / 2);
+                Place(secondary, origin + 1.5f, lane + .85f);
+            }
+            if (palm || move.key == "flurry") CombatStatusEffects.ApplyStatus(target, hold, 10000, target);
+            else CombatStatusEffects.RemoveStatus(target, hold);
+            target.setStatsDirty();
+            target.updateStats();
+            foreach (string status in new[] { "KnightArmorBreak", "Stagger" })
+            {
+                var effect = Cultiway.ModClass.L.StatusEffectLibrary.get(status);
+                foreach (Actor actor in new[] { source, target, secondary, extra }) CombatStatusEffects.RemoveStatus(actor, effect);
+            }
+            source.setHealth(source.getMaxHealth());
+            source.lookTowardsPosition(target.current_position);
+            target.lookTowardsPosition(source.current_position);
+            source.attack_timer = target.attack_timer = 999;
+            AimCamera(move.range, charge || skyfall);
+            if (threeDimensional)
+            {
+                int frame = (int)Field(mod, "_godGpuApplied");
+                await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= frame + 3, 1800);
+            }
+            else await Game.NextFrame();
+
+            int first = rows.Count;
+            Frame(ability);
+            await Advance(.11f);
+            Place(source, origin);
+            if (palm) Place(target, origin + move.range);
+            await Game.NextFrame();
+            Frame(ability);
+            starts.Clear();
+            contacts.Clear();
+            endings.Clear();
+            damage.Clear();
+            owner.GetCultisys<Knight>().vigor = 800f;
+            double cost = palm ? 0d : SkillCastResources.Vigor.Quote(owner, SkillCastCost.CalculateStepDemand(handle.Source) *
+                Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, handle.Source)));
+            source.attack_timer = 0f;
+            Actor chosen = definition.Use?.Target == ActiveAbilityTargetMode.Self ? source : target;
+            var aim = new ActiveAbilityTarget(chosen, chosen.GetSimPos());
+            var control = ActiveAbilityService.ResolveControlState(owner, handle);
+            bool admissible = ActiveAbilityService.CanUse(owner, handle, aim);
+            bool used = ActiveAbilityService.TryUse(owner, handle, aim, ActiveAbilityUseOrigin.Script);
+            Check(used && starts.Count == 1 && starts[0].AbilityId == ability &&
+                  Math.Abs(800f - owner.GetCultisys<Knight>().vigor - cost) < .001,
+                definition.Name + " 经原入口受理并支付原费用",
+                new { used, cost, admissible, block = control.BlockReason.ToString(), source.under_forces,
+                    held = source.getWeaponAsset()?.id, actual = starts.Select(fact => fact.AbilityId).ToArray() });
+            source.attack_timer = 999f;
+            long cast = starts[0].CastId;
+            double startTime = World.world.getCurWorldTime();
+            float trigger = guard ? .055f : .19f;
+            int? received = null;
+            float peak = 0f;
+            double duration = Math.Max(.82f, definition.Lifetime + .3f);
+            while (World.world.getCurWorldTime() - startTime < duration)
+            {
+                double age = World.world.getCurWorldTime() - startTime;
+                float step = (guard || counter) && received == null
+                    ? Mathf.Min(1f / 30f, Mathf.Max(.001f, trigger - (float)age)) : 1f / 30f;
+                await Advance(step);
+                if ((guard || counter) && received == null && World.world.getCurWorldTime() - startTime >= trigger)
+                {
+                    var hit = new GetHitEvent
+                    {
+                        TargetID = source.id, Damage = 100f, AttackType = AttackType.Weapon, IgnoreDamageReduction = true
+                    };
+                    hit.BindAttacker(target);
+                    var result = (DamageSettlement)typeof(GetHitEventSystem).GetMethod("Resolve", F).Invoke(null, new object[] { hit });
+                    received = result.HealthLost;
+                }
+                peak = Math.Max(peak, source.position_height);
+                await Game.NextFrame();
+                Frame(ability);
+            }
+
+            string reaction = ability + (counter ? ".Riposte" : ".Response");
+            var relevant = damage.Where(fact => fact.CastId == cast || counter && fact.AbilityId == reaction).ToArray();
+            bool acted = relevant.Length == move.hits && relevant.All(fact => fact.Damage.HealthLost > 0);
+            if (guard || counter)
+                acted &= received == (guard ? 55 : 50) && starts.Count(fact => fact.AbilityId == reaction &&
+                    fact.Origin == ActiveAbilityUseOrigin.Reaction) == 1;
+            if (bulwark)
+            {
+                var protect = Cultiway.ModClass.L.StatusEffectLibrary.get("KnightGuardianBulwark");
+                acted &= CombatStatusEffects.HasStatus(source, protect, source) &&
+                         CombatStatusEffects.HasStatus(secondary, protect, source);
+                CombatStatusEffects.RemoveStatus(source, protect);
+                CombatStatusEffects.RemoveStatus(secondary, protect);
+            }
+            if (charge) acted &= relevant.Any(fact => fact.TargetId == secondary.id) && source.current_position.x > origin + .8f;
+            if (skyfall) acted &= peak > 2f && relevant.Any(fact => fact.TargetId == target.id) &&
+                                 relevant.Any(fact => fact.TargetId == secondary.id) && source.position_height < .03f;
+            bool ended = endings.Any(end => end.Fact.CastId == cast && (guard || !end.Fact.Cancelled));
+            if (guard || counter)
+                ended &= starts.Any(start => start.AbilityId == reaction &&
+                    endings.Any(end => end.Fact.CastId == start.CastId && !end.Fact.Cancelled));
+            Check(acted && ended &&
+                  !BodyControlState.IsBusy(source.id) && ReferenceEquals(source.getWeapon(), weapon),
+                definition.Name + " 实际作用与收势完整", new
+                {
+                    received, peak, hits = relevant.Select(fact => new { fact.TargetId, fact.Damage.HealthLost }),
+                    reaction = starts.Select(fact => fact.AbilityId), position = source.current_position.x,
+                    targetX = target.current_position.x, targetY = target.current_position.y,
+                    contacts = contacts.Where(fact => fact.CastId == cast).Select(fact => new { fact.Age, fact.TargetId, fact.Result }),
+                    ended,
+                    stillBusy = BodyControlState.IsBusy(source.id)
+                });
+            recordings.Add(new { view, key = move.key, ability, name = palm ? "原地掌击" : definition.Name,
+                rate = 1, first, last = rows.Count - 1, contacts = guard ? 1 : bulwark ? 2 : relevant.Length,
+                duration = World.world.getCurWorldTime() - startTime, paid = cost });
+            SaveRecording();
+        }
+        Check(recordings.Count == (selectedMoves.Length == 0 ? moves.Length : selectedMoves.Distinct().Count()),
+            "所选原战技均有连续实录和对应作用记录");
+        return new { passed = true, view, frames = rows.Count, cases = recordings.Count };
+    }
+    finally
+    {
+        ConstructedAbilityService.CastStarted -= Started;
+        ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+        ControllableUnit.clear(false);
+    }
+}

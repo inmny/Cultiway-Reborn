@@ -107,7 +107,6 @@ public sealed class KnightTechniqueSkills : ICanInit
 
         KnightWeaponStrikeResolver.Init();
         KnightTechniqueStatusBridge.Init();
-        KnightTechniqueVisuals.Init();
         ActiveAbilityService.Register(new KnightTechniqueAbilityProvider());
         ProgressionLifecycle.RegisterCommitted(OnProgressionCommitted);
         PatchMapBox.RegisterActionOnClearWorld(ClearWorldState);
@@ -204,7 +203,5 @@ public sealed class KnightTechniqueSkills : ICanInit
         Containers.Clear();
         KnightWeaponStrikeResolver.ClearWorldState();
         KnightTechniqueStatusBridge.ClearWorldState();
-        KnightTechniqueVisuals.ClearWorldState();
-        KnightTechniqueRuntimeService.ClearWorldState();
     }
 }

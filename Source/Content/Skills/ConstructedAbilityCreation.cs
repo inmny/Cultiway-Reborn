@@ -24,7 +24,10 @@ public enum ConstructionCreationOrigin
     Breakthrough,
 
     /// <summary>指定输入的开发调用。</summary>
-    Script
+    Script,
+
+    /// <summary>以实际兵器成功施展已经掌握的原战技。</summary>
+    KnightPractice
 }
 
 /// <summary>随人物保存的创法等待及未完成请求，不保存人物对象或编译缓存。</summary>
@@ -84,7 +87,7 @@ public sealed partial class ConstructedAbilityService
     {
         ProgressionLifecycle.RegisterCommitted(OnCreationProgression);
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, CreationSave>("ability_creation", "创法机会与请求",
-            36,
+            37,
             actor => actor.E.TryGetComponent(out ConstructedCreationState state)
                 ? new CreationSave
                 {
@@ -149,13 +152,17 @@ public sealed partial class ConstructedAbilityService
                     foreach (AbilityDefinition body in data.Resources.Bodies) ValidateDefinition(body, cache: false);
                     if (data.Resources.MartialBody != null) ValidateDefinition(data.Resources.MartialBody, cache: false);
                 }
-            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3(), new CreationV3ToV4(), new CreationV4ToV5(), new CreationV5ToV6(), new CreationV6ToV7(), new CreationV7ToV8(), new CreationV8ToV9(), new CreationV9ToV10(), new CreationV10ToV11(), new CreationV11ToV12(), new CreationV12ToV13(), new CreationV13ToV14(), new CreationV14ToV15(), new CreationV15ToV16(), new CreationV16ToV17(), new CreationV17ToV18(), new CreationV18ToV19(), new CreationV19ToV20(), new CreationV20ToV21(), new CreationV21ToV22(), new CreationV22ToV23(), new CreationV23ToV24(), new CreationV24ToV25(), new CreationV25ToV26(), new CreationV26ToV27(), new CreationV27ToV28(), new CreationV28ToV29(), new CreationV29ToV30(), new CreationV30ToV31(), new CreationV31ToV32(), new CreationV32ToV33(), new CreationV33ToV34(), new CreationV34ToV35(), new CreationV35ToV36() }));
+            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3(), new CreationV3ToV4(), new CreationV4ToV5(), new CreationV5ToV6(), new CreationV6ToV7(), new CreationV7ToV8(), new CreationV8ToV9(), new CreationV9ToV10(), new CreationV10ToV11(), new CreationV11ToV12(), new CreationV12ToV13(), new CreationV13ToV14(), new CreationV14ToV15(), new CreationV15ToV16(), new CreationV16ToV17(), new CreationV17ToV18(), new CreationV18ToV19(), new CreationV19ToV20(), new CreationV20ToV21(), new CreationV21ToV22(), new CreationV22ToV23(), new CreationV23ToV24(), new CreationV24ToV25(), new CreationV25ToV26(), new CreationV26ToV27(), new CreationV27ToV28(), new CreationV28ToV29(), new CreationV29ToV30(), new CreationV30ToV31(), new CreationV31ToV32(), new CreationV32ToV33(), new CreationV33ToV34(), new CreationV34ToV35(), new CreationV35ToV36(), new CreationV36ToV37() }));
         InitializeInspiration();
     }
 
     /// <summary>成功修炼只检查本人物；一个世界月内的多次行为不会重复抽取机会。</summary>
     /// <param name="actor">真正完成修炼的生灵。</param>
     internal static void NotifyCultivation(ActorExtend actor) => OfferCreation(actor, false);
+
+    /// <summary>从本次真正施展的原招中获得一次变式创作机会。</summary>
+    internal static void NotifyKnightPractice(ActorExtend actor, AbilityDefinition practiced) =>
+        OfferCreation(actor, false, practiced);
 
     /// <summary>自然突破完成后提供额外机会；直接授予等级不重复生成能力。</summary>
     /// <param name="evt">已经提交的真实进阶。</param>
@@ -168,10 +175,11 @@ public sealed partial class ConstructedAbilityService
     /// <summary>先确认生灵与容量，再记录机会及种子；受理只入队，不在活动调用栈编译构造。</summary>
     /// <param name="actor">当前实际修士。</param>
     /// <param name="breakthrough">是否为已经提交的自然突破。</param>
-    private static void OfferCreation(ActorExtend actor, bool breakthrough)
+    private static void OfferCreation(ActorExtend actor, bool breakthrough, AbilityDefinition practiced = null)
     {
         if (!GeneralSettings.EnableSkillSystems || !CanCreate(actor) ||
-            !(actor.HasCultisys<Xian>() && actor.GetCultisys<Xian>().level >= 2 || actor.HasCultisys<Yao>() && actor.GetCultisys<Yao>().CurrLevel >= 2)) return;
+            practiced == null && !(actor.HasCultisys<Xian>() && actor.GetCultisys<Xian>().level >= 2 ||
+                                    actor.HasCultisys<Yao>() && actor.GetCultisys<Yao>().CurrLevel >= 2)) return;
         actor.E.TryGetComponent(out ConstructedCreationState state);
         if (state.Pending || !breakthrough && LogicTime < state.NextOpportunity ||
             state.Sequence == int.MaxValue) return;
@@ -183,11 +191,12 @@ public sealed partial class ConstructedAbilityService
         if (random.NextDouble() < (breakthrough ? .25d : .015d))
         {
             state.Seed = random.Next();
-            state.Origin = breakthrough
-                ? ConstructionCreationOrigin.Breakthrough
-                : ConstructionCreationOrigin.Cultivation;
-            ConstructionInspiration inspiration = ReadInspiration(actor);
-            AbilityDefinition source = CaptureCreationSource(actor, state.Seed, null);
+            state.Origin = practiced != null ? ConstructionCreationOrigin.KnightPractice : breakthrough
+                ? ConstructionCreationOrigin.Breakthrough : ConstructionCreationOrigin.Cultivation;
+            ConstructionInspiration inspiration = ReadInspirationForRules(actor, practiced == null
+                ? ConstructionPricing.MartialStudyRules : ConstructionPricing.KnightStudyRules);
+            AbilityDefinition source = practiced != null
+                ? ConstructionEditing.Copy(practiced) : CaptureCreationSource(actor, state.Seed, null);
             SynthesisResources resources = inspiration.Rules >= 7 || source == null ? CaptureCreationResources(actor, state.Seed, inspiration) : null;
             state.Pending = EnqueueCreation(actor.Base.id);
             if (state.Pending)

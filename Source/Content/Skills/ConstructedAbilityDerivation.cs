@@ -6,6 +6,7 @@ using Cultiway.Core;
 using Cultiway.Core.Persistence;
 using Cultiway.Core.Skills;
 using Newtonsoft.Json.Linq;
+using Mathf = UnityEngine.Mathf;
 
 namespace Cultiway.Content.Skills;
 
@@ -45,6 +46,15 @@ public sealed partial class ConstructedAbilityService
         CompiledAbility plan = ValidateDefinition(source, cache: false);
         AbilityDefinition draft = ConstructionEditing.Copy(source);
         var random = new Random(seed);
+        if (inspiration.Rules == ConstructionPricing.KnightStudyRules && plan.Body?.WeaponForm != null)
+        {
+            float restRoll = draft.Body.Keys[0].Rotation[2];
+            float scale = .62f + .16f * (float)random.NextDouble();
+            foreach (BodyMotionKey key in draft.Body.Keys)
+                key.Rotation[2] = restRoll + Mathf.DeltaAngle(restRoll, key.Rotation[2]) * scale;
+            return FinishDerivation(actor, source, draft, seed, inspiration, "收腕");
+        }
+
         var choices = new List<(string Name, Func<AbilityDefinition> Apply)>();
         if (inspiration.Rules >= ConstructionPricing.PropagationRules) AddPropagationChoices(draft, plan, random, choices);
         if (inspiration.Rules >= ConstructionPricing.ApplicationRules) AddApplicationChoices(draft, plan, resources, random, choices);
@@ -222,7 +232,14 @@ public sealed partial class ConstructedAbilityService
             }
         if (choices.Count == 0) throw new InvalidDataException("原术当前没有已实现的可用结构改造");
         var selected = choices[random.Next(choices.Count)];
-        AbilityDefinition result = ConstructionDefinitionLayers.FromSource(source, selected.Apply());
+        return FinishDerivation(actor, source, selected.Apply(), seed, inspiration, selected.Name);
+    }
+
+    /// <summary>保存独立结果、实际费用和来源，旧请求继续使用原计费版本。</summary>
+    private static AbilityDefinition FinishDerivation(ActorExtend actor, AbilityDefinition source, AbilityDefinition changed,
+        int seed, ConstructionInspiration inspiration, string change)
+    {
+        AbilityDefinition result = ConstructionDefinitionLayers.FromSource(source, changed);
         if (inspiration.Rules >= 3)
             ConstructionPricing.Reprice(source, result, cost: result.Resource == source.Resource && result.Cost == source.Cost, cooldown: result.Cooldown == source.Cooldown, contactRules: inspiration.Rules);
         result.Id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
@@ -235,7 +252,7 @@ public sealed partial class ConstructedAbilityService
             Id = source.Id,
             Revision = source.Revision,
             Creator = source.Creator,
-            Change = selected.Name
+            Change = change
         };
         ValidateDefinition(result, cache: false);
         return result;

@@ -52,15 +52,16 @@ public sealed partial class ConstructedAbilityService
     /// <param name="time">接触共同世界时点。</param><param name="strength">本次接触的实际余力倍率。</param>
     /// <param name="allowMedium">是否允许后续介质分送。</param>
     /// <param name="groundPlane">是否按原派生的平面距离确认人物，并用贴地圆面显示。</param>
+    /// <param name="afterDamage">本体已经实际扣血时只执行该时点的分送。</param>
     private static void ApplyContactSpreads(RunningCast running, int node, long contactId, CompiledConstructionImpact impact,
-        Vector3 center, double time, float strength = 1f, bool allowMedium = true, bool groundPlane = false)
+        Vector3 center, double time, float strength = 1f, bool allowMedium = true, bool groundPlane = false, bool afterDamage = false)
     {
-        if (impact.Spreads.Count == 0 || strength <= 0f || running.Cast.Finished) return;
+        if (impact.Spreads.Count == 0 || strength <= 0f || !afterDamage && running.Cast.Finished) return;
         long generation = worldGeneration;
         for (int index = 0; index < impact.Spreads.Count; index++)
         {
             var spread = impact.Spreads[index];
-            if (!spread.HasEffect) continue;
+            if (!spread.HasEffect || spread.AfterDamage != afterDamage) continue;
             if (spread.Medium != null)
             {
                 if (allowMedium) ApplyMediumSpread(running, node, contactId, impact, spread, center, time, strength);
@@ -68,7 +69,8 @@ public sealed partial class ConstructedAbilityService
                 continue;
             }
             CastAuthority owner = running.Owner(node);
-            if (groundPlane && !owner.IsLive) return;
+            bool planar = groundPlane || spread.GroundPlane;
+            if (planar && !owner.IsLive) continue;
             var shape = new AbilityCapsule(node, center, center, spread.Radius, "physical");
             var recipients = new List<long>();
             var buildings = new List<long>();
@@ -76,14 +78,15 @@ public sealed partial class ConstructedAbilityService
             if (spread.Outcome?.HasEffect == true)
             {
                 var nearbyActors = new List<int>();
-                if (groundPlane) simulation.actorIndex.QueryPlane(center, spread.Radius, nearbyActors);
+                if (planar) simulation.actorIndex.QueryPlane(center, spread.Radius, nearbyActors);
                 else simulation.actorIndex.Query(new Bounds(center, Vector3.one * spread.Radius * 2f), nearbyActors);
                 foreach (int id in nearbyActors)
                 {
                     var candidate = simulation.actors[id];
+                    if (spread.ExcludeContactActor && candidate.Id == contactId) continue;
                     if (candidate.Actor.data?.id != candidate.Id || !candidate.Actor.isAlive() || !candidate.Actor.hasHealth() || !owner.Matches(impact.Targets, candidate.Actor)) continue;
                     simulation.Sample(candidate, time, out Vector3 foot, out float height);
-                    if (groundPlane)
+                    if (planar)
                     {
                         if (((Vector2)(foot - center)).sqrMagnitude > spread.Radius * spread.Radius) continue;
                     }
@@ -110,7 +113,8 @@ public sealed partial class ConstructedAbilityService
                     if (building == null || !building.isAlive() || !building.hasHealth() || !seen.Add(building.data.id) || !owner.IsHostileTo(building.kingdom, 0)) continue;
                     Vector3 point = building.current_position;
                     point.z = building.getHeight() + (simulation.terrain?.Sample(point.x, point.y) ?? 0f);
-                    if ((point - center).sqrMagnitude > spread.Radius * spread.Radius) continue;
+                    if ((spread.GroundPlane ? ((Vector2)(point - center)).sqrMagnitude : (point - center).sqrMagnitude) >
+                        spread.Radius * spread.Radius) continue;
                     long buildingId = building.data.id;
                     using (DamageResolutionContext.Enter(DamageOrigin.Reaction, owner.Damage.SourceScopeId))
                         building.getHit(damage, pAttacker: owner.IsLive ? owner.Actor : null);
@@ -131,7 +135,7 @@ public sealed partial class ConstructedAbilityService
                 }
                 Vector3 position = center;
                 Vector3 scale = Vector3.one * spread.Radius;
-                if (groundPlane)
+                if (planar)
                 {
                     const float thickness = .14f;
                     scale.z = thickness;
@@ -139,7 +143,7 @@ public sealed partial class ConstructedAbilityService
                 }
                 contactVolumes.Add(new ContactVolume(resource, surface, position, scale, time, spread.VisualSeconds));
             }
-            SpreadConfirmed?.Invoke(new ConstructedSpread(running.Id, contactId, owner.Id, node, index, center, spread.Radius, time, recipients.ToArray(), buildings.ToArray(), groundPlane));
+            SpreadConfirmed?.Invoke(new ConstructedSpread(running.Id, contactId, owner.Id, node, index, center, spread.Radius, time, recipients.ToArray(), buildings.ToArray(), planar));
             if (generation != worldGeneration) return;
         }
     }

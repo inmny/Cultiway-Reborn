@@ -1224,6 +1224,12 @@ public sealed partial class AbilityCast
     internal void ConfirmBuildingContact(int node, Vector3 point, long buildingId, float? rayLength, bool chain)
     {
         RecordActionContact(node, point, AbilityActionContactKind.Building, buildingId);
+        if (node < 0)
+        {
+            if (bodyContactAt < 0f) bodyContactAt = Age;
+            RecordActionTimeline();
+            return;
+        }
         ref NodeState state = ref nodes[node];
         if (!state.Exists || state.Recovering || state.Leaving) return;
         state.Resource = 0;
@@ -1585,6 +1591,7 @@ public sealed partial class AbilityCast
         if (Finished) return;
         for (int i = 0; i < nodes.Length; i++)
         {
+            if (!BodyAllowsGroundedForm(Plan.Nodes[i])) continue;
             if (Plan.Nodes[i].RadialMotion is { ChannelLength: > 0f }) AppendWindChannel(i, output);
             if (Plan.Nodes[i].WeaponChamber != null) AppendWeaponChamber(i, output);
             if (Plan.Nodes[i].AbsorbedForceOutlet >= 0) AppendSolarReservoir(i, output);
@@ -1651,6 +1658,7 @@ public sealed partial class AbilityCast
         for (int i = 0; i < nodes.Length; i++)
         {
             CompiledForm form = Plan.Nodes[i];
+            if (!BodyAllowsGroundedForm(form)) continue;
             NodeState state = nodes[i];
             float age = Age - state.StartedAt;
             bool ending = includeEnd && FinalPathInPrediction(i);
@@ -1694,6 +1702,10 @@ public sealed partial class AbilityCast
             }
         }
     }
+
+    /// <summary>显示和接触均采用同一份共同支撑，不在空中提前展开落点形体。</summary>
+    private bool BodyAllowsGroundedForm(CompiledForm form) =>
+        !form.GroundedBodyRequired || !bodyInterrupted && bodyFrame.Support is { Rise: <= .0001f };
 
     /// <summary>一个独立形体的必要可变状态。</summary>
     private struct NodeState

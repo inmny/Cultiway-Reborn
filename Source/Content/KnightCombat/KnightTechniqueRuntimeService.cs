@@ -1,51 +1,29 @@
 using System;
-using System.Collections.Generic;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
-using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Utils.Extension;
 using strings;
 using UnityEngine;
 
 namespace Cultiway.Content.KnightCombat;
 
-/// <summary>骑士战技短动作共用的准入、恢复时间和取消判断。</summary>
+/// <summary>骑士战技共用的身体、兵器和实际通路判断。</summary>
 internal static class KnightTechniqueRuntimeService
 {
-    private static readonly Dictionary<long, float> BusyUntil = new();
-
-    public static bool IsBusy(ActorExtend caster)
-    {
-        if (caster == null || caster.Base.isRekt()) return false;
-        if (caster.E.HasComponent<KnightMovementState>()) return true;
-        long actorId = caster.Base.getID();
-        if (!BusyUntil.TryGetValue(actorId, out float until)) return false;
-        if (Time.time < until) return true;
-        BusyUntil.Remove(actorId);
-        return false;
-    }
-
-    public static void BeginAction(ActorExtend caster, float duration)
-    {
-        long actorId = caster.Base.getID();
-        float until = Time.time + Mathf.Max(0f, duration);
-        if (!BusyUntil.TryGetValue(actorId, out float current) || until > current)
-            BusyUntil[actorId] = until;
-    }
-
-    public static bool CanAct(ActorExtend caster)
+    public static bool CanAct(ActorExtend caster, bool allowOwnedStance = false)
     {
         return caster != null && !caster.Base.isRekt() && !caster.Base.isFlying() &&
-               !Core.Skills.BodyControlState.IsBusy(caster.Base.id) &&
+               (allowOwnedStance || !Core.Skills.BodyControlState.IsBusy(caster.Base.id)) &&
                !caster.Base.stats.hasTag("frozen_ai") && !caster.Base.stats.hasTag("immovable");
     }
 
     public static bool IsCurrentTechniqueWeapon(
         ActorExtend caster,
         KnightTechniqueAsset technique,
-        Item weapon)
+        Item weapon,
+        bool allowOwnedStance = false)
     {
-        return CanAct(caster) &&
+        return CanAct(caster, allowOwnedStance) &&
                KnightTechniqueAccessService.TryResolveCurrentWeapon(
                    caster,
                    technique,
@@ -103,73 +81,5 @@ internal static class KnightTechniqueRuntimeService
                 return false;
         }
         return true;
-    }
-
-    public static KnightActionSequence CreateSequence(
-        KnightTechniqueContext context,
-        BaseSimObject target,
-        float range)
-    {
-        return new KnightActionSequence(context.Caster, context.Technique, context.Weapon, target, range);
-    }
-
-    public static void ClearWorldState()
-    {
-        BusyUntil.Clear();
-    }
-}
-
-/// <summary>一组延后武器段共享的取消令牌。</summary>
-internal sealed class KnightActionSequence
-{
-    private readonly ActorExtend caster;
-    private readonly KnightTechniqueAsset technique;
-    private readonly Item weapon;
-    private readonly BaseSimObject target;
-    private readonly float range;
-    private bool cancelled;
-
-    public KnightActionSequence(
-        ActorExtend caster,
-        KnightTechniqueAsset technique,
-        Item weapon,
-        BaseSimObject target,
-        float range)
-    {
-        this.caster = caster;
-        this.technique = technique;
-        this.weapon = weapon;
-        this.target = target;
-        this.range = range;
-    }
-
-    public bool TryContinue(out KnightTechniqueContext context)
-    {
-        context = default;
-        if (cancelled || !KnightTechniqueRuntimeService.IsCurrentTechniqueWeapon(caster, technique, weapon) ||
-            target != null && (target.isRekt() || !KnightTechniqueRuntimeService.IsWithinRange(caster.Base, target, range)))
-        {
-            cancelled = true;
-            return false;
-        }
-
-        var activeTarget = new ActiveAbilityTarget(
-            target,
-            target?.GetSimPos() ?? caster.Base.GetSimPos());
-        if (KnightTechniqueAccessService.TryCreateContext(
-                caster,
-                technique,
-                weapon,
-                caster.Base.getWeaponAsset(),
-                target,
-                activeTarget,
-                out context)) return true;
-        cancelled = true;
-        return false;
-    }
-
-    public void Cancel()
-    {
-        cancelled = true;
     }
 }

@@ -93,6 +93,35 @@ export function makeWeaponForms() {
       {Id:'mid',Anchor:'mid',Up:[0,1,0],Diameter:.12,Scale:[.2,.6]},
       {Id:'short',Anchor:'short',Up:[0,1,0],Diameter:.12,Scale:[.2,.6]}],[],{Groups:['hammer'],Scale:.42});
 
+  const axeOutline = new T.Shape();
+  axeOutline.moveTo(-.24,1.40);
+  axeOutline.lineTo(.12,1.40);
+  axeOutline.quadraticCurveTo(.52,1.31,.84,1.06);
+  axeOutline.quadraticCurveTo(1.18,1.45,.98,2.11);
+  axeOutline.quadraticCurveTo(.56,1.89,.15,1.85);
+  axeOutline.lineTo(-.24,1.83);
+  axeOutline.closePath();
+  const axeHead = new T.ExtrudeGeometry(axeOutline,{depth:.082,bevelEnabled:true,bevelSize:.034,
+    bevelThickness:.034,bevelSegments:2,curveSegments:8,steps:1}).translate(0,0,-.041).rotateX(Math.PI/2);
+  const axeParts = [{...part('haft',shaft(.062,2.48,.43),'wood'),KeepFullDetail:true},
+    part('blade',axeHead,'metal'),
+    part('socket',new T.CylinderGeometry(.11,.10,.52,16).rotateX(Math.PI/2).translate(0,0,1.59),'metal'),
+    part('heel',new T.CylinderGeometry(.074,.075,.15,16).rotateX(Math.PI/2).translate(0,0,-.74),'metal')];
+  const axeGrips = [{Id:'grip',Part:0,Position:[0,0,-.35],Direction:[0,0,1]},
+    {Id:'short',Part:0,Position:[0,0,.63],Direction:[0,0,1]}];
+  const edge = [0,.25,.5,.75,1].map(t=>[(1-t)**2*.84+2*(1-t)*t*1.18+t*t*.98,
+    0,(1-t)**2*1.06+2*(1-t)*t*1.45+t*t*2.11]);
+  const axeContacts = edge.slice(0,-1).map((point,i)=>
+    ({Id:`edge/${i}`,Part:1,A:point,B:edge[i+1],Radius:.052}));
+  axeContacts.push({Id:'shaft',Part:0,A:[0,0,-.68],B:[0,0,1.31],Radius:.062,HeldMatter:'wood'});
+  write('war_axe',axeParts,[...axeGrips,{Id:'edge',Part:1,Position:edge[2],Direction:[1,0,0]}],
+    axeContacts,[],[],false,{Forward:[1,0,0],Up:[0,0,1]},
+    structure('rigid','forms_weapons.mjs','war_axe',{handle:[.124,2.48],bladeWidth:1.42},
+      {haft:['weapon.shaft','weapon.grip'],blade:['blade.edge'],socket:['weapon.socket'],heel:['weapon.pommel']},
+      [['haft','socket',[0,0,1.40]],['socket','blade',[0,0,1.59]],['haft','heel',[0,0,-.71]]]),
+    axeGrips.map(({Id})=>({Id,Anchor:Id,Up:[0,1,0],Diameter:.124,Scale:[.2,.6]})),
+    [],{Groups:['axe'],Scale:.42});
+
   const rim=new T.TorusGeometry(1,.045,8,48).scale(.88,1.16,1).translate(0,0,.05);
   const boss=new T.SphereGeometry(.19,24,12,0,Math.PI*2,0,Math.PI/2).rotateX(Math.PI/2).translate(0,0,.12);
   const shieldParts=[part('plate',shieldPlate(),'metal'),part('rim',rim,'metal'),part('boss',boss,'metal'),

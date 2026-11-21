@@ -2464,6 +2464,8 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 `--section archive` 从编辑器调整原肩撞的两个作用阶段、推力和短进步，保存该改造与六份原战技。重启独立游戏后，用 `--section cold --archive <输出目录>` 从正式世界恢复原人物、构造和掌握关系，并施放改造后的肩撞。
 
+`--section palm-project` 用万法阁把原地掌击显化为追踪飞掌，检查撤销、重新打开、离手转向、命中和收费，保存正式世界。重启后用 `--section palm-project-cold --archive <输出目录>` 重新实际施展已学飞掌。
+
 `--section film --view native` 和 `--section film --view worldfall` 分别录制六招，按实际世界时间编码成一段连续视频。`--move` 可以只补拍指定招式。拍摄用正式施放入口并核对支付、命中与收势。
 
 ### 短兵战技（9.43）
@@ -2474,9 +2476,29 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 `--section archive` 使用万法阁身体页选择石剑外形和靠护手的握法，检查撤销、重开和正式写档。重启独立游戏后，用 `--section cold --archive <输出目录>` 读回原石剑与改造，再实际施放。`--section film --view native` 和 `--section film --view worldfall` 分别录制三招，可叠加 `--move thrust`、`--move cut` 或 `--move sweep` 补拍。
 
+`--section knight --move committed` 使用原决斗家入口，在蓄势期间移动目标友方，检查按接触时位置决定重击倍率。`--move flurry` 检查同一次动作中的三段刃面接触和原倍率，`--move flurry-swap` 在首段命中后换剑，检查剩余段停止并归还身体。
+
+同一骑士入口下，`--move guard` 和 `--move guard-hammer` 分别核对持斧和持锤的格挡，`--move counter` 核对有效受击后由实际剑刃回锋，`--move stance-loss` 核对换掉同款剑后的状态解除。
+
+`--move repulse` 用原版铁锤核对震退的地面范围、实际扣血后的推力和硬直。`--move repulse-swap` 在斧扫起势时换掉原斧，核对中断及身体归还。
+
+`--move bulwark` 用同一场地核对守护壁垒的友方顺序、实际减伤和到期。`--move bulwark-swap` 在壁垒展开前换掉同款斧，核对中断后的状态和身体归还。
+
 ### 长兵战技（9.44）
 
 在独立游戏用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_long_weapons.py`。检查正式铁枪刺的滑握、实际枪尖命中、近身落空、两手握杆横扫及原枪归还。用 `--case strike`、`--case near`、`--case sweep` 或 `--case interrupt` 单独复验。横扫检查左手占用拒绝、两手握点和实际臂长，换器检查同款新枪也会解除旧动作。
+
+同一入口加 `--case knight` 可走原枪骑学习与使用流程，核对一笔斗气、枪尖扣血后破甲、免伤、落空和换枪归还。需要单独补验时可用 `knight-immune`、`knight-miss`、`knight-swap`。使用 `--case knight-building` 核对原入口点名的建筑经实际枪尖接触受击。
+
+`--case knight-study` 从破甲突刺的正式施放触发骑士自主创作，核对真实铁枪、独立报价、不同转腕姿态和实战扣血。输出待处理的正式世界档及完整预期，供新进程读回核对。
+
+`--case knight-study-archive` 只准备同一自然变式的等待档，确认实际铁枪已进入原版物品保存列表。用 `verify_knight_archives.py restore-study --archive <输出目录>` 在新进程核对冻结资料、一次授予及实战施展。旧执行编号可在迁移前版本用同一脚本的 `prepare-legacy` 正式保存，再用当前版本的 `restore-legacy --archive <输出目录>` 读回并出手。
+
+`--case charge` 复验破阵冲锋先命中沿途敌人、收势以及实际扣血后的侧向推开。`charge-wall`、`charge-swap` 和 `charge-building` 分别检查墙体、换枪和原入口允许的建筑。
+
+`--case skyfall` 复验苍穹坠击的实际高度、落地时点和主次伤害。`skyfall-evade` 核对点名对象移出中心后的范围伤害，`skyfall-swap` 核对换枪后下落及归还，`skyfall-building` 核对原入口点名建筑的落点伤害。
+
+`verify_migrated_martial_film.py --view native` 和 `--view worldfall` 拍摄 10.03 的原地掌击和九项骑士战技。在独立游戏中用 `dev.py exec --timeout 640` 启动。录像从起势前拍到收势后，以实际世界时间编码，随片记录费用、命中、格挡承力或护持。可重复传入 `--move` 补拍指定招式。
 
 `--case press --archive <输出目录>` 用正式对练档中的人物运行架杆拨锋与持剑刺击。检查接触点相合、杆身带动持剑手、收枪解除关系、双方原物归还，以及对方没有兵器时保留体力。
 

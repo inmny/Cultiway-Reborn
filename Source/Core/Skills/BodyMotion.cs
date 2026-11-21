@@ -52,6 +52,14 @@ public sealed class BodyActionDefinition
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool WeaponGround;
 
+    /// <summary>身体攻击只命中实际没有飞行的人物。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool GroundActorsOnly;
+
+    /// <summary>持械动作的真实接触可作用于沿途敌方建筑。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool ContactHostileBuildings;
+
     /// <summary>器物上实际采用的握持挂点。</summary>
     public string Grip = "grip";
 
@@ -635,6 +643,9 @@ public sealed partial class CompiledBodyAction
     /// <summary>是否用所持器物的完整表面检查触地。</summary>
     internal bool WeaponGround { get; }
 
+    internal bool GroundActorsOnly { get; }
+    internal bool ContactHostileBuildings { get; }
+
     /// <summary>空手拳击共用的闭指与指根形状。其余手部动作仍采用原形体接触。</summary>
     internal BodyFist Fist { get; }
 
@@ -757,7 +768,8 @@ public sealed partial class CompiledBodyAction
         if (definition.Keys.Any(key => key.Support != null))
         {
             supportMotion =
-                new CompiledBodySupportMotion(definition.Keys, Construction.LeftFoot, Construction.RightFoot, Part.HasPartRotation);
+                new CompiledBodySupportMotion(definition.Keys, Construction.LeftFoot, Construction.RightFoot,
+                    Part.HasPartRotation, Construction.RiseInWorldUnits);
             if (Part.IsLeg && definition.Keys.Any(key => key.Foot == null ||
                                                          !key.Foot.SequenceEqual(Part.Left
                                                              ? key.Support.LeftFoot
@@ -821,6 +833,10 @@ public sealed partial class CompiledBodyAction
         WeaponForm = definition.WeaponForm;
         WeaponObstacle = definition.WeaponObstacle;
         WeaponGround = definition.WeaponGround;
+        GroundActorsOnly = definition.GroundActorsOnly;
+        ContactHostileBuildings = definition.ContactHostileBuildings;
+        if (ContactHostileBuildings && WeaponForm == null)
+            throw new InvalidDataException("Body/ContactHostileBuildings：需要实际持械接触");
         if ((WeaponObstacle || WeaponGround) && WeaponForm == null)
             throw new InvalidDataException("Body/WeaponObstacle：障碍接触需要实际借用器物");
         if (definition.SlideGrip != null && WeaponForm == null)
@@ -840,7 +856,8 @@ public sealed partial class CompiledBodyAction
                                          (keys[i].At - keys[i - 1].At));
         if (!Finite(maximum) || maximum > 7200f) throw new InvalidDataException("身体姿态超过每秒7200度的动作预算");
         MaximumAngularRate = Mathf.Max(maximum, supportMotion?.MaximumRate ?? 0f);
-        MovementWork = Construction.FootworkTravel * (1d + Construction.FootworkSpeed) * .1d +
+        float travelScale = Mathf.Max(1f, Construction.FootworkTargetDistance);
+        MovementWork = Construction.FootworkTravel * travelScale * (1d + Construction.FootworkSpeed * travelScale) * .1d +
                        (supportMotion?.MovementWork ?? 0d);
         for (int i = 1; i < keys.Length; i++)
         {

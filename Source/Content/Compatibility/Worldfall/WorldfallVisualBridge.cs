@@ -6,7 +6,6 @@ using System.Linq;
 using System.Reflection;
 using Cultiway.Content.Combat;
 using Cultiway.Content.CreatureCompositions.Visuals;
-using Cultiway.Content.KnightCombat;
 using Cultiway.Core.Combat.Tactical;
 using Cultiway.Core.Visuals;
 using HarmonyLib;
@@ -281,8 +280,7 @@ internal static class WorldfallVisualBridge
         if (disabled || binding == null) return true;
         object root = binding.RootInstance.GetValue(null);
         Actor actor = root == null ? null : (Actor)binding.RootHost.GetValue(root);
-        return root == null || !KnightTechniqueVisuals.IsWeaponDetached(actor) &&
-            !Skills.ConstructedAbilityService.IsWeaponBorrowed(actor);
+        return root == null || !Skills.ConstructedAbilityService.IsWeaponBorrowed(actor);
     }
 
     /// <summary>按本轮已经发布的左右手分别替换第一人称手臂，预留但未接管的部位保持原显示。</summary>

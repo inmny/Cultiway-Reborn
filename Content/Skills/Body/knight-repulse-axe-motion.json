@@ -1,0 +1,32 @@
+{
+  "Effector": "hand.right",
+  "WeaponForm": "war_axe",
+  "Grip": "grip",
+  "Occupancy": 5,
+  "ReleaseAt": 0.12,
+  "ActiveFrom": 0.16,
+  "ActiveUntil": 0.26,
+  "Impact": {"Targets": "Self", "DamageScale": 0},
+  "Construction": {
+    "Parts": [
+      {"Id": "hand.right", "Part": "hand.right"},
+      {"Id": "weapon", "Subject": "Held", "Part": "item"}
+    ],
+    "Relations": [
+      {"Id": "hold", "Kind": "Grip", "From": "hand.right", "To": "weapon", "FromAnchor": "grip", "ToAnchor": "grip",
+        "FromMarker": "start", "UntilMarker": "end"}
+    ]
+  },
+  "Keys": [
+    {"Id": "ready", "At": 0, "Hand": [0.23, 0.15, 0.57], "Rotation": [5, -27, 5]},
+    {"Id": "gather", "At": 0.108, "Hand": [0.09, -0.28, 0.66], "Torso": [-0.04, -0.04, -0.03],
+      "Turn": 31, "Rotation": [4, 79, -17]},
+    {"Id": "drive", "At": 0.18, "Hand": [0.42, -0.035, 0.53], "Torso": [0.08, 0.01, -0.085],
+      "Turn": -5, "Rotation": [18, 2, 10]},
+    {"At": 0.25, "Hand": [0.32, 0.25, 0.48], "Torso": [0.067, 0.02, -0.09],
+      "Turn": -32, "Rotation": [31, -70, 16]},
+    {"At": 0.34, "Hand": [0.23, 0.27, 0.55], "Torso": [0.025, 0.015, -0.045],
+      "Turn": -17, "Rotation": [12, -47, 8]},
+    {"Id": "rest", "At": 0.43, "Hand": [0.23, 0.15, 0.57], "Rotation": [5, -27, 5]}
+  ]
+}

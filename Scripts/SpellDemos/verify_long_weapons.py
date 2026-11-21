@@ -13,7 +13,11 @@ from common import PROJECT, write_json
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case', choices=('all', 'strike', 'near', 'sweep', 'interrupt', 'press', 'edit', 'range',
-                                           'obstacle', 'archive', 'cold', 'film'), default='all')
+                                           'obstacle', 'archive', 'cold', 'film', 'knight', 'knight-immune',
+                                           'knight-miss', 'knight-swap', 'knight-building', 'knight-study',
+                                           'knight-study-archive', 'charge',
+                                           'charge-wall', 'charge-swap', 'charge-building',
+                                           'skyfall', 'skyfall-evade', 'skyfall-swap', 'skyfall-building'), default='all')
     parser.add_argument('--edited', type=Path, help='--case edit 生成的 edited-definition.json')
     parser.add_argument('--part', choices=('tip', 'shaft'), help='障碍复验使用的实物部位')
     parser.add_argument('--archive', type=Path, help='--case archive 的实际世界和外部核对记录目录')
@@ -89,7 +93,13 @@ def run(args, output):
         fighters = fighters.replace('Make(65.2f)', f'World.world.units.get({int(expected["target"])}L)')
     script = output / 'input.script'
     imports = 'using Friflo.Engine.ECS;\n'
-    if args.case in ('edit', 'archive'):
+    if args.case.startswith(('knight', 'charge', 'skyfall')):
+        ability = {
+            'knight': 'ArmorPiercingThrust', 'charge': 'FormationCharge', 'skyfall': 'SkyfallStrike'
+        }[args.case.split('-', 1)[0]]
+        base = base.replace('"Cultiway.Body.LongSpear"', f'"Cultiway.KnightTechnique.{ability}"')
+        imports += 'using Cultiway.Content.KnightCombat;\nusing Cultiway.Core.SkillLibV3;\nusing Cultiway.Core.SkillLibV3.Utils;\n'
+    elif args.case in ('edit', 'archive'):
         imports += 'using Cultiway.UI;\nusing Cultiway.UI.Prefab;\nusing UnityEngine.UI;\n'
         helpers = (scripts / 'verify_unarmed_hand_editor.script').read_text().split('\ntry\n', 1)[0]
         fighters = helpers.replace('Cultiway.Body.PalmPush', 'Cultiway.Body.LongSpearThrust')
@@ -105,7 +115,16 @@ def run(args, output):
         'obstacle': 'verify_long_weapons_obstacle.script',
         'film': 'verify_long_weapons_film.script',
     }.get(args.case, 'verify_long_weapons.script')
+    if args.case.startswith('knight'):
+        case_file = 'verify_knight_thrust.script'
+    elif args.case.startswith('charge'):
+        case_file = 'verify_knight_charge.script'
+    elif args.case.startswith('skyfall'):
+        case_file = 'verify_knight_skyfall.script'
     body = (scripts / case_file).read_text()
+    if args.case in ('knight-study', 'knight-study-archive'):
+        imports += 'using Cultiway.Core.Components;\n'
+        body = body.split('long castId =', 1)[0] + (scripts / 'verify_knight_study.script').read_text()
     settings = f'\nconst string selection = "{args.case}";\n'
     if args.case in ('press', 'film'):
         settings += 'const float pressDistance = 1.16f, pressDelay = .26f;\n'

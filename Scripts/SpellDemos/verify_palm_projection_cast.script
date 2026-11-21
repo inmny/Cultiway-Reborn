@@ -1,0 +1,92 @@
+// 两次均使用角色已学的同一个正式构造，不在复验中登记资料。
+const float palmStart = 64.35f, palmAim = 73f;
+target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+CombatStatusEffects.ApplyStatus(target, hold, 10000, target);
+Ready(source);
+source.attack_timer = target.attack_timer = 999f;
+await Advance(.18f);
+Place(source, palmStart);
+Place(target, palmAim);
+source.addAggro(target);
+target.addAggro(source);
+source.attack_timer = 0f;
+owner.GetCultisys<Xian>().wakan = 100f;
+int beforeHealth = target.getHealth();
+var handle = new ActiveAbilityHandle("content.constructed", owner.E, edited);
+AbilityCast live = null;
+long id = 0;
+var actualHits = new List<ConstructedContact>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != edited) return;
+    id = fact.CastId;
+    var entry = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == id);
+    live = (AbilityCast)Field(entry, "Cast");
+}
+void Contact(ConstructedContact fact)
+{
+    if (fact.CastId == id && fact.TargetId == target.id) actualHits.Add(fact);
+}
+var views = new List<FormVisualInstance>();
+Vector3 PalmPosition()
+{
+    views.Clear();
+    live.AppendVisuals(views);
+    return views.Single().Transform.GetColumn(3);
+}
+var clock = Config.time_scale_asset;
+float rate = clock.multiplier;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+try
+{
+    clock.multiplier = rate * .32f;
+    var aim = new ActiveAbilityTarget(target, target.GetSimPos());
+    Check(ActiveAbilityService.TryUse(owner, handle, aim, ActiveAbilityUseOrigin.Script) && live != null &&
+          Mathf.Abs(100f - owner.GetCultisys<Xian>().wakan - definition.Cost) < .001f,
+        "实机从已学飞掌入口一次扣真元", new { definition.Cost, balance = owner.GetCultisys<Xian>().wakan });
+    source.attack_timer = 999f;
+    await Advance(.19f);
+    Vector3 attached = PalmPosition();
+    Check(live.BodyPose is BodyPose pose && Vector3.Distance(attached, pose.Hand) < .01f,
+        "离手前显示与实际手腕共用位置");
+    await Advance(.40f);
+    Vector3 away = PalmPosition();
+    Check(!BodyControlState.IsBusy(source.id) && !live.Finished && away.x > attached.x + 1f && actualHits.Count == 0,
+        "掌形离手后继续飞行，原身体已归还");
+    Place(target, palmAim, 74f);
+    await Advance(.25f);
+    Vector3 turned = PalmPosition();
+    Check(turned.y > away.y + .3f && turned.x > away.x,
+        "目标移动后离手掌形实际转向", new { from = away.y, to = turned.y });
+    await Advance(definition.Lifetime);
+    Check(actualHits.Count == 1 && actualHits[0].Node >= 0 && actualHits[0].Age > .6f &&
+          target.getHealth() < beforeHealth && live.Finished && !BodyControlState.IsBusy(source.id),
+        "远处经实际离手掌形命中一次，结束后回收",
+        new { hits = actualHits.Count, beforeHealth, after = target.getHealth(), age = actualHits.FirstOrDefault().Age });
+
+    int pid = System.Diagnostics.Process.GetCurrentProcess().Id;
+    if (section == "palm-project")
+    {
+        SaveManager.saveWorldToDirectory(Path.Combine(folder, "archive"));
+        Check(File.Exists(Path.Combine(folder, "archive", "map.wbox")), "写入实际正式世界");
+        File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+        {
+            process = pid, source = source.id, target = target.id, edited, basisId, definition,
+            original = access.Read(basisId)
+        }, Formatting.Indented));
+    }
+    return new { passed = true, section, process = pid, edited, spread = turned.y - away.y,
+        damage = beforeHealth - target.getHealth() };
+}
+finally
+{
+    clock.multiplier = rate;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

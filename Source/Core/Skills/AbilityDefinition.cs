@@ -150,6 +150,22 @@ public sealed class ConstructionNode
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool ContactActorCenter;
 
+    /// <summary>点名圆面的边界再计入被选者的实际尺寸。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool GroundCircleAddsTargetSize;
+
+    /// <summary>人物接触只接受实际地面目标。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool GroundActorsOnly;
+
+    /// <summary>友方圆面脉冲优先作用于自身，其余按生命比例、距离和人物编号选择。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool PreferWoundedAllies;
+
+    /// <summary>人物及地块仍按实际接触生效，此形体不参与普通法术交锋。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool IgnoreFormClashes;
+
     /// <summary>仅作用于显示的三个染色倍率，不改变实际材料和物态。</summary>
     public float[] Tint;
 
@@ -211,6 +227,14 @@ public sealed class ConstructionNode
     /// <summary>作用窗口、分次作用及结果收势跟随实际身体；未声明的独立主体继续自身过程。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool BodyWindow;
+
+    /// <summary>此部位只有实际身体落地后才能呈现和作用。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool GroundedBodyRequired;
+
+    /// <summary>实际身体借用的兵器负责此作用面的原版近战伤害。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool BorrowedWeaponDamage;
 
     /// <summary>同组共用的再次接触规则；空值继承同组明确规则，均未指定时每人一次。</summary>
     public ConstructionContactPolicy Contact;

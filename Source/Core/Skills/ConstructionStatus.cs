@@ -40,6 +40,9 @@ public sealed class ConstructionStatus
     /// <summary>成功施加后等待抗性结算所得的真实时长，供短暂硬直等状态使用。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool WaitForDuration;
+    /// <summary>本作用面的首笔伤害实际扣除生命后，才施加此状态。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool AfterDamage;
     /// <summary>同源有限叠加的最多层数，其他合并方式省略。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public int StackLimit;
@@ -65,6 +68,8 @@ public sealed class CompiledConstructionStatus
     public ConstructionStatusApplication Application { get; }
     /// <summary>是否使用抗性结算后的真实时长等待。</summary>
     public bool WaitForDuration { get; }
+    /// <summary>等同一次接触的本体伤害结算后再使用。</summary>
+    public bool AfterDamage { get; }
     /// <summary>已检查的同源层数上限。</summary>
     public int StackLimit { get; }
     /// <summary>独立编译的周期伤害声明。</summary>
@@ -72,7 +77,8 @@ public sealed class CompiledConstructionStatus
 
     /// <summary>只在用户资料进入执行前检查编号、范围与状态能力。</summary>
     /// <param name="source">可保存的作用资料。</param><param name="path">资料错误位置。</param>
-    internal CompiledConstructionStatus(ConstructionStatus source, string path)
+    /// <param name="allowAfterDamage">外层作用面有本体伤害；随机或条件结果自身不提供这个时点。</param>
+    internal CompiledConstructionStatus(ConstructionStatus source, string path, bool allowAfterDamage = false)
     {
         if (source == null || string.IsNullOrEmpty(source.Id) || !Finite(source.Duration) || source.Duration <= 0f ||
             source.Duration > 3600f || !Finite(source.Potency) || source.Potency < 0f || source.Potency > 1000000f ||
@@ -80,6 +86,8 @@ public sealed class CompiledConstructionStatus
             source.Application == ConstructionStatusApplication.Strongest && (source.Stats == null || source.Stats.Count == 0) && (source.TargetStatRatios == null || source.TargetStatRatios.Count == 0) ||
             (source.Stats?.Count ?? 0) + (source.TargetStatRatios?.Count ?? 0) > 64)
             throw new InvalidDataException(path + "：状态需要稳定编号、0至3600内的正时长、0至一百万的强度、有效合并方式及合计最多64项属性；最强规则必须明确固定值或目标比例");
+        if (source.AfterDamage && !allowAfterDamage)
+            throw new InvalidDataException(path + "：扣血后施加的状态需要带本体伤害的直接作用面");
         Asset = ModClass.L.StatusEffectLibrary.get(source.Id);
         if (Asset == null)
             throw ConstructionReferences.Error(path, "未登记共享状态：" + source.Id, resourceKind: "Status", resourceId: source.Id);
@@ -117,6 +125,7 @@ public sealed class CompiledConstructionStatus
         StackLimit = source.StackLimit;
         Application = source.Application;
         WaitForDuration = source.WaitForDuration;
+        AfterDamage = source.AfterDamage;
         Duration = source.Duration;
         Potency = source.Potency;
     }

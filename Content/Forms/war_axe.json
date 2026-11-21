@@ -1,0 +1,362 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_weapons.mjs",
+            "Entry": "war_axe",
+            "Parameters": [
+                {
+                    "Id": "handle",
+                    "Values": [
+                        0.12399999797344208,
+                        2.4800000190734865
+                    ]
+                },
+                {
+                    "Id": "bladeWidth",
+                    "Values": [
+                        1.4199999570846558
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "haft/socket",
+                "Parent": "haft",
+                "Child": "socket",
+                "Position": [
+                    0.0,
+                    0.0,
+                    1.399999976158142
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "socket/blade",
+                "Parent": "socket",
+                "Child": "blade",
+                "Position": [
+                    0.0,
+                    0.0,
+                    1.590000033378601
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "haft/heel",
+                "Parent": "haft",
+                "Child": "heel",
+                "Position": [
+                    0.0,
+                    0.0,
+                    -0.7099999785423279
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material",
+            "separate"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "war_axe",
+    "Forward": [
+        1.0,
+        0.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "weapon.shaft",
+                "weapon.grip"
+            ],
+            "Id": "haft",
+            "Surface": "wood",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/war_axe_haft.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "blade.edge"
+            ],
+            "Id": "blade",
+            "Surface": "metal",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/war_axe_blade.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "weapon.socket"
+            ],
+            "Id": "socket",
+            "Surface": "metal",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/war_axe_socket.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "weapon.pommel"
+            ],
+            "Id": "heel",
+            "Surface": "metal",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/war_axe_heel.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "grip",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                -0.3499999940395355
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "short",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.6299999952316284
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "edge",
+            "Part": 1,
+            "Position": [
+                1.0449999570846558,
+                0.0,
+                1.5175000429153443
+            ],
+            "Direction": [
+                1.0,
+                0.0,
+                0.0
+            ],
+            "Control": "",
+            "Influences": []
+        }
+    ],
+    "Grips": [
+        {
+            "Id": "grip",
+            "Anchor": "grip",
+            "Up": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "Diameter": 0.12399999797344208,
+            "Scale": [
+                0.20000000298023225,
+                0.6000000238418579
+            ]
+        },
+        {
+            "Id": "short",
+            "Anchor": "short",
+            "Up": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "Diameter": 0.12399999797344208,
+            "Scale": [
+                0.20000000298023225,
+                0.6000000238418579
+            ]
+        }
+    ],
+    "Held": {
+        "Groups": [
+            "axe"
+        ],
+        "EquipmentIds": [],
+        "Scale": 0.41999998688697817
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/0",
+            "Part": 1,
+            "A": [
+                0.8399999737739563,
+                0.0,
+                1.059999942779541
+            ],
+            "B": [
+                0.9762499928474426,
+                0.0,
+                1.271875023841858
+            ],
+            "Radius": 0.052000001072883609,
+            "HeldMatter": "",
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/1",
+            "Part": 1,
+            "A": [
+                0.9762499928474426,
+                0.0,
+                1.271875023841858
+            ],
+            "B": [
+                1.0449999570846558,
+                0.0,
+                1.5175000429153443
+            ],
+            "Radius": 0.052000001072883609,
+            "HeldMatter": "",
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/2",
+            "Part": 1,
+            "A": [
+                1.0449999570846558,
+                0.0,
+                1.5175000429153443
+            ],
+            "B": [
+                1.0462499856948853,
+                0.0,
+                1.796875
+            ],
+            "Radius": 0.052000001072883609,
+            "HeldMatter": "",
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/3",
+            "Part": 1,
+            "A": [
+                1.0462499856948853,
+                0.0,
+                1.796875
+            ],
+            "B": [
+                0.9800000190734863,
+                0.0,
+                2.109999895095825
+            ],
+            "Radius": 0.052000001072883609,
+            "HeldMatter": "",
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "shaft",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                -0.6800000071525574
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.309999942779541
+            ],
+            "Radius": 0.06199999898672104,
+            "HeldMatter": "wood",
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -64,7 +65,7 @@ internal sealed class KnightTechniqueAbilityProvider : IActiveAbilityProvider
     {
         if (!TryResolveHandle(caster, handle, out KnightTechniqueAsset technique, out Entity container) ||
             !KnightTechniqueAccessService.TryResolveCurrentWeapon(caster, technique, out _, out _) ||
-            KnightTechniqueRuntimeService.IsBusy(caster) || !KnightTechniqueRuntimeService.CanAct(caster))
+            !KnightTechniqueRuntimeService.CanAct(caster))
         {
             return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
         }
@@ -80,7 +81,6 @@ internal sealed class KnightTechniqueAbilityProvider : IActiveAbilityProvider
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
         if (!TryResolveHandle(caster, handle, out KnightTechniqueAsset technique, out Entity container) ||
-            KnightTechniqueRuntimeService.IsBusy(caster) ||
             !KnightTechniqueRuntimeService.CanAct(caster) ||
             !SkillCooldownService.IsReady(caster, container) ||
             !SkillCastCost.CanPayStep(caster, container)) return false;
@@ -95,7 +95,6 @@ internal sealed class KnightTechniqueAbilityProvider : IActiveAbilityProvider
     public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target)
     {
         if (!TryResolveHandle(caster, handle, out KnightTechniqueAsset technique, out Entity container) ||
-            KnightTechniqueRuntimeService.IsBusy(caster) ||
             !KnightTechniqueRuntimeService.CanAct(caster) ||
             !SkillCooldownService.IsReady(caster, container) ||
             !SkillCastCost.CanPayStep(caster, container) ||
@@ -192,10 +191,40 @@ internal sealed class KnightTechniqueAbilityProvider : IActiveAbilityProvider
             !TryResolveContext(caster, technique, target, true, out KnightTechniqueContext context)) return false;
         using SkillCastPayment payment =
             SkillCastCost.TryBeginStep(caster, container, SkillCastFundingSource.CasterResources);
-        if (payment == null || !technique.ActiveUse.TryUse(context, origin)) return false;
-        payment.Commit();
+        if (payment == null) return false;
+        var construction = technique.ActiveUse.ResolveConstruction?.Invoke(context.WeaponAsset) ??
+                           technique.ActiveUse.Construction;
+        bool started = construction == null
+            ? technique.ActiveUse.TryUse(context, origin)
+            : UseConstruction(context, construction, origin, payment, container.Id);
+        if (!started) return false;
+        if (!payment.IsCommitted) payment.Commit();
         SkillCooldownService.Start(caster, container, technique.Cooldown);
+        if (construction != null && origin is ActiveAbilityUseOrigin.Autonomous or ActiveAbilityUseOrigin.Player)
+            ConstructedAbilityService.NotifyKnightPractice(caster, construction);
         return true;
+    }
+
+    /// <summary>将原入口已选定的对象和本次斗气交给共同动作。</summary>
+    /// <param name="context">已核对原兵器、掌握和目标的实际来源。</param>
+    /// <param name="construction">按实际兵器采用的正式动作。</param>
+    /// <param name="origin">真实调用方式。</param>
+    /// <param name="payment">原来源的本次费用。</param>
+    /// <param name="sourceInstance">本次已学执行容器。</param>
+    private static bool UseConstruction(KnightTechniqueContext context, Core.Skills.AbilityDefinition construction, ActiveAbilityUseOrigin origin,
+        SkillCastPayment payment, int sourceInstance)
+    {
+        ActiveAbilityTarget choice = context.ActiveTarget;
+        var runtime = choice.RuntimeData;
+        runtime.Origin = origin;
+        var target = new ActiveAbilityTarget(choice.Object, choice.Position, choice.SelectionArea,
+            choice.ExplicitTargets, choice.AttackKingdom, runtime, choice.WorldScope);
+        Vector3? direction = context.Technique.ActiveUse.TargetMode == ActiveAbilityTargetMode.Self
+            ? KnightTechniqueRuntimeService.ResolveDirection(context.Caster.Base) : null;
+        return ConstructedAbilityService.StartPrepaid(context.Caster, construction,
+            target, null, payment, sourceInstance: sourceInstance,
+            direction: direction, buildingContact: LegacyBuildingContact.ForWeapon(choice.Object as Building),
+            selectionAlreadyChecked: true);
     }
 
     private bool TryResolveHandle(

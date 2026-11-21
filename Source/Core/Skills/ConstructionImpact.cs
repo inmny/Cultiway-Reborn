@@ -57,6 +57,14 @@ public sealed class ConstructionImpact
     /// <summary>真实伤害倍率；零表示只接触和推拉，不调用伤害或近战攻击。</summary>
     public float DamageScale = 1f;
 
+    /// <summary>真实受击人物在此世界距离内没有友方时，可获得额外伤害。零关闭判断。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float IsolationRadius;
+
+    /// <summary>目标孤立时对本笔直接伤害额外应用的倍率，零表示不使用孤立效果。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float IsolatedDamageMultiplier;
+
     /// <summary>每次真实命中推进的整数年数，零表示没有生灵老化。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public int AgeYears;
@@ -99,6 +107,10 @@ public sealed class ConstructionImpact
 
     /// <summary>向外的实际受力，负值为牵引；沿用境界和抗击退等规则。</summary>
     public float Force;
+
+    /// <summary>推拉只在本次直接伤害实际扣血后提交。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool ForceAfterDamage;
 
     /// <summary>按真实接触中心和目标当前质量换算的击退与腾起，空值表示没有此作用。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
@@ -209,9 +221,17 @@ public sealed class CompiledConstructionImpact
 
     /// <summary>已解析并复制的属性状态作用。</summary>
     public IReadOnlyList<CompiledConstructionStatus> Statuses { get; }
+    /// <summary>这份作用包含等待本次实际伤害的状态。</summary>
+    internal bool HasStatusesAfterDamage { get; }
 
     /// <summary>真实伤害倍率。</summary>
     public float DamageScale { get; }
+
+    /// <summary>孤立判定使用的世界距离。</summary>
+    public float IsolationRadius { get; }
+
+    /// <summary>孤立时的实际增伤倍率，普通情况始终保持本体量。</summary>
+    public float IsolatedDamageMultiplier { get; }
 
     /// <summary>每次真实命中推进的整数年数，接触衰减后向下取整。</summary>
     public int AgeYears { get; }
@@ -243,6 +263,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>已检查的有向推拉力。</summary>
     public float Force { get; }
 
+    /// <summary>是否等本次直接伤害真正扣血再执行推拉。</summary>
+    public bool ForceAfterDamage { get; }
+
     /// <summary>已独立复制的击退与腾起幅度。</summary>
     public CompiledConstructionKnockback Knockback { get; }
 
@@ -260,6 +283,7 @@ public sealed class CompiledConstructionImpact
 
     /// <summary>已检查并独立复制的球形范围作用。</summary>
     public IReadOnlyList<CompiledConstructionContactSpread> Spreads { get; }
+    internal bool HasSpreadsAfterDamage { get; }
 
     /// <summary>已复制的三向世界速度变化，不持有可编辑数组。</summary>
     public Vector3? Impulse { get; }
@@ -320,7 +344,9 @@ public sealed class CompiledConstructionImpact
             : Array.AsReadOnly(effects);
         if (source?.Statuses?.Length > 16) throw new InvalidDataException(path + "：每个作用面最多声明十六种属性状态");
         Statuses = source?.Statuses == null ? Array.Empty<CompiledConstructionStatus>() :
-            Array.AsReadOnly(source.Statuses.Select((status, index) => new CompiledConstructionStatus(status, path + "/Statuses/" + index)).ToArray());
+            Array.AsReadOnly(source.Statuses.Select((status, index) => new CompiledConstructionStatus(status,
+                path + "/Statuses/" + index, source.DamageScale > 0f)).ToArray());
+        HasStatusesAfterDamage = Statuses.Any(status => status.AfterDamage);
         SelectedTargetOnly = source?.SelectedTargetOnly == true;
         if (source?.FrostCoating != null)
             FrostCoating = new CompiledFrostCoating(source.FrostCoating, path + "/FrostCoating");
@@ -330,6 +356,15 @@ public sealed class CompiledConstructionImpact
             throw new InvalidDataException(path + "/ReleaseGrab：需要有效的抓持解除方式");
         Targets = source?.Targets ?? SkillUseTargetRelation.Hostile;
         DamageScale = source?.DamageScale ?? 1f;
+        IsolationRadius = source?.IsolationRadius ?? 0f;
+        IsolatedDamageMultiplier = source?.IsolatedDamageMultiplier ?? 0f;
+        if (IsolationRadius != 0f || IsolatedDamageMultiplier != 0f)
+        {
+            if (!CompiledForceRouting.Finite(IsolationRadius) || IsolationRadius <= 0f || IsolationRadius > 64f ||
+                !CompiledForceRouting.Finite(IsolatedDamageMultiplier) || IsolatedDamageMultiplier <= 1f ||
+                !(DamageScale > 0f) || DamageScale * IsolatedDamageMultiplier > 1000f)
+                throw new InvalidDataException(path + "/IsolatedDamageMultiplier：孤立增伤需要正本体伤害、0至64以内的正半径和大于1的倍率，合计伤害倍率最多1000");
+        }
         WakanTransfer = source?.WakanTransfer ?? 0f;
         if (float.IsNaN(WakanTransfer) || WakanTransfer < 0f || WakanTransfer > 1000f)
             throw new InvalidDataException(path + "/WakanTransfer：单次灵气转移需在0到1000之间");
@@ -353,6 +388,7 @@ public sealed class CompiledConstructionImpact
         if (!Enum.IsDefined(typeof(ConstructionDamageBasis), DamageBasis))
             throw new InvalidDataException(path + "/DamageBasis：伤害必须采用剩余或初始作用量");
         Force = source?.Force ?? 0f;
+        ForceAfterDamage = source?.ForceAfterDamage == true;
         if (source?.Knockback != null) Knockback = new CompiledConstructionKnockback(source.Knockback, path + "/Knockback");
         if (source?.Exchange != null) Exchange = new CompiledConstructionExchange(source.Exchange, path + "/Exchange");
         if (source?.AdditionalDamage?.Length > 8) throw new InvalidDataException(path + "：每个作用面最多八份追加伤害");
@@ -365,6 +401,9 @@ public sealed class CompiledConstructionImpact
         if (source?.Spreads?.Length > 8) throw new InvalidDataException(path + "：每个作用面最多八份范围分送");
         Spreads = source?.Spreads == null ? Array.Empty<CompiledConstructionContactSpread>() :
             Array.AsReadOnly(source.Spreads.Select((spread, index) => new CompiledConstructionContactSpread(spread, path + "/Spreads/" + index)).ToArray());
+        HasSpreadsAfterDamage = Spreads.Any(spread => spread.AfterDamage && spread.HasEffect);
+        if (HasSpreadsAfterDamage && DamageScale <= 0f)
+            throw new InvalidDataException(path + "/Spreads：扣血后分送须有正本体伤害");
         if (source?.Impulse != null)
         {
             if (source.Impulse.Length != 3 || source.Impulse.Any(value =>
@@ -372,6 +411,8 @@ public sealed class CompiledConstructionImpact
                 throw new InvalidDataException(path + "/Impulse：需要三个正负1000以内的有限速度，依次为前后、侧向和上下");
             Impulse = new Vector3(source.Impulse[0], source.Impulse[1], source.Impulse[2]);
         }
+        if (ForceAfterDamage && (DamageScale <= 0f || Force == 0f && Impulse.GetValueOrDefault() == Vector3.zero))
+            throw new InvalidDataException(path + "/ForceAfterDamage：须有直接伤害及非零推拉力");
 
         Lift = source?.Lift ?? .5f;
         Launch = source?.Launch == true && Force == 0f;

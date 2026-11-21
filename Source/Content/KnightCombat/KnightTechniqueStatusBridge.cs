@@ -1,13 +1,13 @@
 using System.Collections.Generic;
-using Cultiway.Content.Combat;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Utils.Extension;
 using strings;
-using UnityEngine;
 
 namespace Cultiway.Content.KnightCombat;
 
@@ -15,6 +15,7 @@ namespace Cultiway.Content.KnightCombat;
 internal static class KnightTechniqueStatusBridge
 {
     private static readonly Dictionary<long, PendingCounter> PendingCounters = new();
+    private static long worldGeneration;
 
     public static void Init()
     {
@@ -25,6 +26,7 @@ internal static class KnightTechniqueStatusBridge
     public static void ClearWorldState()
     {
         PendingCounters.Clear();
+        worldGeneration++;
     }
 
     private static void ApplyAdaptation(
@@ -49,12 +51,12 @@ internal static class KnightTechniqueStatusBridge
                 KnightTechniqueStatuses.GuardStance,
                 out _,
                 out KnightBoundWeaponStatus guard) &&
-            IsBoundWeaponCurrent(target, guard))
+            KnightTechniqueStatuses.IsStanceCurrent(target, guard))
         {
             damage *= 0.55f;
             KnightTechniqueStatuses.Remove(target.Base, KnightTechniqueStatuses.GuardStance);
-            KnightTechniqueVisuals.StopStance(target.Base);
-            PlayGuardResponse(target, attacker, guard, false);
+            EndPreparation(target.Base, guard);
+            PlayGuardResponse(target, attacker, guard);
         }
 
         if (!attacker.isActor() || !IsNearbyMelee(target.Base, attacker.a) ||
@@ -63,17 +65,16 @@ internal static class KnightTechniqueStatusBridge
                 KnightTechniqueStatuses.CounterStance,
                 out _,
                 out KnightBoundWeaponStatus counter) ||
-            !IsBoundWeaponCurrent(target, counter)) return;
+            !KnightTechniqueStatuses.IsStanceCurrent(target, counter)) return;
 
         damage *= 0.5f;
         KnightTechniqueStatuses.Remove(target.Base, KnightTechniqueStatuses.CounterStance);
-        KnightTechniqueVisuals.StopStance(target.Base);
+        EndPreparation(target.Base, counter);
         PendingCounters[targetId] = new PendingCounter(
             targetId,
             attacker.getID(),
             counter.Weapon,
             counter.Technique);
-        PlayGuardResponse(target, attacker, counter, true);
     }
 
     private static void OnDamageResolved(
@@ -86,7 +87,11 @@ internal static class KnightTechniqueStatusBridge
         long targetId = target.Base.getID();
         if (!PendingCounters.TryGetValue(targetId, out PendingCounter pending)) return;
         PendingCounters.Remove(targetId);
-        DelayedActionsManager.addAction(() => ExecuteCounter(pending), 0.06f);
+        long generation = worldGeneration;
+        DelayedActionsManager.addAction(() =>
+        {
+            if (generation == worldGeneration) ExecuteCounter(pending);
+        }, 0.06f);
     }
 
     private static void ExecuteCounter(PendingCounter pending)
@@ -104,80 +109,38 @@ internal static class KnightTechniqueStatusBridge
                 attacker,
                 KnightTechniqueRuntimeService.ResolveMeleeRange(caster))) return;
 
-        var activeTarget = new ActiveAbilityTarget(attacker, attacker.GetSimPos());
-        if (!KnightTechniqueAccessService.TryCreateContext(
-                casterExtend,
-                pending.Technique,
-                pending.Weapon,
-                caster.getWeaponAsset(),
-                attacker,
-                activeTarget,
-                out KnightTechniqueContext context)) return;
-        Vector3 direction = KnightTechniqueRuntimeService.ResolveDirection(caster, attacker);
-        KnightTechniqueVisuals.SpawnWeaponMotion(
-            context,
-            EquippedWeaponMotionKind.Sweep,
-            direction,
-            0.18f,
-            1.55f,
-            55f,
-            -72f,
-            KnightTrailStyle.Duelist,
-            1.12f);
-        DelayedActionsManager.addAction(() =>
-        {
-            if (!KnightTechniqueRuntimeService.IsCurrentTechniqueWeapon(
-                    casterExtend,
-                    pending.Technique,
-                    pending.Weapon) ||
-                !KnightTechniqueRuntimeService.IsWithinRange(
-                    caster,
-                    attacker,
-                    KnightTechniqueRuntimeService.ResolveMeleeRange(caster))) return;
-            KnightWeaponStrikeResolver.TryStrike(
-                casterExtend,
-                pending.Weapon,
-                attacker,
-                1f,
-                damageOrigin: DamageOrigin.Reaction);
-        }, 0.09f);
+        var activeTarget = new ActiveAbilityTarget(attacker, attacker.GetSimPos(), runtimeData: ReactionData());
+        ConstructedAbilityService.StartPrepaid(casterExtend, BodyActionCatalog.KnightCounterRiposte,
+            activeTarget, null, explicitReactionTarget: true, selectionAlreadyChecked: true);
     }
 
+    /// <summary>本次受击消耗架势时，只撤回该架势自己的起势动作。</summary>
+    /// <param name="actor">目前实际受击人物。</param><param name="bound">本次被消耗的状态。</param>
+    private static void EndPreparation(Actor actor, KnightBoundWeaponStatus bound)
+    {
+        if (ConstructedAbilityService.IsBodyControlledBy(actor.id, bound.PreparationCastId))
+            ConstructedAbilityService.Cancel(bound.PreparationCastId);
+    }
+
+    /// <summary>真正减伤才用原持物做出承力动作。</summary>
+    /// <param name="target">已经成功格挡的人物。</param><param name="attacker">本次来袭来源。</param>
+    /// <param name="bound">已经核对身份的实际武器。</param>
     private static void PlayGuardResponse(
         ActorExtend target,
         BaseSimObject attacker,
-        KnightBoundWeaponStatus bound,
-        bool counter)
+        KnightBoundWeaponStatus bound)
     {
-        var activeTarget = new ActiveAbilityTarget(attacker, attacker.GetSimPos());
-        if (!KnightTechniqueAccessService.TryCreateContext(
-                target,
-                bound.Technique,
-                bound.Weapon,
-                target.Base.getWeaponAsset(),
-                attacker,
-                activeTarget,
-                out KnightTechniqueContext context)) return;
-        Vector3 direction = KnightTechniqueRuntimeService.ResolveDirection(target.Base, attacker);
-        KnightTechniqueVisuals.SpawnWeaponMotion(
-            context,
-            EquippedWeaponMotionKind.GuardTurn,
-            direction,
-            0.12f,
-            1.05f,
-            counter ? -42f : -32f,
-            counter ? 18f : 8f,
-            counter ? KnightTrailStyle.Duelist : KnightTrailStyle.Guardian,
-            1.14f);
+        var self = new ActiveAbilityTarget(target.Base, target.Base.GetSimPos(), runtimeData: ReactionData());
+        ConstructedAbilityService.StartPrepaid(target, BodyActionCatalog.KnightGuardResponseFor(bound.Weapon.getAsset().group_id),
+            self, null, direction: KnightTechniqueRuntimeService.ResolveDirection(target.Base, attacker));
     }
 
-    private static bool IsBoundWeaponCurrent(ActorExtend target, KnightBoundWeaponStatus bound)
+    /// <summary>反应伤害沿原结算，不能触发另一轮架势反击。</summary>
+    private static SkillCastRuntimeData ReactionData() => new()
     {
-        return KnightTechniqueRuntimeService.IsCurrentTechniqueWeapon(
-            target,
-            bound.Technique,
-            bound.Weapon);
-    }
+        Origin = ActiveAbilityUseOrigin.Reaction,
+        DamageOrigin = DamageOrigin.Reaction,
+    };
 
     private static bool IsNearbyMelee(Actor target, Actor attacker)
     {

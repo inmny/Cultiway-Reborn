@@ -1,0 +1,121 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.KnightTechnique.SkyfallStrike",
+  "Name": "苍穹坠击",
+  "Lifetime": 0.86,
+  "Cooldown": 10,
+  "Resource": "vigor",
+  "Cost": 360,
+  "TargetRange": 9,
+  "Use": {"Target": "ObjectOrPoint", "Channels": "Combat"},
+  "Binding": {"Anchor": "Source", "Follow": true},
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": "spear",
+    "Grip": "grip",
+    "Occupancy": 5,
+    "ReleaseAt": 0.16,
+    "ActiveFrom": 0.62,
+    "ActiveUntil": 0.69,
+    "Impact": {"Targets": "Self", "DamageScale": 0},
+    "Stages": [{"Id": "landing", "From": 0.62, "Until": 0.69}],
+    "Construction": {
+      "Parts": [
+        {"Id": "hand.right", "Part": "hand.right"},
+        {"Id": "spear", "Subject": "Held", "Part": "item"}
+      ],
+      "Relations": [
+        {"Id": "hold", "Kind": "Grip", "From": "hand.right", "To": "spear", "FromAnchor": "grip", "ToAnchor": "grip",
+          "FromMarker": "start", "UntilMarker": "end"}
+      ],
+      "FootworkTargetDistance": 9,
+      "RiseInWorldUnits": true,
+      "Footwork": {
+        "Space": "Local",
+        "Forward": null,
+        "Keys": [
+          {"At": 0, "Point": [0, 0, 0]},
+          {"At": 0.16, "Point": [0, 0, 0]},
+          {"At": 0.29, "Point": [0.25, 0, 0]},
+          {"At": 0.40, "Point": [0.50, 0, 0]},
+          {"At": 0.53, "Point": [0.78, 0, 0]},
+          {"At": 0.64, "Point": [1, 0, 0]},
+          {"At": 0.86, "Point": [1, 0, 0]}
+        ]
+      }
+    },
+    "Keys": [
+      {"Id": "ready", "At": 0, "Hand": [0.22, 0.22, 0.56], "Rotation": [5, -25, 10], "Support": {}},
+      {"Id": "burden", "At": 0.09, "Hand": [0.11, 0.22, 0.59], "Torso": [-0.06, 0.01, -0.137],
+        "Turn": -9, "Rotation": [-12, -31, 13], "Support": {}},
+      {"Id": "takeoff", "At": 0.16, "Hand": [0.22, 0.16, 0.75], "Torso": [0.06, 0, -0.044],
+        "Rotation": [-29, -23, 9], "Support": {}},
+      {"At": 0.29, "Hand": [0.24, 0.13, 0.81], "Torso": [0.06, 0.01, -0.025],
+        "Turn": 5, "Rotation": [-39, -10, 5],
+        "Support": {"Rise": 2.2, "LeftFoot": [0.14, -0.11, 0.12], "RightFoot": [-0.12, 0.11, 0.08]}},
+      {"Id": "crest", "At": 0.40, "Hand": [0.20, 0.17, 0.76], "Torso": [0.037, 0.01, -0.06],
+        "Turn": 8, "Rotation": [-22, -7, 5],
+        "Support": {"Rise": 2.8, "LeftFoot": [0.21, -0.11, 0.13], "RightFoot": [-0.14, 0.11, 0.125]}},
+      {"At": 0.53, "Hand": [0.26, 0.12, 0.68], "Torso": [0.094, 0.012, -0.06],
+        "Turn": 14, "Rotation": [33, -8, -6],
+        "Support": {"Rise": 2.0, "LeftFoot": [0.16, -0.11, 0.038], "RightFoot": [-0.08, 0.11, 0.060]}},
+      {"Id": "land", "At": 0.64, "Hand": [0.38, 0.10, 0.47], "Torso": [0.13, 0, -0.155],
+        "Turn": 10, "Rotation": [80, -2, -9], "Support": {}},
+      {"At": 0.72, "Hand": [0.34, 0.13, 0.48], "Torso": [0.087, 0, -0.12],
+        "Turn": 8, "Rotation": [61, -6, -7], "Support": {}},
+      {"Id": "rest", "At": 0.86, "Hand": [0.22, 0.22, 0.56], "Rotation": [5, -25, 10], "Support": {}}
+    ]
+  },
+  "Root": {
+    "Id": "landing",
+    "Form": "pivot",
+    "ContactRole": "Decoration",
+    "Children": [
+      {
+        "Id": "pointed",
+        "Form": "purification_surge",
+        "Matter": "physical",
+        "Surface": "bronze",
+        "Scale": 0.48,
+        "AppearAt": 0.64,
+        "ActiveFrom": 0.64,
+        "ActiveUntil": 0.644,
+        "BodyWindow": true,
+        "GroundedBodyRequired": true,
+        "ContactActorCenter": true,
+        "GroundCircleAddsTargetSize": true,
+        "GroundActorsOnly": true,
+        "BorrowedWeaponDamage": true,
+        "ContactGroup": "body",
+        "Contact": {"Mode": "Pulse", "Interval": 0.64, "MaximumPerTarget": 1},
+        "Impact": {"Targets": "Hostile", "SelectedTargetOnly": true, "DamageScale": 1.6},
+        "Operations": [{"Kind": "Animate", "Clip": "dissolve", "At": 0.64, "Seconds": 0.12}]
+      },
+      {
+        "Id": "shock",
+        "Form": "rift_burst",
+        "Matter": "earth",
+        "Surface": "stone",
+        "AppearAt": 0.64,
+        "ActiveFrom": 0.64,
+        "ActiveUntil": 0.644,
+        "BodyWindow": true,
+        "GroundedBodyRequired": true,
+        "ContactActorCenter": true,
+        "GroundActorsOnly": true,
+        "BorrowedWeaponDamage": true,
+        "ContactGroup": "body",
+        "Contact": {"Mode": "Pulse", "Interval": 0.64, "MaximumPerTarget": 1},
+        "Impact": {
+          "Targets": "Hostile",
+          "DamageScale": 0.45,
+          "Impulse": [1, 0, 0],
+          "SlideSeconds": 0.18,
+          "Origin": "Shape",
+          "ForceAfterDamage": true
+        },
+        "Operations": [{"Kind": "Animate", "Clip": "dissolve", "At": 0.64, "Seconds": 0.22}]
+      }
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.KnightTechnique.CounterStance.Riposte",
+  "Name": "受击回锋",
+  "Lifetime": 0.21,
+  "Cooldown": 0,
+  "Resource": "none",
+  "Cost": 0,
+  "Impact": {"Targets": "Hostile", "SelectedTargetOnly": true},
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": "sword",
+    "Grip": "grip",
+    "Occupancy": 1,
+    "ReleaseAt": 0.043,
+    "ActiveFrom": 0.071,
+    "ActiveUntil": 0.115,
+    "Contact": {"Mode": "Once"},
+    "Construction": {
+      "Parts": [
+        {"Id": "hand.right", "Part": "hand.right"},
+        {"Id": "sword", "Subject": "Held", "Part": "item"},
+        {"Id": "target", "Subject": "Target", "Part": "surface"}
+      ],
+      "Relations": [
+        {"Id": "hold", "Kind": "Grip", "From": "hand.right", "To": "sword", "FromAnchor": "grip", "ToAnchor": "grip", "FromMarker": "start", "UntilMarker": "end"},
+        {"Id": "riposte", "Kind": "Touch", "From": "sword", "To": "target", "FromAnchor": "edge"}
+      ]
+    },
+    "Keys": [
+      {"Id": "ready", "At": 0, "Hand": [0.25, -0.10, 0.65], "Rotation": [-23, 36, -16]},
+      {"At": 0.043, "Hand": [0.22, -0.19, 0.59], "Torso": [-0.025, -0.031, -0.04],
+        "Turn": 29, "Rotation": [0, 58, -10]},
+      {"At": 0.071, "Hand": [0.33, -0.11, 0.57], "Torso": [0.015, -0.018, -0.035],
+        "Turn": 16, "Rotation": [1, 29, -8]},
+      {"Id": "cut", "At": 0.098, "Hand": [0.44, 0.033, 0.58], "Torso": [0.055, 0.002, -0.03],
+        "Turn": -4, "Rotation": [2, 0, 3]},
+      {"At": 0.126, "Hand": [0.36, 0.14, 0.61], "Torso": [0.037, 0.019, -0.038],
+        "Turn": -14, "Rotation": [-3, -29, 10]},
+      {"Id": "rest", "At": 0.21, "Hand": [0.2, 0.19, 0.57], "Rotation": [-9, -24, 11]}
+    ]
+  }
+}

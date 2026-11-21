@@ -1,0 +1,146 @@
+// 10.03：用原守卫入口，验证实际保护顺序、一次费用、减伤和中断。
+bool swap = move == "bulwark-swap";
+var technique = KnightTechniques.GuardianBulwark;
+string ability = technique.id + (swap ? ".Axe" : "");
+string equipment = swap ? "axe_iron" : "hammer_iron";
+var effect = Cultiway.ModClass.L.StatusEffectLibrary.get("KnightGuardianBulwark");
+var current = ConstructionEditing.Access.Read(ability);
+ConstructionEditing.Access.Validate(current);
+Check(current.Root.Contact.MaximumTotal == 4 && current.Root.PreferWoundedAllies &&
+      current.Root.IgnoreFormClashes && current.Root.Impact.Statuses.Single().Duration == 4f,
+    "正式底稿保留四份保护和原状态时长");
+
+const float sourceX = 64.5f;
+Actor AllyAt(float x, float y)
+{
+    var actor = Make(x);
+    actor.setKingdom(source.kingdom);
+    Place(actor, x, y);
+    return actor;
+}
+
+var farther = AllyAt(62.5f, 72);
+var olderNear = AllyAt(65.5f, 72);
+var newerNear = AllyAt(63.5f, 72);
+var wounded = AllyAt(67.75f, 72);
+var outside = AllyAt(68.1f, 72);
+var allies = new[] { farther, olderNear, newerNear, wounded, outside };
+owner.AddComponent(new Knight { level = 7, vigor = 800f });
+var supply = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.DuelistVigor") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.DuelistVigor")
+        .SetStats(new BaseStats { [BaseStatses.MaxVigor.id] = 1000f }).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, supply, 10000, source);
+Ready(source);
+source.attack_timer = 999;
+await Advance(.18f);
+Item weapon = Equip(source, equipment);
+KnightStyleMasteryService.Master(owner, KnightStyles.Guardian);
+KnightTechniqueSkills.LearnStyle(owner, KnightStyles.Guardian);
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var handle = handles.Single(value => value.ProviderId == "content.knight_techniques" && value.EntryId == technique.id);
+var starts = new List<ConstructedCastStarted>();
+float[] healthAtPulse = null;
+bool Protected(Actor actor) => CombatStatusEffects.HasStatus(actor, effect, source);
+void AtFirstContact(ConstructedContact fact)
+{
+    if (healthAtPulse == null && fact.SourceId == source.id && fact.AbilityId == ability)
+        healthAtPulse = allies.Select(actor => actor.getHealthRatio()).ToArray();
+}
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != ability) return;
+    starts.Add(fact);
+    object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == fact.CastId);
+    Check(ReferenceEquals(Field(Field(running, "Body"), "Weapon"), weapon), "守护动作借用起势的真兵器");
+}
+DamageSettlement Incoming(Actor defender)
+{
+    var hit = new GetHitEvent
+    {
+        TargetID = defender.id, Damage = 100f, AttackType = AttackType.Weapon,
+        IgnoreDamageReduction = true
+    };
+    hit.BindAttacker(target);
+    return (DamageSettlement)typeof(GetHitEventSystem).GetMethod("Resolve", F).Invoke(null, new object[] { hit });
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += AtFirstContact;
+try
+{
+    Place(source, sourceX);
+    Place(target, sourceX, 71.25f);
+    Place(farther, 62.5f);
+    Place(olderNear, 65.5f);
+    Place(newerNear, 63.5f);
+    Place(wounded, 67.75f);
+    Place(outside, 68.1f);
+    foreach (var actor in allies)
+    {
+        actor.addAggro(target);
+        actor.setHealth(actor.getMaxHealth());
+    }
+    source.setHealth(source.getMaxHealth());
+    source.addAggro(target);
+    target.addAggro(source);
+    source.attack_timer = 0;
+    owner.GetCultisys<Knight>().vigor = 800f;
+    Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(source, source.GetSimPos()),
+          ActiveAbilityUseOrigin.Script) && starts.Count == 1 &&
+          Math.Abs(owner.GetCultisys<Knight>().vigor - 440f) < .001 &&
+          SkillCooldownService.GetRemaining(owner, handle.Source) == 12f &&
+          BodyControlState.HasControl(source.id, BodyOccupancy.Stance),
+        "原入口仅支付 360 点斗气并启动 12 秒冷却");
+    source.attack_timer = 999;
+    await Advance(.25f);
+    Check(!Protected(source) && allies.All(actor => !Protected(actor)), "出手前还没有保护");
+    // 改变起势以后的人物生命，护持应读取真正出手那一刻。
+    wounded.setHealth(wounded.getMaxHealth() / 4);
+    outside.setHealth(outside.getMaxHealth() / 8);
+    if (swap) weapon = Equip(source, equipment);
+    if (!swap)
+    {
+        await Advance(.24f);
+        foreach (var full in new[] { farther, olderNear, newerNear }) full.setHealth(full.getMaxHealth());
+    }
+    await Advance(swap ? .32f : .08f);
+    var hits = contacts.Where(value => value.SourceId == source.id && value.AbilityId == ability).ToArray();
+    if (swap)
+    {
+        Check(hits.Length == 0 && !Protected(source) && allies.All(actor => !Protected(actor)),
+            "换成同款斧后结束起势，没有残留下来的保护");
+    }
+    else
+    {
+        Check(hits.Select(hit => hit.TargetId).SequenceEqual(new[] { source.id, wounded.id, olderNear.id, newerNear.id }) &&
+              hits.All(hit => Math.Abs(hit.Age - .52f) < .002f) && Protected(source) && Protected(wounded) &&
+              Protected(olderNear) && Protected(newerNear) && !Protected(farther) && !Protected(outside) && !Protected(target),
+            "只护持本人和三名友方，按受伤程度、距离和稳定编号排序",
+            new { hits = hits.Select(hit => new { hit.TargetId, hit.Age }), source.id,
+                healthAtPulse, allies = allies.Select(actor => new { actor.id, x = actor.current_position.x }) });
+        Check(healthAtPulse != null && healthAtPulse.Take(3).All(ratio => ratio == healthAtPulse[0]) &&
+              healthAtPulse[3] < healthAtPulse[0] && healthAtPulse[4] < healthAtPulse[3],
+            "脉冲实测三人同血量，先比距离，再比较等距人物编号", healthAtPulse);
+        Check(Incoming(source).HealthLost == 75 && Incoming(olderNear).HealthLost == 75 &&
+              Incoming(farther).HealthLost == 100, "保护真实减免四分之一伤害");
+    }
+    await Advance(.20f);
+    Check(!BodyControlState.IsBusy(source.id) && ReferenceEquals(source.getWeapon(), weapon), "恢复身体和实际装备");
+    if (!swap)
+    {
+        await Advance(4.05f);
+        Check(!Protected(source) && allies.All(actor => !Protected(actor)) && Incoming(source).HealthLost == 100,
+            "原四秒保护到期后恢复普通结算");
+    }
+    return new { passed = true, move, ability };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= AtFirstContact;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

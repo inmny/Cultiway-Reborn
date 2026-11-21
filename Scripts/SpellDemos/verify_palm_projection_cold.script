@@ -1,0 +1,16 @@
+// 正式世界读回后重新参加原版战斗，禁止在此补授任何技能。
+var stored = JObject.Parse(File.ReadAllText(Path.Combine(archived, "expected.json")));
+var access = ConstructionEditing.Access;
+string basisId = (string)stored["basisId"], edited = (string)stored["edited"];
+Actor source = World.world.units.get((long)stored["source"]), target = World.world.units.get((long)stored["target"]);
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check(process != (int)stored["process"] && source != null && target != null, "在不同游戏进程读回原人物");
+var owner = source.GetExtend();
+var definition = access.Read(edited);
+JToken Serialized(AbilityDefinition value) => JToken.Parse(JsonConvert.SerializeObject(value));
+bool knowsOriginal = ConstructedAbilityService.Knows(owner, basisId), knowsEdit = ConstructedAbilityService.Knows(owner, edited);
+bool sameOriginal = JToken.DeepEquals(stored["original"], Serialized(access.Read(basisId)));
+bool sameEdit = JToken.DeepEquals(stored["definition"], Serialized(definition));
+bool busy = BodyControlState.IsBusy(source.id);
+Check(knowsOriginal && knowsEdit && sameOriginal && sameEdit && !busy,
+    "原掌击、改造、学习关系及人物控制完整读回", new { knowsOriginal, knowsEdit, sameOriginal, sameEdit, busy });

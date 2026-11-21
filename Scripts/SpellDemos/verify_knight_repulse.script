@@ -1,0 +1,132 @@
+// 10.03：原守卫入口、地面作用半径与原兵器的真实伤害。
+bool swap = move == "repulse-swap";
+var technique = KnightTechniques.Repulse;
+string ability = technique.id + (swap ? ".Axe" : "");
+string equipment = swap ? "axe_iron" : "hammer_iron";
+var definition = ConstructionEditing.Access.Read(ability);
+ConstructionEditing.Access.Validate(definition);
+Check(definition.Root.Scale == 1.1f && definition.Root.ContactActorCenter && definition.Root.GroundActorsOnly &&
+      definition.Root.BorrowedWeaponDamage && definition.Root.BodyWindow && definition.Root.Impact.ForceAfterDamage,
+    "原目录资料使用同一地面圆面、持物及伤害后推力");
+
+Actor EnemyAt(float x, float y)
+{
+    Actor actor = Make(x);
+    actor.setKingdom(target.kingdom);
+    CombatStatusEffects.RemoveStatus(actor, hold);
+    CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+    actor.updateStats();
+    Place(actor, x, y);
+    return actor;
+}
+
+var outside = EnemyAt(66.65f, 72);
+var flying = EnemyAt(63.35f, 72);
+var immune = EnemyAt(64.35f, 70.75f);
+owner.AddComponent(new Knight { level = 3, vigor = 200f });
+var supply = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.StanceVigor") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.StanceVigor")
+        .SetStats(new BaseStats { [BaseStatses.MaxVigor.id] = 300f }).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, supply, 10000, source);
+Ready(source);
+source.attack_timer = 999;
+await Advance(.18f);
+Item weapon = Equip(source, equipment);
+KnightStyleMasteryService.Master(owner, KnightStyles.Guardian);
+KnightTechniqueSkills.LearnStyle(owner, KnightStyles.Guardian);
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var handle = handles.Single(value => value.ProviderId == "content.knight_techniques" && value.EntryId == technique.id);
+var settled = new List<ConstructedQueuedDamage>();
+var push = new List<Vector3>();
+var starts = new List<ConstructedCastStarted>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != ability) return;
+    starts.Add(fact);
+    object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == fact.CastId);
+    Check(ReferenceEquals(Field(Field(running, "Body"), "Weapon"), weapon),
+        "原入口把所持兵器交给共用动作");
+}
+void Settled(ConstructedQueuedDamage fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != ability) return;
+    settled.Add(fact);
+    push.Add(World.world.units.get(fact.TargetId)?.velocity ?? Vector3.zero);
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+try
+{
+    Place(source, 64.35f);
+    Place(target, 66.45f);
+    Place(outside, 66.65f);
+    Place(flying, 63.35f);
+    Place(immune, 64.35f, 70.75f);
+    flying.setFlying(true);
+    immune.addStatusEffect("invincible", .75f, pColorEffect: false);
+    var enemies = new[] { target, outside, flying, immune };
+    foreach (var enemy in enemies)
+    {
+        enemy.setHealth(enemy.getMaxHealth());
+        source.addAggro(enemy);
+        enemy.addAggro(source);
+    }
+    var before = enemies.Select(enemy => enemy.data.health).ToArray();
+    source.attack_timer = 0;
+    owner.GetCultisys<Knight>().vigor = 200f;
+    var self = new ActiveAbilityTarget(source, source.GetSimPos());
+    Check(ActiveAbilityService.TryUse(owner, handle, self, ActiveAbilityUseOrigin.Script) && starts.Count == 1 &&
+          Math.Abs(owner.GetCultisys<Knight>().vigor - 155f) < .001f &&
+          SkillCooldownService.GetRemaining(owner, handle.Source) == 6f &&
+          BodyControlState.HasControl(source.id, BodyOccupancy.Stance),
+        "原入口只付 45 点斗气并启动 6 秒冷却");
+    source.attack_timer = 999;
+    if (swap) weapon = Equip(source, equipment);
+    await Advance(.24f);
+    var hits = contacts.Where(value => value.SourceId == source.id && value.AbilityId == ability).ToArray();
+    var losses = enemies.Select((enemy, i) => before[i] - enemy.data.health).ToArray();
+    if (swap)
+    {
+        Check(hits.Length == 0 && settled.Count == 0 && losses.All(value => value == 0),
+            "起势后换成同款新斧，震退窗口中断");
+    }
+    else
+    {
+        Check(hits.Length == 2 && hits.Select(hit => hit.TargetId).OrderBy(id => id)
+                  .SequenceEqual(new[] { target.id, immune.id }.OrderBy(id => id)) &&
+              hits.All(hit => hit.Node == 0 && hit.BodyDamageMultiplier is float scale && Math.Abs(scale - .65f) < .001f),
+            "同一地面脉冲只接触圆内的两个地面敌人", new
+            {
+                contacts = hits.Select(hit => new { hit.TargetId, hit.Node, hit.Age, hit.BodyDamageMultiplier }),
+                actors = enemies.Select(actor => new { actor.id, actor.current_position.x, flying = actor.isFlying() })
+            });
+        Check(losses[0] > 0 && losses.Skip(1).All(value => value == 0) &&
+              settled.Count(fact => fact.TargetId == target.id && fact.Node == 0 && fact.Damage.HealthLost == losses[0]) == 1,
+            "圆内有伤敌人只结算一次，圆外、飞行和免伤者的生命不变", new { losses });
+        var stagger = Cultiway.ModClass.L.StatusEffectLibrary.get("Stagger");
+        Vector3 pushed = push[settled.FindIndex(fact => fact.TargetId == target.id)];
+        bool actionInterrupted = CombatStatusEffects.HasStatus(target, stagger, source);
+        Check(pushed.x > 0f && actionInterrupted && !CombatStatusEffects.HasStatus(immune, stagger, source),
+            "实际扣血后才向外推开并短暂停止行动",
+            new { x = pushed.x, y = pushed.y, z = pushed.z, actionInterrupted });
+        await Advance(.12f);
+        Check(target.current_position.x > 66.50f && Math.Abs(immune.current_position.y - 70.75f) < .02,
+            "实际位移沿地面向外，免伤目标留在原位",
+            new { moved = target.current_position.x - 66.45f, immune = immune.current_position.y });
+    }
+    await Advance(.28f);
+    Check(!BodyControlState.IsBusy(source.id) && ReferenceEquals(source.getWeapon(), weapon),
+        "收势或中断归还身体和原物");
+    return new { passed = true, move, ability };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

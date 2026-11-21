@@ -55,7 +55,7 @@ public sealed class ConstructionInspiration
             if (float.IsNaN(elements[i]) || float.IsInfinity(elements[i]) || elements[i] < 0f || elements[i] > 1.001f)
                 throw new ArgumentException("创法元素倾向无效", nameof(elements));
         if (!Valid(aggression) || !Valid(control)) throw new ArgumentException("创法性格倾向需要零至一的有限数值");
-        if (rules is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25 or 26 or 27 or 28 or 29 or 30 or ConstructionPricing.ProcessTimeRules or ConstructionPricing.ApplicationRules or ConstructionPricing.PropagationRules or ConstructionPricing.DailyUseRules or ConstructionPricing.MartialStudyRules)) throw new ArgumentException("未知的创法生成规则", nameof(rules));
+        if (rules is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25 or 26 or 27 or 28 or 29 or 30 or ConstructionPricing.ProcessTimeRules or ConstructionPricing.ApplicationRules or ConstructionPricing.PropagationRules or ConstructionPricing.DailyUseRules or ConstructionPricing.MartialStudyRules or ConstructionPricing.KnightStudyRules)) throw new ArgumentException("未知的创法生成规则", nameof(rules));
         Rules = rules;
         Elements = elements;
         Aggression = aggression;
@@ -115,7 +115,11 @@ public sealed partial class ConstructedAbilityService
 {
     /// <summary>按已有贡献器读取灵根、功法、知识、经历，再读取原版实际性格。</summary>
     /// <param name="actor">需要创作的实际生灵。</param>
-    public static ConstructionInspiration ReadInspiration(ActorExtend actor)
+    public static ConstructionInspiration ReadInspiration(ActorExtend actor) =>
+        ReadInspirationForRules(actor, ConstructionPricing.MartialStudyRules);
+
+    /// <summary>在受理时按创作来源固定所用规则。</summary>
+    private static ConstructionInspiration ReadInspirationForRules(ActorExtend actor, int rules)
     {
         if (actor?.Base?.data == null) throw new ArgumentException("缺少真实创造者", nameof(actor));
         SemanticProfile profile = SemanticContributorService.Build(actor);
@@ -142,7 +146,7 @@ public sealed partial class ConstructedAbilityService
                                       actor.Base.stats["personality_administration"] * .4f - aggression * .2f +
                                       .15f * (1f - Mathf.Exp(-controlEvidence)));
         bool project = BodyActionBinding.CanBind(actor, AbilityCompiler.Compile(BodyActionCatalog.Palm).Body);
-        return new ConstructionInspiration(elements, aggression, control, project);
+        return new ConstructionInspiration(elements, aggression, control, project, rules);
     }
 
     /// <summary>登记共同语义贡献和使用事实；画像自身按需重建，不复制到人物长期资料。</summary>

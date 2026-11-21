@@ -69,20 +69,8 @@ internal static class KnightTechniqueAiRules
                CountGroundHostilesAround(caster.Base, target, nearbyRadius) >= minimumNearbyHostiles;
     }
 
-    public static bool IsIsolated(ActorExtend caster, BaseSimObject target)
-    {
-        if (target?.isActor() != true || target.isRekt()) return false;
-        var isolated = true;
-        CombatTargeting.ForEachActor(
-            target.a,
-            target.current_position,
-            1.8f,
-            CombatTargeting.TargetDisposition.Any,
-            candidate =>
-            {
-                if (candidate != target.a && SkillTargetRelationResolver.IsFriendly(target, candidate))
-                    isolated = false;
-            });
-        return isolated;
-    }
+    /// <summary>原决斗家按目标周围一格八的空间判断孤立。</summary>
+    /// <param name="target">本次考虑的原目标。</param>
+    public static bool IsIsolated(BaseSimObject target) =>
+        target?.isActor() == true && CombatTargeting.IsIsolated(target.a, 1.8f);
 }

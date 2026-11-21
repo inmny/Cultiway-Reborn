@@ -128,6 +128,14 @@ public sealed class BodyConstructionDefinition
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionPath Footwork;
 
+    /// <summary>大于零时，步法前向坐标为出手时目标距离的比例，数值为世界格上限。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float FootworkTargetDistance;
+
+    /// <summary>离地曲线使用世界格，足底局部姿态仍以实际体高为单位。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool RiseInWorldUnits;
+
     /// <summary>握持及实际双方接触关系。</summary>
     public BodyRelationDefinition[] Relations = Array.Empty<BodyRelationDefinition>();
 }
@@ -253,6 +261,11 @@ public sealed class CompiledBodyConstruction
     /// <summary>单位体高下的最大步法速度，编译时固定。</summary>
     public float FootworkSpeed { get; }
 
+    /// <summary>锁定目标距离的前向步法上限，零表示整条曲线仍按体高定尺。</summary>
+    public float FootworkTargetDistance { get; }
+
+    internal bool RiseInWorldUnits { get; }
+
     /// <summary>只计算一次的路径精度步长，运行时再截在实际曲段边界。</summary>
     private readonly float footworkStep = float.PositiveInfinity;
 
@@ -332,6 +345,11 @@ public sealed class CompiledBodyConstruction
                 throw new InvalidDataException("Body/Construction/Support/Points：两个支撑不能重合");
         }
 
+        RiseInWorldUnits = source?.RiseInWorldUnits == true;
+        FootworkTargetDistance = source?.FootworkTargetDistance ?? 0f;
+        if (!CompiledForceRouting.Finite(FootworkTargetDistance) || FootworkTargetDistance < 0f ||
+            FootworkTargetDistance > 64f || FootworkTargetDistance > 0f && source.Footwork == null)
+            throw new InvalidDataException("Body/Construction/FootworkTargetDistance：须有步法曲线，距离上限为0至64格");
         if (source?.Footwork != null)
         {
             if (source.Footwork.Space != ConstructionPathSpace.Local || source.Footwork.Loop || source.Footwork.DistancePerSecond != 0f || source.Footwork.Additions?.Length > 0)

@@ -1,0 +1,187 @@
+// 10.03：共用枪骑入口、同一支铁枪与原长兵对练场地。
+string scenario = selection;
+bool swap = scenario == "skyfall-swap", evade = scenario == "skyfall-evade";
+var technique = KnightTechniques.SkyfallStrike;
+string id = technique.id;
+var basis = ConstructionEditing.Access.Read(id);
+ConstructionEditing.Access.Validate(basis);
+Check(basis.Body.WeaponForm == "spear" && basis.Body.Construction.FootworkTargetDistance == 9f &&
+      basis.Body.Construction.RiseInWorldUnits && basis.Root.Children.All(node => node.GroundedBodyRequired),
+    "正式资料保存真实持枪、原腾起尺度和同一个落地条件");
+
+owner.AddComponent(new Knight { level = 7, vigor = 800f });
+var reserve = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.DuelistVigor") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.DuelistVigor")
+        .SetStats(new BaseStats { [BaseStatses.MaxVigor.id] = 1000f }).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, reserve, 10000, source);
+Ready(source);
+source.attack_timer = 999;
+await Advance(.18f);
+Item weapon = Equip(source, "spear_iron");
+KnightStyleMasteryService.Master(owner, KnightStyles.Lancer);
+KnightTechniqueSkills.LearnStyle(owner, KnightStyles.Lancer);
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var handle = handles.Single(value => value.ProviderId == "content.knight_techniques" && value.EntryId == id);
+
+long castId = 0;
+AbilityCast runningCast = null;
+var settled = new List<ConstructedQueuedDamage>();
+var landingSamples = new List<(float X, float Y, float Height)>();
+var buildings = new List<long>();
+void RecordLanding() => landingSamples.Add((source.current_position.x, source.current_position.y, source.position_height));
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != id) return;
+    castId = fact.CastId;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == castId);
+    runningCast = (AbilityCast)Field(running, "Cast");
+    Check(ReferenceEquals(Field(Field(running, "Body"), "Weapon"), weapon), "借用本次起跳的真实铁枪");
+}
+void HitAtGround(ConstructedContact fact)
+{
+    if (fact.CastId == castId) RecordLanding();
+}
+void Damage(ConstructedQueuedDamage fact) { if (fact.CastId == castId) settled.Add(fact); }
+void ActionObserved(ConstructedActionEvent value)
+{
+    if (value.CastId == castId && value.Fact.ContactKind == AbilityActionContactKind.Building)
+    {
+        buildings.Add(value.Fact.TargetId);
+        RecordLanding();
+    }
+}
+Actor Enemy(float x, float y)
+{
+    Actor actor = Make(x);
+    actor.setKingdom(target.kingdom);
+    CombatStatusEffects.RemoveStatus(actor, hold);
+    CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+    actor.updateStats();
+    Place(actor, x, y);
+    actor.setHealth(actor.getMaxHealth());
+    actor.addAggro(source);
+    source.addAggro(actor);
+    return actor;
+}
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += HitAtGround;
+ConstructedAbilityService.QueuedDamageConfirmed += Damage;
+ConstructedAbilityService.ActionConfirmed += ActionObserved;
+try
+{
+    const float origin = 64.35f, destination = 70.35f, sideY = 73.45f;
+    Place(source, origin);
+    Place(target, destination);
+    source.addAggro(target);
+    target.addAggro(source);
+    Building building = null;
+    if (scenario == "skyfall-building")
+    {
+        Place(target, 74f);
+        building = World.world.buildings.addBuilding("beehive", World.world.GetTileSimple(70, 72));
+        building.setKingdom(target.kingdom);
+    }
+    BaseSimObject chosen = (BaseSimObject)building ?? target;
+    float landingX = chosen.current_position.x;
+    var neighbor = Enemy(landingX, sideY);
+    var outside = Enemy(landingX, 74.25f);
+    var flyer = Enemy(landingX, 71.25f);
+    flyer.setFlying(true);
+    target.setHealth(target.getMaxHealth());
+    int original = chosen.getHealth(), sideHealth = neighbor.getHealth(), farHealth = outside.getHealth(),
+        airborneHealth = flyer.getHealth();
+    owner.GetCultisys<Knight>().vigor = 800f;
+    source.attack_timer = 0f;
+    var aim = new ActiveAbilityTarget(chosen, chosen.GetSimPos());
+    Check(ActiveAbilityService.TryUse(owner, handle, aim, ActiveAbilityUseOrigin.Script) &&
+          runningCast != null && BodyControlState.ControlsHeight(source.id) &&
+          Math.Abs(owner.GetCultisys<Knight>().vigor - 440f) < .001 &&
+          SkillCooldownService.GetRemaining(owner, handle.Source) == 10f,
+        "原入口只付360点斗气并启动10秒冷却");
+    source.attack_timer = 999;
+    await Advance(.385f);
+    float peak = source.position_height, arcX = source.current_position.x;
+    var visuals = new List<FormVisualInstance>();
+    runningCast.AppendVisuals(visuals);
+    Check(Math.Abs(peak - 2.8f) < .06f && arcX > origin + 1.2f && arcX < landingX - .6f &&
+          visuals.Count == 0 && contacts.Count == 0 && settled.Count == 0 && chosen.getHealth() == original,
+        "真身接近2.8格高度，滞空阶段没有落点形体或伤害",
+        new { peak, arcX, visuals = visuals.Count, age = runningCast.Age });
+    bool stillInArea = false;
+    if (evade)
+    {
+        float directRadius = 1.2f + target.stats[strings.S.size];
+        stillInArea = directRadius < 1.94f;
+        float departure = stillInArea ? (directRadius + 2f) * .5f : directRadius + .2f;
+        Place(target, landingX, 72f + departure);
+    }
+    if (swap)
+    {
+        weapon = Equip(source, "spear_iron");
+        await Advance(.055f);
+        Check(source.position_height > .4f && source.under_forces && !BodyControlState.IsBusy(source.id),
+            "空中换枪交回实际飞行速度，继续自然下落", new { source.position_height, source.under_forces });
+        await Advance(1.25f);
+    }
+    else await Advance(.62f);
+
+    var hits = contacts.Where(value => value.CastId == castId).ToArray();
+    var observed = hits.Select(value => new { value.TargetId, value.Node, value.Age, value.BodyDamageMultiplier }).ToArray();
+    Check(!BodyControlState.IsBusy(source.id) && source.position_height < .02f && !source.under_forces &&
+          ReferenceEquals(source.getWeapon(), weapon), "结束后已经落地并归还身体和实际持物",
+        new { source.position_height, source.under_forces, x = source.current_position.x });
+    if (swap)
+    {
+        Check(hits.Length == 0 && settled.Count == 0 && buildings.Count == 0 &&
+              chosen.getHealth() == original && neighbor.getHealth() == sideHealth,
+            "空中换枪后没有旧枪落点伤害");
+    }
+    else
+    {
+        Check(landingSamples.Count > 0 &&
+              landingSamples.All(p => Math.Abs(p.X - landingX) < .05f && Math.Abs(p.Y - 72f) < .05f && p.Height < .02f),
+            "实测在原落点归地后才确认作用",
+            new { landingX, positions = landingSamples.Select(p => new { p.X, p.Y, p.Height }) });
+        var sideHits = hits.Where(value => value.TargetId == neighbor.id).ToArray();
+        Check(sideHits.Length == 1 && Math.Abs(sideHits[0].BodyDamageMultiplier.GetValueOrDefault() - .45f) < .001f &&
+              settled.Count(value => value.TargetId == neighbor.id && value.Damage.HealthLost > 0) == 1 &&
+              neighbor.data.health < sideHealth && neighbor.current_position.y > sideY + .035f &&
+              outside.getHealth() == farHealth && flyer.getHealth() == airborneHealth,
+            "2格内地面旁敌只受一次0.45倍并在扣血后被推开",
+            new { observed, sideHealth, current = neighbor.data.health, y = neighbor.current_position.y, flyer = flyer.isFlying() });
+        var chosenHits = hits.Where(value => value.TargetId == target.id).ToArray();
+        if (building != null)
+        {
+            Check(buildings.SequenceEqual(new[] { building.getID() }) && building.getHealth() < original &&
+                  chosenHits.Length == 0, "选定建筑在落地时走同一实际兵器结算",
+                new { buildings, original, current = building.getHealth() });
+        }
+        else if (evade && !stillInArea)
+        {
+            Check(chosenHits.Length == 0 && chosen.getHealth() == original,
+                "移出范围的点名对象未被强制追击", observed);
+        }
+        else
+        {
+            float expected = evade ? .45f : 1.6f;
+            Check(chosenHits.Length == 1 && Math.Abs(chosenHits[0].BodyDamageMultiplier.GetValueOrDefault() - expected) < .001f &&
+                  settled.Count(value => value.TargetId == target.id && value.Damage.HealthLost > 0) == 1,
+                evade ? "避开中心但仍在圆内时只接受0.45倍" : "中心点名目标只结算一次1.6倍，未叠加范围伤害", observed);
+        }
+    }
+    return new { passed = true, selection, peak, arcX };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= HitAtGround;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Damage;
+    ConstructedAbilityService.ActionConfirmed -= ActionObserved;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

@@ -2,6 +2,7 @@ using System;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.Skills;
 using Cultiway.Utils.Extension;
 using UnityEngine;
 
@@ -58,6 +59,10 @@ public sealed class KnightTechniqueActiveUseProfile
     public KnightTechniqueTacticalProfileResolver ResolveTacticalProfile;
     public KnightTechniqueFloatResolver ResolveRange;
     public KnightTechniqueFloatResolver ResolveEffectRadius;
+    /// <summary>实际战技构造；使用原学习和支付入口，动作交给共同执行。</summary>
+    public AbilityDefinition Construction;
+    /// <summary>同一战技按武器类型选择不同的实际握持和器物形状。</summary>
+    public Func<EquipmentAsset, AbilityDefinition> ResolveConstruction;
     public KnightTechniqueUseHandler TryUse;
 }
 

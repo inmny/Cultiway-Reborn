@@ -50,7 +50,10 @@ try
     // 独立取阶段图时让绘制帧跟上世界时钟；实际招式的时间窗口不变。
     clock.multiplier = worldSpeed * .18f;
     var entry = new ActiveAbilityHandle("content.palm_strike", owner.E);
-    Check(ConstructionEditing.Access.Read(palm).Revision == 4, "原可学习掌击仍读取完整旧动作");
+    AbilityDefinition editable = ConstructionEditing.Access.Read(palm);
+    Check(JToken.DeepEquals(JObject.FromObject(editable), JObject.FromObject(BodyActionCatalog.Palm)) &&
+          editable.Body.Keys.Any(key => key.Id == "loaded") && editable.Body.Keys.Any(key => key.Id == "unload"),
+        "新世界万法阁读取原地掌击实际使用的完整蓄力与收势资料");
     foreach (bool miss in missOnly ? new[] { true } : new[] { false, true })
     {
         string run = miss ? "miss" : "hit";
@@ -68,7 +71,7 @@ try
         live = ((IEnumerable)running.GetValue(null)).Cast<object>()
             .Where(item => (long)Field(item, "Id") == started.Value.CastId)
             .Select(item => (AbilityCast)Field(item, "Cast")).Single();
-        Check(live.Plan.Revision == 6 && live.BodyPose.HasValue &&
+        Check(live.Plan.Revision == editable.Revision && live.BodyPose.HasValue &&
               BodyControlState.IsBusy(source.id, BodyOccupancy.RightArm | BodyOccupancy.Stance),
             run + "：新版实际接管手臂与支撑");
         if (miss) Place(target, 71f);

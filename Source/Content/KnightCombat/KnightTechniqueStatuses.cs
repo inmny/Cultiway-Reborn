@@ -1,8 +1,9 @@
-using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Skills;
+using Cultiway.Core;
 using Cultiway.Core.Combat;
-using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.Skills;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using strings;
@@ -13,6 +14,9 @@ internal struct KnightBoundWeaponStatus : IComponent
 {
     public Item Weapon;
     public KnightTechniqueAsset Technique;
+    /// <summary>本次起势的运行编号，旧档与重载只恢复状态及实际兵器。</summary>
+    [Newtonsoft.Json.JsonIgnore]
+    internal long PreparationCastId;
 }
 
 /// <summary>注册并操作骑士战技使用的共享状态。</summary>
@@ -47,26 +51,6 @@ internal static class KnightTechniqueStatuses
             "KnightCounterStance",
             KnightTechniques.CounterStance,
             3f);
-    }
-
-    public static void ApplyGuard(KnightTechniqueContext context)
-    {
-        ApplyBound(context, GuardStance, 2.5f);
-    }
-
-    public static void ApplyCounter(KnightTechniqueContext context)
-    {
-        ApplyBound(context, CounterStance, 3f);
-    }
-
-    public static void ApplyBulwark(Actor target, Actor source)
-    {
-        ApplyGlobal(target, GuardianBulwark, 4f, source);
-    }
-
-    public static void ApplyArmorBreak(Actor target, Actor source)
-    {
-        ApplyGlobal(target, ArmorBreak, 3f, source);
     }
 
     public static bool TryGetBound(
@@ -105,43 +89,33 @@ internal static class KnightTechniqueStatuses
             .Build();
     }
 
-    private static void ApplyBound(
-        KnightTechniqueContext context,
-        StatusEffectAsset effect,
-        float duration)
+    /// <summary>按共享状态编号识别仍需实际武器及原流派的两种架势。</summary>
+    /// <param name="effect">正式起势状态。</param>
+    internal static KnightTechniqueAsset RequiredTechnique(StatusEffectAsset effect) =>
+        effect == null ? null : effect == GuardStance ? KnightTechniques.GuardStance :
+        effect == CounterStance ? KnightTechniques.CounterStance : null;
+
+    /// <summary>起势完成受理时将真正借用的兵器交给状态。</summary>
+    /// <param name="status">已经施加的实际状态。</param>
+    /// <param name="technique">这个状态所属的原战技。</param>
+    /// <param name="weapon">本次实际借用的物件。</param>
+    /// <param name="castId">本次起势占用。</param>
+    internal static void BindStance(Entity status, KnightTechniqueAsset technique, Item weapon, long castId)
     {
-        Combat.CombatStatusEffects.ApplyStateStatus(
-            context.Caster.Base,
-            effect,
-            duration,
-            context.Caster.Base,
-            status => status.GetComponent<KnightBoundWeaponStatus>() = new KnightBoundWeaponStatus
-            {
-                Weapon = context.Weapon,
-                Technique = context.Technique,
-            });
+        status.GetComponent<KnightBoundWeaponStatus>() = new KnightBoundWeaponStatus
+        {
+            Weapon = weapon,
+            Technique = technique,
+            PreparationCastId = castId,
+        };
     }
 
-    private static void ApplyGlobal(
-        Actor target,
-        StatusEffectAsset effect,
-        float duration,
-        Actor source)
-    {
-        if (Combat.CombatStatusEffects.TryGetStatus(target, effect, null, out Entity status))
-        {
-            float sourcePowerLevel = source.GetExtend().GetPowerLevel();
-            if (!StatusEffectSuppression.TryResolveDuration(
-                    target.GetExtend(), effect, duration, source, sourcePowerLevel,
-                    out float resolvedDuration)) return;
-            status.GetComponent<AliveTimer>().value = 0f;
-            status.GetComponent<AliveTimeLimit>().value = resolvedDuration;
-            ref StatusComponent component = ref status.GetComponent<StatusComponent>();
-            component.SetSource(source);
-            component.SourcePowerLevel = sourcePowerLevel;
-            target.setStatsDirty();
-            return;
-        }
-        Combat.CombatStatusEffects.ApplyStateStatus(target, effect, duration, source, null);
-    }
+    /// <summary>架势只豁免这一次起势自己的身体占用，其他强控和换装仍取消。</summary>
+    /// <param name="actor">持有状态的实际人物。</param>
+    /// <param name="bound">已经绑定的武器及原战技。</param>
+    internal static bool IsStanceCurrent(ActorExtend actor, KnightBoundWeaponStatus bound) =>
+        bound.Technique != null && KnightTechniqueRuntimeService.IsCurrentTechniqueWeapon(actor, bound.Technique,
+            bound.Weapon, BodyControlState.IsBusy(actor.Base.id) &&
+                          ConstructedAbilityService.IsBodyControlledBy(actor.Base.id, bound.PreparationCastId));
+
 }

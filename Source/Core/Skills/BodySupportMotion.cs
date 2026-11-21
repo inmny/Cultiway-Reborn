@@ -111,7 +111,9 @@ internal sealed class CompiledBodySupportMotion
     /// <param name="source">同一身体动作关键点。</param><param name="left">起始左足。</param>
     /// <param name="right">起始右足。</param>
     /// <param name="named">按真实原骨段读取各足，不采用人形落点。</param>
-    internal CompiledBodySupportMotion(BodyMotionKey[] source, Vector3 left, Vector3 right, bool named = false)
+    /// <param name="worldRise">根点使用世界速度预算，足底仍使用身体姿态预算。</param>
+    internal CompiledBodySupportMotion(BodyMotionKey[] source, Vector3 left, Vector3 right, bool named = false,
+        bool worldRise = false)
     {
         // 先固定真实部位集合，再复制各关键点，最后登记共同腾起区间。
         if (named)
@@ -164,8 +166,11 @@ internal sealed class CompiledBodySupportMotion
                     Vector3 a = before.Parts[foot].Point, b = keys[i].Pose.Parts[foot].Point;
                     CheckPlant(a, b); travel = Mathf.Max(travel, Vector3.Distance(a, b));
                 }
-            MaximumRate = Mathf.Max(MaximumRate,
-                810f * Mathf.Max(travel, Mathf.Abs(motion.Rise - before.Rise)) / (source[i].At - source[i - 1].At));
+            float seconds = source[i].At - source[i - 1].At;
+            float rise = Mathf.Abs(motion.Rise - before.Rise);
+            if (worldRise && 1.5f * rise / seconds > 64f)
+                throw new InvalidDataException("Body/Keys/Support：世界离地速度超过每秒64格");
+            MaximumRate = Mathf.Max(MaximumRate, 810f * (worldRise ? travel : Mathf.Max(travel, rise)) / seconds);
 
             // 两端均在地面时落脚不能平移；抬足或腾起后才允许换落点。
             void CheckPlant(Vector3 a, Vector3 b)
