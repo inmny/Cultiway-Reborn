@@ -43,7 +43,9 @@ internal static class FieldConstructionMigration
         var target = new ActiveAbilityTarget(follow ? emission.Target : null, emission.TargetPos, attackKingdom: emission.AttackKingdom,
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
-            emission.SourcePos, emission.Payment, damage, sourceInstance: skill.Id, spatialSource: emission.SpatialSource) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+            emission.SourcePos, emission.Payment, damage, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
+            groundTravel: LegacyGroundTravel.From(in emission, definition.Root.ActiveFrom))
+            ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>先核对附加作用，再将实际强度、尺寸、寿命和固定目标展开为可保存资料。</summary>

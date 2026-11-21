@@ -2675,3 +2675,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中用 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_area_impacts.py --case archive` 保存学习资料。用 `--case legacy --archive <归档输出目录>` 记录各术的原执行。重新启动独立游戏后用 `--case cold --archive <归档输出目录> --baseline <原执行的 result.json>` 对照。两种执行都可以用 `--spell Rift` 等参数只复验指定法术。对照落石、落雷和墟隙的代表场景时，两端都加 `--objects`，可分别检查固定沙地、人物总伤害和敌方完工建筑。
 
 两种视角的录像用 `demo_all.py --scope base --filter Cultiway.GroundSpike,Cultiway.Rift,Cultiway.LightningStrike,Cultiway.Icefall --cases base --variants first --realm 0 --caster-position 64 72 --target-offset 6 0 --aim-offset 6 0 --duration 1.8 --fps 26 --motion-trace`，原版配 `--view native --zoom 10`，Worldfall 配 `--view worldfall --zoom 12`。地形变化以复验的实际地块记录为准。
+
+### 旧攻击沿途掠地（10.01）
+
+在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_ground_travel.py --case legacy`。随后用 `--case current --baseline <原执行的 result.json>` 复验当前实现，查看沿途格子状态及取消后的结果。可用 `--spell PoisonNeedle` 等参数只复验一个样本。

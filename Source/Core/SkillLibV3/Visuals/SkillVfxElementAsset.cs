@@ -32,6 +32,8 @@ public class SkillVfxElementAsset : Asset
     public float AccentBlend = 0.35f;
     public float AccentAlpha = 0.75f;
     public SkillVfxGroundFlyOver GroundFlyOver = NoFlyOver;
+    /// <summary>没有地面反应的元素不需要留下沿途取样资料。</summary>
+    internal bool HasGroundFlyOver => GroundFlyOver != NoFlyOver;
     public SkillVfxGroundImpact GroundImpact = NoImpact;
     public string ImpactSound;
     public float ImpactFeedbackInterval = 0.12f;

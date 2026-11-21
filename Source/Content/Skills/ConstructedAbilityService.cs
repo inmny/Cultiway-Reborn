@@ -398,15 +398,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="spatialSource">实际提供出生及随动位置的人物载体，省略时使用归属人物。</param>
     /// <param name="sourceIsWorld">已从同轮身体表面取得绝对坐标，无需再叠加地表。</param>
     /// <param name="legacyArea">已学法术原有的范围地块与建筑规则。</param>
+    /// <param name="groundTravel">已学法术原有的行进掠地规则。</param>
     internal static bool StartPrepaid(ActorExtend caster, AbilityDefinition definition,
         in ActiveAbilityTarget target, Vector3 sourcePosition, SkillCastPayment payment = null,
         GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0, BaseSimObject spatialSource = null,
-        bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null)
+        bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null, LegacyGroundTravel groundTravel = null)
     {
         if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
         return Start(caster, ValidateDefinition(definition), target, target.RuntimeData.Origin, out _, sourcePosition,
             true, payment, sourceDamage: damage, sourceDirection: direction, sourceInstance: sourceInstance,
-            spatialSource: spatialSource?.a, sourceIsWorld: sourceIsWorld, legacyArea: legacyArea);
+            spatialSource: spatialSource?.a, sourceIsWorld: sourceIsWorld, legacyArea: legacyArea, groundTravel: groundTravel);
     }
 
     /// <summary>固定环境位置直接进入共同执行，零编号表示未受理，不借人物提供身份或资源。</summary>
@@ -449,7 +450,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, out long castId, Vector3? sourcePosition = null,
         bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
         GetHitEvent? sourceDamage = null, Vector3? sourceDirection = null, int sourceInstance = 0, Actor spatialSource = null,
-        bool practice = false, bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null)
+        bool practice = false, bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null,
+        LegacyGroundTravel groundTravel = null)
     {
         castId = 0;
         Actor sourceActor = caster?.Base;
@@ -598,6 +600,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 Cast = cast,
                 AreaImpact = legacyArea,
                 AreaImpactNode = legacyArea == null ? -1 : Array.FindIndex(plan.Nodes, node => node.Path == legacyArea.Path),
+                GroundTravel = groundTravel,
                 CorrespondenceEnded = plan.HasCorrespondences ? new bool[plan.FormCount] : null,
                 WorldScope = target.WorldScope,
                 Practice = practice,
@@ -982,6 +985,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         /// <summary>尚未确认的旧范围地块、建筑作用，只在共同爆发部位生效时使用一次。</summary>
         internal LegacyAreaImpact AreaImpact;
         internal int AreaImpactNode;
+        /// <summary>本次施放实际允许的原掠地作用，只在已经确认的行进中读取。</summary>
+        internal LegacyGroundTravel GroundTravel;
 
         /// <summary>实际归属及目标。</summary>
         internal Actor Source, Target;

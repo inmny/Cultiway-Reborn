@@ -176,6 +176,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 if (generation != worldGeneration) yield break;
                 foreach (RunningCast running in active)
                 {
+                    ConfirmLegacyGroundTravel(running, generation);
+                    if (generation != worldGeneration) yield break;
                     ConfirmLegacyAreaImpact(running);
                     if (generation != worldGeneration) yield break;
                 }

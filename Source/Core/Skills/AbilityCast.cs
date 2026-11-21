@@ -1097,6 +1097,18 @@ public sealed partial class AbilityCast
     /// <param name="node">实际部位。</param>
     internal Matrix4x4 NodeTransform(int node) => nodes[node].Transform;
 
+    /// <summary>读取已经走完的一段根部位运动，零时回采和成形前的段落没有掠地行程。</summary>
+    /// <param name="startsAt">原效果开始作用的时点。</param>
+    /// <param name="from">已确认运动的起点。</param>
+    /// <param name="to">已确认运动的终点。</param>
+    internal bool TryGetRootTravel(float startsAt, out Vector3 from, out Vector3 to)
+    {
+        ref NodeState root = ref nodes[0];
+        from = root.PreviousTransform.GetColumn(3);
+        to = root.Transform.GetColumn(3);
+        return !cancelled && root.Exists && root.LastStep > 0f && Age - root.LastStep >= startsAt - .00001f;
+    }
+
     /// <summary>读取景物原始取景和当前共同碰撞姿态。</summary>
     /// <param name="node">实际景物带。</param><param name="actual">当前姿态。</param>
     /// <param name="origin">这次移动前与原地图相接的位置。</param>

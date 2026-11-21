@@ -8,6 +8,13 @@ namespace Cultiway.Core.SkillLibV3.Visuals;
 /// </summary>
 public static class SkillGroundFx
 {
+    /// <summary>原掠地只使用这些轨迹，按每段实际水平距离取得采样点。</summary>
+    internal const SkillTrajectoryDomain FlyOverDomains = SkillTrajectoryDomain.FlyingBody |
+        SkillTrajectoryDomain.FlyingWave | SkillTrajectoryDomain.Ballistic | SkillTrajectoryDomain.GroundTravel |
+        SkillTrajectoryDomain.MobileField;
+    /// <summary>相邻掠地采样的水平距离，单位为地图格。</summary>
+    internal const float FlyOverDistanceThreshold = .6f;
+
     /// <summary>
     /// 法术飞行掠过时对地面的轻量影响。由 <see cref="Systems.LogicSkillGroundFxRecordSystem"/> 按距离节流调用。
     /// </summary>
