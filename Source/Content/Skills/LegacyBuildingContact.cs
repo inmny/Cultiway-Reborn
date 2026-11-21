@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Settings;
 using Cultiway.Core.Skills;
 using Cultiway.Core.Visuals;
 using Cultiway.Utils.Extension;
@@ -44,6 +45,9 @@ internal sealed class LegacyBuildingContact
         SkillEntityAsset asset = skill.GetComponent<SkillContainer>().Asset;
         if (emission.RuntimeData.WorldScope != null || !asset.PrefabEntity.TryGetComponent(out ColliderConfig collider) ||
             !collider.Enabled || !collider.Building) return null;
+        if (skill.TryGetComponent(out SkillSettings settings) && !settings.ContactEnabled) return null;
+        if (asset.ImpactProfile.IsBarrier && !(asset.ImpactProfile.ContactDamage || asset.ImpactTuning.ContactDamage))
+            return null;
         long selected = emission.Target?.isBuilding() == true ? emission.Target.getID() : 0;
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
         float heightAllowance = trajectory == SkillTrajectories.ArcToPosition.id ? SkillTrajectories.ArcCollisionHeight :

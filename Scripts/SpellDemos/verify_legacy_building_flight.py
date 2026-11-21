@@ -7,20 +7,22 @@ from tempfile import TemporaryDirectory
 
 from verify_legacy_variants import run
 
-SPELLS = ('WaterArrow', 'Fireball', 'RockProjectile')
+FLIGHT = ('WaterArrow', 'Fireball', 'RockProjectile')
+SUSTAINED = ('SolarBeam', 'PoisonPool', 'FireWall', 'WindWall')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case', choices=('legacy', 'current'), required=True)
     parser.add_argument('--baseline', type=Path)
-    parser.add_argument('--spell', choices=SPELLS, action='append')
+    parser.add_argument('--group', choices=('flight', 'sustained'), default='flight')
+    parser.add_argument('--spell', choices=FLIGHT + SUSTAINED, action='append')
     args = parser.parse_args()
     if args.case == 'current' and (args.baseline is None or not args.baseline.is_file()):
         parser.error('需要原执行的 result.json')
     scripts = Path(__file__).parent
     common = (scripts / 'verify_projectile_variants.script').read_text().split('async Task PlaySpike(', 1)[0]
-    names = args.spell or SPELLS
+    names = args.spell or (FLIGHT if args.group == 'flight' else SUSTAINED)
     selection = ', '.join(f'SkillEntities.{name}' for name in names)
     baseline = json.dumps(str(args.baseline.resolve())) if args.baseline else 'null'
     inputs = f'var buildingSpells = new[] {{ {selection} }};\nconst string buildingBaseline = {baseline};\n'

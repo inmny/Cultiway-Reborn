@@ -830,7 +830,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             bool ordinary = powered && running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
             bool thermalSource = fire || shape.To.Node >= 0 && running.Cast.Burning(shape.To.Node).Heat > 0;
             bool attack = canTouch && ordinary && running.Cast.Role(shape.To.Node) == ConstructionContactRole.Attack;
-            if (attack && shape.To.Node == 0 && running.BuildingContact != null)
+            if (canTouch && ordinary && shape.To.Node == 0 && running.BuildingContact != null)
                 FindLegacyBuildingContacts(shape, owner, step, Include);
             if (shape.To.Node < 0 && attack) FindBodyCorrespondences(shape, clock, step, touchFrom, Include);
             if (attack && hasBodyGuardShapes)

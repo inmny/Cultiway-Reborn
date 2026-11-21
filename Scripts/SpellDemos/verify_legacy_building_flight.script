@@ -47,18 +47,20 @@ void RemoveFixture(long id)
     house = null;
 }
 
-bool Use(Entity skill, float row)
+bool Use(Entity skill, float row, float targetX = 78f, float? groundX = null)
 {
     Ready(source);
     Place(source, 64, row);
-    Place(target, 78, row);
+    Place(target, targetX, row);
     Place(second, 12, 12);
     Place(outside, 12, 13);
     ConstructedAbilityService.NotifyActorChanged(source);
     ConstructedAbilityService.NotifyActorChanged(target);
     owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    var selection = groundX.HasValue ? new ActiveAbilityTarget(null, new Vector3(groundX.Value, row, 0f)) :
+        new ActiveAbilityTarget(target, target.GetSimPos());
     bool accepted = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
-        new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Player);
+        selection, ActiveAbilityUseOrigin.Player);
     source.attack_timer = 999;
     CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
     source.updateStats();
@@ -84,7 +86,8 @@ BuildingFlightProbe.Hit = (targetBuilding, damage, before, damager) =>
 {
     if (targetBuilding != house) return;
     buildingHits.Add(JObject.FromObject(new { damage, before,
-        after = targetBuilding.getHealth(), ruins = targetBuilding.isRuin(), owned = source == damager }));
+        after = targetBuilding.getHealth(), ruins = targetBuilding.isRuin(), owned = source == damager,
+        time = World.world.getCurWorldTime() }));
 };
 BuildingFlightProbe.Paid = (payer, payment) =>
 {
@@ -115,6 +118,9 @@ try
     foreach (var asset in buildingSpells)
     {
         bool projectileHasArea = asset == SkillEntities.Fireball, arc = asset == SkillEntities.RockProjectile;
+        bool pool = asset == SkillEntities.PoisonPool;
+        bool wall = asset == SkillEntities.FireWall || asset == SkillEntities.WindWall;
+        bool sustained = pool || wall || asset == SkillEntities.SolarBeam;
         Entity skill = Learn(asset, 0, false);
         await PlaceHouse();
         Vector2 position = house.current_position;
@@ -123,8 +129,10 @@ try
             priorOld = originalTouches.Count, priorBuilt = actualTouches.Count;
         int oldCount = oldExecutions, builtCount = casts.Count;
         int health = target.getHealth();
-        Check(Use(skill, position.y), "有房屋时沿真实入口发射", asset.id);
-        await Advance(1.42f);
+        Check(Use(skill, position.y, wall ? 64f + (position.x - 64f) / .6f : 78f,
+            pool ? position.x : null), "有房屋时沿真实入口发射", asset.id);
+        float life = asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier;
+        await Advance(sustained ? life + .65f : 1.42f);
         var damage = buildingHits.Skip(priorDamage).ToArray();
         var blast = areas.Skip(priorArea).ToArray();
         var oldTouches = originalTouches.Skip(priorOld).ToArray();
@@ -140,7 +148,29 @@ try
         File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(new { spells = reports }, Formatting.Indented));
         Check(legacy ? oldExecutions == oldCount + 1 && casts.Count == builtCount :
               oldExecutions == oldCount && casts.Count == builtCount + 1, "仍为原入口的一次真实发射", asset.id);
-        if (arc)
+        if (sustained)
+        {
+            bool forceOnly = asset == SkillEntities.WindWall;
+            var owned = damage.Where(item => (bool)item["owned"]).ToArray();
+            if (forceOnly)
+                Check(damage.Length == 0 && newTouches.Length == 0, "只推人的风墙不会造成建筑接触和伤害", record);
+            else
+            {
+                Check(owned.Length >= 2 && owned.Any(item => (int)item["before"] > (int)item["after"] || (bool)item["ruins"]) &&
+                      (legacy || newTouches.Count(value => value.Fact.TargetId == houseId) >= owned.Length),
+                    "持续的实际作用面按回合造成建筑伤害", record);
+                float interval = asset.ImpactProfile.RepeatHitInterval;
+                double[] times = legacy ? owned.Select(item => (double)item["time"]).ToArray() :
+                    newTouches.Where(value => value.Fact.TargetId == houseId).Select(value => (double)value.Fact.Age).ToArray();
+                Check(times.Zip(times.Skip(1), (first, next) => next - first >= interval - .018 &&
+                          next - first <= interval + .085).All(valid => valid),
+                    "同一建筑只按原间隔反复受击", new { asset.id, interval, times });
+            }
+            int after = buildingHits.Count;
+            await Advance(.45f);
+            Check(buildingHits.Count == after, "自然结束以后没有额外的建筑伤害", asset.id);
+        }
+        else if (arc)
         {
             if (legacy)
                 Check(oldTouches.Length > 0, "记录旧飞石实际碰触和原高度设置", oldTouches);
@@ -169,7 +199,8 @@ try
             float[] OwnedDamage(IEnumerable<JToken> items) => items.Where(item => (bool)item["owned"])
                 .Select(item => (float)item["damage"]).ToArray();
             Check(Math.Abs((double)prior["paid"] - paid) < .001 &&
-                  (arc || (projectileHasArea ? Math.Abs((float)prior["blast"][0]["radius"] - (float)blast[0]["radius"]) < .001f :
+                  (sustained ? OwnedDamage(prior["damage"]).Distinct().SequenceEqual(OwnedDamage(damage).Distinct()) :
+                  arc || (projectileHasArea ? Math.Abs((float)prior["blast"][0]["radius"] - (float)blast[0]["radius"]) < .001f :
                       OwnedDamage(prior["damage"]).SequenceEqual(OwnedDamage(damage)))),
                 "爆发半径或建筑直击伤害、每发费用保留原值", new { asset.id, paid, damage = OwnedDamage(damage) });
         }
