@@ -39,6 +39,12 @@ public sealed partial class ConstructedAbilityService
         CastAuthority owner = running.Owner(node);
         if (!MatchesArtifactArea(owner, target, contact)) return default;
         Actor source = owner.Actor;
+        if (contact.ApplyEffect != null)
+        {
+            contact.ApplyEffect(source, target);
+            return default;
+        }
+
         if (contact.CleanseCount is { } count)
         {
             int changed = 0;

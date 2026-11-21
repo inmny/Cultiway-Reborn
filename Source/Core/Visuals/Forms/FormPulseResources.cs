@@ -17,6 +17,12 @@ internal sealed partial class FormResourceGeneration
         CreatePulseForm("seal_crush", "seal_crush", 0.56f, 7,
             [new(.36f, .052f), new(.49f, .094f), new(.58f, .178f), new(.65f, .118f), new(.72f, .162f),
                 new(.83f, .092f), new(.94f, .076f), new(1f, .041f), new(.97f, .029f), new(.36f, .025f)]);
+        CreatePulseForm("edict_seal", "edict_seal", .46f, 8,
+            [new(.77f, .029f), new(.80f, .13f), new(.85f, .105f), new(.89f, .06f), new(.94f, .07f),
+                new(.97f, .103f), new(1f, .056f), new(.985f, .03f), new(.77f, .017f)]);
+        CreatePulseForm("meridian_seal", "meridian_seal", .88f, 4,
+            [new(.73f, .08f), new(.71f, .45f), new(.67f, .89f), new(.55f, 1.16f), new(.47f, 1.23f),
+                new(.83f, .81f), new(.91f, .48f), new(1f, .17f), new(.93f, .08f)]);
     }
 
     /// <summary>转动完整截面，保留实体斜面和起伏，最外缘始终等于实际单位半径。</summary>

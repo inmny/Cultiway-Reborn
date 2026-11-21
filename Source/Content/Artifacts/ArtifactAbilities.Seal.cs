@@ -261,6 +261,7 @@ public partial class ArtifactAbilities
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = SkillCastResources.Wakan,
             OnTick = ApplySpellBanningField,
+            OnActivityEnded = EndSpellBanningField,
         });
         SpellBanningEdict.Activate(new ArtifactActiveAbilityProfile
         {
@@ -295,24 +296,29 @@ public partial class ArtifactAbilities
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry _,
-        float __)
+        float interval)
     {
-        Actor controller = Controller(context);
-        ArtifactDeployment deployment = context.artifact.GetComponent<ArtifactDeployment>();
-        Vector2 position = ArtifactManifestationTools.ResolveWorldAnchor(
-            context.artifact,
-            deployment.ResolveBodyAnchor());
-        CombatTargeting.ForEachHostile(controller, position, ability.GetNumber(EffectRadius), target =>
+        Vector3 position = context.artifact.GetComponent<ArtifactDeployment>().origin;
+        float duration = ability.GetNumber(StatusDuration), drain = ability.GetNumber(DrainAmount) * context.effect_scale;
+        var carrier = ArtifactAbilityLifecycle.ResolveSkillContext(context);
+        var contact = new ArtifactAreaContact((source, target) =>
         {
-            CombatStatusEffects.ApplyStatus(
-                target,
-                StatusEffects.Silence,
-                ability.GetNumber(StatusDuration),
-                controller);
-            CombatResourceEffects.DrainWakan(
-                target,
-                ability.GetNumber(DrainAmount) * context.effect_scale);
+            using var scope = SkillCasterContextService.Enter(in carrier);
+            CombatStatusEffects.ApplyStatus(target, StatusEffects.Silence, duration, source);
+            CombatResourceEffects.DrainWakan(target, drain);
         });
+        var aim = new ActiveAbilityTarget(null, position);
+        ArtifactAreaConstruction.Start(context, SpellBanningEdict, aim, ActiveAbilityUseOrigin.Reaction,
+            position, ability.GetNumber(EffectRadius), interval - .01f, contact, "edict_seal",
+            ElementComposition.Static.empty, strike: .025f);
+    }
+
+    /// <summary>部署结束时一并关闭该印还在进行的付费圆面。</summary>
+    private static void EndSpellBanningField(ArtifactAbilityExecutionContext context, ArtifactAbilityInstance ability,
+        ref ArtifactAbilityRuntimeEntry _, ArtifactAbilityEndReason __)
+    {
+        if (context.controller.TryGetComponent(out ActorBinder binder))
+            ConstructedAbilityService.CancelFromItem(binder.ID, context.artifact.Id, ability.ability_id);
     }
 
     private static void ConfigureMeridianSealing()
@@ -377,40 +383,29 @@ public partial class ArtifactAbilities
     private static bool ApplyMeridianSealing(
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry runtime,
+        ref ArtifactAbilityRuntimeEntry _,
         in ActiveAbilityTarget target,
-        ActiveAbilityUseOrigin _)
+        ActiveAbilityUseOrigin origin)
     {
-        Actor controller = Controller(context);
         Actor victim = target.Object.a;
         float strength = ability.GetNumber(StatusStrength);
         float duration = ability.GetNumber(StatusDuration);
-        CombatStatusEffects.ApplyStatus(victim, StatusEffects.Slow, duration, S.multiplier_speed, -strength,
-            controller);
-        CombatStatusEffects.ApplyStatus(victim, StatusEffects.Weaken, duration, S.multiplier_damage, -strength,
-            controller);
-        CombatResourceEffects.DrainWakan(
-            victim,
-            ability.GetNumber(DrainAmount) * context.effect_scale);
-        ArtifactAbilityVisuals.Emit(
-            context,
-            ability,
-            runtime,
-            ArtifactVisualChannels.Drain,
-            victim.current_position,
-            target: victim,
-            intensity: strength);
-        return true;
+        float drain = ability.GetNumber(DrainAmount) * context.effect_scale;
+        var carrier = ArtifactAbilityLifecycle.ResolveSkillContext(context);
+        var contact = new ArtifactAreaContact((source, recipient) =>
+        {
+            using var scope = SkillCasterContextService.Enter(in carrier);
+            CombatStatusEffects.ApplyStatus(recipient, StatusEffects.Slow, duration, S.multiplier_speed, -strength, source);
+            CombatStatusEffects.ApplyStatus(recipient, StatusEffects.Weaken, duration, S.multiplier_damage, -strength, source);
+            CombatResourceEffects.DrainWakan(recipient, drain);
+        });
+        float radius = Mathf.Clamp(SpatialActorPose.Height(victim) * .68f, .38f, 3f);
+        return ArtifactAreaConstruction.Start(context, MeridianSealing, target, origin,
+            victim.current_position, radius, .53f, contact, "meridian_seal", ElementComposition.Static.empty,
+            strike: .045f, selectedTargetOnly: true);
     }
 
     private static void ConfigureSealAbilityVisuals()
-    {
-        ConfigureMountainSealFallVisuals();
-        ConfigureSpellBanningEdictVisuals();
-        ConfigureMeridianSealingVisuals();
-    }
-
-    private static void ConfigureMountainSealFallVisuals()
     {
         MountainSealFall.Visualize(
             Theme(SkillVfxElements.Earth.AccentColor)
@@ -421,77 +416,6 @@ public partial class ArtifactAbilities
                         anchor = ArtifactVisualAnchorKind.Point,
                         sound = "event:/SFX/WEAPONS/WeaponRockLand",
                     },
-                    0.55f
-                )
-        );
-    }
-
-    private static void ConfigureSpellBanningEdictVisuals()
-    {
-        ArtifactGlyphVisualCue glyph = Glyph(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Primary,
-            ArtifactVfxStyles.Seal
-        );
-        glyph.sides = 8;
-        glyph.rotation_speed = -18f;
-        ArtifactAreaVisualCue field = Area(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Secondary,
-            0.45f,
-            0.055f,
-            ArtifactVfxStyles.Seal
-        );
-        SpellBanningEdict.Visualize(
-            Theme(SkillVfxElements.Neg.AccentColor)
-                .Loop(
-                    "spell_banning_edict",
-                    new ArtifactCompositeVisualCue(field, glyph),
-                    IsDeploymentActive
-                )
-                .Signal(
-                    ArtifactVisualChannels.Tick,
-                    Burst(
-                        ArtifactVisualAnchorKind.DeploymentOrigin,
-                        ArtifactVisualColorRole.Glow,
-                        3
-                    ),
-                    0.3f,
-                    "artifact.spell_banning.tick",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
-        );
-    }
-
-    private static void ConfigureMeridianSealingVisuals()
-    {
-        ArtifactTetherVisualCue tether = new ArtifactTetherVisualCue
-        {
-            style_key = ArtifactVfxStyles.Seal,
-            from = ArtifactVisualAnchorKind.Artifact,
-            to = ArtifactVisualAnchorKind.Target,
-            color_role = ArtifactVisualColorRole.Primary,
-            width = 0.04f,
-            wave_amplitude = 0.04f,
-            match_actor_scale = false,
-        };
-        ArtifactDecalVisualCue seal = new ArtifactDecalVisualCue
-        {
-            style_key = ArtifactVfxStyles.Seal,
-            anchor = ArtifactVisualAnchorKind.Target,
-            color_role = ArtifactVisualColorRole.Glow,
-            radius = 0.45f,
-            sides = 8,
-            alpha = 0.82f,
-            match_actor_scale = true,
-        };
-        MeridianSealing.Visualize(
-            Theme(SkillVfxElements.Neg.AccentColor)
-                .Signal(
-                    ArtifactVisualChannels.Drain,
-                    new ArtifactCompositeVisualCue(tether, seal),
                     0.55f
                 )
         );

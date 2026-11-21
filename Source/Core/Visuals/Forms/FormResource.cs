@@ -759,6 +759,8 @@ internal sealed partial class FormResourceGeneration
             "pressure_wave" => (14f, new Color(1f, .67f, .24f, .68f), .25f),
             "purifying_curtain" => (14f, new Color(.48f, 1f, .84f, .53f), .21f),
             "seal_crush" => (16f, new Color(.76f, .47f, .24f, .9f), .78f),
+            "edict_seal" => (2f, new Color(.30f, .51f, .75f, .90f), .52f),
+            "meridian_seal" => (2f, new Color(.45f, .65f, .94f, .92f), .33f),
             "yin_depth" => (14f, new Color(.055f, .075f, .16f, .96f), .32f),
             "yin_moon" => (14f, new Color(.42f, .48f, .72f, .78f), .24f),
             "gold" => (0f, new Color(.96f, .68f, .16f), .22f),

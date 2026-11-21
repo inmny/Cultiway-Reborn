@@ -1,3 +1,4 @@
+using System;
 using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
@@ -25,23 +26,36 @@ internal static class ArtifactAreaConstruction
     /// <param name="form">完整作用面的显示与接触形体。</param>
     /// <param name="element">原伤害元素。</param><param name="damage">原伤害量。</param>
     /// <param name="matter">形体使用的已登记材料。</param><param name="strike">扩张到完整半径的时间。</param>
+    /// <param name="selectedTargetOnly">圆面随已确认的目标移动，只接触这一人。</param>
     internal static bool Start(ArtifactAbilityExecutionContext context, ArtifactAbilityAsset asset,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, Vector2 center, float radius, float duration,
         ArtifactAreaContact contact, string form, ElementComposition element, float damage = 0f,
-        string matter = "spirit", float strike = .16f)
+        string matter = "spirit", float strike = .16f, bool selectedTargetOnly = false)
     {
         const float dissolve = .25f;
         float life = Mathf.Max(duration, strike + dissolve + .06f);
         ActorExtend owner = context.controller.GetComponent<ActorBinder>().AE;
         var runtime = target.RuntimeData;
         runtime.Origin = origin;
-        var aim = new ActiveAbilityTarget(null, center, runtimeData: runtime, worldScope: target.WorldScope);
+        var aim = new ActiveAbilityTarget(selectedTargetOnly ? target.Object : null, center,
+            runtimeData: runtime, worldScope: target.WorldScope);
         var definition = new AbilityDefinition
         {
             Id = asset.id, Name = asset.GetName(), Resource = "none", Cost = 0f, Cooldown = 0f, Lifetime = life,
-            Use = new ConstructionUse { Channels = asset.active_use.channels, Target = ActiveAbilityTargetMode.Point },
-            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
-            Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Hostile, DamageScale = 0f },
+            Use = new ConstructionUse
+            {
+                Channels = asset.active_use.channels,
+                Target = selectedTargetOnly ? ActiveAbilityTargetMode.Object : ActiveAbilityTargetMode.Point
+            },
+            Binding = new ConstructionBinding
+            {
+                Anchor = selectedTargetOnly ? AbilityAnchor.Target : AbilityAnchor.Source,
+                Follow = selectedTargetOnly
+            },
+            Impact = new ConstructionImpact
+            {
+                Targets = SkillUseTargetRelation.Hostile, DamageScale = 0f, SelectedTargetOnly = selectedTargetOnly
+            },
             Root = new ConstructionNode
             {
                 Id = "reach", Form = form, Matter = matter, Scale = radius, Volume = 0f,
@@ -63,7 +77,8 @@ internal static class ArtifactAreaConstruction
         contact = contact.WithDamage(hit.Damage);
         // 圆面只依赖实际接触，无伤净化也会抵达实际目标。
         hit.Damage = Mathf.Max(1f, hit.Damage);
-        return ConstructedAbilityService.StartPrepaid(owner, definition, aim, center, damage: hit,
+        Vector3? sourcePosition = selectedTargetOnly ? null : (Vector3)center;
+        return ConstructedAbilityService.StartPrepaid(owner, definition, aim, sourcePosition, damage: hit,
             sourceInstance: context.artifact.Id, spatialSource: context.ResolveCarrierActor(),
             selectionAlreadyChecked: true, artifactArea: contact);
     }
@@ -82,6 +97,8 @@ internal readonly struct ArtifactAreaContact
     internal readonly float Damage;
     /// <summary>沿用原能力先伤害、再施加控制的顺序。</summary>
     internal readonly bool DamageFirst;
+    /// <summary>本次确实接触人物时沿用来源的状态和资源结算。</summary>
+    internal readonly Action<Actor, Actor> ApplyEffect;
     /// <summary>本次是否净化。</summary>
     internal bool Purifies => CleanseCount.HasValue;
 
@@ -89,20 +106,24 @@ internal readonly struct ArtifactAreaContact
     /// <param name="daze">实际眩晕时长。</param><param name="force">原震退力度。</param>
     /// <param name="damageFirst">原能力是否先处理伤害。</param>
     internal ArtifactAreaContact(float daze, float force, bool damageFirst = false)
-        : this(null, daze, force, 0f, damageFirst) { }
+        : this(null, daze, force, 0f, damageFirst, null) { }
 
     /// <summary>冻结清音对单名目标的解除上限。</summary>
     /// <param name="count">原解除上限。</param>
-    internal ArtifactAreaContact(int count) : this(count, 0f, 0f, 0f, false) { }
+    internal ArtifactAreaContact(int count) : this(count, 0f, 0f, 0f, false, null) { }
+
+    /// <summary>保存原能力已经冻结的作用参数，由真正接触的人物触发。</summary>
+    internal ArtifactAreaContact(Action<Actor, Actor> applyEffect) : this(null, 0f, 0f, 0f, false, applyEffect) { }
 
     /// <summary>保存本次准备完毕的原伤害和接触资料。</summary>
     /// <param name="count">清音的解除上限。</param><param name="daze">原眩晕时长。</param>
     /// <param name="force">实际震退力度。</param><param name="damage">实际来源伤害。</param>
     /// <param name="damageFirst">原能力是否先处理伤害。</param>
-    private ArtifactAreaContact(int? count, float daze, float force, float damage, bool damageFirst) =>
-        (CleanseCount, Daze, Force, Damage, DamageFirst) = (count, daze, force, damage, damageFirst);
+    private ArtifactAreaContact(int? count, float daze, float force, float damage, bool damageFirst,
+        Action<Actor, Actor> applyEffect) =>
+        (CleanseCount, Daze, Force, Damage, DamageFirst, ApplyEffect) = (count, daze, force, damage, damageFirst, applyEffect);
 
     /// <summary>保存按原施法来源折算的本击伤害。</summary>
     /// <param name="damage">已准备的伤害。</param>
-    internal ArtifactAreaContact WithDamage(float damage) => new(CleanseCount, Daze, Force, damage, DamageFirst);
+    internal ArtifactAreaContact WithDamage(float damage) => new(CleanseCount, Daze, Force, damage, DamageFirst, ApplyEffect);
 }

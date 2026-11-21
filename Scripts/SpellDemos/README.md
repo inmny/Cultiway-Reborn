@@ -2783,3 +2783,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 山岳印落（10.05）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_mountain_seal.py` 核对原印面的垂直下落、触地半径、实际伤害和震退，以及到期或切回待命后原件回手。用 `--skip-views` 只查行为，用 `--views-only` 复验落印和震裂边界在两种视角的实机画面。
+
+### 禁法敕令与封脉镇身（10.05）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_seal_effects.py` 让同一件正式法印使用两招。检查原费用、禁法敕令的圈内外和停止维持、封脉镇身的点名、随动与冷却后再用。用 `--section edict` 或 `--section meridian` 补指定一招，用 `--skip-views` 只核对行为和实际形体。

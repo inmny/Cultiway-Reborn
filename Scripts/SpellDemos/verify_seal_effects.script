@@ -1,0 +1,207 @@
+// 同一原印制作并装备后，沿实际主动入口触发禁法与封脉。
+const float centerX = 67.5f, centerY = 72f;
+Vector3 center = new Vector3(centerX, centerY, 0f);
+PrepareArtifactArena(54, 82, 59, 85);
+Actor source = Make(64.35f), near = Make(68f, "wolf"), far = Make(74f, "wolf");
+var owner = source.GetExtend();
+var inside = near.GetExtend();
+var outside = far.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+inside.AddComponent(new Xian { level = 4, wakan = 100f });
+outside.AddComponent(new Xian { level = 4, wakan = 100f });
+owner.SetPowerLevel(4);
+await Setup(source, near);
+CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+source.updateStats();
+source.addAggro(far);
+far.addAggro(source);
+foreach (Actor wolf in new[] { near, far })
+{
+    CombatStatusEffects.ApplyStatus(wolf, boost, 10000f, wolf);
+    wolf.GetExtend().MarkCultiwayStatsDirty();
+    wolf.updateStats();
+    wolf.GetExtend().GetCultisys<Xian>().wakan = 100f;
+    wolf.attack_timer = 999f;
+}
+
+var edict = ArtifactAbilities.SpellBanningEdict;
+var meridian = ArtifactAbilities.MeridianSealing;
+var design = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Seal, Atoms = new[] { ArtifactAtoms.PrisonSeal, ArtifactAtoms.EarthCore,
+        ArtifactAtoms.MountainPattern, ArtifactAtoms.MagneticIron },
+    Level = new ItemLevel { Stage = 2, Level = 4 }, Name = "禁法与封脉实测"
+});
+var blueprint = ArtifactBlueprintCodec.FromComposeResult(design);
+Check(new[] { edict.id, meridian.id }.All(id => blueprint.AbilitySet.abilities.Any(entry => entry.ability_id == id)),
+    "同一个正式配方生成两招", blueprint.AbilitySet.abilities.Select(entry => entry.ability_id).ToArray());
+Entity seal = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+owner.AddSpecialItem(seal);
+Check(owner.EquipArtifact(seal, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "正式装备同一件法印");
+ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+lifecycle.Invoke(null, new object[] { seal });
+await Game.NextFrame();
+await Game.NextFrame();
+
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var starts = new List<ConstructedCastStarted>();
+var hits = new List<ConstructedContact>();
+var fees = new List<float>();
+var nearSpent = new List<float>();
+var farSpent = new List<float>();
+var payment = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = payment.GetValue(null);
+var control = owner.E.GetRelation<EquippedArtifactRelation, Entity>(seal).state;
+var execution = new ArtifactAbilityExecutionContext(owner.E, seal, control);
+float Overload(ArtifactAbilityAsset asset) =>
+    control == ArtifactControlState.Overloaded ? asset.lifecycle.overload_resource_multiplier : 1f;
+
+void Started(ConstructedCastStarted value)
+{
+    if (value.SourceId == source.id && (value.AbilityId == edict.id || value.AbilityId == meridian.id)) starts.Add(value);
+}
+void SealContact(ConstructedContact value)
+{
+    if (value.SourceId == source.id && (value.AbilityId == edict.id || value.AbilityId == meridian.id)) hits.Add(value);
+}
+void Paid(ActorExtend caster, in WakanMutation change)
+{
+    if (change.Kind != WakanMutationKind.Spend) return;
+    if (caster == owner) fees.Add(-change.Delta);
+    if (caster == inside) nearSpent.Add(-change.Delta);
+    if (caster == outside) farSpent.Add(-change.Delta);
+}
+bool Activate(ArtifactAbilityAsset asset, Actor target, Vector3 point)
+{
+    var entry = Definition(seal, asset.id);
+    var handle = handles.Single(value => value.Source == seal && value.EntryId == entry.instance_id);
+    source.attack_timer = 0f;
+    bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, point), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999f;
+    return used;
+}
+bool Held() => owner.GetItems().Contains(seal) && owner.GetEquippedArtifacts().Contains(seal);
+bool Close(float actual, float expected) => Mathf.Abs(actual - expected) < .003f;
+FormVisualInstance FormFor(string id) => FormVisualScene.Instances.Single(value => value.Resource.Description.Id == id);
+float ContactRadius(string id)
+{
+    var form = FormFor(id);
+    return form.Resource.Description.Contacts.Single().Sector.Radius *
+           form.Transform.MultiplyVector(Vector3.right).magnitude;
+}
+Vector3 Pose(string id) => FormFor(id).Transform.GetColumn(3);
+bool HasForm(string id) => FormVisualScene.Instances.Any(value => value.Resource.Description.Id == id);
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += SealContact;
+WakanResourceService.RegisterMutationCommitted(Paid);
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    if (section != "meridian")
+    {
+        var ability = Definition(seal, edict.id);
+        float radius = ability.GetNumber("effect_radius");
+        float activation = edict.lifecycle.ResolveActivationCost(execution, ability) * Overload(edict);
+        float upkeep = edict.lifecycle.ResolveMaintenanceCost(execution, ability) * Overload(edict);
+        float expectedDrain = ability.GetNumber("drain_amount") * execution.effect_scale;
+        Place(near, centerX + radius - .20f, centerY);
+        Place(far, centerX + radius + .20f, centerY);
+        int health = near.data.health;
+        Check(Activate(edict, null, center) && fees.Count == 1 && Close(fees[0], activation) && nearSpent.Count == 0,
+            "部署正式法印只扣原启动费，尚未结算圈内目标", new { activation, fees = fees.ToArray() });
+        await WaitFor(() => hits.Count > 0, 1.2f);
+        await Game.NextFrame();
+        Check(starts.Count == 1 && hits.Count == 1 && hits[0].TargetId == near.id &&
+              fees.Count == 2 && Close(fees[1], upkeep) &&
+              nearSpent.Count == 1 && Close(nearSpent[0], expectedDrain) && farSpent.Count == 0 &&
+              near.data.health == health && CombatStatusEffects.HasStatus(near, StatusEffects.Silence, source) &&
+              !CombatStatusEffects.HasStatus(far, StatusEffects.Silence, source),
+            "支付原维持费后，圈内敌人一次被沉默并扣原真元，圈外无变化",
+            new { fees = fees.ToArray(), upkeep, nearSpent = nearSpent.ToArray(), expectedDrain, farSpent = farSpent.ToArray(),
+                positions = new[] { near.current_position.ToString(), far.current_position.ToString() },
+                hits = hits.Select(value => value.TargetId).ToArray() });
+        Check(seal.HasComponent<ArtifactDeployment>() && Vector2.Distance(Pose("edict_seal"), center) < .01f &&
+              Mathf.Abs(ContactRadius("edict_seal") - radius) < .025f,
+            "实际部署点和作用半径同时决定实体印幕",
+            new { radius, visible = ContactRadius("edict_seal"), pose = Pose("edict_seal").ToString() });
+        if (shots)
+            await CaptureArtifactViews("edict", center, Mathf.Max(10f, radius + 1.2f),
+                () => HasForm("edict_seal") && Vector2.Distance(Pose("edict_seal"), center) < .01f, nativeZoom: radius + .9f);
+
+        owner.GetCultisys<Xian>().wakan = 0f;
+        CombatStatusEffects.RemoveStatus(near, StatusEffects.Silence, source);
+        await Advance(.57f);
+        Check(fees.Count == 2 && starts.Count == 1 && hits.Count == 1 && nearSpent.Count == 1 &&
+              !CombatStatusEffects.HasStatus(near, StatusEffects.Silence, source) &&
+              !HasForm("edict_seal") && !seal.HasComponent<ArtifactDeployment>() && Held(),
+            "下一次真元不足时关闭部署和印幕，原件归还且无第二次扣真元");
+    }
+
+    if (section != "edict")
+    {
+        var ability = Definition(seal, meridian.id);
+        float cost = meridian.lifecycle.ResolveActivationCost(execution, ability) * Overload(meridian);
+        float expectedDrain = ability.GetNumber("drain_amount") * execution.effect_scale;
+        int feeBefore = fees.Count, hitsBefore = hits.Count, drainsBefore = nearSpent.Count;
+        int startsBefore = starts.Count, health = near.data.health;
+        owner.GetCultisys<Xian>().wakan = 9000f;
+        Place(near, 66.2f, centerY);
+        Place(far, 66.4f, centerY - .08f);
+        Check(!Activate(meridian, source, source.GetSimPos()) && fees.Count == feeBefore &&
+              !CombatStatusEffects.HasStatus(source, StatusEffects.Slow, source),
+            "封脉拒绝友方目标，且不扣真元");
+        Check(Activate(meridian, near, near.GetSimPos()) && fees.Count == feeBefore + 1 &&
+              Close(fees.Last(), cost) && hits.Count == hitsBefore,
+            "由原点名入口受理且仅付一次，等待实际合印", new { cost, paid = fees.LastOrDefault() });
+        Place(near, 66.45f, centerY);
+        await WaitFor(() => hits.Count > hitsBefore, .45f);
+        await Game.NextFrame();
+        Check(hits.Count == hitsBefore + 1 && starts.Count == startsBefore + 1 &&
+              hits.Last().TargetId == near.id && nearSpent.Count == drainsBefore + 1 &&
+              Close(nearSpent.Last(), expectedDrain) && farSpent.Count == 0 && near.data.health == health &&
+              CombatStatusEffects.HasStatus(near, StatusEffects.Slow, source) &&
+              CombatStatusEffects.HasStatus(near, StatusEffects.Weaken, source) &&
+              !CombatStatusEffects.HasStatus(far, StatusEffects.Slow, source),
+            "并排敌人只作用于点名者，实际扣真元并减速弱化",
+            new { expectedDrain, nearSpent = nearSpent.ToArray(), farSpent = farSpent.ToArray(),
+                hits = hits.Select(value => value.TargetId).ToArray() });
+        Vector3 old = Pose("meridian_seal");
+        Place(near, 66.8f, centerY + .1f);
+        await Advance(.10f);
+        await Game.NextFrame();
+        Check(Vector2.Distance(old, Pose("meridian_seal")) > .2f &&
+              Vector2.Distance(Pose("meridian_seal"), near.current_position) < .025f && hits.Count == hitsBefore + 1,
+            "封身印随实际目标移动，残留画面不重复结算",
+            new { old = old.ToString(), current = Pose("meridian_seal").ToString(), target = near.current_position.ToString() });
+        if (shots)
+        {
+            // 场景助手接管了施法者，拍目标时先解除原版镜头跟人。
+            ControllableUnit.clear(false);
+            MoveCamera.clearFocusUnitOnly();
+            await Game.NextFrame();
+            await CaptureArtifactViews("meridian", near.current_position, 2.4f,
+                () => HasForm("meridian_seal") && Vector2.Distance(Pose("meridian_seal"), near.current_position) < .025f,
+                nativeZoom: 2.8f, closeSubject: near);
+        }
+
+        var current = Entry(seal, meridian.id);
+        await Advance(Mathf.Max(.12f, (float)(current.cooldown_until - World.world.getCurWorldTime()) + .12f));
+        Check(!HasForm("meridian_seal") && Held() && Activate(meridian, near, near.GetSimPos()) &&
+              fees.Count == feeBefore + 2 && Close(fees.Last(), cost), "收束后由同一原印再次施展");
+        await WaitFor(() => hits.Count > hitsBefore + 1, .45f);
+        Check(hits.Count == hitsBefore + 2 && nearSpent.Count == drainsBefore + 2 && farSpent.Count == 0,
+            "再次施展仍然只结算一次");
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= SealContact;
+    payment.SetValue(null, previous);
+}
