@@ -200,12 +200,13 @@ try
     var ids = new long[moves.Length];
     for (int i = 0; i < moves.Length; i++)
     {
-        if (selection == "cold" && i > 0)
+        if (i > 0)
         {
-            // 中间这段时间让第一条尾先行，避免自动施展抢先使用刚读回的第二招。
+            // 保留动作重叠，并让同一目标的两次伤害越过原版约 0.3 秒的受击保护间隔。
+            // 暂时保留学习资料，避免等待期间由自动施展抢先使用第二招。
             var knowledge = owner.E.GetComponent<ConstructedKnowledge>();
             owner.E.RemoveComponent<ConstructedKnowledge>();
-            await Advance(.2f);
+            await PlayFor(.45f, moves[0].Item1.Id);
             owner.E.AddComponent(knowledge);
         }
         ids[i] = Use(moves[i].Item1, moves[i].Item2, learn: saved == null);

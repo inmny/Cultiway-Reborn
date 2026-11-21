@@ -2533,3 +2533,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--case archive` 在游戏内选择两条真实命名尾并保存完整副本。换一个游戏进程后使用 `--case cold --archive <上一段输出目录>` 读回原体和招式，验证两条尾各自出手。
 
 `tail` 和 `pair` 可附 `--view native` 或 `--view worldfall` 录制常速画面。雷角和前爪的录像复用 9.40 的 `verify_beast_attacks.py --part horn|pounce --record native|worldfall`。
+
+正式世界、八段录像及各场景的结果路径汇总于 `~/.local/state/cultiway-dev/evidence/nonhuman-949/delivery.json`。

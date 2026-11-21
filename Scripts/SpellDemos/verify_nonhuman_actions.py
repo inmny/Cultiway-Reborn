@@ -33,7 +33,8 @@ def main():
     archive = args.archive.resolve() if args.case == 'cold' else None
     fixture = archive / 'archive' if archive else PROJECT / 'Scripts/WorldSaveTests/Fixtures/world-format-1'
     helper = helper.replace('Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")', json.dumps(str(fixture)))
-    helper = helper.replace('StartsWith("test.body-organs.")', 'StartsWith("Cultiway.Body.")')
+    helper = helper.replace('contact.AbilityId.StartsWith("test.body-organs.")',
+                            'contact.AbilityId.StartsWith("Cultiway.Body.") || contact.AbilityId.StartsWith("Cultiway.Edited.")')
     helper = helper.replace('var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild',
                             'var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SourceLoss.Hold") ?? '
                             'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild')
