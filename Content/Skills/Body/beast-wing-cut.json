@@ -1,0 +1,29 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.BeastWingCut",
+  "Name": "敛翼斜切",
+  "Resource": "stamina",
+  "Cost": 5,
+  "Cooldown": 1.86,
+  "Lifetime": 1.71,
+  "Power": 1.35,
+  "TargetRange": 3.3,
+  "Body": {
+    "Effector": "organ:yao.wing.fierce",
+    "ReleaseAt": 0.52,
+    "ActiveFrom": 0.60,
+    "ActiveUntil": 1.12,
+    "Contact": {"Mode": "Once"},
+    "Impact": {"Targets": "Hostile", "DamageScale": 1.15, "Force": 1.05, "StaggerSeconds": 0.13},
+    "Keys": [
+      {"Id": "idle",      "At": 0,    "PartRotation": [0, 0, 0]},
+      {"Id": "fold",      "At": 0.28, "PartRotation": [-22, -28, -17]},
+      {"Id": "load",      "At": 0.47, "PartRotation": [-29, -47, -20]},
+      {"Id": "beat",      "At": 0.68, "PartRotation": [35, 104, 27]},
+      {"Id": "edge",      "At": 0.86, "PartRotation": [26, 151, 34]},
+      {"Id": "feather",   "At": 1.12, "PartRotation": [9, 105, 19]},
+      {"Id": "close",     "At": 1.46, "PartRotation": [-7, 24, 3]},
+      {"Id": "rest",      "At": 1.71, "PartRotation": [0, 0, 0]}
+    ]
+  }
+}
