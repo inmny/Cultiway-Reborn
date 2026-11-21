@@ -195,12 +195,12 @@ public partial class ArtifactAbilities
     /// <summary>原法宝结清本次维持费后，从实际部署点或声明的投影点开始一次圆面作用。</summary>
     private static void StartPaidArtifactArea(ArtifactAbilityExecutionContext context, ArtifactAbilityAsset asset,
         ArtifactAbilityInstance ability, float interval, string form, ArtifactAreaContact contact,
-        ElementComposition element, float damage = 0f, float spin = 0f, Vector2? center = null)
+        ElementComposition element, float damage = 0f, float spin = 0f, Vector2? center = null, float dissolve = .25f)
     {
         Vector2 position = center ?? (Vector2)context.artifact.GetComponent<ArtifactDeployment>().origin;
         var aim = new ActiveAbilityTarget(null, position);
         ArtifactAreaConstruction.Start(context, asset, aim, ActiveAbilityUseOrigin.Reaction, position,
-            ability.GetNumber(EffectRadius), interval - .01f, contact, form, element, damage, strike: .025f, spin: spin);
+            ability.GetNumber(EffectRadius), interval - .01f, contact, form, element, damage, strike: .025f, spin: spin, dissolve: dissolve);
     }
 
     /// <summary>活动结束时一并关闭原件还在进行的共同形体。</summary>

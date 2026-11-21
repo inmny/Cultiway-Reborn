@@ -1,0 +1,132 @@
+// 一件正式法珠，一次付费后保持原次数、节奏、范围和真实原件。
+const float centerX = 72f, centerY = 72f;
+Vector3 center = new Vector3(centerX, centerY, 0f);
+PrepareArtifactArena(53, 88, 58, 85);
+Actor source = Make(64.35f), near = Make(72f, "wolf"), far = Make(79f, "wolf");
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 1200f });
+owner.SetPowerLevel(4f);
+await Setup(source, near);
+CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+source.updateStats();
+source.addAggro(far);
+far.addAggro(source);
+
+var asset = ArtifactAbilities.FivePhasePearlStrike;
+var blueprint = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Pearl,
+    Atoms = new[] { ArtifactAtoms.ElementPearl, ArtifactAtoms.SunfireGlass,
+        ArtifactAtoms.StarlightMarrow, ArtifactAtoms.TransformationPattern },
+    Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "五行连珠实测"
+}));
+Check(blueprint.AbilitySet.abilities.Any(row => row.ability_id == asset.id), "正式炼制获得五行连珠",
+    blueprint.AbilitySet.abilities.Select(row => row.ability_id).ToArray());
+Entity pearl = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+owner.AddSpecialItem(pearl);
+Check(owner.EquipArtifact(pearl, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "正式装备原珠");
+ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+lifecycle.Invoke(null, new object[] { pearl });
+await Game.NextFrame();
+await Game.NextFrame();
+
+var ability = Definition(pearl, asset.id);
+var state = owner.E.GetRelation<EquippedArtifactRelation, Entity>(pearl).state;
+var execution = new ArtifactAbilityExecutionContext(owner.E, pearl, state);
+float cost = asset.lifecycle.ResolveActivationCost(execution, ability) *
+    (state == ArtifactControlState.Overloaded ? asset.lifecycle.overload_resource_multiplier : 1f);
+float radius = ability.GetNumber("effect_radius");
+int count = ability.GetInteger("pulse_count");
+var starts = new List<ConstructedCastStarted>();
+var pearlHits = new List<ConstructedContact>();
+var fees = new List<float>();
+var payment = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = payment.GetValue(null);
+bool Shows() => FormVisualScene.Instances.Any(view => view.Resource.Description.Id == "pearl_phase");
+FormVisualInstance Form() => FormVisualScene.Instances.Single(view => view.Resource.Description.Id == "pearl_phase");
+int Remaining() => Entry(pearl, asset.id).GetInteger("pulses_remaining");
+void Started(ConstructedCastStarted cast)
+{
+    if (cast.SourceId == source.id && cast.AbilityId == asset.id) starts.Add(cast);
+}
+void Contact(ConstructedContact hit)
+{
+    if (hit.SourceId == source.id && hit.AbilityId == asset.id) pearlHits.Add(hit);
+}
+void Paid(ActorExtend actor, in WakanMutation change)
+{
+    if (actor == owner && change.Kind == WakanMutationKind.Spend) fees.Add(-change.Delta);
+}
+bool Activate()
+{
+    source.attack_timer = 0f;
+    bool accepted = ActiveAbilityService.TryUse(owner, ArtifactHandle(pearl, asset.id),
+        new ActiveAbilityTarget(null, center), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999f;
+    return accepted;
+}
+
+WakanResourceService.RegisterMutationCommitted(Paid);
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    Place(near, centerX + radius - .23f, centerY);
+    Place(far, centerX + radius + .20f, centerY);
+    int nearHealth = near.data.health, farHealth = far.data.health;
+    owner.GetCultisys<Xian>().wakan = 0f;
+    Check(!Activate() && fees.Count == 0 && starts.Count == 0 && Remaining() == 0, "真元不足时不产生连珠");
+    owner.GetCultisys<Xian>().wakan = 1200f;
+    Check(Activate() && fees.Count == 1 && Mathf.Abs(fees[0] - cost) < .003f &&
+          starts.Count == 0 && Remaining() == count, "一次原启动费建立原次数，等待实际间隔",
+        new { cost, paid = fees.LastOrDefault(), count });
+    owner.GetCultisys<Xian>().wakan = 0f;
+    for (int wave = 1; wave <= count; wave++)
+    {
+        await WaitFor(() => pearlHits.Count >= wave, .50f);
+        await Game.NextFrame();
+        Check(starts.Count == wave && pearlHits.Count == wave && Remaining() == count - wave &&
+              starts.Last().CastId == pearlHits.Last().CastId && pearlHits.Last().TargetId == near.id &&
+              pearlHits.Last().Damage.HealthLost > 0 && far.data.health == farHealth,
+            "原间隔本轮只命中圈内一次并减少一次珠数",
+            new { wave, remaining = Remaining(), damage = pearlHits.LastOrDefault().Damage.HealthLost,
+                at = pearlHits.LastOrDefault().WorldTime });
+        if (wave != 1) continue;
+        var pose = Form();
+        float extent = pose.Resource.Description.Contacts.Single().Sector.Radius *
+            pose.Transform.MultiplyVector(Vector3.right).magnitude;
+        Check(Mathf.Abs(radius - extent) < .025f && Vector2.Distance(center, (Vector3)pose.Transform.GetColumn(3)) < .02f,
+            "罩面以实际落点和半径展开", new { radius, extent });
+        if (shots)
+        {
+            ControllableUnit.clear(false);
+            MoveCamera.clearFocusUnitOnly();
+            await Game.NextFrame();
+            await CaptureArtifactViews("pearl", center, radius + 1.25f,
+                () => Shows() && Vector2.Distance(center, (Vector3)Form().Transform.GetColumn(3)) < .02f,
+                nativeZoom: radius + 1.4f);
+        }
+    }
+    var intervals = starts.Zip(starts.Skip(1), (previousWave, currentWave) =>
+        currentWave.WorldTime - previousWave.WorldTime).ToArray();
+    Check(intervals.All(period => period >= .17f && period <= .30f) &&
+          Math.Abs(intervals.Average() - asset.lifecycle.tick_interval) < .04f,
+        "实际间隔保持原节奏", intervals);
+    await Advance(.40f);
+    Check(fees.Count == 1 && starts.Count == count && pearlHits.Count == count && Remaining() == 0 &&
+          !Shows() && !pearl.HasComponent<ArtifactDeployment>() &&
+          near.data.health < nearHealth && far.data.health == farHealth &&
+          owner.GetItems().Contains(pearl) && owner.GetEquippedArtifacts().Contains(pearl),
+        "全部结算后形体完整收束，原珠仍可用，全程只付一次");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    payment.SetValue(null, previous);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+}

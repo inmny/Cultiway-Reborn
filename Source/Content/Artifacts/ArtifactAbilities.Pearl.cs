@@ -238,25 +238,22 @@ public partial class ArtifactAbilities
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
-        float _)
+        float interval)
     {
-        Actor controller = Controller(context);
-        CombatDamageEffects.DealAreaDamage(
-            controller,
-            runtime.activity_position,
-            ability.GetNumber(EffectRadius),
-            SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
-            MaterialComposition(context));
+        float damage = SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier);
+        StartPaidArtifactArea(context, FivePhasePearlStrike, ability, interval, "pearl_phase", default,
+            MaterialComposition(context), damage, center: (Vector2)runtime.activity_position, dissolve: .12f);
         runtime.SetInteger(PulsesRemaining, runtime.GetInteger(PulsesRemaining) - 1);
     }
 
     private static void EndFivePhasePearlStrike(
-        ArtifactAbilityExecutionContext _,
-        ArtifactAbilityInstance __,
+        ArtifactAbilityExecutionContext context,
+        ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
-        ArtifactAbilityEndReason ___)
+        ArtifactAbilityEndReason reason)
     {
         runtime.SetInteger(PulsesRemaining, 0);
+        EndArtifactConstruction(context, ability, ref runtime, reason);
     }
 
     private static void ConfigureLinkedPearlResonance()
@@ -399,51 +396,23 @@ public partial class ArtifactAbilities
 
     private static void ConfigureFivePhasePearlStrikeVisuals()
     {
-        ArtifactOrbitProjectionVisualCue barrage = new ArtifactOrbitProjectionVisualCue
+        var barrage = new ArtifactOrbitProjectionVisualCue
         {
             anchor = ArtifactVisualAnchorKind.Point,
             ResolveCount = context => context.runtime.GetInteger(PulsesRemaining),
-            radius = 0.46f,
-            vertical_ratio = 0.62f,
-            angular_speed = 150f,
+            ResolveRadius = context => context.ability.GetNumber(EffectRadius) * .57f,
+            ResolveWorldSize = context => context.ability.GetNumber(EffectRadius) * .21f,
+            vertical_ratio = .35f,
+            angular_speed = 110f,
             rotation_offset = 0f,
-            alpha = 0.7f,
-            pulse_amplitude = 0.1f,
+            alpha = .77f,
+            pulse_amplitude = .06f,
             radial_facing = false,
             match_actor_scale = false,
         };
-        ArtifactGlyphVisualCue targetGlyph = ActivityGlyph(
-            ArtifactVisualAnchorKind.Point,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Secondary,
-            5,
-            42f,
-            ArtifactVfxStyles.Pearl
-        );
-        FivePhasePearlStrike.Visualize(
-            Theme(SkillVfxElements.Pos.AccentColor)
-                .Loop(
-                    "five_phase_pearl_strike",
-                    new ArtifactCompositeVisualCue(barrage, targetGlyph),
-                    context =>
-                        IsActivityActive(context) && context.runtime.GetInteger(PulsesRemaining) > 0
-                )
-                .Signal(
-                    ArtifactVisualChannels.Tick,
-                    new ArtifactCompositeVisualCue(
-                        ExpandingArea(
-                            ArtifactVisualAnchorKind.Point,
-                            context => context.ability.GetNumber(EffectRadius),
-                            ArtifactVisualColorRole.Primary,
-                            ArtifactVfxStyles.Pearl
-                        ),
-                        Burst(ArtifactVisualAnchorKind.Point, ArtifactVisualColorRole.Glow, 8, 0.4f)
-                    ),
-                    0.3f,
-                    "artifact.five_phase_pearl.tick",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
-        );
+        FivePhasePearlStrike.Visualize(Theme(SkillVfxElements.Pos.AccentColor).Loop(
+            "five_phase_pearl_strike", barrage,
+            context => IsActivityActive(context) && context.runtime.GetInteger(PulsesRemaining) > 0));
     }
 
     private static void ConfigureLinkedPearlResonanceVisuals()

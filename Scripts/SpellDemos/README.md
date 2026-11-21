@@ -2823,3 +2823,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 鼎火炼化与吞纳归元（10.05）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_ding_effects.py` 复验原鼎部署、圈内火伤、牵引、抽灵和一次合计返还。可用 `--section fire|devour` 单独验证一招，用 `--skip-views` 只查行为，用 `--views-only` 补拍原版和 Worldfall 画面。
+
+### 五行连珠（10.05）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_pearl_strike.py` 复验正式法珠的一次启动费、四轮各一次命中、范围边界和剩余珠影收束。加 `--skip-views` 可只核对行为。

@@ -29,13 +29,13 @@ internal static class ArtifactAreaConstruction
     /// <param name="selectedTargetOnly">圆面随已确认的目标移动，只接触这一人。</param>
     /// <param name="spin">圆面每秒绕中心旋转的角度。</param>
     /// <param name="commitEffect">共同施放确认受理时提交原来源的一次性消耗。</param>
+    /// <param name="dissolve">这道圆面的实际退场时间，短间隔的连珠可在下一击前完整淡去。</param>
     internal static bool Start(ArtifactAbilityExecutionContext context, ArtifactAbilityAsset asset,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, Vector2 center, float radius, float duration,
         ArtifactAreaContact contact, string form, ElementComposition element, float damage = 0f,
         string matter = "spirit", float strike = .16f, bool selectedTargetOnly = false, float spin = 0f,
-        Func<bool> commitEffect = null)
+        Func<bool> commitEffect = null, float dissolve = .25f)
     {
-        const float dissolve = .25f;
         float life = Mathf.Max(duration, strike + dissolve + .06f);
         ActorExtend owner = context.controller.GetComponent<ActorBinder>().AE;
         var runtime = target.RuntimeData;
