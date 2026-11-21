@@ -332,9 +332,7 @@ internal static class WorldfallVisualBridge
     /// <param name="__0">正在绘制的实际原版投射物。</param><param name="__result">是否已经提供绘制。</param>
     private static bool BeforeDrawThrown(Projectile __0, ref bool __result)
     {
-        if (disabled || __0.asset == null ||
-            !__0.asset.id.StartsWith(WeaponControl.WeaponControlProjectileProxyLibrary.ProxyIdPrefix,
-                StringComparison.Ordinal)) return true;
+        if (disabled || !NativeProjectileFlights.UsesSpatialVisual(__0)) return true;
         __result = true;
         return false;
     }

@@ -69,6 +69,7 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
         CombatVisualAudio.UpdateVolume();
         NativeFireGlow.Ensure();
         Meshes.Clear();
+        NativeProjectileFlights.Prune();
         bool drawNative = MapBox.isRenderGameplay();
         if (drawNative || Compatibility.Worldfall.WorldfallVisualBridge.IsInstalled)
         {
@@ -87,7 +88,7 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
             {
                 SampleWeapons();
                 SampleArtifacts();
-                WeaponControl.WeaponControlRuntimeService.AppendSpatialProjectiles(Meshes);
+                NativeProjectileFlights.AppendSpatial(Meshes);
             }
         }
         nativeBatch.Clear();

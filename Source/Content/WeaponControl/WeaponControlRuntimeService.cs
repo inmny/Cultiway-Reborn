@@ -15,7 +15,6 @@ using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using strings;
 using UnityEngine;
-using Cultiway.Core.Visuals;
 
 namespace Cultiway.Content.WeaponControl;
 
@@ -27,11 +26,11 @@ internal static class WeaponControlRuntimeService
     private static readonly Dictionary<long, WeaponControlCastSession> Sessions = new();
     private static readonly ConcurrentDictionary<long, byte> ActiveCasters = new();
     private static readonly ConcurrentDictionary<long, float> DetachedUntil = new();
-    private static readonly List<Projectile> ActiveProjectiles = new();
     private static long nextCorrelationId;
     private static int emissionFrame = -1;
     private static int emissionsThisFrame;
     private static int projectileEmissionsThisFrame;
+    private static int projectilesAtFrameStart;
 
     /// <summary>为新施放序列生成进程内唯一关联 ID。</summary>
     public static long NextCorrelationId()
@@ -94,41 +93,11 @@ internal static class WeaponControlRuntimeService
         RefreshFrameBudget();
         if (emissionsThisFrame >= MaxEmissionsPerFrame) return false;
         if (createsProjectile &&
-            ActiveProjectiles.Count + projectileEmissionsThisFrame >= MaxActiveProjectiles)
+            projectilesAtFrameStart + projectileEmissionsThisFrame >= MaxActiveProjectiles)
             return false;
         emissionsThisFrame++;
         if (createsProjectile) projectileEmissionsThisFrame++;
         return true;
-    }
-
-    /// <summary>登记御器生成的原版投射物，供后续全局容量控制。</summary>
-    public static void RegisterProjectile(Projectile projectile)
-    {
-        if (projectile != null) ActiveProjectiles.Add(projectile);
-    }
-
-    /// <summary>读取御器实际生成的原版弹道；箭雨等代理编号也保留武器轮廓与真实三维朝向。</summary>
-    /// <param name="meshes">共同空间快照；原版仍由已有投射物渲染器显示。</param>
-    internal static void AppendSpatialProjectiles(List<SpatialVisualMeshInstance> meshes)
-    {
-        foreach (Projectile projectile in ActiveProjectiles)
-        {
-            if (projectile == null || !projectile.isAlive() || projectile.isFinished() ||
-                projectile.asset?.frames == null || projectile.asset.frames.Length == 0) continue;
-            Vector3 point = projectile._current_position_3d;
-            if (!SpatialVisualEffects.IsRelevant(point, 1f)) continue;
-            Sprite sprite = projectile.asset.animated
-                ? AnimationHelper.getSpriteFromList(projectile.GetHashCode(), projectile.asset.frames,
-                    projectile.asset.animation_speed)
-                : projectile.asset.frames[0];
-            Vector3 direction = projectile._velocity;
-            Quaternion rotation = direction.sqrMagnitude > .0001f
-                ? Quaternion.FromToRotation(Vector3.right, direction.normalized)
-                : Quaternion.identity;
-            meshes.Add(new SpatialVisualMeshInstance(SpatialSpriteMesh.Get(sprite), point, rotation,
-                Vector3.one * Mathf.Max(.05f, projectile.getCurrentScale()),
-                new Color(1f, 1f, 1f, projectile.getAlpha()), emissive: projectile.asset.draw_light_area));
-        }
     }
 
     /// <summary>切换世界时清空全部运行时引用。</summary>
@@ -137,25 +106,21 @@ internal static class WeaponControlRuntimeService
         Sessions.Clear();
         ActiveCasters.Clear();
         DetachedUntil.Clear();
-        ActiveProjectiles.Clear();
+        NativeProjectileFlights.Clear();
         emissionFrame = -1;
         emissionsThisFrame = 0;
         projectileEmissionsThisFrame = 0;
+        projectilesAtFrameStart = 0;
     }
 
-    /// <summary>每个渲染帧重置吞吐预算，并剔除已经落地或回收的投射物。</summary>
+    /// <summary>先取本帧已经在飞的数量，再对本帧每次新受理单独计数。</summary>
     private static void RefreshFrameBudget()
     {
         if (emissionFrame == Time.frameCount) return;
         emissionFrame = Time.frameCount;
         emissionsThisFrame = 0;
         projectileEmissionsThisFrame = 0;
-        for (int i = ActiveProjectiles.Count - 1; i >= 0; i--)
-        {
-            Projectile projectile = ActiveProjectiles[i];
-            if (projectile == null || !projectile.isAlive() || projectile.isFinished())
-                ActiveProjectiles.RemoveAt(i);
-        }
+        projectilesAtFrameStart = NativeProjectileFlights.Prune();
     }
 }
 
@@ -504,7 +469,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             startHeight = 0.45f;
         }
 
-        Projectile projectile = World.world.projectiles.spawn(
+        World.world.projectiles.spawn(
             Caster.Base,
             target.isRekt() ? null : target,
             projectileId,
@@ -513,7 +478,6 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             target.isRekt() ? 0f : target.getHeight(),
             startHeight,
             pForcedKingdom: attackKingdom);
-        WeaponControlRuntimeService.RegisterProjectile(projectile);
     }
 
     /// <summary>注入真实武器 Sprite、命中范围、残影和动作参数。</summary>

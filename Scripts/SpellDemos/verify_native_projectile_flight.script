@@ -1,0 +1,140 @@
+// 10.04：实际御器逐发受理，原版负责移动和落点，空间绘制只采样该枚弹丸。
+Actor source = Make(64.35f), target = Make(72f);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 4;
+var supply = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.BowWakan") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.BowWakan")
+        .SetStats(new BaseStats { [BaseStatses.MaxWakan.id] = 10000 }).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, supply, 10000, source);
+Ready(source);
+source.attack_timer = 999f;
+await Advance(.16f);
+var bowAsset = AssetManager.items.get("bow_iron");
+var bow = World.world.items.generateItem(bowAsset, pActor: source);
+source.equipment.setItem(bow, source);
+source.setStatsDirty();
+source.updateStats();
+target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+Place(source, 64.35f);
+Place(target, 72f);
+source.addAggro(target);
+target.addAggro(source);
+owner.GetCultisys<Xian>().wakan = 9000;
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var handle = handles.Single(value => value.ProviderId == "content.weapon_control");
+var aim = new ActiveAbilityTarget(target, target.GetSimPos());
+var flights = service.Assembly.GetType("Cultiway.Content.Combat.NativeProjectileFlights");
+var active = (HashSet<Projectile>)flights.GetField("Active", F).GetValue(null);
+var runtime = service.Assembly.GetType("Cultiway.Content.WeaponControl.WeaponControlRuntimeService");
+var worldfall = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.WorldfallVisualBridge");
+var visuals = service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem").GetField("Meshes", F);
+var current = typeof(Projectile).GetField("_current_position_3d", F);
+var velocity = typeof(Projectile).GetField("_velocity", F);
+bool Casting() => (bool)runtime.GetMethod("IsCasting", F).Invoke(null, new object[] { owner });
+bool Spatial(Projectile shot) => (bool)flights.GetMethod("UsesSpatialVisual", F).Invoke(null, new object[] { shot });
+Vector3 Where(Projectile shot) => (Vector3)current.GetValue(shot);
+var payments = new List<float>();
+int emitted = 0;
+var mutationField = typeof(WakanResourceService).GetField("mutationCommitted", F);
+var previousMutations = mutationField.GetValue(null);
+void Paid(ActorExtend actor, in WakanMutation mutation)
+{
+    if (actor == owner && mutation.Kind == WakanMutationKind.Spend) payments.Add(-mutation.Delta);
+}
+void Emitted(Entity execution)
+{
+    if (execution.GetComponent<SkillEntity>().SkillContainer == handle.Source) emitted++;
+}
+WakanResourceService.RegisterMutationCommitted(Paid);
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Emitted;
+try
+{
+    source.attack_timer = 0f;
+    Check(ActiveAbilityService.TryUse(owner, handle, aim, ActiveAbilityUseOrigin.Script) &&
+          active.Count == 0 && payments.Count == 0, "远程御器请求入队，实际发射前尚未扣款或登记");
+    source.attack_timer = 999f;
+    Config.paused = false;
+    await Game.WaitUntil(() => active.Count > 0, 1200);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var paidFlight = active.ToArray();
+    var first = paidFlight[0];
+    string proxy = first.asset.id;
+    string nativeId = bowAsset.projectile;
+    var nativeAsset = AssetManager.projectiles.get(nativeId);
+    Check(Casting() && emitted == payments.Count && paidFlight.Length == emitted &&
+          paidFlight.All(shot => shot.isAlive() && !shot.isFinished() && shot.asset.id == proxy) &&
+          payments.All(amount => amount > 0) && ReferenceEquals(source.getWeapon(), bow),
+        "每份实际支付对应一枚在飞原版代理，原弓身份保持",
+        new { proxy, nativeId, emitted, payments, activeCount = active.Count });
+    Check(ReferenceEquals(first.asset.world_actions, nativeAsset.world_actions) &&
+          ReferenceEquals(first.asset.impact_actions, nativeAsset.impact_actions) &&
+          first.asset.terraform_option == nativeAsset.terraform_option &&
+          first.asset.can_be_left_on_ground == nativeAsset.can_be_left_on_ground &&
+          (!proxy.Contains(".high_arc.") || !first.asset.use_min_angle_height),
+        "实际代理保留原版落点资料，箭雨仍使用高弧");
+
+    var camera = World.world.camera;
+    camera.transform.position = new Vector3(68f, 74f, camera.transform.position.z);
+    MoveCamera.instance.forceZoom(16f);
+    await Game.NextFrame();
+    await Game.NextFrame();
+    var spatial = ((IEnumerable)visuals.GetValue(null)).Cast<object>();
+    Vector3 position = Where(first);
+    Vector3 speed = (Vector3)velocity.GetValue(first);
+    var rendered = spatial.Where(mesh => Vector3.Distance((Vector3)Field(mesh, "Position"), position) < .01f &&
+        !(bool)Field(mesh, "DrawNative")).ToArray();
+    Check(Spatial(first) && rendered.Any(mesh => Vector3.Dot((Quaternion)Field(mesh, "Rotation") * Vector3.right,
+              speed.normalized) > .999f), "共同三维场景读取同一实际弹丸位置和方向，原版保留其既有绘制",
+        new { position = position.ToString(), speed = speed.ToString(), meshes = rendered.Length });
+    object[] draw = { first, false };
+    Check(!(bool)worldfall.GetMethod("BeforeDrawThrown", F).Invoke(null, draw) && (bool)draw[1],
+        "Worldfall 只接替这枚已有空间模型的代理");
+
+    var sword = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: source);
+    source.equipment.weapon.takeAwayItem();
+    source.equipment.setItem(sword, source);
+    source.setStatsDirty(); source.updateStats();
+    await Advance(.16f);
+    Check(!Casting() && emitted == paidFlight.Length && payments.Count == paidFlight.Length &&
+          !first.isFinished() && Vector3.Distance(position, Where(first)) > .05f && ReferenceEquals(source.getWeapon(), sword),
+        "换下原弓结束后续付费及发射，已经发出的弹丸沿原轨道继续");
+    double deadline = World.world.getCurWorldTime() + 10d;
+    while (active.Count != 0 && World.world.getCurWorldTime() < deadline) await Advance(.24f);
+    Check(active.Count == 0 && paidFlight.All(shot => !Spatial(shot)) &&
+          paidFlight.All(shot => !shot.isAlive() || shot.isFinished()),
+        "原版飞行结束后退出容量和空间采样");
+
+    Projectile reused = World.world.projectiles.spawn(source, target, proxy, source.current_position,
+        target.current_position, target.getHeight(), .5f, pForcedKingdom: source.kingdom);
+    Check(active.Contains(reused), "原版启动入口登记当前代理实例");
+    var start = typeof(Projectile).GetMethod("start", F);
+    typeof(Projectile).GetMethod("reset", F).Invoke(reused, null);
+    start.Invoke(reused, new object[] { source, target, (Vector3)source.current_position, (Vector3)target.current_position,
+        nativeId, target.getHeight(), .5f, 1f, null, source.kingdom });
+    draw = new object[] { reused, false };
+    Check(reused.asset.id == nativeId && !active.Contains(reused) && !Spatial(reused) &&
+          (bool)worldfall.GetMethod("BeforeDrawThrown", F).Invoke(null, draw) && !(bool)draw[1],
+        "同一个原版对象重新启动为普通箭，立即退出御器登记，三维恢复普通弹丸入口");
+
+    World.world.projectiles.spawn(source, target, proxy, source.current_position, target.current_position,
+        target.getHeight(), .5f, pForcedKingdom: source.kingdom);
+    Check(active.Count == 1, "换世界前存在一枚实际在飞代理");
+    World.world.save_manager.loadWorld(fixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check(active.Count == 0 && !Spatial(reused), "换世界只留下当前世界的实际投射物");
+    return new { passed = true, proxy, nativeId, emitted, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    Config.paused = true;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Emitted;
+    mutationField.SetValue(null, previousMutations);
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+}
