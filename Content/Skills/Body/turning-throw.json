@@ -1,0 +1,48 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.TurningThrow",
+  "Name": "揽身翻投",
+  "Lifetime": 1.72,
+  "Cooldown": 2.24,
+  "Resource": "stamina",
+  "Cost": 9,
+  "Use": {"Target": "Object"},
+  "Body": {
+    "Effector": "palm",
+    "ActiveFrom": 0.15,
+    "ActiveUntil": 1.04,
+    "Impact": {"Targets": "Hostile", "DamageScale": 0},
+    "Construction": {
+      "Parts": [
+        {"Id": "palm", "Part": "hand.right"},
+        {"Id": "opponent", "Subject": "Target", "Part": "surface"}
+      ],
+      "Relations": [
+        {
+          "Id": "hold",
+          "From": "palm",
+          "To": "opponent",
+          "Kind": "Grab",
+          "ControlStrength": 4,
+          "MoveTarget": true,
+          "RotateTarget": true,
+          "FromMarker": "catch",
+          "UntilMarker": "release_body"
+        }
+      ]
+    },
+    "Keys": [
+      {"Id": "ready", "At": 0, "Hand": [0.22, 0.20, 0.52], "Support": {}},
+      {"Id": "weigh", "At": 0.12, "Hand": [0.12, 0.25, 0.57], "Torso": [-0.025, 0, 0], "Turn": -13, "Support": {}},
+      {"Id": "reach", "At": 0.205, "Hand": [0.55, 0.12, 0.62], "Torso": [0.045, -0.01, -0.015], "Turn": 12, "Rotation": [0, 25, 0], "Support": {}},
+      {"At": 0.25, "Hand": [0.53, 0.12, 0.62], "Torso": [0.04, -0.01, -0.015], "Turn": 10, "Rotation": [0, 25, 0], "Support": {}},
+      {"Id": "sink", "At": 0.30, "Hand": [0.53, 0.12, 0.45], "Torso": [0.04, -0.01, -0.015], "Turn": 10, "Rotation": [0, 25, 0], "Support": {}},
+      {"Id": "catch", "At": 0.60, "Hand": [0.53, 0.12, 0.45], "Torso": [0.04, -0.01, -0.015], "Turn": 10, "Rotation": [0, 25, 0], "Support": {"Rise": 0.25}},
+      {"Id": "lift", "At": 0.90, "Hand": [0.53, 0.12, 0.90], "Torso": [0.04, -0.01, -0.015], "Turn": 10, "Rotation": [0, 25, 0], "Support": {"Rise": 0.50}},
+      {"Id": "release_body", "At": 1.00, "Hand": [0.465, 0.12, 0.90], "Torso": [0.04, -0.01, -0.015], "Turn": 10, "Rotation": [30, 47.5, 0], "Support": {"Rise": 0.50}},
+      {"Id": "follow", "At": 1.10, "Hand": [0.40, 0.12, 0.90], "Torso": [0.04, -0.01, -0.015], "Turn": 21, "Heading": 16, "Rotation": [37.5, 70, 0], "Support": {"Rise": 0.20}},
+      {"Id": "land", "At": 1.44, "Hand": [0.29, 0.16, 0.59], "Torso": [0.02, -0.02, -0.105], "Turn": 16, "Heading": 32, "Rotation": [20, 35, 0], "Support": {}},
+      {"Id": "rest", "At": 1.72, "Hand": [0.22, 0.20, 0.52], "Heading": 24, "Support": {}}
+    ]
+  }
+}

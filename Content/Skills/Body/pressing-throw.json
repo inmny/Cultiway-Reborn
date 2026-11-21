@@ -1,0 +1,48 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.PressingThrow",
+  "Name": "沉身压摔",
+  "Lifetime": 1.64,
+  "Cooldown": 2.16,
+  "Resource": "stamina",
+  "Cost": 8,
+  "Use": {"Target": "Object"},
+  "Body": {
+    "Effector": "palm",
+    "ActiveFrom": 0.15,
+    "ActiveUntil": 1.36,
+    "Impact": {"Targets": "Hostile", "DamageScale": 0},
+    "Construction": {
+      "Parts": [
+        {"Id": "palm", "Part": "hand.right"},
+        {"Id": "opponent", "Subject": "Target", "Part": "surface"}
+      ],
+      "Relations": [
+        {
+          "Id": "hold",
+          "From": "palm",
+          "To": "opponent",
+          "Kind": "Grab",
+          "ControlStrength": 4,
+          "MoveTarget": true,
+          "RotateTarget": true,
+          "FromMarker": "catch",
+          "UntilMarker": "withdraw"
+        }
+      ]
+    },
+    "Keys": [
+      {"Id": "ready", "At": 0, "Hand": [0.22, 0.20, 0.52], "Support": {}},
+      {"Id": "weigh", "At": 0.12, "Hand": [0.12, 0.25, 0.57], "Torso": [-0.025, 0, 0], "Turn": -13, "Support": {}},
+      {"Id": "reach", "At": 0.205, "Hand": [0.55, 0.12, 0.62], "Torso": [0.045, -0.01, -0.015], "Turn": 12, "Rotation": [0, 25, 0], "Support": {}},
+      {"At": 0.25, "Hand": [0.53, 0.12, 0.62], "Torso": [0.04, -0.01, -0.015], "Turn": 10, "Rotation": [0, 25, 0], "Support": {}},
+      {"Id": "sink", "At": 0.30, "Hand": [0.53, 0.12, 0.45], "Torso": [0.04, -0.01, -0.015], "Turn": 10, "Rotation": [0, 25, 0], "Support": {}},
+      {"Id": "catch", "At": 0.60, "Hand": [0.53, 0.12, 0.45], "Torso": [0.04, -0.01, -0.015], "Turn": 10, "Rotation": [0, 25, 0], "Support": {"Rise": 0.20}},
+      {"Id": "raise", "At": 0.90, "Hand": [0.51, 0.12, 0.84], "Torso": [0.04, -0.01, -0.045], "Turn": 10, "Rotation": [0, 25, 0], "Support": {"Rise": 0.34}},
+      {"Id": "drive", "At": 1.02, "Hand": [0.49, 0.13, 0.59], "Torso": [0.09, -0.015, -0.11], "Turn": -17, "Rotation": [-12, 34, 12], "Support": {"Rise": 0.16}},
+      {"Id": "compress", "At": 1.18, "Hand": [0.42, 0.13, 0.29], "Torso": [0.08, -0.02, -0.15], "Turn": -24, "Rotation": [-23, 38, 17], "Support": {}},
+      {"Id": "withdraw", "At": 1.32, "Hand": [0.33, 0.17, 0.35], "Torso": [0.05, -0.02, -0.12], "Turn": -13, "Rotation": [-7, 22, 5], "Support": {}},
+      {"Id": "rest", "At": 1.64, "Hand": [0.22, 0.20, 0.52], "Support": {}}
+    ]
+  }
+}

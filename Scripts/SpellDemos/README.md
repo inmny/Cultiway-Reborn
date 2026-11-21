@@ -2517,3 +2517,11 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--case archive` 在原窗口修改抬脚高度和侧移路线，学会副本后保存世界。新进程使用 `--case cold --archive <新输出目录>` 从原版世界档恢复两份招式并施展副本。
 
 `--case interrupt` 用档中的原铁锤打断实际空中的跃落，核对中断发生的高度和后续落地。常速录制时，在四个步法场景任选其一并附 `--view native` 或 `--view worldfall`。录像中对练者收起铁盾，以便看清脚步与肩面。
+
+### 抓投战技（9.48）
+
+通过 `dev.py exec` 运行 `python3 Scripts/SpellDemos/verify_grappling_actions.py --case throw --archive <步法正式对练档>`。沿用同一对人物，核对抓持、上提转动、带惯性离手、实际撞伤及翻滚起身。`--case press` 检查握持时实际触地，`--case miss` 在接触前移开目标，`--case interrupt` 在抓持成立后用原版外力打断来源。
+
+`--case archive` 修改压摔撞伤倍率并保存副本。新进程用 `--case cold --archive <新输出目录>` 读回并施展改造版，核对实际碰撞的倍率。录制两招时，给 `--case throw` 或 `--case press` 附加 `--view native` 或 `--view worldfall`。
+
+`--case archive-view --archive <新输出目录>` 可重新打开已保存的副本并截取中英文窗口。每次复验的记录、截图或录像路径由脚本返回。9.48 的验收文件汇总于 `~/.local/state/cultiway-dev/evidence/grappling-948/delivery.json`。
