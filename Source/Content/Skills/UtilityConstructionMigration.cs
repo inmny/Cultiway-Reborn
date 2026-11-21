@@ -78,6 +78,17 @@ internal static class UtilityConstructionMigration
         float lifetime =
             asset.ResolveRuntimeLifetime(skill, asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier);
         if (skill.TryGetComponent(out SkillSettings settings) && settings.Duration > 0f) lifetime = settings.Duration;
+        bool terrainPulse = HasTerrainPulse(asset.id) && (trajectory == SkillTrajectories.AppearAtTarget.id ||
+            trajectory == SkillTrajectories.GroundEruptAtTarget.id);
+        float formation = 0f;
+        if (terrainPulse)
+        {
+            SkillEntityAnimation animation = asset.GetAnimation(skill.GetComponent<SkillContainer>().AnimationIndex);
+            float frame = skill.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
+            formation = ProjectileConstructionMigration.ClipSeconds(animation.Appearance, frame);
+            if (formation <= 0f || animation.AppearanceGameplay != SkillAnimationGameplayFlags.None) return null;
+            lifetime = formation + ProjectileConstructionMigration.ClipSeconds(animation.Dissipation, frame);
+        }
         var effects = new List<ConstructionWorldEffect>();
 
         void Add<T>(string action, float interval = 0f, float? duration = null) where T : struct, IModifier
@@ -89,10 +100,12 @@ internal static class UtilityConstructionMigration
                 TileCentreOnly = true,
                 Duration = duration,
                 MaximumTiles = Mathf.Min(1048576, Mathf.Max(1, MapBox.width * MapBox.height)),
-                Contact = interval > 0f
+                Contact = terrainPulse
                     ? new ConstructionContactPolicy
-                    { Mode = ConstructionContactMode.Interval, Interval = interval }
-                    : null
+                    { Mode = ConstructionContactMode.Pulse, Interval = formation, MaximumPerTarget = 1 }
+                    : interval > 0f
+                        ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval, Interval = interval }
+                        : null
             });
         }
 
@@ -146,6 +159,7 @@ internal static class UtilityConstructionMigration
                 Scale = Mathf.Max(.1f, radius),
                 Offset = offset,
                 ActiveFrom = first,
+                ActiveUntil = terrainPulse ? Mathf.Min(first + .004f, lifetime) : -1f,
                 Impact = new ConstructionImpact
                 {
                     Targets = SkillUseTargetRelation.Friendly,
@@ -194,4 +208,8 @@ internal static class UtilityConstructionMigration
             }
         };
     }
+
+    /// <summary>四种瞬时地貌术使用旧落点时机和已变化地块的立体收势。</summary>
+    internal static bool HasTerrainPulse(string id) =>
+        id is "Cultiway.RaiseTerrain" or "Cultiway.LowerTerrain" or "Cultiway.FillWater" or "Cultiway.DrainWater";
 }

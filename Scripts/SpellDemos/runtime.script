@@ -1718,6 +1718,9 @@ private void Prepare(JObject item)
     }
 
     // 每次还原同一片地形；世界法术则有明确的可观察前置状态。
+    bool drainage = id.EndsWith("DrainWater"), filling = id.EndsWith("FillWater");
+    Vector2 waterCenter = request["aimOffset"] is JArray waterAim
+        ? sourcePosition + new Vector2((float)waterAim[0], (float)waterAim[1]) : new Vector2(74, 72);
     for (int x = 40; x < 99; x++)
     for (int y = 48; y < 98; y++)
     {
@@ -1729,9 +1732,16 @@ private void Prepare(JObject item)
         tile.heat = 0;
         tile.removeGrass(false);
         bool patch = x >= 67 && x <= 83 && y >= 61 && y <= 80;
-        bool water = patch && id.EndsWith("DrainWater");
-        tile.setTileTypes(water ? TileLibrary.shallow_waters : TileLibrary.soil_low,
-            water ? null : patch && id.EndsWith("Fertilize") ? TopTileLibrary.field : TopTileLibrary.grass_low);
+        bool wetPatch = false;
+        if (drainage || filling)
+        {
+            Vector2 fromWater = new Vector2(x, y) - waterCenter;
+            float shore = 8.1f + .55f * Mathf.Sin(Mathf.Atan2(fromWater.y, fromWater.x) * 3f);
+            wetPatch = fromWater.sqrMagnitude <= shore * shore;
+        }
+        bool water = wetPatch && drainage, basin = wetPatch && filling;
+        tile.setTileTypes(water ? TileLibrary.shallow_waters : basin ? TileLibrary.pit_shallow_waters : TileLibrary.soil_low,
+            water || basin ? null : patch && id.EndsWith("Fertilize") ? TopTileLibrary.field : TopTileLibrary.grass_low);
     }
 
     if (id.EndsWith("CleanLandField"))

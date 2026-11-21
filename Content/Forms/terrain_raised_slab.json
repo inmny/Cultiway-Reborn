@@ -1,0 +1,98 @@
+{
+    "Structure": {
+        "Kind": "volume",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_terrain_changes.mjs",
+            "Entry": "makeTerrainChanges",
+            "Parameters": [
+                {
+                    "Id": "width",
+                    "Values": [
+                        0.9599999785423279
+                    ]
+                },
+                {
+                    "Id": "layers",
+                    "Values": [
+                        2.0
+                    ]
+                },
+                {
+                    "Id": "height",
+                    "Values": [
+                        0.3199999928474426
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "terrain_raised_slab",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "bed",
+            "Surface": "stone_ridge",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/terrain_raised_slab_bed.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "crown",
+            "Surface": "stone",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/terrain_raised_slab_crown.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [],
+    "Controls": [],
+    "Motions": []
+}

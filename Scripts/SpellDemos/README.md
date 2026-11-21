@@ -2657,3 +2657,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用 `dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_support_variants.py --case archive` 将六个零号索引保存进正式世界。换进程后，传入 `--archive <保存输出目录>`，依次用 `--case legacy` 对照旧行为、用 `--case cold` 重放当前实现。只补单体或范围时可选 `--section single` 或 `--section area`，读档仍校验全部学习资料。
 
 录像中可以从报告的 `friendStatusesBefore` 和 `friendStatusesAfter` 核对友方的状态变化，并读取生命前后值。录制回春领域时，时长要覆盖完整有效段和收势。
+
+### 四种瞬时改地术的旧索引
+
+在独立游戏中，用 `dev.py exec -- python3 Scripts/SpellDemos/verify_terrain_variants.py --case legacy --archive <旧档输出目录>` 记录旧执行。改后用 `--case cold --archive <同一旧档输出目录> --baseline <旧执行的 result.json>` 逐格对照并检查收势。两者都核对八份归档学习资料，可用 `--spell RaiseTerrain` 等参数只重放受影响法术。水和邻格可能在施法以后继续由游戏更新，作用范围以实际结算记录为准。
+
+合辑用 `demo_all.py --scope base --filter Cultiway.RaiseTerrain,Cultiway.LowerTerrain,Cultiway.FillWater,Cultiway.DrainWater --cases base --variants all --realm 0 --caster-position 64 72 --aim-offset 6 0 --motion-trace`。分别传入 `--view native` 和 `--view worldfall`，从 `worldContactsLog` 核对真实变更的地块。

@@ -763,6 +763,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         yinTransfers.Clear();
         balancedWakan.Clear();
         lifeRepairs.Clear();
+        terrainChanges.Clear();
         timeWear.Clear();
         ClearShadows();
         soulPacts.Clear();

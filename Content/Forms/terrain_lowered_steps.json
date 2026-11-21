@@ -1,0 +1,117 @@
+{
+    "Structure": {
+        "Kind": "volume",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_terrain_changes.mjs",
+            "Entry": "makeTerrainChanges",
+            "Parameters": [
+                {
+                    "Id": "width",
+                    "Values": [
+                        0.949999988079071
+                    ]
+                },
+                {
+                    "Id": "layers",
+                    "Values": [
+                        3.0
+                    ]
+                },
+                {
+                    "Id": "height",
+                    "Values": [
+                        0.30000001192092898
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "terrain_lowered_steps",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "ledge_0",
+            "Surface": "stone_ridge",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/terrain_lowered_steps_ledge_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "ledge_1",
+            "Surface": "stone_ridge",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/terrain_lowered_steps_ledge_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "ledge_2",
+            "Surface": "stone_ridge",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/terrain_lowered_steps_ledge_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [],
+    "Controls": [],
+    "Motions": []
+}
