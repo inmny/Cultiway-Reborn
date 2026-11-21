@@ -6,6 +6,7 @@ using Cultiway.Const;
 using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Content.KnightCombat;
+using Cultiway.Content.Libraries;
 using Cultiway.Content.WeaponControl;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
@@ -115,6 +116,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         PatchActor.RegisterHideHandItemPredicate(IsWeaponBorrowed);
         BodyRecoveryFloor.Height = (field, point, maximum, radius) => BodyLocomotion.Floor(field, point, maximum, radius);
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
+        ValidateDefinition(BodyActionCatalog.KnightCounterRiposte);
         ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, DefinitionSave>("ability_constructions", "自创能力构造",
                 16,
                 _ => new DefinitionSave { Definitions = definitions.Values.ToArray() }, (_, data) =>
@@ -203,6 +205,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         foreach (AbilityDefinition definition in definitions.Values) ValidateDefinition(definition);
         ValidateDefinition(BodyActionCatalog.Palm);
+        ValidateDefinition(BodyActionCatalog.KnightCounterRiposte);
     }
 
     /// <summary>在创建边界复制完整定义，编译成功后才登记。</summary>
@@ -227,6 +230,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         CompiledAbility plan = AbilityCompiler.Compile(definition, cache);
         foreach (string matter in plan.Matters) Composition(matter);
         if (plan.Body != null) BodyActionBinding.ValidateResources(plan.Body);
+        if (KnightTechniqueStatuses.RequiredTechnique(plan.Use.SelfStatus?.Asset) != null && plan.Body?.WeaponForm == null)
+            throw new InvalidDataException("Use/SelfStatus：这项架势需要实际持握兵器的身体动作");
         ConstructedInventoryInputs.Validate(plan);
         ConstructionResources.Validate(plan);
         return plan;
@@ -304,7 +309,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             return new(ActiveAbilityControlBlockReason.Unavailable);
         if (plan.Body?.ControlsStance == true && caster.Base.attack_timer > 0f)
             return new(ActiveAbilityControlBlockReason.Cooldown, caster.Base.attack_timer);
-        if (!BodyReady(caster, plan) || !ConstructedInventoryInputs.CanAcquire(caster, plan)) return new(ActiveAbilityControlBlockReason.Unavailable);
+        if (!BodyReady(caster, plan) || !CanApplyWeaponStance(caster, plan) ||
+            !ConstructedInventoryInputs.CanAcquire(caster, plan)) return new(ActiveAbilityControlBlockReason.Unavailable);
         if (cooldowns.TryGetValue((caster.Base.id, handle.EntryId), out double until) && until > LogicTime)
             return new(ActiveAbilityControlBlockReason.Cooldown, (float)(until - LogicTime));
         return ConstructionResources.CanPay(caster, plan)
@@ -456,6 +462,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ReleaseBody(running);
     }
 
+    /// <summary>核对某次确实在运行的动作是否仍占用原身体。</summary>
+    /// <param name="actorId">实际来源编号。</param><param name="castId">已受理的动作编号。</param>
+    internal static bool IsBodyControlledBy(long actorId, long castId)
+    {
+        if (castId == 0) return false;
+        foreach (RunningCast running in casts)
+            if (running.Id == castId && running.SourceId == actorId && running.BodyControlled) return true;
+        return false;
+    }
+
     /// <summary>普通已学构造和已经收费的来源共用创建、接触、结束及清理。</summary>
     /// <param name="caster">实际归属人物。</param>
     /// <param name="plan">本次已编译计划。</param><param name="target">实际目标及边界。</param>
@@ -504,7 +520,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             caster == null && Vector2.Distance(sourcePosition.Value, point) > (plan.TargetRange ?? 10000f)) return false;
         if (plan.Body?.Construction.HasControlRelations == true && (targetActor == null || targetActor == caster.Base))
             return false;
-        if (caster != null && !BodyReady(caster, plan) ||
+        if (caster != null && (!BodyReady(caster, plan) || !CanApplyWeaponStance(caster, plan)) ||
             target.WorldScope != null && !target.WorldScope.IsValid() ||
             !WorldMaterialService.CanReserve(plan) || !ConstructedInventoryInputs.CanAcquire(caster, plan)) return false;
         Vector2 from = sourcePosition ?? spatialSource.GetSimPos(), to = point;
@@ -550,6 +566,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         var inputs = new AbilityInputs(source, point, direction, sourceHeight);
         GetHitEvent damage = sourceDamage ?? CombatDamageEffects.PrepareDamage(caster.Base,
             caster.Base.stats["damage"] * plan.Power, ElementComposition.Static.empty);
+        if (!sourceDamage.HasValue) damage.DamageOrigin = target.RuntimeData.DamageOrigin;
         long sourceId = sourceActor?.id ?? 0, generation = worldGeneration;
         BodyControlLease bodyLease =
             plan.Body == null
@@ -696,6 +713,13 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             }
 
             castId = running.Id;
+            if (!practice && plan.Use.SelfStatus is { } stance)
+            {
+                Entity status = ApplyStatus(sourceActor, running.InitialOwner, stance, 1f, plan.Power);
+                KnightTechniqueAsset technique = KnightTechniqueStatuses.RequiredTechnique(stance.Asset);
+                if (!status.IsNull && technique != null)
+                    KnightTechniqueStatuses.BindStance(status, technique, body.Weapon, running.Id);
+            }
             CastStarted?.Invoke(new ConstructedCastStarted(running.Id, id, sourceId, origin, startedAt,
                 running.CorrelationId));
             if (generation == worldGeneration) PublishActionEvents(running);
@@ -744,6 +768,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="plan">当前计划。</param>
     private static bool BodyReady(ActorExtend caster, CompiledAbility plan) => plan.Body == null ||
         BodyActionBinding.CanBind(caster, plan.Body) && BodyAvailable(caster, plan.Body);
+
+    /// <summary>原有武器架势在支付前核对实际兵器和流派。</summary>
+    /// <param name="caster">当前真实人物。</param><param name="plan">已编译的完整计划。</param>
+    private static bool CanApplyWeaponStance(ActorExtend caster, CompiledAbility plan) =>
+        KnightTechniqueStatuses.RequiredTechnique(plan.Use.SelfStatus?.Asset) is not { } technique ||
+        KnightTechniqueAccessService.TryResolveCurrentWeapon(caster, technique, out _, out _);
 
     /// <summary>暂时不能接管身体时，与缺少身体资料分别提示。</summary>
     /// <param name="caster">实际施法者。</param><param name="body">本次身体动作。</param>

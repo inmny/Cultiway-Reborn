@@ -1,0 +1,28 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.KnightTechnique.GuardStance",
+  "Name": "格挡架势",
+  "Lifetime": 0.14,
+  "Cooldown": 4,
+  "Resource": "vigor",
+  "Cost": 5,
+  "Use": {
+    "Target": "Self",
+    "SelfStatus": {"Id": "KnightGuardStance", "Duration": 2.5, "Application": "Refresh"}
+  },
+  "Impact": {"Targets": "Self", "DamageScale": 0},
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": "warhammer",
+    "Grip": "grip",
+    "Occupancy": 1,
+    "ActiveFrom": 0.06,
+    "ActiveUntil": 0.095,
+    "Keys": [
+      {"Id": "ready", "At": 0, "Hand": [0.21, 0.20, 0.54], "Rotation": [-12, -26, 5]},
+      {"Id": "brace", "At": 0.055, "Hand": [0.37, 0.07, 0.68], "Rotation": [-18, 26, -8]},
+      {"At": 0.096, "Hand": [0.35, 0.085, 0.66], "Rotation": [-15, 20, -6]},
+      {"Id": "rest", "At": 0.14, "Hand": [0.21, 0.20, 0.54], "Rotation": [-12, -26, 5]}
+    ]
+  }
+}

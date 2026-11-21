@@ -1,0 +1,134 @@
+// 10.03：复用短兵场地，从真实主动入口受理，再用原武器伤害流程核对状态与回锋。
+bool guard = move == "guard" || move == "guard-hammer";
+bool lost = move == "stance-loss";
+var technique = guard ? KnightTechniques.GuardStance : KnightTechniques.CounterStance;
+var style = guard ? KnightStyles.Guardian : KnightStyles.Duelist;
+string equipment = guard ? (move == "guard-hammer" ? "hammer_iron" : "axe_iron") : "sword_iron";
+string model = guard ? (move == "guard-hammer" ? "warhammer" : "war_axe") : "sword";
+string statusId = guard ? "KnightGuardStance" : "KnightCounterStance";
+string stanceId = technique.id + (move == "guard" ? ".Axe" : "");
+string reactionId = guard ? stanceId + ".Response" : technique.id + ".Riposte";
+var status = Cultiway.ModClass.L.StatusEffectLibrary.get(statusId);
+var initial = ConstructionEditing.Access.Read(stanceId);
+Check(ConstructionEditing.Access.Validate(initial).Use.SelfStatus.Asset == status &&
+      initial.Use.SelfStatus.Duration == (guard ? 2.5f : 3f) && initial.Body.WeaponForm == model,
+    "正式底稿包含原时长及对应的实际持物");
+
+owner.AddComponent(new Knight { level = 3, vigor = 200f });
+var supply = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.StanceVigor") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.StanceVigor")
+        .SetStats(new BaseStats { [BaseStatses.MaxVigor.id] = 300f }).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, supply, 10000, source);
+Ready(source);
+source.attack_timer = 999;
+await Advance(.18f);
+Item weapon = Equip(source, equipment);
+Equip(target, "sword_iron");
+KnightStyleMasteryService.Master(owner, style);
+KnightTechniqueSkills.LearnStyle(owner, style);
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var handle = handles.Single(h => h.ProviderId == "content.knight_techniques" && h.EntryId == technique.id);
+double cost = SkillCastResources.Vigor.Quote(owner, SkillCastCost.CalculateStepDemand(handle.Source) *
+    Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, handle.Source)));
+
+var starts = new List<ConstructedCastStarted>();
+var settled = new List<ConstructedQueuedDamage>();
+var origins = new List<DamageOrigin>();
+var damageMethod = typeof(GetHitEventSystem).GetMethod("Resolve", F);
+var observedDamageField = typeof(ActorExtend).GetField("action_on_damage_resolved", F);
+var previousObserver = observedDamageField.GetValue(null);
+void Receive(ActorExtend receiver, BaseSimObject attacker, float damage, ElementComposition elements, AttackType kind)
+{
+    if (receiver.Base == target && attacker == source && kind == AttackType.Weapon)
+        origins.Add(DamageResolutionContext.CurrentOrigin);
+}
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || (fact.AbilityId != stanceId && fact.AbilityId != reactionId)) return;
+    starts.Add(fact);
+    object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == fact.CastId);
+    Check(ReferenceEquals(Field(Field(running, "Body"), "Weapon"), weapon) &&
+          ((AbilityCast)Field(running, "Cast")).Plan.Body.WeaponForm == model,
+        "起势和真实受击反应借用同一件原兵器");
+}
+void Settled(ConstructedQueuedDamage fact)
+{
+    if (fact.SourceId == source.id && fact.AbilityId == reactionId) settled.Add(fact);
+}
+DamageSettlement Incoming()
+{
+    var hit = new GetHitEvent
+    {
+        TargetID = source.id, Damage = 100f,
+        AttackType = AttackType.Weapon, IgnoreDamageReduction = true
+    };
+    hit.BindAttacker(target);
+    return (DamageSettlement)damageMethod.Invoke(null, new object[] { hit });
+}
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+ActorExtend.RegisterActionOnDamageResolved(Receive);
+try
+{
+    Place(source, 64.35f);
+    Place(target, 65.286f);
+    source.addAggro(target);
+    target.addAggro(source);
+    source.setHealth(source.getMaxHealth());
+    target.setHealth(target.getMaxHealth());
+    source.attack_timer = 0;
+    owner.GetCultisys<Knight>().vigor = 200f;
+    int before = source.data.health, enemyBefore = target.data.health;
+    var self = new ActiveAbilityTarget(source, source.GetSimPos());
+    Check(ActiveAbilityService.TryUse(owner, handle, self, ActiveAbilityUseOrigin.Script) && starts.Count == 1 &&
+          Math.Abs(200f - owner.GetCultisys<Knight>().vigor - cost) < .001 &&
+          SkillCooldownService.GetRemaining(owner, handle.Source) == technique.Cooldown,
+        "原入口受理并只扣一笔原斗气", new { cost, technique.Cooldown, move });
+    bool hasStance = CombatStatusEffects.HasStatus(source, status);
+    bool hasRightArm = BodyControlState.HasControl(source.id, BodyOccupancy.RightArm);
+    bool hasOtherParts = BodyControlState.HasControl(source.id,
+        BodyOccupancy.LeftArm | BodyOccupancy.Stance | BodyOccupancy.Head);
+    Check(hasStance && hasRightArm && !hasOtherParts, "架势立即绑定，起势只占用持武器的手",
+        new { hasStance, hasRightArm, hasOtherParts });
+    source.attack_timer = 999;
+    Item current = weapon;
+    if (lost) current = Equip(source, equipment);
+    await Advance(guard ? .055f : .19f);
+    Check(lost ? !CombatStatusEffects.HasStatus(source, status) : CombatStatusEffects.HasStatus(source, status),
+        lost ? "换了同款真剑后原架势失效" : "实际受击前仍保持绑定状态");
+    var first = Incoming();
+    int expected = lost ? 100 : guard ? 55 : 50;
+    Check(first.SettledCount == 1 && first.HealthLost == expected && before - source.data.health == expected &&
+          !CombatStatusEffects.HasStatus(source, status), "原受击流程按原比例结算并消耗一次架势",
+        new { expected, first.HealthLost, first.SettledCount });
+    await Advance(.46f);
+    var reactions = starts.Where(value => value.AbilityId == reactionId).ToArray();
+    var contactsOnReaction = contacts.Where(value => value.AbilityId == reactionId && value.SourceId == source.id).ToArray();
+    Check(lost ? reactions.Length == 0 : reactions.Length == 1 && reactions[0].Origin == ActiveAbilityUseOrigin.Reaction,
+        "只有有效架势产生一次真实承力或回锋动作", new { count = reactions.Length });
+    if (!guard && !lost)
+        Check(contactsOnReaction.Length == 1 && contactsOnReaction[0].TargetId == target.id &&
+              contactsOnReaction[0].Node == -1 && settled.Count == 1 && settled[0].Damage.HealthLost > 0 &&
+              settled[0].Damage.HealthLost == enemyBefore - target.data.health &&
+              origins.SequenceEqual(new[] { DamageOrigin.Reaction }), "回锋实际由原剑刃接触，伤害为反击类别",
+            new { contacts = contactsOnReaction.Length, damage = settled.Select(value => value.Damage.HealthLost), origins });
+    else Check(settled.Count == 0 && enemyBefore == target.data.health, "格挡或失效没有附加反击伤害");
+    var again = Incoming();
+    Check(again.HealthLost == 100 && !CombatStatusEffects.HasStatus(source, status) &&
+          !BodyControlState.IsBusy(source.id) && ReferenceEquals(source.getWeapon(), current),
+        "下一击恢复普通结算，身体和持有物已归还", new { again.HealthLost });
+    return new { passed = true, move, stanceId, reactionId };
+}
+finally
+{
+    observedDamageField.SetValue(null, previousObserver);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

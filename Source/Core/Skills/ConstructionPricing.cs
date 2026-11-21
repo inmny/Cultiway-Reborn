@@ -91,6 +91,7 @@ public sealed class ConstructionMeasure
         var contactSpreads = new Dictionary<int, double>();
         var onceSpreadChannels = new Dictionary<string, double>(StringComparer.Ordinal);
         double work = plan.Body == null ? 0 : .5d + plan.Body.Duration * .25d;
+        if (plan.Use.SelfStatus is { } selfStatus) work += StatusWork(selfStatus, power, 1d);
         work += plan.Body?.MovementWork ?? 0d;
         if (plan.Body != null)
             foreach (var relation in plan.Body.Construction.Relations)
@@ -367,10 +368,7 @@ public sealed class ConstructionMeasure
                 effects += impact.InventoryAging.MaximumItems * (double)impact.InventoryAging.Seconds * strength /
                            Const.TimeScales.SecPerYear;
             foreach (CompiledConstructionStatus status in impact.Statuses)
-                effects += status.Duration * (.25d +
-                    (status.Stats?.Values.Sum(value => Math.Abs((double)value)) ?? 0d) * .1d +
-                    (status.TargetStatRatios?.Values.Sum(value => Math.Abs((double)value)) ?? 0d) * power * strength +
-                    (status.Tick?.ForcePerSecond ?? 0f) * power * strength);
+                effects += StatusWork(status, power, strength);
             if (impact.Restoration != null)
             {
                 CompiledConstructionRestoration restoration = impact.Restoration;
@@ -420,6 +418,15 @@ public sealed class ConstructionMeasure
 
     private static double ErosionTimeDemand(CompiledErosion erosion, double volume, double until) => erosion.Pace == null ? 0d :
         (erosion.World?.MaximumVolume ?? volume) * erosion.Pace.AdjustmentWork(Math.Min(until, erosion.Pace.CompletionFor(erosion.Seconds))) * .25d;
+
+    /// <summary>同样的属性、比例和周期状态沿用共同费用尺度。</summary>
+    /// <param name="status">实际要施加的状态。</param>
+    /// <param name="power">整招作用量。</param><param name="strength">作用面的相对强度。</param>
+    private static double StatusWork(CompiledConstructionStatus status, float power, double strength) =>
+        status.Duration * (.25d +
+            (status.Stats?.Values.Sum(value => Math.Abs((double)value)) ?? 0d) * .1d +
+            (status.TargetStatRatios?.Values.Sum(value => Math.Abs((double)value)) ?? 0d) * power * strength +
+            (status.Tick?.ForcePerSecond ?? 0f) * power * strength);
 
     /// <summary>人物生命比例以本次本体量作参考预算；实际伤害仍在命中时读取人物生命。</summary>
     /// <param name="damage">实际编译伤害。</param><param name="power">整招量。</param><param name="strength">部位倍率。</param>

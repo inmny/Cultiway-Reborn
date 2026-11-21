@@ -4,7 +4,6 @@ using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Utils.Extension;
-using UnityEngine;
 
 namespace Cultiway.Content.KnightCombat;
 
@@ -49,7 +48,7 @@ internal static class KnightDuelistTechniques
                 1f, 2.4f, 0f, 0.5f, 2.8f, 45f, 1f, SkillImpactKind.Shield),
             ResolveRange = _ => 0f,
             ResolveEffectRadius = _ => 0f,
-            TryUse = UseCounterStance,
+            Construction = BodyActionCatalog.KnightCounter,
         };
     }
 
@@ -74,25 +73,6 @@ internal static class KnightDuelistTechniques
             ResolveEffectRadius = _ => 0f,
             Construction = BodyActionCatalog.KnightLegendaryFlurry,
         };
-    }
-
-    private static bool UseCounterStance(KnightTechniqueContext context, ActiveAbilityUseOrigin origin)
-    {
-        KnightTechniqueRuntimeService.BeginAction(context.Caster, 0.14f);
-        Vector3 direction = KnightTechniqueRuntimeService.ResolveDirection(context.Caster.Base);
-        KnightTechniqueVisuals.SpawnWeaponMotion(
-            context,
-            EquippedWeaponMotionKind.GuardHold,
-            direction,
-            3f,
-            0.9f,
-            -58f,
-            8f,
-            KnightTrailStyle.None,
-            1.08f,
-            0.14f);
-        KnightTechniqueStatuses.ApplyCounter(context);
-        return true;
     }
 
     private static bool IsMeleeTarget(KnightTechniqueContext context)

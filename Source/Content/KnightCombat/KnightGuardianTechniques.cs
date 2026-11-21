@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Cultiway.Content.Combat;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Skills;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Effects;
@@ -25,7 +26,8 @@ internal static class KnightGuardianTechniques
                 0f, 1.8f, 0f, 0f, 1.8f, 5f, 1f, SkillImpactKind.Shield),
             ResolveRange = _ => 0f,
             ResolveEffectRadius = _ => 0f,
-            TryUse = UseGuardStance,
+            Construction = BodyActionCatalog.KnightGuard,
+            ResolveConstruction = item => BodyActionCatalog.KnightGuardFor(item.group_id),
         };
     }
 
@@ -64,25 +66,6 @@ internal static class KnightGuardianTechniques
             ResolveEffectRadius = _ => 3.5f,
             TryUse = UseGuardianBulwark,
         };
-    }
-
-    private static bool UseGuardStance(KnightTechniqueContext context, ActiveAbilityUseOrigin origin)
-    {
-        KnightTechniqueRuntimeService.BeginAction(context.Caster, 0.14f);
-        Vector3 direction = KnightTechniqueRuntimeService.ResolveDirection(context.Caster.Base);
-        KnightTechniqueVisuals.SpawnWeaponMotion(
-            context,
-            EquippedWeaponMotionKind.GuardHold,
-            direction,
-            2.5f,
-            0.92f,
-            -72f,
-            -8f,
-            KnightTrailStyle.None,
-            1.12f,
-            0.14f);
-        KnightTechniqueStatuses.ApplyGuard(context);
-        return true;
     }
 
     private static bool UseRepulse(KnightTechniqueContext context, ActiveAbilityUseOrigin origin)

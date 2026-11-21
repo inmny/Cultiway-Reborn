@@ -48,6 +48,52 @@ public static class BodyActionCatalog
     internal static AbilityDefinition KnightLegendaryFlurry =>
         knightLegendaryFlurry ??= Load("knight-legendary-flurry");
 
+    private static AbilityDefinition knightGuard, knightAxeGuard, knightGuardResponse, knightAxeGuardResponse;
+    private static AbilityDefinition knightCounter, knightCounterRiposte;
+
+    /// <summary>格挡架势的共用锤柄动作。</summary>
+    internal static AbilityDefinition KnightGuard => knightGuard ??= Load("knight-guard-stance");
+
+    /// <summary>按守卫当前装备选择真实战斧或锤。</summary>
+    /// <param name="weaponGroup">当前装备所属兵器类型。</param>
+    internal static AbilityDefinition KnightGuardFor(string weaponGroup) => weaponGroup == "axe"
+        ? knightAxeGuard ??= AxeGuard() : KnightGuard;
+
+    /// <summary>格挡确实承力时复用对应握持。此段不再次建立架势。</summary>
+    /// <param name="weaponGroup">触发时仍持有的实际武器类型。</param>
+    internal static AbilityDefinition KnightGuardResponseFor(string weaponGroup) => weaponGroup == "axe"
+        ? knightAxeGuardResponse ??= GuardResponse(KnightGuardFor(weaponGroup))
+        : knightGuardResponse ??= GuardResponse(KnightGuard);
+
+    /// <summary>剑刃架势起手。</summary>
+    internal static AbilityDefinition KnightCounter => knightCounter ??= Load("knight-counter-stance");
+
+    /// <summary>收到真实武器伤害后执行的独立回锋。</summary>
+    internal static AbilityDefinition KnightCounterRiposte =>
+        knightCounterRiposte ??= Load("knight-counter-riposte");
+
+    /// <summary>斧的握点和几何由斧的资源提供，保留原架势过程。</summary>
+    private static AbilityDefinition AxeGuard()
+    {
+        var result = ConstructionEditing.Copy(KnightGuard);
+        result.Id += ".Axe";
+        result.Name += "·斧";
+        result.Body.WeaponForm = "war_axe";
+        return result;
+    }
+
+    /// <summary>格挡确认后用同一件器物承力和收回，起势状态先由真实受击消耗。</summary>
+    /// <param name="stance">用于当前武器的原握持动作。</param>
+    private static AbilityDefinition GuardResponse(AbilityDefinition stance)
+    {
+        var response = ConstructionEditing.Copy(stance);
+        response.Id += ".Response";
+        response.Use.SelfStatus = null;
+        response.Resource = "none";
+        response.Cost = response.Cooldown = 0f;
+        return response;
+    }
+
     /// <summary>读取制作资料，不在每次出手时解释文件。</summary>
     internal static AbilityDefinition[] All => all ??= LoadAll();
 
@@ -75,7 +121,8 @@ public static class BodyActionCatalog
             Load("long-spear-deflect"), Load("heavy-hammer-drop"), Load("shield-guard"), Load("palm-yield"),
             Load("angled-retreat"), Load("charging-shoulder"), Load("bounding-step"),
             Load("turning-throw"), Load("pressing-throw"), Load("beast-tail-sweep"), Load("beast-wing-cut"),
-            KnightArmorPiercingThrust, KnightCommittedStrike, KnightLegendaryFlurry };
+            KnightArmorPiercingThrust, KnightCommittedStrike, KnightLegendaryFlurry, KnightGuard,
+            KnightGuardFor("axe"), KnightCounter };
     }
 
     /// <summary>保留完整手路及发力，石剑版本以本身的握点及刃口执行。</summary>

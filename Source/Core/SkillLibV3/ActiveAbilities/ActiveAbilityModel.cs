@@ -101,6 +101,8 @@ public enum ActiveAbilityUseOrigin
     Script,
     /// <summary>原训练任务中的一次已学动作操练，不计作自主战斗。</summary>
     Practice,
+    /// <summary>由已发生的战斗结果触发，不再次向人物收取主动施放费用。</summary>
+    Reaction,
 }
 
 /// <summary>

@@ -33,19 +33,20 @@ internal static class KnightTechniqueRuntimeService
             BusyUntil[actorId] = until;
     }
 
-    public static bool CanAct(ActorExtend caster)
+    public static bool CanAct(ActorExtend caster, bool allowOwnedStance = false)
     {
         return caster != null && !caster.Base.isRekt() && !caster.Base.isFlying() &&
-               !Core.Skills.BodyControlState.IsBusy(caster.Base.id) &&
+               (allowOwnedStance || !Core.Skills.BodyControlState.IsBusy(caster.Base.id)) &&
                !caster.Base.stats.hasTag("frozen_ai") && !caster.Base.stats.hasTag("immovable");
     }
 
     public static bool IsCurrentTechniqueWeapon(
         ActorExtend caster,
         KnightTechniqueAsset technique,
-        Item weapon)
+        Item weapon,
+        bool allowOwnedStance = false)
     {
-        return CanAct(caster) &&
+        return CanAct(caster, allowOwnedStance) &&
                KnightTechniqueAccessService.TryResolveCurrentWeapon(
                    caster,
                    technique,

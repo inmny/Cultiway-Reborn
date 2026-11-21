@@ -10,6 +10,7 @@ using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.Visuals.Forms;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Content.Skills;
@@ -1230,9 +1231,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             bool skipIfShaking = running.Cast.BodyStage == 0;
             AttackDataResult strike = running.Body.Weapon == null
                 ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, actor.Actor, null, multiplier,
-                    observer: observation, skipIfShaking: skipIfShaking)
+                    observer: observation, damageOrigin: contactOwner.Damage.DamageOrigin, skipIfShaking: skipIfShaking)
                 : KnightWeaponStrikeResolver.StrikeBorrowed(owner, running.Body.Weapon, actor.Actor,
-                    multiplier, observer: observation, skipIfShaking: skipIfShaking);
+                    multiplier, observer: observation, damageOrigin: contactOwner.Damage.DamageOrigin,
+                    skipIfShaking: skipIfShaking);
             result = strike.state;
         }
         else if (node >= 0 && damageScale > 0f)
@@ -1357,41 +1359,53 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         CastAuthority owner = running.Owner(node);
         if (!owner.IsLive) return;
         foreach (CompiledConstructionStatus effect in effects)
+            if (effect.AfterDamage == afterDamage)
+                ApplyStatus(target, owner, effect, attenuation,
+                    effect.Tick == null ? 0f : forceBasis ?? (node < 0 ? running.Power : running.Cast.RemainingForce(node)));
+    }
+
+    /// <summary>起势或接触共用同一状态结算，返回实际成功施加的对象。</summary>
+    /// <param name="target">实际接受者。</param><param name="owner">当前归属人物。</param>
+    /// <param name="effect">已编译状态。</param><param name="attenuation">接触或传播的实际衰减。</param>
+    /// <param name="forceBasis">用于周期伤害的实际作用量。</param>
+    private static Entity ApplyStatus(Actor target, CastAuthority owner, CompiledConstructionStatus effect,
+        float attenuation, float forceBasis)
+    {
+        BaseStats stats = null;
+        if (effect.Stats != null)
         {
-            if (effect.AfterDamage != afterDamage) continue;
-            BaseStats stats = null;
-            if (effect.Stats != null)
-            {
-                stats = new BaseStats();
-                foreach (var pair in effect.Stats) stats[pair.Key] = pair.Value;
-            }
-            if (effect.TargetStatRatios?.Count > 0)
-            {
-                // 未指定固定表时保留模板标记，比例项替换模板同名值；明确固定值则与比例相加。
-                stats ??= (BaseStats)effect.Asset.stats.Clone();
-                foreach (var pair in effect.TargetStatRatios)
-                {
-                    float fixedValue = effect.Stats != null && effect.Stats.TryGetValue(pair.Key, out float value) ? value : 0f;
-                    stats[pair.Key] = fixedValue + Mathf.Max(0f, target.stats[pair.Key]) * pair.Value;
-                }
-                // 空属性不能吞掉同一声明的周期作用；明确刷新还需能清除原来的值。
-                if (!stats.hasStats() && !stats.hasTags() && effect.Tick == null &&
-                    (effect.Application != ConstructionStatusApplication.Refresh ||
-                     !CombatStatusEffects.TryGetStatus(target, effect.Asset, null, out _))) continue;
-            }
-            if (effect.Application == ConstructionStatusApplication.Strongest)
-            {
-                bool applied = CombatStatusEffects.ApplyStrongestStatus(target, effect.Asset, effect.Duration, effect.Potency, owner.Actor, stats);
-                if (effect.WaitForDuration && applied && CombatStatusEffects.TryGetStatus(target, effect.Asset, null, out var strongest))
-                    target.makeWait(strongest.GetComponent<Core.Components.AliveTimeLimit>().value);
-                continue;
-            }
-            float tickValue = effect.Tick == null ? 0f : (forceBasis ?? (node < 0 ? running.Power : running.Cast.RemainingForce(node))) * attenuation * effect.Tick.ForcePerSecond;
-            if (effect.Tick != null && tickValue <= 0f) continue;
-            var status = CombatStatusEffects.ApplyStatusDeclaration(target, effect, owner.Actor,
-                owner.Damage.AttackerPowerLevel ?? 0f, stats, tickValue);
-            if (effect.WaitForDuration && !status.IsNull) target.makeWait(status.GetComponent<Core.Components.AliveTimeLimit>().value);
+            stats = new BaseStats();
+            foreach (var pair in effect.Stats) stats[pair.Key] = pair.Value;
         }
+        if (effect.TargetStatRatios?.Count > 0)
+        {
+            // 未指定固定表时保留模板标记，明确固定值则与比例相加。
+            stats ??= (BaseStats)effect.Asset.stats.Clone();
+            foreach (var pair in effect.TargetStatRatios)
+            {
+                float fixedValue = effect.Stats != null && effect.Stats.TryGetValue(pair.Key, out float value) ? value : 0f;
+                stats[pair.Key] = fixedValue + Mathf.Max(0f, target.stats[pair.Key]) * pair.Value;
+            }
+            if (!stats.hasStats() && !stats.hasTags() && effect.Tick == null &&
+                (effect.Application != ConstructionStatusApplication.Refresh ||
+                 !CombatStatusEffects.TryGetStatus(target, effect.Asset, null, out _))) return default;
+        }
+
+        Entity status;
+        if (effect.Application == ConstructionStatusApplication.Strongest)
+        {
+            if (!CombatStatusEffects.ApplyStrongestStatus(target, effect.Asset, effect.Duration, effect.Potency, owner.Actor, stats) ||
+                !CombatStatusEffects.TryGetStatus(target, effect.Asset, null, out status)) return default;
+        }
+        else
+        {
+            float tickValue = effect.Tick == null ? 0f : forceBasis * attenuation * effect.Tick.ForcePerSecond;
+            if (effect.Tick != null && tickValue <= 0f) return default;
+            status = CombatStatusEffects.ApplyStatusDeclaration(target, effect, owner.Actor,
+                owner.Damage.AttackerPowerLevel ?? 0f, stats, tickValue);
+        }
+        if (effect.WaitForDuration && !status.IsNull) target.makeWait(status.GetComponent<Core.Components.AliveTimeLimit>().value);
+        return status;
     }
 
     /// <summary>直接接触和真实水路等传播都从这一入口应用目标响应。</summary>

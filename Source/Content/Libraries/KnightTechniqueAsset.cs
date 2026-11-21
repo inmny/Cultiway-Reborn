@@ -61,6 +61,8 @@ public sealed class KnightTechniqueActiveUseProfile
     public KnightTechniqueFloatResolver ResolveEffectRadius;
     /// <summary>实际战技构造；使用原学习和支付入口，动作交给共同执行。</summary>
     public AbilityDefinition Construction;
+    /// <summary>同一战技按武器类型选择不同的实际握持和器物形状。</summary>
+    public Func<EquipmentAsset, AbilityDefinition> ResolveConstruction;
     public KnightTechniqueUseHandler TryUse;
 }
 

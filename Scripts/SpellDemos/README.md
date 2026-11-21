@@ -2476,6 +2476,8 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 `--section knight --move committed` 使用原决斗家入口，在蓄势期间移动目标友方，检查按接触时位置决定重击倍率。`--move flurry` 检查同一次动作中的三段刃面接触和原倍率，`--move flurry-swap` 在首段命中后换剑，检查剩余段停止并归还身体。
 
+同一骑士入口下，`--move guard` 和 `--move guard-hammer` 分别核对持斧和持锤的格挡，`--move counter` 核对有效受击后由实际剑刃回锋，`--move stance-loss` 核对换掉同款剑后的状态解除。
+
 ### 长兵战技（9.44）
 
 在独立游戏用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_long_weapons.py`。检查正式铁枪刺的滑握、实际枪尖命中、近身落空、两手握杆横扫及原枪归还。用 `--case strike`、`--case near`、`--case sweep` 或 `--case interrupt` 单独复验。横扫检查左手占用拒绝、两手握点和实际臂长，换器检查同款新枪也会解除旧动作。

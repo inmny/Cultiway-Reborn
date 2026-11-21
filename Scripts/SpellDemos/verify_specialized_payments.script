@@ -96,22 +96,24 @@ var technique = KnightTechniques.CounterStance;
 var knightHandle =
     handles.Single(h => h.ProviderId == "content.knight_techniques" && h.EntryId == technique.id);
 var self = new ActiveAbilityTarget(actor, actor.GetSimPos());
-var use = technique.ActiveUse.TryUse;
+var resolveConstruction = technique.ActiveUse.ResolveConstruction;
+var incompatible = Cultiway.Core.Skills.ConstructionEditing.Copy(technique.ActiveUse.Construction);
+incompatible.Body.WeaponForm = "spear";
 try
 {
     owner.GetCultisys<Knight>().vigor = 9000;
     int calls = 0;
-    technique.ActiveUse.TryUse = (context, origin) =>
+    technique.ActiveUse.ResolveConstruction = weapon =>
     {
         calls++;
-        return false;
+        return incompatible;
     };
     Check(ActiveAbilityService.CanUse(owner, knightHandle, self), "正式已学骑士战技满足当前真实武器和等级条件");
     Check(
         !ActiveAbilityService.TryUse(owner, knightHandle, self, ActiveAbilityUseOrigin.Script) && calls == 1 &&
         Near(owner.GetCultisys<Knight>().vigor, 9000) &&
         SkillCooldownService.GetRemaining(owner, knightHandle.Source) == 0, "动作明确拒绝时撤销斗气，不设置冷却");
-    technique.ActiveUse.TryUse = (context, origin) => throw new InvalidOperationException("test.native.knight");
+    technique.ActiveUse.ResolveConstruction = weapon => throw new InvalidOperationException("test.native.knight");
     bool failed = false;
     try
     {
@@ -124,7 +126,7 @@ try
 
     Check(failed && Near(owner.GetCultisys<Knight>().vigor, 9000) && !SkillCastPayment.IsPending(owner),
         "骑士初始化异常保留原错误并撤销未受理费用");
-    technique.ActiveUse.TryUse = use;
+    technique.ActiveUse.ResolveConstruction = resolveConstruction;
     double cost = SkillCastResources.Vigor.Quote(owner,
         SkillCastCost.CalculateStepDemand(knightHandle.Source) *
         Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, knightHandle.Source)));
@@ -140,7 +142,7 @@ try
 }
 finally
 {
-    technique.ActiveUse.TryUse = use;
+    technique.ActiveUse.ResolveConstruction = resolveConstruction;
 }
 
 CombatStatusEffects.ApplyStatus(actor, frozen, 10000, actor);

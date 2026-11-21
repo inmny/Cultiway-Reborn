@@ -31,7 +31,7 @@ internal sealed class KnightTechniqueStatusSystem : QuerySystem<StatusComponent,
                 break;
             }
             if (owner != null && owner.TryGetExtend(out var extend) &&
-                KnightTechniqueRuntimeService.IsCurrentTechniqueWeapon(extend, bound.Technique, bound.Weapon))
+                KnightTechniqueStatuses.IsStanceCurrent(extend, bound))
                 return;
             invalid.Add(new InvalidStatus(owner, status));
         });

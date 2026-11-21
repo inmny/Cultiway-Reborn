@@ -14,14 +14,16 @@ def main():
     parser.add_argument('--section', choices=('fighting', 'archive', 'cold', 'film', 'knight'), default='fighting')
     parser.add_argument('--item', choices=('all', 'iron', 'stone'), default='all')
     parser.add_argument('--move', choices=('thrust', 'cut', 'sweep', 'miss', 'deflect',
-                                            'committed', 'flurry', 'flurry-swap'))
+                                            'committed', 'flurry', 'flurry-swap',
+                                            'guard', 'guard-hammer', 'counter', 'stance-loss'))
     parser.add_argument('--archive', type=Path)
     parser.add_argument('--view', choices=('native', 'worldfall'))
     args = parser.parse_args()
     section = args.section
-    knight_moves = ('committed', 'flurry', 'flurry-swap')
+    stance_moves = ('guard', 'guard-hammer', 'counter', 'stance-loss')
+    knight_moves = ('committed', 'flurry', 'flurry-swap') + stance_moves
     if args.move is not None and (args.move in knight_moves) != (section == 'knight'):
-        parser.error('决斗家战技使用 --section knight 并选择 committed、flurry 或 flurry-swap')
+        parser.error('骑士战技使用 --section knight 并选择相应的 --move')
     if args.move == 'deflect' and args.item == 'stone':
         parser.error('拨开复验使用铁剑')
     if (section == 'cold') != (args.archive is not None) or (section == 'film') != (args.view is not None):
@@ -56,7 +58,12 @@ def main():
         base = base.replace('Cultiway.Body.ShortBlade', 'Cultiway.KnightTechnique.')
         imports += ('using Cultiway.Core.SkillLibV3;\n'
                     'using Cultiway.Core.SkillLibV3.Utils;\nusing Cultiway.Content.KnightCombat;\n')
-        body = body.split('var bindingType =', 1)[0] + (scripts / 'verify_knight_duelist.script').read_text()
+        script_name = 'verify_knight_duelist.script'
+        if move in stance_moves:
+            script_name = 'verify_knight_stances.script'
+            imports += ('using Cultiway.Core.Combat;\nusing Cultiway.Core.EventSystem.Events;\n'
+                        'using Cultiway.Core.EventSystem.Systems;\n')
+        body = body.split('var bindingType =', 1)[0] + (scripts / script_name).read_text()
     elif section == 'archive':
         imports += 'using Cultiway.UI;\nusing Cultiway.UI.Prefab;\nusing UnityEngine.UI;\n'
         editor = (scripts / 'verify_unarmed_hand_editor.script').read_text().split('\ntry\n', 1)[0]
