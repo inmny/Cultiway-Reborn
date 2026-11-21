@@ -17,10 +17,13 @@ var catalog = new[]
     (Asset: SkillEntities.Icefall, Form: "icefall_rain", Count: 1),
     (Asset: SkillEntities.RockProjectile, Form: "rock_projectile", Count: 1),
     (Asset: SkillEntities.StoneCone, Form: "stone_cone", Count: 1),
-    (Asset: SkillEntities.FallingRock, Form: "falling_rock", Count: 3)
+    (Asset: SkillEntities.FallingRock, Form: "falling_rock", Count: 3),
+    (Asset: SkillEntities.WoodSpear, Form: "wood_spear", Count: 2),
+    (Asset: SkillEntities.FallingTimber, Form: "falling_timber", Count: 2)
 }.Where(entry => chosenAssets.Contains(entry.Asset.id)).ToArray();
 
-bool CanTestTracking(SkillEntityAsset asset) => asset == SkillEntities.WaterOrb || asset == SkillEntities.WindBullet || asset == SkillEntities.ThunderOrb;
+bool CanTestTracking(SkillEntityAsset asset) => asset == SkillEntities.WaterOrb || asset == SkillEntities.WindBullet ||
+    asset == SkillEntities.ThunderOrb || asset == SkillEntities.WoodSpear;
 bool cold = caseName == "cold", archive = caseName == "archive";
 int process = System.Diagnostics.Process.GetCurrentProcess().Id;
 var expected = cold ? JObject.Parse(File.ReadAllText(Path.Combine(archivePath, "expected.json"))) : null;
@@ -129,7 +132,8 @@ async Task Play(SkillEntityAsset asset, string form, int index)
 {
     bool icefall = asset == SkillEntities.Icefall, lightning = asset == SkillEntities.LightningStrike;
     bool fallingRock = asset == SkillEntities.FallingRock;
-    bool sky = lightning || icefall || fallingRock;
+    bool fallingTimber = asset == SkillEntities.FallingTimber;
+    bool sky = lightning || icefall || fallingRock || fallingTimber;
     bool orb = asset == SkillEntities.WaterOrb, blast = asset == SkillEntities.ThunderOrb || sky;
     bool arc = orb || asset == SkillEntities.RockProjectile || asset == SkillEntities.ThunderOrb;
     bool landing = caseName == "landing", cancelled = caseName == "cancel";
@@ -148,7 +152,7 @@ async Task Play(SkillEntityAsset asset, string form, int index)
     float interval = container.MotionProfile.FrameInterval;
     float rise = Seconds(animation.Appearance, interval), fade = Seconds(animation.Dissipation, interval);
     float runtime = timeout > 0f ? timeout : asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier;
-    string model = index == 0 && !lightning && !fallingRock ? form : form + "_" + index;
+    string model = index == 0 && !lightning && !fallingRock && !fallingTimber ? form : form + "_" + index;
     Check(container.AnimationIndex == index && (!tracking || SkillBlueprintTrajectory.ResolveEffectiveId(skill) == SkillTrajectories.TowardsTarget.id),
         "原已学关系保留指定索引和轨迹", new { model, tracking });
 
@@ -242,6 +246,15 @@ async Task Play(SkillEntityAsset asset, string form, int index)
         Place(target, 74, 75.4f);
         ConstructedAbilityService.NotifyActorChanged(target);
     }
+    if (model == "wood_spear_1")
+    {
+        Vector3 beforeFiber = initial.Transform.inverse.MultiplyPoint3x4(initial.PartTransform(2).GetColumn(3));
+        await Stage(cast, .19f);
+        var gathered = Views(cast).Single(view => view.Resource.Description.Id == model);
+        Vector3 afterFiber = gathered.Transform.inverse.MultiplyPoint3x4(gathered.PartTransform(2).GetColumn(3));
+        Check(Vector3.Distance(beforeFiber, afterFiber) > .02f && ShapeCount(cast) > 0,
+            "木纤维贴着实际移动的木芯束拢，直接出手的索引没有禁接触阶段", model);
+    }
 
     Vector3? impact = null, rest = null, firstIcePiece = null;
     float? impactAt = null;
@@ -252,7 +265,7 @@ async Task Play(SkillEntityAsset asset, string form, int index)
         Config.paused = true;
         await Game.WaitUntil(Boundary, 1800);
         string impactForm = lightning ? "lightning_strike_impact" : icefall ? "icefall_impact" :
-            fallingRock ? "falling_rock_impact" : "thunder_orb_impact";
+            fallingRock ? "falling_rock_impact" : fallingTimber ? "falling_timber_impact" : "thunder_orb_impact";
         var pulse = Views(cast).Single(view => view.Resource.Description.Id == impactForm);
         impact = pulse.Transform.GetColumn(3);
         impactAt = cast.Age - cast.NodeAge(1);
@@ -272,14 +285,14 @@ async Task Play(SkillEntityAsset asset, string form, int index)
         else if (landing || sky)
             Check(Vector2.Distance(impact.Value, point) < .04f && impactAt >= rise,
                 "指定地点与实际爆发中心一致，生效时点在成形后", new { model, impact = impact.ToString(), impactAt });
-        if (fallingRock)
+        if (fallingRock || fallingTimber)
         {
             Vector3 firstSlab = pulse.PartTransform(1).GetColumn(3);
             await Stage(cast, impactAt.Value + .069f);
             var spread = Views(cast).Single(view => view.Resource.Description.Id == impactForm);
             Check(Vector3.Distance(firstSlab, spread.PartTransform(1).GetColumn(3)) > .02f &&
                   Vector3.Distance(impact.Value, spread.Transform.GetColumn(3)) < .02f && ShapeCount(cast) == 0,
-                "岩层在实际爆发位置翻起，展开过程不再次伤人", model);
+                "碎片在实际爆发位置翻起，展开过程不再次伤人", model);
         }
     }
     if (fade > 0f)
@@ -324,8 +337,8 @@ async Task Play(SkillEntityAsset asset, string form, int index)
     bool settled = miss ? actual.Length == 0 && hp == target.data.health && hp2 == second.data.health :
         !continues ? actual.Length == 1 && damage.Length == 1 && (orb && index == 4 && !tracking ?
             damage[0].TargetId == target.id || damage[0].TargetId == second.id : damage[0].TargetId == target.id) :
-        actual.Length == 2 && damage.Length == 2 && damage.Count(hit => hit.TargetId == target.id) == 1 &&
-        damage.Count(hit => hit.TargetId == second.id) == 1;
+        actual.Length == (tracking ? 1 : 2) && damage.Length == actual.Length &&
+        damage.Count(hit => hit.TargetId == target.id) == 1 && damage.Count(hit => hit.TargetId == second.id) == (tracking ? 0 : 1);
     if (blast)
     {
         settled = miss ? settled && cast.NodeAge(1) < 0f : impact.HasValue &&

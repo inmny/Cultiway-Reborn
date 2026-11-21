@@ -69,6 +69,10 @@ export function makePiercingForms() {
 
   const shaft=[[-.04,.10],[.12,.14],[1.50,.115],[1.82,.10]];
   const head=[[1.40,.08],[1.65,.31],[1.96,.22],[2.44,.002]];
-  publish('wood_spear',[['wood_shaft',loft(shaft,12,1,.045),'wood'],['leaf_point',loft(head,8,.40),'wood']],
-    [[.13,1.45,.08],[1.58,1.92,.075,1],[1.96,2.26,.025,1]],{shaft,head,sides:12});
+  const bind=loft([[1.36,.09],[1.43,.145],[1.53,.164],[1.61,.19]],9,.76,.11);
+  const leaf=loft([[0,.019],[.10,.059],[.21,.044],[.28,.002]],6,.38).rotateY(1.28).translate(.06,0,1.44);
+  publish('wood_spear',[
+    ['wood_shaft',loft(shaft,12,1,.045),'wood'],['leaf_point',loft(head,8,.40),'wood_heartwood'],
+    ['growth_collar',bind,'wood_bark'],['fresh_leaf',leaf,'wood_leaf']
+  ],[[.13,1.45,.08],[1.58,1.92,.075,1],[1.96,2.26,.025,1]],{shaft,head,sides:12},true);
 }

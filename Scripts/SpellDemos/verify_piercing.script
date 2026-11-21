@@ -91,7 +91,7 @@ try
         currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
         var normal=Build();var boosted=Build(true);
         float duration=.9f;
-        if(entry.Asset==SkillEntities.WaterArrow||entry.Asset==SkillEntities.GoldenNeedle||entry.Asset==SkillEntities.LightningSpear||entry.Asset==SkillEntities.IceLance||entry.Asset==SkillEntities.StoneCone)
+        if(entry.Asset==SkillEntities.WaterArrow||entry.Asset==SkillEntities.GoldenNeedle||entry.Asset==SkillEntities.LightningSpear||entry.Asset==SkillEntities.IceLance||entry.Asset==SkillEntities.StoneCone||entry.Asset==SkillEntities.WoodSpear)
         {
             var animation=entry.Asset.GetAnimation(0);
             float interval=normal.GetComponent<SkillContainer>().MotionProfile.FrameInterval;

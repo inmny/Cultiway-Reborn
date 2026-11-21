@@ -96,7 +96,7 @@ try
         (Asset:SkillEntities.ChaosOrb,Form:"chaos_orb",Matter:"entropy",State:"energy",Radius:2f,Multiplier:1f),
         (Asset:SkillEntities.FlameMeteor,Form:"flame_meteor",Matter:"fire",State:"energy",Radius:2.5f,Multiplier:1.2f),
         (Asset:SkillEntities.FallingRock,Form:"falling_rock_0",Matter:"earth",State:"solid",Radius:2.5f,Multiplier:1.2f),
-        (Asset:SkillEntities.FallingTimber,Form:"falling_timber",Matter:"wood",State:"solid",Radius:2.5f,Multiplier:1.2f),
+        (Asset:SkillEntities.FallingTimber,Form:"falling_timber_0",Matter:"wood",State:"solid",Radius:2.5f,Multiplier:1.2f),
         (Asset:SkillEntities.LightningStrike,Form:"lightning_strike_0",Matter:"lightning",State:"energy",Radius:2.5f,Multiplier:1.2f),
         (Asset:SkillEntities.Icefall,Form:"icefall_rain",Matter:"ice",State:"solid",Radius:2.5f,Multiplier:1.2f)})
     {
@@ -105,6 +105,7 @@ try
             entry.Asset==SkillEntities.ThunderOrb?"thunder_orb_impact":
             entry.Asset==SkillEntities.LightningStrike?"lightning_strike_impact":
             entry.Asset==SkillEntities.FallingRock?"falling_rock_impact":
+            entry.Asset==SkillEntities.FallingTimber?"falling_timber_impact":
             entry.Asset==SkillEntities.Icefall?"icefall_impact":entry.Matter+"_burst";
         var normal=Build();
         if(section!="visuals")foreach(var skill in new[]{normal,Build(true)})

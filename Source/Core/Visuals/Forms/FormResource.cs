@@ -810,6 +810,8 @@ internal sealed partial class FormResourceGeneration
             "fireball_rose" => (30f, new Color(1f, .19f, .62f), .32f),
             "fireball_red" => (30f, new Color(1f, .115f, .072f), .38f),
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
+            "wood_bark" => (1f, new Color(.25f, .135f, .071f), .94f),
+            "wood_heartwood" => (1f, new Color(.78f, .51f, .26f), .86f),
             "wood_leaf" => (2f, new Color(.31f, .53f, .12f), .88f),
             "wood_leaf_shadow" => (2f, new Color(.17f, .32f, .115f), .94f),
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),

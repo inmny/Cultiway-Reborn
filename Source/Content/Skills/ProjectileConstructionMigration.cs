@@ -123,6 +123,7 @@ internal static partial class ProjectileConstructionMigration
         bool lightningStrike = container.Asset == SkillEntities.LightningStrike;
         bool icefall = container.Asset == SkillEntities.Icefall;
         bool fallingRock = container.Asset == SkillEntities.FallingRock;
+        bool fallingTimber = container.Asset == SkillEntities.FallingTimber;
         bool fireBlade = container.Asset == SkillEntities.FireBlade;
         int variantCount = MigratedVariantCount(sourceForm.Form);
         bool phased = fireBlade || variantCount > 0;
@@ -130,6 +131,7 @@ internal static partial class ProjectileConstructionMigration
             lightningStrike && container.AnimationIndex == 0 ? "lightning_strike_0" :
             icefall && container.AnimationIndex == 0 ? "icefall_rain" :
             fallingRock && container.AnimationIndex == 0 ? "falling_rock_0" :
+            fallingTimber && container.AnimationIndex == 0 ? "falling_timber_0" :
             variantCount > 0 ? IndexedForm(sourceForm.Form, container.AnimationIndex, variantCount) : sourceForm.Form;
         if (form == null) return null;
         SkillEntityAnimation animation = phased ? container.Asset.GetAnimation(container.AnimationIndex) : null;
@@ -166,7 +168,7 @@ internal static partial class ProjectileConstructionMigration
             bool meteor = container.Asset == SkillEntities.FlameMeteor;
             string burstForm = meteor ? "flame_meteor_impact_motion" : thunderOrb ? "thunder_orb_impact" :
                 lightningStrike ? "lightning_strike_impact" : icefall ? "icefall_impact" :
-                fallingRock ? "falling_rock_impact" : null;
+                fallingRock ? "falling_rock_impact" : fallingTimber ? "falling_timber_impact" : null;
             float burstDuration = Mathf.Min(.22f, lifetime);
             definition.Root.Children = new[] { new ConstructionNode
             {
@@ -176,7 +178,7 @@ internal static partial class ProjectileConstructionMigration
                 DisappearAt = burstDuration, ActiveUntil = Mathf.Min(.025f, lifetime),
                 Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End,
                     Placement = ConstructionEventPlacement.Event, InheritRemainder = contact, ResetContacts = contact,
-                    BeforeSourceExpires = thunderOrb || lightningStrike || icefall || fallingRock || container.Asset == SkillEntities.Fireball },
+                    BeforeSourceExpires = thunderOrb || lightningStrike || icefall || fallingRock || fallingTimber || container.Asset == SkillEntities.Fireball },
                 Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 },
                 Impact = contact ? new ConstructionImpact { DamageScale = damageMultiplier } : null,
                 ContactRole = contact ? ConstructionContactRole.Attack : ConstructionContactRole.Decoration,
@@ -202,6 +204,12 @@ internal static partial class ProjectileConstructionMigration
             definition.Root.Operations = definition.Root.Operations.Concat(new[]
             {
                 new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0f, roll } }
+            }).ToArray();
+        if (form == "wood_spear_1")
+            definition.Root.Operations = definition.Root.Operations.Concat(new[]
+            {
+                new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "gather_fibers",
+                    Seconds = ClipSeconds(animation.Runtime, frameInterval) }
             }).ToArray();
         if (animation?.HasLifecycle == true &&
             !SetProjectileLifecycle(definition, animation.AppearanceGameplay, appearance, dissipation)) return null;
@@ -238,7 +246,7 @@ internal static partial class ProjectileConstructionMigration
         "water_orb" => 5,
         "water_arrow" or "water_blade" or "thunder_orb" => 4,
         "falling_rock" => 3,
-        "flying_sword" or "sword_qi" or "wind_bullet" or "wind_blade" => 2,
+        "flying_sword" or "sword_qi" or "wind_bullet" or "wind_blade" or "wood_spear" or "falling_timber" => 2,
         "golden_needle" or "lightning_spear" or "ice_shard" or "ice_lance" or "icefall" or "rock_projectile" or "stone_cone" => 1,
         _ => 0
     };

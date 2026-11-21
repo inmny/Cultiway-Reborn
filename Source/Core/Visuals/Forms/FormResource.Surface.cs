@@ -32,7 +32,7 @@ public sealed partial class FormResource
     {
         "stone_strata" or "stone_ridge" => "stone",
         "ice_rime" or "ice_core" => "ice",
-        "wood_leaf" => "wood",
+        "wood_leaf" or "wood_bark" or "wood_heartwood" => "wood",
         "furnace_melt" => "molten_iron",
         "wind_open" or "wind_pressure" or "wind_shear" or "wind_fold_dark" => "wind",
         "meteor_heat" or "meteor_crown" or "flame_body" or "flame_cast" or "fireball_white" or "fireball_copper" or "fireball_gold" or
