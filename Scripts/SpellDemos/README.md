@@ -2839,3 +2839,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 法宝主动的正式存读（10.05）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_artifact_actives_archive.py --section prepare` 保存原法剑、法珠和天衣正在活动的世界，并检查换世界清理。退出该游戏并重新启动独立游戏，再用同一命令将 `--section prepare` 换成 `--section cold --archive <prepare 输出目录>`，验证原档校验值、三件原物和持续活动恢复。
+
+### 法宝主动的连续实录（10.05）
+
+用 `dev.py exec --timeout 620 -- python3 Scripts/SpellDemos/record_artifact_actives.py --view worldfall` 录制已登记配方的正式施放。原版用此前独立的 `weapon-flight-native` 游戏配置，并将视角设为 `--view native`。用 `--ability` 指定一个或多个能力，或用 `--batch` 选择 [配方表](artifact_active_recordings.json)中的分组。各批写入同一个 `--output` 时会汇总同视角的完整成片。可用 `--encode-only <本次实际采集目录>` 重新编码已完成的片段。
+
+录像从正式入口受理前取景，一直记录到各招自然收束或经正式入口召回。分光剑阵与原物飞剑采用 [10.04 实录](../../Doc/技能系统全面重构/御器飞剑与投射物迁移.md#整项交付)。录像按实际世界时间编码。

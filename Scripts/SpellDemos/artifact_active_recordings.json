@@ -1,0 +1,74 @@
+{
+  "bell-chimes": {
+    "shape": "Bell", "level": [2, 4], "atoms": ["PurifyingBell", "ResonantBronze", "ResonanceRings", "SoulJade"],
+    "moves": ["SoulShakingChime", "PurifyingChime"]
+  },
+  "bell-ward": {
+    "shape": "Bell", "level": [2, 4], "atoms": ["PurifyingBell", "Iron"],
+    "moves": ["GoldenBellBarrier"]
+  },
+  "seal-impact": {
+    "shape": "Seal", "atoms": ["CommandSeal", "EarthCore", "MountainPattern", "MagneticIron", "ResonantBronze"],
+    "moves": ["MountainSealFall"]
+  },
+  "seal-control": {
+    "shape": "Seal", "level": [2, 4], "atoms": ["PrisonSeal", "EarthCore", "MountainPattern", "MagneticIron"],
+    "moves": ["SpellBanningEdict", "MeridianSealing"]
+  },
+  "banner-fields": {
+    "shape": "Banner", "atoms": ["SoulBanner", "SoulJade", "CommandRunes", "EarthCore", "WorldWood"],
+    "moves": ["MyriadSoulBannerArray", "CommandingBannerField"]
+  },
+  "banner-host": {
+    "shape": "Banner", "atoms": ["SoulBanner", "SoulCore", "SoulJade", "WorldWood", "SoulBindingScript"],
+    "moves": ["SpiritHostManifestation"]
+  },
+  "mirror-cleanse": {
+    "shape": "Mirror", "atoms": ["SoulMirror", "MoonWater", "FrostJade", "PureYang"],
+    "moves": ["TruthRevealingMirror"]
+  },
+  "mirror-stasis": {
+    "shape": "Mirror", "atoms": ["VoidMirror", "SoulJade", "SoulCore", "SoulBindingScript"],
+    "moves": ["SoulCapturingStasis"]
+  },
+  "gourd": {
+    "shape": "Gourd", "atoms": ["DevouringGourd", "DevouringVortex", "SunfireGlass", "SoulJade"],
+    "moves": ["HeavenSwallowingGourd", "FiveEssenceOutpouring"]
+  },
+  "fan": {
+    "shape": "Fan", "atoms": ["TempestFan", "SunfireGlass", "FrostJade", "PureYang"],
+    "moves": ["GaleFanSweep", "DepartingFireFan", "CleansingWindFan"]
+  },
+  "tower-prison": {
+    "shape": "Tower", "atoms": ["PrisonTower", "EarthCore", "FrostJade", "GuardianHalo"],
+    "moves": ["TreasureTowerPrison"]
+  },
+  "tower-ward": {
+    "shape": "Tower", "atoms": ["RealmTower", "FrostJade", "EarthCore", "LayeredRealmMark"],
+    "moves": ["LayeredRealmWard"]
+  },
+  "tower-projection": {
+    "shape": "Tower", "atoms": ["RealmTower", "SpatialCrystal", "VoidSailCore", "CloudRidingScript"],
+    "moves": ["TowerShadowProjection"]
+  },
+  "ding-fire": {
+    "shape": "Ding", "atoms": ["SpiritDing", "SunfireGlass", "VoidStone", "DevouringVortex", "TransformationPattern"],
+    "moves": ["DingFireRefinement"]
+  },
+  "ding-devour": {
+    "shape": "Ding", "atoms": ["SpiritDing", "VoidStone", "SpatialCrystal", "DevouringVortex"],
+    "moves": ["DevouringReturn"]
+  },
+  "pearl": {
+    "shape": "Pearl", "atoms": ["ElementPearl", "SunfireGlass", "StarlightMarrow", "TransformationPattern"],
+    "moves": ["FivePhasePearlStrike"]
+  },
+  "robe": {
+    "shape": "Robe", "atoms": ["CloudRobe", "VoidSilk", "VoidMark", "CloudPattern"],
+    "moves": ["HeavenlyConcealment"]
+  },
+  "suppression": {
+    "shape": "Sword", "atoms": ["SwordBreaker", "EarthCore", "VoidStone", "LayeredRealmMark"],
+    "moves": ["SuppressionField"]
+  }
+}

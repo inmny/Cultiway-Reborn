@@ -1,0 +1,235 @@
+// 连续画面只取自原游戏世界时间和真实主动入口。
+bool threeDimensional = view == "worldfall";
+Check(threeDimensional == (fall != null), "录像使用对应的独立游戏环境");
+PrepareArtifactArena(47, 110, 49, 95);
+Actor caster = Make(64.35f), enemy = Make(70f, "wolf");
+var casterExtend = caster.GetExtend();
+casterExtend.AddComponent(new Xian { level = 4, wakan = 9000f });
+casterExtend.SetPowerLevel(4f);
+await Setup(caster, enemy);
+ControllableUnit.clear(false);
+MoveCamera.clearFocusUnitOnly();
+await Advance(.12f);
+CombatStatusEffects.ApplyStatus(caster, hold, 10000f, caster);
+caster.updateStats();
+World.world.console.Hide();
+WorldTip.hideNow();
+Tooltip.hideTooltipNow();
+
+var settings = fall == null ? null : Read(fall, "Settings");
+var timeMode = settings?.GetType().GetField("TimeMode", F);
+object previousMode = timeMode?.GetValue(settings);
+var viewport = threeDimensional ? null : new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32);
+viewport?.Create();
+var originalCameraPosition = camera.transform.position;
+float originalZoom = camera.orthographicSize;
+bool wakanRestore = Cultiway.Const.GeneralSettings.EnableNaturalWakanRestore;
+var completed = new List<string>();
+var activeCasts = new HashSet<long>();
+var events = new List<object>();
+string abilityId = null;
+int observedContacts = 0, startedCount = 0;
+void RecordedStart(ConstructedCastStarted cast)
+{
+    if (cast.SourceId != caster.id || cast.AbilityId != abilityId) return;
+    activeCasts.Add(cast.CastId);
+    startedCount++;
+    events.Add(new { kind = "start", time = cast.WorldTime, cast = cast.CastId });
+}
+void RecordedEnd(ConstructedCastEnded cast) => activeCasts.Remove(cast.CastId);
+void RecordedContact(ConstructedContact hit)
+{
+    if (hit.SourceId != caster.id || hit.AbilityId != abilityId) return;
+    observedContacts++;
+    events.Add(new { kind = "contact", time = hit.WorldTime, target = hit.TargetId, damage = hit.Damage.HealthLost });
+}
+void SetCamera(Vector2 position, float zoom)
+{
+    camera.transform.position = new Vector3(position.x, position.y + .16f, originalCameraPosition.z);
+    MoveCamera.instance.forceZoom(zoom);
+    if (!threeDimensional) return;
+    Set("_godCamWas", camera.transform.position);
+    Set("_godCamSet", true);
+    Set("_godLock", null);
+    Set("_godFollow", position);
+    Set("_godFollowVel", Vector2.zero);
+    Set("_godClose", zoom);
+    Set("_godCloseTarget", zoom);
+    Set("_godTurn", -.12f);
+    Set("_godTurnRate", 0f);
+    Set("_godTip", .58f);
+    Set("_godTipRate", 0f);
+    Set("_godHoming", false);
+}
+async Task RecordFrame(string clip, int frame)
+{
+    string file = Path.Combine(clip, "frames", frame.ToString("00000") + ".png");
+    if (threeDimensional)
+    {
+        int drawn = (int)Field(fall, "_godGpuApplied");
+        await Game.WaitUntil(() => (int)Field(fall, "_godGpuApplied") >= drawn + 2, 1800);
+        WriteImage((RenderTexture)Read(Read(fall, "GpuRendererForTest"), "Output"), file);
+        return;
+    }
+    var previous = camera.targetTexture;
+    try
+    {
+        camera.targetTexture = viewport;
+        camera.Render();
+        WriteImage(viewport, file);
+    }
+    finally { camera.targetTexture = previous; }
+}
+ConstructedAbilityService.CastStarted += RecordedStart;
+ConstructedAbilityService.CastEnded += RecordedEnd;
+ConstructedAbilityService.ContactConfirmed += RecordedContact;
+try
+{
+    Cultiway.Const.GeneralSettings.SwitchNaturalWakanRestore(false);
+    if (threeDimensional)
+    {
+        timeMode.SetValue(settings, 1);
+        external.GetMethod("ViewForTest", F).Invoke(fall, new object[] { false });
+        external.GetMethod("SetGodView", F).Invoke(fall, new object[] { true });
+        await Game.WaitUntil(() => (bool)Read(fall, "GodShown") && (float)Read(fall, "GodAlpha") >= .999f, 3600);
+    }
+    foreach (var row in selected)
+    {
+        string key = (string)row["key"], clip = Path.Combine(folder, key);
+        var asset = (ArtifactAbilityAsset)typeof(ArtifactAbilities).GetProperty(key).GetValue(null);
+        abilityId = asset.id;
+        var shape = (ArtifactShapeAsset)typeof(ItemShapes).GetProperty((string)row["shape"]).GetValue(null);
+        var atoms = row["atoms"].Values<string>().Select(id =>
+            (ArtifactAtomAsset)typeof(ArtifactAtoms).GetProperty(id).GetValue(null)).ToArray();
+        int stage = (int?)row["level"]?[0] ?? 3, level = (int?)row["level"]?[1] ?? 8;
+        var blueprint = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+        {
+            Shape = shape, Atoms = atoms, Level = new ItemLevel { Stage = stage, Level = level }, Name = asset.GetName()
+        }));
+        Check(blueprint.AbilitySet.abilities.Any(value => value.ability_id == abilityId), "正式配方取得 " + asset.GetName());
+        Entity artifact = ArtifactBlueprintCodec.Materialize(blueprint, caster.getName());
+        casterExtend.AddSpecialItem(artifact);
+        Check(casterExtend.EquipArtifact(artifact, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+            "正式装备原件 " + asset.GetName());
+        ArtifactLoadoutPlanner.Refresh(casterExtend, false, 0);
+        lifecycle.Invoke(null, new object[] { artifact });
+        await Game.NextFrame();
+        var ability = Definition(artifact, abilityId);
+        var control = casterExtend.E.GetRelation<EquippedArtifactRelation, Entity>(artifact).state;
+        var execution = new ArtifactAbilityExecutionContext(casterExtend.E, artifact, control);
+        var mode = asset.active_use.target_mode;
+        bool self = mode == ActiveAbilityTargetMode.Self, objectTarget = mode == ActiveAbilityTargetMode.Object;
+        bool fan = shape == ItemShapes.Fan || key == "FiveEssenceOutpouring";
+        float range = asset.active_use.ResolveRange?.Invoke(execution, ability) ?? 8f;
+        float radius = asset.active_use.ResolveEffectRadius?.Invoke(execution, ability) ?? 3f;
+        Place(caster, 64.35f);
+        caster.attack_timer = enemy.attack_timer = 999f;
+        float offset = Mathf.Min(4f, range * .7f);
+        Vector2 point = new Vector2(caster.current_position.x + offset, 72f);
+        Place(enemy, fan ? caster.current_position.x + Mathf.Min(8f, range * .6f) : point.x + (objectTarget ? 0f : .70f));
+        enemy.restoreHealth(enemy.getMaxHealth());
+        foreach (var status in new[] { StatusEffects.Weaken, StatusEffects.Slow, StatusEffects.Burn,
+                     StatusEffects.Silence, StatusEffects.Imprisoned, StatusEffects.Concealed, StatusEffects.LayeredWard })
+            CombatStatusEffects.RemoveStatus(enemy, status);
+        if (key == "PurifyingChime" || key == "TruthRevealingMirror" || key == "CleansingWindFan")
+        {
+            CombatStatusEffects.ApplyStatus(caster, StatusEffects.Weaken, 4f, enemy);
+            CombatStatusEffects.ApplyStatus(enemy, StatusEffects.LayeredWard, 4f, enemy);
+        }
+        if (key == "SpiritHostManifestation")
+        {
+            float needed = ability.GetNumber("stored_resource_cost");
+            float Soul() => ArtifactStorageOperations.GetAmount(artifact.GetComponent<ArtifactStorageState>(), ArtifactStorageOperations.SoulEssence);
+            for (int count = 0; count < 5 && Soul() < needed; count++)
+            {
+                Actor victim = Make(65.4f, "wolf");
+                caster.addAggro(victim);
+                victim.addAggro(caster);
+                await Advance(.08f);
+                var element = ElementComposition.Static.Iron;
+                victim.GetExtend().GetHit(victim.getMaxHealth() * 4f, ref element, caster, AttackType.Weapon,
+                    ignore_damage_reduction: true);
+                await Advance(.12f);
+            }
+            Check(Soul() >= needed, "原幡从真实击杀得到召唤所需的魂魄");
+        }
+
+        Vector2 focus = self ? caster.current_position : fan
+            ? caster.current_position + Vector2.right * (range * .43f) : point;
+        float zoom = fan ? Mathf.Max(4f, range * .62f) : Mathf.Max(2.9f, radius + 1.35f);
+        SetCamera(focus, zoom);
+        casterExtend.GetCultisys<Xian>().wakan = 9000f;
+        activeCasts.Clear();
+        events.Clear();
+        observedContacts = startedCount = 0;
+        var frames = new List<object>();
+        bool activeSeen = false, stopped = false;
+        string caption = "正式施放前";
+        double begin = World.world.getCurWorldTime();
+        async Task Frame()
+        {
+            int frame = frames.Count;
+            await RecordFrame(clip, frame);
+            frames.Add(new { frame, time = World.world.getCurWorldTime(), stage = caption, health = enemy.data.health });
+        }
+        await Frame();
+        var aim = new ActiveAbilityTarget(self ? caster : objectTarget ? enemy : null,
+            self ? (Vector3)caster.current_position : (Vector3)point);
+        caster.attack_timer = 0f;
+        bool used = ActiveAbilityService.TryUse(casterExtend, ArtifactHandle(artifact, abilityId), aim, ActiveAbilityUseOrigin.Script);
+        caster.attack_timer = 999f;
+        Check(used, asset.GetName() + "的实际主动入口接受施放");
+        events.Add(new { kind = "activated", time = begin, source = caster.id, artifact = artifact.Id });
+        double finished = 0d;
+        while (World.world.getCurWorldTime() < begin + 5d)
+        {
+            await Advance(.053f);
+            double now = World.world.getCurWorldTime();
+            bool active = Entry(artifact, abilityId).activity_kind != ArtifactAbilityActivityKind.None;
+            activeSeen |= active;
+            if (active && !stopped && now - begin >= 2.1d && key != "FivePhasePearlStrike")
+            {
+                stopped = ArtifactAbilityLifecycle.Recall(artifact, ability.instance_id);
+                Check(stopped, "由原入口召回 " + asset.GetName());
+                events.Add(new { kind = "recall", time = now });
+            }
+            bool returned = (startedCount > 0 || key == "HeavenlyConcealment" && activeSeen) &&
+                !active && activeCasts.Count == 0 && !artifact.HasComponent<ArtifactDeployment>();
+            if (returned && finished == 0d) finished = now;
+            caption = returned ? "原件收束" : stopped ? "结束活动" : activeSeen || startedCount > 0 ? "实际生效" : "起势";
+            await Frame();
+            if (returned && now - finished > .24d) break;
+        }
+        Check(finished > 0d && (startedCount > 0 || activeSeen) && casterExtend.GetItems().Contains(artifact),
+            asset.GetName() + "完整录到实际起势与收束", new { startedCount, observedContacts, frames = frames.Count });
+        File.WriteAllText(Path.Combine(clip, "recording.json"), JsonConvert.SerializeObject(new { view, frames, events }));
+        File.WriteAllText(Path.Combine(clip, "definition.json"), JsonConvert.SerializeObject(ability));
+        File.WriteAllText(Path.Combine(clip, "result.json"), JsonConvert.SerializeObject(new
+        {
+            passed = true, view, startedCount, observedContacts, process = System.Diagnostics.Process.GetCurrentProcess().Id
+        }));
+        completed.Add(key);
+        casterExtend.UnequipArtifact(artifact, suppressAutoEquip: true);
+    }
+    return new { passed = true, completed };
+}
+finally
+{
+    Config.paused = true;
+    Cultiway.Const.GeneralSettings.SwitchNaturalWakanRestore(wakanRestore);
+    ConstructedAbilityService.CastStarted -= RecordedStart;
+    ConstructedAbilityService.CastEnded -= RecordedEnd;
+    ConstructedAbilityService.ContactConfirmed -= RecordedContact;
+    if (threeDimensional)
+    {
+        timeMode.SetValue(settings, previousMode);
+        external.GetMethod("SetGodView", F).Invoke(fall, new object[] { false });
+    }
+    if (viewport != null)
+    {
+        viewport.Release();
+        UnityEngine.Object.Destroy(viewport);
+    }
+    camera.transform.position = originalCameraPosition;
+    camera.orthographicSize = originalZoom;
+}
