@@ -31,7 +31,7 @@ internal static partial class ProjectileConstructionMigration
     /// <summary>来源只选择实际形体和材料，所有运动及命中继续共同执行。</summary>
     /// <param name="asset">原已学来源登记。</param>
     private static (string Form, string Matter, string State) SourceForm(SkillEntityAsset asset) =>
-        asset == SkillEntities.FlyingSword ? ("sword", "iron", "solid") :
+        asset == SkillEntities.FlyingSword ? ("flying_sword", "iron", "solid") :
         asset == SkillEntities.GoldenNeedle ? ("golden_needle", "gold", "solid") :
         asset == SkillEntities.PoisonNeedle ? ("poison_needle", "poison", "liquid") :
         asset == SkillEntities.StoneCone ? ("stone_cone", "earth", "solid") :
@@ -121,13 +121,10 @@ internal static partial class ProjectileConstructionMigration
         if (scale <= 0f || scale > 64f || lifetime <= 0f || lifetime > 3600f) return null;
         bool fireball = container.Asset == SkillEntities.Fireball;
         bool fireBlade = container.Asset == SkillEntities.FireBlade;
-        bool waterOrb = container.Asset == SkillEntities.WaterOrb;
-        bool waterArrow = container.Asset == SkillEntities.WaterArrow;
-        bool water = waterOrb || waterArrow || container.Asset == SkillEntities.WaterBlade;
-        bool phased = fireball || fireBlade || water;
+        int variantCount = MigratedVariantCount(sourceForm.Form);
+        bool phased = fireBlade || variantCount > 0;
         string form = fireBlade ? FireBladeForm(container.AnimationIndex) :
-            fireball ? IndexedForm(sourceForm.Form, container.AnimationIndex, 18) :
-            water ? IndexedForm(sourceForm.Form, container.AnimationIndex, waterOrb ? 5 : 4) : sourceForm.Form;
+            variantCount > 0 ? IndexedForm(sourceForm.Form, container.AnimationIndex, variantCount) : sourceForm.Form;
         if (form == null) return null;
         AbilityDefinition definition = Motion(emission, form, scale, continues, lifetime, initialAngle, speedScale, out forward);
         if (definition == null) return null;
@@ -180,11 +177,15 @@ internal static partial class ProjectileConstructionMigration
             } };
         }
         else if (container.Asset == SkillEntities.EarthRidge) SetRidgeCollapse(definition, lifetime, scale);
-        float waterRoll = waterOrb ? OrbRoll(container.AnimationIndex) : waterArrow && container.AnimationIndex == 1 ? 350f : 0f;
-        if (waterRoll != 0f)
+        float roll = form switch
+        {
+            "water_orb" => 315f, "water_orb_1" => -260f, "water_orb_4" => 425f, "water_arrow_1" => 350f,
+            "wind_bullet" => 410f, _ => 0f
+        };
+        if (roll != 0f)
             definition.Root.Operations = definition.Root.Operations.Concat(new[]
             {
-                new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0f, waterRoll } }
+                new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0f, roll } }
             }).ToArray();
         if (phased && !SetStationaryProjectileLifecycle(definition, container)) return null;
         definition = ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, contactForceScale: !continues && !blast ? 1f / damageMultiplier : 1f, caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
@@ -211,9 +212,17 @@ internal static partial class ProjectileConstructionMigration
     private static string IndexedForm(string form, int index, int count) =>
         index == 0 ? form : index > 0 && index < count ? form + "_" + index : null;
 
-    /// <summary>卷水主体绕自己的飞行轴回旋，可见水量与作用面同时转动。</summary>
-    /// <param name="index">原水球的索引。</param>
-    private static float OrbRoll(int index) => index switch { 0 => 315f, 1 => -260f, 4 => 425f, _ => 0f };
+    /// <summary>只对已经制作全部旧索引的来源恢复独立形体与首尾阶段。</summary>
+    /// <param name="form">该来源的基础形体。</param>
+    private static int MigratedVariantCount(string form) => form switch
+    {
+        "fireball" => 18,
+        "water_orb" => 5,
+        "water_arrow" or "water_blade" => 4,
+        "flying_sword" or "sword_qi" or "wind_bullet" or "wind_blade" => 2,
+        "golden_needle" => 1,
+        _ => 0
+    };
 
     /// <summary>先成形再按原轨迹出手，解体只在实际结束点显示。</summary>
     /// <param name="definition">已经展开原轨迹和实际作用的投射主体。</param>

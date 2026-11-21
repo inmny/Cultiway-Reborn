@@ -1,15 +1,19 @@
 /** 普通投射各自制作完整主体：灵核、旋风、岩块、阴月、阳瓣和冰片。 */
 import * as T from 'three';
-import {write, structure} from './form_export.mjs';
+import {write, structure, dissolve} from './form_export.mjs';
 import {wallPart, column} from './forms_solid_walls.mjs';
 
 /** 生成各自的表面、实际核心和共同控制，所有运动继续由普通投射构造提供。 */
-function publish(id, pieces, contacts, parameters) {
+function publish(id, pieces, contacts, parameters, ending=false) {
   const controls=[{Id:'root',Position:[0,0,0],Rotation:[0,0,0,1]}];
   const parts=pieces.map(([name,geometry,surface])=>wallPart(name,geometry,surface,[0,0,0],'root'));
   const shapes=contacts.map(([a,b,r,part=0],i)=>({Id:`core_${i}`,Part:part,A:a,B:b,Radius:r,AControl:'root',BControl:'root'}));
   const anchors=[{Id:'root',Part:0,Position:[0,0,0],Direction:[0,0,1],Control:'root'}];
-  write(id,parts,anchors,shapes,controls,[],false,{Forward:[0,0,1],Up:[0,1,0]},
+  const motions=ending?[dissolve(controls,(_index,t)=>({
+    position:[0,.12*t,-.07*t],
+    rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),.41*t).toArray()
+  }))]:[];
+  write(id,parts,anchors,shapes,controls,motions,false,{Forward:[0,0,1],Up:[0,1,0]},
     structure('rigid','forms_projectiles.mjs','makeProjectileForms',parameters,
       Object.fromEntries(parts.map(p=>[p.Id,['projectile.body','projectile.core']])),[]));
 }
@@ -24,11 +28,33 @@ function spirit() {
   publish('spirit_bolt',parts,[[[0,0,0],[0,0,0],.31]],{radius:.36,lobes:4});
 }
 
-/** 风弹有宽厚交错流环和可见中核，流环的空隙不被隐藏大球填成伤害区。 */
+/** 风弹有卷入的厚风核和紧实的团流两种主体。 */
 function wind() {
-  const pieces=[['heart',new T.SphereGeometry(.27,20,12).scale(1,1,1.2),'wind']];
-  for(let i=0;i<2;i++)pieces.push([`flow_${i}`,new T.TorusGeometry(.34,.115,10,32).rotateX((i===0?.34:-.34)*Math.PI).rotateZ(i*Math.PI/2),'wind']);
-  publish('wind_bullet',pieces,[[[0,0,-.12],[0,0,.12],.21]],{radius:.455,loops:2});
+  const pieces=[['heart',new T.SphereGeometry(.29,22,16).scale(.92,.92,1.52),'wind_pressure']];
+  for(let i=0;i<2;i++) {
+    const rings=Array.from({length:37},(_,j)=>{
+      const t=j/36,a=i*Math.PI+t*Math.PI*2.24;
+      const radius=.25+.055*Math.sin(Math.PI*t);
+      const width=.009+.102*Math.pow(Math.sin(Math.PI*t),.65);
+      return Array.from({length:10},(_,side)=>{
+        const theta=side*Math.PI*2/10,r=radius+width*Math.cos(theta);
+        return [r*Math.cos(a),r*Math.sin(a),-.56+t*.87+.102*Math.sin(theta)*Math.sin(t*Math.PI)];
+      });
+    });
+    pieces.push([`flow_${i}`,column(rings,10),'wind_open']);
+  }
+  publish('wind_bullet',pieces,[[[0,0,-.12],[0,0,.12],.21]],{radius:.405,rolls:1.12},true);
+
+  const core=new T.SphereGeometry(.385,24,16),v=core.getAttribute('position');
+  for(let i=0;i<v.count;i++) {
+    const x=v.getX(i),y=v.getY(i),z=v.getZ(i),pressure=1+.115*Math.cos(11*x-7*y+6*z);
+    v.setXYZ(i,x*pressure,y*pressure*.91,z*pressure*1.12);
+  }
+  const rolls=[['heart',core,'wind_pressure']];
+  for(let i=0;i<3;i++)
+    rolls.push([`fold_${i}`,new T.SphereGeometry(.35,20,14).scale(.49,.6,1)
+      .translate(.24,0,-.07).rotateZ(i*2*Math.PI/3),'wind_open']);
+  publish('wind_bullet_1',rolls,[[[0,0,-.12],[0,0,.15],.27]],{radius:.415,folds:3});
 }
 
 /** 飞石保持不规则分面与厚重体积，外轮廓不做成另一根岩锥。 */

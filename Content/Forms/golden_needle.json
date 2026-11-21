@@ -24,6 +24,21 @@
                     ]
                 },
                 {
+                    "Id": "weight",
+                    "Values": [
+                        -0.3199999928474426,
+                        0.006000000052154064,
+                        -0.2800000011920929,
+                        0.06199999898672104,
+                        -0.17000000178813935,
+                        0.10999999940395355,
+                        -0.05999999865889549,
+                        0.08699999749660492,
+                        0.14000000059604646,
+                        0.06800000369548798
+                    ]
+                },
+                {
                     "Id": "sides",
                     "Values": [
                         10.0
@@ -34,7 +49,8 @@
         "Connections": [],
         "Changes": [
             "transform",
-            "material"
+            "material",
+            "motion"
         ]
     },
     "ConformToGround": false,
@@ -65,6 +81,49 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/golden_needle_metal_needle.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/golden_needle_counterweight_mid.asset",
+                "Assets/Cultiway/Forms/golden_needle_counterweight_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "piercing.core"
+            ],
+            "Id": "counterweight",
+            "Surface": "gold",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/golden_needle_counterweight.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "piercing.core"
+            ],
+            "Id": "collar",
+            "Surface": "gold",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/golden_needle_collar.asset",
             "Control": "root",
             "Skin": false,
             "HasSurfaceData": false,
@@ -111,6 +170,7 @@
     "Grips": [],
     "Held": {
         "Groups": [],
+        "EquipmentIds": [],
         "Scale": 0.0
     },
     "Actions": [],
@@ -131,6 +191,7 @@
                 1.399999976158142
             ],
             "Radius": 0.054999999701976779,
+            "HeldMatter": "",
             "AControl": "root",
             "BControl": "root",
             "AInfluences": [],
@@ -152,6 +213,7 @@
                 1.8300000429153443
             ],
             "Radius": 0.02500000037252903,
+            "HeldMatter": "",
             "AControl": "root",
             "BControl": "root",
             "AInfluences": [],
@@ -174,16 +236,233 @@
                 1.0
             ],
             "Minimum": [
-                -0.09000000357627869,
-                -0.08559499680995941,
-                -0.03999999910593033
+                -0.10999999940395355,
+                -0.10999999940395355,
+                -0.3199999928474426
             ],
             "Maximum": [
-                0.09000000357627869,
-                0.08559499680995941,
+                0.10999999940395355,
+                0.10999999940395355,
                 2.119999885559082
             ]
         }
     ],
-    "Motions": []
+    "Motions": [
+        {
+            "Id": "dissolve",
+            "Duration": 0.25,
+            "Loop": false,
+            "Keys": [
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.0,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0196749996393919,
+                    "At": 0.020833000540733339,
+                    "Positions": [
+                        0.0,
+                        -0.01083299983292818,
+                        -0.0041669998317956928
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.07407499849796295,
+                    "At": 0.04166699945926666,
+                    "Positions": [
+                        0.0,
+                        -0.0216669999063015,
+                        -0.008333000354468823
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.15625,
+                    "At": 0.0625,
+                    "Positions": [
+                        0.0,
+                        -0.032499998807907107,
+                        -0.012500000186264515
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.2592569887638092,
+                    "At": 0.08333300054073334,
+                    "Positions": [
+                        0.0,
+                        -0.04333300143480301,
+                        -0.016666999086737634
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.37615901231765749,
+                    "At": 0.10416699945926666,
+                    "Positions": [
+                        0.0,
+                        -0.0541669987142086,
+                        -0.020833000540733339
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.5,
+                    "At": 0.125,
+                    "Positions": [
+                        0.0,
+                        -0.06499999761581421,
+                        -0.02500000037252903
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.6238409876823425,
+                    "At": 0.14583300054073335,
+                    "Positions": [
+                        0.0,
+                        -0.07583300024271012,
+                        -0.029167000204324724
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.7407429814338684,
+                    "At": 0.16666699945926667,
+                    "Positions": [
+                        0.0,
+                        -0.086667001247406,
+                        -0.03333299979567528
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.84375,
+                    "At": 0.1875,
+                    "Positions": [
+                        0.0,
+                        -0.09749999642372132,
+                        -0.03750000149011612
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9259250164031982,
+                    "At": 0.20833300054073335,
+                    "Positions": [
+                        0.0,
+                        -0.10833299905061722,
+                        -0.04166699945926666
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9803249835968018,
+                    "At": 0.22916699945926667,
+                    "Positions": [
+                        0.0,
+                        -0.11916700005531311,
+                        -0.04583299905061722
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 1.0,
+                    "At": 0.25,
+                    "Positions": [
+                        0.0,
+                        -0.12999999523162843,
+                        -0.05000000074505806
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                }
+            ],
+            "Markers": []
+        }
+    ]
 }

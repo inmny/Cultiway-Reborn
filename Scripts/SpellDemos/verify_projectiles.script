@@ -101,7 +101,7 @@ try
         }
         var boosted=Build(true);
         float duration=5f;
-        if(entry.Asset==SkillEntities.WaterOrb)
+        if(entry.Asset==SkillEntities.WaterOrb||entry.Asset==SkillEntities.WindBullet)
         {
             var animation=entry.Asset.GetAnimation(0);
             float interval=normal.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
@@ -118,7 +118,7 @@ try
                 entry.Form+"独立主体、材料和原强度寿命可保存编译",new{damage.Damage,d.Root.Scale,d.Lifetime});
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
         }
-        Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射附加作用留原入口");
+        Check(Convert(Build(extra:true),out _)!=null,entry.Form+"燃烧附加作用由共同构造接管");
         ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;int hp=target.data.health,hp2=other.data.health;
         Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.12f);
         var live=accepted.Single();var view=Views(live).Single();Vector3 position=view.Transform.GetColumn(3);

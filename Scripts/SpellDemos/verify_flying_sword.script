@@ -8,6 +8,7 @@ var arcObserved = new List<AbilityCast>();
 var descentObserved = new List<AbilityCast>(); bool rainProbePlaced = false;
 bool invalidate = false, scopeValid = true;
 SkillEmissionResult? lastResult = null;
+bool basic = !periodicMode && !steeringMode && !spiralMode && !vortexMode && !orbitMode && !boomerangMode && !arcMode && !descentMode && !groundMode && !snapMode;
 try
 {
     Actor source = Make(64), target = Make(70), foe = Make(12, "wolf"); target.setKingdom(foe.kingdom);
@@ -15,9 +16,9 @@ try
     owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
     owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
     IReadOnlyList<Entity> Learned() => (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
-    Entity Build(string trajectory, int animation = 0, bool boosted = false, bool burn = false, float duration = 0f)
+    Entity Build(string trajectory, int? animation = null, bool boosted = false, bool burn = false, float duration = 0f)
     {
-        var builder = new SkillContainerBuilder(SkillEntities.FlyingSword).UseAnimation(animation);
+        var builder = new SkillContainerBuilder(SkillEntities.FlyingSword).UseAnimation(animation ?? (basic ? 0 : 1));
         builder.AddModifier(new Trajectory { ID = trajectory });
         if (boosted)
         {
@@ -49,7 +50,8 @@ try
     float[] XYZ(Vector3 value) => new[] { value.x, value.y, value.z };
     var trajectories = snapMode ? new[] { SkillTrajectories.LightningSnap, SkillTrajectories.LightningSnap } : groundMode ? new[] { SkillTrajectories.GroundCrawl, SkillTrajectories.GroundCrawl } : descentMode ? new[] { SkillTrajectories.FallingStrike, SkillTrajectories.FallingStrike, SkillTrajectories.RainFall, SkillTrajectories.RainFall } : arcMode ? new[] { SkillTrajectories.ArcToPosition, SkillTrajectories.ArcToPosition } : boomerangMode ? new[] { SkillTrajectories.Boomerang, SkillTrajectories.Boomerang } : orbitMode ? new[] { SkillTrajectories.OrbitTarget, SkillTrajectories.OrbitTarget } : vortexMode ? new[] { SkillTrajectories.SlowVortex, SkillTrajectories.SlowVortex } : spiralMode ? new[] { SkillTrajectories.SpiralHoming, SkillTrajectories.SpiralHoming } : steeringMode ? new[] { SkillTrajectories.DriftHoming, SkillTrajectories.DriftHoming } : periodicMode ? new[] { SkillTrajectories.SineWave, SkillTrajectories.Zigzag } : new[] { SkillTrajectories.TowardsDirection, SkillTrajectories.TowardsDirectionNoRot,
         SkillTrajectories.TowardsPosition, SkillTrajectories.TowardsTarget };
-    var samples = trajectories.Select((trajectory, i) => Build(trajectory.id, i % 2)).ToArray();
+    // 单独验证轨迹时用直接出手的旧索引，起落另由 10.01 的原索引复验。
+    var samples = trajectories.Select((trajectory, i) => Build(trajectory.id, basic ? i % 2 : 1)).ToArray();
     var definitions = new List<AbilityDefinition>();
     for (int i = 0; i < samples.Length; i++)
     {
@@ -59,12 +61,13 @@ try
         definitions.Add(definition);
         File.WriteAllText(Path.Combine(folder, "trajectory-" + i + ".json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
     }
-    if (!periodicMode && !steeringMode && !spiralMode && !vortexMode && !orbitMode && !boomerangMode && !arcMode && !descentMode && !groundMode && !snapMode)
+    if (basic)
     {
-    var direct = Numeric(definitions[0], new GetHitEvent { Damage = 37 }); direct.Advance(.25f, new Vector3(70, 72, .3f));
+    float appearance = definitions[0].Root.ActiveFrom;
+    var direct = Numeric(definitions[0], new GetHitEvent { Damage = 37 }); direct.Advance(appearance + .25f, new Vector3(70, 72, .3f));
     Check(!direct.Finished && Position(direct).x > 70f && Vector3.Dot(direct.Velocity(0).normalized, Vector3.right) > .999f,
         "固定方向回正并越过有限目标，不掉头追逐目标点", XYZ(Position(direct)));
-    var reflected = Numeric(definitions[0], new GetHitEvent { Damage = 37 }); reflected.Advance(.025f, new Vector3(70, 72, .3f));
+    var reflected = Numeric(definitions[0], new GetHitEvent { Damage = 37 }); reflected.Advance(appearance + .025f, new Vector3(70, 72, .3f));
     var save = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
     var restore = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
     save(reflected); Vector3 prior = Position(reflected);
@@ -78,7 +81,9 @@ try
     Quaternion rotation = visible[0].Transform.rotation; straight.Advance(.3f, new Vector3(70, 77, .3f)); visible.Clear(); straight.AppendVisuals(visible);
     Check(Quaternion.Angle(rotation, visible[0].Transform.rotation) < .001f && straight.Velocity(0).y > 0,
         "不转向旧轨迹保留原朝向及初始偏角");
-    var fixedPoint = Numeric(definitions[2], new GetHitEvent { Damage = 37 }); fixedPoint.Advance(1, new Vector3(70, 75, .3f));
+    var fixedPoint = Numeric(definitions[2], new GetHitEvent { Damage = 37 });
+    fixedPoint.Advance(definitions[2].Root.ActiveFrom + .04f, new Vector3(70, 72, .3f));
+    fixedPoint.Advance(1, new Vector3(70, 75, .3f));
     Check(fixedPoint.Finished && Vector3.Distance(Position(fixedPoint), new Vector3(70, 72, .3f)) <= .01005f,
         "固定位置轨迹到达原位置，不被后来输入拖走", XYZ(Position(fixedPoint)));
     var tracking = Numeric(definitions[3], new GetHitEvent { Damage = 37 }); tracking.Advance(.04f, new Vector3(70, 72, .3f));
@@ -86,7 +91,7 @@ try
     Check(tracking.Finished && Vector3.Distance(Position(tracking), new Vector3(70, 75, .3f)) <= .01005f,
         "原追踪轨迹到达移动后的实际位置", XYZ(Position(tracking)));
     var ramp = Numeric(definitions[0], new GetHitEvent { Damage = 37 }); var motion = samples[0].GetComponent<SkillContainer>().MotionProfile;
-    float baseSpeed = motion.ResolveSpeed(6); ramp.Advance(motion.RampDuration * .5f, new Vector3(70, 72, .3f));
+    float baseSpeed = motion.ResolveSpeed(6); ramp.Advance(appearance + motion.RampDuration * .5f, new Vector3(70, 72, .3f));
     Check(Mathf.Abs(ramp.Velocity(0).magnitude - baseSpeed * (motion.CruiseMultiplier + (motion.LaunchMultiplier - motion.CruiseMultiplier) * .25f)) < .001f,
         "原起步曲线的中间速度由普通确定时点调速表达");
     ramp.Advance(motion.RampDuration, new Vector3(70, 72, .3f));
@@ -105,6 +110,7 @@ try
     // STEERING_NUMERIC
     Actor pathTarget = periodicMode || vortexMode || boomerangMode || descentMode || snapMode ? Make(74) : target; pathTarget.setKingdom(foe.kingdom);
     // 捕获原来源的真实逐发输入，原钩子仍只调用一次。
+    var births = new List<(bool Passed, object Data)>();
     void Old(Entity execution) { if (execution.GetComponent<SkillEntity>().Asset == SkillEntities.FlyingSword &&
         execution.GetComponent<SkillContext>().SourceObj == source) oldExecutions.Add(execution.Id); }
     void Started(ConstructedCastStarted fact) { if (fact.AbilityId == SkillEntities.FlyingSword.id) starts.Add(fact); }
@@ -146,11 +152,18 @@ try
             }
             var actualDamage = (GetHitEvent)Field(Field(live, "InitialOwner"), "Damage");
             object[] args = { request, default(GetHitEvent), Vector3.zero }; var converted = (AbilityDefinition)converter.Invoke(null, args); var expectedDamage = (GetHitEvent)args[1];
-            Check(Mathf.Abs(cast.RemainingForce(0) - expectedDamage.Damage) < .001f &&
+            Vector3 birth = ((Matrix4x4)Field(State(cast), "Transform")).GetColumn(3);
+            var actualInputs = (AbilityInputs)Field(cast, "inputs");
+            Vector3 expectedBirth = descentMode
+                ? actualInputs.Target + Vector3.forward * converted.Binding.Height + new Vector3(converted.Root.Offset[0], converted.Root.Offset[1], converted.Root.Offset[2])
+                : actualInputs.Source;
+            bool validBirth = Mathf.Abs(cast.RemainingForce(0) - expectedDamage.Damage) < .001f &&
                 actualDamage.AttackerPowerLevel == request.PowerLevel && actualDamage.DamageOrigin == request.RuntimeData.DamageOrigin &&
-                (groundMode ? Vector2.Distance(Position(cast), request.SourcePos) : Vector3.Distance(Position(cast), descentMode ? ((AbilityInputs)Field(cast, "inputs")).Target + Vector3.forward * converted.Binding.Height +
-                    new Vector3(converted.Root.Offset[0], converted.Root.Offset[1], converted.Root.Offset[2]) : request.SourcePos)) < .0001f,
-                "真实接管保留绝对强度、能级、指定出生点和伤害来源", new { actual = XYZ(Position(cast)), source = XYZ(request.SourcePos), target = XYZ(request.TargetPos), height = converted.Binding.Height, offset = converted.Root.Offset, force = cast.RemainingForce(0), expectedForce = expectedDamage.Damage, actualDamage.AttackerPowerLevel, request.PowerLevel });
+                Vector2.Distance(actualInputs.Source, request.SourcePos) < .0001f &&
+                (groundMode ? Vector2.Distance(birth, expectedBirth) : Vector3.Distance(birth, expectedBirth)) < .0001f;
+            births.Add((validBirth, new { actual = XYZ(birth), expectedBirth = XYZ(expectedBirth), source = XYZ(request.SourcePos), target = XYZ(request.TargetPos),
+                height = converted.Binding.Height, offset = converted.Root.Offset, force = cast.RemainingForce(0),
+                expectedForce = expectedDamage.Damage, actualDamage.AttackerPowerLevel, request.PowerLevel }));
         }
         observed.Add(new { result = result.ToString(), animation = request.SkillContainer.GetComponent<SkillContainer>().AnimationIndex,
             trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(request.SkillContainer), request.Strength, request.PowerLevel,
@@ -171,22 +184,25 @@ try
     }
     try
     {
-        foreach (Entity sample in samples)
+        for (int index = 0; index < samples.Length; index++)
         {
+            Entity sample = samples[index];
+            bool varied = index % 2 == 1;
             Entity skill = periodicMode && SkillBlueprintTrajectory.ResolveEffectiveId(sample) == SkillTrajectories.Zigzag.id
-                ? Build(SkillTrajectories.Zigzag.id, animation: 1, boosted: true) : (steeringMode || spiralMode || vortexMode || orbitMode || boomerangMode || arcMode || descentMode || groundMode || snapMode) && sample.GetComponent<SkillContainer>().AnimationIndex == 1
+                ? Build(SkillTrajectories.Zigzag.id, animation: 1, boosted: true) : (steeringMode || spiralMode || vortexMode || orbitMode || boomerangMode || arcMode || descentMode || groundMode || snapMode) && varied
                     ? Build(snapMode ? SkillTrajectories.LightningSnap.id : groundMode ? SkillTrajectories.GroundCrawl.id : descentMode ? SkillBlueprintTrajectory.ResolveEffectiveId(sample) : arcMode ? SkillTrajectories.ArcToPosition.id : boomerangMode ? SkillTrajectories.Boomerang.id : orbitMode ? SkillTrajectories.OrbitTarget.id : vortexMode ? SkillTrajectories.SlowVortex.id : spiralMode ? SkillTrajectories.SpiralHoming.id : SkillTrajectories.DriftHoming.id, animation: 1, boosted: true) : sample;
             rainProbePlaced = false;
             Ready(source); Place(source, 64); Place(target, 70); contacts.Clear(); endings.Clear(); int first = starts.Count;
             float before = owner.GetCultisys<Xian>().wakan; int hp = target.data.health + (periodicMode || vortexMode || boomerangMode || descentMode ? pathTarget.data.health : 0); int knownBefore = Learned().Count; var expectedPlan = Plan(skill); double expected = Cost(skill, expectedPlan);
             Check(Use(skill), "原已学能力正式使用");
-            Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - expected) < .001, "原报价只扣一次，不再支付新构造费用");
-            if (orbitMode && sample.GetComponent<SkillContainer>().AnimationIndex == 1)
+            if (orbitMode && varied)
             {
                 await Advance(.04f); Place(target, 72, 74);
             }
-            await Advance(orbitMode || boomerangMode ? 1.6f : .7f);
+            await Advance(orbitMode || boomerangMode ? 1.6f : basic && !varied ? 1.2f : .7f);
             var actual = starts.Skip(first).ToArray();
+            Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - expected) < .001,
+                "实际受理的各发按原报价扣费", new { expected, before, after = owner.GetCultisys<Xian>().wakan });
             Check(actual.Length == expectedPlan.Steps.Count && actual.All(fact => fact.CorrelationId == 930 &&
                 (descentMode && SkillBlueprintTrajectory.ResolveEffectiveId(skill) == SkillTrajectories.RainFall.id || contacts.Count(contact => contact.CastId == fact.CastId && (contact.TargetId == target.id || contact.TargetId == pathTarget.id)) == 1) &&
                 endings.Any(end => end.Fact.CastId == fact.CastId)) && target.data.health + (periodicMode || vortexMode || boomerangMode || descentMode ? pathTarget.data.health : 0) < hp && oldExecutions.Count == 0 && Learned().Count == knownBefore && !owner.E.HasComponent<ConstructedKnowledge>(),
@@ -199,17 +215,20 @@ try
                     arc = arcMode ? arcObserved.Select(cast => new { cast.Age, cast.Finished, position = XYZ(Position(cast)), goal = XYZ((Vector3)Field(State(cast), "FlightTarget")),
                         phase = cast.Phase.ToString(), alive = Field(cast, "aliveNodes"), progress = Field(State(cast), "PathProgress"), stopped = Field(State(cast), "MovementStopped"), ended = Field(State(cast), "FlightEnded") }).ToArray() : null });
         }
-        if (!periodicMode && !steeringMode && !spiralMode && !vortexMode && !orbitMode && !boomerangMode && !arcMode && !descentMode && !groundMode && !snapMode)
+        if (basic)
         {
         Entity boosted = Build(SkillTrajectories.TowardsTarget.id, boosted: true); Ready(source); Place(source, 64); Place(target, 70);
         int boostedInitial = starts.Count, known = Learned().Count; float boostedBalance = owner.GetCultisys<Xian>().wakan;
         var plan = Plan(boosted); double total = Cost(boosted, plan); Check(Use(boosted), "原放大、加速、强化、熟练及多发能力受理");
-        Check(Math.Abs(boostedBalance - owner.GetCultisys<Xian>().wakan - total) < .001, "多发仍按原完整计划支付一次"); await Advance(1.5f);
+        await Advance(1.5f);
+        Check(Math.Abs(boostedBalance - owner.GetCultisys<Xian>().wakan - total) < .001, "多发逐发受理后的费用等于原计划报价");
         Check(plan.Steps.Count > 1 && starts.Count - boostedInitial == plan.Steps.Count && oldExecutions.Count == 0 && Learned().Count == known &&
             !owner.E.HasComponent<ConstructedKnowledge>(), "原序列逐发接管，未增加重复知识或生成第二执行体", new { steps = plan.Steps.Count, total });
         Entity extra = Build(SkillTrajectories.TowardsTarget.id, burn: true); Ready(source); Place(source, 64); Place(target, 70);
-        boostedInitial = starts.Count; Check(Use(extra), "尚未映射的附加效果仍可使用原来源"); await Advance(.5f);
-        Check(starts.Count == boostedInitial && oldExecutions.Count > 0, "未映射效果明确保留旧执行，不在新构造中静默丢弃");
+        boostedInitial = starts.Count; int formerExecutions = oldExecutions.Count, burningSteps = Plan(extra).Steps.Count;
+        Check(Use(extra), "附加燃烧的飞剑由原入口受理"); await Advance(.8f);
+        Check(starts.Count - boostedInitial == burningSteps && oldExecutions.Count == formerExecutions &&
+              CombatStatusEffects.HasStatus(target, StatusEffects.Burn), "飞剑真实命中仍附加燃烧且只用共同执行");
         }
         int initial = starts.Count, oldCount = oldExecutions.Count; float balance = owner.GetCultisys<Xian>().wakan;
         Entity rejected = Build(snapMode ? SkillTrajectories.LightningSnap.id : groundMode ? SkillTrajectories.GroundCrawl.id : descentMode ? SkillTrajectories.FallingStrike.id : arcMode ? SkillTrajectories.ArcToPosition.id : boomerangMode ? SkillTrajectories.Boomerang.id : orbitMode ? SkillTrajectories.OrbitTarget.id : vortexMode ? SkillTrajectories.SlowVortex.id : spiralMode ? SkillTrajectories.SpiralHoming.id : steeringMode ? SkillTrajectories.DriftHoming.id : periodicMode ? SkillTrajectories.SineWave.id : SkillTrajectories.TowardsPosition.id, animation: 1); Ready(source); Place(source, 64); Place(target, 70);
@@ -246,6 +265,8 @@ try
         // VORTEX_EDITOR
         // SPIRAL_EDITOR
     // STEERING_EDITOR
+        foreach (var born in births)
+            Check(born.Passed, "真实接管保留绝对强度、能级、指定出生点和伤害来源", born.Data);
         File.WriteAllText(Path.Combine(folder, "emissions.json"), JsonConvert.SerializeObject(observed, Formatting.Indented));
         return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
     }

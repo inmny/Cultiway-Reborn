@@ -1,5 +1,5 @@
 /** 贯穿主体共用封闭截面制作，分别保留针、晶枪、岩锥和木枪的实际结构。 */
-import {write, structure, surfaceData} from './form_export.mjs';
+import {write, structure, surfaceData, dissolve} from './form_export.mjs';
 import {wallPart, column} from './forms_solid_walls.mjs';
 
 /** 沿制作前向Z连接完整截面；可独立声明厚薄、棱面及不规则岩质。 */
@@ -12,14 +12,15 @@ function loft(profile, sides, flat=1, rough=0) {
 }
 
 /** 给每个来源保存自己的几何、实际接触芯及可改造的材料，不保存来源专用运行逻辑。 */
-function publish(id, pieces, contacts, parameters) {
+function publish(id, pieces, contacts, parameters, ending=false) {
   const controls=[{Id:'root',Position:[0,0,0],Rotation:[0,0,0,1]}];
   const parts=pieces.map(([name,geometry,surface,liquid=false])=>wallPart(name,liquid?surfaceData(geometry,.24):geometry,surface,[0,0,0],'root'));
   const tips=parts.map(p=>Math.max(...p.Positions.filter((_,i)=>i%3===2))),last=Math.max(...tips),tipPart=tips.indexOf(last);
   const anchors=[{Id:'root',Part:0,Position:[0,0,0],Direction:[0,0,1],Control:'root'},
     {Id:'tip',Part:tipPart,Position:[0,0,last],Direction:[0,0,1],Control:'root'}];
   const shapes=contacts.map(([a,b,r,part=0],i)=>({Id:`core_${i}`,Part:part,A:[0,0,a],B:[0,0,b],Radius:r,AControl:'root',BControl:'root'}));
-  write(id,parts,anchors,shapes,controls,[],false,{Forward:[0,0,1],Up:[0,1,0]},
+  const motions=ending?[dissolve(controls,(_index,t)=>({position:[0,-.13*t,-.05*t]}))]:[];
+  write(id,parts,anchors,shapes,controls,motions,false,{Forward:[0,0,1],Up:[0,1,0]},
     structure('rigid','forms_piercing.mjs','makePiercingForms',parameters,
       Object.fromEntries(parts.map(p=>[p.Id,['projectile.body','piercing.core']])),[]));
 }
@@ -27,7 +28,13 @@ function publish(id, pieces, contacts, parameters) {
 /** 一次发布各独立主体。 */
 export function makePiercingForms() {
   const golden=[[-.04,.005],[.10,.075],[.32,.09],[1.45,.07],[1.88,.025],[2.12,.002]];
-  publish('golden_needle',[['metal_needle',loft(golden,10),'gold']],[[.15,1.40,.055],[1.40,1.83,.025]],{golden,sides:10});
+  const weight=[[-.32,.006],[-.28,.062],[-.17,.11],[-.06,.087],[.14,.068]];
+  const collars=[[.15,.069],[.18,.105],[.24,.105],[.28,.079]];
+  publish('golden_needle',[
+    ['metal_needle',loft(golden,10),'gold'],
+    ['counterweight',loft(weight,12),'gold'],
+    ['collar',loft(collars,10,.9),'gold']
+  ],[[.15,1.40,.055],[1.40,1.83,.025]],{golden,weight,sides:10},true);
 
   const poison=[[-.04,.012],[.18,.08],[.48,.17],[.82,.18],[1.20,.11],[1.67,.045],[1.94,.002]];
   publish('poison_needle',[['venom_spindle',loft(poison,16),'poison_liquid',true]],

@@ -1,6 +1,6 @@
 /** 推进刃波的宽面轮廓、封闭厚度与接触芯共同导出。 */
 import * as T from 'three';
-import {write,structure,motion,round} from './form_export.mjs';
+import {write,structure,dissolve} from './form_export.mjs';
 import {wallPart,column} from './forms_solid_walls.mjs';
 
 /** 横向弯曲的封闭刃面，末端连续收尖；宽度与厚度不是贴图或拖尾。 */
@@ -35,15 +35,10 @@ function publish(id,pieces,contacts,parameters,ending=false) {
   const shapes=contacts.map((contact,i)=>Array.isArray(contact)
     ? {Id:`edge_${i}`,Part:contact[3] ?? 0,A:contact[0],B:contact[1],Radius:contact[2],AControl:'root',BControl:'root'}
     : contact);
-  const motions=[];
-  if(ending) {
-    const clip=motion('dissolve',.25,false,controls,12,(_index,p)=>({
+  const motions=ending?[dissolve(controls,(_index,p)=>({
       position:[0,.16*p,-.06*p],
       rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),-.12*p).toArray()
-    }));
-    for(const key of clip.Keys)key.Fade=round(T.MathUtils.smoothstep(key.At,0,clip.Duration));
-    motions.push(clip);
-  }
+  }))]:[];
   write(id,parts,[{Id:'root',Part:0,Position:[0,0,0],Direction:[0,0,1],Control:'root'}],shapes,controls,motions,false,
     {Forward:[0,0,1],Up:[0,1,0]},structure('rigid','forms_blades.mjs','makeBladeForms',parameters,
       Object.fromEntries(parts.map(p=>[p.Id,['projectile.body','projectile.edge']])),[]));
@@ -71,19 +66,35 @@ function sword() {
   const points=[-.9,0,.9].map(u=>{const [x,,z]=edge(u);return [x,z];});
   const contact={Id:'edge_0',Part:0,A:[0,0,0],AControl:'root',
     Path:{Points:points,HalfWidth:.10,HalfThickness:.05}};
-  publish('sword_qi',[['edge',column(rings,9),'metal'],['ridge',column(backing,5),'bronze']],
-    [contact],{span:3.7,bevel:.076,backDepth:.78});
+  publish('sword_qi',[['edge',column(rings,9),'metal'],['ridge',column(backing,5),'bronze',true]],
+    [contact],{span:3.7,bevel:.076,backDepth:.78},true);
+
+  // 短锋有窄的向前折面，厚度聚在两肩，后缘没有另加一圈弧线。
+  const short=u=>[u*1.25,0,.49-.77*u*u+.065*u];
+  const back=u=>[u*1.14,-.035,.22-.68*u*u+.063*u];
+  publish('sword_qi_1',[
+    ['edge',ribbon(short,.095,.077,28),'metal'],
+    ['ridge',ribbon(back,.22,.118,28),'gold',true]
+  ],cores(short,.080,16),{span:2.50,bevel:.071,backDepth:.22});
 }
 
 /** 风刃由三道交错的宽弯流组成，分叉与留白可辨，不使用细线或烟团。 */
 function wind() {
   const edge=u=>[u*1.75,0,.50-.72*u*u];
-  const parts=[['front',ribbon(edge,.24,.15),'wind']];
+  const parts=[['front',ribbon(edge,.29,.205),'wind_pressure']];
   for(const sign of [-1,1]) {
     const flow=u=>[u*1.50+sign*.18,sign*.08,-.18+.20*Math.sin(u*2.3+sign*.4)];
-    parts.push([`flow_${sign}`,ribbon(flow,.16,.12),'wind']);
+    parts.push([`flow_${sign}`,ribbon(flow,.20,.14),'wind_open']);
   }
-  publish('wind_blade',parts,cores(edge),{span:3.5,layers:3,depth:.24});
+  publish('wind_blade',parts,cores(edge),{span:3.5,layers:3,depth:.29},true);
+
+  // 紧缩的单瓣以较深背脊承接前锋，截面偏在一翼，远看能辨认受力侧。
+  const crest=u=>[u*1.36,.08*u,.43-.67*u*u+.22*u*u*u];
+  const heel=u=>[u*1.22,-.075+.095*u,.14-.59*u*u+.20*u*u*u];
+  publish('wind_blade_1',[
+    ['crest',ribbon(crest,.15,.17,28),'wind_pressure'],
+    ['heel',ribbon(heel,.23,.226,28),'wind_open']
+  ],cores(crest,.12,16),{span:2.72,layers:2,depth:.23});
 }
 
 /** 火刃有连续焰锋与五个独立收尖的厚焰舌，不以散乱粒子替代作用主体。 */

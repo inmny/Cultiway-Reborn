@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import tempfile
 from pathlib import Path
 
 from common import PROJECT, version_stamp, write_json
@@ -28,13 +29,21 @@ def main():
     os.environ['CULTIWAY_BASELINE_GAME'] = str(install / 'game/worldbox')
     import baseline_scenarios as baseline
     connected = baseline.connect(True, validate_runtime=False)
-    started = json.loads((baseline.ROOT / 'process.json').read_text())['started']
-    if any(p.stat().st_mtime > started for p in (PROJECT / 'Source').rglob('*.cs')):
-        raise RuntimeError('当前独立游戏未加载本轮代码，请先正常退出再验证')
-    folder = PROJECT / 'artifacts/skill_rebuild/trajectories' / ('snap-flight' if args.snap else 'ground-flight' if args.ground else 'descent-flight' if args.descent else 'arc-flight' if args.arc else 'boomerang-flight' if args.boomerang else 'orbit-flight' if args.orbit else 'vortex-flight' if args.vortex else 'spiral-flight' if args.spiral else 'steering-flight' if args.steering else 'periodic-flight' if args.periodic else 'flying-sword')
+    if os.environ.get('CULTIWAY_DEV_ACTIVE'):
+        folder = Path(tempfile.mkdtemp(prefix='flying-sword-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
+    else:
+        started = json.loads((baseline.ROOT / 'process.json').read_text())['started']
+        if any(p.stat().st_mtime > started for p in (PROJECT / 'Source').rglob('*.cs')):
+            raise RuntimeError('当前独立游戏未加载本轮代码，请先正常退出再验证')
+        folder = PROJECT / 'artifacts/skill_rebuild/trajectories' / ('snap-flight' if args.snap else 'ground-flight' if args.ground else 'descent-flight' if args.descent else 'arc-flight' if args.arc else 'boomerang-flight' if args.boomerang else 'orbit-flight' if args.orbit else 'vortex-flight' if args.vortex else 'spiral-flight' if args.spiral else 'steering-flight' if args.steering else 'periodic-flight' if args.periodic else 'flying-sword')
     folder.mkdir(parents=True, exist_ok=True)
     helpers = Path(__file__).with_name('verify_body_footwork.script').read_text().split('var bindingType =', 1)[0]
-    helpers = helpers.replace('artifacts/skill_rebuild/body-footwork', str(folder.relative_to(PROJECT)))
+    helpers = helpers.replace('Path.Combine(root, "artifacts/skill_rebuild/body-footwork")', json.dumps(str(folder)))
+    world = PROJECT / 'Scripts/WorldSaveTests/Fixtures/world-format-1'
+    helpers = helpers.replace('Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")', json.dumps(str(world)))
+    helpers = helpers.replace('var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild',
+                              'var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SourceLoss.Hold") ?? '
+                              'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild')
     helpers = helpers.replace('if (contact.AbilityId.StartsWith("test.body-footwork.")) contacts.Add(contact);', 'contacts.Add(contact);')
     helpers = helpers.replace('if (fact.AbilityId.StartsWith("test.body-footwork."))\n        ', '')
     script = folder / 'input.script'

@@ -150,3 +150,10 @@ export function motion(id, duration, loop, controls, count, evaluate, markers = 
   }
   return {Id: id, Duration: duration, Loop: loop, Keys: keys, Markers: markers};
 }
+
+/** 在原结束点沿自有姿态淡出。实际时长由原变体的结束阶段决定。 */
+export function dissolve(controls,evaluate) {
+  const clip=motion('dissolve',.25,false,controls,12,evaluate);
+  for(const key of clip.Keys)key.Fade=round(T.MathUtils.smoothstep(key.At,0,clip.Duration));
+  return clip;
+}

@@ -1,10 +1,17 @@
-// 同一片场地逐个核对正式水箭、水球和水刃，写档与冷读沿用同一对练。
+// 同一片场地逐个核对正式法术，写档与冷读沿用同一对练。
 var catalog = new[]
 {
     (Asset: SkillEntities.WaterArrow, Form: "water_arrow", Count: 4),
     (Asset: SkillEntities.WaterOrb, Form: "water_orb", Count: 5),
-    (Asset: SkillEntities.WaterBlade, Form: "water_blade", Count: 4)
-};
+    (Asset: SkillEntities.WaterBlade, Form: "water_blade", Count: 4),
+    (Asset: SkillEntities.FlyingSword, Form: "flying_sword", Count: 2),
+    (Asset: SkillEntities.SwordQi, Form: "sword_qi", Count: 2),
+    (Asset: SkillEntities.GoldenNeedle, Form: "golden_needle", Count: 1),
+    (Asset: SkillEntities.WindBullet, Form: "wind_bullet", Count: 2),
+    (Asset: SkillEntities.WindBlade, Form: "wind_blade", Count: 2)
+}.Where(entry => chosenAssets.Contains(entry.Asset.id)).ToArray();
+
+bool CanTestTracking(SkillEntityAsset asset) => asset == SkillEntities.WaterOrb || asset == SkillEntities.WindBullet;
 bool cold = caseName == "cold", archive = caseName == "archive";
 int process = System.Diagnostics.Process.GetCurrentProcess().Id;
 var expected = cold ? JObject.Parse(File.ReadAllText(Path.Combine(archivePath, "expected.json"))) : null;
@@ -44,14 +51,15 @@ if (archive)
 {
     foreach (var entry in catalog)
         for (int index = 0; index < entry.Count; index++)
-            Learn(entry.Asset, index, entry.Asset == SkillEntities.WaterOrb && index == 1);
+            Learn(entry.Asset, index, CanTestTracking(entry.Asset) && index == 1);
     string[] signatures = Signatures();
-    Check(signatures.Length == 13 && signatures.Distinct().Count() == 13 &&
-          World.world.units.get(source.id) == source, "正式写档前十三份不同的原学习资料已入世界");
+    int total = catalog.Sum(entry => entry.Count);
+    Check(signatures.Length == total && signatures.Distinct().Count() == total &&
+          World.world.units.get(source.id) == source, "正式写档前全部原学习资料已入世界", total);
     string world = Path.Combine(folder, "archive");
     Directory.CreateDirectory(world);
     SaveManager.saveWorldToDirectory(world);
-    Check(File.Exists(Path.Combine(world, "map.wbox")), "完整水系资料随原版世界保存");
+    Check(File.Exists(Path.Combine(world, "map.wbox")), "完整学习资料随原版世界保存");
     File.WriteAllText(Path.Combine(folder, "expected.json"),
         JsonConvert.SerializeObject(new { process, source = source.id, target = target.id, second = second.id,
             outside = outside.id, signatures }, Formatting.Indented));
@@ -106,8 +114,10 @@ async Task Stage(AbilityCast cast, float until)
 
 async Task Play(SkillEntityAsset asset, string form, int index)
 {
-    bool orb = asset == SkillEntities.WaterOrb, blade = asset == SkillEntities.WaterBlade;
-    bool tracking = orb && (caseName == "tracking" || cold), miss = caseName == "miss";
+    bool orb = asset == SkillEntities.WaterOrb;
+    bool blade = asset == SkillEntities.WaterBlade || asset == SkillEntities.SwordQi || asset == SkillEntities.WindBlade;
+    bool continues = asset.ImpactProfile.ContinueAfterHit;
+    bool tracking = CanTestTracking(asset) && (caseName == "tracking" || cold), miss = caseName == "miss";
     var skill = cold ? Learned().Single(entity =>
     {
         var value = entity.GetComponent<SkillContainer>();
@@ -124,8 +134,8 @@ async Task Play(SkillEntityAsset asset, string form, int index)
 
     Ready(source);
     Place(source, 64);
-    Place(target, tracking ? 74f : orb ? 71f : 69f, miss ? 77f : 72f);
-    Place(second, orb ? (index == 4 && !tracking ? 71.04f : 75f) : 73f,
+    Place(target, tracking ? 74f : continues ? 69f : orb ? 71f : 72f, miss ? 77f : 72f);
+    Place(second, orb && index == 4 && !tracking ? 71.04f : continues ? 73f : 75f,
         miss || tracking ? 78f : orb && index == 4 ? 72.48f : blade ? 72.78f : 72f);
     Place(outside, 70f, 78f);
     owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
@@ -150,9 +160,10 @@ async Task Play(SkillEntityAsset asset, string form, int index)
     var cast = live.Value;
     var initial = Views(cast).Single();
     Vector3 first = initial.Transform.GetColumn(3);
-    Check(initial.Resource.Description.Id == model && initial.Resource.Description.Parts.All(p => p.HasSurfaceData) &&
+    bool water = form.StartsWith("water_", StringComparison.Ordinal);
+    Check(initial.Resource.Description.Id == model && (!water || initial.Resource.Description.Parts.All(p => p.HasSurfaceData)) &&
           Math.Abs(cast.Plan.Lifetime - rise - runtime - fade) < .001f,
-        "实际主体、厚水体资料与原阶段时长对应", new { model, rise, runtime, fade });
+        "实际主体与原阶段时长对应", new { model, rise, runtime, fade });
     if (rise > 0f)
         Check(cast.Age < rise && Mathf.Abs(first.x - 64f) < .05f && ShapeCount(cast) == 0 &&
               contacts.All(hit => hit.CastId != live.Key), "成形留在起点且没有接触面", model);
@@ -161,7 +172,7 @@ async Task Play(SkillEntityAsset asset, string form, int index)
     Vector3 flown = moving.Transform.GetColumn(3);
     Check(flown.x > 64.08f && ShapeCount(cast) > 0 &&
           (!orb || tracking || flown.z > source.GetSimPos().z + .45f),
-        "飞行时有实际位移和水体作用面，水球沿原弧线抬升",
+        "飞行时有实际位移和作用面，水球沿原弧线抬升",
         new { model, start = first.ToString(), position = flown.ToString(), shapes = ShapeCount(cast) });
     if (tracking)
     {
@@ -188,7 +199,7 @@ async Task Play(SkillEntityAsset asset, string form, int index)
         float remaining = ending.Dye?.a ?? 1f;
         Check(cast.NodeAge(1) >= fade * .52f && ShapeCount(cast) == 0 && remaining > 0f && remaining < alpha &&
               Vector3.Distance(rest.Value, (Vector3)ending.Transform.GetColumn(3)) < .01f,
-            "余水停在真实结束地点并连续变淡，水锋已经退出", new { model, rest = rest.ToString(), alpha, remaining });
+            "收势停在真实结束地点连续变淡，作用面已经退出", new { model, rest = rest.ToString(), alpha, remaining });
         await Advance(fade + .05f);
     }
     else
@@ -201,13 +212,13 @@ async Task Play(SkillEntityAsset asset, string form, int index)
     var actual = contacts.Where(hit => hit.CastId == live.Key).ToArray();
     var damage = actual.Where(hit => hit.Damage.HealthLost > 0).ToArray();
     bool settled = miss ? actual.Length == 0 && hp == target.data.health && hp2 == second.data.health :
-        orb ? actual.Length == 1 && damage.Length == 1 && (index == 4 && !tracking ?
+        !continues ? actual.Length == 1 && damage.Length == 1 && (orb && index == 4 && !tracking ?
             damage[0].TargetId == target.id || damage[0].TargetId == second.id : damage[0].TargetId == target.id) :
         actual.Length == 2 && damage.Length == 2 && damage.Count(hit => hit.TargetId == target.id) == 1 &&
         damage.Count(hit => hit.TargetId == second.id) == 1;
     Check(settled && actual.All(hit => hit.Age >= rise && hit.Node == 0) && outside.data.health == hpOutside &&
           (!tracking || damage[0].Position.y > 74f),
-        "贯穿与横扫各命中一次，水球在实际首击结束，落空及范围外无伤",
+        "贯穿与横扫每人一次，单击在首个实际接触处结束，落空及范围外无伤",
         new { model, tracking, miss, hits = actual.Select(hit => new { hit.TargetId, hit.Age, hit.Node,
             hit.Damage.HealthLost, position = hit.Position.ToString() }).ToArray() });
     Check(cast.Finished && Views(cast).Length == 0 && ShapeCount(cast) == 0 &&
@@ -222,9 +233,9 @@ ConstructedAbilityService.CastStarted += Started;
 Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
 try
 {
-    foreach (var entry in catalog.Where(entry => chosenAssets.Contains(entry.Asset.id)))
+    foreach (var entry in catalog)
     {
-        var variants = chosenVariants.Length > 0 ? chosenVariants.Distinct() : cold ? new[] { 1 } : Enumerable.Range(0, entry.Count);
+        var variants = chosenVariants.Length > 0 ? chosenVariants.Distinct() : cold ? new[] { Math.Min(1, entry.Count - 1) } : Enumerable.Range(0, entry.Count);
         foreach (int index in variants) await Play(entry.Asset, entry.Form, index);
     }
     return new { passed = true, spells = recordings.Count, process };

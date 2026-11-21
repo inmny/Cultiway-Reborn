@@ -2555,3 +2555,11 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用 `water-family --case archive` 保存全部十三份学习资料。退出并重启后用 `water-family --case cold --archive <保存输出目录>` 读回资料，施放三种代表索引。
 
 两种视角分别使用 `demo_all.py` 的 `--view native` 或 `--view worldfall`。水箭和水刃用 `--filter Cultiway.WaterArrow,Cultiway.WaterBlade --zoom 23` 保留飞行和收势，水球用 `--filter Cultiway.WaterOrb --zoom 9` 看转动的内外水层。两组都使用 `--variants all --cases base --realm 0 --target-offset 7 0 --duration 1.55 --fps 30`。
+
+### 金系与风系飞行旧变体（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py metal-wind` 逐个验证飞剑、剑气、金针、风弹和风刃。可选择 `flying-sword`、`sword-qi`、`golden-needle`、`wind-bullet` 或 `wind-blade` 并传入 `--variant` 复验原索引。金针用 `--case miss` 核对落空，风弹用 `--case tracking` 核对改轨迹后追踪移动目标。
+
+用 `metal-wind --case archive` 保存九份学习资料。退出并重启后用 `metal-wind --case cold --archive <保存输出目录>` 读回资料，经正式入口施放五个代表索引。
+
+录像共用 `demo_all.py --variants all --cases base --realm 0 --target-offset 7 0 --duration 1.55 --fps 30`。剑气、金针和风刃用 `--zoom 23`，飞剑和风弹用 `--zoom 12`。两组均分别录制 `--view native` 和 `--view worldfall`。

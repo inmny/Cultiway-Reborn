@@ -37,6 +37,7 @@ import {makeWaterCurtain} from './forms_water_curtain.mjs';
 import {makePiercingForms} from './forms_piercing.mjs';
 import {makeProjectileForms} from './forms_projectiles.mjs';
 import {makeBladeForms} from './forms_blades.mjs';
+import {makeFlyingSwords} from './forms_flying_swords.mjs';
 import {makeWaterProjectileForms} from './forms_water_projectiles.mjs';
 import {makeImpactForms} from './forms_impacts.mjs';
 import {makeGroundWaves} from './forms_ground_waves.mjs';
@@ -161,6 +162,8 @@ const swordForm=write('sword', [part('blade', blade, 'metal'), part('guard', gua
     [['grip','guard',[0,0,-.035]],['guard','blade',[0,0,0]],['grip','pommel',[0,0,-.64]]]),
   [{Id:'grip',Anchor:'grip',Up:[0,1,0],Diameter:.13,Scale:[.2,.6]},
     {Id:'choke',Anchor:'choke',Up:[0,1,0],Diameter:.12,Scale:[.2,.6]}], [], {Groups:['sword'],Scale:.42});
+
+makeFlyingSwords(swordForm,blade,guard,grip,pommel);
 
 const curtainGrip = new T.CylinderGeometry(.055, .065, .55, 12, 6).rotateX(Math.PI / 2).translate(0, 0, -.35);
 makeSwordCurtain(swordForm, part('grip', curtainGrip, 'leather'));

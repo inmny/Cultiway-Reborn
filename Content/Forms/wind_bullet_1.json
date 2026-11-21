@@ -1,0 +1,214 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_projectiles.mjs",
+            "Entry": "makeProjectileForms",
+            "Parameters": [
+                {
+                    "Id": "radius",
+                    "Values": [
+                        0.41499999165534975
+                    ]
+                },
+                {
+                    "Id": "folds",
+                    "Values": [
+                        3.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "wind_bullet_1",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wind_bullet_1_heart_mid.asset",
+                "Assets/Cultiway/Forms/wind_bullet_1_heart_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "heart",
+            "Surface": "wind_pressure",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wind_bullet_1_heart.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wind_bullet_1_fold_0_mid.asset",
+                "Assets/Cultiway/Forms/wind_bullet_1_fold_0_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "fold_0",
+            "Surface": "wind_open",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wind_bullet_1_fold_0.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wind_bullet_1_fold_1_mid.asset",
+                "Assets/Cultiway/Forms/wind_bullet_1_fold_1_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "fold_1",
+            "Surface": "wind_open",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wind_bullet_1_fold_1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wind_bullet_1_fold_2_mid.asset",
+                "Assets/Cultiway/Forms/wind_bullet_1_fold_2_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "fold_2",
+            "Surface": "wind_open",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wind_bullet_1_fold_2.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                -0.11999999731779099
+            ],
+            "B": [
+                0.0,
+                0.0,
+                0.15000000596046449
+            ],
+            "Radius": 0.27000001072883608,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.38152700662612917,
+                -0.38943299651145937,
+                -0.4476020038127899
+            ],
+            "Maximum": [
+                0.4115000069141388,
+                0.38943299651145937,
+                0.4476020038127899
+            ]
+        }
+    ],
+    "Motions": []
+}

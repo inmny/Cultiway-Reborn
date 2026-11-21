@@ -91,7 +91,7 @@ try
         currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
         var normal=Build();var boosted=Build(true);
         float duration=.9f;
-        if(entry.Asset==SkillEntities.WaterArrow)
+        if(entry.Asset==SkillEntities.WaterArrow||entry.Asset==SkillEntities.GoldenNeedle)
         {
             var animation=entry.Asset.GetAnimation(0);
             float interval=normal.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
@@ -109,7 +109,7 @@ try
                 entry.Form+"独立主体、实际材料、原强度与贯穿规则可保存编译",new{damage.Damage,d.Root.Scale,d.Lifetime});
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
         }
-        Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射作用保留原入口");
+        Check(Convert(Build(extra:true),out _)!=null,entry.Form+"燃烧附加作用由共同构造接管");
         ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;int hp=target.data.health,hp2=other.data.health;
         Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.12f);
         var live=accepted.Single();Check(oldExecutions==0&&starts.Count==1&&Views(live).Single().Resource.Description.Id==entry.Form,
@@ -141,8 +141,8 @@ try
     // 实际发射后移动真实目标，共用追踪读取新位置，不只验证保存字段。
     owner.GetCultisys<Xian>().level=0;owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();
     starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();ResetPeople();Place(target,74);Place(other,12);moveOnEmission=true;
-    var homing=Build(homing:true);var tracking=Convert(homing,out _);Check(tracking.Root.Operations[0].Goal.Follow,"贯穿金针可改为普通目标追踪");
-    Check(Use(homing),"改轨迹的原已学入口受理");await Advance(1.2f);moveOnEmission=false;
+    var homing=Build(homing:true);var tracking=Convert(homing,out _);Check(tracking.Root.Operations.Any(operation=>operation.Goal?.Follow==true),"贯穿金针可改为普通目标追踪");
+    Check(Use(homing),"改轨迹的原已学入口受理");await Advance(tracking.Lifetime+.15f);moveOnEmission=false;
     Check(contacts.Count(c=>c.AbilityId==currentAsset.id&&c.TargetId==target.id)==1&&
         contacts.Where(c=>c.AbilityId==currentAsset.id).All(c=>c.Position.y>74f)&&accepted.All(c=>c.Finished),
         "实际出手后目标由74,72移至74,76，金针转向并命中新位置");
@@ -150,7 +150,7 @@ try
     ResetPeople();var failed=Build();int count=starts.Count;float before=owner.GetCultisys<Xian>().wakan;invalidate=true;
     Check(Use(failed,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排贯穿投射实际受理失败");await Advance(.25f);invalidate=false;
     Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f&&oldExecutions==0,
-        "实际受理失败原值退款且无新旧残留");scopeValid=true;ResetPeople();Check(Use(failed),"失败后同一来源恢复施放");await Advance(1.2f);
+        "实际受理失败原值退款且无新旧残留");scopeValid=true;ResetPeople();Check(Use(failed),"失败后同一来源恢复施放");await Advance(tracking.Lifetime+.15f);
     Check(accepted.All(c=>c.Finished),"恢复后正常结束");
     // 原飞剑仅核对受本次共用转换调整影响的正常路径，不重跑全部旧轨迹。
     currentAsset=SkillEntities.FlyingSword;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;ResetPeople();
