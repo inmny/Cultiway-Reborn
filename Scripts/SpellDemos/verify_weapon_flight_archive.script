@@ -1,0 +1,191 @@
+// 保存仍在运行的御器；从正式资料恢复原件、能力及冷却。
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+bool legacy = section == "legacy";
+var identityType = service.Assembly.GetType("Cultiway.Content.Persistence.WorldSaveIdentity");
+var getIdentity = typeof(Entity).GetMethods(F).Single(method => method.Name == "TryGetComponent" &&
+    method.IsGenericMethodDefinition && method.GetParameters().Length == 1).MakeGenericMethod(identityType);
+string Identity(Entity entity)
+{
+    object[] value = { null };
+    return (bool)getIdentity.Invoke(entity, value) ? (string)identityType.GetField("Id").GetValue(value[0]) : null;
+}
+JToken Snapshot(object value) => JToken.Parse(JsonConvert.SerializeObject(value));
+object Record(ActorExtend owner, Entity artifact)
+{
+    var relation = owner.E.GetRelation<EquippedArtifactRelation, Entity>(artifact);
+    return new
+    {
+        identity = Identity(artifact), settings = artifact.GetComponent<ArtifactAbilitySet>(),
+        appearance = artifact.GetComponent<ArtifactAppearance>(),
+        runtime = new { abilities = artifact.GetComponent<ArtifactAbilityRuntime>().abilities.Select(entry =>
+            new { entry.instance_id, entry.cooldown_until }) },
+        relation = new { mode = (int)relation.mode, state = (int)relation.state, relation.priority, relation.locked }
+    };
+}
+async Task Activate(Actor source, Actor target, Item bow, Entity sword, Entity array)
+{
+    var owner = source.GetExtend();
+    Check(Use(owner, ArtifactHandle(sword, swordId), target), "原飞剑从正式入口启动");
+    Check(Use(owner, ArtifactHandle(array, arrayId), source), "原件从正式入口启动分光剑阵");
+    Check(Use(owner, Bow(owner), target), "同一把原弓的御器请求受理");
+    await WaitFor(() => projectiles.Count > 0 && Flights() > 0 && Projections() > 0, 2f);
+    Check(projectiles.Count > 0 && Flights() == 1 && Projections() > 0 && ReferenceEquals(source.getWeapon(), bow) &&
+          sword.HasComponent<SkillExecutionBodyLease>() && !Entry(sword, swordId).active_execution.IsNull &&
+          !Entry(array, arrayId).active_execution.IsNull,
+        "原弓实际放箭、原剑离手和实际剑阵同时运行",
+        new { flights = Flights(), projectiles = projectiles.Count, blades = Projections() });
+}
+
+(Actor Source, Actor Target, Item Bow, Entity[] Artifacts) Restore(JObject expected)
+{
+    var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+    Check(report != null && report.BackupError == null &&
+          (legacy || report.Skipped.Count == 0), "正式恢复报告",
+        new { skipped = report?.Skipped, backupError = report?.BackupError });
+    Actor source = World.world.units.get((long)expected["source"]);
+    Actor target = World.world.units.get((long)expected["target"]);
+    Check(source != null && source.isAlive() && target != null && target.isAlive(), "读回原对练人物");
+    var owner = source.GetExtend();
+    Item bow = source.getWeapon();
+    if (!legacy)
+    {
+        var expectedBow = expected["bow"];
+        Check(bow != null && ReferenceEquals(bow, World.world.items.get((long)expectedBow["id"])) &&
+              bow.getAsset().id == (string)expectedBow["asset"] && bow.getDurabilityCurrent() == (int)expectedBow["durability"],
+            "原版原弓编号、装备位置与耐久读回");
+        float cooling = SkillCooldownService.GetRemaining(owner, Bow(owner).Source);
+        Check(cooling > 0f && Mathf.Abs(cooling - (float)expected["bowCooldown"]) < .20f,
+            "原弓剩余冷却读回", new { cooling, original = (float)expected["bowCooldown"] });
+    }
+    Check(Flights() == 0 && sessions.Count == 0 && projectiles.Count == 0 && Projections() == 0 &&
+          !ConstructedAbilityService.IsWeaponBorrowed(source) && !ConstructedAbilityService.HasWeaponControl(source),
+        "换世界或重启后无遗留弓影、箭雨、剑影或御器占用",
+        new { flights = Flights(), sessions = sessions.Count, projectiles = projectiles.Count, blades = Projections() });
+    var artifacts = new List<Entity>();
+    foreach (JObject row in expected["artifacts"])
+    {
+        string id = (string)row["identity"];
+        Entity artifact = owner.GetItems().Single(item => Identity(item) == id);
+        Check(owner.GetEquippedArtifacts().Contains(artifact) && !artifact.HasComponent<SkillExecutionBodyLease>(),
+            "原法宝留在原人物的库存及装备，临时本体占用清除", new { id });
+        var relation = owner.E.GetRelation<EquippedArtifactRelation, Entity>(artifact);
+        var wanted = row["relation"];
+        Check((int)relation.mode == (int)wanted["mode"] && relation.locked == (bool)wanted["locked"] &&
+              relation.priority == (int)wanted["priority"] && (!legacy || (int)relation.state == (int)wanted["state"]) &&
+              JToken.DeepEquals(Snapshot(artifact.GetComponent<ArtifactAbilitySet>()),
+                Snapshot(row["settings"].ToObject<ArtifactAbilitySet>())) &&
+              JToken.DeepEquals(Snapshot(artifact.GetComponent<ArtifactAppearance>()),
+                Snapshot(row["appearance"].ToObject<ArtifactAppearance>())),
+            "原件的装备设置、完整能力参数和外观读回", new { id });
+        var runtime = artifact.GetComponent<ArtifactAbilityRuntime>().abilities;
+        var expectedRuntime = row["runtime"]["abilities"];
+        Check(runtime.Length == expectedRuntime.Count() && runtime.All(entry =>
+        {
+            var old = expectedRuntime.Single(value => (string)value["instance_id"] == entry.instance_id);
+            return entry.active_execution.IsNull && entry.activity_kind != ArtifactAbilityActivityKind.SkillExecution &&
+                Math.Abs(entry.cooldown_until - (double)old["cooldown_until"]) < .002;
+        }), "原能力冷却保持，临时施法取消", new
+        {
+            id, runtime = runtime.Select(entry => new { entry.instance_id, entry.cooldown_until, entry.activity_kind })
+        });
+        artifacts.Add(artifact);
+    }
+    return (source, target, bow, artifacts.ToArray());
+}
+
+try
+{
+    if (section == "prepare")
+    {
+        Actor source = Make(64.35f), target = Make(66.55f, "wolf");
+        var owner = source.GetExtend();
+        owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+        await Setup(source, target);
+        var bow = World.world.items.generateItem(AssetManager.items.get("bow_iron"), pActor: source);
+        source.equipment.setItem(bow, source);
+        source.setStatsDirty();
+        source.updateStats();
+        Entity sword = MakeArtifact(owner, swordId, ArtifactAtoms.SwordEdge, ArtifactAtoms.Iron);
+        Entity array = MakeArtifact(owner, arrayId, ArtifactAtoms.SwordSwarm, ArtifactAtoms.Iron, ArtifactAtoms.VoidSilk,
+            ArtifactAtoms.SpatialFold, ArtifactAtoms.ResonanceRings, ArtifactAtoms.LayeredRealmMark);
+        ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+        lifecycle.Invoke(null, new object[] { sword });
+        lifecycle.Invoke(null, new object[] { array });
+        await Game.NextFrame();
+        await Activate(source, target, bow, sword, array);
+        float bowCooldown = SkillCooldownService.GetRemaining(owner, Bow(owner).Source);
+        double now = World.world.getCurWorldTime();
+        Check(bowCooldown > 0f && Entry(sword, swordId).cooldown_until > now && Entry(array, arrayId).cooldown_until > now,
+            "保存时三个原有冷却都仍有效");
+        World.world.units.checkContainer();
+        World.world.items.checkLists();
+        foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+        CombatStatusEffects.RemoveStatus(source, boost);
+        Check(World.world.units.getSimpleList().Contains(source) && World.world.units.getSimpleList().Contains(target) &&
+              World.world.items.list.Contains(bow), "真实人物和原弓已在原版保存列表");
+        string path = Path.Combine(folder, "archive");
+        SaveManager.saveWorldToDirectory(path);
+        Check(File.Exists(Path.Combine(path, "map.wbox")) && Identity(sword) != null && Identity(array) != null,
+            "真实施放进行中写入原版正式世界");
+        var expected = (JObject)Snapshot(new
+        {
+            process, source = source.id, target = target.id, bow = new { id = bow.id, asset = bow.getAsset().id,
+                durability = bow.getDurabilityCurrent() }, bowCooldown,
+            artifacts = new[] { Record(owner, sword), Record(owner, array) }
+        });
+        File.WriteAllText(Path.Combine(folder, "expected.json"), expected.ToString(Formatting.Indented));
+
+        ControllableUnit.clear(false);
+        World.world.save_manager.loadWorld(path);
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        Restore(expected);
+        return new { passed = true, process, archive = path };
+    }
+
+    Check(process != (int)saved["process"], "正式档由全新游戏进程读取", new { process, original = saved["process"] });
+    var restored = Restore(saved);
+    var caster = restored.Source;
+    var foe = restored.Target;
+    var actorExtend = caster.GetExtend();
+    var restoredSword = restored.Artifacts[0];
+    await Setup(caster, foe);
+
+    if (legacy)
+    {
+        ArtifactEquipmentTools.SetArtifactEquipMode(actorExtend, restoredSword, ArtifactEquipMode.ForcedOperating);
+        ArtifactLoadoutPlanner.Refresh(actorExtend, false, 0);
+        lifecycle.Invoke(null, new object[] { restoredSword });
+        int health = foe.data.health;
+        Check(Use(actorExtend, ArtifactHandle(restoredSword, swordId), foe) &&
+              restoredSword.HasComponent<SkillExecutionBodyLease>(), "从旧档中的同一把原剑正式起飞");
+        await WaitFor(() => foe.data.health < health, 3f);
+        Check(foe.data.health < health, "旧档原剑按原资料实际命中",
+            new { health, remaining = foe.data.health, identity = Identity(restoredSword) });
+        Check(ArtifactAbilityLifecycle.Recall(restoredSword, Definition(restoredSword, swordId).instance_id),
+            "正式召回旧档原剑");
+        await WaitFor(() => !restoredSword.HasComponent<SkillExecutionBodyLease>(), 2f);
+        Check(!restoredSword.HasComponent<SkillExecutionBodyLease>() && actorExtend.GetItems().Contains(restoredSword),
+            "旧档原剑归还到原持有人");
+    }
+    else
+    {
+        Entity restoredArray = restored.Artifacts[1];
+        double ready = Math.Max(Entry(restoredSword, swordId).cooldown_until, Entry(restoredArray, arrayId).cooldown_until);
+        float wait = Math.Max((float)(ready - World.world.getCurWorldTime()),
+            SkillCooldownService.GetRemaining(actorExtend, Bow(actorExtend).Source));
+        await Advance(Mathf.Max(.1f, wait + .15f));
+        Place(caster, 64.35f);
+        Place(foe, 66.55f);
+        await Activate(caster, foe, restored.Bow, restoredSword, restoredArray);
+    }
+    return new { passed = true, process, section };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+}

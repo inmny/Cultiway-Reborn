@@ -51,34 +51,40 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
             if (!config.Enabled || (!config.Actor && !config.Building)) return;
             if (entity.TryGetComponent(out MotionParams motion) && motion.HasHeightGate && pos.z > motion.HeightGateMax) return;
 
-            float radius = SkillEffectRadius.Resolve(entity, collider.Radius);
-            var current = pos.value;
-            var start = entity.TryGetComponent(out PrevPosition previous)
-                ? new Vector3(previous.Value.x, previous.Value.y, previous.Height)
-                : current;
-            var end = current;
-            if (entity.TryGetComponent(out ColliderLinearExtent extent))
-            {
-                Vector3 direction = extent.UseEntityRotation || ((Vector2)(end - start)).sqrMagnitude <= .0001f
-                    ? entity.GetComponent<Rotation>().value
-                    : end - start;
-                float horizontal = ((Vector2)direction).magnitude;
-                direction = horizontal > .0001f ? direction / horizontal : Vector3.zero;
-                if (extent.UseEntityRotation) start = end = current;
-                start -= direction * Mathf.Max(0f, extent.Backward);
-                end += direction * Mathf.Max(0f, extent.Forward);
-            }
+            bool movingBody = entity.TryGetComponent(out ColliderSweptBody body);
+            float size = SkillEffectRadius.Resolve(entity, movingBody ? 1f : collider.Radius);
+            AbilityCapsule before = movingBody ? body.Before(size) : FlightPath(entity, pos.value, size);
+            AbilityCapsule after = movingBody ? body.After(size) : before;
 
             int first = _pendingHits.Count;
             Kingdom kingdom = context.ResolveAttackKingdom();
-            if (config.Actor) QueueActorHits(entity, ref context, ref config, start, end, radius, kingdom);
-            if (config.Building) QueueBuildingHits(entity, ref context, ref config, start, end, radius, kingdom);
+            if (config.Actor) QueueActorHits(entity, ref context, ref config, before, after, movingBody, kingdom);
+            if (config.Building) QueueBuildingHits(entity, ref context, ref config, before, after, movingBody, kingdom);
             // 原来按横格、纵格扫描，同格建筑在前；空间索引的内部顺序不应左右消耗结果。
             if (_pendingHits.Count - first > 1)
                 _pendingHits.Sort(first, _pendingHits.Count - first, PendingHit.TileOrder);
         });
 
         ResolvePendingHits();
+    }
+
+    /// <summary>只有点位置的既有法术沿本轮中心路径确认接触。</summary>
+    private static AbilityCapsule FlightPath(Entity entity, Vector3 position, float radius)
+    {
+        var start = entity.TryGetComponent(out PrevPosition previous)
+            ? new Vector3(previous.Value.x, previous.Value.y, previous.Height) : position;
+        var end = position;
+        if (entity.TryGetComponent(out ColliderLinearExtent extent))
+        {
+            Vector3 direction = extent.UseEntityRotation || ((Vector2)(end - start)).sqrMagnitude <= .0001f
+                ? entity.GetComponent<Rotation>().value : end - start;
+            float horizontal = ((Vector2)direction).magnitude;
+            direction = horizontal > .0001f ? direction / horizontal : Vector3.zero;
+            if (extent.UseEntityRotation) start = end = position;
+            start -= direction * Mathf.Max(0f, extent.Backward);
+            end += direction * Mathf.Max(0f, extent.Forward);
+        }
+        return new AbilityCapsule(0, start, end, radius, null);
     }
 
     /// <summary>从真实世界人物计算平面包围范围，大目标按实际宽度跨格登记。</summary>
@@ -109,30 +115,33 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
     /// <param name="entity">本次技能实例。</param>
     /// <param name="context">来源和点名目标。</param>
     /// <param name="config">命中规则。</param>
-    /// <param name="start">原相对高度的扫掠起点。</param>
-    /// <param name="end">原相对高度的扫掠终点。</param>
-    /// <param name="radius">技能声明的厚度。</param>
+    /// <param name="before">原相对高度的前一轮形状。</param>
+    /// <param name="after">原相对高度的本轮形状。</param>
+    /// <param name="movingBody">是否具有实际尺寸和运动的器物。</param>
     /// <param name="kingdom">本次攻击阵营。</param>
     private void QueueActorHits(Entity entity, ref SkillContext context, ref ColliderConfig config,
-        Vector3 start, Vector3 end, float radius, Kingdom kingdom)
+        AbilityCapsule before, AbilityCapsule after, bool movingBody, Kingdom kingdom)
     {
         if (!_actorsCaptured) CaptureActorTargets();
-        var sweep = new AbilityCapsule(0, start, end, radius, null);
-        _actorIndex.Query(OnPlane(AbilityContactIndex.Swept(sweep, sweep)), _nearbyActors);
+        Bounds bounds = AbilityContactIndex.Swept(before, after);
+        _actorIndex.Query(OnPlane(bounds), _nearbyActors);
         if (_nearbyActors.Count == 0) return;
 
         AbilityHeightField terrain = null;
         if (ConstructedAbilityService.GroundProvider != null)
         {
-            Vector2 min = Vector2.Min(start, end), max = Vector2.Max(start, end);
+            Vector2 min = bounds.min, max = bounds.max;
             foreach (int index in _nearbyActors)
             {
                 Vector2 foot = _actorTargets[index].Foot;
                 min = Vector2.Min(min, foot); max = Vector2.Max(max, foot);
             }
             terrain = ConstructedAbilityService.GroundProvider(Rect.MinMaxRect(min.x - 1, min.y - 1, max.x + 1, max.y + 1));
-            start.z += terrain?.Sample(start.x, start.y) ?? 0f;
-            end.z += terrain?.Sample(end.x, end.y) ?? 0f;
+            if (terrain != null)
+            {
+                before = AtTerrain(before, terrain);
+                after = movingBody ? AtTerrain(after, terrain) : before;
+            }
         }
         foreach (int index in _nearbyActors)
         {
@@ -140,39 +149,61 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
             if (!CanHit(ref context, ref config, kingdom, target.Actor)) continue;
             var foot = target.Absolute ? target.Foot : ConstructedAbilityService.WorldFoot(target.Actor, target.Foot, terrain);
             var body = ActorHitBoundary.Create(foot, target.Height, target.Torso);
-            AbilityPairSweep.Closest(start, end, body.A, body.B, out var pathPoint, out var bodyPoint);
-            float limit = radius + body.Radius + .00001f;
-            if ((pathPoint - bodyPoint).sqrMagnitude <= limit * limit)
-                _pendingHits.Add(new PendingHit(entity, target.Actor));
+            if (movingBody ? AbilityPairSweep.Find(before, after, body, body, out _, out _, out _) :
+                Touches(before, body)) _pendingHits.Add(new PendingHit(entity, target.Actor));
         }
+    }
+
+    private static AbilityCapsule AtTerrain(in AbilityCapsule body, AbilityHeightField terrain)
+    {
+        Vector3 a = body.A, b = body.B;
+        a.z += terrain.Sample(a.x, a.y);
+        b.z += terrain.Sample(b.x, b.y);
+        return new AbilityCapsule(0, a, b, body.Radius, null);
+    }
+
+    private static bool Touches(in AbilityCapsule path, in AbilityCapsule actor)
+    {
+        AbilityPairSweep.Closest(path.A, path.B, actor.A, actor.B, out var pathPoint, out var actorPoint);
+        float limit = path.Radius + actor.Radius + .00001f;
+        return (pathPoint - actorPoint).sqrMagnitude <= limit * limit;
     }
 
     /// <summary>建筑继续用自身的旧平面碰撞范围和格子登记。</summary>
     /// <param name="entity">本次技能实例。</param>
     /// <param name="context">来源和点名目标。</param>
     /// <param name="config">命中规则。</param>
-    /// <param name="start">扫掠起点。</param>
-    /// <param name="end">扫掠终点。</param>
-    /// <param name="radius">技能声明的厚度。</param>
+    /// <param name="before">前一轮形状。</param>
+    /// <param name="after">本轮形状。</param>
+    /// <param name="movingBody">是否具有实际尺寸和运动的器物。</param>
     /// <param name="kingdom">本次攻击阵营。</param>
     private void QueueBuildingHits(Entity entity, ref SkillContext context, ref ColliderConfig config,
-        Vector2 start, Vector2 end, float radius, Kingdom kingdom)
+        AbilityCapsule before, AbilityCapsule after, bool movingBody, Kingdom kingdom)
     {
         const float buildingScanPadding = 3f;
-        Vector2 padding = (radius + buildingScanPadding) * Vector2.one;
-        var lower = Vector2Int.FloorToInt(Vector2.Min(start, end) - padding);
-        var upper = Vector2Int.CeilToInt(Vector2.Max(start, end) + padding);
+        Bounds bounds = AbilityContactIndex.Swept(before, after);
+        Vector2 padding = buildingScanPadding * Vector2.one;
+        var lower = Vector2Int.FloorToInt((Vector2)bounds.min - padding);
+        var upper = Vector2Int.CeilToInt((Vector2)bounds.max + padding);
         var limit = new Vector2Int(MapBox.width - 1, MapBox.height - 1);
         lower.Clamp(Vector2Int.zero, limit);
         upper.Clamp(Vector2Int.zero, limit);
+        if (movingBody)
+        {
+            before = new AbilityCapsule(0, (Vector2)before.A, (Vector2)before.B, before.Radius, null);
+            after = new AbilityCapsule(0, (Vector2)after.A, (Vector2)after.B, after.Radius, null);
+        }
         for (int x = lower.x; x <= upper.x; x++)
         for (int y = lower.y; y <= upper.y; y++)
         {
             Building building = World.world.GetTileSimple(x, y).building;
             if (!CanHit(ref context, ref config, kingdom, building) ||
                 !_framePairs.Add(new CollisionPair(entity.Id, GetTargetKey(building)))) continue;
-            float buildingRadius = radius + Mathf.Max(1f, building.stats[strings.S.size]);
-            if (SegmentIntersectsCircle(start, end, building.current_position, buildingRadius))
+            float buildingSize = Mathf.Max(1f, building.stats[strings.S.size]);
+            Vector3 floor = building.current_position;
+            var buildingBody = new AbilityCapsule(0, floor, floor, buildingSize, null);
+            if (movingBody ? AbilityPairSweep.Find(before, after, buildingBody, buildingBody, out _, out _, out _) :
+                SegmentIntersectsCircle(before.A, before.B, floor, before.Radius + buildingSize))
                 _pendingHits.Add(new PendingHit(entity, building));
         }
     }

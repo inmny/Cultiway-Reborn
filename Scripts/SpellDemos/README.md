@@ -2137,7 +2137,7 @@ python3 Scripts/SpellDemos/demo_spell.py TidalWave --cases base --view native --
 
 ### 9.04 线状效果与表面接缝
 
-在独立游戏运行 `dev.py exec --timeout 260 -- python3 Scripts/SpellDemos/verify_visual_cleanup.py --section weapons`，检查同一把铁剑的扫击与突刺、原碰撞宽度、超距拒绝、命中和归还，以及原版和 Worldfall 图片。只补突刺用 `--section thrust`。`--section materials` 复用原正式水幕、岩脊及雷矛，保存近远和三维斜视；`--section seams` 只比较带泡沫的水面及岩面在展开坐标两侧的真实输出。复用 `verify_chain.py --section appearance` 核对连锁雷击。各段独立保存输入、检查记录和实机画面。
+在独立游戏运行 `dev.py exec --timeout 260 -- python3 Scripts/SpellDemos/verify_visual_cleanup.py --section materials`，复用正式水幕、岩脊及雷矛，保存近远和三维斜视。用 `--section seams` 比较水面泡沫及岩面在展开坐标两侧的真实输出。复用 `verify_chain.py --section appearance` 核对连锁雷击。近战御器随 10.04 改用实际兵器外形和下方的新复验入口。
 
 短片复验：`dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/demo_spell.py WaterCurtain --cases base --view native --zoom 22 --fps 15 --duration 2.2 --output <本次验收目录>`。
 
@@ -2757,3 +2757,19 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 七种修炼主动能力实录（10.02）
 
 独立游戏就绪后运行 `dev.py exec --timeout 900 -- python3 Scripts/SpellDemos/record_formation_reels.py --output <实录目录>`。脚本依次使用七个真实主动入口，在两种视角分别生成连续片段、含章节的合辑与原片索引。用 `--view native` 或 `--view worldfall` 限定视角，已有原片可用 `--encode-only` 重新合成。
+
+### 御器的真实器物与原版弹丸（10.04）
+
+在独立游戏用 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_native_projectile_flight.py` 复验远程御器的原版弹丸。核对真实逐发支付、原版轨道与三维显示一致、换武器停止续射、弹丸复用及换世界清理。
+
+在同一入口加 `--section bow` 检查原弓离手、逐发从实际弓位放箭、随人物移动回手和首发前换同款弓。用 `--section bow-world` 单独检查升弓期间换世界，确认旧弓飞行和施放会话都已清理。默认入口也检查有在飞的代理箭矢时换世界。
+
+用 `--section melee` 检查原铁枪离手后的枪线接触、连续按次付费、移步后回手和同款换装中断。用 `--section melee-sweep` 与 `--section melee-crush` 分别核对实际铁剑横扫和铁锤重砸；两段复用同一套人物和世界。
+
+用 `--section artifact-sword` 从正式合成和装备入口检查原飞剑。记录原位起飞、两个视角共用姿态、刃段实际扣血、失去目标后巡航、召回过程中停伤、回到移动后的持有者，以及重新出剑后的控制失效清理。
+
+用 `--section artifact-array` 检查正式分光剑阵的一次付费、成阵、实际单刃接触、同一刃归阵和自然收束。用 `--section artifact-array-recall` 单独检查主动收阵立即停伤、全部剑影回到原物位置、再次施放及运行资格撤除后的清理。
+
+用 `dev.py exec --timeout 170 -- python3 Scripts/SpellDemos/verify_weapon_flight_archive.py --section prepare`，让原弓、飞剑和分光剑阵同时运行，正式保存并在同一进程换世界。退出并重新启动后，用同一脚本的 `--section cold --archive <prepare 输出目录>`，核对原件、完整参数、冷却、临时对象清理和再次施放。`--section legacy --archive <5.15 留下的 variant-save 目录>` 从原档本身提取预期，再用原法宝命中并召回。
+
+连续实录使用 `dev.py exec --timeout 600 -- python3 Scripts/SpellDemos/record_weapon_flight.py --view native|worldfall --output <录像目录>`。原版用未安装 Worldfall 的独立游戏，三维用已安装 Worldfall 的独立游戏。可重复传入 `--move arrow-rain|sky-volley|sweep|thrust|crush|flying-sword|sword-array` 只补指定招式，同一视角可续写到同一目录。七段齐备后生成 `all.mp4`，每段和合辑均按实际世界时间播放。`--encode-only <原始画面目录>` 可直接从已通过的实机画面再编码。

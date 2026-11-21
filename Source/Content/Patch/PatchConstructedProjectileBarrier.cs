@@ -1,3 +1,4 @@
+using Cultiway.Content.Combat;
 using Cultiway.Content.Skills;
 using HarmonyLib;
 using UnityEngine;
@@ -18,8 +19,11 @@ internal static class PatchConstructedProjectileBarrier
     /// <summary>原版每次出生、反弹和反射都重新确定来源。</summary>
     /// <param name="__instance">实际弹丸。</param><param name="pInitiator">本次确定的原版来源。</param>
     [HarmonyPostfix, HarmonyPatch(typeof(Projectile), "start")]
-    private static void Start(Projectile __instance, BaseSimObject pInitiator) =>
+    private static void Start(Projectile __instance, BaseSimObject pInitiator)
+    {
         ConstructedAbilityService.RememberProjectile(__instance, pInitiator);
+        NativeProjectileFlights.Started(__instance);
+    }
 
     /// <summary>采用原版重力积分预测本步，命中时先写回真实撞点再执行原碰撞。</summary>
     /// <param name="__instance">真实弹丸。</param><param name="pElapsed">本步世界秒数。</param>

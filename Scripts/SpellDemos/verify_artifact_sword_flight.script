@@ -1,0 +1,197 @@
+// 10.04：正式原剑开始的位置、可见刃段、接触、巡航、召回及重新出剑。
+Actor source = Make(64.35f), target = Make(72f, "wolf");
+ActorExtend owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+var boost = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ArtifactSword") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ArtifactSword")
+        .SetStats(new BaseStats { [BaseStatses.MaxWakan.id] = 10000,
+            [nameof(Cultiway.WorldboxGame.BaseStats.DivineSense)] = 10000 })
+        .SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, boost, 10000, source);
+owner.MarkCultiwayStatsDirty();
+Ready(source);
+source.attack_timer = 999f;
+await Advance(.16f);
+Place(source, 64.35f);
+Place(target, 72f);
+source.addAggro(target); target.addAggro(source);
+target.restoreHealth(target.getMaxHealth());
+
+var design = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Sword, Atoms = new[] { ArtifactAtoms.SwordEdge, ArtifactAtoms.Iron },
+    Level = new ItemLevel { Stage = 1, Level = 3 }, Name = "原物飞剑验证"
+});
+var blueprint = ArtifactBlueprintCodec.FromComposeResult(design);
+var ability = blueprint.AbilitySet.abilities.Single(value => value.ability_id == ArtifactAbilities.FlyingSwordAttack.id);
+blueprint.AbilitySet = new ArtifactAbilitySet { abilities = new[] { ability } };
+Entity artifact = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+owner.AddSpecialItem(artifact);
+Check(owner.EquipArtifact(artifact, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "原能力随正式制作和装备的同一件法宝取得");
+ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+typeof(ArtifactAbilityLifecycle).GetMethod("Synchronize", F).Invoke(null, new object[] { artifact });
+await Game.NextFrame();
+await Game.NextFrame();
+
+var handle = new ActiveAbilityHandle("content.artifact", artifact, ability.instance_id);
+var renderer = typeof(ArtifactAppearanceRenderer);
+var visuals = service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem").GetField("Meshes", F);
+var follower = service.Assembly.GetType("Cultiway.Content.Systems.Logic.ArtifactManifestationSystem");
+bool Borrowed() => artifact.HasComponent<SkillExecutionBodyLease>();
+Entity Lease() => artifact.GetComponent<SkillExecutionBodyLease>().execution;
+bool Held() => owner.GetItems().Contains(artifact) && ArtifactEquipmentTools.IsArtifactEquipped(owner, artifact);
+object Pose()
+{
+    object[] args = { artifact, null };
+    if (!(bool)renderer.GetMethod("TryGetSpatialPose", F).Invoke(null, args))
+        throw new InvalidOperationException("原法宝缺实际空间模型");
+    return args[1];
+}
+Vector3 Point(object pose) => (Vector3)Field(pose, "Position");
+Vector3 Vertex(object pose, Vector3 local) => Point(pose) +
+    (Quaternion)Field(pose, "Rotation") * Vector3.Scale(local, (Vector3)Field(pose, "Scale"));
+Vector3 FollowerPoint()
+{
+    object[] args = { source, artifact, null };
+    if (!(bool)follower.GetMethod("TryResolveFollowerPose", F).Invoke(null, args))
+        throw new InvalidOperationException("原装备缺随身位置");
+    var world = (Vector3)Field(args[2], "position");
+    return (Vector3)renderer.GetMethod("FollowerSpatialPosition", F)
+        .Invoke(null, new object[] { artifact, source, world, null, null });
+}
+bool Use()
+{
+    source.attack_timer = 0f;
+    bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()),
+        ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999f;
+    return used;
+}
+async Task Until(Func<bool> ready)
+{
+    Config.paused = false;
+    await Game.WaitUntil(ready, 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+var sweptType = service.Assembly.GetType("Cultiway.Core.SkillLibV3.Components.ColliderSweptBody");
+var readSwept = typeof(Entity).GetMethods(F).Single(method => method.Name == "TryGetComponent" && method.IsGenericMethod)
+    .MakeGenericMethod(sweptType);
+AbilityCapsule Blade(Entity execution)
+{
+    object[] args = { null };
+    if (!(bool)readSwept.Invoke(execution, args)) throw new InvalidOperationException("没有实际双端扫掠");
+    return (AbilityCapsule)sweptType.GetMethod("After", F).Invoke(args[0], new object[] { 1f });
+}
+var impacts = new List<(Vector3 Start, Vector3 End, Vector3 VisibleStart, Vector3 VisibleEnd, float Height, float Radius)>();
+void Contact(Entity execution, BaseSimObject hit)
+{
+    if (hit != target || !Borrowed() || Lease() != execution) return;
+    var pose = Pose();
+    var blade = Blade(execution);
+    var motion = execution.GetComponent<ArtifactSpatialAttackMotion>();
+    var shape = Field(motion, "geometry");
+    impacts.Add((blade.A, blade.B, Vertex(pose, (Vector3)Field(shape, "Start")), Vertex(pose, (Vector3)Field(shape, "End")),
+        target.position_height, blade.Radius));
+}
+
+SkillHitResolver.ContactResolved += Contact;
+try
+{
+    var camera = World.world.camera;
+    camera.transform.position = new Vector3(68f, 72f, camera.transform.position.z);
+    MoveCamera.instance.forceZoom(17f);
+    object parked = Pose();
+    float wakan = owner.GetCultisys<Xian>().wakan;
+    int health = target.data.health;
+    Check(Use() && Borrowed() && Held() && Mathf.Abs(wakan - owner.GetCultisys<Xian>().wakan) < .0001f,
+        "正式起飞保留当前原物及原有费用");
+    Entity execution = Lease();
+    var launched = Pose();
+    Check(SkillExecutionLifecycle.TryGetPrimaryBody(execution, out Entity primary) && primary == artifact &&
+        (bool)Field(launched, "DrawNative") && Vector3.Distance(Point(parked), Point(launched)) < .003f &&
+        Vector3.Distance((Vector3)Field(parked, "Scale"), (Vector3)Field(launched, "Scale")) < .003f && !Use(),
+        "从随身原位接手，运行期间拒绝再次借用", new
+        { parked = Point(parked).ToString(), launched = Point(launched).ToString(), artifact = artifact.Id });
+    await Advance(.1f);
+    await Game.NextFrame();
+    object flying = Pose();
+    var drawn = ((IEnumerable)visuals.GetValue(null)).Cast<object>()
+        .Where(value => ReferenceEquals(Field(value, "Model"), Field(flying, "Model")) &&
+                        Vector3.Distance(Point(value), Point(flying)) < .002f).ToArray();
+    Check(Vector3.Distance(Point(flying), Point(parked)) > .1f && drawn.Length == 1 &&
+        (bool)Field(drawn[0], "DrawNative") && Mathf.Abs(Point(flying).z - Point(parked).z) > .025f,
+        "离手后两视角采样同一实体的三维飞行",
+        new { actual = Point(flying).ToString(), snapshots = drawn.Length });
+    double seekUntil = World.world.getCurWorldTime() + 3.0;
+    double nextSample = 0;
+    var pursuit = new List<object>();
+    await Until(() =>
+    {
+        double now = World.world.getCurWorldTime();
+        if (now >= nextSample && !execution.IsNull)
+        {
+            nextSample = now + .10;
+            var edge = Blade(execution);
+            var motion = execution.GetComponent<ArtifactSpatialAttackMotion>();
+            pursuit.Add(new { phase = motion.phase.ToString(), blade = edge.B.ToString(),
+                target = target.GetSimPos().ToString(), speed = motion.current_speed });
+        }
+        return impacts.Count > 0 || now >= seekUntil || execution.IsNull;
+    });
+    Check(impacts.Count > 0, "飞剑追到实际目标",
+        new { target = target.GetSimPos().ToString(), sampled = pursuit.ToArray() });
+    await Advance(.1f);
+    var first = impacts[0];
+    Check(target.data.health < health && first.Radius > 0 &&
+        Vector3.Distance(first.Start, first.VisibleStart) < .003f &&
+        Vector3.Distance(first.End, first.VisibleEnd) < .003f &&
+        Mathf.Abs(first.End.z - first.Height) < 1f,
+        "实际刃段对应可见剑体，接触后实际扣血",
+        new { bladeStart = first.Start.ToString(), bladeEnd = first.End.ToString(), first.Radius,
+            first.Height, health, remaining = target.data.health });
+
+    Place(target, 104f);
+    await Until(() => execution.GetComponent<ArtifactSpatialAttackMotion>().phase == ArtifactSpatialAttackPhase.Cruising);
+    Vector3 patrol = Point(Pose());
+    await Advance(.17f);
+    Check(Borrowed() && execution.GetComponent<ArtifactSpatialAttackMotion>().phase == ArtifactSpatialAttackPhase.Cruising &&
+        Vector3.Distance(Point(Pose()), patrol) > .05f,
+        "目标失去后保持原剑巡航", new { from = patrol.ToString(), later = Point(Pose()).ToString() });
+
+    int strikes = impacts.Count, remaining = target.data.health;
+    Vector3 recallFrom = Point(Pose());
+    Check(ArtifactAbilityLifecycle.Recall(artifact, ability.instance_id) && Borrowed() &&
+        !execution.GetComponent<ColliderConfig>().Enabled && !ArtifactAbilityLifecycle.Recall(artifact, ability.instance_id),
+        "正式召回立即关闭接触，仍由本次飞行带回原物");
+    Place(source, 66.7f, 72.4f);
+    Place(target, 70f, 72.4f);
+    await Until(() => !Borrowed());
+    Vector3 returned = Point(Pose()), slot = FollowerPoint();
+    Check(Held() && impacts.Count == strikes && target.data.health == remaining &&
+        Vector3.Distance(returned, slot) < .12f && Vector3.Distance(returned, recallFrom) > 1f &&
+        !(bool)Field(Pose(), "DrawNative"), "原剑归还到移动后随身槽，途中无伤害",
+        new { recallFrom = recallFrom.ToString(), returned = returned.ToString(), slot = slot.ToString() });
+
+    var entry = artifact.GetComponent<ArtifactAbilityRuntime>().abilities.Single();
+    await Advance(Mathf.Max(0f, (float)(entry.cooldown_until - World.world.getCurWorldTime())) + .1f);
+    Check(Use() && Borrowed() && SkillExecutionLifecycle.TryGetPrimaryBody(Lease(), out primary) && primary == artifact,
+        "归还及原冷却结束后可重新使用同一件法宝");
+    Entity again = Lease();
+    await Advance(.06f);
+    ArtifactEquipmentTools.SetArtifactEquipMode(owner, artifact, ArtifactEquipMode.Standby);
+    ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+    await Until(() => !Borrowed());
+    Check(Held() && (again.IsNull || again.GetComponent<SkillExecution>().end_requested),
+        "撤出运行状态时解除本体，原物仍在库存与装备中");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, contacts = impacts.Count };
+}
+finally
+{
+    Config.paused = true;
+    SkillHitResolver.ContactResolved -= Contact;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+}

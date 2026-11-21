@@ -1,0 +1,337 @@
+// 同一对练场地，连续采样实际画面、费用、放箭/命中及回收。
+Actor source = Make(64.35f), target = Make(66.55f, "wolf");
+ActorExtend owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+await Setup(source, target);
+
+bool threeDimensional = view == "worldfall";
+var worldfall = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false))
+    .FirstOrDefault(type => type != null);
+object mod = worldfall?.GetProperty("Instance", F).GetValue(null);
+if (threeDimensional) Check(mod != null, "当前独立游戏已经加载 Worldfall");
+object Get(object value, string name) => value.GetType().GetProperty(name, F)?.GetValue(value) ?? Field(value, name);
+void Set(string name, object value) => worldfall.GetField(name, F).SetValue(mod, value);
+var settings = mod == null ? null : Get(mod, "Settings");
+var timeMode = settings?.GetType().GetField("TimeMode", F);
+object priorMode = timeMode?.GetValue(settings);
+var clock = Config.time_scale_asset;
+float originalSpeed = clock.multiplier;
+Camera camera = World.world.camera;
+var originalPosition = camera.transform.position;
+Vector3 shotPosition = originalPosition;
+float shotZoom = camera.orthographicSize;
+var native = threeDimensional ? null : new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32);
+native?.Create();
+Texture2D reader = null;
+var flightValues = flights.GetType().GetProperty("Values", F);
+var projectilePosition = typeof(Projectile).GetField("_current_position_3d", F);
+var mutationField = typeof(WakanResourceService).GetField("mutationCommitted", F);
+var priorMutations = mutationField.GetValue(null);
+var damageField = typeof(ActorExtend).GetField("action_on_damage_resolved", F);
+var priorDamage = damageField.GetValue(null);
+var fees = new List<float>();
+var events = new List<object>();
+string mode = "";
+int emissions = 0, hits = 0;
+var completed = new List<string>();
+var projectilesSeen = new HashSet<Projectile>();
+ActiveAbilityHandle handle = default;
+void Paid(ActorExtend from, in WakanMutation mutation)
+{
+    if (from != owner || mutation.Kind != WakanMutationKind.Spend) return;
+    fees.Add(-mutation.Delta);
+    events.Add(new { kind = "spend", time = World.world.getCurWorldTime(), amount = -mutation.Delta });
+}
+void Damage(ActorExtend victim, BaseSimObject attacker, float amount, ElementComposition element, AttackType type)
+{
+    if (victim.Base != target || attacker != source || amount <= 0) return;
+    hits++;
+    events.Add(new { kind = "hit", time = World.world.getCurWorldTime(), amount, type = type.ToString() });
+}
+void Emitted(Entity entity)
+{
+    if (handle.ProviderId != bowProvider || entity.GetComponent<SkillEntity>().SkillContainer != handle.Source) return;
+    emissions++;
+    events.Add(new { kind = "emission", time = World.world.getCurWorldTime() });
+}
+void SetCentre(Vector2 centre, float zoom, float distance, float tip)
+{
+    shotPosition = new Vector3(centre.x, centre.y + .25f, originalPosition.z);
+    shotZoom = zoom;
+    camera.transform.position = shotPosition;
+    MoveCamera.instance.forceZoom(zoom);
+    if (!threeDimensional) return;
+    Set("_godCamWas", camera.transform.position);
+    Set("_godCamSet", true);
+    Set("_godLock", null);
+    Set("_godFollow", centre);
+    Set("_godFollowVel", Vector2.zero);
+    Set("_godClose", distance);
+    Set("_godCloseTarget", distance);
+    Set("_godPull", 1f);
+    Set("_godTurn", .10f);
+    Set("_godTurnRate", 0f);
+    Set("_godTip", tip);
+    Set("_godTipRate", 0f);
+    Set("_godHoming", false);
+}
+async Task Published()
+{
+    if (threeDimensional)
+    {
+        int version = (int)Field(mod, "_godGpuApplied");
+        await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= version + 2, 1800);
+    }
+    else await Game.NextFrame();
+}
+void Capture(string path)
+{
+    var previous = RenderTexture.active;
+    var previousTarget = camera.targetTexture;
+    var previousPosition = camera.transform.position;
+    float previousZoom = camera.orthographicSize;
+    RenderTexture image = native;
+    try
+    {
+        if (threeDimensional) image = (RenderTexture)Get(Get(mod, "GpuRendererForTest"), "Output");
+        else
+        {
+            camera.transform.position = shotPosition;
+            camera.orthographicSize = shotZoom;
+            camera.targetTexture = native;
+            camera.Render();
+        }
+        if (reader == null) reader = new Texture2D(image.width, image.height, TextureFormat.RGBA32, false);
+        RenderTexture.active = image;
+        reader.ReadPixels(new Rect(0, 0, image.width, image.height), 0, 0);
+        reader.Apply();
+        File.WriteAllBytes(path, reader.EncodeToPNG());
+    }
+    finally
+    {
+        RenderTexture.active = previous;
+        camera.targetTexture = previousTarget;
+        if (!threeDimensional)
+        {
+            camera.transform.position = previousPosition;
+            camera.orthographicSize = previousZoom;
+        }
+    }
+}
+
+WakanResourceService.RegisterMutationCommitted(Paid);
+ActorExtend.RegisterActionOnDamageResolved(Damage);
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Emitted;
+try
+{
+    var moves = new[]
+    {
+        (key: "arrow-rain", name: "高弧箭雨", item: "bow_iron", expected: "ArrowRain", range: 9f, seed: 731),
+        (key: "sky-volley", name: "天空齐射", item: "bow_iron", expected: "SkyVolley", range: 9f, seed: 1),
+        (key: "sweep", name: "御剑横扫", item: "sword_iron", expected: "MeleeSweep", range: 3f, seed: 731),
+        (key: "thrust", name: "御枪突刺", item: "spear_iron", expected: "MeleeThrust", range: 7.65f, seed: 1),
+        (key: "crush", name: "御锤重砸", item: "hammer_iron", expected: "MeleeCrush", range: 3f, seed: 1),
+        (key: "flying-sword", name: "原物飞剑", item: "", expected: "", range: 7.65f, seed: 0),
+        (key: "sword-array", name: "分光剑阵", item: "", expected: "", range: 1.2f, seed: 0)
+    };
+    int clearRadius = selected.Contains("sword-array") ? 27 : 10;
+    var buildings = new HashSet<Building>();
+    for (int x = 64 - clearRadius; x <= 73 + clearRadius; x++)
+    for (int y = 72 - clearRadius; y <= 72 + clearRadius; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        if (tile.building != null) buildings.Add(tile.building);
+        tile.Height = 140;
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low, true);
+    }
+    foreach (Building building in buildings) building.removeBuildingFinal();
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    if (mod != null)
+    {
+        object sampler = Get(mod, "_sampler");
+        sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
+        sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+        if (threeDimensional)
+        {
+            object scene = Get(mod, "SceneForTest");
+            scene.GetType().GetMethod("Reset", F).Invoke(scene, null);
+        }
+        timeMode.SetValue(settings, 1);
+        MoveCamera.clearFocusUnitOnly();
+        worldfall.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+        worldfall.GetMethod("SetGodView", F).Invoke(mod, new object[] { threeDimensional });
+        await Game.WaitUntil(() => threeDimensional
+            ? (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f
+            : !(bool)Get(mod, "GodShown") && !(bool)Get(mod, "IsFirstPerson") && (bool)Get(mod, "DiveDone"), 3600);
+    }
+    Ready(source);
+    source.attack_timer = target.attack_timer = 999;
+    await Advance(.16f);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    clock.multiplier = originalSpeed * .40f;
+    foreach (var move in moves.Where(row => selected.Contains(row.key)))
+    {
+        string clip = Path.Combine(folder, move.key);
+        var frames = new List<object>();
+        bool array = move.key == "sword-array", ranged = move.item == "bow_iron", artifactMove = move.item.Length == 0;
+        string id = array ? arrayId : swordId;
+        Item weapon = null;
+        Entity artifact = default;
+        if (artifactMove)
+        {
+            artifact = array
+                ? MakeArtifact(owner, id, ArtifactAtoms.SwordSwarm, ArtifactAtoms.Iron, ArtifactAtoms.VoidSilk,
+                    ArtifactAtoms.SpatialFold, ArtifactAtoms.ResonanceRings, ArtifactAtoms.LayeredRealmMark)
+                : MakeArtifact(owner, id, ArtifactAtoms.SwordEdge, ArtifactAtoms.Iron);
+            ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+            lifecycle.Invoke(null, new object[] { artifact });
+            handle = ArtifactHandle(artifact, id);
+        }
+        else
+        {
+            if (source.getWeapon()?.getAsset().id != move.item)
+            {
+                if (source.hasWeapon()) source.equipment.weapon.takeAwayItem();
+                source.equipment.setItem(World.world.items.generateItem(AssetManager.items.get(move.item), pActor: source), source);
+                source.setStatsDirty();
+                source.updateStats();
+            }
+            weapon = source.getWeapon();
+            handle = Bow(owner);
+            float cooldown = SkillCooldownService.GetRemaining(owner, handle.Source);
+            if (cooldown > 0f) await Advance(cooldown + .035f);
+        }
+        const float start = 64.35f;
+        Place(source, start);
+        Place(target, start + move.range);
+        source.lookTowardsPosition(target.current_position);
+        target.lookTowardsPosition(source.current_position);
+        target.restoreHealth(target.getMaxHealth());
+        owner.GetCultisys<Xian>().wakan = 9000;
+        Vector2 centre = new Vector2(start + (array ? 0 : move.range * .45f), ranged ? 79.3f : 72.6f);
+        float rangedZoom = threeDimensional && move.key == "arrow-rain" ? 25f : 16f;
+        float zoom = array ? 25.5f : ranged ? rangedZoom : move.range > 5f ? 4.25f : 3.2f;
+        float distance = array ? 32f : ranged ? 25f : move.range > 5f ? 10.3f : 7.1f;
+        SetCentre(centre, zoom, distance, array || ranged ? .75f : .48f);
+        await Published();
+
+        fees.Clear();
+        events.Clear();
+        projectilesSeen.Clear();
+        hits = emissions = 0;
+        mode = "";
+        int health = target.data.health, biggestArray = 0;
+        bool recalled = false, returned = false;
+        object originalFlight = null;
+        string stage = "正式施放前";
+        double started = World.world.getCurWorldTime();
+        void Frame()
+        {
+            int frame = frames.Count;
+            Capture(Path.Combine(clip, "frames", frame.ToString("00000") + ".png"));
+            float peak = 0;
+            foreach (Projectile projectile in projectiles)
+                peak = Mathf.Max(peak, ((Vector3)projectilePosition.GetValue(projectile)).z);
+            frames.Add(new { frame, view, time = World.world.getCurWorldTime(), stage, hits, emissions,
+                amount = fees.Sum(), blades = Projections(), inFlight = projectiles.Count, peak, health = target.data.health });
+        }
+        Frame();
+        // 只选择原版随机种子，正式入口仍按实际器形和距离决定招式。
+        if (!artifactMove) Randy.resetSeed(move.seed);
+        bool used = Use(owner, handle, array ? source : target);
+        Check(used, move.name + "正式施放受理", new
+        { reason = ActiveAbilityService.ResolveControlState(owner, handle).BlockReason.ToString() });
+        events.Add(new { kind = "cast", time = started, source = source.id, target = target.id,
+            item = weapon?.data.id, artifact = artifactMove ? artifact.Id : 0 });
+        double finished = 0;
+        while (World.world.getCurWorldTime() < started + (artifactMove ? 7f : 9f))
+        {
+            await Advance(1f / 23f);
+            await Published();
+            double now = World.world.getCurWorldTime();
+            if (artifactMove)
+            {
+                int blades = Projections();
+                biggestArray = Math.Max(biggestArray, blades);
+                bool active = !Entry(artifact, id).active_execution.IsNull;
+                if (!recalled && hits > 0 && now - started >= (array ? 1.5 : .82))
+                {
+                    recalled = ArtifactAbilityLifecycle.Recall(artifact, Definition(artifact, id).instance_id);
+                    Check(recalled, move.name + "通过正式入口收回");
+                    events.Add(new { kind = "recall", time = now });
+                }
+                returned = recalled && !active && !artifact.HasComponent<SkillExecutionBodyLease>() && (!array || blades == 0);
+                stage = returned ? "回到原件 · 控制归还" : recalled ? "伤害停止 · 正在收回" :
+                    hits > 0 ? "真实命中" : array ? "原件分出剑影" : "原剑离手追击";
+            }
+            else
+            {
+                object flight = ((IEnumerable)flightValues.GetValue(flights)).Cast<object>().SingleOrDefault();
+                if (flight != null && mode.Length == 0)
+                {
+                    originalFlight = flight;
+                    mode = Field(flight, "mode").ToString();
+                    Check(mode == move.expected, move.name + "实际采用对应动作", new { mode, move.seed });
+                    Check(ReferenceEquals(Field(flight, "weapon"), weapon), "借用同一件原兵器");
+                }
+                else if (flight != null && !ReferenceEquals(flight, originalFlight))
+                    Check(false, move.name + "录像期间出现了另一轮借用");
+                foreach (Projectile shot in projectiles)
+                    if (projectilesSeen.Add(shot))
+                        events.Add(new { kind = "arrow", time = now, asset = shot.asset.id });
+                returned = mode.Length > 0 && flight == null && sessions.Count == 0 && projectiles.Count == 0;
+                stage = returned ? "原兵器归还 · 本轮结束" : flight != null && Field(flight, "returning") != null ?
+                    "同一件兵器正在回手" : ranged && flight == null && emissions > 0 ? "原弓已回手 · 箭矢实际飞行" :
+                    ranged && emissions > 0 ? "原弓实际放箭" :
+                    hits > 0 ? "同一件兵器实际命中" : emissions > 0 ? "实际兵器出击" : "原兵器离手起势";
+            }
+            if (returned && finished == 0)
+            {
+                finished = now;
+                events.Add(new { kind = "returned", time = now });
+            }
+            Frame();
+            if (returned && now - finished > .22) break;
+        }
+        bool fires = ranged && projectilesSeen.Count > 0;
+        Check(returned && (fires || (hits > 0 && target.data.health < health)) &&
+              (artifactMove ? fees.Count == (array ? 1 : 0) : fees.Count == emissions && emissions > 0) &&
+              (!array || biggestArray == Mathf.Clamp(Definition(artifact, id).GetInteger("effect_count"), 8, 96)) &&
+              (artifactMove ? owner.GetItems().Contains(artifact) && owner.GetEquippedArtifacts().Contains(artifact) :
+                  ReferenceEquals(source.getWeapon(), weapon) && !ConstructedAbilityService.HasWeaponControl(source)),
+            move.name + "完整拍到费用、实际作用和归还", new
+            { mode, hits, health, remaining = target.data.health, emissions, arrows = projectilesSeen.Count,
+                fees = fees.ToArray(), biggestArray, returned, frames = frames.Count });
+        File.WriteAllText(Path.Combine(clip, "recording.json"),
+            JsonConvert.SerializeObject(new { view, frames, events }, Formatting.Indented));
+        File.WriteAllText(Path.Combine(clip, "definition.json"), JsonConvert.SerializeObject(new
+        { move, settings = artifactMove ? (object)Definition(artifact, id) : weapon.getAsset().id }, Formatting.Indented));
+        File.WriteAllText(Path.Combine(clip, "result.json"), JsonConvert.SerializeObject(new
+        { passed = true, view, mode, hits, emissions, arrows = projectilesSeen.Count, fees, biggestArray, returned,
+            process = System.Diagnostics.Process.GetCurrentProcess().Id }, Formatting.Indented));
+        completed.Add(move.key);
+        if (artifactMove) ArtifactEquipmentTools.SetArtifactEquipMode(owner, artifact, ArtifactEquipMode.Standby);
+    }
+    return new { passed = true, view, completed };
+}
+finally
+{
+    Config.paused = true;
+    clock.multiplier = originalSpeed;
+    timeMode?.SetValue(settings, priorMode);
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Emitted;
+    mutationField.SetValue(null, priorMutations);
+    damageField.SetValue(null, priorDamage);
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    if (reader != null) UnityEngine.Object.Destroy(reader);
+    if (native != null)
+    {
+        native.Release();
+        UnityEngine.Object.Destroy(native);
+    }
+    ControllableUnit.clear(false);
+}

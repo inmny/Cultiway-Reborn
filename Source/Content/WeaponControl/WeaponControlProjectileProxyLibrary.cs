@@ -13,6 +13,9 @@ internal static class WeaponControlProjectileProxyLibrary
     private const float ProjectileDamageMultiplier = 0.22f;
     private static readonly Dictionary<string, string> ProxyIds = new(StringComparer.Ordinal);
 
+    /// <summary>留用原代理编号供原版出生、伤害和显示共用识别。</summary>
+    internal static bool IsProxy(string id) => id?.StartsWith(ProxyIdPrefix, StringComparison.Ordinal) == true;
+
     /// <summary>返回适合当前御器形态的代理投射物资产 ID。</summary>
     public static string Resolve(string sourceAssetId, WeaponControlCastMode mode)
     {

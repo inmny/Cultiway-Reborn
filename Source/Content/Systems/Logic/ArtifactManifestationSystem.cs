@@ -53,19 +53,10 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
                 bool vehicle = artifact == _vehicleArtifact;
                 bool active = vehicle || !followsOwner || HasActiveAbility(artifact.GetComponent<ArtifactAbilityRuntime>());
                 ArtifactPresentationPose pose = followsOwner
-                    ? ResolvePose(
-                        presentation,
-                        new ArtifactPresentationContext(
-                            actor,
-                            relation.state,
-                            groupIndex,
-                            _groupCounts[presentation],
-                            actorScale,
-                            time),
+                    ? ResolvePose(artifact, presentation,
+                        new ArtifactPresentationContext(actor, relation.state, groupIndex, _groupCounts[presentation], actorScale, time),
                         vehicle)
                     : default;
-                if (followsOwner && ArtifactYuanshenControlService.TryResolveOrigin(actor, artifact, out Vector3 remoteOrigin))
-                    pose.position += remoteOrigin - actor.GetSimPos();
                 float activeWorldSize = active
                     ? ArtifactManifestationTools.ResolveActiveWorldSize(artifact, actor)
                     : 0f;
@@ -85,11 +76,46 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
     }
 
     private static ArtifactPresentationPose ResolvePose(
+        Entity artifact,
         ArtifactPresentationAsset presentation,
         ArtifactPresentationContext context,
         bool vehicle)
     {
-        return vehicle ? presentation.ResolveVehicle(context) : presentation.Resolve(context);
+        ArtifactPresentationPose pose = vehicle ? presentation.ResolveVehicle(context) : presentation.Resolve(context);
+        if (ArtifactYuanshenControlService.TryResolveOrigin(context.actor, artifact, out Vector3 remoteOrigin))
+            pose.position += remoteOrigin - context.actor.GetSimPos();
+        return pose;
+    }
+
+    /// <summary>飞回时取得原随身槽在这一轮的位置，包括同类法宝的排列及元神寄托位置。</summary>
+    internal static bool TryResolveFollowerPose(Actor actor, Entity artifact, out ArtifactPresentationPose pose)
+    {
+        pose = default;
+        Entity owner = actor.GetExtend().E;
+        var relations = owner.GetRelations<EquippedArtifactRelation>();
+        var presentation = ((ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type).presentation;
+        int index = 0, count = 0;
+        ArtifactControlState state = ArtifactControlState.Cold;
+        bool equipped = false;
+        for (int i = 0; i < relations.Length; i++)
+        {
+            EquippedArtifactRelation relation = relations[i];
+            Entity other = relation.artifact;
+            if (!other.IsAvailable() || ((ArtifactShapeAsset)other.GetComponent<ItemShape>().Type).presentation != presentation)
+                continue;
+            count++;
+            if (other.Id < artifact.Id) index++;
+            if (other != artifact) continue;
+            equipped = true;
+            state = relation.state;
+        }
+        if (!equipped) return false;
+        var vehicles = owner.GetRelations<ArtifactVehicleRelation>();
+        bool vehicle = vehicles.Length > 0 && vehicles[0].artifact == artifact;
+        float scale = Mathf.Max(actor.stats[S.scale], .1f) * 10f;
+        pose = ResolvePose(artifact, presentation,
+            new ArtifactPresentationContext(actor, state, index, count, scale, SimulationTime.NowFloat), vehicle);
+        return true;
     }
 
     private void ApplyUpdates()
@@ -106,7 +132,7 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
             manifestation.active_visual = update.active;
             if (update.followsOwner) ApplyPose(artifact, update.pose, update.bodyRadius);
             else manifestation.flip_x = false;
-            if (!update.active) continue;
+            if (!update.active || ArtifactAppearanceRenderer.UsesSpatialFlight(artifact)) continue;
 
             manifestation.world_size = update.activeWorldSize;
             ArtifactManifestationTools.ApplyBodySize(artifact, update.bodyRadius, update.activeWorldSize);
@@ -160,7 +186,7 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
         }
     }
 
-    private static void ApplyPose(Entity artifact, ArtifactPresentationPose pose, float bodyRadius)
+    internal static void ApplyPose(Entity artifact, ArtifactPresentationPose pose, float bodyRadius)
     {
         artifact.GetComponent<Position>().value = pose.position;
         artifact.GetComponent<Rotation>().z = pose.rotation;

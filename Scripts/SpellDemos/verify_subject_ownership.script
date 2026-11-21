@@ -212,7 +212,7 @@ try
     var arrayService =
         typeof(ArtifactAbilities).Assembly.GetType("Cultiway.Content.Artifacts.ArtifactSwordArrayExecution");
     arrayService.GetMethod("Initialize", F).Invoke(null,
-        new object[] { arrayRoot, actor, artifact, actor.current_position, 8, 20f, 3f });
+        new object[] { arrayRoot, actor, artifact, 8, 20f, 3f });
     var arrayRelations = arrayRoot.GetRelations<SkillExecutionBodyRelation>();
     var arrayBodies = new List<Entity>();
     for (int i = 0; i < arrayRelations.Length; i++) arrayBodies.Add(arrayRelations[i].body);

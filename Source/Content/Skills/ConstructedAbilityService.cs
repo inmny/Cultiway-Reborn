@@ -784,7 +784,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="caster">实际施法者。</param><param name="body">本次身体动作。</param>
     private static bool BodyAvailable(ActorExtend caster, CompiledBodyAction body) =>
         !BodyControlState.IsBusy(caster.Base.id, BodyActionBinding.Occupancy(caster.Base, body), body.Part.ControlPath) &&
-        (body.WeaponForm == null || !WeaponControlRuntimeService.IsCasting(caster) && !HasReleasedWeapon(caster.Base.id)) &&
+        (body.WeaponForm == null || !WeaponControlRuntimeService.IsCasting(caster) &&
+         !WeaponControlFlight.IsBorrowed(caster.Base) && !HasReleasedWeapon(caster.Base.id)) &&
         !caster.Base.stats.hasTag("frozen_ai") &&
         !caster.Base.stats.hasTag("immovable");
 

@@ -1,4 +1,5 @@
 using Cultiway.Abstract;
+using Cultiway.Content.WeaponControl;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
@@ -34,6 +35,7 @@ internal struct EquippedWeaponMotionState : IComponent
     public float DamageMultiplier;
     public Vector3 Direction;
     public bool CollisionEnabled;
+    internal WeaponControlFlight ReleasedWeapon;
 }
 
 /// <summary>御器和骑士战技共用的真实武器连续运动。</summary>
@@ -64,6 +66,20 @@ public sealed class EquippedWeaponTrajectories : ExtendLibrary<TrajectoryAsset, 
     {
         Actor owner = context.SourceObj?.a;
         ref EquippedWeaponMotionState state = ref entity.GetComponent<EquippedWeaponMotionState>();
+        if (state.ReleasedWeapon is { } released)
+        {
+            if (released.IsCurrent && !owner.isFlying())
+            {
+                state.Elapsed += deltaTime;
+                bool contact = released.MoveStrike(in state, Mathf.Clamp01(state.Elapsed / state.Duration));
+                position.value = released.ContactPoint;
+                SetColliderEnabled(entity, contact);
+                if (state.Elapsed < state.Duration) return;
+            }
+            released.FinishStrike();
+            DisableAndRecycle(entity);
+            return;
+        }
         if (!EquippedWeaponVisualService.IsCurrent(owner, state.Weapon) || owner.isFlying())
         {
             DisableAndRecycle(entity);

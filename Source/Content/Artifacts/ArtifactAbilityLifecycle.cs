@@ -289,7 +289,12 @@ public static partial class ArtifactAbilityLifecycle
                 artifact,
                 runtime.control_state,
                 in runtime.abilities[i]);
-            EndActivity(asset, context, ability, ref runtime.abilities[i], ArtifactAbilityEndReason.Recalled, true);
+            Entity execution = runtime.abilities[i].active_execution;
+            if (!execution.IsNull && execution.HasComponent<ArtifactSwordArrayExecutionState>())
+                return ArtifactSwordArrayExecution.TryRecall(execution);
+            bool flyingBack = ArtifactSpatialAttackExecution.ReturnsOnRecall(execution);
+            if (flyingBack && !ArtifactSpatialAttackExecution.TryRecall(execution)) return false;
+            EndActivity(asset, context, ability, ref runtime.abilities[i], ArtifactAbilityEndReason.Recalled, !flyingBack);
             artifact.GetComponent<ArtifactAbilityRuntime>() = runtime;
             return true;
         }

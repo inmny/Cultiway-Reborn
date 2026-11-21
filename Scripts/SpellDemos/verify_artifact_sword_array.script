@@ -1,0 +1,215 @@
+// 10.04：正式分光剑阵使用一件原法宝和实际生成的临时剑影。
+Actor source = Make(64.35f), target = Make(65.55f, "wolf");
+ActorExtend owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+var boost = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ArtifactSword") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ArtifactSword")
+        .SetStats(new BaseStats { [BaseStatses.MaxWakan.id] = 10000,
+            [nameof(Cultiway.WorldboxGame.BaseStats.DivineSense)] = 10000 })
+        .SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, boost, 10000, source);
+owner.MarkCultiwayStatsDirty();
+Ready(source);
+source.attack_timer = 999f;
+await Advance(.16f);
+Place(source, 64.35f);
+Place(target, 104f);
+source.addAggro(target); target.addAggro(source);
+target.restoreHealth(target.getMaxHealth());
+
+var design = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Sword,
+    Atoms = new[] { ArtifactAtoms.SwordSwarm, ArtifactAtoms.Iron, ArtifactAtoms.VoidSilk,
+        ArtifactAtoms.SpatialFold, ArtifactAtoms.ResonanceRings, ArtifactAtoms.LayeredRealmMark },
+    Level = new ItemLevel { Stage = 1, Level = 3 }, Name = "原物分光剑验证"
+});
+var blueprint = ArtifactBlueprintCodec.FromComposeResult(design);
+var array = ArtifactAbilities.SplittingSwordArray;
+var ability = blueprint.AbilitySet.abilities.SingleOrDefault(value => value.ability_id == array.id);
+Check(ability.ability_id == array.id, "正式制作生成分光剑阵",
+    new { abilities = blueprint.AbilitySet.abilities.Select(value => value.ability_id).ToArray() });
+blueprint.AbilitySet = new ArtifactAbilitySet { abilities = new[] { ability } };
+Entity artifact = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+owner.AddSpecialItem(artifact);
+Check(owner.EquipArtifact(artifact, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "实际原件装备并进入剑阵允许的状态");
+ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+typeof(ArtifactAbilityLifecycle).GetMethod("Synchronize", F).Invoke(null, new object[] { artifact });
+var handle = new ActiveAbilityHandle("content.artifact", artifact, ability.instance_id);
+await Game.NextFrame();
+
+var visuals = service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem").GetField("Meshes", F);
+var renderer = typeof(ArtifactAppearanceRenderer);
+var sweptType = service.Assembly.GetType("Cultiway.Core.SkillLibV3.Components.ColliderSweptBody");
+var readSwept = typeof(Entity).GetMethods(F).Single(method => method.Name == "TryGetComponent" && method.IsGenericMethod)
+    .MakeGenericMethod(sweptType);
+ArtifactAbilityRuntimeEntry Activity() => artifact.GetComponent<ArtifactAbilityRuntime>().abilities.Single();
+bool Held() => owner.GetItems().Contains(artifact) && ArtifactEquipmentTools.IsArtifactEquipped(owner, artifact) &&
+    !artifact.HasComponent<SkillExecutionBodyLease>();
+object SwordPose()
+{
+    object[] args = { artifact, null };
+    if (!(bool)renderer.GetMethod("TryGetSpatialPose", F).Invoke(null, args))
+        throw new InvalidOperationException("原法宝缺实际空间模型");
+    return args[1];
+}
+object Projection(Entity blade) => Field(blade.GetComponent<ArtifactSpatialProjection>(), "Pose");
+Vector3 Point(object pose) => (Vector3)Field(pose, "Position");
+Vector3 Transform(object pose, Vector3 local) => Point(pose) +
+    (Quaternion)Field(pose, "Rotation") * Vector3.Scale(local, (Vector3)Field(pose, "Scale"));
+bool Use()
+{
+    source.attack_timer = 0f;
+    bool result = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(source, source.GetSimPos()),
+        ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999f;
+    return result;
+}
+async Task Until(Func<bool> test)
+{
+    Config.paused = false;
+    await Game.WaitUntil(test, 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+Entity rootExecution = default;
+ArtifactSwordArrayExecutionState State() => rootExecution.GetComponent<ArtifactSwordArrayExecutionState>();
+bool Collapsing() => (bool)Field(State(), "collapsing");
+bool DamageOff(IEnumerable<Entity> blades) => blades.All(blade => !blade.GetComponent<ColliderConfig>().Enabled);
+int VisibleCopies(object model) => ((IEnumerable)visuals.GetValue(null)).Cast<object>()
+    .Count(mesh => ReferenceEquals(Field(mesh, "Model"), model) && (bool)Field(mesh, "DrawNative"));
+float MeanDistance(IEnumerable<Entity> entities, Vector3 to) =>
+    entities.Average(blade => Vector3.Distance(Point(Projection(blade)), to));
+
+Entity struck = default;
+var contact = new List<object>();
+var expenditures = new List<float>();
+var mutationField = typeof(WakanResourceService).GetField("mutationCommitted", F);
+var previousMutations = mutationField.GetValue(null);
+void Paid(ActorExtend actor, in WakanMutation mutation)
+{
+    if (actor == owner && mutation.Kind == WakanMutationKind.Spend) expenditures.Add(-mutation.Delta);
+}
+void Contact(Entity blade, BaseSimObject hit)
+{
+    if (hit != target || !blade.TryGetComponent(out SkillExecutionBodyLease lease) || lease.execution != rootExecution) return;
+    var state = State();
+    var bladeState = state.blades.Single(value => value.entity == blade);
+    if (bladeState.phase != ArtifactSwordArrayBladePhase.Traversing || !struck.IsNull) return;
+    object[] record = { null };
+    if (!(bool)readSwept.Invoke(blade, record)) return;
+    var segment = (AbilityCapsule)sweptType.GetMethod("After", F).Invoke(record[0], new object[] { 1f });
+    object pose = Projection(blade), geometry = Field(state, "geometry");
+    Vector3 a = Transform(pose, (Vector3)Field(geometry, "Start"));
+    Vector3 b = Transform(pose, (Vector3)Field(geometry, "End"));
+    struck = blade;
+    contact.Add(new { blade = blade.Id, segmentStart = segment.A.ToString(), segmentEnd = segment.B.ToString(),
+        radius = segment.Radius, difference = Mathf.Max(Vector3.Distance(a, segment.A), Vector3.Distance(b, segment.B)) });
+}
+SkillHitResolver.ContactResolved += Contact;
+WakanResourceService.RegisterMutationCommitted(Paid);
+try
+{
+    var camera = World.world.camera;
+    camera.transform.position = new Vector3(67f, 72f, camera.transform.position.z);
+    MoveCamera.instance.forceZoom(32f);
+    var relation = owner.E.GetRelation<EquippedArtifactRelation, Entity>(artifact);
+    var sourceContext = new ArtifactAbilityExecutionContext(owner.E, artifact, relation.state);
+    float expected = array.lifecycle.ResolveActivationCost(sourceContext, ability);
+    if (relation.state == ArtifactControlState.Overloaded) expected *= array.lifecycle.overload_resource_multiplier;
+    owner.GetCultisys<Xian>().wakan = 0f;
+    Check(!Use() && Activity().active_execution.IsNull && expenditures.Count == 0 && Held(),
+        "启动费不足时没有生成剑阵或改变原件");
+    owner.GetCultisys<Xian>().wakan = 9000f;
+    Vector3 original = Point(SwordPose());
+    int expectedBlades = Mathf.Clamp(ability.GetInteger("effect_count"), 8, 96);
+    Check(Use() && expenditures.Count == 1 && Mathf.Abs(expenditures[0] - expected) < .002f,
+        "按正式原价格只支付一次", new { expected, paid = expenditures.ToArray() });
+    rootExecution = Activity().active_execution;
+    Entity[] blades = State().blades.Select(value => value.entity).ToArray();
+    var links = rootExecution.GetRelations<SkillExecutionBodyRelation>();
+    Check(blades.Length == expectedBlades && blades.Distinct().Count() == expectedBlades &&
+        links.Length == expectedBlades && blades.All(blade => blade.GetComponent<SkillExecutionBodyLease>().execution == rootExecution &&
+            Vector3.Distance(Point(Projection(blade)), original) < .002f) && DamageOff(blades) && Held(),
+        "原剑位置生成正式数量的剑影，成形前无伤，原件留在随身关系", new { expectedBlades, original = original.ToString() });
+    await Advance(State().formation_duration + .22f);
+    await Game.NextFrame();
+    object shared = Field(Projection(blades[0]), "Model");
+    float ringDistance = MeanDistance(blades, source.GetSimPos());
+    Check(State().sortie_sequence == 0 && State().blades.All(blade => blade.phase == ArtifactSwordArrayBladePhase.Arrayed) &&
+        VisibleCopies(shared) == expectedBlades && ringDistance > 2f && Held(),
+        "两视角使用同一批实际成形剑影，范围外目标未引发出剑",
+        new { expectedBlades, rendered = VisibleCopies(shared), ringDistance });
+
+    int health = target.data.health;
+    Place(target, 65.55f);
+    double until = World.world.getCurWorldTime() + 4;
+    if (recallOnly)
+        await Until(() => State().sortie_sequence > 0 || World.world.getCurWorldTime() >= until);
+    else
+        await Until(() => !struck.IsNull || World.world.getCurWorldTime() >= until);
+    if (recallOnly)
+    {
+        Check(State().sortie_sequence > 0 && blades.Any(blade => blade.GetComponent<ColliderConfig>().Enabled),
+            "真实出剑期间可以主动收阵");
+        health = target.data.health;
+        Check(ArtifactAbilityLifecycle.Recall(artifact, ability.instance_id) && !rootExecution.IsNull && DamageOff(blades) &&
+            !ArtifactAbilityLifecycle.Recall(artifact, ability.instance_id) && Activity().active_execution == rootExecution,
+            "正式召回立即关闭伤害，原会话继续带剑影收束");
+        Place(source, 66.1f, 72.4f);
+    }
+    else
+    {
+        Check(!struck.IsNull, "穿阵过程中有实际单刃接触",
+            new { State().sortie_sequence, health, remaining = target.data.health });
+        await Advance(.08f);
+        Check(target.data.health < health && contact.Count == 1 && expenditures.Count == 1,
+            "实际刃段与可见剑体一起命中并扣血，单刃不重复付费",
+            new { health, remaining = target.data.health, observed = contact.ToArray() });
+        var sample = contact[0];
+        Check((float)sample.GetType().GetProperty("difference").GetValue(sample) < .003f,
+            "现场的可见刃段与共同扫掠端点一致", sample);
+        Place(target, 104f);
+        await Until(() => State().blades.All(blade => blade.phase == ArtifactSwordArrayBladePhase.Arrayed));
+        Check(State().blades.Any(blade => blade.entity == struck) && struck.IsAvailable() && Held(),
+            "同一道出击剑影连续回到阵位");
+    }
+
+    await Until(() => rootExecution.IsNull || Collapsing());
+    Check(!rootExecution.IsNull && DamageOff(blades), "收束时全部单刃关闭伤害");
+    Vector3 collapseOrigin = Point(SwordPose());
+    float beforeCollapse = MeanDistance(blades, collapseOrigin);
+    await Advance(.12f);
+    Check(!rootExecution.IsNull && MeanDistance(blades, Point(SwordPose())) < beforeCollapse && Held(),
+        "临时剑影向实际原件持续收束",
+        new { beforeCollapse, remainingDistance = MeanDistance(blades, Point(SwordPose())) });
+    await Until(() => rootExecution.IsNull && blades.All(blade => blade.IsNull));
+    await Game.NextFrame();
+    Check(Held() && Activity().active_execution.IsNull && expenditures.Count == 1 &&
+        (!recallOnly || target.data.health == health) && VisibleCopies(shared) == 0,
+        "收阵清理所有派生剑影，原件保持持有，召回过程无伤且无续费");
+
+    if (recallOnly)
+    {
+        await Advance(Mathf.Max(0f, (float)(Activity().cooldown_until - World.world.getCurWorldTime())) + .06f);
+        Check(Use() && expenditures.Count == 2 && Held(), "冷却结束后从原件再次使用");
+        Entity next = Activity().active_execution;
+        var restarted = next.GetComponent<ArtifactSwordArrayExecutionState>().blades.Select(blade => blade.entity).ToArray();
+        ArtifactEquipmentTools.SetArtifactEquipMode(owner, artifact, ArtifactEquipMode.Standby);
+        ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+        await Until(() => next.IsNull && restarted.All(blade => blade.IsNull));
+        Check(Held() && expenditures.Count == 2, "失去实际运行资格清理新剑影，库存和装备仍保留原件");
+    }
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id,
+        recallOnly, blades = expectedBlades, fee = expected };
+}
+finally
+{
+    Config.paused = true;
+    mutationField.SetValue(null, previousMutations);
+    SkillHitResolver.ContactResolved -= Contact;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+}

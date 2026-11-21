@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Content.WeaponControl;
 using Cultiway.Core.Skills;
 using Cultiway.Core.Visuals.Forms;
 
@@ -133,7 +134,7 @@ public sealed partial class ConstructedAbilityService
     /// <summary>原版与第一人称的静态持物随整份画面切换，受理但尚未发布时仍显示原持物。</summary>
     /// <param name="actor">当前真实人物。</param>
     public static bool IsWeaponBorrowed(Actor actor) => actor?.data != null &&
-        (presentation.ReleasedWeapons?.Contains(actor.data.id) == true ||
+        (WeaponControlFlight.IsBorrowed(actor) || presentation.ReleasedWeapons?.Contains(actor.data.id) == true ||
          presentation.Bodies.TryGetValue(actor.data.id, out PresentedBody body) && body.Weapon);
 
     /// <summary>身体收势与器物归还各有时点，同一件装备在离手时不能再借一次。</summary>
@@ -150,6 +151,7 @@ public sealed partial class ConstructedAbilityService
     public static bool HasWeaponControl(Actor actor)
     {
         if (actor?.data == null) return false;
+        if (WeaponControlFlight.IsBorrowed(actor)) return true;
         if (ConstructedActorImpulse.TryBody(actor.data.id, out var body) &&
             Array.Exists(body.Basis.Parts, part => part.Attachment == "item")) return true;
         foreach (RunningCast running in casts)

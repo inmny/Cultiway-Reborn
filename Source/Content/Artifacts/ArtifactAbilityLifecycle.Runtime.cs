@@ -234,7 +234,10 @@ public static partial class ArtifactAbilityLifecycle
                  !runtime.active_execution.HasComponent<SkillExecution>() ||
                  runtime.active_execution.GetComponent<SkillExecution>().end_requested))
             {
-                EndActivity(asset, context, ability, ref runtime, ArtifactAbilityEndReason.Completed, false);
+                var reason = !runtime.active_execution.IsNull &&
+                    runtime.active_execution.TryGetComponent(out ArtifactSwordArrayExecutionState array) && array.recalled
+                    ? ArtifactAbilityEndReason.Recalled : ArtifactAbilityEndReason.Completed;
+                EndActivity(asset, context, ability, ref runtime, reason, false);
                 return;
             }
 

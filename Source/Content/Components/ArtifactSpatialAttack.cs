@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cultiway.Content.Artifacts;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -54,4 +55,8 @@ public struct ArtifactSpatialAttackMotion : IComponent
     public bool has_last_target;
     public HashSet<long> hit_target_keys;
     public ArtifactSpatialAttackPhase phase;
+    /// <summary>同一组合模型提供显示和刃段；旧无模型资料沿用原执行。</summary>
+    internal ArtifactFlightGeometry geometry;
+    internal readonly bool spatial_model => geometry.Model != null;
+    internal float launch_size, flight_age;
 }

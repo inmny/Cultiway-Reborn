@@ -1,3 +1,4 @@
+using Cultiway.Content.Artifacts;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -17,13 +18,16 @@ public struct ArtifactSwordArrayBladeState
     public Entity entity;
     public int slot_index;
     public ArtifactSwordArrayBladePhase phase;
-    public Vector2 position;
-    public Vector2 previous_position;
+    public Vector3 position;
     public Vector2 direction;
-    public Vector2 phase_origin;
+    public float pitch;
+    public Vector3 phase_origin;
     public Vector2 phase_center;
     public Vector2 phase_destination;
     public Vector2 travel_direction;
+    public float contact_height;
+    public float approach_fraction;
+    public float departure_fraction;
     public float phase_started_at;
     public float phase_duration;
 }
@@ -45,6 +49,11 @@ public struct ArtifactSwordArrayExecutionState : IComponent
     public float attack_range;
     public float ring_angle;
     public float angular_speed;
+    internal ArtifactFlightGeometry geometry;
+    internal int[] slot_order;
+    internal float blade_size;
+    internal bool collapsing;
+    internal bool recalled;
 
     public ArtifactSwordArrayExecutionState()
     {

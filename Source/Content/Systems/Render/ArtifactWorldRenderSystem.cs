@@ -80,7 +80,7 @@ public class ArtifactWorldRenderSystem
             ref Rotation rotation,
             Entity artifact) =>
         {
-            if (!manifestation.visible) return;
+            if (!manifestation.visible || ArtifactAppearanceRenderer.UsesSpatialFlight(artifact)) return;
             ArtifactShapeAsset shape = (ArtifactShapeAsset)itemShape.Type;
             ArtifactWorldSpriteSet sprites = shape.GetWorldSprites != null
                 ? shape.GetWorldSprites(artifact, manifestation.active_visual)

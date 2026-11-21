@@ -90,7 +90,7 @@ internal static class PatchMapBox
     /// <summary>确认原版投射物是否来自御器自己的代理。</summary>
     /// <param name="attack">当前原版攻击。</param>
     private static bool IsControlledProjectile(AttackData attack) => attack.is_projectile &&
-        attack.projectile_id.StartsWith(WeaponControlProjectileProxyLibrary.ProxyIdPrefix, StringComparison.Ordinal);
+        WeaponControlProjectileProxyLibrary.IsProxy(attack.projectile_id);
 
     private readonly struct AttackScopeState
     {
