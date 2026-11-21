@@ -5,6 +5,8 @@ description: 在运行中的 WorldBox 游戏里通过 DebugToolbox 执行 C# 调
 
 # 游戏内调试通道
 
+独立 worktree 或多个开发任务使用 [develop 技能](../develop/SKILL.md)的 setup/start/run/exec 入口。它为游戏和客户端分开临时目录，并核对实例身份；不要用下文的系统默认会话文件连接并行任务。下面的脚本写法与运行约束继续适用。
+
 在运行中的 WorldBox 里通过 DebugToolbox 执行 C#：脚本在 Unity 主线程编译运行，返回值以 JSON 直接传回，编译错误带行号，不需要再翻 Player.log。
 
 ## 获取与构建

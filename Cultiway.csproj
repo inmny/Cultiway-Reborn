@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
+    <Import Project=".cultiway-dev.props" Condition="Exists('.cultiway-dev.props')" />
     <PropertyGroup>
         <TargetFramework>net48</TargetFramework>
         <LangVersion>12</LangVersion>
@@ -10,7 +11,8 @@
         <DefineConstants>DEBUG;TRACE</DefineConstants>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <DisableHandlePackageFileConflicts>true</DisableHandlePackageFileConflicts>
-        <GameManagedPath>$(MSBuildThisFileDirectory)..\..\worldbox_Data\Managed\</GameManagedPath>
+        <GameRootPath Condition="'$(GameRootPath)' == ''">$(MSBuildThisFileDirectory)..\..\</GameRootPath>
+        <GameManagedPath>$(GameRootPath)/worldbox_Data/Managed/</GameManagedPath>
         <FrameworkPathOverride>$(GameManagedPath)</FrameworkPathOverride>
     </PropertyGroup>
     <PropertyGroup>
@@ -25,16 +27,16 @@
     </ItemGroup>
     <ItemGroup>
         <Reference Include="0Harmony">
-            <HintPath>..\..\worldbox_Data\StreamingAssets\mods\NML\Assemblies\0Harmony.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/StreamingAssets\mods\NML\Assemblies\0Harmony.dll</HintPath>
         </Reference>
         <Reference Include="Assembly-CSharp">
-            <HintPath>..\..\worldbox_Data\StreamingAssets\mods\NML\Assembly-CSharp-Publicized.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/StreamingAssets\mods\NML\Assembly-CSharp-Publicized.dll</HintPath>
         </Reference>
         <Reference Include="db.tables">
-          <HintPath>..\..\worldbox_Data\Managed\db.tables.dll</HintPath>
+          <HintPath>$(GameRootPath)/worldbox_Data/Managed\db.tables.dll</HintPath>
         </Reference>
         <Reference Include="DOTween">
-            <HintPath>..\..\worldbox_Data\Managed\DOTween.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\DOTween.dll</HintPath>
         </Reference>
         <Reference Include="Friflo.Engine.ECS">
             <HintPath>Assemblies\Friflo.Engine.ECS.dll</HintPath>
@@ -55,70 +57,70 @@
             <HintPath>Assemblies\LibTessDotNet.dll</HintPath>
         </Reference>
         <Reference Include="NeoModLoader">
-            <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader_memload.dll')">..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader_memload.dll</HintPath>
-            <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader.dll')">..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader.dll</HintPath>
+            <HintPath Condition="Exists('$(GameRootPath)/worldbox_Data/StreamingAssets\mods\NeoModLoader_memload.dll')">$(GameRootPath)/worldbox_Data/StreamingAssets\mods\NeoModLoader_memload.dll</HintPath>
+            <HintPath Condition="Exists('$(GameRootPath)/worldbox_Data/StreamingAssets\mods\NeoModLoader.dll')">$(GameRootPath)/worldbox_Data/StreamingAssets\mods\NeoModLoader.dll</HintPath>
         </Reference>
         <Reference Include="FirstPerson" Condition="'$(WorldfallAssemblyPath)' != ''">
             <HintPath>$(WorldfallAssemblyPath)</HintPath>
             <Private>false</Private>
         </Reference>
         <Reference Include="SQLite">
-          <HintPath>..\..\worldbox_Data\Managed\SQLite.dll</HintPath>
+          <HintPath>$(GameRootPath)/worldbox_Data/Managed\SQLite.dll</HintPath>
         </Reference>
         <Reference Include="strings">
-          <HintPath>..\..\worldbox_Data\Managed\strings.dll</HintPath>
+          <HintPath>$(GameRootPath)/worldbox_Data/Managed\strings.dll</HintPath>
         </Reference>
         <Reference Include="System.ComponentModel.Annotations">
             <HintPath>Assemblies\System.ComponentModel.Annotations.dll</HintPath>
         </Reference>
         <Reference Include="System.Net.Http">
-            <HintPath>..\..\worldbox_Data\Managed\System.Net.Http.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\System.Net.Http.dll</HintPath>
         </Reference>
         <Reference Include="netstandard">
-            <HintPath>..\..\worldbox_Data\Managed\netstandard.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\netstandard.dll</HintPath>
             <Private>false</Private>
         </Reference>
         <Reference Include="Newtonsoft.Json">
-            <HintPath>..\..\worldbox_Data\Managed\Newtonsoft.Json.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\Newtonsoft.Json.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine">
-            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\UnityEngine.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.CoreModule">
-            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\UnityEngine.CoreModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.AssetBundleModule">
-            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\UnityEngine.AssetBundleModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.TextCoreFontEngineModule">
-            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.TextCoreFontEngineModule.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\UnityEngine.TextCoreFontEngineModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.TextCoreTextEngineModule">
-            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.TextCoreTextEngineModule.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\UnityEngine.TextCoreTextEngineModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.TextRenderingModule">
-            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\UnityEngine.TextRenderingModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.TilemapModule">
-            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.TilemapModule.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\UnityEngine.TilemapModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.GridModule">
-            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.GridModule.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\UnityEngine.GridModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.ImageConversionModule">
-            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\UnityEngine.ImageConversionModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.InputLegacyModule">
-            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\UnityEngine.InputLegacyModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.UI">
-            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.UI.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\UnityEngine.UI.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.UIModule">
-            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\UnityEngine.UIModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.ParticleSystemModule">
-            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.ParticleSystemModule.dll</HintPath>
+            <HintPath>$(GameRootPath)/worldbox_Data/Managed\UnityEngine.ParticleSystemModule.dll</HintPath>
         </Reference>
     </ItemGroup>
     <ItemGroup>

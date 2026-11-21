@@ -1,0 +1,14 @@
+// 同一环境退出并真正重启游戏后，核对测试资料继续存在。
+using System;
+using System.IO;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+
+var path = Path.Combine(Application.persistentDataPath, "cultiway-dev-smoke.json");
+var before = JObject.Parse(File.ReadAllText(path));
+int pid = System.Diagnostics.Process.GetCurrentProcess().Id;
+string run = Environment.GetEnvironmentVariable("CULTIWAY_DEV_RUN");
+bool passed = (int)before["pid"] != pid && (string)before["run"] != run &&
+    (string)before["profile"] == Application.persistentDataPath;
+if (!passed) throw new InvalidOperationException("需要在同一环境的全新游戏进程中检查");
+return new JObject { ["passed"] = passed, ["previous"] = before, ["pid"] = pid, ["run"] = run };

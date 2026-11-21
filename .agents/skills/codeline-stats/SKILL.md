@@ -89,5 +89,7 @@ Cultiway 的"堆量"特指 ExtendLibrary 注册器类。**一个堆量类的代�
 ## 故障排查
 
 - **脚本无输出或转后台**：用 `AwaitShell` 等待；若卡死，确认没有残留后台 grep 进程（`kill` 掉）。
+- **行数疑似翻倍**：中文区域下 `wc` 合计行是「总计」而非 `total`，`count_lines` 的 `!/ total$/` 过滤不掉，会把合计行重复计入（实测所有数字×2）。脚本已通过开头 `export LC_ALL=C` 修复；若手工拼 `wc | awk` 命令，记得加 `LC_ALL=C` 或过滤 `总计$`。
+- **报 `set: pipefail: 无效的选项名`**：脚本文件被存成了 CRLF 换行（`pipefail\r` 被当作选项名）。脚本已转回 LF；若复发，用 `tr -d '\r'` 处理后再跑。
 - **rg 未找到**：理论上预装；若缺失，回退到 `find -name` + `xargs wc` 做全量统计，但 ExtendLibrary 精确识别会受限。
 - **原版目录不存在**：`.GameSource/` 是 gitignored 的本地反编译源码，路径以脚本内 `VANILLA` 变量为准；若用户机器未放置，`vanilla` 模式会提示 not found，属正常。

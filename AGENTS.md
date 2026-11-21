@@ -12,6 +12,9 @@
 
 ## 构建、测试与开发命令
 
+- 多任务开发使用 [develop 技能](.agents/skills/develop/SKILL.md)：一个任务一个 worktree 和游戏环境。首次 setup 配置依赖，验证通过独立入口运行；正式交付 PR 后回收游戏副本，合并后再核对并回收 worktree。当前环境脚本支持 Linux 原生游戏。
+- 基于 `master` 的并行开发走 `codex/dev-master`。从远端 `codex/dev-master` 开任务分支，提交 PR 时也以它为目标。任务明确指定分支时，按指定分支执行。
+
 - `dotnet build Cultiway.csproj -c Debug`：还原对本地 WorldBox 安装目录的引用，并将调试 DLL 输出到 `bin/Debug/net48/`（仅供 IDE 与静态检查，游戏由 NML 自行编译 `Source/`）。
 - 测试通过运行本地 WorldBox (../worldbox.exe) 进行，模组加载器会自动编译并加载mod。
 
