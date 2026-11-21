@@ -2807,3 +2807,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 五灵倾泻（10.05）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_gourd_outpouring.py` 让正式炼制的同一葫芦取得实际吞摄储量，再比较有储量与空储量的两次施放。核对原费用、火材附带状态、扇形开角、原作用距离与同一实体扇面。用 `--skip-views` 复验行为，用 `--views-only` 由同一原配方补拍两个视角和扇面边界。
+
+### 罡风横扫、离火焚风与清风涤障（10.05）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_fan_effects.py` 复验正式法扇的击退、燃烧、净化和原扇面边界。用 `--section gale|flame|cleanse` 单独复验指定招式，用 `--skip-views` 只查游戏行为，用 `--views-only` 补采同一实机时点的两个视角并检查网格高度与扇面范围。

@@ -142,6 +142,10 @@ internal readonly struct ArtifactAreaContact
         (CleanseCount, Daze, Force, Damage, DamageFirst, ApplyEffect, Disposition, RevealsConcealment, Sector) =
         (count, daze, force, damage, damageFirst, applyEffect, disposition, revealsConcealment, sector);
 
+    /// <summary>保留本击实际作用，在人物中心的定时接触上增加扇角。</summary>
+    internal ArtifactAreaContact WithSector(ArtifactAreaSector sector) =>
+        new(CleanseCount, Daze, Force, Damage, DamageFirst, ApplyEffect, Disposition, RevealsConcealment, sector);
+
     /// <summary>保存按原施法来源折算的本击伤害。</summary>
     /// <param name="damage">已准备的伤害。</param>
     internal ArtifactAreaContact WithDamage(float damage) =>

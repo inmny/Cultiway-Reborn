@@ -1,0 +1,265 @@
+// 同一场地、同类人物，从正式炼制与装备入口复验三种扇法。
+PrepareArtifactArena(53, 95, 57, 96);
+Actor source = Make(64.35f), near = Make(68f, "wolf"), far = Make(74f, "wolf"), ally = Make(65f);
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 1200f });
+owner.SetPowerLevel(4f);
+await Setup(source, near);
+CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+source.updateStats();
+source.addAggro(far);
+far.addAggro(source);
+ally.setKingdom(source.kingdom);
+
+var quietStats = new BaseStats();
+quietStats.addTag("frozen_ai");
+var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.Fan.Quiet") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Fan.Quiet")
+        .SetStats(quietStats).SetDuration(10000f).Build();
+CombatStatusEffects.RemoveStatus(near, hold);
+CombatStatusEffects.ApplyStatus(near, quiet, 10000f, near);
+near.updateStats();
+
+var spells = new[] {
+    (key: "gale", asset: ArtifactAbilities.GaleFanSweep, surface: "fan_gale"),
+    (key: "flame", asset: ArtifactAbilities.DepartingFireFan, surface: "fan_flame"),
+    (key: "cleanse", asset: ArtifactAbilities.CleansingWindFan, surface: "fan_cleanse")
+};
+var primary = Blueprint(ArtifactAtoms.TempestFan, ArtifactAtoms.SunfireGlass, ArtifactAtoms.FrostJade, ArtifactAtoms.PureYang);
+Check(primary.AbilitySet.abilities.Length > 0, "取得正式主配方",
+    primary.AbilitySet.abilities.Select(ability => ability.ability_id).ToArray());
+Entity original = default, equipped = default;
+var items = new Dictionary<string, Entity>();
+ArtifactBlueprint Blueprint(params ArtifactAtomAsset[] atoms) => ArtifactBlueprintCodec.FromComposeResult(
+    ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+    {
+        Shape = ItemShapes.Fan, Atoms = atoms, Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "三种扇法实测"
+    }));
+
+async Task<Entity> Equip(ArtifactAbilityAsset asset)
+{
+    if (!items.TryGetValue(asset.id, out Entity fan))
+    {
+        if (primary.AbilitySet.abilities.Any(row => row.ability_id == asset.id))
+        {
+            if (original.IsNull)
+            {
+                original = ArtifactBlueprintCodec.Materialize(primary, source.getName());
+                owner.AddSpecialItem(original);
+            }
+            fan = original;
+        }
+        else
+        {
+            var alternate = asset == ArtifactAbilities.DepartingFireFan
+                ? Blueprint(ArtifactAtoms.FlameFan, ArtifactAtoms.SunfireGlass, ArtifactAtoms.PureYang)
+                : Blueprint(ArtifactAtoms.TempestFan, ArtifactAtoms.MoonWater, ArtifactAtoms.FrostJade, ArtifactAtoms.PureYang);
+            Check(alternate.AbilitySet.abilities.Any(row => row.ability_id == asset.id),
+                "补充配方正式取得" + asset.GetName(), alternate.AbilitySet.abilities.Select(row => row.ability_id).ToArray());
+            fan = ArtifactBlueprintCodec.Materialize(alternate, source.getName());
+            owner.AddSpecialItem(fan);
+        }
+        items[asset.id] = fan;
+    }
+    if (equipped == fan) return fan;
+    if (!equipped.IsNull) owner.UnequipArtifact(equipped, suppressAutoEquip: true);
+    Check(owner.EquipArtifact(fan, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+        "正式装配本招原扇", new { asset.id, fan = fan.Id });
+    ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+    lifecycle.Invoke(null, new object[] { fan });
+    await Game.NextFrame();
+    await Game.NextFrame();
+    equipped = fan;
+    return fan;
+}
+
+var starts = new List<ConstructedCastStarted>();
+var contactsForFans = new List<ConstructedContact>();
+var fees = new List<float>();
+var effects = new HashSet<string>(spells.Select(row => row.asset.id));
+var payment = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = payment.GetValue(null);
+var tryCenter = typeof(ArtifactAbilities).GetMethod("ControllerPosition", F);
+var meshField = typeof(FormVisualInstance).GetField("Geometry", F);
+Vector2 direction = new Vector2(.93f, .36f).normalized;
+bool Close(float a, float b) => Mathf.Abs(a - b) < .003f;
+bool Has(Actor actor, Cultiway.Core.Libraries.StatusEffectAsset state) => CombatStatusEffects.HasStatus(actor, state);
+void Add(Actor actor, Cultiway.Core.Libraries.StatusEffectAsset state) => CombatStatusEffects.ApplyStatus(actor, state, 10000f, actor);
+bool Show(string surface) => FormVisualScene.Instances.Any(view => view.Surface == surface);
+FormVisualInstance Form(string surface) => FormVisualScene.Instances.Single(view => view.Surface == surface);
+
+void Started(ConstructedCastStarted cast)
+{
+    if (cast.SourceId == source.id && effects.Contains(cast.AbilityId)) starts.Add(cast);
+}
+void Contact(ConstructedContact hit)
+{
+    if (hit.SourceId == source.id && effects.Contains(hit.AbilityId)) contactsForFans.Add(hit);
+}
+void Paid(ActorExtend actor, in WakanMutation change)
+{
+    if (actor == owner && change.Kind == WakanMutationKind.Spend) fees.Add(-change.Delta);
+}
+bool Activate(Entity fan, ArtifactAbilityAsset asset, Vector2 aim)
+{
+    source.attack_timer = 0f;
+    bool accepted = ActiveAbilityService.TryUse(owner, ArtifactHandle(fan, asset.id),
+        new ActiveAbilityTarget(null, aim), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999f;
+    return accepted;
+}
+Vector2 Position(Vector2 center, float angle, float radius)
+{
+    Vector3 rotated = Quaternion.AngleAxis(angle, Vector3.forward) * (Vector3)direction;
+    return center + (Vector2)rotated * radius;
+}
+void Arrange(Vector2 center, float angle, float radius)
+{
+    Vector2 a = Position(center, angle * .5f - 1f, radius * .5f);
+    Vector2 b = Position(center, angle * .5f + 1f, radius * .5f);
+    Vector2 c = Position(center, -angle * .22f, radius * .54f);
+    Place(near, a.x, a.y);
+    Place(far, b.x, b.y);
+    Place(ally, c.x, c.y);
+    near.restoreHealth(near.getMaxHealth());
+    far.restoreHealth(far.getMaxHealth());
+    source.attack_timer = near.attack_timer = far.attack_timer = ally.attack_timer = 999f;
+}
+
+WakanResourceService.RegisterMutationCommitted(Paid);
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    foreach (var choice in spells.Where(row => section == "all" || row.key == section))
+    {
+        Entity fan = await Equip(choice.asset);
+        var ability = Definition(fan, choice.asset.id);
+        ArtifactControlState state = owner.E.GetRelation<EquippedArtifactRelation, Entity>(fan).state;
+        var execution = new ArtifactAbilityExecutionContext(owner.E, fan, state);
+        float cost = choice.asset.lifecycle.ResolveActivationCost(execution, ability) *
+            (state == ArtifactControlState.Overloaded ? choice.asset.lifecycle.overload_resource_multiplier : 1f);
+        float radius = ability.GetNumber("attack_range"), angle = ability.GetNumber("cone_angle");
+        Vector2 center = (Vector3)tryCenter.Invoke(null, new object[] { execution });
+        Vector2 aim = center + direction * 2.5f;
+        Arrange(center, angle, radius);
+        owner.GetCultisys<Xian>().wakan = 1200f;
+        int beforeFee = fees.Count, beforeStarts = starts.Count, beforeHits = contactsForFans.Count;
+        int nearHealth = near.data.health, farHealth = far.data.health;
+        float beforePosition = Vector2.Distance(center, near.current_position);
+        var benefits = new[] { quiet, StatusEffects.GuardBlessing, StatusEffects.BattleBlessing, StatusEffects.HasteBlessing };
+        var drawbacks = new[] { StatusEffects.ArmorBreak, StatusEffects.Weaken, StatusEffects.Slow };
+        if (choice.key == "cleanse")
+        {
+            foreach (var benefit in benefits)
+            {
+                Add(near, benefit);
+                Add(far, benefit);
+            }
+            foreach (var drawback in drawbacks) Add(ally, drawback);
+            Add(ally, StatusEffects.GuardBlessing);
+            Add(near, StatusEffects.ArmorBreak);
+        }
+
+        Check(Activate(fan, choice.asset, aim) && starts.Count == beforeStarts + 1 &&
+              fees.Count == beforeFee + 1 && Close(fees.Last(), cost) && contactsForFans.Count == beforeHits,
+            choice.asset.GetName() + "一次支付并在展面后结算", new { cost, paid = fees.LastOrDefault(), angle, radius });
+        if (!viewsOnly && choice.key == "gale")
+            Check(!Activate(fan, choice.asset, aim) && fees.Count == beforeFee + 1,
+                "仍在原冷却时拒绝连续施放");
+
+        await WaitFor(() => contactsForFans.Count > beforeHits, .55f);
+        await Game.NextFrame();
+        var hit = contactsForFans.Skip(beforeHits).Where(row => row.AbilityId == choice.asset.id).ToArray();
+        Check(hit.Any(row => row.TargetId == near.id) && hit.All(row => row.TargetId != far.id) &&
+              far.data.health == farHealth, choice.asset.GetName() + "保持原扇角内外",
+            new { hit = hit.Select(row => row.TargetId).ToArray(), near = near.id, far = far.id });
+        if (!viewsOnly && choice.key == "gale")
+        {
+            await Advance(.10f);
+            Check(hit.Single().ForceApplied && near.data.health < nearHealth &&
+                  Vector2.Distance(center, near.current_position) > beforePosition + .005f,
+                "罡风伤敌并沿地向外推开",
+                new { nearHealth, current = near.data.health, beforePosition, distance = Vector2.Distance(center, near.current_position) });
+        }
+        else if (!viewsOnly && choice.key == "flame")
+        {
+            Check(hit.Single().Damage.HealthLost > 0 && Has(near, StatusEffects.Burn) && !Has(far, StatusEffects.Burn),
+                "离火真实扣血并附加原燃烧", new { damage = hit[0].Damage.HealthLost });
+        }
+        else if (!viewsOnly)
+        {
+            int limit = ability.GetInteger("effect_count");
+            int allyCleared = drawbacks.Count(effect => !Has(ally, effect));
+            int enemyDispelled = benefits.Count(effect => !Has(near, effect));
+            Check(hit.Any(row => row.TargetId == ally.id) && allyCleared == Math.Min(drawbacks.Length, limit) &&
+                  enemyDispelled == Math.Min(benefits.Length, limit) && benefits.All(effect => Has(far, effect)) &&
+                  Has(ally, StatusEffects.GuardBlessing) && Has(near, StatusEffects.ArmorBreak) && near.data.health == nearHealth,
+                "清风分别解除友方负面与敌方正面状态，原上限和圈外保留",
+                new { limit, allyCleared, enemyDispelled });
+        }
+
+        var form = Form(choice.surface);
+        var mesh = (Mesh)meshField.GetValue(form);
+        Vector2 visualOrigin = (Vector3)form.Transform.GetColumn(3);
+        float visualRadius = 0f, visualHalfAngle = 0f, minClearance = float.PositiveInfinity;
+        foreach (Vector3 v in mesh.vertices)
+        {
+            Vector3 world = form.Transform.MultiplyPoint3x4(v);
+            Vector2 offset = (Vector2)world - visualOrigin;
+            minClearance = Mathf.Min(minClearance, world.z - (form.Terrain?.Sample(world.x, world.y) ?? 0f));
+            visualRadius = Mathf.Max(visualRadius, offset.magnitude);
+            if (offset.sqrMagnitude > .0001f)
+                visualHalfAngle = Mathf.Max(visualHalfAngle, Mathf.Abs(Vector2.SignedAngle(direction, offset)));
+        }
+        Check(Vector2.Distance(visualOrigin, center) < .03f && Mathf.Abs(visualRadius - radius) < .04f &&
+              Mathf.Abs(visualHalfAngle * 2f - angle) < .12f,
+            choice.asset.GetName() + "的实体边缘与作用范围一致", new { radius, visualRadius, angle, visualAngle = visualHalfAngle * 2f });
+        Check(minClearance >= -.02f, choice.asset.GetName() + "覆盖高地时主体网格没有沉入当前地表",
+            new { minClearance });
+        if (shots)
+        {
+            ControllableUnit.clear(false);
+            MoveCamera.clearFocusUnitOnly();
+            await Game.NextFrame();
+            await CaptureArtifactViews(choice.key, center + direction * radius * .43f, radius * .8f,
+                () => Show(choice.surface) && Vector2.Distance((Vector3)Form(choice.surface).Transform.GetColumn(3), center) < .03f,
+                nativeZoom: radius * .8f);
+        }
+        if (choice.key == "flame") CombatStatusEffects.RemoveStatus(near, StatusEffects.Burn, source);
+        await Advance(.70f);
+        Check(!Show(choice.surface) && contactsForFans.Count == beforeHits + hit.Length &&
+              owner.GetItems().Contains(fan) && owner.GetEquippedArtifacts().Contains(fan),
+            choice.asset.GetName() + "收束，原扇仍可用，接触不重复");
+    }
+
+    if (!viewsOnly && (section == "all" || section == "gale"))
+    {
+        var gale = ArtifactAbilities.GaleFanSweep;
+        Entity fan = await Equip(gale);
+        float cooldown = (float)(Entry(fan, gale.id).cooldown_until - World.world.getCurWorldTime());
+        await Advance(Mathf.Max(.12f, cooldown + .12f));
+        Place(source, 64.35f, 72f);
+        var ability = Definition(fan, gale.id);
+        var execution = new ArtifactAbilityExecutionContext(owner.E, fan,
+            owner.E.GetRelation<EquippedArtifactRelation, Entity>(fan).state);
+        Vector2 center = (Vector3)tryCenter.Invoke(null, new object[] { execution });
+        Arrange(center, ability.GetNumber("cone_angle"), ability.GetNumber("attack_range"));
+        int before = contactsForFans.Count;
+        Check(Activate(fan, gale, center + direction * 2.5f), "原冷却结束后同一件原扇再次出手");
+        await WaitFor(() => contactsForFans.Count > before, .55f);
+        Check(contactsForFans.Count == before + 1 && contactsForFans.Last().TargetId == near.id,
+            "恢复出手后仍实际作用一次");
+    }
+
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    payment.SetValue(null, previous);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+}

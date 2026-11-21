@@ -1032,7 +1032,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         /// <summary>法宝在真正到达作用边界后产生的原有结果。</summary>
         internal ArtifactAreaContact? ArtifactArea;
         /// <summary>本次扇面专有网格，收束或换世界时释放。</summary>
-        internal Mesh ArtifactSectorMesh;
+        internal ArtifactSectorView ArtifactSectorView;
 
         /// <summary>由点名修炼反应在真实接触时提交的效果。</summary>
         internal FormationTargetContact FormationTarget;

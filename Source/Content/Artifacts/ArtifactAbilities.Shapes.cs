@@ -247,7 +247,6 @@ public partial class ArtifactAbilities
         ConfigureBannerAbilityVisuals();
         ConfigureBellAbilityVisuals();
         ConfigureGourdAbilityVisuals();
-        ConfigureFanAbilityVisuals();
         ConfigureTowerAbilityVisuals();
         ConfigurePearlAbilityVisuals();
     }

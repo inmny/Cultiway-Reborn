@@ -2,15 +2,13 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Semantics;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Usage;
 using NeoModLoader.General;
 using UnityEngine;
-using System;
-using Cultiway.Content.Visuals;
-using Cultiway.Core.Components;
-using Cultiway.Core.SkillLibV3.Visuals;
 
 namespace Cultiway.Content;
 
@@ -77,6 +75,7 @@ public partial class ArtifactAbilities
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             Resource = SkillCastResources.Wakan,
+            OnActivityEnded = EndArtifactConstruction,
         });
         GaleFanSweep.Activate(new ArtifactActiveAbilityProfile
         {
@@ -95,34 +94,11 @@ public partial class ArtifactAbilities
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
         in ActiveAbilityTarget target,
-        ActiveAbilityUseOrigin _)
+        ActiveAbilityUseOrigin origin)
     {
-        Actor controller = Controller(context);
-        Vector2 center = ControllerPosition(context);
-        Vector2 direction = DirectionToTarget(context, target);
-        CombatTargeting.ForEachActorInSector(
-            controller,
-            center,
-            direction,
-            ability.GetNumber(AttackRange),
-            ability.GetNumber(ConeAngle),
-            CombatTargeting.TargetDisposition.Hostile,
-            victim =>
-            {
-                CombatDamageEffects.DealDamage(
-                    controller,
-                    victim,
-                    SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
-                    GaleComposition);
-                CombatForceEffects.ApplyRadialForce(
-                    controller,
-                    victim,
-                    center,
-                    ability.GetNumber(ForceStrength) * context.effect_scale,
-                    pull: false);
-            });
-        ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime, center, direction);
-        return true;
+        var contact = new ArtifactAreaContact(0f, ability.GetNumber(ForceStrength) * context.effect_scale, damageFirst: true);
+        return StartFanSector(context, GaleFanSweep, ability, ref runtime, target, origin, contact,
+            "fan_gale", GaleProfile, GaleComposition, SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier));
     }
 
     private static void ConfigureDepartingFireFan()
@@ -175,6 +151,7 @@ public partial class ArtifactAbilities
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             Resource = SkillCastResources.Wakan,
+            OnActivityEnded = EndArtifactConstruction,
         });
         DepartingFireFan.Activate(new ArtifactActiveAbilityProfile
         {
@@ -193,33 +170,20 @@ public partial class ArtifactAbilities
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
         in ActiveAbilityTarget target,
-        ActiveAbilityUseOrigin _)
+        ActiveAbilityUseOrigin origin)
     {
-        Actor controller = Controller(context);
-        Vector2 center = ControllerPosition(context);
-        Vector2 direction = DirectionToTarget(context, target);
         float damage = SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier);
+        float burn = damage * ability.GetNumber(StatusStrength);
+        float duration = ability.GetNumber(StatusDuration);
         ElementComposition fire = new(fire: 1f);
-        CombatTargeting.ForEachActorInSector(
-            controller,
-            center,
-            direction,
-            ability.GetNumber(AttackRange),
-            ability.GetNumber(ConeAngle),
-            CombatTargeting.TargetDisposition.Hostile,
-            victim =>
-            {
-                CombatDamageEffects.DealDamage(controller, victim, damage, fire);
-                CombatStatusEffects.ApplyTickingStatus(
-                    victim,
-                    StatusEffects.Burn,
-                    ability.GetNumber(StatusDuration),
-                    damage * ability.GetNumber(StatusStrength),
-                    fire,
-                    controller);
-            });
-        ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime, center, direction);
-        return true;
+        var caster = ArtifactAbilityLifecycle.ResolveSkillContext(context);
+        var contact = new ArtifactAreaContact((source, victim) =>
+        {
+            using var scope = SkillCasterContextService.Enter(in caster);
+            CombatStatusEffects.ApplyTickingStatus(victim, StatusEffects.Burn, duration, burn, fire, source);
+        }, damageFirst: false);
+        return StartFanSector(context, DepartingFireFan, ability, ref runtime, target, origin, contact,
+            "fan_flame", FlameProfile, fire, damage);
     }
 
     private static void ConfigureCleansingWindFan()
@@ -271,6 +235,7 @@ public partial class ArtifactAbilities
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             Resource = SkillCastResources.Wakan,
+            OnActivityEnded = EndArtifactConstruction,
         });
         CleansingWindFan.Activate(new ArtifactActiveAbilityProfile
         {
@@ -289,195 +254,43 @@ public partial class ArtifactAbilities
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
         in ActiveAbilityTarget target,
-        ActiveAbilityUseOrigin _)
+        ActiveAbilityUseOrigin origin)
     {
-        Actor controller = Controller(context);
-        Vector2 center = ControllerPosition(context);
-        Vector2 direction = DirectionToTarget(context, target);
-        int maxCount = ability.GetInteger(EffectCount);
-        int changed = 0;
-        CombatTargeting.ForEachActorInSector(
-            controller,
-            center,
-            direction,
-            ability.GetNumber(AttackRange),
-            ability.GetNumber(ConeAngle),
-            CombatTargeting.TargetDisposition.Friendly,
-            actor => changed += CombatStatusEffects.CleanseNegativeStatuses(actor, maxCount));
-        CombatTargeting.ForEachActorInSector(
-            controller,
-            center,
-            direction,
-            ability.GetNumber(AttackRange),
-            ability.GetNumber(ConeAngle),
-            CombatTargeting.TargetDisposition.Hostile,
-            actor => changed += CombatStatusEffects.DispelPositiveStatuses(actor, maxCount));
-        ArtifactAbilityVisuals.Emit(
-            context,
-            ability,
-            runtime,
-            ArtifactVisualChannels.Cleanse,
-            center,
-            direction,
-            intensity: Mathf.Max(1f, changed));
-        ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime, center, direction);
+        var contact = new ArtifactAreaContact(ability.GetInteger(EffectCount));
+        return StartFanSector(context, CleansingWindFan, ability, ref runtime, target, origin, contact,
+            "fan_cleanse", CleansingProfile, ElementComposition.Static.empty);
+    }
+
+    private static bool StartFanSector(ArtifactAbilityExecutionContext context, ArtifactAbilityAsset asset,
+        ArtifactAbilityInstance ability, ref ArtifactAbilityRuntimeEntry runtime, in ActiveAbilityTarget target,
+        ActiveAbilityUseOrigin origin, ArtifactAreaContact contact, string surface, Vector2[] profile,
+        ElementComposition element, float damage = 0f)
+    {
+        Vector3 center = ControllerPosition(context);
+        var sector = new ArtifactAreaSector(center, TargetPosition(target) - center, ability.GetNumber(ConeAngle),
+            surface, profile);
+        if (!ArtifactAreaConstruction.Start(context, asset, target, origin, center, ability.GetNumber(AttackRange),
+                ability.GetNumber(EffectDuration), contact.WithSector(sector), "gourd_vortex", element, damage,
+                strike: .10f)) return false;
+        ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime, (Vector2)center, sector.Direction);
         return true;
     }
 
-    private static void ConfigureFanAbilityVisuals()
-    {
-        ConfigureGaleFanSweepVisuals();
-        ConfigureDepartingFireFanVisuals();
-        ConfigureCleansingWindFanVisuals();
-    }
+    private static readonly Vector2[] GaleProfile =
+    [
+        new(0f, .012f), new(.21f, .019f), new(.38f, .031f), new(.46f, .105f), new(.51f, .053f),
+        new(.69f, .033f), new(.85f, .087f), new(.91f, .092f), new(1f, .014f), new(.96f, .006f), new(0f, .003f)
+    ];
 
-    private static void ConfigureGaleFanSweepVisuals()
-    {
-        ArtifactSectorVisualCue cone = AbilitySector(
-            ArtifactVisualColorRole.Primary,
-            ArtifactVfxStyles.Wind
-        );
-        ArtifactParticleVisualCue gust = Burst(
-            ArtifactVisualAnchorKind.Point,
-            ArtifactVisualColorRole.Glow,
-            6,
-            0.42f
-        );
-        gust.emission_interval = 0.075f;
-        gust.directional_speed = 0.72f;
-        ArtifactRibbonVisualCue ribbon = new ArtifactRibbonVisualCue
-        {
-            style_key = ArtifactVfxStyles.Wind,
-            anchor = ArtifactVisualAnchorRef.Appearance("leaf", "edge"),
-            color_role = ArtifactVisualColorRole.Primary,
-            width = 0.1f,
-            alpha = 0.48f,
-            history = 0.34f,
-            match_actor_scale = false,
-        };
-        GaleFanSweep.Visualize(
-            Theme(SkillVfxElements.Wind.AccentColor)
-                .Loop(
-                    "gale_fan_sweep",
-                    new ArtifactCompositeVisualCue(cone, gust, ribbon, Pulse(1.18f, 1f, 0.1f)),
-                    IsActivityActive
-                )
-                .Signal(
-                    ArtifactVisualChannels.Trigger,
-                    new ArtifactCompositeVisualCue(
-                        AbilitySector(
-                            ArtifactVisualColorRole.Glow,
-                            ArtifactVfxStyles.Wind,
-                            transient: true
-                        ),
-                        Burst(
-                            ArtifactVisualAnchorKind.Artifact,
-                            ArtifactVisualColorRole.Glow,
-                            8,
-                            0.45f
-                        )
-                    ),
-                    0.5f
-                )
-        );
-    }
+    private static readonly Vector2[] FlameProfile =
+    [
+        new(0f, .012f), new(.19f, .03f), new(.47f, .101f), new(.55f, .042f), new(.68f, .158f),
+        new(.74f, .071f), new(.85f, .221f), new(.93f, .127f), new(1f, .029f), new(.98f, .007f), new(0f, .003f)
+    ];
 
-    private static void ConfigureDepartingFireFanVisuals()
-    {
-        ArtifactSectorVisualCue flameCone = AbilitySector(
-            ArtifactVisualColorRole.Primary,
-            ArtifactVfxStyles.Fire
-        );
-        flameCone.fill_alpha = 0.14f;
-        ArtifactLocalVisualCue flame = new ArtifactLocalVisualCue(ArtifactLocalVisualKind.Flame)
-        {
-            anchor = ArtifactVisualAnchorRef.Appearance("leaf", "focus"),
-            color_role = ArtifactVisualColorRole.Glow,
-            scale = 0.07f,
-
-            alpha = 0.9f,
-            loop = true,
-        };
-        ArtifactParticleVisualCue embers = Burst(
-            ArtifactVisualAnchorKind.Point,
-            ArtifactVisualColorRole.Glow,
-            7,
-            0.38f
-        );
-        embers.emission_interval = 0.08f;
-        embers.directional_speed = 0.58f;
-        DepartingFireFan.Visualize(
-            Theme(SkillVfxElements.Fire.AccentColor)
-                .Loop(
-                    "departing_fire_fan",
-                    new ArtifactCompositeVisualCue(
-                        flameCone,
-                        flame,
-                        embers,
-                        Pulse(1.2f, 1f, 0.12f)
-                    ),
-                    IsActivityActive
-                )
-                .Signal(
-                    ArtifactVisualChannels.Trigger,
-                    new ArtifactCompositeVisualCue(
-                        AbilitySector(
-                            ArtifactVisualColorRole.Glow,
-                            ArtifactVfxStyles.Fire,
-                            transient: true
-                        ),
-                        new ArtifactAudioVisualCue
-                        {
-                            anchor = ArtifactVisualAnchorKind.Artifact,
-                            sound = "event:/SFX/WEAPONS/WeaponFireballStart",
-                        }
-                    ),
-                    0.6f
-                )
-        );
-    }
-
-    private static void ConfigureCleansingWindFanVisuals()
-    {
-        ArtifactSectorVisualCue breeze = AbilitySector(
-            ArtifactVisualColorRole.Glow,
-            ArtifactVfxStyles.Purification
-        );
-        breeze.fill_alpha = 0.055f;
-        ArtifactParticleVisualCue motes = Burst(
-            ArtifactVisualAnchorKind.Point,
-            ArtifactVisualColorRole.Glow,
-            5,
-            0.5f
-        );
-        motes.emission_interval = 0.1f;
-        motes.directional_speed = 0.42f;
-        CleansingWindFan.Visualize(
-            Theme(SkillVfxElements.Pos.AccentColor)
-                .Loop(
-                    "cleansing_wind_fan",
-                    new ArtifactCompositeVisualCue(breeze, motes),
-                    IsActivityActive
-                )
-                .Signal(
-                    ArtifactVisualChannels.Cleanse,
-                    new ArtifactCompositeVisualCue(
-                        AbilitySector(
-                            ArtifactVisualColorRole.Primary,
-                            ArtifactVfxStyles.Purification,
-                            transient: true
-                        ),
-                        Burst(
-                            ArtifactVisualAnchorKind.Point,
-                            ArtifactVisualColorRole.Glow,
-                            12,
-                            0.62f
-                        )
-                    ),
-                    0.62f,
-                    "artifact.cleansing_wind",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
-        );
-    }
+    private static readonly Vector2[] CleansingProfile =
+    [
+        new(0f, .013f), new(.17f, .019f), new(.42f, .035f), new(.53f, .018f), new(.67f, .044f),
+        new(.74f, .186f), new(.77f, .192f), new(.83f, .062f), new(1f, .013f), new(.97f, .006f), new(0f, .003f)
+    ];
 }
