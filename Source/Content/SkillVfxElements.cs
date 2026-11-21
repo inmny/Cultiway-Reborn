@@ -1,5 +1,6 @@
 using Cultiway.Abstract;
 using Cultiway.Content.Semantics;
+using Cultiway.Content.Skills;
 using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Core.Semantics;
 using Cultiway.Utils.Extension;
@@ -86,7 +87,8 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
             .MatchAny(30, ElementSemantic.Wind)
             .MatchAll(28, ElementSemantic.Water, ElementSemantic.Wood)
             .SetGroundFlyOver(ApplyWindFlyOver)
-            .SetGroundImpact(ApplyWindImpact);
+            .SetGroundImpact((tile, rad, isArea, source) => ApplyWindImpact(tile, rad, isArea, source, false),
+                (tile, rad, isArea, source) => ApplyWindImpact(tile, rad, isArea, source, true));
         Lightning.SetVisualSemantic(ElementSemantic.Lightning, 0.55f, 0.86f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaLightning)
             .SetImpactSound("event:/SFX/WEAPONS/WeaponPlasmaBallLand")
@@ -221,10 +223,10 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
         ApplyWindToTile(tile);
     }
 
-    private static void ApplyWindImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
+    private static void ApplyWindImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj, bool groundMotion)
     {
         var forceRad = isArea && rad > 0 ? rad : 2;
-        ApplyWindForce(tile, forceRad, 2f, sourceObj);
+        ApplyWindForce(tile, forceRad, 2f, sourceObj, groundMotion);
         SkillGroundFx.ForEachTileInRadius(tile, forceRad, ApplyWindToTile);
     }
 
@@ -364,7 +366,7 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
         RaiseTerrain(tile);
     }
 
-    private static void ApplyWindForce(WorldTile tile, int radius, float strength, BaseSimObject sourceObj)
+    private static void ApplyWindForce(WorldTile tile, int radius, float strength, BaseSimObject sourceObj, bool groundMotion)
     {
         var sqrRadius = radius * radius;
         foreach (var actor in Finder.getUnitsFromChunk(tile, 1))
@@ -385,7 +387,9 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
 
             var distanceFactor = Mathf.Clamp01(1f - length / radius);
             var force = strength * (0.55f + distanceFactor * 0.45f);
-            actor.GetExtend().GetForce(sourceObj, dx / length * force, dy / length * force, 0f);
+            float x = dx / length * force, y = dy / length * force;
+            if (groundMotion) ConstructedAbilityService.ApplyLegacyWindSlide(actor, sourceObj, x, y);
+            else actor.GetExtend().GetForce(sourceObj, x, y, 0f);
         }
     }
 

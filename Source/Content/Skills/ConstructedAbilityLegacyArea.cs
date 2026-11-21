@@ -21,7 +21,7 @@ public sealed partial class ConstructedAbilityService
         Actor attacker = authority.IsLive ? authority.Actor : null;
         if (area.Element != null)
         {
-            SkillGroundFx.OnImpact(point, area.Element, area.Radius, true, attacker);
+            SkillGroundFx.ApplyImpact(point, area.Element, area.Radius, true, attacker, true);
             if (generation != worldGeneration) return;
             // 旧雷系地块规则最远固定三格。这里扩展采样边界只为读取已经变化后的地面。
             float reach = Mathf.Max(3, Mathf.RoundToInt(area.Radius)) + 1;

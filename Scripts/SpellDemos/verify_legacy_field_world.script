@@ -1,0 +1,253 @@
+// 按相同入口实放原术，只观测已发生的原版地块、落滴与人物受力。
+bool legacy = caseName == "legacy";
+var prior = legacy ? null : JObject.Parse(File.ReadAllText(worldFieldBaseline));
+var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var hook = new HarmonyLib.Harmony("cultiway.test.field-world." + Guid.NewGuid().ToString("N"));
+var samples = new List<JObject>();
+var pushes = new List<JObject>();
+var drops = new List<JObject>();
+var results = new JArray();
+var quietStats = new BaseStats();
+quietStats.addTag("frozen_ai");
+var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.Field.Quiet") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Field.Quiet")
+        .SetStats(quietStats).SetDuration(10000).Build();
+bool wind = false, observing = false;
+double started = 0;
+
+string State(WorldTile tile) => $"{tile.main_type.id}/{tile.top_type?.id}/{tile.Type.liquid}";
+Dictionary<string, string> Snapshot(Vector3 point, int reach)
+{
+    int left = Mathf.FloorToInt(point.x), bottom = Mathf.FloorToInt(point.y);
+    var cells = new Dictionary<string, string>();
+    for (int x = left - reach; x <= left + reach; x++)
+    for (int y = bottom - reach; y <= bottom + reach; y++)
+    {
+        var tile = World.world.GetTile(x, y);
+        if (tile != null) cells.Add($"{x}:{y}", State(tile));
+    }
+    return cells;
+}
+void Prepare()
+{
+    const float row = 72.5f;
+    for (int x = 60; x <= 86; x++)
+    for (int y = 67; y <= 80; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        bool wet = wind && ((x is 65 or 66 or 72) && y == 72 || x == 67 && y is 71 or 73);
+        tile.Height = 140;
+        tile.setTileTypes(wet ? TileLibrary.shallow_waters : wind ? TileLibrary.soil_low : TileLibrary.soil_high,
+            wind && !wet ? TopTileLibrary.grass_low : null);
+        tile.stopFire();
+        tile.removeBurn();
+        tile.unfreeze(99);
+        tile.heat = 0;
+    }
+    Ready(source);
+    Place(source, 64.5f, row);
+    Place(target, wind ? 66.7f : 72.5f, row);
+    Place(second, wind ? 67.6f : 72.5f, wind ? 73.5f : 77.5f);
+    Place(outside, 66.7f, 78.5f);
+    foreach (Actor actor in new[] { target, second, outside })
+    {
+        if (wind) CombatStatusEffects.RemoveStatus(actor, hold);
+        CombatStatusEffects.ApplyStatus(actor, wind ? quiet : hold, 10000, actor);
+        actor.attack_timer = 999;
+        actor.setStatsDirty();
+        actor.updateStats();
+    }
+    foreach (Actor actor in new[] { source, target, second, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+}
+FieldWorldProbe.Read = (pos, element, caster, travel) =>
+{
+    if (!observing || (!travel && caster != source) ||
+        !(wind ? element.EndsWith(".Wind", StringComparison.Ordinal) : element.EndsWith(".Neg", StringComparison.Ordinal)))
+        return null;
+    FieldWorldProbe.Phase = travel ? "travel" : "contact";
+    FieldWorldProbe.Point = pos;
+    return Snapshot(pos, travel || !wind ? 0 : 2);
+};
+FieldWorldProbe.Write = (point, element, radius, before) =>
+{
+    var after = Snapshot(point, FieldWorldProbe.Phase == "travel" || !wind ? 0 : 2);
+    samples.Add(JObject.FromObject(new { phase = FieldWorldProbe.Phase, element,
+        x = Mathf.FloorToInt(point.x), y = Mathf.FloorToInt(point.y), radius,
+        age = World.world.getCurWorldTime() - started,
+        changed = before.Where(pair => pair.Value != after[pair.Key]).Select(pair =>
+            new { cell = pair.Key, before = pair.Value, after = after[pair.Key] }).ToArray() }));
+};
+FieldWorldProbe.Push = (actor, damager, accepted, x, y) =>
+{
+    if (damager != source || actor == null) return;
+    pushes.Add(JObject.FromObject(new { actor.id, accepted,
+        x, y, tx = actor.current_tile.x, ty = actor.current_tile.y,
+        cx = Mathf.FloorToInt(FieldWorldProbe.Point.x), cy = Mathf.FloorToInt(FieldWorldProbe.Point.y),
+        speed = ((Vector2)actor.velocity).magnitude }));
+};
+FieldWorldProbe.Drop = (tile, id, delta) =>
+    drops.Add(JObject.FromObject(new { tile.x, tile.y, id, delta, phase = FieldWorldProbe.Phase }));
+Type fx = typeof(Cultiway.Core.SkillLibV3.Visuals.SkillGroundFx);
+void Patch(MethodInfo originalMethod, string prefix, string postfix) => hook.Patch(originalMethod,
+    prefix: new HarmonyLib.HarmonyMethod(typeof(FieldWorldProbe), prefix),
+    postfix: new HarmonyLib.HarmonyMethod(typeof(FieldWorldProbe), postfix));
+Patch(fx.GetMethod("ApplyImpact", F), nameof(FieldWorldProbe.BeforeImpact), nameof(FieldWorldProbe.AfterImpact));
+Patch(fx.GetMethod("OnFlyOver", F), nameof(FieldWorldProbe.BeforeTravel), nameof(FieldWorldProbe.AfterTravel));
+Patch(typeof(DropManager).GetMethod("spawnParabolicDrop", F), nameof(FieldWorldProbe.BeforeDrop), nameof(FieldWorldProbe.AfterDrop));
+hook.Patch(typeof(ActorExtend).GetMethod("TryGetForce", F),
+    postfix: new HarmonyLib.HarmonyMethod(typeof(FieldWorldProbe), nameof(FieldWorldProbe.AfterForce)));
+if (legacy)
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id)
+            ? SkillEmissionResult.Unhandled : original(emission);
+ConstructedAbilityService.CastStarted += Started;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
+try
+{
+    foreach (var asset in worldFields)
+    {
+        wind = asset == SkillEntities.Tornado;
+        Entity skill = Learn(asset, 0, false);
+        Prepare();
+        Vector2 start = target.current_position, sourceStart = source.current_position, outsideStart = outside.current_position;
+        var targetCell = target.current_tile;
+        string priorFloor = targetCell.main_type.id;
+        samples.Clear();
+        pushes.Clear();
+        drops.Clear();
+        int old = oldExecutions, now = casts.Count;
+        started = World.world.getCurWorldTime();
+        observing = true;
+        Vector3 point = new(wind ? 82.5f : start.x, 72.5f, 0f);
+        Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+            new ActiveAbilityTarget(null, point), ActiveAbilityUseOrigin.Player), "沿原入口释放持续领域", asset.id);
+        source.attack_timer = 999;
+        CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+        source.updateStats();
+        object separation = null;
+        if (!legacy && !wind)
+        {
+            await Advance(1.85f);
+            separation = ReadFieldSeparation(casts.Last().Value);
+            await Advance(1.80f);
+        }
+        else await Advance(3.65f);
+        int samplesBefore = samples.Count, pushesBefore = pushes.Count, dropsBefore = drops.Count;
+        await Advance(.48f);
+        observing = false;
+        float moved = Vector2.Distance(start, target.current_position);
+        var row = JObject.FromObject(new { id = asset.id, moved, casterMoved = Vector2.Distance(sourceStart, source.current_position),
+            outsideMoved = Vector2.Distance(outsideStart, outside.current_position), old = priorFloor, floor = targetCell.main_type.id,
+            fieldTarget = target.id, source = source.id, outside = outside.id, separation,
+            queries = samples.ToArray(), forces = pushes.ToArray(), drops = drops.ToArray() });
+        results.Add(row);
+        File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(new { spells = results }, Formatting.Indented));
+        Check(legacy ? oldExecutions == old + 1 && casts.Count == now :
+                       oldExecutions == old && casts.Count == now + 1 && casts.Last().Value.Finished,
+            "同一原入口只产生一次领域并自然结束", asset.id);
+        Check(samplesBefore == samples.Count && pushesBefore == pushes.Count && dropsBefore == drops.Count,
+            "领域自然结束后不再提交受力、地块操作或水滴", asset.id);
+        if (wind)
+        {
+            Check(pushes.Any(item => (long)item["id"] == target.id && (bool)item["accepted"] && (float)item["speed"] > 1f) &&
+                  pushedOutward() && (legacy ? moved < .04f : moved > .04f) &&
+                  pushes.All(item => (long)item["id"] != source.id && (long)item["id"] != outside.id) &&
+                  (float)row["casterMoved"] < .04f && (float)row["outsideMoved"] < .04f,
+                legacy ? "记录旧风卷受理的水平力及没有位移的结果" : "新风卷真实推进场内人物，来源与场外留在原位", row);
+            Check(drops.Any(item => (string)item["phase"] == "contact" && (string)item["id"] == "rain" && (int)item["delta"] == 1) &&
+                  drops.Any(item => (string)item["phase"] == "travel" && (int)item["delta"] == 1) &&
+                  samples.SelectMany(item => item["changed"]).Any(cell =>
+                    ((string)cell["before"]).EndsWith("/True") && ((string)cell["after"]).EndsWith("/False")),
+                "行进与命中均移走水格，并实际生成原版水滴", row);
+        }
+        else
+        {
+            string cell = $"{targetCell.x}:{targetCell.y}";
+            Check(samples.Count > 0 && samples.All(item => (string)item["phase"] == "contact" &&
+                  (int)item["x"] == targetCell.x && (int)item["y"] == targetCell.y) &&
+                  samples.SelectMany(item => item["changed"]).Any(change => (string)change["cell"] == cell &&
+                      ((string)change["before"]).StartsWith("soil_high/") && ((string)change["after"]).StartsWith("soil_low/")),
+                "阴域在真实接触对象脚下实际降低主地形", row);
+            if (!legacy && samples.Count < 6)
+                Check(!(bool)row["separation"]["overlap"] && (int)row["separation"]["shapeCount"] > 0,
+                    "降低后的对象已离开仍存在的真实领域，后续无接触", row["separation"]);
+        }
+        if (!legacy)
+        {
+            var before = prior["spells"].Single(item => (string)item["id"] == asset.id);
+            Check(new HashSet<(string, string, float)>(
+                    before["queries"].Select(item => ((string)item["phase"], (string)item["element"], (float)item["radius"])))
+                .SetEquals(samples.Select(item => ((string)item["phase"], (string)item["element"], (float)item["radius"]))),
+                "新旧使用同一元素和同类世界作用范围", asset.id);
+        }
+    }
+    return new { passed = true, legacy, process, spells = results, checks };
+}
+finally
+{
+    hook.UnpatchSelf();
+    FieldWorldProbe.Read = null;
+    FieldWorldProbe.Write = null;
+    FieldWorldProbe.Push = null;
+    FieldWorldProbe.Drop = null;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyExecution;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+}
+bool pushedOutward() => pushes.Any(item => (bool)item["accepted"] &&
+    ((int)item["tx"] - (int)item["cx"]) * (float)item["x"] +
+    ((int)item["ty"] - (int)item["cy"]) * (float)item["y"] > 0f);
+
+object ReadFieldSeparation(AbilityCast cast)
+{
+    var physics = new List<AbilityCapsule>();
+    cast.AppendContacts(physics);
+    var footprint = service.GetMethod("WorldFoot", F, null, new[] { typeof(Actor), typeof(Vector3) }, null);
+    var foot = (Vector3)footprint.Invoke(null, new object[] { target,
+        new Vector3(target.current_position.x, target.current_position.y, target.position_height) });
+    var poseType = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+    float height = (float)poseType.GetMethod("Height", F).Invoke(null, new object[] { target });
+    var create = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.ActorHitBoundary").GetMethod("Create", F);
+    var boundary = (AbilityCapsule)create.Invoke(null, new object[] { foot, height, Vector3.zero });
+    var sweep = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityPairSweep").GetMethod("Find", F);
+    bool overlap = physics.Any(shape => (bool)sweep.Invoke(null,
+        new object[] { shape, shape, boundary, boundary, 0f, Vector3.zero, Vector3.zero }));
+    return new { overlap, shapeCount = physics.Count, foot = foot.z, age = cast.Age };
+}
+
+public static class FieldWorldProbe
+{
+    public static string Phase;
+    public static Vector3 Point;
+    public static Func<Vector3, string, BaseSimObject, bool, Dictionary<string, string>> Read;
+    public static Action<Vector3, string, float, Dictionary<string, string>> Write;
+    public static Action<Actor, BaseSimObject, bool, float, float> Push;
+    public static Action<WorldTile, string, int> Drop;
+    public static void BeforeImpact(Vector3 pos, Cultiway.Core.SkillLibV3.Visuals.SkillVfxElementAsset element,
+        BaseSimObject sourceObj, out Dictionary<string, string> __state) => __state = Read?.Invoke(pos, element.id, sourceObj, false);
+    public static void AfterImpact(Vector3 pos, Cultiway.Core.SkillLibV3.Visuals.SkillVfxElementAsset element, float radius,
+        Dictionary<string, string> __state) => Complete(pos, element.id, radius, __state);
+    public static void BeforeTravel(Vector3 pos, Cultiway.Core.SkillLibV3.Visuals.SkillVfxElementAsset element,
+        out Dictionary<string, string> __state) => __state = Read?.Invoke(pos, element.id, null, true);
+    public static void AfterTravel(Vector3 pos, Cultiway.Core.SkillLibV3.Visuals.SkillVfxElementAsset element,
+        Dictionary<string, string> __state) => Complete(pos, element.id, 0f, __state);
+    private static void Complete(Vector3 pos, string element, float radius, Dictionary<string, string> state)
+    {
+        if (state == null) return;
+        Write?.Invoke(pos, element, radius, state);
+        Phase = null;
+    }
+    public static void BeforeDrop(DropManager __instance, out int __state) => __state = __instance.getActiveIndex();
+    public static void AfterDrop(DropManager __instance, WorldTile pTile, string pDropID, int __state)
+    {
+        if (Phase != null) Drop?.Invoke(pTile, pDropID, __instance.getActiveIndex() - __state);
+    }
+    public static void AfterForce(ActorExtend __instance, BaseSimObject source, float x, float y, bool __result)
+    {
+        if (Phase == "contact") Push?.Invoke(__instance.Base, source, __result, x, y);
+    }
+}

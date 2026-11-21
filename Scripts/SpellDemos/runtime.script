@@ -1608,6 +1608,8 @@ private void Prepare(JObject item)
         if (cloud.active)
             cloud.kill();
     string id = (string)item["id"];
+    bool windField = id == "Cultiway.Tornado" && (bool?)request["motionTrace"] == true;
+    bool yinGround = id == "Cultiway.YinField" && (bool?)request["motionTrace"] == true;
     // 掌击与动作取证共用等高对靶；后续普通法术继续使用自己的原有对靶。
     bool palm = id == "Cultiway.PalmStrike";
     if ((enemies[0].asset.id == "human") != palm)
@@ -1688,9 +1690,18 @@ private void Prepare(JObject item)
             .SetDuration(10000).Build();
     }
 
+    var windTarget = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.SpellDemo.WindTarget");
+    if (windField && windTarget == null)
+    {
+        var stats = new BaseStats();
+        stats.addTag("frozen_ai");
+        windTarget = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.WindTarget")
+            .SetStats(stats).SetDuration(10000).Build();
+    }
+
     foreach (Actor actor in new[] { caster, friend }.Concat(enemies))
     {
-        CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+        CombatStatusEffects.ApplyStatus(actor, windField && enemies.Contains(actor) ? windTarget : hold, 10000, actor);
         actor.setStatsDirty();
         actor.updateStats();
         actor.stopMovement();
@@ -1740,11 +1751,15 @@ private void Prepare(JObject item)
             float shore = 8.1f + .55f * Mathf.Sin(Mathf.Atan2(fromWater.y, fromWater.x) * 3f);
             wetPatch = fromWater.sqrMagnitude <= shore * shore;
         }
-        bool water = wetPatch && drainage, basin = wetPatch && filling;
+        Vector2 fromCaster = new Vector2(x, y) - sourcePosition;
+        bool windWater = windField && fromCaster.x >= .5f && fromCaster.x <= 8f &&
+                         Mathf.Abs(fromCaster.y) <= (x % 4 == 0 ? 1.1f : .55f);
+        bool water = wetPatch && drainage || windWater, basin = wetPatch && filling;
         bool exposed = exposesSoil && (new Vector2(x, y) - effectCenter).sqrMagnitude <= 45f;
+        bool darkGround = yinGround && (new Vector2(x, y) - effectCenter).sqrMagnitude <= 20f;
         tile.setTileTypes(water ? TileLibrary.shallow_waters : basin ? TileLibrary.pit_shallow_waters :
-                exposed ? TileLibrary.sand : TileLibrary.soil_low,
-            water || basin || exposed ? null : patch && id.EndsWith("Fertilize") ? TopTileLibrary.field : TopTileLibrary.grass_low);
+                exposed ? TileLibrary.sand : darkGround ? TileLibrary.soil_high : TileLibrary.soil_low,
+            water || basin || exposed || darkGround ? null : patch && id.EndsWith("Fertilize") ? TopTileLibrary.field : TopTileLibrary.grass_low);
     }
 
     if (id.EndsWith("CleanLandField"))

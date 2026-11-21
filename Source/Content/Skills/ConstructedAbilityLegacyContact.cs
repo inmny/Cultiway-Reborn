@@ -1,6 +1,7 @@
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Visuals;
+using Cultiway.Utils.Extension;
 using UnityEngine;
 
 namespace Cultiway.Content.Skills;
@@ -27,9 +28,19 @@ public sealed partial class ConstructedAbilityService
     private static void ConfirmLegacyGroundContact(SkillVfxElementAsset element, Vector3 foot,
         CastAuthority authority, long generation)
     {
-        SkillGroundFx.OnImpact(foot, element, 0f, false, authority.IsLive ? authority.Actor : null);
+        SkillGroundFx.ApplyImpact(foot, element, 0f, false, authority.IsLive ? authority.Actor : null, true);
         if (generation != worldGeneration) return;
         // 单体风雷等旧规则也会改动邻近格，刷新覆盖其原有的固定范围。
         simulation.RefreshTerrainIn(new Rect(foot.x - 4f, foot.y - 4f, 8f, 8f));
+    }
+
+    /// <summary>旧风力只有水平速度，交给共同贴地运动才会真正位移。</summary>
+    /// <param name="actor">已经处于原推力范围的真实人物。</param><param name="source">实际归属。</param>
+    /// <param name="x">原水平力度。</param><param name="y">原纵向力度。</param>
+    internal static void ApplyLegacyWindSlide(Actor actor, BaseSimObject source, float x, float y)
+    {
+        if (actor.isImmovable() || !actor.GetExtend().TryGetForce(source, x, y, 0f)) return;
+        Cultiway.Content.Persistence.ActorPositionSaveService.Remember(actor.GetExtend());
+        ConstructedActorImpulse.BeginCombat(actor, .4f, simulation.terrain);
     }
 }

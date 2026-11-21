@@ -92,7 +92,7 @@ AreaGroundProbe.RecordPayment = (payer, payment) =>
 observer.Patch(typeof(SkillCastPayment).GetMethod("Commit", F),
     postfix: new HarmonyLib.HarmonyMethod(typeof(AreaGroundProbe), nameof(AreaGroundProbe.AfterPayment)));
 Type groundFx = typeof(Cultiway.Core.SkillLibV3.Visuals.SkillGroundFx);
-observer.Patch(groundFx.GetMethod("OnImpact", F),
+observer.Patch(groundFx.GetMethod("ApplyImpact", F),
     prefix: new HarmonyLib.HarmonyMethod(typeof(AreaGroundProbe), nameof(AreaGroundProbe.BeforeGround)),
     postfix: new HarmonyLib.HarmonyMethod(typeof(AreaGroundProbe), nameof(AreaGroundProbe.AfterGround)));
 observer.Patch(typeof(Building).GetMethods(F).Single(method => method.Name == "getHit" &&

@@ -33,13 +33,21 @@ public static class SkillGroundFx
     /// <param name="isArea">是否范围命中。</param>
     /// <param name="sourceObj">效果来源，用于需要攻击者境界参与结算的地形反馈。</param>
     public static void OnImpact(Vector3 pos, SkillVfxElementAsset element, float radius, bool isArea,
-        BaseSimObject sourceObj)
+        BaseSimObject sourceObj) => ApplyImpact(pos, element, radius, isArea, sourceObj, false);
+
+    /// <summary>共同执行使用已有的人物运动处理元素推力，原发射继续使用原执行。</summary>
+    /// <param name="pos">实际接触位置。</param><param name="element">本次已确定的元素。</param>
+    /// <param name="radius">真实原范围。</param><param name="isArea">是否为范围作用。</param>
+    /// <param name="sourceObj">实际归属。</param><param name="groundMotion">是否使用共同的贴地运动。</param>
+    internal static void ApplyImpact(Vector3 pos, SkillVfxElementAsset element, float radius, bool isArea,
+        BaseSimObject sourceObj, bool groundMotion)
     {
         var tile = GetTile(pos);
         if (tile == null) return;
 
         var rad = isArea ? Mathf.Max(1, Mathf.RoundToInt(radius)) : 0;
-        element.ApplyGroundImpact(tile, rad, isArea, sourceObj);
+        if (groundMotion) element.ApplyGroundImpactWithMotion(tile, rad, isArea, sourceObj);
+        else element.ApplyGroundImpact(tile, rad, isArea, sourceObj);
     }
 
     public static WorldTile GetTile(Vector3 pos)

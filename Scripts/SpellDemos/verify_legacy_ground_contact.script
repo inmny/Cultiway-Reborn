@@ -82,7 +82,7 @@ GroundContactProbe.Settled = (damage, result) => settlements.Add(JObject.FromObj
     attack = damage.AttackType.ToString(), loss = result.HealthLost
 }));
 Type groundFx = typeof(Cultiway.Core.SkillLibV3.Visuals.SkillGroundFx);
-hook.Patch(groundFx.GetMethod("OnImpact", F),
+hook.Patch(groundFx.GetMethod("ApplyImpact", F),
     prefix: new HarmonyLib.HarmonyMethod(typeof(GroundContactProbe), nameof(GroundContactProbe.Before)),
     postfix: new HarmonyLib.HarmonyMethod(typeof(GroundContactProbe), nameof(GroundContactProbe.After)));
 hook.Patch(typeof(SkillCastPayment).GetMethod("Commit", F),

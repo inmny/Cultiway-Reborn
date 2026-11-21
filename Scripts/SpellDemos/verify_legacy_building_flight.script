@@ -106,7 +106,7 @@ hook.Patch(typeof(Building).GetMethods(F).Single(method => method.Name == "getHi
     postfix: new HarmonyLib.HarmonyMethod(typeof(BuildingFlightProbe), nameof(BuildingFlightProbe.After)));
 hook.Patch(typeof(SkillCastPayment).GetMethod("Commit", F),
     postfix: new HarmonyLib.HarmonyMethod(typeof(BuildingFlightProbe), nameof(BuildingFlightProbe.AfterPayment)));
-hook.Patch(typeof(Cultiway.Core.SkillLibV3.Visuals.SkillGroundFx).GetMethod("OnImpact", F),
+hook.Patch(typeof(Cultiway.Core.SkillLibV3.Visuals.SkillGroundFx).GetMethod("ApplyImpact", F),
     postfix: new HarmonyLib.HarmonyMethod(typeof(BuildingFlightProbe), nameof(BuildingFlightProbe.AfterGround)));
 if (legacy)
     Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>

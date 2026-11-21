@@ -35,6 +35,8 @@ public class SkillVfxElementAsset : Asset
     /// <summary>没有地面反应的元素不需要留下沿途取样资料。</summary>
     internal bool HasGroundFlyOver => GroundFlyOver != NoFlyOver;
     public SkillVfxGroundImpact GroundImpact = NoImpact;
+    /// <summary>需要将人物推力交给共同贴地运动的元素作用。</summary>
+    private SkillVfxGroundImpact groundImpactWithMotion;
     /// <summary>确实改变世界的命中才需要在共同接触后提交。</summary>
     internal bool HasGroundImpact => GroundImpact != NoImpact;
     public string ImpactSound;
@@ -72,6 +74,16 @@ public class SkillVfxElementAsset : Asset
     public SkillVfxElementAsset SetGroundImpact(SkillVfxGroundImpact action)
     {
         GroundImpact = action;
+        groundImpactWithMotion = null;
+        return this;
+    }
+
+    /// <summary>登记原效果及共同执行的人物运动入口。</summary>
+    /// <param name="action">原发射的完整作用。</param><param name="withMotion">共同发射的完整作用。</param>
+    internal SkillVfxElementAsset SetGroundImpact(SkillVfxGroundImpact action, SkillVfxGroundImpact withMotion)
+    {
+        SetGroundImpact(action);
+        groundImpactWithMotion = withMotion;
         return this;
     }
 
@@ -131,4 +143,10 @@ public class SkillVfxElementAsset : Asset
     {
         GroundImpact(tile, radius, isArea, sourceObj);
     }
+
+    /// <summary>同一元素优先使用声明过的共同推力，其余沿用原操作。</summary>
+    /// <param name="tile">落点地块。</param><param name="radius">原范围。</param>
+    /// <param name="isArea">是否范围作用。</param><param name="sourceObj">真实来源。</param>
+    internal void ApplyGroundImpactWithMotion(WorldTile tile, int radius, bool isArea, BaseSimObject sourceObj) =>
+        (groundImpactWithMotion ?? GroundImpact)(tile, radius, isArea, sourceObj);
 }
