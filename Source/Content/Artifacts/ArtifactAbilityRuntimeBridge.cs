@@ -1,5 +1,6 @@
 using Cultiway.Content.Events;
 using Cultiway.Core;
+using Cultiway.Core.Combat;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Utils.Extension;
@@ -37,6 +38,7 @@ internal static class ArtifactAbilityRuntimeBridge
         ArtifactIncomingDamageEvent evt = new()
         {
             Target = self,
+            ContactPoint = ShieldAbsorptionScope.ContactFor(self),
             Attacker = attacker,
             DamageComposition = damageComposition,
             AttackType = attackType,

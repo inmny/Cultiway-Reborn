@@ -1,6 +1,7 @@
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
 using Friflo.Engine.ECS;
+using UnityEngine;
 
 namespace Cultiway.Content.Events;
 
@@ -12,6 +13,9 @@ public sealed class ArtifactIncomingDamageEvent
 {
     /// <summary>这次受击的实际人物，可能与法宝控制者不同。</summary>
     internal ActorExtend Target;
+
+    /// <summary>这次伤害已确认的位置，未提供物理接触的原版伤害为空。</summary>
+    internal Vector3? ContactPoint;
 
     /// <summary>本次伤害的来源；环境伤害时可以为空。</summary>
     public BaseSimObject Attacker;

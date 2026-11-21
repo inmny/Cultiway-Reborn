@@ -124,6 +124,8 @@ public readonly struct ArtifactAbilityVisualContext
     public readonly ArtifactAbilityEndReason? end_reason;
     /// <summary>此次实际作用已经耗尽容量，区别于到期清空。</summary>
     public readonly bool resource_depleted;
+    /// <summary>一次实际作用的接触点，供支持局部反馈的视觉部件使用。</summary>
+    internal readonly Vector3? contact_point;
 
     public ArtifactAbilityVisualContext(
         Entity controller,
@@ -139,7 +141,8 @@ public readonly struct ArtifactAbilityVisualContext
         BaseSimObject target = null,
         float intensity = 1f,
         ArtifactAbilityEndReason? endReason = null,
-        bool resourceDepleted = false)
+        bool resourceDepleted = false,
+        Vector3? contactPoint = null)
     {
         this.controller = controller;
         this.artifact = artifact;
@@ -155,6 +158,7 @@ public readonly struct ArtifactAbilityVisualContext
         this.intensity = intensity;
         end_reason = endReason;
         resource_depleted = resourceDepleted;
+        contact_point = contactPoint;
     }
 
     public ArtifactAbilityVisualContext WithIntensity(float value)
@@ -173,7 +177,8 @@ public readonly struct ArtifactAbilityVisualContext
             target,
             value,
             end_reason,
-            resource_depleted);
+            resource_depleted,
+            contact_point);
     }
 }
 

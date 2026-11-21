@@ -464,7 +464,7 @@ public partial class ActorExtend
     [Hotfixable]
     internal DamageSettlement ResolveHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker,
         AttackType attack_type_for_vanilla, bool ignore_damage_reduction, float? attacker_power_level_override,
-        bool? metallic_weapon = null)
+        bool? metallic_weapon = null, Vector3? contactPoint = null)
     {
         if (Base == attacker) return default;
         if (Base.isAlive() && Base.data.health > 0)
@@ -488,7 +488,7 @@ public partial class ActorExtend
                 ignore_damage_reduction)
             : null;
 
-        using var shield = new ShieldAbsorptionScope(this);
+        using var shield = new ShieldAbsorptionScope(this, contactPoint);
         action_before_be_attacked?.Invoke(this, attacker, ref damage_composition, ref attack_type_for_vanilla, ref damage, ref ignore_damage_reduction);
         if (damage_debug != null)
         {

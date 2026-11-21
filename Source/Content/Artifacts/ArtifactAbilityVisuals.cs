@@ -49,7 +49,8 @@ public static class ArtifactAbilityVisuals
         float intensity = 1f,
         float duration = 0f,
         ArtifactAbilityEndReason? endReason = null,
-        bool resourceDepleted = false)
+        bool resourceDepleted = false,
+        Vector3? contactPoint = null)
     {
         ArtifactAbilityAsset asset = Libraries.Manager.ArtifactAbilityLibrary.get(ability.ability_id);
         ArtifactAbilityVisualProfile profile = asset?.visual;
@@ -75,7 +76,8 @@ public static class ArtifactAbilityVisuals
             target,
             Mathf.Max(0f, intensity),
             endReason,
-            resourceDepleted);
+            resourceDepleted,
+            contactPoint);
         PendingSignals.Add(new ArtifactVisualSignalRequest(
             context,
             signal,

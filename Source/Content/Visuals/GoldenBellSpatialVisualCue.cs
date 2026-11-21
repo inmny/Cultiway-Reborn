@@ -94,10 +94,13 @@ internal sealed class GoldenBellSpatialVisualCue : IArtifactVisualCue
         float progress = Mathf.Clamp01(age / entry.Duration);
         Color color = Color.Lerp(entry.Tint, Color.white, 0.2f);
         color.a = (1f - progress) * Mathf.Clamp(0.4f + entry.Context.intensity, 0.4f, 1f);
-        Vector3 direction = entry.Context.direction;
-        bool directed = direction.sqrMagnitude >= 0.001f;
-        direction = directed ? direction.normalized : Vector3.zero;
-        Vector3 contact = entry.Center + Vector3.forward * entry.Height * 0.6f + direction * entry.Radius;
+        Vector3? physicalContact = entry.Context.contact_point;
+        Vector3 direction = physicalContact.HasValue ? physicalContact.Value - entry.Center : entry.Context.direction;
+        if (physicalContact.HasValue) direction.z = 0f;
+        bool hasDirection = direction.sqrMagnitude >= 0.001f;
+        bool directed = physicalContact.HasValue || hasDirection;
+        direction = hasDirection ? direction.normalized : Vector3.forward;
+        Vector3 contact = physicalContact ?? (entry.Center + Vector3.forward * entry.Height * 0.6f + direction * entry.Radius);
         Quaternion rotation = directed ? Quaternion.FromToRotation(Vector3.forward, direction) : Quaternion.identity;
         if (directed)
             meshes.Add(new SpatialVisualMeshInstance(SpatialVisualGeometry.Ring, contact, rotation,

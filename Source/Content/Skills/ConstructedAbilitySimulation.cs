@@ -1264,6 +1264,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 strength;
             damage.Element = running.Cast.FixedDamageElement(node, impact) ?? Composition(beforeMatter.DamageKind);
             damage.ContactSound = CombatContactFeedback.SoundFor(beforeMatter);
+            Vector3 point = hit.Point;
+            point.z -= simulation.terrain?.Sample(point.x, point.y) ?? 0f;
+            damage.ContactPoint = point;
             primaryDamage = GetHitEventSystem.Resolve(damage);
         }
         if (contactGeneration != worldGeneration) return;

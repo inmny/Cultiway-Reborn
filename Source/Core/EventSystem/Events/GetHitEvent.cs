@@ -1,5 +1,6 @@
 using Cultiway.Core;
 using Cultiway.Core.Combat;
+using UnityEngine;
 
 namespace Cultiway.Core.EventSystem.Events;
 
@@ -16,6 +17,9 @@ public struct GetHitEvent
 
     /// <summary>已冻结的模组接触声，只在实际扣血后使用。</summary>
     internal string ContactSound;
+
+    /// <summary>本次已确认的接触位置，采用地图坐标及相对地面高度。</summary>
+    internal Vector3? ContactPoint;
 
     /// <summary>原版或模组明确写入的伤害类别；未指定时沿用枚举默认值。</summary>
     public AttackType AttackType;

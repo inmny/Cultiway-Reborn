@@ -2845,3 +2845,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用 `dev.py exec --timeout 620 -- python3 Scripts/SpellDemos/record_artifact_actives.py --view worldfall` 录制已登记配方的正式施放。原版用此前独立的 `weapon-flight-native` 游戏配置，并将视角设为 `--view native`。用 `--ability` 指定一个或多个能力，或用 `--batch` 选择 [配方表](artifact_active_recordings.json)中的分组。各批写入同一个 `--output` 时会汇总同视角的完整成片。可用 `--encode-only <本次实际采集目录>` 重新编码已完成的片段。
 
 录像从正式入口受理前取景，一直记录到各招自然收束或经正式入口召回。分光剑阵与原物飞剑采用 [10.04 实录](../../Doc/技能系统全面重构/御器飞剑与投射物迁移.md#整项交付)。录像按实际世界时间编码。
+
+### 金钟护界的实际吸收（10.06）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_golden_bell_absorption.py` 复验正式金钟的全额吸收、实际撞点、破盾后余伤，以及冷却后同一原件对普通受击的吸收。加 `--skip-views` 可只核对行为与画面锚点。

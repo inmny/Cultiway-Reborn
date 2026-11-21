@@ -1,0 +1,174 @@
+// 沿同一个正式受击入口连续消耗一口金钟。
+const float originX = 64f, protectedX = 70.3f, centerY = 72f;
+PrepareArtifactArena(59, 78, 65, 80);
+Actor defender = Make(protectedX), attacker = Make(originX);
+var owner = defender.GetExtend();
+var attackerExtend = attacker.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+attackerExtend.AddComponent(new Xian { level = 4, wakan = 9000f });
+owner.SetPowerLevel(4f);
+attackerExtend.SetPowerLevel(4f);
+await Setup(defender, attacker);
+ControllableUnit.clear(false);
+MoveCamera.clearFocusUnitOnly();
+await Advance(.10f);
+CombatStatusEffects.ApplyStatus(defender, hold, 10000f, defender);
+defender.updateStats();
+Place(defender, protectedX, centerY);
+Place(attacker, originX, centerY);
+defender.position_height = attacker.position_height = 0f;
+ConstructedAbilityService.NotifyActorChanged(defender);
+ConstructedAbilityService.NotifyActorChanged(attacker);
+defender.attack_timer = attacker.attack_timer = 999f;
+
+var asset = ArtifactAbilities.GoldenBellBarrier;
+var blueprint = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Bell, Atoms = new[] { ArtifactAtoms.PurifyingBell, ArtifactAtoms.Iron },
+    Level = new ItemLevel { Stage = 2, Level = 4 }, Name = "吸收实测金钟"
+}));
+Check(blueprint.AbilitySet.abilities.Any(value => value.ability_id == asset.id), "正式配方取得金钟护界");
+Entity bell = ArtifactBlueprintCodec.Materialize(blueprint, defender.getName());
+owner.AddSpecialItem(bell);
+Check(owner.EquipArtifact(bell, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "装备原组合钟");
+ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+lifecycle.Invoke(null, new object[] { bell });
+await Game.NextFrame();
+await Game.NextFrame();
+
+var ability = Definition(bell, asset.id);
+var handle = ArtifactHandle(bell, asset.id);
+var control = owner.E.GetRelation<EquippedArtifactRelation, Entity>(bell).state;
+var execution = new ArtifactAbilityExecutionContext(owner.E, bell, control);
+float cost = asset.lifecycle.ResolveActivationCost(execution, ability);
+if (control == ArtifactControlState.Overloaded) cost *= asset.lifecycle.overload_resource_multiplier;
+float Capacity() => Entry(bell, asset.id).GetNumber("shield_current");
+
+var impacts = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Visuals.GoldenBellSpatialVisualCue")
+    .GetField("entries", F).GetValue(null);
+var meshes = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem")
+    .GetField("Meshes", F).GetValue(null);
+object Impact() => impacts.Cast<object>().SingleOrDefault(item => (bool)Field(item, "Impact") &&
+    ((ArtifactAbilityVisualContext)Field(item, "Context")).artifact == bell);
+Vector3? ImpactPoint(object item) => (Vector3?)Field(Field(item, "Context"), "contact_point");
+bool AtImpact(Vector3 point) => meshes.Cast<object>().Any(item =>
+    (string)Field(Field(item, "Model"), "Name") == "spatial_spark" &&
+    Vector3.Distance((Vector3)Field(item, "Position"), point) < .005f);
+
+var facts = new List<ConstructedContact>();
+var fees = new List<float>();
+var payment = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object oldPayments = payment.GetValue(null);
+void Paid(ActorExtend payer, in WakanMutation change)
+{
+    if (payer == owner && change.Kind == WakanMutationKind.Spend) fees.Add(-change.Delta);
+}
+void Confirmed(ConstructedContact fact)
+{
+    if (fact.SourceId == attacker.id && fact.TargetId == defender.id && fact.AbilityId.StartsWith("test.bell-absorption."))
+        facts.Add(fact);
+}
+async Task<ConstructedContact> Strike(string key, float damageScale)
+{
+    var spell = new AbilityDefinition
+    {
+        Id = "test.bell-absorption." + key, Name = "实测剑气", Lifetime = .092f,
+        TargetRange = 12f, Resource = "wakan", Cost = 1.25f, Power = 2f,
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = .28f },
+        Impact = new ConstructionImpact { DamageScale = damageScale },
+        Root = new ConstructionNode
+        {
+            Id = "blade", Form = "sword_qi", Matter = "iron", Rotation = [-90f, 0f, 0f],
+            OnContact = ConstructionContactResponse.Continue,
+            Operations = [new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+                WorldVelocity = true, InheritVelocity = false, Vector = [780f, 0f, 0f] }]
+        }
+    };
+    attackerExtend.GetCultisys<Xian>().wakan = 9000f;
+    await Fire(spell, attacker, defender);
+    attackerExtend.E.RemoveComponent<ConstructedKnowledge>();
+    await WaitFor(() => facts.Any(value => value.AbilityId == spell.Id), .35f);
+    await Game.NextFrame();
+    return facts.Single(value => value.AbilityId == spell.Id);
+}
+
+WakanResourceService.RegisterMutationCommitted(Paid);
+ConstructedAbilityService.ContactConfirmed += Confirmed;
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    owner.GetCultisys<Xian>().wakan = 9000f;
+    Check(Use(owner, handle, defender) && fees.Count == 1 && Mathf.Abs(fees[0] - cost) < .003f &&
+          Mathf.Abs(Capacity() - ability.GetNumber("shield_capacity") * execution.effect_scale) < .003f,
+        "原主动入口只付一次，取得原容量", new { cost, paid = fees.LastOrDefault(), capacity = Capacity() });
+    await Advance(.48f);
+
+    var before = Capacity();
+    var hp = defender.data.health;
+    var first = await Strike("hold", .65f);
+    Check(first.Damage.SettledCount == 1 && first.Damage.HealthLost == 0 && defender.data.health == hp &&
+          first.Damage.ShieldAbsorbed > 0f && Capacity() > 0f &&
+          Mathf.Abs(before - Capacity() - first.Damage.ShieldAbsorbed) < .003f,
+        "小击真实全额吸收，生命不变，护盾只消耗一次",
+        new { before, current = Capacity(), absorbed = first.Damage.ShieldAbsorbed });
+    var visual = Impact();
+    Vector3? firstPoint = visual == null ? null : ImpactPoint(visual);
+    Check(visual != null && !(bool)Field(visual, "Broken") && firstPoint.HasValue &&
+          Vector2.Distance(firstPoint.Value, first.Position) < .003f && AtImpact(firstPoint.Value),
+        "吸收画面落在已确认的撞点",
+        new { point = firstPoint?.ToString(), contact = first.Position.ToString() });
+    if (shots)
+        await CaptureArtifactViews("absorption", defender.current_position, 1.8f,
+            () => firstPoint.HasValue && AtImpact(firstPoint.Value) && Capacity() > 0f, nativeZoom: 2.8f, closeSubject: defender);
+
+    await Advance(.40f);
+    before = Capacity();
+    hp = defender.data.health;
+    var second = await Strike("break", 15f);
+    visual = Impact();
+    Check(second.Damage.SettledCount == 1 && Mathf.Abs(second.Damage.ShieldAbsorbed - before) < .003f &&
+          Capacity() == 0f && second.Damage.HealthLost > 0 && hp - defender.data.health == second.Damage.HealthLost &&
+          visual != null && (bool)Field(visual, "Broken"),
+        "破盾消耗真实剩余容量，只把余伤交给生命结算",
+        new { before, absorbed = second.Damage.ShieldAbsorbed, lifeLost = second.Damage.HealthLost });
+    if (shots)
+        await CaptureArtifactViews("broken", defender.current_position, 1.8f,
+            () => Impact() is { } stamp && (bool)Field(stamp, "Broken") && Capacity() == 0f,
+            nativeZoom: 2.8f, closeSubject: defender);
+
+    await Advance(.45f);
+    hp = defender.data.health;
+    CombatDamageEffects.DealDamage(attacker, defender, 40f, ElementComposition.Static.Iron,
+        ignoreDamageReduction: true, attackerPowerLevel: 4f);
+    await WaitFor(() => defender.data.health < hp, .40f);
+    Check(hp - defender.data.health == 40 && Capacity() == 0f && Impact() == null && fees.Count == 1,
+        "耗尽后普通受击照常扣血，不再发出吸收反馈");
+
+    var now = World.world.getCurWorldTime();
+    var state = Entry(bell, asset.id);
+    float wait = Mathf.Max((float)(state.cooldown_until - now), (float)(state.activity_until - now));
+    await Advance(Mathf.Max(.06f, wait + .05f));
+    owner.GetCultisys<Xian>().wakan = 9000f;
+    Check(Use(owner, handle, defender) && fees.Count == 2 && Capacity() > 40f &&
+          owner.GetEquippedArtifacts().Contains(bell), "同一原钟冷却后可再次开启");
+    hp = defender.data.health;
+    before = Capacity();
+    CombatDamageEffects.DealDamage(attacker, defender, 40f, ElementComposition.Static.Iron,
+        ignoreDamageReduction: true, attackerPowerLevel: 4f);
+    await WaitFor(() => Capacity() < before, .40f);
+    await Game.NextFrame();
+    visual = Impact();
+    Check(hp == defender.data.health && Mathf.Abs(before - Capacity() - 40f) < .003f &&
+          visual != null && ImpactPoint(visual) == null && !(bool)Field(visual, "Broken"),
+        "普通受击复用同一容量，没有借用上一击的空间撞点",
+        new { before, current = Capacity() });
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    payment.SetValue(null, oldPayments);
+    ConstructedAbilityService.ContactConfirmed -= Confirmed;
+}

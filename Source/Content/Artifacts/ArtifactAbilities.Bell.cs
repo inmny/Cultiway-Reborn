@@ -292,7 +292,7 @@ public partial class ArtifactAbilities
         runtime.SetNumber(ShieldCurrent, shield);
         if (absorbed <= 0f) return;
         Vector3 direction = evt.Attacker != null && !evt.Attacker.isRekt()
-            ? evt.Attacker.GetSimPos() - Controller(context).GetSimPos()
+            ? evt.Attacker.GetSimPos() - evt.Target.Base.GetSimPos()
             : Vector3.zero;
         ArtifactAbilityVisuals.Emit(
             context,
@@ -302,7 +302,8 @@ public partial class ArtifactAbilities
             target: evt.Attacker,
             direction: direction,
             intensity: absorbed / Mathf.Max(1f, ability.GetNumber(ShieldCapacity)),
-            resourceDepleted: shield <= 0f);
+            resourceDepleted: shield <= 0f,
+            contactPoint: evt.ContactPoint);
     }
 
     private static void ConfigureBellAbilityVisuals()

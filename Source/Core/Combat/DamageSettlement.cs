@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 namespace Cultiway.Core.Combat;
 
@@ -72,19 +73,26 @@ internal readonly struct ShieldAbsorptionScope : IDisposable
 {
     [ThreadStatic] private static ActorExtend measuredTarget;
     [ThreadStatic] private static float absorbed;
+    [ThreadStatic] private static Vector3? contactPoint;
 
     private readonly ActorExtend previousTarget;
     private readonly float previousAbsorbed;
+    private readonly Vector3? previousPoint;
 
-    internal ShieldAbsorptionScope(ActorExtend target)
+    internal ShieldAbsorptionScope(ActorExtend target, Vector3? point)
     {
         previousTarget = measuredTarget;
         previousAbsorbed = absorbed;
+        previousPoint = contactPoint;
         measuredTarget = target;
         absorbed = 0f;
+        contactPoint = point;
     }
 
     internal float Absorbed => absorbed;
+
+    /// <summary>只读取这一次受击的位置，嵌套受击不会继承外层的接触。</summary>
+    internal static Vector3? ContactFor(ActorExtend target) => ReferenceEquals(target, measuredTarget) ? contactPoint : null;
 
     internal static void Record(ActorExtend target, float amount)
     {
@@ -95,5 +103,6 @@ internal readonly struct ShieldAbsorptionScope : IDisposable
     {
         measuredTarget = previousTarget;
         absorbed = previousAbsorbed;
+        contactPoint = previousPoint;
     }
 }
