@@ -2803,3 +2803,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 吞天葫芦（10.05）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_gourd_swallowing.py` 正式炼制并部署葫芦，核对实际葫芦口、圈内伤害和牵引、真元抽取与入库，以及付不起维持费时的收束。用 `--skip-views` 只核对行为和形体边界。
+
+### 五灵倾泻（10.05）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_gourd_outpouring.py` 让正式炼制的同一葫芦取得实际吞摄储量，再比较有储量与空储量的两次施放。核对原费用、火材附带状态、扇形开角、原作用距离与同一实体扇面。用 `--skip-views` 复验行为，用 `--views-only` 由同一原配方补拍两个视角和扇面边界。

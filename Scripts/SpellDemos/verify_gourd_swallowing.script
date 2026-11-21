@@ -1,40 +1,4 @@
-// 使用一件正式葫芦，真实吞摄、入库，并可让同一原物停止维持。
-const float centerX = 67.5f, centerY = 72f;
-Vector3 center = new Vector3(centerX, centerY, 0f);
-PrepareArtifactArena(48, 90, 56, 88);
-Actor source = Make(64.35f), near = Make(68f, "wolf"), far = Make(74f, "wolf");
-ActorExtend owner = source.GetExtend(), inside = near.GetExtend(), outside = far.GetExtend();
-owner.AddComponent(new Xian { level = 4, wakan = 9000f });
-inside.AddComponent(new Xian { level = 4, wakan = 100f });
-outside.AddComponent(new Xian { level = 4, wakan = 100f });
-owner.SetPowerLevel(4);
-await Setup(source, near);
-CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
-source.updateStats();
-source.addAggro(far);
-far.addAggro(source);
-
-var asset = ArtifactAbilities.HeavenSwallowingGourd;
-var release = ArtifactAbilities.FiveEssenceOutpouring;
-var blueprint = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
-{
-    Shape = ItemShapes.Gourd,
-    Atoms = new[] { ArtifactAtoms.DevouringGourd, ArtifactAtoms.DevouringVortex,
-        ArtifactAtoms.SunfireGlass, ArtifactAtoms.SoulJade },
-    Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "吞天与倾泻实测"
-}));
-var abilities = blueprint.AbilitySet.abilities.Select(entry => entry.ability_id).ToArray();
-Check(abilities.Contains(asset.id), "正式配方生成吞天葫芦",
-    new { abilities, alsoHasOutpouring = abilities.Contains(release.id) });
-Entity gourd = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
-owner.AddSpecialItem(gourd);
-Check(owner.EquipArtifact(gourd, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
-    "正式装备原葫芦");
-ArtifactLoadoutPlanner.Refresh(owner, false, 0);
-lifecycle.Invoke(null, new object[] { gourd });
-await Game.NextFrame();
-await Game.NextFrame();
-
+// 真实吞摄、入库，并可让同一原物停止维持。
 var handles = new List<ActiveAbilityHandle>();
 ActiveAbilityService.Collect(owner, handles);
 var ability = Definition(gourd, asset.id);

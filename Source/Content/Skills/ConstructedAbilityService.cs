@@ -1029,8 +1029,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>范围法相的后续人物结算，只由共用确认接触驱动。</summary>
         internal FormationAreaContact? FormationArea;
-        /// <summary>法钟在真正到达作用边界后产生的原有结果。</summary>
+        /// <summary>法宝在真正到达作用边界后产生的原有结果。</summary>
         internal ArtifactAreaContact? ArtifactArea;
+        /// <summary>本次扇面专有网格，收束或换世界时释放。</summary>
+        internal Mesh ArtifactSectorMesh;
 
         /// <summary>由点名修炼反应在真实接触时提交的效果。</summary>
         internal FormationTargetContact FormationTarget;

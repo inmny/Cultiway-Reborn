@@ -1,0 +1,182 @@
+// 同一原葫芦先实际吞摄，再比较部分储量与空储量的两次正式倾泻。
+Check(abilities.Contains(release.id), "原吞摄配方确实取得五灵倾泻");
+var swallowAbility = Definition(gourd, asset.id);
+var releaseAbility = Definition(gourd, release.id);
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+ActiveAbilityHandle swallowHandle = handles.Single(row => row.Source == gourd && row.EntryId == swallowAbility.instance_id);
+ActiveAbilityHandle releaseHandle = handles.Single(row => row.Source == gourd && row.EntryId == releaseAbility.instance_id);
+
+float reach = releaseAbility.GetNumber("attack_range");
+float angle = releaseAbility.GetNumber("cone_angle");
+float storageCost = releaseAbility.GetNumber("stored_resource_cost");
+var control = owner.E.GetRelation<EquippedArtifactRelation, Entity>(gourd).state;
+var execution = new ArtifactAbilityExecutionContext(owner.E, gourd, control);
+float fee = release.lifecycle.ResolveActivationCost(execution, releaseAbility) *
+    (control == ArtifactControlState.Overloaded ? release.lifecycle.overload_resource_multiplier : 1f);
+
+var fees = new List<float>();
+var releaseHits = new List<ConstructedContact>();
+var releaseStarts = new List<ConstructedCastStarted>();
+var payments = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = payments.GetValue(null);
+var anchorMethod = typeof(ArtifactAppearanceRenderer).GetMethod("TryResolveSpatialAnchor", F);
+var fallback = typeof(ArtifactAbilities).GetMethod("ControllerPosition", F);
+var meshField = typeof(FormVisualInstance).GetField("Geometry", F);
+const string surface = "outpouring_fire";
+
+float Stored() => ArtifactStorageOperations.GetAmount(gourd.GetComponent<ArtifactStorageState>(),
+    ArtifactStorageOperations.AbsorbedPower);
+bool Close(float a, float b) => Mathf.Abs(a - b) < .003f;
+bool HasWave() => FormVisualScene.Instances.Any(view => view.Surface == surface);
+FormVisualInstance Wave() => FormVisualScene.Instances.Single(view => view.Surface == surface);
+Vector3 Mouth()
+{
+    object[] args = { gourd, "mouth", "center", null };
+    return (bool)anchorMethod.Invoke(null, args) ? (Vector3)args[3] :
+        (Vector3)fallback.Invoke(null, new object[] { execution });
+}
+bool Activate(ActiveAbilityHandle handle, Vector3 aim)
+{
+    source.attack_timer = 0f;
+    bool accepted = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, aim), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999f;
+    return accepted;
+}
+void Paid(ActorExtend actor, in WakanMutation change)
+{
+    if (actor == owner && change.Kind == WakanMutationKind.Spend) fees.Add(-change.Delta);
+}
+void HitRelease(ConstructedContact hit)
+{
+    if (hit.SourceId == source.id && hit.AbilityId == release.id) releaseHits.Add(hit);
+}
+void StartedRelease(ConstructedCastStarted start)
+{
+    if (start.SourceId == source.id && start.AbilityId == release.id) releaseStarts.Add(start);
+}
+
+Vector2 direction = new Vector2(.86f, .51f).normalized;
+Vector2 Position(Vector2 mouth, float degrees, float distance)
+{
+    Vector3 radial = Quaternion.AngleAxis(degrees, Vector3.forward) * (Vector3)direction;
+    return mouth + (Vector2)radial * distance;
+}
+void PlacePair(Vector2 mouth, bool testDistance)
+{
+    Vector2 a = Position(mouth, angle * .5f - 1f, reach * .51f);
+    Vector2 b = testDistance ? Position(mouth, 0f, reach + .26f) :
+        Position(mouth, angle * .5f + 1f, reach * .51f);
+    CombatStatusEffects.RemoveStatus(near, StatusEffects.Burn, source);
+    near.restoreHealth(near.getMaxHealth());
+    far.restoreHealth(far.getMaxHealth());
+    Place(near, a.x, a.y);
+    Place(far, b.x, b.y);
+}
+void VerifyMesh(Vector2 mouth)
+{
+    var wave = Wave();
+    var mesh = (Mesh)meshField.GetValue(wave);
+    Check(mesh != null, "两视角读取同一个实体扇面");
+    Vector2 origin = (Vector3)wave.Transform.GetColumn(3);
+    float maxRadius = 0f, minAngle = 180f, maxAngle = -180f;
+    foreach (Vector3 point in mesh.vertices)
+    {
+        Vector2 offset = (Vector2)wave.Transform.MultiplyPoint3x4(point) - origin;
+        maxRadius = Mathf.Max(maxRadius, offset.magnitude);
+        if (offset.sqrMagnitude < .001f) continue;
+        float degrees = Vector2.SignedAngle(direction, offset);
+        minAngle = Mathf.Min(minAngle, degrees);
+        maxAngle = Mathf.Max(maxAngle, degrees);
+    }
+    Check(Vector2.Distance(origin, mouth) < .03f && Mathf.Abs(reach - maxRadius) < .04f &&
+          Mathf.Abs(minAngle + angle * .5f) < .12f && Mathf.Abs(maxAngle - angle * .5f) < .12f,
+        "实体外缘、左右边界和原器口位置与实际扇形一致",
+        new { origin = origin.ToString(), mouth = mouth.ToString(), reach, maxRadius, angle, minAngle, maxAngle });
+}
+
+WakanResourceService.RegisterMutationCommitted(Paid);
+ConstructedAbilityService.ContactConfirmed += HitRelease;
+ConstructedAbilityService.CastStarted += StartedRelease;
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    owner.GetCultisys<Xian>().wakan = 1200f;
+    float stored = 0f;
+    if (!viewsOnly)
+    {
+        inside.GetCultisys<Xian>().wakan = 0f;
+        Place(near, centerX + 2f, centerY);
+        Place(far, centerX + swallowAbility.GetNumber("effect_radius") + .25f, centerY);
+        Check(Activate(swallowHandle, center), "从原部署入口取得实际储量");
+        await WaitFor(() => Stored() > 0f, .9f);
+        stored = Stored();
+        Check(stored > 0f && stored < storageCost, "真实吞摄取得不足单次上限的储量", new { stored, storageCost });
+        owner.GetCultisys<Xian>().wakan = 0f;
+        await Advance(.55f);
+        Check(!gourd.HasComponent<ArtifactDeployment>() && Close(Stored(), stored), "收回同一原件并保留吞摄得到的储量");
+    }
+
+    owner.GetCultisys<Xian>().wakan = 1200f;
+    Vector3 mouth = Mouth();
+    PlacePair(mouth, testDistance: false);
+    Vector3 aim = mouth + (Vector3)direction * 2.5f;
+    int beforeFees = fees.Count, farHealth = far.data.health;
+    if (!viewsOnly)
+        Check(!Activate(releaseHandle, new Vector3(120f, 120f, 0f)) && fees.Count == beforeFees &&
+              releaseStarts.Count == 0 && Close(Stored(), stored), "拒绝超出原施放距离的选择，保留真元和储量");
+    Check(Activate(releaseHandle, aim) && fees.Count == beforeFees + 1 && Close(fees.Last(), fee) &&
+          releaseStarts.Count == 1 && releaseHits.Count == 0 && Close(Stored(), 0f),
+        "受理时只付一次原费用并用完实际储量，接触留到展开后",
+        new { stored, remaining = Stored(), fee, actual = fees.LastOrDefault() });
+    await WaitFor(() => releaseHits.Count > 0, .55f);
+    await Game.NextFrame();
+    Check(releaseHits.Count == 1 && releaseHits[0].TargetId == near.id && releaseHits[0].Damage.HealthLost > 0 &&
+          CombatStatusEffects.HasStatus(near, StatusEffects.Burn, source) && far.data.health == farHealth &&
+          !CombatStatusEffects.HasStatus(far, StatusEffects.Burn, source),
+        "同半径的两名敌人只作用于扇角内，火材依原规则附加燃烧",
+        new { hits = releaseHits.Select(hit => hit.TargetId).ToArray(), near = near.id, far = far.id,
+            fire = CombatStatusEffects.HasStatus(near, StatusEffects.Burn, source), farHealth, now = far.data.health });
+    int chargedDamage = releaseHits[0].Damage.HealthLost;
+    VerifyMesh(mouth);
+    if (shots)
+    {
+        ControllableUnit.clear(false);
+        MoveCamera.clearFocusUnitOnly();
+        await Game.NextFrame();
+        Vector2 viewCenter = (Vector2)mouth + direction * reach * .42f;
+        await CaptureArtifactViews("outpouring", viewCenter, reach * .80f,
+            () => HasWave() && Vector2.Distance((Vector3)Wave().Transform.GetColumn(3), mouth) < .03f,
+            nativeZoom: reach * .78f);
+    }
+
+    if (viewsOnly) return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+
+    float cooldown = (float)(Entry(gourd, release.id).cooldown_until - World.world.getCurWorldTime());
+    await Advance(Mathf.Max(.62f, cooldown + .12f));
+    Check(!HasWave() && releaseHits.Count == 1 && HeldItem(), "扇面收束只结算一次，原件仍可用");
+    Place(source, 64.35f, centerY);
+    mouth = Mouth();
+    PlacePair(mouth, testDistance: true);
+    farHealth = far.data.health;
+    Check(Activate(releaseHandle, mouth + (Vector3)direction * 2.5f) && releaseStarts.Count == 2 &&
+          fees.Count == beforeFees + 2 && Close(fees.Last(), fee) && Close(Stored(), 0f),
+        "冷却后无储量也可按原费用施放");
+    await WaitFor(() => releaseHits.Count > 1, .55f);
+    int baseDamage = releaseHits.LastOrDefault().Damage.HealthLost;
+    Check(releaseHits.Count == 2 && releaseHits[1].TargetId == near.id && baseDamage > 0 &&
+          chargedDamage > baseDamage && far.data.health == farHealth &&
+          !CombatStatusEffects.HasStatus(far, StatusEffects.Burn, source),
+        "无储量保留基础伤害，实际储量提高伤害，原距离外不受作用",
+        new { chargedDamage, baseDamage, stored, reach, farHealth, now = far.data.health });
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    payments.SetValue(null, previous);
+    ConstructedAbilityService.ContactConfirmed -= HitRelease;
+    ConstructedAbilityService.CastStarted -= StartedRelease;
+}
+bool HeldItem() => owner.GetItems().Contains(gourd) && owner.GetEquippedArtifacts().Contains(gourd);

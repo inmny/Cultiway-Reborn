@@ -24,6 +24,11 @@ public sealed partial class ConstructedAbilityService
 
     private static void ReleaseSpatialViews(RunningCast running)
     {
+        if (running.ArtifactSectorMesh != null)
+        {
+            Object.Destroy(running.ArtifactSectorMesh);
+            running.ArtifactSectorMesh = null;
+        }
         if (running.SpatialViews == null) return;
         foreach (var relief in running.SpatialViews)
             if (relief != null) Object.Destroy(relief.Mesh);

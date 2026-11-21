@@ -298,7 +298,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
             if (!contactDebugOnlyShapes || running.Id != contactDebugCast)
             {
-                running.Cast.AppendVisuals(visuals);
+                AppendArtifactAreaVisuals(running);
                 if (running.Cast.Plan.LandscapeNodes.Length > 0) AppendLandscapeSlices(running);
                 if (running.Cast.Plan.MaterialVortexNodes.Length > 0) AppendMaterialVortices(running);
                 if (running.Cast.Plan.MirrorNodes.Length > 0) AppendMirrorImages(running, now);
@@ -1002,7 +1002,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                         Vector2 offset = foot - a0.A;
                         float radius = groundRadius * a0.Prism.OutlineScale;
                         if (form.GroundCircleAddsTargetSize) radius += actor.Actor.stats[strings.S.size];
-                        if (offset.sqrMagnitude > radius * radius) return;
+                        if (offset.sqrMagnitude > radius * radius ||
+                            running.ArtifactArea?.Sector is { } sector && !sector.Contains(offset)) return;
                         at = 0f;
                         point = new Vector3(foot.x, foot.y, a0.A.z);
                         normal = offset.sqrMagnitude > 0f ? (Vector3)offset.normalized : Vector3.forward;

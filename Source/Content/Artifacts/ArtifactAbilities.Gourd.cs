@@ -317,6 +317,7 @@ public partial class ArtifactAbilities
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             Resource = SkillCastResources.Wakan,
             OnAttached = ConfigureAbsorbedPowerStorage,
+            OnActivityEnded = EndArtifactConstruction,
         });
         FiveEssenceOutpouring.Activate(new ArtifactActiveAbilityProfile
         {
@@ -335,47 +336,58 @@ public partial class ArtifactAbilities
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
         in ActiveAbilityTarget target,
-        ActiveAbilityUseOrigin _)
+        ActiveAbilityUseOrigin origin)
     {
-        Actor controller = Controller(context);
-        Vector3 origin =
-            ArtifactAppearanceRenderer.TryResolveSpatialAnchor(context.artifact, "mouth", "center", out Vector3 mouth)
-                ? mouth
+        var artifact = context.artifact;
+        Vector3 mouth =
+            ArtifactAppearanceRenderer.TryResolveSpatialAnchor(artifact, "mouth", "center", out Vector3 anchor)
+                ? anchor
                 : ControllerPosition(context);
-        Vector2 center = origin;
-        Vector2 direction = (Vector2)TargetPosition(target) - center;
-        direction = direction.sqrMagnitude > .0001f ? direction.normalized : Vector2.up;
-        ref ArtifactStorageState storage = ref context.artifact.GetComponent<ArtifactStorageState>();
-        float stored = ArtifactStorageOperations.Take(
-            ref storage,
-            ArtifactStorageOperations.AbsorbedPower,
-            ability.GetNumber(StoredResourceCost));
+        var storage = artifact.GetComponent<ArtifactStorageState>();
+        float stored = Mathf.Max(0f, Mathf.Min(ability.GetNumber(StoredResourceCost),
+            ArtifactStorageOperations.GetAmount(in storage, ArtifactStorageOperations.AbsorbedPower)));
         float damage = SkillContext.DefaultStrength *
                        (ability.GetNumber(DamageMultiplier) + stored * ability.GetNumber(StoredPowerBonus));
-        ElementComposition composition = MaterialComposition(context);
-        ArtifactMaterialData material = context.artifact.GetComponent<ArtifactMaterialData>();
-        CombatTargeting.ForEachActorInSector(
-            controller,
-            center,
-            direction,
-            ability.GetNumber(AttackRange),
-            ability.GetNumber(ConeAngle),
-            CombatTargeting.TargetDisposition.Hostile,
-            victim =>
-            {
-                CombatDamageEffects.DealDamage(controller, victim, damage, composition);
-                ApplyFiveEssenceStatus(controller, victim, material, ability.GetNumber(StatusDuration), damage * 0.16f);
-            });
-        ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime, origin, direction);
+        float duration = ability.GetNumber(StatusDuration);
+        EssenceElement element = ResolveFiveEssence(artifact.GetComponent<ArtifactMaterialData>());
+        string surface = element switch
+        {
+            EssenceElement.Fire => "outpouring_fire",
+            EssenceElement.Wood => "outpouring_wood",
+            EssenceElement.Water => "outpouring_water",
+            EssenceElement.Earth => "outpouring_earth",
+            EssenceElement.Iron => "outpouring_iron",
+            _ => "spirit_core"
+        };
+        var sector = new ArtifactAreaSector(mouth, (Vector2)(TargetPosition(target) - mouth),
+            ability.GetNumber(ConeAngle), surface);
+        var caster = ArtifactAbilityLifecycle.ResolveSkillContext(context);
+        var contact = new ArtifactAreaContact((source, victim) =>
+        {
+            using var scope = SkillCasterContextService.Enter(in caster);
+            ApplyFiveEssenceStatus(source, victim, element, duration, damage * .16f);
+        }, damageFirst: false, sector: sector);
+
+        if (!ArtifactAreaConstruction.Start(context, FiveEssenceOutpouring, target, origin, mouth,
+                ability.GetNumber(AttackRange), ability.GetNumber(EffectDuration), contact, "gourd_vortex",
+                MaterialComposition(context), damage, strike: .10f, commitEffect: SpendStoredPower)) return false;
+        ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime, mouth, sector.Direction);
         return true;
+
+        bool SpendStoredPower()
+        {
+            if (stored <= 0f) return true;
+            ref ArtifactStorageState current = ref artifact.GetComponent<ArtifactStorageState>();
+            if (ArtifactStorageOperations.GetAmount(in current, ArtifactStorageOperations.AbsorbedPower) < stored) return false;
+            ArtifactStorageOperations.Take(ref current, ArtifactStorageOperations.AbsorbedPower, stored);
+            return true;
+        }
     }
 
-    private static void ApplyFiveEssenceStatus(
-        Actor source,
-        Actor target,
-        ArtifactMaterialData material,
-        float duration,
-        float tickDamage)
+    private enum EssenceElement { None, Fire, Wood, Water, Earth, Iron }
+
+    /// <summary>使用原材料元素的优先顺序，状态和外观读取同一个结果。</summary>
+    private static EssenceElement ResolveFiveEssence(ArtifactMaterialData material)
     {
         float fire = material.GetTrait(ArtifactMaterialTraits.Fire);
         float wood = material.GetTrait(ArtifactMaterialTraits.Wood);
@@ -383,46 +395,39 @@ public partial class ArtifactAbilities
         float earth = material.GetTrait(ArtifactMaterialTraits.Earth);
         float iron = material.GetTrait(ArtifactMaterialTraits.Iron);
         float maximum = Mathf.Max(fire, wood, water, earth, iron);
-        if (maximum <= 0f) return;
-        if (maximum == fire)
+        if (maximum <= 0f) return EssenceElement.None;
+        if (maximum == fire) return EssenceElement.Fire;
+        if (maximum == wood) return EssenceElement.Wood;
+        if (maximum == water) return EssenceElement.Water;
+        return maximum == earth ? EssenceElement.Earth : EssenceElement.Iron;
+    }
+
+    private static void ApplyFiveEssenceStatus(
+        Actor source, Actor target, EssenceElement element, float duration, float tickDamage)
+    {
+        switch (element)
         {
-            CombatStatusEffects.ApplyTickingStatus(
-                target,
-                StatusEffects.Burn,
-                duration,
-                tickDamage,
-                new ElementComposition(fire: 1f),
-                source);
-        }
-        else if (maximum == wood)
-        {
-            CombatStatusEffects.ApplyTickingStatus(
-                target,
-                StatusEffects.Poison,
-                duration,
-                tickDamage,
-                new ElementComposition(wood: 1f),
-                source);
-        }
-        else if (maximum == water)
-        {
-            CombatStatusEffects.ApplyStatus(target, StatusEffects.Slow, duration, source);
-        }
-        else if (maximum == earth)
-        {
-            CombatStatusEffects.ApplyStatus(target, StatusEffects.Daze, duration * 0.35f, source);
-        }
-        else
-        {
-            CombatStatusEffects.ApplyStatus(target, StatusEffects.ArmorBreak, duration, source);
+            case EssenceElement.Fire:
+                CombatStatusEffects.ApplyTickingStatus(target, StatusEffects.Burn, duration, tickDamage,
+                    new ElementComposition(fire: 1f), source);
+                break;
+            case EssenceElement.Wood:
+                CombatStatusEffects.ApplyTickingStatus(target, StatusEffects.Poison, duration, tickDamage,
+                    new ElementComposition(wood: 1f), source);
+                break;
+            case EssenceElement.Water:
+                CombatStatusEffects.ApplyStatus(target, StatusEffects.Slow, duration, source);
+                break;
+            case EssenceElement.Earth:
+                CombatStatusEffects.ApplyStatus(target, StatusEffects.Daze, duration * .35f, source);
+                break;
+            case EssenceElement.Iron:
+                CombatStatusEffects.ApplyStatus(target, StatusEffects.ArmorBreak, duration, source);
+                break;
         }
     }
 
-    private static void ConfigureGourdAbilityVisuals()
-    {
-        ConfigureSpiritGourdReserveVisuals();
-        ConfigureFiveEssenceOutpouringVisuals();
-    }
+    private static void ConfigureGourdAbilityVisuals() => ConfigureSpiritGourdReserveVisuals();
 
     private static void ConfigureSpiritGourdReserveVisuals()
     {
@@ -455,42 +460,6 @@ public partial class ArtifactAbilities
                     0.25f,
                     "artifact.spirit_gourd_reserve.tick",
                     ArtifactVisualStackPolicy.MergeIntensity
-                )
-        );
-    }
-
-    private static void ConfigureFiveEssenceOutpouringVisuals()
-    {
-        ArtifactSectorVisualCue cone = AbilitySector(
-            ArtifactVisualColorRole.Primary,
-            ArtifactVfxStyles.Fire
-        );
-        ArtifactParticleVisualCue spray = Burst(
-            ArtifactVisualAnchorKind.Point,
-            ArtifactVisualColorRole.Glow,
-            6,
-            0.36f
-        );
-        spray.emission_interval = 0.09f;
-        spray.directional_speed = 0.48f;
-        FiveEssenceOutpouring.Visualize(
-            Theme(SkillVfxElements.Fire.AccentColor)
-                .Loop(
-                    "five_essence_outpouring",
-                    new ArtifactCompositeVisualCue(cone, spray, Pulse(1.15f, 1f, 0.12f)),
-                    IsActivityActive
-                )
-                .Signal(
-                    ArtifactVisualChannels.Trigger,
-                    new ArtifactCompositeVisualCue(
-                        AbilitySector(
-                            ArtifactVisualColorRole.Glow,
-                            ArtifactVfxStyles.Fire,
-                            transient: true
-                        ),
-                        Burst(ArtifactVisualAnchorKind.Artifact, ArtifactVisualColorRole.Primary, 8)
-                    ),
-                    0.55f
                 )
         );
     }
