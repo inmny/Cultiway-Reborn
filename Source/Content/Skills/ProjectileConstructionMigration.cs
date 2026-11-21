@@ -120,13 +120,21 @@ internal static partial class ProjectileConstructionMigration
         if (configured) scale *= settings.AreaMultiplier;
         if (scale <= 0f || scale > 64f || lifetime <= 0f || lifetime > 3600f) return null;
         bool thunderOrb = container.Asset == SkillEntities.ThunderOrb;
+        bool lightningStrike = container.Asset == SkillEntities.LightningStrike;
         bool fireBlade = container.Asset == SkillEntities.FireBlade;
         int variantCount = MigratedVariantCount(sourceForm.Form);
         bool phased = fireBlade || variantCount > 0;
         string form = fireBlade ? FireBladeForm(container.AnimationIndex) :
+            lightningStrike && container.AnimationIndex == 0 ? "lightning_strike_0" :
             variantCount > 0 ? IndexedForm(sourceForm.Form, container.AnimationIndex, variantCount) : sourceForm.Form;
         if (form == null) return null;
-        AbilityDefinition definition = Motion(emission, form, scale, continues, lifetime, initialAngle, speedScale, out forward);
+        SkillEntityAnimation animation = phased ? container.Asset.GetAnimation(container.AnimationIndex) : null;
+        bool movesDuringAppearance = animation?.AppearanceGameplay == SkillAnimationGameplayFlags.Movement;
+        float frameInterval = container.MotionProfile.FrameInterval;
+        float appearance = phased ? ClipSeconds(animation.Appearance, frameInterval) : 0f;
+        float dissipation = phased ? ClipSeconds(animation.Dissipation, frameInterval) : 0f;
+        AbilityDefinition definition = Motion(emission, form, scale, continues,
+            lifetime + (movesDuringAppearance ? appearance : 0f), initialAngle, speedScale, out forward);
         if (definition == null) return null;
         lifetime = definition.Lifetime;
         float strength = setupScale * emission.Strength * emission.RuntimeData.ResolveEffectScale();
@@ -152,28 +160,28 @@ internal static partial class ProjectileConstructionMigration
         if (blast)
         {
             bool meteor = container.Asset == SkillEntities.FlameMeteor;
-            bool animateBurst = meteor || thunderOrb;
+            bool animateBurst = meteor || thunderOrb || lightningStrike;
             float burstDuration = Mathf.Min(.22f, lifetime);
             definition.Root.Children = new[] { new ConstructionNode
             {
                 Id = "burst", Form = meteor ? "flame_meteor_impact_motion" :
-                    thunderOrb ? "thunder_orb_impact" : sourceForm.Matter + "_burst",
+                    thunderOrb ? "thunder_orb_impact" : lightningStrike ? "lightning_strike_impact" : sourceForm.Matter + "_burst",
                 Matter = sourceForm.Matter, State = sourceForm.State,
                 Scale = scale * container.Asset.ImpactProfile.EffectRadius * container.Asset.ImpactTuning.EffectRadiusMultiplier / .9f,
                 DisappearAt = burstDuration, ActiveUntil = Mathf.Min(.025f, lifetime),
                 Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End,
                     Placement = ConstructionEventPlacement.Event, InheritRemainder = contact, ResetContacts = contact,
-                    BeforeSourceExpires = thunderOrb || container.Asset == SkillEntities.Fireball },
+                    BeforeSourceExpires = thunderOrb || lightningStrike || container.Asset == SkillEntities.Fireball },
                 Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 },
                 Impact = contact ? new ConstructionImpact { DamageScale = damageMultiplier } : null,
                 ContactRole = contact ? ConstructionContactRole.Attack : ConstructionContactRole.Decoration,
-                // 展开的爆发在落点清掉入射速度。雷珠保留动作的制作速度，短寿命仅截断显示。
+                // 展开的爆发在落点清掉入射速度。雷系保留动作的制作速度，短寿命仅截断显示。
                 Operations = animateBurst
                     ? new[]
                     {
                         new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new float[3], InheritVelocity = false },
                         new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "spread",
-                            Seconds = thunderOrb ? 0f : burstDuration }
+                            Seconds = meteor ? burstDuration : 0f }
                     }
                     : new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Stop,
                         When = new ConstructionCondition { Source = "..", Trigger = ConstructionChangeTrigger.End } } }
@@ -190,7 +198,8 @@ internal static partial class ProjectileConstructionMigration
             {
                 new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0f, roll } }
             }).ToArray();
-        if (phased && !SetStationaryProjectileLifecycle(definition, container)) return null;
+        if (animation?.HasLifecycle == true &&
+            !SetProjectileLifecycle(definition, animation.AppearanceGameplay, appearance, dissipation)) return null;
         definition = ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, contactForceScale: !continues && !blast ? 1f / damageMultiplier : 1f, caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
         if (phased && definition.Root.RadialMotion != null)
             definition.Root.RadialMotion.StartAt = definition.Root.ActiveFrom;
@@ -220,6 +229,7 @@ internal static partial class ProjectileConstructionMigration
     private static int MigratedVariantCount(string form) => form switch
     {
         "fireball" => 18,
+        "lightning_strike" => 11,
         "water_orb" => 5,
         "water_arrow" or "water_blade" or "thunder_orb" => 4,
         "flying_sword" or "sword_qi" or "wind_bullet" or "wind_blade" => 2,
@@ -227,26 +237,31 @@ internal static partial class ProjectileConstructionMigration
         _ => 0
     };
 
-    /// <summary>先成形再按原轨迹出手，解体只在实际结束点显示。</summary>
+    /// <summary>沿用原成形期间允许的运动，并让解体只在实际结束点显示。</summary>
     /// <param name="definition">已经展开原轨迹和实际作用的投射主体。</param>
-    /// <param name="container">提供原阶段开关和时长的实际学习资料。</param>
-    private static bool SetStationaryProjectileLifecycle(AbilityDefinition definition, SkillContainer container)
+    /// <param name="gameplay">原成形期间明确允许的行为。</param>
+    /// <param name="appearance">原成形的世界秒数。</param>
+    /// <param name="dissipation">原收势的世界秒数。</param>
+    private static bool SetProjectileLifecycle(AbilityDefinition definition, SkillAnimationGameplayFlags gameplay,
+        float appearance, float dissipation)
     {
-        SkillEntityAnimation animation = container.Asset.GetAnimation(container.AnimationIndex);
-        if (!animation.HasLifecycle) return true;
-        if (animation.AppearanceGameplay != SkillAnimationGameplayFlags.None) return false;
-        float frameInterval = container.MotionProfile.FrameInterval;
-        float appearance = ClipSeconds(animation.Appearance, frameInterval);
-        float dissipation = ClipSeconds(animation.Dissipation, frameInterval);
+        if (gameplay is not (SkillAnimationGameplayFlags.None or SkillAnimationGameplayFlags.Movement)) return false;
+        bool moves = gameplay == SkillAnimationGameplayFlags.Movement;
         ConstructionNode root = definition.Root;
-        float end = appearance + (root.DisappearAt ?? definition.Lifetime);
-        float fullLifetime = appearance + definition.Lifetime + dissipation;
+        float delay = moves ? 0f : appearance;
+        float end = delay + (root.DisappearAt ?? definition.Lifetime);
+        float fullLifetime = delay + definition.Lifetime + dissipation;
         if (fullLifetime > 3600f) return false;
         if (appearance > 0f)
         {
             root.ActiveFrom = appearance;
-            foreach (ConstructionOperation operation in root.Operations) operation.At += appearance;
-            foreach (ConstructionStep step in definition.Steps) step.Operation.At += appearance;
+            foreach (ConstructionOperation operation in root.Operations)
+            {
+                operation.At += delay;
+                if (moves && operation.Ground == ConstructionGroundResponse.End)
+                    operation.Ground = ConstructionGroundResponse.EndWhenActive;
+            }
+            foreach (ConstructionStep step in definition.Steps) step.Operation.At += delay;
             root.Operations = new[] { new ConstructionOperation
                 { Kind = ConstructionOperationKind.Grow, Seconds = appearance } }.Concat(root.Operations).ToArray();
         }

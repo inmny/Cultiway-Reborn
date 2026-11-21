@@ -1759,7 +1759,7 @@ public sealed partial class AbilityCast
         internal Matrix4x4 TransferDeparture;
 
         /// <summary>到达已经发生以及是否因此结束；随预测前态一起恢复。</summary>
-        internal bool FlightArrived, FlightEnded;
+        internal bool FlightArrived, FlightEnded, GroundEndPending;
 
         /// <summary>实际地图加速度。</summary>
         internal Vector3 Acceleration;

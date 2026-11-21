@@ -2,6 +2,7 @@
 import * as T from 'three';
 import {write,structure,surfaceData,motion,round,dissolve} from './form_export.mjs';
 import {wallPart,column} from './forms_solid_walls.mjs';
+import {makeLightningStrikeForms} from './forms_lightning_strikes.mjs';
 
 /** 封闭的分层长体；局部正Z是前方，尖端与内部接触共同朝向实际运动。 */
 function shaft(rows,sides=8) {
@@ -385,4 +386,4 @@ function publishMeteorMotion(pieces,shoulders) {
 }
 
 /** 发布八种来源主体、六类通用爆发及落地、蓄雷形体。 */
-export function makeImpactForms() {fireball();thunder();thunderOrbImpact();chaos();falling();lightningStages();bursts();meteorImpact();}
+export function makeImpactForms() {fireball();thunder();thunderOrbImpact();chaos();falling();lightningStages();bursts();meteorImpact();makeLightningStrikeForms();}

@@ -1,0 +1,467 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_lightning_strikes.mjs",
+            "Entry": "makeLightningStrikeForms",
+            "Parameters": [
+                {
+                    "Id": "index",
+                    "Values": [
+                        0.0
+                    ]
+                },
+                {
+                    "Id": "height",
+                    "Values": [
+                        3.619999885559082
+                    ]
+                },
+                {
+                    "Id": "width",
+                    "Values": [
+                        0.20000000298023225
+                    ]
+                },
+                {
+                    "Id": "forks",
+                    "Values": [
+                        3.0
+                    ]
+                },
+                {
+                    "Id": "phase",
+                    "Values": [
+                        0.17000000178813935
+                    ]
+                },
+                {
+                    "Id": "bends",
+                    "Values": [
+                        0.03999999910593033,
+                        -0.1599999964237213,
+                        0.3400000035762787,
+                        -0.20999999344348908,
+                        0.18000000715255738,
+                        0.07000000029802323,
+                        0.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material",
+            "motion"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "lightning_strike_0",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/lightning_strike_0_channel_mid.asset",
+                "Assets/Cultiway/Forms/lightning_strike_0_channel_far.asset"
+            ],
+            "Roles": [
+                "projectile.body"
+            ],
+            "Id": "channel",
+            "Surface": "thunder_amber",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_0_channel.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "impact.volume"
+            ],
+            "Id": "fork_0",
+            "Surface": "thunder_arc",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_0_fork_0.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "impact.volume"
+            ],
+            "Id": "fork_1",
+            "Surface": "thunder_arc",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_0_fork_1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "impact.volume"
+            ],
+            "Id": "fork_2",
+            "Surface": "thunder_arc",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_0_fork_2.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "head",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                -3.619999885559082
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                -1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                -0.11999999731779099
+            ],
+            "B": [
+                0.0,
+                0.0,
+                -0.1599999964237213
+            ],
+            "Radius": 0.11999999731779099,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -1.0211089849472047,
+                -0.8784999847412109,
+                -3.619999885559082
+            ],
+            "Maximum": [
+                1.0686509609222413,
+                0.29163700342178347,
+                0.0
+            ]
+        }
+    ],
+    "Motions": [
+        {
+            "Id": "dissolve",
+            "Duration": 0.25,
+            "Loop": false,
+            "Keys": [
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.0,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0196749996393919,
+                    "At": 0.020833000540733339,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.034999001771211627
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.07407499849796295,
+                    "At": 0.04166699945926666,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.07000099867582321
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.15625,
+                    "At": 0.0625,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.10499999672174454
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.2592569887638092,
+                    "At": 0.08333300054073334,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.13999900221824647
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.37615901231765749,
+                    "At": 0.10416699945926666,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.17500099539756776
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.5,
+                    "At": 0.125,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.20999999344348908
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.6238409876823425,
+                    "At": 0.14583300054073335,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.2449990063905716
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.7407429814338684,
+                    "At": 0.16666699945926667,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.2800010144710541
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.84375,
+                    "At": 0.1875,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.3149999976158142
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9259250164031982,
+                    "At": 0.20833300054073335,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.34999901056289675
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9803249835968018,
+                    "At": 0.22916699945926667,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.385001003742218
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 1.0,
+                    "At": 0.25,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.41999998688697817
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                }
+            ],
+            "Markers": []
+        }
+    ]
+}

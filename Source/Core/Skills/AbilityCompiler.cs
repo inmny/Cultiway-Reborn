@@ -777,8 +777,7 @@ public static partial class AbilityCompiler
                     return true;
                 });
             node.HasRay = node.EventOperations.Any(action => action.Ray != null);
-            if (node.FragmentSource < 0 && (node.Flight?.Ground is ConstructionGroundResponse.Stop or ConstructionGroundResponse.Follow or ConstructionGroundResponse.End ||
-                node.EventOperations.Any(action => action.Flight?.Ground is ConstructionGroundResponse.Stop or ConstructionGroundResponse.Follow or ConstructionGroundResponse.End)))
+            if (node.FragmentSource < 0 && node.HasGround)
                 node.GroundPoints = node.Resource.GroundPoints();
         }
         foreach (CompiledForm node in nodes)

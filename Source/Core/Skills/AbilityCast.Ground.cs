@@ -22,7 +22,7 @@ public sealed partial class AbilityCast
             if (speed > .00001f) maximum = Mathf.Min(maximum, Mathf.Min(terrain.Size.x / terrain.Width, terrain.Size.y / terrain.Height) * .5f / speed);
         }
         if (terrain != null && (state.Velocity.x != 0 || state.Velocity.y != 0)) return maximum;
-        if (!state.Flying || state.MovementStopped || state.Flight.Ground is not (ConstructionGroundResponse.Stop or ConstructionGroundResponse.End) || state.Flight.Path != null ||
+        if (!state.Flying || state.MovementStopped || state.Flight.Ground is not (ConstructionGroundResponse.Stop or ConstructionGroundResponse.End or ConstructionGroundResponse.EndWhenActive) || state.Flight.Path != null ||
             state.Flight.TurnRate > 0 || state.Spin.sqrMagnitude > .000001f ||
             (state.Motion?.Motion ?? form.Motion) != null && !state.ShapeHeld && !state.MotionStopped ||
             !state.GrowthStopped && (state.GrowthChanged ? state.GrowthAge < state.GrowthSeconds : form.Growth.x >= 0 && NodeAge(node) < form.Growth.y)) return maximum;
@@ -51,9 +51,14 @@ public sealed partial class AbilityCast
     {
         if (flows?[node]?.Started == true) return;
         ref NodeState state = ref nodes[node]; CompiledForm form = Plan.Nodes[node];
+        if (state.GroundEndPending)
+        {
+            if (ProcessIsActive(node, includeEnd: false)) EndGroundFlight(node);
+            return;
+        }
         if (state.Flying && state.Flight.Ground == ConstructionGroundResponse.Follow)
         { FollowGround(node); return; }
-        if (!state.Flying || state.MovementStopped && state.Spin.sqrMagnitude < .000001f || state.Flight.Ground is not (ConstructionGroundResponse.Stop or ConstructionGroundResponse.End)) return;
+        if (!state.Flying || state.MovementStopped && state.Spin.sqrMagnitude < .000001f || state.Flight.Ground is not (ConstructionGroundResponse.Stop or ConstructionGroundResponse.End or ConstructionGroundResponse.EndWhenActive)) return;
         FormPose previousPose = groundPoses[node];
         float beforeRadius = MaximumScale(state.PreviousTransform), radius = MaximumScale(state.Transform), first = 2f;
         // 转移空隙没有实体经过，地面停止或结束只能发生在新落点，不能沿两端插值拉回。
@@ -107,16 +112,24 @@ public sealed partial class AbilityCast
         if (form.FragmentSource >= 0) state.Transform *= Matrix4x4.Translate(-state.Pivot);
         for (int i = node + 1; i < nodes.Length; i++) if (IsAttachedBelow(i, node))
         { Matrix4x4 matrix = nodes[i].Transform; matrix.m23 += lift; nodes[i].Transform = matrix; }
-        if (state.Flight.Ground == ConstructionGroundResponse.End)
-        {
-            state.FlightEnded = true;
-            EndNode(node);
-        }
+        if (state.Flight.Ground == ConstructionGroundResponse.EndWhenActive && !ProcessIsActive(node, includeEnd: false))
+            state.GroundEndPending = true;
+        else if (state.Flight.Ground != ConstructionGroundResponse.Stop)
+            EndGroundFlight(node);
         void Include(float before, float after)
         {
             if (after <= .00001f && after < before - .000001f)
                 first = Mathf.Min(first, float.IsPositiveInfinity(before) ? 1f : before <= 0f ? 0f : Mathf.Clamp01(before / (before - after)));
         }
+    }
+
+    /// <summary>在已经取得的落点结束，允许共同接触处理读取最后一段飞行。</summary>
+    /// <param name="node">已经实际着地的部位。</param>
+    private void EndGroundFlight(int node)
+    {
+        nodes[node].GroundEndPending = false;
+        nodes[node].FlightEnded = true;
+        EndNode(node);
     }
 
     /// <summary>从相同作用形状取得真正最低高度。</summary>

@@ -1,0 +1,268 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_lightning_strikes.mjs",
+            "Entry": "makeLightningStrikeForms",
+            "Parameters": [
+                {
+                    "Id": "index",
+                    "Values": [
+                        3.0
+                    ]
+                },
+                {
+                    "Id": "height",
+                    "Values": [
+                        3.059999942779541
+                    ]
+                },
+                {
+                    "Id": "width",
+                    "Values": [
+                        0.21400000154972077
+                    ]
+                },
+                {
+                    "Id": "forks",
+                    "Values": [
+                        4.0
+                    ]
+                },
+                {
+                    "Id": "phase",
+                    "Values": [
+                        1.659999966621399
+                    ]
+                },
+                {
+                    "Id": "bends",
+                    "Values": [
+                        0.23000000417232514,
+                        0.05999999865889549,
+                        0.07000000029802323,
+                        0.3199999928474426,
+                        -0.3799999952316284,
+                        -0.14000000059604646,
+                        0.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "lightning_strike_3",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/lightning_strike_3_channel_mid.asset",
+                "Assets/Cultiway/Forms/lightning_strike_3_channel_far.asset"
+            ],
+            "Roles": [
+                "projectile.body"
+            ],
+            "Id": "channel",
+            "Surface": "thunder_core",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_3_channel.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "impact.volume"
+            ],
+            "Id": "fork_0",
+            "Surface": "thunder_cyan",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_3_fork_0.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "impact.volume"
+            ],
+            "Id": "fork_1",
+            "Surface": "thunder_cyan",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_3_fork_1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "impact.volume"
+            ],
+            "Id": "fork_2",
+            "Surface": "thunder_cyan",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_3_fork_2.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "impact.volume"
+            ],
+            "Id": "fork_3",
+            "Surface": "thunder_cyan",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_strike_3_fork_3.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "head",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                -3.059999942779541
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                -1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                -0.11999999731779099
+            ],
+            "B": [
+                0.0,
+                0.0,
+                -0.1599999964237213
+            ],
+            "Radius": 0.11999999731779099,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.6406340003013611,
+                -0.8362680077552795,
+                -3.059999942779541
+            ],
+            "Maximum": [
+                0.7121040225028992,
+                0.6236709952354431,
+                0.0
+            ]
+        }
+    ],
+    "Motions": []
+}

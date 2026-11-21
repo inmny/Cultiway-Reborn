@@ -64,6 +64,7 @@ def main():
         'wind-blade': ('Cultiway.WindBlade', 2),
         'thunder-orb': ('Cultiway.ThunderOrb', 4),
         'lightning-spear': ('Cultiway.LightningSpear', 1),
+        'lightning-strike': ('Cultiway.LightningStrike', 11),
     }
     batches = {
         'water-family': ('water-arrow', 'water-orb', 'water-blade'),
@@ -73,26 +74,30 @@ def main():
     parser.add_argument('spell', choices=('fireball', 'fire-family', *batches, *projectile_spells))
     parser.add_argument('--variant', type=int, choices=range(18), action='append',
                         help='只复验指定旧索引，可重复指定')
-    parser.add_argument('--case', choices=('hit', 'miss', 'tracking', 'landing', 'gravity', 'archive', 'cold'))
+    parser.add_argument('--case', choices=('hit', 'miss', 'tracking', 'landing', 'cancel', 'gravity', 'archive', 'cold'))
     parser.add_argument('--archive', type=Path, help='冷启动使用之前实际保存的目录')
     args = parser.parse_args()
     if args.spell in batches or args.spell in projectile_spells:
         case = args.case or 'hit'
-        if args.spell in batches:
+        save_batch = args.spell in batches or args.spell == 'lightning-strike' and case in ('archive', 'cold')
+        if save_batch:
             if args.variant or case not in ('hit', 'archive', 'cold'):
                 parser.error('批次支持 hit、archive 或 cold。指定变体时请选择单术')
-            selected = tuple(projectile_spells[spell][0] for spell in batches[args.spell])
+            selected = tuple(projectile_spells[spell][0] for spell in batches.get(args.spell, (args.spell,)))
             variants = []
         else:
             asset, count = projectile_spells[args.spell]
-            if case not in ('hit', 'miss', 'tracking', 'landing') or any(i >= count for i in args.variant or []):
-                parser.error('单术实测需选择该法术已有的旧索引，支持 hit、miss、tracking 或 landing')
+            if case not in ('hit', 'miss', 'tracking', 'landing', 'cancel') or any(i >= count for i in args.variant or []):
+                parser.error('单术实测需选择该法术已有的旧索引，支持 hit、miss、tracking、landing 或 cancel')
             if case == 'tracking' and args.spell not in ('water-orb', 'wind-bullet', 'thunder-orb'):
                 parser.error('改轨迹复验使用水球、风弹或雷珠')
-            if case == 'landing' and args.spell != 'thunder-orb':
-                parser.error('指定地点爆发复验使用雷珠')
+            if case == 'landing' and args.spell not in ('thunder-orb', 'lightning-strike'):
+                parser.error('指定地点爆发复验使用雷珠或落雷')
+            if case == 'cancel' and args.spell != 'lightning-strike':
+                parser.error('取消复验使用落雷')
             selected = (asset,)
-            variants = args.variant or (list(range(count)) if case == 'hit' else [min(1, count - 1)])
+            default_index = 0 if args.spell == 'lightning-strike' and case in ('landing', 'cancel') else min(1, count - 1)
+            variants = args.variant or (list(range(count)) if case == 'hit' else [default_index])
         archive = args.archive.resolve() if args.archive else None
         if case == 'cold' and (not archive or not all(
                 (archive / file).is_file() for file in ('archive/map.wbox', 'expected.json'))):
