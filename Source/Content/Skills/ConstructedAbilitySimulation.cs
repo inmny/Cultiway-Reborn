@@ -949,7 +949,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 void AtStage(int stage, bool oldScope, bool endpointOnly)
                 {
                     CompiledConstructionImpact effect = running.Cast.ImpactAtStage(shape.To.Node, stage);
-                    if (effect.SelectedTargetOnly && owner.TargetId != actor.Id || !owner.Matches(effect.Targets, actor.Actor) ||
+                    // 原范围法相对所有接触者提交脚下地块作用，人物收益和伤害在确认后按原关系分配。
+                    if (effect.SelectedTargetOnly && owner.TargetId != actor.Id ||
+                        !running.FormationArea.HasValue && !owner.Matches(effect.Targets, actor.Actor) ||
                         !running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until)) return;
                     int node = shape.To.Node;
                     if (node == 0 && owner.TargetId == 0 && running.BuildingContact is { ChainStartRadius: > 0f } chain &&
@@ -1225,12 +1227,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             damage.ContactSound = CombatContactFeedback.SoundFor(beforeMatter);
             primaryDamage = GetHitEventSystem.Resolve(damage);
         }
-
         if (contactGeneration != worldGeneration) return;
         ApplyRestoration(running, node, actor.Actor, impact.Restoration, strength);
-        ConstructedTargetResponse response = ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
-            priorVelocity: priorVelocity, forceReceiver: forceReceiver,
-            strength: strength, settled: primaryDamage, contact: hit.Point);
+        ConstructedTargetResponse response = running.FormationArea is { } formation
+            ? ApplyFormationAreaContact(running, node, actor.Actor, formation)
+            : ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
+                priorVelocity: priorVelocity, forceReceiver: forceReceiver,
+                strength: strength, settled: primaryDamage, contact: hit.Point);
         if (contactGeneration != worldGeneration) return;
         if (result == ApplyAttackState.Hit && impact.WakanTransfer > 0f &&
             actor.Actor.data?.id == actor.Id && actor.Actor.isAlive() && actor.Actor.hasHealth() &&

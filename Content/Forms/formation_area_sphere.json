@@ -1,0 +1,32 @@
+{
+  "Version": 8,
+  "Id": "formation_area_sphere",
+  "Parts": [],
+  "Anchors": [],
+  "Contacts": [
+    {
+      "Id": "field",
+      "Part": -1,
+      "A": [0, 0, 0],
+      "B": [0, 0, 0],
+      "Radius": 1
+    }
+  ],
+  "Controls": [],
+  "Motions": [],
+  "Structure": {
+    "Kind": "volume",
+    "UnitInTiles": 1,
+    "Generation": {
+      "Source": "Content/Forms/formation_area_sphere.json",
+      "Entry": "explicit-definition",
+      "Parameters": []
+    },
+    "Connections": [],
+    "Changes": ["transform"]
+  },
+  "Held": {
+    "Groups": [],
+    "Scale": 0
+  }
+}

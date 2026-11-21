@@ -2707,3 +2707,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_formation_self.py`。脚本沿用现成对练，核对剑胎显锋、灵台显神、真身镇劫及五相轮转的实扣费用、生效阶段、持续时长和自然结束。状态和冷却按原游戏速度等待。
 
 同一入口加 `--case carrier` 检查真实命魂出窍、肉身要求、出手位置、状态归属和归返后的再次使用。录像可用 `demo_spell.py` 指定对应能力；演示会从修炼者实际拥有的主动入口施放。
+
+### 范围法相的主动入口（10.02）
+
+在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_formation_area.py`。同一组人物依次观察龙相震击的真实伤害与震退、纯阳净域的敌我分流及玄阴寒域的冻结、沉默和实际灵气收支。另检查实际落点、旧地块作用、圈外及结束。可用 `--spell DragonAspectBurst`、`--spell PureYangDomain` 或 `--spell MysteriousYinDomain` 单独复验受影响的能力。

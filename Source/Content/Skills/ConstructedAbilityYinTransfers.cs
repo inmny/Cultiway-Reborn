@@ -27,9 +27,17 @@ public sealed partial class ConstructedAbilityService
         long generation = worldGeneration;
         Vector3 start = YinEndpoint(donor, .38f), end = YinEndpoint(recipient.Actor, .48f);
         float moved = CombatResourceEffects.TransferWakan(donor, recipient.Actor, amount);
-        if (moved <= 0f || generation != worldGeneration) return;
+        if (generation == worldGeneration) RecordYinTransfer(start, end, SpatialActorPose.Height(donor), moved);
+    }
+
+    /// <summary>记下实际收受的灵气，供已验证的阴气流动外观读取。</summary>
+    /// <param name="start">接触中被汲取的位置。</param><param name="end">实际收受位置。</param>
+    /// <param name="height">取样时的来源体高。</param><param name="moved">已经入账的灵气。</param>
+    private static void RecordYinTransfer(Vector3 start, Vector3 end, float height, float moved)
+    {
+        if (moved <= 0f) return;
         if (yinTransfers.Count == 24) yinTransfers.RemoveAt(0);
-        yinTransfers.Add(new YinTransfer(start, end, SpatialActorPose.Height(donor), moved, simulation.contactTime));
+        yinTransfers.Add(new YinTransfer(start, end, height, moved, simulation.contactTime));
     }
 
     private static Vector3 YinEndpoint(Actor actor, float height)

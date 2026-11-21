@@ -155,7 +155,7 @@ internal sealed class CoreFormationSkills : ICanInit
             type: SkillEntityType.Defense);
         DragonAspectBurst = BuildArea(
             "DragonAspectBurst", "dragon_aspect_burst", 0.16f, ElementComposition.Static.Earth,
-            4f, 0f, OnDragonAspectBurst, 40f);
+            4f, 0f, null, 40f);
         SpiritPlatform = BuildTarget(
             "SpiritPlatform", "spirit_platform", 0.13f, Element(ElementIndex.Pos),
             0f, false, true, useProfile: SkillUseProfileLibrary.CasterSelf, cost: 48f,
@@ -170,10 +170,10 @@ internal sealed class CoreFormationSkills : ICanInit
             type: SkillEntityType.Defense);
         PureYangDomain = BuildArea(
             "PureYangDomain", "pure_yang_domain", 0.17f, Element(ElementIndex.Pos),
-            5f, 0f, OnPureYangDomain, 56f);
+            5f, 0f, null, 56f);
         MysteriousYinDomain = BuildArea(
             "MysteriousYinDomain", "mysterious_yin_domain", 0.17f, Element(ElementIndex.Neg),
-            5f, 0f, OnMysteriousYinDomain, 56f);
+            5f, 0f, null, 56f);
     }
 
     /// <summary>建立只播放一次动画、不参与碰撞的目标显现技能。</summary>
@@ -546,69 +546,6 @@ internal sealed class CoreFormationSkills : ICanInit
         CombatStatusEffects.ApplyStatus(target, StatusEffects.Daze, 0.6f, source);
         Vector2 center = skillEntity.GetComponent<Position>().v2;
         CombatForceEffects.ApplyRadialForce(source, target, center, 2.5f * context.EffectScale, false);
-    }
-
-    /// <summary>龙相主动震击只对实际可攻击目标造成伤害、眩晕和击退。</summary>
-    private static void OnDragonAspectBurst(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target) ||
-            target == source || !SkillTargetRelationResolver.IsHostile(source, target)) return;
-        CombatDamageEffects.DealDamage(
-            source,
-            target,
-            context.Strength * context.EffectScale * 1.2f,
-            context.ResolveElement(ElementComposition.Static.Earth),
-            attackerPowerLevel: context.PowerLevel,
-            damageOrigin: context.RuntimeData.DamageOrigin);
-        CombatStatusEffects.ApplyStatus(target, StatusEffects.Daze, 0.8f, source);
-        Vector2 center = skillEntity.GetComponent<Position>().v2;
-        CombatForceEffects.ApplyRadialForce(source, target, center, 3f * context.EffectScale, false);
-        ShowResolvedArea(skillEntity);
-    }
-
-    /// <summary>纯阳领域分别处理同国友军和施法者实际可攻击的目标。</summary>
-    private static void OnPureYangDomain(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target)) return;
-        ShowResolvedArea(skillEntity);
-        if ((target == source || target.kingdom == source.kingdom) &&
-            !SkillTargetRelationResolver.HasHostileRelation(source, target))
-        {
-            CombatStatusEffects.CleanseNegativeStatuses(target, 2);
-            CombatResourceEffects.RestoreHealth(
-                target,
-                target.stats[S.health] * 0.05f * context.EffectScale);
-        }
-        if (target == source || !SkillTargetRelationResolver.IsHostile(source, target)) return;
-        float burnPerSecond = source.stats[S.damage] * 0.05f * context.EffectScale;
-        CombatStatusEffects.ApplyTickingStatus(
-            target,
-            StatusEffects.Burn,
-            4f,
-            burnPerSecond,
-            Element(ElementIndex.Pos),
-            source);
-    }
-
-    /// <summary>玄阴领域冻结、沉默并汲取每个实际敌对目标的灵气。</summary>
-    private static void OnMysteriousYinDomain(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target) ||
-            target == source || !SkillTargetRelationResolver.IsHostile(source, target)) return;
-        ShowResolvedArea(skillEntity);
-        CombatStatusEffects.ApplyStatus(target, StatusEffects.Freeze, 1f, source);
-        CombatStatusEffects.ApplyStatus(target, StatusEffects.Silence, 3f, source);
-        float drained = CombatResourceEffects.DrainWakan(target, 12f * context.EffectScale);
-        CombatResourceEffects.RestoreWakan(source, drained);
-    }
-
-    /// <summary>范围型来源能力已接触真实对象后保留余波，不重复伤害或状态结算。</summary>
-    /// <param name="entity">实际来源能力执行体。</param>
-    private static void ShowResolvedArea(Entity entity)
-    {
-        var asset=entity.GetComponent<SkillEntity>().Asset;
-        BattleSpellVisualRuntime.OnAreaResolved(entity,entity.GetComponent<Position>().value,
-            SkillEffectRadius.Resolve(entity,asset.ImpactProfile.EffectRadius*asset.ImpactTuning.EffectRadiusMultiplier));
     }
 
     /// <summary>构造单一元素组成。</summary>
