@@ -290,6 +290,8 @@ public static partial class ArtifactAbilityLifecycle
                 runtime.control_state,
                 in runtime.abilities[i]);
             Entity execution = runtime.abilities[i].active_execution;
+            if (!execution.IsNull && execution.HasComponent<ArtifactSwordArrayExecutionState>())
+                return ArtifactSwordArrayExecution.TryRecall(execution);
             bool flyingBack = ArtifactSpatialAttackExecution.ReturnsOnRecall(execution);
             if (flyingBack && !ArtifactSpatialAttackExecution.TryRecall(execution)) return false;
             EndActivity(asset, context, ability, ref runtime.abilities[i], ArtifactAbilityEndReason.Recalled, !flyingBack);

@@ -1,5 +1,6 @@
+using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
-using Cultiway.Content.Libraries;
+using Cultiway.Content.Extensions;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
@@ -31,56 +32,47 @@ internal static class ArtifactSwordArrayExecution
     /// <summary>剑影保留可辨认的器身，绘制与碰撞使用同一比例。</summary>
     internal const float BladeSizeRatio = 0.65f;
 
-    private const int MovingAfterimageCount = 2;
-
-    internal static void Initialize(
+    internal static bool Initialize(
         Entity execution,
         Actor owner,
         Entity artifact,
-        Vector2 origin,
         int bladeCount,
         float attackRange,
         float duration)
     {
+        if (!ArtifactAppearanceRenderer.TryGetProjectionGeometry(artifact, out var geometry)) return false;
         int count = Mathf.Clamp(bladeCount, 8, MaxBladeCount);
         float resolvedDuration = Mathf.Max(3f, duration);
-        float formationDuration = Mathf.Min(0.78f, resolvedDuration * 0.12f);
-        float collapseDuration = Mathf.Min(0.5f, resolvedDuration * 0.08f);
+        float formationDuration = Mathf.Min(.78f, resolvedDuration * .12f);
         float now = (float)World.world.getCurWorldTime();
-
-        ArtifactShapeAsset shape = (ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type;
-        ArtifactManifestationTools.EnsureWorldComponents(artifact, shape.presentation.body_radius);
-        ArtifactManifestationTools.ApplyActiveWorldSize(artifact, owner);
-        Sprite sprite = ArtifactManifestationTools.ResolveWorldSprite(artifact, true);
-        Sprite reference = ArtifactManifestationTools.ResolveWorldScaleSprite(artifact, true);
-        float spriteSize = Mathf.Max(reference.bounds.size.x, reference.bounds.size.y);
-        float worldSize = artifact.GetComponent<ArtifactManifestation>().world_size;
-        float projectionRatio = Mathf.Max(BladeSizeRatio,
-            Mathf.Min(3f, Combat.BattleSpellScale.Resolve(owner.GetExtend()) * .3f) / worldSize);
-        float renderScale = worldSize / spriteSize * projectionRatio;
-        ArtifactBody artifactBody = artifact.GetComponent<ArtifactBody>();
+        float worldSize = ArtifactManifestationTools.ResolveActiveWorldSize(artifact, owner);
+        float bladeSize = Mathf.Max(worldSize * BladeSizeRatio, Mathf.Min(3f, BattleSpellScale.Resolve(owner.GetExtend()) * .3f));
+        Vector3 origin = ResolveArtifactPosition(artifact, owner);
         SkillContext bladeContext = execution.GetComponent<SkillContext>();
-
         ArtifactSwordArrayBladeState[] blades = new ArtifactSwordArrayBladeState[count];
+        var pose = ArtifactAppearanceRenderer.Project(in geometry, origin, Vector2.down, 0f, bladeSize, 0f);
+        var body = new ColliderSweptBody(pose.TransformPoint(geometry.Start), pose.TransformPoint(geometry.End),
+            geometry.Radius * pose.Scale.y);
+
         for (int i = 0; i < count; i++)
         {
             Entity bladeEntity = ArtifactSkillExecutions.SwordArrayBlade.NewEntity();
-            InitializeBladeEntity(
-                execution,
-                bladeEntity,
-                artifact,
-                bladeContext,
-                sprite,
-                renderScale,
-                artifactBody,
-                origin, projectionRatio);
+            bladeEntity.GetComponent<SkillContext>() = bladeContext;
+            bladeEntity.GetComponent<Position>().value = origin;
+            bladeEntity.GetComponent<ColliderSphere>().Radius = geometry.Radius * pose.Scale.y;
+            bladeEntity.AddComponent(new ArtifactSpatialProjection { Pose = pose });
+            bladeEntity.AddComponent(body);
+            if (!SkillExecutionLifecycle.TryBindSpawnedBody(execution, bladeEntity, "blade"))
+            {
+                ModClass.I.CommandBuffer.AddTag<TagRecycle>(bladeEntity.Id);
+                return false;
+            }
             blades[i] = new ArtifactSwordArrayBladeState
             {
                 entity = bladeEntity,
                 slot_index = i,
                 phase = ArtifactSwordArrayBladePhase.Forming,
                 position = origin,
-                previous_position = origin,
                 direction = Vector2.down,
                 phase_origin = origin,
                 phase_started_at = now,
@@ -96,46 +88,36 @@ internal static class ArtifactSwordArrayExecution
             started_at = now,
             duration = resolvedDuration,
             formation_duration = formationDuration,
-            collapse_duration = collapseDuration,
+            collapse_duration = Mathf.Min(.5f, resolvedDuration * .08f),
             next_launch_attempt_at = now + formationDuration,
             attack_range = attackRange,
             ring_angle = 90f,
             angular_speed = RingAngularSpeed,
+            geometry = geometry,
+            slot_order = new int[count],
+            blade_size = bladeSize,
         };
-        execution.GetComponent<Position>().value = owner.cur_transform_position;
+        execution.GetComponent<Position>().value = SpatialActorPose.Foot(owner);
+        return true;
     }
 
-    private static void InitializeBladeEntity(
-        Entity execution,
-        Entity blade,
-        Entity artifact,
-        SkillContext context,
-        Sprite sprite,
-        float renderScale,
-        ArtifactBody artifactBody,
-        Vector2 origin, float projectionRatio)
+    /// <summary>剑影只在本次生成它的根执行仍有效时存在及参与接触。</summary>
+    internal static bool IsActiveBlade(Entity blade) => !blade.Tags.Has<TagRecycle>() &&
+        blade.TryGetComponent(out SkillExecutionBodyLease lease) &&
+        lease.execution.IsAvailable() && !lease.execution.GetComponent<SkillExecution>().end_requested;
+
+    /// <summary>主动收阵即时停伤，保持原会话到剑影实际收束完毕。</summary>
+    internal static bool TryRecall(Entity execution)
     {
-        blade.AddComponent(new ArtifactSpatialProjection { Artifact = artifact, SizeRatio = projectionRatio });
-        blade.GetComponent<SkillContext>() = context;
-        blade.GetComponent<Position>().value = origin;
-        blade.GetComponent<PrevPosition>().Value = origin;
-        blade.GetComponent<Rotation>().in_plane = Vector2.down;
-        blade.GetComponent<Scale>().value = Vector3.one * renderScale;
-
-        ref AnimData animData = ref blade.GetComponent<AnimData>();
-        animData.frames = [sprite];
-        animData.frame_idx = 0;
-        animData.frame_timer = 0f;
-
-        blade.GetComponent<ColliderSphere>().Radius = artifactBody.radius * projectionRatio;
-        blade.GetComponent<ColliderLinearExtent>() = new ColliderLinearExtent
-        {
-            Forward = Mathf.Max(0f, artifactBody.forward_extent - artifactBody.radius) * projectionRatio,
-            Backward = Mathf.Max(0f, artifactBody.backward_extent - artifactBody.radius) * projectionRatio,
-        };
-        blade.GetComponent<ColliderConfig>().Enabled = true;
-        if (!SkillExecutionLifecycle.TryBindSpawnedBody(execution, blade, "blade"))
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(blade.Id);
+        if (!execution.IsAvailable() || execution.GetComponent<SkillExecution>().end_requested) return false;
+        ref var state = ref execution.GetComponent<ArtifactSwordArrayExecutionState>();
+        if (state.recalled || state.collapsing) return false;
+        float elapsed = (float)World.world.getCurWorldTime() - state.started_at;
+        if (elapsed >= state.duration - state.collapse_duration) return false;
+        state.recalled = true;
+        state.duration = elapsed + state.collapse_duration;
+        DisableBladeColliders(ref state);
+        return true;
     }
 
     internal static void Update(
@@ -155,7 +137,8 @@ internal static class ArtifactSwordArrayExecution
         }
 
         Actor owner = context.SourceObj?.a;
-        if (owner == null || owner.isRekt())
+        if (owner == null || owner.isRekt() || owner.id != context.SourceId ||
+            !state.artifact.IsAvailable() || !ArtifactEquipmentTools.IsArtifactEquipped(owner.GetExtend(), state.artifact))
         {
             DisableBladeColliders(ref state);
             SkillExecutionLifecycle.RequestEnd(execution);
@@ -164,7 +147,7 @@ internal static class ArtifactSwordArrayExecution
 
         float now = (float)World.world.getCurWorldTime();
         float elapsed = now - state.started_at;
-        position.value = owner.cur_transform_position;
+        position.value = SpatialActorPose.Foot(owner);
         rotation.z = 0f;
         if (elapsed >= state.duration)
         {
@@ -173,7 +156,17 @@ internal static class ArtifactSwordArrayExecution
             return;
         }
 
+        float collapseStart = state.duration - state.collapse_duration;
+        if (elapsed >= collapseStart)
+        {
+            float collapse = Mathf.Clamp01((elapsed - collapseStart) / state.collapse_duration);
+            UpdateCollapse(owner, ref state, collapse);
+            SyncBladeEntities(ref state, now, deltaTime, 1f - collapse);
+            return;
+        }
+
         float actorScale = ResolveFormationScale(owner);
+        float ringHeight = owner.position_height + SpatialActorPose.Height(owner) * .6f;
         if (elapsed >= state.formation_duration)
         {
             state.ring_angle = Mathf.Repeat(
@@ -184,60 +177,29 @@ internal static class ArtifactSwordArrayExecution
         for (int i = 0; i < state.blades.Length; i++)
         {
             ref ArtifactSwordArrayBladeState blade = ref state.blades[i];
-            blade.previous_position = blade.position;
             switch (blade.phase)
             {
                 case ArtifactSwordArrayBladePhase.Forming:
-                    UpdateForming(
-                        ref blade,
-                        ResolveRingPosition(
-                            owner,
-                            blade.slot_index,
-                            state.blades.Length,
-                            state.blades.Length,
-                            actorScale,
-                            state.ring_angle),
-                        now,
-                        i);
+                    UpdateForming(ref blade, ResolveRingPosition(owner.current_position, ringHeight, blade.slot_index,
+                        state.blades.Length, state.blades.Length, actorScale, state.ring_angle), now, i);
                     break;
                 case ArtifactSwordArrayBladePhase.Traversing:
-                    UpdateTraversing(owner, ref state, i, actorScale, now);
+                    UpdateTraversing(owner.current_position, ref state, i, ringHeight, now);
                     break;
             }
         }
 
-        float collapseProgress = state.collapse_duration > 0f
-            ? Mathf.Clamp01(
-                (elapsed - (state.duration - state.collapse_duration)) /
-                state.collapse_duration)
-            : 0f;
-        UpdateArrayedBlades(
-            owner,
-            ref state,
-            actorScale,
-            deltaTime,
-            ResolveCollapseCenter(ref state),
-            collapseProgress);
-
-        float launchStopAt = state.started_at + state.duration - state.collapse_duration -
-                             MaximumTraversalDuration;
+        UpdateArrayedBlades(owner.current_position, ref state, actorScale, ringHeight, deltaTime, now);
+        float launchStopAt = state.started_at + collapseStart - MaximumTraversalDuration;
         if (elapsed >= state.formation_duration && now < launchStopAt && now >= state.next_launch_attempt_at)
-        {
             LaunchDueBlades(owner, ref state, actorScale, now);
-        }
 
-        SyncBladeEntities(owner, ref state, now, collapseProgress);
-    }
-
-    internal static float ResolveRingRadius(Actor owner, int bladeCount)
-    {
-        float actorScale = ResolveFormationScale(owner);
-        return ResolveRingRadius(actorScale, Mathf.Clamp(bladeCount, 8, MaxBladeCount));
+        SyncBladeEntities(ref state, now, deltaTime, 1f);
     }
 
     private static void UpdateForming(
         ref ArtifactSwordArrayBladeState blade,
-        Vector2 ringPosition,
+        Vector3 ringPosition,
         float now,
         int bladeIndex)
     {
@@ -245,43 +207,32 @@ internal static class ArtifactSwordArrayExecution
         float progress = Mathf.Clamp01(
             (now - blade.phase_started_at - stagger) / Mathf.Max(0.01f, blade.phase_duration - stagger));
         float eased = 1f - Mathf.Pow(1f - progress, 3f);
-        blade.position = Vector2.LerpUnclamped(blade.phase_origin, ringPosition, eased);
-        blade.direction = Vector2.down;
+        blade.position = Vector3.LerpUnclamped(blade.phase_origin, ringPosition, eased);
         if (progress < 1f) return;
         blade.phase = ArtifactSwordArrayBladePhase.Arrayed;
+        blade.phase_started_at = now;
     }
 
-    private static void UpdateArrayedBlades(
-        Actor owner,
-        ref ArtifactSwordArrayExecutionState state,
-        float actorScale,
-        float deltaTime,
-        Vector2 collapseCenter,
-        float collapseProgress)
+    private static void UpdateArrayedBlades(Vector2 center, ref ArtifactSwordArrayExecutionState state,
+        float actorScale, float ringHeight, float deltaTime, float now)
     {
-        int arrayedCount = CountArrayedBlades(ref state);
-        if (arrayedCount == 0) return;
-
-        float follow = 1f - Mathf.Exp(-RingFollowResponse * Mathf.Max(0f, deltaTime));
+        int[] slots = state.slot_order;
+        int visible = 0;
         for (int i = 0; i < state.blades.Length; i++)
         {
-            ref ArtifactSwordArrayBladeState blade = ref state.blades[i];
-            if (blade.phase != ArtifactSwordArrayBladePhase.Arrayed) continue;
+            var blade = state.blades[i];
+            slots[blade.slot_index] = i;
+            if (blade.phase == ArtifactSwordArrayBladePhase.Arrayed) visible++;
+        }
 
-            int rank = ResolveArrayedRank(ref state, blade.slot_index);
-            Vector2 destination = ResolveRingPosition(
-                owner,
-                rank,
-                arrayedCount,
-                state.blades.Length,
-                actorScale,
-                state.ring_angle);
-            Vector2 followed = Vector2.LerpUnclamped(blade.position, destination, follow);
-            blade.position = Vector2.LerpUnclamped(
-                followed,
-                collapseCenter,
-                collapseProgress * collapseProgress);
-            blade.direction = Vector2.down;
+        float follow = 1f - Mathf.Exp(-RingFollowResponse * Mathf.Max(0f, deltaTime));
+        int rank = 0;
+        foreach (int index in slots)
+        {
+            ref var blade = ref state.blades[index];
+            if (blade.phase != ArtifactSwordArrayBladePhase.Arrayed) continue;
+            Vector3 destination = ResolveRingPosition(center, ringHeight, rank++, visible, state.blades.Length, actorScale, state.ring_angle);
+            if (blade.phase_started_at < now) blade.position = Vector3.LerpUnclamped(blade.position, destination, follow);
         }
     }
 
@@ -310,7 +261,7 @@ internal static class ArtifactSwordArrayExecution
             return;
         }
 
-        Vector2 ringCenter = ResolveRingCenter(owner, actorScale);
+        Vector2 ringCenter = owner.current_position;
         int launched = 0;
         while (now >= state.next_launch_attempt_at &&
                inFlight < state.target_in_flight &&
@@ -323,9 +274,10 @@ internal static class ArtifactSwordArrayExecution
             if (!TrySelectRandomArrayedBlade(ref state, sequence, out int bladeIndex)) return;
 
             ref ArtifactSwordArrayBladeState blade = ref state.blades[bladeIndex];
+            Actor target = targets[targetIndex];
             Vector2 targetDirection = Normalize(
-                targets[targetIndex].current_position - blade.position,
-                ringCenter - blade.position);
+                target.current_position - (Vector2)blade.position,
+                ringCenter - (Vector2)blade.position);
             float directionJitter = Mathf.Lerp(
                 -DirectionJitter,
                 DirectionJitter,
@@ -335,6 +287,7 @@ internal static class ArtifactSwordArrayExecution
                 ref blade,
                 travelDirection,
                 ringCenter,
+                target,
                 actorScale,
                 state.blades.Length,
                 now,
@@ -383,6 +336,7 @@ internal static class ArtifactSwordArrayExecution
         ref ArtifactSwordArrayBladeState blade,
         Vector2 travelDirection,
         Vector2 ringCenter,
+        Actor target,
         float actorScale,
         int bladeCount,
         float now,
@@ -400,6 +354,11 @@ internal static class ArtifactSwordArrayExecution
             1.18f,
             Sample01(variationSeed, sequence, 37));
         float distance = Vector2.Distance(blade.position, destination);
+        float contact = Vector2.Dot(target.current_position - (Vector2)blade.position, travelDirection) /
+            Mathf.Max(.01f, distance);
+        blade.contact_height = target.position_height + SpatialActorPose.Height(target) * .49f;
+        blade.approach_fraction = Mathf.Clamp(contact, .04f, .18f);
+        blade.departure_fraction = Mathf.Clamp(contact, .78f, .95f);
 
         blade.phase = ArtifactSwordArrayBladePhase.Traversing;
         blade.phase_origin = blade.position;
@@ -411,46 +370,35 @@ internal static class ArtifactSwordArrayExecution
             distance / (TraversalSpeed * actorScale * speedVariation),
             MinimumTraversalDuration,
             MaximumTraversalDuration);
-        blade.direction = travelDirection;
         blade.entity.GetComponent<SkillHitMemory>().TargetIds.Clear();
     }
 
     private static void UpdateTraversing(
-        Actor owner,
+        Vector2 ringCenter,
         ref ArtifactSwordArrayExecutionState state,
         int bladeIndex,
-        float actorScale,
+        float ringHeight,
         float now)
     {
         ref ArtifactSwordArrayBladeState blade = ref state.blades[bladeIndex];
-        Vector2 ringCenter = ResolveRingCenter(owner, actorScale);
         Vector2 centerTranslation = ringCenter - blade.phase_center;
-        Vector2 origin = blade.phase_origin + centerTranslation;
+        Vector2 origin = (Vector2)blade.phase_origin + centerTranslation;
         Vector2 destination = blade.phase_destination + centerTranslation;
         float progress = Mathf.Clamp01(
-            (now - blade.phase_started_at) / Mathf.Max(0.01f, blade.phase_duration));
-        blade.position = Vector2.LerpUnclamped(origin, destination, progress);
-        blade.direction = blade.travel_direction;
+            (now - blade.phase_started_at) / Mathf.Max(.01f, blade.phase_duration));
+        Vector2 point = Vector2.LerpUnclamped(origin, destination, progress);
+        float height = progress < blade.approach_fraction
+            ? Mathf.SmoothStep(blade.phase_origin.z, blade.contact_height, progress / blade.approach_fraction)
+            : Mathf.SmoothStep(blade.contact_height, ringHeight,
+                (progress - blade.departure_fraction) / (1f - blade.departure_fraction));
+        blade.position = new Vector3(point.x, point.y, height);
         if (progress < 1f) return;
 
-        Vector2 arrivalDirection = Normalize(
-            blade.phase_destination - blade.phase_center,
-            blade.travel_direction);
-        int destinationSlot = ResolveSlotForDirection(
-            arrivalDirection,
-            state.blades.Length,
-            state.ring_angle);
+        Vector2 arrivalDirection = Normalize(blade.phase_destination - blade.phase_center, blade.travel_direction);
+        int destinationSlot = ResolveSlotForDirection(arrivalDirection, state.blades.Length, state.ring_angle);
         ReinsertBlade(ref state, bladeIndex, destinationSlot);
-        ref ArtifactSwordArrayBladeState returnedBlade = ref state.blades[bladeIndex];
-        returnedBlade.phase = ArtifactSwordArrayBladePhase.Arrayed;
-        returnedBlade.position = ResolveRingPosition(
-            owner,
-            destinationSlot,
-            state.blades.Length,
-            state.blades.Length,
-            actorScale,
-            state.ring_angle);
-        returnedBlade.direction = Vector2.down;
+        blade.phase = ArtifactSwordArrayBladePhase.Arrayed;
+        blade.phase_started_at = now;
     }
 
     /// <summary>将横贯圆阵的剑影插入目标侧阵位，并让沿途阵位整体轮换。</summary>
@@ -489,35 +437,53 @@ internal static class ArtifactSwordArrayExecution
         blade.slot_index = destinationSlot;
     }
 
-    private static Vector2 ResolveCollapseCenter(ref ArtifactSwordArrayExecutionState state)
-    {
-        return state.artifact.GetComponent<Position>().v2;
-    }
+    private static Vector3 ResolveArtifactPosition(Entity artifact, Actor owner) =>
+        ArtifactAppearanceRenderer.TryGetSpatialPose(artifact, out var origin) ? origin.Position :
+            SpatialActorPose.Foot(owner) + Vector3.forward * (SpatialActorPose.Height(owner) * .55f);
 
-    private static void SyncBladeEntities(
-        Actor owner,
-        ref ArtifactSwordArrayExecutionState state,
-        float now,
-        float collapseProgress)
+    private static void UpdateCollapse(Actor owner, ref ArtifactSwordArrayExecutionState state, float progress)
     {
-        float visibility = 1f - collapseProgress;
+        Vector3 destination = ResolveArtifactPosition(state.artifact, owner);
+        float portion = Mathf.SmoothStep(0f, 1f, progress);
         for (int i = 0; i < state.blades.Length; i++)
         {
-            ref ArtifactSwordArrayBladeState blade = ref state.blades[i];
+            ref var blade = ref state.blades[i];
+            if (!state.collapsing) blade.phase_origin = blade.position;
+            blade.position = Vector3.LerpUnclamped(blade.phase_origin, destination, portion);
+        }
+        state.collapsing = true;
+    }
+
+    private static void SyncBladeEntities(ref ArtifactSwordArrayExecutionState state, float now, float deltaTime, float visibility)
+    {
+        for (int i = 0; i < state.blades.Length; i++)
+        {
+            ref var blade = ref state.blades[i];
             Entity entity = blade.entity;
-            entity.GetComponent<PrevPosition>().Value = blade.previous_position;
-            entity.GetComponent<Position>().value = blade.position;
-            entity.GetComponent<Rotation>().in_plane = blade.direction;
+            ref Position position = ref entity.GetComponent<Position>();
+            Vector3 change = blade.position - position.value;
+            Vector2 direction = blade.phase == ArtifactSwordArrayBladePhase.Traversing ? blade.travel_direction : Vector2.down;
+            if (state.collapsing) direction = Normalize(change, blade.direction);
+            blade.direction = (Vector2)Vector3.RotateTowards(blade.direction, direction, 1120f * Mathf.Deg2Rad * deltaTime, 0f);
+            float slope = Mathf.Atan2(change.z, Mathf.Max(.015f, ((Vector2)change).magnitude)) * Mathf.Rad2Deg;
+            float pitch = blade.phase == ArtifactSwordArrayBladePhase.Arrayed && !state.collapsing
+                ? -16f : Mathf.Clamp(slope, -52f, 52f);
+            blade.pitch = Mathf.MoveTowards(blade.pitch, pitch, 480f * deltaTime);
+            position.value = blade.position;
 
-            float formingAlpha = blade.phase == ArtifactSwordArrayBladePhase.Forming
-                ? Mathf.Clamp01(
-                    (now - blade.phase_started_at) /
-                    Mathf.Max(0.01f, blade.phase_duration))
-                : 1f;
-            entity.GetComponent<AnimTint>().Value = new Color(1f, 1f, 1f, visibility * formingAlpha);
+            float opacity = blade.phase == ArtifactSwordArrayBladePhase.Forming && !state.collapsing
+                ? Mathf.Clamp01((now - blade.phase_started_at) / Mathf.Max(.01f, blade.phase_duration)) : 1f;
+            var pose = ArtifactAppearanceRenderer.Project(in state.geometry, blade.position, blade.direction,
+                blade.pitch, state.blade_size, visibility * opacity);
+            entity.GetComponent<ArtifactSpatialProjection>().Pose = pose;
 
-            bool moving = blade.phase == ArtifactSwordArrayBladePhase.Traversing;
-            entity.GetComponent<AnimAfterimage>().Count = moving ? MovingAfterimageCount : 0;
+            float radius = state.geometry.Radius * pose.Scale.y;
+            Vector3 start = pose.TransformPoint(state.geometry.Start), end = pose.TransformPoint(state.geometry.End);
+            ref ColliderConfig collider = ref entity.GetComponent<ColliderConfig>();
+            ref ColliderSweptBody swept = ref entity.GetComponent<ColliderSweptBody>();
+            if (collider.Enabled) swept.Move(start, end, radius);
+            else swept = new ColliderSweptBody(start, end, radius);
+            collider.Enabled = !state.collapsing && blade.phase != ArtifactSwordArrayBladePhase.Forming;
         }
     }
 
@@ -556,25 +522,9 @@ internal static class ArtifactSwordArrayExecution
         return count;
     }
 
-    private static int ResolveArrayedRank(
-        ref ArtifactSwordArrayExecutionState state,
-        int slotIndex)
-    {
-        int rank = 0;
-        for (int i = 0; i < state.blades.Length; i++)
-        {
-            ArtifactSwordArrayBladeState blade = state.blades[i];
-            if (blade.phase == ArtifactSwordArrayBladePhase.Arrayed && blade.slot_index < slotIndex)
-            {
-                rank++;
-            }
-        }
-
-        return rank;
-    }
-
-    private static Vector2 ResolveRingPosition(
-        Actor owner,
+    private static Vector3 ResolveRingPosition(
+        Vector2 center,
+        float height,
         int rank,
         int visibleCount,
         int totalCount,
@@ -583,13 +533,8 @@ internal static class ArtifactSwordArrayExecution
     {
         float angle = (ringAngle + rank * 360f / Mathf.Max(1, visibleCount)) * Mathf.Deg2Rad;
         float radius = ResolveRingRadius(actorScale, totalCount);
-        Vector2 center = ResolveRingCenter(owner, actorScale);
-        return center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
-    }
-
-    private static Vector2 ResolveRingCenter(Actor owner, float actorScale)
-    {
-        return owner.cur_transform_position + Vector3.up * actorScale * 0.52f;
+        Vector2 point = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+        return new Vector3(point.x, point.y, height);
     }
 
     private static int ResolveSlotForDirection(Vector2 direction, int bladeCount, float ringAngle)

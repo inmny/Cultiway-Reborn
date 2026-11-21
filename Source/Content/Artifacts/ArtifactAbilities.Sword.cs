@@ -124,17 +124,17 @@ public partial class ArtifactAbilities
         skillContext.Strength = SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier);
         skillContext.PowerLevel = controller.GetExtend().GetPowerLevel();
 
-        Vector2 origin = context.artifact.HasComponent<Position>()
-            ? context.artifact.GetComponent<Position>().v2
-            : controller.cur_transform_position;
-        ArtifactSwordArrayExecution.Initialize(
+        if (!ArtifactSwordArrayExecution.Initialize(
             execution,
             controller,
             context.artifact,
-            origin,
             ability.GetInteger(EffectCount),
             ability.GetNumber(EffectRadius),
-            ability.GetNumber(EffectDuration));
+            ability.GetNumber(EffectDuration)))
+        {
+            SkillExecutionLifecycle.RequestEnd(execution);
+            return false;
+        }
         ArtifactAbilityLifecycle.BindExecution(ref runtime, execution);
         return true;
     }
@@ -319,26 +319,8 @@ public partial class ArtifactAbilities
 
     private static void ConfigureSplittingSwordArrayVisuals()
     {
-        ArtifactGlyphVisualCue arrayGlyph = Glyph(
-            ArtifactVisualAnchorKind.Controller,
-            context =>
-                ArtifactSwordArrayExecution.ResolveRingRadius(
-                    context.controller.GetComponent<ActorBinder>().Actor,
-                    context.ability.GetInteger(EffectCount)
-                ),
-            ArtifactVisualColorRole.Secondary,
-            ArtifactVfxStyles.Metal
-        );
-        arrayGlyph.alpha = 0.32f;
-        arrayGlyph.rotation_speed = 34f;
-        arrayGlyph.start_scale = 1f;
         SplittingSwordArray.Visualize(
             Theme(SkillVfxElements.Metal.AccentColor)
-                .Loop(
-                    "splitting_array",
-                    arrayGlyph,
-                    IsActivityActive
-                )
                 .Signal(
                     ArtifactVisualChannels.Trigger,
                     Burst(

@@ -309,19 +309,7 @@ public static class ArtifactAppearanceRenderer
         if (flying) rotation *= Quaternion.AngleAxis(facing.x, Vector3.right);
         rotation *= Quaternion.Euler(ArtifactAppearanceMath.Vec3(template.SpatialRotation, Vector3.zero));
         rotation = Skills.ConstructedArtifactCarrier.Heading(item, rotation);
-        if (template.SpatialOriginAtBase)
-        {
-            float bottom = float.PositiveInfinity;
-            Vector3 min = model.Bounds.min;
-            Vector3 max = model.Bounds.max;
-            for (int i = 0; i < 8; i++)
-            {
-                Vector3 corner = new((i & 1) == 0 ? min.x : max.x,
-                    (i & 2) == 0 ? min.y : max.y, (i & 4) == 0 ? min.z : max.z);
-                bottom = Mathf.Min(bottom, (rotation * Vector3.Scale(corner, scale)).z);
-            }
-            position.z -= bottom;
-        }
+        if (template.SpatialOriginAtBase) position.z -= Bottom(model.Bounds, rotation, scale);
         pose = new SpatialVisualMeshInstance(model, position, rotation, scale, tint, drawNative: flying,
             groundAnchor: groundAnchor);
         if (body != null) pose = pose.WithBodyAnchor(body);
@@ -347,14 +335,58 @@ public static class ArtifactAppearanceRenderer
             }
         }
         if (!hasBlade) { min = mesh.Min; max = mesh.Max; }
+        var definition = ArtifactAppearanceCatalogLoader.Current.Templates[item.GetComponent<ArtifactAppearance>().template_key];
+        geometry = BladeGeometry(model, Span(dimensions), definition, min, max);
+        return true;
+    }
+
+    /// <summary>兼容仅有原版器身贴图的旧来源。两种视角与接触同样使用这件剑影的实际模型。</summary>
+    internal static bool TryGetProjectionGeometry(Entity item, out ArtifactFlightGeometry geometry)
+    {
+        if (TryGetBladeGeometry(item, out geometry)) return true;
+        Sprite sprite = ArtifactManifestationTools.ResolveWorldScaleSprite(item, true);
+        if (sprite == null) return false;
+        SpatialVisualMesh model = SpatialSpriteMesh.Get(sprite);
+        Bounds bounds = model.Bounds;
+        geometry = BladeGeometry(model, Span(bounds.size), null, bounds.min, bounds.max);
+        return true;
+    }
+
+    private static ArtifactFlightGeometry BladeGeometry(SpatialVisualMesh model, float span,
+        ArtifactAppearanceTemplateDef template, Vector3 min, Vector3 max)
+    {
         Vector3 size = max - min;
         float radius = Mathf.Min(size.y * .25f, Mathf.Max(size.x, size.z) * .5f);
         Vector3 start = (min + max) * .5f, end = start;
         start.y = min.y + radius;
         end.y = max.y - radius;
-        var definition = ArtifactAppearanceCatalogLoader.Current.Templates[item.GetComponent<ArtifactAppearance>().template_key];
-        geometry = new ArtifactFlightGeometry(model, Span(dimensions), definition, start, end, radius);
-        return true;
+        return new ArtifactFlightGeometry(model, span, template, start, end, radius);
+    }
+
+    /// <summary>一次阵中剑影的实际模型变换，取样后直接用于接触与画面。</summary>
+    internal static SpatialVisualMeshInstance Project(in ArtifactFlightGeometry geometry, Vector3 position,
+        Vector2 direction, float pitch, float size, float opacity)
+    {
+        float yaw = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
+        Quaternion rotation = Quaternion.AngleAxis(yaw, Vector3.forward) * Quaternion.AngleAxis(pitch, Vector3.right);
+        if (geometry.Template != null)
+            rotation *= Quaternion.Euler(ArtifactAppearanceMath.Vec3(geometry.Template.SpatialRotation, Vector3.zero));
+        Vector3 scale = Vector3.one * (size / geometry.Span);
+        return new SpatialVisualMeshInstance(geometry.Model, position, rotation, scale, new Color(1f, 1f, 1f, opacity),
+            drawNative: true);
+    }
+
+    private static float Bottom(Bounds bounds, Quaternion rotation, Vector3 scale)
+    {
+        Vector3 min = bounds.min, max = bounds.max;
+        float bottom = float.PositiveInfinity;
+        for (int i = 0; i < 8; i++)
+        {
+            Vector3 corner = new((i & 1) == 0 ? min.x : max.x,
+                (i & 2) == 0 ? min.y : max.y, (i & 4) == 0 ? min.z : max.z);
+            bottom = Mathf.Min(bottom, (rotation * Vector3.Scale(corner, scale)).z);
+        }
+        return bottom;
     }
 
     private static float Span(Vector3 dimensions) => Mathf.Max(dimensions.x, dimensions.y, .001f);

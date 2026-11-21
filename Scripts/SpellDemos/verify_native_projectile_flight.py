@@ -14,7 +14,8 @@ def main():
     melee = {'melee': ('spear_iron', 'MeleeThrust'),
              'melee-sweep': ('sword_iron', 'MeleeSweep'),
              'melee-crush': ('hammer_iron', 'MeleeCrush')}
-    parser.add_argument('--section', choices=('projectiles', 'bow', 'bow-world', *melee, 'artifact-sword'),
+    artifacts = ('artifact-sword', 'artifact-array', 'artifact-array-recall')
+    parser.add_argument('--section', choices=('projectiles', 'bow', 'bow-world', *melee, *artifacts),
                         default='projectiles')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
@@ -43,10 +44,15 @@ def main():
         item, mode = melee[args.section]
         body = f'const string itemId = "{item}", expectedMode = "{mode}";\n'
         body += (scripts / 'verify_melee_weapon_return.script').read_text()
-    if args.section == 'artifact-sword':
+    if args.section in artifacts:
         imports = ("using Cultiway.Content.Artifacts;\nusing Cultiway.Content.Artifacts.Baibao;\n"
-                   "using Cultiway.Content.Extensions;\nusing Cultiway.Core.Components;\n")
-        body = (scripts / 'verify_artifact_sword_flight.script').read_text()
+                   "using Cultiway.Content.Extensions;\nusing Cultiway.Content.Libraries;\n"
+                   "using Cultiway.Core.Components;\n")
+        if args.section == 'artifact-sword':
+            body = (scripts / 'verify_artifact_sword_flight.script').read_text()
+        else:
+            recall = str(args.section == 'artifact-array-recall').lower()
+            body = f'bool recallOnly = {recall};\n' + (scripts / 'verify_artifact_sword_array.script').read_text()
     program.write_text('using Friflo.Engine.ECS;\nusing Cultiway.Core.SkillLibV3;\n'
                        'using Cultiway.Core.SkillLibV3.Components;\n' + imports + base + body)
     try:

@@ -93,36 +93,10 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
             },
             new SkillContext(),
             new Position(),
-            new Rotation(),
-            new Scale(1f),
-            new AnimBindRenderer(),
-            new AnimController
-            {
-                meta = new()
-                {
-                    frame_interval = 1f,
-                    loop = true,
-                },
-            },
-            new AnimData { frames = [] },
             Tags.Get<TagPrefab>());
-        SwordArrayBlade.PrefabEntity.AddComponent(new AnimAfterimage
-        {
-            Count = 0,
-            Layout = AnimAfterimageLayout.Linear,
-            SpacingRatio = 0.12f,
-            MinSpacing = 0f,
-            NewestAlpha = 0.3f,
-            OldestAlpha = 0.12f,
-            LocalDirection = Vector2.left,
-            Tint = Color.white,
-        });
         SwordArrayBlade.PrefabEntity.AddComponent(new SkillHitMemory());
-        SwordArrayBlade.PrefabEntity.AddComponent(new ColliderLinearExtent());
         SwordArrayBlade.PrefabEntity.AddComponent(new AliveTimer());
-        SwordArrayBlade.PrefabEntity.AddTag<TagSpatialSpriteBody>();
         SwordArrayBlade
-            .SetupVisualRotation(VisualRotation.FollowRotation(-90f))
             .SetupColliderSphere(1f, new ColliderConfig
             {
                 Enabled = false,
@@ -138,11 +112,12 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
         Entity blade,
         BaseSimObject target)
     {
-        if (context.SourceObj == null || !context.SourceObj.isActor() || context.SourceObj.isRekt() ||
+        if (!ArtifactSwordArrayExecution.IsActiveBlade(blade) ||
+            context.SourceObj == null || !context.SourceObj.isActor() || context.SourceObj.isRekt() ||
             !target.isActor()) return true;
 
         Actor owner = context.SourceObj.a;
-        if (!owner.canAttackTarget(target.a)) return true;
+        if (owner.id != context.SourceId || !owner.canAttackTarget(target.a)) return true;
         SkillHitResolver.HitTarget(
             SwordArrayBlade,
             ref context,

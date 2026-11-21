@@ -31,6 +31,7 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
     private readonly ArchetypeQuery<ActorBinder, Magic> mages;
     /// <summary>实际单帧物品的空间显示。</summary>
     private readonly ArchetypeQuery<Position, Rotation, AnimData, Scale> spriteBodies;
+    private readonly ArchetypeQuery<ArtifactSpatialProjection> projections;
     /// <summary>已经显化的组合外观法宝。</summary>
     private readonly ArchetypeQuery<Position, Rotation, ArtifactAppearance, ArtifactManifestation> artifacts;
     /// <summary>原版几何视图的世界根节点。</summary>
@@ -58,6 +59,7 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
         spriteFilter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
         spriteFilter.AllTags(Tags.Get<TagSpatialSpriteBody>());
         spriteBodies = world.Query<Position, Rotation, AnimData, Scale>(spriteFilter);
+        projections = world.Query<ArtifactSpatialProjection>(filter);
         root = new GameObject("combat_spatial_visuals").transform;
         root.SetParent(World.world.transform, false);
     }
@@ -82,6 +84,7 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
             TalismanVfxManager.Append(Meshes);
             Meshes.AddRange(Core.Systems.Render.RenderStatusAnimationSystem.Meshes);
             SampleSpriteBodies();
+            SampleProjections();
             WeaponControl.WeaponControlFlight.AppendSpatial(Meshes);
             SpatialVisualEffects.Append(Meshes, ref detailBudget);
             GroundWeaponService.Append(Meshes);
@@ -154,16 +157,18 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
         {
             if (animation.CurrentFrame == null || entity.Tags.Has<TagRecycle>()) return;
             Color tint = entity.TryGetComponent(out AnimTint color) ? color.Value : Color.white;
-            if (entity.TryGetComponent(out ArtifactSpatialProjection projection) &&
-                ArtifactAppearanceRenderer.TryGetSpatialPose(projection.Artifact, out SpatialVisualMeshInstance body))
-            {
-                Quaternion facing = Quaternion.Euler(0f, 0f, rotation.z - projection.Artifact.GetComponent<Rotation>().z) * body.Rotation;
-                // 原版剑影走已有器身精灵批次；三维视角保留组合模型，避免原版重复投影 96 份精细器身。
-                Meshes.Add(new SpatialVisualMeshInstance(body.Model, position.value, facing, body.Scale * projection.SizeRatio, tint));
-                return;
-            }
             Meshes.Add(new SpatialVisualMeshInstance(SpatialSpriteMesh.Get(animation.CurrentFrame), position.value,
                 Quaternion.Euler(0f, 0f, AnimVisualUtils.GetVisualAngle(entity, ref rotation)), scale.value, tint, true));
+        });
+    }
+
+    private void SampleProjections()
+    {
+        projections.ForEachEntity((ref ArtifactSpatialProjection projection, Entity entity) =>
+        {
+            if (projection.Pose.Model != null && projection.Pose.Tint.a > 0f &&
+                ArtifactSwordArrayExecution.IsActiveBlade(entity))
+                Meshes.Add(projection.Pose);
         });
     }
 
