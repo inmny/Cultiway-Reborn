@@ -267,11 +267,16 @@ public sealed class ConstructionSimilarity
 
     /// <summary>采用接触组实际规则，不把未使用的默认间隔当成差别。</summary>
     /// <param name="policy">已经统一的规则。</param>
-    private static JObject Contact(CompiledContactPolicy policy) => new()
+    private static JObject Contact(CompiledContactPolicy policy)
     {
-        ["Mode"] = (int)policy.Mode, ["Interval"] = policy.Interval,
-        ["MaximumPerTarget"] = policy.MaximumPerTarget, ["MaximumTotal"] = policy.MaximumTotal
-    };
+        var result = new JObject
+        {
+            ["Mode"] = (int)policy.Mode, ["Interval"] = policy.Interval,
+            ["MaximumPerTarget"] = policy.MaximumPerTarget, ["MaximumTotal"] = policy.MaximumTotal
+        };
+        if (policy.PulseOffset > 0f) result["PulseOffset"] = policy.PulseOffset;
+        return result;
+    }
 
     /// <summary>保留字段名称、类型、顺序及全部离散值，仅将连续参数独立列出。</summary>
     /// <param name="token">完整归一资料。</param>

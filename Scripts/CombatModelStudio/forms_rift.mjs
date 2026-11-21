@@ -1,6 +1,6 @@
 /** 原地显现裂隙：厚实裂唇、连续暗腔以及共同控制的张开和闭合。 */
 import * as T from 'three';
-import {part, write, structure, motion, skin} from './form_export.mjs';
+import {part, write, structure, motion, dissolve, skin, surfaceData, round} from './form_export.mjs';
 
 /** 截面逐段偏移，形成非椭圆、不对称的真实裂口。 */
 const sections = [[.025, -.02, .04, .03], [.18, -.025, .22, .14], [.55, .035, .41, .27],
@@ -72,9 +72,47 @@ export function makeRift() {
     const amount = .012 + .988 * T.MathUtils.smoothstep(phase, 0, .14) * (1 - T.MathUtils.smoothstep(phase, .74, 1));
     return {position: [control.Position[0] * amount, 0, 0]};
   }, [{Id: 'closed', At: 0}, {Id: 'opened', At: .14}, {Id: 'closing', At: .74}, {Id: 'closed_end', At: 1}]);
+  const cast = motion('cast', duration, false, controls, 48, (index, phase, control) => {
+    if (index === 2) return {};
+    const opening = T.MathUtils.smoothstep(phase, 0, .5);
+    const remaining = 1 - T.MathUtils.smoothstep(phase, .5, 1);
+    const spread = .012 + .988 * opening * remaining;
+    return {position: [control.Position[0] * spread, 0, 0]};
+  }, [{Id: 'strike', At: .5}]);
   write('rift_opening', parts, [{Id: 'base', Part: 0, Position: [0, 0, 0], Direction: [0, 0, 1], Control: 'axis'},
-    {Id: 'top', Part: 0, Position: [0, 0, 3.2], Direction: [0, 0, 1], Control: 'axis'}], contacts, controls, [open], false,
+    {Id: 'top', Part: 0, Position: [0, 0, 3.2], Direction: [0, 0, 1], Control: 'axis'}], contacts, controls, [open, cast], false,
     {Forward: [0, 1, 0], Up: [0, 0, 1]},
     structure('articulated', 'forms_rift.mjs', 'makeRift', {sections, duration, sides: 32},
       {cavity: ['space.opening'], left_lip: ['space.boundary'], right_lip: ['space.boundary']}, []));
+  makeBurst();
+}
+
+/** 裂口外的低矮冲面在结算起点铺满半径，闭合时压低和淡出。 */
+function makeBurst() {
+  const radius = 2;
+  const profile = [[0,.035],[.88,.035],[1.76,.035],[radius,.051],[radius,.075],
+    [1.86,.153],[1.56,.200],[1.22,.154],[.72,.128],[.23,.117],[0,.094]];
+  const geometry = new T.LatheGeometry(profile.map(pair => new T.Vector2(...pair)), 96).rotateX(Math.PI/2);
+  const position = geometry.getAttribute('position');
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i), y = position.getY(i), z = position.getZ(i);
+    const r = Math.hypot(x,y), angle = Math.atan2(y,x);
+    const ripple = T.MathUtils.smoothstep(z,.058,.14) * T.MathUtils.smoothstep(r,.33,1.7);
+    position.setZ(i,z+ripple*(.055*Math.sin(angle*8-r*4)+.066*Math.cos(angle*3+r*4)));
+  }
+  surfaceData(geometry,p => .22 + .52*T.MathUtils.smoothstep(p.z,.09,.2), p => {
+    const r = Math.hypot(p.x,p.y), angle = Math.atan2(p.y,p.x);
+    const torn = Math.cos(angle*7-4*r)*Math.sin(angle*3+3*r);
+    return .50+.18*torn+.20*T.MathUtils.smoothstep(r,.85,1.7);
+  });
+  const controls = [{Id:'sheet',Position:[0,0,0],Rotation:[0,0,0,1]}];
+  const surface = part('broken_surface',geometry,'rift_lip',[0,0,0],'sheet');
+  surface.UseMatterSurface=false;
+  const contact = {Id:'shock',Part:0,A:[0,0,.07],AControl:'sheet',
+    Sector:{Radius:radius,Angle:360,Direction:0,HalfThickness:.074}};
+  const release = dissolve(controls,(_,phase)=>({position:[0,0,-.035*phase]}));
+  for (const key of release.Keys) key.Fade = round(.34 + .66 * key.Fade);
+  write('rift_burst',[surface],[],[contact],controls,[release],true,
+    {Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
+    structure('surface','forms_rift.mjs','makeBurst',{radius,profile},{broken_surface:['space.pressure']},[]));
 }

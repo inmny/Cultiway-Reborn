@@ -1,0 +1,171 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "volume",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_world_utility.mjs",
+            "Entry": "makeWorldUtility",
+            "Parameters": [
+                {
+                    "Id": "lobes",
+                    "Values": [
+                        4.0
+                    ]
+                },
+                {
+                    "Id": "width",
+                    "Values": [
+                        0.8399999737739563
+                    ]
+                },
+                {
+                    "Id": "height",
+                    "Values": [
+                        0.7599999904632568
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "utility_rain_condensate",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/utility_rain_condensate_heart_mid.asset",
+                "Assets/Cultiway/Forms/utility_rain_condensate_heart_far.asset"
+            ],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "heart",
+            "Surface": "water",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/utility_rain_condensate_heart.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/utility_rain_condensate_condensate_0_mid.asset",
+                "Assets/Cultiway/Forms/utility_rain_condensate_condensate_0_far.asset"
+            ],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "condensate_0",
+            "Surface": "purification_pearl",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/utility_rain_condensate_condensate_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/utility_rain_condensate_condensate_1_mid.asset",
+                "Assets/Cultiway/Forms/utility_rain_condensate_condensate_1_far.asset"
+            ],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "condensate_1",
+            "Surface": "purification_pearl",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/utility_rain_condensate_condensate_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/utility_rain_condensate_condensate_2_mid.asset",
+                "Assets/Cultiway/Forms/utility_rain_condensate_condensate_2_far.asset"
+            ],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "condensate_2",
+            "Surface": "purification_pearl",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/utility_rain_condensate_condensate_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/utility_rain_condensate_condensate_3_mid.asset",
+                "Assets/Cultiway/Forms/utility_rain_condensate_condensate_3_far.asset"
+            ],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "condensate_3",
+            "Surface": "purification_pearl",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/utility_rain_condensate_condensate_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [],
+    "Controls": [],
+    "Motions": []
+}

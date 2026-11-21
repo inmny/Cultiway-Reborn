@@ -74,7 +74,8 @@ try
     {
         var d=Convert(skill,out GetHitEvent damage);bool solar=skill.GetComponent<SkillContainer>().Asset==SkillEntities.SolarBeam;
         bool boosted=skill.HasComponent<HugeModifier>();
-        Check(d!=null&&d.Binding.Follow==solar&&d.Root.Operations.Single().Ray.FollowTarget==solar&&d.Root.Operations.Single().Ray.TurnRate==0f&&
+        var ray=d.Root.Operations.Single(operation=>operation.Ray!=null).Ray;
+        Check(d!=null&&d.Binding.Follow==solar&&ray.FollowTarget==solar&&ray.TurnRate==0f&&
             d.Root.Contact.Mode==(solar?ConstructionContactMode.Interval:ConstructionContactMode.Once)&&
             Math.Abs(damage.Damage-(solar?8f:40f)*(boosted?1.3f:1f))<.001&&damage.AttackerPowerLevel==1.25f&&
             damage.Element.Equals(skill.GetComponent<SkillContainer>().Asset.Element),"原光束完整转换端点规则、命中频率、强度、元素与境界",new{d?.Id,damage.Damage});
@@ -82,7 +83,7 @@ try
         var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
         var numeric=new AbilityCast(AbilityCompiler.Compile(restored,cache:false),Matrix4x4.identity,
             inputs:new AbilityInputs(new Vector3(64,72,.3f),new Vector3(70,72,.3f),Vector3.right,.8f));
-        numeric.Advance(.01f,new Vector3(70,72,.3f));var before=Shapes(numeric);float radius=before[0].Radius;
+        numeric.Advance(d.Root.ActiveFrom+.01f,new Vector3(70,72,.3f));var before=Shapes(numeric);float radius=before[0].Radius;
         numeric.UpdateInputs(new AbilityInputs(new Vector3(65,71,.3f),new Vector3(65,78,.3f),Vector3.up,.8f));numeric.Advance(.02f,new Vector3(65,78,.3f));
         var after=Shapes(numeric);Vector3 axis=(after[0].B-after[0].A).normalized;
         Check(Views(numeric).Count==1&&after.Count==(solar?3:1)&&Math.Abs(after[0].Radius-radius)<.0001&&
@@ -107,7 +108,7 @@ try
     {
         ResetPeople();Entity skill=skills[i];bool solar=i%2==1;int hp=target.data.health,alongHp=along.data.health,outsideHp=outside.data.health;
         int count=starts.Count,known=Learned().Count;float balance=owner.GetCultisys<Xian>().wakan;var d=Convert(skill,out _);
-        Check(Use(skill),"原已学光束正式受理",d.Id);await Advance(.035f);AbilityCast live=accepted.Last();var before=Shapes(live);
+        Check(Use(skill),"原已学光束正式受理",d.Id);await Advance(d.Root.ActiveFrom+.035f);AbilityCast live=accepted.Last();var before=Shapes(live);
         await Shot(d.Root.Form+(i>=2?"-enhanced":""));
         if(i<2)
         {

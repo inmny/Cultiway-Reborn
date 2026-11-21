@@ -83,12 +83,12 @@ try
         emissions.Add(new{asset=currentAsset.id,result=result.ToString(),request.Strength,request.PowerLevel,request.InitialAngleOffsetDegrees});return result;
     };
     if(section=="all"||section=="sources"||section=="polarity-visuals")
-    foreach(var entry in new[]{(Asset:SkillEntities.SpiritBolt,Form:"spirit_bolt",Matter:"spirit",State:"energy",Arc:false),
+    foreach(var entry in new[]{(Asset:SkillEntities.SpiritBolt,Form:"spirit_bolt_0",Matter:"spirit",State:"energy",Arc:false),
         (Asset:SkillEntities.WindBullet,Form:"wind_bullet",Matter:"wind",State:"energy",Arc:false),
         (Asset:SkillEntities.WaterOrb,Form:"water_orb",Matter:"water",State:"liquid",Arc:true),
         (Asset:SkillEntities.RockProjectile,Form:"rock_projectile",Matter:"earth",State:"solid",Arc:true),
-        (Asset:SkillEntities.YinBolt,Form:"yin_bolt",Matter:"yin",State:"energy",Arc:false),
-        (Asset:SkillEntities.YangBolt,Form:"yang_bolt",Matter:"yang",State:"energy",Arc:false),
+        (Asset:SkillEntities.YinBolt,Form:"yin_bolt_0",Matter:"yin",State:"energy",Arc:false),
+        (Asset:SkillEntities.YangBolt,Form:"yang_bolt_0",Matter:"yang",State:"energy",Arc:false),
         (Asset:SkillEntities.IceShard,Form:"ice_shard",Matter:"ice",State:"solid",Arc:false)})
     {
         if(section=="polarity-visuals"&&entry.Asset!=SkillEntities.YinBolt&&entry.Asset!=SkillEntities.YangBolt)continue;
@@ -100,21 +100,31 @@ try
             await Shot(entry.Form);await Advance(1.2f);Check(accepted.All(c=>c.Finished),entry.Form+"补拍正常结束");continue;
         }
         var boosted=Build(true);
+        float duration=5f, appearance=0f;
+        if(entry.Asset==SkillEntities.WaterOrb||entry.Asset==SkillEntities.WindBullet||entry.Asset==SkillEntities.IceShard||entry.Asset==SkillEntities.RockProjectile||
+            entry.Asset==SkillEntities.SpiritBolt||entry.Asset==SkillEntities.YinBolt||entry.Asset==SkillEntities.YangBolt)
+        {
+            var animation=entry.Asset.GetAnimation(0);
+            float interval=normal.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
+            appearance=animation.Appearance.Frames.Length*animation.Appearance.Settings.ResolveFrameInterval(interval);
+            duration+=appearance+animation.Dissipation.Frames.Length*animation.Dissipation.Settings.ResolveFrameInterval(interval);
+        }
         foreach(var skill in new[]{normal,boosted})
         {
             var d=Convert(skill,out GetHitEvent damage);bool boost=skill.HasComponent<HugeModifier>();
             var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));AbilityCompiler.Compile(restored,cache:false);
             Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.State==entry.State&&
-                d.Root.OnContact==ConstructionContactResponse.End&&Math.Abs(d.Lifetime-5f)<.0001f&&
+                d.Root.OnContact==ConstructionContactResponse.End&&Math.Abs(d.Lifetime-duration)<.0001f&&
                 Math.Abs(damage.Damage-(boost?37.44f:40f))<.001f&&damage.AttackerPowerLevel==1.25f&&damage.Element.Equals(entry.Asset.Element),
                 entry.Form+"独立主体、材料和原强度寿命可保存编译",new{damage.Damage,d.Root.Scale,d.Lifetime});
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
         }
-        Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射附加作用留原入口");
+        Check(Convert(Build(extra:true),out _)!=null,entry.Form+"燃烧附加作用由共同构造接管");
         ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;int hp=target.data.health,hp2=other.data.health;
-        Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.12f);
+        Vector3 origin=source.GetSimPos();
+        Check(Use(normal),entry.Form+"原已学入口受理");await Advance(appearance+.12f);
         var live=accepted.Single();var view=Views(live).Single();Vector3 position=view.Transform.GetColumn(3);
-        Check(oldExecutions==0&&starts.Count==1&&view.Resource.Description.Id==entry.Form&&(!entry.Arc||position.z>1f),
+        Check(oldExecutions==0&&starts.Count==1&&view.Resource.Description.Id==entry.Form&&(!entry.Arc||position.z>origin.z+.45f),
             entry.Form+"实际自身主体沿原默认轨迹运行",new{position=new[]{position.x,position.y,position.z},entry.Arc});await Shot(entry.Form);
         await Advance(1.2f);
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(normal)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,normal)));

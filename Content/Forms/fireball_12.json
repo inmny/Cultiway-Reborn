@@ -1,0 +1,279 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_impacts.mjs",
+            "Entry": "makeImpactForms",
+            "Parameters": [
+                {
+                    "Id": "legacyVariant",
+                    "Values": [
+                        12.0
+                    ]
+                },
+                {
+                    "Id": "profile",
+                    "Values": [
+                        0.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "fireball_12",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/fireball_12_fold_-1_mid.asset",
+                "Assets/Cultiway/Forms/fireball_12_fold_-1_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "fold_-1",
+            "Surface": "fireball_green",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fireball_12_fold_-1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/fireball_12_fold_1_mid.asset",
+                "Assets/Cultiway/Forms/fireball_12_fold_1_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "fold_1",
+            "Surface": "fireball_green",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fireball_12_fold_1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                -0.25,
+                -0.019999999552965165,
+                -0.41999998688697817
+            ],
+            "B": [
+                -0.44999998807907107,
+                -0.06199999898672104,
+                -0.15000000596046449
+            ],
+            "Radius": 0.0714000016450882,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_1",
+            "Part": 0,
+            "A": [
+                -0.44999998807907107,
+                -0.06199999898672104,
+                -0.15000000596046449
+            ],
+            "B": [
+                -0.5199999809265137,
+                -0.09000000357627869,
+                0.2199999988079071
+            ],
+            "Radius": 0.10080000013113022,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_2",
+            "Part": 0,
+            "A": [
+                -0.5199999809265137,
+                -0.09000000357627869,
+                0.2199999988079071
+            ],
+            "B": [
+                -0.5799999833106995,
+                -0.14000000059604646,
+                0.5299999713897705
+            ],
+            "Radius": 0.05040000006556511,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_3",
+            "Part": 1,
+            "A": [
+                0.25,
+                0.019999999552965165,
+                -0.41999998688697817
+            ],
+            "B": [
+                0.44999998807907107,
+                0.06199999898672104,
+                -0.15000000596046449
+            ],
+            "Radius": 0.0714000016450882,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_4",
+            "Part": 1,
+            "A": [
+                0.44999998807907107,
+                0.06199999898672104,
+                -0.15000000596046449
+            ],
+            "B": [
+                0.5199999809265137,
+                0.09000000357627869,
+                0.2199999988079071
+            ],
+            "Radius": 0.10080000013113022,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_5",
+            "Part": 1,
+            "A": [
+                0.5199999809265137,
+                0.09000000357627869,
+                0.2199999988079071
+            ],
+            "B": [
+                0.5799999833106995,
+                0.14000000059604646,
+                0.5299999713897705
+            ],
+            "Radius": 0.05040000006556511,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.6993970274925232,
+                -0.2672649919986725,
+                -0.6899999976158142
+            ],
+            "Maximum": [
+                0.699999988079071,
+                0.2672649919986725,
+                0.6299999952316284
+            ]
+        }
+    ],
+    "Motions": []
+}

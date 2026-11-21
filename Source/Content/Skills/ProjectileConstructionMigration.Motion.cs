@@ -34,7 +34,7 @@ internal static partial class ProjectileConstructionMigration
         Entity skill = emission.SkillContainer;
         var container = skill.GetComponent<SkillContainer>();
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
-        bool manifest = trajectory == SkillTrajectories.GroundEruptAtTarget.id && form == "creeping_vine";
+        bool manifest = trajectory == SkillTrajectories.GroundEruptAtTarget.id && form is "creeping_vine" or "creeping_vine_0";
         bool towardsDirection = trajectory == SkillTrajectories.TowardsDirection.id;
         bool noRotation = trajectory == SkillTrajectories.TowardsDirectionNoRot.id;
         bool towardsPosition = trajectory == SkillTrajectories.TowardsPosition.id;
@@ -62,14 +62,13 @@ internal static partial class ProjectileConstructionMigration
         float turn = motion.TurnRate * haste * (spiral ? .7f : 1f);
         float ramp = Mathf.Max(0f, motion.RampDuration), launch = motion.LaunchMultiplier, cruise = motion.CruiseMultiplier;
         float arcDistance = arc ? Vector3.Distance(emission.SourcePos, emission.TargetPos) : 0f;
+        float arcTime = 0f;
         if (arc)
         {
             if (arcDistance < .01f || arcDistance > 10000f) return null;
-            // 原术半秒超时会跳到终点；现在预先连续赶上，不在末帧瞬移。
             speed *= arcDistance / Mathf.Max(.1f, arcDistance);
-            float travel = PlannedDistance(speed, launch, cruise, ramp, .5f);
-            if (travel <= 0f) return null;
-            speed *= Mathf.Max(1f, arcDistance / travel);
+            if (speed <= 0f || Mathf.Max(launch, cruise) <= 0f) return null;
+            arcTime = ArcTravelTime(arcDistance, speed, launch, cruise, ramp);
         }
         // 保留当前未能完整表达的超预算来源，不缩小原术来让转换通过。
         if (lifetime <= 0f || lifetime > 3600f ||
@@ -89,6 +88,8 @@ internal static partial class ProjectileConstructionMigration
         };
         if (ground)
         {
+            // 旧地面波的偏转只用于横摆；小步模拟也必须持续接近目标，再从真实到达点越过去。
+            goal.Approach = true;
             goal.DirectArrival = true;
             goal.Arrival = continues ? ConstructionFlightArrival.Continue : ConstructionFlightArrival.End;
         }
@@ -159,11 +160,8 @@ internal static partial class ProjectileConstructionMigration
             path = ConstructionPathCurves.PulsingSpiral(360f / 520f, .5f, Vector3.forward * (.9f * .25f),
                 Vector3.right * .9f, .25f / .9f, (float)(new System.Random(seed).NextDouble() * Math.PI * 2d));
         if (path != null) path.DistancePerSecond = vortex ? 28f : wave ? 30f : 34f;
-        if (arc)
-        {
-            path = ConstructionPathCurves.WaveSpan(1f, 2f, Quaternion.Inverse(facing) * (Vector3.forward * 4f));
-            path.DistancePerSecond = arcDistance;
-        }
+        // 实际出生点与指定落点共用一条有限曲线，中轴不再另行积分而漏掉到达。
+        if (arc) path = ConstructionPathCurves.Arc(arcTime, 4f);
         Vector3 spawnOffset = Vector3.zero;
         if (descent)
         {
@@ -171,7 +169,8 @@ internal static partial class ProjectileConstructionMigration
             if (path == null) return null;
             if (rain)
             {
-                var random = new System.Random(seed);
+                int scatterSeed = container.Asset == SkillEntities.Icefall ? seed ^ emission.StepSeed : seed;
+                var random = new System.Random(scatterSeed);
                 double angle = random.NextDouble() * Math.PI * 2d;
                 float radius = Mathf.Sqrt((float)random.NextDouble()) * 1.4f;
                 spawnOffset = new Vector3(Mathf.Cos((float)angle), Mathf.Sin((float)angle), 0f) * radius;
@@ -180,15 +179,16 @@ internal static partial class ProjectileConstructionMigration
         var operations = new List<ConstructionOperation>();
         if (!manifest) operations.Add(new ConstructionOperation
             {
-                Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = XYZ(descent ? Vector3.right * (falling ? 7f : 0f) : (arc ? forward : initial) * speed * (ramp > .001f ? launch : cruise)),
+                Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = XYZ(arc ? Vector3.zero :
+                    descent ? Vector3.right * (falling ? 7f : 0f) : initial * speed * (ramp > .001f ? launch : cruise)),
                 TurnRate = noRotation || path != null || snap ? 0f : turn, Transfer = snap ? new ConstructionFlightTransfer { Seed = seed } : null, InheritVelocity = false, Goal = goal, Path = path,
                 Ground = descent ? ConstructionGroundResponse.End : ground ? ConstructionGroundResponse.Follow : ConstructionGroundResponse.Ignore
             });
         // 地面推进的自身动作与投送分开，改成其他轨迹仍保留主体及其真实接触变形。
-        if (form is "earth_ridge" or "tidal_wave" or "creeping_vine")
+        if (form is "earth_ridge" or "tidal_wave" or "creeping_vine" or "earth_ridge_0" or "tidal_wave_0" or "creeping_vine_0")
             operations.Add(new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "travel", Seconds = lifetime });
         // 起步曲线使用八个确定时点，调整速度不重新开始飞行，也不重置目标和接触记录。
-        if (!manifest && !descent && ramp > .001f)
+        if (!manifest && !descent && !arc && ramp > .001f)
             for (int i = 1; i <= 8; i++)
             {
                 float at = ramp * i / 8f;
@@ -233,33 +233,11 @@ internal static partial class ProjectileConstructionMigration
             {
                 Id = container.Asset == SkillEntities.FlyingSword ? "sword" : "projectile", Form = form,
                 Scale = scale, Rotation = XYZ(facing.eulerAngles), Offset = XYZ(spawnOffset),
+                // 真实到达会提前结束。若途中偏折，有限弧走完后也能收束。
+                DisappearAt = arc ? Mathf.Min(lifetime, arcTime + 1f / 60f) : null,
                 Operations = operations.ToArray()
             }
         };
-    }
-
-    /// <summary>原作用结束后由同一落点的岩块收尾，碎块不再次参加接触。</summary>
-    /// <param name="definition">刚从正式旧术换算的构造。</param>
-    /// <param name="lifetime">原推进和结算时长。</param>
-    /// <param name="scale">本次词条给出的实际地图尺寸。</param>
-    private static void SetRidgeCollapse(AbilityDefinition definition, float lifetime, float scale)
-    {
-        float collapse = Mathf.Min(.34f, 3600f - lifetime);
-        if (collapse <= 0f) return;
-        ConstructionNode ridge = definition.Root;
-        ridge.DisappearAt = ridge.ActiveUntil = lifetime;
-        definition.Lifetime += collapse;
-        ridge.Children = new[] { new ConstructionNode
-        {
-            Id = "settled_ridge", Form = ridge.Form, Matter = ridge.Matter, State = ridge.State, Scale = scale,
-            Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End, Placement = ConstructionEventPlacement.Event },
-            ContactRole = ConstructionContactRole.Decoration, SourceLoss = ConstructionSourceLoss.Continue,
-            DisappearAt = collapse, Volume = 0,
-            Operations = new[] { new ConstructionOperation
-            {
-                Kind = ConstructionOperationKind.Animate, Clip = "collapse", Seconds = collapse
-            } }
-        } };
     }
 
     /// <summary>辅助和领域保留原主体姿态，将路径偏移换到同一实际坐标；不改变自身作用及间隔。</summary>

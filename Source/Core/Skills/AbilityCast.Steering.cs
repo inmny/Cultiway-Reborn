@@ -33,6 +33,10 @@ public sealed partial class AbilityCast
         side = side.sqrMagnitude > 1e-8f ? side.normalized : Vector3.right;
         Vector3 lift = Vector3.Cross(forward, side).normalized;
         Vector2 bias = steering.Sample(SteeringTime(in state, seconds));
+        // 最后一格逐渐收掉横摆，避免细分作用步把到点方向变成沿微小偏差回头。
+        if (goal is { Approach: true, DirectArrival: true, Arrival: ConstructionFlightArrival.Continue } &&
+            state.Flight.Ground == ConstructionGroundResponse.Follow)
+            bias *= Mathf.Clamp01(delta.magnitude);
         Vector3 direction = forward + side * bias.x + lift * bias.y;
         if (state.Flight.Ground == ConstructionGroundResponse.Follow) direction.z = 0f;
         return centre + direction.normalized * delta.magnitude;

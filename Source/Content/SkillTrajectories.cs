@@ -535,6 +535,12 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SlowVortex.AddSemantics(MotionTag.Vortex);
     }
 
+    /// <summary>弧线攻击接近目标时允许接触原版建筑的高度余量。</summary>
+    internal const float ArcCollisionHeight = .55f;
+
+    /// <summary>垂直攻击原有的触地余量。</summary>
+    internal const float SkyfallCollisionHeight = .35f;
+
     private static void SetupArcToPosition()
     {
         ArcToPosition.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
@@ -552,7 +558,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             if (state.Elapsed >= Mathf.Max(0.1f, arc.Duration)) t = 1f;
             var flat = Vector3.Lerp(state.StartPosition, target, t);
             flat.z = Mathf.Lerp(state.StartPosition.z, target.z, t) + Mathf.Sin(t * Mathf.PI) * arc.Height;
-            SetHeightGate(e, target.z + 0.55f);
+            SetHeightGate(e, target.z + ArcCollisionHeight);
 
             rot.value = DirectionTo(flat, pos.value, context.TargetDir);
             pos.value = flat;
@@ -574,7 +580,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 Duration = 0.5f,
                 Height = 4f
             });
-            SetHeightGate(e, 0.55f);
+            SetHeightGate(e, ArcCollisionHeight);
             ResetRuntimeState(e);
         };
         ArcToPosition.AddSemantics(MotionTag.Falling);
@@ -592,7 +598,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                     StartHeight = 7f,
                     FallSpeed = 28f,
                     DriftSpeed = 7f,
-                    ImpactHeight = 0.35f
+                    ImpactHeight = SkyfallCollisionHeight
                 });
 
             if (state.Elapsed <= 0f)
@@ -634,9 +640,9 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 StartHeight = 7f,
                 FallSpeed = 28f,
                 DriftSpeed = 7f,
-                ImpactHeight = 0.35f
+                ImpactHeight = SkyfallCollisionHeight
             });
-            SetHeightGate(e, 0.35f);
+            SetHeightGate(e, SkyfallCollisionHeight);
             ResetRuntimeState(e);
         };
         FallingStrike.WithOrientations(TrajectoryOrientation.Vertical)
@@ -747,7 +753,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                     StartHeight = 8f,
                     FallSpeed = 32f,
                     DriftSpeed = 1.4f,
-                    ImpactHeight = 0.35f
+                    ImpactHeight = SkyfallCollisionHeight
                 });
 
             if (state.Elapsed <= 0f)
@@ -789,9 +795,9 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 StartHeight = 8f,
                 FallSpeed = 32f,
                 DriftSpeed = 1.4f,
-                ImpactHeight = 0.35f
+                ImpactHeight = SkyfallCollisionHeight
             });
-            SetHeightGate(e, 0.35f);
+            SetHeightGate(e, SkyfallCollisionHeight);
             ResetRuntimeState(e);
         };
         RainFall.WithOrientations(TrajectoryOrientation.Vertical)

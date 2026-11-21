@@ -328,6 +328,7 @@
   "Cultiway.Construction.Ground.Ignore": "不限制离地高度",
   "Cultiway.Construction.Ground.Stop": "实际形状着地停止",
   "Cultiway.Construction.Ground.End": "实际形状着地结束",
+  "Cultiway.Construction.Ground.EndWhenActive": "着地后等作用阶段开启再结束",
   "Cultiway.Construction.MotionKind.Grow": "继续生长或收缩",
   "Cultiway.Construction.MotionKind.Animate": "切换内部动作",
   "Cultiway.Construction.MotionKind.ConvertMatter": "改变实际材料",

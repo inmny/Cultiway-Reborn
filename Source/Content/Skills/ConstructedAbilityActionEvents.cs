@@ -50,6 +50,8 @@ public sealed partial class ConstructedAbilityService
         // 完成与中断的订阅者应看到已经归还的身体，独立形体仍由本施放维护。
         if (running.BodyControlled && !running.Cast.ControlsBody) ReleaseBody(running);
         long generation = worldGeneration;
+        ConfirmLegacyAreaImpact(running);
+        if (generation != worldGeneration) return;
         using var events = new ListPool<AbilityActionEvent>();
         running.Cast.DrainActionEvents(events);
         foreach (AbilityActionEvent fact in events)

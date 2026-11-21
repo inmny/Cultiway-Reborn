@@ -46,7 +46,7 @@ try
         int inHealth = along.data.health, outHealth = outside.data.health;
         int completedBefore = accepted.Count;
         Check(Use(skills[i]), "通过正式入口施放新版光束", name);
-        await Advance(.035f);
+        await Advance(definition.Root.ActiveFrom + .035f);
         Check(accepted.Count == completedBefore + 1, "只受理一发", name);
         AbilityCast live = accepted.Last();
         var spans = Shapes(live);

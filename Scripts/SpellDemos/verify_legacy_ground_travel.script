@@ -1,0 +1,147 @@
+// 相同对练地图，记录每次真正掠地的位置及地块操作。
+bool legacy = caseName == "legacy";
+var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var prior = legacy ? null : JObject.Parse(File.ReadAllText(travelBaseline));
+var results = new JArray();
+var samples = new List<JObject>();
+var hook = new HarmonyLib.Harmony("cultiway.test.ground-travel." + Guid.NewGuid().ToString("N"));
+const float row = 72.5f;
+var aim = new Vector3(82.5f, row, 0);
+double started = 0;
+string State(WorldTile tile) => $"{tile.main_type.id}/{tile.top_type?.id}/{tile.Type.liquid}/{tile.burned_stages}/{tile.isTemporaryFrozen()}";
+
+void Reset(bool wind)
+{
+    for (int x = 61; x <= 95; x++)
+    for (int y = 69; y <= 75; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        bool wet = wind && x is >= 65 and <= 66;
+        tile.Height = 140;
+        tile.setTileTypes(wet ? TileLibrary.shallow_waters : TileLibrary.soil_low,
+            wet ? null : TopTileLibrary.grass_low);
+        tile.stopFire();
+        tile.removeBurn();
+        tile.unfreeze(99);
+        tile.heat = 0;
+    }
+}
+
+bool Use(Entity skill)
+{
+    Ready(source);
+    Place(source, 64.5f, row);
+    foreach (Actor actor in new[] { target, second, outside }) Place(actor, 12, 12);
+    ConstructedAbilityService.NotifyActorChanged(source);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    started = World.world.getCurWorldTime();
+    bool accepted = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(null, aim), ActiveAbilityUseOrigin.Player);
+    source.attack_timer = 999;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    return accepted;
+}
+
+TravelProbe.ReadTile = pos => Cultiway.Core.SkillLibV3.Visuals.SkillGroundFx.GetTile(pos) is { } tile ? State(tile) : null;
+TravelProbe.Record = (pos, element, before, after) => samples.Add(JObject.FromObject(new
+{
+    x = pos.x, y = pos.y, z = pos.z, element, before, after, age = World.world.getCurWorldTime() - started
+}));
+hook.Patch(typeof(Cultiway.Core.SkillLibV3.Visuals.SkillGroundFx).GetMethod("OnFlyOver", F),
+    prefix: new HarmonyLib.HarmonyMethod(typeof(TravelProbe), nameof(TravelProbe.Before)),
+    postfix: new HarmonyLib.HarmonyMethod(typeof(TravelProbe), nameof(TravelProbe.After)));
+if (legacy)
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id)
+            ? SkillEmissionResult.Unhandled : original(emission);
+ConstructedAbilityService.CastStarted += Started;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
+try
+{
+    foreach (SkillEntityAsset asset in travelSpells)
+    {
+        Entity skill = Learn(asset, 0, false);
+        bool wind = asset == SkillEntities.Tornado;
+        bool stationary = asset == SkillEntities.PoisonPool;
+        Reset(wind);
+        samples.Clear();
+        int old = oldExecutions, current = casts.Count;
+        Check(Use(skill), "原学习入口受理掠地对练", asset.id);
+        await Advance(wind ? 2.6f : .88f);
+        Check(legacy ? oldExecutions == old + 1 && casts.Count == current :
+                       oldExecutions == old && casts.Count == current + 1, "原入口只产生对应的执行体", asset.id);
+        var route = samples.ToArray();
+        float endX = legacy ? 0f : ((Matrix4x4)typeof(AbilityCast).GetMethod("NodeTransform", F)
+            .Invoke(casts.Last().Value, new object[] { 0 })).m03;
+        int changed = route.Count(sample => (string)sample["before"] != (string)sample["after"]);
+        results.Add(JObject.FromObject(new { id = asset.id, route, changed, endX }));
+        File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(new { spells = results }, Formatting.Indented));
+        if (stationary)
+            Check(route.Length == 0, "固定毒潭不提交任何掠地", asset.id);
+        else
+        {
+            Check(route.Length >= 2 && route.All(sample => Math.Abs((float)sample["y"] - row) < .08f) &&
+                  route.Zip(route.Skip(1), (a, b) => Math.Abs((float)b["x"] - (float)a["x"] - .6f) < .045f).All(match => match),
+                "沿真实水平路线每移动约零点六格采样", new { asset.id, route });
+            bool ChangedAsExpected(JObject s)
+            {
+                var before = ((string)s["before"]).Split('/');
+                var after = ((string)s["after"]).Split('/');
+                if (wind) return before[1] != after[1] || before[2] != after[2];
+                if (asset == SkillEntities.PoisonNeedle) return int.Parse(after[3]) >= 3 && int.Parse(before[3]) < 3;
+                return before[4] == "False" && after[4] == "True";
+            }
+            Check(route.Any(ChangedAsExpected), "原元素在实走格子留下可核对的变化", new { asset.id, changed });
+            if (!legacy)
+            {
+                var previous = (JArray)prior["spells"].Single(value => (string)value["id"] == asset.id)["route"];
+                Check((string)previous[0]["element"] == (string)route[0]["element"] &&
+                      Math.Abs((float)previous[0]["x"] - (float)route[0]["x"]) < .11f &&
+                      route.All(sample => (float)sample["x"] <= endX + .01f),
+                    "原元素和起步坐标一致，末次取样不超出实际位置", new { asset.id, start = route[0], endX });
+            }
+        }
+        if (!legacy && !casts.Last().Value.Finished)
+        {
+            long castId = casts.Last().Key;
+            service.GetMethod("Cancel", F).Invoke(null, new object[] { castId });
+            await Advance(.42f);
+            Check(samples.Count == route.Length && endings.Any(item => item.Fact.CastId == castId && item.Fact.Cancelled),
+                "取消后余下路线不再改变地块", asset.id);
+            if (asset == SkillEntities.PoisonNeedle)
+            {
+                Reset(false);
+                Check(Use(skill), "取消后可以从原入口再施放");
+                await Advance(.43f);
+                Check(samples.Count > route.Length, "后一次独立施放重新产生焦痕");
+                service.GetMethod("Cancel", F).Invoke(null, new object[] { casts.Last().Key });
+            }
+        }
+        await Advance(wind ? 4f : 3f);
+    }
+    return new { passed = true, legacy, process, spells = results, checks };
+}
+finally
+{
+    hook.UnpatchSelf();
+    TravelProbe.ReadTile = null;
+    TravelProbe.Record = null;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyExecution;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+}
+
+public static class TravelProbe
+{
+    public static Func<Vector3, string> ReadTile;
+    public static Action<Vector3, string, string, string> Record;
+    public static void Before(Vector3 pos, out string __state) => __state = ReadTile?.Invoke(pos);
+    public static void After(Vector3 pos, Cultiway.Core.SkillLibV3.Visuals.SkillVfxElementAsset element, string __state)
+    {
+        if (__state != null) Record?.Invoke(pos, element.id, __state, ReadTile(pos));
+    }
+}

@@ -1,14 +1,17 @@
 /** 随身护盾采用中空厚壳；形体与实际接触共同运动，不复用手持兵器盾。 */
 import * as T from 'three';
-import {write, structure, motion} from './form_export.mjs';
+import {write, structure, motion, dissolve} from './form_export.mjs';
 import {wallPart} from './forms_solid_walls.mjs';
 
 /** 五种原来源各自有明确主体；这里只共享封闭壳面的制作与接触规则。 */
 export function makeAegises() {
   makeShield('spirit_aegis','aegis_jade','petals');
   makeShield('flame_aegis','flame','flame');
+  makeShield('flame_aegis_1','aegis_solar','dome');
   makeShield('wind_aegis','wind','flow');
+  makeShield('wind_aegis_1','wind_open','circulation');
   makeShield('lightning_aegis','aegis_lightning','facets');
+  makeShield('lightning_aegis_1','aegis_lightning','pairs');
   makeShield('solar_aegis','aegis_solar','solar');
   makeSolarRelease();
 }
@@ -17,6 +20,9 @@ export function makeAegises() {
 function point(radius,theta,phi,kind) {
   if(kind==='flow')theta+=.10*Math.sin(phi*2)*Math.sin(theta);
   if(kind==='flame')radius-=.05-.05*Math.sin(phi*8+theta*1.4)*Math.sin(theta);
+  if(kind==='dome')radius-=.038*(1+Math.sin(theta*13+phi*3))*Math.sin(theta);
+  if(kind==='circulation')theta+=.17*Math.sin(phi*2+theta*2)*Math.sin(theta);
+  if(kind==='pairs')radius-=.035*(1-Math.cos(phi*4))*Math.sin(theta);
   return [Math.sin(theta)*Math.cos(phi)*radius,Math.sin(theta)*Math.sin(phi)*radius,.65+Math.cos(theta)*radius*.88];
 }
 
@@ -53,15 +59,20 @@ function shell(kind,thetaStart,thetaEnd,phiStart,phiEnd,rows,columns) {
 /** 弧片、焰瓣、风带和雷晶面分别围合；接触留在实际厚面内部。 */
 function makeShield(id,surface,kind) {
   const parts=[],controls=[],contacts=[];
-  const flow=kind==='flow',facets=kind==='facets',panels=flow?5:facets?1:8;
+  const flow=kind==='flow'||kind==='circulation',facets=kind==='facets';
+  const bands=kind==='dome'||flow,variant=id.endsWith('_1'),panels=bands?5:facets?1:8;
   for(let panel=0;panel<panels;panel++) {
-    const control=`panel_${panel}`,a=flow?panel*Math.PI/panels:0,b=flow?(panel+1)*Math.PI/panels:Math.PI;
-    const c=flow||facets?0:panel*Math.PI*2/panels,d=flow||facets?Math.PI*2:(panel+1)*Math.PI*2/panels;
-    const rows=flow?2:10,columns=flow||facets?24:4;
+    const control=`panel_${panel}`,a=bands?panel*Math.PI/panels:0,b=bands?(panel+1)*Math.PI/panels:Math.PI;
+    const c=bands||facets?0:panel*Math.PI*2/panels,d=bands||facets?Math.PI*2:(panel+1)*Math.PI*2/panels;
+    const rows=bands?2:10,columns=bands||facets?24:4;
+    // 一号的暖色穹层、风压带与对向雷板共用完整厚壳，亮部不另加判定。
+    const material=kind==='dome'&&panel%2===1?'flame_body':
+      kind==='circulation'&&panel%2===1?'wind_pressure':
+      kind==='pairs'&&(panel===1||panel===5)?'thunder_cyan':surface;
     controls.push({Id:control,Position:[0,0,.65],Rotation:[0,0,0,1]});
-    parts.push(wallPart(control,shell(kind,a,b,c,d,rows,columns),surface,[0,0,.65],control));
-    if(kind==='solar') parts[panel].UseMatterSurface=false;
-    const longitudes=flow||facets?24:3;
+    parts.push(wallPart(control,shell(kind,a,b,c,d,rows,columns),material,[0,0,.65],control));
+    if(kind==='solar'||variant) parts[panel].UseMatterSurface=false;
+    const longitudes=bands||facets?24:3;
     for(let j=0;j<longitudes;j++)for(let i=0;i<rows;i++) {
       const phi=c+(d-c)*(j+.5)/longitudes;
       contacts.push({Id:`${control}_${j}_${i}`,Part:panel,A:point(1.65,a+(b-a)*i/rows,phi,kind),
@@ -87,14 +98,20 @@ function makeShield(id,surface,kind) {
       p.UseMatterSurface=false;parts.push(p);
     }
   }
-  const run=motion('run',kind==='flame'?.8:1.6,true,controls,40,(i,p)=>({
+  const run=motion('run',kind==='flame'||kind==='dome'?.8:1.6,true,controls,40,(i,p)=>({
     rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),
-      (kind==='flow'?.025:kind==='flame'?.012:.006)*Math.sin(p*Math.PI*2+i*.7)).toArray()}));
+      (kind==='circulation'?.15:kind==='dome'?.08:kind==='pairs'?.055:flow?.025:kind==='flame'?.012:.006)*
+      Math.sin(p*Math.PI*2+i*.7)).toArray()}));
+  const motions=[run];
+  if(!variant&&kind!=='solar') motions.push(dissolve(controls,(i,p,c)=>({
+    position:[c.Position[0],c.Position[1],c.Position[2]+.22*p],
+    rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),.16*p*Math.cos(i*1.8)).toArray()})));
   write(id,parts,[{Id:'crown',Part:0,Position:[0,0,2.32],Direction:[0,0,1],Control:controls[0].Id},
-    {Id:'centre',Part:0,Position:[0,0,.65],Direction:[0,1,0],Control:controls[0].Id}],contacts,controls,[run],false,
+    {Id:'centre',Part:0,Position:[0,0,.65],Direction:[0,1,0],Control:controls[0].Id}],contacts,controls,motions,false,
     {Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
     structure('surface','forms_aegises.mjs','makeAegises',{outer:1.90,inner:1.40,centre:.65,vertical:.88,panels},
-      Object.fromEntries(parts.map(p=>[p.Id,['barrier.face',kind==='flow'?'wind.flow':kind==='flame'?'fire.body':kind==='solar'?'sun.wheel':facets?'energy.facet':'energy.panel']])),[]));
+      Object.fromEntries(parts.map(p=>[p.Id,['barrier.face',flow?'wind.flow':kind==='flame'||kind==='dome'?'fire.body':
+        kind==='solar'?'sun.wheel':facets||kind==='pairs'?'energy.facet':'energy.panel']])),[]));
 }
 
 /** 破层仅留在真实结束点，数片厚甲瓣抬升、翻开后退光，不再成为另一张罩子。 */

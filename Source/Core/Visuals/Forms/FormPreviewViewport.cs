@@ -126,7 +126,7 @@ internal sealed class FormPreviewViewport : IDisposable
     }
 
     private static bool Opaque(in FormVisualInstance visual, Material material) =>
-        material.GetFloat("_ZWrite") > .5f && (!visual.Tint.HasValue || visual.Tint.Value.a >= 1f);
+        material.GetFloat("_ZWrite") > .5f && !visual.IsTranslucent;
 
     /// <summary>按接触形状的原轮廓显示；胶囊只取截面线，半径沿用实际数值。</summary>
     private void AppendOutline(in AbilityCapsule contact)

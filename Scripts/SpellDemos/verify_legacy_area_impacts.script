@@ -1,0 +1,303 @@
+// 捕获原版世界操作调用前后的地块，独立核对建筑与已学入口。
+bool legacy = caseName == "legacy";
+var groundBaseline = legacy ? null : JObject.Parse(File.ReadAllText(groundBaselinePath));
+var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var observer = new HarmonyLib.Harmony("cultiway.test.area-ground." + Guid.NewGuid().ToString("N"));
+var patches = new JArray();
+var effects = new List<JObject>();
+var buildings = new List<JObject>();
+var debits = new List<double>();
+var countedCasts = new List<ConstructedActionEvent>();
+var oldAreas = new List<(Vector3 Point, float Radius, float Age)>();
+var point = new Vector3(70.5f, 72.5f, 0);
+var tiles = new List<WorldTile>();
+for (int x = 61; x <= 79; x++)
+for (int y = 63; y <= 81; y++)
+    tiles.Add(World.world.GetTileSimple(x, y));
+
+string TileState(WorldTile tile) => $"{tile.main_type.id}/{tile.top_type?.id}/{tile.Height}/{tile.burned_stages}/{tile.isTemporaryFrozen()}/{tile.isOnFire()}/{tile.Type.liquid}";
+Dictionary<string, string> Snapshot() => tiles.ToDictionary(tile => $"{tile.x}:{tile.y}", TileState);
+double launched = 0;
+Entity oldEntity = default;
+Building structure = null;
+void OnOldBirth(Entity entity)
+{
+    if (entity.GetComponent<SkillContext>().SourceObj != source) return;
+    oldEntity = entity;
+    launched = World.world.getCurWorldTime();
+    LegacyExecution(entity);
+}
+void OnOldArea(Entity entity, Vector3 position, float radius)
+{
+    if (entity == oldEntity) oldAreas.Add((position, radius, (float)(World.world.getCurWorldTime() - launched)));
+}
+void OnStage(ConstructedActionEvent evt)
+{
+    if (evt.SourceId == source.id && evt.Fact.Kind == AbilityActionEventKind.Active) countedCasts.Add(evt);
+}
+void Reset(bool wet, bool sand)
+{
+    foreach (WorldTile tile in tiles)
+    {
+        if (tile.building != null) tile.building.removeBuildingFinal();
+        tile.Height = 140;
+        bool liquid = wet && tile.x == 71 && tile.y >= 71 && tile.y <= 73;
+        tile.setTileTypes(liquid ? TileLibrary.shallow_waters : sand ? TileLibrary.sand : TileLibrary.soil_low,
+            liquid || sand || (tile.x + tile.y) % 3 == 0 ? null : TopTileLibrary.grass_low);
+        tile.stopFire();
+        tile.removeBurn();
+        tile.unfreeze(99);
+        tile.heat = 0;
+    }
+}
+bool Use(Entity skill, bool collision, bool nearby = false)
+{
+    Ready(source);
+    Place(source, 64, point.y);
+    Place(target, collision || nearby ? point.x : 12, point.y);
+    Place(second, 12, 12);
+    Place(outside, 12, 12);
+    ConstructedAbilityService.NotifyActorChanged(source);
+    ConstructedAbilityService.NotifyActorChanged(target);
+    var selection = new ActiveAbilityTarget(collision ? target : null, point);
+    bool accepted = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        selection, ActiveAbilityUseOrigin.Player);
+    source.attack_timer = 999;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    return accepted;
+}
+AreaGroundProbe.ReadBefore = (isArea, caster) => isArea && caster == source ? Snapshot() : null;
+AreaGroundProbe.ReadAfter = (position, element, radius, before) =>
+{
+    var after = Snapshot();
+    int x0 = Mathf.FloorToInt(position.x), y0 = Mathf.FloorToInt(position.y);
+    var changed = tiles.Where(tile => after[$"{tile.x}:{tile.y}"] != before[$"{tile.x}:{tile.y}"])
+        .Select(tile => new { x = tile.x, y = tile.y, dx = tile.x - x0, dy = tile.y - y0,
+            before = before[$"{tile.x}:{tile.y}"], after = after[$"{tile.x}:{tile.y}"] }).ToArray();
+    effects.Add(JObject.FromObject(new { element = element.id, radius,
+        position = new[] { position.x, position.y, position.z }, changed }));
+};
+AreaGroundProbe.RecordBuilding = (targetBuilding, damage, before, attacker) =>
+{
+    if (targetBuilding == structure)
+        buildings.Add(JObject.FromObject(new { damage, before, after = targetBuilding.isAlive() ? targetBuilding.getHealth() : 0,
+            owner = attacker == source, ruin = targetBuilding.isRuin() }));
+};
+AreaGroundProbe.RecordPayment = (payer, payment) =>
+{
+    if (payer == owner) debits.Add(payment.Entries.Where(row => row.Resource == SkillCastResources.Wakan)
+        .Sum(row => row.Spent));
+};
+observer.Patch(typeof(SkillCastPayment).GetMethod("Commit", F),
+    postfix: new HarmonyLib.HarmonyMethod(typeof(AreaGroundProbe), nameof(AreaGroundProbe.AfterPayment)));
+Type groundFx = typeof(Cultiway.Core.SkillLibV3.Visuals.SkillGroundFx);
+observer.Patch(groundFx.GetMethod("ApplyImpact", F),
+    prefix: new HarmonyLib.HarmonyMethod(typeof(AreaGroundProbe), nameof(AreaGroundProbe.BeforeGround)),
+    postfix: new HarmonyLib.HarmonyMethod(typeof(AreaGroundProbe), nameof(AreaGroundProbe.AfterGround)));
+observer.Patch(typeof(Building).GetMethods(F).Single(method => method.Name == "getHit" &&
+        method.GetParameters()[0].ParameterType == typeof(float)),
+    prefix: new HarmonyLib.HarmonyMethod(typeof(AreaGroundProbe), nameof(AreaGroundProbe.BeforeBuilding)),
+    postfix: new HarmonyLib.HarmonyMethod(typeof(AreaGroundProbe), nameof(AreaGroundProbe.AfterBuilding)));
+
+if (legacy)
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id)
+            ? SkillEmissionResult.Unhandled : original(emission);
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ActionConfirmed += OnStage;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += OnOldBirth;
+SkillHitResolver.AreaResolved += OnOldArea;
+try
+{
+    foreach (var sample in areaSpells)
+    {
+        var asset = sample.Asset;
+        Entity skill = Learned().Single(item => item.GetComponent<SkillContainer>().Asset == asset &&
+            item.GetComponent<SkillContainer>().AnimationIndex == sample.Index);
+        Reset(asset == SkillEntities.Icefall, asset == SkillEntities.FallingRock);
+        structure = null;
+        if (areaObjects && (asset == SkillEntities.GroundSpike || asset == SkillEntities.Rift))
+        {
+            // 使用正常的已完工城内建筑，避免新刷物体的动画免伤与无城市维护。
+            Place(target, 72, 74);
+            target.joinLanguage(World.world.languages.newLanguage(target, true));
+            target.setCulture(World.world.cultures.newCulture(target, true));
+            World.world.kingdoms.makeNewCivKingdom(target);
+            var city = World.world.cities.buildNewCity(target, target.current_tile.zone);
+            target.joinCity(city);
+            WorldTile houseTile = World.world.GetTileSimple(70, 73);
+            city.addZone(houseTile.zone);
+            source.setKingdom(enemyKingdom);
+            structure = World.world.buildings.addBuilding("house_human_0", houseTile);
+            structure.completeConstruction();
+            await Advance(.28f);
+            Check(structure.isAlive() && structure.isAnimationState(BuildingAnimationState.Normal) &&
+                  structure.city == city && source.kingdom.isEnemy(structure.kingdom),
+                "原版房屋已正常完工并属于敌方", new { alive = structure.isAlive(),
+                    normal = structure.isAnimationState(BuildingAnimationState.Normal), hasCity = structure.city == city,
+                    hostile = source.kingdom.isEnemy(structure.kingdom) });
+        }
+        if (!legacy && asset == SkillEntities.LightningStrike)
+        {
+            int unchanged = effects.Count;
+            owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+            Check(Use(skill, false), "落雷取消对练受理");
+            await Advance(.06f);
+            long castId = casts.Last().Key;
+            service.GetMethod("Cancel", F).Invoke(null, new object[] { castId });
+            await Advance(.45f);
+            Check(effects.Count == unchanged && endings.Any(item => item.Fact.CastId == castId && item.Fact.Cancelled),
+                "空中取消不提交世界爆发");
+        }
+
+        float radius = SkillEffectRadius.ResolveForCaster(owner, skill,
+            asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
+        double fees = SkillCastResources.Wakan.Quote(owner, SkillCastCost.CalculateStepDemand(skill) *
+            Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+        owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+        int beforePayments = debits.Count;
+        int startCount = casts.Count, oldCount = oldExecutions, groundCount = effects.Count;
+        int buildingCount = buildings.Count, areaCount = oldAreas.Count;
+        int healthBefore = target.getHealth();
+        bool actorInArea = areaObjects && asset == SkillEntities.LightningStrike;
+        Check(Use(skill, sample.Collision, actorInArea), "原学习入口受理", new { asset.id, sample.Index });
+        await Advance(sample.Collision ? 1.42f : .95f);
+        double paid = debits.Skip(beforePayments).Sum();
+        Check(debits.Count == beforePayments + 1 && Math.Abs(paid - fees) < .001 && (legacy ? oldExecutions == oldCount + 1 && casts.Count == startCount :
+              oldExecutions == oldCount && casts.Count == startCount + 1), "只沿原价启动一个执行体", new { asset.id, paid, fees });
+        var ground = effects.Skip(groundCount).ToArray();
+        var damage = buildings.Skip(buildingCount).ToArray();
+        int actorLoss = healthBefore - target.getHealth();
+        if (areaObjects && structure != null)
+            Check(damage.Any(row => (bool)row["owner"] && ((float)row["before"] > (float)row["after"] || (bool)row["ruin"])),
+                "旧入口向真实敌方建筑造成伤害", new { asset.id, damage, active = structure.isAlive(),
+                    pos = structure.current_position.ToString(), health = structure.getHealth() });
+        if (actorInArea)
+            Check(actorLoss > 120, "同一人物同时承受来源伤害与世界冲击", actorLoss);
+        Vector3 center;
+        float age;
+        if (legacy)
+        {
+            Check(oldAreas.Count == areaCount + 1, "原执行只发生一次真实范围爆发", asset.id);
+            var originalArea = oldAreas[areaCount];
+            center = originalArea.Point;
+            age = originalArea.Age;
+            Check(Math.Abs(originalArea.Radius - radius) < .001f, "原实际范围半径", new { asset.id, originalArea.Radius, radius });
+        }
+        else
+        {
+            var latest = casts.Last();
+            int part = -1;
+            Array nodes = (Array)latest.Value.Plan.GetType().GetProperty("Nodes", F).GetValue(latest.Value.Plan);
+            string path = asset == SkillEntities.GroundSpike ? "root" : "root/burst";
+            for (int i = 0; i < nodes.Length; i++)
+                if ((string)Field(nodes.GetValue(i), "Path") == path) part = i;
+            var evt = countedCasts.Single(value => value.CastId == latest.Key && value.Fact.Node == part);
+            center = evt.Fact.Point;
+            age = evt.Fact.Age;
+        }
+        int expectedCalls = asset.WorldVisualProfile?.SuppressDefaultGroundImpact == true ? 0 : 1;
+        Check(ground.Length == expectedCalls && ground.All(value => Math.Abs((float)value["radius"] - radius) < .001f),
+            "只提交原有的实际范围地块规则", new { asset.id, radius, calls = ground.Length });
+        if (ground.Length > 0)
+        {
+            JObject world = ground[0];
+            var coords = world["position"].ToObject<float[]>();
+            Check(Vector2.Distance(center, new Vector2(coords[0], coords[1])) < .001,
+                "世界作用和实际爆发使用同一中心", asset.id);
+            var affected = (JArray)world["changed"];
+            Check(affected.All(cell => Math.Abs((int)cell["dx"]) <= Math.Max(3, Mathf.RoundToInt(radius)) + 1 &&
+                  Math.Abs((int)cell["dy"]) <= Math.Max(3, Mathf.RoundToInt(radius)) + 1),
+                "真实改动在原版效果边界附近", new { asset.id, changed = affected.Count });
+        }
+        if (!legacy)
+        {
+            JToken before = groundBaseline["spells"].Single(value => (string)value["id"] == asset.id);
+            var oldGround = (JArray)before["ground"];
+            Check(Math.Abs((double)before["paid"] - paid) < .001f && oldGround.Count == ground.Length &&
+                  (ground.Length == 0 || (string)oldGround[0]["element"] == (string)ground[0]["element"]),
+                "沿用旧地块规则、半径与费用", new { asset.id, paid, radius, element = ground.FirstOrDefault()?["element"] });
+            if (!sample.Collision && asset != SkillEntities.Icefall)
+            {
+                var oldCenter = before["center"].ToObject<float[]>();
+                Check(Vector2.Distance(center, new Vector2(oldCenter[0], oldCenter[1])) < .04f,
+                    "固定及垂直爆发沿用指定落点", new { asset.id, oldCenter, center = new[] { center.x, center.y } });
+            }
+            if (asset == SkillEntities.GroundSpike || asset == SkillEntities.FallingRock)
+            {
+                string[] Cells(JToken result) => result["changed"].Select(cell => $"{cell["dx"]}:{cell["dy"]}")
+                    .OrderBy(key => key, StringComparer.Ordinal).ToArray();
+                Check(Cells(ground[0]).SequenceEqual(Cells(oldGround[0])), "原执行和当前在相同地块改变主地形",
+                    new { asset.id, old = Cells(oldGround[0]), current = Cells(ground[0]) });
+            }
+            if (asset == SkillEntities.Rift)
+            {
+                int tileRadius = Mathf.RoundToInt(radius);
+                bool EntropyChangesMainTerrain(JToken effect)
+                {
+                    var changed = (JArray)effect["changed"];
+                    return changed.Count > 0 && changed.All(cell =>
+                    {
+                        int dx = (int)cell["dx"], dy = (int)cell["dy"];
+                        string mainBefore = ((string)cell["before"]).Split('/')[0];
+                        string mainAfter = ((string)cell["after"]).Split('/')[0];
+                        return dx * dx + dy * dy <= tileRadius * tileRadius &&
+                               mainBefore == "soil_low" && mainAfter is "sand" or "soil_high";
+                    });
+                }
+                Check(EntropyChangesMainTerrain(oldGround[0]) && EntropyChangesMainTerrain(ground[0]),
+                    "墟隙新旧执行均在同一圆内随机升降主地形", new { old = oldGround[0], current = ground[0] });
+            }
+            var oldBuilding = ((JArray)before["buildings"]).Where(row => (bool)row["owner"]).ToArray();
+            var newBuilding = damage.Where(row => (bool)row["owner"]).ToArray();
+            Check(oldBuilding.Length == newBuilding.Length && oldBuilding.Zip(newBuilding,
+                    (a, b) => Math.Abs((float)a["damage"] - (float)b["damage"]) < .001f &&
+                              (int)a["before"] - (int)a["after"] == (int)b["before"] - (int)b["after"] &&
+                              (bool)a["ruin"] == (bool)b["ruin"]).All(match => match),
+                "敌方建筑真实接收和旧执行相同的施法者伤害", new { asset.id, oldBuilding, newBuilding });
+            if (actorInArea)
+                Check((int)before["actorLoss"] == actorLoss, "落雷人物的世界冲击与来源伤害总量对应", actorLoss);
+        }
+        patches.Add(JObject.FromObject(new { id = asset.id, sample.Index, radius, paid, age,
+            center = new[] { center.x, center.y, center.z }, ground, buildings = damage, actorLoss }));
+        File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(new { spells = patches }, Formatting.Indented));
+    }
+    return new { passed = true, process, legacy, spells = patches, checks };
+}
+finally
+{
+    observer.UnpatchSelf();
+    AreaGroundProbe.ReadBefore = null;
+    AreaGroundProbe.ReadAfter = null;
+    AreaGroundProbe.RecordBuilding = null;
+    AreaGroundProbe.RecordPayment = null;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= OnOldBirth;
+    SkillHitResolver.AreaResolved -= OnOldArea;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ActionConfirmed -= OnStage;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+}
+
+public static class AreaGroundProbe
+{
+    public static Func<bool, BaseSimObject, Dictionary<string, string>> ReadBefore;
+    public static Action<Vector3, Cultiway.Core.SkillLibV3.Visuals.SkillVfxElementAsset, float, Dictionary<string, string>> ReadAfter;
+    public static Action<Building, float, float, BaseSimObject> RecordBuilding;
+    public static Action<ActorExtend, SkillCastPayment> RecordPayment;
+    public static void BeforeGround(bool isArea, BaseSimObject sourceObj, out Dictionary<string, string> __state) =>
+        __state = ReadBefore?.Invoke(isArea, sourceObj);
+    public static void AfterGround(Vector3 pos, Cultiway.Core.SkillLibV3.Visuals.SkillVfxElementAsset element, float radius,
+        Dictionary<string, string> __state)
+    {
+        if (__state != null) ReadAfter?.Invoke(pos, element, radius, __state);
+    }
+    public static void BeforeBuilding(Building __instance, out float __state) => __state = __instance.getHealth();
+    public static void AfterBuilding(Building __instance, float __0, object[] __args, float __state) =>
+        RecordBuilding?.Invoke(__instance, __0, __state, __args.OfType<BaseSimObject>().FirstOrDefault());
+    public static void AfterPayment(SkillCastPayment __instance, ActorExtend ___payer) =>
+        RecordPayment?.Invoke(___payer, __instance);
+}

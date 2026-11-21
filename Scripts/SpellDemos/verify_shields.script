@@ -29,10 +29,16 @@ try
             var d=Convert(skill,out GetHitEvent damage);bool boost=skill.HasComponent<HugeModifier>();
             var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
             var plan=AbilityCompiler.Compile(restored,cache:false);
+            var animation=entry.Asset.GetAnimation(0);
+            float interval=skill.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
+            float appearance=animation.Appearance.Frames.Length*animation.Appearance.Settings.ResolveFrameInterval(interval);
+            float recovery=animation.Dissipation.Frames.Length*animation.Dissipation.Settings.ResolveFrameInterval(interval);
             Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.State=="energy"&&
                 d.Binding.Anchor==AbilityAnchor.Source&&d.Binding.Follow&&d.Binding.ContactAtDestination&&
                 !d.Root.BlocksGroundActors&&d.Root.Impact==null&&restored.Root.SourceLoss==ConstructionSourceLoss.End&&
-                d.Root.Strength==3&&(entry.Asset==SkillEntities.YangShield ? d.Root.ActiveUntil==3&&d.Lifetime>3 : d.Lifetime==3)&&d.ConcurrentLimit==1&&plan.HasBarrier&&plan.ContactDamageScale==0&&
+                d.Root.Strength==3&&Math.Abs(d.Root.ActiveFrom-appearance)<.001f&&
+                Math.Abs(d.Root.ActiveUntil-appearance-3f)<.001f&&Math.Abs(d.Lifetime-d.Root.ActiveUntil-recovery)<.001f&&
+                d.ConcurrentLimit==1&&plan.HasBarrier&&plan.ContactDamageScale==0&&
                 Math.Abs(damage.Damage-(boost?52:40))<.001f&&damage.AttackerPowerLevel==1.25f,
                 entry.Form+"来源连接、原容量、词条与纯防御资料可保存编译",new{damage.Damage,d.Root.Scale,d.Lifetime});
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
@@ -68,7 +74,7 @@ try
             Check(source.position_height>0f&&Math.Abs(lifted.z-moved.z-source.position_height)<.03f,
                 "护盾跟随人物实际离地高度",new{height=source.position_height,before=moved.ToString(),after=lifted.ToString()});
             source.stopForce();CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();
-            ConstructedAbilityService.NotifyActorChanged(source);await Advance(3.1f);
+            ConstructedAbilityService.NotifyActorChanged(source);await Advance(live.Plan.Lifetime-live.Age+.10f);
             Check(live.Finished&&Shapes(live).Count==0&&Views(live).Count==0&&!BodyControlState.IsBusy(source.id),
                 "原3秒寿命结束后显示、防御和控制恢复");
         }

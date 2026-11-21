@@ -147,7 +147,7 @@ public sealed partial class AbilityCast
     {
         state.GroundSupported = false;
         state.Flight = flight; state.FlightStartedAt = at; state.Flying = true; state.MovementStopped = false;
-        state.FlightArrived = state.FlightEnded = false;
+        state.FlightArrived = state.FlightEnded = state.GroundEndPending = false;
         state.SteeringProgress = 0d; state.TransferCount = 0;
         state.FlightOrigin = state.Position;
         state.FlightDistance = 0f;

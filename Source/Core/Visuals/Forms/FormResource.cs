@@ -725,6 +725,10 @@ internal sealed partial class FormResourceGeneration
             "living_sap" => (26f, new Color(.91f, .93f, .47f, .93f), .26f),
             "living_bark" => (1f, new Color(.51f, .28f, .095f), .56f),
             "living_leaf" => (2f, new Color(.31f, .66f, .29f, .82f), .46f),
+            "thunder_amber" => (15f, new Color(1f, .73f, .24f, .98f), .19f),
+            "thunder_cyan" => (15f, new Color(.28f, 1f, .98f, .98f), .14f),
+            "thunder_green" => (15f, new Color(.48f, 1f, .28f, .98f), .14f),
+            "thunder_rose" => (15f, new Color(1f, .45f, .89f, .98f), .14f),
             "thunder_core" => (3f, new Color(.74f, .91f, 1f), .4f),
             "thunder_body" => (3f, new Color(.34f, .42f, .91f), .24f),
             "thunder_corona" => (15f, new Color(.34f, .23f, 1f, .26f), .4f),
@@ -751,11 +755,13 @@ internal sealed partial class FormResourceGeneration
             "purification_pearl" => (2f, new Color(.75f, .94f, .84f), .27f),
             "bronze" => (0f, new Color(.52f, .31f, .12f), .30f),
             "spirit_core" => (14f, new Color(.55f, .85f, .94f, .92f), .24f),
+            "spirit_warm" => (14f, new Color(.95f, .70f, .42f, .9f), .34f),
             "yin_depth" => (14f, new Color(.055f, .075f, .16f, .96f), .32f),
             "yin_moon" => (14f, new Color(.42f, .48f, .72f, .78f), .24f),
             "gold" => (0f, new Color(.96f, .68f, .16f), .22f),
             "lightning_dense" => (14f, new Color(.39f, .54f, 1f, .94f), .22f),
             "poison_liquid" => (10f, new Color(.17f, .36f, .035f, .9f), .23f),
+            "poison_glaze" => (10f, new Color(.57f, .79f, .16f, .93f), .19f),
             "poison_film" => (23f, new Color(.32f, .42f, .052f, .94f), .24f),
             "poison_etch" => (24f, new Color(.53f, .73f, .15f, .93f), .34f),
             "poison_vapor" => (11f, new Color(.31f, .53f, .07f, .48f), .9f),
@@ -764,6 +770,10 @@ internal sealed partial class FormResourceGeneration
             "entropy_section" => (2f, new Color(.63f, .24f, .54f), .39f),
             "entropy_veil" => (12f, new Color(.30f, .10f, .46f, .55f), .9f),
             "entropy_depth" => (12f, new Color(.045f, .02f, .07f, .78f), .9f),
+            "entropy_cobalt" => (21f, new Color(.20f, .46f, .89f), .5f),
+            "entropy_violet" => (21f, new Color(.56f, .29f, .76f), .56f),
+            "entropy_carmine" => (21f, new Color(.72f, .24f, .30f), .6f),
+            "entropy_ochre" => (21f, new Color(.94f, .60f, .26f), .53f),
             "signal_ceramic" => (2f, new Color(.16f, .52f, .55f), .51f),
             "signal_gold" => (2f, new Color(.96f, .73f, .32f), .34f),
             "soul_seal_rim" => (2f, new Color(.48f, .45f, .53f), .41f),
@@ -796,7 +806,18 @@ internal sealed partial class FormResourceGeneration
             "wind" => (13f, new Color(.55f, .81f, .86f, .57f), .32f),
             "flame" => (6f, new Color(1f, .31f, .035f), .8f),
             "flame_body" => (20f, new Color(1f, .38f, .065f, .85f), .76f),
+            "flame_cast" => (30f, new Color(1f, .33f, .046f), .34f),
+            "fireball_white" => (30f, new Color(1f, .93f, .68f), .18f),
+            "fireball_copper" => (30f, new Color(.78f, .21f, .065f), .57f),
+            "fireball_gold" => (30f, new Color(1f, .66f, .14f), .30f),
+            "fireball_blue" => (30f, new Color(.075f, .39f, 1f), .36f),
+            "fireball_ice" => (30f, new Color(.70f, .87f, 1f), .26f),
+            "fireball_green" => (30f, new Color(.55f, .93f, .15f), .40f),
+            "fireball_rose" => (30f, new Color(1f, .19f, .62f), .32f),
+            "fireball_red" => (30f, new Color(1f, .115f, .072f), .38f),
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
+            "wood_bark" => (1f, new Color(.25f, .135f, .071f), .94f),
+            "wood_heartwood" => (1f, new Color(.78f, .51f, .26f), .86f),
             "wood_leaf" => (2f, new Color(.31f, .53f, .12f), .88f),
             "wood_leaf_shadow" => (2f, new Color(.17f, .32f, .115f), .94f),
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),
@@ -818,6 +839,7 @@ internal sealed partial class FormResourceGeneration
             "polarity_core" => (26f, new Color(1f, .73f, .30f, .97f), .28f),
             "meteor_heat" => (19f, new Color(.96f, .29f, .024f, .64f), .62f),
             "meteor_crown" => (19f, new Color(1f, .43f, .04f, .91f), .54f),
+            "meteor_crust" => (21f, new Color(.22f, .054f, .032f), .89f),
             "skin" => (2f, new Color(.86f, .65f, .48f), .65f),
             "horn" => (2f, new Color(.56f, .73f, .79f), .34f),
             "ivory" => (2f, new Color(.78f, .73f, .55f), .4f),
@@ -827,6 +849,8 @@ internal sealed partial class FormResourceGeneration
             "shell" => (2f, new Color(.13f, .23f, .22f), .5f),
             "foam" => (5f, new Color(.84f, .96f, .97f, .93f), .95f),
             "water" => (3f, new Color(.06f, .38f, .57f, .84f), .14f),
+            "ice_rime" => (4f, new Color(.80f, .93f, .98f, .79f), .34f),
+            "ice_core" => (4f, new Color(.30f, .57f, .79f, .90f), .12f),
             "ice" => (4f, new Color(.48f, .79f, .88f, .73f), .16f),
             "ground_frost" => (29f, new Color(.81f, .92f, .98f, .94f), .91f),
             _ => throw new InvalidDataException("形体未提供显示表面：" + surface)
@@ -843,7 +867,7 @@ internal sealed partial class FormResourceGeneration
         found.SetColor("_Color", color);
         found.SetFloat("_Kind", kind);
         found.SetFloat("_Roughness", roughness);
-        found.SetFloat("_ZWrite", !transparent && (kind < 3f || kind >= 6f && kind < 10f || kind == 16f || kind == 27f || kind == 28f) ? 1f : 0f);
+        found.SetFloat("_ZWrite", !transparent && (kind < 3f || kind >= 6f && kind < 10f || kind == 16f || kind == 27f || kind == 28f || kind == 30f) ? 1f : 0f);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfall" : "Always", false);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfallTransparent" : "CultiwayNativeTransparent", false);
         if (native) found.SetShaderPassEnabled("CultiwayWorldfallSolid", false);

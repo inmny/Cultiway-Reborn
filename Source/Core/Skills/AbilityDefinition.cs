@@ -146,6 +146,10 @@ public sealed class ConstructionNode
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public string WorldContactShape;
 
+    /// <summary>圆形范围在结算时按人物的地图位置选人，不计身体宽度和高度。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool ContactActorCenter;
+
     /// <summary>仅作用于显示的三个染色倍率，不改变实际材料和物态。</summary>
     public float[] Tint;
 
@@ -180,6 +184,10 @@ public sealed class ConstructionNode
     /// <summary>等待真实事件后才开始此分支；空值沿用父分支的时钟。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionActivation Activation;
+
+    /// <summary>允许明确制作的部位动作继续播放，材料仍保持形状并限制流动。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool AnimateWhileHeld;
 
     /// <summary>可选的形变姿态维持，不暂停飞行、旋转、生长或材料变化。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]

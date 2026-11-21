@@ -1,0 +1,810 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_blades.mjs",
+            "Entry": "makeBladeForms",
+            "Parameters": [
+                {
+                    "Id": "span",
+                    "Values": [
+                        3.4800000190734865
+                    ]
+                },
+                {
+                    "Id": "gap",
+                    "Values": [
+                        0.6000000238418579
+                    ]
+                },
+                {
+                    "Id": "branches",
+                    "Values": [
+                        2.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material",
+            "motion"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "fire_blade_fork",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/fire_blade_fork_branch_-1_mid.asset",
+                "Assets/Cultiway/Forms/fire_blade_fork_branch_-1_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.edge"
+            ],
+            "Id": "branch_-1",
+            "Surface": "flame_cast",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fire_blade_fork_branch_-1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/fire_blade_fork_branch_1_mid.asset",
+                "Assets/Cultiway/Forms/fire_blade_fork_branch_1_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.edge"
+            ],
+            "Id": "branch_1",
+            "Surface": "flame_cast",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fire_blade_fork_branch_1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_0",
+            "Part": 0,
+            "A": [
+                -0.3720000088214874,
+                0.15199999511241914,
+                0.8518999814987183
+            ],
+            "B": [
+                -0.5016000270843506,
+                0.13760000467300416,
+                0.8756960034370422
+            ],
+            "Radius": 0.03322727233171463,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_1",
+            "Part": 0,
+            "A": [
+                -0.5016000270843506,
+                0.13760000467300416,
+                0.8756960034370422
+            ],
+            "B": [
+                -0.6312000155448914,
+                0.12319999933242798,
+                0.8794040083885193
+            ],
+            "Radius": 0.05805697292089462,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_2",
+            "Part": 0,
+            "A": [
+                -0.6312000155448914,
+                0.12319999933242798,
+                0.8794040083885193
+            ],
+            "B": [
+                -0.7608000040054321,
+                0.1088000014424324,
+                0.8630239963531494
+            ],
+            "Radius": 0.07318290323019028,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_3",
+            "Part": 0,
+            "A": [
+                -0.7608000040054321,
+                0.1088000014424324,
+                0.8630239963531494
+            ],
+            "B": [
+                -0.8903999924659729,
+                0.09440000355243683,
+                0.8265560269355774
+            ],
+            "Radius": 0.08280829340219498,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_4",
+            "Part": 0,
+            "A": [
+                -0.8903999924659729,
+                0.09440000355243683,
+                0.8265560269355774
+            ],
+            "B": [
+                -1.0199999809265137,
+                0.07999999821186066,
+                0.7699999809265137
+            ],
+            "Radius": 0.08823888748884201,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_5",
+            "Part": 0,
+            "A": [
+                -1.0199999809265137,
+                0.07999999821186066,
+                0.7699999809265137
+            ],
+            "B": [
+                -1.1496000289916993,
+                0.06560000032186508,
+                0.6933559775352478
+            ],
+            "Radius": 0.08823888748884201,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_6",
+            "Part": 0,
+            "A": [
+                -1.1496000289916993,
+                0.06560000032186508,
+                0.6933559775352478
+            ],
+            "B": [
+                -1.2791999578475953,
+                0.05119999870657921,
+                0.5966240167617798
+            ],
+            "Radius": 0.08280829340219498,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_7",
+            "Part": 0,
+            "A": [
+                -1.2791999578475953,
+                0.05119999870657921,
+                0.5966240167617798
+            ],
+            "B": [
+                -1.4088000059127808,
+                0.03680000081658363,
+                0.47980400919914248
+            ],
+            "Radius": 0.07318290323019028,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_8",
+            "Part": 0,
+            "A": [
+                -1.4088000059127808,
+                0.03680000081658363,
+                0.47980400919914248
+            ],
+            "B": [
+                -1.5384000539779664,
+                0.02239999920129776,
+                0.3428960144519806
+            ],
+            "Radius": 0.05805697292089462,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_9",
+            "Part": 0,
+            "A": [
+                -1.5384000539779664,
+                0.02239999920129776,
+                0.3428960144519806
+            ],
+            "B": [
+                -1.6679999828338624,
+                0.00800000037997961,
+                0.1859000027179718
+            ],
+            "Radius": 0.03322727233171463,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_10",
+            "Part": 1,
+            "A": [
+                0.3720000088214874,
+                0.00800000037997961,
+                0.8518999814987183
+            ],
+            "B": [
+                0.5016000270843506,
+                0.02239999920129776,
+                0.8756960034370422
+            ],
+            "Radius": 0.03322727233171463,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_11",
+            "Part": 1,
+            "A": [
+                0.5016000270843506,
+                0.02239999920129776,
+                0.8756960034370422
+            ],
+            "B": [
+                0.6312000155448914,
+                0.03680000081658363,
+                0.8794040083885193
+            ],
+            "Radius": 0.05805697292089462,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_12",
+            "Part": 1,
+            "A": [
+                0.6312000155448914,
+                0.03680000081658363,
+                0.8794040083885193
+            ],
+            "B": [
+                0.7608000040054321,
+                0.05119999870657921,
+                0.8630239963531494
+            ],
+            "Radius": 0.07318290323019028,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_13",
+            "Part": 1,
+            "A": [
+                0.7608000040054321,
+                0.05119999870657921,
+                0.8630239963531494
+            ],
+            "B": [
+                0.8903999924659729,
+                0.06560000032186508,
+                0.8265560269355774
+            ],
+            "Radius": 0.08280829340219498,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_14",
+            "Part": 1,
+            "A": [
+                0.8903999924659729,
+                0.06560000032186508,
+                0.8265560269355774
+            ],
+            "B": [
+                1.0199999809265137,
+                0.07999999821186066,
+                0.7699999809265137
+            ],
+            "Radius": 0.08823888748884201,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_15",
+            "Part": 1,
+            "A": [
+                1.0199999809265137,
+                0.07999999821186066,
+                0.7699999809265137
+            ],
+            "B": [
+                1.1496000289916993,
+                0.09440000355243683,
+                0.6933559775352478
+            ],
+            "Radius": 0.08823888748884201,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_16",
+            "Part": 1,
+            "A": [
+                1.1496000289916993,
+                0.09440000355243683,
+                0.6933559775352478
+            ],
+            "B": [
+                1.2791999578475953,
+                0.1088000014424324,
+                0.5966240167617798
+            ],
+            "Radius": 0.08280829340219498,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_17",
+            "Part": 1,
+            "A": [
+                1.2791999578475953,
+                0.1088000014424324,
+                0.5966240167617798
+            ],
+            "B": [
+                1.4088000059127808,
+                0.12319999933242798,
+                0.47980400919914248
+            ],
+            "Radius": 0.07318290323019028,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_18",
+            "Part": 1,
+            "A": [
+                1.4088000059127808,
+                0.12319999933242798,
+                0.47980400919914248
+            ],
+            "B": [
+                1.5384000539779664,
+                0.13760000467300416,
+                0.3428960144519806
+            ],
+            "Radius": 0.05805697292089462,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge_19",
+            "Part": 1,
+            "A": [
+                1.5384000539779664,
+                0.13760000467300416,
+                0.3428960144519806
+            ],
+            "B": [
+                1.6679999828338624,
+                0.15199999511241914,
+                0.1859000027179718
+            ],
+            "Radius": 0.03322727233171463,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -1.7400000095367432,
+                -0.0959940031170845,
+                0.06476400047540665
+            ],
+            "Maximum": [
+                1.7400000095367432,
+                0.2559939920902252,
+                1.1482330560684205
+            ]
+        }
+    ],
+    "Motions": [
+        {
+            "Id": "dissolve",
+            "Duration": 0.25,
+            "Loop": false,
+            "Keys": [
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.0,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0196749996393919,
+                    "At": 0.020833000540733339,
+                    "Positions": [
+                        0.0,
+                        0.013333000242710114,
+                        -0.004999999888241291
+                    ],
+                    "Rotations": [
+                        -0.004999999888241291,
+                        0.0,
+                        0.0,
+                        0.9999880194664002
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.07407499849796295,
+                    "At": 0.04166699945926666,
+                    "Positions": [
+                        0.0,
+                        0.026667000725865365,
+                        -0.009999999776482582
+                    ],
+                    "Rotations": [
+                        -0.009999999776482582,
+                        0.0,
+                        0.0,
+                        0.9999499917030335
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.15625,
+                    "At": 0.0625,
+                    "Positions": [
+                        0.0,
+                        0.03999999910593033,
+                        -0.014999999664723874
+                    ],
+                    "Rotations": [
+                        -0.01499900035560131,
+                        0.0,
+                        0.0,
+                        0.999888002872467
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.2592569887638092,
+                    "At": 0.08333300054073334,
+                    "Positions": [
+                        0.0,
+                        0.05333299934864044,
+                        -0.019999999552965165
+                    ],
+                    "Rotations": [
+                        -0.019998999312520028,
+                        0.0,
+                        0.0,
+                        0.9998000264167786
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.37615901231765749,
+                    "At": 0.10416699945926666,
+                    "Positions": [
+                        0.0,
+                        0.06666699796915055,
+                        -0.02500000037252903
+                    ],
+                    "Rotations": [
+                        -0.02499699965119362,
+                        0.0,
+                        0.0,
+                        0.9996880292892456
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.5,
+                    "At": 0.125,
+                    "Positions": [
+                        0.0,
+                        0.07999999821186066,
+                        -0.029999999329447748
+                    ],
+                    "Rotations": [
+                        -0.029996000230312349,
+                        0.0,
+                        0.0,
+                        0.9995499849319458
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.6238409876823425,
+                    "At": 0.14583300054073335,
+                    "Positions": [
+                        0.0,
+                        0.09333299845457077,
+                        -0.03500000014901161
+                    ],
+                    "Rotations": [
+                        -0.0349930003285408,
+                        0.0,
+                        0.0,
+                        0.9993879795074463
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.7407429814338684,
+                    "At": 0.16666699945926667,
+                    "Positions": [
+                        0.0,
+                        0.10666699707508087,
+                        -0.03999999910593033
+                    ],
+                    "Rotations": [
+                        -0.03998899832367897,
+                        0.0,
+                        0.0,
+                        0.9991999864578247
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.84375,
+                    "At": 0.1875,
+                    "Positions": [
+                        0.0,
+                        0.11999999731779099,
+                        -0.04500000178813934
+                    ],
+                    "Rotations": [
+                        -0.04498500004410744,
+                        0.0,
+                        0.0,
+                        0.9989879727363586
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9259250164031982,
+                    "At": 0.20833300054073335,
+                    "Positions": [
+                        0.0,
+                        0.1333329975605011,
+                        -0.05000000074505806
+                    ],
+                    "Rotations": [
+                        -0.04997900128364563,
+                        0.0,
+                        0.0,
+                        0.9987499713897705
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9803249835968018,
+                    "At": 0.22916699945926667,
+                    "Positions": [
+                        0.0,
+                        0.1466670036315918,
+                        -0.054999999701976779
+                    ],
+                    "Rotations": [
+                        -0.054972000420093539,
+                        0.0,
+                        0.0,
+                        0.9984880089759827
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 1.0,
+                    "At": 0.25,
+                    "Positions": [
+                        0.0,
+                        0.1599999964237213,
+                        -0.05999999865889549
+                    ],
+                    "Rotations": [
+                        -0.059964001178741458,
+                        0.0,
+                        0.0,
+                        0.9982010126113892
+                    ]
+                }
+            ],
+            "Markers": []
+        }
+    ]
+}

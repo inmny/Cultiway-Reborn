@@ -536,7 +536,8 @@ public sealed partial class AbilityCast
             IncludeNode(form.Presence.y);
             IncludeNode(form.FractureAt);
             foreach (CompiledMatterChange change in form.Changes) IncludeNode(change.At);
-            if (!state.ShapeHeld && (!state.MotionStopped || !state.GrowthStopped) &&
+            bool shapeClockRuns = !state.ShapeHeld || form.AnimateWhileHeld;
+            if (shapeClockRuns && (!state.MotionStopped || !state.GrowthStopped) &&
                 state.HoldUsed < form.Hold.Seconds)
             {
                 if (state.ShapeAge < form.Hold.At) IncludeShape(form.Hold.At);
@@ -570,7 +571,7 @@ public sealed partial class AbilityCast
             step = SizeThresholdStep(i, step);
             FormMotion motion = state.MotionData?.Motion ?? form.Motion;
             float motionSpeed = state.MotionData?.Speed ?? form.MotionSpeed;
-            bool shapeAdvancing = !state.ShapeHeld &&
+            bool shapeAdvancing = shapeClockRuns &&
                                   !(state.HoldUsed < form.Hold.Seconds && state.ShapeAge >= form.Hold.At);
             bool motionHeld = state.Motion != null && state.MotionHoldUsed < state.MotionData.Hold.Seconds &&
                               state.MotionAge / motionSpeed >= state.MotionData.Hold.At;
@@ -618,7 +619,7 @@ public sealed partial class AbilityCast
                     IncludeMotion(motion.StageMarkers[state.NextActionMarker].Value);
             }
 
-            if (state.GrowthChanged && !state.GrowthStopped && shapeAdvancing && state.GrowthAge < state.GrowthSeconds)
+            if (!state.ShapeHeld && state.GrowthChanged && !state.GrowthStopped && shapeAdvancing && state.GrowthAge < state.GrowthSeconds)
                 Include(Age + (state.GrowthSeconds - state.GrowthAge));
             IncludeNode(form.Detach);
             IncludeNode(form.FlyAt);
@@ -654,7 +655,7 @@ public sealed partial class AbilityCast
 
             void IncludeShape(float marker)
             {
-                if (!state.ShapeHeld && (!state.MotionStopped || !state.GrowthStopped) &&
+                if (shapeClockRuns && (!state.MotionStopped || !state.GrowthStopped) &&
                     !(state.HoldUsed < form.Hold.Seconds && state.ShapeAge >= form.Hold.At) &&
                     marker > state.ShapeAge && marker < state.ShapeAge + step) step = marker - state.ShapeAge;
             }
@@ -784,12 +785,13 @@ public sealed partial class AbilityCast
         }
 
         state.PreviousShapeAge = state.ShapeAge;
-        if (!state.ShapeHeld && (!state.MotionStopped || !state.GrowthStopped))
+        bool shapeClockRuns = !state.ShapeHeld || form.AnimateWhileHeld;
+        if (shapeClockRuns && (!state.MotionStopped || !state.GrowthStopped))
             state.ShapeAge = form.Hold.Advance(state.ShapeAge, ref state.HoldUsed, step);
         float shapeDelta = state.ShapeAge - state.PreviousShapeAge;
         Matrix4x4 previous = state.Transform;
         state.PreviousTransform = previous;
-        float growth = AdvanceGrowth(i, age, shapeDelta);
+        float growth = AdvanceGrowth(i, age, state.ShapeHeld ? 0f : shapeDelta);
         if (gathers != null) SampleGather(i, age);
         Vector3 localOffset = gathers == null ? form.Offset : gathers[i].Offset;
         Quaternion localRotation = gathers == null ? form.Rotation : gathers[i].Rotation;
@@ -908,7 +910,7 @@ public sealed partial class AbilityCast
         if (state.MaterialRetained < 1f)
             state.Transform *= Matrix4x4.Scale(Vector3.one * Mathf.Pow(state.MaterialRetained, 1f / 3f));
         state.Visible = growth > .0001f && age >= form.Presence.x && age <= form.Presence.y;
-        if (poses[i] != null && !state.MotionStopped && (bindInitial || began || !state.ShapeHeld))
+        if (poses[i] != null && !state.MotionStopped && (bindInitial || began || shapeClockRuns))
         {
             if (state.Motion == null) state.MotionAge = (state.ShapeAge - form.MotionAt) * form.MotionSpeed;
             else
@@ -1095,6 +1097,18 @@ public sealed partial class AbilityCast
     /// <param name="node">实际部位。</param>
     internal Matrix4x4 NodeTransform(int node) => nodes[node].Transform;
 
+    /// <summary>读取已经走完的一段根部位运动，零时回采和成形前的段落没有掠地行程。</summary>
+    /// <param name="startsAt">原效果开始作用的时点。</param>
+    /// <param name="from">已确认运动的起点。</param>
+    /// <param name="to">已确认运动的终点。</param>
+    internal bool TryGetRootTravel(float startsAt, out Vector3 from, out Vector3 to)
+    {
+        ref NodeState root = ref nodes[0];
+        from = root.PreviousTransform.GetColumn(3);
+        to = root.Transform.GetColumn(3);
+        return !cancelled && root.Exists && root.LastStep > 0f && Age - root.LastStep >= startsAt - .00001f;
+    }
+
     /// <summary>读取景物原始取景和当前共同碰撞姿态。</summary>
     /// <param name="node">实际景物带。</param><param name="actual">当前姿态。</param>
     /// <param name="origin">这次移动前与原地图相接的位置。</param>
@@ -1198,6 +1212,32 @@ public sealed partial class AbilityCast
         bool flowedBefore = flows?[node]?.Started == true;
         ApplyMatterChanges(node, ConstructionChangeTrigger.ActorContact);
         SignalEvent(node, ConstructionChangeTrigger.ActorContact, point ?? state.Transform.GetColumn(3));
+        ApplyContactResponse(node, fraction, point, rayLength, flowedBefore);
+    }
+
+    /// <summary>建筑接触使用同一个停止或结束过程，并记录建筑事实。</summary>
+    /// <param name="node">实际接触部位。</param>
+    /// <param name="point">真实建筑接触点。</param>
+    /// <param name="buildingId">原版建筑的编号。</param>
+    /// <param name="rayLength">如有射线，此处是被阻挡的世界距离。</param>
+    /// <param name="chain">已学链雷的真实建筑接触可开始下一段选敌。</param>
+    internal void ConfirmBuildingContact(int node, Vector3 point, long buildingId, float? rayLength, bool chain)
+    {
+        RecordActionContact(node, point, AbilityActionContactKind.Building, buildingId);
+        ref NodeState state = ref nodes[node];
+        if (!state.Exists || state.Recovering || state.Leaving) return;
+        state.Resource = 0;
+        if (chain) SignalEvent(node, ConstructionChangeTrigger.ActorContact, point);
+        ApplyContactResponse(node, 1f, point, rayLength, flows?[node]?.Started == true);
+    }
+
+    /// <summary>确认对象实际接触后，执行当前部位的延续、停止或结束规则。</summary>
+    /// <param name="node">实际接触部位。</param><param name="fraction">本步已走完的进度。</param>
+    /// <param name="point">已确认的接触位置。</param><param name="rayLength">射线被截断的长度。</param>
+    /// <param name="flowedBefore">对象接触前是否已有材料外流。</param>
+    private void ApplyContactResponse(int node, float fraction, Vector3? point, float? rayLength, bool flowedBefore)
+    {
+        ref NodeState state = ref nodes[node];
         switch (Plan.Nodes[node].OnContact)
         {
             case ConstructionContactResponse.Stop:
@@ -1560,7 +1600,14 @@ public sealed partial class AbilityCast
                 if (poses[i] is { Fade: > 0f } pose)
                 {
                     Color faded = dye ?? Color.white;
-                    faded.a = 1f - pose.Fade;
+                    faded.a *= 1f - pose.Fade;
+                    dye = faded;
+                }
+                bool fire = nodes[i].Matter.Id == "fire";
+                if (fire && nodes[i].InitialForce > 0f && nodes[i].Force < nodes[i].InitialForce)
+                {
+                    Color faded = dye ?? Color.white;
+                    faded.a *= Mathf.Clamp01(nodes[i].Force / nodes[i].InitialForce);
                     dye = faded;
                 }
                 string visualId = Plan.Nodes[i].Resource.Description.Id;
@@ -1583,10 +1630,7 @@ public sealed partial class AbilityCast
                 if (cooling && flows[i].LiquidVolume <= 0d) continue;
                 output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
                     surface: appearance.Surface,
-                    tint: nodes[i].Matter.Id == "fire"
-                        ? new Color(1f, .31f, .035f,
-                            nodes[i].InitialForce > 0 ? Mathf.Clamp01(nodes[i].Force / nodes[i].InitialForce) : 0f)
-                        : FormBurningPresentation.Char(nodes[i].Burning, nodes[i].Volume),
+                    tint: fire ? null : FormBurningPresentation.Char(nodes[i].Burning, nodes[i].Volume),
                     groundAnchor: Plan.Nodes[i].FragmentSource >= 0 ? (Vector2?)nodes[i].Position : null,
                     skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
                     matterSurface: appearance.MatterSurface, dye: dye, matter: nodes[i].Matter,
@@ -1755,7 +1799,7 @@ public sealed partial class AbilityCast
         internal Matrix4x4 TransferDeparture;
 
         /// <summary>到达已经发生以及是否因此结束；随预测前态一起恢复。</summary>
-        internal bool FlightArrived, FlightEnded;
+        internal bool FlightArrived, FlightEnded, GroundEndPending;
 
         /// <summary>实际地图加速度。</summary>
         internal Vector3 Acceleration;

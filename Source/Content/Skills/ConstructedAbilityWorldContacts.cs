@@ -201,7 +201,7 @@ public sealed partial class ConstructedAbilityService
         if (memory == null && totals?.Tiles >= rule.MaximumTiles) return float.PositiveInfinity;
         if (rule.Contact.MaximumPerTarget > 0 && memory?.Count >= rule.Contact.MaximumPerTarget) return float.PositiveInfinity;
         if (rule.Contact.Mode == ConstructionContactMode.Pulse)
-            return PulseFraction(rule.Contact.Interval, memory, running.Cast.Age - step, step, earliest);
+            return PulseFraction(rule.Contact, memory, running.Cast.Age - step, step, earliest);
         if (memory == null) return 0;
         return rule.Contact.Mode switch
         {
@@ -302,7 +302,10 @@ public sealed partial class ConstructedAbilityService
         {
             running.WorldChanges++;
             ShowTimeWear(hit.Tile, result, LogicTime);
-            ShowWorldChange(result.Flags, hit.Tile.posV3);
+            if (!AddWorldUtilityVisual(running, node, hit.Tile, result.Flags, LogicTime) &&
+                (node < 0 || !UtilityConstructionMigration.HasTerrainPulse(running.Cast.Plan.Id) ||
+                !AddTerrainChange(running, node, hit.Tile, result.Flags, LogicTime)))
+                ShowWorldChange(result.Flags, hit.Tile.posV3);
         }
         WorldContactConfirmed?.Invoke(new ConstructedWorldContact(running.Id, running.SourceId, owner,
             running.Cast.Plan.Id, rule.Action.Id, node, hit.Tile.pos.x, hit.Tile.pos.y, hit.Point, hit.Normal,

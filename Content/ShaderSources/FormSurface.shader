@@ -172,7 +172,7 @@ Shader "Cultiway/FormSurface"
                 elevation -= ground;
             }
             // 地面薄霜在俯视图和地块共用平面。避免格角使用不同地面高度时把相邻霜面拉开。
-            if (_Kind > 28.5) elevation = .014;
+            if (_Kind > 28.5 && _Kind < 29.5) elevation = .014;
             float3 projected = float3(o.world.x, o.world.y + elevation,
                 (o.world.y - elevation) * _NativeDepthScale + _NativeDepthBias);
             o.vertex = mul(UNITY_MATRIX_VP, float4(projected,1));
@@ -553,6 +553,20 @@ Shader "Cultiway/FormSurface"
                 base += tint.rgb*(.14+.29*diffuse)*density;
                 alpha *= i.surface.y*(.48+.52*density)*(.29+.71*chord);
             }
+            else if (_Kind > 29.5)
+            {
+                // 飞行火焰由厚体表面连续起伏。热点随形体局部前向卷动，允许不同火焰本身的配色。
+                float3 q = i.material * float3(3.2,3.5,3.9);
+                float3 drift = float3(.12,-.31,-2.05)*_WorldTime;
+                float bed = volumeNoise(q+drift);
+                float folds = volumeNoise(q*1.73+bed*.58+drift*1.41);
+                float heat = bed*.57 + folds*.43;
+                float bright = smoothstep(.30,.76,heat);
+                float hot = smoothstep(.53,.79,heat);
+                base *= .58+.78*bright+.22*diffuse+.24*rim;
+                float3 hotCore = lerp(tint.rgb,1, .64) * dye.rgb;
+                base = lerp(base,hotCore*(.98+.34*hot),hot*.82);
+            }
             else if (_Kind > 28.5)
             {
                 // 同一片霜跨格取样。薄边先结零散霜粒，厚处连成白霜，不用侧面勾出格线。
@@ -655,7 +669,7 @@ Shader "Cultiway/FormSurface"
         {
             i.normal *= side;
             float4 color=shadeSurface(i,worldfall);
-            if ((_Kind>14.5 && _Kind<15.5) || (_Kind>16.5 && _Kind<28.5) || (formClosed(i)>.5 && _Kind>=2.5 && _Kind<4.5))
+            if ((_Kind>14.5 && _Kind<15.5) || (_Kind>16.5 && _Kind<28.5) || _Kind>29.5 || (formClosed(i)>.5 && _Kind>=2.5 && _Kind<4.5))
             {
                 // 封闭光束、水冰和有厚度的领域使用前后两面，避免同一光程重复加深。
                 float alpha=1-sqrt(1-color.a);
@@ -677,7 +691,8 @@ Shader "Cultiway/FormSurface"
             float depth = _FP_Cam.z <= .5 ? ahead :
                 (_FP_Cam.w <= .5 ? cameraDepth : max(ahead,cameraDepth*.05));
             // 普通实体类别为3；编号0代表无人物，不能借用真实人物的拾取编号。
-            o.data = float4(depth,0,3,(_Kind >= 5.5 && _Kind < 6.5) || (_Kind > 27.5 && _Kind < 28.5) ? 1 : 0);
+            bool emissive = (_Kind >= 5.5 && _Kind < 6.5) || (_Kind > 27.5 && _Kind < 28.5) || _Kind > 29.5;
+            o.data = float4(depth,0,3,emissive ? 1 : 0);
             return o;
         }
         ENDCG

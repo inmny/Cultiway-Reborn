@@ -1,0 +1,216 @@
+// 对照真正改变的原版地块、费用和画面位置；两个执行路径不在同一施放中并存。
+bool legacy = caseName == "legacy";
+var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var originalAreas = new List<(double Age, float Radius)>();
+var originalBirths = new Dictionary<int, double>();
+var legacyEffects = new Dictionary<SkillEffectDescriptor, SkillTileEffectAction>();
+var modified = new Dictionary<string, string>();
+var results = new JArray();
+var changes = new List<ConstructedWorldContact>();
+var baseline = legacy ? null : JObject.Parse(File.ReadAllText(baselinePath));
+var aim = new Vector3(70, 72, 0);
+var tiles = new List<WorldTile>();
+for (int x = 65; x <= 75; x++)
+for (int y = 67; y <= 77; y++)
+    tiles.Add(World.world.GetTileSimple(x, y));
+var road = World.world.GetTileSimple(70, 71);
+string Key(WorldTile tile) => tile.pos.x + ":" + tile.pos.y;
+string TileState(WorldTile tile) => tile.main_type.id + "/" + tile.top_type?.id + "/" + tile.Height;
+bool IsTerrainView(FormVisualInstance view) => view.Layer != null && view.Resource.Description.Id == "world_domain" ||
+    view.Resource.Description.Id is "terrain_raised_slab" or "terrain_lowered_steps";
+void OnBirth(Entity entity)
+{
+    if (terrainSpells.Contains(entity.GetComponent<SkillEntity>().Asset.id))
+        originalBirths[entity.Id] = World.world.getCurWorldTime();
+}
+void OnArea(Entity entity, Vector3 center, float radius)
+{
+    if (originalBirths.TryGetValue(entity.Id, out double birth))
+        originalAreas.Add((World.world.getCurWorldTime() - birth, radius));
+}
+void OnWorldContact(ConstructedWorldContact fact)
+{
+    if (fact.SourceId != source.id || !terrainSpells.Contains(fact.AbilityId)) return;
+    changes.Add(fact);
+    if (fact.Result.Changed)
+    {
+        var tile = World.world.GetTileSimple(fact.X, fact.Y);
+        modified[Key(tile)] = TileState(tile);
+    }
+}
+bool Use(Entity skill, ConstructionWorldScope scope = null)
+{
+    source.attack_timer = 0;
+    bool accepted = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(null, aim, worldScope: scope), ActiveAbilityUseOrigin.Player);
+    source.attack_timer = 999;
+    return accepted;
+}
+
+owner.NewCultisys(Cultisyses.Magic);
+source.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("white_staff"), pActor: source), source);
+owner.MarkCultiwayStatsDirty();
+source.setStatsDirty();
+source.updateStats();
+Ready(source);
+Place(source, 64, 72);
+foreach (var actor in new[] { target, second, outside }) Place(actor, 12, 12);
+var buildTick = DebugConfig.isOn(DebugOption.SystemBuildTick);
+var manaChange = SimGlobals.m.mana_change;
+DebugConfig.setOption(DebugOption.SystemBuildTick, false);
+SimGlobals.m.mana_change = 0;
+if (legacy)
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        terrainSpells.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id)
+            ? SkillEmissionResult.Unhandled : original(emission);
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += OnBirth;
+SkillHitResolver.AreaResolved += OnArea;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.WorldContactConfirmed += OnWorldContact;
+try
+{
+    await Advance(.2f);
+    foreach (var entry in catalog.Where(value => terrainSpells.Contains(value.Asset.id)))
+    {
+        var asset = entry.Asset;
+        bool water = asset == SkillEntities.FillWater || asset == SkillEntities.DrainWater;
+        Entity skill = Learned().Single(item => item.GetComponent<SkillContainer>().Asset == asset);
+        modified.Clear();
+        if (legacy)
+        {
+            var effect = skill.GetComponent<SkillContainer>().EffectPipeline.Effects.Single(value => value.IsTileEffect);
+            SkillTileEffectAction apply = effect.ApplyTile;
+            legacyEffects.Add(effect, apply);
+            effect.ApplyTile = (in SkillEffectContext context, WorldTile tile) =>
+            {
+                SkillEffectResult result = apply(in context, tile);
+                if (result.Changed && context.Cast.SourceObj == source) modified[Key(tile)] = TileState(tile);
+                return result;
+            };
+        }
+        var animation = asset.GetAnimation(0);
+        float frame = skill.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
+        float rise = Seconds(animation.Appearance, frame), fall = Seconds(animation.Dissipation, frame);
+        float growth = SkillEffectRadius.ResolveCasterGrowth(owner, skill);
+        float radius = SkillEffectRadius.ResolveForCaster(owner, skill,
+            asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
+        double price = SkillCastResources.Mana.Quote(owner, SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(growth));
+        foreach (var tile in tiles)
+        {
+            tile.Height = 140;
+            tile.setTileTypes(asset == SkillEntities.FillWater ? TileLibrary.pit_shallow_waters :
+                asset == SkillEntities.DrainWater ? TileLibrary.shallow_waters : TileLibrary.soil_low,
+                water ? null : TopTileLibrary.grass_low);
+        }
+        road.setTileTypes(TileLibrary.soil_low, TopTileLibrary.road);
+        var states = tiles.ToDictionary(Key, TileState);
+        source.setMana(source.getMaxMana());
+        int balance = source.getMana(), startCount = casts.Count, birthCount = originalBirths.Count;
+        int areaCount = originalAreas.Count, contactCount = changes.Count;
+        if (!legacy && asset == SkillEntities.RaiseTerrain)
+        {
+            var invalid = new ConstructionWorldScope(() => false, (_, _) => true);
+            Check(!Use(skill, invalid) && source.getMana() == balance && casts.Count == startCount,
+                "已失效的改地范围不扣法力");
+        }
+        Check(Use(skill), "旧学习资料正式施放", asset.id);
+        await Advance(.24f);
+        int paid = balance - source.getMana();
+        Check(paid == price, "实扣原费用", new { asset.id, paid, price });
+        var current = tiles.Where(tile => modified.ContainsKey(Key(tile))).ToArray();
+        var mainAtImpact = current.ToDictionary(Key, tile => tile.main_type.id);
+        Check(modified.Count > 0 && current.Length == modified.Count && !modified.ContainsKey(Key(road)) &&
+              road.Type.road && TileState(road) == states[Key(road)] &&
+              current.All(tile => (new Vector2(tile.pos.x, tile.pos.y) - (Vector2)aim).sqrMagnitude <= radius * radius + .0001f),
+            "真实变更在原圆内，保护地块状态不变", new { asset.id, modified, radius });
+        double age;
+        if (legacy)
+        {
+            Check(originalBirths.Count == birthCount + 1 && originalAreas.Count == areaCount + 1 && casts.Count == startCount,
+                "旧执行只触发一次真实落点", asset.id);
+            var area = originalAreas[areaCount];
+            age = area.Age;
+            Check(Math.Abs(area.Radius - radius) < .001f && age >= rise - .035f && age <= rise + .09f,
+                "旧执行在成形后按实际半径改地", new { asset.id, age, rise, fall, area.Radius });
+        }
+        else
+        {
+            Check(originalBirths.Count == birthCount && casts.Count == startCount + 1,
+                "只有一份共同施放", asset.id);
+            var castPair = casts.Last();
+            var pulse = changes.Skip(contactCount).Where(fact => fact.Result.Changed).ToArray();
+            age = pulse.Length == 0 ? -1 : pulse[0].Age;
+            Check(pulse.Length == modified.Count && pulse.Select(fact => $"{fact.X}:{fact.Y}").Distinct().Count() == pulse.Length &&
+                  pulse.All(fact => Math.Abs(fact.Age - rise) < .002f && modified.ContainsKey($"{fact.X}:{fact.Y}")),
+                "每个真实改变的地块在旧时点只结算一次", new { asset.id, pulse, rise });
+            Check(castPair.Value.Finished && endings.Any(item => item.Fact.CastId == castPair.Key) &&
+                  Math.Abs(castPair.Value.Plan.Lifetime - rise - fall) < .001f,
+                "旧成形和消散时间内完全结束", new { asset.id, rise, fall, age = castPair.Value.Age });
+            var shown = FormVisualScene.Instances.Where(view => IsTerrainView(view) &&
+                view.Resource.Description.Id == entry.Form).ToArray();
+            var viewTiles = new List<string>();
+            bool centered = true;
+            foreach (var view in shown)
+            {
+                if (view.Layer is FormLayerFrame layer)
+                {
+                    for (int y = 0; y < layer.Cells; y++)
+                    for (int x = 0; x < layer.Cells; x++)
+                        if (layer.Depth(x, y) > layer.DryDepth) viewTiles.Add($"{layer.Origin.x + x}:{layer.Origin.y + y}");
+                }
+                else
+                {
+                    centered &= view.Transform.m03 % 1f == .5f && view.Transform.m13 % 1f == .5f;
+                    viewTiles.Add($"{Mathf.FloorToInt(view.Transform.m03)}:{Mathf.FloorToInt(view.Transform.m13)}");
+                }
+            }
+            Check(centered && viewTiles.Count == modified.Count && viewTiles.Distinct().Count() == viewTiles.Count &&
+                  viewTiles.All(modified.ContainsKey), "立体收势只覆盖实际改变的原版地块",
+                new { asset.id, viewTiles, changed = modified.Keys.ToArray() });
+            JToken before = baseline["spells"].Single(item => (string)item["id"] == asset.id);
+            Check(JToken.DeepEquals(before["modified"], JObject.FromObject(modified)) && (int)before["paid"] == paid,
+                "与旧执行逐格同结果并保持支付", new { asset.id, old = before["modified"], modified, paid });
+        }
+        results.Add(JObject.FromObject(new { id = asset.id, rise, fall, age, radius, paid, modified }));
+        int contactsAtImpact = changes.Count;
+        await Advance(.7f);
+        // 水面和邻格还会由原版继续维护，直接用实际提交时的记录对照边界。
+        bool retained = tiles.All(tile => TileState(tile) == (modified.TryGetValue(Key(tile), out string state) ? state : states[Key(tile)]));
+        Check((water || retained) && (legacy ? originalAreas.Count == areaCount + 1 :
+                  changes.Count == contactsAtImpact && !FormVisualScene.Instances.Any(IsTerrainView)),
+            "收势后法术没有延后再提交", new { asset.id, retained,
+                late = changes.Count - contactsAtImpact, previous = mainAtImpact,
+                after = current.ToDictionary(Key, tile => tile.main_type.id) });
+    }
+    if (!legacy)
+    {
+        var entry = catalog.First(value => terrainSpells.Contains(value.Asset.id));
+        if (entry.Asset == SkillEntities.RaiseTerrain)
+        {
+            foreach (var tile in tiles) tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+            Entity skill = Learned().Single(item => item.GetComponent<SkillContainer>().Asset == entry.Asset);
+            Check(Use(skill), "结束后可再次施放");
+            await Advance(.23f);
+            Check(FormVisualScene.Instances.Any(IsTerrainView), "换世界前确实有正在显示的改地画面");
+            World.world.save_manager.loadWorld(fixture);
+            await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+            await Game.WaitUntil(Boundary, 1800);
+            Check(!FormVisualScene.Instances.Any(IsTerrainView), "换世界立刻清除原地块的收势");
+        }
+    }
+    return new { passed = true, process, legacy, spells = results, checks };
+}
+finally
+{
+    Config.paused = true;
+    SimGlobals.m.mana_change = manaChange;
+    DebugConfig.setOption(DebugOption.SystemBuildTick, buildTick);
+    foreach (var pair in legacyEffects) pair.Key.ApplyTile = pair.Value;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= OnBirth;
+    SkillHitResolver.AreaResolved -= OnArea;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.WorldContactConfirmed -= OnWorldContact;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+}

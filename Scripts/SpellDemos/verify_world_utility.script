@@ -1,0 +1,306 @@
+// 在实际接触提交时取样，避开原版之后的气候、植被和农田维护。
+bool legacy = caseName == "legacy";
+var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var baseline = legacy ? null : JObject.Parse(File.ReadAllText(baselinePath));
+var attempts = new List<(string Id, int X, int Y, float Age, SkillEffectResult Effect, string Building, bool Mature)>();
+var oldBirths = new Dictionary<int, double>();
+var oldEffects = new Dictionary<SkillEffectDescriptor, SkillTileEffectAction>();
+var outcomes = new JArray();
+var debits = new List<double>();
+var paymentObserver = new HarmonyLib.Harmony("cultiway.test.world-utility." + Guid.NewGuid().ToString("N"));
+WorldUtilityPayment.Spent = (payer, amount) => { if (payer == owner) debits.Add(amount); };
+paymentObserver.Patch(typeof(SkillCastResources).GetMethod("SpendMana", F),
+    prefix: new HarmonyLib.HarmonyMethod(typeof(WorldUtilityPayment), nameof(WorldUtilityPayment.Before)),
+    postfix: new HarmonyLib.HarmonyMethod(typeof(WorldUtilityPayment), nameof(WorldUtilityPayment.After)));
+var point = new Vector3(70, 72, 0);
+var rainAim = new Vector3(70.8f, 72.4f, 0);
+var dryTile = World.world.GetTileSimple(70, 72);
+var lateTile = World.world.GetTileSimple(72, 72);
+var farTile = World.world.GetTileSimple(74, 72);
+var road = World.world.GetTileSimple(69, 72);
+var cloudsType = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedRainClouds");
+JArray Clouds() => (JArray)JObject.FromObject(cloudsType.GetMethod("Capture", F).Invoke(null, null))["Clouds"];
+void Collect(string id, WorldTile tile, float age, SkillEffectResult result) =>
+    attempts.Add((id, tile.pos.x, tile.pos.y, age, result, tile.building?.asset?.id,
+        tile.building?.component_wheat?.isMaxLevel() == true));
+void OldBirth(Entity entity)
+{
+    if (utilitySpells.Contains(entity.GetComponent<SkillEntity>().Asset.id))
+        oldBirths[entity.Id] = World.world.getCurWorldTime();
+}
+void WorldContact(ConstructedWorldContact fact)
+{
+    if (fact.SourceId == source.id && fact.Action != null && utilitySpells.Contains(fact.AbilityId))
+        Collect(fact.AbilityId, World.world.GetTileSimple(fact.X, fact.Y), fact.Age, fact.Result);
+}
+bool Use(Entity skill, Vector3 aim)
+{
+    source.attack_timer = 0;
+    bool accepted = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(null, aim), ActiveAbilityUseOrigin.Player);
+    source.attack_timer = 999;
+    return accepted;
+}
+void WashFixture(WorldTile tile)
+{
+    tile.burned_stages = 2;
+    tile.heat = 50;
+}
+void RestorePatch()
+{
+    for (int x = 64; x <= 78; x++)
+    for (int y = 66; y <= 78; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        if (tile.building != null) tile.building.removeBuildingFinal();
+        tile.Height = 140;
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        tile.removeBurn();
+        tile.stopFire();
+        tile.heat = 0;
+    }
+    road.setTileTypes(TileLibrary.soil_low, TopTileLibrary.road);
+}
+
+owner.NewCultisys(Cultisyses.Magic);
+source.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("white_staff"), pActor: source), source);
+owner.MarkCultiwayStatsDirty();
+source.setStatsDirty();
+source.updateStats();
+Ready(source);
+Place(source, 64);
+foreach (Actor actor in new[] { target, second, outside }) Place(actor, 12, 12);
+int manaChange = SimGlobals.m.mana_change;
+bool buildTick = DebugConfig.isOn(DebugOption.SystemBuildTick);
+SimGlobals.m.mana_change = 0;
+DebugConfig.setOption(DebugOption.SystemBuildTick, false);
+if (legacy)
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        utilitySpells.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id)
+            ? SkillEmissionResult.Unhandled : original(emission);
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += OldBirth;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.WorldContactConfirmed += WorldContact;
+using var drops = Trace.Method(typeof(DropManager), "spawn",
+    argumentTypes: new[] { typeof(WorldTile), typeof(string), typeof(float), typeof(float), typeof(long) });
+try
+{
+    await Advance(.2f);
+    foreach (var entry in catalog.Where(value => utilitySpells.Contains(value.Asset.id)))
+    {
+        var asset = entry.Asset;
+        bool growth = asset == SkillEntities.NatureGrowthField, clean = asset == SkillEntities.CleanLandField;
+        bool rain = asset == SkillEntities.SummonRainCloud, grain = asset == SkillEntities.Fertilize;
+        Entity skill = Learned().Single(item => item.GetComponent<SkillContainer>().Asset == asset);
+        RestorePatch();
+        var animation = asset.GetAnimation(0);
+        float frame = skill.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
+        float rise = Seconds(animation.Appearance, frame), fall = Seconds(animation.Dissipation, frame);
+        float radius = SkillEffectRadius.ResolveForCaster(owner, skill,
+            asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
+        float duration = growth ? skill.GetComponent<NatureGrowthModifier>().Duration : clean ?
+            skill.GetComponent<CleanLandModifier>().Duration : 0;
+        float interval = growth ? 1f : clean ? .5f : 0f;
+        double price = SkillCastResources.Mana.Quote(owner, SkillCastCost.CalculateStepDemand(skill) *
+            Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+        if (legacy)
+        {
+            var effect = skill.GetComponent<SkillContainer>().EffectPipeline.Effects.Single(value => value.IsTileEffect);
+            SkillTileEffectAction apply = effect.ApplyTile;
+            oldEffects.Add(effect, apply);
+            effect.ApplyTile = (in SkillEffectContext context, WorldTile tile) =>
+            {
+                SkillEffectResult result = apply(in context, tile);
+                if (context.Cast.SourceObj == source && oldBirths.TryGetValue(context.SkillEntity.Id, out double birth))
+                    Collect(asset.id, tile, (float)(World.world.getCurWorldTime() - birth), result);
+                return result;
+            };
+        }
+        if (clean)
+        {
+            WashFixture(dryTile);
+            WashFixture(farTile);
+        }
+        if (grain)
+        {
+            source.setMana(source.getMaxMana());
+            int unchanged = source.getMana();
+            Check(!Use(skill, point) && source.getMana() == unchanged, "没有未成熟麦田时拒绝施放并保留费用");
+            source.joinLanguage(World.world.languages.newLanguage(source, true));
+            source.setCulture(World.world.cultures.newCulture(source, true));
+            World.world.kingdoms.makeNewCivKingdom(source);
+            var city = World.world.cities.buildNewCity(source, source.current_tile.zone);
+            source.joinCity(city);
+            for (int x = 60; x <= 80; x += 2)
+            for (int y = 66; y <= 82; y += 2)
+                city.addZone(World.world.GetTileSimple(x, y).zone);
+            World.world.buildings.addBuilding("windmill_human_0", World.world.GetTileSimple(72, 75));
+            await Advance(.2f);
+            CityBehCheckFarms.check(city);
+            dryTile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.field);
+            var crop = World.world.buildings.addBuilding("wheat", dryTile);
+            crop.data.grow_time = -10000;
+            CityBehCheckFarms.check(city);
+            Check(crop.component_wheat != null && !crop.component_wheat.isMaxLevel(), "同一实际麦田处于未成熟阶段");
+        }
+
+        int from = attempts.Count, previous = casts.Count;
+        oldBirths.Clear();
+        source.setMana(source.getMaxMana());
+        int balance = source.getMana(), priorDebits = debits.Count;
+        int formerClouds = Clouds().Count;
+        Vector3 aim = rain ? rainAim : point;
+        double begin = World.world.getCurWorldTime();
+        Check(Use(skill, aim), "原学习资料正式施放", asset.id);
+        await Advance(.26f);
+        double spent = debits.Skip(priorDebits).Sum();
+        Check(debits.Count == priorDebits + 1 && spent == price && (legacy ? oldBirths.Count == 1 && casts.Count == previous :
+              oldBirths.Count == 0 && casts.Count == previous + 1), "按原价只启动一个实际执行体",
+            new { asset.id, spent, price, balance, current = source.getMana(), debits = debits.Skip(priorDebits).ToArray(),
+                oldBirths = oldBirths.Count, newCasts = casts.Count - previous });
+        var cast = legacy ? null : casts.Last().Value;
+        if (interval > 0)
+        {
+            Check(attempts.Count == from, "成形和首个完整间隔内没有提前提交", asset.id);
+            await Advance(interval - .13f);
+        }
+        if (clean)
+        {
+            Check(dryTile.burned_stages == 0 && farTile.burned_stages > 0, "首轮实际清除场内灼痕，边外保留");
+            WashFixture(lateTile);
+            await Advance(.20f);
+            Check(lateTile.burned_stages > 0, "后进入的污迹等到下一固定时点");
+            await Advance(.33f);
+            Check(lateTile.burned_stages == 0, "下一固定时点清除新污染");
+        }
+        if (!legacy)
+        {
+            var shown = FormVisualScene.Instances.Where(view => view.Resource.Description.Id == entry.Form &&
+                (!clean || view.Layer != null && view.Surface == "purification_pearl")).ToArray();
+            var changed = new HashSet<(int, int)>(attempts.Skip(from).Where(row => row.Effect.Changed)
+                .Select(row => (row.X, row.Y)));
+            var displayed = new HashSet<(int, int)>();
+            foreach (var view in shown)
+            {
+                if (view.Layer is FormLayerFrame layer)
+                {
+                    for (int y = 0; y < layer.Cells; y++)
+                    for (int x = 0; x < layer.Cells; x++)
+                        if (layer.Depth(x, y) > layer.DryDepth)
+                            displayed.Add(((int)layer.Origin.x + x, (int)layer.Origin.y + y));
+                }
+                else
+                {
+                    displayed.Add((Mathf.FloorToInt(view.Transform.m03), Mathf.FloorToInt(view.Transform.m13)));
+                }
+            }
+            Check(displayed.Count > 0 && displayed.IsSubsetOf(changed),
+                "显示只出现在真实改变的地块", new { asset.id, shown = displayed.Count, changed = changed.Count });
+        }
+        if (interval > 0)
+        {
+            if (clean)
+            {
+                float beforeExpiry = rise + duration - .28f - (float)(World.world.getCurWorldTime() - begin);
+                if (beforeExpiry > 0) await Advance(beforeExpiry);
+                WashFixture(lateTile);
+            }
+            float remaining = duration + rise + fall + .12f - (float)(World.world.getCurWorldTime() - begin);
+            if (remaining > 0f) await Advance(remaining);
+            if (clean) Check(lateTile.burned_stages > 0, "到期时不再清除新加的场内灼痕");
+        }
+        if (rain) await Advance(4.1f);
+        var events = attempts.Skip(from).ToArray();
+        var actual = events.Where(value => value.Effect.Changed).ToArray();
+        Check(actual.Length != 0 && events.All(value => rain
+                ? value.X == 70 && value.Y == 72
+                : new Vector2(value.X - point.x, value.Y - point.y).sqrMagnitude <= radius * radius + .0001f),
+            "在原范围内实际提交并改变世界", new { asset.id, radius, changes = actual.Length });
+        if (growth)
+            Check(actual.All(value => value.Effect.Flags.HasFlag(SkillEffectOutcomeFlags.FloraCreated) && value.Building != null &&
+                  (value.X != road.pos.x || value.Y != road.pos.y)), "新增植被是原版真实建筑，道路保持原样");
+        if (grain)
+            Check(actual.Length == 1 && actual[0].Mature && actual[0].X == 70 && actual[0].Y == 72,
+                "同一株小麦在真实回调中立即成熟一次");
+        if (rain)
+        {
+            var weather = Clouds().Where(row => (string)row["Ability"] == asset.id).ToArray();
+            Check(actual.Length == 1 && Clouds().Count == formerClouds + 1 && weather.Length == 1 &&
+                  (long)weather[0]["Source"] == source.id && Math.Abs((float)weather[0]["Lifespan"] -
+                      skill.GetComponent<SummonRainCloudModifier>().Duration) < .001f &&
+                  (float)weather[0]["Age"] >= 4f &&
+                  drops.Events.Any(e => e.Arguments?.ToString().Contains("rain") == true && e.Result != null),
+                "只生成一朵正式雨云，原寿命与实际雨滴保留", weather);
+        }
+        if (legacy)
+            Check(actual[0].Age >= rise + interval - .04f && actual[0].Age <= rise + interval + .15f,
+                "旧执行从成形后的实际间隔开始", new { asset.id, firstAge = actual[0].Age, rise, interval });
+        if (!legacy)
+        {
+            Check(cast.Finished && endings.Any(item => item.Fact.CastId == casts.Last().Key) &&
+                  Math.Abs(cast.Plan.Lifetime - duration - rise - fall) < .001f,
+                "沿用原有效时长及收势", new { asset.id, rise, fall, duration, cast.Age });
+            Check(events.All(row => interval == 0f ? Math.Abs(row.Age - rise) < .002f :
+                  Math.Abs((row.Age - rise) / interval - Mathf.Round((row.Age - rise) / interval)) < .002f &&
+                  row.Age < rise + duration - .0001f), "定时按旧成形起算并在有效段截止",
+                new { asset.id, times = events.Select(row => row.Age).Distinct().ToArray(), rise, interval });
+            var before = baseline["spells"].Single(item => (string)item["id"] == asset.id);
+            Check((double)before["paid"] == spent && Math.Abs((float)before["radius"] - radius) < .001f &&
+                  (growth || JToken.DeepEquals(before["keys"], JArray.FromObject(actual.Select(row => $"{row.X}:{row.Y}")
+                      .OrderBy(value => value, StringComparer.Ordinal).ToArray()))), "原实际范围、费用与确定性结果一致", asset.id);
+        }
+        outcomes.Add(JObject.FromObject(new { id = asset.id, paid = spent, radius, rise, fall, duration, interval,
+            keys = actual.Select(row => $"{row.X}:{row.Y}").OrderBy(value => value, StringComparer.Ordinal).ToArray(),
+            times = events.Select(row => row.Age).Distinct().ToArray(), changed = actual.Length }));
+        File.WriteAllText(Path.Combine(folder, "observed.json"),
+            JsonConvert.SerializeObject(new { spells = outcomes }, Formatting.Indented));
+        if (!legacy && growth)
+        {
+            // 使用同一容器及相同人物，其他来源的并存规则不重跑。
+            RestorePatch();
+            source.setMana(source.getMaxMana());
+            Check(Use(skill, point), "可在前一片自然结束后再施放");
+            await Advance(.16f);
+            long oldest = casts.Last().Key;
+            Check(Use(skill, point), "允许同源并存第二片");
+            await Advance(.16f);
+            long secondId = casts.Last().Key;
+            Check(Use(skill, point), "允许第三次受理");
+            await Advance(.25f);
+            long latest = casts.Last().Key;
+            Check(endings.Any(item => item.Fact.CastId == oldest && item.Fact.Cancelled) &&
+                  !casts[secondId].Finished && !casts[latest].Finished, "正好替换最老一片，其余两片继续");
+            var cancel = service.GetMethod("Cancel", F);
+            cancel.Invoke(null, new object[] { secondId });
+            cancel.Invoke(null, new object[] { latest });
+            await Advance(.2f);
+        }
+        await Advance(.9f);
+        if (!legacy)
+            Check(FormVisualScene.Instances.All(view => view.Resource.Description.Id != entry.Form),
+                "结束后清除临时形体", asset.id);
+    }
+    return new { passed = true, process, legacy, spells = outcomes, checks };
+}
+finally
+{
+    Config.paused = true;
+    SimGlobals.m.mana_change = manaChange;
+    DebugConfig.setOption(DebugOption.SystemBuildTick, buildTick);
+    foreach (var pair in oldEffects) pair.Key.ApplyTile = pair.Value;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= OldBirth;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.WorldContactConfirmed -= WorldContact;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    WorldUtilityPayment.Spent = null;
+    paymentObserver.UnpatchSelf();
+}
+
+public static class WorldUtilityPayment
+{
+    public static Action<ActorExtend, double> Spent;
+    public static void Before(ActorExtend caster, out int __state) => __state = caster.Base.getMana();
+    public static void After(ActorExtend caster, int __state) => Spent?.Invoke(caster, __state - caster.Base.getMana());
+}

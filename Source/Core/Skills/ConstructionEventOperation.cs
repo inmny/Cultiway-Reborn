@@ -18,7 +18,10 @@ public enum ConstructionGroundResponse
     Follow = 2,
 
     /// <summary>实际形状着地后结束本部位，最后一段仍参与真实接触。</summary>
-    End = 3
+    End = 3,
+
+    /// <summary>允许尚未生效的形状着地，在该部位开始作用时于实际落点结束。</summary>
+    EndWhenActive = 4
 }
 
 /// <summary>已经检查的完整飞行参数，可由事件替换而不修改共用计划。</summary>

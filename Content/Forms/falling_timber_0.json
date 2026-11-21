@@ -1,0 +1,452 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_wood_projectiles.mjs",
+            "Entry": "makeWoodProjectileForms",
+            "Parameters": [
+                {
+                    "Id": "length",
+                    "Values": [
+                        1.9199999570846558
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material",
+            "motion"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "falling_timber_0",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/falling_timber_0_trunk_mid.asset",
+                "Assets/Cultiway/Forms/falling_timber_0_trunk_far.asset"
+            ],
+            "Roles": [
+                "projectile.body"
+            ],
+            "Id": "trunk",
+            "Surface": "wood_bark",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/falling_timber_0_trunk.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body"
+            ],
+            "Id": "cut",
+            "Surface": "wood_heartwood",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/falling_timber_0_cut.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body"
+            ],
+            "Id": "end_grain",
+            "Surface": "wood",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/falling_timber_0_end_grain.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body"
+            ],
+            "Id": "bough",
+            "Surface": "wood_bark",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/falling_timber_0_bough.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body"
+            ],
+            "Id": "branch_fork",
+            "Surface": "wood",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/falling_timber_0_branch_fork.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body"
+            ],
+            "Id": "raised_bark",
+            "Surface": "wood",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/falling_timber_0_raised_bark.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                -0.29499998688697817
+            ],
+            "B": [
+                0.0,
+                0.0,
+                -1.559999942779541
+            ],
+            "Radius": 0.29499998688697817,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.751596987247467,
+                -0.31596899032592776,
+                -1.9199999570846558
+            ],
+            "Maximum": [
+                0.8678470253944397,
+                0.38581401109695437,
+                0.006000000052154064
+            ]
+        }
+    ],
+    "Motions": [
+        {
+            "Id": "dissolve",
+            "Duration": 0.25,
+            "Loop": false,
+            "Keys": [
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.0,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0196749996393919,
+                    "At": 0.020833000540733339,
+                    "Positions": [
+                        0.009166999720036984,
+                        0.0,
+                        0.017500000074505807
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.01708200015127659,
+                        0.0,
+                        0.9998540282249451
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.07407499849796295,
+                    "At": 0.04166699945926666,
+                    "Positions": [
+                        0.01833299919962883,
+                        0.0,
+                        0.03500000014901161
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.03415999934077263,
+                        0.0,
+                        0.9994159936904907
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.15625,
+                    "At": 0.0625,
+                    "Positions": [
+                        0.027499999850988389,
+                        0.0,
+                        0.05249999836087227
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.05122800171375275,
+                        0.0,
+                        0.9986870288848877
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.2592569887638092,
+                    "At": 0.08333300054073334,
+                    "Positions": [
+                        0.036667000502347949,
+                        0.0,
+                        0.07000000029802323
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.06827999651432038,
+                        0.0,
+                        0.9976660013198853
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.37615901231765749,
+                    "At": 0.10416699945926666,
+                    "Positions": [
+                        0.04583299905061722,
+                        0.0,
+                        0.08749999850988388
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.08531299978494644,
+                        0.0,
+                        0.9963539838790894
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.5,
+                    "At": 0.125,
+                    "Positions": [
+                        0.054999999701976779,
+                        0.0,
+                        0.10499999672174454
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.10232099890708924,
+                        0.0,
+                        0.9947509765625
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.6238409876823425,
+                    "At": 0.14583300054073335,
+                    "Positions": [
+                        0.06416700035333634,
+                        0.0,
+                        0.12250000238418579
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.11929800361394882,
+                        0.0,
+                        0.9928579926490784
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.7407429814338684,
+                    "At": 0.16666699945926667,
+                    "Positions": [
+                        0.0733330026268959,
+                        0.0,
+                        0.14000000059604646
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.13624200224876405,
+                        0.0,
+                        0.9906759858131409
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.84375,
+                    "At": 0.1875,
+                    "Positions": [
+                        0.08250000327825546,
+                        0.0,
+                        0.1574999988079071
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.15314500033855439,
+                        0.0,
+                        0.9882040023803711
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9259250164031982,
+                    "At": 0.20833300054073335,
+                    "Positions": [
+                        0.09166699647903443,
+                        0.0,
+                        0.17499999701976777
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.1700029969215393,
+                        0.0,
+                        0.9854429960250855
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9803249835968018,
+                    "At": 0.22916699945926667,
+                    "Positions": [
+                        0.100832998752594,
+                        0.0,
+                        0.19249999523162843
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.18681299686431886,
+                        0.0,
+                        0.9823960065841675
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 1.0,
+                    "At": 0.25,
+                    "Positions": [
+                        0.10999999940395355,
+                        0.0,
+                        0.20999999344348908
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.2035669982433319,
+                        0.0,
+                        0.9790610074996948
+                    ]
+                }
+            ],
+            "Markers": []
+        }
+    ]
+}

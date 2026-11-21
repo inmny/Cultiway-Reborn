@@ -72,6 +72,8 @@ public sealed partial class AbilityCast
         if (state.Free) state.Rotation = state.RayRotation;
         var resource = Plan.Nodes[node].Resource; var pose = poses[node];
         resource.Rig.Sample(null, 0f, pose);
+        if (ray.FadeOut > 0f)
+            pose.Fade = Mathf.Clamp01(1f - (form.Presence.y - NodeAge(node)) / ray.FadeOut);
         Matrix4x4 shift = Matrix4x4.Translate(ray.Span.Axis * (Mathf.Max(minimum, state.RayLength) - ray.Span.Length));
         pose.World[ray.Span.Control] = shift * pose.World[ray.Span.Control];
         pose.Skin[ray.Span.Control] = shift * pose.Skin[ray.Span.Control];

@@ -1,5 +1,6 @@
 // 9.03 A：在同一次正式下坠的时间线上检查落地、翻卷、余焰和清理。
 const string landingForm = "flame_meteor_impact_motion";
+const string flightForm = "flame_meteor_0";
 var source = Make(64); var target = Make(70); var wolf = Make(12, "wolf"); target.setKingdom(wolf.kingdom);
 var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 0;
 owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
@@ -68,15 +69,15 @@ try
         Check(started.HasValue && started.Value.AbilityId == SkillEntities.FlameMeteor.id, run + "：只有原炎陨开始");
         live = ((IEnumerable)running.GetValue(null)).Cast<object>().Where(row => (long)Field(row,"Id") == started.Value.CastId)
             .Select(row => (AbilityCast)Field(row,"Cast")).Single();
-        var flight = View("flame_meteor");
+        var flight = View(flightForm);
         Check(flight.HasValue && live.NodeAge(1) < 0f && !View(landingForm).HasValue,
             run + "：空中只有真实下坠主体，落地火焰未提前出现", new { age = live.Age, landing = live.NodeAge(1) });
         Read(run, "flight", flight);
         if (!miss) await FrameAppearance("01-flight", aim.x, aim.y + 3f, 10);
         await ToAge(0f);
         var impact = View(landingForm);
-        Check(impact.HasValue && !View("flame_meteor").HasValue && live.NodeAge(1) < .075f,
-            run + "：只在真实下坠结束后开始落地动作", new { landing = live.NodeAge(1) });
+        Check(impact.HasValue && live.NodeAge(1) < .075f && live.NodeAge(2) >= 0f && View(flightForm).HasValue,
+            run + "：实际下坠结束后同时开始落地动作和火石收势", new { landing = live.NodeAge(1), cooling = live.NodeAge(2) });
         var ground = Center(impact.Value);
         var initialShoulders = Enumerable.Range(1, 3).Select(i => Fold(impact.Value, i)).ToArray();
         landingCenters.Add(ground); Read(run, "impact", impact);

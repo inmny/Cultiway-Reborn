@@ -81,7 +81,7 @@ try
         emissions.Add(new{asset=currentAsset.id,result=result.ToString(),request.Strength,request.PowerLevel,request.InitialAngleOffsetDegrees,skill=request.SkillContainer.Id});return result;
     };
     if(!commonOnly)foreach(var entry in new[]{(Asset:SkillEntities.GoldenNeedle,Form:"golden_needle",Matter:"gold",State:"solid"),
-        (Asset:SkillEntities.PoisonNeedle,Form:"poison_needle",Matter:"poison",State:"liquid"),
+        (Asset:SkillEntities.PoisonNeedle,Form:"poison_needle_0",Matter:"poison",State:"liquid"),
         (Asset:SkillEntities.StoneCone,Form:"stone_cone",Matter:"earth",State:"solid"),
         (Asset:SkillEntities.IceLance,Form:"ice_lance",Matter:"ice",State:"solid"),
         (Asset:SkillEntities.LightningSpear,Form:"lightning_spear",Matter:"lightning",State:"energy"),
@@ -90,23 +90,31 @@ try
     {
         currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
         var normal=Build();var boosted=Build(true);
+        float duration=.9f;
+        if(entry.Asset==SkillEntities.WaterArrow||entry.Asset==SkillEntities.GoldenNeedle||entry.Asset==SkillEntities.LightningSpear||entry.Asset==SkillEntities.IceLance||entry.Asset==SkillEntities.StoneCone||entry.Asset==SkillEntities.WoodSpear||entry.Asset==SkillEntities.PoisonNeedle)
+        {
+            var animation=entry.Asset.GetAnimation(0);
+            float interval=normal.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
+            duration+=animation.Appearance.Frames.Length*animation.Appearance.Settings.ResolveFrameInterval(interval)+
+                animation.Dissipation.Frames.Length*animation.Dissipation.Settings.ResolveFrameInterval(interval);
+        }
         foreach(var skill in new[]{normal,boosted})
         {
             var d=Convert(skill,out GetHitEvent damage);bool boost=skill.HasComponent<HugeModifier>();
             var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));var plan=AbilityCompiler.Compile(restored,cache:false);
             Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.State==entry.State&&
                 d.Root.OnContact==ConstructionContactResponse.Continue&&d.Root.Contact.Mode==ConstructionContactMode.Once&&
-                d.Root.Contact.MaximumPerTarget==1&&Math.Abs(d.Root.Impact.DamageScale-.85f)<.0001f&&Math.Abs(d.Lifetime-.9f)<.0001f&&
+                d.Root.Contact.MaximumPerTarget==1&&Math.Abs(d.Root.Impact.DamageScale-.85f)<.0001f&&Math.Abs(d.Lifetime-duration)<.0001f&&
                 Math.Abs(damage.Damage-(boost?37.44f:40f))<.001f&&damage.AttackerPowerLevel==1.25f&&damage.Element.Equals(entry.Asset.Element),
                 entry.Form+"独立主体、实际材料、原强度与贯穿规则可保存编译",new{damage.Damage,d.Root.Scale,d.Lifetime});
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
         }
-        Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射作用保留原入口");
+        Check(Convert(Build(extra:true),out _)!=null,entry.Form+"燃烧附加作用由共同构造接管");
         ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;int hp=target.data.health,hp2=other.data.health;
         Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.12f);
         var live=accepted.Single();Check(oldExecutions==0&&starts.Count==1&&Views(live).Single().Resource.Description.Id==entry.Form,
             entry.Form+"只运行自身新主体且无旧执行");await Shot(entry.Form);
-        await Advance(1f);
+        await Advance(duration+.1f);
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(normal)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,normal)));
         Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f,entry.Form+"只支付一次",new{cost,balance,after=owner.GetCultisys<Xian>().wakan});
         Check(contacts.Count(c=>c.AbilityId==entry.Asset.id&&c.TargetId==target.id)==1&&
@@ -133,8 +141,8 @@ try
     // 实际发射后移动真实目标，共用追踪读取新位置，不只验证保存字段。
     owner.GetCultisys<Xian>().level=0;owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();
     starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();ResetPeople();Place(target,74);Place(other,12);moveOnEmission=true;
-    var homing=Build(homing:true);var tracking=Convert(homing,out _);Check(tracking.Root.Operations[0].Goal.Follow,"贯穿金针可改为普通目标追踪");
-    Check(Use(homing),"改轨迹的原已学入口受理");await Advance(1.2f);moveOnEmission=false;
+    var homing=Build(homing:true);var tracking=Convert(homing,out _);Check(tracking.Root.Operations.Any(operation=>operation.Goal?.Follow==true),"贯穿金针可改为普通目标追踪");
+    Check(Use(homing),"改轨迹的原已学入口受理");await Advance(tracking.Lifetime+.15f);moveOnEmission=false;
     Check(contacts.Count(c=>c.AbilityId==currentAsset.id&&c.TargetId==target.id)==1&&
         contacts.Where(c=>c.AbilityId==currentAsset.id).All(c=>c.Position.y>74f)&&accepted.All(c=>c.Finished),
         "实际出手后目标由74,72移至74,76，金针转向并命中新位置");
@@ -142,7 +150,7 @@ try
     ResetPeople();var failed=Build();int count=starts.Count;float before=owner.GetCultisys<Xian>().wakan;invalidate=true;
     Check(Use(failed,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排贯穿投射实际受理失败");await Advance(.25f);invalidate=false;
     Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f&&oldExecutions==0,
-        "实际受理失败原值退款且无新旧残留");scopeValid=true;ResetPeople();Check(Use(failed),"失败后同一来源恢复施放");await Advance(1.2f);
+        "实际受理失败原值退款且无新旧残留");scopeValid=true;ResetPeople();Check(Use(failed),"失败后同一来源恢复施放");await Advance(tracking.Lifetime+.15f);
     Check(accepted.All(c=>c.Finished),"恢复后正常结束");
     // 原飞剑仅核对受本次共用转换调整影响的正常路径，不重跑全部旧轨迹。
     currentAsset=SkillEntities.FlyingSword;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;ResetPeople();

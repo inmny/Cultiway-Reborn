@@ -113,23 +113,29 @@ try
         }
         emissions.Add(new{asset=currentAsset.id,result=result.ToString(),request.Strength,request.PowerLevel,request.InitialAngleOffsetDegrees,source=new[]{request.SourcePos.x,request.SourcePos.y,request.SourcePos.z},target=new[]{request.TargetPos.x,request.TargetPos.y,request.TargetPos.z},skill=request.SkillContainer.Id});return result;
     };
-    if(section!="common")foreach(var entry in new[]{(Asset:SkillEntities.EarthRidge,Form:"earth_ridge",Matter:"earth",State:"solid"),
-        (Asset:SkillEntities.TidalWave,Form:"tidal_wave",Matter:"water",State:"liquid"),(Asset:SkillEntities.SpiritVine,Form:"creeping_vine",Matter:"wood",State:"solid")})
+    if(section!="common")foreach(var entry in new[]{(Asset:SkillEntities.EarthRidge,Form:"earth_ridge_0",Matter:"earth",State:"solid"),
+        (Asset:SkillEntities.TidalWave,Form:"tidal_wave_0",Matter:"water",State:"liquid"),(Asset:SkillEntities.SpiritVine,Form:"creeping_vine_0",Matter:"wood",State:"solid")})
     {
         if(section=="tidal"&&entry.Asset!=SkillEntities.TidalWave||section=="earth"&&entry.Asset!=SkillEntities.EarthRidge)continue;
         bool ridge=entry.Asset==SkillEntities.EarthRidge;
         currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
         var normal=Build();
+        var container=normal.GetComponent<SkillContainer>();var animation=entry.Asset.GetAnimation(container.AnimationIndex);
+        float PhaseSeconds(SkillEntityAnimationClip clip)=>clip.Frames.Length*clip.Settings.ResolveFrameInterval(container.MotionProfile.FrameInterval);
+        float rise=PhaseSeconds(animation.Appearance),fade=PhaseSeconds(animation.Dissipation);
         if(section!="visuals")foreach(var skill in section is "tidal" or "earth"?new[]{normal}:new[]{normal,Build(true)})
         {
             var d=Convert(skill,out GetHitEvent damage);var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
             var plan=AbilityCompiler.Compile(restored,false);bool boost=skill.HasComponent<HugeModifier>();
+            var flight=d.Root.Operations.Single(operation=>operation.Kind==ConstructionOperationKind.Fly);
             Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.State==entry.State&&
-                d.Root.Operations[0].Ground==ConstructionGroundResponse.Follow&&d.Root.Operations[0].Goal.DirectArrival&&d.Root.Operations[0].Goal.Arrival==ConstructionFlightArrival.Continue&&
-                d.Root.Operations.Any(o=>o.Kind==ConstructionOperationKind.Animate&&o.Clip=="travel"&&Math.Abs(o.Seconds-.9f)<.001f)&&
+                flight.Ground==ConstructionGroundResponse.Follow&&flight.Goal.DirectArrival&&flight.Goal.Arrival==ConstructionFlightArrival.Continue&&Math.Abs(flight.At-rise)<.001f&&
+                d.Root.Operations.Any(o=>o.Kind==ConstructionOperationKind.Animate&&o.Clip=="travel"&&
+                    Math.Abs(o.Seconds-(entry.Asset==SkillEntities.SpiritVine?rise+.9f:.9f))<.001f)&&
                 d.Root.OnContact==ConstructionContactResponse.Continue&&d.Root.Contact.Mode==ConstructionContactMode.Once&&d.Root.Contact.MaximumPerTarget==1&&
-                Math.Abs(d.Root.Impact.DamageScale-.8f)<.0001f&&Math.Abs(d.Lifetime-(ridge?1.24f:.9f))<.0001f&&(!ridge||d.Root.ActiveUntil==.9f&&d.Root.DisappearAt==.9f&&
-                    d.Root.Children.Single().ContactRole==ConstructionContactRole.Decoration)&&Math.Abs(d.Root.Scale-(boost?1.4f:1f))<.0001f&&
+                Math.Abs(d.Root.Impact.DamageScale-.8f)<.0001f&&Math.Abs(d.Lifetime-(rise+.9f+fade))<.0001f&&
+                Math.Abs(d.Root.ActiveUntil.Value-(rise+.9f))<.001f&&d.Root.ActiveUntil==d.Root.DisappearAt&&
+                d.Root.Children.Single().ContactRole==ConstructionContactRole.Decoration&&Math.Abs(d.Root.Scale-(boost?1.4f:1f))<.0001f&&
                 Math.Abs(damage.Damage-(boost?37.44f:40f))<.001f&&damage.AttackerPowerLevel==1.25f&&damage.Element.Equals(entry.Asset.Element),
                 entry.Form+"原强度、境界、范围词条、贴地越过目标和寿命可保存编译");
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
@@ -147,7 +153,7 @@ try
         // 潮浪原路径会横摆，负侧对照与实测的正侧扫掠分开。
         if(section=="tidal"){Place(outside,70,67);ConstructedAbilityService.NotifyActorChanged(outside);}
         float balance=owner.GetCultisys<Xian>().wakan;int hp=target.data.health,hp2=other.data.health,outsideHp=outside.data.health;
-        Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.08f);var live=accepted.Single();
+        Check(Use(normal),entry.Form+"原已学入口受理");await Advance(rise+.08f);var live=accepted.Single();
         Check(oldExecutions==0&&starts.Count==1&&Views(live).Single().Resource.Description.Id==entry.Form,entry.Form+"只运行自身新主体");
         float Lip()
         {
@@ -213,21 +219,21 @@ try
         currentAsset=SkillEntities.EarthRidge;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;ResetPeople();
         var enhanced=Build(true);float balance=owner.GetCultisys<Xian>().wakan;
         var emissionPlan=SkillCastPlanner.CreatePlan(owner,enhanced,target,SkillCastCost.GetAffordableStepLimit(owner,enhanced),explicitTargetsOnly:true);
-        Check(emissionPlan.Steps.Count==1,"原地面波预算仍为一发，不为验证放宽规则");Check(Use(enhanced),"强化地面波受理");await Advance(.5f);FollowingTargets(accepted.Single());await Advance(.8f);
+        Check(emissionPlan.Steps.Count==1,"原地面波预算仍为一发，不为验证放宽规则");Check(Use(enhanced),"强化地面波受理");await Advance(.5f+Convert(enhanced,out _).Root.ActiveFrom);FollowingTargets(accepted.Single());await Advance(.8f);
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(enhanced)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,enhanced)));
         Check(starts.Count==1&&oldExecutions==0&&accepted.Single().Finished&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&
             damageEvents.Count==2&&damageEvents.All(e=>Math.Abs(e.Damage-74.88f)<.01f),"强化、加速、范围、合击齐射倍率及原逐发费用保留",new{cost,damages=damageEvents.Select(e=>e.Damage).ToArray()});
         starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();ResetPeople();Place(target,74);Place(other,12);moveOnEmission=true;
-        var homing=Build(homing:true);Check(Use(homing),"土脊改为自由追踪受理");await Advance(1.2f);moveOnEmission=false;
+        var homing=Build(homing:true);Check(Use(homing),"土脊改为自由追踪受理");await Advance(1.45f);moveOnEmission=false;
         Check(damageEvents.Count==1&&damageEvents[0].TargetID==target.id&&contacts.Any(c=>c.Position.y>74f)&&accepted.All(c=>c.Finished),"出手后实际追到74,76的新位置，不只保存轨迹字段");
         starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();ResetPeople();var harmless=Build(contact:false);float harmlessBalance=owner.GetCultisys<Xian>().wakan;
-        Check(Use(harmless),"关闭人物接触的地面波受理");await Advance(.08f);Check(Views(accepted.Single()).Count==1&&Shapes(accepted.Single()).Count==0,"装饰地面波保留主体但不提交攻击接触");await Advance(1f);
+        Check(Use(harmless),"关闭人物接触的地面波受理");await Advance(.32f);Check(Views(accepted.Single()).Count==1&&Shapes(accepted.Single()).Count==0,"装饰地面波保留主体但不提交攻击接触");await Advance(1.15f);
         Check(damageEvents.Count==0&&accepted.Single().Finished&&owner.GetCultisys<Xian>().wakan<harmlessBalance,"关闭作用不伤人，仍按原规则付费并结束");
         starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();ResetPeople();var failed=Build();int count=starts.Count;float before=owner.GetCultisys<Xian>().wakan;invalidate=true;
         Check(Use(failed,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排地面波实际受理失败");await Advance(.25f);invalidate=false;
         Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f&&oldExecutions==0,"受理失败原值退款且无新旧残留");
-        scopeValid=true;ResetPeople();Check(Use(failed),"失败后同一来源恢复施放");await Advance(1.2f);Check(accepted.All(c=>c.Finished),"恢复后显示与接触正常退出");
-        var invalidFlight=Convert(failed,out _);invalidFlight.Root.Operations[0].Acceleration=new[]{1f,0f,0f};
+        scopeValid=true;ResetPeople();Check(Use(failed),"失败后同一来源恢复施放");await Advance(1.45f);Check(accepted.All(c=>c.Finished),"恢复后显示与接触正常退出");
+        var invalidFlight=Convert(failed,out _);invalidFlight.Root.Operations.Single(operation=>operation.Kind==ConstructionOperationKind.Fly).Acceleration=new[]{1f,0f,0f};
         bool rejected=false;try{AbilityCompiler.Compile(invalidFlight,false);}catch(InvalidDataException e){rejected=e.Message.Contains("直达后继续");}
         Check(rejected,"直达后继续拒绝无实现依据的加速度混用");
         var editable=Convert(failed,out _);editable.Id="test.ground-waves.editor";editable.Name="地面推进";
@@ -239,9 +245,10 @@ try
             editor.GetComponentsInChildren<Button>(false).Single(b=>b.name=="Page1").onClick.Invoke();
             editor.GetComponentsInChildren<Toggle>(false).Single(t=>t.name=="FlightDirectArrival").isOn=false;
             var session=(ConstructionEditSession)Field(editor,"session");
-            Check(!session.Draft.Root.Operations[0].Goal.DirectArrival&&session.Draft.Root.Operations[0].Goal.Arrival==ConstructionFlightArrival.Continue,"现有窗口可切换为普通到达后继续");
+            var goal=session.Draft.Root.Operations.Single(operation=>operation.Kind==ConstructionOperationKind.Fly).Goal;
+            Check(!goal.DirectArrival&&goal.Arrival==ConstructionFlightArrival.Continue,"现有窗口可切换为普通到达后继续");
             editor.GetComponentsInChildren<Toggle>(false).Single(t=>t.name=="FlightDirectArrival").isOn=true;
-            Check(session.Draft.Root.Operations[0].Goal.DirectArrival&&(bool)Field(editor,"valid"),"现有窗口保留直达后继续且可编译");
+            Check(session.Draft.Root.Operations.Single(operation=>operation.Kind==ConstructionOperationKind.Fly).Goal.DirectArrival&&(bool)Field(editor,"valid"),"现有窗口保留直达后继续且可编译");
             foreach(var language in new[]{"cz","en"})
             {
                 LocalizedTextManager.instance.setLanguage(language);editor.GetComponentsInChildren<Button>(false).Single(b=>b.name=="Page1").onClick.Invoke();

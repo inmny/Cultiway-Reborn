@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cultiway.Content.Components.Skill;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.Skills;
@@ -30,37 +31,37 @@ internal static partial class ProjectileConstructionMigration
     /// <summary>来源只选择实际形体和材料，所有运动及命中继续共同执行。</summary>
     /// <param name="asset">原已学来源登记。</param>
     private static (string Form, string Matter, string State) SourceForm(SkillEntityAsset asset) =>
-        asset == SkillEntities.FlyingSword ? ("sword", "iron", "solid") :
+        asset == SkillEntities.FlyingSword ? ("flying_sword", "iron", "solid") :
         asset == SkillEntities.GoldenNeedle ? ("golden_needle", "gold", "solid") :
-        asset == SkillEntities.PoisonNeedle ? ("poison_needle", "poison", "liquid") :
+        asset == SkillEntities.PoisonNeedle ? ("poison_needle_0", "poison", "liquid") :
         asset == SkillEntities.StoneCone ? ("stone_cone", "earth", "solid") :
         asset == SkillEntities.IceLance ? ("ice_lance", "ice", "solid") :
         asset == SkillEntities.LightningSpear ? ("lightning_spear", "lightning", "energy") :
         asset == SkillEntities.WaterArrow ? ("water_arrow", "water", "liquid") :
         asset == SkillEntities.WoodSpear ? ("wood_spear", "wood", "solid") :
-        asset == SkillEntities.SpiritBolt ? ("spirit_bolt", "spirit", "energy") :
+        asset == SkillEntities.SpiritBolt ? ("spirit_bolt_0", "spirit", "energy") :
         asset == SkillEntities.WindBullet ? ("wind_bullet", "wind", "energy") :
         asset == SkillEntities.WaterOrb ? ("water_orb", "water", "liquid") :
         asset == SkillEntities.RockProjectile ? ("rock_projectile", "earth", "solid") :
-        asset == SkillEntities.YinBolt ? ("yin_bolt", "yin", "energy") :
-        asset == SkillEntities.YangBolt ? ("yang_bolt", "yang", "energy") :
+        asset == SkillEntities.YinBolt ? ("yin_bolt_0", "yin", "energy") :
+        asset == SkillEntities.YangBolt ? ("yang_bolt_0", "yang", "energy") :
         asset == SkillEntities.IceShard ? ("ice_shard", "ice", "solid") :
         asset == SkillEntities.SwordQi ? ("sword_qi", "iron", "solid") :
         asset == SkillEntities.WindBlade ? ("wind_blade", "wind", "energy") :
         asset == SkillEntities.WaterBlade ? ("water_blade", "water", "liquid") :
         asset == SkillEntities.FireBlade ? ("fire_blade", "fire", "energy") :
-        asset == SkillEntities.YinBlade ? ("yin_blade", "yin", "energy") :
+        asset == SkillEntities.YinBlade ? ("yin_blade_0", "yin", "energy") :
         asset == SkillEntities.Fireball ? ("fireball", "fire", "energy") :
         asset == SkillEntities.ThunderOrb ? ("thunder_orb", "lightning", "energy") :
-        asset == SkillEntities.ChaosOrb ? ("chaos_orb", "entropy", "energy") :
-        asset == SkillEntities.FlameMeteor ? ("flame_meteor", "fire", "energy") :
+        asset == SkillEntities.ChaosOrb ? ("chaos_orb_0", "entropy", "energy") :
+        asset == SkillEntities.FlameMeteor ? ("flame_meteor_0", "fire", "energy") :
         asset == SkillEntities.FallingRock ? ("falling_rock", "earth", "solid") :
         asset == SkillEntities.FallingTimber ? ("falling_timber", "wood", "solid") :
         asset == SkillEntities.LightningStrike ? ("lightning_strike", "lightning", "energy") :
         asset == SkillEntities.Icefall ? ("icefall", "ice", "solid") :
-        asset == SkillEntities.EarthRidge ? ("earth_ridge", "earth", "solid") :
-        asset == SkillEntities.TidalWave ? ("tidal_wave", "water", "liquid") :
-        asset == SkillEntities.SpiritVine ? ("creeping_vine", "wood", "solid") : default;
+        asset == SkillEntities.EarthRidge ? ("earth_ridge_0", "earth", "solid") :
+        asset == SkillEntities.TidalWave ? ("tidal_wave_0", "water", "liquid") :
+        asset == SkillEntities.SpiritVine ? ("creeping_vine_0", "wood", "solid") : default;
 
     /// <summary>检查完整能力后只接管一次；真实受理失败不再落回旧发射。</summary>
     /// <param name="emission">原来源已经确定并到达时点的逐发步骤。</param>
@@ -78,8 +79,14 @@ internal static partial class ProjectileConstructionMigration
         var target = new ActiveAbilityTarget(definition.Use.Target == ActiveAbilityTargetMode.Point ? null : emission.Target,
             emission.TargetPos, attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData,
             worldScope: emission.RuntimeData.WorldScope);
+        LegacyAreaImpact area = definition.Root.Children?.Any(node => node.Id == "burst") == true
+            ? LegacyAreaImpact.From(in emission, "root/burst") : null;
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
-            emission.SourcePos, emission.Payment, damage, forward, spatialSource: emission.SpatialSource) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+            emission.SourcePos, emission.Payment, damage, forward, spatialSource: emission.SpatialSource, legacyArea: area,
+            groundTravel: LegacyGroundTravel.From(in emission, definition.Root.ActiveFrom),
+            groundContact: ConstructedAbilityService.LegacyContactElement(in emission),
+            buildingContact: LegacyBuildingContact.From(in emission))
+            ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>先明确是否能够完整转换，再展开运动、尺寸、强度和寿命；不调用旧运行委托。</summary>
@@ -118,7 +125,29 @@ internal static partial class ProjectileConstructionMigration
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
         if (scale <= 0f || scale > 64f || lifetime <= 0f || lifetime > 3600f) return null;
-        AbilityDefinition definition = Motion(emission, sourceForm.Form, scale, continues, lifetime, initialAngle, speedScale, out forward);
+        bool thunderOrb = container.Asset == SkillEntities.ThunderOrb;
+        bool lightningStrike = container.Asset == SkillEntities.LightningStrike;
+        bool icefall = container.Asset == SkillEntities.Icefall;
+        bool fallingRock = container.Asset == SkillEntities.FallingRock;
+        bool fallingTimber = container.Asset == SkillEntities.FallingTimber;
+        bool chaosOrb = container.Asset == SkillEntities.ChaosOrb;
+        bool fireBlade = container.Asset == SkillEntities.FireBlade;
+        int variantCount = MigratedVariantCount(sourceForm.Form);
+        bool phased = fireBlade || variantCount > 0;
+        string form = fireBlade ? FireBladeForm(container.AnimationIndex) :
+            lightningStrike && container.AnimationIndex == 0 ? "lightning_strike_0" :
+            icefall && container.AnimationIndex == 0 ? "icefall_rain" :
+            fallingRock && container.AnimationIndex == 0 ? "falling_rock_0" :
+            fallingTimber && container.AnimationIndex == 0 ? "falling_timber_0" :
+            variantCount > 0 ? IndexedForm(sourceForm.Form, container.AnimationIndex, variantCount) : sourceForm.Form;
+        if (form == null) return null;
+        SkillEntityAnimation animation = phased ? container.Asset.GetAnimation(container.AnimationIndex) : null;
+        bool movesDuringAppearance = animation?.AppearanceGameplay == SkillAnimationGameplayFlags.Movement;
+        float frameInterval = container.MotionProfile.FrameInterval;
+        float appearance = phased ? ClipSeconds(animation.Appearance, frameInterval) : 0f;
+        float dissipation = phased ? ClipSeconds(animation.Dissipation, frameInterval) : 0f;
+        AbilityDefinition definition = Motion(emission, form, scale, continues,
+            lifetime + (movesDuringAppearance ? appearance : 0f), initialAngle, speedScale, out forward);
         if (definition == null) return null;
         lifetime = definition.Lifetime;
         float strength = setupScale * emission.Strength * emission.RuntimeData.ResolveEffectScale();
@@ -136,39 +165,163 @@ internal static partial class ProjectileConstructionMigration
         definition.Root.State = sourceForm.State;
         definition.Root.OnContact = continues ? ConstructionContactResponse.Continue : ConstructionContactResponse.End;
         definition.Root.Contact = once ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 } : null;
-        definition.Root.Impact = blast ? new ConstructionImpact { DamageScale = 0f } :
-            continues && (!configured || settings.ContactEnabled) ? new ConstructionImpact { DamageScale = damageMultiplier } : null;
-        definition.Root.ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack;
+        bool contact = !configured || settings.ContactEnabled;
+        definition.Root.Impact = contact && (blast || continues)
+            ? new ConstructionImpact { DamageScale = blast ? 0f : damageMultiplier }
+            : null;
+        definition.Root.ContactRole = contact ? ConstructionContactRole.Attack : ConstructionContactRole.Decoration;
         if (blast)
         {
-            bool contact = !configured || settings.ContactEnabled;
             bool meteor = container.Asset == SkillEntities.FlameMeteor;
+            string burstForm = meteor ? "flame_meteor_impact_motion" : thunderOrb ? "thunder_orb_impact" :
+                lightningStrike ? "lightning_strike_impact" : icefall ? "icefall_impact" :
+                fallingRock ? "falling_rock_impact" : fallingTimber ? "falling_timber_impact" :
+                chaosOrb ? "chaos_orb_impact" : null;
             float burstDuration = Mathf.Min(.22f, lifetime);
             definition.Root.Children = new[] { new ConstructionNode
             {
-                Id = "burst", Form = meteor ? "flame_meteor_impact_motion" : sourceForm.Matter + "_burst",
+                Id = "burst", Form = burstForm ?? sourceForm.Matter + "_burst", AnimateWhileHeld = icefall,
                 Matter = sourceForm.Matter, State = sourceForm.State,
                 Scale = scale * container.Asset.ImpactProfile.EffectRadius * container.Asset.ImpactTuning.EffectRadiusMultiplier / .9f,
                 DisappearAt = burstDuration, ActiveUntil = Mathf.Min(.025f, lifetime),
                 Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End,
-                    Placement = ConstructionEventPlacement.Event, InheritRemainder = contact, ResetContacts = contact },
+                    Placement = ConstructionEventPlacement.Event, InheritRemainder = contact, ResetContacts = contact,
+                    BeforeSourceExpires = meteor || thunderOrb || lightningStrike || icefall || fallingRock || fallingTimber ||
+                                          chaosOrb || container.Asset == SkillEntities.Fireball },
                 Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 },
-                Impact = new ConstructionImpact { DamageScale = damageMultiplier },
+                Impact = contact ? new ConstructionImpact { DamageScale = damageMultiplier } : null,
                 ContactRole = contact ? ConstructionContactRole.Attack : ConstructionContactRole.Decoration,
-                // 余力交接也带来入射速度；炎陨在事件落点清掉这份速度，骨架仍可继续收势。
-                Operations = meteor
+                // 展开的爆发在落点清掉入射速度。保留制作速度时，短寿命只截断动作。
+                Operations = burstForm != null
                     ? new[]
                     {
                         new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new float[3], InheritVelocity = false },
-                        new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "spread", Seconds = burstDuration }
+                        new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "spread" }
                     }
                     : new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Stop,
                         When = new ConstructionCondition { Source = "..", Trigger = ConstructionChangeTrigger.End } } }
             } };
         }
-        else if (container.Asset == SkillEntities.EarthRidge) SetRidgeCollapse(definition, lifetime, scale);
-        return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, contactForceScale: !continues && !blast ? 1f / damageMultiplier : 1f, caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
+        float roll = form switch
+        {
+            "water_orb" => 315f, "water_orb_1" => -260f, "water_orb_4" => 425f, "water_arrow_1" => 350f,
+            "wind_bullet" => 410f, "thunder_orb_2" => 540f, "thunder_orb_3" => -360f, _ => 0f
+        };
+        if (roll != 0f)
+            definition.Root.Operations = definition.Root.Operations.Concat(new[]
+            {
+                new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0f, roll } }
+            }).ToArray();
+        if (form == "wood_spear_1")
+            definition.Root.Operations = definition.Root.Operations.Concat(new[]
+            {
+                new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "gather_fibers",
+                    Seconds = ClipSeconds(animation.Runtime, frameInterval) }
+            }).ToArray();
+        if (animation?.HasLifecycle == true &&
+            !SetFormLifecycle(definition, animation.AppearanceGameplay, appearance, dissipation,
+                container.Asset == SkillEntities.EarthRidge ? "collapse" : "dissolve")) return null;
+        if (container.Asset == SkillEntities.SpiritVine && appearance > 0f)
+        {
+            // 根的成形先于推进和接触，生长资料贯穿两段而不在出手时重新开始。
+            ConstructionOperation growth = definition.Root.Operations.First(operation => operation.Kind == ConstructionOperationKind.Animate);
+            growth.At = 0f;
+            growth.Seconds += appearance;
+        }
+        definition = ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, contactForceScale: !continues && !blast ? 1f / damageMultiplier : 1f, caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
+        if (phased && definition.Root.RadialMotion != null)
+            definition.Root.RadialMotion.StartAt = definition.Root.ActiveFrom;
+        return definition;
     }
+
+    /// <summary>按原索引使用各自的实体；变化也反映在沿真实焰锋的接触形状。</summary>
+    /// <param name="index">原学习资料或存档保留的动画索引。</param>
+    private static string FireBladeForm(int index) => index switch
+    {
+        0 => "fire_blade",
+        1 => "fire_blade_fork",
+        2 => "fire_blade_bright",
+        3 => "fire_blade_hook",
+        _ => null
+    };
+
+    /// <summary>原索引零沿用基础资源编号，其余索引各有可辨认的三维主体。</summary>
+    /// <param name="form">不带索引的基础形体编号。</param>
+    /// <param name="index">原学习资料或存档保留的动画索引。</param>
+    /// <param name="count">该来源已逐项迁移的索引数量。</param>
+    private static string IndexedForm(string form, int index, int count) =>
+        index == 0 ? form : index > 0 && index < count ? form + "_" + index : null;
+
+    /// <summary>只对已经制作全部旧索引的来源恢复独立形体与首尾阶段。</summary>
+    /// <param name="form">该来源的基础形体。</param>
+    private static int MigratedVariantCount(string form) => form switch
+    {
+        "fireball" => 18,
+        "lightning_strike" => 11,
+        "water_orb" => 5,
+        "water_arrow" or "water_blade" or "thunder_orb" => 4,
+        "falling_rock" => 3,
+        "flying_sword" or "sword_qi" or "wind_bullet" or "wind_blade" or "wood_spear" or "falling_timber" => 2,
+        "golden_needle" or "lightning_spear" or "ice_shard" or "ice_lance" or "icefall" or "rock_projectile" or "stone_cone" or
+            "spirit_bolt_0" or "yin_bolt_0" or "yang_bolt_0" or "chaos_orb_0" or "poison_needle_0" or "yin_blade_0" or "flame_meteor_0" or
+            "earth_ridge_0" or "tidal_wave_0" or "creeping_vine_0" => 1,
+        _ => 0
+    };
+
+    /// <summary>沿用原成形期间允许的运动，并让解体只在实际结束点显示。</summary>
+    /// <param name="definition">已经展开原轨迹和实际作用的投射主体。</param>
+    /// <param name="gameplay">原成形期间明确允许的行为。</param>
+    /// <param name="appearance">原成形的世界秒数。</param>
+    /// <param name="dissipation">原收势的世界秒数。</param>
+    /// <param name="endingClip">该实体制作的收势动作。</param>
+    internal static bool SetFormLifecycle(AbilityDefinition definition, SkillAnimationGameplayFlags gameplay,
+        float appearance, float dissipation, string endingClip)
+    {
+        if (gameplay is not (SkillAnimationGameplayFlags.None or SkillAnimationGameplayFlags.Movement)) return false;
+        bool moves = gameplay == SkillAnimationGameplayFlags.Movement;
+        ConstructionNode root = definition.Root;
+        float delay = moves ? 0f : appearance;
+        float end = delay + (root.DisappearAt ?? definition.Lifetime);
+        float fullLifetime = delay + definition.Lifetime + dissipation;
+        if (fullLifetime > 3600f) return false;
+        if (appearance > 0f)
+        {
+            root.ActiveFrom = appearance;
+            foreach (ConstructionOperation operation in root.Operations)
+            {
+                operation.At += delay;
+                if (moves && operation.Ground == ConstructionGroundResponse.End)
+                    operation.Ground = ConstructionGroundResponse.EndWhenActive;
+            }
+            foreach (ConstructionStep step in definition.Steps) step.Operation.At += delay;
+            root.Operations = new[] { new ConstructionOperation
+                { Kind = ConstructionOperationKind.Grow, Seconds = appearance } }.Concat(root.Operations).ToArray();
+        }
+        root.ActiveUntil = end;
+        root.DisappearAt = end;
+        definition.Lifetime = fullLifetime;
+        if (dissipation <= 0f) return true;
+        var embers = new ConstructionNode
+        {
+            Id = "embers", Form = root.Form, Matter = root.Matter, State = root.State, Scale = root.Scale,
+            Activation = new ConstructionActivation
+            {
+                Trigger = ConstructionChangeTrigger.End, Placement = ConstructionEventPlacement.Event
+            },
+            DisappearAt = dissipation, ContactRole = ConstructionContactRole.Decoration,
+            SourceLoss = ConstructionSourceLoss.Continue, Volume = 0, AnimateWhileHeld = true,
+            Operations = new[] { new ConstructionOperation
+                { Kind = ConstructionOperationKind.Animate, Clip = endingClip, Seconds = dissipation } }
+        };
+        root.Children = (root.Children ?? Array.Empty<ConstructionNode>()).Concat(new[] { embers }).ToArray();
+        return true;
+    }
+
+    /// <summary>用原动画的实际帧数和有效帧间隔还原阶段时长。</summary>
+    /// <param name="clip">原出现或消散片段。</param>
+    /// <param name="inheritedInterval">原运动配置提供的帧间隔。</param>
+    internal static float ClipSeconds(SkillEntityAnimationClip clip, float inheritedInterval) =>
+        clip == null ? 0f : clip.Frames.Length * clip.Settings.ResolveFrameInterval(inheritedInterval);
 
     /// <summary>保留基准生成高度；按真实主体底部抬高出生点，不让放大后的尖端出生即穿地。</summary>
     /// <param name="form">实际主体资源。</param>
@@ -220,21 +373,26 @@ internal static partial class ProjectileConstructionMigration
         return new ConstructionPath { Keys = keys, Forward = null };
     }
 
-    /// <summary>按原八段调速求指定时点前的中心路程，决定连续抵达所需速度。</summary>
+    /// <summary>按原起步和巡航速度换算抵达时长，并在原半秒上限内连续走完整弧。</summary>
+    /// <param name="distance">实际指定起终点的直连长度。</param>
     /// <param name="speed">本次基础速度。</param><param name="launch">起步比例。</param><param name="cruise">巡航比例。</param>
-    /// <param name="ramp">起步时长。</param><param name="seconds">实际世界时长。</param>
-    private static float PlannedDistance(float speed, float launch, float cruise, float ramp, float seconds)
+    /// <param name="ramp">起步时长。</param>
+    private static float ArcTravelTime(float distance, float speed, float launch, float cruise, float ramp)
     {
-        if (ramp <= .001f) return speed * cruise * seconds;
-        float total = 0f, previous = 0f;
-        for (int i = 0; i < 8 && previous < seconds; i++)
-        {
-            float end = Mathf.Min(seconds, ramp * (i + 1f) / 8f), remaining = 1f - i / 8f;
-            total += speed * (cruise + (launch - cruise) * remaining * remaining) * (end - previous);
-            previous = end;
-        }
-        if (previous < seconds) total += speed * cruise * (seconds - previous);
-        return total;
+        const float deadline = .5f;
+        const float minimum = .025f;
+        float age = 0f;
+        if (ramp > .001f)
+            for (int i = 0; i < 8 && age < deadline; i++)
+            {
+                float end = Mathf.Min(deadline, ramp * (i + 1f) / 8f), remaining = 1f - i / 8f;
+                float current = speed * (cruise + (launch - cruise) * remaining * remaining);
+                float span = current * (end - age);
+                if (span >= distance) return Mathf.Max(minimum, age + distance / current);
+                distance -= span;
+                age = end;
+            }
+        return cruise > 0f ? Mathf.Clamp(age + distance / (speed * cruise), minimum, deadline) : deadline;
     }
 
     /// <summary>输出自足的普通三轴参数。</summary><param name="value">实际数值。</param>

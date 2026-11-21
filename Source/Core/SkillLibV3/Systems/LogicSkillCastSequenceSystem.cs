@@ -85,6 +85,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                     TargetPos = step.TrackTarget ? step.Target.GetSimPos() : step.TargetPos,
                     Strength = sequence.Strength,
                     PowerLevel = sequence.PowerLevel,
+                    StepSeed = unchecked((entity.Id * 397 ^ sequence.NextIndex) * 397 ^ World.world.getCurWorldTime().GetHashCode()),
                     InitialAngleOffsetDegrees = step.InitialAngleOffsetDegrees,
                     AttackKingdom = sequence.AttackKingdom,
                     RuntimeData = sequence.RuntimeData

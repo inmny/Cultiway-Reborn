@@ -1,15 +1,20 @@
-/** 普通投射各自制作完整主体：灵核、旋风、水滴、岩块、阴月、阳瓣和冰片，不复制旧贴图运行。 */
+/** 普通投射各自制作完整主体：灵核、旋风、岩块、阴月、阳瓣和冰片。 */
 import * as T from 'three';
-import {write, structure, surfaceData} from './form_export.mjs';
+import {write, structure, dissolve} from './form_export.mjs';
 import {wallPart, column} from './forms_solid_walls.mjs';
+import {makeEnergyBoltForms} from './forms_energy_bolts.mjs';
 
 /** 生成各自的表面、实际核心和共同控制，所有运动继续由普通投射构造提供。 */
-function publish(id, pieces, contacts, parameters) {
+function publish(id, pieces, contacts, parameters, ending=false) {
   const controls=[{Id:'root',Position:[0,0,0],Rotation:[0,0,0,1]}];
   const parts=pieces.map(([name,geometry,surface])=>wallPart(name,geometry,surface,[0,0,0],'root'));
   const shapes=contacts.map(([a,b,r,part=0],i)=>({Id:`core_${i}`,Part:part,A:a,B:b,Radius:r,AControl:'root',BControl:'root'}));
   const anchors=[{Id:'root',Part:0,Position:[0,0,0],Direction:[0,0,1],Control:'root'}];
-  write(id,parts,anchors,shapes,controls,[],false,{Forward:[0,0,1],Up:[0,1,0]},
+  const motions=ending?[dissolve(controls,(_index,t)=>({
+    position:[0,.12*t,-.07*t],
+    rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),.41*t).toArray()
+  }))]:[];
+  write(id,parts,anchors,shapes,controls,motions,false,{Forward:[0,0,1],Up:[0,1,0]},
     structure('rigid','forms_projectiles.mjs','makeProjectileForms',parameters,
       Object.fromEntries(parts.map(p=>[p.Id,['projectile.body','projectile.core']])),[]));
 }
@@ -24,32 +29,43 @@ function spirit() {
   publish('spirit_bolt',parts,[[[0,0,0],[0,0,0],.31]],{radius:.36,lobes:4});
 }
 
-/** 风弹有宽厚交错流环和可见中核，流环的空隙不被隐藏大球填成伤害区。 */
+/** 风弹有卷入的厚风核和紧实的团流两种主体。 */
 function wind() {
-  const pieces=[['heart',new T.SphereGeometry(.27,20,12).scale(1,1,1.2),'wind']];
-  for(let i=0;i<2;i++)pieces.push([`flow_${i}`,new T.TorusGeometry(.34,.115,10,32).rotateX((i===0?.34:-.34)*Math.PI).rotateZ(i*Math.PI/2),'wind']);
-  publish('wind_bullet',pieces,[[[0,0,-.12],[0,0,.12],.21]],{radius:.455,loops:2});
-}
-
-/** 水球前部浑圆、背后连续收成厚滴，网格自带厚度和局部泡沫通道。 */
-function water() {
-  const g=new T.SphereGeometry(1,32,20),p=g.getAttribute('position');
-  for(let i=0;i<p.count;i++) {
-    const x=p.getX(i),y=p.getY(i),u=p.getZ(i),w=.83+.17*u;
-    p.setXYZ(i,x*.52*w,y*.46*w,u*.56-.24*Math.pow(Math.max(-u,0),3));
+  const pieces=[['heart',new T.SphereGeometry(.29,22,16).scale(.92,.92,1.52),'wind_pressure']];
+  for(let i=0;i<2;i++) {
+    const rings=Array.from({length:37},(_,j)=>{
+      const t=j/36,a=i*Math.PI+t*Math.PI*2.24;
+      const radius=.25+.055*Math.sin(Math.PI*t);
+      const width=.009+.102*Math.pow(Math.sin(Math.PI*t),.65);
+      return Array.from({length:10},(_,side)=>{
+        const theta=side*Math.PI*2/10,r=radius+width*Math.cos(theta);
+        return [r*Math.cos(a),r*Math.sin(a),-.56+t*.87+.102*Math.sin(theta)*Math.sin(t*Math.PI)];
+      });
+    });
+    pieces.push([`flow_${i}`,column(rings,10),'wind_open']);
   }
-  surfaceData(g,v=>.22+.18*Math.max(0,1-v.z*v.z),v=>Math.max(0,v.z-.24)*.45);
-  publish('water_orb',[['drop',g,'water']],[[[0,0,-.14],[0,0,.12],.29]],{width:.52,height:.46,tail:.8});
+  publish('wind_bullet',pieces,[[[0,0,-.12],[0,0,.12],.21]],{radius:.405,rolls:1.12},true);
+
+  const core=new T.SphereGeometry(.385,24,16),v=core.getAttribute('position');
+  for(let i=0;i<v.count;i++) {
+    const x=v.getX(i),y=v.getY(i),z=v.getZ(i),pressure=1+.115*Math.cos(11*x-7*y+6*z);
+    v.setXYZ(i,x*pressure,y*pressure*.91,z*pressure*1.12);
+  }
+  const rolls=[['heart',core,'wind_pressure']];
+  for(let i=0;i<3;i++)
+    rolls.push([`fold_${i}`,new T.SphereGeometry(.35,20,14).scale(.49,.6,1)
+      .translate(.24,0,-.07).rotateZ(i*2*Math.PI/3),'wind_open']);
+  publish('wind_bullet_1',rolls,[[[0,0,-.12],[0,0,.15],.27]],{radius:.415,folds:3});
 }
 
 /** 飞石保持不规则分面与厚重体积，外轮廓不做成另一根岩锥。 */
 function rock() {
-  const g=new T.IcosahedronGeometry(.59,1),p=g.getAttribute('position');
-  for(let i=0;i<p.count;i++) {
-    const x=p.getX(i),y=p.getY(i),z=p.getZ(i),k=1+.12*Math.sin(x*13+y*17+z*11);
-    p.setXYZ(i,x*k,y*k*.81,z*k*1.06);
-  }
-  publish('rock_projectile',[['boulder',g,'stone']],[[[0,0,-.08],[0,0,.08],.34]],{radius:.59,facets:80});
+  const g=new T.DodecahedronGeometry(.52).scale(1.06,.82,1.14).rotateZ(.29).rotateY(.33);
+  const shoulder=new T.IcosahedronGeometry(.31).scale(1.14,.54,1.27).rotateZ(.24).translate(.07,.27,-.045);
+  const underside=new T.DodecahedronGeometry(.28).scale(.81,.66,1.45).rotateY(-.48).translate(-.16,-.24,.09);
+  publish('rock_projectile',[
+    ['boulder',g,'stone'],['shoulder',shoulder,'stone_ridge'],['underside',underside,'stone_strata']
+  ],[[[0,0,-.08],[0,0,.08],.34]],{radius:.52,slabs:3},true);
 }
 
 /** 阴弹以深色实心内核与偏置月缘区分轮廓；月缘两端由厚圆头封闭。 */
@@ -77,9 +93,15 @@ function ice() {
   const rings=profile.map(([z,r,shift])=>Array.from({length:3},(_,i)=>{
     const a=i*Math.PI*2/3;return [Math.cos(a)*r+shift,Math.sin(a)*r*.72,z];
   }));
-  publish('ice_shard',[['shard',column(rings,3),'ice']],
-    [[[0,0,-.12],[.05,0,.22],.10],[[.08,0,.25],[.13,0,.62],.04]],{profile,sides:3});
+  const enamel=column([
+    [[-.09,-.06,-.35],[.04,-.15,-.35],[.12,-.06,-.35]],
+    [[-.18,-.11,-.12],[.10,-.23,-.12],[.20,-.065,-.12]],
+    [[-.13,-.09,.27],[.16,-.20,.27],[.22,-.05,.27]],
+    [[.10,-.035,.74],[.16,-.08,.74],[.17,-.026,.74]]
+  ],3);
+  publish('ice_shard',[['shard',column(rings,3),'ice_core'],['ice_edge',enamel,'ice_rime']],
+    [[[0,0,-.12],[.05,0,.22],.10],[[.08,0,.25],[.13,0,.62],.04]],{profile,sides:3},true);
 }
 
-/** 一次发布本组七种独立普通投射。 */
-export function makeProjectileForms() { spirit();wind();water();rock();yin();yang();ice(); }
+/** 一次发布本组独立普通投射。 */
+export function makeProjectileForms() { spirit();wind();rock();yin();yang();ice();makeEnergyBoltForms(); }

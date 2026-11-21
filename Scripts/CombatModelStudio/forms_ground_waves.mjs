@@ -1,7 +1,7 @@
 /** 地面推进使用独立厚体；骨架同时驱动网格和接触，沿既有地面投送移动。 */
 import * as T from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
-import {part,write,structure,motion,formation,forming,skin} from './form_export.mjs';
+import {part,write,structure,motion,formation,forming,skin,dissolve} from './form_export.mjs';
 import {wallPart,column} from './forms_solid_walls.mjs';
 import {waterCurve,thickSheet,curveInfluences} from './form_curve.mjs';
 import {woodSprig} from './forms_wood_detail.mjs';
@@ -63,6 +63,9 @@ function earth() {
       rotation:new T.Quaternion().setFromAxisAngle(fractureAxis,(1.15+.15*Math.sin(i*2.1))*tip).toArray()};
   });
   publish('earth_ridge',parts,contacts,controls,[travel,collapse],{width:2.18,slabs:5,duration:.9,collapse:.34});
+  // 岩床提供贴地接触，避免放大后石锋的接触芯从矮小目标上方掠过。
+  const bedContact={Id:'bed',Part:0,A:[-.68,-.10,0],B:[.68,-.10,0],Radius:.24,AControl:'bed',BControl:'bed'};
+  publish('earth_ridge_0',parts,[...contacts,bedContact],controls,[travel,collapse],{width:2.18,slabs:5,duration:.9,collapse:.34});
 }
 
 /** 厚浪只翻落一次：背部托起波峰，卷唇伸出，随后压成向前摊开的水脚。 */
@@ -118,14 +121,23 @@ function water() {
     };
     contacts.push({Id:`front_${i}`,Part:0,A:endpoint(-1),B:endpoint(1),Radius:.12,AInfluences:influences(t),BInfluences:influences(t)});
   }
-  const clip=motion('travel',.9,false,controls,48,(i,p)=>{
+  function wavePose(i,p) {
     const t=i/(count-1),current=curveAt(p);
     const before=new T.Vector3(...basis(rest.getTangent(t))),now=new T.Vector3(...basis(current.getTangent(t)));
     return {position:basis(current.getPoint(t)),rotation:new T.Quaternion().setFromUnitVectors(before,now).toArray()};
+  }
+  const travel=motion('travel',.9,false,controls,48,wavePose);
+  const oldTravel={...travel,Keys:travel.Keys.map(key=>({...key,Fade:T.MathUtils.smoothstep(key.At,.76,.9)}))};
+  const ebb=dissolve(controls,(i,t)=>{
+    const end=wavePose(i,1);
+    end.position[1]-=.22*T.MathUtils.smoothstep(t,0,1);
+    end.position[2]+=.16*t;
+    return end;
   });
-  clip.Keys=clip.Keys.map(key=>({...key,Fade:T.MathUtils.smoothstep(key.At,.76,.9)}));
-  publish('tidal_wave',parts,contacts,controls,clip,{width:2.28,controls:count,duration:.9,stages,stagesAt},
-    {water_body:['ground.front','projectile.body','fluid.body'],surface_foam:['fluid.foam']});
+  const parameters={width:2.28,controls:count,duration:.9,stages,stagesAt};
+  const roles={water_body:['ground.front','projectile.body','fluid.body'],surface_foam:['fluid.foam']};
+  publish('tidal_wave',parts,contacts,controls,oldTravel,parameters,roles);
+  publish('tidal_wave_0',parts,contacts,controls,[travel,ebb],parameters,roles);
 }
 
 /** 灵藤主根先探、侧根后张，细梗及叶跟随原枝；根芯只在实际长到的位置接触。 */
@@ -169,10 +181,14 @@ function wood() {
     return {rotation:new T.Quaternion().setFromAxisAngle(up,yaw).toArray()};
   }), p=>T.MathUtils.smoothstep(p,0,.44));
   parts.push(...sprigs);
-  write('creeping_vine',parts,[{Id:'root',Part:0,Position:[0,0,0],Direction:[0,0,1],Control:controls[0].Id}],
-    contacts,controls,Array.isArray(clip)?clip:[clip],false,{Forward:[0,0,1],Up:[0,1,0],HideBelowGround:true},
-    structure('branch','forms_ground_waves.mjs','makeGroundWaves',{roots:3,sharedBase:true},
-      Object.fromEntries(parts.map(p=>[p.Id,[p.Id.endsWith('_leaf')?'branch.leaf':p.Id.includes('sprig')?'branch.shoot':p.Id==='root_1'?'branch.trunk':'branch.lateral']])),[]));
+  const withdraw=forming(dissolve(controls,(_i,t)=>({position:[0,-.19*t,0]})),
+    t=>1-T.MathUtils.smoothstep(t,.05,.98));
+  const anchors=[{Id:'root',Part:0,Position:[0,0,0],Direction:[0,0,1],Control:controls[0].Id}];
+  const framing={Forward:[0,0,1],Up:[0,1,0],HideBelowGround:true};
+  const construction=structure('branch','forms_ground_waves.mjs','makeGroundWaves',{roots:3,sharedBase:true},
+    Object.fromEntries(parts.map(p=>[p.Id,[p.Id.endsWith('_leaf')?'branch.leaf':p.Id.includes('sprig')?'branch.shoot':p.Id==='root_1'?'branch.trunk':'branch.lateral']])),[]);
+  write('creeping_vine',parts,anchors,contacts,controls,[clip],false,framing,construction);
+  write('creeping_vine_0',parts,anchors,contacts,controls,[clip,withdraw],false,framing,construction);
 }
 
 /** 一次制作三种原地面推进来源。 */

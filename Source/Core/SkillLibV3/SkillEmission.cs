@@ -34,6 +34,9 @@ public struct SkillEmission
     /// <summary>来源给出的实际强度与功率。</summary>
     public float Strength, PowerLevel;
 
+    /// <summary>同一施放内各次实际发射的种子，用于保持不同的散落位置。</summary>
+    internal int StepSeed;
+
     /// <summary>齐射的实际偏角。</summary>
     public float InitialAngleOffsetDegrees;
 

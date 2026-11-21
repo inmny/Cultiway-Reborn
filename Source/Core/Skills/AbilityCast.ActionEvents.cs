@@ -22,6 +22,19 @@ public sealed partial class AbilityCast
     /// <summary>没有新事实时主线程不租用交付缓冲。</summary>
     internal bool HasActionEvents => actionEvents.Count != 0;
 
+    /// <summary>在主线程提交接触前读取同一轮已确认的生效位置。</summary>
+    internal bool TryGetActionActivation(int node, out Vector3 point)
+    {
+        foreach (AbilityActionEvent fact in actionEvents)
+            if (fact.Node == node && fact.Kind == AbilityActionEventKind.Active)
+            {
+                point = fact.Point;
+                return true;
+            }
+        point = default;
+        return false;
+    }
+
     /// <summary>只在主线程确认后调用；同一批事实取走后不会再次交付。</summary>
     /// <param name="output">调用方复用的结果集合。</param>
     public void DrainActionEvents(ICollection<AbilityActionEvent> output)

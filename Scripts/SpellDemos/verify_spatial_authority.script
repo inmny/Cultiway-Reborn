@@ -159,7 +159,8 @@ try
         var definition = (AbilityDefinition)convert.Invoke(null, args);
         definition.Id = "test.spatial-authority.detached"; definition.Root.SourceLoss = ConstructionSourceLoss.Continue;
         var choice = new ActiveAbilityTarget(target, target.GetSimPos(), attackKingdom: attackKingdom);
-        bool used = (bool)service.GetMethod("StartPrepaid", F).Invoke(null, new object[] { owner, definition, choice, carrier.GetSimPos(), null, args[1], args[2], 0, carrier });
+        bool used = (bool)service.GetMethod("StartPrepaid", F).Invoke(null,
+            new object[] { owner, definition, choice, carrier.GetSimPos(), null, args[1], args[2], 0, carrier, false, null, null, null, null });
         Check(used, "明确独立存续的普通部位受理");
         object authority = Field(runningCasts.Last(), "InitialOwner");
         long identity = carrier.data.id; Kingdom originalKingdom = source.kingdom; int before = damages.Count;

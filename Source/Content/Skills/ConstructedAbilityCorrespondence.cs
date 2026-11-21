@@ -173,7 +173,7 @@ public sealed partial class ConstructedAbilityService
         {
             ConstructionContactMode.Once => memory == null,
             ConstructionContactMode.Interval => memory == null || running.Cast.Age >= memory.Age + policy.Interval,
-            ConstructionContactMode.Pulse => PulseFraction(policy.Interval, memory, running.Cast.Age - 1f, 1f, 1f) <= 1f,
+            ConstructionContactMode.Pulse => PulseFraction(policy, memory, running.Cast.Age - 1f, 1f, 1f) <= 1f,
             ConstructionContactMode.Reentry => memory?.Touching != true,
             _ => false
         };

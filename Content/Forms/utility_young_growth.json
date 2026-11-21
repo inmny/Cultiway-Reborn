@@ -1,0 +1,250 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "volume",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_world_utility.mjs",
+            "Entry": "makeWorldUtility",
+            "Parameters": [
+                {
+                    "Id": "shoots",
+                    "Values": [
+                        3.0
+                    ]
+                },
+                {
+                    "Id": "width",
+                    "Values": [
+                        0.8299999833106995
+                    ]
+                },
+                {
+                    "Id": "height",
+                    "Values": [
+                        0.6399999856948853
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "utility_young_growth",
+    "Forward": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/utility_young_growth_shoot_0_mid.asset",
+                "Assets/Cultiway/Forms/utility_young_growth_shoot_0_far.asset"
+            ],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "shoot_0",
+            "Surface": "living_bark",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/utility_young_growth_shoot_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "leaf_0_0",
+            "Surface": "living_leaf",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/utility_young_growth_leaf_0_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "leaf_0_1",
+            "Surface": "living_sap",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/utility_young_growth_leaf_0_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/utility_young_growth_shoot_1_mid.asset",
+                "Assets/Cultiway/Forms/utility_young_growth_shoot_1_far.asset"
+            ],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "shoot_1",
+            "Surface": "living_bark",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/utility_young_growth_shoot_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/utility_young_growth_leaf_1_0_mid.asset",
+                "Assets/Cultiway/Forms/utility_young_growth_leaf_1_0_far.asset"
+            ],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "leaf_1_0",
+            "Surface": "living_leaf",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/utility_young_growth_leaf_1_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/utility_young_growth_leaf_1_1_mid.asset",
+                "Assets/Cultiway/Forms/utility_young_growth_leaf_1_1_far.asset"
+            ],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "leaf_1_1",
+            "Surface": "living_sap",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/utility_young_growth_leaf_1_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/utility_young_growth_shoot_2_mid.asset",
+                "Assets/Cultiway/Forms/utility_young_growth_shoot_2_far.asset"
+            ],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "shoot_2",
+            "Surface": "living_bark",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/utility_young_growth_shoot_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "leaf_2_0",
+            "Surface": "living_leaf",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/utility_young_growth_leaf_2_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/utility_young_growth_leaf_2_1_mid.asset",
+                "Assets/Cultiway/Forms/utility_young_growth_leaf_2_1_far.asset"
+            ],
+            "Roles": [
+                "ground.surface"
+            ],
+            "Id": "leaf_2_1",
+            "Surface": "living_sap",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/utility_young_growth_leaf_2_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [],
+    "Controls": [],
+    "Motions": []
+}

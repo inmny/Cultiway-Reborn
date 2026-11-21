@@ -14,6 +14,9 @@ public sealed class ConstructionActivation : ConstructionCondition
     /// <summary>来源结束时按权重交接实际余力、材料及控制身份，不重新使用初始威力。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool InheritRemainder;
+    /// <summary>只处理部位在其存在时限前结束的事件，允许超时另行收束。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool BeforeSourceExpires;
     /// <summary>余量交接时从来源部位的真实位置独立接替。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool KeepSourcePosition;
@@ -46,6 +49,8 @@ internal sealed class CompiledConstructionActivation : CompiledConstructionCondi
     internal readonly ConstructionEventPlacement Placement;
     /// <summary>是否接受来源结束时的真实剩余状态。</summary>
     internal readonly bool InheritRemainder;
+    /// <summary>是否忽略来源在自身时限耗尽时发出的结束事件。</summary>
+    internal readonly bool BeforeSourceExpires;
     /// <summary>继承余量时是否沿用来源部位的位置。</summary>
     internal readonly bool KeepSourcePosition;
     /// <summary>是否从真实吸收累积力量，并取首个接触处作为出口。</summary>
@@ -63,10 +68,13 @@ internal sealed class CompiledConstructionActivation : CompiledConstructionCondi
     {
         Placement = source.Placement; InheritRemainder = source.InheritRemainder; ResetContacts = source.ResetContacts;
         KeepSourcePosition = source.KeepSourcePosition;
+        BeforeSourceExpires = source.BeforeSourceExpires;
         InheritAbsorbedForce = source.InheritAbsorbedForce;
         Target = source.Target == null ? null : new CompiledContactTarget(source.Target, path + "/Target");
         if (ResetContacts && !InheritRemainder)
             throw new InvalidDataException(path + "：开始新接触组需要明确继承来源剩余力量，不能凭空重建强度");
+        if (BeforeSourceExpires && Trigger != ConstructionChangeTrigger.End)
+            throw new InvalidDataException(path + "：来源时限限定只用于结束事件");
         if (KeepSourcePosition && !InheritRemainder)
             throw new InvalidDataException(path + "：沿用来源位置需要交接实际余量");
         if (Target != null && (Trigger != ConstructionChangeTrigger.ActorContact || Placement != ConstructionEventPlacement.Event || InheritRemainder))

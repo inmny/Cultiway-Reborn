@@ -28,6 +28,9 @@ def main():
                               json.dumps(str(PROJECT / 'Scripts/WorldSaveTests/Fixtures/world-format-1')))
     helpers = helpers.replace('if (contact.AbilityId.StartsWith("test.body-footwork.")) contacts.Add(contact);', 'contacts.Add(contact);')
     helpers = helpers.replace('    if (fact.AbilityId.StartsWith("test.body-footwork."))\n', '')
+    helpers = helpers.replace('var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild',
+                              'var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SourceLoss.Hold") ?? '
+                              'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild')
     body = Path(__file__).with_name(f'verify_sun_life_{section}.script').read_text()
     shared = Path(__file__).with_name('verify_wind_combat.script').read_text()
     shared = shared.replace('const string inputRoot = "";',

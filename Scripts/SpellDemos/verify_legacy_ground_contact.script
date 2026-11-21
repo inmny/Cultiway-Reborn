@@ -1,0 +1,194 @@
+// 用原学习入口实放。世界作用只观察非范围命中，排除正常行进焦痕。
+bool legacy = caseName == "legacy";
+var prior = legacy ? null : JObject.Parse(File.ReadAllText(directBaseline));
+var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var effects = new List<JObject>();
+var oldTargets = new List<long>();
+var settlements = new List<JObject>();
+var payments = new List<double>();
+var reports = new JArray();
+var hook = new HarmonyLib.Harmony("cultiway.test.ground-contact." + Guid.NewGuid().ToString("N"));
+Actor third = Make(74), fourth = Make(77);
+foreach (var actor in new[] { third, fourth }) actor.setKingdom(enemyKingdom);
+
+string TileState(WorldTile tile) => $"{tile.main_type.id}/{tile.top_type?.id}/{tile.burned_stages}/{tile.isOnFire()}";
+Dictionary<string, string> Snapshot(Vector3 point)
+{
+    var tiles = new Dictionary<string, string>();
+    int cx = Mathf.FloorToInt(point.x), cy = Mathf.FloorToInt(point.y);
+    for (int x = cx - 3; x <= cx + 3; x++)
+    for (int y = cy - 3; y <= cy + 3; y++)
+        tiles.Add($"{x - cx}:{y - cy}", TileState(World.world.GetTileSimple(x, y)));
+    return tiles;
+}
+
+void Arrange(bool chain, bool miss)
+{
+    Ready(source);
+    Place(source, 64, 72);
+    Place(target, miss ? 12 : 70, 72);
+    Place(second, miss ? 12 : 72.4f, 72);
+    Place(third, chain && !miss ? 74.7f : 12, 74);
+    Place(fourth, chain && !miss ? 77 : 12, 74);
+    Place(outside, 67, 81);
+    foreach (var actor in new[] { source, target, second, third, fourth, outside })
+        ConstructedAbilityService.NotifyActorChanged(actor);
+    for (int x = 61; x <= 83; x++)
+    for (int y = 67; y <= 78; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        tile.stopFire();
+        tile.removeBurn();
+        tile.unfreeze(99);
+        tile.heat = 0;
+    }
+}
+
+bool Use(Entity skill, bool pointOnly)
+{
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    Vector3 point = pointOnly ? new Vector3(70, 72, 0) : target.GetSimPos();
+    bool accepted = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(pointOnly ? null : target, point, selectionArea: new SkillTargetSelectionArea(true, point, .1f)),
+        ActiveAbilityUseOrigin.Player);
+    source.attack_timer = 999;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    return accepted;
+}
+
+void OnOldContact(Entity entity, BaseSimObject hit)
+{
+    if (entity.GetComponent<SkillContext>().SourceObj == source && hit.isActor()) oldTargets.Add(hit.a.id);
+}
+GroundContactProbe.BeforeTile = (point, payer, isArea) => payer == source && !isArea ? Snapshot(point) : null;
+GroundContactProbe.AfterTile = (point, element, radius, before) =>
+{
+    var after = Snapshot(point);
+    effects.Add(JObject.FromObject(new { x = point.x, y = point.y, element, radius,
+        changed = before.Where(pair => pair.Value != after[pair.Key])
+            .Select(pair => new { cell = pair.Key, before = pair.Value, after = after[pair.Key] }).ToArray() }));
+};
+GroundContactProbe.Paid = (payer, payment) =>
+{
+    if (payer == owner)
+        payments.Add(payment.Entries.Where(entry => entry.Resource == SkillCastResources.Wakan).Sum(entry => entry.Spent));
+};
+GroundContactProbe.Settled = (damage, result) => settlements.Add(JObject.FromObject(new
+{
+    target = damage.TargetID, source = damage.AttackerID, owned = damage.HasAttacker,
+    requested = damage.Damage, effect = damage.DamageOrigin.ToString(),
+    attack = damage.AttackType.ToString(), loss = result.HealthLost
+}));
+Type groundFx = typeof(Cultiway.Core.SkillLibV3.Visuals.SkillGroundFx);
+hook.Patch(groundFx.GetMethod("ApplyImpact", F),
+    prefix: new HarmonyLib.HarmonyMethod(typeof(GroundContactProbe), nameof(GroundContactProbe.Before)),
+    postfix: new HarmonyLib.HarmonyMethod(typeof(GroundContactProbe), nameof(GroundContactProbe.After)));
+hook.Patch(typeof(SkillCastPayment).GetMethod("Commit", F),
+    postfix: new HarmonyLib.HarmonyMethod(typeof(GroundContactProbe), nameof(GroundContactProbe.AfterPayment)));
+hook.Patch(typeof(Cultiway.Core.EventSystem.Systems.GetHitEventSystem).GetMethod("Resolve", F),
+    postfix: new HarmonyLib.HarmonyMethod(typeof(GroundContactProbe), nameof(GroundContactProbe.AfterDamage)));
+if (legacy)
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id)
+            ? SkillEmissionResult.Unhandled : original(emission);
+ConstructedAbilityService.CastStarted += Started;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
+SkillHitResolver.ContactResolved += OnOldContact;
+
+try
+{
+    foreach (var asset in directSpells)
+    {
+        Entity skill = Learn(asset, 0, false);
+        bool chain = asset == SkillEntities.ChainLightning;
+        if (!legacy && !chain)
+        {
+            Arrange(false, true);
+            Check(Use(skill, true), "火刃空击受理");
+            await Advance(.42f);
+            long castId = casts.Last().Key;
+            service.GetMethod("Cancel", F).Invoke(null, new object[] { castId });
+            await Advance(.52f);
+            Check(effects.Count == 0 && !contacts.Any(hit => hit.CastId == castId) &&
+                  endings.Any(end => end.Fact.CastId == castId && end.Fact.Cancelled), "空中取消没有命中地块作用");
+        }
+        Arrange(chain, false);
+        var receivers = chain ? new[] { target, second, third, fourth } : new[] { target, second };
+        var health = receivers.Select(actor => actor.getHealth()).ToArray();
+        var burningBefore = receivers.Select(actor => actor.hasStatus("burning")).ToArray();
+        int unused = outside.getHealth(), old = oldExecutions, count = casts.Count;
+        int impacts = effects.Count, oldHits = oldTargets.Count, paymentsBefore = payments.Count, damageBefore = settlements.Count;
+        Check(Use(skill, false), "原入口受理实际命中", asset.id);
+        await Advance(chain ? 1.45f : 1.0f);
+        var hits = legacy ? oldTargets.Skip(oldHits).ToArray() : contacts.Where(hit => hit.CastId == casts.Last().Key)
+            .Select(hit => hit.TargetId).ToArray();
+        var recorded = effects.Skip(impacts).ToArray();
+        var losses = receivers.Select((actor, i) => health[i] - actor.getHealth()).ToArray();
+        var damage = settlements.Skip(damageBefore).Where(item =>
+            receivers.Any(actor => actor.id == (long)item["target"])).ToArray();
+        double payment = payments.Skip(paymentsBefore).Single();
+        var result = JObject.FromObject(new { id = asset.id, hits, effects = recorded, losses, burningBefore, payment, damage });
+        reports.Add(result);
+        File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(new { spells = reports }, Formatting.Indented));
+        Check((legacy ? oldExecutions == old + 1 && casts.Count == count : oldExecutions == old && casts.Count == count + 1) &&
+              hits.SequenceEqual(receivers.Select(actor => actor.id)) &&
+              losses.All(loss => loss > 0) && outside.getHealth() == unused,
+            "只有实际命中的人物受伤，且没有多一条执行", new { asset.id, hits, losses });
+        Check(receivers.All(actor => damage.Count(item => (long)item["target"] == actor.id &&
+                (bool)item["owned"] && (long)item["source"] == source.id && (string)item["attack"] == "Other") == 1),
+            "每个实际目标只收到一次来源伤害，原版环境扣血另计", damage);
+        Check(recorded.Length == hits.Length && recorded.Zip(receivers, (item, actor) =>
+              Mathf.FloorToInt((float)item["x"]) == Mathf.FloorToInt(actor.current_position.x) &&
+              Mathf.FloorToInt((float)item["y"]) == Mathf.FloorToInt(actor.current_position.y) &&
+              Math.Abs((float)item["radius"]) < .0001f).All(matches => matches),
+            "实际每次接触只提交一次且落在人物脚下", new { asset.id, recorded });
+        Check(chain ? recorded.All(item => ((JArray)item["changed"]).Count > 0) :
+              recorded.All(item => item["changed"].Any(tile => (string)tile["cell"] == "0:0" &&
+                  ((string)tile["after"]).EndsWith("/True"))),
+            chain ? "链雷每一跳实际改变地面" : "火刃点燃每个命中对象脚下", asset.id);
+        if (!legacy)
+        {
+            JToken baseline = prior["spells"].Single(item => (string)item["id"] == asset.id);
+            Check(Math.Abs((double)baseline["payment"] - payment) < .001 &&
+                  recorded.Select(item => (string)item["element"]).SequenceEqual(baseline["effects"].Select(item => (string)item["element"])),
+                "保持原元素和每发支付", new { asset.id, previous = baseline["payment"], payment });
+        }
+        await Advance(1f);
+    }
+    return new { passed = true, process, legacy, spells = reports, checks };
+}
+finally
+{
+    hook.UnpatchSelf();
+    GroundContactProbe.BeforeTile = null;
+    GroundContactProbe.AfterTile = null;
+    GroundContactProbe.Paid = null;
+    GroundContactProbe.Settled = null;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyExecution;
+    SkillHitResolver.ContactResolved -= OnOldContact;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+}
+
+public static class GroundContactProbe
+{
+    public static Func<Vector3, BaseSimObject, bool, Dictionary<string, string>> BeforeTile;
+    public static Action<Vector3, string, float, Dictionary<string, string>> AfterTile;
+    public static Action<ActorExtend, SkillCastPayment> Paid;
+    public static Action<Cultiway.Core.EventSystem.Events.GetHitEvent, Cultiway.Core.Combat.DamageSettlement> Settled;
+    public static void Before(Vector3 pos, BaseSimObject sourceObj, bool isArea, out Dictionary<string, string> __state) =>
+        __state = BeforeTile?.Invoke(pos, sourceObj, isArea);
+    public static void After(Vector3 pos, Cultiway.Core.SkillLibV3.Visuals.SkillVfxElementAsset element, float radius,
+        Dictionary<string, string> __state)
+    {
+        if (__state != null) AfterTile?.Invoke(pos, element.id, radius, __state);
+    }
+    public static void AfterPayment(SkillCastPayment __instance, ActorExtend ___payer) => Paid?.Invoke(___payer, __instance);
+    public static void AfterDamage(Cultiway.Core.EventSystem.Events.GetHitEvent evt, Cultiway.Core.Combat.DamageSettlement __result) =>
+        Settled?.Invoke(evt, __result);
+}

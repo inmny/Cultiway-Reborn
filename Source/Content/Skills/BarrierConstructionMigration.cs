@@ -44,7 +44,8 @@ internal static class BarrierConstructionMigration
         var target = new ActiveAbilityTarget(null, emission.TargetPos, attackKingdom: emission.AttackKingdom,
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
-            emission.SourcePos, emission.Payment, damage, sourceInstance: skill.Id, spatialSource: emission.SpatialSource) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+            emission.SourcePos, emission.Payment, damage, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
+            buildingContact: LegacyBuildingContact.From(in emission)) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>已完整映射的原墙与护盾分别提供自身形体和实际材料。</summary>
@@ -69,6 +70,8 @@ internal static class BarrierConstructionMigration
         string form = Form(container.Asset);
         if (form == null) return null;
         bool shield = container.Asset.ImpactProfile.Kind == Core.SkillLibV3.Impacts.SkillImpactKind.Shield;
+        int shieldVariants = form is "flame_aegis" or "wind_aegis" or "lightning_aegis" ? 2 : 1;
+        if (shield && (container.AnimationIndex < 0 || container.AnimationIndex >= shieldVariants)) return null;
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
         if (trajectory != (shield ? SkillTrajectories.ShieldOnCaster.id : SkillTrajectories.WallBetweenCasterAndTarget.id) ||
             container.Asset.ImpactTuning.BarrierLengthMultiplier != 1f) return null;
@@ -137,7 +140,7 @@ internal static class BarrierConstructionMigration
                 new ConstructionBinding { Anchor = AbilityAnchor.Between, Fraction = .6f, FaceTarget = true },
             Root = new ConstructionNode
             {
-                Id = shield ? "shield" : "wall", Form = form, Matter = matter,
+                Id = shield ? "shield" : "wall", Form = shield && container.AnimationIndex == 1 ? form + "_1" : form, Matter = matter,
                 State = matter == "water" ? "liquid" : shield || matter is "fire" or "wind" ? "energy" : "solid", Scale = scale,
                 Impact = impact,
                 Contact = contact ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval,
@@ -152,29 +155,54 @@ internal static class BarrierConstructionMigration
         if (container.Asset == SkillEntities.EarthWall) SetEarthWallMotion(definition, lifetime, scale);
         else if (container.Asset == SkillEntities.SwordCurtain) SetSwordCurtainMotion(definition, lifetime, scale);
         else if (container.Asset == SkillEntities.WoodWall) SetWoodWallMotion(definition, lifetime);
-        else if (container.Asset == SkillEntities.YangShield) SetSolarShieldMotion(definition, lifetime);
+        else if (shield && !SetShieldLifecycle(definition, container)) return null;
+        else if (form is "fire_wall" or "wind_wall" or "water_curtain")
+            definition.Root.Operations = new[]
+            {
+                FollowGround(),
+                new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "run" }
+            };
         return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(),
             contactForceScale: emission.RuntimeData.ResolveEffectScale(), caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
     }
 
-    /// <summary>真实护盾结束后只有短暂碎甲退光，保持原防护时长与容量。</summary>
-    /// <param name="definition">原阳盾展开后的构造。</param><param name="lifetime">原防护时长。</param>
-    private static void SetSolarShieldMotion(AbilityDefinition definition, float lifetime)
+    /// <summary>先保留原成形，再使用完整的原防御时长，最后只在真实结束点显示收势。</summary>
+    /// <param name="definition">原护盾展开后的构造。</param>
+    /// <param name="container">本次实际使用的旧变体。</param>
+    private static bool SetShieldLifecycle(AbilityDefinition definition, SkillContainer container)
     {
+        var animation = container.Asset.GetAnimation(container.AnimationIndex);
+        float interval = container.MotionProfile.FrameInterval;
+        float appearance = ProjectileConstructionMigration.ClipSeconds(animation.Appearance, interval);
+        float release = ProjectileConstructionMigration.ClipSeconds(animation.Dissipation, interval);
+        float activeEnd = appearance + definition.Lifetime;
+        if (activeEnd + release > 3600f) return false;
         ConstructionNode shield = definition.Root;
-        shield.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "run" } };
-        float release = Mathf.Min(.38f, 3600f - lifetime);
-        if (release <= 0f) return;
-        definition.Lifetime += release;
-        shield.DisappearAt = shield.ActiveUntil = lifetime;
+        var motion = new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "run" };
+        shield.Operations = appearance > 0f
+            ? new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = appearance }, motion }
+            : new[] { motion };
+        shield.ActiveFrom = appearance;
+        definition.Lifetime = activeEnd + release;
+        if (release <= 0f) return true;
+        shield.DisappearAt = shield.ActiveUntil = activeEnd;
+        bool solar = container.Asset == SkillEntities.YangShield;
         shield.Children = new[] { new ConstructionNode
         {
-            Id = "retreat", Form = "solar_scale_release", Matter = "yang", State = "energy", Scale = shield.Scale,
-            ContactRole = ConstructionContactRole.Decoration, SourceLoss = ConstructionSourceLoss.Continue,
-            Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End },
-            DisappearAt = release,
-            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "release", Seconds = release } }
+            Id = "retreat", Form = solar ? "solar_scale_release" : shield.Form,
+            Matter = shield.Matter, State = shield.State, Scale = shield.Scale, Volume = 0f,
+            ContactRole = ConstructionContactRole.Decoration, SourceLoss = ConstructionSourceLoss.End,
+            Activation = new ConstructionActivation
+            {
+                Trigger = ConstructionChangeTrigger.End, Placement = ConstructionEventPlacement.Event
+            },
+            DisappearAt = release, AnimateWhileHeld = true,
+            Operations = new[] { new ConstructionOperation
+            {
+                Kind = ConstructionOperationKind.Animate, Clip = solar ? "release" : "dissolve", Seconds = release
+            } }
         } };
+        return true;
     }
 
     /// <summary>固定屏障沿用地表承托。</summary>

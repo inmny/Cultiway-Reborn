@@ -93,19 +93,25 @@ try
     if(section=="all"||section=="sources"||section=="visuals")
     foreach(var entry in new[]{(Asset:SkillEntities.Fireball,Form:"fireball",Matter:"fire",State:"energy",Radius:2f,Multiplier:1f),
         (Asset:SkillEntities.ThunderOrb,Form:"thunder_orb",Matter:"lightning",State:"energy",Radius:2f,Multiplier:1f),
-        (Asset:SkillEntities.ChaosOrb,Form:"chaos_orb",Matter:"entropy",State:"energy",Radius:2f,Multiplier:1f),
-        (Asset:SkillEntities.FlameMeteor,Form:"flame_meteor",Matter:"fire",State:"energy",Radius:2.5f,Multiplier:1.2f),
-        (Asset:SkillEntities.FallingRock,Form:"falling_rock",Matter:"earth",State:"solid",Radius:2.5f,Multiplier:1.2f),
-        (Asset:SkillEntities.FallingTimber,Form:"falling_timber",Matter:"wood",State:"solid",Radius:2.5f,Multiplier:1.2f),
-        (Asset:SkillEntities.LightningStrike,Form:"lightning_strike",Matter:"lightning",State:"energy",Radius:2.5f,Multiplier:1.2f),
-        (Asset:SkillEntities.Icefall,Form:"icefall",Matter:"ice",State:"solid",Radius:2.5f,Multiplier:1.2f)})
+        (Asset:SkillEntities.ChaosOrb,Form:"chaos_orb_0",Matter:"entropy",State:"energy",Radius:2f,Multiplier:1f),
+        (Asset:SkillEntities.FlameMeteor,Form:"flame_meteor_0",Matter:"fire",State:"energy",Radius:2.5f,Multiplier:1.2f),
+        (Asset:SkillEntities.FallingRock,Form:"falling_rock_0",Matter:"earth",State:"solid",Radius:2.5f,Multiplier:1.2f),
+        (Asset:SkillEntities.FallingTimber,Form:"falling_timber_0",Matter:"wood",State:"solid",Radius:2.5f,Multiplier:1.2f),
+        (Asset:SkillEntities.LightningStrike,Form:"lightning_strike_0",Matter:"lightning",State:"energy",Radius:2.5f,Multiplier:1.2f),
+        (Asset:SkillEntities.Icefall,Form:"icefall_rain",Matter:"ice",State:"solid",Radius:2.5f,Multiplier:1.2f)})
     {
         currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
-        string burstForm=entry.Asset==SkillEntities.FlameMeteor?"flame_meteor_impact_motion":entry.Matter+"_burst";
+        string burstForm=entry.Asset==SkillEntities.FlameMeteor?"flame_meteor_impact_motion":
+            entry.Asset==SkillEntities.ThunderOrb?"thunder_orb_impact":
+            entry.Asset==SkillEntities.ChaosOrb?"chaos_orb_impact":
+            entry.Asset==SkillEntities.LightningStrike?"lightning_strike_impact":
+            entry.Asset==SkillEntities.FallingRock?"falling_rock_impact":
+            entry.Asset==SkillEntities.FallingTimber?"falling_timber_impact":
+            entry.Asset==SkillEntities.Icefall?"icefall_impact":entry.Matter+"_burst";
         var normal=Build();
         if(section!="visuals")foreach(var skill in new[]{normal,Build(true)})
         {
-            var d=Convert(skill,out GetHitEvent damage);var burst=d.Root.Children.Single();
+            var d=Convert(skill,out GetHitEvent damage);var burst=d.Root.Children.Single(child=>child.Id=="burst");
             var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
             var plan=AbilityCompiler.Compile(restored,cache:false);bool boost=skill.HasComponent<HugeModifier>();
             Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.State==entry.State&&
@@ -170,7 +176,7 @@ try
             damageEvents.All(e=>Math.Abs(e.Damage-forceAfterHit[0])<.01f),"交锋后爆发只继承真实余力，不重建初始强度",
             new{force=forceAfterHit.ToArray(),damages=damageEvents.Select(e=>e.Damage).ToArray()});
         ResetPeople();starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();
-        Check(Use(Build(duration:.06f)),"短原寿命的实际来源受理");await Advance(.3f);
+        Check(Use(Build(duration:.06f)),"短原寿命的实际来源受理");await Advance(.6f);
         Check(accepted.Single().Finished&&accepted.Single().NodeAge(1)<0&&damageEvents.Count==0,"原寿命耗尽不凭空产生爆发");
         }
         ResetPeople();starts.Clear();accepted.Clear();damageEvents.Clear();Check(Use(Build()),"待取消来源受理");await Advance(.02f);accepted.Single().Cancel();await Advance(.3f);

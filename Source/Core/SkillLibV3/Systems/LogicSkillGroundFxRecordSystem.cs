@@ -16,8 +16,6 @@ namespace Cultiway.Core.SkillLibV3.Systems;
 public class LogicSkillGroundFxRecordSystem :
     QuerySystem<Position, SkillGroundFxState, SkillEntity, Trajectory, ColliderSphere>
 {
-    /// <summary>飞行地面影响的距离阈值（世界单位）：每移动这么远触发一次 OnFlyOver。</summary>
-    private const float FlyOverDistanceThreshold = 0.6f;
     private readonly List<PendingGroundEffect> _pendingEffects = new();
 
     public LogicSkillGroundFxRecordSystem()
@@ -39,12 +37,7 @@ public class LogicSkillGroundFxRecordSystem :
                 fxState.LastY = currentPos.y;
                 return;
             }
-            const SkillTrajectoryDomain flyoverDomains = SkillTrajectoryDomain.FlyingBody |
-                                                         SkillTrajectoryDomain.FlyingWave |
-                                                         SkillTrajectoryDomain.Ballistic |
-                                                         SkillTrajectoryDomain.GroundTravel |
-                                                         SkillTrajectoryDomain.MobileField;
-            if ((trajectory.Asset.Domains & flyoverDomains) == SkillTrajectoryDomain.None)
+            if ((trajectory.Asset.Domains & SkillGroundFx.FlyOverDomains) == SkillTrajectoryDomain.None)
             {
                 fxState.DistanceAccumulator = 0f;
                 fxState.LastX = currentPos.x;
@@ -58,9 +51,9 @@ public class LogicSkillGroundFxRecordSystem :
             if (movedSq <= 0.0001f) return;
 
             var distance = Mathf.Sqrt(movedSq);
-            var firstSampleDistance = FlyOverDistanceThreshold - fxState.DistanceAccumulator;
+            var firstSampleDistance = SkillGroundFx.FlyOverDistanceThreshold - fxState.DistanceAccumulator;
             for (var sampleDistance = firstSampleDistance; sampleDistance <= distance;
-                 sampleDistance += FlyOverDistanceThreshold)
+                 sampleDistance += SkillGroundFx.FlyOverDistanceThreshold)
             {
                 var t = sampleDistance / distance;
                 var samplePos = new Vector3(fxState.LastX + dx * t, fxState.LastY + dy * t, currentPos.z);
@@ -68,7 +61,7 @@ public class LogicSkillGroundFxRecordSystem :
             }
 
             var totalDistance = fxState.DistanceAccumulator + distance;
-            fxState.DistanceAccumulator = totalDistance % FlyOverDistanceThreshold;
+            fxState.DistanceAccumulator = totalDistance % SkillGroundFx.FlyOverDistanceThreshold;
             fxState.LastX = currentPos.x;
             fxState.LastY = currentPos.y;
         });

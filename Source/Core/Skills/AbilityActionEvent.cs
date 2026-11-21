@@ -43,7 +43,10 @@ public enum AbilityActionContactKind
     World,
 
     /// <summary>法术之间的交锋。</summary>
-    Ability
+    Ability,
+
+    /// <summary>攻击与真实建筑的接触。</summary>
+    Building
 }
 
 /// <summary>一次数值推进形成的动作事实，只有预测确认后才能交给外部。</summary>

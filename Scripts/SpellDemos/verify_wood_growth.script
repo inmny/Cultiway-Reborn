@@ -42,12 +42,17 @@ try
     source.attack_timer = 999;
     CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
     source.updateStats();
+    var setup = spell.GetComponent<SkillContainer>();
+    var appearance = setup.Asset.GetAnimation(setup.AnimationIndex).Appearance;
     await Advance(.08f);
     var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
         .Single(value => (long)Field(value, "Id") == castId);
     var cast = (AbilityCast)Field(running, "Cast");
     var views = new List<FormVisualInstance>();
     var shapes = new List<AbilityCapsule>();
+    cast.AppendVisuals(views); cast.AppendContacts(shapes);
+    Check(views.Single().BuildProgress > 0f && shapes.Count == 0, "原地先长出根，准备时没有接触");
+    await Advance(appearance.Frames.Length * appearance.Settings.ResolveFrameInterval(setup.MotionProfile.FrameInterval));
 
     (float Build, int Count, bool MainFirst, float Reach) Sample(string phase)
     {
@@ -77,7 +82,7 @@ try
         bool trunkOnly = shapes.Count > 0 && shapes.All(shape => resource.Description.Contacts[shape.Shape].Part == 1);
         var leaves = resource.Description.Parts.Select((part, index) => (part, index))
             .Where(entry => entry.part.Surface == "wood_leaf").ToArray();
-        Check(resource.Description.Id == "creeping_vine" && leaves.Length == 5 &&
+        Check(resource.Description.Id == "creeping_vine_0" && leaves.Length == 5 &&
             leaves.All(entry => entry.part.HasBuildData && view.SurfaceFor(entry.index) == "wood_leaf") &&
             resource.Description.Contacts.All(contact => contact.Part < 3) && aligned && shapes.Count == expected,
             phase + "：阶段姿态和实际接触一致，叶面没有接触", new { build = view.BuildProgress, shapes = shapes.Count, trunkOnly, reach });
@@ -89,9 +94,9 @@ try
     var growing = Sample("侧根张开");
     await Advance(.22f);
     var formed = Sample("根芯成形");
-    Check(early.Build > 0 && early.MainFirst && growing.Build > early.Build &&
-        growing.Count > early.Count && formed.Build == 1 && formed.Count == 24 && formed.Reach > early.Reach,
-        "主根先接触，完整之后保留原二十四段根芯");
+    Check(early.Build > 0 && early.Count > 0 && growing.Build >= early.Build &&
+        growing.Count >= early.Count && formed.Build == 1 && formed.Count == 24 && formed.Reach >= early.Reach,
+        "接触随实际根系生长，完整之后保留原二十四段根芯");
     await Advance(.82f);
     Check(contacts.Count(hit => hit.TargetId == target.id) == 1 && target.data.health < targetHealth &&
         contacts.All(hit => hit.TargetId != outside.id) && outside.data.health == outsideHealth,

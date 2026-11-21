@@ -76,7 +76,7 @@ public sealed partial class ConstructedAbilityService
         running.Hits.TryGetValue(key, out ContactMemory memory);
         if (policy.MaximumPerTarget > 0 && memory?.Count >= policy.MaximumPerTarget) return float.PositiveInfinity;
         if (policy.Mode == ConstructionContactMode.Pulse)
-            return PulseFraction(policy.Interval, memory, running.Cast.Age - step, step, earliest);
+            return PulseFraction(policy, memory, running.Cast.Age - step, step, earliest);
         if (memory == null) return 0f;
         switch (policy.Mode)
         {
@@ -96,13 +96,15 @@ public sealed partial class ConstructedAbilityService
     }
 
     /// <summary>同一次施放的定时脉冲不随进入时间重排；已确认的整点不能再次消费。</summary>
-    /// <param name="interval">共同间隔。</param><param name="memory">已确认接触。</param>
+    /// <param name="policy">共同间隔和定时起点。</param><param name="memory">已确认接触。</param>
     /// <param name="start">本步施放年龄。</param><param name="step">共同步长。</param>
     /// <param name="earliest">作用窗口的最早进度。</param>
-    private static float PulseFraction(float interval, ContactMemory memory, float start, float step, float earliest)
+    private static float PulseFraction(CompiledContactPolicy policy, ContactMemory memory, float start, float step, float earliest)
     {
+        float interval = policy.Interval, offset = policy.PulseOffset;
+        start -= offset;
         float tick = Mathf.Max(1f, Mathf.Ceil((start + earliest * step - .000001f) / interval));
-        if (memory != null) tick = Mathf.Max(tick, Mathf.Floor((memory.Age + .000001f) / interval) + 1f);
+        if (memory != null) tick = Mathf.Max(tick, Mathf.Floor((memory.Age - offset + .000001f) / interval) + 1f);
         return Mathf.Max(0f, (tick * interval - start) / step);
     }
 

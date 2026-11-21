@@ -13,7 +13,7 @@ public sealed partial class AbilityCast
         centre = state.Transform.GetColumn(3);
         float age = NodeAge(node);
         return !Finished && state.Exists && state.Started && age >= form.Presence.x && age < form.Presence.y &&
-            form.RadialMotion != null && form.RadialMotion.Speed != 0f;
+            form.RadialMotion != null && age >= form.RadialMotion.StartAt && form.RadialMotion.Speed != 0f;
     }
 
     /// <summary>地口、共同受力和出口都从同一步部位姿态取样。</summary>

@@ -104,7 +104,7 @@ public sealed partial class AbilityCast
                 ref NodeState state = ref nodes[index];
                 CompiledConstructionActivation gate = Plan.Nodes[index].Activation;
                 if (gate.InheritAbsorbedForce || !state.Exists || !float.IsPositiveInfinity(state.BirthAt) ||
-                    !gate.Crossed(fact.Before, fact.After) ||
+                    !WithinSourcePresence(gate) || !gate.Crossed(fact.Before, fact.After) ||
                     gate.Matter != null && !ReferenceEquals(gate.Matter, fact.Matter)) continue;
                 state.BirthAt = Age + gate.Delay;
                 if (gate.Placement == ConstructionEventPlacement.Event)
@@ -121,6 +121,11 @@ public sealed partial class AbilityCast
 
         dispatchingEvents = false;
     }
+
+    /// <summary>次数及余力交接在同一个真实结束时点检查来源的存在时限。</summary>
+    /// <param name="gate">已经解析来源的开始条件。</param>
+    private bool WithinSourcePresence(CompiledConstructionActivation gate) =>
+        !gate.BeforeSourceExpires || NodeAge(gate.Source) < Plan.Nodes[gate.Source].Presence.y;
 
     /// <summary>只有实际来源和时间均已就绪的部位才进入本轮开始队列。</summary>
     /// <param name="index">等待部位。</param>

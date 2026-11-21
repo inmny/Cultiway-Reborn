@@ -174,6 +174,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 CommitBodyFlights(clock);
                 ConstructedActorImpulse.CommitRadial(clock);
                 if (generation != worldGeneration) yield break;
+                foreach (RunningCast running in active)
+                {
+                    ConfirmLegacyGroundTravel(running, generation);
+                    if (generation != worldGeneration) yield break;
+                    ConfirmLegacyAreaImpact(running);
+                    if (generation != worldGeneration) yield break;
+                }
                 if (hit.HasValue && hit.Value.WorldRecord > 0)
                 {
                     using (var materials = WorldMaterialService.AdvanceTo(clock))
@@ -315,6 +322,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         AppendYinTransfers(now);
         AppendBalancedWakan(now);
         AppendLifeRepairs(now);
+        AppendTerrainChanges(now);
+        AppendWorldUtilityVisuals(now);
         AppendTimeWear(now);
         AppendShadows(now);
         AppendShadowHolds(now);
@@ -821,6 +830,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             bool ordinary = powered && running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
             bool thermalSource = fire || shape.To.Node >= 0 && running.Cast.Burning(shape.To.Node).Heat > 0;
             bool attack = canTouch && ordinary && running.Cast.Role(shape.To.Node) == ConstructionContactRole.Attack;
+            if (canTouch && ordinary && shape.To.Node >= 0 && running.BuildingContact != null)
+                FindLegacyBuildingContacts(shape, owner, step, Include);
             if (shape.To.Node < 0 && attack) FindBodyCorrespondences(shape, clock, step, touchFrom, Include);
             if (attack && hasBodyGuardShapes)
                 FindBodyGuards(shape, step, touchFrom, Include);
@@ -892,7 +903,19 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             // 已被真实器物接触抵住的兵器不能仅因进入伤害时段而穿透补伤；独立法术和其他肢体继续运行。
             if (shape.To.Node < 0 && (running.WeaponConstraint?.Active == true ||
                                     running.Connection?.Active == true && running.Connection.WeaponOnly)) continue;
-            actorIndex.Query(shape.Bounds, nearby);
+            CompiledForm form = shape.To.Node < 0 ? null : running.Cast.Plan.Nodes[shape.To.Node];
+            float groundRadius = form?.GroundCircleRadius > 0f && shape.To.Shape >= 0 &&
+                                 shape.To.Shape < form.Resource.Contacts.Length
+                ? form.GroundCircleRadius : 0f;
+            if (groundRadius > 0f)
+            {
+                // 实际圆面被拆成多块实体轮廓；人物在定时点只查询一次完整圆面。
+                if (shape.To.Shape != 0) continue;
+                var extent = shape.Bounds.extents;
+                float scale = Mathf.Max(shape.From.Prism.OutlineScale, shape.To.Prism.OutlineScale);
+                actorIndex.QueryPlane(shape.Bounds.center, Mathf.Max(extent.x, extent.y) + groundRadius * scale, nearby);
+            }
+            else actorIndex.Query(shape.Bounds, nearby);
             // 双方关系只查询已选目标；长尾等真实表面可能超出原版人物粗筛球。
             if (shape.To.Node < 0 && running.Cast.Plan.Body.Construction.HasControlRelations &&
                 actorIndices.TryGetValue(running.TargetId, out int selected) && !nearby.Contains(selected))
@@ -929,6 +952,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     if (effect.SelectedTargetOnly && owner.TargetId != actor.Id || !owner.Matches(effect.Targets, actor.Actor) ||
                         !running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until)) return;
                     int node = shape.To.Node;
+                    if (node == 0 && owner.TargetId == 0 && running.BuildingContact is { ChainStartRadius: > 0f } chain &&
+                        Vector2.Distance(running.LastTargetFoot, toFoot) > chain.ChainStartRadius + b1.Radius) return;
                     float originalUntil = float.PositiveInfinity;
                     if (node >= 0 && running.Cast.Plan.Nodes[node].Correspondence?.OriginalContactOnly == true)
                     {
@@ -948,7 +973,17 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     BodySurfaceBinding frost = null;
                     BodySurfacePose frostPose = null;
                     BodySurfaceAnchor frostAnchor = default;
-                    if (effect.FrostCoating != null)
+                    if (groundRadius > 0f)
+                    {
+                        Vector3 foot = Vector3.Lerp(fromFoot, toFoot, earliest);
+                        Vector2 offset = foot - a0.A;
+                        float radius = groundRadius * a0.Prism.OutlineScale;
+                        if (offset.sqrMagnitude > radius * radius) return;
+                        at = 0f;
+                        point = new Vector3(foot.x, foot.y, a0.A.z);
+                        normal = offset.sqrMagnitude > 0f ? (Vector3)offset.normalized : Vector3.forward;
+                    }
+                    else if (effect.FrostCoating != null)
                     {
                         double start = clock + step * earliest;
                         if (!FindFrostSurface(actor, effect.FrostCoating, a0, pulse ? a0 : shape.To, start,
@@ -1069,6 +1104,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             return;
         }
 
+        if (hit.Building != null)
+        {
+            ResolveLegacyBuildingContact(hit);
+            return;
+        }
+
         if (hit.Tile != null)
         {
             ResolveWorldContact(hit);
@@ -1151,6 +1192,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         float strength = node < 0 ? running.BodyStrikeScale(running.Cast.BodyStage) :
             running.Cast.ContactAttenuation(node, hit.Left.To.Shape);
         int healthBefore = actor.Actor.data.health;
+        if (node >= 0 && running.GroundContact != null)
+        {
+            ConfirmLegacyGroundContact(running.GroundContact, spreadCenter, contactOwner, contactGeneration);
+            if (contactGeneration != worldGeneration) return;
+        }
         DamageSettlement primaryDamage = default;
         DamageObservation observation = null;
         // 明确发力继承接触前的运动；原版同次命中附带的击退不再重复计入。
@@ -1209,7 +1255,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (contactGeneration != worldGeneration) return;
         running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id,
             hit.LeftRayLength >= 0f ? hit.LeftRayLength : null);
-        simulation.SelectContactTargets(running, node, actor);
+        simulation.SelectContactTargets(running, node, spreadCenter);
         if (node < 0) ConfirmBodyFeedback(running, hit.Point);
         if (running.Cast.UsesBodyWindow(node) && result == ApplyAttackState.Hit) RespondToBodyResult(running, BodyActionResult.Contact);
         else if (running.Cast.UsesBodyWindow(node) && result is ApplyAttackState.Block or ApplyAttackState.Deflect)
@@ -1651,6 +1697,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <summary>人物接触的实际对象。</summary>
         internal readonly ActorMotion Actor;
 
+        /// <summary>原攻击实际碰到的建筑及稳定编号，其他接触为空。</summary>
+        internal readonly Building Building;
+        internal readonly long BuildingId;
+
         /// <summary>世界接触的实际地块，其他接触为空。</summary>
         internal readonly WorldTile Tile;
 
@@ -1713,13 +1763,14 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="actorShape">同一接触时点的真实人物作用体。</param>
         /// <param name="frostBinding">实际结霜模型。</param>
         /// <param name="frostRule">实际接触的薄霜规则。</param>
+        /// <param name="building">本次真实建筑接触。</param>
         internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point,
             Vector3 normal, float seconds, bool quenching = false, long worldRecord = 0,
             AbilityCapsule worldShape = default, ThermalReaction reaction = ThermalReaction.None,
             bool worldSource = false, WorldTile tile = null, int worldEffect = 0, int bodyRelation = -1,
             BodySurfacePose bodySurface = null, BodySurfaceAnchor bodyAnchor = default, BodySurfaceHit? environment = null, ConstructedActorImpulse.BodyFlight flight = null,
             AbilityCapsule actorShape = default, Vector3 bodyGuardFacing = default, BodySurfaceBinding frostBinding = null,
-            CompiledFrostCoating frostRule = null, bool heldWeaponObstacle = false)
+            CompiledFrostCoating frostRule = null, bool heldWeaponObstacle = false, Building building = null)
         {
             BodyGuardFacing = bodyGuardFacing;
             BodyRelation = bodyRelation;
@@ -1730,6 +1781,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             BodyAnchor = bodyAnchor;
             FrostBinding = frostBinding;
             FrostRule = frostRule;
+            Building = building;
+            BuildingId = building?.getID() ?? 0L;
             Tile = tile;
             WorldEffect = worldEffect;
             Quenching = quenching;
@@ -1765,7 +1818,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 if (Right.HasValue)
                     LeftRayLength = RayContact(leftShape, Slice(Right.Value.From, Right.Value.To, fraction), ref actualPoint, ref actualNormal);
-                else if (actor.Id != 0 || worldRecord > 0)
+                else if (actor.Id != 0 || worldRecord > 0 || building != null)
                     LeftRayLength = RayContact(leftShape, actor.Id != 0 ? actorShape : worldShape, ref actualPoint, ref actualNormal);
                 else LeftRayLength = AbilityPairSweep.RayLengthAt(leftShape, actualPoint, actualNormal);
                 if (rightRay)
@@ -1820,6 +1873,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 return order != 0 ? order : a.WorldEffect.CompareTo(b.WorldEffect);
             }
 
+            if (a.Building != null || b.Building != null)
+            {
+                order = (b.Building != null).CompareTo(a.Building != null);
+                return order != 0 ? order : a.BuildingId.CompareTo(b.BuildingId);
+            }
             return a.Right.HasValue ? CompareShape(a.Right.Value, b.Right.Value) : a.Actor.Id.CompareTo(b.Actor.Id);
         }
 

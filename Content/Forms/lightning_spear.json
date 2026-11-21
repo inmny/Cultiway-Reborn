@@ -28,9 +28,28 @@
                     ]
                 },
                 {
+                    "Id": "lightningSpine",
+                    "Values": [
+                        -0.10999999940395355,
+                        0.012000000104308129,
+                        0.10999999940395355,
+                        0.10999999940395355,
+                        0.41999998688697817,
+                        0.14000000059604646,
+                        0.9300000071525574,
+                        0.11999999731779099,
+                        1.2400000095367432,
+                        0.14499999582767487,
+                        1.7100000381469727,
+                        0.1899999976158142,
+                        2.240000009536743,
+                        0.02500000037252903
+                    ]
+                },
+                {
                     "Id": "sides",
                     "Values": [
-                        6.0
+                        8.0
                     ]
                 }
             ]
@@ -38,7 +57,8 @@
         "Connections": [],
         "Changes": [
             "transform",
-            "material"
+            "material",
+            "motion"
         ]
     },
     "ConformToGround": false,
@@ -62,13 +82,59 @@
                 "piercing.core"
             ],
             "Id": "charged_lance",
-            "Surface": "lightning_dense",
+            "Surface": "thunder_body",
             "Pivot": [
                 0.0,
                 0.0,
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/lightning_spear_charged_lance.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/lightning_spear_bright_spine_mid.asset",
+                "Assets/Cultiway/Forms/lightning_spear_bright_spine_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "piercing.core"
+            ],
+            "Id": "bright_spine",
+            "Surface": "thunder_arc",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_spear_bright_spine.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/lightning_spear_return_spine_mid.asset",
+                "Assets/Cultiway/Forms/lightning_spear_return_spine_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "piercing.core"
+            ],
+            "Id": "return_spine",
+            "Surface": "thunder_arc_fork",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/lightning_spear_return_spine.asset",
             "Control": "root",
             "Skin": false,
             "HasSurfaceData": false,
@@ -115,6 +181,7 @@
     "Grips": [],
     "Held": {
         "Groups": [],
+        "EquipmentIds": [],
         "Scale": 0.0
     },
     "Actions": [],
@@ -135,6 +202,7 @@
                 0.8500000238418579
             ],
             "Radius": 0.09000000357627869,
+            "HeldMatter": "",
             "AControl": "root",
             "BControl": "root",
             "AInfluences": [],
@@ -156,6 +224,7 @@
                 1.2999999523162842
             ],
             "Radius": 0.10000000149011612,
+            "HeldMatter": "",
             "AControl": "root",
             "BControl": "root",
             "AInfluences": [],
@@ -177,6 +246,7 @@
                 1.9500000476837159
             ],
             "Radius": 0.12999999523162843,
+            "HeldMatter": "",
             "AControl": "root",
             "BControl": "root",
             "AInfluences": [],
@@ -198,6 +268,7 @@
                 2.25
             ],
             "Radius": 0.04500000178813934,
+            "HeldMatter": "",
             "AControl": "root",
             "BControl": "root",
             "AInfluences": [],
@@ -221,15 +292,232 @@
             ],
             "Minimum": [
                 -0.36000001430511477,
-                -0.2650040090084076,
-                -0.03999999910593033
+                -0.3059999942779541,
+                -0.10999999940395355
             ],
             "Maximum": [
                 0.36000001430511477,
-                0.2650040090084076,
+                0.3059999942779541,
                 2.4600000381469728
             ]
         }
     ],
-    "Motions": []
+    "Motions": [
+        {
+            "Id": "dissolve",
+            "Duration": 0.25,
+            "Loop": false,
+            "Keys": [
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.0,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0196749996393919,
+                    "At": 0.020833000540733339,
+                    "Positions": [
+                        0.0,
+                        -0.01083299983292818,
+                        -0.0041669998317956928
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.07407499849796295,
+                    "At": 0.04166699945926666,
+                    "Positions": [
+                        0.0,
+                        -0.0216669999063015,
+                        -0.008333000354468823
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.15625,
+                    "At": 0.0625,
+                    "Positions": [
+                        0.0,
+                        -0.032499998807907107,
+                        -0.012500000186264515
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.2592569887638092,
+                    "At": 0.08333300054073334,
+                    "Positions": [
+                        0.0,
+                        -0.04333300143480301,
+                        -0.016666999086737634
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.37615901231765749,
+                    "At": 0.10416699945926666,
+                    "Positions": [
+                        0.0,
+                        -0.0541669987142086,
+                        -0.020833000540733339
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.5,
+                    "At": 0.125,
+                    "Positions": [
+                        0.0,
+                        -0.06499999761581421,
+                        -0.02500000037252903
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.6238409876823425,
+                    "At": 0.14583300054073335,
+                    "Positions": [
+                        0.0,
+                        -0.07583300024271012,
+                        -0.029167000204324724
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.7407429814338684,
+                    "At": 0.16666699945926667,
+                    "Positions": [
+                        0.0,
+                        -0.086667001247406,
+                        -0.03333299979567528
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.84375,
+                    "At": 0.1875,
+                    "Positions": [
+                        0.0,
+                        -0.09749999642372132,
+                        -0.03750000149011612
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9259250164031982,
+                    "At": 0.20833300054073335,
+                    "Positions": [
+                        0.0,
+                        -0.10833299905061722,
+                        -0.04166699945926666
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9803249835968018,
+                    "At": 0.22916699945926667,
+                    "Positions": [
+                        0.0,
+                        -0.11916700005531311,
+                        -0.04583299905061722
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 1.0,
+                    "At": 0.25,
+                    "Positions": [
+                        0.0,
+                        -0.12999999523162843,
+                        -0.05000000074505806
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                }
+            ],
+            "Markers": []
+        }
+    ]
 }

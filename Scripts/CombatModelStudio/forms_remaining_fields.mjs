@@ -1,6 +1,6 @@
 /** 龙卷与玄阴领域各自保留连续厚体，共用原领域执行，不建立专用播放循环。 */
 import * as T from 'three';
-import {part,write,skin,motion,structure,surfaceData,round} from './form_export.mjs';
+import {part,write,skin,motion,dissolve,structure,surfaceData,round} from './form_export.mjs';
 
 /** 按连续横截面构成封闭旋体，制作上向为Z。 */
 function body(profile,segments=64) {
@@ -93,10 +93,98 @@ function windOpen() {
     return {...pose(i,time/2.4),position:[.12*open*Math.cos(i*2.09),.12*open*Math.sin(i*2.09),i*.08*open]};
   });
   for(const key of pressureRun.Keys)key.Fade=round(Math.max(1-T.MathUtils.smoothstep(key.At,0,.21),T.MathUtils.smoothstep(key.At,2.02,2.45)));
-  write('wind_vortex_open',pieces,[],windContacts(),controls,[run,pressureRun],false,
+  const release=dissolve(controls,(i,p)=>({
+    rotation:pose(i,p*.19).rotation,position:[0,0,-.12*p*i]
+  }));
+  write('wind_vortex_open',pieces,[],windContacts(),controls,[run,pressureRun,release],false,
     {Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
     structure('volume','forms_remaining_fields.mjs','windOpen',{radius:2.5,height:3.7,cycle:2.4,folds:3},
       {wind_body:['wind.flow','field.body'],fold_0:['wind.flow'],fold_1:['wind.flow'],fold_2:['wind.flow']},[]));
+}
+
+/** 暗漏斗从贴地碎屑向外张开。银白斜卷保留狭窄直立作用芯，外侧厚流向上偏转。 */
+function windFunnel(dust) {
+  const id=dust?'wind_vortex_dust':'wind_vortex_lean';
+  const controls=['vortex','draw','wake'].map(Id=>({Id,Position:[0,0,0],Rotation:[0,0,0,1]}));
+  const base=body([[0,.01],[2.18,.01],[2.5,.09],[2.44,.19],[1.48,.30],[.86,.55],
+    [.78,1.1],[.81,2.9],[.58,3.45],[0,3.71]]);
+  const wall=body(dust?[[0,.08],[.80,.08],[.91,.77],[1.18,1.52],[1.62,2.51],
+    [2.03,3.17],[2.08,3.45],[1.78,3.43],[1.47,3.18],[1.08,2.53],[.65,1.66],[.46,.90],[0,.25]]:
+    [[0,.09],[.65,.13],[.78,.66],[.93,1.39],[1.16,2.15],[1.46,2.94],[1.70,3.61],
+      [1.61,4.04],[1.31,3.96],[1.10,3.38],[.83,2.84],[.69,2.08],[.53,1.25],[0,.2]]);
+  const vertices=wall.getAttribute('position');
+  for(let i=0;i<vertices.count;i++) {
+    const x=vertices.getX(i),y=vertices.getY(i),z=vertices.getZ(i);
+    const angle=Math.atan2(y,x),turn=angle-z*(dust?2.3:3.9);
+    const bulge=1+.14*Math.sin(turn*3)+.05*Math.cos(turn*5);
+    const shear=dust?0:.100*z*z;
+    vertices.setXYZ(i,x*bulge+shear,y*bulge+.21*shear,z+.08*Math.sin(turn*2));
+  }
+  const pieces=[
+    part('ground_flow',surfaceData(base,.27,p=>.73-.39*T.MathUtils.smoothstep(p.z,.25,1.2)),
+      'wind_pressure',[0,0,0],'vortex'),
+    part('funnel_wall',surfaceData(wall,.46,p=>{
+      const phase=Math.atan2(p.y,p.x)-p.z*(dust?2.3:3.9);
+      return .48+.43*Math.cos(phase*3)**2;
+    }),dust?'wind_shear':'wind_open',[0,0,0],'draw')
+  ];
+  if(dust) {
+    const debris=body([[0,.05],[1.19,.04],[2.31,.08],[2.48,.17],[2.14,.41],
+      [1.46,.60],[.75,.27],[0,.13]],72);
+    const points=debris.getAttribute('position');
+    for(let i=0;i<points.count;i++) {
+      const x=points.getX(i),y=points.getY(i),a=Math.atan2(y,x),z=points.getZ(i);
+      const r=1+.06*Math.sin(a*7)+.03*Math.cos(a*13);
+      points.setXYZ(i,x*r,y*r,z*(.76+.23*Math.cos(a*6+1)));
+    }
+    pieces.push(part('earth_skirt',surfaceData(debris,.44,
+      p=>.34+.47*Math.cos(Math.atan2(p.y,p.x)*4)**2),'wind_fold_dark',[0,0,0],'wake'));
+  } else {
+    const wake=windFold(1);
+    const points=wake.getAttribute('position');
+    for(let i=0;i<points.count;i++) {
+      const z=points.getZ(i);
+      points.setXYZ(i,points.getX(i)*.76+.105*z*z,points.getY(i)*.76,z*1.06);
+    }
+    pieces.push(part('rising_fold',wake,'wind_open',[0,0,0],'wake'));
+  }
+  const spin=(i,p)=>new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),
+    p*Math.PI*2*(i===0?1:i===1?2:-1)).toArray();
+  const run=motion('run',dust?1.42:1.16,true,controls,64,(i,p)=>({
+    rotation:spin(i,p),position:[0,0,i?.04*Math.sin(p*Math.PI*2+i):0]
+  }));
+  const clips=dust?[run,dissolve(controls,(i,p)=>({rotation:spin(i,p*.19),position:[0,0,-.28*p*i]}))]:[run];
+  write(id,pieces,[],windContacts(),controls,clips,false,
+    {Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
+    structure('volume','forms_remaining_fields.mjs','windFunnel',{dust,radius:2.5},
+      Object.fromEntries(pieces.map(piece=>[piece.Id,['wind.flow']])),[]));
+}
+
+/** 横扫由贴地宽面承托，三股有厚度的低浪沿前缘抬起。 */
+function windSweep() {
+  const controls=['vortex','low','high'].map(Id=>({Id,Position:[0,0,0],Rotation:[0,0,0,1]}));
+  const base=body([[0,.014],[2.22,.016],[2.5,.09],[2.44,.2],[1.81,.32],[.86,.43],[0,.48]]);
+  const layers=[part('sweep_base',surfaceData(base,.30,p=>.48+.26*p.y/2.5),
+    'wind_pressure',[0,0,0],'vortex')];
+  for(let i=0;i<3;i++) {
+    const geometry=new T.SphereGeometry(1,40,18).rotateX(Math.PI/2);
+    const points=geometry.getAttribute('position');
+    for(let j=0;j<points.count;j++) {
+      const x=points.getX(j),y=points.getY(j),z=points.getZ(j),across=Math.abs(x);
+      const turn=.35*x+.29*x*x;
+      points.setXYZ(j,x*(2.34-.18*i),y*(.66+.07*i)+.83-i*.57+turn,
+        .38+.22*i+z*(.23+.07*i)+.42*(1-across)*Math.max(0,y+.35));
+    }
+    const sheet=surfaceData(geometry,.42,p=>.84-.53*T.MathUtils.smoothstep(Math.abs(p.x),1.22,2.36));
+    layers.push(part(`sweep_${i}`,sheet,i===0?'wind_open':'wind_pressure',[0,0,0],controls[1+i%2].Id));
+  }
+  const run=motion('run',.72,true,controls,36,(i,p)=>({
+    position:[0,i?.17*Math.sin(p*Math.PI*2-i):0,i?.08*Math.sin(p*Math.PI*2-i):0]
+  }));
+  write('wind_vortex_sweep',layers,[],floorContacts(0,()=>({AControl:'vortex',BControl:'vortex'})),
+    controls,[run],false,{Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
+    structure('volume','forms_remaining_fields.mjs','windSweep',{radius:2.5,folds:3},
+      Object.fromEntries(layers.map(layer=>[layer.Id,['wind.flow']])),[]));
 }
 
 /** 折叠的短剪切面：前段压紧，后段逐片错开，截面纯暗而不画发光边线。 */
@@ -227,7 +315,9 @@ function publishYin(id,entry,geometry,surface,height) {
     });
     for(const key of gather.Keys) key.Fade=round(Math.max(1-T.MathUtils.smoothstep(key.At,.025,.32),
       T.MathUtils.smoothstep(key.At,2.03,2.60)));
-    clips.push(gather);
+    clips.push(gather,dissolve(controls,(i,p,c)=>({
+      position:[c.Position[0]*(1-.07*p),c.Position[1]*(1-.07*p),-.23*p*(i?1:.44)]
+    })));
   }
   write(id,[part('yin_surface',geometry,surface)],[],contacts,controls,clips,false,
     {Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
@@ -237,6 +327,6 @@ function publishYin(id,entry,geometry,surface,height) {
 
 /** 一次导出两种剩余的原攻击领域。 */
 export function makeRemainingFields(){
-  wind();yin();windOpen();yinBasin();yinTransfer();
+  wind();yin();windOpen();windFunnel(true);windFunnel(false);windSweep();yinBasin();yinTransfer();
   baleful('baleful_wind_shear');baleful('baleful_wind_column',true);baleful('baleful_wind_mark',false,true);
 }

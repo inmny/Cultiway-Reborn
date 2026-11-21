@@ -52,15 +52,17 @@ internal static class UtilityConstructionMigration
             emission.TargetPos, attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData,
             worldScope: emission.RuntimeData.WorldScope);
         // 边界失效或人物已无法执行时，这个已受理步骤结束，不能再落回旧执行制造副作用。
-        return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target, emission.SourcePos, emission.Payment, spatialSource: emission.SpatialSource)
+        return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target, emission.SourcePos,
+            emission.Payment, sourceInstance: skill.Id, spatialSource: emission.SpatialSource)
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>从当前真实容器读取数值，转换结果不保存旧实体或委托。</summary>
     /// <param name="emission">当前实际步骤。</param>
-    private static AbilityDefinition Convert(SkillEmission emission)
+    private static unsafe AbilityDefinition Convert(SkillEmission emission)
     {
         Entity skill = emission.SkillContainer;
+        var container = skill.GetComponent<SkillContainer>();
         foreach (Type type in skill.GetComponentTypes())
             if (typeof(IModifier).IsAssignableFrom(type) && !modifiers.Contains(type))
                 return null;
@@ -70,7 +72,7 @@ internal static class UtilityConstructionMigration
         if (!follow && !advance && trajectory != SkillTrajectories.AppearAtTarget.id &&
             trajectory != SkillTrajectories.GroundEruptAtTarget.id && trajectory != SkillTrajectories.FieldAtTarget.id)
             return null;
-        SkillEntityAsset asset = skill.GetComponent<SkillContainer>().Asset;
+        SkillEntityAsset asset = container.Asset;
         float radius = SkillEffectRadius.ResolveForCaster(emission.Source.a.GetExtend(), skill,
             asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
         // 共同地块预算覆盖最多一百万格；超过当前已实现的根尺寸留给旧来源，避免改小原术。
@@ -78,6 +80,26 @@ internal static class UtilityConstructionMigration
         float lifetime =
             asset.ResolveRuntimeLifetime(skill, asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier);
         if (skill.TryGetComponent(out SkillSettings settings) && settings.Duration > 0f) lifetime = settings.Duration;
+        bool field = asset == SkillEntities.NatureGrowthField || asset == SkillEntities.CleanLandField;
+        bool instantPulse = !field && (trajectory == SkillTrajectories.AppearAtTarget.id ||
+            trajectory == SkillTrajectories.GroundEruptAtTarget.id);
+        float formation = 0f;
+        float activeEnd = lifetime;
+        if (instantPulse || field)
+        {
+            SkillEntityAnimation animation = asset.GetAnimation(container.AnimationIndex);
+            float frame = container.MotionProfile.FrameInterval;
+            formation = ProjectileConstructionMigration.ClipSeconds(animation.Appearance, frame);
+            if (formation <= 0f || animation.AppearanceGameplay != SkillAnimationGameplayFlags.None) return null;
+            activeEnd = formation + (field ? lifetime : 0f);
+            lifetime = activeEnd + ProjectileConstructionMigration.ClipSeconds(animation.Dissipation, frame);
+            if (field)
+            {
+                // 原寿命检查先于周期作用，到期的整点已不属于有效段。
+                int preceding = *(int*)&activeEnd - 1;
+                activeEnd = *(float*)&preceding;
+            }
+        }
         var effects = new List<ConstructionWorldEffect>();
 
         void Add<T>(string action, float interval = 0f, float? duration = null) where T : struct, IModifier
@@ -88,11 +110,15 @@ internal static class UtilityConstructionMigration
                 Action = action,
                 TileCentreOnly = true,
                 Duration = duration,
-                MaximumTiles = Mathf.Min(1048576, Mathf.Max(1, MapBox.width * MapBox.height)),
-                Contact = interval > 0f
+                MaximumTiles = action == "weather.rain" && radius == 0f ? 1 :
+                    Mathf.Min(1048576, Mathf.Max(1, MapBox.width * MapBox.height)),
+                Contact = instantPulse
                     ? new ConstructionContactPolicy
-                    { Mode = ConstructionContactMode.Interval, Interval = interval }
-                    : null
+                    { Mode = ConstructionContactMode.Pulse, Interval = formation, MaximumPerTarget = 1 }
+                    : interval > 0f
+                        ? new ConstructionContactPolicy
+                        { Mode = ConstructionContactMode.Pulse, Interval = interval, PulseOffset = formation }
+                        : null
             });
         }
 
@@ -110,7 +136,7 @@ internal static class UtilityConstructionMigration
         var operations = new List<ConstructionOperation>();
         if (advance)
         {
-            float speed = skill.GetComponent<SkillContainer>().MotionProfile.ResolveSpeed(
+            float speed = container.MotionProfile.ResolveSpeed(
                 Vector2.Distance(emission.SourcePos, emission.TargetPos)) * .25f;
             if (skill.TryGetComponent(out HasteModifier haste))
                 speed *= Mathf.Clamp(1f + haste.SpeedMultiplier, .1f, 10f);
@@ -121,6 +147,7 @@ internal static class UtilityConstructionMigration
             operations.Add(new ConstructionOperation
             {
                 Kind = ConstructionOperationKind.Fly,
+                At = formation,
                 Vector = new[] { direction.x * speed, direction.y * speed, 0f },
                 WorldVelocity = true,
                 InheritVelocity = false
@@ -137,8 +164,9 @@ internal static class UtilityConstructionMigration
         var domains = new List<ConstructionNode>();
         foreach (ConstructionWorldEffect effect in effects)
         {
-            float first = effect.Contact?.Interval ?? 0f;
-            if (first > lifetime) continue;
+            float first = effect.Contact == null ? formation : effect.Contact.Interval + effect.Contact.PulseOffset;
+            float until = instantPulse ? Mathf.Min(first + .004f, lifetime) : field ? activeEnd : lifetime;
+            if (first > until) continue;
             domains.Add(new ConstructionNode
             {
                 Id = "effect" + domains.Count,
@@ -146,6 +174,7 @@ internal static class UtilityConstructionMigration
                 Scale = Mathf.Max(.1f, radius),
                 Offset = offset,
                 ActiveFrom = first,
+                ActiveUntil = until,
                 Impact = new ConstructionImpact
                 {
                     Targets = SkillUseTargetRelation.Friendly,
@@ -165,6 +194,7 @@ internal static class UtilityConstructionMigration
             Power = 0f,
             Cooldown = 0f,
             Lifetime = lifetime,
+            ConcurrentLimit = asset.ImpactProfile.PersistentLimit,
             TargetRange = 10000f,
             Use = new ConstructionUse
             {
@@ -194,4 +224,8 @@ internal static class UtilityConstructionMigration
             }
         };
     }
+
+    /// <summary>四种瞬时地貌术使用旧落点时机和已变化地块的立体收势。</summary>
+    internal static bool HasTerrainPulse(string id) =>
+        id is "Cultiway.RaiseTerrain" or "Cultiway.LowerTerrain" or "Cultiway.FillWater" or "Cultiway.DrainWater";
 }

@@ -1,0 +1,1250 @@
+// 同一片场地逐个核对正式法术，写档与冷读沿用同一对练。
+var catalog = new[]
+{
+    (Asset: SkillEntities.WaterArrow, Form: "water_arrow", Count: 4),
+    (Asset: SkillEntities.WaterOrb, Form: "water_orb", Count: 5),
+    (Asset: SkillEntities.WaterBlade, Form: "water_blade", Count: 4),
+    (Asset: SkillEntities.FlyingSword, Form: "flying_sword", Count: 2),
+    (Asset: SkillEntities.SwordQi, Form: "sword_qi", Count: 2),
+    (Asset: SkillEntities.GoldenNeedle, Form: "golden_needle", Count: 1),
+    (Asset: SkillEntities.WindBullet, Form: "wind_bullet", Count: 2),
+    (Asset: SkillEntities.WindBlade, Form: "wind_blade", Count: 2),
+    (Asset: SkillEntities.ThunderOrb, Form: "thunder_orb", Count: 4),
+    (Asset: SkillEntities.LightningSpear, Form: "lightning_spear", Count: 1),
+    (Asset: SkillEntities.LightningStrike, Form: "lightning_strike", Count: 11),
+    (Asset: SkillEntities.IceShard, Form: "ice_shard", Count: 1),
+    (Asset: SkillEntities.IceLance, Form: "ice_lance", Count: 1),
+    (Asset: SkillEntities.Icefall, Form: "icefall_rain", Count: 1),
+    (Asset: SkillEntities.RockProjectile, Form: "rock_projectile", Count: 1),
+    (Asset: SkillEntities.StoneCone, Form: "stone_cone", Count: 1),
+    (Asset: SkillEntities.FallingRock, Form: "falling_rock", Count: 3),
+    (Asset: SkillEntities.WoodSpear, Form: "wood_spear", Count: 2),
+    (Asset: SkillEntities.FallingTimber, Form: "falling_timber", Count: 2),
+    (Asset: SkillEntities.SpiritBolt, Form: "spirit_bolt_0", Count: 1),
+    (Asset: SkillEntities.YinBolt, Form: "yin_bolt_0", Count: 1),
+    (Asset: SkillEntities.YangBolt, Form: "yang_bolt_0", Count: 1),
+    (Asset: SkillEntities.ChaosOrb, Form: "chaos_orb_0", Count: 1),
+    (Asset: SkillEntities.PoisonNeedle, Form: "poison_needle_0", Count: 1),
+    (Asset: SkillEntities.YinBlade, Form: "yin_blade_0", Count: 1),
+    (Asset: SkillEntities.FlameMeteor, Form: "flame_meteor_0", Count: 1),
+    (Asset: SkillEntities.GroundSpike, Form: "earth_spikes", Count: 4),
+    (Asset: SkillEntities.EarthRidge, Form: "earth_ridge_0", Count: 1),
+    (Asset: SkillEntities.TidalWave, Form: "tidal_wave_0", Count: 1),
+    (Asset: SkillEntities.SpiritVine, Form: "creeping_vine_0", Count: 1),
+    (Asset: SkillEntities.EarthWall, Form: "earth_wall_strata_motion", Count: 1),
+    (Asset: SkillEntities.IceWall, Form: "ice_wall", Count: 1),
+    (Asset: SkillEntities.WoodWall, Form: "wood_wall", Count: 1),
+    (Asset: SkillEntities.FireWall, Form: "fire_wall", Count: 1),
+    (Asset: SkillEntities.WindWall, Form: "wind_wall", Count: 1),
+    (Asset: SkillEntities.SwordCurtain, Form: "sword_curtain", Count: 1),
+    (Asset: SkillEntities.WaterCurtain, Form: "water_curtain", Count: 1),
+    (Asset: SkillEntities.SpiritShield, Form: "spirit_aegis", Count: 1),
+    (Asset: SkillEntities.FlameShield, Form: "flame_aegis", Count: 2),
+    (Asset: SkillEntities.WindShield, Form: "wind_aegis", Count: 2),
+    (Asset: SkillEntities.LightningShield, Form: "lightning_aegis", Count: 2),
+    (Asset: SkillEntities.YangShield, Form: "solar_aegis", Count: 1),
+    (Asset: SkillEntities.SpiritBeam, Form: "spirit_ray_luminous", Count: 1),
+    (Asset: SkillEntities.SolarBeam, Form: "solar_ray_luminous", Count: 1),
+    (Asset: SkillEntities.ChainLightning, Form: "thunder_channel", Count: 1),
+    (Asset: SkillEntities.Tornado, Form: "wind_vortex_open", Count: 4),
+    (Asset: SkillEntities.YinField, Form: "yin_field_basin", Count: 1),
+    (Asset: SkillEntities.PoisonPool, Form: "poison_pool", Count: 1),
+    (Asset: SkillEntities.PoisonMist, Form: "poison_mist", Count: 1),
+    (Asset: SkillEntities.EntropyField, Form: "entropy_field", Count: 1),
+    (Asset: SkillEntities.Rift, Form: "rift_opening", Count: 1)
+}.Where(entry => chosenAssets.Contains(entry.Asset.id)).ToArray();
+
+bool CanTestTracking(SkillEntityAsset asset) => asset == SkillEntities.WaterOrb || asset == SkillEntities.WindBullet ||
+    asset == SkillEntities.ThunderOrb || asset == SkillEntities.WoodSpear || asset == SkillEntities.YinBolt || asset == SkillEntities.PoisonNeedle;
+bool cold = caseName == "cold", archive = caseName == "archive";
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+var expected = cold ? JObject.Parse(File.ReadAllText(Path.Combine(archivePath, "expected.json"))) : null;
+var source = cold ? World.world.units.get((long)expected["source"]) : Make(64);
+var target = cold ? World.world.units.get((long)expected["target"]) : Make(70);
+var second = cold ? World.world.units.get((long)expected["second"]) : Make(73);
+var outside = cold ? World.world.units.get((long)expected["outside"]) : Make(71);
+Check(source != null && target != null && second != null && outside != null, "同一对练人物就绪");
+var enemyKingdom = World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild);
+foreach (var actor in new[] { target, second, outside }) actor.setKingdom(enemyKingdom);
+var owner = source.GetExtend();
+if (!cold)
+{
+    owner.NewCultisys(Cultisyses.Xian);
+    owner.GetCultisys<Xian>().level = 0;
+    owner.MarkCultiwayStatsDirty();
+    source.setStatsDirty();
+    source.updateStats();
+    await Advance(.20f);
+}
+
+Entity[] Learned() => ((IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null))
+    .Where(entity => chosenAssets.Contains(entity.GetComponent<SkillContainer>().Asset.id)).ToArray();
+
+Entity Learn(SkillEntityAsset asset, int index, bool tracking, float duration = 0f, float speed = 0f)
+{
+    var builder = new SkillContainerBuilder(asset).UseAnimation(index);
+    if (tracking) builder.AddModifier(new Trajectory { ID = SkillTrajectories.TowardsTarget.id });
+    if (speed != 0f) builder.AddModifier(new HasteModifier { SpeedMultiplier = speed });
+    var made = builder.Build(SkillContainerBuildMode.RuleOnly);
+    if (duration > 0f) made.AddComponent(new SkillSettings
+        { Duration = duration, AreaMultiplier = 1, PowerMultiplier = 1, ContactEnabled = true });
+    string signature = SkillContainerSignature.Build(made);
+    owner.LearnSkillV3(made);
+    return Learned().Single(value => SkillContainerSignature.Build(value) == signature);
+}
+
+string[] Signatures() => Learned().Select(SkillContainerSignature.Build).OrderBy(value => value, StringComparer.Ordinal).ToArray();
+if (archive)
+{
+    foreach (var entry in catalog)
+        for (int index = 0; index < entry.Count; index++)
+            Learn(entry.Asset, index, CanTestTracking(entry.Asset) && index == 1);
+    string[] signatures = Signatures();
+    int total = catalog.Sum(entry => entry.Count);
+    Check(signatures.Length == total && signatures.Distinct().Count() == total &&
+          World.world.units.get(source.id) == source, "正式写档前全部原学习资料已入世界", total);
+    string world = Path.Combine(folder, "archive");
+    Directory.CreateDirectory(world);
+    SaveManager.saveWorldToDirectory(world);
+    Check(File.Exists(Path.Combine(world, "map.wbox")), "完整学习资料随原版世界保存");
+    File.WriteAllText(Path.Combine(folder, "expected.json"),
+        JsonConvert.SerializeObject(new { process, source = source.id, target = target.id, second = second.id,
+            outside = outside.id, signatures }, Formatting.Indented));
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    return new { passed = true, process, world, skills = signatures.Length };
+}
+if (cold)
+{
+    Check(process != (int)expected["process"], "由另一个进程读取正式档");
+    Check(Signatures().SequenceEqual(expected["signatures"].ToObject<string[]>()), "全部旧索引及保存的改造资料完整读回");
+}
+
+var casts = new Dictionary<long, AbilityCast>();
+var recordings = new List<object>();
+var fieldFailures = new List<object>();
+var scatterCenters = new List<Vector2>();
+int oldExecutions = 0;
+
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || !chosenAssets.Contains(fact.AbilityId)) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == fact.CastId);
+    casts.Add(fact.CastId, (AbilityCast)Field(running, "Cast"));
+}
+
+void LegacyExecution(Entity entity)
+{
+    if (chosenAssets.Contains(entity.GetComponent<SkillEntity>().Asset.id)) oldExecutions++;
+}
+
+FormVisualInstance[] Views(AbilityCast cast)
+{
+    var output = new List<FormVisualInstance>();
+    cast.AppendVisuals(output);
+    return output.ToArray();
+}
+
+int ShapeCount(AbilityCast cast)
+{
+    var shapes = new List<AbilityCapsule>();
+    cast.AppendContacts(shapes);
+    return shapes.Count;
+}
+
+float Seconds(SkillEntityAnimationClip clip, float inherited) =>
+    clip == null ? 0f : clip.Frames.Length * clip.Settings.ResolveFrameInterval(inherited);
+
+async Task Stage(AbilityCast cast, float until)
+{
+    if (cast.Age < until && !cast.Finished) await Advance(until - cast.Age);
+}
+
+async Task PlaySpike(SkillEntityAsset asset, string form, int index)
+{
+    var skill = cold ? Learned().Single(item => item.GetComponent<SkillContainer>().AnimationIndex == index &&
+        item.GetComponent<SkillContainer>().Asset == asset) : Learn(asset, index, false);
+    var animation = asset.GetAnimation(index);
+    float interval = skill.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
+    float rise = Seconds(animation.Appearance, interval), fade = Seconds(animation.Dissipation, interval);
+    string model = form + "_" + index;
+    bool edge = caseName == "legacy-edge" || caseName == "edge";
+    var point = new Vector3(71, 72, source.GetSimPos().z);
+    Ready(source);
+    Place(source, 64);
+    Place(target, 71);
+    if (edge)
+    {
+        Place(second, point.x + 1.38f, point.y);
+        Place(outside, point.x + 1.42f, point.y);
+    }
+    else
+    {
+        Place(second, 71.52f, 72.97f);
+        Place(outside, 72.08f, 73.72f);
+    }
+    float[] distances = new[] { target, second, outside }
+        .Select(actor => Vector2.Distance(actor.current_position, point)).ToArray();
+    foreach (var actor in new[] { source, target, second, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float before = owner.GetCultisys<Xian>().wakan;
+    double price = SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    bool legacy = caseName == "legacy" || caseName == "legacy-edge";
+    int count = casts.Count;
+    Entity originalCast = default;
+    double firstFrame = 0, eventAge = -1;
+    float originalRadius = 0;
+    Vector3 originalPoint = default;
+    var oldTargets = new List<long>();
+    void Emitted(Entity cast)
+    {
+        if (cast.GetComponent<SkillEntity>().Asset != asset || cast.GetComponent<SkillContext>().SourceObj != source) return;
+        originalCast = cast;
+        firstFrame = World.world.getCurWorldTime();
+    }
+    void Area(Entity cast, Vector3 centre, float radius)
+    {
+        if (cast != originalCast) return;
+        eventAge = World.world.getCurWorldTime() - firstFrame;
+        originalPoint = centre;
+        originalRadius = radius;
+    }
+    void OldContact(Entity cast, BaseSimObject actor)
+    {
+        if (cast == originalCast && actor.isActor()) oldTargets.Add(actor.a.id);
+    }
+    var previous = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+    if (legacy)
+    {
+        Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Emitted;
+        SkillHitResolver.AreaResolved += Area;
+        SkillHitResolver.ContactResolved += OldContact;
+        Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
+            request.SkillContainer.GetComponent<SkillContainer>().Asset == asset ? SkillEmissionResult.Unhandled : previous(request);
+    }
+    try
+    {
+        Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+            new ActiveAbilityTarget(null, point), ActiveAbilityUseOrigin.Player), "地刺原已学入口受理", index);
+        source.attack_timer = 999;
+        CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+        source.updateStats();
+        if (legacy)
+        {
+            await Advance(.53f);
+            Check(casts.Count == count && originalRadius > 0f && Math.Abs(originalRadius - 1.4f) < .001f &&
+                  Vector2.Distance(originalPoint, point) < .03f && oldTargets.OrderBy(id => id).SequenceEqual(new[] { target.id, second.id }.OrderBy(id => id)) &&
+                  (index == 0 ? eventAge >= rise - .035 && eventAge <= rise + .075 : eventAge < .06),
+                "旧执行的地刺作用时点、半径和两名实际目标已取样", new { index, rise, eventAge, originalRadius, oldTargets });
+            recordings.Add(new { asset = asset.id, index, rise, fade, eventAge, originalRadius,
+                originalPoint = new[] { originalPoint.x, originalPoint.y, originalPoint.z }, distances, hits = oldTargets });
+            return;
+        }
+
+        await Advance(.065f);
+        Check(casts.Count == count + 1 && oldExecutions == 0, "地刺进入共同执行", index);
+        var live = casts.Last();
+        var cast = live.Value;
+        if (rise > 0f)
+            Check(cast.Age < rise && ShapeCount(cast) == 0 && contacts.All(hit => hit.CastId != live.Key),
+                "岩床上升时没有提前伤害", index);
+        var first = Views(cast).Single(view => view.Resource.Description.Id == model);
+        Vector3 center = first.Transform.GetColumn(3);
+        Check(Vector2.Distance(center, point) < .035f &&
+              Math.Abs(first.Resource.Description.Contacts.Single().Sector.Radius * first.Transform.lossyScale.x - 1.4f) < .001f,
+            "真实岩床中心和 1.4 格作用半径与旧术一致", model);
+        await Stage(cast, Math.Max(.01f, rise) + .070f);
+        var settling = Views(cast).Single(view => view.Resource.Description.Id == model);
+        Check(ShapeCount(cast) == 0 && Vector2.Distance((Vector3)settling.Transform.GetColumn(3), center) < .02f,
+            "原地收回期间已经退出作用范围", model);
+        await Advance(.29f);
+        var damage = contacts.Where(hit => hit.CastId == live.Key && hit.Damage.HealthLost > 0).ToArray();
+        Check(damage.Select(hit => hit.TargetId).OrderBy(id => id).SequenceEqual(new[] { target.id, second.id }.OrderBy(id => id)) &&
+              damage.All(hit => Math.Abs(hit.Age - Math.Max(.01f, rise)) < .01f) && cast.Finished &&
+              Views(cast).Length == 0 && Math.Abs(before - owner.GetCultisys<Xian>().wakan - price) < .001f,
+            "地刺只作用一轮，范围外安全，原价支付并自然结束", new { model, price,
+                hits = damage.Select(hit => new { hit.TargetId, hit.Age, hit.Damage.HealthLost }).ToArray(), cast.Age, cast.Finished });
+        recordings.Add(new { asset = asset.id, index, form = model, rise, fade, price, distances,
+            hits = damage.Select(hit => hit.TargetId).ToArray(), times = damage.Select(hit => hit.Age).ToArray() });
+    }
+    finally
+    {
+        if (legacy)
+        {
+            Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = previous;
+            Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Emitted;
+            SkillHitResolver.AreaResolved -= Area;
+            SkillHitResolver.ContactResolved -= OldContact;
+            oldExecutions = 0;
+        }
+    }
+}
+
+async Task CheckWallContact(SkillEntityAsset asset, string form, long castId, AbilityCast cast)
+{
+    bool damage = asset.ImpactProfile.ContactDamage || asset.ImpactTuning.ContactDamage;
+    bool push = asset.ImpactTuning.ContactForce != 0f;
+    if (!damage && !push && asset != SkillEntities.WaterCurtain) return;
+    var frozen = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ContactWalls.Frozen");
+    if (frozen == null)
+    {
+        var stats = new BaseStats();
+        stats.addTag("frozen_ai");
+        frozen = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ContactWalls.Frozen")
+            .SetStats(stats).SetDuration(10000).Build();
+    }
+
+    if (push) Ready(target);
+    CombatStatusEffects.ApplyStatus(target, frozen, 10000, target);
+    target.updateStats();
+    // 零境界复验用原大小，人物站在墙面近侧的实际接触处。
+    const float start = 66.2f;
+    Place(target, start);
+    ConstructedAbilityService.NotifyActorChanged(target);
+    int before = target.data.health;
+    float capacity = cast.RemainingForce(0);
+    try
+    {
+        await Advance(damage ? .8f : .40f);
+        var hits = contacts.Where(hit => hit.CastId == castId && hit.TargetId == target.id).ToArray();
+        int after = target.data.health;
+        if (damage)
+        {
+            float interval = asset.ImpactProfile.RepeatHitInterval;
+            Check(hits.Length >= 2 && hits.All(hit => hit.Damage.HealthLost > 0) && after < before &&
+                  hits.Zip(hits.Skip(1), (first, next) => next.Age - first.Age).All(gap => Math.Abs(gap - interval) < .025f),
+                "墙在真实接触处按原间隔扣血", new { form, before, after, ages = hits.Select(hit => hit.Age).ToArray() });
+        }
+        else if (push)
+        {
+            Check(after == before && target.current_position.x < start - .05f && target.position_height < .05f &&
+                  hits.Any(hit => hit.ForceApplied && hit.VelocityChange.x < 0f),
+                "风墙实际沿地推出且无伤害", new { form, before, after, start, x = target.current_position.x,
+                    height = target.position_height, changes = hits.Select(hit => hit.VelocityChange.ToString()).ToArray() });
+        }
+        else
+            Check(hits.Length == 0 && after == before, "水幕阻挡之外无人物伤害", new { form, before, after });
+        Check(Math.Abs(cast.RemainingForce(0) - capacity) < .001f, "人物接触不扣防御容量", form);
+    }
+    finally
+    {
+        CombatStatusEffects.RemoveStatus(target, frozen);
+        target.updateStats();
+        Place(target, 64);
+        ConstructedAbilityService.NotifyActorChanged(target);
+    }
+}
+
+async Task PlayWall(SkillEntityAsset asset, string form, int index)
+{
+    var skill = cold ? Learned().Single(item => item.GetComponent<SkillContainer>().AnimationIndex == index &&
+        item.GetComponent<SkillContainer>().Asset == asset) : Learn(asset, index, false);
+    Ready(source);
+    Place(source, 70);
+    Place(target, 64);
+    Place(second, 64, 76);
+    Place(outside, 64, 78);
+    source.addAggro(target);
+    target.addAggro(source);
+    foreach (var actor in new[] { source, target, second, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float before = owner.GetCultisys<Xian>().wakan;
+    double price = SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    int previous = casts.Count;
+    Vector3 aim = target.GetSimPos();
+    Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(target, aim, selectionArea: new SkillTargetSelectionArea(true, aim, .1f)),
+        ActiveAbilityUseOrigin.Player), "原已学实体墙正式受理", form);
+    source.attack_timer = 999;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    await Advance(.30f);
+    Check(casts.Count == previous + 1 && oldExecutions == 0, "实体墙只进入共同执行一次", form);
+    var live = casts.Last();
+    var cast = live.Value;
+    var view = Views(cast).Single();
+    var center = (Vector3)view.Transform.GetColumn(3);
+    float capacity = cast.RemainingForce(0);
+    if (asset == SkillEntities.FireWall || asset == SkillEntities.WindWall || asset == SkillEntities.WaterCurtain)
+    {
+        var firstShapes = new List<AbilityCapsule>();
+        var laterShapes = new List<AbilityCapsule>();
+        cast.AppendContacts(firstShapes);
+        await Advance(.137f);
+        cast.AppendContacts(laterShapes);
+        var laterSkin = Views(cast).Single().Skin;
+        float moved = firstShapes.Zip(laterShapes, (first, later) =>
+            Mathf.Max(Vector3.Distance(first.A, later.A), Vector3.Distance(first.B, later.B))).DefaultIfEmpty().Max();
+        Check(view.Skin.Length == laterSkin.Length && !view.Skin.SequenceEqual(laterSkin) &&
+              firstShapes.Count == laterShapes.Count && moved > .001f,
+            "运行中的墙面与真实接触形状同时随动作变化", new { form, moved, shapes = laterShapes.Count });
+    }
+    CombatStatusEffects.RemoveStatus(target, hold);
+    target.updateStats();
+    Check(!target.isImmovable(), "解除对练人物的定身后再走", form);
+    typeof(Actor).GetField("is_immovable", F).SetValue(target, false);
+    target.attack_timer = 999;
+    float Walk()
+    {
+        // 复用土墙实测的原版平滑步行。
+        target.position_height = 0f;
+        Place(target, 64);
+        typeof(Actor).GetMethod("precalcMovementSpeed", F).Invoke(target, new object[] { true });
+        float speed = (float)typeof(Actor).GetField("_current_combined_movement_speed", F).GetValue(target);
+        Check(speed > 0f, "复用人物有实际步行速度", form);
+        target.next_step_position = new Vector2(70, 72);
+        typeof(Actor).GetField("_update_done", F).SetValue(target, false);
+        typeof(Actor).GetMethod("u10_checkSmoothMovement", F).Invoke(target, new object[] { 6.05f / speed });
+        return target.current_position.x;
+    }
+    float blocked = Walk();
+    Check(view.Resource.Description.Id == form && Math.Abs(center.x - 66.4f) < .04f &&
+          ShapeCount(cast) > 0 && capacity > 0f && blocked == 64f,
+        "真实墙体、两点位置和实际阻挡", new { form, actualForm = view.Resource.Description.Id,
+            center = center.ToString(), capacity, shapes = ShapeCount(cast), blocked,
+            hostile = SkillTargetRelationResolver.IsHostile(source, target), flying = target.isFlying() });
+    await CheckWallContact(asset, form, live.Key, cast);
+    await Advance(cast.Plan.Lifetime - cast.Age + .10f);
+    float cleared = Walk();
+    bool endedNaturally = endings.Any(end => end.Fact.CastId == live.Key && !end.Fact.Cancelled);
+    Check(cast.Finished && Views(cast).Length == 0 && ShapeCount(cast) == 0 &&
+          cleared > center.x + 1f && endedNaturally &&
+          Math.Abs(before - owner.GetCultisys<Xian>().wakan - price) < .001f,
+        "实体墙按原价施放并自然退出，通行恢复", new { form, price, before, after = owner.GetCultisys<Xian>().wakan,
+            cleared, endedNaturally, cast.Finished, held = target.isImmovable(), target.under_forces,
+            shapes = ShapeCount(cast), views = Views(cast).Length });
+    CombatStatusEffects.ApplyStatus(target, hold, 10000, target);
+    target.updateStats();
+    recordings.Add(new { asset = asset.id, index, form, price, capacity, center = center.ToString() });
+}
+
+async Task PlayShield(SkillEntityAsset asset, string form, int index)
+{
+    string model = index == 0 ? form : form + "_" + index;
+    var skill = cold ? Learned().Single(item => item.GetComponent<SkillContainer>().AnimationIndex == index &&
+        item.GetComponent<SkillContainer>().Asset == asset) : Learn(asset, index, false);
+    var container = skill.GetComponent<SkillContainer>();
+    var animation = asset.GetAnimation(index);
+    float appearance = Seconds(animation.Appearance, container.MotionProfile.FrameInterval);
+    float recovery = Seconds(animation.Dissipation, container.MotionProfile.FrameInterval);
+    float activeEnd = appearance + asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier;
+    double price = SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+
+    void UseShield()
+    {
+        Ready(source);
+        Place(source, 70);
+        Place(target, 64);
+        source.addAggro(target);
+        target.addAggro(source);
+        ConstructedAbilityService.NotifyActorChanged(source);
+        ConstructedAbilityService.NotifyActorChanged(target);
+        Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+            new ActiveAbilityTarget(source, source.GetSimPos()), ActiveAbilityUseOrigin.Player),
+            "原护盾已学自用入口受理", model);
+        source.attack_timer = 999;
+        CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+        source.updateStats();
+    }
+
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float before = owner.GetCultisys<Xian>().wakan;
+    int previous = casts.Count, hp = source.data.health;
+    UseShield();
+    await Advance(.07f);
+    Check(casts.Count == previous + 1 && oldExecutions == 0, "护盾只进入共同执行一次", model);
+    var live = casts.Last();
+    var cast = live.Value;
+    var forming = Views(cast).Single();
+    Check(forming.Resource.Description.Id == model && (appearance > 0f
+            ? ShapeCount(cast) == 0 && cast.Age < appearance && forming.Transform.lossyScale.x < .95f
+            : ShapeCount(cast) > 0),
+        "旧零号先成形，旧一号直接防御", new { model, appearance, cast.Age, shapes = ShapeCount(cast) });
+    await Stage(cast, appearance + .045f);
+    var protectedView = Views(cast).Single();
+    Vector3 center = protectedView.Transform.GetColumn(3);
+    Check(Vector2.Distance(center, source.current_position) < .025f && ShapeCount(cast) > 0 &&
+          Math.Abs(cast.RemainingForce(0) - 300f) < .001f && Math.Abs(cast.Plan.Lifetime - activeEnd - recovery) < .001f,
+        "实际护盾位置、容量和原生命周期一致", new { model, activeEnd, recovery, cast.Plan.Lifetime, center = center.ToString() });
+
+    Entity stone = new SkillContainerBuilder(SkillEntities.StoneCone).UseAnimation(0).Build(SkillContainerBuildMode.SourceGranted);
+    Entity shot = Cultiway.ModClass.I.SkillV3.SpawnSkillAtPosition(stone, target,
+        new Vector3(64, 72, .6f), source, new Vector3(70, 72, .6f), 13, 0);
+    await Advance(.58f);
+    float remaining = cast.RemainingForce(0);
+    Check((shot.IsNull || !shot.IsAvailable() || shot.Tags.Has<TagRecycle>() || shot.Tags.Has<TagSkillAnimationNoCollision>()) &&
+          Math.Abs(remaining - 287f) < .001f && source.data.health == hp && contacts.All(hit => hit.CastId != live.Key),
+        "厚壳仅消耗一次拦截容量，人物无伤害或反击", new { model, hp, after = source.data.health, remaining });
+    if (asset == SkillEntities.SpiritShield)
+    {
+        Place(source, 74.5f);
+        ConstructedAbilityService.NotifyActorChanged(source);
+        await Advance(.10f);
+        Vector3 moved = Views(cast).Single().Transform.GetColumn(3);
+        var shapes = new List<AbilityCapsule>();
+        cast.AppendContacts(shapes);
+        Check(Math.Abs(moved.x - 74.5f) < .02f && shapes.Count > 0 &&
+              shapes.All(shape => Mathf.Min(shape.A.x, shape.B.x) - shape.Radius > 72f),
+            "护盾和实际接触一起跟随来源，旧位置清空", new { model, moved = moved.ToString() });
+    }
+    if (recovery > 0f)
+    {
+        await Stage(cast, activeEnd + .045f);
+        var residue = Views(cast).Single();
+        string endingForm = asset == SkillEntities.YangShield ? "solar_scale_release" : model;
+        Check(residue.Resource.Description.Id == endingForm && ShapeCount(cast) == 0,
+            "收势只有实际结束点的画面，三秒防御已经退出", new { model, activeEnd, cast.Age });
+    }
+    await Stage(cast, cast.Plan.Lifetime + .11f);
+    Check(cast.Finished && Views(cast).Length == 0 && ShapeCount(cast) == 0 &&
+          endings.Any(end => end.Fact.CastId == live.Key && !end.Fact.Cancelled) &&
+          Math.Abs(before - owner.GetCultisys<Xian>().wakan - price) < .001f,
+        "护盾只支付原价，结束后显示与作用都撤除", new { model, price, before, after = owner.GetCultisys<Xian>().wakan });
+    recordings.Add(new { asset = asset.id, index, form = model, price, appearance, activeEnd, recovery, remaining });
+    if (asset == SkillEntities.YangShield)
+    {
+        UseShield();
+        await Advance(appearance + .07f);
+        var dependent = casts.Last();
+        Check(dependent.Key != live.Key && ShapeCount(dependent.Value) > 0,
+            "代表护盾再次施放并进入实际防御", model);
+        ControllableUnit.clear(false);
+        typeof(Actor).GetMethod("die", F).Invoke(source, new object[] { false, AttackType.Other, true, false });
+        await Advance(.24f);
+        Check(!source.isAlive() && dependent.Value.Finished &&
+              Views(dependent.Value).Length == 0 && ShapeCount(dependent.Value) == 0,
+            "来源死亡后撤除护盾和收势", model);
+    }
+}
+
+async Task PlayLegacyChannel(SkillEntityAsset asset, string form, int index)
+{
+    bool chain = asset == SkillEntities.ChainLightning, solar = asset == SkillEntities.SolarBeam;
+    var skill = cold ? Learned().Single(item => item.GetComponent<SkillContainer>().Asset == asset) : Learn(asset, index, false);
+    var container = skill.GetComponent<SkillContainer>();
+    var animation = asset.GetAnimation(index);
+    float appearance = Seconds(animation.Appearance, container.MotionProfile.FrameInterval);
+    float recovery = Seconds(animation.Dissipation, container.MotionProfile.FrameInterval);
+    float activeEnd = appearance + (chain ? .14f : asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier);
+
+    Actor[] chainTargets = Array.Empty<Actor>();
+    Actor extra = null, along = null;
+    Ready(source);
+    Place(source, 64);
+    Place(target, 70);
+    Place(second, chain ? 72.4f : 67f);
+    Place(outside, 67, 81);
+    var placed = new List<Actor> { source, target, second, outside };
+    if (chain)
+    {
+        Actor third = Make(74), fourth = Make(77);
+        extra = Make(79); along = Make(66);
+        Place(third, 74.7f, 74); Place(fourth, 77, 74); Place(extra, 78.8f, 76); Place(along, 66);
+        chainTargets = new[] { target, second, third, fourth };
+        placed.AddRange(new[] { third, fourth, extra, along });
+        foreach (Actor actor in placed.Skip(1)) actor.setKingdom(enemyKingdom);
+    }
+    foreach (Actor actor in placed) ConstructedAbilityService.NotifyActorChanged(actor);
+    var healthBefore = placed.ToDictionary(actor => actor.id, actor => actor.data.health);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float before = owner.GetCultisys<Xian>().wakan;
+    double price = SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    int previous = casts.Count;
+    Vector3 point = target.GetSimPos();
+    var converter = service.Assembly.GetType("Cultiway.Content.Skills." +
+        (chain ? "ChainConstructionMigration" : "BeamConstructionMigration")).GetMethod("Convert", F);
+    object[] inputs = { new SkillEmission { SkillContainer = skill, Source = source, SpatialSource = source,
+        Target = target, SourcePos = source.GetSimPos(), TargetPos = point, Strength = 100f },
+        default(Cultiway.Core.EventSystem.Events.GetHitEvent) };
+    AbilityCompiler.Compile((AbilityDefinition)converter.Invoke(null, inputs), cache: false);
+    Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(target, point, selectionArea: new SkillTargetSelectionArea(true, point, .1f)),
+        ActiveAbilityUseOrigin.Player), "原光束或链雷的已学入口受理", form);
+    source.attack_timer = 999;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    await Advance(.075f);
+
+    var live = casts.Skip(previous).First();
+    var cast = live.Value;
+    Check(oldExecutions == 0 && cast.Age < appearance && ShapeCount(cast) == 0 &&
+          Views(cast).Any(view => view.Resource.Description.Id == form) &&
+          placed.All(actor => actor.data.health == healthBefore[actor.id]),
+        "旧成形时有实际画面且没有接触或伤害", new { form, cast.Age, appearance });
+
+    await Stage(cast, activeEnd + .035f);
+    if (chain)
+    {
+        var residue = Views(cast).Single(view => view.Resource.Description.Id == "lightning_contact");
+        Vector3 centre = residue.Transform.GetColumn(3);
+        Check(Vector2.Distance(centre, target.current_position) < .40f && ShapeCount(cast) == 0,
+            "链雷收势在实际首个接触位置，无残留作用", new { actual = centre.ToString(), target = target.current_position.ToString() });
+    }
+    else
+    {
+        var release = Views(cast).Single();
+        Check(ShapeCount(cast) == 0 && release.Dye is Color fade && fade.a > 0f && fade.a < 1f,
+            "光束收势已退出作用且逐渐退光", new { form, cast.Age, opacity = release.Dye?.a });
+        Place(source, 65, 71);
+        Place(target, 70, 73);
+        ConstructedAbilityService.NotifyActorChanged(source);
+        ConstructedAbilityService.NotifyActorChanged(target);
+        await Stage(cast, activeEnd + recovery * .7f);
+        var later = Views(cast).Single();
+        Check(release.Transform == later.Transform && release.Skin.SequenceEqual(later.Skin) &&
+              later.Dye?.a < release.Dye?.a && ShapeCount(cast) == 0,
+            "移动双方时退光仍固定在真实端点", new { form, first = release.Dye?.a, last = later.Dye?.a });
+    }
+
+    await Advance(.45f);
+    var executions = casts.Skip(previous).ToArray();
+    foreach (var execution in executions)
+    {
+        var hits = contacts.Where(hit => hit.CastId == execution.Key).ToArray();
+        bool correct = chain
+            ? hits.Select(hit => hit.TargetId).SequenceEqual(chainTargets.Select(actor => actor.id))
+            : hits.Select(hit => hit.TargetId).Distinct().OrderBy(id => id).SequenceEqual(new[] { target.id, second.id }.OrderBy(id => id)) &&
+              hits.GroupBy(hit => hit.TargetId).All(group => group.Count() == (solar ? 5 : 1) &&
+                  group.Zip(group.Skip(1), (first, next) => next.Age - first.Age).All(gap => Math.Abs(gap - .12f) < .012f));
+        Check(correct && hits.All(hit => hit.Age >= appearance - .001f && hit.Age <= activeEnd + .001f && hit.Damage.HealthLost > 0) &&
+              outside.data.health == healthBefore[outside.id] && (!chain ||
+                  extra.data.health == healthBefore[extra.id] && along.data.health == healthBefore[along.id]),
+            "实际对象、次数、原间隔及范围外安全", new { form, hits = hits.Select(hit => new { hit.TargetId, hit.Age, hit.Damage.HealthLost }).ToArray() });
+        Check(execution.Value.Finished && Views(execution.Value).Length == 0 && ShapeCount(execution.Value) == 0 &&
+              endings.Any(end => end.Fact.CastId == execution.Key && !end.Fact.Cancelled),
+            "原渠道正常结束并清空画面和作用", form);
+    }
+    Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - price * executions.Length) < .001f,
+        "每次实际发射只扣原价", new { form, price, count = executions.Length });
+    recordings.Add(new { asset = asset.id, index, form, appearance, activeEnd, recovery, price, emissions = executions.Length });
+}
+
+async Task PlayField(SkillEntityAsset asset, string form, int index)
+{
+    bool wind = asset == SkillEntities.Tornado, pool = asset == SkillEntities.PoisonPool;
+    bool moves = wind || asset == SkillEntities.PoisonMist, follows = asset == SkillEntities.EntropyField;
+    string model = wind ? new[] { form, "wind_vortex_dust", "wind_vortex_lean", "wind_vortex_sweep" }[index] : form;
+    Entity skill = cold ? Learned().Single(item => item.GetComponent<SkillContainer>().Asset == asset &&
+        item.GetComponent<SkillContainer>().AnimationIndex == index) : Learn(asset, index, false);
+    var container = skill.GetComponent<SkillContainer>();
+    var animation = asset.GetAnimation(index);
+    float appearance = Seconds(animation.Appearance, container.MotionProfile.FrameInterval);
+    float recovery = Seconds(animation.Dissipation, container.MotionProfile.FrameInterval);
+    float activeEnd = appearance + asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier;
+    float interval = asset.ImpactProfile.RepeatHitInterval;
+
+    Place(target, moves ? 66.5f : 68);
+    Place(second, 72, follows ? 72 : 78);
+    Place(outside, 68, 79);
+    var placed = new[] { source, target, second, outside };
+    foreach (var actor in placed.Skip(1)) ConstructedAbilityService.NotifyActorChanged(actor);
+    var healthBefore = placed.Skip(1).ToDictionary(actor => actor.id, actor => actor.data.health);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float before = owner.GetCultisys<Xian>().wakan;
+    double price = SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    Vector3 point = moves ? new Vector3(74, 72, 0) : target.GetSimPos();
+    var converter = service.Assembly.GetType("Cultiway.Content.Skills.FieldConstructionMigration").GetMethod("Convert", F);
+    object[] inputs = { new SkillEmission { SkillContainer = skill, Source = source, SpatialSource = source,
+        Target = follows ? target : null, SourcePos = new Vector3(64, 72, 0), TargetPos = point, Strength = 100f },
+        default(Cultiway.Core.EventSystem.Events.GetHitEvent) };
+    var definition = (AbilityDefinition)converter.Invoke(null, inputs);
+    AbilityCompiler.Compile(definition, cache: false);
+    Check(definition.Root.Form == model && Math.Abs(definition.Lifetime - (activeEnd + recovery)) < .0001f &&
+          definition.Root.Contact.Interval == interval && definition.ConcurrentLimit == 2,
+        "旧资料使用独立形体和原定时、上限", new { model, appearance, activeEnd, recovery });
+
+    async Task<KeyValuePair<long, AbilityCast>> Use()
+    {
+        int prior = casts.Count;
+        int previousLegacy = oldExecutions;
+        Ready(source);
+        Place(source, 64);
+        ConstructedAbilityService.NotifyActorChanged(source);
+        Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+            new ActiveAbilityTarget(follows ? target : null, point,
+                selectionArea: new SkillTargetSelectionArea(true, point, .1f)),
+            ActiveAbilityUseOrigin.Player), "原持续领域经真实学习入口受理", model);
+        source.attack_timer = 999;
+        CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+        source.updateStats();
+        await Advance(.04f);
+        Check(casts.Count == prior + 1 && oldExecutions == previousLegacy, "本次只产生共同领域", model);
+        return casts.Last();
+    }
+
+    var live = await Use();
+    var cast = live.Value;
+    await Stage(cast, .055f);
+    Vector3 first = Views(cast).Single().Transform.GetColumn(3);
+    if (appearance > 0f)
+    {
+        await Stage(cast, appearance * .56f);
+        var forming = Views(cast).Single();
+        Vector3 formed = forming.Transform.GetColumn(3);
+        Check(forming.Resource.Description.Id == model && ShapeCount(cast) == 0 &&
+              placed.Skip(1).All(actor => actor.data.health == healthBefore[actor.id]) && cast.Age < appearance &&
+              (!moves || Math.Abs(first.x - formed.x) < .001f),
+            "原成形有画面、无伤，原地成形的推进场尚未移动",
+            new { model, appearance, cast.Age, first = first.ToString(), formed = formed.ToString() });
+    }
+    await Stage(cast, appearance + .48f);
+    var running = Views(cast).Single();
+    Vector3 middle = running.Transform.GetColumn(3);
+    Check(running.Resource.Description.Id == model && ShapeCount(cast) > 0 &&
+          (moves ? middle.x > first.x + .25f : Vector2.Distance(middle, point) < .06f),
+        "成形之后使用实际接触和来源轨迹",
+        new { model, first = first.ToString(), middle = middle.ToString(), shapes = ShapeCount(cast) });
+    if (follows)
+    {
+        Place(target, 76);
+        ConstructedAbilityService.NotifyActorChanged(target);
+        await Stage(cast, appearance + .92f);
+        Vector3 shifted = Views(cast).Single().Transform.GetColumn(3);
+        Check(Math.Abs(shifted.x - 76f) < .05f && second.data.health == healthBefore[second.id],
+            "随目标更新位置，转移空隙的人物无伤", new { middle = middle.ToString(), shifted = shifted.ToString() });
+    }
+    if (recovery > 0f)
+    {
+        await Stage(cast, activeEnd + recovery * .25f);
+        var release = Views(cast).Single();
+        if (follows)
+        {
+            Place(target, 74, 75);
+            ConstructedAbilityService.NotifyActorChanged(target);
+        }
+        await Stage(cast, activeEnd + recovery * .59f);
+        var fading = Views(cast).Single();
+        Check(ShapeCount(cast) == 0 && release.Resource.Description.Id == model &&
+              release.Transform == fading.Transform && fading.Dye?.a < (release.Dye?.a ?? 1f),
+            "退出接触后在实际结束点收势",
+            new { model, release = release.Transform.GetColumn(3).ToString(), opacity = fading.Dye?.a });
+    }
+    await Stage(cast, activeEnd + recovery + .1f);
+    var hits = contacts.Where(hit => hit.CastId == live.Key).ToArray();
+    Check(hits.Length >= (moves ? 1 : 6) && (moves || hits.Length == 6) &&
+          hits.All(hit => hit.TargetId == target.id && hit.Damage.HealthLost > 0 &&
+              hit.Age >= appearance - .001f && hit.Age < activeEnd) &&
+          hits.Zip(hits.Skip(1), (a, b) => b.Age - a.Age).All(gap => gap >= interval - .001f) &&
+          second.data.health == healthBefore[second.id] && outside.data.health == healthBefore[outside.id],
+        "真实作用对象、旧伤害间隔和范围外安全", new { model, hits = hits.Select(hit => new { hit.TargetId, hit.Age, hit.Damage.HealthLost }).ToArray() });
+    Check(cast.Finished && Views(cast).Length == 0 && ShapeCount(cast) == 0 &&
+          endings.Any(end => end.Fact.CastId == live.Key && !end.Fact.Cancelled) &&
+          Math.Abs(before - owner.GetCultisys<Xian>().wakan - price) < .001f,
+        "自然结束并只扣原价", new { model, price });
+    if (pool)
+    {
+        float balance = owner.GetCultisys<Xian>().wakan;
+        var oldest = await Use();
+        var kept = await Use();
+        var newest = await Use();
+        Check(oldest.Value.Finished && ShapeCount(oldest.Value) == 0 && !kept.Value.Finished && !newest.Value.Finished &&
+              Math.Abs(balance - owner.GetCultisys<Xian>().wakan - 3 * price) < .001f,
+            "同来源第三次受理，只替换最老领域，三次均按原价");
+        await Stage(newest.Value, activeEnd + recovery + .1f);
+        Check(kept.Value.Finished && newest.Value.Finished && Views(newest.Value).Length == 0,
+            "余下两份到期清理");
+    }
+    recordings.Add(new { asset = asset.id, index, form = model, appearance, activeEnd, recovery, price,
+        ages = hits.Select(hit => hit.Age).ToArray(), live = live.Key });
+}
+
+async Task PlayLegacyRift()
+{
+    var asset = SkillEntities.Rift;
+    Entity skill = Learn(asset, 0, false);
+    var animation = asset.GetAnimation(0);
+    float frame = skill.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
+    float rise = Seconds(animation.Appearance, frame), fall = Seconds(animation.Dissipation, frame);
+    float radius = SkillEffectRadius.ResolveForCaster(owner, skill,
+        asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
+    Vector3 point = new(70.5f, 72.5f, 0f);
+    Ready(source);
+    Place(source, 64, point.y);
+    Place(target, point.x, point.y);
+    Place(second, point.x + radius - .025f, point.y);
+    Place(outside, point.x + radius + .025f, point.y);
+    foreach (var actor in new[] { source, target, second, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+    int x0 = (int)point.x, y0 = (int)point.y;
+    var tiles = Enumerable.Range(x0 - 3, 7).SelectMany(x => Enumerable.Range(y0 - 3, 7)
+        .Select(y => World.world.GetTileSimple(x, y))).ToArray();
+    var buildingTile = World.world.GetTileSimple(x0, y0 - 1);
+    Building building = World.world.buildings.addBuilding("beehive", buildingTile);
+    building.setKingdom(enemyKingdom);
+    var types = tiles.ToDictionary(tile => tile, tile => tile.Type.id);
+    var heights = tiles.ToDictionary(tile => tile, tile => tile.Height);
+    float structureBefore = building.getHealth();
+    int centerBefore = target.data.health, edgeBefore = second.data.health, outsideBefore = outside.data.health;
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float balance = owner.GetCultisys<Xian>().wakan;
+    double price = SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    Entity execution = default;
+    Vector3 center = default;
+    float measuredRadius = 0;
+    double startedAt = 0, impactAge = -1;
+    int impacts = 0;
+    var hit = new List<long>();
+    bool structureContact = false;
+    string vfx = null;
+
+    void Emitted(Entity entity)
+    {
+        if (entity.GetComponent<SkillEntity>().Asset != asset || entity.GetComponent<SkillContext>().SourceObj != source) return;
+        execution = entity;
+        vfx = entity.GetComponent<SkillEntity>().VfxElement?.id;
+        startedAt = World.world.getCurWorldTime();
+    }
+    void Area(Entity entity, Vector3 position, float actualRadius)
+    {
+        if (entity != execution) return;
+        impacts++;
+        impactAge = World.world.getCurWorldTime() - startedAt;
+        center = position;
+        measuredRadius = actualRadius;
+    }
+    void Contact(Entity entity, BaseSimObject receiver)
+    {
+        if (entity != execution) return;
+        if (receiver.isActor()) hit.Add(receiver.a.id);
+        if (receiver == building) structureContact = true;
+    }
+    var previous = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
+        request.SkillContainer.GetComponent<SkillContainer>().Asset == asset ? SkillEmissionResult.Unhandled : previous(request);
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Emitted;
+    SkillHitResolver.AreaResolved += Area;
+    SkillHitResolver.ContactResolved += Contact;
+    try
+    {
+        Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+            new ActiveAbilityTarget(null, point), ActiveAbilityUseOrigin.Player), "墟隙原学习入口受理");
+        source.attack_timer = 999;
+        CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+        source.updateStats();
+        await Advance(rise + fall + .18f);
+        var changed = tiles.Where(tile => tile.Type.id != types[tile] || tile.Height != heights[tile])
+            .Select(tile => new { tile.pos.x, tile.pos.y, before = types[tile], after = tile.Type.id,
+                beforeHeight = heights[tile], afterHeight = tile.Height }).ToArray();
+        var damage = new { center = centerBefore - target.data.health, edge = edgeBefore - second.data.health,
+            outside = outsideBefore - outside.data.health, structure = structureBefore - (building.isRekt() ? 0f : building.getHealth()) };
+        Check(oldExecutions == 1 && casts.Count == 0 && impacts == 1 && impactAge >= rise - .035 &&
+              impactAge < rise + .09 && Math.Abs(measuredRadius - radius) < .001f &&
+              Vector2.Distance(center, point) < .03f && hit.OrderBy(id => id).SequenceEqual(new[] { target.id, second.id }.OrderBy(id => id)) &&
+              damage.center > 0 && damage.edge > 0 && damage.outside == 0 &&
+              Math.Abs(balance - owner.GetCultisys<Xian>().wakan - price) < .001f,
+            "旧执行在成形后只爆发一次，半径、敌方中心、费用和地块结果可对账",
+            new { rise, fall, impactAge, measuredRadius, center = center.ToString(), impacts, hit, damage, changed, structureContact, price });
+        recordings.Add(new { asset = asset.id, index = 0, rise, fall, impactAge, radius = measuredRadius,
+            center = center.ToString(), damage, hit, structureContact, vfx, changed, price });
+    }
+    finally
+    {
+        Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = previous;
+        Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Emitted;
+        SkillHitResolver.AreaResolved -= Area;
+        SkillHitResolver.ContactResolved -= Contact;
+    }
+}
+
+async Task PlayRift(string form)
+{
+    var asset = SkillEntities.Rift;
+    Entity skill = cold ? Learned().Single() : Learn(asset, 0, false);
+    var animation = asset.GetAnimation(0);
+    float frame = skill.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
+    float strike = Seconds(animation.Appearance, frame), closing = Seconds(animation.Dissipation, frame);
+    float radius = SkillEffectRadius.ResolveForCaster(owner, skill,
+        asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
+    Vector3 point = new(70.5f, 72.5f, 0f);
+    bool empty = caseName == "miss";
+    Ready(source);
+    Place(source, 64, point.y);
+    Place(target, point.x, point.y + (empty ? radius + .5f : 0f));
+    Place(second, point.x + radius + (empty ? .45f : -.025f), point.y);
+    Place(outside, point.x + radius + .025f, point.y);
+    var targets = new[] { target, second, outside };
+    foreach (var actor in targets.Append(source)) ConstructedAbilityService.NotifyActorChanged(actor);
+    var health = targets.ToDictionary(actor => actor.id, actor => actor.data.health);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float balance = owner.GetCultisys<Xian>().wakan;
+    double price = SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    var converter = service.Assembly.GetType("Cultiway.Content.Skills.RiftConstructionMigration").GetMethod("Convert", F);
+    object[] input = { new SkillEmission { SkillContainer = skill, Source = source, SpatialSource = source,
+        SourcePos = source.GetSimPos(), TargetPos = point, Strength = 100f },
+        default(Cultiway.Core.EventSystem.Events.GetHitEvent) };
+    var definition = (AbilityDefinition)converter.Invoke(null, input);
+    AbilityCompiler.Compile(definition, cache: false);
+    int before = casts.Count;
+    Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(null, point), ActiveAbilityUseOrigin.Player), "旧索引墟隙从正式学习入口受理", empty);
+    source.attack_timer = 999;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    await Advance(.06f);
+    Check(casts.Count == before + 1 && oldExecutions == 0, "只生成一次共同墟隙", empty);
+    var live = casts.Last();
+    var cast = live.Value;
+    await Stage(cast, strike * .53f);
+    var forming = Views(cast).Single();
+    Check(cast.Age < strike && forming.Resource.Description.Id == form && ShapeCount(cast) == 0 &&
+          targets.All(actor => actor.data.health == health[actor.id]),
+        "成形只有实际裂口画面，伤害还未开始", new { cast.Age, strike, form });
+    await Stage(cast, strike + closing * .28f);
+    var wave = Views(cast).Single(view => view.Resource.Description.Id == "rift_burst");
+    var opening = Views(cast).Single(view => view.Resource.Description.Id == form);
+    var center = (Vector3)wave.Transform.GetColumn(3);
+    float shownRadius = wave.Resource.Description.Contacts.Single().Sector.Radius * wave.Transform.lossyScale.x;
+    Check(Math.Abs(shownRadius - radius) < .001f && Vector2.Distance(center, point) < .035f &&
+          ShapeCount(cast) == 0 && wave.Dye?.a < 1f,
+        "有厚度的冲面覆盖原半径，收势已经停止接触", new { cast.Age, shownRadius, point = center.ToString() });
+    await Stage(cast, strike + closing * .63f);
+    var later = Views(cast).Single(view => view.Resource.Description.Id == "rift_burst");
+    var rift = Views(cast).Single(view => view.Resource.Description.Id == form);
+    Check(later.Transform == wave.Transform && later.Dye?.a < wave.Dye?.a &&
+          rift.Transform.lossyScale.x < opening.Transform.lossyScale.x && ShapeCount(cast) == 0,
+        "冲面固定淡去，裂口同时闭合并收小", new { cast.Age, opacity = later.Dye?.a });
+    await Stage(cast, cast.Plan.Lifetime + .08f);
+    var hits = contacts.Where(contact => contact.CastId == live.Key).ToArray();
+    long[] expectedTargets = empty ? Array.Empty<long>() : new[] { target.id, second.id };
+    Check(hits.Select(hit => hit.TargetId).OrderBy(id => id).SequenceEqual(expectedTargets.OrderBy(id => id)) &&
+          hits.All(hit => Math.Abs(hit.Age - strike) < .003f && hit.Damage.HealthLost > 0) &&
+          targets.All(actor => expectedTargets.Contains(actor.id) == (actor.data.health < health[actor.id])),
+        "仅真实爆发时点的一次两格接触，边界外和空地无伤",
+        new { empty, radius, strike, hits = hits.Select(hit => new { hit.TargetId, hit.Age, hit.Damage.HealthLost }).ToArray() });
+    Check(cast.Finished && Views(cast).Length == 0 && ShapeCount(cast) == 0 &&
+          endings.Any(end => end.Fact.CastId == live.Key && !end.Fact.Cancelled) &&
+          Math.Abs(balance - owner.GetCultisys<Xian>().wakan - price) < .001f,
+        "墟隙自然结束，实际施放只扣原价", new { price, empty });
+    recordings.Add(new { asset = asset.id, index = 0, strike, closing, radius, empty, price,
+        hits = hits.Select(hit => new { hit.TargetId, hit.Age, hit.Damage.HealthLost }) });
+}
+
+async Task Play(SkillEntityAsset asset, string form, int index)
+{
+    if (asset == SkillEntities.Rift)
+    {
+        if (caseName == "legacy") await PlayLegacyRift();
+        else await PlayRift(form);
+        return;
+    }
+    if (asset == SkillEntities.SpiritBeam || asset == SkillEntities.SolarBeam || asset == SkillEntities.ChainLightning)
+    {
+        await PlayLegacyChannel(asset, form, index);
+        return;
+    }
+    if (asset == SkillEntities.GroundSpike)
+    {
+        await PlaySpike(asset, form, index);
+        return;
+    }
+    if (asset.ImpactProfile.Kind == Cultiway.Core.SkillLibV3.Impacts.SkillImpactKind.Wall)
+    {
+        await PlayWall(asset, form, index);
+        return;
+    }
+    if (asset.ImpactProfile.Kind == Cultiway.Core.SkillLibV3.Impacts.SkillImpactKind.Shield)
+    {
+        await PlayShield(asset, form, index);
+        return;
+    }
+    if (asset.ImpactProfile.IsField)
+    {
+        await PlayField(asset, form, index);
+        return;
+    }
+    bool icefall = asset == SkillEntities.Icefall, lightning = asset == SkillEntities.LightningStrike;
+    bool fallingRock = asset == SkillEntities.FallingRock;
+    bool fallingTimber = asset == SkillEntities.FallingTimber;
+    bool meteor = asset == SkillEntities.FlameMeteor;
+    bool ridge = asset == SkillEntities.EarthRidge;
+    bool groundTravel = ridge || asset == SkillEntities.TidalWave || asset == SkillEntities.SpiritVine;
+    bool sky = lightning || icefall || fallingRock || fallingTimber || meteor;
+    bool chaos = asset == SkillEntities.ChaosOrb;
+    bool orb = asset == SkillEntities.WaterOrb, blast = chaos || asset == SkillEntities.ThunderOrb || sky;
+    bool arc = orb || asset == SkillEntities.RockProjectile || asset == SkillEntities.ThunderOrb || chaos;
+    bool landing = caseName == "landing", cancelled = caseName == "cancel";
+    bool fast = sky && landing && index == 0;
+    bool blade = asset == SkillEntities.WaterBlade || asset == SkillEntities.SwordQi ||
+        asset == SkillEntities.WindBlade || asset == SkillEntities.YinBlade;
+    bool continues = asset.ImpactProfile.ContinueAfterHit;
+    bool tracking = CanTestTracking(asset) && (caseName == "tracking" || cold && index == 1), miss = caseName == "miss";
+    float timeout = blast && miss ? (icefall || meteor ? .012f : sky ? .15f : .115f) : 0f;
+    var skill = cold ? Learned().Single(entity =>
+    {
+        var value = entity.GetComponent<SkillContainer>();
+        return value.Asset == asset && value.AnimationIndex == index;
+    }) : Learn(asset, index, tracking, timeout, fast ? .6f : meteor && miss ? -.9f : 0f);
+    var container = skill.GetComponent<SkillContainer>();
+    var animation = asset.GetAnimation(index);
+    float interval = container.MotionProfile.FrameInterval;
+    float rise = Seconds(animation.Appearance, interval), fade = Seconds(animation.Dissipation, interval);
+    float runtime = timeout > 0f ? timeout : asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier;
+    string model = index == 0 && !lightning && !fallingRock && !fallingTimber ? form : form + "_" + index;
+    Check(container.AnimationIndex == index && (!tracking || SkillBlueprintTrajectory.ResolveEffectiveId(skill) == SkillTrajectories.TowardsTarget.id),
+        "原已学关系保留指定索引和轨迹", new { model, tracking });
+
+    Ready(source);
+    Place(source, 64);
+    Place(target, tracking ? 74f : continues ? 69f : arc || blast ? 71f : 72f,
+        miss ? 77f : landing ? 71f : 72f);
+    Place(second, blast ? 71.4f : orb && index == 4 && !tracking ? 71.04f : continues ? 73f : 75f,
+        miss || tracking ? 78f : blast ? 73.1f : orb && index == 4 ? 72.48f : blade ? 72.78f : 72f);
+    Place(outside, 70f, 78f);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    foreach (var actor in new[] { source, target, second, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+    float before = owner.GetCultisys<Xian>().wakan;
+    int hp = target.data.health, hp2 = second.data.health, hpOutside = outside.data.health;
+    double price = SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    int previous = casts.Count;
+    bool usePoint = miss || landing || sky || groundTravel;
+    var point = usePoint
+        ? new Vector3(sky && landing ? 71.35f : 71f, sky && landing ? 72.3f : 72f, source.GetSimPos().z)
+        : target.GetSimPos();
+    var aim = new ActiveAbilityTarget(usePoint ? null : target, point,
+        selectionArea: new SkillTargetSelectionArea(!usePoint, point, .1f));
+    Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        aim, ActiveAbilityUseOrigin.Player), "原已学入口受理", model);
+    source.attack_timer = 999;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    await Advance(sky ? .026f : .08f);
+
+    Check(casts.Count == previous + 1 && oldExecutions == 0, "只进入共同执行一次", model);
+    var live = casts.Last();
+    var cast = live.Value;
+    if (sky) await Stage(cast, .04f);
+    var initial = Views(cast).Single(view => view.Resource.Description.Id == model);
+    Vector3 first = initial.Transform.GetColumn(3);
+    bool liquid = form.StartsWith("water_", StringComparison.Ordinal) || asset == SkillEntities.PoisonNeedle;
+    Check(initial.Resource.Description.Id == model && (!liquid || initial.Resource.Description.Parts.All(p => p.HasSurfaceData)) &&
+          Math.Abs(cast.Plan.Lifetime - rise - runtime - fade) < .001f,
+        "实际主体与原阶段时长对应", new { model, rise, runtime, fade });
+    if (rise > 0f)
+        Check(cast.Age < rise && (sky || Mathf.Abs(first.x - 64f) < .05f) && ShapeCount(cast) == 0 &&
+              contacts.All(hit => hit.CastId != live.Key), "成形阶段没有人物作用面", model);
+    if (asset == SkillEntities.SpiritVine)
+        Check(initial.BuildProgress > 0f && initial.BuildProgress < 1f, "灵藤在原地先长出可见根系", model);
+    if (sky)
+    {
+        await Stage(cast, fast ? .169f : (timeout > 0f ? .092f : .125f));
+        var moving = Views(cast).Single(view => view.Resource.Description.Id == model);
+        Vector3 flown = moving.Transform.GetColumn(3);
+        float offset = Vector2.Distance(flown, point);
+        Check((icefall ? offset <= 1.401f && Vector2.Distance(first, flown) < .03f : offset < .03f) &&
+              first.z - flown.z > .2f &&
+              (rise == 0f ? ShapeCount(cast) > 0 : ShapeCount(cast) == 0 && hp == target.data.health && cast.NodeAge(1) < 0f),
+              "真实下落保留指定点，成形期间没有伤害", new { model, age = cast.Age, first = first.ToString(),
+                  current = flown.ToString(), shapes = ShapeCount(cast) });
+        if (icefall && !miss)
+        {
+            Place(target, flown.x - 1.05f, flown.y);
+            Place(second, flown.x + 1.05f, flown.y + .55f);
+            ConstructedAbilityService.NotifyActorChanged(target);
+            ConstructedAbilityService.NotifyActorChanged(second);
+        }
+        if (fast)
+        {
+            object root = ((Array)Field(cast, "nodes")).GetValue(0);
+            Check((bool)Field(root, "GroundEndPending") && Mathf.Abs(cast.Velocity(0).z) < .001f && cast.Age < rise,
+                "加速后先真实着地，保持落点等待作用开始", new { model, age = cast.Age, point = flown.ToString() });
+        }
+    }
+    else
+    {
+        await Stage(cast, rise + (timeout > 0f ? .038f : .082f));
+        var moving = Views(cast).Single(view => view.Resource.Description.Id == model);
+        Vector3 flown = moving.Transform.GetColumn(3);
+        Check(flown.x > 64.08f && ShapeCount(cast) > 0 &&
+              (!arc || tracking || flown.z > source.GetSimPos().z + .45f),
+            "飞行时有实际位移和作用面，抛弧主体沿原弧线抬升",
+            new { model, start = first.ToString(), position = flown.ToString(), shapes = ShapeCount(cast) });
+        if (groundTravel)
+        {
+            float surface = moving.Terrain?.Sample(flown.x, flown.y) ?? first.z;
+            Check(Vector2.Distance(flown, first) > .20f && Mathf.Abs(flown.z - surface) < .60f,
+                "地面主体从原地成形后沿地表实际推进", new { model, moved = flown.ToString(), surface });
+        }
+    }
+    if (cancelled)
+    {
+        cast.Cancel();
+        await Advance(.24f);
+        Check(cast.Finished && cast.NodeAge(1) < 0f && Views(cast).Length == 0 &&
+              contacts.All(hit => hit.CastId != live.Key) && hp == target.data.health && hp2 == second.data.health,
+              "空中取消后无爆发、接触和残留显示", model);
+        recordings.Add(new { asset = asset.id, index, form = model, cancelled = true });
+        return;
+    }
+    if (tracking)
+    {
+        Place(target, 74, 75.4f);
+        ConstructedAbilityService.NotifyActorChanged(target);
+    }
+    if (model == "wood_spear_1")
+    {
+        Vector3 beforeFiber = initial.Transform.inverse.MultiplyPoint3x4(initial.PartTransform(2).GetColumn(3));
+        await Stage(cast, .19f);
+        var gathered = Views(cast).Single(view => view.Resource.Description.Id == model);
+        Vector3 afterFiber = gathered.Transform.inverse.MultiplyPoint3x4(gathered.PartTransform(2).GetColumn(3));
+        Check(Vector3.Distance(beforeFiber, afterFiber) > .02f && ShapeCount(cast) > 0,
+            "木纤维贴着实际移动的木芯束拢，直接出手的索引没有禁接触阶段", model);
+    }
+
+    Vector3? impact = null, rest = null, firstIcePiece = null;
+    float? impactAt = null;
+    if (blast && !miss)
+    {
+        Config.paused = false;
+        await Game.WaitUntil(() => cast.NodeAge(1) >= 0f || cast.Finished, 1800);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        string impactForm = lightning ? "lightning_strike_impact" : icefall ? "icefall_impact" :
+            fallingRock ? "falling_rock_impact" : fallingTimber ? "falling_timber_impact" :
+            chaos ? "chaos_orb_impact" : meteor ? "flame_meteor_impact_motion" : "thunder_orb_impact";
+        var pulse = Views(cast).Single(view => view.Resource.Description.Id == impactForm);
+        impact = pulse.Transform.GetColumn(3);
+        impactAt = cast.Age - cast.NodeAge(1);
+        float expectedRadius = asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier *
+            SkillEffectRadius.ResolveCasterGrowth(owner, skill);
+        Check(cast.NodeAge(1) < .15f && Mathf.Abs(cast.RemainingForce(1) - 100f) < .001f &&
+              Mathf.Abs(.9f * pulse.Transform.lossyScale.x - expectedRadius) < .001f,
+            "真实爆发保留本体余力和原作用半径", new { model, actual = impact.ToString(), expectedRadius });
+        if (icefall)
+        {
+            Check(Vector2.Distance(impact.Value, first) < .04f && Vector2.Distance(impact.Value, point) <= 1.401f &&
+                  impactAt >= rise, "冰雨沿实际散落位置垂直下落并在成形完毕后结算", new
+                  { model, initial = first.ToString(), centre = impact.ToString(), impactAt });
+            scatterCenters.Add(impact.Value);
+            firstIcePiece = pulse.PartTransform(1).GetColumn(3);
+        }
+        else if (landing || sky)
+            Check(Vector2.Distance(impact.Value, point) < .04f && impactAt >= rise,
+                "指定地点与实际爆发中心一致，生效时点在成形后", new { model, impact = impact.ToString(), impactAt });
+        if (fallingRock || fallingTimber || chaos || meteor)
+        {
+            Vector3 firstSlab = pulse.PartTransform(1).GetColumn(3);
+            await Stage(cast, impactAt.Value + .069f);
+            var spread = Views(cast).Single(view => view.Resource.Description.Id == impactForm);
+            Check(Vector3.Distance(firstSlab, spread.PartTransform(1).GetColumn(3)) > .02f &&
+                  Vector3.Distance(impact.Value, spread.Transform.GetColumn(3)) < .02f && ShapeCount(cast) == 0,
+                "碎片在实际爆发位置翻起，展开过程不再次伤人", model);
+        }
+    }
+    if (fade > 0f)
+    {
+        int fadeNode = blast ? 2 : 1;
+        Config.paused = false;
+        await Game.WaitUntil(() => cast.NodeAge(fadeNode) >= 0f || cast.Finished, 1800);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        float began = cast.Age - cast.NodeAge(fadeNode);
+        var after = Views(cast).Single(view => view.Resource.Description.Id == model);
+        rest = after.Transform.GetColumn(3);
+        if (arc && miss && !blast)
+            Check(Vector2.Distance(rest.Value, point) < .03f && began <= rise + .53f,
+                "抛弧落空时仍在指定点收束", new { model, point = point.ToString(), landed = rest.ToString(), began });
+        float alpha = after.Dye?.a ?? 1f;
+        Vector3 settlePart = ridge ? (Vector3)after.PartTransform(1).GetColumn(3) : Vector3.zero;
+        await Stage(cast, began + fade * .56f);
+        var ending = Views(cast).Single(view => view.Resource.Description.Id == model);
+        float remaining = ending.Dye?.a ?? 1f;
+        Check(cast.NodeAge(fadeNode) >= fade * .52f && ShapeCount(cast) == 0 &&
+              (ridge ? Vector3.Distance(ending.PartTransform(1).GetColumn(3), settlePart) > .03f : remaining > 0f && remaining < alpha) &&
+              Vector3.Distance(rest.Value, (Vector3)ending.Transform.GetColumn(3)) < .01f &&
+              (!impact.HasValue || Vector3.Distance(rest.Value, impact.Value) < .02f),
+            "收势停在真实结束地点连续变淡，作用面已经退出", new { model, rest = rest.ToString(), alpha, remaining });
+        if (groundTravel) Check(rest.Value.x > point.x + .20f, "地面主体确实越过目标后才收势", model);
+        if (firstIcePiece.HasValue)
+        {
+            var shifted = Views(cast).Single(view => view.Resource.Description.Id == "icefall_impact");
+            Check(cast.IsShapeHeld(1) && Vector3.Distance(shifted.PartTransform(1).GetColumn(3), firstIcePiece.Value) > .02f &&
+                  Vector3.Distance(impact.Value, shifted.Transform.GetColumn(3)) < .02f,
+                "冰片绕实际落点翻开，冰的保持形状规则继续有效", model);
+        }
+        await Advance(fade + .05f);
+    }
+    else
+    {
+        Config.paused = false;
+        await Game.WaitUntil(() => cast.Finished, 1800);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+    }
+    var actual = contacts.Where(hit => hit.CastId == live.Key).ToArray();
+    var damage = actual.Where(hit => hit.Damage.HealthLost > 0).ToArray();
+    bool settled = miss ? actual.Length == 0 && hp == target.data.health && hp2 == second.data.health :
+        !continues ? actual.Length == 1 && damage.Length == 1 && (orb && index == 4 && !tracking ?
+            damage[0].TargetId == target.id || damage[0].TargetId == second.id : damage[0].TargetId == target.id) :
+        actual.Length == (tracking ? 1 : 2) && damage.Length == actual.Length &&
+        damage.Count(hit => hit.TargetId == target.id) == 1 && damage.Count(hit => hit.TargetId == second.id) == (tracking ? 0 : 1);
+    if (blast)
+    {
+        settled = miss ? settled && cast.NodeAge(1) < 0f : impact.HasValue &&
+            actual.Count(hit => hit.Node == 0) <= (landing || icefall ? 0 : 1) &&
+            actual.Where(hit => hit.Node == 0).All(hit => !hit.DamageAttempted) &&
+            damage.All(hit => hit.Node == 1) && damage.Length == (tracking ? 1 : 2) &&
+            damage.Count(hit => hit.TargetId == target.id) == 1 &&
+            damage.Count(hit => hit.TargetId == second.id) == (tracking ? 0 : 1);
+    }
+    Check(settled && actual.All(hit => hit.Age >= rise && (blast || hit.Node == 0)) && outside.data.health == hpOutside &&
+          (!tracking || (impact?.y ?? damage[0].Position.y) > 74f),
+        "保留贯穿、首击或爆发规则，范围外及提前到期无伤",
+        new { model, tracking, miss, landing, impact = impact.ToString(), hits = actual.Select(hit => new { hit.TargetId, hit.Age, hit.Node,
+            hit.Damage.HealthLost, position = hit.Position.ToString() }).ToArray() });
+    Check(cast.Finished && Views(cast).Length == 0 && ShapeCount(cast) == 0 &&
+          endings.Any(end => end.Fact.CastId == live.Key && !end.Fact.Cancelled) &&
+          Math.Abs(before - owner.GetCultisys<Xian>().wakan - price) < .001f,
+        "自然结束并只扣原价", new { model, price, before, after = owner.GetCultisys<Xian>().wakan });
+    recordings.Add(new { asset = asset.id, index, form = model, rise, runtime, fade, price, tracking, miss,
+        landing, point = rest.ToString(), impact = impact.ToString(), impactAt, triggers = actual.Count(hit => hit.Node == 0),
+        hits = damage.Select(hit => hit.TargetId).ToArray() });
+}
+
+ConstructedAbilityService.CastStarted += Started;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
+try
+{
+    foreach (var entry in catalog)
+    {
+        var coldVariants = entry.Asset == SkillEntities.LightningStrike ? new[] { 0, 9 } :
+            entry.Asset.ImpactProfile.Kind == Cultiway.Core.SkillLibV3.Impacts.SkillImpactKind.Shield || entry.Asset.ImpactProfile.IsField
+                ? Enumerable.Range(0, entry.Count).ToArray() : new[] { Math.Min(1, entry.Count - 1) };
+        var variants = chosenVariants.Length > 0 ? chosenVariants.Distinct() : cold ? coldVariants : Enumerable.Range(0, entry.Count);
+        foreach (int index in variants)
+        {
+            try { await Play(entry.Asset, entry.Form, index); }
+            catch (Exception error) when (entry.Asset.ImpactProfile.IsField)
+            {
+                // 每个领域独立施放。保留失败并清掉本次运行，后面的旧索引仍可验证。
+                fieldFailures.Add(new { asset = entry.Asset.id, index, reason = error.ToString() });
+                foreach (var cast in casts.Values.Where(value => !value.Finished)) cast.Cancel();
+                await Advance(.12f);
+            }
+        }
+        if (caseName == "scatter")
+        {
+            await Play(entry.Asset, entry.Form, 0);
+            Check(scatterCenters.Count == 2 && Vector2.Distance(scatterCenters[0], scatterCenters[1]) > .02f,
+                "同一人物重放的冰雨取得两个不同的实际散落位置", scatterCenters.Select(center => center.ToString()).ToArray());
+        }
+    }
+    return new { passed = fieldFailures.Count == 0, spells = recordings.Count, process, fieldFailures };
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder, "variants.json"), JsonConvert.SerializeObject(recordings, Formatting.Indented));
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyExecution;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

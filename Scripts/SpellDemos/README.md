@@ -2535,3 +2535,169 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `tail` 和 `pair` 可附 `--view native` 或 `--view worldfall` 录制常速画面。雷角和前爪的录像复用 9.40 的 `verify_beast_attacks.py --part horn|pounce --record native|worldfall`。
 
 正式世界、八段录像及各场景的结果路径汇总于 `~/.local/state/cultiway-dev/evidence/nonhuman-949/delivery.json`。
+
+### 火刃旧变体（10.01）
+
+在独立游戏中运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_fire_blade_variants.py`。脚本通过原学习和付费入口逐个使用四个索引，核对锋口、双锋间隙、成形时点和收束位置，并用索引 3 复验折线路线。可重复传入 `--variant` 复验指定索引。每轮输出实际检查和施放记录。
+
+### 火球旧变体与火系存档（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py fireball` 验证全部十八个索引。可重复指定 `--variant`，或者使用 `--case miss`、`--case tracking --variant 11`、`--case gravity` 单独复验落空、改追踪和成形期间的范围作用。
+
+用同一入口的 `fire-family --case archive` 保存火刃和火球的完整学习资料。退出并重新启动独立游戏后运行 `fire-family --case cold --archive <保存输出目录>`，核对全部索引、追踪轨迹和两个读回招式的真实施放。
+
+录像使用 `demo_all.py --filter Cultiway.FireBlade,Cultiway.Fireball --variants all --cases base --realm 0 --target-offset 7 0 --zoom 9 --duration 1.4 --fps 30`。分别指定 `--view native` 或 `--view worldfall` 和各自的输出目录。总览包含四个火刃、十八个火球各自的一段连续施放。
+
+### 水系飞行旧变体（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py water-family` 逐个验证水箭、水球和水刃。改用 `water-arrow`、`water-orb` 或 `water-blade` 后，可重复传入 `--variant` 复验指定索引。水球可加 `--case miss` 或 `--case tracking` 检查落空收势和改轨迹后追踪移动目标。
+
+用 `water-family --case archive` 保存全部十三份学习资料。退出并重启后用 `water-family --case cold --archive <保存输出目录>` 读回资料，施放三种代表索引。
+
+两种视角分别使用 `demo_all.py` 的 `--view native` 或 `--view worldfall`。水箭和水刃用 `--filter Cultiway.WaterArrow,Cultiway.WaterBlade --zoom 23` 保留飞行和收势，水球用 `--filter Cultiway.WaterOrb --zoom 9` 看转动的内外水层。两组都使用 `--variants all --cases base --realm 0 --target-offset 7 0 --duration 1.55 --fps 30`。
+
+### 金系与风系飞行旧变体（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py metal-wind` 逐个验证飞剑、剑气、金针、风弹和风刃。可选择 `flying-sword`、`sword-qi`、`golden-needle`、`wind-bullet` 或 `wind-blade` 并传入 `--variant` 复验原索引。金针用 `--case miss` 核对落空，风弹用 `--case tracking` 核对改轨迹后追踪移动目标。
+
+用 `metal-wind --case archive` 保存九份学习资料。退出并重启后用 `metal-wind --case cold --archive <保存输出目录>` 读回资料，经正式入口施放五个代表索引。
+
+录像共用 `demo_all.py --variants all --cases base --realm 0 --target-offset 7 0 --duration 1.55 --fps 30`。剑气、金针和风刃用 `--zoom 23`，飞剑和风弹用 `--zoom 12`。两组均分别录制 `--view native` 和 `--view worldfall`。
+
+### 雷珠、雷枪旧变体（10.01）
+
+用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py thunder-projectiles` 验证全部四种雷珠及雷枪。用 `thunder-orb --case landing --variant 0` 验证无直接接触的指定点爆发，用 `--case miss --variant 0` 核对提前到期，用 `--case tracking` 核对改追踪后命中移动目标。批次同一入口支持 `--case archive`，重启游戏后用 `--case cold --archive <保存输出目录>` 读回并付费施放。
+
+两种视角均用 `demo_all.py --filter Cultiway.ThunderOrb,Cultiway.LightningSpear --variants all --cases base --realm 0 --target-offset 7 0 --zoom 20 --duration 1.55 --fps 30`。分别选 `--view native` 或 `--view worldfall` 和对应输出目录。
+
+### 落雷旧变体（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py lightning-strike` 逐个通过已学入口施放十一个旧索引。用 `--case landing` 核对索引 0 加速后先着地、成形结束才在指定点爆发。用 `--case miss --variant 1` 核对提前到期，用 `--case cancel` 核对空中取消。
+
+用同一入口的 `--case archive` 保存十一份学习资料，关闭并重启游戏后用 `--case cold --archive <保存输出目录>` 重新施放索引 0 和 9。录像用 `demo_all.py --filter Cultiway.LightningStrike --variants all --cases base --realm 0 --target-offset 7 0 --zoom 16 --duration 1.2 --fps 30`，分别指定 `--view native` 和 `--view worldfall`。
+
+### 冰棱、冰枪、冰雨旧变体（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py ice-projectiles` 实测首击、贯穿和实际落点爆发。用 `icefall --case scatter` 核对同一人物两次施放的散落，用 `icefall --case miss` 核对提前到期。批次入口的 `--case archive` 保存全部三个索引，另起进程后用 `--case cold --archive <保存输出目录>` 重新读回及施放。
+
+两种视角录像使用 `demo_all.py --filter Cultiway.IceShard,Cultiway.IceLance,Cultiway.Icefall --variants all --cases base --realm 0 --target-offset 7 0 --zoom 19 --duration 1.55 --fps 30`。
+
+### 飞石、石锥、落石旧变体（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py earth-projectiles` 逐个施放五个旧索引。`rock-projectile --case miss` 检查抛弧落空后的收势，`falling-rock --case landing` 检查实际着地，`falling-rock --case miss --variant 1` 检查提前到期。`earth-projectiles --case archive` 保存五份学习资料，重启后用 `earth-projectiles --case cold --archive <保存输出目录>` 读回并重放三种法术。
+
+原版与 Worldfall 分别使用 `demo_all.py --filter Cultiway.RockProjectile,Cultiway.StoneCone,Cultiway.FallingRock --variants all --cases base --realm 0 --target-offset 7 0 --zoom 19 --duration 1.55 --fps 30`。
+
+### 木枪、落木旧变体（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py wood-projectiles` 逐个验证四个旧索引。`wood-spear --case tracking --variant 1` 核对改轨迹后仍用原木桩并命中移动目标，`falling-timber --case landing` 检查真正着地，`falling-timber --case miss --variant 1` 检查提前到期。用 `wood-projectiles --case archive` 保存，重启后用同批次的 `--case cold --archive <保存输出目录>` 读回并重放。
+
+录像用 `demo_all.py --filter Cultiway.WoodSpear,Cultiway.FallingTimber --variants all --cases base --realm 0 --target-offset 7 0 --zoom 19 --duration 1.55 --fps 30`，分别选择 `--view native` 和 `--view worldfall`。
+
+### 灵弹、阴煞弹、纯阳弹、混沌珠旧变体（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py energy-bolts` 验证四个旧索引。`yin-bolt --case tracking` 核对改追踪后保留形体，`chaos-orb --case landing` 检查指定点爆发，`chaos-orb --case miss` 检查提前到期。批次支持 `--case archive`，重启后用 `--case cold --archive <保存输出目录>` 读回并重放四种法术。
+
+录像用 `demo_all.py --filter Cultiway.SpiritBolt,Cultiway.YinBolt,Cultiway.YangBolt,Cultiway.ChaosOrb --variants all --cases base --realm 0 --target-offset 7 0 --zoom 19 --duration 1.55 --fps 30`，分别选择 `--view native` 和 `--view worldfall`。
+
+### 毒针、阴刃、炎陨旧变体（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py needle-blade-meteor` 验证三个索引。`poison-needle --case tracking` 检查改追踪，`flame-meteor --case landing` 检查指定地面，`flame-meteor --case miss` 检查提前到期。批次支持 `--case archive`，重启后用 `--case cold --archive <保存输出目录>` 读回并重放。
+
+录像用 `demo_all.py --filter Cultiway.PoisonNeedle,Cultiway.YinBlade,Cultiway.FlameMeteor --variants all --cases base --realm 0 --target-offset 7 0 --zoom 19 --duration 1.55 --fps 30`，分别选择 `--view native` 和 `--view worldfall`。
+
+### 地刺、地脊、沧浪、灵藤旧变体（10.01）
+
+用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py ground-spike --case legacy` 记录旧地刺的结算时点、范围和接触对象。用 `ground-forms` 一次检查七个索引，必要时可指定 `ground-spike --variant 0`、`earth-ridge`、`tidal-wave` 或 `spirit-vine`。批次的 `--case archive` 保存全部索引，重启后用 `--case cold --archive <保存输出目录>` 读回并重放。
+
+原版和 Worldfall 分别用 `demo_all.py --filter Cultiway.GroundSpike,Cultiway.EarthRidge,Cultiway.TidalWave,Cultiway.SpiritVine --variants all --cases base --realm 0 --target-offset 7 0 --zoom 19 --duration 1.65 --fps 30` 录制。
+
+地刺边界用 `ground-spike --case legacy-edge --variant 0` 和 `ground-spike --case edge` 对照。在同一岩床的中心及距中心 1.38、1.42 格处放靶。
+
+地脊放大后的岩床接触可用 `demo_all.py --filter Cultiway.EarthRidge --variants all --cases base --realm 0 --caster-position 64 72 --target-offset 5 0 --aim-offset 7 0 --zoom 15 --duration 1.65 --fps 30 --motion-trace` 补拍。原地面对练的人物仍在同一张图上。分别选 `--view native` 和 `--view worldfall`，在输出的 `result.json` 核对实际接触和受伤人数。
+
+### 土墙、冰墙、木壁旧变体（10.01）
+
+用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py solid-walls --case archive` 写入三份旧学习资料。换游戏进程后用同一入口的 `--case cold --archive <保存输出目录>` 读回并重放。默认的 `--case hit` 使用现成对练检查落位、实际行走、费用和结束恢复，可指定 `earth-wall`、`ice-wall` 或 `wood-wall`。
+
+补拍冰墙迎击用 `demo_all.py --filter Cultiway.IceWall --variants all --cases base --scene shield --realm 2 --target-offset 8 -5 --zoom 12.5 --duration 2.8 --fps 30 --motion-trace`，分别选择 `--view native` 和 `--view worldfall`。输出记录墙实际承受的力量。
+
+### 火墙、风墙、剑幕、水幕旧变体（10.01）
+
+用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py contact-walls --case archive` 保存四个旧索引。重启后用 `contact-walls --case cold --archive <保存输出目录>` 读回并施放。默认的 `--case hit` 可单独指定 `fire-wall`、`wind-wall`、`sword-curtain` 或 `water-curtain`。
+
+迎击录像用 `demo_all.py --filter Cultiway.FireWall,Cultiway.WindWall,Cultiway.SwordCurtain,Cultiway.WaterCurtain --variants all --cases base --scene shield --realm 2 --target-offset 8 -5 --duration 2.8 --fps 30 --motion-trace`。原版配 `--view native --zoom 12.5`，Worldfall 配 `--view worldfall --zoom 16.5`。输出记录实际拦截和墙面容量变化。
+
+### 随身护盾旧变体（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py shields --case archive` 保存八个索引。重启后使用 `shields --case cold --archive <保存输出目录>` 读回，核对每个索引的成形、有效防御、拦截、原价和收势。也可选择单个护盾并指定 `--variant`。
+
+用 `demo_all.py --filter Cultiway.SpiritShield,Cultiway.FlameShield,Cultiway.WindShield,Cultiway.LightningShield,Cultiway.YangShield --variants all --cases base --scene shield --realm 0 --target-offset 7 0 --zoom 17 --duration 3.6 --fps 24 --motion-trace` 录制，分别选择 `--view native` 和 `--view worldfall`。
+
+### 链雷、灵光、曜阳光旧变体（10.01）
+
+用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py beams-and-chain --case archive` 保存三份旧学习资料。重启后使用 `beams-and-chain --case cold --archive <保存输出目录>` 读回并施放。复验核对成形时无伤、真实命中、固定端点退光、链雷首击余光和正常结束。
+
+录像用 `demo_all.py --filter Cultiway.SpiritBeam,Cultiway.SolarBeam,Cultiway.ChainLightning --variants all --cases base --realm 0 --caster-position 64 72 --target-offset 5 0 --zoom 16.5 --duration 1.45 --fps 30 --motion-trace`，分别选择 `--view native` 和 `--view worldfall`。
+
+### 五种持续领域的旧索引
+
+在独立游戏运行 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py persistent-fields --case archive`，将风卷四个索引和玄阴域、毒潭、毒雾、乱熵域各自的旧索引写入同一正式世界。重启后用同批次的 `--case cold --archive <保存输出目录>` 核对旧资料并逐个重放。单个来源可用 `tornado`、`yin-field`、`poison-pool`、`poison-mist`、`entropy-field`，风卷可用 `--variant` 指定索引。
+
+复用同一对练核对成形无伤、推进或跟随、间隔伤害、固定点收势及随后清理。同一毒潭的第三次受理需只替换最老实例，三次均按原价。组合录像用 `demo_all.py --filter Cultiway.Tornado,Cultiway.YinField,Cultiway.PoisonPool,Cultiway.PoisonMist,Cultiway.EntropyField --cases base --variants all`，分别指定原版与 Worldfall 视角。旧地块作用随 10.01 的世界作用验收。
+
+### 墟隙的旧索引
+
+在独立游戏中用 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_variants.py rift --case legacy` 对照原执行的爆发时点、半径、费用及地块和建筑记录。用 `--case archive` 取得正式世界，重启后以 `--case cold --archive <保存输出目录>` 读回并重放。用 `--case miss` 验证空地张合。放大、强化、抗性、失败退款及恢复仍可用 `verify_rift.py` 分别核对。
+
+原版与 Worldfall 的画面均由 `demo_spell.py Rift --cases base --duration 1.1 --motion-trace` 录制。成形段只有裂口，爆发时冲面覆盖真实的圆形范围，随后两部分各自收势。
+
+### 六种友方术的旧索引
+
+用 `dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_support_variants.py --case archive` 将六个零号索引保存进正式世界。换进程后，传入 `--archive <保存输出目录>`，依次用 `--case legacy` 对照旧行为、用 `--case cold` 重放当前实现。只补单体或范围时可选 `--section single` 或 `--section area`，读档仍校验全部学习资料。
+
+录像中可以从报告的 `friendStatusesBefore` 和 `friendStatusesAfter` 核对友方的状态变化，并读取生命前后值。录制回春领域时，时长要覆盖完整有效段和收势。
+
+### 四种瞬时改地术的旧索引
+
+在独立游戏中，用 `dev.py exec -- python3 Scripts/SpellDemos/verify_terrain_variants.py --case legacy --archive <旧档输出目录>` 记录旧执行。改后用 `--case cold --archive <同一旧档输出目录> --baseline <旧执行的 result.json>` 逐格对照并检查收势。两者都核对八份归档学习资料，可用 `--spell RaiseTerrain` 等参数只重放受影响法术。水和邻格可能在施法以后继续由游戏更新，作用范围以实际结算记录为准。
+
+合辑用 `demo_all.py --scope base --filter Cultiway.RaiseTerrain,Cultiway.LowerTerrain,Cultiway.FillWater,Cultiway.DrainWater --cases base --variants all --realm 0 --caster-position 64 72 --aim-offset 6 0 --motion-trace`。分别传入 `--view native` 和 `--view worldfall`，从 `worldContactsLog` 核对真实变更的地块。
+
+### 植被催生、净土、召雨与催熟的旧索引
+
+在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_world_utility.py --case legacy --archive <旧档输出目录>`。用其 `result.json` 作为 `--baseline`，配合 `--case cold --archive <同一旧档输出目录>` 重放当前实现。两者均读取归档的八份世界法术；`--spell CleanLandField` 等选项可只重放对应法术。
+
+演示用 `demo_all.py --scope base --filter Cultiway.NatureGrowthField,Cultiway.CleanLandField,Cultiway.SummonRainCloud,Cultiway.Fertilize --cases base --variants all --duration 4.9 --motion-trace`。分别指定原版或 Worldfall，取实际地块操作查看前后状态。召雨段保留成云时间，完整天气存读仍通过原有 `verify_rain_process.script` 和 `verify_rain_process_restart.script` 复验。
+
+### 旧攻击的范围爆发（10.01）
+
+在独立游戏中用 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_area_impacts.py --case archive` 保存学习资料。用 `--case legacy --archive <归档输出目录>` 记录各术的原执行。重新启动独立游戏后用 `--case cold --archive <归档输出目录> --baseline <原执行的 result.json>` 对照。两种执行都可以用 `--spell Rift` 等参数只复验指定法术。对照落石、落雷和墟隙的代表场景时，两端都加 `--objects`，可分别检查固定沙地、人物总伤害和敌方完工建筑。
+
+两种视角的录像用 `demo_all.py --scope base --filter Cultiway.GroundSpike,Cultiway.Rift,Cultiway.LightningStrike,Cultiway.Icefall --cases base --variants first --realm 0 --caster-position 64 72 --target-offset 6 0 --aim-offset 6 0 --duration 1.8 --fps 26 --motion-trace`，原版配 `--view native --zoom 10`，Worldfall 配 `--view worldfall --zoom 12`。地形变化以复验的实际地块记录为准。
+
+### 旧攻击沿途掠地（10.01）
+
+在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_ground_travel.py --case legacy`。随后用 `--case current --baseline <原执行的 result.json>` 复验当前实现，查看沿途格子状态及取消后的结果。可用 `--spell PoisonNeedle` 等参数只复验一个样本。
+
+### 旧攻击命中人物后的地块作用（10.01）
+
+在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_ground_contact.py --case legacy`。随后用 `--case current --baseline <原执行的 result.json>` 对照每次接触、脚下地块和实扣费用。使用 `--spell ChainLightning` 可单独对照跳跃及衰减。报告的 `damage` 分别记录带来源的命中和原版环境伤害，用来查明总掉血的组成。
+
+### 飞行攻击实际接触建筑（10.01）
+
+在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_building_flight.py --case legacy`。再用 `--case current --baseline <原执行的 result.json>` 对照。可用 `--spell WaterArrow`、`--spell Fireball` 或 `--spell RockProjectile` 单独安排样本。报告包含水矢直击和穿透、火球拦截和拆屋后的复放，以及飞石越过房屋时的真实结果。
+
+以相同入口加 `--group sustained` 可对照曜阳光、毒潭、火墙与风墙对同一类完工建筑的作用。报告保留单次实际扣血、共同接触的年龄、实扣费用及结束观察。
+
+用 `--group chain` 对照从人物经建筑再跳回人物、点名建筑起跳和拆屋后改选三种实际路径。调试某一段时可用 `--chain-case actor-relay`、`--chain-case building-first` 或 `--chain-case open`。
+
+### 持续领域的受力、液体与地形（10.01）
+
+在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_field_world.py --case legacy`，再用同一入口的 `--case current --baseline <原执行的 result.json>` 对照。可以用 `--spell Tornado` 或 `--spell YinField` 限定样本。报告记录角色的实际位移、行进及接触产生的水滴、改变的地块与结束后的观测。
+
+### 基础法术整项交付（10.01）
+
+在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_base_spell_archive.py --case archive`。退出并重新启动后，用同一入口的 `--case cold --archive <保存输出目录>` 核对全部 127 个旧索引及冻结的学习资料。
+
+用 `python3 Scripts/SpellDemos/build_base_spell_reels.py <分批证据目录> <交付目录>` 合成原版和 Worldfall 录像。脚本按制作清单核对各索引都有已验证的原片，并生成章节及逐索引时间表。

@@ -84,13 +84,13 @@ try
     {
         var d=Convert(skill,out GetHitEvent damage);bool boosted=skill.HasComponent<HugeModifier>();
         var plan=AbilityCompiler.Compile(d,cache:false);
-        Check(d!=null&&plan.FormCount==4&&Math.Abs(damage.Damage-40f*(boosted?1.3f:1f))<.001f&&damage.AttackerPowerLevel==1.25f&&damage.Element.Equals(Cultiway.Core.ElementComposition.Static.Lightning),
+        Check(d!=null&&plan.FormCount==5&&Math.Abs(damage.Damage-40f*(boosted?1.3f:1f))<.001f&&damage.AttackerPowerLevel==1.25f&&damage.Element.Equals(Cultiway.Core.ElementComposition.Static.Lightning),
             "原连锁有限展开四段，完整保留实际强度、元素和境界",new{damage.Damage,d.Lifetime});
         File.WriteAllText(Path.Combine(folder,boosted?"enhanced.json":"normal.json"),JsonConvert.SerializeObject(d,Formatting.Indented));
         var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
         var numeric=new AbilityCast(AbilityCompiler.Compile(restored,cache:false),Matrix4x4.identity,
             inputs:new AbilityInputs(new Vector3(64,72,.3f),new Vector3(70,72,.3f),Vector3.right,.8f));
-        numeric.Advance(.01f,new Vector3(70,72,.3f));
+        numeric.Advance(restored.Root.ActiveFrom+.01f,new Vector3(70,72,.3f));
         Check(Views(numeric).Count==1&&numeric.NodeAge(1)<0&&Math.Abs(restored.Root.Children[0].Activation.Target.ForceMultiplier-.8f)<.0001f,
             "JSON保留选敌距离与衰减；没有真实接触时其余段没有显示和伤害",new{radius=restored.Root.Children[0].Activation.Target.Radius});
     }
@@ -112,7 +112,7 @@ try
     {
         ResetPeople();int[] hp=new[]{target,second,third,fourth,fifth,along,outside}.Select(a=>a.data.health).ToArray();
         int count=starts.Count,known=Learned().Count;float balance=owner.GetCultisys<Xian>().wakan;
-        Check(Use(skill),"原已学连锁雷霆正式受理");await Advance(.07f);AbilityCast live=accepted.Last();
+        Check(Use(skill),"原已学连锁雷霆正式受理");await Advance(Convert(skill,out _).Root.ActiveFrom+.07f);AbilityCast live=accepted.Last();
         if(!live.Finished)await Shot(skill==skills[0]?"chain":"chain-enhanced");
         await Advance(.4f);
         var actual=starts.Skip(count).ToArray();var hits=contacts.Where(c=>actual.Any(s=>s.CastId==c.CastId)).ToArray();
@@ -127,13 +127,13 @@ try
             actual.All(s=>endings.Any(e=>e.Fact.CastId==s.CastId&&!e.Fact.Cancelled)),"仅新执行、逐发支付一次，有限结束后各段全部清理",new{cost,casts=actual.Length,balance,after=owner.GetCultisys<Xian>().wakan});
     }
     ResetPeople();foreach(Actor a in new[]{second,third,fourth,fifth,along,outside}){Place(a,85,85);ConstructedAbilityService.NotifyActorChanged(a);}
-    int beforeCutoff=starts.Count;Check(Use(skills[0]),"附近没有下个敌人的真实连锁受理");await Advance(.35f);
+    int beforeCutoff=starts.Count;Check(Use(skills[0]),"附近没有下个敌人的真实连锁受理");await Advance(Convert(skills[0],out _).Lifetime+.15f);
     Check(starts.Count>beforeCutoff&&contacts.Count==starts.Count-beforeCutoff&&contacts.All(c=>c.TargetId==target.id)&&accepted.Last().Finished,
         "搜索距离外不能跳转，未启动分支结束，无额外扣血");
     ResetPeople();int initialStarts=starts.Count;float beforeFailure=owner.GetCultisys<Xian>().wakan;invalidate=true;
     Check(Use(skills[0],new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排真实受理边界失效的连锁");await Advance(.2f);invalidate=false;
     Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==initialStarts&&Math.Abs(owner.GetCultisys<Xian>().wakan-beforeFailure)<.001f,"受理失败没有新旧执行并撤销本发费用",new{beforeFailure,after=owner.GetCultisys<Xian>().wakan,lastResult});
-    scopeValid=true;ResetPeople();Check(Use(skills[0],point:true),"失效恢复后可重新向选中地点施放连锁");await Advance(.4f);
+    scopeValid=true;ResetPeople();Check(Use(skills[0],point:true),"失效恢复后可重新向选中地点施放连锁");await Advance(Convert(skills[0],out _).Lifetime+.15f);
     Check(accepted.All(c=>c.Finished)&&old==0&&!BodyControlState.IsBusy(source.id)&&contacts.Any(),"恢复后的点选连锁正常命中并有限结束，人物控制正常");
     return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
 }
