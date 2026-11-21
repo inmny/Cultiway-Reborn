@@ -176,16 +176,17 @@ internal static class WeaponControlRules
         if (emissionCount <= 0) return false;
 
         if (category == WeaponControlCategory.Ranged) mode = ResolveMode(category, candidates.Count);
+        float lift = category == WeaponControlCategory.Ranged ? WeaponControlRangedFlight.LiftSeconds(mode) : 0f;
         float interval = ResolveEmissionInterval(caster, category);
         var plan = new SkillCastPlan();
         for (var i = 0; i < emissionCount; i++)
         {
             BaseSimObject target = SelectTarget(primaryTarget, candidates, i, mode);
-            plan.Steps.Add(new SkillCastStep(target, i * interval));
+            plan.Steps.Add(new SkillCastStep(target, lift + i * interval));
         }
 
-        float actionTail = category == WeaponControlCategory.Ranged ? 0.22f : 0.48f;
-        float duration = (emissionCount - 1) * interval + actionTail;
+        float actionTail = category == WeaponControlCategory.Ranged ? WeaponControlRangedFlight.ReturnSeconds : .48f;
+        float duration = lift + (emissionCount - 1) * interval + actionTail;
         prepared = new WeaponControlPreparedCast(
             weapon,
             weaponAsset,

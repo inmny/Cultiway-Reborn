@@ -41,7 +41,7 @@ internal static class WeaponControlRuntimeService
     /// <summary>登记已经正式启动的御器序列。</summary>
     public static bool Register(WeaponControlCastSession session)
     {
-        if (!ActiveCasters.TryAdd(session.CasterActorId, 0)) return false;
+        if (!ActiveCasters.TryAdd(session.CasterActorId, session.IsRanged ? (byte)0 : (byte)1)) return false;
         Sessions.Add(session.CorrelationId, session);
         return true;
     }
@@ -59,7 +59,7 @@ internal static class WeaponControlRuntimeService
         ActiveCasters.TryRemove(session.CasterActorId, out _);
         Actor actor = session.Caster?.Base;
         if (actor.isRekt()) return;
-        if (session.DetachesWeapon && preserveVisualTail)
+        if (!session.IsRanged && preserveVisualTail)
             DetachedUntil[session.CasterActorId] = Time.time + 0.55f;
         else
             DetachedUntil.TryRemove(session.CasterActorId, out _);
@@ -80,7 +80,7 @@ internal static class WeaponControlRuntimeService
     {
         if (actor.isRekt()) return false;
         long actorId = actor.getID();
-        if (ActiveCasters.ContainsKey(actorId)) return true;
+        if (ActiveCasters.TryGetValue(actorId, out byte hideLegacyWeapon) && hideLegacyWeapon != 0) return true;
         if (!DetachedUntil.TryGetValue(actorId, out float until)) return false;
         if (Time.time < until) return true;
         DetachedUntil.TryRemove(actorId, out _);
@@ -106,6 +106,7 @@ internal static class WeaponControlRuntimeService
         Sessions.Clear();
         ActiveCasters.Clear();
         DetachedUntil.Clear();
+        WeaponControlRangedFlight.Clear();
         NativeProjectileFlights.Clear();
         emissionFrame = -1;
         emissionsThisFrame = 0;
@@ -136,8 +137,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
     private readonly float sequenceDuration;
     private readonly Color trailCoreColor;
     private readonly Color trailGlowColor;
-    private Entity focusEntity;
-    private Vector3 focusDirection;
+    private WeaponControlRangedFlight rangedFlight;
     private int executionIndex;
     private bool registered;
 
@@ -153,8 +153,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
     /// <summary>施放开始时保存的稳定角色 ID，供角色死亡后的运行状态清理使用。</summary>
     public long CasterActorId { get; }
 
-    /// <summary>全部御器形态都会把原手持武器临时转移到世界执行体。</summary>
-    public bool DetachesWeapon => true;
+    internal bool IsRanged => mode is WeaponControlCastMode.SkyVolley or WeaponControlCastMode.ArrowRain;
 
     /// <summary>创建一次已经完成动作规划但尚未进入技能系统的序列。</summary>
     public WeaponControlCastSession(
@@ -202,6 +201,8 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
     {
         registered = WeaponControlRuntimeService.Register(this);
         if (!registered) return;
+        if (IsRanged)
+            rangedFlight = WeaponControlRangedFlight.TryBegin(Caster.Base, Weapon, weaponAsset, mode, ResolveLaunchHeight());
         float recovery = Mathf.Clamp(1.45f - Caster.Base.stats[S.attack_speed] * 0.08f, 0.65f, 1.45f);
         SkillCooldownService.Start(Caster, skillContainer, sequenceDuration + recovery);
     }
@@ -217,7 +218,9 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
 
         if (!TryResolveTarget(scheduledStep.Target, out BaseSimObject target))
             return SkillCastStepDecision.Cancel();
-        if (!WeaponControlRuntimeService.TryReserveEmission(IsRangedMode()))
+        if (rangedFlight != null && !rangedFlight.ReadyToRelease)
+            return SkillCastStepDecision.Defer();
+        if (!WeaponControlRuntimeService.TryReserveEmission(IsRanged))
             return SkillCastStepDecision.Defer();
 
         float spread = mode switch
@@ -237,7 +240,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             new SkillCastStep(target, scheduledStep.Delay, alternating + jitter));
     }
 
-    /// <summary>结束运行状态；异常终止时同步回收尚未自然结束的主视觉。</summary>
+    /// <summary>结束发射占用。仍持有的原弓继续回手，失效器物已从共同绘制解除。</summary>
     public void OnEnded(in SkillCastSequenceResult result)
     {
         if (registered)
@@ -248,8 +251,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             registered = false;
         }
 
-        if (result.Reason != SkillCastSequenceEndReason.Completed && focusEntity.IsAvailable())
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(focusEntity.Id);
+        rangedFlight?.End();
     }
 
     /// <summary>把通用 SkillEntity 配置成本步骤对应的投射物或真实武器近战执行体。</summary>
@@ -262,10 +264,9 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         }
 
         int index = executionIndex++;
-        if (index == 0) StartExecutionVisual(execution);
-        UpdateFocusPosition();
-        if (IsRangedMode())
+        if (IsRanged)
         {
+            if (index == 0) PlayRangedRelease(execution);
             SpawnProjectile(execution, index);
             ModClass.I.CommandBuffer.AddTag<TagRecycle>(execution.Id);
             return;
@@ -274,16 +275,12 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         ConfigureMeleeExecution(execution, index);
     }
 
-    /// <summary>判断该序列是否会为每个步骤生成一个原版投射物。</summary>
-    private bool IsRangedMode()
+    /// <summary>在第一道攻击成功支付后播放原放箭声音及箭雨动作。</summary>
+    private void PlayRangedRelease(Entity execution)
     {
-        return mode is WeaponControlCastMode.SkyVolley or WeaponControlCastMode.ArrowRain;
-    }
-
-    /// <summary>在第一道攻击已经成功支付后启动对应的主武器视觉与角色起手动作。</summary>
-    private void StartExecutionVisual(Entity execution)
-    {
-        SpawnOpeningVisual();
+        ProjectileAsset projectile = AssetManager.projectiles.get(weaponAsset.projectile);
+        if (!string.IsNullOrEmpty(projectile?.sound_launch))
+            MusicBox.playSound(projectile.sound_launch, Caster.Base.current_position.x, Caster.Base.current_position.y, true);
         if (mode != WeaponControlCastMode.ArrowRain) return;
 
         ref SkillContext context = ref execution.GetComponent<SkillContext>();
@@ -321,126 +318,13 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
     private bool IsValidTarget(BaseSimObject target)
     {
         if (target.isRekt() || !Caster.Base.canAttackTarget(target)) return false;
-        if (!IsRangedMode() && target.isActor() && target.a.isFlying()) return false;
+        if (!IsRanged && target.isActor() && target.a.isFlying()) return false;
         float allowed = range + target.stats[S.size];
         return (target.current_position - Caster.Base.current_position).sqrMagnitude <= allowed * allowed;
     }
 
-    /// <summary>真实武器的单帧轮廓同时进入两个视角，仍用原生命周期控制回收。</summary>
-    /// <param name="frames">实际武器图片。</param><param name="position">空间位置。</param><param name="direction">朝向。</param>
-    /// <param name="scale">现有尺寸。</param><param name="tint">现有透明度。</param><param name="lifeTime">原有存活时间。</param>
-    /// <param name="visualRotation">原有转向规则。</param>
-    private static Entity SpawnSpatialWeapon(Sprite[] frames, Vector3 position, Vector3 direction, float scale,
-        Color? tint = null, float lifeTime = 1f, VisualRotation? visualRotation = null)
-    {
-        Entity entity = ModClass.I.SkillV3.SpawnAnim(frames, position, direction, scale, tint,
-            lifeTime: lifeTime, visualRotation: visualRotation);
-        entity.AddTag<TagSpatialVisualReplacement>();
-        entity.AddTag<TagSpatialSpriteBody>();
-        return entity;
-    }
-
-    /// <summary>生成天空主武器或箭雨上举武器，并为高空形态补充升空残影。</summary>
-    private void SpawnOpeningVisual()
-    {
-        if (!IsRangedMode()) return;
-        Sprite sprite = ResolveWeaponSprite();
-        if (sprite == null) return;
-
-        Vector3 basePosition = Caster.Base.GetSimPos();
-        float actorScale = Mathf.Max(0.1f, Caster.Base.stats[S.scale]);
-        if (mode == WeaponControlCastMode.SkyVolley)
-        {
-            float height = ResolveSkyHeight();
-            focusDirection = Vector3.up;
-            float scale = actorScale * 2.75f;
-            for (var i = 0; i < 3; i++)
-            {
-                SpawnSpatialWeapon(
-                    new[] { sprite },
-                    basePosition + new Vector3(0f, 0f, height * (i + 1) / 4f),
-                    Vector3.up,
-                    scale * (0.65f + i * 0.12f),
-                    new Color(1f, 1f, 1f, 0.16f + i * 0.08f),
-                    lifeTime: 0.16f + i * 0.04f,
-                    visualRotation: VisualRotation.FixedUpright(ResolveSpriteAngle(sprite)));
-            }
-
-            focusEntity = SpawnSpatialWeapon(
-                new[] { sprite },
-                basePosition + new Vector3(0f, 0f, height),
-                Vector3.up,
-                scale,
-                lifeTime: sequenceDuration + 0.3f,
-                visualRotation: VisualRotation.Spin(-155f, ResolveSpriteAngle(sprite)));
-            focusEntity.AddComponent(new AnimAfterimage
-            {
-                Count = 5,
-                Layout = AnimAfterimageLayout.Angular,
-                NewestAlpha = 0.28f,
-                OldestAlpha = 0.035f,
-                Tint = Color.white,
-                ArcRadius = 0.42f,
-                ArcDegreesPerLayer = 11f,
-                ArcDirection = -1f,
-            });
-        }
-        else
-        {
-            focusDirection = Quaternion.AngleAxis(
-                Randy.randomFloat(-16f, 16f),
-                Vector3.forward) * Vector3.up;
-            focusEntity = SpawnSpatialWeapon(
-                new[] { sprite },
-                ResolveArrowRainWeaponPosition(basePosition),
-                focusDirection,
-                actorScale * 1.55f,
-                lifeTime: sequenceDuration + 0.3f,
-                visualRotation: VisualRotation.FollowRotation(ResolveSpriteAngle(sprite)));
-            focusEntity.AddComponent(new AnimAfterimage
-            {
-                Count = 3,
-                Layout = AnimAfterimageLayout.Angular,
-                NewestAlpha = 0.2f,
-                OldestAlpha = 0.025f,
-                Tint = Color.white,
-                ArcRadius = 0.16f,
-                ArcDegreesPerLayer = 4f,
-                ArcDirection = -1f,
-            });
-        }
-
-        ProjectileAsset projectile = AssetManager.projectiles.get(weaponAsset.projectile);
-        if (projectile != null && !string.IsNullOrEmpty(projectile.sound_launch))
-            MusicBox.playSound(projectile.sound_launch, basePosition.x, basePosition.y, true);
-    }
-
-    /// <summary>在每次实际发射前让主武器视觉跟随可能被击退的施法者。</summary>
-    private void UpdateFocusPosition()
-    {
-        if (!focusEntity.IsAvailable()) return;
-        Vector3 basePosition = Caster.Base.GetSimPos();
-        focusEntity.GetComponent<Position>().value = mode == WeaponControlCastMode.SkyVolley
-            ? basePosition + new Vector3(0f, 0f, ResolveSkyHeight())
-            : ResolveArrowRainWeaponPosition(basePosition);
-        ref AliveTimeLimit lifetime = ref focusEntity.GetComponent<AliveTimeLimit>();
-        float elapsed = focusEntity.GetComponent<AliveTimer>().value;
-        lifetime.value = Mathf.Max(lifetime.value, elapsed + 0.55f);
-    }
-
-    /// <summary>返回天空齐射主武器相对角色的悬浮高度。</summary>
-    private float ResolveSkyHeight()
-    {
-        return 5.5f + WeaponControlRules.ResolveRealm(Caster) * 0.65f;
-    }
-
-    /// <summary>返回箭雨上举武器贴近角色手部且略高于头顶的位置。</summary>
-    private Vector3 ResolveArrowRainWeaponPosition(Vector3 basePosition)
-    {
-        Vector3 position = basePosition + focusDirection * 0.34f;
-        position.z += 0.3f;
-        return position;
-    }
+    private float ResolveLaunchHeight() => mode == WeaponControlCastMode.SkyVolley
+        ? 5.5f + WeaponControlRules.ResolveRealm(Caster) * .65f : .45f;
 
     /// <summary>以天空倾泻或高弧箭雨姿态生成武器对应的原版投射物。</summary>
     private void SpawnProjectile(Entity execution, int index)
@@ -455,28 +339,17 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         targetPosition += new Vector3(Mathf.Cos(angle), Mathf.Sin(angle)) *
                           targetRadius * Mathf.Sqrt((index % 11 + 1f) / 11f);
 
-        Vector3 launchPosition = Caster.Base.current_position;
-        float startHeight;
-        if (mode == WeaponControlCastMode.SkyVolley)
-        {
-            float orbitRadius = 0.55f + index % 5 * 0.16f;
-            launchPosition += new Vector3(Mathf.Cos(angle), Mathf.Sin(angle)) * orbitRadius;
-            startHeight = 5.5f + WeaponControlRules.ResolveRealm(Caster) * 0.65f;
-        }
-        else
-        {
-            launchPosition += new Vector3(Mathf.Cos(angle), Mathf.Sin(angle)) * 0.22f;
-            startHeight = 0.45f;
-        }
-
+        Vector3 position = Caster.Base.current_position;
+        position.z = ResolveLaunchHeight();
+        Vector3 launch = rangedFlight?.LaunchPoint() ?? position;
         World.world.projectiles.spawn(
             Caster.Base,
             target.isRekt() ? null : target,
             projectileId,
-            launchPosition,
+            new Vector3(launch.x, launch.y, 0f),
             targetPosition,
             target.isRekt() ? 0f : target.getHeight(),
-            startHeight,
+            launch.z,
             pForcedKingdom: attackKingdom);
     }
 

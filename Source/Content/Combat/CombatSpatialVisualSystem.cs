@@ -82,6 +82,7 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
             TalismanVfxManager.Append(Meshes);
             Meshes.AddRange(Core.Systems.Render.RenderStatusAnimationSystem.Meshes);
             SampleSpriteBodies();
+            WeaponControl.WeaponControlRangedFlight.AppendSpatial(Meshes);
             SpatialVisualEffects.Append(Meshes, ref detailBudget);
             GroundWeaponService.Append(Meshes);
             if (Compatibility.Worldfall.WorldfallVisualBridge.IsInstalled)

@@ -2502,6 +2502,8 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 在独立游戏用 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_native_projectile_flight.py` 复验远程御器的原版弹丸。核对真实逐发支付、原版轨道与三维显示一致、换武器停止续射、弹丸复用及换世界清理。
 
+在同一入口加 `--section bow` 检查原弓离手、逐发从实际弓位放箭、随人物移动回手和首发前换同款弓。用 `--section bow-world` 单独检查升弓期间换世界，确认旧弓飞行和施放会话都已清理。默认入口也检查有在飞的代理箭矢时换世界。
+
 `--case press --archive <输出目录>` 用正式对练档中的人物运行架杆拨锋与持剑刺击。检查接触点相合、杆身带动持剑手、收枪解除关系、双方原物归还，以及对方没有兵器时保留体力。
 
 `--case edit` 检查万法阁的实际握点、滑握比例、器物尺寸和普通接触面，并保存中英文画面和 `edited-definition.json`。使用 `--case range --edited <edited-definition.json 路径>` 实战核对该改造的选取距离、尖端接触以及原物归还。

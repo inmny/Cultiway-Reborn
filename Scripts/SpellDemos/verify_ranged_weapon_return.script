@@ -1,0 +1,138 @@
+// 10.04：复用同一把实际弓，记录离手、放箭、回手及同款换装。
+var flightType = service.Assembly.GetType("Cultiway.Content.WeaponControl.WeaponControlRangedFlight");
+var flightsByActor = flightType.GetField("active", F).GetValue(null);
+var values = flightsByActor.GetType().GetProperty("Values", F);
+object CurrentFlight() => ((IEnumerable)values.GetValue(flightsByActor)).Cast<object>().SingleOrDefault();
+Vector3 BowPoint(object flight) => (Vector3)flightType.GetMethod("LaunchPoint", F).Invoke(flight, null);
+Vector3 Hand(object flight) =>
+    ((ValueTuple<Vector3, Quaternion>)flightType.GetMethod("Hand", F).Invoke(flight, null)).Item1;
+bool VisibleInHand() => source.checkHasRenderedItem();
+int BowMeshes(object flight) => ((IEnumerable)visuals.GetValue(null)).Cast<object>()
+    .Count(mesh => ReferenceEquals(Field(mesh, "Model"), Field(flight, "model")));
+bool Borrowed() => ConstructedAbilityService.IsWeaponBorrowed(source) && ConstructedAbilityService.HasWeaponControl(source);
+var births = new List<(Projectile Projectile, Vector3 Expected, Vector3 Actual)>();
+var countedProjectiles = new HashSet<Projectile>();
+void Launched(Entity execution)
+{
+    if (execution.GetComponent<SkillEntity>().SkillContainer != handle.Source) return;
+    Vector3 bowPoint = BowPoint(CurrentFlight());
+    foreach (Projectile shot in active)
+        if (countedProjectiles.Add(shot))
+            births.Add((shot, bowPoint, Where(shot)));
+}
+async Task WaitHere(Func<bool> done)
+{
+    Config.paused = false;
+    await Game.WaitUntil(done, 1500);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+void ThrowBow()
+{
+    Place(source, 64.35f);
+    Place(target, 72f);
+    source.attack_timer = 0;
+    Check(VisibleInHand() && ActiveAbilityService.TryUse(owner, handle, aim, ActiveAbilityUseOrigin.Script) &&
+          CurrentFlight() == null && VisibleInHand(), "排队时弓仍在原手中");
+    source.attack_timer = 999f;
+}
+
+async Task SwitchWorld()
+{
+    ThrowBow();
+    await WaitHere(() => CurrentFlight() != null);
+    Check(Borrowed(), "切世界前仍在控制一件真实原弓");
+    World.world.save_manager.loadWorld(fixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var sessions = (IDictionary)runtime.GetField("Sessions", F).GetValue(null);
+    Check(CurrentFlight() == null && sessions.Count == 0 && active.Count == 0,
+        "切世界解除仍在升弓的实际器物及施放会话");
+}
+
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Launched;
+try
+{
+    var camera = World.world.camera;
+    camera.transform.position = new Vector3(68f, 74f, camera.transform.position.z);
+    MoveCamera.instance.forceZoom(16f);
+    if (worldOnly)
+    {
+        await SwitchWorld();
+        return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
+    ThrowBow();
+    await WaitHere(() => CurrentFlight() != null);
+    object first = CurrentFlight();
+    await Game.NextFrame();
+    var bowModel = Field(first, "model");
+    var bounds = (Bounds)Field(bowModel, "Bounds");
+    Check(Borrowed() && !VisibleInHand() && ReferenceEquals(Field(first, "weapon"), bow) &&
+          ReferenceEquals(source.getWeapon(), bow) && payments.Count == 0 && active.Count == 0 && BowMeshes(first) == 1,
+        "真实弓正式离手，双视角共用一件器物，升起阶段尚未付首发",
+        new { actorScale = source.actor_scale, worldSize = (bounds.size * source.actor_scale).ToString() });
+    Vector3 rising = BowPoint(first);
+    await Game.NextFrame();
+    Check(Vector3.Distance(rising, BowPoint(first)) < .001f, "暂停和绘制帧不推进原弓运动");
+
+    await WaitHere(() => births.Count > 0);
+    var initial = births[0];
+    Check(initial.Expected.z > rising.z + .04f && Vector3.Distance(initial.Expected, initial.Actual) < .01f &&
+          payments.Count == emitted && births.Count == emitted && Borrowed(),
+        "弓实际到位才逐发付费，原版弹丸出生于同一离手姿态",
+        new { rising = rising.ToString(), expected = initial.Expected.ToString(), actual = initial.Actual.ToString(),
+            payments = payments.ToArray(), emitted, nativeBirths = births.Count });
+    await WaitHere(() => !Casting());
+    Check(Borrowed() && !VisibleInHand() && ReferenceEquals(CurrentFlight(), first),
+        "发射结束后仍由原弓完成回手");
+    Vector3 returnStart = BowPoint(first);
+    Place(source, 65.12f);
+    await Advance(.09f);
+    Vector3 returning = BowPoint(first);
+    Vector3 newHand = Hand(first);
+    Check(Borrowed() && !VisibleInHand() && Vector3.Distance(returning, newHand) < Vector3.Distance(returnStart, newHand) &&
+          Vector3.Distance(returning, returnStart) > .03f, "原弓向人物移动后的实际手部挂点收回",
+        new { start = returnStart.ToString(), returning = returning.ToString(), hand = newHand.ToString() });
+    await Advance(.26f);
+    await Game.NextFrame();
+    Check(!ConstructedAbilityService.IsWeaponBorrowed(source) && !ConstructedAbilityService.HasWeaponControl(source)
+          && VisibleInHand() && CurrentFlight() == null && BowMeshes(first) == 0 &&
+          ReferenceEquals(source.getWeapon(), bow) && Vector3.Distance(BowPoint(first), Hand(first)) < .001f,
+        "原弓到达当前挂点后交回原手部入口，画面和控制同时归还");
+
+    float wait = SkillCooldownService.GetRemaining(owner, handle.Source);
+    await Advance(wait + .2f);
+    int paidBeforeSwap = payments.Count;
+    int emittedBeforeSwap = emitted;
+    ThrowBow();
+    await WaitHere(() => CurrentFlight() != null);
+    var interrupted = CurrentFlight();
+    Check(Borrowed() && payments.Count == paidBeforeSwap, "重复施展开始升弓，换装发生在首发前");
+    Item replacement = World.world.items.generateItem(bowAsset, pActor: source);
+    source.equipment.weapon.takeAwayItem();
+    source.equipment.setItem(replacement, source);
+    source.setStatsDirty(); source.updateStats();
+    Check(!ConstructedAbilityService.IsWeaponBorrowed(source) && VisibleInHand() &&
+          ReferenceEquals(source.getWeapon(), replacement) && !ReferenceEquals(replacement, bow),
+        "换同款弓时立即显示实际新弓");
+    await Advance(.36f);
+    Check(!Casting() && payments.Count == paidBeforeSwap && emitted == emittedBeforeSwap &&
+          CurrentFlight() == null && BowMeshes(interrupted) == 0 && VisibleInHand(),
+        "失去原弓后取消本次放箭，续费、旧影和占用同时清理");
+
+    await Advance(SkillCooldownService.GetRemaining(owner, handle.Source) + .2f);
+    await SwitchWorld();
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, paid = paidBeforeSwap,
+        emitted = emittedBeforeSwap, firstLaunch = initial.Actual.ToString() };
+}
+finally
+{
+    Config.paused = true;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Launched;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Emitted;
+    mutationField.SetValue(null, previousMutations);
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+}
