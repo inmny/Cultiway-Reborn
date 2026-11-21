@@ -1182,6 +1182,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         float strength = node < 0 ? running.BodyStrikeScale(running.Cast.BodyStage) :
             running.Cast.ContactAttenuation(node, hit.Left.To.Shape);
         int healthBefore = actor.Actor.data.health;
+        if (node >= 0 && running.GroundContact != null)
+        {
+            ConfirmLegacyGroundContact(running.GroundContact, spreadCenter, contactOwner, contactGeneration);
+            if (contactGeneration != worldGeneration) return;
+        }
         DamageSettlement primaryDamage = default;
         DamageObservation observation = null;
         // 明确发力继承接触前的运动；原版同次命中附带的击退不再重复计入。

@@ -17,6 +17,7 @@ using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Core.Visuals.Forms;
 using Cultiway.Patch;
 using Cultiway.Utils.Extension;
@@ -399,15 +400,18 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="sourceIsWorld">已从同轮身体表面取得绝对坐标，无需再叠加地表。</param>
     /// <param name="legacyArea">已学法术原有的范围地块与建筑规则。</param>
     /// <param name="groundTravel">已学法术原有的行进掠地规则。</param>
+    /// <param name="groundContact">已学法术原有的命中地块规则。</param>
     internal static bool StartPrepaid(ActorExtend caster, AbilityDefinition definition,
         in ActiveAbilityTarget target, Vector3 sourcePosition, SkillCastPayment payment = null,
         GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0, BaseSimObject spatialSource = null,
-        bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null, LegacyGroundTravel groundTravel = null)
+        bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null, LegacyGroundTravel groundTravel = null,
+        SkillVfxElementAsset groundContact = null)
     {
         if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
         return Start(caster, ValidateDefinition(definition), target, target.RuntimeData.Origin, out _, sourcePosition,
             true, payment, sourceDamage: damage, sourceDirection: direction, sourceInstance: sourceInstance,
-            spatialSource: spatialSource?.a, sourceIsWorld: sourceIsWorld, legacyArea: legacyArea, groundTravel: groundTravel);
+            spatialSource: spatialSource?.a, sourceIsWorld: sourceIsWorld, legacyArea: legacyArea,
+            groundTravel: groundTravel, groundContact: groundContact);
     }
 
     /// <summary>固定环境位置直接进入共同执行，零编号表示未受理，不借人物提供身份或资源。</summary>
@@ -446,12 +450,14 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="practice">是否由实际训练任务练习姿态而不产生战斗接触。</param>
     /// <param name="sourceIsWorld">明确出生点已经采集世界高度。</param>
     /// <param name="legacyArea">已学法术原有的范围地块与建筑规则。</param>
+    /// <param name="groundTravel">已学法术原有的行进掠地规则。</param>
+    /// <param name="groundContact">已学法术原有的命中地块规则。</param>
     private static bool Start(ActorExtend caster, CompiledAbility plan,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, out long castId, Vector3? sourcePosition = null,
         bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
         GetHitEvent? sourceDamage = null, Vector3? sourceDirection = null, int sourceInstance = 0, Actor spatialSource = null,
         bool practice = false, bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null,
-        LegacyGroundTravel groundTravel = null)
+        LegacyGroundTravel groundTravel = null, SkillVfxElementAsset groundContact = null)
     {
         castId = 0;
         Actor sourceActor = caster?.Base;
@@ -601,6 +607,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 AreaImpact = legacyArea,
                 AreaImpactNode = legacyArea == null ? -1 : Array.FindIndex(plan.Nodes, node => node.Path == legacyArea.Path),
                 GroundTravel = groundTravel,
+                GroundContact = groundContact,
                 CorrespondenceEnded = plan.HasCorrespondences ? new bool[plan.FormCount] : null,
                 WorldScope = target.WorldScope,
                 Practice = practice,
@@ -987,6 +994,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         internal int AreaImpactNode;
         /// <summary>本次施放实际允许的原掠地作用，只在已经确认的行进中读取。</summary>
         internal LegacyGroundTravel GroundTravel;
+        /// <summary>每次真实接触都可以生效的原地块作用，由共用接触规则控制频次。</summary>
+        internal SkillVfxElementAsset GroundContact;
 
         /// <summary>实际归属及目标。</summary>
         internal Actor Source, Target;

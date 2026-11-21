@@ -83,7 +83,8 @@ internal static partial class ProjectileConstructionMigration
             ? LegacyAreaImpact.From(in emission, "root/burst") : null;
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
             emission.SourcePos, emission.Payment, damage, forward, spatialSource: emission.SpatialSource, legacyArea: area,
-            groundTravel: LegacyGroundTravel.From(in emission, definition.Root.ActiveFrom))
+            groundTravel: LegacyGroundTravel.From(in emission, definition.Root.ActiveFrom),
+            groundContact: ConstructedAbilityService.LegacyContactElement(in emission))
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 

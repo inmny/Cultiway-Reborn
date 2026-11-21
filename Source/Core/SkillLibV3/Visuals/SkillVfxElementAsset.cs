@@ -35,6 +35,8 @@ public class SkillVfxElementAsset : Asset
     /// <summary>没有地面反应的元素不需要留下沿途取样资料。</summary>
     internal bool HasGroundFlyOver => GroundFlyOver != NoFlyOver;
     public SkillVfxGroundImpact GroundImpact = NoImpact;
+    /// <summary>确实改变世界的命中才需要在共同接触后提交。</summary>
+    internal bool HasGroundImpact => GroundImpact != NoImpact;
     public string ImpactSound;
     public float ImpactFeedbackInterval = 0.12f;
     public DropAsset GrantDrop;

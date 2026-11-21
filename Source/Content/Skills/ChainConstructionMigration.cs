@@ -42,7 +42,9 @@ internal static class ChainConstructionMigration
         var target = new ActiveAbilityTarget(emission.Target, emission.TargetPos, attackKingdom: emission.AttackKingdom,
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
-            emission.SourcePos, emission.Payment, damage, spatialSource: emission.SpatialSource) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+            emission.SourcePos, emission.Payment, damage, spatialSource: emission.SpatialSource,
+            groundContact: ConstructedAbilityService.LegacyContactElement(in emission))
+            ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>核对附加作用后，将原跳转上限有限展开为真实接触开始的普通部位。</summary>

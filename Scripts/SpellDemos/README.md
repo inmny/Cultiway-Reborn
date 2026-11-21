@@ -2679,3 +2679,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 旧攻击沿途掠地（10.01）
 
 在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_ground_travel.py --case legacy`。随后用 `--case current --baseline <原执行的 result.json>` 复验当前实现，查看沿途格子状态及取消后的结果。可用 `--spell PoisonNeedle` 等参数只复验一个样本。
+
+### 旧攻击命中人物后的地块作用（10.01）
+
+在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_ground_contact.py --case legacy`。随后用 `--case current --baseline <原执行的 result.json>` 对照每次接触、脚下地块和实扣费用。使用 `--spell ChainLightning` 可单独对照跳跃及衰减。报告的 `damage` 分别记录带来源的命中和原版环境伤害，用来查明总掉血的组成。

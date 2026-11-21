@@ -42,7 +42,9 @@ internal static class BeamConstructionMigration
         var target = new ActiveAbilityTarget(emission.Target, emission.TargetPos, attackKingdom: emission.AttackKingdom,
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
-            emission.SourcePos, emission.Payment, damage, spatialSource: emission.SpatialSource) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+            emission.SourcePos, emission.Payment, damage, spatialSource: emission.SpatialSource,
+            groundContact: ConstructedAbilityService.LegacyContactElement(in emission))
+            ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>先核对附加作用，再将实际强度、尺寸、寿命和端点更新展开为可保存资料。</summary>

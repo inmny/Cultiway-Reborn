@@ -44,7 +44,8 @@ internal static class FieldConstructionMigration
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
             emission.SourcePos, emission.Payment, damage, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
-            groundTravel: LegacyGroundTravel.From(in emission, definition.Root.ActiveFrom))
+            groundTravel: LegacyGroundTravel.From(in emission, definition.Root.ActiveFrom),
+            groundContact: ConstructedAbilityService.LegacyContactElement(in emission))
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
