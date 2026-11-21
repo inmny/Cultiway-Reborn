@@ -141,8 +141,27 @@ function fire() {
 function yin() {
   const edge=u=>[u*1.72-.10,0,.46-.73*u*u+.24*u*u*u];
   const back=u=>[u*1.63-.10,0,.20-.70*u*u+.24*u*u*u];
+  const contact=cores(edge,.09).map(c=>[...c,1]);
   publish('yin_blade',[['back',ribbon(back,.30,.18),'yin_depth'],['edge',ribbon(edge,.14,.13),'yin_moon']],
-    cores(edge,.09).map(c=>[...c,1]),{span:3.44,profile:'asymmetric_hook',depth:.30});
+    contact,{span:3.44,profile:'asymmetric_hook',depth:.30});
+
+  // 不同宽度的背面与刃缘合拢。开口留在环内，侧肩沿同一锋线收尖。
+  const sections=[[-1,.023,.019],[-.91,.115,.049],[-.71,.29,.11],[-.44,.32,.15],[-.22,.48,.18],
+    [.05,.59,.20],[.31,.45,.18],[.58,.38,.14],[.82,.25,.099],[.96,.098,.044],[1,.025,.021]];
+  const faces=sections.map(([u,depth,height])=>{
+    const [x,,z]=edge(u);
+    return [[x,0,z],[x,-height*.67,z-depth*.14],[x,-height,z-depth*.61],
+      [x,-height*.34,z-depth],[x,height*.39,z-depth],[x,height,z-depth*.55],[x,height*.64,z-depth*.12]];
+  });
+  const bevel=sections.map(([u,depth,height])=>{
+    const [x,,z]=edge(u);
+    const front=Math.min(.086,depth*.28);
+    return [[x,0,z+front],[x,-height*.57,z+front*.27],[x,-height*.66,z-front*.9],
+      [x,height*.44,z-front*.9],[x,height*.57,z+front*.21]];
+  });
+  publish('yin_blade_0',[
+    ['hooked_body',column(faces,7),'yin_wrap'],['bevel',column(bevel,5),'yin_moon']
+  ],contact,{span:3.44,profile:'asymmetric_facet',depth:.59},true);
 }
 
 /** 一次发布原刃波的独立主体。 */

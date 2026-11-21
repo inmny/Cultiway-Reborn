@@ -63,7 +63,6 @@ List<AbilityCapsule> Shapes(AbilityCast cast){var shapes=new List<AbilityCapsule
 float BladeDuration(Entity skill)
 {
     var container=skill.GetComponent<SkillContainer>();
-    if(container.Asset==SkillEntities.YinBlade)return .75f;
     var animation=container.Asset.GetAnimation(container.AnimationIndex);
     float Seconds(SkillEntityAnimationClip clip)=>clip==null?0f:
         clip.Frames.Length*clip.Settings.ResolveFrameInterval(container.MotionProfile.FrameInterval);
@@ -93,7 +92,7 @@ try
         (Asset:SkillEntities.WindBlade,Form:"wind_blade",Matter:"wind",State:"energy"),
         (Asset:SkillEntities.WaterBlade,Form:"water_blade",Matter:"water",State:"liquid"),
         (Asset:SkillEntities.FireBlade,Form:"fire_blade",Matter:"fire",State:"energy"),
-        (Asset:SkillEntities.YinBlade,Form:"yin_blade",Matter:"yin",State:"energy")})
+        (Asset:SkillEntities.YinBlade,Form:"yin_blade_0",Matter:"yin",State:"energy")})
     {
         if(section=="sword"&&entry.Asset!=SkillEntities.SwordQi)continue;
         currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;

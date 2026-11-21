@@ -94,7 +94,7 @@ try
     foreach(var entry in new[]{(Asset:SkillEntities.Fireball,Form:"fireball",Matter:"fire",State:"energy",Radius:2f,Multiplier:1f),
         (Asset:SkillEntities.ThunderOrb,Form:"thunder_orb",Matter:"lightning",State:"energy",Radius:2f,Multiplier:1f),
         (Asset:SkillEntities.ChaosOrb,Form:"chaos_orb_0",Matter:"entropy",State:"energy",Radius:2f,Multiplier:1f),
-        (Asset:SkillEntities.FlameMeteor,Form:"flame_meteor",Matter:"fire",State:"energy",Radius:2.5f,Multiplier:1.2f),
+        (Asset:SkillEntities.FlameMeteor,Form:"flame_meteor_0",Matter:"fire",State:"energy",Radius:2.5f,Multiplier:1.2f),
         (Asset:SkillEntities.FallingRock,Form:"falling_rock_0",Matter:"earth",State:"solid",Radius:2.5f,Multiplier:1.2f),
         (Asset:SkillEntities.FallingTimber,Form:"falling_timber_0",Matter:"wood",State:"solid",Radius:2.5f,Multiplier:1.2f),
         (Asset:SkillEntities.LightningStrike,Form:"lightning_strike_0",Matter:"lightning",State:"energy",Radius:2.5f,Multiplier:1.2f),

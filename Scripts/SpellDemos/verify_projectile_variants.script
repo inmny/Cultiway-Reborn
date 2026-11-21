@@ -23,11 +23,14 @@ var catalog = new[]
     (Asset: SkillEntities.SpiritBolt, Form: "spirit_bolt_0", Count: 1),
     (Asset: SkillEntities.YinBolt, Form: "yin_bolt_0", Count: 1),
     (Asset: SkillEntities.YangBolt, Form: "yang_bolt_0", Count: 1),
-    (Asset: SkillEntities.ChaosOrb, Form: "chaos_orb_0", Count: 1)
+    (Asset: SkillEntities.ChaosOrb, Form: "chaos_orb_0", Count: 1),
+    (Asset: SkillEntities.PoisonNeedle, Form: "poison_needle_0", Count: 1),
+    (Asset: SkillEntities.YinBlade, Form: "yin_blade_0", Count: 1),
+    (Asset: SkillEntities.FlameMeteor, Form: "flame_meteor_0", Count: 1)
 }.Where(entry => chosenAssets.Contains(entry.Asset.id)).ToArray();
 
 bool CanTestTracking(SkillEntityAsset asset) => asset == SkillEntities.WaterOrb || asset == SkillEntities.WindBullet ||
-    asset == SkillEntities.ThunderOrb || asset == SkillEntities.WoodSpear || asset == SkillEntities.YinBolt;
+    asset == SkillEntities.ThunderOrb || asset == SkillEntities.WoodSpear || asset == SkillEntities.YinBolt || asset == SkillEntities.PoisonNeedle;
 bool cold = caseName == "cold", archive = caseName == "archive";
 int process = System.Diagnostics.Process.GetCurrentProcess().Id;
 var expected = cold ? JObject.Parse(File.ReadAllText(Path.Combine(archivePath, "expected.json"))) : null;
@@ -52,11 +55,11 @@ if (!cold)
 Entity[] Learned() => ((IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null))
     .Where(entity => chosenAssets.Contains(entity.GetComponent<SkillContainer>().Asset.id)).ToArray();
 
-Entity Learn(SkillEntityAsset asset, int index, bool tracking, float duration = 0f, bool fast = false)
+Entity Learn(SkillEntityAsset asset, int index, bool tracking, float duration = 0f, float speed = 0f)
 {
     var builder = new SkillContainerBuilder(asset).UseAnimation(index);
     if (tracking) builder.AddModifier(new Trajectory { ID = SkillTrajectories.TowardsTarget.id });
-    if (fast) builder.AddModifier(new HasteModifier { SpeedMultiplier = .6f });
+    if (speed != 0f) builder.AddModifier(new HasteModifier { SpeedMultiplier = speed });
     var made = builder.Build(SkillContainerBuildMode.RuleOnly);
     if (duration > 0f) made.AddComponent(new SkillSettings
         { Duration = duration, AreaMultiplier = 1, PowerMultiplier = 1, ContactEnabled = true });
@@ -137,21 +140,23 @@ async Task Play(SkillEntityAsset asset, string form, int index)
     bool icefall = asset == SkillEntities.Icefall, lightning = asset == SkillEntities.LightningStrike;
     bool fallingRock = asset == SkillEntities.FallingRock;
     bool fallingTimber = asset == SkillEntities.FallingTimber;
-    bool sky = lightning || icefall || fallingRock || fallingTimber;
+    bool meteor = asset == SkillEntities.FlameMeteor;
+    bool sky = lightning || icefall || fallingRock || fallingTimber || meteor;
     bool chaos = asset == SkillEntities.ChaosOrb;
     bool orb = asset == SkillEntities.WaterOrb, blast = chaos || asset == SkillEntities.ThunderOrb || sky;
     bool arc = orb || asset == SkillEntities.RockProjectile || asset == SkillEntities.ThunderOrb || chaos;
     bool landing = caseName == "landing", cancelled = caseName == "cancel";
     bool fast = sky && landing && index == 0;
-    bool blade = asset == SkillEntities.WaterBlade || asset == SkillEntities.SwordQi || asset == SkillEntities.WindBlade;
+    bool blade = asset == SkillEntities.WaterBlade || asset == SkillEntities.SwordQi ||
+        asset == SkillEntities.WindBlade || asset == SkillEntities.YinBlade;
     bool continues = asset.ImpactProfile.ContinueAfterHit;
     bool tracking = CanTestTracking(asset) && (caseName == "tracking" || cold && index == 1), miss = caseName == "miss";
-    float timeout = blast && miss ? (icefall ? .012f : sky ? .15f : .115f) : 0f;
+    float timeout = blast && miss ? (icefall || meteor ? .012f : sky ? .15f : .115f) : 0f;
     var skill = cold ? Learned().Single(entity =>
     {
         var value = entity.GetComponent<SkillContainer>();
         return value.Asset == asset && value.AnimationIndex == index;
-    }) : Learn(asset, index, tracking, timeout, fast);
+    }) : Learn(asset, index, tracking, timeout, fast ? .6f : meteor && miss ? -.9f : 0f);
     var container = skill.GetComponent<SkillContainer>();
     var animation = asset.GetAnimation(index);
     float interval = container.MotionProfile.FrameInterval;
@@ -194,8 +199,8 @@ async Task Play(SkillEntityAsset asset, string form, int index)
     if (sky) await Stage(cast, .04f);
     var initial = Views(cast).Single(view => view.Resource.Description.Id == model);
     Vector3 first = initial.Transform.GetColumn(3);
-    bool water = form.StartsWith("water_", StringComparison.Ordinal);
-    Check(initial.Resource.Description.Id == model && (!water || initial.Resource.Description.Parts.All(p => p.HasSurfaceData)) &&
+    bool liquid = form.StartsWith("water_", StringComparison.Ordinal) || asset == SkillEntities.PoisonNeedle;
+    Check(initial.Resource.Description.Id == model && (!liquid || initial.Resource.Description.Parts.All(p => p.HasSurfaceData)) &&
           Math.Abs(cast.Plan.Lifetime - rise - runtime - fade) < .001f,
         "实际主体与原阶段时长对应", new { model, rise, runtime, fade });
     if (rise > 0f)
@@ -271,7 +276,7 @@ async Task Play(SkillEntityAsset asset, string form, int index)
         await Game.WaitUntil(Boundary, 1800);
         string impactForm = lightning ? "lightning_strike_impact" : icefall ? "icefall_impact" :
             fallingRock ? "falling_rock_impact" : fallingTimber ? "falling_timber_impact" :
-            chaos ? "chaos_orb_impact" : "thunder_orb_impact";
+            chaos ? "chaos_orb_impact" : meteor ? "flame_meteor_impact_motion" : "thunder_orb_impact";
         var pulse = Views(cast).Single(view => view.Resource.Description.Id == impactForm);
         impact = pulse.Transform.GetColumn(3);
         impactAt = cast.Age - cast.NodeAge(1);
@@ -291,7 +296,7 @@ async Task Play(SkillEntityAsset asset, string form, int index)
         else if (landing || sky)
             Check(Vector2.Distance(impact.Value, point) < .04f && impactAt >= rise,
                 "指定地点与实际爆发中心一致，生效时点在成形后", new { model, impact = impact.ToString(), impactAt });
-        if (fallingRock || fallingTimber || chaos)
+        if (fallingRock || fallingTimber || chaos || meteor)
         {
             Vector3 firstSlab = pulse.PartTransform(1).GetColumn(3);
             await Stage(cast, impactAt.Value + .069f);

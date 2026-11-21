@@ -35,13 +35,14 @@ public sealed partial class FormResource
         "wood_leaf" or "wood_bark" or "wood_heartwood" => "wood",
         "furnace_melt" => "molten_iron",
         "wind_open" or "wind_pressure" or "wind_shear" or "wind_fold_dark" => "wind",
-        "meteor_heat" or "meteor_crown" or "flame_body" or "flame_cast" or "fireball_white" or "fireball_copper" or "fireball_gold" or
+        "meteor_heat" or "meteor_crown" or "meteor_crust" or "flame_body" or "flame_cast" or "fireball_white" or "fireball_copper" or "fireball_gold" or
             "fireball_blue" or "fireball_ice" or "fireball_green" or "fireball_rose" or "fireball_red" => "flame",
         "aegis_jade" or "spirit_core" or "spirit_warm" or "spirit_beam_edge" or "spirit_beam_core" => "spirit_pearl",
         "aegis_solar" or "solar_gold" or "solar_beam_edge" or "solar_beam_flank" or "solar_beam_core" => "solar_light",
         "aegis_lightning" or "thunder_amber" or "thunder_cyan" or "thunder_green" or "thunder_rose" or "thunder_core" or "thunder_body" or "thunder_corona" or "thunder_arc" or "thunder_arc_fork" => "lightning_dense",
         "yin_basin" or "yin_moon" or "yin_wrap" or "yin_flow" => "yin_depth",
         "poison_core" => "poison_vapor",
+        "poison_glaze" => "poison_liquid",
         "entropy_depth" or "entropy_cobalt" or "entropy_violet" or "entropy_carmine" or "entropy_ochre" => "entropy_veil",
         _ => surface
     };

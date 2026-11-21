@@ -81,7 +81,7 @@ try
         emissions.Add(new{asset=currentAsset.id,result=result.ToString(),request.Strength,request.PowerLevel,request.InitialAngleOffsetDegrees,skill=request.SkillContainer.Id});return result;
     };
     if(!commonOnly)foreach(var entry in new[]{(Asset:SkillEntities.GoldenNeedle,Form:"golden_needle",Matter:"gold",State:"solid"),
-        (Asset:SkillEntities.PoisonNeedle,Form:"poison_needle",Matter:"poison",State:"liquid"),
+        (Asset:SkillEntities.PoisonNeedle,Form:"poison_needle_0",Matter:"poison",State:"liquid"),
         (Asset:SkillEntities.StoneCone,Form:"stone_cone",Matter:"earth",State:"solid"),
         (Asset:SkillEntities.IceLance,Form:"ice_lance",Matter:"ice",State:"solid"),
         (Asset:SkillEntities.LightningSpear,Form:"lightning_spear",Matter:"lightning",State:"energy"),
@@ -91,7 +91,7 @@ try
         currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
         var normal=Build();var boosted=Build(true);
         float duration=.9f;
-        if(entry.Asset==SkillEntities.WaterArrow||entry.Asset==SkillEntities.GoldenNeedle||entry.Asset==SkillEntities.LightningSpear||entry.Asset==SkillEntities.IceLance||entry.Asset==SkillEntities.StoneCone||entry.Asset==SkillEntities.WoodSpear)
+        if(entry.Asset==SkillEntities.WaterArrow||entry.Asset==SkillEntities.GoldenNeedle||entry.Asset==SkillEntities.LightningSpear||entry.Asset==SkillEntities.IceLance||entry.Asset==SkillEntities.StoneCone||entry.Asset==SkillEntities.WoodSpear||entry.Asset==SkillEntities.PoisonNeedle)
         {
             var animation=entry.Asset.GetAnimation(0);
             float interval=normal.GetComponent<SkillContainer>().MotionProfile.FrameInterval;

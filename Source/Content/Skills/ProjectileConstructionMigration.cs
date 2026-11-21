@@ -33,7 +33,7 @@ internal static partial class ProjectileConstructionMigration
     private static (string Form, string Matter, string State) SourceForm(SkillEntityAsset asset) =>
         asset == SkillEntities.FlyingSword ? ("flying_sword", "iron", "solid") :
         asset == SkillEntities.GoldenNeedle ? ("golden_needle", "gold", "solid") :
-        asset == SkillEntities.PoisonNeedle ? ("poison_needle", "poison", "liquid") :
+        asset == SkillEntities.PoisonNeedle ? ("poison_needle_0", "poison", "liquid") :
         asset == SkillEntities.StoneCone ? ("stone_cone", "earth", "solid") :
         asset == SkillEntities.IceLance ? ("ice_lance", "ice", "solid") :
         asset == SkillEntities.LightningSpear ? ("lightning_spear", "lightning", "energy") :
@@ -50,11 +50,11 @@ internal static partial class ProjectileConstructionMigration
         asset == SkillEntities.WindBlade ? ("wind_blade", "wind", "energy") :
         asset == SkillEntities.WaterBlade ? ("water_blade", "water", "liquid") :
         asset == SkillEntities.FireBlade ? ("fire_blade", "fire", "energy") :
-        asset == SkillEntities.YinBlade ? ("yin_blade", "yin", "energy") :
+        asset == SkillEntities.YinBlade ? ("yin_blade_0", "yin", "energy") :
         asset == SkillEntities.Fireball ? ("fireball", "fire", "energy") :
         asset == SkillEntities.ThunderOrb ? ("thunder_orb", "lightning", "energy") :
         asset == SkillEntities.ChaosOrb ? ("chaos_orb_0", "entropy", "energy") :
-        asset == SkillEntities.FlameMeteor ? ("flame_meteor", "fire", "energy") :
+        asset == SkillEntities.FlameMeteor ? ("flame_meteor_0", "fire", "energy") :
         asset == SkillEntities.FallingRock ? ("falling_rock", "earth", "solid") :
         asset == SkillEntities.FallingTimber ? ("falling_timber", "wood", "solid") :
         asset == SkillEntities.LightningStrike ? ("lightning_strike", "lightning", "energy") :
@@ -180,7 +180,7 @@ internal static partial class ProjectileConstructionMigration
                 DisappearAt = burstDuration, ActiveUntil = Mathf.Min(.025f, lifetime),
                 Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End,
                     Placement = ConstructionEventPlacement.Event, InheritRemainder = contact, ResetContacts = contact,
-                    BeforeSourceExpires = thunderOrb || lightningStrike || icefall || fallingRock || fallingTimber ||
+                    BeforeSourceExpires = meteor || thunderOrb || lightningStrike || icefall || fallingRock || fallingTimber ||
                                           chaosOrb || container.Asset == SkillEntities.Fireball },
                 Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 },
                 Impact = contact ? new ConstructionImpact { DamageScale = damageMultiplier } : null,
@@ -190,8 +190,7 @@ internal static partial class ProjectileConstructionMigration
                     ? new[]
                     {
                         new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new float[3], InheritVelocity = false },
-                        new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "spread",
-                            Seconds = meteor ? burstDuration : 0f }
+                        new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "spread" }
                     }
                     : new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Stop,
                         When = new ConstructionCondition { Source = "..", Trigger = ConstructionChangeTrigger.End } } }
@@ -251,7 +250,7 @@ internal static partial class ProjectileConstructionMigration
         "falling_rock" => 3,
         "flying_sword" or "sword_qi" or "wind_bullet" or "wind_blade" or "wood_spear" or "falling_timber" => 2,
         "golden_needle" or "lightning_spear" or "ice_shard" or "ice_lance" or "icefall" or "rock_projectile" or "stone_cone" or
-            "spirit_bolt_0" or "yin_bolt_0" or "yang_bolt_0" or "chaos_orb_0" => 1,
+            "spirit_bolt_0" or "yin_bolt_0" or "yang_bolt_0" or "chaos_orb_0" or "poison_needle_0" or "yin_blade_0" or "flame_meteor_0" => 1,
         _ => 0
     };
 

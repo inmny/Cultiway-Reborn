@@ -241,6 +241,7 @@ function falling() {
     ['body',new T.IcosahedronGeometry(.63,2).scale(1,.91,1.5),'flame'],
     ['back',shaft([[-1.55,.012],[-1.05,.31],[-.5,.43]],10),'flame']],
     [[[0,0,-.28],[0,0,.36],.42]],{profile:'elongated_flame'});
+  fallingMeteor();
   const rock=new T.IcosahedronGeometry(.80,1),p=rock.getAttribute('position');
   for(let i=0;i<p.count;i++)p.setXYZ(i,p.getX(i)*(1+.13*Math.sin(p.getY(i)*12)),p.getY(i)*.86,p.getZ(i)*1.28);
   publish('falling_rock',[['boulder',rock,'stone']],[[[0,0,-.25],[0,0,.28],.51]],{profile:'faceted_boulder'});
@@ -255,6 +256,19 @@ function falling() {
     contacts.push([[x,y,-.44],[x,y,.61],.10,i]);
   }
   publish('icefall',pieces,contacts,{profile:'crystal_cluster',crystals:4});
+}
+
+/** 火石接触芯的前端固定在原点，厚火舌沿暗色碎面向后翻。 */
+function fallingMeteor() {
+  const crust=new T.IcosahedronGeometry(.51,1).scale(.96,.88,1.17).rotateY(.32).rotateZ(.37).translate(0,0,-.61);
+  const hotFace=new T.DodecahedronGeometry(.38).scale(1.04,.93,.86).rotateY(.67).translate(.02,-.02,-.43);
+  const pieces=[['crust',crust,'meteor_crust'],['melt',hotFace,'meteor_crown']];
+  const tongue=shaft([[-2.13,.017,-.04],[-1.59,.15,.046],[-1.06,.24,.021],[-.67,.18,-.035],[-.34,.033,-.067]],10);
+  for(const [i,angle] of [.23,2.26,4.45].entries()) {
+    const fold=tongue.clone().scale(1,.88,1-.13*i).translate(.31-.02*i,0,-.06*i).rotateZ(angle);
+    pieces.push([`fire_shoulder_${i}`,fold,i===0?'flame_body':'meteor_crown']);
+  }
+  publish('flame_meteor_0',pieces,[[[0,0,-.41],[0,0,-.96],.41]],{profile:'molten_crust',shoulders:3},true);
 }
 
 /** 前端折面套在原接触芯外，后段才分岔，保留原尺寸与下落基准。 */

@@ -1,4 +1,5 @@
 /** 贯穿主体共用封闭截面制作，分别保留针、晶枪、岩锥和木枪的实际结构。 */
+import * as T from 'three';
 import {write, structure, surfaceData, dissolve} from './form_export.mjs';
 import {wallPart, column} from './forms_solid_walls.mjs';
 
@@ -37,8 +38,17 @@ export function makePiercingForms() {
   ],[[.15,1.40,.055],[1.40,1.83,.025]],{golden,weight,sides:10},true);
 
   const poison=[[-.04,.012],[.18,.08],[.48,.17],[.82,.18],[1.20,.11],[1.67,.045],[1.94,.002]];
+  const poisonCore=[[.22,.40,.055],[.45,.90,.12],[.90,1.35,.065],[1.35,1.72,.025]];
   publish('poison_needle',[['venom_spindle',loft(poison,16),'poison_liquid',true]],
-    [[.22,.40,.055],[.45,.90,.12],[.90,1.35,.065],[1.35,1.72,.025]],{poison,sides:16});
+    poisonCore,{poison,sides:16});
+
+  const reservoir=loft([[.29,.02],[.40,.121],[.55,.176],[.64,.163],[.78,.076],[.88,.009]],12,.96,.04);
+  const tip=loft([[1.20,.047],[1.49,.073],[1.76,.046],[1.94,.002]],9,.79,.04);
+  const collar=new T.TorusGeometry(.117,.038,8,24).translate(0,0,.37);
+  publish('poison_needle_0',[
+    ['venom_spindle',loft(poison,16),'poison_liquid',true],['reservoir',reservoir,'poison_glaze',true],
+    ['sharp_point',tip,'poison_glaze',true],['rear_collar',collar,'poison_liquid',true]
+  ],poisonCore,{poison,sides:16},true);
 
   const stone=[[-.06,.37],[.16,.48],[.58,.43],[1.10,.30],[1.52,.15],[1.96,.008]];
   const shoulder=loft([[.04,.056],[.26,.25],[.56,.21],[.88,.11],[1.26,.01]],5,.58,.16)
