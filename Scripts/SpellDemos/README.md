@@ -2787,3 +2787,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 禁法敕令与封脉镇身（10.05）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_seal_effects.py` 让同一件正式法印使用两招。检查原费用、禁法敕令的圈内外和停止维持、封脉镇身的点名、随动与冷却后再用。用 `--section edict` 或 `--section meridian` 补指定一招，用 `--skip-views` 只核对行为和实际形体。
+
+### 万魂幡阵与号令旗域（10.05）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_banner_fields.py` 让同一件原幡依次部署两种法域，核对原费用、实际边界、敌方受损、友方增益和无力维持后的归还。可用 `--section myriad` 或 `--section command` 单独复验，用 `--skip-views` 只查行为。

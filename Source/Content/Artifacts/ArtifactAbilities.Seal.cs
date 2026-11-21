@@ -261,7 +261,7 @@ public partial class ArtifactAbilities
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = SkillCastResources.Wakan,
             OnTick = ApplySpellBanningField,
-            OnActivityEnded = EndSpellBanningField,
+            OnActivityEnded = EndPaidArtifactArea,
         });
         SpellBanningEdict.Activate(new ArtifactActiveAbilityProfile
         {
@@ -298,7 +298,6 @@ public partial class ArtifactAbilities
         ref ArtifactAbilityRuntimeEntry _,
         float interval)
     {
-        Vector3 position = context.artifact.GetComponent<ArtifactDeployment>().origin;
         float duration = ability.GetNumber(StatusDuration), drain = ability.GetNumber(DrainAmount) * context.effect_scale;
         var carrier = ArtifactAbilityLifecycle.ResolveSkillContext(context);
         var contact = new ArtifactAreaContact((source, target) =>
@@ -307,18 +306,8 @@ public partial class ArtifactAbilities
             CombatStatusEffects.ApplyStatus(target, StatusEffects.Silence, duration, source);
             CombatResourceEffects.DrainWakan(target, drain);
         });
-        var aim = new ActiveAbilityTarget(null, position);
-        ArtifactAreaConstruction.Start(context, SpellBanningEdict, aim, ActiveAbilityUseOrigin.Reaction,
-            position, ability.GetNumber(EffectRadius), interval - .01f, contact, "edict_seal",
-            ElementComposition.Static.empty, strike: .025f);
-    }
-
-    /// <summary>部署结束时一并关闭该印还在进行的付费圆面。</summary>
-    private static void EndSpellBanningField(ArtifactAbilityExecutionContext context, ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry _, ArtifactAbilityEndReason __)
-    {
-        if (context.controller.TryGetComponent(out ActorBinder binder))
-            ConstructedAbilityService.CancelFromItem(binder.ID, context.artifact.Id, ability.ability_id);
+        StartPaidArtifactArea(context, SpellBanningEdict, ability, interval, "edict_seal", contact,
+            ElementComposition.Static.empty);
     }
 
     private static void ConfigureMeridianSealing()

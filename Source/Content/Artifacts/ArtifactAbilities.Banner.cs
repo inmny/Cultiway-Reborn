@@ -3,6 +3,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Semantics;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -87,6 +88,7 @@ public partial class ArtifactAbilities
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = SkillCastResources.Wakan,
             OnTick = ApplyMyriadSoulBannerArray,
+            OnActivityEnded = EndPaidArtifactArea,
         });
         MyriadSoulBannerArray.Activate(new ArtifactActiveAbilityProfile
         {
@@ -121,31 +123,19 @@ public partial class ArtifactAbilities
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry _,
-        float __)
+        float interval)
     {
-        Actor controller = Controller(context);
-        ArtifactDeployment deployment = context.artifact.GetComponent<ArtifactDeployment>();
-        Vector2 center = ArtifactManifestationTools.ResolveWorldAnchor(
-            context.artifact,
-            deployment.ResolveBodyAnchor());
-        CombatTargeting.ForEachHostile(controller, center, ability.GetNumber(EffectRadius), target =>
+        float drain = ability.GetNumber(DrainAmount) * context.effect_scale;
+        float duration = ability.GetNumber(StatusDuration);
+        var carrier = ArtifactAbilityLifecycle.ResolveSkillContext(context);
+        var contact = new ArtifactAreaContact((source, target) =>
         {
-            CombatDamageEffects.DealDamage(
-                controller,
-                target,
-                SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
-                SoulComposition);
-            CombatResourceEffects.DrainWakan(
-                target,
-                ability.GetNumber(DrainAmount) * context.effect_scale);
-            CombatStatusEffects.ApplyStatus(
-                target,
-                StatusEffects.Weaken,
-                ability.GetNumber(StatusDuration),
-                S.multiplier_damage,
-                -0.12f,
-                controller);
+            using var scope = SkillCasterContextService.Enter(in carrier);
+            CombatResourceEffects.DrainWakan(target, drain);
+            CombatStatusEffects.ApplyStatus(target, StatusEffects.Weaken, duration, S.multiplier_damage, -.12f, source);
         });
+        StartPaidArtifactArea(context, MyriadSoulBannerArray, ability, interval, "myriad_banner", contact,
+            SoulComposition, SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier));
     }
 
     private static void ConfigureCommandingBannerField()
@@ -206,6 +196,7 @@ public partial class ArtifactAbilities
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = SkillCastResources.Wakan,
             OnTick = ApplyCommandingBannerField,
+            OnActivityEnded = EndPaidArtifactArea,
         });
         CommandingBannerField.Activate(new ArtifactActiveAbilityProfile
         {
@@ -240,21 +231,17 @@ public partial class ArtifactAbilities
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry _,
-        float __)
+        float interval)
     {
-        Actor controller = Controller(context);
-        ArtifactDeployment deployment = context.artifact.GetComponent<ArtifactDeployment>();
-        Vector2 center = ArtifactManifestationTools.ResolveWorldAnchor(
-            context.artifact,
-            deployment.ResolveBodyAnchor());
-        CombatTargeting.ForEachFriendly(controller, center, ability.GetNumber(EffectRadius), target =>
-            CombatStatusEffects.ApplyStatus(
-                target,
-                StatusEffects.Enlighten,
-                ability.GetNumber(StatusDuration),
-                S.multiplier_damage,
-                ability.GetNumber(DamageBonus),
-                controller));
+        float duration = ability.GetNumber(StatusDuration), damageBonus = ability.GetNumber(DamageBonus);
+        var carrier = ArtifactAbilityLifecycle.ResolveSkillContext(context);
+        var contact = new ArtifactAreaContact((source, target) =>
+        {
+            using var scope = SkillCasterContextService.Enter(in carrier);
+            CombatStatusEffects.ApplyStatus(target, StatusEffects.Enlighten, duration, S.multiplier_damage, damageBonus, source);
+        }, CombatTargeting.TargetDisposition.Friendly);
+        StartPaidArtifactArea(context, CommandingBannerField, ability, interval, "command_banner", contact,
+            ElementComposition.Static.empty);
     }
 
     private static void ConfigureSpiritHostManifestation()
@@ -401,117 +388,6 @@ public partial class ArtifactAbilities
     }
 
     private static void ConfigureBannerAbilityVisuals()
-    {
-        ConfigureMyriadSoulBannerArrayVisuals();
-        ConfigureCommandingBannerFieldVisuals();
-        ConfigureSpiritHostManifestationVisuals();
-    }
-
-    private static void ConfigureMyriadSoulBannerArrayVisuals()
-    {
-        ArtifactAreaVisualCue field = Area(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Primary,
-            0.5f,
-            0.07f,
-            ArtifactVfxStyles.Soul
-        );
-        field.inner_rotation_speed = -24f;
-        ArtifactGlyphVisualCue glyph = ActivityGlyph(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius) * 0.86f,
-            ArtifactVisualColorRole.Secondary,
-            9,
-            -22f,
-            ArtifactVfxStyles.Soul
-        );
-        ArtifactParticleVisualCue souls = Burst(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            ArtifactVisualColorRole.Glow,
-            3,
-            0.52f
-        );
-        souls.emission_interval = 0.16f;
-        ArtifactTetherVisualCue drain = new ArtifactTetherVisualCue
-        {
-            style_key = ArtifactVfxStyles.Soul,
-            from = ArtifactVisualAnchorRef.Appearance("cloth", "focus"),
-            to = ArtifactVisualAnchorKind.Target,
-            color_role = ArtifactVisualColorRole.Glow,
-            width = 0.045f,
-            curvature = -0.22f,
-            wave_amplitude = 0.055f,
-            wave_speed = -4f,
-            match_actor_scale = false,
-        };
-        MyriadSoulBannerArray.Visualize(
-            Theme(SkillVfxElements.Neg.AccentColor)
-                .Loop(
-                    "myriad_soul_banner",
-                    new ArtifactCompositeVisualCue(field, glyph, souls, Pulse(1f, 1f, 0.08f)),
-                    IsDeploymentActive
-                )
-                .Signal(
-                    ArtifactVisualChannels.Drain,
-                    new ArtifactCompositeVisualCue(
-                        drain,
-                        Burst(ArtifactVisualAnchorKind.Target, ArtifactVisualColorRole.Primary, 4)
-                    ),
-                    0.46f,
-                    "artifact.myriad_soul.drain",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
-        );
-    }
-
-    private static void ConfigureCommandingBannerFieldVisuals()
-    {
-        ArtifactAreaVisualCue field = Area(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Secondary,
-            0.44f,
-            0.04f,
-            ArtifactVfxStyles.Command
-        );
-        ArtifactGlyphVisualCue command = ActivityGlyph(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius) * 0.7f,
-            ArtifactVisualColorRole.Glow,
-            6,
-            12f,
-            ArtifactVfxStyles.Command
-        );
-        ArtifactParticleVisualCue sparks = Burst(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            ArtifactVisualColorRole.Primary,
-            2,
-            0.44f
-        );
-        sparks.emission_interval = 0.22f;
-        CommandingBannerField.Visualize(
-            Theme(SkillVfxElements.Pos.AccentColor)
-                .Loop(
-                    "commanding_banner",
-                    new ArtifactCompositeVisualCue(field, command, sparks),
-                    IsDeploymentActive
-                )
-                .Signal(
-                    ArtifactVisualChannels.Tick,
-                    Burst(
-                        ArtifactVisualAnchorKind.DeploymentOrigin,
-                        ArtifactVisualColorRole.Glow,
-                        3
-                    ),
-                    0.25f,
-                    "artifact.commanding_banner.tick",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
-        );
-    }
-
-    private static void ConfigureSpiritHostManifestationVisuals()
     {
         ArtifactOrbitProjectionVisualCue host = new ArtifactOrbitProjectionVisualCue
         {

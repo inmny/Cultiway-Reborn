@@ -2,6 +2,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -189,6 +190,25 @@ public partial class ArtifactAbilities
             TargetPosition(target),
             anchor,
             rotation);
+    }
+
+    /// <summary>原法宝结清本次维持费后，在真实部署点开始一次圆面作用。</summary>
+    private static void StartPaidArtifactArea(ArtifactAbilityExecutionContext context, ArtifactAbilityAsset asset,
+        ArtifactAbilityInstance ability, float interval, string form, ArtifactAreaContact contact,
+        ElementComposition element, float damage = 0f)
+    {
+        Vector3 position = context.artifact.GetComponent<ArtifactDeployment>().origin;
+        var aim = new ActiveAbilityTarget(null, position);
+        ArtifactAreaConstruction.Start(context, asset, aim, ActiveAbilityUseOrigin.Reaction, position,
+            ability.GetNumber(EffectRadius), interval - .01f, contact, form, element, damage, strike: .025f);
+    }
+
+    /// <summary>部署结束时一并关闭原件还在进行的付费圆面。</summary>
+    private static void EndPaidArtifactArea(ArtifactAbilityExecutionContext context, ArtifactAbilityInstance ability,
+        ref ArtifactAbilityRuntimeEntry _, ArtifactAbilityEndReason __)
+    {
+        if (!context.controller.IsNull && context.controller.TryGetComponent(out ActorBinder binder))
+            ConstructedAbilityService.CancelFromItem(binder.ID, context.artifact.Id, ability.ability_id);
     }
 
     private static bool CanUseWorldTargetInRange(

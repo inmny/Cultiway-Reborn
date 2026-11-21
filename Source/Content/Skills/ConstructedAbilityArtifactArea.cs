@@ -26,7 +26,7 @@ public sealed partial class ConstructedAbilityService
     /// <param name="owner">本次真实归属。</param><param name="target">候选人物。</param>
     /// <param name="contact">本击的原作用。</param>
     private static bool MatchesArtifactArea(CastAuthority owner, Actor target, ArtifactAreaContact contact) =>
-        owner.IsLive && (CombatTargeting.MatchesDisposition(owner.Actor, target, CombatTargeting.TargetDisposition.Hostile) ||
+        owner.IsLive && (CombatTargeting.MatchesDisposition(owner.Actor, target, contact.Disposition) ||
             contact.Purifies && CombatTargeting.MatchesDisposition(owner.Actor, target, CombatTargeting.TargetDisposition.Friendly));
 
     /// <summary>圆面确认到人物后，兑现原法宝的伤害、震退或实际解除。</summary>
@@ -39,10 +39,15 @@ public sealed partial class ConstructedAbilityService
         CastAuthority owner = running.Owner(node);
         if (!MatchesArtifactArea(owner, target, contact)) return default;
         Actor source = owner.Actor;
+        long generation = worldGeneration, targetId = target.id;
         if (contact.ApplyEffect != null)
         {
-            contact.ApplyEffect(source, target);
-            return default;
+            bool dealsDamage = contact.Damage > 0f;
+            DamageSettlement settled = dealsDamage ? SettleAreaDamage(owner, targetId, contact.Damage) : default;
+            if (generation == worldGeneration && target.data?.id == targetId && target.isAlive())
+                contact.ApplyEffect(source, target);
+            return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f,
+                additionalDamage: dealsDamage, damage: settled);
         }
 
         if (contact.CleanseCount is { } count)
@@ -58,7 +63,6 @@ public sealed partial class ConstructedAbilityService
             return default;
         }
 
-        long generation = worldGeneration, targetId = target.id;
         DamageSettlement result = default;
         if (contact.DamageFirst && contact.Damage > 0f)
         {

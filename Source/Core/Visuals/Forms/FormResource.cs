@@ -761,6 +761,8 @@ internal sealed partial class FormResourceGeneration
             "seal_crush" => (16f, new Color(.76f, .47f, .24f, .9f), .78f),
             "edict_seal" => (2f, new Color(.30f, .51f, .75f, .90f), .52f),
             "meridian_seal" => (2f, new Color(.45f, .65f, .94f, .92f), .33f),
+            "myriad_banner" => (2f, new Color(.65f, .44f, .75f, .88f), .47f),
+            "command_banner" => (2f, new Color(.94f, .71f, .34f, .96f), .61f),
             "yin_depth" => (14f, new Color(.055f, .075f, .16f, .96f), .32f),
             "yin_moon" => (14f, new Color(.42f, .48f, .72f, .78f), .24f),
             "gold" => (0f, new Color(.96f, .68f, .16f), .22f),

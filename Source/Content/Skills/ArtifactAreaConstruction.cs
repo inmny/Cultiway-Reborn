@@ -54,7 +54,10 @@ internal static class ArtifactAreaConstruction
             },
             Impact = new ConstructionImpact
             {
-                Targets = SkillUseTargetRelation.Hostile, DamageScale = 0f, SelectedTargetOnly = selectedTargetOnly
+                Targets = contact.Disposition == CombatTargeting.TargetDisposition.Friendly
+                    ? SkillUseTargetRelation.Friendly
+                    : SkillUseTargetRelation.Hostile,
+                DamageScale = 0f, SelectedTargetOnly = selectedTargetOnly
             },
             Root = new ConstructionNode
             {
@@ -99,6 +102,8 @@ internal readonly struct ArtifactAreaContact
     internal readonly bool DamageFirst;
     /// <summary>本次确实接触人物时沿用来源的状态和资源结算。</summary>
     internal readonly Action<Actor, Actor> ApplyEffect;
+    /// <summary>接触继续按照原法宝的敌我关系筛选。</summary>
+    internal readonly CombatTargeting.TargetDisposition Disposition;
     /// <summary>本次是否净化。</summary>
     internal bool Purifies => CleanseCount.HasValue;
 
@@ -113,17 +118,21 @@ internal readonly struct ArtifactAreaContact
     internal ArtifactAreaContact(int count) : this(count, 0f, 0f, 0f, false, null) { }
 
     /// <summary>保存原能力已经冻结的作用参数，由真正接触的人物触发。</summary>
-    internal ArtifactAreaContact(Action<Actor, Actor> applyEffect) : this(null, 0f, 0f, 0f, false, applyEffect) { }
+    internal ArtifactAreaContact(Action<Actor, Actor> applyEffect,
+        CombatTargeting.TargetDisposition disposition = CombatTargeting.TargetDisposition.Hostile)
+        : this(null, 0f, 0f, 0f, false, applyEffect, disposition) { }
 
     /// <summary>保存本次准备完毕的原伤害和接触资料。</summary>
     /// <param name="count">清音的解除上限。</param><param name="daze">原眩晕时长。</param>
     /// <param name="force">实际震退力度。</param><param name="damage">实际来源伤害。</param>
     /// <param name="damageFirst">原能力是否先处理伤害。</param>
     private ArtifactAreaContact(int? count, float daze, float force, float damage, bool damageFirst,
-        Action<Actor, Actor> applyEffect) =>
-        (CleanseCount, Daze, Force, Damage, DamageFirst, ApplyEffect) = (count, daze, force, damage, damageFirst, applyEffect);
+        Action<Actor, Actor> applyEffect, CombatTargeting.TargetDisposition disposition = CombatTargeting.TargetDisposition.Hostile) =>
+        (CleanseCount, Daze, Force, Damage, DamageFirst, ApplyEffect, Disposition) =
+        (count, daze, force, damage, damageFirst, applyEffect, disposition);
 
     /// <summary>保存按原施法来源折算的本击伤害。</summary>
     /// <param name="damage">已准备的伤害。</param>
-    internal ArtifactAreaContact WithDamage(float damage) => new(CleanseCount, Daze, Force, damage, DamageFirst, ApplyEffect);
+    internal ArtifactAreaContact WithDamage(float damage) =>
+        new(CleanseCount, Daze, Force, damage, DamageFirst, ApplyEffect, Disposition);
 }

@@ -1,0 +1,178 @@
+// 同一件实际幡依次部署敌对和友方法域，用原费用及真实结果核对圈边。
+const float centerX = 67.5f, centerY = 72f;
+Vector3 center = new Vector3(centerX, centerY, 0f);
+Actor source = Make(64.35f), near = Make(68f, "wolf"), far = Make(74f, "wolf"), ally = Make(63f);
+var owner = source.GetExtend();
+var nearExtend = near.GetExtend();
+var farExtend = far.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+nearExtend.AddComponent(new Xian { level = 4, wakan = 100f });
+farExtend.AddComponent(new Xian { level = 4, wakan = 100f });
+owner.SetPowerLevel(4);
+await Setup(source, near);
+CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+source.updateStats();
+ally.setKingdom(source.kingdom);
+source.addAggro(far);
+far.addAggro(source);
+foreach (Actor wolf in new[] { near, far })
+{
+    CombatStatusEffects.ApplyStatus(wolf, boost, 10000f, wolf);
+    wolf.GetExtend().MarkCultiwayStatsDirty();
+    wolf.updateStats();
+    wolf.GetExtend().GetCultisys<Xian>().wakan = 100f;
+    wolf.attack_timer = 999f;
+}
+
+var myriad = ArtifactAbilities.MyriadSoulBannerArray;
+var command = ArtifactAbilities.CommandingBannerField;
+var design = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Banner, Atoms = new[] { ArtifactAtoms.SoulBanner, ArtifactAtoms.SoulJade,
+        ArtifactAtoms.CommandRunes, ArtifactAtoms.EarthCore, ArtifactAtoms.WorldWood },
+    Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "万魂与号令复验"
+});
+var blueprint = ArtifactBlueprintCodec.FromComposeResult(design);
+Check(new[] { myriad.id, command.id }.All(id => blueprint.AbilitySet.abilities.Any(entry => entry.ability_id == id)),
+    "同一件组合法幡正式生成两个法域", blueprint.AbilitySet.abilities.Select(entry => entry.ability_id).ToArray());
+Entity banner = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+owner.AddSpecialItem(banner);
+Check(owner.EquipArtifact(banner, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "正式装备同一件原幡");
+ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+lifecycle.Invoke(null, new object[] { banner });
+await Game.NextFrame();
+await Game.NextFrame();
+
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var starts = new List<ConstructedCastStarted>();
+var hits = new List<ConstructedContact>();
+var fees = new List<float>();
+var drains = new List<(long ActorId, float Amount)>();
+var payment = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = payment.GetValue(null);
+var control = owner.E.GetRelation<EquippedArtifactRelation, Entity>(banner).state;
+var execution = new ArtifactAbilityExecutionContext(owner.E, banner, control);
+float Overload(ArtifactAbilityAsset asset) =>
+    control == ArtifactControlState.Overloaded ? asset.lifecycle.overload_resource_multiplier : 1f;
+bool Close(float actual, float expected) => Mathf.Abs(actual - expected) < .004f;
+
+void Started(ConstructedCastStarted value)
+{
+    if (value.SourceId == source.id && (value.AbilityId == myriad.id || value.AbilityId == command.id)) starts.Add(value);
+}
+void BannerContact(ConstructedContact value)
+{
+    if (value.SourceId == source.id && (value.AbilityId == myriad.id || value.AbilityId == command.id)) hits.Add(value);
+}
+void Paid(ActorExtend caster, in WakanMutation change)
+{
+    if (change.Kind != WakanMutationKind.Spend) return;
+    if (caster == owner) fees.Add(-change.Delta);
+    if (caster == nearExtend || caster == farExtend) drains.Add((caster.Base.id, -change.Delta));
+}
+bool Deploy(ArtifactAbilityAsset asset, Vector3 point)
+{
+    var entry = Definition(banner, asset.id);
+    var handle = handles.Single(value => value.Source == banner && value.EntryId == entry.instance_id);
+    source.attack_timer = 0f;
+    bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, point), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999f;
+    return used;
+}
+
+async Task ActivateField(ArtifactAbilityAsset asset, string form, float radius)
+{
+    int feeBefore = fees.Count, startsBefore = starts.Count, hitsBefore = hits.Count;
+    var ability = Definition(banner, asset.id);
+    float activation = asset.lifecycle.ResolveActivationCost(execution, ability) * Overload(asset);
+    float upkeep = asset.lifecycle.ResolveMaintenanceCost(execution, ability) * Overload(asset);
+    Check(Deploy(asset, center) && fees.Count == feeBefore + 1 && Close(fees.Last(), activation) && hits.Count == hitsBefore,
+        "正式部署先仅扣本招原启动费", new { ability = asset.id, activation, fees = fees.ToArray() });
+    await WaitFor(() => hits.Count > hitsBefore, 1.2f);
+    await Game.NextFrame();
+    Check(starts.Count == startsBefore + 1 && fees.Count == feeBefore + 2 && Close(fees.Last(), upkeep),
+        "第一轮实际作用前支付原维持费", new { upkeep, fees = fees.ToArray() });
+    var visual = FormVisualScene.Instances.Single(value => value.Resource.Description.Id == form);
+    float extent = visual.Resource.Description.Contacts.Single().Sector.Radius *
+                   visual.Transform.MultiplyVector(Vector3.right).magnitude;
+    Check(Vector2.Distance(visual.Transform.GetColumn(3), center) < .015f && Close(extent, radius) &&
+          banner.HasComponent<ArtifactDeployment>(), "画面与实际部署点和半径一致",
+        new { radius, extent, position = visual.Transform.GetColumn(3).ToString() });
+    if (shots)
+    {
+        bool upright = form == "myriad_banner";
+        float nativeZoom = upright ? radius * 1.27f + 1f : radius + 1.5f;
+        float worldfallZoom = Mathf.Max(10f, upright ? radius * 1.65f + 2f : radius + 2f);
+        await CaptureArtifactViews(form, center, worldfallZoom,
+            () => FormVisualScene.Instances.Any(value => value.Resource.Description.Id == form &&
+                   Vector2.Distance(value.Transform.GetColumn(3), center) < .015f), nativeZoom: nativeZoom);
+    }
+}
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += BannerContact;
+WakanResourceService.RegisterMutationCommitted(Paid);
+try
+{
+    var selectedAssets = section == "both" ? new[] { myriad, command } : new[] { section == "myriad" ? myriad : command };
+    int edge = Mathf.CeilToInt(selectedAssets.Max(asset => Definition(banner, asset.id).GetNumber("effect_radius"))) + 2;
+    PrepareArtifactArena((int)centerX - edge, (int)centerX + edge, (int)centerY - edge, (int)centerY + edge);
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+
+    if (section != "command")
+    {
+        var ability = Definition(banner, myriad.id);
+        float radius = ability.GetNumber("effect_radius");
+        Place(near, centerX + radius - .23f, centerY);
+        Place(far, centerX + radius + .23f, centerY);
+        Place(ally, centerX - 1f, centerY);
+        int health = near.data.health, outsideHealth = far.data.health, friendHealth = ally.data.health;
+        float expectedDrain = ability.GetNumber("drain_amount") * execution.effect_scale;
+        await ActivateField(myriad, "myriad_banner", radius);
+        Check(hits.Count == 1 && hits[0].TargetId == near.id && hits[0].Damage.HealthLost > 0 && near.data.health < health &&
+              drains.Count == 1 && drains[0].ActorId == near.id && Close(drains[0].Amount, expectedDrain) &&
+              far.data.health == outsideHealth && ally.data.health == friendHealth &&
+              CombatStatusEffects.HasStatus(near, StatusEffects.Weaken, source),
+            "万魂每次只对圈内敌人扣血、扣真元并弱化",
+            new { target = near.id, damage = hits.FirstOrDefault().Damage.HealthLost, expectedDrain,
+                drains = drains.Select(value => new { value.ActorId, value.Amount }).ToArray() });
+        owner.GetCultisys<Xian>().wakan = 0f;
+        await Advance(.59f);
+        Check(!banner.HasComponent<ArtifactDeployment>() && !banner.HasComponent<ArtifactIndependentMotion>() &&
+              starts.Count == 1 && hits.Count == 1 && fees.Count == 2 && owner.GetEquippedArtifacts().Contains(banner) &&
+              !FormVisualScene.Instances.Any(value => value.Resource.Description.Id == "myriad_banner"),
+            "维持费不足后原幡归还并停止生效");
+    }
+
+    if (section != "myriad")
+    {
+        var ability = Definition(banner, command.id);
+        float radius = ability.GetNumber("effect_radius");
+        owner.GetCultisys<Xian>().wakan = 9000f;
+        Place(ally, centerX + radius + .22f, centerY);
+        Place(near, centerX + 2f, centerY);
+        Place(far, centerX + radius + .5f, centerY);
+        await ActivateField(command, "command_banner", radius);
+        float expectedBonus = ability.GetNumber("damage_bonus") * execution.effect_scale;
+        Entity inspiration = owner.GetStatuses().Single(status =>
+            status.GetComponent<StatusComponent>().Type == StatusEffects.Enlighten);
+        float bonus = inspiration.GetComponent<StatusOverwriteStats>().stats[strings.S.multiplier_damage];
+        var applied = hits.Where(value => value.AbilityId == command.id).ToArray();
+        Check(applied.Length == 1 && applied[0].TargetId == source.id && Close(bonus, expectedBonus) &&
+              !CombatStatusEffects.HasStatus(ally, StatusEffects.Enlighten, source) &&
+              !CombatStatusEffects.HasStatus(near, StatusEffects.Enlighten, source),
+            "号令对圈内友方施加真实攻强，圈外友方和圈内敌人不受益", new { bonus, expectedBonus,
+                ids = applied.Select(value => value.TargetId).ToArray() });
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= BannerContact;
+    payment.SetValue(null, previous);
+}

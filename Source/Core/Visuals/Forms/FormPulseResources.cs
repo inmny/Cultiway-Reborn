@@ -23,6 +23,12 @@ internal sealed partial class FormResourceGeneration
         CreatePulseForm("meridian_seal", "meridian_seal", .88f, 4,
             [new(.73f, .08f), new(.71f, .45f), new(.67f, .89f), new(.55f, 1.16f), new(.47f, 1.23f),
                 new(.83f, .81f), new(.91f, .48f), new(1f, .17f), new(.93f, .08f)]);
+        CreateBannerPanels("myriad_banner", 10, Vector3.up * .036f,
+            [new(0f, 1f, .046f), new(-.17f, .94f, .16f), new(-.15f, .82f, .37f),
+                new(0f, .76f, .49f), new(.15f, .82f, .37f), new(.17f, .94f, .16f)]);
+        CreateBannerPanels("command_banner", 8, Vector3.forward * .029f,
+            [new(0f, .28f, .056f), new(.16f, .51f, .085f), new(.16f, .91f, .133f),
+                new(0f, 1f, .11f), new(-.16f, .91f, .133f), new(-.16f, .51f, .085f)]);
     }
 
     /// <summary>转动完整截面，保留实体斜面和起伏，最外缘始终等于实际单位半径。</summary>
@@ -32,7 +38,6 @@ internal sealed partial class FormResourceGeneration
     private void CreatePulseForm(string id, string surface, float fold, int lobes, Vector2[] profile)
     {
         const int sides = 72;
-        const float dissolve = .25f;
         int stride = sides + 1;
         var vertices = new Vector3[(profile.Length + 1) * stride];
         var uv = new Vector2[vertices.Length];
@@ -65,6 +70,48 @@ internal sealed partial class FormResourceGeneration
         mesh.uv = uv;
         mesh.triangles = triangles;
         mesh.RecalculateNormals();
+        PublishPulseForm(id, surface, mesh, nameof(CreatePulseForm),
+            new FormParameterDescription { Id = "folds", Values = [lobes, fold] });
+    }
+
+    /// <summary>按真实作用半径排开独立幡面，保留实体厚度及每面之间的留白。</summary>
+    private void CreateBannerPanels(string id, int count, Vector3 depth, Vector3[] outline)
+    {
+        var builder = new SpatialVisualMeshBuilder();
+        var front = new Vector3[outline.Length];
+        var back = new Vector3[outline.Length];
+        for (int i = 0; i < count; i++)
+        {
+            Quaternion turn = Quaternion.AngleAxis((i + .5f) * 360f / count, Vector3.forward);
+            Vector3 thickness = turn * depth;
+            for (int j = 0; j < outline.Length; j++)
+            {
+                front[j] = turn * outline[j];
+                back[outline.Length - 1 - j] = front[j] - thickness;
+            }
+            builder.AddFace(front, Color.white);
+            builder.AddFace(back, Color.white);
+            for (int j = 0; j < outline.Length; j++)
+            {
+                int next = (j + 1) % outline.Length;
+                builder.AddFace([front[next], front[j], front[j] - thickness, front[next] - thickness], Color.white);
+            }
+        }
+        SpatialVisualMesh panels = builder.Build(id);
+        var mesh = new Mesh
+        {
+            name = "Cultiway_" + id, hideFlags = HideFlags.DontSave,
+            vertices = panels.Vertices, normals = panels.Normals, triangles = panels.Triangles,
+            uv = Array.ConvertAll(panels.Vertices, point => new Vector2(point.x, point.y))
+        };
+        PublishPulseForm(id, id, mesh, nameof(CreateBannerPanels),
+            new FormParameterDescription { Id = "panels", Values = [count, depth.magnitude] });
+    }
+
+    /// <summary>圆面沿用同一个实际接触形状及收束时长，外轮廓由各招模型提供。</summary>
+    private void PublishPulseForm(string id, string surface, Mesh mesh, string entry, FormParameterDescription geometry)
+    {
+        const float dissolve = .25f;
         mesh.RecalculateBounds();
         Own(mesh);
         var description = new FormDescription
@@ -75,8 +122,7 @@ internal sealed partial class FormResourceGeneration
                 Kind = "volume", Changes = ["transform"],
                 Generation = new FormGenerationDescription
                 {
-                    Source = "Source/Core/Visuals/Forms/FormPulseResources.cs", Entry = nameof(CreatePulseForm),
-                    Parameters = [new FormParameterDescription { Id = "folds", Values = [lobes, fold] }]
+                    Source = "Source/Core/Visuals/Forms/FormPulseResources.cs", Entry = entry, Parameters = [geometry]
                 }
             },
             Parts = [new FormPartDescription { Id = "front", Roles = ["wave.front"], Surface = surface, Pivot = new float[3] }],

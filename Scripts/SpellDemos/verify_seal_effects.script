@@ -123,6 +123,9 @@ try
               !CombatStatusEffects.HasStatus(far, StatusEffects.Silence, source),
             "支付原维持费后，圈内敌人一次被沉默并扣原真元，圈外无变化",
             new { fees = fees.ToArray(), upkeep, nearSpent = nearSpent.ToArray(), expectedDrain, farSpent = farSpent.ToArray(),
+                starts = starts.Count, health, current = near.data.health, damage = hits.FirstOrDefault().Damage.HealthLost,
+                silence = CombatStatusEffects.HasStatus(near, StatusEffects.Silence, source),
+                outsideSilence = CombatStatusEffects.HasStatus(far, StatusEffects.Silence, source),
                 positions = new[] { near.current_position.ToString(), far.current_position.ToString() },
                 hits = hits.Select(value => value.TargetId).ToArray() });
         Check(seal.HasComponent<ArtifactDeployment>() && Vector2.Distance(Pose("edict_seal"), center) < .01f &&
