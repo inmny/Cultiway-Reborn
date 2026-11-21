@@ -830,6 +830,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             bool ordinary = powered && running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
             bool thermalSource = fire || shape.To.Node >= 0 && running.Cast.Burning(shape.To.Node).Heat > 0;
             bool attack = canTouch && ordinary && running.Cast.Role(shape.To.Node) == ConstructionContactRole.Attack;
+            if (attack && shape.To.Node == 0 && running.BuildingContact != null)
+                FindLegacyBuildingContacts(shape, owner, step, Include);
             if (shape.To.Node < 0 && attack) FindBodyCorrespondences(shape, clock, step, touchFrom, Include);
             if (attack && hasBodyGuardShapes)
                 FindBodyGuards(shape, step, touchFrom, Include);
@@ -1097,6 +1099,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (hit.BodyRelation >= 0)
         {
             ResolveBodyConnection(hit);
+            return;
+        }
+
+        if (hit.Building != null)
+        {
+            ResolveLegacyBuildingContact(hit);
             return;
         }
 
@@ -1687,6 +1695,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <summary>人物接触的实际对象。</summary>
         internal readonly ActorMotion Actor;
 
+        /// <summary>原攻击实际碰到的建筑及稳定编号，其他接触为空。</summary>
+        internal readonly Building Building;
+        internal readonly long BuildingId;
+
         /// <summary>世界接触的实际地块，其他接触为空。</summary>
         internal readonly WorldTile Tile;
 
@@ -1749,13 +1761,14 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="actorShape">同一接触时点的真实人物作用体。</param>
         /// <param name="frostBinding">实际结霜模型。</param>
         /// <param name="frostRule">实际接触的薄霜规则。</param>
+        /// <param name="building">本次真实建筑接触。</param>
         internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point,
             Vector3 normal, float seconds, bool quenching = false, long worldRecord = 0,
             AbilityCapsule worldShape = default, ThermalReaction reaction = ThermalReaction.None,
             bool worldSource = false, WorldTile tile = null, int worldEffect = 0, int bodyRelation = -1,
             BodySurfacePose bodySurface = null, BodySurfaceAnchor bodyAnchor = default, BodySurfaceHit? environment = null, ConstructedActorImpulse.BodyFlight flight = null,
             AbilityCapsule actorShape = default, Vector3 bodyGuardFacing = default, BodySurfaceBinding frostBinding = null,
-            CompiledFrostCoating frostRule = null, bool heldWeaponObstacle = false)
+            CompiledFrostCoating frostRule = null, bool heldWeaponObstacle = false, Building building = null)
         {
             BodyGuardFacing = bodyGuardFacing;
             BodyRelation = bodyRelation;
@@ -1766,6 +1779,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             BodyAnchor = bodyAnchor;
             FrostBinding = frostBinding;
             FrostRule = frostRule;
+            Building = building;
+            BuildingId = building?.getID() ?? 0L;
             Tile = tile;
             WorldEffect = worldEffect;
             Quenching = quenching;
@@ -1801,7 +1816,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 if (Right.HasValue)
                     LeftRayLength = RayContact(leftShape, Slice(Right.Value.From, Right.Value.To, fraction), ref actualPoint, ref actualNormal);
-                else if (actor.Id != 0 || worldRecord > 0)
+                else if (actor.Id != 0 || worldRecord > 0 || building != null)
                     LeftRayLength = RayContact(leftShape, actor.Id != 0 ? actorShape : worldShape, ref actualPoint, ref actualNormal);
                 else LeftRayLength = AbilityPairSweep.RayLengthAt(leftShape, actualPoint, actualNormal);
                 if (rightRay)
@@ -1856,6 +1871,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 return order != 0 ? order : a.WorldEffect.CompareTo(b.WorldEffect);
             }
 
+            if (a.Building != null || b.Building != null)
+            {
+                order = (b.Building != null).CompareTo(a.Building != null);
+                return order != 0 ? order : a.BuildingId.CompareTo(b.BuildingId);
+            }
             return a.Right.HasValue ? CompareShape(a.Right.Value, b.Right.Value) : a.Actor.Id.CompareTo(b.Actor.Id);
         }
 

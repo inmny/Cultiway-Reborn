@@ -1212,6 +1212,30 @@ public sealed partial class AbilityCast
         bool flowedBefore = flows?[node]?.Started == true;
         ApplyMatterChanges(node, ConstructionChangeTrigger.ActorContact);
         SignalEvent(node, ConstructionChangeTrigger.ActorContact, point ?? state.Transform.GetColumn(3));
+        ApplyContactResponse(node, fraction, point, rayLength, flowedBefore);
+    }
+
+    /// <summary>建筑接触使用同一个停止或结束过程，并记录建筑事实。</summary>
+    /// <param name="node">实际接触部位。</param>
+    /// <param name="point">真实建筑接触点。</param>
+    /// <param name="buildingId">原版建筑的编号。</param>
+    /// <param name="rayLength">如有射线，此处是被阻挡的世界距离。</param>
+    internal void ConfirmBuildingContact(int node, Vector3 point, long buildingId, float? rayLength)
+    {
+        RecordActionContact(node, point, AbilityActionContactKind.Building, buildingId);
+        ref NodeState state = ref nodes[node];
+        if (!state.Exists || state.Recovering || state.Leaving) return;
+        state.Resource = 0;
+        ApplyContactResponse(node, 1f, point, rayLength, flows?[node]?.Started == true);
+    }
+
+    /// <summary>确认对象实际接触后，执行当前部位的延续、停止或结束规则。</summary>
+    /// <param name="node">实际接触部位。</param><param name="fraction">本步已走完的进度。</param>
+    /// <param name="point">已确认的接触位置。</param><param name="rayLength">射线被截断的长度。</param>
+    /// <param name="flowedBefore">对象接触前是否已有材料外流。</param>
+    private void ApplyContactResponse(int node, float fraction, Vector3? point, float? rayLength, bool flowedBefore)
+    {
+        ref NodeState state = ref nodes[node];
         switch (Plan.Nodes[node].OnContact)
         {
             case ConstructionContactResponse.Stop:

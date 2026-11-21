@@ -401,17 +401,18 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="legacyArea">已学法术原有的范围地块与建筑规则。</param>
     /// <param name="groundTravel">已学法术原有的行进掠地规则。</param>
     /// <param name="groundContact">已学法术原有的命中地块规则。</param>
+    /// <param name="buildingContact">已学法术原来允许接触建筑的规则。</param>
     internal static bool StartPrepaid(ActorExtend caster, AbilityDefinition definition,
         in ActiveAbilityTarget target, Vector3 sourcePosition, SkillCastPayment payment = null,
         GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0, BaseSimObject spatialSource = null,
         bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null, LegacyGroundTravel groundTravel = null,
-        SkillVfxElementAsset groundContact = null)
+        SkillVfxElementAsset groundContact = null, LegacyBuildingContact buildingContact = null)
     {
         if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
         return Start(caster, ValidateDefinition(definition), target, target.RuntimeData.Origin, out _, sourcePosition,
             true, payment, sourceDamage: damage, sourceDirection: direction, sourceInstance: sourceInstance,
             spatialSource: spatialSource?.a, sourceIsWorld: sourceIsWorld, legacyArea: legacyArea,
-            groundTravel: groundTravel, groundContact: groundContact);
+            groundTravel: groundTravel, groundContact: groundContact, buildingContact: buildingContact);
     }
 
     /// <summary>固定环境位置直接进入共同执行，零编号表示未受理，不借人物提供身份或资源。</summary>
@@ -452,12 +453,14 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="legacyArea">已学法术原有的范围地块与建筑规则。</param>
     /// <param name="groundTravel">已学法术原有的行进掠地规则。</param>
     /// <param name="groundContact">已学法术原有的命中地块规则。</param>
+    /// <param name="buildingContact">已学法术原来允许接触建筑的规则。</param>
     private static bool Start(ActorExtend caster, CompiledAbility plan,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, out long castId, Vector3? sourcePosition = null,
         bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
         GetHitEvent? sourceDamage = null, Vector3? sourceDirection = null, int sourceInstance = 0, Actor spatialSource = null,
         bool practice = false, bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null,
-        LegacyGroundTravel groundTravel = null, SkillVfxElementAsset groundContact = null)
+        LegacyGroundTravel groundTravel = null, SkillVfxElementAsset groundContact = null,
+        LegacyBuildingContact buildingContact = null)
     {
         castId = 0;
         Actor sourceActor = caster?.Base;
@@ -608,6 +611,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 AreaImpactNode = legacyArea == null ? -1 : Array.FindIndex(plan.Nodes, node => node.Path == legacyArea.Path),
                 GroundTravel = groundTravel,
                 GroundContact = groundContact,
+                BuildingContact = buildingContact,
                 CorrespondenceEnded = plan.HasCorrespondences ? new bool[plan.FormCount] : null,
                 WorldScope = target.WorldScope,
                 Practice = practice,
@@ -996,6 +1000,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         internal LegacyGroundTravel GroundTravel;
         /// <summary>每次真实接触都可以生效的原地块作用，由共用接触规则控制频次。</summary>
         internal SkillVfxElementAsset GroundContact;
+        /// <summary>原施放明确允许建筑接触时保存的关系和作用规则。</summary>
+        internal LegacyBuildingContact BuildingContact;
 
         /// <summary>实际归属及目标。</summary>
         internal Actor Source, Target;
