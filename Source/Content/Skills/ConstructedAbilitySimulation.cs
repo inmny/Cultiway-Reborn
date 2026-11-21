@@ -950,8 +950,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 {
                     CompiledConstructionImpact effect = running.Cast.ImpactAtStage(shape.To.Node, stage);
                     // 原范围法相对所有接触者提交脚下地块作用，人物收益和伤害在确认后按原关系分配。
+                    bool explicitReaction = running.ExplicitReactionTarget && actor.Id == running.TargetId;
                     if (effect.SelectedTargetOnly && owner.TargetId != actor.Id ||
-                        !running.FormationArea.HasValue && !owner.Matches(effect.Targets, actor.Actor) ||
+                        !explicitReaction && !running.FormationArea.HasValue && !owner.Matches(effect.Targets, actor.Actor) ||
                         !running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until)) return;
                     int node = shape.To.Node;
                     if (node == 0 && owner.TargetId == 0 && running.BuildingContact is { ChainStartRadius: > 0f } chain &&

@@ -2715,3 +2715,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 修炼提示和龙威（10.02）
 
 在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_formation_derived.py`。同一张对练地图用于观察真实攻防、正式付费施法和致命受击。可用 `--section ward` 查看护盾与适应，`--section casting` 查看凝元和回响，`--section survival` 查看幻身与保命，`--section dragon` 查看第五层龙威的眩晕和震退。提示结束时检查没有新增接触和伤害，龙威另核对敌我、圈外及支付。
+
+同一入口可用 `--section strikes` 复验混沌回响、归墟回响和五相追加攻击。核对点名对象、原伤害、相位切换、同秒限制和接触结束。

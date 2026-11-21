@@ -10,6 +10,7 @@ SECTIONS = {
     'casting': ('ReservoirOrb', 'SpiritEcho'),
     'survival': ('IllusionDecoy', 'InfantGuard', 'ChaosRebirth'),
     'dragon': ('DragonMight', 'DragonAspectMight'),
+    'strikes': ('ChaosEcho', 'ChaosRebirthEcho', 'FivePhaseStrike'),
 }
 
 

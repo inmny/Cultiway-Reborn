@@ -281,6 +281,101 @@ try
             resultRows.Add(new { id = Id(row.Item2), cast = cast.CastId, distance = enemy.current_position.x - x });
         }
     }
+    if (Allowed("strikes"))
+    {
+        Place(outside, 70f, 72.5f);
+        foreach (Actor actor in new[] { source, enemy, ally, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+        var emissions = new List<SkillEmission>();
+        var originalEmitter = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+        Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        {
+            if (emission.Source == source && chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id))
+                emissions.Add(emission);
+            return originalEmitter(emission);
+        };
+        async Task ConfirmStrike(string name, Actor target, float multiplier, int elementPhase = -1)
+        {
+            var cast = started.Last(fact => fact.AbilityId == Id(name));
+            var hit = contacts.Single(contact => contact.CastId == cast.CastId);
+            var emission = emissions.Last(step => step.SkillContainer.GetComponent<SkillContainer>().Asset.id == Id(name));
+            var asset = emission.SkillContainer.GetComponent<SkillContainer>().Asset;
+            var element = emission.RuntimeData.ResolveElement(asset.Element);
+            int phase = Enumerable.Range(0, Cultiway.Const.ElementIndex.Count).Single(i => element[i] > 0f);
+            Check(hit.TargetId == target.id && hit.SourceId == source.id && hit.Damage.SettledCount == 1 &&
+                hit.Damage.HealthLost > 0 && !legacy.Contains(Id(name)) &&
+                emission.RuntimeData.DamageOrigin == Cultiway.Core.Combat.DamageOrigin.Reaction &&
+                (elementPhase < 0 || phase == elementPhase),
+                name + "以本次反应元素只命中原点名人物",
+                new { hit.TargetId, hit.Damage.HealthLost, phase, hit.MatterBefore });
+
+            int after = target.data.health;
+            var reference = new Cultiway.Core.EventSystem.Events.GetHitEvent
+            {
+                Damage = emission.Strength * emission.RuntimeData.ResolveEffectScale() * multiplier, Element = element,
+                TargetID = target.id, AttackType = AttackType.Other, AttackerPowerLevel = emission.PowerLevel,
+                DamageOrigin = Cultiway.Core.Combat.DamageOrigin.Reaction
+            };
+            reference.BindAttacker(source);
+            var damage = (Cultiway.Core.Combat.DamageSettlement)matrix.Invoke(null, new object[] { reference });
+            target.restoreHealth(after - target.data.health);
+            Check(damage.HealthLost == hit.Damage.HealthLost, name + "原倍率通过同一实际受击规则产生相同扣血",
+                new { reference.Damage, expected = damage.HealthLost, actual = hit.Damage.HealthLost });
+            await Advance(.74f);
+            var end = endings.Single(row => row.Fact.CastId == cast.CastId).Fact;
+            Check(!end.Cancelled && contacts.Count(item => item.CastId == cast.CastId) == 1,
+                name + "自然收势，不增加第二次接触");
+            resultRows.Add(new { id = Id(name), cast = cast.CastId, damage = hit.Damage.HealthLost, phase });
+        }
+
+        try
+        {
+            foreach (var row in new[]
+                     {
+                         (CoreFormationAtoms.ElementChaos, "ChaosEcho", CoreFormationRealm.Jindan, enemy),
+                         (CoreFormationAtoms.TransformChaos, "ChaosRebirthEcho", CoreFormationRealm.Yuanying, ally)
+                     })
+            {
+                var chaos = Install(row.Item1, "chaos", row.Item3);
+                Actor target = row.Item4;
+                Place(outside, target.current_position.x, target.current_position.y);
+                ConstructedAbilityService.NotifyActorChanged(outside);
+                int spareHealth = outside.data.health, paid = spends.Count;
+                for (int i = 0; i < 100 && SkillCooldownService.IsReady(owner, chaos.Definition.CooldownSkill); i++)
+                    Strike(source, target, 145);
+                await Advance(.20f);
+                await ConfirmStrike(row.Item2, target, .30f);
+                Check(spareHealth == outside.data.health && paid == spends.Count &&
+                    (target != ally || target.kingdom == source.kingdom),
+                    row.Item2 + "同位置旁人未受伤、原人物无需再付费");
+            }
+
+            var five = Install(CoreFormationAtoms.TransformFivePhase, "five_phase");
+            var list = new List<ActiveAbilityHandle>();
+            ActiveAbilityService.Collect(owner, list);
+            var handle = list.Single(item => item.ProviderId == "content.core_formation");
+            var aim = new ActiveAbilityTarget(source, source.GetSimPos());
+            Check(ActiveAbilityService.TryUse(owner, handle, aim, ActiveAbilityUseOrigin.Player), "五相由正式主动入口开启");
+            await Advance(.68f);
+            Check(State(five).GetComponent<CoreFormationEffectState>().phase == 0, "首次实际相位是金");
+            int before = spends.Count;
+            Strike(source, enemy, 145);
+            Strike(source, enemy, 145);
+            await Advance(.20f);
+            Check(started.Count(item => item.AbilityId == Id("FivePhaseStrike")) == 1, "第二次同秒攻击没有触发五相");
+            await ConfirmStrike("FivePhaseStrike", enemy, .25f, 0);
+            for (int i = 0; i < 28 && State(five).GetComponent<CoreFormationEffectState>().phase == 0; i++)
+                await Advance(.12f);
+            Check(State(five).GetComponent<CoreFormationEffectState>().phase == 1, "由原计时转为木相");
+            Strike(source, enemy, 145);
+            await Advance(.20f);
+            await ConfirmStrike("FivePhaseStrike", enemy, .25f, 1);
+            Check(spends.Count == before, "五相两次追加都没有再次向人物收费");
+        }
+        finally
+        {
+            Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
+        }
+    }
     return new { passed = true, resultRows, checks };
 }
 finally
