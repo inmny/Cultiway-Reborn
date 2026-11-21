@@ -2547,3 +2547,11 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用同一入口的 `fire-family --case archive` 保存火刃和火球的完整学习资料。退出并重新启动独立游戏后运行 `fire-family --case cold --archive <保存输出目录>`，核对全部索引、追踪轨迹和两个读回招式的真实施放。
 
 录像使用 `demo_all.py --filter Cultiway.FireBlade,Cultiway.Fireball --variants all --cases base --realm 0 --target-offset 7 0 --zoom 9 --duration 1.4 --fps 30`。分别指定 `--view native` 或 `--view worldfall` 和各自的输出目录。总览包含四个火刃、十八个火球各自的一段连续施放。
+
+### 水系飞行旧变体（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py water-family` 逐个验证水箭、水球和水刃。改用 `water-arrow`、`water-orb` 或 `water-blade` 后，可重复传入 `--variant` 复验指定索引。水球可加 `--case miss` 或 `--case tracking` 检查落空收势和改轨迹后追踪移动目标。
+
+用 `water-family --case archive` 保存全部十三份学习资料。退出并重启后用 `water-family --case cold --archive <保存输出目录>` 读回资料，施放三种代表索引。
+
+两种视角分别使用 `demo_all.py` 的 `--view native` 或 `--view worldfall`。水箭和水刃用 `--filter Cultiway.WaterArrow,Cultiway.WaterBlade --zoom 23` 保留飞行和收势，水球用 `--filter Cultiway.WaterOrb --zoom 9` 看转动的内外水层。两组都使用 `--variants all --cases base --realm 0 --target-offset 7 0 --duration 1.55 --fps 30`。

@@ -1,0 +1,195 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_water_projectiles.mjs",
+            "Entry": "makeWaterProjectileForms",
+            "Parameters": [
+                {
+                    "Id": "variant",
+                    "Values": [
+                        3.0
+                    ]
+                },
+                {
+                    "Id": "length",
+                    "Values": [
+                        1.2899999618530274
+                    ]
+                },
+                {
+                    "Id": "span",
+                    "Values": [
+                        0.8600000143051148
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "water_orb_3",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/water_orb_3_heavy_front_mid.asset",
+                "Assets/Cultiway/Forms/water_orb_3_heavy_front_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "heavy_front",
+            "Surface": "water",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/water_orb_3_heavy_front.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.05999999865889549,
+                0.04500000178813934,
+                -0.4699999988079071
+            ],
+            "B": [
+                -0.019999999552965165,
+                0.019999999552965165,
+                -0.12999999523162843
+            ],
+            "Radius": 0.10080000013113022,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_1",
+            "Part": 0,
+            "A": [
+                -0.019999999552965165,
+                0.019999999552965165,
+                -0.12999999523162843
+            ],
+            "B": [
+                0.0,
+                -0.019999999552965165,
+                0.14000000059604646
+            ],
+            "Radius": 0.23520000278949738,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_2",
+            "Part": 0,
+            "A": [
+                0.0,
+                -0.019999999552965165,
+                0.14000000059604646
+            ],
+            "B": [
+                0.029999999329447748,
+                -0.02500000037252903,
+                0.38999998569488528
+            ],
+            "Radius": 0.20160000026226045,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.4280259907245636,
+                -0.3750210106372833,
+                -0.73198401927948
+            ],
+            "Maximum": [
+                0.4280259907245636,
+                0.3350209891796112,
+                0.5610659718513489
+            ]
+        }
+    ],
+    "Motions": []
+}

@@ -90,13 +90,21 @@ try
     {
         currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
         var normal=Build();var boosted=Build(true);
+        float duration=.9f;
+        if(entry.Asset==SkillEntities.WaterArrow)
+        {
+            var animation=entry.Asset.GetAnimation(0);
+            float interval=normal.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
+            duration+=animation.Appearance.Frames.Length*animation.Appearance.Settings.ResolveFrameInterval(interval)+
+                animation.Dissipation.Frames.Length*animation.Dissipation.Settings.ResolveFrameInterval(interval);
+        }
         foreach(var skill in new[]{normal,boosted})
         {
             var d=Convert(skill,out GetHitEvent damage);bool boost=skill.HasComponent<HugeModifier>();
             var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));var plan=AbilityCompiler.Compile(restored,cache:false);
             Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.State==entry.State&&
                 d.Root.OnContact==ConstructionContactResponse.Continue&&d.Root.Contact.Mode==ConstructionContactMode.Once&&
-                d.Root.Contact.MaximumPerTarget==1&&Math.Abs(d.Root.Impact.DamageScale-.85f)<.0001f&&Math.Abs(d.Lifetime-.9f)<.0001f&&
+                d.Root.Contact.MaximumPerTarget==1&&Math.Abs(d.Root.Impact.DamageScale-.85f)<.0001f&&Math.Abs(d.Lifetime-duration)<.0001f&&
                 Math.Abs(damage.Damage-(boost?37.44f:40f))<.001f&&damage.AttackerPowerLevel==1.25f&&damage.Element.Equals(entry.Asset.Element),
                 entry.Form+"独立主体、实际材料、原强度与贯穿规则可保存编译",new{damage.Damage,d.Root.Scale,d.Lifetime});
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
@@ -106,7 +114,7 @@ try
         Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.12f);
         var live=accepted.Single();Check(oldExecutions==0&&starts.Count==1&&Views(live).Single().Resource.Description.Id==entry.Form,
             entry.Form+"只运行自身新主体且无旧执行");await Shot(entry.Form);
-        await Advance(1f);
+        await Advance(duration+.1f);
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(normal)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,normal)));
         Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f,entry.Form+"只支付一次",new{cost,balance,after=owner.GetCultisys<Xian>().wakan});
         Check(contacts.Count(c=>c.AbilityId==entry.Asset.id&&c.TargetId==target.id)==1&&

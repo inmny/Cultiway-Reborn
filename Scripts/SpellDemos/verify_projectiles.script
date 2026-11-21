@@ -100,12 +100,20 @@ try
             await Shot(entry.Form);await Advance(1.2f);Check(accepted.All(c=>c.Finished),entry.Form+"补拍正常结束");continue;
         }
         var boosted=Build(true);
+        float duration=5f;
+        if(entry.Asset==SkillEntities.WaterOrb)
+        {
+            var animation=entry.Asset.GetAnimation(0);
+            float interval=normal.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
+            duration+=animation.Appearance.Frames.Length*animation.Appearance.Settings.ResolveFrameInterval(interval)+
+                animation.Dissipation.Frames.Length*animation.Dissipation.Settings.ResolveFrameInterval(interval);
+        }
         foreach(var skill in new[]{normal,boosted})
         {
             var d=Convert(skill,out GetHitEvent damage);bool boost=skill.HasComponent<HugeModifier>();
             var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));AbilityCompiler.Compile(restored,cache:false);
             Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.State==entry.State&&
-                d.Root.OnContact==ConstructionContactResponse.End&&Math.Abs(d.Lifetime-5f)<.0001f&&
+                d.Root.OnContact==ConstructionContactResponse.End&&Math.Abs(d.Lifetime-duration)<.0001f&&
                 Math.Abs(damage.Damage-(boost?37.44f:40f))<.001f&&damage.AttackerPowerLevel==1.25f&&damage.Element.Equals(entry.Asset.Element),
                 entry.Form+"独立主体、材料和原强度寿命可保存编译",new{damage.Damage,d.Root.Scale,d.Lifetime});
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));

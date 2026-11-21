@@ -121,8 +121,13 @@ internal static partial class ProjectileConstructionMigration
         if (scale <= 0f || scale > 64f || lifetime <= 0f || lifetime > 3600f) return null;
         bool fireball = container.Asset == SkillEntities.Fireball;
         bool fireBlade = container.Asset == SkillEntities.FireBlade;
+        bool waterOrb = container.Asset == SkillEntities.WaterOrb;
+        bool waterArrow = container.Asset == SkillEntities.WaterArrow;
+        bool water = waterOrb || waterArrow || container.Asset == SkillEntities.WaterBlade;
+        bool phased = fireball || fireBlade || water;
         string form = fireBlade ? FireBladeForm(container.AnimationIndex) :
-            fireball ? FireballForm(container.AnimationIndex) : sourceForm.Form;
+            fireball ? IndexedForm(sourceForm.Form, container.AnimationIndex, 18) :
+            water ? IndexedForm(sourceForm.Form, container.AnimationIndex, waterOrb ? 5 : 4) : sourceForm.Form;
         if (form == null) return null;
         AbilityDefinition definition = Motion(emission, form, scale, continues, lifetime, initialAngle, speedScale, out forward);
         if (definition == null) return null;
@@ -175,9 +180,15 @@ internal static partial class ProjectileConstructionMigration
             } };
         }
         else if (container.Asset == SkillEntities.EarthRidge) SetRidgeCollapse(definition, lifetime, scale);
-        if ((fireball || fireBlade) && !SetStationaryProjectileLifecycle(definition, container)) return null;
+        float waterRoll = waterOrb ? OrbRoll(container.AnimationIndex) : waterArrow && container.AnimationIndex == 1 ? 350f : 0f;
+        if (waterRoll != 0f)
+            definition.Root.Operations = definition.Root.Operations.Concat(new[]
+            {
+                new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0f, waterRoll } }
+            }).ToArray();
+        if (phased && !SetStationaryProjectileLifecycle(definition, container)) return null;
         definition = ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, contactForceScale: !continues && !blast ? 1f / damageMultiplier : 1f, caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
-        if ((fireball || fireBlade) && definition.Root.RadialMotion != null)
+        if (phased && definition.Root.RadialMotion != null)
             definition.Root.RadialMotion.StartAt = definition.Root.ActiveFrom;
         return definition;
     }
@@ -193,16 +204,18 @@ internal static partial class ProjectileConstructionMigration
         _ => null
     };
 
-    /// <summary>旧火球索引一一对应可辨认的三维主体。</summary>
+    /// <summary>原索引零沿用基础资源编号，其余索引各有可辨认的三维主体。</summary>
+    /// <param name="form">不带索引的基础形体编号。</param>
     /// <param name="index">原学习资料或存档保留的动画索引。</param>
-    private static string FireballForm(int index) => index switch
-    {
-        0 => "fireball",
-        >= 1 and <= 17 => "fireball_" + index,
-        _ => null
-    };
+    /// <param name="count">该来源已逐项迁移的索引数量。</param>
+    private static string IndexedForm(string form, int index, int count) =>
+        index == 0 ? form : index > 0 && index < count ? form + "_" + index : null;
 
-    /// <summary>先成形再按原轨迹出手，余焰从实际结束点淡出。</summary>
+    /// <summary>卷水主体绕自己的飞行轴回旋，可见水量与作用面同时转动。</summary>
+    /// <param name="index">原水球的索引。</param>
+    private static float OrbRoll(int index) => index switch { 0 => 315f, 1 => -260f, 4 => 425f, _ => 0f };
+
+    /// <summary>先成形再按原轨迹出手，解体只在实际结束点显示。</summary>
     /// <param name="definition">已经展开原轨迹和实际作用的投射主体。</param>
     /// <param name="container">提供原阶段开关和时长的实际学习资料。</param>
     private static bool SetStationaryProjectileLifecycle(AbilityDefinition definition, SkillContainer container)
@@ -213,10 +226,10 @@ internal static partial class ProjectileConstructionMigration
         float frameInterval = container.MotionProfile.FrameInterval;
         float appearance = ClipSeconds(animation.Appearance, frameInterval);
         float dissipation = ClipSeconds(animation.Dissipation, frameInterval);
-        float end = appearance + definition.Lifetime;
-        if (end + dissipation > 3600f) return false;
-
         ConstructionNode root = definition.Root;
+        float end = appearance + (root.DisappearAt ?? definition.Lifetime);
+        float fullLifetime = appearance + definition.Lifetime + dissipation;
+        if (fullLifetime > 3600f) return false;
         if (appearance > 0f)
         {
             root.ActiveFrom = appearance;
@@ -227,7 +240,7 @@ internal static partial class ProjectileConstructionMigration
         }
         root.ActiveUntil = end;
         root.DisappearAt = end;
-        definition.Lifetime = end + dissipation;
+        definition.Lifetime = fullLifetime;
         if (dissipation <= 0f) return true;
         var embers = new ConstructionNode
         {
@@ -301,21 +314,26 @@ internal static partial class ProjectileConstructionMigration
         return new ConstructionPath { Keys = keys, Forward = null };
     }
 
-    /// <summary>按原八段调速求指定时点前的中心路程，决定连续抵达所需速度。</summary>
+    /// <summary>按原起步和巡航速度换算抵达时长，并在原半秒上限内连续走完整弧。</summary>
+    /// <param name="distance">实际指定起终点的直连长度。</param>
     /// <param name="speed">本次基础速度。</param><param name="launch">起步比例。</param><param name="cruise">巡航比例。</param>
-    /// <param name="ramp">起步时长。</param><param name="seconds">实际世界时长。</param>
-    private static float PlannedDistance(float speed, float launch, float cruise, float ramp, float seconds)
+    /// <param name="ramp">起步时长。</param>
+    private static float ArcTravelTime(float distance, float speed, float launch, float cruise, float ramp)
     {
-        if (ramp <= .001f) return speed * cruise * seconds;
-        float total = 0f, previous = 0f;
-        for (int i = 0; i < 8 && previous < seconds; i++)
-        {
-            float end = Mathf.Min(seconds, ramp * (i + 1f) / 8f), remaining = 1f - i / 8f;
-            total += speed * (cruise + (launch - cruise) * remaining * remaining) * (end - previous);
-            previous = end;
-        }
-        if (previous < seconds) total += speed * cruise * (seconds - previous);
-        return total;
+        const float deadline = .5f;
+        const float minimum = .025f;
+        float age = 0f;
+        if (ramp > .001f)
+            for (int i = 0; i < 8 && age < deadline; i++)
+            {
+                float end = Mathf.Min(deadline, ramp * (i + 1f) / 8f), remaining = 1f - i / 8f;
+                float current = speed * (cruise + (launch - cruise) * remaining * remaining);
+                float span = current * (end - age);
+                if (span >= distance) return Mathf.Max(minimum, age + distance / current);
+                distance -= span;
+                age = end;
+            }
+        return cruise > 0f ? Mathf.Clamp(age + distance / (speed * cruise), minimum, deadline) : deadline;
     }
 
     /// <summary>输出自足的普通三轴参数。</summary><param name="value">实际数值。</param>

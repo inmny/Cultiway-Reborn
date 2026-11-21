@@ -1,6 +1,6 @@
-/** 五种推进刃波：宽面轮廓、封闭厚度与沿实际主体分布的接触芯共同导出。 */
+/** 推进刃波的宽面轮廓、封闭厚度与接触芯共同导出。 */
 import * as T from 'three';
-import {write,structure,surfaceData,motion,round} from './form_export.mjs';
+import {write,structure,motion,round} from './form_export.mjs';
 import {wallPart,column} from './forms_solid_walls.mjs';
 
 /** 横向弯曲的封闭刃面，末端连续收尖；宽度与厚度不是贴图或拖尾。 */
@@ -86,15 +86,6 @@ function wind() {
   publish('wind_blade',parts,cores(edge),{span:3.5,layers:3,depth:.24});
 }
 
-/** 水刃为有水量的弯面，后缘翻卷成连续水唇；泡沫通道只改变表面。 */
-function water() {
-  const edge=u=>[u*1.80,0,.43-.58*u*u+.035*Math.sin(u*9)];
-  const sheet=surfaceData(ribbon(edge,.35,.17),p=>.27+.08*Math.cos(p.x*2),p=>Math.max(0,.35-p.z)*.7);
-  const lip=u=>[u*1.66,.08,.15-.56*u*u];
-  publish('water_blade',[['sheet',sheet,'water'],['rolled_lip',surfaceData(ribbon(lip,.13,.20),.25,()=>.22),'water']],
-    cores(edge,.12),{span:3.6,depth:.35,rolledLip:true});
-}
-
 /** 火刃有连续焰锋与五个独立收尖的厚焰舌，不以散乱粒子替代作用主体。 */
 function fire() {
   const edge=u=>[u*1.72,0,.37-.42*u*u];
@@ -143,5 +134,5 @@ function yin() {
     cores(edge,.09).map(c=>[...c,1]),{span:3.44,profile:'asymmetric_hook',depth:.30});
 }
 
-/** 一次发布五种原刃波的独立主体。 */
-export function makeBladeForms() {sword();wind();water();fire();yin();}
+/** 一次发布原刃波的独立主体。 */
+export function makeBladeForms() {sword();wind();fire();yin();}

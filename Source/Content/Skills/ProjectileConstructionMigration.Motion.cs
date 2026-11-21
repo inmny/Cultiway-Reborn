@@ -62,14 +62,13 @@ internal static partial class ProjectileConstructionMigration
         float turn = motion.TurnRate * haste * (spiral ? .7f : 1f);
         float ramp = Mathf.Max(0f, motion.RampDuration), launch = motion.LaunchMultiplier, cruise = motion.CruiseMultiplier;
         float arcDistance = arc ? Vector3.Distance(emission.SourcePos, emission.TargetPos) : 0f;
+        float arcTime = 0f;
         if (arc)
         {
             if (arcDistance < .01f || arcDistance > 10000f) return null;
-            // 原术半秒超时会跳到终点；现在预先连续赶上，不在末帧瞬移。
             speed *= arcDistance / Mathf.Max(.1f, arcDistance);
-            float travel = PlannedDistance(speed, launch, cruise, ramp, .5f);
-            if (travel <= 0f) return null;
-            speed *= Mathf.Max(1f, arcDistance / travel);
+            if (speed <= 0f || Mathf.Max(launch, cruise) <= 0f) return null;
+            arcTime = ArcTravelTime(arcDistance, speed, launch, cruise, ramp);
         }
         // 保留当前未能完整表达的超预算来源，不缩小原术来让转换通过。
         if (lifetime <= 0f || lifetime > 3600f ||
@@ -159,11 +158,8 @@ internal static partial class ProjectileConstructionMigration
             path = ConstructionPathCurves.PulsingSpiral(360f / 520f, .5f, Vector3.forward * (.9f * .25f),
                 Vector3.right * .9f, .25f / .9f, (float)(new System.Random(seed).NextDouble() * Math.PI * 2d));
         if (path != null) path.DistancePerSecond = vortex ? 28f : wave ? 30f : 34f;
-        if (arc)
-        {
-            path = ConstructionPathCurves.WaveSpan(1f, 2f, Quaternion.Inverse(facing) * (Vector3.forward * 4f));
-            path.DistancePerSecond = arcDistance;
-        }
+        // 实际出生点与指定落点共用一条有限曲线，中轴不再另行积分而漏掉到达。
+        if (arc) path = ConstructionPathCurves.Arc(arcTime, 4f);
         Vector3 spawnOffset = Vector3.zero;
         if (descent)
         {
@@ -180,7 +176,8 @@ internal static partial class ProjectileConstructionMigration
         var operations = new List<ConstructionOperation>();
         if (!manifest) operations.Add(new ConstructionOperation
             {
-                Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = XYZ(descent ? Vector3.right * (falling ? 7f : 0f) : (arc ? forward : initial) * speed * (ramp > .001f ? launch : cruise)),
+                Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = XYZ(arc ? Vector3.zero :
+                    descent ? Vector3.right * (falling ? 7f : 0f) : initial * speed * (ramp > .001f ? launch : cruise)),
                 TurnRate = noRotation || path != null || snap ? 0f : turn, Transfer = snap ? new ConstructionFlightTransfer { Seed = seed } : null, InheritVelocity = false, Goal = goal, Path = path,
                 Ground = descent ? ConstructionGroundResponse.End : ground ? ConstructionGroundResponse.Follow : ConstructionGroundResponse.Ignore
             });
@@ -188,7 +185,7 @@ internal static partial class ProjectileConstructionMigration
         if (form is "earth_ridge" or "tidal_wave" or "creeping_vine")
             operations.Add(new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "travel", Seconds = lifetime });
         // 起步曲线使用八个确定时点，调整速度不重新开始飞行，也不重置目标和接触记录。
-        if (!manifest && !descent && ramp > .001f)
+        if (!manifest && !descent && !arc && ramp > .001f)
             for (int i = 1; i <= 8; i++)
             {
                 float at = ramp * i / 8f;
@@ -233,6 +230,8 @@ internal static partial class ProjectileConstructionMigration
             {
                 Id = container.Asset == SkillEntities.FlyingSword ? "sword" : "projectile", Form = form,
                 Scale = scale, Rotation = XYZ(facing.eulerAngles), Offset = XYZ(spawnOffset),
+                // 真实到达会提前结束。若途中偏折，有限弧走完后也能收束。
+                DisappearAt = arc ? Mathf.Min(lifetime, arcTime + 1f / 60f) : null,
                 Operations = operations.ToArray()
             }
         };

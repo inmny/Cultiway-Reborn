@@ -1,4 +1,4 @@
-/** 七种贯穿主体共用封闭截面制作，分别保留针、晶枪、岩锥、液态箭和木枪的实际结构。 */
+/** 贯穿主体共用封闭截面制作，分别保留针、晶枪、岩锥和木枪的实际结构。 */
 import {write, structure, surfaceData} from './form_export.mjs';
 import {wallPart, column} from './forms_solid_walls.mjs';
 
@@ -24,7 +24,7 @@ function publish(id, pieces, contacts, parameters) {
       Object.fromEntries(parts.map(p=>[p.Id,['projectile.body','piercing.core']])),[]));
 }
 
-/** 一次发布七种独立主体；封闭网格只是共用制作方法，不用同一模型反复改色。 */
+/** 一次发布各独立主体。 */
 export function makePiercingForms() {
   const golden=[[-.04,.005],[.10,.075],[.32,.09],[1.45,.07],[1.88,.025],[2.12,.002]];
   publish('golden_needle',[['metal_needle',loft(golden,10),'gold']],[[.15,1.40,.055],[1.40,1.83,.025]],{golden,sides:10});
@@ -44,11 +44,6 @@ export function makePiercingForms() {
   const lightning=[[-.04,.045],[.18,.15],[.90,.13],[1.15,.30],[1.42,.18],[1.65,.36],[1.98,.23],[2.46,.003]];
   publish('lightning_spear',[['charged_lance',loft(lightning,6,.85),'lightning_dense']],
     [[.16,.85,.09],[.85,1.30,.10],[1.35,1.95,.13],[1.98,2.25,.045]],{lightning,sides:6});
-
-  const water=[[-.03,.03],[.22,.12],[1.20,.13],[1.50,.34],[1.90,.26],[2.42,.003]];
-  const tail=[[-.025,.01],[.15,.32],[.46,.20],[.68,.04]];
-  publish('water_arrow',[['water_shaft',loft(water,20,.7),'water',true],['flow_vanes',loft(tail,12,.28),'water',true]],
-    [[.18,1.23,.07],[1.30,1.86,.12],[1.90,2.20,.04]],{water,tail,sides:20});
 
   const shaft=[[-.04,.10],[.12,.14],[1.50,.115],[1.82,.10]];
   const head=[[1.40,.08],[1.65,.31],[1.96,.22],[2.44,.002]];

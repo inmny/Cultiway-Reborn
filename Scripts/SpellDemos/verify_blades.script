@@ -63,7 +63,7 @@ List<AbilityCapsule> Shapes(AbilityCast cast){var shapes=new List<AbilityCapsule
 float BladeDuration(Entity skill)
 {
     var container=skill.GetComponent<SkillContainer>();
-    if(container.Asset!=SkillEntities.FireBlade)return .75f;
+    if(container.Asset!=SkillEntities.FireBlade&&container.Asset!=SkillEntities.WaterBlade)return .75f;
     var animation=container.Asset.GetAnimation(container.AnimationIndex);
     float Seconds(SkillEntityAnimationClip clip)=>clip==null?0f:
         clip.Frames.Length*clip.Settings.ResolveFrameInterval(container.MotionProfile.FrameInterval);
