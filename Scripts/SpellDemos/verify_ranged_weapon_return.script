@@ -1,5 +1,5 @@
 // 10.04：复用同一把实际弓，记录离手、放箭、回手及同款换装。
-var flightType = service.Assembly.GetType("Cultiway.Content.WeaponControl.WeaponControlRangedFlight");
+var flightType = service.Assembly.GetType("Cultiway.Content.WeaponControl.WeaponControlFlight");
 var flightsByActor = flightType.GetField("active", F).GetValue(null);
 var values = flightsByActor.GetType().GetProperty("Values", F);
 object CurrentFlight() => ((IEnumerable)values.GetValue(flightsByActor)).Cast<object>().SingleOrDefault();

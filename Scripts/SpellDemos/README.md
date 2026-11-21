@@ -2137,7 +2137,7 @@ python3 Scripts/SpellDemos/demo_spell.py TidalWave --cases base --view native --
 
 ### 9.04 线状效果与表面接缝
 
-在独立游戏运行 `dev.py exec --timeout 260 -- python3 Scripts/SpellDemos/verify_visual_cleanup.py --section weapons`，检查同一把铁剑的扫击与突刺、原碰撞宽度、超距拒绝、命中和归还，以及原版和 Worldfall 图片。只补突刺用 `--section thrust`。`--section materials` 复用原正式水幕、岩脊及雷矛，保存近远和三维斜视；`--section seams` 只比较带泡沫的水面及岩面在展开坐标两侧的真实输出。复用 `verify_chain.py --section appearance` 核对连锁雷击。各段独立保存输入、检查记录和实机画面。
+在独立游戏运行 `dev.py exec --timeout 260 -- python3 Scripts/SpellDemos/verify_visual_cleanup.py --section materials`，复用正式水幕、岩脊及雷矛，保存近远和三维斜视。用 `--section seams` 比较水面泡沫及岩面在展开坐标两侧的真实输出。复用 `verify_chain.py --section appearance` 核对连锁雷击。近战御器随 10.04 改用实际兵器外形和下方的新复验入口。
 
 短片复验：`dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/demo_spell.py WaterCurtain --cases base --view native --zoom 22 --fps 15 --duration 2.2 --output <本次验收目录>`。
 
@@ -2500,10 +2500,6 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 `verify_migrated_martial_film.py --view native` 和 `--view worldfall` 拍摄 10.03 的原地掌击和九项骑士战技。在独立游戏中用 `dev.py exec --timeout 640` 启动。录像从起势前拍到收势后，以实际世界时间编码，随片记录费用、命中、格挡承力或护持。可重复传入 `--move` 补拍指定招式。
 
-在独立游戏用 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_native_projectile_flight.py` 复验远程御器的原版弹丸。核对真实逐发支付、原版轨道与三维显示一致、换武器停止续射、弹丸复用及换世界清理。
-
-在同一入口加 `--section bow` 检查原弓离手、逐发从实际弓位放箭、随人物移动回手和首发前换同款弓。用 `--section bow-world` 单独检查升弓期间换世界，确认旧弓飞行和施放会话都已清理。默认入口也检查有在飞的代理箭矢时换世界。
-
 `--case press --archive <输出目录>` 用正式对练档中的人物运行架杆拨锋与持剑刺击。检查接触点相合、杆身带动持剑手、收枪解除关系、双方原物归还，以及对方没有兵器时保留体力。
 
 `--case edit` 检查万法阁的实际握点、滑握比例、器物尺寸和普通接触面，并保存中英文画面和 `edited-definition.json`。使用 `--case range --edited <edited-definition.json 路径>` 实战核对该改造的选取距离、尖端接触以及原物归还。
@@ -2761,3 +2757,11 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 七种修炼主动能力实录（10.02）
 
 独立游戏就绪后运行 `dev.py exec --timeout 900 -- python3 Scripts/SpellDemos/record_formation_reels.py --output <实录目录>`。脚本依次使用七个真实主动入口，在两种视角分别生成连续片段、含章节的合辑与原片索引。用 `--view native` 或 `--view worldfall` 限定视角，已有原片可用 `--encode-only` 重新合成。
+
+### 御器的真实器物与原版弹丸（10.04）
+
+在独立游戏用 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_native_projectile_flight.py` 复验远程御器的原版弹丸。核对真实逐发支付、原版轨道与三维显示一致、换武器停止续射、弹丸复用及换世界清理。
+
+在同一入口加 `--section bow` 检查原弓离手、逐发从实际弓位放箭、随人物移动回手和首发前换同款弓。用 `--section bow-world` 单独检查升弓期间换世界，确认旧弓飞行和施放会话都已清理。默认入口也检查有在飞的代理箭矢时换世界。
+
+用 `--section melee` 检查原铁枪离手后的枪线接触、连续按次付费、移步后回手和同款换装中断。用 `--section melee-sweep` 与 `--section melee-crush` 分别核对实际铁剑横扫和铁锤重砸；两段复用同一套人物和世界。

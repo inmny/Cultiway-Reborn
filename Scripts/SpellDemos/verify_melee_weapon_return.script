@@ -1,0 +1,232 @@
+// 10.04：一次连续出枪、脱离刃端的目标、实际回手和原物中断。
+bool longThrust = expectedMode == "MeleeThrust";
+float targetX = longThrust ? 72f : 67.35f;
+Actor source = Make(64.35f), target = Make(targetX, "wolf");
+ActorExtend owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 4;
+var supply = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.MeleeWakan") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.MeleeWakan")
+        .SetStats(new BaseStats { [BaseStatses.MaxWakan.id] = 10000 }).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, supply, 10000, source);
+Ready(source);
+source.attack_timer = 999f;
+await Advance(.16f);
+Item Equip()
+{
+    Item item = World.world.items.generateItem(AssetManager.items.get(itemId), pActor: source);
+    if (source.hasWeapon()) source.equipment.weapon.takeAwayItem();
+    source.equipment.setItem(item, source);
+    source.setStatsDirty(); source.updateStats();
+    return item;
+}
+Item spear = Equip();
+source.addAggro(target);
+target.addAggro(source);
+owner.GetCultisys<Xian>().wakan = 9000;
+target.restoreHealth(target.getMaxHealth());
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var handle = handles.Single(value => value.ProviderId == "content.weapon_control");
+var runtime = service.Assembly.GetType("Cultiway.Content.WeaponControl.WeaponControlRuntimeService");
+var flightType = service.Assembly.GetType("Cultiway.Content.WeaponControl.WeaponControlFlight");
+var flights = flightType.GetField("active", F).GetValue(null);
+var flightValues = flights.GetType().GetProperty("Values", F);
+var visuals = service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem").GetField("Meshes", F);
+bool Casting() => (bool)runtime.GetMethod("IsCasting", F).Invoke(null, new object[] { owner });
+object Flight() => ((IEnumerable)flightValues.GetValue(flights)).Cast<object>().SingleOrDefault();
+Vector3 Point(object flight) => (Vector3)flightType.GetMethod("LaunchPoint", F).Invoke(flight, null);
+Vector3 Hand(object flight) =>
+    ((ValueTuple<Vector3, Quaternion>)flightType.GetMethod("Hand", F).Invoke(flight, null)).Item1;
+Vector3 Tip(object flight) => (Vector3)flightType.GetProperty("ContactPoint", F).GetValue(flight);
+bool Borrowed() => ConstructedAbilityService.IsWeaponBorrowed(source) && ConstructedAbilityService.HasWeaponControl(source);
+bool DrawingInHand() => source.checkHasRenderedItem();
+object[] Models(object flight) => ((IEnumerable)visuals.GetValue(null)).Cast<object>()
+    .Where(mesh => ReferenceEquals(Field(mesh, "Model"), Field(flight, "model"))).ToArray();
+var payments = new List<float>();
+var strokes = new List<(Entity Entity, object Flight, double Time, float Duration)>();
+var damage = new List<float>();
+var contactsDuringStrike = new List<object>();
+var stateType = service.Assembly.GetType("Cultiway.Content.Combat.EquippedWeaponMotionState");
+var getMotion = typeof(Entity).GetMethods(F)
+    .Single(method => method.Name == "TryGetComponent" && method.IsGenericMethod)
+    .MakeGenericMethod(stateType);
+var skillAsset = handle.Source.GetComponent<SkillContainer>().Asset;
+var originalCollision = skillAsset.OnObjCollision;
+var mutationField = typeof(WakanResourceService).GetField("mutationCommitted", F);
+var previousMutations = mutationField.GetValue(null);
+var damageField = typeof(ActorExtend).GetField("action_on_damage_resolved", F);
+var previousDamage = damageField.GetValue(null);
+void Paid(ActorExtend actor, in WakanMutation mutation)
+{
+    if (actor == owner && mutation.Kind == WakanMutationKind.Spend) payments.Add(-mutation.Delta);
+}
+void Emitted(Entity entity)
+{
+    if (entity.GetComponent<SkillEntity>().SkillContainer != handle.Source) return;
+    object[] args = { null };
+    getMotion.Invoke(entity, args);
+    strokes.Add((entity, Flight(), World.world.getCurWorldTime(), (float)Field(args[0], "Duration")));
+}
+bool Contact(ref SkillContext context, Entity container, Entity execution, BaseSimObject victim)
+{
+    if (victim == target && context.SourceObj == source)
+        contactsDuringStrike.Add(new { time = World.world.getCurWorldTime(), canAttack = source.canAttackTarget(target),
+            position = target.current_position.ToString(), invincible = target.hasStatus("invincible") });
+    return originalCollision(ref context, container, execution, victim);
+}
+void LoseLife(ActorExtend victim, BaseSimObject attacker, float amount, ElementComposition element, AttackType type)
+{
+    if (victim.Base == target && attacker == source && amount > 0f && type == AttackType.Weapon &&
+        Cultiway.Core.Combat.DamageResolutionContext.CurrentSourceScopeId > 0) damage.Add(amount);
+}
+async Task Until(Func<bool> done)
+{
+    Config.paused = false;
+    await Game.WaitUntil(done, 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+void Use()
+{
+    Place(source, 64.35f);
+    Place(target, targetX);
+    source.attack_timer = 0;
+    Check(DrawingInHand() && ActiveAbilityService.TryUse(owner, handle,
+        new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script) &&
+        Flight() == null && DrawingInHand(), "正式请求排队时仍握着原兵器");
+    source.attack_timer = 999f;
+}
+
+WakanResourceService.RegisterMutationCommitted(Paid);
+ActorExtend.RegisterActionOnDamageResolved(LoseLife);
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Emitted;
+skillAsset.OnObjCollision = Contact;
+try
+{
+    var camera = World.world.camera;
+    camera.transform.position = new Vector3(68f, 73f, camera.transform.position.z);
+    MoveCamera.instance.forceZoom(14f);
+    if (!longThrust)
+    {
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            int before = strokes.Count, hits = damage.Count;
+            Use();
+            await Until(() => strokes.Count > before);
+            object sample = Flight();
+            string mode = Field(sample, "mode").ToString();
+            if (mode == expectedMode)
+            {
+                await Advance(.13f);
+                Vector3 preparation = Tip(sample);
+                var drawn = Models(sample);
+                await Until(() => damage.Count > hits || Field(sample, "returning") != null);
+                Check(damage.Count > hits && drawn.Length == 1 && (bool)Field(drawn[0], "DrawNative") &&
+                      ReferenceEquals(Field(sample, "weapon"), spear),
+                    "实际器形以同一件原兵器完成出招及伤害",
+                    new { itemId, mode, preparation = preparation.ToString(), damage = damage.Skip(hits).ToArray(),
+                        health = target.data.health, target = target.GetSimPos().ToString(),
+                        contacts = contactsDuringStrike.ToArray() });
+                await Until(() => !Borrowed());
+                return new { passed = true, mode, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+            }
+            await Until(() => !Borrowed());
+            await Advance(SkillCooldownService.GetRemaining(owner, handle.Source) + .15f);
+        }
+        Check(false, "三次正式使用未抽到此次需要的近战动作", new { itemId, expectedMode });
+    }
+    int health = target.data.health;
+    Use();
+    await Until(() => strokes.Count > 0);
+    object flight = Flight();
+    Check(ReferenceEquals(Field(flight, "weapon"), spear) && Field(flight, "mode").ToString() == "MeleeThrust" &&
+        ReferenceEquals(source.getWeapon(), spear) && Borrowed() && !DrawingInHand() && payments.Count == 1,
+        "第一道远距突刺只借出当前实际枪并支付一次");
+    Place(target, 71.2f, 74.1f);
+    var first = strokes[0];
+    Vector3 tip = Vector3.zero, position = Vector3.zero;
+    bool activeTip = false;
+    await Until(() =>
+    {
+        if (strokes.Count > 1) return true;
+        tip = Tip(flight);
+        if (first.Entity.IsNull || !first.Entity.GetComponent<ColliderConfig>().Enabled ||
+            tip.x < source.current_position.x + 2f) return false;
+        position = first.Entity.GetComponent<Cultiway.Core.Components.Position>().value;
+        activeTip = true;
+        return true;
+    });
+    await Game.NextFrame();
+    var view = Models(flight);
+    Check(activeTip && Vector3.Distance(tip, position) < .001f &&
+        view.Length == 1 && (bool)Field(view[0], "DrawNative") &&
+        Vector3.Distance((Vector3)Field(view[0], "Position"), Point(flight)) < .001f &&
+        target.data.health == health && damage.Count == 0,
+        "双视角只见一件器物，扫掠位置来自枪尖，离开枪线的原目标未受伤",
+        new { tip = tip.ToString(), position = position.ToString(), target = target.current_position.ToString(),
+            health, remaining = target.data.health, meshes = view.Length, activeTip, sampled = strokes.Count });
+    Place(target, targetX);
+    float closest = float.PositiveInfinity;
+    Vector3 closestTip = default;
+    await Until(() =>
+    {
+        Entity current = strokes.Last().Entity;
+        if (!current.IsNull && current.GetComponent<ColliderConfig>().Enabled)
+        {
+            Vector3 point = Tip(flight);
+            float gap = Vector2.Distance(point, target.current_position);
+            if (gap < closest)
+            {
+                closest = gap;
+                closestTip = point;
+            }
+        }
+        return Field(flight, "returning") != null;
+    });
+    Check(strokes.Count >= 2 && strokes.All(stroke => ReferenceEquals(stroke.Flight, flight)) &&
+        strokes.Zip(strokes.Skip(1), (a, b) => b.Time - a.Time >= a.Duration - .02f).All(serial => serial) &&
+        payments.Count == strokes.Count && payments.All(cost => cost == 1f) &&
+        damage.Count > 0 && target.data.health < health && !Casting() && Borrowed(),
+        "原枪连续实击同一目标，每击只付一次且依序完成，末尾开始回手",
+        new { fees = payments.ToArray(), strokes = strokes.Count, damage = damage.ToArray(),
+            health, remaining = target.data.health, closest, closestTip = closestTip.ToString(),
+            target = target.GetSimPos().ToString(), contacts = contactsDuringStrike.ToArray() });
+    Vector3 returnFrom = Point(flight);
+    Place(source, 64.85f);
+    await Advance(.08f);
+    var movedHand = Hand(flight);
+    Check(Borrowed() && !DrawingInHand() && Vector3.Distance(Point(flight), movedHand) <
+        Vector3.Distance(returnFrom, movedHand), "枪向移动后的原手部返回", new
+        { from = returnFrom.ToString(), hand = movedHand.ToString(), current = Point(flight).ToString() });
+    await Advance(.28f);
+    await Game.NextFrame();
+    Check(Flight() == null && !Borrowed() && DrawingInHand() && Models(flight).Length == 0 &&
+        ReferenceEquals(source.getWeapon(), spear), "回收结束恢复同一件装备的正常持握");
+
+    await Advance(SkillCooldownService.GetRemaining(owner, handle.Source) + .15f);
+    int previousStrokes = strokes.Count;
+    Use();
+    await Until(() => strokes.Count > previousStrokes);
+    object stopped = Flight();
+    int oldDamage = damage.Count, oldFees = payments.Count;
+    Item replacement = Equip();
+    Check(!Borrowed() && DrawingInHand() && ReferenceEquals(source.getWeapon(), replacement) &&
+        !ReferenceEquals(spear, replacement), "实际离手后换同款，立即显示新原物");
+    await Advance(.7f);
+    Check(Flight() == null && !Casting() && Models(stopped).Length == 0 &&
+        strokes.Count == previousStrokes + 1 && payments.Count == oldFees && damage.Count == oldDamage,
+        "原枪失效后不再接触或续费，也不残留旧器物");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    Config.paused = true;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Emitted;
+    skillAsset.OnObjCollision = originalCollision;
+    mutationField.SetValue(null, previousMutations);
+    damageField.SetValue(null, previousDamage);
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+}

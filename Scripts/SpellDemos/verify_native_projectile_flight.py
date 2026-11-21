@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""核对远程御器、原版弹丸回收和三维显示共用的实际飞行。"""
+"""核对御器离手、真实接触、原版弹丸和双视角共用的实际飞行。"""
 import argparse
 import json
 import os
@@ -11,7 +11,10 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('projectiles', 'bow', 'bow-world'), default='projectiles')
+    melee = {'melee': ('spear_iron', 'MeleeThrust'),
+             'melee-sweep': ('sword_iron', 'MeleeSweep'),
+             'melee-crush': ('hammer_iron', 'MeleeCrush')}
+    parser.add_argument('--section', choices=('projectiles', 'bow', 'bow-world', *melee), default='projectiles')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过独立游戏的 dev.py exec 运行')
@@ -34,6 +37,10 @@ def main():
         world_only = str(args.section == 'bow-world').lower()
         body = (body.split('\ntry\n{', 1)[0] + f'\nconst bool worldOnly = {world_only};\n'
                 + (scripts / 'verify_ranged_weapon_return.script').read_text())
+    if args.section in melee:
+        item, mode = melee[args.section]
+        body = f'const string itemId = "{item}", expectedMode = "{mode}";\n'
+        body += (scripts / 'verify_melee_weapon_return.script').read_text()
     program.write_text('using Friflo.Engine.ECS;\nusing Cultiway.Core.SkillLibV3;\n'
                        'using Cultiway.Core.SkillLibV3.Components;\n' + base + body)
     try:

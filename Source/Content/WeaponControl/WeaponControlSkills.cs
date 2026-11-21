@@ -8,7 +8,6 @@ using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Core.Components;
-using Cultiway.Core.Components.AnimOverwrite;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
@@ -73,6 +72,7 @@ public sealed class WeaponControlSkills : ExtendLibrary<SkillEntityAsset, Weapon
             .SetDealsBaseDamage(false)
             .SetIcon("ui/icons/items/icon_sword_iron")
             .SetupCommonPrefab("cultiway/effect/flying_sword/1/runtime", 1f, true)
+            .UseSpatialModel(0)
             .SetupImpactProfile(impact, new ColliderConfig
             {
                 Enabled = false,
@@ -84,10 +84,6 @@ public sealed class WeaponControlSkills : ExtendLibrary<SkillEntityAsset, Weapon
             .SetupUseProfile(SkillUseProfileLibrary.EnemyObjectOrPoint)
             .AcceptTrajectoryDomains(SkillTrajectoryDomain.Melee)
             .SetupVisualRotation(VisualRotation.FollowRotation());
-        WeaponControl.PrefabEntity.AddComponent(new AnimRuntimeFrames());
-        WeaponControl.PrefabEntity.AddComponent(new AnimAfterimageOverride());
-        WeaponControl.PrefabEntity.AddComponent(new MotionRibbonTrail());
-        WeaponControl.PrefabEntity.AddComponent(new MotionRibbonTrailBinder());
 
         skillContainer = new SkillContainerBuilder(WeaponControl)
             .Build(SkillContainerBuildMode.SourceGranted);
@@ -96,7 +92,6 @@ public sealed class WeaponControlSkills : ExtendLibrary<SkillEntityAsset, Weapon
         var provider = new WeaponControlAbilityProvider(skillContainer, SourceDetailLocaleKey);
         ActiveAbilityService.Register(provider);
         SourceGrantedSkillService.Register(provider);
-        PatchActor.RegisterHideHandItemPredicate(WeaponControlRuntimeService.IsWeaponDetached);
         PatchMapBox.RegisterActionOnClearWorld(WeaponControlRuntimeService.ClearWorldState);
         WeaponControl.OnObjCollision = ResolveWeaponHit;
     }

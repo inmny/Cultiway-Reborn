@@ -82,7 +82,7 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
             TalismanVfxManager.Append(Meshes);
             Meshes.AddRange(Core.Systems.Render.RenderStatusAnimationSystem.Meshes);
             SampleSpriteBodies();
-            WeaponControl.WeaponControlRangedFlight.AppendSpatial(Meshes);
+            WeaponControl.WeaponControlFlight.AppendSpatial(Meshes);
             SpatialVisualEffects.Append(Meshes, ref detailBudget);
             GroundWeaponService.Append(Meshes);
             if (Compatibility.Worldfall.WorldfallVisualBridge.IsInstalled)
@@ -169,10 +169,10 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
     /// <summary>直接读取当前真实武器精灵和运动姿态，三维显示使用像素轮廓挤出的薄实体。</summary>
     private void SampleWeapons()
     {
-        weapons.ForEachEntity((ref Position position, ref Rotation rotation, ref EquippedWeaponMotionState _,
+        weapons.ForEachEntity((ref Position position, ref Rotation rotation, ref EquippedWeaponMotionState motion,
             ref AnimData animation, ref Scale scale, Entity entity) =>
         {
-            if (entity.Tags.Has<TagRecycle>() || animation.CurrentFrame == null) return;
+            if (motion.ReleasedWeapon != null || entity.Tags.Has<TagRecycle>() || animation.CurrentFrame == null) return;
             float angle = AnimVisualUtils.GetVisualAngle(entity, ref rotation);
             Meshes.Add(new SpatialVisualMeshInstance(SpatialSpriteMesh.Get(animation.CurrentFrame), position.value,
                 Quaternion.Euler(0f, 0f, angle), scale.value, Color.white));

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""复用旧测试世界，在实际兵器、雷击、水与岩体上核对 9.04。"""
+"""复用旧测试世界，在实际雷击、水与岩体上核对 9.04。"""
 import argparse
 import json
 import os
@@ -11,7 +11,7 @@ from common import PROJECT, version_stamp, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--section", choices=("weapons", "thrust", "materials", "seams"), required=True)
+    parser.add_argument("--section", choices=("materials", "seams"), required=True)
     args = parser.parse_args()
     if not os.environ.get("CULTIWAY_DEV_ACTIVE"):
         raise RuntimeError("请使用 develop 的 dev.py exec 运行")
@@ -29,23 +29,6 @@ def main():
         helper = helper.replace('Path.Combine(root, "artifacts/skill_rebuild/optical-layers")', json.dumps(str(folder)))
         camera = ""
         body = read("verify_visual_cleanup_seams.script")
-    elif args.section in ("weapons", "thrust"):
-        helper = read("verify_source_sessions.script").split("var mutations =", 1)[0]
-        helper = helper.replace('Path.Combine(root, "artifacts/skill_rebuild/source-sessions")', json.dumps(str(folder)))
-        helper = helper.replace('Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")', json.dumps(str(fixture)))
-        helper = helper.replace('    if (!pass) throw', '    File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(checks));\n    if (!pass) throw')
-        helper = helper.replace('await Boundary();\nvar stats', '''await Boundary();
-for (int x = 61; x <= 75; x++)
-for (int y = 69; y <= 75; y++)
-{
-    WorldTile tile = World.world.GetTileSimple(x, y);
-    tile.Height = 140;
-    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
-}
-var stats''')
-        body = read("verify_visual_cleanup_weapons.script")
-        if args.section == "thrust":
-            body = body.replace("const bool thrustOnly = false;", "const bool thrustOnly = true;")
     else:
         helper = ("using Cultiway.Core.SkillLibV3;\nusing Cultiway.Core.SkillLibV3.Utils;\n"
                   "using Cultiway.Core.SkillLibV3.Blueprints;\nusing Friflo.Engine.ECS;\n")

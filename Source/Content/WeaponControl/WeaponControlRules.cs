@@ -176,8 +176,9 @@ internal static class WeaponControlRules
         if (emissionCount <= 0) return false;
 
         if (category == WeaponControlCategory.Ranged) mode = ResolveMode(category, candidates.Count);
-        float lift = category == WeaponControlCategory.Ranged ? WeaponControlRangedFlight.LiftSeconds(mode) : 0f;
-        float interval = ResolveEmissionInterval(caster, category);
+        float lift = WeaponControlFlight.LiftSeconds(mode);
+        bool ranged = category == WeaponControlCategory.Ranged;
+        float interval = ranged ? ResolveRangedInterval(caster) : StrokeSeconds(caster, category, mode);
         var plan = new SkillCastPlan();
         for (var i = 0; i < emissionCount; i++)
         {
@@ -185,7 +186,7 @@ internal static class WeaponControlRules
             plan.Steps.Add(new SkillCastStep(target, lift + i * interval));
         }
 
-        float actionTail = category == WeaponControlCategory.Ranged ? WeaponControlRangedFlight.ReturnSeconds : .48f;
+        float actionTail = (ranged ? 0f : interval) + WeaponControlFlight.ReturnSeconds;
         float duration = lift + (emissionCount - 1) * interval + actionTail;
         prepared = new WeaponControlPreparedCast(
             weapon,
@@ -349,25 +350,28 @@ internal static class WeaponControlRules
     }
 
     /// <summary>让更高境界用更密集的节奏展开攻击，同时保留可辨认的单道动作。</summary>
-    private static float ResolveEmissionInterval(ActorExtend caster, WeaponControlCategory category)
+    private static float ResolveRangedInterval(ActorExtend caster) => ResolveRealm(caster) switch
     {
-        int realm = ResolveRealm(caster);
-        if (category == WeaponControlCategory.Ranged)
-        {
-            return realm switch
-            {
-                XianLevels.XianBase => 0.07f,
-                XianLevels.Jindan => 0.045f,
-                _ => 0.018f,
-            };
-        }
+        XianLevels.XianBase => .07f,
+        XianLevels.Jindan => .045f,
+        _ => .018f,
+    };
 
-        return realm switch
+    /// <summary>同一件兵器完整完成本次出击后才有下一道。</summary>
+    internal static float StrokeSeconds(ActorExtend caster, WeaponControlCategory category, WeaponControlCastMode mode)
+    {
+        float duration = mode switch
         {
-            XianLevels.XianBase => 0.11f,
-            XianLevels.Jindan => 0.075f,
-            _ => 0.045f,
+            WeaponControlCastMode.MeleeCrush => .42f,
+            WeaponControlCastMode.MeleeThrust => .27f,
+            _ => category == WeaponControlCategory.Axe ? .34f : .30f,
         };
+        return duration * (ResolveRealm(caster) switch
+        {
+            XianLevels.XianBase => 1f,
+            XianLevels.Jindan => .90f,
+            _ => .80f,
+        });
     }
 
     /// <summary>让第一击锁定主目标，其余步骤在敌群中均匀展开并定期回压主目标。</summary>
