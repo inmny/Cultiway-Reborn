@@ -2615,3 +2615,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 地刺边界用 `ground-spike --case legacy-edge --variant 0` 和 `ground-spike --case edge` 对照。在同一岩床的中心及距中心 1.38、1.42 格处放靶。
 
 地脊放大后的岩床接触可用 `demo_all.py --filter Cultiway.EarthRidge --variants all --cases base --realm 0 --caster-position 64 72 --target-offset 5 0 --aim-offset 7 0 --zoom 15 --duration 1.65 --fps 30 --motion-trace` 补拍。原地面对练的人物仍在同一张图上。分别选 `--view native` 和 `--view worldfall`，在输出的 `result.json` 核对实际接触和受伤人数。
+
+### 土墙、冰墙、木壁旧变体（10.01）
+
+用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py solid-walls --case archive` 写入三份旧学习资料。换游戏进程后用同一入口的 `--case cold --archive <保存输出目录>` 读回并重放。默认的 `--case hit` 使用现成对练检查落位、实际行走、费用和结束恢复，可指定 `earth-wall`、`ice-wall` 或 `wood-wall`。
+
+补拍冰墙迎击用 `demo_all.py --filter Cultiway.IceWall --variants all --cases base --scene shield --realm 2 --target-offset 8 -5 --zoom 12.5 --duration 2.8 --fps 30 --motion-trace`，分别选择 `--view native` 和 `--view worldfall`。输出记录墙实际承受的力量。

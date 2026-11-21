@@ -30,7 +30,10 @@ var catalog = new[]
     (Asset: SkillEntities.GroundSpike, Form: "earth_spikes", Count: 4),
     (Asset: SkillEntities.EarthRidge, Form: "earth_ridge_0", Count: 1),
     (Asset: SkillEntities.TidalWave, Form: "tidal_wave_0", Count: 1),
-    (Asset: SkillEntities.SpiritVine, Form: "creeping_vine_0", Count: 1)
+    (Asset: SkillEntities.SpiritVine, Form: "creeping_vine_0", Count: 1),
+    (Asset: SkillEntities.EarthWall, Form: "earth_wall_strata_motion", Count: 1),
+    (Asset: SkillEntities.IceWall, Form: "ice_wall", Count: 1),
+    (Asset: SkillEntities.WoodWall, Form: "wood_wall", Count: 1)
 }.Where(entry => chosenAssets.Contains(entry.Asset.id)).ToArray();
 
 bool CanTestTracking(SkillEntityAsset asset) => asset == SkillEntities.WaterOrb || asset == SkillEntities.WindBullet ||
@@ -96,7 +99,7 @@ if (archive)
 if (cold)
 {
     Check(process != (int)expected["process"], "由另一个进程读取正式档");
-    Check(Signatures().SequenceEqual(expected["signatures"].ToObject<string[]>()), "全部旧索引及保存的追踪资料完整读回");
+    Check(Signatures().SequenceEqual(expected["signatures"].ToObject<string[]>()), "全部旧索引及保存的改造资料完整读回");
 }
 
 var casts = new Dictionary<long, AbilityCast>();
@@ -260,11 +263,85 @@ async Task PlaySpike(SkillEntityAsset asset, string form, int index)
     }
 }
 
+async Task PlayWall(SkillEntityAsset asset, string form, int index)
+{
+    var skill = cold ? Learned().Single(item => item.GetComponent<SkillContainer>().AnimationIndex == index &&
+        item.GetComponent<SkillContainer>().Asset == asset) : Learn(asset, index, false);
+    Ready(source);
+    Place(source, 70);
+    Place(target, 64);
+    Place(second, 64, 76);
+    Place(outside, 64, 78);
+    source.addAggro(target);
+    target.addAggro(source);
+    foreach (var actor in new[] { source, target, second, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float before = owner.GetCultisys<Xian>().wakan;
+    double price = SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    int previous = casts.Count;
+    Vector3 aim = target.GetSimPos();
+    Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(target, aim, selectionArea: new SkillTargetSelectionArea(true, aim, .1f)),
+        ActiveAbilityUseOrigin.Player), "原已学实体墙正式受理", form);
+    source.attack_timer = 999;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    await Advance(.30f);
+    Check(casts.Count == previous + 1 && oldExecutions == 0, "实体墙只进入共同执行一次", form);
+    var live = casts.Last();
+    var cast = live.Value;
+    var view = Views(cast).Single();
+    var center = (Vector3)view.Transform.GetColumn(3);
+    float capacity = cast.RemainingForce(0);
+    CombatStatusEffects.RemoveStatus(target, hold);
+    target.updateStats();
+    Check(!target.isImmovable(), "解除对练人物的定身后再走", form);
+    typeof(Actor).GetField("is_immovable", F).SetValue(target, false);
+    target.attack_timer = 999;
+    float Walk()
+    {
+        // 复用土墙实测的原版平滑步行。
+        target.position_height = 0f;
+        Place(target, 64);
+        typeof(Actor).GetMethod("precalcMovementSpeed", F).Invoke(target, new object[] { true });
+        float speed = (float)typeof(Actor).GetField("_current_combined_movement_speed", F).GetValue(target);
+        Check(speed > 0f, "复用人物有实际步行速度", form);
+        target.next_step_position = new Vector2(70, 72);
+        typeof(Actor).GetField("_update_done", F).SetValue(target, false);
+        typeof(Actor).GetMethod("u10_checkSmoothMovement", F).Invoke(target, new object[] { 6.05f / speed });
+        return target.current_position.x;
+    }
+    float blocked = Walk();
+    Check(view.Resource.Description.Id == form && Math.Abs(center.x - 66.4f) < .04f &&
+          ShapeCount(cast) > 0 && capacity > 0f && blocked == 64f,
+        "真实墙体、两点位置和实际阻挡", new { form, actualForm = view.Resource.Description.Id,
+            center = center.ToString(), capacity, shapes = ShapeCount(cast), blocked,
+            hostile = SkillTargetRelationResolver.IsHostile(source, target), flying = target.isFlying() });
+    await Advance(cast.Plan.Lifetime - cast.Age + .10f);
+    float cleared = Walk();
+    bool endedNaturally = endings.Any(end => end.Fact.CastId == live.Key && !end.Fact.Cancelled);
+    Check(cast.Finished && Views(cast).Length == 0 && ShapeCount(cast) == 0 &&
+          cleared > center.x + 1f && endedNaturally &&
+          Math.Abs(before - owner.GetCultisys<Xian>().wakan - price) < .001f,
+        "实体墙按原价施放并自然退出，通行恢复", new { form, price, before, after = owner.GetCultisys<Xian>().wakan,
+            cleared, endedNaturally, cast.Finished, held = target.isImmovable(), target.under_forces,
+            shapes = ShapeCount(cast), views = Views(cast).Length });
+    CombatStatusEffects.ApplyStatus(target, hold, 10000, target);
+    target.updateStats();
+    recordings.Add(new { asset = asset.id, index, form, price, capacity, center = center.ToString() });
+}
+
 async Task Play(SkillEntityAsset asset, string form, int index)
 {
     if (asset == SkillEntities.GroundSpike)
     {
         await PlaySpike(asset, form, index);
+        return;
+    }
+    if (asset == SkillEntities.EarthWall || asset == SkillEntities.IceWall || asset == SkillEntities.WoodWall)
+    {
+        await PlayWall(asset, form, index);
         return;
     }
     bool icefall = asset == SkillEntities.Icefall, lightning = asset == SkillEntities.LightningStrike;
