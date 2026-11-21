@@ -201,7 +201,7 @@ public sealed partial class ConstructedAbilityService
         if (memory == null && totals?.Tiles >= rule.MaximumTiles) return float.PositiveInfinity;
         if (rule.Contact.MaximumPerTarget > 0 && memory?.Count >= rule.Contact.MaximumPerTarget) return float.PositiveInfinity;
         if (rule.Contact.Mode == ConstructionContactMode.Pulse)
-            return PulseFraction(rule.Contact.Interval, memory, running.Cast.Age - step, step, earliest);
+            return PulseFraction(rule.Contact, memory, running.Cast.Age - step, step, earliest);
         if (memory == null) return 0;
         return rule.Contact.Mode switch
         {

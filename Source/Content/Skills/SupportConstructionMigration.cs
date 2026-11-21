@@ -57,7 +57,7 @@ internal static class SupportConstructionMigration
 
     /// <summary>核对真实词条及委托，再展开运动、尺寸、时点与独立恢复资料。</summary>
     /// <param name="emission">原来源本次发射输入。</param>
-    private static AbilityDefinition Convert(SkillEmission emission)
+    private static unsafe AbilityDefinition Convert(SkillEmission emission)
     {
         Entity skill = emission.SkillContainer;
         var container = skill.GetComponent<SkillContainer>();
@@ -65,12 +65,14 @@ internal static class SupportConstructionMigration
         bool healing = asset == SkillEntities.HealingLight, rejuvenation = asset == SkillEntities.RejuvenationField;
         bool blessing = asset == SkillEntities.BattleBlessing || asset == SkillEntities.GuardBlessing || asset == SkillEntities.HasteBlessing;
         bool targeted = healing || blessing;
+        bool cleanse = asset == SkillEntities.PurificationWave;
+        if (container.AnimationIndex != 0) return null;
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
         if (!targeted && trajectory != (rejuvenation ? SkillTrajectories.FieldAtTarget.id : SkillTrajectories.AppearAtTarget.id) ||
             targeted && emission.Target?.isActor() != true) return null;
         (Type required, SkillModifierAsset modifierAsset, string form) = healing ? (typeof(HealingModifier), SkillModifiers.Healing, "healing_seed") :
-            rejuvenation ? (typeof(RejuvenationModifier), SkillModifiers.Rejuvenation, "rejuvenation_bloom") :
-            asset == SkillEntities.PurificationWave ? (typeof(PurificationModifier), SkillModifiers.Purification, "purification_wave") :
+            rejuvenation ? (typeof(RejuvenationModifier), SkillModifiers.Rejuvenation, "rejuvenation_ground") :
+            cleanse ? (typeof(PurificationModifier), SkillModifiers.Purification, "purification_surge") :
             asset == SkillEntities.BattleBlessing ? (typeof(BattleBlessingModifier), SkillModifiers.BattleBlessing, "battle_knot") :
             asset == SkillEntities.GuardBlessing ? (typeof(GuardBlessingModifier), SkillModifiers.GuardBlessing, "guard_seal") :
             (typeof(HasteBlessingModifier), SkillModifiers.HasteBlessing, "haste_vanes");
@@ -92,19 +94,25 @@ internal static class SupportConstructionMigration
         if (!NatureConstructionMigration.Supports(skill)) return null;
         float lifetime = asset.ResolveRuntimeLifetime(skill, asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier);
         if (configured && settings.Duration > 0f) lifetime = settings.Duration;
+        SkillEntityAnimation animation = asset.GetAnimation(container.AnimationIndex);
+        float frame = container.MotionProfile.FrameInterval;
+        float rise = ProjectileConstructionMigration.ClipSeconds(animation.Appearance, frame);
+        float fall = ProjectileConstructionMigration.ClipSeconds(animation.Dissipation, frame);
+        if (cleanse) lifetime = rise + fall;
         float effectScale = emission.RuntimeData.ResolveEffectScale();
         float scale = effectScale * SkillEffectRadius.ResolveCasterGrowth(emission.Source.a.GetExtend(), skill);
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
+        if (!targeted) scale *= asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier / 2.5f;
         if (scale <= 0f || scale > 100f || lifetime <= 0f || lifetime > 3600f) return null;
         var restoration = blessing ? null : new ConstructionRestoration();
         if (healing) restoration.Health = skill.GetComponent<HealingModifier>().Amount * effectScale;
         else if (rejuvenation) restoration.HealthPerSecond = skill.GetComponent<RejuvenationModifier>().HealPerSecond * effectScale;
         else if (!blessing) restoration.CleanseCount = skill.GetComponent<PurificationModifier>().MaxStatuses;
-        var operations = new List<ConstructionOperation> { new() { Kind = ConstructionOperationKind.Animate, Clip = "run", Seconds = targeted || rejuvenation ? 0f : lifetime } };
-        // 整体展开使用普通生长步骤，网格和接触端点共享尺寸，不向骨架动作写入未支持的缩放。
-        if (!targeted && !rejuvenation)
-            operations.Add(new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = lifetime });
+        var operations = new List<ConstructionOperation> { new() { Kind = ConstructionOperationKind.Animate,
+            Clip = cleanse ? "dissolve" : "run", At = cleanse ? rise : 0f, Seconds = cleanse ? fall : 0f } };
+        // 净化由旧位置冲击触发，成形时推进完整可见范围，随后只保留消散。
+        if (cleanse) operations.Add(new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = rise });
         if (targeted && trajectory == SkillTrajectories.TowardsTarget.id)
         {
             var motion = container.MotionProfile;
@@ -146,7 +154,8 @@ internal static class SupportConstructionMigration
                     {
                         Action = LivingPlantRestoration.ActionId, MaximumTiles = 16,
                         Contact = new ConstructionContactPolicy
-                        { Mode = ConstructionContactMode.Pulse, Interval = 1f, MaximumPerTarget = 4, MaximumTotal = 32 }
+                        { Mode = ConstructionContactMode.Pulse, Interval = 1f, PulseOffset = rise,
+                            MaximumPerTarget = 4, MaximumTotal = 32 }
                     }
                 } : null },
             Root = new ConstructionNode
@@ -154,7 +163,13 @@ internal static class SupportConstructionMigration
                 Id = "support", Form = form,
                 Matter = "vitality", State = "energy", Scale = scale,
                 ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
-                Contact = rejuvenation ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Pulse, Interval = 1f } : null,
+                ContactActorCenter = !targeted,
+                ActiveFrom = cleanse ? rise : 0f, ActiveUntil = cleanse ? rise + .004f : -1f,
+                Contact = targeted ? null : new ConstructionContactPolicy
+                {
+                    Mode = ConstructionContactMode.Pulse, Interval = cleanse ? rise : 1f,
+                    PulseOffset = rejuvenation ? rise : 0f, MaximumPerTarget = cleanse ? 1 : 0
+                },
                 OnContact = targeted ? ConstructionContactResponse.End : ConstructionContactResponse.Continue, Operations = operations.ToArray()
             }
         };
@@ -163,6 +178,15 @@ internal static class SupportConstructionMigration
             AbilityDefinition motion = ProjectileConstructionMigration.Motion(emission, form, scale, false, lifetime, 0f, 1f, out _);
             if (motion == null) return null;
             ProjectileConstructionMigration.BindMotion(definition, motion);
+        }
+        if (!cleanse && !ProjectileConstructionMigration.SetFormLifecycle(
+                definition, animation.AppearanceGameplay, rise, fall, "dissolve")) return null;
+        if (rejuvenation && definition.Root.ActiveUntil > definition.Root.ActiveFrom)
+        {
+            // 原存续结束时不再提交落在退出边界的一次刷新。
+            float end = definition.Root.ActiveUntil;
+            int preceding = *(int*)&end - 1;
+            definition.Root.ActiveUntil = *(float*)&preceding;
         }
         return NatureConstructionMigration.Bind(MediumContactMigration.Bind(definition, skill, runtimeData: emission.RuntimeData), skill, emission.RuntimeData);
     }

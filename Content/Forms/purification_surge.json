@@ -1,0 +1,364 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "surface",
+        "UnitInTiles": 1,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_support.mjs",
+            "Entry": "makePurificationSurge",
+            "Parameters": [
+                {
+                    "Id": "radius",
+                    "Values": [
+                        2.5
+                    ]
+                },
+                {
+                    "Id": "profile",
+                    "Values": [
+                        0,
+                        0.02500000037252903,
+                        0.800000011920929,
+                        0.02500000037252903,
+                        2.25,
+                        0.026000000536441803,
+                        2.5,
+                        0.054999999701976776,
+                        2.5,
+                        0.13500000536441803,
+                        2.380000114440918,
+                        0.25,
+                        2.200000047683716,
+                        0.4099999964237213,
+                        1.9800000190734863,
+                        0.3799999952316284,
+                        1.75,
+                        0.23499999940395355,
+                        1.4800000190734863,
+                        0.15299999713897705,
+                        1.1200000047683716,
+                        0.125,
+                        0.47999998927116394,
+                        0.14499999582767487,
+                        0,
+                        0.17000000178813934
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "motion",
+            "ground"
+        ]
+    },
+    "ConformToGround": true,
+    "Version": 8,
+    "Id": "purification_surge",
+    "Forward": [
+        0,
+        1,
+        0
+    ],
+    "Up": [
+        0,
+        0,
+        1
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/purification_surge_crest_mid.asset",
+                "Assets/Cultiway/Forms/purification_surge_crest_far.asset"
+            ],
+            "Roles": [
+                "support.front"
+            ],
+            "Id": "crest",
+            "Surface": "purification_pearl",
+            "Pivot": [
+                0,
+                0,
+                0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/purification_surge_crest.asset",
+            "Control": "crest",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "Id": "wash",
+            "Part": 0,
+            "A": [
+                0,
+                0,
+                0.1
+            ],
+            "AControl": "crest",
+            "Sector": {
+                "Radius": 2.5,
+                "Angle": 360,
+                "Direction": 0,
+                "HalfThickness": 0.14
+            }
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "crest",
+            "Parent": "",
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -2.5,
+                -2.5,
+                0.02500000037252903
+            ],
+            "Maximum": [
+                2.5,
+                2.5,
+                0.5795260071754456
+            ]
+        }
+    ],
+    "Motions": [
+        {
+            "Id": "dissolve",
+            "Duration": 0.25,
+            "Loop": false,
+            "Keys": [
+                {
+                    "Build": 1,
+                    "Fade": 0,
+                    "At": 0,
+                    "Positions": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.0196749996393919,
+                    "At": 0.020833000540733337,
+                    "Positions": [
+                        0,
+                        0,
+                        0.009999999776482582
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.07407499849796295,
+                    "At": 0.04166699945926666,
+                    "Positions": [
+                        0,
+                        0,
+                        0.019999999552965164
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.15625,
+                    "At": 0.0625,
+                    "Positions": [
+                        0,
+                        0,
+                        0.029999999329447746
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.2592569887638092,
+                    "At": 0.08333300054073334,
+                    "Positions": [
+                        0,
+                        0,
+                        0.03999999910593033
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.37615901231765747,
+                    "At": 0.10416699945926666,
+                    "Positions": [
+                        0,
+                        0,
+                        0.05000000074505806
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.5,
+                    "At": 0.125,
+                    "Positions": [
+                        0,
+                        0,
+                        0.05999999865889549
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.6238409876823425,
+                    "At": 0.14583300054073334,
+                    "Positions": [
+                        0,
+                        0,
+                        0.07000000029802322
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.7407429814338684,
+                    "At": 0.16666699945926666,
+                    "Positions": [
+                        0,
+                        0,
+                        0.07999999821186066
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.84375,
+                    "At": 0.1875,
+                    "Positions": [
+                        0,
+                        0,
+                        0.09000000357627869
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.9259250164031982,
+                    "At": 0.20833300054073334,
+                    "Positions": [
+                        0,
+                        0,
+                        0.10000000149011612
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.9803249835968018,
+                    "At": 0.22916699945926666,
+                    "Positions": [
+                        0,
+                        0,
+                        0.10999999940395355
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 1,
+                    "At": 0.25,
+                    "Positions": [
+                        0,
+                        0,
+                        0.11999999731779099
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                }
+            ],
+            "Markers": []
+        }
+    ]
+}

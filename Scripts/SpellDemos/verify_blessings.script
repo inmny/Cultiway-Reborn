@@ -75,7 +75,7 @@ try
         var read = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
         var plan = AbilityCompiler.Compile(read,cache:false);
         var numeric = new AbilityCast(plan,Matrix4x4.identity,inputs:new AbilityInputs(new Vector3(64,72,.3f),new Vector3(70,72,.3f),Vector3.right,.8f));
-        numeric.Advance(.1f,new Vector3(70,72,.3f));var views=new List<FormVisualInstance>();numeric.AppendVisuals(views);var shapes=new List<AbilityCapsule>();numeric.AppendContacts(shapes);
+        numeric.Advance(definition.Root.ActiveFrom+.02f,new Vector3(70,72,.3f));var views=new List<FormVisualInstance>();numeric.AppendVisuals(views);var shapes=new List<AbilityCapsule>();numeric.AppendContacts(shapes);
         Check(views.Count==1&&shapes.Count>0&&plan.Impact.Statuses[0].Duration==1.25f&&plan.Impact.Statuses[0].Asset.id==definition.Impact.Statuses[0].Id,
             "资料读回保留时长、状态及独立形体",new{definition.Root.Form,parts=views.Count>0?views[0].PartCount:0,contacts=shapes.Count});
         string key=read.Impact.Statuses[0].Stats.Keys.First();float value=plan.Impact.Statuses[0].Stats[key];read.Impact.Statuses[0].Stats[key]=999;

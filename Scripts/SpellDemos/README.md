@@ -2651,3 +2651,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中用 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_variants.py rift --case legacy` 对照原执行的爆发时点、半径、费用及地块和建筑记录。用 `--case archive` 取得正式世界，重启后以 `--case cold --archive <保存输出目录>` 读回并重放。用 `--case miss` 验证空地张合。放大、强化、抗性、失败退款及恢复仍可用 `verify_rift.py` 分别核对。
 
 原版与 Worldfall 的画面均由 `demo_spell.py Rift --cases base --duration 1.1 --motion-trace` 录制。成形段只有裂口，爆发时冲面覆盖真实的圆形范围，随后两部分各自收势。
+
+### 六种友方术的旧索引
+
+用 `dev.py exec --timeout 240 -- python3 Scripts/SpellDemos/verify_support_variants.py --case archive` 将六个零号索引保存进正式世界。换进程后，传入 `--archive <保存输出目录>`，依次用 `--case legacy` 对照旧行为、用 `--case cold` 重放当前实现。只补单体或范围时可选 `--section single` 或 `--section area`，读档仍校验全部学习资料。
+
+录像中可以从报告的 `friendStatusesBefore` 和 `friendStatusesAfter` 核对友方的状态变化，并读取生命前后值。录制回春领域时，时长要覆盖完整有效段和收势。

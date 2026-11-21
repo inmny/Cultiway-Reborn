@@ -36,7 +36,7 @@ try
     World.world.save_manager.loadWorld(fixture);
     await Game.WaitUntil(() => !SmoothLoader.isLoading(),1800);
     await Advance(.14f);
-    Check(receipts.Count==gains && !Shows("life_tissue_join") && !Shows("life_wood_graft") && !Shows("rejuvenation_bloom"),
+    Check(receipts.Count==gains && !Shows("life_tissue_join") && !Shows("life_wood_graft") && !Shows("rejuvenation_ground"),
         "换世界后原施放和已经确认的修复不移到另一个世界");
     return new { passed=true, nativePlantRepairs=gains, clearedByWorldSwitch=true };
 }

@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 
+using Newtonsoft.Json;
+
 namespace Cultiway.Core.Skills;
 
 /// <summary>同一接触组再次作用于同一人物的条件。</summary>
@@ -26,6 +28,9 @@ public sealed class ConstructionContactPolicy
     public ConstructionContactMode Mode;
     /// <summary>间隔模式的世界秒数，最小一百二十分之一秒。</summary>
     public float Interval = .25f;
+    /// <summary>定时脉冲从此世界时点起算，第一个脉冲再等一个完整间隔。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float PulseOffset;
     /// <summary>每次控制权交接期间，对每人的最多次数；零表示不另设上限。</summary>
     public int MaximumPerTarget;
     /// <summary>整次施放内该组的总次数；零不限制，达到后结束该组。</summary>
@@ -40,7 +45,7 @@ internal sealed class CompiledContactPolicy
     /// <summary>再次作用条件。</summary>
     internal readonly ConstructionContactMode Mode;
     /// <summary>间隔世界秒数，其他模式为零。</summary>
-    internal readonly float Interval;
+    internal readonly float Interval, PulseOffset;
     /// <summary>每人次数及整组总次数。</summary>
     internal readonly int MaximumPerTarget, MaximumTotal;
 
@@ -52,14 +57,16 @@ internal sealed class CompiledContactPolicy
         if (source == null) return;
         if (!Enum.IsDefined(typeof(ConstructionContactMode), source.Mode) || float.IsNaN(source.Interval) ||
             float.IsInfinity(source.Interval) || source.Mode is ConstructionContactMode.Interval or ConstructionContactMode.Pulse && source.Interval < 1f / 120f ||
-            source.MaximumPerTarget < 0 || source.MaximumTotal < 0)
+            float.IsNaN(source.PulseOffset) || float.IsInfinity(source.PulseOffset) || source.PulseOffset < 0f ||
+            source.PulseOffset > 3600f || source.MaximumPerTarget < 0 || source.MaximumTotal < 0)
             throw new InvalidDataException(path + "：接触方式、间隔或次数无效");
         Mode = source.Mode; Interval = Mode is ConstructionContactMode.Interval or ConstructionContactMode.Pulse ? source.Interval : 0f;
+        PulseOffset = Mode == ConstructionContactMode.Pulse ? source.PulseOffset : 0f;
         MaximumPerTarget = source.MaximumPerTarget; MaximumTotal = source.MaximumTotal;
     }
 
     /// <summary>共享接触组不能混用不同次数或时间规则。</summary>
     /// <param name="other">同组的明确规则。</param>
     internal bool Matches(CompiledContactPolicy other) => Mode == other.Mode && Interval == other.Interval &&
-        MaximumPerTarget == other.MaximumPerTarget && MaximumTotal == other.MaximumTotal;
+        PulseOffset == other.PulseOffset && MaximumPerTarget == other.MaximumPerTarget && MaximumTotal == other.MaximumTotal;
 }

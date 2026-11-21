@@ -52,7 +52,7 @@ try
         var read = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
         var plan = AbilityCompiler.Compile(read, cache:false);
         var numeric = new AbilityCast(plan, Matrix4x4.identity, inputs:new AbilityInputs(new Vector3(64,72,.3f),new Vector3(70,72,.3f),Vector3.right,.8f));
-        numeric.Advance(.1f, new Vector3(70, 72, .3f));
+        numeric.Advance(d.Root.ActiveFrom + .002f, new Vector3(70, 72, .3f));
         var views = new List<FormVisualInstance>(); numeric.AppendVisuals(views); var shapes = new List<AbilityCapsule>(); numeric.AppendContacts(shapes);
         Check(plan.Impact.Restoration.HasEffect && plan.Impact.SelectedTargetOnly == d.Impact.SelectedTargetOnly && views.Count == 1 && shapes.Count > 0,
             "资料读回保留支持作用、目标限制及独立形体", new { d.Root.Form, views[0].PartCount, contacts = shapes.Count });
@@ -124,7 +124,7 @@ try
     Check(!CombatStatusEffects.HasStatus(target,StatusEffects.Rejuvenating)&&target.data.health==regenHp,"第一个整秒以前不提前恢复");
     Place(late,70.1f);ConstructedAbilityService.NotifyActorChanged(late);await Advance(.25f);
     Check(!CombatStatusEffects.HasStatus(late,StatusEffects.Rejuvenating),"中途进入不能把共同定时偷换成立即刷新");
-    await Advance(.35f);await Shot("rejuvenation");
+    await Advance(.50f);await Shot("rejuvenation");
     Check(CombatStatusEffects.HasStatus(target,StatusEffects.Rejuvenating)&&CombatStatusEffects.HasStatus(late,StatusEffects.Rejuvenating)&&
         !CombatStatusEffects.HasStatus(enemy,StatusEffects.Rejuvenating)&&!CombatStatusEffects.HasStatus(outside,StatusEffects.Rejuvenating),"整秒只刷新真实接触的受伤友军");
     CombatStatusEffects.ApplyStrongestTickingStatus(target,StatusEffects.Rejuvenating,4f,32f,32f,new Cultiway.Core.ElementComposition(),source);
@@ -135,7 +135,8 @@ try
     CombatStatusEffects.RemoveStatus(target,StatusEffects.Rejuvenating);Place(target,80);ConstructedAbilityService.NotifyActorChanged(target);
     await Advance(1.6f);
     var pulses=contacts.Where(c=>c.CastId==fieldId).ToArray();
-    Check(Cast(field).Finished&&pulses.Length>0&&pulses.All(c=>Mathf.Abs(c.Age-Mathf.Round(c.Age))<.0001f&&c.Age>=.9999f)&&
+    float opening=Convert(bloom).Root.Contact.PulseOffset;
+    Check(Cast(field).Finished&&pulses.Length>0&&pulses.All(c=>Mathf.Abs(c.Age-opening-Mathf.Round(c.Age-opening))<.0001f&&c.Age-opening>=.9999f)&&
         pulses.GroupBy(c=>new{c.TargetId,tick=Mathf.Round(c.Age)}).All(g=>g.Count()==1),
         "持续领域只在共同整秒刷新，多个叶面同组不重复消费，按原寿命结束",pulses.Select(c=>new{c.TargetId,c.Age}).ToArray());
     await Advance(1.5f);Check(!CombatStatusEffects.HasStatus(late,StatusEffects.Rejuvenating),"离开领域结束后恢复状态有限清理");

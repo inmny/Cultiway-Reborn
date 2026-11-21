@@ -1869,6 +1869,10 @@ private IEnumerator Record(JObject item, string folder)
     friend.setKingdom(caster.kingdom);
     int[] health = enemies.Select(Health).ToArray();
     float friendBefore = Health(friend);
+    string[] FriendStatuses() => friend.GetExtend().GetStatuses()
+        .Select(status => status.GetComponent<StatusComponent>().Type.id)
+        .Distinct().OrderBy(id => id, StringComparer.Ordinal).ToArray();
+    string[] friendStatusesBefore = FriendStatuses();
     if (technique != null || id == "Cultiway.PalmStrike")
     {
         // 准备和换镜头期间冻结，正式入口调用前解除，防止三维观察模式提前自主出手。
@@ -2054,6 +2058,7 @@ private IEnumerator Record(JObject item, string folder)
             "仅验证施放和运行错误；美术、范围与防御效果需另外验收",
         wakanBefore, wakanAfter = owner.GetCultisys<Xian>().wakan,
         manaBefore, manaAfter = caster.getMana(), friendBefore, friendAfter = Health(friend),
+        friendStatusesBefore, friendStatusesAfter = FriendStatuses(),
         friendDied = Health(friend) == 0,
         damaged = enemies.Where((actor, index) => Health(actor) < health[index]).Count(), errors
     });

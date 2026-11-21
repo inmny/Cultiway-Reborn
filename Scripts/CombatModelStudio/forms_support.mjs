@@ -1,6 +1,6 @@
 /** 支持法术：叶芽、承托叶面和宽厚净化波，各自保留独立制作结构与真实接触。 */
 import * as T from 'three';
-import {part, write, motion, structure} from './form_export.mjs';
+import {part, write, motion, dissolve, surfaceData, structure} from './form_export.mjs';
 
 /** 本组直接使用 Three.js 几何，输出时换为 Unity 正面顺序，保留朝外法线。 */
 function supportPart(...args) {
@@ -27,14 +27,15 @@ function makeSeed() {
   for(let i=0;i<3;i++)parts.push(supportPart(`leaf_${i}`,leaf(.48,.16,.13,i*Math.PI*2/3,[0,0,0]),'restoration_jade',[0,0,0],'bud'));
   parts.push(supportPart('seed',new T.SphereGeometry(.20,24,16).scale(1,1,1.35),'purification_pearl',[0,0,0],'bud'));
   const run=motion('run',1.2,true,controls,32,(i,p)=>({position:[0,0,.02*Math.sin(p*Math.PI*2)]}));
+  const release=dissolve(controls,(_,p)=>({position:[0,0,.12*p]}));
   parts.forEach(p=>p.UseMatterSurface=false);
-  write('healing_seed',parts,[],[{Id:'bud',Part:3,A:[0,0,-.14],B:[0,0,.14],Radius:.17,AControl:'bud',BControl:'bud'}],controls,[run],false,
+  write('healing_seed',parts,[],[{Id:'bud',Part:3,A:[0,0,-.14],B:[0,0,.14],Radius:.17,AControl:'bud',BControl:'bud'}],controls,[run,release],false,
     {Forward:[0,1,0],Up:[0,0,1]},structure('articulated','forms_support.mjs','makeSeed',{leaves:3,length:.48,width:.16},
       Object.fromEntries(parts.map(p=>[p.Id,['support.carrier']])),[]));
 }
 
 /** 六支贴地叶脉各自承托既有接触区。叶尖和根茎逐渐收薄，中央留出受术者的轮廓。 */
-function makeBloom() {
+function makeBloom(whole=false) {
   const controls=[],parts=[],contacts=[],veins=[];
   for(let i=0;i<6;i++) {
     const angle=i*Math.PI/3,dir=[Math.cos(angle),Math.sin(angle)],centre=[dir[0]*1.05,dir[1]*1.05,.24],id=`leaf_${i}`;
@@ -58,10 +59,48 @@ function makeBloom() {
   parts.push(supportPart('heart',new T.SphereGeometry(.28,24,16).scale(1,1,.46).translate(0,0,.16),'living_sap',[0,0,.26],'heart'));
   contacts.push({Id:'heart',Part:6,A:[-.3,0,.26],B:[.3,0,.26],Radius:.24,AControl:'heart',BControl:'heart'});
   parts.push(...veins);
+  if(whole) {
+    const profile=[[0,.035],[1.15,.03],[2.3,.035],[2.5,.075],[2.43,.11],[1.9,.095],[.75,.13],[0,.13]];
+    const growth=new T.LatheGeometry(profile.map(row=>new T.Vector2(...row)),80).rotateX(Math.PI/2);
+    surfaceData(growth,.38,p=>{
+      const a=Math.atan2(p.y,p.x),r=Math.hypot(p.x,p.y);
+      return .39+.24*Math.cos(a*6-r*2)**2+.19*T.MathUtils.smoothstep(r,1.30,2.49);
+    });
+    controls.push({Id:'ground',Position:[0,0,0],Rotation:[0,0,0,1]});
+    contacts.splice(0,contacts.length,{Id:'ground',Part:parts.length,A:[0,0,.11],AControl:'ground',
+      Sector:{Radius:2.5,Angle:360,Direction:0,HalfThickness:.14}});
+    parts.push(supportPart('ground',growth,'restoration_jade',[0,0,0],'ground'));
+  }
   const run=motion('run',1,true,controls,40,(i,p,c)=>({position:[c.Position[0],c.Position[1],c.Position[2]+.025*Math.sin(p*Math.PI*2)]}));
+  const release=dissolve(controls,(_,p,c)=>({position:[c.Position[0]*(1-.065*p),c.Position[1]*(1-.065*p),c.Position[2]-.065*p]}));
   parts.forEach(p=>p.UseMatterSurface=false);
-  write('rejuvenation_bloom',parts,[],contacts,controls,[run],false,{Forward:[0,1,0],Up:[0,0,1]},
+  write(whole?'rejuvenation_ground':'rejuvenation_bloom',parts,[],contacts,controls,whole?[run,release]:[run],whole,
+    {Forward:[0,1,0],Up:[0,0,1]},
     structure('articulated','forms_support.mjs','makeBloom',{leaves:6,radius:2.5,height:.5},Object.fromEntries(parts.map(p=>[p.Id,['support.surface']])),[]));
+}
+
+/** 旧净化在一个时点铺满整个圆面，宽厚的浅色波肩随余势向上翻起。 */
+function makePurificationSurge() {
+  const id='crest',controls=[{Id:id,Position:[0,0,0],Rotation:[0,0,0,1]}];
+  const profile=[[0,.025],[.8,.025],[2.25,.026],[2.5,.055],[2.5,.135],[2.38,.25],
+    [2.2,.41],[1.98,.38],[1.75,.235],[1.48,.153],[1.12,.125],[.48,.145],[0,.17]];
+  const surface=new T.LatheGeometry(profile.map(row=>new T.Vector2(...row)),96).rotateX(Math.PI/2);
+  const points=surface.getAttribute('position');
+  for(let i=0;i<points.count;i++) {
+    const x=points.getX(i),y=points.getY(i),z=points.getZ(i),r=Math.hypot(x,y);
+    const a=Math.atan2(y,x),crest=T.MathUtils.smoothstep(z,.12,.40);
+    points.setZ(i,z+crest*(.11*Math.sin(a*5+r*3)+.065*Math.cos(a*8)));
+  }
+  surfaceData(surface,p=>.23+.43*T.MathUtils.smoothstep(p.z,.1,.42),p=>{
+    const margin=T.MathUtils.smoothstep(Math.hypot(p.x,p.y),1.62,2.32);
+    return .32+.45*margin+.12*Math.sin(Math.atan2(p.y,p.x)*5)**2;
+  });
+  const mesh=supportPart(id,surface,'purification_pearl',[0,0,0],id);mesh.UseMatterSurface=false;
+  const release=dissolve(controls,(_,p)=>({position:[0,0,.12*p]}));
+  write('purification_surge',[mesh],[],[{Id:'wash',Part:0,A:[0,0,.10],AControl:id,
+    Sector:{Radius:2.5,Angle:360,Direction:0,HalfThickness:.14}}],controls,[release],true,
+    {Forward:[0,1,0],Up:[0,0,1],HideBelowGround:true},
+    structure('surface','forms_support.mjs','makePurificationSurge',{radius:2.5,profile},{crest:['support.front']},[]));
 }
 
 /** 净化波有厚度；来源的普通生长步骤使宽面与接触一起展开，骨架只控制缓慢抬起。 */
@@ -92,8 +131,9 @@ function makeBattle() {
   parts.push(supportPart('heart',new T.IcosahedronGeometry(.18,2),'purification_pearl',[0,0,0],'knot'));
   const run=motion('run',.8,true,controls,32,(i,p)=>({position:[0,0,.018*Math.sin(p*Math.PI*2)],
     rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),.18*Math.sin(p*Math.PI*2)).toArray()}));
+  const release=dissolve(controls,(_,p)=>({rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),.76*p).toArray()}));
   parts.forEach(p=>p.UseMatterSurface=false);
-  write('battle_knot',parts,[],[{Id:'heart',Part:2,A:[0,0,0],B:[0,0,0],Radius:.15,AControl:'knot',BControl:'knot'}],controls,[run],false,
+  write('battle_knot',parts,[],[{Id:'heart',Part:2,A:[0,0,0],B:[0,0,0],Radius:.15,AControl:'knot',BControl:'knot'}],controls,[run,release],false,
     {Forward:[0,1,0],Up:[0,0,1]},structure('articulated','forms_support.mjs','makeBattle',{radius:.335,loops:2},
       Object.fromEntries(parts.map(p=>[p.Id,['support.carrier']])),[]));
 }
@@ -107,8 +147,9 @@ function makeGuard() {
   const contacts=[{Id:'centre',Part:0,A:[-.22,0,0],B:[.22,0,0],Radius:.08,AControl:'seal',BControl:'seal'}];
   for(const y of [-.14,.14])contacts.push({Id:`side_${y}`,Part:0,A:[-.13,y,0],B:[.13,y,0],Radius:.08,AControl:'seal',BControl:'seal'});
   const run=motion('run',1.2,true,controls,32,(i,p)=>({position:[0,0,.012*Math.sin(p*Math.PI*2)]}));
+  const release=dissolve(controls,(_,p)=>({position:[0,0,-.095*p]}));
   parts.forEach(p=>p.UseMatterSurface=false);
-  write('guard_seal',parts,[],contacts,controls,[run],false,{Forward:[0,1,0],Up:[0,0,1]},
+  write('guard_seal',parts,[],contacts,controls,[run,release],false,{Forward:[0,1,0],Up:[0,0,1]},
     structure('articulated','forms_support.mjs','makeGuard',{radius:.36,depth:.18},Object.fromEntries(parts.map(p=>[p.Id,['support.carrier']])),[]));
 }
 
@@ -129,8 +170,9 @@ function makeHaste() {
   }
   const run=motion('run',.65,true,controls,32,(i,p,c)=>({position:c.Position,
     rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),(i===0?.18:.12)*Math.sin(p*Math.PI*2+i*.7)).toArray()}));
+  const release=dissolve(controls,(i,p,c)=>({position:[c.Position[0],c.Position[1],p*.085*i]}));
   parts.forEach(p=>p.UseMatterSurface=false);
-  write('haste_vanes',parts,[],[{Id:'core',Part:0,A:[0,0,-.02],B:[0,0,.02],Radius:.075,AControl:'core',BControl:'core'}],controls,[run],false,
+  write('haste_vanes',parts,[],[{Id:'core',Part:0,A:[0,0,-.02],B:[0,0,.02],Radius:.075,AControl:'core',BControl:'core'}],controls,[run,release],false,
     {Forward:[0,1,0],Up:[0,0,1]},structure('articulated','forms_support.mjs','makeHaste',{vanes:3,depth:.19},
       Object.fromEntries(parts.map(p=>[p.Id,['support.carrier']])),[]));
 }
@@ -180,4 +222,4 @@ function makeLifeWood() {
 }
 
 /** 六个独立支持来源在共同资源入口发布。 */
-export function makeSupport(){makeSeed();makeBloom();makeWave();makeBattle();makeGuard();makeHaste();makeLifeTissue();makeLifeWood();}
+export function makeSupport(){makeSeed();makeBloom();makeBloom(true);makeWave();makePurificationSurge();makeBattle();makeGuard();makeHaste();makeLifeTissue();makeLifeWood();}
