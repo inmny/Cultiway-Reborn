@@ -350,6 +350,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
         // 已确认的自然结束不再被来源后来失效改写成中断。
         if (running.Cast.Finished) { ReleaseActorTransferHolds(running); return; }
+        if (running.FormationTarget.TracksTarget &&
+            (running.Target == null || running.Target.data?.id != running.TargetId ||
+             !running.Target.isAlive() || !running.Target.hasHealth()))
+        {
+            running.Cast.Cancel();
+            return;
+        }
         if (running.ActorTransferHolds?.Count > 0 && !ActorTransferSourceLive(running)) ReleaseActorTransferHolds(running);
         ValidateCorrespondences(running);
         if (running.Inventory != null && !running.Inventory.IsValid)
@@ -949,7 +956,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 void AtStage(int stage, bool oldScope, bool endpointOnly)
                 {
                     CompiledConstructionImpact effect = running.Cast.ImpactAtStage(shape.To.Node, stage);
-                    if (effect.SelectedTargetOnly && owner.TargetId != actor.Id || !owner.Matches(effect.Targets, actor.Actor) ||
+                    // 原范围法相对所有接触者提交脚下地块作用，人物收益和伤害在确认后按原关系分配。
+                    bool explicitReaction = running.ExplicitReactionTarget && actor.Id == running.TargetId;
+                    if (effect.SelectedTargetOnly && owner.TargetId != actor.Id ||
+                        !explicitReaction && !running.FormationArea.HasValue && !owner.Matches(effect.Targets, actor.Actor) ||
                         !running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until)) return;
                     int node = shape.To.Node;
                     if (node == 0 && owner.TargetId == 0 && running.BuildingContact is { ChainStartRadius: > 0f } chain &&
@@ -1225,12 +1235,15 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             damage.ContactSound = CombatContactFeedback.SoundFor(beforeMatter);
             primaryDamage = GetHitEventSystem.Resolve(damage);
         }
-
         if (contactGeneration != worldGeneration) return;
         ApplyRestoration(running, node, actor.Actor, impact.Restoration, strength);
-        ConstructedTargetResponse response = ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
-            priorVelocity: priorVelocity, forceReceiver: forceReceiver,
-            strength: strength, settled: primaryDamage, contact: hit.Point);
+        ConstructedTargetResponse response = running.FormationArea is { } formation
+            ? ApplyFormationAreaContact(running, node, actor.Actor, formation)
+            : running.FormationTarget.Effect != FormationTargetEffect.None
+            ? ApplyFormationTargetContact(contactOwner, actor.Actor, actor.Id, running.FormationTarget, primaryDamage)
+            : ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
+                priorVelocity: priorVelocity, forceReceiver: forceReceiver,
+                strength: strength, settled: primaryDamage, contact: hit.Point);
         if (contactGeneration != worldGeneration) return;
         if (result == ApplyAttackState.Hit && impact.WakanTransfer > 0f &&
             actor.Actor.data?.id == actor.Id && actor.Actor.isAlive() && actor.Actor.hasHealth() &&
@@ -1246,7 +1259,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (primaryDamage.HealthLost > 0 && running.Cast.Plan.Id == BalefulWindConstruction.WaveId)
             AddWindScar(running, node, actor.Actor, hit.Point, false);
         if (result == ApplyAttackState.Hit)
-            ApplyContactSpreads(running, node, actor.Id, impact, spreadCenter, simulation.contactTime, strength);
+            ApplyContactSpreads(running, node, actor.Id, impact, spreadCenter, simulation.contactTime, strength,
+                groundPlane: running.FormationTarget.UsesPlanarSpread);
         if (contactGeneration != worldGeneration) return;
         if (node >= 0 && result == ApplyAttackState.Hit && running.Cast.Plan.ActorTransferSteps.Length != 0)
             ResolveActorTransfer(running, node, actor.Actor, actor.Id, contactGeneration);

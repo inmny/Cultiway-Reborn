@@ -1,0 +1,213 @@
+var source = Make(64.5f);
+var ally = Make(70);
+var enemy = Make(76, "wolf");
+var outside = Make(100, "wolf");
+var owner = source.GetExtend();
+ally.setKingdom(source.kingdom);
+foreach (Actor target in new[] { enemy, outside })
+{
+    source.addAggro(target);
+    target.addAggro(source);
+}
+
+var stationary = new BaseStats { [BaseStatses.MaxWakan.id] = 10000 };
+stationary.addTag("frozen_ai");
+var resources = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.FormationArea.Resources") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.FormationArea.Resources")
+        .SetStats(stationary).SetDuration(10000).Build();
+CombatStatusEffects.RemoveStatus(enemy, hold);
+foreach (Actor target in new[] { source, enemy, outside })
+{
+    var actor = target.GetExtend();
+    actor.AddComponent(new Xian { level = target == source ? Cultiway.Content.Const.XianLevels.Yuanying : 0, wakan = 1000 });
+    CombatStatusEffects.ApplyStatus(target, resources, 10000, target);
+    actor.MarkCultiwayStatsDirty();
+    target.setStatsDirty();
+    target.updateStats();
+}
+
+var atoms = new[] { CoreFormationAtoms.ManifestDragonAspect, CoreFormationAtoms.TransformPureYang, CoreFormationAtoms.TransformMysteriousYin };
+owner.AddComponent(new Yuanying { formation = new CoreFormationSnapshot
+{
+    version = CoreFormationSnapshot.CurrentVersion, signature = "verify.formation.area",
+    canonical_name = "范围法相对练", finalized = true, realm = CoreFormationRealm.Yuanying,
+    strength = 4f, refinement = 5, composition = ElementComposition.Static.Earth,
+    atoms = atoms.Select(asset => new CoreFormationAtomState
+        { atom_id = asset.id, weight = 1f, awakening_stage = 0 }).ToArray(),
+    stats = Array.Empty<CoreFormationStatValue>(),
+    semantics = Array.Empty<Cultiway.Core.Semantics.SemanticContribution>()
+} });
+owner.MarkCultiwayStatsDirty();
+source.setStatsDirty();
+source.updateStats();
+await Advance(.22f);
+
+var started = new List<ConstructedCastStarted>();
+var facts = new List<ConstructedActionEvent>();
+var outcomes = new List<object>();
+var mutations = new List<(long Actor, WakanMutationKind Kind, float Delta)>();
+var mutationField = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previousMutations = mutationField.GetValue(null);
+void WakanChanged(ActorExtend actor, in WakanMutation mutation)
+{
+    if (actor.Base == source || actor.Base == enemy || actor.Base == outside)
+        mutations.Add((actor.Base.id, mutation.Kind, mutation.Delta));
+}
+WakanResourceService.RegisterMutationCommitted(WakanChanged);
+void Started(ConstructedCastStarted fact)
+{
+    if (chosenAssets.Contains(fact.AbilityId) && fact.SourceId == source.id) started.Add(fact);
+}
+void Action(ConstructedActionEvent fact)
+{
+    if (chosenAssets.Contains(fact.AbilityId) && fact.SourceId == source.id) facts.Add(fact);
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ActionConfirmed += Action;
+
+string Id(ActiveAbilityHandle handle) => handle.Source.GetComponent<SkillContainer>().Asset.id;
+bool Cast(ActiveAbilityHandle handle, Vector3 point) => ActiveAbilityService.TryUse(owner, handle,
+    new ActiveAbilityTarget(null, point), ActiveAbilityUseOrigin.Script);
+float Wakan(Actor actor) => actor.GetExtend().GetCultisys<Xian>().wakan;
+Entity Status(Actor actor, Cultiway.Core.Libraries.StatusEffectAsset asset, Actor caster) =>
+    CombatStatusEffects.TryGetStatus(actor, asset, caster, out Entity status) ? status : default;
+
+try
+{
+    var handles = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, handles);
+    var granted = handles.Where(handle => handle.ProviderId == "content.core_formation").ToArray();
+    var effects = new List<Cultiway.Content.Libraries.CoreFormationResolvedEffect>();
+    CoreFormationEffectResolver.Resolve(owner, effects);
+    Check(granted.Length == 3 && chosenAssets.All(id => granted.Any(handle => Id(handle) == id)) &&
+        ally.kingdom == source.kingdom &&
+        Cultiway.Core.SkillLibV3.Effects.SkillTargetRelationResolver.IsHostile(source, enemy),
+        "取得原修炼主动入口以及真实同国友军和敌人");
+
+    owner.GetCultisys<Xian>().wakan = 10000;
+    float rejectedBefore = Wakan(source);
+    var far = new Vector3(104, 72.5f, 0f);
+    Check(!Cast(granted[0], far) && Wakan(source) == rejectedBefore && started.Count == 0,
+        "超出原选择距离时拒绝且不扣费");
+
+    Vector3 center = new(69.5f, 72.5f, 0f);
+    foreach (string id in chosenAssets)
+    {
+        var handle = granted.Single(h => Id(h) == id);
+        var asset = handle.Source.GetComponent<SkillContainer>().Asset;
+        var effect = effects.Single(e => e.Definition.active.SkillContainer == handle.Source);
+        float radius = ActiveAbilityService.ResolveEffectRadius(owner, handle);
+        float expectedDuration = asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier;
+        bool dragon = id.EndsWith(".DragonAspectBurst");
+        bool yang = id.EndsWith(".PureYangDomain");
+        var surface = dragon || yang ? TileLibrary.soil_low : TileLibrary.soil_high;
+        for (int x = 61; x <= Mathf.CeilToInt(center.x + radius + 5); x++)
+        for (int y = 69; y <= 76; y++)
+        {
+            var tile = World.world.GetTileSimple(x, y);
+            tile.Height = 140;
+            tile.setTileTypes(surface, null);
+        }
+
+        Place(source, 64.5f, 72.5f);
+        Place(ally, center.x + 1.5f, 71.5f);
+        Place(enemy, center.x + radius * .65f, center.y);
+        Place(outside, center.x + radius + 2.5f, center.y);
+        foreach (Actor actor in new[] { source, ally, enemy, outside })
+        {
+            actor.attack_timer = 999;
+            actor.restoreHealth(actor.getMaxHealth());
+            CombatStatusEffects.RemoveStatus(actor, StatusEffects.Burn);
+            ConstructedAbilityService.NotifyActorChanged(actor);
+        }
+        if (yang)
+        {
+            ally.data.health = ally.getMaxHealth() / 2;
+            CombatStatusEffects.ApplyStatus(ally, StatusEffects.Freeze, 12f, enemy);
+            CombatStatusEffects.ApplyStatus(ally, StatusEffects.Silence, 12f, enemy);
+        }
+        int allyHealth = ally.data.health, enemyHealth = enemy.data.health, outsideHealth = outside.data.health;
+        Vector2 enemyStart = enemy.current_position;
+        WorldTile enemyTile = enemy.current_tile, allyTile = ally.current_tile, outsideTile = outside.current_tile;
+        enemy.GetExtend().GetCultisys<Xian>().wakan = 600;
+        outside.GetExtend().GetCultisys<Xian>().wakan = 600;
+        owner.GetCultisys<Xian>().wakan = 9000;
+        float sourceBefore = Wakan(source);
+        mutations.Clear();
+        var plan = new SkillCastPlan();
+        plan.Steps.Add(new SkillCastStep(center, 0f));
+        float cost = SkillCastPayment.Quote(owner, SkillCastResources.Wakan,
+            SkillCastCost.CalculatePlanDemand(handle.Source, plan) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, handle.Source)));
+        Check(Cast(handle, center) && Mathf.Abs(sourceBefore - Wakan(source) - cost) < .02f,
+            id + "原入口在原费用下受理一次", new { cost, paid = sourceBefore - Wakan(source) });
+        await Advance(.23f);
+        var cast = started.Single(item => item.AbilityId == id);
+        var activation = facts.Single(item => item.AbilityId == id && item.CastId == cast.CastId &&
+            item.Fact.Node == 1 && item.Fact.Kind == AbilityActionEventKind.Active);
+        Check(Vector2.Distance(activation.Fact.Point, center) < .02f,
+            id + "共同作用体从实际落点开始", new { radius, x = activation.Fact.Point.x, y = activation.Fact.Point.y });
+        var inside = contacts.Where(hit => hit.CastId == cast.CastId).ToArray();
+        Check(inside.Count(hit => hit.TargetId == enemy.id) == 1 &&
+            inside.Count(hit => hit.TargetId == ally.id) == 1 && inside.All(hit => hit.TargetId != outside.id),
+            id + "实际圈内只接触各人一次，圈外不接触",
+            new { targets = inside.Select(hit => hit.TargetId).ToArray(), enemy = enemy.id, ally = ally.id, outside = outside.id });
+        Check(enemyTile.main_type != surface && allyTile.main_type != surface && outsideTile.main_type == surface,
+            id + "旧元素只在真实接触的脚下提交", new { enemy = enemyTile.main_type.id, ally = allyTile.main_type.id,
+                outside = outsideTile.main_type.id });
+        if (dragon)
+        {
+            var hit = inside.Single(item => item.TargetId == enemy.id);
+            Check(hit.Damage.HealthLost > 0 && enemy.data.health < enemyHealth &&
+                ally.data.health == allyHealth && hit.ForceApplied &&
+                !Status(enemy, StatusEffects.Daze, source).IsNull && enemy.current_position.x > enemyStart.x + .02f,
+                "龙相震击只伤敌人，有真实眩晕及向外位移",
+                new { hit.Damage.HealthLost, displacement = enemy.current_position.x - enemyStart.x, daze = hit.StaggerSeconds });
+        }
+        else if (yang)
+        {
+            var burn = Status(enemy, StatusEffects.Burn, source);
+            int heal = Mathf.RoundToInt(ally.stats["health"] * .05f * effect.Potency);
+            Check(ally.data.health - allyHealth == heal && Status(ally, StatusEffects.Freeze, enemy).IsNull &&
+                Status(ally, StatusEffects.Silence, enemy).IsNull &&
+                !burn.IsNull && Mathf.Abs(burn.GetComponent<StatusTickState>().Value -
+                    source.stats["damage"] * .05f * effect.Potency) < .02f &&
+                Status(ally, StatusEffects.Burn, source).IsNull,
+                "纯阳净域净化并恢复友军，只给敌人施加原强度燃烧",
+                new { heal, actual = ally.data.health - allyHealth, burn = !burn.IsNull });
+        }
+        else
+        {
+            var spent = mutations.Where(row => row.Actor == enemy.id && row.Kind == WakanMutationKind.Spend).ToArray();
+            float drained = -spent.Sum(row => row.Delta);
+            var received = mutations.Where(row => row.Actor == source.id && row.Kind == WakanMutationKind.Gain &&
+                Mathf.Abs(row.Delta - 12f * effect.Potency) < .025f).ToArray();
+            Check(spent.Length == 1 && received.Length == 1 && Mathf.Abs(drained - 12f * effect.Potency) < .025f &&
+                !Status(enemy, StatusEffects.Freeze, source).IsNull && !Status(enemy, StatusEffects.Silence, source).IsNull &&
+                Status(ally, StatusEffects.Freeze, source).IsNull && Status(ally, StatusEffects.Silence, source).IsNull,
+                "玄阴寒域冻结并沉默敌人，实际灵气转移一次",
+                new { drained, gained = received.Sum(row => row.Delta), expected = 12f * effect.Potency,
+                    naturalGain = mutations.Where(row => row.Actor == enemy.id && row.Kind == WakanMutationKind.Gain)
+                        .Sum(row => row.Delta) });
+        }
+        Check(outside.data.health == outsideHealth &&
+            !mutations.Any(row => row.Actor == outside.id && row.Kind == WakanMutationKind.Spend) &&
+            Status(outside, StatusEffects.Freeze, source).IsNull && Status(outside, StatusEffects.Burn, source).IsNull,
+            id + "圈外保持原资源和状态");
+        await Advance(expectedDuration + .43f);
+        var ended = endings.Single(item => item.Fact.CastId == cast.CastId).Fact;
+        Check(!ended.Cancelled && Mathf.Abs(ended.Age - expectedDuration - .3f) < .025f &&
+            contacts.Count(hit => hit.CastId == cast.CastId && hit.TargetId == enemy.id) == 1,
+            id + "生效结束后自然收势，同一敌人无重复结算", ended.Age);
+        outcomes.Add(new { id, cost, radius, duration = expectedDuration, end = ended.Age, cast = cast.CastId });
+    }
+    return new { passed = true, outcomes, checks };
+}
+finally
+{
+    Config.paused = true;
+    mutationField.SetValue(null, previousMutations);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ActionConfirmed -= Action;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+}

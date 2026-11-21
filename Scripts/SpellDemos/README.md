@@ -2701,3 +2701,37 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_base_spell_archive.py --case archive`。退出并重新启动后，用同一入口的 `--case cold --archive <保存输出目录>` 核对全部 127 个旧索引及冻结的学习资料。
 
 用 `python3 Scripts/SpellDemos/build_base_spell_reels.py <分批证据目录> <交付目录>` 合成原版和 Worldfall 录像。脚本按制作清单核对各索引都有已验证的原片，并生成章节及逐索引时间表。
+
+### 自身法相的主动入口（10.02）
+
+在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_formation_self.py`。脚本沿用现成对练，核对剑胎显锋、灵台显神、真身镇劫及五相轮转的实扣费用、生效阶段、持续时长和自然结束。状态和冷却按原游戏速度等待。
+
+同一入口加 `--case carrier` 检查真实命魂出窍、肉身要求、出手位置、状态归属和归返后的再次使用。录像可用 `demo_spell.py` 指定对应能力；演示会从修炼者实际拥有的主动入口施放。
+
+### 范围法相的主动入口（10.02）
+
+在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_formation_area.py`。同一组人物依次观察龙相震击的真实伤害与震退、纯阳净域的敌我分流及玄阴寒域的冻结、沉默和实际灵气收支。另检查实际落点、旧地块作用、圈外及结束。可用 `--spell DragonAspectBurst`、`--spell PureYangDomain` 或 `--spell MysteriousYinDomain` 单独复验受影响的能力。
+
+### 修炼提示和龙威（10.02）
+
+在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_formation_derived.py`。同一张对练地图用于观察真实攻防、正式付费施法和致命受击。可用 `--section ward` 查看护盾与适应，`--section casting` 查看凝元和回响，`--section survival` 查看幻身与保命，`--section dragon` 查看第五层龙威的眩晕和震退。提示结束时检查没有新增接触和伤害，龙威另核对敌我、圈外及支付。
+
+同一入口可用 `--section strikes` 复验混沌回响、归墟回响和五相追加攻击。核对点名对象、原伤害、相位切换、同秒限制和接触结束。
+
+同一入口可用 `--section status` 复验破甲、中毒、霜缚和灼烧。检查同源条件、实际状态与周期伤害、同位置旁人及收势。单项可用 `--section armor`、`poison`、`frost` 或 `burn`。
+
+用 `--section support` 连续复验木行回补与两种阳行净化。可用 `--section life-return` 对比实际普通击杀与木毒击杀，也可用 `--section cleanse` 单独核对正式付费施法后的净化、生命恢复和收势。
+
+用 `--section blasts` 复验焚烬与凝元实际爆发，核对圈内、紧贴圈外、空中敌人及圆面尺寸。用 `--section blast-lost` 在单独一轮核对点名目标实际死亡后不会展开。
+
+用 `--section counters` 复验炼体反打与真身反打。核对近身武器受击、远处及非武器拒绝、实际土行扣血、沿地推退和原冷却。
+
+用 `--section tracking` 验证两种剑道追击与两种阴行汲灵。两组可通过 `--section sword-flight`、`--section yin-flight` 单独检查。用 `--section flight-lost` 检查真实飞行途中失去对象是否停止。
+
+### 修炼组合的正式存读（10.02）
+
+在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_formation_archive.py archive`，记录返回的输出目录。正常退出并重新启动独立游戏后，运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_formation_archive.py cold --archive <前段输出目录>`。脚本核对跨进程恢复三个代表境界、状态及冷却、原条件再次触发和撤去来源后的清除。
+
+### 七种修炼主动能力实录（10.02）
+
+独立游戏就绪后运行 `dev.py exec --timeout 900 -- python3 Scripts/SpellDemos/record_formation_reels.py --output <实录目录>`。脚本依次使用七个真实主动入口，在两种视角分别生成连续片段、含章节的合辑与原片索引。用 `--view native` 或 `--view worldfall` 限定视角，已有原片可用 `--encode-only` 重新合成。

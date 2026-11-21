@@ -1,0 +1,1105 @@
+var source = Make(64.5f);
+var enemy = Make(69.5f, "wolf");
+var ally = Make(62.5f);
+var outside = Make(91.5f, "wolf");
+var owner = source.GetExtend();
+ally.setKingdom(source.kingdom);
+for (int x = 59; x <= 94; x++)
+for (int y = 69; y <= 76; y++)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    tile.setTileTypes(TileLibrary.soil_low, null);
+    tile.Height = 140;
+}
+var resources = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.FormationDerived.Resources") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.FormationDerived.Resources")
+        .SetStats(new BaseStats { [BaseStatses.MaxWakan.id] = 10000 }).SetDuration(10000).Build();
+owner.AddComponent(new Xian { level = Cultiway.Content.Const.XianLevels.Yuanying, wakan = 9000 });
+CombatStatusEffects.ApplyStatus(source, resources, 10000, source);
+owner.MarkCultiwayStatsDirty();
+source.setStatsDirty();
+source.updateStats();
+await Advance(.22f);
+
+var started = new List<ConstructedCastStarted>();
+var resultRows = new List<object>();
+var spends = new List<float>();
+var legacy = new List<string>();
+var matrix = typeof(Cultiway.Core.EventSystem.Systems.GetHitEventSystem).GetMethod("Resolve", F);
+var mutationField = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previousMutations = mutationField.GetValue(null);
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId == source.id) started.Add(fact);
+}
+void LegacyStarted(Entity execution)
+{
+    string id = execution.GetComponent<SkillEntity>().Asset.id;
+    if (chosenAssets.Contains(id)) legacy.Add(id);
+}
+void Observe(ActorExtend actor, in WakanMutation mutation)
+{
+    if (actor == owner && mutation.Kind == WakanMutationKind.Spend) spends.Add(-mutation.Delta);
+}
+ConstructedAbilityService.CastStarted += Started;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyStarted;
+WakanResourceService.RegisterMutationCommitted(Observe);
+
+Cultiway.Content.Libraries.CoreFormationResolvedEffect Install(Cultiway.Content.Libraries.CoreFormationAtomAsset atom,
+    string family, CoreFormationRealm realm = CoreFormationRealm.Yuanying)
+{
+    owner.E.RemoveComponent<Yuanying>();
+    owner.E.RemoveComponent<Jindan>();
+    owner.GetCultisys<Xian>().level = realm == CoreFormationRealm.Jindan
+        ? Cultiway.Content.Const.XianLevels.Jindan : Cultiway.Content.Const.XianLevels.Yuanying;
+    var formation = new CoreFormationSnapshot
+    {
+        version = CoreFormationSnapshot.CurrentVersion, signature = "verify.formation.derived." + atom.id,
+        canonical_name = "修炼派生对练", finalized = true, realm = realm, strength = 4f, refinement = 5,
+        composition = ElementComposition.Static.Earth,
+        atoms = new[] { new CoreFormationAtomState { atom_id = atom.id, weight = 1f, awakening_stage = 0 } },
+        stats = Array.Empty<CoreFormationStatValue>(),
+        semantics = Array.Empty<Cultiway.Core.Semantics.SemanticContribution>()
+    };
+    if (realm == CoreFormationRealm.Jindan) owner.AddComponent(new Jindan { formation = formation });
+    else owner.AddComponent(new Yuanying { formation = formation });
+    owner.MarkCultiwayStatsDirty();
+    source.setStatsDirty();
+    source.updateStats();
+    source.restoreHealth(source.getMaxHealth());
+    owner.GetCultisys<Xian>().wakan = 9000;
+    Check(CoreFormationEffectResolver.TryResolveFamily(owner, family, out var effect), "实际修炼效果已授予 " + family);
+    var abilities = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, abilities);
+    Check(abilities.Where(h => h.ProviderId == "content.core_formation").All(h =>
+        !chosenAssets.Contains(h.Source.GetComponent<SkillContainer>().Asset.id)),
+        "效果未把内部派生加入主动列表 " + family);
+    return effect;
+}
+
+Cultiway.Core.Combat.DamageSettlement Strike(Actor attacker, Actor target, float damage, AttackType attackType = AttackType.Other)
+{
+    var hit = new Cultiway.Core.EventSystem.Events.GetHitEvent
+    {
+        TargetID = target.id, Damage = damage, IgnoreDamageReduction = true,
+        AttackType = attackType, Element = ElementComposition.Static.Earth,
+        DamageOrigin = Cultiway.Core.Combat.DamageOrigin.Primary
+    };
+    hit.BindAttacker(attacker);
+    return (Cultiway.Core.Combat.DamageSettlement)matrix.Invoke(null, new object[] { hit });
+}
+Entity State(Cultiway.Content.Libraries.CoreFormationResolvedEffect effect) =>
+    CombatStatusEffects.TryGetStatus(source, effect.Definition.StateStatus, source, out Entity status)
+        ? status : default;
+bool Allowed(string section) => caseName == "all" || caseName == section;
+string Id(string tail) => "Cultiway.CoreFormation.Skill." + tail;
+
+async Task FinishCue(string name, int currentHealth)
+{
+    await Advance(.16f);
+    var casts = started.Where(fact => fact.AbilityId == Id(name)).ToArray();
+    Check(casts.Length == 1 && !legacy.Contains(Id(name)), name + "共用路径只显形一次",
+        new { common = casts.Length, old = legacy.Count(id => id == Id(name)) });
+    await Advance(.87f);
+    var ended = endings.Single(row => row.Fact.CastId == casts[0].CastId).Fact;
+    Check(!ended.Cancelled && contacts.All(hit => hit.CastId != ended.CastId) &&
+        source.data.health == currentHealth, name + "自然收势且没有额外接触或人物结算",
+        new { ended.Age, source.data.health });
+    resultRows.Add(new { id = Id(name), cast = ended.CastId, age = ended.Age });
+}
+
+try
+{
+    if (Allowed("ward"))
+    {
+        var earth = Install(CoreFormationAtoms.ElementEarth, "earth", CoreFormationRealm.Jindan);
+        for (int i = 0; i < 100 && State(earth).IsNull; i++)
+        {
+            enemy.restoreHealth(enemy.getMaxHealth());
+            Strike(source, enemy, 120);
+        }
+        Entity ward = State(earth);
+        Check(!ward.IsNull, "真实造成伤害积累厚土护盾");
+        float shield = ward.GetComponent<CoreFormationEffectState>().value;
+        await FinishCue("EarthWard", source.data.health);
+        Check(Mathf.Abs(State(earth).GetComponent<CoreFormationEffectState>().value - shield) < .001f,
+            "护盾显形没有重复补盾", shield);
+        int previous = source.data.health;
+        var absorbed = Strike(enemy, source, shield * .45f);
+        float after = State(earth).GetComponent<CoreFormationEffectState>().value;
+        Check(absorbed.HealthLost == 0 && source.data.health == previous && after < shield,
+            "真实吸收削减原护盾余额，只产生一次反震提示", new { shield, after });
+        await FinishCue("EarthWardImpact", previous);
+
+        var balance = Install(CoreFormationAtoms.StructureBalanced, "balanced", CoreFormationRealm.Jindan);
+        for (int i = 0; i < 100; i++)
+        {
+            source.restoreHealth(source.getMaxHealth());
+            Strike(enemy, source, 135);
+            Entity status = State(balance);
+            if (!status.IsNull && status.GetComponent<CoreFormationEffectState>().value > 0) break;
+        }
+        var adapted = State(balance).GetComponent<CoreFormationEffectState>();
+        Check(adapted.counter >= 2 && adapted.value > 0 && adapted.value <= .3f,
+            "连续真实受击才建立对应元素适应", new { adapted.counter, adapted.value });
+        await FinishCue("BalancedAdaptation", source.data.health);
+    }
+
+    if (Allowed("casting"))
+    {
+        var draft = new SkillContainerBuilder(SkillEntities.SpiritShield).UseAnimation(0)
+            .Build(SkillContainerBuildMode.RuleOnly);
+        string signature = SkillContainerSignature.Build(draft);
+        owner.LearnSkillV3(draft);
+        var available = new List<ActiveAbilityHandle>();
+        ActiveAbilityService.Collect(owner, available);
+        var shield = available.Single(handle => handle.ProviderId == "core.learned_skill" &&
+            SkillContainerSignature.Build(handle.Source) == signature);
+        async Task PaidCastUntil(Cultiway.Content.Libraries.CoreFormationResolvedEffect effect)
+        {
+            for (int i = 0; i < 30 && SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill); i++)
+            {
+                owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+                var target = new ActiveAbilityTarget(source, source.GetSimPos());
+                int paid = spends.Count;
+                int shields = started.Count(row => row.AbilityId == SkillEntities.SpiritShield.id);
+                bool accepted = ActiveAbilityService.TryUse(owner, shield, target, ActiveAbilityUseOrigin.Player);
+                if (!accepted)
+                    Check(false, "测试的原护盾正式付费施放未受理", new
+                    {
+                        attempt = i + 1, affordable = SkillCastCost.CanPayStep(owner, shield.Source),
+                        balance = owner.GetCultisys<Xian>().wakan, spends = paid, shields
+                    });
+                for (int frame = 0; frame < 5 && spends.Count == paid; frame++) await Advance(.12f);
+                Check(spends.Count == paid + 1 &&
+                    started.Count(row => row.AbilityId == SkillEntities.SpiritShield.id) > shields,
+                    "已学护盾真实发射并支付一次", new { attempt = i + 1, spend = spends.LastOrDefault() });
+            }
+            Check(!SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill),
+                "已支付的原法术真实完成并触发 " + effect.Definition.family_id);
+        }
+
+        var condensed = Install(CoreFormationAtoms.StructureCondensed, "condensed", CoreFormationRealm.Jindan);
+        await PaidCastUntil(condensed);
+        var charge = State(condensed).GetComponent<CoreFormationEffectState>();
+        Check(charge.charges == 1, "凝元蓄势实际只建立一次充能");
+        int paid = spends.Count;
+        await FinishCue("ReservoirOrb", source.data.health);
+        Check(State(condensed).GetComponent<CoreFormationEffectState>().charges == 1 && spends.Count == paid,
+            "储备提示期间没有再次充能或付款");
+
+        var spiritual = Install(CoreFormationAtoms.StructureSpiritual, "spiritual", CoreFormationRealm.Jindan);
+        int shieldBefore = started.Count(row => row.AbilityId == SkillEntities.SpiritShield.id);
+        paid = spends.Count;
+        await PaidCastUntil(spiritual);
+        await FinishCue("SpiritEcho", source.data.health);
+        int actual = started.Count(row => row.AbilityId == SkillEntities.SpiritShield.id) - shieldBefore;
+        Check(actual == spends.Count - paid + 1, "付费施法只额外产生一次预付回响",
+            new { original = spends.Count - paid, actual });
+    }
+
+    if (Allowed("survival"))
+    {
+        var illusion = Install(CoreFormationAtoms.PathIllusion, "illusion", CoreFormationRealm.Jindan);
+        for (int i = 0; i < 100 && SkillCooldownService.IsReady(owner, illusion.Definition.CooldownSkill); i++)
+        {
+            source.restoreHealth(source.getMaxHealth());
+            Strike(enemy, source, source.getMaxHealth() * .12f);
+        }
+        Check(source.data.health == source.getMaxHealth() && CombatStatusEffects.HasStatus(source, StatusEffects.Concealed, source),
+            "实际大伤被幻身挡下并短暂隐匿");
+        await FinishCue("IllusionDecoy", source.data.health);
+        CombatStatusEffects.RemoveStatus(source, StatusEffects.Concealed);
+        foreach (var row in new[] { (CoreFormationAtoms.ManifestInfant, "InfantGuard", .1f),
+                     (CoreFormationAtoms.TransformChaos, "ChaosRebirth", .3f) })
+        {
+            Install(row.Item1, "survival");
+            int maximum = source.getMaxHealth();
+            Strike(enemy, source, maximum * 1.3f);
+            int survives = Mathf.CeilToInt(maximum * row.Item3);
+            Check(source.isAlive() && Math.Abs(source.data.health - survives) <= 1,
+                row.Item2 + "由致命一击触发，按原比例留下生命",
+                new { actual = source.data.health, expected = survives });
+            await FinishCue(row.Item2, source.data.health);
+        }
+    }
+
+    if (Allowed("dragon"))
+    {
+        var held = new BaseStats();
+        held.addTag("frozen_ai");
+        var calm = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.FormationDerived.Calm") ??
+            Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.FormationDerived.Calm")
+                .SetStats(held).SetDuration(10000).Build();
+        CombatStatusEffects.RemoveStatus(enemy, hold);
+        CombatStatusEffects.ApplyStatus(enemy, calm, 10000, enemy);
+        enemy.updateStats();
+        source.addAggro(enemy);
+        source.addAggro(outside);
+        foreach (var row in new[] { (CoreFormationAtoms.ThemeDragon, "DragonMight", CoreFormationRealm.Jindan),
+                     (CoreFormationAtoms.ManifestDragonAspect, "DragonAspectMight", CoreFormationRealm.Yuanying) })
+        {
+            var dragon = Install(row.Item1, "dragon", row.Item3);
+            int Counter() => State(dragon).IsNull ? 0 : State(dragon).GetComponent<CoreFormationEffectState>().counter;
+            for (int i = 0; i < 120 && Counter() < 4; i++)
+            {
+                enemy.restoreHealth(enemy.getMaxHealth());
+                Strike(source, enemy, 100);
+            }
+            Check(Counter() == 4, "真实攻防累积到四层 " + row.Item2);
+            await Advance(.16f);
+            Check(started.All(item => item.AbilityId != Id(row.Item2)), row.Item2 + "四层时未震荡");
+            for (int i = 0; i < 80 && SkillCooldownService.IsReady(owner, dragon.Definition.CooldownSkill); i++)
+            {
+                enemy.restoreHealth(enemy.getMaxHealth());
+                Strike(source, enemy, 100);
+            }
+            Check(Counter() == 0 && !SkillCooldownService.IsReady(owner, dragon.Definition.CooldownSkill),
+                row.Item2 + "第五层消耗层数并进入原冷却");
+            Place(source, 64.5f, 72.5f);
+            Place(enemy, 69.5f, 72.5f);
+            Place(ally, 62.5f, 72.5f);
+            Place(outside, 91.5f, 72.5f);
+            foreach (Actor actor in new[] { source, enemy, ally, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+            int health = enemy.data.health, paid = spends.Count;
+            float x = enemy.current_position.x;
+            await Advance(.27f);
+            var cast = started.Single(fact => fact.AbilityId == Id(row.Item2));
+            var hits = contacts.Where(hit => hit.CastId == cast.CastId).ToArray();
+            var enemyHits = hits.Where(hit => hit.TargetId == enemy.id).ToArray();
+            Check(enemyHits.Length == 1 && enemyHits[0].ForceApplied && enemyHits[0].StaggerSeconds > .5f &&
+                enemy.data.health == health && enemy.current_position.x > x + .02f &&
+                hits.All(hit => hit.TargetId != outside.id) &&
+                hits.Where(hit => hit.TargetId == ally.id).All(hit => !hit.ForceApplied && hit.StaggerSeconds == 0) &&
+                !legacy.Contains(Id(row.Item2)) && spends.Count == paid,
+                row.Item2 + "只眩晕震退敌人，不额外伤害或花费",
+                new { distance = enemy.current_position.x - x, targets = hits.Select(hit => hit.TargetId).ToArray() });
+            await Advance(.89f);
+            Check(endings.Any(item => item.Fact.CastId == cast.CastId && !item.Fact.Cancelled) &&
+                contacts.Count(hit => hit.CastId == cast.CastId && hit.TargetId == enemy.id) == 1,
+                row.Item2 + "自然收势且敌人只结算一次");
+            resultRows.Add(new { id = Id(row.Item2), cast = cast.CastId, distance = enemy.current_position.x - x });
+        }
+    }
+    if (Allowed("strikes"))
+    {
+        Place(outside, 70f, 72.5f);
+        foreach (Actor actor in new[] { source, enemy, ally, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+        var emissions = new List<SkillEmission>();
+        var originalEmitter = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+        Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        {
+            if (emission.Source == source && chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id))
+                emissions.Add(emission);
+            return originalEmitter(emission);
+        };
+        async Task ConfirmStrike(string name, Actor target, float multiplier, int elementPhase = -1)
+        {
+            var cast = started.Last(fact => fact.AbilityId == Id(name));
+            var hit = contacts.Single(contact => contact.CastId == cast.CastId);
+            var emission = emissions.Last(step => step.SkillContainer.GetComponent<SkillContainer>().Asset.id == Id(name));
+            var asset = emission.SkillContainer.GetComponent<SkillContainer>().Asset;
+            var element = emission.RuntimeData.ResolveElement(asset.Element);
+            int phase = Enumerable.Range(0, Cultiway.Const.ElementIndex.Count).Single(i => element[i] > 0f);
+            Check(hit.TargetId == target.id && hit.SourceId == source.id && hit.Damage.SettledCount == 1 &&
+                hit.Damage.HealthLost > 0 && !legacy.Contains(Id(name)) &&
+                emission.RuntimeData.DamageOrigin == Cultiway.Core.Combat.DamageOrigin.Reaction &&
+                (elementPhase < 0 || phase == elementPhase),
+                name + "以本次反应元素只命中原点名人物",
+                new { hit.TargetId, hit.Damage.HealthLost, phase, hit.MatterBefore });
+
+            int after = target.data.health;
+            var reference = new Cultiway.Core.EventSystem.Events.GetHitEvent
+            {
+                Damage = emission.Strength * emission.RuntimeData.ResolveEffectScale() * multiplier, Element = element,
+                TargetID = target.id, AttackType = AttackType.Other, AttackerPowerLevel = emission.PowerLevel,
+                DamageOrigin = Cultiway.Core.Combat.DamageOrigin.Reaction
+            };
+            reference.BindAttacker(source);
+            var damage = (Cultiway.Core.Combat.DamageSettlement)matrix.Invoke(null, new object[] { reference });
+            target.restoreHealth(after - target.data.health);
+            Check(damage.HealthLost == hit.Damage.HealthLost, name + "原倍率通过同一实际受击规则产生相同扣血",
+                new { reference.Damage, expected = damage.HealthLost, actual = hit.Damage.HealthLost });
+            await Advance(.74f);
+            var end = endings.Single(row => row.Fact.CastId == cast.CastId).Fact;
+            Check(!end.Cancelled && contacts.Count(item => item.CastId == cast.CastId) == 1,
+                name + "自然收势，不增加第二次接触");
+            resultRows.Add(new { id = Id(name), cast = cast.CastId, damage = hit.Damage.HealthLost, phase });
+        }
+
+        try
+        {
+            foreach (var row in new[]
+                     {
+                         (CoreFormationAtoms.ElementChaos, "ChaosEcho", CoreFormationRealm.Jindan, enemy),
+                         (CoreFormationAtoms.TransformChaos, "ChaosRebirthEcho", CoreFormationRealm.Yuanying, ally)
+                     })
+            {
+                var chaos = Install(row.Item1, "chaos", row.Item3);
+                Actor target = row.Item4;
+                Place(outside, target.current_position.x, target.current_position.y);
+                ConstructedAbilityService.NotifyActorChanged(outside);
+                int spareHealth = outside.data.health, paid = spends.Count;
+                for (int i = 0; i < 100 && SkillCooldownService.IsReady(owner, chaos.Definition.CooldownSkill); i++)
+                    Strike(source, target, 145);
+                await Advance(.20f);
+                await ConfirmStrike(row.Item2, target, .30f);
+                Check(spareHealth == outside.data.health && paid == spends.Count &&
+                    (target != ally || target.kingdom == source.kingdom),
+                    row.Item2 + "同位置旁人未受伤、原人物无需再付费");
+            }
+
+            var five = Install(CoreFormationAtoms.TransformFivePhase, "five_phase");
+            var list = new List<ActiveAbilityHandle>();
+            ActiveAbilityService.Collect(owner, list);
+            var handle = list.Single(item => item.ProviderId == "content.core_formation");
+            var aim = new ActiveAbilityTarget(source, source.GetSimPos());
+            Check(ActiveAbilityService.TryUse(owner, handle, aim, ActiveAbilityUseOrigin.Player), "五相由正式主动入口开启");
+            await Advance(.68f);
+            Check(State(five).GetComponent<CoreFormationEffectState>().phase == 0, "首次实际相位是金");
+            int before = spends.Count;
+            Strike(source, enemy, 145);
+            Strike(source, enemy, 145);
+            await Advance(.20f);
+            Check(started.Count(item => item.AbilityId == Id("FivePhaseStrike")) == 1, "第二次同秒攻击没有触发五相");
+            await ConfirmStrike("FivePhaseStrike", enemy, .25f, 0);
+            for (int i = 0; i < 28 && State(five).GetComponent<CoreFormationEffectState>().phase == 0; i++)
+                await Advance(.12f);
+            Check(State(five).GetComponent<CoreFormationEffectState>().phase == 1, "由原计时转为木相");
+            Strike(source, enemy, 145);
+            await Advance(.20f);
+            await ConfirmStrike("FivePhaseStrike", enemy, .25f, 1);
+            Check(spends.Count == before, "五相两次追加都没有再次向人物收费");
+        }
+        finally
+        {
+            Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
+        }
+    }
+    if (caseName == "status" || Allowed("armor") || Allowed("poison") || Allowed("frost") || Allowed("burn"))
+    {
+        bool StatusCase(string name) => caseName == "status" || Allowed(name);
+        Place(outside, enemy.current_position.x, enemy.current_position.y);
+        ConstructedAbilityService.NotifyActorChanged(outside);
+        var emissions = new List<SkillEmission>();
+        var originalEmitter = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+        Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        {
+            if (emission.Source == source && chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id))
+                emissions.Add(emission);
+            return originalEmitter(emission);
+        };
+        int neighborHealth = outside.data.health, spentBefore = spends.Count;
+
+        async Task<ConstructedContact> React(Cultiway.Content.Libraries.CoreFormationResolvedEffect effect, string name)
+        {
+            int previous = started.Count(x => x.AbilityId == Id(name));
+            Check(SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill), "原反应已冷却 " + name);
+            for (int attempt = 0; attempt < 100 && SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill); attempt++)
+                Strike(source, enemy, 180);
+            await Advance(.20f);
+            var reaction = started.Where(x => x.AbilityId == Id(name)).ToArray();
+            Check(reaction.Length == previous + 1 && !legacy.Contains(Id(name)), name + "原攻击只触发一次共用反应",
+                new { before = previous, after = reaction.Length });
+            var contact = contacts.Single(x => x.CastId == reaction.Last().CastId);
+            Check(contact.SourceId == source.id && contact.TargetId == enemy.id, name + "只接触点名敌人");
+            return contact;
+        }
+
+        async Task Expire(Cultiway.Content.Libraries.CoreFormationResolvedEffect effect)
+        {
+            for (int frame = 0; frame < 45 && !SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill); frame++)
+                await Advance(.12f);
+        }
+
+        void EndedOnce(ConstructedContact contact)
+        {
+            Check(endings.Any(row => row.Fact.CastId == contact.CastId && !row.Fact.Cancelled) &&
+                contacts.Count(row => row.CastId == contact.CastId) == 1 &&
+                outside.data.health == neighborHealth && spends.Count == spentBefore,
+                contact.AbilityId + "自然收势、一次接触，同位置旁人无伤且不再扣费");
+        }
+
+        async Task VerifyTick(Cultiway.Content.Libraries.CoreFormationResolvedEffect effect, string name,
+            Cultiway.Core.Libraries.StatusEffectAsset status, float duration, float fraction, int elementIndex)
+        {
+            var contact = await React(effect, name);
+            Check(CombatStatusEffects.TryGetStatus(enemy, status, source, out Entity applied) &&
+                !CombatStatusEffects.HasStatus(outside, status, source),
+                name + "只给实际接触者挂上原来源的状态");
+            var tick = applied.GetComponent<StatusTickState>();
+            float seconds = applied.GetComponent<AliveTimeLimit>().value;
+            var cast = emissions.Last();
+            float rate = cast.Strength * cast.RuntimeData.ResolveEffectScale() * fraction / duration;
+            Check(Math.Abs(tick.Value - rate) < .001f && tick.Element[elementIndex] == 1f &&
+                Math.Abs(seconds - duration) < .01f && contact.Damage.SettledCount == 0,
+                name + "保留持续时间、元素和每秒伤害", new { tick.Value, seconds, rate });
+            int health = enemy.data.health;
+            await Advance(1.13f);
+            Check(enemy.data.health < health, name + "触发实际周期扣血", new { before = health, after = enemy.data.health });
+            EndedOnce(contact);
+            await Advance(duration);
+            Check(!CombatStatusEffects.HasStatus(enemy, status, source), name + "原状态正常到期");
+            resultRows.Add(new { id = Id(name), contact.CastId, duration, tick.Value, elementIndex });
+        }
+
+        try
+        {
+            if (StatusCase("armor"))
+            {
+                var iron = Install(CoreFormationAtoms.ElementIron, "iron", CoreFormationRealm.Jindan);
+                CombatStatusEffects.ApplyStatus(enemy, StatusEffects.ArmorBreak, 4f, ally);
+                var first = await React(iron, "IronSeverance");
+                Check(first.Damage.SettledCount == 0 && CombatStatusEffects.HasStatus(enemy, StatusEffects.ArmorBreak, source) &&
+                    CombatStatusEffects.HasStatus(enemy, StatusEffects.ArmorBreak, ally),
+                    "他人破甲不触发追加，同源状态独立建立");
+                await Expire(iron);
+                EndedOnce(first);
+                Check(CombatStatusEffects.HasStatus(enemy, StatusEffects.ArmorBreak, source), "原四秒破甲跨过两秒半冷却");
+                var second = await React(iron, "IronSeverance");
+                Check(CombatStatusEffects.TryGetStatus(enemy, StatusEffects.ArmorBreak, source, out Entity broken),
+                    "真实接触后仍有本来源的破甲");
+                float remaining = broken.GetComponent<AliveTimeLimit>().value - broken.GetComponent<AliveTimer>().value;
+                Check(second.Damage.SettledCount == 1 && second.Damage.HealthLost > 0 && remaining > 3.6f,
+                    "同源再命中追加一次金行伤害并刷新破甲",
+                    new { second.Damage.SettledCount, second.Damage.HealthLost, remaining });
+                await Advance(.86f);
+                EndedOnce(second);
+                resultRows.Add(new { id = Id("IronSeverance"), second.CastId, second.Damage.HealthLost });
+            }
+            if (StatusCase("poison"))
+            {
+                var wood = Install(CoreFormationAtoms.ElementWood, "wood", CoreFormationRealm.Jindan);
+                await VerifyTick(wood, "WoodVenomBloom", StatusEffects.Poison, 5f, .35f, Cultiway.Const.ElementIndex.Wood);
+            }
+            if (StatusCase("frost"))
+            {
+                var water = Install(CoreFormationAtoms.ElementWater, "water", CoreFormationRealm.Jindan);
+                CombatStatusEffects.ApplyStatus(enemy, StatusEffects.Slow, 3f, ally);
+                var first = await React(water, "WaterFrostBind");
+                Check(CombatStatusEffects.HasStatus(enemy, StatusEffects.Slow, source) &&
+                    CombatStatusEffects.HasStatus(enemy, StatusEffects.Slow, ally) &&
+                    !CombatStatusEffects.HasStatus(enemy, StatusEffects.Freeze, source),
+                    "他人减速不能触发冻结，原攻击只建立自己的减速");
+                await Expire(water);
+                EndedOnce(first);
+                bool refreshed = !CombatStatusEffects.HasStatus(enemy, StatusEffects.Slow, source);
+                // 减速和冷却同为三秒。若已一起到期，用共享入口为分支复验施加合法同源减速。
+                if (refreshed) CombatStatusEffects.ApplyStatus(enemy, StatusEffects.Slow, 3f, source);
+                var second = await React(water, "WaterFrostBind");
+                Check(CombatStatusEffects.TryGetStatus(enemy, StatusEffects.Freeze, source, out Entity frozen) &&
+                    Math.Abs(frozen.GetComponent<AliveTimeLimit>().value - .75f) < .01f &&
+                    !CombatStatusEffects.HasStatus(outside, StatusEffects.Freeze, source),
+                    "已有同源减速时真实命中产生四分之三秒冻结", new { refreshed });
+                await Advance(.86f);
+                EndedOnce(second);
+                Check(!CombatStatusEffects.HasStatus(enemy, StatusEffects.Freeze, source), "短冻到期解除");
+                resultRows.Add(new { id = Id("WaterFrostBind"), second.CastId, refreshed });
+            }
+            if (StatusCase("burn"))
+            {
+                var fire = Install(CoreFormationAtoms.ElementFire, "fire", CoreFormationRealm.Jindan);
+                await VerifyTick(fire, "FireBrand", StatusEffects.Burn, 4f, .20f, Cultiway.Const.ElementIndex.Fire);
+            }
+        }
+        finally
+        {
+            Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
+        }
+    }
+    if (Allowed("sword-flight") || Allowed("yin-flight") || caseName is "tracking" or "flight-lost")
+    {
+        bool swords = Allowed("sword-flight") || caseName == "tracking";
+        bool yin = Allowed("yin-flight") || caseName == "tracking";
+        Vector2 start = new(64.5f, 72.5f), originalTarget = new(79.5f, 72.5f), shiftedTarget = new(79.5f, 75.15f);
+        void Move(Actor actor, Vector2 point)
+        {
+            Place(actor, point.x, point.y);
+            ConstructedAbilityService.NotifyActorChanged(actor);
+        }
+        Move(source, start);
+        Move(outside, new Vector2(69.25f, 72.5f));
+        source.addAggro(outside);
+        source.addAggro(enemy);
+        int neighborHealth = outside.data.health;
+
+        var emissions = new List<SkillEmission>();
+        var originalEmitter = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+        Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        {
+            if (emission.Source == source && chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id))
+                emissions.Add(emission);
+            return originalEmitter(emission);
+        };
+        var balances = new List<(ActorExtend Role, WakanMutationKind Kind, float Amount)>();
+        void Balance(ActorExtend actor, in WakanMutation mutation)
+        {
+            if (actor == owner || actor.Base == enemy) balances.Add((actor, mutation.Kind, mutation.Delta));
+        }
+        WakanResourceService.RegisterMutationCommitted(Balance);
+        string visualForm = null;
+        FormVisualInstance[] Presented()
+        {
+            object frame = service.GetField("presentation", F).GetValue(null);
+            return (FormVisualInstance[])Field(frame, "Forms");
+        }
+        Vector3 FlyingPosition() => Presented().Single(view => view.Resource.Description.Id == visualForm).Transform.GetColumn(3);
+
+        async Task<ConstructedCastStarted> StartFlight(string name, string model)
+        {
+            visualForm = model;
+            Move(enemy, originalTarget);
+            enemy.restoreHealth(enemy.getMaxHealth());
+            int previous = started.Count(row => row.AbilityId == Id(name));
+            for (int attempt = 0; attempt < 65 && started.Count(row => row.AbilityId == Id(name)) == previous; attempt++)
+            {
+                // 概率触发沿原攻防入口。先推进一个短窗口，再独立观察接触和追踪。
+                Strike(source, enemy, 170);
+                await Advance(.061f);
+            }
+            var casts = started.Where(row => row.AbilityId == Id(name)).ToArray();
+            Check(casts.Length == previous + 1 && !legacy.Contains(Id(name)) &&
+                contacts.All(row => row.CastId != casts.Last().CastId),
+                name + "由真实攻击启动飞行，尚未碰到目标");
+            Vector3 center = FlyingPosition();
+            Check(center.x >= start.x - .1f && center.x < originalTarget.x - 2f,
+                name + "完整立体主体从来源出发", center.ToString());
+            return casts.Last();
+        }
+
+        async Task<ConstructedContact> Arrive(ConstructedCastStarted cast)
+        {
+            Move(enemy, shiftedTarget);
+            for (int frame = 0; frame < 8 && contacts.All(row => row.CastId != cast.CastId); frame++)
+                await Advance(.076f);
+            var hitList = contacts.Where(row => row.CastId == cast.CastId).ToArray();
+            Check(hitList.Length == 1 && hitList[0].TargetId == enemy.id && hitList[0].Position.y > 73.1f &&
+                outside.data.health == neighborHealth,
+                cast.AbilityId + "随目标转向，只命中移动后的原对象，途经敌人无伤",
+                new { count = hitList.Length, points = hitList.Select(row => row.Position.ToString()).ToArray() });
+            return hitList[0];
+        }
+
+        SkillEmission Emission(ConstructedContact hit) =>
+            emissions.Last(step => step.SkillContainer.GetComponent<SkillContainer>().Asset.id == hit.AbilityId);
+
+        void Damage(ConstructedContact hit, float multiplier, ElementComposition element)
+        {
+            var emission = Emission(hit);
+            var reference = new Cultiway.Core.EventSystem.Events.GetHitEvent
+            {
+                Damage = emission.Strength * emission.RuntimeData.ResolveEffectScale() * multiplier, Element = element,
+                TargetID = enemy.id, AttackType = AttackType.Other, AttackerPowerLevel = emission.PowerLevel,
+                DamageOrigin = Cultiway.Core.Combat.DamageOrigin.Reaction
+            };
+            reference.BindAttacker(source);
+            var calculated = (Cultiway.Core.Combat.DamageSettlement)matrix.Invoke(null, new object[] { reference });
+            enemy.restoreHealth(calculated.HealthLost);
+            Check(hit.Damage.SettledCount == 1 && hit.Damage.HealthLost > 0 && calculated.HealthLost == hit.Damage.HealthLost,
+                hit.AbilityId + "保留一次原元素反应伤害", new { calculated.HealthLost, actual = hit.Damage.HealthLost });
+        }
+
+        async Task Finish(ConstructedContact hit, int paid)
+        {
+            await Advance(.84f);
+            Check(endings.Any(row => row.Fact.CastId == hit.CastId && !row.Fact.Cancelled) &&
+                contacts.Count(row => row.CastId == hit.CastId) == 1 &&
+                Presented().All(form => form.Resource.Description.Id != visualForm) && spends.Count == paid,
+                hit.AbilityId + "命中后自然收势，不重复结算或收费");
+            resultRows.Add(new { id = hit.AbilityId, hit.CastId, hit.Damage.HealthLost });
+        }
+
+        try
+        {
+            if (caseName == "flight-lost")
+            {
+                Install(CoreFormationAtoms.PathSword, "sword", CoreFormationRealm.Jindan);
+                var cast = await StartFlight("SwordChase", "flying_sword");
+                Strike(source, enemy, enemy.getMaxHealth() * 2f);
+                enemy.checkDeath();
+                await Advance(.29f);
+                Check(!enemy.isAlive() && endings.Any(row => row.Fact.CastId == cast.CastId && row.Fact.Cancelled) &&
+                    contacts.All(row => row.CastId != cast.CastId) &&
+                    Presented().All(form => form.Resource.Description.Id != visualForm) &&
+                    outside.data.health == neighborHealth,
+                    "已在飞行的剑气失去原目标后结束，不再命中旁人");
+            }
+
+            if (swords)
+            {
+                Install(CoreFormationAtoms.PathSword, "sword", CoreFormationRealm.Jindan);
+                int paid = spends.Count;
+                var chase = await Arrive(await StartFlight("SwordChase", "flying_sword"));
+                Damage(chase, .35f, ElementComposition.Static.Iron);
+                await Finish(chase, paid);
+
+                var sword = Install(CoreFormationAtoms.ManifestSwordEmbryo, "sword");
+                var abilities = new List<ActiveAbilityHandle>();
+                ActiveAbilityService.Collect(owner, abilities);
+                var handle = abilities.Single(item => item.ProviderId == "content.core_formation");
+                Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(source, source.GetSimPos()),
+                    ActiveAbilityUseOrigin.Player), "剑胎由原主动入口显锋");
+                await Advance(.25f);
+                Check(!State(sword).IsNull, "真实剑胎状态已生效");
+                paid = spends.Count;
+                var embryo = await Arrive(await StartFlight("SwordEmbryoStrike", "flying_sword_1"));
+                Damage(embryo, .35f, ElementComposition.Static.Iron);
+                await Finish(embryo, paid);
+            }
+
+            if (yin)
+            {
+                var donor = enemy.GetExtend();
+                foreach (var row in new[]
+                         {
+                             (CoreFormationAtoms.ElementYin, "YinDrain", "yin_bolt_0", CoreFormationRealm.Jindan),
+                             (CoreFormationAtoms.TransformMysteriousYin, "MysteriousYinDrain", "yin_bolt", CoreFormationRealm.Yuanying)
+                         })
+                {
+                    var effect = Install(row.Item1, "yin", row.Item4);
+                    donor.AddComponent(new Xian { level = Cultiway.Content.Const.XianLevels.Jindan });
+                    CombatStatusEffects.ApplyStatus(enemy, resources, 10000, enemy);
+                    donor.MarkCultiwayStatsDirty();
+                    enemy.updateStats();
+                    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .6f;
+                    donor.GetCultisys<Xian>().wakan = enemy.stats[BaseStatses.MaxWakan.id] * .6f;
+                    int paid = spends.Count;
+                    balances.Clear();
+                    var drained = await Arrive(await StartFlight(row.Item2, row.Item3));
+                    float expected = Emission(drained).RuntimeData.ResolveEffectScale() * 8f;
+                    var flow = (IEnumerable)service.GetField("yinTransfers", F).GetValue(null);
+                    bool shown = flow.Cast<object>().Any(item => Math.Abs((float)Field(item, "Amount") - expected) < .003f);
+                    Check(balances.Count(item => item.Role == donor && item.Kind == WakanMutationKind.Spend &&
+                            Math.Abs(-item.Amount - expected) < .003f) == 1 &&
+                        balances.Count(item => item.Role == owner && item.Kind == WakanMutationKind.Gain &&
+                            Math.Abs(item.Amount - expected) < .003f) == 1 &&
+                        shown && drained.Damage.SettledCount == 0 &&
+                        !CombatStatusEffects.HasStatus(enemy, StatusEffects.Weaken, source),
+                        row.Item2 + "只移交真实入账的灵气并显示回流，无额外伤害", expected);
+                    await Finish(drained, paid);
+                    for (int i = 0; i < 45 && !SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill); i++)
+                        await Advance(.12f);
+                    donor.E.RemoveComponent<Xian>();
+                    donor.MarkCultiwayStatsDirty();
+                    enemy.updateStats();
+                    balances.Clear();
+                    var fallback = await Arrive(await StartFlight(row.Item2, row.Item3));
+                    Check(CombatStatusEffects.HasStatus(enemy, StatusEffects.Weaken, source) &&
+                        !balances.Any(item => item.Role == donor && item.Kind == WakanMutationKind.Spend) &&
+                        !((IEnumerable)service.GetField("yinTransfers", F).GetValue(null)).Cast<object>().Any(),
+                        row.Item2 + "无灵气只施加衰弱，没有扣费或虚假回流");
+                    Damage(fallback, .25f, new ElementComposition(neg: 1f));
+                    await Finish(fallback, paid);
+                    CombatStatusEffects.RemoveStatus(enemy, StatusEffects.Weaken, source);
+                }
+            }
+            if (caseName != "flight-lost")
+            {
+                Move(enemy, new Vector2(69.5f, 72.5f));
+                Move(outside, new Vector2(91.5f, 72.5f));
+            }
+        }
+        finally
+        {
+            Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
+        }
+    }
+    if (Allowed("counters"))
+    {
+        var fixedAi = new BaseStats();
+        fixedAi.addTag("frozen_ai");
+        var calm = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.FormationDerived.Calm") ??
+            Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.FormationDerived.Calm")
+                .SetStats(fixedAi).SetDuration(10000).Build();
+        CombatStatusEffects.RemoveStatus(enemy, hold);
+        CombatStatusEffects.ApplyStatus(enemy, calm, 10000, enemy);
+        enemy.updateStats();
+        var emissions = new List<SkillEmission>();
+        var originalEmitter = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+        Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        {
+            if (emission.Source == source && chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id))
+                emissions.Add(emission);
+            return originalEmitter(emission);
+        };
+        void Move(Actor actor, float x)
+        {
+            Place(actor, x, 72.5f);
+            ConstructedAbilityService.NotifyActorChanged(actor);
+        }
+
+        try
+        {
+            foreach (var variant in new[] { (CoreFormationAtoms.PathBody, "BodyCounter", CoreFormationRealm.Jindan),
+                         (CoreFormationAtoms.ManifestPrimalBody, "PrimalBodyCounter", CoreFormationRealm.Yuanying) })
+            {
+                var body = Install(variant.Item1, "body", variant.Item3);
+                Move(source, 64.5f);
+                Move(ally, 66.25f);
+                Move(enemy, 66.25f);
+                int allyHealth = ally.data.health, paid = spends.Count;
+
+                if (variant.Item3 == CoreFormationRealm.Jindan)
+                {
+                    Move(enemy, 89f);
+                    for (int i = 0; i < 12; i++) Strike(enemy, source, 140, AttackType.Weapon);
+                    Move(enemy, 66.25f);
+                    for (int i = 0; i < 12; i++) Strike(enemy, source, 140);
+                    await Advance(.16f);
+                    Check(SkillCooldownService.IsReady(owner, body.Definition.CooldownSkill) &&
+                        started.All(row => row.AbilityId != Id(variant.Item2)),
+                        "远处武器及近处非武器受击均不进入反打");
+                }
+
+                async Task Trigger(int expected)
+                {
+                    Check(SkillCooldownService.IsReady(owner, body.Definition.CooldownSkill), "原反打冷却已结束");
+                    Move(enemy, 66.25f);
+                    enemy.restoreHealth(enemy.getMaxHealth());
+                    for (int attempt = 0; attempt < 100 && SkillCooldownService.IsReady(owner, body.Definition.CooldownSkill); attempt++)
+                    {
+                        source.restoreHealth(source.getMaxHealth());
+                        Strike(enemy, source, 290, AttackType.Weapon);
+                    }
+                    Check(!SkillCooldownService.IsReady(owner, body.Definition.CooldownSkill), "真实近战受击触发反打");
+                    await Advance(.24f);
+                    var casts = started.Where(row => row.AbilityId == Id(variant.Item2)).ToArray();
+                    Check(casts.Length == expected && !legacy.Contains(Id(variant.Item2)), "真实近战只启动一次共同反打");
+                    var contact = contacts.Single(row => row.CastId == casts.Last().CastId);
+                    var emission = emissions.Last(step => step.SkillContainer.GetComponent<SkillContainer>().Asset.id == Id(variant.Item2));
+                    Check(contact.TargetId == enemy.id && contact.SourceId == source.id &&
+                        contact.Damage.SettledCount == 1 && contact.Damage.HealthLost > 0 &&
+                        contact.ForceApplied && contact.VelocityChange.x > 0f &&
+                        Math.Abs(contact.VelocityChange.z) < .001f && enemy.current_position.x > 66.28f &&
+                        ally.data.health == allyHealth && spends.Count == paid,
+                        variant.Item2 + "只伤害原攻击者并沿地推离身体",
+                        new { contact.Damage.SettledCount, contact.Damage.HealthLost,
+                            velocity = contact.VelocityChange.ToString(), position = enemy.current_position.ToString() });
+                    var comparison = new Cultiway.Core.EventSystem.Events.GetHitEvent
+                    {
+                        Damage = emission.Strength * emission.RuntimeData.ResolveEffectScale() * .40f, Element = ElementComposition.Static.Earth,
+                        TargetID = enemy.id, AttackType = AttackType.Other, AttackerPowerLevel = emission.PowerLevel,
+                        DamageOrigin = Cultiway.Core.Combat.DamageOrigin.Reaction
+                    };
+                    comparison.BindAttacker(source);
+                    var original = (Cultiway.Core.Combat.DamageSettlement)matrix.Invoke(null, new object[] { comparison });
+                    enemy.restoreHealth(original.HealthLost);
+                    Check(original.HealthLost == contact.Damage.HealthLost, "原土行伤害与实际反打结算一致",
+                        new { original = original.HealthLost, actual = contact.Damage.HealthLost });
+                    if (expected == 1 && variant.Item3 == CoreFormationRealm.Jindan)
+                    {
+                        Move(enemy, 66.25f);
+                        Strike(enemy, source, 290, AttackType.Weapon);
+                        await Advance(.16f);
+                        Check(started.Count(row => row.AbilityId == Id(variant.Item2)) == 1, "原冷却内不重复反打");
+                    }
+                    await Advance(.83f);
+                    Check(endings.Any(row => row.Fact.CastId == contact.CastId && !row.Fact.Cancelled) &&
+                        contacts.Count(row => row.CastId == contact.CastId) == 1,
+                        variant.Item2 + "只结算一次并自然收势");
+                    resultRows.Add(new { id = Id(variant.Item2), contact.CastId, contact.Damage.HealthLost });
+                }
+
+                await Trigger(1);
+                if (variant.Item3 == CoreFormationRealm.Jindan)
+                {
+                    for (int frame = 0; frame < 50 && !SkillCooldownService.IsReady(owner, body.Definition.CooldownSkill); frame++)
+                        await Advance(.12f);
+                    await Trigger(2);
+                    for (int frame = 0; frame < 50 && !SkillCooldownService.IsReady(owner, body.Definition.CooldownSkill); frame++)
+                        await Advance(.12f);
+                }
+            }
+        }
+        finally
+        {
+            Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
+            CombatStatusEffects.RemoveStatus(enemy, calm);
+            CombatStatusEffects.ApplyStatus(enemy, hold, 10000, enemy);
+            enemy.updateStats();
+        }
+    }
+    if (Allowed("blasts") || caseName == "blast-lost")
+    {
+        Place(source, 64.5f, 72.5f);
+        Place(enemy, 69.5f, 72.5f);
+        Place(ally, 70.25f, 72.5f);
+        source.addAggro(enemy);
+        source.addAggro(outside);
+        foreach (Actor actor in new[] { source, enemy, ally, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+        var spreads = new List<ConstructedSpread>();
+        void ObserveSpread(ConstructedSpread fact) { if (fact.OwnerId == source.id) spreads.Add(fact); }
+        ConstructedAbilityService.SpreadConfirmed += ObserveSpread;
+        var reactionDamage = new List<(long Target, ElementComposition Element, float Height)>();
+        var resolvedField = typeof(ActorExtend).GetField("action_on_damage_resolved", F);
+        object priorResolved = resolvedField.GetValue(null);
+        ActorExtend.RegisterActionOnDamageResolved((receiver, attacker, damage, element, _) =>
+        {
+            if (attacker == source && damage > 0f && CombatDamageEffects.IsResolvingReaction)
+                reactionDamage.Add((receiver.Base.id, element, receiver.Base.GetSimPos().z));
+        });
+
+        async Task WaitReady(Cultiway.Content.Libraries.CoreFormationResolvedEffect effect)
+        {
+            for (int frame = 0; frame < 45 && !SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill); frame++)
+                await Advance(.12f);
+        }
+
+        void TriggerFire(Cultiway.Content.Libraries.CoreFormationResolvedEffect effect)
+        {
+            Check(SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill), "火行原冷却已结束");
+            for (int i = 0; i < 100 && SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill); i++)
+                Strike(source, enemy, 145);
+            Check(!SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill), "原攻击触发火行反应");
+        }
+
+        FormVisualInstance[] CircleVisuals()
+        {
+            object frame = service.GetField("presentation", F).GetValue(null);
+            return ((FormVisualInstance[])Field(frame, "Forms"))
+                .Where(form => form.Resource.Description.Id == "contact_volume").ToArray();
+        }
+
+        async Task VerifyBlast(string name, float radius, int elementIndex, bool airborne,
+            int initialOutside, int friendBefore, int paid)
+        {
+            var cast = started.Single(row => row.AbilityId == Id(name));
+            var contact = contacts.Single(row => row.CastId == cast.CastId);
+            var circle = spreads.Single(row => row.CastId == cast.CastId);
+            Check(!legacy.Contains(Id(name)) && contact.TargetId == enemy.id && contact.Damage.SettledCount == 0 &&
+                circle.GroundPlane && Math.Abs(circle.Radius - radius) < .001f &&
+                circle.ContactId == enemy.id && circle.Actors.Contains(enemy.id) &&
+                !circle.Actors.Contains(ally.id) && circle.Buildings.Length == 0,
+                name + "只由原点名接触展开一次，按原投影半径选择敌人",
+                new { circle.Radius, circle.Actors, circle.ContactId });
+            Check(airborne
+                    ? circle.Actors.Contains(outside.id) && outside.data.health < initialOutside &&
+                        reactionDamage.Any(row => row.Target == outside.id && row.Height > 3f && row.Element[elementIndex] == 1f)
+                    : !circle.Actors.Contains(outside.id) && outside.data.health == initialOutside,
+                name + (airborne ? "圈内空中敌人受到原元素伤害" : "贴着圈外的敌人未受伤"),
+                new { initialOutside, outside.data.health, position = outside.GetSimPos().ToString() });
+            var drawn = CircleVisuals().Single(form => Vector2.Distance(form.Transform.GetColumn(3), circle.Center) < .03f);
+            Vector3 scale = drawn.Transform.lossyScale;
+            Check(Math.Abs(scale.x - radius) < .001f && Math.Abs(scale.y - radius) < .001f && scale.z < .25f,
+                name + "实际发布的贴地圆形与作用半径一致",
+                new { scale = scale.ToString(), center = circle.Center.ToString() });
+            Check(ally.data.health == friendBefore && spends.Count == paid &&
+                reactionDamage.Any(row => row.Target == enemy.id && row.Element[elementIndex] == 1f),
+                name + "真实追加采用原元素，友人和灵气支付未被波及");
+            await Advance(.84f);
+            Check(endings.Any(row => row.Fact.CastId == cast.CastId && !row.Fact.Cancelled) &&
+                spreads.Count(row => row.CastId == cast.CastId) == 1 && CircleVisuals().Length == 0,
+                name + "爆发与范围显示自然收束，只分送一次");
+            resultRows.Add(new { id = Id(name), cast = cast.CastId, circle.Radius, circle.Actors });
+        }
+
+        try
+        {
+            var fire = Install(CoreFormationAtoms.ElementFire, "fire", CoreFormationRealm.Jindan);
+            if (caseName == "blast-lost")
+            {
+                CombatStatusEffects.ApplyStatus(enemy, StatusEffects.Burn, 4f, source);
+                TriggerFire(fire);
+                Strike(source, enemy, enemy.getMaxHealth() * 2f);
+                enemy.checkDeath();
+                await Advance(.7f);
+                Check(!enemy.isAlive() && started.All(row => row.AbilityId != Id("FireEmberBurst")) &&
+                    !legacy.Contains(Id("FireEmberBurst")) && spreads.Count == 0 && CircleVisuals().Length == 0,
+                    "原目标在排入后、接触前实际死亡，没有爆发、伤害面或画面");
+            }
+            else
+            {
+                Place(outside, 72.10f, 72.5f);
+                ConstructedAbilityService.NotifyActorChanged(outside);
+                TriggerFire(fire);
+                await Advance(.21f);
+                Check(CombatStatusEffects.HasStatus(enemy, StatusEffects.Burn, source), "首次真实攻击产生自身灼烧");
+                await WaitReady(fire);
+                CombatStatusEffects.ApplyStatus(enemy, StatusEffects.Burn, 4f, ally);
+                reactionDamage.Clear();
+                int outsideHealth = outside.data.health, allyHealth = ally.data.health, paid = spends.Count;
+                TriggerFire(fire);
+                await Advance(.16f);
+                Check(!CombatStatusEffects.HasStatus(enemy, StatusEffects.Burn, source) &&
+                    CombatStatusEffects.HasStatus(enemy, StatusEffects.Burn, ally),
+                    "焚烬只移除原目标身上的同源火印");
+                await VerifyBlast("FireEmberBurst", 2.5f, Cultiway.Const.ElementIndex.Fire, false, outsideHealth, allyHealth, paid);
+
+                var condensed = Install(CoreFormationAtoms.StructureCondensed, "condensed", CoreFormationRealm.Jindan);
+                var draft = new SkillContainerBuilder(SkillEntities.SpiritShield).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+                string signature = SkillContainerSignature.Build(draft);
+                owner.LearnSkillV3(draft);
+                var available = new List<ActiveAbilityHandle>();
+                ActiveAbilityService.Collect(owner, available);
+                var shield = available.Single(handle => handle.ProviderId == "core.learned_skill" &&
+                    SkillContainerSignature.Build(handle.Source) == signature);
+                await WaitReady(condensed);
+                for (int attempt = 0; attempt < 30 && SkillCooldownService.IsReady(owner, condensed.Definition.CooldownSkill); attempt++)
+                {
+                    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .65f;
+                    int before = spends.Count;
+                    Check(ActiveAbilityService.TryUse(owner, shield, new ActiveAbilityTarget(source, source.GetSimPos()),
+                        ActiveAbilityUseOrigin.Player), "凝元蓄势的已学护盾正式受理");
+                    for (int frame = 0; frame < 5 && spends.Count == before; frame++) await Advance(.12f);
+                    Check(spends.Count == before + 1, "蓄势来源法术确实支付一次");
+                }
+                Check(!State(condensed).IsNull && State(condensed).GetComponent<CoreFormationEffectState>().charges == 1,
+                    "真实已付费法术建立一次凝元蓄势");
+                Place(outside, 71.4f, 72.5f);
+                typeof(BaseSimObject).GetField("position_height", F).SetValue(outside, 5f);
+                ConstructedAbilityService.NotifyActorChanged(outside);
+                outsideHealth = outside.data.health;
+                allyHealth = ally.data.health;
+                paid = spends.Count;
+                reactionDamage.Clear();
+                float balance = owner.GetCultisys<Xian>().wakan;
+                Strike(source, enemy, 145);
+                float restored = owner.GetCultisys<Xian>().wakan - balance;
+                Check(State(condensed).IsNull && Math.Abs(restored - condensed.Potency * 8f) < .003f,
+                    "首次实际命中消耗凝元并按原值回气", new { restored, expected = condensed.Potency * 8f });
+                Strike(source, enemy, 145);
+                await Advance(.16f);
+                await VerifyBlast("CondensedRelease", 2f, Cultiway.Const.ElementIndex.Earth, true, outsideHealth, allyHealth, paid);
+                Place(outside, 91.5f, 72.5f);
+            }
+        }
+        finally
+        {
+            ConstructedAbilityService.SpreadConfirmed -= ObserveSpread;
+            resolvedField.SetValue(null, priorResolved);
+        }
+    }
+    if (caseName == "support" || Allowed("life-return") || Allowed("cleanse"))
+    {
+        Place(ally, source.current_position.x, source.current_position.y);
+        ConstructedAbilityService.NotifyActorChanged(ally);
+        CombatStatusEffects.ApplyStatus(ally, StatusEffects.Weaken, 100f, ally);
+        Strike(enemy, ally, ally.getMaxHealth() * .25f);
+        int bystanderHealth = ally.data.health;
+        var actualGains = new List<float>();
+        void Gain(ActorExtend actor, in WakanMutation mutation)
+        {
+            if (actor == owner && mutation.Kind == WakanMutationKind.Gain) actualGains.Add(mutation.Delta);
+        }
+        WakanResourceService.RegisterMutationCommitted(Gain);
+        var emissions = new List<SkillEmission>();
+        var originalEmitter = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+        Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        {
+            if (emission.Source == source && chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id))
+                emissions.Add(emission);
+            return originalEmitter(emission);
+        };
+
+        float EffectScale(string name) => emissions.Single(emission =>
+            emission.SkillContainer.GetComponent<SkillContainer>().Asset.id == Id(name)).RuntimeData.ResolveEffectScale();
+
+        async Task<ConstructedContact> Support(string name, int expected)
+        {
+            var cast = started.Single(row => row.AbilityId == Id(name));
+            var contact = contacts.Single(row => row.CastId == cast.CastId);
+            int restored = contact.TargetHealthAfter.GetValueOrDefault() - contact.TargetHealthBefore;
+            Check(!legacy.Contains(Id(name)) && contact.TargetId == source.id && restored == expected &&
+                contact.Damage.SettledCount == 0 && ally.data.health == bystanderHealth &&
+                CombatStatusEffects.HasStatus(ally, StatusEffects.Weaken, ally), name + "只恢复原人物且按来源倍率",
+                new { restored, expected, contact.TargetId });
+            int spent = spends.Count;
+            await Advance(.89f);
+            Check(endings.Any(row => row.Fact.CastId == cast.CastId && !row.Fact.Cancelled) &&
+                contacts.Count(row => row.CastId == cast.CastId) == 1 && spent == spends.Count,
+                name + "自然收势，未重复恢复或收费");
+            resultRows.Add(new { id = Id(name), contact.CastId, restored });
+            return contact;
+        }
+
+        try
+        {
+            if (caseName == "support" || Allowed("life-return"))
+            {
+                var wood = Install(CoreFormationAtoms.ElementWood, "wood", CoreFormationRealm.Jindan);
+                Strike(enemy, source, source.getMaxHealth() * .30f);
+                int injured = source.data.health;
+                owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .45f;
+                Strike(source, outside, outside.getMaxHealth() * 2f);
+                outside.checkDeath();
+                await Advance(.22f);
+                Check(!outside.isAlive() && source.data.health == injured && started.All(row => row.AbilityId != Id("WoodLifeReturn")),
+                    "实际普通击杀未触发木行回补");
+                for (int i = 0; i < 42 && !SkillCooldownService.IsReady(owner, wood.Definition.CooldownSkill); i++)
+                    await Advance(.12f);
+                for (int i = 0; i < 100 && SkillCooldownService.IsReady(owner, wood.Definition.CooldownSkill); i++)
+                    Strike(source, enemy, 120);
+                await Advance(.22f);
+                Check(CombatStatusEffects.HasStatus(enemy, StatusEffects.Poison, source),
+                    "击杀前目标实际承受本来源木毒");
+                int paid = spends.Count;
+                actualGains.Clear();
+                Strike(source, enemy, enemy.getMaxHealth() * 2f);
+                enemy.checkDeath();
+                await Advance(.27f);
+                Check(!enemy.isAlive(), "木毒目标实际死亡");
+                float scale = EffectScale("WoodLifeReturn");
+                await Support("WoodLifeReturn", Mathf.RoundToInt(source.stats["health"] * .025f * scale));
+                Check(actualGains.Count(amount => Mathf.Abs(amount - 6f * scale) < .002f) == 1 && paid == spends.Count,
+                    "木行回补实际增加一次原灵气量且未支付",
+                    new { expected = 6f * scale, actualGains });
+            }
+
+            if (caseName == "support" || Allowed("cleanse"))
+            {
+                var draft = new SkillContainerBuilder(SkillEntities.SpiritShield).UseAnimation(0)
+                    .Build(SkillContainerBuildMode.RuleOnly);
+                string signature = SkillContainerSignature.Build(draft);
+                owner.LearnSkillV3(draft);
+                var available = new List<ActiveAbilityHandle>();
+                ActiveAbilityService.Collect(owner, available);
+                var shield = available.Single(handle => handle.ProviderId == "core.learned_skill" &&
+                    SkillContainerSignature.Build(handle.Source) == signature);
+                foreach (var row in new[] { (CoreFormationAtoms.ElementYang, "YangCleanse", CoreFormationRealm.Jindan),
+                             (CoreFormationAtoms.TransformPureYang, "PureYangCleanse", CoreFormationRealm.Yuanying) })
+                {
+                    var yang = Install(row.Item1, "yang", row.Item3);
+                    CombatStatusEffects.ApplyStatus(source, StatusEffects.Weaken, 18f, ally);
+                    CombatStatusEffects.ApplyStatus(source, StatusEffects.ArmorBreak, 18f, ally);
+                    Strike(ally, source, source.getMaxHealth() * .30f);
+                    int RemainingNegatives() => new[] { StatusEffects.Weaken, StatusEffects.ArmorBreak }
+                        .Count(effect => CombatStatusEffects.HasStatus(source, effect, ally));
+                    Check(RemainingNegatives() == 2, "原付费施法前确实持有两种负面状态 " + row.Item2);
+                    int beforeSpending = spends.Count, attempts = 0;
+                    for (; attempts < 40 && SkillCooldownService.IsReady(owner, yang.Definition.CooldownSkill); attempts++)
+                    {
+                        owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+                        int paid = spends.Count;
+                        var target = new ActiveAbilityTarget(source, source.GetSimPos());
+                        Check(ActiveAbilityService.TryUse(owner, shield, target, ActiveAbilityUseOrigin.Player),
+                            "正式已学护盾受理 " + row.Item2);
+                        for (int frame = 0; frame < 5 && spends.Count == paid; frame++) await Advance(.12f);
+                        Check(spends.Count == paid + 1, "正式已学护盾真实支付 " + row.Item2);
+                    }
+                    await Advance(.20f);
+                    float maxHealth = source.stats["health"];
+                    float scale = EffectScale(row.Item2);
+                    await Support(row.Item2, Mathf.RoundToInt(Mathf.Min(maxHealth * .075f, maxHealth * .03f * scale)));
+                    Check(RemainingNegatives() == 1 && spends.Count - beforeSpending == attempts,
+                        "仅去除一个负面状态且净化无需再次支付", new { attempts });
+                    CombatStatusEffects.RemoveStatus(source, StatusEffects.Weaken, ally);
+                    CombatStatusEffects.RemoveStatus(source, StatusEffects.ArmorBreak, ally);
+                }
+            }
+        }
+        finally
+        {
+            Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
+        }
+    }
+    return new { passed = true, resultRows, checks };
+}
+finally
+{
+    Config.paused = true;
+    mutationField.SetValue(null, previousMutations);
+    ConstructedAbilityService.CastStarted -= Started;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyStarted;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+}

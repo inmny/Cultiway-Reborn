@@ -34,13 +34,14 @@ public sealed partial class ConstructedAbilityService
         simulation.RefreshTerrainIn(new Rect(foot.x - 4f, foot.y - 4f, 8f, 8f));
     }
 
-    /// <summary>旧风力只有水平速度，交给共同贴地运动才会真正位移。</summary>
+    /// <summary>旧接触只有水平力度，交给共同贴地运动才会真正位移。</summary>
     /// <param name="actor">已经处于原推力范围的真实人物。</param><param name="source">实际归属。</param>
     /// <param name="x">原水平力度。</param><param name="y">原纵向力度。</param>
-    internal static void ApplyLegacyWindSlide(Actor actor, BaseSimObject source, float x, float y)
+    internal static bool ApplyLegacyGroundSlide(Actor actor, BaseSimObject source, float x, float y)
     {
-        if (actor.isImmovable() || !actor.GetExtend().TryGetForce(source, x, y, 0f)) return;
+        if (actor.isImmovable() || !actor.GetExtend().TryGetForce(source, x, y, 0f)) return false;
         Cultiway.Content.Persistence.ActorPositionSaveService.Remember(actor.GetExtend());
         ConstructedActorImpulse.BeginCombat(actor, .4f, simulation.terrain);
+        return true;
     }
 }

@@ -1873,9 +1873,25 @@ private IEnumerator Record(JObject item, string folder)
         artifact.GetComponent<ArtifactStorageState>() = storage;
     }
 
+    var owner = caster.GetExtend();
+    bool formationActive = false;
+    if (id.StartsWith("Cultiway.CoreFormation.Skill."))
+    {
+        var handles = new List<ActiveAbilityHandle>();
+        ActiveAbilityService.Collect(owner, handles);
+        foreach (var handle in handles)
+        {
+            if (handle.ProviderId != "content.core_formation" ||
+                handle.Source.GetComponent<SkillContainer>().SkillEntityAssetID != id) continue;
+            ability = handle;
+            formationActive = true;
+            break;
+        }
+    }
+
     Entity skill = default;
-    bool dedicated = !artifact.IsNull || technique != null || id == "Cultiway.PalmStrike";
-    if (dedicated) skill = technique != null ? ability.Source : default;
+    bool dedicated = !artifact.IsNull || technique != null || id == "Cultiway.PalmStrike" || formationActive;
+    if (dedicated) skill = technique != null || formationActive ? ability.Source : default;
     else if (granted.TryGetValue(asset.id, out Entity original)) skill = original;
     else
     {
@@ -1916,7 +1932,6 @@ private IEnumerator Record(JObject item, string folder)
     }
     if (request["casterPosition"] is JArray)
         ConstructedAbilityService.NotifyActorChanged(caster);
-    var owner = caster.GetExtend();
     owner.GetCultisys<Xian>().wakan = 10000;
     caster.setMana(10000, pClamp: false);
     if (owner.HasCultisys<Knight>()) owner.GetCultisys<Knight>().vigor = caster.stats[BaseStatses.MaxVigor.id];
@@ -2093,7 +2108,7 @@ private IEnumerator Record(JObject item, string folder)
         !ConstructedAbilityService.TryGetBodyPose(caster.id, out _);
     Write(Path.Combine(folder, "result.json"), new
     {
-        passed = (spawned > 0 || dedicated && used) && errors.Count == 0 &&
+        passed = (spawned > 0 || dedicated && !formationActive && used) && errors.Count == 0 &&
                  (!palm || palmCast > 0 && palmHits.Length == 1 && palmDamage.Length == 1 &&
                      (int?)palmDamage[0]["count"] == 1 && (int?)palmDamage[0]["lost"] > 0 && palmReleased) &&
                  ((string)request["scene"] != "shield" || probeUsed && barrierBefore > barrierLowest) &&

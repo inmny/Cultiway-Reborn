@@ -18,8 +18,9 @@ public sealed partial class ConstructedAbilityService
     /// <param name="actor">需要跟随的真实人物，地点为空。</param>
     /// <param name="point">共同地图坐标及离地高度。</param>
     /// <param name="height">人物实际体高，地点为零。</param>
+    /// <param name="explicitReactionTarget">原反应已由事件点名，只校验这一个人物的生命和身份。</param>
     private static bool TryResolveUseTarget(ActorExtend caster, CompiledAbility plan,
-        in ActiveAbilityTarget target, out Actor actor, out Vector3 point, out float height)
+        in ActiveAbilityTarget target, out Actor actor, out Vector3 point, out float height, bool explicitReactionTarget = false)
     {
         actor = null;
         point = target.Position;
@@ -35,7 +36,11 @@ public sealed partial class ConstructedAbilityService
         {
             if (target.Object == null || target.Object.isRekt() || !target.Object.isActor()) return false;
             actor = target.Object.a;
-            if (!MatchesUseActor(caster, plan, actor, target.AttackKingdom)) return false;
+            if (explicitReactionTarget && plan.Impact.SelectedTargetOnly)
+            {
+                if (!actor.isAlive() || !actor.hasHealth()) return false;
+            }
+            else if (!MatchesUseActor(caster, plan, actor, target.AttackKingdom)) return false;
         }
 
         if (actor != null)

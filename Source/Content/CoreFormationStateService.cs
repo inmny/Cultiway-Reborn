@@ -3,6 +3,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -48,15 +49,26 @@ internal static class CoreFormationStateService
         return GetOrCreate(owner, effect, PersistentDuration, false, out state);
     }
 
-    /// <summary>创建或刷新一个主动形成状态，并按需重置机制数据。</summary>
-    internal static Entity Activate(
-        ActorExtend owner,
-        in CoreFormationResolvedEffect effect,
-        float duration,
-        bool reset,
-        out CoreFormationEffectState state)
+    /// <summary>自身法相出手后，按原定义建立状态并准备对应的追击、回响或轮转。</summary>
+    /// <param name="owner">仍具有自身主动能力的修炼者。</param>
+    /// <param name="effect">本次出手时确认的有效效果。</param>
+    internal static void ActivateSelf(ActorExtend owner, in CoreFormationResolvedEffect effect)
     {
-        return GetOrCreate(owner, effect, duration, reset, out state);
+        Entity status = GetOrCreate(owner, effect, effect.Definition.active.duration, true, out var state);
+        if (status.IsNull) return;
+        switch (effect.Definition.family_id)
+        {
+            case CoreFormationEffectFamilies.Sword:
+                SkillCooldownService.Clear(owner, effect.Definition.CooldownSkill);
+                break;
+            case CoreFormationEffectFamilies.Spiritual:
+                state.charges = 4;
+                break;
+            case CoreFormationEffectFamilies.FivePhase:
+                state.auxiliary_timer = 2f;
+                break;
+        }
+        Save(status, state);
     }
 
     /// <summary>把修改后的形成机制数据写回状态实体。</summary>

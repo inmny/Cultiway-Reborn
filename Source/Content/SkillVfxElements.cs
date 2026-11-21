@@ -388,7 +388,7 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
             var distanceFactor = Mathf.Clamp01(1f - length / radius);
             var force = strength * (0.55f + distanceFactor * 0.45f);
             float x = dx / length * force, y = dy / length * force;
-            if (groundMotion) ConstructedAbilityService.ApplyLegacyWindSlide(actor, sourceObj, x, y);
+            if (groundMotion) ConstructedAbilityService.ApplyLegacyGroundSlide(actor, sourceObj, x, y);
             else actor.GetExtend().GetForce(sourceObj, x, y, 0f);
         }
     }

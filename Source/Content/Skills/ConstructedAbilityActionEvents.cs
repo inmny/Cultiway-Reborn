@@ -1,5 +1,6 @@
 using System;
 using Cultiway.Core.Skills;
+using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content.Skills;
 
@@ -52,6 +53,17 @@ public sealed partial class ConstructedAbilityService
         long generation = worldGeneration;
         ConfirmLegacyAreaImpact(running);
         if (generation != worldGeneration) return;
+        if (running.FormationFamily is string family && running.Cast.TryGetActionActivation(0, out _))
+        {
+            running.FormationFamily = null;
+            if (!running.Source.isRekt() && running.Source.id == running.SourceId && running.Source.isAlive())
+            {
+                var owner = running.Source.GetExtend();
+                if (FormationSelfConstruction.TryResolve(owner, family, out var effect))
+                    CoreFormationStateService.ActivateSelf(owner, effect);
+            }
+            if (generation != worldGeneration) return;
+        }
         using var events = new ListPool<AbilityActionEvent>();
         running.Cast.DrainActionEvents(events);
         foreach (AbilityActionEvent fact in events)
