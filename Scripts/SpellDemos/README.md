@@ -2869,3 +2869,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 洞微灵鉴与纳灵宝库（10.06）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_artifact_stat_passives.py` 核对实际属性、运转与卸装、原真元支付后的器身反馈。用 `--section insight|reservoir` 指定能力，或用 `--skip-views` 只检查游戏行为。
+
+### 持续疗伤与灵葫储元（10.06）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_artifact_resource_passives.py` 核对实伤后的真实疗伤费用、生命变化以及原葫芦进出账。用 `--section healing|gourd` 指定能力，或用 `--skip-views` 只检查游戏行为。

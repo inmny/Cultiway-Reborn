@@ -27,6 +27,8 @@ public static class ArtifactVisualChannels
     public const string Cleanse = "cleanse";
     public const string Reflect = "reflect";
     public const string Drain = "drain";
+    public const string Store = "store";
+    public const string Restore = "restore";
 }
 
 /// <summary>

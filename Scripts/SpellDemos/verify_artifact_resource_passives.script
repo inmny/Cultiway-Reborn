@@ -1,0 +1,152 @@
+// 同一修士依次使用原袍、原葫芦，观察正式周期留下的实账。
+PrepareArtifactArena(59, 79, 65, 80);
+Actor actor = Make(69.5f);
+var owner = actor.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 0f });
+owner.SetPowerLevel(4f);
+CombatStatusEffects.ApplyStatus(actor, boost, 10000f, actor);
+owner.MarkCultiwayStatsDirty();
+await Advance(.18f);
+actor.updateStats();
+Place(actor, 69.5f, 72f);
+actor.position_height = 0f;
+World.world.console.Hide();
+WorldTip.hideNow();
+Tooltip.hideTooltipNow();
+
+var entries = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Visuals.ArtifactSpatialVisualRuntime")
+    .GetField("entries", F).GetValue(null);
+IEnumerable<ArtifactAbilityVisualContext> Feedback(Entity item, string channel) => entries.Cast<object>()
+    .Where(value => (double)Field(value, "Closing") < 0d)
+    .Select(value => (ArtifactAbilityVisualContext)Field(value, "Context"))
+    .Where(value => value.artifact == item && value.channel == channel);
+bool Shows(Entity item, string channel) => Feedback(item, channel).Any();
+bool CloseAmount(float a, float b) => Mathf.Abs(a - b) < .016f;
+float CurrentWakan() => owner.GetCultisys<Xian>().wakan;
+void SetBalance(float value) => WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), value);
+void AtFullHealth() => actor.restoreHealth(actor.getMaxHealth());
+
+var mutations = new List<WakanMutation>();
+var eventField = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object oldObserver = eventField.GetValue(null);
+void Committed(ActorExtend participant, in WakanMutation mutation)
+{
+    if (participant == owner) mutations.Add(mutation);
+}
+float UsedWakan() => -mutations.Where(value => value.Kind == WakanMutationKind.Spend).Sum(value => value.Delta);
+
+WakanResourceService.RegisterMutationCommitted(Committed);
+try
+{
+    foreach (bool healing in new[] { true, false })
+    {
+        string key = healing ? "healing" : "gourd";
+        if (section != "all" && section != key) continue;
+        var asset = healing ? ArtifactAbilities.VitalityRenewal : ArtifactAbilities.SpiritGourdReserve;
+        var recipe = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+        {
+            Shape = healing ? ItemShapes.Robe : ItemShapes.Gourd,
+            Atoms = healing ? [ArtifactAtoms.VitalityRobe, ArtifactAtoms.LifePattern, ArtifactAtoms.VoidSilk]
+                : [ArtifactAtoms.SpiritGourd, ArtifactAtoms.WorldWood, ArtifactAtoms.SpiritGatheringPattern],
+            Level = new ItemLevel { Stage = 3, Level = 8 }, Name = asset.GetName() + "复验"
+        }));
+        var abilities = recipe.AbilitySet.abilities.Select(value => value.ability_id).ToArray();
+        Check(abilities.Contains(asset.id), "正式配方得到 " + asset.GetName(), abilities);
+        Entity item = ArtifactBlueprintCodec.Materialize(recipe, actor.getName());
+        owner.AddSpecialItem(item);
+        SetBalance(0f);
+        AtFullHealth();
+        Check(owner.EquipArtifact(item, locked: true,
+            mode: healing ? ArtifactEquipMode.ForcedOperating : ArtifactEquipMode.Standby, priority: 100),
+            "按原状态装备原件");
+        await Advance(.19f);
+        actor.updateStats();
+        var ability = Definition(item, asset.id);
+        var control = owner.E.GetRelation<EquippedArtifactRelation, Entity>(item).state;
+        var execution = new ArtifactAbilityExecutionContext(owner.E, item, control);
+        float maximum = actor.stats[BaseStatses.MaxWakan.id];
+        bool Restoring() => Shows(item, "restore");
+        bool Storing() => Shows(item, "store");
+        if (healing)
+        {
+            Check(ArtifactAbilityLifecycle.MeetsState(control, ArtifactControlState.Operating), "法袍实际处于运转");
+            int full = actor.data.health;
+            CombatDamageEffects.DealDamage(null, actor, 900f, ElementComposition.Static.Iron, true, 4f);
+            await WaitFor(() => actor.data.health < full, .42f);
+            int wounded = actor.data.health;
+            Check(wounded < full, "实际来伤造成生命损失", full - wounded);
+
+            mutations.Clear();
+            await Advance(1.12f);
+            Check(actor.data.health == wounded && UsedWakan() == 0f && !Restoring(),
+                "空真元经过实际周期，既未回血也未出现治疗反馈");
+
+            SetBalance(maximum * .5f);
+            mutations.Clear();
+            float cost = asset.lifecycle.ResolveMaintenanceCost(execution, ability);
+            int gain = Mathf.Max(1, Mathf.RoundToInt(ability.GetNumber("heal_per_tick") * execution.effect_scale));
+            await WaitFor(() => actor.data.health > wounded, 1.20f);
+            await Game.NextFrame();
+            Check(actor.data.health - wounded == gain && CloseAmount(UsedWakan(), cost) && Restoring() &&
+                  mutations.Count(value => value.Kind == WakanMutationKind.Spend) == 1,
+                "同一原袍一次周期付费一次、按原量实际疗伤并出反馈",
+                new { cost, paid = UsedWakan(), expectedHeal = gain, healed = actor.data.health - wounded });
+            if (shots)
+                await CaptureArtifactViews("paid-healing", actor.current_position, 1.8f, Restoring,
+                    nativeZoom: 2.65f, closeSubject: actor);
+            AtFullHealth();
+            mutations.Clear();
+            await Advance(1.08f);
+            Check(UsedWakan() == 0f && !Restoring(), "满血时停止续费和反馈");
+        }
+        else
+        {
+            const string account = ArtifactStorageOperations.Wakan;
+            float Stored() => ArtifactStorageOperations.GetAmount(item.GetComponent<ArtifactStorageState>(), account);
+            Check(control == ArtifactControlState.Ready && Stored() == 0f,
+                "待命原葫芦已接通储元，原件起始为空");
+            SetBalance(maximum * .94f);
+            mutations.Clear();
+            var originalBalance = CurrentWakan();
+            await WaitFor(() => Stored() > .01f, .75f);
+            await Game.NextFrame();
+            float recorded = Stored();
+            float taking = ability.GetNumber("store_per_trigger") * execution.effect_scale;
+            Check(CloseAmount(recorded, taking) && CloseAmount(UsedWakan(), recorded) &&
+                  CloseAmount(originalBalance - CurrentWakan(), recorded) && Storing() && !Restoring() &&
+                  Shows(item, "spirit_gourd_reserve"), "实际进账只扣一次，原件存量和收纳反馈同拍",
+                new { recorded, paid = UsedWakan(), originalBalance, current = CurrentWakan() });
+
+            SetBalance(maximum * .70f);
+            mutations.Clear();
+            await Advance(.64f);
+            Check(CloseAmount(Stored(), recorded) && UsedWakan() == 0f && !Storing() && !Restoring() &&
+                  Shows(item, "spirit_gourd_reserve"), "两阈值之间保持原件存量和静态反馈");
+
+            SetBalance(maximum * .08f);
+            mutations.Clear();
+            float beforeReceive = CurrentWakan();
+            await WaitFor(() => Stored() < recorded - .01f, .75f);
+            await Game.NextFrame();
+            float withdrawn = recorded - Stored();
+            var gains = mutations.Where(value => value.Kind == WakanMutationKind.Gain).Select(value => value.Delta).ToArray();
+            var receipts = Feedback(item, "restore").ToArray();
+            float received = receipts.Sum(value => value.intensity * ability.GetNumber("release_per_tick"));
+            Check(withdrawn > 0f && CloseAmount(withdrawn, received) && gains.Any(value => CloseAmount(value, received)) &&
+                  CloseAmount(CurrentWakan() - beforeReceive, gains.Sum()) && UsedWakan() == 0f &&
+                  receipts.Length == 1 && !Storing(), "实际回注等量扣除原件存量，不重复收费",
+                new { withdrawn, received, gains, remaining = Stored(), beforeReceive, current = CurrentWakan() });
+            if (shots)
+                await CaptureArtifactViews("gourd-actual-return", actor.current_position, 1.8f, Restoring,
+                    nativeZoom: 2.65f, closeSubject: actor);
+            await Advance(.56f);
+            Check(CloseAmount(Stored(), 0f) && !Shows(item, "spirit_gourd_reserve") && !Restoring(),
+                "原件清空后没有持续器身光或重复回注");
+        }
+        Check(owner.UnequipArtifact(item, suppressAutoEquip: true), "卸下同一原件");
+        await Advance(.35f);
+        Check(!Restoring() && !Storing(), "卸装后收放或疗伤反馈均收束");
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { eventField.SetValue(null, oldObserver); }

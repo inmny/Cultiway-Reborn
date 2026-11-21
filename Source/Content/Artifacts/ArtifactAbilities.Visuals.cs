@@ -145,38 +145,20 @@ public partial class ArtifactAbilities
 
     private static void ConfigureVitalityRenewalVisuals()
     {
-        ArtifactCompositeVisualCue healPulse = new(
-            new ArtifactAreaVisualCue
-            {
-                style_key = ArtifactVfxStyles.Healing,
-                anchor = ArtifactVisualAnchorKind.Controller,
-                color_role = ArtifactVisualColorRole.Primary,
-                ResolveRadius = context => 0.85f * ArtifactAbilityVisuals.ResolveActorScale(context),
-                line_alpha = 0.72f,
-                fill_alpha = 0.055f,
-                start_scale = 0.18f,
-                end_scale = 1.12f,
-                fade_out = true,
-                show_inner_ring = false,
-            },
-            new ArtifactLocalVisualCue(ArtifactLocalVisualKind.Root)
-            {
-                anchor = ArtifactVisualAnchorKind.Controller,
-                color_role = ArtifactVisualColorRole.Glow,
-                offset = new Vector3(0f, 0f, 0.12f),
-                scale = 0.065f,
-
-                alpha = 0.62f,
-                loop = false,
-            });
-        VitalityRenewal.Visualize(new ArtifactAbilityVisualProfile
-            {
-                fallback_theme = ArtifactVisualTheme.FromPrimary(SkillVfxElements.Wood.AccentColor),
-            }
+        ArtifactLocalVisualCue healPulse = new(ArtifactLocalVisualKind.Root)
+        {
+            anchor = ArtifactVisualAnchorKind.Controller,
+            color_role = ArtifactVisualColorRole.Primary,
+            offset = new Vector3(0f, 0f, .10f),
+            scale = .092f,
+            alpha = .94f,
+            loop = false,
+        };
+        VitalityRenewal.Visualize(Theme(SkillVfxElements.Wood.AccentColor)
             .Signal(
-                ArtifactVisualChannels.Tick,
+                ArtifactVisualChannels.Restore,
                 healPulse,
-                0.62f,
+                .46f,
                 "artifact.vitality.heal",
                 ArtifactVisualStackPolicy.MergeIntensity));
     }

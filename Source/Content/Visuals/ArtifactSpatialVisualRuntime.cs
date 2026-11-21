@@ -350,8 +350,12 @@ internal static class ArtifactSpatialVisualRuntime
             case ArtifactLocalVisualKind.Shield:
                 SpatialVisualDraw.Mesh(meshes, SpatialVisualGeometry.Arc, point, Quaternion.Euler(70f, age * 50f, age * 30f), Vector3.one * size, color, true); break;
             case ArtifactLocalVisualKind.Root:
+                float growth = Mathf.SmoothStep(.24f, 1f, Mathf.Clamp01(progress * 2.6f));
+                size *= growth * Mathf.Lerp(.5f, 1f, Mathf.Clamp01(context.intensity));
                 for (int i = 0; i < 3; i++)
-                    SpatialVisualDraw.Mesh(meshes, SpatialVisualGeometry.Leaf, point, Quaternion.Euler(i * 25f, 0f, i * 120f), Vector3.one * size, color, false);
+                    SpatialVisualDraw.Mesh(meshes, SpatialVisualGeometry.Leaf, point,
+                        Quaternion.Euler(28f + i * 8f, 0f, i * 120f + growth * 25f), Vector3.one * size, color, false,
+                        additive: false);
                 break;
             case ArtifactLocalVisualKind.Blessing:
                 SpatialVisualDraw.Ring(meshes, point, size, color, Quaternion.identity); break;

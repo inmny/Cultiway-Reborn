@@ -232,7 +232,7 @@ public partial class ArtifactAbilities
     private static void BalanceSpiritGourdReserve(
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry _,
+        ref ArtifactAbilityRuntimeEntry runtime,
         float __)
     {
         ActorExtend controller = context.controller.GetComponent<ActorBinder>().AE;
@@ -246,7 +246,10 @@ public partial class ArtifactAbilities
                 ref storage,
                 ArtifactStorageOperations.Wakan,
                 Mathf.Min(available, ability.GetNumber(StorePerTrigger) * context.effect_scale));
-            WakanResourceService.Spend(controller, ref xian, moved);
+            float spent = WakanResourceService.Spend(controller, ref xian, moved);
+            if (spent > 0f)
+                ArtifactAbilityVisuals.Emit(context, ability, runtime, ArtifactVisualChannels.Store,
+                    intensity: spent / ability.GetNumber(StorePerTrigger));
             return;
         }
 
@@ -260,6 +263,9 @@ public partial class ArtifactAbilities
         {
             ArtifactStorageOperations.Store(ref storage, ArtifactStorageOperations.Wakan, taken - restored);
         }
+        if (restored > 0f)
+            ArtifactAbilityVisuals.Emit(context, ability, runtime, ArtifactVisualChannels.Restore,
+                intensity: restored / ability.GetNumber(ReleasePerTick));
     }
 
     private static void ConfigureFiveEssenceOutpouring()
@@ -430,14 +436,31 @@ public partial class ArtifactAbilities
 
     private static void ConfigureSpiritGourdReserveVisuals()
     {
-        ArtifactGlyphVisualCue reserve = ActivityGlyph(
-            ArtifactVisualAnchorKind.Artifact,
-            context => 0.42f + ResolveStoredRatio(context, ArtifactStorageOperations.Wakan) * 0.28f,
-            ArtifactVisualColorRole.Glow,
-            8,
-            24f,
-            ArtifactVfxStyles.Spirit
-        );
+        ArtifactLocalVisualCue reserve = new(ArtifactLocalVisualKind.GatheredWakan)
+        {
+            anchor = ArtifactVisualAnchorKind.Artifact,
+            offset = new Vector3(0f, 0f, .21f),
+            scale = .058f,
+            alpha = .78f,
+        };
+        ArtifactLocalVisualCue intake = new(ArtifactLocalVisualKind.GatheredWakan)
+        {
+            anchor = ArtifactVisualAnchorKind.Artifact,
+            color_role = ArtifactVisualColorRole.Primary,
+            offset = new Vector3(0f, 0f, .24f),
+            scale = .088f,
+            alpha = .92f,
+            loop = false,
+        };
+        ArtifactLocalVisualCue release = new(ArtifactLocalVisualKind.GatheredWakan)
+        {
+            anchor = ArtifactVisualAnchorKind.Controller,
+            color_role = ArtifactVisualColorRole.Glow,
+            offset = new Vector3(0f, 0f, .05f),
+            scale = .083f,
+            alpha = .86f,
+            loop = false,
+        };
         SpiritGourdReserve.Visualize(
             Theme(SkillVfxElements.Water.AccentColor)
                 .Loop(
@@ -448,18 +471,8 @@ public partial class ArtifactAbilities
                     ArtifactVisualStackPolicy.Strongest,
                     context => ResolveStoredRatio(context, ArtifactStorageOperations.Wakan)
                 )
-                .Signal(
-                    ArtifactVisualChannels.Tick,
-                    Burst(
-                        ArtifactVisualAnchorKind.Artifact,
-                        ArtifactVisualColorRole.Glow,
-                        3,
-                        0.25f
-                    ),
-                    0.25f,
-                    "artifact.spirit_gourd_reserve.tick",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
+                .Signal(ArtifactVisualChannels.Store, intake, .25f)
+                .Signal(ArtifactVisualChannels.Restore, release, .34f)
         );
     }
 }

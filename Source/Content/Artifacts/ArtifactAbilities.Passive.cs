@@ -158,19 +158,18 @@ public partial class ArtifactAbilities
     private static void RestoreControllerHealth(
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry _,
+        ref ArtifactAbilityRuntimeEntry runtime,
         float __)
     {
         Actor actor = context.ResolveCarrierActor();
         if (actor == null || actor.isRekt()) return;
         float amount = ability.GetNumber(HealPerTick) * context.effect_scale;
-        if (actor.GetExtend().HasComponent<YuanshenSoulCarrierState>())
-        {
-            RestoreCarrierHealth(context, amount);
-            return;
-        }
+        if (!actor.GetExtend().HasComponent<YuanshenSoulCarrierState>()) amount = Mathf.Max(1f, amount);
 
-        actor.restoreHealth(Mathf.Max(1, Mathf.RoundToInt(amount)));
+        float restored = RestoreCarrierHealth(context, amount);
+        if (restored > 0f)
+            ArtifactAbilityVisuals.Emit(context, ability, runtime, ArtifactVisualChannels.Restore,
+                intensity: restored / Mathf.Max(1f, amount));
     }
 
     private static bool CanRestoreControllerHealth(
