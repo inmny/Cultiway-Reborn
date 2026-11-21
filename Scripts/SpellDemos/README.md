@@ -2691,3 +2691,13 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 以相同入口加 `--group sustained` 可对照曜阳光、毒潭、火墙与风墙对同一类完工建筑的作用。报告保留单次实际扣血、共同接触的年龄、实扣费用及结束观察。
 
 用 `--group chain` 对照从人物经建筑再跳回人物、点名建筑起跳和拆屋后改选三种实际路径。调试某一段时可用 `--chain-case actor-relay`、`--chain-case building-first` 或 `--chain-case open`。
+
+### 持续领域的受力、液体与地形（10.01）
+
+在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_field_world.py --case legacy`，再用同一入口的 `--case current --baseline <原执行的 result.json>` 对照。可以用 `--spell Tornado` 或 `--spell YinField` 限定样本。报告记录角色的实际位移、行进及接触产生的水滴、改变的地块与结束后的观测。
+
+### 基础法术整项交付（10.01）
+
+在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_base_spell_archive.py --case archive`。退出并重新启动后，用同一入口的 `--case cold --archive <保存输出目录>` 核对全部 127 个旧索引及冻结的学习资料。
+
+用 `python3 Scripts/SpellDemos/build_base_spell_reels.py <分批证据目录> <交付目录>` 合成原版和 Worldfall 录像。脚本按制作清单核对各索引都有已验证的原片，并生成章节及逐索引时间表。
