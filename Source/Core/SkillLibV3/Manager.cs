@@ -553,6 +553,12 @@ public class Manager
             power_level, initial_angle_offset_degrees, attack_kingdom, runtime_data);
     }
 
+    /// <summary>原执行与迁移后的实际地块作用共用本次元素选择。</summary>
+    internal SkillVfxElementAsset ResolveGroundEffectElement(Entity skill, in SkillCastRuntimeData runtime) =>
+        runtime.HasElementOverride && (!skill.TryGetComponent(out Settings.SkillSettings settings) || settings.NatureId == null)
+            ? VfxElementLib.Resolve(runtime.ElementOverride)
+            : skill.GetComponent<SkillContainer>().VfxElement;
+
     private Entity SpawnSkillFromPosition(Entity skill_container, BaseSimObject source,
         BaseSimObject spatial_source, Vector3 source_pos, BaseSimObject target, Vector3 target_pos, float strength,
         float delay, float? power_level, float initial_angle_offset_degrees, Kingdom attack_kingdom,
@@ -606,12 +612,7 @@ public class Manager
             context.RuntimeData = runtime_data;
             ref var skill_entity = ref data.Get<SkillEntity>();
             skill_entity.SkillContainer = skill_container;
-            skill_entity.VfxElement = skill_container.TryGetComponent(out Settings.SkillSettings visualSettings) &&
-                                      visualSettings.NatureId != null
-                ? container.VfxElement
-                : runtime_data.HasElementOverride
-                    ? VfxElementLib.Resolve(runtime_data.ElementOverride)
-                    : container.VfxElement;
+            skill_entity.VfxElement = ResolveGroundEffectElement(skill_container, in runtime_data);
             skill_entity.ColorPalette = container.ColorPalette;
             context.TargetPos = target_pos;
             context.TargetDir = base_dir;

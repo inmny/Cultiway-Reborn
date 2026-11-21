@@ -68,6 +68,9 @@ public sealed partial class ConstructedAbilityService
         /// <param name="other">另一实际控制者。</param>
         internal bool SameKingdom(CastAuthority other) => kingdomId != 0 && kingdomId == other.kingdomId;
 
+        /// <summary>原范围规则使用实际施放阵营，亦处理来源去世或已经交接归属。</summary>
+        internal Kingdom AttackKingdom() => kingdomId == 0 ? null : World.world.kingdoms.getCivOrWildViaID(kingdomId);
+
         /// <summary>保留当前实际控制者与已冻结模板。</summary>
         /// <param name="actor">当前控制者。</param>
         /// <param name="damage">当前伤害归属。</param>

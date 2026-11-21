@@ -79,8 +79,11 @@ internal static partial class ProjectileConstructionMigration
         var target = new ActiveAbilityTarget(definition.Use.Target == ActiveAbilityTargetMode.Point ? null : emission.Target,
             emission.TargetPos, attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData,
             worldScope: emission.RuntimeData.WorldScope);
+        LegacyAreaImpact area = definition.Root.Children?.Any(node => node.Id == "burst") == true
+            ? LegacyAreaImpact.From(in emission, "root/burst") : null;
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
-            emission.SourcePos, emission.Payment, damage, forward, spatialSource: emission.SpatialSource) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+            emission.SourcePos, emission.Payment, damage, forward, spatialSource: emission.SpatialSource, legacyArea: area)
+            ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>先明确是否能够完整转换，再展开运动、尺寸、强度和寿命；不调用旧运行委托。</summary>

@@ -174,6 +174,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 CommitBodyFlights(clock);
                 ConstructedActorImpulse.CommitRadial(clock);
                 if (generation != worldGeneration) yield break;
+                foreach (RunningCast running in active)
+                {
+                    ConfirmLegacyAreaImpact(running);
+                    if (generation != worldGeneration) yield break;
+                }
                 if (hit.HasValue && hit.Value.WorldRecord > 0)
                 {
                     using (var materials = WorldMaterialService.AdvanceTo(clock))

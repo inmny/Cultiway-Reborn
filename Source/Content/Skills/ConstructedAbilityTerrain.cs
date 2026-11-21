@@ -117,11 +117,14 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>实际世界地形改变后，下一次预测前使用新高度；原版零平面不另建数组。</summary>
     /// <param name="tile">已经改变的地块。</param>
-    private void RefreshTerrainAt(WorldTile tile)
+    private void RefreshTerrainAt(WorldTile tile) => RefreshTerrainIn(new Rect(tile.pos.x, tile.pos.y, 1, 1));
+
+    /// <summary>共同地表一次读取实际改动区域，既用于单格，也用于同时改变多格的原范围冲击。</summary>
+    private void RefreshTerrainIn(Rect region)
     {
         if (GroundProvider == null) { CapturePropagationGround(); return; }
         AbilityHeightField prior = terrain;
-        ApplyTerrain(GroundProvider(new Rect(tile.pos.x, tile.pos.y, 1, 1)));
+        ApplyTerrain(GroundProvider(region));
         CapturePropagationGround();
         if (ReferenceEquals(prior, terrain)) return;
         // 人物前后态原来包含旧地面；只替换地面差，保留共同时间内真实运动。
