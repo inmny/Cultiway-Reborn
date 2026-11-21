@@ -6,7 +6,7 @@ try
     var definition = Convert(skill, out _);
     var numeric = new AbilityCast(AbilityCompiler.Compile(definition, cache: false), Matrix4x4.identity,
         inputs: new AbilityInputs(new Vector3(64, 72, .3f), new Vector3(70, 72, .3f), Vector3.right, .8f));
-    numeric.Advance(.01f, new Vector3(70, 72, .3f));
+    numeric.Advance(definition.Root.ActiveFrom + .01f, new Vector3(70, 72, .3f));
     Check(Views(numeric).Count == 1 && Shapes(numeric).Count == 1 && numeric.NodeAge(1) < 0 &&
           Mathf.Abs(Shapes(numeric)[0].Radius - .12f * definition.Root.Scale) < .0001f,
         "分梢只是外观，接触半径保持旧值；无真实接触不提前出现下一段");
@@ -30,15 +30,16 @@ try
     var measured = expected.Concat(new[] { along }).ToArray();
     var health = measured.Select(actor => actor.data.health).ToArray();
     Check(Use(skill), "短链通过正式已学入口受理");
-    await Advance(.07f);
+    await Advance(definition.Root.ActiveFrom + .07f);
     var castIds = starts.Select(fact => fact.CastId).ToArray();
-    var visible = accepted.Select(cast => new { views = Views(cast).Count, shapes = Shapes(cast).Count }).ToArray();
+    var visible = accepted.Select(cast => new { views = Views(cast).Count(view => view.Resource.Description.Id == "thunder_channel"),
+        shapes = Shapes(cast).Count }).ToArray();
     Check(accepted.Count == castIds.Length && castIds.Length == 2 && visible.Any(cast => cast.views == expected.Length) &&
           visible.All(cast => cast.views == cast.shapes && cast.views <= expected.Length),
         "原一次使用仍发两次；有效雷段各有一个接触形状，分梢不另算", new { castIds, visible });
     await FrameAppearance("chain-near", 71, 73, 8);
     await FrameAppearance("chain-far", 71, 73, 22);
-    await Advance(.35f);
+    await Advance(definition.Lifetime + .10f);
     var hits = contacts.Where(c => castIds.Contains(c.CastId)).ToArray();
     var loss = measured.Select((actor, index) => health[index] - actor.data.health).ToArray();
     Check(hits.Length == castIds.Length * expected.Length && hits.GroupBy(c => c.CastId).All(cast =>

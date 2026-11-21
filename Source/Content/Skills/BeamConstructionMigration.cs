@@ -48,11 +48,12 @@ internal static class BeamConstructionMigration
     /// <summary>先核对附加作用，再将实际强度、尺寸、寿命和端点更新展开为可保存资料。</summary>
     /// <param name="emission">原来源的本次发射输入。</param>
     /// <param name="damage">保留原绝对强度及境界的真实伤害。</param>
-    private static AbilityDefinition Convert(SkillEmission emission, out GetHitEvent damage)
+    private static unsafe AbilityDefinition Convert(SkillEmission emission, out GetHitEvent damage)
     {
         damage = default;
         Entity skill = emission.SkillContainer;
         var container = skill.GetComponent<SkillContainer>();
+        if (container.AnimationIndex != 0) return null;
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
         bool follow = trajectory == SkillTrajectories.TrackingBeam.id;
         if (!follow && trajectory != SkillTrajectories.InstantBeam.id) return null;
@@ -77,6 +78,20 @@ internal static class BeamConstructionMigration
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
             container.Asset.ImpactProfile.Lifetime * container.Asset.ImpactTuning.LifetimeMultiplier);
         if (configured && settings.Duration > 0f) lifetime = settings.Duration;
+        var animation = container.Asset.GetAnimation(container.AnimationIndex);
+        float interval = container.MotionProfile.FrameInterval;
+        float appearance = ProjectileConstructionMigration.ClipSeconds(animation.Appearance, interval);
+        float recovery = ProjectileConstructionMigration.ClipSeconds(animation.Dissipation, interval);
+        float activeEnd = appearance + lifetime;
+        if (activeEnd + recovery > 3600f) return null;
+        float repeatInterval = container.Asset.ImpactProfile.RepeatHitInterval;
+        float lastActive = activeEnd;
+        if (repeatInterval > 0f && activeEnd > appearance)
+        {
+            // 周期光束在退出时点已经收势。接触窗口包含末值，故用该时点之前最后一个可表示时间。
+            int bits = *(int*)&activeEnd - 1;
+            lastActive = *(float*)&bits;
+        }
         float scale = emission.RuntimeData.ResolveEffectScale() * SkillEffectRadius.ResolveCasterGrowth(emission.Source.a.GetExtend(), skill);
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
@@ -92,23 +107,38 @@ internal static class BeamConstructionMigration
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin
         };
         damage.BindAttacker(emission.Source);
+        var operations = new List<ConstructionOperation>
+        {
+            new() { Kind = ConstructionOperationKind.Ray,
+                Ray = new ConstructionRay { Length = 10000f, FollowTarget = follow, TurnRate = 0f, FadeOut = recovery } }
+        };
+        if (appearance > 0f) operations.Add(new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = appearance });
         return ContactEffectMigration.Bind(new AbilityDefinition
         {
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(),
-            Lifetime = lifetime, Resource = "none", Cost = 0f, Cooldown = 0f, Power = 1f, TargetRange = 10000f,
+            Lifetime = activeEnd + recovery, Resource = "none", Cost = 0f, Cooldown = 0f, Power = 1f, TargetRange = 10000f,
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat | ActiveAbilityChannel.World,
                 Target = ActiveAbilityTargetMode.ObjectOrPoint },
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Follow = follow },
+            Steps = recovery > 0f ? new[]
+            {
+                new ConstructionStep
+                {
+                    Id = "release",
+                    Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Stop, At = activeEnd },
+                    Inputs = new() { ["part"] = new() { Node = "root" } }
+                }
+            } : Array.Empty<ConstructionStep>(),
             Root = new ConstructionNode
             {
                 Id = "channel", Form = container.Asset == SkillEntities.SolarBeam ? "solar_ray_luminous" : "spirit_ray_luminous",
                 Matter = container.Asset == SkillEntities.SolarBeam ? "yang" : "spirit", State = "energy", Scale = scale,
-                Contact = container.Asset.ImpactProfile.RepeatHitInterval > 0f
-                    ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval, Interval = container.Asset.ImpactProfile.RepeatHitInterval }
+                ActiveFrom = appearance, ActiveUntil = lastActive,
+                Contact = repeatInterval > 0f
+                    ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval, Interval = repeatInterval }
                     : new ConstructionContactPolicy { Mode = ConstructionContactMode.Once },
                 ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
-                Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Ray,
-                    Ray = new ConstructionRay { Length = 10000f, FollowTarget = follow, TurnRate = 0f } } }
+                Operations = operations.ToArray()
             }
         }, skill, emission.RuntimeData.ResolveEffectScale(), contactForceScale: 1f / (container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier), caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
     }

@@ -97,6 +97,9 @@ def main():
         'wind-shield': ('Cultiway.WindShield', 2),
         'lightning-shield': ('Cultiway.LightningShield', 2),
         'yang-shield': ('Cultiway.YangShield', 1),
+        'spirit-beam': ('Cultiway.SpiritBeam', 1),
+        'solar-beam': ('Cultiway.SolarBeam', 1),
+        'chain-lightning': ('Cultiway.ChainLightning', 1),
     }
     batches = {
         'water-family': ('water-arrow', 'water-orb', 'water-blade'),
@@ -112,6 +115,7 @@ def main():
         'solid-walls': ('earth-wall', 'ice-wall', 'wood-wall'),
         'contact-walls': ('fire-wall', 'wind-wall', 'sword-curtain', 'water-curtain'),
         'shields': ('spirit-shield', 'flame-shield', 'wind-shield', 'lightning-shield', 'yang-shield'),
+        'beams-and-chain': ('spirit-beam', 'solar-beam', 'chain-lightning'),
     }
     parser.add_argument('spell', choices=('fireball', 'fire-family', *batches, *projectile_spells))
     parser.add_argument('--variant', type=int, choices=range(18), action='append',
@@ -138,6 +142,8 @@ def main():
                 parser.error('单道墙使用 hit。正式写读档使用 solid-walls 或 contact-walls 批次')
             if args.spell in batches['shields'] and case != 'hit':
                 parser.error('单个护盾使用 hit。正式写读档使用 shields 批次')
+            if args.spell in batches['beams-and-chain'] and case != 'hit':
+                parser.error('单个光束或链雷使用 hit。正式写读档使用 beams-and-chain 批次')
             if case == 'tracking' and args.spell not in ('water-orb', 'wind-bullet', 'thunder-orb', 'wood-spear', 'yin-bolt', 'poison-needle'):
                 parser.error('改轨迹复验使用水球、风弹、雷珠、木枪、阴煞弹或毒针')
             if case == 'landing' and args.spell not in ('thunder-orb', 'lightning-strike', 'falling-rock', 'falling-timber', 'chaos-orb', 'flame-meteor'):

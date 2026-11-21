@@ -2633,3 +2633,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py shields --case archive` 保存八个索引。重启后使用 `shields --case cold --archive <保存输出目录>` 读回，核对每个索引的成形、有效防御、拦截、原价和收势。也可选择单个护盾并指定 `--variant`。
 
 用 `demo_all.py --filter Cultiway.SpiritShield,Cultiway.FlameShield,Cultiway.WindShield,Cultiway.LightningShield,Cultiway.YangShield --variants all --cases base --scene shield --realm 0 --target-offset 7 0 --zoom 17 --duration 3.6 --fps 24 --motion-trace` 录制，分别选择 `--view native` 和 `--view worldfall`。
+
+### 链雷、灵光、曜阳光旧变体（10.01）
+
+用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py beams-and-chain --case archive` 保存三份旧学习资料。重启后使用 `beams-and-chain --case cold --archive <保存输出目录>` 读回并施放。复验核对成形时无伤、真实命中、固定端点退光、链雷首击余光和正常结束。
+
+录像用 `demo_all.py --filter Cultiway.SpiritBeam,Cultiway.SolarBeam,Cultiway.ChainLightning --variants all --cases base --realm 0 --caster-position 64 72 --target-offset 5 0 --zoom 16.5 --duration 1.45 --fps 30 --motion-trace`，分别选择 `--view native` 和 `--view worldfall`。

@@ -42,7 +42,10 @@ var catalog = new[]
     (Asset: SkillEntities.FlameShield, Form: "flame_aegis", Count: 2),
     (Asset: SkillEntities.WindShield, Form: "wind_aegis", Count: 2),
     (Asset: SkillEntities.LightningShield, Form: "lightning_aegis", Count: 2),
-    (Asset: SkillEntities.YangShield, Form: "solar_aegis", Count: 1)
+    (Asset: SkillEntities.YangShield, Form: "solar_aegis", Count: 1),
+    (Asset: SkillEntities.SpiritBeam, Form: "spirit_ray_luminous", Count: 1),
+    (Asset: SkillEntities.SolarBeam, Form: "solar_ray_luminous", Count: 1),
+    (Asset: SkillEntities.ChainLightning, Form: "thunder_channel", Count: 1)
 }.Where(entry => chosenAssets.Contains(entry.Asset.id)).ToArray();
 
 bool CanTestTracking(SkillEntityAsset asset) => asset == SkillEntities.WaterOrb || asset == SkillEntities.WindBullet ||
@@ -511,8 +514,116 @@ async Task PlayShield(SkillEntityAsset asset, string form, int index)
     }
 }
 
+async Task PlayLegacyChannel(SkillEntityAsset asset, string form, int index)
+{
+    bool chain = asset == SkillEntities.ChainLightning, solar = asset == SkillEntities.SolarBeam;
+    var skill = cold ? Learned().Single(item => item.GetComponent<SkillContainer>().Asset == asset) : Learn(asset, index, false);
+    var container = skill.GetComponent<SkillContainer>();
+    var animation = asset.GetAnimation(index);
+    float appearance = Seconds(animation.Appearance, container.MotionProfile.FrameInterval);
+    float recovery = Seconds(animation.Dissipation, container.MotionProfile.FrameInterval);
+    float activeEnd = appearance + (chain ? .14f : asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier);
+
+    Actor[] chainTargets = Array.Empty<Actor>();
+    Actor extra = null, along = null;
+    Ready(source);
+    Place(source, 64);
+    Place(target, 70);
+    Place(second, chain ? 72.4f : 67f);
+    Place(outside, 67, 81);
+    var placed = new List<Actor> { source, target, second, outside };
+    if (chain)
+    {
+        Actor third = Make(74), fourth = Make(77);
+        extra = Make(79); along = Make(66);
+        Place(third, 74.7f, 74); Place(fourth, 77, 74); Place(extra, 78.8f, 76); Place(along, 66);
+        chainTargets = new[] { target, second, third, fourth };
+        placed.AddRange(new[] { third, fourth, extra, along });
+        foreach (Actor actor in placed.Skip(1)) actor.setKingdom(enemyKingdom);
+    }
+    foreach (Actor actor in placed) ConstructedAbilityService.NotifyActorChanged(actor);
+    var healthBefore = placed.ToDictionary(actor => actor.id, actor => actor.data.health);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float before = owner.GetCultisys<Xian>().wakan;
+    double price = SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    int previous = casts.Count;
+    Vector3 point = target.GetSimPos();
+    var converter = service.Assembly.GetType("Cultiway.Content.Skills." +
+        (chain ? "ChainConstructionMigration" : "BeamConstructionMigration")).GetMethod("Convert", F);
+    object[] inputs = { new SkillEmission { SkillContainer = skill, Source = source, SpatialSource = source,
+        Target = target, SourcePos = source.GetSimPos(), TargetPos = point, Strength = 100f },
+        default(Cultiway.Core.EventSystem.Events.GetHitEvent) };
+    AbilityCompiler.Compile((AbilityDefinition)converter.Invoke(null, inputs), cache: false);
+    Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(target, point, selectionArea: new SkillTargetSelectionArea(true, point, .1f)),
+        ActiveAbilityUseOrigin.Player), "原光束或链雷的已学入口受理", form);
+    source.attack_timer = 999;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    await Advance(.075f);
+
+    var live = casts.Skip(previous).First();
+    var cast = live.Value;
+    Check(oldExecutions == 0 && cast.Age < appearance && ShapeCount(cast) == 0 &&
+          Views(cast).Any(view => view.Resource.Description.Id == form) &&
+          placed.All(actor => actor.data.health == healthBefore[actor.id]),
+        "旧成形时有实际画面且没有接触或伤害", new { form, cast.Age, appearance });
+
+    await Stage(cast, activeEnd + .035f);
+    if (chain)
+    {
+        var residue = Views(cast).Single(view => view.Resource.Description.Id == "lightning_contact");
+        Vector3 centre = residue.Transform.GetColumn(3);
+        Check(Vector2.Distance(centre, target.current_position) < .40f && ShapeCount(cast) == 0,
+            "链雷收势在实际首个接触位置，无残留作用", new { actual = centre.ToString(), target = target.current_position.ToString() });
+    }
+    else
+    {
+        var release = Views(cast).Single();
+        Check(ShapeCount(cast) == 0 && release.Dye is Color fade && fade.a > 0f && fade.a < 1f,
+            "光束收势已退出作用且逐渐退光", new { form, cast.Age, opacity = release.Dye?.a });
+        Place(source, 65, 71);
+        Place(target, 70, 73);
+        ConstructedAbilityService.NotifyActorChanged(source);
+        ConstructedAbilityService.NotifyActorChanged(target);
+        await Stage(cast, activeEnd + recovery * .7f);
+        var later = Views(cast).Single();
+        Check(release.Transform == later.Transform && release.Skin.SequenceEqual(later.Skin) &&
+              later.Dye?.a < release.Dye?.a && ShapeCount(cast) == 0,
+            "移动双方时退光仍固定在真实端点", new { form, first = release.Dye?.a, last = later.Dye?.a });
+    }
+
+    await Advance(.45f);
+    var executions = casts.Skip(previous).ToArray();
+    foreach (var execution in executions)
+    {
+        var hits = contacts.Where(hit => hit.CastId == execution.Key).ToArray();
+        bool correct = chain
+            ? hits.Select(hit => hit.TargetId).SequenceEqual(chainTargets.Select(actor => actor.id))
+            : hits.Select(hit => hit.TargetId).Distinct().OrderBy(id => id).SequenceEqual(new[] { target.id, second.id }.OrderBy(id => id)) &&
+              hits.GroupBy(hit => hit.TargetId).All(group => group.Count() == (solar ? 5 : 1) &&
+                  group.Zip(group.Skip(1), (first, next) => next.Age - first.Age).All(gap => Math.Abs(gap - .12f) < .012f));
+        Check(correct && hits.All(hit => hit.Age >= appearance - .001f && hit.Age <= activeEnd + .001f && hit.Damage.HealthLost > 0) &&
+              outside.data.health == healthBefore[outside.id] && (!chain ||
+                  extra.data.health == healthBefore[extra.id] && along.data.health == healthBefore[along.id]),
+            "实际对象、次数、原间隔及范围外安全", new { form, hits = hits.Select(hit => new { hit.TargetId, hit.Age, hit.Damage.HealthLost }).ToArray() });
+        Check(execution.Value.Finished && Views(execution.Value).Length == 0 && ShapeCount(execution.Value) == 0 &&
+              endings.Any(end => end.Fact.CastId == execution.Key && !end.Fact.Cancelled),
+            "原渠道正常结束并清空画面和作用", form);
+    }
+    Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - price * executions.Length) < .001f,
+        "每次实际发射只扣原价", new { form, price, count = executions.Length });
+    recordings.Add(new { asset = asset.id, index, form, appearance, activeEnd, recovery, price, emissions = executions.Length });
+}
+
 async Task Play(SkillEntityAsset asset, string form, int index)
 {
+    if (asset == SkillEntities.SpiritBeam || asset == SkillEntities.SolarBeam || asset == SkillEntities.ChainLightning)
+    {
+        await PlayLegacyChannel(asset, form, index);
+        return;
+    }
     if (asset == SkillEntities.GroundSpike)
     {
         await PlaySpike(asset, form, index);

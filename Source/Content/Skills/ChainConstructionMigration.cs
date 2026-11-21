@@ -53,6 +53,7 @@ internal static class ChainConstructionMigration
         damage = default;
         Entity skill = emission.SkillContainer;
         var container = skill.GetComponent<SkillContainer>();
+        if (container.AnimationIndex != 0) return null;
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
         if (trajectory != SkillTrajectories.ChainTargets.id) return null;
         var callbacks = new List<Delegate>();
@@ -74,6 +75,9 @@ internal static class ChainConstructionMigration
         // 原连锁命中立即结束旧实体，连接只显示0.14秒；显式持续时间仍采用已保存设置。
         float setupScale = ContactEffectMigration.SetupStrengthScale(skill, out _, out _);
         float lifetime = configured && settings.Duration > 0f ? settings.Duration : .14f;
+        var animation = container.Asset.GetAnimation(container.AnimationIndex);
+        float interval = container.MotionProfile.FrameInterval;
+        float appearance = ProjectileConstructionMigration.ClipSeconds(animation.Appearance, interval);
         float scale = emission.RuntimeData.ResolveEffectScale() * SkillEffectRadius.ResolveCasterGrowth(emission.Source.a.GetExtend(), skill);
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
@@ -92,6 +96,8 @@ internal static class ChainConstructionMigration
         var profile = container.Asset.ImpactProfile;
         float radius = SkillEffectRadius.ResolveForCaster(emission.Source.a.GetExtend(), skill, profile.JumpRadius) * emission.RuntimeData.ResolveEffectScale();
         bool enabled = !configured || settings.ContactEnabled;
+        float recovery = enabled ? ProjectileConstructionMigration.ClipSeconds(animation.Dissipation, interval) : 0f;
+        if (appearance + lifetime + recovery > 3600f) return null;
         ConstructionNode root = null, previous = null;
         for (int i = 0; i < (enabled ? profile.MaxTargets : 1); i++)
         {
@@ -99,7 +105,9 @@ internal static class ChainConstructionMigration
             {
                 Id = "link" + i, Form = "thunder_channel", Matter = "lightning", State = "energy", Scale = scale,
                 ContactGroup = "chain", ContactRole = enabled ? ConstructionContactRole.Attack : ConstructionContactRole.Decoration,
-                Impact = new ConstructionImpact { SelectedTargetOnly = emission.Target?.isActor() == true || i > 0 },
+                ActiveFrom = i == 0 ? appearance : 0f,
+                DisappearAt = i == 0 ? appearance + lifetime : lifetime,
+                Impact = enabled ? new ConstructionImpact { SelectedTargetOnly = emission.Target?.isActor() == true || i > 0 } : null,
                 Activation = i == 0 ? null : new ConstructionActivation
                 {
                     Target = new ConstructionContactTarget { Radius = radius, ForceMultiplier = profile.JumpDamageFalloff }
@@ -111,10 +119,31 @@ internal static class ChainConstructionMigration
             else root = part;
             previous = part;
         }
+        if (appearance > 0f)
+            root.Operations = new[] { root.Operations[0],
+                new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = appearance } };
+        if (recovery > 0f)
+        {
+            var release = new ConstructionNode
+            {
+                Id = "release", Form = "lightning_contact", Matter = "lightning", State = "energy",
+                Scale = scale, Volume = 0f, DisappearAt = recovery, ContactRole = ConstructionContactRole.Decoration,
+                Activation = new ConstructionActivation
+                {
+                    Trigger = ConstructionChangeTrigger.ActorContact, Placement = ConstructionEventPlacement.Event
+                },
+                Operations = new[] { new ConstructionOperation
+                {
+                    Kind = ConstructionOperationKind.Animate, Clip = "release", Seconds = recovery
+                } }
+            };
+            var branches = root.Children ?? Array.Empty<ConstructionNode>();
+            root.Children = new List<ConstructionNode>(branches) { release }.ToArray();
+        }
         return ContactEffectMigration.Bind(new AbilityDefinition
         {
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(),
-            Lifetime = lifetime, Resource = "none", Cost = 0f, Cooldown = 0f, Power = 1f, TargetRange = 10000f,
+            Lifetime = appearance + lifetime + recovery, Resource = "none", Cost = 0f, Cooldown = 0f, Power = 1f, TargetRange = 10000f,
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat | ActiveAbilityChannel.World,
                 Target = ActiveAbilityTargetMode.ObjectOrPoint },
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Follow = false }, Root = root
