@@ -2,7 +2,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Semantics;
-using Cultiway.Core;
+using Cultiway.Content.Skills;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -88,6 +88,7 @@ public partial class ArtifactAbilities
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = SkillCastResources.Wakan,
             OnTick = ApplySuppressionField,
+            OnActivityEnded = EndArtifactConstruction,
         });
         SuppressionField.Activate(new ArtifactActiveAbilityProfile
         {
@@ -155,16 +156,15 @@ public partial class ArtifactAbilities
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry _,
-        float __)
+        float interval)
     {
-        Actor controller = context.controller.GetComponent<ActorBinder>().Actor;
         ArtifactDeployment deployment = context.artifact.GetComponent<ArtifactDeployment>();
         Vector2 position = ArtifactManifestationTools.ResolveWorldAnchor(
             context.artifact,
             deployment.ResolveBodyAnchor());
         float radius = ability.GetNumber(FieldRadius);
         float statusDuration = ability.GetNumber(StatusDuration);
-        CombatTargeting.ForEachHostile(controller, position, radius, target =>
+        var contact = new ArtifactAreaContact((source, target) =>
         {
             CombatStatusEffects.ApplyStatus(
                 target,
@@ -172,14 +172,17 @@ public partial class ArtifactAbilities
                 statusDuration,
                 S.multiplier_speed,
                 -0.45f,
-                controller);
+                source);
             CombatStatusEffects.ApplyStatus(
                 target,
                 StatusEffects.Weaken,
                 statusDuration,
                 S.multiplier_damage,
                 -0.12f,
-                controller);
+                source);
         });
+        var aim = new ActiveAbilityTarget(null, position);
+        ArtifactAreaConstruction.Start(context, SuppressionField, aim, ActiveAbilityUseOrigin.Reaction, position,
+            radius, interval - .01f, contact, "suppression_field", default, strike: .025f);
     }
 }

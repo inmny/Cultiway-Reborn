@@ -2831,3 +2831,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 遁形天衣（10.05）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_robe_concealment.py` 复验正式穿戴、付费、移速、实际来伤减少和造成伤害破隐。随后由原件冷却后再用，核对停费收束。加 `--skip-views` 可跳过同一时刻的双视角截图。
+
+### 镇压法域（10.05）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_suppression_field.py` 复验法剑的实际剑尖、圈内外减速与弱化、费用以及停费归还。用 `--skip-views` 只查行为，用 `--views-only` 补拍石面与作用边界。

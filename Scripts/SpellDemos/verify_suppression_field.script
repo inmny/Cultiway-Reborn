@@ -1,0 +1,140 @@
+// 用实际剑尖部署，验证原启动、圈内作用及停止维持。
+Vector3 center = new Vector3(68.25f, 72f);
+PrepareArtifactArena(53, 85, 61, 83);
+Actor source = Make(64.35f), near = Make(70f, "wolf"), far = Make(76f, "wolf");
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 1200f });
+owner.SetPowerLevel(4f);
+await Setup(source, near);
+CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+source.updateStats();
+source.addAggro(far);
+far.addAggro(source);
+
+var asset = ArtifactAbilities.SuppressionField;
+var blueprint = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Sword,
+    Atoms = new[] { ArtifactAtoms.SwordBreaker, ArtifactAtoms.EarthCore,
+        ArtifactAtoms.VoidStone, ArtifactAtoms.LayeredRealmMark },
+    Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "镇压法域实测"
+}));
+Check(blueprint.AbilitySet.abilities.Any(row => row.ability_id == asset.id), "正式炼制获得原镇压法域",
+    blueprint.AbilitySet.abilities.Select(row => row.ability_id).ToArray());
+Entity sword = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+owner.AddSpecialItem(sword);
+Check(owner.EquipArtifact(sword, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "正式装备原法剑");
+ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+lifecycle.Invoke(null, new object[] { sword });
+await Game.NextFrame();
+await Game.NextFrame();
+
+var ability = Definition(sword, asset.id);
+var state = owner.E.GetRelation<EquippedArtifactRelation, Entity>(sword).state;
+var execution = new ArtifactAbilityExecutionContext(owner.E, sword, state);
+float multiplier = state == ArtifactControlState.Overloaded ? asset.lifecycle.overload_resource_multiplier : 1f;
+float cost = asset.lifecycle.ResolveActivationCost(execution, ability) * multiplier;
+float upkeep = asset.lifecycle.ResolveMaintenanceCost(execution, ability) * multiplier;
+float radius = ability.GetNumber("field_radius");
+const string form = "suppression_field";
+var starts = new List<ConstructedCastStarted>();
+var fieldHits = new List<ConstructedContact>();
+var fees = new List<float>();
+var payment = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = payment.GetValue(null);
+bool Shows() => FormVisualScene.Instances.Any(view => view.Resource.Description.Id == form);
+FormVisualInstance Form() => FormVisualScene.Instances.Single(view => view.Resource.Description.Id == form);
+bool Has(Actor actor, Cultiway.Core.Libraries.StatusEffectAsset status) => CombatStatusEffects.HasStatus(actor, status, source);
+Vector3 Tip() => ArtifactManifestationTools.ResolveWorldAnchor(sword, ArtifactBodyAnchorKind.ForwardTip);
+bool Activate(Vector3 point)
+{
+    source.attack_timer = 0f;
+    bool accepted = ActiveAbilityService.TryUse(owner, ArtifactHandle(sword, asset.id),
+        new ActiveAbilityTarget(null, point), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999f;
+    return accepted;
+}
+void Started(ConstructedCastStarted cast)
+{
+    if (cast.SourceId == source.id && cast.AbilityId == asset.id) starts.Add(cast);
+}
+void Contact(ConstructedContact hit)
+{
+    if (hit.SourceId == source.id && hit.AbilityId == asset.id) fieldHits.Add(hit);
+}
+void Paid(ActorExtend actor, in WakanMutation change)
+{
+    if (actor == owner && change.Kind == WakanMutationKind.Spend) fees.Add(-change.Delta);
+}
+
+WakanResourceService.RegisterMutationCommitted(Paid);
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+bool naturalRestore = Cultiway.Const.GeneralSettings.EnableNaturalWakanRestore;
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    Cultiway.Const.GeneralSettings.SwitchNaturalWakanRestore(false);
+    owner.GetCultisys<Xian>().wakan = 1200f;
+    Place(near, center.x + radius - .22f, center.y);
+    Place(far, center.x + radius + .20f, center.y);
+    int health = near.data.health, farHealth = far.data.health;
+    float previousSpeed = near.stats[strings.S.speed], previousDamage = near.stats[strings.S.damage];
+    Vector3 outOfRange = source.GetSimPos() + Vector3.left * (ability.GetNumber("attack_range") + 5f);
+    if (!viewsOnly)
+        Check(!Activate(outOfRange) && fees.Count == 0 && !sword.HasComponent<ArtifactDeployment>(),
+            "超出原施展距离拒绝，未收费");
+    Check(Activate(center) && fees.Count == 1 && Mathf.Abs(fees[0] - cost) < .003f && starts.Count == 0,
+        "正式部署只收一次原启动费", new { cost, paid = fees.LastOrDefault() });
+    await WaitFor(() => fieldHits.Count > 0, .85f);
+    await Game.NextFrame();
+    Check(sword.HasComponent<ArtifactDeployment>() && sword.GetComponent<ArtifactDeployment>().body_anchor ==
+        ArtifactBodyAnchorKind.ForwardTip && Mathf.Abs(Mathf.DeltaAngle(sword.GetComponent<Rotation>().z, 180f)) < .01f &&
+        Vector2.Distance(Tip(), center) < .02f,
+        "倒置的原法剑以剑尖贴合选点", new { x = Tip().x, y = Tip().y, angle = sword.GetComponent<Rotation>().z });
+    near.updateStats();
+    if (!viewsOnly)
+        Check(starts.Count == 1 && fees.Count == 2 && Mathf.Abs(fees[1] - upkeep) < .003f &&
+              fieldHits.Count == 1 && fieldHits[0].TargetId == near.id && fieldHits[0].CastId == starts[0].CastId &&
+              Has(near, StatusEffects.Slow) && Has(near, StatusEffects.Weaken) &&
+              !Has(far, StatusEffects.Slow) && !Has(far, StatusEffects.Weaken) &&
+              near.stats[strings.S.speed] < previousSpeed && near.stats[strings.S.damage] < previousDamage &&
+              health == near.data.health && farHealth == far.data.health,
+            "同一轮实际减速和弱化只影响圈内敌人，沿用原维持费",
+            new { upkeep, paid = fees.LastOrDefault(), previousSpeed, speed = near.stats[strings.S.speed],
+                  previousDamage, damage = near.stats[strings.S.damage] });
+    var pose = Form();
+    float extent = pose.Resource.Description.Contacts.Single().Sector.Radius *
+        pose.Transform.MultiplyVector(Vector3.right).magnitude;
+    Check(Vector2.Distance(Tip(), (Vector3)pose.Transform.GetColumn(3)) < .02f && Mathf.Abs(extent - radius) < .025f,
+        "镇压石面以实剑为中心，外沿与作用半径一致", new { extent, radius });
+    if (shots)
+    {
+        ControllableUnit.clear(false);
+        MoveCamera.clearFocusUnitOnly();
+        await Game.NextFrame();
+        await CaptureArtifactViews("suppression", center, radius + 2f,
+            () => Shows() && Vector2.Distance(Tip(), (Vector3)Form().Transform.GetColumn(3)) < .02f,
+            nativeZoom: radius + 1.4f);
+    }
+    if (viewsOnly) return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    owner.GetCultisys<Xian>().wakan = 0f;
+    await Advance(.66f);
+    Check(fees.Count == 2 && starts.Count == 1 && fieldHits.Count == 1 && !Shows() &&
+          !sword.HasComponent<ArtifactDeployment>() && owner.GetItems().Contains(sword) &&
+          owner.GetEquippedArtifacts().Contains(sword), "停费后作用及地面形体结束，原剑归还");
+    await Advance(ability.GetNumber("status_duration") + .12f);
+    near.updateStats();
+    Check(!Has(near, StatusEffects.Slow) && !Has(near, StatusEffects.Weaken), "原状态按时解除");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    payment.SetValue(null, previous);
+    Cultiway.Const.GeneralSettings.SwitchNaturalWakanRestore(naturalRestore);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+}

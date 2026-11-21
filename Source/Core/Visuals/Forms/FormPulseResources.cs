@@ -32,6 +32,9 @@ internal sealed partial class FormResourceGeneration
         CreatePulseForm("pearl_phase", "pearl_phase", .24f, 5,
             [new(.04f, .39f), new(.26f, .442f), new(.52f, .393f), new(.69f, .29f),
                 new(.85f, .183f), new(.96f, .082f), new(1f, .033f), new(.97f, .011f), new(.04f, .008f)]);
+        CreateRadialPanels("suppression_field", 8, Vector3.forward * .095f,
+            [new(-.17f, .46f, .23f), new(-.23f, .77f, .39f), new(0f, 1f, .17f),
+                new(.23f, .77f, .39f), new(.17f, .46f, .23f)]);
         CreatePulseForm("ding_fire_rim", "ding_fire_rim", .58f, 8,
             [new(.51f, .023f), new(.59f, .053f), new(.64f, .142f), new(.70f, .064f),
                 new(.82f, .226f), new(.88f, .127f), new(.94f, .081f), new(1f, .035f),

@@ -767,6 +767,7 @@ internal sealed partial class FormResourceGeneration
             "spirit_gate_edging" => (2f, new Color(.93f, .68f, .37f), .3f),
             "spirit_gate_veil" => (14f, new Color(.66f, .45f, 1f, .38f), .42f),
             "pearl_phase" => (4f, new Color(.53f, .78f, .86f, .46f), .23f),
+            "suppression_field" => (2f, new Color(.66f, .58f, .81f, .86f), .38f),
             "ding_fire_rim" => (6f, new Color(.94f, .27f, .028f, .75f), .43f),
             "ding_devouring_funnels" => (10f, new Color(.38f, .79f, .68f, .84f), .28f),
             "tower_prison" => (2f, new Color(.37f, .44f, .62f, .88f), .55f),

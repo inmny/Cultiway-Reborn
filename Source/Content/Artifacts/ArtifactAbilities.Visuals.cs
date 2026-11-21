@@ -19,7 +19,6 @@ public partial class ArtifactAbilities
         ConfigureMirrorInsightVisuals();
         ConfigureVitalityRenewalVisuals();
         ConfigureSpiritReservoirVisuals();
-        ConfigureSuppressionFieldVisuals();
         ConfigureShapeAbilityVisuals();
         ConfigureVehicleAbilityVisuals();
         ConfigureArtifactSpiritAbilityVisuals();
@@ -245,60 +244,6 @@ public partial class ArtifactAbilities
                 "artifact.spirit_reservoir",
                 ArtifactVisualStackPolicy.MergeIntensity,
                 ResolveSpiritReservoirVisualIntensity));
-    }
-
-    private static void ConfigureSuppressionFieldVisuals()
-    {
-        ArtifactAreaVisualCue field = FieldArea(0.52f, 0.065f, ArtifactVfxStyles.Suppression);
-        field.pulse_amplitude = 0.025f;
-        field.pulse_speed = 2.8f;
-        field.inner_rotation_speed = -12f;
-
-        ArtifactAreaVisualCue deploy = FieldArea(0.72f, 0.08f, ArtifactVfxStyles.Suppression);
-        deploy.start_scale = 0.15f;
-        deploy.end_scale = 1f;
-
-        ArtifactAreaVisualCue pulse = FieldArea(0.66f, 0.025f, ArtifactVfxStyles.Suppression);
-        pulse.start_scale = 0.62f;
-        pulse.end_scale = 1f;
-        pulse.fade_out = true;
-
-        ArtifactAreaVisualCue collapse = FieldArea(0.78f, 0.07f, ArtifactVfxStyles.Suppression);
-        collapse.anchor = ArtifactVisualAnchorKind.Point;
-        collapse.start_scale = 1f;
-        collapse.end_scale = 0.12f;
-        collapse.fade_out = true;
-
-        SuppressionField.Visualize(new ArtifactAbilityVisualProfile
-            {
-                fallback_theme = ArtifactVisualTheme.FromPrimary(SkillVfxElements.Gravity.AccentColor),
-            }
-            .Loop(
-                "suppression_field",
-                field,
-                context => context.runtime.activity_kind == ArtifactAbilityActivityKind.Deployment)
-            .Signal(ArtifactVisualChannels.Trigger, deploy, 0.42f)
-            .Signal(
-                ArtifactVisualChannels.Tick,
-                pulse,
-                0.45f)
-            .Signal(ArtifactVisualChannels.End, collapse, 0.5f));
-    }
-
-    private static ArtifactAreaVisualCue FieldArea(float lineAlpha, float fillAlpha, string styleKey)
-    {
-        return new ArtifactAreaVisualCue
-        {
-            style_key = styleKey,
-            anchor = ArtifactVisualAnchorKind.DeploymentOrigin,
-            color_role = ArtifactVisualColorRole.Primary,
-            ResolveRadius = context => context.ability.GetNumber(FieldRadius),
-            line_alpha = lineAlpha,
-            fill_alpha = fillAlpha,
-            line_width = 0.09f,
-            inner_radius_ratio = 0.7f,
-            show_inner_ring = true,
-        };
     }
 
     private static ArtifactLocalVisualCue Sparkle(
