@@ -424,6 +424,7 @@ internal sealed class CompiledForm
 
     /// <summary>按人物地图位置结算的圆形半径，零表示仍按实体接触。</summary>
     internal float GroundCircleRadius;
+    internal bool GroundActorsOnly;
 
     /// <summary>经过检查的实际景物带及实体回合边。</summary>
     internal CompiledLandscapeSlice LandscapeSlice;
@@ -546,6 +547,7 @@ internal sealed class CompiledForm
 
     /// <summary>本部位的作用及结束依赖实际身体过程。</summary>
     internal bool BodyWindow;
+    internal bool BorrowedWeaponDamage;
 
     /// <summary>同组共享接触去重，跨形态交接不重复命中同一人物。</summary>
     internal int ContactGroup;
@@ -797,8 +799,12 @@ public static partial class AbilityCompiler
         if (definition.Binding?.Anchor == AbilityAnchor.HeldWeapon)
             CheckHeldWeapon(definition, body, nodes);
         foreach (CompiledForm node in nodes)
+        {
             if (node.BodyWindow && (body == null || node.ContactKey != "body"))
                 Fail(node.Path + "/BodyWindow", "跟随身体作用须提供实际身体并共用body接触组");
+            if (node.BorrowedWeaponDamage && (!node.BodyWindow || body?.WeaponForm == null || !node.AffectsActors))
+                Fail(node.Path + "/BorrowedWeaponDamage", "只有跟随实际持物动作的人物作用面能借用该兵器伤害");
+        }
         if (body != null && !body.Part.IsArm && definition.Binding?.Anchor == AbilityAnchor.Hand)
             Fail("Binding/Anchor", "此身体动作未控制手腕，生成主体应明确连接实际发力部位Effector");
         var eventOperations = new List<CompiledEventOperation>();
@@ -979,7 +985,7 @@ public static partial class AbilityCompiler
         {
             var contacts = resource.Description.Contacts;
             var sector = contacts?.Length == 1 ? contacts[0].Sector : null;
-            if (sector?.Angle != 360f || landscape != null || node.BodyWindow ||
+            if (sector?.Angle != 360f || landscape != null ||
                 node.Contact?.Mode != ConstructionContactMode.Pulse)
                 Fail(path + "/ContactActorCenter", "需要单独的完整圆形作用面和定时结算");
             groundCircleRadius = sector.Radius;
@@ -1003,6 +1009,7 @@ public static partial class AbilityCompiler
                 node.Activation?.Placement != ConstructionEventPlacement.Event, lifetime, path + "/Outlet"),
             Resource = resource,
             GroundCircleRadius = groundCircleRadius,
+            GroundActorsOnly = node.GroundActorsOnly,
             LandscapeSlice = landscape,
             MaterialVortex = node.MaterialVortex == null ? null : new CompiledMaterialVortex(node.MaterialVortex, path + "/MaterialVortex"),
             WeaponChamber = node.WeaponChamber == null ? null : new CompiledWeaponChamber(node.WeaponChamber, path + "/WeaponChamber"),
@@ -1022,6 +1029,7 @@ public static partial class AbilityCompiler
             Dye = dye,
             ContactKey = node.ContactGroup ?? path,
             BodyWindow = node.BodyWindow,
+            BorrowedWeaponDamage = node.BorrowedWeaponDamage,
             AnimateWhileHeld = node.AnimateWhileHeld,
             ContactPolicy = node.Contact == null ? null : new CompiledContactPolicy(node.Contact, path),
             Impact = node.Impact == null ? null : new CompiledConstructionImpact(node.Impact, path + "/Impact"),

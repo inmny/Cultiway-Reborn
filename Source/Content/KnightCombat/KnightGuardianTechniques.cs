@@ -48,7 +48,8 @@ internal static class KnightGuardianTechniques
                 1.6f, 0.3f, 0f, 1.2f, 2f, 45f, 3f, SkillImpactKind.GroundWave),
             ResolveRange = _ => 0f,
             ResolveEffectRadius = _ => 2.2f,
-            TryUse = UseRepulse,
+            Construction = BodyActionCatalog.KnightRepulseFor("hammer"),
+            ResolveConstruction = item => BodyActionCatalog.KnightRepulseFor(item.group_id),
         };
     }
 
@@ -66,52 +67,6 @@ internal static class KnightGuardianTechniques
             ResolveEffectRadius = _ => 3.5f,
             TryUse = UseGuardianBulwark,
         };
-    }
-
-    private static bool UseRepulse(KnightTechniqueContext context, ActiveAbilityUseOrigin origin)
-    {
-        KnightTechniqueRuntimeService.BeginAction(context.Caster, 0.43f);
-        Vector3 direction = KnightTechniqueRuntimeService.ResolveDirection(context.Caster.Base);
-        EquippedWeaponMotionKind motion = context.WeaponAsset.group_id == "hammer"
-            ? EquippedWeaponMotionKind.Crush
-            : EquippedWeaponMotionKind.Sweep;
-        KnightTechniqueVisuals.SpawnWeaponMotion(
-            context,
-            motion,
-            direction,
-            motion == EquippedWeaponMotionKind.Crush ? 0.36f : 0.32f,
-            2.2f,
-            -122f,
-            122f,
-            KnightTrailStyle.Guardian,
-            1.22f);
-        KnightActionSequence sequence = KnightTechniqueRuntimeService.CreateSequence(context, null, 0f);
-        DelayedActionsManager.addAction(() =>
-        {
-            if (!sequence.TryContinue(out KnightTechniqueContext active)) return;
-            Actor caster = active.Caster.Base;
-            Vector2 center = caster.current_position;
-            var targets = new List<Actor>();
-            CombatTargeting.ForEachHostile(caster, center, 2.2f, target =>
-            {
-                if (!target.isFlying()) targets.Add(target);
-            });
-            for (var i = 0; i < targets.Count; i++)
-            {
-                Actor target = targets[i];
-                KnightWeaponStrikeResolver.TryStrike(
-                    active.Caster,
-                    active.Weapon,
-                    target,
-                    0.65f,
-                    onPositiveActorDamage: (damaged, _) =>
-                    {
-                        CombatForceEffects.ApplyRadialForce(caster, damaged, center, 1.3f, false);
-                        CombatStatusEffects.ApplyStatus(damaged, StatusEffects.Daze, 0.35f, caster);
-                    });
-            }
-        }, 0.18f);
-        return true;
     }
 
     private static bool UseGuardianBulwark(KnightTechniqueContext context, ActiveAbilityUseOrigin origin)

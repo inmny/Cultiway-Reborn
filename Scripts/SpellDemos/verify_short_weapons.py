@@ -15,13 +15,15 @@ def main():
     parser.add_argument('--item', choices=('all', 'iron', 'stone'), default='all')
     parser.add_argument('--move', choices=('thrust', 'cut', 'sweep', 'miss', 'deflect',
                                             'committed', 'flurry', 'flurry-swap',
-                                            'guard', 'guard-hammer', 'counter', 'stance-loss'))
+                                            'guard', 'guard-hammer', 'counter', 'stance-loss',
+                                            'repulse', 'repulse-swap'))
     parser.add_argument('--archive', type=Path)
     parser.add_argument('--view', choices=('native', 'worldfall'))
     args = parser.parse_args()
     section = args.section
     stance_moves = ('guard', 'guard-hammer', 'counter', 'stance-loss')
-    knight_moves = ('committed', 'flurry', 'flurry-swap') + stance_moves
+    repulse_moves = ('repulse', 'repulse-swap')
+    knight_moves = ('committed', 'flurry', 'flurry-swap') + stance_moves + repulse_moves
     if args.move is not None and (args.move in knight_moves) != (section == 'knight'):
         parser.error('骑士战技使用 --section knight 并选择相应的 --move')
     if args.move == 'deflect' and args.item == 'stone':
@@ -63,6 +65,8 @@ def main():
             script_name = 'verify_knight_stances.script'
             imports += ('using Cultiway.Core.Combat;\nusing Cultiway.Core.EventSystem.Events;\n'
                         'using Cultiway.Core.EventSystem.Systems;\n')
+        elif move in repulse_moves:
+            script_name = 'verify_knight_repulse.script'
         body = body.split('var bindingType =', 1)[0] + (scripts / script_name).read_text()
     elif section == 'archive':
         imports += 'using Cultiway.UI;\nusing Cultiway.UI.Prefab;\nusing UnityEngine.UI;\n'

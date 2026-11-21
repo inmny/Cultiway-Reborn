@@ -108,6 +108,10 @@ public sealed class ConstructionImpact
     /// <summary>向外的实际受力，负值为牵引；沿用境界和抗击退等规则。</summary>
     public float Force;
 
+    /// <summary>推拉只在本次直接伤害实际扣血后提交。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool ForceAfterDamage;
+
     /// <summary>按真实接触中心和目标当前质量换算的击退与腾起，空值表示没有此作用。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionKnockback Knockback;
@@ -259,6 +263,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>已检查的有向推拉力。</summary>
     public float Force { get; }
 
+    /// <summary>是否等本次直接伤害真正扣血再执行推拉。</summary>
+    public bool ForceAfterDamage { get; }
+
     /// <summary>已独立复制的击退与腾起幅度。</summary>
     public CompiledConstructionKnockback Knockback { get; }
 
@@ -380,6 +387,7 @@ public sealed class CompiledConstructionImpact
         if (!Enum.IsDefined(typeof(ConstructionDamageBasis), DamageBasis))
             throw new InvalidDataException(path + "/DamageBasis：伤害必须采用剩余或初始作用量");
         Force = source?.Force ?? 0f;
+        ForceAfterDamage = source?.ForceAfterDamage == true;
         if (source?.Knockback != null) Knockback = new CompiledConstructionKnockback(source.Knockback, path + "/Knockback");
         if (source?.Exchange != null) Exchange = new CompiledConstructionExchange(source.Exchange, path + "/Exchange");
         if (source?.AdditionalDamage?.Length > 8) throw new InvalidDataException(path + "：每个作用面最多八份追加伤害");
@@ -399,6 +407,8 @@ public sealed class CompiledConstructionImpact
                 throw new InvalidDataException(path + "/Impulse：需要三个正负1000以内的有限速度，依次为前后、侧向和上下");
             Impulse = new Vector3(source.Impulse[0], source.Impulse[1], source.Impulse[2]);
         }
+        if (ForceAfterDamage && (DamageScale <= 0f || Force == 0f && Impulse.GetValueOrDefault() == Vector3.zero))
+            throw new InvalidDataException(path + "/ForceAfterDamage：须有直接伤害及非零推拉力");
 
         Lift = source?.Lift ?? .5f;
         Launch = source?.Launch == true && Force == 0f;

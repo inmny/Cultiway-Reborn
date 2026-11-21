@@ -1,6 +1,7 @@
 using System;
 using Cultiway.Core.Combat;
 using Cultiway.Core.Skills;
+using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
@@ -13,8 +14,8 @@ public readonly struct ConstructedQueuedDamage
     /// <summary>原接触的构造。</summary>
     public readonly string AbilityId;
 
-    /// <summary>本记录对应身体部位和同一目标的接触次数。</summary>
-    public const int Node = -1;
+    /// <summary>实际部位，负一为身体，及该部位对同一目标的接触次数。</summary>
+    public readonly int Node;
     public readonly int TargetContactNumber;
 
     /// <summary>原先接触的世界时点，以及队列实际处理的时点。</summary>
@@ -28,17 +29,18 @@ public readonly struct ConstructedQueuedDamage
 
     /// <summary>在原队列实际处理后补全事实。</summary>
     /// <param name="cast">原施放。</param><param name="ability">原构造。</param>
-    /// <param name="source">实际来源。</param><param name="target">实际目标。</param>
+    /// <param name="source">实际来源。</param><param name="target">实际目标。</param><param name="node">实际部位。</param>
     /// <param name="number">原接触次数。</param><param name="contactTime">实际接触时点。</param>
     /// <param name="time">队列处理时点。</param><param name="damage">实际损耗。</param>
     /// <param name="health">队列处理后的生命。</param>
-    internal ConstructedQueuedDamage(long cast, string ability, long source, long target, int number,
+    internal ConstructedQueuedDamage(long cast, string ability, long source, long target, int node, int number,
         double contactTime, double time, DamageSettlement damage, int? health)
     {
         CastId = cast;
         AbilityId = ability;
         SourceId = source;
         TargetId = target;
+        Node = node;
         TargetContactNumber = number;
         ContactWorldTime = contactTime;
         WorldTime = time;
@@ -52,23 +54,27 @@ public sealed partial class ConstructedAbilityService
     /// <summary>近身接触引发的原版伤害实际出队后触发；不会再次发布接触。</summary>
     public static event Action<ConstructedQueuedDamage> QueuedDamageConfirmed;
 
-    /// <summary>用原队列的实际扣血触发状态与取证，换世界时不补发旧接触。</summary>
-    /// <param name="running">原施放，身体接触仍采用这个来源。</param>
+    /// <summary>用原队列的实际扣血触发效果与取证，换世界时不补发旧接触。</summary>
+    /// <param name="running">原施放。</param><param name="node">确认接触的实际部位。</param>
     /// <param name="source">实际来源。</param><param name="target">实际目标。</param><param name="targetId">接触时的目标身份。</param>
     /// <param name="number">原接触次数。</param><param name="time">真实接触时点。</param>
-    /// <param name="impact">该次身体接触的实际作用。</param><param name="strength">确认接触时的实际强度。</param>
-    private static DamageObservation ObserveQueuedContact(RunningCast running, long source, Actor target, long targetId,
-        int number, double time, CompiledConstructionImpact impact, float strength)
+    /// <param name="impact">该次兵器接触的实际作用。</param><param name="strength">确认接触时的实际强度。</param>
+    /// <param name="effectCenter">实际接触的形体中心。</param>
+    /// <param name="priorVelocity">原版命中附带推力提交前的速度。</param>
+    /// <param name="forceReceiver">接触时的实际承力身体。</param>
+    private static DamageObservation ObserveQueuedContact(RunningCast running, int node, long source, Actor target,
+        long targetId, int number, double time, CompiledConstructionImpact impact, float strength,
+        Vector3 effectCenter, Vector3? priorVelocity, ForceReceiver? forceReceiver)
     {
         long generation = worldGeneration;
         return new DamageObservation(source, targetId, damage =>
         {
             if (generation != worldGeneration) return;
             if (damage.HealthLost > 0)
-                ApplyDamageStatuses(running, -1, target, targetId, impact, strength);
+                ApplyDamageEffects(running, node, target, targetId, impact, strength, effectCenter, priorVelocity, forceReceiver);
             if (generation != worldGeneration) return;
             int? health = World.world.units.get(targetId)?.data?.health;
-            QueuedDamageConfirmed?.Invoke(new ConstructedQueuedDamage(running.Id, running.Cast.Plan.Id, source, targetId, number,
+            QueuedDamageConfirmed?.Invoke(new ConstructedQueuedDamage(running.Id, running.Cast.Plan.Id, source, targetId, node, number,
                 time, World.world.getCurWorldTime(), damage, health));
         });
     }

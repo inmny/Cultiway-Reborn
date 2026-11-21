@@ -150,6 +150,10 @@ public sealed class ConstructionNode
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool ContactActorCenter;
 
+    /// <summary>人物接触只接受实际地面目标。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool GroundActorsOnly;
+
     /// <summary>仅作用于显示的三个染色倍率，不改变实际材料和物态。</summary>
     public float[] Tint;
 
@@ -211,6 +215,10 @@ public sealed class ConstructionNode
     /// <summary>作用窗口、分次作用及结果收势跟随实际身体；未声明的独立主体继续自身过程。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool BodyWindow;
+
+    /// <summary>实际身体借用的兵器负责此作用面的原版近战伤害。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool BorrowedWeaponDamage;
 
     /// <summary>同组共用的再次接触规则；空值继承同组明确规则，均未指定时每人一次。</summary>
     public ConstructionContactPolicy Contact;

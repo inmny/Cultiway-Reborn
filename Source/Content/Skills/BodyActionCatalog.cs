@@ -50,6 +50,7 @@ public static class BodyActionCatalog
 
     private static AbilityDefinition knightGuard, knightAxeGuard, knightGuardResponse, knightAxeGuardResponse;
     private static AbilityDefinition knightCounter, knightCounterRiposte;
+    private static AbilityDefinition knightRepulse, knightAxeRepulse;
 
     /// <summary>格挡架势的共用锤柄动作。</summary>
     internal static AbilityDefinition KnightGuard => knightGuard ??= Load("knight-guard-stance");
@@ -71,6 +72,21 @@ public static class BodyActionCatalog
     /// <summary>收到真实武器伤害后执行的独立回锋。</summary>
     internal static AbilityDefinition KnightCounterRiposte =>
         knightCounterRiposte ??= Load("knight-counter-riposte");
+
+    /// <summary>落锤与斧扫使用同一地面作用面和原斗气条件。</summary>
+    internal static AbilityDefinition KnightRepulseFor(string weaponGroup) => weaponGroup == "axe"
+        ? knightAxeRepulse ??= AxeRepulse()
+        : knightRepulse ??= Load("knight-repulse");
+
+    /// <summary>斧的横扫与锤的下落共用接触时点、半径和作用。</summary>
+    private static AbilityDefinition AxeRepulse()
+    {
+        var result = ConstructionEditing.Copy(KnightRepulseFor("hammer"));
+        result.Id += ".Axe";
+        result.Name += "·斧";
+        result.Body = JsonConvert.DeserializeObject<BodyActionDefinition>(ReadBodyFile("knight-repulse-axe-motion"));
+        return result;
+    }
 
     /// <summary>斧的握点和几何由斧的资源提供，保留原架势过程。</summary>
     private static AbilityDefinition AxeGuard()
@@ -122,7 +138,7 @@ public static class BodyActionCatalog
             Load("angled-retreat"), Load("charging-shoulder"), Load("bounding-step"),
             Load("turning-throw"), Load("pressing-throw"), Load("beast-tail-sweep"), Load("beast-wing-cut"),
             KnightArmorPiercingThrust, KnightCommittedStrike, KnightLegendaryFlurry, KnightGuard,
-            KnightGuardFor("axe"), KnightCounter };
+            KnightGuardFor("axe"), KnightCounter, KnightRepulseFor("hammer"), KnightRepulseFor("axe") };
     }
 
     /// <summary>保留完整手路及发力，石剑版本以本身的握点及刃口执行。</summary>
@@ -226,6 +242,9 @@ public static class BodyActionCatalog
     /// <summary>从内容目录读取一个已制作的动作。</summary>
     /// <param name="name">资料文件名。</param>
     private static AbilityDefinition Load(string name) => JsonConvert.DeserializeObject<AbilityDefinition>(
-        File.ReadAllText(
-            Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content/Skills/Body", name + ".json")));
+        ReadBodyFile(name));
+
+    /// <summary>读取本目录的完整资料或单个器物的替换动作。</summary>
+    private static string ReadBodyFile(string name) => File.ReadAllText(
+        Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content/Skills/Body", name + ".json"));
 }
