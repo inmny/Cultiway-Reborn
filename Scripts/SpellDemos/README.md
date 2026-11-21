@@ -2791,3 +2791,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 万魂幡阵与号令旗域（10.05）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_banner_fields.py` 让同一件原幡依次部署两种法域，核对原费用、实际边界、敌方受损、友方增益和无力维持后的归还。可用 `--section myriad` 或 `--section command` 单独复验，用 `--skip-views` 只查行为。
+
+### 阴兵显化（10.05）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_spirit_host.py` 核对击杀储魂、两笔原费用、实际鬼火生物、到期清理和再次施展后的正式召回。用 `--skip-views` 只核对行为和真实幡门位置。

@@ -31,6 +31,7 @@ public static class ArtifactSummonService
         WorldTile tile = World.world.GetTile(Mathf.FloorToInt(position.x), Mathf.FloorToInt(position.y));
         if (tile == null) return 0;
 
+        Vector2 center = new(Mathf.Floor(position.x) + .5f, Mathf.Floor(position.y) + .5f);
         Actor controller = context.controller.GetComponent<ActorBinder>().Actor;
         double expiresAt = World.world.getCurWorldTime() + duration;
         int spawned = 0;
@@ -38,6 +39,10 @@ public static class ArtifactSummonService
         {
             Actor spirit = World.world.units.spawnNewUnit(Actors.GhostFire.id, tile, pSpawnHeight: 0f);
             if (spirit == null) continue;
+            float angle = i * (2f * Mathf.PI / count);
+            Vector2 offset = count == 1 ? Vector2.zero : new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * .34f;
+            spirit.current_position = center + offset;
+            spirit.updatePos();
             spirit.joinKingdom(controller.kingdom);
             if (target != null && SkillTargetRelationResolver.IsHostile(controller, target))
             {

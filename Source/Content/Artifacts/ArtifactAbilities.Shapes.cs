@@ -203,8 +203,8 @@ public partial class ArtifactAbilities
             ability.GetNumber(EffectRadius), interval - .01f, contact, form, element, damage, strike: .025f);
     }
 
-    /// <summary>部署结束时一并关闭原件还在进行的付费圆面。</summary>
-    private static void EndPaidArtifactArea(ArtifactAbilityExecutionContext context, ArtifactAbilityInstance ability,
+    /// <summary>活动结束时一并关闭原件还在进行的共同形体。</summary>
+    private static void EndArtifactConstruction(ArtifactAbilityExecutionContext context, ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry _, ArtifactAbilityEndReason __)
     {
         if (!context.controller.IsNull && context.controller.TryGetComponent(out ActorBinder binder))

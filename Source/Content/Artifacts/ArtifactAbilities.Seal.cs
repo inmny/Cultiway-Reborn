@@ -261,7 +261,7 @@ public partial class ArtifactAbilities
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = SkillCastResources.Wakan,
             OnTick = ApplySpellBanningField,
-            OnActivityEnded = EndPaidArtifactArea,
+            OnActivityEnded = EndArtifactConstruction,
         });
         SpellBanningEdict.Activate(new ArtifactActiveAbilityProfile
         {

@@ -1,0 +1,187 @@
+// 击杀的真实回调给原幡储魂。召唤由原主动入口受理。
+var gateDescription = FormResources.Load("spirit_host_gate").Description;
+Check(gateDescription.Parts.Length == 3 && gateDescription.Contacts.Length == 0,
+    "真实共用幡门包含立体框架和帘布，且无碰伤");
+Vector2 center = new Vector2(67.5f, 72.5f);
+PrepareArtifactArena(59, 76, 65, 79);
+Actor source = Make(64.35f), witness = Make(69.5f, "wolf");
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+owner.SetPowerLevel(4);
+await Setup(source, witness);
+CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+source.updateStats();
+ControllableUnit.clear(false);
+MoveCamera.clearFocusUnitOnly();
+await Advance(.08f);
+Place(source, 64.35f);
+Place(witness, 74.5f);
+
+var asset = ArtifactAbilities.SpiritHostManifestation;
+var design = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Banner, Atoms = new[] { ArtifactAtoms.SoulBanner, ArtifactAtoms.SoulCore,
+        ArtifactAtoms.SoulJade, ArtifactAtoms.WorldWood, ArtifactAtoms.SoulBindingScript },
+    Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "阴兵显化实测"
+});
+var blueprint = ArtifactBlueprintCodec.FromComposeResult(design);
+Check(blueprint.AbilitySet.abilities.Any(entry => entry.ability_id == asset.id),
+    "原配方确实生成阴兵显化", blueprint.AbilitySet.abilities.Select(entry => entry.ability_id).ToArray());
+Entity banner = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+owner.AddSpecialItem(banner);
+Check(owner.EquipArtifact(banner, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "正式装备实际原幡");
+ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+lifecycle.Invoke(null, new object[] { banner });
+await Game.NextFrame();
+await Game.NextFrame();
+
+var ability = Definition(banner, asset.id);
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var handle = handles.Single(value => value.Source == banner && value.EntryId == ability.instance_id);
+var control = owner.E.GetRelation<EquippedArtifactRelation, Entity>(banner).state;
+var context = new ArtifactAbilityExecutionContext(owner.E, banner, control);
+float cost = asset.lifecycle.ResolveActivationCost(context, ability);
+if (control == ArtifactControlState.Overloaded) cost *= asset.lifecycle.overload_resource_multiplier;
+float soulCost = ability.GetNumber("stored_resource_cost");
+float perKill = ability.GetNumber("store_per_trigger") * context.effect_scale;
+float duration = ability.GetNumber("effect_duration");
+int count = ability.GetInteger("summon_count");
+float Soul() => ArtifactStorageOperations.GetAmount(banner.GetComponent<ArtifactStorageState>(), ArtifactStorageOperations.SoulEssence);
+Actor[] Host(bool living = true)
+{
+    var result = new List<Actor>();
+    foreach (Entity entity in Cultiway.ModClass.I.W.Query<ArtifactSummon, ActorBinder>().Entities)
+    {
+        var summon = entity.GetComponent<ArtifactSummon>();
+        Actor unit = entity.GetComponent<ActorBinder>().Actor;
+        if (summon.artifact == banner && summon.ability_instance_id == ability.instance_id &&
+            unit != null && (!living || unit.isAlive())) result.Add(unit);
+    }
+    return result.ToArray();
+}
+bool Held() => owner.GetItems().Contains(banner) && owner.GetEquippedArtifacts().Contains(banner);
+bool HasGate() => FormVisualScene.Instances.Any(value => value.Resource.Description.Id == "spirit_host_gate");
+Vector3 GatePoint() => FormVisualScene.Instances.Single(value => value.Resource.Description.Id == "spirit_host_gate").Transform.GetColumn(3);
+ArtifactAbilityRuntimeEntry Current() => Entry(banner, asset.id);
+
+var starts = new List<ConstructedCastStarted>();
+var ends = new List<ConstructedCastEnded>();
+var fees = new List<float>();
+var kills = new List<long>();
+var payment = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = payment.GetValue(null);
+var killsField = typeof(ActorExtend).GetField("action_on_kill", F);
+object previousKills = killsField.GetValue(null);
+void Started(ConstructedCastStarted value) { if (value.SourceId == source.id && value.AbilityId == asset.id) starts.Add(value); }
+void Finished(ConstructedCastEnded value) { if (value.SourceId == source.id && value.AbilityId == asset.id) ends.Add(value); }
+void Paid(ActorExtend caster, in WakanMutation change)
+{
+    if (caster == owner && change.Kind == WakanMutationKind.Spend) fees.Add(-change.Delta);
+}
+void Killed(ActorExtend killer, Actor victim, Kingdom kingdom)
+{
+    if (killer == owner) kills.Add(victim.id);
+}
+bool Activate()
+{
+    source.attack_timer = 0f;
+    bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, center), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999f;
+    return used;
+}
+bool Close(float a, float b) => Mathf.Abs(a - b) < .004f;
+
+async Task CollectSouls(float needed)
+{
+    int attempts = Mathf.CeilToInt(Mathf.Max(0, needed - Soul()) / perKill) + 1;
+    for (int i = 0; i < attempts && Soul() < needed; i++)
+    {
+        Actor victim = Make(65.4f, "wolf");
+        source.addAggro(victim);
+        victim.addAggro(source);
+        await Advance(.09f);
+        long id = victim.id;
+        float before = Soul();
+        int health = victim.data.health;
+        var element = ElementComposition.Static.Iron;
+        victim.GetExtend().GetHit(victim.getMaxHealth() * 4f, ref element, source, AttackType.Weapon, ignore_damage_reduction: true);
+        int? remaining = victim.data?.health;
+        await WaitFor(() => kills.Contains(id), .9f);
+        Check(kills.Contains(id) && (World.world.units.get(id) == null || !World.world.units.get(id).isAlive()) &&
+              Close(Soul() - before, perKill),
+            "真实归属击杀后按原参数储魂",
+            new { id, before, after = Soul(), perKill, health, remaining, finalHealth = victim.data?.health, kills = kills.ToArray() });
+    }
+    Check(Soul() >= needed, "通过真实战斗取得两次召唤所需魂魄", new { needed, stored = Soul() });
+}
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += Finished;
+WakanResourceService.RegisterMutationCommitted(Paid);
+ActorExtend.RegisterActionOnKill(Killed);
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    owner.GetCultisys<Xian>().wakan = 9000f;
+    Check(Soul() == 0f && !Activate() && starts.Count == 0 && fees.Count == 0 && Host().Length == 0 && !HasGate(),
+        "空幡拒绝发起，真元和画面都未提交");
+    await CollectSouls(soulCost * 2f);
+    float stored = Soul();
+    owner.GetCultisys<Xian>().wakan = 0f;
+    Check(!Activate() && Close(Soul(), stored) && starts.Count == 0 && Host().Length == 0,
+        "有魂无真元时拒绝，也不消耗魂魄");
+
+    owner.GetCultisys<Xian>().wakan = 9000f;
+    Check(Activate() && starts.Count == 1 && fees.Count == 1 && Close(fees[0], cost) && Close(stored - Soul(), soulCost),
+        "原入口一次提交魂魄、真元与共同显形", new { cost, fees = fees.ToArray(), stored, remaining = Soul(), soulCost });
+    var first = Current();
+    var wave = Host(living: false);
+    WorldTile tile = World.world.GetTile(Mathf.FloorToInt(center.x), Mathf.FloorToInt(center.y));
+    Check(wave.Length == count && wave.All(unit => unit.asset == Actors.GhostFire && unit.kingdom == source.kingdom &&
+              unit.current_tile == tile && unit.GetExtend().GetComponent<ArtifactSummon>().controller == owner.E) &&
+          wave.Select(unit => unit.current_position).Distinct().Count() == count &&
+          Math.Abs(first.activity_until - first.activity_started_at - duration) < .005 && Held(),
+        "原鬼火身体在同一地块分开出现，归属和时长沿用原幡",
+        new { expected = count, ids = wave.Select(unit => unit.id).ToArray(), positions = wave.Select(unit => unit.current_position.ToString()).ToArray(),
+            duration, actual = first.activity_until - first.activity_started_at });
+
+    await Advance(.14f);
+    await Game.NextFrame();
+    Check(HasGate() && Vector2.Distance(GatePoint(), center) < .01f && Host().Length == count,
+        "两种视角读取实际召唤地块和同一组生物", new { position = GatePoint().ToString() });
+    if (shots)
+        await CaptureArtifactViews("spirit-host", center + Vector2.up * .40f, 4.6f,
+            () => HasGate() && Vector2.Distance(GatePoint(), center) < .01f && Host().Length == count,
+            nativeZoom: 3.35f, closeSubject: wave[0]);
+
+    long[] firstIds = wave.Select(unit => unit.id).ToArray();
+    await Advance((float)(first.activity_until - World.world.getCurWorldTime()) + .18f);
+    Check(Host().Length == 0 && firstIds.All(id => World.world.units.get(id) == null || !World.world.units.get(id).isAlive()) &&
+          Current().activity_kind == ArtifactAbilityActivityKind.None && !HasGate() && Held() &&
+          ends.Any((ConstructedCastEnded fact) => fact.CastId == starts[0].CastId && !fact.Cancelled),
+        "自然到期后原生物、活动和共同形体都已退出，原幡仍然可用");
+
+    await Advance(Mathf.Max(.12f, (float)(Current().cooldown_until - World.world.getCurWorldTime()) + .12f));
+    float beforeRecall = Soul();
+    Check(Activate() && starts.Count == 2 && Host(living: false).Length == count && fees.Count == 2 && Close(fees[1], cost) &&
+          Close(beforeRecall - Soul(), soulCost), "同一件原幡冷却后可以再次召唤");
+    var recalled = Host(living: false).Select(unit => unit.id).ToArray();
+    Check(ArtifactAbilityLifecycle.Recall(banner, ability.instance_id), "正式召回入口受理活动");
+    await Advance(.17f);
+    Check(Host().Length == 0 && recalled.All(id => World.world.units.get(id) == null || !World.world.units.get(id).isAlive()) &&
+          !HasGate() && Current().activity_kind == ArtifactAbilityActivityKind.None && Held() &&
+          ends.Any((ConstructedCastEnded fact) => fact.CastId == starts[1].CastId && fact.Cancelled),
+        "提前召回及时清理实际阴兵和正在显形的门");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, count, duration, kills = kills.Count };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Finished;
+    payment.SetValue(null, previous);
+    killsField.SetValue(null, previousKills);
+}

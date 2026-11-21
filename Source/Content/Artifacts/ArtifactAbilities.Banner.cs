@@ -88,7 +88,7 @@ public partial class ArtifactAbilities
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = SkillCastResources.Wakan,
             OnTick = ApplyMyriadSoulBannerArray,
-            OnActivityEnded = EndPaidArtifactArea,
+            OnActivityEnded = EndArtifactConstruction,
         });
         MyriadSoulBannerArray.Activate(new ArtifactActiveAbilityProfile
         {
@@ -196,7 +196,7 @@ public partial class ArtifactAbilities
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = SkillCastResources.Wakan,
             OnTick = ApplyCommandingBannerField,
-            OnActivityEnded = EndPaidArtifactArea,
+            OnActivityEnded = EndArtifactConstruction,
         });
         CommandingBannerField.Activate(new ArtifactActiveAbilityProfile
         {
@@ -298,6 +298,7 @@ public partial class ArtifactAbilities
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             Resource = SkillCastResources.Wakan,
             OnAttached = ConfigureSoulStorage,
+            OnActivityEnded = EndArtifactConstruction,
         });
         SpiritHostManifestation.Handle<ArtifactKillEvent>(StoreSoulEssence);
         SpiritHostManifestation.Activate(new ArtifactActiveAbilityProfile
@@ -364,86 +365,38 @@ public partial class ArtifactAbilities
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
         in ActiveAbilityTarget target,
-        ActiveAbilityUseOrigin _)
+        ActiveAbilityUseOrigin origin)
     {
-        ref ArtifactStorageState storage = ref context.artifact.GetComponent<ArtifactStorageState>();
+        Vector3 point = TargetPosition(target);
+        Vector2 center = new(Mathf.Floor(point.x) + .5f, Mathf.Floor(point.y) + .5f);
+        BaseSimObject victim = target.Object;
         float cost = ability.GetNumber(StoredResourceCost);
-        ArtifactStorageOperations.Take(ref storage, ArtifactStorageOperations.SoulEssence, cost);
-        int count = ArtifactSummonService.SummonSpirits(
-            context,
-            ability.instance_id,
-            TargetPosition(target),
-            target.Object,
-            ability.GetInteger(SummonCount),
-            ability.GetNumber(EffectDuration),
-            ability.GetNumber(StorePerTrigger));
-        if (count == 0)
+        if (!SpiritHostConstruction.Start(context, target, origin, center, Summon)) return false;
+        ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime, center);
+        return true;
+
+        bool Summon()
         {
-            ArtifactStorageOperations.Store(ref storage, ArtifactStorageOperations.SoulEssence, cost);
+            ref ArtifactStorageState storage = ref context.artifact.GetComponent<ArtifactStorageState>();
+            float taken = ArtifactStorageOperations.Take(ref storage, ArtifactStorageOperations.SoulEssence, cost);
+            if (taken >= cost && ArtifactSummonService.SummonSpirits(context, ability.instance_id, center, victim,
+                    ability.GetInteger(SummonCount), ability.GetNumber(EffectDuration), ability.GetNumber(StorePerTrigger)) > 0)
+                return true;
+            ArtifactStorageOperations.Store(ref storage, ArtifactStorageOperations.SoulEssence, taken);
             return false;
         }
-
-        ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime);
-        return true;
     }
 
     private static void ConfigureBannerAbilityVisuals()
     {
-        ArtifactOrbitProjectionVisualCue host = new ArtifactOrbitProjectionVisualCue
-        {
-            anchor = ArtifactVisualAnchorKind.Controller,
-            ResolveCount = context => context.ability.GetInteger(SummonCount),
-            radius = 0.74f,
-            vertical_ratio = 0.5f,
-            angular_speed = -72f,
-            alpha = 0.34f,
-            pulse_amplitude = 0.08f,
-        };
-        ArtifactGlyphVisualCue gate = ActivityGlyph(
-            ArtifactVisualAnchorKind.Controller,
-            (ArtifactAbilityVisualContext _) => 0.72f,
-            ArtifactVisualColorRole.Secondary,
-            8,
-            -30f,
-            ArtifactVfxStyles.Soul
-        );
-        ArtifactBeamVisualCue harvest = Beam(
-            ArtifactVisualAnchorRef.Appearance("cloth", "focus"),
-            ArtifactVisualAnchorKind.Target,
-            ArtifactVisualColorRole.Glow,
-            ArtifactVfxStyles.Soul
-        );
-        harvest.width = 0.05f;
         SpiritHostManifestation.Visualize(
             Theme(SkillVfxElements.Entropy.AccentColor)
-                .Loop("spirit_host", new ArtifactCompositeVisualCue(host, gate), IsActivityActive)
                 .Signal(
                     ArtifactVisualChannels.Drain,
-                    new ArtifactCompositeVisualCue(
-                        harvest,
-                        Burst(ArtifactVisualAnchorKind.Target, ArtifactVisualColorRole.Primary, 6)
-                    ),
-                    0.55f,
+                    Burst(ArtifactVisualAnchorKind.Point, ArtifactVisualColorRole.Glow, 4, .35f),
+                    .35f,
                     "artifact.spirit_host.harvest",
                     ArtifactVisualStackPolicy.MergeIntensity
-                )
-                .Signal(
-                    ArtifactVisualChannels.Trigger,
-                    new ArtifactCompositeVisualCue(
-                        ExpandingArea(
-                            ArtifactVisualAnchorKind.Point,
-                            (ArtifactAbilityVisualContext _) => 1.2f,
-                            ArtifactVisualColorRole.Glow,
-                            ArtifactVfxStyles.Soul
-                        ),
-                        Burst(
-                            ArtifactVisualAnchorKind.Point,
-                            ArtifactVisualColorRole.Primary,
-                            10,
-                            0.5f
-                        )
-                    ),
-                    0.58f
                 )
         );
     }
