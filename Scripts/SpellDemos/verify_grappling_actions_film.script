@@ -1,0 +1,8 @@
+    // 只有正式抓投通过碰撞和归还检查后，才登记这段常速录像。
+    Action<string, int, float> saveFilm = (ability, count, cost) =>
+    {
+        string name = selection == "press" ? "沉身压摔 · 握持触地" : "揽身翻投 · 离手后落地";
+        recordings.Add(new { view, ability, name, rate = 1, first = 0, last = rows.Count - 1,
+            contacts = count, duration = World.world.getCurWorldTime() - firstFrameAt.Value, paid = cost });
+        SaveRecording();
+    };

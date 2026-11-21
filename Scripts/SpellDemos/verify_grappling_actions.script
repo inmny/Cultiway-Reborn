@@ -1,0 +1,218 @@
+// 从实际手面触碰，到双方控制归还，所有时点均读取正式执行的事实。
+const string throwId = "Cultiway.Body.TurningThrow", pressId = "Cultiway.Body.PressingThrow";
+bool cold = selection == "cold";
+bool press = selection is "press" or "interrupt" or "cold";
+bool miss = selection == "miss", interrupt = selection == "interrupt";
+var saved = cold ? JObject.Parse(File.ReadAllText(Path.Combine(archived, "expected.json"))) : null;
+string id = cold ? (string)saved["edited"] : press ? pressId : throwId;
+var definition = ConstructionEditing.Access.Read(id);
+float actionSpeed = Config.time_scale_asset.multiplier;
+long cast = 0;
+AbilityCast action = null;
+Vector3 heldStart = default;
+float lift = 0f;
+float turn = 0f;
+var relations = new List<ConstructedBodyConnection>();
+var flights = new List<ConstructedBodyFlight>();
+var impacts = new List<ConstructedBodyImpact>();
+Item targetItem = target.getWeapon();
+float[] P(Vector3 point) => new[] { point.x, point.y, point.z };
+
+void Started(ConstructedCastStarted value)
+{
+    if (value.SourceId != source.id || value.AbilityId != id) return;
+    cast = value.CastId;
+    action = (AbilityCast)Field(Running(), "Cast");
+}
+object Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .SingleOrDefault(entry => (long)Field(entry, "Id") == cast);
+void Linked(ConstructedBodyConnection value)
+{
+    if (value.CastId != cast || value.TargetId != target.id) return;
+    if (value.State == ConstructedBodyConnectionState.Active)
+        heldStart = (Vector3)Field(Field(Running(), "Connection"), "TargetFoot");
+    relations.Add(value);
+}
+void Moved(ConstructedBodyFlight value)
+{
+    if (value.CastId == cast && value.TargetId == target.id) flights.Add(value);
+}
+void Impacted(ConstructedBodyImpact value)
+{
+    if (value.CastId == cast && value.TargetId == target.id) impacts.Add(value);
+}
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.BodyConnectionChanged += Linked;
+ConstructedAbilityService.BodyFlightChanged += Moved;
+ConstructedAbilityService.BodyImpactConfirmed += Impacted;
+try
+{
+    Check(definition?.Body.Construction.Relations.Single().MoveTarget == true, "正式目录已载入抓投");
+    if (cold)
+    {
+        Check(System.Diagnostics.Process.GetCurrentProcess().Id != (int)saved["process"] &&
+              source.getWeapon()?.data.id == (long)saved["weapon"] && targetItem?.data.id == (long)saved["shield"],
+            "新的游戏进程读回原人与原物");
+        Check(saved["definitions"].All(previous =>
+        {
+            string key = (string)previous["Id"];
+            return ConstructedAbilityService.Knows(owner, key) &&
+                   JToken.DeepEquals(previous, JToken.Parse(JsonConvert.SerializeObject(ConstructionEditing.Access.Read(key))));
+        }) && definition.Body.Construction.Relations.Single().CollisionDamageScale == 1.35f,
+            "正式冷读档恢复两份完整招式及学习关系");
+    }
+    foreach (Building building in World.world.buildings.getSimpleList().ToArray())
+        if (building.current_tile != null && new Rect(60, 67, 16, 12).Contains(building.current_tile.posV3))
+            building.removeBuildingFinal();
+    ControllableUnit.clear(false);
+    Place(source, 64f);
+    Place(target, 64.25f);
+    CombatStatusEffects.RemoveStatus(source, hold);
+    if (!cold) owner.E.RemoveComponent<ConstructedKnowledge>();
+    if (source.hasWeapon()) source.equipment.weapon.takeAwayItem();
+    source.setStatsDirty();
+    source.updateStats();
+    target.addAggro(source);
+    source.addAggro(target);
+    source.attack_timer = target.attack_timer = 999;
+    await Advance(.2f);
+    Place(source, 64f);
+    // 两招在这组实际表面站位已成立，其他片段沿用同一接触起点。
+    Place(target, 64.10f, 71.92f);
+    source.cancelAllBeh();
+    int health = target.data.health;
+    float mass = target.stats["mass"];
+    Config.time_scale_asset.multiplier = captureFrame == null ? actionSpeed * .32f : actionSpeed;
+    if (!cold) ConstructedAbilityService.Learn(owner, id);
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, id);
+    if (captureFrame != null) await captureFrame(id);
+    source.attack_timer = 0;
+    source.data.stamina = 100;
+    bool started = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()),
+        ActiveAbilityUseOrigin.Player);
+    source.attack_timer = 999;
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(started && action != null && Mathf.Abs(100 - source.data.stamina - definition.Cost) < .001f &&
+          !BodyControlState.IsBusy(target.id), "实际受理并扣一次体力，选择人物尚未取得目标控制",
+        new { started, source = P(source.current_position), target = P(target.current_position) });
+    if (miss) Place(target, 66.4f, 73.2f);
+    Vector2 waitingTarget = target.current_position;
+    bool pushed = false;
+    double deadline = World.world.getCurWorldTime() + 5.2f;
+    while (World.world.getCurWorldTime() < deadline)
+    {
+        await Advance(.032f);
+        if (captureFrame != null) await captureFrame(id);
+        object running = Running();
+        object link = running == null ? null : Field(running, "Connection");
+        if (link != null && (bool)Field(link, "Active"))
+        {
+            lift = Mathf.Max(lift, ((Vector3)Field(link, "TargetFoot")).z - heldStart.z);
+            turn = Mathf.Max(turn, Quaternion.Angle(Quaternion.identity,
+                (Quaternion)Field(Field(link, "Motion"), "Rotation")));
+            if (interrupt && !pushed)
+            {
+                Check(BodyControlState.IsBusy(source.id) && BodyControlState.IsBusy(target.id),
+                    "实际抓住后才对来源施加原版外力");
+                source.addForce(-1.2f, 0f, .35f, false, true);
+                pushed = true;
+            }
+        }
+        if (running == null && !BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id) &&
+            !source.under_forces && !target.under_forces)
+            break;
+    }
+    var held = relations.Where(value => value.State == ConstructedBodyConnectionState.Active).ToArray();
+    var released = relations.Where(value => value.State == ConstructedBodyConnectionState.Released).ToArray();
+    var airborne = flights.Where(value => value.State == ConstructedBodyFlightState.Released).ToArray();
+    var receipt = impacts.FirstOrDefault();
+    var detail = new
+    {
+        lift, turn, health, after = target.data.health, pushed,
+        relations = relations.Select(value => new { value.State, value.Reason, value.WorldTime,
+            source = P(value.SourcePoint), target = P(value.TargetPoint), environment = value.EnvironmentPoint?.ToString("F5") }),
+        flights = flights.Select(value => new { value.State, value.Reason, value.WorldTime,
+            root = P(value.Root), velocity = P(value.Velocity), spin = P(value.AngularVelocity) }),
+        impacts = impacts.Select(value => new { value.ClosingSpeed, value.Damage, value.WorldTime,
+            value.SourceId, value.TargetId, point = P(value.EnvironmentPoint), normal = P(value.Normal) }),
+        sourceFree = !BodyControlState.IsBusy(source.id), targetFree = !BodyControlState.IsBusy(target.id),
+        targetFinal = P(target.current_position), targetHeight = target.position_height,
+        sourceForced = source.under_forces, targetForced = target.under_forces
+    };
+    File.WriteAllText(Path.Combine(folder, "grappling-trace.json"), JsonConvert.SerializeObject(detail, Formatting.Indented));
+    Check(detail.sourceFree && detail.targetFree && ReferenceEquals(targetItem, target.getWeapon()) && !target.under_forces,
+        "目标保留原装备，双方控制均已归还");
+    if (miss)
+        Check(held.Length == 0 && released.Length == 0 && flights.Count == 0 && impacts.Count == 0 &&
+              Vector2.Distance(target.current_position, waitingTarget) < .02f && health == target.data.health,
+            "抓取前移出实际手路，目标保持原地，无抓持或撞伤");
+    else
+    {
+        Check(held.Length == 1 && released.Length == 1 &&
+              Vector3.Distance(held[0].SourcePoint, held[0].TargetPoint) < .001f,
+            "真实抓点取得双方关系，结束时解除一次");
+        if (interrupt)
+        {
+            Check(pushed && released[0].WorldTime < held[0].Until - .02d && released[0].Reason != "PhaseEnded",
+                "来源受原版外力后提前解除，旧关系不再带动");
+            await Advance(definition.Cooldown + .1f);
+            Place(source, 64f);
+            Place(target, 64.10f, 71.92f);
+            ConstructedAbilityService.Learn(owner, id);
+            source.attack_timer = 0;
+            source.data.stamina = 100;
+            bool repeated = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()),
+                ActiveAbilityUseOrigin.Player);
+            source.attack_timer = 999;
+            owner.E.RemoveComponent<ConstructedKnowledge>();
+            Check(repeated && BodyControlState.IsBusy(source.id) &&
+                  Mathf.Abs(100 - source.data.stamina - definition.Cost) < .001f,
+                "冷却结束后同一人物可正式再施展并正常支付");
+            await Advance(definition.Lifetime + .5f);
+            Check(!BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id),
+                "再施展后双方再次归还控制");
+        }
+        else
+        {
+            Check(lift > .08f && turn > 8f, "真实上提和转动来自已确认抓点");
+            Check(impacts.Count == 1 && receipt.Damage > 0f && receipt.ClosingSpeed > 0f &&
+                  receipt.SourceId == source.id && target.data.health < health,
+                "实际环境碰撞只造成一次撞伤");
+            if (press)
+                Check(airborne.Length == 0 && released[0].EnvironmentPoint.HasValue &&
+                      Math.Abs(receipt.WorldTime - released[0].WorldTime) < .001d,
+                    "仍在抓持时撞到地面，在实际接触位置解除");
+            else
+                Check(airborne.Length == 1 && released[0].Reason == "PhaseEnded" &&
+                      airborne[0].Velocity.magnitude > .05f && airborne[0].AngularVelocity.magnitude > .1f &&
+                      flights.Count(value => value.State == ConstructedBodyFlightState.Contact) == 1 &&
+                      flights.Any(value => value.State == ConstructedBodyFlightState.Recovering) &&
+                      flights.Count(value => value.State == ConstructedBodyFlightState.Returned) == 1 &&
+                      receipt.WorldTime > airborne[0].WorldTime,
+                    "松手交接线速度与转动，随后触地、起身并归还");
+            if (cold)
+                Check(Mathf.Abs(receipt.Damage - .5f * mass * receipt.ClosingSpeed * receipt.ClosingSpeed * 1.35f) < .001f,
+                    "读回的 1.35 倍率进入真实撞击结算");
+        }
+    }
+    if (captureFrame != null)
+    {
+        await Advance(.18f);
+        await captureFrame(id);
+        saveFilm(id, held.Length + impacts.Count, definition.Cost);
+    }
+    return new { passed = true, selection, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.BodyConnectionChanged -= Linked;
+    ConstructedAbilityService.BodyFlightChanged -= Moved;
+    ConstructedAbilityService.BodyImpactConfirmed -= Impacted;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.time_scale_asset.multiplier = actionSpeed;
+    Config.paused = true;
+}

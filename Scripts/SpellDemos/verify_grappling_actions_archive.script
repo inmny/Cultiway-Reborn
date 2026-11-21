@@ -1,0 +1,90 @@
+// 改动实际撞伤倍率，再从原人物保存同一招的两个完整版本。
+try
+{
+    if (selection == "archive-view")
+    {
+        await Shot(basisId, "grappling-edit-cz");
+        LocalizedTextManager.instance.setLanguage("en");
+        await Shot(basisId, "grappling-edit-en");
+        return new { passed = true, selection, checks };
+    }
+    Click("Page2");
+    var input = Row("ConnectionCollision").GetComponentsInChildren<InputField>(false).Single();
+    input.text = "1.35";
+    input.onEndEdit.Invoke("1.35");
+    var relation = Session().Draft.Body.Construction.Relations.Single();
+    Check(relation.MoveTarget && relation.RotateTarget && relation.CollisionDamageScale == 1.35f,
+        "窗口写入新撞伤倍率，保留抓取、带动及旋转");
+    Click("LearnCopy");
+    var edited = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(edited.Id != basisId && ConstructedAbilityService.Knows(owner, edited.Id) &&
+          JToken.DeepEquals(original, JToken.FromObject(ConstructionEditing.Access.Read(basisId))) &&
+          edited.Body.Construction.Relations.Single().CollisionDamageScale == 1.35f,
+        "原人物学会改造副本，原招完整保留");
+    Click("Close");
+    await Frames();
+    await Shot(edited.Id, "grappling-edit-cz");
+    LocalizedTextManager.instance.setLanguage("en");
+    await Shot(edited.Id, "grappling-edit-en");
+    World.world.units.checkContainer();
+    World.world.items.checkLists();
+    foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+    CombatStatusEffects.RemoveStatus(target, quiet);
+    source.updateStats();
+    target.updateStats();
+    Place(source, 64.35f);
+    Place(target, 64.68f);
+    string destination = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(destination);
+    Check(File.Exists(Path.Combine(destination, "map.wbox")) &&
+          source.getWeapon()?.getAsset().id == "hammer_iron" && target.getWeapon()?.getAsset().id == "cultiway_iron_shield",
+        "保存原人物、原装备和已学招式");
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+    {
+        process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, target = target.id,
+        weapon = source.getWeapon().data.id, shield = target.getWeapon().data.id, edited = edited.Id,
+        definitions = new[] { basis, edited }
+    }, Formatting.Indented));
+    return new { passed = true, selection, edited = edited.Id, checks };
+
+    async Task Shot(string ability, string filename)
+    {
+        WindowWanfaConstructionEditor.Open(ability, source);
+        await Frames();
+        Click("Page2");
+        Check(Session().Draft.Body.Construction.Relations.Single().CollisionDamageScale == 1.35f,
+            "重新打开的副本仍有真实撞伤倍率");
+        World.world.console.Hide();
+        Tooltip.hideTooltipNow();
+        foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+        var row = (RectTransform)Row("ConnectionCollision").transform;
+        var scroll = row.GetComponentInParent<ScrollRect>();
+        scroll.StopMovement();
+        scroll.content.anchoredPosition = Vector2.zero;
+        await Frames();
+        Screen.Capture(Path.Combine(folder, filename + "-at-rest.png"));
+        var wheel = new PointerEventData(EventSystem.current);
+        var positions = new List<object>();
+        for (int attempt = 0; attempt < 4; attempt++)
+        {
+            float offset = scroll.viewport.InverseTransformPoint(row.position).y - scroll.viewport.rect.center.y;
+            positions.Add(new { offset, viewport = scroll.viewport.rect.height, content = scroll.content.rect.height,
+                position = scroll.content.anchoredPosition.y, scroll.verticalNormalizedPosition });
+            if (Mathf.Abs(offset) < scroll.viewport.rect.height * .3f) break;
+            wheel.scrollDelta = new Vector2(0f, offset / scroll.scrollSensitivity);
+            scroll.OnScroll(wheel);
+            await Frames();
+        }
+        File.WriteAllText(Path.Combine(folder, filename + "-scroll.json"), JsonConvert.SerializeObject(positions, Formatting.Indented));
+        Screen.Capture(Path.Combine(folder, filename + ".png"));
+        Click("Close");
+        await Frames();
+    }
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    LocalizedTextManager.instance.setLanguage("cz");
+    Config.paused = true;
+}
