@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Cultiway.Content.Combat;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Skills;
@@ -7,7 +6,6 @@ using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Utils.Extension;
-using UnityEngine;
 
 namespace Cultiway.Content.KnightCombat;
 
@@ -65,70 +63,9 @@ internal static class KnightGuardianTechniques
                 0f, 3.2f, 2.8f, 0f, 4.5f, 360f, 4f, SkillImpactKind.Shield),
             ResolveRange = _ => 0f,
             ResolveEffectRadius = _ => 3.5f,
-            TryUse = UseGuardianBulwark,
+            Construction = BodyActionCatalog.KnightBulwarkFor("hammer"),
+            ResolveConstruction = item => BodyActionCatalog.KnightBulwarkFor(item.group_id),
         };
-    }
-
-    private static bool UseGuardianBulwark(KnightTechniqueContext context, ActiveAbilityUseOrigin origin)
-    {
-        KnightTechniqueRuntimeService.BeginAction(context.Caster, 0.68f);
-        Vector3 direction = KnightTechniqueRuntimeService.ResolveDirection(context.Caster.Base);
-        KnightTechniqueVisuals.SpawnWeaponMotion(
-            context,
-            EquippedWeaponMotionKind.Sweep,
-            direction,
-            0.4f,
-            2.65f,
-            -168f,
-            168f,
-            KnightTrailStyle.Guardian,
-            1.28f);
-        KnightActionSequence sequence = KnightTechniqueRuntimeService.CreateSequence(context, null, 0f);
-        DelayedActionsManager.addAction(() =>
-        {
-            if (!sequence.TryContinue(out KnightTechniqueContext active)) return;
-            Vector3 activeDirection = KnightTechniqueRuntimeService.ResolveDirection(active.Caster.Base);
-            KnightTechniqueVisuals.SpawnWeaponMotion(
-                active,
-                EquippedWeaponMotionKind.Crush,
-                activeDirection,
-                0.3f,
-                2.15f,
-                -116f,
-                22f,
-                KnightTrailStyle.Guardian,
-                1.42f);
-        }, 0.34f);
-        DelayedActionsManager.addAction(() =>
-        {
-            if (!sequence.TryContinue(out KnightTechniqueContext active)) return;
-            Actor caster = active.Caster.Base;
-            KnightTechniqueStatuses.ApplyBulwark(caster, caster);
-            var allies = new List<Actor>();
-            CombatTargeting.ForEachActor(
-                caster,
-                caster.current_position,
-                3.5f,
-                CombatTargeting.TargetDisposition.Any,
-                candidate =>
-                {
-                    if (candidate != caster && SkillTargetRelationResolver.IsFriendly(caster, candidate))
-                        allies.Add(candidate);
-                });
-            allies.Sort((left, right) =>
-            {
-                int health = left.getHealthRatio().CompareTo(right.getHealthRatio());
-                if (health != 0) return health;
-                int distance = Toolbox.SquaredDistVec2Float(caster.current_position, left.current_position)
-                    .CompareTo(Toolbox.SquaredDistVec2Float(caster.current_position, right.current_position));
-                return distance != 0 ? distance : left.data.id.CompareTo(right.data.id);
-            });
-            for (var i = 0; i < allies.Count && i < 3; i++)
-            {
-                KnightTechniqueStatuses.ApplyBulwark(allies[i], caster);
-            }
-        }, 0.52f);
-        return true;
     }
 
     private static int ResolveGuardWeight(KnightTechniqueContext context)

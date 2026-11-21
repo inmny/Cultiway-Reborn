@@ -16,14 +16,15 @@ def main():
     parser.add_argument('--move', choices=('thrust', 'cut', 'sweep', 'miss', 'deflect',
                                             'committed', 'flurry', 'flurry-swap',
                                             'guard', 'guard-hammer', 'counter', 'stance-loss',
-                                            'repulse', 'repulse-swap'))
+                                            'repulse', 'repulse-swap', 'bulwark', 'bulwark-swap'))
     parser.add_argument('--archive', type=Path)
     parser.add_argument('--view', choices=('native', 'worldfall'))
     args = parser.parse_args()
     section = args.section
     stance_moves = ('guard', 'guard-hammer', 'counter', 'stance-loss')
     repulse_moves = ('repulse', 'repulse-swap')
-    knight_moves = ('committed', 'flurry', 'flurry-swap') + stance_moves + repulse_moves
+    bulwark_moves = ('bulwark', 'bulwark-swap')
+    knight_moves = ('committed', 'flurry', 'flurry-swap') + stance_moves + repulse_moves + bulwark_moves
     if args.move is not None and (args.move in knight_moves) != (section == 'knight'):
         parser.error('骑士战技使用 --section knight 并选择相应的 --move')
     if args.move == 'deflect' and args.item == 'stone':
@@ -61,8 +62,8 @@ def main():
         imports += ('using Cultiway.Core.SkillLibV3;\n'
                     'using Cultiway.Core.SkillLibV3.Utils;\nusing Cultiway.Content.KnightCombat;\n')
         script_name = 'verify_knight_duelist.script'
-        if move in stance_moves:
-            script_name = 'verify_knight_stances.script'
+        if move in stance_moves + bulwark_moves:
+            script_name = 'verify_knight_stances.script' if move in stance_moves else 'verify_knight_bulwark.script'
             imports += ('using Cultiway.Core.Combat;\nusing Cultiway.Core.EventSystem.Events;\n'
                         'using Cultiway.Core.EventSystem.Systems;\n')
         elif move in repulse_moves:

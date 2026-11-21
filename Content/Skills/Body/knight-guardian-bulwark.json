@@ -1,0 +1,70 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.KnightTechnique.GuardianBulwark",
+  "Name": "守护壁垒",
+  "Lifetime": 0.68,
+  "Cooldown": 12,
+  "Resource": "vigor",
+  "Cost": 360,
+  "Use": {"Target": "Self"},
+  "Binding": {"Anchor": "Source", "Follow": true},
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": "warhammer",
+    "Grip": "grip",
+    "Occupancy": 5,
+    "ReleaseAt": 0.34,
+    "ActiveFrom": 0.50,
+    "ActiveUntil": 0.57,
+    "Impact": {"Targets": "Self", "DamageScale": 0},
+    "Stages": [{"Id": "seal", "From": 0.50, "Until": 0.57}],
+    "Construction": {
+      "Parts": [
+        {"Id": "hand.right", "Part": "hand.right"},
+        {"Id": "weapon", "Subject": "Held", "Part": "item"}
+      ],
+      "Relations": [
+        {"Id": "hold", "Kind": "Grip", "From": "hand.right", "To": "weapon", "FromAnchor": "grip", "ToAnchor": "grip",
+          "FromMarker": "start", "UntilMarker": "end"}
+      ]
+    },
+    "Keys": [
+      {"Id": "ready", "At": 0, "Hand": [0.21, 0.20, 0.53], "Rotation": [23, -23, 10]},
+      {"Id": "gather", "At": 0.14, "Hand": [0.10, -0.24, 0.71], "Torso": [-0.06, -0.024, -0.04],
+        "Turn": 36, "Rotation": [-18, 78, -12]},
+      {"Id": "sweep", "At": 0.34, "Hand": [0.38, 0.27, 0.66], "Torso": [0.076, 0.023, -0.06],
+        "Turn": -33, "Rotation": [15, -66, 15]},
+      {"At": 0.42, "Hand": [0.26, 0.17, 0.80], "Torso": [0.02, 0.02, -0.036],
+        "Turn": -17, "Rotation": [-35, -38, 12]},
+      {"Id": "seal", "At": 0.52, "Hand": [0.34, 0.12, 0.46], "Torso": [0.095, 0.005, -0.11],
+        "Turn": 7, "Rotation": [69, -4, -12]},
+      {"At": 0.58, "Hand": [0.29, 0.14, 0.46], "Torso": [0.065, 0.008, -0.088],
+        "Turn": 6, "Rotation": [77, -8, -8]},
+      {"Id": "rest", "At": 0.68, "Hand": [0.21, 0.20, 0.53], "Rotation": [23, -23, 10]}
+    ]
+  },
+  "Root": {
+    "Id": "seal",
+    "Form": "purification_surge",
+    "Matter": "physical",
+    "Surface": "gold",
+    "Scale": 1.4,
+    "AppearAt": 0.52,
+    "ActiveFrom": 0.52,
+    "ActiveUntil": 0.524,
+    "ContactActorCenter": true,
+    "PreferWoundedAllies": true,
+    "IgnoreFormClashes": true,
+    "BodyWindow": true,
+    "ContactGroup": "body",
+    "Contact": {"Mode": "Pulse", "Interval": 0.52, "MaximumPerTarget": 1, "MaximumTotal": 4},
+    "Impact": {
+      "Targets": "Friendly",
+      "DamageScale": 0,
+      "Statuses": [{"Id": "KnightGuardianBulwark", "Duration": 4, "Application": "Refresh"}]
+    },
+    "Operations": [
+      {"Kind": "Animate", "Clip": "dissolve", "At": 0.52, "Seconds": 0.16}
+    ]
+  }
+}

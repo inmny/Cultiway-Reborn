@@ -1,9 +1,7 @@
-using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
-using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.Skills;
 using Cultiway.Utils.Extension;
@@ -53,11 +51,6 @@ internal static class KnightTechniqueStatuses
             "KnightCounterStance",
             KnightTechniques.CounterStance,
             3f);
-    }
-
-    public static void ApplyBulwark(Actor target, Actor source)
-    {
-        ApplyGlobal(target, GuardianBulwark, 4f, source);
     }
 
     public static bool TryGetBound(
@@ -125,26 +118,4 @@ internal static class KnightTechniqueStatuses
             bound.Weapon, BodyControlState.IsBusy(actor.Base.id) &&
                           ConstructedAbilityService.IsBodyControlledBy(actor.Base.id, bound.PreparationCastId));
 
-    private static void ApplyGlobal(
-        Actor target,
-        StatusEffectAsset effect,
-        float duration,
-        Actor source)
-    {
-        if (Combat.CombatStatusEffects.TryGetStatus(target, effect, null, out Entity status))
-        {
-            float sourcePowerLevel = source.GetExtend().GetPowerLevel();
-            if (!StatusEffectSuppression.TryResolveDuration(
-                    target.GetExtend(), effect, duration, source, sourcePowerLevel,
-                    out float resolvedDuration)) return;
-            status.GetComponent<AliveTimer>().value = 0f;
-            status.GetComponent<AliveTimeLimit>().value = resolvedDuration;
-            ref StatusComponent component = ref status.GetComponent<StatusComponent>();
-            component.SetSource(source);
-            component.SourcePowerLevel = sourcePowerLevel;
-            target.setStatsDirty();
-            return;
-        }
-        Combat.CombatStatusEffects.ApplyStateStatus(target, effect, duration, source, null);
-    }
 }

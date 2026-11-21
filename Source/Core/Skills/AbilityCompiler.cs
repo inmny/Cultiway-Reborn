@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Core.Visuals.Forms;
 using Newtonsoft.Json;
 using UnityEngine;
@@ -425,6 +426,8 @@ internal sealed class CompiledForm
     /// <summary>按人物地图位置结算的圆形半径，零表示仍按实体接触。</summary>
     internal float GroundCircleRadius;
     internal bool GroundActorsOnly;
+    internal bool PreferWoundedAllies;
+    internal bool IgnoreFormClashes;
 
     /// <summary>经过检查的实际景物带及实体回合边。</summary>
     internal CompiledLandscapeSlice LandscapeSlice;
@@ -804,6 +807,10 @@ public static partial class AbilityCompiler
                 Fail(node.Path + "/BodyWindow", "跟随身体作用须提供实际身体并共用body接触组");
             if (node.BorrowedWeaponDamage && (!node.BodyWindow || body?.WeaponForm == null || !node.AffectsActors))
                 Fail(node.Path + "/BorrowedWeaponDamage", "只有跟随实际持物动作的人物作用面能借用该兵器伤害");
+            if (node.PreferWoundedAllies && (node.GroundCircleRadius <= 0f ||
+                                           node.Impact?.Targets != SkillUseTargetRelation.Friendly ||
+                                           node.ContactPolicy?.MaximumTotal is not > 0 || !node.AffectsActors))
+                Fail(node.Path + "/PreferWoundedAllies", "优先护持须使用有总人数上限的友方圆面脉冲");
         }
         if (body != null && !body.Part.IsArm && definition.Binding?.Anchor == AbilityAnchor.Hand)
             Fail("Binding/Anchor", "此身体动作未控制手腕，生成主体应明确连接实际发力部位Effector");
@@ -1010,6 +1017,8 @@ public static partial class AbilityCompiler
             Resource = resource,
             GroundCircleRadius = groundCircleRadius,
             GroundActorsOnly = node.GroundActorsOnly,
+            PreferWoundedAllies = node.PreferWoundedAllies,
+            IgnoreFormClashes = node.IgnoreFormClashes,
             LandscapeSlice = landscape,
             MaterialVortex = node.MaterialVortex == null ? null : new CompiledMaterialVortex(node.MaterialVortex, path + "/MaterialVortex"),
             WeaponChamber = node.WeaponChamber == null ? null : new CompiledWeaponChamber(node.WeaponChamber, path + "/WeaponChamber"),

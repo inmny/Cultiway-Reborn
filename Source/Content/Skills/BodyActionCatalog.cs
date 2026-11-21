@@ -51,6 +51,7 @@ public static class BodyActionCatalog
     private static AbilityDefinition knightGuard, knightAxeGuard, knightGuardResponse, knightAxeGuardResponse;
     private static AbilityDefinition knightCounter, knightCounterRiposte;
     private static AbilityDefinition knightRepulse, knightAxeRepulse;
+    private static AbilityDefinition knightBulwark, knightAxeBulwark;
 
     /// <summary>格挡架势的共用锤柄动作。</summary>
     internal static AbilityDefinition KnightGuard => knightGuard ??= Load("knight-guard-stance");
@@ -58,7 +59,7 @@ public static class BodyActionCatalog
     /// <summary>按守卫当前装备选择真实战斧或锤。</summary>
     /// <param name="weaponGroup">当前装备所属兵器类型。</param>
     internal static AbilityDefinition KnightGuardFor(string weaponGroup) => weaponGroup == "axe"
-        ? knightAxeGuard ??= AxeGuard() : KnightGuard;
+        ? knightAxeGuard ??= WithWarAxe(KnightGuard) : KnightGuard;
 
     /// <summary>格挡确实承力时复用对应握持。此段不再次建立架势。</summary>
     /// <param name="weaponGroup">触发时仍持有的实际武器类型。</param>
@@ -78,6 +79,11 @@ public static class BodyActionCatalog
         ? knightAxeRepulse ??= AxeRepulse()
         : knightRepulse ??= Load("knight-repulse");
 
+    /// <summary>按实际装备选择同一守护过程的斧、锤握持。</summary>
+    internal static AbilityDefinition KnightBulwarkFor(string weaponGroup) => weaponGroup == "axe"
+        ? knightAxeBulwark ??= WithWarAxe(KnightBulwarkFor("hammer"))
+        : knightBulwark ??= Load("knight-guardian-bulwark");
+
     /// <summary>斧的横扫与锤的下落共用接触时点、半径和作用。</summary>
     private static AbilityDefinition AxeRepulse()
     {
@@ -88,10 +94,10 @@ public static class BodyActionCatalog
         return result;
     }
 
-    /// <summary>斧的握点和几何由斧的资源提供，保留原架势过程。</summary>
-    private static AbilityDefinition AxeGuard()
+    /// <summary>使用相同手路时，由斧的制作资料提供自身的握点。</summary>
+    private static AbilityDefinition WithWarAxe(AbilityDefinition basis)
     {
-        var result = ConstructionEditing.Copy(KnightGuard);
+        var result = ConstructionEditing.Copy(basis);
         result.Id += ".Axe";
         result.Name += "·斧";
         result.Body.WeaponForm = "war_axe";
@@ -138,7 +144,8 @@ public static class BodyActionCatalog
             Load("angled-retreat"), Load("charging-shoulder"), Load("bounding-step"),
             Load("turning-throw"), Load("pressing-throw"), Load("beast-tail-sweep"), Load("beast-wing-cut"),
             KnightArmorPiercingThrust, KnightCommittedStrike, KnightLegendaryFlurry, KnightGuard,
-            KnightGuardFor("axe"), KnightCounter, KnightRepulseFor("hammer"), KnightRepulseFor("axe") };
+            KnightGuardFor("axe"), KnightCounter, KnightRepulseFor("hammer"), KnightRepulseFor("axe"),
+            KnightBulwarkFor("hammer"), KnightBulwarkFor("axe") };
     }
 
     /// <summary>保留完整手路及发力，石剑版本以本身的握点及刃口执行。</summary>

@@ -823,6 +823,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ShapeMotion shape = shapes[index];
             RunningCast running = shape.Running;
             CastAuthority owner = running.Owner(shape.To.Node);
+            CompiledForm form = shape.To.Node < 0 ? null : running.Cast.Plan.Nodes[shape.To.Node];
             bool canTouch = TouchPath(shape, step, out float touchFrom);
             if (canTouch && (running.Cast.Plan.HasWorldEffects || running.Cast.Plan.HasWorldContactEvents))
             {
@@ -835,7 +836,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             }
             bool powered = shape.To.Node < 0 || running.Cast.ContactSweepForce(shape.To.Node) > 0f;
             bool fire = powered && shape.To.Material?.Id == "fire" && shape.To.Material.State == "energy";
-            bool ordinary = powered && running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
+            bool ordinary = powered && form?.IgnoreFormClashes != true &&
+                            running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
             bool thermalSource = fire || shape.To.Node >= 0 && running.Cast.Burning(shape.To.Node).Heat > 0;
             bool attack = canTouch && ordinary && running.Cast.Role(shape.To.Node) == ConstructionContactRole.Attack;
             if (canTouch && ordinary && running.BuildingContact != null &&
@@ -861,6 +863,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                             (other <= index || IsQuenching(shape, right) ||
                              ThermalPair(right, shape) != ThermalReaction.None || !ordinary ||
                              right.Running.Cast.ContactSweepForce(right.To.Node) <= 0f ||
+                             right.Running.Cast.Plan.Nodes[right.To.Node].IgnoreFormClashes ||
                              running.Cast.Role(shape.To.Node) == ConstructionContactRole.Decoration ||
                              right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Decoration ||
                              running.Cast.Role(shape.To.Node) == ConstructionContactRole.Barrier &&
@@ -913,7 +916,6 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             // 已被真实器物接触抵住的兵器不能仅因进入伤害时段而穿透补伤；独立法术和其他肢体继续运行。
             if (shape.To.Node < 0 && (running.WeaponConstraint?.Active == true ||
                                     running.Connection?.Active == true && running.Connection.WeaponOnly)) continue;
-            CompiledForm form = shape.To.Node < 0 ? null : running.Cast.Plan.Nodes[shape.To.Node];
             float groundRadius = form?.GroundCircleRadius > 0f && shape.To.Shape >= 0 &&
                                  shape.To.Shape < form.Resource.Contacts.Length
                 ? form.GroundCircleRadius : 0f;
@@ -1953,7 +1955,21 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 order = (b.Building != null).CompareTo(a.Building != null);
                 return order != 0 ? order : a.BuildingId.CompareTo(b.BuildingId);
             }
-            return a.Right.HasValue ? CompareShape(a.Right.Value, b.Right.Value) : a.Actor.Id.CompareTo(b.Actor.Id);
+            if (a.Right.HasValue) return CompareShape(a.Right.Value, b.Right.Value);
+            int node = a.Left.To.Node;
+            if (node >= 0 && a.Actor.Id != 0 && b.Actor.Id != 0 &&
+                a.Left.Running.Cast.Plan.Nodes[node].PreferWoundedAllies)
+            {
+                long source = a.Left.Running.Owner(node).Id;
+                order = (b.Actor.Id == source).CompareTo(a.Actor.Id == source);
+                if (order != 0) return order;
+                order = a.Actor.Actor.getHealthRatio().CompareTo(b.Actor.Actor.getHealthRatio());
+                if (order != 0) return order;
+                Vector2 center = Vector2.Lerp(a.Left.From.A, a.Left.To.A, a.Fraction);
+                order = ((Vector2)a.Point - center).sqrMagnitude.CompareTo(((Vector2)b.Point - center).sqrMagnitude);
+                if (order != 0) return order;
+            }
+            return a.Actor.Id.CompareTo(b.Actor.Id);
         }
 
         /// <summary>形体双方均使用来源、构造、施放和部位的稳定顺序，不受查询插入顺序影响。</summary>

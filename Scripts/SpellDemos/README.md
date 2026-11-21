@@ -2480,6 +2480,8 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 `--move repulse` 用原版铁锤核对震退的地面范围、实际扣血后的推力和硬直。`--move repulse-swap` 在斧扫起势时换掉原斧，核对中断及身体归还。
 
+`--move bulwark` 用同一场地核对守护壁垒的友方顺序、实际减伤和到期。`--move bulwark-swap` 在壁垒展开前换掉同款斧，核对中断后的状态和身体归还。
+
 ### 长兵战技（9.44）
 
 在独立游戏用 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_long_weapons.py`。检查正式铁枪刺的滑握、实际枪尖命中、近身落空、两手握杆横扫及原枪归还。用 `--case strike`、`--case near`、`--case sweep` 或 `--case interrupt` 单独复验。横扫检查左手占用拒绝、两手握点和实际臂长，换器检查同款新枪也会解除旧动作。

@@ -154,6 +154,14 @@ public sealed class ConstructionNode
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool GroundActorsOnly;
 
+    /// <summary>友方圆面脉冲优先作用于自身，其余按生命比例、距离和人物编号选择。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool PreferWoundedAllies;
+
+    /// <summary>人物及地块仍按实际接触生效，此形体不参与普通法术交锋。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool IgnoreFormClashes;
+
     /// <summary>仅作用于显示的三个染色倍率，不改变实际材料和物态。</summary>
     public float[] Tint;
 
