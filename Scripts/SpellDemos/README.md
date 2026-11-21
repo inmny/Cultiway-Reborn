@@ -2490,6 +2490,8 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 `--case charge` 复验破阵冲锋先命中沿途敌人、收势以及实际扣血后的侧向推开。`charge-wall`、`charge-swap` 和 `charge-building` 分别检查墙体、换枪和原入口允许的建筑。
 
+`--case skyfall` 复验苍穹坠击的实际高度、落地时点和主次伤害。`skyfall-evade` 核对点名对象移出中心后的范围伤害，`skyfall-swap` 核对换枪后下落及归还，`skyfall-building` 核对原入口点名建筑的落点伤害。
+
 `--case press --archive <输出目录>` 用正式对练档中的人物运行架杆拨锋与持剑刺击。检查接触点相合、杆身带动持剑手、收枪解除关系、双方原物归还，以及对方没有兵器时保留体力。
 
 `--case edit` 检查万法阁的实际握点、滑握比例、器物尺寸和普通接触面，并保存中英文画面和 `edited-definition.json`。使用 `--case range --edited <edited-definition.json 路径>` 实战核对该改造的选取距离、尖端接触以及原物归还。

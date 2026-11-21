@@ -73,20 +73,8 @@ internal static class KnightLancerTechniques
                 4.5f, 0f, 0f, 1.4f, 5.5f, 360f, 4f, SkillImpactKind.HeavySkyfall),
             ResolveRange = _ => 9f,
             ResolveEffectRadius = _ => 2f,
-            TryUse = UseSkyfallStrike,
+            Construction = BodyActionCatalog.KnightSkyfallStrike,
         };
-    }
-
-    private static bool UseSkyfallStrike(KnightTechniqueContext context, ActiveAbilityUseOrigin origin)
-    {
-        KnightTechniqueRuntimeService.BeginAction(context.Caster, 0.86f);
-        DelayedActionsManager.addAction(() =>
-        {
-            if (KnightTechniqueRuntimeService.IsCurrentTechniqueWeapon(
-                    context.Caster, context.Technique, context.Weapon))
-                KnightTechniqueMovement.StartSkyfall(context);
-        }, 0.16f);
-        return true;
     }
 
     private static int ResolveSkyfallWeight(KnightTechniqueContext context)

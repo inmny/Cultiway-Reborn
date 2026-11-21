@@ -425,6 +425,7 @@ internal sealed class CompiledForm
 
     /// <summary>按人物地图位置结算的圆形半径，零表示仍按实体接触。</summary>
     internal float GroundCircleRadius;
+    internal bool GroundCircleAddsTargetSize;
     internal bool GroundActorsOnly;
     internal bool PreferWoundedAllies;
     internal bool IgnoreFormClashes;
@@ -550,6 +551,7 @@ internal sealed class CompiledForm
 
     /// <summary>本部位的作用及结束依赖实际身体过程。</summary>
     internal bool BodyWindow;
+    internal bool GroundedBodyRequired;
     internal bool BorrowedWeaponDamage;
 
     /// <summary>同组共享接触去重，跨形态交接不重复命中同一人物。</summary>
@@ -807,6 +809,11 @@ public static partial class AbilityCompiler
                 Fail(node.Path + "/BodyWindow", "跟随身体作用须提供实际身体并共用body接触组");
             if (node.BorrowedWeaponDamage && (!node.BodyWindow || body?.WeaponForm == null || !node.AffectsActors))
                 Fail(node.Path + "/BorrowedWeaponDamage", "只有跟随实际持物动作的人物作用面能借用该兵器伤害");
+            if (node.GroundedBodyRequired && (!node.BodyWindow || body?.HasSupportMotion != true))
+                Fail(node.Path + "/GroundedBodyRequired", "需要跟随真实身体支撑的作用窗口");
+            if (node.GroundCircleAddsTargetSize && (node.GroundCircleRadius <= 0f ||
+                                                   node.Impact?.SelectedTargetOnly != true))
+                Fail(node.Path + "/GroundCircleAddsTargetSize", "按尺寸放宽边缘只用于点名圆面脉冲");
             if (node.PreferWoundedAllies && (node.GroundCircleRadius <= 0f ||
                                            node.Impact?.Targets != SkillUseTargetRelation.Friendly ||
                                            node.ContactPolicy?.MaximumTotal is not > 0 || !node.AffectsActors))
@@ -1016,6 +1023,7 @@ public static partial class AbilityCompiler
                 node.Activation?.Placement != ConstructionEventPlacement.Event, lifetime, path + "/Outlet"),
             Resource = resource,
             GroundCircleRadius = groundCircleRadius,
+            GroundCircleAddsTargetSize = node.GroundCircleAddsTargetSize,
             GroundActorsOnly = node.GroundActorsOnly,
             PreferWoundedAllies = node.PreferWoundedAllies,
             IgnoreFormClashes = node.IgnoreFormClashes,
@@ -1038,6 +1046,7 @@ public static partial class AbilityCompiler
             Dye = dye,
             ContactKey = node.ContactGroup ?? path,
             BodyWindow = node.BodyWindow,
+            GroundedBodyRequired = node.GroundedBodyRequired,
             BorrowedWeaponDamage = node.BorrowedWeaponDamage,
             AnimateWhileHeld = node.AnimateWhileHeld,
             ContactPolicy = node.Contact == null ? null : new CompiledContactPolicy(node.Contact, path),

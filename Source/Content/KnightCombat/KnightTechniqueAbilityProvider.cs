@@ -65,7 +65,7 @@ internal sealed class KnightTechniqueAbilityProvider : IActiveAbilityProvider
     {
         if (!TryResolveHandle(caster, handle, out KnightTechniqueAsset technique, out Entity container) ||
             !KnightTechniqueAccessService.TryResolveCurrentWeapon(caster, technique, out _, out _) ||
-            KnightTechniqueRuntimeService.IsBusy(caster) || !KnightTechniqueRuntimeService.CanAct(caster))
+            !KnightTechniqueRuntimeService.CanAct(caster))
         {
             return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
         }
@@ -81,7 +81,6 @@ internal sealed class KnightTechniqueAbilityProvider : IActiveAbilityProvider
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
         if (!TryResolveHandle(caster, handle, out KnightTechniqueAsset technique, out Entity container) ||
-            KnightTechniqueRuntimeService.IsBusy(caster) ||
             !KnightTechniqueRuntimeService.CanAct(caster) ||
             !SkillCooldownService.IsReady(caster, container) ||
             !SkillCastCost.CanPayStep(caster, container)) return false;
@@ -96,7 +95,6 @@ internal sealed class KnightTechniqueAbilityProvider : IActiveAbilityProvider
     public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target)
     {
         if (!TryResolveHandle(caster, handle, out KnightTechniqueAsset technique, out Entity container) ||
-            KnightTechniqueRuntimeService.IsBusy(caster) ||
             !KnightTechniqueRuntimeService.CanAct(caster) ||
             !SkillCooldownService.IsReady(caster, container) ||
             !SkillCastCost.CanPayStep(caster, container) ||

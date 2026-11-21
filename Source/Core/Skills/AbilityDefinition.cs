@@ -150,6 +150,10 @@ public sealed class ConstructionNode
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool ContactActorCenter;
 
+    /// <summary>点名圆面的边界再计入被选者的实际尺寸。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool GroundCircleAddsTargetSize;
+
     /// <summary>人物接触只接受实际地面目标。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool GroundActorsOnly;
@@ -223,6 +227,10 @@ public sealed class ConstructionNode
     /// <summary>作用窗口、分次作用及结果收势跟随实际身体；未声明的独立主体继续自身过程。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool BodyWindow;
+
+    /// <summary>此部位只有实际身体落地后才能呈现和作用。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool GroundedBodyRequired;
 
     /// <summary>实际身体借用的兵器负责此作用面的原版近战伤害。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]

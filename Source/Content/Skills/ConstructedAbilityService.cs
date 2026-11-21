@@ -785,7 +785,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     private static bool BodyAvailable(ActorExtend caster, CompiledBodyAction body) =>
         !BodyControlState.IsBusy(caster.Base.id, BodyActionBinding.Occupancy(caster.Base, body), body.Part.ControlPath) &&
         (body.WeaponForm == null || !WeaponControlRuntimeService.IsCasting(caster) && !HasReleasedWeapon(caster.Base.id)) &&
-        !KnightTechniqueRuntimeService.IsBusy(caster) && !caster.Base.stats.hasTag("frozen_ai") &&
+        !caster.Base.stats.hasTag("frozen_ai") &&
         !caster.Base.stats.hasTag("immovable");
 
     /// <summary>原有徒手入口可用性，不借用另一人物或已经失效的身体。</summary>
@@ -967,10 +967,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         running.Carrier?.Dispose();
         running.Carrier = null;
         if (!running.BodyControlled) return;
-        bool owns = running.Source.data?.id == running.SourceId && running.Source.isAlive() &&
-                    running.Body.IsCurrent(running.Source) && running.Movement?.OwnsPosition != false &&
-                    !running.Source.under_forces;
-        if (owns && running.Movement != null && running.Source.position_height > 0f)
+        bool ownsMotion = running.Source.data?.id == running.SourceId && running.Source.isAlive() &&
+                          running.Body.IsCurrent(running.Source, requireWeapon: false) &&
+                          running.Movement?.OwnsPosition != false && !running.Source.under_forces;
+        if (ownsMotion && running.Movement != null && running.Source.position_height > 0f)
         {
             if (OnSurface(running.Source))
                 ConstructedActorImpulse.RestoreSurface(running.Source, running.Movement.Root.z, simulation.terrain);
@@ -979,7 +979,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         running.BodyLease.Dispose();
         running.BodyLease = null;
-        if (owns && running.Cast.Plan.Body.ControlsStance)
+        if (ownsMotion && running.Cast.Plan.Body.ControlsStance &&
+            (running.Cast.Plan.Body.WeaponForm == null || running.Body.IsWeaponCurrent(running.Source)))
         {
             if (!running.Source.under_forces)
             {

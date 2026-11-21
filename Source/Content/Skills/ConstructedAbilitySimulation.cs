@@ -925,7 +925,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 if (shape.To.Shape != 0) continue;
                 var extent = shape.Bounds.extents;
                 float scale = Mathf.Max(shape.From.Prism.OutlineScale, shape.To.Prism.OutlineScale);
-                actorIndex.QueryPlane(shape.Bounds.center, Mathf.Max(extent.x, extent.y) + groundRadius * scale, nearby);
+                if (form.GroundCircleAddsTargetSize)
+                {
+                    nearby.Clear();
+                    if (actorIndices.TryGetValue(owner.TargetId, out int designated)) nearby.Add(designated);
+                }
+                else actorIndex.QueryPlane(shape.Bounds.center, Mathf.Max(extent.x, extent.y) + groundRadius * scale, nearby);
             }
             else actorIndex.Query(shape.Bounds, nearby);
             // 双方关系只查询已选目标；长尾等真实表面可能超出原版人物粗筛球。
@@ -994,6 +999,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                         Vector3 foot = Vector3.Lerp(fromFoot, toFoot, earliest);
                         Vector2 offset = foot - a0.A;
                         float radius = groundRadius * a0.Prism.OutlineScale;
+                        if (form.GroundCircleAddsTargetSize) radius += actor.Actor.stats[strings.S.size];
                         if (offset.sqrMagnitude > radius * radius) return;
                         at = 0f;
                         point = new Vector3(foot.x, foot.y, a0.A.z);

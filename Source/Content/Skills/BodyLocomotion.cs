@@ -375,7 +375,7 @@ internal sealed partial class BodyLocomotion
             baseline = Mathf.Lerp(value.FlightGround, destination, Mathf.SmoothStep(0f, 1f, progress));
         }
 
-        value.RequestedZ = baseline + support.Rise * value.Height;
+        value.RequestedZ = baseline + support.Rise * (action.Construction.RiseInWorldUnits ? 1f : value.Height);
         value.Root.z = Mathf.Max(floor, value.RequestedZ);
         value.HeightBlocked = value.RequestedZ < floor;
         if (value.Root.z > previous.z && CeilingHeight != null)

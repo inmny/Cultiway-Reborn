@@ -108,7 +108,11 @@ public sealed partial class ConstructedAbilityService
         RunningCast running = shape.Running;
         int node = shape.To.Node, stage = running.Cast.BodyStage;
         LegacyBuildingContact rule = running.BuildingContact;
-        if (rule.BodyWeapon && node >= 0) return;
+        if (rule.BodyWeapon && node >= 0)
+        {
+            FindSelectedGroundBuilding(shape, step, include);
+            return;
+        }
         bool chain = rule.ChainStartRadius > 0f;
         long chosen = 0;
         if (node < 0) chosen = rule.SweepsBuildings ? 0 : rule.SelectedBuilding;
@@ -169,6 +173,34 @@ public sealed partial class ConstructedAbilityService
         }
     }
 
+    /// <summary>点名圆面沿同一实际地面边界作用于原选定建筑。</summary>
+    private static void FindSelectedGroundBuilding(ShapeMotion shape, float step, Action<ContactChoice> include)
+    {
+        RunningCast running = shape.Running;
+        int node = shape.To.Node, stage = running.Cast.BodyStage;
+        CompiledForm form = running.Cast.Plan.Nodes[node];
+        long id = running.BuildingContact.SelectedBuilding;
+        if (id == 0 || shape.To.Shape != 0 || !form.BorrowedWeaponDamage ||
+            form.GroundCircleRadius <= 0f || form.Impact?.SelectedTargetOnly != true) return;
+        Building building = World.world.buildings.get(id);
+        if (building == null || building.isRekt() ||
+            !running.Cast.ContactInterval(node, stage, out float from, out float until)) return;
+        if (!shape.Continuous) from = 1f;
+        var key = running.HitKeyAtStage(node, -id, stage);
+        CompiledContactPolicy policy = running.Cast.Plan.ContactPolicies[key.Item1];
+        running.Hits.TryGetValue(key, out ContactMemory memory);
+        if (policy.MaximumPerTarget > 0 && memory?.Count >= policy.MaximumPerTarget) return;
+        float fraction = PulseFraction(policy, memory, running.Cast.Age - step, step, from);
+        if (fraction > 1f || fraction > until) return;
+        AbilityCapsule circle = Slice(shape.From, shape.To, fraction);
+        Vector2 offset = building.current_position - (Vector2)circle.A;
+        float radius = form.GroundCircleRadius * circle.Prism.OutlineScale +
+                       (form.GroundCircleAddsTargetSize ? building.stats[strings.S.size] : 0f);
+        if (offset.sqrMagnitude > radius * radius) return;
+        Vector3 point = new(building.current_position.x, building.current_position.y, circle.A.z);
+        include(new ContactChoice(shape, default, null, fraction, point, offset.normalized, step, building: building));
+    }
+
     /// <summary>弧线和坠落沿用原来接近目标高度后才可碰到建筑的规则。</summary>
     /// <param name="shape">本段的实际形状和转动中心。</param>
     /// <param name="height">原高度上限，普通平飞不限。</param>
@@ -198,9 +230,9 @@ public sealed partial class ConstructedAbilityService
             building.getID() != hit.BuildingId ||
             !rule.Allows(building, owner.AttackKingdom(), running.Cast.Reflections(node))) return;
         RememberContact(running, node, -hit.BuildingId);
-        if (node < 0)
+        if (node < 0 || rule.BodyWeapon && running.Cast.Plan.Nodes[node].BorrowedWeaponDamage)
         {
-            ResolveBodyBuildingContact(hit, building);
+            ResolveBodyBuildingContact(hit, node, building);
             return;
         }
         long generation = worldGeneration;
@@ -230,20 +262,23 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>兵器尖端的真实接触沿用一次原版建筑受击，并使身体进入该次收势。</summary>
     /// <param name="hit">已经确认的真实接触及身体形状。</param>
+    /// <param name="node">实际作用部位，负一表示直接持械接触。</param>
     /// <param name="building">本次原入口选定的建筑。</param>
-    private static void ResolveBodyBuildingContact(in ContactChoice hit, Building building)
+    private static void ResolveBodyBuildingContact(in ContactChoice hit, int node, Building building)
     {
         RunningCast running = hit.Left.Running;
         Actor actor = running.Source;
-        CompiledConstructionImpact impact = running.Cast.Impact(-1);
+        CompiledConstructionImpact impact = running.Cast.Impact(node);
+        float strength = node < 0 ? running.BodyStrikeScale(running.Cast.BodyStage) :
+            running.Cast.ContactAttenuation(node, hit.Left.To.Shape);
         long generation = worldGeneration;
         bool damaged = actor.canAttackTarget(building) && impact.DamageScale > 0f &&
                        KnightWeaponStrikeResolver.StrikeBorrowed(actor.GetExtend(), running.Body.Weapon, building,
-                           running.Power * impact.DamageScale * running.BodyStrikeScale(running.Cast.BodyStage)).state == ApplyAttackState.Hit;
+                           running.Power * impact.DamageScale * strength).state == ApplyAttackState.Hit;
         if (generation != worldGeneration) return;
-        running.Cast.ConfirmBuildingContact(-1, hit.Point, hit.BuildingId, null, false);
+        running.Cast.ConfirmBuildingContact(node, hit.Point, hit.BuildingId, null, false);
         ConfirmBodyFeedback(running, hit.Point);
         if (damaged) RespondToBodyResult(running, BodyActionResult.Contact);
-        EndExhaustedContactGroup(running, -1);
+        EndExhaustedContactGroup(running, node);
     }
 }

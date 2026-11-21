@@ -436,10 +436,10 @@ internal sealed partial class BodyActionBinding
 
     /// <summary>只核对旧绑定的身体及器物身份，不把暂时受力当作同一套可继续使用的骨长。</summary>
     /// <param name="actor">仍为原人物的实际身体。</param>
-    internal bool IsCurrent(Actor actor) => actor.asset == sourceAsset && (sourceAppearance == null || actor.animation_container == sourceAppearance) &&
+    internal bool IsCurrent(Actor actor, bool requireWeapon = true) => actor.asset == sourceAsset && (sourceAppearance == null || actor.animation_container == sourceAppearance) &&
         (SourceStateValid?.Invoke(actor) ?? true) && (Organ == null || Organ.Refresh()) &&
         (Joint == null || Joint.IsCurrent && (action.HasNamedSupportMotion || Joint.IsAtStart)) &&
-        (action.WeaponForm == null || IsWeaponCurrent(actor));
+        (!requireWeapon || action.WeaponForm == null || IsWeaponCurrent(actor));
 
     /// <summary>动作收势后仍可核对同一件实际器物，不能继续借用已换掉的装备。</summary>
     internal bool IsWeaponCurrent(Actor actor) => Weapon?.data?.id == weaponId && Weapon.getAsset() == weaponAsset &&

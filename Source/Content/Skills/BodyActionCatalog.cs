@@ -35,10 +35,15 @@ public static class BodyActionCatalog
         knightArmorPiercingThrust ??= Load("knight-armor-piercing-thrust");
 
     private static AbilityDefinition knightFormationCharge;
+    private static AbilityDefinition knightSkyfallStrike;
 
     /// <summary>枪骑锁定直线目标后，沿共同步法用实际枪尖破阵。</summary>
     internal static AbilityDefinition KnightFormationCharge =>
         knightFormationCharge ??= Load("knight-formation-charge");
+
+    /// <summary>实际腾起、落点及主次作用使用共用身体构造。</summary>
+    internal static AbilityDefinition KnightSkyfallStrike =>
+        knightSkyfallStrike ??= Load("knight-skyfall-strike");
 
     /// <summary>蓄势重击的制作资料。</summary>
     private static AbilityDefinition knightCommittedStrike;
@@ -151,7 +156,7 @@ public static class BodyActionCatalog
             Load("turning-throw"), Load("pressing-throw"), Load("beast-tail-sweep"), Load("beast-wing-cut"),
             KnightArmorPiercingThrust, KnightCommittedStrike, KnightLegendaryFlurry, KnightGuard,
             KnightGuardFor("axe"), KnightCounter, KnightRepulseFor("hammer"), KnightRepulseFor("axe"),
-            KnightBulwarkFor("hammer"), KnightBulwarkFor("axe"), KnightFormationCharge };
+            KnightBulwarkFor("hammer"), KnightBulwarkFor("axe"), KnightFormationCharge, KnightSkyfallStrike };
     }
 
     /// <summary>保留完整手路及发力，石剑版本以本身的握点及刃口执行。</summary>

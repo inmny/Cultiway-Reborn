@@ -768,7 +768,8 @@ public sealed partial class CompiledBodyAction
         if (definition.Keys.Any(key => key.Support != null))
         {
             supportMotion =
-                new CompiledBodySupportMotion(definition.Keys, Construction.LeftFoot, Construction.RightFoot, Part.HasPartRotation);
+                new CompiledBodySupportMotion(definition.Keys, Construction.LeftFoot, Construction.RightFoot,
+                    Part.HasPartRotation, Construction.RiseInWorldUnits);
             if (Part.IsLeg && definition.Keys.Any(key => key.Foot == null ||
                                                          !key.Foot.SequenceEqual(Part.Left
                                                              ? key.Support.LeftFoot
