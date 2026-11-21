@@ -339,10 +339,9 @@ public partial class ArtifactAbilities
         ActiveAbilityUseOrigin origin)
     {
         var artifact = context.artifact;
-        Vector3 mouth =
-            ArtifactAppearanceRenderer.TryResolveSpatialAnchor(artifact, "mouth", "center", out Vector3 anchor)
-                ? anchor
-                : ControllerPosition(context);
+        if (!ArtifactAppearanceRenderer.TryResolveSpatialAnchor(artifact, "mouth", "focus", out Vector3 mouth) &&
+            !ArtifactAppearanceRenderer.TryResolveSpatialAnchor(artifact, "mouth", "center", out mouth))
+            mouth = ControllerPosition(context);
         var storage = artifact.GetComponent<ArtifactStorageState>();
         float stored = Mathf.Max(0f, Mathf.Min(ability.GetNumber(StoredResourceCost),
             ArtifactStorageOperations.GetAmount(in storage, ArtifactStorageOperations.AbsorbedPower)));
