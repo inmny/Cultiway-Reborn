@@ -37,14 +37,7 @@ public sealed partial class ConstructedAbilityService
             case FormationAreaKind.Yin when enemy:
                 CombatStatusEffects.ApplyStatus(target, StatusEffects.Freeze, 1f, source);
                 CombatStatusEffects.ApplyStatus(target, StatusEffects.Silence, 3f, source);
-                // 原法术扣除敌方灵气，施法者只收下自身仍能容纳的部分。
-                Vector3 from = YinEndpoint(target, .38f), to = YinEndpoint(source, .48f);
-                float height = SpatialActorPose.Height(target);
-                long generation = worldGeneration;
-                float drained = CombatResourceEffects.DrainWakan(target, 12f * formation.Strength);
-                if (generation != worldGeneration) break;
-                float restored = CombatResourceEffects.RestoreWakan(source, drained);
-                if (generation == worldGeneration) RecordYinTransfer(from, to, height, restored);
+                DrainFormationWakan(source, target, 12f * formation.Strength);
                 break;
         }
         return default;

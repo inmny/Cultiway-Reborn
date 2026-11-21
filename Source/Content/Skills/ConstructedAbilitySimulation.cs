@@ -350,6 +350,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
         // 已确认的自然结束不再被来源后来失效改写成中断。
         if (running.Cast.Finished) { ReleaseActorTransferHolds(running); return; }
+        if (running.FormationTarget.TracksTarget &&
+            (running.Target == null || running.Target.data?.id != running.TargetId ||
+             !running.Target.isAlive() || !running.Target.hasHealth()))
+        {
+            running.Cast.Cancel();
+            return;
+        }
         if (running.ActorTransferHolds?.Count > 0 && !ActorTransferSourceLive(running)) ReleaseActorTransferHolds(running);
         ValidateCorrespondences(running);
         if (running.Inventory != null && !running.Inventory.IsValid)

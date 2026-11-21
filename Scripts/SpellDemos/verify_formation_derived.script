@@ -507,6 +507,203 @@ try
             Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
         }
     }
+    if (Allowed("sword-flight") || Allowed("yin-flight") || caseName is "tracking" or "flight-lost")
+    {
+        bool swords = Allowed("sword-flight") || caseName == "tracking";
+        bool yin = Allowed("yin-flight") || caseName == "tracking";
+        Vector2 start = new(64.5f, 72.5f), originalTarget = new(79.5f, 72.5f), shiftedTarget = new(79.5f, 75.15f);
+        void Move(Actor actor, Vector2 point)
+        {
+            Place(actor, point.x, point.y);
+            ConstructedAbilityService.NotifyActorChanged(actor);
+        }
+        Move(source, start);
+        Move(outside, new Vector2(69.25f, 72.5f));
+        source.addAggro(outside);
+        source.addAggro(enemy);
+        int neighborHealth = outside.data.health;
+
+        var emissions = new List<SkillEmission>();
+        var originalEmitter = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+        Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        {
+            if (emission.Source == source && chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id))
+                emissions.Add(emission);
+            return originalEmitter(emission);
+        };
+        var balances = new List<(ActorExtend Role, WakanMutationKind Kind, float Amount)>();
+        void Balance(ActorExtend actor, in WakanMutation mutation)
+        {
+            if (actor == owner || actor.Base == enemy) balances.Add((actor, mutation.Kind, mutation.Delta));
+        }
+        WakanResourceService.RegisterMutationCommitted(Balance);
+        string visualForm = null;
+        FormVisualInstance[] Presented()
+        {
+            object frame = service.GetField("presentation", F).GetValue(null);
+            return (FormVisualInstance[])Field(frame, "Forms");
+        }
+        Vector3 FlyingPosition() => Presented().Single(view => view.Resource.Description.Id == visualForm).Transform.GetColumn(3);
+
+        async Task<ConstructedCastStarted> StartFlight(string name, string model)
+        {
+            visualForm = model;
+            Move(enemy, originalTarget);
+            enemy.restoreHealth(enemy.getMaxHealth());
+            int previous = started.Count(row => row.AbilityId == Id(name));
+            for (int attempt = 0; attempt < 65 && started.Count(row => row.AbilityId == Id(name)) == previous; attempt++)
+            {
+                // 概率触发沿原攻防入口。先推进一个短窗口，再独立观察接触和追踪。
+                Strike(source, enemy, 170);
+                await Advance(.061f);
+            }
+            var casts = started.Where(row => row.AbilityId == Id(name)).ToArray();
+            Check(casts.Length == previous + 1 && !legacy.Contains(Id(name)) &&
+                contacts.All(row => row.CastId != casts.Last().CastId),
+                name + "由真实攻击启动飞行，尚未碰到目标");
+            Vector3 center = FlyingPosition();
+            Check(center.x >= start.x - .1f && center.x < originalTarget.x - 2f,
+                name + "完整立体主体从来源出发", center.ToString());
+            return casts.Last();
+        }
+
+        async Task<ConstructedContact> Arrive(ConstructedCastStarted cast)
+        {
+            Move(enemy, shiftedTarget);
+            for (int frame = 0; frame < 8 && contacts.All(row => row.CastId != cast.CastId); frame++)
+                await Advance(.076f);
+            var hitList = contacts.Where(row => row.CastId == cast.CastId).ToArray();
+            Check(hitList.Length == 1 && hitList[0].TargetId == enemy.id && hitList[0].Position.y > 73.1f &&
+                outside.data.health == neighborHealth,
+                cast.AbilityId + "随目标转向，只命中移动后的原对象，途经敌人无伤",
+                new { count = hitList.Length, points = hitList.Select(row => row.Position.ToString()).ToArray() });
+            return hitList[0];
+        }
+
+        SkillEmission Emission(ConstructedContact hit) =>
+            emissions.Last(step => step.SkillContainer.GetComponent<SkillContainer>().Asset.id == hit.AbilityId);
+
+        void Damage(ConstructedContact hit, float multiplier, ElementComposition element)
+        {
+            var emission = Emission(hit);
+            var reference = new Cultiway.Core.EventSystem.Events.GetHitEvent
+            {
+                Damage = emission.Strength * emission.RuntimeData.ResolveEffectScale() * multiplier, Element = element,
+                TargetID = enemy.id, AttackType = AttackType.Other, AttackerPowerLevel = emission.PowerLevel,
+                DamageOrigin = Cultiway.Core.Combat.DamageOrigin.Reaction
+            };
+            reference.BindAttacker(source);
+            var calculated = (Cultiway.Core.Combat.DamageSettlement)matrix.Invoke(null, new object[] { reference });
+            enemy.restoreHealth(calculated.HealthLost);
+            Check(hit.Damage.SettledCount == 1 && hit.Damage.HealthLost > 0 && calculated.HealthLost == hit.Damage.HealthLost,
+                hit.AbilityId + "保留一次原元素反应伤害", new { calculated.HealthLost, actual = hit.Damage.HealthLost });
+        }
+
+        async Task Finish(ConstructedContact hit, int paid)
+        {
+            await Advance(.84f);
+            Check(endings.Any(row => row.Fact.CastId == hit.CastId && !row.Fact.Cancelled) &&
+                contacts.Count(row => row.CastId == hit.CastId) == 1 &&
+                Presented().All(form => form.Resource.Description.Id != visualForm) && spends.Count == paid,
+                hit.AbilityId + "命中后自然收势，不重复结算或收费");
+            resultRows.Add(new { id = hit.AbilityId, hit.CastId, hit.Damage.HealthLost });
+        }
+
+        try
+        {
+            if (caseName == "flight-lost")
+            {
+                Install(CoreFormationAtoms.PathSword, "sword", CoreFormationRealm.Jindan);
+                var cast = await StartFlight("SwordChase", "flying_sword");
+                Strike(source, enemy, enemy.getMaxHealth() * 2f);
+                enemy.checkDeath();
+                await Advance(.29f);
+                Check(!enemy.isAlive() && endings.Any(row => row.Fact.CastId == cast.CastId && row.Fact.Cancelled) &&
+                    contacts.All(row => row.CastId != cast.CastId) &&
+                    Presented().All(form => form.Resource.Description.Id != visualForm) &&
+                    outside.data.health == neighborHealth,
+                    "已在飞行的剑气失去原目标后结束，不再命中旁人");
+            }
+
+            if (swords)
+            {
+                Install(CoreFormationAtoms.PathSword, "sword", CoreFormationRealm.Jindan);
+                int paid = spends.Count;
+                var chase = await Arrive(await StartFlight("SwordChase", "flying_sword"));
+                Damage(chase, .35f, ElementComposition.Static.Iron);
+                await Finish(chase, paid);
+
+                var sword = Install(CoreFormationAtoms.ManifestSwordEmbryo, "sword");
+                var abilities = new List<ActiveAbilityHandle>();
+                ActiveAbilityService.Collect(owner, abilities);
+                var handle = abilities.Single(item => item.ProviderId == "content.core_formation");
+                Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(source, source.GetSimPos()),
+                    ActiveAbilityUseOrigin.Player), "剑胎由原主动入口显锋");
+                await Advance(.25f);
+                Check(!State(sword).IsNull, "真实剑胎状态已生效");
+                paid = spends.Count;
+                var embryo = await Arrive(await StartFlight("SwordEmbryoStrike", "flying_sword_1"));
+                Damage(embryo, .35f, ElementComposition.Static.Iron);
+                await Finish(embryo, paid);
+            }
+
+            if (yin)
+            {
+                var donor = enemy.GetExtend();
+                foreach (var row in new[]
+                         {
+                             (CoreFormationAtoms.ElementYin, "YinDrain", "yin_bolt_0", CoreFormationRealm.Jindan),
+                             (CoreFormationAtoms.TransformMysteriousYin, "MysteriousYinDrain", "yin_bolt", CoreFormationRealm.Yuanying)
+                         })
+                {
+                    var effect = Install(row.Item1, "yin", row.Item4);
+                    donor.AddComponent(new Xian { level = Cultiway.Content.Const.XianLevels.Jindan });
+                    CombatStatusEffects.ApplyStatus(enemy, resources, 10000, enemy);
+                    donor.MarkCultiwayStatsDirty();
+                    enemy.updateStats();
+                    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .6f;
+                    donor.GetCultisys<Xian>().wakan = enemy.stats[BaseStatses.MaxWakan.id] * .6f;
+                    int paid = spends.Count;
+                    balances.Clear();
+                    var drained = await Arrive(await StartFlight(row.Item2, row.Item3));
+                    float expected = Emission(drained).RuntimeData.ResolveEffectScale() * 8f;
+                    var flow = (IEnumerable)service.GetField("yinTransfers", F).GetValue(null);
+                    bool shown = flow.Cast<object>().Any(item => Math.Abs((float)Field(item, "Amount") - expected) < .003f);
+                    Check(balances.Count(item => item.Role == donor && item.Kind == WakanMutationKind.Spend &&
+                            Math.Abs(-item.Amount - expected) < .003f) == 1 &&
+                        balances.Count(item => item.Role == owner && item.Kind == WakanMutationKind.Gain &&
+                            Math.Abs(item.Amount - expected) < .003f) == 1 &&
+                        shown && drained.Damage.SettledCount == 0 &&
+                        !CombatStatusEffects.HasStatus(enemy, StatusEffects.Weaken, source),
+                        row.Item2 + "只移交真实入账的灵气并显示回流，无额外伤害", expected);
+                    await Finish(drained, paid);
+                    for (int i = 0; i < 45 && !SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill); i++)
+                        await Advance(.12f);
+                    donor.E.RemoveComponent<Xian>();
+                    donor.MarkCultiwayStatsDirty();
+                    enemy.updateStats();
+                    balances.Clear();
+                    var fallback = await Arrive(await StartFlight(row.Item2, row.Item3));
+                    Check(CombatStatusEffects.HasStatus(enemy, StatusEffects.Weaken, source) &&
+                        !balances.Any(item => item.Role == donor && item.Kind == WakanMutationKind.Spend) &&
+                        !((IEnumerable)service.GetField("yinTransfers", F).GetValue(null)).Cast<object>().Any(),
+                        row.Item2 + "无灵气只施加衰弱，没有扣费或虚假回流");
+                    Damage(fallback, .25f, new ElementComposition(neg: 1f));
+                    await Finish(fallback, paid);
+                    CombatStatusEffects.RemoveStatus(enemy, StatusEffects.Weaken, source);
+                }
+            }
+            if (caseName != "flight-lost")
+            {
+                Move(enemy, new Vector2(69.5f, 72.5f));
+                Move(outside, new Vector2(91.5f, 72.5f));
+            }
+        }
+        finally
+        {
+            Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
+        }
+    }
     if (Allowed("counters"))
     {
         var fixedAi = new BaseStats();

@@ -26,6 +26,10 @@ internal enum FormationTargetEffect
     CondensedRelease,
     /// <summary>在反打伤害后推开近身攻击者。</summary>
     BodyCounter,
+    /// <summary>随实际飞行命中原攻击目标。</summary>
+    SwordChase,
+    /// <summary>飞行命中后汲灵，余额不足时施加衰弱与阴行伤害。</summary>
+    YinDrain,
     /// <summary>回补木毒击杀者的生命和灵气。</summary>
     LifeReturn,
     /// <summary>移除一项负面状态并恢复生命。</summary>
@@ -42,6 +46,9 @@ internal readonly struct FormationTargetContact
 
     /// <summary>原派生按地面半径判断，不用三维球体改变圈外或空中的受击规则。</summary>
     internal bool UsesPlanarSpread => Effect is FormationTargetEffect.EmberBurst or FormationTargetEffect.CondensedRelease;
+
+    /// <summary>只有旧追踪投射在目标中途失效后取消，不改变已显形或其他自由构造。</summary>
+    internal bool TracksTarget => Effect is FormationTargetEffect.SwordChase or FormationTargetEffect.YinDrain;
 
     /// <summary>保存实际发射的作用和倍率，结算时不重新计算。</summary>
     /// <param name="effect">点名反应。</param>
@@ -74,12 +81,7 @@ public sealed partial class ConstructedAbilityService
                 bool alreadyBroken = CombatStatusEffects.HasStatus(target, StatusEffects.ArmorBreak, source);
                 CombatStatusEffects.ApplyStatus(target, StatusEffects.ArmorBreak, 4f, source);
                 if (!alreadyBroken) break;
-                var damage = CombatDamageEffects.PrepareDamage(source, strength * .25f, ElementComposition.Static.Iron,
-                    attackerPowerLevel: owner.Damage.AttackerPowerLevel, damageOrigin: DamageOrigin.Reaction);
-                damage.TargetID = target.id;
-                var result = GetHitEventSystem.Resolve(damage);
-                return new ConstructedTargetResponse(damage.TargetID, Vector3.zero, false, 0f, 0f,
-                    additionalDamage: damage.Damage > 0f, damage: settled + result);
+                return ResolveFormationReactionDamage(owner, target, strength * .25f, ElementComposition.Static.Iron, settled);
             case FormationTargetEffect.Poison:
                 CombatStatusEffects.ApplyTickingStatus(target, StatusEffects.Poison, 5f, strength * .35f / 5f,
                     ElementComposition.Static.Wood, source);
@@ -104,6 +106,12 @@ public sealed partial class ConstructedAbilityService
                 bool pushed = ApplyLegacyGroundSlide(target, source, force.x, force.y);
                 return new ConstructedTargetResponse(targetId, ConstructedActorImpulse.Velocity(target) - before,
                     pushed, 0f, 0f, damage: settled);
+            case FormationTargetEffect.YinDrain:
+                long generation = worldGeneration;
+                float drained = DrainFormationWakan(source, target, 8f * contact.EffectScale);
+                if (drained > 0f || generation != worldGeneration) break;
+                CombatStatusEffects.ApplyStatus(target, StatusEffects.Weaken, 4f, source);
+                return ResolveFormationReactionDamage(owner, target, strength * .25f, owner.Damage.Element, settled);
             case FormationTargetEffect.LifeReturn:
                 CombatResourceEffects.RestoreHealth(source, source.stats[S.health] * .025f * contact.EffectScale);
                 CombatResourceEffects.RestoreWakan(source, 6f * contact.EffectScale);
@@ -117,5 +125,20 @@ public sealed partial class ConstructedAbilityService
         }
 
         return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, damage: settled);
+    }
+
+    /// <summary>点名反应继续使用相同受击、境界和反应归属。</summary>
+    /// <param name="owner">当前有效控制来源。</param><param name="target">真实接触者。</param>
+    /// <param name="amount">原额外伤害。</param><param name="element">实际伤害组成。</param>
+    /// <param name="settled">已由本体结算的伤害。</param>
+    private static ConstructedTargetResponse ResolveFormationReactionDamage(CastAuthority owner, Actor target, float amount,
+        ElementComposition element, DamageSettlement settled)
+    {
+        var damage = CombatDamageEffects.PrepareDamage(owner.Actor, amount, element,
+            attackerPowerLevel: owner.Damage.AttackerPowerLevel, damageOrigin: DamageOrigin.Reaction);
+        damage.TargetID = target.id;
+        var result = GetHitEventSystem.Resolve(damage);
+        return new ConstructedTargetResponse(damage.TargetID, Vector3.zero, false, 0f, 0f,
+            additionalDamage: damage.Damage > 0f, damage: settled + result);
     }
 }

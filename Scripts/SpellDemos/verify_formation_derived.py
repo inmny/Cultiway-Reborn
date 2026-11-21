@@ -20,12 +20,15 @@ SECTIONS = {
     'blasts': ('FireEmberBurst', 'FireBrand', 'CondensedRelease', 'ReservoirOrb'),
     'blast-lost': ('FireEmberBurst',),
     'counters': ('BodyCounter', 'PrimalBodyCounter'),
+    'sword-flight': ('SwordChase', 'SwordEmbryoStrike'),
+    'yin-flight': ('YinDrain', 'MysteriousYinDrain'),
+    'flight-lost': ('SwordChase',),
 }
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('all', 'status', 'support', *SECTIONS), default='all')
+    parser.add_argument('--section', choices=('all', 'status', 'support', 'tracking', *SECTIONS), default='all')
     section = parser.parse_args().section
     if section == 'all':
         abilities = tuple(dict.fromkeys(sum(SECTIONS.values(), ())))
@@ -33,6 +36,8 @@ if __name__ == '__main__':
         abilities = sum((SECTIONS[name] for name in ('armor', 'poison', 'frost', 'burn')), ())
     elif section == 'support':
         abilities = SECTIONS['life-return'] + SECTIONS['cleanse']
+    elif section == 'tracking':
+        abilities = SECTIONS['sword-flight'] + SECTIONS['yin-flight']
     else:
         abilities = SECTIONS[section]
     run(tuple(f'Cultiway.CoreFormation.Skill.{name}' for name in abilities),

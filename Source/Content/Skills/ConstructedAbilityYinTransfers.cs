@@ -30,6 +30,21 @@ public sealed partial class ConstructedAbilityService
         if (generation == worldGeneration) RecordYinTransfer(start, end, SpatialActorPose.Height(donor), moved);
     }
 
+    /// <summary>原修炼汲灵先实际扣除，再收取自身能容纳的部分，只绘制真实到账量。</summary>
+    /// <param name="recipient">实际收取者。</param><param name="donor">真实接触的人物。</param>
+    /// <param name="amount">原修炼的单次上限。</param>
+    private static float DrainFormationWakan(Actor recipient, Actor donor, float amount)
+    {
+        long generation = worldGeneration;
+        Vector3 start = YinEndpoint(donor, .38f), end = YinEndpoint(recipient, .48f);
+        float height = SpatialActorPose.Height(donor);
+        float drained = CombatResourceEffects.DrainWakan(donor, amount);
+        if (generation != worldGeneration || drained <= 0f) return drained;
+        float restored = CombatResourceEffects.RestoreWakan(recipient, drained);
+        if (generation == worldGeneration) RecordYinTransfer(start, end, height, restored);
+        return drained;
+    }
+
     /// <summary>记下实际收受的灵气，供已验证的阴气流动外观读取。</summary>
     /// <param name="start">接触中被汲取的位置。</param><param name="end">实际收受位置。</param>
     /// <param name="height">取样时的来源体高。</param><param name="moved">已经入账的灵气。</param>

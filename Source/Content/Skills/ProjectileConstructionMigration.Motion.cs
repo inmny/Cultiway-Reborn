@@ -26,8 +26,9 @@ internal static partial class ProjectileConstructionMigration
     /// <param name="continues">原接触后是否继续。</param><param name="lifetime">原寿命。</param>
     /// <param name="initialAngle">本次固定附加偏角。</param><param name="speedScale">本次固定速度比例。</param>
     /// <param name="forward">实际出手方向。</param>
+    /// <param name="name">来源已经提供的显示名称。</param>
     internal static AbilityDefinition Motion(SkillEmission emission, string form, float scale, bool continues,
-        float lifetime, float initialAngle, float speedScale, out Vector3 forward)
+        float lifetime, float initialAngle, float speedScale, out Vector3 forward, string name = null)
     {
         forward = emission.TargetPos - emission.SourcePos;
         forward = forward.sqrMagnitude > .0001f ? forward.normalized : Vector3.right;
@@ -219,7 +220,7 @@ internal static partial class ProjectileConstructionMigration
         } : null;
         return new AbilityDefinition
         {
-            Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(), Seed = seed,
+            Id = container.Asset.id, Name = name ?? (skill.HasName ? skill.Name.value : container.Asset.id.Localize()), Seed = seed,
             Lifetime = lifetime, Resource = "none", Cost = 0f, Cooldown = 0, Power = 1, TargetRange = 10000,
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat | ActiveAbilityChannel.World,
                 Target = towardsTarget || drift || spiral || orbit || falling || ground || snap ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },

@@ -95,10 +95,10 @@ internal sealed class CoreFormationSkills : ICanInit
             "EarthWardImpact", "earth_ward_impact", 0.085f, ElementComposition.Static.Earth);
         YinDrain = BuildTarget(
             "YinDrain", "yin_drain", 0.1f, Element(ElementIndex.Neg),
-            0f, true, false, OnYinDrain);
+            0f, true, false);
         MysteriousYinDrain = BuildTarget(
             "MysteriousYinDrain", "yin_drain", 0.12f, Element(ElementIndex.Neg),
-            0f, true, false, OnYinDrain);
+            0f, true, false);
         YangCleanse = BuildTarget(
             "YangCleanse", "yang_cleanse", 0.1f, Element(ElementIndex.Pos),
             0f, false, true, useProfile: SkillUseProfileLibrary.CasterSelf);
@@ -136,10 +136,10 @@ internal sealed class CoreFormationSkills : ICanInit
             "IllusionDecoy", "illusion_decoy", 0.1f, Element(ElementIndex.Neg));
         DragonMight = BuildArea(
             "DragonMight", "dragon_might", 0.11f, ElementComposition.Static.Earth,
-            4f, 0f, null);
+            4f, 0f);
         DragonAspectMight = BuildArea(
             "DragonAspectMight", "dragon_might", 0.13f, ElementComposition.Static.Earth,
-            4f, 0f, null);
+            4f, 0f);
         InfantGuard = BuildVisual(
             "InfantGuard", "infant_guard", 0.1f, Element(ElementIndex.Pos));
         ChaosRebirth = BuildVisual(
@@ -154,7 +154,7 @@ internal sealed class CoreFormationSkills : ICanInit
             type: SkillEntityType.Defense);
         DragonAspectBurst = BuildArea(
             "DragonAspectBurst", "dragon_aspect_burst", 0.16f, ElementComposition.Static.Earth,
-            4f, 0f, null, 40f);
+            4f, 0f, 40f);
         SpiritPlatform = BuildTarget(
             "SpiritPlatform", "spirit_platform", 0.13f, Element(ElementIndex.Pos),
             0f, false, true, useProfile: SkillUseProfileLibrary.CasterSelf, cost: 48f,
@@ -169,10 +169,10 @@ internal sealed class CoreFormationSkills : ICanInit
             type: SkillEntityType.Defense);
         PureYangDomain = BuildArea(
             "PureYangDomain", "pure_yang_domain", 0.17f, Element(ElementIndex.Pos),
-            5f, 0f, null, 56f);
+            5f, 0f, 56f);
         MysteriousYinDomain = BuildArea(
             "MysteriousYinDomain", "mysterious_yin_domain", 0.17f, Element(ElementIndex.Neg),
-            5f, 0f, null, 56f);
+            5f, 0f, 56f);
     }
 
     /// <summary>建立只播放一次动画、不参与碰撞的目标显现技能。</summary>
@@ -192,7 +192,6 @@ internal sealed class CoreFormationSkills : ICanInit
             SkillUseProfileLibrary.CasterSelf,
             CreateImpact(id, SkillImpactKind.Projectile, 0f, 0f, false, true, false, folder),
             default,
-            null,
             0f,
             SkillEntityType.Defense,
             true);
@@ -207,7 +206,6 @@ internal sealed class CoreFormationSkills : ICanInit
         float damageMultiplier,
         bool moving,
         bool fixedUpright,
-        EffectObjAction onEffect = null,
         SkillUseProfileAsset useProfile = null,
         float cost = 0f,
         SkillEntityType type = SkillEntityType.Attack)
@@ -242,7 +240,6 @@ internal sealed class CoreFormationSkills : ICanInit
                 Alias = true,
                 ExplicitTargetOnly = true,
             },
-            onEffect,
             cost,
             type,
             fixedUpright);
@@ -256,7 +253,6 @@ internal sealed class CoreFormationSkills : ICanInit
         ElementComposition element,
         float radius,
         float damageMultiplier,
-        EffectObjAction onEffect,
         float cost = 0f)
     {
         return Build(
@@ -275,7 +271,6 @@ internal sealed class CoreFormationSkills : ICanInit
                 Enemy = true,
                 Alias = true,
             },
-            onEffect,
             cost,
             SkillEntityType.Attack,
             true);
@@ -292,7 +287,6 @@ internal sealed class CoreFormationSkills : ICanInit
         SkillUseProfileAsset useProfile,
         SkillImpactProfileAsset impact,
         ColliderConfig collider,
-        EffectObjAction onEffect,
         float cost,
         SkillEntityType type,
         bool fixedUpright)
@@ -343,8 +337,6 @@ internal sealed class CoreFormationSkills : ICanInit
         ModClass.I.SkillV3.SkillLib.add(asset);
 
         Entity container = new SkillContainerBuilder(asset).Build(SkillContainerBuildMode.SourceGranted);
-        ref SkillContainer skill = ref container.GetComponent<SkillContainer>();
-        skill.OnEffectObj = onEffect;
         ref SkillCastParameters parameters = ref container.GetComponent<SkillCastParameters>();
         parameters.CostMultiplier = Mathf.Max(0f, cost);
         SkillContainerEvaluator.Refresh(container);
@@ -388,43 +380,6 @@ internal sealed class CoreFormationSkills : ICanInit
             CostMultiplier = 1f,
             ExpectedTargets = collisionRadius > 1f ? 3f : 1f,
         };
-    }
-
-    /// <summary>取得仍存活的施法者与受影响角色，并读取本次技能上下文。</summary>
-    private static bool TryGetActors(
-        Entity skillEntity,
-        BaseSimObject value,
-        out SkillContext context,
-        out Actor source,
-        out Actor target)
-    {
-        context = skillEntity.GetComponent<SkillContext>();
-        source = null;
-        target = null;
-        if (context.SourceObj.isRekt() || !context.SourceObj.isActor() ||
-            value.isRekt() || !value.isActor()) return false;
-        source = context.SourceObj.a;
-        target = value.a;
-        return true;
-    }
-
-    /// <summary>汲取目标灵气；无灵气可取时施加衰弱和阴行伤害。</summary>
-    private static void OnYinDrain(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target)) return;
-        float drained = CombatResourceEffects.DrainWakan(target, 8f * context.EffectScale);
-        if (drained > 0f)
-        {
-            CombatResourceEffects.RestoreWakan(source, drained);
-            return;
-        }
-        CombatStatusEffects.ApplyStatus(target, StatusEffects.Weaken, 4f, source);
-        CombatDamageEffects.DealReactionDamage(
-            source,
-            target,
-            context.Strength * context.EffectScale * 0.25f,
-            Element(ElementIndex.Neg),
-            attackerPowerLevel: context.PowerLevel);
     }
 
     /// <summary>构造单一元素组成。</summary>

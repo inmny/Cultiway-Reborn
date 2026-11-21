@@ -44,6 +44,14 @@ internal static class FormationTargetConstruction
                 (CoreFormationEffectFamilies.Body, "earth_burst", "earth", FormationTargetEffect.BodyCounter),
             var entry when entry == CoreFormationSkills.CondensedRelease =>
                 (CoreFormationEffectFamilies.Condensed, "entropy_wedge", "entropy", FormationTargetEffect.CondensedRelease),
+            var entry when entry == CoreFormationSkills.SwordChase =>
+                (CoreFormationEffectFamilies.Sword, "flying_sword", "iron", FormationTargetEffect.SwordChase),
+            var entry when entry == CoreFormationSkills.SwordEmbryoStrike =>
+                (CoreFormationEffectFamilies.Sword, "flying_sword_1", "iron", FormationTargetEffect.SwordChase),
+            var entry when entry == CoreFormationSkills.YinDrain =>
+                (CoreFormationEffectFamilies.Yin, "yin_bolt_0", "yin", FormationTargetEffect.YinDrain),
+            var entry when entry == CoreFormationSkills.MysteriousYinDrain =>
+                (CoreFormationEffectFamilies.Yin, "yin_bolt", "yin", FormationTargetEffect.YinDrain),
             var entry when entry == CoreFormationSkills.WoodLifeReturn =>
                 (CoreFormationEffectFamilies.Wood, "healing_seed", "wood", FormationTargetEffect.LifeReturn),
             var entry when entry == CoreFormationSkills.YangCleanse =>
@@ -90,23 +98,79 @@ internal static class FormationTargetConstruction
         float duration = asset.ResolveRuntimeLifetime(skill, asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier);
         float effectScale = emission.RuntimeData.ResolveEffectScale();
         var formation = new FormationTargetContact(contact, effectScale);
-        var definition = new AbilityDefinition
+        Vector3 forward = default;
+        var definition = formation.TracksTarget
+            ? ProjectileConstructionMigration.Motion(emission, "formation_area_sphere", radius, false, duration,
+                0f, 1f, out forward, effect.Definition.GetName())
+            : Manifestation(asset.id, effect.Definition.GetName(), duration, radius, form, matter);
+        if (definition == null) return SkillEmissionResult.Rejected;
+
+        definition.Use = new ConstructionUse
+            { Channels = ActiveAbilityChannel.Combat, Target = self ? ActiveAbilityTargetMode.Self : ActiveAbilityTargetMode.Object };
+        definition.Impact = new ConstructionImpact
         {
-            Id = asset.id, Name = effect.Definition.GetName(), Resource = "none", Cost = 0f, Cooldown = 0f,
-            Lifetime = duration, TargetRange = 10000f,
-            Use = new ConstructionUse
-                { Channels = ActiveAbilityChannel.Combat, Target = self ? ActiveAbilityTargetMode.Self : ActiveAbilityTargetMode.Object },
-            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
-            Impact = new ConstructionImpact
+            SelectedTargetOnly = true, Targets = self ? SkillUseTargetRelation.Self : SkillUseTargetRelation.Hostile, Element = element,
+            DamageBasis = ConstructionDamageBasis.InitialForce,
+            DamageScale = asset.ImpactProfile.DamageMultiplier * asset.ImpactTuning.DamageMultiplier
+        };
+        definition.Root.Matter = matter;
+        definition.Root.Volume = 0f;
+        definition.Root.ContactRole = ConstructionContactRole.Attack;
+        definition.Root.Contact = new ConstructionContactPolicy { MaximumPerTarget = 1 };
+        if (formation.TracksTarget)
+        {
+            // 旧圆形碰撞仍在飞行轴上，立体本体只随它移动和转向。
+            definition.Root.OnContact = ConstructionContactResponse.End;
+            definition.Root.Children = new[]
             {
-                SelectedTargetOnly = true, Targets = self ? SkillUseTargetRelation.Self : SkillUseTargetRelation.Hostile, Element = element,
-                DamageBasis = ConstructionDamageBasis.InitialForce,
-                DamageScale = asset.ImpactProfile.DamageMultiplier * asset.ImpactTuning.DamageMultiplier
-            },
+                new ConstructionNode
+                {
+                    Id = "body", Form = form, Matter = matter, Scale = Mathf.Min(1.3f, 1.75f / radius),
+                    Volume = 0f, ContactRole = ConstructionContactRole.Decoration
+                }
+            };
+        }
+        if (formation.UsesPlanarSpread)
+            definition.Impact.Spreads = new[]
+            {
+                new ConstructionContactSpread
+                {
+                    Radius = contact == FormationTargetEffect.EmberBurst ? 2.5f : 2f,
+                    Outcome = new ConstructionContactOutcome
+                        { Damage = new[] { new ConstructionContactDamage { PerForce = .35f, Element = element } } }
+                }
+            };
+
+        var target = new ActiveAbilityTarget(emission.Target, emission.Target.GetSimPos(),
+            attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
+        var damage = new GetHitEvent
+        {
+            Damage = emission.Strength * effectScale, Element = element, AttackType = AttackType.Other,
+            AttackerPowerLevel = formation.UsesPlanarSpread ? null : emission.PowerLevel,
+            DamageOrigin = emission.RuntimeData.DamageOrigin
+        };
+        var attacker = formation.UsesPlanarSpread || emission.SpatialSource.isRekt() ? emission.Source : emission.SpatialSource;
+        damage.BindAttacker(attacker);
+        return ConstructedAbilityService.StartPrepaid(caster, definition, target, emission.SourcePos, emission.Payment,
+            damage, direction: formation.TracksTarget ? forward : null, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
+            groundTravel: formation.TracksTarget ? LegacyGroundTravel.From(in emission, 0f) : null,
+            groundContact: ConstructedAbilityService.LegacyContactElement(in emission), explicitReactionTarget: true,
+            formationTarget: formation) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+    }
+
+    /// <summary>建立在目标实际位置显形的一次接触与有限退场。</summary>
+    /// <param name="id">原技能编号。</param><param name="name">当前修炼效果名。</param>
+    /// <param name="duration">原实际寿命。</param><param name="radius">真实接触半径。</param>
+    /// <param name="form">对应外观。</param><param name="matter">实际材料。</param>
+    private static AbilityDefinition Manifestation(string id, string name, float duration, float radius, string form, string matter) =>
+        new AbilityDefinition
+        {
+            Id = id, Name = name, Resource = "none", Cost = 0f, Cooldown = 0f,
+            Lifetime = duration, TargetRange = 10000f,
+            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
             Root = new ConstructionNode
             {
-                Id = "strike", Form = "formation_area_sphere", Matter = matter, Scale = radius, Volume = 0f,
-                ContactRole = ConstructionContactRole.Attack, Contact = new ConstructionContactPolicy { MaximumPerTarget = 1 },
+                Id = "strike", Form = "formation_area_sphere", Scale = radius,
                 Children = new[]
                 {
                     new ConstructionNode
@@ -130,31 +194,4 @@ internal static class FormationTargetConstruction
                 }
             }
         };
-        if (formation.UsesPlanarSpread)
-            definition.Impact.Spreads = new[]
-            {
-                new ConstructionContactSpread
-                {
-                    Radius = contact == FormationTargetEffect.EmberBurst ? 2.5f : 2f,
-                    Outcome = new ConstructionContactOutcome
-                        { Damage = new[] { new ConstructionContactDamage { PerForce = .35f, Element = element } } }
-                }
-            };
-
-        var target = new ActiveAbilityTarget(emission.Target, emission.Target.GetSimPos(),
-            attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
-        var damage = new GetHitEvent
-        {
-            Damage = emission.Strength * effectScale, Element = element, AttackType = AttackType.Other,
-            AttackerPowerLevel = formation.UsesPlanarSpread ? null : emission.PowerLevel,
-            DamageOrigin = emission.RuntimeData.DamageOrigin
-        };
-        var attacker = formation.UsesPlanarSpread || emission.SpatialSource.isRekt() ? emission.Source : emission.SpatialSource;
-        damage.BindAttacker(attacker);
-        return ConstructedAbilityService.StartPrepaid(caster, definition, target, emission.SourcePos, emission.Payment,
-            damage, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
-            groundContact: ConstructedAbilityService.LegacyContactElement(in emission), explicitReactionTarget: true,
-            formationTarget: formation)
-            ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
-    }
 }
