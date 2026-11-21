@@ -29,6 +29,10 @@ internal sealed partial class FormResourceGeneration
         CreateRadialPanels("command_banner", 8, Vector3.forward * .029f,
             [new(0f, .28f, .056f), new(.16f, .51f, .085f), new(.16f, .91f, .133f),
                 new(0f, 1f, .11f), new(-.16f, .91f, .133f), new(-.16f, .51f, .085f)]);
+        CreatePulseForm("gourd_vortex", "gourd_vortex", .60f, 6,
+            [new(.24f, .09f), new(.30f, .16f), new(.42f, .11f), new(.54f, .18f),
+                new(.66f, .10f), new(.78f, .14f), new(.91f, .087f), new(1f, .034f),
+                new(.94f, .010f), new(.24f, .018f)], twist: 1.6f);
         CreateRadialPanels("truth_mirror", 10, Vector3.forward * .025f,
             [new(.07f, .47f, .047f), new(.16f, .75f, .09f), new(.14f, .95f, .105f),
                 new(0f, 1f, .112f), new(-.14f, .95f, .105f), new(-.16f, .75f, .09f), new(-.07f, .47f, .047f)],
@@ -44,7 +48,8 @@ internal sealed partial class FormResourceGeneration
     /// <param name="id">共用形体编号。</param><param name="surface">实际表面。</param>
     /// <param name="fold">截面的起伏程度。</param><param name="lobes">沿周向的起伏数量。</param>
     /// <param name="profile">按半径和高度排列的一圈封闭截面。</param>
-    private void CreatePulseForm(string id, string surface, float fold, int lobes, Vector2[] profile)
+    /// <param name="twist">从内向外绕转的幅度，零表示各层峰谷对齐。</param>
+    private void CreatePulseForm(string id, string surface, float fold, int lobes, Vector2[] profile, float twist = 0f)
     {
         const int sides = 72;
         int stride = sides + 1;
@@ -58,7 +63,7 @@ internal sealed partial class FormResourceGeneration
             for (int side = 0; side <= sides; side++)
             {
                 float u = (float)side / sides, angle = 2f * Mathf.PI * u;
-                float swell = Mathf.Cos(angle * lobes);
+                float swell = Mathf.Cos((angle + section.x * twist) * lobes);
                 float radius = section.x - fold * (1f - section.x) * (1f - swell) * .32f;
                 float height = section.y * (1f + fold * swell);
                 int a = row * stride + side;
@@ -80,7 +85,7 @@ internal sealed partial class FormResourceGeneration
         mesh.triangles = triangles;
         mesh.RecalculateNormals();
         PublishPulseForm(id, [surface], [mesh], nameof(CreatePulseForm),
-            new FormParameterDescription { Id = "folds", Values = [lobes, fold] });
+            new FormParameterDescription { Id = "folds", Values = twist == 0f ? [lobes, fold] : [lobes, fold, twist] });
     }
 
     /// <summary>按真实作用半径排开独立的面，保留实体厚度及各面之间的留白。</summary>

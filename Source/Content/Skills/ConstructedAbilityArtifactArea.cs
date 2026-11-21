@@ -51,10 +51,18 @@ public sealed partial class ConstructedAbilityService
         if (contact.ApplyEffect != null)
         {
             bool dealsDamage = contact.Damage > 0f;
-            DamageSettlement settled = dealsDamage ? SettleAreaDamage(owner, targetId, contact.Damage) : default;
+            if (!contact.DamageFirst) contact.ApplyEffect(source, target);
+            DamageSettlement settled = dealsDamage && generation == worldGeneration && target.data?.id == targetId
+                ? SettleAreaDamage(owner, targetId, contact.Damage) : default;
+            Vector3 movement = Vector3.zero;
+            bool moved = false;
             if (generation == worldGeneration && target.data?.id == targetId && target.isAlive())
-                contact.ApplyEffect(source, target);
-            return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f,
+            {
+                if (contact.DamageFirst) contact.ApplyEffect(source, target);
+                if (contact.Force != 0f)
+                    moved = ApplyArtifactAreaForce(running, node, source, target, contact.Force, out movement);
+            }
+            return new ConstructedTargetResponse(targetId, movement, moved, 0f, 0f,
                 additionalDamage: dealsDamage, damage: settled);
         }
 
@@ -80,11 +88,7 @@ public sealed partial class ConstructedAbilityService
                     additionalDamage: true, damage: result);
         }
 
-        Vector3 before = ConstructedActorImpulse.Velocity(target);
-        Vector2 away = target.current_position - (Vector2)running.Cast.ContactOrigin(node);
-        Vector2 force = (away.sqrMagnitude < .0001f ? Vector2.up : away.normalized) * contact.Force;
-        bool pushed = ApplyLegacyGroundSlide(target, source, force.x, force.y);
-        Vector3 change = ConstructedActorImpulse.Velocity(target) - before;
+        bool pushed = ApplyArtifactAreaForce(running, node, source, target, contact.Force, out Vector3 change);
         CombatStatusEffects.ApplyContactStatus(target, StatusEffects.Daze, contact.Daze, source,
             owner.Damage.AttackerPowerLevel ?? source.GetExtend().GetPowerLevel(), ConstructionStatusApplication.Strongest,
             pushed ? impactDazeStats : null);
@@ -94,6 +98,18 @@ public sealed partial class ConstructedAbilityService
             result = SettleAreaDamage(owner, targetId, contact.Damage);
         return new ConstructedTargetResponse(targetId, change, pushed, daze, 0f,
             additionalDamage: contact.Damage > 0f, damage: result);
+    }
+
+    /// <summary>按原力度和境界判断，让已经受理的水平力真正沿地移动。</summary>
+    private static bool ApplyArtifactAreaForce(RunningCast running, int node, Actor source, Actor target,
+        float strength, out Vector3 change)
+    {
+        Vector3 before = ConstructedActorImpulse.Velocity(target);
+        Vector2 away = target.current_position - (Vector2)running.Cast.ContactOrigin(node);
+        Vector2 force = (away.sqrMagnitude < .0001f ? Vector2.up : away.normalized) * strength;
+        bool moved = ApplyLegacyGroundSlide(target, source, force.x, force.y);
+        change = ConstructedActorImpulse.Velocity(target) - before;
+        return moved;
     }
 
     /// <summary>保持该次法宝打击已确认的实际伤害、来源和元素。</summary>

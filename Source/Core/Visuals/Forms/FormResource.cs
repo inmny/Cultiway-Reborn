@@ -766,6 +766,7 @@ internal sealed partial class FormResourceGeneration
             "spirit_gate_lintel" => (2f, new Color(.58f, .42f, .80f), .48f),
             "spirit_gate_edging" => (2f, new Color(.93f, .68f, .37f), .3f),
             "spirit_gate_veil" => (14f, new Color(.66f, .45f, 1f, .38f), .42f),
+            "gourd_vortex" => (12f, new Color(.36f, .31f, .71f, .75f), .36f),
             "truth_mirror" => (2f, new Color(.31f, .65f, .62f, .83f), .36f),
             "truth_mirror_face" => (2f, new Color(.49f, .76f, .84f, .83f), .16f),
             "soul_stasis_mirror" => (2f, new Color(.70f, .58f, .36f, .94f), .37f),

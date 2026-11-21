@@ -2799,3 +2799,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 破妄照影与摄魂定魄（10.05）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_mirror_effects.py` 在同一场地正式炼制两件原镜。破妄照影检查实际部署点、付费、圈内外显隐和净化，以及维持费不足时收镜。摄魂定魄检查拒绝友方、点名控制、按实际抽取返还和冷却后再用。用 `--section truth` 或 `--section stasis` 只补其中一招，用 `--skip-views` 只核对游戏行为和形体位置。
+
+### 吞天葫芦（10.05）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_gourd_swallowing.py` 正式炼制并部署葫芦，核对实际葫芦口、圈内伤害和牵引、真元抽取与入库，以及付不起维持费时的收束。用 `--skip-views` 只核对行为和形体边界。

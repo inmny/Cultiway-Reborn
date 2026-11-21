@@ -1,0 +1,161 @@
+// 使用一件正式葫芦，真实吞摄、入库，并可让同一原物停止维持。
+const float centerX = 67.5f, centerY = 72f;
+Vector3 center = new Vector3(centerX, centerY, 0f);
+PrepareArtifactArena(48, 90, 56, 88);
+Actor source = Make(64.35f), near = Make(68f, "wolf"), far = Make(74f, "wolf");
+ActorExtend owner = source.GetExtend(), inside = near.GetExtend(), outside = far.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+inside.AddComponent(new Xian { level = 4, wakan = 100f });
+outside.AddComponent(new Xian { level = 4, wakan = 100f });
+owner.SetPowerLevel(4);
+await Setup(source, near);
+CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+source.updateStats();
+source.addAggro(far);
+far.addAggro(source);
+
+var asset = ArtifactAbilities.HeavenSwallowingGourd;
+var release = ArtifactAbilities.FiveEssenceOutpouring;
+var blueprint = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Gourd,
+    Atoms = new[] { ArtifactAtoms.DevouringGourd, ArtifactAtoms.DevouringVortex,
+        ArtifactAtoms.SunfireGlass, ArtifactAtoms.SoulJade },
+    Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "吞天与倾泻实测"
+}));
+var abilities = blueprint.AbilitySet.abilities.Select(entry => entry.ability_id).ToArray();
+Check(abilities.Contains(asset.id), "正式配方生成吞天葫芦",
+    new { abilities, alsoHasOutpouring = abilities.Contains(release.id) });
+Entity gourd = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+owner.AddSpecialItem(gourd);
+Check(owner.EquipArtifact(gourd, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "正式装备原葫芦");
+ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+lifecycle.Invoke(null, new object[] { gourd });
+await Game.NextFrame();
+await Game.NextFrame();
+
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var ability = Definition(gourd, asset.id);
+var handle = handles.Single(row => row.Source == gourd && row.EntryId == ability.instance_id);
+var control = owner.E.GetRelation<EquippedArtifactRelation, Entity>(gourd).state;
+var execution = new ArtifactAbilityExecutionContext(owner.E, gourd, control);
+float multiplier = control == ArtifactControlState.Overloaded ? asset.lifecycle.overload_resource_multiplier : 1f;
+float activation = asset.lifecycle.ResolveActivationCost(execution, ability) * multiplier;
+float upkeep = asset.lifecycle.ResolveMaintenanceCost(execution, ability) * multiplier;
+float radius = ability.GetNumber("effect_radius");
+float expectedDrain = ability.GetNumber("drain_amount") * execution.effect_scale;
+float perTarget = ability.GetNumber("store_per_trigger") * execution.effect_scale;
+float capacity = ArtifactStorageOperations.GetCapacity(gourd.GetComponent<ArtifactStorageState>(),
+    ArtifactStorageOperations.AbsorbedPower);
+var fees = new List<float>();
+var drains = new List<float>();
+var swallowHits = new List<ConstructedContact>();
+var starts = new List<ConstructedCastStarted>();
+var payments = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = payments.GetValue(null);
+
+float Stored() => ArtifactStorageOperations.GetAmount(gourd.GetComponent<ArtifactStorageState>(),
+    ArtifactStorageOperations.AbsorbedPower);
+bool Close(float a, float b) => Mathf.Abs(a - b) < .003f;
+bool HasForm() => FormVisualScene.Instances.Any(view => view.Resource.Description.Id == "gourd_vortex");
+FormVisualInstance Form() => FormVisualScene.Instances.Single(view => view.Resource.Description.Id == "gourd_vortex");
+bool Activate()
+{
+    source.attack_timer = 0;
+    bool cast = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, center), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999;
+    return cast;
+}
+void Paid(ActorExtend actor, in WakanMutation change)
+{
+    if (change.Kind != WakanMutationKind.Spend) return;
+    if (actor == owner) fees.Add(-change.Delta);
+    if (actor == inside) drains.Add(-change.Delta);
+}
+void Contact(ConstructedContact hit)
+{
+    if (hit.SourceId == source.id && hit.AbilityId == asset.id) swallowHits.Add(hit);
+}
+void Started(ConstructedCastStarted start)
+{
+    if (start.SourceId == source.id && start.AbilityId == asset.id) starts.Add(start);
+}
+
+WakanResourceService.RegisterMutationCommitted(Paid);
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+try
+{
+    var quietStats = new BaseStats();
+    quietStats.addTag("frozen_ai");
+    var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.Gourd.Quiet") ??
+        Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Gourd.Quiet")
+            .SetStats(quietStats).SetDuration(10000f).Build();
+    CombatStatusEffects.RemoveStatus(near, hold);
+    CombatStatusEffects.ApplyStatus(near, quiet, 10000f, near);
+    near.updateStats();
+    source.attack_timer = near.attack_timer = far.attack_timer = 999f;
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    owner.GetCultisys<Xian>().wakan = 1200f;
+    inside.GetCultisys<Xian>().wakan = 100f;
+    outside.GetCultisys<Xian>().wakan = 100f;
+    Place(near, centerX + radius - .26f, centerY);
+    Place(far, centerX + radius + .23f, centerY);
+    int nearHealth = near.data.health, farHealth = far.data.health;
+    float initialX = near.current_position.x;
+    Check(Activate() && fees.Count == 1 && Close(fees[0], activation) &&
+          swallowHits.Count == 0 && Stored() == 0, "部署只收原启动费用，开始时无预置储量", new { activation, capacity });
+    await WaitFor(() => swallowHits.Count > 0, .85f);
+    await Game.NextFrame();
+    float firstStorage = Stored();
+    Check(starts.Count == 1 && swallowHits.Count == 1 && swallowHits[0].TargetId == near.id && near.data.health < nearHealth &&
+          far.data.health == farHealth && fees.Count == 2 && Close(fees[1], upkeep) &&
+          drains.Count == 1 && Close(drains[0], expectedDrain) && outside.GetCultisys<Xian>().wakan >= 100f &&
+          Close(firstStorage, Mathf.Min(capacity, Mathf.Max(expectedDrain, perTarget))),
+        "第一次付费吞摄真实扣血、抽灵且入库，圈外人物不受影响",
+        new { upkeep, fees = fees.ToArray(), expectedDrain, drains = drains.ToArray(), firstStorage, perTarget, radius,
+            hits = swallowHits.Select(hit => hit.TargetId).ToArray(), nearHealth, hp = near.data.health,
+            farHealth, farHp = far.data.health, farWakan = outside.GetCultisys<Xian>().wakan });
+    var form = Form();
+    float reach = form.Resource.Description.Contacts.Single().Sector.Radius *
+                  form.Transform.MultiplyVector(Vector3.right).magnitude;
+    Vector2 mouth = ArtifactManifestationTools.ResolveWorldAnchor(gourd,
+        gourd.GetComponent<ArtifactDeployment>().ResolveBodyAnchor());
+    Check(Vector2.Distance(mouth, center) < .015f &&
+          Vector2.Distance((Vector3)form.Transform.GetColumn(3), mouth) < .015f && Close(reach, radius),
+        "真实葫芦口、可见漩涡和接触半径一致", new { reach, radius, mouth = mouth.ToString() });
+    if (shots)
+        await CaptureArtifactViews("gourd-swallowing", center, radius + 2f, () => HasForm() &&
+            Vector2.Distance((Vector3)Form().Transform.GetColumn(3), center) < .015f, nativeZoom: radius + 1.8f);
+    Vector3 impactVelocity = near.velocity;
+    await Advance(.10f);
+    Check(swallowHits[0].ForceApplied && near.current_position.x < initialX - .005f,
+        "圈内目标实际向葫芦口移动",
+        new { initialX, now = near.current_position.x, impactVelocity = impactVelocity.ToString(),
+            velocity = near.velocity.ToString(), swallowHits[0].ForceApplied });
+
+    inside.GetCultisys<Xian>().wakan = 0f;
+    await WaitFor(() => swallowHits.Count > 1, .65f);
+    float secondStorage = Stored();
+    Check(starts.Count == 2 && swallowHits.Count == 2 && swallowHits.All(hit => hit.TargetId == near.id) &&
+          fees.Count == 3 && Close(fees.Last(), upkeep) && drains.Count == 2 && Close(drains.Last(), 0f) &&
+          Close(secondStorage, Mathf.Min(capacity, firstStorage + perTarget)),
+        "同一原葫芦继续付费，从空真元目标取得原有最低入库量",
+        new { firstStorage, secondStorage, perTarget, fees = fees.ToArray(), drains = drains.ToArray() });
+    owner.GetCultisys<Xian>().wakan = 0f;
+    await Advance(.50f);
+    Check(!gourd.HasComponent<ArtifactDeployment>() && !HasForm() && starts.Count == 2 && swallowHits.Count == 2 &&
+          fees.Count == 3 && Close(Stored(), secondStorage) && owner.GetItems().Contains(gourd) &&
+          owner.GetEquippedArtifacts().Contains(gourd), "维持费不足后收回原件并保留实际入库量");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    payments.SetValue(null, previous);
+}

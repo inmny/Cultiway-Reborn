@@ -2,10 +2,12 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Semantics;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Utils.Extension;
 using NeoModLoader.General;
 using strings;
@@ -92,6 +94,7 @@ public partial class ArtifactAbilities
             Resource = SkillCastResources.Wakan,
             OnAttached = ConfigureAbsorbedPowerStorage,
             OnTick = ApplyHeavenSwallowingField,
+            OnActivityEnded = EndArtifactConstruction,
         });
         HeavenSwallowingGourd.Activate(new ArtifactActiveAbilityProfile
         {
@@ -137,52 +140,23 @@ public partial class ArtifactAbilities
     private static void ApplyHeavenSwallowingField(
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry runtime,
-        float _)
+        ref ArtifactAbilityRuntimeEntry _,
+        float interval)
     {
-        Actor controller = Controller(context);
-        ArtifactDeployment deployment = context.artifact.GetComponent<ArtifactDeployment>();
-        Vector2 center = ArtifactManifestationTools.ResolveWorldAnchor(
-            context.artifact,
-            deployment.ResolveBodyAnchor());
-        float absorbedPower = 0f;
-        BaseSimObject lastTarget = null;
-        CombatTargeting.ForEachHostile(controller, center, ability.GetNumber(EffectRadius), target =>
+        var artifact = context.artifact;
+        float drain = ability.GetNumber(DrainAmount) * context.effect_scale;
+        float minimum = ability.GetNumber(StorePerTrigger) * context.effect_scale;
+        float force = ability.GetNumber(ForceStrength) * context.effect_scale;
+        var carrier = ArtifactAbilityLifecycle.ResolveSkillContext(context);
+        var contact = new ArtifactAreaContact((source, target) =>
         {
-            CombatDamageEffects.DealDamage(
-                controller,
-                target,
-                SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
-                MaterialComposition(context));
-            float drained = CombatResourceEffects.DrainWakan(
-                target,
-                ability.GetNumber(DrainAmount) * context.effect_scale);
-            absorbedPower += Mathf.Max(
-                drained,
-                ability.GetNumber(StorePerTrigger) * context.effect_scale);
-            lastTarget = target;
-            CombatForceEffects.ApplyRadialForce(
-                controller,
-                target,
-                center,
-                ability.GetNumber(ForceStrength) * context.effect_scale,
-                pull: true);
-        });
-        if (absorbedPower <= 0f) return;
-        ref ArtifactStorageState storage = ref context.artifact.GetComponent<ArtifactStorageState>();
-        float stored = ArtifactStorageOperations.Store(
-            ref storage,
-            ArtifactStorageOperations.AbsorbedPower,
-            absorbedPower);
-        if (stored <= 0f) return;
-        ArtifactAbilityVisuals.Emit(
-            context,
-            ability,
-            runtime,
-            ArtifactVisualChannels.Drain,
-            center,
-            target: lastTarget,
-            intensity: stored);
+            using var scope = SkillCasterContextService.Enter(in carrier);
+            float taken = CombatResourceEffects.DrainWakan(target, drain);
+            ref ArtifactStorageState storage = ref artifact.GetComponent<ArtifactStorageState>();
+            ArtifactStorageOperations.Store(ref storage, ArtifactStorageOperations.AbsorbedPower, Mathf.Max(taken, minimum));
+        }, damageFirst: false, force: -force);
+        StartPaidArtifactArea(context, HeavenSwallowingGourd, ability, interval, "gourd_vortex", contact,
+            MaterialComposition(context), SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier), spin: -84f);
     }
 
     private static void ConfigureSpiritGourdReserve()
@@ -446,73 +420,8 @@ public partial class ArtifactAbilities
 
     private static void ConfigureGourdAbilityVisuals()
     {
-        ConfigureHeavenSwallowingGourdVisuals();
         ConfigureSpiritGourdReserveVisuals();
         ConfigureFiveEssenceOutpouringVisuals();
-    }
-
-    private static void ConfigureHeavenSwallowingGourdVisuals()
-    {
-        ArtifactAreaVisualCue vortex = Area(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Primary,
-            0.48f,
-            0.08f,
-            ArtifactVfxStyles.Devouring
-        );
-        vortex.inner_rotation_speed = -46f;
-        vortex.pulse_speed = 5f;
-        ArtifactGlyphVisualCue glyph = ActivityGlyph(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius) * 0.78f,
-            ArtifactVisualColorRole.Secondary,
-            7,
-            -38f,
-            ArtifactVfxStyles.Devouring
-        );
-        ArtifactParticleVisualCue inward = Burst(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            ArtifactVisualColorRole.Glow,
-            3,
-            0.56f
-        );
-        inward.emission_interval = 0.12f;
-        inward.directional_speed = -0.22f;
-        ArtifactTetherVisualCue drain = new ArtifactTetherVisualCue
-        {
-            style_key = ArtifactVfxStyles.Devouring,
-            from = ArtifactVisualAnchorRef.Appearance(
-                "mouth",
-                "focus",
-                ArtifactBodyAnchorKind.ForwardTip
-            ),
-            to = ArtifactVisualAnchorKind.Target,
-            color_role = ArtifactVisualColorRole.Glow,
-            width = 0.055f,
-            curvature = -0.28f,
-            wave_amplitude = 0.07f,
-            wave_speed = -6f,
-            match_actor_scale = false,
-        };
-        HeavenSwallowingGourd.Visualize(
-            Theme(SkillVfxElements.Entropy.AccentColor)
-                .Loop(
-                    "heaven_swallowing_gourd",
-                    new ArtifactCompositeVisualCue(vortex, glyph, inward, Pulse(1f, 1f, 0.1f)),
-                    IsDeploymentActive
-                )
-                .Signal(
-                    ArtifactVisualChannels.Drain,
-                    new ArtifactCompositeVisualCue(
-                        drain,
-                        Burst(ArtifactVisualAnchorKind.Target, ArtifactVisualColorRole.Primary, 5)
-                    ),
-                    0.42f,
-                    "artifact.heaven_swallowing.drain",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
-        );
     }
 
     private static void ConfigureSpiritGourdReserveVisuals()

@@ -27,10 +27,11 @@ internal static class ArtifactAreaConstruction
     /// <param name="element">原伤害元素。</param><param name="damage">原伤害量。</param>
     /// <param name="matter">形体使用的已登记材料。</param><param name="strike">扩张到完整半径的时间。</param>
     /// <param name="selectedTargetOnly">圆面随已确认的目标移动，只接触这一人。</param>
+    /// <param name="spin">圆面每秒绕中心旋转的角度。</param>
     internal static bool Start(ArtifactAbilityExecutionContext context, ArtifactAbilityAsset asset,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, Vector2 center, float radius, float duration,
         ArtifactAreaContact contact, string form, ElementComposition element, float damage = 0f,
-        string matter = "spirit", float strike = .16f, bool selectedTargetOnly = false)
+        string matter = "spirit", float strike = .16f, bool selectedTargetOnly = false, float spin = 0f)
     {
         const float dissolve = .25f;
         float life = Mathf.Max(duration, strike + dissolve + .06f);
@@ -39,6 +40,11 @@ internal static class ArtifactAreaConstruction
         runtime.Origin = origin;
         var aim = new ActiveAbilityTarget(selectedTargetOnly ? target.Object : null, center,
             runtimeData: runtime, worldScope: target.WorldScope);
+        var growth = new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = strike };
+        var fade = new ConstructionOperation
+        {
+            Kind = ConstructionOperationKind.Animate, Clip = "dissolve", At = life - dissolve, Seconds = dissolve
+        };
         var definition = new AbilityDefinition
         {
             Id = asset.id, Name = asset.GetName(), Resource = "none", Cost = 0f, Cooldown = 0f, Lifetime = life,
@@ -68,12 +74,8 @@ internal static class ArtifactAreaConstruction
                 {
                     Mode = ConstructionContactMode.Pulse, Interval = strike, MaximumPerTarget = 1
                 },
-                Operations =
-                [
-                    new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = strike },
-                    new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "dissolve",
-                        At = life - dissolve, Seconds = dissolve }
-                ]
+                Operations = spin == 0f ? [growth, fade] :
+                    [growth, new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = [0f, 0f, spin] }, fade]
             }
         };
         var hit = CombatDamageEffects.PrepareDamage(owner.Base, damage, element);
@@ -94,7 +96,7 @@ internal readonly struct ArtifactAreaContact
     internal readonly int? CleanseCount;
     /// <summary>每位敌人的原眩晕时长。</summary>
     internal readonly float Daze;
-    /// <summary>出手时冻结的原震退力度。</summary>
+    /// <summary>出手时冻结的水平力度，负值表示朝实际作用中心牵引。</summary>
     internal readonly float Force;
     /// <summary>取到实际施法载体倍率后的原伤害。</summary>
     internal readonly float Damage;
@@ -122,8 +124,8 @@ internal readonly struct ArtifactAreaContact
     /// <summary>保存原能力已经冻结的作用参数，由真正接触的人物触发。</summary>
     internal ArtifactAreaContact(Action<Actor, Actor> applyEffect,
         CombatTargeting.TargetDisposition disposition = CombatTargeting.TargetDisposition.Hostile,
-        bool revealsConcealment = false)
-        : this(null, 0f, 0f, 0f, false, applyEffect, disposition, revealsConcealment) { }
+        bool revealsConcealment = false, bool damageFirst = true, float force = 0f)
+        : this(null, 0f, force, 0f, damageFirst, applyEffect, disposition, revealsConcealment) { }
 
     /// <summary>保存本次准备完毕的原伤害和接触资料。</summary>
     /// <param name="count">清音的解除上限。</param><param name="daze">原眩晕时长。</param>
