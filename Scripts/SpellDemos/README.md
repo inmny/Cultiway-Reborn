@@ -2605,3 +2605,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py needle-blade-meteor` 验证三个索引。`poison-needle --case tracking` 检查改追踪，`flame-meteor --case landing` 检查指定地面，`flame-meteor --case miss` 检查提前到期。批次支持 `--case archive`，重启后用 `--case cold --archive <保存输出目录>` 读回并重放。
 
 录像用 `demo_all.py --filter Cultiway.PoisonNeedle,Cultiway.YinBlade,Cultiway.FlameMeteor --variants all --cases base --realm 0 --target-offset 7 0 --zoom 19 --duration 1.55 --fps 30`，分别选择 `--view native` 和 `--view worldfall`。
+
+### 地刺、地脊、沧浪、灵藤旧变体（10.01）
+
+用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py ground-spike --case legacy` 记录旧地刺的结算时点、范围和接触对象。用 `ground-forms` 一次检查七个索引，必要时可指定 `ground-spike --variant 0`、`earth-ridge`、`tidal-wave` 或 `spirit-vine`。批次的 `--case archive` 保存全部索引，重启后用 `--case cold --archive <保存输出目录>` 读回并重放。
+
+原版和 Worldfall 分别用 `demo_all.py --filter Cultiway.GroundSpike,Cultiway.EarthRidge,Cultiway.TidalWave,Cultiway.SpiritVine --variants all --cases base --realm 0 --target-offset 7 0 --zoom 19 --duration 1.65 --fps 30` 录制。

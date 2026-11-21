@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>原地刺以普通目标连接和模型动作执行，露出的石体负责实际接触。</summary>
+/// <summary>原地刺在目标点升起对应索引的石锋，岩床露出时只做一次范围结算。</summary>
 internal static class GroundSpikeConstructionMigration
 {
     /// <summary>已经完整映射的原词条；额外作用不静默丢弃。</summary>
@@ -54,6 +54,7 @@ internal static class GroundSpikeConstructionMigration
         Entity skill = emission.SkillContainer;
         var container = skill.GetComponent<SkillContainer>();
         if (SkillBlueprintTrajectory.ResolveEffectiveId(skill) != SkillTrajectories.GroundEruptAtTarget.id) return null;
+        if (container.AnimationIndex is < 0 or > 3) return null;
         var callbacks = new List<Delegate>();
         foreach (Type type in skill.GetComponentTypes())
         {
@@ -75,7 +76,15 @@ internal static class GroundSpikeConstructionMigration
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
             container.Asset.ImpactProfile.Lifetime * container.Asset.ImpactTuning.LifetimeMultiplier);
         if (configured && settings.Duration > 0f) lifetime = settings.Duration;
+        SkillEntityAnimation animation = container.Asset.GetAnimation(container.AnimationIndex);
+        float frameInterval = container.MotionProfile.FrameInterval;
+        float appearance = ProjectileConstructionMigration.ClipSeconds(animation.Appearance, frameInterval);
+        float recovery = ProjectileConstructionMigration.ClipSeconds(animation.Dissipation, frameInterval);
+        float strike = Mathf.Max(.01f, appearance);
+        // 原地刺在显示运行首帧时完成范围作用。无独立收势的索引短暂保留石体供玩家辨认。
+        lifetime = recovery > 0f ? strike + recovery : Mathf.Clamp(lifetime, .02f, .24f);
         float scale = emission.RuntimeData.ResolveEffectScale() * SkillEffectRadius.ResolveCasterGrowth(emission.Source.a.GetExtend(), skill);
+        scale *= container.Asset.ImpactProfile.EffectRadius * container.Asset.ImpactTuning.EffectRadiusMultiplier / 1.4f;
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
         if (scale <= 0f || scale > 100f) return null;
@@ -100,8 +109,9 @@ internal static class GroundSpikeConstructionMigration
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = -emission.TargetPos.z },
             Root = new ConstructionNode
             {
-                Id = "spires", Form = "earth_spikes", Matter = "earth", Scale = scale,
-                ActiveFromMarker = "strike", ActiveUntilMarker = "withdraw",
+                Id = "spires", Form = "earth_spikes_" + container.AnimationIndex, Matter = "earth", Scale = scale,
+                Rotation = new[] { 90f, 0f, 0f }, ActiveFrom = strike, ActiveUntil = strike + .004f,
+                Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Pulse, Interval = strike, MaximumPerTarget = 1 },
                 ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
                 Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate,
                     Clip = "erupt", Seconds = lifetime } }

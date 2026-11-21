@@ -56,7 +56,7 @@ var stats''')
         start = body.index("var samples=new[]{")
         end = body.index("};", start) + 2
         samples = [line.rstrip(",") for line in body[start:end].splitlines()
-                   if any(key in line for key in ('"water_curtain"', '"earth_ridge"', '"lightning_spear"'))]
+                   if any(key in line for key in ('"water_curtain"', '"earth_ridge_0"', '"lightning_spear"'))]
         body = body[:start] + "var samples=new[]{\n" + ",\n".join(samples) + "\n};" + body[end:]
         body = body.replace('(Name:"near",Zoom:5f),(Name:"mid",Zoom:16f),(Name:"far",Zoom:22f)',
                             '(Name:"near",Zoom:3f),(Name:"far",Zoom:22f)')

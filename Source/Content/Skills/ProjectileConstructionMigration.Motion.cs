@@ -34,7 +34,7 @@ internal static partial class ProjectileConstructionMigration
         Entity skill = emission.SkillContainer;
         var container = skill.GetComponent<SkillContainer>();
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
-        bool manifest = trajectory == SkillTrajectories.GroundEruptAtTarget.id && form == "creeping_vine";
+        bool manifest = trajectory == SkillTrajectories.GroundEruptAtTarget.id && form is "creeping_vine" or "creeping_vine_0";
         bool towardsDirection = trajectory == SkillTrajectories.TowardsDirection.id;
         bool noRotation = trajectory == SkillTrajectories.TowardsDirectionNoRot.id;
         bool towardsPosition = trajectory == SkillTrajectories.TowardsPosition.id;
@@ -88,6 +88,8 @@ internal static partial class ProjectileConstructionMigration
         };
         if (ground)
         {
+            // 旧地面波的偏转只用于横摆；小步模拟也必须持续接近目标，再从真实到达点越过去。
+            goal.Approach = true;
             goal.DirectArrival = true;
             goal.Arrival = continues ? ConstructionFlightArrival.Continue : ConstructionFlightArrival.End;
         }
@@ -183,7 +185,7 @@ internal static partial class ProjectileConstructionMigration
                 Ground = descent ? ConstructionGroundResponse.End : ground ? ConstructionGroundResponse.Follow : ConstructionGroundResponse.Ignore
             });
         // 地面推进的自身动作与投送分开，改成其他轨迹仍保留主体及其真实接触变形。
-        if (form is "earth_ridge" or "tidal_wave" or "creeping_vine")
+        if (form is "earth_ridge" or "tidal_wave" or "creeping_vine" or "earth_ridge_0" or "tidal_wave_0" or "creeping_vine_0")
             operations.Add(new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "travel", Seconds = lifetime });
         // 起步曲线使用八个确定时点，调整速度不重新开始飞行，也不重置目标和接触记录。
         if (!manifest && !descent && !arc && ramp > .001f)
@@ -236,30 +238,6 @@ internal static partial class ProjectileConstructionMigration
                 Operations = operations.ToArray()
             }
         };
-    }
-
-    /// <summary>原作用结束后由同一落点的岩块收尾，碎块不再次参加接触。</summary>
-    /// <param name="definition">刚从正式旧术换算的构造。</param>
-    /// <param name="lifetime">原推进和结算时长。</param>
-    /// <param name="scale">本次词条给出的实际地图尺寸。</param>
-    private static void SetRidgeCollapse(AbilityDefinition definition, float lifetime, float scale)
-    {
-        float collapse = Mathf.Min(.34f, 3600f - lifetime);
-        if (collapse <= 0f) return;
-        ConstructionNode ridge = definition.Root;
-        ridge.DisappearAt = ridge.ActiveUntil = lifetime;
-        definition.Lifetime += collapse;
-        ridge.Children = new[] { new ConstructionNode
-        {
-            Id = "settled_ridge", Form = ridge.Form, Matter = ridge.Matter, State = ridge.State, Scale = scale,
-            Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End, Placement = ConstructionEventPlacement.Event },
-            ContactRole = ConstructionContactRole.Decoration, SourceLoss = ConstructionSourceLoss.Continue,
-            DisappearAt = collapse, Volume = 0,
-            Operations = new[] { new ConstructionOperation
-            {
-                Kind = ConstructionOperationKind.Animate, Clip = "collapse", Seconds = collapse
-            } }
-        } };
     }
 
     /// <summary>辅助和领域保留原主体姿态，将路径偏移换到同一实际坐标；不改变自身作用及间隔。</summary>

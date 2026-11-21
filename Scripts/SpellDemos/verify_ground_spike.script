@@ -45,17 +45,18 @@ try
     // GROUND_SURFACE
     Entity ordinary = Build(), boosted = Build(true), extra = Build(extra: true);
     AbilityDefinition definition = Convert(ordinary, out GetHitEvent damage);
-    Check(definition != null && definition.Root.Form == "earth_spikes" && definition.Binding.Anchor == AbilityAnchor.Target &&
+    Check(definition != null && definition.Root.Form == "earth_spikes_0" && definition.Binding.Anchor == AbilityAnchor.Target &&
         !definition.Binding.Follow && definition.Root.Operations.Single().Clip == "erupt" && damage.Element.Equals(SkillEntities.GroundSpike.Element),
         "地刺转换为固定目标连接、独立岩石形体及普通动作，保留原伤害来源");
     File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
     var restored = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
     var numeric = Numeric(restored); var shapes = new List<AbilityCapsule>(); numeric.AppendContacts(shapes);
     Check(shapes.Count == 0, "预备时点未露出石体不提供人物接触");
-    numeric.Advance(definition.Lifetime * .3f, new Vector3(80, 75, 6)); shapes.Clear(); numeric.AppendContacts(shapes);
+    numeric.Advance(definition.Root.ActiveFrom + .001f, new Vector3(80, 75, 6)); shapes.Clear(); numeric.AppendContacts(shapes);
     var views = new List<FormVisualInstance>(); numeric.AppendVisuals(views);
-    Check(shapes.Count == 42 && views.Count == 1 && views[0].PartCount == 7 && shapes.All(s => Mathf.Abs(s.A.x - 70) < definition.Root.Scale * 1.5f && Mathf.Abs(s.B.x - 70) < definition.Root.Scale * 1.5f) &&
-        Mathf.Abs(views[0].PartTransform(0).MultiplyPoint3x4(new Vector3(0, 0, 2.4f)).z - 2.4f * definition.Root.Scale) < .0001f,
+    Check(shapes.Count == 4 && views.Count == 1 && views[0].PartCount == 6 && shapes.All(s =>
+            Mathf.Abs(s.Bounds.min.x - 70) <= definition.Root.Scale * 1.41f && Mathf.Abs(s.Bounds.max.x - 70) <= definition.Root.Scale * 1.41f) &&
+        views[0].PartTransform(1).MultiplyPoint3x4(new Vector3(0, 2.34f, 0)).z > 2f * definition.Root.Scale,
         "完整露出后显示与作用共同升起，后来的目标输入不拖走石体", shapes.Select(s => new { a = XYZ(s.A), b = XYZ(s.B), s.Radius }).ToArray());
     var save = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
     var restore = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
@@ -108,10 +109,10 @@ try
         Check(actual.Length == plan.Steps.Count && old.Count == 0 && Learned().Count == known &&
             Math.Abs(balance - owner.GetCultisys<Xian>().wakan - cost) < .001,
             "原普通及词条地刺逐发只生成新构造并支付一次", new { plan.Steps.Count, actual = actual.Length, cost, balance, after = owner.GetCultisys<Xian>().wakan });
-        Check(target.data.health < hp && edge.data.health < edgeHp && outside.data.health == outsideHp && gap.data.health == gapHp &&
+        Check(target.data.health < hp && edge.data.health < edgeHp && outside.data.health == outsideHp && gap.data.health < gapHp &&
             actual.All(s => contacts.Any(c => c.CastId == s.CastId && c.TargetId == target.id)) &&
             contacts.GroupBy(c => (c.CastId, c.TargetId)).All(g => g.Count() == 1),
-            "中央及侧石锋真实命中，石锋之间及范围外不误伤，同人每次只结算一次", new { hp, after = target.data.health, edgeHp, edgeAfter = edge.data.health, outsideHp, outsideAfter = outside.data.health, gapHp, gapAfter = gap.data.health,
+            "岩床覆盖的中央、侧面及石锋之间受伤，范围外无伤，同人每次只结算一次", new { hp, after = target.data.health, edgeHp, edgeAfter = edge.data.health, outsideHp, outsideAfter = outside.data.health, gapHp, gapAfter = gap.data.health,
                 contacts = contacts.Select(c => new { c.CastId, c.TargetId, c.Age }).ToArray() });
         Check(casts.All(c => c.Finished) && actual.All(s => endings.Any(e => e.Fact.CastId == s.CastId && !e.Fact.Cancelled)),
             "命中后石体继续完成收势并自然结束");

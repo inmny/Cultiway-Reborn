@@ -59,9 +59,9 @@ internal static partial class ProjectileConstructionMigration
         asset == SkillEntities.FallingTimber ? ("falling_timber", "wood", "solid") :
         asset == SkillEntities.LightningStrike ? ("lightning_strike", "lightning", "energy") :
         asset == SkillEntities.Icefall ? ("icefall", "ice", "solid") :
-        asset == SkillEntities.EarthRidge ? ("earth_ridge", "earth", "solid") :
-        asset == SkillEntities.TidalWave ? ("tidal_wave", "water", "liquid") :
-        asset == SkillEntities.SpiritVine ? ("creeping_vine", "wood", "solid") : default;
+        asset == SkillEntities.EarthRidge ? ("earth_ridge_0", "earth", "solid") :
+        asset == SkillEntities.TidalWave ? ("tidal_wave_0", "water", "liquid") :
+        asset == SkillEntities.SpiritVine ? ("creeping_vine_0", "wood", "solid") : default;
 
     /// <summary>检查完整能力后只接管一次；真实受理失败不再落回旧发射。</summary>
     /// <param name="emission">原来源已经确定并到达时点的逐发步骤。</param>
@@ -196,7 +196,6 @@ internal static partial class ProjectileConstructionMigration
                         When = new ConstructionCondition { Source = "..", Trigger = ConstructionChangeTrigger.End } } }
             } };
         }
-        else if (container.Asset == SkillEntities.EarthRidge) SetRidgeCollapse(definition, lifetime, scale);
         float roll = form switch
         {
             "water_orb" => 315f, "water_orb_1" => -260f, "water_orb_4" => 425f, "water_arrow_1" => 350f,
@@ -214,7 +213,15 @@ internal static partial class ProjectileConstructionMigration
                     Seconds = ClipSeconds(animation.Runtime, frameInterval) }
             }).ToArray();
         if (animation?.HasLifecycle == true &&
-            !SetProjectileLifecycle(definition, animation.AppearanceGameplay, appearance, dissipation)) return null;
+            !SetProjectileLifecycle(definition, animation.AppearanceGameplay, appearance, dissipation,
+                container.Asset == SkillEntities.EarthRidge ? "collapse" : "dissolve")) return null;
+        if (container.Asset == SkillEntities.SpiritVine && appearance > 0f)
+        {
+            // 根的成形先于推进和接触，生长资料贯穿两段而不在出手时重新开始。
+            ConstructionOperation growth = definition.Root.Operations.First(operation => operation.Kind == ConstructionOperationKind.Animate);
+            growth.At = 0f;
+            growth.Seconds += appearance;
+        }
         definition = ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, contactForceScale: !continues && !blast ? 1f / damageMultiplier : 1f, caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
         if (phased && definition.Root.RadialMotion != null)
             definition.Root.RadialMotion.StartAt = definition.Root.ActiveFrom;
@@ -250,7 +257,8 @@ internal static partial class ProjectileConstructionMigration
         "falling_rock" => 3,
         "flying_sword" or "sword_qi" or "wind_bullet" or "wind_blade" or "wood_spear" or "falling_timber" => 2,
         "golden_needle" or "lightning_spear" or "ice_shard" or "ice_lance" or "icefall" or "rock_projectile" or "stone_cone" or
-            "spirit_bolt_0" or "yin_bolt_0" or "yang_bolt_0" or "chaos_orb_0" or "poison_needle_0" or "yin_blade_0" or "flame_meteor_0" => 1,
+            "spirit_bolt_0" or "yin_bolt_0" or "yang_bolt_0" or "chaos_orb_0" or "poison_needle_0" or "yin_blade_0" or "flame_meteor_0" or
+            "earth_ridge_0" or "tidal_wave_0" or "creeping_vine_0" => 1,
         _ => 0
     };
 
@@ -259,8 +267,9 @@ internal static partial class ProjectileConstructionMigration
     /// <param name="gameplay">原成形期间明确允许的行为。</param>
     /// <param name="appearance">原成形的世界秒数。</param>
     /// <param name="dissipation">原收势的世界秒数。</param>
+    /// <param name="endingClip">该实体制作的收势动作。</param>
     private static bool SetProjectileLifecycle(AbilityDefinition definition, SkillAnimationGameplayFlags gameplay,
-        float appearance, float dissipation)
+        float appearance, float dissipation, string endingClip)
     {
         if (gameplay is not (SkillAnimationGameplayFlags.None or SkillAnimationGameplayFlags.Movement)) return false;
         bool moves = gameplay == SkillAnimationGameplayFlags.Movement;
@@ -296,7 +305,7 @@ internal static partial class ProjectileConstructionMigration
             DisappearAt = dissipation, ContactRole = ConstructionContactRole.Decoration,
             SourceLoss = ConstructionSourceLoss.Continue, Volume = 0, AnimateWhileHeld = true,
             Operations = new[] { new ConstructionOperation
-                { Kind = ConstructionOperationKind.Animate, Clip = "dissolve", Seconds = dissipation } }
+                { Kind = ConstructionOperationKind.Animate, Clip = endingClip, Seconds = dissipation } }
         };
         root.Children = (root.Children ?? Array.Empty<ConstructionNode>()).Concat(new[] { embers }).ToArray();
         return true;
@@ -305,7 +314,7 @@ internal static partial class ProjectileConstructionMigration
     /// <summary>用原动画的实际帧数和有效帧间隔还原阶段时长。</summary>
     /// <param name="clip">原出现或消散片段。</param>
     /// <param name="inheritedInterval">原运动配置提供的帧间隔。</param>
-    private static float ClipSeconds(SkillEntityAnimationClip clip, float inheritedInterval) =>
+    internal static float ClipSeconds(SkillEntityAnimationClip clip, float inheritedInterval) =>
         clip == null ? 0f : clip.Frames.Length * clip.Settings.ResolveFrameInterval(inheritedInterval);
 
     /// <summary>保留基准生成高度；按真实主体底部抬高出生点，不让放大后的尖端出生即穿地。</summary>

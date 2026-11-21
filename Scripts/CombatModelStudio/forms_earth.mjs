@@ -1,8 +1,8 @@
 /** 独立岩刺：封闭的不规则岩层、错落石锋和同一控制下的真实涌出。 */
 import * as T from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
-import {part, write, structure, motion, skin} from './form_export.mjs';
-import {wallPart} from './forms_solid_walls.mjs';
+import {part, write, structure, motion, skin, round} from './form_export.mjs';
+import {column, wallPart} from './forms_solid_walls.mjs';
 
 /** 每条石锋保留偏斜岩层及截面切面，接触段收在实际石体内部。 */
 function shard(index, centre, radius, height) {
@@ -57,6 +57,57 @@ export function makeEarthSpikes() {
   ], shards.flatMap(s => s.contacts), controls, [erupt], false, {Forward: [0, 1, 0], Up: [0, 0, 1], HideBelowGround: true},
   structure('articulated', 'forms_earth.mjs', 'makeEarthSpikes', {specs, duration, sides: 9},
     Object.fromEntries(shards.map(s => [s.item.Id, ['terrain.spire', 'weapon.point']])), []));
+  makeGroundSpikeVariants();
+}
+
+/** 四个原索引用同一片露出地面的起伏岩床承接原范围，石锋只改变形态。 */
+function makeGroundSpikeVariants() {
+  const origin = [0, 0, 0], identity = [0, 0, 0, 1], radius = 1.4;
+  const types = [
+    [[0, .08, .46, 2.34, .03, -.07], [.61, .20, .25, 1.31, .12, .17], [-.62, .18, .29, 1.46, -.14, -.11],
+      [-.28, -.58, .25, 1.05, -.09, -.15], [.38, -.47, .23, .99, .16, -.03]],
+    [[-.10, 0, .32, 1.93, .35, .10], [.38, -.12, .20, 1.12, .11, -.21]],
+    [[-.70, -.08, .26, .64, .37, -.12], [-.24, -.03, .30, .83, .35, -.16],
+      [.26, .06, .34, 1.06, .27, -.19], [.68, .14, .293, .84, .19, -.21]],
+    [[-.21, .11, .36, 2.21, .52, .17], [.30, -.13, .23, 1.43, .46, .27], [-.48, -.28, .22, .96, -.13, -.25]]
+  ];
+  const palette = ['stone_ridge', 'stone', 'stone_strata', 'stone_ridge'];
+  for (const [variant, specs] of types.entries()) {
+    const geometry = column([[-.28,1.23],[-.07,1.38],[.10,radius],[.16,1.22]].map(([z,radius],row)=>
+      Array.from({length:56},(_,i)=>{
+        const angle=i*Math.PI/28, edge=row===2?1:1+.039*Math.sin(i*.93+variant);
+        return [radius*edge*Math.cos(angle),radius*edge*Math.sin(angle),z+.025*Math.sin(i*1.07+row)];
+      })),56).rotateX(-Math.PI/2);
+    const controls=[{Id:'bed',Position:origin,Rotation:identity}];
+    const parts=[wallPart('bed',geometry,palette[variant],origin,'bed')];
+    for(const [index,[x,z,width,height,leanX,leanZ]] of specs.entries()) {
+      const id=`spire_${index}`, pivot=[x,0,z];
+      controls.push({Id:id,Position:pivot,Rotation:identity});
+      const rings=[[-.12,1],[.24,1],[height*.45,.83],[height*.71,.56],[height*.91,.27],[height,.014]]
+        .map(([h,r],row)=>Array.from({length:8},(_,i)=>{
+          const angle=i*Math.PI/4+.48*index, rough=1+.10*Math.sin(i*2.25+variant*.7);
+          const offset=h/height;
+          return [x+leanX*offset+Math.cos(angle)*r*width*rough,-z-leanZ*offset+Math.sin(angle)*r*width*.89,
+            h+(row>=2?.025*Math.sin(i*2.5+variant):0)];
+        }));
+      const spire=column(rings,8).rotateX(-Math.PI/2);
+      parts.push(wallPart(id,spire,index%2===0?palette[variant]:'stone_strata',pivot,id));
+    }
+    const duration=variant===0?round(4/18+4/20):.24;
+    const motionData=motion('erupt',duration,false,controls,32,(index,phase,control)=>{
+      const at=phase*duration, delay=variant===0?.007*index:0;
+      const rise=variant===0?T.MathUtils.smoothstep(at,delay,(index===0?.156:.186)+delay):1;
+      const withdraw=T.MathUtils.smoothstep(at,variant===0?duration*.59:.058,duration);
+      const depth=index===0?.31:specs[index-1][3]+.11;
+      return {position:[control.Position[0],-depth*(1-rise*(1-withdraw)),control.Position[2]]};
+    });
+    const formId=`earth_spikes_${variant}`;
+    const anchors=[{Id:'base',Part:0,Position:origin,Direction:[0,1,0],Control:'bed'}];
+    const contacts=[{Id:'bed',Part:0,A:[0,.04,0],AControl:'bed',Sector:{Radius:radius,Angle:360,Direction:0,HalfThickness:.15}}];
+    write(formId,parts,anchors,contacts,controls,[motionData],false,{Forward:[0,0,1],Up:[0,1,0],HideBelowGround:true},
+      structure('articulated','forms_earth.mjs','makeEarthSpikes',{specs,radius,duration},
+        Object.fromEntries(parts.map(p=>[p.Id,[p.Id==='bed'?'terrain.floor':'terrain.spire']]))));
+  }
 }
 
 
