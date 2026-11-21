@@ -62,15 +62,18 @@ def main():
         'golden-needle': ('Cultiway.GoldenNeedle', 1),
         'wind-bullet': ('Cultiway.WindBullet', 2),
         'wind-blade': ('Cultiway.WindBlade', 2),
+        'thunder-orb': ('Cultiway.ThunderOrb', 4),
+        'lightning-spear': ('Cultiway.LightningSpear', 1),
     }
     batches = {
         'water-family': ('water-arrow', 'water-orb', 'water-blade'),
         'metal-wind': ('flying-sword', 'sword-qi', 'golden-needle', 'wind-bullet', 'wind-blade'),
+        'thunder-projectiles': ('thunder-orb', 'lightning-spear'),
     }
     parser.add_argument('spell', choices=('fireball', 'fire-family', *batches, *projectile_spells))
     parser.add_argument('--variant', type=int, choices=range(18), action='append',
                         help='只复验指定旧索引，可重复指定')
-    parser.add_argument('--case', choices=('hit', 'miss', 'tracking', 'gravity', 'archive', 'cold'))
+    parser.add_argument('--case', choices=('hit', 'miss', 'tracking', 'landing', 'gravity', 'archive', 'cold'))
     parser.add_argument('--archive', type=Path, help='冷启动使用之前实际保存的目录')
     args = parser.parse_args()
     if args.spell in batches or args.spell in projectile_spells:
@@ -82,10 +85,12 @@ def main():
             variants = []
         else:
             asset, count = projectile_spells[args.spell]
-            if case not in ('hit', 'miss', 'tracking') or any(i >= count for i in args.variant or []):
-                parser.error('单术实测需选择该法术已有的旧索引，支持 hit、miss 或 tracking')
-            if case == 'tracking' and args.spell not in ('water-orb', 'wind-bullet'):
-                parser.error('改轨迹复验使用水球或风弹')
+            if case not in ('hit', 'miss', 'tracking', 'landing') or any(i >= count for i in args.variant or []):
+                parser.error('单术实测需选择该法术已有的旧索引，支持 hit、miss、tracking 或 landing')
+            if case == 'tracking' and args.spell not in ('water-orb', 'wind-bullet', 'thunder-orb'):
+                parser.error('改轨迹复验使用水球、风弹或雷珠')
+            if case == 'landing' and args.spell != 'thunder-orb':
+                parser.error('指定地点爆发复验使用雷珠')
             selected = (asset,)
             variants = args.variant or (list(range(count)) if case == 'hit' else [min(1, count - 1)])
         archive = args.archive.resolve() if args.archive else None

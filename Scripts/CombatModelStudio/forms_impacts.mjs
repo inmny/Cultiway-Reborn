@@ -1,6 +1,6 @@
 /** 投射和坠落来源的实体，以及由真实余力交接形成的六类爆发厚体。 */
 import * as T from 'three';
-import {write,structure,surfaceData,motion,round} from './form_export.mjs';
+import {write,structure,surfaceData,motion,round,dissolve} from './form_export.mjs';
 import {wallPart,column} from './forms_solid_walls.mjs';
 
 /** 封闭的分层长体；局部正Z是前方，尖端与内部接触共同朝向实际运动。 */
@@ -11,19 +11,14 @@ function shaft(rows,sides=8) {
 }
 
 /** 共用制作出口，各资源保留自己的网格和实际接触芯。 */
-function publish(id,pieces,contacts,parameters={},dissolve=false) {
+function publish(id,pieces,contacts,parameters={},ending=false) {
   const controls=[{Id:'root',Position:[0,0,0],Rotation:[0,0,0,1]}];
   const parts=pieces.map(([name,g,s,fixedSurface])=>{
     const part=wallPart(name,g,s,[0,0,0],'root');
     if(fixedSurface)part.UseMatterSurface=false;
     return part;
   });
-  const motions=[];
-  if(dissolve) {
-    const clip=motion('dissolve',.25,false,controls,12,(_index,t)=>({position:[0,.13*t,-.06*t]}));
-    for(const key of clip.Keys)key.Fade=round(T.MathUtils.smoothstep(key.At,0,clip.Duration));
-    motions.push(clip);
-  }
+  const motions=ending?[dissolve(controls,(_index,t)=>({position:[0,.13*t,-.06*t]}))]:[];
   write(id,parts,[{Id:'root',Part:0,Position:[0,0,0],Direction:[0,0,1],Control:'root'}],
     contacts.map(([a,b,r,part=0],i)=>({Id:`core_${i}`,Part:part,A:a,B:b,Radius:r,AControl:'root',BControl:'root'})),controls,motions,false,
     {Forward:[0,0,1],Up:[0,1,0],HideBelowGround:true},structure('rigid','forms_impacts.mjs','makeImpactForms',parameters,
@@ -157,14 +152,76 @@ function fireball() {
   });
 }
 
-/** 雷球有折面核与六片宽短雷瓣，不以细线网格代替体积。 */
+/** 雷球各索引保留原来的主轮廓，厚雷瓣围绕实际接触核心。 */
 function thunder() {
-  const pieces=[['heart',new T.IcosahedronGeometry(.46,1),'lightning_dense']];
+  const forward=new T.Vector3(0,0,1);
+  const pieces=[['heart',new T.IcosahedronGeometry(.46,2),'thunder_core']];
   for(let i=0;i<6;i++) {
-    const direction=new T.Vector3(Math.cos(i*Math.PI/3),Math.sin(i*Math.PI/3),i%2?.5:-.5).normalize();
-    pieces.push([`lobe_${i}`,shaft([[.25,.18],[.52,.14],[.75,.012]],6).applyQuaternion(new T.Quaternion().setFromUnitVectors(new T.Vector3(0,0,1),direction)),'lightning_dense']);
+    const direction=new T.Vector3(Math.cos(i*Math.PI/3),Math.sin(i*Math.PI/3),i%2?.48:-.48).normalize();
+    const fold=shaft([[.26,.13],[.35,.195,.065],[.49,.123,-.065],[.63,.012,-.127]],8)
+      .applyQuaternion(new T.Quaternion().setFromUnitVectors(forward,direction));
+    pieces.push([`lobe_${i}`,fold,i%2?'thunder_body':'thunder_arc_fork']);
   }
-  publish('thunder_orb',pieces,[[[0,0,0],[0,0,0],.39]],{lobes:6});
+  publish('thunder_orb',pieces,[[[0,0,0],[0,0,0],.39]],{lobes:6},true);
+
+  const drop=shaft([[-.72,.008,-.17],[-.52,.095,-.10],[-.28,.19,.025],[-.10,.32,.037],
+    [.22,.356,.018],[.39,.17,-.02],[.45,.009,-.03]],14);
+  const wake=shaft([[-.94,.007,.12],[-.63,.065,.155],[-.44,.133,.07],[-.23,.053,-.04]],8);
+  publish('thunder_orb_1',[
+    ['heart',drop,'thunder_core'],['wake',wake,'thunder_arc_fork']
+  ],[[[.024,0,-.08],[.02,0,.24],.233]],{variant:1});
+
+  const paired=[['heart',new T.IcosahedronGeometry(.40,2).scale(.92,.87,1.28),'thunder_core']];
+  for(const [i,phase] of [0,Math.PI].entries()) {
+    const sides=10,sections=28;
+    const winding=column(Array.from({length:sections+1},(_,j)=>{
+      const t=j/sections,a=phase+4.55*t;
+      const taper=Math.max(.022,.124*Math.pow(Math.sin(Math.PI*t),.66));
+      const distance=.312+.098*Math.sin(Math.PI*t);
+      return Array.from({length:sides},(_,k)=>{
+        const b=k*Math.PI*2/sides,r=distance+taper*Math.cos(b);
+        return [r*Math.cos(a),r*Math.sin(a),-.57+1.12*t+taper*Math.sin(b)];
+      });
+    }),sides);
+    paired.push([`winding_${i}`,winding,i?'thunder_arc_fork':'thunder_body']);
+  }
+  publish('thunder_orb_2',paired,[[[0,0,-.22],[0,0,.22],.31]],{variant:2,folds:2});
+
+  const amber=[['heart',new T.IcosahedronGeometry(.34,1).scale(1.12,.86,.92),'thunder_amber']];
+  for(const [i,phase] of [.2,2.27,4.34].entries()) {
+    const fragment=shaft([[-.25,.012,.13],[-.16,.107,.27],[.055,.125,.33],[.24,.064,.26],[.31,.012,.17]],7)
+      .rotateZ(phase);
+    amber.push([`fold_${i}`,fragment,i===1?'thunder_core':'thunder_amber']);
+  }
+  publish('thunder_orb_3',amber,[[[0,0,-.07],[0,0,.075],.27]],{variant:3,folds:3});
+}
+
+/** 爆发先标出实际球形作用范围，厚雷瓣从同一点错时打开，在原地消散。 */
+function thunderOrbImpact() {
+  const origin=[0,0,0],identity=[0,0,0,1],duration=.22,ease=T.MathUtils.smoothstep;
+  const axes=Array.from({length:7},(_,i)=>new T.Vector3(Math.cos(i*2.4),Math.sin(i*2.4),.34*Math.sin(i*1.9)).normalize());
+  const controls=[{Id:'root',Position:origin,Rotation:identity},...axes.map((axis,i)=>({
+    Id:`lobe_${i}`,Parent:'root',Position:origin,Rotation:identity
+  }))];
+  const parts=[wallPart('extent',new T.SphereGeometry(.90,24,16),'thunder_corona',origin,'root')];
+  for(const [i,axis] of axes.entries()) {
+    const facet=shaft([[.08,.03],[.28,.142,.09],[.52,.162,-.045],[.75,.013,-.10]],7)
+      .applyQuaternion(new T.Quaternion().setFromUnitVectors(new T.Vector3(0,0,1),axis));
+    parts.push(wallPart(`lobe_${i}`,facet,i%3?'thunder_arc_fork':'thunder_arc',origin,controls[i+1].Id));
+  }
+  const clip=motion('spread',duration,false,controls,24,(index,phase)=>{
+    if(!index)return {};
+    const time=phase*duration,axis=axes[index-1],delay=(index%4)*.005;
+    const open=ease(time,delay,.058+delay),settle=ease(time,.084,.215);
+    return {position:axis.clone().multiplyScalar(-.13*(1-open)+.15*open-.031*settle).toArray(),
+      rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(-axis.y,axis.x,0).normalize(),.42*open-.60*settle).toArray()};
+  });
+  for(const key of clip.Keys)key.Fade=round(.20*(1-ease(key.At,0,.024))+ease(key.At,.052,duration));
+  write('thunder_orb_impact',parts,[{Id:'root',Part:0,Position:origin,Direction:[0,0,1],Control:'root'}],
+    [{Id:'core_0',Part:0,A:origin,B:origin,Radius:.9,AControl:'root',BControl:'root'}],controls,[clip],
+    false,{Forward:[0,0,1],Up:[0,1,0],HideBelowGround:true},
+    structure('articulated','forms_impacts.mjs','makeImpactForms',{contactRadius:.9,lobes:axes.length,duration},
+      Object.fromEntries(parts.map(p=>[p.Id,['impact.volume']])),[]));
 }
 
 /** 混沌球由不共面的厚瓣挤合，中央保留封闭核，表面错位不扩大实际接触。 */
@@ -328,4 +385,4 @@ function publishMeteorMotion(pieces,shoulders) {
 }
 
 /** 发布八种来源主体、六类通用爆发及落地、蓄雷形体。 */
-export function makeImpactForms() {fireball();thunder();chaos();falling();lightningStages();bursts();meteorImpact();}
+export function makeImpactForms() {fireball();thunder();thunderOrbImpact();chaos();falling();lightningStages();bursts();meteorImpact();}

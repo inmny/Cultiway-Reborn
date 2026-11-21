@@ -8,10 +8,12 @@ var catalog = new[]
     (Asset: SkillEntities.SwordQi, Form: "sword_qi", Count: 2),
     (Asset: SkillEntities.GoldenNeedle, Form: "golden_needle", Count: 1),
     (Asset: SkillEntities.WindBullet, Form: "wind_bullet", Count: 2),
-    (Asset: SkillEntities.WindBlade, Form: "wind_blade", Count: 2)
+    (Asset: SkillEntities.WindBlade, Form: "wind_blade", Count: 2),
+    (Asset: SkillEntities.ThunderOrb, Form: "thunder_orb", Count: 4),
+    (Asset: SkillEntities.LightningSpear, Form: "lightning_spear", Count: 1)
 }.Where(entry => chosenAssets.Contains(entry.Asset.id)).ToArray();
 
-bool CanTestTracking(SkillEntityAsset asset) => asset == SkillEntities.WaterOrb || asset == SkillEntities.WindBullet;
+bool CanTestTracking(SkillEntityAsset asset) => asset == SkillEntities.WaterOrb || asset == SkillEntities.WindBullet || asset == SkillEntities.ThunderOrb;
 bool cold = caseName == "cold", archive = caseName == "archive";
 int process = System.Diagnostics.Process.GetCurrentProcess().Id;
 var expected = cold ? JObject.Parse(File.ReadAllText(Path.Combine(archivePath, "expected.json"))) : null;
@@ -36,11 +38,13 @@ if (!cold)
 Entity[] Learned() => ((IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null))
     .Where(entity => chosenAssets.Contains(entity.GetComponent<SkillContainer>().Asset.id)).ToArray();
 
-Entity Learn(SkillEntityAsset asset, int index, bool tracking)
+Entity Learn(SkillEntityAsset asset, int index, bool tracking, float duration = 0f)
 {
     var builder = new SkillContainerBuilder(asset).UseAnimation(index);
     if (tracking) builder.AddModifier(new Trajectory { ID = SkillTrajectories.TowardsTarget.id });
     var made = builder.Build(SkillContainerBuildMode.RuleOnly);
+    if (duration > 0f) made.AddComponent(new SkillSettings
+        { Duration = duration, AreaMultiplier = 1, PowerMultiplier = 1, ContactEnabled = true });
     string signature = SkillContainerSignature.Build(made);
     owner.LearnSkillV3(made);
     return Learned().Single(value => SkillContainerSignature.Build(value) == signature);
@@ -114,29 +118,31 @@ async Task Stage(AbilityCast cast, float until)
 
 async Task Play(SkillEntityAsset asset, string form, int index)
 {
-    bool orb = asset == SkillEntities.WaterOrb;
+    bool orb = asset == SkillEntities.WaterOrb, blast = asset == SkillEntities.ThunderOrb;
+    bool landing = caseName == "landing";
     bool blade = asset == SkillEntities.WaterBlade || asset == SkillEntities.SwordQi || asset == SkillEntities.WindBlade;
     bool continues = asset.ImpactProfile.ContinueAfterHit;
     bool tracking = CanTestTracking(asset) && (caseName == "tracking" || cold), miss = caseName == "miss";
+    float timeout = blast && miss ? .115f : 0f;
     var skill = cold ? Learned().Single(entity =>
     {
         var value = entity.GetComponent<SkillContainer>();
         return value.Asset == asset && value.AnimationIndex == index;
-    }) : Learn(asset, index, tracking);
+    }) : Learn(asset, index, tracking, timeout);
     var container = skill.GetComponent<SkillContainer>();
     var animation = asset.GetAnimation(index);
     float interval = container.MotionProfile.FrameInterval;
     float rise = Seconds(animation.Appearance, interval), fade = Seconds(animation.Dissipation, interval);
-    float runtime = asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier;
+    float runtime = timeout > 0f ? timeout : asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier;
     string model = index == 0 ? form : form + "_" + index;
     Check(container.AnimationIndex == index && (!tracking || SkillBlueprintTrajectory.ResolveEffectiveId(skill) == SkillTrajectories.TowardsTarget.id),
         "原已学关系保留指定索引和轨迹", new { model, tracking });
 
     Ready(source);
     Place(source, 64);
-    Place(target, tracking ? 74f : continues ? 69f : orb ? 71f : 72f, miss ? 77f : 72f);
-    Place(second, orb && index == 4 && !tracking ? 71.04f : continues ? 73f : 75f,
-        miss || tracking ? 78f : orb && index == 4 ? 72.48f : blade ? 72.78f : 72f);
+    Place(target, tracking ? 74f : continues ? 69f : orb || blast ? 71f : 72f, miss ? 77f : landing ? 71f : 72f);
+    Place(second, blast ? 71.4f : orb && index == 4 && !tracking ? 71.04f : continues ? 73f : 75f,
+        miss || tracking ? 78f : blast ? 73.1f : orb && index == 4 ? 72.48f : blade ? 72.78f : 72f);
     Place(outside, 70f, 78f);
     owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
     foreach (var actor in new[] { source, target, second, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
@@ -145,9 +151,10 @@ async Task Play(SkillEntityAsset asset, string form, int index)
     double price = SkillCastResources.Wakan.Quote(owner,
         SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
     int previous = casts.Count;
-    var point = miss ? new Vector3(71f, 72f, source.GetSimPos().z) : target.GetSimPos();
-    var aim = new ActiveAbilityTarget(miss ? null : target, point,
-        selectionArea: new SkillTargetSelectionArea(!miss, point, .1f));
+    bool usePoint = miss || landing;
+    var point = usePoint ? new Vector3(71f, 72f, source.GetSimPos().z) : target.GetSimPos();
+    var aim = new ActiveAbilityTarget(usePoint ? null : target, point,
+        selectionArea: new SkillTargetSelectionArea(!usePoint, point, .1f));
     Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
         aim, ActiveAbilityUseOrigin.Player), "原已学入口受理", model);
     source.attack_timer = 999;
@@ -158,7 +165,7 @@ async Task Play(SkillEntityAsset asset, string form, int index)
     Check(casts.Count == previous + 1 && oldExecutions == 0, "只进入共同执行一次", model);
     var live = casts.Last();
     var cast = live.Value;
-    var initial = Views(cast).Single();
+    var initial = Views(cast).Single(view => view.Resource.Description.Id == model);
     Vector3 first = initial.Transform.GetColumn(3);
     bool water = form.StartsWith("water_", StringComparison.Ordinal);
     Check(initial.Resource.Description.Id == model && (!water || initial.Resource.Description.Parts.All(p => p.HasSurfaceData)) &&
@@ -167,12 +174,12 @@ async Task Play(SkillEntityAsset asset, string form, int index)
     if (rise > 0f)
         Check(cast.Age < rise && Mathf.Abs(first.x - 64f) < .05f && ShapeCount(cast) == 0 &&
               contacts.All(hit => hit.CastId != live.Key), "成形留在起点且没有接触面", model);
-    await Stage(cast, rise + .082f);
-    var moving = Views(cast).Single();
+    await Stage(cast, rise + (timeout > 0f ? .038f : .082f));
+    var moving = Views(cast).Single(view => view.Resource.Description.Id == model);
     Vector3 flown = moving.Transform.GetColumn(3);
     Check(flown.x > 64.08f && ShapeCount(cast) > 0 &&
-          (!orb || tracking || flown.z > source.GetSimPos().z + .45f),
-        "飞行时有实际位移和作用面，水球沿原弧线抬升",
+          (!(orb || blast) || tracking || flown.z > source.GetSimPos().z + .45f),
+        "飞行时有实际位移和作用面，球形弹体沿原弧线抬升",
         new { model, start = first.ToString(), position = flown.ToString(), shapes = ShapeCount(cast) });
     if (tracking)
     {
@@ -180,25 +187,43 @@ async Task Play(SkillEntityAsset asset, string form, int index)
         ConstructedAbilityService.NotifyActorChanged(target);
     }
 
-    Vector3? rest = null;
-    if (fade > 0f)
+    Vector3? impact = null, rest = null;
+    if (blast && !miss)
     {
         Config.paused = false;
         await Game.WaitUntil(() => cast.NodeAge(1) >= 0f || cast.Finished, 1800);
         Config.paused = true;
         await Game.WaitUntil(Boundary, 1800);
-        float began = cast.Age - cast.NodeAge(1);
-        var after = Views(cast).Single();
+        var pulse = Views(cast).Single(view => view.Resource.Description.Id == "thunder_orb_impact");
+        impact = pulse.Transform.GetColumn(3);
+        float expectedRadius = asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier *
+            SkillEffectRadius.ResolveCasterGrowth(owner, skill);
+        Check(cast.NodeAge(1) < .15f && Mathf.Abs(cast.RemainingForce(1) - 100f) < .001f &&
+              Mathf.Abs(.9f * pulse.Transform.lossyScale.x - expectedRadius) < .001f,
+            "真实爆发保留本体余力和原作用半径", new { model, actual = impact.ToString(), expectedRadius });
+        if (landing)
+            Check(Vector2.Distance(impact.Value, point) < .03f, "没有直接接触的抛弧在指定落点爆发", impact.ToString());
+    }
+    if (fade > 0f)
+    {
+        int fadeNode = blast ? 2 : 1;
+        Config.paused = false;
+        await Game.WaitUntil(() => cast.NodeAge(fadeNode) >= 0f || cast.Finished, 1800);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        float began = cast.Age - cast.NodeAge(fadeNode);
+        var after = Views(cast).Single(view => view.Resource.Description.Id == model);
         rest = after.Transform.GetColumn(3);
         if (orb && miss)
             Check(Vector2.Distance(rest.Value, point) < .03f && began <= rise + .53f,
                 "抛弧落空时仍在指定点收束", new { model, point = point.ToString(), landed = rest.ToString(), began });
         float alpha = after.Dye?.a ?? 1f;
         await Stage(cast, began + fade * .56f);
-        var ending = Views(cast).Single();
+        var ending = Views(cast).Single(view => view.Resource.Description.Id == model);
         float remaining = ending.Dye?.a ?? 1f;
-        Check(cast.NodeAge(1) >= fade * .52f && ShapeCount(cast) == 0 && remaining > 0f && remaining < alpha &&
-              Vector3.Distance(rest.Value, (Vector3)ending.Transform.GetColumn(3)) < .01f,
+        Check(cast.NodeAge(fadeNode) >= fade * .52f && ShapeCount(cast) == 0 && remaining > 0f && remaining < alpha &&
+              Vector3.Distance(rest.Value, (Vector3)ending.Transform.GetColumn(3)) < .01f &&
+              (!impact.HasValue || Vector3.Distance(rest.Value, impact.Value) < .02f),
             "收势停在真实结束地点连续变淡，作用面已经退出", new { model, rest = rest.ToString(), alpha, remaining });
         await Advance(fade + .05f);
     }
@@ -216,17 +241,27 @@ async Task Play(SkillEntityAsset asset, string form, int index)
             damage[0].TargetId == target.id || damage[0].TargetId == second.id : damage[0].TargetId == target.id) :
         actual.Length == 2 && damage.Length == 2 && damage.Count(hit => hit.TargetId == target.id) == 1 &&
         damage.Count(hit => hit.TargetId == second.id) == 1;
-    Check(settled && actual.All(hit => hit.Age >= rise && hit.Node == 0) && outside.data.health == hpOutside &&
-          (!tracking || damage[0].Position.y > 74f),
-        "贯穿与横扫每人一次，单击在首个实际接触处结束，落空及范围外无伤",
-        new { model, tracking, miss, hits = actual.Select(hit => new { hit.TargetId, hit.Age, hit.Node,
+    if (blast)
+    {
+        settled = miss ? settled && cast.NodeAge(1) < 0f : impact.HasValue &&
+            actual.Count(hit => hit.Node == 0) <= (landing ? 0 : 1) &&
+            actual.Where(hit => hit.Node == 0).All(hit => !hit.DamageAttempted) &&
+            damage.All(hit => hit.Node == 1) && damage.Length == (tracking ? 1 : 2) &&
+            damage.Count(hit => hit.TargetId == target.id) == 1 &&
+            damage.Count(hit => hit.TargetId == second.id) == (tracking ? 0 : 1);
+    }
+    Check(settled && actual.All(hit => hit.Age >= rise && (blast || hit.Node == 0)) && outside.data.health == hpOutside &&
+          (!tracking || (impact?.y ?? damage[0].Position.y) > 74f),
+        "保留贯穿、首击或爆发规则，范围外及提前到期无伤",
+        new { model, tracking, miss, landing, impact = impact.ToString(), hits = actual.Select(hit => new { hit.TargetId, hit.Age, hit.Node,
             hit.Damage.HealthLost, position = hit.Position.ToString() }).ToArray() });
     Check(cast.Finished && Views(cast).Length == 0 && ShapeCount(cast) == 0 &&
           endings.Any(end => end.Fact.CastId == live.Key && !end.Fact.Cancelled) &&
           Math.Abs(before - owner.GetCultisys<Xian>().wakan - price) < .001f,
         "自然结束并只扣原价", new { model, price, before, after = owner.GetCultisys<Xian>().wakan });
     recordings.Add(new { asset = asset.id, index, form = model, rise, runtime, fade, price, tracking, miss,
-        point = rest.ToString(), hits = damage.Select(hit => hit.TargetId).ToArray() });
+        landing, point = rest.ToString(), impact = impact.ToString(), triggers = actual.Count(hit => hit.Node == 0),
+        hits = damage.Select(hit => hit.TargetId).ToArray() });
 }
 
 ConstructedAbilityService.CastStarted += Started;

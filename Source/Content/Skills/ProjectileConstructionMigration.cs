@@ -119,7 +119,7 @@ internal static partial class ProjectileConstructionMigration
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
         if (scale <= 0f || scale > 64f || lifetime <= 0f || lifetime > 3600f) return null;
-        bool fireball = container.Asset == SkillEntities.Fireball;
+        bool thunderOrb = container.Asset == SkillEntities.ThunderOrb;
         bool fireBlade = container.Asset == SkillEntities.FireBlade;
         int variantCount = MigratedVariantCount(sourceForm.Form);
         bool phased = fireBlade || variantCount > 0;
@@ -152,25 +152,28 @@ internal static partial class ProjectileConstructionMigration
         if (blast)
         {
             bool meteor = container.Asset == SkillEntities.FlameMeteor;
+            bool animateBurst = meteor || thunderOrb;
             float burstDuration = Mathf.Min(.22f, lifetime);
             definition.Root.Children = new[] { new ConstructionNode
             {
-                Id = "burst", Form = meteor ? "flame_meteor_impact_motion" : sourceForm.Matter + "_burst",
+                Id = "burst", Form = meteor ? "flame_meteor_impact_motion" :
+                    thunderOrb ? "thunder_orb_impact" : sourceForm.Matter + "_burst",
                 Matter = sourceForm.Matter, State = sourceForm.State,
                 Scale = scale * container.Asset.ImpactProfile.EffectRadius * container.Asset.ImpactTuning.EffectRadiusMultiplier / .9f,
                 DisappearAt = burstDuration, ActiveUntil = Mathf.Min(.025f, lifetime),
                 Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End,
                     Placement = ConstructionEventPlacement.Event, InheritRemainder = contact, ResetContacts = contact,
-                    BeforeSourceExpires = fireball },
+                    BeforeSourceExpires = thunderOrb || container.Asset == SkillEntities.Fireball },
                 Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 },
                 Impact = contact ? new ConstructionImpact { DamageScale = damageMultiplier } : null,
                 ContactRole = contact ? ConstructionContactRole.Attack : ConstructionContactRole.Decoration,
-                // 余力交接也带来入射速度；炎陨在事件落点清掉这份速度，骨架仍可继续收势。
-                Operations = meteor
+                // 展开的爆发在落点清掉入射速度。雷珠保留动作的制作速度，短寿命仅截断显示。
+                Operations = animateBurst
                     ? new[]
                     {
                         new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new float[3], InheritVelocity = false },
-                        new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "spread", Seconds = burstDuration }
+                        new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "spread",
+                            Seconds = thunderOrb ? 0f : burstDuration }
                     }
                     : new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Stop,
                         When = new ConstructionCondition { Source = "..", Trigger = ConstructionChangeTrigger.End } } }
@@ -180,7 +183,7 @@ internal static partial class ProjectileConstructionMigration
         float roll = form switch
         {
             "water_orb" => 315f, "water_orb_1" => -260f, "water_orb_4" => 425f, "water_arrow_1" => 350f,
-            "wind_bullet" => 410f, _ => 0f
+            "wind_bullet" => 410f, "thunder_orb_2" => 540f, "thunder_orb_3" => -360f, _ => 0f
         };
         if (roll != 0f)
             definition.Root.Operations = definition.Root.Operations.Concat(new[]
@@ -218,9 +221,9 @@ internal static partial class ProjectileConstructionMigration
     {
         "fireball" => 18,
         "water_orb" => 5,
-        "water_arrow" or "water_blade" => 4,
+        "water_arrow" or "water_blade" or "thunder_orb" => 4,
         "flying_sword" or "sword_qi" or "wind_bullet" or "wind_blade" => 2,
-        "golden_needle" => 1,
+        "golden_needle" or "lightning_spear" => 1,
         _ => 0
     };
 

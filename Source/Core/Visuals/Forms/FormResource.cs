@@ -725,6 +725,7 @@ internal sealed partial class FormResourceGeneration
             "living_sap" => (26f, new Color(.91f, .93f, .47f, .93f), .26f),
             "living_bark" => (1f, new Color(.51f, .28f, .095f), .56f),
             "living_leaf" => (2f, new Color(.31f, .66f, .29f, .82f), .46f),
+            "thunder_amber" => (15f, new Color(1f, .73f, .24f, .98f), .19f),
             "thunder_core" => (3f, new Color(.74f, .91f, 1f), .4f),
             "thunder_body" => (3f, new Color(.34f, .42f, .91f), .24f),
             "thunder_corona" => (15f, new Color(.34f, .23f, 1f, .26f), .4f),

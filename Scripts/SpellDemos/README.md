@@ -2563,3 +2563,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用 `metal-wind --case archive` 保存九份学习资料。退出并重启后用 `metal-wind --case cold --archive <保存输出目录>` 读回资料，经正式入口施放五个代表索引。
 
 录像共用 `demo_all.py --variants all --cases base --realm 0 --target-offset 7 0 --duration 1.55 --fps 30`。剑气、金针和风刃用 `--zoom 23`，飞剑和风弹用 `--zoom 12`。两组均分别录制 `--view native` 和 `--view worldfall`。
+
+### 雷珠、雷枪旧变体（10.01）
+
+用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py thunder-projectiles` 验证全部四种雷珠及雷枪。用 `thunder-orb --case landing --variant 0` 验证无直接接触的指定点爆发，用 `--case miss --variant 0` 核对提前到期，用 `--case tracking` 核对改追踪后命中移动目标。批次同一入口支持 `--case archive`，重启游戏后用 `--case cold --archive <保存输出目录>` 读回并付费施放。
+
+两种视角均用 `demo_all.py --filter Cultiway.ThunderOrb,Cultiway.LightningSpear --variants all --cases base --realm 0 --target-offset 7 0 --zoom 20 --duration 1.55 --fps 30`。分别选 `--view native` 或 `--view worldfall` 和对应输出目录。

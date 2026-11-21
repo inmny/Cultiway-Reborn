@@ -49,8 +49,13 @@ export function makePiercingForms() {
     [[.18,1.30,.10],[1.35,1.88,.14],[1.90,2.32,.045]],{ice,sides:6});
 
   const lightning=[[-.04,.045],[.18,.15],[.90,.13],[1.15,.30],[1.42,.18],[1.65,.36],[1.98,.23],[2.46,.003]];
-  publish('lightning_spear',[['charged_lance',loft(lightning,6,.85),'lightning_dense']],
-    [[.16,.85,.09],[.85,1.30,.10],[1.35,1.95,.13],[1.98,2.25,.045]],{lightning,sides:6});
+  const lightningSpine=[[-.11,.012],[.11,.11],[.42,.14],[.93,.12],[1.24,.145],[1.71,.19],[2.24,.025]];
+  const fin=loft(lightningSpine,6,.42).translate(.044,0,0);
+  publish('lightning_spear',[
+    ['charged_lance',loft(lightning,8,.85),'thunder_body'],
+    ['bright_spine',fin,'thunder_arc'],
+    ['return_spine',fin.clone().rotateZ(Math.PI),'thunder_arc_fork']
+  ],[[.16,.85,.09],[.85,1.30,.10],[1.35,1.95,.13],[1.98,2.25,.045]],{lightning,lightningSpine,sides:8},true);
 
   const shaft=[[-.04,.10],[.12,.14],[1.50,.115],[1.82,.10]];
   const head=[[1.40,.08],[1.65,.31],[1.96,.22],[2.44,.002]];
