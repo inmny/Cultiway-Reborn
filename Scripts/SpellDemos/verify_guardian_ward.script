@@ -1,0 +1,160 @@
+// 用同一件法袍和同一对人物确认原减伤、充能与显示状态。
+const float originX = 64f, protectedX = 70.3f, centerY = 72f;
+PrepareArtifactArena(59, 78, 65, 80);
+Actor defender = Make(protectedX), attacker = Make(originX);
+var owner = defender.GetExtend();
+var foe = attacker.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+foe.AddComponent(new Xian { level = 4, wakan = 9000f });
+owner.SetPowerLevel(4f);
+foe.SetPowerLevel(4f);
+await Setup(defender, attacker);
+ControllableUnit.clear(false);
+MoveCamera.clearFocusUnitOnly();
+await Advance(.10f);
+CombatStatusEffects.ApplyStatus(defender, hold, 10000f, defender);
+defender.updateStats();
+Place(defender, protectedX, centerY);
+Place(attacker, originX, centerY);
+defender.position_height = attacker.position_height = 0f;
+ConstructedAbilityService.NotifyActorChanged(defender);
+ConstructedAbilityService.NotifyActorChanged(attacker);
+defender.attack_timer = attacker.attack_timer = 999f;
+
+var asset = ArtifactAbilities.GuardianWard;
+var recipe = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Robe, Atoms = [ArtifactAtoms.CloudRobe, ArtifactAtoms.CloudPattern, ArtifactAtoms.VoidSilk],
+    Level = new ItemLevel { Stage = 1, Level = 2 }, Name = "护主灵障复验"
+}));
+var abilities = recipe.AbilitySet.abilities.Select(value => value.ability_id).ToArray();
+Check(abilities.Contains(asset.id), "正式配方得到护主灵障", abilities);
+Entity robe = ArtifactBlueprintCodec.Materialize(recipe, defender.getName());
+owner.AddSpecialItem(robe);
+Check(owner.EquipArtifact(robe, locked: true, mode: ArtifactEquipMode.Standby, priority: 100), "待命装备原法袍");
+ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+lifecycle.Invoke(null, new object[] { robe });
+await Advance(.10f);
+var ability = Definition(robe, asset.id);
+ArtifactAbilityRuntimeEntry State() => Entry(robe, asset.id);
+bool HasShield() => abilities.Contains(ArtifactAbilities.CloudRobeShield.id) &&
+    Entry(robe, ArtifactAbilities.CloudRobeShield.id).GetNumber("shield_current") > 0f;
+if (HasShield())
+{
+    CombatDamageEffects.DealDamage(null, defender, 850f, ElementComposition.Static.Iron, true, 4f);
+    await WaitFor(() => !HasShield(), .4f);
+    await Advance((float)(Math.Max(State().cooldown_until, State().next_charge_at) - World.world.getCurWorldTime()) + .10f);
+}
+Check(State().charges == 1 && !HasShield(), "灵障单次充能可用，配方无剩余吸收");
+
+var visuals = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Visuals.ArtifactSpatialVisualRuntime")
+    .GetField("entries", F).GetValue(null);
+ArtifactAbilityVisualContext[] Signals(string channel) => visuals.Cast<object>()
+    .Where(value => (double)Field(value, "Closing") < 0d)
+    .Select(value => (ArtifactAbilityVisualContext)Field(value, "Context"))
+    .Where(value => value.artifact == robe && value.channel == channel).ToArray();
+bool WardReady() => Signals("guardian_ready").Length == 1;
+
+var action = typeof(ActorExtend).GetField("action_on_damage_resolved", F);
+object previous = action.GetValue(null);
+var incoming = new List<(float amount, bool reaction)>();
+int returning = 0;
+void Settled(ActorExtend who, BaseSimObject from, float amount, ElementComposition matter, AttackType kind)
+{
+    if (who == owner && from == attacker) incoming.Add((amount, DamageResolutionContext.IsReaction));
+    if (who == foe && from == defender) returning++;
+}
+const float input = 200f;
+var control = owner.E.GetRelation<EquippedArtifactRelation, Entity>(robe).state;
+float reduced = input * (1f - ability.GetNumber("damage_reduction") *
+    new ArtifactAbilityExecutionContext(owner.E, robe, control).effect_scale);
+
+async Task StrikeWard(float expected, bool reaction = false)
+{
+    int seen = incoming.Count, before = defender.data.health;
+    CombatDamageEffects.DealDamage(attacker, defender, input, ElementComposition.Static.Iron, true, 4f,
+        reaction ? DamageOrigin.Reaction : DamageOrigin.Primary);
+    await WaitFor(() => incoming.Count > seen, .4f);
+    await Game.NextFrame();
+    Check(incoming.Count == seen + 1 && incoming[seen].reaction == reaction &&
+          Mathf.Abs(incoming[seen].amount - expected) < .02f && before - defender.data.health == (int)expected,
+        "实际来伤结算与充能规则相符",
+        new { reaction, expected, actual = incoming[seen].amount, healthLoss = before - defender.data.health });
+}
+
+ConstructedContact confirmed = default;
+const string spellId = "test.guardian-ward.contact";
+bool found = false;
+void Confirmed(ConstructedContact fact)
+{
+    if (fact.SourceId != attacker.id || fact.TargetId != defender.id || fact.AbilityId != spellId) return;
+    confirmed = fact;
+    found = true;
+}
+ActorExtend.RegisterActionOnDamageResolved(Settled);
+ConstructedAbilityService.ContactConfirmed += Confirmed;
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    await WaitFor(WardReady, .4f);
+    await StrikeWard(reduced);
+    var normal = Signals(ArtifactVisualChannels.Guard).Single();
+    Check(State().charges == 0 && !WardReady() && (Vector3?)Field(normal, "contact_point") == null &&
+          Vector2.Dot(normal.direction, attacker.current_position - defender.current_position) > 0f,
+        "一次减伤消耗一次充能，器影收束，普通来伤沿原攻击方向显示");
+    double cooldown = State().cooldown_until, recharge = State().next_charge_at;
+    await StrikeWard(input);
+    Check(State().charges == 0 && State().cooldown_until == cooldown, "冷却内全额来伤未重复消耗或重置冷却");
+    await Advance((float)(cooldown - World.world.getCurWorldTime()) + .11f);
+    Check(World.world.getCurWorldTime() < recharge && !WardReady() && Signals(ArtifactVisualChannels.Guard).Length == 0,
+        "冷却结束但充能耗尽时，器影与受击反馈均收束");
+    await Advance((float)(recharge - World.world.getCurWorldTime()) + .12f);
+    Check(State().charges == 1 && WardReady(), "到原恢复时点后重新显示可用");
+    await StrikeWard(reduced, reaction: true);
+    Check(State().charges == 0 && returning == 0 && !HasShield(), "反击来伤可以减免，未生成额外反击或吸收层");
+
+    await Advance((float)(State().next_charge_at - World.world.getCurWorldTime()) + .12f);
+    var spell = new AbilityDefinition
+    {
+        Id = spellId, Name = "实测剑气", Lifetime = .092f, TargetRange = 12f,
+        Resource = "wakan", Cost = 1.25f, Power = 2f,
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = .28f },
+        Impact = new ConstructionImpact { DamageScale = 3f },
+        Root = new ConstructionNode
+        {
+            Id = "blade", Form = "sword_qi", Matter = "iron", Rotation = [-90f, 0f, 0f],
+            OnContact = ConstructionContactResponse.Continue,
+            Operations = [new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+                WorldVelocity = true, InheritVelocity = false, Vector = [780f, 0f, 0f] }]
+        }
+    };
+    Place(defender, protectedX, centerY);
+    Place(attacker, originX, centerY);
+    foe.GetCultisys<Xian>().wakan = 9000f;
+    await Fire(spell, attacker, defender);
+    foe.E.RemoveComponent<ConstructedKnowledge>();
+    await WaitFor(() => found, .35f);
+    await Game.NextFrame();
+    var impact = Signals(ArtifactVisualChannels.Guard).Single();
+    var point = (Vector3?)Field(impact, "contact_point");
+    Check(point.HasValue && Vector2.Distance(point.Value, confirmed.Position) < .003f &&
+          confirmed.Damage.HealthLost > 0 && confirmed.Damage.ShieldAbsorbed == 0f &&
+          confirmed.Damage.SettledCount == 1 && State().charges == 0 && returning == 0,
+        "真实剑面接触使用同一位置反馈，实际扣血且不计作吸收",
+        new { point = point?.ToString(), lifeLost = confirmed.Damage.HealthLost });
+    if (shots)
+        await CaptureArtifactViews("guardian-contact", defender.current_position, 1.8f,
+            () => Signals(ArtifactVisualChannels.Guard).Length == 1 && !WardReady(),
+            nativeZoom: 2.8f, closeSubject: defender);
+    owner.UnequipArtifact(robe, suppressAutoEquip: true);
+    await Advance(.48f);
+    Check(!WardReady() && Signals(ArtifactVisualChannels.Guard).Length == 0, "卸下原法袍后反馈结束");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    action.SetValue(null, previous);
+    ConstructedAbilityService.ContactConfirmed -= Confirmed;
+}

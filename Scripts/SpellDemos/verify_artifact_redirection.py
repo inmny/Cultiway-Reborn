@@ -12,9 +12,7 @@ from verify_weapon_flight_archive import FIXTURE, IMPORTS, SCRIPTS, world_helper
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    views = parser.add_mutually_exclusive_group()
-    views.add_argument('--skip-views', action='store_true', help='只检查正式行为')
-    views.add_argument('--views-only', action='store_true', help='只补拍吸收时的两个视角')
+    parser.add_argument('--skip-views', action='store_true', help='只检查正式行为')
     parser.add_argument('--section', choices=('all', 'mirror', 'robe'), default='all')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
@@ -30,7 +28,6 @@ def main():
                        + (SCRIPTS / 'verify_artifact_views.script').read_text()
                        + f'const string section = {json.dumps(args.section)};\n'
                        + f'const bool shots = {str(not args.skip_views).lower()};\n'
-                       + f'const bool viewsOnly = {str(args.views_only).lower()};\n'
                        + Path(__file__).with_suffix('.script').read_text())
     try:
         result = baseline.call('run', str(program), '170000')

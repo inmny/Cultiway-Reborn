@@ -89,6 +89,7 @@ public partial class ArtifactAbilities
             ArtifactVisualChannels.Guard,
             direction: direction,
             target: evt.Attacker,
-            intensity: reduction);
+            intensity: reduction,
+            contactPoint: evt.ContactPoint);
     }
 }

@@ -87,45 +87,33 @@ public partial class ArtifactAbilities
 
     private static void ConfigureGuardianWardVisuals()
     {
-        ArtifactAreaVisualCue readyRune = new()
+        ArtifactProjectionVisualCue ready = new()
         {
-            style_key = ArtifactVfxStyles.Ward,
             anchor = ArtifactVisualAnchorKind.Artifact,
-            color_role = ArtifactVisualColorRole.Glow,
-            ResolveRadius = context => 0.3f * ArtifactAbilityVisuals.ResolveActorScale(context),
-            line_alpha = 0.16f,
-            fill_alpha = 0f,
-            line_width = 0.045f,
-            pulse_amplitude = 0.04f,
-            pulse_speed = 2.2f,
-            show_inner_ring = false,
-        };
-        ArtifactLocalVisualCue shield = new(ArtifactLocalVisualKind.Shield)
-        {
-            anchor = ArtifactVisualAnchorKind.Controller,
-            color_role = ArtifactVisualColorRole.Glow,
-            offset = new Vector3(0f, 0.08f, 0.2f),
-            scale = 0.1f,
-
-            alpha = 0.95f,
-            loop = false,
-
+            offset = new Vector3(0f, 0f, .13f),
+            start_scale = 1f,
+            end_scale = 1f,
+            alpha = .34f,
+            fade_out = false,
+            follow_artifact_rotation = true,
         };
         GuardianWard.Visualize(new ArtifactAbilityVisualProfile
             {
                 fallback_theme = ArtifactVisualTheme.FromPrimary(SkillVfxElements.Metal.AccentColor),
             }
             .Loop(
-                "ready_rune",
-                readyRune,
-                context => ArtifactAbilityLifecycle.MeetsState(context.control_state, ArtifactControlState.Ready),
+                "guardian_ready",
+                ready,
+                context => ArtifactAbilityLifecycle.CanHandleEvent(GuardianWard,
+                    new ArtifactAbilityExecutionContext(context.controller, context.artifact, context.control_state),
+                    context.ability, context.runtime),
                 "artifact.guardian.ready",
                 ArtifactVisualStackPolicy.Strongest,
                 context => context.ability.GetNumber(DamageReduction))
             .Signal(
                 ArtifactVisualChannels.Guard,
-                shield,
-                0.48f,
+                ShieldImpact(.13f),
+                .32f,
                 "artifact.guardian.guard",
                 ArtifactVisualStackPolicy.Strongest));
     }

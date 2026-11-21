@@ -2861,3 +2861,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 返照与卸力（10.06）
 
 用 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_artifact_redirection.py` 复验真实伤害分流、回送归属、免疫和卸力位移。用 `--section mirror|robe` 指定能力，或用 `--skip-views` 核对行为。
+
+### 护主灵障（10.06）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_guardian_ward.py` 核对实际减伤、冷却内受伤、恢复充能、真实接触点和卸装收束。默认采集同一受击时刻的原版与 Worldfall 画面，用 `--skip-views` 只检查行为。
