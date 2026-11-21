@@ -12,11 +12,13 @@ using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>三种范围主动分别沿用原本的结算规则。</summary>
+/// <summary>范围法相分别沿用原本的结算规则。</summary>
 internal enum FormationAreaKind
 {
     /// <summary>龙相震击。</summary>
     Dragon,
+    /// <summary>只眩晕和震退的龙威派生。</summary>
+    DragonMight,
     /// <summary>纯阳净域。</summary>
     Yang,
     /// <summary>玄阴寒域。</summary>
@@ -44,7 +46,7 @@ internal readonly struct FormationAreaContact
     }
 }
 
-/// <summary>修炼范围主动能力从原技能发射进入同一套立体接触。</summary>
+/// <summary>修炼范围能力从原技能发射进入同一套立体接触。</summary>
 internal static class FormationAreaConstruction
 {
     /// <summary>根据原圆面半径和持续时间生成实际落点，继承该次施展的付款和所属人物。</summary>
@@ -56,6 +58,8 @@ internal static class FormationAreaConstruction
         {
             var entry when entry == CoreFormationSkills.DragonAspectBurst =>
                 (CoreFormationEffectFamilies.Dragon, FormationAreaKind.Dragon, "earth"),
+            var entry when entry == CoreFormationSkills.DragonMight || entry == CoreFormationSkills.DragonAspectMight =>
+                (CoreFormationEffectFamilies.Dragon, FormationAreaKind.DragonMight, "earth"),
             var entry when entry == CoreFormationSkills.PureYangDomain =>
                 (CoreFormationEffectFamilies.Yang, FormationAreaKind.Yang, "yang"),
             var entry when entry == CoreFormationSkills.MysteriousYinDomain =>
@@ -66,8 +70,9 @@ internal static class FormationAreaConstruction
         if (emission.Sourceless || emission.Source.isRekt() || !emission.Source.isActor() ||
             !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         var caster = emission.Source.a.GetExtend();
-        if (!CoreFormationEffectResolver.TryResolveFamily(caster, family, out var effect) ||
-            effect.Definition.active?.SkillContainer != skill)
+        if (!CoreFormationEffectResolver.TryResolveFamily(caster, family, out var effect)) return SkillEmissionResult.Rejected;
+        bool derived = kind == FormationAreaKind.DragonMight;
+        if (derived ? effect.Definition.TriggerSkill != skill : effect.Definition.active?.SkillContainer != skill)
             return SkillEmissionResult.Rejected;
 
         var asset = skill.GetComponent<SkillContainer>().Asset;
@@ -78,7 +83,7 @@ internal static class FormationAreaConstruction
         const float release = .30f;
         var definition = new AbilityDefinition
         {
-            Id = asset.id, Name = effect.Definition.active.GetName(),
+            Id = asset.id, Name = derived ? asset.id.Localize() : effect.Definition.active.GetName(),
             Resource = "none", Cost = 0f, Cooldown = 0f, Lifetime = duration + release, TargetRange = 10000f,
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat, Target = ActiveAbilityTargetMode.Point },
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
@@ -133,6 +138,7 @@ internal static class FormationAreaConstruction
         (string edge, string core, float edgeScale, float coreScale, int segments) = kind switch
         {
             FormationAreaKind.Dragon => ("earth_wall_strata_rubble", "earth_burst", .86f, 1.3f, 24),
+            FormationAreaKind.DragonMight => ("earth_wall_strata_rubble", "earth_burst", .59f, .84f, 16),
             FormationAreaKind.Yang => ("solar_scale_release", "yang_bolt", 1.23f, 2.25f, 24),
             _ => ("yin_transfer_wrap", "yin_field_basin", 1.38f, 1.16f, 28)
         };

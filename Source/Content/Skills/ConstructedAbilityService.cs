@@ -88,6 +88,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (result == SkillEmissionResult.Unhandled) result = SupportConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = FormationSelfConstruction.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = FormationAreaConstruction.Emit(emission);
+            if (result == SkillEmissionResult.Unhandled) result = FormationCueConstruction.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = BeamConstructionMigration.Emit(emission);
             return result == SkillEmissionResult.Unhandled ? ChainConstructionMigration.Emit(emission) : result;
         };

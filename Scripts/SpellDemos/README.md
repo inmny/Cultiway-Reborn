@@ -2711,3 +2711,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 范围法相的主动入口（10.02）
 
 在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_formation_area.py`。同一组人物依次观察龙相震击的真实伤害与震退、纯阳净域的敌我分流及玄阴寒域的冻结、沉默和实际灵气收支。另检查实际落点、旧地块作用、圈外及结束。可用 `--spell DragonAspectBurst`、`--spell PureYangDomain` 或 `--spell MysteriousYinDomain` 单独复验受影响的能力。
+
+### 修炼提示和龙威（10.02）
+
+在独立游戏中运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_formation_derived.py`。同一张对练地图用于观察真实攻防、正式付费施法和致命受击。可用 `--section ward` 查看护盾与适应，`--section casting` 查看凝元和回响，`--section survival` 查看幻身与保命，`--section dragon` 查看第五层龙威的眩晕和震退。提示结束时检查没有新增接触和伤害，龙威另核对敌我、圈外及支付。

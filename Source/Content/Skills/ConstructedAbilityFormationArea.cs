@@ -21,7 +21,7 @@ public sealed partial class ConstructedAbilityService
         bool enemy = SkillTargetRelationResolver.IsHostile(source, target);
         switch (formation.Kind)
         {
-            case FormationAreaKind.Dragon when enemy:
+            case FormationAreaKind.Dragon or FormationAreaKind.DragonMight when enemy:
                 return ConfirmDragonImpact(running, node, owner, target, formation);
             case FormationAreaKind.Yang:
                 if ((target == source || target.kingdom == source.kingdom) &&
@@ -69,9 +69,11 @@ public sealed partial class ConstructedAbilityService
         if (worldGeneration != generation || target.data?.id != id || !target.isAlive())
             return new ConstructedTargetResponse(id, Vector3.zero, false, 0f, 0f,
                 additionalDamage: formation.DragonDamage > 0f, damage: result);
-        CombatStatusEffects.ApplyStatus(target, StatusEffects.Daze, .8f, owner.Actor);
+        bool derived = formation.Kind == FormationAreaKind.DragonMight;
+        CombatStatusEffects.ApplyStatus(target, StatusEffects.Daze, derived ? .6f : .8f, owner.Actor);
         Vector2 away = target.current_position - (Vector2)running.Cast.ContactOrigin(node);
-        Vector2 force = (away.sqrMagnitude > .0001f ? away.normalized : Vector2.up) * (3f * formation.Strength);
+        Vector2 force = (away.sqrMagnitude > .0001f ? away.normalized : Vector2.up) *
+            ((derived ? 2.5f : 3f) * formation.Strength);
         Vector3 before = ConstructedActorImpulse.Velocity(target);
         bool pushed = ApplyLegacyGroundSlide(target, owner.Actor, force.x, force.y);
         float daze = CombatStatusEffects.GetStatusRemaining(target, StatusEffects.Daze);

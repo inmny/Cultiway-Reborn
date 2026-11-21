@@ -1,0 +1,294 @@
+var source = Make(64.5f);
+var enemy = Make(69.5f, "wolf");
+var ally = Make(62.5f);
+var outside = Make(91.5f, "wolf");
+var owner = source.GetExtend();
+ally.setKingdom(source.kingdom);
+for (int x = 59; x <= 94; x++)
+for (int y = 69; y <= 76; y++)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    tile.setTileTypes(TileLibrary.soil_low, null);
+    tile.Height = 140;
+}
+var resources = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.FormationDerived.Resources") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.FormationDerived.Resources")
+        .SetStats(new BaseStats { [BaseStatses.MaxWakan.id] = 10000 }).SetDuration(10000).Build();
+owner.AddComponent(new Xian { level = Cultiway.Content.Const.XianLevels.Yuanying, wakan = 9000 });
+CombatStatusEffects.ApplyStatus(source, resources, 10000, source);
+owner.MarkCultiwayStatsDirty();
+source.setStatsDirty();
+source.updateStats();
+await Advance(.22f);
+
+var started = new List<ConstructedCastStarted>();
+var resultRows = new List<object>();
+var spends = new List<float>();
+var legacy = new List<string>();
+var matrix = typeof(Cultiway.Core.EventSystem.Systems.GetHitEventSystem).GetMethod("Resolve", F);
+var mutationField = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previousMutations = mutationField.GetValue(null);
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId == source.id) started.Add(fact);
+}
+void LegacyStarted(Entity execution)
+{
+    string id = execution.GetComponent<SkillEntity>().Asset.id;
+    if (chosenAssets.Contains(id)) legacy.Add(id);
+}
+void Observe(ActorExtend actor, in WakanMutation mutation)
+{
+    if (actor == owner && mutation.Kind == WakanMutationKind.Spend) spends.Add(-mutation.Delta);
+}
+ConstructedAbilityService.CastStarted += Started;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyStarted;
+WakanResourceService.RegisterMutationCommitted(Observe);
+
+Cultiway.Content.Libraries.CoreFormationResolvedEffect Install(Cultiway.Content.Libraries.CoreFormationAtomAsset atom,
+    string family, CoreFormationRealm realm = CoreFormationRealm.Yuanying)
+{
+    owner.E.RemoveComponent<Yuanying>();
+    owner.E.RemoveComponent<Jindan>();
+    owner.GetCultisys<Xian>().level = realm == CoreFormationRealm.Jindan
+        ? Cultiway.Content.Const.XianLevels.Jindan : Cultiway.Content.Const.XianLevels.Yuanying;
+    var formation = new CoreFormationSnapshot
+    {
+        version = CoreFormationSnapshot.CurrentVersion, signature = "verify.formation.derived." + atom.id,
+        canonical_name = "修炼派生对练", finalized = true, realm = realm, strength = 4f, refinement = 5,
+        composition = ElementComposition.Static.Earth,
+        atoms = new[] { new CoreFormationAtomState { atom_id = atom.id, weight = 1f, awakening_stage = 0 } },
+        stats = Array.Empty<CoreFormationStatValue>(),
+        semantics = Array.Empty<Cultiway.Core.Semantics.SemanticContribution>()
+    };
+    if (realm == CoreFormationRealm.Jindan) owner.AddComponent(new Jindan { formation = formation });
+    else owner.AddComponent(new Yuanying { formation = formation });
+    owner.MarkCultiwayStatsDirty();
+    source.setStatsDirty();
+    source.updateStats();
+    source.restoreHealth(source.getMaxHealth());
+    owner.GetCultisys<Xian>().wakan = 9000;
+    Check(CoreFormationEffectResolver.TryResolveFamily(owner, family, out var effect), "实际修炼效果已授予 " + family);
+    var abilities = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, abilities);
+    Check(abilities.Where(h => h.ProviderId == "content.core_formation").All(h =>
+        !chosenAssets.Contains(h.Source.GetComponent<SkillContainer>().Asset.id)),
+        "效果未把内部派生加入主动列表 " + family);
+    return effect;
+}
+
+Cultiway.Core.Combat.DamageSettlement Strike(Actor attacker, Actor target, float damage)
+{
+    var hit = new Cultiway.Core.EventSystem.Events.GetHitEvent
+    {
+        TargetID = target.id, Damage = damage, IgnoreDamageReduction = true,
+        AttackType = AttackType.Other, Element = ElementComposition.Static.Earth,
+        DamageOrigin = Cultiway.Core.Combat.DamageOrigin.Primary
+    };
+    hit.BindAttacker(attacker);
+    return (Cultiway.Core.Combat.DamageSettlement)matrix.Invoke(null, new object[] { hit });
+}
+Entity State(Cultiway.Content.Libraries.CoreFormationResolvedEffect effect) =>
+    CombatStatusEffects.TryGetStatus(source, effect.Definition.StateStatus, source, out Entity status)
+        ? status : default;
+bool Allowed(string section) => caseName == "all" || caseName == section;
+string Id(string tail) => "Cultiway.CoreFormation.Skill." + tail;
+
+async Task FinishCue(string name, int currentHealth)
+{
+    await Advance(.16f);
+    var casts = started.Where(fact => fact.AbilityId == Id(name)).ToArray();
+    Check(casts.Length == 1 && !legacy.Contains(Id(name)), name + "共用路径只显形一次",
+        new { common = casts.Length, old = legacy.Count(id => id == Id(name)) });
+    await Advance(.87f);
+    var ended = endings.Single(row => row.Fact.CastId == casts[0].CastId).Fact;
+    Check(!ended.Cancelled && contacts.All(hit => hit.CastId != ended.CastId) &&
+        source.data.health == currentHealth, name + "自然收势且没有额外接触或人物结算",
+        new { ended.Age, source.data.health });
+    resultRows.Add(new { id = Id(name), cast = ended.CastId, age = ended.Age });
+}
+
+try
+{
+    if (Allowed("ward"))
+    {
+        var earth = Install(CoreFormationAtoms.ElementEarth, "earth", CoreFormationRealm.Jindan);
+        for (int i = 0; i < 100 && State(earth).IsNull; i++)
+        {
+            enemy.restoreHealth(enemy.getMaxHealth());
+            Strike(source, enemy, 120);
+        }
+        Entity ward = State(earth);
+        Check(!ward.IsNull, "真实造成伤害积累厚土护盾");
+        float shield = ward.GetComponent<CoreFormationEffectState>().value;
+        await FinishCue("EarthWard", source.data.health);
+        Check(Mathf.Abs(State(earth).GetComponent<CoreFormationEffectState>().value - shield) < .001f,
+            "护盾显形没有重复补盾", shield);
+        int previous = source.data.health;
+        var absorbed = Strike(enemy, source, shield * .45f);
+        float after = State(earth).GetComponent<CoreFormationEffectState>().value;
+        Check(absorbed.HealthLost == 0 && source.data.health == previous && after < shield,
+            "真实吸收削减原护盾余额，只产生一次反震提示", new { shield, after });
+        await FinishCue("EarthWardImpact", previous);
+
+        var balance = Install(CoreFormationAtoms.StructureBalanced, "balanced", CoreFormationRealm.Jindan);
+        for (int i = 0; i < 100; i++)
+        {
+            source.restoreHealth(source.getMaxHealth());
+            Strike(enemy, source, 135);
+            Entity status = State(balance);
+            if (!status.IsNull && status.GetComponent<CoreFormationEffectState>().value > 0) break;
+        }
+        var adapted = State(balance).GetComponent<CoreFormationEffectState>();
+        Check(adapted.counter >= 2 && adapted.value > 0 && adapted.value <= .3f,
+            "连续真实受击才建立对应元素适应", new { adapted.counter, adapted.value });
+        await FinishCue("BalancedAdaptation", source.data.health);
+    }
+
+    if (Allowed("casting"))
+    {
+        var draft = new SkillContainerBuilder(SkillEntities.SpiritShield).UseAnimation(0)
+            .Build(SkillContainerBuildMode.RuleOnly);
+        string signature = SkillContainerSignature.Build(draft);
+        owner.LearnSkillV3(draft);
+        var available = new List<ActiveAbilityHandle>();
+        ActiveAbilityService.Collect(owner, available);
+        var shield = available.Single(handle => handle.ProviderId == "core.learned_skill" &&
+            SkillContainerSignature.Build(handle.Source) == signature);
+        async Task PaidCastUntil(Cultiway.Content.Libraries.CoreFormationResolvedEffect effect)
+        {
+            for (int i = 0; i < 30 && SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill); i++)
+            {
+                owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+                var target = new ActiveAbilityTarget(source, source.GetSimPos());
+                int paid = spends.Count;
+                int shields = started.Count(row => row.AbilityId == SkillEntities.SpiritShield.id);
+                bool accepted = ActiveAbilityService.TryUse(owner, shield, target, ActiveAbilityUseOrigin.Player);
+                if (!accepted)
+                    Check(false, "测试的原护盾正式付费施放未受理", new
+                    {
+                        attempt = i + 1, affordable = SkillCastCost.CanPayStep(owner, shield.Source),
+                        balance = owner.GetCultisys<Xian>().wakan, spends = paid, shields
+                    });
+                for (int frame = 0; frame < 5 && spends.Count == paid; frame++) await Advance(.12f);
+                Check(spends.Count == paid + 1 &&
+                    started.Count(row => row.AbilityId == SkillEntities.SpiritShield.id) > shields,
+                    "已学护盾真实发射并支付一次", new { attempt = i + 1, spend = spends.LastOrDefault() });
+            }
+            Check(!SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill),
+                "已支付的原法术真实完成并触发 " + effect.Definition.family_id);
+        }
+
+        var condensed = Install(CoreFormationAtoms.StructureCondensed, "condensed", CoreFormationRealm.Jindan);
+        await PaidCastUntil(condensed);
+        var charge = State(condensed).GetComponent<CoreFormationEffectState>();
+        Check(charge.charges == 1, "凝元蓄势实际只建立一次充能");
+        int paid = spends.Count;
+        await FinishCue("ReservoirOrb", source.data.health);
+        Check(State(condensed).GetComponent<CoreFormationEffectState>().charges == 1 && spends.Count == paid,
+            "储备提示期间没有再次充能或付款");
+
+        var spiritual = Install(CoreFormationAtoms.StructureSpiritual, "spiritual", CoreFormationRealm.Jindan);
+        int shieldBefore = started.Count(row => row.AbilityId == SkillEntities.SpiritShield.id);
+        paid = spends.Count;
+        await PaidCastUntil(spiritual);
+        await FinishCue("SpiritEcho", source.data.health);
+        int actual = started.Count(row => row.AbilityId == SkillEntities.SpiritShield.id) - shieldBefore;
+        Check(actual == spends.Count - paid + 1, "付费施法只额外产生一次预付回响",
+            new { original = spends.Count - paid, actual });
+    }
+
+    if (Allowed("survival"))
+    {
+        var illusion = Install(CoreFormationAtoms.PathIllusion, "illusion", CoreFormationRealm.Jindan);
+        for (int i = 0; i < 100 && SkillCooldownService.IsReady(owner, illusion.Definition.CooldownSkill); i++)
+        {
+            source.restoreHealth(source.getMaxHealth());
+            Strike(enemy, source, source.getMaxHealth() * .12f);
+        }
+        Check(source.data.health == source.getMaxHealth() && CombatStatusEffects.HasStatus(source, StatusEffects.Concealed, source),
+            "实际大伤被幻身挡下并短暂隐匿");
+        await FinishCue("IllusionDecoy", source.data.health);
+        CombatStatusEffects.RemoveStatus(source, StatusEffects.Concealed);
+        foreach (var row in new[] { (CoreFormationAtoms.ManifestInfant, "InfantGuard", .1f),
+                     (CoreFormationAtoms.TransformChaos, "ChaosRebirth", .3f) })
+        {
+            Install(row.Item1, "survival");
+            int maximum = source.getMaxHealth();
+            Strike(enemy, source, maximum * 1.3f);
+            int survives = Mathf.CeilToInt(maximum * row.Item3);
+            Check(source.isAlive() && Math.Abs(source.data.health - survives) <= 1,
+                row.Item2 + "由致命一击触发，按原比例留下生命",
+                new { actual = source.data.health, expected = survives });
+            await FinishCue(row.Item2, source.data.health);
+        }
+    }
+
+    if (Allowed("dragon"))
+    {
+        var held = new BaseStats();
+        held.addTag("frozen_ai");
+        var calm = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.FormationDerived.Calm") ??
+            Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.FormationDerived.Calm")
+                .SetStats(held).SetDuration(10000).Build();
+        CombatStatusEffects.RemoveStatus(enemy, hold);
+        CombatStatusEffects.ApplyStatus(enemy, calm, 10000, enemy);
+        enemy.updateStats();
+        source.addAggro(enemy);
+        source.addAggro(outside);
+        foreach (var row in new[] { (CoreFormationAtoms.ThemeDragon, "DragonMight", CoreFormationRealm.Jindan),
+                     (CoreFormationAtoms.ManifestDragonAspect, "DragonAspectMight", CoreFormationRealm.Yuanying) })
+        {
+            var dragon = Install(row.Item1, "dragon", row.Item3);
+            int Counter() => State(dragon).IsNull ? 0 : State(dragon).GetComponent<CoreFormationEffectState>().counter;
+            for (int i = 0; i < 120 && Counter() < 4; i++)
+            {
+                enemy.restoreHealth(enemy.getMaxHealth());
+                Strike(source, enemy, 100);
+            }
+            Check(Counter() == 4, "真实攻防累积到四层 " + row.Item2);
+            await Advance(.16f);
+            Check(started.All(item => item.AbilityId != Id(row.Item2)), row.Item2 + "四层时未震荡");
+            for (int i = 0; i < 80 && SkillCooldownService.IsReady(owner, dragon.Definition.CooldownSkill); i++)
+            {
+                enemy.restoreHealth(enemy.getMaxHealth());
+                Strike(source, enemy, 100);
+            }
+            Check(Counter() == 0 && !SkillCooldownService.IsReady(owner, dragon.Definition.CooldownSkill),
+                row.Item2 + "第五层消耗层数并进入原冷却");
+            Place(source, 64.5f, 72.5f);
+            Place(enemy, 69.5f, 72.5f);
+            Place(ally, 62.5f, 72.5f);
+            Place(outside, 91.5f, 72.5f);
+            foreach (Actor actor in new[] { source, enemy, ally, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+            int health = enemy.data.health, paid = spends.Count;
+            float x = enemy.current_position.x;
+            await Advance(.27f);
+            var cast = started.Single(fact => fact.AbilityId == Id(row.Item2));
+            var hits = contacts.Where(hit => hit.CastId == cast.CastId).ToArray();
+            var enemyHits = hits.Where(hit => hit.TargetId == enemy.id).ToArray();
+            Check(enemyHits.Length == 1 && enemyHits[0].ForceApplied && enemyHits[0].StaggerSeconds > .5f &&
+                enemy.data.health == health && enemy.current_position.x > x + .02f &&
+                hits.All(hit => hit.TargetId != outside.id) &&
+                hits.Where(hit => hit.TargetId == ally.id).All(hit => !hit.ForceApplied && hit.StaggerSeconds == 0) &&
+                !legacy.Contains(Id(row.Item2)) && spends.Count == paid,
+                row.Item2 + "只眩晕震退敌人，不额外伤害或花费",
+                new { distance = enemy.current_position.x - x, targets = hits.Select(hit => hit.TargetId).ToArray() });
+            await Advance(.89f);
+            Check(endings.Any(item => item.Fact.CastId == cast.CastId && !item.Fact.Cancelled) &&
+                contacts.Count(hit => hit.CastId == cast.CastId && hit.TargetId == enemy.id) == 1,
+                row.Item2 + "自然收势且敌人只结算一次");
+            resultRows.Add(new { id = Id(row.Item2), cast = cast.CastId, distance = enemy.current_position.x - x });
+        }
+    }
+    return new { passed = true, resultRows, checks };
+}
+finally
+{
+    Config.paused = true;
+    mutationField.SetValue(null, previousMutations);
+    ConstructedAbilityService.CastStarted -= Started;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyStarted;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+}

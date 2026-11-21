@@ -137,10 +137,10 @@ internal sealed class CoreFormationSkills : ICanInit
             "IllusionDecoy", "illusion_decoy", 0.1f, Element(ElementIndex.Neg));
         DragonMight = BuildArea(
             "DragonMight", "dragon_might", 0.11f, ElementComposition.Static.Earth,
-            4f, 0f, OnDragonMight);
+            4f, 0f, null);
         DragonAspectMight = BuildArea(
             "DragonAspectMight", "dragon_might", 0.13f, ElementComposition.Static.Earth,
-            4f, 0f, OnDragonMight);
+            4f, 0f, null);
         InfantGuard = BuildVisual(
             "InfantGuard", "infant_guard", 0.1f, Element(ElementIndex.Pos));
         ChaosRebirth = BuildVisual(
@@ -536,16 +536,6 @@ internal sealed class CoreFormationSkills : ICanInit
             source.current_position,
             2f * context.EffectScale,
             false);
-    }
-
-    /// <summary>龙威实体对每个实际敌对目标施加震慑和击退。</summary>
-    private static void OnDragonMight(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target) ||
-            target == source || !SkillTargetRelationResolver.IsHostile(source, target)) return;
-        CombatStatusEffects.ApplyStatus(target, StatusEffects.Daze, 0.6f, source);
-        Vector2 center = skillEntity.GetComponent<Position>().v2;
-        CombatForceEffects.ApplyRadialForce(source, target, center, 2.5f * context.EffectScale, false);
     }
 
     /// <summary>构造单一元素组成。</summary>
