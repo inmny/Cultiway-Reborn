@@ -2689,3 +2689,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_building_flight.py --case legacy`。再用 `--case current --baseline <原执行的 result.json>` 对照。可用 `--spell WaterArrow`、`--spell Fireball` 或 `--spell RockProjectile` 单独安排样本。报告包含水矢直击和穿透、火球拦截和拆屋后的复放，以及飞石越过房屋时的真实结果。
 
 以相同入口加 `--group sustained` 可对照曜阳光、毒潭、火墙与风墙对同一类完工建筑的作用。报告保留单次实际扣血、共同接触的年龄、实扣费用及结束观察。
+
+用 `--group chain` 对照从人物经建筑再跳回人物、点名建筑起跳和拆屋后改选三种实际路径。调试某一段时可用 `--chain-case actor-relay`、`--chain-case building-first` 或 `--chain-case open`。

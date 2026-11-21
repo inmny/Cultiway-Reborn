@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Settings;
+using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.Skills;
 using Cultiway.Core.Visuals;
 using Cultiway.Utils.Extension;
@@ -15,7 +17,8 @@ namespace Cultiway.Content.Skills;
 internal sealed class LegacyBuildingContact
 {
     private readonly ColliderConfig collider;
-    private readonly long selectedBuilding;
+    /// <summary>本次明确指定的建筑，普通地点为零。</summary>
+    internal readonly long SelectedBuilding;
 
     /// <summary>范围攻击由已确认的爆发统一处理伤害。</summary>
     internal readonly bool Area;
@@ -23,17 +26,20 @@ internal sealed class LegacyBuildingContact
     internal readonly bool DealsBaseDamage;
     /// <summary>有高度限制的原轨迹，按同一目标的高度保留允许接触的末段。</summary>
     internal readonly float HeightAllowance;
+    /// <summary>链雷首跳在指定地点寻找对象时使用原检测半径；零代表普通接触。</summary>
+    internal readonly float ChainStartRadius;
     /// <summary>原攻击实际使用的命中声音。</summary>
     internal readonly string ImpactSound;
 
     private LegacyBuildingContact(ColliderConfig collider, long selectedBuilding, bool area, bool dealsBaseDamage,
-        float heightAllowance, string impactSound)
+        float heightAllowance, float chainStartRadius, string impactSound)
     {
         this.collider = collider;
-        this.selectedBuilding = selectedBuilding;
+        SelectedBuilding = selectedBuilding;
         Area = area;
         DealsBaseDamage = dealsBaseDamage;
         HeightAllowance = heightAllowance;
+        ChainStartRadius = chainStartRadius;
         ImpactSound = impactSound;
     }
 
@@ -53,9 +59,12 @@ internal sealed class LegacyBuildingContact
         float heightAllowance = trajectory == SkillTrajectories.ArcToPosition.id ? SkillTrajectories.ArcCollisionHeight :
             trajectory == SkillTrajectories.FallingStrike.id || trajectory == SkillTrajectories.RainFall.id
                 ? SkillTrajectories.SkyfallCollisionHeight : float.PositiveInfinity;
+        float chainStartRadius = asset.ImpactProfile.Kind == SkillImpactKind.Chain
+            ? SkillEffectRadius.ResolveForCaster(emission.Source.a.GetExtend(), skill, asset.ImpactProfile.CollisionRadius)
+            : 0f;
         string sound = ModClass.I.SkillV3.ResolveGroundEffectElement(skill, emission.RuntimeData)?.ImpactSound;
         return new LegacyBuildingContact(collider, selected, asset.ImpactProfile.CanResolveAtPosition,
-            asset.DealsBaseDamage, heightAllowance, sound);
+            asset.DealsBaseDamage, heightAllowance, chainStartRadius, sound);
     }
 
     /// <summary>原来可点名的建筑能直接接触，其他建筑沿用当前控制者阵营。</summary>
@@ -65,7 +74,7 @@ internal sealed class LegacyBuildingContact
     internal bool Allows(Building building, Kingdom kingdom, int reflections)
     {
         if (building == null || building.isRekt()) return false;
-        if (reflections == 0 && selectedBuilding != 0 && building.getID() == selectedBuilding) return true;
+        if (reflections == 0 && SelectedBuilding != 0 && building.getID() == SelectedBuilding) return true;
         return !collider.ExplicitTargetOnly && ((kingdom?.isEnemy(building.kingdom) ?? true) ? collider.Enemy : collider.Alias);
     }
 }
@@ -84,6 +93,18 @@ public sealed partial class ConstructedAbilityService
     {
         RunningCast running = shape.Running;
         int node = shape.To.Node, stage = running.Cast.BodyStage;
+        LegacyBuildingContact rule = running.BuildingContact;
+        bool chain = rule.ChainStartRadius > 0f;
+        long chosen = 0;
+        if (node != 0)
+        {
+            if (running.ChainBuildings == null || !running.ChainBuildings.TryGetValue(node, out chosen)) return;
+        }
+        else if (chain)
+        {
+            if (owner.TargetId != 0) return;
+            if (running.Cast.Reflections(node) == 0) chosen = rule.SelectedBuilding;
+        }
         if (!running.Cast.ContactInterval(node, stage, out float from, out float until)) return;
         if (!shape.Continuous) from = 1f;
         if (!LimitLegacyBuildingHeight(shape, running.LastTargetFoot.z + running.BuildingContact.HeightAllowance,
@@ -102,10 +123,15 @@ public sealed partial class ConstructedAbilityService
         for (int y = minY; y <= maxY; y++)
         {
             Building building = World.world.GetTileSimple(x, y).building;
-            if (!running.BuildingContact.Allows(building, kingdom, reflections) ||
-                !checkedLegacyBuildings.Add(building.getID())) continue;
+            if (!rule.Allows(building, kingdom, reflections)) continue;
+            long id = building.getID();
+            if (chosen != 0 && id != chosen || !checkedLegacyBuildings.Add(id)) continue;
+            float radius = Mathf.Max(1f, building.stats[strings.S.size]);
+            Vector2 center = building.current_position;
+            if (chain && node == 0 && chosen == 0 &&
+                Vector2.Distance(running.LastTargetFoot, center) > rule.ChainStartRadius + radius) continue;
             // 建筑用负编号保留独立次数，仍消耗同组的总接触预算。
-            var key = running.HitKeyAtStage(node, -building.getID(), stage);
+            var key = running.HitKeyAtStage(node, -id, stage);
             running.Hits.TryGetValue(key, out ContactMemory memory);
             CompiledContactPolicy policy = running.Cast.Plan.ContactPolicies[key.Item1];
             if (memory != null && (policy.Mode == ConstructionContactMode.Once ||
@@ -114,8 +140,6 @@ public sealed partial class ConstructedAbilityService
             if (memory != null && policy.Mode == ConstructionContactMode.Interval)
                 earliest = Mathf.Max(from, (memory.Age + policy.Interval - (running.Cast.Age - step)) / step);
             if (earliest > 1f || earliest > until) continue;
-            Vector2 center = building.current_position;
-            float radius = Mathf.Max(1f, building.stats[strings.S.size]);
             // 原建筑边界是平面的，垂直轴覆盖本段扫掠，保留真实作用面而非扩大投射本体。
             var target = new AbilityCapsule(0, new Vector3(center.x, center.y, bounds.min.z),
                 new Vector3(center.x, center.y, bounds.max.z), radius, null);
@@ -158,9 +182,10 @@ public sealed partial class ConstructedAbilityService
             !rule.Allows(building, owner.AttackKingdom(), running.Cast.Reflections(node))) return;
         RememberContact(running, node, -hit.BuildingId);
         long generation = worldGeneration;
+        Vector3 foot = building.GetSimPos();
+        bool chain = rule.ChainStartRadius > 0f;
         if (!rule.Area)
         {
-            Vector3 foot = building.GetSimPos();
             if (running.GroundContact != null)
                 ConfirmLegacyGroundContact(running.GroundContact, foot, owner, generation);
             if (generation != worldGeneration) return;
@@ -176,7 +201,8 @@ public sealed partial class ConstructedAbilityService
         }
 
         running.Cast.ConfirmBuildingContact(node, hit.Point, hit.BuildingId,
-            hit.LeftRayLength >= 0f ? hit.LeftRayLength : null);
+            hit.LeftRayLength >= 0f ? hit.LeftRayLength : null, chain);
+        if (chain) simulation.SelectContactTargets(running, node, foot);
         EndExhaustedContactGroup(running, node);
     }
 }

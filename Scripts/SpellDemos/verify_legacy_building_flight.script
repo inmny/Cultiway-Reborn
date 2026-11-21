@@ -7,6 +7,7 @@ var buildingHits = new List<JObject>();
 var areas = new List<JObject>();
 var originalTouches = new List<JObject>();
 var actualTouches = new List<ConstructedActionEvent>();
+var chainTouches = new List<AbilityActionEvent>();
 var payments = new List<double>();
 var reports = new JArray();
 Building house = null;
@@ -79,8 +80,10 @@ void OnOldContact(Entity entity, BaseSimObject hit)
 }
 void OnAction(ConstructedActionEvent evt)
 {
-    if (evt.SourceId == source.id && evt.Fact.Kind == AbilityActionEventKind.Contact &&
-        evt.Fact.ContactKind == AbilityActionContactKind.Building) actualTouches.Add(evt);
+    if (evt.SourceId != source.id || evt.Fact.Kind != AbilityActionEventKind.Contact) return;
+    if (evt.Fact.ContactKind == AbilityActionContactKind.Building) actualTouches.Add(evt);
+    if (evt.AbilityId == SkillEntities.ChainLightning.id &&
+        evt.Fact.ContactKind is AbilityActionContactKind.Actor or AbilityActionContactKind.Building) chainTouches.Add(evt.Fact);
 }
 BuildingFlightProbe.Hit = (targetBuilding, damage, before, damager) =>
 {
@@ -113,6 +116,69 @@ ConstructedAbilityService.CastStarted += Started;
 ConstructedAbilityService.ActionConfirmed += OnAction;
 Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
 SkillHitResolver.ContactResolved += OnOldContact;
+
+async Task PlayChain(Entity skill)
+{
+    foreach (string scenario in chainScenarios)
+    {
+        if (scenario != "open") await PlaceHouse();
+        bool fromHouse = scenario == "building-first";
+        long houseId = house?.getID() ?? 0;
+        Ready(source);
+        Place(source, 64, 72);
+        Place(target, 72.3f, 72);
+        Place(second, 66.2f, 72);
+        Place(outside, 75.95f, 72);
+        second.setKingdom(target.kingdom);
+        outside.setKingdom(target.kingdom);
+        foreach (Actor actor in new[] { source, target, second, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+        var receivers = new[] { target, second, outside };
+        var before = receivers.ToDictionary(actor => actor.id, actor => actor.getHealth());
+        owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+        int old = originalTouches.Count, current = chainTouches.Count, debits = payments.Count, damageBefore = buildingHits.Count;
+        int oldExecutionsBefore = oldExecutions, castCount = casts.Count;
+        BaseSimObject first = fromHouse ? (BaseSimObject)house : target;
+        Vector3 aim = first.GetSimPos();
+        Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+            new ActiveAbilityTarget(first, aim, selectionArea: new SkillTargetSelectionArea(true, aim, .1f)),
+            ActiveAbilityUseOrigin.Player), "链雷正式入口接受首个对象", scenario);
+        source.attack_timer = 999;
+        CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+        source.updateStats();
+        await Advance(1.25f);
+        var order = legacy ? originalTouches.Skip(old).Select(item => (long)item["subject"]).ToArray() :
+            chainTouches.Skip(current).Select(item => item.TargetId).ToArray();
+        long[] desired = scenario == "actor-relay" ? new[] { target.id, houseId, second.id } :
+            fromHouse ? new[] { houseId, second.id } : new[] { target.id, outside.id };
+        var damage = buildingHits.Skip(damageBefore).ToArray();
+        Check(payments.Count == debits + 1, "首个对象正常开始，且只提交一次费用", new { scenario, order });
+        double paid = payments[debits];
+        var losses = receivers.Select(actor => new { actor.id, loss = before[actor.id] - actor.getHealth() }).ToArray();
+        var row = JObject.FromObject(new { id = SkillEntities.ChainLightning.id, scenario, order, desired, paid, damage, losses });
+        reports.Add(row);
+        File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(new { spells = reports }, Formatting.Indented));
+        Check(order.SequenceEqual(desired) && (legacy ? oldExecutions == oldExecutionsBefore + 1 && casts.Count == castCount :
+              oldExecutions == oldExecutionsBefore && casts.Count == castCount + 1) &&
+              losses.All(item => (item.loss > 0) == desired.Contains(item.id)),
+            "链雷依次选择实到最近目标，不重复返回", row);
+        if (houseId != 0)
+        {
+            var ownedDamage = damage.Where(item => (bool)item["owned"]).ToArray();
+            Check(ownedDamage.Length == 1 && Math.Abs((float)ownedDamage[0]["damage"] - (fromHouse ? 100f : 80f)) < .001f &&
+                  ((int)ownedDamage[0]["after"] < (int)ownedDamage[0]["before"] || (bool)ownedDamage[0]["ruins"]),
+                "建筑参与实际衰减并只结算一次", row);
+            RemoveFixture(houseId);
+        }
+        if (!legacy)
+        {
+            JToken originalRun = baseline["spells"].Single(item => (string)item["scenario"] == scenario);
+            Check(Math.Abs((double)originalRun["paid"] - paid) < .001 &&
+                  endings.Any(item => item.Fact.CastId == casts.Last().Key && !item.Fact.Cancelled),
+                "费用保持原值且链雷自然结束", row);
+        }
+    }
+}
+
 try
 {
     foreach (var asset in buildingSpells)
@@ -122,6 +188,11 @@ try
         bool wall = asset == SkillEntities.FireWall || asset == SkillEntities.WindWall;
         bool sustained = pool || wall || asset == SkillEntities.SolarBeam;
         Entity skill = Learn(asset, 0, false);
+        if (asset == SkillEntities.ChainLightning)
+        {
+            await PlayChain(skill);
+            continue;
+        }
         await PlaceHouse();
         Vector2 position = house.current_position;
         long houseId = house.getID();

@@ -114,7 +114,7 @@ public sealed partial class ConstructedAbilityService
         internal CastAuthority(CastAuthority source, Actor target)
         {
             Actor = source.Actor; Id = source.Id; Damage = source.Damage;
-            Target = target; TargetId = target.data.id;
+            Target = target; TargetId = target?.data?.id ?? 0;
             kingdomId = source.kingdomId; fixedKingdom = source.fixedKingdom; spatialId = source.spatialId; canFight = source.canFight; tantrum = source.tantrum;
             LastFoot = source.LastFoot; relationsFrame = source.relationsFrame;
             hostileIds.UnionWith(source.hostileIds);

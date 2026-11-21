@@ -1220,12 +1220,14 @@ public sealed partial class AbilityCast
     /// <param name="point">真实建筑接触点。</param>
     /// <param name="buildingId">原版建筑的编号。</param>
     /// <param name="rayLength">如有射线，此处是被阻挡的世界距离。</param>
-    internal void ConfirmBuildingContact(int node, Vector3 point, long buildingId, float? rayLength)
+    /// <param name="chain">已学链雷的真实建筑接触可开始下一段选敌。</param>
+    internal void ConfirmBuildingContact(int node, Vector3 point, long buildingId, float? rayLength, bool chain)
     {
         RecordActionContact(node, point, AbilityActionContactKind.Building, buildingId);
         ref NodeState state = ref nodes[node];
         if (!state.Exists || state.Recovering || state.Leaving) return;
         state.Resource = 0;
+        if (chain) SignalEvent(node, ConstructionChangeTrigger.ActorContact, point);
         ApplyContactResponse(node, 1f, point, rayLength, flows?[node]?.Started == true);
     }
 

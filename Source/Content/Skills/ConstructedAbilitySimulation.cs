@@ -830,7 +830,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             bool ordinary = powered && running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
             bool thermalSource = fire || shape.To.Node >= 0 && running.Cast.Burning(shape.To.Node).Heat > 0;
             bool attack = canTouch && ordinary && running.Cast.Role(shape.To.Node) == ConstructionContactRole.Attack;
-            if (canTouch && ordinary && shape.To.Node == 0 && running.BuildingContact != null)
+            if (canTouch && ordinary && shape.To.Node >= 0 && running.BuildingContact != null)
                 FindLegacyBuildingContacts(shape, owner, step, Include);
             if (shape.To.Node < 0 && attack) FindBodyCorrespondences(shape, clock, step, touchFrom, Include);
             if (attack && hasBodyGuardShapes)
@@ -952,6 +952,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     if (effect.SelectedTargetOnly && owner.TargetId != actor.Id || !owner.Matches(effect.Targets, actor.Actor) ||
                         !running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until)) return;
                     int node = shape.To.Node;
+                    if (node == 0 && owner.TargetId == 0 && running.BuildingContact is { ChainStartRadius: > 0f } chain &&
+                        Vector2.Distance(running.LastTargetFoot, toFoot) > chain.ChainStartRadius + b1.Radius) return;
                     float originalUntil = float.PositiveInfinity;
                     if (node >= 0 && running.Cast.Plan.Nodes[node].Correspondence?.OriginalContactOnly == true)
                     {
@@ -1253,7 +1255,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (contactGeneration != worldGeneration) return;
         running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id,
             hit.LeftRayLength >= 0f ? hit.LeftRayLength : null);
-        simulation.SelectContactTargets(running, node, actor);
+        simulation.SelectContactTargets(running, node, spreadCenter);
         if (node < 0) ConfirmBodyFeedback(running, hit.Point);
         if (running.Cast.UsesBodyWindow(node) && result == ApplyAttackState.Hit) RespondToBodyResult(running, BodyActionResult.Contact);
         else if (running.Cast.UsesBodyWindow(node) && result is ApplyAttackState.Block or ApplyAttackState.Deflect)

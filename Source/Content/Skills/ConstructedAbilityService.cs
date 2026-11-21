@@ -409,7 +409,13 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         SkillVfxElementAsset groundContact = null, LegacyBuildingContact buildingContact = null)
     {
         if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
-        return Start(caster, ValidateDefinition(definition), target, target.RuntimeData.Origin, out _, sourcePosition,
+        // 原发射已核对点名建筑。共同空间输入使用它的位置，建筑身份仍由本次接触规则校验。
+        ActiveAbilityTarget aim = target;
+        if (buildingContact is { SelectedBuilding: > 0 } && target.Object?.isBuilding() == true &&
+            !target.Object.isRekt() && target.Object.getID() == buildingContact.SelectedBuilding)
+            aim = new ActiveAbilityTarget(null, target.Position, target.SelectionArea, target.ExplicitTargets,
+                target.AttackKingdom, target.RuntimeData, target.WorldScope);
+        return Start(caster, ValidateDefinition(definition), aim, target.RuntimeData.Origin, out _, sourcePosition,
             true, payment, sourceDamage: damage, sourceDirection: direction, sourceInstance: sourceInstance,
             spatialSource: spatialSource?.a, sourceIsWorld: sourceIsWorld, legacyArea: legacyArea,
             groundTravel: groundTravel, groundContact: groundContact, buildingContact: buildingContact);
@@ -1002,6 +1008,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         internal SkillVfxElementAsset GroundContact;
         /// <summary>原施放明确允许建筑接触时保存的关系和作用规则。</summary>
         internal LegacyBuildingContact BuildingContact;
+        /// <summary>链雷已选中的各段建筑目标，只在真的跳到建筑时分配。</summary>
+        internal Dictionary<int, long> ChainBuildings;
 
         /// <summary>实际归属及目标。</summary>
         internal Actor Source, Target;

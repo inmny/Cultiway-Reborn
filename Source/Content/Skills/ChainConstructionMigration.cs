@@ -43,7 +43,8 @@ internal static class ChainConstructionMigration
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
             emission.SourcePos, emission.Payment, damage, spatialSource: emission.SpatialSource,
-            groundContact: ConstructedAbilityService.LegacyContactElement(in emission))
+            groundContact: ConstructedAbilityService.LegacyContactElement(in emission),
+            buildingContact: LegacyBuildingContact.From(in emission))
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
@@ -109,7 +110,7 @@ internal static class ChainConstructionMigration
                 ContactGroup = "chain", ContactRole = enabled ? ConstructionContactRole.Attack : ConstructionContactRole.Decoration,
                 ActiveFrom = i == 0 ? appearance : 0f,
                 DisappearAt = i == 0 ? appearance + lifetime : lifetime,
-                Impact = enabled ? new ConstructionImpact { SelectedTargetOnly = emission.Target?.isActor() == true || i > 0 } : null,
+                Impact = enabled ? new ConstructionImpact { SelectedTargetOnly = emission.Target != null || i > 0 } : null,
                 Activation = i == 0 ? null : new ConstructionActivation
                 {
                     Target = new ConstructionContactTarget { Radius = radius, ForceMultiplier = profile.JumpDamageFalloff }
