@@ -2857,3 +2857,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 回锋护主（10.06）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_returning_blade_guard.py` 复验真实来伤、原剑刃面反击与回手。双方同配方都具备反击能力，核对只有第一次来伤能发动反击。加 `--skip-views` 可只核对行为。
+
+### 返照与卸力（10.06）
+
+用 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_artifact_redirection.py` 复验真实伤害分流、回送归属、免疫和卸力位移。用 `--section mirror|robe` 指定能力，或用 `--skip-views` 核对行为。

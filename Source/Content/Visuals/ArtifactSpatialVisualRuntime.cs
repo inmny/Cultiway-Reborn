@@ -380,6 +380,14 @@ internal static class ArtifactSpatialVisualRuntime
                 SpatialVisualDraw.Mesh(meshes, SpatialEnergyGeometry.Crystal, contact, tilt, new Vector3(glow, glow, glow * .38f),
                     color, true, point);
                 break;
+            case ArtifactLocalVisualKind.WindFold:
+                Vector2 spread = context.direction;
+                float yaw = Mathf.Atan2(spread.y, spread.x) * Mathf.Rad2Deg - 90f;
+                float span = size * (.55f + .65f * progress);
+                SpatialVisualDraw.Mesh(meshes, SpatialEnergyGeometry.Wave, point, Quaternion.Euler(0f, 0f, yaw),
+                    new Vector3(span * .85f, span, span * .55f), color, false, point,
+                    additive: false, surface: SpatialSurface.Energy);
+                break;
             default:
                 SpatialVisualDraw.Mesh(meshes, SpatialVisualGeometry.Spark, point, Quaternion.Euler(age * 90f, age * 45f, 0f), Vector3.one * size, color, true); break;
         }

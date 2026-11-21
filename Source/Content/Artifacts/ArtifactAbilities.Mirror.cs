@@ -83,24 +83,7 @@ public partial class ArtifactAbilities
         ref ArtifactAbilityRuntimeEntry runtime,
         ArtifactIncomingDamageEvent evt)
     {
-        Actor controller = Controller(context);
-        Actor attacker = evt.Attacker.a;
-        float baseReflected = evt.Damage * ability.GetNumber(ReflectRatio);
-        float reflected = baseReflected * context.effect_scale;
-        evt.Damage -= reflected;
-        CombatDamageEffects.DealRetaliationDamage(
-            controller,
-            attacker,
-            baseReflected,
-            evt.DamageComposition,
-            evt.IgnoreDamageReduction);
-        ArtifactAbilityVisuals.Emit(
-            context,
-            ability,
-            runtime,
-            ArtifactVisualChannels.Reflect,
-            target: attacker,
-            intensity: reflected);
+        RedirectArtifactDamage(context, ability, runtime, evt, ability.GetNumber(ReflectRatio), ArtifactVisualChannels.Reflect);
     }
 
     private static void ConfigureTruthRevealingMirror()
@@ -311,25 +294,17 @@ public partial class ArtifactAbilities
 
     private static void ConfigureMirrorAbilityVisuals()
     {
-        ArtifactBeamVisualCue reflection = Beam(
-            ArtifactVisualAnchorRef.Appearance("surface", "center"),
-            ArtifactVisualAnchorKind.Target,
-            ArtifactVisualColorRole.Glow,
-            ArtifactVfxStyles.Reflection
-        );
-        reflection.width = 0.075f;
-        reflection.glow_width_multiplier = 3.4f;
+        var reflection = new ArtifactProjectionVisualCue
+        {
+            anchor = ArtifactVisualAnchorKind.Point,
+            start_scale = .65f,
+            end_scale = 1.25f,
+            alpha = .8f,
+        };
         SpellReflection.Visualize(
             Theme(SkillVfxElements.Pos.AccentColor)
-                .Signal(
-                    ArtifactVisualChannels.Reflect,
-                    new ArtifactCompositeVisualCue(
-                        reflection,
-                        Sparkle(ArtifactVisualAnchorKind.Artifact, 0.065f, 0.95f, loop: false),
-                        Pulse(1.22f, 1f, 0.2f)
-                    ),
-                    0.38f
-                )
+                .Signal(ArtifactVisualChannels.Reflect, reflection, .3f)
+                .Signal(ArtifactVisualChannels.Hit, ShieldImpact(.12f), .24f)
         );
     }
 }

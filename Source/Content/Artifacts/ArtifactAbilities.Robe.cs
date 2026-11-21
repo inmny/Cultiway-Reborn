@@ -3,6 +3,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Semantics;
+using Cultiway.Content.Skills;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using NeoModLoader.General;
@@ -269,28 +270,12 @@ public partial class ArtifactAbilities
     {
         Actor controller = Controller(context);
         Actor attacker = evt.Attacker.a;
-        float baseDiverted = evt.Damage * ability.GetNumber(DamageReduction);
-        float diverted = baseDiverted * context.effect_scale;
-        evt.Damage -= diverted;
-        CombatDamageEffects.DealRetaliationDamage(
-            controller,
-            attacker,
-            baseDiverted,
-            evt.DamageComposition,
-            evt.IgnoreDamageReduction);
-        CombatForceEffects.ApplyRadialForce(
-            controller,
-            attacker,
-            ArtifactYuanshenControlService.ResolveOrigin(controller, context.artifact),
-            ability.GetNumber(ForceStrength) * context.effect_scale,
-            pull: false);
-        ArtifactAbilityVisuals.Emit(
-            context,
-            ability,
-            runtime,
-            ArtifactVisualChannels.Counter,
-            target: attacker,
-            intensity: diverted);
+        RedirectArtifactDamage(context, ability, runtime, evt, ability.GetNumber(DamageReduction), ArtifactVisualChannels.Counter);
+        Vector2 away = attacker.current_position -
+            (Vector2)ArtifactYuanshenControlService.ResolveOrigin(controller, context.artifact);
+        Vector2 push = (away.sqrMagnitude < .0001f ? Vector2.up : away.normalized) *
+            (ability.GetNumber(ForceStrength) * context.effect_scale);
+        ConstructedAbilityService.ApplyLegacyGroundSlide(attacker, controller, push.x, push.y);
     }
 
     private static void ConfigureRobeAbilityVisuals()
@@ -337,28 +322,18 @@ public partial class ArtifactAbilities
 
     private static void ConfigureDamageDiversionVisuals()
     {
-        ArtifactTetherVisualCue diversion = new ArtifactTetherVisualCue
+        var diversion = new ArtifactLocalVisualCue(ArtifactLocalVisualKind.WindFold)
         {
-            style_key = ArtifactVfxStyles.Wind,
-            from = ArtifactVisualAnchorKind.Controller,
-            to = ArtifactVisualAnchorKind.Target,
-            color_role = ArtifactVisualColorRole.Secondary,
-            width = 0.055f,
-            curvature = 0.22f,
-            wave_amplitude = 0.06f,
-            match_actor_scale = false,
+            anchor = ArtifactVisualAnchorKind.Point,
+            color_role = ArtifactVisualColorRole.Primary,
+            scale = .11f,
+            alpha = .84f,
+            loop = false,
         };
         DamageDiversion.Visualize(
             Theme(SkillVfxElements.Wind.AccentColor)
-                .Signal(
-                    ArtifactVisualChannels.Counter,
-                    new ArtifactCompositeVisualCue(
-                        diversion,
-                        Burst(ArtifactVisualAnchorKind.Controller, ArtifactVisualColorRole.Glow, 6),
-                        Pulse(1.18f, 0.96f, 0.14f)
-                    ),
-                    0.42f
-                )
+                .Signal(ArtifactVisualChannels.Counter, diversion, .34f)
+                .Signal(ArtifactVisualChannels.Hit, ShieldImpact(.10f), .24f)
         );
     }
 }

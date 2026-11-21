@@ -1,0 +1,172 @@
+// 镜与袍各自让双方装备同配方原件，按真实受击验证回送。
+PrepareArtifactArena(59, 79, 65, 79);
+Actor defender = Make(68f), attacker = Make(72f);
+var owner = defender.GetExtend();
+var foe = attacker.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+foe.AddComponent(new Xian { level = 4, wakan = 9000f });
+owner.SetPowerLevel(4f);
+foe.SetPowerLevel(4f);
+await Setup(defender, attacker);
+CombatStatusEffects.ApplyStatus(attacker, boost, 10000f, attacker);
+ControllableUnit.clear(false);
+MoveCamera.clearFocusUnitOnly();
+await Advance(.12f);
+CombatStatusEffects.ApplyStatus(defender, hold, 10000f, defender);
+var quietStats = new BaseStats();
+quietStats.addTag("frozen_ai");
+var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ArtifactRedirect.Quiet") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ArtifactRedirect.Quiet")
+        .SetStats(quietStats).SetDuration(10000f).Build();
+CombatStatusEffects.RemoveStatus(attacker, hold);
+CombatStatusEffects.ApplyStatus(attacker, quiet, 10000f, attacker);
+defender.updateStats();
+attacker.updateStats();
+World.world.console.Hide();
+WorldTip.hideNow();
+Tooltip.hideTooltipNow();
+
+var rootVisuals = service.Assembly.GetType("Cultiway.Content.Visuals.ArtifactSpatialVisualRuntime");
+var entries = (IEnumerable)rootVisuals.GetField("entries", F).GetValue(null);
+ArtifactAbilityVisualContext[] Signals(Entity item, string channel) => entries.Cast<object>()
+    .Select(entry => (ArtifactAbilityVisualContext)Field(entry, "Context"))
+    .Where(stamp => stamp.artifact == item && stamp.channel == channel).ToArray();
+
+var action = typeof(ActorExtend).GetField("action_on_damage_resolved", F);
+object previous = action.GetValue(null);
+var inside = new List<(float amount, bool reaction)>();
+var redirected = new List<(float amount, bool reaction)>();
+void Settled(ActorExtend who, BaseSimObject from, float amount, ElementComposition matter, AttackType kind)
+{
+    if (who == owner && from == attacker) inside.Add((amount, DamageResolutionContext.IsReaction));
+    if (who == foe && from == defender) redirected.Add((amount, DamageResolutionContext.IsReaction));
+}
+bool Near(float expected, float actual) => Mathf.Abs(expected - actual) < .02f;
+void Strike(AttackType kind = AttackType.Other) =>
+    CombatDamageEffects.DealDamage(attacker, defender, 200f, ElementComposition.Static.Iron,
+        ignoreDamageReduction: true, attackerPowerLevel: 4f, attackType: kind);
+
+ActorExtend.RegisterActionOnDamageResolved(Settled);
+try
+{
+    foreach (bool robe in new[] { false, true })
+    {
+        string key = robe ? "robe" : "mirror";
+        if (section != "all" && section != key) continue;
+        var asset = robe ? ArtifactAbilities.DamageDiversion : ArtifactAbilities.SpellReflection;
+        var recipe = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+        {
+            Shape = robe ? ItemShapes.Robe : ItemShapes.Mirror,
+            Atoms = robe ? [ArtifactAtoms.VitalityRobe, ArtifactAtoms.VoidSilk, ArtifactAtoms.TransformationPattern,
+                ArtifactAtoms.MoonWater, ArtifactAtoms.WaterMoonPattern] : [ArtifactAtoms.SoulMirror, ArtifactAtoms.StarSilver, ArtifactAtoms.MoonWater],
+            Level = new ItemLevel { Stage = 3, Level = 8 }, Name = asset.GetName() + "复验"
+        }));
+        Check(recipe.AbilitySet.abilities.Any(ability => ability.ability_id == asset.id),
+            "正式配方得到 " + asset.GetName(), recipe.AbilitySet.abilities.Select(ability => ability.ability_id).ToArray());
+        Entity Equip(ActorExtend actor)
+        {
+            Entity item = ArtifactBlueprintCodec.Materialize(recipe, actor.Base.getName());
+            actor.AddSpecialItem(item);
+            Check(actor.EquipArtifact(item, locked: true, mode: ArtifactEquipMode.Standby, priority: 100), "正式装备原件");
+            ArtifactLoadoutPlanner.Refresh(actor, false, 0);
+            lifecycle.Invoke(null, new object[] { item });
+            return item;
+        }
+        Entity subject = Equip(owner), other = Equip(foe);
+        await Game.NextFrame();
+        Place(defender, 68f);
+        Place(attacker, 72f);
+        defender.position_height = attacker.position_height = 0f;
+        defender.attack_timer = attacker.attack_timer = 999f;
+        defender.addAggro(attacker);
+        attacker.addAggro(defender);
+        bool Has(ArtifactAbilityAsset companion) => recipe.AbilitySet.abilities.Any(value => value.ability_id == companion.id);
+        bool Interference(Entity item) =>
+            Has(ArtifactAbilities.CloudRobeShield) && Entry(item, ArtifactAbilities.CloudRobeShield.id).GetNumber("shield_current") > 0f ||
+            Has(ArtifactAbilities.GuardianWard) && Entry(item, ArtifactAbilities.GuardianWard.id).charges > 0;
+        for (int attempt = 0; attempt < 4 && (Interference(subject) || Interference(other)); attempt++)
+        {
+            CombatDamageEffects.DealDamage(null, defender, 850f, ElementComposition.Static.Iron, true, 4f);
+            CombatDamageEffects.DealDamage(null, attacker, 850f, ElementComposition.Static.Iron, true, 4f);
+            var guard = Has(ArtifactAbilities.GuardianWard) ? Entry(subject, ArtifactAbilities.GuardianWard.id).cooldown_until : 0d;
+            await Advance(Mathf.Max(.11f, (float)(guard - World.world.getCurWorldTime()) + .15f));
+        }
+        Check(!Interference(subject) && !Interference(other), "无来源实伤清空配方附带护持");
+        var ability = Definition(subject, asset.id);
+        var control = owner.E.GetRelation<EquippedArtifactRelation, Entity>(subject).state;
+        var execution = new ArtifactAbilityExecutionContext(owner.E, subject, control);
+        float returned = 200f * ability.GetNumber(robe ? "damage_reduction" : "reflect_ratio") * execution.effect_scale;
+        ArtifactAbilityRuntimeEntry State(Entity item) => Entry(item, asset.id);
+        int startingCharge = State(subject).charges, opposingCharge = State(other).charges;
+        Check(startingCharge > 0 && opposingCharge > 0, "双方本来都可回击");
+        inside.Clear();
+        redirected.Clear();
+        if (!robe)
+        {
+            Strike(AttackType.Weapon);
+            await WaitFor(() => inside.Count > 0, .45f);
+            Check(inside.Count == 1 && Near(200f, inside[0].amount) && redirected.Count == 0 &&
+                  State(subject).charges == startingCharge && Signals(subject, ArtifactVisualChannels.Reflect).Length == 0,
+                "返照拒绝兵器伤害，保留充能");
+            inside.Clear();
+        }
+
+        float beforeX = attacker.current_position.x;
+        int before = defender.data.health, beforeReturn = attacker.data.health;
+        Strike();
+        await WaitFor(() => redirected.Count > 0, .65f);
+        await Game.NextFrame();
+        var hit = Signals(subject, ArtifactVisualChannels.Hit).Single();
+        var origins = Signals(subject, robe ? ArtifactVisualChannels.Counter : ArtifactVisualChannels.Reflect);
+        Check(inside.Count == 1 && !inside[0].reaction && Near(200f - returned, inside[0].amount) &&
+              redirected.Count == 1 && redirected[0].reaction && Near(returned, redirected[0].amount) &&
+              before - defender.data.health > 0 && beforeReturn - attacker.data.health > 0 &&
+              State(subject).charges == startingCharge - 1 && State(other).charges == opposingCharge &&
+              origins.Length == 1 && Vector2.Distance(hit.position, attacker.current_position) < .18f,
+            "按原比例各扣一次，回送记作反击且对方未消耗充能",
+            new { returned, remaining = inside.LastOrDefault().amount, sent = redirected.LastOrDefault().amount });
+        if (shots)
+        {
+            var focus = ((Vector2)defender.current_position + attacker.current_position) * .5f;
+            camera.transform.position = new Vector3(focus.x, focus.y, camera.transform.position.z);
+            MoveCamera.instance.forceZoom(3.6f);
+            await CaptureArtifactViews(key + "-redirection", focus, 4.6f,
+                () => Signals(subject, ArtifactVisualChannels.Hit).Length == 1, nativeZoom: 3.35f);
+        }
+        await Advance(.14f);
+        if (robe)
+        {
+            float moved = attacker.current_position.x - beforeX;
+            Check(moved > .05f && attacker.position_height < .02f,
+                "卸力实际向外移动并保持贴地", new { moved });
+        }
+        float wait = (float)(Math.Max(State(subject).cooldown_until, State(subject).next_charge_at) - World.world.getCurWorldTime());
+        await Advance(Mathf.Max(.38f, wait + .08f));
+        Check(State(subject).charges == startingCharge && redirected.Count == 1 &&
+              Signals(subject, ArtifactVisualChannels.Hit).Length == 0,
+            "原充能恢复，回送画面收束");
+        if (!robe)
+        {
+            var immunity = typeof(BaseSimObject).GetMethod("addStatusEffect", F, null,
+                new[] { typeof(string), typeof(float), typeof(bool) }, null);
+            immunity.Invoke(attacker, new object[] { "invincible", .6f, false });
+            Check(attacker.hasStatus("invincible"), "原攻击者获得真实免疫");
+            inside.Clear();
+            redirected.Clear();
+            beforeReturn = attacker.data.health;
+            Strike();
+            await WaitFor(() => inside.Count > 0, .40f);
+            await Advance(.10f);
+            Check(inside.Count == 1 && Near(200f - returned, inside[0].amount) && redirected.Count == 0 &&
+                  attacker.data.health == beforeReturn && Signals(subject, ArtifactVisualChannels.Reflect).Length == 1 &&
+                  Signals(subject, ArtifactVisualChannels.Hit).Length == 0,
+                "免疫保留分流和起处反馈，原攻击者无伤且无目的地反馈");
+            await Advance(.65f);
+        }
+        owner.UnequipArtifact(subject, suppressAutoEquip: true);
+        foe.UnequipArtifact(other, suppressAutoEquip: true);
+        await Advance(.42f);
+    }
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { action.SetValue(null, previous); }

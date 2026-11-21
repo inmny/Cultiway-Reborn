@@ -21,7 +21,9 @@ public enum ArtifactLocalVisualKind
     /// <summary>随身体出现的护体折面。</summary>
     FoldedShield,
     /// <summary>一次确认吸收的局部亮面。</summary>
-    ShieldImpact
+    ShieldImpact,
+    /// <summary>卸力起点顺势打开的宽风面。</summary>
+    WindFold
 }
 
 /// <summary>局部形态与实际挂点组合，不再依赖整张动画。</summary>
