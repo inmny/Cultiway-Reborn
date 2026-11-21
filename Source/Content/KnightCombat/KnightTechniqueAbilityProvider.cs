@@ -200,6 +200,8 @@ internal sealed class KnightTechniqueAbilityProvider : IActiveAbilityProvider
         if (!started) return false;
         if (!payment.IsCommitted) payment.Commit();
         SkillCooldownService.Start(caster, container, technique.Cooldown);
+        if (construction != null && origin is ActiveAbilityUseOrigin.Autonomous or ActiveAbilityUseOrigin.Player)
+            ConstructedAbilityService.NotifyKnightPractice(caster, construction);
         return true;
     }
 

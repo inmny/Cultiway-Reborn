@@ -368,6 +368,7 @@ public static class ConstructionPresentation
         "世界留置" => "Residue",
         "复生" => "Repeat",
         "显化" => "Project",
+        "收腕" => "TuckWrist",
         "改造" => "Edit",
         "另创" => "Copy",
         _ => "Other"

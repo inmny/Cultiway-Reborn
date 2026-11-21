@@ -1,0 +1,117 @@
+// 从实际学会并成功施展的原招，进入骑士自己的创作机会。
+const float origin = 64.35f;
+Place(source, origin);
+Place(target, origin + height * 2.02f);
+source.addAggro(target);
+target.addAggro(source);
+source.attack_timer = 0;
+owner.GetCultisys<Knight>().vigor = 80f;
+var aim = new ActiveAbilityTarget(target, target.GetSimPos());
+int opportunity = Enumerable.Range(1, 1000).First(n =>
+    new System.Random(unchecked((int)source.id * 73856093 ^ n * 19349663)).NextDouble() < .015d);
+owner.E.AddComponent(new ConstructedCreationState { Sequence = opportunity - 1 });
+
+void Write(string name, object value) => File.WriteAllText(Path.Combine(folder, name),
+    JsonConvert.SerializeObject(value, Formatting.Indented));
+
+long castId = 0;
+AbilityCast running = null;
+var damage = new List<ConstructedQueuedDamage>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id) return;
+    castId = fact.CastId;
+    var entry = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == castId);
+    running = (AbilityCast)Field(entry, "Cast");
+    Check(ReferenceEquals(Field(Field(entry, "Body"), "Weapon"), oldWeapon), "借用同一把原版铁枪");
+}
+void Damage(ConstructedQueuedDamage fact) { if (fact.CastId == castId) damage.Add(fact); }
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.QueuedDamageConfirmed += Damage;
+try
+{
+    source.equipment.weapon.takeAwayItem();
+    source.setStatsDirty(); source.updateStats();
+    Check(!ActiveAbilityService.TryUse(owner, handle, aim, ActiveAbilityUseOrigin.Autonomous) &&
+          owner.E.GetComponent<ConstructedCreationState>().Sequence == opportunity - 1 &&
+          owner.GetCultisys<Knight>().vigor == 80f, "无枪拒绝原招，不收费也不消耗创作机会");
+    source.equipment.setItem(oldWeapon, source);
+    source.setStatsDirty(); source.updateStats();
+    Check(ActiveAbilityService.TryUse(owner, handle, aim, ActiveAbilityUseOrigin.Autonomous) &&
+          Mathf.Abs(80f - owner.GetCultisys<Knight>().vigor - (float)cost) < .001f &&
+          SkillCooldownService.GetRemaining(owner, handle.Source) == technique.Cooldown,
+        "从正式原入口出手，原技能一次付费及冷却保持");
+    source.attack_timer = 999f;
+    var access = ConstructionEditing.Access;
+    var waiting = owner.E.GetComponent<ConstructedCreationState>();
+    Check(waiting.Pending && waiting.Origin == ConstructionCreationOrigin.KnightPractice &&
+          waiting.Sequence == opportunity && waiting.Inspiration.Rules == 36 &&
+          JToken.DeepEquals(JObject.FromObject(basis), JObject.FromObject(waiting.Source)),
+        "实际施展的完整已学原招进入正式等待队列");
+    var predicted = ConstructedAbilityService.Generate(owner, waiting.Seed, waiting.Inspiration, waiting.Source, waiting.Resources);
+    var saves = Cultiway.ModClass.I.WorldSaves;
+    var section = JObject.Parse(saves.Actors.Capture(owner, "knight-study"))["sections"]["ability_creation"];
+    Check((int)section["version"] == 37, "正式人物区段记录规则36及完整来源");
+    Write("pending-expected.json", new { process = System.Diagnostics.Process.GetCurrentProcess().Id,
+        sourceId = source.id, targetId = target.id, known = access.List(owner).Count, section, expected = predicted });
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "pending-save"));
+
+    await Advance(.15f);
+    BodyPose? native = running.BodyPose;
+    await Advance(.47f);
+    var finished = owner.E.GetComponent<ConstructedCreationState>();
+    var learned = finished.LastAbility == null ? null : access.Read(finished.LastAbility);
+    Check(!finished.Pending && finished.LastFailure == null && learned?.Parent?.Id == basis.Id &&
+          learned.Parent.Change == "收腕" && learned.Resource == "vigor" && learned.Cost > 0f &&
+          learned.Body.WeaponForm == "spear" && access.List(owner).Count == 1 &&
+          !JToken.DeepEquals(JArray.FromObject(basis.Body.Keys), JArray.FromObject(learned.Body.Keys)),
+        "获得带原招来源的持枪变式，保持斗气并改变转腕曲线",
+        new { finished.LastFailure, id = learned?.Id, fee = learned?.Cost });
+    predicted.Id = learned.Id;
+    handles.Clear();
+    ActiveAbilityService.Collect(owner, handles);
+    Check(JToken.DeepEquals(JObject.FromObject(predicted), JObject.FromObject(learned)) &&
+          JToken.DeepEquals(JObject.FromObject(basis), JObject.FromObject(access.Read(basis.Id))) &&
+          handles.Contains(handle), "授予的完整成品与冻结输入一致，原招和学习关系保持");
+
+    Place(source, origin);
+    Place(target, origin + height * 2.02f);
+    var armor = Cultiway.ModClass.L.StatusEffectLibrary.get("KnightArmorBreak");
+    CombatStatusEffects.RemoveStatus(target, armor);
+    target.setHealth(target.getMaxHealth());
+    target.updateStats();
+    int health = target.getHealth();
+    source.attack_timer = 0;
+    owner.GetCultisys<Knight>().vigor = 80f;
+    damage.Clear();
+    var variantHandle = new ActiveAbilityHandle("content.constructed", owner.E, learned.Id);
+    aim = new ActiveAbilityTarget(target, target.GetSimPos());
+    float quote = (float)SkillCastResources.Vigor.Quote(owner, learned.Cost);
+    Check(ActiveAbilityService.TryUse(owner, variantHandle, aim, ActiveAbilityUseOrigin.Script) &&
+          Mathf.Abs(80f - owner.GetCultisys<Knight>().vigor - quote) < .001f, "变式正式受理并按自己的报价支付一次斗气",
+        new { quote, learned.Cost });
+    source.attack_timer = 999;
+    await Advance(.15f);
+    var variant = running.BodyPose;
+    float angle = native.HasValue && variant.HasValue
+        ? Quaternion.Angle(native.Value.EffectorRotation, variant.Value.EffectorRotation) : 0f;
+    Check(native.HasValue && variant.HasValue && Mathf.Abs(native.Value.ActionAge - variant.Value.ActionAge) <= .021f &&
+          angle > 1f, "实机持械姿态发生变化", new { angle, native = native?.ActionAge, variant = variant?.ActionAge });
+    await Advance(.47f);
+    Check(damage.Count == 1 && health > target.getHealth() && CombatStatusEffects.HasStatus(target, armor) &&
+          running.Finished && !BodyControlState.IsBusy(source.id) && ReferenceEquals(source.getWeapon(), oldWeapon),
+        "变式由枪尖实际扣血及破甲，收势后归还身体和兵器", new { health, after = target.getHealth(), hits = damage.Count });
+    Write("learned.json", learned);
+    return new { passed = true, variant = learned.Id, angle, healthLost = health - target.getHealth(), quote, opportunity };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.QueuedDamageConfirmed -= Damage;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

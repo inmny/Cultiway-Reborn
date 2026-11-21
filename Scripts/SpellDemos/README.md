@@ -2488,6 +2488,8 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 同一入口加 `--case knight` 可走原枪骑学习与使用流程，核对一笔斗气、枪尖扣血后破甲、免伤、落空和换枪归还。需要单独补验时可用 `knight-immune`、`knight-miss`、`knight-swap`。使用 `--case knight-building` 核对原入口点名的建筑经实际枪尖接触受击。
 
+`--case knight-study` 从破甲突刺的正式施放触发骑士自主创作，核对真实铁枪、独立报价、不同转腕姿态和实战扣血。输出待处理的正式世界档及完整预期，供新进程读回核对。
+
 `--case charge` 复验破阵冲锋先命中沿途敌人、收势以及实际扣血后的侧向推开。`charge-wall`、`charge-swap` 和 `charge-building` 分别检查墙体、换枪和原入口允许的建筑。
 
 `--case skyfall` 复验苍穹坠击的实际高度、落地时点和主次伤害。`skyfall-evade` 核对点名对象移出中心后的范围伤害，`skyfall-swap` 核对换枪后下落及归还，`skyfall-building` 核对原入口点名建筑的落点伤害。

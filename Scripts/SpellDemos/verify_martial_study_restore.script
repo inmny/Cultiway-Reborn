@@ -15,7 +15,7 @@ async Task<string> Restore(string map, JObject record, int rules)
     var owner = source.GetExtend();
     var live = owner.GetComponent<ConstructedCreationState>();
     var section = JObject.Parse(saves.Actors.Capture(owner, "martial-study"))["sections"]["ability_creation"];
-    Check(live.Inspiration?.Rules == rules && (int)section["version"] == 36 && saves.LastReport.Skipped.Count == 0 &&
+    Check(live.Inspiration?.Rules == rules && (int)section["version"] == 37 && saves.LastReport.Skipped.Count == 0 &&
         saves.LastReport.BackupError == null && (rules != 34 || saves.LastReport.Upgraded > 0), "正式恢复规则" + rules, new { live.Pending, saves.LastReport.Upgraded });
     if (live.Pending)
         Check(new[] { "Inspiration", "Seed", "Source", "Resources" }.All(key =>
