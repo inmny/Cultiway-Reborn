@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>原裂隙以普通目标连接和模型动作执行，完全张开的内部负责实际接触。</summary>
+/// <summary>原裂隙在固定落点张开，定时冲面执行一次范围作用，随后闭合。</summary>
 internal static class RiftConstructionMigration
 {
     /// <summary>已经完整映射的原词条；额外作用不静默丢弃。</summary>
@@ -53,7 +53,8 @@ internal static class RiftConstructionMigration
         damage = default;
         Entity skill = emission.SkillContainer;
         var container = skill.GetComponent<SkillContainer>();
-        if (SkillBlueprintTrajectory.ResolveEffectiveId(skill) != SkillTrajectories.AppearAtTarget.id) return null;
+        if (container.AnimationIndex != 0 ||
+            SkillBlueprintTrajectory.ResolveEffectiveId(skill) != SkillTrajectories.AppearAtTarget.id) return null;
         var callbacks = new List<Delegate>();
         foreach (Type type in skill.GetComponentTypes())
         {
@@ -72,17 +73,22 @@ internal static class RiftConstructionMigration
 
         // 原地显现没有飞行，故加速词条仍不额外缩短寿命或改变伤害时点。
         float setupScale = ContactEffectMigration.SetupStrengthScale(skill, out _, out _);
-        float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
-            container.Asset.ImpactProfile.Lifetime * container.Asset.ImpactTuning.LifetimeMultiplier);
-        if (configured && settings.Duration > 0f) lifetime = settings.Duration;
+        // 旧位置冲击在成形结束后立刻请求回收，保留出现与消散的实际帧长。
+        SkillEntityAnimation animation = container.Asset.GetAnimation(container.AnimationIndex);
+        float frame = container.MotionProfile.FrameInterval;
+        float strike = ProjectileConstructionMigration.ClipSeconds(animation.Appearance, frame);
+        float closing = ProjectileConstructionMigration.ClipSeconds(animation.Dissipation, frame);
+        float lifetime = strike + closing;
         float scale = emission.RuntimeData.ResolveEffectScale() * SkillEffectRadius.ResolveCasterGrowth(emission.Source.a.GetExtend(), skill);
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
-        if (scale <= 0f || scale > 100f) return null;
+        float impactScale = scale * container.Asset.ImpactProfile.EffectRadius * container.Asset.ImpactTuning.EffectRadiusMultiplier / 2f;
+        if (scale <= 0f || scale > 100f || impactScale <= 0f || impactScale > 100f) return null;
         float strength = setupScale * emission.Strength * emission.RuntimeData.ResolveEffectScale();
         if (configured) strength *= settings.PowerMultiplier;
         if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
         if (skill.TryGetComponent(out VolleyModifier volley)) strength *= Mathf.Clamp(volley.DamageMultiplier, .05f, 2f);
+        if (skill.TryGetComponent(out ComboModifier combo)) strength *= Mathf.Clamp(combo.DamageMultiplier, .05f, 2f);
         strength *= container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier;
         damage = new GetHitEvent
         {
@@ -90,7 +96,7 @@ internal static class RiftConstructionMigration
             AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin
         };
         damage.BindAttacker(emission.Source);
-        return ContactEffectMigration.Bind(new AbilityDefinition
+        var definition = ContactEffectMigration.Bind(new AbilityDefinition
         {
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(),
             Lifetime = lifetime, Resource = "none", Cost = 0f, Cooldown = 0f, Power = 1f, TargetRange = 10000f,
@@ -100,13 +106,37 @@ internal static class RiftConstructionMigration
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target, Height = -emission.TargetPos.z },
             Root = new ConstructionNode
             {
-                Id = "opening", Form = "rift_opening", Matter = "entropy", Scale = scale,
-                ActiveFromMarker = "opened", ActiveUntilMarker = "closing",
-                ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
-                Operations = new[]
+                Id = "origin", Form = "pivot", Matter = "entropy", ContactRole = ConstructionContactRole.Decoration,
+                Children = new[]
                 {
-                    new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = lifetime * .14f },
-                    new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "open", Seconds = lifetime }
+                    new ConstructionNode
+                    {
+                        Id = "opening", Form = "rift_opening", Matter = "entropy", Scale = scale,
+                        ContactRole = ConstructionContactRole.Decoration,
+                        Operations = new[]
+                        {
+                            new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = strike },
+                            new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "cast", Seconds = lifetime }
+                        }
+                    },
+                    new ConstructionNode
+                    {
+                        Id = "burst", Form = "rift_burst", Matter = "entropy", Scale = impactScale,
+                        AppearAt = strike, ActiveFrom = strike, ActiveUntil = strike + .004f,
+                        ContactActorCenter = true,
+                        Contact = new ConstructionContactPolicy
+                        {
+                            Mode = ConstructionContactMode.Pulse, Interval = strike, MaximumPerTarget = 1
+                        },
+                        ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
+                        Operations = new[]
+                        {
+                            new ConstructionOperation
+                            {
+                                Kind = ConstructionOperationKind.Animate, Clip = "dissolve", At = strike, Seconds = closing
+                            }
+                        }
+                    }
                 }
             },
             // 闭合时连同整体体量收尽，避免留下高度不变的细长黑线；接触此时已经停止。
@@ -116,13 +146,14 @@ internal static class RiftConstructionMigration
                 {
                     Id = "close", Operation = new ConstructionOperation
                     {
-                        Kind = ConstructionOperationKind.Grow, At = lifetime * .74f,
-                        Seconds = lifetime * .26f, TargetScale = 0f
+                        Kind = ConstructionOperationKind.Grow, At = strike, Seconds = closing, TargetScale = 0f
                     },
                     Inputs = new Dictionary<string, ConstructionOutputReference>
-                    { ["part"] = new ConstructionOutputReference { Node = "root" } }
+                    { ["part"] = new ConstructionOutputReference { Node = "root/opening" } }
                 }
             }
         }, skill, emission.RuntimeData.ResolveEffectScale(), contactForceScale: 1f / (container.Asset.ImpactProfile.DamageMultiplier * container.Asset.ImpactTuning.DamageMultiplier), caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
+        if (definition.Root.RadialMotion != null) definition.Root.RadialMotion.StartAt = strike;
+        return definition;
     }
 }

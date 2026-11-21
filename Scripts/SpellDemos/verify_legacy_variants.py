@@ -105,6 +105,7 @@ def main():
         'poison-pool': ('Cultiway.PoisonPool', 1),
         'poison-mist': ('Cultiway.PoisonMist', 1),
         'entropy-field': ('Cultiway.EntropyField', 1),
+        'rift': ('Cultiway.Rift', 1),
     }
     batches = {
         'water-family': ('water-arrow', 'water-orb', 'water-blade'),
@@ -132,7 +133,7 @@ def main():
     args = parser.parse_args()
     if args.spell in batches or args.spell in projectile_spells:
         case = args.case or 'hit'
-        save_batch = args.spell in batches or args.spell == 'lightning-strike' and case in ('archive', 'cold')
+        save_batch = args.spell in batches or args.spell in ('lightning-strike', 'rift') and case in ('archive', 'cold')
         if save_batch:
             if args.variant or case not in ('hit', 'archive', 'cold'):
                 parser.error('批次支持 hit、archive 或 cold。指定变体时请选择单术')
@@ -142,8 +143,10 @@ def main():
             asset, count = projectile_spells[args.spell]
             if case not in ('hit', 'miss', 'tracking', 'landing', 'cancel', 'scatter', *ground_checks) or any(i >= count for i in args.variant or []):
                 parser.error('单术实测需选择该法术已有的旧索引')
-            if case in ground_checks and args.spell != 'ground-spike':
-                parser.error('旧执行对照与圆形边界复验使用地刺')
+            if case in ground_checks and args.spell != 'ground-spike' and (args.spell != 'rift' or case != 'legacy'):
+                parser.error('旧执行对照使用地刺或墟隙，单独边界复验使用地刺')
+            if args.spell == 'rift' and case not in ('hit', 'miss', 'legacy'):
+                parser.error('墟隙单术实测使用 hit、miss 或 legacy')
             if args.spell in batches['solid-walls'] + batches['contact-walls'] and case != 'hit':
                 parser.error('单道墙使用 hit。正式写读档使用 solid-walls 或 contact-walls 批次')
             if args.spell in batches['shields'] and case != 'hit':

@@ -2645,3 +2645,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏运行 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py persistent-fields --case archive`，将风卷四个索引和玄阴域、毒潭、毒雾、乱熵域各自的旧索引写入同一正式世界。重启后用同批次的 `--case cold --archive <保存输出目录>` 核对旧资料并逐个重放。单个来源可用 `tornado`、`yin-field`、`poison-pool`、`poison-mist`、`entropy-field`，风卷可用 `--variant` 指定索引。
 
 复用同一对练核对成形无伤、推进或跟随、间隔伤害、固定点收势及随后清理。同一毒潭的第三次受理需只替换最老实例，三次均按原价。组合录像用 `demo_all.py --filter Cultiway.Tornado,Cultiway.YinField,Cultiway.PoisonPool,Cultiway.PoisonMist,Cultiway.EntropyField --cases base --variants all`，分别指定原版与 Worldfall 视角。旧地块作用随 10.01 的世界作用验收。
+
+### 墟隙的旧索引
+
+在独立游戏中用 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_variants.py rift --case legacy` 对照原执行的爆发时点、半径、费用及地块和建筑记录。用 `--case archive` 取得正式世界，重启后以 `--case cold --archive <保存输出目录>` 读回并重放。用 `--case miss` 验证空地张合。放大、强化、抗性、失败退款及恢复仍可用 `verify_rift.py` 分别核对。
+
+原版与 Worldfall 的画面均由 `demo_spell.py Rift --cases base --duration 1.1 --motion-trace` 录制。成形段只有裂口，爆发时冲面覆盖真实的圆形范围，随后两部分各自收势。

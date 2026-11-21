@@ -3,26 +3,37 @@
 import json
 import os
 from pathlib import Path
+import tempfile
 
 from common import PROJECT, version_stamp, write_json
 
 
 def main():
     """复用现有世界与人物准备，仅验证本批的原地显现裂隙。"""
-    install = PROJECT / 'artifacts/skill_rebuild/performance-baseline/cultiway'
-    os.environ['CULTIWAY_BASELINE_ROOT'] = str(install)
-    os.environ['CULTIWAY_BASELINE_GAME'] = str(install / 'game/worldbox')
+    development = os.environ.get('CULTIWAY_DEV_ACTIVE')
+    if not development:
+        install = PROJECT / 'artifacts/skill_rebuild/performance-baseline/cultiway'
+        os.environ['CULTIWAY_BASELINE_ROOT'] = str(install)
+        os.environ['CULTIWAY_BASELINE_GAME'] = str(install / 'game/worldbox')
     import baseline_scenarios as baseline
-    connected = baseline.connect(True, validate_runtime=False)
-    started = json.loads((baseline.ROOT / 'process.json').read_text())['started']
-    if any(p.stat().st_mtime > started for p in (PROJECT / 'Source').rglob('*.cs')):
-        raise RuntimeError('当前独立游戏未加载本轮代码，请先正常退出再验证')
-    folder = PROJECT / 'artifacts/skill_rebuild/trajectories/rift'
-    folder.mkdir(parents=True, exist_ok=True)
+    connected = baseline.connect(not development, validate_runtime=False)
+    if development:
+        folder = Path(tempfile.mkdtemp(prefix='rift-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
+    else:
+        started = json.loads((baseline.ROOT / 'process.json').read_text())['started']
+        if any(p.stat().st_mtime > started for p in (PROJECT / 'Source').rglob('*.cs')):
+            raise RuntimeError('当前独立游戏未加载本轮代码，请先正常退出再验证')
+        folder = PROJECT / 'artifacts/skill_rebuild/trajectories/rift'
+        folder.mkdir(parents=True, exist_ok=True)
     helpers = Path(__file__).with_name('verify_body_footwork.script').read_text().split('var bindingType =', 1)[0]
-    helpers = helpers.replace('artifacts/skill_rebuild/body-footwork', str(folder.relative_to(PROJECT)))
+    helpers = helpers.replace('Path.Combine(root, "artifacts/skill_rebuild/body-footwork")', json.dumps(str(folder)))
+    fixture = PROJECT / 'Scripts/WorldSaveTests/Fixtures/world-format-1'
+    helpers = helpers.replace('Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")', json.dumps(str(fixture)))
     helpers = helpers.replace('if (contact.AbilityId.StartsWith("test.body-footwork.")) contacts.Add(contact);', 'contacts.Add(contact);')
     helpers = helpers.replace('if (fact.AbilityId.StartsWith("test.body-footwork."))\n        ', '')
+    helpers = helpers.replace('var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild',
+                              'var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SourceLoss.Hold") ?? '
+                              'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild')
     imports = ('using Cultiway.Core.SkillLibV3;\nusing Cultiway.Core.SkillLibV3.Components;\n'
                'using Cultiway.Core.SkillLibV3.Utils;\nusing Cultiway.Core.SkillLibV3.Modifiers;\n'
                'using Cultiway.Core.SkillLibV3.Settings;\nusing Cultiway.Core.SkillLibV3.Blueprints;\n'
@@ -37,7 +48,7 @@ def main():
     write_json(folder / 'result.json', result)
     if not result.get('passed'):
         raise RuntimeError('裂隙未通过，请查看 ' + str(folder / 'checks.json'))
-    print(json.dumps(result, ensure_ascii=False))
+    print(json.dumps(dict(result, output=str(folder)), ensure_ascii=False))
 
 
 if __name__ == '__main__':

@@ -1,0 +1,360 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "surface",
+        "UnitInTiles": 1,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_rift.mjs",
+            "Entry": "makeBurst",
+            "Parameters": [
+                {
+                    "Id": "radius",
+                    "Values": [
+                        2
+                    ]
+                },
+                {
+                    "Id": "profile",
+                    "Values": [
+                        0,
+                        0.03500000014901161,
+                        0.8799999952316284,
+                        0.03500000014901161,
+                        1.7599999904632568,
+                        0.03500000014901161,
+                        2,
+                        0.050999999046325684,
+                        2,
+                        0.07500000298023224,
+                        1.8600000143051147,
+                        0.15299999713897705,
+                        1.559999942779541,
+                        0.20000000298023224,
+                        1.2200000286102295,
+                        0.15399999916553497,
+                        0.7200000286102295,
+                        0.12800000607967377,
+                        0.23000000417232513,
+                        0.11699999868869781,
+                        0,
+                        0.09399999678134918
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "motion",
+            "ground"
+        ]
+    },
+    "ConformToGround": true,
+    "Version": 8,
+    "Id": "rift_burst",
+    "Forward": [
+        0,
+        1,
+        0
+    ],
+    "Up": [
+        0,
+        0,
+        1
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/rift_burst_broken_surface_mid.asset",
+                "Assets/Cultiway/Forms/rift_burst_broken_surface_far.asset"
+            ],
+            "Roles": [
+                "space.pressure"
+            ],
+            "Id": "broken_surface",
+            "Surface": "rift_lip",
+            "Pivot": [
+                0,
+                0,
+                0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/rift_burst_broken_surface.asset",
+            "Control": "sheet",
+            "Skin": false,
+            "HasSurfaceData": true,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "Id": "shock",
+            "Part": 0,
+            "A": [
+                0,
+                0,
+                0.07
+            ],
+            "AControl": "sheet",
+            "Sector": {
+                "Radius": 2,
+                "Angle": 360,
+                "Direction": 0,
+                "HalfThickness": 0.074
+            }
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "sheet",
+            "Parent": "",
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -2,
+                -2,
+                0.0333390012383461
+            ],
+            "Maximum": [
+                2,
+                2,
+                0.31558799743652344
+            ]
+        }
+    ],
+    "Motions": [
+        {
+            "Id": "dissolve",
+            "Duration": 0.25,
+            "Loop": false,
+            "Keys": [
+                {
+                    "Build": 1,
+                    "Fade": 0.34,
+                    "At": 0,
+                    "Positions": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.352986,
+                    "At": 0.020833000540733337,
+                    "Positions": [
+                        0,
+                        0,
+                        -0.0029170000925660133
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.38889,
+                    "At": 0.04166699945926666,
+                    "Positions": [
+                        0,
+                        0,
+                        -0.00583299994468689
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.443125,
+                    "At": 0.0625,
+                    "Positions": [
+                        0,
+                        0,
+                        -0.008750000037252903
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.51111,
+                    "At": 0.08333300054073334,
+                    "Positions": [
+                        0,
+                        0,
+                        -0.011667000129818916
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.588265,
+                    "At": 0.10416699945926666,
+                    "Positions": [
+                        0,
+                        0,
+                        -0.014582999981939793
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.67,
+                    "At": 0.125,
+                    "Positions": [
+                        0,
+                        0,
+                        -0.017500000074505806
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.751735,
+                    "At": 0.14583300054073334,
+                    "Positions": [
+                        0,
+                        0,
+                        -0.020416999235749245
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.82889,
+                    "At": 0.16666699945926666,
+                    "Positions": [
+                        0,
+                        0,
+                        -0.023333000019192696
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.896875,
+                    "At": 0.1875,
+                    "Positions": [
+                        0,
+                        0,
+                        -0.026249999180436134
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.951111,
+                    "At": 0.20833300054073334,
+                    "Positions": [
+                        0,
+                        0,
+                        -0.029167000204324722
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 0.987015,
+                    "At": 0.22916699945926666,
+                    "Positions": [
+                        0,
+                        0,
+                        -0.03208300098776817
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "Build": 1,
+                    "Fade": 1,
+                    "At": 0.25,
+                    "Positions": [
+                        0,
+                        0,
+                        -0.03500000014901161
+                    ],
+                    "Rotations": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                }
+            ],
+            "Markers": []
+        }
+    ]
+}

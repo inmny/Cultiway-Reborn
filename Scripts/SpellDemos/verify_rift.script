@@ -1,4 +1,4 @@
-// B14：真实已学裂隙、混沌伤害、固定落点与开合期间的实际接触。
+// 原已学裂隙、混沌伤害、固定落点与一次旧范围爆发。
 var manager = Cultiway.ModClass.I.SkillV3;
 var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var starts = new List<ConstructedCastStarted>(); var casts = new List<AbilityCast>(); var emissions = new List<object>();
@@ -49,8 +49,11 @@ try
 {
     Entity ordinary = Build(), boosted = Build(true), extra = Build(extra: true);
     AbilityDefinition definition = Convert(ordinary, out GetHitEvent damage);
-    Check(definition != null && definition.Root.Form == "rift_opening" && definition.Root.Matter == "entropy" &&
-        definition.Binding.Anchor == AbilityAnchor.Target && !definition.Binding.Follow && definition.Root.Operations.Single(op => op.Kind == ConstructionOperationKind.Animate).Clip == "open" &&
+    ConstructionNode opening = definition.Root.Children.Single(node => node.Id == "opening");
+    ConstructionNode impact = definition.Root.Children.Single(node => node.Id == "burst");
+    float strike = impact.ActiveFrom;
+    Check(opening.Form == "rift_opening" && impact.Form == "rift_burst" && impact.Matter == "entropy" &&
+        definition.Binding.Anchor == AbilityAnchor.Target && !definition.Binding.Follow && opening.Operations.Single(op => op.Kind == ConstructionOperationKind.Animate).Clip == "cast" &&
         damage.Element.entropy == 1 && damage.Element.Equals(SkillEntities.Rift.Element) && damage.Damage == 37 && damage.AttackerPowerLevel == 1.25f,
         "原裂隙转换为固定目标、独立开合形体，保留混沌成分、强度和境界");
     File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
@@ -59,13 +62,13 @@ try
     Check(shapes.Count == 0, "开口尚未完全张开时不提供人物接触");
     numeric.Advance(definition.Lifetime * .02f, Vector3.zero);
     var openingViews = new List<FormVisualInstance>(); numeric.AppendVisuals(openingViews);
-    Check(openingViews.Count == 0 || openingViews.All(v => v.Transform.MultiplyVector(Vector3.up).magnitude < definition.Root.Scale * .08f),
+    Check(openingViews.Count == 0 || openingViews.All(v => v.Transform.MultiplyVector(Vector3.up).magnitude < opening.Scale * .08f),
         "初现时共同体量仍小，不留下完整高度的黑线");
-    numeric.Advance(definition.Lifetime * .3f, new Vector3(80, 75, 6)); numeric.AppendContacts(shapes);
+    numeric.Advance(strike - numeric.Age + .001f, new Vector3(80, 75, 6)); numeric.AppendContacts(shapes);
     var views = new List<FormVisualInstance>(); numeric.AppendVisuals(views);
-    Check(shapes.Count > 0 && views.Count == 1 && views[0].PartCount == 3 &&
-        shapes.All(s => Mathf.Abs(s.A.x - 70) < definition.Root.Scale && Mathf.Abs(s.A.y - 72) < .001f) &&
-        numeric.Matter(0).DamageKind == "entropy", "张开后内部实际接触与混沌材料生效，目标移动不拖走裂隙");
+    Check(shapes.Count > 0 && views.Count == 2 && views.Any(v => v.PartCount == 3) &&
+        views.All(v => Mathf.Abs(v.Transform.GetColumn(3).x - 70) < .001f && Mathf.Abs(v.Transform.GetColumn(3).y - 72) < .001f) &&
+        numeric.Matter(0).DamageKind == "entropy", "张开时一次冲面和混沌材料生效，目标移动不拖走裂隙");
     var save = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
     var restore = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
     string Snapshot(AbilityCast cast)
@@ -75,16 +78,18 @@ try
         return JsonConvert.SerializeObject(new { cast.Age, cast.Finished, shapes = cs.Select(s => new { a = XYZ(s.A), b = XYZ(s.B), s.Radius }),
             parts = vs.SelectMany(v => Enumerable.Range(0, v.PartCount).Select(i => XYZ(v.PartTransform(i).MultiplyPoint3x4(Vector3.zero)))) });
     }
-    save(numeric); numeric.Advance(definition.Lifetime * .53f, Vector3.zero); string predicted = Snapshot(numeric);
-    restore(numeric); numeric.Advance(definition.Lifetime * .53f, Vector3.zero);
+    save(numeric); numeric.Advance(definition.Lifetime * .17f, Vector3.zero); string predicted = Snapshot(numeric);
+    restore(numeric); numeric.Advance(definition.Lifetime * .17f, Vector3.zero);
     Check(predicted == Snapshot(numeric), "资料读回和前态恢复保留固定位置、动作、真实接触与结束状态");
     shapes.Clear(); numeric.AppendContacts(shapes); Check(shapes.Count == 0, "合拢阶段不继续制造新伤害");
-    numeric.Advance(definition.Lifetime * .13f, Vector3.zero); views.Clear(); numeric.AppendVisuals(views);
-    Check(views.Count == 0 || views.All(v => v.Transform.MultiplyVector(Vector3.up).magnitude < definition.Root.Scale * .03f),
+    numeric.Advance(definition.Lifetime * .31f, Vector3.zero); views.Clear(); numeric.AppendVisuals(views);
+    Check(views.Where(v => v.Resource.Description.Id == "rift_opening")
+             .All(v => v.Transform.MultiplyVector(Vector3.up).magnitude < opening.Scale * .03f),
         "闭合末端共同体量收尽，不保持完整高度的细缝");
     numeric.Advance(definition.Lifetime, Vector3.zero); views.Clear(); numeric.AppendVisuals(views);
     Check(numeric.Finished && views.Count == 0, "自然结束清理裂隙显示与接触");
-    Check(Convert(extra, out _) == null, "未映射附加作用明确留在原来源，不静默丢失");
+    Check(Convert(extra, out _).Root.Children.Single(node => node.Id == "burst").Impact.Statuses.Length > 0,
+        "已映射的灼烧词条附在真实爆发上");
     Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
     {
         if (request.SkillContainer.GetComponent<SkillContainer>().Asset != SkillEntities.Rift) return original(request);
@@ -114,9 +119,10 @@ try
     }
     foreach (Entity skill in new[] { ordinary, boosted })
     {
-        AbilityDefinition actualDefinition = Convert(skill, out _); float scale = actualDefinition.Root.Scale;
+        AbilityDefinition actualDefinition = Convert(skill, out _);
+        float scale = actualDefinition.Root.Children.Single(node => node.Id == "burst").Scale;
         Ready(source); Place(source, 64); Place(target, 70); Place(edge, 70 + .12f * scale, 72 + .08f * scale);
-        Place(outside, 70 + 1.35f * scale); Place(gap, 70, 72 + .85f * scale);
+        Place(outside, 70 + 2.15f * scale); Place(gap, 70, 72 + 2.15f * scale);
         contacts.Clear(); endings.Clear(); int first = starts.Count, known = Learned().Count;
         int hp = target.data.health, edgeHp = edge.data.health, outsideHp = outside.data.health, gapHp = gap.data.health;
         float balance = owner.GetCultisys<Xian>().wakan; var plan = Plan(skill); double cost = Cost(skill, plan);
@@ -129,7 +135,7 @@ try
             outside.data.health == outsideHp && gap.data.health == gapHp &&
             actual.All(s => contacts.Any(c => c.CastId == s.CastId && c.TargetId == target.id)) &&
             contacts.GroupBy(c => (c.CastId, c.TargetId)).All(g => g.Count() == 1),
-            "内部真实命中并经过混沌抗性，外侧和前后无隐藏圆区，同人每次只结算一次", new { hp, after = target.data.health, edgeHp, edgeAfter = edge.data.health,
+            "冲面内真实命中并经过混沌抗性，外侧无伤，同人每次只结算一次", new { hp, after = target.data.health, edgeHp, edgeAfter = edge.data.health,
                 outsideHp, outsideAfter = outside.data.health, gapHp, gapAfter = gap.data.health, contacts = contacts.Select(c => new { c.CastId, c.TargetId, c.Age }).ToArray() });
         Check(casts.All(c => c.Finished) && actual.All(s => endings.Any(e => e.Fact.CastId == s.CastId && !e.Fact.Cancelled)), "命中后完成闭合并自然结束");
     }
@@ -154,8 +160,14 @@ try
         Config.paused = true; await Game.NextFrame(); string file = Path.Combine(folder, name + ".png");
         File.Delete(file); Screen.Capture(file); await Game.WaitUntil(() => File.Exists(file), 600);
     }
-    await Shot("rift-closed"); await Advance(definition.Lifetime * .07f); await Shot("rift-opening");
-    await Advance(definition.Lifetime * .22f); await Shot("rift-open"); await Advance(definition.Lifetime * .55f); await Shot("rift-closing");
+    var showing = casts.Last();
+    async Task ShotAt(float age, string name)
+    {
+        if (showing.Age < age) await Advance(age - showing.Age);
+        await Shot(name);
+    }
+    await Shot("rift-closed"); await ShotAt(strike * .6f, "rift-opening");
+    await ShotAt(strike + .02f, "rift-open"); await ShotAt(definition.Lifetime * .84f, "rift-closing");
     await Advance(definition.Lifetime * .4f);
     return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
 }
