@@ -119,7 +119,10 @@ internal static partial class ProjectileConstructionMigration
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
         if (scale <= 0f || scale > 64f || lifetime <= 0f || lifetime > 3600f) return null;
-        string form = container.Asset == SkillEntities.FireBlade ? FireBladeForm(container.AnimationIndex) : sourceForm.Form;
+        bool fireball = container.Asset == SkillEntities.Fireball;
+        bool fireBlade = container.Asset == SkillEntities.FireBlade;
+        string form = fireBlade ? FireBladeForm(container.AnimationIndex) :
+            fireball ? FireballForm(container.AnimationIndex) : sourceForm.Form;
         if (form == null) return null;
         AbilityDefinition definition = Motion(emission, form, scale, continues, lifetime, initialAngle, speedScale, out forward);
         if (definition == null) return null;
@@ -139,12 +142,13 @@ internal static partial class ProjectileConstructionMigration
         definition.Root.State = sourceForm.State;
         definition.Root.OnContact = continues ? ConstructionContactResponse.Continue : ConstructionContactResponse.End;
         definition.Root.Contact = once ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 } : null;
-        definition.Root.Impact = blast ? new ConstructionImpact { DamageScale = 0f } :
-            continues && (!configured || settings.ContactEnabled) ? new ConstructionImpact { DamageScale = damageMultiplier } : null;
-        definition.Root.ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack;
+        bool contact = !configured || settings.ContactEnabled;
+        definition.Root.Impact = contact && (blast || continues)
+            ? new ConstructionImpact { DamageScale = blast ? 0f : damageMultiplier }
+            : null;
+        definition.Root.ContactRole = contact ? ConstructionContactRole.Attack : ConstructionContactRole.Decoration;
         if (blast)
         {
-            bool contact = !configured || settings.ContactEnabled;
             bool meteor = container.Asset == SkillEntities.FlameMeteor;
             float burstDuration = Mathf.Min(.22f, lifetime);
             definition.Root.Children = new[] { new ConstructionNode
@@ -154,9 +158,10 @@ internal static partial class ProjectileConstructionMigration
                 Scale = scale * container.Asset.ImpactProfile.EffectRadius * container.Asset.ImpactTuning.EffectRadiusMultiplier / .9f,
                 DisappearAt = burstDuration, ActiveUntil = Mathf.Min(.025f, lifetime),
                 Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End,
-                    Placement = ConstructionEventPlacement.Event, InheritRemainder = contact, ResetContacts = contact },
+                    Placement = ConstructionEventPlacement.Event, InheritRemainder = contact, ResetContacts = contact,
+                    BeforeSourceExpires = fireball },
                 Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 },
-                Impact = new ConstructionImpact { DamageScale = damageMultiplier },
+                Impact = contact ? new ConstructionImpact { DamageScale = damageMultiplier } : null,
                 ContactRole = contact ? ConstructionContactRole.Attack : ConstructionContactRole.Decoration,
                 // 余力交接也带来入射速度；炎陨在事件落点清掉这份速度，骨架仍可继续收势。
                 Operations = meteor
@@ -170,8 +175,11 @@ internal static partial class ProjectileConstructionMigration
             } };
         }
         else if (container.Asset == SkillEntities.EarthRidge) SetRidgeCollapse(definition, lifetime, scale);
-        else if (container.Asset == SkillEntities.FireBlade && !SetFireBladeLifecycle(definition, container)) return null;
-        return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, contactForceScale: !continues && !blast ? 1f / damageMultiplier : 1f, caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
+        if ((fireball || fireBlade) && !SetStationaryProjectileLifecycle(definition, container)) return null;
+        definition = ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), includeRoot: !blast, contactForceScale: !continues && !blast ? 1f / damageMultiplier : 1f, caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
+        if ((fireball || fireBlade) && definition.Root.RadialMotion != null)
+            definition.Root.RadialMotion.StartAt = definition.Root.ActiveFrom;
+        return definition;
     }
 
     /// <summary>按原索引使用各自的实体；变化也反映在沿真实焰锋的接触形状。</summary>
@@ -185,10 +193,19 @@ internal static partial class ProjectileConstructionMigration
         _ => null
     };
 
+    /// <summary>旧火球索引一一对应可辨认的三维主体。</summary>
+    /// <param name="index">原学习资料或存档保留的动画索引。</param>
+    private static string FireballForm(int index) => index switch
+    {
+        0 => "fireball",
+        >= 1 and <= 17 => "fireball_" + index,
+        _ => null
+    };
+
     /// <summary>先成形再按原轨迹出手，余焰从实际结束点淡出。</summary>
-    /// <param name="definition">已经展开原轨迹和实际作用的火刃。</param>
+    /// <param name="definition">已经展开原轨迹和实际作用的投射主体。</param>
     /// <param name="container">提供原阶段开关和时长的实际学习资料。</param>
-    private static bool SetFireBladeLifecycle(AbilityDefinition definition, SkillContainer container)
+    private static bool SetStationaryProjectileLifecycle(AbilityDefinition definition, SkillContainer container)
     {
         SkillEntityAnimation animation = container.Asset.GetAnimation(container.AnimationIndex);
         if (!animation.HasLifecycle) return true;
@@ -199,34 +216,32 @@ internal static partial class ProjectileConstructionMigration
         float end = appearance + definition.Lifetime;
         if (end + dissipation > 3600f) return false;
 
-        ConstructionNode blade = definition.Root;
+        ConstructionNode root = definition.Root;
         if (appearance > 0f)
         {
-            blade.ActiveFrom = appearance;
-            foreach (ConstructionOperation operation in blade.Operations) operation.At += appearance;
+            root.ActiveFrom = appearance;
+            foreach (ConstructionOperation operation in root.Operations) operation.At += appearance;
             foreach (ConstructionStep step in definition.Steps) step.Operation.At += appearance;
-            blade.Operations = new[] { new ConstructionOperation
-                { Kind = ConstructionOperationKind.Grow, Seconds = appearance } }.Concat(blade.Operations).ToArray();
+            root.Operations = new[] { new ConstructionOperation
+                { Kind = ConstructionOperationKind.Grow, Seconds = appearance } }.Concat(root.Operations).ToArray();
         }
-        blade.ActiveUntil = end;
-        blade.DisappearAt = end;
+        root.ActiveUntil = end;
+        root.DisappearAt = end;
         definition.Lifetime = end + dissipation;
         if (dissipation <= 0f) return true;
-        blade.Children = new[]
+        var embers = new ConstructionNode
         {
-            new ConstructionNode
+            Id = "embers", Form = root.Form, Matter = root.Matter, State = root.State, Scale = root.Scale,
+            Activation = new ConstructionActivation
             {
-                Id = "embers", Form = blade.Form, Matter = blade.Matter, State = blade.State, Scale = blade.Scale,
-                Activation = new ConstructionActivation
-                {
-                    Trigger = ConstructionChangeTrigger.End, Placement = ConstructionEventPlacement.Event
-                },
-                DisappearAt = dissipation, ContactRole = ConstructionContactRole.Decoration,
-                SourceLoss = ConstructionSourceLoss.Continue, Volume = 0,
-                Operations = new[] { new ConstructionOperation
-                    { Kind = ConstructionOperationKind.Animate, Clip = "dissolve", Seconds = dissipation } }
-            }
+                Trigger = ConstructionChangeTrigger.End, Placement = ConstructionEventPlacement.Event
+            },
+            DisappearAt = dissipation, ContactRole = ConstructionContactRole.Decoration,
+            SourceLoss = ConstructionSourceLoss.Continue, Volume = 0,
+            Operations = new[] { new ConstructionOperation
+                { Kind = ConstructionOperationKind.Animate, Clip = "dissolve", Seconds = dissipation } }
         };
+        root.Children = (root.Children ?? Array.Empty<ConstructionNode>()).Concat(new[] { embers }).ToArray();
         return true;
     }
 

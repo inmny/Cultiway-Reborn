@@ -18,6 +18,10 @@ public sealed class ConstructionRadialMotion
     /// <summary>按整次施放时钟重新确定运动的间隔；每段运动最多维持同样时长。</summary>
     public float Interval = .1f;
 
+    /// <summary>开始范围作用的最早部位时点，允许形体先出现。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float StartAt;
+
     /// <summary>实际作用的人物关系；范围运动只作用于可移动且站在地面的人物。</summary>
     public SkillUseTargetRelation Targets;
 
@@ -42,6 +46,9 @@ public sealed class CompiledConstructionRadialMotion
     /// <summary>固定世界时间间隔。</summary>
     public float Interval { get; }
 
+    /// <summary>已确认的部位本地开始时点。</summary>
+    internal float StartAt { get; }
+
     /// <summary>已经确定的目标关系。</summary>
     public SkillUseTargetRelation Targets { get; }
 
@@ -61,12 +68,14 @@ public sealed class CompiledConstructionRadialMotion
     internal CompiledConstructionRadialMotion(ConstructionRadialMotion source, string path)
     {
         Radius = source.Radius; Speed = source.Speed; Interval = source.Interval; Targets = source.Targets;
-        GroundItemLimit = source.GroundItemLimit; ChannelLength = source.ChannelLength;
+        GroundItemLimit = source.GroundItemLimit; ChannelLength = source.ChannelLength; StartAt = source.StartAt;
         if (float.IsNaN(Radius) || float.IsInfinity(Radius) || Radius <= 0f || Radius > 1000f ||
             float.IsNaN(Speed) || float.IsInfinity(Speed) || Math.Abs(Speed) > 1000f ||
             float.IsNaN(Interval) || float.IsInfinity(Interval) || Interval < 1f / 120f || Interval > 1f ||
             Targets is not (SkillUseTargetRelation.Hostile or SkillUseTargetRelation.Friendly or SkillUseTargetRelation.Self))
             throw new InvalidDataException(path + "：范围运动需要0至1000以内的正半径、正负1000以内速度、1/120至1秒间隔及有效人物关系");
+        if (float.IsNaN(StartAt) || StartAt < 0f || StartAt > 3600f)
+            throw new InvalidDataException(path + "：范围运动开始时点须在0至3600秒内");
         if (GroundItemLimit is < 0 or > 8)
             throw new InvalidDataException(path + "：每次范围运动可卷起零至八件无主持物");
         if (float.IsNaN(ChannelLength) || ChannelLength < 0f || ChannelLength > 1000f ||

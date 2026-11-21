@@ -50,7 +50,7 @@
                 "projectile.edge"
             ],
             "Id": "face",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,
@@ -73,7 +73,7 @@
                 "projectile.edge"
             ],
             "Id": "tip",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,

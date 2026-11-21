@@ -1,0 +1,213 @@
+// 10.01 火球。实际飞行接触交出原强度，余焰仅显示。
+var asset = SkillEntities.Fireball;
+var source = Make(64);
+var target = Make(70);
+var near = Make(70);
+var outside = Make(70);
+var wolf = Make(12, "wolf");
+foreach (var actor in new[] { target, near, outside }) actor.setKingdom(wolf.kingdom);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 0;
+owner.MarkCultiwayStatsDirty();
+source.setStatsDirty();
+source.updateStats();
+await Advance(.2f);
+
+var casts = new Dictionary<long, AbilityCast>();
+var recordings = new List<object>();
+int oldExecutions = 0;
+
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != asset.id) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == fact.CastId);
+    casts.Add(fact.CastId, (AbilityCast)Field(running, "Cast"));
+}
+
+void LegacyExecution(Entity entity)
+{
+    if (entity.GetComponent<SkillEntity>().Asset == asset) oldExecutions++;
+}
+
+Entity Learn(int index, bool tracking, bool miss)
+{
+    var builder = new SkillContainerBuilder(asset).UseAnimation(index);
+    if (tracking) builder.AddModifier(new Trajectory { ID = SkillTrajectories.TowardsTarget.id });
+    if (caseName == "gravity") builder.AddModifier(new GravityModifier { Radius = 8, Strength = 2 });
+    var made = builder.Build(SkillContainerBuildMode.RuleOnly);
+    if (miss) made.AddComponent(new SkillSettings
+        { Duration = .09f, AreaMultiplier = 1, PowerMultiplier = 1, ContactEnabled = true });
+    string signature = SkillContainerSignature.Build(made);
+    owner.LearnSkillV3(made);
+    var learned = (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+    var actual = learned.Single(value => SkillContainerSignature.Build(value) == signature);
+    Check(actual.GetComponent<SkillContainer>().AnimationIndex == index &&
+          (!tracking || SkillBlueprintTrajectory.ResolveEffectiveId(actual) == SkillTrajectories.TowardsTarget.id),
+        "已学容器保留旧索引和实际轨迹", index);
+    return actual;
+}
+
+FormVisualInstance[] Views(AbilityCast cast)
+{
+    var output = new List<FormVisualInstance>();
+    cast.AppendVisuals(output);
+    return output.ToArray();
+}
+
+int ShapeCount(AbilityCast cast)
+{
+    var shapes = new List<AbilityCapsule>();
+    cast.AppendContacts(shapes);
+    return shapes.Count;
+}
+
+float Seconds(SkillEntityAnimationClip clip, float inherited) =>
+    clip == null ? 0f : clip.Frames.Length * clip.Settings.ResolveFrameInterval(inherited);
+
+async Task Stage(AbilityCast cast, float until)
+{
+    if (cast.Age < until) await Advance(until - cast.Age);
+}
+
+async Task Play(int index)
+{
+    bool tracking = caseName == "tracking", miss = caseName == "miss";
+    var skill = Learn(index, tracking, miss);
+    var sourceAnimation = asset.GetAnimation(index);
+    float interval = skill.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
+    float rise = Seconds(sourceAnimation.Appearance, interval);
+    float fade = Seconds(sourceAnimation.Dissipation, interval);
+    float runtime = miss ? .09f : asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier;
+    string expected = index == 0 ? "fireball" : "fireball_" + index;
+
+    Ready(source);
+    Place(source, 64);
+    Place(target, tracking ? 74 : 70);
+    Place(near, tracking || miss ? 12f : 70.3f, tracking || miss ? 12f : 72.7f);
+    Place(outside, 70, 78);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    foreach (var actor in new[] { source, target, near, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
+    float before = owner.GetCultisys<Xian>().wakan;
+    int targetHealth = target.data.health, nearHealth = near.data.health, outsideHealth = outside.data.health;
+    double price = SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    int previous = casts.Count;
+    Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(target, target.GetSimPos(),
+            selectionArea: new SkillTargetSelectionArea(true, target.GetSimPos(), .1f)),
+        ActiveAbilityUseOrigin.Player), "火球由原已学入口受理", index);
+    source.attack_timer = 999;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    await Advance(.10f);
+
+    Check(casts.Count == previous + 1 && oldExecutions == 0, "只进入共同执行一次", index);
+    var live = casts.Last();
+    var cast = live.Value;
+    var initial = Views(cast).Single();
+    Vector3 first = initial.Transform.GetColumn(3);
+    Check(initial.Resource.Description.Id == expected && Math.Abs(cast.Plan.Lifetime - rise - runtime - fade) < .001f &&
+          cast.NodeAge(1) < 0f, "实际主体匹配旧索引，爆发尚未形成", new { index, form = initial.Resource.Description.Id, rise, runtime, fade });
+    if (index == 3)
+        Check(initial.SurfaceFor(0) == "fireball_blue" && !initial.Tint.HasValue, "成形中的蓝焰使用自身表面色");
+    if (rise > 0f)
+        Check(cast.Age < rise && Mathf.Abs(first.x - 64f) < .05f && ShapeCount(cast) == 0 &&
+              contacts.All(hit => hit.CastId != live.Key) && target.data.health == targetHealth,
+            "成形留在起点且没有作用", new { index, cast.Age, position = first.ToString() });
+    else
+        Check(first.x > 64.08f && ShapeCount(cast) > 0, "直接起飞的索引已产生实际位移和接触形状", index);
+
+    if (caseName == "gravity")
+    {
+        var radial = typeof(AbilityCast).GetMethod("TryRadialMotion", F);
+        bool Travelling() => (bool)radial.Invoke(cast, new object[] { 0, Vector3.zero });
+        if (rise > 0f) Check(!Travelling(), "成形阶段不进入范围受力");
+        await Stage(cast, rise + .05f);
+        Check(Travelling(), "成形后进入同一套真实旅行引力");
+    }
+
+    if (tracking)
+    {
+        await Stage(cast, rise + .05f);
+        Place(target, 74, 75.4f);
+        ConstructedAbilityService.NotifyActorChanged(target);
+    }
+    Vector3? impact = null;
+    if (!miss)
+    {
+        Config.paused = false;
+        await Game.WaitUntil(() => cast.NodeAge(1) >= 0f || cast.Finished, 1800);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        var burst = Views(cast).SingleOrDefault(view => view.Resource.Description.Id == "fire_burst");
+        Check(cast.NodeAge(1) >= 0f && cast.NodeAge(1) < .16f && burst.Resource != null &&
+              Mathf.Abs(cast.RemainingForce(1) - 100f) < .001f,
+            "实际触发时爆发取得完整余力", new { index, cast.Age, burstAge = cast.NodeAge(1), force = cast.RemainingForce(1) });
+        impact = burst.Transform.GetColumn(3);
+    }
+
+    if (fade > 0f)
+    {
+        if (miss) await Stage(cast, rise + runtime + fade * .12f);
+        float start = cast.Age - cast.NodeAge(2);
+        var firstEmbers = Views(cast).Single(view => view.Resource.Description.Id == expected);
+        Vector3 endPosition = firstEmbers.Transform.GetColumn(3);
+        float firstAge = cast.NodeAge(2);
+        float firstAlpha = firstEmbers.Dye?.a ?? 1f;
+        await Stage(cast, start + fade * .57f);
+        var fading = Views(cast).Single(view => view.Resource.Description.Id == expected);
+        Vector3 laterFade = fading.Transform.GetColumn(3);
+        float laterAlpha = fading.Dye?.a ?? 1f;
+        Check(firstAge >= 0f && cast.NodeAge(2) > firstAge && ShapeCount(cast) == 0 &&
+              Vector3.Distance(endPosition, laterFade) < .01f &&
+              (!fading.Tint.HasValue || fading.Tint.Value.a > 0f) && laterAlpha > 0f && laterAlpha < firstAlpha &&
+              (!impact.HasValue || Vector3.Distance(impact.Value, endPosition) < .01f),
+            "余焰停在真实结束点，已经没有接触形状",
+            new { index, end = endPosition.ToString(), fade = laterFade.ToString(), firstAlpha, laterAlpha });
+    }
+    await Advance(.31f);
+
+    var hits = contacts.Where(hit => hit.CastId == live.Key).ToArray();
+    var damage = hits.Where(hit => hit.DamageAttempted).ToArray();
+    if (miss)
+        Check(cast.NodeAge(1) < 0f && hits.Length == 0 && target.data.health == targetHealth,
+            "未命中时到期只收束，没有爆发或伤害", index);
+    else
+        Check(hits.Count(hit => hit.Node == 0) == 1 &&
+              hits.Where(hit => hit.Node == 0).All(hit => !hit.DamageAttempted &&
+                  (hit.TargetId == target.id || !tracking && hit.TargetId == near.id)) &&
+              hits.All(hit => hit.Age >= rise) && damage.All(hit => hit.Node == 1 && hit.Damage.HealthLost > 0) &&
+              damage.Length == (tracking ? 1 : 2) && damage.Count(hit => hit.TargetId == target.id) == 1 &&
+              damage.Count(hit => hit.TargetId == near.id) == (tracking ? 0 : 1) &&
+              target.data.health < targetHealth && (tracking ? near.data.health == nearHealth : near.data.health < nearHealth) &&
+              outside.data.health == outsideHealth && (!tracking || impact.Value.y > 74f),
+            "飞行接触只触发，原范围内各结算一次，范围外无伤",
+            new { index, impact = impact.ToString(), hits = hits.Select(hit => new { hit.Node, hit.TargetId, hit.Age,
+                hit.DamageAttempted, hit.Damage.HealthLost }).ToArray() });
+    Check(cast.Finished && Views(cast).Length == 0 && ShapeCount(cast) == 0 &&
+          endings.Any(end => end.Fact.CastId == live.Key && !end.Fact.Cancelled) &&
+          Math.Abs(before - owner.GetCultisys<Xian>().wakan - price) < .001,
+        "正常结束并只付原价", new { index, price, before, after = owner.GetCultisys<Xian>().wakan });
+    recordings.Add(new { index, form = expected, run = caseName, rise, runtime, fade, price,
+        cast = live.Key, impact = impact.ToString(), hurt = damage.Select(hit => hit.TargetId).ToArray() });
+}
+
+ConstructedAbilityService.CastStarted += Started;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
+try
+{
+    foreach (int index in chosenVariants.Distinct()) await Play(index);
+    return new { passed = true, casts = recordings.Count };
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder, "variants.json"), JsonConvert.SerializeObject(recordings, Formatting.Indented));
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyExecution;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

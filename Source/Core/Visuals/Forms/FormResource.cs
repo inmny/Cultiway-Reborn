@@ -796,6 +796,15 @@ internal sealed partial class FormResourceGeneration
             "wind" => (13f, new Color(.55f, .81f, .86f, .57f), .32f),
             "flame" => (6f, new Color(1f, .31f, .035f), .8f),
             "flame_body" => (20f, new Color(1f, .38f, .065f, .85f), .76f),
+            "flame_cast" => (30f, new Color(1f, .33f, .046f), .34f),
+            "fireball_white" => (30f, new Color(1f, .93f, .68f), .18f),
+            "fireball_copper" => (30f, new Color(.78f, .21f, .065f), .57f),
+            "fireball_gold" => (30f, new Color(1f, .66f, .14f), .30f),
+            "fireball_blue" => (30f, new Color(.075f, .39f, 1f), .36f),
+            "fireball_ice" => (30f, new Color(.70f, .87f, 1f), .26f),
+            "fireball_green" => (30f, new Color(.55f, .93f, .15f), .40f),
+            "fireball_rose" => (30f, new Color(1f, .19f, .62f), .32f),
+            "fireball_red" => (30f, new Color(1f, .115f, .072f), .38f),
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
             "wood_leaf" => (2f, new Color(.31f, .53f, .12f), .88f),
             "wood_leaf_shadow" => (2f, new Color(.17f, .32f, .115f), .94f),
@@ -843,7 +852,7 @@ internal sealed partial class FormResourceGeneration
         found.SetColor("_Color", color);
         found.SetFloat("_Kind", kind);
         found.SetFloat("_Roughness", roughness);
-        found.SetFloat("_ZWrite", !transparent && (kind < 3f || kind >= 6f && kind < 10f || kind == 16f || kind == 27f || kind == 28f) ? 1f : 0f);
+        found.SetFloat("_ZWrite", !transparent && (kind < 3f || kind >= 6f && kind < 10f || kind == 16f || kind == 27f || kind == 28f || kind == 30f) ? 1f : 0f);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfall" : "Always", false);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfallTransparent" : "CultiwayNativeTransparent", false);
         if (native) found.SetShaderPassEnabled("CultiwayWorldfallSolid", false);

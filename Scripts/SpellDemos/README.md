@@ -2539,3 +2539,11 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 火刃旧变体（10.01）
 
 在独立游戏中运行 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_fire_blade_variants.py`。脚本通过原学习和付费入口逐个使用四个索引，核对锋口、双锋间隙、成形时点和收束位置，并用索引 3 复验折线路线。可重复传入 `--variant` 复验指定索引。每轮输出实际检查和施放记录。
+
+### 火球旧变体与火系存档（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py fireball` 验证全部十八个索引。可重复指定 `--variant`，或者使用 `--case miss`、`--case tracking --variant 11`、`--case gravity` 单独复验落空、改追踪和成形期间的范围作用。
+
+用同一入口的 `fire-family --case archive` 保存火刃和火球的完整学习资料。退出并重新启动独立游戏后运行 `fire-family --case cold --archive <保存输出目录>`，核对全部索引、追踪轨迹和两个读回招式的真实施放。
+
+录像使用 `demo_all.py --filter Cultiway.FireBlade,Cultiway.Fireball --variants all --cases base --realm 0 --target-offset 7 0 --zoom 9 --duration 1.4 --fps 30`。分别指定 `--view native` 或 `--view worldfall` 和各自的输出目录。总览包含四个火刃、十八个火球各自的一段连续施放。

@@ -57,7 +57,7 @@
                 "projectile.edge"
             ],
             "Id": "branch_-1",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,
@@ -80,7 +80,7 @@
                 "projectile.edge"
             ],
             "Id": "branch_1",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,

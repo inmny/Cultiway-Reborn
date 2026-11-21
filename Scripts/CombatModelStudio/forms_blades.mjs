@@ -98,14 +98,14 @@ function water() {
 /** 火刃有连续焰锋与五个独立收尖的厚焰舌，不以散乱粒子替代作用主体。 */
 function fire() {
   const edge=u=>[u*1.72,0,.37-.42*u*u];
-  const pieces=[['front',ribbon(edge,.28,.16),'flame']];
+  const pieces=[['front',ribbon(edge,.28,.16),'flame_cast']];
   for(let i=0;i<5;i++) {
     const x=(i-2)*.59,length=.65+.25*Math.cos(i*2),rings=[];
     for(const [t,r] of [[0,.22],[.28,.24],[.64,.14],[1,.008]])
       rings.push(Array.from({length:10},(_,j)=>{
         const a=j*Math.PI/5;return [x+Math.cos(a)*r+.10*Math.sin(t*4+i),-Math.sin(a)*r*.65,-.05-t*length];
       }));
-    pieces.push([`tongue_${i}`,column(rings,10),'flame']);
+    pieces.push([`tongue_${i}`,column(rings,10),'flame_cast']);
   }
   publish('fire_blade',pieces,cores(edge),{span:3.44,tongues:5,depth:.28},true);
 
@@ -114,7 +114,7 @@ function fire() {
   for(const sign of [-1,1]) {
     const fork=u=>[sign*(1.02+.72*u),.08+sign*.08*u,.46-.37*u+.31*(1-u*u)];
     forkCores.push(...cores(fork,.09,10).map(core=>[...core,forkPieces.length]));
-    forkPieces.push([`branch_${sign}`,ribbon(fork,.31,.16,28),'flame']);
+    forkPieces.push([`branch_${sign}`,ribbon(fork,.31,.16,28),'flame_cast']);
   }
   publish('fire_blade_fork',forkPieces,forkCores,{span:3.48,gap:.60,branches:2},true);
 
@@ -122,7 +122,7 @@ function fire() {
   const bright=u=>[u*1.52,0,.40-.66*u*u];
   const ridge=u=>[u*1.48,-.025,.17-.64*u*u];
   publish('fire_blade_bright',[
-    ['ridge',ribbon(ridge,.38,.19,32),'flame'],
+    ['ridge',ribbon(ridge,.38,.19,32),'flame_cast'],
     ['lip',ribbon(bright,.15,.09,32),'solar_kernel',true]
   ],cores(bright,.08).map(core=>[...core,1]),{span:3.04,ridgeDepth:.38});
 
@@ -130,8 +130,8 @@ function fire() {
   const hook=u=>[u*1.70,.07*u,.65-1.10*u*u+.28*u*u*u];
   const back=u=>[u*1.63,.04*u,.38-1.03*u*u+.25*u*u*u];
   publish('fire_blade_hook',[
-    ['face',ribbon(back,.34,.16,36),'flame'],
-    ['tip',ribbon(hook,.19,.14,36),'flame']
+    ['face',ribbon(back,.34,.16,36),'flame_cast'],
+    ['tip',ribbon(hook,.19,.14,36),'flame_cast']
   ],cores(hook,.10).map(core=>[...core,1]),{span:3.40,arcDepth:1.10});
 }
 

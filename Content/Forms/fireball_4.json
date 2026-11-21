@@ -1,0 +1,568 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_impacts.mjs",
+            "Entry": "makeImpactForms",
+            "Parameters": [
+                {
+                    "Id": "legacyVariant",
+                    "Values": [
+                        4.0
+                    ]
+                },
+                {
+                    "Id": "profile",
+                    "Values": [
+                        0.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material",
+            "motion"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "fireball_4",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/fireball_4_heart_mid.asset",
+                "Assets/Cultiway/Forms/fireball_4_heart_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "heart",
+            "Surface": "fireball_white",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fireball_4_heart.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "ray_0",
+            "Surface": "solar_kernel",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fireball_4_ray_0.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "ray_1",
+            "Surface": "solar_kernel",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fireball_4_ray_1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "ray_2",
+            "Surface": "solar_kernel",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fireball_4_ray_2.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "ray_3",
+            "Surface": "solar_kernel",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fireball_4_ray_3.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "ray_4",
+            "Surface": "solar_kernel",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fireball_4_ray_4.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "ray_5",
+            "Surface": "solar_kernel",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fireball_4_ray_5.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "ray_6",
+            "Surface": "solar_kernel",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fireball_4_ray_6.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "ray_7",
+            "Surface": "solar_kernel",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fireball_4_ray_7.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                -0.20999999344348908,
+                -0.14000000059604646,
+                0.0
+            ],
+            "B": [
+                -0.20999999344348908,
+                0.14000000059604646,
+                0.0
+            ],
+            "Radius": 0.14000000059604646,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_1",
+            "Part": 0,
+            "A": [
+                0.0,
+                -0.14000000059604646,
+                0.0
+            ],
+            "B": [
+                0.0,
+                0.14000000059604646,
+                0.0
+            ],
+            "Radius": 0.14000000059604646,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_2",
+            "Part": 0,
+            "A": [
+                0.20999999344348908,
+                -0.14000000059604646,
+                0.0
+            ],
+            "B": [
+                0.20999999344348908,
+                0.14000000059604646,
+                0.0
+            ],
+            "Radius": 0.14000000059604646,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.7699999809265137,
+                -0.6899999976158142,
+                -0.1932000070810318
+            ],
+            "Maximum": [
+                0.6899999976158142,
+                0.8500000238418579,
+                0.1932000070810318
+            ]
+        }
+    ],
+    "Motions": [
+        {
+            "Id": "dissolve",
+            "Duration": 0.25,
+            "Loop": false,
+            "Keys": [
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.0,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0196749996393919,
+                    "At": 0.020833000540733339,
+                    "Positions": [
+                        0.0,
+                        0.01083299983292818,
+                        -0.004999999888241291
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.07407499849796295,
+                    "At": 0.04166699945926666,
+                    "Positions": [
+                        0.0,
+                        0.0216669999063015,
+                        -0.009999999776482582
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.15625,
+                    "At": 0.0625,
+                    "Positions": [
+                        0.0,
+                        0.032499998807907107,
+                        -0.014999999664723874
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.2592569887638092,
+                    "At": 0.08333300054073334,
+                    "Positions": [
+                        0.0,
+                        0.04333300143480301,
+                        -0.019999999552965165
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.37615901231765749,
+                    "At": 0.10416699945926666,
+                    "Positions": [
+                        0.0,
+                        0.0541669987142086,
+                        -0.02500000037252903
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.5,
+                    "At": 0.125,
+                    "Positions": [
+                        0.0,
+                        0.06499999761581421,
+                        -0.029999999329447748
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.6238409876823425,
+                    "At": 0.14583300054073335,
+                    "Positions": [
+                        0.0,
+                        0.07583300024271012,
+                        -0.03500000014901161
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.7407429814338684,
+                    "At": 0.16666699945926667,
+                    "Positions": [
+                        0.0,
+                        0.086667001247406,
+                        -0.03999999910593033
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.84375,
+                    "At": 0.1875,
+                    "Positions": [
+                        0.0,
+                        0.09749999642372132,
+                        -0.04500000178813934
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9259250164031982,
+                    "At": 0.20833300054073335,
+                    "Positions": [
+                        0.0,
+                        0.10833299905061722,
+                        -0.05000000074505806
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9803249835968018,
+                    "At": 0.22916699945926667,
+                    "Positions": [
+                        0.0,
+                        0.11916700005531311,
+                        -0.054999999701976779
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 1.0,
+                    "At": 0.25,
+                    "Positions": [
+                        0.0,
+                        0.12999999523162843,
+                        -0.05999999865889549
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                }
+            ],
+            "Markers": []
+        }
+    ]
+}

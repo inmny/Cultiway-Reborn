@@ -33,8 +33,12 @@ public sealed partial class AbilityCast
         nodes[node].Force = 0f; nodes[node].Volume = 0; nodes[node].Resource = 0;
         return true;
 
-        bool Receives(int index) => Plan.Nodes[index].Activation.Trigger == trigger &&
-            nodes[index].Exists && float.IsPositiveInfinity(nodes[index].BirthAt);
+        bool Receives(int index)
+        {
+            CompiledConstructionActivation gate = Plan.Nodes[index].Activation;
+            return gate.Trigger == trigger && WithinSourcePresence(gate) &&
+                   nodes[index].Exists && float.IsPositiveInfinity(nodes[index].BirthAt);
+        }
     }
 
     /// <summary>从真实点交接尚存份额，再结束来源。失败或耗尽不会预演后续部位。</summary>

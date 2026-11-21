@@ -11,20 +11,150 @@ function shaft(rows,sides=8) {
 }
 
 /** 共用制作出口，各资源保留自己的网格和实际接触芯。 */
-function publish(id,pieces,contacts,parameters={}) {
+function publish(id,pieces,contacts,parameters={},dissolve=false) {
   const controls=[{Id:'root',Position:[0,0,0],Rotation:[0,0,0,1]}];
-  const parts=pieces.map(([name,g,s])=>wallPart(name,g,s,[0,0,0],'root'));
+  const parts=pieces.map(([name,g,s,fixedSurface])=>{
+    const part=wallPart(name,g,s,[0,0,0],'root');
+    if(fixedSurface)part.UseMatterSurface=false;
+    return part;
+  });
+  const motions=[];
+  if(dissolve) {
+    const clip=motion('dissolve',.25,false,controls,12,(_index,t)=>({position:[0,.13*t,-.06*t]}));
+    for(const key of clip.Keys)key.Fade=round(T.MathUtils.smoothstep(key.At,0,clip.Duration));
+    motions.push(clip);
+  }
   write(id,parts,[{Id:'root',Part:0,Position:[0,0,0],Direction:[0,0,1],Control:'root'}],
-    contacts.map(([a,b,r,part=0],i)=>({Id:`core_${i}`,Part:part,A:a,B:b,Radius:r,AControl:'root',BControl:'root'})),controls,[],false,
+    contacts.map(([a,b,r,part=0],i)=>({Id:`core_${i}`,Part:part,A:a,B:b,Radius:r,AControl:'root',BControl:'root'})),controls,motions,false,
     {Forward:[0,0,1],Up:[0,1,0],HideBelowGround:true},structure('rigid','forms_impacts.mjs','makeImpactForms',parameters,
       Object.fromEntries(parts.map(p=>[p.Id,['projectile.body','impact.volume']])),[]));
 }
 
-/** 火球有浑圆前核和三片厚焰背，区别于坠落炎陨的长体。 */
+/** 原索引的火核、火舌及交叉束各自保留可辨轮廓，接触芯沿有厚度的部分铺设。 */
 function fireball() {
-  const pieces=[['heart',new T.SphereGeometry(.49,24,16),'flame']];
-  for(let i=0;i<3;i++)pieces.push([`flare_${i}`,shaft([[-.86,.015],[-.44,.21],[-.12,.18]],10).translate(.24,0,0).rotateZ(i*Math.PI*2/3),'flame']);
-  publish('fireball',pieces,[[[0,0,0],[0,0,.10],.35]],{radius:.49,backFlares:3});
+  const pieces=[['heart',new T.SphereGeometry(.49,24,16),'flame_cast']];
+  for(let i=0;i<3;i++)pieces.push([`flare_${i}`,shaft([[-.86,.015],[-.44,.21],[-.12,.18]],10).translate(.24,0,0).rotateZ(i*Math.PI*2/3),'flame_cast']);
+  publish('fireball',pieces,[[[0,0,0],[0,0,.10],.35]],{radius:.49,backFlares:3},true);
+
+  // 闭合截面的火舌沿曲线变厚再收尖；接触仅覆盖仍有可见厚度的相邻截面。
+  function tongue(parts,contacts,name,rows,surface='flame_cast',fixed=false,sides=10) {
+    const part=parts.length;
+    parts.push([name,shaft(rows,sides),surface,fixed]);
+    for(let i=1;i<rows.length;i++) {
+      const [z,r,x=0,y=0]=rows[i-1], [nextZ,nextR,nextX=0,nextY=0]=rows[i];
+      const core=Math.min(r,nextR)*.84;
+      if(core>.04)contacts.push([[x,y,z],[nextX,nextY,nextZ],core,part]);
+      else if(Math.max(r,nextR)>.14) {
+        const peak=r>nextR?[x,y,z]:[nextX,nextY,nextZ];
+        contacts.push([peak,peak,Math.max(r,nextR)*.72,part]);
+      }
+    }
+  }
+  function variant(index,profile,build) {
+    const parts=[],contacts=[];
+    build(parts,contacts);
+    publish(`fireball_${index}`,parts,contacts,{legacyVariant:index,profile},index<=4);
+  }
+  function heart(parts,contacts,radius,surface,geometry,fixed=false) {
+    contacts.push([[0,0,0],[0,0,0],radius,parts.length]);
+    parts.push(['heart',geometry,surface,fixed]);
+  }
+
+  variant(1,'white_dart',(p,c)=>tongue(p,c,'white_dart',
+    [[-.80,.014,-.06],[-.53,.085,-.02],[-.14,.14],[.13,.21],[.42,.17],[.62,.008,.03]],'fireball_white'));
+  variant(2,'ember_shell',(p,c)=>{
+    heart(p,c,.34,'flame_cast',new T.IcosahedronGeometry(.43,2).scale(.94,1.12,.92));
+    for(let i=0;i<5;i++) {
+      const a=i*Math.PI*2/5;
+      const shell=shaft([[-.37,.035,.04],[-.12,.13,.31],[.14,.15,.31],[.37,.017,.13]],7).rotateZ(a);
+      p.push([`fissure_${i}`,shell,'fireball_copper',true]);
+    }
+    tongue(p,c,'crown',[[-.22,.18,0,.28],[-.06,.15,.015,.41],[.13,.09,.08,.58],[.19,.012,.14,.73]],'flame_cast');
+  });
+  variant(3,'blue_crest',(p,c)=>{
+    tongue(p,c,'crest',[[-.36,.10,0,.01],[-.12,.29,0,.08],[.08,.29,.06,.29],[.22,.18,.10,.51],
+      [.29,.075,.02,.69],[.32,.009,-.07,.82]],'fireball_blue');
+    p.push(['hot_fold',shaft([[-.20,.08],[-.04,.16],[.14,.13,0,.07],[.22,.012,0,.30]]),'fireball_ice',true]);
+  });
+  variant(4,'solar_disk',(p,c)=>{
+    p.push(['heart',new T.SphereGeometry(.46,24,16).scale(1,1,.42),'fireball_white']);
+    for(const x of [-.21,0,.21])c.push([[x,-.14,0],[x,.14,0],.14]);
+    for(let i=0;i<8;i++) {
+      const angle=i*Math.PI/4;
+      p.push([`ray_${i}`,shaft([[.05,.06],[.22,.13],[.42+.08*(i%3),.01]],8)
+        .rotateY(Math.PI/2).rotateZ(angle).translate(.27*Math.cos(angle),.27*Math.sin(angle),-.06),'solar_kernel',true]);
+    }
+  });
+  variant(5,'ember_seed',(p,c)=>{
+    heart(p,c,.22,'flame_cast',new T.IcosahedronGeometry(.29,2).scale(1,.94,1.12));
+    p.push(['molten_face',new T.SphereGeometry(.19,16,10).scale(.9,.8,.60).translate(.02,.03,.21),'solar_kernel',true]);
+  });
+  variant(6,'flat_flame',(p,c)=>{
+    const flat=shaft([[-1.01,.013,.13],[-.51,.17,.10],[0,.37,-.02],[.31,.34],[.63,.016,.045]],12).scale(1,.32,1);
+    p.push(['flat_fold',flat,'flame_cast']);
+    for(const x of [-.19,0,.19])c.push([[x,0,-.21],[x,0,.38],.10]);
+    p.push(['hot_lip',shaft([[-.18,.13],[.40,.23],[.63,.01]],10).scale(1,.23,1),'fireball_white',true]);
+  });
+  variant(7,'thick_flame',(p,c)=>{
+    heart(p,c,.48,'flame_cast',new T.SphereGeometry(.62,24,16).scale(.93,1.1,1.03));
+    for(let i=0;i<4;i++) {
+      const a=i*Math.PI/2;
+      p.push([`shoulder_${i}`,shaft([[-1.16,.011,.34],[-.67,.22,.34],[-.19,.28,.34],[.26,.07,.27]],9)
+        .rotateZ(a),'flame_cast']);
+    }
+    p.push(['front_cap',new T.SphereGeometry(.38,20,14).translate(.02,0,.35),'solar_kernel',true]);
+  });
+  variant(8,'needle_with_long_flare',(p,c)=>{
+    tongue(p,c,'needle',[[-1.28,.012,.14],[-.87,.08,.09],[-.43,.16,-.04],[-.10,.24],[.27,.21],[.52,.014,.02]]);
+    p.push(['white_front',shaft([[-.05,.13],[.31,.17],[.55,.012]],8),'solar_kernel',true]);
+  });
+  variant(9,'ember_facets',(p,c)=>{
+    heart(p,c,.24,'flame_cast',new T.IcosahedronGeometry(.43,0).scale(1,.88,1.26));
+    for(let i=0;i<3;i++)p.push([`facet_${i}`,new T.IcosahedronGeometry(.20,0).scale(.84,.6,1.31)
+      .translate(.22*Math.cos(i*2.1),.22*Math.sin(i*2.1),-.27),'fireball_copper',true]);
+    p.push(['inner_facet',new T.IcosahedronGeometry(.26,0).translate(.01,.02,.31),'solar_kernel',true]);
+  });
+  function pair(index,profile,surface,rows) {
+    variant(index,profile,(p,c)=>{
+      for(const sign of [-1,1])tongue(p,c,`fold_${sign}`,
+        rows.map(([z,r,x,y=0])=>[z,r,sign*x,sign*y]),surface,false,9);
+    });
+  }
+  pair(10,'diverging_gold','fireball_gold',[[-.71,.01,.015],[-.38,.07,.22],[.02,.11,.40],[.34,.16,.49],[.63,.02,.60]]);
+  pair(11,'crossed_blue','fireball_blue',[[-.75,.01,-.57,-.044],[-.48,.07,-.32,-.045],[-.06,.10,.01,-.07],
+    [.30,.16,.35,-.11],[.51,.07,.46,-.06],[.66,.012,.52,-.04]]);
+  pair(12,'diverging_green','fireball_green',[[-.69,.01,.025],[-.42,.085,.25,.02],[-.15,.12,.45,.062],
+    [.22,.18,.52,.09],[.53,.06,.58,.14],[.63,.01,.69,.20]]);
+  pair(13,'braided_rose','fireball_rose',[[-.83,.01,-.47,-.21],[-.52,.067,-.41,-.12],[-.25,.10,-.18,.018],
+    [.02,.12,.08,.12],[.28,.15,.33,.18],[.51,.09,.38,.11],[.68,.012,.45,.0]]);
+  pair(14,'hooked_red','fireball_red',[[-.56,.012,.56,.04],[-.38,.091,.47,.04],[-.12,.14,.37,-.012],
+    [.15,.18,.18,.015],[.40,.14,.055,.025],[.62,.014,.17,.03]]);
+  pair(15,'crossed_silver','fireball_ice',[[-.74,.01,-.53],[-.46,.075,-.33,-.14],[-.08,.108,-.036,-.085],
+    [.25,.16,.24,-.062],[.51,.14,.44,.01],[.63,.015,.52,.08]]);
+  variant(16,'vertical_braid',(p,c)=>{
+    for(const sign of [-1,1])tongue(p,c,`lift_${sign}`,[[-.52,.018,sign*.035,sign*-.31],[-.29,.09,sign*.13,sign*-.17],
+      [-.01,.16,sign*.08,sign*.07],[.18,.14,sign*-.025,sign*.32],[.25,.08,sign*-.11,sign*.52],
+      [.38,.012,sign*.13,sign*.71]],sign>0?'flame_cast':'solar_kernel',sign<0);
+  });
+  variant(17,'separated_ring',(p,c)=>{
+    const radius=.44;
+    for(let arc=0;arc<4;arc++) {
+      const rings=[], part=p.length;
+      for(let i=0;i<=16;i++) {
+        const t=i/16,a=arc*Math.PI/2+t*1.10+.17;
+        const width=.125*Math.pow(Math.max(.03,Math.sin(Math.PI*t)),.60), z=.10*(.5-t);
+        const cos=Math.cos(a),sin=Math.sin(a);
+        rings.push(Array.from({length:8},(_,j)=>{
+          const b=j*Math.PI/4,r=radius+width*Math.cos(b);
+          return [r*cos,r*sin,z+width*Math.sin(b)];
+        }));
+        if(i>=3&&i<=13&&(i-3)%2===0) {
+          const x=radius*cos,y=radius*sin;c.push([[x,y,z],[x,y,z],width*.87,part]);
+        }
+      }
+      p.push([`arc_${arc}`,column(rings,8),arc%2?'fireball_copper':'flame_cast']);
+    }
+  });
 }
 
 /** 雷球有折面核与六片宽短雷瓣，不以细线网格代替体积。 */
@@ -126,7 +256,7 @@ function lightningStages() {
 
 /** 六类爆发保留闭合实体内核；内部球形作用区半径0.9，与运行的原作用半径共同缩放。 */
 function bursts() {
-  const settings=[['fire','flame'],['lightning','lightning_dense'],['entropy','entropy_veil'],['earth','stone'],['wood','wood'],['ice','ice']];
+  const settings=[['fire','flame_cast'],['lightning','lightning_dense'],['entropy','entropy_veil'],['earth','stone'],['wood','wood'],['ice','ice']];
   for(const [matter,surface] of settings) {
     let core=matter==='earth'||matter==='ice'?new T.IcosahedronGeometry(.97,2):new T.SphereGeometry(.91,28,18);
     const pieces=[['heart',core,surface]];

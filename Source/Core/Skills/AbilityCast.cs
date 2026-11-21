@@ -1560,7 +1560,14 @@ public sealed partial class AbilityCast
                 if (poses[i] is { Fade: > 0f } pose)
                 {
                     Color faded = dye ?? Color.white;
-                    faded.a = 1f - pose.Fade;
+                    faded.a *= 1f - pose.Fade;
+                    dye = faded;
+                }
+                bool fire = nodes[i].Matter.Id == "fire";
+                if (fire && nodes[i].InitialForce > 0f && nodes[i].Force < nodes[i].InitialForce)
+                {
+                    Color faded = dye ?? Color.white;
+                    faded.a *= Mathf.Clamp01(nodes[i].Force / nodes[i].InitialForce);
                     dye = faded;
                 }
                 string visualId = Plan.Nodes[i].Resource.Description.Id;
@@ -1583,10 +1590,7 @@ public sealed partial class AbilityCast
                 if (cooling && flows[i].LiquidVolume <= 0d) continue;
                 output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
                     surface: appearance.Surface,
-                    tint: nodes[i].Matter.Id == "fire"
-                        ? new Color(1f, .31f, .035f,
-                            nodes[i].InitialForce > 0 ? Mathf.Clamp01(nodes[i].Force / nodes[i].InitialForce) : 0f)
-                        : FormBurningPresentation.Char(nodes[i].Burning, nodes[i].Volume),
+                    tint: fire ? null : FormBurningPresentation.Char(nodes[i].Burning, nodes[i].Volume),
                     groundAnchor: Plan.Nodes[i].FragmentSource >= 0 ? (Vector2?)nodes[i].Position : null,
                     skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
                     matterSurface: appearance.MatterSurface, dye: dye, matter: nodes[i].Matter,

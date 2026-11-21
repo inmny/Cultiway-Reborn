@@ -1,0 +1,721 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_impacts.mjs",
+            "Entry": "makeImpactForms",
+            "Parameters": [
+                {
+                    "Id": "legacyVariant",
+                    "Values": [
+                        17.0
+                    ]
+                },
+                {
+                    "Id": "profile",
+                    "Values": [
+                        0.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "fireball_17",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/fireball_17_arc_0_mid.asset",
+                "Assets/Cultiway/Forms/fireball_17_arc_0_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "arc_0",
+            "Surface": "flame_cast",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fireball_17_arc_0.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/fireball_17_arc_1_mid.asset",
+                "Assets/Cultiway/Forms/fireball_17_arc_1_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "arc_1",
+            "Surface": "fireball_copper",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fireball_17_arc_1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/fireball_17_arc_2_mid.asset",
+                "Assets/Cultiway/Forms/fireball_17_arc_2_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "arc_2",
+            "Surface": "flame_cast",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fireball_17_arc_2.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/fireball_17_arc_3_mid.asset",
+                "Assets/Cultiway/Forms/fireball_17_arc_3_far.asset"
+            ],
+            "Roles": [
+                "projectile.body",
+                "impact.volume"
+            ],
+            "Id": "arc_3",
+            "Surface": "fireball_copper",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/fireball_17_arc_3.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.4092215895652771,
+                0.16167156398296357,
+                0.03125
+            ],
+            "B": [
+                0.4092215895652771,
+                0.16167156398296357,
+                0.03125
+            ],
+            "Radius": 0.07643155008554459,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_1",
+            "Part": 0,
+            "A": [
+                0.38319939374923708,
+                0.21623650193214417,
+                0.01875000074505806
+            ],
+            "B": [
+                0.38319939374923708,
+                0.21623650193214417,
+                0.01875000074505806
+            ],
+            "Radius": 0.09735025465488434,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_2",
+            "Part": 0,
+            "A": [
+                0.34994375705718996,
+                0.26671966910362246,
+                0.0062500000931322578
+            ],
+            "B": [
+                0.34994375705718996,
+                0.26671966910362246,
+                0.0062500000931322578
+            ],
+            "Radius": 0.1074913740158081,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_3",
+            "Part": 0,
+            "A": [
+                0.31008240580558779,
+                0.31216809153556826,
+                -0.0062500000931322578
+            ],
+            "B": [
+                0.31008240580558779,
+                0.31216809153556826,
+                -0.0062500000931322578
+            ],
+            "Radius": 0.1074913740158081,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_4",
+            "Part": 0,
+            "A": [
+                0.2643677592277527,
+                0.35172387957572939,
+                -0.01875000074505806
+            ],
+            "B": [
+                0.2643677592277527,
+                0.35172387957572939,
+                -0.01875000074505806
+            ],
+            "Radius": 0.09735025465488434,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_5",
+            "Part": 0,
+            "A": [
+                0.21366281807422639,
+                0.38464033603668215,
+                -0.03125
+            ],
+            "B": [
+                0.21366281807422639,
+                0.38464033603668215,
+                -0.03125
+            ],
+            "Radius": 0.07643155008554459,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_6",
+            "Part": 1,
+            "A": [
+                -0.16167156398296357,
+                0.4092215895652771,
+                0.03125
+            ],
+            "B": [
+                -0.16167156398296357,
+                0.4092215895652771,
+                0.03125
+            ],
+            "Radius": 0.07643155008554459,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_7",
+            "Part": 1,
+            "A": [
+                -0.21623650193214417,
+                0.38319939374923708,
+                0.01875000074505806
+            ],
+            "B": [
+                -0.21623650193214417,
+                0.38319939374923708,
+                0.01875000074505806
+            ],
+            "Radius": 0.09735025465488434,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_8",
+            "Part": 1,
+            "A": [
+                -0.26671966910362246,
+                0.34994375705718996,
+                0.0062500000931322578
+            ],
+            "B": [
+                -0.26671966910362246,
+                0.34994375705718996,
+                0.0062500000931322578
+            ],
+            "Radius": 0.1074913740158081,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_9",
+            "Part": 1,
+            "A": [
+                -0.31216809153556826,
+                0.31008240580558779,
+                -0.0062500000931322578
+            ],
+            "B": [
+                -0.31216809153556826,
+                0.31008240580558779,
+                -0.0062500000931322578
+            ],
+            "Radius": 0.1074913740158081,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_10",
+            "Part": 1,
+            "A": [
+                -0.35172387957572939,
+                0.2643677592277527,
+                -0.01875000074505806
+            ],
+            "B": [
+                -0.35172387957572939,
+                0.2643677592277527,
+                -0.01875000074505806
+            ],
+            "Radius": 0.09735025465488434,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_11",
+            "Part": 1,
+            "A": [
+                -0.38464033603668215,
+                0.21366281807422639,
+                -0.03125
+            ],
+            "B": [
+                -0.38464033603668215,
+                0.21366281807422639,
+                -0.03125
+            ],
+            "Radius": 0.07643155008554459,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_12",
+            "Part": 2,
+            "A": [
+                -0.4092215895652771,
+                -0.16167156398296357,
+                0.03125
+            ],
+            "B": [
+                -0.4092215895652771,
+                -0.16167156398296357,
+                0.03125
+            ],
+            "Radius": 0.07643155008554459,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_13",
+            "Part": 2,
+            "A": [
+                -0.38319939374923708,
+                -0.21623650193214417,
+                0.01875000074505806
+            ],
+            "B": [
+                -0.38319939374923708,
+                -0.21623650193214417,
+                0.01875000074505806
+            ],
+            "Radius": 0.09735025465488434,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_14",
+            "Part": 2,
+            "A": [
+                -0.34994375705718996,
+                -0.26671966910362246,
+                0.0062500000931322578
+            ],
+            "B": [
+                -0.34994375705718996,
+                -0.26671966910362246,
+                0.0062500000931322578
+            ],
+            "Radius": 0.1074913740158081,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_15",
+            "Part": 2,
+            "A": [
+                -0.31008240580558779,
+                -0.31216809153556826,
+                -0.0062500000931322578
+            ],
+            "B": [
+                -0.31008240580558779,
+                -0.31216809153556826,
+                -0.0062500000931322578
+            ],
+            "Radius": 0.1074913740158081,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_16",
+            "Part": 2,
+            "A": [
+                -0.2643677592277527,
+                -0.35172387957572939,
+                -0.01875000074505806
+            ],
+            "B": [
+                -0.2643677592277527,
+                -0.35172387957572939,
+                -0.01875000074505806
+            ],
+            "Radius": 0.09735025465488434,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_17",
+            "Part": 2,
+            "A": [
+                -0.21366281807422639,
+                -0.38464033603668215,
+                -0.03125
+            ],
+            "B": [
+                -0.21366281807422639,
+                -0.38464033603668215,
+                -0.03125
+            ],
+            "Radius": 0.07643155008554459,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_18",
+            "Part": 3,
+            "A": [
+                0.16167156398296357,
+                -0.4092215895652771,
+                0.03125
+            ],
+            "B": [
+                0.16167156398296357,
+                -0.4092215895652771,
+                0.03125
+            ],
+            "Radius": 0.07643155008554459,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_19",
+            "Part": 3,
+            "A": [
+                0.21623650193214417,
+                -0.38319939374923708,
+                0.01875000074505806
+            ],
+            "B": [
+                0.21623650193214417,
+                -0.38319939374923708,
+                0.01875000074505806
+            ],
+            "Radius": 0.09735025465488434,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_20",
+            "Part": 3,
+            "A": [
+                0.26671966910362246,
+                -0.34994375705718996,
+                0.0062500000931322578
+            ],
+            "B": [
+                0.26671966910362246,
+                -0.34994375705718996,
+                0.0062500000931322578
+            ],
+            "Radius": 0.1074913740158081,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_21",
+            "Part": 3,
+            "A": [
+                0.31216809153556826,
+                -0.31008240580558779,
+                -0.0062500000931322578
+            ],
+            "B": [
+                0.31216809153556826,
+                -0.31008240580558779,
+                -0.0062500000931322578
+            ],
+            "Radius": 0.1074913740158081,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_22",
+            "Part": 3,
+            "A": [
+                0.35172387957572939,
+                -0.2643677592277527,
+                -0.01875000074505806
+            ],
+            "B": [
+                0.35172387957572939,
+                -0.2643677592277527,
+                -0.01875000074505806
+            ],
+            "Radius": 0.09735025465488434,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_23",
+            "Part": 3,
+            "A": [
+                0.38464033603668215,
+                -0.21366281807422639,
+                -0.03125
+            ],
+            "B": [
+                0.38464033603668215,
+                -0.21366281807422639,
+                -0.03125
+            ],
+            "Radius": 0.07643155008554459,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.4909290075302124,
+                -0.4909290075302124,
+                -0.13170099258422852
+            ],
+            "Maximum": [
+                0.4909290075302124,
+                0.4909290075302124,
+                0.13170099258422852
+            ]
+        }
+    ],
+    "Motions": []
+}

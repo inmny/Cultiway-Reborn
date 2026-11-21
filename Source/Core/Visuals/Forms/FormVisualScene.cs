@@ -63,6 +63,8 @@ public readonly struct FormVisualInstance
     internal readonly Mesh Geometry;
     /// <summary>动态形体不使用原资源的模型细节和蒙皮。</summary>
     internal bool DynamicGeometry => Geometry != null || Layer != null;
+    /// <summary>透明通道同时读取表面覆盖与该次形体淡出。</summary>
+    internal bool IsTranslucent => Tint is { a: < 1f } || Dye is { a: < 1f };
     /// <summary>相连肢段的身体语义，独立形体和器物不使用。</summary>
     public readonly BodyVisualSegment BodySegment;
     /// <summary>当前表面位置及已确认的短暂强度，默认不改变材质。</summary>

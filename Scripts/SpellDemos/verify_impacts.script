@@ -105,7 +105,7 @@ try
         var normal=Build();
         if(section!="visuals")foreach(var skill in new[]{normal,Build(true)})
         {
-            var d=Convert(skill,out GetHitEvent damage);var burst=d.Root.Children.Single();
+            var d=Convert(skill,out GetHitEvent damage);var burst=d.Root.Children.Single(child=>child.Id=="burst");
             var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
             var plan=AbilityCompiler.Compile(restored,cache:false);bool boost=skill.HasComponent<HugeModifier>();
             Check(d.Root.Form==entry.Form&&d.Root.Matter==entry.Matter&&d.Root.State==entry.State&&
@@ -170,7 +170,7 @@ try
             damageEvents.All(e=>Math.Abs(e.Damage-forceAfterHit[0])<.01f),"交锋后爆发只继承真实余力，不重建初始强度",
             new{force=forceAfterHit.ToArray(),damages=damageEvents.Select(e=>e.Damage).ToArray()});
         ResetPeople();starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();
-        Check(Use(Build(duration:.06f)),"短原寿命的实际来源受理");await Advance(.3f);
+        Check(Use(Build(duration:.06f)),"短原寿命的实际来源受理");await Advance(.6f);
         Check(accepted.Single().Finished&&accepted.Single().NodeAge(1)<0&&damageEvents.Count==0,"原寿命耗尽不凭空产生爆发");
         }
         ResetPeople();starts.Clear();accepted.Clear();damageEvents.Clear();Check(Use(Build()),"待取消来源受理");await Advance(.02f);accepted.Single().Cancel();await Advance(.3f);

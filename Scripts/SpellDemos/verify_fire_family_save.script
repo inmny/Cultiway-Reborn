@@ -1,0 +1,139 @@
+// 同一份正式世界保存火系全部旧索引，重启后检查学习资料和代表性正式施放。
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Entity[] FireSkills(ActorExtend actor) =>
+    ((IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(actor, null))
+        .Where(entity =>
+        {
+            var asset = entity.GetComponent<SkillContainer>().Asset;
+            return asset == SkillEntities.FireBlade || asset == SkillEntities.Fireball;
+        }).ToArray();
+
+if (caseName == "archive")
+{
+    var source = Make(64);
+    var target = Make(68);
+    var flank = Make(68);
+    var wolf = Make(12, "wolf");
+    target.setKingdom(wolf.kingdom);
+    flank.setKingdom(wolf.kingdom);
+    var owner = source.GetExtend();
+    owner.NewCultisys(Cultisyses.Xian);
+    owner.GetCultisys<Xian>().level = 0;
+    owner.MarkCultiwayStatsDirty();
+    source.setStatsDirty();
+    source.updateStats();
+    foreach (var entry in new[] { (Asset: SkillEntities.FireBlade, Count: 4), (Asset: SkillEntities.Fireball, Count: 18) })
+        for (int index = 0; index < entry.Count; index++)
+        {
+            var builder = new SkillContainerBuilder(entry.Asset).UseAnimation(index);
+            if (entry.Asset == SkillEntities.Fireball && index == 11)
+                builder.AddModifier(new Trajectory { ID = SkillTrajectories.TowardsTarget.id });
+            owner.LearnSkillV3(builder.Build(SkillContainerBuildMode.RuleOnly));
+        }
+    await Advance(.15f);
+    Check(World.world.units.get(source.id) == source && World.world.units.get(target.id) == target &&
+          World.world.units.get(flank.id) == flank, "正式写档前新人物已经进入世界");
+    var signatures = FireSkills(owner).Select(SkillContainerSignature.Build).OrderBy(value => value, StringComparer.Ordinal).ToArray();
+    Check(signatures.Length == 22 && signatures.Distinct().Count() == 22, "实际学习关系存有二十二份不同的火系索引");
+    string world = Path.Combine(folder, "archive");
+    Directory.CreateDirectory(world);
+    SaveManager.saveWorldToDirectory(world);
+    Check(File.Exists(Path.Combine(world, "map.wbox")), "完整火系资料随原版世界保存");
+    File.WriteAllText(Path.Combine(folder, "expected.json"),
+        JsonConvert.SerializeObject(new { process, source = source.id, target = target.id, flank = flank.id, signatures }, Formatting.Indented));
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    return new { passed = true, process, world, skills = signatures.Length };
+}
+
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(archivePath, "expected.json")));
+Check(process != (int)expected["process"], "正式世界由另一个游戏进程读取", new { original = (int)expected["process"], process });
+var reader = World.world.units.get((long)expected["source"]);
+var opponent = World.world.units.get((long)expected["target"]);
+var side = World.world.units.get((long)expected["flank"]);
+Check(reader != null && opponent != null && side != null, "原人物资料从正式世界恢复");
+var restored = reader.GetExtend();
+var skills = FireSkills(restored);
+var actual = skills.Select(SkillContainerSignature.Build).OrderBy(value => value, StringComparer.Ordinal).ToArray();
+Check(actual.SequenceEqual(expected["signatures"].ToObject<string[]>()), "全部旧索引和原改造资料完整读回");
+// 原版重读会按种族恢复野外阵营，沿用对练入口准备真实敌人。
+var opponents = World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild);
+opponent.setKingdom(opponents);
+side.setKingdom(opponents);
+
+AbilityCast current = null;
+long currentId = 0;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != reader.id) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == fact.CastId);
+    currentId = fact.CastId;
+    current = (AbilityCast)Field(running, "Cast");
+}
+
+ConstructedAbilityService.CastStarted += Started;
+try
+{
+    foreach (var entry in new[]
+    {
+        (Asset: SkillEntities.FireBlade, Index: 1, Form: "fire_blade_fork", Hit: side),
+        (Asset: SkillEntities.Fireball, Index: 11, Form: "fireball_11", Hit: opponent)
+    })
+    {
+        current = null;
+        var skill = skills.Single(entity =>
+        {
+            var container = entity.GetComponent<SkillContainer>();
+            return container.Asset == entry.Asset && container.AnimationIndex == entry.Index;
+        });
+        if (entry.Asset == SkillEntities.Fireball)
+            Check(SkillBlueprintTrajectory.ResolveEffectiveId(skill) == SkillTrajectories.TowardsTarget.id, "读回火球实际采用保存的追踪轨迹");
+        Ready(reader);
+        Place(reader, 64);
+        Place(opponent, entry.Asset == SkillEntities.FireBlade ? 68f : 72f);
+        Place(side, entry.Asset == SkillEntities.FireBlade ? 68f : 12f,
+            entry.Asset == SkillEntities.FireBlade ? 73f : 12f);
+        foreach (var actor in new[] { reader, opponent, side }) ConstructedAbilityService.NotifyActorChanged(actor);
+        restored.GetCultisys<Xian>().wakan = reader.stats[BaseStatses.MaxWakan.id] * .8f;
+        float before = restored.GetCultisys<Xian>().wakan;
+        double price = SkillCastResources.Wakan.Quote(restored,
+            SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(restored, skill)));
+        var handle = new ActiveAbilityHandle("core.learned_skill", skill);
+        var aim = new ActiveAbilityTarget(opponent, opponent.GetSimPos(),
+            selectionArea: new SkillTargetSelectionArea(true, opponent.GetSimPos(), .1f));
+        Check(ActiveAbilityService.TryUse(restored, handle, aim, ActiveAbilityUseOrigin.Player),
+            "读回的已学索引可正式施放", new { entry.Form, before, price,
+                relation = SkillTargetRelationResolver.IsHostile(reader, opponent),
+                reason = ActiveAbilityService.ResolveControlState(restored, handle).BlockReason.ToString() });
+        reader.attack_timer = 999;
+        CombatStatusEffects.ApplyStatus(reader, hold, 10000, reader);
+        reader.updateStats();
+        await Advance(.10f);
+        Check(current != null, "读回的已学索引进入共同构造", entry.Form);
+        var views = new List<FormVisualInstance>();
+        current.AppendVisuals(views);
+        Check(views.Single().Resource.Description.Id == entry.Form, "正式读档后仍用对应的实际三维主体", entry.Form);
+        if (entry.Asset == SkillEntities.Fireball)
+        {
+            var fire = views[0];
+            var water = new FormVisualInstance(fire.Resource, fire.Transform, matterSurface: "water");
+            Check(fire.SurfaceFor(0) == "fireball_blue" && water.SurfaceFor(0) == "water" &&
+                  fire.Resource.Structure.Supports("material"), "原蓝焰配色和共同换材可同时成立");
+        }
+        await Advance(current.Plan.Lifetime + .06f);
+        var damage = contacts.Where(value => value.CastId == currentId && value.Damage.HealthLost > 0).ToArray();
+        Check(current.Finished && damage.Length == 1 && damage[0].TargetId == entry.Hit.id &&
+              Math.Abs(before - restored.GetCultisys<Xian>().wakan - price) < .001,
+            "读档后的实际命中、费用和结束保持", new { entry.Form, price, hits = damage.Select(value => value.TargetId).ToArray() });
+    }
+    return new { passed = true, process, skills = skills.Length, archivePath };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

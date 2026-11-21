@@ -57,7 +57,7 @@
                 "projectile.edge"
             ],
             "Id": "front",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,
@@ -80,7 +80,7 @@
                 "projectile.edge"
             ],
             "Id": "tongue_0",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,
@@ -103,7 +103,7 @@
                 "projectile.edge"
             ],
             "Id": "tongue_1",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,
@@ -126,7 +126,7 @@
                 "projectile.edge"
             ],
             "Id": "tongue_2",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,
@@ -149,7 +149,7 @@
                 "projectile.edge"
             ],
             "Id": "tongue_3",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,
@@ -172,7 +172,7 @@
                 "projectile.edge"
             ],
             "Id": "tongue_4",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,

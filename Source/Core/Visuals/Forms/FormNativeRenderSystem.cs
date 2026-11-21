@@ -104,8 +104,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 view.Dynamic = instance.DynamicGeometry;
                 Mesh mesh = instance.MeshFor(part);
                 if (changed || view.Dynamic) view.Filter.sharedMesh = mesh;
-                Material material = instance.Resource.Surface(instance.SurfaceFor(part), true,
-                    instance.Tint.HasValue && instance.Tint.Value.a < 1f);
+                Material material = instance.Resource.Surface(instance.SurfaceFor(part), true, instance.IsTranslucent);
                 material.SetFloat("_WorldTime", time);
                 view.Renderer.sharedMaterial = material;
                 Matrix4x4 transform = instance.PartTransform(part);

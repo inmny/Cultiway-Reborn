@@ -51,7 +51,7 @@
                 "impact.volume"
             ],
             "Id": "heart",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,
@@ -71,7 +71,7 @@
                 "impact.volume"
             ],
             "Id": "lobe_0",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,
@@ -91,7 +91,7 @@
                 "impact.volume"
             ],
             "Id": "lobe_1",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,
@@ -111,7 +111,7 @@
                 "impact.volume"
             ],
             "Id": "lobe_2",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,
@@ -131,7 +131,7 @@
                 "impact.volume"
             ],
             "Id": "lobe_3",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,
@@ -151,7 +151,7 @@
                 "impact.volume"
             ],
             "Id": "lobe_4",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,
@@ -171,7 +171,7 @@
                 "impact.volume"
             ],
             "Id": "lobe_5",
-            "Surface": "flame",
+            "Surface": "flame_cast",
             "Pivot": [
                 0.0,
                 0.0,
@@ -207,6 +207,7 @@
     "Grips": [],
     "Held": {
         "Groups": [],
+        "EquipmentIds": [],
         "Scale": 0.0
     },
     "Actions": [],
@@ -227,6 +228,7 @@
                 0.0
             ],
             "Radius": 0.8999999761581421,
+            "HeldMatter": "",
             "AControl": "root",
             "BControl": "root",
             "AInfluences": [],

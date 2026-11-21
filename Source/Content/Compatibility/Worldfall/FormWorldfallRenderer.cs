@@ -140,7 +140,7 @@ internal static class FormWorldfallRenderer
         Material material = instance.Resource.Surface(instance.SurfaceFor(part), false);
         material.SetFloat("_WorldTime", time);
         Mesh mesh = instance.MeshFor(part);
-        bool opaque = material.GetFloat("_ZWrite") > .5f && (!instance.Tint.HasValue || instance.Tint.Value.a >= 1f);
+        bool opaque = material.GetFloat("_ZWrite") > .5f && !instance.IsTranslucent;
         var draw = new DrawEntry
         {
             Resource = instance.Resource,
