@@ -68,12 +68,16 @@ def main():
         'ice-shard': ('Cultiway.IceShard', 1),
         'ice-lance': ('Cultiway.IceLance', 1),
         'icefall': ('Cultiway.Icefall', 1),
+        'rock-projectile': ('Cultiway.RockProjectile', 1),
+        'stone-cone': ('Cultiway.StoneCone', 1),
+        'falling-rock': ('Cultiway.FallingRock', 3),
     }
     batches = {
         'water-family': ('water-arrow', 'water-orb', 'water-blade'),
         'metal-wind': ('flying-sword', 'sword-qi', 'golden-needle', 'wind-bullet', 'wind-blade'),
         'thunder-projectiles': ('thunder-orb', 'lightning-spear'),
         'ice-projectiles': ('ice-shard', 'ice-lance', 'icefall'),
+        'earth-projectiles': ('rock-projectile', 'stone-cone', 'falling-rock'),
     }
     parser.add_argument('spell', choices=('fireball', 'fire-family', *batches, *projectile_spells))
     parser.add_argument('--variant', type=int, choices=range(18), action='append',
@@ -95,14 +99,16 @@ def main():
                 parser.error('单术实测需选择该法术已有的旧索引，支持 hit、miss、tracking、landing、cancel 或 scatter')
             if case == 'tracking' and args.spell not in ('water-orb', 'wind-bullet', 'thunder-orb'):
                 parser.error('改轨迹复验使用水球、风弹或雷珠')
-            if case == 'landing' and args.spell not in ('thunder-orb', 'lightning-strike'):
-                parser.error('指定地点爆发复验使用雷珠或落雷')
+            if case == 'landing' and args.spell not in ('thunder-orb', 'lightning-strike', 'falling-rock'):
+                parser.error('指定地点爆发复验使用雷珠、落雷或落石')
             if case == 'scatter' and args.spell != 'icefall':
                 parser.error('重复施放核对散落使用冰雨')
             if case == 'cancel' and args.spell != 'lightning-strike':
                 parser.error('取消复验使用落雷')
             selected = (asset,)
-            default_index = 0 if args.spell == 'lightning-strike' and case in ('landing', 'cancel') else min(1, count - 1)
+            default_index = min(1, count - 1)
+            if case in ('landing', 'cancel') and args.spell in ('lightning-strike', 'falling-rock'):
+                default_index = 0
             variants = args.variant or (list(range(count)) if case == 'hit' else [default_index])
         archive = args.archive.resolve() if args.archive else None
         if case == 'cold' and (not archive or not all(

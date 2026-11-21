@@ -59,12 +59,12 @@ function wind() {
 
 /** 飞石保持不规则分面与厚重体积，外轮廓不做成另一根岩锥。 */
 function rock() {
-  const g=new T.IcosahedronGeometry(.59,1),p=g.getAttribute('position');
-  for(let i=0;i<p.count;i++) {
-    const x=p.getX(i),y=p.getY(i),z=p.getZ(i),k=1+.12*Math.sin(x*13+y*17+z*11);
-    p.setXYZ(i,x*k,y*k*.81,z*k*1.06);
-  }
-  publish('rock_projectile',[['boulder',g,'stone']],[[[0,0,-.08],[0,0,.08],.34]],{radius:.59,facets:80});
+  const g=new T.DodecahedronGeometry(.52).scale(1.06,.82,1.14).rotateZ(.29).rotateY(.33);
+  const shoulder=new T.IcosahedronGeometry(.31).scale(1.14,.54,1.27).rotateZ(.24).translate(.07,.27,-.045);
+  const underside=new T.DodecahedronGeometry(.28).scale(.81,.66,1.45).rotateY(-.48).translate(-.16,-.24,.09);
+  publish('rock_projectile',[
+    ['boulder',g,'stone'],['shoulder',shoulder,'stone_ridge'],['underside',underside,'stone_strata']
+  ],[[[0,0,-.08],[0,0,.08],.34]],{radius:.52,slabs:3},true);
 }
 
 /** 阴弹以深色实心内核与偏置月缘区分轮廓；月缘两端由厚圆头封闭。 */

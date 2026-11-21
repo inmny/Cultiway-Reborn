@@ -2581,3 +2581,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py ice-projectiles` 实测首击、贯穿和实际落点爆发。用 `icefall --case scatter` 核对同一人物两次施放的散落，用 `icefall --case miss` 核对提前到期。批次入口的 `--case archive` 保存全部三个索引，另起进程后用 `--case cold --archive <保存输出目录>` 重新读回及施放。
 
 两种视角录像使用 `demo_all.py --filter Cultiway.IceShard,Cultiway.IceLance,Cultiway.Icefall --variants all --cases base --realm 0 --target-offset 7 0 --zoom 19 --duration 1.55 --fps 30`。
+
+### 飞石、石锥、落石旧变体（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py earth-projectiles` 逐个施放五个旧索引。`rock-projectile --case miss` 检查抛弧落空后的收势，`falling-rock --case landing` 检查实际着地，`falling-rock --case miss --variant 1` 检查提前到期。`earth-projectiles --case archive` 保存五份学习资料，重启后用 `earth-projectiles --case cold --archive <保存输出目录>` 读回并重放三种法术。
+
+原版与 Worldfall 分别使用 `demo_all.py --filter Cultiway.RockProjectile,Cultiway.StoneCone,Cultiway.FallingRock --variants all --cases base --realm 0 --target-offset 7 0 --zoom 19 --duration 1.55 --fps 30`。

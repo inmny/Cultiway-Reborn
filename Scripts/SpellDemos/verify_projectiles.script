@@ -100,13 +100,13 @@ try
             await Shot(entry.Form);await Advance(1.2f);Check(accepted.All(c=>c.Finished),entry.Form+"补拍正常结束");continue;
         }
         var boosted=Build(true);
-        float duration=5f;
-        if(entry.Asset==SkillEntities.WaterOrb||entry.Asset==SkillEntities.WindBullet||entry.Asset==SkillEntities.IceShard)
+        float duration=5f, appearance=0f;
+        if(entry.Asset==SkillEntities.WaterOrb||entry.Asset==SkillEntities.WindBullet||entry.Asset==SkillEntities.IceShard||entry.Asset==SkillEntities.RockProjectile)
         {
             var animation=entry.Asset.GetAnimation(0);
             float interval=normal.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
-            duration+=animation.Appearance.Frames.Length*animation.Appearance.Settings.ResolveFrameInterval(interval)+
-                animation.Dissipation.Frames.Length*animation.Dissipation.Settings.ResolveFrameInterval(interval);
+            appearance=animation.Appearance.Frames.Length*animation.Appearance.Settings.ResolveFrameInterval(interval);
+            duration+=appearance+animation.Dissipation.Frames.Length*animation.Dissipation.Settings.ResolveFrameInterval(interval);
         }
         foreach(var skill in new[]{normal,boosted})
         {
@@ -120,9 +120,10 @@ try
         }
         Check(Convert(Build(extra:true),out _)!=null,entry.Form+"燃烧附加作用由共同构造接管");
         ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;int hp=target.data.health,hp2=other.data.health;
-        Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.12f);
+        Vector3 origin=source.GetSimPos();
+        Check(Use(normal),entry.Form+"原已学入口受理");await Advance(appearance+.12f);
         var live=accepted.Single();var view=Views(live).Single();Vector3 position=view.Transform.GetColumn(3);
-        Check(oldExecutions==0&&starts.Count==1&&view.Resource.Description.Id==entry.Form&&(!entry.Arc||position.z>1f),
+        Check(oldExecutions==0&&starts.Count==1&&view.Resource.Description.Id==entry.Form&&(!entry.Arc||position.z>origin.z+.45f),
             entry.Form+"实际自身主体沿原默认轨迹运行",new{position=new[]{position.x,position.y,position.z},entry.Arc});await Shot(entry.Form);
         await Advance(1.2f);
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(normal)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,normal)));
