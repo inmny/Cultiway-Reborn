@@ -19,34 +19,39 @@ internal static class ChineseNameIntegration
     {
         var service = NamingApi.Current;
         GeoRegions.GeoRegionNamingIntegration.Register();
-        service.RegisterType(new NameType(Spell, "修仙法术", [
+        var category = new NamingCategory(new NameType(Spell, "修仙法术", [
             new("element", InputKind.Text, label: "元素", example: "semantic.element.fire"),
             new("form", InputKind.Text, label: "形态", example: "semantic.form.ball"),
             new("motion", InputKind.Text, label: "运动"),
             new("trajectory", InputKind.Text, label: "轨迹"),
             new("modifier", InputKind.Text, label: "主要词条"),
             new("base", InputKind.Text, label: "原型名称", example: "火丸")
-        ], minLength: 2, maxLength: 6), SpellDefaults());
-        service.RegisterCultureOnomastics(Spell, "ui/Icons/iconFire", "由创法者的文化决定排列，预览示例为火球。");
-        RegisterCondition(SkillNameAtomCategory.Element, "element", "元素");
-        RegisterCondition(SkillNameAtomCategory.Form, "form", "形态");
-        service.RegisterCultureGlyph(Spell, "cultiway:spell-element", '\uE240', "element", "法术元素",
+        ], minLength: 2, maxLength: 6))
+        {
+            Defaults = SpellDefaults(),
+            CultureIcon = "ui/Icons/iconFire",
+            Description = "由创法者的文化决定排列，预览示例为火球。"
+        };
+        AddCondition(SkillNameAtomCategory.Element, "element", "元素");
+        AddCondition(SkillNameAtomCategory.Form, "form", "形态");
+        category.InputGlyph("cultiway:spell-element", '\uE240', "element", "法术元素",
             "ui/Icons/iconFire", "cultiway:spell-element", "按法术的实际元素和当前语言抽取词素。");
-        service.RegisterCultureGlyph(Spell, "cultiway:spell-form", '\uE241', "form", "法术形态",
+        category.InputGlyph("cultiway:spell-form", '\uE241', "form", "法术形态",
             "ui/Icons/iconMeteorite", "cultiway:spell-form", "按法术的实际形态和当前语言抽取词素。");
+        service.RegisterCategory(category);
         var eastern = NamingJson.Read<NamingPack>(File.ReadAllText(
             Path.Combine(folder, "Content", "Naming", "eastern-human.naming.json")));
         service.RegisterDefaultPack(eastern);
 
         // 条件从法术现有的语义登记中读取，预览和实际取名使用相同的语义 ID。
-        void RegisterCondition(SkillNameAtomCategory category, string field, string label)
+        void AddCondition(SkillNameAtomCategory atomCategory, string field, string label)
         {
             var values = ModClass.L.SkillNameAtomLibrary.All
-                .Where(atom => atom.category == category && atom.semantic != null)
+                .Where(atom => atom.category == atomCategory && atom.semantic != null)
                 .Select(atom => atom.semantic)
                 .GroupBy(semantic => semantic.id, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.First().GetName(), StringComparer.Ordinal);
-            service.RegisterCultureCondition(Spell, field, label, values);
+            category.Values(field, label, values);
         }
     }
 
