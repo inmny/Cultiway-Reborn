@@ -2819,3 +2819,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 塔影投界（10.05）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_tower_shadow.py` 核对同一个正式原塔的远端点选、维持费用、真实减速与伤害，以及停费后投影和范围同时清理。运行时会比较远点模型和原塔网格。加 `--skip-views` 可只跑行为验证。
+
+### 鼎火炼化与吞纳归元（10.05）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_ding_effects.py` 复验原鼎部署、圈内火伤、牵引、抽灵和一次合计返还。可用 `--section fire|devour` 单独验证一招，用 `--skip-views` 只查行为，用 `--views-only` 补拍原版和 Worldfall 画面。

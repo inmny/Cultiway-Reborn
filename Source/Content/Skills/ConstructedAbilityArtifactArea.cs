@@ -51,14 +51,22 @@ public sealed partial class ConstructedAbilityService
         if (contact.ApplyEffect != null)
         {
             bool dealsDamage = contact.Damage > 0f;
-            if (!contact.DamageFirst) contact.ApplyEffect(source, target);
+            if (!contact.DamageFirst)
+            {
+                running.CompleteArtifactPulse ??= contact.AfterPulse;
+                contact.ApplyEffect(source, target);
+            }
             DamageSettlement settled = dealsDamage && generation == worldGeneration && target.data?.id == targetId
                 ? SettleAreaDamage(owner, targetId, contact.Damage) : default;
             Vector3 movement = Vector3.zero;
             bool moved = false;
             if (generation == worldGeneration && target.data?.id == targetId && target.isAlive())
             {
-                if (contact.DamageFirst) contact.ApplyEffect(source, target);
+                if (contact.DamageFirst)
+                {
+                    running.CompleteArtifactPulse ??= contact.AfterPulse;
+                    contact.ApplyEffect(source, target);
+                }
                 if (contact.Force != 0f)
                     moved = ApplyArtifactAreaForce(running, node, source, target, contact.Force, out movement);
             }
@@ -98,6 +106,15 @@ public sealed partial class ConstructedAbilityService
             result = SettleAreaDamage(owner, targetId, contact.Damage);
         return new ConstructedTargetResponse(targetId, change, pushed, daze, 0f,
             additionalDamage: contact.Damage > 0f, damage: result);
+    }
+
+    /// <summary>等本轮所有目标确认后再返还，保持原总量和单次取整。</summary>
+    private static void ConfirmArtifactAreaPulse(RunningCast running)
+    {
+        if (running.CompleteArtifactPulse is not { } complete ||
+            !running.Cast.Finished && running.Cast.Age <= running.Cast.Plan.Nodes[0].Active.y) return;
+        running.CompleteArtifactPulse = null;
+        complete();
     }
 
     /// <summary>按原力度和境界判断，让已经受理的水平力真正沿地移动。</summary>

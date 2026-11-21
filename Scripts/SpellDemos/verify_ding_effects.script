@@ -1,0 +1,223 @@
+// 同一场地复验两种鼎法。吞纳用两名圈内敌人检查合计返还。
+const float centerX = 67.5f, centerY = 72f;
+Vector3 center = new Vector3(centerX, centerY, 0f);
+PrepareArtifactArena(48, 91, 56, 91);
+Actor source = Make(64.35f), near = Make(68f, "wolf"), peer = Make(71f, "wolf"), far = Make(75f, "wolf");
+ActorExtend owner = source.GetExtend(), inside = near.GetExtend(), second = peer.GetExtend(), outside = far.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 1200f });
+inside.AddComponent(new Xian { level = 4, wakan = 100f });
+second.AddComponent(new Xian { level = 4, wakan = 100f });
+outside.AddComponent(new Xian { level = 4, wakan = 100f });
+owner.SetPowerLevel(4);
+await Setup(source, near);
+CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+source.updateStats();
+var quietStats = new BaseStats();
+quietStats.addTag("frozen_ai");
+var quiet = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.Ding.Quiet") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Ding.Quiet")
+        .SetStats(quietStats).SetDuration(10000f).Build();
+foreach (Actor opponent in new[] { near, peer })
+{
+    CombatStatusEffects.RemoveStatus(opponent, hold);
+    CombatStatusEffects.ApplyStatus(opponent, quiet, 10000f, opponent);
+    opponent.updateStats();
+}
+foreach (Actor opponent in new[] { peer, far })
+{
+    source.addAggro(opponent);
+    opponent.addAggro(source);
+}
+
+var fire = ArtifactAbilities.DingFireRefinement;
+var devour = ArtifactAbilities.DevouringReturn;
+var primary = Blueprint(ArtifactAtoms.SpiritDing, ArtifactAtoms.SunfireGlass, ArtifactAtoms.VoidStone,
+    ArtifactAtoms.DevouringVortex, ArtifactAtoms.TransformationPattern);
+Check(primary.AbilitySet.abilities.Length > 0, "正式炼制法鼎主配方",
+    primary.AbilitySet.abilities.Select(row => row.ability_id).ToArray());
+Entity shared = default, equipped = default;
+ArtifactBlueprint Blueprint(params ArtifactAtomAsset[] atoms) => ArtifactBlueprintCodec.FromComposeResult(
+    ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+    {
+        Shape = ItemShapes.Ding, Atoms = atoms, Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "双种鼎法实测"
+    }));
+
+async Task<Entity> Equip(ArtifactAbilityAsset asset)
+{
+    var blueprint = primary;
+    if (!blueprint.AbilitySet.abilities.Any(row => row.ability_id == asset.id))
+    {
+        blueprint = asset == fire
+            ? Blueprint(ArtifactAtoms.SpiritDing, ArtifactAtoms.SunfireGlass, ArtifactAtoms.PureYang, ArtifactAtoms.TransformationPattern)
+            : Blueprint(ArtifactAtoms.SpiritDing, ArtifactAtoms.VoidStone, ArtifactAtoms.SpatialCrystal, ArtifactAtoms.DevouringVortex);
+        Check(blueprint.AbilitySet.abilities.Any(row => row.ability_id == asset.id),
+            "正式补充配方取得" + asset.GetName(), blueprint.AbilitySet.abilities.Select(row => row.ability_id).ToArray());
+    }
+    Entity ding;
+    if (ReferenceEquals(blueprint, primary) && !shared.IsNull) ding = shared;
+    else
+    {
+        ding = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+        owner.AddSpecialItem(ding);
+        if (ReferenceEquals(blueprint, primary)) shared = ding;
+    }
+    if (equipped == ding) return ding;
+    if (!equipped.IsNull) owner.UnequipArtifact(equipped, suppressAutoEquip: true);
+    Check(owner.EquipArtifact(ding, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+        "正式装备本招原鼎", new { asset.id, ding = ding.Id });
+    ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+    lifecycle.Invoke(null, new object[] { ding });
+    await Game.NextFrame();
+    await Game.NextFrame();
+    equipped = ding;
+    return ding;
+}
+
+var starts = new List<ConstructedCastStarted>();
+var dingHits = new List<ConstructedContact>();
+var fees = new List<float>();
+var drains = new List<(long actor, float amount)>();
+var gains = new List<float>();
+var healingAtContact = new List<int>();
+var payment = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = payment.GetValue(null);
+bool Close(float a, float b) => Mathf.Abs(a - b) < .003f;
+void Started(ConstructedCastStarted cast)
+{
+    if (cast.SourceId == source.id && (cast.AbilityId == fire.id || cast.AbilityId == devour.id)) starts.Add(cast);
+}
+void Contact(ConstructedContact hit)
+{
+    if (hit.SourceId != source.id || (hit.AbilityId != fire.id && hit.AbilityId != devour.id)) return;
+    dingHits.Add(hit);
+    if (hit.AbilityId == devour.id) healingAtContact.Add(source.data.health);
+}
+void Paid(ActorExtend actor, in WakanMutation change)
+{
+    if (actor == owner && change.Kind == WakanMutationKind.Gain) gains.Add(change.Delta);
+    if (change.Kind != WakanMutationKind.Spend) return;
+    if (actor == owner) fees.Add(-change.Delta);
+    if (actor == inside || actor == second || actor == outside) drains.Add((actor.Base.id, -change.Delta));
+}
+bool Activate(Entity ding, ArtifactAbilityAsset asset)
+{
+    source.attack_timer = 0f;
+    bool accepted = ActiveAbilityService.TryUse(owner, ArtifactHandle(ding, asset.id),
+        new ActiveAbilityTarget(null, center), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999f;
+    return accepted;
+}
+bool Shows(string id) => FormVisualScene.Instances.Any(view => view.Resource.Description.Id == id);
+FormVisualInstance Form(string id) => FormVisualScene.Instances.Single(view => view.Resource.Description.Id == id);
+
+WakanResourceService.RegisterMutationCommitted(Paid);
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    foreach (var asset in new[] { fire, devour }.Where(asset => section == "all" || (asset == fire ? "fire" : "devour") == section))
+    {
+        bool burning = asset == fire;
+        string form = burning ? "ding_fire_rim" : "ding_devouring_funnels";
+        Entity ding = await Equip(asset);
+        var ability = Definition(ding, asset.id);
+        ArtifactControlState state = owner.E.GetRelation<EquippedArtifactRelation, Entity>(ding).state;
+        var execution = new ArtifactAbilityExecutionContext(owner.E, ding, state);
+        float multiplier = state == ArtifactControlState.Overloaded ? asset.lifecycle.overload_resource_multiplier : 1f;
+        float activation = asset.lifecycle.ResolveActivationCost(execution, ability) * multiplier;
+        float upkeep = asset.lifecycle.ResolveMaintenanceCost(execution, ability) * multiplier;
+        float radius = ability.GetNumber("effect_radius");
+        Place(source, 64.35f, centerY);
+        Place(near, centerX + radius - .22f, centerY);
+        Place(peer, centerX, burning ? centerY + radius + .28f : centerY + radius * .71f);
+        Place(far, centerX + radius + .20f, centerY);
+        source.attack_timer = near.attack_timer = peer.attack_timer = far.attack_timer = 999f;
+        near.restoreHealth(near.getMaxHealth());
+        peer.restoreHealth(peer.getMaxHealth());
+        owner.GetCultisys<Xian>().wakan = 1200f;
+        inside.GetCultisys<Xian>().wakan = 100f;
+        second.GetCultisys<Xian>().wakan = 1.25f;
+        outside.GetCultisys<Xian>().wakan = 100f;
+        int beforeFee = fees.Count, beforeStarts = starts.Count, beforeHits = dingHits.Count;
+        int beforeDrain = drains.Count, beforeGain = gains.Count, beforeContactHealth = healingAtContact.Count;
+        int nearHealth = near.data.health, peerHealth = peer.data.health, farHealth = far.data.health;
+        float distance = Vector2.Distance(center, near.current_position);
+        int sourceHealth = Mathf.Max(1, source.getMaxHealth() - 500);
+        if (!burning) source.data.health = sourceHealth;
+        Check(Activate(ding, asset) && fees.Count == beforeFee + 1 && Close(fees.Last(), activation) &&
+              starts.Count == beforeStarts && dingHits.Count == beforeHits, asset.GetName() + "部署只收原启动费");
+        int expectedHits = burning ? 1 : 2;
+        await WaitFor(() => dingHits.Count >= beforeHits + expectedHits, .8f);
+        await Game.NextFrame();
+        var hits = dingHits.Skip(beforeHits).ToArray();
+        Check(ding.HasComponent<ArtifactDeployment>() && starts.Count == beforeStarts + 1 &&
+              fees.Count == beforeFee + 2 && Close(fees.Last(), upkeep),
+            asset.GetName() + "付原维持费后展开一次", new { activation, upkeep, fees = fees.Skip(beforeFee).ToArray() });
+        Check(hits.Length == expectedHits && hits.Any(hit => hit.TargetId == near.id) &&
+              hits.All(hit => hit.TargetId != far.id) && nearHealth > near.data.health && far.data.health == farHealth,
+            asset.GetName() + "只作用于实际范围内的敌人",
+            new { hits = hits.Select(hit => hit.TargetId).ToArray(), near = near.id, peer = peer.id, far = far.id });
+
+        if (!viewsOnly && burning)
+        {
+            Check(CombatStatusEffects.HasStatus(near, StatusEffects.Burn, source) &&
+                  !CombatStatusEffects.HasStatus(far, StatusEffects.Burn, source) && peer.data.health == peerHealth,
+                "鼎火按原规则附加燃烧，圈外生命不变", new { damage = nearHealth - near.data.health });
+        }
+        else if (!viewsOnly)
+        {
+            float ratio = ability.GetNumber("restore_ratio");
+            float oneDrain = ability.GetNumber("drain_amount") * execution.effect_scale;
+            int expectedHealing = Mathf.Max(1, Mathf.RoundToInt(
+                2f * SkillContext.DefaultStrength * ability.GetNumber("damage_multiplier") * ratio * execution.effect_scale));
+            await WaitFor(() => gains.Count > beforeGain, .11f);
+            var taken = drains.Skip(beforeDrain).ToArray();
+            var paidBack = gains.Skip(beforeGain).ToArray();
+            var healthAtHits = healingAtContact.Skip(beforeContactHealth).ToArray();
+            Check(hits.Any(hit => hit.TargetId == peer.id) && peer.data.health < peerHealth &&
+                  taken.Length == 2 && Close(taken.Single(row => row.actor == near.id).amount, oneDrain) &&
+                  Close(taken.Single(row => row.actor == peer.id).amount, 1.25f) &&
+                  paidBack.Length == 1 && Close(paidBack[0], (oneDrain + 1.25f) * ratio) &&
+                  healthAtHits.Length == 2 && healthAtHits.All(value => value == sourceHealth) &&
+                  source.data.health - sourceHealth == expectedHealing,
+                "两人先完成扣血抽灵，生命和真元按同轮合计只返还一次",
+                new { taken = taken.Select(row => new { row.actor, row.amount }).ToArray(), paidBack, ratio,
+                    healthAtHits, sourceHealth, currentHealth = source.data.health, expectedHealing });
+            await Advance(.08f);
+            Check(hits.All(hit => hit.ForceApplied) && Vector2.Distance(center, near.current_position) < distance - .005f,
+                "吞纳按原力度真实向内移动", new { distance, current = Vector2.Distance(center, near.current_position) });
+        }
+
+        var visible = Form(form);
+        float visualRadius = visible.Resource.Description.Contacts.Single().Sector.Radius *
+            visible.Transform.MultiplyVector(Vector3.right).magnitude;
+        Vector2 anchor = ArtifactManifestationTools.ResolveWorldAnchor(ding,
+            ding.GetComponent<ArtifactDeployment>().ResolveBodyAnchor());
+        Check(Vector2.Distance(anchor, center) < .02f &&
+              Vector2.Distance((Vector3)visible.Transform.GetColumn(3), anchor) < .02f && Close(visualRadius, radius),
+            asset.GetName() + "原鼎锚点、形体边缘和实际半径一致", new { radius, visualRadius, anchor = anchor.ToString() });
+        if (shots)
+            await CaptureArtifactViews(burning ? "fire" : "devour", center, radius + 2.0f,
+                () => Shows(form) && Vector2.Distance((Vector3)Form(form).Transform.GetColumn(3), anchor) < .02f,
+                nativeZoom: radius + 1.6f);
+
+        owner.GetCultisys<Xian>().wakan = 0f;
+        await Advance(.56f);
+        Check(!ding.HasComponent<ArtifactDeployment>() && !Shows(form) && starts.Count == beforeStarts + 1 &&
+              fees.Count == beforeFee + 2 && dingHits.Count == beforeHits + expectedHits &&
+              owner.GetItems().Contains(ding) && owner.GetEquippedArtifacts().Contains(ding),
+            asset.GetName() + "维持不足后归还原鼎，停止新扣费和接触");
+        CombatStatusEffects.RemoveStatus(near, StatusEffects.Burn, source);
+    }
+
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    payment.SetValue(null, previous);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+}

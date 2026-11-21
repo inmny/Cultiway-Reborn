@@ -250,6 +250,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     if (generation != worldGeneration) yield break;
                     if (running.Cast.Plan.DirectSignalSteps.Length != 0) ConfirmDirectSignals(running, clock);
                     if (generation != worldGeneration) yield break;
+                    ConfirmArtifactAreaPulse(running);
+                    if (generation != worldGeneration) yield break;
                     ConfirmRecovery(running);
                     if (generation != worldGeneration) yield break;
                     ConfirmWorldMaterial(running, clock);
@@ -291,6 +293,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (generation != worldGeneration) yield break;
             if (running.Cast.Finished)
             {
+                ConfirmArtifactAreaPulse(running);
+                if (generation != worldGeneration) yield break;
                 Finish(index, running);
                 if (generation != worldGeneration) yield break;
                 continue;

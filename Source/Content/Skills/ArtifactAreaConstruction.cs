@@ -107,6 +107,8 @@ internal readonly struct ArtifactAreaContact
     internal readonly bool DamageFirst;
     /// <summary>本次确实接触人物时沿用来源的状态和资源结算。</summary>
     internal readonly Action<Actor, Actor> ApplyEffect;
+    /// <summary>同一轮已确认的接触全部结算后，只提交一次的来源收益。</summary>
+    internal readonly Action AfterPulse;
     /// <summary>接触继续按照原法宝的敌我关系筛选。</summary>
     internal readonly CombatTargeting.TargetDisposition Disposition;
     /// <summary>照影可接触友方与有敌意的人物，包括被隐身挡住的敌人。</summary>
@@ -129,8 +131,9 @@ internal readonly struct ArtifactAreaContact
     /// <summary>保存原能力已经冻结的作用参数，由真正接触的人物触发。</summary>
     internal ArtifactAreaContact(Action<Actor, Actor> applyEffect,
         CombatTargeting.TargetDisposition disposition = CombatTargeting.TargetDisposition.Hostile,
-        bool revealsConcealment = false, bool damageFirst = true, float force = 0f, ArtifactAreaSector? sector = null)
-        : this(null, 0f, force, 0f, damageFirst, applyEffect, disposition, revealsConcealment, sector) { }
+        bool revealsConcealment = false, bool damageFirst = true, float force = 0f, ArtifactAreaSector? sector = null,
+        Action afterPulse = null)
+        : this(null, 0f, force, 0f, damageFirst, applyEffect, disposition, revealsConcealment, sector, afterPulse) { }
 
     /// <summary>保存本次准备完毕的原伤害和接触资料。</summary>
     /// <param name="count">清音的解除上限。</param><param name="daze">原眩晕时长。</param>
@@ -138,16 +141,16 @@ internal readonly struct ArtifactAreaContact
     /// <param name="damageFirst">原能力是否先处理伤害。</param>
     private ArtifactAreaContact(int? count, float daze, float force, float damage, bool damageFirst,
         Action<Actor, Actor> applyEffect, CombatTargeting.TargetDisposition disposition = CombatTargeting.TargetDisposition.Hostile,
-        bool revealsConcealment = false, ArtifactAreaSector? sector = null) =>
-        (CleanseCount, Daze, Force, Damage, DamageFirst, ApplyEffect, Disposition, RevealsConcealment, Sector) =
-        (count, daze, force, damage, damageFirst, applyEffect, disposition, revealsConcealment, sector);
+        bool revealsConcealment = false, ArtifactAreaSector? sector = null, Action afterPulse = null) =>
+        (CleanseCount, Daze, Force, Damage, DamageFirst, ApplyEffect, Disposition, RevealsConcealment, Sector, AfterPulse) =
+        (count, daze, force, damage, damageFirst, applyEffect, disposition, revealsConcealment, sector, afterPulse);
 
     /// <summary>保留本击实际作用，在人物中心的定时接触上增加扇角。</summary>
     internal ArtifactAreaContact WithSector(ArtifactAreaSector sector) =>
-        new(CleanseCount, Daze, Force, Damage, DamageFirst, ApplyEffect, Disposition, RevealsConcealment, sector);
+        new(CleanseCount, Daze, Force, Damage, DamageFirst, ApplyEffect, Disposition, RevealsConcealment, sector, AfterPulse);
 
     /// <summary>保存按原施法来源折算的本击伤害。</summary>
     /// <param name="damage">已准备的伤害。</param>
     internal ArtifactAreaContact WithDamage(float damage) =>
-        new(CleanseCount, Daze, Force, damage, DamageFirst, ApplyEffect, Disposition, RevealsConcealment, Sector);
+        new(CleanseCount, Daze, Force, damage, DamageFirst, ApplyEffect, Disposition, RevealsConcealment, Sector, AfterPulse);
 }

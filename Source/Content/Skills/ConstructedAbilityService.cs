@@ -1031,6 +1031,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         internal FormationAreaContact? FormationArea;
         /// <summary>法宝在真正到达作用边界后产生的原有结果。</summary>
         internal ArtifactAreaContact? ArtifactArea;
+        /// <summary>仅在本轮已有实际接触时安排一次合计返还。</summary>
+        internal Action CompleteArtifactPulse;
         /// <summary>本次扇面专有网格，收束或换世界时释放。</summary>
         internal ArtifactSectorView ArtifactSectorView;
 

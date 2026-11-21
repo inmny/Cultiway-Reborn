@@ -3,10 +3,12 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Semantics;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Usage;
 using NeoModLoader.General;
 using UnityEngine;
 using System;
@@ -92,6 +94,7 @@ public partial class ArtifactAbilities
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = SkillCastResources.Wakan,
             OnTick = ApplyDingFireRefinement,
+            OnActivityEnded = EndArtifactConstruction,
         });
         DingFireRefinement.Activate(new ArtifactActiveAbilityProfile
         {
@@ -126,28 +129,19 @@ public partial class ArtifactAbilities
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry _,
-        float __)
+        float interval)
     {
-        Actor controller = Controller(context);
-        ArtifactDeployment deployment = context.artifact.GetComponent<ArtifactDeployment>();
-        Vector2 position = ArtifactManifestationTools.ResolveWorldAnchor(
-            context.artifact,
-            deployment.ResolveBodyAnchor());
-        CombatTargeting.ForEachHostile(controller, position, ability.GetNumber(EffectRadius), target =>
+        float burn = SkillContext.DefaultStrength * ability.GetNumber(StatusStrength);
+        float duration = ability.GetNumber(StatusDuration);
+        var caster = ArtifactAbilityLifecycle.ResolveSkillContext(context);
+        var contact = new ArtifactAreaContact((source, target) =>
         {
-            CombatDamageEffects.DealDamage(
-                controller,
-                target,
-                SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
-                ElementComposition.Static.Fire);
-            CombatStatusEffects.ApplyTickingStatus(
-                target,
-                StatusEffects.Burn,
-                ability.GetNumber(StatusDuration),
-                SkillContext.DefaultStrength * ability.GetNumber(StatusStrength),
-                ElementComposition.Static.Fire,
-                controller);
-        });
+            using var scope = SkillCasterContextService.Enter(in caster);
+            CombatStatusEffects.ApplyTickingStatus(target, StatusEffects.Burn, duration, burn,
+                ElementComposition.Static.Fire, source);
+        }, damageFirst: false);
+        StartPaidArtifactArea(context, DingFireRefinement, ability, interval, "ding_fire_rim", contact,
+            ElementComposition.Static.Fire, SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier));
     }
 
     private static void ConfigureDevouringReturn()
@@ -218,6 +212,7 @@ public partial class ArtifactAbilities
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = SkillCastResources.Wakan,
             OnTick = ApplyDevouringReturn,
+            OnActivityEnded = EndArtifactConstruction,
         });
         DevouringReturn.Activate(new ArtifactActiveAbilityProfile
         {
@@ -252,32 +247,28 @@ public partial class ArtifactAbilities
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry _,
-        float __)
+        float interval)
     {
+        float damage = SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier);
+        float fraction = ability.GetNumber(RestoreRatio);
+        float recovery = damage * fraction * context.effect_scale;
+        float drain = ability.GetNumber(DrainAmount) * context.effect_scale;
+        float force = ability.GetNumber(ForceStrength) * context.effect_scale;
+        var caster = ArtifactAbilityLifecycle.ResolveSkillContext(context);
         Actor controller = Controller(context);
-        ArtifactDeployment deployment = context.artifact.GetComponent<ArtifactDeployment>();
-        Vector2 position = ArtifactManifestationTools.ResolveWorldAnchor(
-            context.artifact,
-            deployment.ResolveBodyAnchor());
-        float totalRecovery = 0f;
-        float totalWakan = 0f;
-        CombatTargeting.ForEachHostile(controller, position, ability.GetNumber(EffectRadius), target =>
+        float totalRecovery = 0f, totalWakan = 0f;
+        var contact = new ArtifactAreaContact((_, target) =>
         {
-            float damage = SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier);
-            CombatDamageEffects.DealDamage(controller, target, damage, SoulComposition);
-            totalRecovery += damage * ability.GetNumber(RestoreRatio) * context.effect_scale;
-            totalWakan += CombatResourceEffects.DrainWakan(
-                target,
-                ability.GetNumber(DrainAmount) * context.effect_scale);
-            CombatForceEffects.ApplyRadialForce(
-                controller,
-                target,
-                position,
-                ability.GetNumber(ForceStrength) * context.effect_scale,
-                pull: true);
+            totalRecovery += recovery;
+            totalWakan += CombatResourceEffects.DrainWakan(target, drain);
+        }, damageFirst: false, force: -force, afterPulse: () =>
+        {
+            using var scope = SkillCasterContextService.Enter(in caster);
+            RestoreCarrierHealth(context, totalRecovery);
+            CombatResourceEffects.RestoreWakan(controller, totalWakan * fraction);
         });
-        RestoreCarrierHealth(context, totalRecovery);
-        CombatResourceEffects.RestoreWakan(controller, totalWakan * ability.GetNumber(RestoreRatio));
+        StartPaidArtifactArea(context, DevouringReturn, ability, interval, "ding_devouring_funnels", contact,
+            SoulComposition, damage, spin: -62f);
     }
 
     private static void ConfigureHundredRefinementCore()
@@ -361,110 +352,21 @@ public partial class ArtifactAbilities
     private static void ConfigureDingAbilityVisuals()
     {
         ConfigureDingFireRefinementVisuals();
-        ConfigureDevouringReturnVisuals();
         ConfigureHundredRefinementCoreVisuals();
     }
 
     private static void ConfigureDingFireRefinementVisuals()
     {
-        ArtifactAreaVisualCue fireField = Area(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Primary,
-            0.48f,
-            0.08f,
-            ArtifactVfxStyles.Fire
-        );
-        fireField.pulse_speed = 4.5f;
-        ArtifactLocalVisualCue flame = new ArtifactLocalVisualCue(ArtifactLocalVisualKind.Flame)
+        var flame = new ArtifactLocalVisualCue(ArtifactLocalVisualKind.Flame)
         {
             anchor = ArtifactVisualAnchorRef.Appearance("core", "center"),
             color_role = ArtifactVisualColorRole.Glow,
-            scale = 0.075f,
-
-            alpha = 0.86f,
+            scale = .075f,
+            alpha = .86f,
             loop = true,
         };
-        ArtifactParticleVisualCue embers = Burst(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            ArtifactVisualColorRole.Primary,
-            3,
-            0.4f
-        );
-        embers.emission_interval = 0.14f;
-        DingFireRefinement.Visualize(
-            Theme(SkillVfxElements.Fire.AccentColor)
-                .Loop(
-                    "ding_fire",
-                    new ArtifactCompositeVisualCue(fireField, flame, embers),
-                    IsDeploymentActive
-                )
-                .Signal(
-                    ArtifactVisualChannels.Tick,
-                    Burst(
-                        ArtifactVisualAnchorKind.DeploymentOrigin,
-                        ArtifactVisualColorRole.Glow,
-                        4,
-                        0.45f
-                    ),
-                    0.3f,
-                    "artifact.ding_fire.tick",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
-        );
-    }
-
-    private static void ConfigureDevouringReturnVisuals()
-    {
-        ArtifactGlyphVisualCue devouringGlyph = Glyph(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Secondary,
-            ArtifactVfxStyles.Devouring
-        );
-        devouringGlyph.rotation_speed = -32f;
-        devouringGlyph.counter_rotation_ratio = 0.7f;
-        ArtifactAreaVisualCue devouringField = Area(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Primary,
-            0.42f,
-            0.07f,
-            ArtifactVfxStyles.Devouring
-        );
-        devouringField.inner_rotation_speed = 38f;
-        ArtifactParticleVisualCue inward = Burst(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            ArtifactVisualColorRole.Glow,
-            3,
-            0.5f
-        );
-        inward.emission_interval = 0.12f;
-        inward.directional_speed = -0.2f;
-        DevouringReturn.Visualize(
-            Theme(SkillVfxElements.Entropy.AccentColor)
-                .Loop(
-                    "devouring_return",
-                    new ArtifactCompositeVisualCue(
-                        devouringField,
-                        devouringGlyph,
-                        inward,
-                        Pulse(1f, 1f, 0.09f)
-                    ),
-                    IsDeploymentActive
-                )
-                .Signal(
-                    ArtifactVisualChannels.Tick,
-                    Burst(
-                        ArtifactVisualAnchorKind.DeploymentOrigin,
-                        ArtifactVisualColorRole.Primary,
-                        3
-                    ),
-                    0.25f,
-                    "artifact.devouring.tick",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
-        );
+        DingFireRefinement.Visualize(Theme(SkillVfxElements.Fire.AccentColor).Loop(
+            "ding_fire", flame, IsDeploymentActive));
     }
 
     private static void ConfigureHundredRefinementCoreVisuals()

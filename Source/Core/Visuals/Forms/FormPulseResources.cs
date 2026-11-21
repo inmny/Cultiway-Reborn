@@ -29,6 +29,11 @@ internal sealed partial class FormResourceGeneration
         CreateRadialPanels("command_banner", 8, Vector3.forward * .029f,
             [new(0f, .28f, .056f), new(.16f, .51f, .085f), new(.16f, .91f, .133f),
                 new(0f, 1f, .11f), new(-.16f, .91f, .133f), new(-.16f, .51f, .085f)]);
+        CreatePulseForm("ding_fire_rim", "ding_fire_rim", .58f, 8,
+            [new(.51f, .023f), new(.59f, .053f), new(.64f, .142f), new(.70f, .064f),
+                new(.82f, .226f), new(.88f, .127f), new(.94f, .081f), new(1f, .035f),
+                new(.97f, .012f), new(.51f, .008f)], twist: .48f);
+        CreateDingFunnels();
         CreatePulseForm("tower_prison", "tower_prison", .42f, 8,
             [new(.65f, .027f), new(.69f, .106f), new(.71f, .238f), new(.74f, .253f),
                 new(.79f, .171f), new(.85f, .162f), new(.88f, .089f), new(.98f, .093f),
@@ -53,6 +58,58 @@ internal sealed partial class FormResourceGeneration
                 new(-.25f, .82f, 1.43f), new(.25f, .82f, 1.43f), new(.49f, .79f, 1.12f),
                 new(.53f, .72f, .46f), new(.39f, .63f, .14f)],
             yaw: -55f, mirrorFace: "soul_stasis_mirror_face");
+    }
+
+    /// <summary>闭合的螺旋流槽从实际边缘垂落到鼎口，转动时保留侧壁和液体厚度。</summary>
+    private void CreateDingFunnels()
+    {
+        const string id = "ding_devouring_funnels";
+        const int streams = 5, length = 20, sides = 10;
+        const float twist = 1.5f;
+        var vertices = new Vector3[streams * (length + 1) * (sides + 1)];
+        var uv = new Vector2[vertices.Length];
+        var faces = new System.Collections.Generic.List<int>(streams * length * sides * 6);
+        int stride = sides + 1;
+        for (int stream = 0; stream < streams; stream++)
+        {
+            int start = stream * (length + 1) * stride;
+            for (int along = 0; along <= length; along++)
+            {
+                float t = (float)along / length;
+                float radius = Mathf.Lerp(.09f, 1f, t);
+                float heading = 2f * Mathf.PI * stream / streams + (1f - t) * twist;
+                float spread = .046f + .19f * Mathf.Sin(t * 2.6f);
+                float height = .036f + .16f * t * t;
+                for (int side = 0; side <= sides; side++)
+                {
+                    float v = (float)side / sides;
+                    float cross = v * Mathf.PI * 2f;
+                    float angle = heading + Mathf.Sin(cross) * spread;
+                    float lip = Mathf.Cos(cross) * (.016f + .052f * t);
+                    int a = start + along * stride + side;
+                    vertices[a] = new Vector3(radius * Mathf.Cos(angle), radius * Mathf.Sin(angle), height + lip);
+                    uv[a] = new Vector2(t, v);
+                    if (along == length || side == sides) continue;
+                    int b = a + stride;
+                    faces.Add(a); faces.Add(b); faces.Add(a + 1);
+                    faces.Add(a + 1); faces.Add(b); faces.Add(b + 1);
+                }
+            }
+            int end = start + length * stride;
+            for (int side = 1; side < sides - 1; side++)
+            {
+                faces.Add(start); faces.Add(start + side); faces.Add(start + side + 1);
+                faces.Add(end); faces.Add(end + side + 1); faces.Add(end + side);
+            }
+        }
+
+        var mesh = new Mesh { name = "Cultiway_" + id, hideFlags = HideFlags.DontSave };
+        mesh.vertices = vertices;
+        mesh.uv = uv;
+        mesh.SetTriangles(faces, 0);
+        mesh.RecalculateNormals();
+        PublishPulseForm(id, [id], [mesh], nameof(CreateDingFunnels),
+            new FormParameterDescription { Id = "funnels", Values = [streams, twist] });
     }
 
     /// <summary>转动完整截面，保留实体斜面和起伏，最外缘始终等于实际单位半径。</summary>
