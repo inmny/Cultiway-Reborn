@@ -2639,3 +2639,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py beams-and-chain --case archive` 保存三份旧学习资料。重启后使用 `beams-and-chain --case cold --archive <保存输出目录>` 读回并施放。复验核对成形时无伤、真实命中、固定端点退光、链雷首击余光和正常结束。
 
 录像用 `demo_all.py --filter Cultiway.SpiritBeam,Cultiway.SolarBeam,Cultiway.ChainLightning --variants all --cases base --realm 0 --caster-position 64 72 --target-offset 5 0 --zoom 16.5 --duration 1.45 --fps 30 --motion-trace`，分别选择 `--view native` 和 `--view worldfall`。
+
+### 五种持续领域的旧索引
+
+在独立游戏运行 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py persistent-fields --case archive`，将风卷四个索引和玄阴域、毒潭、毒雾、乱熵域各自的旧索引写入同一正式世界。重启后用同批次的 `--case cold --archive <保存输出目录>` 核对旧资料并逐个重放。单个来源可用 `tornado`、`yin-field`、`poison-pool`、`poison-mist`、`entropy-field`，风卷可用 `--variant` 指定索引。
+
+复用同一对练核对成形无伤、推进或跟随、间隔伤害、固定点收势及随后清理。同一毒潭的第三次受理需只替换最老实例，三次均按原价。组合录像用 `demo_all.py --filter Cultiway.Tornado,Cultiway.YinField,Cultiway.PoisonPool,Cultiway.PoisonMist,Cultiway.EntropyField --cases base --variants all`，分别指定原版与 Worldfall 视角。旧地块作用随 10.01 的世界作用验收。

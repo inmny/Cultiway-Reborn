@@ -100,6 +100,11 @@ def main():
         'spirit-beam': ('Cultiway.SpiritBeam', 1),
         'solar-beam': ('Cultiway.SolarBeam', 1),
         'chain-lightning': ('Cultiway.ChainLightning', 1),
+        'tornado': ('Cultiway.Tornado', 4),
+        'yin-field': ('Cultiway.YinField', 1),
+        'poison-pool': ('Cultiway.PoisonPool', 1),
+        'poison-mist': ('Cultiway.PoisonMist', 1),
+        'entropy-field': ('Cultiway.EntropyField', 1),
     }
     batches = {
         'water-family': ('water-arrow', 'water-orb', 'water-blade'),
@@ -116,6 +121,7 @@ def main():
         'contact-walls': ('fire-wall', 'wind-wall', 'sword-curtain', 'water-curtain'),
         'shields': ('spirit-shield', 'flame-shield', 'wind-shield', 'lightning-shield', 'yang-shield'),
         'beams-and-chain': ('spirit-beam', 'solar-beam', 'chain-lightning'),
+        'persistent-fields': ('tornado', 'yin-field', 'poison-pool', 'poison-mist', 'entropy-field'),
     }
     parser.add_argument('spell', choices=('fireball', 'fire-family', *batches, *projectile_spells))
     parser.add_argument('--variant', type=int, choices=range(18), action='append',
@@ -144,6 +150,8 @@ def main():
                 parser.error('单个护盾使用 hit。正式写读档使用 shields 批次')
             if args.spell in batches['beams-and-chain'] and case != 'hit':
                 parser.error('单个光束或链雷使用 hit。正式写读档使用 beams-and-chain 批次')
+            if args.spell in batches['persistent-fields'] and case != 'hit':
+                parser.error('单个持续领域使用 hit。正式写读档使用 persistent-fields 批次')
             if case == 'tracking' and args.spell not in ('water-orb', 'wind-bullet', 'thunder-orb', 'wood-spear', 'yin-bolt', 'poison-needle'):
                 parser.error('改轨迹复验使用水球、风弹、雷珠、木枪、阴煞弹或毒针')
             if case == 'landing' and args.spell not in ('thunder-orb', 'lightning-strike', 'falling-rock', 'falling-timber', 'chaos-orb', 'flame-meteor'):

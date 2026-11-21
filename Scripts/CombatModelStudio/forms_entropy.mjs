@@ -1,7 +1,7 @@
 /** 以有壁厚的错层断片表现解构，碰撞仍由制作资料中的接触体决定。 */
 import * as T from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
-import {motion, part, skin, structure, write} from './form_export.mjs';
+import {motion, dissolve, part, skin, structure, write} from './form_export.mjs';
 
 const facing = {Forward: [0, 1, 0], Up: [0, 0, 1]};
 
@@ -74,7 +74,11 @@ function makeEntropy() {
     const rotation = new T.Quaternion().setFromEuler(new T.Euler(.11 * slip, -.13 * slip, .14 * Math.sin(t - 1.7 * i)));
     return {position, rotation: rotation.toArray()};
   });
-  write('entropy_field', parts, [], contacts, controls, [run], false, facing,
+  const release = dissolve(controls, (i, p, c) => ({
+    position: [c.Position[0]*(1+.18*p), c.Position[1]*(1+.18*p), c.Position[2]-.31*p],
+    rotation: new T.Quaternion().setFromEuler(new T.Euler(p*.17*(i%2?1:-1), p*.11, 0)).toArray()
+  }));
+  write('entropy_field', parts, [], contacts, controls, [run, release], false, facing,
     structure('volume', 'forms_entropy.mjs', 'makeEntropy', {lobes},
       Object.fromEntries(parts.map(p => [p.Id, ['entropy.volume']])), []));
 }

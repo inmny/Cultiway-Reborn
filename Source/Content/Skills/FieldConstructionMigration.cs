@@ -49,7 +49,7 @@ internal static class FieldConstructionMigration
     /// <summary>先核对附加作用，再将实际强度、尺寸、寿命和固定目标展开为可保存资料。</summary>
     /// <param name="emission">原来源的本次发射输入。</param>
     /// <param name="damage">保留原绝对强度及境界的真实伤害。</param>
-    private static AbilityDefinition Convert(SkillEmission emission, out GetHitEvent damage)
+    private static unsafe AbilityDefinition Convert(SkillEmission emission, out GetHitEvent damage)
     {
         damage = default;
         Entity skill = emission.SkillContainer;
@@ -75,12 +75,30 @@ internal static class FieldConstructionMigration
             !ContactEffectMigration.MatchesTravelCallbacks(skill) || !ContactEffectMigration.MatchesCallbacks(skill)) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (!NatureConstructionMigration.Supports(skill)) return null;
+        bool entropy = container.Asset == SkillEntities.EntropyField;
+        bool wind = container.Asset == SkillEntities.Tornado, yin = container.Asset == SkillEntities.YinField;
+        bool pool = container.Asset == SkillEntities.PoisonPool;
+        int index = container.AnimationIndex;
+        string form = wind ? index switch
+        {
+            0 => "wind_vortex_open",
+            1 => "wind_vortex_dust",
+            2 => "wind_vortex_lean",
+            3 => "wind_vortex_sweep",
+            _ => null
+        } : index != 0 ? null : yin ? "yin_field_basin" : entropy ? "entropy_field" : pool ? "poison_pool" : "poison_mist";
+        if (form == null) return null;
+        var animation = container.Asset.GetAnimation(index);
+        float frameInterval = container.MotionProfile.FrameInterval;
+        float appearance = ProjectileConstructionMigration.ClipSeconds(animation.Appearance, frameInterval);
+        float dissipation = ProjectileConstructionMigration.ClipSeconds(animation.Dissipation, frameInterval);
 
         // 固定及跟随场不因加速改变寿命；推进场保留真实出生点、方向和起步至巡航速度。
         float setupScale = ContactEffectMigration.SetupStrengthScale(skill, out float initialAngle, out float speedScale);
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
             container.Asset.ImpactProfile.Lifetime * container.Asset.ImpactTuning.LifetimeMultiplier);
         if (configured && settings.Duration > 0f) lifetime = settings.Duration;
+        if (animation.AppearanceGameplay == SkillAnimationGameplayFlags.Movement) lifetime += appearance;
         float scale = emission.RuntimeData.ResolveEffectScale() * SkillEffectRadius.ResolveCasterGrowth(emission.Source.a.GetExtend(), skill);
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
@@ -101,15 +119,15 @@ internal static class FieldConstructionMigration
         {
             new() { Kind = ConstructionOperationKind.Animate, Clip = "run" }
         };
+        Vector3 direction = emission.TargetPos - emission.SourcePos;
+        direction = direction.sqrMagnitude > .000001f ? direction.normalized : Vector3.right;
+        direction = Quaternion.AngleAxis(emission.InitialAngleOffsetDegrees + initialAngle, Vector3.forward) * direction;
         if (advance)
         {
             float haste = skill.TryGetComponent(out HasteModifier h) ? Mathf.Clamp(1f + h.SpeedMultiplier, .1f, 10f) : 1f;
             var motion = container.MotionProfile;
             float speed = motion.ResolveSpeed(Vector2.Distance(emission.SourcePos, emission.TargetPos)) * haste * speedScale * .25f;
             float ramp = Mathf.Max(0f, motion.RampDuration), launch = motion.LaunchMultiplier, cruise = motion.CruiseMultiplier;
-            Vector3 direction = emission.TargetPos - emission.SourcePos;
-            direction = direction.sqrMagnitude > .000001f ? direction.normalized : Vector3.right;
-            direction = Quaternion.AngleAxis(emission.InitialAngleOffsetDegrees + initialAngle, Vector3.forward) * direction;
             operations.Add(new ConstructionOperation
             {
                 Kind = ConstructionOperationKind.Fly, WorldVelocity = true, InheritVelocity = false,
@@ -126,8 +144,6 @@ internal static class FieldConstructionMigration
                         At = at, Speed = speed * (cruise + (launch - cruise) * remaining * remaining) });
                 }
         }
-        bool entropy = container.Asset == SkillEntities.EntropyField;
-        bool wind = container.Asset == SkillEntities.Tornado, yin = container.Asset == SkillEntities.YinField;
         var definition = new AbilityDefinition
         {
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(),
@@ -139,9 +155,10 @@ internal static class FieldConstructionMigration
                 Follow = follow, ContactAtDestination = follow, Height = advance || follow ? 0f : -emission.TargetPos.z },
             Root = new ConstructionNode
             {
-                Id = "field", Form = wind ? "wind_vortex_open" : yin ? "yin_field_basin" : entropy ? "entropy_field" : container.Asset == SkillEntities.PoisonPool ? "poison_pool" : "poison_mist",
+                Id = "field", Form = form,
                 Matter = wind ? "wind" : yin ? "yin" : entropy ? "entropy" : "poison",
-                State = wind || yin || entropy ? "energy" : container.Asset == SkillEntities.PoisonPool ? "liquid" : "gas", Scale = scale,
+                State = wind || yin || entropy ? "energy" : pool ? "liquid" : "gas", Scale = scale,
+                Rotation = wind && index == 3 ? new[] { 0f, 0f, Vector3.SignedAngle(Vector3.up, direction, Vector3.forward) } : new float[3],
                 Impact = configured && !settings.ContactEnabled ? null : new ConstructionImpact { DamageScale = damageMultiplier },
                 Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval,
                     Interval = container.Asset.ImpactProfile.RepeatHitInterval },
@@ -155,7 +172,19 @@ internal static class FieldConstructionMigration
             if (motion == null) return null;
             ProjectileConstructionMigration.BindMotion(definition, motion);
         }
-        return ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(), caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
+        if (animation.HasLifecycle && !ProjectileConstructionMigration.SetFormLifecycle(
+                definition, animation.AppearanceGameplay, appearance, dissipation, "dissolve")) return null;
+        if (dissipation > 0f && definition.Root.ActiveUntil > definition.Root.ActiveFrom)
+        {
+            // 收势起点仍有画面，但不能再结算恰好落在边界的一次周期伤害。
+            float end = definition.Root.ActiveUntil;
+            int preceding = *(int*)&end - 1;
+            definition.Root.ActiveUntil = *(float*)&preceding;
+        }
+        definition = ContactEffectMigration.Bind(definition, skill, emission.RuntimeData.ResolveEffectScale(),
+            caster: emission.Source.a.GetExtend(), runtimeData: emission.RuntimeData);
+        if (definition.Root.RadialMotion != null) definition.Root.RadialMotion.StartAt = appearance;
+        return definition;
     }
 
     /// <summary>只接管五种没有额外人物状态的原领域，不按名字臆造毒状态或解构作用。</summary>

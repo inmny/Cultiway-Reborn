@@ -54,8 +54,14 @@ try
         string file = definition.Root.Form + (skill == enhanced ? "-enhanced" : "") + ".json";
         File.WriteAllText(Path.Combine(folder, file), JsonConvert.SerializeObject(definition, Formatting.Indented));
         var restored = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
-        var numeric = Numeric(restored); var views = new List<FormVisualInstance>(); numeric.AppendVisuals(views);
+        var numeric = Numeric(restored); var views = new List<FormVisualInstance>();
+        numeric.Advance(definition.Root.ActiveFrom * .5f, new Vector3(70, 72, .3f));
+        numeric.AppendVisuals(views);
         var shapes = new List<AbilityCapsule>(); numeric.AppendContacts(shapes);
+        Check(views.Count == 1 && shapes.Count == 0, "领域成形先显示主体，接触尚未开启");
+        numeric.Advance(definition.Root.ActiveFrom - numeric.Age + .02f, new Vector3(70, 72, .3f));
+        views.Clear(); numeric.AppendVisuals(views);
+        numeric.AppendContacts(shapes);
         Check(views.Count == 1 && views[0].PartCount > 0 && shapes.Count > 0 && numeric.Plan.ConcurrentLimit == 2,
             "独立领域资源与真实接触成功加载，纯资料读回保留上限", new { definition.Root.Form, parts = views[0].PartCount, contacts = shapes.Count });
         var save = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));

@@ -1,7 +1,7 @@
 /** 持续领域：贴地积液、层次毒雾和不规则混沌体积，各自保留真实作用面。 */
 import * as T from 'three';
 import {makeEntropyForms} from './forms_entropy.mjs';
-import {part, write, skin, surfaceData, motion, structure} from './form_export.mjs';
+import {part, write, skin, surfaceData, motion, dissolve, structure} from './form_export.mjs';
 
 /** 低矮积液的九点控制，显示和接触使用同一组地表承托。 */
 function poolWeights(p) {
@@ -34,8 +34,9 @@ function makePool() {
   const settle=motion('settle',2.1,false,controls,40,(i,p,c)=>({
     position:[...c.Position.slice(0,2),.03*Math.exp(-4*p)*Math.sin(10*p-i*.6)]}));
   settle.Keys.forEach(k=>{k.Fade=.65*T.MathUtils.smoothstep(k.At,1.72,2.1);});
+  const release=dissolve(controls,(_,p,c)=>({position:[c.Position[0]*(1-.09*p),c.Position[1]*(1-.09*p),-.105*p]}));
   const body=part('liquid',geometry,'poison_film');body.UseMatterSurface=false;
-  write('poison_pool',[body],[],contacts,controls,[run,settle],true,{Forward:[0,1,0],Up:[0,0,1]},
+  write('poison_pool',[body],[],contacts,controls,[run,settle,release],true,{Forward:[0,1,0],Up:[0,0,1]},
     structure('surface','forms_fields.mjs','makePool',{radius:[2.5,2.2],height:.295},{liquid:['fluid.body']},[]));
 }
 
@@ -83,7 +84,8 @@ function makeMist() {
     c.Position[0]+.064*Math.sin(10*p+i),c.Position[1]+.12*Math.sin(8*p-i*.8),
     c.Position[2]+.115*Math.sin(12*p-i*.95)*Math.sin(p*Math.PI)]}));
   breath.Keys.forEach(k=>{k.Fade=.68*T.MathUtils.smoothstep(k.At,1.22,1.85);});
-  write('poison_mist',parts,[],contacts,controls,[run,breath],false,{Forward:[0,1,0],Up:[0,0,1]},
+  const release=dissolve(controls,(_,p,c)=>({position:[c.Position[0]*(1+.11*p),c.Position[1]-.16*p,c.Position[2]+.09*p]}));
+  write('poison_mist',parts,[],contacts,controls,[run,breath,release],false,{Forward:[0,1,0],Up:[0,0,1]},
     structure('volume','forms_fields.mjs','makeMist',{lobes},Object.fromEntries(parts.map(p=>[p.Id,['vapor.body']])),[]));
 }
 

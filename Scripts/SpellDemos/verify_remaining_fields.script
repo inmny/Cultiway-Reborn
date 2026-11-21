@@ -102,7 +102,7 @@ try
             var definition=Convert(skill,out GetHitEvent damage);var restored=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));AbilityCompiler.Compile(restored,false);
             bool boost=skill.HasComponent<HugeModifier>();
             Check(definition.Root.Form==entry.Form&&definition.Root.Matter==entry.Matter&&definition.Root.State=="energy"&&
-                definition.ConcurrentLimit==2&&Math.Abs(definition.Lifetime-2.4f)<.001f&&definition.Root.Contact.Mode==ConstructionContactMode.Interval&&
+                definition.ConcurrentLimit==2&&Math.Abs(definition.Root.ActiveUntil-definition.Root.ActiveFrom-2.4f)<.001f&&definition.Root.Contact.Mode==ConstructionContactMode.Interval&&
                 Math.Abs(definition.Root.Contact.Interval-.4f)<.001f&&Math.Abs(definition.Root.Impact.DamageScale-.25f)<.001f&&
                 Math.Abs(damage.Damage-(boost?37.44f:40f))<.001f&&damage.AttackerPowerLevel==1.25f&&damage.Element.Equals(entry.Asset.Element)&&
                 Math.Abs(definition.Root.Scale-(boost?1.4f:1f))<.001f,entry.Form+"原本体量、人物倍率、词条、间隔、寿命和并存上限可保存编译");
@@ -147,7 +147,7 @@ try
     }
     if(section=="all"||section=="common")
     {
-        currentAsset=SkillEntities.PoisonPool;ResetPeople();var existing=Build();Check(Use(existing),"既有毒潭共同力量分离受理");await Advance(2.7f);
+        currentAsset=SkillEntities.PoisonPool;ResetPeople();var existing=Build();Check(Use(existing),"既有毒潭共同力量分离受理");await Advance(Convert(existing,out _).Lifetime+.05f);
         Check(damageEvents.Count>=2&&damageEvents.All(e=>Math.Abs(e.Damage-25f)<.001f)&&forceAfterHit.All(f=>Math.Abs(f-100)<.001f)&&accepted.All(c=>c.Finished),"既有领域人物作用不变，本体量恢复原100并正常结束");
         currentAsset=SkillEntities.Tornado;ResetPeople();var enhanced=Build(true);float balance=owner.GetCultisys<Xian>().wakan;
         var plan=SkillCastPlanner.CreatePlan(owner,enhanced,target,SkillCastCost.GetAffordableStepLimit(owner,enhanced),explicitTargetsOnly:true);
@@ -155,17 +155,20 @@ try
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculatePlanDemand(enhanced,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,enhanced)));
         Check(starts.Count==plan.Steps.Count&&oldExecutions==0&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&
             damageEvents.Count>=2&&damageEvents.All(e=>Math.Abs(e.Damage-23.4f)<.001f)&&forceAfterHit.All(f=>Math.Abs(f-93.6f)<.001f)&&Intervals(),"强化范围加速及合击齐射修正保留，人物输入23.4与本体量93.6分离，原逐发费用正确",new{steps=plan.Steps.Count,cost});
+        var liveWind=accepted.Where(c=>!c.Finished).ToArray();
+        if(liveWind.Length!=0)await Advance(liveWind.Max(c=>c.Plan.Lifetime-c.Age)+.05f);
         currentAsset=SkillEntities.YinField;ResetPeople();var following=Build(follow:true);Check(Use(following),"玄阴改跟随受理");await Advance(.45f);
         int oldHits=contacts.Count(c=>c.TargetId==edge.id);Place(target,75,74);ConstructedAbilityService.NotifyActorChanged(target);await Advance(.5f);
         Vector3 followed=Views(accepted.Single()).Single().Transform.GetColumn(3);
         Check(Math.Abs(followed.x-75)<.001f&&Math.Abs(followed.y-74)<.001f&&contacts.Count(c=>c.TargetId==edge.id)==oldHits&&contacts.Any(c=>c.TargetId==target.id&&c.Age>.45f),"跟随真实新位置，旧位置没有拖出隐藏伤害");await Advance(2f);
         ResetPeople();var harmless=Build(contact:false);float harmlessBalance=owner.GetCultisys<Xian>().wakan;Check(Use(harmless),"关闭人物作用的玄阴受理");await Advance(.15f);
-        Check(Views(accepted.Single()).Count==1&&Shapes(accepted.Single()).Count==0,"关闭人物作用保留主体并移除攻击接触");await Advance(2.6f);
+        Check(Views(accepted.Single()).Count==1&&Shapes(accepted.Single()).Count==0,"关闭人物作用保留主体并移除攻击接触");
+        await Advance(accepted.Single().Plan.Lifetime-accepted.Single().Age+.05f);
         Check(damageEvents.Count==0&&owner.GetCultisys<Xian>().wakan<harmlessBalance&&accepted.All(c=>c.Finished),"装饰领域仍收费、无伤并正常结束");
         ResetPeople();var failed=Build();float before=owner.GetCultisys<Xian>().wakan;invalidate=true;
         Check(Use(failed,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排领域实际受理失败");await Advance(.3f);invalidate=false;
         Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==0&&oldExecutions==0&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f,"实际受理失败原值退款且没有新旧残留");
-        scopeValid=true;ResetPeople();Check(Use(failed),"失败后同一领域恢复受理");await Advance(2.7f);Check(accepted.All(c=>c.Finished)&&damageEvents.Count>=2,"恢复后实际作用与结束正常");
+        scopeValid=true;ResetPeople();Check(Use(failed),"失败后同一领域恢复受理");await Advance(Convert(failed,out _).Lifetime+.05f);Check(accepted.All(c=>c.Finished)&&damageEvents.Count>=2,"恢复后实际作用与结束正常");
     }
     return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
 }

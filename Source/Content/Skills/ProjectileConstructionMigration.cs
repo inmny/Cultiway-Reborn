@@ -213,7 +213,7 @@ internal static partial class ProjectileConstructionMigration
                     Seconds = ClipSeconds(animation.Runtime, frameInterval) }
             }).ToArray();
         if (animation?.HasLifecycle == true &&
-            !SetProjectileLifecycle(definition, animation.AppearanceGameplay, appearance, dissipation,
+            !SetFormLifecycle(definition, animation.AppearanceGameplay, appearance, dissipation,
                 container.Asset == SkillEntities.EarthRidge ? "collapse" : "dissolve")) return null;
         if (container.Asset == SkillEntities.SpiritVine && appearance > 0f)
         {
@@ -268,7 +268,7 @@ internal static partial class ProjectileConstructionMigration
     /// <param name="appearance">原成形的世界秒数。</param>
     /// <param name="dissipation">原收势的世界秒数。</param>
     /// <param name="endingClip">该实体制作的收势动作。</param>
-    private static bool SetProjectileLifecycle(AbilityDefinition definition, SkillAnimationGameplayFlags gameplay,
+    internal static bool SetFormLifecycle(AbilityDefinition definition, SkillAnimationGameplayFlags gameplay,
         float appearance, float dissipation, string endingClip)
     {
         if (gameplay is not (SkillAnimationGameplayFlags.None or SkillAnimationGameplayFlags.Movement)) return false;
