@@ -37,7 +37,12 @@ var catalog = new[]
     (Asset: SkillEntities.FireWall, Form: "fire_wall", Count: 1),
     (Asset: SkillEntities.WindWall, Form: "wind_wall", Count: 1),
     (Asset: SkillEntities.SwordCurtain, Form: "sword_curtain", Count: 1),
-    (Asset: SkillEntities.WaterCurtain, Form: "water_curtain", Count: 1)
+    (Asset: SkillEntities.WaterCurtain, Form: "water_curtain", Count: 1),
+    (Asset: SkillEntities.SpiritShield, Form: "spirit_aegis", Count: 1),
+    (Asset: SkillEntities.FlameShield, Form: "flame_aegis", Count: 2),
+    (Asset: SkillEntities.WindShield, Form: "wind_aegis", Count: 2),
+    (Asset: SkillEntities.LightningShield, Form: "lightning_aegis", Count: 2),
+    (Asset: SkillEntities.YangShield, Form: "solar_aegis", Count: 1)
 }.Where(entry => chosenAssets.Contains(entry.Asset.id)).ToArray();
 
 bool CanTestTracking(SkillEntityAsset asset) => asset == SkillEntities.WaterOrb || asset == SkillEntities.WindBullet ||
@@ -406,6 +411,106 @@ async Task PlayWall(SkillEntityAsset asset, string form, int index)
     recordings.Add(new { asset = asset.id, index, form, price, capacity, center = center.ToString() });
 }
 
+async Task PlayShield(SkillEntityAsset asset, string form, int index)
+{
+    string model = index == 0 ? form : form + "_" + index;
+    var skill = cold ? Learned().Single(item => item.GetComponent<SkillContainer>().AnimationIndex == index &&
+        item.GetComponent<SkillContainer>().Asset == asset) : Learn(asset, index, false);
+    var container = skill.GetComponent<SkillContainer>();
+    var animation = asset.GetAnimation(index);
+    float appearance = Seconds(animation.Appearance, container.MotionProfile.FrameInterval);
+    float recovery = Seconds(animation.Dissipation, container.MotionProfile.FrameInterval);
+    float activeEnd = appearance + asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier;
+    double price = SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+
+    void UseShield()
+    {
+        Ready(source);
+        Place(source, 70);
+        Place(target, 64);
+        source.addAggro(target);
+        target.addAggro(source);
+        ConstructedAbilityService.NotifyActorChanged(source);
+        ConstructedAbilityService.NotifyActorChanged(target);
+        Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+            new ActiveAbilityTarget(source, source.GetSimPos()), ActiveAbilityUseOrigin.Player),
+            "原护盾已学自用入口受理", model);
+        source.attack_timer = 999;
+        CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+        source.updateStats();
+    }
+
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float before = owner.GetCultisys<Xian>().wakan;
+    int previous = casts.Count, hp = source.data.health;
+    UseShield();
+    await Advance(.07f);
+    Check(casts.Count == previous + 1 && oldExecutions == 0, "护盾只进入共同执行一次", model);
+    var live = casts.Last();
+    var cast = live.Value;
+    var forming = Views(cast).Single();
+    Check(forming.Resource.Description.Id == model && (appearance > 0f
+            ? ShapeCount(cast) == 0 && cast.Age < appearance && forming.Transform.lossyScale.x < .95f
+            : ShapeCount(cast) > 0),
+        "旧零号先成形，旧一号直接防御", new { model, appearance, cast.Age, shapes = ShapeCount(cast) });
+    await Stage(cast, appearance + .045f);
+    var protectedView = Views(cast).Single();
+    Vector3 center = protectedView.Transform.GetColumn(3);
+    Check(Vector2.Distance(center, source.current_position) < .025f && ShapeCount(cast) > 0 &&
+          Math.Abs(cast.RemainingForce(0) - 300f) < .001f && Math.Abs(cast.Plan.Lifetime - activeEnd - recovery) < .001f,
+        "实际护盾位置、容量和原生命周期一致", new { model, activeEnd, recovery, cast.Plan.Lifetime, center = center.ToString() });
+
+    Entity stone = new SkillContainerBuilder(SkillEntities.StoneCone).UseAnimation(0).Build(SkillContainerBuildMode.SourceGranted);
+    Entity shot = Cultiway.ModClass.I.SkillV3.SpawnSkillAtPosition(stone, target,
+        new Vector3(64, 72, .6f), source, new Vector3(70, 72, .6f), 13, 0);
+    await Advance(.58f);
+    float remaining = cast.RemainingForce(0);
+    Check((shot.IsNull || !shot.IsAvailable() || shot.Tags.Has<TagRecycle>() || shot.Tags.Has<TagSkillAnimationNoCollision>()) &&
+          Math.Abs(remaining - 287f) < .001f && source.data.health == hp && contacts.All(hit => hit.CastId != live.Key),
+        "厚壳仅消耗一次拦截容量，人物无伤害或反击", new { model, hp, after = source.data.health, remaining });
+    if (asset == SkillEntities.SpiritShield)
+    {
+        Place(source, 74.5f);
+        ConstructedAbilityService.NotifyActorChanged(source);
+        await Advance(.10f);
+        Vector3 moved = Views(cast).Single().Transform.GetColumn(3);
+        var shapes = new List<AbilityCapsule>();
+        cast.AppendContacts(shapes);
+        Check(Math.Abs(moved.x - 74.5f) < .02f && shapes.Count > 0 &&
+              shapes.All(shape => Mathf.Min(shape.A.x, shape.B.x) - shape.Radius > 72f),
+            "护盾和实际接触一起跟随来源，旧位置清空", new { model, moved = moved.ToString() });
+    }
+    if (recovery > 0f)
+    {
+        await Stage(cast, activeEnd + .045f);
+        var residue = Views(cast).Single();
+        string endingForm = asset == SkillEntities.YangShield ? "solar_scale_release" : model;
+        Check(residue.Resource.Description.Id == endingForm && ShapeCount(cast) == 0,
+            "收势只有实际结束点的画面，三秒防御已经退出", new { model, activeEnd, cast.Age });
+    }
+    await Stage(cast, cast.Plan.Lifetime + .11f);
+    Check(cast.Finished && Views(cast).Length == 0 && ShapeCount(cast) == 0 &&
+          endings.Any(end => end.Fact.CastId == live.Key && !end.Fact.Cancelled) &&
+          Math.Abs(before - owner.GetCultisys<Xian>().wakan - price) < .001f,
+        "护盾只支付原价，结束后显示与作用都撤除", new { model, price, before, after = owner.GetCultisys<Xian>().wakan });
+    recordings.Add(new { asset = asset.id, index, form = model, price, appearance, activeEnd, recovery, remaining });
+    if (asset == SkillEntities.YangShield)
+    {
+        UseShield();
+        await Advance(appearance + .07f);
+        var dependent = casts.Last();
+        Check(dependent.Key != live.Key && ShapeCount(dependent.Value) > 0,
+            "代表护盾再次施放并进入实际防御", model);
+        ControllableUnit.clear(false);
+        typeof(Actor).GetMethod("die", F).Invoke(source, new object[] { false, AttackType.Other, true, false });
+        await Advance(.24f);
+        Check(!source.isAlive() && dependent.Value.Finished &&
+              Views(dependent.Value).Length == 0 && ShapeCount(dependent.Value) == 0,
+            "来源死亡后撤除护盾和收势", model);
+    }
+}
+
 async Task Play(SkillEntityAsset asset, string form, int index)
 {
     if (asset == SkillEntities.GroundSpike)
@@ -416,6 +521,11 @@ async Task Play(SkillEntityAsset asset, string form, int index)
     if (asset.ImpactProfile.Kind == Cultiway.Core.SkillLibV3.Impacts.SkillImpactKind.Wall)
     {
         await PlayWall(asset, form, index);
+        return;
+    }
+    if (asset.ImpactProfile.Kind == Cultiway.Core.SkillLibV3.Impacts.SkillImpactKind.Shield)
+    {
+        await PlayShield(asset, form, index);
         return;
     }
     bool icefall = asset == SkillEntities.Icefall, lightning = asset == SkillEntities.LightningStrike;
@@ -673,7 +783,9 @@ try
 {
     foreach (var entry in catalog)
     {
-        var coldVariants = entry.Asset == SkillEntities.LightningStrike ? new[] { 0, 9 } : new[] { Math.Min(1, entry.Count - 1) };
+        var coldVariants = entry.Asset == SkillEntities.LightningStrike ? new[] { 0, 9 } :
+            entry.Asset.ImpactProfile.Kind == Cultiway.Core.SkillLibV3.Impacts.SkillImpactKind.Shield
+                ? Enumerable.Range(0, entry.Count).ToArray() : new[] { Math.Min(1, entry.Count - 1) };
         var variants = chosenVariants.Length > 0 ? chosenVariants.Distinct() : cold ? coldVariants : Enumerable.Range(0, entry.Count);
         foreach (int index in variants) await Play(entry.Asset, entry.Form, index);
         if (caseName == "scatter")

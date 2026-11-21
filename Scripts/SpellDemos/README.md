@@ -2627,3 +2627,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py contact-walls --case archive` 保存四个旧索引。重启后用 `contact-walls --case cold --archive <保存输出目录>` 读回并施放。默认的 `--case hit` 可单独指定 `fire-wall`、`wind-wall`、`sword-curtain` 或 `water-curtain`。
 
 迎击录像用 `demo_all.py --filter Cultiway.FireWall,Cultiway.WindWall,Cultiway.SwordCurtain,Cultiway.WaterCurtain --variants all --cases base --scene shield --realm 2 --target-offset 8 -5 --duration 2.8 --fps 30 --motion-trace`。原版配 `--view native --zoom 12.5`，Worldfall 配 `--view worldfall --zoom 16.5`。输出记录实际拦截和墙面容量变化。
+
+### 随身护盾旧变体（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py shields --case archive` 保存八个索引。重启后使用 `shields --case cold --archive <保存输出目录>` 读回，核对每个索引的成形、有效防御、拦截、原价和收势。也可选择单个护盾并指定 `--variant`。
+
+用 `demo_all.py --filter Cultiway.SpiritShield,Cultiway.FlameShield,Cultiway.WindShield,Cultiway.LightningShield,Cultiway.YangShield --variants all --cases base --scene shield --realm 0 --target-offset 7 0 --zoom 17 --duration 3.6 --fps 24 --motion-trace` 录制，分别选择 `--view native` 和 `--view worldfall`。
