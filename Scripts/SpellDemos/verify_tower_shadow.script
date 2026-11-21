@@ -1,0 +1,144 @@
+// 同一原塔在施术者身边，远端只出现真实模型的投影与原范围作用。
+const float centerX = 86.5f, centerY = 72f;
+Vector3 center = new Vector3(centerX, centerY, 0f);
+PrepareArtifactArena(51, 109, 56, 90);
+Actor source = Make(64.35f), near = Make(81f, "wolf"), far = Make(101f, "wolf");
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 1200f });
+owner.SetPowerLevel(4f);
+await Setup(source, near);
+CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+source.updateStats();
+source.addAggro(far);
+far.addAggro(source);
+var asset = ArtifactAbilities.TowerShadowProjection;
+var blueprint = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Tower,
+    Atoms = new[] { ArtifactAtoms.RealmTower, ArtifactAtoms.SpatialCrystal,
+        ArtifactAtoms.VoidSailCore, ArtifactAtoms.CloudRidingScript },
+    Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "远端投界实测"
+}));
+Check(blueprint.AbilitySet.abilities.Any(row => row.ability_id == asset.id), "正式炼制获得塔影投界",
+    blueprint.AbilitySet.abilities.Select(row => row.ability_id).ToArray());
+Entity tower = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+owner.AddSpecialItem(tower);
+Check(owner.EquipArtifact(tower, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "正式装备投影原塔");
+ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+lifecycle.Invoke(null, new object[] { tower });
+await Game.NextFrame();
+await Game.NextFrame();
+
+var ability = Definition(tower, asset.id);
+var state = owner.E.GetRelation<EquippedArtifactRelation, Entity>(tower).state;
+var execution = new ArtifactAbilityExecutionContext(owner.E, tower, state);
+float multiplier = state == ArtifactControlState.Overloaded ? asset.lifecycle.overload_resource_multiplier : 1f;
+float activation = asset.lifecycle.ResolveActivationCost(execution, ability) * multiplier;
+float upkeep = asset.lifecycle.ResolveMaintenanceCost(execution, ability) * multiplier;
+float radius = ability.GetNumber("effect_radius");
+var starts = new List<ConstructedCastStarted>();
+var shadowHits = new List<ConstructedContact>();
+var fees = new List<float>();
+var payment = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = payment.GetValue(null);
+var getPose = typeof(ArtifactAppearanceRenderer).GetMethod("TryGetSpatialPose", F);
+object[] args = { tower, null };
+Check((bool)getPose.Invoke(null, args), "可读取佩带原塔的组合模型");
+object originalModel = Field(args[1], "Model");
+var append = service.Assembly.GetType("Cultiway.Content.Visuals.ArtifactSpatialVisualRuntime").GetMethod("Append", F);
+var items = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(args[1].GetType()));
+object[] drawArgs = { items, 128 };
+bool Close(float a, float b) => Mathf.Abs(a - b) < .003f;
+bool ShowsField() => FormVisualScene.Instances.Any(view => view.Resource.Description.Id == "tower_shadow_field");
+FormVisualInstance Form() => FormVisualScene.Instances.Single(view => view.Resource.Description.Id == "tower_shadow_field");
+bool ShowsOriginalModelAtCenter()
+{
+    items.Clear();
+    drawArgs[1] = 128;
+    append.Invoke(null, drawArgs);
+    return items.Cast<object>().Any(item => ReferenceEquals(Field(item, "Model"), originalModel) &&
+        Vector2.Distance((Vector3)Field(item, "Position"), center) < .02f);
+}
+bool IsOriginalNearOwner()
+{
+    return !tower.HasComponent<ArtifactDeployment>() && !tower.HasComponent<ArtifactIndependentMotion>() &&
+        tower.HasComponent<Position>() &&
+        Vector2.Distance(tower.GetComponent<Position>().value, source.current_position) < 4f &&
+        Vector2.Distance(tower.GetComponent<Position>().value, center) > radius + 2f &&
+        owner.GetItems().Contains(tower) && owner.GetEquippedArtifacts().Contains(tower);
+}
+
+void Started(ConstructedCastStarted cast)
+{
+    if (cast.SourceId == source.id && cast.AbilityId == asset.id) starts.Add(cast);
+}
+void Contact(ConstructedContact hit)
+{
+    if (hit.SourceId == source.id && hit.AbilityId == asset.id) shadowHits.Add(hit);
+}
+void Paid(ActorExtend actor, in WakanMutation change)
+{
+    if (actor == owner && change.Kind == WakanMutationKind.Spend) fees.Add(-change.Delta);
+}
+bool Activate(Vector3 aim)
+{
+    source.attack_timer = 0f;
+    bool use = ActiveAbilityService.TryUse(owner, ArtifactHandle(tower, asset.id),
+        new ActiveAbilityTarget(null, aim), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999f;
+    return use;
+}
+
+WakanResourceService.RegisterMutationCommitted(Paid);
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    owner.GetCultisys<Xian>().wakan = 1200f;
+    Place(near, centerX + radius - .24f, centerY);
+    Place(far, centerX + radius + .25f, centerY);
+    int nearHealth = near.data.health, farHealth = far.data.health;
+    Check(!Activate(new Vector3(1f, 1f, 0f)) && fees.Count == 0, "超原投影距离拒绝，保留真元");
+    Check(Activate(center) && fees.Count == 1 && Close(fees[0], activation) && shadowHits.Count == 0 && IsOriginalNearOwner(),
+        "远端受理仅支付原启动费，原塔不离身", new { activation, radius });
+    await WaitFor(() => shadowHits.Count > 0, .95f);
+    await Game.NextFrame();
+    Check(starts.Count == 1 && shadowHits.Count == 1 && shadowHits[0].TargetId == near.id &&
+          near.data.health < nearHealth && far.data.health == farHealth &&
+          CombatStatusEffects.HasStatus(near, StatusEffects.Slow, source) &&
+          !CombatStatusEffects.HasStatus(far, StatusEffects.Slow, source) &&
+          fees.Count == 2 && Close(fees[1], upkeep) && IsOriginalNearOwner(),
+        "付原维持费后只在远点圈内扣血并减速",
+        new { radius, healthLost = nearHealth - near.data.health, upkeep, fees = fees.ToArray() });
+    var form = Form();
+    float visibleRadius = form.Resource.Description.Contacts.Single().Sector.Radius *
+        form.Transform.MultiplyVector(Vector3.right).magnitude;
+    Check(Vector2.Distance((Vector3)form.Transform.GetColumn(3), center) < .02f && Close(visibleRadius, radius) &&
+          ShowsOriginalModelAtCenter(), "远端原模型投影与实际作用中心、半径一致",
+        new { visibleRadius, radius });
+    if (shots)
+    {
+        ControllableUnit.clear(false);
+        MoveCamera.clearFocusUnitOnly();
+        await Game.NextFrame();
+        await CaptureArtifactViews("tower-shadow", center, radius + 2.8f,
+            () => ShowsField() && ShowsOriginalModelAtCenter(), nativeZoom: radius + 2.3f);
+    }
+
+    owner.GetCultisys<Xian>().wakan = 0f;
+    await Advance(.76f);
+    Check(!ShowsOriginalModelAtCenter() && !ShowsField() && IsOriginalNearOwner() &&
+          starts.Count == 1 && shadowHits.Count == 1 && fees.Count == 2,
+        "停费后远端模型和作用一起收束，原塔仍由施术者持有");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    payment.SetValue(null, previous);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+}

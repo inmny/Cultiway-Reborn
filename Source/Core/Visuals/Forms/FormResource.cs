@@ -767,6 +767,7 @@ internal sealed partial class FormResourceGeneration
             "spirit_gate_edging" => (2f, new Color(.93f, .68f, .37f), .3f),
             "spirit_gate_veil" => (14f, new Color(.66f, .45f, 1f, .38f), .42f),
             "tower_prison" => (2f, new Color(.37f, .44f, .62f, .88f), .55f),
+            "tower_shadow_field" => (8f, new Color(.35f, .39f, .65f, .54f), .34f),
             "tower_ward" => (14f, new Color(.68f, .59f, .26f, .45f), .26f),
             "fan_gale" => (14f, new Color(.34f, .58f, .72f, .49f), .34f),
             "fan_flame" => (6f, new Color(.97f, .52f, .085f, .80f), .38f),

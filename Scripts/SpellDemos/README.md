@@ -2815,3 +2815,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 宝塔镇狱与九重界障（10.05）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_tower_deployed.py` 复验正式法塔的部署、维持、圈内外囚禁与护甲、停费和原件归还。用 `--section prison|ward` 单独复验一招，用 `--skip-views` 或 `--views-only` 分别复查游戏行为或双视角形体。
+
+### 塔影投界（10.05）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_tower_shadow.py` 核对同一个正式原塔的远端点选、维持费用、真实减速与伤害，以及停费后投影和范围同时清理。运行时会比较远点模型和原塔网格。加 `--skip-views` 可只跑行为验证。

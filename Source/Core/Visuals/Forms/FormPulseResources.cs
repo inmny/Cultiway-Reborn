@@ -33,6 +33,9 @@ internal sealed partial class FormResourceGeneration
             [new(.65f, .027f), new(.69f, .106f), new(.71f, .238f), new(.74f, .253f),
                 new(.79f, .171f), new(.85f, .162f), new(.88f, .089f), new(.98f, .093f),
                 new(1f, .042f), new(.98f, .016f), new(.65f, .014f)]);
+        CreatePulseForm("tower_shadow_field", "tower_shadow_field", .34f, 7,
+            [new(.51f, .020f), new(.62f, .053f), new(.71f, .112f), new(.79f, .087f),
+                new(.88f, .139f), new(.96f, .074f), new(1f, .026f), new(.96f, .009f), new(.51f, .008f)]);
         CreatePulseForm("tower_ward", "tower_ward", .19f, 9,
             [new(.43f, .055f), new(.48f, .143f), new(.57f, .266f), new(.61f, .272f),
                 new(.70f, .138f), new(.79f, .128f), new(.85f, .149f), new(.93f, .093f),

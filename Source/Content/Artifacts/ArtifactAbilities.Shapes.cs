@@ -192,12 +192,12 @@ public partial class ArtifactAbilities
             rotation);
     }
 
-    /// <summary>原法宝结清本次维持费后，在真实部署点开始一次圆面作用。</summary>
+    /// <summary>原法宝结清本次维持费后，从实际部署点或声明的投影点开始一次圆面作用。</summary>
     private static void StartPaidArtifactArea(ArtifactAbilityExecutionContext context, ArtifactAbilityAsset asset,
         ArtifactAbilityInstance ability, float interval, string form, ArtifactAreaContact contact,
-        ElementComposition element, float damage = 0f, float spin = 0f)
+        ElementComposition element, float damage = 0f, float spin = 0f, Vector2? center = null)
     {
-        Vector3 position = context.artifact.GetComponent<ArtifactDeployment>().origin;
+        Vector2 position = center ?? (Vector2)context.artifact.GetComponent<ArtifactDeployment>().origin;
         var aim = new ActiveAbilityTarget(null, position);
         ArtifactAreaConstruction.Start(context, asset, aim, ActiveAbilityUseOrigin.Reaction, position,
             ability.GetNumber(EffectRadius), interval - .01f, contact, form, element, damage, strike: .025f, spin: spin);

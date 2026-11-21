@@ -299,6 +299,7 @@ public partial class ArtifactAbilities
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = SkillCastResources.Wakan,
             OnTick = ApplyTowerShadowProjection,
+            OnActivityEnded = EndArtifactConstruction,
         });
         TowerShadowProjection.Activate(new ArtifactActiveAbilityProfile
         {
@@ -332,23 +333,18 @@ public partial class ArtifactAbilities
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
-        float _)
+        float interval)
     {
-        Actor controller = Controller(context);
-        Vector2 center = runtime.activity_position;
-        CombatTargeting.ForEachHostile(controller, center, ability.GetNumber(EffectRadius), target =>
+        float duration = ability.GetNumber(StatusDuration);
+        var caster = ArtifactAbilityLifecycle.ResolveSkillContext(context);
+        var contact = new ArtifactAreaContact((source, target) =>
         {
-            CombatDamageEffects.DealDamage(
-                controller,
-                target,
-                SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
-                MaterialComposition(context));
-            CombatStatusEffects.ApplyStatus(
-                target,
-                StatusEffects.Slow,
-                ability.GetNumber(StatusDuration),
-                controller);
-        });
+            using var scope = SkillCasterContextService.Enter(in caster);
+            CombatStatusEffects.ApplyStatus(target, StatusEffects.Slow, duration, source);
+        }, damageFirst: false);
+        StartPaidArtifactArea(context, TowerShadowProjection, ability, interval, "tower_shadow_field", contact,
+            MaterialComposition(context), SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
+            center: (Vector2)runtime.activity_position);
     }
 
     private static void ConfigureTowerAbilityVisuals()
@@ -365,58 +361,20 @@ public partial class ArtifactAbilities
 
     private static void ConfigureTowerShadowProjectionVisuals()
     {
-        ArtifactProjectionVisualCue shadow = new ArtifactProjectionVisualCue
+        // 塔影仍使用原件的组合模型，地面效果单独由付费接触确认。
+        var shadow = new ArtifactProjectionVisualCue
         {
             anchor = ArtifactVisualAnchorKind.Point,
             color_role = ArtifactVisualColorRole.Glow,
-            scale = 1.45f,
-            alpha = 0.48f,
-            start_scale = 1f,
+            ResolveWorldSize = context => context.ability.GetNumber(EffectRadius) * .64f,
+            alpha = .55f,
+            start_scale = .82f,
             end_scale = 1f,
             fade_out = false,
-            pulse_amplitude = 0.075f,
+            pulse_amplitude = .035f,
             pulse_speed = 4.5f,
-            match_actor_scale = false,
         };
-        ArtifactAreaVisualCue field = Area(
-            ArtifactVisualAnchorKind.Point,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Primary,
-            0.48f,
-            0.065f,
-            ArtifactVfxStyles.Suppression
-        );
-        field.inner_rotation_speed = -32f;
-        ArtifactGlyphVisualCue glyph = ActivityGlyph(
-            ArtifactVisualAnchorKind.Point,
-            context => context.ability.GetNumber(EffectRadius) * 0.78f,
-            ArtifactVisualColorRole.Secondary,
-            8,
-            -20f,
-            ArtifactVfxStyles.Suppression
-        );
-        TowerShadowProjection.Visualize(
-            Theme(SkillVfxElements.Neg.AccentColor)
-                .Loop(
-                    "tower_shadow_projection",
-                    new ArtifactCompositeVisualCue(shadow, field, glyph),
-                    IsActivityActive
-                )
-                .Signal(
-                    ArtifactVisualChannels.Tick,
-                    new ArtifactCompositeVisualCue(
-                        Burst(ArtifactVisualAnchorKind.Point, ArtifactVisualColorRole.Glow, 5),
-                        ExpandingArea(
-                            ArtifactVisualAnchorKind.Point,
-                            context => context.ability.GetNumber(EffectRadius),
-                            ArtifactVisualColorRole.Primary,
-                            ArtifactVfxStyles.Suppression
-                        )
-                    ),
-                    0.34f,
-                    "artifact.tower_shadow.tick",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
-        );
+        TowerShadowProjection.Visualize(Theme(SkillVfxElements.Neg.AccentColor)
+            .Loop("tower_shadow_projection", shadow, IsActivityActive));
     }
 }
