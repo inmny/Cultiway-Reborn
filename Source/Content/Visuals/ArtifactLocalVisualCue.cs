@@ -15,7 +15,9 @@ public enum ArtifactLocalVisualKind
     /// <summary>贴地根蔓。</summary>
     Root,
     /// <summary>围绕身体的强化短纹。</summary>
-    Blessing
+    Blessing,
+    /// <summary>沿实际身体展开的半透明衣面。</summary>
+    Veil
 }
 
 /// <summary>局部形态与实际挂点组合，不再依赖整张动画。</summary>

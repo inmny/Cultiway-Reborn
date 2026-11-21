@@ -1,0 +1,152 @@
+// 用同一人和原天衣检查普通来伤、披帛跟随、实际破隐与停止维持。
+PrepareArtifactArena(56, 80, 61, 83);
+Actor source = Make(64.35f), enemy = Make(69f, "wolf");
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 1200f });
+owner.SetPowerLevel(4f);
+await Setup(source, enemy);
+CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+source.updateStats();
+
+var asset = ArtifactAbilities.HeavenlyConcealment;
+var blueprint = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Robe,
+    Atoms = new[] { ArtifactAtoms.CloudRobe, ArtifactAtoms.VoidSilk,
+        ArtifactAtoms.VoidMark, ArtifactAtoms.CloudPattern },
+    Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "遁形天衣实测"
+}));
+Check(blueprint.AbilitySet.abilities.Any(row => row.ability_id == asset.id), "正式炼制获得遁形天衣",
+    blueprint.AbilitySet.abilities.Select(row => row.ability_id).ToArray());
+Entity robe = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+owner.AddSpecialItem(robe);
+Check(owner.EquipArtifact(robe, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "正式穿戴原天衣");
+ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+lifecycle.Invoke(null, new object[] { robe });
+await Advance(.08f);
+source.updateStats();
+
+var ability = Definition(robe, asset.id);
+var state = owner.E.GetRelation<EquippedArtifactRelation, Entity>(robe).state;
+var execution = new ArtifactAbilityExecutionContext(owner.E, robe, state);
+float resourceMultiplier = state == ArtifactControlState.Overloaded ? asset.lifecycle.overload_resource_multiplier : 1f;
+float initialCost = asset.lifecycle.ResolveActivationCost(execution, ability) * resourceMultiplier;
+float upkeep = asset.lifecycle.ResolveMaintenanceCost(execution, ability) * resourceMultiplier;
+float damageReduction = ability.GetNumber("damage_reduction") * execution.effect_scale;
+float speedBonus = ability.GetNumber("speed_bonus") * execution.effect_scale;
+var visuals = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem")
+    .GetField("Meshes", F).GetValue(null);
+var fees = new List<float>();
+var payment = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = payment.GetValue(null);
+void Paid(ActorExtend actor, in WakanMutation change)
+{
+    if (actor == owner && change.Kind == WakanMutationKind.Spend) fees.Add(-change.Delta);
+}
+ArtifactAbilityRuntimeEntry Current() => Entry(robe, asset.id);
+bool Active() => Current().activity_kind != ArtifactAbilityActivityKind.None;
+bool Hidden() => CombatStatusEffects.HasStatus(source, StatusEffects.Concealed);
+object[] Drapes() => visuals.Cast<object>().Where(item =>
+    (string)Field(Field(item, "Model"), "Name") == "heavenly_concealment_drape").ToArray();
+Vector3 DrapePosition() => (Vector3)Field(Drapes().Single(), "Position");
+float Speed() => source.stats[strings.S.speed];
+bool Activate()
+{
+    source.attack_timer = 0f;
+    bool accepted = ActiveAbilityService.TryUse(owner, ArtifactHandle(robe, asset.id),
+        new ActiveAbilityTarget(source, source.GetSimPos()), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999f;
+    return accepted;
+}
+async Task<int> MeasureDamage(Actor from, Actor to)
+{
+    int before = to.data.health;
+    CombatDamageEffects.DealDamage(from, to, 800f, default, ignoreDamageReduction: true,
+        attackerPowerLevel: 4f);
+    await WaitFor(() => to.data.health < before, .26f);
+    return before - to.data.health;
+}
+
+WakanResourceService.RegisterMutationCommitted(Paid);
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    owner.GetCultisys<Xian>().wakan = 0f;
+    Check(!Activate() && fees.Count == 0 && !Active() && !Hidden() && Drapes().Length == 0,
+        "启动费不足时无隐匿或披帛");
+    // 同一件正式衣物带有受击护盾和护主充能。先用真实来伤消耗它们，
+    // 然后在它们各自的恢复时间内比较同一穿戴者的两次伤害。
+    int guardedHit = await MeasureDamage(enemy, source);
+    int original = await MeasureDamage(enemy, source);
+    Check(guardedHit > 0 && guardedHit < original && original == 800,
+        "先用实际来伤消耗被动护持，再记录同等来伤的基准", new { guardedHit, original });
+    source.restoreHealth(source.getMaxHealth());
+    source.updateStats();
+    float baseSpeed = Speed();
+
+    owner.GetCultisys<Xian>().wakan = 1200f;
+    Check(Activate() && Active() && Hidden() && fees.Count == 1 && Mathf.Abs(fees[0] - initialCost) < .003f,
+        "一次原启动费，在真实穿戴者身上生效", new { initialCost, paid = fees.LastOrDefault() });
+    source.updateStats();
+    Check(Mathf.Abs(Speed() - baseSpeed - speedBonus) < .02f, "移速增加原参数值",
+        new { baseSpeed, activeSpeed = Speed(), speedBonus });
+    int protectedHit = await MeasureDamage(enemy, source);
+    Check(protectedHit > 0 && Mathf.Abs(protectedHit - original * (1f - damageReduction)) <= 2f && Active() && Hidden(),
+        "同等实际来伤按原比例降低，受击后仍持续",
+        new { original, protectedHit, reduction = damageReduction });
+
+    await WaitFor(() => fees.Count >= 2, .70f);
+    Check(fees.Count == 2 && Mathf.Abs(fees[1] - upkeep) < .003f && Drapes().Length == 1,
+        "原间隔支付原维持费，贴身显示一件披帛", new { upkeep, paid = fees.LastOrDefault() });
+    Vector3 originalPoint = DrapePosition();
+    if (shots)
+    {
+        ControllableUnit.clear(false);
+        MoveCamera.clearFocusUnitOnly();
+        await Game.NextFrame();
+        await CaptureArtifactViews("robe", originalPoint, 3.8f,
+            () => Hidden() && Drapes().Length == 1 && Vector2.Distance(DrapePosition(), source.current_position) < .02f,
+            nativeZoom: 2.3f, closeSubject: source);
+    }
+    Place(source, originalPoint.x + 2f, originalPoint.y);
+    await Advance(.08f);
+    Vector3 movedPoint = DrapePosition();
+    Check(Vector2.Distance(movedPoint, source.current_position) < .02f && movedPoint.x > originalPoint.x + 1.9f,
+        "同一层衣面随实际穿戴者移动", new { from = originalPoint.x, to = movedPoint.x });
+
+    int outgoing = await MeasureDamage(source, enemy);
+    source.updateStats();
+    Check(outgoing > 0 && !Active() && !Hidden() && Mathf.Abs(Speed() - baseSpeed) < .02f,
+        "穿戴者造成实际伤害即破隐，移速归还", new { outgoing, recoveredSpeed = Speed() });
+    await Advance(.20f);
+    Check(Drapes().Length == 0 && owner.GetItems().Contains(robe) && owner.GetEquippedArtifacts().Contains(robe),
+        "披帛收束并继续穿戴原件");
+    float wait = (float)(Current().cooldown_until - World.world.getCurWorldTime());
+    if (wait > 0f) await Advance(wait + .08f);
+    owner.GetCultisys<Xian>().wakan = 1200f;
+    Check(Activate() && Active() && Hidden(), "原天衣冷却后可再次开启");
+    bool naturalRestore = Cultiway.Const.GeneralSettings.EnableNaturalWakanRestore;
+    try
+    {
+        // 用原设置保持本轮真元耗尽，防止场地的自然回灵先于下一次维持。
+        Cultiway.Const.GeneralSettings.SwitchNaturalWakanRestore(false);
+        owner.GetCultisys<Xian>().wakan = 0f;
+        int paidBeforeEnd = fees.Count;
+        await Advance(.75f);
+        Check(fees.Count == paidBeforeEnd && !Active() && !Hidden() && Drapes().Length == 0,
+            "下一次维持费付不起时恢复正常",
+            new { active = Active(), hidden = Hidden(), drapes = Drapes().Length });
+    }
+    finally
+    {
+        Cultiway.Const.GeneralSettings.SwitchNaturalWakanRestore(naturalRestore);
+    }
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    payment.SetValue(null, previous);
+}

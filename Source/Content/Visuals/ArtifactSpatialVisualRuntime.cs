@@ -355,6 +355,16 @@ internal static class ArtifactSpatialVisualRuntime
                 break;
             case ArtifactLocalVisualKind.Blessing:
                 SpatialVisualDraw.Ring(meshes, point, size, color, Quaternion.identity); break;
+            case ArtifactLocalVisualKind.Veil:
+                Actor carrier = context.controller.GetComponent<ActorBinder>().Actor;
+                float height = SpatialActorPose.Height(carrier);
+                float opening = Mathf.SmoothStep(.42f, 1f, Mathf.Clamp01(age / .22f));
+                float sway = Mathf.Sin(age * 6f) * .04f;
+                Vector3 drape = new(height * opening * (1f + sway), height * opening * (1f - sway), height);
+                Quaternion facing = Quaternion.Euler(0f, 0f, carrier.flip ? 180f : 0f);
+                SpatialVisualDraw.Mesh(meshes, ArtifactVeilGeometry.Drape, point, facing, drape, color, false,
+                    carrier.current_position, additive: false);
+                break;
             default:
                 SpatialVisualDraw.Mesh(meshes, SpatialVisualGeometry.Spark, point, Quaternion.Euler(age * 90f, age * 45f, 0f), Vector3.one * size, color, true); break;
         }

@@ -251,13 +251,6 @@ public partial class ArtifactAbilities
     {
         float reduction = ability.GetNumber(DamageReduction) * context.effect_scale;
         evt.Damage *= 1f - reduction;
-        ArtifactAbilityVisuals.Emit(
-            context,
-            ability,
-            runtime,
-            ArtifactVisualChannels.Guard,
-            target: evt.Attacker,
-            intensity: reduction);
     }
 
     private static void ConfigureDamageDiversion()
@@ -402,43 +395,20 @@ public partial class ArtifactAbilities
 
     private static void ConfigureHeavenlyConcealmentVisuals()
     {
-        ArtifactRibbonVisualCue veil = new ArtifactRibbonVisualCue
+        ArtifactLocalVisualCue veil = new(ArtifactLocalVisualKind.Veil)
         {
-            style_key = ArtifactVfxStyles.Cloth,
             anchor = ArtifactVisualAnchorKind.Controller,
-            color_role = ArtifactVisualColorRole.Secondary,
-            width = 0.12f,
-            alpha = 0.38f,
-            history = 0.5f,
-            min_distance = 0.035f,
-            max_points = 18,
-            match_actor_scale = true,
+            color_role = ArtifactVisualColorRole.Primary,
+            alpha = .88f,
         };
-        ArtifactParticleVisualCue mist = Burst(
-            ArtifactVisualAnchorKind.Controller,
-            ArtifactVisualColorRole.Glow,
-            2,
-            0.32f
-        );
-        mist.emission_interval = 0.18f;
         HeavenlyConcealment.Visualize(
             Theme(SkillVfxElements.Wind.AccentColor)
                 .Loop(
                     "heavenly_concealment",
-                    new ArtifactCompositeVisualCue(veil, mist, Pulse(1f, 1f, 0.08f)),
+                    veil,
                     IsActivityActive,
                     "artifact.heavenly_concealment",
                     ArtifactVisualStackPolicy.Strongest
-                )
-                .Signal(
-                    ArtifactVisualChannels.Guard,
-                    Burst(
-                        ArtifactVisualAnchorKind.Controller,
-                        ArtifactVisualColorRole.Glow,
-                        5,
-                        0.4f
-                    ),
-                    0.35f
                 )
         );
     }
