@@ -11,13 +11,22 @@ SECTIONS = {
     'survival': ('IllusionDecoy', 'InfantGuard', 'ChaosRebirth'),
     'dragon': ('DragonMight', 'DragonAspectMight'),
     'strikes': ('ChaosEcho', 'ChaosRebirthEcho', 'FivePhaseStrike'),
+    'armor': ('IronSeverance',),
+    'poison': ('WoodVenomBloom',),
+    'frost': ('WaterFrostBind',),
+    'burn': ('FireBrand',),
 }
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('all', *SECTIONS), default='all')
+    parser.add_argument('--section', choices=('all', 'status', *SECTIONS), default='all')
     section = parser.parse_args().section
-    abilities = SECTIONS[section] if section != 'all' else sum(SECTIONS.values(), ())
+    if section == 'all':
+        abilities = sum(SECTIONS.values(), ())
+    elif section == 'status':
+        abilities = sum((SECTIONS[name] for name in ('armor', 'poison', 'frost', 'burn')), ())
+    else:
+        abilities = SECTIONS[section]
     run(tuple(f'Cultiway.CoreFormation.Skill.{name}' for name in abilities),
         Path(__file__).with_suffix('.script'), [], section)

@@ -75,19 +75,19 @@ internal sealed class CoreFormationSkills : ICanInit
         SkillContainers.Clear();
         IronSeverance = BuildTarget(
             "IronSeverance", "iron_severance", 0.09f, ElementComposition.Static.Iron,
-            0f, false, false, OnIronSeverance);
+            0f, false, false);
         WoodVenomBloom = BuildTarget(
             "WoodVenomBloom", "wood_venom_bloom", 0.09f, ElementComposition.Static.Wood,
-            0f, false, true, OnWoodVenomBloom);
+            0f, false, true);
         WoodLifeReturn = BuildTarget(
             "WoodLifeReturn", "wood_life_return", 0.08f, ElementComposition.Static.Wood,
             0f, false, true, OnWoodLifeReturn, SkillUseProfileLibrary.CasterSelf);
         WaterFrostBind = BuildTarget(
             "WaterFrostBind", "water_frost_bind", 0.09f, ElementComposition.Static.Water,
-            0f, false, true, OnWaterFrostBind);
+            0f, false, true);
         FireBrand = BuildTarget(
             "FireBrand", "fire_brand", 0.075f, ElementComposition.Static.Fire,
-            0f, false, true, OnFireBrand);
+            0f, false, true);
         FireEmberBurst = BuildTarget(
             "FireEmberBurst", "fire_ember_burst", 0.1f, ElementComposition.Static.Fire,
             0f, false, true, OnFireEmberBurst);
@@ -409,67 +409,12 @@ internal sealed class CoreFormationSkills : ICanInit
         return true;
     }
 
-    /// <summary>破甲；目标已被同源破甲时追加金行反应伤害。</summary>
-    private static void OnIronSeverance(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target)) return;
-        bool alreadyBroken = CombatStatusEffects.HasStatus(target, StatusEffects.ArmorBreak, source);
-        CombatStatusEffects.ApplyStatus(target, StatusEffects.ArmorBreak, 4f, source);
-        if (alreadyBroken)
-            CombatDamageEffects.DealReactionDamage(
-                source,
-                target,
-                context.Strength * context.EffectScale * 0.25f,
-                ElementComposition.Static.Iron,
-                attackerPowerLevel: context.PowerLevel);
-    }
-
-    /// <summary>把触发伤害的一部分转换成五秒木行毒伤。</summary>
-    private static void OnWoodVenomBloom(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target)) return;
-        float totalDamage = context.Strength * context.EffectScale * 0.35f;
-        CombatStatusEffects.ApplyTickingStatus(
-            target,
-            StatusEffects.Poison,
-            5f,
-            totalDamage / 5f,
-            ElementComposition.Static.Wood,
-            source);
-    }
-
     /// <summary>恢复施法者的生命与灵气。</summary>
     private static void OnWoodLifeReturn(Entity skillEntity, BaseSimObject value)
     {
         if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out _)) return;
         CombatResourceEffects.RestoreHealth(source, source.stats[S.health] * 0.025f * context.EffectScale);
         CombatResourceEffects.RestoreWakan(source, 6f * context.EffectScale);
-    }
-
-    /// <summary>首次命中减速，再次命中同源减速时改为短暂冻结。</summary>
-    private static void OnWaterFrostBind(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryGetActors(skillEntity, value, out _, out Actor source, out Actor target)) return;
-        bool slowed = CombatStatusEffects.HasStatus(target, StatusEffects.Slow, source);
-        CombatStatusEffects.ApplyStatus(
-            target,
-            slowed ? StatusEffects.Freeze : StatusEffects.Slow,
-            slowed ? 0.75f : 3f,
-            source);
-    }
-
-    /// <summary>在目标身上施加四秒火行灼烧。</summary>
-    private static void OnFireBrand(Entity skillEntity, BaseSimObject value)
-    {
-        if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target)) return;
-        float totalDamage = context.Strength * context.EffectScale * 0.2f;
-        CombatStatusEffects.ApplyTickingStatus(
-            target,
-            StatusEffects.Burn,
-            4f,
-            totalDamage / 4f,
-            ElementComposition.Static.Fire,
-            source);
     }
 
     /// <summary>消耗目标的同源灼烧，并在目标周围产生火行爆发。</summary>

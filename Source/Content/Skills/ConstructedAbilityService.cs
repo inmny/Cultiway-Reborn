@@ -407,12 +407,14 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="groundContact">已学法术原有的命中地块规则。</param>
     /// <param name="buildingContact">已学法术原来允许接触建筑的规则。</param>
     /// <param name="explicitReactionTarget">延续旧反应的点名规则，仅对已经确定的原人物生效。</param>
+    /// <param name="formationTarget">点名修炼效果在实际接触时产生的作用。</param>
     internal static bool StartPrepaid(ActorExtend caster, AbilityDefinition definition,
         in ActiveAbilityTarget target, Vector3 sourcePosition, SkillCastPayment payment = null,
         GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0, BaseSimObject spatialSource = null,
         bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null, LegacyGroundTravel groundTravel = null,
         SkillVfxElementAsset groundContact = null, LegacyBuildingContact buildingContact = null,
-        string formationFamily = null, FormationAreaContact? formationArea = null, bool explicitReactionTarget = false)
+        string formationFamily = null, FormationAreaContact? formationArea = null, bool explicitReactionTarget = false,
+        FormationTargetEffect formationTarget = FormationTargetEffect.None)
     {
         if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
         // 原发射已核对点名建筑。共同空间输入使用它的位置，建筑身份仍由本次接触规则校验。
@@ -425,7 +427,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             true, payment, sourceDamage: damage, sourceDirection: direction, sourceInstance: sourceInstance,
             spatialSource: spatialSource?.a, sourceIsWorld: sourceIsWorld, legacyArea: legacyArea,
             groundTravel: groundTravel, groundContact: groundContact, buildingContact: buildingContact,
-            formationFamily: formationFamily, formationArea: formationArea, explicitReactionTarget: explicitReactionTarget);
+            formationFamily: formationFamily, formationArea: formationArea, explicitReactionTarget: explicitReactionTarget,
+            formationTarget: formationTarget);
     }
 
     /// <summary>固定环境位置直接进入共同执行，零编号表示未受理，不借人物提供身份或资源。</summary>
@@ -470,6 +473,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="formationFamily">实际修炼来源携带的自身法相，在首个生效时点提交。</param>
     /// <param name="formationArea">范围法相确认到人物后使用的原修炼规则。</param>
     /// <param name="explicitReactionTarget">延续旧反应的点名规则，仅对已经确定的原人物生效。</param>
+    /// <param name="formationTarget">点名修炼效果在实际接触时产生的作用。</param>
     private static bool Start(ActorExtend caster, CompiledAbility plan,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, out long castId, Vector3? sourcePosition = null,
         bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
@@ -477,7 +481,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         bool practice = false, bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null,
         LegacyGroundTravel groundTravel = null, SkillVfxElementAsset groundContact = null,
         LegacyBuildingContact buildingContact = null, string formationFamily = null,
-        FormationAreaContact? formationArea = null, bool explicitReactionTarget = false)
+        FormationAreaContact? formationArea = null, bool explicitReactionTarget = false,
+        FormationTargetEffect formationTarget = FormationTargetEffect.None)
     {
         castId = 0;
         Actor sourceActor = caster?.Base;
@@ -631,6 +636,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 BuildingContact = buildingContact,
                 FormationFamily = formationFamily,
                 FormationArea = formationArea,
+                FormationTarget = formationTarget,
                 ExplicitReactionTarget = explicitReactionTarget,
                 CorrespondenceEnded = plan.HasCorrespondences ? new bool[plan.FormCount] : null,
                 WorldScope = target.WorldScope,
@@ -964,6 +970,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>范围法相的后续人物结算，只由共用确认接触驱动。</summary>
         internal FormationAreaContact? FormationArea;
+
+        /// <summary>由点名修炼反应在真实接触时提交的效果。</summary>
+        internal FormationTargetEffect FormationTarget;
 
         /// <summary>原修炼反应在真实接触后只对原事件点名的人物结算。</summary>
         internal bool ExplicitReactionTarget;

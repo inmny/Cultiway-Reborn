@@ -12,7 +12,7 @@ using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>由修炼事件点名的追加伤害，从对应人物身边显形并由共同接触结算。</summary>
+/// <summary>修炼反应在原事件点名的人物身边显形，由共用接触结算状态和伤害。</summary>
 internal static class FormationStrikeConstruction
 {
     /// <summary>保留原碰撞大小、时间、伤害和本次触发确定的元素。</summary>
@@ -20,24 +20,36 @@ internal static class FormationStrikeConstruction
     internal static SkillEmissionResult Emit(SkillEmission emission)
     {
         var skill = emission.SkillContainer;
-        bool fivePhase = skill == CoreFormationSkills.FivePhaseStrike;
-        bool rebirth = skill == CoreFormationSkills.ChaosRebirthEcho;
-        if (!fivePhase && !rebirth && skill != CoreFormationSkills.ChaosEcho)
-            return SkillEmissionResult.Unhandled;
+        (string family, string form, string matter, FormationTargetEffect contact) = skill switch
+        {
+            var entry when entry == CoreFormationSkills.FivePhaseStrike =>
+                (CoreFormationEffectFamilies.FivePhase, "earth_burst", "earth", FormationTargetEffect.None),
+            var entry when entry == CoreFormationSkills.ChaosEcho =>
+                (CoreFormationEffectFamilies.Chaos, "chaos_orb_impact", "entropy", FormationTargetEffect.None),
+            var entry when entry == CoreFormationSkills.ChaosRebirthEcho =>
+                (CoreFormationEffectFamilies.Chaos, "entropy_burst", "entropy", FormationTargetEffect.None),
+            var entry when entry == CoreFormationSkills.IronSeverance =>
+                (CoreFormationEffectFamilies.Iron, "sword_qi_1", "iron", FormationTargetEffect.ArmorBreak),
+            var entry when entry == CoreFormationSkills.WoodVenomBloom =>
+                (CoreFormationEffectFamilies.Wood, "wood_burst", "wood", FormationTargetEffect.Poison),
+            var entry when entry == CoreFormationSkills.WaterFrostBind =>
+                (CoreFormationEffectFamilies.Water, "frost_flower", "water", FormationTargetEffect.FrostBind),
+            var entry when entry == CoreFormationSkills.FireBrand =>
+                (CoreFormationEffectFamilies.Fire, "fire_burst", "fire", FormationTargetEffect.Burn),
+            _ => default
+        };
+        if (family == null) return SkillEmissionResult.Unhandled;
         if (emission.Sourceless || emission.Source.isRekt() || !emission.Source.isActor() ||
             !emission.Source.a.isAlive() || emission.Target.isRekt() || !emission.Target.isActor())
             return SkillEmissionResult.Rejected;
         var caster = emission.Source.a.GetExtend();
-        string family = fivePhase ? CoreFormationEffectFamilies.FivePhase : CoreFormationEffectFamilies.Chaos;
         if (!CoreFormationEffectResolver.TryResolveFamily(caster, family, out var effect) ||
             effect.Definition.TriggerSkill != skill)
             return SkillEmissionResult.Rejected;
 
         var asset = skill.GetComponent<SkillContainer>().Asset;
         var element = emission.RuntimeData.ResolveElement(asset.Element);
-        string form = rebirth ? "entropy_burst" : "chaos_orb_impact";
-        string matter = "entropy";
-        if (fivePhase)
+        if (skill == CoreFormationSkills.FivePhaseStrike)
         {
             (form, matter) = element switch
             {
@@ -54,7 +66,7 @@ internal static class FormationStrikeConstruction
         float strength = emission.Strength * emission.RuntimeData.ResolveEffectScale();
         var definition = new AbilityDefinition
         {
-            Id = asset.id, Name = asset.id.Localize(), Resource = "none", Cost = 0f, Cooldown = 0f,
+            Id = asset.id, Name = effect.Definition.GetName(), Resource = "none", Cost = 0f, Cooldown = 0f,
             Lifetime = duration, TargetRange = 10000f,
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat, Target = ActiveAbilityTargetMode.Object },
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
@@ -102,7 +114,8 @@ internal static class FormationStrikeConstruction
         damage.BindAttacker(attacker);
         return ConstructedAbilityService.StartPrepaid(caster, definition, target, emission.SourcePos, emission.Payment,
             damage, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
-            groundContact: ConstructedAbilityService.LegacyContactElement(in emission), explicitReactionTarget: true)
+            groundContact: ConstructedAbilityService.LegacyContactElement(in emission), explicitReactionTarget: true,
+            formationTarget: contact)
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 }

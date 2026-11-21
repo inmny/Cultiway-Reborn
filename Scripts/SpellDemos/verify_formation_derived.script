@@ -376,6 +376,137 @@ try
             Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
         }
     }
+    if (caseName == "status" || Allowed("armor") || Allowed("poison") || Allowed("frost") || Allowed("burn"))
+    {
+        bool StatusCase(string name) => caseName == "status" || Allowed(name);
+        Place(outside, enemy.current_position.x, enemy.current_position.y);
+        ConstructedAbilityService.NotifyActorChanged(outside);
+        var emissions = new List<SkillEmission>();
+        var originalEmitter = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+        Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        {
+            if (emission.Source == source && chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id))
+                emissions.Add(emission);
+            return originalEmitter(emission);
+        };
+        int neighborHealth = outside.data.health, spentBefore = spends.Count;
+
+        async Task<ConstructedContact> React(Cultiway.Content.Libraries.CoreFormationResolvedEffect effect, string name)
+        {
+            int previous = started.Count(x => x.AbilityId == Id(name));
+            Check(SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill), "原反应已冷却 " + name);
+            for (int attempt = 0; attempt < 100 && SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill); attempt++)
+                Strike(source, enemy, 180);
+            await Advance(.20f);
+            var reaction = started.Where(x => x.AbilityId == Id(name)).ToArray();
+            Check(reaction.Length == previous + 1 && !legacy.Contains(Id(name)), name + "原攻击只触发一次共用反应",
+                new { before = previous, after = reaction.Length });
+            var contact = contacts.Single(x => x.CastId == reaction.Last().CastId);
+            Check(contact.SourceId == source.id && contact.TargetId == enemy.id, name + "只接触点名敌人");
+            return contact;
+        }
+
+        async Task Expire(Cultiway.Content.Libraries.CoreFormationResolvedEffect effect)
+        {
+            for (int frame = 0; frame < 45 && !SkillCooldownService.IsReady(owner, effect.Definition.CooldownSkill); frame++)
+                await Advance(.12f);
+        }
+
+        void EndedOnce(ConstructedContact contact)
+        {
+            Check(endings.Any(row => row.Fact.CastId == contact.CastId && !row.Fact.Cancelled) &&
+                contacts.Count(row => row.CastId == contact.CastId) == 1 &&
+                outside.data.health == neighborHealth && spends.Count == spentBefore,
+                contact.AbilityId + "自然收势、一次接触，同位置旁人无伤且不再扣费");
+        }
+
+        async Task VerifyTick(Cultiway.Content.Libraries.CoreFormationResolvedEffect effect, string name,
+            Cultiway.Core.Libraries.StatusEffectAsset status, float duration, float fraction, int elementIndex)
+        {
+            var contact = await React(effect, name);
+            Check(CombatStatusEffects.TryGetStatus(enemy, status, source, out Entity applied) &&
+                !CombatStatusEffects.HasStatus(outside, status, source),
+                name + "只给实际接触者挂上原来源的状态");
+            var tick = applied.GetComponent<StatusTickState>();
+            float seconds = applied.GetComponent<AliveTimeLimit>().value;
+            var cast = emissions.Last();
+            float rate = cast.Strength * cast.RuntimeData.ResolveEffectScale() * fraction / duration;
+            Check(Math.Abs(tick.Value - rate) < .001f && tick.Element[elementIndex] == 1f &&
+                Math.Abs(seconds - duration) < .01f && contact.Damage.SettledCount == 0,
+                name + "保留持续时间、元素和每秒伤害", new { tick.Value, seconds, rate });
+            int health = enemy.data.health;
+            await Advance(1.13f);
+            Check(enemy.data.health < health, name + "触发实际周期扣血", new { before = health, after = enemy.data.health });
+            EndedOnce(contact);
+            await Advance(duration);
+            Check(!CombatStatusEffects.HasStatus(enemy, status, source), name + "原状态正常到期");
+            resultRows.Add(new { id = Id(name), contact.CastId, duration, tick.Value, elementIndex });
+        }
+
+        try
+        {
+            if (StatusCase("armor"))
+            {
+                var iron = Install(CoreFormationAtoms.ElementIron, "iron", CoreFormationRealm.Jindan);
+                CombatStatusEffects.ApplyStatus(enemy, StatusEffects.ArmorBreak, 4f, ally);
+                var first = await React(iron, "IronSeverance");
+                Check(first.Damage.SettledCount == 0 && CombatStatusEffects.HasStatus(enemy, StatusEffects.ArmorBreak, source) &&
+                    CombatStatusEffects.HasStatus(enemy, StatusEffects.ArmorBreak, ally),
+                    "他人破甲不触发追加，同源状态独立建立");
+                await Expire(iron);
+                EndedOnce(first);
+                Check(CombatStatusEffects.HasStatus(enemy, StatusEffects.ArmorBreak, source), "原四秒破甲跨过两秒半冷却");
+                var second = await React(iron, "IronSeverance");
+                Check(CombatStatusEffects.TryGetStatus(enemy, StatusEffects.ArmorBreak, source, out Entity broken),
+                    "真实接触后仍有本来源的破甲");
+                float remaining = broken.GetComponent<AliveTimeLimit>().value - broken.GetComponent<AliveTimer>().value;
+                Check(second.Damage.SettledCount == 1 && second.Damage.HealthLost > 0 && remaining > 3.6f,
+                    "同源再命中追加一次金行伤害并刷新破甲",
+                    new { second.Damage.SettledCount, second.Damage.HealthLost, remaining });
+                await Advance(.86f);
+                EndedOnce(second);
+                resultRows.Add(new { id = Id("IronSeverance"), second.CastId, second.Damage.HealthLost });
+            }
+            if (StatusCase("poison"))
+            {
+                var wood = Install(CoreFormationAtoms.ElementWood, "wood", CoreFormationRealm.Jindan);
+                await VerifyTick(wood, "WoodVenomBloom", StatusEffects.Poison, 5f, .35f, Cultiway.Const.ElementIndex.Wood);
+            }
+            if (StatusCase("frost"))
+            {
+                var water = Install(CoreFormationAtoms.ElementWater, "water", CoreFormationRealm.Jindan);
+                CombatStatusEffects.ApplyStatus(enemy, StatusEffects.Slow, 3f, ally);
+                var first = await React(water, "WaterFrostBind");
+                Check(CombatStatusEffects.HasStatus(enemy, StatusEffects.Slow, source) &&
+                    CombatStatusEffects.HasStatus(enemy, StatusEffects.Slow, ally) &&
+                    !CombatStatusEffects.HasStatus(enemy, StatusEffects.Freeze, source),
+                    "他人减速不能触发冻结，原攻击只建立自己的减速");
+                await Expire(water);
+                EndedOnce(first);
+                bool refreshed = !CombatStatusEffects.HasStatus(enemy, StatusEffects.Slow, source);
+                // 减速和冷却同为三秒。若已一起到期，用共享入口为分支复验施加合法同源减速。
+                if (refreshed) CombatStatusEffects.ApplyStatus(enemy, StatusEffects.Slow, 3f, source);
+                var second = await React(water, "WaterFrostBind");
+                Check(CombatStatusEffects.TryGetStatus(enemy, StatusEffects.Freeze, source, out Entity frozen) &&
+                    Math.Abs(frozen.GetComponent<AliveTimeLimit>().value - .75f) < .01f &&
+                    !CombatStatusEffects.HasStatus(outside, StatusEffects.Freeze, source),
+                    "已有同源减速时真实命中产生四分之三秒冻结", new { refreshed });
+                await Advance(.86f);
+                EndedOnce(second);
+                Check(!CombatStatusEffects.HasStatus(enemy, StatusEffects.Freeze, source), "短冻到期解除");
+                resultRows.Add(new { id = Id("WaterFrostBind"), second.CastId, refreshed });
+            }
+            if (StatusCase("burn"))
+            {
+                var fire = Install(CoreFormationAtoms.ElementFire, "fire", CoreFormationRealm.Jindan);
+                await VerifyTick(fire, "FireBrand", StatusEffects.Burn, 4f, .20f, Cultiway.Const.ElementIndex.Fire);
+            }
+        }
+        finally
+        {
+            Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
+        }
+    }
     return new { passed = true, resultRows, checks };
 }
 finally
