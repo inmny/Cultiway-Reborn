@@ -416,7 +416,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="explicitReactionTarget">延续旧反应的点名规则，仅对已经确定的原人物生效。</param>
     /// <param name="formationTarget">点名修炼效果在实际接触时产生的作用。</param>
     /// <param name="selectionAlreadyChecked">已从原入口按原射程核对选择，实际作用范围仍由构造接触决定。</param>
-    /// <param name="artifactChime">原钟声随实际确认兑现的状态、伤害与净化资料。</param>
+    /// <param name="artifactArea">原法宝圆面确认接触时兑现的状态、伤害或净化。</param>
     internal static bool StartPrepaid(ActorExtend caster, AbilityDefinition definition,
         in ActiveAbilityTarget target, Vector3? sourcePosition, SkillCastPayment payment = null,
         GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0, BaseSimObject spatialSource = null,
@@ -424,7 +424,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         SkillVfxElementAsset groundContact = null, LegacyBuildingContact buildingContact = null,
         string formationFamily = null, FormationAreaContact? formationArea = null, bool explicitReactionTarget = false,
         FormationTargetContact formationTarget = default, bool selectionAlreadyChecked = false,
-        ArtifactChimeContact? artifactChime = null)
+        ArtifactAreaContact? artifactArea = null)
     {
         if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
         CompiledAbility plan = ValidateDefinition(definition);
@@ -442,7 +442,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             groundTravel: groundTravel, groundContact: groundContact, buildingContact: buildingContact,
             formationFamily: formationFamily, formationArea: formationArea, explicitReactionTarget: explicitReactionTarget,
             formationTarget: formationTarget, selectionAlreadyChecked: selectionAlreadyChecked,
-            artifactChime: artifactChime);
+            artifactArea: artifactArea);
     }
 
     /// <summary>固定环境位置直接进入共同执行，零编号表示未受理，不借人物提供身份或资源。</summary>
@@ -509,7 +509,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="explicitReactionTarget">延续旧反应的点名规则，仅对已经确定的原人物生效。</param>
     /// <param name="formationTarget">点名修炼效果在实际接触时产生的作用。</param>
     /// <param name="selectionAlreadyChecked">已从正式来源核对选择距离，仍要求实际形体接触。</param>
-    /// <param name="artifactChime">原钟声随实际确认兑现的状态、伤害与净化资料。</param>
+    /// <param name="artifactArea">原法宝圆面确认接触时兑现的状态、伤害或净化。</param>
     private static bool Start(ActorExtend caster, CompiledAbility plan,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, out long castId, Vector3? sourcePosition = null,
         bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
@@ -519,7 +519,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         LegacyBuildingContact buildingContact = null, string formationFamily = null,
         FormationAreaContact? formationArea = null, bool explicitReactionTarget = false,
         FormationTargetContact formationTarget = default, bool selectionAlreadyChecked = false,
-        ArtifactChimeContact? artifactChime = null)
+        ArtifactAreaContact? artifactArea = null)
     {
         castId = 0;
         Actor sourceActor = caster?.Base;
@@ -677,7 +677,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 FormationFamily = formationFamily,
                 FormationArea = formationArea,
                 FormationTarget = formationTarget,
-                ArtifactChime = artifactChime,
+                ArtifactArea = artifactArea,
                 ExplicitReactionTarget = explicitReactionTarget,
                 CorrespondenceEnded = plan.HasCorrespondences ? new bool[plan.FormCount] : null,
                 WorldScope = target.WorldScope,
@@ -1027,7 +1027,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         /// <summary>范围法相的后续人物结算，只由共用确认接触驱动。</summary>
         internal FormationAreaContact? FormationArea;
         /// <summary>法钟在真正到达作用边界后产生的原有结果。</summary>
-        internal ArtifactChimeContact? ArtifactChime;
+        internal ArtifactAreaContact? ArtifactArea;
 
         /// <summary>由点名修炼反应在真实接触时提交的效果。</summary>
         internal FormationTargetContact FormationTarget;

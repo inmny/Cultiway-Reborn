@@ -1,21 +1,6 @@
 // 用一口真实法钟检查启动、共用外形、跟随、收束和真实控物中断。
 const float centerX = 64.35f, centerY = 72f;
-var buildings = new HashSet<Building>();
-for (int x = 59; x <= 71; x++)
-for (int y = 66; y <= 78; y++)
-{
-    WorldTile tile = World.world.GetTileSimple(x, y);
-    if (tile.building != null) buildings.Add(tile.building);
-    tile.Height = 140;
-    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low, true);
-}
-foreach (Building building in buildings) building.removeBuildingFinal();
-if (fall != null)
-{
-    object sampler = Read(fall, "_sampler");
-    sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
-    sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
-}
+PrepareArtifactArena(59, 71, 66, 78);
 Actor source = Make(centerX);
 var owner = source.GetExtend();
 owner.AddComponent(new Xian { level = 4, wakan = 9000 });
@@ -132,7 +117,7 @@ try
 
     camera.transform.position = new Vector3(centerX, centerY + .45f, camera.transform.position.z);
     MoveCamera.instance.forceZoom(2.95f);
-    await CaptureBellViews("raising", new Vector2(centerX, centerY + .27f), 1.4f,
+    await CaptureArtifactViews("raising", new Vector2(centerX, centerY + .27f), 1.4f,
         () => Shells().Length == 1 && Vector3.Distance(GroundedShell(), firstFoot) < .003f,
         nativeZoom: 2.5f, closeSubject: source);
     if (viewsOnly) return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, viewsOnly };

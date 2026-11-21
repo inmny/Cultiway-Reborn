@@ -5,7 +5,7 @@ namespace Cultiway.Core.Visuals.Forms;
 
 internal sealed partial class FormResourceGeneration
 {
-    /// <summary>建立两种圆面波体，厚度、轮廓与接触等比，共用同一个资源版本。</summary>
+    /// <summary>建立立体圆面，厚度、轮廓与接触等比，共用同一个资源版本。</summary>
     internal void CreatePulseForms()
     {
         CreatePulseForm("pressure_wave", "pressure_wave", 0.11f, 8,
@@ -14,6 +14,9 @@ internal sealed partial class FormResourceGeneration
         CreatePulseForm("purifying_curtain", "purifying_curtain", 0.24f, 12,
             [new(.53f, .01f), new(.66f, .028f), new(.78f, .082f), new(.85f, .12f),
                 new(.95f, .10f), new(1f, .027f), new(.98f, .008f), new(.53f, .006f)]);
+        CreatePulseForm("seal_crush", "seal_crush", 0.56f, 7,
+            [new(.36f, .052f), new(.49f, .094f), new(.58f, .178f), new(.65f, .118f), new(.72f, .162f),
+                new(.83f, .092f), new(.94f, .076f), new(1f, .041f), new(.97f, .029f), new(.36f, .025f)]);
     }
 
     /// <summary>转动完整截面，保留实体斜面和起伏，最外缘始终等于实际单位半径。</summary>

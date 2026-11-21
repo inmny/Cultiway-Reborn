@@ -18,7 +18,7 @@ internal static partial class WorldObjectSaveService
             if (actor == null || !actor.isAlive()) continue;
             ArtifactManifestationTools.ApplyActiveWorldSize(artifact, actor);
             if (artifact.TryGetComponent(out ArtifactDeployment deployment))
-                ArtifactManifestationTools.AlignWorldAnchor(artifact, deployment.ResolveBodyAnchor(), deployment.origin);
+                ArtifactManifestationTools.AlignDeploymentAnchor(artifact, deployment);
         }
     }
 }

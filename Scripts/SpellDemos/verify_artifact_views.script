@@ -23,7 +23,7 @@ void WriteImage(RenderTexture image, string filename)
         UnityEngine.Object.Destroy(pixels);
     }
 }
-async Task CaptureBellViews(string name, Vector2 center, float zoom, Func<bool> sameFrame, float? nativeZoom = null,
+async Task CaptureArtifactViews(string name, Vector2 center, float zoom, Func<bool> sameFrame, float? nativeZoom = null,
     Actor closeSubject = null)
 {
     Check(fall != null, "独立游戏加载了 Worldfall");
@@ -84,7 +84,7 @@ async Task CaptureBellViews(string name, Vector2 center, float zoom, Func<bool> 
         int drawn = (int)Field(fall, "_godGpuApplied");
         await Game.WaitUntil(() => (int)Field(fall, "_godGpuApplied") >= drawn + 3, 1800);
         if (closeSubject != null)
-            Check(ReferenceEquals(Field(fall, "_godLock"), closeSubject), "三维近景持续锁定同一位护持者");
+            Check(ReferenceEquals(Field(fall, "_godLock"), closeSubject), "三维近景持续锁定同一位人物");
         WriteImage((RenderTexture)Read(Read(fall, "GpuRendererForTest"), "Output"), name + "-worldfall.png");
         Check(Math.Abs(World.world.getCurWorldTime() - time) < .0001 && sameFrame(),
             "两个视角读取同一时刻与中心，切换显示不停留额外施放");
@@ -94,4 +94,22 @@ async Task CaptureBellViews(string name, Vector2 center, float zoom, Func<bool> 
         mode.SetValue(settings, previousMode);
         external.GetMethod("SetGodView", F).Invoke(fall, new object[] { false });
     }
+}
+
+void PrepareArtifactArena(int fromX, int toX, int fromY, int toY)
+{
+    var buildings = new HashSet<Building>();
+    for (int x = fromX; x <= toX; x++)
+    for (int y = fromY; y <= toY; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        if (tile.building != null) buildings.Add(tile.building);
+        tile.Height = 140;
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low, true);
+    }
+    foreach (Building building in buildings) building.removeBuildingFinal();
+    if (fall == null) return;
+    object sampler = Read(fall, "_sampler");
+    sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
+    sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
 }

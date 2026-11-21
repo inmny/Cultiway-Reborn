@@ -24,7 +24,7 @@ def main():
     program = folder / 'input.script'
     program.write_text(IMPORTS + world_helpers(folder, PROJECT / FIXTURE)
                        + (SCRIPTS / 'weapon_flight_scene.script').read_text()
-                       + (SCRIPTS / 'verify_bell_views.script').read_text()
+                       + (SCRIPTS / 'verify_artifact_views.script').read_text()
                        + f'\nconst bool viewsOnly = {str(options.views_only).lower()};\n'
                        + Path(__file__).with_suffix('.script').read_text())
     try:

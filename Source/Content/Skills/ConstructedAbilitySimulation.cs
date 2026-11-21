@@ -969,8 +969,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     CompiledConstructionImpact effect = running.Cast.ImpactAtStage(shape.To.Node, stage);
                     // 原范围法相对所有接触者提交脚下地块作用，人物收益和伤害在确认后按原关系分配。
                     bool explicitReaction = running.ExplicitReactionTarget && actor.Id == running.TargetId;
-                    bool matches = running.ArtifactChime is { } chime
-                        ? MatchesArtifactChime(owner, actor.Actor, chime)
+                    bool matches = running.ArtifactArea is { } area
+                        ? MatchesArtifactArea(owner, actor.Actor, area)
                         : explicitReaction || running.FormationArea.HasValue || owner.Matches(effect.Targets, actor.Actor);
                     if (effect.SelectedTargetOnly && owner.TargetId != actor.Id || !matches ||
                         !running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until)) return;
@@ -1269,8 +1269,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ApplyRestoration(running, node, actor.Actor, impact.Restoration, strength);
         ConstructedTargetResponse response = running.FormationArea is { } formation
             ? ApplyFormationAreaContact(running, node, actor.Actor, formation)
-            : running.ArtifactChime is { } chime
-            ? ApplyArtifactChimeContact(running, node, actor.Actor, hit.Point, chime)
+            : running.ArtifactArea is { } area
+            ? ApplyArtifactAreaContact(running, node, actor.Actor, hit.Point, area)
             : running.FormationTarget.Effect != FormationTargetEffect.None
             ? ApplyFormationTargetContact(contactOwner, actor.Actor, actor.Id, running.FormationTarget, primaryDamage)
             : ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,

@@ -191,7 +191,7 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
         artifacts.ForEachEntity((ref Position position, ref Rotation rotation, ref ArtifactAppearance _,
             ref ArtifactManifestation manifestation, Entity entity) =>
         {
-            if ((!worldfall && !ArtifactAppearanceRenderer.UsesSpatialFlight(entity)) ||
+            if ((!worldfall && !ArtifactAppearanceRenderer.UsesSpatialPresentation(entity)) ||
                 (!manifestation.visible && !HasSpatialController(entity)) || entity.Tags.Has<TagRecycle>() ||
                 !ArtifactAppearanceRenderer.TryGetSpatialPose(entity, out SpatialVisualMeshInstance pose)) return;
             Meshes.Add(pose);

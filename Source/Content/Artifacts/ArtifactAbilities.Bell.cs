@@ -101,10 +101,10 @@ public partial class ArtifactAbilities
         in ActiveAbilityTarget target,
         ActiveAbilityUseOrigin origin)
     {
-        var contact = new ArtifactChimeContact(ability.GetNumber(StatusDuration) * context.effect_scale,
+        var contact = new ArtifactAreaContact(ability.GetNumber(StatusDuration) * context.effect_scale,
             ability.GetNumber(ForceStrength) * context.effect_scale);
-        if (!ArtifactChimeConstruction.Start(context, SoulShakingChime, target, origin, ControllerPosition(context),
-                ability.GetNumber(EffectRadius), ability.GetNumber(EffectDuration), contact, SoulComposition,
+        if (!ArtifactAreaConstruction.Start(context, SoulShakingChime, target, origin, ControllerPosition(context),
+                ability.GetNumber(EffectRadius), ability.GetNumber(EffectDuration), contact, "pressure_wave", SoulComposition,
                 SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier))) return false;
         ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime);
         return true;
@@ -175,9 +175,9 @@ public partial class ArtifactAbilities
         in ActiveAbilityTarget target,
         ActiveAbilityUseOrigin origin)
     {
-        var contact = new ArtifactChimeContact(ability.GetInteger(EffectCount));
-        if (!ArtifactChimeConstruction.Start(context, PurifyingChime, target, origin, ControllerPosition(context),
-                ability.GetNumber(EffectRadius), ability.GetNumber(EffectDuration), contact,
+        var contact = new ArtifactAreaContact(ability.GetInteger(EffectCount));
+        if (!ArtifactAreaConstruction.Start(context, PurifyingChime, target, origin, ControllerPosition(context),
+                ability.GetNumber(EffectRadius), ability.GetNumber(EffectDuration), contact, "purifying_curtain",
                 ElementComposition.Static.empty)) return false;
         ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime);
         return true;

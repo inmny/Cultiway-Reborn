@@ -151,4 +151,21 @@ public static class ArtifactManifestationTools
     {
         artifact.GetComponent<Position>().value = origin - ResolveWorldAnchorOffset(artifact, anchor);
     }
+
+    /// <summary>将部署原件的实际印面对齐预定触地点；其他部署继续使用原锚点。</summary>
+    /// <param name="artifact">正在部署的原器物。</param><param name="deployment">活动的锚点和原点。</param>
+    internal static void AlignDeploymentAnchor(Entity artifact, in ArtifactDeployment deployment)
+    {
+        Vector3 origin = ArtifactAbilities.ResolveDeploymentAnchor(artifact, deployment);
+        ArtifactBodyAnchorRef anchor = deployment.ResolveBodyAnchor();
+        if (!ArtifactAbilities.IsMountainSealDeployment(artifact) ||
+            !ArtifactAppearanceRenderer.TryResolveSpatialAnchor(artifact, anchor.slot, anchor.anchor, out Vector3 face))
+        {
+            AlignWorldAnchor(artifact, anchor, origin);
+            return;
+        }
+
+        Vector3 delta = new Vector3(origin.x, origin.y - origin.z, origin.z) - face;
+        artifact.GetComponent<Position>().value += new Vector3(delta.x, delta.y + delta.z, delta.z);
+    }
 }

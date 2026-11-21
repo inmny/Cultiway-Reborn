@@ -2,6 +2,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Semantics;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -13,6 +14,7 @@ using System;
 using Cultiway.Content.Visuals;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Visuals;
+using Friflo.Engine.ECS;
 
 namespace Cultiway.Content;
 
@@ -141,39 +143,60 @@ public partial class ArtifactAbilities
         if (runtime.GetBoolean(ImpactDone) ||
             World.world.getCurWorldTime() - runtime.activity_started_at < ability.GetNumber(ImpactDelay)) return;
 
-        runtime.SetBoolean(ImpactDone, true);
-        Actor controller = Controller(context);
         ArtifactDeployment deployment = context.artifact.GetComponent<ArtifactDeployment>();
-        Vector2 position = ArtifactManifestationTools.ResolveWorldAnchor(
-            context.artifact,
-            deployment.ResolveBodyAnchor());
-        float radius = ability.GetNumber(EffectRadius);
-        CombatTargeting.ForEachHostile(controller, position, radius, target =>
-        {
-            CombatDamageEffects.DealDamage(
-                controller,
-                target,
-                SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
-                ElementComposition.Static.Earth);
-            CombatStatusEffects.ApplyStatus(
-                target,
-                StatusEffects.Daze,
-                ability.GetNumber(StatusDuration),
-                controller);
-            CombatForceEffects.ApplyRadialForce(
-                controller,
-                target,
-                position,
-                ability.GetNumber(ForceStrength) * context.effect_scale,
-                pull: false);
-        });
+        Vector3 position = deployment.origin;
+        float strength = ability.GetNumber(DamageMultiplier);
+        var contact = new ArtifactAreaContact(ability.GetNumber(StatusDuration),
+            ability.GetNumber(ForceStrength) * context.effect_scale, damageFirst: true);
+        var aim = new ActiveAbilityTarget(null, position);
+        if (!ArtifactAreaConstruction.Start(context, MountainSealFall, aim, ActiveAbilityUseOrigin.Reaction,
+                position, ability.GetNumber(EffectRadius), .42f, contact, "seal_crush", ElementComposition.Static.Earth,
+                SkillContext.DefaultStrength * strength, matter: "earth", strike: .025f)) return;
+
+        runtime.SetBoolean(ImpactDone, true);
+        ArtifactManifestationTools.AlignDeploymentAnchor(context.artifact, deployment);
         ArtifactAbilityVisuals.Emit(
             context,
             ability,
             runtime,
             ArtifactVisualChannels.Impact,
             position,
-            intensity: ability.GetNumber(DamageMultiplier));
+            intensity: strength);
+    }
+
+    /// <summary>同一件实际部署物在落印期间拥有真实离地高度，部署原点始终指向触地位置。</summary>
+    /// <param name="artifact">原法印。</param><param name="deployment">实际部署资料。</param>
+    internal static Vector3 ResolveDeploymentAnchor(Entity artifact, in ArtifactDeployment deployment)
+    {
+        if (!TryGetMountainSeal(artifact, deployment.ability_instance_id, out int index)) return deployment.origin;
+        ref var runtime = ref artifact.GetComponent<ArtifactAbilityRuntime>().abilities[index];
+        if (runtime.GetBoolean(ImpactDone)) return deployment.origin;
+        var ability = artifact.GetComponent<ArtifactAbilitySet>().abilities[index];
+        float progress = Mathf.Clamp01((float)(World.world.getCurWorldTime() - deployment.started_at) /
+                                       Mathf.Max(.001f, ability.GetNumber(ImpactDelay)));
+        float height = Mathf.Lerp(3.6f, .035f, progress * progress);
+        return deployment.origin + new Vector3(0f, height, height);
+    }
+
+    /// <summary>只有正在执行山岳印落的原器物使用立体印面；随身时仍用原法宝显示。</summary>
+    internal static bool IsMountainSealDeployment(Entity artifact) =>
+        artifact.TryGetComponent(out ArtifactDeployment deployment) &&
+        TryGetMountainSeal(artifact, deployment.ability_instance_id, out _);
+
+    /// <summary>用原能力实例匹配配置，正式读档后可以继续计算同一印身位置。</summary>
+    private static bool TryGetMountainSeal(Entity artifact, string instance, out int index)
+    {
+        if (artifact.TryGetComponent(out ArtifactAbilitySet set))
+        {
+            for (int i = 0; i < set.abilities.Length; i++)
+            {
+                if (set.abilities[i].instance_id != instance || set.abilities[i].ability_id != MountainSealFall.id) continue;
+                index = i;
+                return true;
+            }
+        }
+        index = -1;
+        return false;
     }
 
     private static void ConfigureSpellBanningEdict()
@@ -389,58 +412,15 @@ public partial class ArtifactAbilities
 
     private static void ConfigureMountainSealFallVisuals()
     {
-        ArtifactGlyphVisualCue landing = Glyph(
-            ArtifactVisualAnchorKind.DeploymentOrigin,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Secondary,
-            ArtifactVfxStyles.Earth
-        );
-        landing.alpha = 0.5f;
-        landing.rotation_speed = 8f;
-        landing.start_scale = 0.3f;
-        ArtifactAreaVisualCue impactArea = Area(
-            ArtifactVisualAnchorKind.Point,
-            context => context.ability.GetNumber(EffectRadius),
-            ArtifactVisualColorRole.Primary,
-            0.85f,
-            0.1f,
-            ArtifactVfxStyles.Earth
-        );
-        impactArea.start_scale = 0.12f;
-        impactArea.end_scale = 1.25f;
-        impactArea.fade_out = true;
         MountainSealFall.Visualize(
             Theme(SkillVfxElements.Earth.AccentColor)
-                .Loop("mountain_landing", landing, IsDeploymentActive)
-                .Signal(
-                    ArtifactVisualChannels.Trigger,
-                    new ArtifactCompositeVisualCue(
-                        Pulse(1.35f, 1f, 0.08f),
-                        Burst(
-                            ArtifactVisualAnchorKind.DeploymentOrigin,
-                            ArtifactVisualColorRole.Secondary,
-                            4
-                        )
-                    ),
-                    0.42f
-                )
                 .Signal(
                     ArtifactVisualChannels.Impact,
-                    new ArtifactCompositeVisualCue(
-                        impactArea,
-                        Burst(
-                            ArtifactVisualAnchorKind.Point,
-                            ArtifactVisualColorRole.Glow,
-                            12,
-                            0.5f
-                        ),
-                        new ArtifactAudioVisualCue
-                        {
-                            anchor = ArtifactVisualAnchorKind.Point,
-                            sound = "event:/SFX/WEAPONS/WeaponRockLand",
-                        },
-                        Pulse(1.45f, 0.92f, 0.1f)
-                    ),
+                    new ArtifactAudioVisualCue
+                    {
+                        anchor = ArtifactVisualAnchorKind.Point,
+                        sound = "event:/SFX/WEAPONS/WeaponRockLand",
+                    },
                     0.55f
                 )
         );

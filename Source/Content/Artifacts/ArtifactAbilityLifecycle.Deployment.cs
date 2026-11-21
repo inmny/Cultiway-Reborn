@@ -111,10 +111,8 @@ public static partial class ArtifactAbilityLifecycle
             manifestation.visible = controller.is_visible;
             manifestation.flip_x = false;
             ArtifactManifestationTools.ApplyActiveWorldSize(artifact, controller);
-            ArtifactManifestationTools.AlignWorldAnchor(artifact, pending.BodyAnchor, pending.Origin);
-
             artifact.AddComponent(new ArtifactIndependentMotion());
-            artifact.AddComponent(new ArtifactDeployment
+            var deployment = new ArtifactDeployment
             {
                 controller = pending.Controller,
                 ability_instance_id = pending.AbilityInstanceId,
@@ -124,7 +122,9 @@ public static partial class ArtifactAbilityLifecycle
                 body_anchor = pending.BodyAnchor.fallback,
                 body_anchor_slot = pending.BodyAnchor.slot,
                 body_anchor_key = pending.BodyAnchor.anchor,
-            });
+            };
+            artifact.AddComponent(deployment);
+            ArtifactManifestationTools.AlignDeploymentAnchor(artifact, deployment);
         }
         PendingDeployments.Clear();
     }

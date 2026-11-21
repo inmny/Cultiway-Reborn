@@ -216,6 +216,10 @@ public static class ArtifactAppearanceRenderer
     /// <summary>实际在飞的组合模型直接使用未投影的空间位置。</summary>
     internal static bool UsesSpatialFlight(Entity item) => TryGetFlightGeometry(item, out _);
 
+    /// <summary>活动中的俯冲法宝使用两种视角共用的空间模型。</summary>
+    internal static bool UsesSpatialPresentation(Entity item) =>
+        UsesSpatialFlight(item) || ArtifactAbilities.IsMountainSealDeployment(item);
+
     private static bool TryGetFlightGeometry(Entity item, out ArtifactFlightGeometry geometry)
     {
         if (item.TryGetComponent(out SkillExecutionBodyLease lease) && !lease.execution.IsNull &&
@@ -308,9 +312,12 @@ public static class ArtifactAppearanceRenderer
         Quaternion rotation = Quaternion.AngleAxis(yaw, Vector3.forward);
         if (flying) rotation *= Quaternion.AngleAxis(facing.x, Vector3.right);
         rotation *= Quaternion.Euler(ArtifactAppearanceMath.Vec3(template.SpatialRotation, Vector3.zero));
+        bool fallingSeal = ArtifactAbilities.IsMountainSealDeployment(item);
+        if (fallingSeal) rotation *= Quaternion.AngleAxis(180f, Vector3.right);
         rotation = Skills.ConstructedArtifactCarrier.Heading(item, rotation);
         if (template.SpatialOriginAtBase) position.z -= Bottom(model.Bounds, rotation, scale);
-        pose = new SpatialVisualMeshInstance(model, position, rotation, scale, tint, drawNative: flying,
+        pose = new SpatialVisualMeshInstance(model, position, rotation, scale, tint,
+            drawNative: flying || fallingSeal,
             groundAnchor: groundAnchor);
         if (body != null) pose = pose.WithBodyAnchor(body);
         return true;

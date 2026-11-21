@@ -137,12 +137,7 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
             manifestation.world_size = update.activeWorldSize;
             ArtifactManifestationTools.ApplyBodySize(artifact, update.bodyRadius, update.activeWorldSize);
             if (artifact.TryGetComponent(out ArtifactDeployment deployment))
-            {
-                ArtifactManifestationTools.AlignWorldAnchor(
-                    artifact,
-                    deployment.ResolveBodyAnchor(),
-                    deployment.origin);
-            }
+                ArtifactManifestationTools.AlignDeploymentAnchor(artifact, deployment);
         }
     }
 

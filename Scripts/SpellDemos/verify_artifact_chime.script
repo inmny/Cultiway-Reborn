@@ -93,7 +93,7 @@ async Task RecordView(string name, string form, float radius)
         "已发布共用画面圆面达到原半径及中心",
         new { name, form, extent, radius, pos = ((Vector3)pose.Transform.GetColumn(3)).ToString() });
     if (!shots) return;
-    await CaptureBellViews(name, new Vector2(centerX, centerY), radius + 2f, () =>
+    await CaptureArtifactViews(name, new Vector2(centerX, centerY), radius + 2f, () =>
     {
         var published = FormVisualScene.Instances.Single(value => FormId(value) == form);
         return Vector3.Distance(published.Transform.GetColumn(3), pose.Transform.GetColumn(3)) < .001f;

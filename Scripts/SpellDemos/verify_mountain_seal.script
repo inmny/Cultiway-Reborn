@@ -1,0 +1,165 @@
+// 由正式组合法印施放并保留同一原件，地面圆面只在落印时结算。
+const float centerX = 67.5f, centerY = 72f;
+Vector3 center = new Vector3(centerX, centerY, 0f);
+PrepareArtifactArena(58, 80, 62, 82);
+Actor source = Make(64.35f), near = Make(68f, "wolf"), far = Make(74f, "wolf");
+ActorExtend owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+owner.SetPowerLevel(4);
+await Setup(source, near);
+CombatStatusEffects.RemoveStatus(near, hold);
+near.updateStats();
+CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+source.updateStats();
+source.addAggro(far);
+far.addAggro(source);
+
+var asset = ArtifactAbilities.MountainSealFall;
+var design = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Seal, Atoms = new[] { ArtifactAtoms.CommandSeal, ArtifactAtoms.EarthCore,
+        ArtifactAtoms.MountainPattern, ArtifactAtoms.MagneticIron, ArtifactAtoms.ResonantBronze },
+    Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "山岳印落实测"
+});
+var blueprint = ArtifactBlueprintCodec.FromComposeResult(design);
+Check(blueprint.AbilitySet.abilities.Any(value => value.ability_id == asset.id),
+    "原正式组合入口生成山岳印落", blueprint.AbilitySet.abilities.Select(value => value.ability_id).ToArray());
+Entity seal = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+owner.AddSpecialItem(seal);
+Check(owner.EquipArtifact(seal, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100), "装备正式原法印");
+
+void UpdateSeal()
+{
+    ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+    lifecycle.Invoke(null, new object[] { seal });
+}
+UpdateSeal();
+await Game.NextFrame();
+await Game.NextFrame();
+var ability = Definition(seal, asset.id);
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var handle = handles.Single(item => item.Source == seal && item.EntryId == ability.instance_id);
+float radius = ability.GetNumber("effect_radius"), delay = ability.GetNumber("impact_delay");
+ArtifactAbilityRuntimeEntry Current() => Entry(seal, asset.id);
+var control = owner.E.GetRelation<EquippedArtifactRelation, Entity>(seal).state;
+float cost = asset.lifecycle.ResolveActivationCost(new ArtifactAbilityExecutionContext(owner.E, seal, control), ability);
+if (control == ArtifactControlState.Overloaded) cost *= asset.lifecycle.overload_resource_multiplier;
+
+bool Drop(Vector3 point)
+{
+    source.attack_timer = 0;
+    bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, point), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999;
+    return used;
+}
+bool Held() => owner.GetItems().Contains(seal) && owner.GetEquippedArtifacts().Contains(seal);
+var readFace = typeof(ArtifactAppearanceRenderer).GetMethod("TryResolveSpatialAnchor", F);
+Vector3 Anchor()
+{
+    object[] arguments = { seal, "face", "focus", null };
+    if (!(bool)readFace.Invoke(null, arguments)) throw new InvalidOperationException("原法印缺少空间印面");
+    return (Vector3)arguments[3];
+}
+float RelativeHeight() => Anchor().z - center.z;
+var appearance = typeof(ArtifactAppearanceRenderer).GetMethod("TryGetSpatialPose", F);
+object[] poseArgs = { seal, null };
+Check((bool)appearance.Invoke(null, poseArgs), "原器物拥有完整组合模型");
+object model = Field(poseArgs[1], "Model");
+var meshList = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem")
+    .GetField("Meshes", F).GetValue(null);
+object VisibleSeal() => meshList.Cast<object>().Single(item => ReferenceEquals(model, Field(item, "Model")) &&
+    (bool)Field(item, "DrawNative"));
+float RenderHeight() => ((Vector3)Field(VisibleSeal(), "Position")).z;
+FormVisualInstance Impact() => FormVisualScene.Instances.Single(value => value.Resource.Description.Id == "seal_crush");
+
+var starts = new List<ConstructedCastStarted>();
+var hits = new List<ConstructedContact>();
+var fees = new List<float>();
+var payments = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = payments.GetValue(null);
+void Started(ConstructedCastStarted value) { if (value.SourceId == source.id && value.AbilityId == asset.id) starts.Add(value); }
+void SealContact(ConstructedContact value) { if (value.SourceId == source.id && value.AbilityId == asset.id) hits.Add(value); }
+void Paid(ActorExtend caster, in WakanMutation change)
+{
+    if (caster == owner && change.Kind == WakanMutationKind.Spend) fees.Add(-change.Delta);
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += SealContact;
+WakanResourceService.RegisterMutationCommitted(Paid);
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    Place(near, centerX + radius - .22f, centerY);
+    Place(far, centerX + radius + .22f, centerY);
+    near.attack_timer = far.attack_timer = 999f;
+    int health = near.data.health, outsideHealth = far.data.health;
+
+    Check(!Drop(center + Vector3.right * (ability.GetNumber("attack_range") + 4f)) && fees.Count == 0 &&
+          !seal.HasComponent<ArtifactDeployment>(), "超出原选地范围时拒绝且不付款");
+    Check(Drop(center) && fees.Count == 1 && Mathf.Abs(fees[0] - cost) < .003f && Held(),
+        "正式入口只扣一次且保留原件", new { cost, fees });
+    await Advance(delay * .25f);
+    await Game.NextFrame();
+    Check(seal.HasComponent<ArtifactDeployment>() && Current().activity_kind == ArtifactAbilityActivityKind.Deployment &&
+          starts.Count == 0 && hits.Count == 0 && near.data.health == health &&
+          RelativeHeight() > 0.5f, "印身在空中还没有命中", new { delay, point = Anchor().ToString() });
+    float startHeight = RelativeHeight(), renderAtStart = RenderHeight();
+    await Advance(delay * .30f);
+    await Game.NextFrame();
+    Check(RelativeHeight() < startHeight && RelativeHeight() > .1f && RenderHeight() < renderAtStart &&
+          Vector2.Distance(Anchor(), center) < .025f &&
+          Vector3.Dot((Quaternion)Field(VisibleSeal(), "Rotation") * Vector3.forward, -Vector3.forward) > .9f,
+        "原件的实际印面朝下并垂直下落", new { startHeight, current = RelativeHeight(), renderAtStart, renderNow = RenderHeight() });
+
+    if (shots)
+    {
+        float renderHeight = RenderHeight();
+        await CaptureArtifactViews("falling", new Vector2(centerX - .7f, centerY + .7f), 4.5f,
+            () => Mathf.Abs(RenderHeight() - renderHeight) < .001f, nativeZoom: 3.5f, closeSubject: source);
+    }
+
+    await WaitFor(() => hits.Count > 0, .7f);
+    await Game.NextFrame();
+    var result = hits.FirstOrDefault();
+    Check(starts.Count == 1 && hits.Count == 1 && result.TargetId == near.id && near.data.health < health &&
+          far.data.health == outsideHealth && result.ForceApplied &&
+          CombatStatusEffects.HasStatus(near, StatusEffects.Daze, source) && !CombatStatusEffects.HasStatus(far, StatusEffects.Daze, source),
+        "一次触地就确认圈内扣血、眩晕和震退，圈外保持原样",
+        new { radius, point = Anchor().ToString(), health, nearHealth = near.data.health, outsideHealth,
+            farHealth = far.data.health, hits = hits.Select(value => new { value.TargetId, value.Age, value.ForceApplied }).ToArray() });
+    Check(Mathf.Abs(RelativeHeight()) < .002f, "已经结算的原印落在部署锚点");
+    var impact = Impact();
+    float visibleRadius = impact.Resource.Description.Contacts.Single().Sector.Radius * impact.Transform.MultiplyVector(Vector3.right).magnitude;
+    Check(Mathf.Abs(visibleRadius - radius) < .025f && Vector2.Distance(impact.Transform.GetColumn(3), center) < .01f,
+        "震裂外缘与实际结算的圆心和半径一致", new { radius, visibleRadius });
+    if (shots)
+        await CaptureArtifactViews("landing", center, Mathf.Max(10f, radius + 2f),
+            () => Vector3.Distance(Impact().Transform.GetColumn(3), impact.Transform.GetColumn(3)) < .001f,
+            nativeZoom: radius + .9f);
+    if (viewsOnly) return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, viewsOnly };
+
+    float previousX = near.current_position.x;
+    await Advance(.15f);
+    Check(near.current_position.x > previousX && hits.Count == 1, "接触后受力确实推动人物且没有重复伤害");
+    await Advance((float)(Current().activity_until - World.world.getCurWorldTime()) + .08f);
+    Check(!seal.HasComponent<ArtifactDeployment>() && !seal.HasComponent<ArtifactIndependentMotion>() &&
+          Current().activity_kind == ArtifactAbilityActivityKind.None && Held(), "到期后原印结束独立活动并恢复跟随");
+    await Advance(Mathf.Max(.11f, (float)(Current().cooldown_until - World.world.getCurWorldTime()) + .11f));
+    Check(Drop(center) && fees.Count == 2 && Mathf.Abs(fees[1] - cost) < .003f, "冷却结束能由原件再次落印");
+    await Advance(delay * .25f);
+    ArtifactEquipmentTools.SetArtifactEquipMode(owner, seal, ArtifactEquipMode.Standby);
+    UpdateSeal();
+    await Advance(delay + .14f);
+    Check(!seal.HasComponent<ArtifactDeployment>() && Held() && starts.Count == 1 && hits.Count == 1,
+        "落地前切回待命能收回原法印，也不会留下后续伤害");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, radius, delay, cost };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= SealContact;
+    payments.SetValue(null, previous);
+}
