@@ -1,0 +1,441 @@
+{
+    "HideBelowGround": true,
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_icefall.mjs",
+            "Entry": "makeIcefallForms",
+            "Parameters": [
+                {
+                    "Id": "length",
+                    "Values": [
+                        2.2200000286102297
+                    ]
+                },
+                {
+                    "Id": "shards",
+                    "Values": [
+                        4.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material",
+            "motion"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "icefall_rain",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "core",
+            "Surface": "ice_core",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/icefall_rain_core.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "shard_0",
+            "Surface": "ice_rime",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/icefall_rain_shard_0.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "shard_1",
+            "Surface": "ice",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/icefall_rain_shard_1.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "shard_2",
+            "Surface": "ice_rime",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/icefall_rain_shard_2.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "projectile.core"
+            ],
+            "Id": "shard_3",
+            "Surface": "ice",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/icefall_rain_shard_3.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "root",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "root",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Held": {
+        "Groups": [],
+        "EquipmentIds": [],
+        "Scale": 0.0
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "core_0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                -0.1599999964237213
+            ],
+            "B": [
+                0.0,
+                0.0,
+                -0.6299999952316284
+            ],
+            "Radius": 0.1599999964237213,
+            "HeldMatter": "",
+            "AControl": "root",
+            "BControl": "root",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [
+        {
+            "Id": "root",
+            "Parent": "",
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Minimum": [
+                -0.6040239930152893,
+                -0.6170819997787476,
+                -2.5075950622558595
+            ],
+            "Maximum": [
+                0.5036720037460327,
+                0.6595680117607117,
+                0.0
+            ]
+        }
+    ],
+    "Motions": [
+        {
+            "Id": "dissolve",
+            "Duration": 0.25,
+            "Loop": false,
+            "Keys": [
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.0,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0196749996393919,
+                    "At": 0.020833000540733339,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.014999999664723874
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.07407499849796295,
+                    "At": 0.04166699945926666,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.029999999329447748
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.15625,
+                    "At": 0.0625,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.04500000178813934
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.2592569887638092,
+                    "At": 0.08333300054073334,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.05999999865889549
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.37615901231765749,
+                    "At": 0.10416699945926666,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.07500000298023224
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.5,
+                    "At": 0.125,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.09000000357627869
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.6238409876823425,
+                    "At": 0.14583300054073335,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.10499999672174454
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.7407429814338684,
+                    "At": 0.16666699945926667,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.11999999731779099
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.84375,
+                    "At": 0.1875,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.13500000536441804
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9259250164031982,
+                    "At": 0.20833300054073335,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.15000000596046449
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9803249835968018,
+                    "At": 0.22916699945926667,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.16500000655651093
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 1.0,
+                    "At": 0.25,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        -0.18000000715255738
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                }
+            ],
+            "Markers": []
+        }
+    ]
+}

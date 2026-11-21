@@ -101,7 +101,7 @@ try
         }
         var boosted=Build(true);
         float duration=5f;
-        if(entry.Asset==SkillEntities.WaterOrb||entry.Asset==SkillEntities.WindBullet)
+        if(entry.Asset==SkillEntities.WaterOrb||entry.Asset==SkillEntities.WindBullet||entry.Asset==SkillEntities.IceShard)
         {
             var animation=entry.Asset.GetAnimation(0);
             float interval=normal.GetComponent<SkillContainer>().MotionProfile.FrameInterval;

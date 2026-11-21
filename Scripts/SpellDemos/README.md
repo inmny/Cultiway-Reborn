@@ -2575,3 +2575,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py lightning-strike` 逐个通过已学入口施放十一个旧索引。用 `--case landing` 核对索引 0 加速后先着地、成形结束才在指定点爆发。用 `--case miss --variant 1` 核对提前到期，用 `--case cancel` 核对空中取消。
 
 用同一入口的 `--case archive` 保存十一份学习资料，关闭并重启游戏后用 `--case cold --archive <保存输出目录>` 重新施放索引 0 和 9。录像用 `demo_all.py --filter Cultiway.LightningStrike --variants all --cases base --realm 0 --target-offset 7 0 --zoom 16 --duration 1.2 --fps 30`，分别指定 `--view native` 和 `--view worldfall`。
+
+### 冰棱、冰枪、冰雨旧变体（10.01）
+
+在独立游戏中用 `dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/verify_legacy_variants.py ice-projectiles` 实测首击、贯穿和实际落点爆发。用 `icefall --case scatter` 核对同一人物两次施放的散落，用 `icefall --case miss` 核对提前到期。批次入口的 `--case archive` 保存全部三个索引，另起进程后用 `--case cold --archive <保存输出目录>` 重新读回及施放。
+
+两种视角录像使用 `demo_all.py --filter Cultiway.IceShard,Cultiway.IceLance,Cultiway.Icefall --variants all --cases base --realm 0 --target-offset 7 0 --zoom 19 --duration 1.55 --fps 30`。

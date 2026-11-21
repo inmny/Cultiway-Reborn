@@ -121,11 +121,13 @@ internal static partial class ProjectileConstructionMigration
         if (scale <= 0f || scale > 64f || lifetime <= 0f || lifetime > 3600f) return null;
         bool thunderOrb = container.Asset == SkillEntities.ThunderOrb;
         bool lightningStrike = container.Asset == SkillEntities.LightningStrike;
+        bool icefall = container.Asset == SkillEntities.Icefall;
         bool fireBlade = container.Asset == SkillEntities.FireBlade;
         int variantCount = MigratedVariantCount(sourceForm.Form);
         bool phased = fireBlade || variantCount > 0;
         string form = fireBlade ? FireBladeForm(container.AnimationIndex) :
             lightningStrike && container.AnimationIndex == 0 ? "lightning_strike_0" :
+            icefall && container.AnimationIndex == 0 ? "icefall_rain" :
             variantCount > 0 ? IndexedForm(sourceForm.Form, container.AnimationIndex, variantCount) : sourceForm.Form;
         if (form == null) return null;
         SkillEntityAnimation animation = phased ? container.Asset.GetAnimation(container.AnimationIndex) : null;
@@ -160,23 +162,23 @@ internal static partial class ProjectileConstructionMigration
         if (blast)
         {
             bool meteor = container.Asset == SkillEntities.FlameMeteor;
-            bool animateBurst = meteor || thunderOrb || lightningStrike;
+            string burstForm = meteor ? "flame_meteor_impact_motion" : thunderOrb ? "thunder_orb_impact" :
+                lightningStrike ? "lightning_strike_impact" : icefall ? "icefall_impact" : null;
             float burstDuration = Mathf.Min(.22f, lifetime);
             definition.Root.Children = new[] { new ConstructionNode
             {
-                Id = "burst", Form = meteor ? "flame_meteor_impact_motion" :
-                    thunderOrb ? "thunder_orb_impact" : lightningStrike ? "lightning_strike_impact" : sourceForm.Matter + "_burst",
+                Id = "burst", Form = burstForm ?? sourceForm.Matter + "_burst", AnimateWhileHeld = icefall,
                 Matter = sourceForm.Matter, State = sourceForm.State,
                 Scale = scale * container.Asset.ImpactProfile.EffectRadius * container.Asset.ImpactTuning.EffectRadiusMultiplier / .9f,
                 DisappearAt = burstDuration, ActiveUntil = Mathf.Min(.025f, lifetime),
                 Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End,
                     Placement = ConstructionEventPlacement.Event, InheritRemainder = contact, ResetContacts = contact,
-                    BeforeSourceExpires = thunderOrb || lightningStrike || container.Asset == SkillEntities.Fireball },
+                    BeforeSourceExpires = thunderOrb || lightningStrike || icefall || container.Asset == SkillEntities.Fireball },
                 Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1 },
                 Impact = contact ? new ConstructionImpact { DamageScale = damageMultiplier } : null,
                 ContactRole = contact ? ConstructionContactRole.Attack : ConstructionContactRole.Decoration,
-                // 展开的爆发在落点清掉入射速度。雷系保留动作的制作速度，短寿命仅截断显示。
-                Operations = animateBurst
+                // 展开的爆发在落点清掉入射速度。保留制作速度时，短寿命只截断动作。
+                Operations = burstForm != null
                     ? new[]
                     {
                         new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new float[3], InheritVelocity = false },
@@ -233,7 +235,7 @@ internal static partial class ProjectileConstructionMigration
         "water_orb" => 5,
         "water_arrow" or "water_blade" or "thunder_orb" => 4,
         "flying_sword" or "sword_qi" or "wind_bullet" or "wind_blade" => 2,
-        "golden_needle" or "lightning_spear" => 1,
+        "golden_needle" or "lightning_spear" or "ice_shard" or "ice_lance" or "icefall" => 1,
         _ => 0
     };
 
@@ -277,7 +279,7 @@ internal static partial class ProjectileConstructionMigration
                 Trigger = ConstructionChangeTrigger.End, Placement = ConstructionEventPlacement.Event
             },
             DisappearAt = dissipation, ContactRole = ConstructionContactRole.Decoration,
-            SourceLoss = ConstructionSourceLoss.Continue, Volume = 0,
+            SourceLoss = ConstructionSourceLoss.Continue, Volume = 0, AnimateWhileHeld = true,
             Operations = new[] { new ConstructionOperation
                 { Kind = ConstructionOperationKind.Animate, Clip = "dissolve", Seconds = dissipation } }
         };

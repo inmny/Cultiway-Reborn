@@ -656,6 +656,7 @@ internal sealed class CompiledForm
     internal FormMotion Motion;
 
     /// <summary>动作开始世界时点与时间倍率。</summary>
+    internal bool AnimateWhileHeld;
     internal float MotionAt, MotionSpeed = 1f;
 
     /// <summary>实际解除父体或外部连接的时点。</summary>
@@ -1003,6 +1004,7 @@ public static partial class AbilityCompiler
             Dye = dye,
             ContactKey = node.ContactGroup ?? path,
             BodyWindow = node.BodyWindow,
+            AnimateWhileHeld = node.AnimateWhileHeld,
             ContactPolicy = node.Contact == null ? null : new CompiledContactPolicy(node.Contact, path),
             Impact = node.Impact == null ? null : new CompiledConstructionImpact(node.Impact, path + "/Impact"),
             RadialMotion = node.RadialMotion == null ? null : new CompiledConstructionRadialMotion(node.RadialMotion, path + "/RadialMotion"),

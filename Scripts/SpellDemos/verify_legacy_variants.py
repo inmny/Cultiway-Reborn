@@ -65,16 +65,20 @@ def main():
         'thunder-orb': ('Cultiway.ThunderOrb', 4),
         'lightning-spear': ('Cultiway.LightningSpear', 1),
         'lightning-strike': ('Cultiway.LightningStrike', 11),
+        'ice-shard': ('Cultiway.IceShard', 1),
+        'ice-lance': ('Cultiway.IceLance', 1),
+        'icefall': ('Cultiway.Icefall', 1),
     }
     batches = {
         'water-family': ('water-arrow', 'water-orb', 'water-blade'),
         'metal-wind': ('flying-sword', 'sword-qi', 'golden-needle', 'wind-bullet', 'wind-blade'),
         'thunder-projectiles': ('thunder-orb', 'lightning-spear'),
+        'ice-projectiles': ('ice-shard', 'ice-lance', 'icefall'),
     }
     parser.add_argument('spell', choices=('fireball', 'fire-family', *batches, *projectile_spells))
     parser.add_argument('--variant', type=int, choices=range(18), action='append',
                         help='只复验指定旧索引，可重复指定')
-    parser.add_argument('--case', choices=('hit', 'miss', 'tracking', 'landing', 'cancel', 'gravity', 'archive', 'cold'))
+    parser.add_argument('--case', choices=('hit', 'miss', 'tracking', 'landing', 'cancel', 'scatter', 'gravity', 'archive', 'cold'))
     parser.add_argument('--archive', type=Path, help='冷启动使用之前实际保存的目录')
     args = parser.parse_args()
     if args.spell in batches or args.spell in projectile_spells:
@@ -87,12 +91,14 @@ def main():
             variants = []
         else:
             asset, count = projectile_spells[args.spell]
-            if case not in ('hit', 'miss', 'tracking', 'landing', 'cancel') or any(i >= count for i in args.variant or []):
-                parser.error('单术实测需选择该法术已有的旧索引，支持 hit、miss、tracking、landing 或 cancel')
+            if case not in ('hit', 'miss', 'tracking', 'landing', 'cancel', 'scatter') or any(i >= count for i in args.variant or []):
+                parser.error('单术实测需选择该法术已有的旧索引，支持 hit、miss、tracking、landing、cancel 或 scatter')
             if case == 'tracking' and args.spell not in ('water-orb', 'wind-bullet', 'thunder-orb'):
                 parser.error('改轨迹复验使用水球、风弹或雷珠')
             if case == 'landing' and args.spell not in ('thunder-orb', 'lightning-strike'):
                 parser.error('指定地点爆发复验使用雷珠或落雷')
+            if case == 'scatter' and args.spell != 'icefall':
+                parser.error('重复施放核对散落使用冰雨')
             if case == 'cancel' and args.spell != 'lightning-strike':
                 parser.error('取消复验使用落雷')
             selected = (asset,)

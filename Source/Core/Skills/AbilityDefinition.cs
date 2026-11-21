@@ -181,6 +181,10 @@ public sealed class ConstructionNode
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionActivation Activation;
 
+    /// <summary>允许明确制作的部位动作继续播放，材料仍保持形状并限制流动。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool AnimateWhileHeld;
+
     /// <summary>可选的形变姿态维持，不暂停飞行、旋转、生长或材料变化。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionHold Hold;

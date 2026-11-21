@@ -167,7 +167,8 @@ internal static partial class ProjectileConstructionMigration
             if (path == null) return null;
             if (rain)
             {
-                var random = new System.Random(seed);
+                int scatterSeed = container.Asset == SkillEntities.Icefall ? seed ^ emission.StepSeed : seed;
+                var random = new System.Random(scatterSeed);
                 double angle = random.NextDouble() * Math.PI * 2d;
                 float radius = Mathf.Sqrt((float)random.NextDouble()) * 1.4f;
                 spawnOffset = new Vector3(Mathf.Cos((float)angle), Mathf.Sin((float)angle), 0f) * radius;

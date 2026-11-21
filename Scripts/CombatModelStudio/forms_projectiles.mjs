@@ -92,8 +92,14 @@ function ice() {
   const rings=profile.map(([z,r,shift])=>Array.from({length:3},(_,i)=>{
     const a=i*Math.PI*2/3;return [Math.cos(a)*r+shift,Math.sin(a)*r*.72,z];
   }));
-  publish('ice_shard',[['shard',column(rings,3),'ice']],
-    [[[0,0,-.12],[.05,0,.22],.10],[[.08,0,.25],[.13,0,.62],.04]],{profile,sides:3});
+  const enamel=column([
+    [[-.09,-.06,-.35],[.04,-.15,-.35],[.12,-.06,-.35]],
+    [[-.18,-.11,-.12],[.10,-.23,-.12],[.20,-.065,-.12]],
+    [[-.13,-.09,.27],[.16,-.20,.27],[.22,-.05,.27]],
+    [[.10,-.035,.74],[.16,-.08,.74],[.17,-.026,.74]]
+  ],3);
+  publish('ice_shard',[['shard',column(rings,3),'ice_core'],['ice_edge',enamel,'ice_rime']],
+    [[[0,0,-.12],[.05,0,.22],.10],[[.08,0,.25],[.13,0,.62],.04]],{profile,sides:3},true);
 }
 
 /** 一次发布本组独立普通投射。 */

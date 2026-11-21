@@ -34,7 +34,8 @@
         "Connections": [],
         "Changes": [
             "transform",
-            "material"
+            "material",
+            "motion"
         ]
     },
     "ConformToGround": false,
@@ -58,13 +59,53 @@
                 "piercing.core"
             ],
             "Id": "prismatic_lance",
-            "Surface": "ice",
+            "Surface": "ice_core",
             "Pivot": [
                 0.0,
                 0.0,
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/ice_lance_prismatic_lance.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "piercing.core"
+            ],
+            "Id": "white_ridge",
+            "Surface": "ice_rime",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ice_lance_white_ridge.asset",
+            "Control": "root",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "projectile.body",
+                "piercing.core"
+            ],
+            "Id": "ice_ridge",
+            "Surface": "ice",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ice_lance_ice_ridge.asset",
             "Control": "root",
             "Skin": false,
             "HasSurfaceData": false,
@@ -111,6 +152,7 @@
     "Grips": [],
     "Held": {
         "Groups": [],
+        "EquipmentIds": [],
         "Scale": 0.0
     },
     "Actions": [],
@@ -131,6 +173,7 @@
                 1.2999999523162842
             ],
             "Radius": 0.10000000149011612,
+            "HeldMatter": "",
             "AControl": "root",
             "BControl": "root",
             "AInfluences": [],
@@ -152,6 +195,7 @@
                 1.8799999952316285
             ],
             "Radius": 0.14000000059604646,
+            "HeldMatter": "",
             "AControl": "root",
             "BControl": "root",
             "AInfluences": [],
@@ -173,6 +217,7 @@
                 2.319999933242798
             ],
             "Radius": 0.04500000178813934,
+            "HeldMatter": "",
             "AControl": "root",
             "BControl": "root",
             "AInfluences": [],
@@ -206,5 +251,222 @@
             ]
         }
     ],
-    "Motions": []
+    "Motions": [
+        {
+            "Id": "dissolve",
+            "Duration": 0.25,
+            "Loop": false,
+            "Keys": [
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0,
+                    "At": 0.0,
+                    "Positions": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.0196749996393919,
+                    "At": 0.020833000540733339,
+                    "Positions": [
+                        0.0,
+                        -0.01083299983292818,
+                        -0.0041669998317956928
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.07407499849796295,
+                    "At": 0.04166699945926666,
+                    "Positions": [
+                        0.0,
+                        -0.0216669999063015,
+                        -0.008333000354468823
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.15625,
+                    "At": 0.0625,
+                    "Positions": [
+                        0.0,
+                        -0.032499998807907107,
+                        -0.012500000186264515
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.2592569887638092,
+                    "At": 0.08333300054073334,
+                    "Positions": [
+                        0.0,
+                        -0.04333300143480301,
+                        -0.016666999086737634
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.37615901231765749,
+                    "At": 0.10416699945926666,
+                    "Positions": [
+                        0.0,
+                        -0.0541669987142086,
+                        -0.020833000540733339
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.5,
+                    "At": 0.125,
+                    "Positions": [
+                        0.0,
+                        -0.06499999761581421,
+                        -0.02500000037252903
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.6238409876823425,
+                    "At": 0.14583300054073335,
+                    "Positions": [
+                        0.0,
+                        -0.07583300024271012,
+                        -0.029167000204324724
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.7407429814338684,
+                    "At": 0.16666699945926667,
+                    "Positions": [
+                        0.0,
+                        -0.086667001247406,
+                        -0.03333299979567528
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.84375,
+                    "At": 0.1875,
+                    "Positions": [
+                        0.0,
+                        -0.09749999642372132,
+                        -0.03750000149011612
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9259250164031982,
+                    "At": 0.20833300054073335,
+                    "Positions": [
+                        0.0,
+                        -0.10833299905061722,
+                        -0.04166699945926666
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 0.9803249835968018,
+                    "At": 0.22916699945926667,
+                    "Positions": [
+                        0.0,
+                        -0.11916700005531311,
+                        -0.04583299905061722
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                {
+                    "Build": 1.0,
+                    "Fade": 1.0,
+                    "At": 0.25,
+                    "Positions": [
+                        0.0,
+                        -0.12999999523162843,
+                        -0.05000000074505806
+                    ],
+                    "Rotations": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                }
+            ],
+            "Markers": []
+        }
+    ]
 }

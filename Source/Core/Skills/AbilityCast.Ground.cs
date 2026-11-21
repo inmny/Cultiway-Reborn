@@ -24,7 +24,7 @@ public sealed partial class AbilityCast
         if (terrain != null && (state.Velocity.x != 0 || state.Velocity.y != 0)) return maximum;
         if (!state.Flying || state.MovementStopped || state.Flight.Ground is not (ConstructionGroundResponse.Stop or ConstructionGroundResponse.End or ConstructionGroundResponse.EndWhenActive) || state.Flight.Path != null ||
             state.Flight.TurnRate > 0 || state.Spin.sqrMagnitude > .000001f ||
-            (state.Motion?.Motion ?? form.Motion) != null && !state.ShapeHeld && !state.MotionStopped ||
+            (state.Motion?.Motion ?? form.Motion) != null && (!state.ShapeHeld || form.AnimateWhileHeld) && !state.MotionStopped ||
             !state.GrowthStopped && (state.GrowthChanged ? state.GrowthAge < state.GrowthSeconds : form.Growth.x >= 0 && NodeAge(node) < form.Growth.y)) return maximum;
         float height = MinimumHeight(node, state.Transform, poses[node]);
         if (height <= .000001f || float.IsPositiveInfinity(height)) return maximum;

@@ -536,7 +536,8 @@ public sealed partial class AbilityCast
             IncludeNode(form.Presence.y);
             IncludeNode(form.FractureAt);
             foreach (CompiledMatterChange change in form.Changes) IncludeNode(change.At);
-            if (!state.ShapeHeld && (!state.MotionStopped || !state.GrowthStopped) &&
+            bool shapeClockRuns = !state.ShapeHeld || form.AnimateWhileHeld;
+            if (shapeClockRuns && (!state.MotionStopped || !state.GrowthStopped) &&
                 state.HoldUsed < form.Hold.Seconds)
             {
                 if (state.ShapeAge < form.Hold.At) IncludeShape(form.Hold.At);
@@ -570,7 +571,7 @@ public sealed partial class AbilityCast
             step = SizeThresholdStep(i, step);
             FormMotion motion = state.MotionData?.Motion ?? form.Motion;
             float motionSpeed = state.MotionData?.Speed ?? form.MotionSpeed;
-            bool shapeAdvancing = !state.ShapeHeld &&
+            bool shapeAdvancing = shapeClockRuns &&
                                   !(state.HoldUsed < form.Hold.Seconds && state.ShapeAge >= form.Hold.At);
             bool motionHeld = state.Motion != null && state.MotionHoldUsed < state.MotionData.Hold.Seconds &&
                               state.MotionAge / motionSpeed >= state.MotionData.Hold.At;
@@ -618,7 +619,7 @@ public sealed partial class AbilityCast
                     IncludeMotion(motion.StageMarkers[state.NextActionMarker].Value);
             }
 
-            if (state.GrowthChanged && !state.GrowthStopped && shapeAdvancing && state.GrowthAge < state.GrowthSeconds)
+            if (!state.ShapeHeld && state.GrowthChanged && !state.GrowthStopped && shapeAdvancing && state.GrowthAge < state.GrowthSeconds)
                 Include(Age + (state.GrowthSeconds - state.GrowthAge));
             IncludeNode(form.Detach);
             IncludeNode(form.FlyAt);
@@ -654,7 +655,7 @@ public sealed partial class AbilityCast
 
             void IncludeShape(float marker)
             {
-                if (!state.ShapeHeld && (!state.MotionStopped || !state.GrowthStopped) &&
+                if (shapeClockRuns && (!state.MotionStopped || !state.GrowthStopped) &&
                     !(state.HoldUsed < form.Hold.Seconds && state.ShapeAge >= form.Hold.At) &&
                     marker > state.ShapeAge && marker < state.ShapeAge + step) step = marker - state.ShapeAge;
             }
@@ -784,12 +785,13 @@ public sealed partial class AbilityCast
         }
 
         state.PreviousShapeAge = state.ShapeAge;
-        if (!state.ShapeHeld && (!state.MotionStopped || !state.GrowthStopped))
+        bool shapeClockRuns = !state.ShapeHeld || form.AnimateWhileHeld;
+        if (shapeClockRuns && (!state.MotionStopped || !state.GrowthStopped))
             state.ShapeAge = form.Hold.Advance(state.ShapeAge, ref state.HoldUsed, step);
         float shapeDelta = state.ShapeAge - state.PreviousShapeAge;
         Matrix4x4 previous = state.Transform;
         state.PreviousTransform = previous;
-        float growth = AdvanceGrowth(i, age, shapeDelta);
+        float growth = AdvanceGrowth(i, age, state.ShapeHeld ? 0f : shapeDelta);
         if (gathers != null) SampleGather(i, age);
         Vector3 localOffset = gathers == null ? form.Offset : gathers[i].Offset;
         Quaternion localRotation = gathers == null ? form.Rotation : gathers[i].Rotation;
@@ -908,7 +910,7 @@ public sealed partial class AbilityCast
         if (state.MaterialRetained < 1f)
             state.Transform *= Matrix4x4.Scale(Vector3.one * Mathf.Pow(state.MaterialRetained, 1f / 3f));
         state.Visible = growth > .0001f && age >= form.Presence.x && age <= form.Presence.y;
-        if (poses[i] != null && !state.MotionStopped && (bindInitial || began || !state.ShapeHeld))
+        if (poses[i] != null && !state.MotionStopped && (bindInitial || began || shapeClockRuns))
         {
             if (state.Motion == null) state.MotionAge = (state.ShapeAge - form.MotionAt) * form.MotionSpeed;
             else

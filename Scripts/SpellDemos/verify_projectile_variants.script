@@ -11,7 +11,10 @@ var catalog = new[]
     (Asset: SkillEntities.WindBlade, Form: "wind_blade", Count: 2),
     (Asset: SkillEntities.ThunderOrb, Form: "thunder_orb", Count: 4),
     (Asset: SkillEntities.LightningSpear, Form: "lightning_spear", Count: 1),
-    (Asset: SkillEntities.LightningStrike, Form: "lightning_strike", Count: 11)
+    (Asset: SkillEntities.LightningStrike, Form: "lightning_strike", Count: 11),
+    (Asset: SkillEntities.IceShard, Form: "ice_shard", Count: 1),
+    (Asset: SkillEntities.IceLance, Form: "ice_lance", Count: 1),
+    (Asset: SkillEntities.Icefall, Form: "icefall_rain", Count: 1)
 }.Where(entry => chosenAssets.Contains(entry.Asset.id)).ToArray();
 
 bool CanTestTracking(SkillEntityAsset asset) => asset == SkillEntities.WaterOrb || asset == SkillEntities.WindBullet || asset == SkillEntities.ThunderOrb;
@@ -81,6 +84,7 @@ if (cold)
 
 var casts = new Dictionary<long, AbilityCast>();
 var recordings = new List<object>();
+var scatterCenters = new List<Vector2>();
 int oldExecutions = 0;
 
 void Started(ConstructedCastStarted fact)
@@ -120,14 +124,15 @@ async Task Stage(AbilityCast cast, float until)
 
 async Task Play(SkillEntityAsset asset, string form, int index)
 {
-    bool sky = asset == SkillEntities.LightningStrike;
+    bool icefall = asset == SkillEntities.Icefall, lightning = asset == SkillEntities.LightningStrike;
+    bool sky = lightning || icefall;
     bool orb = asset == SkillEntities.WaterOrb, blast = asset == SkillEntities.ThunderOrb || sky;
     bool landing = caseName == "landing", cancelled = caseName == "cancel";
     bool fast = sky && landing && index == 0;
     bool blade = asset == SkillEntities.WaterBlade || asset == SkillEntities.SwordQi || asset == SkillEntities.WindBlade;
     bool continues = asset.ImpactProfile.ContinueAfterHit;
     bool tracking = CanTestTracking(asset) && (caseName == "tracking" || cold), miss = caseName == "miss";
-    float timeout = blast && miss ? (sky ? .15f : .115f) : 0f;
+    float timeout = blast && miss ? (icefall ? .012f : sky ? .15f : .115f) : 0f;
     var skill = cold ? Learned().Single(entity =>
     {
         var value = entity.GetComponent<SkillContainer>();
@@ -138,7 +143,7 @@ async Task Play(SkillEntityAsset asset, string form, int index)
     float interval = container.MotionProfile.FrameInterval;
     float rise = Seconds(animation.Appearance, interval), fade = Seconds(animation.Dissipation, interval);
     float runtime = timeout > 0f ? timeout : asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier;
-    string model = index == 0 && !sky ? form : form + "_" + index;
+    string model = index == 0 && !lightning ? form : form + "_" + index;
     Check(container.AnimationIndex == index && (!tracking || SkillBlueprintTrajectory.ResolveEffectiveId(skill) == SkillTrajectories.TowardsTarget.id),
         "原已学关系保留指定索引和轨迹", new { model, tracking });
 
@@ -187,10 +192,19 @@ async Task Play(SkillEntityAsset asset, string form, int index)
         await Stage(cast, fast ? .169f : (timeout > 0f ? .092f : .125f));
         var moving = Views(cast).Single(view => view.Resource.Description.Id == model);
         Vector3 flown = moving.Transform.GetColumn(3);
-        Check(Vector2.Distance(flown, point) < .03f && first.z - flown.z > .2f &&
+        float offset = Vector2.Distance(flown, point);
+        Check((icefall ? offset <= 1.401f && Vector2.Distance(first, flown) < .03f : offset < .03f) &&
+              first.z - flown.z > .2f &&
               (rise == 0f ? ShapeCount(cast) > 0 : ShapeCount(cast) == 0 && hp == target.data.health && cast.NodeAge(1) < 0f),
               "真实下落保留指定点，成形期间没有伤害", new { model, age = cast.Age, first = first.ToString(),
                   current = flown.ToString(), shapes = ShapeCount(cast) });
+        if (icefall && !miss)
+        {
+            Place(target, flown.x - 1.05f, flown.y);
+            Place(second, flown.x + 1.05f, flown.y + .55f);
+            ConstructedAbilityService.NotifyActorChanged(target);
+            ConstructedAbilityService.NotifyActorChanged(second);
+        }
         if (fast)
         {
             object root = ((Array)Field(cast, "nodes")).GetValue(0);
@@ -224,7 +238,7 @@ async Task Play(SkillEntityAsset asset, string form, int index)
         ConstructedAbilityService.NotifyActorChanged(target);
     }
 
-    Vector3? impact = null, rest = null;
+    Vector3? impact = null, rest = null, firstIcePiece = null;
     float? impactAt = null;
     if (blast && !miss)
     {
@@ -232,7 +246,7 @@ async Task Play(SkillEntityAsset asset, string form, int index)
         await Game.WaitUntil(() => cast.NodeAge(1) >= 0f || cast.Finished, 1800);
         Config.paused = true;
         await Game.WaitUntil(Boundary, 1800);
-        string impactForm = sky ? "lightning_strike_impact" : "thunder_orb_impact";
+        string impactForm = lightning ? "lightning_strike_impact" : icefall ? "icefall_impact" : "thunder_orb_impact";
         var pulse = Views(cast).Single(view => view.Resource.Description.Id == impactForm);
         impact = pulse.Transform.GetColumn(3);
         impactAt = cast.Age - cast.NodeAge(1);
@@ -241,7 +255,15 @@ async Task Play(SkillEntityAsset asset, string form, int index)
         Check(cast.NodeAge(1) < .15f && Mathf.Abs(cast.RemainingForce(1) - 100f) < .001f &&
               Mathf.Abs(.9f * pulse.Transform.lossyScale.x - expectedRadius) < .001f,
             "真实爆发保留本体余力和原作用半径", new { model, actual = impact.ToString(), expectedRadius });
-        if (landing || sky)
+        if (icefall)
+        {
+            Check(Vector2.Distance(impact.Value, first) < .04f && Vector2.Distance(impact.Value, point) <= 1.401f &&
+                  impactAt >= rise, "冰雨沿实际散落位置垂直下落并在成形完毕后结算", new
+                  { model, initial = first.ToString(), centre = impact.ToString(), impactAt });
+            scatterCenters.Add(impact.Value);
+            firstIcePiece = pulse.PartTransform(1).GetColumn(3);
+        }
+        else if (landing || sky)
             Check(Vector2.Distance(impact.Value, point) < .04f && impactAt >= rise,
                 "指定地点与实际爆发中心一致，生效时点在成形后", new { model, impact = impact.ToString(), impactAt });
     }
@@ -266,6 +288,13 @@ async Task Play(SkillEntityAsset asset, string form, int index)
               Vector3.Distance(rest.Value, (Vector3)ending.Transform.GetColumn(3)) < .01f &&
               (!impact.HasValue || Vector3.Distance(rest.Value, impact.Value) < .02f),
             "收势停在真实结束地点连续变淡，作用面已经退出", new { model, rest = rest.ToString(), alpha, remaining });
+        if (firstIcePiece.HasValue)
+        {
+            var shifted = Views(cast).Single(view => view.Resource.Description.Id == "icefall_impact");
+            Check(cast.IsShapeHeld(1) && Vector3.Distance(shifted.PartTransform(1).GetColumn(3), firstIcePiece.Value) > .02f &&
+                  Vector3.Distance(impact.Value, shifted.Transform.GetColumn(3)) < .02f,
+                "冰片绕实际落点翻开，冰的保持形状规则继续有效", model);
+        }
         await Advance(fade + .05f);
     }
     else
@@ -285,7 +314,7 @@ async Task Play(SkillEntityAsset asset, string form, int index)
     if (blast)
     {
         settled = miss ? settled && cast.NodeAge(1) < 0f : impact.HasValue &&
-            actual.Count(hit => hit.Node == 0) <= (landing ? 0 : 1) &&
+            actual.Count(hit => hit.Node == 0) <= (landing || icefall ? 0 : 1) &&
             actual.Where(hit => hit.Node == 0).All(hit => !hit.DamageAttempted) &&
             damage.All(hit => hit.Node == 1) && damage.Length == (tracking ? 1 : 2) &&
             damage.Count(hit => hit.TargetId == target.id) == 1 &&
@@ -314,6 +343,12 @@ try
         var coldVariants = entry.Asset == SkillEntities.LightningStrike ? new[] { 0, 9 } : new[] { Math.Min(1, entry.Count - 1) };
         var variants = chosenVariants.Length > 0 ? chosenVariants.Distinct() : cold ? coldVariants : Enumerable.Range(0, entry.Count);
         foreach (int index in variants) await Play(entry.Asset, entry.Form, index);
+        if (caseName == "scatter")
+        {
+            await Play(entry.Asset, entry.Form, 0);
+            Check(scatterCenters.Count == 2 && Vector2.Distance(scatterCenters[0], scatterCenters[1]) > .02f,
+                "同一人物重放的冰雨取得两个不同的实际散落位置", scatterCenters.Select(center => center.ToString()).ToArray());
+        }
     }
     return new { passed = true, spells = recordings.Count, process };
 }
