@@ -57,6 +57,14 @@ public sealed class ConstructionImpact
     /// <summary>真实伤害倍率；零表示只接触和推拉，不调用伤害或近战攻击。</summary>
     public float DamageScale = 1f;
 
+    /// <summary>真实受击人物在此世界距离内没有友方时，可获得额外伤害。零关闭判断。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float IsolationRadius;
+
+    /// <summary>目标孤立时对本笔直接伤害额外应用的倍率，零表示不使用孤立效果。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float IsolatedDamageMultiplier;
+
     /// <summary>每次真实命中推进的整数年数，零表示没有生灵老化。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public int AgeYears;
@@ -215,6 +223,12 @@ public sealed class CompiledConstructionImpact
     /// <summary>真实伤害倍率。</summary>
     public float DamageScale { get; }
 
+    /// <summary>孤立判定使用的世界距离。</summary>
+    public float IsolationRadius { get; }
+
+    /// <summary>孤立时的实际增伤倍率，普通情况始终保持本体量。</summary>
+    public float IsolatedDamageMultiplier { get; }
+
     /// <summary>每次真实命中推进的整数年数，接触衰减后向下取整。</summary>
     public int AgeYears { get; }
 
@@ -334,6 +348,15 @@ public sealed class CompiledConstructionImpact
             throw new InvalidDataException(path + "/ReleaseGrab：需要有效的抓持解除方式");
         Targets = source?.Targets ?? SkillUseTargetRelation.Hostile;
         DamageScale = source?.DamageScale ?? 1f;
+        IsolationRadius = source?.IsolationRadius ?? 0f;
+        IsolatedDamageMultiplier = source?.IsolatedDamageMultiplier ?? 0f;
+        if (IsolationRadius != 0f || IsolatedDamageMultiplier != 0f)
+        {
+            if (!CompiledForceRouting.Finite(IsolationRadius) || IsolationRadius <= 0f || IsolationRadius > 64f ||
+                !CompiledForceRouting.Finite(IsolatedDamageMultiplier) || IsolatedDamageMultiplier <= 1f ||
+                !(DamageScale > 0f) || DamageScale * IsolatedDamageMultiplier > 1000f)
+                throw new InvalidDataException(path + "/IsolatedDamageMultiplier：孤立增伤需要正本体伤害、0至64以内的正半径和大于1的倍率，合计伤害倍率最多1000");
+        }
         WakanTransfer = source?.WakanTransfer ?? 0f;
         if (float.IsNaN(WakanTransfer) || WakanTransfer < 0f || WakanTransfer > 1000f)
             throw new InvalidDataException(path + "/WakanTransfer：单次灵气转移需在0到1000之间");

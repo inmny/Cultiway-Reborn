@@ -1,8 +1,7 @@
-using Cultiway.Content.Combat;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Skills;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Impacts;
-using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Utils.Extension;
 using UnityEngine;
@@ -20,14 +19,14 @@ internal static class KnightDuelistTechniques
             TargetRelation = SkillUseTargetRelation.Hostile,
             CastMobility = ActiveAbilityCastMobility.StationaryDuringRecovery,
             UseCondition = IsMeleeTarget,
-            ResolveAiWeight = context => KnightTechniqueAiRules.IsIsolated(context.Caster, context.Target) ? 6 : 3,
+            ResolveAiWeight = context => KnightTechniqueAiRules.IsIsolated(context.Target) ? 6 : 3,
             ResolveAiDamageMultiplier = context =>
-                KnightTechniqueAiRules.IsIsolated(context.Caster, context.Target) ? 1.55f : 1.25f,
+                KnightTechniqueAiRules.IsIsolated(context.Target) ? 1.55f : 1.25f,
             ResolveTacticalProfile = _ => new ActiveAbilityTacticalProfile(
                 2.2f, 0f, 0f, 0f, 2.2f, 5f, 1f, SkillImpactKind.Wave),
             ResolveRange = context => KnightTechniqueRuntimeService.ResolveMeleeRange(context.Caster.Base),
             ResolveEffectRadius = _ => 0f,
-            TryUse = UseCommittedStrike,
+            Construction = BodyActionCatalog.KnightCommittedStrike,
         };
     }
 
@@ -65,7 +64,7 @@ internal static class KnightDuelistTechniques
             ResolveAiWeight = context =>
             {
                 if (context.Target?.isActor() != true ||
-                    !KnightTechniqueAiRules.IsIsolated(context.Caster, context.Target) ||
+                    !KnightTechniqueAiRules.IsIsolated(context.Target) ||
                     !KnightTechniqueAiRules.IsHighTierTarget(context.Caster, context.Target, 4, 2f)) return 0;
                 return context.Target.a.GetExtend().GetPowerLevel() >= context.Caster.GetPowerLevel() ? 10 : 7;
             },
@@ -73,56 +72,8 @@ internal static class KnightDuelistTechniques
                 4.8f, 0f, 0f, 0f, 4.8f, 360f, 1f, SkillImpactKind.Wave),
             ResolveRange = context => KnightTechniqueRuntimeService.ResolveMeleeRange(context.Caster.Base),
             ResolveEffectRadius = _ => 0f,
-            TryUse = UseLegendaryFlurry,
+            Construction = BodyActionCatalog.KnightLegendaryFlurry,
         };
-    }
-
-    private static bool UseCommittedStrike(KnightTechniqueContext context, ActiveAbilityUseOrigin origin)
-    {
-        KnightTechniqueRuntimeService.BeginAction(context.Caster, 0.47f);
-        Vector3 direction = KnightTechniqueRuntimeService.ResolveDirection(context.Caster.Base, context.Target);
-        KnightTechniqueVisuals.SpawnWeaponMotion(
-            context,
-            EquippedWeaponMotionKind.GuardTurn,
-            direction,
-            0.22f,
-            1.2f,
-            -82f,
-            -118f,
-            KnightTrailStyle.None,
-            0.92f);
-        KnightActionSequence sequence = KnightTechniqueRuntimeService.CreateSequence(
-            context,
-            context.Target,
-            KnightTechniqueRuntimeService.ResolveMeleeRange(context.Caster.Base));
-        DelayedActionsManager.addAction(() =>
-        {
-            if (!sequence.TryContinue(out KnightTechniqueContext active)) return;
-            Vector3 activeDirection = KnightTechniqueRuntimeService.ResolveDirection(
-                active.Caster.Base, active.Target);
-            KnightTechniqueVisuals.SpawnWeaponMotion(
-                active,
-                EquippedWeaponMotionKind.Sweep,
-                activeDirection,
-                0.25f,
-                2.05f,
-                -132f,
-                108f,
-                KnightTrailStyle.DuelistFinisher,
-                1.26f);
-            active.Caster.Base.punchTargetAnimation(active.Target.current_position, true, true);
-            DelayedActionsManager.addAction(() =>
-            {
-                if (!sequence.TryContinue(out KnightTechniqueContext strike)) return;
-                float multiplier = IsIsolated(strike.Target) ? 1.55f : 1.25f;
-                KnightWeaponStrikeResolver.TryStrike(
-                    strike.Caster,
-                    strike.Weapon,
-                    strike.Target,
-                    multiplier);
-            }, 0.09f);
-        }, 0.22f);
-        return true;
     }
 
     private static bool UseCounterStance(KnightTechniqueContext context, ActiveAbilityUseOrigin origin)
@@ -144,51 +95,6 @@ internal static class KnightDuelistTechniques
         return true;
     }
 
-    private static bool UseLegendaryFlurry(KnightTechniqueContext context, ActiveAbilityUseOrigin origin)
-    {
-        KnightTechniqueRuntimeService.BeginAction(context.Caster, 0.7f);
-        KnightActionSequence sequence = KnightTechniqueRuntimeService.CreateSequence(
-            context,
-            context.Target,
-            KnightTechniqueRuntimeService.ResolveMeleeRange(context.Caster.Base));
-        float[] visualTimes = { 0.02f, 0.18f, 0.36f };
-        float[] hitTimes = { 0.12f, 0.28f, 0.48f };
-        float[] multipliers = { 0.55f, 0.65f, 0.9f };
-        float[] starts = { -78f, 72f, -112f };
-        float[] ends = { 55f, -86f, 104f };
-        for (var i = 0; i < 3; i++)
-        {
-            int index = i;
-            DelayedActionsManager.addAction(() =>
-            {
-                if (!sequence.TryContinue(out KnightTechniqueContext active)) return;
-                Vector3 direction = KnightTechniqueRuntimeService.ResolveDirection(
-                    active.Caster.Base, active.Target);
-                KnightTechniqueVisuals.SpawnWeaponMotion(
-                    active,
-                    EquippedWeaponMotionKind.Sweep,
-                    direction,
-                    index == 2 ? 0.2f : 0.16f,
-                    index == 2 ? 2.15f : 1.78f + index * 0.12f,
-                    starts[index],
-                    ends[index],
-                    index == 2 ? KnightTrailStyle.DuelistFinisher : KnightTrailStyle.Duelist,
-                    index == 2 ? 1.32f : 1.08f + index * 0.06f);
-            }, visualTimes[index]);
-            DelayedActionsManager.addAction(() =>
-            {
-                if (!sequence.TryContinue(out KnightTechniqueContext active)) return;
-                active.Caster.Base.punchTargetAnimation(active.Target.current_position, true, true);
-                KnightWeaponStrikeResolver.TryStrike(
-                    active.Caster,
-                    active.Weapon,
-                    active.Target,
-                    multipliers[index]);
-            }, hitTimes[index]);
-        }
-        return true;
-    }
-
     private static bool IsMeleeTarget(KnightTechniqueContext context)
     {
         return KnightTechniqueRuntimeService.IsValidGroundTarget(
@@ -196,22 +102,5 @@ internal static class KnightDuelistTechniques
             context.Target,
             0f,
             KnightTechniqueRuntimeService.ResolveMeleeRange(context.Caster.Base));
-    }
-
-    private static bool IsIsolated(BaseSimObject target)
-    {
-        if (target?.isActor() != true || target.isRekt()) return false;
-        bool isolated = true;
-        CombatTargeting.ForEachActor(
-            target.a,
-            target.current_position,
-            1.8f,
-            CombatTargeting.TargetDisposition.Any,
-            candidate =>
-            {
-                if (candidate != target.a && SkillTargetRelationResolver.IsFriendly(target, candidate))
-                    isolated = false;
-            });
-        return isolated;
     }
 }

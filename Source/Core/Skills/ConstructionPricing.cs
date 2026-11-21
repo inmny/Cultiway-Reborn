@@ -341,7 +341,8 @@ public sealed class ConstructionMeasure
         {
             if (until < from) return;
             work += impact.ForceRouting?.Work ?? 0d;
-            double force = power * strength * (impact.DamageScale +
+            double directScale = impact.DamageScale * Math.Max(1f, impact.IsolatedDamageMultiplier);
+            double force = power * strength * (directScale +
                                                Math.Abs(impact.Force) * .1d *
                                                (impact.SlideSeconds > 0 ? impact.SlideSeconds : 1d) +
                                                (impact.Launch ? impact.Lift * .1d : 0d) + impact.StaggerSeconds +

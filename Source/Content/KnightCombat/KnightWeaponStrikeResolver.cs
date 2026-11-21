@@ -44,11 +44,13 @@ internal static class KnightWeaponStrikeResolver
     /// <param name="immediate">是否需要在当前真实接触边界确认这次原目标伤害。</param>
     /// <param name="observer">原目标的受击观察，沿原结算顺序交回结果。</param>
     /// <param name="damageOrigin">直接接触或由映像传回的伤害类别。</param>
+    /// <param name="skipIfShaking">是否让原版忽略受击闪动期间的再次受击。</param>
     internal static AttackDataResult StrikeUnarmed(ActorExtend caster, BaseSimObject target,
         Action<Actor, float> onPositiveActorDamage, float damageMultiplier = 1f, bool immediate = false,
-        DamageObservation observer = null, DamageOrigin damageOrigin = DamageOrigin.Primary)
+        DamageObservation observer = null, DamageOrigin damageOrigin = DamageOrigin.Primary, bool skipIfShaking = true)
     {
-        return ResolveStrike(caster, target, damageMultiplier, caster.Base.kingdom, damageOrigin, onPositiveActorDamage, immediate, observer);
+        return ResolveStrike(caster, target, damageMultiplier, caster.Base.kingdom, damageOrigin, onPositiveActorDamage,
+            immediate, observer, skipIfShaking);
     }
 
     /// <summary>实际借用器物的接触使用同一原版防御、耐久及伤害入口。</summary>
@@ -59,10 +61,13 @@ internal static class KnightWeaponStrikeResolver
     /// <param name="immediate">是否需要在当前真实接触边界确认这次原目标伤害。</param>
     /// <param name="observer">原目标的受击观察，沿原结算顺序交回结果。</param>
     /// <param name="damageOrigin">直接接触或由映像传回的伤害类别。</param>
+    /// <param name="skipIfShaking">是否让原版忽略受击闪动期间的再次受击。</param>
     internal static AttackDataResult StrikeBorrowed(ActorExtend caster, Item weapon, BaseSimObject target, float multiplier,
-        bool immediate = false, DamageObservation observer = null, DamageOrigin damageOrigin = DamageOrigin.Primary) =>
+        bool immediate = false, DamageObservation observer = null, DamageOrigin damageOrigin = DamageOrigin.Primary,
+        bool skipIfShaking = true) =>
         EquippedWeaponVisualService.IsCurrent(caster.Base, weapon)
-            ? ResolveStrike(caster, target, multiplier, caster.Base.kingdom, damageOrigin, null, immediate, observer) : default;
+            ? ResolveStrike(caster, target, multiplier, caster.Base.kingdom, damageOrigin, null,
+                immediate, observer, skipIfShaking) : default;
 
     /// <summary>共用一次原版攻击的范围、来源与最终伤害关联。</summary>
     /// <param name="caster">攻击者。</param>
@@ -73,9 +78,10 @@ internal static class KnightWeaponStrikeResolver
     /// <param name="onPositiveActorDamage">实际正数伤害的回调。</param>
     /// <param name="immediate">仅原目标的首次受击在当前边界结算。</param>
     /// <param name="observer">原目标的受击观察，沿原结算顺序交回结果。</param>
+    /// <param name="skipIfShaking">沿用普通攻击的闪动保护；明确的后续近战阶段由共同接触去重。</param>
     private static AttackDataResult ResolveStrike(ActorExtend caster, BaseSimObject target, float damageMultiplier,
         Kingdom attackKingdom, DamageOrigin damageOrigin, Action<Actor, float> onPositiveActorDamage,
-        bool immediate = false, DamageObservation observer = null)
+        bool immediate = false, DamageObservation observer = null, bool skipIfShaking = true)
     {
         Actor owner = caster.Base;
 
@@ -97,7 +103,7 @@ internal static class KnightWeaponStrikeResolver
             attackKingdom ?? owner.kingdom,
             AttackType.Weapon,
             owner.haveMetallicWeapon(),
-            true);
+            skipIfShaking);
         AttackDataResult result;
         float previousMultiplier = AttackDamageScaleContext.Enter(damageMultiplier);
         try

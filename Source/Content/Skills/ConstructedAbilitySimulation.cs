@@ -1211,27 +1211,35 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
         DamageSettlement primaryDamage = default;
         DamageObservation observation = null;
+        float? bodyDamageMultiplier = null;
+        float damageScale = impact.DamageScale;
+        if (impact.IsolatedDamageMultiplier > 0f && CombatTargeting.IsIsolated(actor.Actor, impact.IsolationRadius))
+            damageScale *= impact.IsolatedDamageMultiplier;
         // 明确发力继承接触前的运动；原版同次命中附带的击退不再重复计入。
         Vector3? priorVelocity = impact.Impulse.HasValue ? ConstructedActorImpulse.Velocity(actor.Actor) : null;
         ForceReceiver? forceReceiver = impact.Impulse.HasValue ? new ForceReceiver(actor.Actor) : null;
         ApplyAttackState result = ApplyAttackState.Hit;
-        if (node < 0 && impact.DamageScale > 0f)
+        if (node < 0 && damageScale > 0f)
         {
             var owner = running.Source.GetExtend();
             observation = ObserveQueuedContact(running, contactOwner.Id, actor.Actor, actor.Id,
                 memory.Count, LogicTime, impact, strength);
+            float multiplier = running.Power * damageScale * strength;
+            bodyDamageMultiplier = multiplier;
+            // 每个实际动作阶段已有独立限额，上一击的闪动不应吞掉后续段。
+            bool skipIfShaking = running.Cast.BodyStage == 0;
             AttackDataResult strike = running.Body.Weapon == null
-                ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, actor.Actor, null, running.Power * impact.DamageScale * strength,
-                    observer: observation)
+                ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, actor.Actor, null, multiplier,
+                    observer: observation, skipIfShaking: skipIfShaking)
                 : KnightWeaponStrikeResolver.StrikeBorrowed(owner, running.Body.Weapon, actor.Actor,
-                    running.Power * impact.DamageScale * strength, observer: observation);
+                    multiplier, observer: observation, skipIfShaking: skipIfShaking);
             result = strike.state;
         }
-        else if (node >= 0 && impact.DamageScale > 0f)
+        else if (node >= 0 && damageScale > 0f)
         {
             var damage = contactOwner.Damage;
             damage.TargetID = actor.Id;
-            damage.Damage = running.Cast.DamageForce(node) * impact.DamageScale *
+            damage.Damage = running.Cast.DamageForce(node) * damageScale *
                 strength;
             damage.Element = running.Cast.FixedDamageElement(node, impact) ?? Composition(beforeMatter.DamageKind);
             damage.ContactSound = CombatContactFeedback.SoundFor(beforeMatter);
@@ -1289,7 +1297,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             memory.Count, running.GroupHits[running.Cast.ContactGroup(node)], beforeMatter?.Id, beforeMatter?.State,
             afterMatter?.Id, afterMatter?.State,
             impact.DamageScale > 0f || response.AdditionalDamageAttempted, response.VelocityChange, response.ForceApplied, response.StaggerSeconds,
-            response.BindSeconds, response.StrainSeconds, response.ExposureSeconds));
+            response.BindSeconds, response.StrainSeconds, response.ExposureSeconds, bodyDamageMultiplier));
 
     }
 

@@ -34,6 +34,20 @@ public static class BodyActionCatalog
     internal static AbilityDefinition KnightArmorPiercingThrust =>
         knightArmorPiercingThrust ??= Load("knight-armor-piercing-thrust");
 
+    /// <summary>蓄势重击的制作资料。</summary>
+    private static AbilityDefinition knightCommittedStrike;
+
+    /// <summary>传奇连斩的制作资料。</summary>
+    private static AbilityDefinition knightLegendaryFlurry;
+
+    /// <summary>借用实际剑刃的一次重击。</summary>
+    internal static AbilityDefinition KnightCommittedStrike =>
+        knightCommittedStrike ??= Load("knight-committed-strike");
+
+    /// <summary>借用同一把剑连续完成三段真实接触。</summary>
+    internal static AbilityDefinition KnightLegendaryFlurry =>
+        knightLegendaryFlurry ??= Load("knight-legendary-flurry");
+
     /// <summary>读取制作资料，不在每次出手时解释文件。</summary>
     internal static AbilityDefinition[] All => all ??= LoadAll();
 
@@ -61,7 +75,7 @@ public static class BodyActionCatalog
             Load("long-spear-deflect"), Load("heavy-hammer-drop"), Load("shield-guard"), Load("palm-yield"),
             Load("angled-retreat"), Load("charging-shoulder"), Load("bounding-step"),
             Load("turning-throw"), Load("pressing-throw"), Load("beast-tail-sweep"), Load("beast-wing-cut"),
-            KnightArmorPiercingThrust };
+            KnightArmorPiercingThrust, KnightCommittedStrike, KnightLegendaryFlurry };
     }
 
     /// <summary>保留完整手路及发力，石剑版本以本身的握点及刃口执行。</summary>

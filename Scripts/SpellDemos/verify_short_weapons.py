@@ -11,13 +11,17 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('fighting', 'archive', 'cold', 'film'), default='fighting')
+    parser.add_argument('--section', choices=('fighting', 'archive', 'cold', 'film', 'knight'), default='fighting')
     parser.add_argument('--item', choices=('all', 'iron', 'stone'), default='all')
-    parser.add_argument('--move', choices=('thrust', 'cut', 'sweep', 'miss', 'deflect'))
+    parser.add_argument('--move', choices=('thrust', 'cut', 'sweep', 'miss', 'deflect',
+                                            'committed', 'flurry', 'flurry-swap'))
     parser.add_argument('--archive', type=Path)
     parser.add_argument('--view', choices=('native', 'worldfall'))
     args = parser.parse_args()
     section = args.section
+    knight_moves = ('committed', 'flurry', 'flurry-swap')
+    if args.move is not None and (args.move in knight_moves) != (section == 'knight'):
+        parser.error('决斗家战技使用 --section knight 并选择 committed、flurry 或 flurry-swap')
     if args.move == 'deflect' and args.item == 'stone':
         parser.error('拨开复验使用铁剑')
     if (section == 'cold') != (args.archive is not None) or (section == 'film') != (args.view is not None):
@@ -32,7 +36,7 @@ def main():
     import baseline_scenarios as baseline
 
     baseline.connect(False, validate_runtime=False)
-    move = args.move or 'thrust'
+    move = args.move or ('committed' if section == 'knight' else 'thrust')
     name = f'{move}-{args.item}' if section == 'fighting' else section
     output = Path(tempfile.mkdtemp(prefix=f'short-weapons-{name}-',
                                    dir=os.environ['CULTIWAY_DEV_OUTPUT']))
@@ -48,7 +52,12 @@ def main():
     script = output / 'input.script'
     body = Path(__file__).with_suffix('.script').read_text()
     imports = 'using Friflo.Engine.ECS;\n'
-    if section == 'archive':
+    if section == 'knight':
+        base = base.replace('Cultiway.Body.ShortBlade', 'Cultiway.KnightTechnique.')
+        imports += ('using Cultiway.Core.SkillLibV3;\n'
+                    'using Cultiway.Core.SkillLibV3.Utils;\nusing Cultiway.Content.KnightCombat;\n')
+        body = body.split('var bindingType =', 1)[0] + (scripts / 'verify_knight_duelist.script').read_text()
+    elif section == 'archive':
         imports += 'using Cultiway.UI;\nusing Cultiway.UI.Prefab;\nusing UnityEngine.UI;\n'
         editor = (scripts / 'verify_unarmed_hand_editor.script').read_text().split('\ntry\n', 1)[0]
         body = editor.replace('Cultiway.Body.PalmPush', 'Cultiway.Body.ShortBladeCut')
