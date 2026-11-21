@@ -43,6 +43,8 @@ public sealed class FormNativeScenePass : MonoBehaviour
 
     /// <summary>原版界面性上层效果，最后绘制。</summary>
     private readonly List<Entry> overlays = new();
+    /// <summary>复用批量网格的材质列表，保留各层的独立绘制队列。</summary>
+    private readonly List<Material> overlayMaterials = new();
 
     /// <summary>复用相机裁剪平面。</summary>
     private readonly Plane[] planes = new Plane[6];
@@ -139,16 +141,16 @@ public sealed class FormNativeScenePass : MonoBehaviour
             {
                 renderer.forceRenderingOff = true;
                 hidden.Add(renderer);
-                overlays.Add(new Entry
+                var overlay = new Entry
                 {
                     Renderer = renderer,
                     Material = original,
                     Depth = renderer.bounds.center.y - renderer.bounds.center.z,
-                    Order = overlays.Count,
                     SortingOrder = renderer.sortingOrder,
                     Layer = SortingLayer.GetLayerValueFromID(layer),
                     Queue = original.renderQueue
-                });
+                };
+                CollectOverlay(overlay);
                 continue;
             }
 
@@ -237,7 +239,33 @@ public sealed class FormNativeScenePass : MonoBehaviour
             BuiltinRenderTextureType.CameraTarget, camera.pixelRect);
         overlays.Sort(CompareOverlay);
         if (overlays.Count > 0) commands.ClearRenderTarget(true, false, Color.clear);
-        foreach (Entry entry in overlays) commands.DrawRenderer(entry.Renderer, entry.Material, 0, 0);
+        foreach (Entry entry in overlays) commands.DrawRenderer(entry.Renderer, entry.Material, entry.Submesh, 0);
+    }
+
+    /// <summary>原版空间批次的普通、表面和发光网格各自使用对应材质。</summary>
+    private void CollectOverlay(Entry entry)
+    {
+        entry.Order = overlays.Count;
+        if (entry.Renderer is not MeshRenderer meshRenderer ||
+            !meshRenderer.TryGetComponent(out MeshFilter filter) || filter.sharedMesh == null)
+        {
+            overlays.Add(entry);
+            return;
+        }
+
+        meshRenderer.GetSharedMaterials(overlayMaterials);
+        int submeshes = filter.sharedMesh.subMeshCount;
+        for (int i = 0; i < overlayMaterials.Count && submeshes > 0; i++)
+        {
+            Material material = overlayMaterials[i];
+            if (material == null) continue;
+            entry.Material = material;
+            entry.Submesh = Mathf.Min(i, submeshes - 1);
+            entry.Queue = material.renderQueue;
+            entry.Order = overlays.Count;
+            overlays.Add(entry);
+        }
+        overlayMaterials.Clear();
     }
 
     /// <summary>变形图片与普通图片共用同样的深度、透明和颜色通道。</summary>
@@ -381,5 +409,8 @@ public sealed class FormNativeScenePass : MonoBehaviour
 
         /// <summary>覆盖层原有绘制队列，完整视图过渡仍在世界内容之上。</summary>
         internal int Queue;
+
+        /// <summary>空间网格按实际材质索引绘制；精灵仍使用首层。</summary>
+        internal int Submesh;
     }
 }

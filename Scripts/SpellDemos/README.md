@@ -2777,3 +2777,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 法钟的范围与净化（10.05）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_artifact_chime.py` 检查原法钟的共同范围。`--section shake` 核对真实扣血、眩晕、沿地外推、圈外落空和再次施放。`--section cleanse` 核对原数量上限、敌我状态解除、圈外状态保留与恢复。双视角使用已安装 Worldfall 的独立游戏。调材质时用 `--section views` 只补拍两个视角及范围；仅查共同范围与游戏行为时可加 `--skip-views`。
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_golden_bell_activation.py` 核对金钟护界的一次付费、原盾容量和时长、共用钟体的实际位置、自然到期，以及再次启动后切回待命的收束。只补近景用 `--views-only`，在同一暂停时点采集原版与 Worldfall。

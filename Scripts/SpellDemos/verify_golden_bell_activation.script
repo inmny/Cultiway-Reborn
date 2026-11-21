@@ -1,0 +1,178 @@
+// 用一口真实法钟检查启动、共用外形、跟随、收束和真实控物中断。
+const float centerX = 64.35f, centerY = 72f;
+var buildings = new HashSet<Building>();
+for (int x = 59; x <= 71; x++)
+for (int y = 66; y <= 78; y++)
+{
+    WorldTile tile = World.world.GetTileSimple(x, y);
+    if (tile.building != null) buildings.Add(tile.building);
+    tile.Height = 140;
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low, true);
+}
+foreach (Building building in buildings) building.removeBuildingFinal();
+if (fall != null)
+{
+    object sampler = Read(fall, "_sampler");
+    sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
+    sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+}
+Actor source = Make(centerX);
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000 });
+owner.SetPowerLevel(4);
+CombatStatusEffects.ApplyStatus(source, boost, 10000, source);
+owner.MarkCultiwayStatsDirty();
+Ready(source);
+source.attack_timer = 999;
+await Advance(.16f);
+Place(source, centerX, centerY);
+owner.GetCultisys<Xian>().wakan = 9000;
+
+var asset = ArtifactAbilities.GoldenBellBarrier;
+var design = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Bell, Atoms = new[] { ArtifactAtoms.PurifyingBell, ArtifactAtoms.Iron },
+    Level = new ItemLevel { Stage = 2, Level = 4 }, Name = "金钟护界实测"
+});
+var blueprint = ArtifactBlueprintCodec.FromComposeResult(design);
+Check(blueprint.AbilitySet.abilities.Any(value => value.ability_id == asset.id),
+    "原组合入口生成金钟护界", blueprint.AbilitySet.abilities.Select(value => value.ability_id).ToArray());
+Entity bell = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
+owner.AddSpecialItem(bell);
+Check(owner.EquipArtifact(bell, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "装备原组合法钟");
+void UpdateBell()
+{
+    ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+    lifecycle.Invoke(null, new object[] { bell });
+}
+UpdateBell();
+await Game.NextFrame();
+await Game.NextFrame();
+
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var ability = Definition(bell, asset.id);
+var handle = handles.Single(value => value.Source == bell && value.EntryId == ability.instance_id);
+ArtifactAbilityRuntimeEntry Current() => Entry(bell, asset.id);
+var starts = new List<ConstructedCastStarted>();
+var ends = new List<ConstructedCastEnded>();
+var fees = new List<float>();
+var payment = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = payment.GetValue(null);
+void Started(ConstructedCastStarted value) { if (value.SourceId == source.id && value.AbilityId == asset.id) starts.Add(value); }
+void EndedBell(ConstructedCastEnded value) { if (value.SourceId == source.id && value.AbilityId == asset.id) ends.Add(value); }
+void Paid(ActorExtend from, in WakanMutation mutation)
+{
+    if (from == owner && mutation.Kind == WakanMutationKind.Spend) fees.Add(-mutation.Delta);
+}
+
+var renderer = typeof(ArtifactAppearanceRenderer).GetMethod("TryGetSpatialPose", F);
+object[] args = { bell, null };
+Check((bool)renderer.Invoke(null, args), "找到同一口钟的实际空间模型");
+object model = Field(args[1], "Model");
+var vertices = (Vector3[])Field(model, "Vertices");
+var spatialSystem = service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem");
+var meshList = (IEnumerable)spatialSystem.GetField("Meshes", F).GetValue(null);
+object[] Shells() => meshList.Cast<object>().Where(item => (bool)Field(item, "DrawNative") &&
+    ReferenceEquals(Field(Field(item, "Model"), "Vertices"), vertices)).ToArray();
+var footMethod = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Foot", F);
+Vector3 Foot() => (Vector3)footMethod.Invoke(null, new object[] { source });
+Vector3 GroundedShell()
+{
+    object shell = Shells().Single();
+    Vector3 pos = (Vector3)Field(shell, "Position"), scale = (Vector3)Field(shell, "Scale");
+    var facing = (Quaternion)Field(shell, "Rotation");
+    Bounds bounds = new Bounds(pos + facing * Vector3.Scale(vertices[0], scale), Vector3.zero);
+    foreach (Vector3 point in vertices)
+        bounds.Encapsulate(pos + facing * Vector3.Scale(point, scale));
+    return new Vector3(bounds.center.x, bounds.center.y, bounds.min.z);
+}
+float Capacity() => Current().GetNumber("shield_current");
+bool Held() => owner.GetItems().Contains(bell) && owner.GetEquippedArtifacts().Contains(bell) &&
+    !bell.HasComponent<SkillExecutionBodyLease>();
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += EndedBell;
+WakanResourceService.RegisterMutationCommitted(Paid);
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    owner.GetCultisys<Xian>().wakan = 0;
+    Check(!Use(owner, handle, source) && starts.Count == 0 && fees.Count == 0 && Capacity() == 0,
+        "真元不足时不启动、不付款且没有护盾");
+
+    owner.GetCultisys<Xian>().wakan = 9000;
+    var relation = owner.E.GetRelation<EquippedArtifactRelation, Entity>(bell);
+    var context = new ArtifactAbilityExecutionContext(owner.E, bell, relation.state);
+    float expectedCost = asset.lifecycle.ResolveActivationCost(context, ability);
+    if (relation.state == ArtifactControlState.Overloaded) expectedCost *= asset.lifecycle.overload_resource_multiplier;
+    Check(Use(owner, handle, source) && starts.Count == 1 && fees.Count == 1 &&
+          Mathf.Abs(fees[0] - expectedCost) < .002f && Held(),
+        "由原入口一次付费并进入共同启动，仍持有原钟", new { expectedCost, fees = fees.ToArray() });
+    var first = Current();
+    Check(first.activity_kind == ArtifactAbilityActivityKind.Timed &&
+          first.activity_carrier_actor_id == source.id &&
+          Math.Abs(first.activity_until - first.activity_started_at - ability.GetNumber("effect_duration")) < .003d &&
+          Mathf.Abs(Capacity() - ability.GetNumber("shield_capacity") * context.effect_scale) < .003f &&
+          !Use(owner, handle, source) && fees.Count == 1,
+        "初始容量、时长和重复启动规则沿用原法宝",
+        new { capacity = Capacity(), duration = first.activity_until - first.activity_started_at });
+    await Advance(.19f);
+    await Game.NextFrame();
+    await Game.NextFrame();
+    var opening = FormVisualScene.Instances.Single(value => value.Resource.Description.Id == "pressure_wave");
+    Vector3 at = GroundedShell(), firstFoot = Foot();
+    Check(Vector2.Distance((Vector3)opening.Transform.GetColumn(3), firstFoot) < .004f &&
+          Vector3.Distance(at, firstFoot) < .003f,
+        "共同启动与原钟护体都对齐实际脚下", new { opening = ((Vector3)opening.Transform.GetColumn(3)).ToString(),
+            shell = at.ToString(), foot = firstFoot.ToString() });
+
+    camera.transform.position = new Vector3(centerX, centerY + .45f, camera.transform.position.z);
+    MoveCamera.instance.forceZoom(2.95f);
+    await CaptureBellViews("raising", new Vector2(centerX, centerY + .27f), 1.4f,
+        () => Shells().Length == 1 && Vector3.Distance(GroundedShell(), firstFoot) < .003f,
+        nativeZoom: 2.5f, closeSubject: source);
+    if (viewsOnly) return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, viewsOnly };
+
+    Place(source, centerX + 1.4f, centerY + .15f);
+    await Advance(.29f);
+    await Game.NextFrame();
+    await Game.NextFrame();
+    Vector3 moved = Foot();
+    Check(ends.Any(end => end.CastId == starts[0].CastId && !end.Cancelled) && Capacity() > 0 &&
+          Vector3.Distance(moved, firstFoot) > 1f && Vector3.Distance(GroundedShell(), moved) < .004f,
+        "共同启动结束后护盾继续随实际人物移动", new { first = firstFoot.ToString(), current = moved.ToString() });
+
+    await Advance((float)(first.activity_until - World.world.getCurWorldTime()) + .41f);
+    await Game.NextFrame();
+    Check(Capacity() == 0 && Current().activity_kind == ArtifactAbilityActivityKind.None &&
+          Shells().Length == 0 && Held(), "到期收束，清空原盾容量，原件仍由同一人装备", new { shells = Shells().Length });
+    await Advance(Mathf.Max(.12f, (float)(Current().cooldown_until - World.world.getCurWorldTime()) + .12f));
+    Check(Use(owner, handle, source) && starts.Count == 2 && fees.Count == 2 &&
+          Mathf.Abs(fees[1] - expectedCost) < .002f && Capacity() > 0,
+        "原冷却过后同一件装备可以再次启动");
+    await Advance(.07f);
+    ArtifactEquipmentTools.SetArtifactEquipMode(owner, bell, ArtifactEquipMode.Standby);
+    UpdateBell();
+    await Advance(.12f);
+    Check(Capacity() == 0 && Current().activity_kind == ArtifactAbilityActivityKind.None &&
+          ends.Any(end => end.CastId == starts[1].CastId && end.Cancelled) && fees.Count == 2,
+        "待命立即终止已有护持及其尚未结束的共同启动");
+    await Advance(.37f);
+    await Game.NextFrame();
+    Check(Shells().Length == 0 && Held(), "中断收束后无旧护持，原件仍保存实际关系");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, started = starts.Count };
+}
+finally
+{
+    Config.paused = true;
+    payment.SetValue(null, previous);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= EndedBell;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+}

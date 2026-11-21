@@ -261,21 +261,24 @@ public partial class ArtifactAbilities
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
-        in ActiveAbilityTarget __,
-        ActiveAbilityUseOrigin ___)
+        in ActiveAbilityTarget target,
+        ActiveAbilityUseOrigin origin)
     {
+        if (!GoldenBellActivation.Start(context, target, origin)) return false;
         runtime.SetNumber(ShieldCurrent, ability.GetNumber(ShieldCapacity) * context.effect_scale);
         ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime);
         return true;
     }
 
     private static void EndGoldenBellBarrier(
-        ArtifactAbilityExecutionContext _,
-        ArtifactAbilityInstance __,
+        ArtifactAbilityExecutionContext context,
+        ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
-        ArtifactAbilityEndReason ___)
+        ArtifactAbilityEndReason _)
     {
         runtime.SetNumber(ShieldCurrent, 0f);
+        if (!context.controller.IsNull && context.controller.TryGetComponent(out ActorBinder binder))
+            ConstructedAbilityService.CancelFromItem(binder.ID, context.artifact.Id, ability.ability_id);
     }
 
     private static void AbsorbWithGoldenBellBarrier(

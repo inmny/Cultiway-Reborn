@@ -25,7 +25,8 @@ def main():
     inputs = f'\nconst string section = "{args.section}";\nconst bool shots = {str(not args.skip_views).lower()};\n'
     script = folder / 'input.script'
     script.write_text(IMPORTS + world_helpers(folder, PROJECT / FIXTURE)
-                      + (SCRIPTS / 'weapon_flight_scene.script').read_text() + inputs
+                      + (SCRIPTS / 'weapon_flight_scene.script').read_text()
+                      + (SCRIPTS / 'verify_bell_views.script').read_text() + inputs
                       + Path(__file__).with_suffix('.script').read_text())
     try:
         result = baseline.call('run', str(script), '170000')

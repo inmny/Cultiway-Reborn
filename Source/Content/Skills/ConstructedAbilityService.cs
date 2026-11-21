@@ -468,6 +468,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ReleaseBody(running);
     }
 
+    /// <summary>来源物件的活动结束时，一并退出仍在播放的共同启动。</summary>
+    /// <param name="ownerId">原持有者编号。</param><param name="itemId">本世界的原物件编号。</param>
+    /// <param name="abilityId">该物件中正在结束的能力。</param>
+    internal static void CancelFromItem(long ownerId, int itemId, string abilityId)
+    {
+        RunningCast running = casts.Find(cast => cast.SourceId == ownerId && cast.SourceInstance == itemId &&
+            cast.Cast.Plan.Id == abilityId && !cast.Cast.Finished);
+        if (running != null) Cancel(running.Id);
+    }
+
     /// <summary>核对某次确实在运行的动作是否仍占用原身体。</summary>
     /// <param name="actorId">实际来源编号。</param><param name="castId">已受理的动作编号。</param>
     internal static bool IsBodyControlledBy(long actorId, long castId)

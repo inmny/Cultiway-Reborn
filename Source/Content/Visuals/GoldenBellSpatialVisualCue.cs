@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
@@ -18,6 +19,7 @@ internal sealed class GoldenBellSpatialVisualCue : IArtifactVisualCue
     private readonly bool impact;
     /// <summary>仍在显示的持续效果和短暂收尾。</summary>
     private static readonly List<Entry> entries = new();
+    private static readonly ConditionalWeakTable<SpatialVisualMesh, SpatialVisualMesh> shells = new();
     /// <summary>选择持续护罩或一次真实吸收的局部反馈。</summary>
     /// <param name="impact">是否为受击信号。</param>
     internal GoldenBellSpatialVisualCue(bool impact) => this.impact = impact;
@@ -73,16 +75,8 @@ internal sealed class GoldenBellSpatialVisualCue : IArtifactVisualCue
                 float scale = 0.86f + 0.14f * (1f - Mathf.Pow(1f - opening, 3f));
                 if (closing >= 0f) scale *= 1f - 0.13f * closing / 0.32f;
                 Color color = entry.Tint;
-                color.a = (0.08f + 0.10f * entry.Context.intensity) * fade * Mathf.Max(0.3f, opening);
+                color.a = (0.46f + 0.14f * Mathf.Clamp01(entry.Context.intensity)) * fade * Mathf.Max(0.3f, opening);
                 AddBody(entry, meshes, scale, color);
-                if (age < 0.28f)
-                {
-                    color.a = (1f - age / 0.28f) * 0.7f;
-                    if (ArtifactAppearanceRenderer.TryResolveSpatialAnchor(entry.Context.artifact, "mouth", "center", out Vector3 mouth))
-                        meshes.Add(new SpatialVisualMeshInstance(SpatialVisualGeometry.Ring, mouth,
-                            Quaternion.identity, Vector3.one * entry.Radius * (0.3f + age * 2.5f), color,
-                            true, true, entry.Context.artifact.GetComponent<Position>().value));
-                }
                 Actor actor = entry.Context.controller.GetComponent<ActorBinder>().Actor;
                 for (int n = first; n < meshes.Count; n++)
                     if (meshes[n].GroundAnchor == (Vector2)entry.Center) meshes[n] = meshes[n].WithBodyAnchor(actor);
@@ -140,10 +134,23 @@ internal sealed class GoldenBellSpatialVisualCue : IArtifactVisualCue
     private static void AddBody(Entry entry, List<SpatialVisualMeshInstance> meshes, float scale, Color color)
     {
         float size = entry.ModelScale * scale;
-        Vector3 origin = entry.Center + Vector3.forward * entry.Height * 0.5f * scale -
-                         entry.Orientation * entry.Model.Bounds.center * size;
+        Vector3 origin = entry.Center - entry.ModelFoot * size;
         meshes.Add(new SpatialVisualMeshInstance(entry.Model, origin, entry.Orientation,
-            Vector3.one * size, color, true, false, entry.Center, additive:false, surface:SpatialSurface.Metal));
+            Vector3.one * size, color, true, !entry.Impact, entry.Center, additive: false,
+            surface: entry.Impact ? SpatialSurface.Metal : SpatialSurface.Energy));
+    }
+
+    /// <summary>原组合钟面的明暗转成金色灵光，两个视角共用原顶点、轮廓和材质分区。</summary>
+    /// <param name="model">原法宝的组合模型。</param>
+    private static SpatialVisualMesh IlluminateShell(SpatialVisualMesh model)
+    {
+        var colors = new Color32[model.Colors.Length];
+        for (int i = 0; i < colors.Length; i++)
+        {
+            Color original = model.Colors[i];
+            colors[i] = Color.Lerp(new Color(.69f, .46f, .18f), new Color(1f, .93f, .63f), original.grayscale);
+        }
+        return new SpatialVisualMesh(model.Name + "_ward", model.Vertices, model.Normals, model.Triangles, colors);
     }
 
     /// <summary>为实体钟提供短暂微振，显示变化不回写法宝位置。</summary>
@@ -182,6 +189,8 @@ internal sealed class GoldenBellSpatialVisualCue : IArtifactVisualCue
         internal Quaternion Orientation;
         /// <summary>原模型缩放到护持者体型的比例。</summary>
         internal float ModelScale;
+        /// <summary>旋转后的模型底缘中心，对齐实际护持者脚下。</summary>
+        internal Vector3 ModelFoot;
         /// <summary>护罩的世界高度和近似半径。</summary>
         internal float Height, Radius;
         /// <summary>护持者脚下的空间位置。</summary>
@@ -225,12 +234,13 @@ internal sealed class GoldenBellSpatialVisualCue : IArtifactVisualCue
         /// <param name="pose">其显示姿态。</param>
         private void ConfigureShape(ArtifactAbilityVisualContext context, SpatialVisualMeshInstance pose)
         {
-            Model = pose.Model;
+            Model = Impact ? pose.Model : shells.GetValue(pose.Model, IlluminateShell);
             Orientation = pose.Rotation;
             Actor actor = context.controller.GetComponent<ActorBinder>().Actor;
             Height = SpatialActorPose.Height(actor) * 1.6f;
             Bounds rotated = new(Orientation * Model.Vertices[0], Vector3.zero);
             foreach (Vector3 vertex in Model.Vertices) rotated.Encapsulate(Orientation * vertex);
+            ModelFoot = new Vector3(rotated.center.x, rotated.center.y, rotated.min.z);
             ModelScale = Height / rotated.size.z;
             Radius = Mathf.Max(rotated.size.x, rotated.size.y) * ModelScale * 0.45f;
             Tint = Color.Lerp(new Color(1f, 0.78f, 0.27f), context.theme.primary, 0.3f);

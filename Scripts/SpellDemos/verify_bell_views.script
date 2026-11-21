@@ -1,0 +1,97 @@
+// 暂停推进，同一游戏时点采样原版相机与 Worldfall 发布画面。
+var camera = World.world.camera;
+Type external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false))
+    .FirstOrDefault(type => type != null);
+object fall = external?.GetProperty("Instance", F).GetValue(null);
+object Read(object value, string name) => value.GetType().GetProperty(name, F)?.GetValue(value) ?? Field(value, name);
+void Set(string key, object value) => external.GetField(key, F).SetValue(fall, value);
+
+void WriteImage(RenderTexture image, string filename)
+{
+    RenderTexture previous = RenderTexture.active;
+    Texture2D pixels = new Texture2D(image.width, image.height, TextureFormat.RGBA32, false);
+    try
+    {
+        RenderTexture.active = image;
+        pixels.ReadPixels(new Rect(0, 0, image.width, image.height), 0, 0);
+        pixels.Apply();
+        File.WriteAllBytes(Path.Combine(folder, filename), pixels.EncodeToPNG());
+    }
+    finally
+    {
+        RenderTexture.active = previous;
+        UnityEngine.Object.Destroy(pixels);
+    }
+}
+async Task CaptureBellViews(string name, Vector2 center, float zoom, Func<bool> sameFrame, float? nativeZoom = null,
+    Actor closeSubject = null)
+{
+    Check(fall != null, "独立游戏加载了 Worldfall");
+    var native = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32);
+    native.Create();
+    var target = camera.targetTexture;
+    double time = World.world.getCurWorldTime();
+    external.GetMethod("ViewForTest", F).Invoke(fall, new object[] { false });
+    external.GetMethod("SetGodView", F).Invoke(fall, new object[] { false });
+    await Game.WaitUntil(() => !(bool)Read(fall, "GodShown") && !(bool)Read(fall, "IsFirstPerson") &&
+                               (bool)Read(fall, "DiveDone"), 2700);
+    float beforeZoom = camera.orthographicSize;
+    Vector3 beforePosition = camera.transform.position;
+    try
+    {
+        if (nativeZoom.HasValue)
+        {
+            camera.orthographicSize = nativeZoom.Value;
+            camera.transform.position = new Vector3(center.x, center.y + .2f, beforePosition.z);
+        }
+        camera.targetTexture = native;
+        camera.Render();
+        WriteImage(native, name + "-native.png");
+    }
+    finally
+    {
+        camera.targetTexture = target;
+        camera.orthographicSize = beforeZoom;
+        camera.transform.position = beforePosition;
+        native.Release();
+        UnityEngine.Object.Destroy(native);
+    }
+    object settings = Read(fall, "Settings");
+    var mode = settings.GetType().GetField("TimeMode", F);
+    object previousMode = mode.GetValue(settings);
+    try
+    {
+        mode.SetValue(settings, 1);
+        MoveCamera.clearFocusUnitOnly();
+        external.GetMethod("SetGodView", F).Invoke(fall, new object[] { true });
+        await Game.WaitUntil(() => (bool)Read(fall, "GodShown") && (float)Read(fall, "GodAlpha") >= .999f, 2700);
+        camera.transform.position = new Vector3(center.x, center.y + .2f, camera.transform.position.z);
+        MoveCamera.instance.forceZoom(zoom);
+        Set("_godCamWas", camera.transform.position);
+        Set("_godCamSet", true);
+        Set("_godLock", closeSubject);
+        if (closeSubject != null) Set("_godLockTime", Time.unscaledTime);
+        Set("_godFollow", center);
+        Set("_godFollowVel", Vector2.zero);
+        if (closeSubject != null) Set("_godPull", 1f);
+        Set("_godClose", Mathf.Min(10f, zoom));
+        Set("_godCloseTarget", Mathf.Min(10f, zoom));
+        Set("_godTurn", -.14f);
+        Set("_godTurnRate", 0f);
+        Set("_godTip", .5f);
+        Set("_godTipRate", 0f);
+        Set("_godHoming", false);
+        int drawn = (int)Field(fall, "_godGpuApplied");
+        await Game.WaitUntil(() => (int)Field(fall, "_godGpuApplied") >= drawn + 3, 1800);
+        if (closeSubject != null)
+            Check(ReferenceEquals(Field(fall, "_godLock"), closeSubject), "三维近景持续锁定同一位护持者");
+        WriteImage((RenderTexture)Read(Read(fall, "GpuRendererForTest"), "Output"), name + "-worldfall.png");
+        Check(Math.Abs(World.world.getCurWorldTime() - time) < .0001 && sameFrame(),
+            "两个视角读取同一时刻与中心，切换显示不停留额外施放");
+    }
+    finally
+    {
+        mode.SetValue(settings, previousMode);
+        external.GetMethod("SetGodView", F).Invoke(fall, new object[] { false });
+    }
+}
