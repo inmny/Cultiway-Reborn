@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Systems.Logic;
+using Cultiway.Core.Combat;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
@@ -27,6 +28,7 @@ internal struct ArtifactSpatialAttackLaunchRequest
     public float repeat_cooldown;
     public float impact_force;
     public Color trail_tint;
+    public DamageOrigin damage_origin;
 }
 
 /// <summary>
@@ -75,9 +77,7 @@ internal static class ArtifactSpatialAttackLauncher
                         spatialController.cur_transform_position + Vector3.up * actorScale * 0.55f;
             }
 
-            ArtifactFlightGeometry geometry = default;
-            bool spatial = request.mode == ArtifactSpatialAttackMode.ContinuousHunt &&
-                ArtifactAppearanceRenderer.TryGetBladeGeometry(artifact, out geometry);
+            bool spatial = ArtifactAppearanceRenderer.TryGetBladeGeometry(artifact, out ArtifactFlightGeometry geometry);
             Vector3 position = artifact.GetComponent<Position>().value;
             float initialSize = manifestation.world_size;
             if (spatial)
@@ -107,6 +107,7 @@ internal static class ArtifactSpatialAttackLauncher
             skillContext.AttackKingdom = request.attack_kingdom;
             skillContext.Strength = request.strength;
             skillContext.RuntimeData.EffectScale = context.effect_scale;
+            skillContext.RuntimeData.DamageOrigin = request.damage_origin;
             skillContext.PowerLevel = controller.GetExtend().GetPowerLevel();
 
             execution.GetComponent<Position>().value = position;

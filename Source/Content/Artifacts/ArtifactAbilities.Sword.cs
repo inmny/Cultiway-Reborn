@@ -4,6 +4,7 @@ using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Semantics;
 using Cultiway.Core;
+using Cultiway.Core.Combat;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -233,13 +234,13 @@ public partial class ArtifactAbilities
                     control_range = Mathf.Max(6f, targetDistance + attacker.stats[S.size] + 2f),
                     pierce_distance = 1.2f + forceStrength * 0.35f,
                     impact_force = forceStrength * context.effect_scale,
+                    damage_origin = DamageOrigin.Reaction,
                     trail_tint = ArtifactAbilityVisuals.ResolveTheme(
                         context.artifact,
                         ReturningBladeGuard.visual).glow,
                 },
                 out Entity execution)) return;
 
-        float originalDamage = evt.Damage;
         float effectiveReduction = ability.GetNumber(DamageReduction) * context.effect_scale;
         evt.Damage *= 1f - effectiveReduction;
         ArtifactAbilityLifecycle.BindExecution(ref runtime, execution);
@@ -249,7 +250,8 @@ public partial class ArtifactAbilities
             runtime,
             ArtifactVisualChannels.Counter,
             target: attacker,
-            intensity: originalDamage);
+            intensity: effectiveReduction,
+            contactPoint: evt.ContactPoint);
     }
 
     private static void ConfigureArmorPiercingSwordAura()
@@ -352,10 +354,7 @@ public partial class ArtifactAbilities
             Theme(SkillVfxElements.Metal.AccentColor)
                 .Signal(
                     ArtifactVisualChannels.Counter,
-                    new ArtifactCompositeVisualCue(
-                        Burst(ArtifactVisualAnchorKind.Artifact, ArtifactVisualColorRole.Glow, 5),
-                        Pulse(1.12f, 1f, 0.18f)
-                    ),
+                    ShieldImpact(.09f),
                     0.2f
                 )
         );

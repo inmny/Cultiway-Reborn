@@ -2853,3 +2853,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 云衣护体与周天珠护（10.06）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_recovering_artifact_shields.py` 复验正式原件的实际吸收、待命、恢复和再次护持。用 `--section robe|pearl` 选择器形。用 `--skip-views` 核对行为，或用 `--views-only` 只补拍吸收画面。
+
+### 回锋护主（10.06）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_returning_blade_guard.py` 复验真实来伤、原剑刃面反击与回手。双方同配方都具备反击能力，核对只有第一次来伤能发动反击。加 `--skip-views` 可只核对行为。

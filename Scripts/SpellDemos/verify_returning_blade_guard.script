@@ -1,0 +1,114 @@
+// 双方同配方法剑，确认反击实际命中时不会触发对方反击。
+PrepareArtifactArena(58, 79, 66, 79);
+Actor defender = Make(68.5f), attacker = Make(72f);
+var owner = defender.GetExtend();
+var foe = attacker.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+foe.AddComponent(new Xian { level = 4, wakan = 9000f });
+owner.SetPowerLevel(4f);
+foe.SetPowerLevel(4f);
+await Setup(defender, attacker);
+CombatStatusEffects.ApplyStatus(attacker, boost, 10000f, attacker);
+ControllableUnit.clear(false);
+MoveCamera.clearFocusUnitOnly();
+await Advance(.10f);
+CombatStatusEffects.ApplyStatus(defender, hold, 10000f, defender);
+defender.updateStats();
+attacker.updateStats();
+Place(defender, 68.5f);
+Place(attacker, 72f);
+defender.position_height = attacker.position_height = 0f;
+defender.attack_timer = attacker.attack_timer = 999f;
+defender.addAggro(attacker);
+attacker.addAggro(defender);
+
+var asset = ArtifactAbilities.ReturningBladeGuard;
+var recipe = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Sword, Atoms = [ArtifactAtoms.SwordBreaker, ArtifactAtoms.Iron,
+        ArtifactAtoms.FrostJade, ArtifactAtoms.CelestialSilk], Level = new ItemLevel { Stage = 3, Level = 8 },
+    Name = "回锋护主实测"
+}));
+Check(recipe.AbilitySet.abilities.Any(value => value.ability_id == asset.id), "正式炼制同配方回锋剑",
+    recipe.AbilitySet.abilities.Select(value => value.ability_id).ToArray());
+Entity Equip(ActorExtend actor)
+{
+    Entity sword = ArtifactBlueprintCodec.Materialize(recipe, actor.Base.getName());
+    actor.AddSpecialItem(sword);
+    Check(actor.EquipArtifact(sword, locked: true, mode: ArtifactEquipMode.Standby, priority: 100), "正式装备原剑");
+    ArtifactLoadoutPlanner.Refresh(actor, false, 0);
+    lifecycle.Invoke(null, new object[] { sword });
+    return sword;
+}
+var original = Equip(owner);
+var other = Equip(foe);
+await Game.NextFrame();
+await Game.NextFrame();
+var colliderType = typeof(SkillContext).Assembly.GetType("Cultiway.Core.SkillLibV3.Components.ColliderSweptBody");
+var swept = typeof(Entity).GetMethods(F).Single(method => method.Name == "TryGetComponent" &&
+    method.IsGenericMethodDefinition && method.GetParameters().Length == 1).MakeGenericMethod(colliderType);
+var incoming = new List<float>();
+var counters = new List<(float amount, bool reaction)>();
+var ended = typeof(ActorExtend).GetField("action_on_damage_resolved", F);
+var previous = ended.GetValue(null);
+void Settled(ActorExtend target, BaseSimObject source, float amount, ElementComposition element, AttackType type)
+{
+    if (target == owner && source == attacker) incoming.Add(amount);
+    if (target == foe && source == defender) counters.Add((amount, DamageResolutionContext.IsReaction));
+}
+ArtifactAbilityRuntimeEntry Current(Entity sword) => Entry(sword, asset.id);
+bool Held() => owner.GetEquippedArtifacts().Contains(original) && owner.GetItems().Contains(original) &&
+    !original.HasComponent<SkillExecutionBodyLease>();
+
+ActorExtend.RegisterActionOnDamageResolved(Settled);
+try
+{
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    var first = Current(original);
+    var opposing = Current(other);
+    Check(first.charges > 0 && opposing.charges > 0, "实际双方都具备反击充能");
+    float Shield(Entity sword) => Entry(sword, ArtifactAbilities.CloudRobeShield.id).GetNumber("shield_current");
+    // 配方也带有云衣容量。用没有攻击者的实际伤害消耗它，待命确保护盾不在反击途中恢复。
+    CombatDamageEffects.DealDamage(null, defender, 800f, ElementComposition.Static.Iron,
+        ignoreDamageReduction: true, attackerPowerLevel: 4f);
+    CombatDamageEffects.DealDamage(null, attacker, 800f, ElementComposition.Static.Iron,
+        ignoreDamageReduction: true, attackerPowerLevel: 4f);
+    await WaitFor(() => Shield(original) == 0f && Shield(other) == 0f, .45f);
+    Check(Shield(original) == 0f && Shield(other) == 0f &&
+          Current(original).charges == first.charges && Current(other).charges == opposing.charges,
+        "真实无来源伤害耗尽伴随护盾，双方仍具备反击");
+    int before = defender.data.health;
+    CombatDamageEffects.DealDamage(attacker, defender, 300f, ElementComposition.Static.Iron,
+        ignoreDamageReduction: true, attackerPowerLevel: 4f);
+    await WaitFor(() => !Current(original).active_execution.IsNull, .45f);
+    var execution = Current(original).active_execution;
+    Check(!execution.IsNull && execution.TryGetComponent(out ArtifactSpatialAttackMotion motion) &&
+          motion.mode == ArtifactSpatialAttackMode.StrikeAndReturn && (bool)swept.Invoke(execution, new object[] { null }) &&
+          original.HasComponent<SkillExecutionBodyLease>() &&
+          execution.GetComponent<SkillContext>().RuntimeData.DamageOrigin == DamageOrigin.Reaction &&
+          Current(original).charges == first.charges - 1 && Current(other).charges == opposing.charges,
+        "一次来伤借用真实原剑的共用刃面，并保留反击类别");
+    Check(incoming.Count == 1 && incoming[0] > 0f && incoming[0] < 300f && defender.data.health < before,
+        "本次来伤实际减轻", new { incoming = incoming.LastOrDefault(), healthLost = before - defender.data.health });
+
+    await Advance(.055f);
+    if (shots)
+        await CaptureArtifactViews("returning-blade", new Vector2(70.15f, 72f), 3.6f,
+            () => original.HasComponent<SkillExecutionBodyLease>() && !Current(original).active_execution.IsNull, nativeZoom: 3.45f);
+    await WaitFor(() => counters.Count > 0, 1.8f);
+    Check(counters.Count == 1 && counters[0].amount > 0 && counters[0].reaction && Current(other).charges == opposing.charges &&
+          Current(other).active_execution.IsNull, "原剑真实命中一次，对方同类反击仍未发动",
+        new { amount = counters.SingleOrDefault().amount, reaction = counters.SingleOrDefault().reaction });
+    await WaitFor(() => Held() && Current(original).activity_kind == ArtifactAbilityActivityKind.None, 2.8f);
+    Check(Held() && Current(original).activity_kind == ArtifactAbilityActivityKind.None && counters.Count == 1 &&
+          incoming.Count == 1 && Current(other).active_execution.IsNull,
+        "原剑正常回手，原活动结束且无另一轮反击");
+    var runtime = Current(original);
+    float until = (float)(Math.Max(runtime.cooldown_until, runtime.next_charge_at) - World.world.getCurWorldTime());
+    await Advance(Mathf.Max(.06f, until + .06f));
+    Check(Current(original).charges == first.charges && Held(), "冷却与充能恢复后，原件可再次响应");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { ended.SetValue(null, previous); }
