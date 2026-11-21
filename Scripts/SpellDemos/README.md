@@ -2771,3 +2771,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用 `--section artifact-array` 检查正式分光剑阵的一次付费、成阵、实际单刃接触、同一刃归阵和自然收束。用 `--section artifact-array-recall` 单独检查主动收阵立即停伤、全部剑影回到原物位置、再次施放及运行资格撤除后的清理。
 
 用 `dev.py exec --timeout 170 -- python3 Scripts/SpellDemos/verify_weapon_flight_archive.py --section prepare`，让原弓、飞剑和分光剑阵同时运行，正式保存并在同一进程换世界。退出并重新启动后，用同一脚本的 `--section cold --archive <prepare 输出目录>`，核对原件、完整参数、冷却、临时对象清理和再次施放。`--section legacy --archive <5.15 留下的 variant-save 目录>` 从原档本身提取预期，再用原法宝命中并召回。
+
+连续实录使用 `dev.py exec --timeout 600 -- python3 Scripts/SpellDemos/record_weapon_flight.py --view native|worldfall --output <录像目录>`。原版用未安装 Worldfall 的独立游戏，三维用已安装 Worldfall 的独立游戏。可重复传入 `--move arrow-rain|sky-volley|sweep|thrust|crush|flying-sword|sword-array` 只补指定招式，同一视角可续写到同一目录。七段齐备后生成 `all.mp4`，每段和合辑均按实际世界时间播放。`--encode-only <原始画面目录>` 可直接从已通过的实机画面再编码。
