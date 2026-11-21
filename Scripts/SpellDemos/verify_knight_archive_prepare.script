@@ -1,0 +1,36 @@
+// 在迁移前的模组版本中，通过原学习入口取得枪骑战技并正式保存。
+var source = Make(64.35f);
+var target = Make(65.25f);
+var owner = source.GetExtend();
+owner.AddComponent(new Knight { level = 7, vigor = 80f });
+source.attack_timer = target.attack_timer = 999f;
+await Advance(.18f);
+source.createNewWeapon("spear_iron");
+source.setStatsDirty();
+source.updateStats();
+var weapon = source.getWeapon();
+KnightStyleMasteryService.Master(owner, KnightStyles.Lancer);
+KnightTechniqueSkills.LearnStyle(owner, KnightStyles.Lancer);
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var executions = handles.Where(handle => handle.ProviderId == "content.knight_techniques")
+    .Select(handle => handle.Source.GetComponent<SkillContainer>().Asset.id).OrderBy(id => id, StringComparer.Ordinal).ToArray();
+Check(executions.Length == 3 && executions.Contains(KnightTechniques.ArmorPiercingThrust.id + ".Execution") &&
+      weapon?.getAsset().id == "spear_iron" && KnightStyleMasteryService.IsMastered(owner, KnightStyles.Lancer),
+    "迁移前的真实铁枪、枪骑流派和三个已学执行");
+World.world.units.checkContainer();
+World.world.items.checkLists();
+foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+Check(World.world.units.getSimpleList().Contains(source) && World.world.units.getSimpleList().Contains(target) &&
+      World.world.items.list.Contains(weapon), "两位真实人物与原铁枪已进入原版保存列表");
+SaveManager.saveWorldToDirectory(Path.Combine(folder, "archive"));
+Check(File.Exists(Path.Combine(folder, "archive", "map.wbox")), "迁移前版本写入原版正式世界");
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+{
+    process, source = source.id, target = target.id, weapon = weapon.data.id, level = owner.GetCultisys<Knight>().CurrLevel,
+    executions
+}, Formatting.Indented));
+ConstructedAbilityService.ContactConfirmed -= Hit;
+ConstructedAbilityService.CastEnded -= Ended;
+return new { passed = true, process, executions };

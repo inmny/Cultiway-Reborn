@@ -1,0 +1,32 @@
+// 从原掌击的真实窗口保存一个独立追踪飞掌。
+var access = ConstructionEditing.Access;
+var owner = source.GetExtend();
+Click("Page2");
+Select("ProjectBody", T("Form.hand"));
+var draft = Session().Draft;
+Check(draft.Root?.Form == "hand" && draft.Binding.Anchor == AbilityAnchor.Hand &&
+      draft.Root.Operations.Any(operation => operation.Kind == ConstructionOperationKind.Detach) &&
+      draft.Root.Operations.Single(operation => operation.Kind == ConstructionOperationKind.Fly).TurnRate > 0 &&
+      JToken.DeepEquals(JToken.FromObject(draft.Body.Keys), original["Body"]["Keys"]),
+    "万法阁显化掌形并保留真实动作、腕点、离手和追踪");
+Click("Undo");
+Check(JToken.DeepEquals(original, JToken.FromObject(Session().Draft)), "撤销恢复完整原掌击");
+Click("Page2");
+Select("ProjectBody", T("Form.hand"));
+Click("Replace");
+string edited = Session().SourceId;
+var definition = access.Read(edited);
+Check(edited != basisId && definition.Parent.Id == basisId && definition.Root.Form == "hand" &&
+      JToken.DeepEquals(original, JToken.FromObject(access.Read(basisId))) && ConstructedAbilityService.Knows(owner, edited),
+    "另存完整飞掌，原掌击目录保持");
+Click("Close");
+await Frames();
+WindowWanfaConstructionEditor.Open(edited, source);
+await Frames();
+Check(JToken.DeepEquals(JToken.FromObject(definition), JToken.FromObject(Session().Draft)),
+    "重新打开读到同一份飞掌草稿");
+Click("Close");
+await Frames();
+var target = Make(73f);
+ConstructedAbilityService.Learn(owner, basisId);
+owner.AddComponent(new Xian { level = 2, wakan = 10000 });

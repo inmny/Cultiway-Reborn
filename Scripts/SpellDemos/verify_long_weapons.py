@@ -14,7 +14,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case', choices=('all', 'strike', 'near', 'sweep', 'interrupt', 'press', 'edit', 'range',
                                            'obstacle', 'archive', 'cold', 'film', 'knight', 'knight-immune',
-                                           'knight-miss', 'knight-swap', 'knight-building', 'knight-study', 'charge',
+                                           'knight-miss', 'knight-swap', 'knight-building', 'knight-study',
+                                           'knight-study-archive', 'charge',
                                            'charge-wall', 'charge-swap', 'charge-building',
                                            'skyfall', 'skyfall-evade', 'skyfall-swap', 'skyfall-building'), default='all')
     parser.add_argument('--edited', type=Path, help='--case edit 生成的 edited-definition.json')
@@ -121,7 +122,7 @@ def run(args, output):
     elif args.case.startswith('skyfall'):
         case_file = 'verify_knight_skyfall.script'
     body = (scripts / case_file).read_text()
-    if args.case == 'knight-study':
+    if args.case in ('knight-study', 'knight-study-archive'):
         imports += 'using Cultiway.Core.Components;\n'
         body = body.split('long castId =', 1)[0] + (scripts / 'verify_knight_study.script').read_text()
     settings = f'\nconst string selection = "{args.case}";\n'

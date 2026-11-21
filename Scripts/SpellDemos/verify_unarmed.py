@@ -12,7 +12,8 @@ from common import PROJECT, write_json
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', choices=('upper', 'palm', 'punch', 'elbow', 'miss', 'lower', 'knee',
-                                              'sweep', 'shoulder', 'sweep-miss', 'hand-edit', 'archive', 'cold', 'film'),
+                                              'sweep', 'shoulder', 'sweep-miss', 'hand-edit', 'archive', 'cold', 'film',
+                                              'palm-project', 'palm-project-cold'),
                         default='upper')
     parser.add_argument('--archive', type=Path, help='新进程读取的正式存档输出目录')
     parser.add_argument('--view', choices=('native', 'worldfall'), help='录像视角')
@@ -20,8 +21,8 @@ def main():
                         help='只录指定的一招')
     args = parser.parse_args()
     section = args.section
-    if (section == 'cold') != (args.archive is not None):
-        parser.error('--archive 只与 --section cold 一起使用')
+    if (section in ('cold', 'palm-project-cold')) != (args.archive is not None):
+        parser.error('--archive 只用于 cold 和 palm-project-cold')
     if (section == 'film') != (args.view is not None) or args.move and section != 'film':
         parser.error('--view 和 --move 用于 --section film')
     if args.archive and not all((args.archive / name).is_file() for name in ('archive/map.wbox', 'expected.json')):
@@ -36,7 +37,8 @@ def main():
     fixture = 'Scripts/WorldSaveTests/Fixtures/world-format-1'
     base = Path(__file__).with_name('verify_body_footwork.script').read_text().split('var bindingType =', 1)[0]
     base = base.replace('Path.Combine(root, "artifacts/skill_rebuild/body-footwork")', json.dumps(str(output)))
-    base = base.replace(f'Path.Combine(root, "{fixture}")', json.dumps(str(PROJECT / fixture)))
+    world = args.archive.resolve() / 'archive' if section == 'palm-project-cold' else PROJECT / fixture
+    base = base.replace(f'Path.Combine(root, "{fixture}")', json.dumps(str(world)))
     base = base.replace('StartsWith("test.body-footwork.")', 'StartsWith("Cultiway.Body.")')
     base = base.replace('var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild',
                         'var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SourceLoss.Hold") ?? '
@@ -45,18 +47,27 @@ def main():
     imports = 'using Friflo.Engine.ECS;\n'
     scripts = Path(__file__).parent
     body = Path(__file__).with_suffix('.script').read_text()
-    if section in ('hand-edit', 'archive'):
+    if section in ('hand-edit', 'archive', 'palm-project'):
         imports += 'using Cultiway.UI;\nusing Cultiway.UI.Prefab;\nusing UnityEngine.UI;\n'
         hand = (scripts / 'verify_unarmed_hand_editor.script').read_text()
         if section == 'archive':
             body = hand.split('\ntry\n', 1)[0].replace('Cultiway.Body.PalmPush', 'Cultiway.Body.ShoulderDrive')
             body += '\n' + (scripts / 'verify_unarmed_archive.script').read_text()
+        elif section == 'palm-project':
+            body = hand.split('\ntry\n', 1)[0].replace('Cultiway.Body.PalmPush', 'Cultiway.PalmStrike')
+            body += '\n' + (scripts / 'verify_palm_projection.script').read_text()
         else:
             body = hand
     if section == 'cold':
         base = base.split('Game.Resume();', 1)[0]
         body = f'\nconst string archived = {json.dumps(str(args.archive.resolve()))};\n'
         body += (scripts / 'verify_unarmed_cold.script').read_text()
+    if section == 'palm-project-cold':
+        base = base[:base.index('foreach (Actor a in World.world.units.getSimpleList().ToArray())')] + base[base.index('Actor Make('):]
+        body = f'\nconst string archived = {json.dumps(str(args.archive.resolve()))};\n'
+        body += (scripts / 'verify_palm_projection_cold.script').read_text()
+    if section in ('palm-project', 'palm-project-cold'):
+        body += '\n' + (scripts / 'verify_palm_projection_cast.script').read_text()
     if section == 'film':
         helpers = body.split('AbilityCast live =', 1)[0]
         cases = body[body.index('    var cases ='):body.index('    var selectedCases')]
