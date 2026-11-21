@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Systems.Logic;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
@@ -42,6 +43,7 @@ internal static class ArtifactSpatialAttackLauncher
         Actor spatialController = context.ResolveCarrierActor();
         Entity artifact = context.artifact;
         ArtifactShapeAsset shape = (ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type;
+        bool followerLayout = ArtifactAppearanceRenderer.UsesFollowerLayout(artifact);
         execution = ArtifactSkillExecutions.FlyingSword.NewEntity();
         if (!SkillExecutionLifecycle.TryBorrowBody(execution, artifact))
         {
@@ -61,15 +63,40 @@ internal static class ArtifactSpatialAttackLauncher
             ref ArtifactManifestation manifestation = ref artifact.GetComponent<ArtifactManifestation>();
             manifestation.control_state = context.control_state;
             manifestation.visible = spatialController.is_visible;
-            manifestation.flip_x = false;
-            ArtifactManifestationTools.ApplyActiveWorldSize(artifact, controller);
             if (initialized)
             {
-                artifact.GetComponent<Position>().value =
-                    spatialController.cur_transform_position + Vector3.up * actorScale * 0.55f;
+                if (ArtifactManifestationSystem.TryResolveFollowerPose(controller, artifact, out var follower))
+                {
+                    ArtifactManifestationSystem.ApplyPose(artifact, follower, shape.presentation.body_radius);
+                    followerLayout = true;
+                }
+                else
+                    artifact.GetComponent<Position>().value =
+                        spatialController.cur_transform_position + Vector3.up * actorScale * 0.55f;
             }
 
-            Vector2 direction = request.target.current_position - artifact.GetComponent<Position>().v2;
+            ArtifactFlightGeometry geometry = default;
+            bool spatial = request.mode == ArtifactSpatialAttackMode.ContinuousHunt &&
+                ArtifactAppearanceRenderer.TryGetBladeGeometry(artifact, out geometry);
+            Vector3 position = artifact.GetComponent<Position>().value;
+            float initialSize = manifestation.world_size;
+            if (spatial)
+            {
+                position = followerLayout
+                    ? ArtifactAppearanceRenderer.FollowerSpatialPosition(artifact, controller, position, out _, out _)
+                    : new Vector3(position.x, position.y - position.z, position.z);
+                artifact.GetComponent<Position>().value = position;
+                manifestation.active_visual = true;
+                if (initialSize <= 0f) initialSize = ArtifactManifestationTools.ResolveActiveWorldSize(artifact, controller);
+                manifestation.world_size = initialSize;
+            }
+            else
+            {
+                manifestation.flip_x = false;
+                ArtifactManifestationTools.ApplyActiveWorldSize(artifact, controller);
+            }
+
+            Vector2 direction = request.target.current_position - (Vector2)position;
             if (direction.sqrMagnitude < 0.0001f) direction = Vector2.up;
 
             ref SkillContext skillContext = ref execution.GetComponent<SkillContext>();
@@ -82,22 +109,23 @@ internal static class ArtifactSpatialAttackLauncher
             skillContext.RuntimeData.EffectScale = context.effect_scale;
             skillContext.PowerLevel = controller.GetExtend().GetPowerLevel();
 
-            execution.GetComponent<Position>().value = artifact.GetComponent<Position>().value;
+            execution.GetComponent<Position>().value = position;
             execution.GetComponent<Rotation>().value = artifact.GetComponent<Rotation>().value;
-            execution.GetComponent<PrevPosition>().Value = execution.GetComponent<Position>().v2;
+            execution.GetComponent<PrevPosition>() = new PrevPosition { Value = position, Height = position.z };
             ref SkillGroundFxState groundFxState = ref execution.GetComponent<SkillGroundFxState>();
             groundFxState.LastX = execution.GetComponent<Position>().x;
             groundFxState.LastY = execution.GetComponent<Position>().y;
-            execution.GetComponent<AnimAfterimage>().Tint = request.trail_tint;
-
             ArtifactBody body = artifact.GetComponent<ArtifactBody>();
-            float colliderRadius = body.radius;
-            execution.GetComponent<ColliderSphere>().Radius = colliderRadius;
-            execution.AddComponent(new ColliderLinearExtent
+            if (!spatial)
             {
-                Forward = Mathf.Max(0f, body.forward_extent - colliderRadius),
-                Backward = Mathf.Max(0f, body.backward_extent - colliderRadius),
-            });
+                execution.GetComponent<AnimAfterimage>().Tint = request.trail_tint;
+                execution.GetComponent<ColliderSphere>().Radius = body.radius;
+                execution.AddComponent(new ColliderLinearExtent
+                {
+                    Forward = Mathf.Max(0f, body.forward_extent - body.radius),
+                    Backward = Mathf.Max(0f, body.backward_extent - body.radius),
+                });
+            }
 
             float worldTime = (float)World.world.getCurWorldTime();
             float speed = Mathf.Max(0.01f, request.speed);
@@ -108,7 +136,9 @@ internal static class ArtifactSpatialAttackLauncher
             execution.AddComponent(new ArtifactSpatialAttackMotion
             {
                 mode = request.mode,
-                direction = direction.normalized,
+                direction = spatial
+                    ? (Vector2)(Quaternion.AngleAxis(execution.GetComponent<Rotation>().z, Vector3.forward) * Vector3.up)
+                    : direction.normalized,
                 speed = speed,
                 current_speed = speed * ArtifactSpatialAttackExecution.LaunchSpeedRatio,
                 turn_rate = request.turn_rate,
@@ -122,7 +152,14 @@ internal static class ArtifactSpatialAttackLauncher
                 orbit_sign = (artifact.Id & 1) == 0 ? 1f : -1f,
                 hit_target_keys = new HashSet<long>(),
                 phase = ArtifactSpatialAttackPhase.Pursuing,
+                geometry = geometry,
+                launch_size = initialSize,
             });
+            if (spatial)
+            {
+                execution.RemoveComponent<AnimAfterimage>();
+                ArtifactSpatialAttackExecution.InitializeBlade(execution, artifact);
+            }
             ready = true;
             return true;
         }

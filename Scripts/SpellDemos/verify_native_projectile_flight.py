@@ -14,7 +14,8 @@ def main():
     melee = {'melee': ('spear_iron', 'MeleeThrust'),
              'melee-sweep': ('sword_iron', 'MeleeSweep'),
              'melee-crush': ('hammer_iron', 'MeleeCrush')}
-    parser.add_argument('--section', choices=('projectiles', 'bow', 'bow-world', *melee), default='projectiles')
+    parser.add_argument('--section', choices=('projectiles', 'bow', 'bow-world', *melee, 'artifact-sword'),
+                        default='projectiles')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过独立游戏的 dev.py exec 运行')
@@ -32,6 +33,7 @@ def main():
                         'var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SourceLoss.Hold") ?? '
                         'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild')
     program = output / 'input.script'
+    imports = ''
     body = Path(__file__).with_suffix('.script').read_text()
     if args.section in ('bow', 'bow-world'):
         world_only = str(args.section == 'bow-world').lower()
@@ -41,16 +43,20 @@ def main():
         item, mode = melee[args.section]
         body = f'const string itemId = "{item}", expectedMode = "{mode}";\n'
         body += (scripts / 'verify_melee_weapon_return.script').read_text()
+    if args.section == 'artifact-sword':
+        imports = ("using Cultiway.Content.Artifacts;\nusing Cultiway.Content.Artifacts.Baibao;\n"
+                   "using Cultiway.Content.Extensions;\nusing Cultiway.Core.Components;\n")
+        body = (scripts / 'verify_artifact_sword_flight.script').read_text()
     program.write_text('using Friflo.Engine.ECS;\nusing Cultiway.Core.SkillLibV3;\n'
-                       'using Cultiway.Core.SkillLibV3.Components;\n' + base + body)
+                       'using Cultiway.Core.SkillLibV3.Components;\n' + imports + base + body)
     try:
         result = baseline.call('run', str(program), '150000')
     except RuntimeError as error:
         write_json(output / 'result.json', dict(passed=False, error=str(error)))
-        raise RuntimeError(f'原版弹丸复验见 {output}') from error
+        raise RuntimeError(f'御器飞行复验见 {output}') from error
     write_json(output / 'result.json', result)
     if not result.get('passed'):
-        raise SystemExit(f'原版弹丸复验未通过，见 {output}')
+        raise SystemExit(f'御器飞行复验未通过，见 {output}')
     print(json.dumps(dict(output=str(output), result=result), ensure_ascii=False))
 
 

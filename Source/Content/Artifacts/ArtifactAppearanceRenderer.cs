@@ -14,6 +14,17 @@ using UnityEngine;
 
 namespace Cultiway.Content.Artifacts;
 
+/// <summary>一次实际飞行共用的模型、原尺寸与刃段。</summary>
+internal readonly struct ArtifactFlightGeometry(SpatialVisualMesh model, float span,
+    ArtifactAppearanceTemplateDef template, Vector3 start, Vector3 end, float radius)
+{
+    internal readonly SpatialVisualMesh Model = model;
+    internal readonly float Span = span;
+    internal readonly ArtifactAppearanceTemplateDef Template = template;
+    internal readonly Vector3 Start = start, End = end;
+    internal readonly float Radius = radius;
+}
+
 /// <summary>
 /// 将法器外观 Instance 的组合模型烘焙为图标、静置世界表现和激活世界表现。
 /// 三种输出共享模型与锚点，只允许模板中的视角、光照和画布规格不同。
@@ -202,43 +213,80 @@ public static class ArtifactAppearanceRenderer
         item.TryGetComponent(out ArtifactAbilityRuntime runtime) && !runtime.controller.IsNull &&
         runtime.controller.TryGetComponent(out ActorBinder binder) && !binder.Actor.isRekt();
 
+    /// <summary>实际在飞的组合模型直接使用未投影的空间位置。</summary>
+    internal static bool UsesSpatialFlight(Entity item) => TryGetFlightGeometry(item, out _);
+
+    private static bool TryGetFlightGeometry(Entity item, out ArtifactFlightGeometry geometry)
+    {
+        if (item.TryGetComponent(out SkillExecutionBodyLease lease) && !lease.execution.IsNull &&
+            lease.execution.TryGetComponent(out ArtifactSpatialAttackMotion flight) && flight.spatial_model &&
+            !lease.execution.GetComponent<SkillExecution>().end_requested)
+        {
+            geometry = flight.geometry;
+            return true;
+        }
+        geometry = default;
+        return false;
+    }
+
+    /// <summary>随身显示将高度写在画面纵轴，飞行与跟随共用这一次转换。</summary>
+    internal static Vector3 FollowerSpatialPosition(Entity item, Actor actor, Vector3 position,
+        out Vector3 ground, out Actor body)
+    {
+        Vector3 local = position - actor.cur_transform_position;
+        body = null;
+        if (ArtifactYuanshenControlService.TryResolveOrigin(actor, item, out Vector3 remote))
+        {
+            local -= remote - actor.GetSimPos();
+            ground = remote;
+            return remote + new Vector3(local.x, local.z, local.y);
+        }
+        body = actor;
+        ground = actor.current_position;
+        return Combat.SpatialActorPose.Foot(actor) + new Vector3(local.x, local.z, local.y);
+    }
+
     /// <summary>模型与锚点共同使用的三维姿态，只在显示边界拆开旧显化坐标。</summary>
     /// <param name="item">已经显化的法宝实体。</param>
     /// <param name="pose">返回三维姿态与颜色。</param>
-    internal static bool TryGetSpatialPose(Entity item, out SpatialVisualMeshInstance pose)
+    internal static bool TryGetSpatialPose(Entity item, out SpatialVisualMeshInstance pose) =>
+        BuildSpatialPose(item, null, null, out pose);
+
+    /// <summary>在下一次位置同步之前，用同一显示换算取得实际刃段姿态。</summary>
+    internal static bool TryGetSpatialFlightPose(Entity item, Vector3 position, Rotation rotation,
+        out SpatialVisualMeshInstance pose) => BuildSpatialPose(item, position, rotation, out pose);
+
+    private static bool BuildSpatialPose(Entity item, Vector3? positionOverride, Rotation? rotationOverride,
+        out SpatialVisualMeshInstance pose)
     {
         pose = default;
-        if (!item.TryGetComponent(out ArtifactManifestation manifestation) ||
-            !TryGetSpatialMesh(item, out SpatialVisualMesh model, out Vector3 span)) return false;
-        float size = manifestation.world_size / Mathf.Max(span.x, span.y, 0.001f);
+        if (!item.TryGetComponent(out ArtifactManifestation manifestation)) return false;
+        bool flying = TryGetFlightGeometry(item, out var geometry);
+        SpatialVisualMesh model = geometry.Model;
+        float span = geometry.Span;
+        ArtifactAppearanceTemplateDef template = geometry.Template;
+        if (!flying)
+        {
+            if (!TryGetSpatialMesh(item, out model, out Vector3 dimensions)) return false;
+            span = Span(dimensions);
+            var appearance = item.GetComponent<ArtifactAppearance>();
+            template = ArtifactAppearanceCatalogLoader.Current.Templates[appearance.template_key];
+        }
+        float size = manifestation.world_size / span;
         float pulse = 1f;
         double now = World.world.getCurWorldTime();
         Color tint = manifestation.control_state.GetStateColor((float)now);
         ArtifactModelPulseVisualState.Apply(item, now, ref pulse, ref tint);
-        Vector3 position = item.GetComponent<Position>().value;
+        Vector3 position = positionOverride ?? item.GetComponent<Position>().value;
         Actor body = null;
         Vector3 groundAnchor = position;
         if (UsesFollowerLayout(item))
         {
             ArtifactAbilityRuntime runtime = item.GetComponent<ArtifactAbilityRuntime>();
             ActorBinder binder = runtime.controller.GetComponent<ActorBinder>();
-            // 旧随身布局把悬浮高度写在画面纵轴，显示边界将其还原为独立高度。
-            Actor actor = binder.Actor;
-            Vector3 local = position - actor.cur_transform_position;
-            if (ArtifactYuanshenControlService.TryResolveOrigin(actor, item, out Vector3 remote))
-            {
-                local -= remote - actor.GetSimPos();
-                position = remote + new Vector3(local.x, local.z, local.y);
-                groundAnchor = remote;
-            }
-            else
-            {
-                body = actor;
-                groundAnchor = actor.current_position;
-                position = Combat.SpatialActorPose.Foot(actor) + new Vector3(local.x, local.z, local.y);
-            }
+            position = FollowerSpatialPosition(item, binder.Actor, position, out groundAnchor, out body);
         }
-        else
+        else if (!flying)
         {
             position.y -= position.z;
             groundAnchor = position;
@@ -253,13 +301,13 @@ public static class ArtifactAppearanceRenderer
                 break;
             }
         }
-        float yaw = item.GetComponent<Rotation>().z;
+        Rotation facing = rotationOverride ?? item.GetComponent<Rotation>();
+        float yaw = facing.z;
         GoldenBellSpatialVisualCue.ApplyBodyMotion(item, now, ref position, ref yaw);
         Vector3 scale = new Vector3(manifestation.flip_x ? -size : size, size, size) * pulse;
-        ArtifactAppearance appearance = item.GetComponent<ArtifactAppearance>();
-        ArtifactAppearanceTemplateDef template = ArtifactAppearanceCatalogLoader.Current.Templates[appearance.template_key];
-        Quaternion rotation = Quaternion.Euler(0f, 0f, yaw) *
-                              Quaternion.Euler(ArtifactAppearanceMath.Vec3(template.SpatialRotation, Vector3.zero));
+        Quaternion rotation = Quaternion.AngleAxis(yaw, Vector3.forward);
+        if (flying) rotation *= Quaternion.AngleAxis(facing.x, Vector3.right);
+        rotation *= Quaternion.Euler(ArtifactAppearanceMath.Vec3(template.SpatialRotation, Vector3.zero));
         rotation = Skills.ConstructedArtifactCarrier.Heading(item, rotation);
         if (template.SpatialOriginAtBase)
         {
@@ -274,10 +322,42 @@ public static class ArtifactAppearanceRenderer
             }
             position.z -= bottom;
         }
-        pose = new SpatialVisualMeshInstance(model, position, rotation, scale, tint, groundAnchor: groundAnchor);
+        pose = new SpatialVisualMeshInstance(model, position, rotation, scale, tint, drawNative: flying,
+            groundAnchor: groundAnchor);
         if (body != null) pose = pose.WithBodyAnchor(body);
         return true;
     }
+
+    /// <summary>从原组合模型的刃部取得作用段，旧模板按可见本体外缘取样。</summary>
+    internal static bool TryGetBladeGeometry(Entity item, out ArtifactFlightGeometry geometry)
+    {
+        geometry = default;
+        if (!TryGetMesh(item, out ArtifactAppearanceMesh mesh) ||
+            !TryGetSpatialMesh(item, out SpatialVisualMesh model, out Vector3 dimensions)) return false;
+        Vector3 min = Vector3.one * float.PositiveInfinity, max = Vector3.one * float.NegativeInfinity;
+        bool hasBlade = false;
+        foreach (ArtifactAppearanceMeshFace face in mesh.Faces)
+        {
+            if (face.Slot != "blade") continue;
+            hasBlade = true;
+            foreach (Vector3 point in face.Points)
+            {
+                min = Vector3.Min(min, point);
+                max = Vector3.Max(max, point);
+            }
+        }
+        if (!hasBlade) { min = mesh.Min; max = mesh.Max; }
+        Vector3 size = max - min;
+        float radius = Mathf.Min(size.y * .25f, Mathf.Max(size.x, size.z) * .5f);
+        Vector3 start = (min + max) * .5f, end = start;
+        start.y = min.y + radius;
+        end.y = max.y - radius;
+        var definition = ArtifactAppearanceCatalogLoader.Current.Templates[item.GetComponent<ArtifactAppearance>().template_key];
+        geometry = new ArtifactFlightGeometry(model, Span(dimensions), definition, start, end, radius);
+        return true;
+    }
+
+    private static float Span(Vector3 dimensions) => Mathf.Max(dimensions.x, dimensions.y, .001f);
 
     /// <summary>从原始组合锚点得到三维作用点，绝不经过烘焙图片的投影。</summary>
     /// <param name="item">已经显化的法宝实体。</param>

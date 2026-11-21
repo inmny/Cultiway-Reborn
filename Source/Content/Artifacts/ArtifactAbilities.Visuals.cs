@@ -32,28 +32,10 @@ public partial class ArtifactAbilities
             0.055f,
             0.9f,
             loop: false);
-        ArtifactTrailVisualCue flightTrail = new()
-        {
-            style_key = ArtifactVfxStyles.Metal,
-            anchor = ArtifactVisualAnchorKind.ActiveExecution,
-            color_role = ArtifactVisualColorRole.Glow,
-            width = 0.075f,
-            alpha = 0.92f,
-            history = 0.22f,
-            min_distance = 0.018f,
-            max_points = 32,
-            match_actor_scale = false,
-        };
         FlyingSwordAttack.Visualize(new ArtifactAbilityVisualProfile
             {
                 fallback_theme = ArtifactVisualTheme.FromPrimary(SkillVfxElements.Metal.AccentColor),
             }
-            .Loop(
-                "flight_trail",
-                flightTrail,
-                context => context.runtime.activity_kind == ArtifactAbilityActivityKind.SkillExecution,
-                "artifact.flying_sword.flight",
-                ArtifactVisualStackPolicy.Independent)
             .Signal(ArtifactVisualChannels.Trigger, flash, 0.35f)
             .Signal(ArtifactVisualChannels.End, flash, 0.35f));
     }

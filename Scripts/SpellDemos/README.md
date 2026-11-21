@@ -2765,3 +2765,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在同一入口加 `--section bow` 检查原弓离手、逐发从实际弓位放箭、随人物移动回手和首发前换同款弓。用 `--section bow-world` 单独检查升弓期间换世界，确认旧弓飞行和施放会话都已清理。默认入口也检查有在飞的代理箭矢时换世界。
 
 用 `--section melee` 检查原铁枪离手后的枪线接触、连续按次付费、移步后回手和同款换装中断。用 `--section melee-sweep` 与 `--section melee-crush` 分别核对实际铁剑横扫和铁锤重砸；两段复用同一套人物和世界。
+
+用 `--section artifact-sword` 从正式合成和装备入口检查原飞剑。记录原位起飞、两个视角共用姿态、刃段实际扣血、失去目标后巡航、召回过程中停伤、回到移动后的持有者，以及重新出剑后的控制失效清理。

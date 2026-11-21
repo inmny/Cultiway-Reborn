@@ -85,10 +85,11 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
             WeaponControl.WeaponControlFlight.AppendSpatial(Meshes);
             SpatialVisualEffects.Append(Meshes, ref detailBudget);
             GroundWeaponService.Append(Meshes);
-            if (Compatibility.Worldfall.WorldfallVisualBridge.IsInstalled)
+            bool worldfall = Compatibility.Worldfall.WorldfallVisualBridge.IsInstalled;
+            SampleArtifacts(worldfall);
+            if (worldfall)
             {
                 SampleWeapons();
-                SampleArtifacts();
                 NativeProjectileFlights.AppendSpatial(Meshes);
             }
         }
@@ -180,12 +181,13 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
     }
 
     /// <summary>复用组合模型和材质；原有显化系统仍负责位置、大小与控制状态。</summary>
-    private void SampleArtifacts()
+    private void SampleArtifacts(bool worldfall)
     {
         artifacts.ForEachEntity((ref Position position, ref Rotation rotation, ref ArtifactAppearance _,
             ref ArtifactManifestation manifestation, Entity entity) =>
         {
-            if ((!manifestation.visible && !HasSpatialController(entity)) || entity.Tags.Has<TagRecycle>() ||
+            if ((!worldfall && !ArtifactAppearanceRenderer.UsesSpatialFlight(entity)) ||
+                (!manifestation.visible && !HasSpatialController(entity)) || entity.Tags.Has<TagRecycle>() ||
                 !ArtifactAppearanceRenderer.TryGetSpatialPose(entity, out SpatialVisualMeshInstance pose)) return;
             Meshes.Add(pose);
         });

@@ -11,7 +11,7 @@ namespace Cultiway.Content.Artifacts;
 /// <summary>
 /// 借用法宝真实本体发动空间攻击的共用轨迹。会话计算位姿，Core 随后将位姿同步到被借用的 Body。
 /// </summary>
-internal static class ArtifactSpatialAttackExecution
+internal static partial class ArtifactSpatialAttackExecution
 {
     /// <summary>执行层统一调校倍率，使已经生成的法器无需重组能力参数也能获得新的运动手感。</summary>
     internal const float BaseSpeedMultiplier = 1.4f;
@@ -44,6 +44,8 @@ internal static class ArtifactSpatialAttackExecution
 
         ref ArtifactManifestation manifestation = ref body.GetComponent<ArtifactManifestation>();
         manifestation.visible = owner.is_visible;
+        if (motion.spatial_model && motion.phase != ArtifactSpatialAttackPhase.Returning)
+            ExpandBlade(body, owner, ref motion, deltaTime);
 
         if (motion.phase != ArtifactSpatialAttackPhase.Returning && !IsOperating(owner, body, motion.mode))
         {
@@ -86,11 +88,19 @@ internal static class ArtifactSpatialAttackExecution
                 UpdateCruising(ref context, owner, ref motion, ref position, ref rotation, deltaTime, worldTime);
                 break;
             case ArtifactSpatialAttackPhase.Returning:
-                UpdateReturning(owner, execution, ref motion, ref position, ref rotation, deltaTime);
+                if (motion.spatial_model)
+                    ReturnToFollower(owner, body, execution, ref motion, ref position, ref rotation, deltaTime);
+                else
+                    UpdateReturning(owner, execution, ref motion, ref position, ref rotation, deltaTime);
                 break;
         }
 
-        UpdateAfterimage(execution, motion.current_speed);
+        if (motion.spatial_model)
+        {
+            if (!execution.GetComponent<SkillExecution>().end_requested)
+                UpdateBlade(execution, body, in motion, position.value, rotation);
+        }
+        else UpdateAfterimage(execution, motion.current_speed);
     }
 
     private static void UpdatePursuing(
@@ -129,6 +139,12 @@ internal static class ArtifactSpatialAttackExecution
         context.TargetPos = target.GetSimPos();
         context.TargetDir = desiredDirection;
         float speed = ResolvePursuitSpeed(ref motion, desiredDirection, deltaTime);
+        if (motion.spatial_model)
+        {
+            speed = LimitTurnSpeed(speed, motion.turn_rate, Vector2.Distance(position.v2, target.current_position));
+            motion.current_speed = speed;
+            AimHeight(ref position, ref rotation, TargetHeight(target), speed, deltaTime);
+        }
         ArtifactSpatialMotionTools.Advance(
             ref position,
             ref rotation,
@@ -192,6 +208,8 @@ internal static class ArtifactSpatialAttackExecution
             orbitRadius,
             motion.orbit_sign);
         float speed = ApproachSpeed(ref motion, CruiseSpeedRatio, 8f, deltaTime);
+        if (motion.spatial_model)
+            AimHeight(ref position, ref rotation, owner.position_height + .8f, speed, deltaTime);
         ArtifactSpatialMotionTools.Advance(
             ref position,
             ref rotation,
@@ -310,7 +328,7 @@ internal static class ArtifactSpatialAttackExecution
         out Entity body)
     {
         owner = context.SourceObj?.a;
-        if (owner == null || owner.isRekt() ||
+        if (owner == null || owner.isRekt() || owner.id != context.SourceId ||
             !SkillExecutionLifecycle.TryGetPrimaryBody(execution, out body) ||
             body.IsNull ||
             !body.HasComponent<ArtifactManifestation>())
