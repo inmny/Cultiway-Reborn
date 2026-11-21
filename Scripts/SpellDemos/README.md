@@ -2865,3 +2865,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 护主灵障（10.06）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_guardian_ward.py` 核对实际减伤、冷却内受伤、恢复充能、真实接触点和卸装收束。默认采集同一受击时刻的原版与 Worldfall 画面，用 `--skip-views` 只检查行为。
+
+### 洞微灵鉴与纳灵宝库（10.06）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_artifact_stat_passives.py` 核对实际属性、运转与卸装、原真元支付后的器身反馈。用 `--section insight|reservoir` 指定能力，或用 `--skip-views` 只检查游戏行为。

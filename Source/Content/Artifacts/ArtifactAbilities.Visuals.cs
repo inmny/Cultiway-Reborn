@@ -120,32 +120,23 @@ public partial class ArtifactAbilities
 
     private static void ConfigureMirrorInsightVisuals()
     {
-        ArtifactLocalVisualCue glint = Sparkle(
-            ArtifactVisualAnchorKind.Artifact,
-            0.035f,
-            0.36f,
-            loop: true);
-        glint.alpha_pulse_period = 2.8f;
-        glint.alpha_pulse_floor = 0.02f;
-        ArtifactGlyphVisualCue insightGlyph = Glyph(
-            ArtifactVisualAnchorKind.Artifact,
-            context => 0.26f * ArtifactAbilityVisuals.ResolveActorScale(context),
-            ArtifactVisualColorRole.Glow,
-            ArtifactVfxStyles.Reflection);
-        insightGlyph.alpha = 0.18f;
-        insightGlyph.rotation_speed = 9f;
-        insightGlyph.start_scale = 1f;
-        insightGlyph.pulse_amplitude = 0.012f;
-        MirrorInsight.Visualize(new ArtifactAbilityVisualProfile
-            {
-                fallback_theme = ArtifactVisualTheme.FromPrimary(SkillVfxElements.Pos.AccentColor),
-            }
+        ArtifactProjectionVisualCue reflectedLight = new()
+        {
+            anchor = ArtifactVisualAnchorKind.Artifact,
+            offset = new Vector3(0f, 0f, .16f),
+            start_scale = .94f,
+            end_scale = .94f,
+            alpha = .57f,
+            pulse_amplitude = .025f,
+            pulse_speed = 2.4f,
+            follow_artifact_rotation = true,
+            fade_out = false,
+        };
+        MirrorInsight.Visualize(Theme(SkillVfxElements.Pos.AccentColor)
             .Loop(
                 "insight_glint",
-                new ArtifactCompositeVisualCue(glint, insightGlyph),
-                context => ArtifactAbilityLifecycle.MeetsState(
-                    context.control_state,
-                    ArtifactControlState.Operating),
+                reflectedLight,
+                HasArtifactStatBonus,
                 "artifact.insight.glint",
                 ArtifactVisualStackPolicy.Strongest,
                 context => context.ability.GetNumber(AccuracyBonus) * 0.04f +
@@ -192,47 +183,26 @@ public partial class ArtifactAbilities
 
     private static void ConfigureSpiritReservoirVisuals()
     {
-        ArtifactCompositeVisualCue reservoir = new(
-            new ArtifactAreaVisualCue
-            {
-                style_key = ArtifactVfxStyles.Spirit,
-                anchor = ArtifactVisualAnchorKind.Controller,
-                color_role = ArtifactVisualColorRole.Primary,
-                ResolveRadius = context => 0.68f * ArtifactAbilityVisuals.ResolveActorScale(context),
-                line_alpha = 0.18f,
-                fill_alpha = 0.022f,
-                line_width = 0.055f,
-                inner_radius_ratio = 0.58f,
-                inner_rotation_speed = -16f,
-                pulse_amplitude = 0.045f,
-                pulse_speed = 1.8f,
-            },
-            new ArtifactLocalVisualCue(ArtifactLocalVisualKind.Blessing)
-            {
-                anchor = ArtifactVisualAnchorKind.Controller,
-                color_role = ArtifactVisualColorRole.Glow,
-                offset = new Vector3(0f, 0.2f, 0.1f),
-                scale = 0.06f,
-
-                alpha = 0.3f,
-                alpha_pulse_period = 1.9f,
-                alpha_pulse_floor = 0.12f,
-                loop = true,
-            });
-        SpiritReservoir.Visualize(new ArtifactAbilityVisualProfile
-            {
-                fallback_theme = ArtifactVisualTheme.FromPrimary(SkillVfxElements.Pos.AccentColor),
-            }
+        ArtifactLocalVisualCue reservoir = new(ArtifactLocalVisualKind.GatheredWakan)
+        {
+            anchor = ArtifactVisualAnchorKind.Artifact,
+            color_role = ArtifactVisualColorRole.Primary,
+            offset = new Vector3(0f, 0f, .30f),
+            scale = .085f,
+            alpha = .82f,
+        };
+        SpiritReservoir.Visualize(Theme(SkillVfxElements.Pos.AccentColor)
             .Loop(
                 "spirit_reservoir",
                 reservoir,
-                context => ArtifactAbilityLifecycle.MeetsState(
-                    context.control_state,
-                    ArtifactControlState.Operating),
+                HasArtifactStatBonus,
                 "artifact.spirit_reservoir",
                 ArtifactVisualStackPolicy.MergeIntensity,
                 ResolveSpiritReservoirVisualIntensity));
     }
+
+    private static bool HasArtifactStatBonus(ArtifactAbilityVisualContext context) =>
+        ArtifactAbilityLifecycle.MeetsState(context.control_state, context.asset.lifecycle.stats_minimum_state);
 
     private static ArtifactLocalVisualCue Sparkle(
         ArtifactVisualAnchorKind anchor,

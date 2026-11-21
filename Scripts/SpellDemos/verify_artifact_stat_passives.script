@@ -1,0 +1,137 @@
+// 同一位修士依次装备正式炼成的镜与鼎，核对原有属性和实际画面。
+PrepareArtifactArena(59, 79, 65, 80);
+Actor actor = Make(69.5f);
+var owner = actor.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 0f });
+owner.SetPowerLevel(4f);
+CombatStatusEffects.ApplyStatus(actor, boost, 10000f, actor);
+owner.MarkCultiwayStatsDirty();
+await Advance(.18f);
+actor.updateStats();
+Place(actor, 69.5f, 72f);
+actor.position_height = 0f;
+World.world.console.Hide();
+WorldTip.hideNow();
+Tooltip.hideTooltipNow();
+
+var visuals = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Visuals.ArtifactSpatialVisualRuntime")
+    .GetField("entries", F).GetValue(null);
+var meshes = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem")
+    .GetField("Meshes", F).GetValue(null);
+var poseReader = typeof(ArtifactAppearanceRenderer).GetMethod("TryGetSpatialPose", F);
+object orb = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Visuals.SpatialEnergyGeometry")
+    .GetField("Orb", F).GetValue(null);
+
+bool Near(float a, float b) => Mathf.Abs(a - b) < .015f;
+foreach (bool insight in new[] { true, false })
+{
+    string key = insight ? "insight" : "reservoir";
+    if (section != "all" && section != key) continue;
+    var asset = insight ? ArtifactAbilities.MirrorInsight : ArtifactAbilities.SpiritReservoir;
+    string channel = insight ? "insight_glint" : "spirit_reservoir";
+    string[] statKeys = insight ? [S.accuracy, S.critical_chance, S.damage_range]
+        : [BaseStatses.MaxWakan.id, BaseStatses.WakanRegen.id];
+    string[] parameters = insight ? ["accuracy_bonus", "critical_bonus", "damage_range_bonus"]
+        : ["wakan_capacity", "wakan_regen"];
+    var recipe = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+    {
+        Shape = insight ? ItemShapes.Mirror : ItemShapes.Ding,
+        Atoms = insight ? [ArtifactAtoms.SoulMirror, ArtifactAtoms.StarSilver, ArtifactAtoms.MoonWater]
+            : [ArtifactAtoms.SpiritDing, ArtifactAtoms.SpiritGatheringPattern, ArtifactAtoms.WorldWood],
+        Level = new ItemLevel { Stage = 3, Level = 8 }, Name = asset.GetName() + "复验"
+    }));
+    var abilities = recipe.AbilitySet.abilities.Select(value => value.ability_id).ToArray();
+    Check(abilities.Contains(asset.id), "正式配方炼成 " + asset.GetName(), abilities);
+    float[] Stats() => statKeys.Select(id => actor.stats[id]).ToArray();
+    float[] RawStats()
+    {
+        var cache = (BaseStats)Field(owner, "_cached_cultiway_stats");
+        return statKeys.Select(id => cache[id]).ToArray();
+    }
+    float[] baseline = Stats();
+    float[] rawBaseline = RawStats();
+    Entity item = ArtifactBlueprintCodec.Materialize(recipe, actor.getName());
+    owner.AddSpecialItem(item);
+    Check(owner.EquipArtifact(item, locked: true, mode: ArtifactEquipMode.Standby, priority: 100), "待命装备原件");
+    await Advance(.28f);
+    actor.updateStats();
+    var ability = Definition(item, asset.id);
+
+    bool Shows() => visuals.Cast<object>()
+        .Where(value => (double)Field(value, "Closing") < 0d)
+        .Select(value => (ArtifactAbilityVisualContext)Field(value, "Context"))
+        .Any(value => value.artifact == item && value.channel == channel);
+    Check(Stats().Zip(baseline, Near).All(value => value) && !Shows(), "待命维持基础属性，未显示运转反馈", baseline);
+
+    async Task Mode(ArtifactEquipMode mode)
+    {
+        owner.SetArtifactEquipMode(item, mode);
+        await Advance(.28f);
+        actor.updateStats();
+        await Game.NextFrame();
+    }
+    await Mode(ArtifactEquipMode.ForcedOperating);
+    var control = owner.E.GetRelation<EquippedArtifactRelation, Entity>(item).state;
+    var execution = new ArtifactAbilityExecutionContext(owner.E, item, control);
+    var expected = parameters.Select(parameter => ability.GetNumber(parameter) * execution.effect_scale).ToArray();
+    float[] expectedStats = statKeys.Select((id, index) =>
+    {
+        var stat = AssetManager.base_stats_library.get(id);
+        float value = baseline[index] + expected[index];
+        return stat.normalize ? Mathf.Clamp(value, stat.normalize_min, stat.normalize_max) : value;
+    }).ToArray();
+    void CheckOperating(string description)
+    {
+        var actual = Stats();
+        var bonus = RawStats().Zip(rawBaseline, (value, original) => value - original).ToArray();
+        Check(bonus.Zip(expected, Near).All(value => value) && actual.Zip(expectedStats, Near).All(value => value) && Shows(),
+            description, new { control = control.ToString(), actual, expectedStats, bonus, expected });
+    }
+    CheckOperating("实际属性按原配方增加并遵守原版上限，同时显示运转反馈");
+
+    object[] poseArgs = { item, null };
+    Check((bool)poseReader.Invoke(null, poseArgs), "取得原件真实模型姿态");
+    object model = insight ? Field(poseArgs[1], "Model") : orb;
+    object Drawn()
+    {
+        if (!(bool)poseReader.Invoke(null, poseArgs)) return null;
+        Vector3 body = (Vector3)Field(poseArgs[1], "Position");
+        return meshes.Cast<object>().FirstOrDefault(value => ReferenceEquals(Field(value, "Model"), model) &&
+            (bool)Field(value, "Emissive") && ((Color)Field(value, "Tint")).a < .85f &&
+            Vector3.Distance((Vector3)Field(value, "Position"), body) < .94f);
+    }
+    Check(Drawn() != null, "共用画面已提交原镜面或紧邻原鼎的灵光");
+    if (!insight)
+    {
+        float max = actor.stats[BaseStatses.MaxWakan.id];
+        WakanResourceService.Gain(owner, ref owner.GetCultisys<Xian>(), max * 2f);
+        await Advance(.12f);
+        float full = owner.GetCultisys<Xian>().wakan;
+        object filled = Drawn();
+        Check(Near(full, max) && filled != null, "实际真元可达到扩充后的上限", new { full, max });
+        Vector3 quiet = (Vector3)Field(filled, "Scale");
+        Check(WakanResourceService.TrySpend(owner, max * .80f), "原持有者实际支付一次真元");
+        await Advance(.12f);
+        object drawing = Drawn();
+        float afterSpend = owner.GetCultisys<Xian>().wakan;
+        float afterDepth = drawing == null ? 0f : ((Vector3)Field(drawing, "Scale")).z;
+        Check(afterSpend < full * .25f && afterDepth > quiet.z * 1.6f,
+            "真元支付后真实剩余容量增加，器身聚灵体积随之增大",
+            new { full, afterSpend, beforeDepth = quiet.z, afterDepth });
+    }
+    if (shots)
+        await CaptureArtifactViews(key + "-operating", actor.current_position, 1.8f, () => Shows() && Drawn() != null,
+            nativeZoom: 2.45f, closeSubject: actor);
+
+    await Mode(ArtifactEquipMode.Standby);
+    Check(Stats().Zip(baseline, Near).All(value => value) && !Shows() && Drawn() == null,
+        "停转后实际属性回落，器身反馈收束");
+    await Mode(ArtifactEquipMode.ForcedOperating);
+    CheckOperating("同一原件再次运转只加一份属性");
+    Check(owner.UnequipArtifact(item, suppressAutoEquip: true), "卸下原件");
+    await Advance(.28f);
+    actor.updateStats();
+    Check(Stats().Zip(baseline, Near).All(value => value) && !Shows(), "卸装后属性与反馈一起结束");
+}
+
+return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };

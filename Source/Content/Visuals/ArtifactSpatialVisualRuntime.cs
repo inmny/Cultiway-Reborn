@@ -388,6 +388,15 @@ internal static class ArtifactSpatialVisualRuntime
                     new Vector3(span * .85f, span, span * .55f), color, false, point,
                     additive: false, surface: SpatialSurface.Energy);
                 break;
+            case ArtifactLocalVisualKind.GatheredWakan:
+                float openCapacity = Mathf.Clamp01(context.intensity);
+                float width = size * Mathf.Lerp(.25f, .62f, openCapacity);
+                float depth = size * Mathf.Lerp(.11f, .44f, openCapacity);
+                Vector3 pool = point + Vector3.forward * (depth * .44f + Mathf.Sin(age * 2.8f) * size * .035f);
+                SpatialVisualDraw.Mesh(meshes, SpatialEnergyGeometry.Orb, pool, Quaternion.identity,
+                    new Vector3(width, width * .78f, depth), color, true, point,
+                    additive: false, surface: SpatialSurface.Energy);
+                break;
             default:
                 SpatialVisualDraw.Mesh(meshes, SpatialVisualGeometry.Spark, point, Quaternion.Euler(age * 90f, age * 45f, 0f), Vector3.one * size, color, true); break;
         }
