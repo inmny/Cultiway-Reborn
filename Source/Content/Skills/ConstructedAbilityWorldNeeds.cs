@@ -145,7 +145,13 @@ public sealed partial class ConstructedAbilityService
                 gain |= net > .001; loss |= net < -.001;
             }
             if (!gain || loss) continue;
-            if (ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Autonomous)) return true;
+            Actor actor = owner.Base;
+            long provider = actor.id, generation = worldGeneration;
+            var scope = new ConstructionWorldScope(
+                () => generation == worldGeneration && actor.data?.id == provider && actor.isAlive() && actor.hasHealth(),
+                material, () => WorldMaterialService.IsTemporaryNeedCurrent(material, provider));
+            var request = new ActiveAbilityTarget(null, relative, worldScope: scope);
+            if (ActiveAbilityService.TryUse(owner, handle, request, ActiveAbilityUseOrigin.Autonomous)) return true;
         }
 
         return true;

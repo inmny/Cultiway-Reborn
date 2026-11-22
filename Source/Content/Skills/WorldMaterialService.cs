@@ -169,8 +169,9 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
     /// <param name="controller">发出本次选择的真实控制者。</param><param name="selection">同一姿态的真实形状。</param>
     /// <param name="recovery">实际收束参数。</param><param name="clock">已经确认的世界时间。</param>
     /// <param name="identities">可选的明确材料编号，空集合不重新选择附近材料。</param>
-    internal static void Recover(long controller, IReadOnlyList<AbilityCapsule> selection, CompiledRecovery recovery,
-        double clock, IReadOnlyList<long> identities = null)
+    /// <param name="required">日常需求选定的原材料记录，零表示普通选择。</param>
+    internal static bool Recover(long controller, IReadOnlyList<AbilityCapsule> selection, CompiledRecovery recovery,
+        double clock, IReadOnlyList<long> identities = null, long required = 0)
     {
         instance.RebuildIndex();
         var targets = new HashSet<long>();
@@ -182,8 +183,10 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
 
         long epoch = instance.generation;
         long sharedGroup = 0;
+        bool accepted = false;
         foreach (long id in targets.OrderBy(id => id))
         {
+            if (required != 0 && required != id) continue;
             if (!rows.TryGetValue(id, out WorldMaterialRecord row) || row.Provider != controller || row.Recovering ||
                 row.Finished || recovery.TemporaryOnly && row.Expires <= 0) continue;
             if (identities != null && !identities.Contains(row.Identity)) continue;
@@ -225,9 +228,12 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
 
             row.Clock = clock;
             instance.indexDirty = true;
+            accepted = true;
             Changed?.Invoke(new WorldMaterialChange(row, "recover"));
-            if (epoch != instance.generation) return;
+            if (epoch != instance.generation) break;
         }
+
+        return accepted;
     }
 
     /// <summary>只在材料或范围变化后建立空间筛选。</summary>

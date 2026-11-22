@@ -3163,3 +3163,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 地面传播的四个取景尺度（11.20）
 
 在已启动的独立游戏运行 `dev.py exec --timeout 630 -- python3 Scripts/SpellDemos/verify_ground_scale.py --catalog --film --archive <4.32原测试世界目录> --case city`。将 `city` 改为 `world` 切换全域术。使用加载了 Worldfall 的独立游戏时加 `--worldfall`。影片按实际世界时间切换取景，原始帧、已到达格与网格中心高度的核对、伤害和结束记录随成片保留。见[地面传播的四个取景尺度](../../Doc/技能系统全面重构/地面传播的四个取景尺度.md)。
+
+### 日常回收的需求与来源失效（11.21）
+
+在独立原版游戏运行 `dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_world_need_lifetime.py`。短寿命材料先触发一次正式自主回收，随后在收束前到期。核对同一位置的另一份材料保留，下一次自然选术正常回能，以及原施术者失效时结束。[验收记录](../../Doc/技能系统全面重构/构造法术的日常活动.md#1121-实机结果)汇集此前各项日常活动证据。

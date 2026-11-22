@@ -1,0 +1,103 @@
+// 11.21：让原材料变化唤醒真实自主选择。只控制测试材料寿命和来源死亡时点。
+var shortLived = Place("test.world-need.short", .44f);
+var longLived = Place("test.world-need.long", 40f);
+var recovery = Recover("test.world-need.recover", true, 1f);
+recovery.Lifetime = 1.3f;
+recovery.Root.Operations[0].At = .68f;
+recovery.Root.SourceLoss = ConstructionSourceLoss.Continue;
+foreach (var definition in new[] { shortLived, longLived, recovery })
+{
+    ConstructedAbilityService.Register(definition);
+    ConstructedAbilityService.Learn(owner, definition.Id);
+}
+
+Actor actor = owner.Base;
+long provider = actor.id;
+var point = new Vector3(68.5f, 72.5f, 0f);
+var starts = new List<ConstructedCastStarted>();
+var ends = new List<ConstructedCastEnded>();
+var changes = new List<WorldMaterialChange>();
+var observations = new List<object>();
+void Started(ConstructedCastStarted value)
+{
+    if (value.SourceId == provider && value.Origin == ActiveAbilityUseOrigin.Autonomous && value.AbilityId == recovery.Id)
+    {
+        starts.Add(value);
+        observations.Add(new { fact = "autonomous", value.CastId, value.WorldTime, resource = owner.GetComponent<Xian>().wakan });
+    }
+}
+void Ended(ConstructedCastEnded value) { if (value.SourceId == provider && value.AbilityId == recovery.Id) ends.Add(value); }
+void Changed(WorldMaterialChange value)
+{
+    if (value.Provider != provider) return;
+    changes.Add(value);
+    observations.Add(new { fact = value.Kind, value.Id, value.Granted, time = World.world.getCurWorldTime() });
+}
+async Task Until(Func<bool> ready, float maxSeconds)
+{
+    double until = World.world.getCurWorldTime() + maxSeconds;
+    Config.paused = false;
+    await Game.WaitUntil(() => ready() || World.world.getCurWorldTime() >= until, 3600);
+    Config.paused = true;
+    await Boundary();
+}
+void PlaceMaterial(AbilityDefinition definition)
+{
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+    Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, point), ActiveAbilityUseOrigin.Script),
+        "按正式地点入口建立试验材料 " + definition.Id);
+}
+long Material(string ability) => changes.Last(value => value.Kind == "leave" && value.AbilityId == ability).Id;
+bool MaterialChanged(long id, string kind) => changes.Any(value => value.Id == id && value.Kind == kind);
+bool CastEnded(long id, bool cancelled) => ends.Any(value => value.CastId == id && value.Cancelled == cancelled);
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += Ended;
+WorldMaterialService.Changed += Changed;
+try
+{
+    CombatStatusEffects.RemoveStatus(actor, hold);
+    actor.setStatsDirty();
+    actor.updateStats();
+    PlaceMaterial(shortLived);
+    float balance = owner.GetComponent<Xian>().wakan;
+    await Until(() => starts.Count == 1, 1.2f);
+    Check(starts.Count == 1 && Math.Abs(balance - owner.GetComponent<Xian>().wakan - recovery.Cost) < .005,
+        "只有实际短寿命材料唤醒时，自主支付并开始回收");
+    long expired = Material(shortLived.Id);
+    long interrupted = starts[0].CastId;
+    PlaceMaterial(longLived);
+    await Until(() => ends.Any(value => value.CastId == interrupted), 1.5f);
+    long kept = Material(longLived.Id);
+    Check(MaterialChanged(expired, "end") && CastEnded(interrupted, true) &&
+        !MaterialChanged(expired, "recover") && !MaterialChanged(kept, "recover"),
+        "到期的原需求取消本次施放，同处随后留下的材料保持");
+
+    await Until(() => starts.Count == 2, 3f);
+    Check(starts.Count == 2, "原修士对仍存在的材料重新自主选择");
+    long resumed = starts[1].CastId;
+    await Until(() => CastEnded(resumed, false) && MaterialChanged(kept, "end"), 1.9f);
+    Check(CastEnded(resumed, false) && MaterialChanged(kept, "recover") &&
+        Math.Abs(changes.Where(value => value.Id == kept && value.Kind == "credit").Sum(value => value.Granted) - 7.5) < .005,
+        "需求仍存在时原术自然收尾，同一材料实际回能七点五");
+
+    PlaceMaterial(longLived);
+    await Until(() => starts.Count == 3, 3f);
+    Check(starts.Count == 3, "再次存在实际需求时进入正式施放");
+    long orphaned = Material(longLived.Id);
+    long sourceCast = starts[2].CastId;
+    actor.dieAndDestroy(AttackType.Other);
+    await Until(() => ends.Any(value => value.CastId == sourceCast), 1.5f);
+    Check(CastEnded(sourceCast, true) && !MaterialChanged(orphaned, "recover") &&
+        !MaterialChanged(orphaned, "end"), "原修士真实死亡后结束待回收过程，现存材料保留");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, provider, expired, kept, orphaned };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    WorldMaterialService.Changed -= Changed;
+    Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "observations.json"),
+        JsonConvert.SerializeObject(new { checks, starts, ends, changes, observations }, Formatting.Indented));
+}
