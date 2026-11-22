@@ -31,7 +31,7 @@ var ended = new List<ConstructedCastEnded>();
 var legacy = new List<long>();
 var payment = new List<object>();
 var owned = new List<Entity>();
-bool IsTest(long correlation) => correlation >= 101321 && correlation <= 101327;
+bool IsTest(long correlation) => correlation >= 101321 && correlation <= 101332;
 int Count(Actor actor) => effects.Count(effect => CombatStatusEffects.HasStatus(actor, effect, source));
 void Started(ConstructedCastStarted cast)
 {
@@ -53,7 +53,7 @@ void Legacy(Entity execution)
     if (IsTest(correlation)) legacy.Add(correlation);
 }
 
-Entity Learn(SkillEntityAsset asset, bool field, bool damage = false)
+Entity Learn(SkillEntityAsset asset, bool field, bool damage = false, Action<SkillBlueprint> configure = null)
 {
     var baseSkill = new SkillContainerBuilder(asset).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
     var exported = new SkillBlueprintExporter().Export(baseSkill);
@@ -61,36 +61,51 @@ Entity Learn(SkillEntityAsset asset, bool field, bool damage = false)
     Check(exported.Success, "原容器可从正式入口导出蓝图", new { asset.id });
     SkillBlueprint blueprint = exported.Blueprint;
     if (!field) blueprint.TrajectoryAssetId = SkillTrajectories.GroundEruptAtTarget.id;
-    if (damage)
+    if (configure != null) configure(blueprint);
+    else if (damage)
     {
         blueprint.PowerMultiplier = 1.6f;
-        Add(SkillModifiers.Burn, ("Duration", "4"), ("DamageRatio", "0.24"));
-        Add(SkillModifiers.Poison, ("Duration", "4"), ("DamageRatio", "0.32"), ("MaxStacks", "2"));
-        Add(SkillModifiers.EternalCurse, ("Duration", "4"), ("DamageRatio", "0.24"), ("DebuffRatio", "0.2"));
-        Add(SkillModifiers.Burnout, ("DamageRatio", "0.12"), ("BurnDuration", "4"), ("BurnDamageRatio", "0.36"));
-        Add(SkillModifiers.Empower, ("SetupBonus", "0.25"));
+        Add(blueprint, SkillModifiers.Burn, ("Duration", "4"), ("DamageRatio", "0.24"));
+        Add(blueprint, SkillModifiers.Poison, ("Duration", "4"), ("DamageRatio", "0.32"), ("MaxStacks", "2"));
+        Add(blueprint, SkillModifiers.EternalCurse, ("Duration", "4"), ("DamageRatio", "0.24"), ("DebuffRatio", "0.2"));
+        Add(blueprint, SkillModifiers.Burnout, ("DamageRatio", "0.12"), ("BurnDuration", "4"), ("BurnDamageRatio", "0.36"));
+        Add(blueprint, SkillModifiers.Empower, ("SetupBonus", "0.25"));
     }
-    else foreach (SkillModifierAsset modifier in affixes) Add(modifier, ("Duration", "2"));
+    else foreach (SkillModifierAsset modifier in affixes) Add(blueprint, modifier, ("Duration", "2"));
     var compiled = new SkillBlueprintCompiler().Compile(blueprint, SkillBlueprintCompileMode.Runtime);
     Check(compiled.Success && SkillOwnershipService.Learn(owner, compiled.Container) == SkillOwnershipResult.Added,
         "本批词条和原兼容轨迹可由正式蓝图编译、学习", compiled.Validation.Issues.Select(issue => issue.Message).ToArray());
     owned.Add(compiled.Container);
     return compiled.Container;
-
-    void Add(SkillModifierAsset modifier, params (string key, string value)[] parameters)
-    {
-        SkillModifierSpec spec = modifier.CreateDefaultSpec();
-        foreach (var parameter in parameters) spec.Parameters[parameter.key] = parameter.value;
-        blueprint.Modifiers.Add(spec);
-    }
 }
 
-bool Use(Entity skill, long correlation)
+void Add(SkillBlueprint blueprint, SkillModifierAsset modifier, params (string key, string value)[] parameters)
+{
+    SkillModifierSpec spec = modifier.CreateDefaultSpec();
+    foreach (var parameter in parameters) spec.Parameters[parameter.key] = parameter.value;
+    blueprint.Modifiers.Add(spec);
+}
+
+bool Use(Entity skill, long correlation, Actor carrier = null, float effectScale = .75f)
 {
     source.setMana(source.getMaxMana(), false);
+    var context = new SkillCasterContext(owner, (carrier ?? source).GetExtend());
+    using var scope = SkillCasterContextService.Enter(in context);
     return ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
-        new ActiveAbilityTarget(null, point, runtimeData: new SkillCastRuntimeData { CorrelationId = correlation, EffectScale = .75f }),
+        new ActiveAbilityTarget(null, point, runtimeData: new SkillCastRuntimeData { CorrelationId = correlation, EffectScale = effectScale }),
         ActiveAbilityUseOrigin.Script);
+}
+
+void AllowMovement(Actor target)
+{
+    var stillStats = new BaseStats();
+    stillStats.addTag("frozen_ai");
+    var still = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.UtilityMotion.Still") ??
+        Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.UtilityMotion.Still")
+            .SetStats(stillStats).SetDuration(1000).Build();
+    CombatStatusEffects.RemoveStatus(target, hold);
+    CombatStatusEffects.ApplyStatus(target, still, 1000, target);
+    target.updateStats();
 }
 
 var emit = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
@@ -217,6 +232,121 @@ try
 
         float Tick(Cultiway.Core.Libraries.StatusEffectAsset effect) => States(effect).Single().GetComponent<StatusTickState>().Value;
         bool Near(float value, float expected) => Mathf.Abs(value - expected) < .001f;
+    }
+
+    if (section is "motion" or "carrier" or "all")
+    {
+        AllowMovement(enemy);
+        Place(outside, 74);
+        if (section != "carrier")
+        {
+            Entity push = Learn(SkillEntities.RaiseTerrain, field: false, configure: blueprint =>
+                Add(blueprint, SkillModifiers.Knockback, ("Distance", "2"), ("Height", "0.4")));
+            Place(enemy, 69);
+            enemy.position_height = 0;
+            ResetLand();
+            Check(Use(push, 101328, effectScale: 1f), "击退抬地从正式已学入口受理");
+            await Advance(.17f);
+            Check(enemy.under_forces && enemy.position_height > 0 && enemy.current_position.x > 69 && outside.current_position.x == 74,
+                "真实范围内的敌人朝落点外腾起，范围外人物不受影响", new { x = enemy.current_position.x, height = enemy.position_height });
+            await WaitForGround();
+            Check(!enemy.under_forces && enemy.position_height <= .001f && enemy.current_position.x > 69 && ActualLand(101328),
+                "敌人真实落地并归还受力，原抬地也已生效", new { x = enemy.current_position.x, height = enemy.position_height });
+        }
+
+        Entity exchange = Learn(SkillEntities.RaiseTerrain, field: false, configure: blueprint =>
+        {
+            Add(blueprint, SkillModifiers.Swap, ("Chance", "1"));
+            Add(blueprint, SkillModifiers.Mercy, ("DamageMultiplier", "0.5"), ("HealRatio", "0.4"));
+        });
+        for (int y = 70; y <= 74; ++y)
+        for (int x = 66; x <= 70; ++x)
+            World.world.GetTileSimple(x, y).building?.setKingdom(source.kingdom);
+        ResetPair();
+        int ownerHealth = source.getHealth(), carrierHealth = ally.getHealth();
+        int carrierMana = ally.getMana();
+        Check(Use(exchange, 101329, ally, 1f), "同一已学入口允许实际载体代施");
+        await Advance(.24f);
+        Check(ally.current_tile.pos.x == 68 && enemy.current_tile.pos.x == 65 && source.current_tile.pos.x == 64 &&
+            ally.getMana() == carrierMana && ally.getHealth() == carrierHealth + 20 && source.getHealth() == ownerHealth && ActualLand(101329),
+            "实际载体交换地块并获得一次二十点恢复，归属人物独立支付", new { carrierTile = ally.current_tile.pos.x,
+                enemyTile = enemy.current_tile.pos.x, ownerTile = source.current_tile.pos.x, ownerHealth, ownerAfter = source.getHealth(),
+                carrierHealth, carrierAfter = ally.getHealth(), carrierMana, carrierAfterMana = ally.getMana() });
+
+        ResetPair();
+        enemy.GetExtend().GetForce(source, 0, 0, 10f);
+        await Advance(.1f);
+        Check(enemy.under_forces && enemy.position_height > 0f, "同一目标确实进入持续腾起过程", enemy.position_height);
+        float heightAtImpact = -1;
+        void AtImpact(ConstructedActionEvent action)
+        {
+            if (action.Fact.Node == 0 && action.Fact.Kind == AbilityActionEventKind.Active &&
+                starts.Any(cast => cast.CastId == action.CastId && cast.CorrelationId == 101330))
+                heightAtImpact = enemy.position_height;
+        }
+        ConstructedAbilityService.ActionConfirmed += AtImpact;
+        try
+        {
+            Check(Use(exchange, 101330, ally, 1f), "空中目标所在的地块施放仍受理");
+            await Advance(.24f);
+            Check(heightAtImpact > 0 && ally.current_tile.pos.x == 65 && enemy.current_tile.pos.x == 68 && ActualLand(101330),
+                "落地词条实际结算时空中目标不换位，抬地继续", new { heightAtImpact, carrierTile = ally.current_tile.pos.x });
+        }
+        finally { ConstructedAbilityService.ActionConfirmed -= AtImpact; }
+        await WaitForGround();
+        Check(!enemy.under_forces && enemy.position_height <= .001f, "目标从本次腾起正常落回地面");
+
+        ResetPair();
+        Check(Use(exchange, 101331, ally, 1f), "恢复地面后可从同一入口再次施放");
+        await Advance(.24f);
+        Check(ally.current_tile.pos.x == 68 && enemy.current_tile.pos.x == 65 && ActualLand(101331), "回到地面后重新完成换位");
+
+        void ResetPair()
+        {
+            Place(enemy, 68.3f);
+            Place(ally, 65.3f);
+            enemy.position_height = 0;
+            ally.position_height = 0;
+            source.setHealth(source.getMaxHealth() - 200);
+            ally.setHealth(ally.getMaxHealth() - 200);
+            ally.setMana(ally.getMaxMana(), false);
+            ResetLand();
+        }
+
+        void ResetLand() => tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        bool ActualLand(long correlation) => starts.Any(cast => cast.SourceId == source.id && cast.CorrelationId == correlation &&
+            results.Any(hit => hit.CastId == cast.CastId && hit.Action == "terrain.raise" && hit.Result.Changed));
+        async Task WaitForGround()
+        {
+            Config.setWorldSpeed("x5", false);
+            try
+            {
+                for (int i = 0; i < 24 && (enemy.under_forces || enemy.position_height > .001f); ++i) await Advance(.3f);
+            }
+            finally { Config.setWorldSpeed("x1", false); }
+        }
+    }
+
+    if (section is "motion" or "combo" or "all")
+    {
+        Entity both = Learn(SkillEntities.RaiseTerrain, field: false, configure: blueprint =>
+        {
+            Add(blueprint, SkillModifiers.Knockback, ("Distance", "2"), ("Height", "0.4"));
+            Add(blueprint, SkillModifiers.Swap, ("Chance", "1"));
+        });
+        var types = both.GetComponentTypes().ToList();
+        bool swapFirst = types.IndexOf(typeof(SwapModifier)) < types.IndexOf(typeof(KnockbackModifier));
+        AllowMovement(enemy);
+        Place(ally, 65.3f);
+        Place(enemy, 68.6f);
+        ally.position_height = enemy.position_height = 0;
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        Check(Use(both, 101332, ally, 1f), "共同施放接收同时携带的击退和换位");
+        await Advance(.17f);
+        Check(ally.current_tile.pos.x == 68 && enemy.under_forces == swapFirst &&
+            (swapFirst ? enemy.current_position.x < 65 && enemy.position_height > 0 : enemy.current_tile.pos.x == 65),
+            "两种位移按原容器顺序提交，归还旧运动后不把目标拉回", new { swapFirst, enemy.under_forces,
+                x = enemy.current_position.x, height = enemy.position_height, carrierTile = ally.current_tile.pos.x });
     }
 
     Check(legacy.Count == 0 && payment.Count == starts.Count, "实际发射全部走共同执行且没有旧实体");

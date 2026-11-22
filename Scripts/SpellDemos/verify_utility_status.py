@@ -12,7 +12,7 @@ from verify_weapon_flight_archive import FIXTURE, world_helpers
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('landing', 'field', 'damage', 'all'), default='all')
+    parser.add_argument('--section', choices=('landing', 'field', 'damage', 'motion', 'carrier', 'combo', 'all'), default='all')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         parser.error('请通过独立游戏的 dev.py exec 运行')

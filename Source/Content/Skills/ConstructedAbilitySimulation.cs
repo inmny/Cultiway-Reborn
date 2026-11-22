@@ -1500,7 +1500,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
                 return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, damage: settled);
         }
-        ApplyContactExchange(running.Owner(node), target, impact.Exchange, result, strength);
+        CastAuthority exchangeOwner = running.Owner(node);
+        ApplyContactExchange(exchangeOwner.IsLive ? exchangeOwner.Actor : null, target, impact.Exchange, result, strength);
         if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
             return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, damage: settled);
         CompiledConstructionContactOutcome outcome = SelectContactOutcome(impact.RandomContact, result);

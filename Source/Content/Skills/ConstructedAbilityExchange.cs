@@ -7,20 +7,21 @@ namespace Cultiway.Content.Skills;
 public sealed partial class ConstructedAbilityService
 {
     /// <summary>双方先核对再解除旧控制，最后在同一次确认中交换连续位置并通知空间索引。</summary>
-    /// <param name="owner">本部位的当前控制人物。</param><param name="target">实际接触人物。</param>
+    /// <param name="source">实际参与换位的人物。</param><param name="target">实际接触人物。</param>
     /// <param name="exchange">已经编译的换位资料。</param><param name="result">真实接触结果。</param>
     /// <param name="strength">传播到实际接触的作用倍率。</param>
-    private static void ApplyContactExchange(CastAuthority owner, Actor target, CompiledConstructionExchange exchange,
-        ApplyAttackState result, float strength)
+    /// <param name="useTiles">旧落地词条交换原地块，普通构造保留连续坐标。</param>
+    private static void ApplyContactExchange(Actor source, Actor target, CompiledConstructionExchange exchange,
+        ApplyAttackState result, float strength, bool useTiles = false)
     {
-        if (exchange == null || exchange.Chance <= 0f || strength <= 0f || result != ApplyAttackState.Hit || !owner.IsLive)
+        if (exchange == null || exchange.Chance <= 0f || strength <= 0f || result != ApplyAttackState.Hit || source == null)
             return;
-        Actor source = owner.Actor;
         if (source == target || !ExchangeEligible(source, target)) return;
         float chance = Mathf.Clamp01(exchange.Chance * strength);
         if (chance < 1f && !Randy.randomChance(chance)) return;
 
-        Vector2 sourcePosition = source.current_position, targetPosition = target.current_position;
+        Vector2 sourcePosition = useTiles ? (Vector2)source.current_tile.posV3 : source.current_position;
+        Vector2 targetPosition = useTiles ? (Vector2)target.current_tile.posV3 : target.current_position;
         long sourceId = source.id, targetId = target.id, generation = worldGeneration;
         if (!ReleaseForExchange(source, sourceId, generation) || !ReleaseForExchange(target, targetId, generation)) return;
         if (source.data?.id != sourceId || target.data?.id != targetId ||

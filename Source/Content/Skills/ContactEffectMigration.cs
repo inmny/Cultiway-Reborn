@@ -17,14 +17,15 @@ internal static partial class ContactEffectMigration
     /// <summary>已经完整接管的原接触附加词条。</summary>
     /// <param name="type">原容器中的词条类型。</param>
     internal static bool Supports(Type type) => SupportsUtilityLanding(type) ||
-        type == typeof(MercyModifier) || type == typeof(ChaosModifier) || type == typeof(KnockbackModifier) || type == typeof(GravityModifier) || type == typeof(SwapModifier) || type == typeof(RandomAffixModifier) || type == typeof(DeathSentenceModifier) || type == typeof(ReincarnationTrialModifier) || type == typeof(ExplosionModifier);
+        type == typeof(ChaosModifier) || type == typeof(GravityModifier) || type == typeof(RandomAffixModifier) || type == typeof(DeathSentenceModifier) || type == typeof(ReincarnationTrialModifier) || type == typeof(ExplosionModifier);
 
     /// <summary>可在原地面冲击中使用同一份状态与伤害资料的词条。</summary>
     /// <param name="type">原容器中的词条类型。</param>
     internal static bool SupportsUtilityLanding(Type type) => type == typeof(SlowModifier) || type == typeof(FreezeModifier) ||
         type == typeof(DazeModifier) || type == typeof(WeakenModifier) || type == typeof(ArmorBreakModifier) ||
         type == typeof(SilenceModifier) || type == typeof(BurnModifier) || type == typeof(PoisonModifier) ||
-        type == typeof(EternalCurseModifier) || type == typeof(BurnoutModifier);
+        type == typeof(EternalCurseModifier) || type == typeof(BurnoutModifier) || type == typeof(KnockbackModifier) ||
+        type == typeof(SwapModifier) || type == typeof(MercyModifier);
 
     /// <summary>在真实逐发转换时一次确定原设置词条，运行及预测只读取已经展开的数值。</summary>
     /// <param name="skill">真实原容器。</param>
@@ -129,13 +130,47 @@ internal static partial class ContactEffectMigration
             if (type == typeof(BurnoutModifier)) AddBurnout(skill, 1f, statuses, damage);
             else AddDamageStatus(skill, type, effectScale, 1f, statuses);
         }
-        return statuses.Count == 0 && damage.Count == 0 ? null : new ConstructionImpact
+        ConstructionKnockback knockback = LandingKnockback(skill, effectScale);
+        ConstructionExchange exchange = LandingExchange(skill, effectScale);
+        float healing = MercyHealing(skill);
+        return statuses.Count == 0 && damage.Count == 0 && knockback == null && exchange == null && healing <= 0f ? null : new ConstructionImpact
         {
             DamageScale = 0f,
             Statuses = statuses.ToArray(),
-            AdditionalDamage = damage.ToArray()
+            AdditionalDamage = damage.ToArray(),
+            Knockback = knockback,
+            Exchange = exchange,
+            Restoration = healing > 0f ? new ConstructionRestoration
+            {
+                Target = ConstructionRestorationTarget.Controller,
+                HealthPerForce = healing
+            } : null
         };
     }
+
+    /// <summary>读取经过原使用倍率限制的击退幅度。</summary>
+    /// <param name="skill">原容器。</param><param name="effectScale">本次效果倍率。</param>
+    private static ConstructionKnockback LandingKnockback(Entity skill, float effectScale)
+    {
+        if (!skill.TryGetComponent(out KnockbackModifier push)) return null;
+        float distance = Mathf.Clamp(push.Distance * effectScale, 0f, 10f);
+        float height = Mathf.Clamp(push.Height * effectScale, 0f, 5f);
+        return distance > 0f || height > 0f ? new ConstructionKnockback { Distance = distance, Height = height } : null;
+    }
+
+    /// <summary>读取经过原使用倍率限制的实际换位概率。</summary>
+    /// <param name="skill">原容器。</param><param name="effectScale">本次效果倍率。</param>
+    private static ConstructionExchange LandingExchange(Entity skill, float effectScale)
+    {
+        if (!skill.TryGetComponent(out SwapModifier swap)) return null;
+        float chance = Mathf.Clamp01(swap.Chance * effectScale);
+        return chance > 0f ? new ConstructionExchange { Chance = chance } : null;
+    }
+
+    /// <summary>读取原回生比例，仍由实际接触的强度和载体决定恢复量。</summary>
+    /// <param name="skill">原容器。</param>
+    private static float MercyHealing(Entity skill) => skill.TryGetComponent(out MercyModifier mercy)
+        ? Mathf.Clamp(mercy.HealRatio, 0f, 5f) : 0f;
 
     /// <summary>在真实攻击面附加状态和恢复；飞行中的零伤害爆发载体及纯防御面不提前施加。</summary>
     /// <param name="definition">已经转换的普通构造。</param><param name="skill">原容器。</param>
@@ -151,20 +186,9 @@ internal static partial class ContactEffectMigration
         AddDamageStatus(skill, typeof(BurnModifier), effectScale, contactForceScale, statuses);
         AddDamageStatus(skill, typeof(PoisonModifier), effectScale, contactForceScale, statuses);
         AddDamageStatus(skill, typeof(EternalCurseModifier), effectScale, contactForceScale, statuses);
-        float healing = skill.TryGetComponent(out MercyModifier mercy)
-            ? Mathf.Clamp(mercy.HealRatio, 0f, 5f) * contactForceScale : 0f;
-        ConstructionKnockback knockback = null;
-        if (skill.TryGetComponent(out KnockbackModifier push))
-        {
-            float distance = Mathf.Clamp(push.Distance * effectScale, 0f, 10f), height = Mathf.Clamp(push.Height * effectScale, 0f, 5f);
-            if (distance > 0f || height > 0f) knockback = new ConstructionKnockback { Distance = distance, Height = height };
-        }
-        ConstructionExchange exchange = null;
-        if (skill.TryGetComponent(out SwapModifier swap))
-        {
-            float chance = Mathf.Clamp01(swap.Chance * effectScale);
-            if (chance > 0f) exchange = new ConstructionExchange { Chance = chance };
-        }
+        float healing = MercyHealing(skill) * contactForceScale;
+        ConstructionKnockback knockback = LandingKnockback(skill, effectScale);
+        ConstructionExchange exchange = LandingExchange(skill, effectScale);
         AddBurnout(skill, contactForceScale, statuses, additionalDamage);
         ConstructionRandomContact randomContact = RandomContact(skill, effectScale, contactForceScale);
         ConstructionConditionalContact[] conditional = ConditionalContacts(skill, effectScale, contactForceScale, statuses);
