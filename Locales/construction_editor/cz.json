@@ -1346,6 +1346,7 @@
   "Cultiway.Construction.NodeWorldTotal": "部位·总作用次数（0不限）",
   "Cultiway.Construction.WorldAction.nature.grow": "催生",
   "Cultiway.Construction.WorldAction.nature.repair": "修复受损活木",
+  "Cultiway.Construction.WorldAction.building.repair": "修缮受损建筑",
   "Cultiway.Construction.WorldAction.nature.wither": "枯萎植被",
   "Cultiway.Construction.WorldAction.nature.renew": "催生原地植被",
   "Cultiway.Construction.WorldAction.building.weather": "风化石造建筑",

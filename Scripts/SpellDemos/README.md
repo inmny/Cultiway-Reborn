@@ -3073,3 +3073,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用 `--section body-catalog` 查横拍和持剑刺击正式学习、两种完整定义及铁剑的存读。用 `--section signal-rally` 查指定友方实际收到集结讯号并正常到期。总表重新导出使用 `demo_all.py --inventory --output 当前目录`，输出保留动态生成药效和当前测试环境的原始登记。
 
 其他来源的自然触发、正式读回和对应证据见[10.15 复验和证据](../../Doc/技能系统全面重构/自然施放与结算验收.md#e-复验和证据)。
+
+### 原版建筑修缮（11.04）
+
+在独立游戏运行 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_building_repair.py --section repair --archive 功能术准备目录`。复用 10.13 准备的正式档，在同一城市检查房屋满额无效、原版受损、实际材料消耗、一次修缮及原任务入住。
+
+停止独立游戏并启动新进程，改用 `--section cold --archive 修缮输出目录`。同一建筑的修复量、住户和角色已学法术应继续存在，旧施放不会重播。

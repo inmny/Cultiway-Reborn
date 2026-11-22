@@ -96,6 +96,9 @@ public enum SkillEffectOutcomeFlags : ulong
 
     /// <summary>落点内的角色实际取得妖修体系。</summary>
     CreatureAwakened = 1UL << 19,
+
+    /// <summary>原城市建筑的生命值实际增加。</summary>
+    BuildingRepaired = 1UL << 20,
 }
 
 /// <summary>一次结构化效果的不可变结算结果。</summary>
