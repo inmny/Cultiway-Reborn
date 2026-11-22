@@ -3033,3 +3033,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 城市工程冷读录像（10.13 C2）
 
 用上一个入口加 `--section capture` 可只保存刚开始、仍未实际净化的任务。退出该游戏后，在原版与 Worldfall 的独立游戏分别运行 `dev.py exec --timeout 250 -- python3 Scripts/SpellDemos/record_utility_city.py --work 城市工程输出目录 --view native`，Worldfall 将视角参数改为 `--view worldfall`。两段读同一份正式存档的副本，输出真实世界时间、工作结果和对应录像。
+
+### 原版附体站姿（10.14 A1）
+
+在原版独立游戏运行 `dev.py exec --timeout 85 -- python3 Scripts/SpellDemos/verify_possession_stance.py`。使用原版附体按钮及方向热键输入，验证掌击持有站姿时的跳闪和走动、结束后恢复、只占手臂时仍可走动。结果写到本次独立游戏输出目录。`--observe` 只记录跳跃时的行为，`--arm` 可单独复验手臂对照。

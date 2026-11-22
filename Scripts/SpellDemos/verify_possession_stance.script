@@ -1,0 +1,150 @@
+// 使用原版动作按钮。走动从原版方向热键读取处提供输入，之后走正常附体更新。
+Actor source = Make(64);
+var owner = source.GetExtend();
+CombatStatusEffects.RemoveStatus(source, hold);
+source.setStatsDirty();
+source.updateStats();
+
+void Cast(string suffix, BodyOccupancy occupied)
+{
+    var definition = JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+    definition.Id = "test.possession-stance." + suffix;
+    definition.Resource = "none";
+    definition.Cost = 0;
+    definition.TargetRange = 20f;
+    definition.Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat, Target = ActiveAbilityTargetMode.Point };
+    definition.Body.Occupancy = occupied;
+    if (occupied == BodyOccupancy.RightArm)
+        foreach (var key in definition.Body.Keys)
+        {
+            key.Torso = new float[3];
+            key.Turn = 0f;
+        }
+    ConstructedAbilityService.Register(definition);
+    ConstructedAbilityService.Learn(owner, definition.Id);
+    source.attack_timer = 0;
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+    float range = ActiveAbilityService.ResolveRange(owner, handle);
+    var target = new ActiveAbilityTarget(null, (Vector3)(source.current_position + Vector2.right * Mathf.Min(4f, range * .5f)));
+    var state = ActiveAbilityService.ResolveControlState(owner, handle);
+    bool canUse = ActiveAbilityService.CanUse(owner, handle, target);
+    bool used = ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Player);
+    Check(used && BodyControlState.HasControl(source.id, BodyOccupancy.RightArm) &&
+        HoldingStance() == occupied.HasFlag(BodyOccupancy.Stance),
+        "从正式能力入口取得实际身体占用",
+        new { occupied = occupied.ToString(), used, range, canUse, state = state.BlockReason.ToString() });
+}
+
+bool HoldingStance() => BodyControlState.HasControl(source.id, BodyOccupancy.Stance);
+void ClearButtons()
+{
+    // 桌面版没有触屏部件替测试按钮松键，复位原版部件在一帧末尾清除的三个输入。
+    var touch = typeof(TouchPossessionController);
+    foreach (string key in new[] { "jump", "dash", "backstep" })
+        touch.GetField("_action_pressed_" + key, F).SetValue(null, false);
+    ControllableUnit.updateControllableUnit();
+}
+async Task<object> PressWhileHeld(Action press, Func<bool> read, string action, float seconds)
+{
+    Vector2 start = source.current_position;
+    press();
+    ControllableUnit.updateControllableUnit();
+    Check(read() && HoldingStance(), "原版附体入口在站姿期间读取" + action);
+    await Advance(seconds);
+    ClearButtons();
+    float moved = Vector2.Distance(start, source.current_position);
+    bool held = HoldingStance();
+    bool blocked = held && !source.under_forces && source.position_height <= .001f && moved <= .01f;
+    var fact = new { action, blocked, held, moved, underForce = source.under_forces, height = source.position_height };
+    if (!observe) Check(blocked, "站姿继续持有，原版" + action + "没有移动人物", fact);
+    return fact;
+}
+
+var input = new Harmony("Cultiway.Verify.PossessionStance.Input");
+var holding = typeof(HotkeyAsset).GetMethod("isHolding");
+void HoldRight()
+{
+    PossessionTestInput.Right = true;
+    ControllableUnit.updateControllableUnit();
+    Check(ControllableUnit.isMovementActionActive() && ControllableUnit.getMovementVector().x > .25f,
+        "原版附体入口实际读取方向热键");
+}
+try
+{
+    ControllableUnit.setControllableCreature(source);
+    Config.paused = true;
+    ClearButtons();
+    Check(ControllableUnit.isControllingUnit(source), "使用实际原版附体控制人物");
+    await Advance(.15f);
+    Place(source, 64f);
+    int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+    if (armOnly)
+    {
+        input.Patch(holding, prefix: new HarmonyMethod(typeof(PossessionTestInput).GetMethod("BeforeHolding")));
+        await CheckArm();
+        return new { process, blocked = true, checks };
+    }
+    Cast("palm", BodyOccupancy.RightArm | BodyOccupancy.Stance);
+    object jump = await PressWhileHeld(TouchPossessionController.pressJump, ControllableUnit.isActionPressedJump,
+        "跳跃", observe ? .12f : .08f);
+    if (observe)
+        return new { process, blocked = (bool)jump.GetType().GetProperty("blocked").GetValue(jump), jump, checks };
+
+    await PressWhileHeld(TouchPossessionController.pressDash, ControllableUnit.isActionPressedDash, "冲刺", .08f);
+    await PressWhileHeld(TouchPossessionController.pressBackStep, ControllableUnit.isActionPressedBackstep, "后撤", .08f);
+    input.Patch(holding, prefix: new HarmonyMethod(typeof(PossessionTestInput).GetMethod("BeforeHolding")));
+    Vector2 start = source.current_position;
+    HoldRight();
+    await Advance(.10f);
+    Check(HoldingStance() && Vector2.Distance(start, source.current_position) <= .01f,
+        "共同站姿期间真实走动输入无法改写位置");
+    await Advance(.36f);
+    Check(!HoldingStance() && source.current_position.x > start.x + .05f, "同一方向输入在站姿归还后恢复走动");
+    PossessionTestInput.Right = false;
+    await Advance(.3f);
+    await CheckArm();
+    return new { process, blocked = true, checks };
+}
+finally
+{
+    Config.paused = true;
+    PossessionTestInput.Right = false;
+    ClearButtons();
+    input.Unpatch(holding, HarmonyPatchType.Prefix, input.Id);
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+}
+
+async Task CheckArm()
+{
+    Cast("arm", BodyOccupancy.RightArm);
+    Vector2 start = source.current_position;
+    HoldRight();
+    var path = new List<object>();
+    bool moved = false;
+    for (int i = 0; i < 6 && !moved; i++)
+    {
+        await Advance(.025f);
+        bool arm = BodyControlState.HasControl(source.id, BodyOccupancy.RightArm);
+        bool stance = HoldingStance();
+        float dx = source.current_position.x - start.x;
+        path.Add(new { arm, stance, dx, height = source.position_height, source.under_forces });
+        moved = arm && !stance && dx > .01f;
+        if (!arm || stance) break;
+    }
+    Check(moved, "同一人物只占右臂时仍可走动", path);
+}
+
+public static class PossessionTestInput
+{
+    public static bool Right;
+
+    public static bool BeforeHolding(HotkeyAsset __instance, ref bool __result)
+    {
+        if (!Right || !ReferenceEquals(__instance, HotkeyLibrary.right)) return true;
+        __result = true;
+        return false;
+    }
+}
