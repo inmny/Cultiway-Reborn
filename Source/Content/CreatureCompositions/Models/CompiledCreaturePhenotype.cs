@@ -13,6 +13,7 @@ public sealed class CompiledCreaturePhenotype
     private readonly ReadOnlyCollection<CreatureStatValue> stats;
     private readonly ReadOnlyCollection<SemanticContribution> semantics;
     private readonly ReadOnlyCollection<string> activeAbilityIds;
+    private readonly Dictionary<string, (CompiledCreatureOrgan Organ, string EntryId)> skillSources;
     private readonly ReadOnlyCollection<CreatureEffectRank> passiveEffects;
     private readonly ReadOnlyCollection<CompiledCreatureVisualLayer> visualLayers;
 
@@ -49,8 +50,28 @@ public sealed class CompiledCreaturePhenotype
         this.stats = Array.AsReadOnly(stats ?? Array.Empty<CreatureStatValue>());
         this.semantics = Array.AsReadOnly(semantics ?? Array.Empty<SemanticContribution>());
         this.activeAbilityIds = Array.AsReadOnly(activeAbilityIds ?? Array.Empty<string>());
+        if (this.activeAbilityIds.Count > 0)
+        {
+            skillSources = new Dictionary<string, (CompiledCreatureOrgan, string)>(StringComparer.Ordinal);
+            foreach (CompiledCreatureOrgan organ in this.orderedOrgans)
+            {
+                foreach (string skillId in organ.Rank.SkillContainerIds ?? Array.Empty<string>())
+                {
+                    if (skillSources.TryGetValue(skillId, out var previous) && previous.Organ.Rank.Rank >= organ.Rank.Rank)
+                        continue;
+                    skillSources[skillId] = (organ, $"{organ.Entry.SlotId}/{organ.Organ.id}/{organ.Rank.Rank}/{skillId}");
+                }
+            }
+        }
         this.passiveEffects = Array.AsReadOnly(passiveEffects ?? Array.Empty<CreatureEffectRank>());
         this.visualLayers = Array.AsReadOnly(visualLayers ?? Array.Empty<CompiledCreatureVisualLayer>());
         ComplexityUsed = complexityUsed;
+    }
+
+    /// <summary>读取同一技能当前等级最高的器官来源，等级相同时沿用身体的固定顺序。</summary>
+    internal bool TryGetSkillSource(string skillId, out (CompiledCreatureOrgan Organ, string EntryId) source)
+    {
+        source = default;
+        return skillSources != null && skillSources.TryGetValue(skillId, out source);
     }
 }

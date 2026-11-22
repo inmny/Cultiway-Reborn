@@ -1,5 +1,5 @@
-using System;
 using System.Collections.Generic;
+using Cultiway.Const;
 using Cultiway.Content.CreatureCompositions.Components;
 using Cultiway.Content.CreatureCompositions.Models;
 using Cultiway.Content.CreatureCompositions.Services;
@@ -25,35 +25,32 @@ namespace Cultiway.Content.CreatureCompositions.ActiveAbilities;
 /// </summary>
 internal sealed class CreaturePhenotypeActiveAbilityProvider : IActiveAbilityProvider, ISourceGrantedSkillProvider
 {
-    private struct OrganSkill
-    {
-        internal Entity Container;
-        internal int Rank;
-        internal string SlotId;
-        internal string OrganId;
-    }
-
     /// <summary>与语义贡献者共用的稳定编号。</summary>
     public string Id => Presentation.CreaturePhenotypeSemanticContributor.ContributorId;
 
     /// <summary>收集当前身体提供的全部来源技能展示，供技能详情界面读取。</summary>
     public void Collect(ActorExtend actor, ICollection<SourceGrantedSkillPresentation> output)
     {
-        foreach (KeyValuePair<string, OrganSkill> skill in ResolveOrganSkills(actor))
+        if (!TryGetBody(actor, out var body)) return;
+        foreach (string skill in body.ActiveAbilities)
         {
+            if (!body.TryGetSkillSource(skill, out var source) ||
+                !CreatureOrganSkillRegistry.TryGetContainer(skill, out var container)) continue;
             output.Add(new SourceGrantedSkillPresentation(
-                skill.Value.Container,
-                $"Cultiway.CreatureOrgan.{skill.Value.OrganId}.SkillDetail"));
+                container,
+                $"Cultiway.CreatureOrgan.{source.Organ.Organ.id}.SkillDetail"));
         }
     }
 
     /// <summary>收集当前身体提供的全部战斗主动能力句柄。</summary>
     public void Collect(ActorExtend caster, ICollection<ActiveAbilityHandle> output)
     {
-        foreach (KeyValuePair<string, OrganSkill> skill in ResolveOrganSkills(caster))
+        if (!HasOwnBody(caster) || !TryGetBody(caster, out var body)) return;
+        foreach (string skill in body.ActiveAbilities)
         {
-            output.Add(new ActiveAbilityHandle(
-                Id, skill.Value.Container, $"{skill.Value.SlotId}/{skill.Value.OrganId}/{skill.Key}"));
+            if (body.TryGetSkillSource(skill, out var source) &&
+                CreatureOrganSkillRegistry.TryGetContainer(skill, out var container))
+                output.Add(new ActiveAbilityHandle(Id, container, source.EntryId));
         }
     }
 
@@ -66,6 +63,7 @@ internal sealed class CreaturePhenotypeActiveAbilityProvider : IActiveAbilityPro
     /// <summary>返回玩家控制和战术规划使用的技能名称、图标与目标方式。</summary>
     public ActiveAbilityDescriptor Describe(ActorExtend caster, ActiveAbilityHandle handle)
     {
+        if (!IsAvailable(caster, handle)) return default;
         SkillEntityAsset asset = ResolveSkillAsset(handle);
         bool isAttack = asset != null && asset.Type == SkillEntityType.Attack;
         return new ActiveAbilityDescriptor(
@@ -170,52 +168,59 @@ internal sealed class CreaturePhenotypeActiveAbilityProvider : IActiveAbilityPro
     public bool TryUse(
         ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin)
     {
-        if (!CanUse(caster, handle, target)) return false;
+        if (!GeneralSettings.EnableSkillSystems || !CanUse(caster, handle, target)) return false;
+        var plan = SkillCastPlanner.CreatePlan(caster, handle.Source, target.Object,
+            SkillCastCost.GetAffordableStepLimit(caster, handle.Source));
         SkillCastRuntimeData runtime = target.RuntimeData;
         runtime.Origin = origin; runtime.WorldScope = target.WorldScope;
-        return caster.CastSkillV3(handle.Source, target.Object, runtime_data: runtime, attack_kingdom: target.AttackKingdom);
-    }
-
-    /// <summary>整理当前身体的器官技能：同一技能只保留最高等级来源。</summary>
-    private static Dictionary<string, OrganSkill> ResolveOrganSkills(ActorExtend actor)
-    {
-        var result = new Dictionary<string, OrganSkill>(StringComparer.Ordinal);
-        if (actor?.Base == null || actor.Base.isRekt()) return result;
-        if (!actor.TryGetComponent(out CreaturePhenotype phenotype) || !phenotype.IsValid) return result;
-        if (!CreaturePhenotypeCompiler.TryGetCompiled(
-                phenotype.CompiledIndex, phenotype.Signature, out CompiledCreaturePhenotype compiled))
-            return result;
-
-        foreach (CompiledCreatureOrgan organ in compiled.OrderedOrgans)
-        {
-            string[] skillIds = organ.Rank.SkillContainerIds ?? Array.Empty<string>();
-            for (int i = 0; i < skillIds.Length; i++)
+        return ModClass.I.SkillV3.StartSkillSequence(caster, handle.Source, plan, SkillContext.DefaultStrength,
+            attack_kingdom: target.AttackKingdom, runtime_data: runtime, options: new SkillCastSequenceOptions
             {
-                string skillId = skillIds[i];
-                if (!CreatureOrganSkillRegistry.TryGetContainer(skillId, out Entity container)) continue;
-                if (result.TryGetValue(skillId, out OrganSkill existing))
-                {
-                    if (organ.Rank.Rank <= existing.Rank) continue;
-                }
-
-                result[skillId] = new OrganSkill
-                {
-                    Container = container,
-                    Rank = organ.Rank.Rank,
-                    SlotId = organ.Entry.SlotId,
-                    OrganId = organ.Organ.id,
-                };
-            }
-        }
-
-        return result;
+                PaymentTiming = SkillCastPaymentTiming.PerEmission,
+                Hooks = new OrganCast(this, handle)
+            });
     }
 
-    /// <summary>句柄必须属于本提供者且技能容器真实存在。</summary>
+    private static bool TryGetBody(ActorExtend actor, out CompiledCreaturePhenotype body)
+    {
+        body = null;
+        return actor?.Base != null && !actor.Base.isRekt() && actor.Base.isAlive() &&
+               actor.TryGetComponent(out CreaturePhenotype phenotype) && phenotype.IsValid &&
+               CreaturePhenotypeCompiler.TryGetCompiled(phenotype.CompiledIndex, phenotype.Signature, out body);
+    }
+
+    private static bool HasOwnBody(ActorExtend caster)
+    {
+        var context = SkillCasterContextService.Resolve(caster);
+        return context.IsValid && context.HasPhysicalBody && context.Kind == SkillCarrierKind.Physical &&
+               context.Carrier == caster;
+    }
+
+    /// <summary>确认能力仍由当前肉身的同一部位和等级授予，共用技能容器本身不能证明来源。</summary>
     private bool IsAvailable(ActorExtend caster, ActiveAbilityHandle handle)
     {
         return handle.ProviderId == Id && !handle.Source.IsNull &&
-               handle.Source.HasComponent<SkillContainer>() && !caster.Base.isRekt();
+               handle.Source.TryGetComponent(out SkillContainer skill) && HasOwnBody(caster) &&
+               TryGetBody(caster, out var body) && body.TryGetSkillSource(skill.SkillEntityAssetID, out var source) &&
+               CreatureOrganSkillRegistry.TryGetContainer(skill.SkillEntityAssetID, out var registered) &&
+               registered == handle.Source && source.EntryId == handle.EntryId;
+    }
+
+    /// <summary>在实际发射和收费前确认原部位仍可出手。</summary>
+    private sealed class OrganCast(CreaturePhenotypeActiveAbilityProvider provider, ActiveAbilityHandle handle)
+        : ISkillCastSequenceHooks
+    {
+        public bool CanStart(in SkillCastSequenceStartContext context) => provider.IsAvailable(context.Caster, handle);
+        public void OnStarted(in SkillCastSequenceStartContext context) {}
+        public void OnEnded(in SkillCastSequenceResult result) {}
+
+        public SkillCastStepDecision PrepareStep(in SkillCastSequenceStepContext context, in SkillCastStep step)
+        {
+            return GeneralSettings.EnableSkillSystems && provider.IsAvailable(context.Caster, handle) &&
+                   SkillCastPlanner.CanCast(context.Caster, handle.Source)
+                ? SkillCastStepDecision.Emit(step)
+                : SkillCastStepDecision.Cancel();
+        }
     }
 
     /// <summary>按句柄来源容器读回技能资产，用于名称、图标与类型判断。</summary>
