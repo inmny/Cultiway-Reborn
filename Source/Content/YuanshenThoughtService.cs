@@ -4,6 +4,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using strings;
@@ -84,7 +85,7 @@ public static class YuanshenThoughtService
         Actor target,
         float duration = 60f)
     {
-        if (target == null || target.isRekt() || actor.Base.canAttackTarget(target) ||
+        if (target == null || !target.isAlive() || !SkillTargetRelationResolver.IsFriendly(actor?.Base, target) ||
             !YuanshenTravelService.IsWithinTether(actor, target.current_position) ||
             !TryResolveOwnedNode(actor, handle, out Entity node))
             return false;
