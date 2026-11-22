@@ -3015,3 +3015,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在原版独立游戏运行 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_utility_motion.py`。可用 `--section advance` 单独检查起步、巡航、逐发混沌和再用，用 `--section vortex` 检查世界来源的涡旋与实际净化。用 `--section follow` 或 `--section building` 分别检查人物跟随及建筑落点，包括移除目标后回到原坐标继续净化。场景沿用正式旧发射队列和现成地图。
 
 `--section gravity` 检查跟随净土与瞬时抬地的实际引力、成形时点、敌我范围、落地恢复和再次发射。
+
+### 功能术的万法阁试放（10.13 B1）
+
+在原版独立游戏运行 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_utility_preview.py`。用真实编辑按钮选人，检查无目标时返回草稿、实际净化、运行中等待和结束后再次试放。输出同一草稿的返回截图及试放前后的法力、学习和使用记录。

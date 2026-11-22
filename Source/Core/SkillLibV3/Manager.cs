@@ -776,7 +776,7 @@ public class Manager
     }
 
     /// <summary>在当前能力调用中解析真实空间载体。</summary>
-    private static BaseSimObject ResolveSpatialSource(BaseSimObject source)
+    internal static BaseSimObject ResolveSpatialSource(BaseSimObject source)
     {
         if (source?.isActor() == true && !source.isRekt() &&
             SkillCasterContextService.TryGetCurrent(source.a.GetExtend(), out SkillCasterContext context))

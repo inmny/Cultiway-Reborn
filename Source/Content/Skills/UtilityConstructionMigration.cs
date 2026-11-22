@@ -45,7 +45,8 @@ internal static class UtilityConstructionMigration
 
     /// <summary>只接管能够完整转换的功能步骤；没有新旧两个执行体，也不重复收费。</summary>
     /// <param name="emission">到达实际发射时点的步骤，若有费用仍由原入口负责。</param>
-    internal static SkillEmissionResult Emit(SkillEmission emission)
+    /// <param name="reportPreview">试放时提供共同执行结束状态，实际发射保持为空。</param>
+    internal static SkillEmissionResult Emit(SkillEmission emission, Action<Func<bool>> reportPreview = null)
     {
         Entity skill = emission.SkillContainer;
         if (!templates.Contains(skill.GetComponent<SkillContainer>().SkillEntityAssetID) ||
@@ -83,7 +84,8 @@ internal static class UtilityConstructionMigration
                 utilityTravel: travel) != 0
             : ConstructedAbilityService.StartPrepaid(caster, definition, target, emission.SourcePos,
                 emission.Payment, source, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
-                sourceIsWorld: emission.SourceIsWorld, legacyArea: landing, utilityTravel: travel);
+                sourceIsWorld: emission.SourceIsWorld, legacyArea: landing, utilityTravel: travel,
+                selectionAlreadyChecked: reportPreview != null, reportPreview: reportPreview);
         return accepted ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 

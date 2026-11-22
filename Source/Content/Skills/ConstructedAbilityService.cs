@@ -95,6 +95,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (result == SkillEmissionResult.Unhandled) result = BeamConstructionMigration.Emit(emission);
             return result == SkillEmissionResult.Unhandled ? ChainConstructionMigration.Emit(emission) : result;
         };
+        Core.SkillLibV3.Wanfa.WanfaTestCastSession.ConstructionPreview = UtilityConstructionMigration.Emit;
         ConstructedInventoryInputs.Initialize();
         ConstructedRainClouds.Initialize();
         ConstructedMatterCatalog.Initialize();
@@ -471,6 +472,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="artifactArea">原法宝圆面确认接触时兑现的状态、伤害或净化。</param>
     /// <param name="commitEffect">资料和位置通过核对后，提交必须成功的来源动作。</param>
     /// <param name="utilityTravel">原功能术的连接与行进作用，缺省使用普通构造规则。</param>
+    /// <param name="reportPreview">试放窗口接收本次执行的实际存续状态。</param>
     internal static bool StartPrepaid(ActorExtend caster, AbilityDefinition definition,
         in ActiveAbilityTarget target, Vector3? sourcePosition, SkillCastPayment payment = null,
         GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0, BaseSimObject spatialSource = null,
@@ -478,7 +480,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         SkillVfxElementAsset groundContact = null, LegacyBuildingContact buildingContact = null,
         string formationFamily = null, FormationAreaContact? formationArea = null, bool explicitReactionTarget = false,
         FormationTargetContact formationTarget = default, bool selectionAlreadyChecked = false,
-        ArtifactAreaContact? artifactArea = null, Func<bool> commitEffect = null, LegacyUtilityTravel utilityTravel = default)
+        ArtifactAreaContact? artifactArea = null, Func<bool> commitEffect = null, LegacyUtilityTravel utilityTravel = default,
+        Action<Func<bool>> reportPreview = null)
     {
         if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
         CompiledAbility plan = ValidateDefinition(definition);
@@ -490,13 +493,20 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             !target.Object.isRekt() && target.Object.getID() == buildingContact.SelectedBuilding)
             aim = new ActiveAbilityTarget(null, target.Position, target.SelectionArea, target.ExplicitTargets,
                 target.AttackKingdom, target.RuntimeData, target.WorldScope);
-        return Start(caster, plan, aim, target.RuntimeData.Origin, out _, sourcePosition,
+        bool accepted = Start(caster, plan, aim, target.RuntimeData.Origin, out long castId, sourcePosition,
             true, payment, sourceDamage: damage, sourceDirection: direction, sourceInstance: sourceInstance,
             spatialSource: spatialSource?.a, sourceIsWorld: sourceIsWorld, legacyArea: legacyArea,
             groundTravel: groundTravel, groundContact: groundContact, buildingContact: buildingContact,
             formationFamily: formationFamily, formationArea: formationArea, explicitReactionTarget: explicitReactionTarget,
             formationTarget: formationTarget, selectionAlreadyChecked: selectionAlreadyChecked,
-            artifactArea: artifactArea, commitEffect: commitEffect, utilityTravel: utilityTravel);
+            artifactArea: artifactArea, commitEffect: commitEffect, utilityTravel: utilityTravel,
+            preview: reportPreview != null);
+        if (accepted && reportPreview != null)
+        {
+            long id = castId;
+            reportPreview(() => casts.Exists(running => running.Id == id));
+        }
+        return accepted;
     }
 
     /// <summary>固定环境位置直接进入共同执行，零编号表示未受理，不借人物提供身份或资源。</summary>
@@ -583,7 +593,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         FormationAreaContact? formationArea = null, bool explicitReactionTarget = false,
         FormationTargetContact formationTarget = default, bool selectionAlreadyChecked = false,
         ArtifactAreaContact? artifactArea = null, Func<bool> commitEffect = null, float effectScale = 1f,
-        Func<Vector3?> trackSource = null, LegacyUtilityTravel utilityTravel = default)
+        Func<Vector3?> trackSource = null, LegacyUtilityTravel utilityTravel = default, bool preview = false)
     {
         castId = 0;
         Actor sourceActor = caster?.Base;
@@ -818,7 +828,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             PublishBarriers();
             TrackWorldRecovery(running, true);
             if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
-            if (caster != null && !practice) RecordInspirationUse(caster, plan);
+            if (caster != null && !practice && !preview) RecordInspirationUse(caster, plan);
             if (caster != null && plan.Cooldown > 0f) cooldowns[(sourceId, id)] = startedAt + plan.Cooldown;
             if (plan.Body?.ControlsStance == true)
             {
