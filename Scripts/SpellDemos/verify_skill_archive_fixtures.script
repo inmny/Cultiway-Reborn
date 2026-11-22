@@ -1,0 +1,63 @@
+using System;
+using System.IO;
+using System.Linq;
+using Cultiway.Content.Skills;
+using Cultiway.Core.Skills;
+using Cultiway.Utils.Extension;
+using Newtonsoft.Json.Linq;
+
+void Check(bool condition, string reason)
+{
+    if (!condition) throw new InvalidOperationException(reason);
+}
+
+const string scenario = "$CASE";
+const string output = "$OUTPUT";
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(output, "expected.json")));
+Game.Resume();
+Config.paused = true;
+ControllableUnit.clear(false);
+World.world.save_manager.loadWorld(Path.Combine(output, "input-world"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+var access = ConstructionEditing.Access;
+
+if (scenario == "current")
+{
+    Check(!report.RequiresBackup, "当前世界需要意外升级或报告恢复问题");
+    foreach (var entry in expected["definitions"])
+    {
+        var definition = access.Read(entry.Value<string>("Id"));
+        Check(definition != null && JToken.DeepEquals(entry, JObject.FromObject(new
+            { definition.Id, definition.Version, definition.Revision, definition.Creator, definition.Parent })),
+            "未恢复原构造编号、修订或来源：" + entry.Value<string>("Id"));
+    }
+    foreach (var entry in ((JObject)expected["ownership"]).Properties())
+    {
+        var actor = World.world.units.get(long.Parse(entry.Name)).GetExtend();
+        Check(access.List(actor).Select(ability => ability.Id).OrderBy(id => id)
+                .SequenceEqual(entry.Value.Values<string>().OrderBy(id => id)),
+            "未恢复人物原来掌握的版本：" + entry.Name);
+    }
+    var completed = World.world.units.get(57).GetExtend().GetComponent<ConstructedCreationState>();
+    Check(!completed.Pending && completed.LastAbility == expected["completed"].Value<string>("LastAbility") &&
+        completed.Source == null && completed.Resources == null, "派生结果应保持已完成");
+}
+else
+{
+    Check(report.BackupError == null && Directory.Exists(report.BackupDirectory), "需要保留本次读入的原档");
+    if (scenario == "legacy")
+        Check(report.Upgraded > 0 && report.Skipped.Count == 0, "历史世界应完整转换");
+    else
+    {
+        Check(report.Skipped.OrderBy(issue => issue).SequenceEqual(expected["skips"].Values<string>().OrderBy(issue => issue)),
+            "局部失败应给出原对象及学习关系两处说明");
+        var actor = World.world.units.get(1).GetExtend();
+        Check(access.List(actor).Any(entry => entry.Id == expected.Value<string>("ability")), "坏记录影响了有效改造");
+    }
+}
+
+SaveManager.saveWorldToDirectory(Path.Combine(output, "archive"));
+return new { passed = true, scenario, process = System.Diagnostics.Process.GetCurrentProcess().Id,
+    report.Upgraded, report.Skipped, backup = report.BackupDirectory };

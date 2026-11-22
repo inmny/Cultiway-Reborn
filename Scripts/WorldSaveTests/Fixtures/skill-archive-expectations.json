@@ -1,0 +1,99 @@
+{
+  "legacy": {
+    "folder": "world-format-1",
+    "sha256": "570a8258967db9c76ebf14c210511449fbd111a4cc73c2e33f8c1bc36dde0a9d",
+    "source": "首份正式世界档（12.04 复验）",
+    "oldObjectsVersion": 1,
+    "skills": 128,
+    "learned": [
+      "object:3be12c7121204b6d9b1b25ffee90a4b7"
+    ]
+  },
+  "current": {
+    "folder": "skills-rebuild-current",
+    "sha256": "d86a78d50243287ad55749592c6c31920f19deac7d8c7f9e0349485327659114",
+    "source": "12.03 成品与分别学习的正式世界",
+    "constructionsVersion": 16,
+    "definitions": [
+      {
+        "Id": "Cultiway.Body.RoadForge",
+        "Version": 1,
+        "Revision": 2,
+        "Creator": 0,
+        "Parent": null
+      },
+      {
+        "Id": "Cultiway.Edited.45b541a119b34306aee06228bde3f0d5",
+        "Version": 1,
+        "Revision": 1,
+        "Creator": 56,
+        "Parent": {
+          "Id": "Cultiway.Body.RoadForge",
+          "Revision": 2,
+          "Creator": 0,
+          "Change": "另创"
+        }
+      },
+      {
+        "Id": "Cultiway.Edited.69fa8720a81f43449325af6e6e66f109",
+        "Version": 1,
+        "Revision": 2,
+        "Creator": 56,
+        "Parent": {
+          "Id": "Cultiway.Edited.45b541a119b34306aee06228bde3f0d5",
+          "Revision": 1,
+          "Creator": 56,
+          "Change": "改造"
+        }
+      },
+      {
+        "Id": "Cultiway.Created.e429961bc2a845a591e6ad23bcfc7e99",
+        "Version": 1,
+        "Revision": 4,
+        "Creator": 57,
+        "Parent": null
+      },
+      {
+        "Id": "Cultiway.Created.6fafccddb35c4173a4c8960b0ef49eba",
+        "Version": 1,
+        "Revision": 1,
+        "Creator": 57,
+        "Parent": {
+          "Id": "Cultiway.Created.e429961bc2a845a591e6ad23bcfc7e99",
+          "Revision": 4,
+          "Creator": 57,
+          "Change": "接触结果"
+        }
+      }
+    ],
+    "ownership": {
+      "56": [
+        "Cultiway.Edited.6ad266977a4949f5b960c77fd687905d",
+        "test.body-footwork.martial-road-proof",
+        "Cultiway.Edited.69fa8720a81f43449325af6e6e66f109"
+      ],
+      "57": [
+        "Cultiway.Edited.45b541a119b34306aee06228bde3f0d5",
+        "Cultiway.Created.e429961bc2a845a591e6ad23bcfc7e99",
+        "Cultiway.Created.6fafccddb35c4173a4c8960b0ef49eba"
+      ]
+    },
+    "completed": {
+      "Pending": false,
+      "LastAbility": "Cultiway.Created.6fafccddb35c4173a4c8960b0ef49eba",
+      "Source": null,
+      "Resources": null
+    }
+  },
+  "partial": {
+    "folder": "skills-rebuild-missing-trajectory",
+    "sha256": "46a2fa96521ebbd9708c37cd9a76907c64c49be5d584caa53496895f1602f302",
+    "source": "12.04 实机读入的局部无效轨迹档",
+    "ability": "Cultiway.Edited.08db15f54f344546a5708169ede1f325",
+    "rejected": "object:12040000000000000000000000000001",
+    "skips": [
+      "object:12040000000000000000000000000001 / 世界物件：轨迹资源不存在",
+      "actor:1 / 世界物件：引用对象未能恢复：object:12040000000000000000000000000001"
+    ]
+  }
+}
