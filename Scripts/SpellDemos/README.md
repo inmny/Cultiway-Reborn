@@ -2995,3 +2995,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 设施来源连续实录（10.12）
 
 在原版与 Worldfall 的独立游戏分别运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/record_facility_sources.py --archive 保存阶段的输出目录 --case array`。参数 `--case` 也可选 `sect` 或 `node`。每段从同一正式文件进入，输出原帧、实际时间、结算和单段录像。
+
+### 世界来源的功能法术（10.13 A1）
+
+在原版独立游戏运行 `dev.py exec --timeout 120 -- python3 Scripts/SpellDemos/verify_utility_world_source.py`。可用 `--section terrain` 单独复验抬地延时、范围和实际建筑保护，或用 `--section field` 复验净土并存、任务失效和再次施放。脚本读入现成世界，并记录实际发射的归属、费用读数、地块结果和结束情况。

@@ -39,27 +39,33 @@ internal static class UtilityConstructionMigration
     };
 
     /// <summary>只接管能够完整转换的功能步骤；没有新旧两个执行体，也不重复收费。</summary>
-    /// <param name="emission">已经收费并到达实际发射时点的步骤。</param>
+    /// <param name="emission">到达实际发射时点的步骤，若有费用仍由原入口负责。</param>
     internal static SkillEmissionResult Emit(SkillEmission emission)
     {
         Entity skill = emission.SkillContainer;
-        if (emission.Sourceless || emission.Source?.isActor() != true ||
-            !templates.Contains(skill.GetComponent<SkillContainer>().SkillEntityAssetID)) return SkillEmissionResult.Unhandled;
-        AbilityDefinition definition = Convert(emission);
+        if (!templates.Contains(skill.GetComponent<SkillContainer>().SkillEntityAssetID) ||
+            !emission.Sourceless && emission.Source?.isActor() != true) return SkillEmissionResult.Unhandled;
+        if (!emission.Sourceless && emission.Source.isRekt()) return SkillEmissionResult.Rejected;
+        var caster = emission.Sourceless ? null : emission.Source.a.GetExtend();
+        AbilityDefinition definition = Convert(emission, caster);
         if (definition == null) return SkillEmissionResult.Unhandled;
         var target = new ActiveAbilityTarget(
             definition.Use.Target == ActiveAbilityTargetMode.Point ? null : emission.Target,
             emission.TargetPos, attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData,
             worldScope: emission.RuntimeData.WorldScope);
         // 边界失效或人物已无法执行时，这个已受理步骤结束，不能再落回旧执行制造副作用。
-        return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target, emission.SourcePos,
-            emission.Payment, sourceInstance: skill.Id, spatialSource: emission.SpatialSource)
-            ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+        bool accepted = emission.Sourceless
+            ? ConstructedAbilityService.StartWorld(definition, target, emission.SourcePos, default,
+                sourceInstance: skill.Id, sourceIsWorld: emission.SourceIsWorld) != 0
+            : ConstructedAbilityService.StartPrepaid(caster, definition, target, emission.SourcePos,
+                emission.Payment, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
+                sourceIsWorld: emission.SourceIsWorld);
+        return accepted ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>从当前真实容器读取数值，转换结果不保存旧实体或委托。</summary>
-    /// <param name="emission">当前实际步骤。</param>
-    private static unsafe AbilityDefinition Convert(SkillEmission emission)
+    /// <param name="emission">当前实际步骤。</param><param name="caster">实际范围成长的归属，世界发射为空。</param>
+    private static unsafe AbilityDefinition Convert(SkillEmission emission, Core.ActorExtend caster)
     {
         Entity skill = emission.SkillContainer;
         var container = skill.GetComponent<SkillContainer>();
@@ -69,11 +75,13 @@ internal static class UtilityConstructionMigration
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
         bool follow = trajectory == SkillTrajectories.FieldFollowTarget.id;
         bool advance = trajectory == SkillTrajectories.FieldAdvance.id;
+        bool targetActor = follow && emission.Target?.isActor() == true && !emission.Target.isRekt();
+        if (emission.Sourceless && targetActor) return null;
         if (!follow && !advance && trajectory != SkillTrajectories.AppearAtTarget.id &&
             trajectory != SkillTrajectories.GroundEruptAtTarget.id && trajectory != SkillTrajectories.FieldAtTarget.id)
             return null;
         SkillEntityAsset asset = container.Asset;
-        float radius = SkillEffectRadius.ResolveForCaster(emission.Source.a.GetExtend(), skill,
+        float radius = SkillEffectRadius.ResolveForCaster(caster, skill,
             asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
         // 共同地块预算覆盖最多一百万格；超过当前已实现的根尺寸留给旧来源，避免改小原术。
         if (radius > 1000f) return null;
@@ -184,7 +192,6 @@ internal static class UtilityConstructionMigration
             });
         }
 
-        bool targetActor = follow && emission.Target?.isActor() == true && !emission.Target.isRekt();
         return new AbilityDefinition
         {
             Id = asset.id,

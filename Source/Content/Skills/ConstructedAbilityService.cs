@@ -501,13 +501,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <summary>固定环境位置直接进入共同执行，零编号表示未受理，不借人物提供身份或资源。</summary>
     /// <param name="definition">环境发出的普通构造。</param><param name="target">实际指定的人物或地点。</param>
     /// <param name="position">环境出生位置。</param><param name="damage">已经确定的无攻击者伤害及境界。</param>
+    /// <param name="sourceInstance">原环境容器，供同来源并存计数。</param>
+    /// <param name="sourceIsWorld">该出生位置是否已包含地形高度。</param>
     internal static long StartWorld(AbilityDefinition definition, in ActiveAbilityTarget target,
-        Vector3 position, GetHitEvent damage)
+        Vector3 position, GetHitEvent damage, int sourceInstance = 0, bool sourceIsWorld = false)
     {
         CompiledAbility plan = ValidateDefinition(definition);
         if (plan.Body != null || plan.Binding?.Anchor == AbilityAnchor.Carrier || damage.HasAttacker) return 0;
         return Start(null, plan, target, target.RuntimeData.Origin, out long castId,
-            position, prepaid: true, sourceDamage: damage) ? castId : 0;
+            position, prepaid: true, sourceDamage: damage, sourceInstance: sourceInstance,
+            sourceIsWorld: sourceIsWorld) ? castId : 0;
     }
 
     /// <summary>发起来源主动撤销自己保存的施放；实际退出和额度归还仍由共同推进完成。</summary>
