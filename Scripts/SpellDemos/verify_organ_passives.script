@@ -1,0 +1,147 @@
+// 通过伤害、正式击杀与世界低频更新观察实际被动效果。
+Actor source = Make(64.5f, section == "venom" ? "snake" : "wolf");
+ActorExtend owner = source.GetExtend();
+Check(YaoAwakeningService.TryAwakenByRain(owner), "正式启灵对练妖兽");
+YaoOrganRecord Organ(string slot, string id, int rank = 1) =>
+    new YaoOrganRecord { SlotId = slot, OrganId = id, Rank = rank, Origin = YaoOrganOrigin.GodEdited };
+var basic = Organ(YaoContent.Slots.Surface, "yao.scale.basic");
+var sense = Organ(YaoContent.Slots.Head, "yao.spirit.sense");
+var fang = Organ(YaoContent.Slots.Head, "yao.venom.fang");
+
+void Outfit(Actor actor, YaoOrganRecord head, params YaoOrganRecord[] extras)
+{
+    Check(YaoFormPlanService.TrySetOrgans(actor.GetExtend(), YaoFormIds.TrueForm,
+        new[] { basic, head }.Concat(extras).ToArray()), "表达实际器官",
+        new { actor = actor.id, head = head.OrganId, organs = extras.Select(organ => organ.OrganId).ToArray() });
+    actor.setStatsDirty();
+    actor.updateStats();
+}
+void Strike(Actor from, Actor to, float amount)
+{
+    var iron = ElementComposition.Static.Iron;
+    to.GetExtend().GetHit(amount, ref iron, from, AttackType.Other, ignore_damage_reduction: true,
+        attacker_power_level_override: to.GetExtend().GetPowerLevel());
+}
+async Task Until(Func<bool> condition, double maximum)
+{
+    double end = World.world.getCurWorldTime() + maximum;
+    Config.paused = false;
+    await Game.WaitUntil(() => condition() || World.world.getCurWorldTime() >= end, 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+var fees = new List<float>();
+void Paid(ActorExtend payer, YaoPowerMutation change)
+{
+    if (payer == owner && change.Kind == YaoPowerMutationKind.Spend) fees.Add(-change.Delta);
+}
+YaoDigestionEntry[] Samples() => owner.E.TryGetComponent(out YaoDigestion digestion)
+    ? digestion.Queue.Where(value => !value.IsEmpty).ToArray() : Array.Empty<YaoDigestionEntry>();
+
+(long Id, Vector2 Position) Hunt(float x)
+{
+    Actor prey = Make(x, "snake");
+    Check(YaoAwakeningService.TryAwakenByRain(prey.GetExtend()), "猎物经正式启灵");
+    Outfit(prey, fang);
+    long id = prey.id;
+    Vector2 point = prey.current_position;
+    Strike(source, prey, prey.getMaxHealth() * 2f);
+    prey.checkDeath();
+    Check(!prey.isAlive(), "实际伤害与原版死亡结算确认猎物死亡", new { id, point = point.ToString() });
+    return (id, point);
+}
+YaoResourceService.MutationCommitted += Paid;
+try
+{
+    switch (section)
+    {
+        case "venom":
+        {
+            Actor attacker = Make(67f);
+            Outfit(source, fang, Organ(YaoContent.Slots.Breath, "yao.venom.gland.enhanced", 2));
+            int before = source.getHealth(), attacks = 0;
+            Randy.resetSeed(50109);
+            while (!attacker.hasStatus("poisoned") && attacks < 24)
+            {
+                Strike(attacker, source, 10f);
+                attacks++;
+            }
+            Check(attacker.hasStatus("poisoned") && !source.hasStatus("poisoned") && source.getHealth() < before,
+                "蛇形实际受伤后让攻击它的原人物中毒", new { attacks, attacker = attacker.id, hp = source.getHealth() });
+            attacker.finishStatusEffect("poisoned");
+            await Until(() => !attacker.hasStatus("poisoned"), .7);
+            Check(!attacker.hasStatus("poisoned"), "已验证的中毒效果退出");
+            Outfit(source, sense);
+            Randy.resetSeed(50109);
+            before = source.getHealth();
+            for (int i = 0; i < attacks; i++) Strike(attacker, source, 10f);
+            Check(source.getHealth() < before && !attacker.hasStatus("poisoned"),
+                "同一对练人物再次受伤，撤去毒系器官后没有中毒反应");
+            break;
+        }
+        case "regen":
+        {
+            Actor enemy = Make(67f);
+            Outfit(source, sense, Organ(YaoContent.Slots.Metabolism, "yao.regen.low"));
+            await Advance(.15f);
+            owner.GetCultisys<Yao>().yao_power = 0f;
+            source.data.health = source.getMaxHealth() / 2;
+            int before = source.getHealth();
+            await Advance(2.1f);
+            Check(fees.Count == 0 && source.getHealth() == before, "妖力不足时经过再生周期，无额外恢复和费用",
+                new { before, health = source.getHealth(), currentPower = owner.GetCultisys<Yao>().yao_power,
+                    fees = fees.ToArray() });
+            owner.GetCultisys<Yao>().yao_power = 100f;
+            source.addAggro(enemy);
+            enemy.addAggro(source);
+            source.setAttackTarget(enemy);
+            Check(source.isFighting(), "原版真实交战对象已建立");
+            await Advance(2.1f);
+            Check(source.isFighting() && fees.Count == 0 && source.getHealth() == before,
+                "有实际交战对象时再生不生效",
+                new { health = source.getHealth(), fighting = source.isFighting(), fees = fees.ToArray() });
+            source.clearAttackTarget();
+            float heal = source.getMaxHealth() * .02f;
+            float cost = heal * .05f * Mathf.Max(.2f, owner.GetCultisys<Yao>().RecoveryCost);
+            await Until(() => fees.Count != 0, 2.4f);
+            Check(!source.isFighting() && fees.Count == 1 && Mathf.Abs(fees[0] - cost) < .002f &&
+                  source.getHealth() == before + Mathf.RoundToInt(heal),
+                "脱战后按原公式支付实际妖力并恢复生命",
+                new { before, health = source.getHealth(), expected = Mathf.RoundToInt(heal), cost, fees = fees.ToArray(),
+                    fighting = source.isFighting(), currentPower = owner.GetCultisys<Yao>().yao_power });
+            break;
+        }
+        case "devour":
+        {
+            Outfit(source, sense, Organ(YaoContent.Slots.Metabolism, "yao.stomach.devour", 2));
+            owner.GetCultisys<Yao>().yao_power = 100f;
+            var first = Hunt(67f);
+            var held = Samples().Single();
+            Check(held.SourceActorId == first.Id && held.SourceDeathSequence > 0 && fees.SequenceEqual(new[] { 2f }),
+                "吞天胃在击杀时支付一次并收到一份真实精华",
+                new { held.SourceActorId, held.SourceDeathSequence, held.FragmentId, fees = fees.ToArray() });
+            Check(!YaoDigestionService.TryFindDeposit(first.Position, .2f, out _) &&
+                  !YaoDigestionService.TryClaim(owner, first.Id, held.SourceDeathSequence) && Samples().Length == 1,
+                "实际死亡没有重新生成第二份可领取精华");
+            fees.Clear();
+            owner.GetCultisys<Yao>().yao_power = 0f;
+            var second = Hunt(71f);
+            bool found = YaoDigestionService.TryFindDeposit(second.Position, .2f, out var drop);
+            Check(found && drop.SourceActorId == second.Id && drop.SourceDeathSequence > held.SourceDeathSequence &&
+                  Samples().Length == 1 && fees.Count == 0, "付不起的击杀保留原地精华，既有消化进度保留");
+            owner.GetCultisys<Yao>().yao_power = 10f;
+            Check(YaoDigestionService.TryClaim(owner, second.Id, drop.SourceDeathSequence) &&
+                  !YaoDigestionService.TryClaim(owner, second.Id, drop.SourceDeathSequence) &&
+                  Samples().Length == 2 && fees.SequenceEqual(new[] { 2f }),
+                "恢复资源后从正常入口取回原精华，重试只扣费一次");
+            break;
+        }
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    YaoResourceService.MutationCommitted -= Paid;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

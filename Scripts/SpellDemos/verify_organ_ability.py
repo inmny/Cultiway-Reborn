@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""复验器官的实际出手、减伤和保命。"""
+"""复验器官的实际出手及被动效果。"""
 import argparse
 import json
 import os
@@ -12,12 +12,13 @@ from verify_weapon_flight_archive import FIXTURE, IMPORTS, world_helpers
 
 
 SURVIVAL_SECTIONS = ('shell', 'phoenix', 'tails')
+PASSIVE_SECTIONS = ('venom', 'regen', 'devour')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', default='source',
-                        choices=('source', 'horn', 'mouth', 'torso', 'poison', *SURVIVAL_SECTIONS))
+                        choices=('source', 'horn', 'mouth', 'torso', 'poison', *SURVIVAL_SECTIONS, *PASSIVE_SECTIONS))
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过独立游戏的 dev.py exec 运行')
@@ -28,6 +29,8 @@ def main():
         name = 'verify_organ_ability.script'
     elif args.section in SURVIVAL_SECTIONS:
         name = 'verify_organ_survival.script'
+    elif args.section in PASSIVE_SECTIONS:
+        name = 'verify_organ_passives.script'
     body = Path(__file__).with_name(name)
     script.write_text(IMPORTS + 'using Cultiway.Content.CreatureCompositions.ActiveAbilities;\n'
                       + 'using Cultiway.Core.Visuals.Forms;\n'

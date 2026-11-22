@@ -10,7 +10,7 @@ namespace Cultiway.Content.YaoBeasts;
 /// <summary>妖兽器官效果类别的实际执行体；全部经过统一分发器调用。</summary>
 public static class YaoOrganEffects
 {
-    /// <summary>毒系受击反应：被击杀毒牙妖兽的攻击者有概率中毒。</summary>
+    /// <summary>毒系受击反应：对毒牙妖兽造成实际伤害的攻击者有概率中毒。</summary>
     public static void OnVenom(ref CreatureOrganEffectContext context)
     {
         if (context.Attacker == null || !context.Attacker.isActor() || context.Attacker.a.isRekt()) return;
@@ -25,9 +25,8 @@ public static class YaoOrganEffects
     {
         ActorExtend owner = context.Owner;
         Actor actor = owner.Base;
-                if (actor.isRekt()) return;
-        bool inCombat = actor.hasTask() && actor.ai.task.in_combat;
-        if (inCombat) return;
+        if (actor.isRekt() || !actor.isAlive()) return;
+        if (actor.isFighting() || actor.hasTask() && actor.ai.task.in_combat) return;
         if (actor.getHealthRatio() >= 1f) return;
 
         float recover = actor.getMaxHealth() * (0.02f * context.Rank);

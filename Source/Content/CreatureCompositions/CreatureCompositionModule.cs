@@ -33,5 +33,6 @@ public sealed class CreatureCompositionModule : ICanInit
         SourceGrantedSkillService.Register(provider);
 
         ModClass.I.GeneralLogicSystems.Add(new CreatureConsequenceSystem());
+        ModClass.I.GeneralLogicSystems.Add(new CreatureOrganUpkeepSystem());
     }
 }

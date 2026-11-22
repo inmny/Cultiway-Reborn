@@ -2939,3 +2939,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 同一个脚本的 `--section horn|mouth|torso|poison` 分别复验角尖、吻端法术、躯干风刃和蛇形的毒腺与毒牙。各段读取真实模型或原版帧的出口，并核对出手、妖力和接触。分别用原版与启用 Worldfall 的独立游戏运行。
 
 `--section shell|phoenix|tails` 复验玄甲减伤、涅槃及重生、九尾护持及次数耗尽。三段均使用实际伤害结算和世界推进。
+
+`--section venom|regen|devour` 复验实际攻击者中毒、脱战且有妖力时再生，以及正式击杀的精华唯一性和费用。

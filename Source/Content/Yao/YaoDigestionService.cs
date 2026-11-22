@@ -29,6 +29,8 @@ public static class YaoDigestionService
 
     private static readonly Dictionary<long, YaoEssenceDeposit> deposits = new();
     private static readonly Dictionary<long, int> deathSequences = new();
+    /// <summary>原版在真正死亡前先通知击杀，两次通知共用同一份精华。</summary>
+    private static readonly HashSet<long> deathsOpenedByKill = new();
     private static int nextDeathSequence;
     private static bool initialized;
 
@@ -96,21 +98,33 @@ public static class YaoDigestionService
     /// <summary>吞天胃直接吞噬：击杀当场领取，不依赖尸体位置。</summary>
     public static void TryClaimKillDirectly(ActorExtend predator, Actor victim)
     {
-        if (victim == null || victim.isRekt()) return;
-        TryEnqueueFromVictim(predator, victim, 1f);
+        if (victim == null || victim.isRekt() || victim.hasHealth()) return;
+        long actorId = victim.id;
+        if (victim.isAlive() && deathsOpenedByKill.Add(actorId)) RecordDeath(victim.GetExtend());
+        if (deathSequences.TryGetValue(actorId, out int sequence)) TryClaim(predator, actorId, sequence);
     }
 
     /// <summary>按死亡事件创建原地精华痕迹；特征不匹配任何碎片时不产生。</summary>
     public static void CreateDeposit(ActorExtend deadActor)
     {
         Actor actor = deadActor.Base;
-        if (actor == null || actor.isRekt()) return;
+        if (actor == null || actor.isRekt() || !actor.isAlive() || deathsOpenedByKill.Remove(actor.id)) return;
+        RecordDeath(deadActor);
+    }
+
+    private static void RecordDeath(ActorExtend deadActor)
+    {
+        Actor actor = deadActor.Base;
         long actorId = actor.data.id;
         int sequence = ++nextDeathSequence;
         deathSequences[actorId] = sequence;
 
         string fragmentId = MatchFragment(deadActor);
-        if (fragmentId == null) return;
+        if (fragmentId == null)
+        {
+            deposits.Remove(actorId);
+            return;
+        }
 
         deposits[actorId] = new YaoEssenceDeposit
         {
@@ -146,37 +160,22 @@ public static class YaoDigestionService
         if (!deposits.TryGetValue(sourceActorId, out YaoEssenceDeposit deposit)) return false;
         if (deposit.Claimed || deposit.SourceDeathSequence != sourceDeathSequence) return false;
         if (YaoTime.Now > deposit.ExpireAt) return false;
-        return TryEnqueue(predator, deposit, deposit.FragmentId);
+        return TryEnqueue(predator, deposit);
     }
 
     /// <summary>把一份精华压入消化队列；队列已满返回假。</summary>
-    private static bool TryEnqueue(ActorExtend predator, YaoEssenceDeposit deposit, string fragmentId)
+    private static bool TryEnqueue(ActorExtend predator, YaoEssenceDeposit deposit)
     {
         if (!predator.HasCultisys<Yao>()) return false;
-        ref Yao yao = ref predator.GetCultisys<Yao>();
-
-        // 领取前先锁定样本并支付最低妖力成本。
-        float cost = 2f;
-        if (!YaoResourceService.TrySpend(predator, cost)) return false;
-
-        if (!predator.E.TryGetComponent(out YaoDigestion digestion))
-        {
-            digestion = new YaoDigestion();
-            predator.E.AddComponent(digestion);
-        }
-
+        bool hasDigestion = predator.E.TryGetComponent(out YaoDigestion digestion);
         digestion.EnsureInitialized();
         int freeSlot = FindFreeSlot(digestion);
-        if (freeSlot < 0)
-        {
-            // 队列已满：妖兽不会吞走新的精华，退还成本。
-            YaoResourceService.Gain(predator, ref yao, cost);
-            return false;
-        }
+        const float cost = 2f;
+        if (freeSlot < 0 || !YaoResourceService.TrySpend(predator, cost)) return false;
 
         digestion.Queue[freeSlot] = new YaoDigestionEntry
         {
-            FragmentId = fragmentId,
+            FragmentId = deposit.FragmentId,
             SourceActorId = deposit.SourceActorId,
             SourceDeathSequence = deposit.SourceDeathSequence,
             Strength = deposit.Strength,
@@ -185,7 +184,8 @@ public static class YaoDigestionService
             Cost = cost,
             Phase = YaoDigestionPhase.Queued,
         };
-        predator.E.GetComponent<YaoDigestion>() = digestion;
+        if (hasDigestion) predator.E.GetComponent<YaoDigestion>() = digestion;
+        else predator.E.AddComponent(digestion);
 
         deposit.Claimed = true;
         deposits[deposit.SourceActorId] = deposit;
@@ -197,24 +197,6 @@ public static class YaoDigestionService
     private static bool TryResolveSemantic(string semanticId, out SemanticAsset semantic)
     {
         return ModClass.L.SemanticLibrary.TryResolve(semanticId, out semantic);
-    }
-
-    /// <summary>吞噬工作按击杀现场直接入队（跳过精华痕迹）。</summary>
-    private static bool TryEnqueueFromVictim(ActorExtend predator, Actor victim, float strength)
-    {
-        string fragmentId = MatchFragment(victim.GetExtend());
-        if (fragmentId == null) return false;
-
-        var deposit = new YaoEssenceDeposit
-        {
-            SourceActorId = victim.data.id,
-            SourceDeathSequence = deathSequences.TryGetValue(victim.data.id, out int seq) ? seq : nextDeathSequence,
-            Position = new Vector2(victim.current_position.x, victim.current_position.y),
-            ExpireAt = YaoTime.Now,
-            FragmentId = fragmentId,
-            Strength = strength,
-        };
-        return TryEnqueue(predator, deposit, fragmentId);
     }
 
     /// <summary>推进全部消化队列；由低频系统调用。</summary>
@@ -280,6 +262,7 @@ public static class YaoDigestionService
     {
         deposits.Clear();
         deathSequences.Clear();
+        deathsOpenedByKill.Clear();
         nextDeathSequence = 0;
     }
 
