@@ -3030,6 +3030,12 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_utility_city.py --archive 正式存读准备目录`。同一城市检查原候选、自然认领、两发结束时点、实际足迹、失效停止及重新认领。可用 `--section eligibility` 或 `--section work` 分开验证。工作阶段保存进行中的实际城市任务。
 
+### 城市催生、催熟与地形整理（11.03）
+
+沿用原功能术的正式存读准备目录。通过独立游戏的 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_utility_city.py --archive 正式存读准备目录 --section 用途` 分别运行 `growth`、`fertilize` 或 `terrain`。三段复用同一座旧城与同一工人，各自走原工程规划、职工入口、地块作用及实际收益验收。
+
+催生核对实际长出的植被，再在同一城检查施放所用的麦田和新预留地保护。催熟读取原版居民饥饿与麦田成熟。地形核对住房与农田候选，再按城市选中的工程比对实际用地与验收历史。各段输出 `result.json`、`effects.json` 和 `projects.json`。
+
 ### 城市工程冷读录像（10.13 C2）
 
 用上一个入口加 `--section capture` 可只保存刚开始、仍未实际净化的任务。退出该游戏后，在原版与 Worldfall 的独立游戏分别运行 `dev.py exec --timeout 250 -- python3 Scripts/SpellDemos/record_utility_city.py --work 城市工程输出目录 --view native`，Worldfall 将视角参数改为 `--view worldfall`。两段读同一份正式存档的副本，输出真实世界时间、工作结果和对应录像。

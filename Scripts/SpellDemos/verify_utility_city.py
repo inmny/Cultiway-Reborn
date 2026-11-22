@@ -15,7 +15,8 @@ from verify_weapon_flight_archive import world_helpers
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--archive', required=True, type=Path, help='功能术正式存读准备阶段目录')
-    parser.add_argument('--section', choices=('eligibility', 'work', 'capture', 'all'), default='all')
+    city_work = ('growth', 'fertilize', 'terrain')
+    parser.add_argument('--section', choices=('eligibility', 'work', 'capture', 'all', *city_work), default='all')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         parser.error('请通过独立游戏的 dev.py exec 运行')
@@ -28,7 +29,8 @@ def main():
         digest = hashlib.file_digest(save, 'sha256').hexdigest()
     if digest != (archive / 'archive.sha256').read_text().strip():
         parser.error('正式功能术存档校验未通过')
-    source = json.loads((archive / 'result.json').read_text())['actor']
+    recorded = json.loads((archive / 'result.json').read_text())
+    source = recorded['actor']
     output = Path(tempfile.mkdtemp(prefix=f'utility-city-{args.section}-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
     input_world = output / 'input-world'
     shutil.copytree(world, input_world)
@@ -37,9 +39,12 @@ def main():
                'using Cultiway.Core.SkillLibV3.Components;\nusing Cultiway.Core.SkillLibV3.Utils;\n'
                'using Cultiway.Core.SkillLibV3.Blueprints;\nusing Cultiway.Content.Components.Skill;\n')
     script = output / 'input.script'
+    body = (Path(__file__).with_name('verify_utility_city_work.script') if args.section in city_work
+            else Path(__file__).with_suffix('.script'))
+    fixture_reader = f'long readerId = {recorded["reader"]};\n' if args.section == 'fertilize' else 'long readerId = -1;\n'
     script.write_text(imports + world_helpers(output, input_world, restore=True) +
                       f'\nstring section = "{args.section}";\nlong sourceId = {source};\n' +
-                      Path(__file__).with_suffix('.script').read_text())
+                      fixture_reader + body.read_text())
 
     baseline.connect(False, validate_runtime=False)
     try:
