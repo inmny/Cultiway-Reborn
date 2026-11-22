@@ -3029,3 +3029,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 原功能术的城市工程（10.13 C1）
 
 运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_utility_city.py --archive 正式存读准备目录`。同一城市检查原候选、自然认领、两发结束时点、实际足迹、失效停止及重新认领。可用 `--section eligibility` 或 `--section work` 分开验证。工作阶段保存进行中的实际城市任务。
+
+### 城市工程冷读录像（10.13 C2）
+
+用上一个入口加 `--section capture` 可只保存刚开始、仍未实际净化的任务。退出该游戏后，在原版与 Worldfall 的独立游戏分别运行 `dev.py exec --timeout 250 -- python3 Scripts/SpellDemos/record_utility_city.py --work 城市工程输出目录 --view native`，Worldfall 将视角参数改为 `--view worldfall`。两段读同一份正式存档的副本，输出真实世界时间、工作结果和对应录像。

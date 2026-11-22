@@ -15,7 +15,7 @@ from verify_weapon_flight_archive import world_helpers
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--archive', required=True, type=Path, help='功能术正式存读准备阶段目录')
-    parser.add_argument('--section', choices=('eligibility', 'work', 'all'), default='all')
+    parser.add_argument('--section', choices=('eligibility', 'work', 'capture', 'all'), default='all')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         parser.error('请通过独立游戏的 dev.py exec 运行')

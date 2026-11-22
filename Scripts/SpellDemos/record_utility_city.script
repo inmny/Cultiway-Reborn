@@ -1,0 +1,94 @@
+// 同一份实际执行中存档，在另一进程由原城市继续工作并正常验收。
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check(process != (int)saved["process"] && view == viewRequested, "读回使用不同进程和指定的真实视角");
+long cityId = (long)saved["city"], sourceId = (long)saved["actor"], projectId = (long)saved["project"];
+var caster = World.world.units.get(sourceId);
+Check(caster?.city?.id == cityId, "保存的城市与施法人物仍保持实际归属");
+bool foundOld = CollectiveProjectService.TryGetProject(projectId, out var restored);
+Check(!foundOld || restored.State is not (CollectiveProjectState.Executing or CollectiveProjectState.Completed),
+    "在途工作没有续演，读档时的污染变化不会直接判成完成", foundOld ? restored.State.ToString() : "released");
+var unresolved = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Any(value => ((AbilityCast)Field(value, "Cast")).Plan.Id == SkillEntities.CleanLandField.id);
+Check(!unresolved, "读取后没有重新创建旧净土执行体");
+
+var captureType = service.Assembly.GetType("Cultiway.Content.Persistence.CollectiveProjectSaveContent");
+JObject Pack(object value) => (JObject)captureType.GetMethod("Capture", F).Invoke(null, new[] { value });
+JObject Projects() => JObject.FromObject(typeof(CollectiveProjectService).GetMethod("CaptureWorldSave", F)
+    .Invoke(null, new object[] { (Func<object, JObject>)Pack }));
+int Completions() => Projects()["History"].Count(h => (long)h["OwnerId"] == cityId &&
+    (string)h["Tag"] is "clean.emergency" or "clean.routine");
+int historyBefore = Completions();
+Check(historyBefore == (int)saved["historyAtSave"], "恢复时没有添加无实际净化的完成历史");
+int targetTile = (int)saved["targetTile"];
+WorldTile target = World.world.GetTileSimple(targetTile % MapBox.width, targetTile / MapBox.width);
+var centre = (Vector2)target.posV3 + new Vector2(.5f, .5f);
+var frames = new List<object>();
+var events = new List<object>();
+var starts = new List<ConstructedCastStarted>();
+var finish = new List<ConstructedCastEnded>();
+int changed = 0;
+double Now() => World.world.getCurWorldTime();
+void RecordEvent(string name) => events.Add(new { name, time = Now(), changes = changed });
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId != SkillEntities.CleanLandField.id || fact.SourceId != sourceId ||
+        fact.Origin != ActiveAbilityUseOrigin.Autonomous || fact.CorrelationId <= 0) return;
+    starts.Add(fact);
+    RecordEvent("自主重新认领并施放");
+}
+void WorldHit(ConstructedWorldContact fact)
+{
+    if (!fact.Result.Changed || fact.Action != "land.cleanse" ||
+        !starts.Any(start => start.CastId == fact.CastId)) return;
+    if (++changed == 1) RecordEvent("地块实际净化");
+}
+void FinishedRestoredCast(ConstructedCastEnded fact)
+{
+    if (!starts.Any(start => start.CastId == fact.CastId)) return;
+    finish.Add(fact);
+    RecordEvent("实际领域结束");
+}
+
+bool buildWasEnabled = DebugConfig.isOn(DebugOption.SystemBuildTick);
+DebugConfig.setOption(DebugOption.SystemBuildTick, false);
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.WorldContactConfirmed += WorldHit;
+ConstructedAbilityService.CastEnded += FinishedRestoredCast;
+try
+{
+    RecordEvent("正式恢复在途任务");
+    await OpenView(caster, centre, 6.8f);
+    double begin = Now(), completedAt = -1d;
+    float frameInterval = worldfall == null ? .12f : .08f;
+    while (Now() - begin < 22d)
+    {
+        if (completedAt < 0d && Completions() > historyBefore)
+        {
+            completedAt = Now();
+            RecordEvent("城市核验实际收益");
+        }
+        string stage = completedAt >= 0d ? "城市验收完成" :
+            changed > 0 ? "地块已开始净化" : starts.Count > 0 ? "重新施展净土" : "恢复工程，保留实际污染";
+        await WaitForView();
+        ReadFrame(frames.Count, centre, 11f);
+        frames.Add(new { frame = frames.Count, time = Now(), stage });
+        if (completedAt >= 0d && Now() - completedAt >= 1.1d) break;
+        await Advance(frameInterval);
+    }
+    Check(changed > 0 && starts.Count > 0 && finish.Any(fact => !fact.Cancelled) && completedAt > begin,
+        "仍存在的城市需求由实际自然工作继续处理并验收",
+        new { changed, starts = starts.Count, finished = finish.Count, completedAt });
+    Check(frames.Count >= 24, "提供原样推进的连续实机帧");
+    return new { passed = true, process, view, project = projectId, changed, frames = frames.Count, completedAt, checks };
+}
+finally
+{
+    Config.paused = true;
+    DebugConfig.setOption(DebugOption.SystemBuildTick, buildWasEnabled);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.WorldContactConfirmed -= WorldHit;
+    ConstructedAbilityService.CastEnded -= FinishedRestoredCast;
+    CloseView();
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(new { sourceId, cityId, projectId }));
+    File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { view, frames, events }, Formatting.Indented));
+}

@@ -40,6 +40,7 @@ internal static class CollectiveProjectSaveContent
             BaselineUsefulTileIds = value.BaselineUsefulTileIds,
             BaselineMetric = value.BaselineMetric,
             HasExecutionBaseline = value.HasExecutionBaseline,
+            ConfirmedWorldChange = value.ConfirmedWorldChange,
         }, JsonSerializer.Create(StableSaveJson.Settings));
     }
 
@@ -74,6 +75,7 @@ internal static class CollectiveProjectSaveContent
             BaselineUsefulTileIds = value.BaselineUsefulTileIds,
             BaselineMetric = value.BaselineMetric,
             HasExecutionBaseline = value.HasExecutionBaseline,
+            ConfirmedWorldChange = value.ConfirmedWorldChange,
         };
     }
 
@@ -120,5 +122,9 @@ internal static class CollectiveProjectSaveContent
 
         /// <summary>目标的 HasExecutionBaseline。</summary>
         public bool HasExecutionBaseline;
+
+        /// <summary>进入共同执行的项目已实际改变任务地块，没有该字段的旧档沿用原验收规则。</summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public bool? ConfirmedWorldChange;
     }
 }

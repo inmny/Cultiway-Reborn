@@ -57,9 +57,11 @@ for (int y = 68; y <= 80; y++)
 }
 void Pollute()
 {
+    int nearby = section == "capture" ? 2 : 0;
     for (int x = 63; x <= 71; x++)
+    for (int y = row - nearby; y <= row + nearby; y++)
     {
-        WorldTile tile = World.world.GetTileSimple(x, row);
+        WorldTile tile = World.world.GetTileSimple(x, y);
         tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.wasteland_low);
         tile.setBurnedStage(15);
         World.world.burned_layer.setTileDirty(tile);
@@ -72,6 +74,8 @@ JObject Pack(object value) => (JObject)captureType.GetMethod("Capture", F).Invok
 JObject Projects() => JObject.FromObject(typeof(CollectiveProjectService).GetMethod("CaptureWorldSave", F)
     .Invoke(null, new object[] { (Func<object, JObject>)Pack }));
 int Completions() => Projects()["History"].Count(h => (long)h["OwnerId"] == city.id && (string)h["Tag"] == "clean.emergency");
+int CleaningHistory() => Projects()["History"].Count(h => (long)h["OwnerId"] == city.id &&
+    (string)h["Tag"] is "clean.emergency" or "clean.routine");
 var starts = new List<ConstructedCastStarted>();
 var worldHits = new List<ConstructedWorldContact>();
 var ends = new List<(ConstructedCastEnded Event, string State)>();
@@ -125,9 +129,16 @@ try
     long originalProject = projectIds[initial];
     Check(CollectiveProjectService.TryGetProject(originalProject, out var working) &&
         working.State == CollectiveProjectState.Executing, "保存时真实城市项目仍在执行");
+    Check(worldHits.Count == 0 && Pack(working.Payload)["ConfirmedWorldChange"]?.Value<bool>() == false,
+        "正式存档记录尚未产生任何实际净化");
+    int historyAtSave = CleaningHistory();
     string archive = Path.Combine(folder, "work-save");
     SaveManager.saveWorldToDirectory(archive);
     Check(File.Exists(Path.Combine(archive, "map.wbox")), "保存进行中的真实城市需求");
+    if (section == "capture")
+        return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = sourceId,
+            city = city.id, archive, project = originalProject, formerCorrelation = initial, historyAtSave,
+            targetTile = working.TargetTileId, checks };
     await Until(() => Completions() > history, 18);
     var completed = ends.Where(end => end.Event.CorrelationId == initial).ToArray();
     var hits = worldHits.Where(hit => starts.Any(start => start.CastId == hit.CastId && start.CorrelationId == initial)).ToArray();
@@ -158,7 +169,7 @@ try
 
     return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = sourceId,
         city = city.id, archive, project = originalProject, formerCorrelation = initial,
-        states = completed.Select(end => end.State).ToArray(), checks };
+        targetTile = working.TargetTileId, historyAtSave, states = completed.Select(end => end.State).ToArray(), checks };
 }
 finally
 {

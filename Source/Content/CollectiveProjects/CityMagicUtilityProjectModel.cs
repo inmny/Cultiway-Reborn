@@ -80,6 +80,9 @@ internal sealed class CityMagicUtilityProjectPayload
 
     /// <summary>只有实际提交施法前成功冻结基线后才允许验收。</summary>
     public bool HasExecutionBaseline;
+
+    /// <summary>共同执行实际改变过任务地块。旧记录缺省移交原验收规则。</summary>
+    public bool? ConfirmedWorldChange;
 }
 
 /// <summary>永久地形候选在模拟一步变化后的新增与损失统计。</summary>
@@ -151,7 +154,8 @@ internal static partial class CityMagicUtilityProjectRules
     public static bool Verify(CollectiveProjectView project)
     {
         if (!TryResolveProject(project, out _, out _, out CityMagicUtilityProjectPayload payload) ||
-            !payload.HasExecutionBaseline || payload.ExecutionFootprintTileIds.Length == 0) return false;
+            !payload.HasExecutionBaseline || payload.ExecutionFootprintTileIds.Length == 0 ||
+            payload.ConfirmedWorldChange == false) return false;
 
         switch (payload.Goal)
         {
