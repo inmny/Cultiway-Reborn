@@ -1,0 +1,61 @@
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "expected.json")));
+long sourceId = expected.Value<long>("owner");
+var restored = (IList)service.GetField("restoredFireConditions", F).GetValue(null);
+var all = (IList)service.GetField("worldFireConditions", F).GetValue(null);
+var regions = (IDictionary)service.GetField("regionalFireConditions", F).GetValue(null);
+string other = Path.Combine(folder, "other");
+
+async Task Load(string path)
+{
+    World.world.save_manager.loadWorld(path);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+bool TryIgnite()
+{
+    var tile = World.world.GetTileSimple(106, 76);
+    tile.stopFire();
+    tile.heat = 0;
+    tile.burned_stages = 0;
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    tile.Height = 140;
+    bool ignited = tile.startFire(pForce: true) && tile.isOnFire();
+    tile.stopFire();
+    return ignited;
+}
+
+void CheckOriginal()
+{
+    Actor original = World.world.units.get(sourceId);
+    Check(original.isAlive() && restored.Count == 2 && all.Count == 1 &&
+        restored.Cast<object>().All(condition => ReferenceEquals(Field(condition, "source"), original)) &&
+        !TryIgnite(), "原档只恢复两份条件，维持者必须是本次读入的真实人物");
+}
+
+void CheckOther()
+{
+    Actor actor = World.world.units.get(sourceId);
+    Check(actor?.isAlive() == true && restored.Count == 0 && all.Count == 0 && regions.Count == 0 && TryIgnite() &&
+        ConstructionEditing.Access.List(actor.GetExtend()).Any(entry => entry.Id == "test.body-footwork.martial-road-proof") &&
+        ConstructionEditing.Access.List().All(entry => entry.Id != expected.Value<string>("global")),
+        "另一份世界的同号人物保有自己的招式，旧条件和目录未越界，实际地块可点火");
+}
+
+CheckOriginal();
+await Load(other);
+CheckOther();
+SaveManager.saveWorldToDirectory(Path.Combine(folder, "other-saved"));
+
+await Load(fixture);
+CheckOriginal();
+World.world.units.get(sourceId).dieAndDestroy(AttackType.None);
+Check(TryIgnite(), "真实维持者被销毁后，实际地块立即可点火");
+await Advance(.1f);
+Check(restored.Count == 0 && all.Count == 0 && regions.Count == 0, "死亡来源的登记已清除");
+SaveManager.saveWorldToDirectory(Path.Combine(folder, "source-ended"));
+
+await Load(other);
+CheckOther();
+return new { passed = true, scenario, process = System.Diagnostics.Process.GetCurrentProcess().Id };
