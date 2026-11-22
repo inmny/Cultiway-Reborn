@@ -803,16 +803,21 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         output.Clear();
         running.Cast.AppendContacts(output, includeEnd, includeMaterials: includeReactiveMaterials);
-        if (!running.Practice && running.BodyControlled && running.Cast.BodyShapeContactEnabled(includeEnd))
+        if (!running.Practice && running.BodyControlled)
+            CollectBodyContacts(running.Body, running.Cast, output, includeEnd);
+    }
+
+    /// <summary>实际施放和城市工作预估复用同一个身体作用面。</summary>
+    private static void CollectBodyContacts(BodyActionBinding body, AbilityCast cast, List<AbilityCapsule> output, bool includeEnd)
+    {
+        if (!cast.BodyShapeContactEnabled(includeEnd)) return;
+        int first = output.Count;
+        body.AppendContactShapes(cast.BodyPose.Value, output, includeEnd);
+        for (int i = first; i < output.Count; i++)
         {
-            int first = output.Count;
-            running.Body.AppendContactShapes(running.Cast.BodyPose.Value, output, includeEnd);
-            for (int i = first; i < output.Count; i++)
-            {
-                AbilityCapsule shape = output[i];
-                output[i] = new AbilityCapsule(shape.Node, shape.A, shape.B, shape.Radius, shape.Matter, shape.Shape,
-                    running.Cast.BodyContactRevision, shape.Material, shape.HalfExtents, shape.Until, shape.Prism, shape.SweepPose);
-            }
+            AbilityCapsule shape = output[i];
+            output[i] = new AbilityCapsule(shape.Node, shape.A, shape.B, shape.Radius, shape.Matter, shape.Shape,
+                cast.BodyContactRevision, shape.Material, shape.HalfExtents, shape.Until, shape.Prism, shape.SweepPose);
         }
     }
 

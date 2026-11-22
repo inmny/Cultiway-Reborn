@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Core.CollectiveProjects;
 using Cultiway.Core.Semantics;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Effects;
 using UnityEngine;
 using static Cultiway.Content.CollectiveProjects.CityMagicUtilityProjectPlannerSearch;
@@ -286,17 +287,32 @@ internal sealed partial class CityRoutineMagicProjectPlanner : ICollectiveProjec
             {
                 MagicUtilitySpellOption option = options[(optionStart + optionIndex) % options.Count];
                 var centerIds = new HashSet<int>();
-                using var nearby = new ListPool<WorldTile>();
-                for (int tileIndex = 0; tileIndex < scope.Count; tileIndex++)
+                if (option.Construction?.Body != null)
                 {
-                    WorldTile tile = scope[tileIndex];
-                    if (!CityMagicUtilityProjectRules.WouldTerrainSemanticImprove(tile, semantic, goal)) continue;
-                    nearby.Clear();
-                    SkillEffectResolver.CollectAreaTiles(tile.posV3, option.Radius, nearby);
-                    for (int nearbyIndex = 0; nearbyIndex < nearby.Count; nearbyIndex++)
+                    // 站定落锤的瞄点只决定方向，完工收益由实际锤面所在的地块决定。
+                    Vector2 origin = option.Caster.Base.current_position;
+                    float range = ActiveAbilityService.ResolveRange(option.Caster, option.Ability);
+                    for (int tileIndex = 0; tileIndex < scope.Count; tileIndex++)
                     {
-                        WorldTile center = nearby[nearbyIndex];
-                        if (allowed.Contains(center.tile_id)) centerIds.Add(center.tile_id);
+                        WorldTile tile = scope[tileIndex];
+                        if (((Vector2)option.TargetPoint(tile) - origin).sqrMagnitude <= range * range)
+                            centerIds.Add(tile.tile_id);
+                    }
+                }
+                else
+                {
+                    using var nearby = new ListPool<WorldTile>();
+                    for (int tileIndex = 0; tileIndex < scope.Count; tileIndex++)
+                    {
+                        WorldTile tile = scope[tileIndex];
+                        if (!CityMagicUtilityProjectRules.WouldTerrainSemanticImprove(tile, semantic, goal)) continue;
+                        nearby.Clear();
+                        SkillEffectResolver.CollectAreaTiles(tile.posV3, option.Radius, nearby);
+                        for (int nearbyIndex = 0; nearbyIndex < nearby.Count; nearbyIndex++)
+                        {
+                            WorldTile center = nearby[nearbyIndex];
+                            if (allowed.Contains(center.tile_id)) centerIds.Add(center.tile_id);
+                        }
                     }
                 }
 

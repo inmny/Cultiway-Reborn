@@ -34,10 +34,20 @@ public sealed partial class ConstructedAbilityService
             definition.Power != 0 || !ActiveAbilityService.CanPrepare(caster, ability, null)) return false;
         plan = PlanFor(ability.EntryId);
         cost = definition.Cost;
-        return plan.Body == null && plan.HasWorldEffects && !plan.HasWorldMaterials &&
+        return ProjectBodySupported(plan) && plan.HasWorldEffects && !plan.HasWorldMaterials &&
                !plan.HasBarrier && !plan.HasRecovery && plan.ContactControl == 0 &&
                (plan.Use.Channels & ActiveAbilityChannel.World) != 0 &&
                plan.Use.Target is ActiveAbilityTargetMode.Point or ActiveAbilityTargetMode.ObjectOrPoint;
+    }
+
+    /// <summary>允许站定使用实际器具的工作动作，避免用预估替代对手或位移条件。</summary>
+    private static bool ProjectBodySupported(CompiledAbility plan)
+    {
+        if (plan.Body is not { } body) return true;
+        return body.Part.IsArm && body.WeaponForm != null && !body.WeaponGround && !body.WeaponObstacle &&
+               !body.Construction.HasControlRelations && body.Construction.FootworkTravel <= .00001f &&
+               !plan.UsesHeldWeapon && !plan.HasPropagation && plan.WorldCondition == null &&
+               plan.ActorImpacts.All(impact => !impact.HasActorEffect);
     }
 
     /// <summary>按完整施放预估世界足迹；超过明确工作量时拒绝使用不完整结果。</summary>
@@ -56,13 +66,33 @@ public sealed partial class ConstructedAbilityService
         Vector3 forward = point - source;
         forward.z = 0;
         forward = forward.sqrMagnitude > 1e-8f ? forward.normalized : Vector3.right;
-        var input = new AbilityInputs(source, point, forward, SpatialActorPose.Height(caster.Base));
+        float height = SpatialActorPose.Height(caster.Base);
+        BodyActionBinding body = null;
+        BodyLocomotion movement = null;
+        BodyFrame? frame = null;
+        if (plan.Body is { } bodyAction)
+        {
+            if (!ProjectBodySupported(plan)) return false;
+            body = BodyActionBinding.TryCreate(caster.Base, bodyAction, forward, point, 0f);
+            if (body == null) return false;
+            frame = body.Frame(source, height);
+            if (!body.CanStart(frame.Value)) return false;
+            if (bodyAction.ControlsStance)
+            {
+                movement = new BodyLocomotion(caster.Base, bodyAction, frame.Value, ground, body.Joint);
+                if (!movement.CanStart(ground)) return false;
+                var pose = movement.Sample(0f, height, ground);
+                frame = body.Frame(pose.Root, height, pose.Support);
+            }
+        }
+
+        var input = new AbilityInputs(source, point, forward, height);
         var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one),
-            inputs: input, terrain: ground, force: 0);
+            frame, input, terrain: ground, force: 0);
         var authority = new CastAuthority(caster.Base, default, null);
         var running = new RunningCast
         {
-            Cast = cast, InitialOwner = authority, Source = caster.Base, SourceId = caster.Base.id,
+            Cast = cast, Body = body, InitialOwner = authority, Source = caster.Base, SourceId = caster.Base.id,
             Owners = Enumerable.Repeat(authority, plan.FormCount).ToArray(),
             WorldHits = new(), WorldTotals = new()
         };
@@ -77,11 +107,11 @@ public sealed partial class ConstructedAbilityService
             if (step <= 0) return false;
             cast.SaveStep();
             running.Before.Clear();
-            cast.AppendContacts(running.Before);
+            CollectPreview(running.Before, false);
             context.RefreshWorldReentry(running);
-            cast.Advance(step, point);
+            AdvancePreview(step);
             running.After.Clear();
-            cast.AppendContacts(running.After, includeEnd: true);
+            CollectPreview(running.After, true);
             context.shapes.Clear();
             context.previousShapes.Clear();
             foreach (AbilityCapsule shape in running.Before)
@@ -105,10 +135,16 @@ public sealed partial class ConstructedAbilityService
             if (hit.Fraction < 1)
             {
                 cast.RestoreStep();
-                cast.Advance(step * hit.Fraction, point);
+                AdvancePreview(step * hit.Fraction);
             }
 
             int node = hit.Left.To.Node;
+            if (hit.WorldEffect < 0)
+            {
+                cast.ConfirmWorldContact(node, hit.Left.To.Shape, hit.Point);
+                continue;
+            }
+
             RecordWorldAttempt(running, node, hit.WorldEffect, hit.Tile);
             var rule = cast.Impact(node).WorldEffects[hit.WorldEffect];
             cast.UseWorldMaterial(node, hit.Left.To.Shape, rule.MaterialVolume, hit.Point, out _);
@@ -124,5 +160,23 @@ public sealed partial class ConstructedAbilityService
 
         preview = result;
         return true;
+
+        void CollectPreview(List<AbilityCapsule> output, bool includeEnd)
+        {
+            cast.AppendContacts(output, includeEnd);
+            if (body != null) CollectBodyContacts(body, cast, output, includeEnd);
+        }
+
+        void AdvancePreview(float step)
+        {
+            if (movement == null)
+            {
+                cast.Advance(step, point);
+                return;
+            }
+            var pose = movement.Sample(cast.Age + step, height, ground);
+            var sample = new AbilityInputs(pose.Root, point, forward, height);
+            new AbilityStep(cast, sample, body.Frame(pose.Root, height, pose.Support), point, step).Execute();
+        }
     }
 }

@@ -1,0 +1,206 @@
+// 11.23：同城原工人只用真实铁锤，使原版任务按地块事实完成。
+var worker = World.world.units.get(sourceId);
+var owner = worker.GetExtend();
+var city = worker.city;
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+const string basisId = "Cultiway.Body.RoadForge";
+const string terrainAction = "terrain.raise";
+Check(city != null && city.isAlive() && worker.isAdult() && !worker.isWarrior(), "原城市与原成年工人可用");
+var historyType = service.Assembly.GetType("Cultiway.Content.Persistence.CollectiveProjectSaveContent", true);
+var capture = typeof(CollectiveProjectService).GetMethod("CaptureWorldSave", F);
+JObject Pack(object record) => (JObject)historyType.GetMethod("Capture", F).Invoke(null, new[] { record });
+JObject Projects() => JObject.FromObject(capture.Invoke(null, new object[] { (Func<object, JObject>)Pack }));
+int WorkHistory() => Projects()["History"].Count(v => v.Value<long>("OwnerId") == city.id && v.Value<string>("Tag") == terrainAction);
+WorldTile ResolveTile(int id) => World.world.GetTileSimple(id % MapBox.width, id / MapBox.width);
+var foot = new Vector2(64.45f, 72.5f);
+var obstruction = World.world.GetTileSimple(65, 74);
+var stopFlight = service.Assembly.GetType("Cultiway.Content.Patch.PatchAboutFly", true)
+    .GetMethod("StopCultiwayFlight", F);
+
+void GroundAt(float x, float y)
+{
+    stopFlight.Invoke(null, new object[] { worker, true });
+    worker.cancelAllBeh();
+    worker.clearAttackTarget();
+    Place(worker, x, y);
+}
+
+async Task<bool> AttemptWalk(WorldTile destination)
+{
+    GroundAt(destination.x - .38f, destination.y + .5f);
+    var stride = Moving("martial-road-proof", Vector3.right, walk: true);
+    stride.Body.Effector = "hand.left";
+    stride.Body.Construction.Parts[0].Id = stride.Body.Construction.Parts[0].Part = "hand.left";
+    stride.Body.Construction.Relations[0].From = "hand.left";
+    stride.Cooldown = .1f;
+    var step = new ActiveAbilityHandle("content.constructed", owner.E, stride.Id);
+    if (!ConstructedAbilityService.Knows(owner, stride.Id))
+    {
+        ConstructedAbilityService.Register(stride);
+        ConstructedAbilityService.Learn(owner, stride.Id);
+    }
+    worker.updateRotation();
+    worker.attack_timer = 0f;
+    Check(ActiveAbilityService.TryUse(owner, step,
+        new ActiveAbilityTarget(null, new Vector3(destination.x + 1.75f, destination.y + .5f, 0)),
+        ActiveAbilityUseOrigin.Script), "同一接地步法实际受理");
+    await Advance(1.8f);
+    Check(!BodyControlState.IsBusy(sourceId), "接地步法结束后归还实际控制",
+        new { worker.current_position.x, worker.current_position.y });
+    return worker.current_tile == destination;
+}
+
+if (section == "cold")
+{
+    var saved = JObject.Parse(File.ReadAllText(Path.Combine(original, "expected.json")));
+    var savedWeapon = worker.getWeapon();
+    Check(process != saved.Value<int>("process") && savedWeapon?.data?.id == saved.Value<long>("hammer") &&
+        savedWeapon.getAsset().id == "hammer_iron", "新进程接回同一原工人与实际铁锤");
+    string learned = saved.Value<string>("ability");
+    Check(ConstructedAbilityService.Knows(owner, learned) &&
+        ConstructionEditing.Access.Read(learned).Body.WeaponForm == "warhammer", "实际筑路动作与原学习关系保存");
+    Check(saved["changed"].All(entry => ResolveTile(entry.Value<int>("tile")).main_type.id == entry.Value<string>("type")) &&
+        WorkHistory() == saved.Value<int>("history") && !BodyControlState.IsBusy(sourceId),
+        "原地块与完工历史保持，旧动作没有重播");
+    Check(await AttemptWalk(obstruction), "同一地块读档后仍可通行");
+    Check(WorkHistory() == saved.Value<int>("history"), "完成过的世界操作和工程历史没有重放");
+    return new { passed = true, process, actor = sourceId, city = city.id, ability = learned };
+}
+
+var skill = ConstructionEditing.Access.Read(basisId);
+var access = ConstructionEditing.Access;
+var originalSkills = (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+foreach (Entity originalSkill in originalSkills.ToArray()) SkillOwnershipService.Forget(owner, originalSkill);
+var edited = new ConstructionEditSession(skill);
+var definition = access.Apply(owner, edited, false);
+owner.AddComponent(new ConstructedKnowledge { Ids = new[] { definition.Id } });
+var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+if (worker.hasWeapon()) worker.equipment.weapon.takeAwayItem();
+worker.setStatsDirty();
+worker.updateStats();
+worker.data.stamina = 100;
+GroundAt(foot.x, foot.y);
+var target = new ActiveAbilityTarget(null, new Vector3(65.5f, 72.5f, 0));
+Check(!ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Player) &&
+    Mathf.Abs(worker.data.stamina - 100f) < .001f && !BodyControlState.IsBusy(sourceId),
+    "缺原铁锤时直接拒绝受理，体力和身体控制保持");
+var hammer = World.world.items.generateItem(AssetManager.items.get("hammer_iron"), pActor: worker);
+worker.equipment.setItem(hammer, worker);
+worker.setStatsDirty();
+worker.updateStats();
+Check(ReferenceEquals(worker.getWeapon(), hammer), "原正常装备入口装上实际铁锤");
+
+bool originalBuild = DebugConfig.isOn(DebugOption.SystemBuildTick);
+DebugConfig.setOption(DebugOption.SystemBuildTick, false);
+var starts = new List<ConstructedCastStarted>();
+var ends = new List<ConstructedCastEnded>();
+var changes = new List<ConstructedWorldContact>();
+float paidBalance = -1f;
+bool actualHammer = false;
+int history = WorkHistory();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != sourceId || fact.AbilityId != definition.Id || fact.CorrelationId <= 0 ||
+        fact.Origin != ActiveAbilityUseOrigin.Autonomous) return;
+    starts.Add(fact);
+    paidBalance = worker.data.stamina;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == fact.CastId);
+    actualHammer = ReferenceEquals(Field(Field(running, "Body"), "Weapon"), hammer);
+}
+void Contact(ConstructedWorldContact fact)
+{
+    if (starts.Any(f => f.CastId == fact.CastId)) changes.Add(fact);
+}
+void End(ConstructedCastEnded fact)
+{
+    if (starts.Any(f => f.CastId == fact.CastId)) ends.Add(fact);
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.WorldContactConfirmed += Contact;
+ConstructedAbilityService.CastEnded += End;
+try
+{
+    var prepared = new HashSet<int>();
+    for (int x = 65; x <= 69; x++)
+    for (int y = 69; y <= 76; y++)
+    {
+        WorldTile shallows = World.world.GetTileSimple(x, y);
+        if (shallows.hasBuilding() || shallows.zone.city != city) continue;
+        shallows.setTileTypes(TileLibrary.shallow_waters, null);
+        shallows.Height = TileLibrary.shallow_waters.height_min;
+        prepared.Add(shallows.tile_id);
+    }
+    World.world.GetTileSimple(64, 72).setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    var bank = World.world.GetTileSimple(obstruction.x - 1, obstruction.y);
+    bank.setTileTypes(TileLibrary.sand, null);
+    bank.Height = TileLibrary.sand.height_min;
+    Check(prepared.Contains(obstruction.tile_id) && !await AttemptWalk(obstruction) && obstruction.Type.ocean,
+        "同一名工人在筑路前未能迈进实际水隙");
+    GroundAt(foot.x, foot.y);
+    worker.data.stamina = 100;
+
+    var preview = service.GetMethod("TryPreviewWorld", F);
+    object[] request = { owner, AbilityCompiler.Compile(definition), target.Position, null };
+    bool predicted = (bool)preview.Invoke(null, request);
+    var tiles = predicted ? (IDictionary)Field(request[3], "Tiles") : null;
+    int[] ids = tiles?.Contains(terrainAction) == true ? ((IEnumerable)tiles[terrainAction]).Cast<int>().ToArray() : Array.Empty<int>();
+    Check(ids.Count(id => prepared.Contains(id) && id != obstruction.tile_id) >= 6 &&
+        ids.Contains(obstruction.tile_id) && obstruction.Type.ocean,
+        "用实际锤面预估能够筑通水隙及新增可用地，没有提前改地", ids);
+
+    // 在工人脚下仍是合法站位时，走正式规划器的一轮，不等待随机闲逛。
+    var projectService = typeof(CollectiveProjectService);
+    const string plannerId = "cultiway.city_magic.routine_planner";
+    var planners = (IDictionary)projectService.GetField("Planners", F).GetValue(null);
+    object runtime = planners[plannerId];
+    var planner = (ICollectiveProjectPlanner)runtime.GetType().GetProperty("Planner", F).GetValue(runtime);
+    var adapters = (IDictionary)projectService.GetField("OwnerAdapters", F).GetValue(null);
+    var ownerKey = new CollectiveProjectOwnerKey(planner.OwnerProviderId, city.id);
+    var context = new CollectiveProjectOwnerContext(ownerKey, city, (ICollectiveProjectOwnerAdapter)adapters[planner.OwnerProviderId]);
+    var proposals = new List<CollectiveProjectProposal>();
+    for (int i = 0; i < 4 && proposals.Count == 0; i++) planner.CollectProposals(in context, proposals);
+    Check(proposals.Any(proposal => proposal.HistoryTag == terrainAction &&
+        proposal.DefinitionId is "cultiway.city_magic.housing_terrain" or "cultiway.city_magic.farm_terrain"),
+        "原城市用地压力产出正式筑路计划",
+        proposals.Select(proposal => new { proposal.DefinitionId, proposal.HistoryTag, proposal.TargetTileId }).ToArray());
+    var clock = service.Assembly.GetType("Cultiway.Core.Performance.SimulationTime", true);
+    double now = (double)clock.GetProperty("Now", F).GetValue(null);
+    projectService.GetMethod("Reconcile", F).Invoke(null, new object[] { plannerId, ownerKey, proposals, now });
+    Check(CollectiveProjectService.TryAssignRoutineJob(owner, out string job) && job == ActorJobs.CollectiveProject.id,
+        "原城市工作规划找到可以自然筑路的工程", Projects());
+    worker.ai.setJob(job);
+    worker.setTask(ActorTasks.ExecuteCollectiveProject.id, pCleanJob: false, pForceAction: true);
+    for (int i = 0; i < 20 && WorkHistory() == history; i++) await Advance(.5f);
+    Check(starts.Count == 1 && actualHammer && Mathf.Abs(paidBalance - (100f - definition.Cost)) < .005f,
+        "原工程自然选术并只支付一次，借用的是原铁锤", new { starts, actualHammer, paidBalance });
+    var ground = changes.FirstOrDefault(value => value.TriggerOnly && value.Node < 0);
+    var committed = changes.Where(c => c.Action == terrainAction && c.Result.Changed).ToArray();
+    Check(ground.TriggerOnly && committed.Length >= 6 && committed.All(hit => hit.Age >= ground.Age) &&
+        committed.Any(hit => hit.X == obstruction.x && hit.Y == obstruction.y) && obstruction.Type == TileLibrary.sand,
+        "真实锤落后才改变原水隙及周边地块", new { ground, committed });
+    Check(ends.Count == 1 && !ends[0].Cancelled && WorkHistory() == history + 1 &&
+        !BodyControlState.IsBusy(sourceId) && ReferenceEquals(worker.getWeapon(), hammer),
+        "原世界收益通过工程验收，收势归还身体和原铁锤");
+    Check(await AttemptWalk(obstruction), "同一工人实际迈进刚才的水隙",
+        new { worker.current_position.x, worker.current_position.y });
+
+    var changed = committed.Select(hit => World.world.GetTileSimple(hit.X, hit.Y)).Distinct()
+        .Select(tile => new { tile = tile.tile_id, type = tile.main_type.id }).ToArray();
+    var expected = new { process, actor = sourceId, ability = definition.Id, hammer = hammer.data.id, history = WorkHistory(), changed };
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "archive"));
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(expected, Formatting.Indented));
+    return new { passed = true, process, actor = sourceId, city = city.id, changed, expected.hammer };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.WorldContactConfirmed -= Contact;
+    ConstructedAbilityService.CastEnded -= End;
+    DebugConfig.setOption(DebugOption.SystemBuildTick, originalBuild);
+    Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "work.json"), JsonConvert.SerializeObject(new
+    {
+        starts, ends, effects = changes, paidBalance, actualHammer, projects = Projects()
+    }, Formatting.Indented));
+}

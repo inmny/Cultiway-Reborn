@@ -3171,3 +3171,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 世界防火的正式存读与停止（11.22）
 
 在独立原版游戏运行 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_world_condition_archive.py --section prepare`。正式写档后退出并重新启动，改用 `--section cold --archive <准备阶段输出目录>`。复验实际点火、区域及全图剩余时长、已付费用，以及原施术者失效。见[长期世界结果的归属](../../Doc/技能系统全面重构/长期世界结果的归属.md)。
+
+### 战技筑路（11.23）
+
+在独立原版游戏运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_martial_work.py --section work --archive <11.03 功能术准备目录>`。复用原城工人，检查铁锤、原住房规划和实际浅水通行。保存后退出并重启，改用 `--section cold --archive <筑路阶段输出目录>`，核对原铁锤、地面、工程和已学构造。见[战技的地形工作](../../Doc/技能系统全面重构/战技的地形工作.md)。

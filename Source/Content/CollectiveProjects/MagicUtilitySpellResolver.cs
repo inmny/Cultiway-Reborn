@@ -53,19 +53,20 @@ internal readonly struct MagicUtilitySpellOption
     /// <summary>只使用实际能力与持有者作为不同候选，不用人物实体冒充法术编号。</summary>
     internal string Key => Ability.ProviderId + ":" + (Construction == null ? Skill.Id.ToString() : Ability.EntryId);
 
-    /// <summary>旧法术使用格点原点，新构造明确采用地块中心和离地高度。</summary>
+    /// <summary>身体工作在原地图地块中心测方向，其他已接入能力沿用其原瞄点约定。</summary>
     /// <param name="tile">实际落点。</param>
     internal Vector3 TargetPoint(WorldTile tile) =>
-        tile.posV3 + (Construction == null ? Vector3.zero : new Vector3(.5f, .5f, 0));
+        Construction is { Body: null } ? tile.posV3 + new Vector3(.5f, .5f, 0) : tile.posV3;
 
     /// <summary>固定一次落点预估，其他候选不会改写已经选中的足迹。</summary>
     /// <param name="preview">完整数值结果。</param><param name="target">实际落点。</param>
     internal MagicUtilitySpellOption WithPreview(ConstructedWorldPreview preview, WorldTile target)
     {
         Vector3 center = TargetPoint(target);
+        MagicUtilitySpellOption option = this;
         float radius = preview.AllTiles.Select(id => Vector2.Distance(
-            CityMagicUtilityProjectPlannerSearch.ResolveTile(id).posV3 +
-            new Vector3(.5f, .5f, 0), center)).DefaultIfEmpty(0).Max() + .71f;
+            option.TargetPoint(CityMagicUtilityProjectPlannerSearch.ResolveTile(id)), center))
+            .DefaultIfEmpty(0).Max() + .71f;
         return new MagicUtilitySpellOption(Caster, Ability, radius, Demand, Construction, preview, Action);
     }
 
@@ -182,8 +183,11 @@ internal static class MagicUtilitySpellResolver
         if (target == null || payload == null) return 0f;
         if (option.Construction != null)
         {
+            Vector3 point = option.TargetPoint(target);
+            if (option.Construction.Body != null &&
+                !ActiveAbilityService.CanUse(option.Caster, option.Ability, new ActiveAbilityTarget(null, point))) return 0f;
             if (!ConstructedAbilityService.TryPreviewWorld(option.Caster, option.Construction,
-                    option.TargetPoint(target), out var preview)) return 0f;
+                    point, out var preview)) return 0f;
             option = option.WithPreview(preview, target);
             return CityMagicUtilityProjectRules.EvaluateConstructed(option, payload, allowed, futureFarmTiles);
         }
