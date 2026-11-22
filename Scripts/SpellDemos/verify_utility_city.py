@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--archive', required=True, type=Path, help='功能术正式存读准备阶段目录')
     city_work = ('growth', 'fertilize', 'terrain')
-    parser.add_argument('--section', choices=('eligibility', 'work', 'capture', 'all', *city_work), default='all')
+    parser.add_argument('--section', choices=('eligibility', 'work', 'capture', 'all', *city_work, 'ecology'), default='all')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         parser.error('请通过独立游戏的 dev.py exec 运行')
@@ -39,8 +39,10 @@ def main():
                'using Cultiway.Core.SkillLibV3.Components;\nusing Cultiway.Core.SkillLibV3.Utils;\n'
                'using Cultiway.Core.SkillLibV3.Blueprints;\nusing Cultiway.Content.Components.Skill;\n')
     script = output / 'input.script'
-    body = (Path(__file__).with_name('verify_utility_city_work.script') if args.section in city_work
-            else Path(__file__).with_suffix('.script'))
+    body_name = 'verify_utility_city_work' if args.section in city_work else 'verify_utility_city'
+    if args.section == 'ecology':
+        body_name = 'verify_utility_city_ecology'
+    body = Path(__file__).with_name(body_name + '.script')
     fixture_reader = f'long readerId = {recorded["reader"]};\n' if args.section == 'fertilize' else 'long readerId = -1;\n'
     script.write_text(imports + world_helpers(output, input_world, restore=True) +
                       f'\nstring section = "{args.section}";\nlong sourceId = {source};\n' +
