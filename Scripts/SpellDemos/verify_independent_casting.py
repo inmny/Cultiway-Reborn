@@ -23,8 +23,8 @@ FILMS = {
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('soul', 'soul-force', 'node', 'avatar', 'summon', 'artifact-spirit', 'facility',
-                                              'prepare', 'cold', *FILMS), default='soul')
+    parser.add_argument('--section', choices=('soul', 'soul-force', 'node', 'avatar', 'summon', 'artifact-spirit',
+                                              'natural-summon', 'facility', 'prepare', 'cold', *FILMS), default='soul')
     parser.add_argument('--archive', type=Path, help='使用 prepare 写出的正式档目录')
     args = parser.parse_args()
     section = args.section
@@ -46,7 +46,7 @@ def main():
     helpers = helpers.replace('ConstructedAbilityService.ContactConfirmed += Hit;', '')
     script = output / 'input.script'
     scene = '' if cold else Path(__file__).with_name('independent_casting_scene.script').read_text()
-    if section in ('summon', 'artifact-spirit', 'prepare') or section in FILMS:
+    if section in ('summon', 'artifact-spirit', 'natural-summon', 'prepare') or section in FILMS:
         scene += Path(__file__).with_name('independent_artifact_casting_scene.script').read_text()
     if section in ('prepare', 'cold'):
         scene += Path(__file__).with_name('verify_independent_casting_archive.script').read_text()
@@ -59,6 +59,8 @@ def main():
     elif section in FILMS:
         scene += Path(__file__).with_name('record_independent_casting_camera.script').read_text()
         body = 'record_independent_casting.script'
+    elif section == 'natural-summon':
+        body = 'verify_natural_summon.script'
     elif section == 'facility':
         body = 'verify_facility_nodes.script'
     else:
