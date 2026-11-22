@@ -1,0 +1,239 @@
+// 正式制作、独立研读、等待出手时写档与冷启动。
+const string paperProvider = "content.talisman", scrollProvider = "content.magic_scroll";
+const long usedPaper = 100831, queuedPaper = 100832, queuedScroll = 100833;
+const long coldPaper = 100834, coldScroll = 100835;
+var process = System.Diagnostics.Process.GetCurrentProcess().Id;
+var identityType = service.Assembly.GetType("Cultiway.Content.Persistence.WorldSaveIdentity");
+var identityGetter = typeof(Entity).GetMethods(F).Single(method => method.Name == "TryGetComponent" &&
+    method.IsGenericMethodDefinition && method.GetParameters().Length == 1).MakeGenericMethod(identityType);
+string Identity(Entity item)
+{
+    object[] args = { null };
+    return (bool)identityGetter.Invoke(item, args) ? (string)Field(args[0], "Id") : null;
+}
+JToken Snapshot(object value) => JToken.Parse(JsonConvert.SerializeObject(value));
+string Version(Entity skill) => SkillContainerSignature.Build(skill);
+object Record(Entity item)
+{
+    bool paper = item.TryGetComponent(out Talisman talisman);
+    var scroll = paper ? default : item.GetComponent<MagicScroll>();
+    Entity payload = paper ? talisman.SkillContainer : scroll.SkillContainer;
+    return new
+    {
+        identity = Identity(item), version = Version(payload), name = item.HasName ? item.Name.value : "",
+        strength = paper ? talisman.Strength : scroll.Strength, power = paper ? talisman.PowerLevel : scroll.PowerLevel,
+        trajectory = Cultiway.Core.SkillLibV3.Blueprints.SkillBlueprintTrajectory.ResolveEffectiveId(payload)
+    };
+}
+Entity[] Items<T>(ActorExtend actor) where T : struct, IComponent => actor.GetItems().Where(item => item.HasComponent<T>()).ToArray();
+void Freeze(Actor actor, float x)
+{
+    CombatStatusEffects.ApplyStatus(actor, hold, 10000f, actor);
+    actor.attack_timer = 999f;
+    actor.updateStats();
+    Place(actor, x, 72f);
+    actor.position_height = 0f;
+    ConstructedAbilityService.NotifyActorChanged(actor);
+}
+bool UsePaper(ActorExtend actor, Entity item, long correlation, Actor target = null, ConstructionWorldScope scope = null)
+{
+    var key = item.HasComponent<Talisman>() ? paperProvider : scrollProvider;
+    var aim = new ActiveAbilityTarget(target, target == null ? new Vector3(67f, 68.6f) : target.GetSimPos(),
+        runtimeData: new SkillCastRuntimeData { CorrelationId = correlation }, worldScope: scope);
+    actor.Base.attack_timer = 0;
+    bool started = ActiveAbilityService.TryUse(actor, new ActiveAbilityHandle(key, item), aim, ActiveAbilityUseOrigin.Script);
+    actor.Base.attack_timer = 999;
+    return started;
+}
+var starts = new List<ConstructedCastStarted>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.CorrelationId >= usedPaper && fact.CorrelationId <= coldScroll) starts.Add(fact);
+}
+ConstructedAbilityService.CastStarted += Started;
+try
+{
+    if (saved == null)
+    {
+        Actor maker = Make(64f), student = Make(68f);
+        ActorExtend author = maker.GetExtend(), reader = student.GetExtend();
+        author.AddComponent(new Xian { level = 2, wakan = 400f });
+        author.UpgradePowerLevel(2f);
+        foreach (var actor in new[] { author, reader })
+        {
+            actor.AddComponent(new Magic { level = 5, spirit = 100f });
+            actor.E.AddComponent(new ElementRoot(Enumerable.Repeat(2f, ElementIndex.Count).ToArray()));
+            actor.MarkCultiwayStatsDirty();
+        }
+        CombatStatusEffects.ApplyStatus(maker, boost, 10000f, maker);
+        Freeze(maker, 64f);
+        Freeze(student, 68f);
+        student.setKingdom(maker.kingdom);
+        var sealBuilder = new SkillContainerBuilder(SkillEntities.SealRelay).UseAnimation(0);
+        sealBuilder.AddModifier(new Trajectory { ID = SkillTrajectories.TowardsDirection.id });
+        Entity seal = sealBuilder.Build(SkillContainerBuildMode.RuleOnly);
+        author.LearnSkillV3(seal);
+        maker.setStatsDirty();
+        maker.updateStats();
+        string sealVersion = Version(seal);
+        var writeSeal = new BehCraftTalisman();
+        author.GetCultisys<Xian>().wakan = 0;
+        writeSeal.execute(maker);
+        Check(Items<Talisman>(author).Length == 0, "真元不足时制符入口保留库存");
+        author.GetCultisys<Xian>().wakan = maker.stats[BaseStatses.MaxWakan.id] * .5f;
+        float wakan = author.GetCultisys<Xian>().wakan, quoted = maker.stats[BaseStatses.MaxWakan.id] * .01f;
+        writeSeal.execute(maker);
+        writeSeal.execute(maker);
+        Entity[] talismans = Items<Talisman>(author);
+        Check(talismans.Length == 2 && Mathf.Abs(wakan - author.GetCultisys<Xian>().wakan - quoted * 2f) < .015f &&
+              talismans.All(item => Version(item.GetComponent<Talisman>().SkillContainer) == sealVersion &&
+                  item.GetComponent<Talisman>().SkillContainer != seal),
+            "正式制符各扣一份原费用，封存指定轨迹与原强度",
+            new { count = talismans.Length, actual = wakan - author.GetCultisys<Xian>().wakan, quoted });
+        var editSeal = new SkillContainerBuilder(seal);
+        editSeal.SetModifier(new Trajectory { ID = SkillTrajectories.TowardsPosition.id });
+        editSeal.Build(SkillContainerBuildMode.RuleOnly);
+        Check(Version(seal) != sealVersion &&
+            talismans.All(item => Version(item.GetComponent<Talisman>().SkillContainer) == sealVersion),
+            "改动制作者的原轨迹，已做成的符箓继续保留旧版");
+        author.ForgetSkillV3(seal);
+
+        var healingBuilder = new SkillContainerBuilder(SkillEntities.HealingLight).UseAnimation(0);
+        healingBuilder.AddModifier(new HealingModifier { Amount = 35f });
+        healingBuilder.AddModifier(new Trajectory { ID = SkillTrajectories.TowardsPosition.id });
+        Entity heal = healingBuilder.Build(SkillContainerBuildMode.RuleOnly);
+        author.LearnSkillV3(heal);
+        string healingVersion = Version(heal);
+        var writeScroll = new BehCraftMagicScroll();
+        maker.setMana(0, false);
+        writeScroll.execute(maker);
+        Check(Items<MagicScroll>(author).Length == 0, "法力不足时写卷入口保留库存");
+        maker.setMana(maker.getMaxMana(), false);
+        int mana = maker.getMana(), scrollCost = Mathf.Max(1, Mathf.CeilToInt(SkillCastCost.CalculateStepDemand(heal)));
+        writeScroll.execute(maker);
+        writeScroll.execute(maker);
+        Entity[] scrolls = Items<MagicScroll>(author);
+        Check(scrolls.Length == 2 && mana - maker.getMana() == scrollCost * 2 &&
+              scrolls.All(item => Version(item.GetComponent<MagicScroll>().SkillContainer) == healingVersion &&
+                  item.GetComponent<MagicScroll>().SkillContainer != heal),
+            "正式写卷使用原法力费用，成品独立封存轨迹与治疗词条",
+            new { count = scrolls.Length, actual = mana - maker.getMana(), scrollCost });
+        var editHealing = new SkillContainerBuilder(heal);
+        editHealing.SetModifier(new HealingModifier { Amount = 79f });
+        editHealing.Build(SkillContainerBuildMode.RuleOnly);
+        Check(Version(heal) != healingVersion && scrolls.All(item =>
+              Version(item.GetComponent<MagicScroll>().SkillContainer) == healingVersion),
+            "修改已学法术的治疗词条后，原卷仍保存三十五点治疗版本");
+
+        Entity studyScroll = scrolls[0], storedScroll = scrolls[1], consumedPaper = talismans[0], storedPaper = talismans[1];
+        reader.AddSpecialItem(studyScroll);
+        Check(MagicScrollStudyService.TrySelectStudyCandidate(reader, out var study) && study.Scroll == studyScroll,
+            "真正的魔法师可以研读收到的正式卷轴",
+            new { ring = MagicSpellProfile.Resolve(studyScroll.GetComponent<MagicScroll>().SkillContainer).Ring,
+                level = reader.GetCultisys<Magic>().CurrLevel, reader = student.id });
+        var progress = new MagicScrollStudyState { Scroll = studyScroll, Replacement = study.Replacement,
+            Progress = study.Difficulty * .4f, SessionRemaining = 10f };
+        reader.AddComponent(progress);
+        Check(!MagicScrollStudyService.CompleteStudy(reader, progress) && !studyScroll.IsNull,
+            "进度不足的研读不消耗卷轴");
+        author.AddSpecialItem(studyScroll);
+        Check(!MagicScrollStudyService.CompleteStudy(reader, progress) && !studyScroll.IsNull,
+            "原卷转手后，旧阅读记录不能再学习或扣除原物");
+        reader.AddSpecialItem(studyScroll);
+        bool allowed = true;
+        var scope = new ConstructionWorldScope(() => allowed, (_, _) => true);
+        Check(UsePaper(reader, studyScroll, queuedScroll, maker, scope) && !studyScroll.IsNull,
+            "同一卷轴暂时占用等待发射");
+        new BehStudyMagicScroll().execute(student);
+        Check(!MagicScrollStudyService.CompleteStudy(reader, progress) &&
+              reader.GetComponent<MagicScrollStudyState>().Progress == progress.Progress && !studyScroll.IsNull,
+            "等待发射时研读无法结算，原阅读进度与物品保留");
+        allowed = false;
+        await Advance(.14f);
+        progress.Progress = study.Difficulty;
+        reader.E.GetComponent<MagicScrollStudyState>() = progress;
+        new BehStudyMagicScroll().execute(student);
+        var learned = reader.E.GetRelations<MagicSpellKnowledgeRelation>();
+        Check(studyScroll.IsNull && learned.Length == 1 && learned[0].Source == MagicSpellKnowledgeSource.Scroll &&
+              Version(learned[0].SkillContainer) == healingVersion && !MagicScrollStudyService.CompleteStudy(reader, progress),
+            "研读完成只消耗一次，并学会轨迹与词条都相同的封存版本");
+
+        var silenceStats = new BaseStats();
+        silenceStats.addTag(Cultiway.Core.ActorControlTags.Silenced);
+        var silence = Cultiway.ModClass.L.StatusEffectLibrary.get("test.consumable.archive.silence") ??
+            Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.consumable.archive.silence").SetStats(silenceStats)
+                .SetDuration(100f).Build();
+        Check(UsePaper(author, consumedPaper, usedPaper), "正式符箓可以先占用等待");
+        CombatStatusEffects.ApplyStatus(maker, silence, .5f, maker);
+        maker.updateStats();
+        await Advance(.12f);
+        Check(!consumedPaper.IsNull && !starts.Any(x => x.CorrelationId == usedPaper), "等待期间被封术时保留原符");
+        CombatStatusEffects.RemoveStatus(maker, silence);
+        maker.updateStats();
+        Check(UsePaper(author, consumedPaper, usedPaper), "恢复出手后可用同一原符");
+        await WaitFor(() => consumedPaper.IsNull, .4f);
+        Check(consumedPaper.IsNull && starts.Count(x => x.CorrelationId == usedPaper) == 1,
+            "正式消耗的原符只出手一次");
+
+        Check(UsePaper(author, storedPaper, queuedPaper) && UsePaper(author, storedScroll, queuedScroll, student) &&
+              !storedPaper.IsNull && !storedScroll.IsNull, "写档时一符一卷仍处于等待发射");
+        World.world.units.checkContainer();
+        World.world.items.checkLists();
+        foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+        CombatStatusEffects.RemoveStatus(maker, boost);
+        string path = Path.Combine(folder, "archive");
+        SaveManager.saveWorldToDirectory(path);
+        Check(File.Exists(Path.Combine(path, "map.wbox")) && Identity(storedPaper) != null && Identity(storedScroll) != null,
+              "卷轴、符箓与封存版本写入正式世界");
+        File.WriteAllText(Path.Combine(folder, "expected.json"), Snapshot(new
+        {
+            process, maker = maker.id, reader = student.id, paper = Record(storedPaper), scroll = Record(storedScroll),
+            knownVersion = Version(learned[0].SkillContainer)
+        }).ToString(Formatting.Indented));
+        ControllableUnit.clear(false);
+        World.world.save_manager.loadWorld(fixture);
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        Check(!Cultiway.ModClass.I.W.Query<SkillCastSequence>().Entities.Any(e =>
+                e.GetComponent<SkillCastSequence>().RuntimeData.CorrelationId is queuedPaper or queuedScroll),
+            "切换世界清除等待中的临时施法序列");
+        return new { passed = true, process, archive = path };
+    }
+
+    Check(process != (int)saved["process"], "新进程读回同一份正式档");
+    var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+    Check(report != null && report.BackupError == null && report.Skipped.Count == 0, "正式恢复报告没有丢失资料",
+          new { error = report?.BackupError, skipped = report?.Skipped });
+    Actor originalAuthor = World.world.units.get((long)saved["maker"]), originalReader = World.world.units.get((long)saved["reader"]);
+    var crafter = originalAuthor.GetExtend();
+    var learner = originalReader.GetExtend();
+    var restoredPaper = Items<Talisman>(crafter).Single();
+    var restoredScroll = Items<MagicScroll>(crafter).Single();
+    var learnedAfter = learner.E.GetRelations<MagicSpellKnowledgeRelation>();
+    Check(JToken.DeepEquals(Snapshot(Record(restoredPaper)), saved["paper"]) &&
+          JToken.DeepEquals(Snapshot(Record(restoredScroll)), saved["scroll"]) &&
+          learnedAfter.Length == 1 && learnedAfter[0].Source == MagicSpellKnowledgeSource.Scroll &&
+          Version(learnedAfter[0].SkillContainer) == (string)saved["knownVersion"] &&
+          Items<Talisman>(learner).Length == 0 && Items<MagicScroll>(learner).Length == 0,
+        "恢复同一原符原卷、完整封存版本和研读知识，原已消耗份数没有回来");
+    Freeze(originalAuthor, 64f);
+    Freeze(originalReader, 68f);
+    originalReader.data.health = Mathf.Max(1, originalReader.getMaxHealth() - 160);
+    int initialHealth = originalReader.data.health;
+    originalAuthor.setMana(0, false);
+    Check(UsePaper(crafter, restoredPaper, coldPaper) && UsePaper(crafter, restoredScroll, coldScroll, originalReader),
+        "写档时等待的原件在新进程可重新受理");
+    await WaitFor(() => restoredPaper.IsNull && restoredScroll.IsNull && originalReader.data.health > initialHealth, 1.3f);
+    Check(restoredPaper.IsNull && restoredScroll.IsNull && starts.Count == 2 &&
+          starts.Count(x => x.CorrelationId == coldPaper) == 1 && starts.Count(x => x.CorrelationId == coldScroll) == 1 &&
+          originalReader.data.health >= initialHealth + 35,
+        "重新受理的原符原卷实际出手，正式读回的治疗词条生效",
+        new { hp = originalReader.data.health, initialHealth, casts = starts.Select(x => x.CorrelationId).ToArray() });
+    return new { passed = true, process };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    Config.paused = true;
+}

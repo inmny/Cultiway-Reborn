@@ -1,4 +1,5 @@
 using ai.behaviours;
+using Cultiway.Content.Artifacts.ActiveAbilities;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -34,6 +35,7 @@ public sealed class BehCraftMagicScroll : BehaviourActionActor
         var manaCost = ResolveManaCost(skillContainer);
         if (manaCost <= 0 || pObject.getMana() < manaCost) return BehResult.Stop;
 
+        skillContainer = ConsumableSpellSnapshot.Capture(skillContainer);
         var skillComponent = skillContainer.GetComponent<SkillContainer>();
         var colorPalette = skillComponent.ColorPalette;
         var powerLevel = actor.GetPowerLevel();

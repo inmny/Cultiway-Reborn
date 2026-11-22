@@ -105,7 +105,7 @@ public static class MagicScrollStudyService
     public static bool TryResolveStudy(ActorExtend actor, in MagicScrollStudyState state,
         out MagicScrollStudyCandidate candidate)
     {
-        if (!OwnsScroll(actor, state.Scroll))
+        if (!CanStartStudy(actor) || !OwnsScroll(actor, state.Scroll))
         {
             candidate = default;
             return false;
@@ -128,7 +128,7 @@ public static class MagicScrollStudyService
     /// </summary>
     public static bool CompleteStudy(ActorExtend actor, in MagicScrollStudyState state)
     {
-        if (!TryResolveStudy(actor, state, out var candidate)) return false;
+        if (!TryResolveStudy(actor, state, out var candidate) || state.Progress < candidate.Difficulty) return false;
 
         var now = GetWorldTime();
         if (candidate.Replacement.IsNull)
@@ -167,6 +167,10 @@ public static class MagicScrollStudyService
         candidate.Scroll.DeleteEntity();
         return true;
     }
+
+    /// <summary>等待发射期间保留原阅读进度，实际施放后才清除已消耗的卷轴。</summary>
+    internal static bool IsAwaitingCast(ActorExtend actor, in MagicScrollStudyState state) =>
+        OwnsScroll(actor, state.Scroll) && state.Scroll.Tags.Has<TagPendingConsumable>();
 
     /// <summary>
     /// 清除失效或已经完成的卷轴阅读目标及其累计进度。

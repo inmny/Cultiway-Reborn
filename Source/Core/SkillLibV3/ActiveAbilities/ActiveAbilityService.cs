@@ -363,7 +363,8 @@ public static class ActiveAbilityService
         };
     }
 
-    private static bool IsSilenced(in SkillCasterContext context)
+    /// <summary>归属者或实际施放载体被封术时，主动能力不能出手。</summary>
+    internal static bool IsSilenced(in SkillCasterContext context)
     {
         return context.Owner.Base.stats.hasTag(ActorControlTags.Silenced) ||
                context.Carrier.Base.stats.hasTag(ActorControlTags.Silenced);

@@ -24,6 +24,7 @@ public sealed class BehStudyMagicScroll : BehaviourActionActor
 
         ref var magic = ref actor.GetCultisys<Magic>();
         ref var state = ref actor.GetOrAddComponent<MagicScrollStudyState>();
+        if (MagicScrollStudyService.IsAwaitingCast(actor, state)) return BehResult.Stop;
         if (!MagicScrollStudyService.TryResolveStudy(actor, state, out var candidate))
         {
             MagicScrollStudyService.ClearState(ref state);

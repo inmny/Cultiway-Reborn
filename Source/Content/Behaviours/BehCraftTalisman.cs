@@ -3,6 +3,7 @@ using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.AIGC;
 using Cultiway.Content.Artifacts;
+using Cultiway.Content.Artifacts.ActiveAbilities;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Core;
@@ -58,7 +59,7 @@ public class BehCraftTalisman : BehaviourActionActor
         if (!candidates.Any()) return BehResult.Stop;
         var skill_v3 = candidates.GetRandom();
 
-        skill_v3 = skill_v3.Store.CloneEntity(skill_v3);
+        skill_v3 = ConsumableSpellSnapshot.Capture(skill_v3);
         WakanResourceService.Spend(ae, ref xian, wakan_to_take);
         var power_level = ae.GetPowerLevel();
         var skillContainer = skill_v3.GetComponent<SkillContainer>();

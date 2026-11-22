@@ -190,9 +190,10 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
         public SkillCastStepDecision PrepareStep(in SkillCastSequenceStepContext context, in SkillCastStep step)
         {
             ActorExtend caster = context.Caster;
-            var carrier = SkillCasterContextService.Resolve(caster).Carrier;
+            var carrier = SkillCasterContextService.Resolve(caster);
             if (!GeneralSettings.EnableSkillSystems || !provider.CanUseCarrier(caster) || !caster.Base.isAlive() ||
-                carrier?.Base?.isAlive() != true || !SkillCastPlanner.CanCast(caster, payload.Skill) ||
+                !carrier.IsValid || !carrier.Carrier.Base.isAlive() || ActiveAbilityService.IsSilenced(in carrier) ||
+                !SkillCastPlanner.CanCast(caster, payload.Skill) ||
                 !consumed && (item.IsNull || item.Tags.HasAny(Tags.Get<TagConsumed, TagRecycle>()) ||
                     !ContainsItem(caster, item) || !provider.TryResolvePayload(item, out var current) || current.Skill != payload.Skill))
                 return SkillCastStepDecision.Cancel();

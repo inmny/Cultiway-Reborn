@@ -2929,3 +2929,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 一次性法术物品的实际发射（10.08）
 
 用独立游戏入口 `dev.py exec --timeout 135 -- python3 Scripts/SpellDemos/verify_consumable_casts.py --section scroll` 核对友方点名、移动出界、原卷保留和实际治疗。用 `--section rejection` 复验共同构造拒绝和原符归还。连印走符的实际扣除、接触传递和飞空继续用 `verify_seal_relay.py --section relay|miss`。
+
+用同一脚本的 `--section prepare` 复验正式制符、写卷、研读和封术中断，在一符一卷等待出手时保存正式世界。退出并启动新的独立游戏后，用 `--section cold --archive <prepare 输出目录>` 核对同一份档案、封存版本、已学法术和原件再次出手。两段均通过 `dev.py exec --timeout 155` 运行，旧档案由脚本核对文件校验值。
