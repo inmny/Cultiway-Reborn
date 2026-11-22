@@ -1,0 +1,165 @@
+const string strikeId = "Cultiway.Tribulation.Yao.Strike";
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+long pauseOnAdmission = 0;
+var starts = new List<ConstructedCastStarted>();
+var strikes = new List<ConstructedContact>();
+var ends = new List<ConstructedCastEnded>();
+var spent = new List<YaoPowerMutation>();
+Actor wolf = null;
+void StartedStrike(ConstructedCastStarted cast)
+{
+    if (cast.AbilityId != strikeId) return;
+    starts.Add(cast);
+    if (cast.CorrelationId == pauseOnAdmission) Config.paused = true;
+}
+void HitStrike(ConstructedContact contact)
+{
+    if (contact.AbilityId == strikeId) strikes.Add(contact);
+}
+void EndStrike(ConstructedCastEnded cast)
+{
+    if (cast.AbilityId == strikeId) ends.Add(cast);
+}
+void Payment(ActorExtend actor, YaoPowerMutation change)
+{
+    if (actor.Base == wolf && change.Kind == YaoPowerMutationKind.Spend) spent.Add(change);
+}
+async Task Until(Func<bool> predicate, double maximum = .5d)
+{
+    double deadline = World.world.getCurWorldTime() + maximum;
+    Config.paused = false;
+    await Game.WaitUntil(() => predicate() || World.world.getCurWorldTime() >= deadline, 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+var pending = (IDictionary)typeof(YaoTribulationService).GetField("pendingStrikes", F).GetValue(null);
+var anchors = (IDictionary)typeof(YaoTribulationService).GetField("strikeAnchors", F).GetValue(null);
+bool Close(float left, float right) => Mathf.Abs(left - right) < .005f;
+YaoTribulation State() => wolf.GetExtend().E.GetComponent<YaoTribulation>();
+float Energy() => wolf.GetExtend().GetCultisys<Yao>().yao_power;
+object StrikeEvidence() => strikes.Select(hit => new
+{
+    hit.CastId, hit.SourceId, hit.TargetId, hit.WorldTime, hit.Damage,
+    point = new[] { hit.Position.x, hit.Position.y, hit.Position.z }
+}).ToArray();
+ConstructedAbilityService.CastStarted += StartedStrike;
+ConstructedAbilityService.ContactConfirmed += HitStrike;
+ConstructedAbilityService.CastEnded += EndStrike;
+YaoResourceService.MutationCommitted += Payment;
+try
+{
+    if (saved == null)
+    {
+        wolf = Make(64.5f, "wolf");
+        Actor witness = Make(65.5f);
+        var owner = wolf.GetExtend();
+        Check(YaoAwakeningService.TryAwakenByRain(owner), "正式启灵原狼形");
+        owner.GetCultisys<Yao>().BodyStability = 80f;
+        wolf.updateStats();
+        wolf.setHealth(wolf.getMaxHealth());
+        Check(YaoCoreService.TryStartPreparation(owner), "正式取得凝丹准备");
+        float cost = owner.GetCultisys<Yao>().CorePreparationRequiredYaoPower;
+        YaoResourceService.Set(owner, ref owner.GetCultisys<Yao>(), cost);
+        float before = Energy();
+        Vector2 center = wolf.current_position;
+        Check(cost > 0 && Close(before, cost) && YaoTribulationService.TryStart(owner) &&
+            !YaoTribulationService.TryStart(owner) && spent.Count == 1 && Close(spent[0].Delta, -cost) &&
+            State().TotalWaves == 5 && Close(State().ExpiresAt - State().StartedAt, 240f),
+            "凝丹天劫按原数值只支付和开始一次", new { before, cost, state = State() });
+
+        Place(wolf, center.x + 4.2f);
+        int hp = wolf.getHealth(), witnessHp = witness.getHealth();
+        await Until(() => ends.Count > 0);
+        Check(starts.Count > 0 && ends.Count > 0 && ends[0].CastId == starts[0].CastId && !ends[0].Cancelled &&
+            starts[0].SourceId == 0 && strikes.Count == 0 && wolf.getHealth() == hp && witness.getHealth() == witnessHp &&
+            State().ReceivedDamageEvidence == 0f && State().CoreIntegrity == 1f,
+            "离开四格的渡劫者躲过实际雷击，劫心内的旁观者也未受伤",
+            new { hp, actualHp = wolf.getHealth(), witnessHp, starts, ends, contact = strikes.Count });
+        Place(wolf, center.x + 3.8f);
+        await Until(() => strikes.Count > 0);
+        Check(strikes.Count == 1 && strikes[0].TargetId == wolf.id && strikes[0].SourceId == 0 &&
+            strikes[0].Damage.SettledCount == 1 && State().ReceivedDamageEvidence > 0f && State().CoreIntegrity < 1f &&
+            witness.getHealth() == witnessHp && spent.Count == 1,
+            "返回劫心范围后只结算一记雷击，并计入原波次",
+            new { hp = wolf.getHealth(), strikes = StrikeEvidence(), progress = State(), after = Energy() });
+
+        pauseOnAdmission = wolf.id;
+        int castCount = starts.Count;
+        await Until(() => starts.Count > castCount);
+        Check(pending.Contains(wolf.id) && strikes.Count == 1 && starts.Count == castCount + 1,
+            "正式保存时同一渡劫者已有承伤且下一记尚未结算");
+        foreach (Actor actor in World.world.units.getSimpleList().ToArray())
+            CombatStatusEffects.RemoveStatus(actor, hold);
+        World.world.units.checkContainer();
+        SaveManager.saveWorldToDirectory(Path.Combine(folder, "archive"));
+        Check(File.Exists(Path.Combine(folder, "archive", "map.wbox")), "写入同一世界的正式存档");
+        File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+        {
+            process, wolf = wolf.id, anchor = new[] { center.x, center.y }, hp = wolf.getHealth(),
+            energy = Energy(), progress = State()
+        }));
+        return new { passed = true, section = "prepare", process };
+    }
+
+    Check(process != (int)saved["process"], "在全新进程读同一份正式档");
+    var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+    Check(report.BackupError == null && report.Skipped.Count == 0, "正式恢复没有跳过原资料",
+        new { report.BackupError, report.Skipped });
+    wolf = World.world.units.get((long)saved["wolf"]);
+    var beast = wolf.GetExtend();
+    YaoTribulation old = saved["progress"].ToObject<YaoTribulation>();
+    var point = new Vector2((float)saved["anchor"][0], (float)saved["anchor"][1]);
+    // 地图完成加载前可能已正常推进一帧，届时该记雷已在新进程重新受理。
+    bool waiting = pending.Count == 0 || pending.Count == 1 && pending.Contains(wolf.id) && YaoTime.Now >= old.NextStrikeAt;
+    Check(wolf.getHealth() == (int)saved["hp"] && Close(Energy(), (float)saved["energy"]) &&
+        State().CurrentWave == old.CurrentWave && Close(State().ReceivedDamageEvidence, old.ReceivedDamageEvidence) &&
+        Close(State().NextStrikeAt, old.NextStrikeAt) && (Vector2)anchors[wolf.id] == point && waiting,
+        "读回原承伤、原劫心和原支付，尚未结算下一记雷",
+        new { hp = wolf.getHealth(), balance = Energy(), now = YaoTime.Now, pending = pending.Count, state = State() });
+    CombatStatusEffects.ApplyStatus(wolf, hold, 10000, wolf);
+    wolf.updateStats();
+    Place(wolf, point.x + 3.8f);
+    await Until(() => strikes.Count > 0);
+    Check(strikes.Count == 1 && strikes[0].TargetId == wolf.id && strikes[0].Damage.SettledCount == 1 &&
+        State().CurrentWave == old.CurrentWave &&
+        Close(State().ReceivedDamageEvidence, old.ReceivedDamageEvidence * 2f) && spent.Count == 0,
+        "只续上未结算的下一记落雷，读回没有重扣费用或重放上次结果",
+        new { strikes = StrikeEvidence(), state = State() });
+    Place(wolf, point.x + 4.2f);
+    await Until(() => !beast.E.HasComponent<YaoTribulation>(), 4.5d);
+    Check(!beast.E.HasComponent<YaoTribulation>() && !pending.Contains(wolf.id) && !anchors.Contains(wolf.id) &&
+        string.IsNullOrEmpty(beast.GetCultisys<Yao>().CorePreparationPatternId) && spent.Count == 0 &&
+        YaoTribulationService.Evaluate(beast).State == ProgressionGateState.NeedsStart,
+        "原时限退劫，准备和劫心回收，可重新开始");
+
+    beast.E.AddComponent(new YaoCore { CorePatternId = YaoCorePatterns.Fire.Id, Quality = 60f, Stability = 65f });
+    Place(wolf, point.x);
+    wolf.setHealth(wolf.getMaxHealth());
+    Check(YaoHumanFormService.TryStartTransformation(beast) && !YaoHumanFormService.TryStartTransformation(beast) &&
+        State().TotalWaves == 3 && Close(State().ExpiresAt - State().StartedAt, 120f) && spent.Count == 0 &&
+        (Vector2)anchors[wolf.id] == point, "化形劫保留资格、波数和时限，并固定原劫心");
+    int hitCount = strikes.Count;
+    await Until(() => strikes.Count > hitCount);
+    Check(strikes.Count == hitCount + 1 && strikes.Last().TargetId == wolf.id &&
+        strikes.Last().Damage.SettledCount == 1 && State().ReceivedDamageEvidence > 0f && State().CoreIntegrity == 1f,
+        "化形劫同样实际落雷，已有妖丹照原规则不裂损");
+    pauseOnAdmission = wolf.id;
+    int startCount = starts.Count;
+    await Until(() => starts.Count > startCount);
+    Check(pending.Contains(wolf.id), "切换世界前有一记实际正在下降的劫雷");
+    World.world.save_manager.loadWorld(originalFixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading() &&
+        !ReferenceEquals(report, Cultiway.ModClass.I.WorldSaves.LastReport), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check(pending.Count == 0 && anchors.Count == 0, "真实换世界后清空原劫雷和劫心");
+    return new { passed = true, section = "cold", process };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastStarted -= StartedStrike;
+    ConstructedAbilityService.ContactConfirmed -= HitStrike;
+    ConstructedAbilityService.CastEnded -= EndStrike;
+    YaoResourceService.MutationCommitted -= Payment;
+}

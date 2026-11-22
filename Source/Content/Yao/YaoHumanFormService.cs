@@ -41,22 +41,13 @@ public static class YaoHumanFormService
     /// <summary>开始化形劫：化形劫沿用凝丹天劫的运行流程。</summary>
     public static bool TryStartTransformation(ActorExtend actor)
     {
-        if (actor?.Base == null || actor.Base.isRekt() || !actor.HasCultisys<Yao>()) return false;
+        if (!YaoTribulationService.CanStart(actor)) return false;
         ref Yao yao = ref actor.GetCultisys<Yao>();
         if (!string.IsNullOrEmpty(yao.CorePreparationPatternId)) return false;
         if (!actor.E.TryGetComponent(out YaoCore core) || core.Cracks > 0 || core.Quality < 40f) return false;
 
         // 化形劫不消耗凝丹资源，直接以妖丹稳定度对峙劫伤。
-        actor.E.AddComponent(new YaoTribulation
-        {
-            TotalWaves = 3,
-            CurrentWave = 1,
-            StartedAt = YaoTime.Now,
-            ExpiresAt = YaoTime.Now + 120f,
-            NextStrikeAt = YaoTime.Now + 3f,
-            RequiredDamageEvidence = actor.Base.getMaxHealth() * 0.35f,
-            CoreIntegrity = 1f,
-        });
+        YaoTribulationService.Begin(actor, 3, 120f);
         return true;
     }
 

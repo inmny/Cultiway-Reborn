@@ -2957,3 +2957,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--section prepare` 保存含实际命魂、原幡召唤和原剑器灵的对练场。用另一个新启动的独立游戏运行 `--section cold --archive 保存阶段的输出目录`，核对原本的关系、费用和剩余期限，以及读回后再施法、召回和换世界。
 
 `--section film-soul|film-node|film-summon|film-spirit` 分别录制肉身与命魂交替出手、分念随动归返、原幡召唤物和原剑器灵解除前后的实际画面。每段复用同一对练场，按实际世界时间编码，随录像保存出手位置、扣费、命中和结束记录。原版独立游戏读取原版相机，启用 Worldfall 的环境读取三维画面。
+
+### 妖兽天劫（10.11）
+
+在独立游戏用 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_yao_tribulation.py --section prepare` 验证凝丹支付、劫心四格边界及返回后结算，随后写入一记已承接、下一记仍在途的正式世界。
+
+用另一个新启动的独立游戏运行同一入口并改为 `--section cold --archive 保存阶段的输出目录`。它核对存读前的同一份正式文件，确认劫心和承伤延续、超时退劫、化形入口和换世界后清理。

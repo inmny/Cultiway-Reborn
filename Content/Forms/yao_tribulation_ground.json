@@ -1,0 +1,53 @@
+{
+  "Version": 8,
+  "Id": "yao_tribulation_ground",
+  "Forward": [0, 1, 0],
+  "Up": [0, 0, 1],
+  "ConformToGround": true,
+  "Parts": [
+    {
+      "Id": "crest",
+      "MeshAsset": "Assets/Cultiway/Forms/purification_surge_crest.asset",
+      "DetailMeshes": [
+        "Assets/Cultiway/Forms/purification_surge_crest_mid.asset",
+        "Assets/Cultiway/Forms/purification_surge_crest_far.asset"
+      ],
+      "Surface": "thunder_corona",
+      "Roles": ["impact.volume"],
+      "Pivot": [0, 0, 0],
+      "Control": "crest",
+      "HasSurfaceData": true
+    }
+  ],
+  "Anchors": [],
+  "Contacts": [
+    {
+      "Id": "ground",
+      "Part": 0,
+      "A": [0, 0, 0.1],
+      "AControl": "crest",
+      "Sector": { "Radius": 2.5, "Angle": 360, "Direction": 0, "HalfThickness": 0.14 }
+    }
+  ],
+  "Controls": [
+    {
+      "Id": "crest",
+      "Position": [0, 0, 0],
+      "Rotation": [0, 0, 0, 1],
+      "Minimum": [-2.5, -2.5, 0.025],
+      "Maximum": [2.5, 2.5, 0.58]
+    }
+  ],
+  "Motions": [],
+  "Structure": {
+    "Kind": "surface",
+    "UnitInTiles": 1,
+    "Generation": {
+      "Source": "Content/Forms/yao_tribulation_ground.json",
+      "Entry": "explicit-definition",
+      "Parameters": []
+    },
+    "Connections": [],
+    "Changes": ["transform", "ground"]
+  }
+}
