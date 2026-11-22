@@ -18,6 +18,11 @@ public sealed partial class WorldMaterialService
         return temporaryByProvider.ContainsKey(provider);
     }
 
+    /// <summary>同一份临时材料仍由原支付者持有，且尚未开始收束。</summary>
+    internal static bool IsTemporaryNeedCurrent(long id, long provider) =>
+        rows.TryGetValue(id, out var row) && row.Provider == provider && !row.Finished && !row.Recovering &&
+        row.Expires > row.Clock && row.Material.Resource > 0;
+
     /// <summary>取得一个真实临时材料机会；有材料但暂时无实际形状时仍保留下一次查询。</summary>
     /// <param name="provider">原支付者。</param><param name="offset">此人遍历材料的轮换位置。</param>
     /// <param name="id">选中的稳定材料编号。</param><param name="point">真实作用形状中心。</param>

@@ -19,6 +19,12 @@ public sealed partial class ConstructedAbilityService
     private static void ConfirmWorldMaterial(RunningCast running, double clock)
     {
         if (!running.Cast.Plan.HasWorldMaterials) return;
+        ConstructionWorldScope recoveryScope = running.WorldScope?.RecoveryMaterial > 0 ? running.WorldScope : null;
+        if (recoveryScope?.IsValid() == false)
+        {
+            running.Cast.Cancel();
+            return;
+        }
         long epoch = worldGeneration;
         if (running.ErosionWatches != null)
             for (int i = running.ErosionWatches.Count - 1; i >= 0; i--)
@@ -109,12 +115,20 @@ public sealed partial class ConstructedAbilityService
 
             if (!running.Cast.HasWorldRecovery(node)) continue;
             running.Cast.TakeWorldRecovery(node);
+            if (recoveryScope?.RecoveryStarted == true) continue;
             simulation.materialSelection.Clear();
             running.Cast.MaterialSelection(node, simulation.materialSelection);
             var selected = running.Cast.ReadRecoveryMaterials(node, simulation.materialInputs) ? simulation.materialInputs : null;
-            WorldMaterialService.Recover(running.Owner(node).Id, simulation.materialSelection,
-                running.Cast.RecoveryFor(node), clock, selected);
+            bool accepted = WorldMaterialService.Recover(running.Owner(node).Id, simulation.materialSelection,
+                running.Cast.RecoveryFor(node), clock, selected, recoveryScope?.RecoveryMaterial ?? 0);
             if (epoch != worldGeneration) return;
+            if (recoveryScope == null) continue;
+            if (!accepted)
+            {
+                running.Cast.Cancel();
+                return;
+            }
+            recoveryScope.RecoveryStarted = true;
         }
     }
 
