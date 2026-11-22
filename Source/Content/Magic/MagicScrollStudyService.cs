@@ -181,7 +181,8 @@ public static class MagicScrollStudyService
         bool refreshItemLevel = true)
     {
         candidate = default;
-        if (scroll.IsNull || !scroll.HasComponent<MagicScroll>()) return false;
+        if (scroll.IsNull || !scroll.HasComponent<MagicScroll>() ||
+            scroll.Tags.HasAny(Tags.Get<TagPendingConsumable, TagConsumed, TagRecycle>())) return false;
 
         var skillContainer = scroll.GetComponent<MagicScroll>().SkillContainer;
         if (!SkillCastResourceResolver.UsesResource(skillContainer, SkillCastResources.Mana)) return false;

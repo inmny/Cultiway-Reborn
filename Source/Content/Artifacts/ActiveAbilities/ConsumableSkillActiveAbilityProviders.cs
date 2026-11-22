@@ -29,7 +29,7 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
 
         foreach (Entity item in caster.GetItems())
         {
-            if (TryResolvePayload(item, out _)) output.Add(new ActiveAbilityHandle(Id, item));
+            if (IsAvailable(item) && TryResolvePayload(item, out _)) output.Add(new ActiveAbilityHandle(Id, item));
         }
     }
 
@@ -42,7 +42,7 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
 
     public ActiveAbilityDescriptor Describe(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        TryResolve(caster, handle, out SkillPayload payload);
+        if (!TryResolve(caster, handle, out SkillPayload payload)) return default;
         Entity item = handle.Source;
         string name = item.HasName
             ? item.Name.value
@@ -68,7 +68,7 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
         if (!TryResolve(caster, handle, out SkillPayload payload)) return false;
-        if (target != null && target.isRekt()) return false;
+        if (target != null && (target.isRekt() || !target.isAlive())) return false;
         SkillUseProfileAsset useProfile = payload.Skill.GetComponent<SkillContainer>().Asset.UseProfile;
         if (useProfile.Placement != SkillUsePlacement.CasterSelf && target != null &&
             !SkillTargetRelationResolver.Matches(useProfile.TargetRelation, caster.Base, target)) return false;
@@ -138,23 +138,18 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
         if (!TryResolve(caster, handle, out SkillPayload payload) ||
             !TryCreatePlan(caster, payload.Skill, target, out SkillCastPlan plan)) return false;
 
-        float strength = ResolveStrength(caster, payload);
         SkillCastRuntimeData runtime = target.RuntimeData;
-        runtime.Origin = origin; runtime.WorldScope = target.WorldScope;
-        if (!ModClass.I.SkillV3.StartSkillSequence(
-                caster,
-                payload.Skill,
-                plan,
-                strength,
-                payload.PowerLevel,
-                SkillCastFundingSource.Prepaid,
-                target.AttackKingdom, runtime)) return false;
-
-        // 已正式受理即消耗，显示通知异常不能留下可再次使用的物品。
-        handle.Source.AddTag<TagConsumed>();
-        try { OnActivated(caster, handle.Source, payload, target, strength); }
-        finally { if (!handle.Source.IsNull) handle.Source.DeleteEntity(); }
-        return true;
+        runtime.Origin = origin;
+        runtime.WorldScope = target.WorldScope;
+        var use = new PendingUse(this, handle.Source, payload, plan);
+        return ModClass.I.SkillV3.StartSkillSequence(caster, payload.Skill, plan, ResolveStrength(caster, payload),
+            payload.PowerLevel, SkillCastFundingSource.Prepaid, target.AttackKingdom, runtime,
+            new SkillCastSequenceOptions
+            {
+                PaymentTiming = SkillCastPaymentTiming.PerEmission,
+                Hooks = use,
+                FirstEmissionAccepted = use.Consume
+            });
     }
 
     protected abstract bool CanUseCarrier(ActorExtend caster);
@@ -163,37 +158,90 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
 
     protected virtual float ResolveStrength(ActorExtend caster, SkillPayload payload) => payload.Strength;
 
-    /// <summary>符箓和卷轴都从真实载体显出纸张，物品消耗后继续完成短暂燃解。</summary>
-    /// <param name="caster">实际使用者。</param><param name="item">本次消耗的物品。</param>
-    /// <param name="payload">封存的法术。</param><param name="target">真实目标。</param><param name="strength">原有强度。</param>
-    protected virtual void OnActivated(
-        ActorExtend caster,
-        Entity item,
-        SkillPayload payload,
-        in ActiveAbilityTarget target,
-        float strength)
+    /// <summary>尚未发射只占用纸张，实际第一发确认后释放同一物品的空间表现。</summary>
+    private sealed class PendingUse : ISkillCastSequenceHooks
     {
-        Actor visualCarrier = SkillCasterContextService.TryGetCurrent(caster, out SkillCasterContext context)
-            ? context.Carrier.Base
-            : caster.Base;
-        Vector3 direction = (target.Object?.GetSimPos() ?? target.Position) - visualCarrier.GetSimPos();
-        TalismanVfxManager.QueueActivation(
-            visualCarrier,
-            item,
-            payload.Skill,
-            direction,
-            payload.PowerLevel,
-            strength);
+        private readonly ConsumableSkillActiveAbilityProvider provider;
+        private readonly Entity item;
+        private readonly SkillPayload payload;
+        private readonly SkillUseProfileAsset profile;
+        private readonly long[] targetIds;
+        private bool consumed;
+
+        internal PendingUse(ConsumableSkillActiveAbilityProvider provider, Entity item, SkillPayload payload, SkillCastPlan plan)
+        {
+            this.provider = provider;
+            this.item = item;
+            this.payload = payload;
+            profile = payload.Skill.GetComponent<SkillContainer>().Asset.UseProfile;
+            targetIds = new long[plan.Steps.Count];
+            for (int i = 0; i < targetIds.Length; i++)
+                targetIds[i] = plan.Steps[i].Target?.getID() ?? 0L;
+        }
+
+        /// <summary>启动前仍要由当前人物持有可用的原纸张。</summary>
+        public bool CanStart(in SkillCastSequenceStartContext context) =>
+            IsAvailable(item) && ContainsItem(context.Caster, item);
+
+        /// <summary>短暂占用不会进入正式存档，也不会从库存移走原件。</summary>
+        public void OnStarted(in SkillCastSequenceStartContext context) => item.AddTag<TagPendingConsumable>();
+
+        /// <summary>逐发核对实际载体、持有关系、目标身份和射程。</summary>
+        public SkillCastStepDecision PrepareStep(in SkillCastSequenceStepContext context, in SkillCastStep step)
+        {
+            ActorExtend caster = context.Caster;
+            var carrier = SkillCasterContextService.Resolve(caster).Carrier;
+            if (!GeneralSettings.EnableSkillSystems || !provider.CanUseCarrier(caster) || !caster.Base.isAlive() ||
+                carrier?.Base?.isAlive() != true || !SkillCastPlanner.CanCast(caster, payload.Skill) ||
+                !consumed && (item.IsNull || item.Tags.HasAny(Tags.Get<TagConsumed, TagRecycle>()) ||
+                    !ContainsItem(caster, item) || !provider.TryResolvePayload(item, out var current) || current.Skill != payload.Skill))
+                return SkillCastStepDecision.Cancel();
+
+            Vector3 origin = ResolveCastOrigin(caster);
+            if (profile.Placement == SkillUsePlacement.CasterSelf)
+                return SkillCastStepDecision.Emit(new SkillCastStep(origin, step.Delay, step.InitialAngleOffsetDegrees));
+            if (step.TrackTarget)
+            {
+                if (!CanTarget(caster, profile, step.Target, origin) || targetIds[context.StepIndex] != step.Target.getID())
+                    return SkillCastStepDecision.Skip();
+            }
+            else if (!CanTargetPoint(caster, payload.Skill, profile, step.TargetPos, origin))
+                return SkillCastStepDecision.Skip();
+            return SkillCastStepDecision.Emit(step);
+        }
+
+        /// <summary>正式受理第一发时只扣一次，表现异常也不能留下已花掉的原纸张。</summary>
+        internal void Consume(SkillEmission emission)
+        {
+            consumed = true;
+            item.AddTag<TagConsumed>();
+            try
+            {
+                TalismanVfxManager.QueueActivation(emission.SpatialSource, item, payload.Skill,
+                    emission.TargetPos - emission.SourcePos, emission.PowerLevel, emission.Strength);
+            }
+            finally { if (!item.IsNull) item.DeleteEntity(); }
+        }
+
+        /// <summary>第一发未成功便结束时，原纸张重新可用。</summary>
+        public void OnEnded(in SkillCastSequenceResult result)
+        {
+            if (!consumed && !item.IsNull) item.RemoveTag<TagPendingConsumable>();
+        }
     }
 
     private bool TryResolve(ActorExtend caster, ActiveAbilityHandle handle, out SkillPayload payload)
     {
         payload = default;
-        if (!GeneralSettings.EnableSkillSystems || !CanUseCarrier(caster) || handle.Source.IsNull || handle.Source.Tags.HasAny(Tags.Get<TagConsumed, TagRecycle>()) ||
+        if (!GeneralSettings.EnableSkillSystems || !CanUseCarrier(caster) || !IsAvailable(handle.Source) ||
             !ContainsItem(caster, handle.Source)) return false;
         return TryResolvePayload(handle.Source, out payload) &&
                !payload.Skill.IsNull && payload.Skill.HasComponent<SkillContainer>();
     }
+
+    /// <summary>已占用、已支付或正在回收的纸张不会再出现在施法候选中。</summary>
+    private static bool IsAvailable(Entity item) => !item.IsNull &&
+        !item.Tags.HasAny(Tags.Get<TagPendingConsumable, TagConsumed, TagRecycle>());
 
     /// <summary>读取当前主动能力实际使用的人物载体位置。</summary>
     protected static Vector3 ResolveCastOrigin(ActorExtend caster)
@@ -229,42 +277,39 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
         {
             plan = SkillCastPlanner.CreatePointPlan(caster, skill, castOrigin, stepLimit);
         }
-        else if (target.Object != null && !target.Object.isRekt())
+        else if (target.Object != null)
         {
-            if (!SkillTargetRelationResolver.Matches(
-                    useProfile.TargetRelation,
-                    caster.Base,
-                    target.Object)) return false;
-            float range = caster.GetSkillCastRange(target.Object) * useProfile.RangeMultiplier +
-                          target.Object.stats[strings.S.size];
-            if (Toolbox.SquaredDistVec2Float(castOrigin, target.Object.current_position) >
-                range * range) return false;
-            plan = SkillCastPlanner.CreatePlan(
-                caster,
-                skill,
-                target.Object,
-                stepLimit,
-                target.ExplicitTargets,
-                target.SelectionArea.Active);
+            if (!CanTarget(caster, useProfile, target.Object, castOrigin)) return false;
+            plan = SkillCastPlanner.CreatePlan(caster, skill, target.Object, stepLimit,
+                target.ExplicitTargets, target.SelectionArea.Active);
         }
         else
         {
-            if (useProfile.TargetRelation is SkillUseTargetRelation.Friendly or SkillUseTargetRelation.Self)
-                return false;
-            float range = caster.GetSkillCastRange(null) * useProfile.RangeMultiplier;
-            if (Toolbox.SquaredDistVec2Float(castOrigin, target.Position) > range * range)
-                return false;
+            if (!CanTargetPoint(caster, skill, useProfile, target.Position, castOrigin)) return false;
             plan = SkillCastPlanner.CreatePointPlan(caster, skill, target.Position, stepLimit);
         }
 
-        if (plan.Steps.Count == 0 ||
-            !SkillCastCost.CanPay(caster, skill, plan, SkillCastFundingSource.Prepaid)) return false;
-        return useProfile.TargetRelation != SkillUseTargetRelation.WorldTile ||
-               SkillEffectResolver.HasApplicableTile(
-                   caster,
-                   skill,
-                   target.Position,
-                   ResolveEffectRadius(caster, skill));
+        return plan.Steps.Count > 0 && SkillCastCost.CanPay(caster, skill, plan, SkillCastFundingSource.Prepaid);
+    }
+
+    /// <summary>指定对象必须在当前载体的射程内，仍符合封存法术的目标关系。</summary>
+    private static bool CanTarget(ActorExtend caster, SkillUseProfileAsset profile, BaseSimObject target, Vector3 origin)
+    {
+        if (target == null || target.isRekt() || !target.isAlive() ||
+            !SkillTargetRelationResolver.Matches(profile.TargetRelation, caster.Base, target)) return false;
+        float range = caster.GetSkillCastRange(target) * profile.RangeMultiplier + target.stats[strings.S.size];
+        return Toolbox.SquaredDistVec2Float(origin, target.current_position) <= range * range;
+    }
+
+    /// <summary>点选位置遵守原射程及地块限制，要求实际对象的法术没有落地替代入口。</summary>
+    private static bool CanTargetPoint(ActorExtend caster, Entity skill, SkillUseProfileAsset profile, Vector3 point, Vector3 origin)
+    {
+        if (profile.TargetMode == ActiveAbilityTargetMode.Object ||
+            profile.TargetRelation is SkillUseTargetRelation.Friendly or SkillUseTargetRelation.Self) return false;
+        float range = caster.GetSkillCastRange(null) * profile.RangeMultiplier;
+        return Toolbox.SquaredDistVec2Float(origin, point) <= range * range &&
+               (profile.TargetRelation != SkillUseTargetRelation.WorldTile ||
+                SkillEffectResolver.HasApplicableTile(caster, skill, point, ResolveEffectRadius(caster, skill)));
     }
 
     /// <summary>解析封存技能经过本体调谐和词条缩放后的真实效果半径。</summary>

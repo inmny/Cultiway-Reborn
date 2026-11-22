@@ -90,6 +90,9 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                     AttackKingdom = sequence.AttackKingdom,
                     RuntimeData = sequence.RuntimeData
                 };
+                var accepted = sequence.Options?.FirstEmissionAccepted;
+                if (sequence.EmittedCount == 0 && payment != null && accepted != null)
+                    payment.OnCommitted = () => accepted(request);
                 if (!manager.EmitSkill(request)) { ending = SkillCastSequenceEndReason.ExecutionRejected; return; }
                 if (payment != null && !payment.IsCommitted) payment.Commit();
                 sequence.EmittedCount++; emitted++;

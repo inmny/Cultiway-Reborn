@@ -18,10 +18,13 @@ Actor[] targets = { first, second, third, outside };
 int[] health = targets.Select(actor => actor.data.health).ToArray();
 var starts = new List<ConstructedCastStarted>();
 AbilityCast cast = null;
+Entity pendingPaper = default;
+bool spentOnStart = false;
 void Started(ConstructedCastStarted value)
 {
     if (value.SourceId != source.id || value.AbilityId != "Cultiway.SealRelay") return;
     starts.Add(value);
+    spentOnStart = pendingPaper.IsNull && !owner.GetItems().Contains(pendingPaper);
     foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
         if ((long)Field(running, "Id") == value.CastId) cast = (AbilityCast)Field(running, "Cast");
 }
@@ -52,6 +55,7 @@ try
     talisman.AddComponent(new Talisman { SkillContainer = payload, PowerLevel = 1, Strength = 11f });
     talisman.AddRelation(new SkillMasterRelation { SkillContainer = payload });
     owner.AddSpecialItem(talisman);
+    pendingPaper = talisman;
     var handle = new ActiveAbilityHandle("content.talisman", talisman);
     bool miss = section == "miss";
     bool live = false;
@@ -65,11 +69,21 @@ try
     Check(!ActiveAbilityService.TryUse(owner, handle, request, ActiveAbilityUseOrigin.Script) && !talisman.IsNull,
           "任务失效时保留真实封存物品");
     live = true;
-    Check(ActiveAbilityService.TryUse(owner, handle, request, ActiveAbilityUseOrigin.Script) && talisman.IsNull,
-          "真实符箓入口受理后消耗一次");
+    Check(ActiveAbilityService.TryUse(owner, handle, request, ActiveAbilityUseOrigin.Script) &&
+          !talisman.IsNull && owner.GetItems().Contains(talisman),
+          "排入出手序列时只占用符箓");
+    live = false;
+    await Advance(.10f);
+    Check(!talisman.IsNull && owner.GetItems().Contains(talisman) && starts.Count == 0,
+          "出手前任务失效，原符重新可用");
+    live = true;
+    source.attack_timer = 0;
+    wakan = owner.GetComponent<Xian>().wakan;
+    Check(ActiveAbilityService.TryUse(owner, handle, request, ActiveAbilityUseOrigin.Script),
+          "中断后可用同一张原符再次排入出手");
     source.attack_timer = 0;
     Check(!ActiveAbilityService.TryUse(owner, handle, request, ActiveAbilityUseOrigin.Script) &&
-          Mathf.Abs(owner.GetComponent<Xian>().wakan - wakan) < .01f, "同一符箓无法再用，已预付的来源没有向人物重复扣灵气");
+          Mathf.Abs(owner.GetComponent<Xian>().wakan - wakan) < .01f, "等待出手的同一符箓不能重复排入序列，预付不再向人物扣灵气");
     source.attack_timer = 999;
     ControllableUnit.clear(false);
     Place(source, 64);
@@ -122,8 +136,8 @@ try
         marks = marks.ToDictionary(pair => pair.Key, pair => new { point = pair.Value.Point.ToString(), pair.Value.At }), actual
     };
     File.WriteAllText(Path.Combine(folder, "stages.json"), JsonConvert.SerializeObject(stages, Formatting.Indented));
-    Check(starts.Count == 1 && starts[0].CorrelationId == 9402 && cast.Finished && Forms(cast).Length == 0 &&
-          endings.Count(fact => fact.Fact.CastId == starts[0].CastId) == 1, "一次受理只开始和结束一次",
+    Check(starts.Count == 1 && spentOnStart && starts[0].CorrelationId == 9402 && cast.Finished && Forms(cast).Length == 0 &&
+          endings.Count(fact => fact.Fact.CastId == starts[0].CastId) == 1, "同一原符在真正受理前只占用，受理通知时已经消耗且只开始和结束一次",
           new { started = starts.Select(fact => fact.CastId).ToArray(), ended = endings.Select(fact => fact.Fact.CastId).ToArray(),
                 phase = cast?.Phase.ToString() });
     if (miss)

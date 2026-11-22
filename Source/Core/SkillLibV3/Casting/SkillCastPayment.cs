@@ -58,6 +58,9 @@ public sealed class SkillCastPayment : IDisposable
     /// <summary>本次是否已经正式受理。</summary>
     public bool IsCommitted { get; private set; }
 
+    /// <summary>来源和实际执行一起确认，先于执行受理的外部通知。</summary>
+    internal Action OnCommitted { private get; set; }
+
     /// <summary>只读的实际扣费结果；空集合表示免费。</summary>
     public IReadOnlyList<SkillCastPaymentEntry> Entries { get; private set; }
 
@@ -200,6 +203,7 @@ public sealed class SkillCastPayment : IDisposable
         IsCommitted = true;
         closed = true;
         pending.TryRemove(payer, out _);
+        OnCommitted?.Invoke();
     }
 
     /// <summary>未受理时反向恢复本次真实扣费，不按回收容量截掉原本已有的余额。</summary>

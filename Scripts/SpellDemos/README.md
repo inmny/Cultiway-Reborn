@@ -2925,3 +2925,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 法宝结构连续实录（10.07）
 
 在同一独立游戏环境可分别用 `--view native` 和 `--view worldfall` 录像。原版录像会切回游戏俯视图，Worldfall 录像要求已加载 Worldfall。用 `record_artifact_actives.py --ability HeavenSwallowingGourd --ability FiveEssenceOutpouring --ability TruthRevealingMirror` 录器口和镜面，用 `record_weapon_flight.py --move flying-sword --move sword-array` 录真实刃面，用 `record_artifact_passives.py --case shield` 录金钟拦截。分别指定视角和输出目录。
+
+### 一次性法术物品的实际发射（10.08）
+
+用独立游戏入口 `dev.py exec --timeout 135 -- python3 Scripts/SpellDemos/verify_consumable_casts.py --section scroll` 核对友方点名、移动出界、原卷保留和实际治疗。用 `--section rejection` 复验共同构造拒绝和原符归还。连印走符的实际扣除、接触传递和飞空继续用 `verify_seal_relay.py --section relay|miss`。

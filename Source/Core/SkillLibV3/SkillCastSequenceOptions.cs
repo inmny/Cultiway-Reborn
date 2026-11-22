@@ -1,3 +1,4 @@
+using System;
 using Friflo.Engine.ECS;
 using Cultiway.Core.SkillLibV3.Components;
 
@@ -188,7 +189,10 @@ public sealed class SkillCastSequenceOptions
     /// <summary>冻结本次策略值，外部修改原设置不改变已受理序列的收费时点。</summary>
     /// <param name="options">来源当前策略；钩子本身继续维护其实际会话。</param>
     internal static SkillCastSequenceOptions Copy(SkillCastSequenceOptions options) => options == null ? null : new()
-    { PaymentTiming = options.PaymentTiming, Hooks = options.Hooks, MaxEmitPerTick = options.MaxEmitPerTick };
+    {
+        PaymentTiming = options.PaymentTiming, Hooks = options.Hooks, MaxEmitPerTick = options.MaxEmitPerTick,
+        FirstEmissionAccepted = options.FirstEmissionAccepted
+    };
 
     /// <summary>资源支付时机。</summary>
     public SkillCastPaymentTiming PaymentTiming { get; set; } = SkillCastPaymentTiming.Upfront;
@@ -198,4 +202,7 @@ public sealed class SkillCastSequenceOptions
 
     /// <summary>单个序列每个 Tick 最多生成的实体数量。</summary>
     public int MaxEmitPerTick { get; set; } = 8;
+
+    /// <summary>使用逐发支付时，第一发正式提交时同时确认来源动作。</summary>
+    internal Action<SkillEmission> FirstEmissionAccepted { get; set; }
 }

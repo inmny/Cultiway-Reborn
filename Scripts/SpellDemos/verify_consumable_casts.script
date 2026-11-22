@@ -1,0 +1,111 @@
+Actor source = Make(64f), ally = Make(68f), hostile = Make(71f, "wolf");
+ActorExtend owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 200f });
+owner.AddComponent(new Magic { level = 2, spirit = 100f });
+owner.MarkCultiwayStatsDirty();
+source.setStatsDirty();
+source.updateStats();
+Ready(source);
+await Advance(.18f);
+ControllableUnit.clear(false);
+await Advance(.12f);
+CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+source.setStatsDirty();
+source.updateStats();
+Place(source, 64f);
+Place(ally, 68f);
+Place(hostile, 71f, 73f);
+ally.setKingdom(source.kingdom);
+source.attack_timer = ally.attack_timer = hostile.attack_timer = 999f;
+source.addAggro(hostile);
+hostile.addAggro(source);
+
+bool scroll = section == "scroll";
+var builder = new SkillContainerBuilder(scroll ? SkillEntities.HealingLight : SkillEntities.SealRelay).UseAnimation(0);
+if (scroll) builder.AddModifier(new HealingModifier { Amount = 35f });
+else builder.AddModifier(new Trajectory { ID = SkillTrajectories.Boomerang.id });
+Entity payload = builder.Build(SkillContainerBuildMode.RuleOnly);
+Entity item = SpecialItemUtils.StartBuild(scroll ? ItemShapes.MagicScroll : ItemShapes.Talisman,
+    Cultiway.WorldboxGame.I.GetWorldTime(), source.getName(), 1).Build();
+if (scroll) item.AddComponent(new MagicScroll { SkillContainer = payload, Strength = 11f, PowerLevel = 1f });
+else item.AddComponent(new Talisman { SkillContainer = payload, Strength = 11f, PowerLevel = 1f });
+item.AddRelation(new SkillMasterRelation { SkillContainer = payload });
+owner.AddSpecialItem(item);
+var handle = new ActiveAbilityHandle(scroll ? "content.magic_scroll" : "content.talisman", item);
+ActiveAbilityTarget Aim(Actor actor) => actor == null
+    ? new ActiveAbilityTarget(null, ally.GetSimPos(), runtimeData: new SkillCastRuntimeData { CorrelationId = 10081 })
+    : new ActiveAbilityTarget(actor, actor.GetSimPos(), runtimeData: new SkillCastRuntimeData { CorrelationId = 10081 });
+bool Owns() => !item.IsNull && owner.GetItems().Contains(item);
+bool TryUse(in ActiveAbilityTarget target)
+{
+    source.attack_timer = 0;
+    bool accepted = ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999f;
+    return accepted;
+}
+SkillEntityAsset asset = payload.GetComponent<SkillContainer>().Asset;
+int startedCount = 0, oldExecutions = 0;
+var hits = new List<ConstructedContact>();
+void HitPaper(ConstructedContact fact)
+{
+    if (fact.SourceId == source.id && fact.AbilityId == asset.id) hits.Add(fact);
+}
+bool consumedAtStart = false;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.CorrelationId != 10081) return;
+    startedCount++;
+    consumedAtStart = !Owns();
+}
+void Old(Entity execution)
+{
+    if (execution.GetComponent<SkillEntity>().Asset == asset) oldExecutions++;
+}
+var oldManaChange = SimGlobals.m.mana_change;
+SimGlobals.m.mana_change = 0;
+source.setMana(0, false);
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += HitPaper;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+try
+{
+    if (scroll)
+    {
+        ally.data.health = Mathf.Max(1, ally.getMaxHealth() - 160);
+        int health = ally.data.health, hostileHealth = hostile.data.health;
+        Check(!TryUse(Aim(null)) && !TryUse(Aim(hostile)) && Owns(),
+            "治疗卷轴要求真实友方对象，拒绝空地和敌人");
+        Check(TryUse(Aim(ally)) && Owns() && !TryUse(Aim(ally)), "施放卷轴先占用原纸张，阻止重复受理");
+        Place(ally, 104f, 72f);
+        await Advance(.14f);
+        Check(Owns() && startedCount == 0 && oldExecutions == 0, "目标在出手前移出射程，原卷保留");
+        Place(ally, 68f, 72f);
+        ConstructedAbilityService.NotifyActorChanged(ally);
+        Check(TryUse(Aim(ally)) && Owns(), "原友方进入射程后可用同一卷再次施法",
+            new { source = source.id, ally = ally.id, hostile = hostile.id, health, hostileHealth, item = item.Id });
+        await Advance(.90f);
+        Check(startedCount == 1 && consumedAtStart && !Owns() && oldExecutions == 0 && source.getMana() == 0 &&
+            ally.data.health > health && hostile.data.health == hostileHealth &&
+            hits.Count == 1 && hits[0].TargetId == ally.id,
+            "第一发共同构造消耗原卷，只治疗所选友方，不再扣法力",
+            new { startedCount, consumedAtStart, oldExecutions, health, healed = ally.data.health, mana = source.getMana(), hitIds = hits.Select(hit => hit.TargetId).ToArray() });
+    }
+    else
+    {
+        int health = hostile.data.health;
+        Check(TryUse(Aim(hostile)) && Owns(), "带有当前构造不支持轨迹的原符进入出手检查");
+        await Advance(.15f);
+        Check(Owns() && startedCount == 0 && oldExecutions == 0 && hostile.data.health == health &&
+              ActiveAbilityService.CanUse(owner, handle, Aim(hostile)),
+            "构造正式拒绝发射后不转旧执行，解除占用并保留同一张符箓");
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    SimGlobals.m.mana_change = oldManaChange;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= HitPaper;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
+    Config.paused = true;
+}

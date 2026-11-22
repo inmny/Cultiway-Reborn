@@ -299,7 +299,7 @@ try
     SkillCastResourceResolver.Invalidate(skill);
     Check(SkillCastCost.GetAffordableStepLimit(owner, skill) == 0, "预先规划步骤数时，同一余额别名也合计需求");
 
-    // 正式封存物品：无效任务保留物品，受理后消费一次并保留本次任务信息。
+    // 正式封存物品：无效任务保留原物，第一发实际受理才消费并保留任务信息。
     Entity Item(bool scroll, Entity payload)
     {
         var item = SpecialItemUtils.StartBuild(scroll ? ItemShapes.MagicScroll : ItemShapes.Talisman,
@@ -328,16 +328,18 @@ try
             "无效任务保留一次性物品：" + provider);
         active = true;
         Check(
-            ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script) && item.IsNull &&
-            Near(balance, 0), "正式受理才消费封存物品且不重复支付：" + provider);
+            ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script) && !item.IsNull &&
+            Near(balance, 0), "序列受理时占用原物，仍保留物品及余额：" + provider);
         sequence = Sequence(payload);
         var runtime = sequence.GetComponent<SkillCastSequence>().RuntimeData;
         Check(
             runtime.Origin == ActiveAbilityUseOrigin.Script && runtime.CorrelationId == (scroll ? 753 : 752) &&
             ReferenceEquals(runtime.WorldScope, scope), "封存请求传入调用方式、关联和任务边界：" + provider);
         Check(!ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script),
-            "已经消耗的同一物品不能再次受理：" + provider);
+            "等待出手的同一物品不能再次受理：" + provider);
         Tick(sequence);
+        Check(item.IsNull && Near(balance, 0),
+            "第一发真正受理时消耗物品且不重复支付：" + provider);
     }
 
     // 队列保留入队时的计划，并丢弃已经换世界的请求。
