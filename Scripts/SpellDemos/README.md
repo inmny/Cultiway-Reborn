@@ -2909,3 +2909,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 器口与镜面（10.07）
 
 用独立游戏入口 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_gourd_swallowing.py` 核对真实器口、吞摄范围和回收。`verify_gourd_outpouring.py` 检查驾驭者移位后从原器口向目标倾泻的实际范围。`verify_mirror_effects.py --section truth` 检查真实镜面、净化范围与缺省位置。三个入口均可用 `--skip-views` 只检查实际行为。
+
+### 飞剑与剑阵的刃面（10.07）
+
+用独立游戏入口 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_native_projectile_flight.py --section artifact-sword` 核对真剑刃面、剑尖空隙、俯仰转向、实际伤害和归还。用 `artifact-array` 核对剑影成形、实际接触与自然收阵，用 `artifact-array-recall` 核对主动收阵和再次使用。

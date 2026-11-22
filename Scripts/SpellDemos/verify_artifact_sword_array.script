@@ -103,9 +103,11 @@ void Contact(Entity blade, BaseSimObject hit)
     object pose = Projection(blade), geometry = Field(state, "geometry");
     Vector3 a = Transform(pose, (Vector3)Field(geometry, "Start"));
     Vector3 b = Transform(pose, (Vector3)Field(geometry, "End"));
+    bool trueSurface = Field(geometry, "Blade") != null &&
+        ReferenceEquals(Field(geometry, "Blade"), Field(record[0], "surface"));
     struck = blade;
     contact.Add(new { blade = blade.Id, segmentStart = segment.A.ToString(), segmentEnd = segment.B.ToString(),
-        radius = segment.Radius, difference = Mathf.Max(Vector3.Distance(a, segment.A), Vector3.Distance(b, segment.B)) });
+        radius = segment.Radius, trueSurface, difference = Mathf.Max(Vector3.Distance(a, segment.A), Vector3.Distance(b, segment.B)) });
 }
 SkillHitResolver.ContactResolved += Contact;
 WakanResourceService.RegisterMutationCommitted(Paid);
@@ -168,8 +170,9 @@ try
             "实际刃段与可见剑体一起命中并扣血，单刃不重复付费",
             new { health, remaining = target.data.health, observed = contact.ToArray() });
         var sample = contact[0];
-        Check((float)sample.GetType().GetProperty("difference").GetValue(sample) < .003f,
-            "现场的可见刃段与共同扫掠端点一致", sample);
+        Check((float)sample.GetType().GetProperty("difference").GetValue(sample) < .003f &&
+            (bool)sample.GetType().GetProperty("trueSurface").GetValue(sample),
+            "剑阵实际命中使用共用刃面与剑影姿态", sample);
         Place(target, 104f);
         await Until(() => State().blades.All(blade => blade.phase == ArtifactSwordArrayBladePhase.Arrayed));
         Check(State().blades.Any(blade => blade.entity == struck) && struck.IsAvailable() && Held(),

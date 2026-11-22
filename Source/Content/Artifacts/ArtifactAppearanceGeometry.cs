@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Content.Components;
+using Cultiway.Core.Skills;
 using Cultiway.Utils;
 using UnityEngine;
 
@@ -74,6 +75,10 @@ internal sealed class ArtifactAppearanceMesh
     public readonly ArtifactAppearanceMeshFace[] Faces;
     public readonly Vector3 Min;
     public readonly Vector3 Max;
+    private AbilityMeshSurface blade;
+
+    internal AbilityMeshSurface Blade => blade ??= new AbilityMeshSurface(
+        Faces.Where(face => face.Slot == "blade").Select(face => face.Points));
 
     public ArtifactAppearanceMesh(ArtifactAppearanceMeshFace[] faces)
     {

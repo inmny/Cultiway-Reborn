@@ -1,4 +1,4 @@
-// 10.04：正式原剑开始的位置、可见刃段、接触、巡航、召回及重新出剑。
+// 正式原剑的实际刃面、接触、巡航、召回及重新出剑。
 Actor source = Make(64.35f), target = Make(72f, "wolf");
 ActorExtend owner = source.GetExtend();
 owner.AddComponent(new Xian { level = 4, wakan = 9000f });
@@ -78,11 +78,68 @@ async Task Until(Func<bool> ready)
 var sweptType = service.Assembly.GetType("Cultiway.Core.SkillLibV3.Components.ColliderSweptBody");
 var readSwept = typeof(Entity).GetMethods(F).Single(method => method.Name == "TryGetComponent" && method.IsGenericMethod)
     .MakeGenericMethod(sweptType);
-AbilityCapsule Blade(Entity execution)
+object ContactBody(Entity execution)
 {
     object[] args = { null };
-    if (!(bool)readSwept.Invoke(execution, args)) throw new InvalidOperationException("没有实际双端扫掠");
-    return (AbilityCapsule)sweptType.GetMethod("After", F).Invoke(args[0], new object[] { 1f });
+    if (!(bool)readSwept.Invoke(execution, args)) throw new InvalidOperationException("没有运行中的飞剑接触面");
+    return args[0];
+}
+AbilityCapsule Blade(Entity execution) =>
+    (AbilityCapsule)sweptType.GetMethod("After", F).Invoke(ContactBody(execution), new object[] { 1f });
+void VerifyBlade(Entity execution, object pose)
+{
+    object geometry = Field(execution.GetComponent<ArtifactSpatialAttackMotion>(), "geometry");
+    object surface = Field(geometry, "Blade"), model = Field(pose, "Model");
+    object actual = ContactBody(execution);
+    Check(surface != null && ReferenceEquals(surface, Field(actual, "surface")), "正式飞剑发布当前组合刃面");
+    var vertices = (Vector3[])Field(surface, "Triangles");
+    Vector3 tip = vertices.OrderByDescending(p => p.y).First();
+    Vector3 edge = vertices.OrderByDescending(p => p.x).First();
+    float top = vertices.Max(p => p.y), baseY = vertices.Min(p => p.y);
+    var grip = ((Vector3[])Field(model, "Vertices")).OrderBy(p => p.y).First();
+    var capsule = typeof(AbilityCapsule).GetConstructors(F).Single();
+    var poseType = pose.GetType();
+    var makePose = poseType.GetConstructors(F).Single();
+    object PoseAt(Quaternion rotation, Vector3 position) => makePose.Invoke(new object[]
+        { model, position, rotation, Vector3.one, Color.white, true, false, null, null, true, null });
+    var contact = geometry.GetType().GetMethod("Contact", F);
+    var move = sweptType.GetMethod("Move", F);
+    var makeSweep = sweptType.GetMethod("Sweep", F);
+    object Sweep(object previous, object current)
+    {
+        object body = contact.Invoke(geometry, new[] { previous });
+        move.Invoke(body, new[] { contact.Invoke(geometry, new[] { current }) });
+        return makeSweep.Invoke(body, new object[] { null });
+    }
+    bool Touches(object sweep, Vector3 point, bool plane = false)
+    {
+        object target = capsule.Invoke(new object[] { 0, point, point, .001f, null, 0, 0, null,
+            Vector3.zero, 1f, null, null });
+        return (bool)sweep.GetType().GetMethod("Touches", F).Invoke(sweep, new[] { target, (object)plane });
+    }
+    var pivot = new Vector3(64f, 72f, 3f);
+    object neutral = PoseAt(Quaternion.identity, pivot);
+    object still = Sweep(neutral, neutral);
+    float radius = (float)Field(geometry, "Radius");
+    var oldCenter = (Vector3)Field(geometry, "End");
+    Vector3 nearby = new Vector3(oldCenter.x + radius * .58f, top - radius * .38f, oldCenter.z);
+    Check((nearby - oldCenter).magnitude < radius && !Touches(still, Vertex(neutral, nearby)) &&
+        baseY - grip.y > .01f && !Touches(still, Vertex(neutral, grip)), "剑尖旁空白与原剑柄无刃面伤害",
+        new { nearby = nearby.ToString(), grip = grip.ToString(), triangles = vertices.Length / 3 });
+    object pitched = PoseAt(Quaternion.Euler(36, 0, 28), pivot);
+    object inclined = Sweep(pitched, pitched);
+    Vector3 visibleTip = Vertex(pitched, tip), visibleEdge = Vertex(pitched, edge);
+    Check(Touches(inclined, visibleTip) && Touches(inclined, visibleEdge) &&
+        !Touches(inclined, (Vector2)visibleTip) && Touches(inclined, (Vector2)visibleTip, plane: true),
+        "俯仰后的剑尖和横刃接触实际表面，建筑保留平面范围",
+        new { visibleTip = visibleTip.ToString(), visibleEdge = visibleEdge.ToString() });
+
+    object left = PoseAt(Quaternion.AngleAxis(-70, Vector3.forward), pivot);
+    object right = PoseAt(Quaternion.AngleAxis(70, Vector3.forward), pivot);
+    Vector3 turnTarget = Vertex(neutral, tip);
+    Check(!Touches(Sweep(left, left), turnTarget) && !Touches(Sweep(right, right), turnTarget) &&
+        Touches(Sweep(left, right), turnTarget), "两端均擦过时仍能确认中途转到的真实剑尖",
+        new { point = turnTarget.ToString() });
 }
 var impacts = new List<(Vector3 Start, Vector3 End, Vector3 VisibleStart, Vector3 VisibleEnd, float Height, float Radius)>();
 void Contact(Entity execution, BaseSimObject hit)
@@ -114,6 +171,7 @@ try
         Vector3.Distance((Vector3)Field(parked, "Scale"), (Vector3)Field(launched, "Scale")) < .003f && !Use(),
         "从随身原位接手，运行期间拒绝再次借用", new
         { parked = Point(parked).ToString(), launched = Point(launched).ToString(), artifact = artifact.Id });
+    VerifyBlade(execution, launched);
     await Advance(.1f);
     await Game.NextFrame();
     object flying = Pose();

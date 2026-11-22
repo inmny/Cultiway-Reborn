@@ -17,9 +17,8 @@ internal static partial class ArtifactSpatialAttackExecution
         ArtifactAppearanceRenderer.TryGetSpatialFlightPose(artifact, execution.GetComponent<Position>().value,
             execution.GetComponent<Rotation>(), out var pose);
         float radius = motion.geometry.Radius * pose.Scale.y;
-        var contact = new ColliderSweptBody(pose.TransformPoint(motion.geometry.Start), pose.TransformPoint(motion.geometry.End), radius);
         execution.GetComponent<ColliderSphere>().Radius = radius;
-        execution.AddComponent(contact);
+        execution.AddComponent(motion.geometry.Contact(pose));
     }
 
     private static void UpdateBlade(Entity execution, Entity artifact, in ArtifactSpatialAttackMotion motion,
@@ -28,8 +27,7 @@ internal static partial class ArtifactSpatialAttackExecution
         if (!ArtifactAppearanceRenderer.TryGetSpatialFlightPose(artifact, position, rotation, out var pose)) return;
         float radius = motion.geometry.Radius * pose.Scale.y;
         execution.GetComponent<ColliderSphere>().Radius = radius;
-        execution.GetComponent<ColliderSweptBody>().Move(
-            pose.TransformPoint(motion.geometry.Start), pose.TransformPoint(motion.geometry.End), radius);
+        execution.GetComponent<ColliderSweptBody>().Move(motion.geometry.Contact(pose));
     }
 
     private static void ExpandBlade(Entity artifact, Actor owner, ref ArtifactSpatialAttackMotion motion, float seconds)

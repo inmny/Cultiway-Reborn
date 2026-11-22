@@ -6,6 +6,7 @@ using Cultiway.Content.Visuals;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.Skills;
 using Cultiway.Core.Visuals;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -16,13 +17,17 @@ namespace Cultiway.Content.Artifacts;
 
 /// <summary>一次实际飞行共用的模型、原尺寸与刃段。</summary>
 internal readonly struct ArtifactFlightGeometry(SpatialVisualMesh model, float span,
-    ArtifactAppearanceTemplateDef template, Vector3 start, Vector3 end, float radius)
+    ArtifactAppearanceTemplateDef template, Vector3 start, Vector3 end, float radius, AbilityMeshSurface blade)
 {
     internal readonly SpatialVisualMesh Model = model;
     internal readonly float Span = span;
     internal readonly ArtifactAppearanceTemplateDef Template = template;
     internal readonly Vector3 Start = start, End = end;
     internal readonly float Radius = radius;
+    internal readonly AbilityMeshSurface Blade = blade;
+
+    internal ColliderSweptBody Contact(in SpatialVisualMeshInstance pose) => new(
+        pose.TransformPoint(Start), pose.TransformPoint(End), Radius * pose.Scale.y, Blade, pose);
 }
 
 /// <summary>
@@ -338,21 +343,10 @@ public static class ArtifactAppearanceRenderer
         geometry = default;
         if (!TryGetMesh(item, out ArtifactAppearanceMesh mesh) ||
             !TryGetSpatialMesh(item, out SpatialVisualMesh model, out Vector3 dimensions)) return false;
-        Vector3 min = Vector3.one * float.PositiveInfinity, max = Vector3.one * float.NegativeInfinity;
-        bool hasBlade = false;
-        foreach (ArtifactAppearanceMeshFace face in mesh.Faces)
-        {
-            if (face.Slot != "blade") continue;
-            hasBlade = true;
-            foreach (Vector3 point in face.Points)
-            {
-                min = Vector3.Min(min, point);
-                max = Vector3.Max(max, point);
-            }
-        }
-        if (!hasBlade) { min = mesh.Min; max = mesh.Max; }
+        var blade = mesh.Blade.Triangles.Length > 0 ? mesh.Blade : null;
         var definition = ArtifactAppearanceCatalogLoader.Current.Templates[item.GetComponent<ArtifactAppearance>().template_key];
-        geometry = BladeGeometry(model, Span(dimensions), definition, min, max);
+        geometry = BladeGeometry(model, Span(dimensions), definition, blade?.Bounds.min ?? mesh.Min,
+            blade?.Bounds.max ?? mesh.Max, blade);
         return true;
     }
 
@@ -364,19 +358,19 @@ public static class ArtifactAppearanceRenderer
         if (sprite == null) return false;
         SpatialVisualMesh model = SpatialSpriteMesh.Get(sprite);
         Bounds bounds = model.Bounds;
-        geometry = BladeGeometry(model, Span(bounds.size), null, bounds.min, bounds.max);
+        geometry = BladeGeometry(model, Span(bounds.size), null, bounds.min, bounds.max, null);
         return true;
     }
 
     private static ArtifactFlightGeometry BladeGeometry(SpatialVisualMesh model, float span,
-        ArtifactAppearanceTemplateDef template, Vector3 min, Vector3 max)
+        ArtifactAppearanceTemplateDef template, Vector3 min, Vector3 max, AbilityMeshSurface blade)
     {
         Vector3 size = max - min;
         float radius = Mathf.Min(size.y * .25f, Mathf.Max(size.x, size.z) * .5f);
         Vector3 start = (min + max) * .5f, end = start;
         start.y = min.y + radius;
         end.y = max.y - radius;
-        return new ArtifactFlightGeometry(model, span, template, start, end, radius);
+        return new ArtifactFlightGeometry(model, span, template, start, end, radius, blade);
     }
 
     /// <summary>一次阵中剑影的实际模型变换，取样后直接用于接触与画面。</summary>

@@ -55,11 +55,13 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
             float size = SkillEffectRadius.Resolve(entity, movingBody ? 1f : collider.Radius);
             AbilityCapsule before = movingBody ? body.Before(size) : FlightPath(entity, pos.value, size);
             AbilityCapsule after = movingBody ? body.After(size) : before;
+            AbilityMeshSweep surface = body.Sweep();
+            Bounds bounds = surface.IsActive ? surface.Bounds : AbilityContactIndex.Swept(before, after);
 
             int first = _pendingHits.Count;
             Kingdom kingdom = context.ResolveAttackKingdom();
-            if (config.Actor) QueueActorHits(entity, ref context, ref config, before, after, movingBody, kingdom);
-            if (config.Building) QueueBuildingHits(entity, ref context, ref config, before, after, movingBody, kingdom);
+            if (config.Actor) QueueActorHits(entity, ref context, ref config, before, after, movingBody, kingdom, body, surface, bounds);
+            if (config.Building) QueueBuildingHits(entity, ref context, ref config, before, after, movingBody, kingdom, surface, bounds);
             // 原来按横格、纵格扫描，同格建筑在前；空间索引的内部顺序不应左右消耗结果。
             if (_pendingHits.Count - first > 1)
                 _pendingHits.Sort(first, _pendingHits.Count - first, PendingHit.TileOrder);
@@ -119,11 +121,14 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
     /// <param name="after">原相对高度的本轮形状。</param>
     /// <param name="movingBody">是否具有实际尺寸和运动的器物。</param>
     /// <param name="kingdom">本次攻击阵营。</param>
+    /// <param name="moving">原始器物姿态，用于同一地表换算。</param>
+    /// <param name="surface">器物真实表面。</param>
+    /// <param name="bounds">本轮平面索引的筛选范围。</param>
     private void QueueActorHits(Entity entity, ref SkillContext context, ref ColliderConfig config,
-        AbilityCapsule before, AbilityCapsule after, bool movingBody, Kingdom kingdom)
+        AbilityCapsule before, AbilityCapsule after, bool movingBody, Kingdom kingdom,
+        in ColliderSweptBody moving, AbilityMeshSweep surface, Bounds bounds)
     {
         if (!_actorsCaptured) CaptureActorTargets();
-        Bounds bounds = AbilityContactIndex.Swept(before, after);
         _actorIndex.Query(OnPlane(bounds), _nearbyActors);
         if (_nearbyActors.Count == 0) return;
 
@@ -139,8 +144,12 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
             terrain = ConstructedAbilityService.GroundProvider(Rect.MinMaxRect(min.x - 1, min.y - 1, max.x + 1, max.y + 1));
             if (terrain != null)
             {
-                before = AtTerrain(before, terrain);
-                after = movingBody ? AtTerrain(after, terrain) : before;
+                if (surface.IsActive) surface = moving.Sweep(terrain);
+                else
+                {
+                    before = AtTerrain(before, terrain);
+                    after = movingBody ? AtTerrain(after, terrain) : before;
+                }
             }
         }
         foreach (int index in _nearbyActors)
@@ -149,8 +158,9 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
             if (!CanHit(ref context, ref config, kingdom, target.Actor)) continue;
             var foot = target.Absolute ? target.Foot : ConstructedAbilityService.WorldFoot(target.Actor, target.Foot, terrain);
             var body = ActorHitBoundary.Create(foot, target.Height, target.Torso);
-            if (movingBody ? AbilityPairSweep.Find(before, after, body, body, out _, out _, out _) :
-                Touches(before, body)) _pendingHits.Add(new PendingHit(entity, target.Actor));
+            bool touches = surface.IsActive ? surface.Touches(body, plane: false) : movingBody
+                ? AbilityPairSweep.Find(before, after, body, body, out _, out _, out _) : Touches(before, body);
+            if (touches) _pendingHits.Add(new PendingHit(entity, target.Actor));
         }
     }
 
@@ -177,18 +187,20 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
     /// <param name="after">本轮形状。</param>
     /// <param name="movingBody">是否具有实际尺寸和运动的器物。</param>
     /// <param name="kingdom">本次攻击阵营。</param>
+    /// <param name="surface">器物真实表面。</param>
+    /// <param name="bounds">本轮平面索引的筛选范围。</param>
     private void QueueBuildingHits(Entity entity, ref SkillContext context, ref ColliderConfig config,
-        AbilityCapsule before, AbilityCapsule after, bool movingBody, Kingdom kingdom)
+        AbilityCapsule before, AbilityCapsule after, bool movingBody, Kingdom kingdom,
+        in AbilityMeshSweep surface, Bounds bounds)
     {
         const float buildingScanPadding = 3f;
-        Bounds bounds = AbilityContactIndex.Swept(before, after);
         Vector2 padding = buildingScanPadding * Vector2.one;
         var lower = Vector2Int.FloorToInt((Vector2)bounds.min - padding);
         var upper = Vector2Int.CeilToInt((Vector2)bounds.max + padding);
         var limit = new Vector2Int(MapBox.width - 1, MapBox.height - 1);
         lower.Clamp(Vector2Int.zero, limit);
         upper.Clamp(Vector2Int.zero, limit);
-        if (movingBody)
+        if (movingBody && !surface.IsActive)
         {
             before = new AbilityCapsule(0, (Vector2)before.A, (Vector2)before.B, before.Radius, null);
             after = new AbilityCapsule(0, (Vector2)after.A, (Vector2)after.B, after.Radius, null);
@@ -202,9 +214,10 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
             float buildingSize = Mathf.Max(1f, building.stats[strings.S.size]);
             Vector3 floor = building.current_position;
             var buildingBody = new AbilityCapsule(0, floor, floor, buildingSize, null);
-            if (movingBody ? AbilityPairSweep.Find(before, after, buildingBody, buildingBody, out _, out _, out _) :
-                SegmentIntersectsCircle(before.A, before.B, floor, before.Radius + buildingSize))
-                _pendingHits.Add(new PendingHit(entity, building));
+            bool touches = surface.IsActive ? surface.Touches(buildingBody, plane: true) : movingBody
+                ? AbilityPairSweep.Find(before, after, buildingBody, buildingBody, out _, out _, out _)
+                : SegmentIntersectsCircle(before.A, before.B, floor, before.Radius + buildingSize);
+            if (touches) _pendingHits.Add(new PendingHit(entity, building));
         }
     }
 

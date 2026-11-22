@@ -51,8 +51,7 @@ internal static class ArtifactSwordArrayExecution
         SkillContext bladeContext = execution.GetComponent<SkillContext>();
         ArtifactSwordArrayBladeState[] blades = new ArtifactSwordArrayBladeState[count];
         var pose = ArtifactAppearanceRenderer.Project(in geometry, origin, Vector2.down, 0f, bladeSize, 0f);
-        var body = new ColliderSweptBody(pose.TransformPoint(geometry.Start), pose.TransformPoint(geometry.End),
-            geometry.Radius * pose.Scale.y);
+        var body = geometry.Contact(pose);
 
         for (int i = 0; i < count; i++)
         {
@@ -477,12 +476,11 @@ internal static class ArtifactSwordArrayExecution
                 blade.pitch, state.blade_size, visibility * opacity);
             entity.GetComponent<ArtifactSpatialProjection>().Pose = pose;
 
-            float radius = state.geometry.Radius * pose.Scale.y;
-            Vector3 start = pose.TransformPoint(state.geometry.Start), end = pose.TransformPoint(state.geometry.End);
+            var contact = state.geometry.Contact(pose);
             ref ColliderConfig collider = ref entity.GetComponent<ColliderConfig>();
             ref ColliderSweptBody swept = ref entity.GetComponent<ColliderSweptBody>();
-            if (collider.Enabled) swept.Move(start, end, radius);
-            else swept = new ColliderSweptBody(start, end, radius);
+            if (collider.Enabled) swept.Move(contact);
+            else swept = contact;
             collider.Enabled = !state.collapsing && blade.phase != ArtifactSwordArrayBladePhase.Forming;
         }
     }
