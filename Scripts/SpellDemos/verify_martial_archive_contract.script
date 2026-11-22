@@ -1,0 +1,63 @@
+using System;
+using System.IO;
+using System.Linq;
+using Cultiway.Content;
+using Cultiway.Content.Skills;
+using Cultiway.Core.Skills;
+using Cultiway.Utils.Extension;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+void Check(bool condition, string reason)
+{
+    if (!condition) throw new InvalidOperationException(reason);
+}
+
+const string output = "$OUTPUT";
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(output, "expected.json")));
+const string holdId = "Cultiway.Verify.SourceLoss.Hold";
+const string vigorId = "Cultiway.Verify.KnightVigor";
+if (Cultiway.ModClass.L.StatusEffectLibrary.get(holdId) == null)
+{
+    var stats = new BaseStats();
+    stats.addTag("frozen_ai");
+    stats.addTag("immovable");
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild(holdId).SetStats(stats).SetDuration(10000).Build();
+}
+if (Cultiway.ModClass.L.StatusEffectLibrary.get(vigorId) == null)
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild(vigorId)
+        .SetStats(new BaseStats { [BaseStatses.MaxVigor.id] = 100f }).SetDuration(10000).Build();
+
+Game.Resume();
+Config.paused = true;
+ControllableUnit.clear(false);
+World.world.save_manager.loadWorld(Path.Combine(output, "world"));
+while (SmoothLoader.isLoading())
+{
+    Config.paused = true;
+    await Game.NextFrame();
+}
+Config.paused = true;
+await Game.NextFrame();
+long source = expected.Value<long>("source");
+Actor body = World.world.units.get(source);
+var owner = body.GetExtend();
+var access = ConstructionEditing.Access;
+string id = expected["definition"].Value<string>("Id");
+var definition = access.Read(id);
+var predicted = JToken.Parse(JsonConvert.SerializeObject(expected["definition"].ToObject<AbilityDefinition>()));
+Check(definition != null && JToken.DeepEquals(predicted, JToken.Parse(JsonConvert.SerializeObject(definition))) &&
+    body.getWeapon()?.data.id == expected.Value<long>("weapon") && ConstructedAbilityService.Knows(owner, id),
+    "成品重新读回时保留完整身体、握持、动作和来历及原铁枪");
+var state = owner.GetComponent<ConstructedCreationState>();
+Check(!state.Pending && state.LastAbility == id && access.List(owner).Count == expected.Value<int>("known"),
+    "已完成的变式只保留原成品及一次学习关系");
+double until = World.world.getCurWorldTime() + .24;
+Config.paused = false;
+await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 1800);
+Config.paused = true;
+Check(!owner.GetComponent<ConstructedCreationState>().Pending && access.List(owner).Count == expected.Value<int>("known"),
+    "继续推进没有再次授予已经完成的变式");
+return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, source, ability = id,
+    definition.Body.Effector, definition.Body.WeaponForm, definition.Body.Grip, definition.Body.SlideGrip,
+    keys = definition.Body.Keys.Length, definition.Cost };
