@@ -1,0 +1,248 @@
+// 从以前已经通过的实际神游、分念和法宝入口取景，不改变真实结算。
+bool soulCase = section == "film-soul", nodeCase = section == "film-node", summonCase = section == "film-summon";
+Actor carrier = null;
+Entity artifact = default;
+string instance = null;
+YuanshenNodeHandle thought = default;
+Vector2 anchor = new(69.65f, 72f);
+Vector2 movingTo = new(68.5f, 74f);
+Vector2 centre = new(67.55f, nodeCase ? 73.15f : 72.41f);
+float zoom = nodeCase ? 2.95f : 2.52f;
+Cultivation().wakan = 9000f;
+Place(enemy, 67.18f);
+if (soulCase)
+{
+    Check(YuanshenTravelService.TryTravelTo(owner, new Vector3(69.6f, 72f, 0f), YuanshenTravelStance.Balanced) &&
+        YuanshenTravelService.TryGetSoulCarrier(owner, out carrier), "实际命魂从正式入口产生");
+    // 在拍摄开场前布置站位，开拍后归返由原游戏推进。
+    CombatStatusEffects.ApplyStatus(carrier, hold, 10000f, carrier);
+    carrier.updateStats();
+    Place(carrier, 69.52f);
+    body.attack_timer = carrier.attack_timer = 999f;
+}
+else if (nodeCase)
+{
+    ControllableUnit.setControllableCreature(body);
+    owner.GetComponent<Yuanshen>().stage = 9;
+    Check(YuanshenThoughtService.TryCreateThought(owner, anchor), "正式创建活动分念");
+    thought = owner.GetComponent<YuanshenRuntimeState>().thought_nodes.Single();
+    Check(YuanshenThoughtService.TryAssignGuard(owner, thought, anchor) && YuanshenThoughtService.TryFocus(owner, thought),
+        "实际分念移动至取景位置");
+    await Advance(1.35f);
+    body.attack_timer = 999f;
+}
+else
+{
+    (carrier, artifact, instance) = await Manifest(summonCase);
+    Place(enemy, 68f);
+    if (summonCase)
+        foreach (Entity entry in Cultiway.ModClass.I.W.Query<ArtifactSummon, ActorBinder>().Entities.ToArray())
+        {
+            if (entry.GetComponent<ArtifactSummon>().artifact != artifact) continue;
+            Actor summon = entry.GetComponent<ActorBinder>().Actor;
+            CombatStatusEffects.ApplyStatus(summon, hold, 10000f, summon);
+            summon.updateStats();
+            summon.attack_timer = 999f;
+        }
+}
+if (!nodeCase) ControllableUnit.setControllableCreature(body);
+body.addAggro(enemy);
+enemy.addAggro(body);
+long carrierId = carrier?.id ?? 0;
+
+AbilityDefinition Ray()
+{
+    var ability = NewAbility("film-ray", AbilityAnchor.Source, .68f);
+    ability.Binding.Follow = true;
+    ability.Binding.Height = .30f;
+    ability.Root.Form = "energy_ray";
+    ability.Root.Scale = 1.2f;
+    ability.Root.OnContact = ConstructionContactResponse.Continue;
+    ability.Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Hostile, DamageScale = 1f, SelectedTargetOnly = true };
+    ability.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Ray,
+        Ray = new ConstructionRay { Length = 4f, FollowTarget = true, FadeOut = .22f } } };
+    return ability;
+}
+AbilityDefinition Ward()
+{
+    var ability = NewAbility("film-ward", AbilityAnchor.Source, 8f);
+    ability.Binding.Follow = true;
+    ability.Binding.Height = .38f;
+    ability.Root.Scale = 1.27f;
+    ability.Root.ContactRole = ConstructionContactRole.Barrier;
+    ability.Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, DamageScale = 0f };
+    ability.Use = new ConstructionUse { Target = nodeCase ? ActiveAbilityTargetMode.Point : ActiveAbilityTargetMode.Self };
+    return ability;
+}
+var ray = nodeCase ? null : Ray();
+var ward = soulCase ? null : Ward();
+ActiveAbilityHandle attack = default;
+File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(new { ray, ward, body = body.id, enemy = enemy.id, carrierId, thought }));
+double Now() => World.world.getCurWorldTime();
+var frames = new List<object>();
+var events = new List<object>();
+void Paid(Actor caster, ActiveAbilityHandle handle, Actor target, long id)
+{
+    float before = Balance();
+    Check(Use(caster, handle, target, id) && Mathf.Abs(before - Balance() - 6f) < .004f,
+        "正式受理并从同一修士扣除真元", new { id, payer = body.id, caster = caster.id, paid = before - Balance(),
+            from = caster.current_position.ToString(), destination = target.current_position.ToString() });
+    Vector3 source = Origin(id);
+    events.Add(new { kind = "payment", time = Now(), id, payer = body.id, caster = caster.id,
+        paid = before - Balance(), origin = new[] { source.x, source.y, source.z } });
+}
+void Snap(string stage)
+{
+    ReadFrame(frames.Count, centre, zoom);
+    var carrierPlace = carrier?.data?.id == carrierId ? carrier.current_position.ToString() : null;
+    var nodePlace = nodeCase && YuanshenNodeLockService.TryResolve(thought, out Entity node)
+        ? node.GetComponent<Position>().v2.ToString() : null;
+    frames.Add(new { frame = frames.Count, time = Now(), stage, carrier = carrierPlace, node = nodePlace, hp = enemy.getHealth() });
+}
+bool HitTarget(long id) => unit.TryGetValue(id, out var started) && hits.Any(hit => hit.CastId == started.Fact.CastId && hit.TargetId == enemy.id && hit.SourceId == body.id);
+bool Finished(long id, bool cancelled) => unit.TryGetValue(id, out var started) &&
+    exits.Any(exit => exit.CastId == started.Fact.CastId && exit.Cancelled == cancelled);
+Vector3 Origin(long id) => (Vector3)Field(unit[id].Run, "LastSourceFoot");
+bool carrierGone = false, moved = false;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+ConstructedAbilityService.CastEnded += Exited;
+try
+{
+    await OpenView(enemy, centre);
+    string stage = "肉身与实际载体";
+    Snap(stage);
+    double start = Now(), next = start + .052d;
+    int action = 0;
+    Config.paused = false;
+    double duration = nodeCase ? 3.14d : soulCase ? 3.72d : 2.42d;
+    while (Now() - start < duration)
+    {
+        double age = Now() - start;
+        if (action == 0 && age >= .22d)
+        {
+            if (nodeCase)
+            {
+                Check(YuanshenThoughtService.TryGetFocused(owner, out var focus, out Vector2 point) && focus == thought,
+                    "取景时有实际聚焦分念");
+                float before = Balance();
+                Check(ActiveAbilityService.TryUse(owner, Learn(ward), new ActiveAbilityTarget(null, (Vector3)point,
+                    runtimeData: new SkillCastRuntimeData { CorrelationId = 10101 }), ActiveAbilityUseOrigin.Script) &&
+                    Mathf.Abs(before - Balance() - 6f) < .004f, "分念正式施放");
+                anchor = point;
+                stage = "分念从实际节点起手";
+            }
+            else
+            {
+                attack = Learn(ray);
+                Paid(carrier, attack, enemy, 10101);
+                Check((long)Field(unit[10101].Run, "SpatialSourceId") == carrierId &&
+                    Vector2.Distance(Origin(10101), carrier.current_position) < .025f &&
+                    Vector2.Distance(Origin(10101), body.current_position) > 3f,
+                    "实录中的第一次出手确实来自独立载体");
+                stage = soulCase ? "命魂代施" : summonCase ? "原幡召唤物代施" : "原剑器灵代施";
+            }
+            action = 1;
+        }
+        if (action == 1 && age >= (nodeCase ? .57d : 1.02d))
+        {
+            if (nodeCase)
+            {
+                Check(YuanshenThoughtService.TryAssignMove(owner, thought, movingTo), "正式移动同一分念");
+                stage = "护持随原节点移动";
+            }
+            else if (soulCase)
+            {
+                Paid(body, attack, enemy, 10102);
+                Check((long)Field(unit[10102].Run, "SpatialSourceId") == body.id &&
+                    Vector2.Distance(Origin(10102), body.current_position) < .025f,
+                    "同一法术随后从肉身位置发出");
+                stage = "同一法术从肉身出手";
+            }
+            else
+            {
+                Paid(carrier, Learn(ward), carrier, 10102);
+                stage = "护持依附实际载体";
+            }
+            action = 2;
+        }
+        if (action == 2 && age >= (nodeCase ? 1.21d : soulCase ? 1.8d : 1.59d))
+        {
+            if (nodeCase)
+            {
+                var live = (AbilityCast)Field(unit[10101].Run, "Cast");
+                var poses = new List<FormVisualInstance>();
+                live.AppendVisuals(poses);
+                Check(MovedWithNode(poses), "实际发布形体和原分念同向移动");
+                Check(YuanshenThoughtService.RequestReturn(owner, thought), "正式归还原分念");
+                stage = "分念带着形体归返";
+            }
+            else if (soulCase)
+            {
+                CombatStatusEffects.RemoveStatus(carrier, hold, carrier);
+                carrier.updateStats();
+                Check(YuanshenTravelService.RequestReturn(owner), "正式命魂归返");
+                stage = "命魂归返";
+            }
+            else
+            {
+                Check(summonCase ? ArtifactAbilityLifecycle.Recall(artifact, instance) : owner.UnequipArtifact(artifact, suppressAutoEquip: true),
+                    "正式解除原幡或原剑关系");
+                stage = "原法宝解除载体";
+            }
+            action = 3;
+        }
+        if (action == 3)
+        {
+            bool disbanded = nodeCase ? !YuanshenNodeLockService.TryResolve(thought, out _) :
+                World.world.units.get(carrierId) is not { } still || !still.isAlive();
+            if (disbanded)
+            {
+                carrierGone = true;
+                stage = "载体回收，场面收束";
+            }
+        }
+        if (Now() >= next)
+        {
+            if (worldfall != null)
+            {
+                Config.paused = true;
+                await WaitForView();
+            }
+            Snap(stage);
+            next = Now() + .052d;
+            Config.paused = false;
+        }
+        await Game.NextFrame();
+    }
+
+    Check(frames.Count >= 22 && action == 3, "连续覆盖准备、释放与结束");
+    if (nodeCase) Check(moved && carrierGone && Finished(10101, true), "分念归返使原依附法术实际结束");
+    else if (soulCase) Check(HitTarget(10101) && HitTarget(10102) && Finished(10101, false) && Finished(10102, false) &&
+        carrierGone, "命魂和肉身均实际命中，并完成归返", new { carrierGone, hits = hits.Count });
+    else Check(HitTarget(10101) && Finished(10101, false) && carrierGone && Finished(10102, true),
+        "法宝载体实际命中，解除后依附法术结束", new { carrierGone, hits = hits.Count });
+    return new { passed = true, section, view, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    ConstructedAbilityService.CastEnded -= Exited;
+    ControllableUnit.clear(false);
+    CloseView();
+    events.AddRange(unit.Values.Select(value => new { kind = "cast", value.Fact.CastId, value.Fact.WorldTime,
+        value.Fact.SourceId, spatialSource = (long)Field(value.Run, "SpatialSourceId") }).Cast<object>());
+    events.AddRange(hits.Select(value => new { kind = "contact", value.CastId, value.WorldTime, value.TargetId }).Cast<object>());
+    events.AddRange(exits.Select(value => new { kind = "end", value.CastId, value.WorldTime, value.Cancelled }).Cast<object>());
+    File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { view, frames, events }, Formatting.Indented));
+}
+
+bool MovedWithNode(List<FormVisualInstance> poses)
+{
+    if (!YuanshenThoughtService.TryGetFocused(owner, out _, out Vector2 point)) return false;
+    Vector2 actual = poses.Count == 0 ? Vector2.zero : new Vector2(poses[0].Transform.m03, poses[0].Transform.m13);
+    moved = Vector2.Distance(anchor, point) > .6f && Vector2.Distance(actual, point) < .65f;
+    return moved;
+}

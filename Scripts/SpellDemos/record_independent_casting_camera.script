@@ -1,0 +1,123 @@
+// 读取原版相机或 Worldfall 实际发布的纹理。世界时间只在正常推进时进入录像。
+var worldfallType = AppDomain.CurrentDomain.GetAssemblies()
+    .Select(assembly => assembly.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(type => type != null);
+object worldfall = worldfallType?.GetProperty("Instance", F).GetValue(null);
+string view = worldfall == null ? "native" : "worldfall";
+object filmSettings = null;
+int originalTimeMode = 0;
+var filmCamera = World.world.camera;
+RenderTexture filmTarget = null;
+Texture2D filmPixels = null;
+bool taskIcons = PlayerConfig.optionBoolEnabled("icons_tasks");
+bool moodIcons = PlayerConfig.optionBoolEnabled("icons_happiness");
+
+async Task WaitForView()
+{
+    await Game.WaitUntil(Boundary, 1800);
+    if (worldfall == null) return;
+    int before = (int)Field(worldfall, "_godGpuApplied");
+    await Game.WaitUntil(() => (int)Field(worldfall, "_godGpuApplied") >= before + 3, 1800);
+}
+
+async Task OpenView(Actor focus, Vector2 centre)
+{
+    Directory.CreateDirectory(Path.Combine(folder, "frames"));
+    File.WriteAllText(Path.Combine(folder, "metadata.json"), JsonConvert.SerializeObject(new
+    {
+        version = Cultiway.ModClass.I.GetDeclaration().Version,
+        process = System.Diagnostics.Process.GetCurrentProcess().Id,
+        worldfall = worldfallType?.Assembly.GetName().Version.ToString()
+    }));
+    PlayerConfig.setOptionBool("icons_tasks", false);
+    PlayerConfig.setOptionBool("icons_happiness", false);
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    foreach (LoadingScreen screen in Resources.FindObjectsOfTypeAll<LoadingScreen>()) screen.gameObject.SetActive(false);
+
+    if (worldfall == null)
+    {
+        filmTarget = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32);
+        filmTarget.Create();
+    }
+    else
+    {
+        void SetView(string name, object value) => worldfallType.GetField(name, F).SetValue(worldfall, value);
+        filmSettings = Field(worldfall, "Settings");
+        originalTimeMode = (int)Field(filmSettings, "TimeMode");
+        filmSettings.GetType().GetField("TimeMode", F).SetValue(filmSettings, 1);
+        worldfallType.GetMethod("ViewForTest", F).Invoke(worldfall, new object[] { false });
+        worldfallType.GetMethod("SetGodView", F).Invoke(worldfall, new object[] { true });
+        await Game.WaitUntil(() => (bool)worldfallType.GetProperty("GodShown", F).GetValue(worldfall) &&
+            (float)worldfallType.GetProperty("GodAlpha", F).GetValue(worldfall) >= .999f, 1800);
+        SetView("_godLock", focus);
+        SetView("_godFollow", focus.current_position);
+        filmCamera.transform.position = new Vector3(centre.x, centre.y, filmCamera.transform.position.z);
+        SetView("_godCamWas", filmCamera.transform.position);
+        SetView("_godCamSet", true);
+        SetView("_godFollowVel", Vector2.zero);
+        SetView("_godClose", 3.2f);
+        SetView("_godCloseTarget", 3.2f);
+        SetView("_godPull", 1f);
+        SetView("_godTurn", -.22f);
+        SetView("_godTurnRate", 0f);
+        SetView("_godTip", .32f);
+        SetView("_godTipRate", 0f);
+        var ground = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+        ground(new Rect(0f, 0f, MapBox.width, MapBox.height));
+    }
+    await Advance(.15f);
+    await WaitForView();
+}
+
+void ReadFrame(int index, Vector2 centre, float zoom)
+{
+    RenderTexture previous = RenderTexture.active;
+    if (worldfall == null)
+    {
+        var oldTarget = filmCamera.targetTexture;
+        float oldZoom = filmCamera.orthographicSize;
+        var oldPosition = filmCamera.transform.position;
+        try
+        {
+            filmCamera.targetTexture = filmTarget;
+            filmCamera.orthographicSize = zoom;
+            filmCamera.transform.position = new Vector3(centre.x, centre.y, oldPosition.z);
+            filmCamera.Render();
+        }
+        finally
+        {
+            filmCamera.targetTexture = oldTarget;
+            filmCamera.orthographicSize = oldZoom;
+            filmCamera.transform.position = oldPosition;
+        }
+    }
+    else
+    {
+        object gpu = worldfallType.GetProperty("GpuRendererForTest", F).GetValue(worldfall);
+        filmTarget = (RenderTexture)Field(gpu, "Output");
+    }
+
+    if (filmPixels == null) filmPixels = new Texture2D(filmTarget.width, filmTarget.height, TextureFormat.RGB24, false);
+    try
+    {
+        RenderTexture.active = filmTarget;
+        filmPixels.ReadPixels(new Rect(0, 0, filmTarget.width, filmTarget.height), 0, 0);
+        filmPixels.Apply();
+        File.WriteAllBytes(Path.Combine(folder, "frames", index.ToString("00000") + ".png"), filmPixels.EncodeToPNG());
+    }
+    finally { RenderTexture.active = previous; }
+}
+
+void CloseView()
+{
+    PlayerConfig.setOptionBool("icons_tasks", taskIcons);
+    PlayerConfig.setOptionBool("icons_happiness", moodIcons);
+    if (filmSettings != null) filmSettings.GetType().GetField("TimeMode", F).SetValue(filmSettings, originalTimeMode);
+    if (filmPixels != null) UnityEngine.Object.Destroy(filmPixels);
+    if (worldfall == null && filmTarget != null)
+    {
+        filmTarget.Release();
+        UnityEngine.Object.Destroy(filmTarget);
+    }
+}

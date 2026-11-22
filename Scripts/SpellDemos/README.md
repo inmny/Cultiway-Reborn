@@ -2955,3 +2955,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--section summon|artifact-spirit` 分别复验正式原幡的召唤物和原剑的器灵。两段核对主人与载体各自支付、实际出手与命中、并存、解除和恢复。记录索引为 `~/.local/state/cultiway-dev/evidence/independent-casting-1010/artifacts/delivery.json`。
 
 `--section prepare` 保存含实际命魂、原幡召唤和原剑器灵的对练场。用另一个新启动的独立游戏运行 `--section cold --archive 保存阶段的输出目录`，核对原本的关系、费用和剩余期限，以及读回后再施法、召回和换世界。
+
+`--section film-soul|film-node|film-summon|film-spirit` 分别录制肉身与命魂交替出手、分念随动归返、原幡召唤物和原剑器灵解除前后的实际画面。每段复用同一对练场，按实际世界时间编码，随录像保存出手位置、扣费、命中和结束记录。原版独立游戏读取原版相机，启用 Worldfall 的环境读取三维画面。

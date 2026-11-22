@@ -9,13 +9,22 @@ import tempfile
 
 import baseline_scenarios as baseline
 from common import PROJECT, write_json
+from record_body_connections import encode
 from verify_weapon_flight_archive import FIXTURE, IMPORTS, world_helpers
+
+
+FILMS = {
+    'film-soul': '命魂与肉身交替出手',
+    'film-node': '分念随动与归返',
+    'film-summon': '原幡召唤物代施',
+    'film-spirit': '原剑器灵代施',
+}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', choices=('soul', 'soul-force', 'node', 'avatar', 'summon', 'artifact-spirit',
-                                              'prepare', 'cold'), default='soul')
+                                              'prepare', 'cold', *FILMS), default='soul')
     parser.add_argument('--archive', type=Path, help='使用 prepare 写出的正式档目录')
     args = parser.parse_args()
     section = args.section
@@ -37,7 +46,7 @@ def main():
     helpers = helpers.replace('ConstructedAbilityService.ContactConfirmed += Hit;', '')
     script = output / 'input.script'
     scene = '' if cold else Path(__file__).with_name('independent_casting_scene.script').read_text()
-    if section in ('summon', 'artifact-spirit', 'prepare'):
+    if section in ('summon', 'artifact-spirit', 'prepare') or section in FILMS:
         scene += Path(__file__).with_name('independent_artifact_casting_scene.script').read_text()
     if section in ('prepare', 'cold'):
         scene += Path(__file__).with_name('verify_independent_casting_archive.script').read_text()
@@ -47,13 +56,16 @@ def main():
         body = f'verify_independent_casting_{section}.script'
     elif section in ('summon', 'artifact-spirit'):
         body = 'verify_independent_artifact_casting.script'
+    elif section in FILMS:
+        scene += Path(__file__).with_name('record_independent_casting_camera.script').read_text()
+        body = 'record_independent_casting.script'
     else:
         body = 'verify_independent_casting.script' if section == 'soul' else 'verify_independent_sources.script'
     script.write_text(IMPORTS + 'using Cultiway.Core.SkillLibV3.Utils;\n' + helpers
                       + f'const string section = "{section}";\n' + scene + Path(__file__).with_name(body).read_text())
     baseline.connect(False, validate_runtime=False)
     try:
-        result = baseline.call('run', str(script), '145000' if section == 'avatar' else '90000')
+        result = baseline.call('run', str(script), '145000' if section == 'avatar' or section in FILMS else '90000')
     except RuntimeError as error:
         write_json(output / 'result.json', dict(passed=False, error=str(error)))
         raise RuntimeError(f'独立施法复验见 {output}') from error
@@ -62,6 +74,10 @@ def main():
     write_json(output / 'result.json', result)
     if not result['passed']:
         raise SystemExit(f'独立施法未通过，见 {output}')
+    if section in FILMS:
+        encode(section.removeprefix('film-'), output, output, result['view'] == 'native',
+               label=FILMS[section], milestone='10.10 独立施法实录',
+               worldfall_crop='crop=iw*0.52:ih*0.52:iw*0.27:ih*0.22')
     print(json.dumps(dict(output=str(output), result=result), ensure_ascii=False))
 
 
