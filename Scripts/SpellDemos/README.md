@@ -2889,3 +2889,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 器灵觉醒、成长与复苏（10.06）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_artifact_spirit_growth.py` 检查原件觉醒、付费施法与实伤成长、阵亡复苏及卸装。用 `--section growth|recovery` 选择单项，或用 `--skip-views` 跳过原版与 Worldfall 的显化取景。
+
+### 御器载行（10.06）
+
+用 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_artifact_riding.py` 检查原控制入口起飞、近旁搭载、实际速度与座位跟随、悬停和落地。同一飞行时刻采集原版与 Worldfall 画面，用 `--skip-views` 可只检查游戏行为。

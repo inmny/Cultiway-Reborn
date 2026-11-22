@@ -12,7 +12,6 @@ using Cultiway.Core.Pathfinding;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
-using NeoModLoader.api.attributes;
 using UnityEngine;
 
 namespace Cultiway.Content.Patch;
@@ -203,7 +202,7 @@ internal static class PatchAboutFly
         return list;
     }
 
-    /// <summary>先排除已接管受力的额外下落，再保留修仙飞行从地面起飞的原有入口。</summary>
+    /// <summary>在人物更新中处理已接管的受力和修仙飞行，其他人物继续按原版下落。</summary>
     /// <param name="codes">原版人物更新指令。</param><param name="generator">为跳过下落创建独立目标。</param>
     [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.updateParallelChecks))]
     private static IEnumerable<CodeInstruction> updateParallelChecks(IEnumerable<CodeInstruction> codes,
@@ -213,40 +212,36 @@ internal static class PatchAboutFly
 
         var insert_idx = list.FindIndex(x =>
             x.opcode == OpCodes.Ldfld && (x.operand as FieldInfo)?.Name == nameof(ActorAsset.update_z)) - 2;
-        var jump_target_idx = list.FindIndex(x =>
-            x.opcode == OpCodes.Callvirt && (x.operand as MethodInfo)?.Name == nameof(Actor.updateFall)) - 1;
+        var fall_idx = list.FindIndex(x =>
+            x.opcode == OpCodes.Callvirt && (x.operand as MethodInfo)?.Name == nameof(Actor.updateFall));
         Label afterFall = generator.DefineLabel();
-        list[jump_target_idx + 2].labels.Add(afterFall);
-        Label label;
-        if (list[jump_target_idx].labels.Count > 0)
-        {
-            label = list[jump_target_idx].labels[0];
-        }
-        else
-        {
-            label = new Label();
-            list[jump_target_idx].labels.Add(label);
-        }
+        list[fall_idx + 1].labels.Add(afterFall);
 
         list.InsertRange(insert_idx, new[]
         {
             new CodeInstruction(OpCodes.Ldarg_0),
-            new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(PatchAboutFly), nameof(SkipOrdinaryFall))),
+            new CodeInstruction(OpCodes.Ldarg_1),
+            new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(PatchAboutFly), nameof(HandleSpecialFall))),
             new CodeInstruction(OpCodes.Brtrue, afterFall),
-            new CodeInstruction(OpCodes.Ldarg_0),
-            new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(PatchAboutFly), nameof(check_is_flying))),
-            new CodeInstruction(OpCodes.Brtrue, label)
         });
 
         return list;
     }
 
-    /// <summary>在真实人物更新入口跳过已接管受力的普通下落，不依赖短方法的单独拦截。</summary>
+    /// <summary>保留受力接管的优先级，再按当前人物更新的步长调整飞行高度。</summary>
     /// <param name="actor">本轮正在更新的人物。</param>
-    private static bool SkipOrdinaryFall(Actor actor) =>
-        !actor.under_forces && Cultiway.Core.Skills.BodyControlState.ControlsHeight(actor.id) ||
-        Cultiway.Content.Skills.ConstructedActorImpulse.UpdateSurface(actor) ||
-        Cultiway.Content.Skills.ConstructedActorImpulse.Owns(actor);
+    /// <param name="elapsed">本次人物更新经过的世界秒数。</param>
+    private static bool HandleSpecialFall(Actor actor, float elapsed)
+    {
+        if (!actor.under_forces && Cultiway.Core.Skills.BodyControlState.ControlsHeight(actor.id) ||
+            Cultiway.Content.Skills.ConstructedActorImpulse.UpdateSurface(actor) ||
+            Cultiway.Content.Skills.ConstructedActorImpulse.Owns(actor)) return true;
+        if (actor.isFlying() && actor.GetExtend().HasComponent<ArtifactVehiclePassenger>()) return true;
+        if (!check_is_flying(actor)) return false;
+
+        actor.position_height = Mathf.MoveTowards(actor.position_height, ContentSetting.FlyHeight, elapsed * 20f);
+        return true;
+    }
 
     private static bool check_is_flying(Actor actor)
     {
@@ -269,22 +264,6 @@ internal static class PatchAboutFly
         }
 
         actor.precalcMovementSpeed(true);
-    }
-
-    [Hotfixable]
-    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.updateFall))]
-    private static bool updateFall_prefix(Actor __instance)
-    {
-        var actor = (Actor)__instance;
-        if (!actor.under_forces && Cultiway.Core.Skills.BodyControlState.ControlsHeight(actor.id)) return false;
-        if (Cultiway.Content.Skills.ConstructedActorImpulse.UpdateSurface(actor) ||
-            Cultiway.Content.Skills.ConstructedActorImpulse.Owns(actor)) return false;
-        if (!check_is_flying(actor)) return true;
-
-        var delta = ContentSetting.FlyHeight - actor.position_height;
-        actor.position_height += Mathf.Min(Mathf.Abs(delta), World.world.elapsed * 20f) * Mathf.Sign(delta);
-
-        return false;
     }
 
     [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.precalcMovementSpeed))]

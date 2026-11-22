@@ -157,12 +157,43 @@ internal static class ArtifactSpatialVisualRuntime
     private static void Trail(Lease entry, ArtifactTrailVisualCue cue, double now, float fade, List<SpatialVisualMeshInstance> meshes)
     {
         Color color = ColorOf(entry.Context, cue.color_role, cue.alpha * fade);
+        if (cue.style_key == ArtifactVfxStyles.Vehicle)
+        {
+            VehicleWake(entry, cue.history, now, color, meshes);
+            return;
+        }
         for (int i = 1; i < entry.Points.Count; i++)
         {
             Color current = color; current.a *= Mathf.Clamp01(1f - (float)(now - entry.Points[i].time) / cue.history);
             SpatialVisualDraw.Rod(meshes, entry.Points[i - 1].position, entry.Points[i].position,
                 cue.width * Scale(entry.Context, cue.match_actor_scale), current, true);
         }
+    }
+
+    /// <summary>让风面贴着最近的飞行位置向后展开，实际停止移动后自然消退。</summary>
+    /// <param name="entry">当前载具与实际位移记录。</param>
+    /// <param name="history">保留位移的世界秒数。</param>
+    /// <param name="now">当前世界时间。</param>
+    /// <param name="color">风面的颜色与透明度。</param>
+    /// <param name="meshes">本帧共用快照。</param>
+    private static void VehicleWake(Lease entry, float history, double now, Color color,
+        List<SpatialVisualMeshInstance> meshes)
+    {
+        if (entry.Points.Count < 2) return;
+        var front = entry.Points[^1];
+        Vector2 direction = front.position - entry.Points[0].position;
+        float distance = direction.magnitude;
+        float span = entry.VehicleSpan;
+        if (distance < .12f || span <= 0f) return;
+
+        color.a *= Mathf.Clamp01(1f - (float)(now - front.time) / history);
+        if (color.a <= .01f) return;
+        float length = Mathf.Min(distance, span * 2.15f);
+        float opening = Mathf.Clamp01(length / span);
+        float yaw = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
+        SpatialVisualDraw.Mesh(meshes, ArtifactVehicleWakeGeometry.Surface, front.position,
+            Quaternion.Euler(0f, 0f, yaw), new Vector3(span * (.52f + .48f * opening), length, span * .34f),
+            color, false, front.position, additive: false);
     }
 
     /// <summary>保留真实边界，避免大范围显示被画成实心光盘。</summary>
@@ -454,6 +485,8 @@ internal static class ArtifactSpatialVisualRuntime
         internal float Duration;
         /// <summary>真实运动采样。</summary>
         internal readonly List<(Vector3 position, double time)> Points = new();
+        /// <summary>载具当前的模型尺寸，降落收尾期间保留最后一次飞行尺寸。</summary>
+        internal float VehicleSpan;
         /// <summary>租约是否仍由已有管理器持有。</summary>
         public bool IsAlive => Closing < 0d;
         /// <summary>选择实际部件。</summary><param name="cue">部件。</param>
@@ -469,9 +502,20 @@ internal static class ArtifactSpatialVisualRuntime
             Context = context;
             if (Cue is not ArtifactTrailVisualCue trail || !Resolve(context, trail.anchor, trail.offset, trail.match_actor_scale, out Vector3 point)) return;
             while (Points.Count > 0 && now - Points[0].time >= trail.history) Points.RemoveAt(0);
-            if (Points.Count == 0 || Vector3.Distance(Points[^1].position, point) >= trail.min_distance * Scale(context, trail.match_actor_scale))
+            bool vehicle = trail.style_key == ArtifactVfxStyles.Vehicle;
+            if (vehicle)
+            {
+                Actor driver = context.controller.GetComponent<ActorBinder>().Actor;
+                point.x = driver.current_position.x;
+                point.y = driver.current_position.y;
+                VehicleSpan = context.artifact.GetComponent<ArtifactManifestation>().world_size;
+            }
+            float distance = Points.Count == 0 ? float.PositiveInfinity : vehicle
+                ? Vector2.Distance(Points[^1].position, point)
+                : Vector3.Distance(Points[^1].position, point);
+            if (distance >= trail.min_distance * Scale(context, trail.match_actor_scale))
                 Points.Add((point, now));
-            else if (Points[^1].time != now) Points[^1] = (point, now);
+            else if (!vehicle && Points[^1].time != now) Points[^1] = (point, now);
             while (Points.Count > Mathf.Max(2, trail.max_points)) Points.RemoveAt(0);
         }
         /// <summary>停止跟随，仅保留很短的世界时间收尾。</summary>

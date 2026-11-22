@@ -193,14 +193,18 @@ public static class ArtifactVehicleService
         passengerEntity.RemoveComponent<ArtifactVehiclePassenger>();
     }
 
+    /// <summary>把座位偏移加在驾驭者的实际位置上，同时保持在驾驭者所在的地块。</summary>
+    /// <param name="passenger">当前乘客。</param>
+    /// <param name="driver">实际驾驭者。</param>
+    /// <param name="seatIndex">乘客当前的座位编号。</param>
     internal static void UpdatePassengerPose(Actor passenger, Actor driver, int seatIndex)
     {
         float angle = (-90f + seatIndex * 137.5f) * Mathf.Deg2Rad;
         float radius = 0.38f + seatIndex / 4 * 0.16f;
         Vector2 offset = new(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius);
         passenger.stopMovement();
-        passenger.setCurrentTilePosition(driver.current_tile);
-        passenger.current_position += offset;
+        passenger.setCurrentTile(driver.current_tile);
+        passenger.current_position = driver.current_position + offset;
         passenger.position_height = driver.position_height + 0.12f;
         passenger.velocity = Vector3.zero;
         passenger.under_forces = false;

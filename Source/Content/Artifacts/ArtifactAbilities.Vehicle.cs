@@ -74,33 +74,23 @@ public partial class ArtifactAbilities
 
     private static void ConfigureVehicleAbilityVisuals()
     {
-        ArtifactParticleVisualCue vehicleWind = Burst(
-                    ArtifactVisualAnchorKind.Artifact,
-                    ArtifactVisualColorRole.Glow,
-                    2,
-                    0.18f);
-        vehicleWind.emission_interval = 0.1f;
-        vehicleWind.directional_speed = -0.45f;
         ArtifactTrailVisualCue vehicleWake = new()
         {
             style_key = ArtifactVfxStyles.Vehicle,
             anchor = ArtifactVisualAnchorKind.Artifact,
-            color_role = ArtifactVisualColorRole.Glow,
-            width = 0.11f,
-            alpha = 0.48f,
-            history = 0.3f,
-            min_distance = 0.025f,
-            max_points = 28,
+            alpha = .68f,
+            history = .24f,
+            min_distance = .1f,
+            max_points = 16,
             match_actor_scale = false,
         };
         ArtifactRiding.Visualize(Theme(SkillVfxElements.Wind.AccentColor)
             .Loop(
                 "vehicle_wake",
-                new ArtifactCompositeVisualCue(vehicleWind, vehicleWake, Pulse(1f, 1f, 0.055f)),
+                vehicleWake,
                 IsVehicleBody,
                 "artifact.vehicle.active",
-                ArtifactVisualStackPolicy.Independent,
-                context => context.ability.GetNumber(VehicleSpeedMultiplier)));
+                ArtifactVisualStackPolicy.Independent));
     }
 
     private static bool IsVehicleBody(ArtifactAbilityVisualContext context)
