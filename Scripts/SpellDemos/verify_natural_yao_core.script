@@ -1,0 +1,79 @@
+Actor wolf = Make(64f, "wolf"), enemy = Make(69f);
+ActorExtend owner = wolf.GetExtend();
+Check(YaoAwakeningService.TryAwakenByRain(owner), "同一对练狼经实际启灵");
+Check(YaoFormPlanService.TrySetOrgans(owner, YaoFormIds.TrueForm, new[]
+{
+    new YaoOrganRecord { SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1, Origin = YaoOrganOrigin.Innate },
+    new YaoOrganRecord { SlotId = YaoContent.Slots.Head, OrganId = "yao.spirit.sense", Rank = 1, Origin = YaoOrganOrigin.GodEdited }
+}), "使用无主动器官的合法身体");
+owner.E.AddComponent(new YaoCore { CorePatternId = YaoCorePatterns.Fire.Id, Quality = 60f, Stability = 65f });
+wolf.setStatsDirty();
+wolf.updateStats();
+await Advance(.3f);
+wolf.addAggro(enemy);
+enemy.addAggro(wolf);
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var entries = handles.Where(handle => handle.ProviderId == "content.yao_core").ToDictionary(
+    handle => handle.Source.GetComponent<SkillContainer>().Asset.id, handle => SkillCastCost.CalculateStepDemand(handle.Source));
+Check(new HashSet<string>(entries.Keys).SetEquals(YaoCorePatterns.Fire.SkillIds) && entries.Values.All(cost => cost > 0) &&
+    handles.All(handle => handle.ProviderId != "content.creature_phenotype"),
+    "加载世界后，实际火行妖丹提供两项使用妖力的神通", entries);
+
+var starts = new List<ConstructedCastStarted>();
+var hits = new List<ConstructedContact>();
+var ends = new List<ConstructedCastEnded>();
+var payments = new List<float>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId == wolf.id && entries.ContainsKey(fact.AbilityId)) starts.Add(fact);
+}
+void Contact(ConstructedContact fact)
+{
+    if (fact.SourceId == wolf.id && fact.TargetId == enemy.id && entries.ContainsKey(fact.AbilityId)) hits.Add(fact);
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (fact.SourceId == wolf.id && entries.ContainsKey(fact.AbilityId)) ends.Add(fact);
+}
+void Spend(ActorExtend payer, YaoPowerMutation mutation)
+{
+    if (payer == owner && mutation.Kind == YaoPowerMutationKind.Spend) payments.Add(-mutation.Delta);
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+ConstructedAbilityService.CastEnded += Finished;
+YaoResourceService.MutationCommitted += Spend;
+try
+{
+    owner.GetCultisys<Yao>().yao_power = 1000f;
+    CombatStatusEffects.RemoveStatus(wolf, hold);
+    wolf.setStatsDirty();
+    wolf.updateStats();
+    Place(wolf, 64f);
+    Place(enemy, 69f);
+    wolf.setAttackTarget(enemy);
+    wolf.attack_timer = 0f;
+    for (int frame = 0; frame < 50 && starts.Count == 0; frame++) await Advance(.06f);
+    Check(starts.Count == 1 && starts[0].Origin == ActiveAbilityUseOrigin.Autonomous,
+        "妖兽在实际交战中自行选用火行妖丹神通", new { starts, wolf.attack_timer });
+    ConstructedCastStarted shot = starts[0];
+    CombatStatusEffects.ApplyStatus(wolf, hold, 10000f, wolf);
+    wolf.updateStats();
+    for (int frame = 0; frame < 40 && ends.Count == 0; frame++) await Advance(.06f);
+    Check(starts.Count == 1 && payments.Count == 1 && Mathf.Abs(payments[0] - entries[shot.AbilityId]) < .002f &&
+        hits.Count == 1 && hits[0].CastId == shot.CastId &&
+        hits[0].Damage.SettledCount == 1 && hits[0].Damage.HealthLost > 0 &&
+        ends.Count == 1 && ends[0].CastId == shot.CastId && !ends[0].Cancelled,
+        "同一神通实际扣一笔妖力、结算一次并正常结束", new { shot, payments, hits = hits.Select(hit => new { hit.CastId, hit.TargetId, hit.Damage }).ToArray(),
+            ends = ends.Select(end => new { end.CastId, end.Cancelled, end.Age }).ToArray() });
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    ConstructedAbilityService.CastEnded -= Finished;
+    YaoResourceService.MutationCommitted -= Spend;
+    Config.paused = true;
+}

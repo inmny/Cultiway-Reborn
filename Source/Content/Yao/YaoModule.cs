@@ -19,10 +19,6 @@ public sealed class YaoModule : ICanInit
     {
         // 静态技能容器：器官与妖丹引用的技能只建立一次。
         CreatureOrganSkillRegistry.EnsureBuilt();
-        foreach (YaoCorePatternAsset pattern in YaoCorePatterns.All)
-        {
-            foreach (string skillId in pattern.SkillIds) CreatureOrganSkillRegistry.RegisterSkill(skillId);
-        }
 
         // 玩法服务钩子：启灵积累、精华掉落、天劫与涅槃。
         YaoAwakeningService.Initialize();

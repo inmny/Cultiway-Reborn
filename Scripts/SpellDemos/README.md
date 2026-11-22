@@ -3045,3 +3045,17 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 原版独立游戏运行 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_manual_cast.py --record`。从同一能力栏和施放热键检查重订版、过期准备、超距及费用。录像按实际世界时间记录这次施放，输出目录另含待恢复的正式世界。解除附体后等原版眩晕和困惑结束，再查自主出手。
 
 在独立 Worldfall 游戏运行 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_manual_cast.py --worldfall --record --archive 原版输出目录`。脚本读入世界副本，用恢复出来的同一能力从实际第一人称准星施放。省去 `--record` 可只检查当次操作，省去 `--archive` 可在现成演示世界直接检查第一人称。
+
+### 人物自然出手与实际结算（10.15 A）
+
+在原版独立游戏运行 `dev.py exec --timeout 95 -- python3 Scripts/SpellDemos/verify_natural_cast.py`。同一人物在真实交战中自行选用已学行剑，检查体力不足、蓄势暂停、恢复后的单次实际支付与扣血，以及冷却后的独立出手和自然结束。结果写到本次独立游戏输出目录。
+
+同一原版入口可逐个复验法宝、消耗物和器官的自然出手（10.15 B）。命令依次使用 `verify_pearl_strike.py --natural --skip-views`、`verify_consumable_casts.py --section natural-scroll` 和 `verify_organ_ability.py --section natural-source`。各自使用原来的场景资料，记录实际费用和结算。
+
+已学构造的原自然创法复验见[自然创法请求与恢复](../../Doc/技能系统全面重构/自然创法请求与恢复.md#本轮验证)。左右局部战技复用 `dev.py run Scripts/SpellDemos/verify_action_concurrency.script`，确认同一人物的实际动作占用和自主出手。
+
+在同一原版独立游戏运行 `dev.py exec --timeout 110 -- python3 Scripts/SpellDemos/verify_independent_casting.py --section natural-summon`，确认原幡召出的载体自行选用主人已学的能力，从载体当前位置施展，由主人付费并记入原归属。场景复用原幡和原对练角色。
+
+用 `verify_organ_ability.py --section natural-core` 复验火行妖丹换世界后保有两种神通，及在自然交战中一次实际支付和结算。共用登记的雷角撤下及装回可用同入口的 `--section source`。
+
+其他来源的自然触发、正式读回和对应证据见[10.15 复验和证据](../../Doc/技能系统全面重构/自然施放与结算验收.md#e-复验和证据)。

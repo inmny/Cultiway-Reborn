@@ -1,15 +1,25 @@
 Actor source = Make(64f), ally = Make(68f), hostile = Make(71f, "wolf");
+bool natural = section == "natural-scroll";
 ActorExtend owner = source.GetExtend();
 owner.AddComponent(new Xian { level = 2, wakan = 200f });
 owner.AddComponent(new Magic { level = 2, spirit = 100f });
 owner.MarkCultiwayStatsDirty();
 source.setStatsDirty();
 source.updateStats();
-Ready(source);
-await Advance(.18f);
-ControllableUnit.clear(false);
-await Advance(.12f);
-CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+if (natural)
+{
+    await Advance(.3f);
+    CombatStatusEffects.RemoveStatus(source, hold);
+    source.setStatsDirty();
+}
+else
+{
+    Ready(source);
+    await Advance(.18f);
+    ControllableUnit.clear(false);
+    await Advance(.12f);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+}
 source.setStatsDirty();
 source.updateStats();
 Place(source, 64f);
@@ -20,7 +30,7 @@ source.attack_timer = ally.attack_timer = hostile.attack_timer = 999f;
 source.addAggro(hostile);
 hostile.addAggro(source);
 
-bool scroll = section == "scroll";
+bool scroll = section is "scroll" or "natural-scroll";
 var builder = new SkillContainerBuilder(scroll ? SkillEntities.HealingLight : SkillEntities.SealRelay).UseAnimation(0);
 if (scroll) builder.AddModifier(new HealingModifier { Amount = 35f });
 else builder.AddModifier(new Trajectory { ID = SkillTrajectories.Boomerang.id });
@@ -51,11 +61,13 @@ void HitPaper(ConstructedContact fact)
     if (fact.SourceId == source.id && fact.AbilityId == asset.id) hits.Add(fact);
 }
 bool consumedAtStart = false;
+ActiveAbilityUseOrigin observedOrigin = ActiveAbilityUseOrigin.Script;
 void Started(ConstructedCastStarted fact)
 {
-    if (fact.SourceId != source.id || fact.CorrelationId != 10081) return;
+    if (fact.SourceId != source.id || (natural ? fact.AbilityId != asset.id : fact.CorrelationId != 10081)) return;
     startedCount++;
     consumedAtStart = !Owns();
+    observedOrigin = fact.Origin;
 }
 void Old(Entity execution)
 {
@@ -69,6 +81,21 @@ ConstructedAbilityService.ContactConfirmed += HitPaper;
 Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
 try
 {
+    if (natural)
+    {
+        ally.data.health = ally.getMaxHealth() / 2;
+        source.setAttackTarget(hostile);
+        source.attack_timer = 0f;
+        for (int frame = 0; frame < 36 && hits.Count == 0; frame++) await Advance(.10f);
+        await Advance(.24f);
+        Check(startedCount == 1 && observedOrigin == ActiveAbilityUseOrigin.Autonomous && consumedAtStart && !Owns() &&
+              hits.Count == 1 && hits[0].TargetId == ally.id && hits[0].TargetHealthAfter - hits[0].TargetHealthBefore == 35 &&
+              oldExecutions == 0 && source.getMana() == 0,
+            "自然战斗只耗用一次原卷，按封存资料治愈原友方且没有从人物再付法力",
+            new { startedCount, origin = observedOrigin.ToString(), consumedAtStart, owns = Owns(), oldExecutions,
+                mana = source.getMana(), hits = hits.Select(hit => new { hit.TargetId, hit.TargetHealthBefore, hit.TargetHealthAfter }).ToArray() });
+        return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
     if (scroll)
     {
         ally.data.health = Mathf.Max(1, ally.getMaxHealth() - 160);

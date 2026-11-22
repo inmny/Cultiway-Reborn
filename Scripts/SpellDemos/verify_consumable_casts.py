@@ -14,7 +14,7 @@ from verify_weapon_flight_archive import FIXTURE, IMPORTS, world_helpers
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', required=True, choices=('scroll', 'rejection', 'prepare', 'cold'))
+    parser.add_argument('--section', required=True, choices=('scroll', 'natural-scroll', 'rejection', 'prepare', 'cold'))
     parser.add_argument('--archive', type=Path, help='prepare 输出目录，仅冷启动使用')
     args = parser.parse_args()
     restoring = args.section == 'cold'

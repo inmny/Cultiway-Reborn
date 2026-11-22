@@ -1,0 +1,133 @@
+const string id = "test.natural-cast.sword";
+Actor caster = Make(64f);
+Actor enemy = Make(70.3f, "wolf");
+var owner = caster.GetExtend();
+var definition = new AbilityDefinition
+{
+    Id = id, Name = "自主行剑", Lifetime = .9f, TargetRange = 12f, Cost = 7f,
+    Resource = "stamina", Cooldown = 1.8f, Power = 2f,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Height = .28f },
+    Root = new ConstructionNode
+    {
+        Id = "projectile", Form = "sword_qi", Matter = "iron", Rotation = new[] { -90f, 0f, 0f },
+        ActiveFrom = .24f, OnContact = ConstructionContactResponse.End,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, At = .24f,
+            WorldVelocity = true, InheritVelocity = false, Vector = new[] { 780f, 0f, 0f } } }
+    }
+};
+ConstructedAbilityService.Register(definition);
+ConstructedAbilityService.Learn(owner, id);
+var ability = new ActiveAbilityHandle("content.constructed", owner.E, id);
+var started = new List<ConstructedCastStarted>();
+var hit = new List<ConstructedContact>();
+var ended = new List<ConstructedCastEnded>();
+var payments = new List<(double Quoted, double Paid)>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId == caster.id && fact.AbilityId == id) started.Add(fact);
+}
+void HitTarget(ConstructedContact fact)
+{
+    if (fact.SourceId == caster.id && fact.TargetId == enemy.id && fact.AbilityId == id) hit.Add(fact);
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (fact.SourceId == caster.id && fact.AbilityId == id) ended.Add(fact);
+}
+
+var stamina = SkillCastResources.Stamina;
+var spend = stamina.SpendAmount;
+stamina.SpendAmount = (payer, amount) =>
+{
+    double before = stamina.ReadAmount(payer);
+    spend(payer, amount);
+    if (payer == owner) payments.Add((amount, before - stamina.ReadAmount(payer)));
+};
+
+void PlaceRivals()
+{
+    Place(caster, 64f);
+    Place(enemy, 70.3f);
+    caster.addAggro(enemy);
+    enemy.addAggro(caster);
+    caster.setAttackTarget(enemy);
+    caster.attack_timer = 0f;
+}
+
+AbilityCast Current(long castId) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Where(item => (long)Field(item, "Id") == castId).Select(item => (AbilityCast)Field(item, "Cast")).SingleOrDefault();
+
+async Task WaitForStart(int count)
+{
+    for (int frame = 0; frame < 45 && started.Count < count; frame++) await Advance(.06f);
+    Check(started.Count == count && started[^1].Origin == ActiveAbilityUseOrigin.Autonomous,
+        "人物自然战斗受理第 " + count + " 次行剑", new
+        {
+            started = started.Select(item => new { item.CastId, item.WorldTime }).ToArray(), caster.data.stamina,
+            range = Vector2.Distance(caster.current_position, enemy.current_position), caster.attack_timer
+        });
+}
+
+void CheckResult(int index, bool expectContact)
+{
+    long castId = started[index].CastId;
+    ConstructedContact[] contacts = hit.Where(item => item.CastId == castId).ToArray();
+    ConstructedCastEnded[] endings = ended.Where(item => item.CastId == castId).ToArray();
+    Check((!expectContact || contacts.Length == 1) && contacts.Length <= 1 &&
+        contacts.All(item => item.Damage.SettledCount == 1 && item.Damage.HealthLost > 0 &&
+            item.TargetHealthBefore - item.TargetHealthAfter == item.Damage.HealthLost) &&
+        endings.Length == 1 && !endings[0].Cancelled,
+        "本次命中或落空独立确认，并且只报告一次自然结束",
+        new { castId, contacts = contacts.Select(item => new { item.Damage, item.WorldTime }).ToArray(),
+            endings = endings.Select(item => item.Cancelled).ToArray() });
+}
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += HitTarget;
+ConstructedAbilityService.CastEnded += Finished;
+try
+{
+    // 让原版先完整接收新人物及其初始属性，再设置本次战斗的体力。
+    await Advance(.3f);
+    CombatStatusEffects.RemoveStatus(caster, hold);
+    caster.setStatsDirty();
+    caster.updateStats();
+    PlaceRivals();
+    caster.data.stamina = 0;
+    Check(ActiveAbilityService.ResolveControlState(owner, ability).BlockReason ==
+        ActiveAbilityControlBlockReason.InsufficientResource, "真实体力不足进入已有拒绝路径");
+    await Advance(.25f);
+    Check(started.Count == 0 && payments.Count == 0 && hit.Count == 0, "不足时自然战斗没有受理、扣费或伤害",
+        new { starts = started.Count, paid = payments.Select(item => item.Paid).ToArray(), hits = hit.Count, caster.data.stamina });
+
+    PlaceRivals();
+    caster.data.stamina = caster.getMaxStamina();
+    await WaitForStart(1);
+    long firstId = started[0].CastId;
+    AbilityCast running = Current(firstId);
+    Check(running != null && hit.Count == 0, "停在实际行剑蓄势和接触之间");
+    float beforePause = running.Age;
+    for (int i = 0; i < 8; i++) await Game.NextFrame();
+    Check(running.Age == beforePause && payments.Count == 1 && hit.Count == 0,
+        "暂停期间继续绘制也不推进已开始的攻击或再次扣费");
+    await Advance(definition.Lifetime + .08f);
+    Check(started.Count == 1 && payments.Count == 1 && payments[0].Quoted == 7f && payments[0].Paid == 7f,
+        "完整推进一次的实际余额只减少一次七点体力");
+    CheckResult(0, expectContact: true);
+
+    PlaceRivals();
+    await WaitForStart(2);
+    await Advance(definition.Lifetime + .08f);
+    Check(started.Count == 2 && started[1].CastId != firstId && payments.Count == 2 && payments.All(payment => payment.Paid == 7f),
+        "冷却结束后新的一次自然出手有独立编号和实际支付");
+    CheckResult(1, expectContact: false);
+    return new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    stamina.SpendAmount = spend;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= HitTarget;
+    ConstructedAbilityService.CastEnded -= Finished;
+    Config.paused = true;
+}

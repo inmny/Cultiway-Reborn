@@ -1,0 +1,90 @@
+var (carrier, artifact, _) = await Manifest(summons: true);
+foreach (Entity entry in Cultiway.ModClass.I.W.Query<ArtifactSummon, ActorBinder>().Entities.ToArray())
+{
+    if (entry.GetComponent<ArtifactSummon>().artifact != artifact) continue;
+    Actor summon = entry.GetComponent<ActorBinder>().Actor;
+    CombatStatusEffects.ApplyStatus(summon, hold, 10000f, summon);
+    summon.updateStats();
+    summon.attack_timer = 999f;
+}
+var shot = NewAbility("natural-summon", AbilityAnchor.Target, .35f);
+shot.Cooldown = 2f;
+shot.Root.OnContact = ConstructionContactResponse.End;
+shot.Root.Impact = new ConstructionImpact
+    { Targets = SkillUseTargetRelation.Hostile, DamageScale = 1f, SelectedTargetOnly = true };
+Learn(shot);
+var starts = new List<(ConstructedCastStarted Fact, long Carrier, Vector3 Foot, Vector2 Position)>();
+var results = new List<ConstructedContact>();
+var finishes = new List<ConstructedCastEnded>();
+var payments = new List<(long Payer, double Quoted, double Paid)>();
+void StartedNaturally(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId != shot.Id) return;
+    object run = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == fact.CastId);
+    starts.Add((fact, (long)Field(run, "SpatialSourceId"), (Vector3)Field(run, "LastSourceFoot"),
+        carrier.current_position));
+}
+void HitTarget(ConstructedContact fact)
+{
+    if (fact.AbilityId == shot.Id && fact.TargetId == enemy.id) results.Add(fact);
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (fact.AbilityId == shot.Id) finishes.Add(fact);
+}
+var resource = SkillCastResources.Wakan;
+var spend = resource.SpendAmount;
+resource.SpendAmount = (payer, amount) =>
+{
+    double before = resource.ReadAmount(payer);
+    spend(payer, amount);
+    payments.Add((payer.Base.id, amount, before - resource.ReadAmount(payer)));
+};
+ConstructedAbilityService.CastStarted += StartedNaturally;
+ConstructedAbilityService.ContactConfirmed += HitTarget;
+ConstructedAbilityService.CastEnded += Finished;
+try
+{
+    CombatStatusEffects.RemoveStatus(carrier, hold);
+    carrier.setStatsDirty();
+    carrier.updateStats();
+    Place(carrier, 69.4f);
+    Place(enemy, 72f);
+    body.addAggro(enemy);
+    enemy.addAggro(body);
+    carrier.addAggro(enemy);
+    enemy.addAggro(carrier);
+    carrier.setAttackTarget(enemy);
+    carrier.attack_timer = 0f;
+    for (int frame = 0; frame < 40 && starts.Count == 0; frame++) await Advance(.06f);
+    Check(starts.Count == 1 && starts[0].Fact.Origin == ActiveAbilityUseOrigin.Autonomous &&
+        starts[0].Fact.SourceId == body.id && starts[0].Carrier == carrier.id &&
+        Vector2.Distance(starts[0].Foot, starts[0].Position) < .01f,
+        "原幡召唤物从实际位置自行代施，施法归于原主人",
+        new { caster = carrier.id, owner = body.id, starts = starts.Select(start =>
+            new { start.Fact, start.Carrier, x = start.Foot.x, y = start.Foot.y }).ToArray(),
+            carrier.attack_timer, range = Vector2.Distance(carrier.current_position, enemy.current_position) });
+    long cast = starts[0].Fact.CastId;
+    await Advance(shot.Lifetime + .15f);
+    Check(starts.Count == 1 && payments.Count == 1 && payments[0].Payer == body.id &&
+        payments[0].Quoted == shot.Cost && Math.Abs(payments[0].Paid - shot.Cost) < .004,
+        "原主人在这次代施中只实际支付一次真元",
+        payments.Select(payment => new { payment.Payer, payment.Quoted, payment.Paid }).ToArray());
+    Check(results.Count == 1 && results[0].CastId == cast && results[0].SourceId == body.id &&
+        results[0].Damage.SettledCount == 1 && results[0].Damage.HealthLost > 0 &&
+        results[0].TargetHealthBefore - results[0].TargetHealthAfter == results[0].Damage.HealthLost &&
+        finishes.Count == 1 && finishes[0].CastId == cast && !finishes[0].Cancelled,
+        "同次代施实际结算一次伤害，并正常结束",
+        new { cast, results = results.Select(hit => new { hit.TargetId, hit.Damage }).ToArray(),
+            finishes = finishes.Select(finish => new { finish.CastId, finish.Cancelled }).ToArray() });
+    return new { passed = true, section, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    resource.SpendAmount = spend;
+    ConstructedAbilityService.CastStarted -= StartedNaturally;
+    ConstructedAbilityService.ContactConfirmed -= HitTarget;
+    ConstructedAbilityService.CastEnded -= Finished;
+    Config.paused = true;
+}
