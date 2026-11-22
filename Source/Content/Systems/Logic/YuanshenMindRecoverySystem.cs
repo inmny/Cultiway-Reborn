@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Core;
@@ -13,6 +14,9 @@ namespace Cultiway.Content.Systems.Logic;
 public sealed class YuanshenMindRecoverySystem
     : QuerySystem<ActorBinder, YuanshenRuntimeState>
 {
+    /// <summary>本轮份额发生变化的人物，遍历结束后才刷新法器关系。</summary>
+    private readonly List<ActorExtend> recoveredOwners = new();
+
     /// <summary>建立只处理存活人物的运行状态查询。</summary>
     public YuanshenMindRecoverySystem()
     {
@@ -23,6 +27,7 @@ public sealed class YuanshenMindRecoverySystem
     protected override void OnUpdate()
     {
         float deltaTime = Mathf.Max(0f, Tick.deltaTime);
+        recoveredOwners.Clear();
         Query.ForEachEntity((ref ActorBinder binder, ref YuanshenRuntimeState runtime, Entity _) =>
         {
             Actor owner = binder.Actor;
@@ -62,8 +67,10 @@ public sealed class YuanshenMindRecoverySystem
                     state.current_integrity + integrityGain);
                 YuanshenTravelService.SynchronizeCarrierHealth(soulCarrier, in state);
             }
-            YuanshenTravelService.NotifyMindStateChanged(actor);
+            recoveredOwners.Add(actor);
         });
+        foreach (ActorExtend actor in recoveredOwners)
+            YuanshenTravelService.NotifyMindStateChanged(actor);
     }
 
     /// <summary>只有命魂在体，或外部节点停止任务后，才允许自然稳定创伤。</summary>
