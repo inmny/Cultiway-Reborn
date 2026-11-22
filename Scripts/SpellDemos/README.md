@@ -3187,3 +3187,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 瞬时施放存读（12.07）
 
 运行 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_instant_cast_archive.py --section prepare --archive <9.45 对练档目录>`。退出重启后改用 `--section cold --archive <蓄势存档输出目录>`。核对真实扣费、剩余冷却、旧动作结束及控制归还和重新施放。见[瞬时施放的存读约定](../../Doc/技能系统全面重构/瞬时施放的存读约定.md)。
+
+### 永久世界结果重复读档（12.09）
+
+运行 `dev.py exec --timeout 112 -- python3 Scripts/SpellDemos/verify_world_result_ownership.py --case weapon|facility|condition --archive <正式档输出目录>`。三组依次使用 9.40 原剑、10.12 设施、11.22 防火的原档输出目录，各含 `archive/map.wbox` 和 `expected.json`。脚本读取副本，另存后读回，比较原剑、阵门互通、供奉原件、锚点和防火条件。见[永久世界结果的归属](../../Doc/技能系统全面重构/长期世界结果的归属.md#永久结果归属与重复恢复1209)。
