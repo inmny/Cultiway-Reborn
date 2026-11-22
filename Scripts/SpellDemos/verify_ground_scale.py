@@ -4,9 +4,38 @@ import argparse
 import json
 import os
 import shutil
+import tempfile
 from pathlib import Path
 
 from common import PROJECT, version_stamp, write_json
+
+
+def verify_catalog(world, cases):
+    """通过万法阁所用的正式目录与玩家施放入口复用两种规模。"""
+    from verify_weapon_flight_archive import world_helpers
+    import baseline_scenarios as baseline
+
+    baseline.connect(False, validate_runtime=False)
+    for case in cases:
+        folder = Path(tempfile.mkdtemp(prefix=f'ground-catalog-{case}-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
+        helpers = world_helpers(folder, world)
+        begin = helpers.index('for (int x = 60; x <= 75; x++)')
+        end = helpers.index('var holdStats', begin)
+        helpers = helpers[:begin] + helpers[end:]
+        helpers = helpers.replace('if (contact.AbilityId.StartsWith("test.body-footwork.")) contacts.Add(contact);',
+                                  'contacts.Add(contact);')
+        fragment = (Path(__file__).with_suffix('.script').read_text()
+                    .replace('GROUND_SCALE_CASE', case).replace('GROUND_SCALE_CATALOG', 'yes'))
+        script = folder / 'input.script'
+        script.write_text(helpers + '\n' + fragment)
+        try:
+            result = baseline.call('run', str(script), '360000')
+        except RuntimeError as error:
+            write_json(folder / 'failure.json', {'passed': False, 'error': str(error)})
+            raise RuntimeError(f'正式地脉传力复验未通过，见 {folder}') from None
+        if not result.get('passed') or not result.get('catalog') or result['view'] != 'native':
+            raise RuntimeError(f'正式地脉传力复验结果与原版入口不符，见 {folder}')
+        print(folder, flush=True)
 
 
 def main():
@@ -15,7 +44,19 @@ def main():
     parser.add_argument('--worldfall', action='store_true')
     parser.add_argument('--film', action='store_true', help='只附加本项连续画面，不重跑已通过的额外交锋回归')
     parser.add_argument('--case', nargs='+', choices=['city', 'world'])
+    parser.add_argument('--catalog', action='store_true', help='在独立原版游戏中实测正式目录和玩家施放')
+    parser.add_argument('--archive', type=Path, help='正式目录复验所用的既有世界目录')
     args = parser.parse_args()
+    if args.catalog:
+        if args.worldfall or args.film or not args.archive or not os.environ.get('CULTIWAY_DEV_ACTIVE'):
+            parser.error('在原版独立游戏内运行 --catalog --archive <已有世界目录>')
+        world = args.archive.resolve()
+        if not (world / 'map.wbox').is_file():
+            parser.error(f'找不到已有世界：{world}')
+        verify_catalog(world, args.case or ('city', 'world'))
+        return
+    if args.archive:
+        parser.error('--archive 供正式目录复验使用')
     mode = 'worldfall' if args.worldfall else 'native'
     install = PROJECT / ('artifacts/skill_rebuild/view-switch/environment/cultiway' if args.worldfall else
                          'artifacts/skill_rebuild/performance-baseline/cultiway')
@@ -57,7 +98,7 @@ def main():
                 'await Advance(.15f); Ready(source); await Shot("before", true);\n    CaptureGroundFrame(); filmRecording = RecordGroundFrames();')
             # 后续检查保留同一全景，近景到全景的切换由连续取样在0.5秒完成。
             fragment = fragment.replace('await To(.25f); await Shot("source", true);', 'await To(.25f);')
-            fragment = fragment.replace('if (cityCase && mod == null)', 'if (false && cityCase && mod == null)')
+            fragment = fragment.replace('if (!useWorldCatalog && cityCase && mod == null)', 'if (false && cityCase && mod == null)')
             fragment = fragment.replace('    File.WriteAllText(Path.Combine(folder, "definition.json"),',
                 '    await To(6.3f); filmStop = true; if (filmRecording != null) await filmRecording;\n    Check(filmTimes.Count >= 60 && filmFrames.Count > 0 && finishes.Count == 1, "连续画面覆盖真实起势、传播与结束");\n    SaveGroundFilm();\n    File.WriteAllText(Path.Combine(folder, "definition.json"),', 1)
             fragment = fragment.replace('finally\n{\n    ConstructedAbilityService.CastStarted -= Started;',
