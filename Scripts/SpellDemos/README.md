@@ -3131,3 +3131,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 顶尖修士的城域及全域攻击（11.16）
 
 在独立原版游戏运行 `dev.py exec --timeout 390 -- python3 Scripts/SpellDemos/verify_ground_scale.py --catalog --archive <4.32使用的现成世界目录> --case city`。用目前最高可达的化神境界，从万法阁正式目录另创并施放，核对一次付费、传播到达前后的实际生命及收势。将 `city` 改为 `world` 检查全域术。见[城域与全域攻击](../../Doc/技能系统全面重构/顶尖修士的城域与全域攻击.md)。
+
+### 顶尖修士的城域及全域功能（11.17）
+
+在独立原版游戏运行 `dev.py exec --timeout 270 -- python3 Scripts/SpellDemos/verify_solo_world_utility.py --archive <11.03城市用术准备目录>`。复用原城与同一名修士，核对万法阁另创、净土实际清理和作用外保留、全图防火、原火保留及到期后恢复。见[城域与全域功能](../../Doc/技能系统全面重构/顶尖修士的城域与全域功能.md)。

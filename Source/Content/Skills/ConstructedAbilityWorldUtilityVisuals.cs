@@ -15,7 +15,10 @@ public sealed partial class ConstructedAbilityService
     private static bool AddWorldUtilityVisual(RunningCast running, int node, WorldTile tile, SkillEffectOutcomeFlags flags, double now)
     {
         if (node < 0) return false;
-        string form = running.Cast.Plan.Id switch
+        var part = running.Cast.Plan.Nodes[node];
+        string form = part.Resource?.Description.Id == "world_domain" && (flags & LandPollution) != 0
+            ? "world_domain"
+            : running.Cast.Plan.Id switch
         {
             "Cultiway.NatureGrowthField" when (flags & SkillEffectOutcomeFlags.FloraCreated) != 0 => "utility_young_growth",
             "Cultiway.CleanLandField" when (flags & LandPollution) != 0 => "world_domain",
