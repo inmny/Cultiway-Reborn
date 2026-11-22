@@ -15,6 +15,8 @@
 
 `Scripts/SpellDemos/verify_multiresource.py prepare`将它解到独立结果目录再加载，通过完整相邻转换链验证旧本金、已学关系和真实收束。保留此历史文件，避免依赖先前开发会话留下的临时存档；新的部分收束和多资源格式仍由验证脚本另行生成。
 
+12.14 的 `Scripts/SpellDemos/verify_archive_resource_reload.py` 用同一历史世界复验更新资源后的重新编译、失败回退与正式读回。实际资源修改只发生在独立临时副本中。
+
 ## 技能升级复验样板（12.12）
 
 本项固定三份已在原版实机使用的世界。复用 `world-format-1`，另保留 12.03 的当前档和 12.04 的无效轨迹档。各自的原文件校验值和原核对对象存入 `skill-archive-expectations.json`，坏档需包含原普通法术、单条已失效轨迹及仍可用的新构造。
