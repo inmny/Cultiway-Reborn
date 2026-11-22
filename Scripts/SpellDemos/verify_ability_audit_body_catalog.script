@@ -1,0 +1,35 @@
+Actor actor = Make(64.5f);
+ActorExtend owner = actor.GetExtend();
+Item sword = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: actor);
+actor.equipment.setItem(sword, actor);
+await Advance(.2f);
+string[] ids = { "Cultiway.Body.SweepingPalm", "Cultiway.Body.SwordThrust" };
+
+Dictionary<string, string> Available(ActorExtend person)
+{
+    var handles = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(person, handles);
+    return handles.Where(handle => handle.ProviderId == "content.constructed" && ids.Contains(handle.EntryId))
+        .ToDictionary(handle => handle.EntryId, handle => JsonConvert.SerializeObject(ConstructionEditing.Access.Read(handle.EntryId)));
+}
+
+Check(Available(owner).Count == 0, "未学时两种构造不进入人物的正式能力栏");
+foreach (string id in ids) ConstructedAbilityService.Learn(owner, id);
+var known = Available(owner);
+Check(known.Count == ids.Length, "原横拍与持剑刺击各通过正式知识进入人物能力栏");
+
+long actorId = actor.id;
+string archive = Path.Combine(folder, "archive");
+var saved = SaveManager.saveWorldToDirectory(archive);
+Check(saved.actors_data.Any(item => item.id == actorId), "原人物与其正式知识写入同一世界");
+World.world.save_manager.loadWorld(archive);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+Actor restored = World.world.units.get(actorId);
+var current = Available(restored.GetExtend());
+Check(current.Count == ids.Length && ids.All(id => current[id] == known[id]) &&
+      restored.getWeapon()?.getAsset()?.id == "sword_iron" &&
+      !ConstructedAbilityService.HasWeaponControl(restored),
+    "原世界读回两种完整资料、铁剑和正式知识，旧身体控制不续接", ids);
+return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = actorId, checks };

@@ -14,7 +14,7 @@ from verify_weapon_flight_archive import FIXTURE, IMPORTS, world_helpers
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', choices=('sect', 'elixir-atoms', 'elixir-effects', 'elixir-resume',
-                                             'status-escape'), required=True)
+                                             'status-escape', 'body-catalog', 'signal-rally'), required=True)
     parser.add_argument('--archive', type=Path, help='恢复补气复验时使用含 archive 和 expected.json 的目录')
     args = parser.parse_args()
     if (args.section == 'elixir-resume') != bool(args.archive):
