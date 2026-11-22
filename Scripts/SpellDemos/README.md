@@ -2901,3 +2901,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 法宝被动正式存读（10.06）
 
 用 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_artifact_passives_archive.py --section prepare` 写档并核对换世界清理。关闭写档进程，在新游戏进程用 `--section cold --archive <prepare输出目录>` 读取同一原档，核对护盾余量、器灵成长与复苏、宗门供奉及读后再次生效。
+
+### 法宝被动代表实录（10.06）
+
+用 `dev.py exec --timeout 205 -- python3 Scripts/SpellDemos/record_artifact_passives.py --view native --case shield --output <录像目录>` 录制指定场景。将视角改为 `worldfall` 可录另一套。六个场景为 `shield`、`redirection`、`alchemy`、`spirit`、`riding` 和 `sect`。可重复指定 `--case`，同一视角收齐六段后自动生成 `all.mp4` 和索引。

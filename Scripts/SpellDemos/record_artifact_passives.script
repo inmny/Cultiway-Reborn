@@ -1,0 +1,157 @@
+// 从已经验证的触发过程逐帧采样。录像不改变来伤、属性、支付和座位。
+var filmFrames = new List<object>();
+string filmStage = null;
+Actor filmSubject = null;
+Vector2 filmOffset;
+float filmZoom, filmClose;
+object filmTerrain = null;
+MethodInfo filmTerrainHeight = null;
+RenderTexture filmTarget = null;
+Vector3 originalCamera = camera.transform.position;
+float originalZoom = camera.orthographicSize;
+object filmSettings = null, originalTimeMode = null;
+FieldInfo filmTimeMode = null;
+double sampledAt = double.NegativeInfinity;
+
+async Task BeginFilm(Actor subject, Entity artifact, string stage, float zoom, float close,
+    Vector2 offset = default, bool airborneCamera = false)
+{
+    filmSubject = subject;
+    filmStage = stage;
+    filmOffset = offset;
+    filmZoom = zoom;
+    filmClose = close;
+    Directory.CreateDirectory(Path.Combine(folder, "frames"));
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(artifact.GetComponent<ArtifactAbilitySet>()));
+    if (fall != null)
+    {
+        filmSettings = Read(fall, "Settings");
+        filmTimeMode = filmSettings.GetType().GetField("TimeMode", F);
+        originalTimeMode = filmTimeMode.GetValue(filmSettings);
+        filmTimeMode.SetValue(filmSettings, 1);
+        external.GetMethod("ViewForTest", F).Invoke(fall, new object[] { false });
+        external.GetMethod("SetGodView", F).Invoke(fall, new object[] { view == "worldfall" });
+    }
+    if (view == "worldfall")
+    {
+        Check(fall != null, "Worldfall 游戏已就绪");
+        await Game.WaitUntil(() => (bool)Read(fall, "GodShown") && (float)Read(fall, "GodAlpha") >= .999f, 2700);
+        if (airborneCamera)
+        {
+            filmTerrain = Read(Read(fall, "_sampler"), "Cache");
+            filmTerrainHeight = filmTerrain.GetType().GetMethod("SampleHeight", F, null,
+                new[] { typeof(float), typeof(float) }, null);
+        }
+    }
+    else
+    {
+        if (fall != null)
+            await Game.WaitUntil(() => !(bool)Read(fall, "GodShown") && !(bool)Read(fall, "IsFirstPerson") &&
+                (bool)Read(fall, "DiveDone"), 2700);
+        filmTarget = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32);
+        filmTarget.Create();
+    }
+    MoveCamera.clearFocusUnitOnly();
+    WorldTip.hideNow();
+    onFilmFrame = RecordFilmFrame;
+    await RecordFilmFrame();
+}
+
+async Task RecordFilmFrame()
+{
+    double time = World.world.getCurWorldTime();
+    if (time <= sampledAt) return;
+    Vector2 center = filmSubject.current_position + filmOffset;
+    int frame = filmFrames.Count;
+    string file = Path.Combine("frames", frame.ToString("00000") + ".png");
+    if (view == "worldfall")
+    {
+        camera.transform.position = new Vector3(center.x, center.y, originalCamera.z);
+        MoveCamera.instance.forceZoom(filmClose);
+        Set("_godCamWas", camera.transform.position);
+        Set("_godCamSet", true);
+        Set("_godLock", filmSubject);
+        Set("_godLockTime", -10f);
+        Set("_godFollow", center);
+        Set("_godFollowVel", Vector2.zero);
+        Set("_godPull", 1f);
+        Set("_godClose", filmClose);
+        Set("_godCloseTarget", filmClose);
+        Set("_godTurn", -.20f);
+        Set("_godTurnRate", 0f);
+        Set("_godTip", .43f);
+        Set("_godTipRate", 0f);
+        Set("_godHoming", false);
+        if (filmTerrain != null)
+        {
+            // Worldfall 的自由摄影机直接对准实际飞行高度，镜头调节不写人物状态。
+            float ground = (float)filmTerrainHeight.Invoke(filmTerrain, new object[] { center.x, center.y });
+            Vector3 eye = new Vector3(center.x, center.y, ground + filmSubject.position_height + .26f);
+            Vector3 offset = new(-2.4f, -4.8f, 2.15f);
+            Set("_fly", true);
+            Set("_flyPos", eye + offset);
+            Set("_flyYaw", Mathf.Atan2(-offset.y, -offset.x));
+            Set("_flyPitch", Mathf.Atan2(-offset.z, ((Vector2)offset).magnitude) * Mathf.Rad2Deg);
+            Set("_flyVel", Vector3.zero);
+            Set("_flyEase", 1f);
+            Set("_flyAlpha", 1f);
+            Set("_flyCursor", true);
+            Set("_flyLeaving", false);
+        }
+        int drawn = (int)Field(fall, "_godGpuApplied");
+        await Game.WaitUntil(() => (int)Field(fall, "_godGpuApplied") >= drawn + 2, 1800);
+        WriteImage((RenderTexture)Read(Read(fall, "GpuRendererForTest"), "Output"), file);
+    }
+    else
+    {
+        camera.transform.position = new Vector3(center.x, center.y + filmSubject.position_height + .17f, originalCamera.z);
+        camera.orthographicSize = filmZoom;
+        var target = camera.targetTexture;
+        try
+        {
+            camera.targetTexture = filmTarget;
+            camera.Render();
+            WriteImage(filmTarget, file);
+        }
+        finally { camera.targetTexture = target; }
+    }
+    if (Math.Abs(World.world.getCurWorldTime() - time) > .0001)
+        throw new InvalidOperationException("取景时世界仍在推进");
+    sampledAt = time;
+    filmFrames.Add(new { frame, time, stage = filmStage });
+}
+
+void EndFilm()
+{
+    Check(filmFrames.Count >= 8, "已记录实际触发至收束的连续画面");
+    File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new
+    {
+        view, frames = filmFrames, events = Array.Empty<object>()
+    }));
+    RestoreFilmCamera();
+}
+
+void RestoreFilmCamera()
+{
+    if (onFilmFrame == null && filmTarget == null && filmTimeMode == null) return;
+    onFilmFrame = null;
+    if (filmTimeMode != null)
+    {
+        if (filmTerrain != null)
+        {
+            external.GetMethod("EndFly", F).Invoke(fall, null);
+            filmTerrain = null;
+        }
+        filmTimeMode.SetValue(filmSettings, originalTimeMode);
+        external.GetMethod("SetGodView", F).Invoke(fall, new object[] { false });
+        filmTimeMode = null;
+    }
+    if (filmTarget != null)
+    {
+        filmTarget.Release();
+        UnityEngine.Object.Destroy(filmTarget);
+        filmTarget = null;
+    }
+    camera.transform.position = originalCamera;
+    MoveCamera.instance.forceZoom(originalZoom);
+}
