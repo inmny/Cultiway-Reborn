@@ -1,0 +1,104 @@
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "expected.json")));
+var identity = service.Assembly.GetType("Cultiway.Content.Persistence.WorldSaveIdentity", true);
+var getIdentity = typeof(Entity).GetMethods().Single(method => method.Name == "TryGetComponent" &&
+    method.IsGenericMethodDefinition && method.GetParameters().Length == 1).MakeGenericMethod(identity);
+
+string Identity(Entity entity)
+{
+    object[] argument = { null };
+    return (bool)getIdentity.Invoke(entity, argument) ? (string)Field(argument[0], "Id") : null;
+}
+
+async Task<JObject> Observe()
+{
+    if (scenario == "weapon")
+    {
+        long number = expected.Value<long>("item");
+        Actor actor = World.world.units.get(expected.Value<long>("source"));
+        string artifact = expected.Value<string>("artifact");
+        var sword = World.world.items.get(number);
+        var type = service.Assembly.GetType("Cultiway.Content.Combat.GroundWeaponService", true);
+        var ground = (IDictionary)type.GetField("entries", F).GetValue(null);
+        var drop = ground[number];
+        int pieces = World.world.items.list.Count(item => item.id == number);
+        var carriers = actor.GetExtend().GetEquippedArtifacts().Where(item => Identity(item) == artifact).ToArray();
+        Check(sword != null && pieces == 1 && drop != null && ReferenceEquals(Field(drop, "Item"), sword) &&
+            sword.getActor() == null && sword.getCity() == null && Field(drop, "WeaponChamber") == null &&
+            carriers.Length == 1 && !BodyControlState.IsBusy(actor.id),
+            "原剑只有一件和一个地面入口，原法宝仍由原人装备", new { number, pieces });
+        var data = Field(drop, "Data");
+        var point = (float[])Field(data, "Position");
+        var prior = expected["position"].ToObject<float[]>();
+        Check(point.Take(2).SequenceEqual(prior.Take(2)) &&
+            sword.getDurabilityCurrent() == expected.Value<int>("durability"),
+            "原剑位置和耐久保留，旧器口没有重建");
+        return JObject.FromObject(new { number, pieces, artifact, point, durability = sword.getDurabilityCurrent() });
+    }
+
+    if (scenario == "facility")
+    {
+        await Advance(.10f);
+        long[] gates = { expected.Value<long>("gateIn"), expected.Value<long>("gateOut") };
+        long[] sites = { expected.Value<long>("start"), expected.Value<long>("pavilion") };
+        var portals = PortalRegistry.Instance.Snapshot(Cultiway.Content.Portals.TeleportArray);
+        var entries = portals.ToDictionary(portal => portal.Id);
+        Check(portals.Select(portal => portal.Portal.building.id).Distinct().OrderBy(id => id)
+                .SequenceEqual(gates.OrderBy(id => id)) &&
+            portals.All(portal => ReferenceEquals(World.world.buildings.get(portal.Portal.building.id), portal.Portal.building)) &&
+            portals.All(portal => portal.Connections.Select(link => link.TargetId).OrderBy(id => id).SequenceEqual(
+                portals.Where(other => other.Portal.building.id != portal.Portal.building.id)
+                    .Select(other => other.Id).OrderBy(id => id))),
+            "两座原版传送阵重建互通入口，连接只指向另一座原阵", portals.Count);
+        Check(entries.Count == portals.Count && portals.Select(portal => portal.TileId).Distinct().Count() == portals.Count,
+            "没有重建同一传送格的副本");
+
+        long source = expected.Value<long>("actor");
+        Actor body = World.world.units.get(source);
+        var owner = body.GetExtend();
+        Sect sect = WorldboxGame.I.Sects.get(expected.Value<long>("sect"));
+        string seal = expected.Value<string>("seal");
+        var stored = sect.Treasures.GetStoredItems().Where(item => Identity(item) == seal).ToArray();
+        var anchors = Cultiway.ModClass.I.W.Query<YuanshenAnchorState>().Entities
+            .Select(entity => new { id = Identity(entity), state = entity.GetComponent<YuanshenAnchorState>() })
+            .OrderBy(anchor => anchor.state.building_id).ToArray();
+        var handles = owner.GetComponent<YuanshenAnchorNetworkRuntime>().owned_anchors;
+        Check(stored.Length == 1 && sect.Treasures.Owns(stored[0]) &&
+            Math.Abs(body.current_position.x - expected.Value<float>("x")) < .1f &&
+            Math.Abs(body.current_position.y - expected.Value<float>("y")) < .1f,
+            "原供奉保持一件，已到达人物留在原落点");
+        Check(anchors.Select(anchor => anchor.state.building_id).SequenceEqual(sites.OrderBy(id => id)) &&
+            anchors.All(anchor => anchor.id != null && anchor.state.owner_actor_id == source) &&
+            handles.Count == anchors.Length && handles.All(handle => YuanshenAnchorNetworkService.TryResolve(handle, out _)),
+            "原两个元神锚点各存在一份，原持有者可解析");
+        return JObject.FromObject(new
+        {
+            seal, source,
+            portals = portals.OrderBy(portal => portal.Id).Select(portal => new
+            {
+                portal.Id, portal.TileId,
+                targets = portal.Connections.Select(link => link.TargetId).OrderBy(id => id).ToArray()
+            }).ToArray(),
+            anchors = anchors.Select(anchor => new { anchor.id, anchor.state.building_id, anchor.state.generation }).ToArray()
+        });
+    }
+
+    var sections = JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "长期结果归属"))["sections"];
+    var records = (JArray)sections["constructed_world_conditions"]["data"]["Records"];
+    Check(records.Count == 2 && records.Count(record => record.Value<bool>("EntireWorld")) == 1 &&
+        records.All(record => record.Value<double>("Remaining") > 0 &&
+            World.world.units.get(record.Value<long>("Source"))?.isAlive() == true),
+        "原区域和全图防火各登记一份，并继续指向真实维持者");
+    return new JObject { ["conditions"] = records };
+}
+
+var first = await Observe();
+string archive = Path.Combine(folder, "archive");
+SaveManager.saveWorldToDirectory(archive);
+World.world.save_manager.loadWorld(archive);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+var reread = await Observe();
+Check(JToken.DeepEquals(first, reread), "再次写档读回后仍是同一组有效结果");
+File.WriteAllText(Path.Combine(folder, "observed.json"), reread.ToString(Formatting.Indented));
+return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, scenario };
