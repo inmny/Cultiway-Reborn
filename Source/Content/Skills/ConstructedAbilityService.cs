@@ -115,6 +115,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             RebuildConstructionIndex();
         };
         PatchMapBox.RegisterActionOnClearWorld(Clear);
+        RegisterWorldConditionSave();
         PatchActor.RegisterHideHandItemPredicate(IsWeaponBorrowed);
         BodyRecoveryFloor.Height = (field, point, maximum, radius) => BodyLocomotion.Floor(field, point, maximum, radius);
         RegisterBuiltInDefinitions();
@@ -977,6 +978,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         soulPacts.Clear();
         worldFireConditions.Clear();
         regionalFireConditions.Clear();
+        restoredFireConditions.Clear();
         soulPactTransfers.Clear();
         simulation.observedSignals.Clear();
         ClearConductionVisuals();

@@ -1,0 +1,180 @@
+// 11.22：用同一正式场景记录实际地块点火、保存、真实重启和来源失效。
+var all = (IList)service.GetField("worldFireConditions", F).GetValue(null);
+var restored = (IList)service.GetField("restoredFireConditions", F).GetValue(null);
+var regions = (IDictionary)service.GetField("regionalFireConditions", F).GetValue(null);
+var active = (IList)service.GetField("casts", F).GetValue(null);
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+
+WorldTile Grass(int x, int y)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    tile.stopFire();
+    tile.heat = 0;
+    tile.burned_stages = 0;
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    tile.Height = 140;
+    return tile;
+}
+bool Ignites(WorldTile tile) => tile.startFire(pForce: true) && tile.isOnFire();
+bool Protected(WorldTile tile)
+{
+    int health = tile.health;
+    return !tile.startFire(pForce: true) && !tile.isOnFire() && tile.health == health;
+}
+object[] Conditions() => all.Cast<object>().Concat(
+    regions.Values.Cast<IEnumerable>().SelectMany(list => list.Cast<object>())).Distinct().ToArray();
+double Remaining(object condition) => (double)Field(condition, "EndsAt") - World.world.getCurWorldTime();
+bool Entire(object condition) => (bool)Field(Field(condition, "Rule"), "EntireWorld");
+string archive = Path.Combine(sourceFolder, "archive");
+
+if (!restoring)
+{
+    var source = Make(64);
+    var owner = source.GetExtend();
+    owner.AddComponent(new Xian { level = 2, wakan = 100f });
+    source.setStatsDirty();
+    source.updateStats();
+    var region = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "region.json")));
+    var global = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "world.json")));
+    var ordinary = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "region.json")));
+    region.Resource = global.Resource = ordinary.Resource = "wakan";
+    region.Lifetime = 8f;
+    global.Lifetime = 3f;
+    ordinary.Lifetime = 10f;
+    global.WorldCondition.ContinueAfterLoad = true;
+    ordinary.Id += ".ordinary";
+    foreach (var definition in new[] { region, global, ordinary })
+    {
+        ConstructedAbilityService.Register(definition);
+        ConstructedAbilityService.Learn(owner, definition.Id);
+    }
+
+    LocalizedTextManager.instance.setLanguage("cz");
+    WindowWanfaConstructionEditor.Open(region.Id, source);
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+    Button Named(string name) => editor.GetComponentsInChildren<Button>(false).First(button => button.name == name);
+    ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+    Toggle Choice() => editor.GetComponentsInChildren<Toggle>(false).Single(toggle => toggle.name == "WorldFireContinueAfterLoad");
+    async Task Shot(string name)
+    {
+        Canvas.ForceUpdateCanvases();
+        var row = (RectTransform)Choice().transform;
+        var scroll = row.GetComponentInParent<ScrollRect>();
+        Vector3 local = scroll.content.InverseTransformPoint(row.TransformPoint(row.rect.center));
+        float offset = scroll.content.rect.yMax - local.y - scroll.viewport.rect.height * .5f;
+        scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(offset /
+            Mathf.Max(1f, scroll.content.rect.height - scroll.viewport.rect.height));
+        World.world.console.Hide();
+        Tooltip.hideTooltipNow();
+        for (int frame = 0; frame < 4; frame++) await Game.NextFrame();
+        string path = Path.Combine(folder, name + ".png");
+        ScreenCapture.CaptureScreenshot(path);
+        await Game.WaitUntil(() => File.Exists(path), 300);
+    }
+    Named("Page0").onClick.Invoke();
+    Choice().isOn = true;
+    Check(Session().Draft.WorldCondition.ContinueAfterLoad, "中文表单能选择保存剩余时长");
+    Named("Undo").onClick.Invoke();
+    Check(!Session().Draft.WorldCondition.ContinueAfterLoad, "撤销恢复普通短期规则");
+    Choice().isOn = true;
+    await Shot("editor-cz");
+    LocalizedTextManager.instance.setLanguage("en");
+    Named("Page0").onClick.Invoke();
+    Check(editor.GetComponentsInChildren<Text>(false).Any(text => text.text == "Keep remaining time after loading"),
+        "英文表单显示相同选项");
+    await Shot("editor-en");
+    Named("Replace").onClick.Invoke();
+    region = ConstructionEditing.Access.Read(Session().SourceId);
+    Named("Close").onClick.Invoke();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    LocalizedTextManager.instance.setLanguage("cz");
+    Check(region.WorldCondition.ContinueAfterLoad && !region.WorldCondition.EntireWorld && region.Cost == 5,
+        "正式覆盖保留实际半径、已选恢复方式和原费用");
+
+    Ready(source);
+    Place(source, 64f);
+    owner.MarkCultiwayStatsDirty();
+    source.setStatsDirty();
+    source.updateStats();
+    WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), 100f);
+    Check(owner.GetCultisys<Xian>().wakan >= region.Cost + ordinary.Cost + global.Cost,
+        "实际修炼容量可支付三份世界条件");
+    var testTiles = new[] { Grass(67, 72), Grass(77, 72), Grass(106, 76) };
+    Check(testTiles.All(Ignites), "保存场景中的实际草地可正常点火");
+    foreach (var tile in testTiles) tile.stopFire();
+    void Cast(AbilityDefinition spell, float x)
+    {
+        float balance = owner.GetCultisys<Xian>().wakan;
+        var handle = new ActiveAbilityHandle("content.constructed", owner.E, spell.Id);
+        var target = spell.WorldCondition.EntireWorld
+            ? new ActiveAbilityTarget(source, source.GetSimPos())
+            : new ActiveAbilityTarget(null, new Vector3(x, 72.5f, 0f));
+        Check(ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Player) &&
+            Mathf.Abs(balance - owner.GetCultisys<Xian>().wakan - spell.Cost) < .005f,
+            "正式使用只扣本次费用", new { spell.Id, spell.Cost, remaining = owner.GetCultisys<Xian>().wakan });
+    }
+    Cast(region, 67.5f);
+    Cast(ordinary, 77.5f);
+    Check(Protected(testTiles[0]) && Protected(testTiles[1]) && Ignites(testTiles[2]),
+        "仅有两份区域规则时，两个范围内受保护，远处正常点火");
+    testTiles[2].stopFire();
+    Cast(global, 0f);
+    await Advance(.24f);
+    Check(Conditions().Length == 3 && testTiles.Select(tile => Grass(tile.x, tile.y)).All(Protected),
+        "正式保存前全图和两份区域规则确实存在");
+    var expected = new
+    {
+        process, owner = source.id, resource = owner.GetCultisys<Xian>().wakan,
+        terms = Conditions().Select(condition => new { entire = Entire(condition), remaining = Remaining(condition) }).ToArray(),
+        local = region.Id, global = global.Id, ordinary = ordinary.Id
+    };
+    SaveManager.saveWorldToDirectory(archive);
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(expected, Formatting.Indented));
+    return new { passed = true, process, archive, expected.owner, expected.resource };
+}
+
+var saved = JObject.Parse(File.ReadAllText(Path.Combine(sourceFolder, "expected.json")));
+long sourceId = saved.Value<long>("owner");
+var caster = World.world.units.get(sourceId);
+Check(caster != null && process != saved.Value<int>("process"), "由另一个游戏进程读取同一份正式世界");
+var learning = caster.GetExtend();
+var knowledge = learning.E.GetComponent<ConstructedKnowledge>().Ids;
+Check(new[] { "local", "global", "ordinary" }.All(key => knowledge.Contains(saved.Value<string>(key))) &&
+    ConstructionEditing.Access.Read(saved.Value<string>("local")).WorldCondition.ContinueAfterLoad &&
+    ConstructionEditing.Access.Read(saved.Value<string>("global")).WorldCondition.ContinueAfterLoad &&
+    !ConstructionEditing.Access.Read(saved.Value<string>("ordinary")).WorldCondition.ContinueAfterLoad,
+    "原学习和各自的读档选项保持");
+Check(Conditions().Length == 2 && restored.Count == 2 && active.Count == 0 &&
+    restored.Cast<object>().All(condition => (long)Field(condition, "SourceId") == sourceId) &&
+    Mathf.Abs(learning.GetCultisys<Xian>().wakan - saved.Value<float>("resource")) < .005f,
+    "冷读只恢复两份已付条件，原人物资源保持，无旧施放重播");
+var local = restored.Cast<object>().Single(condition => !Entire(condition));
+var globalTerm = restored.Cast<object>().Single(Entire);
+Check(Math.Abs(Remaining(globalTerm) - saved["terms"].Single(term => term.Value<bool>("entire")).Value<double>("remaining")) < .08 &&
+    Remaining(local) > Remaining(globalTerm) + 4f && Protected(Grass(106, 76)),
+    "实际剩余时间保留，世界点火仍受已付条件限制");
+await Advance(.12f);
+Check(FormVisualScene.Instances.Any(form => form.Resource.Description.Id == "truth_mirror" &&
+    Mathf.Abs(form.Transform.m03 - 67.5f) < .01f && Mathf.Abs(form.Transform.m00 - 4f) < .01f),
+    "冷读后的区域标记来自同一实际范围");
+await Advance((float)Remaining(globalTerm) + .08f);
+Check(all.Count == 0 && restored.Count == 1 && Protected(Grass(67, 72)) &&
+    Ignites(Grass(77, 72)) && Ignites(Grass(106, 76)),
+    "全图条件到期后，只有原区域继续保护，普通区域条件没有恢复");
+await Advance((float)Remaining(local) + .08f);
+Check(restored.Count == 0 && regions.Count == 0 && Ignites(Grass(67, 72)),
+    "原区域条件也按剩余世界时间退出并恢复实际点火");
+
+World.world.save_manager.loadWorld(archive);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+var current = World.world.units.get(sourceId);
+Check(restored.Count == 2 && current.isAlive() && Protected(Grass(106, 76)),
+    "从同一原正式档再次建立实际条件");
+current.dieAndDestroy(AttackType.None);
+Check(Ignites(Grass(106, 76)) && Ignites(Grass(67, 72)), "原维持者死亡立即解除两种范围的防火");
+await Advance(.1f);
+Check(restored.Count == 0 && all.Count == 0 && regions.Count == 0, "来源失效后清理实际点火登记");
+return new { passed = true, process, owner = sourceId, originalResource = saved.Value<float>("resource") };

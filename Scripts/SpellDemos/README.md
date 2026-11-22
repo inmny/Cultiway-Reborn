@@ -3167,3 +3167,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 日常回收的需求与来源失效（11.21）
 
 在独立原版游戏运行 `dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_world_need_lifetime.py`。短寿命材料先触发一次正式自主回收，随后在收束前到期。核对同一位置的另一份材料保留，下一次自然选术正常回能，以及原施术者失效时结束。[验收记录](../../Doc/技能系统全面重构/构造法术的日常活动.md#1121-实机结果)汇集此前各项日常活动证据。
+
+### 世界防火的正式存读与停止（11.22）
+
+在独立原版游戏运行 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_world_condition_archive.py --section prepare`。正式写档后退出并重新启动，改用 `--section cold --archive <准备阶段输出目录>`。复验实际点火、区域及全图剩余时长、已付费用，以及原施术者失效。见[长期世界结果的归属](../../Doc/技能系统全面重构/长期世界结果的归属.md)。

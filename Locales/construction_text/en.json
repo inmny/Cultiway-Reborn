@@ -149,6 +149,7 @@
   "Cultiway.ConstructionText.RestoreProcessTime": "Restores normal speed.",
   "Cultiway.ConstructionText.WorldFireArea": "Prevents new ignition within {0:0.##} tiles of the selected point for up to {1:0.##} seconds.",
   "Cultiway.ConstructionText.WorldFireEntire": "Prevents new ignition across the map for up to {0:0.##} seconds.",
+  "Cultiway.ConstructionText.WorldFireContinueAfterLoad": "Keeps its remaining time after loading if the caster is still alive.",
   "Cultiway.ConstructionText.ProcessTime": "From actual start or adjustment: {0}. Normal speed otherwise.",
   "Cultiway.ConstructionText.ProcessTimePause": "pause at {0:0.##} s for {1:0.##} s",
   "Cultiway.ConstructionText.ProcessTimeRate": "×{2:0.##} at {0:0.##} s for {1:0.##} s",

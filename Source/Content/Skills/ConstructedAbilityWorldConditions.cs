@@ -10,12 +10,19 @@ public sealed partial class ConstructedAbilityService
     private const int WorldConditionRegionSize = 16;
     private static readonly List<ActiveWorldCondition> worldFireConditions = new();
     private static readonly Dictionary<Vector2Int, List<ActiveWorldCondition>> regionalFireConditions = new();
+    private static readonly List<ActiveWorldCondition> restoredFireConditions = new();
 
     /// <summary>登记时只发布真实范围；全图条件只保留一份记录。</summary>
     private static void RegisterWorldCondition(RunningCast running, Vector3 center)
     {
-        var condition = new ActiveWorldCondition(running, center);
+        var condition = new ActiveWorldCondition(running.Source, running.SourceId, running.Cast.Plan.WorldCondition,
+            center, running.StartedAt + running.Cast.Plan.Lifetime, running);
         running.WorldCondition = condition;
+        IndexWorldCondition(condition);
+    }
+
+    private static void IndexWorldCondition(ActiveWorldCondition condition)
+    {
         if (condition.Rule.EntireWorld)
         {
             worldFireConditions.Add(condition);
@@ -36,6 +43,11 @@ public sealed partial class ConstructedAbilityService
     {
         if (running.WorldCondition is not { } condition) return;
         running.WorldCondition = null;
+        UnindexWorldCondition(condition);
+    }
+
+    private static void UnindexWorldCondition(ActiveWorldCondition condition)
+    {
         if (condition.Rule.EntireWorld)
         {
             worldFireConditions.Remove(condition);
@@ -67,10 +79,9 @@ public sealed partial class ConstructedAbilityService
     }
 
     /// <summary>只显示已经登记的条件，以同一半径绘制区域。</summary>
-    private void AppendWorldCondition(RunningCast cast, double now)
+    private void AppendWorldCondition(ActiveWorldCondition condition, double now)
     {
-        if (cast.WorldCondition is not { } condition || !condition.IsLive(now)) return;
-        if (condition.Rule.EntireWorld || cast.WorldScope != null) return;
+        if (condition == null || !condition.IsLive(now) || condition.Rule.EntireWorld || condition.HasScope) return;
         Vector3 point = condition.Center;
         point.z = (terrain?.Sample(point.x, point.y) ?? point.z) + .045f;
         float radius = condition.Rule.Radius;
@@ -80,30 +91,54 @@ public sealed partial class ConstructedAbilityService
             tint: new Color(.59f, .86f, .69f, .43f), terrain: terrain));
     }
 
+    /// <summary>读回的条件沿同一世界时钟结束，保留与实时条件相同的点火和显示范围。</summary>
+    private void UpdateRestoredConditions(double now)
+    {
+        for (int i = restoredFireConditions.Count - 1; i >= 0; i--)
+        {
+            ActiveWorldCondition condition = restoredFireConditions[i];
+            if (condition.IsLive(now))
+                AppendWorldCondition(condition, now);
+            else
+            {
+                UnindexWorldCondition(condition);
+                restoredFireConditions.RemoveAt(i);
+            }
+        }
+    }
+
     private static Vector2Int ConditionRegion(Vector2 point) =>
         new(Mathf.FloorToInt(point.x / WorldConditionRegionSize), Mathf.FloorToInt(point.y / WorldConditionRegionSize));
 
     private sealed class ActiveWorldCondition
     {
         private readonly RunningCast cast;
+        private readonly Actor source;
+        internal readonly long SourceId;
         internal readonly CompiledWorldCondition Rule;
         internal readonly Vector3 Center;
         internal readonly Vector2Int First, Last;
+        internal readonly double EndsAt;
+        internal bool HasScope => cast?.WorldScope != null;
 
-        internal ActiveWorldCondition(RunningCast cast, Vector3 center)
+        internal ActiveWorldCondition(Actor source, long sourceId, CompiledWorldCondition rule, Vector3 center,
+            double endsAt, RunningCast cast = null)
         {
             this.cast = cast;
-            Rule = cast.Cast.Plan.WorldCondition;
+            this.source = source;
+            SourceId = sourceId;
+            Rule = rule;
             Center = center;
+            EndsAt = endsAt;
             First = ConditionRegion((Vector2)center - Vector2.one * Rule.Radius);
             Last = ConditionRegion((Vector2)center + Vector2.one * Rule.Radius);
         }
 
         internal bool IsLive(double now) =>
-            !cast.Replaced && !cast.Cast.Finished && now < cast.StartedAt + cast.Cast.Plan.Lifetime &&
-            cast.Source.data?.id == cast.SourceId && cast.Source.isAlive() && cast.Source.hasHealth();
+            (cast == null || !cast.Replaced && !cast.Cast.Finished) && now < EndsAt &&
+            source.data?.id == SourceId && source.isAlive() && source.hasHealth();
 
         internal bool Allows(WorldTile tile) =>
-            cast.WorldScope == null || cast.WorldScope.IsValid() && cast.WorldScope.Allows("fire.prevent", tile);
+            !HasScope || cast.WorldScope.IsValid() && cast.WorldScope.Allows("fire.prevent", tile);
     }
 }

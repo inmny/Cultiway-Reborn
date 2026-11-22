@@ -149,6 +149,7 @@
   "Cultiway.ConstructionText.RestoreProcessTime": "恢复常速。",
   "Cultiway.ConstructionText.WorldFireArea": "在本次选中位置周围{0:0.##}格内阻止新点火，最多维持{1:0.##}秒。",
   "Cultiway.ConstructionText.WorldFireEntire": "在全图阻止新点火，最多维持{0:0.##}秒。",
+  "Cultiway.ConstructionText.WorldFireContinueAfterLoad": "原施术者仍在时，读档后维持剩余时长。",
   "Cultiway.ConstructionText.ProcessTime": "实际启动或调整后：{0}；其余时间常速。",
   "Cultiway.ConstructionText.ProcessTimePause": "第{0:0.##}秒起暂停{1:0.##}秒",
   "Cultiway.ConstructionText.ProcessTimeRate": "第{0:0.##}秒起以{2:0.##}倍推进{1:0.##}秒",
