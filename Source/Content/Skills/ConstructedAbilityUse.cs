@@ -1,3 +1,5 @@
+using System.Linq;
+using Cultiway.Content.Artifacts;
 using Cultiway.Core;
 using Cultiway.Core.Skills;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -11,6 +13,37 @@ namespace Cultiway.Content.Skills;
 /// <summary>把人物与环境地点转换成同一份实际施放输入，不制造代替地点的人物。</summary>
 public sealed partial class ConstructedAbilityService
 {
+    /// <summary>召唤或器灵可代施构造，身体动作和握持实物仍由真实操作者执行。</summary>
+    /// <param name="plan">已经编译的能力。</param>
+    private static bool AllowsArtifactCasting(CompiledAbility plan) =>
+        plan.Body == null && plan.Binding?.Anchor != AbilityAnchor.Carrier;
+
+    /// <summary>先检查自己的能力，再检查与当下实际召唤者或器灵主人共用的能力。</summary>
+    /// <param name="caster">当前请求主体。</param>
+    /// <param name="handle">当前能力及授予来源。</param>
+    /// <param name="context">经过校验的归属和空间来源。</param>
+    /// <param name="plan">正式编译后的计划。</param>
+    private static bool TryResolveUseContext(ActorExtend caster, ActiveAbilityHandle handle,
+        out SkillCasterContext context, out CompiledAbility plan)
+    {
+        context = default;
+        plan = null;
+        if (handle.ProviderId != ProviderId || !definitions.ContainsKey(handle.EntryId)) return false;
+        plan = PlanFor(handle.EntryId);
+        if (Knows(caster, handle.EntryId) && (plan.Binding?.Anchor == AbilityAnchor.Carrier
+                ? ConstructedArtifactCarrier.Equipped(caster).Contains(handle.Source) : handle.Source == caster.E))
+        {
+            context = SkillCasterContextService.Resolve(caster);
+            return context.IsValid;
+        }
+        if (!AllowsArtifactCasting(plan) || !ArtifactCastingLink.TryResolve(caster, out ArtifactCastingLink link) ||
+            handle.Source != link.Owner.E || !Knows(link.Owner, handle.EntryId)) return false;
+        var original = SkillCasterContextService.Resolve(link.Owner);
+        if (!original.IsValid) return false;
+        context = new SkillCasterContext(link.Owner, caster, original.EffectScale, hasPhysicalBody: false);
+        return true;
+    }
+
     /// <summary>在正式使用边界解析选择，人物采用共同时间姿态，地点保持受理时的位置。</summary>
     /// <param name="caster">实际施法者。</param>
     /// <param name="plan">已经编译的选择与作用规则。</param>

@@ -1,0 +1,60 @@
+// 沿用以前诞生验证中的原配方和法宝活动。
+async Task<(Actor Carrier, Entity Artifact, string Instance)> Manifest(bool summons)
+{
+    var asset = summons ? ArtifactAbilities.SpiritHostManifestation : ArtifactAbilities.ArtifactSpiritAwakening;
+    var recipe = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+    {
+        Shape = summons ? ItemShapes.Banner : ItemShapes.Sword,
+        Atoms = summons
+            ? new[] { ArtifactAtoms.SoulBanner, ArtifactAtoms.SoulCore, ArtifactAtoms.SoulJade, ArtifactAtoms.WorldWood, ArtifactAtoms.SoulBindingScript }
+            : new[] { ArtifactAtoms.SwordBreaker, ArtifactAtoms.Iron, ArtifactAtoms.SoulCore, ArtifactAtoms.SpiritAwakeningScript },
+        Level = new ItemLevel { Stage = 3, Level = 8 },
+        Name = summons ? "代施原幡" : "代施原剑"
+    }));
+    Check(recipe.AbilitySet.abilities.Any(entry => entry.ability_id == asset.id), "原配方保有实际能力");
+    Entity item = ArtifactBlueprintCodec.Materialize(recipe, body.getName());
+    owner.AddSpecialItem(item);
+    Check(owner.EquipArtifact(item, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100), "正式装备法宝");
+    Cultivation().wakan = 9000f;
+    ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+    await Advance(.45f);
+    var ability = item.GetComponent<ArtifactAbilitySet>().abilities.Single(entry => entry.ability_id == asset.id);
+    Actor actual;
+    if (summons)
+    {
+        float stored = ability.GetNumber("stored_resource_cost");
+        ArtifactStorageState storage = item.GetComponent<ArtifactStorageState>();
+        ArtifactStorageOperations.Store(ref storage, ArtifactStorageOperations.SoulEssence, stored);
+        item.GetComponent<ArtifactStorageState>() = storage;
+        var equipped = owner.E.GetRelation<EquippedArtifactRelation, Entity>(item);
+        float price = asset.lifecycle.ResolveActivationCost(new ArtifactAbilityExecutionContext(owner.E, item, equipped.state), ability);
+        if (equipped.state == ArtifactControlState.Overloaded) price *= asset.lifecycle.overload_resource_multiplier;
+        var registered = new List<ActiveAbilityHandle>();
+        ActiveAbilityService.Collect(owner, registered);
+        var activate = registered.Single(entry => entry.Source == item && entry.EntryId == ability.instance_id);
+        body.attack_timer = 0;
+        float before = Balance();
+        Check(ActiveAbilityService.TryUse(owner, activate, new ActiveAbilityTarget(null, new Vector3(70.5f, 72.5f, 0f)),
+            ActiveAbilityUseOrigin.Script) && Mathf.Abs(before - Balance() - price) < .004f &&
+            ArtifactStorageOperations.GetAmount(item.GetComponent<ArtifactStorageState>(), ArtifactStorageOperations.SoulEssence) == 0f,
+            "原幡由正式入口支付原真元与储魂后召唤", new { price, paid = before - Balance(), stored });
+        body.attack_timer = 999f;
+        Entity ghost = Cultiway.ModClass.I.W.Query<ArtifactSummon, ActorBinder>().Entities.ToArray()
+            .First(entry => entry.GetComponent<ArtifactSummon>().artifact == item);
+        actual = ghost.GetComponent<ActorBinder>().Actor;
+        Check(ghost.GetComponent<ArtifactSummon>().controller == owner.E && actual.isAlive(), "召唤由原法宝及主人实际维持");
+    }
+    else
+    {
+        var relations = item.GetRelations<ArtifactSpiritAvatarRelation>();
+        Check(relations.Length == 1, "真实器灵由装备触发唯一显化");
+        var avatar = relations[0].avatar;
+        actual = avatar.GetComponent<ActorBinder>().Actor;
+        Check(avatar.GetComponent<ArtifactSpiritAvatar>().controller == owner.E && actual.isAlive(), "显化仍由原剑及主人维持");
+    }
+    CombatStatusEffects.ApplyStatus(actual, hold, 10000f, actual);
+    actual.updateStats();
+    actual.attack_timer = 999f;
+    Place(actual, 70f);
+    return (actual, item, ability.instance_id);
+}

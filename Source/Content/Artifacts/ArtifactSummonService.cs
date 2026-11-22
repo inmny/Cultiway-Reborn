@@ -2,6 +2,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -16,6 +17,7 @@ public static class ArtifactSummonService
     public static void Init()
     {
         ActorExtend.RegisterCachedStatsBuilder(ContributeSummonStats);
+        SkillCasterContextService.RegisterResolver(ArtifactCastingLink.ResolveOwnContext);
     }
 
     public static int SummonSpirits(
@@ -72,8 +74,9 @@ public static class ArtifactSummonService
     {
         if (!summon.artifact.IsAvailable() || !summon.controller.IsAvailable() ||
             !summon.controller.TryGetComponent(out ActorBinder binder) ||
-            binder.Actor == null || binder.Actor.isRekt() ||
-            !summon.artifact.TryGetComponent(out ArtifactAbilityRuntime runtime)) return false;
+            binder.Actor == null || binder.Actor.isRekt() || !binder.Actor.isAlive() ||
+            !summon.artifact.TryGetComponent(out ArtifactAbilityRuntime runtime) ||
+            !runtime.attached || runtime.controller != summon.controller) return false;
         for (int i = 0; i < runtime.abilities.Length; i++)
         {
             ArtifactAbilityRuntimeEntry entry = runtime.abilities[i];

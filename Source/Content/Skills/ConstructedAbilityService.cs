@@ -258,15 +258,23 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="output">统一能力集合。</param>
     public void Collect(ActorExtend caster, ICollection<ActiveAbilityHandle> output)
     {
-        if (!GeneralSettings.EnableSkillSystems || !caster.E.TryGetComponent(out ConstructedKnowledge known)) return;
-        foreach (string id in known.Ids)
-            if (definitions.ContainsKey(id))
-            {
-                if (PlanFor(id).Binding?.Anchor == AbilityAnchor.Carrier)
-                    foreach (Entity artifact in ConstructedArtifactCarrier.Equipped(caster))
-                        output.Add(new ActiveAbilityHandle(ProviderId, artifact, id));
-                else output.Add(new ActiveAbilityHandle(ProviderId, caster.E, id));
-            }
+        if (!GeneralSettings.EnableSkillSystems) return;
+        caster.E.TryGetComponent(out ConstructedKnowledge known);
+        if (known.Ids != null)
+            foreach (string id in known.Ids)
+                if (definitions.ContainsKey(id))
+                {
+                    if (PlanFor(id).Binding?.Anchor == AbilityAnchor.Carrier)
+                        foreach (Entity artifact in ConstructedArtifactCarrier.Equipped(caster))
+                            output.Add(new ActiveAbilityHandle(ProviderId, artifact, id));
+                    else output.Add(new ActiveAbilityHandle(ProviderId, caster.E, id));
+                }
+
+        if (!ArtifactCastingLink.TryResolve(caster, out ArtifactCastingLink link) ||
+            !link.Owner.E.TryGetComponent(out ConstructedKnowledge borrowed)) return;
+        foreach (string id in borrowed.Ids)
+            if (known.Ids?.Contains(id) != true && definitions.ContainsKey(id) && AllowsArtifactCasting(PlanFor(id)))
+                output.Add(new ActiveAbilityHandle(ProviderId, link.Owner.E, id));
     }
 
     /// <summary>公开当前构造实际声明的战斗或世界用途。</summary>
@@ -301,15 +309,28 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <summary>按本能力独立冷却及实际真元报告可用状态。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
-    public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)
+    public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle) =>
+        ResolveUseControl(caster, handle, out _, out _, out _, out _);
+
+    /// <summary>共用前置条件，保留本次真正的归属、出手载体和已取得的位置。</summary>
+    /// <param name="caster">主动入口收到的施法者。</param>
+    /// <param name="handle">本次使用的能力。</param>
+    /// <param name="context">实际归属及人物载体。</param>
+    /// <param name="plan">本次能力的共同计划。</param>
+    /// <param name="node">若借用分念等非人物来源，记录原节点。</param>
+    /// <param name="position">原节点的本次选取位置。</param>
+    private ActiveAbilityControlState ResolveUseControl(ActorExtend caster, ActiveAbilityHandle handle,
+        out SkillCasterContext context, out CompiledAbility plan, out YuanshenNodeHandle node, out Vector3 position)
     {
-        if (!Owns(caster, handle)) return new(ActiveAbilityControlBlockReason.Unavailable);
-        CompiledAbility plan = PlanFor(handle.EntryId);
-        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
-        if (!context.IsValid || context.EffectScale <= 0f || caster.HasComponent<YuanshenBodilessTransitState>() ||
+        node = default;
+        position = default;
+        if (!TryResolveUseContext(caster, handle, out context, out plan)) return new(ActiveAbilityControlBlockReason.Unavailable);
+        caster = context.Owner;
+        if (context.EffectScale <= 0f || ActiveAbilityService.IsSilenced(in context) ||
+            !caster.Base.isAlive() || !caster.Base.hasHealth() || caster.HasComponent<YuanshenBodilessTransitState>() ||
             !context.Carrier.Base.isAlive() || !context.Carrier.Base.hasHealth() ||
             plan.Body != null && (context.Kind != SkillCarrierKind.Physical || !context.HasPhysicalBody) ||
-            !YuanshenNodeCastingService.TryResolveConstruction(in context, plan, out _, out _))
+            !YuanshenNodeCastingService.TryResolveConstruction(in context, plan, out node, out position))
             return new(ActiveAbilityControlBlockReason.Unavailable);
         if (plan.Binding?.Anchor == AbilityAnchor.Carrier &&
             !ConstructedArtifactCarrier.CanBorrow(caster, handle.Source))
@@ -330,31 +351,34 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="handle">当前能力。</param>
     /// <param name="target">当前目标。</param>
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) =>
-        GeneralSettings.EnableSkillSystems && caster.Base.isAlive() && caster.Base.hasHealth() &&
-        ResolveControlState(caster, handle).CanUse &&
-        (PlanFor(handle.EntryId).Body?.ControlsStance != true || caster.Base.isAttackPossible());
+        GeneralSettings.EnableSkillSystems && ResolveUseControl(caster, handle, out SkillCasterContext context,
+            out CompiledAbility plan, out _, out _).CanUse &&
+        (plan.Body?.ControlsStance != true || context.Owner.Base.isAttackPossible());
 
     /// <summary>选取和实际接触共用明确的目标关系，仍需实际活体及选择距离。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
     /// <param name="target">本次选择。</param>
     public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target) =>
-        CanUseFrom(caster, handle, target, out _);
+        CanUseFrom(caster, handle, target, out _, out _, out _);
 
     /// <summary>选择距离与正式受理共同解析同一个源节点。</summary>
     /// <param name="caster">持有法术的修士。</param>
     /// <param name="handle">当前能力。</param>
     /// <param name="target">本次选择。</param>
     /// <param name="node">通过检查后准备借用的节点。</param>
+    /// <param name="context">实际人物归属和空间载体。</param>
+    /// <param name="plan">正式受理使用的同一份计划。</param>
     private bool CanUseFrom(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target,
-        out YuanshenNodeHandle node)
+        out YuanshenNodeHandle node, out SkillCasterContext context, out CompiledAbility plan)
     {
-        node = default;
-        if (!CanPrepare(caster, handle, target.Object) || target.WorldScope != null && !target.WorldScope.IsValid())
+        ActiveAbilityControlState control = ResolveUseControl(caster, handle, out context,
+            out plan, out node, out Vector3 origin);
+        if (!GeneralSettings.EnableSkillSystems || !control.CanUse ||
+            plan.Body?.ControlsStance == true && !context.Owner.Base.isAttackPossible() ||
+            target.WorldScope != null && !target.WorldScope.IsValid())
             return false;
-        CompiledAbility plan = PlanFor(handle.EntryId);
-        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
-        if (!YuanshenNodeCastingService.TryResolveConstruction(in context, plan, out node, out Vector3 origin)) return false;
+        caster = context.Owner;
         Actor carrier = context.Carrier.Base;
         return TryResolveUseTarget(caster, plan, target, out Actor actor, out Vector3 point, out _, self: carrier) &&
                (plan.SoulPact == null || CanBeginSoulPact(caster.Base, actor)) &&
@@ -368,8 +392,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="target">当前目标。</param>
     public int ResolveAiWeight(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
-        CompiledAbility plan = PlanFor(handle.EntryId);
-        return IsPureAging(plan) && AgingCombatValue(caster, plan, target) <= 0f ? 0 : 12;
+        if (!TryResolveUseContext(caster, handle, out SkillCasterContext context, out CompiledAbility plan)) return 0;
+        return IsPureAging(plan) && AgingCombatValue(context.Owner, plan, target) <= 0f ? 0 : 12;
     }
 
     /// <summary>向既有决策报告威力与实际消耗。</summary>
@@ -379,14 +403,14 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public ActiveAbilityTacticalProfile ResolveTacticalProfile(ActorExtend caster, ActiveAbilityHandle handle,
         BaseSimObject target)
     {
-        CompiledAbility plan = PlanFor(handle.EntryId);
-        float aging = AgingCombatValue(caster, plan, target);
+        if (!TryResolveUseContext(caster, handle, out SkillCasterContext context, out CompiledAbility plan)) return default;
+        float aging = AgingCombatValue(context.Owner, plan, target);
         if (IsPureAging(plan) && aging <= 0f) return new(0f, 0f, 0f, 0f, 0f, plan.Cost, 1f);
         bool hostile = plan.Impact.Targets == SkillUseTargetRelation.Hostile;
         return new(hostile && (plan.ContactDamageScale > 0f || aging > 0f) ? 1f : 0f, plan.HasBarrier ? 1f : 0f, hostile ? 0f : 1f,
             plan.ContactControl > 0f ? 1f : 0f,
             Mathf.Max(
-                caster.Base.stats["damage"] * plan.Power *
+                context.Owner.Base.stats["damage"] * plan.Power * context.EffectScale *
                 Mathf.Max(plan.ContactDamageScale, plan.HasBarrier ? 1f : 0f), Mathf.Max(plan.ContactControl, aging)),
             plan.Cost, 1f);
     }
@@ -396,7 +420,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="handle">当前能力。</param>
     /// <param name="target">当前目标。</param>
     public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) =>
-        Range(caster, PlanFor(handle.EntryId), target, handle.Source);
+        TryResolveUseContext(caster, handle, out SkillCasterContext context, out CompiledAbility plan)
+            ? Range(context.Owner, plan, target, handle.Source) : 0f;
 
     /// <summary>本构造没有固定圆形伤害区，使用实际部位接触。</summary>
     /// <param name="caster">持有者。</param>
@@ -411,9 +436,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public bool TryUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target,
         ActiveAbilityUseOrigin origin)
     {
-        if (!CanUseFrom(caster, handle, target, out YuanshenNodeHandle node)) return false;
-        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
-        return Start(caster, PlanFor(handle.EntryId), target, origin, out _,
+        if (!CanUseFrom(caster, handle, target, out YuanshenNodeHandle node, out SkillCasterContext context,
+                out CompiledAbility plan)) return false;
+        using var scope = SkillCasterContextService.Enter(in context);
+        return Start(context.Owner, plan, target, origin, out _,
             carrierSource: handle.Source, spatialSource: context.Carrier.Base, effectScale: context.EffectScale,
             trackSource: node.OwnerActorId != 0 ? YuanshenNodeCastingService.TrackNode(node) : null);
     }
@@ -559,6 +585,13 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         spatialSource ??= sourceActor;
         if (spatialSource != null && (!spatialSource.isAlive() || !spatialSource.hasHealth())) return false;
         long spatialSourceId = spatialSource?.id ?? 0;
+        Func<bool> sourceAvailable = null;
+        if (spatialSource != null && spatialSource.TryGetExtend(out ActorExtend spatialActor) &&
+            ArtifactCastingLink.IsManifestation(spatialActor))
+        {
+            if (!ArtifactCastingLink.TryResolve(spatialActor, out ArtifactCastingLink link)) return false;
+            sourceAvailable = link.IsCurrent;
+        }
         if (prepaid && caster != null) trackSource ??= target.RuntimeData.TrackSource;
         if (trackSource != null)
         {
@@ -660,6 +693,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (!prepaid && payment == null || sourceActor != null && (sourceActor.isRekt() || sourceActor.id != sourceId) ||
                 spatialSource != null && (spatialSource.isRekt() || spatialSource.id != spatialSourceId ||
                                           !spatialSource.isAlive() || !spatialSource.hasHealth()) ||
+                sourceAvailable != null && !sourceAvailable() ||
                 trackSource != null && !trackSource().HasValue ||
                 generation != worldGeneration || inventory != null && !inventory.IsValid) return false;
             if (plan.Body?.Construction.HasControlRelations == true)
@@ -755,7 +789,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 StartedAt = startedAt,
                 BodyGuardRemaining = practice ? 0f : (plan.Body?.Guard.Capacity ?? 0f) * plan.Power
             };
-            running.InitialOwner = new CastAuthority(sourceActor, damage, targetActor, target.AttackKingdom, spatialSource, trackSource);
+            running.InitialOwner = new CastAuthority(sourceActor, damage, targetActor, target.AttackKingdom,
+                spatialSource, trackSource, sourceAvailable);
             running.InitialOwner.LastFoot = inputs.Source;
             running.Owners = new CastAuthority[plan.FormCount];
             for (int i = 0; i < running.Owners.Length; i++) running.Owners[i] = running.InitialOwner;
@@ -870,15 +905,6 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="plan">本入口的制作计划。</param>
     internal static bool HasBodyFor(ActorExtend caster, CompiledAbility plan) => caster != null &&
         !caster.Base.isRekt() && caster.Base.isAlive() && plan.Body != null && BodyActionBinding.CanBind(caster, plan.Body);
-
-    /// <summary>不接受其他人物或伪造来源的句柄。</summary>
-    /// <param name="caster">当前人物。</param>
-    /// <param name="handle">当前能力。</param>
-    private bool Owns(ActorExtend caster, ActiveAbilityHandle handle) =>
-        handle.ProviderId == ProviderId &&
-        definitions.ContainsKey(handle.EntryId) && caster.E.TryGetComponent(out ConstructedKnowledge known) &&
-        known.Ids.Contains(handle.EntryId) && (PlanFor(handle.EntryId).Binding?.Anchor == AbilityAnchor.Carrier
-            ? ConstructedArtifactCarrier.Equipped(caster).Contains(handle.Source) : handle.Source == caster.E);
 
     /// <summary>实际材料接到已有元素抗性；这不代表冻结或材料相撞等反应已经完成。</summary>
     /// <param name="matter">由构造明确指定的实际材料。</param>
@@ -1190,9 +1216,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         internal Func<Vector3?> TrackSource;
 
         /// <summary>实际载体仍是原来源且能够提供位置。</summary>
-        internal bool SpatialSourceLive => TrackSource != null ? TrackSource().HasValue :
-            SpatialSource != null && SpatialSource.data?.id == SpatialSourceId &&
-            SpatialSource.isAlive() && SpatialSource.hasHealth();
+        internal bool SpatialSourceLive => InitialOwner.SpatialLive;
 
         /// <summary>借用实际身体和器物的绑定，非身体能力为空。</summary>
         internal BodyActionBinding Body;

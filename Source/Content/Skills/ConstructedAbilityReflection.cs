@@ -43,6 +43,9 @@ public sealed partial class ConstructedAbilityService
         /// <summary>原空间节点，返回空时保留最后位置。</summary>
         private readonly Func<Vector3?> trackSource;
 
+        /// <summary>召唤物仍由原法宝承托，法宝先失效时无需等待人物回收。</summary>
+        private readonly Func<bool> sourceAvailable;
+
         /// <summary>最后采集关系的真实帧，同帧重复校验不重新复制。</summary>
         private int relationsFrame = -1;
 
@@ -74,10 +77,10 @@ public sealed partial class ConstructedAbilityService
         internal bool IsLive => Actor != null && Actor.data?.id == Id && Actor.isAlive() && Actor.hasHealth();
 
         /// <summary>实际空间载体仍存在，独立留存部位据此处理来源消失。</summary>
-        internal bool SpatialLive => WorldSource || (placement.trackSource != null
-            ? placement.trackSource().HasValue
-            : placement.spatialActor?.data?.id == spatialId && placement.spatialActor.isAlive() &&
-              placement.spatialActor.hasHealth());
+        internal bool SpatialLive => WorldSource || (placement.sourceAvailable == null || placement.sourceAvailable()) &&
+            (placement.trackSource != null ? placement.trackSource().HasValue :
+                placement.spatialActor?.data?.id == spatialId && placement.spatialActor.isAlive() &&
+                placement.spatialActor.hasHealth());
 
         /// <summary>判断两个部位是否仍借用同一原施放空间来源。</summary>
         /// <param name="other">待核对的归属。</param>
@@ -115,8 +118,9 @@ public sealed partial class ConstructedAbilityService
         /// <param name="target">追踪目标。</param><param name="attackKingdom">可选的本次明确攻击阵营。</param>
         /// <param name="spatialSource">本次实际空间人物，省略时沿用归属人物。</param>
         /// <param name="sourceTracker">本次真实节点或其他可跟随的非人物来源。</param>
+        /// <param name="sourceAvailable">借用人物由原法宝等活动继续维持时返回真。</param>
         internal CastAuthority(Actor actor, GetHitEvent damage, Actor target, Kingdom attackKingdom = null,
-            Actor spatialSource = null, Func<Vector3?> sourceTracker = null)
+            Actor spatialSource = null, Func<Vector3?> sourceTracker = null, Func<bool> sourceAvailable = null)
         {
             Actor = actor;
             Id = actor?.data.id ?? 0;
@@ -124,6 +128,7 @@ public sealed partial class ConstructedAbilityService
             spatialActor = spatialSource ?? actor;
             spatialId = spatialActor?.id ?? 0;
             trackSource = sourceTracker;
+            this.sourceAvailable = sourceAvailable;
             Damage = damage;
             Target = target;
             TargetId = target?.data?.id ?? 0;

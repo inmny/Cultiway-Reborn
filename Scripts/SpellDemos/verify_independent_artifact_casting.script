@@ -1,0 +1,89 @@
+bool summons = section == "summon";
+var (carrier, artifact, instance) = await Manifest(summons);
+var spirit = carrier.GetExtend();
+long spiritId = carrier.id;
+body.addAggro(enemy);
+enemy.addAggro(body);
+var shot = NewAbility("artifact-cast", AbilityAnchor.Target, .35f);
+shot.Root.OnContact = ConstructionContactResponse.End;
+shot.Root.Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Hostile, DamageScale = 1f, SelectedTargetOnly = true };
+var borrowedShot = Learn(shot);
+var palm = Learn(BodyActionCatalog.Create("test.independent-casting.artifact-palm", "掌击",
+    new BodyActionRequest { Kind = BodyActionKind.Slap, Effector = "hand.right", Seconds = 1f }));
+AbilityDefinition Ward(string name)
+{
+    var ward = NewAbility(name, AbilityAnchor.Source, 12f);
+    ward.Cooldown = 0;
+    ward.ConcurrentLimit = 1;
+    ward.Binding.Follow = true;
+    ward.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Self };
+    ward.Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Self, DamageScale = 0f };
+    return ward;
+}
+var personal = Ward("artifact-own");
+personal.Resource = "stamina";
+personal.Cost = 3f;
+personal.Lifetime = .35f;
+personal.Use.SelfStatus = new ConstructionStatus
+    { Id = guard.id, Duration = 3f, Potency = 1f, Application = ConstructionStatusApplication.Refresh };
+ConstructedAbilityService.Register(personal);
+ConstructedAbilityService.Learn(spirit, personal.Id);
+var own = new ActiveAbilityHandle("content.constructed", spirit.E, personal.Id);
+var follow = Learn(Ward("artifact-ward"));
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(spirit, handles);
+Check(handles.Any(entry => entry.Source == owner.E && entry.EntryId == shot.Id) &&
+      handles.Any(entry => entry.Source == spirit.E && entry.EntryId == personal.Id) &&
+      handles.All(entry => entry.EntryId != palm.EntryId) && !ConstructedAbilityService.Knows(spirit, shot.Id),
+    "实际入口同时列出自身和主人授权，实体掌击不借用，也不复制掌握关系");
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+ConstructedAbilityService.CastEnded += Exited;
+try
+{
+    float before = Balance();
+    Check(!Use(body, borrowedShot, enemy, 10101) && !Use(carrier, palm, enemy, 10101) && unit.Count == 0 && before == Balance(),
+        "过远的肉身和借用实体掌击均拒绝，原真元余额不变");
+    int health = enemy.getHealth();
+    Check(Use(carrier, borrowedShot, enemy, 10101) && Mathf.Abs(before - Balance() - shot.Cost) < .004f,
+        "由载体代施时只扣原主人的真元", new { paid = before - Balance() });
+    var fired = unit[10101];
+    Check(fired.Fact.SourceId == body.id && (long)Field(fired.Run, "SpatialSourceId") == spiritId &&
+        Vector2.Distance((Vector3)Field(fired.Run, "LastSourceFoot"), carrier.current_position) < .01f &&
+        ActiveAbilityService.ResolveControlState(owner, borrowedShot).BlockReason == ActiveAbilityControlBlockReason.Cooldown,
+        "实际出生点取载体，归属与冷却仍属原主人");
+    await Advance(.27f);
+    Check(enemy.getHealth() < health && hits.Any(hit => hit.CastId == fired.Fact.CastId && hit.SourceId == body.id && hit.TargetId == enemy.id),
+        "代施产生实际伤害，结算保有原主人归属", new { before = health, after = enemy.getHealth() });
+
+    before = Balance();
+    carrier.data.stamina = 30;
+    Check(Use(carrier, own, body, 10102) && before == Balance() && carrier.data.stamina == 27 &&
+        unit[10102].Fact.SourceId == spiritId && CombatStatusEffects.HasStatus(carrier, guard, carrier),
+        "载体本人的护持仍由自己付体力、自己取得状态");
+    Check(Use(body, follow, body, 10103) && Use(carrier, follow, body, 10104) &&
+        Mathf.Abs(before - Balance() - 12f) < .004f && (bool)Field(unit[10103].Run, "Replaced") &&
+        (long)Field(unit[10104].Run, "TargetId") == spiritId,
+        "主人与载体共用并存额度，代理施放的本人指向实际载体");
+
+    bool released = summons ? ArtifactAbilityLifecycle.Recall(artifact, instance) : owner.UnequipArtifact(artifact, suppressAutoEquip: true);
+    Check(released, summons ? "原幡正式召回" : "正式卸下原剑");
+    before = Balance();
+    Check(!Use(carrier, borrowedShot, enemy, 10100) && !Use(carrier, own, carrier, 10100) && before == Balance(),
+        "原关系解除当下，旧载体立即拒绝新施法");
+    await Advance(.36f);
+    Check((World.world.units.get(spiritId) == null || !World.world.units.get(spiritId).isAlive()) &&
+        exits.Any(value => value.CastId == unit[10104].Fact.CastId && value.Cancelled && value.Age < 12f) &&
+        owner.GetItems().Contains(artifact), "只回收真正载体及依附形体，原法宝仍在");
+    before = Balance();
+    Check(Use(body, follow, body, 10100) && Mathf.Abs(before - Balance() - 6f) < .004f,
+        "原主人收回后仍可正常使用同一原构造");
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    ConstructedAbilityService.CastEnded -= Exited;
+    Config.paused = true;
+}

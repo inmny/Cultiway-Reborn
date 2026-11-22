@@ -13,7 +13,7 @@ from verify_weapon_flight_archive import FIXTURE, IMPORTS, world_helpers
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('soul', 'soul-force', 'node', 'avatar'), default='soul')
+    parser.add_argument('--section', choices=('soul', 'soul-force', 'node', 'avatar', 'summon', 'artifact-spirit'), default='soul')
     section = parser.parse_args().section
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过独立游戏的 dev.py exec 运行')
@@ -23,7 +23,11 @@ def main():
     helpers = helpers.replace('ConstructedAbilityService.ContactConfirmed += Hit;', '')
     script = output / 'input.script'
     scene = Path(__file__).with_name('independent_casting_scene.script').read_text()
-    body = 'verify_independent_casting.script' if section == 'soul' else 'verify_independent_sources.script'
+    if section in ('summon', 'artifact-spirit'):
+        scene += Path(__file__).with_name('independent_artifact_casting_scene.script').read_text()
+        body = 'verify_independent_artifact_casting.script'
+    else:
+        body = 'verify_independent_casting.script' if section == 'soul' else 'verify_independent_sources.script'
     script.write_text(IMPORTS + 'using Cultiway.Core.SkillLibV3.Utils;\n' + helpers
                       + f'const string section = "{section}";\n' + scene + Path(__file__).with_name(body).read_text())
     baseline.connect(False, validate_runtime=False)
