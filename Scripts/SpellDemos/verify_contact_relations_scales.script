@@ -1,0 +1,210 @@
+var caster = World.world.units.get(sourceId);
+var peer = World.world.units.get(readerId);
+var owner = caster.GetExtend();
+var city = caster.city;
+Check(city != null && peer != null && owner.HasCultisys<Xian>(), "复用原城、施术者和原读者");
+peer.setKingdom(caster.kingdom);
+CombatStatusEffects.ApplyStatus(peer, hold, 10000, peer);
+var hostile = Make(66, "wolf");
+hostile.GetExtend().SetPowerLevel(owner.GetPowerLevel());
+var tactician = typeof(CombatWorldService);
+var minds = (IDictionary)tactician.GetField("ActorStates", F).GetValue(null);
+object Reported() => minds.Contains(readerId) ? tactician.GetMethod("ReportedFor", F)
+    .Invoke(null, new object[] { minds[readerId], hostile.id, World.world.getCurWorldTime() }) : null;
+var pacts = (IDictionary)service.GetField("soulPacts", F).GetValue(null);
+var access = ConstructionEditing.Access;
+AbilityDefinition Import(string name)
+{
+    var basis = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, name + ".json")));
+    access.Import(basis);
+    return basis;
+}
+var signal = Import("signal");
+var pact = Import("pact");
+var signals = new List<ConstructedSignalReceipt>();
+var shares = new List<SoulPactShare>();
+var endingsSeen = new List<ConstructedCastEnded>();
+void Said(ConstructedSignalReceipt value)
+{
+    if (value.Kind == ConstructionSignalKind.ObservedContact && value.SenderId == sourceId) signals.Add(value);
+}
+void Split(SoulPactShare value) { if (value.BearerId == sourceId) shares.Add(value); }
+void End(ConstructedCastEnded value) { if (value.SourceId == sourceId) endingsSeen.Add(value); }
+
+Vector2 Center(WorldTile tile) => new Vector2(tile.x + .5f, tile.y + .5f);
+WorldTile Flat(int x, int y)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    tile.Height = 140;
+    return tile;
+}
+int Strike(Actor target, Actor striker, float damage, bool ignoreProtection)
+{
+    int before = target.data.health;
+    var element = ElementComposition.Static.Iron;
+    target.GetExtend().GetHit(damage, ref element, striker, AttackType.Weapon, ignore_damage_reduction: ignoreProtection,
+        attacker_power_level_override: striker.GetExtend().GetPowerLevel());
+    return before - target.data.health;
+}
+AbilityDefinition Learn(string name, AbilityDefinition basis, float range)
+{
+    var edit = new ConstructionEditSession(access.Read(basis.Id));
+    edit.Draft.Name = name;
+    edit.Draft.Resource = "wakan";
+    edit.Draft.TargetRange = Mathf.Ceil(range) + 2f;
+    if (edit.Draft.SoulPact != null)
+    {
+        edit.Draft.Lifetime = 1.4f;
+        edit.Draft.SoulPact.Capacity = 900f;
+    }
+    return access.Apply(owner, edit, false);
+}
+void Use(AbilityDefinition learned)
+{
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, learned.Id);
+    WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), caster.stats[BaseStatses.MaxWakan.id]);
+    float before = owner.GetCultisys<Xian>().wakan;
+    caster.attack_timer = 0;
+    Check(ConstructedAbilityService.Knows(owner, learned.Id) &&
+        ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(peer, peer.GetSimPos()), ActiveAbilityUseOrigin.Player) &&
+        before - owner.GetCultisys<Xian>().wakan == learned.Cost,
+        "用已学的独立构造一次正式支付",
+        new { learned.Id, learned.Name, before, after = owner.GetCultisys<Xian>().wakan, learned.Cost });
+}
+async Task Until(Func<bool> condition)
+{
+    Config.paused = false;
+    await Game.WaitUntil(condition, 3600);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+async Task<object> Relay(string scale, Vector2 a, Vector2 b, float distance)
+{
+    Place(caster, a.x, a.y);
+    Place(peer, b.x, b.y);
+    Place(hostile, a.x + 2f, a.y);
+    caster.addAggro(hostile);
+    Check(Strike(hostile, caster, 28f, true) > 0, "实际交战先产生原方位");
+    var oldPoint = hostile.current_position;
+    var quiet = Center(Flat(8, MapBox.height - 9));
+    Place(hostile, quiet.x, quiet.y);
+    peer.addAggro(hostile);
+    Check(Reported() == null && !(bool)tactician.GetMethod("IsInsideSightChunks", F).Invoke(null, new object[] { peer, hostile }),
+        "收件者原来没有该讯息，也看不到现在的敌人");
+    var relay = Learn(scale == "city" ? "隔坊照影" : "隔域照影", signal, distance);
+    int beforeSignals = signals.Count;
+    Use(relay);
+    await Until(() => endingsSeen.Any(value => value.AbilityId == relay.Id));
+    Check(signals.Count == beforeSignals + 1 && signals.Last().RecipientId == readerId && signals.Last().Observation.HasValue,
+        "收件只触发一次且送给同一个原读者", new { scale, distance, readerId });
+    var report = signals.Last().Observation.Value;
+    Check(report.SubjectId == hostile.id && report.Position == oldPoint && report.Position != hostile.current_position &&
+        Reported() != null && !endingsSeen.Single(value => value.AbilityId == relay.Id).Cancelled,
+        "收件者的实际战术记忆保存原方位", new { scale, x = report.Position.x, y = report.Position.y });
+    await Until(() => World.world.getCurWorldTime() > report.ExpiresAt + .04);
+    Check(Reported() == null && signals.Count == beforeSignals + 1, "原方位到期解除，无重复送达", scale);
+
+    File.WriteAllText(Path.Combine(folder, scale + "-signal-definition.json"),
+        JsonConvert.SerializeObject(relay, Formatting.Indented));
+    return new { scale, distance, readerId, observation = new[] { report.Position.x, report.Position.y },
+        subject = report.SubjectId, report.ExpiresAt };
+}
+
+async Task<object> Pact(string scale, Vector2 a, Vector2 b, float distance)
+{
+    var contract = Learn(scale == "city" ? "隔坊替负" : "隔域替负", pact, distance);
+    Place(caster, a.x, a.y);
+    Place(peer, b.x, b.y);
+    Place(hostile, b.x - 1f, b.y);
+    peer.restoreHealth(peer.getMaxHealth());
+    const float strike = 1200f;
+    int incoming = Strike(peer, hostile, strike, true);
+    Place(hostile, a.x + 1f, a.y);
+    int nominalBearer = Strike(caster, hostile, incoming * contract.SoulPact.Fraction, false);
+    Check(incoming > 0 && nominalBearer > 0, "实际无契约来伤和承受者护甲基准已取得",
+        new { scale, incoming, nominalBearer });
+    Place(caster, a.x, a.y);
+    Place(peer, b.x, b.y);
+    Place(hostile, b.x - 1f, b.y);
+    int beforeShares = shares.Count;
+    Use(contract);
+    Check(pacts.Contains(readerId) && ((Array)pacts[readerId]).Length == 1, "只有该原人物获得实际契约");
+    int casterLife = caster.data.health;
+    int peerLoss = Strike(peer, hostile, strike, true);
+    int casterLoss = casterLife - caster.data.health;
+    Check(shares.Count == beforeShares + 1 && casterLoss == nominalBearer && casterLoss + peerLoss == incoming &&
+        shares.Last().Covered == casterLoss,
+        "远端来伤在两个原人物间按实际承受扣收，合计保持原余伤",
+        new { scale, incoming, casterLoss, peerLoss, distance });
+    await Until(() => endingsSeen.Any(value => value.AbilityId == contract.Id));
+    Check(!endingsSeen.Single(value => value.AbilityId == contract.Id).Cancelled &&
+        !pacts.Contains(readerId) && Strike(peer, hostile, strike, true) == incoming && shares.Count == beforeShares + 1,
+        "正常结束后原人物自行受击，已经撤去的契约不再结算", scale);
+    File.WriteAllText(Path.Combine(folder, scale + "-pact-definition.json"),
+        JsonConvert.SerializeObject(contract, Formatting.Indented));
+    return new { scale, distance, readerId, incoming, casterLoss, peerLoss };
+}
+
+async Task<object> RelayAndPact(string scale, WorldTile from, WorldTile to)
+{
+    var a = Center(from);
+    var b = Center(to);
+    float distance = Vector2.Distance(a, b);
+    var relay = testSignal ? await Relay(scale, a, b, distance) : null;
+    var contract = testPact ? await Pact(scale, a, b, distance) : null;
+    return new { scale, distance, relay, contract };
+}
+
+float oldFps = PerformanceSettings.TargetRenderFps;
+float oldBudget = PerformanceSettings.MaxSimulationMillisecondsPerFrame;
+ConstructedAbilityService.SignalReceived += Said;
+ConstructedAbilityService.SoulPactShared += Split;
+ConstructedAbilityService.CastEnded += End;
+try
+{
+    PerformanceSettings.SetTargetRenderFps(15f);
+    PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(60f);
+    Config.setWorldSpeed("x1", false);
+    var init = service.Assembly.GetType("Cultiway.Patch.PatchFramePriorityScheduler").GetMethod("IsWorldInitializationPending", F);
+    await Game.WaitUntil(() => !(bool)init.Invoke(null, null), 3600);
+    Ready(caster);
+    await Advance(.15f);
+    var from = caster.current_tile;
+    var results = new List<object>();
+    if (testCity)
+    {
+        var to = city.zones.SelectMany(zone => zone.tiles).Where(tile => tile.zone != from.zone && !tile.Type.liquid && tile.building == null)
+            .OrderByDescending(tile => Vector2.Distance(Center(from), Center(tile))).First();
+        Check(from.zone.city == city && to.zone.city == city && from.zone != to.zone, "两个原人物位于同城的不同真实分区");
+        results.Add(await RelayAndPact("city", from, to));
+    }
+    if (testWorld)
+    {
+        from = Flat(9, 9);
+        var to = Flat(MapBox.width - 10, MapBox.height - 10);
+        Check(Vector2.Distance(Center(from), Center(to)) > Mathf.Max(MapBox.width, MapBox.height), "两端位于实际地图遥远的地域");
+        results.Add(await RelayAndPact("world", from, to));
+    }
+    var result = new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, sourceId, readerId, city = city.id, results };
+    File.WriteAllText(Path.Combine(folder, "relations.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, sourceId, readerId };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.SignalReceived -= Said;
+    ConstructedAbilityService.SoulPactShared -= Split;
+    ConstructedAbilityService.CastEnded -= End;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    PerformanceSettings.SetTargetRenderFps(oldFps);
+    PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(oldBudget);
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(new
+    {
+        signals = signals.Select(value => new { value.SenderId, value.RecipientId, value.WorldTime,
+            subject = value.Observation?.SubjectId, x = value.Observation?.Position.x, y = value.Observation?.Position.y }),
+        shares, endingsSeen
+    }, Formatting.Indented));
+}

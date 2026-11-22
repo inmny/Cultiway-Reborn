@@ -3135,3 +3135,23 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 顶尖修士的城域及全域功能（11.17）
 
 在独立原版游戏运行 `dev.py exec --timeout 270 -- python3 Scripts/SpellDemos/verify_solo_world_utility.py --archive <11.03城市用术准备目录>`。复用原城与同一名修士，核对万法阁另创、净土实际清理和作用外保留、全图防火、原火保留及到期后恢复。见[城域与全域功能](../../Doc/技能系统全面重构/顶尖修士的城域与全域功能.md)。
+
+### 世界地貌和生态覆盖（11.18 第一批）
+
+在独立原版游戏运行 `dev.py exec --timeout 350 -- python3 Scripts/SpellDemos/verify_world_geography.py --archive <11.03城市用术准备目录>`。用同一名原修士分别另创抬升与催生，核对相隔很远的两处实际地块、真实付费、中间和原建筑保持。可用 `--case terrain` 或 `--case ecology` 单独复验。见[四尺度验收](../../Doc/技能系统全面重构/八类作用与四尺度验收.md#第一批补验世界地貌与生态)。
+
+### 城市与远端真元交付（11.18 第二批）
+
+在独立原版游戏运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_wakan_scales.py --archive <11.03城市用术准备目录>`。复用原修士和原读者，核对实际城市分区、超距拒绝和远端真元等额入账。见[四尺度验收](../../Doc/技能系统全面重构/八类作用与四尺度验收.md#第二批补验城市与远端的真元交付)。
+
+### 城市及远端材料时段（11.18 第三批）
+
+在独立原版游戏运行 `dev.py exec --timeout 200 -- python3 Scripts/SpellDemos/verify_process_scales.py --archive <11.03城市用术准备目录>`。核对两处实际世界材料同一时段的暂停、常速对照、恢复及自然退场。可用 `--case city` 或 `--case world` 单独复验。见[四尺度验收](../../Doc/技能系统全面重构/八类作用与四尺度验收.md#第三批补验同一时段作用于城市及远端过程)。
+
+### 同城及远端双门（11.18 第四批）
+
+在独立原版游戏运行 `dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_gate_scales.py --archive <11.03城市用术准备目录>`。复用原人物，核对两个尺度的实际传送、一次到达、原生命及归还。可用 `--case city` 或 `--case world` 单独复验。见[四尺度验收](../../Doc/技能系统全面重构/八类作用与四尺度验收.md#第四批补验双门在城市及远端移交原人物)。
+
+### 同城及远端传讯与魂契（11.18 第五批）
+
+在独立原版游戏运行 `dev.py exec --timeout 230 -- python3 Scripts/SpellDemos/verify_contact_relations_scales.py --archive <11.03城市用术准备目录>`。复用原修士与原读者，核对真实交战方位的送达与到期，以及实际分担伤害与结束后的恢复。支持 `--case city` 或 `--case world` 与 `--phase signal` 或 `--phase pact` 的限定复验。见[四尺度验收](../../Doc/技能系统全面重构/八类作用与四尺度验收.md#第五批补验同城及远端传讯与魂契)。

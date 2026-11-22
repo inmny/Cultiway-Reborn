@@ -1,0 +1,143 @@
+var caster = World.world.units.get(sourceId);
+var peer = World.world.units.get(readerId);
+var owner = caster.GetExtend();
+var city = caster.city;
+Check(city != null && peer != null && owner.HasCultisys<Xian>(), "复用已验的原城与两名原人物",
+    new { sourceId, readerId, city = city?.id });
+peer.setKingdom(caster.kingdom);
+var access = ConstructionEditing.Access;
+var contactsSeen = new List<ConstructedContact>();
+var finished = new List<ConstructedCastEnded>();
+AbilityCast active = null;
+string watching = null;
+void Started(ConstructedCastStarted value)
+{
+    if (value.AbilityId != watching || value.SourceId != sourceId) return;
+    active = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Where(running => (long)Field(running, "Id") == value.CastId)
+        .Select(running => (AbilityCast)Field(running, "Cast")).Single();
+}
+void Contact(ConstructedContact value) { if (value.AbilityId == watching) contactsSeen.Add(value); }
+void End(ConstructedCastEnded value) { if (value.AbilityId == watching) finished.Add(value); }
+Vector2 Center(WorldTile tile) => new Vector2(tile.x + .5f, tile.y + .5f);
+WorldTile Flat(int x, int y)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    tile.Height = 140;
+    return tile;
+}
+bool ClearPlot(WorldTile tile) => !tile.Type.block && !tile.Type.liquid && tile.building == null;
+
+async Task<object> Move(string scale, WorldTile from, WorldTile to)
+{
+    var origin = Center(from);
+    var destination = Center(to);
+    var expectedExit = destination + new Vector2(.15f, -.2f);
+    Place(caster, origin.x, origin.y);
+    Place(peer, origin.x + .65f, origin.y - .2f);
+    int health = peer.data.health;
+    var edit = new ConstructionEditSession(access.Read("Cultiway.WorldUtility.CityCleanse"));
+    edit.Draft.Name = scale == "city" ? "穿坊双门" : "跨域双门";
+    edit.Draft.Cost = 3f;
+    edit.Draft.Lifetime = .7f;
+    edit.Draft.Power = 2f;
+    edit.Draft.TargetRange = 12f;
+    edit.Draft.Use.Target = ActiveAbilityTargetMode.Object;
+    edit.Draft.Impact = new ConstructionImpact { DamageScale = 0, SelectedTargetOnly = true, Targets = SkillUseTargetRelation.Friendly };
+    edit.Draft.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = .26f };
+    edit.Draft.Root = new ConstructionNode
+    {
+        Id = "gates", Form = "pivot", ContactRole = ConstructionContactRole.Decoration,
+        Children = new[]
+        {
+            new ConstructionNode { Id = "entry", Form = "fireball", Scale = .8f, Offset = new[] { .5f, 0f, 0f } },
+            new ConstructionNode { Id = "exit", Form = "fireball", ContactRole = ConstructionContactRole.Decoration,
+                Scale = .7f, Offset = new[] { destination.x - origin.x, destination.y - origin.y, 0f } }
+        }
+    };
+    edit.Draft.Steps = new[]
+    {
+        new ConstructionStep
+        {
+            Id = "carry", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.MapActor, MappingRadius = 1f },
+            Inputs = new() { ["part"] = new() { Node = "root/entry" }, ["exit"] = new() { Node = "root/exit" } }
+        }
+    };
+    var learned = access.Apply(owner, edit, false);
+    watching = learned.Id;
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, learned.Id);
+    WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), caster.stats[BaseStatses.MaxWakan.id]);
+    float balance = owner.GetCultisys<Xian>().wakan;
+    caster.attack_timer = 0;
+    Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(peer, peer.GetSimPos()), ActiveAbilityUseOrigin.Player) &&
+        active != null && active.Plan.Id == learned.Id && balance - owner.GetCultisys<Xian>().wakan == learned.Cost,
+        "先支付一次，原旅客仍停留在真实入口", new { scale, cost = learned.Cost, readerId });
+    Config.paused = false;
+    await Game.WaitUntil(() => finished.Any(value => value.AbilityId == learned.Id), 3000);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var receipts = new List<ConstructionWorldReceipt>();
+    var end = finished.Single(value => value.AbilityId == learned.Id);
+    Check(active.TryGetOutput("carry", "transferred", out var arrival) &&
+        active.AppendStepReceipts("carry", receipts) == 1 &&
+        arrival.Receipt.Kind == ConstructionWorldResultKind.ActorTransfer && arrival.Receipt.Targets.Single() == readerId &&
+        Vector2.Distance((Vector2)arrival.Position, expectedExit) < .12f &&
+        Vector2.Distance(peer.current_position, (Vector2)arrival.Position) < .12f &&
+        peer.current_tile == to && peer.data.health == health &&
+        ReferenceEquals(World.world.units.get(readerId), peer) && !BodyControlState.IsBusy(readerId) && !end.Cancelled &&
+        contactsSeen.Count(value => value.AbilityId == learned.Id && value.TargetId == readerId) == 1,
+        "正式双门实际触碰一次并移交同一个旅客，出口位置、生命和收势正确",
+        new { scale, from = from.tile_id, to = to.tile_id, reached = peer.current_tile?.tile_id,
+              position = new[] { peer.current_position.x, peer.current_position.y }, readerId });
+    File.WriteAllText(Path.Combine(folder, scale + "-definition.json"), JsonConvert.SerializeObject(learned, Formatting.Indented));
+    return new { scale, distance = Vector2.Distance(origin, destination), from = from.tile_id, to = to.tile_id, proof = end };
+}
+
+float oldFps = PerformanceSettings.TargetRenderFps;
+float oldBudget = PerformanceSettings.MaxSimulationMillisecondsPerFrame;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+ConstructedAbilityService.CastEnded += End;
+try
+{
+    PerformanceSettings.SetTargetRenderFps(15f);
+    PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(60f);
+    Config.setWorldSpeed("x1", false);
+    var init = service.Assembly.GetType("Cultiway.Patch.PatchFramePriorityScheduler").GetMethod("IsWorldInitializationPending", F);
+    await Game.WaitUntil(() => !(bool)init.Invoke(null, null), 3600);
+    Ready(peer);
+    Ready(caster);
+    await Advance(.15f);
+    var results = new List<object>();
+    var from = caster.current_tile;
+    if (testCity)
+    {
+        var to = city.zones.SelectMany(zone => zone.tiles).Where(tile => ClearPlot(tile) && tile.zone != from.zone)
+            .OrderByDescending(tile => Vector2.Distance(Center(from), Center(tile))).First();
+        Check(from.zone.city == city && to.zone.city == city && to.zone != from.zone, "双门两端位于原城的不同分区");
+        results.Add(await Move("city", from, to));
+    }
+    if (testWorld)
+    {
+        from = Flat(9, 9);
+        var to = Flat(MapBox.width - 10, MapBox.height - 10);
+        Check(Vector2.Distance(Center(from), Center(to)) > Mathf.Max(MapBox.width, MapBox.height),
+            "双门跨越实际地图相隔遥远的地域");
+        results.Add(await Move("world", from, to));
+    }
+    var result = new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, sourceId, readerId, city = city.id, results };
+    File.WriteAllText(Path.Combine(folder, "arrivals.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, sourceId, readerId };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    ConstructedAbilityService.CastEnded -= End;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    PerformanceSettings.SetTargetRenderFps(oldFps);
+    PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(oldBudget);
+}

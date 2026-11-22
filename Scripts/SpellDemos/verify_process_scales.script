@@ -1,0 +1,159 @@
+var caster = World.world.units.get(sourceId);
+var owner = caster.GetExtend();
+var city = caster.city;
+Check(city != null && owner.HasCultisys<Xian>(), "复用原城及同一施术者", new { sourceId, city = city?.id });
+owner.MarkCultiwayStatsDirty();
+caster.setStatsDirty();
+caster.updateStats();
+var access = ConstructionEditing.Access;
+var held = new List<WorldMaterialChange>();
+var ended = new List<ConstructedCastEnded>();
+void Left(WorldMaterialChange value)
+{
+    if (value.Provider == sourceId && value.Kind == "leave") held.Add(value);
+}
+void End(ConstructedCastEnded value)
+{
+    if (value.SourceId == sourceId) ended.Add(value);
+}
+Vector3 Center(WorldTile tile) => new Vector3(tile.x + .5f, tile.y + .5f, 0f);
+bool RealLand(WorldTile tile) => tile != null && !tile.Type.liquid && tile.building == null;
+WorldTile Plot(int x, int y)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    tile.Height = 140;
+    return tile;
+}
+Dictionary<long, JToken> Materials()
+{
+    var sections = JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "scale-test"))["sections"];
+    return sections["world_materials"]["data"]["Records"].ToDictionary(row => (long)row["Id"], row => row["Material"]);
+}
+
+async Task<object> Verify(string scale, WorldTile first, WorldTile second, WorldTile control)
+{
+    var origin = Center(control);
+    var positions = new[] { Center(first), Center(second), origin };
+    var edit = new ConstructionEditSession(access.Read("Cultiway.WorldUtility.CityCleanse"));
+    edit.Draft.Name = scale == "city" ? "坊间缓蚀" : "两域缓蚀";
+    edit.Draft.TargetRange = 110f;
+    edit.Draft.Lifetime = .65f;
+    edit.Draft.Impact.WorldEffects = Array.Empty<ConstructionWorldEffect>();
+    ConstructionNode Site(string name, Vector3 point, bool paused) => new ConstructionNode
+    {
+        Id = name, Form = "sword", Matter = "wood", Volume = 8f,
+        Offset = new[] { point.x - origin.x, point.y - origin.y, .4f },
+        Operations = new[]
+        {
+            new ConstructionOperation
+            {
+                Kind = ConstructionOperationKind.Leave,
+                At = .06f,
+                Residue = new ConstructionResidue
+                {
+                    Lifetime = 3.5f,
+                    ErosionSeconds = 3f,
+                    Erosion = new ConstructionErosion
+                    {
+                        Fraction = .5f,
+                        TimeWindows = paused ? new[] { new ConstructionProcessWindow { At = 0f, Seconds = .9f, Rate = 0f } } : null
+                    }
+                }
+            }
+        }
+    };
+    edit.Draft.Root = new ConstructionNode
+    {
+        Id = "sites", Form = "pivot", Matter = "wood", ContactRole = ConstructionContactRole.Decoration,
+        Children = new[] { Site("first", positions[0], true), Site("second", positions[1], true), Site("control", positions[2], false) }
+    };
+    var learned = access.Apply(owner, edit, false);
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, learned.Id);
+    WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), caster.stats[BaseStatses.MaxWakan.id]);
+    float balance = owner.GetCultisys<Xian>().wakan;
+    Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, origin), ActiveAbilityUseOrigin.Player) &&
+        balance - owner.GetCultisys<Xian>().wakan == learned.Cost, "现有普通构造另创并通过玩家入口实付", new { scale, learned.Cost });
+    await Advance(.34f);
+
+    long[] ids = held.Where(value => value.AbilityId == learned.Id).Select(value => value.Id).ToArray();
+    Check(ids.Length == 3, "三处真正转交给世界材料维护", new { scale, ids });
+    Dictionary<long, JToken> sample = Materials();
+    var ordered = positions.Select(point => ids.Single(id =>
+        Mathf.Abs((float)sample[id]["Transform"][12] - point.x) < .01f &&
+        Mathf.Abs((float)sample[id]["Transform"][13] - point.y) < .01f)).ToArray();
+    double Elapsed(JToken material) => (double)material["Erosion"]["Elapsed"];
+    double Volume(JToken material) => (double)material["Volume"];
+    Check(Elapsed(sample[ordered[0]]) == 0d && Elapsed(sample[ordered[1]]) == 0d &&
+        Elapsed(sample[ordered[2]]) > .1d && Volume(sample[ordered[2]]) < Volume(sample[ordered[0]]),
+        "两处真实材料在同一时段暂停，第三处继续损耗",
+        new { scale, elapsed = ordered.Select(id => Elapsed(sample[id])).ToArray() });
+
+    await Advance(.86f);
+    var resumed = Materials();
+    var finish = ended.Single(value => value.AbilityId == learned.Id);
+    Check(!finish.Cancelled && ordered.Take(2).All(id => Elapsed(resumed[id]) > 0 &&
+        Elapsed(resumed[id]) < Elapsed(resumed[ordered[2]]) && Volume(resumed[id]) < Volume(sample[id]) &&
+        JToken.DeepEquals(resumed[id]["Erosion"]["Id"], sample[id]["Erosion"]["Id"])),
+        "原施放结束后两处材料继续用原身份恢复实际进度",
+        new { scale, elapsed = ordered.Select(id => Elapsed(resumed[id])).ToArray() });
+    File.WriteAllText(Path.Combine(folder, scale + "-definition.json"), JsonConvert.SerializeObject(learned, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, scale + "-progress.json"), JsonConvert.SerializeObject(new
+    {
+        ids = ordered, points = positions.Select(point => new[] { point.x, point.y }).ToArray(),
+        pause = ordered.Select(id => sample[id]).ToArray(), after = ordered.Select(id => resumed[id]).ToArray()
+    }, Formatting.Indented));
+    await Advance(2.65f);
+    var remaining = Materials();
+    Check(ordered.All(id => !remaining.ContainsKey(id)), "独立材料自然退场", new { scale, ids = ordered });
+    return new { scale, distance = Vector2.Distance(positions[0], positions[1]), finish, ids = ordered,
+        paused = ordered.Select(id => Elapsed(sample[id])).ToArray(), continued = ordered.Select(id => Elapsed(resumed[id])).ToArray() };
+}
+
+float oldFps = PerformanceSettings.TargetRenderFps;
+float oldBudget = PerformanceSettings.MaxSimulationMillisecondsPerFrame;
+WorldMaterialService.Changed += Left;
+ConstructedAbilityService.CastEnded += End;
+try
+{
+    PerformanceSettings.SetTargetRenderFps(15f);
+    PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(60f);
+    Config.setWorldSpeed("x1", false);
+    var starting = service.Assembly.GetType("Cultiway.Patch.PatchFramePriorityScheduler").GetMethod("IsWorldInitializationPending", F);
+    await Game.WaitUntil(() => !(bool)starting.Invoke(null, null), 3600);
+    Ready(caster);
+    await Advance(.15f);
+    var results = new List<object>();
+    var anchor = caster.current_tile;
+    if (testCity)
+    {
+        var zones = city.zones.Where(zone => zone != anchor.zone && zone.tiles.Any(RealLand)).ToArray();
+        var first = zones.SelectMany(zone => zone.tiles).Where(RealLand).OrderByDescending(tile => Vector2.Distance(Center(tile), Center(anchor))).First();
+        var second = zones.Where(zone => zone != first.zone).SelectMany(zone => zone.tiles).Where(RealLand)
+            .OrderByDescending(tile => Vector2.Distance(Center(tile), Center(first))).First();
+        Check(first.zone.city == city && second.zone.city == city && first.zone != second.zone,
+            "两处实际材料分别处于原城市真实分区");
+        results.Add(await Verify("city", first, second, anchor));
+    }
+    if (testWorld)
+    {
+        var first = Plot(9, 9);
+        var second = Plot(MapBox.width - 10, MapBox.height - 10);
+        Check(Vector2.Distance(Center(first), Center(second)) > Mathf.Max(MapBox.width, MapBox.height),
+            "两处选中材料相隔实际世界中的遥远地域");
+        results.Add(await Verify("world", first, second, anchor));
+    }
+    var result = new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, sourceId, city = city.id, results };
+    File.WriteAllText(Path.Combine(folder, "processes.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, sourceId };
+}
+finally
+{
+    Config.paused = true;
+    WorldMaterialService.Changed -= Left;
+    ConstructedAbilityService.CastEnded -= End;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    PerformanceSettings.SetTargetRenderFps(oldFps);
+    PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(oldBudget);
+}
