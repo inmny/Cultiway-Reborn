@@ -229,6 +229,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
         GroundScaleConstruction.Register();
+        WorldUtilityConstructions.Register();
     }
 
     /// <summary>创建、编辑预览和正式登记使用同一资料及来源规则，不在界面另推支付限制。</summary>

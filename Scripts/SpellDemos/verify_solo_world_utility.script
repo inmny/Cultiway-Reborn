@@ -1,0 +1,189 @@
+var source = World.world.units.get(sourceId);
+var owner = source.GetExtend();
+var peer = World.world.units.get(readerId);
+City city = source.city;
+Check(city != null && peer != null, "复用原城市及其两名原角色", new { sourceId, readerId, city = city?.id });
+var roots = new float[ElementIndex.Count];
+roots[ElementIndex.Earth] = 2f;
+if (!owner.HasElementRoot()) owner.GetOrAddComponent<ElementRoot>() = new ElementRoot(roots);
+owner.MarkCultiwayStatsDirty();
+var xian = Cultisyses.Xian;
+int highest = xian.GetHighestGrantableRealm(xian.DefaultComponent.CurrLevel);
+// 城市档的原角色只有旧测试等级，没有正常进阶产生的结构。仅在本次独立副本补齐实际进阶。
+owner.E.RemoveComponent<Xian>();
+xian.GrantToRealm(owner, highest);
+Check(owner.HasCultisys<Xian>() && owner.GetCultisys<Xian>().CurrLevel == highest && highest >= 4,
+    "同一名原角色通过实际进阶达到最高可达境界", new { highest, name = xian.GetLevelName(highest) });
+source.setStatsDirty();
+source.updateStats();
+float maximum = source.stats[BaseStatses.MaxWakan.id];
+
+var access = ConstructionEditing.Access;
+AbilityDefinition Learn(string id)
+{
+    Check(access.List().Any(entry => entry.Id == id), "从正式万法阁目录取得原底稿", id);
+    var learned = access.Apply(owner, new ConstructionEditSession(access.Read(id)), false);
+    Check(learned.Parent.Id == id && ConstructedAbilityService.Knows(owner, learned.Id),
+        "另创后由原角色实际学会独立资料", learned.Id);
+    return learned;
+}
+var cleanse = Learn("Cultiway.WorldUtility.CityCleanse");
+var fireEdict = Learn("Cultiway.WorldUtility.FireEdict");
+
+var started = new List<ConstructedCastStarted>();
+var ended = new List<ConstructedCastEnded>();
+var changed = new List<ConstructedWorldContact>();
+bool Own(string id) => id == cleanse.Id || id == fireEdict.Id;
+void Started(ConstructedCastStarted value) { if (Own(value.AbilityId)) started.Add(value); }
+void End(ConstructedCastEnded value) { if (Own(value.AbilityId)) ended.Add(value); }
+void Change(ConstructedWorldContact value)
+{
+    if (value.AbilityId == cleanse.Id && value.Result.Changed) changed.Add(value);
+}
+var entire = (IList)service.GetField("worldFireConditions", F).GetValue(null);
+var regional = (IDictionary)service.GetField("regionalFireConditions", F).GetValue(null);
+
+Vector3 Center(WorldTile tile) => new Vector3(tile.pos.x + .5f, tile.pos.y + .5f, 0f);
+bool UsablePlot(WorldTile tile) => !tile.Type.liquid && !tile.Type.road && tile.building == null;
+WorldTile Pick(TileZone zone) => zone.tiles.Where(UsablePlot)
+    .OrderBy(tile => Vector2.Distance(tile.posV, zone.centerTile.posV)).FirstOrDefault();
+bool Burnt(WorldTile tile) => tile.top_type?.wasteland == true || tile.burned_stages > 0;
+void Pollute(WorldTile tile)
+{
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.wasteland_low);
+    tile.setBurnedStage(12);
+    World.world.burned_layer.setTileDirty(tile);
+}
+WorldTile FirePlot(int x, int y)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    tile.stopFire();
+    tile.heat = 0;
+    tile.burned_stages = 0;
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    return tile;
+}
+bool CanLight(WorldTile tile) => tile.startFire(pForce: false) && tile.isOnFire();
+bool NoNewFire(WorldTile tile) => !tile.isOnFire() && !tile.startFire(pForce: true) && !tile.isOnFire();
+bool HasWash(WorldTile tile) => FormVisualScene.Instances.Any(form => form.Layer != null &&
+    form.Resource.Description.Id == "world_domain" &&
+    tile.pos.x >= form.Layer.Origin.x && tile.pos.x < form.Layer.Origin.x + form.Layer.Cells &&
+    tile.pos.y >= form.Layer.Origin.y && tile.pos.y < form.Layer.Origin.y + form.Layer.Cells &&
+    form.Layer.Depth((int)(tile.pos.x - form.Layer.Origin.x), (int)(tile.pos.y - form.Layer.Origin.y)) > 0f);
+async Task Until(Func<bool> condition)
+{
+    Config.paused = false;
+    await Game.WaitUntil(condition, 3600);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+async Task Picture(string file, Vector3 point, float zoom)
+{
+    World.world.console.Hide();
+    MoveCamera.clearFocusUnitOnly();
+    World.world.camera.transform.position = new Vector3(point.x, point.y, World.world.camera.transform.position.z);
+    MoveCamera.instance.forceZoom(zoom);
+    World.world.setZoomOrthographic(zoom);
+    await Game.NextFrame();
+    new ScreenFacade().Capture(Path.Combine(folder, file + ".png"));
+}
+void Use(AbilityDefinition definition, ActiveAbilityTarget target)
+{
+    float before = owner.GetCultisys<Xian>().wakan;
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+    Check(ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Player) &&
+        started.Count(row => row.AbilityId == definition.Id && row.SourceId == sourceId) == 1 &&
+        before - owner.GetCultisys<Xian>().wakan == definition.Cost, "原角色独立受理并支付一次",
+        new { definition.Id, before, after = owner.GetCultisys<Xian>().wakan, definition.Cost });
+}
+
+float oldFps = PerformanceSettings.TargetRenderFps;
+float oldBudget = PerformanceSettings.MaxSimulationMillisecondsPerFrame;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += End;
+ConstructedAbilityService.WorldContactConfirmed += Change;
+try
+{
+    PerformanceSettings.SetTargetRenderFps(15f);
+    PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(60f);
+    Config.setWorldSpeed("x1", false);
+    var starting = service.Assembly.GetType("Cultiway.Patch.PatchFramePriorityScheduler")
+        .GetMethod("IsWorldInitializationPending", F);
+    await Game.WaitUntil(() => !(bool)starting.Invoke(null, null), 3600);
+
+    Vector3 center = Center(source.current_tile);
+    float radius = cleanse.Root.Scale;
+    var plots = city.zones.Select(Pick).Where(tile => tile != null).ToArray();
+    var protectedPlot = city.zones.SelectMany(zone => zone.tiles).First(tile => tile.building != null);
+    var building = protectedPlot.building;
+    var originalLand = protectedPlot.main_type;
+    var outside = FirePlot((int)center.x + (int)radius + 2, (int)center.y);
+    var takenPlots = plots.Select(tile => tile.tile_id).ToArray();
+    Check(plots.Length >= 2 && city.zones.SelectMany(zone => zone.tiles).Where(UsablePlot)
+            .All(tile => Vector2.Distance(center, Center(tile)) <= radius) &&
+        Vector2.Distance(center, Center(outside)) > radius,
+        "取证地块来自原城不同分区，另有真实圈外对照", new { radius, takenPlots, outside = outside.tile_id });
+    foreach (var tile in plots) Pollute(tile);
+    Pollute(outside);
+    Place(peer, plots[0].pos.x + .5f, plots[0].pos.y + .5f);
+    CombatStatusEffects.ApplyStatus(peer, hold, 10000, peer);
+    await Picture("city-before", center, 18f);
+    Ready(source);
+    WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), maximum);
+    int peerHealth = peer.data.health;
+    Use(cleanse, new ActiveAbilityTarget(null, center));
+    await Until(() => plots.All(tile => !Burnt(tile)));
+    Check(takenPlots.All(id => changed.Count(receipt => World.world.GetTileSimple(receipt.X, receipt.Y).tile_id == id) == 1) &&
+        Burnt(outside) && peer.data.health == peerHealth &&
+        protectedPlot.building == building && protectedPlot.main_type == originalLand,
+        "原城样本各净化一次，圈外污染、原建筑和对照人物保持", new { takenPlots, outside = outside.tile_id, peerHealth });
+    Check(plots.All(HasWash) && !HasWash(outside), "画面只在已经确认净化的地块铺开");
+    await Picture("city-cleaned", center, 18f);
+    await Until(() => ended.Any(row => row.AbilityId == cleanse.Id));
+    Check(ended.Single(row => row.AbilityId == cleanse.Id).Cancelled == false &&
+        plots.All(tile => !Burnt(tile)), "净化自然结束后，原地块持续处于清理结果");
+
+    var existing = FirePlot((int)center.x + 3, (int)center.y + 3);
+    var firstFar = FirePlot(MapBox.width - 8, 8);
+    var secondFar = FirePlot(MapBox.width - 8, MapBox.height - 8);
+    Check(Vector2.Distance(center, Center(firstFar)) > radius && Vector2.Distance(center, Center(secondFar)) > radius &&
+        CanLight(existing) && CanLight(firstFar) && CanLight(secondFar), "全图对照来自远离城市的原版可点燃地块");
+    firstFar.stopFire();
+    secondFar.stopFire();
+    source.attack_timer = 0;
+    Use(fireEdict, new ActiveAbilityTarget(source, source.GetSimPos()));
+    Check(entire.Count == 1 && regional.Count == 0 && existing.isOnFire() &&
+        NoNewFire(firstFar) && NoNewFire(secondFar),
+        "全图只登记一份，原火继续，远端两格真实拒绝点火", new { first = firstFar.tile_id, second = secondFar.tile_id });
+    existing.stopFire();
+    await Until(() => FormVisualScene.Instances.Any(form => form.Resource.Description.Id == "truth_mirror" &&
+        Mathf.Abs(form.Transform.m03 - source.current_position.x) < 2f &&
+        Mathf.Abs(form.Transform.m13 - source.current_position.y) < 2f));
+    await Picture("world-edict", source.GetSimPos(), 6f);
+    await Until(() => ended.Any(row => row.AbilityId == fireEdict.Id));
+    var finish = ended.Single(row => row.AbilityId == fireEdict.Id);
+    Check(!finish.Cancelled && entire.Count == 0 && CanLight(firstFar) && CanLight(secondFar),
+        "全图条件自然到期解除，两处立刻恢复原版点火", new { finish.Age, finish.CastId, finish.Cancelled });
+    firstFar.stopFire();
+    secondFar.stopFire();
+
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id,
+        sourceId, city = city.id, plots = takenPlots, outside = outside.tile_id, radius,
+        cityId = cleanse.Id, world = fireEdict.Id, maximum, changes = changed.Count,
+        fireAge = finish.Age, far = new[] { firstFar.tile_id, secondFar.tile_id } };
+}
+finally
+{
+    Config.paused = true;
+    PerformanceSettings.SetTargetRenderFps(oldFps);
+    PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(oldBudget);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= End;
+    ConstructedAbilityService.WorldContactConfirmed -= Change;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "world-actions.json"), JsonConvert.SerializeObject(new
+    {
+        started, ended, changed = changed.Select(value => new { value.X, value.Y, value.Age, value.SourceId })
+    }, Formatting.Indented));
+}
